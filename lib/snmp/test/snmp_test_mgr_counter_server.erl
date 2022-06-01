@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 %% agent test suite is implemented in such a way that the 
 %% agent is started once and then used for several test cases.
 %% Each request is given a request id which *was* generated using 
-%% random! It is therefor possible, although unlikely, that a 
+%% random! It is therefore possible, although unlikely, that a 
 %% request may get a request id that has recently been used, 
 %% which will cause the agent to silently reject the request.
 %% For this reason, we start this server at the start of the

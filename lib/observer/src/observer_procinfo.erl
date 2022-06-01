@@ -339,7 +339,7 @@ fetch_state_info2(Pid, M) ->
 	    %% Formatted status ?
 	    case lists:keyfind(format_status, 1, rpc:call(node(Pid), M, module_info, [exports])) of
 		false	-> Opt = {"Format", unknown};
-		_	-> Opt = {"Format", overriden}
+		_	-> Opt = {"Format", overridden}
 	    end,
 	    [{"Behaviour", B}, Opt, {"State",OtherFormat}];
 	{badrpc,{'EXIT',{timeout, _}}} -> []

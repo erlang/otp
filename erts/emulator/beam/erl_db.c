@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,6 +57,9 @@
 #define EXI_POSITION am_position /* The position is out of range. */
 #define EXI_OWNER    am_owner	 /* The receiving process is already the owner. */
 #define EXI_NOT_OWNER am_not_owner /* The current process is not the owner. */
+
+#define DB_WRITE_CONCURRENCY_MIN_LOCKS 1
+#define DB_WRITE_CONCURRENCY_MAX_LOCKS 32768
 
 erts_atomic_t erts_ets_misc_mem_size;
 
@@ -255,8 +258,8 @@ make_btid(DbTable *tb)
     erts_atomic_init_nob(tbref, (erts_aint_t) tb);
     tb->common.btid = btid;
     /*
-     * Table and magic indirection refer eachother,
-     * and table is refered once by being alive...
+     * Table and magic indirection refer each other,
+     * and table is referred once by being alive...
      */
     erts_refc_init(&tb->common.refc, 2);
     erts_refc_inc(&btid->intern.refc, 1);
@@ -335,10 +338,23 @@ tid_clear(Process *c_p, DbTable *tb)
 }
 
 static ERTS_INLINE Eterm
+make_tid_heap(Eterm **hp, ErlOffHeap *oh, DbTable *tb)
+{
+    return erts_mk_magic_ref(hp, oh, tb->common.btid);
+}
+
+static ERTS_INLINE Eterm
 make_tid(Process *c_p, DbTable *tb)
 {
     Eterm *hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
-    return erts_mk_magic_ref(&hp, &c_p->off_heap, tb->common.btid);
+    return make_tid_heap(&hp, &c_p->off_heap, tb);
+}
+
+static Eterm
+make_tid_fact(ErtsHeapFactory *hf, DbTable *tb)
+{
+    Eterm *hp = erts_produce_heap(hf, ERTS_MAGIC_REF_THING_SIZE, 0);
+    return make_tid_heap(&hp, hf->off_heap, tb);
 }
 
 Eterm
@@ -346,8 +362,6 @@ erts_db_make_tid(Process *c_p, DbTableCommon *tb)
 {
     return make_tid(c_p, (DbTable*)tb);
 }
-
-
 
 /* 
 ** The meta hash table of all NAMED ets tables
@@ -419,7 +433,7 @@ static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_replace_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1);
-static Eterm table_info(Process* p, DbTable* tb, Eterm What);
+static Eterm table_info(ErtsHeapFactory* hf, DbTable* tb, Eterm What);
 
 static BIF_RETTYPE ets_select1(Process* p, int bif_ix, Eterm arg1);
 static BIF_RETTYPE ets_select2(Process* p, DbTable*, Eterm tid, Eterm ms);
@@ -447,15 +461,17 @@ free_dbtable(void *vtb)
     erts_flxctr_add(&tb->common.counters,
                     ERTS_DB_TABLE_MEM_COUNTER_ID,
                     -((Sint)erts_flxctr_nr_of_allocated_bytes(&tb->common.counters)));
-    ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
-           sizeof(DbTable) == DB_GET_APPROX_MEM_CONSUMED(tb));
-
-    ASSERT(is_immed(tb->common.heir_data));
 
     if (!DB_LOCK_FREE(tb)) {
+        ERTS_DB_ALC_MEM_UPDATE_(tb, erts_rwmtx_size(&tb->common.rwlock), 0);
         erts_rwmtx_destroy(&tb->common.rwlock);
         erts_mtx_destroy(&tb->common.fixlock);
     }
+
+    ASSERT(is_immed(tb->common.heir_data));
+
+    ASSERT(erts_flxctr_is_snapshot_ongoing(&tb->common.counters) ||
+           sizeof(DbTable) == DB_GET_APPROX_MEM_CONSUMED(tb));
 
     if (tb->common.btid)
         erts_bin_release(tb->common.btid);
@@ -641,6 +657,7 @@ static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock)
     if (!DB_LOCK_FREE(tb)) {
         erts_rwmtx_init_opt(&tb->common.rwlock, &rwmtx_opt, "db_tab",
                             tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
+        ERTS_DB_ALC_MEM_UPDATE_(tb, 0, erts_rwmtx_size(&tb->common.rwlock));
         erts_mtx_init(&tb->common.fixlock, "db_tab_fix",
                       tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
     }
@@ -815,6 +832,7 @@ DbTable* db_get_table_aux(Process *p,
     }
 
     if (tb) {
+        DB_HASH_ADAPT_NUMBER_OF_LOCKS(tb);
 	db_lock(tb, kind);
 #ifdef ETS_DBG_FORCE_TRAP
         /*
@@ -1260,9 +1278,9 @@ bail_out:
     case DB_ERROR_UNSPEC:
         BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     default:
-	BIF_ERROR(BIF_P, BADARG);
 	break;
     }
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 static BIF_RETTYPE
@@ -1457,9 +1475,9 @@ bail_out:
     case DB_ERROR_BADPARAM:
         BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     default:
-        BIF_ERROR(p, BADARG);
 	break;
     }
+    BIF_ERROR(p, BADARG);
 }
 
 /*
@@ -2254,8 +2272,11 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Sint keypos;
     int is_named, is_compressed;
     int is_fine_locked, frequent_read;
+    int number_of_locks;
     int is_decentralized_counters;
     int is_decentralized_counters_option;
+    int is_explicit_lock_granularity;
+    int is_write_concurrency_auto;
     int cret;
     DbTableMethod* meth;
 
@@ -2276,6 +2297,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     heir = am_none;
     heir_data = (UWord) am_undefined;
     is_compressed = erts_ets_always_compress;
+    number_of_locks = -1;
+    is_explicit_lock_granularity = 0;
+    is_write_concurrency_auto = 0;
 
     list = BIF_ARG_2;
     while(is_list(list)) {
@@ -2301,10 +2325,41 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		    keypos = signed_val(tp[2]);
 		}
 		else if (tp[1] == am_write_concurrency) {
-                    if (tp[2] == am_true) {
+                    if (tp[2] == am_auto) {
+                        is_decentralized_counters = 1;
+                        is_write_concurrency_auto = 1;
                         is_fine_locked = 1;
+                        is_explicit_lock_granularity = 0;
+                        number_of_locks = -1;
+                    } else if (tp[2] == am_true) {
+                        if (!(status & DB_ORDERED_SET)) {
+                            is_decentralized_counters = 0;
+                        }
+                        is_fine_locked = 1;
+                        is_explicit_lock_granularity = 0;
+                        is_write_concurrency_auto = 0;
+                        number_of_locks = -1;
                     } else if (tp[2] == am_false) {
                         is_fine_locked = 0;
+                        is_explicit_lock_granularity = 0;
+                        is_write_concurrency_auto = 0;
+                        number_of_locks = -1;
+                    } else if (is_tuple(tp[2])) {
+                        Eterm *stp = tuple_val(tp[2]);
+                        Sint number_of_locks_param;
+                        if (arityval(stp[0]) == 2 &&
+                            stp[1] == am_debug_hash_fixed_number_of_locks &&
+                            term_to_Sint(stp[2], &number_of_locks_param) &&
+                            number_of_locks_param >= DB_WRITE_CONCURRENCY_MIN_LOCKS &&
+                            number_of_locks_param <= DB_WRITE_CONCURRENCY_MAX_LOCKS) {
+
+                            is_decentralized_counters = 1;
+                            is_fine_locked = 1;
+                            is_explicit_lock_granularity = 1;
+                            is_write_concurrency_auto = 0;
+                            number_of_locks = number_of_locks_param;
+
+                        } else break;
                     } else break;
                     if (DB_LOCK_FREE(NULL))
 			is_fine_locked = 0;
@@ -2368,15 +2423,43 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
         status |= DB_CA_ORDERED_SET;
         status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_ORDERED_SET);
         status |= DB_FINE_LOCKED;
+        if (is_explicit_lock_granularity) {
+            /*
+             * The hidden debug option to explicitly set the number of locks,
+             * currently doesn't make sense for ordered_set.
+             */
+            BIF_ERROR(BIF_P, BADARG);
+        } else if (is_write_concurrency_auto) {
+            /*
+             * ordered_set tables that are configured with
+             * {write_concurrency, true} or {write_concurrency, auto}
+             * currently get the same implementation but we record
+             * that the auto option was used anyway so that
+             * ets:info(T, write_concurrency) can return auto when the
+             * table has been configured with {write_concurrency,
+             * auto}.
+             */
+            status |=  DB_FINE_LOCKED_AUTO;
+        }
     }
     else if (IS_HASH_TABLE(status)) {
 	meth = &db_hash;
 	if (is_fine_locked && !(status & DB_PRIVATE)) {
 	    status |= DB_FINE_LOCKED;
-	}
+            if (is_explicit_lock_granularity) {
+                status |=  DB_EXPLICIT_LOCK_GRANULARITY;
+            } else if (is_write_concurrency_auto) {
+                status |=  DB_FINE_LOCKED_AUTO;
+            }
+	} else {
+            number_of_locks = -1;
+        }
     }
     else if (IS_TREE_TABLE(status)) {
 	meth = &db_tree;
+        if (is_explicit_lock_granularity) {
+            BIF_ERROR(BIF_P, BADARG);
+        }
     }
     else {
 	BIF_ERROR(BIF_P, BADARG);
@@ -2386,7 +2469,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	status |= DB_FREQ_READ;
 
     /* we create table outside any table lock
-     * and take the unusal cost of destroy table if it
+     * and take the unusual cost of destroy table if it
      * fails to find a slot
      */
     {
@@ -2423,6 +2506,10 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.dbg_force_trap = erts_ets_dbg_force_trap;
 #endif
 
+    if (IS_HASH_TABLE(status)) {
+        DbTableHash* hash_db = (DbTableHash*) tb;
+        hash_db->nlocks = number_of_locks;
+    }
     cret = meth->db_create(BIF_P, tb);
     ASSERT(cret == DB_ERROR_NONE); (void)cret;
 
@@ -3104,7 +3191,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
      * - save_sched_table() inserts at end of circular list.
      *
      * - This function scans from the end so we know that
-     *   the amount of tables to scan wont grow even if we
+     *   the amount of tables to scan won't grow even if we
      *   yield.
      *
      * - remove_sched_table() updates the table we yielded
@@ -4059,7 +4146,10 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
             Sint words = (Sint) ((memory + sizeof(Sint) - 1) / sizeof(Sint));
             results[i] = erts_make_integer(words, BIF_P);
         } else {
-            results[i] = table_info(BIF_P, tb, fields[i]);
+            ErtsHeapFactory hf;
+            erts_factory_proc_init(&hf, BIF_P);
+            results[i] = table_info(&hf, tb, fields[i]);
+            erts_factory_close(&hf);
             ASSERT(is_value(results[i]));
         }
     }
@@ -4131,7 +4221,10 @@ BIF_RETTYPE ets_info_2(BIF_ALIST_2)
             ret = erts_make_integer(r, BIF_P);
         }
     } else {
-        ret = table_info(BIF_P, tb, BIF_ARG_2);
+        ErtsHeapFactory hf;
+        erts_factory_proc_init(&hf, BIF_P);
+        ret = table_info(&hf, tb, BIF_ARG_2);
+        erts_factory_close(&hf);
     }
     db_unlock(tb, LCK_READ);
     if (is_non_value(ret)) {
@@ -4360,7 +4453,7 @@ void init_db(ErtsDbSpinCount db_spin_count)
     }
 
     /*
-     * We don't have ony hard limit for number of tables anymore,                                                                            .
+     * We don't have only hard limit for number of tables anymore,                                                                            .
      * but we use 'db_max_tabs' to determine size of name hash table.
      */
     meta_name_tab_mask = (((Uint) 1)<<bits) - 1;
@@ -4978,7 +5071,7 @@ static SWord free_table_continue(Process *p, DbTable *tb, SWord reds)
 
 struct fixing_procs_info_ctx
 {
-    Process* p;
+    ErtsHeapFactory* hf;
     Eterm list;
 };
 
@@ -4988,21 +5081,23 @@ static int fixing_procs_info_op(DbFixation* fix, void* vctx, Sint reds)
     Eterm* hp;
     Eterm tpl;
 
-    hp = HAllocX(ctx->p, 5, 100);
+    hp = erts_produce_heap(ctx->hf, 5, 100);
     tpl = TUPLE2(hp, fix->procs.p->common.id, make_small(fix->counter));
     hp += 3;
     ctx->list = CONS(hp, tpl, ctx->list);
     return 1;
 }
 
-static Eterm table_info(Process* p, DbTable* tb, Eterm What)
+static Eterm table_info(ErtsHeapFactory *hf, DbTable* tb, Eterm What)
 {
     Eterm ret = THE_NON_VALUE;
     int use_monotonic;
 
+    ASSERT(hf != NULL);
+
     if (What == am_size) {
         Uint size = (Uint) (DB_GET_APPROX_NITEMS(tb));
-        ret = erts_make_integer(size, p);
+        ret = erts_make_integer_fact(size, hf);
     } else if (What == am_type) {
 	if (tb->common.status & DB_SET)  {
 	    ret = am_set;
@@ -5021,7 +5116,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 			      + sizeof(Uint)
 			      - 1)
 			     / sizeof(Uint));
-	ret = erts_make_integer(words, p);
+	ret = erts_make_integer_fact(words, hf);
     } else if (What == am_owner) {
 	ret = tb->common.owner;
     } else if (What == am_heir) {
@@ -5034,7 +5129,20 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	else if (tb->common.status & DB_PUBLIC)
 	    ret = am_public;
     } else if (What == am_write_concurrency) {
-        ret = tb->common.status & DB_FINE_LOCKED ? am_true : am_false;
+        if ((tb->common.status & DB_FINE_LOCKED) &&
+            (tb->common.status & (DB_SET | DB_BAG | DB_DUPLICATE_BAG)) &&
+            (tb->common.status & DB_EXPLICIT_LOCK_GRANULARITY)) {
+            Eterm* hp    = erts_produce_heap(hf, 3, 0);
+            ret   = make_tuple(hp);
+            *hp++ = make_arityval(2);
+            *hp++ = am_debug_hash_fixed_number_of_locks;
+            *hp++ = erts_make_integer_fact(tb->hash.nlocks, hf);
+        } else if ((tb->common.status & DB_FINE_LOCKED) &&
+                   (tb->common.status & DB_FINE_LOCKED_AUTO)) {
+            ret = am_auto;
+        } else {
+            ret = tb->common.status &  DB_FINE_LOCKED ? am_true : am_false;
+        }
     } else if (What == am_read_concurrency) {
         ret = tb->common.status & DB_FREQ_READ ? am_true : am_false;
     } else if (What == am_name) {
@@ -5048,7 +5156,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
     } else if (What == am_compressed) {
 	ret = tb->common.compress ? am_true : am_false;
     } else if (What == am_id) {
-        ret = make_tid(p, tb);
+        ret = make_tid_fact(hf, tb);
     } else if (What == am_decentralized_counters) {
         ret = tb->common.counters.is_decentralized ? am_true : am_false;
     }
@@ -5088,13 +5196,13 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 		mtime = 0;
 		need += 4;
 	    }
-	    ctx.p = p;
+	    ctx.hf = hf;
 	    ctx.list = NIL;
 	    fixing_procs_rbt_foreach(tb->common.fixing_procs,
 				     fixing_procs_info_op,
 				     &ctx);
 
-	    hp = HAlloc(p, need);
+	    hp = erts_produce_heap(hf, need, 0);
 	    if (use_monotonic)
 		time = (IS_SSMALL(mtime)
 		       ? make_small(mtime)
@@ -5121,7 +5229,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    Eterm* hp;
 
 	    db_calc_stats_hash(&tb->hash, &stats);
-	    hp = HAlloc(p, 1 + 7 + FLOAT_SIZE_OBJECT*3);
+	    hp = erts_produce_heap(hf, 1 + 8 + FLOAT_SIZE_OBJECT*3, 0);
 	    f.fd = stats.avg_chain_len;
 	    avg = make_float(hp);
 	    PUT_DOUBLE(f, hp);
@@ -5136,18 +5244,19 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    std_dev_exp = make_float(hp);
 	    PUT_DOUBLE(f, hp);
 	    hp += FLOAT_SIZE_OBJECT;
-	    ret = TUPLE7(hp, make_small(erts_atomic_read_nob(&tb->hash.nactive)),
+	    ret = TUPLE8(hp, make_small(erts_atomic_read_nob(&tb->hash.nactive)),
 			 avg, std_dev_real, std_dev_exp,
 			 make_small(stats.min_chain_len),
 			 make_small(stats.max_chain_len),
-			 make_small(stats.kept_items));
+			 make_small(stats.kept_items),
+                         make_small(tb->hash.nlocks));
 	}
 	else if (IS_CATREE_TABLE(tb->common.status)) {
             DbCATreeStats stats;
             Eterm* hp;
 
             db_calc_stats_catree(&tb->catree, &stats);
-            hp = HAlloc(p, 4);
+            hp = erts_produce_heap(hf, 4, 0);
             ret = TUPLE3(hp,
                          make_small(stats.route_nodes),
                          make_small(stats.base_nodes),
@@ -5163,12 +5272,14 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb)
 {
     Eterm tid;
-    Eterm heap[ERTS_MAGIC_REF_THING_SIZE];
+    ErtsHeapFactory hf;
+    erts_factory_tmp_init(&hf, NULL, 0, ERTS_ALC_T_TMP);
 
     if (is_table_named(tb)) {
         tid = tb->common.the_name;
     } else {
         ErlOffHeap oh;
+        Eterm *heap = erts_produce_heap(&hf, ERTS_MAGIC_REF_THING_SIZE, 0);
         ERTS_INIT_OFF_HEAP(&oh);
         write_magic_ref_thing(heap, &oh, (ErtsMagicBinary *) tb->common.btid);
         tid = make_internal_ref(heap);
@@ -5185,11 +5296,12 @@ static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb)
 			+ sizeof(Uint)
 			- 1)
 		       / sizeof(Uint)));
-    erts_print(to, to_arg, "Type: %T\n", table_info(NULL, tb, am_type));
-    erts_print(to, to_arg, "Protection: %T\n", table_info(NULL, tb, am_protection));
-    erts_print(to, to_arg, "Compressed: %T\n", table_info(NULL, tb, am_compressed));
-    erts_print(to, to_arg, "Write Concurrency: %T\n", table_info(NULL, tb, am_write_concurrency));
-    erts_print(to, to_arg, "Read Concurrency: %T\n", table_info(NULL, tb, am_read_concurrency));
+    erts_print(to, to_arg, "Type: %T\n", table_info(&hf, tb, am_type));
+    erts_print(to, to_arg, "Protection: %T\n", table_info(&hf, tb, am_protection));
+    erts_print(to, to_arg, "Compressed: %T\n", table_info(&hf, tb, am_compressed));
+    erts_print(to, to_arg, "Write Concurrency: %T\n", table_info(&hf, tb, am_write_concurrency));
+    erts_print(to, to_arg, "Read Concurrency: %T\n", table_info(&hf, tb, am_read_concurrency));
+    erts_factory_close(&hf);
 }
 
 typedef struct {

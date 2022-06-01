@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -335,12 +335,26 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL
 #endif
 
+#ifdef STATIC_ERLANG_NIF_LIBNAME
+#  define STATIC_ERLANG_NIF
+#endif
+
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)) && !defined(STATIC_ERLANG_DRIVER) && !defined(STATIC_ERLANG_NIF)
 #  define ERL_NIF_API_FUNC_MACRO(NAME) (WinDynNifCallbacks.NAME)
 #  include "erl_nif_api_funcs.h"
 /* note that we have to keep ERL_NIF_API_FUNC_MACRO defined */
 
 #else /* non windows or included from emulator itself */
+
+/* Redundant declaration of deallocator functions as they are referred to by
+ * __attribute__(malloc) of allocator functions and we cannot change
+ * the declaration order in erl_nif_api_funcs.h due to Windows. */
+extern void enif_free(void* ptr);
+extern void enif_mutex_destroy(ErlNifMutex *mtx);
+extern void enif_cond_destroy(ErlNifCond *cnd);
+extern void enif_rwlock_destroy(ErlNifRWLock *rwlck);
+extern void enif_thread_opts_destroy(ErlNifThreadOpts *opts);
+extern void enif_ioq_destroy(ErlNifIOQueue *q);
 
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) extern RET_TYPE NAME ARGS
 #  include "erl_nif_api_funcs.h"
@@ -365,11 +379,22 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  endif
 #endif
 
+
 #ifdef STATIC_ERLANG_NIF
-#  define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* MODNAME ## _nif_init(ERL_NIF_INIT_ARGS)
+#  ifdef STATIC_ERLANG_NIF_LIBNAME
+#    define ERL_NIF_INIT_NAME(MODNAME) ERL_NIF_INIT_NAME2(STATIC_ERLANG_NIF_LIBNAME)
+#    define ERL_NIF_INIT_NAME2(LIB) ERL_NIF_INIT_NAME3(LIB)
+#    define ERL_NIF_INIT_NAME3(LIB) LIB ## _nif_init
+#  else
+#    define ERL_NIF_INIT_NAME(MODNAME) MODNAME ## _nif_init
+#  endif
+#  define ERL_NIF_INIT_DECL(MODNAME) \
+          ErlNifEntry* ERL_NIF_INIT_NAME(MODNAME)(ERL_NIF_INIT_ARGS)
 #else
-#  define ERL_NIF_INIT_DECL(MODNAME) ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
+#  define ERL_NIF_INIT_DECL(MODNAME) \
+          ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
 #endif
+
 
 #ifdef __cplusplus
 }

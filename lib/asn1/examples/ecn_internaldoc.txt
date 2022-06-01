@@ -27,7 +27,7 @@ enable the use of ECN in the OTP ASN1 compiler.
        - Unaligned PER backend. Often seems the unaligned PER encoding
        as the prefferred main method in ECN applications. One of the
        goals with ECN is to use less space for encoding to decrease
-       the use of bandwith in transmission. This goal is highly
+       the use of bandwidth in transmission. This goal is highly
        supported by unaligned PER.
 
 

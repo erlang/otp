@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1442,10 +1442,10 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
     n = finish_bp.e.matched;
 
     for (i = 0; i < n; i++) {
-        ErtsCodeInfo *ci = fp[i].ci;
+        ErtsCodeInfo *ci_rw = fp[i].ci_rw;
         Export* ep;
 
-        ep = ErtsContainerStruct(ci, Export, info);
+        ep = ErtsContainerStruct(ci_rw, Export, info);
 
         if (ep->bif_number != -1) {
             ep->is_bif_traced = !!on;
@@ -1459,10 +1459,11 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
                 ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
 #endif
                 ep->trampoline.common.op = BeamOpCodeAddr(op_trace_jump_W);
-                ep->trampoline.trace.address = (BeamInstr) ep->addresses[code_ix];
+                ep->trampoline.trace.address =
+                    (BeamInstr) ep->dispatch.addresses[code_ix];
             }
 
-            erts_set_export_trace(ci, match_prog_set, 0);
+            erts_set_export_trace(ci_rw, match_prog_set, 0);
 
             if (!erts_is_export_trampoline_active(ep, code_ix)) {
                 ep->trampoline.common.op = BeamOpCodeAddr(op_i_generic_breakpoint);
@@ -1474,7 +1475,7 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	     * Turn off global tracing, either explicitly or implicitly
 	     * before turning on breakpoint tracing.
 	     */
-	    erts_clear_export_trace(ci, 0);
+            erts_clear_export_trace(ci_rw, 0);
             if (BeamIsOpCode(ep->trampoline.common.op, op_i_generic_breakpoint)) {
                 ep->trampoline.common.op = BeamOpCodeAddr(op_trace_jump_W);
 	    }
@@ -1669,7 +1670,7 @@ install_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
         erts_activate_export_trampoline(ep, code_ix);
     }
 }
@@ -1683,11 +1684,12 @@ uninstall_exp_breakpoints(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
 
         if (erts_is_export_trampoline_active(ep, code_ix)) {
             ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_trace_jump_W));
-            ep->addresses[code_ix] = (ErtsCodePtr)ep->trampoline.trace.address;
+            ep->dispatch.addresses[code_ix] =
+                (ErtsCodePtr)ep->trampoline.trace.address;
         }
     }
 }
@@ -1701,7 +1703,7 @@ clean_export_entries(BpFunctions* f)
     Uint i;
 
     for (i = 0; i < ne; i++) {
-        Export* ep = ErtsContainerStruct(fp[i].ci, Export, info);
+        Export* ep = ErtsContainerStruct(fp[i].ci_rw, Export, info);
 
         if (erts_is_export_trampoline_active(ep, code_ix)) {
             continue;
@@ -1857,8 +1859,7 @@ new_seq_trace_token(Process* p, int ensure_new_heap)
         Uint mature_size = p->high_water - mature;
         Eterm* tpl = tuple_val(SEQ_TRACE_TOKEN(p));
         ASSERT(arityval(tpl[0]) == 5);
-        if (ErtsInArea(tpl, OLD_HEAP(p),
-                       (OLD_HEND(p) - OLD_HEAP(p))*sizeof(Eterm)) ||
+        if (ErtsInBetween(tpl, OLD_HEAP(p), OLD_HEND(p)) ||
             ErtsInArea(tpl, mature, mature_size*sizeof(Eterm))) {
             hp = HAlloc(p, 6);
             sys_memcpy(hp, tpl, 6*sizeof(Eterm));

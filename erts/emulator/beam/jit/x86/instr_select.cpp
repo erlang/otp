@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,79 +24,89 @@ using namespace asmjit;
 
 void BeamModuleAssembler::emit_linear_search(x86::Gp comparand,
                                              const ArgVal &Fail,
-                                             const std::vector<ArgVal> &args) {
+                                             const Span<ArgVal> &args) {
     int count = args.size() / 2;
 
     for (int i = 0; i < count; i++) {
-        const ArgVal &value = args[i];
-        const ArgVal &label = args[i + count];
+        const ArgImmed &value = args[i];
+        const ArgLabel &label = args[i + count];
 
         cmp_arg(comparand, value, ARG1);
-        a.je(labels[label.getValue()]);
+        a.je(resolve_beam_label(label));
     }
 
-    if (Fail.getType() == ArgVal::f) {
-        a.jmp(labels[Fail.getValue()]);
+    if (Fail.isLabel()) {
+        a.jmp(resolve_beam_label(Fail));
     } else {
         /* NIL means fallthrough to the next instruction. */
-        ASSERT(Fail.getType() == ArgVal::i && Fail.getValue() == NIL);
+        ASSERT(Fail.isNil());
     }
 }
 
-void BeamModuleAssembler::emit_i_select_tuple_arity(
-        const ArgVal &Src,
-        const ArgVal &Fail,
-        const ArgVal &Size,
-        const std::vector<ArgVal> &args) {
+void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
+                                                    const ArgLabel &Fail,
+                                                    const ArgWord &Size,
+                                                    const Span<ArgVal> &args) {
     mov_arg(ARG2, Src);
-    emit_is_boxed(labels[Fail.getValue()], ARG2);
+
+    emit_is_boxed(resolve_beam_label(Fail), Src, ARG2);
+
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
     a.mov(ARG2d, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-    ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
-    a.test(ARG2.r8(), imm(_TAG_HEADER_MASK));
-    a.jne(labels[Fail.getValue()]);
+
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_TUPLE) {
+        comment("simplified tuple test since the source is always a tuple "
+                "when boxed");
+    } else {
+        ERTS_CT_ASSERT(_TAG_HEADER_ARITYVAL == 0);
+        a.test(ARG2.r8(), imm(_TAG_HEADER_MASK));
+        a.jne(resolve_beam_label(Fail));
+    }
 
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
 
     int count = args.size() / 2;
     for (int i = 0; i < count; i++) {
-        const ArgVal &value = args[i];
-        const ArgVal &label = args[i + count];
+        const ArgImmed &value = args[i];
+        const ArgLabel &label = args[i + count];
 
-        a.cmp(ARG2d, imm(value.getValue()));
-        a.je(labels[label.getValue()]);
+        a.cmp(ARG2d, imm(value.get()));
+        a.je(resolve_beam_label(label));
     }
 
-    a.jne(labels[Fail.getValue()]);
+    a.jne(resolve_beam_label(Fail));
 }
 
-void BeamModuleAssembler::emit_i_select_val_lins(
-        const ArgVal &Src,
-        const ArgVal &Fail,
-        const ArgVal &Size,
-        const std::vector<ArgVal> &args) {
-    ASSERT(Size.getValue() == args.size());
+void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
+                                                 const ArgVal &Fail,
+                                                 const ArgWord &Size,
+                                                 const Span<ArgVal> &args) {
+    ASSERT(Size.get() == args.size());
+
     mov_arg(ARG2, Src);
-    if (emit_optimized_three_way_select(Fail, args))
+
+    if (emit_optimized_three_way_select(Fail, args)) {
         return;
+    }
+
     emit_linear_search(ARG2, Fail, args);
 }
 
-void BeamModuleAssembler::emit_i_select_val_bins(
-        const ArgVal &Src,
-        const ArgVal &Fail,
-        const ArgVal &Size,
-        const std::vector<ArgVal> &args) {
-    ASSERT(Size.getValue() == args.size());
+void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
+                                                 const ArgVal &Fail,
+                                                 const ArgWord &Size,
+                                                 const Span<ArgVal> &args) {
+    ASSERT(Size.get() == args.size());
+
     int count = args.size() / 2;
     Label fail;
 
-    if (Fail.getType() == ArgVal::f) {
-        fail = labels[Fail.getValue()];
+    if (Fail.isLabel()) {
+        fail = resolve_beam_label(Fail);
     } else {
         /* NIL means fallthrough to the next instruction. */
-        ASSERT(Fail.getType() == ArgVal::i && Fail.getValue() == NIL);
+        ASSERT(Fail.isNil());
         fail = a.newLabel();
     }
 
@@ -104,7 +114,7 @@ void BeamModuleAssembler::emit_i_select_val_bins(
     comment("Binary search in table of %lu elements", count);
     emit_binsearch_nodes(0, count - 1, Fail, args);
 
-    if (Fail.getType() == ArgVal::i) {
+    if (Fail.isNil()) {
         a.bind(fail);
     }
 }
@@ -115,15 +125,15 @@ void BeamModuleAssembler::emit_i_select_val_bins(
  *
  * ARG2 is the value being looked up.
  */
-void BeamModuleAssembler::emit_binsearch_nodes(
-        size_t Left,
-        size_t Right,
-        const ArgVal &Fail,
-        const std::vector<ArgVal> &args) {
+void BeamModuleAssembler::emit_binsearch_nodes(size_t Left,
+                                               size_t Right,
+                                               const ArgVal &Fail,
+                                               const Span<ArgVal> &args) {
     ASSERT(Left <= Right);
     ASSERT(Right < args.size() / 2);
     size_t mid = (Left + Right) >> 1;
-    ArgVal midval(ArgVal::i, args[mid].getValue());
+    const ArgImmed midval = args[mid];
+
     int count = args.size() / 2;
     size_t remaining = (Right - Left + 1);
 
@@ -147,8 +157,10 @@ void BeamModuleAssembler::emit_binsearch_nodes(
                       args.begin() + Left + count,
                       args.begin() + count + Left + remaining);
 
-        if (!emit_optimized_three_way_select(Fail, shrunk))
+        if (!emit_optimized_three_way_select(Fail, shrunk)) {
             emit_linear_search(ARG2, Fail, shrunk);
+        }
+
         return;
     }
 
@@ -156,15 +168,15 @@ void BeamModuleAssembler::emit_binsearch_nodes(
     cmp_arg(ARG2, midval, ARG1);
 
     if (Left == Right) {
-        a.je(labels[args[mid + count].getValue()]);
-        a.jmp(labels[Fail.getValue()]);
+        a.je(resolve_beam_label(args[mid + count]));
+        a.jmp(resolve_beam_label(Fail));
         return;
     }
 
-    a.je(labels[args[mid + count].getValue()]);
+    a.je(resolve_beam_label(args[mid + count]));
 
     if (Left == mid) {
-        a.jb(labels[Fail.getValue()]);
+        a.jb(resolve_beam_label(Fail));
     } else {
         Label right_tree = a.newLabel();
         a.ja(right_tree);
@@ -175,15 +187,15 @@ void BeamModuleAssembler::emit_binsearch_nodes(
     emit_binsearch_nodes(mid + 1, Right, Fail, args);
 }
 
-void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
+void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
                                              const ArgVal &Fail,
-                                             const ArgVal &Base,
-                                             const ArgVal &Size,
-                                             const std::vector<ArgVal> &args) {
+                                             const ArgWord &Base,
+                                             const ArgWord &Size,
+                                             const Span<ArgVal> &args) {
     Label data = embed_vararg_rodata(args, 0);
     Label fail;
 
-    ASSERT(Size.getValue() == args.size());
+    ASSERT(Size.get() == args.size());
 
     mov_arg(ARG1, Src);
 
@@ -191,29 +203,30 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
     a.and_(RETb, imm(_TAG_IMMED1_MASK));
     a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
 
-    if (Fail.getType() == ArgVal::f) {
-        a.jne(labels[Fail.getValue()]);
+    if (Fail.isLabel()) {
+        a.jne(resolve_beam_label(Fail));
     } else {
         /* NIL means fallthrough to the next instruction. */
-        ASSERT(Fail.getType() == ArgVal::i && Fail.getValue() == NIL);
+        ASSERT(Fail.isNil());
+
         fail = a.newLabel();
         a.short_().jne(fail);
     }
 
     a.sar(ARG1, imm(_TAG_IMMED1_SIZE));
 
-    if (Base.getValue() != 0) {
-        if (Support::isInt32((Sint)Base.getValue())) {
-            a.sub(ARG1, imm(Base.getValue()));
+    if (Base.get() != 0) {
+        if (Support::isInt32((Sint)Base.get())) {
+            a.sub(ARG1, imm(Base.get()));
         } else {
-            a.mov(ARG2, imm(Base.getValue()));
+            a.mov(ARG2, imm(Base.get()));
             a.sub(ARG1, ARG2);
         }
     }
 
     a.cmp(ARG1, imm(args.size()));
-    if (Fail.getType() == ArgVal::f) {
-        a.jae(labels[Fail.getValue()]);
+    if (Fail.isLabel()) {
+        a.jae(resolve_beam_label(Fail));
     } else {
         a.short_().jae(fail);
     }
@@ -221,7 +234,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
     a.lea(RET, x86::qword_ptr(data));
     a.jmp(x86::qword_ptr(RET, ARG1, 3));
 
-    if (Fail.getType() == ArgVal::i) {
+    if (Fail.isNil()) {
         a.bind(fail);
     }
 }
@@ -241,15 +254,16 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgVal &Src,
  */
 bool BeamModuleAssembler::emit_optimized_three_way_select(
         const ArgVal &Fail,
-        const std::vector<ArgVal> &args) {
-    if (args.size() != 4 || (args[2].getValue() != args[3].getValue()))
+        const Span<ArgVal> &args) {
+    if (args.size() != 4 || (args[2] != args[3])) {
         return false;
+    }
 
-    uint64_t x = args[0].getValue();
-    uint64_t y = args[1].getValue();
+    uint64_t x = args[0].as<ArgImmed>().get();
+    uint64_t y = args[1].as<ArgImmed>().get();
     uint64_t combined = x | y;
     uint64_t diff = x ^ y;
-    ArgVal val(ArgVal::i, combined);
+    ArgVal val(ArgVal::Immediate, combined);
 
     if ((diff & (diff - 1)) != 0)
         return false;
@@ -265,13 +279,16 @@ bool BeamModuleAssembler::emit_optimized_three_way_select(
         a.mov(ARG1, imm(diff));
         a.or_(ARG2, ARG1);
     }
+
     cmp_arg(ARG2, val, ARG1);
-    a.je(labels[args[2].getValue()]);
-    if (Fail.getType() == ArgVal::f) {
-        a.jmp(labels[Fail.getValue()]);
+    a.je(resolve_beam_label(args[2]));
+
+    if (Fail.isLabel()) {
+        a.jmp(resolve_beam_label(Fail));
     } else {
         /* NIL means fallthrough to the next instruction. */
-        ASSERT(Fail.getType() == ArgVal::i && Fail.getValue() == NIL);
+        ASSERT(Fail.isNil());
     }
+
     return true;
 }

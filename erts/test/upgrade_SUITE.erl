@@ -20,7 +20,7 @@
 
 -compile(export_all).
 
--compile(r21).
+-compile(r22).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").

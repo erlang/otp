@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2014-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 #include "sys.h"
 
-/* instrinsic wrappers */
+/* intrinsic wrappers */
 #if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0)
 #define hashmap_clz(x)       ((Uint32) __builtin_clz((unsigned int)(x)))
 #define hashmap_bitcount(x)  ((Uint32) __builtin_popcount((unsigned int) (x)))
@@ -55,14 +55,18 @@ typedef struct flatmap_s {
 
 /* the head-node is a bitmap or array with an untagged size */
 
-
 #define hashmap_size(x)               (((hashmap_head_t*) hashmap_val(x))->size)
-#define hashmap_make_hash(Key)        make_internal_hash(Key, 0)
+#define hashmap_make_hash(Key)        make_map_hash(Key, 0)
 
-#define hashmap_restore_hash(Heap,Lvl,Key) \
-    (((Lvl) < 8) ? hashmap_make_hash(Key) >> (4*(Lvl)) : hashmap_make_hash(CONS(Heap, make_small((Lvl)>>3), (Key))) >> (4*((Lvl) & 7)))
-#define hashmap_shift_hash(Heap,Hx,Lvl,Key) \
-    (((++(Lvl)) & 7) ? (Hx) >> 4 : hashmap_make_hash(CONS(Heap, make_small((Lvl)>>3), Key)))
+#define hashmap_restore_hash(Lvl, Key)                                        \
+    (((Lvl) < 8) ?                                                            \
+     hashmap_make_hash(Key) >> (4*(Lvl)) :                                    \
+     make_map_hash(Key, ((Lvl) >> 3)) >> (4 * ((Lvl) & 7)))
+
+#define hashmap_shift_hash(Hx, Lvl, Key)                                      \
+    (((++(Lvl)) & 7) ?                                                        \
+     (Hx) >> 4 :                                                              \
+     make_map_hash(Key, ((Lvl) >> 3)))
 
 /* erl_term.h stuff */
 #define flatmap_get_values(x)        (((Eterm *)(x)) + sizeof(flatmap_t)/sizeof(Eterm))
@@ -102,6 +106,8 @@ Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int rejec
     erts_hashmap_from_ks_and_vs_extra((F), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE);
 
 Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n);
+Eterm erts_map_from_sorted_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks0, Eterm *vs0,
+                                     Uint n, Eterm *key_tuple);
 Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
                                          Eterm *ks, Eterm *vs, Uint n,
 					 Eterm k, Eterm v);
@@ -109,6 +115,8 @@ Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
 const Eterm *erts_maps_get(Eterm key, Eterm map);
 
 const Eterm *erts_hashmap_get(Uint32 hx, Eterm key, Eterm map);
+
+Sint erts_map_size(Eterm map);
 
 /* hamt nodes v2.0
  *

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2020</year>
+      <year>2000</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -314,8 +314,18 @@
 	    <c>accept_connection/5</c> should spawn a process that will
 	    perform the Erlang distribution handshake for the connection.
 	    If the handshake successfully completes it should continue to
-	    function as a connection supervisor. This process
-	    should preferably execute on <c>max</c> priority.
+	    function as a connection supervisor. This process should
+            preferably execute on <c>max</c> priority and should be linked
+            to the caller. The <c>dist_util:net_ticker_spawn_options()</c>
+            function can be called to get spawn options suitable for this process
+            which can be passed directly to
+            <seemfa marker="erts:erlang#spawn_opt/4"><c>erlang:spawn_opt/4</c></seemfa>.
+            <c>dist_util:net_ticker_spawn_options()</c> will by default return
+            <c>[link, {priority, max}]</c>, but allows the user to configure more
+            options using the
+            <seeapp marker="kernel:kernel_app#net_ticker_spawn_options"><c>net_ticker_spawn_options</c></seeapp>
+            kernel parameter. The process identifier of this process should be
+            returned.
 	  </p>
 	  <p>The arguments:</p>
 	  <taglist>
@@ -380,8 +390,18 @@
 	    <c>Node</c>. When connection has been established it should
 	    perform the Erlang distribution handshake for the connection.
 	    If the handshake successfully completes it should continue to
-	    function as a connection supervisor. This process
-	    should preferably execute on <c>max</c> priority.
+	    function as a connection supervisor. This process should
+            preferably execute on <c>max</c> priority and should be linked
+            to the caller. The <c>dist_util:net_ticker_spawn_options()</c>
+            function can be called to get spawn options suitable for this process
+            which can be passed directly to
+            <seemfa marker="erts:erlang#spawn_opt/4"><c>erlang:spawn_opt/4</c></seemfa>.
+            <c>dist_util:net_ticker_spawn_options()</c> will by default return
+            <c>[link, {priority, max}]</c>, but allows the user to configure more
+            options using the
+            <seeapp marker="kernel:kernel_app#net_ticker_spawn_options"><c>net_ticker_spawn_options</c></seeapp>
+            kernel parameter. The process identifier of this process should be
+            returned.
 	  </p>
 	  <p>The arguments:</p>
 	  <taglist>
@@ -1025,7 +1045,7 @@
         header of four bytes containing the length of the package in a
         big-endian 32-bit integer. As Unix domain sockets only can be used
         between processes on the same machine, we do not need to
-        code the integer in some special endianess, but we will do it anyway
+        code the integer in some special endianness, but we will do it anyway
         because in most situation you need to do it. Unix domain
         sockets are reliable and order maintaining, so we do not need to
         implement resends and such in the driver.</p>
@@ -1410,7 +1430,7 @@
 
     <section>
       <title>Selected Parts of the Distribution Driver Implementation</title>
-      <p>The implemenation of the distribution driver is not completely
+      <p>The implementation of the distribution driver is not completely
         covered here, details about buffering and other things
         unrelated to driver writing are not explained. Likewise are
         some peculiarities of the UDS protocol not explained in

@@ -153,7 +153,7 @@ info_fields() ->
        {"Old Binary vheap", old_bin_vheap},
        {"Binary vheap unused",  bin_vheap_unused},
        {"Old Binary vheap unused", old_bin_vheap_unused},
-       {"Number of Heap Fragements", num_heap_frag},
+       {"Number of Heap Fragments", num_heap_frag},
        {"Heap Fragment Data",heap_frag_data},
        {"New Heap Start",   new_heap_start},
        {"New Heap Top",     new_heap_top},

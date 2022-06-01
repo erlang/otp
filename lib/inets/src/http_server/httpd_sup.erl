@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ init([HttpdServices]) ->
 %% The format of the httpd service is:
 %% httpd_service() -> {httpd,httpd()}
 %% httpd()         -> [httpd_config()] | file()
-%% httpd_config()  -> {file,file()} |
+%% httpd_config()  -> {proplist_file,file()} |
 %%                    {debug,debug()} |
 %%                    {accept_timeout,integer()}
 %% debug()         -> disable | [debug_options()]

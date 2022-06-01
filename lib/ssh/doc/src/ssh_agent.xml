@@ -52,7 +52,7 @@
     </code>
     <p>
       The agent communication is established through a UNIX domain socket. By default, the socket path
-      will be fetched from the <c>SSH_AUTH_SOCK</c> enviroment variable, which is the default socket path in the agent
+      will be fetched from the <c>SSH_AUTH_SOCK</c> environment variable, which is the default socket path in the agent
       implementation of
       <url href="http://www.openssh.com">OpenSSH</url>.
     </p>

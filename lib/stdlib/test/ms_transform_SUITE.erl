@@ -30,12 +30,19 @@
 -export([from_shell/1]).
 -export([records/1]).
 -export([record_index/1]).
--export([multipass/1]).
+-export([map_pattern/1]).
+-export([map_expr_in_head/1]).
+-export([map_pattern_from_shell/1]).
+-export([map_expr_in_head_from_shell/1]).
+-export([map_exprs/1]).
+-export([map_exprs_from_shell/1]).
 -export([top_match/1]).
+-export([multipass/1]).
 -export([old_guards/1]).
 -export([autoimported/1]).
 -export([semicolon/1]).
 -export([bitsyntax/1]).
+-export([binary_bifs/1]).
 -export([record_defaults/1]).
 -export([andalso_orelse/1]).
 -export([float_1_function/1]).
@@ -59,10 +66,13 @@ suite() ->
 
 all() -> 
     [from_shell, basic_ets, basic_dbg, records,
-     record_index, multipass, bitsyntax, record_defaults,
+     record_index, multipass, bitsyntax, binary_bifs, record_defaults,
      andalso_orelse, float_1_function, action_function,
      warnings, no_warnings, top_match, old_guards, autoimported,
-     semicolon, eep37, otp_14454, otp_16824, unused_record].
+     semicolon, eep37, otp_14454, otp_16824, unused_record,
+     map_pattern, map_expr_in_head,
+     map_pattern_from_shell, map_expr_in_head_from_shell,
+     map_exprs, map_exprs_from_shell].
 
 groups() -> 
     [].
@@ -257,6 +267,32 @@ bitsyntax(Config) when is_list(Config) ->
 	"            end)">>),
     ok.
 
+
+%% Test that binary BIFs byte_size/1, binary_part/2, binary_part/3 are accepted
+binary_bifs(Config) when is_list(Config) ->
+    setup(Config),
+    TestSet = [{<<"hello">>, <<"world">>}, {<<"souldn't">>, <<"match">>}],
+    RunMS = fun(MS) -> ets:match_spec_run(TestSet, ets:match_spec_compile(MS)) end,
+    % check byte_size/1
+    MS1 = compile_and_run(<<"ets:fun2ms(fun({A, B}) when byte_size(A) == 5 -> {A, byte_size(B)} end)">>),
+    [{{'$1','$2'},
+      [{'==',{byte_size,'$1'},5}],
+      [{{'$1',{byte_size,'$2'}}}]}] = MS1,
+    [{<<"hello">>, 5}] = RunMS(MS1),
+    % check binary_part/2
+    MS2 = compile_and_run(<<"ets:fun2ms(fun({A, B}) when binary_part(A, {1, 2}) == <<\"el\">> -> binary_part(B, {2, 3}) end)">>),
+    [{{'$1','$2'},
+      [{'==',{binary_part,'$1',{{1,2}}},<<"el">>}],
+      [{binary_part,'$2',{{2,3}}}]}] = MS2,
+    [<<"rld">>] = RunMS(MS2),
+    % check binary_part/3
+    MS3 = compile_and_run(<<"ets:fun2ms(fun({A, B}) when binary_part(A, 1, 2) == <<\"el\">> -> binary_part(B, 2, 3) end)">>),
+    [{{'$1','$2'},
+      [{'==',{binary_part,'$1',1,2},<<"el">>}],
+      [{binary_part,'$2',2,3}]}] = MS3,
+    [<<"rld">>] = RunMS(MS3),
+    ok.
+
 %% Test that record defaults works.
 record_defaults(Config) when is_list(Config) ->
     setup(Config),
@@ -289,7 +325,7 @@ basic_ets(Config) when is_list(Config) ->
         compile_and_run(<<"ets:fun2ms(fun({\"foo\" ++ _, X}) -> X end)">>),
     ok.
 
-%% Tests basic ets:fun2ms.
+%% Tests basic dbg:fun2ms.
 basic_dbg(Config) when is_list(Config) ->
     setup(Config),
     [{[a,b],[],[{message,banan},{return_trace}]}] =
@@ -380,6 +416,59 @@ record_index(Config) when is_list(Config) ->
 			  <<"ets:fun2ms(fun({#a.a}) -> #a.a end)">>),
     [{{2,'$1'},[{'>','$1',2}],[2]}] = compile_and_run(RD,
 		    <<"ets:fun2ms(fun({#a.a,A}) when A > #a.a -> #a.a end)">>),
+    ok.
+
+map_pattern(Config) when is_list(Config) ->
+    setup(Config),
+    MS = [{{key, #{foo => '$1'}},[],['$1']}],
+    MS = compile_and_run(<<"ets:fun2ms(fun({key, #{foo := V}}) -> V end)">>),
+    ok.
+
+map_expr_in_head(Config) when is_list(Config) ->
+    setup(Config),
+    MS = [{{key, #{foo => '$1'}},[],['$1']}],
+    %% Accidentally it is possible to use => instead of := in the fun head,
+    %% in compiled code.
+    %% Although this is not an intended behaviour it is kept to
+    %% maintain backwards compatibility.
+    MS = compile_and_run(<<"ets:fun2ms(fun({key, #{foo => V}}) -> V end)">>),
+    ok.
+
+map_pattern_from_shell(Config) when is_list(Config) ->
+    MS = [{{key, #{foo => '$1'}},[],['$1']}],
+    MS = do_eval("ets:fun2ms(fun({key, #{foo := V}}) -> V end)"),
+    ok.
+
+map_expr_in_head_from_shell(Config) when is_list(Config) ->
+    setup(Config),
+    MS = [{{key, #{foo => '$1'}},[],['$1']}],
+    %% Accidentally it is possible to use => instead of := in the fun head,
+    %% in compiled code. This behaviour is kept for backwards compatibility.
+
+    %% As a side-effect, it is also possible to do the same with
+    %% `transform_from_shell/3', if the AST of the shell fun is
+    %% created bypassing the linter. (The linter would prevent
+    %% constructing such invalid syntax, so normally this is not
+    %% possible in the Erlang shell)
+    MS = do_eval("ets:fun2ms(fun({key, #{foo => V}}) -> V end)"),
+    ok.
+
+map_exprs(Config) when is_list(Config) ->
+    setup(Config),
+    MSGuard = [{{key,'$1','$2'}, [{'=:=','$1',#{foo => '$2'}}], ['$1']}],
+    MSGuard = compile_and_run(
+                <<"ets:fun2ms(fun({key, V1, V2}) when V1 =:= #{foo => V2} -> V1 end)">>),
+    MSBody = [{{key,'$1'}, [], [#{foo => '$1'}]}],
+    MSBody = compile_and_run(
+                <<"ets:fun2ms(fun({key, V}) -> #{foo => V} end)">>),
+    ok.
+
+map_exprs_from_shell(Config) when is_list(Config) ->
+    setup(Config),
+    MSGuard = [{{key,'$1','$2'}, [{'=:=','$1',#{foo => '$2'}}], ['$1']}],
+    MSGuard = do_eval("ets:fun2ms(fun({key, V1, V2}) when V1 =:= #{foo => V2} -> V1 end)"),
+    MSBody = [{{key,'$1'}, [], [#{foo => '$1'}]}],
+    MSBody = do_eval("ets:fun2ms(fun({key, V}) -> #{foo => V} end)"),
     ok.
 
 %% Tests matching on top level in head to give alias for object().
@@ -897,5 +986,5 @@ do_eval(String) ->
 			   [],
 			   String++".\n",1),
     {ok,Tree} = erl_parse:parse_exprs(T),
-    {value,Res,[]} =  erl_eval:exprs(Tree,[]),
+    {value,Res,[]} =  erl_eval:exprs(Tree,[],none,none),
     Res.

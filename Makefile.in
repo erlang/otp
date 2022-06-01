@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1998-2021. All Rights Reserved.
+# Copyright Ericsson AB 1998-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -399,9 +399,15 @@ ifeq ($(OTP_SMALL_BUILD),true)
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
 	    $(MAKE) TESTROOT="$(RELEASE_ROOT)" release
 else
+ifeq ($(OTP_TINY_BUILD),true)
+	cd $(ERL_TOP)/lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
+	    $(MAKE) TINY_BUILD=true TESTROOT="$(RELEASE_ROOT)" release
+else
 	cd $(ERL_TOP)/lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
 	    $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" release
+endif
 endif
 	cd $(ERL_TOP)/erts && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
@@ -466,7 +472,7 @@ BOOTSTRAP_COMPILER  =  $(BOOTSTRAP_TOP)/primary_compiler
 # otp.mk is only used to figure out if we are doing PGO or not
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-.PHONY: emulator libs kernel preloaded
+.PHONY: emulator libs kernel preloaded system
 
 ifeq ($(USE_PGO), true)
 PROFILE=use
@@ -478,6 +484,13 @@ else
 PROFILE=
 PROFILE_EMU_DEPS=
 endif
+
+emulator_test: emulator
+	$(make_verbose)cd erts/emulator && ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) test
+epmd_test:
+	$(make_verbose)cd erts/epmd && ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) test
+system_test:
+	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) test
 
 emulator: $(PROFILE_EMU_DEPS)
 	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
@@ -503,13 +516,14 @@ endif
 endif
 
 APPS=$(patsubst $(ERL_TOP)/lib/%/doc,%,$(wildcard $(ERL_TOP)/lib/*/doc))
+NO_DIALYZER_APPS=$(filter-out dialyzer, $(APPS)) ## The dialyzer make target should not build the app
 
-.PHONY: $(APPS)
+.PHONY: $(NO_DIALYZER_APPS)
 
-$(APPS):
+$(NO_DIALYZER_APPS):
 	$(make_verbose)cd lib/$@ && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
-		$(MAKE) $(TYPE) BUILD_ALL=true
+		$(MAKE) $(TYPE)
 
 ##
 ## Generate `otp_internal` from the -deprecated() attributes in source.
@@ -567,14 +581,18 @@ bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/escript.exe
 	@cp $(ERL_TOP)/erts/lib_src/yielding_c_fun/bin/$(TARGET)/yielding_c_fun.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun.exe
+	@cp $(ERL_TOP)/bin/$(TARGET)/inet_gethost.exe \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost.exe
 else
-bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/escript $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun
+bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/escript $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost
 
 $(BOOTSTRAP_ROOT)/bootstrap/bin/erl: $(ERL_TOP)/erts/etc/unix/erl.src.src $(BOOTSTRAP_ROOT)/bootstrap/target
-	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl 
+	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl
 	@sed	-e "s;%FINAL_ROOTDIR%;$(BOOTSTRAP_ROOT)/bootstrap;"   \
 		-e "s;\$$ROOTDIR/erts-.*/bin;$(ERL_TOP)/bin/$(TARGET);"    \
 		-e "s;EMU=.*;EMU=beam$(TYPEMARKER);" \
+		-e "s;%DYN_ERL_PATH%;../../bin/$(TARGET)/dyn_erl;" \
+		-e "s;%DYN_ROOTDIR_BASE_EXT%;/bootstrap;"	\
 	        $(ERL_TOP)/erts/etc/unix/erl.src.src > \
 			$(BOOTSTRAP_ROOT)/bootstrap/bin/erl
 	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/erl
@@ -595,10 +613,17 @@ $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun: $(ERL_TOP)/bin/$(TARGET)/escript
 	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun
 endif
 
+$(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost: $(ERL_TOP)/bin/$(TARGET)/inet_gethost $(BOOTSTRAP_ROOT)/bootstrap/target
+	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost
+	@cp $(ERL_TOP)/bin/$(TARGET)/inet_gethost $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost
+	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET)/inet_gethost
+
+
 bootstrap_setup_target:
 	@{ test -r $(BOOTSTRAP_ROOT)/bootstrap/target && \
 	   test $(TARGET) = `cat $(BOOTSTRAP_ROOT)/bootstrap/target`; } || \
 	 echo $(TARGET) > $(BOOTSTRAP_ROOT)/bootstrap/target
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET) ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/bin/$(TARGET) ; fi
 
 tiny_secondary_bootstrap_build:
 	$(make_verbose)cd lib && \
@@ -1095,7 +1120,7 @@ tests release_tests: $(TEST_DIRS)
 
 $(TEST_DIRS):
 	if test -f $@/Makefile; then \
-	    (cd $@; $(MAKE) TESTROOT="$(TESTSUITE_ROOT)" \
+	    (cd $@; $(MAKE) TESTROOT="$(TESTSUITE_ROOT)" ERL_TOP="$(ERL_TOP)" \
 	    PATH=$(TEST_PATH_PREFIX)$(BOOT_PREFIX)"$${PATH}" release_tests) || exit $$?; \
 	fi
 
@@ -1219,7 +1244,7 @@ bootstrap_clean:
 	$(V_at)rm -f $(ERL_TOP)/bootstrap/lib/*/include/*.hrl
 	$(V_at)rm -f $(ERL_TOP)/bootstrap/primary_compiler/ebin/*
 	$(V_at)rm -f $(ERL_TOP)/bootstrap/primary_compiler/egen/*
-	$(V_at)rm -f $(ERL_TOP)/bootstrap/bin/*.*
+	$(V_at)rm -f $(ERL_TOP)/bootstrap/bin/*.boot
 	$(V_at)rm -f $(KERNEL_PRELOAD:%=$(ERL_TOP)/lib/kernel/ebin/%.beam)
 	$(V_at)test $(BOOTSTRAP_ROOT) = $(ERL_TOP) \
 		|| $(MAKE) BOOTSTRAP_ROOT=$(BOOTSTRAP_ROOT) bootstrap_root_clean
@@ -1231,5 +1256,13 @@ bootstrap_clean:
 test: all release release_tests
 	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
 
+ifeq ($(TYPE),)
 dialyzer: all
 	$(ERL_TOP)/scripts/run-dialyzer
+endif
+
+APPS_TEST=$(patsubst %, %_test,$(APPS))
+
+.SECONDEXPANSION:
+$(APPS_TEST): $$(patsubst %_test,%,$$@)
+	ERL_TOP=$(ERL_TOP) TYPE=$(TYPE) $(MAKE) -C lib/$< test

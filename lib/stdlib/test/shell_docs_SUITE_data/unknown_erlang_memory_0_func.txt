@@ -59,13 +59,6 @@
     This memory is part of the memory presented as [;;4msystem[0m
     memory.
 
-  [;;4m[;;4mlow[0m[0m:
-    Only on 64-bit halfword emulator. The total amount of memory
-    allocated in low memory areas that are restricted to < 4 GB,
-    although the system can have more memory.
-
-    Can be removed in a future release of the halfword emulator.
-
   [;;4m[;;4mmaximum[0m[0m:
     The maximum total amount of memory allocated since the
     emulator was started. This tuple is only present when the

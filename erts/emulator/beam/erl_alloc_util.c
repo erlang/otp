@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@
 #include "global.h"
 #include "big.h"
 #include "erl_mmap.h"
-#include "erl_mtrace.h"
 #define GET_ERL_ALLOC_UTIL_IMPL
 #include "erl_alloc_util.h"
 #include "erl_mseg.h"
@@ -51,6 +50,7 @@
 #include "erl_thr_progress.h"
 #include "erl_bif_unique.h"
 #include "erl_nif.h"
+#include "erl_global_literals.h"
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #include "erl_lock_count.h"
@@ -1090,8 +1090,6 @@ erts_alcu_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
 #endif
 	res = erts_sys_alloc(0, NULL, size);
     INC_CC(allctr->calls.sys_alloc);
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_alloc(res, allctr->alloc_no, ERTS_ALC_A_SYSTEM, size);
     return res;
 }
 
@@ -1108,12 +1106,6 @@ erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, 
 #endif
 	res = erts_sys_realloc(0, NULL, ptr, size);
     INC_CC(allctr->calls.sys_realloc);
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_realloc(res,
-				allctr->alloc_no,
-				ERTS_ALC_A_SYSTEM,
-				ptr,
-				size);
     return res;
 }
 
@@ -1127,8 +1119,6 @@ erts_alcu_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int superalign)
 #endif
 	erts_sys_free(0, NULL, ptr);
     INC_CC(allctr->calls.sys_free);
-    if (erts_mtrace_enabled)
-	erts_mtrace_crr_free(allctr->alloc_no, ERTS_ALC_A_SYSTEM, ptr);
 }
 
 #ifdef ARCH_32
@@ -1780,7 +1770,7 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
                      * This carrier has just been given back to us by writing
                      * to crr->allctr with a write barrier (see abandon_carrier).
                      *
-                     * We need a mathing read barrier to guarantee a correct view
+                     * We need a matching read barrier to guarantee a correct view
                      * of the carrier for deallocation work.
                      */
                     act = erts_atomic_cmpxchg_rb(&crr->allctr,
@@ -2537,155 +2527,9 @@ mbc_alloc(Allctr_t *allctr, Uint size)
     return BLK2UMEM(blk);
 }
 
-typedef struct {
-    char *ptr;
-    UWord size;
-} ErtsMemDiscardRegion;
-
-/* Construct a discard region for the user memory of a free block, letting the
- * OS reclaim its physical memory when required.
- *
- * Note that we're ignoring both the footer and everything that comes before
- * the minimum block size as the allocator uses those areas to manage the
- * block. */
-static void ERTS_INLINE
-mem_discard_start(Allctr_t *allocator, Block_t *block,
-                  ErtsMemDiscardRegion *out)
-{
-    UWord size = BLK_SZ(block);
-
-    ASSERT(size >= allocator->min_block_size);
-
-    if (size > (allocator->min_block_size + FBLK_FTR_SZ)) {
-        out->size = size - allocator->min_block_size - FBLK_FTR_SZ;
-    } else {
-        out->size = 0;
-    }
-
-    out->ptr = (char*)block + allocator->min_block_size;
-}
-
-/* Expands a discard region into a neighboring free block, allowing us to
- * discard the block header and first page.
- *
- * This is very important in small-allocation scenarios where no single block
- * is large enough to be discarded on its own. */
-static void ERTS_INLINE
-mem_discard_coalesce(Allctr_t *allocator, Block_t *neighbor,
-                     ErtsMemDiscardRegion *region)
-{
-    char *neighbor_start;
-
-    ASSERT(IS_FREE_BLK(neighbor));
-
-    neighbor_start = (char*)neighbor;
-
-    if (region->ptr >= neighbor_start) {
-        char *region_start_page;
-
-        region_start_page = region->ptr - SYS_PAGE_SIZE;
-        region_start_page = (char*)((UWord)region_start_page & ~SYS_PAGE_SZ_MASK);
-
-        /* Expand if our first page begins within the previous free block's
-         * unused data. */
-        if (region_start_page >= (neighbor_start + allocator->min_block_size)) {
-            region->size += (region->ptr - region_start_page) - FBLK_FTR_SZ;
-            region->ptr = region_start_page;
-        }
-    } else {
-        char *region_end_page;
-        UWord neighbor_size;
-
-        ASSERT(region->ptr <= neighbor_start);
-
-        region_end_page = region->ptr + region->size + SYS_PAGE_SIZE;
-        region_end_page = (char*)((UWord)region_end_page & ~SYS_PAGE_SZ_MASK);
-
-        neighbor_size = BLK_SZ(neighbor) - FBLK_FTR_SZ;
-
-        /* Expand if our last page ends anywhere within the next free block,
-         * sans the footer we'll inherit. */
-        if (region_end_page < neighbor_start + neighbor_size) {
-            region->size += region_end_page - (region->ptr + region->size);
-        }
-    }
-}
-
-static void ERTS_INLINE
-mem_discard_finish(Allctr_t *allocator, Block_t *block,
-                   ErtsMemDiscardRegion *region)
-{
-#ifdef DEBUG
-    char *block_start, *block_end;
-    UWord block_size;
-
-    block_size = BLK_SZ(block);
-
-    /* Ensure that the region is completely covered by the legal area of the
-     * free block. This must hold even when the region is too small to be
-     * discarded. */
-    if (region->size > 0) {
-        ASSERT(block_size > allocator->min_block_size + FBLK_FTR_SZ);
-
-        block_start = (char*)block + allocator->min_block_size;
-        block_end = (char*)block + block_size - FBLK_FTR_SZ;
-
-        ASSERT(region->size == 0 ||
-            (region->ptr + region->size <= block_end &&
-             region->ptr >= block_start &&
-             region->size <= block_size));
-    }
-#else
-    (void)allocator;
-    (void)block;
-#endif
-
-    if (region->size > SYS_PAGE_SIZE) {
-        UWord align_offset, size;
-        char *ptr;
-
-        align_offset = SYS_PAGE_SIZE - ((UWord)region->ptr & SYS_PAGE_SZ_MASK);
-
-        size = (region->size - align_offset) & ~SYS_PAGE_SZ_MASK;
-        ptr = region->ptr + align_offset;
-
-        if (size > 0) {
-            ASSERT(!((UWord)ptr & SYS_PAGE_SZ_MASK));
-            ASSERT(!(size & SYS_PAGE_SZ_MASK));
-
-            erts_mem_discard(ptr, size);
-        }
-    }
-}
-
-static void
-carrier_mem_discard_free_blocks(Allctr_t *allocator, Carrier_t *carrier)
-{
-    static const int MAX_BLOCKS_TO_DISCARD = 100;
-    Block_t *block;
-    int i;
-
-    block = allocator->first_fblk_in_mbc(allocator, carrier);
-    i = 0;
-
-    while (block != NULL && i < MAX_BLOCKS_TO_DISCARD) {
-        ErtsMemDiscardRegion region;
-
-        ASSERT(IS_FREE_BLK(block));
-
-        mem_discard_start(allocator, block, &region);
-        mem_discard_finish(allocator, block, &region);
-
-        block = allocator->next_fblk_in_mbc(allocator, carrier, block);
-        i++;
-    }
-}
-
 static void
 mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp)
 {
-    ErtsMemDiscardRegion discard_region = {0};
-    int discard;
     Uint is_first_blk;
     Uint is_last_blk;
     Uint blk_sz;
@@ -2700,21 +2544,6 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 
     ASSERT(IS_MBC_BLK(blk));
     ASSERT(blk_sz >= allctr->min_block_size);
-
-#ifndef DEBUG
-    /* We want to mark freed blocks as reclaimable to the OS, but it's a fairly
-     * expensive operation which doesn't do much good if we use it again soon
-     * after, so we limit it to deallocations on pooled carriers. */
-    discard = busy_pcrr_pp && *busy_pcrr_pp;
-#else
-    /* Always discard in debug mode, regardless of whether we're in the pool or
-     * not. */
-    discard = 1;
-#endif
-
-    if (discard) {
-        mem_discard_start(allctr, blk, &discard_region);
-    }
 
     HARD_CHECK_BLK_CARRIER(allctr, blk);
 
@@ -2733,10 +2562,6 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 	blk = PREV_BLK(blk);
 	(*allctr->unlink_free_block)(allctr, blk);
 
-        if (discard) {
-            mem_discard_coalesce(allctr, blk, &discard_region);
-        }
-
 	blk_sz += MBC_FBLK_SZ(blk);
 	is_first_blk = IS_MBC_FIRST_FBLK(allctr, blk);
 	SET_MBC_FBLK_SZ(blk, blk_sz);
@@ -2752,10 +2577,6 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 	if (IS_FREE_BLK(nxt_blk)) {
 	    /* Coalesce with next block... */
 	    (*allctr->unlink_free_block)(allctr, nxt_blk);
-
-            if (discard) {
-                mem_discard_coalesce(allctr, nxt_blk, &discard_region);
-            }
 
 	    blk_sz += MBC_FBLK_SZ(nxt_blk);
 	    SET_MBC_FBLK_SZ(blk, blk_sz);
@@ -2792,10 +2613,6 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
     else {
 	(*allctr->link_free_block)(allctr, blk);
 	HARD_CHECK_BLK_CARRIER(allctr, blk);
-
-        if (discard) {
-            mem_discard_finish(allctr, blk, &discard_region);
-        }
 
         if (busy_pcrr_pp && *busy_pcrr_pp) {
             update_pooled_tree(allctr, crr, blk_sz);
@@ -3079,7 +2896,7 @@ mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
     }
 
     if (cand_blk_sz < get_blk_sz) {
-	/* We wont fit in cand_blk get a new one */
+	/* We won't fit in cand_blk get a new one */
 
 #endif /* !MBC_REALLOC_ALWAYS_MOVES */
 
@@ -3153,7 +2970,7 @@ mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
 	    /*
 	     * Copy user-data then update new blocks in mbc_alloc_finalize().
 	     * mbc_alloc_finalize() may write headers at old location of
-	     * user data; therfore, order is important.
+	     * user data; therefore, order is important.
 	     */
 
 	    new_p = BLK2UMEM(new_blk);
@@ -3941,11 +3758,7 @@ abandon_carrier(Allctr_t *allctr, Carrier_t *crr)
     unlink_carrier(&allctr->mbc_list, crr);
     allctr->remove_mbc(allctr, crr);
 
-    /* Mark our free blocks as unused and reclaimable to the OS. */
-    carrier_mem_discard_free_blocks(allctr, crr);
-
     cpool_insert(allctr, crr);
-
 
     iallctr = erts_atomic_read_nob(&crr->allctr);
     if (allctr == crr->cpool.orig_allctr) {
@@ -5709,13 +5522,11 @@ erts_alcu_info_options(Allctr_t *allctr,
 	ensure_atoms_initialized(allctr);
 
     if (allctr->thread_safe) {
-	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
     }
     res = info_options(allctr, print_to_p, print_to_arg, hpp, szp);
     if (allctr->thread_safe) { 
 	erts_mtx_unlock(&allctr->mutex);
-	erts_allctr_wrapper_pre_unlock();
     }
     return res;
 }
@@ -5748,7 +5559,6 @@ erts_alcu_sz_info(Allctr_t *allctr,
 	ensure_atoms_initialized(allctr);
 
     if (allctr->thread_safe) {
-	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
     }
 
@@ -5786,7 +5596,6 @@ erts_alcu_sz_info(Allctr_t *allctr,
 
     if (allctr->thread_safe) {
 	erts_mtx_unlock(&allctr->mutex);
-	erts_allctr_wrapper_pre_unlock();
     }
 
     return res;
@@ -5819,7 +5628,6 @@ erts_alcu_info(Allctr_t *allctr,
 	ensure_atoms_initialized(allctr);
 
     if (allctr->thread_safe) {
-	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
     }
 
@@ -5874,7 +5682,6 @@ erts_alcu_info(Allctr_t *allctr,
 
     if (allctr->thread_safe) {
 	erts_mtx_unlock(&allctr->mutex);
-	erts_allctr_wrapper_pre_unlock();
     }
 
     return res;
@@ -7682,16 +7489,22 @@ static int gather_ahist_append_result(hist_tree_t *node, void *arg, Sint reds)
 
     ASSERT(state->building_result);
 
-    hp = erts_produce_heap(&state->msg_factory, 7 + state->hist_slot_count, 0);
+    hp = erts_produce_heap(&state->msg_factory,
+                           7 + state->hist_slot_count +
+                           (state->hist_slot_count == 0 ? -1 : 0),
+                           0);
+    if (state->hist_slot_count == 0) {
+        histogram_tuple = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+    } else {
+        hp[0] = make_arityval(state->hist_slot_count);
 
-    hp[0] = make_arityval(state->hist_slot_count);
+        for (ix = 0; ix < state->hist_slot_count; ix++) {
+            hp[1 + ix] = make_small(node->histogram[ix]);
+        }
 
-    for (ix = 0; ix < state->hist_slot_count; ix++) {
-        hp[1 + ix] = make_small(node->histogram[ix]);
+        histogram_tuple = make_tuple(hp);
+        hp += 1 + state->hist_slot_count;
     }
-
-    histogram_tuple = make_tuple(hp);
-    hp += 1 + state->hist_slot_count;
 
     hp[0] = make_arityval(3);
     hp[1] = ATAG_ID(node->tag);
@@ -7959,7 +7772,7 @@ static void gather_cinfo_append_result(gather_cinfo_t *state,
     term_size = 0;
 
     /* Free block histogram. */
-    term_size += 1 + state->hist_slot_count;
+    term_size += (state->hist_slot_count == 0 ? 0 : 1) + state->hist_slot_count;
 
     /* Per-type block list. */
     for (ix = ERTS_ALC_A_MIN; ix <= ERTS_ALC_A_MAX; ix++) {
@@ -8010,13 +7823,16 @@ static void gather_cinfo_append_result(gather_cinfo_t *state,
             hp += 2;
         }
     }
-
-    hp[0] = make_arityval(state->hist_slot_count);
-    for (ix = 0; ix < state->hist_slot_count; ix++) {
-        hp[1 + ix] = make_small(info->free_histogram[ix]);
+    if (state->hist_slot_count == 0) {
+        histogram_tuple = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+    } else {
+        hp[0] = make_arityval(state->hist_slot_count);
+        for (ix = 0; ix < state->hist_slot_count; ix++) {
+            hp[1 + ix] = make_small(info->free_histogram[ix]);
+        }
+        histogram_tuple = make_tuple(hp);
+        hp += 1 + state->hist_slot_count;
     }
-    histogram_tuple = make_tuple(hp);
-    hp += 1 + state->hist_slot_count;
 
     carrier_size = bld_unstable_uint(&hp, NULL, info->carrier_size);
     unscanned_size = bld_unstable_uint(&hp, NULL, info->unscanned_size);

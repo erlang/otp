@@ -23,7 +23,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/edoc-$(EDOC_VSN)
 GEN_SCRIPT = edoc_generate
 PRIV_FILES = stylesheet.css erlang.png edoc.dtd
 
-debug opt:
+$(TYPES):
 
 clean:
 	rm -f core *~

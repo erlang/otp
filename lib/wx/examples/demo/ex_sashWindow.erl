@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ do_init(Config) ->
     Win2 = wxPanel:new(BottomSash, []),
     wxStaticText:new(Win2, ?wxID_ANY, "This is the bottom sash", []),
 
-    %% Make the bottom edge of the top sash dragable
+    %% Make the bottom edge of the top sash draggable
     wxSashWindow:setSashVisible(TopSash, ?wxSASH_BOTTOM, true),
     wxPanel:connect(Panel, sash_dragged),
     wxPanel:connect(Panel, size),

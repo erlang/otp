@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 
 #include "sys.h"
 #include "atom.h"
+#include "beam_types.h"
 
 #define CHECKSUM_SIZE 16
 
@@ -54,10 +55,6 @@ int iff_init(const byte *data, size_t size, IFF_File *iff);
 int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk);
 
 typedef struct {
-    /* The encoding that was used to create this table. This is only used for
-     * version tests. */
-    ErtsAtomEncoding encoding;
-
     Sint32 count;
     Eterm *entries;
 } BeamFile_AtomTable;
@@ -120,7 +117,7 @@ typedef struct {
     Sint32 flags;
 
     Sint32 name_count;
-    Eterm *names;
+    Sint *names;
 
     Sint32 location_size;
     Sint32 item_count;
@@ -141,6 +138,14 @@ typedef struct {
 } BeamFile_LiteralTable;
 
 typedef struct {
+    /* To simplify code that queries types, the first entry (which must be
+     * present) is always the "any type." */
+    Sint32 count;
+    char fallback; /* If this is a fallback type table */
+    BeamType *entries;
+} BeamFile_TypeTable;
+
+typedef struct {
     IFF_File iff;
 
     Eterm module;
@@ -150,8 +155,12 @@ typedef struct {
     BeamFile_AtomTable atoms;
     BeamFile_ImportTable imports;
     BeamFile_ExportTable exports;
+#ifdef BEAMASM
+    BeamFile_ExportTable locals;
+#endif
     BeamFile_LambdaTable lambdas;
     BeamFile_LineTable lines;
+    BeamFile_TypeTable types;
 
     /* Static literals are those defined in the file, and dynamic literals are
      * those created when loading. The former is positively indexed starting
@@ -178,6 +187,7 @@ enum beamfile_read_result {
 
     /* Mandatory chunks */
     BEAMFILE_READ_MISSING_ATOM_TABLE,
+    BEAMFILE_READ_OBSOLETE_ATOM_TABLE,
     BEAMFILE_READ_CORRUPT_ATOM_TABLE,
     BEAMFILE_READ_MISSING_CODE_CHUNK,
     BEAMFILE_READ_CORRUPT_CODE_CHUNK,
@@ -185,17 +195,19 @@ enum beamfile_read_result {
     BEAMFILE_READ_CORRUPT_EXPORT_TABLE,
     BEAMFILE_READ_MISSING_IMPORT_TABLE,
     BEAMFILE_READ_CORRUPT_IMPORT_TABLE,
+    BEAMFILE_READ_CORRUPT_LOCALS_TABLE,
 
     /* Optional chunks */
     BEAMFILE_READ_CORRUPT_LAMBDA_TABLE,
     BEAMFILE_READ_CORRUPT_LINE_TABLE,
-    BEAMFILE_READ_CORRUPT_LITERAL_TABLE
+    BEAMFILE_READ_CORRUPT_LITERAL_TABLE,
+    BEAMFILE_READ_CORRUPT_TYPE_TABLE
 };
 
 typedef struct {
     /* TAG_xyz */
-    int type;
-    BeamInstr val;
+    UWord type;
+    UWord val;
 } BeamOpArg;
 
 typedef struct beamop {
@@ -229,6 +241,8 @@ typedef struct {
  */
 #include "erl_process.h"
 #include "erl_message.h"
+
+void beamfile_init(void);
 
 /** @brief Reads the given module binary into \p beam and validates its
  * structural integrity. */

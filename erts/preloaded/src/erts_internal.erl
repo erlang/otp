@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,6 +115,8 @@
 -export([prepare_loading/2, beamfile_chunk/2, beamfile_module_md5/1]).
 
 -export([no_aux_work_threads/0]).
+
+-export([dynamic_node_name/0, dynamic_node_name/1]).
 
 %%
 %% Await result of send to port
@@ -742,11 +744,10 @@ process_display(_Pid, _Type) ->
 process_flag(_Pid, _Flag, _Value) ->
     erlang:nif_error(undefined).
 
--spec create_dist_channel(Node, DistCtrlr, {Flags, Ver, Cr}) -> Result when
+-spec create_dist_channel(Node, DistCtrlr, {Flags, Cr}) -> Result when
       Node :: atom(),
       DistCtrlr :: port() | pid(),
       Flags :: integer(),
-      Ver :: integer(),
       Cr :: pos_integer(),
       Result :: {'ok', erlang:dist_handle()}
               | {'message', reference()}
@@ -797,7 +798,7 @@ spawn_system_process(_Mod, _Func, _Args) ->
 %%
 
 -spec ets_lookup_binary_info(Tab, Key) -> BinInfo when
-      Tab :: ets:tab(),
+      Tab :: ets:table(),
       Key :: term(),
       BinInfo :: [{non_neg_integer(), non_neg_integer(), non_neg_integer()}].
 
@@ -811,20 +812,20 @@ ets_super_user(_Bool) ->
     erlang:nif_error(undef).
 
 -spec ets_raw_first(Tab) -> term() when
-      Tab :: ets:tab().
+      Tab :: ets:table().
 
 ets_raw_first(_Tab) ->
     erlang:nif_error(undef).
     
 -spec ets_raw_next(Tab, Key) -> term() when
-      Tab :: ets:tab(),
+      Tab :: ets:table(),
       Key :: term().
 
 ets_raw_next(_Tab, _Key) ->
     erlang:nif_error(undef).
 
 -spec ets_info_binary(Tab) -> BinInfo when
-      Tab :: ets:tab(),
+      Tab :: ets:table(),
       BinInfo :: [{non_neg_integer(), non_neg_integer(), non_neg_integer()}].
 
 ets_info_binary(Tab) ->
@@ -979,3 +980,27 @@ beamfile_module_md5(_Bin) ->
 
 no_aux_work_threads() ->
     erlang:nif_error(undefined).
+
+%%
+%% Is dynamic node name enabled?
+%%
+-spec dynamic_node_name() -> boolean().
+
+dynamic_node_name() ->
+    case persistent_term:get({?MODULE, dynamic_node_name}, false) of
+        false -> false;
+        _ -> true
+    end.
+
+%%
+%% Save whether dynamic node name is enabled or not.
+%%
+-spec dynamic_node_name(boolean()) -> ok.
+
+dynamic_node_name(true) ->
+    persistent_term:put({?MODULE, dynamic_node_name}, true);
+dynamic_node_name(false) ->
+    case dynamic_node_name() of
+        false -> ok;
+        _ -> _ = persistent_term:erase({?MODULE, dynamic_node_name}), ok
+    end.

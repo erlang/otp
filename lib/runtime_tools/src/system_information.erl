@@ -387,7 +387,6 @@ os_getenv_erts_specific() ->
     os_getenv_erts_specific([
 	    "BINDIR",
 	    "DIALYZER_EMULATOR",
-	    "CERL_DETACHED_PROG",
 	    "EMU",
 	    "ERL_CONSOLE_MODE",
 	    "ERL_CRASH_DUMP",
@@ -849,7 +848,7 @@ get_apps([Path|Paths], Apps) ->
 	[AppFile] ->
 	    get_apps(Paths, [app_file_to_app(AppFile) | Apps]);
 	[_AppFile| _] = AppFiles ->
-	    %% Strange with multple .app files... Lets put them
+	    %% Strange with multiple .app files... Lets put them
 	    %% all in the list and see what we get...
 	    lists:map(fun (AF) ->
 			      app_file_to_app(AF)

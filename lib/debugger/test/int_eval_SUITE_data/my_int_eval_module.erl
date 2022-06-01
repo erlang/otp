@@ -118,7 +118,7 @@ external_call_test(Data) ->
     {yes,Data} = i_am_exported(Data),
     {yes,Data} = ?MODULE:i_am_exported(Data),
 
-    %% Excercise the function cache in the interpreter.
+    %% Exercise the function cache in the interpreter.
 
     {ok,Data,[a,b]} = not_exported(Data, [a,b]),
     {yes,Data} = i_am_exported(Data),

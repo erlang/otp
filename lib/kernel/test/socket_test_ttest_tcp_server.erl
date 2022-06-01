@@ -25,7 +25,7 @@
 %%
 %% There are three ways to run the server: active, passive or active-once.
 %%
-%% The server does only two things; accept connnections and then reply
+%% The server does only two things; accept connections and then reply
 %% to requests (actually the handler(s) does that). No timing or counting.
 %% That is all done by the clients.
 %%
@@ -415,7 +415,7 @@ handler_recv_message(#{mod        := Mod,
 %% When "active" (once or true), we receive one data "message", which may 
 %% contain any number of requests or only part of a request. Then we 
 %% process this data together with whatever we had "accumulated" from 
-%% prevous messages. Each request will be extracted and replied to. If
+%% previous messages. Each request will be extracted and replied to. If
 %% there is some data left, not enough for a complete request, we store
 %% this in 'acc' (accumulate it).
 handler_recv_message(#{mod        := Mod,

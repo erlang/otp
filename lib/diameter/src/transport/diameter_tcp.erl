@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@
 -export([listener/1,%% diameter_sync callback
          info/1]).  %% service_info callback
 
+%% test
 -export([ports/0,
          ports/1]).
 
@@ -450,16 +451,20 @@ sock(_, Sock) ->
 resolve(Type, S) ->
     Sock = sock(Type, S),
     try
-        ok(portnr(Sock))
+        {ok, T} = portnr(Sock),
+        T
     catch
         _:_ -> Sock
     end.
 
-portnr(Sock)
-  when is_port(Sock) ->
-    portnr(gen_tcp, Sock);
+%% Assume either ssl or gen_tcp. In particular, this can't deal with a
+%% transport module that called start/3 with an own module option.
 portnr(Sock) ->
-    portnr(ssl, Sock).
+    try
+        {ok, _} = portnr(ssl, Sock)
+    catch
+        _:_ -> portnr(gen_tcp, Sock)
+    end.
 
 %% ---------------------------------------------------------------------------
 %% # handle_call/3
@@ -615,7 +620,7 @@ transition({P, Sock, Bin}, #transport{socket = Sock,
        P == tcp ->
     recv(acc(Frag, Bin), S);
 
-%% Capabilties exchange has decided on whether or not to run over TLS.
+%% Capabilities exchange has decided on whether or not to run over TLS.
 transition({diameter, {tls, Ref, Type, B}}, #transport{parent = Pid}
                                             = S) ->
     true = is_boolean(B),  %% assert

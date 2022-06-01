@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@ expects_h(7, Atom) ->
     ok.
 
 %% When compiled with +no_copt, beam_validator would complain about
-%% ambigous try/catch state.
+%% ambiguous try/catch state.
 ambiguous_catch_try_state_1(<<42:false>>) ->
     %% The beam_ssa_bsm pass will duplicate the entire second clause.
     %% beam_jump will share the blocks with the build_stacktrace
@@ -232,7 +232,8 @@ ambiguous_catch_try_state_3() ->
 -record(message3, {id, p1, p2}).
 
 build_tuple(_Config) ->
-    {'EXIT',{{badrecord,message3},_}} = (catch do_build_tuple(#message2{})),
+    Message2 = #message2{},
+    {'EXIT',{{badrecord,Message2},_}} = (catch do_build_tuple(#message2{})),
     ok.
 
 do_build_tuple(Message) ->
@@ -319,7 +320,7 @@ cs_2(I) -> I.
 
 undecided_allocation(_Config) ->
     ok = catch undecided_allocation_1(<<10:(3*7)>>),
-    {'EXIT',{{badrecord,rec},_}} = catch undecided_allocation_1(8),
+    {'EXIT',{{badrecord,<<0>>},_}} = catch undecided_allocation_1(8),
     ok.
 
 -record(rec, {}).

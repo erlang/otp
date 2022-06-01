@@ -301,7 +301,7 @@ been known for decades.) So....
 
 There is a fudge, triggered by defining NO_RECURSE, which avoids recursive
 calls by keeping local variables that need to be preserved in blocks of memory
-obtained from malloc() instead instead of on the stack. Macros are used to
+obtained from malloc() instead of on the stack. Macros are used to
 achieve this so that the actual code doesn't look very different to what it
 always used to.
 
@@ -626,7 +626,7 @@ frame->Xoffset_top = offset_top;
 frame->Xeptrb = eptrb;
 frame->Xrdepth = rdepth;
 
-/* This is where control jumps back to to effect "recursion" */
+/* This is where control jumps back to effect "recursion" */
 
 HEAP_RECURSE:
 
@@ -3213,7 +3213,7 @@ for (;;)
 
 
     /* Match an extended character class. In the 8-bit library, this opcode is
-    encountered only when UTF-8 mode mode is supported. In the 16-bit and
+    encountered only when UTF-8 mode is supported. In the 16-bit and
     32-bit libraries, codepoints greater than 255 may be encountered even when
     UTF is not supported. */
 
@@ -7023,7 +7023,7 @@ if (extra_data != NULL)
     {
         md->loop_limit = extra_data->loop_limit;
         if (extra_data->restart_data)
-          md->loop_limit -= extra_data->loop_limit - exec_context->valid_utf_ystate.cnt;
+            md->loop_limit -= exec_context->valid_utf_ystate.cnt;
         if (md->loop_limit < 10)
             md->loop_limit = 10; /* At least do something if we've come this far... */
     }
@@ -7371,7 +7371,7 @@ for(;;)
       break;
       }
 
-    /* If req_char is set, we know that that character must appear in the
+    /* If req_char is set, we know that character must appear in the
     subject for the match to succeed. If the first character is set, req_char
     must be later in the subject; otherwise the test starts at the match point.
     This optimization can save a huge amount of backtracking in patterns with

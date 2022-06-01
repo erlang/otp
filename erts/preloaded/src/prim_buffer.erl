@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,9 @@
 -export([find_byte_index/2]).
 
 -export([try_lock/1, unlock/1]).
+
+-nifs([new/0, size/1, peek_head/1, copying_read/2, write/2, skip/2,
+       find_byte_index/2, try_lock/1, unlock/1]).
 
 -type prim_buffer() :: term().
 
@@ -106,7 +109,7 @@ skip(_Buffer, _Size) ->
 wipe(Buffer) ->
     skip(Buffer, prim_buffer:size(Buffer)).
 
-%% Finds the start-index of the first occurence of Needle, for implementing
+%% Finds the start-index of the first occurrence of Needle, for implementing
 %% read_line and similar.
 -spec find_byte_index(Buffer, Needle) -> Result when
       Buffer :: prim_buffer(),

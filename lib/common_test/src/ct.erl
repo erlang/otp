@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -296,6 +296,8 @@ capture_get([ExclCat | ExclCategories]) ->
 capture_get([]) ->
     test_server:capture_get().
 
+-spec fail(term()) -> no_return().
+
 fail(Reason) ->
     try
 	exit({test_case_failed,Reason})
@@ -307,6 +309,8 @@ fail(Reason) ->
 	    end,
 	    erlang:raise(Class, R, Stk)
     end.
+
+-spec fail(io:format(), [term()]) -> no_return().
 
 fail(Format, Args) ->
     try io_lib:format(Format, Args) of

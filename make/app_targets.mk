@@ -23,7 +23,8 @@ APPLICATION ?= $(basename $(notdir $(PWD)))
 .PHONY: test info gclean dialyzer dialyzer_plt dclean
 
 test:
-	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
+	TEST_NEEDS_RELEASE=$(TEST_NEEDS_RELEASE) TYPE=$(TYPE) \
+	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
 
 info:
 	@echo "$(APPLICATION)_VSN:   $(VSN)"

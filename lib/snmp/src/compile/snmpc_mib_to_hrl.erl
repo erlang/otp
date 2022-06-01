@@ -33,7 +33,7 @@
 %% Args: MibName = string() without extension.
 %% Purpose: Produce a .hrl file with oid for tables and variables,
 %%          column numbers for columns and values for enums.
-%%          Writes only the first occurence of a name.  Prints a
+%%          Writes only the first occurrence of a name.  Prints a
 %%          warning if a duplicate name is found.
 %% Returns: ok | {error, Reason}
 %% Note: The Mib must be compiled.

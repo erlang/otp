@@ -23,10 +23,12 @@
 
 -export([new/0,opcode/2,highest_opcode/1,
 	 atom/2,local/4,export/4,import/4,
-	 string/2,lambda/3,literal/2,line/2,fname/2,
-	 atom_table/2,local_table/1,export_table/1,import_table/1,
+	 string/2,lambda/3,literal/2,line/2,fname/2,type/2,
+	 atom_table/1,local_table/1,export_table/1,import_table/1,
 	 string_table/1,lambda_table/1,literal_table/1,
-	 line_table/1]).
+	 line_table/1,type_table/1]).
+
+-include("beam_types.hrl").
 
 -type label() :: beam_asm:label().
 
@@ -37,28 +39,31 @@
 -type fname_tab()  :: #{Name :: term() => index()}.
 -type line_tab()   :: #{{Fname :: index(), Line :: term()} => index()}.
 -type literal_tab() :: #{Literal :: term() => index()}.
+-type type_tab() :: #{ Type :: binary() => index()}.
 
 -type lambda_info() :: {label(),{index(),label(),non_neg_integer()}}.
 -type lambda_tab() :: {non_neg_integer(),[lambda_info()]}.
 -type wrapper() :: #{label() => index()}.
 
 -record(asm,
-	{atoms = #{}                :: atom_tab(),
-	 exports = []		    :: [{label(), arity(), label()}],
-	 locals = []		    :: [{label(), arity(), label()}],
-	 imports = gb_trees:empty() :: import_tab(),
-	 strings = <<>>		    :: binary(),	%String pool
-	 lambdas = {0,[]}           :: lambda_tab(),
+        {atoms = #{}                :: atom_tab(),
+         exports = []               :: [{label(), arity(), label()}],
+         locals = []                :: [{label(), arity(), label()}],
+         imports = gb_trees:empty() :: import_tab(),
+         strings = <<>>             :: binary(),    %String pool
+         lambdas = {0,[]}           :: lambda_tab(),
+         types = #{}                :: type_tab(),
          wrappers = #{}             :: wrapper(),
-	 literals = #{}	            :: literal_tab(),
-	 fnames = #{}               :: fname_tab(),
-	 lines = #{}                :: line_tab(),
-	 num_lines = 0		    :: non_neg_integer(), %Number of line instructions
-	 next_import = 0	    :: non_neg_integer(),
-	 string_offset = 0	    :: non_neg_integer(),
-	 next_literal = 0	    :: non_neg_integer(),
-	 highest_opcode = 0	    :: non_neg_integer()
-	}).
+         literals = #{}	            :: literal_tab(),
+         fnames = #{}               :: fname_tab(),
+         lines = #{}                :: line_tab(),
+         num_lines = 0              :: non_neg_integer(), %Number of line instructions
+         next_import = 0            :: non_neg_integer(),
+         string_offset = 0          :: non_neg_integer(),
+         next_literal = 0           :: non_neg_integer(),
+         highest_opcode = 0         :: non_neg_integer()
+        }).
+
 -type bdict() :: #asm{}.
 
 %%-----------------------------------------------------------------------------
@@ -225,28 +230,41 @@ fname(Name, #asm{fnames=Fnames}=Dict) ->
 	    {Index,Dict#asm{fnames=Fnames#{Name=>Index}}}
     end.
 
+-spec type(type(), bdict()) -> {non_neg_integer(), bdict()} | none.
+
+type(Type, #asm{types=Types0}=Dict) ->
+    ExtType = beam_types:encode_ext(Type),
+    case Types0 of
+        #{ ExtType := Index } ->
+            {Index, Dict};
+        #{} ->
+            Index = map_size(Types0),
+            Types = Types0#{ ExtType => Index },
+            {Index, Dict#asm{types=Types}}
+    end.
+
 %% Returns the atom table.
 %%    atom_table(Dict, Encoding) -> {LastIndex,[Length,AtomString...]}
--spec atom_table(bdict(), latin1 | utf8) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
+-spec atom_table(bdict()) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
 
-atom_table(#asm{atoms=Atoms}, Encoding) ->
+atom_table(#asm{atoms=Atoms}) ->
     NumAtoms = maps:size(Atoms),
     Sorted = lists:keysort(2, maps:to_list(Atoms)),
     {NumAtoms,[begin
-                   L = atom_to_binary(A, Encoding),
+                   L = atom_to_binary(A, utf8),
                    [byte_size(L),L]
                end || {A,_} <- Sorted]}.
 
 %% Returns the table of local functions.
 %%    local_table(Dict) -> {NumLocals, [{Function, Arity, Label}...]}
--spec local_table(bdict()) -> {non_neg_integer(), [{label(),arity(),label()}]}.
+-spec local_table(bdict()) -> {non_neg_integer(), [{index(),arity(),label()}]}.
 
 local_table(#asm{locals = Locals}) ->
     {length(Locals),Locals}.
 
 %% Returns the export table.
 %%    export_table(Dict) -> {NumExports, [{Function, Arity, Label}...]}
--spec export_table(bdict()) -> {non_neg_integer(), [{label(),arity(),label()}]}.
+-spec export_table(bdict()) -> {non_neg_integer(), [{index(),arity(),label()}]}.
 
 export_table(#asm{exports = Exports}) ->
     {length(Exports),Exports}.
@@ -267,15 +285,17 @@ string_table(#asm{strings=Strings,string_offset=Size}) ->
 
 -spec lambda_table(bdict()) -> {non_neg_integer(), [<<_:192>>]}.
 
-lambda_table(#asm{locals=Loc0,lambdas={NumLambdas,Lambdas0}}) ->
+lambda_table(#asm{locals=Loc0,exports=Ext0,lambdas={NumLambdas,Lambdas0}}) ->
     Lambdas1 = sofs:relation(Lambdas0),
     Loc = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Loc0]),
-    Lambdas2 = sofs:relative_product1(Lambdas1, Loc),
+    Ext = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Ext0]),
+    All = sofs:union(Loc, Ext),
+    Lambdas2 = sofs:relative_product1(Lambdas1, All),
     %% Initialize OldUniq to 0. It will be set to an unique value
     %% based on the MD5 checksum of the BEAM code for the module.
     OldUniq = 0,
     Lambdas = [<<F:32,A:32,Lbl:32,Index:32,NumFree:32,OldUniq:32>> ||
-		  {{Index,Lbl,NumFree},{F,A}} <- sofs:to_external(Lambdas2)],
+                  {{Index,Lbl,NumFree},{F,A}} <- sofs:to_external(Lambdas2)],
     {NumLambdas,Lambdas}.
 
 %% Returns the literal table.
@@ -300,6 +320,18 @@ my_term_to_binary(Term) ->
     %% after the release of OTP 22, the default minor version was 1.)
 
     term_to_binary(Term, [{minor_version,2},deterministic]).
+
+%% Returns the type table.
+-spec type_table(bdict()) -> {non_neg_integer(), binary()}.
+
+type_table(#asm{types=Types}) ->
+    Sorted = lists:keysort(2, maps:to_list(Types)),
+    {map_size(Types), build_type_table(Sorted, <<>>)}.
+
+build_type_table([{ExtType, _} | Sorted], Acc) ->
+    build_type_table(Sorted, <<Acc/binary, ExtType/binary>>);
+build_type_table([], Acc) ->
+    Acc.
 
 %% Return the line table.
 -spec line_table(bdict()) ->

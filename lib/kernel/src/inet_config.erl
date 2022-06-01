@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -213,7 +213,7 @@ add_dns_lookup([],Acc) ->
 %%
 %% Set the hostname (SHORT)
 %% If hostname is long use the suffix as default domain
-%% and initalize the search option with the parts of domain
+%% and initialize the search option with the parts of domain
 %%
 set_hostname() ->
     case inet_udp:open(0,[]) of

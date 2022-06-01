@@ -1,4 +1,5 @@
-FROM docker.pkg.github.com/erlang/otp/i386-debian-base
+ARG BASE=docker.pkg.github.com/erlang/otp/i386-debian-base
+FROM $BASE
 
 ARG MAKEFLAGS=-j4
 ENV MAKEFLAGS=$MAKEFLAGS \
@@ -16,14 +17,8 @@ ENV CFLAGS="-O2 -g -Werror"
 
 ## Configure, check that no application are disabled, then make and then build doc chunks
 RUN ./configure --with-ssl --prefix=/otp && \
-        if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi
-
-RUN make && make install && \
-        make install-docs DOC_TARGETS=chunks
+        if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
+    make && make install
 
 ## Disable -Werror as testcases do not compile with it on
 ENV CFLAGS="-O2 -g"
-
-RUN TESTSUITE_ROOT=/tests ./otp_build tests
-
-ENTRYPOINT ["bash","-c"]

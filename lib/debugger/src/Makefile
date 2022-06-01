@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ ERL_COMPILE_FLAGS += -Werror
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) $(TARGET_TOOLBOX_FILES)
+$(TYPES): $(TARGET_FILES) $(TARGET_TOOLBOX_FILES)
 
 clean:
 	rm -f $(TARGET_FILES) $(TARGET_TOOLBOX_FILES)

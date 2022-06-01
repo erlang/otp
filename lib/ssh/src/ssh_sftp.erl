@@ -78,7 +78,7 @@
 	  mode,			 % read | write  (=from or to buffer by user)
 	  crypto_state,
 	  crypto_fun,            % For encode or decode depending on the mode field
-	  size = 0,		 % # bytes "before" the current buffer for the postion call
+	  size = 0,		 % # bytes "before" the current buffer for the position call
 
 	  chunksize,		 % The size of the chunks to be sent or received
 	  enc_text_buf = <<>>,	 % Encrypted text
@@ -1224,7 +1224,7 @@ terminate(_Reason, State) ->
 %% Internal functions
 %%====================================================================
 legacy_timeout(UserOptions) ->
-    %% Make both connect_timeout and timeout defined if exaclty one of them is defined:
+    %% Make both connect_timeout and timeout defined if exactly one of them is defined:
     case {proplists:get_value(connect_timeout, UserOptions),
           proplists:get_value(timeout, UserOptions)} of
         {undefined, undefined} ->
@@ -1582,7 +1582,7 @@ erase_handle(Handle, State) ->
     State#state{inf = FI}.
 
 %%
-%% Caluclate a integer offset
+%% Calculate a integer offset
 %%
 lseek_position(Handle, Pos, State) ->
     case maps:find(Handle, State#state.inf) of
@@ -1719,7 +1719,7 @@ do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
 			   chunksize = undefined
 			  })
   when size(EncBuf0) > 0 ->
-    %% We have (at least) one decodable byte waiting for decodeing.
+    %% We have (at least) one decodable byte waiting for decoding.
     {ok,DecodedBin,B} = apply_crypto(EncBuf0, B0),
     do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
 		    B#bufinf{plain_text_buf = <<PlainBuf0/binary, DecodedBin/binary>>,
@@ -1732,7 +1732,7 @@ do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
 			   chunksize = ChunkSize0
 			  })
   when size(EncBuf0) >= ChunkSize0 ->
-    %% We have (at least) one chunk of decodable bytes waiting for decodeing.
+    %% We have (at least) one chunk of decodable bytes waiting for decoding.
     <<ToDecode:ChunkSize0/binary, EncBuf/binary>> = EncBuf0,
     {ok,DecodedBin,B} = apply_crypto(ToDecode, B0),
     do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,

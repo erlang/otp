@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2016</year>
+      <year>2006</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -91,7 +91,7 @@
           <p>Own Id: OTP-4594</p>
         </item>
         <item>
-          <p>Improvments for support of Emacs 21 contributed by Dave
+          <p>Improvements for support of Emacs 21 contributed by Dave
             Love. The bulk of the changes are actually cosmetic
             commentary/doc fixes. The significant ones make it play
             better with Emacs 21 with up-to-date facilities. In

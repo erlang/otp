@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -162,7 +162,7 @@ run_options(Config) when is_list(Config) ->
     {match,["ABCabcdABC","abcd"]} = re:run("ABCabcdABC",MP,[{capture,all,list}]),
     {match,[<<"ABCabcdABC">>,<<"abcd">>]} = re:run("ABCabcdABC",MP,[{capture,all,binary}]),
     {match,[{0,10}]} = re:run("ABCabcdABC",MP,[{capture,first}]),
-    {match,[{0,10}]} = re:run("ABCabcdABC",MP,[{capture,first,index}]),       ?line {match,["ABCabcdABC"]} = re:run("ABCabcdABC",MP,[{capture,first,list}]),
+    {match,[{0,10}]} = re:run("ABCabcdABC",MP,[{capture,first,index}]),       {match,["ABCabcdABC"]} = re:run("ABCabcdABC",MP,[{capture,first,list}]),
     {match,[<<"ABCabcdABC">>]} = re:run("ABCabcdABC",MP,[{capture,first,binary}]),
 
     {match,[{3,4}]} = re:run("ABCabcdABC",MP,[{capture,all_but_first}]),

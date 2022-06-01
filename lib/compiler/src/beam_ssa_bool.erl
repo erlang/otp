@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -938,7 +938,7 @@ opt_digraph_instr(#b_set{dst=Dst}=I, G0, St) ->
             %% 'xor' is almost never used in practice.
             not_possible();
         #b_set{op={bif,'not'}} ->
-            %% This is suprisingly rare. The previous attempt to
+            %% This is surprisingly rare. The previous attempt to
             %% optimize it was broken, which wasn't noticed because
             %% very few test cases triggered this code.
             not_possible();
@@ -1030,7 +1030,7 @@ eaten_by_phi(V, G) ->
 %% order_args([Arg1,Arg2], G, St) -> {First,Second}.
 %%  Order arguments for a boolean operator so that there is path in the
 %%  digraph from the instruction referered to by the first operand to
-%%  the instruction refered to by the second operand.
+%%  the instruction referred to by the second operand.
 
 order_args([#b_var{}=VarA,#b_var{}=VarB], G, St) ->
     {VA,VB} = {get_vertex(VarA, St),get_vertex(VarB, St)},
@@ -1455,7 +1455,7 @@ ensure_init_used_1([], _G, Acc) ->
 
 do_ensure_init_instr(#b_set{op=phi,args=Args},
                      _VarMap, InitMaps) ->
-    _ = [ensure_init_used(Var, map_get(From, InitMaps)) ||
+    _ = [ensure_init_used(Var, maps:get(From, InitMaps, #{})) ||
             {#b_var{}=Var,From} <- Args],
     ok;
 do_ensure_init_instr(#b_set{}=I, VarMap, _InitMaps) ->

@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2006-2020. All Rights Reserved.
+# Copyright Ericsson AB 2006-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,8 +40,8 @@ all: $(if $(FLAVOR),$(FLAVOR),$(PRIMARY_FLAVOR))
 docs:
 	$(V_at)( cd doc/src && $(MAKE) $@ )
 
-.PHONY: debug opt lcnt clean
-debug opt lcnt clean:
+.PHONY: debug opt lcnt clean test
+$(TYPES) clean:
 	$(V_at)for d in emulator $(ERTSDIRS); do \
 		if test -d $$d; then \
 			( cd $$d && $(MAKE) $@ ) || exit $$?; \
@@ -49,9 +49,15 @@ debug opt lcnt clean:
 	done
 	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
 
+
+.PHONY: test
+test:
+	TEST_NEEDS_RELEASE=true TYPE=$(TYPE) \
+	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
+
 .PHONY: $(FLAVORS)
 $(FLAVORS):
-	$(V_at)for type in $(TYPES); do \
+	$(V_at)for type in $(DEFAULT_TYPES); do \
 		( $(MAKE) FLAVOR=$@ $$type ) || exit $$?; \
 	done
 
@@ -90,10 +96,13 @@ local_setup:
 	sed	-e "s;%FINAL_ROOTDIR%;$(ERL_TOP);"   \
 		-e "s;erts-.*/bin;bin/$(TARGET);"    \
 		-e "s;EMU=.*;EMU=beam$(TYPEMARKER);" \
+		-e "s;%DYN_ERL_PATH%;$(TARGET)/dyn_erl;" \
+		-e "s;%DYN_ROOTDIR_BASE_EXT%;;" \
 	        $(ERL_TOP)/erts/etc/unix/erl.src.src > $(ERL_TOP)/bin/erl; \
 	sed	-e "s;%SRC_ROOTDIR%;$(ERL_TOP);"   \
 		-e "s;%TARGET%;$(TARGET);"    \
 		-e "s;%VSN%;$(VSN);"    \
+		-e "s;%DYN_ERL_PATH%;$(TARGET)/dyn_erl;" \
 	        $(ERL_TOP)/erts/etc/unix/cerl.src > $(ERL_TOP)/bin/cerl; \
 		cp $(ERL_TOP)/bin/$(TARGET)/erl_call $(ERL_TOP)/bin/erl_call; \
 		cp $(ERL_TOP)/bin/$(TARGET)/dialyzer $(ERL_TOP)/bin/dialyzer; \
@@ -141,7 +150,7 @@ makefiles:
 .PHONY: release
 release:
 ifeq ($(TYPE),)
-	for t in $(TYPES); do \
+	for t in $(DEFAULT_TYPES); do \
 	  ( cd emulator && $(MAKE) release TYPE=$$t ) || exit $$?; \
 	done
 else
@@ -164,5 +173,3 @@ release_docs:
 .PHONY: xmllint
 xmllint:
 	$(MAKE) -C doc/src $@
-
-include $(ERL_TOP)/make/app_targets.mk

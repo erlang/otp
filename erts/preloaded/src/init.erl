@@ -591,7 +591,7 @@ set_flag(_Flag,false,Flags) ->
     {ok,Flags};
 set_flag(Flag,Value,Flags) when is_list(Value) ->
     %% The flag here can be -boot or -config, which means the value is
-    %% a file name! Thus the file name encoding is used when coverting.
+    %% a file name! Thus the file name encoding is used when converting.
     Encoding = file:native_name_encoding(),
     case catch unicode:characters_to_binary(Value,Encoding,Encoding) of
 	{'EXIT',_} ->
@@ -889,6 +889,7 @@ do_boot(Flags,Start) ->
 do_boot(Init,Flags,Start) ->
     process_flag(trap_exit,true),
     Root = get_root(Flags),
+    true = check_bindir(Flags),
     Path = get_flag_list(path, Flags, false),
     {Pa,Pz} = PathFls = path_flags(Flags),
     start_prim_loader(Init, bs2ss(Path), PathFls),
@@ -921,6 +922,14 @@ get_root(Flags) ->
 	    Root;
 	_ ->
 	    exit(no_or_multiple_root_variables)
+    end.
+
+check_bindir(Flags) ->
+    case get_argument(bindir, Flags) of
+	{ok,[[_Bindir]]} ->
+	    true;
+	_ ->
+	    exit(no_or_multiple_bindir_variables)
     end.
 
 get_boot_vars(Root, Flags) ->
@@ -1551,6 +1560,8 @@ collect_mfas([MFA|MFAs],Info) ->
         {call_time, []} ->
             collect_mfas(MFAs,Info);
         {call_time, false} ->
+            collect_mfas(MFAs,Info);
+        {call_time, undefined} ->
             collect_mfas(MFAs,Info);
         {call_time, Data} ->
             case collect_mfa(MFA,Data,0,0) of

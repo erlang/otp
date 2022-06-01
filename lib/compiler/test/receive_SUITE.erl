@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -190,6 +190,10 @@ coverage(Config) when is_list(Config) ->
     self() ! whatever,
     {'EXIT',{{badmatch,_},_}} = (catch [a || other = receive whatever -> false end]),
 
+    %% Cover code in beam_ssa_pre_codegen.
+    self() ! 0,
+    42 = receive_in_try_and_after(),
+
     ok.
 
 receive_in_called_function() ->
@@ -354,6 +358,22 @@ commit_participant(Coord, Tid) ->
             ok
     end,
     ok.
+
+receive_in_try_and_after() ->
+    try
+        id(42)
+    catch
+        _:V0 when true#{}; whatever ->
+            receive
+                _ when 1; V0 ->
+                    1
+            end
+    after
+        receive
+            0 ->
+                car
+        end
+    end.
 
 %% OTP-7980. Thanks to Vincent de Phily. The following code would
 %% be inccorrectly optimized by beam_jump.
@@ -527,7 +547,7 @@ recv_in_try_1(Timeout, Format) ->
                 %% {test,test_arity,{f,148},[{x,0},2]}.
                 %% {get_tuple_element,{x,0},0,{y,1}}.  %y1 is fragile.
                 %%
-                %% %% Here the fragility of y1 would be be progated to
+                %% %% Here the fragility of y1 would be be propagated to
                 %% %% the 'catch' below. Incorrect, since get_tuple_element
                 %% %% can't fail.
                 %% {get_tuple_element,{x,0},1,{x,2}}.
@@ -859,6 +879,9 @@ type_optimized_markers(_Config) ->
     self() ! Ref,
     gaffel = tom_2(Ref),
 
+    self() ! {inet_reply, self(), all_well},
+    all_well = tom_3(self(), undefined, 1),
+
     ok.
 
 tom_1(Ref) ->
@@ -895,6 +918,21 @@ tom_2(Ref) ->
             end;
         Ref ->
             gaffel
+    end.
+
+tom_3(S, Mref, ReplyTimeout) ->
+    receive
+        {inet_reply, S, Status} ->
+            case Mref of
+                undefined ->
+                    ok;
+                _ ->
+                    demonitor(Mref, [flush])
+            end,
+            Status
+    after
+        ReplyTimeout ->
+            tom_3(S, monitor(process, S), ReplyTimeout)
     end.
 
 %%%

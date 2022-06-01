@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,9 @@
          start_opt/1,
          undef_init/1, undef_handle_call/1, undef_handle_event/1,
          undef_handle_info/1, undef_code_change/1, undef_terminate/1,
-         undef_in_terminate/1, format_log_1/1, format_log_2/1]).
+         undef_in_terminate/1, format_log_1/1, format_log_2/1,
+         send_request_receive_reqid_collection/1, send_request_wait_reqid_collection/1,
+         send_request_check_reqid_collection/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -41,7 +43,9 @@ all() ->
      call_format_status, call_format_status_anon, error_format_status,
      get_state, replace_state,
      start_opt, {group, undef_callbacks}, undef_in_terminate,
-     format_log_1, format_log_2].
+     format_log_1, format_log_2,
+     send_request_receive_reqid_collection, send_request_wait_reqid_collection,
+     send_request_check_reqid_collection].
 
 groups() ->
     [{test_all, [],
@@ -974,7 +978,7 @@ call(Config) when is_list(Config) ->
     ok.
 
 flush() ->
-    receive _ -> flush() after 0 -> ok end.
+    receive M -> [M|flush()] after 0 -> [] end.
 
 info(Config) when is_list(Config) ->
     {ok,_} = gen_event:start({local, my_dummy_handler}),
@@ -1100,22 +1104,25 @@ info(Config) when is_list(Config) ->
     ok = gen_event:stop(my_dummy_handler),
     ok.
 
-%% Test that sys:get_status/1,2 calls format_status/2.
+%% Test that sys:get_status/1,2 calls format_status/1,2.
 call_format_status(Config) when is_list(Config) ->
+    call_format_status(dummy1_h),
+    call_format_status(dummy_h);
+call_format_status(Module) when is_atom(Module) ->
     {ok, Pid} = gen_event:start({local, my_dummy_handler}),
     %% State here intentionally differs from what we expect from format_status
     State = self(),
     FmtState = "dummy1_h handler state",
-    ok = gen_event:add_handler(my_dummy_handler, dummy1_h, [State]),
+    ok = gen_event:add_handler(my_dummy_handler, Module, [State]),
     Status1 = sys:get_status(Pid),
     Status2 = sys:get_status(Pid, 5000),
     ok = gen_event:stop(Pid),
     {status, Pid, _, [_, _, Pid, [], Data1]} = Status1,
     HandlerInfo1 = proplists:get_value(items, Data1),
-    {"Installed handlers", [{_,dummy1_h,_,FmtState,_}]} = HandlerInfo1,
+    {"Installed handlers", [{_,Module,_,FmtState,_}]} = HandlerInfo1,
     {status, Pid, _, [_, _, Pid, [], Data2]} = Status2,
     HandlerInfo2 = proplists:get_value(items, Data2),
-    {"Installed handlers", [{_,dummy1_h,_,FmtState,_}]} = HandlerInfo2,
+    {"Installed handlers", [{_,Module,_,FmtState,_}]} = HandlerInfo2,
     ok.
 
 %% Test that sys:get_status/1,2 calls format_status/2 for anonymous
@@ -1136,28 +1143,38 @@ call_format_status_anon(Config) when is_list(Config) ->
 error_format_status(Config) when is_list(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
+    try
+        error_format_status(dummy1_h),
+        error_format_status(dummy_h)
+    after
+            process_flag(trap_exit, OldFl),
+            error_logger_forwarder:unregister()
+    end;
+error_format_status(Module) when is_atom(Module) ->
     State = self(),
     {ok, Pid} = gen_event:start({local, my_dummy_handler}),
-    ok = gen_event:add_sup_handler(my_dummy_handler, dummy1_h, [State]),
+    ok = gen_event:add_sup_handler(my_dummy_handler, Module, [State]),
     ok = gen_event:notify(my_dummy_handler, do_crash),
     receive
-	{gen_event_EXIT,dummy1_h,{'EXIT',_}} -> ok
+	{gen_event_EXIT,Module,{'EXIT',_}} -> ok
     after 5000 ->
-	    ct:fail(exit_gen_event)
+	    ct:fail({exit_gen_event,flush()})
     end,
     FmtState = "dummy1_h handler state",
     receive
 	{error,_GroupLeader, {Pid,
 			      "** gen_event handler"++_,
-			      [dummy1_h,my_dummy_handler,do_crash,
+			      [Module,my_dummy_handler,do_crash,
 			       FmtState, _]}} ->
 	    ok;
 	Other ->
-	    io:format("Unexpected: ~p", [Other]),
+	    ct:pal("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
+    after 5000 ->
+	    ct:fail({exit_gen_event,flush()})
     end,
+    unlink(Pid),
     ok = gen_event:stop(Pid),
-    process_flag(trap_exit, OldFl),
     ok.
 
 %% Test that sys:get_state/1,2 return the gen_event state.
@@ -1321,23 +1338,30 @@ format_log_1(_Config) ->
 
     Warning = #{label=>{gen_event,no_handle_info},
                 module=>?MODULE,
-                message=>Term},
+                message=> Term},
     {WF1,WA1} = gen_event:format_log(Warning),
     WFExpected1 = "** Undefined handle_info in ~p\n"
                   "** Unhandled message: ~tp\n",
     ct:log("WF1: ~ts~nWA1: ~tp", [WF1,WA1]),
     WFExpected1 = WF1,
     [?MODULE,Term] = WA1,
+    WarningLimited = [1,2,3,4,5,6,7,8,9,'...'],
 
     Depth = 10,
     ok = application:set_env(kernel, error_logger_format_depth, Depth),
-    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    Limited = [1,2,3,4,5,6,7,8,'...'],
+    LastMsg = ["Last msg" | Term],
+    State   = ["State" | Term],
+    Reason  = ["Reason" | Term],
+    LastMsgLimited = ["Last msg" | Limited],
+    StateLimited   = ["State" | Limited],
+    ReasonLimited  = ["Reason" | Limited],
     {F2,A2} = gen_event:format_log(#{label=>{gen_event,terminate},
                                      handler=>Handler,
                                      name=>Name,
-                                     last_message=>Term,
-                                     state=>Term,
-                                     reason=>Term}),
+                                     last_message=>LastMsg,
+                                     state=>State,
+                                     reason=>Reason}),
     FExpected2 = "** gen_event handler ~tP crashed.\n"
         "** Was installed in ~tP\n"
         "** Last event was: ~tP\n"
@@ -1345,14 +1369,15 @@ format_log_1(_Config) ->
         "** Reason == ~tP\n",
     ct:log("F2: ~ts~nA2: ~tp", [F2,A2]),
     FExpected2 = F2,
-    [Handler,Depth,Name,Depth,Limited,Depth,Limited,Depth,Limited,Depth] = A2,
+    [Handler,Depth,Name,Depth,LastMsgLimited,Depth,StateLimited,Depth,ReasonLimited,Depth] = A2,
 
     {WF2,WA2} = gen_event:format_log(Warning),
     WFExpected2 = "** Undefined handle_info in ~p\n"
                   "** Unhandled message: ~tP\n",
     ct:log("WF2: ~ts~nWA2: ~tp", [WF2,WA2]),
     WFExpected2 = WF2,
-    [?MODULE,Limited,Depth] = WA2,
+    ct:log("WF2: ~tp~nWA2: ~tp", [[?MODULE,WarningLimited,Depth], WA2]),
+    [?MODULE,WarningLimited,Depth] = WA2,
 
     case FD of
         undefined ->
@@ -1501,3 +1526,324 @@ format_log_2(_Config) ->
 
 flatten_format_log(Report, Format) ->
     lists:flatten(gen_event:format_log(Report, Format)).
+
+
+send_request_receive_reqid_collection(Config) when is_list(Config) ->
+    {ok, Pid1} = gen_event:start(),
+    ok = gen_event:add_handler(Pid1, dummy_h, [self()]),
+    [dummy_h] = gen_event:which_handlers(Pid1),
+    {ok, Pid2} = gen_event:start(),
+    ok = gen_event:add_handler(Pid2, dummy_h, [self()]),
+    [dummy_h] = gen_event:which_handlers(Pid2),
+    {ok, Pid3} = gen_event:start(),
+    ok = gen_event:add_handler(Pid3, dummy_h, [self()]),
+    [dummy_h] = gen_event:which_handlers(Pid3),
+    send_request_receive_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_receive_reqid_collection_timeout(Pid1, Pid2, Pid3),
+    send_request_receive_reqid_collection_error(Pid1, Pid2, Pid3),
+    ok = gen_event:stop(Pid1),
+    try gen_event:stop(Pid2) catch exit:noproc -> ok end,
+    ok = gen_event:stop(Pid3).
+
+send_request_receive_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_event:send_request(Pid1, dummy_h, hejsan),
+
+    ReqIdC0 = gen_event:reqids_new(),
+
+    ReqId1 = gen_event:send_request(Pid1, dummy_h, {delayed_answer,400}),
+    ReqIdC1 = gen_event:reqids_add(ReqId1, req1, ReqIdC0),
+    1 = gen_event:reqids_size(ReqIdC1),
+
+    ReqIdC2 = gen_event:send_request(Pid2, dummy_h, {delayed_answer,1}, req2, ReqIdC1),
+    2 = gen_event:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_event:send_request(Pid3, dummy_h, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_event:reqids_size(ReqIdC3),
+        
+    {{reply, delayed}, req2, ReqIdC4} = gen_event:receive_response(ReqIdC3, infinity, true),
+    2 = gen_event:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_event:receive_response(ReqIdC4, 5678, true),
+    1 = gen_event:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_event:receive_response(ReqIdC5, 5000, true),
+    0 = gen_event:reqids_size(ReqIdC6),
+
+    no_request = gen_event:receive_response(ReqIdC6, 5000, true),
+
+    {reply, {ok, hejhopp}} = gen_event:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_receive_reqid_collection_timeout(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_event:send_request(Pid1, dummy_h, hejsan),
+
+    ReqIdC0 = gen_event:reqids_new(),
+
+    ReqId1 = gen_event:send_request(Pid1, dummy_h, {delayed_answer,1000}),
+    ReqIdC1 = gen_event:reqids_add(ReqId1, req1, ReqIdC0),
+
+    ReqIdC2 = gen_event:send_request(Pid2, dummy_h, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqId3 = gen_event:send_request(Pid3, dummy_h, {delayed_answer,500}),
+    ReqIdC3 = gen_event:reqids_add(ReqId3, req3, ReqIdC2),
+
+    Deadline = erlang:monotonic_time(millisecond) + 100,
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_event:receive_response(ReqIdC3, {abs, Deadline}, true),
+    2 = gen_event:reqids_size(ReqIdC4),
+
+    timeout = gen_event:receive_response(ReqIdC4, {abs, Deadline}, true),
+
+    Abandoned = lists:sort([{ReqId1, req1}, {ReqId3, req3}]),
+    Abandoned = lists:sort(gen_event:reqids_to_list(ReqIdC4)),
+
+    %% Make sure requests were abandoned...
+    timeout = gen_event:receive_response(ReqIdC4, {abs, Deadline+1000}, true),
+
+    {reply, {ok, hejhopp}} = gen_event:receive_response(ReqId0, infinity),
+
+    ok.
+    
+send_request_receive_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_event:send_request(Pid1, dummy_h, hejsan),
+
+    ReqIdC0 = gen_event:reqids_new(),
+
+    ReqId1 = gen_event:send_request(Pid1, dummy_h, {delayed_answer,400}),
+    ReqIdC1 = gen_event:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_event:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+
+    unlink(Pid2),
+    exit(Pid2, kill),
+    ReqIdC2 = gen_event:send_request(Pid2, dummy_h, {delayed_answer,1}, req2, ReqIdC1),
+    ReqIdC3 = gen_event:send_request(Pid3, dummy_h, {delayed_answer,200}, req3, ReqIdC2),
+    ReqIdC4 = gen_event:send_request(Pid1, bad_h, hejsan, req4, ReqIdC3),
+    4 = gen_event:reqids_size(ReqIdC4),
+    
+    {{error, {noproc, _}}, req2, ReqIdC5} = gen_event:receive_response(ReqIdC4, 2000, true),
+    3 = gen_event:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_event:receive_response(ReqIdC5, infinity, false),
+    {{reply, delayed}, req1, ReqIdC5} = gen_event:receive_response(ReqIdC5, infinity, false),
+    {{error, bad_module}, req4, ReqIdC5} = gen_event:wait_response(ReqIdC5, infinity, false),
+
+    {reply, {ok, hejhopp}} = gen_event:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_wait_reqid_collection(Config) when is_list(Config) ->
+    {ok, Pid1} = gen_event:start(),
+    ok = gen_event:add_handler(Pid1, dummy_h, [self()]),
+    [dummy_h] = gen_event:which_handlers(Pid1),
+    {ok, Pid2} = gen_event:start(),
+    ok = gen_event:add_handler(Pid2, dummy_h, [self()]),
+    [dummy_h] = gen_event:which_handlers(Pid2),
+    {ok, Pid3} = gen_event:start(),
+    ok = gen_event:add_handler(Pid3, dummy_h, [self()]),
+    [dummy_h] = gen_event:which_handlers(Pid3),
+    send_request_wait_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_wait_reqid_collection_timeout(Pid1, Pid2, Pid3),
+    send_request_wait_reqid_collection_error(Pid1, Pid2, Pid3),
+    ok = gen_event:stop(Pid1),
+    try gen_event:stop(Pid2) catch exit:noproc -> ok end,
+    ok = gen_event:stop(Pid3).
+
+send_request_wait_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_event:send_request(Pid1, dummy_h, hejsan),
+
+    ReqIdC0 = gen_event:reqids_new(),
+
+    ReqId1 = gen_event:send_request(Pid1, dummy_h, {delayed_answer,400}),
+    ReqIdC1 = gen_event:reqids_add(ReqId1, req1, ReqIdC0),
+    1 = gen_event:reqids_size(ReqIdC1),
+
+    ReqIdC2 = gen_event:send_request(Pid2, dummy_h, {delayed_answer,1}, req2, ReqIdC1),
+    2 = gen_event:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_event:send_request(Pid3, dummy_h, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_event:reqids_size(ReqIdC3),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_event:wait_response(ReqIdC3, infinity, true),
+    2 = gen_event:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_event:wait_response(ReqIdC4, 5678, true),
+    1 = gen_event:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_event:wait_response(ReqIdC5, 5000, true),
+    0 = gen_event:reqids_size(ReqIdC6),
+
+    no_request = gen_event:wait_response(ReqIdC6, 5000, true),
+
+    {reply, {ok, hejhopp}} = gen_event:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_wait_reqid_collection_timeout(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_event:send_request(Pid1, dummy_h, hejsan),
+
+    ReqIdC0 = gen_event:reqids_new(),
+
+    ReqId1 = gen_event:send_request(Pid1, dummy_h, {delayed_answer,1000}),
+    ReqIdC1 = gen_event:reqids_add(ReqId1, req1, ReqIdC0),
+
+    ReqIdC2 = gen_event:send_request(Pid2, dummy_h, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqId3 = gen_event:send_request(Pid3, dummy_h, {delayed_answer,500}),
+    ReqIdC3 = gen_event:reqids_add(ReqId3, req3, ReqIdC2),
+
+    Deadline = erlang:monotonic_time(millisecond) + 100,
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_event:wait_response(ReqIdC3, {abs, Deadline}, true),
+    2 = gen_event:reqids_size(ReqIdC4),
+
+    timeout = gen_event:wait_response(ReqIdC4, {abs, Deadline}, true),
+
+    Unhandled = lists:sort([{ReqId1, req1}, {ReqId3, req3}]),
+    Unhandled = lists:sort(gen_event:reqids_to_list(ReqIdC4)),
+
+    %% Make sure requests were not abandoned...
+    {{reply, delayed}, req3, ReqIdC4} = gen_event:wait_response(ReqIdC4, {abs, Deadline+1500}, false),
+    {{reply, delayed}, req1, ReqIdC4} = gen_event:wait_response(ReqIdC4, {abs, Deadline+1500}, false),
+
+    {reply, {ok, hejhopp}} = gen_event:receive_response(ReqId0, infinity),
+
+    ok.
+    
+send_request_wait_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_event:send_request(Pid1, dummy_h, hejsan),
+
+    ReqIdC0 = gen_event:reqids_new(),
+
+    ReqId1 = gen_event:send_request(Pid1, dummy_h, {delayed_answer,400}),
+    ReqIdC1 = gen_event:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_event:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+
+    unlink(Pid2),
+    exit(Pid2, kill),
+    ReqIdC2 = gen_event:send_request(Pid2, dummy_h, {delayed_answer,1}, req2, ReqIdC1),
+    ReqIdC3 = gen_event:send_request(Pid3, dummy_h, {delayed_answer,200}, req3, ReqIdC2),
+    ReqIdC4 = gen_event:send_request(Pid1, bad_h, hejsan, req4, ReqIdC3),
+    4 = gen_event:reqids_size(ReqIdC4),
+    
+    {{error, {noproc, _}}, req2, ReqIdC5} = gen_event:wait_response(ReqIdC4, 2000, true),
+    3 = gen_event:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_event:wait_response(ReqIdC5, infinity, false),
+    {{reply, delayed}, req1, ReqIdC5} = gen_event:wait_response(ReqIdC5, infinity, false),
+    {{error, bad_module}, req4, ReqIdC5} = gen_event:wait_response(ReqIdC5, infinity, false),
+
+    {reply, {ok, hejhopp}} = gen_event:receive_response(ReqId0, infinity),
+
+    ok.
+
+send_request_check_reqid_collection(Config) when is_list(Config) ->
+    {ok, Pid1} = gen_event:start(),
+    ok = gen_event:add_handler(Pid1, dummy_h, [self()]),
+    [dummy_h] = gen_event:which_handlers(Pid1),
+    {ok, Pid2} = gen_event:start(),
+    ok = gen_event:add_handler(Pid2, dummy_h, [self()]),
+    [dummy_h] = gen_event:which_handlers(Pid2),
+    {ok, Pid3} = gen_event:start(),
+    ok = gen_event:add_handler(Pid3, dummy_h, [self()]),
+    [dummy_h] = gen_event:which_handlers(Pid3),
+    send_request_check_reqid_collection(Pid1, Pid2, Pid3),
+    send_request_check_reqid_collection_error(Pid1, Pid2, Pid3),
+    ok = gen_event:stop(Pid1),
+    try gen_event:stop(Pid2) catch exit:noproc -> ok end,
+    ok = gen_event:stop(Pid3).
+
+send_request_check_reqid_collection(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_event:send_request(Pid1, dummy_h, hejsan),
+
+    receive after 100 -> ok end,
+
+    ReqIdC0 = gen_event:reqids_new(),
+
+    ReqIdC1 = gen_event:send_request(Pid1, dummy_h, {delayed_answer,400}, req1, ReqIdC0),
+    1 = gen_event:reqids_size(ReqIdC1),
+
+    ReqId2 = gen_event:send_request(Pid2, dummy_h, {delayed_answer,1}),
+    ReqIdC2 = gen_event:reqids_add(ReqId2, req2, ReqIdC1),
+    2 = gen_event:reqids_size(ReqIdC2),
+
+    ReqIdC3 = gen_event:send_request(Pid3, dummy_h, {delayed_answer,200}, req3, ReqIdC2),
+    3 = gen_event:reqids_size(ReqIdC3),
+
+    Msg0 = next_msg(),
+    no_reply = gen_event:check_response(Msg0, ReqIdC3, true),
+    
+    {{reply, delayed}, req2, ReqIdC4} = gen_event:check_response(next_msg(), ReqIdC3, true),
+    2 = gen_event:reqids_size(ReqIdC4),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_event:check_response(next_msg(), ReqIdC4, true),
+    1 = gen_event:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req1, ReqIdC6} = gen_event:check_response(next_msg(), ReqIdC5, true),
+    0 = gen_event:reqids_size(ReqIdC6),
+
+    no_request = gen_event:check_response(Msg0, ReqIdC6, true),
+
+    {reply, {ok, hejhopp}} = gen_event:check_response(Msg0, ReqId0),
+
+    ok.
+    
+send_request_check_reqid_collection_error(Pid1, Pid2, Pid3) ->
+
+    ReqId0 = gen_event:send_request(Pid1, dummy_h, hejsan),
+
+    receive after 100 -> ok end,
+
+    ReqIdC0 = gen_event:reqids_new(),
+
+    ReqId1 = gen_event:send_request(Pid1, dummy_h, {delayed_answer,400}),
+    ReqIdC1 = gen_event:reqids_add(ReqId1, req1, ReqIdC0),
+    try
+        nope = gen_event:reqids_add(ReqId1, req2, ReqIdC1)
+    catch
+        error:badarg -> ok
+    end,
+
+    unlink(Pid2),
+    exit(Pid2, kill),
+    ReqIdC2 = gen_event:send_request(Pid2, dummy_h, {delayed_answer,1}, req2, ReqIdC1),
+
+    ReqIdC3 = gen_event:send_request(Pid3, dummy_h, {delayed_answer,200}, req3, ReqIdC2),
+
+    ReqIdC4 = gen_event:send_request(Pid1, bad_h, hejsan, req4, ReqIdC3),
+    4 = gen_event:reqids_size(ReqIdC4),
+
+    Msg0 = next_msg(),
+
+    no_reply = gen_event:check_response(Msg0, ReqIdC3, true),
+    
+    {{error, {noproc, _}}, req2, ReqIdC5} = gen_event:check_response(next_msg(), ReqIdC4, true),
+    3 = gen_event:reqids_size(ReqIdC5),
+
+    {{reply, delayed}, req3, ReqIdC5} = gen_event:check_response(next_msg(), ReqIdC5, false),
+    {{reply, delayed}, req1, ReqIdC5} = gen_event:check_response(next_msg(), ReqIdC5, false),
+    {{error, bad_module}, req4, ReqIdC5} = gen_event:check_response(next_msg(), ReqIdC5, false),
+
+    no_reply = gen_event:check_response(Msg0, ReqIdC3, false),
+
+    {reply, {ok, hejhopp}} = gen_event:check_response(Msg0, ReqId0),
+
+    ok.
+
+next_msg() ->
+    receive M -> M end.

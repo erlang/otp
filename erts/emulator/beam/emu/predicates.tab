@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2020. All Rights Reserved.
+// Copyright Ericsson AB 2020-2021. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,4 +44,29 @@ pred.independent_moves(Src1, Dst1, Src2, Dst2) {
     return (Src1.type != Dst2.type || Src1.val != Dst2.val) &&
         (Src2.type != Dst1.type || Src2.val != Dst1.val) &&
         (Dst1.type != Dst2.type ||Dst1.val != Dst2.val);
+}
+
+pred.needs_nif_padding() {
+    Export *e = erts_active_export_entry(S->module, S->function, S->arity);
+
+    if (e != NULL && e->bif_number != -1) {
+        return 1;
+    }
+
+    /* If the module may load a NIF lib, all functions or functions declared as
+     * -nifs() must be able to hold a NIF stub. So we'll pad to that size at the
+     * end of every potential NIF function.
+     */
+    return S->may_load_nif &&
+        (S->code_hdr->are_nifs == NULL ||
+         S->code_hdr->are_nifs[S->function_number-1]);
+}
+
+// Test whether the given literal is a map.
+pred.literal_is_map(Lit) {
+    Eterm term;
+
+    ASSERT(Lit.type == TAG_q);
+    term = beamfile_get_literal(&S->beam, Lit.val);
+    return is_map(term);
 }

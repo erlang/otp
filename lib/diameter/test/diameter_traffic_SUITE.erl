@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,25 +25,17 @@
 
 -module(diameter_traffic_SUITE).
 
+%% all tests, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_suite/0,
-         init_per_suite/1,
-         end_per_suite/1,
-         init_per_group/1,
-         init_per_group/2,
-         end_per_group/2,
-         init_per_testcase/2,
-         end_per_testcase/2]).
+         parallel/1]).
 
 %% testcases
--export([rfc4005/1,
-         start/1,
-         start_services/1,
-         add_transports/1,
-         result_codes/1,
-         send_ok/1,
+-export([send_ok/1,
          send_nok/1,
          send_eval/1,
          send_bad_answer/1,
@@ -97,11 +89,7 @@
          send_multiple_filters_1/1,
          send_multiple_filters_2/1,
          send_multiple_filters_3/1,
-         send_anything/1,
-         remove_transports/1,
-         empty/1,
-         stop_services/1,
-         stop/1]).
+         send_anything/1]).
 
 %% diameter callbacks
 -export([peer_up/4,
@@ -126,14 +114,6 @@
 %% definitions in the latter case.)
 
 %% ===========================================================================
-
-%% Fraction of shuffle/parallel groups to randomly skip.
--define(SKIP, 0.90).
-
-%% Positive number of testcases from which to select (randomly) from
-%% tc(), the list of testcases to run, or [] to run all. The random
-%% selection is to limit the time it takes for the suite to run.
--define(LIMIT, #{tcp => 42, sctp => 5}).
 
 -define(util, diameter_util).
 
@@ -164,30 +144,19 @@
 %% Which dictionary to use in the clients.
 -define(RFCS, [rfc3588, rfc6733, rfc4005]).
 
-%% Whether to decode stringish Diameter types to strings, or leave
-%% them as binary.
--define(STRING_DECODES, [false, true]).
-
 %% Which transport protocol to use.
--define(TRANSPORTS, [tcp, sctp]).
+-define(TRANSPORTS, [sctp || ?util:have_sctp()] ++ [tcp]).
 
-%% Send from a dedicated process?
--define(SENDERS, [true, false]).
-
-%% Message callbacks from diameter_{tcp,sctp}?
--define(CALLBACKS, [true, false]).
-
--record(group,
-        {transport,
-         strings,
-         encoding,
-         client_service,
-         client_dict,
-         client_sender,
-         server_service,
-         server_decoding,
-         server_sender,
-         server_throttle}).
+-record(group, {transport,
+                strings,
+                encoding,
+                client_service,
+                client_dict,
+                client_sender,
+                server_service,
+                server_decoding,
+                server_sender,
+                server_throttle}).
 
 %% Not really what we should be setting unless the message is sent in
 %% the common application but diameter doesn't care.
@@ -270,285 +239,156 @@
         ?'DIAMETER_BASE_TERMINATION-CAUSE_USER_MOVED').
 
 %% ===========================================================================
+%% common_test wrapping
 
 suite() ->
-    [{timetrap, {seconds, 10}}].
+    [{timetrap, {seconds, 90}}].
 
 all() ->
-    [rfc4005, start, result_codes, {group, traffic}, empty, stop].
+    [parallel].
 
-%% Redefine this to run one or more groups for debugging purposes.
--define(GROUPS, []).
-%-define(GROUPS, [[sctp,rfc6733,record,map,false,false,true,false]]).
-
-%% Issues with gen_sctp sporadically cause huge numbers of failed
-%% testcases when running testcases in parallel.
-groups() ->
-    Names = names([] == ?GROUPS orelse ?GROUPS),
-    [{P, [P], Ts} || Ts <- [tc()], P <- [shuffle, parallel]]
-        ++
-        [{?util:name(N), [], [{group, if T == sctp; S -> shuffle;
-                                         true         -> parallel end}]}
-         || [T,_,_,_,S|_] = N <- Names]
-        ++
-        [{T, [], [{group, ?util:name(N)} || N <- Names,
-                                            T == hd(N)]}
-         || T <- ?TRANSPORTS]
-        ++
-        [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
-
-names() ->
-    [[T,R,E,D,S,ST,SS,CS] || T  <- ?TRANSPORTS,
-                             R  <- ?RFCS,
-                             E  <- ?ENCODINGS,
-                             D  <- ?DECODINGS,
-                             S  <- ?STRING_DECODES,
-                             ST <- ?CALLBACKS,
-                             SS <- ?SENDERS,
-                             CS <- ?SENDERS,
-                             ?SKIP =< rand:uniform()].
-
-names(true) ->
-    names(names());
-
-names(Names) ->
-    [N || N <- Names,
-          [CS,SS|_] <- [lists:reverse(N)],
-          SS orelse CS].  %% avoid deadlock
-
-%% --------------------
-
-init_per_suite() ->
-    [{timetrap, {seconds, 60}}].
-
-init_per_suite(Config) ->
-    [{rfc4005, compile_and_load()}, {sctp, ?util:have_sctp()} | Config].
-
-end_per_suite(_Config) ->
-    code:delete(nas4005),
-    code:purge(nas4005),
-    ok.
-
-%% --------------------
-
-init_per_group(_) ->
-    [{timetrap, {seconds, 30}}].
-
-init_per_group(Name, Config)
-  when Name == shuffle;
-       Name == parallel ->
-    start_services(Config),
-    add_transports(Config),
-    replace({sleep, Name == parallel}, Config);
-
-init_per_group(sctp = Name, Config) ->
-    {_, Sctp} = lists:keyfind(Name, 1, Config),
-    if Sctp ->
-            Config;
-       true ->
-            {skip, Name}
-    end;
-
-init_per_group(Name, Config) ->
-    Nas = proplists:get_value(rfc4005, Config, false),
-    case ?util:name(Name) of
-        [_,R,_,_,_,_,_,_] when R == rfc4005, true /= Nas ->
-            {skip, rfc4005};
-        [T,R,E,D,S,ST,SS,CS] ->
-            G = #group{transport = T,
-                       strings = S,
-                       encoding = E,
-                       client_service = [$C|?util:unique_string()],
-                       client_dict = appdict(R),
-                       client_sender = CS,
-                       server_service = [$S|?util:unique_string()],
-                       server_decoding = D,
-                       server_sender = SS,
-                       server_throttle = ST},
-            replace([{group, G}, {runlist, select(T)}], Config);
-        _ ->
-            Config
-    end.
-
-end_per_group(Name, Config)
-  when Name == shuffle;
-       Name == parallel ->
-    remove_transports(Config),
-    stop_services(Config);
-
-end_per_group(_, _) ->
-    ok.
-
-select(T) ->
-    try maps:get(T, ?LIMIT) of
-        N ->
-            lists:sublist(?util:scramble(tc()), max(5, rand:uniform(N)))
-    catch
-        error:_ -> ?LIMIT
-    end.
-
-%% --------------------
-
-%% Work around common_test accumulating Config improperly, causing
-%% testcases to get Config from groups and suites they're not in.
-init_per_testcase(N, Config)
-  when N == rfc4005;
-       N == start;
-       N == result_codes;
-       N == empty;
-       N == stop ->
-    Config;
-
-%% Skip testcases that can reasonably fail under SCTP.
-init_per_testcase(Name, Config) ->
-    TCs = proplists:get_value(runlist, Config, []),
-    Run = [] == TCs orelse lists:member(Name, TCs),
-    case [G || #group{transport = sctp} = G
-                   <- [proplists:get_value(group, Config)]]
-    of
-        [_] when Name == send_maxlen;
-                 Name == send_long ->
-            {skip, sctp};
-        _ when not Run ->
-            {skip, random};
-        _ ->
-            proplists:get_value(sleep, Config, false)
-                andalso timer:sleep(rand:uniform(200)),
-            [{testcase, Name} | Config]
-    end.
-
-end_per_testcase(_, _) ->
-    ok.
-
-%% replace/2
-%%
-%% Work around common_test running init functions inappropriately, and
-%% this accumulating more config than expected.
-
-replace(Pairs, Config)
-  when is_list(Pairs) ->
-    lists:foldl(fun replace/2, Config, Pairs);
-
-replace({Key, _} = T, Config) ->
-    [T | lists:keydelete(Key, 1, Config)].
-
-%% --------------------
-
-%% Testcases to run when services are started and connections
-%% established.
-tc() ->
-    [send_ok,
-     send_nok,
-     send_eval,
-     send_bad_answer,
-     send_protocol_error,
-     send_experimental_result,
-     send_arbitrary,
-     send_proxy_info,
-     send_unknown,
-     send_unknown_short,
-     send_unknown_mandatory,
-     send_unknown_short_mandatory,
-     send_noreply,
-     send_grouped_error,
-     send_unsupported,
-     send_unsupported_app,
-     send_error_bit,
-     send_unsupported_version,
-     send_long_avp_length,
-     send_short_avp_length,
-     send_zero_avp_length,
-     send_invalid_avp_length,
-     send_invalid_reject,
-     send_unexpected_mandatory_decode,
-     send_unexpected_mandatory,
-     send_too_many,
-     send_long,
-     send_maxlen,
-     send_nopeer,
-     send_noapp,
-     send_discard,
-     send_any_1,
-     send_any_2,
-     send_all_1,
-     send_all_2,
-     send_timeout,
-     send_error,
-     send_detach,
-     send_encode_error,
-     send_destination_1,
-     send_destination_2,
-     send_destination_3,
-     send_destination_4,
-     send_destination_5,
-     send_destination_6,
-     send_bad_option_1,
-     send_bad_option_2,
-     send_bad_filter_1,
-     send_bad_filter_2,
-     send_bad_filter_3,
-     send_bad_filter_4,
-     send_multiple_filters_1,
-     send_multiple_filters_2,
-     send_multiple_filters_3,
-     send_anything].
+parallel(_Config) ->
+    run().
 
 %% ===========================================================================
-%% start/stop testcases
 
-start(_Config) ->
-    ok = diameter:start().
+%% run/0
+%%
+%% The test cases proper, do or (meaningfully) die.
+%%
+%% Randomly choose one of many configuration possibilities. Testing
+%% all of them takes too much time, and randomly skipping various
+%% cases (as used to be the case) just unnecessary complexity. There
+%% are run night after night in on various hosts, so just choosing a
+%% configuration results in sufficient coverage over time.
 
-start_services(Config) ->
-    #group{client_service = CN,
+run() ->
+    Svc = ?util:unique_string(),
+    run(#group{transport = ?util:choose(?TRANSPORTS),
+               strings = bool(),
+               encoding = ?util:choose(?ENCODINGS),
+               client_service = [$C | Svc],
+               client_dict = appdict(?util:choose(?RFCS)),
+               client_sender = bool(),
+               server_service = [$S | Svc],
+               server_decoding = ?util:choose(?DECODINGS),
+               server_sender = true,  %% avoid deadlock
+               server_throttle = bool()}).
+
+%% run/1
+
+run(#group{} = Cfg) ->
+    _ = result_codes(Cfg),
+    io:format("config: ~p~n", [Cfg]),
+    try
+        ?util:run([{[fun traffic/1, Cfg], 60000}])
+    after
+        code:delete(nas4005),
+        code:purge(nas4005),
+        diameter:stop()
+    end.
+
+%% traffic/1
+
+traffic(#group{} = Cfg) ->
+    _ = compile_and_load(),
+    ok = diameter:start(),
+    LRef = server(Cfg),
+    ok = client(Cfg, LRef),
+    [] = send(Cfg),
+    ok = stop_services(Cfg),
+    [] = ets:tab2list(diameter_request).
+
+%% start_service/2
+
+start_service(Svc, Opts) ->
+    {ok, _} = {diameter:start_service(Svc, Opts), Opts},
+    ok.
+
+%% send/1
+
+send(Cfg) ->
+    Ref = make_ref(),
+    Refs = [R || {F,1} <- module_info(exports),
+                 "send_" ++ _ <- [atom_to_list(F)],
+                 I <- [fun() -> exit({Ref, send(F, Cfg)}) end],
+                 {_,R} <- [spawn_monitor(I)]],
+    lists:filter(fun({R,_}) -> R /= Ref; (_) -> true end, wait(Refs)).
+
+%% send/2
+
+send(F, #group{transport = sctp})
+  when F == send_long;
+       F == send_maxlen ->
+    ok;
+
+send(F, Cfg) ->
+    timer:sleep(rand:uniform(2000)),
+    apply(?MODULE, F, [[{testcase, F}, {group, Cfg}]]).
+
+%% wait/1
+
+wait(Refs)
+  when is_list(Refs) ->
+    lists:map(fun wait/1, Refs);
+
+wait(MRef) ->
+    receive {'DOWN', MRef, process, _, T} -> T end.
+
+%% ===========================================================================
+
+%% server/1
+
+server(Config) ->
+    #group{transport = T,
+           client_sender = CS,
            server_service = SN,
-           server_decoding = SD}
+           server_decoding = SD,
+           server_sender = SS,
+           server_throttle = ST}
         = Grp
         = group(Config),
-    ok = diameter:start_service(SN, [{traffic_counters, bool()},
-                                     {decode_format, SD}
-                                     | ?SERVICE(SN, Grp)]),
-    ok = diameter:start_service(CN, [{traffic_counters, bool()},
-                                     {sequence, ?CLIENT_MASK},
-                                     {decode_format, map},
-                                     {strict_arities, decode}
-                                     | ?SERVICE(CN, Grp)]).
+    ok = start_service(SN, [{traffic_counters, bool()},
+                            {decode_format, SD}
+                            | ?SERVICE(SN, Grp)]),
+    Cfg = [{sender, SS},
+           {message_cb, ST andalso {?MODULE, message, [0]}}]
+        ++ [{packet, ?util:choose([false, raw])} || T == sctp andalso CS]
+        ++ [{unordered, unordered()} || T == sctp],
+    Opts = [{capabilities_cb, fun capx/2},
+            {pool_size, 8}
+           | server_apps()],
+    _LRef = ?util:listen(SN, [T | Cfg], Opts).
+
+%% client/1
+
+client(Config, LRef) ->
+    #group{transport = T,
+           encoding = E,
+           client_service = CN,
+           client_sender = CS}
+        = Grp
+        = group(Config),
+    ok = start_service(CN, [{traffic_counters, bool()},
+                            {sequence, ?CLIENT_MASK},
+                            {decode_format, map},
+                            {strict_arities, decode}
+                            | ?SERVICE(CN, Grp)]),
+    _ = [?util:connect(CN, [T | C], LRef, O)
+         || C <- [[{sender, CS} | client_opts(T)]],
+            D <- ?DECODINGS,  %% for multiple candidate peers
+            R <- ?RFCS,
+            R /= rfc4005 orelse have_nas(),
+            I <- [{D,E}],
+            O <- [[{id, I}
+                  | client_apps(R, [{'Origin-State-Id', origin(I)}])]]],
+    ok.
 
 bool() ->
     0.5 =< rand:uniform().
 
-add_transports(Config) ->
-    #group{transport = T,
-           encoding = E,
-           client_service = CN,
-           client_sender = CS,
-           server_service = SN,
-           server_sender = SS,
-           server_throttle = ST}
-        = group(Config),
-    LRef = ?util:listen(SN,
-                        [T,
-                         {sender, SS},
-                         {message_cb, ST andalso {?MODULE, message, [0]}}]
-                        ++ [{packet, hd(?util:scramble([false, raw]))}
-                            || T == sctp andalso CS]
-                        ++ [{unordered, unordered()} || T == sctp],
-                        [{capabilities_cb, fun capx/2},
-                         {pool_size, 8}
-                         | server_apps()]),
-    Cs = [?util:connect(CN,
-                        [T, {sender, CS} | client_opts(T)],
-                        LRef,
-                        [{id, Id}
-                         | client_apps(R, [{'Origin-State-Id', origin(Id)}])])
-          || D <- ?DECODINGS,  %% for multiple candidate peers
-             R <- ?RFCS,
-             R /= rfc4005 orelse have_nas(),
-             Id <- [{D,E}]],
-    ?util:write_priv(Config, "transport", [LRef | Cs]).
-
 unordered() ->
-    element(rand:uniform(4), {true, false, 1, 2}).
+    ?util:choose([true, false, 1, 2]).
 
 client_opts(tcp) ->
     [];
@@ -567,31 +407,18 @@ server_apps() ->
      {capabilities, [{'Auth-Application-Id', [0] ++ [1 || B]}, %% common, NAS
                      {'Acct-Application-Id', [3]}]}].          %% accounting
 
+client_apps(rfc4005, Caps) ->
+    [{applications, [nas4005]},
+     {capabilities, [{'Auth-Application-Id', [1]},     %% NAS
+                     {'Acct-Application-Id', []}
+                    | Caps]}];
 client_apps(D, Caps) ->
-    if D == rfc4005 ->
-            [{applications, [nas4005]},
-             {capabilities, [{'Auth-Application-Id', [1]},     %% NAS
-                             {'Acct-Application-Id', []}
-                             | Caps]}];
-       true ->
-            D0 = dict0(D),
-            [{applications, [acct(D0), D0]},
-             {capabilities, Caps}]
-    end.
+    D0 = dict0(D),
+    [{applications, [acct(D0), D0]},
+     {capabilities, Caps}].
 
 have_nas() ->
     false /= code:is_loaded(nas4005).
-
-remove_transports(Config) ->
-    #group{client_service = CN,
-           server_service = SN}
-        = group(Config),
-    [LRef | Cs] = ?util:read_priv(Config, "transport"),
-    try
-        [] = [T || C <- Cs, T <- [?util:disconnect(CN, C, SN, LRef)], T /= ok]
-    after
-        ok = diameter:remove_transport(SN, LRef)
-    end.
 
 stop_services(Config) ->
     #group{client_service = CN,
@@ -600,23 +427,11 @@ stop_services(Config) ->
     ok = diameter:stop_service(CN),
     ok = diameter:stop_service(SN).
 
-%% Ensure even transports have been removed from request table.
-empty(_Config) ->
-    [] = ets:tab2list(diameter_request).
-
-stop(_Config) ->
-    ok = diameter:stop().
-
 capx(_, #diameter_caps{origin_host = {OH,DH}}) ->
     io:format("connection: ~p -> ~p~n", [DH,OH]),
     ok.
 
 %% ===========================================================================
-
-%% Fail only this testcase if the RFC 4005 dictionary hasn't been
-%% successfully compiled and loaded.
-rfc4005(Config) ->
-    true = proplists:get_value(rfc4005, Config).
 
 %% Ensure that result codes have the expected values.
 result_codes(_Config) ->
@@ -1135,6 +950,8 @@ send_anything(Config) ->
 
 %% ===========================================================================
 
+group(#group{} = Rec) ->
+    Rec;
 group(Config) ->
     #group{} = proplists:get_value(group, Config).
 
@@ -1903,25 +1720,19 @@ message(ack, _, N) ->
 %% ------------------------------------------------------------------------
 
 compile_and_load() ->
-    try
-        Path = hd([P || H <- [[here(), ".."], [code:lib_dir(diameter)]],
-                        P <- [filename:join(H ++ ["examples",
-                                                  "dict",
-                                                  "rfc4005_nas.dia"])],
-                        {ok, _} <- [file:read_file_info(P)]]),
-        {ok, [Forms]}
-            = diameter_make:codec(Path, [return,
-                                      forms,
-                                   {name, "nas4005"},
-                                {prefix, "nas"},
-                             {inherits, "common/diameter_gen_base_rfc3588"}]),
-        {ok, nas4005, Bin, []} = compile:forms(Forms, [debug_info, return]),
-        {module, nas4005} = code:load_binary(nas4005, "nas4005", Bin),
-        true
-    catch
-        E:R:Stack ->
-            {E, R, Stack}
-    end.
+    Path = hd([P || H <- [[here(), ".."], [code:lib_dir(diameter)]],
+                    P <- [filename:join(H ++ ["examples",
+                                              "dict",
+                                              "rfc4005_nas.dia"])],
+                    {ok, _} <- [file:read_file_info(P)]]),
+    Opts = [return,
+            forms,
+            {name, "nas4005"},
+            {prefix, "nas"},
+            {inherits, "common/diameter_gen_base_rfc3588"}],
+    {ok, [Forms]} = diameter_make:codec(Path, Opts),
+    {ok, nas4005, Bin, []} = compile:forms(Forms, [debug_info, return]),
+    {module, nas4005} = code:load_binary(nas4005, "nas4005", Bin).
 
 here() ->
     filename:dirname(code:which(?MODULE)).

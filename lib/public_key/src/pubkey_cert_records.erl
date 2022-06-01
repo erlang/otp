@@ -44,7 +44,7 @@ decode_cert(DerCert) ->
 %%--------------------------------------------------------------------
 -spec transform(term(), encode | decode) ->term().
 %%
-%% Description: Transforms between encoded and decode otp formated
+%% Description: Transforms between encoded and decode otp formatted
 %% certificate parts.
 %%-------------------------------------------------------------------- 
 

@@ -177,7 +177,7 @@
                         Command :: string()
                        } .
 
-%%% This function is soley to convince all
+%%% This function is solely to convince all
 %%% checks that the type event() exists...
 -export([dummy/1]).
 -spec dummy(event()) -> false.
@@ -404,7 +404,7 @@ ptty_alloc(ConnectionHandler, Channel, Options0, TimeOut) ->
 	   ).
 
 %%--------------------------------------------------------------------
-%% Not yet officialy supported! The following functions are part of the
+%% Not yet officially supported! The following functions are part of the
 %% initial contributed ssh application. They are untested. Do we want them?
 %% Should they be documented and tested?
 %%--------------------------------------------------------------------

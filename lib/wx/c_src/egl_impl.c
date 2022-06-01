@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -279,7 +279,7 @@ int egl_load_functions() {
 }
 
 /* *******************************************************************************
- * GLU Tesselation special
+ * GLU Tessellation special
  * ******************************************************************************/
 
 static GLUtesselator* tess;
@@ -355,7 +355,7 @@ egl_ogla_error(GLenum errorCode)
 {
     // const GLubyte *err;
     // err = gluErrorString(errorCode);
-    // fprintf(stderr, "Tesselation error: %d: %s\r\n", (int) errorCode, err);
+    // fprintf(stderr, "Tessellation error: %d: %s\r\n", (int) errorCode, err);
 }
 
 void init_tess()

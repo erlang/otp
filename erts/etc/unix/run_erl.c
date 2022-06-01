@@ -828,7 +828,7 @@ static int find_next_log_num(void) {
 
 /* open_log()
  * Opens a log file (with given index) for writing. Writing may be
- * at the end or a trucnating write, according to flags.
+ * at the end or a truncating write, according to flags.
  * A LOGGING STARTED and time stamp message is inserted into the log file
  */
 static int open_log(int log_num, int flags)
@@ -988,7 +988,7 @@ static int open_pty_master(char **ptyslave, int *sfdp)
   /* X is in "pqrs" and Y in "0123456789abcdef" but FreeBSD */
   /* and some Linux version has extended this. */
 
-  /* This code could probebly be improved alot. For example look at */
+  /* This code could probebly be improved a lot. For example look at */
   /* http://www.xcf.berkeley.edu/~ali/K0D/UNIX/PTY/code/pty.c.html */
   /* http://www.xcf.berkeley.edu/~ali/K0D/UNIX/PTY/code/upty.h.html */
 
@@ -1368,7 +1368,7 @@ static int sf_close(int fd) {
     return close(fd);
 }
 
-/* Extract any control sequences that are ment only for run_erl
+/* Extract any control sequences that are meant only for run_erl
  * and should not be forwarded to the pty.
  */
 static int extract_ctrl_seq(char* buf, int len)

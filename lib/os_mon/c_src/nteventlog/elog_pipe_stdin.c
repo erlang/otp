@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ static char *stdin_buff = NULL;
 static int stdin_siz = 0;
 static int stdin_len = 0;
 static int stdin_eof = 0;
-/* end syncronized objects */
+/* end synchronized objects */
 static int stdin_is_console = 0;
 static HANDLE stdin_event;
 

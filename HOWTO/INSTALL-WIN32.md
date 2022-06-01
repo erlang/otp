@@ -31,7 +31,7 @@ to make the Erlang/OTP distribution for Windows better. Please submit
 any suggestions or patches to our [git project] [1] to let
 them find their way into the next version of Erlang. If making changes
 to the build system (like makefiles etc) please bear in mind that the
-same makefiles are used on Unix/VxWorks, so that your changes
+same makefiles are used on Unix, so that your changes
 don't break other platforms. That of course goes for C-code too; system
 specific code resides in the `$ERL_TOP/erts/emulator/sys/win32` and
 `$ERL_TOP/erts/etc/win32` directories mostly. The
@@ -143,7 +143,7 @@ the different tools:
     You need this to build crypto, ssh and ssl libs.
 
     We recommend v1.1.1d or later.
-    There are prebuilt avaiable binaries, which you can just
+    There are prebuilt available binaries, which you can just
     download and install, available here:
     URL: <http://wiki.openssl.org/index.php/Binaries>
 

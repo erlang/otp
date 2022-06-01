@@ -1,0 +1,6 @@
+
+[;1m  alloc_sizes/1[0m
+
+  The documentation for alloc_sizes/1 is hidden. This probably
+  means that it is internal and not to be used by other
+  applications.

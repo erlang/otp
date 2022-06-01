@@ -513,7 +513,7 @@ wrap_trans(State, Fun, Args, Retries, Mod, Kind) ->
 %% read lock is only set on the first node
 %% Nodes may either be a list of nodes or one node as an atom
 %% Mnesia on all Nodes must be connected to each other, but
-%% it is not neccessary that they are up and running.
+%% it is not necessary that they are up and running.
 -spec lock(LockItem, LockKind) -> list() | tuple() | no_return() when
       LockItem :: {'record', table(), Key::term()} |
                   {'table',  table()} |

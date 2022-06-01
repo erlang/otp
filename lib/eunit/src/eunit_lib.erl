@@ -32,7 +32,7 @@
 -include("eunit_internal.hrl").
 
 
--export([dlist_next/1, uniq/1, fun_parent/1, is_string/1, command/1,
+-export([dlist_next/1, uniq/1, is_string/1, command/1,
 	 command/2, command/3, trie_new/0, trie_store/2, trie_match/2,
 	 split_node/1, consult_file/1, list_dir/1, format_exit_term/1,
 	 format_exception/1, format_exception/2, format_error/1, format_error/2,
@@ -376,27 +376,6 @@ split_node_1([], As) ->  split_node_2(As, "localhost").
 
 split_node_2(As, Cs) ->
     {list_to_atom(lists:reverse(As)), list_to_atom(Cs)}.
-
-%% ---------------------------------------------------------------------
-%% Get the name of the containing function for a fun. (This is encoded
-%% in the name of the generated function that implements the fun.)
-fun_parent(F) ->
-    {module, M} = erlang:fun_info(F, module),
-    {name, N} = erlang:fun_info(F, name),
-    case erlang:fun_info(F, type) of
-	{type, external} ->
-	    {arity, A} = erlang:fun_info(F, arity),
-	    {M, N, A};
-	{type, local} ->
-            [$-|S] = atom_to_list(N),
-            [S2, T] = string:split(S, "/", trailing),
-            {M, list_to_atom(S2), element(1, string:to_integer(T))}
-    end.
-
--ifdef(TEST).
-fun_parent_test() ->
-    {?MODULE,fun_parent_test,0} = fun_parent(fun (A) -> {ok,A} end).
--endif.
 
 %% ---------------------------------------------------------------------
 %% Ye olde uniq function

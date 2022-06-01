@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,7 +34,31 @@
   </header>
 
 
-  <section><title>SNMP 5.12</title>
+  <section><title>SNMP 5.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Input for <c>configure</c> scripts adapted to
+	    <c>autoconf</c> 2.71.</p>
+          <p>
+	    Own Id: OTP-17414 Aux Id: PR-4967 </p>
+        </item>
+        <item>
+          <p>
+	    Removed deprecated functions slated for removal in
+	    OTP-25. Also removed "dead" code, kept for backward
+	    compatibility reasons.</p>
+          <p>
+	    Own Id: OTP-17612</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -214,7 +238,7 @@
           <p>
 	    [manager] In a function handling snmp errors, an unused
 	    result (_Error) could result in matching issues and
-	    therefor case clause runtime errors (crash). Note that
+	    therefore case clause runtime errors (crash). Note that
 	    this would only happen in *very* unusual error cases.</p>
           <p>
 	    Own Id: OTP-17161</p>
@@ -1074,7 +1098,7 @@
       <list>
         <item>
           <p>
-	    Improved cryptocraphic capability.</p>
+	    Improved cryptographic capability.</p>
           <p>
 	    Own Id: OTP-12452</p>
         </item>
@@ -1330,7 +1354,7 @@
           <p>Add (atl) log conversion block option. </p>
 	  <p>It is now possible to request that the Audit Trail Log should
 	  be blocked during conversion (<c>log_to_txt</c> or <c>log_to_io</c>).
-	  This could be usefull when coverting an entire large log (when
+	  This could be useful when converting an entire large log (when
 	  there is a chance it may otherwise wrap during conversion). </p>
 	  <p>See
 	  agent
@@ -1801,7 +1825,7 @@
 
       <list type="bulleted">
         <item>
-          <p>[agent] Sematic fixes to SNMP-USER-BASED-SM-MIB.
+          <p>[agent] Semantic fixes to SNMP-USER-BASED-SM-MIB.
 	  The semantics allow the <c>usmUserAuthKeyChange</c> and
 	  <c>usmUserPrivKeyChange</c> objects to be written to in the
 	  same set requests that also creates and clones the user.
@@ -1910,7 +1934,7 @@
         <item>
           <p>[manager] Introduced a new transport module,
 	  <c>snmpm_net_if_mt</c>,
-	  which handles all incomming and outgoing
+	  which handles all incoming and outgoing
 	  traffic in newly created processes. The message/request is
 	  processed and then the process exits. </p>
           <p>Own Id: OTP-9876</p>
@@ -1924,7 +1948,7 @@
 
         <item>
           <p>[agent] Improve error handling while reading agent config files.
-	  Some files contain mandatory information and is therefor themself
+	  Some files contain mandatory information and is therefore themself
 	  mandatory. </p>
 	  <p>Own Id: OTP-9943</p>
         </item>
@@ -2111,8 +2135,8 @@
           conflict. When dumping the vacm table to disk, a temoporary
           file with a fixed name was used. If the table dumping
           (snmpa_vacm:dump_table/0) was initiated from several different
-          processes in rapid succesion, the dumping could fail because the
-          different processes was simultaniously trying to write to the
+          processes in rapid succession, the dumping could fail because the
+          different processes was simultaneously trying to write to the
           same file. This problem has been eliminated by creating a unique
           name for the temporary file. </p>
           <p>Own Id: OTP-9851</p>
@@ -2575,7 +2599,7 @@
 	  <p>See
 	  <seeerl marker="snmpa#send_notification2">
 	  snmpa:send_notification2/3</seeerl> for more info.
-	  See also the incomming net-if messages when sending a
+	  See also the incoming net-if messages when sending a
 	  <seeguide marker="snmp_agent_netif#im_send_pdu">trap</seeguide>
 	  (send_pdu message) and
 	  <seeguide marker="snmp_agent_netif#im_send_pdu_req">

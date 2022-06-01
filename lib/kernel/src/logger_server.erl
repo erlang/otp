@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -623,7 +623,7 @@ do_internal_log(Level,Location,Log,[Report] = Data) ->
 do_internal_log(Level,Location,Log,[Fmt,Args] = Data) ->
     do_internal_log(Level,Location,Log,Data,{Fmt,Args}).
 do_internal_log(Level,Location,Log,Data,Msg) ->
-    Meta = logger:add_default_metadata(maps:merge(Location,maps:get(meta,Log,#{}))),
+    Meta = logger:add_default_metadata(Location),
     %% Spawn these to avoid deadlocks
     case Log of
         #{ meta := #{ internal_log_event := true } } ->

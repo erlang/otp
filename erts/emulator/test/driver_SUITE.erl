@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,7 +84,6 @@
          env/1,
          poll_pipe/1,
          lots_of_used_fds_on_boot/1,
-         lots_of_used_fds_on_boot_slave/1,
          z_test/1]).
 
 -export([bin_prefix/2]).
@@ -124,7 +123,7 @@
 -define(heap_binary_size, 64).
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
+    [{ct_hooks,[cth_log_redirect,ts_install_cth]},
      {timetrap, {minutes, 1}}].
 
 all() -> %% Keep a_test first and z_test last...
@@ -172,22 +171,39 @@ groups() ->
        ioq_exit_timeout_async]}].
 
 init_per_suite(Config) ->
+    logger:add_handler_filter(default,
+      checkio_filter,
+      {fun F(#{ msg := {string,Str}} = Log, _State) ->
+               case re:run(Str,"(fds in pollset)|(Bad value on output port)") of
+                   {match,_} ->
+                       stop;
+                   _ ->
+                       Log
+               end;
+           F(#{ msg := {Fmt,Args}} = Log, State) when not is_atom(Fmt) ->
+               F(Log#{ msg := {string,io_lib:format(Fmt,Args)}}, State);
+           F(Log, _State) ->
+               Log
+       end, undefined}),
     Config.
 
 end_per_suite(_Config) ->
+    logger:remove_handler_filter(default, checkio_filter),
     catch erts_debug:set_internal_state(available_internal_state, false).
 
 init_per_group(poll_thread, Config) ->
-    [{node_args, "+IOt 2"} | Config];
+    [{node_args, ["+IOt", "2"]} | Config];
 init_per_group(poll_set, Config) ->
-    [{node_args, "+IOt 2 +IOp 2"} | Config];
+    [{node_args, ["+IOt", "2", "+IOp", "2"]} | Config];
 init_per_group(polling, Config) ->
     case proplists:get_value(node_args, Config) of
         undefined ->
             Config;
         Args ->
-            {ok, Node} = start_node(polling, Args),
-            [{node, Node} | Config]
+            {ok, Peer, Node} = ?CT_PEER(Args),
+            unlink(Peer), %% otherwise it will immediately stop
+            setup_logger(Node),
+            [{node, {Peer, Node}} | Config]
     end;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -195,11 +211,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     case proplists:get_value(node, Config) of
         undefined ->
-            ok;
-        Node ->
-            stop_node(Node)
-    end,
-    Config.
+            Config;
+        {Peer, _Node} ->
+            ok = peer:stop(Peer),
+            {save_config, proplists:delete(node, Config)}
+    end.
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     CIOD = rpc(Config,
@@ -210,12 +226,13 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
                        end,
                        erts_debug:get_internal_state(check_io_debug)
                end),
-    erlang:display({init_per_testcase, Case}),
     0 = element(1, CIOD),
     [{testcase, Case}|Config].
 
 end_per_testcase(Case, Config) ->
-    erlang:display({end_per_testcase, Case}),
+    %% Logs some info about the system
+    ct_os_cmd("epmd -names"),
+    ct_os_cmd("ps aux"),
     try rpc(Config, fun() ->
                             get_stable_check_io_info(),
                             erts_debug:get_internal_state(check_io_debug)
@@ -223,19 +240,17 @@ end_per_testcase(Case, Config) ->
         CIOD ->
             0 = element(1, CIOD)
     catch _E:_R:_ST ->
-            %% Logs some info about the system
-            ct_os_cmd("epmd -names"),
-            ct_os_cmd("ps aux"),
             %% Restart the node
             case proplists:get_value(node, Config) of
                 undefined ->
                     ok;
-                Node ->
-                    timer:sleep(1000), %% Give the node time to die
-                    [NodeName, _] = string:lexemes(atom_to_list(Node),"@"),
-                    {ok, Node} = start_node_final(
-                                   list_to_atom(NodeName),
-                                   proplists:get_value(node_args, Config))
+                {Peer, _Node} ->
+                    peer:stop(Peer),
+                    {ok, Peer2, Node2} = ?CT_PEER(proplists:get_value(node_args, Config)),
+                    unlink(Peer2), %% otherwise it will immediately stop
+                    setup_logger(Node2),
+                    Config2 = [{node, {Peer2, Node2}} | proplists:delete(node, Config)],
+                    {save_config, Config2}
             end
     end,
     ok.
@@ -535,7 +550,7 @@ timer_delay(Config) when is_list(Config) ->
     stop_driver(Port, Name),
     ok.
 
-%% Test that driver_set_timer with new timout really changes
+%% Test that driver_set_timer with new timeout really changes
 %% the timer (ticket OTP-5942), it didn't work before
 
 timer_change(Config) when is_list(Config) ->
@@ -1014,12 +1029,11 @@ chkio_test({erts_poll_info, Before},
             chk_chkio_port(Port),
             Fun(),
             During = get_check_io_total(erlang:system_info(check_io)),
-            erlang:display(During),
 
             [0 = element(1, erts_debug:get_internal_state(check_io_debug)) ||
                 %% The pollset is not stable when running the fallback testcase
                 Test /= ?CHKIO_USE_FALLBACK_POLLSET],
-            io:format("During test: ~p~n", [During]),
+            ct:log("During test: ~p~n", [During]),
             chk_chkio_port(Port),
             case erlang:port_control(Port, ?CHKIO_STOP, "") of
                 Res when is_list(Res) ->
@@ -1087,7 +1101,7 @@ get_stable_check_io_info(N) ->
 %% Merge return from erlang:system_info(check_io)
 %% as if it was one big pollset.
 get_check_io_total(ChkIo) ->
-    ct:log("ChkIo = ~p~n",[ChkIo]),
+    ct:log("ChkIo = ~p (~p)~n",[ChkIo, nodes()]),
     {Fallback, Rest} = get_fallback(ChkIo),
     OnlyPollThreads = [PS || PS <- Rest, not is_scheduler_pollset(PS)],
     add_fallback_infos(Fallback,
@@ -1155,7 +1169,7 @@ tag_type(poll_threads) -> sum.
 %% driver that didn't use the same lock. The lock checker
 %% used to trigger on this and dump core.
 otp_6602(Config) when is_list(Config) ->
-    {ok, Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
     Done = make_ref(),
     Parent = self(),
     Tester = spawn_link(Node,
@@ -1170,7 +1184,7 @@ otp_6602(Config) when is_list(Config) ->
                         end),
     receive Done -> ok end,
     unlink(Tester),
-    stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 -define(EXPECTED_SYSTEM_INFO_NAMES1,
@@ -1869,67 +1883,19 @@ lots_of_used_fds_on_boot_test(Config) ->
     %% open. This used to hang the whole VM at boot in
     %% an eternal loop trying to figure out how to size
     %% arrays in erts_poll() implementation.
-    Name = lots_of_used_fds_on_boot,
-    HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,
-				 atom_to_list(node())),
-    FullName = list_to_atom(atom_to_list(Name) ++ HostSuffix),
-    Pa = filename:dirname(code:which(?MODULE)),
     Prog = case catch init:get_argument(progname) of
 	       {ok,[[P]]} -> P;
 	       _ -> exit(no_progname_argument_found)
 	   end,
-    NameSw = case net_kernel:longnames() of
-		 false -> "-sname ";
-		 true -> "-name ";
-		 _ -> exit(not_distributed_node)
-	     end,
-    {ok, Pwd} = file:get_cwd(),
-    NameStr = atom_to_list(Name),
     DataDir = proplists:get_value(data_dir, Config),
     Wrapper = filename:join(DataDir, "lots_of_fds_used_wrapper"),
-    CmdLine = Wrapper ++ " " ++ Prog ++ " -noshell -noinput "
-	++ NameSw ++ " " ++ NameStr ++ " "
-	++ "-pa " ++ Pa ++ " "
-	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr ++ " "
-	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()) ++ " "
-        ++ "-s " ++ atom_to_list(?MODULE) ++ " lots_of_used_fds_on_boot_slave "
-        ++ atom_to_list(node()),
-    io:format("Starting node ~p: ~s~n", [FullName, CmdLine]),
-    net_kernel:monitor_nodes(true),
-    Port = case open_port({spawn, CmdLine}, [exit_status]) of
-               Prt when is_port(Prt) ->
-                   Prt;
-               OPError ->
-                   exit({failed_to_start_node, {open_port_error, OPError}})
-           end,
-    receive
-        {Port, {exit_status, 17}} ->
-            {skip, "Cannot open enough fds to test this"};
-        {Port, {exit_status, Error}} ->
-            exit({failed_to_start_node, {exit_status, Error}});
-        {nodeup, FullName} ->
-            io:format("~p connected!~n", [FullName]),
-            FullName = rpc:call(FullName, erlang, node, []),
-            rpc:cast(FullName, erlang, halt, []),
-            receive
-                {Port, {exit_status, 0}} ->
-                    ok;
-                {Port, {exit_status, Error}} ->
-                    exit({unexpected_exit_status, Error})
-            after 5000 ->
-                    exit(missing_exit_status)
-            end
-    after 5000 ->
-            exit(connection_timeout)
+    try
+        {ok, Peer, _Node} = ?CT_PEER(#{connection => standard_io, exec => {Wrapper, [Prog]}}),
+        peer:stop(Peer)
+    catch
+        exit:{boot_failed, {exit_status, 17}} ->
+            {skip, "Cannot open enough fds to test this"}
     end.
-
-lots_of_used_fds_on_boot_slave([Master]) ->
-    erlang:monitor_node(Master, true),
-    receive
-        {nodedown, Master} ->
-            erlang:halt()
-    end,
-    ok.
 
 thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
     case {erlang:system_info(threads),
@@ -2131,12 +2097,12 @@ async_blast(Config) when is_list(Config) ->
                   end, Ps),
     End = os:timestamp(),
     MemAfter = driver_alloc_size(),
-    io:format("MemBefore=~p, MemMid=~p, MemAfter=~p~n",
+    ct:log("MemBefore=~p, MemMid=~p, MemAfter=~p~n",
               [MemBefore, MemMid, MemAfter]),
     AsyncBlastTime = timer:now_diff(End,Start)/1000000,
-    io:format("AsyncBlastTime=~p~n", [AsyncBlastTime]),
+    ct:log("AsyncBlastTime=~p~n", [AsyncBlastTime]),
     MemBefore = MemAfter,
-    erlang:display({async_blast_time, AsyncBlastTime}),
+    ct:log({async_blast_time, AsyncBlastTime}),
     ok.
 
 thr_msg_blast_receiver(_Port, N, N) ->
@@ -2187,13 +2153,12 @@ thr_msg_blast(Config) when is_list(Config) ->
             ok
     end,
     MemAfter = driver_alloc_size(),
-    io:format("MemBefore=~p, MemAfter=~p~n",
+    ct:log("MemBefore=~p, MemAfter=~p~n",
               [MemBefore, MemAfter]),
     ThrMsgBlastTime = timer:now_diff(End,Start)/1000000,
-    io:format("ThrMsgBlastTime=~p~n", [ThrMsgBlastTime]),
+    ct:log("ThrMsgBlastTime=~p~n", [ThrMsgBlastTime]),
     MemBefore = MemAfter,
     Res = {thr_msg_blast_time, ThrMsgBlastTime},
-    erlang:display(Res),
     Res.
 
 -define(IN_RANGE(LoW_, VaLuE_, HiGh_),
@@ -2223,7 +2188,7 @@ consume_timeslice(Config) when is_list(Config) ->
     %% scheduling counts.
     %%
     %% When signal is delivered immediately we must take into account
-    %% that process and port are "virtualy" scheduled out and in
+    %% that process and port are "virtually" scheduled out and in
     %% in the trace generated.
     %%
     %% Port ! {_, {command, _}, and port_command() differs. The send
@@ -2454,8 +2419,7 @@ count_pp_sched_stop(Ps) ->
     PNs = lists:map(fun (P) -> {P, 0} end, Ps),
     receive {trace_delivered, all, Td} -> ok end,
     Res = count_proc_sched(Ps, PNs),
-    io:format("Scheduling counts: ~p~n", [Res]),
-    erlang:display({scheduling_counts, Res}),
+    ct:log("Scheduling counts: ~p~n", [Res]),
     Res.
 
 do_inc_pn(_P, []) ->
@@ -2560,8 +2524,9 @@ check_io_debug() ->
 has_gethost() ->
     has_gethost(erlang:ports()).
 has_gethost([P|T]) ->
-    case erlang:port_info(P, name) of
-        {name,"inet_gethost"++_} ->
+    {name, Name} = erlang:port_info(P, name),
+    case filename:basename(Name) of
+        "inet_gethost"++_ ->
             true;
         _ ->
             has_gethost(T)
@@ -2649,7 +2614,7 @@ make_refc_binaries(Term) ->
     transform_bins(F, Term).
 
 build_binary(Elements) ->
-    list_to_binary(build_list(Elements)).
+    rand:bytes(Elements).
 
 build_list(Elements) -> build_list(Elements, []).
 
@@ -2733,32 +2698,14 @@ sleep(Ms) when is_integer(Ms), Ms >= 0 ->
     receive after Ms -> ok end.
 
 
-start_node(Config) when is_list(Config) ->
-    start_node(proplists:get_value(testcase, Config));
-start_node(Name) ->
-    start_node(Name, "").
-start_node(NodeName, Args) ->
-    Name = list_to_atom(atom_to_list(?MODULE)
-                        ++ "-"
-                        ++ atom_to_list(NodeName)
-                        ++ "-"
-                        ++ integer_to_list(erlang:system_time(second))
-                        ++ "-"
-                        ++ integer_to_list(erlang:unique_integer([positive]))),
-    start_node_final(Name, Args).
-start_node_final(Name, Args) ->
+setup_logger(Node) ->
     {ok, Pwd} = file:get_cwd(),
-    FinalArgs = [Args, " -pa ", filename:dirname(code:which(?MODULE))],
-    {ok, Node} = test_server:start_node(Name, slave, [{args, FinalArgs}]),
-    LogPath = Pwd ++ "/error_log." ++ atom_to_list(Name),
+    Name = hd(string:lexemes(atom_to_list(Node), "@")),
+    LogPath = filename:join(Pwd, "error_log." ++ Name),
     ct:pal("Logging to: ~s", [LogPath]),
     rpc:call(Node, logger, add_handler, [file_handler, logger_std_h,
                                          #{formatter => {logger_formatter,#{ single_line => false }},
-                                           config => #{file => LogPath }}]),
-    {ok, Node}.
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
+                                           config => #{file => LogPath }}]).
 
 wait_deallocations() ->
     try
@@ -2776,7 +2723,8 @@ rpc(Config, Fun) ->
     case proplists:get_value(node, Config) of
         undefined ->
             Fun();
-        Node ->
+        {_Peer, Node} ->
+            ct:log("Running RPC ~p on ~p/~p~n", [Fun, _Peer, Node]),
             Self = self(),
             Ref = make_ref(),
             Pid = spawn(Node,

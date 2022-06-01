@@ -562,7 +562,7 @@ read_comments(File) ->
 
 %% @doc Extracts comments from an Erlang source code file. See the
 %% module {@link //syntax_tools/erl_comment_scan} for details on the
-%% representation of comments. Currently, no options are avaliable.
+%% representation of comments. Currently, no options are available.
 
 -spec read_comments(File, Opts) -> [comment()] when
       File :: filename(),

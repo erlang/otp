@@ -128,7 +128,7 @@ public class OtpMbox {
      * mailbox enables others to send messages without knowing the
      * {@link OtpErlangPid pid} of the mailbox. A mailbox can have at most one
      * name; if the mailbox already had a name, calling this method will
-     * supercede that name.
+     * supersede that name.
      * </p>
      *
      * @param aname

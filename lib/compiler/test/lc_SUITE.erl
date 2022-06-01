@@ -90,8 +90,8 @@ basic(Config) when is_list(Config) ->
     "abc123" = alphanum("?abc123.;"),
 
     %% Aliased patterns.
-    [] = [t || {C=D}={_,_} <- []],
-    [] = [X || {X,{Y}={X,X}} <- []],
+    [] = [t || {_C=_D}={_,_} <- []],
+    [] = [X || {X,{_Y}={X,X}} <- []],
     [t] = [t || "a"++"b" = "ab" <- ["ab"]],
 
     %% Strange filter block.

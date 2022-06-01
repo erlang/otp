@@ -78,10 +78,9 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [all/2,droplast/1,flatten/1,foldl/3,foldr/3,
-                map/2,mapfoldl/3,member/2,
-		keyfind/3,keyreplace/4,
-                last/1,partition/2,reverse/1,
-                sort/1,sort/2,splitwith/2]).
+                map/2,mapfoldl/3,member/2,keyfind/3,last/1,
+                partition/2,reverse/1,sort/1,sort/2,
+                splitwith/2]).
 -import(ordsets, [add_element/2,intersection/2,
                   subtract/2,union/2,union/1]).
 
@@ -234,25 +233,19 @@ gexpr_test_add(Ke, St0) ->
 %% expr(Cexpr, Sub, State) -> {Kexpr,[PreKexpr],State}.
 %%  Convert a Core expression, flattening it at the same time.
 
-expr(#c_var{anno=A0,name={Name,Arity}}=Fname, Sub, St) ->
-    Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
-             V <- integers(1, Arity)],
+expr(#c_var{anno=A,name={Name0,Arity}}=Fname, Sub, St) ->
     case St#kern.no_shared_fun_wrappers of
         false ->
-            %% Generate a (possibly shared) wrapper function for calling
-            %% this function.
-            Wrapper0 = ["-fun.",atom_to_list(Name),"/",integer_to_list(Arity),"-"],
-            Wrapper = list_to_atom(flatten(Wrapper0)),
-            Id = {id,{0,0,Wrapper}},
-            A = keyreplace(id, 1, A0, Id),
-            Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
-            expr(Fun, Sub, St);
+            Name = get_fsub(Name0, Arity, Sub),
+            {#k_local{anno=A,name=Name,arity=Arity},[],St};
         true ->
             %% For backward compatibility with OTP 22 and earlier,
             %% use the pre-generated name for the fun wrapper.
             %% There will be one wrapper function for each occurrence
             %% of `fun F/A`.
-            Fun = #c_fun{anno=A0,vars=Vs,body=#c_apply{anno=A0,op=Fname,args=Vs}},
+            Vs = [#c_var{name=list_to_atom("V" ++ integer_to_list(V))} ||
+                  V <- integers(1, Arity)],
+            Fun = #c_fun{anno=A,vars=Vs,body=#c_apply{anno=A,op=Fname,args=Vs}},
             expr(Fun, Sub, St)
     end;
 expr(#c_var{anno=A,name=V}, Sub, St) ->
@@ -337,7 +330,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
             {#k_call{anno=A,op=Remote,args=Kargs},Ap,St1};
         error ->
             %% Invalid call (e.g. M:42/3). Issue a warning, and let
-            %% the generated code use the old explict apply.
+            %% the generated code use the old explicit apply.
             St = add_warning(get_location(A), {failed,bad_call}, A, St0),
 	    Call = #c_call{anno=A,
 			   module=#c_literal{val=erlang},
@@ -392,57 +385,74 @@ letrec_local_function(A, Cfs, Cb, Sub0, St0) ->
 %% Implement letrec with the single definition as a label and each
 %% apply of it as a goto.
 
-letrec_goto([{#c_var{name={Label,0}},Cfail}], Cb, Sub0,
+letrec_goto([{#c_var{name={Label,_Arity}},Cfail}], Cb, Sub0,
             #kern{labels=Labels0}=St0) ->
+    #c_fun{vars=FunVars,body=FunBody} = Cfail,
+    {Kvars,{FunSub,St1}} =
+        mapfoldl(fun(#c_var{anno=A,name=V}, {SubInt,StInt0}) ->
+                         {New,StInt1} = new_var_name(StInt0),
+                         {#k_var{anno=A,name=New},
+                          {set_vsub(V, New, SubInt),
+                           StInt1#kern{ds=sets:add_element(New, StInt1#kern.ds)}}}
+                 end, {Sub0,St0}, FunVars),
     Labels = sets:add_element(Label, Labels0),
-    {Kb,Pb,St1} = body(Cb, Sub0, St0#kern{labels=Labels}),
-    #c_fun{body=FailBody} = Cfail,
-    {Kfail,Fb,St2} = body(FailBody, Sub0, St1),
+    {Kb,Pb,St2} = body(Cb, Sub0, St1#kern{labels=Labels}),
+    {Kfail,Fb,St3} = body(FunBody, FunSub, St2),
     case {Kb,Kfail,Fb} of
         {#k_goto{label=Label},#k_goto{}=InnerGoto,[]} ->
-            {InnerGoto,Pb,St2};
+            {InnerGoto,Pb,St3};
         {_,_,_} ->
-            St3 = St2#kern{labels=Labels0},
-            Alt = #k_letrec_goto{label=Label,first=Kb,then=pre_seq(Fb, Kfail)},
-            {Alt,Pb,St3}
+            St4 = St3#kern{labels=Labels0},
+            Alt = #k_letrec_goto{label=Label,vars=Kvars,
+                                 first=Kb,then=pre_seq(Fb, Kfail)},
+            {Alt,Pb,St4}
     end.
 
 %% translate_match_fail(Arg, Sub, Anno, St) -> {Kexpr,[PreKexpr],State}.
-%%  Translate a match_fail primop to a call erlang:error/1 or
-%%  erlang:error/2.
+%%  Translate match_fail primops, paying extra attention to `function_clause`
+%%  errors that may have been inlined from other functions.
 
 translate_match_fail(Arg, Sub, Anno, St0) ->
-    Cargs = case {cerl:data_type(Arg),cerl:data_es(Arg)} of
-                {tuple,[#c_literal{val=function_clause}|As]} ->
-                    translate_fc_args(As, Sub, St0);
-                {_,_} ->
-                    [Arg]
-            end,
-    {Kargs,Ap,St} = atomic_list(Cargs, Sub, St0),
+    {Cargs,ExtraAnno,St1} =
+        case {cerl:data_type(Arg),cerl:data_es(Arg)} of
+            {tuple,[#c_literal{val=function_clause} | _]=As} ->
+                translate_fc_args(As, Sub, Anno, St0);
+            {tuple,[#c_literal{} | _]=As} ->
+                {As,[],St0};
+            {{atomic,Reason}, []} ->
+                {[#c_literal{val=Reason}],[],St0}
+        end,
+    {Kargs,Ap,St} = atomic_list(Cargs, Sub, St1),
     Ar = length(Cargs),
-    Call = #k_call{anno=Anno,
-                   op=#k_remote{mod=#k_literal{val=erlang},
-                                name=#k_literal{val=error},
-                                arity=Ar},args=Kargs},
-    {Call,Ap,St}.
+    Primop = #k_bif{anno=ExtraAnno ++ Anno,
+                    op=#k_internal{name=match_fail,arity=Ar},
+                    args=Kargs},
+    {Primop,Ap,St}.
 
-translate_fc_args(As, Sub, #kern{fargs=Fargs}) ->
-    case same_args(As, Fargs, Sub) of
-        true ->
-            %% The arguments for the `function_clause` exception are
-            %% the arguments for the current function in the correct
-            %% order.
-            [#c_literal{val=function_clause},cerl:make_list(As)];
-        false ->
-            %% The arguments in the `function_clause` exception don't
-            %% match the arguments for the current function because
-            %% of inlining. Keeping the `function_clause`
-            %% exception reason would be confusing. Rewrite it to
-            %% a `case_clause` exception with the arguments in a
-            %% tuple.
-	    [cerl:c_tuple([#c_literal{val=case_clause},
-                           cerl:c_tuple(As)])]
-    end.
+translate_fc_args(As, Sub, Anno, #kern{fargs=Fargs}=St0) ->
+    {ExtraAnno, St} =
+        case same_args(As, Fargs, Sub) of
+            true ->
+                %% The arguments for the `function_clause` exception are
+                %% the arguments for the current function in the correct
+                %% order.
+                {[], St0};
+            false ->
+                %% The arguments in the `function_clause` exception don't
+                %% match the arguments for the current function because of
+                %% inlining.
+                case keyfind(function, 1, Anno) of
+                     false ->
+                         {Name, St1} = new_fun_name("inlined", St0),
+                         {[{inlined,{Name,length(As) - 1}}], St1};
+                     {_,{Name0,Arity}} ->
+                         %% This is function that has been inlined.
+                         Name1 = ["-inlined-",Name0,"/",Arity,"-"],
+                         Name = list_to_atom(lists:concat(Name1)),
+                         {[{inlined,{Name,Arity}}], St0}
+                end
+        end,
+    {As, ExtraAnno, St}.
 
 same_args([#c_var{name=Cv}|Vs], [#k_var{name=Kv}|As], Sub) ->
     get_vsub(Cv, Sub) =:= Kv andalso same_args(Vs, As, Sub);
@@ -559,10 +569,11 @@ match_vars(Ka, St0) ->
 %%  Transform application.
 
 c_apply(A, #c_var{anno=Ra,name={F0,Ar}}, Cargs, Sub, #kern{labels=Labels}=St0) ->
-    case Ar =:= 0 andalso sets:is_element(F0, Labels) of
+    case sets:is_element(F0, Labels) of
         true ->
             %% This is a goto to a label in a letrec_goto construct.
-            {#k_goto{label=F0},[],St0};
+            {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
+            {#k_goto{label=F0,args=Kargs},Ap,St1};
         false ->
             {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
             F1 = get_fsub(F0, Ar, Sub),         %Has it been rewritten
@@ -1216,7 +1227,7 @@ expand_pat_lit(Lit, A) ->
 %%  comparing with the literal (that is especially true for binaries).
 %%
 %%  It is important not to do this transformation for atomic literals
-%%  (such as `[]`), since that would cause the test for an emtpy list
+%%  (such as `[]`), since that would cause the test for an empty list
 %%  to be executed before the test for a nonempty list.
 
 opt_single_valued(Ttcs) ->
@@ -1610,7 +1621,7 @@ new_clauses(Cs0, U, St) ->
 %%  will be grouped next.
 %%
 %%  We also try to not create too large groups. If we have too many clauses,
-%%  it is preferrable to match on 8-bits, select a branch, then match on the
+%%  it is preferable to match on 8-bits, select a branch, then match on the
 %%  next 8-bits, rather than match on 16-bits which would force us to have
 %%  to select to many values at the same time, which would not be efficient.
 %%
@@ -1991,11 +2002,21 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
 	    args=[Local|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
-uexpr(#k_letrec_goto{anno=A,first=F0,then=T0}=MatchAlt, Br, St0) ->
+uexpr(#k_local{anno=A,name=Name,arity=Arity}, {break,Rs}, St) ->
+    Free = lit_list_vars(get_free(Name, Arity, St)),
+    Fvs = make_vars(Free),
+    FreeCount = length(Fvs),
+    Bif = #k_bif{anno=A,
+                 op=#k_internal{name=make_fun,arity=FreeCount+1},
+                 args=[#k_local{name=Name,arity=Arity+FreeCount} | Fvs],
+                 ret=Rs},
+    {Bif,Free,St};
+uexpr(#k_letrec_goto{anno=A,vars=Vs,first=F0,then=T0}=MatchAlt, Br, St0) ->
     Rs = break_rets(Br),
+    Ns = lit_list_vars(Vs),
     {F1,Fu,St1} = ubody(F0, Br, St0),
     {T1,Tu,St2} = ubody(T0, Br, St1),
-    Used = union(Fu, Tu),
+    Used = subtract(union(Fu, Tu), Ns),
     {MatchAlt#k_letrec_goto{anno=A,first=F1,then=T1,ret=Rs},Used,St2};
 uexpr(Lit, {break,Rs0}, St0) ->
     %% Transform literals to puts here.
@@ -2048,13 +2069,16 @@ break_rets(return) -> [].
 
 %% bif_returns(Op, [Ret], State) -> {[Ret],State}.
 
-bif_returns(#k_remote{mod=M,name=N,arity=Ar}, Rs, St0) ->
-    %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,{M,N,Ar,Rs}]),
-    {Ns,St1} = new_vars(bif_vals(M, N, Ar) - length(Rs), St0),
-    {Rs ++ Ns,St1};
+bif_returns(#k_internal{name=match_fail}, Rs, St) ->
+    %% This is only used for effect, and may have any number of returns.
+    {Rs,St};
 bif_returns(#k_internal{name=N,arity=Ar}, Rs, St0) ->
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,{N,Ar,Rs}]),
     {Ns,St1} = new_vars(bif_vals(N, Ar) - length(Rs), St0),
+    {Rs ++ Ns,St1};
+bif_returns(#k_remote{mod=M,name=N,arity=Ar}, Rs, St0) ->
+    %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,{M,N,Ar,Rs}]),
+    {Ns,St1} = new_vars(bif_vals(M, N, Ar) - length(Rs), St0),
     {Rs ++ Ns,St1}.
 
 %% ensure_return_vars([Ret], State) -> {[Ret],State}.

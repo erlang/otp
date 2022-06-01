@@ -140,8 +140,7 @@ do_get_modules(Config) ->
     %% Test that an 'enotdir' error can be handled.
     {ok,{SuccExp,FailExp}} = get_modules_sorted(Ms, Process, [NotADir|Path]),
 
-    Name = inet_get_modules,
-    {ok, Node, BootPid} = complete_start_node(Name),
+    {ok, Peer, Node, BootPid} = complete_start_node(),
     ThisDir = filename:dirname(code:which(?MODULE)),
     true = rpc:call(Node, code, add_patha, [ThisDir]),
     _ = rpc:call(Node, code, ensure_loaded, [?MODULE]),
@@ -149,7 +148,7 @@ do_get_modules(Config) ->
 				       get_modules, [Ms,Process,Path]),
     SuccExp = lists:sort(InetSucc),
 
-    stop_node(Node),
+    peer:stop(Peer),
     unlink(BootPid),
     exit(BootPid, kill),
 
@@ -186,11 +185,10 @@ test_normalize_and_backslash(Config) ->
 %% Start a node using the 'inet' loading method,
 %% from an already started boot server.
 inet_existing(Config) when is_list(Config) ->
-    Name = erl_prim_test_inet_existing,
     BootPid = start_boot_server(),
-    Node = start_node_using_inet(Name),
+    {ok, Peer, Node} = ?CT_PEER(start_node_using_inet_args()),
     {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
-    stop_node(Node),
+    peer:stop(Peer),
     unlink(BootPid),
     exit(BootPid, kill),
     ok.
@@ -198,37 +196,35 @@ inet_existing(Config) when is_list(Config) ->
 %% Start a node using the 'inet' loading method,
 %% but start the boot server afterwards.
 inet_coming_up(Config) when is_list(Config) ->
-    Name = erl_prim_test_inet_coming_up,
-    Node = start_node_using_inet(Name, [{wait,false}]),
+    {ok, Peer} = ?CT_PEER(#{wait_boot => false, connection => standard_io,
+        args => start_node_using_inet_args()}),
 
     %% Wait a while, then start boot server, and wait for node to start.
     ct:sleep({seconds,6}),
     BootPid = start_boot_server(),
-    wait_really_started(Node, 25),
+    Node = wait_really_started(Peer, 25),
 
     %% Check loader argument, then cleanup.
     {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
-    stop_node(Node),
+    peer:stop(Peer),
     unlink(BootPid),
     exit(BootPid, kill),
     ok.
 
-wait_really_started(Node, 0) ->
-    ct:fail({not_booted,Node});
-wait_really_started(Node, N) ->
-    case rpc:call(Node, init, get_status, []) of
- 	{started, _} ->
- 	    ok;
-	_ ->
-	    ct:sleep(1000),
- 	    wait_really_started(Node, N - 1)
+wait_really_started(Peer, 0) ->
+    ct:fail({not_booted,Peer});
+wait_really_started(Peer, N) ->
+    case (catch peer:call(Peer, init, get_status, [])) of
+        {started, _} ->
+            peer:call(Peer, erlang, node, []);
+        _ ->
+            ct:sleep(1000),
+            wait_really_started(Peer, N - 1)
     end.
 
 %% Start a node using the 'inet' loading method,
 %% then lose the connection.
 inet_disconnects(Config) when is_list(Config) ->
-    Name = erl_prim_test_inet_disconnects,
-
     BootPid = start_boot_server(),
     unlink(BootPid),
     Self = self(),
@@ -240,7 +236,8 @@ inet_disconnects(Config) when is_list(Config) ->
     end,
 
     %% Let the loading begin...
-    Node = start_node_using_inet(Name, [{wait,false}]),
+    {ok,Peer} = ?CT_PEER(#{wait_boot => false, connection => 0,
+        args => start_node_using_inet_args()}),
 
     %% When the stopper is ready, the slave node should be
     %% looking for a boot server again.
@@ -255,9 +252,9 @@ inet_disconnects(Config) when is_list(Config) ->
 
     %% Start new boot server to see that loading is continued.
     BootPid2 = start_boot_server(),
-    wait_really_started(Node, 25),
+    Node = wait_really_started(Peer, 25),
     {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
-    stop_node(Node),
+    peer:stop(Peer),
     unlink(BootPid2),
     exit(BootPid2, kill),
     ok.
@@ -290,22 +287,11 @@ get_calls(Count, Pid) ->
 %% Start nodes in parallel, all using the 'inet' loading method;
 %% verify that the boot server manages.
 multiple_slaves(Config) when is_list(Config) ->
-    Name = erl_prim_test_multiple_slaves,
-    Host = host(),
-    IpStr = ip_str(Host),
-    Args = " -loader inet -hosts " ++ IpStr,
+    Args = start_node_using_inet_args(),
 
     NoOfNodes = 10,			% no of slave nodes to be started
 
-    NamesAndNodes = 
-        lists:map(fun(N) ->
-                          NameN = atom_to_list(Name) ++ 
-                              integer_to_list(N),
-                          NodeN = NameN ++ "@" ++ Host,
-                          {list_to_atom(NameN),list_to_atom(NodeN)}
-                  end, lists:seq(1, NoOfNodes)),
-
-    Nodes = start_multiple_nodes(NamesAndNodes, Args, []),
+    Peers = [?CT_PEER(#{wait_boot => {self(), tag}, args => Args}) || _ <- lists:seq(1, NoOfNodes)],
 
     %% "queue up" the nodes to wait for the boot server to respond
     %% (note: test_server supervises each node start by accept()
@@ -317,31 +303,25 @@ multiple_slaves(Config) when is_list(Config) ->
     %% give the nodes a chance to boot up before attempting to stop them
     ct:sleep({seconds,10}),
 
-    wait_and_shutdown(lists:reverse(Nodes), 30),
+    %% wait for all nodes to complete boot process, get their names:
+    [
+        receive
+            {tag, {started, Node, Peer}} ->
+                {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader])
+        end
+        || {ok, Peer} <- Peers
+    ],
+    [peer:stop(Peer) || {ok, Peer} <- Peers],
 
     unlink(BootPid),
     exit(BootPid, kill),
-    ok.
-
-start_multiple_nodes([{Name,Node} | NNs], Args, Started) ->
-    {ok,Node} = start_node(Name, Args, [{wait, false}]),
-    start_multiple_nodes(NNs, Args, [Node | Started]);
-start_multiple_nodes([], _, Nodes) ->
-    Nodes.
-
-wait_and_shutdown([Node | Nodes], Tries) ->
-    wait_really_started(Node, Tries),
-    {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
-    stop_node(Node),
-    wait_and_shutdown(Nodes, Tries);
-wait_and_shutdown([], _) ->
     ok.
 
 
 %% Start a node using the 'inet' loading method,
 %% verify that the boot server responds to file requests.
 file_requests(Config) when is_list(Config) ->
-    {ok, Node, BootPid} = complete_start_node(erl_prim_test_file_req),
+    {ok, Peer, Node, BootPid} = complete_start_node(),
 
     %% compare with results from file server calls (the
     %% boot server uses the same file sys and cwd)
@@ -384,7 +364,7 @@ file_requests(Config) when is_list(Config) ->
 	    {ok,DCwd} = rpc:call(Node, erl_prim_loader, get_cwd, ["C:"])
     end,
 
-    stop_node(Node),
+    peer:stop(Peer),
     unlink(BootPid),
     exit(BootPid, kill),
     ok.
@@ -414,13 +394,13 @@ remote_archive(Config) when is_list(Config) ->
     file:delete(Archive),
     {ok, Archive} = create_archive(Archive, [KernelDir]),
 
-    {ok, Node, BootPid} = complete_start_node(remote_archive),
+    {ok, Peer, Node, BootPid} = complete_start_node(),
 
     BeamName = "inet.beam",
     ok = test_archive(Node, Archive, KernelDir, BeamName),
 
     %% Cleanup
-    stop_node(Node),
+    peer:stop(Peer),
     unlink(BootPid),
     exit(BootPid, kill),
     ok.
@@ -449,10 +429,7 @@ primary_archive(Config) when is_list(Config) ->
 				       [memory, {compress, []}, {cwd, TopDir}]),
 
     %% Use temporary node to simplify cleanup
-    Cookie = atom_to_list(erlang:get_cookie()),
-    Args = " -setcookie " ++ Cookie,
-    {ok,Node} = start_node(primary_archive, Args),
-    wait_really_started(Node, 25),
+    {ok,Peer,Node} = ?CT_PEER(),
     {_,_,_} = rpc:call(Node, erlang, date, []),
 
     %% Set primary archive 
@@ -473,7 +450,7 @@ primary_archive(Config) when is_list(Config) ->
     {ok, []} = rpc:call(Node, erl_prim_loader, set_primary_archive,
 			[undefined, undefined, undefined,
 			 fun escript:parse_file/1]),
-    stop_node(Node),
+    peer:stop(Peer),
     ok = file:delete(Archive),
     ok.
 
@@ -559,11 +536,10 @@ virtual_dir_in_archive(Config) when is_list(Config) ->
 %%% Helper functions.
 %%%
 
-complete_start_node(Name) ->
+complete_start_node() ->
     BootPid = start_boot_server(),
-    Node = start_node_using_inet(Name),
-    wait_really_started(Node, 25),
-    {ok, Node, BootPid}.
+    {ok, Peer, Node} = ?CT_PEER(start_node_using_inet_args()),
+    {ok, Peer, Node, BootPid}.
 
 start_boot_server() ->
     %% Many linux systems define:
@@ -576,15 +552,9 @@ start_boot_server() ->
     {ok,BootPid} = erl_boot_server:start_link(Hosts),
     BootPid.
 
-start_node_using_inet(Name) ->
-    start_node_using_inet(Name, []).
-
-start_node_using_inet(Name, Opts) ->
-    Host = host(),
-    IpStr = ip_str(Host),
-    Args = " -loader inet -hosts " ++ IpStr,
-    {ok,Node} = start_node(Name, Args, Opts),
-    Node.
+start_node_using_inet_args() ->
+    IpStr = ip_str(host()),
+    ["-loader", "inet", "-hosts", IpStr].
 
 
 ip_str({A, B, C, D}) ->
@@ -593,23 +563,9 @@ ip_str(Host) ->
     {ok,Ip} = inet:getaddr(Host, inet),
     ip_str(Ip).
 
-start_node(Name, Args) ->
-    start_node(Name, Args, []).
-
-start_node(Name, Args, Opts) ->
-    Opts2 = [{args, Args}|Opts],
-    io:format("test_server:start_node(~p, peer, ~p).\n",
-	      [Name, Opts2]),
-    Res = test_server:start_node(Name, peer, Opts2),
-    io:format("start_node -> ~p\n", [Res]),
-    Res.
-
 host() ->
     {ok,Host} = inet:gethostname(),
     Host.
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
 
 compile_app(TopDir, AppName) ->
     AppDir = filename:join([TopDir, AppName]),

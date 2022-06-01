@@ -49,6 +49,10 @@ my $code_pointers_are_short = 0; # Whether code pointers (to C code) are short.
 my $code_model = 'unknown';
 my $jit = 'no';
 my %defs;                        # Defines (from command line).
+my $pending_errors = 0;          # Number of pending errors.
+
+# Intentionally unused macros, predicates, and generators.
+my %intentionally_unused;
 
 # This is shift counts and mask for the packer.
 my $WHOLE_WORD = '';
@@ -178,7 +182,81 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero,
 		'h' => 1,	# character (not used)
 		'l' => 1,	# float reg
 		'q' => 1,	# literal term
+		'M' => 1,	# pointer to raw string
+		'H' => 1,	# exception handler
 	     );
+
+# Maps operand type to the argument classes used by the JIT.
+my %arg_jit_class = ('r' => 'ArgXRegister',
+                     'x' => 'ArgXRegister',
+                     'y' => 'ArgYRegister',
+                     'a' => 'ArgAtom',
+                     'n' => 'ArgNil',
+                     'c' => 'ArgConstant',
+                     's' => 'ArgSource',
+                     'S' => 'ArgRegister',
+                     'd' => 'ArgRegister',
+                     'f' => 'ArgLabel',
+                     'j' => 'ArgLabel',
+                     'e' => 'ArgExport',
+                     'L' => 'ArgLabel',
+                     't' => 'ArgWord',
+                     'I' => 'ArgWord',
+                     'W' => 'ArgWord',
+                     'b' => 'ArgWord',
+                     'F' => 'ArgLambda',
+                     'A' => 'ArgWord',
+                     'P' => 'ArgWord',
+                     'Q' => 'ArgWord',
+                     'h' => 'ArgWord',
+                     'l' => 'ArgFRegister',
+                     'q' => 'ArgLiteral',
+                     'M' => 'ArgBytePtr',
+                     'H' => 'ArgCatch',
+                    );
+
+# Define a lattice for the parameter classes used in the JIT.
+#
+# The classes are represented as a bitset where each class is represented by
+# a single bit, which is combined with that of its superclasses, letting us
+# find the best superclass for a given set of classes by AND-ing them together.
+my %arg_jit_lattice;
+{
+    # Perl lacks enums, lovely :(
+    my $iota = 0;
+    my %jcl;
+
+    $jcl{'ArgVal'} = (1 << $iota++),
+
+    $jcl{'ArgBytePtr'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgCatch'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgExport'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgLabel'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgLambda'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgSource'} = $jcl{'ArgVal'} | (1 << $iota++);
+    $jcl{'ArgWord'} = $jcl{'ArgVal'} | (1 << $iota++);
+
+    $jcl{'ArgConstant'} = $jcl{'ArgSource'} | (1 << $iota++);
+    $jcl{'ArgRegister'} = $jcl{'ArgSource'} | (1 << $iota++);
+
+    $jcl{'ArgLiteral'} = $jcl{'ArgConstant'} | (1 << $iota++);
+    $jcl{'ArgImmed'} = $jcl{'ArgConstant'} | (1 << $iota++);
+
+    $jcl{'ArgAtom'} = $jcl{'ArgImmed'} | (1 << $iota++);
+    $jcl{'ArgNil'} = $jcl{'ArgImmed'} | (1 << $iota++);
+    $jcl{'ArgSmall'} = $jcl{'ArgImmed'} | (1 << $iota++);
+
+    $jcl{'ArgXRegister'} = $jcl{'ArgRegister'} | (1 << $iota++);
+    $jcl{'ArgYRegister'} = $jcl{'ArgRegister'} | (1 << $iota++);
+    $jcl{'ArgFRegister'} = $jcl{'ArgRegister'} | (1 << $iota++);
+
+    foreach my $class (keys %jcl) {
+        my $bits = $jcl{$class};
+        $jcl{$bits} = $class;
+    }
+
+    %arg_jit_lattice = %jcl;
+}
 
 #
 # Types that are forbidden to use for specific operations.
@@ -256,6 +334,8 @@ sub define_type_bit {
     define_type_bit('e', $type_bit{'u'});
     define_type_bit('Q', $type_bit{'u'});
     define_type_bit('P', $type_bit{'u'});
+    define_type_bit('M', $type_bit{'u'});
+    define_type_bit('H', $type_bit{'u'});
 }
 
 #
@@ -371,8 +451,13 @@ while (<>) {
     }
     chomp;
     if (s/\\$//) {
-	$_ .= <>;
-	redo unless eof(ARGV);
+        error("line continuation with `\\` is no longer allowed");
+    } elsif (/([|]|=>)$/) {
+        # Automatically continue a line that ends in '|' or '=>'.
+        my $next_line = <>;
+        $_ .= $next_line;
+        chomp $next_line;
+        redo unless eof(ARGV) or $next_line eq '';
     }
     next if /^\s*$/;
     next if /^\#/;
@@ -446,6 +531,24 @@ while (<>) {
     } elsif (/^\%cold/) {
 	$hotness = COLD;
 	next;
+    }
+
+    #
+    # Handle %unused.
+    #
+    if (/^\%unused\s+(\S+)/) {
+        my $name = $1;
+        error("Illegal predicate/generator name '$name'")
+            unless $name =~ /^[a-z][.\w\d_]*$/;
+        $intentionally_unused{$name} = 1;
+        next;
+    }
+
+    #
+    # Handle unrecognized % directives.
+    #
+    if (/^\%(\S+)/) {
+        error("Unrecognized directive '%$1'");
     }
 
     #
@@ -569,7 +672,6 @@ $num_file_opcodes = @gen_opname;
 # or use forbidden types.
 #
 
-my $any_errors;
 foreach my $key (keys %specific_op) {
     my($arity) = (split('/', $key))[1];
     my @specific_ops = @{$specific_op{$key}};
@@ -594,17 +696,18 @@ foreach my $key (keys %specific_op) {
 	    my $cleaned_arg = $arg;
 	    $cleaned_arg =~ s/[?]$//;
 	    if ($jit ne 'no' and $cleaned_arg eq 'r') {
-		warn "specific instruction '$name @args' uses type 'r' which is is not supported for BeamAsm\n";
-		$any_errors = 1;
+                pending_error("specific instruction '$name @args' uses type " .
+                              "'r' which is is not supported for BeamAsm");
 	    } elsif ($forbidden_type{$cleaned_arg}) {
-		warn "specific instruction '$name @args' uses forbidden type '$arg'\n";
-		$any_errors = 1;
+		pending_error("specific instruction '$name @args' uses " .
+                              "forbidden type '$arg'\n");
 	    }
 	}
     }
 }
 
-error("there were previous type errors") if $any_errors;
+error("beam_makeops: terminating because there were previous errors")
+    if $pending_errors > 0;
 
 #
 # Produce output for the chosen target.
@@ -612,12 +715,16 @@ error("there were previous type errors") if $any_errors;
 
 &$target();
 
+error("beam_makeops: terminating because there were previous errors")
+    if $pending_errors > 0;
+
 #
 # Ensure that all C code implementations have been used.
 #
 {
     my(@unused) = grep(!$c_code_used{$_}, keys %c_code);
-    foreach my $unused (@unused) {
+    @unused = grep(!$intentionally_unused{$_}, @unused);
+    foreach my $unused (sort @unused) {
         my(undef,$where) = @{$c_code{$unused}};
         warn "$where: $unused is unused\n";
     }
@@ -632,6 +739,13 @@ sub emulator_output {
     my $i;
     my $name;
     my $key;			# Loop variable.
+
+    foreach $key (sort keys %c_code) {
+        if ($intentionally_unused{$key}) {
+            delete $c_code{$key};
+        }
+#        print STDERR "$key: ", defined($c_code{$key}), "\n";
+    }
 
     # Initialize common information always needed.
     foreach $key (keys %specific_op) {
@@ -692,11 +806,11 @@ sub emulator_output {
                 }
 
 		if ($varargs) {
-		    # We pass variable argument lists as a vector of ArgVal,
+		    # We pass variable argument lists as a Span of ArgVal,
 		    # slicing our argument vector after the argument count.
 		    $body .= $sep .
-			"std::vector<ArgVal>(" .
-			"args.cbegin() + " . scalar(@args) . ", args.cend())";
+			"args.subspan(" . scalar(@args) . "," .
+				      "args.size() - " . scalar(@args) . ")";
 		}
 
                 $body .= ");";
@@ -715,17 +829,33 @@ sub emulator_output {
 
         # Sort the generated code to create beamasm_protos.h deterministically
         foreach $key (sort keys %specific_op) {
-            foreach (@{$specific_op{$key}}) {
-                my($name, $hotness, $varargs, @args) = @$_;
+            my @specific_ops = @{$specific_op{$key}};
+            my ($name,
+                $hotness,
+                $varargs,
+                @combined_signs) = @{shift @specific_ops};
 
-		@args = ("const ArgVal&") x @args;
-		if ($varargs) {
-		    push @args, "const std::vector<ArgVal>&";
-		}
+            # We want to reduce all specific ops to the same prototype, so
+            # their signs must be combined to find the right argument types.
+            foreach (@specific_ops) {
+                my (undef, undef, undef, @specific_signs) = @$_;
 
-                print "void emit_$name(", join(", ", @args), ");\n";
-                last; # We only want to print one prototype
+                for my $i (0..$#combined_signs) {
+                    $combined_signs[$i] .= $specific_signs[$i];
+                }
             }
+
+            my @typed_args;
+            for my $signs (@combined_signs) {
+                my $class = get_jit_class($signs);
+                push @typed_args, "const $class&";
+            }
+
+            if ($varargs) {
+                push @typed_args, "const Span<ArgVal>&";
+            }
+
+            print "void emit_$name(", join(", ", @typed_args), ");\n";
         }
     }
 
@@ -1010,7 +1140,9 @@ sub emulator_output {
     print '#include "erl_term.h"', "\n";
     print '#include "erl_map.h"', "\n";
     print '#include "big.h"', "\n";
+    print '#include "erl_bits.h"', "\n";
     print '#include "beam_transform_helpers.h"', "\n";
+    print '#include "erl_global_literals.h"', "\n";
     print "\n";
     gen_tr_code('pred.');
     gen_tr_func('int', 'erts_beam_eval_predicate', @pred_table);
@@ -1246,6 +1378,13 @@ sub parse_c_args {
     }
     $_ eq '' or error("garbage in argument list: $_");
     @res;
+}
+
+sub pending_error {
+    my(@message) = @_;
+    my($where) = $. ? "$ARGV($.): " : "";
+    $pending_errors++;
+    warn $where, @message, "\n";
 }
 
 sub error {
@@ -2010,7 +2149,7 @@ sub do_pack_one {
         # to the left of the current micro instruction. If that is the
         # case, it is essential that we generate stacking and
         # unstacking instructions even when no packing is
-        # possible. (build_pack_spec() will remove any unecessary
+        # possible. (build_pack_spec() will remove any unnecessary
         # stacking and unstacking operations.)
         #
         # Here is an example. Say that we have this instruction:
@@ -2356,9 +2495,13 @@ sub parse_transformation {
     local($_) = @_;
     my($orig) = $_;
 
-    my($from, $to) = split(/\s*=>\s*/);
+    my($from, $to, @rest) = split(/\s*=>\s*/);
     my(@op);
     my $rest_var;
+
+    if (@rest) {
+        error("only one '=>' operator is allowed");
+    }
 
     # The source instructions.
 
@@ -2386,15 +2529,22 @@ sub parse_transformation {
             error("garbage after call to '$name()'");
         }
 	@to = (compile_transform_function($name, split(/\s*,\s*/, $arglist)));
+    } elsif ($to =~ /^\s*_\s*$/) {
+        # _ means that instructions on the left side should be removed.
+        @to = ();
     } else {
 	@to = split(/\s*\|\s*/, $to);
+        if (@to == 0) {
+            error("the right-hand side of a transformation must not be empty;\n" .
+                  "  use _ to indicate that no instructions should be produced");
+        }
 	foreach (@to) {
 	    (@op) = split;
 	    (undef,$_) = compile_transform(0, $rest_var, @op);
 	}
     }
     $orig =~ tr/ \t/ /s;
-    push(@transformations, [$., $orig, [@from], [reverse @to]]);
+    push(@transformations, ["$ARGV($.)", $orig, [@from], [reverse @to]]);
 }
 
 sub compile_transform_function {
@@ -2599,7 +2749,7 @@ sub tr_gen_from {
     my($var_num) = 0;
     my(@code);
     my($op, $ref);		# Loop variables.
-    my $where = "left side of transformation in line $line: ";
+    my $where = "$line: (left of =>): ";
     my $may_fail = 0;
     my $is_first = 1;
     my @instrs;
@@ -2708,14 +2858,14 @@ sub tr_gen_from {
 
 	    if ($var ne '') {
 		if (defined $var{$var}) {
-		    $ignored_var = '';
-		    $may_fail = 1;
-		    my $op = make_op($var, 'is_same_var', $var{$var});
-		    op_slot_usage($op, $var{$var});
-		    push(@code, $op);
+                    my $msg = "variable $var used more than once\n" .
+                        "   (repeated variables in matching is not supported;\n" .
+                        "   use the predicate equal(Var1, Var2) " .
+                        "to compare variables)";
+                    pending_error($where, $msg);
 		} elsif ($type eq '*') {
 		    foreach my $type (values %var_type) {
-			error("only one use of a '*' variable is " .
+			error($where, "only one use of a '*' variable is " .
 			      "allowed on the left hand side of " .
 			      "a transformation")
 			    if $type eq 'array';
@@ -2797,7 +2947,7 @@ sub tr_gen_to {
     my(%var_type) = %$var_type_ref;
     my(@code) = @$code_ref;
     my($op, $ref);		# Loop variables.
-    my($where) = "right side of transformation in line $line: ";
+    my($where) = "$line: (right of =>): ";
 
     my $last_instr = $code[$#code];
     my $cannot_fail = is_instr($last_instr, 'commit') &&
@@ -2918,7 +3068,7 @@ sub group_tr {
     my($lref) = @_;
 
     #
-    # Group tranformations (while keeping the order) that all match the same
+    # Group transformations (while keeping the order) that all match the same
     # second instruction.
     #
     for (my $i = 0; $i < @$lref; $i++) {
@@ -3302,4 +3452,26 @@ sub include_files() {
     print '#include "erl_atom_table.h"', "\n";
     print '#include "beam_load.h"', "\n";
     print "\n";
+}
+
+# Converts a sign string to its most specific argument class, e.g. "an" becomes
+# 'ArgImmed' because both are immediates, and "anx" becomes 'ArgSource' because
+# all of them are sources.
+sub get_jit_class {
+    my $signs__ = shift;
+    $signs__ =~ s/[?]//g;
+
+    my @signs = split //, $signs__;
+
+    my $type = $arg_jit_class{shift(@signs)};
+    my $combined_bits = $arg_jit_lattice{$type};
+
+    foreach my $sign (@signs) {
+        my $next_type = $arg_jit_class{$sign};
+        my $next_bits = $arg_jit_lattice{$next_type};
+
+        $combined_bits &= $next_bits;
+    }
+
+    return $arg_jit_lattice{$combined_bits};
 }

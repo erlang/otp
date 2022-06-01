@@ -52,7 +52,6 @@
 	 pkix_path_validation/3,
 	 pkix_verify_hostname/2, pkix_verify_hostname/3,
          pkix_verify_hostname_match_fun/1,
-	 ssh_curvename2oid/1, oid2ssh_curvename/1,
 	 pkix_crls_validate/3,
 	 pkix_dist_point/1,
 	 pkix_dist_points/1,
@@ -64,27 +63,22 @@
          pkix_test_root_cert/2,
          pkix_ocsp_validate/5,
          ocsp_responder_id/1,
-         ocsp_extensions/1
+         ocsp_extensions/1,
+         cacerts_get/0,
+         cacerts_load/0,
+         cacerts_load/1,
+         cacerts_clear/0
 	]).
 
 %%----------------
-%% To be moved to ssh and deprecated:
--export([ssh_decode/2, ssh_encode/2,
-         ssh_hostkey_fingerprint/1, ssh_hostkey_fingerprint/2
-        ]).
-
--deprecated([{ssh_decode,2, "use ssh_file:decode/2 instead"},
-             {ssh_encode,2, "use ssh_file:encode/2 instead"},
-             {ssh_hostkey_fingerprint,1, "use ssh:hostkey_fingerprint/1 instead"},
-             {ssh_hostkey_fingerprint,2, "use ssh:hostkey_fingerprint/2 instead"}
-            ]).
-
--compile([{nowarn_deprecated_function,
-           [{public_key,ssh_decode,2},
-            {public_key,ssh_encode,2}
-           ]}
+%% Moved to ssh
+-removed([{ssh_decode,2, "use ssh_file:decode/2 instead"},
+          {ssh_encode,2, "use ssh_file:encode/2 instead"},
+          {ssh_hostkey_fingerprint,1, "use ssh:hostkey_fingerprint/1 instead"},
+          {ssh_hostkey_fingerprint,2, "use ssh:hostkey_fingerprint/2 instead"}
          ]).
 
+-export([ssh_curvename2oid/1, oid2ssh_curvename/1]).
 %% When removing for OTP-25.0, remember to also remove
 %%   - most of pubkey_ssh.erl except
 %%       + dh_gex_group/4
@@ -100,7 +94,6 @@
               pem_entry/0,
 	      pki_asn1_type/0,
               asn1_type/0,
-              ssh_file/0,
               der_encoded/0,
               key_params/0,
               digest_type/0,
@@ -131,9 +124,7 @@
 -type ec_public_key()        :: {#'ECPoint'{}, ecpk_parameters_api()}.
 -type ec_private_key()       :: #'ECPrivateKey'{}.
 -type ed_public_key()        :: {#'ECPoint'{}, ed_params()}.
--type ed_legacy_pubkey()     ::  {ed_pub, ed25519|ed448, Key::binary()}.
 -type ed_private_key()       :: #'ECPrivateKey'{parameters :: ed_params()}.
--type ed_legacy_privkey()        :: {ed_pri, ed25519|ed448, Pub::binary(), Priv::binary()}.
 -type ed_oid_name()            ::  'id-Ed25519' | 'id-Ed448'.
 -type ed_params()            ::  {namedCurve, ed_oid_name()}.
 -type key_params()           :: #'DHParameter'{} | {namedCurve, oid()} | #'ECParameters'{} | 
@@ -158,8 +149,6 @@
 
 -type salt()                 :: binary(). % crypto:strong_rand_bytes(8)
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl
--type ssh_file()             :: openssh_public_key | rfc4716_public_key | known_hosts |
-				auth_keys.
 -type digest_type()          :: none % None is for backwards compatibility
                               | sha1 % Backwards compatibility
                               | crypto:rsa_digest_type()
@@ -235,15 +224,13 @@ pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
 	    ECCParams = der_decode('EcpkParameters', Params),
             {#'ECPoint'{point = Key0}, ECCParams}
     end;
-pem_entry_decode({{no_asn1,new_openssh}, Special, not_encrypted}) ->
-    ssh_decode(Special, new_openssh);
 pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 						      is_binary(Der) ->
     der_decode(Asn1Type, Der).
 
 -spec pem_entry_decode(PemEntry, Password) -> term() when
       PemEntry :: pem_entry(),
-      Password :: string() | fun(() -> string()).
+      Password :: iodata() | fun(() -> iodata()).
 pem_entry_decode(PemEntry, PasswordFun) when is_function(PasswordFun) ->
      pem_entry_decode(PemEntry, PasswordFun());
 pem_entry_decode({Asn1Type, Der, not_encrypted}, _) when is_atom(Asn1Type),
@@ -313,7 +300,7 @@ pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
                                                Entity :: term(),
                                                InfoPwd :: {CipherInfo,Password},
                                                CipherInfo :: cipher_info(),
-                                               Password :: string() .
+                                               Password :: iodata() .
 pem_entry_encode(Asn1Type, Entity, {{Cipher, #'PBES2-params'{}} = CipherInfo, 
 				    Password}) when is_atom(Asn1Type) andalso
 						    is_list(Password) andalso
@@ -827,7 +814,7 @@ pkix_hash_type('id-md5') ->
 -spec sign(Msg, DigestType, Key) ->
                   Signature when Msg ::  binary() | {digest,binary()},
                                  DigestType :: digest_type(),
-                                 Key :: private_key() | ed_legacy_privkey(),
+                                 Key :: private_key(),
                                  Signature :: binary() .
 sign(DigestOrPlainText, DigestType, Key) ->
     sign(DigestOrPlainText, DigestType, Key, []).
@@ -835,7 +822,7 @@ sign(DigestOrPlainText, DigestType, Key) ->
 -spec sign(Msg, DigestType, Key, Options) ->
                   Signature when Msg ::  binary() | {digest,binary()},
                                  DigestType :: digest_type(),
-                                 Key :: private_key() | ed_legacy_privkey(),
+                                 Key :: private_key(),
                                  Options :: crypto:pk_sign_verify_opts(),
                                  Signature :: binary() .
 sign(Digest, none, Key = #'DSAPrivateKey'{}, Options) when is_binary(Digest) ->
@@ -846,7 +833,12 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
 	badarg ->
 	    erlang:error(badarg, [DigestOrPlainText, DigestType, Key, Options]);
 	{Algorithm, CryptoKey} ->
-	    crypto:sign(Algorithm, DigestType, DigestOrPlainText, CryptoKey, Options)
+	    try crypto:sign(Algorithm, DigestType, DigestOrPlainText, CryptoKey, Options)
+            catch %% Compatible with old error schema
+                error:{notsup,_,_} -> error(notsup);
+                error:{error,_,_} -> error(error);
+                error:{badarg,_,_} -> error(badarg)
+            end
     end.
 
 %%--------------------------------------------------------------------
@@ -856,7 +848,7 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
                     boolean() when Msg :: binary() | {digest, binary()},
                                    DigestType :: digest_type(),
                                    Signature :: binary(),
-                                   Key :: public_key() | ed_legacy_pubkey().
+                                   Key :: public_key().
 
 verify(DigestOrPlainText, DigestType, Signature, Key) ->
     verify(DigestOrPlainText, DigestType, Signature, Key, []).
@@ -865,7 +857,7 @@ verify(DigestOrPlainText, DigestType, Signature, Key) ->
                     boolean() when Msg :: binary() | {digest, binary()},
                                    DigestType :: digest_type(),
                                    Signature :: binary(),
-                                   Key :: public_key() | ed_legacy_pubkey(),
+                                   Key :: public_key(),
                                    Options :: crypto:pk_sign_verify_opts().
 
 verify(Digest, none, Signature, Key = {_, #'Dss-Parms'{}}, Options) when is_binary(Digest) ->
@@ -876,7 +868,12 @@ verify(DigestOrPlainText, DigestType, Signature, Key, Options) when is_binary(Si
 	badarg ->
 	    erlang:error(badarg, [DigestOrPlainText, DigestType, Signature, Key, Options]);
 	{Algorithm, CryptoKey} ->
-	    crypto:verify(Algorithm, DigestType, DigestOrPlainText, Signature, CryptoKey, Options)
+	    try crypto:verify(Algorithm, DigestType, DigestOrPlainText, Signature, CryptoKey, Options)
+            catch %% Compatible with old error schema
+                error:{notsup,_,_} -> error(notsup);
+                error:{error,_,_} -> error(error);
+                error:{badarg,_,_} -> error(badarg)
+            end
     end;
 verify(_,_,_,_,_) ->
     %% If Signature is a bitstring and not a binary we know already at this
@@ -1301,58 +1298,6 @@ pkix_verify_hostname_match_fun(https) ->
     end.
 
 %%--------------------------------------------------------------------
--spec ssh_decode(SshBin, Type) ->
-                        Decoded
-                            when SshBin :: binary(),
-                                 Type :: ssh2_pubkey | OtherType | InternalType,
-                                 OtherType :: public_key | ssh_file(),
-                                 InternalType :: new_openssh,
-                                 Decoded :: Decoded_ssh2_pubkey
-                                          | Decoded_OtherType,
-                                 Decoded_ssh2_pubkey :: public_key() | ed_legacy_pubkey(),
-                                 Decoded_OtherType :: [{public_key() | ed_legacy_pubkey(), Attributes}],
-                                 Attributes :: [{atom(),term()}] .
-%%
-%% Description: Decodes a ssh file-binary. In the case of know_hosts
-%% or auth_keys the binary may include one or more lines of the
-%% file. Returns a list of public keys and their attributes, possible
-%% attribute values depends on the file type represented by the
-%% binary.
-%%--------------------------------------------------------------------
-ssh_decode(SshBin, Type) when is_binary(SshBin),
-			      Type == public_key;
-			      Type == rfc4716_public_key;
-			      Type == openssh_public_key;
-			      Type == auth_keys;
-			      Type == known_hosts;
-			      Type == ssh2_pubkey;
-                              Type == new_openssh ->
-    pubkey_ssh:decode(SshBin, Type).
-
-%%--------------------------------------------------------------------
--spec ssh_encode(InData, Type) ->
-                        binary()
-                            when Type :: ssh2_pubkey | OtherType,
-                                 OtherType :: public_key | ssh_file(),
-                                 InData :: InData_ssh2_pubkey | OtherInData,
-                                 InData_ssh2_pubkey :: public_key() | ed_legacy_pubkey(),
-                                 OtherInData :: [{Key,Attributes}],
-                                 Key :: public_key() | ed_legacy_pubkey(),
-                                 Attributes :: [{atom(),term()}] .
-%%
-%% Description: Encodes a list of ssh file entries (public keys and
-%% attributes) to a binary. Possible attributes depends on the file
-%% type.
-%%--------------------------------------------------------------------
-ssh_encode(Entries, Type) when is_list(Entries),
-			       Type == rfc4716_public_key;
-			       Type == openssh_public_key;
-			       Type == auth_keys;
-			       Type == known_hosts;
-			       Type == ssh2_pubkey ->
-    pubkey_ssh:encode(Entries, Type).
-
-%%--------------------------------------------------------------------
 -spec ssh_curvename2oid(binary()) -> oid().
 
 %% Description: Converts from the ssh name of elliptic curves to
@@ -1371,51 +1316,6 @@ oid2ssh_curvename(?'secp256r1') -> <<"nistp256">>;
 oid2ssh_curvename(?'secp384r1') -> <<"nistp384">>;
 oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
 
-%%--------------------------------------------------------------------
--spec ssh_hostkey_fingerprint(public_key()) -> string().
-
-ssh_hostkey_fingerprint(Key) ->
-    sshfp_string(md5, public_key:ssh_encode(Key,ssh2_pubkey) ).
-
-
--spec ssh_hostkey_fingerprint( digest_type(),  public_key()) ->  string()
-                           ; ([digest_type()], public_key())   -> [string()]
-                           .
-ssh_hostkey_fingerprint(HashAlgs, Key) when is_list(HashAlgs) ->
-    EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
-    [sshfp_full_string(HashAlg,EncKey) || HashAlg <- HashAlgs];
-ssh_hostkey_fingerprint(HashAlg, Key) when is_atom(HashAlg) ->
-    EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
-    sshfp_full_string(HashAlg, EncKey).
-
-
-sshfp_string(HashAlg, EncodedKey) ->
-    %% Other HashAlgs than md5 will be printed with
-    %% other formats than hextstr by
-    %%    ssh-keygen -E <alg> -lf <file>
-    fp_fmt(sshfp_fmt(HashAlg), crypto:hash(HashAlg, EncodedKey)).
-
-sshfp_full_string(HashAlg, EncKey) ->
-    lists:concat([sshfp_alg_name(HashAlg),
-		  [$: | sshfp_string(HashAlg, EncKey)]
-		 ]).
-
-sshfp_alg_name(sha) -> "SHA1";
-sshfp_alg_name(Alg) -> string:to_upper(atom_to_list(Alg)).
-
-sshfp_fmt(md5) -> hexstr;
-sshfp_fmt(_) -> b64.
-
-fp_fmt(hexstr, Bin) ->
-    lists:flatten(string:join([io_lib:format("~2.16.0b",[C1]) || <<C1>> <= Bin], ":"));
-fp_fmt(b64, Bin) ->
-    %% This function clause *seems* to be
-    %%    [C || C<-base64:encode_to_string(Bin), C =/= $=]
-    %% but I am not sure. Must be checked.
-    B64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
-    BitsInLast = 8*size(Bin) rem 6,
-    Padding = (6-BitsInLast) rem 6, % Want BitsInLast = [1:5] to map to padding [5:1] and 0 -> 0
-    [lists:nth(C+1,B64Chars) || <<C:6>> <= <<Bin/binary,0:Padding>> ].
 
 %%--------------------------------------------------------------------
 -spec short_name_hash(Name) -> string() when Name :: issuer_name() .
@@ -1501,6 +1401,39 @@ ocsp_extensions(Nonce) ->
 %%--------------------------------------------------------------------
 ocsp_responder_id(Cert) ->
     pubkey_ocsp:get_ocsp_responder_id(Cert).
+
+%%--------------------------------------------------------------------
+-spec cacerts_get() -> [combined_cert()].
+%%
+%% Description: Get loaded cacerts, if none are loaded it will try to
+%%              load OS provided cacerts
+%%--------------------------------------------------------------------
+cacerts_get() ->
+    pubkey_os_cacerts:get().
+
+%%--------------------------------------------------------------------
+-spec cacerts_load() -> ok | {error, Reason::term()}.
+%%
+%% Description: (Re)Load OS provided cacerts
+%%--------------------------------------------------------------------
+cacerts_load() ->
+    pubkey_os_cacerts:load().
+
+%%--------------------------------------------------------------------
+-spec cacerts_load(File::file:filename_all()) -> ok | {error, Reason::term()}.
+%%
+%% Description: (Re)Load cacerts from a file
+%%--------------------------------------------------------------------
+cacerts_load(File) ->
+    pubkey_os_cacerts:load([File]).
+
+%%--------------------------------------------------------------------
+-spec cacerts_clear() -> boolean().
+%%
+%% Description: Clears loaded cacerts, returns true if any was loaded.
+%%--------------------------------------------------------------------
+cacerts_clear() ->
+    pubkey_os_cacerts:clear().
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -2049,8 +1982,8 @@ match_wild(_,          _) -> false.
 %% Match the parts after the only wildcard by comparing them from the end
 match_wild_suffixes(A, B) -> match_wild_sfx(lists:reverse(A), lists:reverse(B)).
 
-match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards alowed)
-match_wild_sfx(_,      [$*|_]) -> false; % Bad pattern (no more wildcards alowed)
+match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards allowed)
+match_wild_sfx(_,      [$*|_]) -> false; % Bad pattern (no more wildcards allowed)
 match_wild_sfx([A|Ar], [A|Br]) -> match_wild_sfx(Ar, Br);
 match_wild_sfx(Ar,         []) -> not lists:member($*, Ar); % Chk for bad name (= wildcards)
 match_wild_sfx(_,           _) -> false.

@@ -228,7 +228,7 @@ static int per_complete(ErlNifBinary *out_binary, unsigned char *in_buf,
 
 	case 30:
 	    /* If we call the following bytes, in the buffer in_ptr points at,
-	     By1,By2,Rest then Rest is the value that will be transfered to
+	     By1,By2,Rest then Rest is the value that will be transferred to
 	     the completed buffer. By1 tells how many of the rightmost bits in
 	     Rest that should not be used. By2 is the length of Rest in bytes.*/
 	    in_unused = (int) *(++in_ptr);
@@ -245,7 +245,7 @@ static int per_complete(ErlNifBinary *out_binary, unsigned char *in_buf,
 
 	case 31:
 	    /* If we call the following bytes, in the buffer in_ptr points at,
-	     By1,By2,By3,Rest then Rest is the value that will be transfered to
+	     By1,By2,By3,Rest then Rest is the value that will be transferred to
 	     the completed buffer. By1 tells how many of the rightmost bits in
 	     Rest that should not be used. By2 and By3 is the length of
 	     Rest in bytes.*/
@@ -834,7 +834,7 @@ static int per_insert_octets_except_unused(int no_bytes, unsigned char **input_p
  * List is like: [{TagNo,Value},{TagNo,Value},...]
  * Rest is a binary, i.e. the undecoded part of the buffer. Most often Rest
  * is the empty binary.
- * If some error occured during the decoding of the in_buf an error is returned.
+ * If some error occurred during the decoding of the in_buf an error is returned.
  */
 static int ber_decode_begin(ErlNifEnv* env, ERL_NIF_TERM *term, unsigned char *in_buf,
 	int in_buf_len, unsigned int *err_pos) {
@@ -1087,7 +1087,7 @@ static int ber_encode(ErlNifEnv *env, ERL_NIF_TERM term, mem_chunk_t **curr, uns
     }
     }
 
-    // We need atleast 5 bytes to encode the next tlv
+    // We need at least 5 bytes to encode the next tlv
     if (ber_check_memory(curr, 3))
 	return ASN1_ERROR;
 

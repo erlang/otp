@@ -40,7 +40,7 @@ end_per_suite(_Config) ->
     erts_debug:set_internal_state(available_internal_state, false),
     ok.
 
-all() -> 
+all() ->
     [basic, process_info_messages, total_heap_size, change_to_off_heap,
      change_to_off_heap_gc].
 
@@ -54,13 +54,13 @@ basic(Config) when is_list(Config) ->
 
     basic_test(erlang:system_info(message_queue_data)),
 
-    {ok, Node1} = start_node(Config, "+hmqd off_heap"),
+    {ok, Peer1, Node1} = ?CT_PEER(["+hmqd", "off_heap"]),
     ok = rpc:call(Node1, ?MODULE, basic_test, [off_heap]),
-    stop_node(Node1),
+    peer:stop(Peer1),
 
-    {ok, Node2} = start_node(Config, "+hmqd on_heap"),
+    {ok, Peer2, Node2} = ?CT_PEER(["+hmqd", "on_heap"]),
     ok = rpc:call(Node2, ?MODULE, basic_test, [on_heap]),
-    stop_node(Node2),
+    peer:stop(Peer2),
 
     ok.
 
@@ -326,7 +326,7 @@ wait_change_off_heap() ->
     %% has been made on current process if (and only if) it
     %% was previously changed on this process...
     %%
-    %% Work with *current* inplementation! This may change...
+    %% Work with *current* implementation! This may change...
     %%
     erts_debug:set_internal_state(wait, thread_progress),
     %% We have now flushed later ops including later op that
@@ -356,17 +356,3 @@ spinner(_N, 0) -> ok;
 spinner(N, M) -> spinner(?MODULE:id(N) div 1, M - 1).
 
 id(N) -> N.
-
-start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-"
-			++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-"
-			++ integer_to_list(erlang:system_time(second))
-			++ "-"
-			++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).

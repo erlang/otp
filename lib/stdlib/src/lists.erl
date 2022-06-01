@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,28 +22,56 @@
 -compile({no_auto_import,[max/2]}).
 -compile({no_auto_import,[min/2]}).
 
--export([append/2, append/1, subtract/2, reverse/1,
-	 nth/2, nthtail/2, prefix/2, suffix/2, droplast/1, last/1,
-	 seq/2, seq/3, sum/1, duplicate/2, min/1, max/1, sublist/2, sublist/3,
-	 delete/2,
-	 unzip/1, unzip3/1, zip/2, zip3/3, zipwith/3, zipwith3/4,
-	 sort/1, merge/1, merge/2, rmerge/2, merge3/3, rmerge3/3,
-	 usort/1, umerge/1, umerge3/3, umerge/2, rumerge3/3, rumerge/2,
-	 concat/1, flatten/1, flatten/2, flatlength/1,
-	 keydelete/3, keyreplace/4, keytake/3, keystore/4,
-	 keysort/2, keymerge/3, rkeymerge/3, rukeymerge/3, 
-	 ukeysort/2, ukeymerge/3, keymap/3]).
-
--export([merge/3, rmerge/3, sort/2, umerge/3, rumerge/3, usort/2]).
-
--export([all/2,any/2,map/2,flatmap/2,foldl/3,foldr/3,filter/2,
-	 partition/2,zf/2,filtermap/2,
-	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,
-         search/2, splitwith/2,split/2,
-	 join/2]).
-
-%%% BIFs
+%% BIFs (implemented in the runtime system).
 -export([keyfind/3, keymember/3, keysearch/3, member/2, reverse/2]).
+
+%% Miscellaneous list functions that don't take funs as
+%% arguments. Please keep in alphabetical order.
+-export([append/1, append/2, concat/1,
+         delete/2, droplast/1, duplicate/2,
+         enumerate/1, enumerate/2,
+         flatlength/1, flatten/1, flatten/2,
+         join/2, last/1, min/1, max/1,
+         nth/2, nthtail/2,
+         prefix/2, reverse/1, seq/2, seq/3,
+         split/2, sublist/2, sublist/3,
+         subtract/2, suffix/2, sum/1,
+         uniq/1, unzip/1, unzip3/1,
+         zip/2, zip3/3]).
+
+%% Functions taking a list of tuples and a position within the tuple.
+-export([keydelete/3, keyreplace/4, keymap/3,
+         keytake/3, keystore/4]).
+
+%% Sort functions that operate on list of tuples.
+-export([keymerge/3, keysort/2, ukeymerge/3, ukeysort/2]).
+
+%% Sort and merge functions.
+-export([merge/1, merge/2, merge/3, merge3/3,
+         sort/1, sort/2,
+         umerge/1, umerge/2, umerge/3, umerge3/3,
+         usort/1, usort/2]).
+
+%% Functions that take fun arguments (high-order functions). Please
+%% keep in alphabetical order.
+-export([all/2, any/2, dropwhile/2,
+         filter/2, filtermap/2, flatmap/2,
+         foldl/3, foldr/3, foreach/2,
+         map/2, mapfoldl/3, mapfoldr/3,
+         partition/2, search/2,
+         splitwith/2, takewhile/2, uniq/2,
+         zipwith/3, zipwith3/4]).
+
+%% Undocumented, but used within Erlang/OTP.
+-export([zf/2]).
+
+%% Undocumented and unused merge functions for lists sorted in reverse
+%% order. They are exported so that the fundamental building blocks
+%% for the sort functions can be tested. (Removing them would save
+%% very little because they are thin wrappers calling helper functions
+%% used by the documented sort functions.)
+-export([rkeymerge/3, rmerge/2, rmerge/3, rmerge3/3,
+         rukeymerge/3, rumerge/2, rumerge/3, rumerge3/3]).
 
 %% Shadowed by erl_bif_types: lists:keyfind/3
 -spec keyfind(Key, N, TupleList) -> Tuple | false when
@@ -259,16 +287,16 @@ seq_loop(0, _, L) ->
       Incr :: integer(),
       Seq :: [integer()].
 
-seq(First, Last, Inc) 
-    when is_integer(First), is_integer(Last), is_integer(Inc) -> 
-    if
-        Inc > 0, First - Inc =< Last;
-        Inc < 0, First - Inc >= Last ->
-            N = (Last - First + Inc) div Inc,
-            seq_loop(N, Inc*(N-1)+First, Inc, []);
-        Inc =:= 0, First =:= Last ->
-            seq_loop(1, First, Inc, [])
-    end.
+seq(First, Last, Inc)
+    when is_integer(First), is_integer(Last), is_integer(Inc),
+        (Inc > 0 andalso First - Inc =< Last) orelse
+        (Inc < 0 andalso First - Inc >= Last) ->
+    N = (Last - First + Inc) div Inc,
+    seq_loop(N, Inc * (N - 1) + First, Inc, []);
+seq(Same, Same, 0) when is_integer(Same) ->
+    [Same];
+seq(First, Last, Inc) ->
+    erlang:error(badarg, [First, Last, Inc], [{error_info, #{module => erl_stdlib_errors}}]).
 
 seq_loop(N, X, D, L) when N >= 4 ->
      Y = X-D, Z = Y-D, W = Z-D,
@@ -957,6 +985,27 @@ keymap(Fun, Index, [Tup|Tail]) ->
 keymap(Fun, Index, []) when is_integer(Index), Index >= 1, 
                             is_function(Fun, 1) -> [].
 
+-spec enumerate(List1) -> List2 when
+      List1 :: [T],
+      List2 :: [{Index, T}],
+      Index :: integer(),
+      T :: term().
+enumerate(List1) when is_list(List1) ->
+    enumerate_1(1, List1).
+
+-spec enumerate(Index, List1) -> List2 when
+      List1 :: [T],
+      List2 :: [{Index, T}],
+      Index :: integer(),
+      T :: term().
+enumerate(Index, List1) when is_integer(Index), is_list(List1) ->
+    enumerate_1(Index, List1).
+
+enumerate_1(Index, [H|T]) ->
+    [{Index, H}|enumerate_1(Index + 1, T)];
+enumerate_1(_Index, []) ->
+    [].
+
 %%% Suggestion from OTP-2948: sort and merge with Fun.
 
 -spec sort(Fun, List1) -> List2 when
@@ -1213,24 +1262,46 @@ rumerge(T1, [H2 | T2]) ->
       List :: [T],
       T :: term().
 
-all(Pred, [Hd|Tail]) ->
+all(Pred, List) when is_function(Pred, 1) ->
+    case List of
+        [Hd | Tail] ->
+            case Pred(Hd) of
+                true -> all_1(Pred, Tail);
+                false -> false
+            end;
+        [] -> true
+    end.
+
+all_1(Pred, [Hd | Tail]) ->
     case Pred(Hd) of
-	true -> all(Pred, Tail);
-	false -> false
+        true -> all_1(Pred, Tail);
+        false -> false
     end;
-all(Pred, []) when is_function(Pred, 1) -> true. 
+all_1(_Pred, []) ->
+    true.
 
 -spec any(Pred, List) -> boolean() when
       Pred :: fun((Elem :: T) -> boolean()),
       List :: [T],
       T :: term().
 
-any(Pred, [Hd|Tail]) ->
+any(Pred, List) when is_function(Pred, 1) ->
+    case List of
+        [Hd | Tail] ->
+            case Pred(Hd) of
+                true -> true;
+                false -> any_1(Pred, Tail)
+            end;
+        [] -> false
+    end.
+
+any_1(Pred, [Hd | Tail]) ->
     case Pred(Hd) of
-	true -> true;
-	false -> any(Pred, Tail)
+        true -> true;
+        false -> any_1(Pred, Tail)
     end;
-any(Pred, []) when is_function(Pred, 1) -> false. 
+any_1(_Pred, []) ->
+    false.
 
 -spec map(Fun, List1) -> List2 when
       Fun :: fun((A) -> B),
@@ -1239,9 +1310,16 @@ any(Pred, []) when is_function(Pred, 1) -> false.
       A :: term(),
       B :: term().
 
-map(F, [H|T]) ->
-    [F(H)|map(F, T)];
-map(F, []) when is_function(F, 1) -> [].
+map(F, List) when is_function(F, 1) ->
+    case List of
+        [Hd | Tail] -> [F(Hd) | map_1(F, Tail)];
+        [] -> []
+    end.
+
+map_1(F, [Hd | Tail]) ->
+    [F(Hd) | map_1(F, Tail)];
+map_1(_F, []) ->
+    [].
 
 -spec flatmap(Fun, List1) -> List2 when
       Fun :: fun((A) -> [B]),
@@ -1250,9 +1328,13 @@ map(F, []) when is_function(F, 1) -> [].
       A :: term(),
       B :: term().
 
-flatmap(F, [Hd|Tail]) ->
-    F(Hd) ++ flatmap(F, Tail);
-flatmap(F, []) when is_function(F, 1) -> [].
+flatmap(F, List) when is_function(F, 1) ->
+    flatmap_1(F, List).
+
+flatmap_1(F, [Hd | Tail]) ->
+    F(Hd) ++ flatmap_1(F, Tail);
+flatmap_1(_F, []) ->
+    [].
 
 -spec foldl(Fun, Acc0, List) -> Acc1 when
       Fun :: fun((Elem :: T, AccIn) -> AccOut),
@@ -1263,9 +1345,16 @@ flatmap(F, []) when is_function(F, 1) -> [].
       List :: [T],
       T :: term().
 
-foldl(F, Accu, [Hd|Tail]) ->
-    foldl(F, F(Hd, Accu), Tail);
-foldl(F, Accu, []) when is_function(F, 2) -> Accu.
+foldl(F, Accu, List) when is_function(F, 2) ->
+    case List of
+        [Hd | Tail] -> foldl_1(F, F(Hd, Accu), Tail);
+        [] -> Accu
+    end.
+
+foldl_1(F, Accu, [Hd | Tail]) ->
+    foldl_1(F, F(Hd, Accu), Tail);
+foldl_1(_F, Accu, []) ->
+    Accu.
 
 -spec foldr(Fun, Acc0, List) -> Acc1 when
       Fun :: fun((Elem :: T, AccIn) -> AccOut),
@@ -1276,9 +1365,13 @@ foldl(F, Accu, []) when is_function(F, 2) -> Accu.
       List :: [T],
       T :: term().
 
-foldr(F, Accu, [Hd|Tail]) ->
-    F(Hd, foldr(F, Accu, Tail));
-foldr(F, Accu, []) when is_function(F, 2) -> Accu.
+foldr(F, Accu, List) when is_function(F, 2) ->
+    foldr_1(F, Accu, List).
+
+foldr_1(F, Accu, [Hd | Tail]) ->
+    F(Hd, foldr_1(F, Accu, Tail));
+foldr_1(_F, Accu, []) ->
+    Accu.
 
 -spec filter(Pred, List1) -> List2 when
       Pred :: fun((Elem :: T) -> boolean()),
@@ -1299,15 +1392,15 @@ filter(Pred, List) when is_function(Pred, 1) ->
       NotSatisfying :: [T],
       T :: term().
 
-partition(Pred, L) ->
-    partition(Pred, L, [], []).
+partition(Pred, L) when is_function(Pred, 1) ->
+    partition_1(Pred, L, [], []).
 
-partition(Pred, [H | T], As, Bs) ->
+partition_1(Pred, [H | T], As, Bs) ->
     case Pred(H) of
-	true -> partition(Pred, T, [H | As], Bs);
-	false -> partition(Pred, T, As, [H | Bs])
+        true -> partition_1(Pred, T, [H | As], Bs);
+        false -> partition_1(Pred, T, As, [H | Bs])
     end;
-partition(Pred, [], As, Bs) when is_function(Pred, 1) ->
+partition_1(_Pred, [], As, Bs) ->
     {reverse(As), reverse(Bs)}.
 
 -spec filtermap(Fun, List1) -> List2 when
@@ -1317,16 +1410,20 @@ partition(Pred, [], As, Bs) when is_function(Pred, 1) ->
       Elem :: term(),
       Value :: term().
 
-filtermap(F, [Hd|Tail]) ->
+filtermap(F, List) when is_function(F, 1) ->
+    filtermap_1(F, List).
+
+filtermap_1(F, [Hd|Tail]) ->
     case F(Hd) of
-	true ->
-	    [Hd|filtermap(F, Tail)];
-	{true,Val} ->
-	    [Val|filtermap(F, Tail)];
-	false ->
-	    filtermap(F, Tail)
+        true ->
+            [Hd | filtermap_1(F, Tail)];
+        {true,Val} ->
+            [Val | filtermap_1(F, Tail)];
+        false ->
+            filtermap_1(F, Tail)
     end;
-filtermap(F, []) when is_function(F, 1) -> [].
+filtermap_1(_F, []) ->
+    [].
 
 -spec zf(fun((T) -> boolean() | {'true', X}), [T]) -> [(T | X)].
 
@@ -1338,10 +1435,14 @@ zf(F, L) ->
       List :: [T],
       T :: term().
 
-foreach(F, [Hd|Tail]) ->
+foreach(F, List) when is_function(F, 1) ->
+    foreach_1(F, List).
+
+foreach_1(F, [Hd | Tail]) ->
     F(Hd),
-    foreach(F, Tail);
-foreach(F, []) when is_function(F, 1) -> ok.
+    foreach_1(F, Tail);
+foreach_1(_F, []) ->
+    ok.
 
 -spec mapfoldl(Fun, Acc0, List1) -> {List2, Acc1} when
       Fun :: fun((A, AccIn) -> {B, AccOut}),
@@ -1354,11 +1455,15 @@ foreach(F, []) when is_function(F, 1) -> ok.
       A :: term(),
       B :: term().
 
-mapfoldl(F, Accu0, [Hd|Tail]) ->
-    {R,Accu1} = F(Hd, Accu0),
-    {Rs,Accu2} = mapfoldl(F, Accu1, Tail),
-    {[R|Rs],Accu2};
-mapfoldl(F, Accu, []) when is_function(F, 2) -> {[],Accu}.
+mapfoldl(F, Accu, List) when is_function(F, 2) ->
+    mapfoldl_1(F, Accu, List).
+
+mapfoldl_1(F, Accu0, [Hd | Tail]) ->
+    {R, Accu1} = F(Hd, Accu0),
+    {Rs, Accu2} = mapfoldl_1(F, Accu1, Tail),
+    {[R | Rs], Accu2};
+mapfoldl_1(_F, Accu, []) ->
+    {[], Accu}.
 
 -spec mapfoldr(Fun, Acc0, List1) -> {List2, Acc1} when
       Fun :: fun((A, AccIn) -> {B, AccOut}),
@@ -1371,11 +1476,15 @@ mapfoldl(F, Accu, []) when is_function(F, 2) -> {[],Accu}.
       A :: term(),
       B :: term().
 
-mapfoldr(F, Accu0, [Hd|Tail]) ->
-    {Rs,Accu1} = mapfoldr(F, Accu0, Tail),
-    {R,Accu2} = F(Hd, Accu1),
-    {[R|Rs],Accu2};
-mapfoldr(F, Accu, []) when is_function(F, 2) -> {[],Accu}.
+mapfoldr(F, Accu, List) when is_function(F, 2) ->
+    mapfoldr_1(F, Accu, List).
+
+mapfoldr_1(F, Accu0, [Hd|Tail]) ->
+    {Rs, Accu1} = mapfoldr_1(F, Accu0, Tail),
+    {R, Accu2} = F(Hd, Accu1),
+    {[R | Rs], Accu2};
+mapfoldr_1(_F, Accu, []) ->
+    {[], Accu}.
 
 -spec takewhile(Pred, List1) -> List2 when
       Pred :: fun((Elem :: T) -> boolean()),
@@ -1383,12 +1492,16 @@ mapfoldr(F, Accu, []) when is_function(F, 2) -> {[],Accu}.
       List2 :: [T],
       T :: term().
 
-takewhile(Pred, [Hd|Tail]) ->
+takewhile(Pred, List) when is_function(Pred, 1) ->
+    takewhile_1(Pred, List).
+
+takewhile_1(Pred, [Hd | Tail]) ->
     case Pred(Hd) of
-	true -> [Hd|takewhile(Pred, Tail)];
-	false -> []
+        true -> [Hd | takewhile_1(Pred, Tail)];
+        false -> []
     end;
-takewhile(Pred, []) when is_function(Pred, 1) -> [].
+takewhile_1(_Pred, []) ->
+    [].
 
 -spec dropwhile(Pred, List1) -> List2 when
       Pred :: fun((Elem :: T) -> boolean()),
@@ -1396,24 +1509,31 @@ takewhile(Pred, []) when is_function(Pred, 1) -> [].
       List2 :: [T],
       T :: term().
 
-dropwhile(Pred, [Hd|Tail]=Rest) ->
+dropwhile(Pred, List) when is_function(Pred, 1) ->
+    dropwhile_1(Pred, List).
+
+dropwhile_1(Pred, [Hd | Tail]=Rest) ->
     case Pred(Hd) of
-	true -> dropwhile(Pred, Tail);
-	false -> Rest
+        true -> dropwhile_1(Pred, Tail);
+        false -> Rest
     end;
-dropwhile(Pred, []) when is_function(Pred, 1) -> [].
+dropwhile_1(_Pred, []) ->
+    [].
 
 -spec search(Pred, List) -> {value, Value} | false when
       Pred :: fun((T) -> boolean()),
       List :: [T],
       Value :: T.
 
-search(Pred, [Hd|Tail]) ->
+search(Pred, List) when is_function(Pred, 1) ->
+    search_1(Pred, List).
+
+search_1(Pred, [Hd | Tail]) ->
     case Pred(Hd) of
         true -> {value, Hd};
-        false -> search(Pred, Tail)
+        false -> search_1(Pred, Tail)
     end;
-search(Pred, []) when is_function(Pred, 1) ->
+search_1(_Pred, []) ->
     false.
 
 -spec splitwith(Pred, List) -> {List1, List2} when
@@ -1424,14 +1544,14 @@ search(Pred, []) when is_function(Pred, 1) ->
       T :: term().
 
 splitwith(Pred, List) when is_function(Pred, 1) ->
-    splitwith(Pred, List, []).
+    splitwith_1(Pred, List, []).
 
-splitwith(Pred, [Hd|Tail], Taken) ->
+splitwith_1(Pred, [Hd|Tail], Taken) ->
     case Pred(Hd) of
-	true -> splitwith(Pred, Tail, [Hd|Taken]);
+	true -> splitwith_1(Pred, Tail, [Hd|Taken]);
 	false -> {reverse(Taken), [Hd|Tail]}
     end;
-splitwith(Pred, [], Taken) when is_function(Pred, 1) ->
+splitwith_1(_Pred, [], Taken) ->
     {reverse(Taken),[]}.
 
 -spec split(N, List1) -> {List2, List3} when
@@ -2855,3 +2975,44 @@ rufmerge2_2(H1, T1, Fun, [], M, H2M) ->
             lists:reverse(T1, [H1, H2M | M])
     end.
 
+%% uniq/1: return a new list with the unique elements of the given list
+
+-spec uniq(List1) -> List2 when
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+uniq(L) ->
+    uniq_1(L, #{}).
+
+uniq_1([X | Xs], M) ->
+    case is_map_key(X, M) of
+        true ->
+            uniq_1(Xs, M);
+        false ->
+            [X | uniq_1(Xs, M#{X => true})]
+    end;
+uniq_1([], _) ->
+    [].
+
+%% uniq/2: return a new list with the unique elements of the given list using a function key
+
+-spec uniq(Fun, List1) -> List2 when
+      Fun :: fun((T) -> any()),
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+uniq(F, L) when is_function(F, 1) ->
+    uniq_2(L, F, #{}).
+
+uniq_2([X | Xs], F, M) ->
+    Key = F(X),
+    case is_map_key(Key, M) of
+        true ->
+            uniq_2(Xs, F, M);
+        false ->
+            [X | uniq_2(Xs, F, M#{Key => true})]
+    end;
+uniq_2([], _, _) ->
+    [].

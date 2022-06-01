@@ -750,7 +750,7 @@ public class OtpInputStream extends ByteArrayInputStream {
             nb = new byte[4];
             if (this.readN(nb) != 4) { // Big endian
                 throw new OtpErlangDecodeException(
-                        "Cannot read from intput stream");
+                        "Cannot read from input stream");
             }
             break;
 
@@ -775,7 +775,7 @@ public class OtpInputStream extends ByteArrayInputStream {
             // with one zero byte to make the value 2's complement positive.
             if (this.readN(nb, 0, arity) != arity) {
                 throw new OtpErlangDecodeException(
-                        "Cannot read from intput stream");
+                        "Cannot read from input stream");
             }
             // Reverse the array to make it big endian.
             for (int i = 0, j = nb.length; i < j--; i++) {

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
 -include("inet_int.hrl").
 
 -export([getserv/1, getaddr/1, getaddr/2, translate_ip/1]).
--export([open/1, close/1, listen/2, peeloff/2, connect/4, connect/5]).
+-export([open/1, close/1, listen/2, peeloff/2, connect/4, connect/5, connectx/3, connectx/4]).
 -export([sendmsg/3, send/4, recv/2]).
 
 -define(PROTO,  sctp).
@@ -119,6 +119,20 @@ connect(S, Addr, Port, Opts, Timer) ->
 	Err3 -> Err3
     end.
 
+%% connectx is always non-blocking so there is no timer
+connectx(S, SockAddrs, Opts) ->
+    case prim_inet:chgopts(S, Opts) of
+	ok ->
+	    prim_inet:connectx(S, SockAddrs);
+	Err2 -> Err2
+    end.
+
+connectx(S, Addrs, Port, Opts) ->
+    case prim_inet:chgopts(S, Opts) of
+	ok ->
+	    prim_inet:connectx(S, Addrs, Port);
+	Err2 -> Err2
+    end.
 
 %% XXX race condition problem
 %% 

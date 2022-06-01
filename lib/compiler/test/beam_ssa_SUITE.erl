@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@
          cover_ssa_dead/1,combine_sw/1,share_opt/1,
          beam_ssa_dead_crash/1,stack_init/1,
          mapfoldl/0,mapfoldl/1,
-         grab_bag/1,coverage/1]).
+         grab_bag/1,redundant_br/1,
+         coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -45,6 +46,7 @@ groups() ->
        beam_ssa_dead_crash,
        stack_init,
        grab_bag,
+       redundant_br,
        coverage
       ]}].
 
@@ -178,7 +180,7 @@ recv(_Config) ->
     self() ! 1,
     {1,yes} = tricky_recv_2(),
     self() ! 2,
-    {2,maybe} = tricky_recv_2(),
+    {2,'maybe'} = tricky_recv_2(),
 
     %% Test 'receive after infinity' in try/catch.
     Pid = spawn(fun recv_after_inf_in_try/0),
@@ -282,7 +284,7 @@ tricky_recv_2() ->
                 end,
             a;
         X=2 ->
-            Y = maybe,
+            Y = 'maybe',
             b
     end,
     {X,Y}.
@@ -667,6 +669,7 @@ do_comb_sw_2(X) ->
 share_opt(_Config) ->
     ok = do_share_opt_1(0),
     ok = do_share_opt_2(),
+    ok = do_share_opt_3(),
     ok.
 
 do_share_opt_1(A) ->
@@ -697,7 +700,16 @@ sopt_2({Flags, Opts}, ok) ->
         [] ->
             ok
     end.
-    
+
+do_share_opt_3() ->
+    true = sopt_3(id(ok)),
+    false = sopt_3(id(nok)),
+    ok.
+
+sopt_3(X) ->
+    %% Must be one line to trigger bug.
+    case X of ok -> id(?LINE), true; _ -> id(?LINE), false end.
+
 beam_ssa_dead_crash(_Config) ->
     not_A_B = do_beam_ssa_dead_crash(id(false), id(true)),
     not_A_not_B = do_beam_ssa_dead_crash(false, false),
@@ -712,7 +724,7 @@ do_beam_ssa_dead_crash(A, B) ->
     %% paths happens to end up in the same place.
     %%
     %% During the simulated execution of this function, the boolean
-    %% varible for a `br` instruction would be replaced with the
+    %% variable for a `br` instruction would be replaced with the
     %% literal atom `nil`, which is not allowed, and would crash the
     %% compiler. In practice, during the actual execution, control
     %% would never be transferred to that `br` instruction when the
@@ -872,6 +884,8 @@ grab_bag(_Config) ->
 
     fact = grab_bag_17(),
 
+    {'EXIT',{{try_clause,[]},[_|_]}} = catch grab_bag_18(),
+
     ok.
 
 grab_bag_1() ->
@@ -933,7 +947,7 @@ grab_bag_4() ->
             end
     end.
 
-grab_bag_5(A, B) when <<business:(node(power))>> ->
+grab_bag_5(_A, _B) when <<business:(node(power))>> ->
     true.
 
 grab_bag_6(face) ->
@@ -997,7 +1011,7 @@ grab_bag_11() ->
         _ -> other
     catch
         _:_ ->
-            catched
+            caught
     end.
 
 grab_bag_12() ->
@@ -1084,6 +1098,35 @@ grab_bag_17() ->
             []
     end.
 
+grab_bag_18() ->
+    try 0 of
+        _V0 ->
+            bnot false
+    after
+        try [] of
+            wrong ->
+                ok
+        catch
+            _:_ when false ->
+                error
+        end
+    end.
+
+
+redundant_br(_Config) ->
+    {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
+    {true,[[a,b,c]]} = redundant_br_1(id([[[a,b,c]]])),
+    ok.
+
+redundant_br_1(Specs0) ->
+    {Join,Specs} =
+        if
+            is_list(hd(hd(Specs0))) -> {true,hd(Specs0)};
+            true -> {false,Specs0}
+        end,
+    id({Join,Specs}).
+
+-record(coverage, {name}).
 
 coverage(_Config) ->
 
@@ -1101,6 +1144,8 @@ coverage(_Config) ->
 
     error = coverage_2(),
     ok = coverage_3(),
+    #coverage{name=whatever} = coverage_4(),
+    {'EXIT',{{badrecord,ok},_}} = catch coverage_5(),
 
     ok.
 
@@ -1114,6 +1159,24 @@ coverage_3() ->
     %% Cover a line in beam_ssa_pre_codegen:need_frame_1/2.
     get(),
     ok.
+
+coverage_4() ->
+    try
+        << <<42>> || false >>,
+        #coverage{}
+    catch
+        _:_ ->
+            error
+    end#coverage{name = whatever}.
+
+coverage_5() ->
+    try
+        << <<42>> || false >>,
+        ok
+    catch
+        _:_ ->
+            error
+    end#coverage{name = whatever}.
 
 %% The identity function.
 id(I) -> I.

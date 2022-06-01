@@ -202,7 +202,7 @@ places. Appropriate attributes to the `X` tag will also be generated.
     This way it is relatively easy to make sure that all marker ids of a
     document are unique, but there is of course no guarantee that they are.
 
-    The upside of these auto generated markers is that we wont have to clutter
+    The upside of these auto generated markers is that we won't have to clutter
     the document with XML or something else while being able to refer into
     the document. The downside is that if you change a level 2 heading you
     change a lot of marker ids which may break links into a document from

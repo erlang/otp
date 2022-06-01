@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -608,7 +608,7 @@ static dsize_t Z_sub(ErtsDigit* y, dsize_t yl, ErtsDigit* r)
 
 /*
 ** Multiply digits in x with digits in y and store in r
-** Assumption: digits in r must be 0 (upto the size of x)
+** Assumption: digits in r must be 0 (up to the size of x)
 */
 static dsize_t I_mul(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl, ErtsDigit* r)
 {
@@ -984,7 +984,7 @@ static ErtsDigit D_rem(ErtsDigit* x, dsize_t xl, ErtsDigit d)
 /*
 ** Remainder of x and y
 **
-** Assumtions: xl >= yl, yl > 1
+** Assumptions: xl >= yl, yl > 1
 **			   r must contain at least xl number of digits
 */
 static dsize_t I_rem(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl, ErtsDigit* r)
@@ -1481,6 +1481,18 @@ erts_make_integer(Uint x, Process *p)
     else {
 	hp = HAlloc(p, BIG_UINT_HEAP_SIZE);
 	return uint_to_big(x,hp);
+    }
+}
+
+Eterm
+erts_make_integer_fact(Uint x, ErtsHeapFactory *hf)
+{
+    Eterm* hp;
+    if (IS_USMALL(0,x))
+	return make_small(x);
+    else {
+	hp = erts_produce_heap(hf, BIG_UINT_HEAP_SIZE, 0);
+	return uint_to_big(x, hp);
     }
 }
 /*
@@ -2618,7 +2630,7 @@ int term_equals_2pow32(Eterm x)
 	if (!is_big(x))
 	    return 0;
 	bp = big_val(x);
-#if D_EXP == 16   /* 16 bit platfrom not really supported!!! */
+#if D_EXP == 16   /* 16 bit platform not really supported!!! */
 	return (BIG_SIZE(bp) == 3) && !BIG_DIGIT(bp,0) && !BIG_DIGIT(bp,1) && 
 	    BIG_DIGIT(bp,2) == 1;
 #elif D_EXP == 32

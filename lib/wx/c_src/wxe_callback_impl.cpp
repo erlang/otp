@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ wxeEvtListener::wxeEvtListener(ErlNifPid caller, int req, ERL_NIF_TERM req_type,
 }
 
 wxeEvtListener::~wxeEvtListener() {
-  // enif_fprintf(stderr, "CBD Deleteing %p %T\r\n", this, class_name); fflush(stderr);
+  // enif_fprintf(stderr, "CBD Deleting %p %T\r\n", this, class_name); fflush(stderr);
   if(user_data) {
     delete user_data;
   }

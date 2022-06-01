@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@
 	 dirname_bin/1, extension_bin/1, join_bin/1, t_nativename_bin/1]).
 -export([pathtype_bin/1,rootname_bin/1,split_bin/1]).
 -export([t_basedir_api/1, t_basedir_xdg/1, t_basedir_windows/1]).
--export([safe_relative_path/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -41,8 +40,7 @@ all() ->
     [absname, absname_2,
      absname_bin, absname_bin_2,
      {group,p},
-     t_basedir_xdg, t_basedir_windows,
-     safe_relative_path].
+     t_basedir_xdg, t_basedir_windows].
 
 groups() -> 
     [{p, [parallel],
@@ -874,71 +872,6 @@ t_nativename_bin(Config) when is_list(Config) ->
         _ ->
             <<"/usr/tmp/arne">> =
                 filename:nativename(<<"/usr/tmp//arne/">>)
-    end.
-
-safe_relative_path(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    Root = filename:join(PrivDir, "filename_SUITE_safe_relative_path"),
-    ok = file:make_dir(Root),
-    ok = file:set_cwd(Root),
-
-    ok = file:make_dir("a"),
-    ok = file:set_cwd("a"),
-    ok = file:make_dir("b"),
-    ok = file:set_cwd("b"),
-    ok = file:make_dir("c"),
-
-    ok = file:set_cwd(Root),
-
-    "a" = test_srp("a"),
-    "a/b" = test_srp("a/b"),
-    "a/b" = test_srp("a/./b"),
-    "a/b" = test_srp("a/./b/."),
-
-    "" = test_srp("a/.."),
-    "" = test_srp("a/./.."),
-    "" = test_srp("a/../."),
-    "a" = test_srp("a/b/.."),
-    "a" = test_srp("a/../a"),
-    "a" = test_srp("a/../a/../a"),
-    "a/b/c" = test_srp("a/../a/b/c"),
-
-    unsafe = test_srp("a/../.."),
-    unsafe = test_srp("a/../../.."),
-    unsafe = test_srp("a/./../.."),
-    unsafe = test_srp("a/././../../.."),
-    unsafe = test_srp("a/b/././../../.."),
-
-    unsafe = test_srp(PrivDir),                 %Absolute path.
-
-    ok.
-
-test_srp(RelPath) ->
-    Res = do_test_srp(RelPath),
-    Res = case do_test_srp(list_to_binary(RelPath)) of
-              Bin when is_binary(Bin) ->
-                  binary_to_list(Bin);
-              Other ->
-                  Other
-          end.
-
-do_test_srp(RelPath) ->
-    {ok,Root} = file:get_cwd(),
-    ok = file:set_cwd(RelPath),
-    {ok,Cwd} = file:get_cwd(),
-    ok = file:set_cwd(Root),
-    case filename:safe_relative_path(RelPath) of
-        unsafe ->
-            true = length(Cwd) < length(Root),
-            unsafe;
-        "" ->
-            "";
-        SafeRelPath ->
-            ok = file:set_cwd(SafeRelPath),
-            {ok,Cwd} = file:get_cwd(),
-            true = length(Cwd) >= length(Root),
-            ok = file:set_cwd(Root),
-            SafeRelPath
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

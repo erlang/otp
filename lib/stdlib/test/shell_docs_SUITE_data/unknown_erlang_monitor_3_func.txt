@@ -10,7 +10,7 @@
   [;1m                 when MonitorRef :: reference().[0m
 
 [;;4mSince[0m:
-  OTP @OTP-16718@
+  OTP 24.0
 
   Types:
     -type monitor_port_identifier() :: port() | registered_name().
@@ -59,8 +59,86 @@
       removed using the [;;4munalias/1[0m BIF, the monitor will still
       be left active.
 
+    Example:
+
+      server() ->
+          receive
+              {request, AliasReqId, Request} ->
+                  Result = perform_request(Request),
+                  AliasReqId ! {reply, AliasReqId, Result}
+          end,
+          server().
+      
+      client(ServerPid, Request) ->
+          AliasMonReqId = monitor(process, ServerPid, [{alias, reply_demonitor}]),
+          ServerPid ! {request, AliasMonReqId, Request},
+          %% Alias as well as monitor will be automatically deactivated if we
+          %% receive a reply or a 'DOWN' message since we used 'reply_demonitor'
+          %% as unalias option...
+          receive
+              {reply, AliasMonReqId, Result} ->
+                  Result;
+              {'DOWN', AliasMonReqId, process, ServerPid, ExitReason} ->
+                  error(ExitReason)
+          end.
+      	    
+
+    Note that both the server and the client in this example must
+    be executing on at least OTP 24 systems in order for this to
+    work.
+
+    For more information on process aliases see the Process
+    Aliases section of the Erlang Reference Manual.
+
   [;;4m[;;4m{tag, UserDefinedTag}[0m[0m:
     Replace the default [;;4mTag[0m with [;;4mUserDefinedTag[0m in the 
     monitor message delivered when the monitor is triggered. For
     example, when monitoring a process, the [;;4m'DOWN'[0m tag in the
     down message will be replaced by [;;4mUserDefinedTag[0m.
+
+    An example of how the [;;4m{tag, UserDefinedTag}[0m option can be
+    used in order to enable the new selective receive
+    optimization, introduced in OTP 24, when making multiple
+    requests to different servers:
+
+      server() ->
+          receive
+              {request, From, ReqId, Request} ->
+                  Result = perform_request(Request),
+                  From ! {reply, self(), ReqId, Result}
+          end,
+          server().
+      
+      client(ServerPids, Request) when is_list(ServerPids) ->
+          ReqId = make_ref(),
+          lists:foreach(fun (ServerPid) ->
+                                _ = monitor(process, ServerPid,
+                                            [{tag, {'DOWN', ReqId}}]),
+                                ServerPid ! {request, self(), ReqId, Request}
+                        end,
+                        ServerPids),
+          receive_replies(ReqId, length(ServerPids), []).
+      
+      receive_replies(_ReqId, 0, Acc) ->
+          Acc;
+      receive_replies(ReqId, N, Acc) ->
+          %% The compiler will detect that we match on the 'ReqId'
+          %% reference in all clauses, and will enable the selective
+          %% receive optimization which makes the receive able to
+          %% skip past all messages present in the message queue at
+          %% the time when the 'ReqId' reference was created...
+          Res = receive
+                    {reply, ServerPid, ReqId, Result} ->
+                        %% Here we typically would have deactivated the
+                        %% monitor by a call to demonitor(Mon, [flush]) but
+                        %% we ignore this in this example for simplicity...
+                        {ok, ServerPid, Result};
+                    {{'DOWN', ReqId}, _Mon, process, ServerPid, ExitReason} ->
+                        {error, ServerPid, ExitReason}
+                end,
+          receive_replies(ReqId, N-1, [Res | Acc]).
+      	    
+
+    In order for this example to work as intended, the client must
+    be executing on at least an OTP 24 system, but the servers may
+    execute on older systems.

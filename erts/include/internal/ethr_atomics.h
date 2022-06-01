@@ -10,7 +10,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@
  * - read
  * - init
  *
- * Appart from a function implementing the atomic operation
+ * Apart from a function implementing the atomic operation
  * with unspecified memory barrier semantics, there are
  * functions implementing each operation with the following
  * implied memory barrier semantics:

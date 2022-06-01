@@ -1,0 +1,10 @@
+
+  [;1m-type stacktrace_extrainfo() ::[0m
+  [;1m          {line, pos_integer()} |[0m
+  [;1m          {file, unicode:chardata()} |[0m
+  [;1m          {error_info,[0m
+  [;1m           #{module => module(), function => atom(), cause => term()}} |[0m
+  [;1m          {atom(), term()}.[0m
+
+  An Erlang stacktrace as described by Errors and Error Handling
+  section in the Erlang Reference Manual.

@@ -40,11 +40,11 @@
 %%	have a nice public interface function which should handle task
 %%	administration. Tasks are identified by a "key" consisting of
 %%	three items, the requesting pid, the name of the task and the
-%%	task auxillary parameter. The requesting pid is the pid of the
+%%	task auxiliary parameter. The requesting pid is the pid of the
 %%	callee (in the appmon case it can be the node window for
 %%	instance), the task name is whatever name the task is given
 %%	(in the appmon case it can be app, app_ctrl or load). The task
-%%	name can be seen as the type of the task. The task auxillary
+%%	name can be seen as the type of the task. The task auxiliary
 %%	parameter is an all purpose parameter that have a different
 %%	meaning for each type of task so in appmon the Aux for app
 %%	contains the root pid of the monitored application and in
@@ -136,7 +136,7 @@
 %%----------------------------------------------------------------------
 %% Public interface
 %%
-%%	The Aux parameter is an auxillary parameter that can be used
+%%	The Aux parameter is an auxiliary parameter that can be used
 %%	freely by the requesting process, it is included in the work
 %%	task key. appmon uses it for storing the node name when
 %%	requesting load and app_ctrl tasks, and appmon_a uses it for
@@ -149,7 +149,7 @@
 %% Do not use gen_server:start_link because we do not want the
 %% appmon_info to die when initiating process dies unless special
 %% conditions apply.
-%% Uhu, we don't??? Made a fix so that this proces DOES indeed die
+%% Uhu, we don't??? Made a fix so that this process DOES indeed die
 %% if it's starter dies. /Gunilla
 start_link(Node, Client, Opts) ->
     rpc:call(Node, ?MODULE, start_link2, [self(), Client, Opts]).
@@ -473,7 +473,7 @@ get_pid(X) when is_tuple(X) -> element(2, X).
 
 %----------------------------------------------------------------------
 %%---------------------------------------------------------------------
-%% Handling process trees of processses that are linked to each other
+%% Handling process trees of processes that are linked to each other
 
 do_find_proc(Mode, DB, GL, Avoid) ->
     case get_next(DB) of

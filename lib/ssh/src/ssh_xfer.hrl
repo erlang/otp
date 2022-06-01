@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -226,7 +226,7 @@
 
 -record(ssh_xfer_attr,
 	{
-	  type,    %% regular, dirctory, symlink, ...
+	  type,    %% regular, directory, symlink, ...
 	  size,
 	  owner,
 	  group,

@@ -55,7 +55,7 @@ class wxeEvtHandler : public wxObject
 
    callback: @verbatim {callback,function()} @endverbatim
     Use a callback @verbatim fun(EventRecord::wx(),EventObject::wxObject()) @endverbatim
-    to process the event. Default not specfied i.e. a message will
+    to process the event. Default not specified i.e. a message will
    be delivered to the process calling this function.
 
    userData: @verbatim {userData,term()} @endverbatim

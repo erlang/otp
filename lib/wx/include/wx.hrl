@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -315,7 +315,8 @@
 -record(wxMouseState, {x :: integer(), y :: integer(),
           leftDown :: boolean(), middleDown :: boolean(), rightDown :: boolean(), 
           controlDown :: boolean(), shiftDown :: boolean(),
-          altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean()
+          altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean(),
+          aux1Down :: boolean(), aux2Down :: boolean()
         }).
 -record(wxHtmlLinkInfo, {
           href :: unicode:chardata(), target :: unicode:chardata()
@@ -1432,6 +1433,12 @@
 -define(wxID_MDI_WINDOW_PREV, (?wxID_MDI_WINDOW_FIRST+4)).
 -define(wxID_MDI_WINDOW_NEXT, (?wxID_MDI_WINDOW_FIRST+5)).
 -define(wxID_MDI_WINDOW_LAST, ?wxID_MDI_WINDOW_NEXT).
+-define(wxID_OSX_MENU_FIRST, 5250).
+-define(wxID_OSX_HIDE, ?wxID_OSX_MENU_FIRST).
+-define(wxID_OSX_HIDEOTHERS, (?wxID_OSX_MENU_FIRST+1)).
+-define(wxID_OSX_SHOWALL, (?wxID_OSX_MENU_FIRST+2)).
+-define(wxID_OSX_SERVICES, (?wxID_OSX_MENU_FIRST+3)).
+-define(wxID_OSX_MENU_LAST, ?wxID_OSX_SERVICES).
 -define(wxID_FILEDLGG, 5900).
 -define(wxID_FILECTRL, 5950).
 -define(wxID_HIGHEST, 5999).

@@ -30,6 +30,37 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The representation of Edward curves (ed25519 and ed448)
+	    inside ssh had a temporary representation (ed_pri and
+	    ed_pub).</p>
+          <p>
+	    That is now changed to the public_key form. See the
+	    manual for more information.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17920</p>
+        </item>
+        <item>
+          <p>
+	    Former internal function
+	    <c>ssh_file:extract_public_key/1</c> documented publicly.</p>
+          <p>
+	    Internally it was previously in ssh_transport.</p>
+          <p>
+	    Own Id: OTP-18079 Aux Id: GH-5767 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.13.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -1125,7 +1156,7 @@
 	    input/output, the I/O was erroneously handled by the
 	    *server's* group leader, so the I/O turned up in the the
 	    server's Erlang shell (if any). The user at the client
-	    side did therefor not see that I/O.</p>
+	    side did therefore not see that I/O.</p>
           <p>
 	    This is corrected now, so the client - for example the
 	    ssh OS shell command - handles the I/O. The user could
@@ -1670,7 +1701,7 @@
         </item>
         <item>
           <p>
-	    The type specifications in SSH are completly reworked and
+	    The type specifications in SSH are completely reworked and
 	    the following types are renamed:</p>
           <p>
 	    <c>ssh:ssh_connection_ref()</c> is changed to
@@ -1935,7 +1966,7 @@
         </item>
         <item>
           <p>
-	    Fix rare spurios shutdowns of ssh servers when receiveing
+	    Fix rare spurious shutdowns of ssh servers when receiving
 	    <c>{'EXIT',_,normal}</c> messages.</p>
           <p>
 	    Own Id: OTP-15018</p>
@@ -2386,7 +2417,7 @@
       <list>
         <item>
           <p>
-	    Fix rare spurios shutdowns of ssh servers when receiveing
+	    Fix rare spurious shutdowns of ssh servers when receiving
 	    <c>{'EXIT',_,normal}</c> messages.</p>
           <p>
 	    Own Id: OTP-15018</p>
@@ -2618,7 +2649,7 @@
         <item>
           <p>
 	    If a client illegaly sends an info-line and then
-	    immediatly closes the TCP-connection, a badmatch
+	    immediately closes the TCP-connection, a badmatch
 	    exception was raised.</p>
           <p>
 	    Own Id: OTP-13966</p>
@@ -2831,7 +2862,7 @@
       <list>
         <item>
           <p>
-	    Fix rare spurios shutdowns of ssh servers when receiveing
+	    Fix rare spurious shutdowns of ssh servers when receiving
 	    <c>{'EXIT',_,normal}</c> messages.</p>
           <p>
 	    Own Id: OTP-15018</p>
@@ -3453,7 +3484,7 @@
           <p>
 	    The possible values are: <c>{id_string,string()}</c> and
 	    <c>{id_string,random}</c>. The latter will make ssh
-	    generate a random nonsence id-string for each new
+	    generate a random nonsense id-string for each new
 	    connection.</p>
           <p>
 	    Own Id: OTP-12659</p>
@@ -3579,7 +3610,7 @@
           <p>
 	    The possible values are: <c>{id_string,string()}</c> and
 	    <c>{id_string,random}</c>. The latter will make ssh
-	    generate a random nonsence id-string for each new
+	    generate a random nonsense id-string for each new
 	    connection.</p>
           <p>
 	    Own Id: OTP-12659</p>
@@ -4242,7 +4273,7 @@
       <list>
         <item>
           <p>
-	    ssh:daemon will get feeded with an argument even if it is
+	    ssh:daemon will get fed with an argument even if it is
 	    not a valid expression.</p>
           <p>
 	    Own Id: OTP-10975</p>
@@ -4590,7 +4621,7 @@
       <list>
         <item>
           <p>
-	    All keys in authorized_keys are considerd, wrongly only
+	    All keys in authorized_keys are considered, wrongly only
 	    the first one was before.</p>
           <p>
 	    Own Id: OTP-7235</p>
@@ -4964,7 +4995,7 @@
       <list>
         <item>
           <p>
-            Now clear all processes when a connnection is terminated.</p>
+            Now clear all processes when a connection is terminated.</p>
           <p>
             Own Id: OTP-8121 Aux Id:</p>
         </item>
@@ -5062,13 +5093,13 @@
       <list>
         <item>
           <p>
-            ssh_sftp:start_channel/3 did not handle timout correctly.</p>
+            ssh_sftp:start_channel/3 did not handle timeout correctly.</p>
           <p>
             Own Id: OTP-8159 Aux Id: seq11386</p>
         </item>
         <item>
           <p>
-            If a progress message was not recieved after invoking ssh:connect/3
+            If a progress message was not received after invoking ssh:connect/3
             the call could hang for ever. A timeout option has also been added.</p>
           <p>
             Own Id: OTP-8160 Aux Id: seq11386</p>

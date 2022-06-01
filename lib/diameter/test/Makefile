@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2016. All Rights Reserved.
+# Copyright Ericsson AB 2010-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,17 +64,14 @@ ERL_COMPILE_FLAGS += +warn_export_vars \
 # Targets
 # ----------------------------------------------------
 
-all debug opt: $(TARGET_FILES)
+all $(TYPES): $(TARGET_FILES)
 
 strict:
 	$(MAKE) opt STRICT_FLAGS=-Werror
 
-# Require success ...
-run: $(SUITES)
-
-# ... or not.
-any: opt
-	$(MAKE) -i $(SUITES)
+# Run all suites, without/with common_test.
+run: $(SUITES:%=_%)
+ct: $(SUITES)
 
 clean:
 	rm -f $(TARGET_FILES)
@@ -91,13 +88,11 @@ info:
 	@echo ========================================
 	@$(call list,MODULES)
 	@echo
-	@$(call list,HRL_FILES)
-	@echo
 	@$(call list,SUITES)
 	@echo
 	@echo erl = $(shell which erl)
 	@erl -noinput \
-	     -eval 'io:format("diameter = ~s~n", [code:lib_dir(diameter)])' \
+	     -eval 'io:format("diameter = ~ts~n", [code:lib_dir(diameter)])' \
 	     -s init stop
 	@echo ========================================
 
@@ -109,13 +104,14 @@ help:
 	@echo "        Compile all test suites."
 	@echo
 	@echo "    run:"
-	@echo "        Compile and run all test suites, stop on failure."
+	@echo "        Compile and run all test suites without common_test."
 	@echo
-	@echo "    any:"
-	@echo "        Compile and run all test suites, ignore any failures."
+	@echo "    ct:"
+	@echo "        Compile and run all test suites with common_test."
 	@echo
 	@echo "    $(SUITES):"
 	@echo "        Compile and run a specific test suite."
+	@echo "        Prefix with _ to run without common_test."
 	@echo
 	@echo "    clean | realclean:"
 	@echo "        Remove generated files."
@@ -124,7 +120,10 @@ help:
 	@echo "        Echo some relevant variables."
 	@echo ========================================
 
-.PHONY: all any run clean debug docs help info opt realclean strict
+.PHONY: all ct run clean debug docs help info opt realclean strict
+
+# Disable crash dumps.
+export ERL_CRASH_DUMP_BYTES=0
 
 # ----------------------------------------------------
 # Special Targets
@@ -132,7 +131,8 @@ help:
 
 # Exit with a non-zero status if the output looks to indicate failure.
 # diameter_ct:run/1 itself can't tell (it seems). The absolute -pa is
-# because ct will change directories.
+# because ct will change directories, and for code:lib_dir(diameter) to
+# return the parent directory.
 $(SUITES): log opt
 	$(ERL) -noinput \
 	       -pa $(realpath ../ebin) \
@@ -141,6 +141,14 @@ $(SUITES): log opt
 	       -s init stop \
 	| awk '{print} / FAILED /{rc=1} END{exit rc}' rc=0
 # Shorter in sed but requires a GNU extension (ie. Q).
+
+# Run suites without common_test.
+$(SUITES:%=_%): opt
+	$(ERL) -noinput \
+	       -pa $(realpath ../ebin) \
+	       -sname diameter_test_$@ \
+	       -s diameter$@_SUITE run \
+	       -s init stop
 
 cover: log opt coverspec
 	$(ERL) -noinput \
@@ -173,7 +181,6 @@ release_tests_spec:
 	$(INSTALL_DIR)  "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(TEST_SPEC_FILE) \
 	                $(COVER_SPEC_FILE) \
-	                $(HRL_FILES) \
 	                "$(RELSYSDIR)"
 	$(MAKE) $(DATA_DIRS:%/=release_data_%)
 	$(MAKE) $(ERL_FILES:%=/%)

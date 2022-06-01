@@ -24,4 +24,5 @@ $TTL	3600
 
 28	IN PTR		resolve.otptest.
 
+253     IN CNAME        254
 254	IN PTR		ns.otptest.

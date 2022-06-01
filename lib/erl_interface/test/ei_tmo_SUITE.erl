@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@
          ei_send_tmo/1,
          ei_send_failure_tmo/1,
 	 ei_connect_unreachable_tmo/0, ei_connect_unreachable_tmo/1,
-         ei_recv_tmo/1]).
+         ei_recv_tmo/1,
+         ei_dflags/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -48,7 +49,8 @@ groups() ->
     Members = [ei_recv_tmo,
                ei_accept_tmo,
                ei_connect_tmo,
-               ei_send_tmo],
+               ei_send_tmo,
+               ei_dflags],
     [{default, [], Members},
      {ussi, [], Members}].
 
@@ -60,6 +62,41 @@ init_per_testcase(Case, Config) ->
 
 end_per_testcase(_Case, _Config) ->
     ok.
+
+-define(DFLAG_PUBLISHED,                16#01).
+-define(DFLAG_ATOM_CACHE,               16#02).
+-define(DFLAG_EXTENDED_REFERENCES,      16#04).
+-define(DFLAG_DIST_MONITOR,             16#08).
+-define(DFLAG_FUN_TAGS,                 16#10).
+-define(DFLAG_NEW_FUN_TAGS,             16#80).
+-define(DFLAG_EXTENDED_PIDS_PORTS,     16#100).
+-define(DFLAG_EXPORT_PTR_TAG,          16#200).
+-define(DFLAG_BIT_BINARIES,            16#400).
+-define(DFLAG_NEW_FLOATS,              16#800).
+-define(DFLAG_UTF8_ATOMS,            16#10000).
+-define(DFLAG_MAP_TAG,               16#20000).
+-define(DFLAG_BIG_CREATION,          16#40000).
+-define(DFLAG_HANDSHAKE_23,        16#1000000).
+-define(DFLAG_MANDATORY_25_DIGEST, 16#4000000).
+
+%% From OTP R9 extended references are compulsory.
+%% From OTP R10 extended pids and ports are compulsory.
+%% From OTP 20 UTF8 atoms are compulsory.
+%% From OTP 21 NEW_FUN_TAGS is compulsory (no more tuple fallback {fun, ...}).
+%% From OTP 23 BIG_CREATION is compulsory.
+%% From OTP 25 NEW_FLOATS, MAP_TAG, EXPORT_PTR_TAG, and BIT_BINARIES are compulsory.
+-define(COMPULSORY_DFLAGS,
+        (?DFLAG_EXTENDED_REFERENCES bor
+             ?DFLAG_FUN_TAGS bor
+             ?DFLAG_EXTENDED_PIDS_PORTS bor
+             ?DFLAG_UTF8_ATOMS bor
+             ?DFLAG_NEW_FUN_TAGS bor
+             ?DFLAG_BIG_CREATION bor
+             ?DFLAG_NEW_FLOATS bor
+             ?DFLAG_MAP_TAG bor
+             ?DFLAG_EXPORT_PTR_TAG bor
+             ?DFLAG_BIT_BINARIES bor
+             ?DFLAG_HANDSHAKE_23)).
 
 %% Check the framework.
 framework_check(Config) when is_list(Config) ->
@@ -106,7 +143,7 @@ do_one_recv_failure(Config,CNode) ->
     true = (Ret < 0),
     runner:recv_eot(P1).
 
--define(EI_DIST_LOW, 5).
+-define(EI_DIST_LOW, 6).
 -define(EI_DIST_HIGH, 6).
 
 %% Check send with timeouts.
@@ -140,15 +177,11 @@ do_one_send(Config,From,CNode) ->
 
 ei_send_failure_tmo(Config) when is_list(Config) ->
     register(ei_send_tmo_1,self()),
-    [begin
-         io:format("Test dist version ~p\n", [Ver]),
-         do_one_send_failure(Config,self(),cccc1,c_nod_send_tmo_3, Ver),
-         do_one_send_failure(Config,ei_send_tmo_1,cccc2,c_nod_send_tmo_4, Ver)
-     end
-     || Ver <- lists:seq(?EI_DIST_LOW, ?EI_DIST_HIGH)],
+    do_one_send_failure(Config,self(),cccc1,c_nod_send_tmo_3),
+    do_one_send_failure(Config,ei_send_tmo_1,cccc2,c_nod_send_tmo_4),
     ok.
 
-do_one_send_failure(Config,From,FakeName,CName, OurVer) ->
+do_one_send_failure(Config,From,FakeName,CName) ->
     {_,Host} = split(node()),
     OurName = join(FakeName,Host),
     Node = join(CName,Host),
@@ -158,7 +191,7 @@ do_one_send_failure(Config,From,FakeName,CName, OurVer) ->
                   Else ->
                       exit(Else)
               end,
-    EpmdSocket = epmd_register(OurName, LSocket, OurVer),
+    EpmdSocket = epmd_register(OurName, LSocket),
     P3 = runner:start(Config, ?send_tmo),
     Cookie = kaksmula_som_ingen_bryr_sig_om,
     runner:send_term(P3,{CName,
@@ -171,10 +204,10 @@ do_one_send_failure(Config,From,FakeName,CName, OurVer) ->
                   Else2 ->
                       exit(Else2)
               end,
-    {hidden,Node} = recv_name(SocketB, OurVer),  % See 1)
+    {hidden,Node} = recv_name(SocketB),  % See 1)
     send_status(SocketB, ok),
     MyChallengeB = gen_challenge(),
-    send_challenge(SocketB, OurName, MyChallengeB, OurVer),
+    send_challenge(SocketB, OurName, MyChallengeB),
     HisChallengeB = recv_challenge_reply(SocketB,
                                          MyChallengeB,
                                          Cookie),
@@ -220,15 +253,8 @@ ei_connect_unreachable_tmo(Config) when is_list(Config) ->
     ok.
 
 ei_connect_tmo(Config) when is_list(Config) ->
-    [begin
-         io:format("Test dist version ~p published as ~p\n", [OurVer,OurEpmdVer]),
-         do_ei_connect_tmo(Config, OurVer, OurEpmdVer)
-     end
-     || OurVer <- lists:seq(?EI_DIST_LOW, ?EI_DIST_HIGH),
-        OurEpmdVer <- lists:seq(?EI_DIST_LOW, ?EI_DIST_HIGH),
-        OurVer >= OurEpmdVer].
+    Flags = ?COMPULSORY_DFLAGS bor ?DFLAG_MANDATORY_25_DIGEST,
 
-do_ei_connect_tmo(Config, OurVer, OurEpmdVer) ->
     P2 = runner:start(Config, ?connect_tmo),
     runner:send_term(P2,{c_nod_connect_tmo_2,
                          erlang:get_cookie(),
@@ -237,6 +263,7 @@ do_ei_connect_tmo(Config, OurVer, OurEpmdVer) ->
     {term, X} = runner:get_term(P2, 10000),
     runner:recv_eot(P2),
     true = is_integer(X),
+
     %% Aborted handshake test...
     {_,Host} = split(node()),
     OurName = join(cccc,Host),
@@ -247,7 +274,7 @@ do_ei_connect_tmo(Config, OurVer, OurEpmdVer) ->
                   Else ->
                       exit(Else)
               end,
-    EpmdSocket = epmd_register(OurName, LSocket, OurEpmdVer),
+    EpmdSocket = epmd_register(OurName, LSocket),
     P3 = runner:start(Config, ?connect_tmo),
     Cookie = kaksmula_som_ingen_bryr_sig_om,
     runner:send_term(P3,{c_nod_connect_tmo_3,
@@ -260,11 +287,10 @@ do_ei_connect_tmo(Config, OurVer, OurEpmdVer) ->
                   Else2 ->
                       exit(Else2)
               end,
-    {hidden,Node} = recv_name(SocketB, OurEpmdVer),  % See 1)
+    {hidden,Node} = recv_name(SocketB),  % See 1)
     send_status(SocketB, ok),
     MyChallengeB = gen_challenge(),
-    send_challenge(SocketB, OurName, MyChallengeB, OurVer),
-    recv_complement(SocketB, OurVer, OurEpmdVer),
+    send_challenge(SocketB, OurName, MyChallengeB, Flags),
     _HisChallengeB = recv_challenge_reply(SocketB,
                                           MyChallengeB,
                                           Cookie),
@@ -277,23 +303,15 @@ do_ei_connect_tmo(Config, OurVer, OurEpmdVer) ->
 
 %% Check accept with timeouts.
 ei_accept_tmo(Config) when is_list(Config) ->
-    [begin
-         io:format("Test our dist ver=~p and assumed ver=~p\n",
-                   [OurVer, AssumedVer]),
-         do_ei_accept_tmo(Config, OurVer, AssumedVer)
-     end
-     || OurVer <- lists:seq(?EI_DIST_LOW, ?EI_DIST_HIGH),
-        AssumedVer <- lists:seq(?EI_DIST_LOW, ?EI_DIST_HIGH),
-        OurVer >= AssumedVer],
-    ok.
+    Flags = ?COMPULSORY_DFLAGS bor ?DFLAG_MANDATORY_25_DIGEST,
 
-do_ei_accept_tmo(Config, OurVer, AssumedVer) ->
     P = runner:start(Config, ?accept_tmo),
     runner:send_term(P,{c_nod_som_ingen_kontaktar_1,
                         kaksmula_som_ingen_bryr_sig_om,
                         get_group(Config)}),
     {term,{-1,ETimedout,ETimedout}} = runner:get_term(P, 10000),
     runner:recv_eot(P),
+
     P2 = runner:start(Config, ?accept_tmo),
     runner:send_term(P2,{c_nod_som_vi_kontaktar_1,
                          erlang:get_cookie(),
@@ -304,8 +322,14 @@ do_ei_accept_tmo(Config, OurVer, AssumedVer) ->
     {term, X} = runner:get_term(P2, 10000),
     runner:recv_eot(P2),
     true = is_integer(X),
-    P3 = runner:start(Config, ?accept_tmo),
-    runner:send_term(P3,{c_nod_som_vi_kontaktar_2,
+
+    normal_accept(Config, Flags),
+
+    ok.
+
+normal_accept(Config, Flags) ->
+    P = runner:start(Config, ?accept_tmo),
+    runner:send_term(P,{c_nod_som_vi_kontaktar_2,
                          erlang:get_cookie(),
                          get_group(Config)}),
     receive after 1000 -> ok end,
@@ -317,17 +341,47 @@ do_ei_accept_tmo(Config, OurVer, AssumedVer) ->
     {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
                                     [{active,false},
                                      {packet,2}]),
-    send_name(SocketA,OurName,OurVer,AssumedVer),
+    send_name(SocketA, OurName, Flags),
     ok = recv_status(SocketA),
-    {hidden,_Node,HisChallengeA} = recv_challenge(SocketA,OurVer), % See 1)
+    {hidden,_Node,HisChallengeA} = recv_challenge(SocketA), % See 1)
     _OurChallengeA = gen_challenge(),
     _OurDigestA = gen_digest(HisChallengeA, erlang:get_cookie()),
     %% Dont do the last two steps of the connection setup...
     %% send_challenge_reply(SocketA, OurChallengeA, OurDigestA),
     %% ok = recv_challenge_ack(SocketA, OurChallengeA, erlang:get_cookie()),
-    {term, {-1,ETimedout,ETimedout}} = runner:get_term(P3, 10000),
-    runner:recv_eot(P3),
-    gen_tcp:close(SocketA),
+    {term, {-1,ETimedout,ETimedout}} = runner:get_term(P, 10000),
+    runner:recv_eot(P),
+    gen_tcp:close(SocketA).
+
+normal_connect(Config, Flags) ->
+    {_,Host} = split(node()),
+    OurName = join(cccc,Host),
+    Node = join(c_nod_connect_tmo_3,Host),
+    LSocket = case gen_tcp:listen(0, [{active, false}, {packet,2}]) of
+                  {ok, Socket} ->
+                      Socket;
+                  Else ->
+                      exit(Else)
+              end,
+    EpmdSocket = epmd_register(OurName, LSocket),
+    P3 = runner:start(Config, ?connect_tmo),
+    Cookie = kaksmula_som_ingen_bryr_sig_om,
+    runner:send_term(P3, {c_nod_connect_tmo_3,
+                          Cookie,
+                          OurName,
+                          get_group(Config)}),
+    SocketB = case gen_tcp:accept(LSocket) of
+                  {ok, Socket1} ->
+                      Socket1;
+                  Else2 ->
+                      exit(Else2)
+              end,
+    {hidden,Node} = recv_name(SocketB),
+    send_status(SocketB, ok),
+    MyChallengeB = gen_challenge(),
+    send_challenge(SocketB, OurName, MyChallengeB, Flags),
+    gen_tcp:close(SocketB),
+    gen_tcp:close(EpmdSocket),
     ok.
 
 make_node(X) ->
@@ -345,6 +399,18 @@ make_and_check_dummy() ->
 
     list_to_atom("dummy@"++HostNotReachable).
 
+%% Test that erl_interface sets the appropriate distributions flags.
+ei_dflags(Config) ->
+    %% Test compatibility with OTP 24 and earlier.
+    normal_connect(Config, ?COMPULSORY_DFLAGS),
+    normal_accept(Config, ?COMPULSORY_DFLAGS),
+
+    %% Test compatibility with future versions.
+    normal_connect(Config, ?DFLAG_MANDATORY_25_DIGEST),
+    normal_accept(Config, ?DFLAG_MANDATORY_25_DIGEST),
+
+    ok.
+
 %%
 %% Stolen from the erl_distribution_wb_test in kernel
 %% To be able to do partial handshakes...
@@ -358,18 +424,6 @@ make_and_check_dummy() ->
             R ->
                 R
         end).
-
--define(DFLAG_PUBLISHED,1).
--define(DFLAG_ATOM_CACHE,2).
--define(DFLAG_EXTENDED_REFERENCES,4).
--define(DFLAG_EXTENDED_PIDS_PORTS,16#100).
--define(DFLAG_NEW_FLOATS,16#800).
--define(DFLAG_DIST_MONITOR,8).
--define(DFLAG_HANDSHAKE_23,16#1000000).
-
-%% From R9 and forward extended references is compulsory
-%% From 14 and forward new float is compulsory
--define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor ?DFLAG_EXTENDED_PIDS_PORTS bor ?DFLAG_NEW_FLOATS)).
 
 -define(shutdown(X), exit(X)).
 -define(int16(X), [((X) bsr 8) band 16#ff, (X) band 16#ff]).
@@ -411,7 +465,7 @@ gen_digest(Challenge, Cookie) when is_integer(Challenge), is_atom(Cookie) ->
 
 
 %%
-%% The differrent stages of the MD5 handshake
+%% The different stages of the MD5 handshake
 %%
 
 send_status(Socket, Stat) ->
@@ -429,40 +483,27 @@ recv_status(Socket) ->
             exit(Bad)
     end.
 
-send_challenge(Socket, Node, Challenge, OurVer) ->
-    send_challenge(Socket, Node, Challenge, OurVer, ?COMPULSORY_DFLAGS).
+send_challenge(Socket, Node, Challenge) ->
+    DefaultFlags = ?COMPULSORY_DFLAGS bor ?DFLAG_MANDATORY_25_DIGEST,
+    send_challenge(Socket, Node, Challenge, DefaultFlags).
 
-send_challenge(Socket, Node, Challenge, OurVer, Flags) ->
-    if OurVer =:= 5 ->
-            ?to_port(Socket, [$n, ?int16(OurVer), ?int32(Flags),
-                              ?int32(Challenge), atom_to_list(Node)]);
-       OurVer >= 6 ->
-            NodeName = atom_to_binary(Node, latin1),
-            NameLen = byte_size(NodeName),
-            Creation = erts_internal:get_creation(),
-            ?to_port(Socket, [$N,
-                              <<(Flags bor ?DFLAG_HANDSHAKE_23):64,
-                                Challenge:32,
-                                Creation:32,
-                                NameLen:16>>,
-                              NodeName])
-    end.       
+send_challenge(Socket, Node, Challenge, Flags) ->
+    NodeName = atom_to_binary(Node, latin1),
+    NameLen = byte_size(NodeName),
+    Creation = erts_internal:get_creation(),
+    ?to_port(Socket, [$N,
+                      << Flags:64,
+                         Challenge:32,
+                         Creation:32,
+                         NameLen:16>>,
+                      NodeName]).
 
-recv_challenge(Socket, OurVer) ->
+recv_challenge(Socket) ->
     case gen_tcp:recv(Socket, 0) of
-        {ok,[$n,V1,V0,Fl1,Fl2,Fl3,Fl4,CA3,CA2,CA1,CA0 | Ns]} ->
-            5 = OurVer,
-            Flags = ?u32(Fl1,Fl2,Fl3,Fl4),
-            Type = flags_to_type(Flags),
-            Node =list_to_atom(Ns),
-            OurVer = ?u16(V1,V0),  % echoed back
-            Challenge = ?u32(CA3,CA2,CA1,CA0),
-            {Type,Node,Challenge};
-
         {ok,[$N, F7,F6,F5,F4,F3,F2,F1,F0, CA3,CA2,CA1,CA0,
              _Cr3,_Cr2,_Cr1,_Cr0, NL1,NL0 | Rest]} ->
-            true = (OurVer >= 6),
             <<Flags:64>> = <<F7,F6,F5,F4,F3,F2,F1,F0>>,
+            verify_flags(Flags),
             Type = flags_to_type(Flags),
             NameLen = ?u16(NL1,NL0),
             {NodeName,_} = lists:split(NameLen, Rest),
@@ -517,53 +558,26 @@ send_challenge_ack(Socket, Digest) ->
 %            ?shutdown(bad_challenge_ack)
 %    end.
 
-send_name(Socket, MyNode, OurVer, AssumedVer) ->
-    Flags = ?COMPULSORY_DFLAGS bor (case OurVer of
-                                        5 -> 0;
-                                        6 -> ?DFLAG_HANDSHAKE_23
-                                    end),
-    send_name(Socket, MyNode, OurVer, AssumedVer, Flags).
-
-send_name(Socket, MyNode, OurVer, AssumedVer, Flags) ->
+send_name(Socket, MyNode, Flags) ->
     NodeName = atom_to_binary(MyNode, latin1),
-    if AssumedVer =:= 5 ->
-            ?to_port(Socket, [$n,?int16(OurVer),?int32(Flags),NodeName]);
-       AssumedVer >= 6 ->
-            Creation = erts_internal:get_creation(),
-            ?to_port(Socket, [$N,
-                              <<Flags:64,
-                                Creation:32,
-                                (byte_size(NodeName)):16>>,
-                              NodeName])
-    end.
+    Creation = erts_internal:get_creation(),
+    ?to_port(Socket, [$N,
+                      <<Flags:64,
+                        Creation:32,
+                        (byte_size(NodeName)):16>>,
+                      NodeName]).
 
-recv_name(Socket, OurEpmdVer) ->
+recv_name(Socket) ->
     case gen_tcp:recv(Socket, 0) of
-        {ok,[$n, V1,V0, F3,F2,F1,F0 | OtherNode]} ->
-            5 = OurEpmdVer,
-            5 = ?u16(V1,V0),
-            Type = flags_to_type(?u32(F3,F2,F1,F0)),
-            {Type, list_to_atom(OtherNode)};
         {ok,[$N, F7,F6,F5,F4,F3,F2,F1,F0, _Cr3,_Cr2,_Cr1,_Cr0, NL1, NL0 | Rest]} ->
-            true = (OurEpmdVer >= 6),
             {OtherNode, _Residue} = lists:split(?u16(NL1,NL0), Rest),
             <<Flags:64>> = <<F7,F6,F5,F4,F3,F2,F1,F0>>,
+            verify_flags(Flags),
             Type = flags_to_type(Flags),
             {Type, list_to_atom(OtherNode)};
         Res ->
             ?shutdown({no_node,Res})
     end.
-
-recv_complement(Socket, OurVer, 5) when OurVer > 5 ->
-    case gen_tcp:recv(Socket, 0) of
-        {ok,[$c, _F7,_F6,_F5,_F4, _Cr3,_Cr2,_Cr1,_Cr0]} ->
-            ok;
-        Res ->
-            ?shutdown({no_node,Res})
-    end;
-recv_complement(_, _OurVer, _OurEpmdVer) ->
-    ok.
-
 
 %%
 %% tell_name is for old handshake
@@ -576,7 +590,7 @@ recv_complement(_, _OurVer, _OurEpmdVer) ->
 %%
 %% The communication with EPMD follows
 %%
-do_register_node(NodeName, TcpPort, VLow, VHigh) ->
+do_register_node(NodeName, TcpPort) ->
     case gen_tcp:connect({127,0,0,1}, get_epmd_port(), []) of
         {ok, Socket} ->
             {N0,_} = split(NodeName),
@@ -588,8 +602,8 @@ do_register_node(NodeName, TcpPort, VLow, VHigh) ->
                                   ?int16(TcpPort),
                                   $M,
                                   0,
-                                  ?int16(VHigh),
-                                  ?int16(VLow),
+                                  ?int16(?EI_DIST_HIGH),
+                                  ?int16(?EI_DIST_LOW),
                                   ?int16(length(Name)),
                                   Name,
                                   ?int16(Elen),
@@ -625,15 +639,25 @@ wait_for_reg_reply(Socket, SoFar) ->
     end.
 
 
-epmd_register(NodeName, ListenSocket, OurVer) ->
+epmd_register(NodeName, ListenSocket) ->
     {ok,{_,TcpPort}} = inet:sockname(ListenSocket),
-    case do_register_node(NodeName, TcpPort, ?EI_DIST_LOW, OurVer) of
+    case do_register_node(NodeName, TcpPort) of
         {alive, Socket, _Creation} ->
             Socket;
         Other ->
             exit(Other)
     end.
 
+verify_flags(Flags) ->
+    RequiredFlags = ?COMPULSORY_DFLAGS bor ?DFLAG_MANDATORY_25_DIGEST,
+    if
+        Flags band RequiredFlags =:= RequiredFlags ->
+            ok;
+        true ->
+            io:format("Given flags:    ~.16.0B\n", [Flags]),
+            io:format("Required flags: ~.16.0B\n", [RequiredFlags]),
+            ct:fail(missing_dflags)
+    end.
 
 %%
 %% Utilities

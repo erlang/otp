@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,16 +25,13 @@
 
 -module(diameter_dist_SUITE).
 
--export([suite/0,
-         all/0]).
+%% all tests, no common_test dependency
+-export([run/0]).
 
-%% testcases
--export([enslave/1, enslave/0,
-         ping/1,
-         start/1,
-         connect/1,
-         send/1,
-         stop/1, stop/0]).
+%% common_test wrapping
+-export([suite/0,
+         all/0,
+         traffic/1]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -46,7 +43,11 @@
          handle_error/4,
          handle_request/3]).
 
--export([call/1]).
+%% rpc calls
+-export([start/1,
+         call/1,
+         connect/1,
+         ping/1]).
 
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc6733.hrl").
@@ -95,26 +96,35 @@
                 {server2, ?SERVER},
                 {client, ?CLIENT}]).
 
-%% Options to ct_slave:start/2.
--define(TIMEOUTS, [{T, 15000} || T <- [boot_timeout,
-                                       init_timeout,
-                                       start_timeout]]).
-
 %% ===========================================================================
+%% common_test wrapping
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 90}}].
 
 all() ->
-    [enslave,
-     ping,
-     start,
-     connect,
-     send,
-     stop].
+    [traffic].
+
+traffic(_Config) ->
+    run().
 
 %% ===========================================================================
-%% start/stop testcases
+
+%% run/0
+
+run() ->
+    [] = ?util:run([{fun traffic/0, 60000}]).
+    %% process for linked peers to die with
+
+%% traffic/0
+
+traffic() ->
+    true = is_alive(),  %% need distribution for peer nodes
+    Nodes = enslave(),
+    [] = ping(lists:droplast(Nodes)),  %% drop client node
+    [] = start(Nodes),
+    ok = connect(Nodes),
+    ok = send(Nodes).
 
 %% enslave/1
 %%
@@ -122,39 +132,29 @@ all() ->
 %% one to implement a client.
 
 enslave() ->
-    [{timetrap, {seconds, 30*length(?NODES)}}].
-
-enslave(Config) ->
     Here = filename:dirname(code:which(?MODULE)),
     Ebin = filename:join([Here, "..", "ebin"]),
-    Dirs = [Here, Ebin],
-    Nodes = [{N,S} || {M,S} <- ?NODES, N <- [slave(M, Dirs)]],
-    ?util:write_priv(Config, nodes, [{N,S} || {{N,ok},S} <- Nodes]),
-    [] = [{T,S} || {{_,E} = T, S} <- Nodes, E /= ok].
+    Args = ["-pa", Here, Ebin],
+    [{N,S} || {M,S} <- ?NODES, N <- [start(M, Args)]].
 
-slave(Name, Dirs) ->
-    add_pathsa(Dirs, ct_slave:start(Name, ?TIMEOUTS)).
-
-add_pathsa(Dirs, {ok, Node}) ->
-    {Node, rpc:call(Node, code, add_pathsa, [Dirs])};
-add_pathsa(_, No) ->
-    {No, error}.
+start(Name, Args) ->
+    {ok, _, Node} = ?util:peer(#{name => Name, args => Args}),
+    Node.
 
 %% ping/1
 %%
 %% Ensure the server nodes are connected so that diameter_dist can attach.
 
 ping({S, Nodes}) ->
-    ?SERVER = S,
+    ?SERVER = S,  %% assert
     [N || {N,_} <- Nodes,
           node() /= N,
           pang <- [net_adm:ping(N)]];
 
-ping(Config) ->
-    Nodes = lists:droplast(?util:read_priv(Config, nodes)),
-    [] = [{N,RC} || {N,S} <- Nodes,
-                    RC <- [rpc:call(N, ?MODULE, ping, [{S,Nodes}])],
-                    RC /= []].
+ping(Nodes) ->
+    [{N,RC} || {N,S} <- Nodes,
+               RC <- [rpc:call(N, ?MODULE, ping, [{S,Nodes}])],
+               RC /= []].
 
 %% start/1
 %%
@@ -168,7 +168,7 @@ ping(Config) ->
 %% which case the application needs to be started and diameter_dist is
 %% started as a part of this, but only start the server here to ensure
 %% everything still works as expected.
-start({_SvcName, [_, {S1, _}, {S2, _}, _]}) 
+start({_SvcName, [_, {S1, _}, {S2, _}, _]})
   when node() == S1;    %% server1
        node() == S2 ->  %% server2
     Mod = diameter_dist,
@@ -181,12 +181,10 @@ start({SvcName, [{S0, _}, _, _, {C, _}]})
     ok = diameter:start(),
     ok = diameter:start_service(SvcName, ?SERVICE((?L(SvcName))));
 
-start(Config)
-  when is_list(Config) ->
-    Nodes = ?util:read_priv(Config, nodes),
-    [] = [{N,RC} || {N,S} <- Nodes,
-                    RC <- [rpc:call(N, ?MODULE, start, [{S, Nodes}])],
-                    RC /= ok].
+start(Nodes) ->
+    [{N,RC} || {N,S} <- Nodes,
+               RC <- [rpc:call(N, ?MODULE, start, [{S, Nodes}])],
+               RC /= ok].
 
 sequence() ->
     sequence(sname()).
@@ -211,33 +209,24 @@ origin(Server) ->
 %% Establish one connection from the client, terminated on the first
 %% server node, the others handling requests.
 
-connect({?SERVER, Config, [{Node, _} | _]})
+connect({?SERVER, [{Node, _} | _], []})
   when Node == node() ->  %% server0
-    ok = ?util:write_priv(Config, lref, {Node, ?util:listen(?SERVER, tcp)});
+    [_LRef = ?util:listen(?SERVER, tcp)];
 
-connect({?SERVER, _Config, _}) -> %% server[12]: register to receive requests
-    ok = diameter_dist:attach([?SERVER]);
+connect({?SERVER, _, [_] = Acc}) -> %% server[12]: register to receive requests
+    ok = diameter_dist:attach([?SERVER]),
+    Acc;
 
-connect({?CLIENT, Config, _}) ->
-    ?util:connect(?CLIENT, tcp, ?util:read_priv(Config, lref)),
+connect({?CLIENT, [{Node, _} | _], [LRef]}) ->
+    ?util:connect(?CLIENT, tcp, {Node, LRef}),
     ok;
 
-connect(Config) ->
-    Nodes = ?util:read_priv(Config, nodes),
-    [] = [{N,RC} || {N,S} <- Nodes,
-                    RC <- [rpc:call(N, ?MODULE, connect, [{S, Config, Nodes}])],
-                    RC /= ok].
-
-%% stop/1
-%%
-%% Stop the slave nodes.
-
-stop() ->
-    [{timetrap, {seconds, 30*length(?NODES)}}].
-
-stop(_Config) ->
-    [] = [{N,E} || {N,_} <- ?NODES,
-                   {error, _, _} = E <- [ct_slave:stop(N)]].
+connect(Nodes) ->
+    lists:foldl(fun({N,S}, A) ->
+                        rpc:call(N, ?MODULE, connect, [{S, Nodes, A}])
+                end,
+                [],
+                Nodes).
 
 %% ===========================================================================
 %% traffic testcases
@@ -247,13 +236,13 @@ stop(_Config) ->
 %% Send 100 requests and ensure the node name sent as User-Name isn't
 %% the node terminating transport.
 
-send(Config) ->
-    send(Config, 100, dict:new()).
+send(Nodes) ->
+    send(Nodes, 100, dict:new()).
 
 %% send/2
 
-send(Config, 0, Dict) ->
-    [{Server0, _} | _] = ?util:read_priv(Config, nodes) ,
+send(Nodes, 0, Dict) ->
+    [{Server0, _} | _] = Nodes,
     Node = atom_to_binary(Server0, utf8),
     {false, _} = {dict:is_key(Node, Dict), dict:to_list(Dict)},
     %% Check that counters have been incremented as expected on server0.
@@ -266,14 +255,15 @@ send(Config, 0, Dict) ->
            Stats},
     {[{send, 0, 100, 2001}], _}
         = {[{D,R,N,C} || {{{0,275,R}, D, {'Result-Code', C}}, N} <- Stats],
-           Stats};
+           Stats},
+    ok;
 
-send(Config, N, Dict) ->
+send(Nodes, N, Dict) ->
     #diameter_base_STA{'Result-Code' = ?SUCCESS,
                        'User-Name' = [ServerNode]}
-        = send(Config, str(?LOGOUT)),
+        = send(Nodes, str(?LOGOUT)),
     true = is_binary(ServerNode),
-    send(Config, N-1, dict:update_counter(ServerNode, 1, Dict)).
+    send(Nodes, N-1, dict:update_counter(ServerNode, 1, Dict)).
 
 %% ===========================================================================
 
@@ -284,8 +274,8 @@ str(Cause) ->
 
 %% send/2
 
-send(Config, Req) ->
-    {Node, _} = lists:last(?util:read_priv(Config, nodes)),
+send(Nodes, Req) ->
+    {Node, _} = lists:last(Nodes),
     rpc:call(Node, ?MODULE, call, [Req]).
 
 %% call/1

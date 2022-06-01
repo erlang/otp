@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2018-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,6 +90,9 @@
 #endif
 #if 0
 #  define ERTS_PROC_SIG_HARD_DEBUG_RECV_MARKER
+#endif
+#if 0
+#  define ERTS_PROC_SIG_HARD_DEBUG_SIGQ_BUFFERS
 #endif
 
 struct erl_mesg;
@@ -238,6 +241,26 @@ void erl_proc_sig_hdbg_chk_recv_marker_block(struct process *c_p);
 #include "erl_process.h"
 #include "erl_bif_unique.h"
 
+
+void erts_proc_sig_queue_maybe_install_buffers(Process* p, erts_aint32_t state);
+void erts_proc_sig_queue_flush_and_deinstall_buffers(Process* proc);
+void erts_proc_sig_queue_flush_buffers(Process* proc);
+ErtsSignalInQueueBufferArray*
+erts_proc_sig_queue_flush_get_buffers(Process* proc, int *need_unget_buffers);
+void erts_proc_sig_queue_lock(Process* proc);
+ErtsSignalInQueueBufferArray*
+erts_proc_sig_queue_get_buffers(Process* p, int *need_unread);
+void erts_proc_sig_queue_unget_buffers(ErtsSignalInQueueBufferArray* buffers,
+                                       int need_unget);
+int erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
+                                              Process* receiver,
+                                              ErtsProcLocks receiver_locks,
+                                              ErtsMessage* first,
+                                              ErtsMessage** last,
+                                              ErtsMessage** last_next,
+                                              Uint len,
+                                              int is_signal);
+
 #define ERTS_SIG_Q_OP_BITS      8                      
 #define ERTS_SIG_Q_OP_SHIFT     0
 #define ERTS_SIG_Q_OP_MASK      ((1 << ERTS_SIG_Q_OP_BITS) - 1)
@@ -304,8 +327,10 @@ struct dist_entry_;
  * @brief Send an exit signal to a process.
  *
  *
- * @param[in]     c_p           Pointer to process struct of
- *                              currently executing process.
+ * @param[in]     sender        Pointer to the sending process/port,
+ *                              if any, as it may not be possible to
+ *                              resolve the sender (e.g. after it's
+ *                              dead).
  *
  * @param[in]     from          Identifier of sender.
  *
@@ -322,7 +347,7 @@ struct dist_entry_;
  *
  */
 void
-erts_proc_sig_send_exit(Process *c_p, Eterm from, Eterm to,
+erts_proc_sig_send_exit(ErtsPTabElementCommon *sender, Eterm from, Eterm to,
                         Eterm reason, Eterm token, int normal_kills);
 
 /**
@@ -359,11 +384,26 @@ erts_proc_sig_send_dist_exit(DistEntry *dep,
 
 /**
  *
+ * @brief Send an exit signal due to a link to a process being
+ * broken by connection loss.
+ *
+ * @param[in]     lnk           Pointer to link structure
+ *                              from the sending side. It
+ *                              should contain information
+ *                              about receiver.
+ */
+void
+erts_proc_sig_send_link_exit_noconnection(ErtsLink *lnk);
+
+/**
+ *
  * @brief Send an exit signal due to broken link to a process.
  *
  *
- * @param[in]     c_p           Pointer to process struct of
- *                              currently executing process.
+ * @param[in]     sender        Pointer to the sending process/port,
+ *                              if any, as it may not be possible to
+ *                              resolve the sender (e.g. after it's
+ *                              dead).
  *
  * @param[in]     from          Identifier of sender.
  *
@@ -378,16 +418,18 @@ erts_proc_sig_send_dist_exit(DistEntry *dep,
  *
  */
 void
-erts_proc_sig_send_link_exit(Process *c_p, Eterm from, ErtsLink *lnk,
-                             Eterm reason, Eterm token);
+erts_proc_sig_send_link_exit(ErtsPTabElementCommon *sender, Eterm from,
+                             ErtsLink *lnk, Eterm reason, Eterm token);
 
 /**
  *
  * @brief Send an link signal to a process.
  *
  *
- * @param[in]     c_p           Pointer to process struct of
- *                              currently executing process.
+ * @param[in]     sender        Pointer to the sending process/port,
+ *                              if any, as it may not be possible to
+ *                              resolve the sender (e.g. after it's
+ *                              dead).
  *
  * @param[in]     to            Identifier of receiver.
  *
@@ -405,7 +447,8 @@ erts_proc_sig_send_link_exit(Process *c_p, Eterm from, ErtsLink *lnk,
  *
  */
 int
-erts_proc_sig_send_link(Process *c_p, Eterm to, ErtsLink *lnk);
+erts_proc_sig_send_link(ErtsPTabElementCommon *sender, Eterm from,
+                        Eterm to, ErtsLink *lnk);
 
 /**
  *
@@ -414,15 +457,15 @@ erts_proc_sig_send_link(Process *c_p, Eterm to, ErtsLink *lnk);
  * The newly created unlink identifier is to be used in an
  * unlink operation.
  *
- * @param[in]     c_p           Pointer to process struct of
- *                              currently executing process.
+ * @param[in]     sender        Pointer to the sending process/port.
  *
  * @return                      A new 64-bit unlink identifier
  *                              unique in context of the
  *                              calling process. The identifier
  *                              may be any value but zero.
  */
-ERTS_GLB_INLINE Uint64 erts_proc_sig_new_unlink_id(Process *c_p);
+ERTS_GLB_INLINE
+Uint64 erts_proc_sig_new_unlink_id(ErtsPTabElementCommon *sender);
 
 /**
  *
@@ -431,13 +474,10 @@ ERTS_GLB_INLINE Uint64 erts_proc_sig_new_unlink_id(Process *c_p);
  * The structure will contain a newly created unlink
  * identifier to be used in the operation.
  *
- * @param[in]     c_p           Pointer to process struct of
- *                              currently executing process
- *                              ('from' is a process
- *                              identifier), or NULL if not
- *                              called in the context of an
- *                              executing process ('from' is
- *                              a port identifier).
+ * @param[in]     sender        Pointer to the sending process/port,
+ *                              if any, as it may not be possible to
+ *                              resolve the sender (e.g. after it's
+ *                              dead).
  *
  * @param[in]     from          Id (as an erlang term) of
  *                              entity sending the unlink
@@ -447,7 +487,7 @@ ERTS_GLB_INLINE Uint64 erts_proc_sig_new_unlink_id(Process *c_p);
  *                              structure.
  */
 ErtsSigUnlinkOp *
-erts_proc_sig_make_unlink_op(Process *c_p, Eterm from);
+erts_proc_sig_make_unlink_op(ErtsPTabElementCommon *sender, Eterm from);
 
 /**
  *
@@ -464,8 +504,10 @@ erts_proc_sig_destroy_unlink_op(ErtsSigUnlinkOp *sulnk);
  * @brief Send an unlink signal to a process.
  *
  *
- * @param[in]     c_p           Pointer to process struct of
- *                              currently executing process.
+ * @param[in]     sender        Pointer to the sending process/port,
+ *                              if any, as it may not be possible to
+ *                              resolve the sender (e.g. after it's
+ *                              dead).
  *
  * @param[in]     from          Id (as an erlang term) of
  *                              entity sending the unlink
@@ -477,15 +519,18 @@ erts_proc_sig_destroy_unlink_op(ErtsSigUnlinkOp *sulnk);
  *                              receiver.
  */
 Uint64
-erts_proc_sig_send_unlink(Process *c_p, Eterm from, ErtsLink *lnk);
+erts_proc_sig_send_unlink(ErtsPTabElementCommon *sender, Eterm from,
+                          ErtsLink *lnk);
 
 /**
  *
  * @brief Send an unlink acknowledgment signal to a process.
  *
- *
- * @param[in]     c_p           Pointer to process struct of
- *                              currently executing process.
+ * 
+ * @param[in]     sender        Pointer to the sending process/port,
+ *                              if any, as it may not be possible to
+ *                              resolve the sender (e.g. after it's
+ *                              dead).
  *
  * @param[in]     from          Id (as an erlang term) of
  *                              entity sending the unlink
@@ -498,7 +543,7 @@ erts_proc_sig_send_unlink(Process *c_p, Eterm from, ErtsLink *lnk);
  *                              signal.
  */
 void
-erts_proc_sig_send_unlink_ack(Process *c_p, Eterm from,
+erts_proc_sig_send_unlink_ack(ErtsPTabElementCommon *sender, Eterm from,
                               ErtsSigUnlinkOp *sulnk);
 
 /**
@@ -560,11 +605,6 @@ erts_proc_sig_send_dist_unlink(DistEntry *dep, Uint32 conn_id,
  * This function is used instead of erts_proc_sig_send_unlink_ack()
  * when the signal arrives via the distribution.
  *
- * @param[in]     c_p           Pointer to process struct of
- *                              currently executing process or
- *                              NULL if not called in the context
- *                              of an executing process.
- *
  * @param[in]     dep           Distribution entry of channel
  *                              that the signal arrived on.
  *
@@ -575,13 +615,21 @@ erts_proc_sig_send_dist_unlink(DistEntry *dep, Uint32 conn_id,
  * @param[in]     id            Identifier of unlink operation.
  */
 void
-erts_proc_sig_send_dist_unlink_ack(Process *c_p, DistEntry *dep,
+erts_proc_sig_send_dist_unlink_ack(DistEntry *dep,
                                    Uint32 conn_id, Eterm from, Eterm to,
                                    Uint64 id);
 
 /**
  *
  * @brief Send a monitor down signal to a process.
+ *
+ * @param[in]     sender        Pointer to the sending process/port,
+ *                              if any, as it may not be possible to
+ *                              resolve the sender (e.g. after it's
+ *                              dead).
+ *
+ * @param[in]     from          Sending entity, must be provided
+ *                              to maintain signal order.
  *
  * @param[in]     mon           Pointer to target monitor
  *                              structure from the sending
@@ -592,26 +640,47 @@ erts_proc_sig_send_dist_unlink_ack(Process *c_p, DistEntry *dep,
  *
  */
 void
-erts_proc_sig_send_monitor_down(ErtsMonitor *mon, Eterm reason);
+erts_proc_sig_send_monitor_down(ErtsPTabElementCommon *sender, Eterm from,
+                                ErtsMonitor *mon, Eterm reason);
 
 /**
  *
  * @brief Send a demonitor signal to a process.
  *
- * @param[in]     mon           Pointer to origin monitor
- *                              structure from the sending
- *                              side. It should contain
- *                              information about receiver.
+ * @param[in]     sender            Pointer to the sending process/port,
+ *                                  if any, as it may not be possible to
+ *                                  resolve the sender (e.g. after it's
+ *                                  dead).
  *
- * @param[in]     reason        Exit reason.
+ * @param[in]     from              Sending entity, must be provided
+ *                                  to maintain signal order.
+ *
+ * @param[in]     system            Whether the sender is considered a
+ *                                  system service, e.g. a NIF monitor,
+ *                                  and it's okay to order by `from`
+ *                                  even when it's not a pid or port.
+ *
+ * @param[in]     mon               Pointer to origin monitor
+ *                                  structure from the sending
+ *                                  side. It should contain
+ *                                  information about receiver.
  *
  */
 void
-erts_proc_sig_send_demonitor(ErtsMonitor *mon);
+erts_proc_sig_send_demonitor(ErtsPTabElementCommon *sender, Eterm from,
+                             int system, ErtsMonitor *mon);
 
 /**
  *
  * @brief Send a monitor signal to a process.
+ *
+ * @param[in]     sender        Pointer to the sending process/port,
+ *                              if any, as it may not be possible to
+ *                              resolve the sender (e.g. after it's
+ *                              dead).
+ *
+ * @param[in]     from          Sending entity, must be provided
+ *                              to maintain signal order.
  *
  * @param[in]     mon           Pointer to target monitor
  *                              structure to insert on
@@ -630,7 +699,8 @@ erts_proc_sig_send_demonitor(ErtsMonitor *mon);
  *
  */
 int
-erts_proc_sig_send_monitor(ErtsMonitor *mon, Eterm to);
+erts_proc_sig_send_monitor(ErtsPTabElementCommon *sender, Eterm from,
+                           ErtsMonitor *mon, Eterm to);
 
 /**
  *
@@ -673,26 +743,21 @@ erts_proc_sig_send_dist_monitor_down(DistEntry *dep, Eterm ref,
  * when the signal arrives via the distribution and
  * no monitor structure is available.
  *
+ * @param[in]     from          Identifier of sender.
+ *
  * @param[in]     to            Identifier of receiver.
  *
  * @param[in]     ref           Reference identifying the monitor.
  *
  */
 void
-erts_proc_sig_send_dist_demonitor(Eterm to, Eterm ref);
+erts_proc_sig_send_dist_demonitor(Eterm from, Eterm to, Eterm ref);
 
 /**
  *
- * @brief Send a persistent monitor triggered signal to a process.
- *
- * Used by monitors that are not auto disabled such as for
- * example 'time_offset' monitors.
- *
- * @param[in]     type          Monitor type.
+ * @brief Send a persistent "node down" monitor signal to a process
  *
  * @param[in]     key           Monitor key.
- *
- * @param[in]     from          Identifier of sender.
  *
  * @param[in]     to            Identifier of receiver.
  *
@@ -702,27 +767,25 @@ erts_proc_sig_send_dist_demonitor(Eterm to, Eterm ref);
  *
  */
 void
-erts_proc_sig_send_persistent_monitor_msg(Uint16 type, Eterm key,
-                                          Eterm from, Eterm to,
-                                          Eterm msg, Uint msg_sz);
+erts_proc_sig_send_monitor_nodes_msg(Eterm key, Eterm to,
+                                     Eterm msg, Uint msg_sz);
 
 /**
  *
- * @brief Send a trace change signal to a process.
+ * @brief Send a persistent "time offset changed" monitor signal to a process
+ *
+ * @param[in]     key           Monitor key.
  *
  * @param[in]     to            Identifier of receiver.
  *
- * @param[in]     on            Trace flags to enable.
+ * @param[in]     msg           Message template.
  *
- * @param[in]     off           Trace flags to disable.
- *
- * @param[in]     tracer        Tracer to set. If the non-value,
- *                              tracer will not be changed.
+ * @param[in]     msg_sz        Heap size of message template.
  *
  */
 void
-erts_proc_sig_send_trace_change(Eterm to, Uint on, Uint off,
-                                Eterm tracer);
+erts_proc_sig_send_monitor_time_offset_msg(Eterm key, Eterm to,
+                                           Eterm msg, Uint msg_sz);
 
 /**
  *
@@ -799,7 +862,7 @@ erts_proc_sig_send_is_alive_request(Process *c_p, Eterm to,
  * @param[in]     item_ix       Info index array to pass to
  *                              erts_process_info()
  *
- * @param[in]     len           Lenght of info index array
+ * @param[in]     len           Length of info index array
  *
  * @param[in]     need_msgq_len Non-zero if message queue
  *                              length is needed; otherwise,
@@ -1043,14 +1106,11 @@ erts_proc_sig_send_cla_request(Process *c_p, Eterm to, Eterm req_id);
  *
  * When received, all on heap messages will be moved off heap.
  *
- * @param[in]     c_p           Pointer to process struct of
- *                              currently executing process.
- *
  * @param[in]     to            Identifier of receiver.
  *
  */
 void
-erts_proc_sig_send_move_msgq_off_heap(Process *c_p, Eterm to);
+erts_proc_sig_send_move_msgq_off_heap(Eterm to);
 
 /*
  * End of send operations of currently supported process signals.
@@ -1256,7 +1316,7 @@ erts_enqueue_signals(Process *rp, ErtsMessage *first,
  *
  */
 void
-erts_proc_sig_send_pending(ErtsSchedulerData* esdp);
+erts_proc_sig_send_pending(Process *c_p, ErtsSchedulerData* esdp);
 
 
 void
@@ -1264,7 +1324,8 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to,
                             Eterm msg, Eterm token);
 
 void
-erts_proc_sig_send_dist_to_alias(Eterm alias, ErtsDistExternal *edep,
+erts_proc_sig_send_dist_to_alias(Eterm from, Eterm alias,
+                                 ErtsDistExternal *edep,
                                  ErlHeapFragment *hfrag, Eterm token);
 
 /**
@@ -1621,14 +1682,30 @@ void erts_msgq_remove_leading_recv_markers(Process *c_p);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE Uint64
-erts_proc_sig_new_unlink_id(Process *c_p)
+erts_proc_sig_new_unlink_id(ErtsPTabElementCommon *sender)
 {
     Uint64 id;
-    ASSERT(c_p);
 
-    id = (Uint64) c_p->uniq++;
-    if (id == 0)
+    ASSERT(sender);
+
+    if (is_internal_pid(sender->id)) {
+        Process *c_p = ErtsContainerStruct(sender, Process, common);
         id = (Uint64) c_p->uniq++;
+
+        if (id == 0) {
+            id = (Uint64) c_p->uniq++;
+        }
+    } else {
+        ASSERT(is_internal_port(sender->id));
+
+        id = (Uint64) erts_raw_get_unique_monotonic_integer();
+        if (id == 0) {
+            id = (Uint64) erts_raw_get_unique_monotonic_integer();
+        }
+    }
+
+    ASSERT(id != 0);
+
     return id;
 }
 
@@ -1637,7 +1714,8 @@ erts_proc_sig_fetch(Process *proc)
 {
     Sint res = 0;
     ErtsSignal *sig;
-
+    ErtsSignalInQueueBufferArray* buffers;
+    int need_unget_buffers;
     ERTS_LC_ASSERT(ERTS_PROC_IS_EXITING(proc)
                    || ((erts_proc_lc_my_proc_locks(proc)
                         & (ERTS_PROC_LOCK_MAIN
@@ -1648,6 +1726,9 @@ erts_proc_sig_fetch(Process *proc)
     ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(proc);
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
 
+    buffers = erts_proc_sig_queue_flush_get_buffers(proc,
+                                                    &need_unget_buffers);
+
     sig = (ErtsSignal *) proc->sig_inq.first;
     if (sig) {
         if (ERTS_LIKELY(sig->common.tag != ERTS_PROC_SIG_MSGQ_LEN_OFFS_MARK))
@@ -1655,7 +1736,20 @@ erts_proc_sig_fetch(Process *proc)
         else
             res = erts_proc_sig_fetch_msgq_len_offs__(proc);
     }
-
+    if (buffers) {
+        Uint32 state = erts_atomic32_read_acqb(&proc->state);
+        if (!(ERTS_PSFLG_SIG_IN_Q & state) &&
+            erts_atomic64_read_nob(&buffers->nonmsg_slots)) {
+            /* We may have raced with a thread inserting into a buffer
+             * when resetting the flag ERTS_PSFLG_SIG_IN_Q in one of
+             * the fetch functions above so we have to make sure that
+             * it is set when there is a nonmsg signal in the buffers. */
+            erts_atomic32_read_bor_nob(&proc->state,
+                                        ERTS_PSFLG_SIG_IN_Q |
+                                        ERTS_PSFLG_ACTIVE);
+        }
+        erts_proc_sig_queue_unget_buffers(buffers, need_unget_buffers);
+    }
     res += proc->sig_qs.len;
 
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
@@ -1832,7 +1926,7 @@ erts_msgq_recv_marker_clear(Process *c_p, Eterm id)
 ERTS_GLB_INLINE Eterm
 erts_msgq_recv_marker_insert(Process *c_p)
 {
-    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+    erts_proc_sig_queue_lock(c_p);
     erts_proc_sig_fetch(c_p);
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
@@ -1881,7 +1975,7 @@ erts_msgq_recv_marker_insert_bind(Process *c_p, Eterm id)
 	    ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__(blkp);
 #endif
 
-	erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_queue_lock(c_p);
 	erts_proc_sig_fetch(c_p);
 	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
@@ -1988,7 +2082,7 @@ erts_msgq_set_save_end(Process *c_p)
 {
     /* Set save pointer to end of message queue... */
 
-    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+    erts_proc_sig_queue_lock(c_p);
     erts_proc_sig_fetch(c_p);
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 

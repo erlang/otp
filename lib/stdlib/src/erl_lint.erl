@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
 -export([check_format_string/1]).
 
 -export_type([error_info/0, error_description/0]).
+-export_type([fun_used_vars/0]). % Used from erl_eval.erl.
 
 -import(lists, [all/2,any/2,
                 foldl/3,foldr/3,
@@ -93,6 +94,18 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 
 -record(typeinfo, {attr, anno}).
 
+-type type_id() :: {'export', []}
+                 | {'record', atom()}
+                 | {'spec', mfa()}
+                 | {'type', ta()}.
+
+-record(used_type, {anno :: erl_anno:anno(),
+                    at = {export, []} :: type_id()}).
+
+-type used_type() :: #used_type{}.
+
+-type fun_used_vars() :: #{erl_parse:abstract_expr() => {[atom()], fun_used_vars()}}.
+
 %% Usage of records, functions, and imports. The variable table, which
 %% is passed on as an argument, holds the usage of variables.
 -record(usage, {
@@ -101,7 +114,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
           used_records = gb_sets:new()          %Used record definitions
               :: gb_sets:set(atom()),
           used_types = maps:new()               %Used type definitions
-              :: #{ta() := anno()}
+              :: #{ta() := [used_type()]}
          }).
 
 
@@ -130,6 +143,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                not_removed=gb_sets:empty()      %Not considered removed
                    :: gb_sets:set(module_or_mfa()),
                func=[],                         %Current function
+               type_id=[],                      %Current type id
                warn_format=0,                   %Warn format calls
 	       enabled_warnings=[],		%All enabled warnings (ordset).
                nowarn_bif_clash=[],             %All no warn bif clashes (ordset).
@@ -140,6 +154,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 						%outside any fun or lc
                xqlc= false :: boolean(),	%true if qlc.hrl included
                called= [] :: [{fa(),anno()}],   %Called functions
+               fun_used_vars = undefined        %Funs used vars
+                   :: fun_used_vars() | undefined,
                usage = #usage{}		:: #usage{},
                specs = maps:new()               %Type specifications
                    :: #{mfa() => anno()},
@@ -151,9 +167,13 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: #{ta() => #typeinfo{}},
                exp_types=gb_sets:empty()        %Exported types
                    :: gb_sets:set(ta()),
+               feature_keywords =               %Keywords in
+                                                %configurable features
+                   feature_keywords() :: #{atom() => atom()},
                bvt = none :: 'none' | [any()],  %Variables in binary pattern
                gexpr_context = guard            %Context of guard expression
-                   :: gexpr_context()
+                   :: gexpr_context(),
+               load_nif=false :: boolean()      %true if calls erlang:load_nif/2
               }).
 
 -type lint_state() :: #lint{}.
@@ -182,6 +202,9 @@ format_error(invalid_call) ->
 format_error(invalid_record) ->
     "invalid record expression";
 
+format_error({future_feature, Ftr, Atom}) ->
+    io_lib:format("atom '~p' is reserved in the experimental feature '~p'",
+                  [Atom, Ftr]);
 format_error({attribute,A}) ->
     io_lib:format("attribute ~tw after function definitions", [A]);
 format_error({missing_qlc_hrl,A}) ->
@@ -190,6 +213,10 @@ format_error({redefine_import,{{F,A},M}}) ->
     io_lib:format("function ~tw/~w already imported from ~w", [F,A,M]);
 format_error({bad_inline,{F,A}}) ->
     io_lib:format("inlined function ~tw/~w undefined", [F,A]);
+format_error({undefined_nif,{F,A}}) ->
+    io_lib:format("nif ~tw/~w undefined", [F,A]);
+format_error(no_load_nif) ->
+    io_lib:format("nifs defined, but no call to erlang:load_nif/2", []);
 format_error({invalid_deprecated,D}) ->
     io_lib:format("badly formed deprecated attribute ~tw", [D]);
 format_error({bad_deprecated,{F,A}}) ->
@@ -518,10 +545,9 @@ used_vars(Exprs, BindingsList) ->
 		  ({V,_Val}, Vs0) -> [{V,{bound,unused,[]}} | Vs0]
 	       end, [], BindingsList),
     Vt = orddict:from_list(Vs),
-    {Evt,_St} = exprs(set_file(Exprs, "nofile"), Vt, start()),
-    {ok, foldl(fun({V,{_,used,_}}, L) -> [V | L];
-                  (_, L) -> L
-	       end, [], Evt)}.
+    St0 = (start())#lint{fun_used_vars=maps:new()},
+    {_Evt,St1} = exprs(Exprs, Vt, St0),
+    St1#lint.fun_used_vars.
 
 %% module([Form]) ->
 %% module([Form], FileName) ->
@@ -568,6 +594,7 @@ module(Forms, FileName) ->
       ErrorInfo :: error_info()).
 
 module(Forms, FileName, Opts0) ->
+    %% FIXME Hmm, this is not coherent with the semantics of features
     %% We want the options given on the command line to take
     %% precedence over options in the module.
     Opts = compiler_options(Forms) ++ Opts0,
@@ -638,7 +665,10 @@ start(File, Opts) ->
                       true, Opts)},
          {nif_inline,
           bool_option(warn_nif_inline, nowarn_nif_inline,
-                      true, Opts)}
+                      true, Opts)},
+         {keyword_warning,
+          bool_option(warn_keywords, nowarn_keywords,
+                      false, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
     Enabled = ordsets:from_list(Enabled1),
@@ -979,7 +1009,8 @@ post_traversal_check(Forms, St0) ->
     StF = check_local_opaque_types(StE),
     StG = check_dialyzer_attribute(Forms, StF),
     StH = check_callback_information(StG),
-    check_removed(Forms, StH).
+    StI = check_nifs(Forms, StH),
+    check_removed(Forms, StI).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
@@ -1288,8 +1319,10 @@ check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
 		TA <- UTAs,
 		not is_map_key(TA, Def),
 		not is_default_type(TA)],
-    foldl(fun ({TA,Anno}, St) ->
-		  add_error(Anno, {undefined_type,TA}, St)
+    foldl(fun ({TA,UsedTypeList}, St) ->
+                  foldl( fun(#used_type{anno = Anno}, St1) ->
+                                 add_error(Anno, {undefined_type,TA}, St1)
+                         end, St, UsedTypeList)
 	  end, St0, Undef).
 
 %% check_bif_clashes(Forms, State0) -> State
@@ -1309,6 +1342,19 @@ check_option_functions(Forms, Tag0, Type, St0) ->
 	[{F,A} || {{F,A},_} <- orddict:to_list(St0#lint.imports)],
     Bad = [{FA,Anno} || {FA,Anno} <- FAsAnno, not member(FA, DefFunctions)],
     func_location_error(Type, Bad, St0).
+
+check_nifs(Forms, St0) ->
+    FAsAnno = [{FA,Anno} || {attribute, Anno, nifs, Args} <- Forms,
+                            FA <- Args],
+    St1 = case {FAsAnno, St0#lint.load_nif} of
+              {[{_,Anno1}|_], false} ->
+                  add_warning(Anno1, no_load_nif, St0);
+              _ ->
+                  St0
+          end,
+    DefFunctions = gb_sets:subtract(St1#lint.defined, gb_sets:from_list(pseudolocals())),
+    Bad = [{FA,Anno} || {FA,Anno} <- FAsAnno, not gb_sets:is_element(FA, DefFunctions)],
+    func_location_error(undefined_nif, Bad, St1).
 
 nowarn_function(Tag, Opts) ->
     ordsets:from_list([FA || {Tag1,FAs} <- Opts,
@@ -1423,21 +1469,21 @@ export(Anno, Es, #lint{exports = Es0, called = Called} = St0) ->
 -spec export_type(anno(), [ta()], lint_state()) -> lint_state().
 %%  Mark types as exported; also mark them as used from the export line.
 
-export_type(Anno, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
-    UTs0 = Usage#usage.used_types,
-    try foldl(fun ({T,A}=TA, {E,U,St2}) when is_atom(T), is_integer(A) ->
+export_type(Anno, ETs, #lint{exp_types = ETs0} = St0) ->
+    try foldl(fun ({T,A}=TA, {E,St2}) when is_atom(T), is_integer(A) ->
 		      St = case gb_sets:is_element(TA, E) of
 			       true ->
 				   Warn = {duplicated_export_type,TA},
 				   add_warning(Anno, Warn, St2);
 			       false ->
-				   St2
+                                   St3 = St2#lint{type_id = {export, []}},
+                                   used_type(TA, Anno, St3)
 			   end,
-		      {gb_sets:add_element(TA, E), maps:put(TA, Anno, U), St}
+		      {gb_sets:add_element(TA, E), St}
 	      end,
-	      {ETs0,UTs0,St0}, ETs) of
-	{ETs1,UTs1,St1} ->
-	    St1#lint{usage = Usage#usage{used_types = UTs1}, exp_types = ETs1}
+	      {ETs0,St0}, ETs) of
+	{ETs1,St1} ->
+	    St1#lint{exp_types = ETs1}
     catch
 	error:_ ->
 	    add_error(Anno, {bad_export_type, ETs}, St0)
@@ -2248,12 +2294,16 @@ is_guard_test(Expression, Forms) ->
 
 is_guard_test(Expression, Forms, IsOverridden) ->
     RecordAttributes = [A || A = {attribute, _, record, _D} <- Forms],
+    is_guard_test1(set_file(Expression, "nofile"), RecordAttributes, IsOverridden).
+
+is_guard_test1(NoFileExpression, [], IsOverridden) ->
+    is_guard_test2(NoFileExpression, {maps:new(),IsOverridden});
+is_guard_test1(NoFileExpression, RecordAttributes, IsOverridden) ->
     St0 = foldl(fun(Attr0, St1) ->
                         Attr = set_file(Attr0, "none"),
                         attribute_state(Attr, St1)
                 end, start(), RecordAttributes),
-    is_guard_test2(set_file(Expression, "nofile"),
-		   {St0#lint.records,IsOverridden}).
+    is_guard_test2(NoFileExpression, {St0#lint.records,IsOverridden}).
 
 %% is_guard_test2(Expression, RecordDefs :: dict:dict()) -> boolean().
 is_guard_test2({call,Anno,{atom,Ar,record},[E,A]}, Info) ->
@@ -2566,6 +2616,23 @@ expr({match,_Anno,P,E}, Vt, St0) ->
     {Pvt,Pnew,St2} = pattern(P, vtupdate(Evt, Vt), St1),
     St = reject_invalid_alias_expr(P, E, Vt, St2),
     {vtupdate(Pnew, vtmerge(Evt, Pvt)),St};
+expr({maybe_match,Anno,P,E}, Vt, St0) ->
+    expr({match,Anno,P,E}, Vt, St0);
+expr({'maybe',Anno,Es}, Vt, St) ->
+    %% No variables are exported.
+    {Evt0, St1} = exprs(Es, Vt, St),
+    Evt1 = vtupdate(vtunsafe({'maybe',Anno}, Evt0, Vt), Vt),
+    Evt2 = vtmerge(Evt0, Evt1),
+    {Evt2,St1};
+expr({'maybe',MaybeAnno,Es,{'else',ElseAnno,Cs}}, Vt, St) ->
+    %% No variables are exported.
+    {Evt0, St1} = exprs(Es, Vt, St),
+    Evt1 = vtupdate(vtunsafe({'maybe',MaybeAnno}, Evt0, Vt), Vt),
+    {Cvt0, St2} = icrt_clauses(Cs, {'else',ElseAnno}, Evt1, St1),
+    Cvt1 = vtupdate(vtunsafe({'else',ElseAnno}, Cvt0, Vt), Vt),
+    Evt2 = vtmerge(Evt0, Evt1),
+    Cvt2 = vtmerge(Cvt0, Cvt1),
+    {vtmerge(Evt2, Cvt2),St2};
 %% No comparison or boolean operators yet.
 expr({op,_Anno,_Op,A}, Vt, St) ->
     expr(A, Vt, St);
@@ -2673,7 +2740,8 @@ record_def(Anno, Name, Fs0, St0) ->
             St2 = St1#lint{records=maps:put(Name, {Anno,Fs1},
                                             St1#lint.records)},
             Types = [T || {typed_record_field, _, T} <- Fs0],
-            check_type({type, nowarn(), product, Types}, St2)
+            St3 = St2#lint{type_id = {record, Name}},
+            check_type({type, nowarn(), product, Types}, St3)
     end.
 
 %% def_fields([RecDef], RecordName, State) -> {[DefField],State}.
@@ -2893,7 +2961,8 @@ type_def(Attr, Anno, TypeName, ProtoType, Args, St0) ->
         fun(St) ->
                 NewDefs = maps:put(TypePair, Info, TypeDefs),
                 CheckType = {type, nowarn(), product, [ProtoType|Args]},
-                check_type(CheckType, St#lint{types=NewDefs})
+                St1 = St#lint{types=NewDefs, type_id={type, TypePair}},
+                check_type(CheckType, St1)
         end,
     case is_default_type(TypePair) andalso
         not member(no_auto_import_types, St0#lint.compile) of
@@ -3088,16 +3157,15 @@ check_record_types([], _Name, _DefFields, SeenVars, St, _SeenFields) ->
     {SeenVars, St}.
 
 used_type(TypePair, Anno, #lint{usage = Usage, file = File} = St) ->
-    OldUsed = Usage#usage.used_types,
-    UsedTypes = maps:put(TypePair, erl_anno:set_file(File, Anno), OldUsed),
-    St#lint{usage=Usage#usage{used_types=UsedTypes}}.
+    Used = Usage#usage.used_types,
+    UsedType = #used_type{anno = erl_anno:set_file(File, Anno),
+                          at = St#lint.type_id},
+    NewUsed = maps_prepend(TypePair, UsedType, Used),
+    St#lint{usage=Usage#usage{used_types=NewUsed}}.
 
 is_default_type({Name, NumberOfTypeVariables}) ->
     erl_internal:is_type(Name, NumberOfTypeVariables).
 
-%% OTP 24.0
-is_newly_introduced_builtin_type({nonempty_binary, 0}) -> true;
-is_newly_introduced_builtin_type({nonempty_bitstring, 0}) -> true;
 is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 is_obsolete_builtin_type(TypePair) ->
@@ -3120,12 +3188,12 @@ spec_decl(Anno, MFA0, TypeSpecs, St00 = #lint{specs = Specs, module = Mod}) ->
     case is_map_key(MFA, Specs) of
 	true -> add_error(Anno, {redefine_spec, MFA0}, St1);
 	false ->
-            case MFA of
-                {Mod, _, _} ->
-                    check_specs(TypeSpecs, spec_wrong_arity, Arity, St1);
-                _ ->
-                    add_error(Anno, {bad_module, MFA}, St1)
-            end
+            St2 = case MFA of
+                      {Mod, _, _} -> St1;
+                      _ -> add_error(Anno, {bad_module, MFA}, St1)
+                  end,
+            St3 = St2#lint{type_id = {spec, MFA}},
+            check_specs(TypeSpecs, spec_wrong_arity, Arity, St3)
     end.
 
 %% callback_decl(Anno, Fun, Types, State) -> State.
@@ -3141,8 +3209,9 @@ callback_decl(Anno, MFA0, TypeSpecs,
             St1 = St0#lint{callbacks = maps:put(MFA, Anno, Callbacks)},
             case is_map_key(MFA, Callbacks) of
                 true -> add_error(Anno, {redefine_callback, MFA0}, St1);
-                false -> check_specs(TypeSpecs, callback_wrong_arity,
-                                     Arity, St1)
+                false ->
+                    St2 = St1#lint{type_id = {spec, MFA}},
+                    check_specs(TypeSpecs, callback_wrong_arity, Arity, St2)
             end
     end.
 
@@ -3263,11 +3332,10 @@ check_unused_types(Forms, St) ->
         false -> St
     end.
 
-check_unused_types_1(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
+check_unused_types_1(Forms, #lint{types=Ts}=St) ->
     case [File || {attribute,_A,file,{File,_Anno}} <- Forms] of
 	[FirstFile|_] ->
-	    D = Usage#usage.used_types,
-	    L = gb_sets:to_list(ExpTs) ++ maps:keys(D),
+            L = reached_types(St),
 	    UsedTypes = gb_sets:from_list(L),
 	    FoldFun =
                 fun({{record, _}=_Type, 0}, _, AccSt) ->
@@ -3290,6 +3358,19 @@ check_unused_types_1(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
 	[] ->
 	    St
     end.
+
+reached_types(#lint{usage = Usage}) ->
+    Es = [{From, {type, To}} ||
+             {To, UsedTs} <- maps:to_list(Usage#usage.used_types),
+             #used_type{at = From} <- UsedTs],
+    Initial = initially_reached_types(Es),
+    G = sofs:family_to_digraph(sofs:rel2fam(sofs:relation(Es))),
+    R = digraph_utils:reachable(Initial, G),
+    true = digraph:delete(G),
+    [T || {type, T} <- R].
+
+initially_reached_types(Es) ->
+    [FromTypeId || {{T, _}=FromTypeId, _} <- Es, T =/= type].
 
 check_local_opaque_types(St) ->
     #lint{types=Ts, exp_types=ExpTs} = St,
@@ -3582,7 +3663,20 @@ handle_bitstring_gen_pat(_,St) ->
 %% unless it was introduced in a fun or an lc. Only if pat_var finds
 %% such variables can the correct line number be given.
 
+%% If fun_used_vars is set, we want to compute the tree of used
+%% vars across functions. This is by erl_eval to compute used vars
+%% without having to traverse the tree multiple times.
+
+fun_clauses(Cs, Vt, #lint{fun_used_vars=(#{}=FUV)} = St) ->
+    {Uvt, St0} = fun_clauses1(Cs, Vt, St#lint{fun_used_vars=maps:new()}),
+    #lint{fun_used_vars=InnerFUV} = St0,
+    UsedVars = [V || {V, {_, used, _}} <- Uvt],
+    OuterFUV = maps:put(Cs, {UsedVars, InnerFUV}, FUV),
+    {Uvt, St0#lint{fun_used_vars=OuterFUV}};
 fun_clauses(Cs, Vt, St) ->
+    fun_clauses1(Cs, Vt, St).
+
+fun_clauses1(Cs, Vt, St) ->
     OldRecDef = St#lint.recdef_top,
     {Bvt,St2} = foldl(fun (C, {Bvt0, St0}) ->
                               {Cvt,St1} = fun_clause(C, Vt, St0),
@@ -3957,7 +4051,8 @@ check_remote_function(Anno, M, F, As, St0) ->
 %% check_load_nif(Anno, ModName, FuncName, [Arg], State) -> State
 %%  Add warning if erlang:load_nif/2 is called when any kind of inlining has
 %%  been enabled.
-check_load_nif(Anno, erlang, load_nif, [_, _], St) ->
+check_load_nif(Anno, erlang, load_nif, [_, _], St0) ->
+    St = St0#lint{load_nif = true},
     case is_warn_enabled(nif_inline, St) of
         true -> check_nif_inline(Anno, St);
         false -> St
@@ -4076,10 +4171,36 @@ test_overriden_by_local(Anno, OldTest, Arity, St) ->
 	    St
     end.
 
+feature_keywords() ->
+    Features = erl_features:all(),
+    G = fun(Ftr, Map) ->
+                Keywords = erl_features:keywords(Ftr),
+                Add = fun(Keyword, M) -> maps:put(Keyword, Ftr, M) end,
+                lists:foldl(Add, Map, Keywords)
+        end,
+    lists:foldl(G, #{}, Features).
+
 %% keyword_warning(Anno, Atom, State) -> State.
 %%  Add warning for atoms that will be reserved keywords in the future.
 %%  (Currently, no such keywords to warn for.)
-keyword_warning(_Anno, _A, St) -> St.
+keyword_warning(Anno, Atom, St) ->
+    case is_warn_enabled(keyword_warning, St) of
+        true ->
+            case erl_anno:text(Anno) of
+                [$'| _] ->
+                    %% Don't warn for quoted atoms
+                    St;
+                _ ->
+                    Keywords = St#lint.feature_keywords,
+                    case maps:find(Atom, Keywords) of
+                        error -> St;
+                        {ok, Ftr} ->
+                            add_warning(Anno, {future_feature, Ftr, Atom}, St)
+                    end
+            end;
+        false ->
+            St
+    end.
 
 %% format_function(Anno, ModName, FuncName, [Arg], State) -> State.
 %%  Add warning for bad calls to io:fwrite/format functions.
@@ -4143,7 +4264,7 @@ check_format_2a(Fmt, FmtAnno, As) ->
         false ->
             Anno = element(2, As),
             {warn,1,Anno,"format arguments not a list",[]};
-        maybe ->
+        'maybe' ->
             Anno = erl_parse:first_anno(As),
             {warn,2,Anno,"format arguments perhaps not a list",[]}
     end.
@@ -4189,12 +4310,12 @@ arguments(N) ->
 args_list({cons,_A,_H,T}) -> args_list(T);
 %% Strange case: user has written something like [a | "bcd"]; pretend
 %% we don't know:
-args_list({string,_A,_Cs}) -> maybe;
+args_list({string,_A,_Cs}) -> 'maybe';
 args_list({nil,_A}) -> true;
 args_list({atom,_,_}) -> false;
 args_list({integer,_,_}) -> false;
 args_list({float,_,_}) -> false;
-args_list(_Other) -> maybe.
+args_list(_Other) -> 'maybe'.
 
 args_length({cons,_A,_H,T}) -> 1 + args_length(T);
 args_length({nil,_A}) -> 0.

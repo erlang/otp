@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -404,19 +404,23 @@ EXTERN int  get_port_flags(ErlDrvPort port);
  * since the binary is a shared object it MUST be written once.
  */
 
-EXTERN ErlDrvBinary* driver_alloc_binary(ErlDrvSizeT size);
-EXTERN ErlDrvBinary* driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size);
 EXTERN void driver_free_binary(ErlDrvBinary *bin);
+EXTERN ErlDrvBinary* driver_alloc_binary(ErlDrvSizeT size)
+    ERL_NAPI_ATTR_MALLOC_UD(driver_free_binary,1);
+EXTERN ErlDrvBinary* driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size)
+    ERL_NAPI_ATTR_WUR;
 
-/* Referenc count on driver binaries */
+/* Reference count on driver binaries */
 EXTERN ErlDrvSInt driver_binary_get_refc(ErlDrvBinary *dbp);
 EXTERN ErlDrvSInt driver_binary_inc_refc(ErlDrvBinary *dbp);
 EXTERN ErlDrvSInt driver_binary_dec_refc(ErlDrvBinary *dbp);
 
 /* Allocation interface */
-EXTERN void *driver_alloc(ErlDrvSizeT size);
-EXTERN void *driver_realloc(void *ptr, ErlDrvSizeT size);
 EXTERN void driver_free(void *ptr);
+EXTERN void *driver_alloc(ErlDrvSizeT size)
+    ERL_NAPI_ATTR_MALLOC_USD(1, driver_free, 1);
+EXTERN void *driver_realloc(void *ptr, ErlDrvSizeT size)
+    ERL_NAPI_ATTR_ALLOC_SIZE(2);
 
 /* Queue interface */
 EXTERN int driver_enq(ErlDrvPort port, char* buf, ErlDrvSizeT len);
@@ -448,18 +452,18 @@ EXTERN void driver_system_info(ErlDrvSysInfo *sip, size_t si_size);
  * erl driver thread functions.
  */
 
-EXTERN ErlDrvMutex *erl_drv_mutex_create(char *name);
 EXTERN void erl_drv_mutex_destroy(ErlDrvMutex *mtx);
+EXTERN ErlDrvMutex *erl_drv_mutex_create(char *name) ERL_NAPI_ATTR_MALLOC_D(erl_drv_mutex_destroy,1);
 EXTERN int erl_drv_mutex_trylock(ErlDrvMutex *mtx);
 EXTERN void erl_drv_mutex_lock(ErlDrvMutex *mtx);
 EXTERN void erl_drv_mutex_unlock(ErlDrvMutex *mtx);
-EXTERN ErlDrvCond *erl_drv_cond_create(char *name);
 EXTERN void erl_drv_cond_destroy(ErlDrvCond *cnd);
+EXTERN ErlDrvCond *erl_drv_cond_create(char *name) ERL_NAPI_ATTR_MALLOC_D(erl_drv_cond_destroy,1);
 EXTERN void erl_drv_cond_signal(ErlDrvCond *cnd);
 EXTERN void erl_drv_cond_broadcast(ErlDrvCond *cnd);
 EXTERN void erl_drv_cond_wait(ErlDrvCond *cnd, ErlDrvMutex *mtx);
-EXTERN ErlDrvRWLock *erl_drv_rwlock_create(char *name);
 EXTERN void erl_drv_rwlock_destroy(ErlDrvRWLock *rwlck);
+EXTERN ErlDrvRWLock *erl_drv_rwlock_create(char *name) ERL_NAPI_ATTR_MALLOC_D(erl_drv_rwlock_destroy,1);
 EXTERN int erl_drv_rwlock_tryrlock(ErlDrvRWLock *rwlck);
 EXTERN void erl_drv_rwlock_rlock(ErlDrvRWLock *rwlck);
 EXTERN void erl_drv_rwlock_runlock(ErlDrvRWLock *rwlck);
@@ -470,8 +474,8 @@ EXTERN int erl_drv_tsd_key_create(char *name, ErlDrvTSDKey *key);
 EXTERN void erl_drv_tsd_key_destroy(ErlDrvTSDKey key);
 EXTERN void erl_drv_tsd_set(ErlDrvTSDKey key, void *data);
 EXTERN void *erl_drv_tsd_get(ErlDrvTSDKey key);
-EXTERN ErlDrvThreadOpts *erl_drv_thread_opts_create(char *name);
 EXTERN void erl_drv_thread_opts_destroy(ErlDrvThreadOpts *opts);
+EXTERN ErlDrvThreadOpts *erl_drv_thread_opts_create(char *name) ERL_NAPI_ATTR_MALLOC_D(erl_drv_thread_opts_destroy,1);
 EXTERN int erl_drv_thread_create(char *name,
 				 ErlDrvTid *tid,
 				 void * (*func)(void *),

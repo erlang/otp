@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -460,7 +460,8 @@ unicode_options(Config) when is_list(Config) ->
 %% Tests various unicode options on random generated files.
 unicode_options_gen(Config) when is_list(Config) ->
     ct:timetrap({minutes,30}), %% valgrind needs a alot of time
-    random:seed(1240, 900586, 553728),
+    rand:seed(default),
+    io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
     PrivDir = proplists:get_value(priv_dir, Config),
     AllModes = [utf8,utf16,{utf16,big},{utf16,little},
 		utf32,{utf32,big},{utf32,little}],
@@ -513,12 +514,11 @@ unicode_options_gen(Config) when is_list(Config) ->
 				       [read,read_ahead,{encoding,Encoding}],
 				       Read4),
 
-		Ulist2 = [X || X <- Ulist, X =/= $\n, X =/= $\s],
-		Ulist3 = [X || X <- Ulist, X =/= $\n],
+		Ulist2 = [X || X <- Ulist, X =/= $\n, X =/= $\s, X =/= $\t],
 		Ulist = done(Res1),
 		Ulist = done(Res2),
 		Ulist2 = done(Res3),
-		Ulist3 = done(Res4),
+		Ulist2 = done(Res4),
 
 		file:delete(Fname)
 	end,
@@ -635,22 +635,31 @@ enc2str({A1,A2}) when is_atom(A1), is_atom(A2) ->
 
 
 random_unicode(0) ->
-    [];
+    %% io:fread(Device, Promp, "~ts") will return an error if the file
+    %% ends with whitespace characters. This behavior seems to be
+    %% deliberate. Therefore, be sure that we never end the file with
+    %% a sequence of whitespace characters.
+    [$! + rand:uniform(64) |
+     case rand:uniform(20) of
+         A when A =< 1 -> [$\n];
+         _ -> []
+     end];
 random_unicode(N) ->
-    %% Favour large unicode and make linebreaks
-    X = case random:uniform(20) of
+    %% Favor large unicode code points and make line breaks.
+    X = case rand:uniform(20) of
 	    A when A =< 1 -> $\n;
-	    A0 when A0 =< 3 -> random:uniform(16#10FFFF);
-	    A1 when A1 =< 6 -> random:uniform(16#10FFFF - 16#7F) + 16#7F;
-	    A2 when A2 =< 12 -> random:uniform(16#10FFFF - 16#7FF) + 16#7FF;
-	    _ -> random:uniform(16#10FFFF - 16#FFFF) + 16#FFFF
+	    A when A =< 3 -> rand:uniform(16#10FFFF);
+	    A when A =< 6 -> rand:uniform(16#10FFFF - 16#7F) + 16#7F;
+	    A when A =< 12 -> rand:uniform(16#10FFFF - 16#7FF) + 16#7FF;
+	    _ -> rand:uniform(16#10FFFF - 16#FFFF) + 16#FFFF
 	end,
-    case X of
-	Inv1 when Inv1 >= 16#D800, Inv1 =< 16#DFFF;
-	          Inv1 =:= 16#FFFE; 
-	          Inv1 =:= 16#FFFF ->
+    if
+        X =:= $\r;                            %Can be eaten by io:get_line/2.
+        16#D800 =< X, X =< 16#DFFF;
+        X =:= 16#FFFE;
+        X =:= 16#FFFF ->
 	    random_unicode(N);
-	_ ->
+	true ->
 	    [X | random_unicode(N-1)]
     end.
 
@@ -1179,7 +1188,7 @@ get_and_put(CPid, [{getline_pred,Pred,Msg}|T]=T0, N)
 					   "(command number ~p)\n",
 					   [?MODULE,Msg,N]),
 		    {error, no_match};
-		maybe ->
+		'maybe' ->
 		    List = get(getline_skipped),
 		    put(getline_skipped, List ++ [Data]),
 		    get_and_put(CPid, T0, N)
@@ -1190,7 +1199,7 @@ get_and_put(CPid, [{getline, Match}|T],N) ->
     F = fun(Data) ->
 		case lists:prefix(Match, Data) of
 		    true -> yes;
-		    false -> maybe
+		    false -> 'maybe'
 		end
 	end,
     get_and_put(CPid, [{getline_pred,F,Match}|T], N);
@@ -1198,7 +1207,7 @@ get_and_put(CPid, [{getline_re, Match}|T],N) ->
     F = fun(Data) ->
 		case re:run(Data, Match, [{capture,none}]) of
 		    match -> yes;
-		    _ -> maybe
+		    _ -> 'maybe'
 		end
 	end,
     get_and_put(CPid, [{getline_pred,F,Match}|T], N);
@@ -1498,7 +1507,7 @@ get_default_shell() ->
 			    case re:run(Data, "<\\d+[.]\\d+[.]\\d+>",
 					[{capture,none}]) of
 				match -> no;
-				_ -> maybe
+				_ -> 'maybe'
 			    end
 		    end
 	    end,

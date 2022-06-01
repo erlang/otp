@@ -153,7 +153,7 @@ fi
 
 # Frantic search through two roots with different 
 # version directories. We want to be very specific about the
-# directory structures as we wouldnt want to find the wrong 
+# directory structures as we wouldn't want to find the wrong 
 # redistributables...
 
 #echo $BPATH_LIST

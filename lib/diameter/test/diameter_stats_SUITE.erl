@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,55 +24,52 @@
 
 -module(diameter_stats_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_suite/1,
-         end_per_suite/1]).
-
-%% testcases
--export([reg/1,
-         incr/1,
-         read/1,
-         sum/1,
-         flush/1]).
+         parallel/1]).
 
 -define(stat, diameter_stats).
 
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 30}}].
 
 all() ->
-    [{group, all},
-     {group, all, [parallel]}].
+    [parallel].
 
-groups() ->
-    [{all, [], tc()}].
-
-tc() ->
-    [reg,
-     incr,
-     read,
-     sum,
-     flush].
-
-init_per_suite(Config) ->
-    ok = diameter:start(),
-    Config.
-
-end_per_suite(_Config) ->
-    ok = diameter:stop().
+parallel(_Config) ->
+    run().
 
 %% ===========================================================================
 
-reg(_) ->
+%% run/0
+
+run() ->
+    run([reg, incr, read, sum, flush]).
+
+%% run/1
+
+run(List)
+  when is_list(List) ->
+    ok = diameter:start(),
+    try
+        diameter_util:run([{[fun run/1, T], 15000} || T <- List])
+    after
+        ok = diameter:stop()
+    end;
+
+run(reg) ->
     Ref = '$1',
     true = ?stat:reg(Ref),
-    false = ?stat:reg(Ref).  %% duplicate
+    false = ?stat:reg(Ref);  %% duplicate
 
-incr(_) ->
+run(incr) ->
     Ref = '_',
     Ctr = x,
     false = ?stat:incr(Ctr),      %% not registered,
@@ -83,9 +80,9 @@ incr(_) ->
                   2 = ?stat:incr(Ctr, self(), 2)
           end),
     ok = fold(Ctr, Ref, 3),  %% folded
-    ?stat:flush([self(), Ref]).
+    ?stat:flush([self(), Ref]);
 
-read(_) ->
+run(read) ->
     Ref = make_ref(),
     C1 = {a,b},
     C2 = {b,a},
@@ -99,9 +96,9 @@ read(_) ->
         = ?stat:read([self(), Ref, make_ref()]),
     [] = ?stat:read([]),
     [] = ?stat:read([make_ref()]),
-    ?stat:flush([self(), Ref, make_ref()]).
+    ?stat:flush([self(), Ref, make_ref()]);
 
-sum(_) ->
+run(sum) ->
     Ref = make_ref(),
     C1 = {a,b},
     C2 = {b,a},
@@ -116,9 +113,9 @@ sum(_) ->
     [{Self,  [{C1,1}, {C2,2}]}]
         = ?stat:sum([self()]),
     [{Ref, [{C1,7}]}, {Self, [{C1,1}, {C2,2}]}]
-        = ?stat:flush([self(), Ref]).
+        = ?stat:flush([self(), Ref]);
 
-flush(_) ->
+run(flush) ->
     Ref = make_ref(),
     Ctr = '_',
     true = ?stat:reg(Ref),

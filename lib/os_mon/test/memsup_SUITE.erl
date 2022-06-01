@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    All = case test_server:os_type() of
+    All = case os:type() of
               {unix, sunos} ->
                   [api, alarm1, alarm2, process, config, timeout,
                    unavailable, port];
@@ -551,7 +551,7 @@ timeout(Config) when is_list(Config) ->
 
     %% Linux should be handled the same way as solaris.
 
-    %    TimeoutMsg = case test_server:os_type() of
+    %    TimeoutMsg = case os:type() of
     %		     {unix, sunos} -> ext_collection_timeout;
     %		     {unix, linux} -> reg_collection_timeout
     %		 end,
@@ -722,14 +722,14 @@ otp_5910(Config) when is_list(Config) ->
     ok = application:start(os_mon),
     ok.
 
-improved_system_memory_data(Config) ->
-    {ok, Node} = start_node(Config),
+improved_system_memory_data(Config) when is_list(Config) ->
+    {ok, Peer, Node} = ?CT_PEER(),
     ok = rpc:call(Node, application, start, [sasl]),
     ok = rpc:call(Node, application, start, [os_mon]),
 
     ExtMemData = rpc:call(Node, memsup, get_system_memory_data, []),
 
-    stop_node(Node),
+    peer:stop(Peer),
 
     Tags = ?SYSTEM_MEMORY_DATA_TAGS,
     AvailableMemoryPresent
@@ -785,7 +785,7 @@ force_collection(TimerRef) ->
             erlang:trace(whereis(memsup), false, ['receive']),
             flush(),
             collection_timeout;
-        timout ->
+        timeout ->
             erlang:trace(whereis(memsup), false, ['receive']),
             flush(),
             timeout;
@@ -802,20 +802,3 @@ flush() ->
     after 0 ->
               ok
     end.
-
-start_node(Config) ->
-    start_node(Config, "").
-
-start_node(Config, Args) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-"
-			++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-"
-			++ integer_to_list(erlang:system_time(second))
-			++ "-"
-			++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
-
-stop_node(Node) ->
-    test_server:stop_node(Node).

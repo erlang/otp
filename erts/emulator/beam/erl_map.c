@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 #include "error.h"
 #include "bif.h"
 #include "erl_binary.h"
+#include "erl_global_literals.h"
 
 #include "erl_map.h"
 
@@ -151,28 +152,35 @@ void erts_init_map(void) {
  */
 
 BIF_RETTYPE map_size_1(BIF_ALIST_1) {
-    if (is_flatmap(BIF_ARG_1)) {
-	flatmap_t *mp = (flatmap_t*)flatmap_val(BIF_ARG_1);
-	BIF_RET(make_small(flatmap_get_size(mp)));
-    } else if (is_hashmap(BIF_ARG_1)) {
-	Eterm *head;
-	Uint size;
-
-	head = hashmap_val(BIF_ARG_1);
-	size = head[1];
-
-        /*
-         * As long as a small has 28 bits (on a 32-bit machine) for
-         * the integer itself, it is impossible to build a map whose
-         * size would not fit in a small. Add an assertion in case we
-         * ever decreases the number of bits in a small.
-         */
-        ASSERT(IS_USMALL(0, size));
-        BIF_RET(make_small(size));
+    Sint size = erts_map_size(BIF_ARG_1);
+    if (size < 0) {
+        BIF_P->fvalue = BIF_ARG_1;
+        BIF_ERROR(BIF_P, BADMAP);
     }
 
-    BIF_P->fvalue = BIF_ARG_1;
-    BIF_ERROR(BIF_P, BADMAP);
+    /*
+     * As long as a small has 28 bits (on a 32-bit machine) for
+     * the integer itself, it is impossible to build a map whose
+     * size would not fit in a small. Add an assertion in case we
+     * ever decreases the number of bits in a small.
+     */
+    ASSERT(IS_USMALL(0, size));
+    BIF_RET(make_small(size));
+}
+
+Sint
+erts_map_size(Eterm map)
+{
+    if (is_flatmap(map)) {
+	flatmap_t *mp = (flatmap_t*)flatmap_val(map);
+	return (Sint) flatmap_get_size(mp);
+    }
+    else if (is_hashmap(map)) {
+	Eterm *head = hashmap_val(map);
+	return (Sint) head[1];
+    }
+
+    return -1;
 }
 
 /* maps:find/2
@@ -368,10 +376,14 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
     Sint  idx = 0;
 
 
-    hp    = HAlloc(p, 3 + 1 + (2 * size));
+    hp    = HAlloc(p, 3 + (size == 0 ? 0 : 1) + (2 * size));
     thp   = hp;
-    keys  = make_tuple(hp);
-    *hp++ = make_arityval(size);
+    if (size == 0) {
+        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    } else {
+        keys  = make_tuple(hp);
+        *hp++ = make_arityval(size);
+    }
     ks    = hp;
     hp   += size;
     mp    = (flatmap_t*)hp;
@@ -486,14 +498,11 @@ static Eterm hashmap_from_validated_list(Process *p,
 #ifdef NOT_YCF_YIELDING_VERSION
     /* Macro to make YCF ignore declarations */
 #define YCF_IGNORE(X) X
-    YCF_IGNORE(Eterm tmp[2];)
     YCF_IGNORE(ErtsHeapFactory factory_instance;)
 #undef YCF_IGNORE
     factory = &factory_instance;
 #else
-    Eterm *tmp;
     factory = YCF_STACK_ALLOC(sizeof(ErtsHeapFactory));
-    tmp = YCF_STACK_ALLOC(2 * sizeof(Eterm));
 #endif
     ASSERT(size > 0);
 
@@ -513,7 +522,7 @@ static Eterm hashmap_from_validated_list(Process *p,
 	    key = kv[1];
 	    value = kv[2];
 	}
-	hx  = hashmap_restore_hash(tmp,0,key);
+	hx  = hashmap_restore_hash(0,key);
 	swizzle32(sw,hx);
 	hxns[ix].hx   = sw;
 	hxns[ix].val  = CONS(hp, key, value); hp += 2;
@@ -530,14 +539,14 @@ static Eterm hashmap_from_validated_list(Process *p,
     YCF_SPECIAL_CODE_START(ON_DESTROY_STATE);
     {
         if (hxns != NULL) {
-            /* Execution of this function got destoyed while yielding in
+            /* Execution of this function got destroyed while yielding in
                the loop above */
             erts_free(ERTS_ALC_T_MAP_TRAP, (void *) hxns);
         }
     }
     YCF_SPECIAL_CODE_END();
     erts_free(ERTS_ALC_T_MAP_TRAP, (void *) hxns);
-    /* Memory managment depends on the line below */
+    /* Memory management depends on the line below */
     hxns = NULL;
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
     
@@ -552,7 +561,7 @@ static Eterm hashmap_from_validated_list(Process *p,
 	flatmap_t *mp;
 	Eterm keys;
         Uint n = hashmap_size(res);
-
+        ASSERT(n > 0);
 	/* build flat structure */
 	hp    = HAlloc(p, 3 + 1 + (2 * n));
 	keys  = make_tuple(hp);
@@ -660,38 +669,93 @@ Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n,
     return res;
 }
 
-Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks0, Eterm *vs0, Uint n)
+static ERTS_INLINE Eterm
+from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs,
+               Uint n, Eterm *key_tuple, flatmap_t **fmpp)
 {
     if (n <= MAP_SMALL_MAP_LIMIT) {
-        Eterm *ks, *vs, *hp;
-	flatmap_t *mp;
+        Eterm *hp;
+	flatmap_t *fmp;
 	Eterm keys;
 
-        hp    = erts_produce_heap(factory, 3 + 1 + (2 * n), 0);
-	keys  = make_tuple(hp);
-	*hp++ = make_arityval(n);
-	ks    = hp;
-	hp   += n;
-	mp    = (flatmap_t*)hp;
-	hp   += MAP_HEADER_FLATMAP_SZ;
-	vs    = hp;
-
-        mp->thing_word = MAP_HEADER_FLATMAP;
-	mp->size = n;
-	mp->keys = keys;
-
-        sys_memcpy(ks, ks0, n * sizeof(Eterm));
-        sys_memcpy(vs, vs0, n * sizeof(Eterm));
-
-        if (!erts_validate_and_sort_flatmap(mp)) {
-            return THE_NON_VALUE;
+        if (key_tuple && is_value(*key_tuple)) {
+            keys = *key_tuple;
+            hp = erts_produce_heap(factory, MAP_HEADER_FLATMAP_SZ + n, 0);
+            ASSERT(is_tuple_arity(keys, n));
+            ASSERT(n == 0 || sys_memcmp((void *) (tuple_val(keys) + 1),
+                                        (void *) ks,
+                                        n * sizeof(Eterm)) == 0);
+        }
+        else if (n == 0) {
+            keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+            if (key_tuple)
+                *key_tuple = keys;
+            hp = erts_produce_heap(factory, MAP_HEADER_FLATMAP_SZ + n, 0);
+        }
+        else {
+            hp = erts_produce_heap(factory, 1 + MAP_HEADER_FLATMAP_SZ + 2*n, 0);
+            keys = make_tuple(hp);
+            if (key_tuple) {
+                *key_tuple = keys;
+            }
+            *hp++ = make_arityval(n);
+            sys_memcpy((void *) hp,
+                       (void *) ks,
+                       n * sizeof(Eterm));
+            hp += n;
         }
 
-        return make_flatmap(mp);
+	fmp = (flatmap_t*)hp;
+	hp += MAP_HEADER_FLATMAP_SZ;
+
+        fmp->thing_word = MAP_HEADER_FLATMAP;
+	fmp->size = n;
+	fmp->keys = keys;
+
+        sys_memcpy((void *) hp, (void *) vs, n * sizeof(Eterm));
+
+        if (fmpp) {
+            *fmpp = fmp;
+            return THE_NON_VALUE;
+        }
+        return make_flatmap(fmp);
     } else {
-        return erts_hashmap_from_ks_and_vs(factory, ks0, vs0, n);
+        if (fmpp) {
+            *fmpp = NULL;
+        }
+        return erts_hashmap_from_ks_and_vs(factory, ks, vs, n);
     }
-    return THE_NON_VALUE;
+}
+
+Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n)
+{
+    Eterm res;
+    flatmap_t *fmp;
+
+    res = from_ks_and_vs(factory, ks, vs, n, NULL, &fmp);
+    if (fmp) {
+        if (erts_validate_and_sort_flatmap(fmp)) {
+            res = make_flatmap(fmp);
+        }
+        else {
+            res = THE_NON_VALUE;
+        }
+    }
+    return res;
+}
+
+Eterm erts_map_from_sorted_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs,
+                                     Uint n, Eterm *key_tuple)
+{
+#ifdef DEBUG
+    Uint i; 
+    /* verify that key array contains unique and sorted keys... */
+    for (i = 1; i < n; i++) {
+        ASSERT(CMP_TERM(ks[i-1], ks[i]) < 0);
+    }
+#endif
+
+    return from_ks_and_vs(factory, ks, vs, n, key_tuple, NULL);
 }
 
 
@@ -849,7 +913,6 @@ static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory* factory,
     Uint32 hx;
     Eterm val;
     hxnode_t *tmp = NULL;
-    Eterm th[2];
     ASSERT(lvl < 32);
     ix = 0;
     elems = 1;
@@ -861,7 +924,7 @@ static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory* factory,
 
 	    for(i = 0; i < jx - ix; i++) {
 		val = hxns[i + ix].val;
-		hx  = hashmap_restore_hash(th, lvl + 8, CAR(list_val(val)));
+		hx  = hashmap_restore_hash(lvl + 8, CAR(list_val(val)));
 		swizzle32(sw,hx);
 		tmp[i].hx   = sw;
 		tmp[i].val  = val;
@@ -888,7 +951,7 @@ static Eterm hashmap_from_sorted_unique_array(ErtsHeapFactory* factory,
     YCF_SPECIAL_CODE_START(ON_DESTROY_STATE);
     {
         if (tmp != NULL) {
-            /* Execution of this function got destoyed while yielding in
+            /* Execution of this function got destroyed while yielding in
                the loop above */
             erts_free(temp_memory_allocator, (void *) tmp);
         }
@@ -1497,8 +1560,6 @@ static BIF_RETTYPE hashmap_merge(Process *p, Eterm map_A, Eterm map_B,
     Eterm trap_ret;
     Sint initial_reds = (Sint) (ERTS_BIF_REDS_LEFT(p) * MAP_MERGE_LOOP_FACTOR);
     Sint reds =  initial_reds;
-    DeclareTmpHeap(th,2,p);
-    UseTmpHeap(2,p);
 
     /*
      * Strategy: Do depth-first traversal of both trees (at the same time)
@@ -1558,7 +1619,7 @@ recurse:
                     goto merge_nodes;
                 }
             }
-            hx = hashmap_restore_hash(th, ctx->lvl, keyA);
+            hx = hashmap_restore_hash(ctx->lvl, keyA);
             sp->abm = 1 << hashmap_index(hx);
             /* keep srcA pointing at the leaf */
         }
@@ -1585,7 +1646,7 @@ recurse:
         if (is_list(sp->nodeB)) { /* B is LEAF */
             Eterm keyB = CAR(list_val(sp->nodeB));
 
-            hx = hashmap_restore_hash(th, ctx->lvl, keyB);
+            hx = hashmap_restore_hash(ctx->lvl, keyB);
             sp->bbm = 1 << hashmap_index(hx);
             /* keep srcB pointing at the leaf */
         }
@@ -1780,23 +1841,20 @@ static int hash_cmp(Uint32 ha, Uint32 hb)
 int hashmap_key_hash_cmp(Eterm* ap, Eterm* bp)
 {
     unsigned int lvl = 0;
-    DeclareTmpHeapNoproc(th,2);
-    UseTmpHeapNoproc(2);
 
     if (ap && bp) {
 	ASSERT(CMP_TERM(CAR(ap), CAR(bp)) != 0);
 	for (;;) {
-	    Uint32 ha = hashmap_restore_hash(th, lvl, CAR(ap));
-	    Uint32 hb = hashmap_restore_hash(th, lvl, CAR(bp));
+	    Uint32 ha = hashmap_restore_hash(lvl, CAR(ap));
+	    Uint32 hb = hashmap_restore_hash(lvl, CAR(bp));
 	    int cmp = hash_cmp(ha, hb);
 	    if (cmp) {
-                UnUseTmpHeapNoproc(2);
 		return cmp;
             }
 	    lvl += 8;
 	}
     }
-    UnUseTmpHeapNoproc(2);
+
     return ap ? -1 : 1;
 }
 
@@ -1872,14 +1930,16 @@ int erts_maps_take(Process *p, Eterm key, Eterm map,
 	 * Allocate key tuple first.
 	 */
 
-	need   = n + 1 - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
+	need   = n + ((n-1) == 0 ? 0 : 1) - 1 + 3 + n - 1; /* tuple - 1 + map - 1 */
 	hp_start = HAlloc(p, need);
 	thp    = hp_start;
-	mhp    = thp + n;               /* offset with tuple heap size */
-
-	tup    = make_tuple(thp);
-	*thp++ = make_arityval(n - 1);
-
+	mhp    = thp + n + ((n-1) == 0 ? -1 : 0);  /* offset with tuple heap size */
+        if ((n-1) == 0) {
+            tup = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+        } else {
+            tup    = make_tuple(thp);
+            *thp++ = make_arityval(n - 1);
+        }
 	*res   = make_flatmap(mhp);
 	*mhp++ = MAP_HEADER_FLATMAP;
 	*mhp++ = n - 1;
@@ -2326,8 +2386,6 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
     Eterm *ptr, hdr, *res;
     Uint ix, lvl = 0;
     Uint32 hval,bp;
-    DeclareTmpHeapNoproc(th,2);
-    UseTmpHeapNoproc(2);
 
     ASSERT(is_boxed(node));
     ptr = boxed_val(node);
@@ -2356,7 +2414,7 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
             break;
         }
 
-        hx = hashmap_shift_hash(th,hx,lvl,key);
+        hx = hashmap_shift_hash(hx,lvl,key);
 
         ASSERT(is_boxed(node));
         ptr = boxed_val(node);
@@ -2365,7 +2423,6 @@ erts_hashmap_get(Uint32 hx, Eterm key, Eterm node)
         ASSERT(!is_hashmap_header_head(hdr));
     }
 
-    UnUseTmpHeapNoproc(2);
     return res;
 }
 
@@ -2403,7 +2460,6 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint
     Uint32 ix, cix, bp, hval, chx;
     Uint slot, lvl = 0, clvl;
     Uint size = 0, n = 0;
-    Eterm th[2];
 
     *update_size = 1;
 
@@ -2432,7 +2488,7 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint
 		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
 		    case HAMT_SUBTAG_HEAD_ARRAY:
 			ix    = hashmap_index(hx);
-			hx    = hashmap_shift_hash(th,hx,lvl,key);
+			hx    = hashmap_shift_hash(hx,lvl,key);
 			size += HAMT_HEAD_ARRAY_SZ;
 			ESTACK_PUSH2(*sp, ix, node);
 			node  = ptr[ix+2];
@@ -2459,7 +2515,7 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint
                             goto unroll;
                         }
 
-                        hx    = hashmap_shift_hash(th,hx,lvl,key);
+                        hx    = hashmap_shift_hash(hx,lvl,key);
                         node  = ptr[slot+1];
                         ASSERT(HAMT_NODE_BITMAP_SZ(n) <= 17);
                         size += HAMT_NODE_BITMAP_SZ(n);
@@ -2476,7 +2532,7 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint
 
 			/* occupied */
 			if (bp & hval) {
-			    hx    = hashmap_shift_hash(th,hx,lvl,key);
+			    hx    = hashmap_shift_hash(hx,lvl,key);
 			    node  = ptr[slot+2];
 			    ASSERT(HAMT_HEAD_BITMAP_SZ(n) <= 18);
 			    size += HAMT_HEAD_BITMAP_SZ(n);
@@ -2500,7 +2556,7 @@ int erts_hashmap_insert_down(Uint32 hx, Eterm key, Eterm value, Eterm node, Uint
     }
 insert_subnodes:
     clvl  = lvl;
-    chx   = hashmap_restore_hash(th,clvl,ckey);
+    chx   = hashmap_restore_hash(clvl,ckey);
     size += HAMT_NODE_BITMAP_SZ(2);
     ix    = hashmap_index(hx);
     cix   = hashmap_index(chx);
@@ -2508,8 +2564,8 @@ insert_subnodes:
     while (cix == ix) {
 	ESTACK_PUSH4(*sp, 0, 1 << ix, 0, MAP_HEADER_HAMT_NODE_BITMAP(0));
 	size += HAMT_NODE_BITMAP_SZ(1);
-	hx    = hashmap_shift_hash(th,hx,lvl,key);
-	chx   = hashmap_shift_hash(th,chx,clvl,ckey);
+	hx    = hashmap_shift_hash(hx,lvl,key);
+	chx   = hashmap_shift_hash(chx,clvl,ckey);
 	ix    = hashmap_index(hx);
 	cix   = hashmap_index(chx);
     }
@@ -2719,8 +2775,6 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key,
     Uint slot, lvl = 0;
     Uint size = 0, n = 0;
     DECLARE_ESTACK(stack);
-    DeclareTmpHeapNoproc(th,2);
-    UseTmpHeapNoproc(2);
 
     for (;;) {
 	switch(primary_tag(node)) {
@@ -2741,7 +2795,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key,
 		switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
 		    case HAMT_SUBTAG_HEAD_ARRAY:
 			ix    = hashmap_index(hx);
-			hx    = hashmap_shift_hash(th,hx,lvl,key);
+			hx    = hashmap_shift_hash(hx,lvl,key);
 			size += HAMT_HEAD_ARRAY_SZ;
 			ESTACK_PUSH2(stack, ix, node);
 			node  = ptr[ix+2];
@@ -2764,7 +2818,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key,
 
 			ESTACK_PUSH4(stack, n, bp, slot, node);
 
-                        hx    = hashmap_shift_hash(th,hx,lvl,key);
+                        hx    = hashmap_shift_hash(hx,lvl,key);
                         node  = ptr[slot+1];
                         ASSERT(HAMT_NODE_BITMAP_SZ(n) <= 17);
                         size += HAMT_NODE_BITMAP_SZ(n);
@@ -2781,7 +2835,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key,
 
 			/* occupied */
 			if (bp & hval) {
-			    hx    = hashmap_shift_hash(th,hx,lvl,key);
+			    hx    = hashmap_shift_hash(hx,lvl,key);
 			    node  = ptr[slot+2];
 			    ASSERT(HAMT_HEAD_BITMAP_SZ(n) <= 18);
 			    size += HAMT_HEAD_BITMAP_SZ(n);
@@ -2802,7 +2856,7 @@ static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key,
     }
 
 unroll:
-    /* the size is bounded and atleast one less than the previous size */
+    /* the size is bounded and at least one less than the previous size */
     size -= 1;
     n     = hashmap_size(map) - 1;
 
@@ -3147,10 +3201,17 @@ BIF_RETTYPE erts_internal_term_type_1(BIF_ALIST_1) {
             switch (hdr & _TAG_HEADER_MASK) {
                 case ARITYVAL_SUBTAG:
                     BIF_RET(ERTS_MAKE_AM("tuple"));
-                case EXPORT_SUBTAG:
-                    BIF_RET(ERTS_MAKE_AM("export"));
                 case FUN_SUBTAG:
-                    BIF_RET(ERTS_MAKE_AM("fun"));
+                    {
+                        ErlFunThing *funp = (ErlFunThing *)fun_val(obj);
+
+                        if (is_local_fun(funp)) {
+                            BIF_RET(ERTS_MAKE_AM("fun"));
+                        } else {
+                            ASSERT(is_external_fun(funp) && funp->next == NULL);
+                            BIF_RET(ERTS_MAKE_AM("export"));
+                        }
+                    }
                 case MAP_SUBTAG:
                     switch (MAP_HEADER_TYPE(hdr)) {
                         case MAP_HEADER_TAG_FLATMAP_HEAD :
@@ -3383,7 +3444,7 @@ static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]) 
  * continues down the 0:th slot until it finds a leaf.
  *
  * Once the leaf has been found, the return value is created
- * by traversing the tree using the the stack that was built
+ * by traversing the tree using the stack that was built
  * when searching for the first leaf to return.
  *
  * The index can become a bignum, which complicates the code

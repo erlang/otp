@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,27 +34,15 @@
 
 -module(diameter_tls_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0,
          init_per_suite/1,
-         end_per_suite/1]).
-
-%% testcases
--export([start_ssl/1,
-         start_diameter/1,
-         make_certs/1, make_certs/0,
-         start_services/1,
-         add_transports/1,
-         send1/1,
-         send2/1,
-         send3/1,
-         send4/1,
-         send5/1,
-         remove_transports/1,
-         stop_services/1,
-         stop_diameter/1,
-         stop_ssl/1]).
+         end_per_suite/1,
+         parallel/1]).
 
 %% diameter callbacks
 -export([prepare_request/3,
@@ -126,34 +114,22 @@
 -define(LOGOUT, ?'DIAMETER_BASE_TERMINATION-CAUSE_LOGOUT').
 
 %% ===========================================================================
+%% common_test wrapping
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 90}}].
 
 all() ->
-    [start_ssl,
-     start_diameter,
-     make_certs,
-     start_services,
-     add_transports,
-     {group, all},
-     {group, all, [parallel]},
-     remove_transports,
-     stop_services,
-     stop_diameter,
-     stop_ssl].
-
-groups() ->
-    [{all, [], tc()}].
+    [parallel].
 
 %% Shouldn't really have to know about crypto here but 'ok' from
 %% ssl:start() isn't enough to guarantee that TLS is available.
 init_per_suite(Config) ->
     try
-        false /= os:find_executable("openssl")
-            orelse throw({?MODULE, no_openssl}),
-        ok == (catch crypto:start())
-            orelse throw({?MODULE, no_crypto}),
+        [] == (catch make_certs(dir(Config)))
+            orelse throw({?MODULE, no_certs}),
+        ok == crypto:start() orelse throw({?MODULE, no_crypto}),
+        ok == ssl:start() orelse throw({?MODULE, no_ssl}),
         Config
     catch
         {?MODULE, E} ->
@@ -161,87 +137,81 @@ init_per_suite(Config) ->
     end.
 
 end_per_suite(_Config) ->
+    ssl:stop(),
     crypto:stop().
 
-%% Testcases to run when services are started and connections
-%% established.
-tc() ->
-    [send1,
-     send2,
-     send3,
-     send4,
-     send5].
+parallel(Config) ->
+    run(dir(Config), false).
+
+dir(Config) ->
+    proplists:get_value(priv_dir, Config).
 
 %% ===========================================================================
-%% testcases
 
-start_ssl(_Config) ->
-    ok = ssl:start().
+run() ->
+    Tmp = ?util:mktemp("diameter_tls"),
+    try
+        run(Tmp, true)
+    after
+        file:del_dir_r(Tmp)
+    end.
 
-start_diameter(_Config) ->
-    ok = diameter:start().
+run(Dir, B) ->
+    crypto:start(),
+    ssl:start(),
+    try
+        ?util:run([{[fun traffic/2, Dir, B], 60000}])
+    after
+        diameter:stop(),
+        ssl:stop(),
+        crypto:stop()
+    end.
 
-make_certs() ->
-    [{timetrap, {minutes, 2}}].
+traffic(Dir, true) ->
+    [] = make_certs(Dir),
+    traffic(Dir, false);
 
-make_certs(Config) ->
-    Dir = proplists:get_value(priv_dir, Config),
+traffic(Dir, false) ->
+    ok = diameter:start(),
+    Servers = start_services(Dir),
+    Connections = add_transports(Dir, Servers),
+    [] = ?util:run([[fun call/1, S] || S <- ?util:scramble(?SERVERS)]),
+    [] = remove_transports(Connections),
+    [] = stop_services().
 
-    [] = ?util:run([[fun make_cert/2, Dir, B] || B <- ["server1",
-                                                       "server2",
-                                                       "server4",
-                                                       "server5",
-                                                       "client"]]).
+make_certs(Dir) ->
+    ?util:run([[fun make_cert/2, Dir, B] || B <- ["server1",
+                                                  "server2",
+                                                  "server4",
+                                                  "server5",
+                                                  "client"]]).
 
-start_services(Config) ->
-    Dir = proplists:get_value(priv_dir, Config),
-    Servers = [server(S, sopts(S, Dir)) || S <- ?SERVERS],
-
+start_services(Dir) ->
+    Servers = [{S, {_,_} = server(S, sopts(S, Dir))} || S <- ?SERVERS],
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, ?DICT_COMMON)),
+    Servers.
 
-    {save_config, [Dir | Servers]}.
-
-add_transports(Config) ->
-    {_, [Dir | Servers]} = proplists:get_value(saved_config, Config),
-
+add_transports(Dir, Servers) ->
     true = diameter:subscribe(?CLIENT),
-
     Opts = ssl_options(Dir, "client"),
-    Connections = [connect(?CLIENT, S, copts(N, Opts))
-                   || {S,N} <- lists:zip(Servers, ?SERVERS)],
-
-    ?util:write_priv(Config, "cfg", lists:zip(Servers, Connections)).
-
+    [{N, S, connect(?CLIENT, S, copts(N, Opts))} || {N,S} <- Servers].
 
 %% Remove the client transports and expect the corresponding server
 %% transport to go down.
-remove_transports(Config) ->
-    Ts = ?util:read_priv(Config, "cfg"),
+remove_transports(Connections) ->
     [] = [T || S <- ?SERVERS, T <- [diameter:subscribe(S)], T /= true],
-    lists:map(fun disconnect/1, Ts).
+    [] = ?util:run([[fun disconnect/1, T] || T <- Connections]),
+    [S || S <- ?SERVERS,
+          I <- [receive #diameter_event{service = S, info = I} -> I end],
+          down /= catch element(1, I)].
 
-stop_services(_Config) ->
-    [] = [{H,T} || H <- [?CLIENT | ?SERVERS],
-                   T <- [diameter:stop_service(H)],
-                   T /= ok].
+disconnect({_, {_LRef, _PortNr}, CRef}) ->
+    ok = diameter:remove_transport(?CLIENT, CRef).
 
-stop_diameter(_Config) ->
-    ok = diameter:stop().
-
-stop_ssl(_Config) ->
-    ok = ssl:stop().
-
-%% Send an STR intended for a specific server and expect success.
-send1(_Config) ->
-    call(?SERVER1).
-send2(_Config) ->
-    call(?SERVER2).
-send3(_Config) ->
-    call(?SERVER3).
-send4(_Config) ->
-    call(?SERVER4).
-send5(_Config) ->
-    call(?SERVER5).
+stop_services() ->
+    [{H,T} || H <- [?CLIENT | ?SERVERS],
+              T <- [diameter:stop_service(H)],
+              T /= ok].
 
 %% ===========================================================================
 %% diameter callbacks
@@ -285,6 +255,7 @@ handle_request(#diameter_packet{msg = #diameter_base_STR{'Session-Id' = SId}},
 %% ===========================================================================
 %% support functions
 
+%% Send an STR intended for a specific server and expect success.
 call(Server) ->
     Realm = realm(Server),
     Req = ['STR', {'Destination-Realm', Realm},
@@ -300,10 +271,6 @@ call(Req, Opts) ->
 
 set([H|T], Vs) ->
     [H | Vs ++ T].
-
-disconnect({{LRef, _PortNr}, CRef}) ->
-    ok = diameter:remove_transport(?CLIENT, CRef),
-    receive #diameter_event{info = {down, LRef, _, _}} -> ok end.
 
 realm(Host) ->
     tl(lists:dropwhile(fun(C) -> C /= $. end, Host)).
@@ -364,11 +331,12 @@ ssl([{ssl_options = T, Opts}]) ->
 
 connect(Host, {_LRef, PortNr}, {Caps, Opts}) ->
     {ok, Ref} = diameter:add_transport(Host, ?CONNECT(PortNr, Caps, Opts)),
-    receive
-        #diameter_event{service = Host,
-                        info = {up, Ref, _, _, #diameter_packet{}}} ->
-            ok
-    end,
+    {up, Ref, _, _, #diameter_packet{}}
+         = receive
+               #diameter_event{service = Host, info = Info}
+                 when element(2, Info) == Ref ->
+                   Info
+           end,
     Ref.
 
 copts(S, Opts)

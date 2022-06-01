@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ groups() ->
 testcases() ->
     [tc_ok,
      tc_fail,
+     tc_badmatch,
      tc_skip,
      tc_autoskip_require].
 
@@ -76,11 +77,16 @@ break(_Config) ->
     test_server:break(""),
     ok.
 
-tc_ok(_Config) ->
-    ok.
+tc_ok(Config) when is_list(Config) ->
+    ok;
+tc_ok(_) ->
+    ct:fail("This should never fail").
 
 tc_fail(_Config) ->
     ct:fail("this test should fail").
+
+tc_badmatch(_Config) ->
+    ok = nok.
 
 tc_skip(_Config) ->
     {skip,"this test is skipped"}.

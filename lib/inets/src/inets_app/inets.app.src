@@ -1,7 +1,7 @@
 %% This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,5 +97,5 @@
   %% If the "new" ssl is used then 'crypto' must be started before inets.
   {applications,[kernel,stdlib]},
   {mod,{inets_app,[]}},
-  {runtime_dependencies, ["stdlib-3.5","ssl-5.3.4","runtime_tools-1.8.14",
-			  "mnesia-4.12","kernel-3.0","erts-6.0"]}]}.
+  {runtime_dependencies, ["stdlib-4.0","ssl-9.0","runtime_tools-1.8.14",
+			  "mnesia-4.12","kernel-6.0","erts-6.0"]}]}.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@
 #include "erl_utils.h"
 #include "erl_io_queue.h"
 #include "erl_proc_sig_queue.h"
+#include "beam_common.h"
 #undef ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #define ERTS_WANT_NFUNC_SCHED_INTERNALS__
 #include "erl_nfunc_sched.h"
@@ -65,6 +66,7 @@
 #define HAVE_USE_DTRACE 1
 #endif
 #include "jit/beam_asm.h"
+#include "erl_global_literals.h"
 
 #include <limits.h>
 #include <stddef.h> /* offsetof */
@@ -86,7 +88,7 @@ struct erl_module_nif {
     ErtsThrPrgrLaterOp lop;
 
     void* priv_data;
-    void* handle;             /* "dlopen" */
+    void* handle;             /* "dlopen", NULL for static linked */
     struct enif_entry_t entry;
     erts_refc_t dynlib_refc;  /* References to loaded native code
                                  +1 erl_module_instance
@@ -335,6 +337,7 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
 {
     ErtsNativeFunc *ep;
     Process *c_p, *dirty_shadow_proc;
+    ErtsCodePtr caller;
 
     execution_state(env, &c_p, NULL);
     ASSERT(c_p);
@@ -346,9 +349,11 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
 
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
 
+    erts_inspect_frame(c_p->stop, &caller);
+
     ep = erts_nfunc_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
-                                  cp_val(c_p->stop[0]),
+                                  caller,
                              #ifdef BEAMASM
 				  op_call_nif_WWW,
                              #else
@@ -552,22 +557,15 @@ struct enif_msg_environment_t
     Process phony_proc;
 };
 
-#if S_REDZONE == 0
-/*
- * Arrays of size zero are not allowed (although some compilers do
- * allow it). Be sure to set the array size to 1 if there is no
- * redzone to ensure that the code can be compiled with any compiler.
- */
-static Eterm phony_heap[1];
-#else
-static Eterm phony_heap[S_REDZONE];
-#endif
+static Eterm phony_heap[32];
 
 static ERTS_INLINE void
 setup_nif_env(struct enif_msg_environment_t* msg_env,
               struct erl_module_nif* mod,
               Process* tracee)
 {
+    ASSERT(sizeof(phony_heap) > (S_REDZONE * sizeof(Eterm)));
+
     msg_env->env.hp = &phony_heap[0];
     msg_env->env.hp_end = &phony_heap[0];
     msg_env->env.heap_frag = NULL;
@@ -646,6 +644,7 @@ void enif_clear_env(ErlNifEnv* env)
     menv->env.hp = menv->env.hp_end = HEAP_TOP(p);
     
     ASSERT(!is_offheap(&MSO(p)));
+    ASSERT(!p->wrt_bins);
 }
 
 #ifdef DEBUG
@@ -1169,7 +1168,7 @@ int enif_is_empty_list(ErlNifEnv* env, ERL_NIF_TERM term)
 
 int enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM term)
 {
-    return is_fun(term);
+    return is_any_fun(term);
 }
 
 int enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)
@@ -1217,7 +1216,6 @@ ErlNifTermType enif_term_type(ErlNifEnv* env, ERL_NIF_TERM term) {
         return ERL_NIF_TERM_TYPE_BITSTRING;
     case FLOAT_DEF:
         return ERL_NIF_TERM_TYPE_FLOAT;
-    case EXPORT_DEF:
     case FUN_DEF:
         return ERL_NIF_TERM_TYPE_FUN;
     case BIG_DEF:
@@ -1887,39 +1885,47 @@ int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len,
 
 ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)
 {
+    if (cnt == 0) {
+        return ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    } else {
 #ifdef ERTS_NIF_ASSERT_IN_ENV
-    int nr = 0;
+        int nr = 0;
 #endif
-    Eterm* hp = alloc_heap(env,cnt+1);
-    Eterm ret = make_tuple(hp);
-    va_list ap;
+        Eterm* hp = alloc_heap(env,cnt+1);
+        Eterm ret = make_tuple(hp);
+        va_list ap;
 
-    *hp++ = make_arityval(cnt);
-    va_start(ap,cnt);
-    while (cnt--) {
-        Eterm elem = va_arg(ap,Eterm);
-        ASSERT_IN_ENV(env, elem, ++nr, "tuple");
-	*hp++ = elem;
+        *hp++ = make_arityval(cnt);
+        va_start(ap,cnt);
+        while (cnt--) {
+            Eterm elem = va_arg(ap,Eterm);
+            ASSERT_IN_ENV(env, elem, ++nr, "tuple");
+            *hp++ = elem;
+        }
+        va_end(ap);
+        return ret;
     }
-    va_end(ap);
-    return ret;
 }
 
 ERL_NIF_TERM enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)
 {
+    if (cnt == 0) {
+        return ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    } else {
 #ifdef ERTS_NIF_ASSERT_IN_ENV
-    int nr = 0;
+        int nr = 0;
 #endif
-    Eterm* hp = alloc_heap(env,cnt+1);
-    Eterm ret = make_tuple(hp);
-    const Eterm* src = arr;
+        Eterm* hp = alloc_heap(env,cnt+1);
+        Eterm ret = make_tuple(hp);
+        const Eterm* src = arr;
 
-    *hp++ = make_arityval(cnt);
-    while (cnt--) {
-        ASSERT_IN_ENV(env, *src, ++nr, "tuple");
-	*hp++ = *src++;	   
+        *hp++ = make_arityval(cnt);
+        while (cnt--) {
+            ASSERT_IN_ENV(env, *src, ++nr, "tuple");
+            *hp++ = *src++;	   
+        }
+        return ret;
     }
-    return ret;
 }
 
 ERL_NIF_TERM enif_make_list_cell(ErlNifEnv* env, Eterm car, Eterm cdr)
@@ -2262,6 +2268,8 @@ static void deref_nifmod(struct erl_module_nif* lib)
     }
 }
 
+static ErtsStaticNif* is_static_nif_module(Eterm mod_atom);
+
 static void close_dynlib(struct erl_module_nif* lib)
 {
     ASSERT(lib != NULL);
@@ -2275,10 +2283,11 @@ static void close_dynlib(struct erl_module_nif* lib)
 	lib->entry.unload(&msg_env.env, lib->priv_data);
         post_nif_noproc(&msg_env);
     }
-    if (!erts_is_static_nif(lib->handle))
+    if (lib->handle) {
       erts_sys_ddll_close(lib->handle);
+      lib->handle = NULL;
+    }
 
-    lib->handle = NULL;
     deref_nifmod(lib);
 }
 
@@ -2601,7 +2610,8 @@ static int dtor_demonitor(ErtsMonitor* mon, void* context, Sint reds)
     ASSERT(erts_monitor_is_origin(mon));
     ASSERT(is_internal_pid(mon->other.item));
 
-    erts_proc_sig_send_demonitor(mon);
+    erts_proc_sig_send_demonitor(NULL, am_system, 1, mon);
+
     return 1;
 }
 
@@ -3282,12 +3292,11 @@ int enif_get_map_size(ErlNifEnv* env, ERL_NIF_TERM term, size_t *size)
 
 ERL_NIF_TERM enif_make_new_map(ErlNifEnv* env)
 {
-    Eterm* hp = alloc_heap(env,MAP_HEADER_FLATMAP_SZ+1);
+    Eterm* hp = alloc_heap(env,MAP_HEADER_FLATMAP_SZ);
     Eterm tup;
     flatmap_t *mp;
 
-    tup   = make_tuple(hp);
-    *hp++ = make_arityval(0);
+    tup   = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     mp    = (flatmap_t*)hp;
     mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = 0;
@@ -3621,7 +3630,8 @@ int enif_monitor_process(ErlNifEnv* env, void* obj, const ErlNifPid* target_pid,
     rmon_refc_inc(rm);
     erts_mtx_unlock(&rm->lock);
 
-    if (!erts_proc_sig_send_monitor(&mdp->u.target, target_pid->pid)) {
+    if (!erts_proc_sig_send_monitor(NULL, am_system, &mdp->u.target,
+                                    target_pid->pid)) {
         /* Failed to send monitor signal; cleanup... */
 #ifdef DEBUG
         ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(rsrc);
@@ -3680,7 +3690,7 @@ int enif_demonitor_process(ErlNifEnv* env, void* obj, const ErlNifMonitor* monit
     ASSERT(erts_monitor_is_origin(mon));
     ASSERT(is_internal_pid(mon->other.item));
 
-    erts_proc_sig_send_demonitor(mon);
+    erts_proc_sig_send_demonitor(NULL, am_system, 1, mon);
 
     return 0;
 }
@@ -4119,8 +4129,8 @@ SysIOVec *enif_ioq_peek(ErlNifIOQueue *q, int *iovlen)
  **                              load_nif/2                               **
  ***************************************************************************/
 
-static const ErtsCodeInfo * const * get_func_pp(const BeamCodeHeader* mod_code,
-                                                Eterm f_atom, unsigned arity)
+static int get_func_ix(const BeamCodeHeader* mod_code,
+                       Eterm f_atom, unsigned arity)
 {
     int n = (int) mod_code->num_functions;
     int j;
@@ -4132,13 +4142,12 @@ static const ErtsCodeInfo * const * get_func_pp(const BeamCodeHeader* mod_code,
         ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
 #endif
 
-        if (f_atom == ci->mfa.function
-            && arity == ci->mfa.arity) {
-            return &mod_code->functions[j];
+        if (f_atom == ci->mfa.function && arity == ci->mfa.arity) {
+            return j;
         }
     }
 
-    return NULL;
+    return -1;
 }
 
 static Eterm mkatom(const char *str)
@@ -4320,7 +4329,7 @@ typedef struct {
         /* data */
 #ifdef BEAMASM
         BeamInstr prologue[BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(UWord)];
-        BeamInstr call_nif[10];
+        BeamInstr call_nif[7];
 #else
         BeamInstr call_nif[4];
 #endif
@@ -4384,6 +4393,12 @@ static void nif_call_table_init(void)
     hash_init(ERTS_ALC_T_NIF, &erts_nif_call_tab, "nif_call_tab", 100, f);
 }
 
+static int check_is_nifable(const BeamCodeHeader* mod_code,
+                            int func_ix)
+{
+    return !mod_code->are_nifs || mod_code->are_nifs[func_ix];
+}
+
 static void patch_call_nif_early(ErlNifEntry*, struct erl_module_instance*);
 
 Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
@@ -4398,13 +4413,12 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     int i, err, encoding;
     Module* module_p;
     Eterm mod_atom;
-    const Atom* mod_atomp;
     Eterm f_atom;
     const ErtsCodeMFA* caller;
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     Eterm ret = am_ok;
     int veto;
-    int taint = 1;
+    int is_static = 0;
     struct erl_module_nif* lib = NULL;
     struct erl_module_instance* this_mi;
     struct erl_module_instance* prev_mi;
@@ -4430,14 +4444,11 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     module_p = erts_get_module(mod_atom, erts_active_code_ix());
     ASSERT(module_p != NULL);
 
-    mod_atomp = atom_tab(atom_val(mod_atom));
     {
-        ErtsStaticNifEntry* sne;
-        sne = erts_static_nif_get_nif_init((char*)mod_atomp->name, mod_atomp->len);
+        ErtsStaticNif* sne = is_static_nif_module(mod_atom);
         if (sne != NULL) {
-            init_func = sne->nif_init;
-            handle = init_func;
-            taint = sne->taint;
+            entry = sne->entry;
+            is_static = 1;
         }
     }
     this_mi = &module_p->curr;
@@ -4460,7 +4471,7 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
         ret = load_nif_error(c_p,"reload","NIF library already loaded"
                              " (reload disallowed since OTP 20).");
     }
-    else if (init_func == NULL &&
+    else if (!is_static &&
              (err=erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
 	const char slogan[] = "Failed to load NIF library";
 	if (strstr(errdesc.str, lib_name) != NULL) {
@@ -4470,14 +4481,15 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
 	    ret = load_nif_error(c_p, "load_failed", "%s %s: '%s'", slogan, lib_name, errdesc.str);
 	}
     }
-    else if (init_func == NULL &&
+    else if (!is_static &&
 	     erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) != ERL_DE_NO_ERROR) {
 	ret  = load_nif_error(c_p, bad_lib, "Failed to find library init"
 			      " function: '%s'", errdesc.str);
 	
     }
-    else if ((taint ? erts_add_taint(mod_atom) : 0,
-	      (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
+    else if (!is_static &&
+             (erts_add_taint(mod_atom),
+              (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
 	ret = load_nif_error(c_p, bad_lib, "Library init-call unsuccessful");
     }
     else if (entry->major > ERL_NIF_MAJOR_VERSION
@@ -4521,7 +4533,7 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
 
         erts_rwmtx_rwlock(&erts_nif_call_tab_lock);
         for (i=0; i < entry->num_of_funcs; i++) {
-            const ErtsCodeInfo * const * ci_pp;
+            int func_ix;
             const ErtsCodeInfo* ci;
             ErlNifFunc* f = &entry->funcs[i];
             ErtsNifBeamStub* stub = &lib->finish->beam_stubv[i];
@@ -4529,13 +4541,19 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
             stub->code_info_exec = NULL; /* end marker in case we fail */
 
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1)
-		|| (ci_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity))==NULL) {
+		|| (func_ix = get_func_ix(this_mi->code_hdr, f_atom, f->arity)) < 0) {
 		ret = load_nif_error(c_p,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
                 break;
 	    }
 
-            ci = *ci_pp;
+            ci = this_mi->code_hdr->functions[func_ix];
+
+            if (!check_is_nifable(this_mi->code_hdr, func_ix)) {
+                ret = load_nif_error(c_p,bad_lib,"Function not declared as nif %T:%s/%u",
+                                     mod_atom, f->name, f->arity);
+                break;
+            }
 
 	    if (f->flags != 0 &&
                 f->flags != ERL_NIF_DIRTY_JOB_IO_BOUND &&
@@ -4550,8 +4568,8 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
         {
             ErtsCodePtr curr_func, next_func;
 
-            curr_func = erts_codeinfo_to_code((ErtsCodeInfo*)ci_pp[0]);
-            next_func = erts_codeinfo_to_code((ErtsCodeInfo*)ci_pp[1]);
+            curr_func = erts_codeinfo_to_code(this_mi->code_hdr->functions[func_ix]);
+            next_func = erts_codeinfo_to_code(this_mi->code_hdr->functions[func_ix+1]);
 
             ASSERT(!ErtsInArea(next_func,
                                curr_func,
@@ -4613,16 +4631,16 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
 #endif
         }
         erts_rwmtx_rwunlock(&erts_nif_call_tab_lock);
-        ASSERT(lib->finish->nstubs_hashed == lib->entry.num_of_funcs);
     }
 
     if (ret != am_ok) {
 	goto error;
     }
+    ASSERT(lib);
+    ASSERT(lib->finish->nstubs_hashed == lib->entry.num_of_funcs);
 
     /* Call load or upgrade:
      */
-    ASSERT(lib);
     env.mod_nif = lib;
 
     lib->priv_data = NULL;
@@ -4696,7 +4714,7 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
             }
 	    erts_free(ERTS_ALC_T_NIF, lib);
 	}
-	if (handle != NULL && !erts_is_static_nif(handle)) {
+	if (handle != NULL) {
 	    erts_sys_ddll_close(handle);
 	}
 	erts_sys_ddll_free_error(&errdesc);
@@ -4727,14 +4745,17 @@ static void patch_call_nif_early(ErlNifEntry* entry,
     for (i=0; i < entry->num_of_funcs; i++)
     {
         ErlNifFunc* f = &entry->funcs[i];
-        const ErtsCodeInfo * const * ci_pp;
-        ErtsCodeInfo* ci;
+        int func_ix;
+        const ErtsCodeInfo *ci_exec;
+        ErtsCodeInfo *ci_rw;
         Eterm f_atom;
 
         erts_atom_get(f->name, sys_strlen(f->name), &f_atom, ERTS_ATOM_ENC_LATIN1);
 
-        ci_pp = get_func_pp(this_mi->code_hdr, f_atom, f->arity);
-        ci = erts_writable_code_ptr(this_mi, *ci_pp);
+        func_ix = get_func_ix(this_mi->code_hdr, f_atom, f->arity);
+        ci_exec = this_mi->code_hdr->functions[func_ix];
+
+        ci_rw = erts_writable_code_ptr(this_mi, ci_exec);
 
 #ifndef BEAMASM
         {
@@ -4742,14 +4763,14 @@ static void patch_call_nif_early(ErlNifEntry* entry,
             BeamInstr volatile *code_ptr;
 
             /* `ci` is writable. */
-            code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci);
+            code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
 
-            if (ci->u.gen_bp) {
+            if (ci_rw->u.gen_bp) {
                 /*
                  * Function traced, patch the original instruction word
                  * Code write permission protects against racing breakpoint writes.
                  */
-                GenericBp* g = ci->u.gen_bp;
+                GenericBp* g = ci_rw->u.gen_bp;
                 g->orig_instr = BeamSetCodeAddr(g->orig_instr, call_nif_early);
                 if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint))
                     continue;
@@ -4761,7 +4782,7 @@ static void patch_call_nif_early(ErlNifEntry* entry,
         }
 #else
         /* See beam_asm.h for details on how the nif load trampoline works */
-        erts_asm_bp_set_flag(ci, ERTS_ASM_BP_FLAG_CALL_NIF_EARLY);
+        erts_asm_bp_set_flag(ci_rw, ci_exec, ERTS_ASM_BP_FLAG_CALL_NIF_EARLY);
 #endif
     }
 }
@@ -4792,15 +4813,25 @@ static void load_nif_1st_finisher(void* vlib)
 
     if (fin) {
         for (i=0; i < lib->entry.num_of_funcs; i++) {
-            ErtsCodeInfo *ci = fin->beam_stubv[i].code_info_rw;
+            const ErtsCodeInfo *ci_exec = fin->beam_stubv[i].code_info_exec;
+            ErtsCodeInfo *ci_rw = fin->beam_stubv[i].code_info_rw;
 
 #ifdef BEAMASM
-            char *code_ptr = (char*)erts_codeinfo_to_code(ci);
-            sys_memcpy(&code_ptr[BEAM_ASM_FUNC_PROLOGUE_SIZE],
+            const char *code_exec = (char*)erts_codeinfo_to_code(ci_exec);
+            char *code_rw = (char*)erts_codeinfo_to_code(ci_rw);
+
+            size_t cpy_sz = sizeof(fin->beam_stubv[0].code.call_nif);
+
+            sys_memcpy(&code_rw[BEAM_ASM_FUNC_PROLOGUE_SIZE],
                        fin->beam_stubv[i].code.call_nif,
-                       sizeof(fin->beam_stubv[0].code.call_nif));
+                       cpy_sz);
+
+            beamasm_flush_icache(&code_exec[BEAM_ASM_FUNC_PROLOGUE_SIZE],
+                                 cpy_sz);
 #else
-            BeamInstr *code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci);
+            BeamInstr *code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
+
+            (void)ci_exec;
 
             /* called function */
             code_ptr[1] = fin->beam_stubv[i].code.call_nif[1];
@@ -4849,29 +4880,36 @@ static void load_nif_2nd_finisher(void* vlib)
     fin = lib->finish;
     if (fin) {
         for (i=0; i < lib->entry.num_of_funcs; i++) {
-            ErtsCodeInfo *ci = fin->beam_stubv[i].code_info_rw;
+            const ErtsCodeInfo *ci_exec = fin->beam_stubv[i].code_info_exec;
+            ErtsCodeInfo *ci_rw = fin->beam_stubv[i].code_info_rw;
 
 #ifndef BEAMASM
             BeamInstr volatile *code_ptr;
 
-            code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci);
+            ASSERT(ci_exec == ci_rw);
+            (void)ci_exec;
 
-            if (ci->u.gen_bp) {
+            code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
+
+            if (ci_rw->u.gen_bp) {
                 /*
                  * Function traced, patch the original instruction word
                  */
-                GenericBp* g = ci->u.gen_bp;
+                GenericBp* g = ci_rw->u.gen_bp;
                 ASSERT(BeamIsOpCode(g->orig_instr, op_call_nif_early));
                 g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
-                if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint))
+
+                if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint)) {
                     continue;
+                }
             }
 
             ASSERT(BeamIsOpCode(code_ptr[0], op_call_nif_early));
             code_ptr[0] = BeamOpCodeAddr(op_call_nif_WWW);
 #else
             /* See beam_asm.h for details on how the nif load trampoline works */
-            erts_asm_bp_unset_flag(ci, ERTS_ASM_BP_FLAG_CALL_NIF_EARLY);
+            erts_asm_bp_unset_flag(ci_rw, ci_exec,
+                                   ERTS_ASM_BP_FLAG_CALL_NIF_EARLY);
 #endif
         }
     }
@@ -4930,6 +4968,29 @@ static void erase_hashed_stubs(ErtsNifFinish* fin)
     erts_rwmtx_rwunlock(&erts_nif_call_tab_lock);
 }
 
+static void static_nifs_init(void)
+{
+    ErtsStaticNif* p;
+
+    for (p = erts_static_nif_tab; p->nif_init != NULL; p++) {
+        ASSERT(p->entry == NULL && p->mod_atom == THE_NON_VALUE);
+        p->entry = erts_sys_ddll_call_nif_init(p->nif_init);
+        p->mod_atom = mkatom(p->entry->name);
+        if (p->taint)
+            erts_add_taint(p->mod_atom);
+    }
+}
+
+static ErtsStaticNif* is_static_nif_module(Eterm mod_atom)
+{
+    ErtsStaticNif* p;
+    for (p = erts_static_nif_tab; p->nif_init != NULL; p++)
+        if (mod_atom == p->mod_atom)
+            return p;
+    return NULL;
+}
+
+
 void
 erts_unload_nif(struct erl_module_nif* lib)
 {
@@ -4984,6 +5045,7 @@ void erl_nif_init()
     resource_type_list.name = THE_NON_VALUE;
 
     nif_call_table_init();
+    static_nifs_init();
 }
 
 int erts_nif_get_funcs(struct erl_module_nif* mod,
@@ -5025,6 +5087,9 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
         ErlHeapFragment *orig_hf = MBUF(p);
         ErlOffHeap orig_oh = MSO(p);
         Eterm *orig_htop = HEAP_TOP(p);
+#ifdef DEBUG
+        struct erl_off_heap_header* orig_wrt_bins = p->wrt_bins;
+#endif
         ASSERT(is_internal_pid(p->common.id));
         MBUF(p) = NULL;
         clear_offheap(&MSO(p));
@@ -5050,6 +5115,7 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
         MBUF(p) = orig_hf;
         MSO(p) = orig_oh;
         HEAP_TOP(p) = orig_htop;
+        ASSERT(p->wrt_bins == orig_wrt_bins);
     } else {
         /* Nif call was done without a process context,
            so we create a phony one. */

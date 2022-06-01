@@ -41,6 +41,19 @@ do_it(Priv, Data, Type, Opts) ->
 			false
 		end,
 
+    %% fun_info/1,2 must behave as documented on purged funs.
+    FunInfoBefore = fun(F) ->
+                            {module, my_code_test2} = erlang:fun_info(F, module),
+                            {name, []} = erlang:fun_info(F, name),
+                            {arity, 1} = erlang:fun_info(F, arity)
+                    end,
+    FunInfoAfter = fun(F) ->
+                           {module, my_code_test2} = erlang:fun_info(F, module),
+                           {name, Name} = erlang:fun_info(F, name),
+                           true = is_atom(Name),
+                           {arity, 1} = erlang:fun_info(F, arity)
+                   end,
+
     true = erlang:delete_module(my_code_test2),
 
     ok = receive {P0, "going to sleep"} -> ok
@@ -51,7 +64,9 @@ do_it(Priv, Data, Type, Opts) ->
 
     {P1, M1} = spawn_monitor(fun () ->
                                      [{my_fun,F}] = ets:lookup(T, my_fun),
+                                     FunInfoBefore(F),
                                      4712 = F(1),
+                                     FunInfoAfter(F),
                                      exit(completed)
                              end),
 
@@ -64,14 +79,18 @@ do_it(Priv, Data, Type, Opts) ->
 
     {P2, M2} = spawn_monitor(fun () ->
                                      [{my_fun,F}] = ets:lookup(T, my_fun),
+                                     FunInfoBefore(F),
                                      4713 = F(2),
+                                     FunInfoAfter(F),
                                      exit(completed)
-			     end),
+                             end),
     {P3, M3} = spawn_monitor(fun () ->
-				     [{my_fun,F}] = ets:lookup(T, my_fun),
-				     4714 = F(3),
-				     exit(completed)
-			     end),
+                                     [{my_fun,F}] = ets:lookup(T, my_fun),
+                                     FunInfoBefore(F),
+                                     4714 = F(3),
+                                     FunInfoAfter(F),
+                                     exit(completed)
+                             end),
 
     ok = wait_until(fun () ->
 			    {status, suspended}

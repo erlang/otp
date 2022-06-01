@@ -17,6 +17,12 @@
   to [;;4mNode[0m, an attempt is made to create one. If this fails, a [;;4m[0m
   [;;4mnodedown[0m message is delivered.
 
+  The delivery of the [;;4mnodedown[0m signal is not ordered with respect
+  to other link or monitor signals from the node that goes down. If
+  you need a guarantee that all signals from the remote node has
+  been delivered before the [;;4mnodedown[0m signal is sent, you should
+  use [;;4mnet_kernel:monitor_nodes/1[0m.
+
   Nodes connected through hidden connections can be monitored as any
   other nodes.
 

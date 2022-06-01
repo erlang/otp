@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,8 +42,8 @@
 -record(state, {supervisor :: pid(),
 		root :: file:name_all(),
 		path :: [file:name_all()],
-		moddb :: ets:tab(),
-		namedb :: ets:tab(),
+		moddb :: ets:table(),
+		namedb :: ets:table(),
 		mode = interactive :: 'interactive' | 'embedded',
 		on_load = [] :: [on_load_item()]}).
 -type state() :: #state{}.
@@ -1334,7 +1334,7 @@ handle_pending_on_load(Action, Mod, From, #state{on_load=OnLoad0}=St) ->
 	    %% call to its own module. That would be a deadlock.
 	    %% Fail the call. (The call is probably from error_handler,
 	    %% and it will ignore the actual error reason and cause
-	    %% an undef execption.)
+	    %% an undef exception.)
 	    {reply,{error,deadlock},St};
 	{_,_,_} ->
 	    OnLoad = handle_pending_on_load_1(Mod, {From,Action}, OnLoad0),

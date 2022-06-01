@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -107,9 +107,11 @@
  * Special Beam instructions.
  */
 
-static BeamInstr beam_apply_[2];
-ErtsCodePtr beam_apply;             /* beam_apply_[0]; */
-ErtsCodePtr beam_normal_exit;       /* beam_apply_[1]; */
+static BeamInstr beam_run_process_[1];
+ErtsCodePtr beam_run_process;
+
+static BeamInstr beam_normal_exit_[1];
+ErtsCodePtr beam_normal_exit;
 
 static BeamInstr beam_exit_[1];
 ErtsCodePtr beam_exit;
@@ -120,7 +122,7 @@ ErtsCodePtr beam_continue_exit;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
-**      for the referring variable (one of these), and rouge references
+**      for the referring variable (one of these), and rogue references
 **      will most likely cause chaos.
 */
 
@@ -139,6 +141,12 @@ ErtsCodePtr beam_exception_trace;
 /* OpCode(i_return_time_trace) */
 static BeamInstr beam_return_time_trace_[1];
 ErtsCodePtr beam_return_time_trace;
+
+/* The address field of every fun that has no loaded code will point to
+ * beam_unloaded_fun[]. The -1 in beam_unloaded_fun[0] will be interpreted
+ * as an illegal arity when attempting to call a fun. */
+static BeamInstr unloaded_fun_code[4] = {NIL, NIL, -1, 0};
+ErtsCodePtr beam_unloaded_fun = &unloaded_fun_code[3];
 
 /*
  * All Beam instructions in numerical order.
@@ -412,7 +420,7 @@ void process_main(ErtsSchedulerData *esdp)
             if (ERTS_PROC_IS_EXITING(c_p)) {
                 sys_strcpy(fun_buf, "<exiting>");
             } else {
-                ErtsCodeMFA *cmfa = erts_find_function_from_pc(c_p->i);
+                const ErtsCodeMFA *cmfa = erts_find_function_from_pc(c_p->i);
                 if (cmfa) {
                     dtrace_fun_decode(c_p, cmfa,
                                       NULL, fun_buf);
@@ -445,16 +453,12 @@ void process_main(ErtsSchedulerData *esdp)
      * can get the module, function, and arity for the function being
      * called from I[-3], I[-2], and I[-1] respectively.
      */
- context_switch_fun:
-    /* Add one for the environment of the fun */
-    c_p->arity = erts_code_to_codemfa(I)->arity + 1;
-    goto context_switch2;
-
  context_switch:
-    c_p->arity = erts_code_to_codemfa(I)->arity;
-
- context_switch2: 		/* Entry for fun calls. */
-    c_p->current = erts_code_to_codemfa(I);
+    {
+        const ErtsCodeMFA *mfa = erts_code_to_codemfa(I);
+        c_p->arity = mfa->arity;
+        c_p->current = mfa;
+    }
 
  context_switch3:
 
@@ -533,7 +537,7 @@ void process_main(ErtsSchedulerData *esdp)
         HEAVY_SWAPIN;
 
         if (error_handler) {
-            I = error_handler->addresses[erts_active_code_ix()];
+            I = error_handler->dispatch.addresses[erts_active_code_ix()];
             Goto(*I);
         }
     }
@@ -575,7 +579,7 @@ void process_main(ErtsSchedulerData *esdp)
  OpCase(label_L):
  OpCase(on_load):
  OpCase(line_I):
- OpCase(int_func_end):
+ OpCase(i_nif_padding):
     erts_exit(ERTS_ERROR_EXIT, "meta op\n");
 
     /*
@@ -669,11 +673,11 @@ init_emulator_finish(void)
     }
 #endif
 
-    beam_apply_[0]             = BeamOpCodeAddr(op_i_apply);
-    beam_apply_[1]             = BeamOpCodeAddr(op_normal_exit);
+    beam_run_process_[0]       = BeamOpCodeAddr(op_i_apply_only);
+    beam_run_process = (ErtsCodePtr)&beam_run_process_[0];
 
-    beam_apply = (ErtsCodePtr)&beam_apply_[0];
-    beam_normal_exit = (ErtsCodePtr)&beam_apply_[1];
+    beam_normal_exit_[0]       = BeamOpCodeAddr(op_normal_exit);
+    beam_normal_exit = (ErtsCodePtr)&beam_normal_exit_[0];
 
     beam_exit_[0]              = BeamOpCodeAddr(op_error_action_code);
     beam_exit = (ErtsCodePtr)&beam_exit_[0];
@@ -704,4 +708,59 @@ erts_beam_jump_table(void)
 #else
     return 1;
 #endif
+}
+
+void
+erts_prepare_bs_construct_fail_info(Process* c_p, const BeamInstr* p, Eterm reason, Eterm Info, Eterm value)
+{
+    Eterm* hp;
+    Eterm cause_tuple;
+    Eterm op;
+    Eterm error_info;
+    Uint segment;
+
+    segment = p[2] >> 3;
+
+    switch (p[0]) {
+    case BSC_APPEND:
+    case BSC_PRIVATE_APPEND:
+    case BSC_BINARY:
+    case BSC_BINARY_FIXED_SIZE:
+    case BSC_BINARY_ALL:
+        op = am_binary;
+        break;
+    case BSC_FLOAT:
+    case BSC_FLOAT_FIXED_SIZE:
+        op = am_float;
+        break;
+    case BSC_INTEGER:
+    case BSC_INTEGER_FIXED_SIZE:
+        op = am_integer;
+        break;
+    case BSC_STRING:
+        op = am_string;
+        break;
+    case BSC_UTF8:
+        op = am_utf8;
+        break;
+    case BSC_UTF16:
+        op = am_utf16;
+        break;
+    case BSC_UTF32:
+        op = am_utf32;
+        break;
+    default:
+        op = am_none;
+        break;
+    }
+
+    hp = HeapFragOnlyAlloc(c_p, MAP3_SZ+4+1);
+    cause_tuple = TUPLE4(hp, make_small(segment), op, Info, value);
+    hp += 5;
+    error_info = MAP3(hp,
+                      am_cause, cause_tuple,
+                      am_function, am_format_bs_fail,
+                      am_module, am_erl_erts_errors);
+    c_p->fvalue = error_info;
+    c_p->freason = reason | EXF_HAS_EXT_INFO;
 }

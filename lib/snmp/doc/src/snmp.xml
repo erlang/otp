@@ -381,7 +381,7 @@
 	<c>Stop</c> is the stop (last) date and time to which log 
 	events will be converted.
 	The <c>Block</c> argument indicates if the log should be blocked
-	during conversion. This could be usefull when converting large 
+	during conversion. This could be useful when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. 
 	</p>

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -164,18 +164,6 @@ typedef struct {
 
 extern ErtsAllocatorThrSpec_t erts_allctr_thr_spec[ERTS_ALC_A_MAX+1];
 
-typedef struct ErtsAllocatorWrapper_t_ {
-    void (*lock)(void);
-    void (*unlock)(void);
-    struct ErtsAllocatorWrapper_t_* next;
-}ErtsAllocatorWrapper_t;
-extern ErtsAllocatorWrapper_t *erts_allctr_wrappers;
-extern int erts_allctr_wrapper_prelocked;
-extern erts_tsd_key_t erts_allctr_prelock_tsd_key;
-void erts_allctr_wrapper_prelock_init(ErtsAllocatorWrapper_t* wrapper);
-void erts_allctr_wrapper_pre_lock(void);
-void erts_allctr_wrapper_pre_unlock(void);
-
 void erts_alloc_register_scheduler(void *vesdp);
 void erts_alloc_register_delayed_dealloc_handler_thread(ErtsThrAllocData *tadp,
 							int ix);
@@ -225,11 +213,11 @@ Eterm erts_alloc_set_dyn_param(struct process*, Eterm);
 
 #if !ERTS_ALC_DO_INLINE
 
-void *erts_alloc(ErtsAlcType_t type, Uint size);
-void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size);
 void erts_free(ErtsAlcType_t type, void *ptr);
-void *erts_alloc_fnf(ErtsAlcType_t type, Uint size);
-void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size);
+void *erts_alloc(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_USD(2,erts_free,2);
+void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size) ERTS_ATTR_ALLOC_SIZE(3);
+void *erts_alloc_fnf(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_USD(2,erts_free,2);
+void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size) ERTS_ATTR_ALLOC_SIZE(3);
 int erts_is_allctr_wrapper_prelocked(void);
 #ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
 int erts_is_in_literal_range(void* ptr);
@@ -239,7 +227,7 @@ int erts_get_thr_alloc_ix(void);
 
 #endif /* #if !ERTS_ALC_DO_INLINE */
 
-void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size);
+void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_US(2);
 
 #ifndef ERTS_CACHE_LINE_SIZE
 /* Assumed cache line size */
@@ -318,13 +306,6 @@ void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
 	size);
     ERTS_MSACC_POP_STATE_X();
     return res;
-}
-
-ERTS_ALC_INLINE
-int erts_is_allctr_wrapper_prelocked(void)
-{
-    return erts_allctr_wrapper_prelocked                 /* locked */
-	&& !!erts_tsd_get(erts_allctr_prelock_tsd_key);  /* by me  */
 }
 
 ERTS_ALC_INLINE

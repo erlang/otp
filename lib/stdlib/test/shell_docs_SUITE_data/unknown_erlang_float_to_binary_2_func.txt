@@ -6,7 +6,7 @@
   [;1m                             Option ::[0m
   [;1m                                 {decimals, Decimals :: 0..253} |[0m
   [;1m                                 {scientific, Decimals :: 0..249} |[0m
-  [;1m                                 compact.[0m
+  [;1m                                 compact | short.[0m
 
 [;;4mSince[0m:
   OTP R16B
@@ -21,3 +21,9 @@
     <<"7.12">>
     > float_to_binary(7.12, [{scientific, 3}]).
     <<"7.120e+00">>
+    > float_to_binary(7.12, [short]).
+    <<"7.12">>
+    > float_to_binary(0.1+0.2, [short]).
+    <<"0.30000000000000004">>
+    > float_to_binary(0.1+0.2)
+    <<"3.00000000000000044409e-01">>

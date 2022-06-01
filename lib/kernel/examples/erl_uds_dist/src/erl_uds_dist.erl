@@ -25,7 +25,7 @@
 %% This is an example of how to plug in an alternative distribution
 %% protocol using distribution controller processes. Erlang
 %% distribution can use whatever underlying protocols as long as the
-%% implementation reliably delivers data chuncks to the receiving
+%% implementation reliably delivers data chunks to the receiving
 %% Erlang node in the order they were sent by the sending node.
 %%
 %% This example uses stream-oriented Unix Domain Sockets (of the
@@ -74,7 +74,7 @@
 %% If tracing is wanted, uncomment the dist_trace macro in dist_util.hrl
 %% to enable all the calls to trace below, or copy the trace macro here.
 %%
-%% Tracing will freeze the initial boot when a -name or -sname paramater
+%% Tracing will freeze the initial boot when a -name or -sname parameter
 %% is passed to start directly distributed nodes. To make it work,
 %% launch non-distributed nodes first (without -name and -sname) then
 %% call net_kernel:start/1 to enable the distribution in a second stage.
@@ -417,7 +417,7 @@ accept_loop(Kernel, ListeningSocket) ->
 %% The caller of accept_supervisor is a representative for net_kernel and
 %% is identified as Kernel below.
 %%
-%% AcceptPid is the process identifer created by accept/1.
+%% AcceptPid is the process identifier created by accept/1.
 %%
 %% DistCtrl is the identifier of the distribution controller process in
 %% charge of the connection, as created by the accept_loop process above.
@@ -432,8 +432,7 @@ accept_loop(Kernel, ListeningSocket) ->
 accept_connection(AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     spawn_opt(?MODULE, accept_supervisor,
               [self(), AcceptPid, DistCtrl, MyNode, Allowed, SetupTime],
-              %% Spawn on max priority
-              [link, {priority, max}]).
+              dist_util:net_ticker_spawn_options()).
 
 accept_supervisor(Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     ?trace("~p~n", [{?MODULE, accept_connection, self()}]),
@@ -472,7 +471,6 @@ accept_supervisor(Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
                    [MyNode]),
             dist_util:handshake_other_started(HSData)
     end.
-
 
 %% ---------------------------------------------------------------------
 %% Define common values of the handshake data record, defined in
@@ -666,8 +664,7 @@ getopts(ListeningSocket, Options) ->
 setup(Node, Type, MyNode, _LongOrShortNames, SetupTime) ->
     spawn_opt(?MODULE, setup_supervisor,
 	      [self(), Node, Type, MyNode, SetupTime],
-              %% Spawn on max priority
-              [link, {priority, max}]).
+              dist_util:net_ticker_spawn_options()).
 
 setup_supervisor(Kernel, Node, Type, MyNode, SetupTime) ->
     ?trace("~p~n", [{?MODULE, setup, self(), Node}]),

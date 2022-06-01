@@ -255,7 +255,7 @@ no_trap_exit(Config) when is_list(Config) ->
     Pid = fun_spawn(fun no_trap_exit_process/3, [self(), linked, Config]),
     receive
         {Pid, port_created, Port} ->
-            io:format("Process ~w created port ~w", [Pid, Port]),
+            ct:log("Process ~w created port ~w", [Pid, Port]),
             exit(Port, die);
         Other1 ->
             ct:fail({unexpected_message, Other1})
@@ -278,7 +278,7 @@ no_trap_exit_unlinked(Config) when is_list(Config) ->
                     [self(), unlink, Config]),
     receive
         {Pid, port_created, Port} ->
-            io:format("Process ~w created port ~w", [Pid, Port]),
+            ct:log("Process ~w created port ~w", [Pid, Port]),
             exit(Port, die);
         Other1 ->
             ct:fail({unexpected_message, Other1})
@@ -320,7 +320,7 @@ trap_exit(Config) when is_list(Config) ->
     Pid = fun_spawn(fun busy_port_exit_process/2, [self(), Config]),
     receive
 	      {Pid, port_created, Port} ->
-		  io:format("Process ~w created port ~w", [Pid, Port]),
+                  ct:log("Process ~w created port ~w", [Pid, Port]),
 		  unlink(Pid),
 		  {status, suspended} = process_info(Pid, status),
 		  exit(Port, die);
@@ -755,7 +755,7 @@ run_command(_M,spawn,{Args,Opts}) ->
 run_command(M,spawn,Args) ->
     run_command(M,spawn,{Args,[]});
 run_command(Mod,Func,Args) ->
-    erlang:display({{Mod,Func,Args}, erlang:system_time(microsecond)}),
+    %% erlang:display({{Mod,Func,Args}, erlang:system_time(microsecond)}),
     apply(Mod,Func,Args).
 
 validate_scenario(Data,[{print,Var}|T]) ->
@@ -869,7 +869,7 @@ chk_not_value(_, _) ->
 wait_for([]) ->
     ok;
 wait_for(Pids) ->
-    io:format("Waiting for ~p", [Pids]),
+    ct:log("Waiting for ~p", [Pids]),
     receive
 	{'EXIT', Pid, normal} ->
 	    wait_for(lists:delete(Pid, Pids));

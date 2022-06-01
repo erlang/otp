@@ -830,7 +830,7 @@ validate_set(Error, _RowIndex, _Cols) ->
 %%-----------------------------------------------------------------
 %% Here's the alg: If this is the first time the CloneFrom is written,
 %% we must check that the CloneFrom row exists, so we can invoke the
-%% clone process in the set phase.  Otherwise, the set succed, with
+%% clone process in the set phase.  Otherwise, the set succeed, with
 %% no further checks.
 %%-----------------------------------------------------------------
 validate_clone_from(RowIndex, Cols) ->
@@ -902,7 +902,7 @@ validate_auth_protocol(RowIndex, Cols) ->
             %% now; set is ok if new protocol is usmNoAuthProtocol
 		    case AuthProtocol of
 			?usmNoAuthProtocol ->
-			    %% Check that the Priv protocl is noPriv
+			    %% Check that the Priv protocol is noPriv
 			    case get_priv_proto(RowIndex, Cols) of
 				?usmNoPrivProtocol -> ok;
 				_ -> inconsistentValue(?usmUserAuthProtocol)
@@ -928,7 +928,7 @@ validate_auth_protocol(RowIndex, Cols) ->
 		    %% hash function.
 		    case AuthProtocol of
 			?usmNoAuthProtocol ->
-			    %% Check that the Priv protocl is noPriv
+			    %% Check that the Priv protocol is noPriv
 			    case get_priv_proto(RowIndex, Cols) of
 				?usmNoPrivProtocol -> ok;
 				_ -> inconsistentValue(?usmUserAuthProtocol)

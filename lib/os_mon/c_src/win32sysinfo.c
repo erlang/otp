@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@
 
  * get_disk_info 'd'Driveroot (where Driveroot is a string like this "A:\\"
  *      (request info of specific drive)
- *      The result is returned with the same format as above exept that 
+ *      The result is returned with the same format as above except that 
  *      Type will be DRIVE_NOT_EXIST if the drive does not exist.
  *
  * get_mem_info 'm' (request info about memory)

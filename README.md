@@ -4,58 +4,67 @@
 
 **OTP** is a set of Erlang libraries, which consists of the Erlang runtime system, a number of ready-to-use components mainly written in Erlang, and a set of design principles for Erlang programs. [Learn more about Erlang and OTP](http://erlang.org/doc/system_architecture_intro/sys_arch_intro.html).
 
-[Release notes](http://erlang.org/download/otp_versions_tree.html) for all OTP versions.
-
-[Learn how to program in Erlang](http://learnyousomeerlang.com/content).
+[Learn how to program in Erlang](http://learnyousomeerlang.com/).
 
 ## Examples
+
 There are several examples [on the website](http://erlang.org/faq/getting_started.html) to help you get started. The below example defines a function `world/0` that prints "Hello, world" in the Erlang shell:
+
 ```erlang
 -module(hello).
 -export([world/0]).
 
 world() -> io:format("Hello, world\n").
 ```
-Save the file as `hello.erl` and run `erl` to enter the Erlang shell to compile the module.
-```
-Erlang/OTP 19 [erts-8.2] [source] [64-bit] [smp:4:4] [async-threads:10] [hipe] [kernel-poll:false] [dtrace]
 
-Eshell V8.2  (abort with ^G)
+Save the file as `hello.erl` and run `erl` to enter the Erlang shell to compile the module.
+
+```sh
+Erlang/OTP 24 [erts-12.2] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
+
+Eshell V12.2  (abort with ^G)
 1> c(hello).
 {ok,hello}
 2> hello:world().
 Hello, world
 ok
 ```
+
 Learn more about the Erlang syntax of [modules](http://erlang.org/doc/reference_manual/modules.html), [functions](http://erlang.org/doc/reference_manual/functions.html) and [expressions](http://erlang.org/doc/reference_manual/expressions.html) on [Erlang.org](https://www.erlang.org).
 
 ## Installation
+
 ### Binary Distributions
+
 Erlang/OTP is available as pre-built binary packages by most OS package managers.
-```
+
+```sh
 apt-get install erlang
 ```
+
 ### Compiling from source
 
-To compile Erlang from source, run the following commands. The complete building and installation instructions [can be found here](HOWTO/INSTALL.md). 
-```
+To compile Erlang from source, run the following commands. The complete building and installation instructions [can be found here](HOWTO/INSTALL.md).
+
+```sh
 git clone https://github.com/erlang/otp.git
 cd otp
 ```
+
 Checkout the branch or tag of your choice
-```
+
+```sh
 git checkout maint-24    # current latest stable version
 ```
-For older versions run autoconf
-```
-./otp_build autoconf
-```
+
 Configure, build and install
-```
+
+```sh
 ./configure
 make
 make install
 ```
+
 Alternatively, you can use [Kerl](https://github.com/kerl/kerl), a script that lets you easily build Erlang with a few commands.
 
 ## Bug Reports
@@ -78,6 +87,10 @@ Read our [contribution guide](CONTRIBUTING.md) to learn about our development pr
 
 We have a list of [Help Wanted](https://github.com/erlang/otp/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) bugs that we would appreciate external help from the community. This is a great place to get involved.
 
+## Awesome-Erlang
+
+You can find more projects, tools and articles related to Erlang/OTP on the [awesome-erlang list](https://github.com/drobakowski/awesome-erlang). Add your project there.
+
 ## License
 
 Erlang/OTP is released under the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0).
@@ -99,6 +112,3 @@ Erlang/OTP is released under the [Apache License 2.0](http://www.apache.org/lice
 > limitations under the License.
 >
 > %CopyrightEnd%
-
-## Awesome-Erlang
-You can find more projects, tools and articles related to Erlang/OTP on the [awesome-erlang list](https://github.com/drobakowski/awesome-erlang). Add your project there.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,14 +54,14 @@ do_init(Config) ->
 
     Splitter = wxSplitterWindow:new(Panel, []),
 
-    Win1 = wxTextCtrl:new(Splitter, 1, [{value, "Splitted Window 1"},
+    Win1 = wxTextCtrl:new(Splitter, 1, [{value, "Split Window 1"},
         			       {style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
-    Win2 = wxTextCtrl:new(Splitter, 1, [{value, "Splitted Window 1"},
+    Win2 = wxTextCtrl:new(Splitter, 1, [{value, "Split Window 1"},
 					{style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
 
     wxSplitterWindow:splitVertically(Splitter, Win1, Win2),
     wxSplitterWindow:setSashGravity(Splitter,   0.5),
-    %% Set pane-size =/= 0 to not unsplit on doubleclick
+    %% Set pane-size =/= 0 to not unsplit on double-click
     %% on the splitter
     wxSplitterWindow:setMinimumPaneSize(Splitter,50),
     

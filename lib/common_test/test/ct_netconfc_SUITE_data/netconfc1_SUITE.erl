@@ -179,7 +179,7 @@ hello_configured_extraopts() ->
     [{require, netconf1}].
 hello_configured_extraopts(Config) ->
     SshDir = ?config(ssh_dir,Config),
-    %% Test that the cofiguration overwrites the ExtraOpts parameter
+    %% Test that the configuration overwrites the ExtraOpts parameter
     %% to ct_netconfc:open/2.
     {ok,Client} = open_configured_success(netconf1,SshDir,[{password,"faulty"}]),
     ?NS:expect_do_reply('close-session',close,ok),
@@ -1268,7 +1268,7 @@ open_success(Dir) ->
     open_success(Dir,[]).
 
 %% Open a netconf session which is not specified in a config file, and
-%% give som extra options in addition to the test defaults.
+%% give some extra options in addition to the test defaults.
 open_success(Dir,ExtraOpts) when is_list(Dir), is_list(ExtraOpts) ->
     ?NS:hello(1), % tell server to send hello with session id 1
     ?NS:expect(hello), % tell server to expect a hello message from client

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -744,15 +744,27 @@ exception_test(Opts) ->
             shutdown();
         true ->
             Exceptions = exceptions(),
-            lists:foreach(
-              fun ({Func,Args}) ->
-                      exception_test_setup(
-                        [procs|ProcFlags],
-                        PatFlags),
-                      exception_test(Opts, Func, Args),
-                      shutdown()
-              end,
-              Exceptions)
+            try
+                %% suppress  =ERROR REPORT=== emulator messages
+                ok = logger:add_primary_filter(suppress_log_spam, {
+                    fun(#{meta := #{error_logger := #{emulator := true, tag := error}}}, _) ->
+                        stop;
+                    (_Meta, _Msg) ->
+                        ignore
+                    end, ok}),
+                lists:foreach(
+                  fun ({Func,Args}) ->
+                          exception_test_setup(
+                            [procs|ProcFlags],
+                            PatFlags),
+                          exception_test(Opts, Func, Args),
+                          shutdown()
+                  end,
+                  Exceptions)
+            after
+                %% remove the suppression for ERROR REPORTS
+                ok = logger:remove_primary_filter(suppress_log_spam)
+            end
     end,
     ok.
 
@@ -778,7 +790,7 @@ exceptions() ->
 
 exception_test_setup(ProcFlags, PatFlags) ->
     Pid = setup(ProcFlags),
-    io:format("=== exception_test_setup(~p, ~p): ~p~n", 
+    ct:log("=== exception_test_setup(~p, ~p): ~p~n",
               [ProcFlags,PatFlags,Pid]),
     Mprog = [{'_',[],[{exception_trace}]}],
     erlang:trace_pattern({?MODULE,'_','_'}, Mprog, PatFlags),
@@ -792,7 +804,7 @@ exception_test_setup(ProcFlags, PatFlags) ->
 -record(exc_opts, {nocatch=false, meta=false}).
 
 exception_test(Opts, Func0, Args0) ->
-    io:format("=== exception_test(~p, ~p, ~p)~n", 
+    ct:log("=== exception_test(~p, ~p, ~p)~n",
               [Opts,Func0,abbr(Args0)]),
     Apply = proplists:get_bool(apply, Opts),
     Function = proplists:get_bool(function, Opts),
@@ -803,16 +815,16 @@ exception_test(Opts, Func0, Args0) ->
     %% Func0 and Args0 are for the innermost call, now we will
     %% wrap them in wrappers...
     {Func1,Args1} =
-    case Function of
-        true  -> {fun exc/2,[Func0,Args0]};
-        false -> {Func0,Args0}
-    end,
+        case Function of
+            true  -> {fun(F, As) -> exc(F, As) end, [Func0,Args0]};
+            false -> {Func0,Args0}
+        end,
 
     {Func,Args} = 
-    case Apply of
-        true  -> {{erlang,apply},[Func1,Args1]};
-        false -> {Func1,Args1}
-    end,
+        case Apply of
+            true  -> {{erlang,apply},[Func1,Args1]};
+            false -> {Func1,Args1}
+        end,
 
     R1 = exc_slave(ExcOpts, Func, Args),
     Stack2 = [{?MODULE,exc_top,3,[]},{?MODULE,slave,2,[]}],

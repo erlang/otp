@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2020. All Rights Reserved.
+# Copyright Ericsson AB 1996-2022. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,12 +26,10 @@
 include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 
-debug opt shared gcov:
+debug opt shared gcov lcnt valgrind asan:
 ifndef TERTIARY_BOOTSTRAP
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 endif
 
 clean depend docs release release_docs tests release_tests check xmllint:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@
-
-lcnt:

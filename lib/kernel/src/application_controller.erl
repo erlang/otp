@@ -509,7 +509,7 @@ init(Init, Kernel) ->
 	{ok, ConfData} ->
 	    %% Actually, we don't need this info in an ets table anymore.
 	    %% This table was introduced because starting applications
-	    %% should be able to get som info from AC (e.g. loaded_apps).
+	    %% should be able to get some info from AC (e.g. loaded_apps).
 	    %% The new implementation makes sure the AC process can be
 	    %% called during start-up of any app.
 	    case check_conf_data(ConfData) of
@@ -670,7 +670,7 @@ handle_call({start_application, AppName, RestartType}, From, S) ->
     #state{running = Running, starting = Starting, start_p_false = SPF, 
 	   started = Started, start_req = Start_req} = S,
     %% Check if the commandline environment variables are OK.
-    %% Incase of erroneous variables do not start the application,
+    %% In case of erroneous variables do not start the application,
     %% if the application is permanent crash the node.
     %% Check if the application is already starting.
     case lists:keyfind(AppName, 1, Start_req) of
@@ -1731,7 +1731,7 @@ check_user() ->
 
 
 %%-----------------------------------------------------------------
-%% Prepare for a release upgrade by reading all the evironment variables.
+%% Prepare for a release upgrade by reading all the environment variables.
 %%-----------------------------------------------------------------
 do_prep_config_change(Apps) ->
     do_prep_config_change(Apps, []).

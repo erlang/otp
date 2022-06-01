@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -190,16 +190,15 @@ ok.
 
 %% Check restricted shell when started from the command line.
 start_restricted_on_command_line(Config) when is_list(Config) ->
-    {ok,Node} = start_node(shell_suite_helper_1,
-			   "-pa "++proplists:get_value(priv_dir,Config)++
-			       " -stdlib restricted_shell foo"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+			         "-stdlib", "restricted_shell", "foo"]),
     "Warning! Restricted shell module foo not found: nofile"++_ =
 	t({Node, <<"begin m() end.">>}),
     "exception exit: restricted shell does not allow m()" =
 	comm_err({Node, <<"begin m() end.">>}),
     [ok] =
 	(catch scan({Node, <<"begin q() end.">>})),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     Test = filename:join(proplists:get_value(priv_dir, Config),
 			       "test_restricted2.erl"),
     Contents = <<"-module(test_restricted2).
@@ -217,9 +216,8 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
                       {false,State}.
                  ">>,
     ok = compile_file(Config, Test, Contents, []),
-    {ok,Node2} = start_node(shell_suite_helper_2,
-				 "-pa "++proplists:get_value(priv_dir,Config)++
-				 " -stdlib restricted_shell test_restricted2"),
+    {ok, Peer2, Node2} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+				  "-stdlib", "restricted_shell", "test_restricted2"]),
     "Module" ++ _ = t({Node2,<<"begin m() end.">>, utf8}),
     "exception exit: restricted shell does not allow c(foo)" =
 	comm_err({Node2,<<"begin c(foo) end.">>}),
@@ -235,7 +233,7 @@ start_restricted_on_command_line(Config) when is_list(Config) ->
 	comm_err({Node2,<<"begin shell:stop_restricted() end.">>}),
     [ok] =
 	scan({Node2, <<"begin q() end.">>}),
-    test_server:stop_node(Node2),
+    peer:stop(Peer2),
     ok.
 
 %% Tests calling local shell functions with spectacular arguments in
@@ -258,6 +256,8 @@ restricted_local(Config) when is_list(Config) ->
                   local_allowed(_,_,State) ->
                       {false,State}.
 
+                  non_local_allowed({erlang,raise},[error, _, _],State) ->
+                      {true,State};
                   non_local_allowed({shell,stop_restricted},[],State) ->
                       {true,State};
                   non_local_allowed(_,_,State) ->
@@ -590,11 +590,11 @@ otp_5327(Config) when is_list(Config) ->
                                       default,default}]}),
     [<<"abc">>] = scan(<<"<<(<<\"abc\">>):3/binary>>.">>),
     [<<"abc">>] = scan(<<"<<(<<\"abc\">>)/binary>>.">>),
-    "exception error: bad argument" =
+    "exception error: construction of binary failed" =
         comm_err(<<"<<(<<\"abc\">>):4/binary>>.">>),
     true = byte_size(hd(scan("<<3.14:64/float>>."))) =:= 8,
     true = byte_size(hd(scan("<<3.14:32/float>>."))) =:= 4,
-    "exception error: bad argument" =
+    "exception error: construction of binary failed" =
         comm_err(<<"<<3.14:128/float>>.">>),
     "exception error: bad argument" =
         comm_err(<<"<<10:default>>.">>),
@@ -661,14 +661,10 @@ otp_5435(Config) when is_list(Config) ->
     true = <<103133.0:64/float>> =:=
         evaluate(<<"<<103133.0:64/float>> = <<103133:64/float>>.">>, []),
     true = is_alive(),
-    {ok, Node} = start_node(shell_SUITE_otp_5435),
+    {ok, Peer, Node} = ?CT_PEER(),
     ok = rpc:call(Node, ?MODULE, otp_5435_2, []),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
-
-start_node(Name) ->
-    PA = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, "-pa " ++ PA}]).
 
 otp_5435_2() ->
     true = code:del_path(compiler),
@@ -701,7 +697,7 @@ otp_5195(Config) when is_list(Config) ->
     {'EXIT',{undef,_}} = (catch evaluate(Ugly, [])),
 
     V_1 = <<"qlc:e(qlc:q([X || X <- qlc:append([[1,2,3],v(-1)])])).">>,
-    "- 1: command not found" = comm_err(V_1),
+    "-1: command not found" = comm_err(V_1),
     {'EXIT', {undef,_}} = (catch evaluate(V_1, [])),
 
     "1\n2\n3\n3.\n" =
@@ -2750,9 +2746,8 @@ prompt_err(B) ->
 
 %% OTP-10302. Unicode. Also OTP-14285, Unicode atoms.
 otp_10302(Config) when is_list(Config) ->
-    {ok,Node} = start_node(shell_suite_helper_2,
-			   "-pa "++proplists:get_value(priv_dir,Config)++
-			   " +pc unicode"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+			         "+pc", "unicode"]),
     Test1 =
         <<"begin
                io:setopts([{encoding,utf8}]),
@@ -2902,7 +2897,7 @@ otp_10302(Config) when is_list(Config) ->
     "ok.\n** exception error: undefined function "
     "shell_SUITE:'\x{447}\x{435}'/0.\n" =
         t({Node,Test17}),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 otp_13719(Config) when is_list(Config) ->
@@ -2919,9 +2914,8 @@ otp_13719(Config) when is_list(Config) ->
     ok.
 
 otp_14285(Config) ->
-    {ok,Node} = start_node(shell_suite_helper_4,
-			   "-pa "++proplists:get_value(priv_dir,Config)++
-			   " +pc unicode"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", proplists:get_value(priv_dir,Config),
+        "+pc", "unicode"]),
     Test1 =
         <<"begin
                io:setopts([{encoding,utf8}]),
@@ -2931,7 +2925,7 @@ otp_14285(Config) ->
            end.">>,
     "-record('\x{400}',{'\x{400}' = '\x{400}'}).\nok.\n" =
         t({Node,Test1}),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 otp_14296(Config) when is_list(Config) ->
@@ -3232,11 +3226,6 @@ filename(Name, Config) when is_atom(Name) ->
     filename(atom_to_list(Name), Config);
 filename(Name, Config) ->
     filename:join(proplists:get_value(priv_dir, Config), Name).
-
-start_node(Name, Xargs) ->
-    N = test_server:start_node(Name, slave, [{args, " " ++ Xargs}]),
-    global:sync(),
-    N.
 
 purge_and_delete(Module) ->
     (catch code:purge(Module)),

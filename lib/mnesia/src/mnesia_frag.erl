@@ -1,7 +1,7 @@
 %%%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1103,7 +1103,7 @@ make_add_node(Tab, Node) ->
     mnesia:abort({bad_type, Tab, Node}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Delet a node from the node pool of a fragmented table
+%% Delete a node from the node pool of a fragmented table
 
 make_multi_del_node(Tab, Node)  ->
     verify_multi(Tab),

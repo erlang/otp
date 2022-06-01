@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,16 @@
 -export([loop/0, upgrade/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
+
+-ifdef(USE_NIFS_ATTRIB).
+-nifs([lib_version/0, nif_api_version/0, get_priv_data_ptr/0]).
+-if(?USE_NIFS_ATTRIB > 1).
+-nifs([make_new_resource/2, get_resource/2, monitor_process/3]).
+-if(?USE_NIFS_ATTRIB > 2).
+-nifs([lib_version_check/0]).
+-endif.
+-endif.
+-endif.
 
 -ifdef(USE_ON_LOAD).
 -on_load(on_load/0).

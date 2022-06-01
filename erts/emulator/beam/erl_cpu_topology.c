@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include "bif.h"
 #include "erl_cpu_topology.h"
 #include "erl_flxctr.h"
+#include "erl_global_literals.h"
 
 #define ERTS_MAX_READER_GROUPS 64
 
@@ -907,12 +908,15 @@ erts_fake_scheduler_bindings(Process *p, Eterm how)
 	    erts_fprintf(stderr, " %2d", cpudata[i].logical);
 	erts_fprintf(stderr, "\n");
 #endif
-
-	hp = HAlloc(p, cpudata_size+1);
-	ERTS_BIF_PREP_RET(res, make_tuple(hp));
-	*hp++ = make_arityval((Uint) cpudata_size);
-	for (i = 0; i < cpudata_size; i++)
-	    *hp++ = make_small((Uint) cpudata[i].logical);
+        if (cpudata_size == 0) {
+            ERTS_BIF_PREP_RET(res, ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+        } else {
+            hp = HAlloc(p, cpudata_size+1);
+            ERTS_BIF_PREP_RET(res, make_tuple(hp));
+            *hp++ = make_arityval((Uint) cpudata_size);
+            for (i = 0; i < cpudata_size; i++)
+                *hp++ = make_small((Uint) cpudata[i].logical);
+        }
     }
 
     destroy_tmp_cpu_topology_copy(cpudata);
@@ -1674,8 +1678,10 @@ erts_early_init_cpu_topology(int no_schedulers,
 			     int max_reader_groups,
 			     int *reader_groups_p,
                              int max_decentralized_counter_groups,
-                             int *decentralized_counter_groups_p)
+                             int *decentralized_counter_groups_p,
+                             int skip_read_topology)
 {
+    erts_cpu_info_update(cpuinfo, skip_read_topology);
     user_cpudata = NULL;
     user_cpudata_size = 0;
 
@@ -1758,7 +1764,7 @@ erts_update_cpu_info(void)
 {
     int changed;
     erts_rwmtx_rwlock(&cpuinfo_rwmtx);
-    changed = erts_cpu_info_update(cpuinfo);
+    changed = erts_cpu_info_update(cpuinfo, 0);
     if (changed) {
 	erts_cpu_topology_t *cpudata;
 	int cpudata_size;

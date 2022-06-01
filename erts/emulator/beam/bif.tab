@@ -83,7 +83,6 @@ bif erlang:phash2/1
 bif erlang:phash2/2
 ubif erlang:hd/1
 bif erlang:integer_to_list/1
-bif erlang:is_alive/0
 ubif erlang:length/1
 bif erlang:link/1
 bif erlang:list_to_atom/1
@@ -110,7 +109,9 @@ bif erlang:monitor_node/2
 bif erlang:monitor_node/3
 ubif erlang:node/1
 ubif erlang:node/0
+bif erlang:nodes/0
 bif erlang:nodes/1
+bif erlang:nodes/2
 bif erlang:now/0
 bif erlang:monotonic_time/0
 bif erlang:monotonic_time/1

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,8 +41,7 @@
 -define(ENSURE_TIME,5000).
 
 suite() ->
-    [{timetrap,{seconds,30}},
-     {ct_hooks,[logger_test_lib]}].
+    [{timetrap,{seconds,30}}].
 
 init_per_suite(Config) ->
     Config.
@@ -109,18 +108,18 @@ emulator(cleanup,_Config) ->
     ok = logger:remove_handler(?HNAME).
 
 remote(Config) ->
-    {ok,_,Node} = logger_test_lib:setup(Config,[{logger,[{proxy,#{}}]}]),
+    {ok,_,Peer,Node} = logger_test_lib:setup(Config,[{logger,[{proxy,#{}}]}]),
     ok = logger:add_handler(?HNAME,?MODULE,#{config=>self()}),
     L1 = ?LOC, spawn(Node,fun() -> logger:notice("Log from ~p; ~p",[?FUNCTION_NAME,?LINE],L1) end),
     ok = ensure(L1),
     L2 = ?LOC, spawn(Node,fun() -> logger:notice([{test_case,?FUNCTION_NAME},{line,?LINE}],L2) end),
     ok = ensure(L2),
-    ok.
+    ok = peer:stop(Peer).
 remote(cleanup,_Config) ->
     ok = logger:remove_handler(?HNAME).
 
 remote_disconnect(Config) ->
-    {ok,_,Node} = logger_test_lib:setup(Config,[{logger,[{proxy,#{}}]}]),
+    {ok,_,Peer,Node} = logger_test_lib:setup(Config,[{logger,[{proxy,#{}}]}]),
     ok = logger:add_handler(?HNAME,?MODULE,#{config=>self()}),
     RemoteGL = rpc:call(Node, erlang, whereis, [user]),
     net_kernel:disconnect(Node),
@@ -128,16 +127,16 @@ remote_disconnect(Config) ->
     ok = ensure(L1),
     L2 = ?LOC#{ gl => RemoteGL }, logger:notice([{test_case,?FUNCTION_NAME},{line,?LINE}],L2),
     ok = ensure(L2),
-    ok.
+    ok = peer:stop(Peer).
 remote_disconnect(cleanup,_Config) ->
     ok = logger:remove_handler(?HNAME).
 
 remote_emulator(Config) ->
-    {ok,_,Node} = logger_test_lib:setup(Config,[{logger,[{proxy,#{}}]}]),
+    {ok,_,Peer,Node} = logger_test_lib:setup(Config,[{logger,[{proxy,#{}}]}]),
     ok = logger:add_handler(?HNAME,?MODULE,#{config=>self()}),
     Pid = spawn(Node,fun() -> erlang:error(some_reason) end),
     ok = ensure(#{pid=>Pid}),
-    ok.
+    ok = peer:stop(Peer).
 remote_emulator(cleanup,_Config) ->
     ok = logger:remove_handler(?HNAME).
 

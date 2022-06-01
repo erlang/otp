@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 %%%----------------------------------------------------------------------
 %%% File    : fprof.erl
 %%% Author  : Raimo Niskanen <raimo@erix.ericsson.se>
-%%% Purpose : File tracing profiling tool wich accumulated times.
+%%% Purpose : File tracing profiling tool which accumulated times.
 %%% Created : 18 Jun 2001 by Raimo Niskanen <raimo@erix.ericsson.se>
 %%%----------------------------------------------------------------------
 

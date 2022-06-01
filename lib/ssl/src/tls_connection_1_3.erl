@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -560,7 +560,7 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
     tls_client_ticket_store:store_ticket(NewSessionTicket, {Cipher, HKDF}, SNI, PSK).
 
 send_ticket_data(User, NewSessionTicket, CipherSuite, SNI, PSK) ->
-    Timestamp = erlang:system_time(seconds),
+    Timestamp = erlang:system_time(millisecond),
     TicketData = #{cipher_suite => CipherSuite,
                    sni => SNI,
                    psk => PSK,

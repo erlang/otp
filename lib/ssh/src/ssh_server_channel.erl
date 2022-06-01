@@ -25,7 +25,7 @@
 
 -module(ssh_server_channel).
 
-%% API to server side channel that can be pluged into the erlang ssh daemeon
+%% API to server side channel that can be plugged into the erlang ssh daemeon
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
     {stop, Reason :: term()} | ignore.

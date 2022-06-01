@@ -63,7 +63,7 @@ suite() ->
     ].
 
 all() ->
-    %% This is a temporary messure to ensure that we can 
+    %% This is a temporary measure to ensure that we can 
     %% test the socket backend without effecting *all*
     %% applications on *all* machines.
     %% This flag is set only for *one* host.
@@ -244,14 +244,11 @@ init_per_group(t_local = _GroupName, Config) ->
             {skip, "AF_LOCAL not supported"}
     end;
 init_per_group(sockaddr = _GroupName, Config) ->
-    try socket:info() of
-	_ ->
-            Config
-    catch
-        error : notsup ->
-            {skip, "esock not supported"};
-        error : undef ->
-            {skip, "esock not configured"}
+    case is_socket_supported() of
+        ok ->
+            Config;
+        {skip, _} = SKIP ->
+            SKIP
     end;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -424,9 +421,9 @@ do_recv_delim(Config) ->
     ok = gen_tcp:send(A, "abcXefgX"),
 
     ?P("await the first chunk"),
-    receive {tcp, Client, "abcX"} -> ?P("received first chunck") end,
+    receive {tcp, Client, "abcX"} -> ?P("received first chunk") end,
     ?P("await the second chunk"),
-    receive {tcp, Client, "efgX"} -> ?P("received second chunck") end,
+    receive {tcp, Client, "efgX"} -> ?P("received second chunk") end,
 
     ?P("cleanup"),
     ok = gen_tcp:close(Client),
@@ -629,7 +626,7 @@ do_t_fdconnect(Config) ->
                 ct:fail({unexpected_listen_error, LReason, LOpts})
         catch
             LC : LE : LS ->
-                ?P("UNEXPECTED ERROR - catched listen: "
+                ?P("UNEXPECTED ERROR - caught listen: "
                    "~n   LOpts: ~p"
                    "~n   C:     ~p"
                    "~n   E:     ~p"
@@ -655,7 +652,7 @@ do_t_fdconnect(Config) ->
                      ct:fail({unexpected_connect_error, CReason, COpts})
              catch
                  CC : CE : CS ->
-                     ?P("UNEXPECTED ERROR - catched connect: "
+                     ?P("UNEXPECTED ERROR - caught connect: "
                         "~n   COpts: ~p"
                         "~n   C:     ~p"
                         "~n   E:     ~p"
@@ -677,7 +674,7 @@ do_t_fdconnect(Config) ->
                      ct:fail({unexpected_accept_error, AReason})
              catch
                  AC : AE : AS ->
-                     ?P("UNEXPECTED ERROR - catched accept: "
+                     ?P("UNEXPECTED ERROR - caught accept: "
                         "~n   C: ~p"
                         "~n   E: ~p"
                         "~n   S: ~p", [AC, AE, AS]),
@@ -1336,34 +1333,36 @@ do_simple_sockaddr_send_recv(SockAddr, _) ->
 %% we have to skip on that platform.
 s_accept_with_explicit_socket_backend(Config) when is_list(Config) ->
     ?TC_TRY(s_accept_with_explicit_socket_backend,
-            fun() ->
-                    is_not_windows(),
-                    is_socket_supported()
-            end,
+            fun() -> is_socket_supported() end,
             fun() -> do_s_accept_with_explicit_socket_backend() end).
 
 do_s_accept_with_explicit_socket_backend() ->
+    ?P("try create listen socket"),
     {ok, S}         = gen_tcp:listen(0, [{inet_backend, socket}]),
+    ?P("try get port number (via sockname)"),
     {ok, {_, Port}} = inet:sockname(S),
     ClientF = fun() ->
+                      ?P("[client] try connect (tp ~p)", [Port]),
 		      {ok, _} = gen_tcp:connect("localhost", Port, []),
-		      receive die -> exit(normal) after infinity -> ok end
+                      ?P("[client] connected - wait for termination command"),
+		      receive
+                          die ->
+                              ?P("[client] termination command received"),
+                              exit(normal)
+                      after infinity -> ok
+                      end
 	      end,
+    ?P("create client"),
     Client = spawn_link(ClientF),
+    ?P("try accept"),
     {ok, _} = gen_tcp:accept(S),
+    ?P("accepted - command client to terminate"),
     Client ! die,
+    ?P("done"),
     ok.
 
 
 %%% Utilities
-
-is_not_windows() ->
-    case os:type() of
-        {win32, _} ->
-            {skip, "Windows not supported"};
-        _ ->
-            ok
-    end.
 
 is_socket_supported() ->
     try socket:info() of

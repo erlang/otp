@@ -34,7 +34,7 @@
     <title>Introduction</title>
     <p>The socket interface (module) is basically a "thin" layer on top of
     the OS socket interface. It is assumed that, unless you have special needs,
-    gen_[tcp|udp|sctp] should be sufficent (when they become available). </p>
+    gen_[tcp|udp|sctp] should be sufficient (when they become available). </p>
     <p>Note that just because we have a documented and described option,
     it does <em>not</em> mean that the OS supports it. So its recommended
     that the user reads the platform specific documentation for the
@@ -352,7 +352,7 @@
 	  Since our implementation is <em>nonblocking</em>,
 	  its unknown if and how this option works, or even if
 	  it may cause malfunctions.
-	  Therefor, we do not recommend setting this option.
+	  Therefore, we do not recommend setting this option.
 	  Instead, use the <c>Timeout</c> argument to, for instance,
 	  the
 	  <seemfa marker="socket#recv/3"><c>recv/3</c></seemfa>
@@ -400,7 +400,7 @@
 	  Since our implementation is <em>nonblocking</em>,
 	  its unknown if and how this option works, or even if
 	  it may cause malfunctions.
-	  Therefor, we do not recommend setting this option.
+	  Therefore, we do not recommend setting this option.
 	  Instead, use the <c>Timeout</c> argument to, for instance,
 	  the
 	  <seemfa marker="socket#send/3"><c>send/3</c></seemfa>

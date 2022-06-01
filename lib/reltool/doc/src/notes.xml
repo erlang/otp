@@ -404,7 +404,7 @@
 	    reltool config does not contain all applications that are
 	    listed as <c>{applications,Applications}</c> in a
 	    <c>.app</c> file, then these applications are
-	    autmatically added when creating the <c>.rel</c> file.
+	    automatically added when creating the <c>.rel</c> file.
 	    For 'included_applications', the behaviour was not the
 	    same. I.e. if a <c>rel</c> spec in the reltool config did
 	    not contain all applications that are listed as
@@ -508,7 +508,7 @@
 	    <item> Status bar now indicates that reltool is working
 	    (Processing libraries...) for all configuration changes,
 	    and when generating target system. </item> <item> Title
-	    of dependecies column in app and mod window is changed
+	    of dependencies column in app and mod window is changed
 	    from "Modules used by others" to "Modules using this".
 	    </item> </list>
           <p>
@@ -668,7 +668,7 @@
           <p>
 	    Allow the same module name in multiple applications
 	    visible to reltool, as long as all but one of the
-	    applications/modules are explicitely excluded. (Thanks to
+	    applications/modules are explicitly excluded. (Thanks to
 	    Andrew Gopienko and Jay Nelson)</p>
           <p>
 	    Own Id: OTP-9229</p>

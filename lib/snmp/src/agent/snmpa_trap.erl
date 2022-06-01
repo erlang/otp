@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,11 +33,6 @@
 	 init_v3_inform/9, init_v3_inform/10, init_v3_inform/11, 
 	 send_inform/6]).
 -export([init_discovery_inform/13, send_discovery_inform/5]).
-
-%% <BACKWARD-COMPAT>
--export([send_discovery/5, 
-	 init_discovery_inform/12]).
-%% </BACKWARD-COMPAT>
 
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/src/agent/snmpa_internal.hrl").
@@ -74,9 +69,9 @@
 %%   operation, and so on, until eventually the MA will receive the
 %%   info. The MA then fills in the gaps, and at this point all
 %%   oids and types must be known, otherwise an error is signalled,
-%%   and the opertaion is aborted. For the unknown values for some 
+%%   and the operation is aborted. For the unknown values for some 
 %%   oids, a get-operation is performed by the MA. This will
-%%   retreive the missing values.
+%%   retrieve the missing values.
 %%   At this point, all oid, types and values are known, so the MA
 %%   can distribute the traps according to the information in the
 %%   internal tables.
@@ -128,7 +123,7 @@
 %%          Initialize as many variables as possible.
 %% Returns: {ok, TrapRecord, <list of Var>} | error
 %%          where Var is returned from initiate_vars.
-%% NOTE: Executed at the inital SA
+%% NOTE: Executed at the initial SA
 %%-----------------------------------------------------------------
 construct_trap(Trap, Varbinds) ->
     ?vdebug("construct_trap -> entry with"
@@ -218,7 +213,7 @@ alias2oid(Alias, Append) ->
 %%            {{Process, VariableOid}, Value} |
 %%            {{Process, VariableAtom}, Value} |
 %%            {TableColAtom, RowIndex, Value}
-%% NOTE: Executed at the inital SA
+%% NOTE: Executed at the initial SA
 %%-----------------------------------------------------------------
 initiate_vars([{Oid, Asn1Type} | T], Varbinds) ->
     case delete_oid_from_varbinds(Oid, Varbinds) of
@@ -410,7 +405,7 @@ send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, ExtraInfo, NetIf) ->
 	      LocalEngineID, ExtraInfo, NetIf).
 
 %% The agent normally does not care about the result, 
-%% but since it can be usefull when debugging, add 
+%% but since it can be useful when debugging, add 
 %% some info when we fail to send the trap(s).
 send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID, 
 	  ExtraInfo, NetIf) ->
@@ -438,9 +433,6 @@ do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs,
     send_trap_pdus(Dests, ContextName, {TrapRec, VarbindList}, [], [], [],
 		   Recv, LocalEngineID, ExtraInfo, NetIf).
 
-send_discovery(TargetName, Record, ContextName, Vbs, NetIf) ->
-    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
-    send_discovery(TargetName, Record, ContextName, Vbs, NetIf, ExtraInfo).
 send_discovery(TargetName, Record, ContextName, Vbs, NetIf, ExtraInfo) ->
     case find_dest(TargetName) of
 	{ok, Dest} ->
@@ -715,16 +707,6 @@ send_discovery_pdu(Record, Dest, Vbs,
 				  ExtraInfo]),
     {ok, Sender, SecLevel}.
 
-init_discovery_inform(Parent, 
-		      Dest, 
-		      SecModel, SecName, SecLevel, TargetName, 
-		      ContextName, Timeout, Retry, Vbs, NetIf, Verbosity) ->
-    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
-    init_discovery_inform(Parent, 
-			  Dest, 
-			  SecModel, SecName, SecLevel, TargetName, 
-			  ContextName, Timeout, Retry, Vbs, NetIf, 
-			  Verbosity, ExtraInfo).
 init_discovery_inform(Parent, 
 		      Dest, 
 		      SecModel, SecName, SecLevel, TargetName, 

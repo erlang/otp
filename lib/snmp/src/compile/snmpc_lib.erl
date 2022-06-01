@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -903,7 +903,7 @@ test_index_positions(Line, Indexes, ColMEs) ->
     TLI   = lists:filter(IsTLI, Indexes),
     test_index_positions_impl(Line, TLI, ColMEs).
 
-%% An table that augments another cannot conatin any index, 
+%% An table that augments another cannot contain any index, 
 %% so the first non-index column is always the first column.
 augments_first_non_index_column([]) ->
     none;

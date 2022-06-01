@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@
 -record(ssh_msg_userauth_passwd_changereq,
 	{
 	  prompt,     %% string
-	  languge     %% string
+	  language     %% string
 	 }).
 
 -record(ssh_msg_userauth_pk_ok,

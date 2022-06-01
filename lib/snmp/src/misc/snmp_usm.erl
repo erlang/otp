@@ -411,7 +411,7 @@ des_decrypt(PrivKey, MsgPrivParams, EncData)
     DesKey = [A,B,C,D,E,F,G,H],
     Salt = MsgPrivParams,
     IV = list_to_binary(snmp_misc:str_xor(PreIV, Salt)),
-    %% Whatabout errors here???  E.g. not a mulitple of 8!
+    %% Whatabout errors here???  E.g. not a multiple of 8!
     Data = binary_to_list(crypto:crypto_one_time(?BLOCK_CIPHER_DES, 
                                                  DesKey, IV, EncData, false)),
     Data2 = snmp_pdus:strip_encrypted_scoped_pdu_data(Data),
@@ -438,7 +438,7 @@ aes_decrypt(PrivKey, MsgPrivParams, EncData, EngineBoots, EngineTime)
     AesKey = PrivKey,
     Salt = MsgPrivParams,
     IV = list_to_binary([?i32(EngineBoots), ?i32(EngineTime) | Salt]),
-    %% Whatabout errors here???  E.g. not a mulitple of 8!
+    %% Whatabout errors here???  E.g. not a multiple of 8!
     Data = binary_to_list(crypto:crypto_one_time(?BLOCK_CIPHER_AES(AesKey),
                                                  AesKey, IV, EncData, false)),
     Data2 = snmp_pdus:strip_encrypted_scoped_pdu_data(Data),

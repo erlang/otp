@@ -74,7 +74,7 @@
 	  versions</seeguide> of the same application installed in the
 	  system, but you do not use a
 	  <seeguide marker="system/system_principles:system_principles#BOOTSCRIPT">boot
-	  script</seeguide> identifing the correct application version.</p>
+	  script</seeguide> identifying the correct application version.</p>
 	  </item>
 	</taglist>
 	<p>Currently the sanity check is limited to verifying

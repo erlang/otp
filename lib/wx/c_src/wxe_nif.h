@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2019-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2019-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ extern ERL_NIF_TERM WXE_ATOM__wx_invoke_cb_;
 extern ERL_NIF_TERM WXE_ATOM_define;
 extern ERL_NIF_TERM WXE_ATOM_global;
 
-/* Used for comparsions */
+/* Used for comparisons */
 extern ERL_NIF_TERM WXE_ATOM_wxWindow;
 extern ERL_NIF_TERM WXE_ATOM_wxSizer;
 
@@ -116,3 +116,7 @@ void stop_native_gui(ErlNifEnv *);
 /* wxe_ps_init */
 void * wxe_ps_init();
 void * wxe_ps_init2();
+
+#ifdef  _MACOSX
+int is_packaged_app();
+#endif

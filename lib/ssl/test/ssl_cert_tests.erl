@@ -32,12 +32,12 @@
          client_auth_empty_cert_accepted/1,
          client_auth_empty_cert_rejected/0,
          client_auth_empty_cert_rejected/1,
-         client_auth_partial_chain/0,
-         client_auth_partial_chain/1,
-         client_auth_allow_partial_chain/0,
-         client_auth_allow_partial_chain/1,
-         client_auth_do_not_allow_partial_chain/0,
-         client_auth_do_not_allow_partial_chain/1,
+         client_auth_no_suitable_chain/0,
+         client_auth_no_suitable_chain/1,
+         client_auth_use_partial_chain/0,
+         client_auth_use_partial_chain/1,
+         client_auth_do_not_use_partial_chain/0,
+         client_auth_do_not_use_partial_chain/1,
          client_auth_partial_chain_fun_fail/0,
          client_auth_partial_chain_fun_fail/1,
          client_auth_sni/0,
@@ -99,8 +99,7 @@ auth(Config) ->
 
 %%--------------------------------------------------------------------
 client_auth_empty_cert_accepted() ->
-    [{doc,"Test client authentication when client sends an empty certificate and " 
-      "fail_if_no_peer_cert is set to false."}].
+    [{doc,"Client sends empty cert chain as no cert is configured and server allows it"}].
 
 client_auth_empty_cert_accepted(Config) ->
     ClientOpts = proplists:delete(keyfile,
@@ -112,8 +111,7 @@ client_auth_empty_cert_accepted(Config) ->
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 %%--------------------------------------------------------------------
 client_auth_empty_cert_rejected() ->
-     [{doc,"Test client authentication when client sends an empty certificate and " 
-       "fail_if_no_peer_cert is set to true."}].
+    [{doc,"Client sends empty cert chain as no cert is configured"}].
 
 client_auth_empty_cert_rejected(Config) ->
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
@@ -131,10 +129,10 @@ client_auth_empty_cert_rejected(Config) ->
             ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, handshake_failure)
     end.
 %%--------------------------------------------------------------------
-client_auth_partial_chain() ->
-    [{doc, "Client sends an incomplete chain, by default not acceptable."}].
+client_auth_no_suitable_chain() ->
+    [{doc, "Client sends an empty cert chain as no suitable chain is found."}].
 
-client_auth_partial_chain(Config) when is_list(Config) ->
+client_auth_no_suitable_chain(Config) when is_list(Config) ->
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
 		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
     ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
@@ -142,19 +140,36 @@ client_auth_partial_chain(Config) when is_list(Config) ->
     [{_,RootCA,_} | _] = public_key:pem_decode(ClientCAs),
     ClientOpts =  [{cacerts, [RootCA]} |
                    proplists:delete(cacertfile, ClientOpts0)],
-    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca).
+    Version = proplists:get_value(version,Config),
+
+    case Version of
+        'tlsv1.3' ->
+            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required);
+        _ ->
+            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, handshake_failure)
+    end.
+
     
 %%--------------------------------------------------------------------
-client_auth_allow_partial_chain() ->
-    [{doc, "Server trusts intermediat CA and accepts a partial chain. (partial_chain option)"}].
+client_auth_use_partial_chain() ->
+    [{doc, "Client trusts intermediat CA and verifies the shorter chain."}].
 
-client_auth_allow_partial_chain(Config) when is_list(Config) ->
-    ServerOpts0 = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
-    ClientOpts = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
-    {ok, ClientCAs} = file:read_file(proplists:get_value(cacertfile, ClientOpts)),
-    [{_,_,_}, {_, IntermidiateCA, _} | _] = public_key:pem_decode(ClientCAs),
-
+client_auth_use_partial_chain(Config) when is_list(Config) ->
+    Prop = proplists:get_value(tc_group_properties, Config),
+    DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(proplists:get_value(name, Prop)),
+    {Year, Month, Day} = date(),
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                                                        [{server_chain,
+                                                                          [[{validity, {{Year-2, Month, Day},
+                                                                                        {Year-1, Month, Day}}}],
+                                                                           [],
+                                                                           []
+                                                                          ]},
+                                                                         {client_chain, DefaultCertConf}]),
+    ClientOpts = ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config),
+    ServerOpts = ssl_test_lib:ssl_options(extra_server, ServerOpts0, Config),
+    [_, IntermidiateCA, _] = proplists:get_value(cacerts, ServerOpts),
     PartialChain =  fun(CertChain) ->
 			    case lists:member(IntermidiateCA, CertChain) of
 				true ->
@@ -163,52 +178,58 @@ client_auth_allow_partial_chain(Config) when is_list(Config) ->
 				    unknown_ca
 			    end
 		    end,
-    ServerOpts = [{cacerts, [IntermidiateCA]},
-                  {partial_chain, PartialChain} |
-                  proplists:delete(cacertfile, ServerOpts0)],
-
-    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+    ssl_test_lib:basic_test([{verify, verify_peer}, {partial_chain, PartialChain} |ClientOpts], ServerOpts, Config).
 
  %%--------------------------------------------------------------------
-client_auth_do_not_allow_partial_chain() ->
-    [{doc, "Server does not accept the chain sent by the client as ROOT CA is unknown, "
-      "and we do not choose to trust the intermediate CA. (partial_chain option)"}].
+client_auth_do_not_use_partial_chain() ->
+    [{doc, "Client does not trust an intermediat CA and fails the connetion as ROOT has expired"}].
 
-client_auth_do_not_allow_partial_chain(Config) when is_list(Config) ->
-    ServerOpts0 = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
-    ClientOpts = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
-    {ok, ServerCAs} = file:read_file(proplists:get_value(cacertfile, ServerOpts0)),
-    [{_,_,_}, {_, IntermidiateCA, _} | _] = public_key:pem_decode(ServerCAs),
-
+client_auth_do_not_use_partial_chain(Config) when is_list(Config) ->
+    Prop = proplists:get_value(tc_group_properties, Config),
+    DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(proplists:get_value(name, Prop)),
+    {Year, Month, Day} = date(),
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                                                        [{server_chain,
+                                                                          [[{validity, {{Year-2, Month, Day},
+                                                                                        {Year-1, Month, Day}}}],
+                                                                           [],
+                                                                           []
+                                                                          ]},
+                                                                         {client_chain, DefaultCertConf}]),
     PartialChain =  fun(_CertChain) ->
 			    unknown_ca
 		    end,
-    ServerOpts = [{cacerts, [IntermidiateCA]},
-                  {partial_chain, PartialChain} |
-                  proplists:delete(cacertfile, ServerOpts0)],
-    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca).
+    ClientOpts = [{verify, verify_peer}, {partial_chain, PartialChain} | ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config)],
+    ServerOpts = ssl_test_lib:ssl_options(extra_server, ServerOpts0, Config),
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_expired).
     
  %%--------------------------------------------------------------------
 client_auth_partial_chain_fun_fail() ->
-    [{doc, "If parial_chain fun crashes, treat it as if it returned unkown_ca"}].
+    [{doc, "If partial_chain fun crashes, treat it as if it returned unkown_ca"}].
 
 client_auth_partial_chain_fun_fail(Config) when is_list(Config) ->
-    ServerOpts0 = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-                   | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
-    ClientOpts = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
+    Prop = proplists:get_value(tc_group_properties, Config),
+    DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(proplists:get_value(name, Prop)),
+    {Year, Month, Day} = date(),
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                                                        [{server_chain,
+                                                                          [[{validity, {{Year-2, Month, Day},
+                                                                                        {Year-1, Month, Day}}}],
+                                                                           [],
+                                                                           []
+                                                                          ]},
+                                                                         {client_chain, DefaultCertConf}]),
 
-    {ok, ServerCAs} = file:read_file(proplists:get_value(cacertfile, ServerOpts0)),
-    [{_,_,_}, {_, IntermidiateCA, _} | _] = public_key:pem_decode(ServerCAs),
 
     PartialChain = fun(_CertChain) ->
                            error(crash_on_purpose)
                    end,
-    ServerOpts = [{cacerts, [IntermidiateCA]},
-                  {partial_chain, PartialChain} |
-                  proplists:delete(cacertfile, ServerOpts0)],
+    ClientOpts = [{verify, verify_peer}, {partial_chain, PartialChain} | ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config)],
+    ServerOpts = [ssl_test_lib:ssl_options(extra_server, ServerOpts0, Config)],
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_expired).
     
-    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca).
 
 %%--------------------------------------------------------------------
 client_auth_sni() ->
@@ -286,8 +307,17 @@ invalid_signature_client(Config) when is_list(Config) ->
     NewClientDerCert = public_key:pkix_sign(ClientOTPTbsCert, Key),
     ssl_test_lib:der_to_pem(NewClientCertFile, [{'Certificate', NewClientDerCert, not_encrypted}]),
     ClientOpts = [{certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts0)],
-    ServerOpts = [{verify, verify_peer} | ServerOpts0],
-    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca).
+    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true} | ServerOpts0],
+    Version = proplists:get_value(version,Config),
+
+    case Version of
+        'tlsv1.3' ->
+            %% Client will not be able to create chain to send that matches
+            %% certificate authorities
+            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required);
+        _ ->
+            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca)
+    end.
 
 %%--------------------------------------------------------------------
 invalid_signature_server() ->

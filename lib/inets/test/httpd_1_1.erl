@@ -244,7 +244,7 @@ head(Type, Port, Host, Node)->
 			 [{statuscode, 200}]),
     %% mod_cgi
     Script =
-	case test_server:os_type() of
+	case os:type() of
 	    {win32, _} ->
 		"printenv.bat";
 	    _ ->

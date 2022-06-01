@@ -13,10 +13,10 @@
 %% (in another process) to handle the event. The callback should be of
 %% arity 2.  fun(EventRecord::wx(), EventObject::wxObject()).
 %%
-%% Beware that the callback will be in executed in new process each time.
+%% Beware that the callback will be executed in a new process each time.
 %%
 %% <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevthandler.html">
-%% The orginal documentation</a>. 
+%% The original documentation</a>. 
 %%
 %%
 -module(wxEvtHandler).
@@ -51,8 +51,9 @@ connect(This, EventType) ->
 %%    {skip,  boolean()},   If skip is true further event_handlers will be called.
 %%                          This is not used if the 'callback' option is used. 
 %%                          Default false.
+%%    callback              Use `wx_object' callback `handle_sync_event/3'.
 %%    {callback, function()} Use a callback fun(EventRecord::wx(), EventObject::wxObject()) 
-%%                          to process the event. Default not specfied i.e. a message will
+%%                          to process the event. Default not specified i.e. a message will
 %%                          be delivered to the process calling this function.
 %%    {userData, term()}    An erlang term that will be sent with the event. Default: [].
 -spec connect(This::wxEvtHandler(), EventType::wxEventType(), [Option]) -> 'ok' when

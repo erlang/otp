@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -474,7 +474,7 @@ delete_context(Key) ->
    
 %%-----------------------------------------------------------------
 %% Instrumentation functions
-%% Retreive functions are also used internally by the agent, so
+%% Retrieve functions are also used internally by the agent, so
 %% don't change the interface without changing those functions.
 %% Note that if these functions implementations are changed,
 %% an error can make the agent crash, as no error detection is

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -250,7 +250,7 @@ msg_code(Num) -> Name
 -include_lib("ssh/src/ssh_connect.hrl").
 -include_lib("ssh/src/ssh_transport.hrl").
 
-%%% Encoding and decodeing is asymetric so out=binary in=string. Sometimes. :(
+%%% Encoding and decoding is asymmetric so out=binary in=string. Sometimes. :(
 -define(fix_asym_Xdh_reply(S),
  fix_asym(#S{public_host_key = Key, h_sig = {Alg,Sig}} = M) ->
       M#S{public_host_key = {Key, list_to_atom(Alg)}, h_sig = Sig}

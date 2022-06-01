@@ -32,7 +32,7 @@
 -export([
          skip_old_solaris/1,
          basic/1,
-         api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
+         api_open_close/1,api_listen/1,api_connect_init/1,api_connectx_init/1,api_opts/1,
          xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
          open_multihoming_ipv4_socket/1,
          open_unihoming_ipv6_socket/1,
@@ -48,7 +48,8 @@
          t_simple_local_sockaddr_in_send_recv/1,
          t_simple_link_local_sockaddr_in_send_recv/1,
          t_simple_local_sockaddr_in6_send_recv/1,
-         t_simple_link_local_sockaddr_in6_send_recv/1
+         t_simple_link_local_sockaddr_in6_send_recv/1,
+         t_simple_local_sockaddr_in_connectx_init/1
         ]).
 
 suite() ->
@@ -87,7 +88,7 @@ old_solaris_cases() ->
 
 extensive_cases() ->
     [
-     api_open_close, api_listen, api_connect_init,
+     api_open_close, api_listen, api_connect_init, api_connectx_init,
      api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
      open_multihoming_ipv4_socket,
      open_unihoming_ipv6_socket,
@@ -105,7 +106,8 @@ sockaddr_cases() ->
      t_simple_local_sockaddr_in_send_recv,
      t_simple_link_local_sockaddr_in_send_recv,
      t_simple_local_sockaddr_in6_send_recv,
-     t_simple_link_local_sockaddr_in6_send_recv
+     t_simple_link_local_sockaddr_in6_send_recv,
+     t_simple_local_sockaddr_in_connectx_init
     ].
 
 
@@ -178,7 +180,14 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(_Case, Config) ->
+init_per_testcase(api_connectx_init=Case, Config) ->
+    check_sctp_connectx(Case, Config);
+init_per_testcase(t_simple_local_sockaddr_in_connectx_init=Case, Config) ->
+    check_sctp_connectx(Case, Config);
+init_per_testcase(Case, Config) ->
+    init_per_testcase_common(Case, Config).
+    
+init_per_testcase_common(_Case, Config) ->
 
     ?P("init_per_testcase -> entry with"
        "~n   Config:   ~p"
@@ -215,6 +224,21 @@ end_per_testcase(_Case, Config) ->
 
 
 -define(LOGVAR(Var), begin io:format(??Var" = ~p~n", [Var]) end).
+-define(no_return(Expr), error({unexpected, Expr})).
+
+check_sctp_connectx(Case, Config) ->
+    {ok,S} = gen_sctp:open([]),
+    try
+        {ok,Pb} = inet:port(S),
+        case gen_sctp:connectx_init(S, [{127,0,0,1}], Pb, []) of
+            {error, enotsup} ->
+                {skip, "sctp_connectx unsupported"};
+            _ ->
+                init_per_testcase_common(Case, Config)
+        end
+    after
+        gen_sctp:close(S)
+    end.
 
 is_old_solaris() ->
     os:type() =:= {unix,sunos} andalso os:version() < {5,12,0}.
@@ -798,6 +822,40 @@ api_connect_init(Config) when is_list(Config) ->
     ok = gen_sctp:close(Sb),
     ok.
 
+%% Test the API function connectx_init/4.
+api_connectx_init(Config) when is_list(Config) ->
+    Localhost = {127,0,0,1},
+
+    {ok,S} = gen_sctp:open(),
+    {ok,Pb} = inet:port(S),
+    try ?no_return(gen_sctp:connectx_init(S, Localhost, 12345, []))
+    catch error:badarg -> ok
+    end,
+    {error, einval} = gen_sctp:connectx_init(S, [Localhost], not_allowed_for_port, []),
+    %% try ?no_return(gen_sctp:connectx_init(S, [Localhost], not_allowed_for_port, []))
+    %% catch error:badarg -> ok
+    %% end,
+    try ?no_return(gen_sctp:connectx_init(S, [Localhost], 12345, not_allowed_for_opts))
+    catch error:badarg -> ok
+    end,
+    ok = gen_sctp:close(S),
+    {error,closed} = gen_sctp:connectx_init(S, [Localhost], 12345, []),
+
+    {ok,Sb} = gen_sctp:open(Pb),
+    {ok,Sa} = gen_sctp:open(),
+    {ok, A1} = gen_sctp:connectx_init(Sa, [localhost], Pb, []),
+    true = (A1 =/= 0),
+    {Localhost,Pb,#sctp_assoc_change{state=cant_assoc, assoc_id = A1}} =
+	recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
+    ok = gen_sctp:listen(Sb, true),
+    {ok, A2} = gen_sctp:connectx_init(Sa, [localhost], Pb, []),
+    true = (A2 =/= 0),
+    {Localhost,Pb,#sctp_assoc_change{state=comm_up, assoc_id = A2}} =
+	recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
+    ok = gen_sctp:close(Sa),
+    ok = gen_sctp:close(Sb),
+    ok.
+
 recv_event({Addr, Port, [], #sctp_assoc_change{} = AssocChange}) ->
     {Addr, Port, AssocChange};
 recv_event({Addr,Port,
@@ -862,7 +920,7 @@ do_implicit_inet6(_Config) ->
                     {error, nxdomain = Reason_getaddr} ->
                         ?SKIPT(Reason_getaddr);
                     {error, Reason_getaddr} ->
-                        ?line ct:fail({unexpected, Reason_getaddr})
+                        ct:fail({unexpected, Reason_getaddr})
                 end,
             S2 = case gen_sctp:open(0, [{ip, Localhost}]) of
                      {ok, S} ->
@@ -870,7 +928,7 @@ do_implicit_inet6(_Config) ->
                      {error, nxdomain = Reason_open} ->
                          ?SKIPT(Reason_open);
                      {error, Reason_open} ->
-                         ?line ct:fail({unexpected, Reason_open})
+                         ct:fail({unexpected, Reason_open})
                  end,
 
             ?P("*** ~s: ~p ***", ["localhost", Localhost]),
@@ -1920,7 +1978,7 @@ recv_close(Config) when is_list(Config) ->
                "~n   ~p", [PreReason]),
             (catch gen_sctp:close(S)),
             (catch gen_sctp:close(C)),
-            ?line ct:fail("Unexpected pre close from reader (~p): ~p",
+            ct:fail("Unexpected pre close from reader (~p): ~p",
                           [Pid, PreReason]);
         {Pid, ready} ->
             ?P("reader ready"),
@@ -1932,7 +1990,7 @@ recv_close(Config) when is_list(Config) ->
             ?P("reader ready timeout"),
             (catch gen_sctp:close(S)),
             (catch gen_sctp:close(C)),
-            ?line ct:fail("Unexpected pre close timeout (~p)", [Pid])
+            ct:fail("Unexpected pre close timeout (~p)", [Pid])
     end,
 
     ?P("\"ensure\" reader reading..."),
@@ -1942,7 +2000,7 @@ recv_close(Config) when is_list(Config) ->
                "~n   ~p", [Any]),
             (catch gen_sctp:close(S)),
             (catch gen_sctp:close(C)),
-            ?line ct:fail("Unexpected message: ~p", [Any])
+            ct:fail("Unexpected message: ~p", [Any])
     after 5000 ->
             ok
     end,
@@ -1959,14 +2017,14 @@ recv_close(Config) when is_list(Config) ->
             ?P("unexpected reader termination: "
                "~n   ~p", [PostReason]),
             (catch gen_sctp:close(C)),
-            ?line ct:fail("Unexpected post close from reader (~p): ~p",
+            ct:fail("Unexpected post close from reader (~p): ~p",
                           [Pid, PostReason])
     after 5000 ->
             ?P("unexpected reader termination timeout"),
             demonitor(MRef, [flush]),
             (catch gen_sctp:close(C)),
             exit(Pid, kill),
-            ?line ct:fail("Reader (~p) termination timeout", [Pid])
+            ct:fail("Reader (~p) termination timeout", [Pid])
     end,
     ?P("close client socket"),
     (catch gen_sctp:close(C)),
@@ -2339,6 +2397,32 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     ok.
 
     
+%% Test the sockaddr version of connectx_init/4.
+t_simple_local_sockaddr_in_connectx_init(Config) when is_list(Config) ->
+    Localhost = {127,0,0,1},
+    {ok,Sb} = gen_sctp:open(),
+    {ok,Pb} = inet:port(Sb),
+    {ok,Sa} = gen_sctp:open(),
+    SockAddr = #{family   => inet,
+                 addr     => Localhost,
+                 port     => Pb},
+    case gen_sctp:connectx_init(Sa, [SockAddr], []) of
+        {ok, A1} ->
+	    true = (A1 =/= 0),
+            {Localhost,Pb,#sctp_assoc_change{state=cant_assoc, assoc_id = A1}} =
+                recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
+            ok = gen_sctp:listen(Sb, true),
+            {ok, A2} = gen_sctp:connectx_init(Sa, [SockAddr], []),
+	    true = (A2 =/= 0),
+            {Localhost,Pb,#sctp_assoc_change{state=comm_up, assoc_id = A2}} =
+                recv_event(log_ok(gen_sctp:recv(Sa, infinity))),
+            ok = gen_sctp:close(Sa),
+            ok = gen_sctp:close(Sb);
+        {error, enotsup} ->
+            ok
+    end,
+    ok.
+
 
 %%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% socket gen_server ultra light
@@ -2627,10 +2711,10 @@ ok({ok, X}) ->
     X;
 ok({error, X}) ->
     ?P("ERROR: ~p", [X]),
-    ?line ct:fail({unexpected_error, X});
+    ct:fail({unexpected_error, X});
 ok(X) ->
     ?P("UNEXPECTED: ~p", [X]),
-    ?line ct:fail({unexpected, X}).
+    ct:fail({unexpected, X}).
     
 
 log(X) ->

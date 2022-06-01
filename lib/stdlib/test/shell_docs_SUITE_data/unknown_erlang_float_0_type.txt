@@ -1,0 +1,4 @@
+
+  [;1m-type float() :: float().[0m
+
+  An Erlang float.

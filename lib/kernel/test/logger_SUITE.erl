@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,8 +38,7 @@
 
 
 suite() ->
-    [{timetrap,{seconds,30}},
-     {ct_hooks,[logger_test_lib]}].
+    [{timetrap,{seconds,30}}].
 
 init_per_suite(Config) ->
     case logger:get_handler_config(?STANDARD_HANDLER) of
@@ -77,7 +76,7 @@ end_per_testcase(Case, Config) ->
 groups() ->
     [].
 
-all() -> 
+all() ->
     [start_stop,
      add_remove_handler,
      multiple_handlers,
@@ -103,7 +102,9 @@ all() ->
      process_metadata,
      app_config,
      kernel_config,
-     pretty_print].
+     pretty_print,
+     pathological,
+     internal_log].
 
 start_stop(_Config) ->
     S = whereis(logger),
@@ -849,7 +850,7 @@ via_logger_process(Config) ->
 
     case os:type() of
         {win32,_} ->
-            %% Skip this part on windows - cant change file mode"
+            %% Skip this part on windows - can't change file mode"
             ok;
         _ ->
             %% This should trigger the same thing from erl_prim_loader
@@ -877,14 +878,13 @@ via_logger_process(cleanup, Config) ->
 other_node(_Config) ->
     ok = logger:add_handler(h1,?MODULE,#{level=>notice,filter_default=>log,
                                          tc_proc=>self()}),
-    {ok,Node} = test_server:start_node(?FUNCTION_NAME,slave,[]),
+    {ok,Peer,Node} = ?CT_PEER(),
     rpc:call(Node,logger,error,[Msg=?str,#{}]),
     check_logged(error,Msg,#{}),
+    peer:stop(Peer),
     ok.
 
 other_node(cleanup,_Config) ->
-    Nodes = nodes(),
-    [test_server:stop_node(Node) || Node <- Nodes],
     logger:remove_handler(h1),
     ok.
 
@@ -956,7 +956,7 @@ process_metadata(cleanup,_Config) ->
 
 app_config(Config) ->
     %% Start a node with default configuration
-    {ok,_,Node} = logger_test_lib:setup(Config,[]),
+    {ok, _, Peer, Node} = logger_test_lib:setup(Config,[]),
 
     App1Name = app1,
     App1 = {application, App1Name,
@@ -978,35 +978,35 @@ app_config(Config) ->
     {ok,#{filters:=DF}} = rpc:call(Node,logger,get_handler_config,[default]),
     {ok,#{filters:=[]}} = rpc:call(Node,logger,get_handler_config,[myh]),
 
-    true = test_server:stop_node(Node),
+    ok = peer:stop(Peer),
 
     %% Start a node with no default handler, then add an own default handler
-    {ok,#{handlers:=[#{id:=simple}]},Node} =
-        logger_test_lib:setup(Config,[{logger,[{handler,default,undefined}]}]),
+    {ok, #{handlers := [#{id := simple}]}, Peer2, Node2} =
+        logger_test_lib:setup(Config, [{logger, [{handler, default, undefined}]}]),
 
-    ok = rpc:call(Node,application,load,[App1]),
-    ok = rpc:call(Node,application,set_env,
+    ok = rpc:call(Node2,application,load,[App1]),
+    ok = rpc:call(Node2,application,set_env,
                   [App1Name,logger,[{handler,default,logger_std_h,#{}}]]),
-    ok = rpc:call(Node,logger,add_handlers,[App1Name]),
+    ok = rpc:call(Node2,logger,add_handlers,[App1Name]),
 
     #{handlers:=[#{id:=default,filters:=DF}]} =
-        rpc:call(Node,logger,get_config,[]),
+        rpc:call(Node2,logger,get_config,[]),
 
-    true = test_server:stop_node(Node),
+    ok = peer:stop(Peer2),
 
     %% Start a silent node, then add an own default handler
-    {ok,#{handlers:=[]},Node} =
+    {ok,#{handlers:=[]}, Peer3, Node3} =
         logger_test_lib:setup(Config,[{error_logger,silent}]),
 
     {error,{bad_config,{handler,[{some,bad,config}]}}} =
-        rpc:call(Node,logger,add_handlers,[[{some,bad,config}]]),
-    ok = rpc:call(Node,logger,add_handlers,
+        rpc:call(Node3,logger,add_handlers,[[{some,bad,config}]]),
+    ok = rpc:call(Node3,logger,add_handlers,
                   [[{handler,default,logger_std_h,#{}}]]),
 
     #{handlers:=[#{id:=default,filters:=DF}]} =
-        rpc:call(Node,logger,get_config,[]),
+        rpc:call(Node3,logger,get_config,[]),
 
-    ok.
+    ok = peer:stop(Peer3).
 
 %% This test case is mainly to see code coverage. Note that
 %% logger_env_var_SUITE tests a lot of the same, and checks the
@@ -1017,7 +1017,7 @@ kernel_config(Config) ->
     %% start by calling logger:reconfigure(). This is to test all
     %% variants of kernel config, including bad config, and see
     %% the code coverage.
-    {ok,#{handlers:=[#{id:=simple,filters:=DF}]}=LC,Node} =
+    {ok,#{handlers:=[#{id:=simple,filters:=DF}]}=LC, Peer, Node} =
         logger_test_lib:setup(Config,[{error_logger,false}]),
 
     %% Same once more, to get coverage
@@ -1151,7 +1151,7 @@ kernel_config(Config) ->
     {error,{bad_config,{kernel,{invalid_level,bad}}}} =
         rpc:call(Node,logger,reconfigure,[]),
 
-    ok.
+    ok = peer:stop(Peer).
 
 pretty_print(_Config) ->
     ok = logger:add_handler(?FUNCTION_NAME,logger_std_h,#{}),
@@ -1206,6 +1206,45 @@ pretty_print(_Config) ->
     %% ct:log("~p~n",[IHs]),
     %% ct:log("~p~n",[["Handler configuration: \n"|IHs2]]),
     IHs = ["Handler configuration: \n"|IHs2],
+    ok.
+
+pathological(cleanup,_Config) ->
+    logger:remove_handler(p1),
+    logger:set_primary_config(level,notice),
+    logger:unset_module_level(?MODULE),
+    ok.
+
+pathological(_Config) ->
+    ok = logger:set_primary_config(level,all),
+    ok = logger:add_handler(p1,?MODULE,#{level=>all,filter_default=>log}),
+    logger:notice(string, []),
+    check_logged(notice,"string",[],#{}),
+    logger:notice(report, []),
+    check_logged(notice,"report",[],#{}),
+    ok.
+
+internal_log(_Config) ->
+    register(callback_receiver, self()),
+    {error, {not_found, h1}} = logger:get_handler_config(h1),
+    ok = logger:add_handler(h1, ?MODULE, #{tc_proc => self()}),
+    OriginalMeta = #{
+        mfa => {orig_mod, orig_func, 0},
+        line => 0,
+        file => "path/to/orig_mod.beam",
+        pid => self(),
+        time => logger:timestamp(),
+        gl => group_leader()
+    },
+    OriginalLog = #{
+        level => notice,
+        msg => "Original log",
+        meta => OriginalMeta
+    },
+    Report = [{testing, internal_log}],
+
+    ?LOG_INTERNAL(notice, OriginalLog, Report),
+    ok = check_logged(notice, Report, ?MY_LOC(1)),
+
     ok.
 
 %%%-----------------------------------------------------------------
@@ -1288,7 +1327,7 @@ test_api(Level) ->
     logger:Level("~w: ~w",[Level,fa]),
     ok = check_logged(Level,"~w: ~w",[Level,fa],#{}),
     logger:Level('~w: ~w',[Level,fa]),
-    ok = check_logged(Level,'~w: ~w',[Level,fa],#{}),
+    ok = check_logged(Level,"~w: ~w",[Level,fa],#{}),
     logger:Level(<<"~w: ~w">>,[Level,fa]),
     ok = check_logged(Level,<<"~w: ~w">>,[Level,fa],#{}),
     logger:Level("~w: ~w ~w",[Level,fa,meta],#{my=>meta}),
@@ -1301,7 +1340,7 @@ test_api(Level) ->
     ok = check_logged(Level,<<"~w: ~w ~w">>,[Level,fun_to_fa,meta],#{my=>meta}),
     logger:Level(fun(x) -> {'~w: ~w ~w',[Level,fun_to_fa,meta]} end,x,
                  #{my=>meta}),
-    ok = check_logged(Level,'~w: ~w ~w',[Level,fun_to_fa,meta],#{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>meta}),
     logger:Level(fun(x) -> #{Level=>fun_to_r,meta=>true} end,x,
                      #{my=>meta}),
     ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>meta}),
@@ -1332,7 +1371,7 @@ test_log_function(Level) ->
     ok = check_logged(Level,<<"~w: ~w ~w">>,[Level,fun_to_fa,meta],#{my=>meta}),
     logger:log(Level,fun(x) -> {'~w: ~w ~w',[Level,fun_to_fa,meta]} end,
                x, #{my=>meta}),
-    ok = check_logged(Level,'~w: ~w ~w',[Level,fun_to_fa,meta],#{my=>meta}),
+    ok = check_logged(Level,"~w: ~w ~w",[Level,fun_to_fa,meta],#{my=>meta}),
     logger:log(Level,fun(x) -> #{Level=>fun_to_r,meta=>true} end,
                x, #{my=>meta}),
     ok = check_logged(Level,#{Level=>fun_to_r,meta=>true},#{my=>meta}),

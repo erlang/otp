@@ -209,7 +209,7 @@ ERL_COMPILE_FLAGS += \
 # 1) INETS_PRIV_DIR must be created
 # ----------------------------------------------------
 
-tests debug opt: $(BUILDTARGET) 
+tests $(TYPES): $(BUILDTARGET) 
 
 targets: $(TARGET_FILES)
 

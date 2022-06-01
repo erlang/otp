@@ -221,7 +221,7 @@ sysORUpTime OBJECT-TYPE
     STATUS     current
     DESCRIPTION
             "The value of sysUpTime at the time this conceptual row was
-            last instanciated."
+            last instantiated."
     ::= { sysOREntry 4 }
 
 

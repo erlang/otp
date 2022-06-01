@@ -125,8 +125,9 @@
     [;;4mprocess_flag(max_heap_size, Size)[0m.
 
   [;;4m[;;4m{message_queue_data, MQD}[0m[0m:
-    Sets the state of the [;;4mmessage_queue_data[0m process flag. [;;4mMQD[0m
-    is to be either [;;4moff_heap[0m or [;;4mon_heap[0m. The default [;;4m[0m
-    [;;4mmessage_queue_data[0m process flag is determined by command-line
-    argument [;;4m+hmqd[0m in [;;4merl(1)[0m. For more information, see the
-    documentation of [;;4mprocess_flag(message_queue_data, MQD)[0m.
+    Sets the value of the [;;4mmessage_queue_data[0m process flag. [;;4mMQD[0m
+    can be either [;;4moff_heap[0m or [;;4mon_heap[0m. The default value of
+    the [;;4mmessage_queue_data[0m process flag is determined by the
+    command-line argument [;;4m+hmqd[0m in [;;4merl(1)[0m. For more
+    information, see the documentation of [;;4m[0m
+    [;;4mprocess_flag(message_queue_data, MQD)[0m.

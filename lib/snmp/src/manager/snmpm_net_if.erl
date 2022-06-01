@@ -782,7 +782,7 @@ maybe_handle_recv_msg(Domain, Addr, Bytes, State) ->
        fun (Pid, Class, Reason, Stacktrace) ->
 	       warning_msg(
 		 "Worker process (~p) terminated "
-		 "while processing (incomming) message from %s:~n"
+		 "while processing (incoming) message from %s:~n"
 		 "~w:~w at ~p",
 		 [Pid, snmp_conf:mk_addr_string({Domain, Addr}),
 		  Class, Reason, Stacktrace])

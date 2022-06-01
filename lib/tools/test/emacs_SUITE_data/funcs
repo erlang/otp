@@ -128,7 +128,7 @@ match6(M6A,
 funs(1)
   when
       X ->
-    %% Changed fun to one indention level
+    %% Changed fun to one indentation level
     %% 'when' and several clause forces a depth of '4'
     Var = spawn(fun(X, _)
                       when X == 2;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@
 %%			         directories in `DirList'.
 %%
 %%  subdir(Dir [, Options])   -- Descend recursively down `Dir' and create
-%%				 a TAGS file convering all files found.
+%%				 a TAGS file covering all files found.
 %%  subdirs(DirList [, Options])
 %%			      -- Dito, for all directories in `DirList'.
 %%

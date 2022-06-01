@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,6 +73,7 @@ Uint32 make_hash2(Eterm);
 Uint32 trapping_make_hash2(Eterm, Eterm*, struct process*);
 Uint32 make_hash(Eterm);
 Uint32 make_internal_hash(Eterm, Uint32 salt);
+Uint32 make_map_hash(Eterm key, int level);
 
 void erts_save_emu_args(int argc, char **argv);
 Eterm erts_get_emu_args(struct process *c_p);
@@ -107,8 +108,8 @@ void erts_init_utils(void);
 void erts_init_utils_mem(void);
 void erts_utils_sched_spec_data_init(void);
 
-erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint);
 void erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *);
+erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint) ERTS_ATTR_MALLOC_D(erts_destroy_tmp_dsbuf,1);
 
 int eq(Eterm, Eterm);
 

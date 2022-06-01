@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -737,7 +737,7 @@ alltrue([_|_]) ->
     false.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Ensure that we cannot register throug a nonlocal connection
+%% Ensure that we cannot register through a nonlocal connection
 no_nonlocal_register(Config) when is_list(Config) ->
     case {os:find_executable("ssh"),ct:get_config(ssh_proxy_host)} of
         {SSH,Name} when is_list(Name), is_list(SSH) ->

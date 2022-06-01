@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -156,7 +156,7 @@ go_on() ->
     on(IsOn).
 
 %%%----------------------------------------------------------------
-shrink_bin(B) when is_binary(B), size(B)>256 -> {'*** SHRINKED BIN',
+shrink_bin(B) when is_binary(B), size(B)>256 -> {'*** SHRUNK BIN',
 						 size(B),
 						 element(1,split_binary(B,64)),
 						 '...',
@@ -167,13 +167,13 @@ shrink_bin(T) when is_tuple(T) -> list_to_tuple(shrink_bin(tuple_to_list(T)));
 shrink_bin(X) -> X.
 
 %%%----------------------------------------------------------------    
-%% Replace any occurence of {Name,...}, with "#Name{}"
+%% Replace any occurrence of {Name,...}, with "#Name{}"
 reduce_state(T, RecordExample) ->
     Name = element(1, RecordExample),
     Arity = size(RecordExample),
     reduce_state(T, Name, Arity).
 
-%% Replace any occurence of {Name,...}, with "#Name{}"
+%% Replace any occurrence of {Name,...}, with "#Name{}"
 reduce_state(T, Name, Arity) when element(1,T) == Name,
                                   size(T) == Arity ->
     lists:concat(['#',Name,'{}']);
@@ -400,7 +400,7 @@ try_all_types_in_all_modules(TypesOn, Arg, WriteFun, Acc0) ->
                                     catch
                                         _:_ ->
                                             %% and finally, signal for special formatting
-                                            %% if noone else formats it
+                                            %% if no one else formats it
                                             Acc
                                     end
                             end

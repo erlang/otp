@@ -2,7 +2,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,11 +93,6 @@ typedef struct {
  * This structure contains all information about the module being loaded.
  */
 struct LoaderState_ {
-    /*
-     * The current logical file within the binary.
-     */
-    ErlDrvBinary* bin;         /* Binary holding BEAM file (or NULL) */
-
     /*
      * The following are used mainly for diagnostics.
      */

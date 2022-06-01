@@ -25,8 +25,8 @@
 -export([module/2]).
 
 -import(lists, [all/2,append/1,flatmap/2,foldl/3,
-                keysort/2,mapfoldl/3,map/2,member/2,
-                reverse/1,reverse/2,sort/1]).
+                keyfind/3,keysort/2,mapfoldl/3,member/2,
+                reverse/1,sort/1]).
 
 -include("v3_kernel.hrl").
 -include("beam_ssa.hrl").
@@ -133,20 +133,31 @@ cg(#k_return{args=[Ret0]}, St) ->
 cg(#k_break{args=Bs}, #cg{break=Br}=St) ->
     Args = ssa_args(Bs, St),
     {[#cg_break{args=Args,phi=Br}],St};
-cg(#k_letrec_goto{label=Label,first=First,then=Then,ret=Rs},
+cg(#k_letrec_goto{label=Label,vars=Vs0,first=First,then=Then,ret=Rs},
    #cg{break=OldBreak,labels=Labels0}=St0) ->
     {Tf,St1} = new_label(St0),
     {B,St2} = new_label(St1),
     Labels = Labels0#{Label=>Tf},
-    {Fis,St3} = cg(First, St2#cg{labels=Labels,break=B}),
-    {Sis,St4} = cg(Then, St3),
-    St5 = St4#cg{labels=Labels0},
-    {BreakVars,St} = new_ssa_vars(Rs, St5),
-    Phi = #cg_phi{vars=BreakVars},
-    {Fis ++ [{label,Tf}] ++ Sis ++ [{label,B},Phi],St#cg{break=OldBreak}};
-cg(#k_goto{label=Label}, #cg{labels=Labels}=St) ->
+    {Vs,St3} = new_ssa_vars(Vs0, St2),
+    {Fis,St4} = cg(First, St3#cg{labels=Labels,break=B}),
+    {Sis,St5} = cg(Then, St4),
+    St6 = St5#cg{labels=Labels0},
+    {BreakVars,St} = new_ssa_vars(Rs, St6),
+    PostPhi = #cg_phi{vars=BreakVars},
+    FailPhi = case Vs of
+                  [] -> [];
+                  [_|_] -> [#cg_phi{vars=Vs}]
+              end,
+    {Fis ++ [{label,Tf}] ++ FailPhi ++ Sis ++ [{label,B},PostPhi],
+     St#cg{break=OldBreak}};
+cg(#k_goto{label=Label,args=[]}, #cg{labels=Labels}=St) ->
     Branch = map_get(Label, Labels),
-    {[make_uncond_branch(Branch)],St}.
+    {[make_uncond_branch(Branch)],St};
+cg(#k_goto{label=Label,args=As0}, #cg{labels=Labels}=St) ->
+    As = ssa_args(As0, St),
+    Branch = map_get(Label, Labels),
+    Break = #cg_break{args=As,phi=Branch},
+    {[Break],St}.
 
 %% match_cg(Matc, [Ret], State) -> {[Ainstr],State}.
 %%  Generate code for a match.
@@ -683,43 +694,52 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
     end.
 
 enter_cg(Func, As0, Le, St0) ->
+    {no_catch,_} = FailCtx = fail_context(St0), %Assertion.
+
     As = ssa_args([Func|As0], St0),
-    {Ret,St} = new_ssa_var('@ssa_ret', St0),
+    {Ret,St2} = new_ssa_var('@ssa_ret', St0),
     Call = #b_set{anno=line_anno(Le),op=call,dst=Ret,args=As},
-    {[Call,#b_ret{arg=Ret}],St}.
+
+    {TestIs,St} = make_succeeded(Ret, FailCtx, St2),
+    {[Call | TestIs] ++ [#b_ret{arg=Ret}],St}.
 
 %% bif_cg(#k_bif{}, Le,State) -> {[Ainstr],State}.
 %%  Generate code for a guard BIF or primop.
 
 bif_cg(#k_bif{anno=A,op=#k_internal{name=Name},args=As,ret=Rs}, _Le, St) ->
-    internal_cg(line_anno(A), Name, As, Rs, St);
+    internal_cg(internal_anno(A), Name, As, Rs, St);
 bif_cg(#k_bif{op=#k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Name}},
               args=As,ret=Rs}, Le, St) ->
     bif_cg(Name, As, Rs, Le, St).
 
+internal_anno(Le) ->
+    Anno = line_anno(Le),
+    case keyfind(inlined, 1, Le) of
+        false -> Anno;
+        {inlined, NameArity} -> Anno#{ inlined => NameArity }
+    end.
+
 %% internal_cg(Bif, [Arg], [Ret], Le, State) ->
 %%      {[Ainstr],State}.
+internal_cg(Anno, Op, As, Rs, St0)
+  when Op =:= match_fail; Op =:= raise; Op =:= raw_raise ->
+    {Dst, St1} = case Rs of
+                        [#k_var{name=Dst0} | Rest] ->
+                            {Var, StV} = new_ssa_var(Dst0, St0),
+                            {Var, set_unused_ssa_vars(Rest, StV)};
+                        [] ->
+                            new_ssa_var('@exception', St0)
+                    end,
 
-internal_cg(_Anno, Op0, As, [#k_var{name=Dst0}], St0)
-  when Op0 =:= raise; Op0 =:= raw_raise ->
-    Args = ssa_args(As, St0),
-    Op = fix_op(Op0, St0),
-    {Dst,St} = new_ssa_var(Dst0, St0),
-    Set = #b_set{op=Op,dst=Dst,args=Args},
-    case fail_context(St) of
-        {no_catch,_Fail} ->
-            %% No current catch in this function. Follow the raw_raise/resume
-            %% instruction by a return (instead of branching to
-            %% ?EXCEPTION_MARKER) to ensure that the trim optimization can be
-            %% applied. (Allowing control to pass through to the next
-            %% instruction would mean that the type for the try/catch construct
-            %% would be `any`.)
-            Is = [Set,#b_ret{arg=Dst},#cg_unreachable{}],
-            {Is,St};
-        {in_catch,Fail} ->
-            Is = [Set,make_uncond_branch(Fail),#cg_unreachable{}],
-            {Is,St}
-    end;
+    {Kind, _Fail} = Context = fail_context(St1),
+    true = (Kind =/= guard) orelse (Op =:= match_fail), %Assertion.
+
+    Args = ssa_args(As, St1),
+
+    Set = #b_set{anno=Anno,op=fix_op(Op, St1),dst=Dst,args=Args},
+
+    {TestIs, St} = make_succeeded(Dst, Context, St1),
+    {[Set | TestIs], St};
 internal_cg(Anno, recv_peek_message, [], [#k_var{name=Succeeded0},
                                           #k_var{name=Dst0}], St0) ->
     {Dst,St1} = new_ssa_var(Dst0, St0),
@@ -1048,167 +1068,54 @@ put_cg_map(LineAnno, Op, SrcMap, Dst, List, St0) ->
 %%%
 
 cg_binary(Dst, Segs0, FailCtx, Le, St0) ->
-    {PutCode0,SzCalc0,St1} = cg_bin_put(Segs0, FailCtx, St0),
-    LineAnno = line_anno(Le),
-    Anno = Le,
-    case PutCode0 of
-        [#b_set{op=bs_put,dst=Bin,args=[_,_,Src,#b_literal{val=all}|_]},
-         #b_set{op={succeeded,_},dst=Bool,args=[Bin]},
-         #b_br{bool=Bool},
-         {label,_}|_] ->
-            #k_bin_seg{unit=Unit0,next=Segs} = Segs0,
-            Unit = #b_literal{val=Unit0},
-            {PutCode,SzCalc1,St2} = cg_bin_put(Segs, FailCtx, St1),
-            {_,SzVar,SzCode0,St3} = cg_size_calc(1, SzCalc1, FailCtx, St2),
-            SzCode = cg_bin_anno(SzCode0, LineAnno),
-            Args = case member(single_use, Anno) of
-                       true ->
-                           [#b_literal{val=private_append},Src,SzVar,Unit];
-                       false ->
-                           [#b_literal{val=append},Src,SzVar,Unit]
-                   end,
-            BsInit = #b_set{anno=LineAnno,op=bs_init,dst=Dst,args=Args},
-            {TestIs,St} = make_succeeded(Dst, FailCtx, St3),
-            {SzCode ++ [BsInit] ++ TestIs ++ PutCode,St};
-        [#b_set{op=bs_put}|_] ->
-            {Unit,SzVar,SzCode0,St2} = cg_size_calc(8, SzCalc0, FailCtx, St1),
-            SzCode = cg_bin_anno(SzCode0, LineAnno),
-            Args = [#b_literal{val=new},SzVar,Unit],
-            BsInit = #b_set{anno=LineAnno,op=bs_init,dst=Dst,args=Args},
-            {TestIs,St} = make_succeeded(Dst, FailCtx, St2),
-            {SzCode ++ [BsInit] ++ TestIs ++ PutCode0,St}
-    end.
-
-cg_bin_anno([Set|Sets], Anno) ->
-    [Set#b_set{anno=Anno}|Sets];
-cg_bin_anno([], _) -> [].
-
-%% cg_size_calc(PreferredUnit, SzCalc, FailCtx, St0) ->
-%%         {ActualUnit,SizeVariable,SizeCode,St}.
-%%  Generate size calculation code.
-
-cg_size_calc(Unit, error, _FailCtx, St) ->
-    {#b_literal{val=Unit},#b_literal{val=badarg},[],St};
-cg_size_calc(8, [{1,_}|_]=SzCalc, FailCtx, St) ->
-    cg_size_calc(1, SzCalc, FailCtx, St);
-cg_size_calc(8, SzCalc, FailCtx, St0) ->
-    {Var,Pre,St} = cg_size_calc_1(SzCalc, FailCtx, St0),
-    {#b_literal{val=8},Var,Pre,St};
-cg_size_calc(1, SzCalc0, FailCtx, St0) ->
-    SzCalc = map(fun({8,#b_literal{val=Size}}) ->
-                         {1,#b_literal{val=8*Size}};
-                    ({8,{{bif,byte_size},Src}}) ->
-                         {1,{{bif,bit_size},Src}};
-                    ({8,{_,_}=UtfCalc}) ->
-                         {1,{'*',#b_literal{val=8},UtfCalc}};
-                    ({_,_}=Pair) ->
-                         Pair
-                 end, SzCalc0),
-    {Var,Pre,St} = cg_size_calc_1(SzCalc, FailCtx, St0),
-    {#b_literal{val=1},Var,Pre,St}.
-
-cg_size_calc_1(SzCalc, FailCtx, St0) ->
-    cg_size_calc_2(SzCalc, #b_literal{val=0}, FailCtx, St0).
-
-cg_size_calc_2([{_,{'*',Unit,{_,_}=Bif}}|T], Sum0, FailCtx, St0) ->
-    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, FailCtx, St0),
-    {BifDst,Pre1,St2} = cg_size_bif(Bif, FailCtx, St1),
-    {Sum,Pre2,St} = cg_size_add(Sum1, BifDst, Unit, FailCtx, St2),
-    {Sum,Pre0++Pre1++Pre2,St};
-cg_size_calc_2([{_,#b_literal{}=Sz}|T], Sum0, FailCtx, St0) ->
-    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, FailCtx, St0),
-    {Sum,Pre,St} = cg_size_add(Sum1, Sz, #b_literal{val=1}, FailCtx, St1),
-    {Sum,Pre0++Pre,St};
-cg_size_calc_2([{_,#b_var{}=Sz}|T], Sum0, FailCtx, St0) ->
-    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, FailCtx, St0),
-    {Sum,Pre,St} = cg_size_add(Sum1, Sz, #b_literal{val=1}, FailCtx, St1),
-    {Sum,Pre0++Pre,St};
-cg_size_calc_2([{_,{_,_}=Bif}|T], Sum0, FailCtx, St0) ->
-    {Sum1,Pre0,St1} = cg_size_calc_2(T, Sum0, FailCtx, St0),
-    {BifDst,Pre1,St2} = cg_size_bif(Bif, FailCtx, St1),
-    {Sum,Pre2,St} = cg_size_add(Sum1, BifDst, #b_literal{val=1}, FailCtx, St2),
-    {Sum,Pre0++Pre1++Pre2,St};
-cg_size_calc_2([], Sum, _FailCtx, St) ->
-    {Sum,[],St}.
-
-cg_size_bif(#b_var{}=Var, _FailCtx, St) ->
-    {Var,[],St};
-cg_size_bif({Name,Src}, FailCtx, St0) ->
-    {Dst,St1} = new_ssa_var('@ssa_bif', St0),
-    Bif = #b_set{op=Name,dst=Dst,args=[Src]},
-    {TestIs,St} = make_succeeded(Dst, FailCtx, St1),
-    {Dst,[Bif|TestIs],St}.
-
-cg_size_add(#b_literal{val=0}, Val, #b_literal{val=1}, _FailCtx, St) ->
-    {Val,[],St};
-cg_size_add(#b_literal{val=A}, #b_literal{val=B}, #b_literal{val=U}, _FailCtx, St) ->
-    {#b_literal{val=A+B*U},[],St};
-cg_size_add(A, B, Unit, FailCtx, St0) ->
-    {Dst,St1} = new_ssa_var('@ssa_sum', St0),
-    {TestIs,St} = make_succeeded(Dst, FailCtx, St1),
-    BsAdd = #b_set{op=bs_add,dst=Dst,args=[A,B,Unit]},
-    {Dst,[BsAdd|TestIs],St}.
-
-cg_bin_put(Seg, FailCtx, St) ->
-    cg_bin_put_1(Seg, FailCtx, [], [], St).
-
-cg_bin_put_1(#k_bin_seg{size=Size0,unit=U,type=T,flags=Fs,seg=Src0,next=Next},
-             FailCtx, Acc, SzCalcAcc, St0) ->
-    [Src,Size] = ssa_args([Src0,Size0], St0),
-    NeedSize = bs_need_size(T),
-    TypeArg = #b_literal{val=T},
-    Flags = #b_literal{val=Fs},
-    Unit = #b_literal{val=U},
-    Args = case NeedSize of
-               true -> [TypeArg,Flags,Src,Size,Unit];
-               false -> [TypeArg,Flags,Src]
+    Segs1 = cg_bin_segments(Segs0, St0),
+    Segs = case Segs1 of
+               [#b_literal{val=binary},UnitFlags,Val,#b_literal{val=all}|Segs2] ->
+                   Op = case member(single_use, Le) of
+                            true -> private_append;
+                            false -> append
+                        end,
+                   [#b_literal{val=Op},UnitFlags,Val,#b_literal{val=all}|Segs2];
+               _ ->
+                   Segs1
            end,
-    {Dst,St1} = new_ssa_var('@ssa_bs_put', St0),
-    {TestIs,St} = make_succeeded(Dst, FailCtx, St1),
-    Is = [#b_set{op=bs_put,dst=Dst,args=Args}|TestIs],
-    SzCalc = bin_size_calc(T, Src, Size, U),
-    cg_bin_put_1(Next, FailCtx, reverse(Is, Acc), [SzCalc|SzCalcAcc], St);
-cg_bin_put_1(#k_bin_end{}, _, Acc, SzCalcAcc, St) ->
-    SzCalc = fold_size_calc(SzCalcAcc, 0, []),
-    {reverse(Acc),SzCalc,St}.
+    LineAnno = line_anno(Le),
+    Build = #b_set{anno=LineAnno,op=bs_create_bin,args=Segs,dst=Dst},
+    {TestIs,St} = make_succeeded(Dst, FailCtx, St0),
+    {[Build|TestIs],St}.
+
+cg_bin_segments(#k_bin_seg{anno=Anno,type=Type,flags=Flags0,seg=Src0,size=Size0,unit=U,next=Next}, St) ->
+    Seg = case lists:keyfind(segment, 1,Anno) of
+              false -> [];
+              {segment,_}=Seg0 -> [Seg0]
+          end,
+    [Src,Size] = ssa_args([Src0,Size0], St),
+    TypeArg = #b_literal{val=Type},
+    Unit = case U of
+               undefined -> 0;
+               _ -> U
+           end,
+    Flags = strip_bs_construct_flags(Flags0),
+    UnitFlags = #b_literal{val=[Unit|Flags++Seg]},
+    [TypeArg,UnitFlags,Src,Size|cg_bin_segments(Next, St)];
+cg_bin_segments(#k_bin_end{}, _St) -> [].
 
 bs_need_size(utf8) -> false;
 bs_need_size(utf16) -> false;
 bs_need_size(utf32) -> false;
 bs_need_size(_) -> true.
 
-bin_size_calc(utf8, Src, _Size, _Unit) ->
-    {8,{bs_utf8_size,Src}};
-bin_size_calc(utf16, Src, _Size, _Unit) ->
-    {8,{bs_utf16_size,Src}};
-bin_size_calc(utf32, _Src, _Size, _Unit) ->
-    {8,#b_literal{val=4}};
-bin_size_calc(binary, Src, #b_literal{val=all}, Unit) ->
-    case Unit rem 8 of
-        0 -> {8,{{bif,byte_size},Src}};
-        _ -> {1,{{bif,bit_size},Src}}
-    end;
-bin_size_calc(_Type, _Src, Size, Unit) ->
-    {Unit,Size}.
-
-fold_size_calc([{Unit,#b_literal{val=Size}}|T], Bits, Acc) ->
-    if
-        is_integer(Size) ->
-            fold_size_calc(T, Bits + Unit*Size, Acc);
-        true ->
-            error
-    end;
-fold_size_calc([{U,#b_var{}}=H|T], Bits, Acc) when U =:= 1; U =:= 8 ->
-    fold_size_calc(T, Bits, [H|Acc]);
-fold_size_calc([{U,#b_var{}=Var}|T], Bits, Acc) ->
-    fold_size_calc(T, Bits, [{1,{'*',#b_literal{val=U},Var}}|Acc]);
-fold_size_calc([{_,_}=H|T], Bits, Acc) ->
-    fold_size_calc(T, Bits, [H|Acc]);
-fold_size_calc([], Bits, Acc) ->
-    Bytes = Bits div 8,
-    RemBits = Bits rem 8,
-    Sizes = sort([{1,#b_literal{val=RemBits}},{8,#b_literal{val=Bytes}}|Acc]),
-    [Pair || {_,Sz}=Pair <- Sizes, Sz =/= #b_literal{val=0}].
+%% Only keep the flags that have a meaning for binary construction and
+%% are distinct from the default value.
+strip_bs_construct_flags(Flags) ->
+    [Flag || Flag <- Flags,
+             case Flag of
+                 little -> true;
+                 native -> true;
+                 big -> false;
+                 signed -> false;
+                 unsigned -> false
+             end].
 
 %%%
 %%% Utilities for creating the SSA types.

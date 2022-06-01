@@ -165,7 +165,7 @@
 	<p>On success it should set <c>*ctx</c> to point to a context for
 	the created socket. This context will be passed to all other
 	socket callbacks. This function will be passed the same
-	<c>setup_context</c> as passed to the preceeding
+	<c>setup_context</c> as passed to the preceding
 	<seecref marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seecref>
 	or
 	<seecref marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seecref>
@@ -192,8 +192,8 @@
 	
 	<p>The <c>addr</c> and <c>len</c> arguments are both input and output
 	arguments. When called <c>addr</c> points to an address structure of
-	lenght <c>*len</c> containing information on how to bind the socket.
-	Uppon return this callback should have updated the structure referred
+	length <c>*len</c> containing information on how to bind the socket.
+	Upon return this callback should have updated the structure referred
 	by <c>addr</c> with information on how the socket actually was bound.
 	<c>*len</c> should be updated to reflect the size of <c>*addr</c>
 	updated. <c>backlog</c> identifies the size of the backlog for the
@@ -211,7 +211,7 @@
 	connection should be created and <c>*ctx</c> should be updated
 	to point to the new context for the accepted connection. When
 	called <c>addr</c> points to an uninitialized address structure
-	of lenght <c>*len</c>. Uppon return this callback should have
+	of length <c>*len</c>. Upon return this callback should have
 	updated this structure with information about the client address.
 	<c>*len</c> should be updated to reflect the size of <c>*addr</c>
 	updated.
@@ -233,7 +233,7 @@
 	identified by <c>addr</c>.</p>
 
 	<p>When called <c>addr</c> points to an address structure of
-	lenght <c>len</c> containing information on where to connect.</p>
+	length <c>len</c> containing information on where to connect.</p>
 
 	<p>If the <c>EI_SCLBK_FLG_FULL_IMPL</c> flag has been set,
 	<c>tmo</c> contains timeout time in milliseconds.</p>
@@ -541,10 +541,10 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
     </func>
 
     <func>
-      <name since=""><ret>int</ret><nametext>ei_connect_init(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation)</nametext></name>
-      <name since="OTP 21.3"><ret>int</ret><nametext>ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
-      <name since=""><ret>int</ret><nametext>ei_connect_xinit(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation)</nametext></name>
-      <name since="OTP 21.3"><ret>int</ret><nametext>ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_connect_init(ei_cnode* ec, const char* this_node_name, const char *cookie, unsigned creation)</nametext></name>
+      <name since="OTP 21.3"><ret>int</ret><nametext>ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name, const char *cookie, unsigned creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_connect_xinit(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, unsigned creation)</nametext></name>
+      <name since="OTP 21.3"><ret>int</ret><nametext>ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, unsigned creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
       <fsummary>Initialize for a connection.</fsummary>
       <type>
 	<v><seecref marker="#ei_cnode"><c>ei_cnode</c></seecref></v>
@@ -573,7 +573,15 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
           <item>
             <p><c>creation</c> identifies a specific instance of a
               C-node. It can help prevent the node from receiving messages
-              sent to an earlier process with the same registered name.</p>
+            sent to an earlier process with the same registered name.</p>
+            <note>
+              <p>
+                The type of the <c>creation</c> argument was changed from
+                <c>short</c> (16 bit) to <c>unsigned int</c> (32 bit) in OTP
+                25. This should cause no practical problem other than maybe a
+                compiler warning.
+              </p>
+            </note>
           </item>
           <item>
             <p><c>thishostname</c> is the name of the machine we are
@@ -620,7 +628,7 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
           occurred.</p>
         <p><em>Example 1:</em></p>
         <code type="none"><![CDATA[
-int n = 0;
+unsigned n = 0;
 struct in_addr addr;
 ei_cnode ec;
 addr.s_addr = inet_addr("150.236.14.75");

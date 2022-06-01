@@ -59,7 +59,7 @@ ELC_FILES = $(EMACS_FILES:%=%.elc)
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) $(EL_FILES)
+$(TYPES): $(TARGET_FILES) $(EL_FILES)
 
 clean:
 	rm -f $(TARGET_FILES) $(ELC_FILES)

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,19 +25,19 @@
 
 -module(diameter_distribution_SUITE).
 
--export([suite/0,
-         all/0]).
+%% testcases, no common_test dependency
+-export([run/0]).
 
-%% testcases
--export([enslave/1, enslave/0,
-         ping/1,
+%% common_test wrapping
+-export([suite/0,
+         all/0,
+         traffic/1]).
+
+%% rpc calls
+-export([ping/1,
          start/1,
          connect/1,
-         send_local/1,
-         send_remote/1,
-         send_timeout/1,
-         send_failover/1,
-         stop/1, stop/0]).
+         call/1]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -48,8 +48,6 @@
          handle_answer/5,
          handle_error/5,
          handle_request/3]).
-
--export([call/1]).
 
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc6733.hrl").
@@ -99,53 +97,47 @@
                 {client1, ?CLIENT},
                 {client2, ?CLIENT}]).
 
-%% Options to ct_slave:start/2.
--define(TIMEOUTS, [{T, 15000} || T <- [boot_timeout,
-                                       init_timeout,
-                                       start_timeout]]).
-
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 90}}].
 
 all() ->
-    [enslave,
-     ping,
-     start,
-     connect,
-     send_local,
-     send_remote,
-     send_timeout,
-     send_failover,
-     stop].
+    [traffic].
+
+traffic(_Config) ->
+    traffic().
 
 %% ===========================================================================
-%% start/stop testcases
 
-%% enslave/1
+run() ->
+    [] = ?util:run([{fun traffic/0, 60000}]).
+    %% process for linked peers to die with
+
+%% traffic/0
+
+traffic() ->
+    true = is_alive(),  %% need distribution for peer nodes
+    Nodes = enslave(),
+    [] = ping(Nodes),  %% drop client node
+    [] = start(Nodes),
+    [_] = connect(Nodes),
+    [] = send(Nodes).
+
+%% enslave/0
 %%
 %% Start four slave nodes, one to implement a Diameter server,
 %% three to implement a client.
 
 enslave() ->
-    [{timetrap, {seconds, 30*length(?NODES)}}].
-
-enslave(Config) ->
     Here = filename:dirname(code:which(?MODULE)),
     Ebin = filename:join([Here, "..", "ebin"]),
-    Dirs = [Here, Ebin],
-    Nodes = [{N,S} || {M,S} <- ?NODES, N <- [slave(M, Dirs)]],
-    ?util:write_priv(Config, nodes, [{N,S} || {{N,ok},S} <- Nodes]),
-    [] = [{T,S} || {{_,E} = T, S} <- Nodes, E /= ok].
+    Args = ["-pa", Here, Ebin],
+    [{N,S} || {M,S} <- ?NODES, N <- [start(M, Args)]].
 
-slave(Name, Dirs) ->
-    add_pathsa(Dirs, ct_slave:start(Name, ?TIMEOUTS)).
-
-add_pathsa(Dirs, {ok, Node}) ->
-    {Node, rpc:call(Node, code, add_pathsa, [Dirs])};
-add_pathsa(_, No) ->
-    {No, error}.
+start(Name, Args) ->
+    {ok, _, Node} = ?util:peer(#{name => Name, args => Args}),
+    Node.
 
 %% ping/1
 %%
@@ -160,11 +152,10 @@ ping({?CLIENT, Nodes}) ->
           node() /= N,
           pang <- [net_adm:ping(N)]];
 
-ping(Config) ->
-    Nodes = ?util:read_priv(Config, nodes),
-    [] = [{N,RC} || {N,S} <- Nodes,
-                    RC <- [rpc:call(N, ?MODULE, ping, [{S, Nodes}])],
-                    RC /= []].
+ping(Nodes) ->
+    [{N,RC} || {N,S} <- Nodes,
+               RC <- [rpc:call(N, ?MODULE, ping, [{S, Nodes}])],
+               RC /= []].
 
 %% start/1
 %%
@@ -175,11 +166,10 @@ start(SvcName)
     ok = diameter:start(),
     ok = diameter:start_service(SvcName, ?SERVICE((?L(SvcName))));
 
-start(Config) ->
-    Nodes = ?util:read_priv(Config, nodes),
-    [] = [{N,RC} || {N,S} <- Nodes,
-                    RC <- [rpc:call(N, ?MODULE, start, [S])],
-                    RC /= ok].
+start(Nodes) ->
+    [{N,RC} || {N,S} <- Nodes,
+               RC <- [rpc:call(N, ?MODULE, start, [S])],
+               RC /= ok].
 
 sequence() ->
     sequence(sname()).
@@ -212,66 +202,50 @@ peers(client2) -> nodes().
 %% Establish one connection to the server from each of the client
 %% nodes.
 
-connect({?SERVER, Config}) ->
-    ?util:write_priv(Config, lref, {node(), ?util:listen(?SERVER, tcp)}),
-    ok;
+connect({?SERVER, _, []}) ->
+    [_LRef = ?util:listen(?SERVER, tcp)];
 
-connect({?CLIENT, Config}) ->
-    ?util:connect(?CLIENT, tcp, ?util:read_priv(Config, lref)),
-    ok;
+connect({?CLIENT, [{Node, _} | _], [LRef] = Acc}) ->
+    ?util:connect(?CLIENT, tcp, {Node, LRef}),
+    Acc;
 
-connect(Config) ->
-    Nodes = ?util:read_priv(Config, nodes),
-    [] = [{N,RC} || {N,S} <- Nodes,
-                    RC <- [rpc:call(N, ?MODULE, connect, [{S,Config}])],
-                    RC /= ok].
-
-%% stop/1
-%%
-%% Stop the slave nodes.
-
-stop() ->
-    [{timetrap, {seconds, 30*length(?NODES)}}].
-
-stop(_Config) ->
-    [] = [{N,E} || {N,_} <- ?NODES,
-                   {error, _, _} = E <- [ct_slave:stop(N)]].
+connect(Nodes) ->
+    lists:foldl(fun({N,S}, A) ->
+                        rpc:call(N, ?MODULE, connect, [{S, Nodes, A}])
+                end,
+                [],
+                Nodes).
 
 %% ===========================================================================
-%% traffic testcases
 
-%% send_local/1
-%%
+%% send/1
+
+send(Nodes) ->
+    ?util:run([[fun send/2, Nodes, T]
+               || T <- [local, remote, timeout, failover]]).
+
+%% send/2
+
 %% Send a request from the first client node, using a the local
 %% transport.
-
-send_local(Config) ->
+send(Nodes, local) ->
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = send(Config, local, str(?LOGOUT)).
+        = send(Nodes, 0, str(?LOGOUT));
 
-%% send_remote/1
-%%
 %% Send a request from the first client node, using a transport on the
 %% another node.
-
-send_remote(Config) ->
+send(Nodes, remote) ->
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = send(Config, remote, str(?LOGOUT)).
+        = send(Nodes, 1, str(?LOGOUT));
 
-%% send_timeout/1
-%%
 %% Send a request that the server discards.
+send(Nodes, timeout) ->
+    {error, timeout} = send(Nodes, 1, str(?TIMEOUT));
 
-send_timeout(Config) ->
-    {error, timeout} = send(Config, remote, str(?TIMEOUT)).
-
-%% send_failover/1
-%%
-%% Send a request that causes the server to remote transports down.
-
-send_failover(Config) ->
+%% Send a request that causes the server to take the transport down.
+send(Nodes, failover) ->
     #'diameter_base_answer-message'{'Result-Code' = ?BUSY}
-        = send(Config, remote, str(?MOVED)).
+        = send(Nodes, 2, str(?MOVED)).
 
 %% ===========================================================================
 
@@ -280,10 +254,9 @@ str(Cause) ->
                        'Auth-Application-Id' = ?DICT:id(),
                        'Termination-Cause'   = Cause}.
 
-%% send/2
+%% send/3
 
-send(Config, Where, Req) ->
-    [_, {Node, _} | _] = ?util:read_priv(Config, nodes) ,
+send([_, {Node, _} | _], Where, Req) ->
     rpc:call(Node, ?MODULE, call, [{Where, Req}]).
 
 %% call/1
@@ -311,14 +284,22 @@ peer_down(_SvcName, _Peer, State) ->
 
 %% pick_peer/4
 
-pick_peer([LP], [_, _], ?CLIENT, _State, {local, client0}) ->
+pick_peer([LP], _, ?CLIENT, _State, {0, client0}) ->
     {ok, LP};
 
-pick_peer([_], [RP | _], ?CLIENT, _State, {remote, client0}) ->
+pick_peer(_, Peers, ?CLIENT, _State, {1, client0}) ->
+    [RP] = [T || {_, #diameter_caps{origin_state_id = {[1],_}}} = T <- Peers],
     {ok, RP};
 
-pick_peer([LP], [], ?CLIENT, _State, {remote, client0}) ->
-    {ok, LP}.
+%% Sending on the remote transport causes the server to take the
+%% transport down. Retransmission on the local.
+pick_peer(LP, RP, ?CLIENT, _State, {2, client0}) ->
+    {ok, case [T || {_, #diameter_caps{origin_state_id = {[2],_}}} = T <- RP] of
+             [T] ->
+                 T;
+             _ ->
+                 hd([_] = LP)
+         end}.
 
 %% prepare_request/4
 

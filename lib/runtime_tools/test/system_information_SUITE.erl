@@ -182,6 +182,19 @@ end_per_group(_GroupName, _Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
+init_per_testcase(sanity_check, Config) ->
+    %% We check if the test results were released using a version
+    %% of Erlang/OTP that was a tagged version or not. On a non-tagged
+    %% version this testcase most likely will fail.
+    case file:read_file(
+           filename:join(
+             proplists:get_value(data_dir,Config), "otp_version_tickets")) of
+        {ok,<<"DEVELOPMENT",_/binary>>} ->
+            {skip, "This is a development version, test might fail "
+             "because of incorrect version numbers"};
+        {ok,S} ->
+            Config
+    end;
 init_per_testcase(_TestCase, Config) ->
     Config.
 

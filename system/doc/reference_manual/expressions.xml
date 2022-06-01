@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2021</year>
+      <year>2003</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -392,6 +392,138 @@ is_valid_signal(Signal) ->
         _Else ->
             false
     end.</pre>
+  </section>
+
+  <section>
+    <marker id="maybe"></marker>
+    <title>Maybe</title>
+    <note><p><c>maybe</c> is an experimental new <seeguide
+    marker="system/reference_manual:features#features">feature</seeguide>
+    introduced in OTP 25. By default, it is disabled. To enable
+    <c>maybe</c>, use compiler option
+    <c>{feature,maybe_expr,enable}</c>.  The feature must also be
+    enabled in the runtime using the <c>-enable-feature</c> option to
+    <c>erl</c>.</p></note>
+
+    <code type="erl"><![CDATA[
+maybe
+    Expr1,
+    ...,
+    ExprN
+end]]></code>
+
+    <p>The expressions in a <c>maybe</c> block are evaluated sequentially. If all
+    expressions are evaluated successfully, the return value of the <c>maybe</c>
+    block is <c>ExprN</c>. However, execution can be short-circuited by a
+    conditional match expression:</p>
+
+    <code type="erl"><![CDATA[
+Expr1 ?= Expr2]]></code>
+
+    <p><c>?=</c> is called the conditional match operator. It is only
+    allowed to be used at the top-level of a <c>maybe</c> block. It
+    matches the pattern <c>Expr1</c> against <c>Expr2</c>. If the
+    matching succeeds, any unbound variable in the pattern becomes
+    bound. If the expression is the last expression in the
+    <c>maybe</c> block, it also returns the value of <c>Expr2</c>. If the
+    matching is unsuccessful, the rest of the expressions in the <c>maybe</c>
+    block are skipped and the return value of the <c>maybe</c>
+    block is <c>Expr2</c>.</p>
+
+    <p>None of the variables bound in a <c>maybe</c> block must be
+    used in the code that follows the block.</p>
+
+    <p>Here is an example:</p>
+
+    <code type="erl"><![CDATA[
+maybe
+    {ok, A} ?= a(),
+    true = A >= 0,
+    {ok, B} ?= b(),
+    A + B
+end]]></code>
+
+    <p>Let us first assume that <c>a()</c> returns <c>{ok,42}</c> and
+    <c>b()</c> returns <c>{ok,58}</c>. With those return values, all
+    of the match operators will succeed, and the return value of the
+    <c>maybe</c> block is <c>A + B</c>, which is equal to <c>42 +
+    58 = 100</c>.</p>
+
+    <p>Now let us assume that <c>a()</c> returns <c>error</c>. The
+    conditional match operator in <c>{ok, A} ?= a()</c> fails to
+    match, and the return value of the <c>maybe</c> block is the
+    value of the expression that failed to match, namely <c>error</c>.
+    Similarly, if <c>b()</c> returns <c>wrong</c>, the return value of
+    the <c>maybe</c> block is <c>wrong</c>.</p>
+
+    <p>Finally, let us assume that <c>a()</c> returns
+    <c>-1</c>. Because <c>true = A >= 0</c> uses the match operator
+    `=`, a <c>{badmatch,false}</c> run-time error occurs when the
+    expression fails to match the pattern.</p>
+
+    <p>The example can be written in a less succient way using nested
+    case expressions:</p>
+
+    <code type="erl"><![CDATA[
+case a() of
+    {ok, A} ->
+        true = A >= 0,
+        case b() of
+            {ok, B} ->
+                A + B;
+            Other1 ->
+                Other1
+        end;
+    Other2 ->
+        Other2
+end]]></code>
+
+    <p>The <c>maybe</c> block can be augmented with <c>else</c> clauses:</p>
+
+    <code type="erl"><![CDATA[
+maybe
+    Expr1,
+    ...,
+    ExprN
+else
+    Pattern1 [when GuardSeq1] ->
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] ->
+        BodyN
+end]]></code>
+
+    <p>If a conditional match operator fails, the failed expression is
+    matched against the patterns in all clauses between the
+    <c>else</c> and <c>end</c> keywords. If a match succeeds and the
+    optional guard sequence <c>GuardSeq</c> is true, the corresponding
+    <c>Body</c> is evaluated. The value returned from the body is the
+    return value of the <c>maybe</c> block.</p>
+
+    <p>If there is no matching pattern with a true guard sequence,
+    an <c>else_clause</c> run-time error occurs.</p>
+
+    <p>None of the variables bound in a <c>maybe</c> block must be used in
+    the <c>else</c> clauses. None of the variables bound in the <c>else</c> clauses
+    must be used in the code that follows the <c>maybe</c> block.</p>
+
+    <p>Here is the previous example augmented with a <c>else</c> clauses:</p>
+
+    <code type="erl"><![CDATA[
+maybe
+    {ok, A} ?= a(),
+    true = A >= 0,
+    {ok, B} ?= b(),
+    A + B
+else
+    error -> error;
+    wrong -> error
+end]]></code>
+
+    <p>The <c>else</c> clauses translate the failing value from
+    the conditional match operators to the value <c>error</c>. If the
+    failing value is not one of the recognized values, a
+    <c>else_clause</c> run-time error occurs.</p>
   </section>
 
   <section>
@@ -1014,7 +1146,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  <p>
 		  Here keys <c>K1 .. Kn</c> are any expressions with
 		  literals or bound variables. If all key expressions
-		  evalute successfully and all keys exist in map
+		  evaluate successfully and all keys exist in map
 		  <c>M</c>, all variables in <c>V1 .. Vn</c> is
 		  matched to the associated values of their respective
 		  keys.
@@ -1575,7 +1707,11 @@ end</pre>
 <c>BitStringExpr</c> must be an expression, which evaluates to a
        bitstring.</item>
       <item>A <em>filter</em> is an expression, which evaluates to
-      <c>true</c> or <c>false</c>.</item>
+      <c>true</c> or <c>false</c>, or a
+      <seeguide marker="#guard_expressions">guard expression</seeguide>.
+      If the filter is not a guard expression and evaluates
+      to a non-Boolean value <c>Val</c>, an exception
+      <c>{bad_filter, Val}</c> is triggered at runtime.</item>
     </list>
     <p>The variables in the generator patterns shadow previously bound variables,
     including variables bound in a previous generator pattern.</p>
@@ -1612,7 +1748,7 @@ end</pre>
     the following syntax:</p>
     <pre>
 &lt;&lt; BitStringExpr || Qualifier1,...,QualifierN &gt;&gt;</pre>
-    <p><c>BitStringExpr</c> is an expression that evalutes to a bit
+    <p><c>BitStringExpr</c> is an expression that evaluates to a bit
     string. If <c>BitStringExpr</c> is a function call, it must be
     enclosed in parentheses.  Each <c>Qualifier</c> is either a
     generator, a bit string generator or a filter.</p>
@@ -1626,8 +1762,12 @@ end</pre>
        &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
 <c>BitStringExpr</c> must be an expression that evaluates to a
        bitstring.</item>
-      <item>A <em>filter</em> is an expression that evaluates to
-      <c>true</c> or <c>false</c>.</item>
+      <item>A <em>filter</em> is an expression, which evaluates to
+      <c>true</c> or <c>false</c>, or a
+      <seeguide marker="#guard_expressions">guard expression</seeguide>.
+      If the filter is not a guard expression and evaluates
+      to a non-Boolean value <c>Val</c>, an exception
+      <c>{bad_filter, Val}</c> is triggered at runtime.</item>
     </list>
     <p>The variables in the generator patterns shadow previously bound variables,
     including variables bound in a previous generator pattern.</p>
@@ -1852,6 +1992,10 @@ end</pre>
       <row>
         <cell align="left" valign="middle">= !</cell>
         <cell align="left" valign="middle">Right associative</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">?=</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
       </row>
       <row>
         <cell align="left" valign="middle">catch</cell>

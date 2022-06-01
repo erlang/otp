@@ -229,7 +229,7 @@ find(Mod, GrNames, TCs, [TC | Gs], Known, Defs, FindAll)
 	    [Case | find(Mod, GrNames, TCs, Gs, Known, Defs, FindAll)]
     end;
 
-%% Unexpeted term in group list
+%% Unexpected term in group list
 find(Mod, _GrNames, _TCs, [BadTerm | _Gs], Known, _Defs, _FindAll) ->
     Where = if length(Known) == 0 ->
 		    atom_to_list(Mod)++":groups/0";

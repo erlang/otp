@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,8 +76,8 @@ static int ei_epmd_r4_publish (int port, const char *alive, unsigned ms)
   put16be(s,port); /* port number */
   put8(s,'h');            /* h = r4 hidden node */
   put8(s, EI_MYPROTO);      /* protocol 0 ?? */
-  put16be(s,EI_DIST_HIGH);   /* highest understood version: 1 = R4 */
-  put16be(s,EI_DIST_LOW);    /* lowest:  0 = R3 */
+  put16be(s,EI_DIST_HIGH);   /* highest understood version */
+  put16be(s,EI_DIST_LOW);    /* lowest */
   put16be(s,nlen);        /* length of alivename */
   strcpy(s, alive);
   s += nlen;

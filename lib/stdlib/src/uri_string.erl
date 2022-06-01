@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -237,7 +237,10 @@
          recompose/1,
          resolve/2,
          resolve/3,
-         transcode/2]).
+         transcode/2,
+         quote/1,
+         quote/2,
+         unquote/1]).
 -export_type([error/0,
               uri_map/0,
               uri_string/0]).
@@ -517,6 +520,29 @@ percent_decode(URIMap) when is_map(URIMap)->
 percent_decode(URI) when is_list(URI) orelse
                          is_binary(URI) ->
     raw_decode(URI).
+
+-spec quote(Data) -> QuotedData when
+      Data :: unicode:chardata(),
+      QuotedData :: unicode:chardata().
+quote(D) ->
+    encode(D, fun is_unreserved/1).
+
+-spec quote(Data, Safe) -> QuotedData when
+      Data :: unicode:chardata(),
+      Safe :: string(),
+      QuotedData :: unicode:chardata().
+quote(D, Safe) ->
+    UnreservedOrSafe =
+        fun(C) ->
+                is_unreserved(C) orelse lists:member(C, Safe)
+        end,
+    encode(D, UnreservedOrSafe).
+
+-spec unquote(QuotedData) -> Data when
+      QuotedData :: unicode:chardata(),
+      Data :: unicode:chardata().
+unquote(D) ->
+    raw_decode(D).
 
 %%-------------------------------------------------------------------------
 %% Functions for working with the query part of a URI as a list
@@ -2216,8 +2242,9 @@ base10_decode_unicode(<<H,_/binary>>, _, _) ->
 normalize_map(URIMap) ->
     normalize_path_segment(
       normalize_scheme_based(
-        normalize_percent_encoding(
-          normalize_case(URIMap)))).
+        normalize_undefined_port(
+          normalize_percent_encoding(
+            normalize_case(URIMap))))).
 
 
 %% 6.2.2.1.  Case Normalization
@@ -2357,34 +2384,42 @@ normalize_scheme_based(Map, _, _, _) ->
 
 
 normalize_http(Map, Port, Path) ->
-    M1 = normalize_port(Map, Port, 80),
+    M1 = normalize_default_port(Map, Port, 80),
     normalize_http_path(M1, Path).
 
 
 normalize_https(Map, Port, Path) ->
-    M1 = normalize_port(Map, Port, 443),
+    M1 = normalize_default_port(Map, Port, 443),
     normalize_http_path(M1, Path).
 
 
 normalize_ftp(Map, Port) ->
-    normalize_port(Map, Port, 21).
+    normalize_default_port(Map, Port, 21).
 
 
 normalize_ssh_sftp(Map, Port) ->
-    normalize_port(Map, Port, 22).
+    normalize_default_port(Map, Port, 22).
 
 
 normalize_tftp(Map, Port) ->
-    normalize_port(Map, Port, 69).
+    normalize_default_port(Map, Port, 69).
 
 
-normalize_port(Map, Port, Default) ->
+%% RFC 3986, 3.2.3.  Port
+%% RFC 3986, 6.2.3.  Scheme-Based Normalization
+normalize_default_port(Map, Port, Default) ->
     case Port of
         Default ->
             maps:remove(port, Map);
         _Else ->
             Map
     end.
+
+
+normalize_undefined_port(#{port := undefined} = Map) ->
+    maps:remove(port, Map);
+normalize_undefined_port(#{} = Map) ->
+    Map.
 
 
 normalize_http_path(Map, Path) ->

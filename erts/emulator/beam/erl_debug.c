@@ -469,7 +469,7 @@ void print_untagged_memory(Eterm *pos, Eterm *end)
  * is).  This function knows about forwarding pointers to be able to
  * print a heap during garbage collection. erts_printf("%T",val)
  * do not know about forwarding pointers though, so it will still
- * crash if they are encoutered...
+ * crash if they are encountered...
  */
 void print_tagged_memory(Eterm *pos, Eterm *end)
 {

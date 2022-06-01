@@ -126,7 +126,7 @@ test_free(TestCaseState_t *tcs, Allctr_t *a, Ulong bsz)
     FREE(a, p[0]);
     FREE(a, p[6]);
 
-    testcase_printf(tcs," --- free() with block size %lu succeded ---\n",bsz);
+    testcase_printf(tcs," --- free() with block size %lu succeeded ---\n",bsz);
 }
 
 static void
@@ -195,7 +195,7 @@ test_realloc(TestCaseState_t *tcs, Allctr_t *a, Ulong bsz)
     ASSERT(tcs, IS_FREE_BLK(blk));
     ASSERT(tcs, NXT_BLK(blk) == UMEM2BLK(p[2]));
 
-    /* Grow upto next alloced block by allocating just enough so that no
+    /* Grow up to next allocated block by allocating just enough so that no
        free block fits between them */
     nbsz = BLK_SZ(blk) + UMEM_SZ(UMEM2BLK(p[0]));
     nbsz -= MIN_BLK_SZ(a) - 1;
@@ -227,7 +227,7 @@ test_realloc(TestCaseState_t *tcs, Allctr_t *a, Ulong bsz)
     ASSERT(tcs, blk == UMEM2BLK(p[2]));
 
     /* Shrink just as much so that a free block can fit between
-       the alloced blocks */
+       the allocated blocks */
     nbsz -= 1;
     ptr = REALLOC(a, p[0], nbsz);
     ASSERT(tcs, p[0] == ptr);
@@ -253,7 +253,7 @@ test_realloc(TestCaseState_t *tcs, Allctr_t *a, Ulong bsz)
     FREE(a, p[0]);
     FREE(a, p[2]);
 
-    testcase_printf(tcs, " --- realloc() with block size %lu succeded ---\n",
+    testcase_printf(tcs, " --- realloc() with block size %lu succeeded ---\n",
 		    bsz);
 
 }

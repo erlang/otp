@@ -261,7 +261,7 @@ find_application_infos([{App, Vsn, AppPath, IndexURL} | Paths]) ->
 		case lists:keysearch("group", 1, Db) of
 		    {value, {_, G0}} ->
 			% This value may be in two parts, 
-		        % tag and desciption
+		        % tag and description
 			case string:str(G0, " ") of
 			    0 ->
 				{list_to_atom(G0), ""};

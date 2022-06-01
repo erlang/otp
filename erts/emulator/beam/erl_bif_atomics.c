@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -227,15 +227,18 @@ BIF_RETTYPE atomics_compare_exchange_4(BIF_ALIST_4)
 BIF_RETTYPE atomics_info_1(BIF_ALIST_1)
 {
     AtomicsRef* p;
-    Uint hsz = MAP4_SZ;
+    Uint hsz = 0;
     Eterm *hp;
     Uint64 max;
     Sint64 min;
     UWord memory;
-    Eterm max_val, min_val, sz_val, mem_val;
+    Eterm keys[4], values[4], res;
+    ErtsHeapFactory factory;
 
     if (!get_ref(BIF_ARG_1, &p))
         BIF_ERROR(BIF_P, BADARG);
+
+    erts_factory_proc_init(&factory, BIF_P);
 
     max = p->is_signed ? ERTS_SINT64_MAX : ERTS_UINT64_MAX;
     min = p->is_signed ? ERTS_SINT64_MIN : 0;
@@ -246,14 +249,17 @@ BIF_RETTYPE atomics_info_1(BIF_ALIST_1)
     erts_bld_uword(NULL, &hsz, p->vlen);
     erts_bld_uword(NULL, &hsz, memory);
 
-    hp = HAlloc(BIF_P, hsz);
-    max_val = erts_bld_uint64(&hp, NULL, max);
-    min_val = erts_bld_sint64(&hp, NULL, min);
-    sz_val  = erts_bld_uword(&hp, NULL, p->vlen);
-    mem_val = erts_bld_uword(&hp, NULL, memory);
+    hp = erts_produce_heap(&factory, hsz, MAP4_SZ);
+    keys[0] = am_max;
+    values[0] = erts_bld_uint64(&hp, NULL, max);
+    keys[1] = am_min;
+    values[1] = erts_bld_sint64(&hp, NULL, min);
+    keys[2] = am_size;
+    values[2]  = erts_bld_uword(&hp, NULL, p->vlen);
+    keys[3] = am_memory;
+    values[3] = erts_bld_uword(&hp, NULL, memory);
 
-    return MAP4(hp, am_max, max_val,
-                am_memory, mem_val,
-                am_min, min_val,
-                am_size, sz_val);
+    res = erts_map_from_ks_and_vs(&factory, keys, values, 4);
+    erts_factory_close(&factory);
+    return res;
 }

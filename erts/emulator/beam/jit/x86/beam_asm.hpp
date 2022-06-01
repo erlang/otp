@@ -22,6 +22,8 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <algorithm>
+#include <cmath>
 
 #ifndef ASMJIT_ASMJIT_H_INCLUDED
 #    include <asmjit/asmjit.hpp>
@@ -37,11 +39,16 @@ extern "C"
 #include "erl_vm.h"
 #include "global.h"
 #include "beam_catches.h"
+#include "big.h"
 
 #include "beam_asm.h"
 }
 
 #include "beam_jit_common.hpp"
+
+/* On Windows, the min and max macros may be defined. */
+#undef min
+#undef max
 
 using namespace asmjit;
 
@@ -69,16 +76,18 @@ protected:
      * when running on the runtime stack. */
     const x86::Gp E = x86::rsp;
 
-    /* Cached copy of Erlang stack pointer used to speed up stack switches when
-     * we know that the runtime doesn't read or modify the Erlang stack.
-     *
-     * If we find ourselves pressed for registers in the future, we could save
-     * this in the same slot as `registers` as that can be trivially recomputed
-     * from the top of the runtime stack. */
-    const x86::Gp E_saved = x86::r12;
+#    ifdef ERLANG_FRAME_POINTERS
+    /* Current frame pointer, used when we emit native stack frames (e.g. to
+     * better support `perf`). */
+    const x86::Gp frame_pointer = x86::rbp;
+#    endif
 
+    /* When we're not using frame pointers, we can keep the Erlang stack in
+     * RBP when running on the runtime stack, which is slightly faster than
+     * reading and writing from c_p->stop. */
+    const x86::Gp E_saved = x86::rbp;
 #else
-    const x86::Gp E = x86::r12;
+    const x86::Gp E = x86::rbp;
 #endif
 
     const x86::Gp c_p = x86::r13;
@@ -90,7 +99,7 @@ protected:
      * This is set to ERTS_SAVE_CALLS_CODE_IX when save_calls is active, which
      * routes us to a common handler routine that calls save_calls before
      * jumping to the actual code. */
-    const x86::Gp active_code_ix = x86::rbp;
+    const x86::Gp active_code_ix = x86::r12;
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
     const x86::Mem erts_msacc_cache = getSchedulerRegRef(
@@ -164,102 +173,23 @@ protected:
 public:
     static bool hasCpuFeature(uint32_t featureId);
 
-    BeamAssembler() : code() {
-        /* Setup with default code info */
-        Error err = code.init(Environment::host());
-        ERTS_ASSERT(!err && "Failed to init codeHolder");
+    BeamAssembler();
+    BeamAssembler(const std::string &log);
 
-        err = code.newSection(&rodata,
-                              ".rodata",
-                              SIZE_MAX,
-                              SectionFlags::kReadOnly,
-                              8);
-        ERTS_ASSERT(!err && "Failed to create .rodata section");
+    ~BeamAssembler();
 
-        err = code.attach(&a);
-
-        ERTS_ASSERT(!err && "Failed to attach codeHolder");
-#ifdef DEBUG
-        a.addDiagnosticOptions(DiagnosticOptions::kValidateAssembler);
-#endif
-        a.addEncodingOptions(EncodingOptions::kOptimizeForSize);
-        code.setErrorHandler(this);
-    }
-
-    BeamAssembler(const std::string &log) : BeamAssembler() {
-        if (erts_jit_asm_dump) {
-            setLogger(log + ".asm");
-        }
-    }
-
-    ~BeamAssembler() {
-        if (logger.file())
-            fclose(logger.file());
-    }
-
-    void *getBaseAddress() {
-        ASSERT(code.hasBaseAddress());
-        return (void *)code.baseAddress();
-    }
-
-    size_t getOffset() {
-        return a.offset();
-    }
+    void *getBaseAddress();
+    size_t getOffset();
 
 protected:
     void _codegen(JitAllocator *allocator,
                   const void **executable_ptr,
-                  void **writable_ptr) {
-        Error err = code.flatten();
-        ERTS_ASSERT(!err && "Could not flatten code");
-        err = code.resolveUnresolvedLinks();
-        ERTS_ASSERT(!err && "Could not resolve all links");
+                  void **writable_ptr);
 
-        /* Verify that all labels are bound */
-#ifdef DEBUG
-        for (auto e : code.labelEntries()) {
-            if (!e->isBound()) {
-                erts_exit(ERTS_ABORT_EXIT, "Label %s is not bound", e->name());
-            }
-        }
-#endif
+    void *getCode(Label label);
+    byte *getCode(char *labelName);
 
-        err = allocator->alloc(const_cast<void **>(executable_ptr),
-                               writable_ptr,
-                               code.codeSize() + 16);
-
-        if (err == ErrorCode::kErrorTooManyHandles) {
-            ERTS_ASSERT(!"Failed to allocate module code: "
-                         "out of file descriptors");
-        } else if (err) {
-            ERTS_ASSERT("Failed to allocate module code");
-        }
-
-        code.relocateToBase((uint64_t)*executable_ptr);
-        code.copyFlattenedData(*writable_ptr,
-                               code.codeSize(),
-                               CopySectionFlags::kPadSectionBuffer);
-#ifdef DEBUG
-        if (FileLogger *l = dynamic_cast<FileLogger *>(code.logger()))
-            if (FILE *f = l->file())
-                fprintf(f, "; CODE_SIZE: %zd\n", code.codeSize());
-#endif
-    }
-
-    void *getCode(Label label) {
-        ASSERT(label.isValid());
-        return (char *)getBaseAddress() + code.labelOffsetFromBase(label);
-    }
-
-    byte *getCode(char *labelName) {
-        return (byte *)getCode(code.labelByName(labelName, strlen(labelName)));
-    }
-
-    void handleError(Error err, const char *message, BaseEmitter *origin) {
-        comment(message);
-        fflush(logger.file());
-        ASSERT(0 && "Fault instruction encode");
-    }
+    void handleError(Error err, const char *message, BaseEmitter *origin);
 
     constexpr x86::Mem getRuntimeStackRef() const {
         int base = offsetof(ErtsSchedulerRegisters, aux_regs.d.runtime_stack);
@@ -365,6 +295,7 @@ protected:
         a.short_().jle(ok);
 
         a.bind(crash);
+        comment("Redzone touched");
         a.ud2();
 
         a.bind(ok);
@@ -412,6 +343,7 @@ protected:
         Label next = a.newLabel();
         a.cmp(x86::rsp, getInitialSPRef());
         a.short_().je(next);
+        comment("The stack has grown");
         a.ud2();
         a.bind(next);
 #endif
@@ -553,52 +485,47 @@ protected:
     }
 
     /* Explicitly position-independent absolute jump, for use in fragments that
-     * need to be memcpy'd for performance reasons (e.g. export entries) */
+     * need to be memcpy'd for performance reasons (e.g. NIF stubs) */
     template<typename T>
     void pic_jmp(T(*addr)) {
         a.mov(ARG6, imm(addr));
         a.jmp(ARG6);
     }
 
-    constexpr x86::Mem getArgRef(const ArgVal &val,
+    constexpr x86::Mem getArgRef(const ArgRegister &arg,
                                  size_t size = sizeof(UWord)) const {
-        switch (val.getType()) {
-        case ArgVal::TYPE::l:
-            return getFRef(val.getValue(), size);
-        case ArgVal::TYPE::x:
-            return getXRef(val.getValue(), size);
-        case ArgVal::TYPE::y:
-            return getYRef(val.getValue(), size);
-        default:
-            ERTS_ASSERT(!"NYI");
-            return x86::Mem();
+        if (arg.isXRegister()) {
+            return getXRef(arg.as<ArgXRegister>().get(), size);
+        } else if (arg.isYRegister()) {
+            return getYRef(arg.as<ArgYRegister>().get(), size);
         }
+
+        return getFRef(arg.as<ArgFRegister>().get(), size);
     }
 
-    /* Returns the current code address for the export entry in `Src`
+    /* Returns the current code address for the `Export` or `ErlFunEntry` in
+     * `Src`.
      *
-     * Export tracing, save_calls, etc is implemented by shared fragments that
-     * assume that the export entry is in RET, so we have to copy it over if it
-     * isn't already. */
-    x86::Mem emit_setup_export_call(const x86::Gp &Src) {
-        return emit_setup_export_call(Src, active_code_ix);
+     * Export tracing, save_calls, etc are implemented by shared fragments that
+     * assume that the respective entry is in RET, so we have to copy it over
+     * if it isn't already. */
+    x86::Mem emit_setup_dispatchable_call(const x86::Gp &Src) {
+        return emit_setup_dispatchable_call(Src, active_code_ix);
     }
 
-    x86::Mem emit_setup_export_call(const x86::Gp &Src,
-                                    const x86::Gp &CodeIndex) {
+    x86::Mem emit_setup_dispatchable_call(const x86::Gp &Src,
+                                          const x86::Gp &CodeIndex) {
         if (RET != Src) {
             a.mov(RET, Src);
         }
 
-        return x86::qword_ptr(RET, CodeIndex, 3, offsetof(Export, addresses));
-    }
+        ERTS_CT_ASSERT(offsetof(ErlFunEntry, dispatch) == 0);
+        ERTS_CT_ASSERT(offsetof(Export, dispatch) == 0);
 
-    /* Discards a continuation pointer, including the frame pointer if
-     * applicable. */
-    void emit_discard_cp() {
-        emit_assert_erlang_stack();
-
-        a.add(x86::rsp, imm(CP_SIZE * sizeof(Eterm)));
+        return x86::qword_ptr(RET,
+                              CodeIndex,
+                              3,
+                              offsetof(ErtsDispatchable, addresses));
     }
 
     void emit_assert_runtime_stack() {
@@ -623,6 +550,7 @@ protected:
         a.short_().je(next);
 
         a.bind(crash);
+        comment("Runtime stack is corrupt");
         a.ud2();
 
         a.bind(next);
@@ -643,6 +571,7 @@ protected:
         a.short_().jle(next);
 
         a.bind(crash);
+        comment("Erlang stack is corrupt");
         a.ud2();
         a.bind(next);
 #endif
@@ -655,6 +584,36 @@ protected:
         eCodeIndex = (1 << 3)
     };
 
+    void emit_enter_frame() {
+#ifdef NATIVE_ERLANG_STACK
+        if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+#    ifdef ERLANG_FRAME_POINTERS
+            a.push(frame_pointer);
+            a.mov(frame_pointer, E);
+#    endif
+        } else {
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+        }
+#endif
+    }
+
+    void emit_leave_frame() {
+#ifdef NATIVE_ERLANG_STACK
+        if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+            a.leave();
+        } else {
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+        }
+#endif
+    }
+
+    void emit_unwind_frame() {
+        emit_assert_erlang_stack();
+
+        emit_leave_frame();
+        a.add(x86::rsp, imm(sizeof(UWord)));
+    }
+
     template<int Spec = 0>
     void emit_enter_runtime() {
         emit_assert_erlang_stack();
@@ -662,46 +621,65 @@ protected:
         ERTS_CT_ASSERT((Spec & (Update::eReductions | Update::eStack |
                                 Update::eHeap)) == Spec);
 
-#ifdef NATIVE_ERLANG_STACK
-        if (!(Spec & Update::eStack)) {
-            a.mov(E_saved, E);
-        }
-#endif
-
-        if ((Spec & (Update::eHeap | Update::eStack)) ==
-            (Update::eHeap | Update::eStack)) {
-            /* To update both heap and stack we use sse instructions like gcc
-               -O3 does. Basically it is this function run through gcc -O3:
-
-               struct a { long a; long b; long c; };
-
-               void test(long a, long b, long c, struct a *s) {
-                 s->a = a;
-                 s->b = b;
-                 s->c = c;
-               }
-            */
-            ERTS_CT_ASSERT(offsetof(Process, stop) - offsetof(Process, htop) ==
-                           8);
-            a.movq(x86::xmm0, HTOP);
-            a.movq(x86::xmm1, E);
-            if (Spec & Update::eReductions) {
-                a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
+        if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+            if ((Spec & (Update::eHeap | Update::eStack)) ==
+                (Update::eHeap | Update::eStack)) {
+                /* To update both heap and stack we use sse instructions like
+                 * gcc -O3 does. Basically it is this function run through
+                 * gcc -O3:
+                 *
+                 *    struct a { long a; long b; long c; };
+                 *    void test(long a, long b, long c, struct a *s) {
+                 *      s->a = a;
+                 *      s->b = b;
+                 *      s->c = c;
+                 *    } */
+                ERTS_CT_ASSERT((offsetof(Process, stop) -
+                                offsetof(Process, htop)) == sizeof(Eterm *));
+                a.movq(x86::xmm0, HTOP);
+                a.movq(x86::xmm1, E);
+                a.punpcklqdq(x86::xmm0, x86::xmm1);
+                a.movups(x86::xmmword_ptr(c_p, offsetof(Process, htop)),
+                         x86::xmm0);
+            } else if (Spec & Update::eHeap) {
+                a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
+            } else if (Spec & Update::eStack) {
+                a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
             }
-            a.punpcklqdq(x86::xmm0, x86::xmm1);
-            a.movups(x86::xmmword_ptr(c_p, offsetof(Process, htop)), x86::xmm0);
+
+#ifdef NATIVE_ERLANG_STACK
+            if (!(Spec & Update::eStack)) {
+                a.mov(E_saved, E);
+            }
+#endif
         } else {
-            if ((Spec & Update::eStack)) {
+#ifdef ERLANG_FRAME_POINTERS
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+
+            if (Spec & Update::eStack) {
+                ERTS_CT_ASSERT((offsetof(Process, frame_pointer) -
+                                offsetof(Process, stop)) == sizeof(Eterm *));
+                a.movq(x86::xmm0, E);
+                a.movq(x86::xmm1, frame_pointer);
+                a.punpcklqdq(x86::xmm0, x86::xmm1);
+                a.movups(x86::xmmword_ptr(c_p, offsetof(Process, stop)),
+                         x86::xmm0);
+            } else {
+                /* We can skip updating the frame pointer whenever the process
+                 * doesn't have to inspect the stack. We still need to update
+                 * the stack pointer to switch stacks, though, since we don't
+                 * have enough spare callee-save registers. */
                 a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
             }
 
             if (Spec & Update::eHeap) {
                 a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
             }
+#endif
+        }
 
-            if (Spec & Update::eReductions) {
-                a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
-            }
+        if (Spec & Update::eReductions) {
+            a.mov(x86::qword_ptr(c_p, offsetof(Process, fcalls)), FCALLS);
         }
 
 #ifdef NATIVE_ERLANG_STACK
@@ -724,13 +702,25 @@ protected:
         ERTS_CT_ASSERT((Spec & (Update::eReductions | Update::eStack |
                                 Update::eHeap | Update::eCodeIndex)) == Spec);
 
+        if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+            if (Spec & Update::eStack) {
+                a.mov(E, x86::qword_ptr(c_p, offsetof(Process, stop)));
+            } else {
 #ifdef NATIVE_ERLANG_STACK
-        if (!(Spec & Update::eStack)) {
-            a.mov(E, E_saved);
-        }
+                a.mov(E, E_saved);
 #endif
-        if ((Spec & Update::eStack)) {
+            }
+        } else {
+#ifdef ERLANG_FRAME_POINTERS
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+
             a.mov(E, x86::qword_ptr(c_p, offsetof(Process, stop)));
+
+            if (Spec & Update::eStack) {
+                a.mov(frame_pointer,
+                      x86::qword_ptr(c_p, offsetof(Process, frame_pointer)));
+            }
+#endif
         }
 
         if (Spec & Update::eHeap) {
@@ -807,12 +797,53 @@ protected:
         }
     }
 
+    /* Set the Z flag if Reg1 and Reg2 are definitely not equal based on their
+     * tags alone. (They may still be equal if both are immediates and all other
+     * bits are equal too.) */
+    void emit_is_unequal_based_on_tags(x86::Gp Reg1, x86::Gp Reg2) {
+        ASSERT(Reg1 != RET && Reg2 != RET);
+        emit_is_unequal_based_on_tags(Reg1, Reg2, RET);
+    }
+
+    void emit_is_unequal_based_on_tags(x86::Gp Reg1,
+                                       x86::Gp Reg2,
+                                       const x86::Gp &spill) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
+                       TAG_PRIMARY_IMMED1);
+        a.mov(RETd, Reg1.r32());
+        a.or_(RETd, Reg2.r32());
+        a.and_(RETb, imm(_TAG_PRIMARY_MASK));
+
+        /* RET will be now be TAG_PRIMARY_IMMED1 if either one or both
+         * registers are immediates, or if one register is a list and the other
+         * a boxed. */
+        a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
+    }
+
     /*
      * Generate the shortest instruction for setting a register to an immediate
      * value. May clear flags.
      */
-    void mov_imm(x86::Gp to, Uint value) {
-        if (value == 0) {
+    template<typename T>
+    void mov_imm(x86::Gp to, T value) {
+        static_assert(std::is_integral<T>::value || std::is_pointer<T>::value);
+        if (value) {
+            /* Generate the shortest instruction to set the register to an
+             * immediate.
+             *
+             *   48 c7 c0 2a 00 00 00    mov    rax, 42
+             *   b8 2a 00 00 00          mov    eax, 42
+             *
+             *   49 c7 c0 2a 00 00 00    mov    r8, 42
+             *   41 b8 2a 00 00 00       mov    r8d, 42
+             */
+            if (Support::isUInt32((Uint)value)) {
+                a.mov(to.r32(), imm(value));
+            } else {
+                a.mov(to, imm(value));
+            }
+        } else {
             /*
              * Generate the shortest instruction to set the register to zero.
              *
@@ -825,34 +856,26 @@ protected:
              * Note: xor clears ZF and CF; mov does not change any flags.
              */
             a.xor_(to.r32(), to.r32());
-        } else {
-            a.mov(to, imm(value));
         }
+    }
+
+    void mov_imm(x86::Gp to, std::nullptr_t value) {
+        (void)value;
+        mov_imm(to, 0);
     }
 
 public:
     void embed_rodata(const char *labelName, const char *buff, size_t size);
     void embed_bss(const char *labelName, size_t size);
-
     void embed_zeros(size_t size);
 
-    void setLogger(std::string log) {
-        FILE *f = fopen(log.data(), "w+");
+    void setLogger(std::string log);
+    void setLogger(FILE *log);
 
-        /* FIXME: Don't crash when loading multiple modules with the same name.
-         *
-         * setLogger(nullptr) disables logging. */
-        if (f) {
-            setvbuf(f, NULL, _IONBF, 0);
+    void comment(const char *format) {
+        if (logger.file()) {
+            a.commentf("# %s", format);
         }
-
-        setLogger(f);
-    }
-
-    void setLogger(FILE *log) {
-        logger.setFile(log);
-        logger.setIndentation(FormatIndentationGroup::kCode, 4);
-        code.setLogger(&logger);
     }
 
     template<typename... Ts>
@@ -867,150 +890,26 @@ public:
     struct AsmRange {
         ErtsCodePtr start;
         ErtsCodePtr stop;
-        std::string name;
+        const std::string name;
 
-        /* Not used yet */
-        std::string file;
-        unsigned line;
+        struct LineData {
+            ErtsCodePtr start;
+            const std::string file;
+            unsigned line;
+        };
+
+        const std::vector<LineData> lines;
     };
-
-    void update_gdb_jit_info(std::string modulename,
-                             std::vector<AsmRange> &functions);
-
-    void embed(void *data, uint32_t size) {
-        a.embed((char *)data, size);
-    }
 };
 
-class BeamGlobalAssembler : public BeamAssembler {
-    typedef void (BeamGlobalAssembler::*emitFptr)(void);
-    typedef void (*fptr)(void);
-
-    /* Please keep this in alphabetical order. */
-#define BEAM_GLOBAL_FUNCS(_)                                                   \
-    _(arith_compare_shared)                                                    \
-    _(arith_eq_shared)                                                         \
-    _(bif_nif_epilogue)                                                        \
-    _(bif_element_shared)                                                      \
-    _(bif_export_trap)                                                         \
-    _(bs_add_shared)                                                           \
-    _(bs_size_check_shared)                                                    \
-    _(bs_fixed_integer_shared)                                                 \
-    _(bs_get_tail_shared)                                                      \
-    _(call_bif_shared)                                                         \
-    _(call_light_bif_shared)                                                   \
-    _(call_nif_early)                                                          \
-    _(call_nif_shared)                                                         \
-    _(catch_end_shared)                                                        \
-    _(dispatch_bif)                                                            \
-    _(dispatch_nif)                                                            \
-    _(dispatch_return)                                                         \
-    _(dispatch_save_calls)                                                     \
-    _(error_action_code)                                                       \
-    _(export_trampoline)                                                       \
-    _(garbage_collect)                                                         \
-    _(generic_bp_global)                                                       \
-    _(generic_bp_local)                                                        \
-    _(debug_bp)                                                                \
-    _(handle_error_shared_prologue)                                            \
-    _(handle_error_shared)                                                     \
-    _(handle_element_error)                                                    \
-    _(handle_hd_error)                                                         \
-    _(i_band_body_shared)                                                      \
-    _(i_band_guard_shared)                                                     \
-    _(i_bif_body_shared)                                                       \
-    _(i_bif_guard_shared)                                                      \
-    _(i_bor_body_shared)                                                       \
-    _(i_bor_guard_shared)                                                      \
-    _(i_bnot_body_shared)                                                      \
-    _(i_bnot_guard_shared)                                                     \
-    _(i_bsl_guard_shared)                                                      \
-    _(i_bsl_body_shared)                                                       \
-    _(i_bsr_guard_shared)                                                      \
-    _(i_bsr_body_shared)                                                       \
-    _(i_bxor_body_shared)                                                      \
-    _(i_bxor_guard_shared)                                                     \
-    _(i_func_info_shared)                                                      \
-    _(i_load_nif_shared)                                                       \
-    _(i_length_guard_shared)                                                   \
-    _(i_length_body_shared)                                                    \
-    _(i_loop_rec_shared)                                                       \
-    _(i_new_small_map_lit_shared)                                              \
-    _(i_test_yield_shared)                                                     \
-    _(increment_body_shared)                                                   \
-    _(int_div_rem_body_shared)                                                 \
-    _(int_div_rem_guard_shared)                                                \
-    _(minus_body_shared)                                                       \
-    _(minus_guard_shared)                                                      \
-    _(new_map_shared)                                                          \
-    _(plus_body_shared)                                                        \
-    _(plus_guard_shared)                                                       \
-    _(process_main)                                                            \
-    _(times_body_shared)                                                       \
-    _(times_guard_shared)                                                      \
-    _(unary_minus_body_shared)                                                 \
-    _(unary_minus_guard_shared)                                                \
-    _(update_map_assoc_shared)                                                 \
-    _(update_map_exact_guard_shared)                                           \
-    _(update_map_exact_body_shared)
-
-/* Labels exported from within process_main */
-#define PROCESS_MAIN_LABELS(_)                                                 \
-    _(context_switch)                                                          \
-    _(context_switch_simplified)                                               \
-    _(do_schedule)
-
-#define DECL_ENUM(NAME) NAME,
-
-    enum GlobalLabels : uint32_t {
-        BEAM_GLOBAL_FUNCS(DECL_ENUM) PROCESS_MAIN_LABELS(DECL_ENUM)
-    };
-#undef DECL_ENUM
-
-    static const std::map<GlobalLabels, emitFptr> emitPtrs;
-    static const std::map<GlobalLabels, std::string> labelNames;
-    std::unordered_map<GlobalLabels, Label> labels;
-    std::unordered_map<GlobalLabels, fptr> ptrs;
-
-#define DECL_FUNC(NAME) void emit_##NAME(void);
-
-    BEAM_GLOBAL_FUNCS(DECL_FUNC);
-#undef DECL_FUNC
-
-    template<typename T>
-    void emit_bitwise_fallback_body(T(*func_ptr), const ErtsCodeMFA *mfa);
-
-    template<typename T>
-    void emit_bitwise_fallback_guard(T(*func_ptr));
-
-    x86::Mem emit_i_length_common(Label fail, int state_size);
-
-    void emit_handle_error();
-
-public:
-    BeamGlobalAssembler(JitAllocator *allocator);
-
-    void (*get(GlobalLabels lbl))(void) {
-        ASSERT(ptrs[lbl]);
-        return ptrs[lbl];
-    }
-
-#define GET_CODE(NAME)                                                         \
-    void (*get_##NAME(void))() {                                               \
-        return get(NAME);                                                      \
-    }
-
-    BEAM_GLOBAL_FUNCS(GET_CODE)
-    PROCESS_MAIN_LABELS(GET_CODE)
-#undef GET_CODE
-};
+#include "beam_asm_global.hpp"
 
 class BeamModuleAssembler : public BeamAssembler {
     typedef unsigned BeamLabel;
 
     /* Map of label number to asmjit Label */
-    typedef std::unordered_map<BeamLabel, Label> LabelMap;
-    LabelMap labels;
+    typedef std::unordered_map<BeamLabel, const Label> LabelMap;
+    LabelMap rawLabels;
 
     struct patch {
         Label where;
@@ -1032,10 +931,10 @@ class BeamModuleAssembler : public BeamAssembler {
     typedef std::unordered_map<unsigned, struct patch_import> ImportMap;
     ImportMap imports;
 
-    /* Map of fun entry to patch labels */
+    /* Map of fun entry to trampoline labels and patches */
     struct patch_lambda {
         std::vector<struct patch> patches;
-        ErlFunEntry fe;
+        Label trampoline;
     };
     typedef std::unordered_map<unsigned, struct patch_lambda> LambdaMap;
     LambdaMap lambdas;
@@ -1053,19 +952,27 @@ class BeamModuleAssembler : public BeamAssembler {
     /* All functions that have been seen so far */
     std::vector<BeamLabel> functions;
 
+    /* The BEAM file we've been loaded from, if any. */
+    const BeamFile *beam;
+
     BeamGlobalAssembler *ga;
+
+    Label codeHeader;
 
     /* Used by emit to populate the labelToMFA map */
     Label currLabel;
-    unsigned prev_op = 0;
-    Label codeHeader;
+
+    /* Special shared fragments that must reside in each module. */
     Label funcInfo;
-    Label funcYield;
     Label genericBPTramp;
+    Label yieldReturn;
+    Label yieldEnter;
+
+    /* The module's on_load function, if any. */
     Label on_load;
 
-    Label floatMax;
-    Label floatSignMask;
+    /* The end of the last function. */
+    Label code_end;
 
     Eterm mod;
 
@@ -1075,13 +982,15 @@ class BeamModuleAssembler : public BeamAssembler {
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
-                        unsigned num_labels);
+                        int num_labels,
+                        const BeamFile *file = NULL);
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
-                        unsigned num_labels,
-                        unsigned num_functions);
+                        int num_labels,
+                        int num_functions,
+                        const BeamFile *file = NULL);
 
-    bool emit(unsigned op, const std::vector<ArgVal> &args);
+    bool emit(unsigned op, const Span<ArgVal> &args);
 
     void codegen(JitAllocator *allocator,
                  const void **executable_ptr,
@@ -1096,7 +1005,11 @@ public:
 
     void codegen(char *buff, size_t len);
 
+    void register_metadata(const BeamCodeHeader *header);
+
     ErtsCodePtr getCode(unsigned label);
+    ErtsCodePtr getLambda(unsigned index);
+
     void *getCode(Label label) {
         return BeamAssembler::getCode(label);
     }
@@ -1104,7 +1017,7 @@ public:
         return BeamAssembler::getCode(labelName);
     }
 
-    Label embed_vararg_rodata(const std::vector<ArgVal> &args, int y_offset);
+    Label embed_vararg_rodata(const Span<ArgVal> &args, int y_offset);
 
     unsigned getCodeSize() {
         ASSERT(code.hasBaseAddress());
@@ -1122,35 +1035,217 @@ public:
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
+    int getTypeUnion(const ArgSource &arg) const {
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+
+        ASSERT(typeIndex < beam->types.count);
+        return beam->types.entries[typeIndex].type_union;
+    }
+
+    auto getIntRange(const ArgSource &arg) const {
+        if (arg.isSmall()) {
+            Sint value = arg.as<ArgSmall>().getSigned();
+            return std::make_pair(value, value);
+        } else {
+            auto typeIndex =
+                    arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+
+            ASSERT(typeIndex < beam->types.count);
+            const auto &entry = beam->types.entries[typeIndex];
+            ASSERT(entry.type_union & BEAM_TYPE_INTEGER);
+            return std::make_pair(entry.min, entry.max);
+        }
+    }
+
+    bool always_small(const ArgSource &arg) const {
+        if (arg.isSmall()) {
+            return true;
+        }
+
+        int type_union = getTypeUnion(arg);
+        if (type_union == BEAM_TYPE_INTEGER) {
+            auto [min, max] = getIntRange(arg);
+            return min <= max;
+        } else {
+            return false;
+        }
+    }
+
+    bool always_immediate(const ArgSource &arg) const {
+        if (arg.isImmed() || always_small(arg)) {
+            return true;
+        }
+
+        int type_union = getTypeUnion(arg);
+        return (type_union & BEAM_TYPE_MASK_ALWAYS_IMMEDIATE) == type_union;
+    }
+
+    bool always_same_types(const ArgSource &lhs, const ArgSource &rhs) const {
+        int lhs_types = getTypeUnion(lhs);
+        int rhs_types = getTypeUnion(rhs);
+
+        /* We can only be certain that the types are the same when there's
+         * one possible type. For example, if one is a number and the other
+         * is an integer, they could differ if the former is a float. */
+        if ((lhs_types & (lhs_types - 1)) == 0) {
+            return lhs_types == rhs_types;
+        }
+
+        return false;
+    }
+
+    bool always_one_of(const ArgSource &arg, int types) const {
+        if (arg.isImmed()) {
+            if (arg.isSmall()) {
+                return !!(types & BEAM_TYPE_INTEGER);
+            } else if (arg.isAtom()) {
+                return !!(types & BEAM_TYPE_ATOM);
+            } else if (arg.isNil()) {
+                return !!(types & BEAM_TYPE_NIL);
+            }
+
+            return false;
+        } else {
+            int type_union = getTypeUnion(arg);
+            return type_union == (type_union & types);
+        }
+    }
+
+    int masked_types(const ArgSource &arg, int mask) const {
+        if (arg.isImmed()) {
+            if (arg.isSmall()) {
+                return mask & BEAM_TYPE_INTEGER;
+            } else if (arg.isAtom()) {
+                return mask & BEAM_TYPE_ATOM;
+            } else if (arg.isNil()) {
+                return mask & BEAM_TYPE_NIL;
+            }
+
+            return BEAM_TYPE_NONE;
+        } else {
+            return getTypeUnion(arg) & mask;
+        }
+    }
+
+    bool exact_type(const ArgSource &arg, int type_id) const {
+        return always_one_of(arg, type_id);
+    }
+
+    bool is_sum_small(const ArgSource &LHS, const ArgSource &RHS) {
+        if (!(always_small(LHS) && always_small(RHS))) {
+            return false;
+        } else {
+            Sint min, max;
+            auto [min1, max1] = getIntRange(LHS);
+            auto [min2, max2] = getIntRange(RHS);
+            min = min1 + min2;
+            max = max1 + max2;
+            return IS_SSMALL(min) && IS_SSMALL(max);
+        }
+    }
+
+    bool is_difference_small(const ArgSource &LHS, const ArgSource &RHS) {
+        if (!(always_small(LHS) && always_small(RHS))) {
+            return false;
+        } else {
+            Sint min, max;
+            auto [min1, max1] = getIntRange(LHS);
+            auto [min2, max2] = getIntRange(RHS);
+            min = min1 - max2;
+            max = max1 - min2;
+            return IS_SSMALL(min) && IS_SSMALL(max);
+        }
+    }
+
+    bool is_product_small(const ArgSource &LHS, const ArgSource &RHS) {
+        if (!(always_small(LHS) && always_small(RHS))) {
+            return false;
+        } else {
+            auto [min1, max1] = getIntRange(LHS);
+            auto [min2, max2] = getIntRange(RHS);
+            auto mag1 = std::max(std::abs(min1), std::abs(max1));
+            auto mag2 = std::max(std::abs(min2), std::abs(max2));
+
+            /*
+             * mag1 * mag2 <= MAX_SMALL
+             * mag1 <= MAX_SMALL / mag2   (when mag2 != 0)
+             */
+            ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
+            return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
+        }
+    }
+
+    bool is_bsl_small(const ArgSource &LHS, const ArgSource &RHS) {
+        /*
+         * In the code compiled by scripts/diffable, there never
+         * seems to be any range information for the RHS. Therefore,
+         * don't bother unless RHS is an immediate small.
+         */
+        if (!(always_small(LHS) && RHS.isSmall())) {
+            return false;
+        } else {
+            auto [min1, max1] = getIntRange(LHS);
+            auto rhs_val = RHS.as<ArgSmall>().getSigned();
+
+            if (min1 < 0 || max1 == 0 || rhs_val < 0) {
+                return false;
+            }
+
+            return rhs_val < Support::clz(max1) - _TAG_IMMED1_SIZE;
+        }
+    }
+
     /* Helpers */
-    void emit_gc_test(const ArgVal &Stack,
-                      const ArgVal &Heap,
-                      const ArgVal &Live);
-    void emit_gc_test_preserve(const ArgVal &Need,
-                               const ArgVal &Live,
+    void emit_gc_test(const ArgWord &Stack,
+                      const ArgWord &Heap,
+                      const ArgWord &Live);
+    void emit_gc_test_preserve(const ArgWord &Need,
+                               const ArgWord &Live,
                                x86::Gp term);
 
     x86::Mem emit_variable_apply(bool includeI);
-    x86::Mem emit_fixed_apply(const ArgVal &arity, bool includeI);
+    x86::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
 
-    x86::Gp emit_call_fun(const ArgVal &Fun);
-    x86::Gp emit_apply_fun(void);
+    x86::Gp emit_call_fun(bool skip_box_test = false,
+                          bool skip_fun_test = false,
+                          bool skip_arity_test = false);
 
-    void emit_is_binary(Label Fail, x86::Gp Src, Label next, Label subbin);
+    x86::Gp emit_is_binary(const ArgLabel &Fail,
+                           const ArgSource &Src,
+                           Label next,
+                           Label subbin);
+
+    void emit_is_boxed(Label Fail, x86::Gp Src, Distance dist = dLong) {
+        BeamAssembler::emit_is_boxed(Fail, Src, dist);
+    }
+
+    void emit_is_boxed(Label Fail,
+                       const ArgVal &Arg,
+                       x86::Gp Src,
+                       Distance dist = dLong) {
+        if (always_one_of(Arg, BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+            comment("skipped box test since argument is always boxed");
+            return;
+        }
+
+        BeamAssembler::emit_is_boxed(Fail, Src, dist);
+    }
 
     void emit_get_list(const x86::Gp boxed_ptr,
-                       const ArgVal &Hd,
-                       const ArgVal &Tl);
+                       const ArgRegister &Hd,
+                       const ArgRegister &Tl);
 
-    void emit_div_rem(const ArgVal &Fail,
-                      const ArgVal &LHS,
-                      const ArgVal &RHS,
-                      const ErtsCodeMFA *error_mfa);
+    void emit_div_rem(const ArgLabel &Fail,
+                      const ArgSource &LHS,
+                      const ArgSource &RHS,
+                      const ErtsCodeMFA *error_mfa,
+                      bool need_div = true,
+                      bool need_rem = true);
 
     void emit_setup_guard_bif(const std::vector<ArgVal> &args,
-                              const ArgVal &bif);
+                              const ArgWord &bif);
 
-    void emit_bif_arg_error(std::vector<ArgVal> args, const ErtsCodeMFA *mfa);
     void emit_error(int code);
 
     x86::Mem emit_bs_get_integer_prologue(Label next,
@@ -1158,39 +1253,48 @@ protected:
                                           int flags,
                                           int size);
 
-    int emit_bs_get_field_size(const ArgVal &Size,
+    int emit_bs_get_field_size(const ArgSource &Size,
                                int unit,
                                Label Fail,
                                const x86::Gp &out,
                                unsigned max_size = 0);
 
-    void emit_bs_get_utf8(const ArgVal &Ctx, const ArgVal &Fail);
-    void emit_bs_get_utf16(const ArgVal &Ctx,
-                           const ArgVal &Fail,
-                           const ArgVal &Flags);
+    void emit_bs_get_utf8(const ArgRegister &Ctx, const ArgLabel &Fail);
+    void emit_bs_get_utf16(const ArgRegister &Ctx,
+                           const ArgLabel &Fail,
+                           const ArgWord &Flags);
 
-    void emit_handle_error();
-    void emit_handle_error(const ErtsCodeMFA *exp);
-    void emit_handle_error(Label I, const ErtsCodeMFA *exp);
-    void emit_validate(const ArgVal &arity);
-    void emit_bs_skip_bits(const ArgVal &Fail, const ArgVal &Ctx);
+    void emit_raise_exception();
+    void emit_raise_exception(const ErtsCodeMFA *exp);
+    void emit_raise_exception(Label I, const ErtsCodeMFA *exp);
+    void emit_raise_exception(x86::Gp I, const ErtsCodeMFA *exp);
+
+    void emit_validate(const ArgWord &arity);
+    void emit_bs_skip_bits(const ArgLabel &Fail, const ArgRegister &Ctx);
 
     void emit_linear_search(x86::Gp val,
                             const ArgVal &Fail,
-                            const std::vector<ArgVal> &args);
+                            const Span<ArgVal> &args);
 
-    void emit_check_float(Label next, x86::Xmm value);
+    void emit_float_instr(uint32_t instId,
+                          const ArgFRegister &LHS,
+                          const ArgFRegister &RHS,
+                          const ArgFRegister &Dst);
 
-    void emit_is_small(Label fail, x86::Gp Reg);
-    void emit_is_both_small(Label fail, x86::Gp A, x86::Gp B);
+    void emit_is_small(Label fail, const ArgSource &Arg, x86::Gp Reg);
+    void emit_are_both_small(Label fail,
+                             const ArgSource &LHS,
+                             x86::Gp A,
+                             const ArgSource &RHS,
+                             x86::Gp B);
 
     void emit_validate_unicode(Label next, Label fail, x86::Gp value);
 
-    void emit_bif_is_eq_ne_exact_immed(const ArgVal &Src,
-                                       const ArgVal &Immed,
-                                       const ArgVal &Dst,
-                                       Eterm fail_value,
-                                       Eterm succ_value);
+    void emit_bif_is_eq_ne_exact(const ArgSource &LHS,
+                                 const ArgSource &RHS,
+                                 const ArgRegister &Dst,
+                                 Eterm fail_value,
+                                 Eterm succ_value);
 
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);
@@ -1201,16 +1305,20 @@ protected:
     void emit_binsearch_nodes(size_t Left,
                               size_t Right,
                               const ArgVal &Fail,
-                              const std::vector<ArgVal> &args);
+                              const Span<ArgVal> &args);
 
     bool emit_optimized_three_way_select(const ArgVal &Fail,
-                                         const std::vector<ArgVal> &args);
+                                         const Span<ArgVal> &args);
 
 #ifdef DEBUG
-    void emit_tuple_assertion(const ArgVal &Src, x86::Gp tuple_reg);
+    void emit_tuple_assertion(const ArgSource &Src, x86::Gp tuple_reg);
 #endif
 
 #include "beamasm_protos.h"
+
+    const Label &resolve_beam_label(const ArgLabel &Lbl) const {
+        return rawLabels.at(Lbl.get());
+    }
 
     void make_move_patch(x86::Gp to,
                          std::vector<struct patch> &patches,
@@ -1252,8 +1360,8 @@ protected:
     void cmp_arg(x86::Mem mem, const ArgVal &val, const x86::Gp &spill) {
         /* Note that the cast to Sint is necessary to handle negative numbers
          * such as NIL. */
-        if (val.isImmed() && Support::isInt32((Sint)val.getValue())) {
-            a.cmp(mem, imm(val.getValue()));
+        if (val.isImmed() && Support::isInt32((Sint)val.as<ArgImmed>().get())) {
+            a.cmp(mem, imm(val.as<ArgImmed>().get()));
         } else {
             mov_arg(spill, val);
             a.cmp(mem, spill);
@@ -1261,8 +1369,8 @@ protected:
     }
 
     void cmp_arg(x86::Gp gp, const ArgVal &val, const x86::Gp &spill) {
-        if (val.isImmed() && Support::isInt32((Sint)val.getValue())) {
-            a.cmp(gp, imm(val.getValue()));
+        if (val.isImmed() && Support::isInt32((Sint)val.as<ArgImmed>().get())) {
+            a.cmp(gp, imm(val.as<ArgImmed>().get()));
         } else {
             mov_arg(spill, val);
             a.cmp(gp, spill);
@@ -1271,21 +1379,40 @@ protected:
 
     /* Note: May clear flags. */
     void mov_arg(x86::Gp to, const ArgVal &from, const x86::Gp &spill) {
-        if (from.isMem()) {
-            a.mov(to, getArgRef(from));
+        if (from.isBytePtr()) {
+            make_move_patch(to, strings, from.as<ArgBytePtr>().get());
+        } else if (from.isExport()) {
+            make_move_patch(to, imports[from.as<ArgExport>().get()].patches);
+        } else if (from.isImmed()) {
+            mov_imm(to, from.as<ArgImmed>().get());
+        } else if (from.isLambda()) {
+            make_move_patch(to, lambdas[from.as<ArgLambda>().get()].patches);
         } else if (from.isLiteral()) {
-            make_move_patch(to, literals[from.getValue()].patches);
+            make_move_patch(to, literals[from.as<ArgLiteral>().get()].patches);
+        } else if (from.isRegister()) {
+            a.mov(to, getArgRef(from.as<ArgRegister>()));
+        } else if (from.isWord()) {
+            mov_imm(to, from.as<ArgWord>().get());
         } else {
-            mov_imm(to, from.getValue());
+            ASSERT(!"mov_arg with incompatible type");
         }
+
+#ifdef DEBUG
+        /* Explicitly clear flags to catch bugs quicker, it may be very rare
+         * for a certain instruction to load values that would otherwise cause
+         * flags to be cleared. */
+        a.test(to, to);
+#endif
     }
 
     void mov_arg(x86::Mem to, const ArgVal &from, const x86::Gp &spill) {
         if (from.isImmed()) {
-            if (Support::isInt32((Sint)from.getValue())) {
-                a.mov(to, imm(from.getValue()));
+            auto val = from.as<ArgImmed>().get();
+
+            if (Support::isInt32((Sint)val)) {
+                a.mov(to, imm(val));
             } else {
-                a.mov(spill, imm(from.getValue()));
+                a.mov(spill, imm(val));
                 a.mov(to, spill);
             }
         } else {
@@ -1300,6 +1427,11 @@ protected:
         a.mov(getArgRef(to), from);
     }
 
+    void mov_arg(const ArgVal &to, x86::Mem from, const x86::Gp &spill) {
+        a.mov(spill, from);
+        a.mov(getArgRef(to), spill);
+    }
+
     void mov_arg(const ArgVal &to, BeamInstr from, const x86::Gp &spill) {
         if (Support::isInt32((Sint)from)) {
             a.mov(getArgRef(to), imm(from));
@@ -1310,7 +1442,7 @@ protected:
     }
 
     void mov_arg(const ArgVal &to, const ArgVal &from, const x86::Gp &spill) {
-        if (from.isMem()) {
+        if (from.isRegister()) {
             mov_arg(spill, from);
             mov_arg(to, spill);
         } else {
@@ -1319,5 +1451,10 @@ protected:
     }
 };
 
-void beamasm_update_perf_info(std::string modulename,
-                              std::vector<BeamAssembler::AsmRange> &ranges);
+void beamasm_metadata_update(
+        std::string module_name,
+        ErtsCodePtr base_address,
+        size_t code_size,
+        const std::vector<BeamAssembler::AsmRange> &ranges);
+void beamasm_metadata_early_init();
+void beamasm_metadata_late_init();

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,7 +104,6 @@ static char *plusM_other_switches[] = {
     "usac",
     "im",
     "is",
-    "it",
     "lpm",
     "Mamcbf",
     "Mrmcbf",
@@ -454,21 +453,6 @@ int main(int argc, char **argv)
 	Eargsp[argc] = NULL;
 	emu = argv[0];
 	start_emulator_program = strsave(argv[0]);
-	goto skip_arg_massage;
-    }
-    free_env_val(s);
-#else
-    int reset_cerl_detached = 0;
-
-    s = get_env("CERL_DETACHED_PROG");
-    if (s && strcmp(s, "") != 0) {
-	emu = s;
-	start_detached = 1;
-	reset_cerl_detached = 1;
-	ensure_EargsSz(argc + 1);
-	memcpy((void *) Eargsp, (void *) argv, argc * sizeof(char *));
-	Eargsp[argc] = emu;
-	Eargsp[argc] = NULL;
 	goto skip_arg_massage;
     }
     free_env_val(s);
@@ -876,6 +860,16 @@ int main(int argc, char **argv)
                           i++;
                           break;
                       }
+                      if (argv[i][2] == 'O' && argv[i][3] == 's') {
+                          if (argv[i][4] != '\0')
+                              goto the_default;
+                          NEXT_ARG_CHECK();
+                          argv[i][0] = '-';
+                          add_Eargs(argv[i]);
+                          add_Eargs(argv[i+1]);
+                          i++;
+                          break;
+                      }
                       usage(argv[i]);
                       break;
                   case 'J':
@@ -1081,6 +1075,8 @@ int main(int argc, char **argv)
     add_Eargs("--");
     add_Eargs("-root");
     add_Eargs(rootdir);
+    add_Eargs("-bindir");
+    add_Eargs(bindir);
     add_Eargs("-progname");
     add_Eargs(progname);
     add_Eargs("--");
@@ -1141,14 +1137,10 @@ int main(int argc, char **argv)
 
 #else
 
- skip_arg_massage:
     if (start_detached) {
 	int status = fork();
 	if (status != 0)	/* Parent */
 	    return 0;
-
-	if (reset_cerl_detached)
-	    putenv("CERL_DETACHED_PROG=");
 
 	/* Detach from controlling terminal */
 #ifdef HAVE_SETSID
@@ -1713,7 +1705,7 @@ static char **build_args_from_string(char *string, int allow_comments)
 {
     int argc = 0;
     char **argv = NULL;
-    int alloced = 0;
+    int allocated = 0;
     char **cur_s = NULL;	/* Initialized to avoid warning. */
     int s_alloced = 0;
     int s_pos = 0;
@@ -1732,15 +1724,15 @@ static char **build_args_from_string(char *string, int allow_comments)
 
     if (!p)
 	return NULL;
-    argv = emalloc(sizeof(char *) * (alloced = 10));
+    argv = emalloc(sizeof(char *) * (allocated = 10));
     state = Start;
     for(;;) {
 	switch (state) {
 	case Start:
 	    if (!*p)
 		goto done;
-	    if (argc >= alloced - 2) { /* Make room for extra NULL and "--" */
-		argv = erealloc(argv, (alloced += 10) * sizeof(char *));
+	    if (argc >= allocated - 2) { /* Make room for extra NULL and "--" */
+		argv = erealloc(argv, (allocated += 10) * sizeof(char *));
 	    }
 	    cur_s = argc + argv;
 	    *cur_s = NULL;

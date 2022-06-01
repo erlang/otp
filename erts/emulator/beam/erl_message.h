@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,28 @@
 #define ERTS_MSG_COPY_WORDS_PER_REDUCTION 4
 #else
 #define ERTS_MSG_COPY_WORDS_PER_REDUCTION 64
+#endif
+
+/* The number of buffers have to be 64 or less because we currently
+   use a single word to implement a bitset with information about
+   non-empty buffers */
+#ifdef DEBUG
+#define ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS 64
+#define ERTS_PROC_SIG_INQ_BUFFERED_CONTENTION_INSTALL_LIMIT 250
+#define ERTS_PROC_SIG_INQ_BUFFERED_ALWAYS_TURN_ON 1
+#define ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE 2
+#define ERTS_PROC_SIG_INQ_BUFFERED_MIN_NO_ENQUEUES_TO_KEEP \
+    (ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE +                    \
+     ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE / 2)
+#else
+#define ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS 64
+#define ERTS_PROC_SIG_INQ_BUFFERED_CONTENTION_INSTALL_LIMIT 50
+#define ERTS_PROC_SIG_INQ_BUFFERED_ALWAYS_TURN_ON 0
+#define ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE 8192
+/* At least 1.5 enqueues per flush all op */
+#define ERTS_PROC_SIG_INQ_BUFFERED_MIN_NO_ENQUEUES_TO_KEEP \
+    (ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE +     \
+     ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE / 2)
 #endif
 
 struct proc_bin;
@@ -214,7 +236,7 @@ struct erl_mesg {
 /*
  * The ErtsMessage struct is only one special type
  * of signal. All signal structs have a common
- * begining and can be differentiated by looking
+ * beginning and can be differentiated by looking
  * at the ErtsSignal 'common.tag' field.
  *
  * - An ordinary message will have a value
@@ -360,6 +382,46 @@ typedef struct {
 #endif
 } ErtsSignalInQueue;
 
+typedef union {
+    struct ___ErtsSignalInQueueBufferFields {
+        erts_mtx_t lock;
+        /*
+         * Boolean value indicateing if the buffer is alive. An
+         * enqueue attempt to a dead buffer has to be canceled
+         */
+        int alive;
+        /*
+         * The number of enqueues that has been performed to this
+         * buffer. This value is used to decide if we should adapt
+         * back to an unbuffered state
+         */
+        Uint nr_of_enqueues;
+        ErtsSignalInQueue queue;
+    } b;
+    byte align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(struct ___ErtsSignalInQueueBufferFields))];
+} ErtsSignalInQueueBuffer;
+
+#if ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS > 64
+#error The data structure holding information about which slots that are non-empty (the nonempty_slots field in the struct below) needs to be changed (it currently only supports up to 64 slots)
+#endif
+
+typedef struct {
+    ErtsSignalInQueueBuffer slots[ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS];
+    ErtsThrPrgrLaterOp free_item;
+    erts_atomic64_t nonempty_slots;
+    erts_atomic64_t nonmsg_slots;
+    /*
+     * dirty_refc is incremented by dirty schedulers that access the
+     * buffer array to prevent deallocation while they are accessing
+     * the buffer array. This is needed since dirty schedulers are not
+     * part of the thread progress system.
+     */
+    erts_atomic64_t dirty_refc;
+    Uint nr_of_rounds;
+    Uint nr_of_enqueues;
+    int alive;
+} ErtsSignalInQueueBufferArray;
+
 typedef struct erl_trace_message_queue__ {
     struct erl_trace_message_queue__ *next; /* point to the next receiver */
     Eterm receiver;
@@ -443,6 +505,7 @@ void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);
 
 Uint erts_msg_attached_data_size_aux(ErtsMessage *msg);
 
+void erts_cleanup_offheap_list(struct erl_off_heap_header* first);
 void erts_cleanup_offheap(ErlOffHeap *offheap);
 void erts_save_message_in_proc(Process *p, ErtsMessage *msg);
 Sint erts_move_messages_off_heap(Process *c_p);
@@ -451,30 +514,8 @@ Eterm erts_change_message_queue_management(Process *c_p, Eterm new_state);
 
 void erts_cleanup_messages(ErtsMessage *mp);
 
-void *erts_alloc_message_ref(void);
 void erts_free_message_ref(void *);
-
-#define ERTS_SMALL_FIX_MSG_SZ 10
-#define ERTS_MEDIUM_FIX_MSG_SZ 20
-#define ERTS_LARGE_FIX_MSG_SZ 30
-
-void *erts_alloc_small_message(void);
-void erts_free_small_message(void *mp);
-
-typedef struct {
-    ErtsMessage m;
-    Eterm data[ERTS_SMALL_FIX_MSG_SZ-1];
-} ErtsSmallFixSzMessage;
-
-typedef struct {
-    ErtsMessage m;
-    Eterm data[ERTS_MEDIUM_FIX_MSG_SZ-1];
-} ErtsMediumFixSzMessage;
-
-typedef struct {
-    ErtsMessage m;
-    Eterm data[ERTS_LARGE_FIX_MSG_SZ-1];
-} ErtsLargeFixSzMessage;
+void *erts_alloc_message_ref(void) ERTS_ATTR_MALLOC_D(erts_free_message_ref,1);
 
 ErtsMessage *erts_try_alloc_message_on_heap(Process *pp,
 					    erts_aint32_t *psp,

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ typedef struct {
 } erts_lcnt_time_t;
 
 typedef struct {
-    /** @brief log2 array of nano seconds occurences */
+    /** @brief log2 array of nano seconds occurrences */
     Uint32 ns[ERTS_LCNT_HISTOGRAM_SLOT_SIZE];
 } erts_lcnt_hist_t;
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,6 +49,14 @@
 
 -export([enc_sockaddr/1, p_get/1]).
 
+-nifs([nif_info/0, nif_info/1, nif_supports/0, nif_supports/1, nif_command/1,
+       nif_open/2, nif_open/4, nif_bind/2, nif_connect/1, nif_connect/3,
+       nif_listen/2, nif_accept/2, nif_send/4, nif_sendto/5, nif_sendmsg/5,
+       nif_sendfile/5, nif_sendfile/4, nif_sendfile/1, nif_recv/4,
+       nif_recvfrom/4, nif_recvmsg/5, nif_close/1, nif_shutdown/2,
+       nif_setopt/5, nif_getopt/3, nif_getopt/4, nif_sockname/1,
+       nif_peername/1, nif_ioctl/2, nif_ioctl/3, nif_ioctl/4, nif_cancel/3,
+       nif_finalize_close/1]).
 
 %% Also in socket
 -define(REGISTRY, socket_registry).
@@ -145,8 +153,9 @@ on_load(Extra) when is_map(Extra) ->
                         socket_debug => true,
                         debug_filename => enc_path(DebugFilename)}
           end,
-    ok = erlang:load_nif(atom_to_list(?MODULE), Extra_2),
-    %%
+    %% This will fail if the user has disabled esock support, making all NIFs
+    %% fall back to their Erlang implementation which throws `notsup`.
+    _ = erlang:load_nif(atom_to_list(?MODULE), Extra_2),
     init().
 
 init() ->
@@ -1128,58 +1137,58 @@ p_get(Name) ->
 %% NIF functions
 %%
 
-nif_info() -> erlang:nif_error(undef).
-nif_info(_SockRef) -> erlang:nif_error(undef).
+nif_info() -> erlang:nif_error(notsup).
+nif_info(_SockRef) -> erlang:nif_error(notsup).
 
-nif_command(_Command) -> erlang:nif_error(undef).
+nif_command(_Command) -> erlang:nif_error(notsup).
 
-nif_supports() -> erlang:nif_error(undef).
-nif_supports(_Key) -> erlang:nif_error(undef).
+nif_supports() -> erlang:nif_error(notsup).
+nif_supports(_Key) -> erlang:nif_error(notsup).
 
-nif_open(_FD, _Opts) -> erlang:nif_error(undef).
-nif_open(_Domain, _Type, _Protocol, _Opts) -> erlang:nif_error(undef).
+nif_open(_FD, _Opts) -> erlang:nif_error(notsup).
+nif_open(_Domain, _Type, _Protocol, _Opts) -> erlang:nif_error(notsup).
 
-nif_bind(_SockRef, _SockAddr) -> erlang:nif_error(undef).
-nif_bind(_SockRef, _SockAddrs, _Action) -> erlang:nif_error(undef).
+nif_bind(_SockRef, _SockAddr) -> erlang:nif_error(notsup).
+nif_bind(_SockRef, _SockAddrs, _Action) -> erlang:nif_error(notsup).
 
-nif_connect(_SockRef) -> erlang:nif_error(undef).
-nif_connect(_SockRef, _ConnectRef, _SockAddr) -> erlang:nif_error(undef).
+nif_connect(_SockRef) -> erlang:nif_error(notsup).
+nif_connect(_SockRef, _ConnectRef, _SockAddr) -> erlang:nif_error(notsup).
 
-nif_listen(_SockRef, _Backlog) -> erlang:nif_error(undef).
+nif_listen(_SockRef, _Backlog) -> erlang:nif_error(notsup).
 
-nif_accept(_SockRef, _Ref) -> erlang:nif_error(undef).
+nif_accept(_SockRef, _Ref) -> erlang:nif_error(notsup).
 
-nif_send(_SockRef, _Bin, _Flags, _SendRef) -> erlang:nif_error(undef).
-nif_sendto(_SockRef, _Bin, _Dest, _Flags, _SendRef) -> erlang:nif_error(undef).
-nif_sendmsg(_SockRef, _Msg, _Flags, _SendRef, _IOV) -> erlang:nif_error(undef).
+nif_send(_SockRef, _Bin, _Flags, _SendRef) -> erlang:nif_error(notsup).
+nif_sendto(_SockRef, _Bin, _Dest, _Flags, _SendRef) -> erlang:nif_error(notsup).
+nif_sendmsg(_SockRef, _Msg, _Flags, _SendRef, _IOV) -> erlang:nif_error(notsup).
 
 nif_sendfile(_SockRef, _SendRef, _Offset, _Count, _InFileRef) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 nif_sendfile(_SockRef, _SendRef, _Offset, _Count) ->
-    erlang:nif_error(undef).
-nif_sendfile(_SockRef) -> erlang:nif_error(undef).
+    erlang:nif_error(notsup).
+nif_sendfile(_SockRef) -> erlang:nif_error(notsup).
 
-nif_recv(_SockRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(undef).
-nif_recvfrom(_SockRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(undef).
+nif_recv(_SockRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(notsup).
+nif_recvfrom(_SockRef, _Length, _Flags, _RecvRef) -> erlang:nif_error(notsup).
 nif_recvmsg(_SockRef, _BufSz, _CtrlSz, _Flags, _RecvRef) ->
-    erlang:nif_error(undef).
+    erlang:nif_error(notsup).
 
-nif_close(_SockRef) -> erlang:nif_error(undef).
-nif_finalize_close(_SockRef) -> erlang:nif_error(undef).
-nif_shutdown(_SockRef, _How) -> erlang:nif_error(undef).
+nif_close(_SockRef) -> erlang:nif_error(notsup).
+nif_finalize_close(_SockRef) -> erlang:nif_error(notsup).
+nif_shutdown(_SockRef, _How) -> erlang:nif_error(notsup).
 
-nif_setopt(_SockRef, _Lev, _Opt, _Val, _NativeVal) -> erlang:nif_error(undef).
-nif_getopt(_SockRef, _Lev, _Opt) -> erlang:nif_error(undef).
-nif_getopt(_SockRef, _Lev, _Opt, _ValSpec) -> erlang:nif_error(undef).
+nif_setopt(_SockRef, _Lev, _Opt, _Val, _NativeVal) -> erlang:nif_error(notsup).
+nif_getopt(_SockRef, _Lev, _Opt) -> erlang:nif_error(notsup).
+nif_getopt(_SockRef, _Lev, _Opt, _ValSpec) -> erlang:nif_error(notsup).
 
-nif_sockname(_SockRef) -> erlang:nif_error(undef).
-nif_peername(_SockRef) -> erlang:nif_error(undef).
+nif_sockname(_SockRef) -> erlang:nif_error(notsup).
+nif_peername(_SockRef) -> erlang:nif_error(notsup).
 
-nif_ioctl(_SockRef, _GReq)               -> erlang:nif_error(undef).
-nif_ioctl(_SockRef, _GReq, _Arg)         -> erlang:nif_error(undef).
-nif_ioctl(_SockRef, _SReq, _Arg1, _Arg2) -> erlang:nif_error(undef).
+nif_ioctl(_SockRef, _GReq)               -> erlang:nif_error(notsup).
+nif_ioctl(_SockRef, _GReq, _Arg)         -> erlang:nif_error(notsup).
+nif_ioctl(_SockRef, _SReq, _Arg1, _Arg2) -> erlang:nif_error(notsup).
 
-nif_cancel(_SockRef, _Op, _SelectRef) -> erlang:nif_error(undef).
+nif_cancel(_SockRef, _Op, _SelectRef) -> erlang:nif_error(notsup).
 
 
 %% ===========================================================================

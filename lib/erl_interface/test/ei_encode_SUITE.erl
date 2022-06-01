@@ -52,7 +52,7 @@ init_per_testcase(Case, Config) ->
 
 %% ---------------------------------------------------------------------------
 
-% NOTE: for historical reasons we don't pach as tight as we can,
+% NOTE: for historical reasons we don't patch as tight as we can,
 %       we only fill 27 bits in 32 bit INTEGER_EXT 
 
 

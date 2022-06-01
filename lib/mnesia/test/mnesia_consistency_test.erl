@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -341,7 +341,7 @@ receive_messages(ListOfMsgs) ->
                     ?verbose("I (~p) got msg ~p from ~p ~n", [self(),Msg, Pid]),
                     [{Pid, Msg} | receive_messages(ListOfMsgs -- [Msg])]
             end;
-        Else -> ?warning("Recevied unexpected Msg~n ~p ~n", [Else])
+        Else -> ?warning("Received unexpected Msg~n ~p ~n", [Else])
     after timer:minutes(3) -> 
             ?error("Timeout in receive msgs while waiting for ~p~n", 
                    [ListOfMsgs])

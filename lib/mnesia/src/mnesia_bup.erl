@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -809,7 +809,7 @@ restore_tables(Recs, Header, Schema, Ext, {start, LocalTabs}) ->
 restore_tables([], _Header, _Schema, _Ext, State) ->
     State.
 
-%% Creates all neccessary dat files and inserts
+%% Creates all necessary dat files and inserts
 %% the table definitions in the schema table
 %%
 %% Returns a list of local_tab tuples for all local tables

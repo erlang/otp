@@ -99,7 +99,7 @@
           </item>
           <item><c>genErr</c>.  Used if an error occurred.  Note,
            this should be an internal processing error, e.g. a caused
-           by a programing fault somewhere.  If the variable does not
+           by a programming fault somewhere.  If the variable does not
            exist, use <c>{noValue, noSuchName}</c> or
           <c>{noValue, noSuchInstance}</c>.
           </item>
@@ -275,7 +275,7 @@
           </item>
           <item><c>genErr</c>.  Used if an error occurred.  Note that
            this should be an internal processing error, e.g. a caused
-           by a programing fault somewhere.  If some column does not
+           by a programming fault somewhere.  If some column does not
            exist, use <c>{noValue, noSuchName}</c> or
           <c>{noValue, noSuchInstance}</c>.
           </item>
@@ -322,7 +322,7 @@
               <item><c>{NextOid, NextValue}</c>, where <c>NextOid</c>
                is the lexicographic next OBJECT IDENTIFIER for the
                corresponding column. This should be specified as the
-               OBJECT IDENTIFER part following the table entry. This
+               OBJECT IDENTIFIER part following the table entry. This
                means that the first integer is the column number and
                the rest is a specification of the keys.
               <c>NextValue</c> is the value of this element.
@@ -336,7 +336,7 @@
            the column that caused the error.  <c>Column</c> must be
            one of the columns in the <c>Cols</c> list.  Note that
            this should be an internal processing error, e.g. a caused
-           by a programing fault somewhere.  If some column does not
+           by a programming fault somewhere.  If some column does not
            exist, you must return the next accessible element (or
           <c>endOfTable</c>). 
           </item>

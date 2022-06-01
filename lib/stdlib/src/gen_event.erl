@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,11 @@
 	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
 	 swap_sup_handler/3, which_handlers/1, call/3, call/4,
-         send_request/3, wait_response/2, receive_response/2, check_response/2,
+         send_request/3, send_request/5,
+         wait_response/2, receive_response/2, check_response/2,
+         wait_response/3, receive_response/3, check_response/3,
+         reqids_new/0, reqids_size/1,
+         reqids_add/3, reqids_to_list/1,
          wake_hib/5]).
 
 -export([init_it/6,
@@ -58,7 +62,7 @@
 -export([format_log/1, format_log/2]).
 
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
-              del_handler_ret/0]).
+              del_handler_ret/0, request_id/0, request_id_collection/0]).
 
 -record(handler, {module             :: atom(),
 		  id = false,
@@ -118,9 +122,15 @@
       PDict :: [{Key :: term(), Value :: term()}],
       State :: term(),
       Status :: term().
+-callback format_status(Status) -> NewStatus when
+      Status :: #{ state => term(),
+                   message => term(),
+                   reason => term(),
+                   log => [sys:system_event()] },
+      NewStatus :: Status.
 
 -optional_callbacks(
-    [handle_info/2, terminate/2, code_change/3, format_status/2]).
+    [handle_info/2, terminate/2, code_change/3, format_status/1, format_status/2]).
 
 %%---------------------------------------------------------------------------
 
@@ -141,7 +151,13 @@
                    | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 -type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
--type request_id() :: term().
+
+-opaque request_id() :: gen:request_id().
+
+-opaque request_id_collection() :: gen:request_id_collection().
+
+-type response_timeout() ::
+        timeout() | {abs, integer()}.
 
 %%---------------------------------------------------------------------------
 
@@ -236,32 +252,182 @@ call(M, Handler, Query) -> call1(M, Handler, Query).
 -spec call(emgr_ref(), handler(), term(), timeout()) -> term().
 call(M, Handler, Query, Timeout) -> call1(M, Handler, Query, Timeout).
 
--spec send_request(emgr_ref(), handler(), term()) -> request_id().
-send_request(M, Handler, Query) ->
-    gen:send_request(M, self(), {call, Handler, Query}).
-
--spec wait_response(RequestId::request_id(), timeout()) ->
-        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), emgr_ref()}}.
-wait_response(RequestId, Timeout) ->
-    case gen:wait_response(RequestId, Timeout) of
-        {reply, {error, _} = Err} -> Err;
-        Return -> Return
+-spec send_request(EventMgrRef::emgr_ref(), Handler::handler(), Request::term()) ->
+          ReqId::request_id().
+send_request(M, Handler, Request) ->
+    try
+        gen:send_request(M, self(), {call, Handler, Request})
+    catch
+        error:badarg ->
+            error(badarg, [M, Handler, Request])
     end.
 
--spec receive_response(RequestId::request_id(), timeout()) ->
-        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), emgr_ref()}}.
-receive_response(RequestId, Timeout) ->
-    case gen:receive_response(RequestId, Timeout) of
-        {reply, {error, _} = Err} -> Err;
-        Return -> Return
+-spec send_request(EventMgrRef::emgr_ref(),
+                   Handler::handler(),
+                   Request::term(),
+                   Label::term(),
+                   ReqIdCollection::request_id_collection()) ->
+          NewReqIdCollection::request_id_collection().
+send_request(M, Handler, Request, Label, ReqIdCol) ->
+    try
+        gen:send_request(M, self(), {call, Handler, Request}, Label, ReqIdCol)
+    catch
+        error:badarg ->
+            error(badarg, [M, Handler, Request, Label, ReqIdCol])
     end.
 
--spec check_response(Msg::term(), RequestId::request_id()) ->
-        {reply, Reply::term()} | 'no_reply' | {error, {Reason::term(), emgr_ref()}}.
-check_response(Msg, RequestId) ->
-    case gen:check_response(Msg, RequestId)  of
+-spec wait_response(ReqId, WaitTime) -> Result when
+      ReqId :: request_id(),
+      WaitTime :: response_timeout(),
+      Response :: {reply, Reply::term()}
+                | {error, {Reason::term(), emgr_ref()}},
+      Result :: Response | 'timeout'.
+
+wait_response(ReqId, WaitTime) ->
+    try gen:wait_response(ReqId, WaitTime) of
         {reply, {error, _} = Err} -> Err;
         Return -> Return
+    catch
+        error:badarg ->
+            error(badarg, [ReqId, WaitTime])
+    end.
+
+-spec wait_response(ReqIdCollection, WaitTime, Delete) -> Result when
+      ReqIdCollection :: request_id_collection(),
+      WaitTime :: response_timeout(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), emgr_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'timeout'.
+
+wait_response(ReqIdCol, WaitTime, Delete) ->
+    try gen:wait_response(ReqIdCol, WaitTime, Delete) of
+        {{reply, {error, _} = Err}, Label, NewReqIdCol} ->
+            {Err, Label, NewReqIdCol};
+        Return ->
+            Return
+    catch
+        error:badarg ->
+            error(badarg, [ReqIdCol, WaitTime, Delete])
+    end.
+
+-spec receive_response(ReqId, Timeout) -> Result when
+      ReqId :: request_id(),
+      Timeout :: response_timeout(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), emgr_ref()}},
+      Result :: Response | 'timeout'.
+
+receive_response(ReqId, Timeout) ->
+    try gen:receive_response(ReqId, Timeout) of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    catch
+        error:badarg ->
+            error(badarg, [ReqId, Timeout])
+    end.
+
+-spec receive_response(ReqIdCollection, Timeout, Delete) -> Result when
+      ReqIdCollection :: request_id_collection(),
+      Timeout :: response_timeout(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), emgr_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'timeout'.
+
+receive_response(ReqIdCol, Timeout, Delete) ->
+    try gen:receive_response(ReqIdCol, Timeout, Delete) of
+        {{reply, {error, _} = Err}, Label, NewReqIdCol} ->
+            {Err, Label, NewReqIdCol};
+        Return ->
+            Return
+    catch
+        error:badarg ->
+            error(badarg, [ReqIdCol, Timeout, Delete])
+    end.
+
+-spec check_response(Msg, ReqId) -> Result when
+      Msg :: term(),
+      ReqId :: request_id(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), emgr_ref()}},
+      Result :: Response | 'no_reply'.
+
+check_response(Msg, ReqId) ->
+    try gen:check_response(Msg, ReqId) of
+        {reply, {error, _} = Err} -> Err;
+        Return -> Return
+    catch
+        error:badarg ->
+            error(badarg, [Msg, ReqId])
+    end.
+
+-spec check_response(Msg, ReqIdCollection, Delete) -> Result when
+      Msg :: term(),
+      ReqIdCollection :: request_id_collection(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), emgr_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'no_reply'.
+
+check_response(Msg, ReqIdCol, Delete) ->
+    try gen:check_response(Msg, ReqIdCol, Delete) of
+        {{reply, {error, _} = Err}, Label, NewReqIdCol} ->
+            {Err, Label, NewReqIdCol};
+        Return ->
+            Return
+    catch
+        error:badarg ->
+            error(badarg, [Msg, ReqIdCol, Delete])
+    end.
+
+-spec reqids_new() ->
+          NewReqIdCollection::request_id_collection().
+
+reqids_new() ->
+    gen:reqids_new().
+
+-spec reqids_size(ReqIdCollection::request_id_collection()) ->
+          non_neg_integer().
+
+reqids_size(ReqIdCollection) ->
+    try
+        gen:reqids_size(ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqIdCollection])
+    end.
+
+-spec reqids_add(ReqId::request_id(), Label::term(),
+                 ReqIdCollection::request_id_collection()) ->
+          NewReqIdCollection::request_id_collection().
+
+reqids_add(ReqId, Label, ReqIdCollection) ->
+    try
+        gen:reqids_add(ReqId, Label, ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqId, Label, ReqIdCollection])
+    end.
+
+-spec reqids_to_list(ReqIdCollection::request_id_collection()) ->
+          [{ReqId::request_id(), Label::term()}].
+
+reqids_to_list(ReqIdCollection) ->
+    try
+        gen:reqids_to_list(ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqIdCollection])
     end.
 
 -spec delete_handler(emgr_ref(), handler(), term()) -> term().
@@ -776,6 +942,8 @@ do_terminate(Mod, Handler, Args, State, LastIn, SName, Reason) ->
 	    ok
     end.
 
+-spec report_terminate(_, How, _, _, _, _, _) -> ok when
+      How :: crash | normal | shutdown | {swapped, handler(), false | pid()}.
 report_terminate(Handler, crash, {error, Why}, State, LastIn, SName, _) ->
     report_terminate(Handler, Why, State, LastIn, SName);
 report_terminate(Handler, How, _, State, LastIn, SName, _) ->
@@ -795,14 +963,34 @@ report_terminate(Handler, Reason, State, LastIn, SName) ->
 report_error(_Handler, normal, _, _, _)             -> ok;
 report_error(_Handler, shutdown, _, _, _)           -> ok;
 report_error(_Handler, {swapped,_,_}, _, _, _)      -> ok;
-report_error(Handler, Reason, State, LastIn, SName) ->
+report_error(Handler, Exit, State, LastIn, SName) ->
+
+    %% The reason comes from a catch expression, so we remove
+    %% the 'EXIT' and stacktrace from it so that the format_status
+    %% callback does not have deal with that.
+    {Reason, ReasonFun} =
+        case Exit of
+            {'EXIT',{R,ST}} ->
+                {R, fun(Reason) -> {'EXIT',{Reason,ST}} end};
+            {'EXIT',R} ->
+                {R, fun(Reason) -> {'EXIT',Reason} end};
+            R ->
+                {R, fun(Reason) -> Reason end}
+        end,
+    Status = gen:format_status(
+               Handler#handler.module,
+               terminate,
+               #{ state => State,
+                  message => LastIn,
+                  reason => Reason
+                },
+               [get(), State]),
     ?LOG_ERROR(#{label=>{gen_event,terminate},
                  handler=>handler(Handler),
                  name=>SName,
-                 last_message=>LastIn,
-                 state=>format_status(terminate,Handler#handler.module,
-                                      get(),State),
-                 reason=>Reason},
+                 last_message=>maps:get(message,Status),
+                 state=>maps:get('$status',Status,maps:get(state,Status)),
+                 reason=>ReasonFun(maps:get(reason,Status))},
                #{domain=>[otp],
                  report_cb=>fun gen_event:format_log/2,
                  error_logger=>#{tag=>error,
@@ -869,10 +1057,10 @@ format_log_single(#{label:={gen_event,terminate},
     Args1 =
         case Depth of
             unlimited ->
-                [Handler,SName,Reason1,LastIn,State];
+                [Handler,SName,LastIn,State,Reason1];
             _ ->
-                [Handler,Depth,SName,Depth,Reason1,Depth,
-                 LastIn,Depth,State,Depth]
+                [Handler,Depth,SName,Depth,LastIn,Depth,
+                 State,Depth,Reason1,Depth]
         end,
     {Format1, Args1};
 format_log_single(#{label:={gen_event,no_handle_info},
@@ -992,24 +1180,19 @@ get_modules(MSL) ->
 %% Status information
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
-    [PDict, SysState, Parent, _Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]] = StatusData,
-    Header = gen:format_status_header("Status for event handler",
-                                      ServerName),
-    FmtMSL = [MS#handler{state=format_status(Opt, Mod, PDict, State)}
-              || #handler{module = Mod, state = State} = MS <- MSL],
+    [PDict, SysState, Parent, Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]] = StatusData,
+    Header = gen:format_status_header("Status for event handler", ServerName),
+    {FmtMSL, Logs} =
+        lists:mapfoldl(
+          fun(#handler{module = Mod, state = State} = MS, Logs) ->
+                  Status = gen:format_status(
+                             Mod, Opt, #{ log => Logs, state => State },
+                             [PDict, State]),
+                  {MS#handler{state=maps:get('$status',Status,maps:get(state,Status))},
+                   maps:get(log,Status)}
+          end, sys:get_log(Debug), MSL),
     [{header, Header},
      {data, [{"Status", SysState},
+             {"Logged Events", Logs},
 	     {"Parent", Parent}]},
      {items, {"Installed handlers", FmtMSL}}].
-
-format_status(Opt, Mod, PDict, State) ->
-    case erlang:function_exported(Mod, format_status, 2) of
-        true ->
-            Args = [PDict, State],
-            case catch Mod:format_status(Opt, Args) of
-                {'EXIT', _} -> State;
-                Else -> Else
-            end;
-        false ->
-            State
-    end.

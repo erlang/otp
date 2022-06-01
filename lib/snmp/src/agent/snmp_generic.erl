@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -134,7 +134,7 @@ table_max_col(NameDb, Col) ->               % ret largest element in Col
 
 
 %%------------------------------------------------------------------
-%% Theses functions could be in the MIB for simple 
+%% These functions could be in the MIB for simple 
 %% variables or tables, i.e. vars without complex 
 %% set-operations. If there are complex set op, an
 %% extra layer-function should be added, and that
@@ -566,7 +566,7 @@ table_create_rest(Col, Max, StatusCol, Status, Cols, NoAccs) when Col =< Max->
 %%  Defs is a list of {Col, DefVal}, in Column order.
 %%  Returns a new row (a list of values) with the same values as
 %%  InitRow, except if InitRow has value noinit in a column, and
-%%  the corresponing Col has a DefVal in Defs, then the DefVal
+%%  the corresponding Col has a DefVal in Defs, then the DefVal
 %%  will be the new value.
 %%------------------------------------------------------------------
 table_defaults(InitRow, Defs) -> table_defaults(InitRow, 1, Defs).

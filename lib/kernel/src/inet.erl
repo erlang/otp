@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,8 @@
 	 ifget/3, ifget/2, ifset/3, ifset/2,
 	 getstat/1, getstat/2,
          info/1, socket_to_list/1,
-	 ip/1, stats/0, options/0, 
+	 ip/1, is_ipv4_address/1, is_ipv6_address/1, is_ip_address/1,
+	 stats/0, options/0, 
 	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1, 
 	 parse_ipv4_address/1, parse_ipv6_address/1, parse_ipv4strict_address/1,
 	 parse_ipv6strict_address/1, parse_address/1, parse_strict_address/1,
@@ -85,7 +86,8 @@
               ip6_address/0, ip_address/0, port_number/0,
 	      family_address/0, local_address/0,
               socket_address/0, returned_non_ip_address/0,
-	      socket_setopt/0, socket_getopt/0, ancillary_data/0,
+	      socket_setopt/0, socket_getopt/0, socket_optval/0,
+              ancillary_data/0,
 	      posix/0, socket/0, inet_backend/0, stat_option/0]).
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
@@ -146,8 +148,13 @@
 -type socket_setopt() ::
         gen_sctp:option() | gen_tcp:option() | gen_udp:option().
 
+-type socket_optval() ::
+        gen_sctp:option_value() | gen_tcp:option() | gen_udp:option() |
+        gen_tcp:pktoptions_value().
+
 -type socket_getopt() ::
         gen_sctp:option_name() | gen_tcp:option_name() | gen_udp:option_name().
+
 -type ether_address() :: [0..255].
 
 -type if_setopt() ::
@@ -398,7 +405,7 @@ setopts(Socket, Opts) ->
 	{'ok', OptionValues} | {'error', posix()} when
       Socket :: socket(),
       Options :: [socket_getopt()],
-      OptionValues :: [socket_setopt() | gen_tcp:pktoptions_value()].
+      OptionValues :: [socket_optval()].
 
 getopts(?module_socket(GenSocketMod, _) = Socket, Opts)
   when is_atom(GenSocketMod) ->
@@ -754,6 +761,25 @@ ip(Name) ->
 	Error -> Error
     end.
 
+-spec is_ipv4_address(IPv4Address) -> boolean() when
+      IPv4Address :: ip4_address() | term().
+is_ipv4_address({A,B,C,D}) when ?ip(A,B,C,D) ->
+    true;
+is_ipv4_address(_) ->
+    false.
+
+-spec is_ipv6_address(IPv6Address) -> boolean() when
+      IPv6Address :: ip6_address() | term().
+is_ipv6_address({A,B,C,D,E,F,G,H}) when ?ip6(A,B,C,D,E,F,G,H) ->
+    true;
+is_ipv6_address(_) ->
+    false.
+
+-spec is_ip_address(IPAddress) -> boolean() when
+      IPAddress :: ip_address() | term().
+is_ip_address(Address) ->
+    is_ipv4_address(Address) orelse is_ipv6_address(Address).
+
 %% This function returns the erlang port used (with inet_drv)
 
 -spec getll(Socket :: socket()) -> {'ok', socket()}.
@@ -854,28 +880,28 @@ ntoa(Addr) ->
 -spec parse_ipv4_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
       Address :: string(),
-      IPv4Address :: ip_address().
+      IPv4Address :: ip4_address().
 parse_ipv4_address(Addr) ->
     inet_parse:ipv4_address(Addr).
 
 -spec parse_ipv6_address(Address) ->
 	{ok, IPv6Address} | {error, einval} when
       Address :: string(),
-      IPv6Address :: ip_address().
+      IPv6Address :: ip6_address().
 parse_ipv6_address(Addr) ->
     inet_parse:ipv6_address(Addr).
 
 -spec parse_ipv4strict_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
       Address :: string(),
-      IPv4Address :: ip_address().
+      IPv4Address :: ip4_address().
 parse_ipv4strict_address(Addr) ->
     inet_parse:ipv4strict_address(Addr).
 
 -spec parse_ipv6strict_address(Address) ->
 	{ok, IPv6Address} | {error, einval} when
       Address :: string(),
-      IPv6Address :: ip_address().
+      IPv6Address :: ip6_address().
 parse_ipv6strict_address(Addr) ->
     inet_parse:ipv6strict_address(Addr).
 
@@ -1752,7 +1778,7 @@ open_bind(
 open_fd(Fd, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
     DoNotBind =
 	%% We do not do any binding if no port+addr options
-	%% were given, in order to keep backwards compatability
+	%% were given, in order to keep backwards compatibility
 	%% with pre Erlang/OTP 17
         BAddr =:= undefined, % Presumably already bound
     if
@@ -2289,4 +2315,8 @@ lock_socket(S,Val) ->
 
 
 ensure_sockaddr(SockAddr) ->
-    prim_socket:enc_sockaddr(SockAddr).
+    try prim_socket:enc_sockaddr(SockAddr)
+    catch
+        throw : {invalid, _} = Invalid : Stacktrace ->
+            erlang:raise(error, Invalid, Stacktrace)
+    end.

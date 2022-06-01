@@ -361,7 +361,7 @@ handle_event(#wx{event = #wxCommand{type = command_togglebutton_clicked, command
 	(TProcs == []) andalso (TPorts == []) andalso throw({error, "No processes or ports traced"}),
 	(Nodes == []) andalso throw({error, "No nodes traced"}),
 	HaveCallTrace = fun(#titem{opts=Os}) -> lists:member(functions,Os) end,
-	WStr = "Call trace actived but no trace patterns used",
+	WStr = "Call trace activated but no trace patterns used",
 	(TPs == []) andalso lists:any(HaveCallTrace, TProcs) andalso
 	    observer_wx:create_txt_dialog(Panel, WStr, "Warning", ?wxICON_WARNING),
 
@@ -763,7 +763,7 @@ do_add_patterns({Module, NewPs}, State=#state{tpatterns=TPs0, m_view=Mview, f_vi
 	{Old, [], []} ->
 	    State;
 	{MPatterns, _New, _Changed} ->
-	    %% if dynamicly updates update New and Changed
+	    %% if dynamically updates update New and Changed
 	    TPs = dict:store(Module, MPatterns, TPs0),
 	    update_modules_view(lists:sort(dict:fetch_keys(TPs)), Module, Mview),
 	    update_functions_view(dict:fetch(Module, TPs), Fview),
@@ -1048,7 +1048,7 @@ textformat(Trace) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
 textformat(Trace) when element(1, Trace) == drop, tuple_size(Trace) =:= 2 ->
     io_lib:format("*** Dropped ~p messages.~n", [element(2,Trace)]);
 textformat(Trace) when element(1, Trace) == seq_trace, tuple_size(Trace) >= 3 ->
-    io_lib:format("*** Seq trace not implmented.~n", []);
+    io_lib:format("*** Seq trace not implemented.~n", []);
 textformat(_) ->
     "".
 

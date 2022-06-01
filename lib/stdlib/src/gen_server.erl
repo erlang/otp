@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,8 +97,11 @@
          start_monitor/3, start_monitor/4,
 	 stop/1, stop/3,
 	 call/2, call/3,
-         send_request/2, wait_response/2,
-         receive_response/2, check_response/2,
+         send_request/2, send_request/4,
+         wait_response/2, receive_response/2, check_response/2,
+         wait_response/3, receive_response/3, check_response/3,
+         reqids_new/0, reqids_size/1,
+         reqids_add/3, reqids_to_list/1,
 	 cast/2, reply/2,
 	 abcast/2, abcast/3,
 	 multi_call/2, multi_call/3, multi_call/4,
@@ -120,19 +123,28 @@
 
 -include("logger.hrl").
 
+-export_type(
+   [from/0,
+    reply_tag/0,
+    request_id/0,
+    request_id_collection/0]).
+
+-export_type(
+   [server_name/0,
+    server_ref/0,
+    start_opt/0,
+    enter_loop_opt/0,
+    start_ret/0,
+    start_mon_ret/0]).
+
 -define(
    STACKTRACE(),
    element(2, erlang:process_info(self(), current_stacktrace))).
 
-
--type server_ref() ::
-        pid()
-      | (LocalName :: atom())
-      | {Name :: atom(), Node :: atom()}
-      | {'global', GlobalName :: term()}
-      | {'via', RegMod :: module(), ViaName :: term()}.
-
--type request_id() :: term().
+-define(
+	is_timeout(X),
+	( (X) =:= infinity orelse ( is_integer(X) andalso (X) >= 0 ) )
+).
 
 %%%=========================================================================
 %%%  API
@@ -141,7 +153,7 @@
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term()} | ignore.
--callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+-callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
     {reply, Reply :: term(), NewState :: term(), timeout() | hibernate | {continue, term()}} |
@@ -168,6 +180,12 @@
 -callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
                       Extra :: term()) ->
     {ok, NewState :: term()} | {error, Reason :: term()}.
+-callback format_status(Status) -> NewStatus when
+      Status :: #{ state => term(),
+                   message => term(),
+                   reason => term(),
+                   log => [sys:system_event()] },
+      NewStatus :: Status.
 -callback format_status(Opt, StatusData) -> Status when
       Opt :: 'normal' | 'terminate',
       StatusData :: [PDict | State],
@@ -176,7 +194,20 @@
       Status :: term().
 
 -optional_callbacks(
-    [handle_info/2, handle_continue/2, terminate/2, code_change/3, format_status/2]).
+    [handle_info/2, handle_continue/2, terminate/2, code_change/3,
+     format_status/1, format_status/2]).
+
+
+
+-type from() ::	{Client :: pid(), Tag :: reply_tag()}.
+-opaque reply_tag() :: gen:reply_tag().
+
+-opaque request_id() :: gen:request_id().
+
+-opaque request_id_collection() :: gen:request_id_collection().
+
+-type response_timeout() ::
+        timeout() | {abs, integer()}.
 
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
@@ -194,23 +225,102 @@
 %%%          {error, {already_started, Pid}} |
 %%%          {error, Reason}
 %%% -----------------------------------------------------------------
-start(Mod, Args, Options) ->
-    gen:start(?MODULE, nolink, Mod, Args, Options).
 
-start(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, nolink, Name, Mod, Args, Options).
+-type server_name() :: % Duplicate of gen:emgr_name()
+        {'local', LocalName :: atom()}
+      | {'global', GlobalName :: term()}
+      | {'via', RegMod :: module(), ViaName :: term()}.
 
-start_link(Mod, Args, Options) ->
-    gen:start(?MODULE, link, Mod, Args, Options).
+-type server_ref() :: % What gen:call/3,4 and gen:stop/1,3 accepts
+        pid()
+      | (LocalName :: atom())
+      | {Name :: atom(), Node :: atom()}
+      | {'global', GlobalName :: term()}
+      | {'via', RegMod :: module(), ViaName :: term()}.
 
-start_link(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, link, Name, Mod, Args, Options).
+-type start_opt() :: % Duplicate of gen:option()
+        {'timeout', Timeout :: timeout()}
+      | {'spawn_opt', SpawnOptions :: [proc_lib:spawn_option()]}
+      | enter_loop_opt().
+%%
+-type enter_loop_opt() :: % Some gen:option()s works for enter_loop/*
+	{'hibernate_after', HibernateAfterTimeout :: timeout()}
+      | {'debug', Dbgs :: [sys:debug_option()]}.
 
-start_monitor(Mod, Args, Options) ->
-    gen:start(?MODULE, monitor, Mod, Args, Options).
+-type start_ret() :: % gen:start_ret() without monitor return
+        {'ok', Pid :: pid()}
+      | 'ignore'
+      | {'error', Reason :: term()}.
 
-start_monitor(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, monitor, Name, Mod, Args, Options).
+-type start_mon_ret() :: % gen:start_ret() with only monitor return
+        {'ok', {Pid :: pid(), MonRef :: reference()}}
+      | 'ignore'
+      | {'error', Reason :: term()}.
+
+%%% ---------------------------------------------------
+
+-spec start(
+	Module  :: module(),
+        Args    :: term(),
+        Options :: [start_opt()]
+       ) ->
+		   start_ret().
+%%
+start(Module, Args, Options) ->
+    gen:start(?MODULE, nolink, Module, Args, Options).
+
+-spec start(
+	ServerName :: server_name(),
+	Module     :: module(),
+        Args       :: term(),
+        Options    :: [start_opt()]
+       ) ->
+		   start_ret().
+%%
+start(ServerName, Module, Args, Options) ->
+    gen:start(?MODULE, nolink, ServerName, Module, Args, Options).
+
+-spec start_link(
+	Module  :: module(),
+        Args    :: term(),
+        Options :: [start_opt()]
+       ) ->
+		   start_ret().
+%%
+start_link(Module, Args, Options) ->
+    gen:start(?MODULE, link, Module, Args, Options).
+
+-spec start_link(
+	ServerName :: server_name(),
+	Module     :: module(),
+        Args       :: term(),
+        Options    :: [start_opt()]
+       ) ->
+		   start_ret().
+%%
+start_link(ServerName, Module, Args, Options) ->
+    gen:start(?MODULE, link, ServerName, Module, Args, Options).
+
+-spec start_monitor(
+	Module  :: module(),
+        Args    :: term(),
+        Options :: [start_opt()]
+       ) ->
+		   start_mon_ret().
+%%
+start_monitor(Module, Args, Options) ->
+    gen:start(?MODULE, monitor, Module, Args, Options).
+
+-spec start_monitor(
+	ServerName :: server_name(),
+	Module     :: module(),
+        Args       :: term(),
+        Options    :: [start_opt()]
+       ) ->
+		   start_mon_ret().
+%%
+start_monitor(ServerName, Module, Args, Options) ->
+    gen:start(?MODULE, monitor, ServerName, Module, Args, Options).
 
 
 %% -----------------------------------------------------------------
@@ -218,11 +328,22 @@ start_monitor(Name, Mod, Args, Options) ->
 %% If the server is located at another node, that node will
 %% be monitored.
 %% -----------------------------------------------------------------
-stop(Name) ->
-    gen:stop(Name).
 
-stop(Name, Reason, Timeout) ->
-    gen:stop(Name, Reason, Timeout).
+-spec stop(
+        ServerRef :: server_ref()
+       ) -> ok.
+%%
+stop(ServerRef) ->
+    gen:stop(ServerRef).
+
+-spec stop(
+	ServerRef :: server_ref(),
+	Reason    :: term(),
+	Timeout   :: timeout()
+       ) -> ok.
+%%
+stop(ServerRef, Reason, Timeout) ->
+    gen:stop(ServerRef, Reason, Timeout).
 
 %% -----------------------------------------------------------------
 %% Make a call to a generic server.
@@ -231,20 +352,34 @@ stop(Name, Reason, Timeout) ->
 %% If the client is trapping exits and is linked server termination
 %% is handled here (? Shall we do that here (or rely on timeouts) ?).
 %% ----------------------------------------------------------------- 
-call(Name, Request) ->
-    case catch gen:call(Name, '$gen_call', Request) of
+
+-spec call(
+        ServerRef :: server_ref(),
+        Request   :: term()
+       ) ->
+                  Reply :: term().
+%%
+call(ServerRef, Request) ->
+    case catch gen:call(ServerRef, '$gen_call', Request) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
-	    exit({Reason, {?MODULE, call, [Name, Request]}})
+	    exit({Reason, {?MODULE, call, [ServerRef, Request]}})
     end.
 
-call(Name, Request, Timeout) ->
-    case catch gen:call(Name, '$gen_call', Request, Timeout) of
+-spec call(
+        ServerRef :: server_ref(),
+        Request   :: term(),
+        Timeout   :: timeout()
+       ) ->
+                  Reply :: term().
+%%
+call(ServerRef, Request, Timeout) ->
+    case catch gen:call(ServerRef, '$gen_call', Request, Timeout) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
-	    exit({Reason, {?MODULE, call, [Name, Request, Timeout]}})
+	    exit({Reason, {?MODULE, call, [ServerRef, Request, Timeout]}})
     end.
 
 %% -----------------------------------------------------------------
@@ -252,28 +387,183 @@ call(Name, Request, Timeout) ->
 %% used with wait_response/2 or check_response/2 to fetch the
 %% result of the request.
 
--spec send_request(Name::server_ref(), Request::term()) -> request_id().
-send_request(Name, Request) ->
-    gen:send_request(Name, '$gen_call', Request).
+-spec send_request(ServerRef::server_ref(), Request::term()) ->
+          ReqId::request_id().
 
--spec wait_response(RequestId::request_id(), timeout()) ->
-        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), server_ref()}}.
-wait_response(RequestId, Timeout) ->
-    gen:wait_response(RequestId, Timeout).
+send_request(ServerRef, Request) ->
+    try
+        gen:send_request(ServerRef, '$gen_call', Request)
+    catch
+        error:badarg ->
+            error(badarg, [ServerRef, Request])
+    end.
 
--spec receive_response(RequestId::request_id(), timeout()) ->
-        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), server_ref()}}.
-receive_response(RequestId, Timeout) ->
-    gen:receive_response(RequestId, Timeout).
+-spec send_request(ServerRef::server_ref(),
+                   Request::term(),
+                   Label::term(),
+                   ReqIdCollection::request_id_collection()) ->
+          NewReqIdCollection::request_id_collection().
 
--spec check_response(Msg::term(), RequestId::request_id()) ->
-        {reply, Reply::term()} | 'no_reply' | {error, {Reason::term(), server_ref()}}.
-check_response(Msg, RequestId) ->
-    gen:check_response(Msg, RequestId).
+send_request(ServerRef, Request, Label, ReqIdCol) ->
+    try
+        gen:send_request(ServerRef, '$gen_call', Request, Label, ReqIdCol)
+    catch
+        error:badarg ->
+            error(badarg, [ServerRef, Request, Label, ReqIdCol])
+    end.
+
+-spec wait_response(ReqId, WaitTime) -> Result when
+      ReqId :: request_id(),
+      WaitTime :: response_timeout(),
+      Response :: {reply, Reply::term()}
+                | {error, {Reason::term(), server_ref()}},
+      Result :: Response | 'timeout'.
+
+wait_response(ReqId, WaitTime) ->
+    try
+        gen:wait_response(ReqId, WaitTime)
+    catch
+        error:badarg ->
+            error(badarg, [ReqId, WaitTime])
+    end.
+
+-spec wait_response(ReqIdCollection, WaitTime, Delete) -> Result when
+      ReqIdCollection :: request_id_collection(),
+      WaitTime :: response_timeout(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'timeout'.
+
+wait_response(ReqIdCol, WaitTime, Delete) ->
+    try
+        gen:wait_response(ReqIdCol, WaitTime, Delete)
+    catch
+        error:badarg ->
+            error(badarg, [ReqIdCol, WaitTime, Delete])
+    end.
+
+-spec receive_response(ReqId, Timeout) -> Result when
+      ReqId :: request_id(),
+      Timeout :: response_timeout(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: Response | 'timeout'.
+
+receive_response(ReqId, Timeout) ->
+    try
+        gen:receive_response(ReqId, Timeout)
+    catch
+        error:badarg ->
+            error(badarg, [ReqId, Timeout])
+    end.
+
+-spec receive_response(ReqIdCollection, Timeout, Delete) -> Result when
+      ReqIdCollection :: request_id_collection(),
+      Timeout :: response_timeout(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'timeout'.
+
+receive_response(ReqIdCol, Timeout, Delete) ->
+    try
+        gen:receive_response(ReqIdCol, Timeout, Delete)
+    catch
+        error:badarg ->
+            error(badarg, [ReqIdCol, Timeout, Delete])
+    end.
+
+-spec check_response(Msg, ReqId) -> Result when
+      Msg :: term(),
+      ReqId :: request_id(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: Response | 'no_reply'.
+
+check_response(Msg, ReqId) ->
+    try
+        gen:check_response(Msg, ReqId)
+    catch
+        error:badarg ->
+            error(badarg, [Msg, ReqId])
+    end.
+
+-spec check_response(Msg, ReqIdCollection, Delete) -> Result when
+      Msg :: term(),
+      ReqIdCollection :: request_id_collection(),
+      Delete :: boolean(),
+      Response :: {reply, Reply::term()} |
+                  {error, {Reason::term(), server_ref()}},
+      Result :: {Response,
+                 Label::term(),
+                 NewReqIdCollection::request_id_collection()} |
+                'no_request' |
+                'no_reply'.
+
+check_response(Msg, ReqIdCol, Delete) ->
+    try
+        gen:check_response(Msg, ReqIdCol, Delete)
+    catch
+        error:badarg ->
+            error(badarg, [Msg, ReqIdCol, Delete])
+    end.
+
+-spec reqids_new() ->
+          NewReqIdCollection::request_id_collection().
+
+reqids_new() ->
+    gen:reqids_new().
+
+-spec reqids_size(ReqIdCollection::request_id_collection()) ->
+          non_neg_integer().
+
+reqids_size(ReqIdCollection) ->
+    try
+        gen:reqids_size(ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqIdCollection])
+    end.
+
+-spec reqids_add(ReqId::request_id(), Label::term(),
+                 ReqIdCollection::request_id_collection()) ->
+          NewReqIdCollection::request_id_collection().
+
+reqids_add(ReqId, Label, ReqIdCollection) ->
+    try
+        gen:reqids_add(ReqId, Label, ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqId, Label, ReqIdCollection])
+    end.
+
+-spec reqids_to_list(ReqIdCollection::request_id_collection()) ->
+          [{ReqId::request_id(), Label::term()}].
+
+reqids_to_list(ReqIdCollection) ->
+    try
+        gen:reqids_to_list(ReqIdCollection)
+    catch
+        error:badarg -> error(badarg, [ReqIdCollection])
+    end.
 
 %% -----------------------------------------------------------------
 %% Make a cast to a generic server.
 %% -----------------------------------------------------------------
+
+-spec cast(
+        ServerRef :: server_ref(),
+        Request   :: term()
+       ) ->
+                  ok.
+%%
 cast({global,Name}, Request) ->
     catch global:send(Name, cast_msg(Request)),
     ok;
@@ -296,15 +586,36 @@ cast_msg(Request) -> {'$gen_cast',Request}.
 %% -----------------------------------------------------------------
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
-reply(From, Reply) ->
-    gen:reply(From, Reply).
+
+-spec reply(
+        Client :: from(),
+        Reply  :: term()
+       ) ->
+                   ok.
+%%
+reply(Client, Reply) ->
+    gen:reply(Client, Reply).
 
 %% ----------------------------------------------------------------- 
 %% Asynchronous broadcast, returns nothing, it's just send 'n' pray
 %%-----------------------------------------------------------------  
+
+-spec abcast(
+        Name    :: atom(),
+        Request :: term()
+       ) ->
+                  abcast.
+%%
 abcast(Name, Request) when is_atom(Name) ->
     do_abcast([node() | nodes()], Name, cast_msg(Request)).
 
+-spec abcast(
+        Nodes   :: [node()],
+        Name    :: atom(),
+        Request :: term()
+       ) ->
+                  abcast.
+%%
 abcast(Nodes, Name, Request) when is_list(Nodes), is_atom(Name) ->
     do_abcast(Nodes, Name, cast_msg(Request)).
 
@@ -323,19 +634,48 @@ do_abcast([], _,_) -> abcast.
 %%% queue, it would probably become confused. Late answers will 
 %%% now arrive to the terminated middleman and so be discarded.
 %%% -----------------------------------------------------------------
-multi_call(Name, Req)
+
+-spec multi_call(
+        Name    :: atom(),
+        Request :: term()
+       ) ->
+                        {Replies ::
+                           [{Node :: node(), Reply :: term()}],
+                         BadNodes :: [node()]
+                        }.
+%%
+multi_call(Name, Request)
   when is_atom(Name) ->
-    do_multi_call([node() | nodes()], Name, Req, infinity).
+    do_multi_call([node() | nodes()], Name, Request, infinity).
 
-multi_call(Nodes, Name, Req) 
+-spec multi_call(
+        Nodes   :: [node()],
+        Name    :: atom(),
+        Request :: term()
+       ) ->
+                        {Replies ::
+                           [{Node :: node(), Reply :: term()}],
+                         BadNodes :: [node()]
+                        }.
+%%
+multi_call(Nodes, Name, Request)
   when is_list(Nodes), is_atom(Name) ->
-    do_multi_call(Nodes, Name, Req, infinity).
+    do_multi_call(Nodes, Name, Request, infinity).
 
-multi_call(Nodes, Name, Req, infinity) ->
-    do_multi_call(Nodes, Name, Req, infinity);
-multi_call(Nodes, Name, Req, Timeout) 
-  when is_list(Nodes), is_atom(Name), is_integer(Timeout), Timeout >= 0 ->
-    do_multi_call(Nodes, Name, Req, Timeout).
+-spec multi_call(
+        Nodes   :: [node()],
+        Name    :: atom(),
+        Request :: term(),
+        Timeout :: timeout()
+       ) ->
+                        {Replies ::
+                           [{Node :: node(), Reply :: term()}],
+                         BadNodes :: [node()]
+                        }.
+%%
+multi_call(Nodes, Name, Request, Timeout)
+  when is_list(Nodes), is_atom(Name), ?is_timeout(Timeout) ->
+    do_multi_call(Nodes, Name, Request, Timeout).
 
 
 %%-----------------------------------------------------------------
@@ -349,25 +689,106 @@ multi_call(Nodes, Name, Req, Timeout)
 %%              The user is responsible for any initialization of the 
 %%              process, including registering a name for it.
 %%-----------------------------------------------------------------
-enter_loop(Mod, Options, State) ->
+
+-spec enter_loop(
+        Module  :: module(),
+        Options :: [enter_loop_opt()],
+        State   :: term()
+       ) ->
+                        no_return().
+%%
+enter_loop(Mod, Options, State)
+  when is_atom(Mod), is_list(Options) ->
     enter_loop(Mod, Options, State, self(), infinity).
 
+-spec enter_loop(
+        Module     :: module(),
+        Options    :: [enter_loop_opt()],
+        State      :: term(),
+        ServerName :: server_name() | pid()
+       ) ->
+                        no_return();
+       (
+         Module  :: module(),
+         Options :: [enter_loop_opt()],
+         State   :: term(),
+         Timeout :: timeout()
+       ) ->
+                        no_return();
+       (
+           Module    :: module(),
+           Options   :: [enter_loop_opt()],
+           State     :: term(),
+           Hibernate :: 'hibernate'
+       ) ->
+                        no_return();
+       (
+           Module  :: module(),
+           Options :: [enter_loop_opt()],
+           State   :: term(),
+           Cont    :: {'continue', term()}
+       ) ->
+                        no_return().
+%%
 enter_loop(Mod, Options, State, ServerName = {Scope, _})
-  when Scope == local; Scope == global ->
+  when is_atom(Mod), is_list(Options), Scope == local;
+       is_atom(Mod), is_list(Options), Scope == global ->
     enter_loop(Mod, Options, State, ServerName, infinity);
-
-enter_loop(Mod, Options, State, ServerName = {via, _, _}) ->
+%%
+enter_loop(Mod, Options, State, ServerName = {via, _, _})
+  when is_atom(Mod), is_list(Options) ->
     enter_loop(Mod, Options, State, ServerName, infinity);
+%%
+enter_loop(Mod, Options, State, TimeoutOrHibernate)
+  when is_atom(Mod), is_list(Options), ?is_timeout(TimeoutOrHibernate);
+       is_atom(Mod), is_list(Options), TimeoutOrHibernate =:= hibernate ->
+    enter_loop(Mod, Options, State, self(), TimeoutOrHibernate);
+%%
+enter_loop(Mod, Options, State, {continue, _}=Continue)
+  when is_atom(Mod), is_list(Options) ->
+    enter_loop(Mod, Options, State, self(), Continue).
 
-enter_loop(Mod, Options, State, Timeout) ->
-    enter_loop(Mod, Options, State, self(), Timeout).
-
-enter_loop(Mod, Options, State, ServerName, Timeout) ->
+-spec enter_loop(
+        Module     :: module(),
+        Options    :: [enter_loop_opt()],
+        State      :: term(),
+        ServerName :: server_name() | pid(),
+        Timeout    :: timeout()
+       ) ->
+                        no_return();
+       (
+           Module     :: module(),
+           Options    :: [enter_loop_opt()],
+           State      :: term(),
+           ServerName :: server_name() | pid(),
+           Hibernate  :: 'hibernate'
+       ) ->
+                        no_return();
+       (
+           Module     :: module(),
+           Options    :: [enter_loop_opt()],
+           State      :: term(),
+           ServerName :: server_name() | pid(),
+           Cont       :: {'continue', term()}
+       ) ->
+                        no_return().
+%%
+enter_loop(Mod, Options, State, ServerName, TimeoutOrHibernate)
+  when is_atom(Mod), is_list(Options), ?is_timeout(TimeoutOrHibernate);
+       is_atom(Mod), is_list(Options), TimeoutOrHibernate =:= hibernate ->
     Name = gen:get_proc_name(ServerName),
     Parent = gen:get_parent(),
     Debug = gen:debug_options(Name, Options),
     HibernateAfterTimeout = gen:hibernate_after(Options),
-    loop(Parent, Name, State, Mod, Timeout, HibernateAfterTimeout, Debug).
+    loop(Parent, Name, State, Mod, TimeoutOrHibernate, HibernateAfterTimeout, Debug);
+%%
+enter_loop(Mod, Options, State, ServerName, {continue, _}=Continue)
+  when is_atom(Mod), is_list(Options) ->
+    Name = gen:get_proc_name(ServerName),
+    Parent = gen:get_parent(),
+    Debug = gen:debug_options(Name, Options),
+    HibernateAfterTimeout = gen:hibernate_after(Options),
+    loop(Parent, Name, State, Mod, Continue, HibernateAfterTimeout, Debug).
 
 %%%========================================================================
 %%% Gen-callback functions
@@ -391,10 +812,14 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	{ok, {ok, State}} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, State, Mod, infinity, HibernateAfterTimeout, Debug);
-	{ok, {ok, State, TimeoutHibernateOrContinue}} ->
+    {ok, {ok, State, TimeoutOrHibernate}}
+          when ?is_timeout(TimeoutOrHibernate);
+               TimeoutOrHibernate =:= hibernate ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
-	    loop(Parent, Name, State, Mod, TimeoutHibernateOrContinue,
-	         HibernateAfterTimeout, Debug);
+	    loop(Parent, Name, State, Mod, TimeoutOrHibernate, HibernateAfterTimeout, Debug);
+	{ok, {ok, State, {continue, _}=Continue}} ->
+	    proc_lib:init_ack(Starter, {ok, self()}), 	    
+	    loop(Parent, Name, State, Mod, Continue, HibernateAfterTimeout, Debug);
 	{ok, {stop, Reason}} ->
 	    %% For consistency, we must make sure that the
 	    %% registered name (if any) is unregistered before
@@ -752,13 +1177,14 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTim
 	{ok, {reply, Reply, NState}} ->
 	    reply(From, Reply),
 	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, []);
-	{ok, {reply, Reply, NState, Time1}} ->
+	{ok, {reply, Reply, NState, TimeoutOrHibernate}}
+          when ?is_timeout(TimeoutOrHibernate);
+               TimeoutOrHibernate =:= hibernate ->
 	    reply(From, Reply),
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, []);
-	{ok, {noreply, NState}} ->
-	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, []);
-	{ok, {noreply, NState, Time1}} ->
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, []);
+	    loop(Parent, Name, NState, Mod, TimeoutOrHibernate, HibernateAfterTimeout, []);
+	{ok, {reply, Reply, NState, {continue, _}=Continue}} ->
+	    reply(From, Reply),
+	    loop(Parent, Name, NState, Mod, Continue, HibernateAfterTimeout, []);
 	{ok, {stop, Reason, Reply, NState}} ->
 	    try
 		terminate(Reason, ?STACKTRACE(), Name, From, Msg, Mod, NState, [])
@@ -777,17 +1203,14 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, HibernateAfterTim
 	{ok, {reply, Reply, NState}} ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
 	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, Debug1);
-	{ok, {reply, Reply, NState, Time1}} ->
+	{ok, {reply, Reply, NState, TimeoutOrHibernate}}
+          when ?is_timeout(TimeoutOrHibernate);
+               TimeoutOrHibernate =:= hibernate ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, Debug1);
-	{ok, {noreply, NState}} ->
-	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
-				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, Debug1);
-	{ok, {noreply, NState, Time1}} ->
-	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
-				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, Debug1);
+	    loop(Parent, Name, NState, Mod, TimeoutOrHibernate, HibernateAfterTimeout, Debug1);
+	{ok, {reply, Reply, NState, {continue, _}=Continue}} ->
+	    Debug1 = reply(Name, From, Reply, NState, Debug),
+	    loop(Parent, Name, NState, Mod, Continue, HibernateAfterTimeout, Debug1);
 	{ok, {stop, Reason, Reply, NState}} ->
 	    try
 		terminate(Reason, ?STACKTRACE(), Name, From, Msg, Mod, NState, Debug)
@@ -805,8 +1228,12 @@ handle_common_reply(Reply, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, 
     case Reply of
 	{ok, {noreply, NState}} ->
 	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, []);
-	{ok, {noreply, NState, Time1}} ->
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, []);
+	{ok, {noreply, NState, TimeoutOrHibernate}}
+          when ?is_timeout(TimeoutOrHibernate);
+               TimeoutOrHibernate =:= hibernate ->
+	    loop(Parent, Name, NState, Mod, TimeoutOrHibernate, HibernateAfterTimeout, []);
+	{ok, {noreply, NState, {continue, _}=Continue}} ->
+	    loop(Parent, Name, NState, Mod, Continue, HibernateAfterTimeout, []);
 	{ok, {stop, Reason, NState}} ->
 	    terminate(Reason, ?STACKTRACE(), Name, From, Msg, Mod, NState, []);
 	{'EXIT', Class, Reason, Stacktrace} ->
@@ -821,10 +1248,14 @@ handle_common_reply(Reply, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, 
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, infinity, HibernateAfterTimeout, Debug1);
-	{ok, {noreply, NState, Time1}} ->
-	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
-				      {noreply, NState}),
-	    loop(Parent, Name, NState, Mod, Time1, HibernateAfterTimeout, Debug1);
+	{ok, {noreply, NState, TimeoutOrHibernate}}
+          when ?is_timeout(TimeoutOrHibernate);
+               TimeoutOrHibernate =:= hibernate ->
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, {noreply, NState}),
+	    loop(Parent, Name, NState, Mod, TimeoutOrHibernate, HibernateAfterTimeout, Debug1);
+	{ok, {noreply, NState, {continue, _}=Continue}} ->
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, {noreply, NState}),
+	    loop(Parent, Name, NState, Mod, Continue, HibernateAfterTimeout, Debug1);
 	{ok, {stop, Reason, NState}} ->
 	    terminate(Reason, ?STACKTRACE(), Name, From, Msg, Mod, NState, Debug);
 	{'EXIT', Class, Reason, Stacktrace} ->
@@ -906,27 +1337,28 @@ print_event(Dev, Event, Name) ->
 
 -spec terminate(_, _, _, _, _, _, _, _) -> no_return().
 terminate(Reason, Stacktrace, Name, From, Msg, Mod, State, Debug) ->
-  terminate(exit, Reason, Stacktrace, Reason, Name, From, Msg, Mod, State, Debug).
+  terminate(exit, Reason, Stacktrace, false, Name, From, Msg, Mod, State, Debug).
 
 -spec terminate(_, _, _, _, _, _, _, _, _) -> no_return().
 terminate(Class, Reason, Stacktrace, Name, From, Msg, Mod, State, Debug) ->
-  ReportReason = {Reason, Stacktrace},
-  terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, Debug).
+  terminate(Class, Reason, Stacktrace, true, Name, From, Msg, Mod, State, Debug).
 
 -spec terminate(_, _, _, _, _, _, _, _, _, _) -> no_return().
-terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, Debug) ->
+terminate(Class, Reason, Stacktrace, ReportStacktrace, Name, From, Msg, Mod, State, Debug) ->
     Reply = try_terminate(Mod, terminate_reason(Class, Reason, Stacktrace), State),
     case Reply of
 	{'EXIT', C, R, S} ->
-	    error_info({R, S}, Name, From, Msg, Mod, State, Debug),
+	    error_info(R, S, Name, From, Msg, Mod, State, Debug),
 	    erlang:raise(C, R, S);
 	_ ->
 	    case {Class, Reason} of
 		{exit, normal} -> ok;
 		{exit, shutdown} -> ok;
 		{exit, {shutdown,_}} -> ok;
-		_ ->
-		    error_info(ReportReason, Name, From, Msg, Mod, State, Debug)
+		_ when ReportStacktrace ->
+		    error_info(Reason, Stacktrace, Name, From, Msg, Mod, State, Debug);
+                _ ->
+		    error_info(Reason, undefined, Name, From, Msg, Mod, State, Debug)
 	    end
     end,
     case Stacktrace of
@@ -939,19 +1371,37 @@ terminate(Class, Reason, Stacktrace, ReportReason, Name, From, Msg, Mod, State, 
 terminate_reason(error, Reason, Stacktrace) -> {Reason, Stacktrace};
 terminate_reason(exit, Reason, _Stacktrace) -> Reason.
 
-error_info(_Reason, application_controller, _From, _Msg, _Mod, _State, _Debug) ->
+error_info(_Reason, _ST, application_controller, _From, _Msg, _Mod, _State, _Debug) ->
     %% OTP-5811 Don't send an error report if it's the system process
     %% application_controller which is terminating - let init take care
     %% of it instead
     ok;
-error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
+error_info(Reason, ST, Name, From, Msg, Mod, State, Debug) ->
     Log = sys:get_log(Debug),
+    Status =
+        gen:format_status(Mod, terminate,
+                          #{ reason => Reason,
+                             state => State,
+                             message => Msg,
+                             log => Log },
+                          [get(),State]),
+    ReportReason =
+        if ST == undefined ->
+                %% When ST is undefined, it should not be included in the
+                %% reported reason for the crash as it is then caused
+                %% by an invalid return from a callback and thus thus the
+                %% stacktrace is irrelevant.
+                maps:get(reason, Status);
+           true ->
+                {maps:get(reason, Status), ST}
+        end,
+
     ?LOG_ERROR(#{label=>{gen_server,terminate},
                  name=>Name,
-                 last_message=>Msg,
-                 state=>format_status(terminate, Mod, get(), State),
-                 log=>format_log_state(Mod, Log),
-                 reason=>Reason,
+                 last_message=>maps:get(message,Status),
+                 state=>maps:get('EXIT',Status,maps:get('$status',Status,maps:get(state,Status))),
+                 log=>format_log_state(Mod,maps:get(log,Status)),
+                 reason=>ReportReason,
                  client_info=>client_stacktrace(From)},
                #{domain=>[otp],
                  report_cb=>fun gen_server:format_log/2,
@@ -1208,37 +1658,42 @@ mod(_) -> "t".
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time, _HibernateAfterTimeout]] = StatusData,
     Header = gen:format_status_header("Status for generic server", Name),
-    Log = sys:get_log(Debug),
-    Specific = case format_status(Opt, Mod, PDict, State) of
-		  S when is_list(S) -> S;
-		  S -> [S]
-	      end,
+    Status =
+        case gen:format_status(Mod, Opt, #{ state => State, log => sys:get_log(Debug) },
+                               [PDict, State]) of
+            #{ 'EXIT' := R } = M ->
+                M#{ '$status' => [{data,[{"State",R}]}] };
+            %% Status is set when the old format_status/2 is called,
+            %% so we do a little backwards compatibility dance here
+            #{ '$status' := S } = M when is_list(S) -> M;
+            #{ '$status' := S } = M -> M#{ '$status' := [S] };
+            #{ state := S } = M ->
+                M#{ '$status' => [{data, [{"State",S}] }] }
+        end,
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent},
-	     {"Logged events", format_log_state(Mod, Log)}]} |
-     Specific].
+	     {"Logged events", format_log_state(Mod, maps:get(log,Status))}]} |
+     maps:get('$status',Status)].
 
 format_log_state(Mod, Log) ->
-    [case Event of
-         {out,Msg,From,State} ->
-             {out,Msg,From,format_status(terminate, Mod, get(), State)};
-         {noreply,State} ->
-             {noreply,format_status(terminate, Mod, get(), State)};
-         _ -> Event
-     end || Event <- Log].
-
-format_status(Opt, Mod, PDict, State) ->
-    DefStatus = case Opt of
-		    terminate -> State;
-		    _ -> [{data, [{"State", State}]}]
-		end,
-    case erlang:function_exported(Mod, format_status, 2) of
-	true ->
-	    case catch Mod:format_status(Opt, [PDict, State]) of
-		{'EXIT', _} -> DefStatus;
-		Else -> Else
-	    end;
-	_ ->
-	    DefStatus
+    %% If format_status/1 was exported, the log has already been handled by
+    %% that call, so we should not pass all log events into the callback again.
+    case erlang:function_exported(Mod, format_status, 1) of
+        false ->
+            [case Event of
+                 {out,Msg,From,State} ->
+                     Status = gen:format_status(
+                                Mod, terminate, #{ state => State },
+                                [get(), State]),
+                     {out, Msg, From, maps:get(state, Status) };
+                 {noreply,State} ->
+                     Status = gen:format_status(
+                                Mod, terminate, #{ state => State },
+                                [get(), State]),
+                     {noreply, maps:get(state, Status)};
+                 _ -> Event
+             end || Event <- Log];
+        true ->
+            Log
     end.

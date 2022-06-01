@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,8 +57,8 @@ multiple_allocs(_Config) ->
 
     ok.
 
-could(Coupons = pda, Favorite = _pleasure = 0.0, {_, true}, {Presents}) ->
-  (0 = true) = #{true => [Presents]}.
+could(_Coupons = pda, _Favorite = _pleasure = 0.0, {_, true}, {Presents}) ->
+    (0 = true) = #{true => [Presents]}.
 
 place(lee) ->
     (pregnancy = presentations) = [hours | [purchase || _ <- 0]] + wine.
@@ -114,8 +114,16 @@ coverage(_) ->
     {'EXIT',{undef,[{erlang,error,[a,b,c,d],_}|_]}} =
 	(catch erlang:error(a, b, c, d)),
 
-    {'EXIT',{badarith,[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
-	(catch bar(x)),
+    %% The stacktrace for operators such a '+' can vary depending on
+    %% whether the JIT is used or not.
+    case catch bar(x) of
+        {'EXIT',{badarith,[{erlang,'+',[x,1],[_|_]},
+                           {?MODULE,bar,1,[File,{line,9}]}|_]}} ->
+            ok;
+        {'EXIT',{badarith,[{?MODULE,bar,1,[File,{line,9}]}|_]}} ->
+            ok
+    end,
+
     {'EXIT',{{case_clause,{1}},[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
 	(catch bar(0)),
 
@@ -127,13 +135,17 @@ coverage(_) ->
     {'EXIT',{function_clause,[{?MODULE,foobar,[[fail],1,2],
                                [{file,"fake.erl"},{line,16}]}|_]}} =
         (catch foobar([fail], 1, 2)),
+
     {'EXIT',{function_clause,[{?MODULE,fake_function_clause1,[{a,b},42.0],_}|_]}} =
         (catch fake_function_clause1({a,b})),
 
     {'EXIT',{function_clause,[{?MODULE,fake_function_clause2,[42|bad_tl],_}|_]}} =
         (catch fake_function_clause2(42, bad_tl)),
+
     {'EXIT',{function_clause,[{?MODULE,fake_function_clause3,[x,y],_}|_]}} =
         (catch fake_function_clause3(42, id([x,y]))),
+
+    {'EXIT',{{function_clause,a,b,c}, _}} = catch fake_function_clause4(),
 
     {'EXIT',{{badmatch,0.0},_}} = (catch coverage_1(id(42))),
     {'EXIT',{badarith,_}} = (catch coverage_1(id(a))),
@@ -145,8 +157,12 @@ coverage_1(X) ->
     true = 0 / X.
 
 fake_function_clause1(A) -> error(function_clause, [A,42.0]).
+
 fake_function_clause2(A, Tl) -> error(function_clause, [A|Tl]).
+
 fake_function_clause3(_, Stk) -> error(function_clause, Stk).
+
+fake_function_clause4() -> error({function_clause,a,b,c}).
 
 binary_construction_allocation(_Config) ->
     ok = do_binary_construction_allocation("PUT"),

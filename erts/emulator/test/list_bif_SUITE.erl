@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -143,7 +143,7 @@ t_list_to_ref(Config) when is_list(Config) ->
 
 %% Test list_to_pid/port/ref for external pids/ports/refs.
 t_list_to_ext_pidportref(Config) when is_list(Config) ->
-    {ok, Node} = slave:start(net_adm:localhost(), t_list_to_ext_pidportref),
+    {ok, Peer, Node} = ?CT_PEER(),
     Pid = rpc:call(Node, erlang, self, []),
     Port = hd(rpc:call(Node, erlang, ports, [])),
     Ref = rpc:call(Node, erlang, make_ref, []),
@@ -175,27 +175,8 @@ t_list_to_ext_pidportref(Config) when is_list(Config) ->
     true = rpc:call(Node, erlang, '=:=', [Ref, Ref2]),
     true = rpc:call(Node, erlang, '==',  [Ref, Ref2]),
 
-    %% Make sure no ugly comparison with 0-creation as wildcard is done.
-    Pid0 = make_0_creation(Pid),
-    Port0 = make_0_creation(Port),
-    Ref0 = make_0_creation(Ref),
-    false = (Pid =:= Pid0),
-    false = (Port =:= Port0),
-    false = (Ref =:= Ref0),
-    false = (Pid == Pid0),
-    false = (Port == Port0),
-    false = (Ref == Ref0),
 
-    %% Check 0-creations are converted to local node creations
-    %% when sent to matching node name.
-    true = rpc:call(Node, erlang, '=:=', [Pid, Pid0]),
-    true = rpc:call(Node, erlang, '==',  [Pid, Pid0]),
-    true = rpc:call(Node, erlang, '=:=', [Port, Port0]),
-    true = rpc:call(Node, erlang, '==',  [Port, Port0]),
-    true = rpc:call(Node, erlang, '=:=', [Ref, Ref0]),
-    true = rpc:call(Node, erlang, '==',  [Ref, Ref0]),
-
-    slave:stop(Node),
+    peer:stop(Peer),
     ok.
 
 -define(NEW_PID_EXT, 88).

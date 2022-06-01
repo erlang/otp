@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,10 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#    include "config.h"
 #endif
+
+#ifdef ESOCK_ENABLE
 
 #include <stdarg.h>
 #include <string.h>
@@ -34,8 +36,13 @@
 #include <time.h>
 #include <stddef.h>
 #include <sys/types.h>
+#if !defined(__WIN32__)
 #include <sys/socket.h>
+#endif
+
+#if !defined(__IOS__) && !defined(__WIN32__)
 #include <net/if_arp.h>
+#endif
 
 #include "socket_int.h"
 #include "sys.h"
@@ -62,6 +69,10 @@
 
 #define UDBG( proto ) ESOCK_DBG_PRINTF( UTIL_DEBUG , proto )
 
+#if defined(__WIN32__)
+typedef u_short sa_family_t;
+#endif
+
 
 extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
 
@@ -82,6 +93,12 @@ static void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
                                            unsigned char* addr,
                                            ERL_NIF_TERM*  eAddr);
 
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
+static void esock_encode_sockaddr_dl(ErlNifEnv*          env,
+                                     struct sockaddr_dl* sockAddrP,
+                                     SOCKLEN_T           addrLen,
+                                     ERL_NIF_TERM*       eSockAddr);
+#endif
 static void esock_encode_sockaddr_native(ErlNifEnv*       env,
                                          struct sockaddr* sa,
                                          SOCKLEN_T        len,
@@ -90,7 +107,7 @@ static void esock_encode_sockaddr_native(ErlNifEnv*       env,
 
 static void esock_encode_sockaddr_broken(ErlNifEnv*       env,
                                          struct sockaddr* sa,
-                                         socklen_t        len,
+                                         SOCKLEN_T        len,
                                          ERL_NIF_TERM*    eSockAddr);
 
 static void make_sockaddr_in(ErlNifEnv*    env,
@@ -115,7 +132,19 @@ static void make_sockaddr_ll(ErlNifEnv*    env,
                              ERL_NIF_TERM  addr,
                              ERL_NIF_TERM* sa);
 #endif
-
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
+static void make_sockaddr_dl(ErlNifEnv*    env,
+                             ERL_NIF_TERM  index,
+                             ERL_NIF_TERM  type,
+                             ERL_NIF_TERM  nlen,
+                             ERL_NIF_TERM  alen,
+                             ERL_NIF_TERM  slen,
+                             ERL_NIF_TERM  data,
+                             ERL_NIF_TERM* sa);
+#endif
+#ifdef HAS_AF_LOCAL
+static SOCKLEN_T sa_local_length(int l, struct sockaddr_un* sa);
+#endif
 
 
 /* *** esock_get_bool_from_map ***
@@ -160,14 +189,14 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
 extern
 void esock_encode_iov(ErlNifEnv*    env,
                       ssize_t       read,
-                      struct iovec* iov,
+                      SysIOVec*     iov,
                       size_t        len,
                       ErlNifBinary* data,
                       ERL_NIF_TERM* eIOV)
 {
-    ssize_t      rem = read;
-    size_t       i;
-    ERL_NIF_TERM a[len]; // At most this length
+    ssize_t       rem = read;
+    size_t        i;
+    ERL_NIF_TERM* a;
 
     UDBG( ("SUTIL", "esock_encode_iov -> entry with"
            "\r\n   read:      %ld"
@@ -175,8 +204,11 @@ void esock_encode_iov(ErlNifEnv*    env,
            "\r\n", (long) read, (unsigned long) len) );
 
     if (len == 0) {
+        UDBG( ("SUTIL", "esock_encode_iov -> done when empty\r\n") );
         *eIOV = MKEL(env);
         return;
+    } else {
+        a = MALLOC(len * sizeof(ERL_NIF_TERM)); // At most this length
     }
 
     for (i = 0;  i < len;  i++) {
@@ -212,6 +244,8 @@ void esock_encode_iov(ErlNifEnv*    env,
 
     *eIOV = MKLA(env, a, i);
 
+    FREE(a);
+
     UDBG( ("SUTIL", "esock_encode_msghdr -> done\r\n") );
 }
 
@@ -222,7 +256,7 @@ void esock_encode_iov(ErlNifEnv*    env,
  * Decode an IO Vector. In erlang we represented this as a list of binaries.
  *
  * We assume that we have already figured out how long the iov (actually
- * eIOV) is (len), and therefor allocated an array of bins and iov to be
+ * eIOV) is (len), and therefore allocated an array of bins and iov to be
  * used.
  */
 
@@ -230,7 +264,7 @@ extern
 BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
                            ERL_NIF_TERM  eIOV,
                            ErlNifBinary* bufs,
-                           struct iovec* iov,
+                           SysIOVec*     iov,
                            size_t        len,
                            ssize_t*      totSize)
 {
@@ -255,7 +289,7 @@ BOOLEAN_T esock_decode_iov(ErlNifEnv*    env,
         if (IS_BIN(env, elem) && GET_BIN(env, elem, &bufs[i])) {
             ssize_t z;
 
-            iov[i].iov_base  = (caddr_t) bufs[i].data;
+            iov[i].iov_base  = (void*) bufs[i].data;
             iov[i].iov_len   = bufs[i].size;
 
             z = sz;
@@ -366,21 +400,32 @@ BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
  *    packet - sockaddr_ll:  protocol, ifindex, hatype, pkttype, addr
  *    unspec - sockaddr:     addr
  *    (int)  - sockaddr:     addr
+ *
+ * An address length > 0 means the caller knows the length, and we use it.
+ * An address length of '-1' means the caller don't know, which
+ * in turn mean that "we" has to calculate.
+ *
+ * sys/socket.h:
+ * __SOCKADDR_ALLTYPES
  */
+
+#define SALEN(L, SZ) (((L) > 0) ? (L) : (SZ))
 
 extern
 void esock_encode_sockaddr(ErlNifEnv*    env,
                            ESockAddress* sockAddrP,
-                           SOCKLEN_T     addrLen,
+                           int           addrLen,
                            ERL_NIF_TERM* eSockAddr)
 {
-  int family;
+  int       family;
+  SOCKLEN_T len;
 
   // Sanity check
-  if (addrLen < (char *)&sockAddrP->sa.sa_data - (char *)sockAddrP) {
-    // We got crap, cannot even know the address family
-    esock_encode_sockaddr_broken(env, &sockAddrP->sa, addrLen, eSockAddr);
-    return;
+  if ((addrLen > 0) &&
+      (addrLen < (char *)&sockAddrP->sa.sa_data - (char *)sockAddrP)) {
+      // We got crap, cannot even know the address family
+      esock_encode_sockaddr_broken(env, &sockAddrP->sa, addrLen, eSockAddr);
+      return;
   }
   family = sockAddrP->ss.ss_family;
 
@@ -391,69 +436,159 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
 
   switch (family) {
   case AF_INET:
-    esock_encode_sockaddr_in(env, &sockAddrP->in4, addrLen, eSockAddr);
-    break;
+      len = SALEN(addrLen, sizeof(struct sockaddr_in));
+      esock_encode_sockaddr_in(env, &sockAddrP->in4, len, eSockAddr);
+      break;
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
   case AF_INET6:
-    esock_encode_sockaddr_in6(env, &sockAddrP->in6, addrLen, eSockAddr);
-    break;
+      len = SALEN(addrLen, sizeof(struct sockaddr_in6));      
+      esock_encode_sockaddr_in6(env, &sockAddrP->in6, len, eSockAddr);
+      break;
 #endif
 
 #ifdef HAS_AF_LOCAL
   case AF_LOCAL:
-    esock_encode_sockaddr_un(env, &sockAddrP->un, addrLen, eSockAddr);
-    break;
+      len = sa_local_length(addrLen, &sockAddrP->un);
+      esock_encode_sockaddr_un(env, &sockAddrP->un, len, eSockAddr);
+      break;
 #endif
 
 #ifdef AF_UNSPEC
   case AF_UNSPEC:
-    esock_encode_sockaddr_native(env, &sockAddrP->sa,
-				 addrLen, esock_atom_unspec, eSockAddr);
-    break;
+      len = SALEN(addrLen, 0);
+      esock_encode_sockaddr_native(env,
+                                   &sockAddrP->sa, len,
+                                   esock_atom_unspec,
+                                   eSockAddr);
+      break;
 #endif
 
 #if defined(HAVE_NETPACKET_PACKET_H)
   case AF_PACKET:
-    esock_encode_sockaddr_ll(env, &sockAddrP->ll, addrLen, eSockAddr);
-    break;
+      len = SALEN(addrLen, sizeof(struct sockaddr_ll));      
+      esock_encode_sockaddr_ll(env, &sockAddrP->ll, len, eSockAddr);
+      break;
 #endif
 
 #if defined(AF_IMPLINK)
   case AF_IMPLINK:
-    esock_encode_sockaddr_native(env, &sockAddrP->sa,
-				 addrLen, esock_atom_implink, eSockAddr);
+      len = SALEN(addrLen, 0);
+      esock_encode_sockaddr_native(env,
+                                   &sockAddrP->sa, len,
+                                   esock_atom_implink,
+                                   eSockAddr);
     break;
 #endif
 
 #if defined(AF_PUP)
   case AF_PUP:
-    esock_encode_sockaddr_native(env, &sockAddrP->sa,
-				 addrLen, esock_atom_pup, eSockAddr);
-    break;
+      len = SALEN(addrLen, 0);
+      esock_encode_sockaddr_native(env,
+                                   &sockAddrP->sa, len,
+                                   esock_atom_pup,
+                                   eSockAddr);
+      break;
 #endif
 
 #if defined(AF_CHAOS)
   case AF_CHAOS:
-    esock_encode_sockaddr_native(env, &sockAddrP->sa,
-				 addrLen, esock_atom_chaos, eSockAddr);
-    break;
+      len = SALEN(addrLen, 0);
+      esock_encode_sockaddr_native(env,
+                                   &sockAddrP->sa, len,
+                                   esock_atom_chaos,
+                                   eSockAddr);
+      break;
 #endif
 
-#if defined(AF_LINK)
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
   case AF_LINK:
-    esock_encode_sockaddr_native(env, &sockAddrP->sa,
-				 addrLen, esock_atom_link, eSockAddr);
+      /*
+       * macOS (Darwin Kernel Version 21.4.0):
+       * -------------------------------------
+       * struct sockaddr_dl {
+       *    u_char  sdl_len;       // Total length of sockaddr
+       *    u_char  sdl_family;    // AF_LINK
+       *    u_short sdl_index;     // if != 0, system given index for interface
+       *    u_char  sdl_type;      // interface type
+       *    u_char  sdl_nlen;      // interface name length, no trailing 0 reqd.
+       *    u_char  sdl_alen;      // link level address length
+       *    u_char  sdl_slen;      // link layer selector length
+       *    char    sdl_data[12];  // minimum work area, can be larger;
+       *                           // contains both if name and ll address
+       * #ifndef __APPLE__
+       *    // For TokenRing
+       *    u_short sdl_rcf;       // source routing control
+       *    u_short sdl_route[16]; // source routing information
+       * #endif
+       * };
+       *
+       * FreeBSD (12.2-RELEASE-p14):
+       * ---------------------------
+       * struct sockaddr_dl {
+       *    u_char  sdl_len;        // Total length of sockaddr
+       *    u_char  sdl_family;     // AF_LINK
+       *    u_short sdl_index;      // if != 0,
+       *                            // system given index for interface
+       *    u_char  sdl_type;       // interface type
+       *    u_char  sdl_nlen;       // interface name length, no trailing 0 reqd
+       *    u_char  sdl_alen;       // link level address length
+       *    u_char  sdl_slen;       // link layer selector length
+       *    char    sdl_data[46];   // minimum work area, can be larger;
+       *                            // contains both if name and ll address
+       * };
+       *
+       * OpenIndiana 2021.10
+       * struct sockaddr_dl {
+       *    ushort_t sdl_family;   // AF_LINK
+       *    ushort_t sdl_index;    // if != 0,
+       *                           // system given index for interface
+       *    uchar_t sdl_type;      // interface type
+       *    uchar_t sdl_nlen;      // interface name length, no trailing 0 reqd
+       *    uchar_t sdl_alen;      // link level address length
+       *    uchar_t sdl_slen;      // link layer selector length
+       *    char    sdl_data[244]; // contains both if name and ll address
+       * };
+       *
+       */
+#if defined(ESOCK_SDL_LEN)
+      len = SALEN(addrLen, sockAddrP->dl.sdl_len);
+#else
+      // The data area is dlen = nlen + alen
+      len = SALEN(addrLen,
+                  (CHARP(sockAddrP->dl.sdl_data) - CHARP(sockAddrP)) +
+                  sockAddrP->dl.sdl_nlen + sockAddrP->dl.sdl_alen);
+#endif
+      esock_encode_sockaddr_dl(env, &sockAddrP->dl, len, eSockAddr);
     break;
 #endif
 
   default:
-    esock_encode_sockaddr_native(env, &sockAddrP->sa,
-				 addrLen, MKI(env, family), eSockAddr);
-    break;
+      len = SALEN(addrLen, 0);
+      esock_encode_sockaddr_native(env,
+                                   &sockAddrP->sa, len,
+                                   MKI(env, family),
+                                   eSockAddr);
+      break;
   }
 }
 
+
+#ifdef HAS_AF_LOCAL
+static
+SOCKLEN_T sa_local_length(int l, struct sockaddr_un* sa)
+{
+    if (l > 0) {
+        return ((SOCKLEN_T) l);
+    } else {
+#if defined(SUN_LEN)
+    return SUN_LEN(sa);
+#else
+    return (offsetof(struct sockaddr_un, sun_path) + strlen(sa->sun_path) + 1);
+#endif
+    }
+}
+#endif
 
 
 extern
@@ -481,49 +616,49 @@ void esock_encode_hwsockaddr(ErlNifEnv*       env,
   switch (family) {
 #if defined(ARPHRD_NETROM)
   case ARPHRD_NETROM:
-    efamily = esock_atom_arphrd_netrom;
+    efamily = esock_atom_netrom;
     break;
 #endif
 
 #if defined(ARPHRD_ETHER)
   case ARPHRD_ETHER:
-    efamily = esock_atom_arphrd_ether;
+    efamily = esock_atom_ether;
     break;
 #endif
 
 #if defined(ARPHRD_IEEE802)
   case ARPHRD_IEEE802:
-    efamily = esock_atom_arphrd_ieee802;
+    efamily = esock_atom_ieee802;
     break;
 #endif
 
 #if defined(ARPHRD_DLCI)
   case ARPHRD_DLCI:
-    efamily = esock_atom_arphrd_dlci;
+    efamily = esock_atom_dlci;
     break;
 #endif
 
 #if defined(ARPHRD_FRELAY)
   case ARPHRD_FRELAY:
-    efamily = esock_atom_arphrd_frelay;
+    efamily = esock_atom_frelay;
     break;
 #endif
 
 #if defined(ARPHRD_IEEE1394)
   case ARPHRD_IEEE1394:
-    efamily = esock_atom_arphrd_ieee1394;
+    efamily = esock_atom_ieee1394;
     break;
 #endif
 
 #if defined(ARPHRD_LOOPBACK)
   case ARPHRD_LOOPBACK:
-    efamily = esock_atom_arphrd_loopback;
+    efamily = esock_atom_loopback;
     break;
 #endif
 
 #if defined(ARPHRD_NONE)
   case ARPHRD_NONE:
-    efamily = esock_atom_arphrd_none;
+    efamily = esock_atom_none;
     break;
 #endif
 
@@ -643,7 +778,7 @@ void esock_encode_sockaddr_in(ErlNifEnv*          env,
                "\r\n   addr size: %d"
                "\r\n", addrLen, sizeof(struct sockaddr_in)) );
         esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
-                                     addrLen, MKI(env, AF_INET), eSockAddr);
+                                     addrLen, esock_atom_inet, eSockAddr);
     }
 }
 
@@ -783,7 +918,7 @@ void esock_encode_sockaddr_in6(ErlNifEnv*            env,
 
     } else {
         esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
-                                     addrLen, MKI(env, AF_INET6), eSockAddr);
+                                     addrLen, esock_atom_inet6, eSockAddr);
     }
 }
 #endif
@@ -877,6 +1012,10 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
     ERL_NIF_TERM ePath;
     size_t       n, m;
 
+    UDBG( ("SUTIL", "esock_encode_sockaddr_un -> entry with"
+           "\r\n.  addrLen: %d"
+           "\r\n", addrLen) );
+
     n = sockAddrP->sun_path - (char *)sockAddrP; // offsetof
     if (addrLen >= n) {
         n = addrLen - n; // sun_path length
@@ -911,7 +1050,7 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
         }
     } else {
         esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
-                                     addrLen, MKI(env, AF_LOCAL), eSockAddr);
+                                     addrLen, esock_atom_local, eSockAddr);
     }
 }
 #endif
@@ -929,7 +1068,7 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
  *    ifindex:  integer()
  *    hatype:   integer() (should be an atom really)
  *    pkttype:  integer() (should be an atom really)
- *    addr:     list()    (should be something usefull...)
+ *    addr:     list()    (should be something useful...)
  *
  */
 
@@ -941,6 +1080,10 @@ void esock_encode_sockaddr_ll(ErlNifEnv*          env,
                               ERL_NIF_TERM*       eSockAddr)
 {
     ERL_NIF_TERM eProto, eIfIdx, eHaType, ePktType, eAddr;
+
+    UDBG( ("SUTIL", "esock_encode_sockaddr_ll -> entry with"
+           "\r\n.  addrLen: %d"
+           "\r\n", addrLen) );
 
     if (addrLen >= sizeof(struct sockaddr_ll)) {
 
@@ -968,7 +1111,75 @@ void esock_encode_sockaddr_ll(ErlNifEnv*          env,
 
     } else {
         esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
-                                     addrLen, MKI(env, AF_PACKET), eSockAddr);
+                                     addrLen, esock_atom_packet, eSockAddr);
+    }
+}
+#endif
+
+
+
+/* +++ esock_encode_sockaddr_dl +++
+ *
+ * Encode a LINK address - sockaddr_dl (link-level layer). In erlang it's
+ * represented as a map, which has a specific set of attributes
+ * (beside the mandatory family attribute, which is "inherited" from
+ * the "sockaddr" type):
+ *
+ * The length field (sdl_len) has already been used, so we don't use it
+ * in *this* function.
+ *
+ *    index: non_neg_integer()
+ *    type:  non_neg_integer()
+ *    nlen:  non_neg_integer() (name length)
+ *    alen:  non_neg_integer() (address length)
+ *    slen:  non_neg_integer() (sector length)
+ *    data:  binary()
+ */
+
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
+extern
+void esock_encode_sockaddr_dl(ErlNifEnv*          env,
+                              struct sockaddr_dl* sockAddrP,
+                              SOCKLEN_T           addrLen,
+                              ERL_NIF_TERM*       eSockAddr)
+{
+    ERL_NIF_TERM eindex, etype, enlen, ealen, eslen, edata;
+    SOCKLEN_T    dlen;
+
+    UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> entry with"
+           "\r\n.  addrLen: %d"
+           "\r\n", addrLen) );
+
+    /* There is a minumum length (defined by the size of the data field) */
+    if (addrLen >= sizeof(struct sockaddr_dl)) {
+
+        /* index - if != 0, system given index for interface */
+        eindex = MKUI(env, sockAddrP->sdl_index);
+
+        /* type -  interface type */
+        etype = MKUI(env, sockAddrP->sdl_type);
+
+        /* nlen - interface name length, no trailing 0 reqd. */
+        enlen = MKUI(env, sockAddrP->sdl_nlen);
+
+        /* alen - link level address length */
+        ealen = MKUI(env, sockAddrP->sdl_alen);
+
+        /* slen - ink layer selector length */
+        eslen = MKUI(env, sockAddrP->sdl_slen);
+
+        /* data - minimum work area, can be larger;    *
+         *        contains both if name and ll address */
+        dlen  = addrLen - (CHARP(sockAddrP->sdl_data) - CHARP(sockAddrP));
+        edata = esock_make_new_binary(env, &sockAddrP->sdl_data, dlen);
+
+        make_sockaddr_dl(env,
+                         eindex, etype, enlen, ealen, eslen, edata,
+                         eSockAddr);
+
+    } else {
+        esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
+                                     addrLen, esock_atom_link, eSockAddr);
     }
 }
 #endif
@@ -1496,7 +1707,157 @@ void esock_encode_packet_hatype(ErlNifEnv*     env,
                                 unsigned short hatype,
                                 ERL_NIF_TERM*  eHaType)
 {
-    *eHaType = MKUI(env, hatype);
+    ERL_NIF_TERM tmp;
+
+    switch (hatype) {
+
+        /*
+         * ARP protocol HARDWARE identifiers.
+         */
+
+#if defined(ARPHRD_NETROM)
+    case ARPHRD_NETROM:
+        tmp = esock_atom_netrom;
+        break;
+#endif
+
+#if defined(ARPHRD_ETHER)
+    case ARPHRD_ETHER:
+        tmp = esock_atom_ether;
+        break;
+#endif
+
+#if defined(ARPHRD_EETHER)
+    case ARPHRD_EETHER:
+        tmp = esock_atom_eether;
+        break;
+#endif
+
+#if defined(ARPHRD_AX25)
+    case ARPHRD_AX25:
+        tmp = esock_atom_ax25;
+        break;
+#endif
+
+#if defined(ARPHRD_PRONET)
+    case ARPHRD_PRONET:
+        tmp = esock_atom_pronet;
+        break;
+#endif
+
+#if defined(ARPHRD_CHAOS)
+    case ARPHRD_CHAOS:
+        tmp = esock_atom_chaos;
+        break;
+#endif
+
+#if defined(ARPHRD_IEEE802)
+    case ARPHRD_IEEE802:
+        tmp = esock_atom_ieee802;
+        break;
+#endif
+
+#if defined(ARPHRD_ARCNET)
+    case ARPHRD_ARCNET:
+        tmp = esock_atom_arcnet;
+        break;
+#endif
+
+#if defined(ARPHRD_APPLETLK)
+    case ARPHRD_APPLETLK:
+        tmp = esock_atom_appletlk;
+        break;
+#endif
+
+#if defined(ARPHRD_DLCI)
+    case ARPHRD_DLCI:
+        tmp = esock_atom_dlci;
+        break;
+#endif
+
+#if defined(ARPHRD_ATM)
+    case ARPHRD_ATM:
+        tmp = esock_atom_atm;
+        break;
+#endif
+
+#if defined(ARPHRD_METRICOM)
+    case ARPHRD_METRICOM:
+        tmp = esock_atom_metricom;
+        break;
+#endif
+
+#if defined(ARPHRD_IEEE1394)
+    case ARPHRD_IEEE1394:
+        tmp = esock_atom_ieee1394;
+        break;
+#endif
+
+#if defined(ARPHRD_EUI64)
+    case ARPHRD_EUI64:
+        tmp = esock_atom_eui64;
+        break;
+#endif
+
+#if defined(ARPHRD_INFINIBAND)
+    case ARPHRD_INFINIBAND:
+        tmp = esock_atom_infiniband;
+        break;
+#endif
+
+
+        /*
+         * Dummy types for non ARP hardware
+         */
+
+#if defined(ARPHRD_TUNNEL)
+    case ARPHRD_TUNNEL:
+        tmp = esock_atom_tunnel;
+        break;
+#endif
+
+#if defined(ARPHRD_TUNNEL6)
+    case ARPHRD_TUNNEL6:
+        tmp = esock_atom_tunnel6;
+        break;
+#endif
+
+#if defined(ARPHRD_LOOPBACK)
+    case ARPHRD_LOOPBACK:
+        tmp = esock_atom_loopback;
+        break;
+#endif
+
+#if defined(ARPHRD_LOCALTLK)
+    case ARPHRD_LOCALTLK:
+        tmp = esock_atom_localtlk;
+        break;
+#endif
+
+
+#if defined(ARPHRD_NONE)
+    case ARPHRD_NONE:
+        tmp = esock_atom_none;
+        break;
+#endif
+
+#if defined(ARPHRD_VOID)
+    case ARPHRD_VOID:
+        tmp = esock_atom_void;
+        break;
+#endif
+
+
+        /*
+         * And the rest will be just integer
+         */
+
+    default:
+        tmp = MKUI(env, hatype);
+        break;
+    }
+
+    *eHaType = tmp;
 }
 
 
@@ -1623,7 +1984,7 @@ void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
                                     unsigned char* addr,
                                     ERL_NIF_TERM*  eAddr)
 {
-    ERL_NIF_TERM  array[len];
+    ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
     unsigned char i;
 
     for (i = 0; i < len; i++) {
@@ -1631,6 +1992,9 @@ void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
     }
 
     *eAddr = MKTA(env, array, len);
+
+    FREE(array);
+
 }
 
 
@@ -1686,7 +2050,7 @@ BOOLEAN_T esock_decode_sockaddr_native(ErlNifEnv*     env,
 
 
 
-/* Encode as #{family := integer(), addr := binary()}
+/* Encode as #{family := atom() | integer(), addr := binary()}
  * assuming at least the ->family field can be accessed
  * and hence at least 0 bytes of address
  */
@@ -1700,8 +2064,17 @@ void esock_encode_sockaddr_native(ErlNifEnv*       env,
     size_t size;
     ERL_NIF_TERM eData;
 
-    size = ((char*)addr + len) - (char*)&addr->sa_data;
-    eData = esock_make_new_binary(env, &addr->sa_data, size);
+    UDBG( ("SUTIL", "esock_encode_sockaddr_native -> entry with"
+           "\r\n.  len:     %d"
+           "\r\n.  eFamily: %T"
+           "\r\n", len, eFamily) );
+
+    if (len > 0) {
+        size = ((char*)addr + len) - (char*)&addr->sa_data;
+        eData = esock_make_new_binary(env, &addr->sa_data, size);
+    } else {
+        eData = esock_make_new_binary(env, &addr->sa_data, 0);
+    }
 
     {
         ERL_NIF_TERM keys[] = {esock_atom_family, esock_atom_addr};
@@ -1713,6 +2086,7 @@ void esock_encode_sockaddr_native(ErlNifEnv*       env,
     }
 }
 
+
 /* Encode as a raw binary() regarding the whole address
  * structure as a blob
  */
@@ -1720,6 +2094,10 @@ static void esock_encode_sockaddr_broken(ErlNifEnv*       env,
                                          struct sockaddr* addr,
                                          SOCKLEN_T        len,
                                          ERL_NIF_TERM*    eSockAddr) {
+    UDBG( ("SUTIL", "esock_encode_sockaddr_broken -> entry with"
+           "\r\n.  len: %d"
+           "\r\n", len) );
+
     *eSockAddr = esock_make_new_binary(env, addr, len);
 }
 
@@ -2282,17 +2660,51 @@ void make_sockaddr_ll(ErlNifEnv*    env,
                       ERL_NIF_TERM* sa)
 {
     ERL_NIF_TERM keys[]  = {esock_atom_family,
-                            esock_atom_protocol,
-                            esock_atom_ifindex,
-                            esock_atom_hatype,
-                            esock_atom_pkttype,
-                            esock_atom_addr};
+        esock_atom_protocol,
+        esock_atom_ifindex,
+        esock_atom_hatype,
+        esock_atom_pkttype,
+        esock_atom_addr};
     ERL_NIF_TERM vals[]  = {esock_atom_packet,
-                            proto,
-                            ifindex,
-                            hatype,
-                            pkttype,
-                            addr};
+        proto,
+        ifindex,
+        hatype,
+        pkttype,
+        addr};
+    size_t       numKeys = NUM(keys);
+    
+    ESOCK_ASSERT( numKeys == NUM(vals) );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, sa) );
+}
+#endif
+
+
+/* Construct the Link-Level socket address */
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
+static
+void make_sockaddr_dl(ErlNifEnv*    env,
+                      ERL_NIF_TERM  index,
+                      ERL_NIF_TERM  type,
+                      ERL_NIF_TERM  nlen,
+                      ERL_NIF_TERM  alen,
+                      ERL_NIF_TERM  slen,
+                      ERL_NIF_TERM  data,
+                      ERL_NIF_TERM* sa)
+{
+    ERL_NIF_TERM keys[]  = {esock_atom_family,
+        esock_atom_index,
+        esock_atom_type,
+        esock_atom_nlen,
+        esock_atom_alen,
+        esock_atom_slen,
+        esock_atom_data};
+    ERL_NIF_TERM vals[]  = {esock_atom_link,
+        index,
+        type,
+        nlen,
+        alen,
+        slen,
+        data};
     size_t       numKeys = NUM(keys);
     
     ESOCK_ASSERT( numKeys == NUM(vals) );
@@ -2338,3 +2750,5 @@ BOOLEAN_T esock_is_integer(ErlNifEnv *env, ERL_NIF_TERM term)
     else
         return FALSE;
 }
+
+#endif

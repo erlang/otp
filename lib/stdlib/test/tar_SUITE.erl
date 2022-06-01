@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -113,8 +113,8 @@ borderline_test(Size, TempDir, IsUstar) ->
     Name = filename:join(TempDir, Prefix++SizeList),
 
     %% Create a file and archive it.
-    X0 = erlang:monotonic_time(),
-    ok = file:write_file(Name, random_byte_list(X0, Size)),
+    RandomBytes = rand:bytes(Size),
+    ok = file:write_file(Name, RandomBytes),
     ok = erl_tar:create(Archive, [Name]),
     ok = file:delete(Name),
 
@@ -125,7 +125,7 @@ borderline_test(Size, TempDir, IsUstar) ->
 
     %% Verify contents of extracted file.
     {ok, Bin} = file:read_file(Name),
-    true = match_byte_list(X0, binary_to_list(Bin)),
+    RandomBytes = Bin,
 
     %% Verify that Unix tar can read it.
     case IsUstar of
@@ -198,34 +198,6 @@ make_cmd(Cmd) ->
 	{win32, _} -> lists:concat(["cmd /c",  Cmd]);
 	{unix, _}  -> lists:concat(["sh -c '",  Cmd,  "'"])
     end.
-
-%% Verifies a random byte list.
-
-match_byte_list(X0, [Byte|Rest]) ->
-    X = next_random(X0),
-    case (X bsr 26) band 16#ff of
-	Byte -> match_byte_list(X, Rest);
-	_ -> false
-    end;
-match_byte_list(_, []) ->
-    true.
-
-%% Generates a random byte list.
-
-random_byte_list(X0, Count) ->
-    random_byte_list(X0, Count, []).
-
-random_byte_list(X0, Count, Result) when Count > 0->
-    X = next_random(X0),
-    random_byte_list(X, Count-1, [(X bsr 26) band 16#ff|Result]);
-random_byte_list(_X, 0, Result) ->
-    lists:reverse(Result).
-
-%% This RNG is from line 21 on page 102 in Knuth: The Art of Computer Programming,
-%% Volume II, Seminumerical Algorithms.
-
-next_random(X) ->
-    (X*17059465+1) band 16#fffffffff.
 
 %% Test the 'atomic' operations: create/extract/table, on compressed
 %% and uncompressed archives.
@@ -914,23 +886,20 @@ do_sparse([Name|Rest], DataDir, PrivDir) ->
 
 %% Test filenames with characters outside the US ASCII range.
 unicode(Config) when is_list(Config) ->
-    run_unicode_node(Config, "+fnu"),
+    run_unicode_node(Config, ["+fnu"]),
     case has_transparent_naming() of
 	true ->
-	    run_unicode_node(Config, "+fnl");
+	    run_unicode_node(Config, ["+fnl"]);
 	false ->
 	    ok
     end.
 
-run_unicode_node(Config, Option) ->
+run_unicode_node(Config, Args) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    Pa = filename:dirname(code:which(?MODULE)),
-    Args = Option ++ " -pa "++Pa,
-    io:format("~s\n", [Args]),
-    Node = start_node(unicode, Args),
+    {ok, Peer, Node} = ?CT_PEER(Args),
     ok = rpc:call(Node, erlang, apply,
 		  [fun() -> do_unicode(PrivDir) end,[]]),
-    true = test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 has_transparent_naming() ->
@@ -942,21 +911,25 @@ has_transparent_naming() ->
 
 do_unicode(PrivDir) ->
     ok = file:set_cwd(PrivDir),
-    ok = file:make_dir("unicöde"),
+    case file:make_dir("unicöde") of
+        ok ->
+            Names = lists:sort(unicode_create_files()),
+            Tar = "unicöde.tar",
+            ok = erl_tar:create(Tar, ["unicöde"], []),
 
-    Names = lists:sort(unicode_create_files()),
-    Tar = "unicöde.tar",
-    ok = erl_tar:create(Tar, ["unicöde"], []),
-
-    %% Unicode filenames require PAX format.
-    false = is_ustar(Tar),
-    {ok,Names0} = erl_tar:table(Tar, []),
-    Names = lists:sort(Names0),
-    _ = [ok = file:delete(Name) || Name <- Names],
-    ok = erl_tar:extract(Tar),
-    _ = [{ok,_} = file:read_file(Name) || Name <- Names],
-    _ = [ok = file:delete(Name) || Name <- Names],
-    ok = file:del_dir("unicöde"),
+            %% Unicode filenames require PAX format.
+            false = is_ustar(Tar),
+            {ok,Names0} = erl_tar:table(Tar, []),
+            Names = lists:sort(Names0),
+            _ = [ok = file:delete(Name) || Name <- Names],
+            ok = erl_tar:extract(Tar),
+            _ = [{ok,_} = file:read_file(Name) || Name <- Names],
+            _ = [ok = file:delete(Name) || Name <- Names],
+            ok = file:del_dir("unicöde");
+        {error,eilseq} ->
+            %% The FS (eg zfs) does not support transparent naming
+            ok
+    end,
     ok.
 
 unicode_create_files() ->
@@ -1014,7 +987,7 @@ roundtrip_metadata(Config) ->
 
 do_roundtrip_metadata(Dir, File) ->
     Tar = filename:join(Dir, atom_to_list(?FUNCTION_NAME)++".tar"),
-    BeamFile = code:which(compile),
+    BeamFile = code:which(?MODULE),
     {ok,Fd} = erl_tar:open(Tar, [write]),
     ok = erl_tar:add(Fd, BeamFile, File, []),
     ok = erl_tar:close(Fd),
@@ -1129,17 +1102,6 @@ make_temp_dir(Base, I) ->
     case file:make_dir(Name) of
 	ok -> Name;
 	{error,eexist} -> make_temp_dir(Base, I+1)
-    end.
-
-start_node(Name, Args) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
-    ct:log("Trying to start ~w@~s~n", [Name,Host]),
-    case test_server:start_node(Name, peer, [{args,Args}]) of
-	{error,Reason} ->
-	    ct:fail(Reason);
-	{ok,Node} ->
-	    ct:log("Node ~p started~n", [Node]),
-	    Node
     end.
 
 %% Test that the given tar file is a plain USTAR archive,

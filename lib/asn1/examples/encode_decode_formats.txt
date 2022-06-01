@@ -13,4 +13,4 @@ per_bin, optimize	      | 	binary	      | binary	        |
 
 
 
-iolist: deep list with binaries and lists as componets
+iolist: deep list with binaries and lists as components

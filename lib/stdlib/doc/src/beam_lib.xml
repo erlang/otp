@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2021</year>
+      <year>2000</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -138,8 +138,11 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
   <section>
     <title>.erlang.crypt</title>
     <p><c>beam_lib</c> searches for <c>.erlang.crypt</c> in the current
-      directory and then the home directory for the current user. If
-      the file is found and contains a key, <c>beam_lib</c>
+      directory, then the <seeerl marker="erts:init#home">
+      user&apos;s home directory</seeerl> and then
+      <seeerl marker="stdlib:filename#user_config">
+        <c>filename:basedir(user_config, "erlang")</c></seeerl>.
+      If the file is found and contains a key, <c>beam_lib</c>
       implicitly creates a crypto key fun and registers it.</p>
 
     <p>File <c>.erlang.crypt</c> is to contain a single list of tuples:</p>
@@ -459,11 +462,11 @@ CryptoKeyFun(clear) -> term()</code>
 
     <func>
       <name name="strip" arity="1" since=""/>
-      <fsummary>Remove chunks not needed by the loader from a BEAM file.
+      <fsummary>Remove chunks not used by the loader from a BEAM file.
       </fsummary>
       <desc>
         <p>Removes all chunks from a BEAM
-          file except those needed by the loader. In particular,
+          file except those used by the loader. In particular,
           the debug information (chunk <c>debug_info</c> and <c>abstract_code</c>)
           is removed.</p>
       </desc>
@@ -471,23 +474,23 @@ CryptoKeyFun(clear) -> term()</code>
 
     <func>
       <name name="strip" arity="2" since="OTP 22.0"/>
-      <fsummary>Remove chunks not needed by the loader from a BEAM file.
+      <fsummary>Remove chunks not used by the loader from a BEAM file.
       </fsummary>
       <desc>
-        <p>Removes all chunks from a BEAM
-          file except those needed by the loader or passed in. In particular,
-          the debug information (chunk <c>debug_info</c> and <c>abstract_code</c>)
-          is removed.</p>
+        <p>Removes all chunks from a BEAM file except those used by
+        the loader or mentioned in <c><anno>AdditionalChunks</anno></c>. In
+        particular, the debug information (chunk <c>debug_info</c> and
+        <c>abstract_code</c>) is removed.</p>
       </desc>
     </func>
 
     <func>
       <name name="strip_files" arity="1" since=""/>
-      <fsummary>Removes chunks not needed by the loader from BEAM files.
+      <fsummary>Removes chunks not used by the loader from BEAM files.
       </fsummary>
       <desc>
         <p>Removes all chunks except
-          those needed by the loader from BEAM files. In particular,
+          those used by the loader from BEAM files. In particular,
           the debug information (chunk <c>debug_info</c> and <c>abstract_code</c>)
           is removed. The returned list contains one element for each
           specified filename, in the same order as in <c>Files</c>.</p>
@@ -496,24 +499,25 @@ CryptoKeyFun(clear) -> term()</code>
 
     <func>
       <name name="strip_files" arity="2" since="OTP 22.0"/>
-      <fsummary>Removes chunks not needed by the loader from BEAM files.
+      <fsummary>Removes chunks not used by the loader from BEAM files.
       </fsummary>
       <desc>
-        <p>Removes all chunks except
-          those needed by the loader or passed in from BEAM files. In particular,
-          the debug information (chunk <c>debug_info</c> and <c>abstract_code</c>)
-          is removed. The returned list contains one element for each
-          specified filename, in the same order as in <c>Files</c>.</p>
+        <p>Removes all chunks except those used by the loader or
+        mentioned in <c><anno>AdditionalChunks</anno></c>. In
+        particular, the debug information (chunk <c>debug_info</c> and
+        <c>abstract_code</c>) is removed. The returned list contains
+        one element for each specified filename, in the same order as
+        in <c>Files</c>.</p>
       </desc>
     </func>
 
     <func>
       <name name="strip_release" arity="1" since=""/>
-      <fsummary>Remove chunks not needed by the loader from all BEAM files of
+      <fsummary>Remove chunks not used by the loader from all BEAM files of
         a release.</fsummary>
       <desc>
         <p>Removes all chunks
-          except those needed by the loader from the BEAM files of a
+          except those used by the loader from the BEAM files of a
           release. <c><anno>Dir</anno></c> is to be the installation root
           directory. For example, the current OTP release can be
           stripped with the call
@@ -526,12 +530,12 @@ CryptoKeyFun(clear) -> term()</code>
       <fsummary>Remove chunks not needed by the loader from all BEAM files of
         a release.</fsummary>
       <desc>
-        <p>Removes all chunks
-          except those needed by the loader or passed in from the BEAM files of a
-          release. <c><anno>Dir</anno></c> is to be the installation root
-          directory. For example, the current OTP release can be
-          stripped with the call
-          <c>beam_lib:strip_release(code:root_dir())</c>.</p>
+        <p>Removes all chunks except those used by the loader or
+        mentioned in <c><anno>AdditionalChunks</anno></c>.
+        <c><anno>Dir</anno></c> is to be the installation
+        root directory. For example, the current OTP release can be
+        stripped with the call
+        <c>beam_lib:strip_release(code:root_dir())</c>.</p>
       </desc>
     </func>
 

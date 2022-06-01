@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    case test_server:os_type() of
+    case os:type() of
         {unix, sunos} -> [message, config, port];
         {win32, _OSname} -> [message];
         OS ->
@@ -76,7 +76,7 @@ message(Config) when is_list(Config) ->
     %% Check with message_receptor that it has been received
     ct:sleep({seconds,1}),
     Msg =
-    case test_server:os_type() of
+    case os:type() of
         {unix, sunos} ->
             {?TAG, Data};
         {win32, _} ->

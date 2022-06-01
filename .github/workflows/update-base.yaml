@@ -37,6 +37,8 @@ jobs:
           docker build --pull --tag ${{ steps.base.outputs.BASE_TAG }} \
             --cache-from ${{ steps.base.outputs.BASE_TAG }} \
             --file .github/dockerfiles/Dockerfile.${{ steps.base.outputs.BASE_TYPE }} \
-            --build-arg BASE=${{ steps.base.outputs.BASE }} .
+            --build-arg USER=otptest --build-arg uid=$(id -u) \
+            --build-arg GROUP=uucp --build-arg gid=$(id -g uucp) \
+            --build-arg BASE=${{ steps.base.outputs.BASE }} .github
       - name: Push base image
         run: docker push ${{ steps.base.outputs.BASE_TAG }}

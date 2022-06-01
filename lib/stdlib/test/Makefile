@@ -8,6 +8,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES= \
 	array_SUITE \
 	base64_SUITE \
+	base64_property_test_SUITE \
 	beam_lib_SUITE \
 	binary_module_SUITE \
 	binref \
@@ -51,11 +52,13 @@ MODULES= \
 	log_mf_h_SUITE \
 	math_SUITE \
 	ms_transform_SUITE \
+	peer_SUITE \
 	pool_SUITE \
 	proc_lib_SUITE \
 	proplists_SUITE \
 	qlc_SUITE \
 	queue_SUITE \
+	queue_property_test_SUITE \
 	rand_SUITE \
 	random_SUITE \
 	re_SUITE \
@@ -100,8 +103,13 @@ MODULES= \
 	zzz_SUITE
 
 ERTS_MODULES= erts_test_utils
+SASL_MODULES= otp_vsns
 
-ERL_FILES= $(MODULES:%=%.erl) $(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl)
+ERL_FILES=	$(MODULES:%=%.erl) \
+		$(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl) \
+		$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl)
+
+EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
 # ----------------------------------------------------
 # Release directory specification
@@ -112,7 +120,6 @@ RELSYSDIR = $(RELEASE_PATH)/stdlib_test
 # FLAGS
 # ----------------------------------------------------
 
-ERL_MAKE_FLAGS +=
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/include \
 		-I$(ERL_TOP)/lib/stdlib/include
 
@@ -126,10 +133,11 @@ COVERFILE=stdlib.cover
 # ----------------------------------------------------
 
 make_emakefile:
-	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) $(ERTS_MODULES) \
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
+		$(MODULES) $(ERTS_MODULES) $(SASL_MODULES) \
 	> $(EMAKEFILE)
 
-tests debug opt: make_emakefile
+tests $(TYPES): make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:
@@ -149,8 +157,9 @@ release_spec: opt
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) stdlib.spec stdlib_bench.spec error_info.spec $(EMAKEFILE) \
-		$(ERL_FILES) $(COVERFILE) "$(RELSYSDIR)"
+		$(ERL_FILES) $(COVERFILE) $(EXTRA_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
+	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/stdlib_SUITE_data"
 
 release_docs_spec:

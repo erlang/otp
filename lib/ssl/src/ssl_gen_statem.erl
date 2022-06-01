@@ -102,24 +102,28 @@
 %%% Initial Erlang process setup
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
--spec start_link(client| server, pid(), ssl:host(), inet:port_number(), port(), list(), pid(), tuple()) ->
+-spec start_link(client| server, pid(), ssl:host(), inet:port_number(), port(), tuple(), pid(), tuple()) ->
     {ok, pid()} | ignore |  {error, reason()}.
 %%
 %% Description: Creates a process which calls Module:init/1 to
 %% choose appropriat gen_statem and initialize.
 %%--------------------------------------------------------------------
-start_link(Role, Sender, Host, Port, Socket, Options, User, CbInfo) ->
-    {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Sender, Host, Port, Socket, Options, User, CbInfo]])}.
+start_link(Role, Sender, Host, Port, Socket, {#{receiver_spawn_opts := ReceiverOpts}, _, _} = Options, User, CbInfo) ->
+    Opts = [link | proplists:delete(link, ReceiverOpts)],
+    Pid = proc_lib:spawn_opt(?MODULE, init, [[Role, Sender, Host, Port, Socket, Options, User, CbInfo]], Opts),
+    {ok, Pid}.
 
 %%--------------------------------------------------------------------
--spec start_link(atom(), ssl:host(), inet:port_number(), port(), list(), pid(), tuple()) ->
+-spec start_link(atom(), ssl:host(), inet:port_number(), port(), tuple(), pid(), tuple()) ->
 			{ok, pid()} | ignore |  {error, reason()}.
 %%
 %% Description: Creates a gen_statem process which calls Module:init/1 to
 %% initialize.
 %%--------------------------------------------------------------------
-start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
-    {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]])}.
+start_link(Role, Host, Port, Socket, {#{receiver_spawn_opts := ReceiverOpts}, _, _} = Options, User, CbInfo) ->
+    Opts = [link | proplists:delete(link, ReceiverOpts)],
+    Pid = proc_lib:spawn_opt(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]], Opts),
+    {ok, Pid}.
 
 
 %%--------------------------------------------------------------------
@@ -156,7 +160,7 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
            fileref_db_handle := FileRefHandle,
            session_cache := CacheHandle,
            crl_db_info := CRLDbHandle,
-           cert_key_pairs := CertKeyPairs,
+           cert_key_alts := CertKeyAlts,
            dh_params := DHParams}} =
 	ssl_config:init(Opts, Role),
     TimeStamp = erlang:monotonic_time(),
@@ -171,7 +175,7 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
                                 session_cache = CacheHandle
                                },
                  handshake_env = HsEnv#handshake_env{diffie_hellman_params = DHParams},
-                 connection_env = CEnv#connection_env{cert_key_pairs = CertKeyPairs},
+                 connection_env = CEnv#connection_env{cert_key_alts = CertKeyAlts},
                  ssl_options = Opts}.
 
 %%--------------------------------------------------------------------
@@ -1278,7 +1282,7 @@ handle_sni_hostname(Hostname,
                    fileref_db_handle := FileRefHandle,
                    session_cache := CacheHandle,
                    crl_db_info := CRLDbHandle,
-                   cert_key_pairs := CertKeyPairs,
+                   cert_key_alts := CertKeyAlts,
                    dh_params := DHParams}} =
                  ssl_config:init(NewOptions, Role),
              State0#state{
@@ -1289,7 +1293,7 @@ handle_sni_hostname(Hostname,
                               crl_db = CRLDbHandle,
                               session_cache = CacheHandle
                              },
-               connection_env = CEnv#connection_env{cert_key_pairs = CertKeyPairs},
+               connection_env = CEnv#connection_env{cert_key_alts = CertKeyAlts},
                ssl_options = NewOptions,
                handshake_env = HsEnv#handshake_env{sni_hostname = Hostname,
                                                    diffie_hellman_params = DHParams}
@@ -1333,7 +1337,9 @@ filter_for_versions(['tlsv1.1'], OrigSSLOptions) ->
     maps:without(Opts, OrigSSLOptions);
 filter_for_versions(['tlsv1.1'| Rest], OrigSSLOptions) ->
     Opts = ?'TLS-1_3_ONLY_OPTIONS' ++ ?'FROM_TLS-1_2_ONLY_OPTIONS',
-    maybe_exclude_tlsv1(Rest, maps:without(Opts, OrigSSLOptions)).
+    maybe_exclude_tlsv1(Rest, maps:without(Opts, OrigSSLOptions));
+filter_for_versions(['tlsv1'], OrigSSLOptions) ->
+    OrigSSLOptions.
 
 maybe_exclude_tlsv1(Versions, Options) ->
     case lists:member('tlsv1', Versions) of

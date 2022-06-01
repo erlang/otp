@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2021. All Rights Reserved.
+# Copyright Ericsson AB 1997-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,6 +76,7 @@ MODULES= \
 	hello_SUITE \
 	hibernate_SUITE \
 	iovec_SUITE \
+	jit_SUITE \
 	list_bif_SUITE \
 	lttng_SUITE \
 	lcnt_SUITE \
@@ -92,7 +93,6 @@ MODULES= \
 	message_queue_data_SUITE \
 	op_SUITE \
 	os_signal_SUITE \
-	perf_SUITE \
 	port_SUITE \
 	port_bif_SUITE \
 	prim_eval_SUITE \
@@ -169,6 +169,7 @@ EMAKEFILE=Emakefile
 TEST_SPEC_FILES= emulator.spec \
 		 emulator.spec.win \
 		 emulator_bench.spec \
+		 emulator_gh.spec \
 		 emulator_smoke.spec \
                  emulator_node_container_SUITE.spec
 

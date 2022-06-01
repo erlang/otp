@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ public class OtpErlangAtom extends OtpErlangObject {
     // don't change this!
     private static final long serialVersionUID = -3204386396807876641L;
 
-    /** The maximun allowed length of an atom, in characters */
+    /** The maximum allowed length of an atom, in characters */
     public static final int maxAtomLength = 0xff; // one byte length
 
     private final String atom;

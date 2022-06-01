@@ -47,7 +47,7 @@
 %%      {title, Title}
 %%      {dnQualifer, DnQ}
 %%   issuer = {Issuer, IssuerKey}                   true (i.e. a ca cert is created) 
-%%                                                  (obs IssuerKey migth be {Key, Password}
+%%                                                  (obs IssuerKey might be {Key, Password}
 %%   key = KeyFile|KeyBin|rsa|dsa|ec                Subject PublicKey rsa, dsa or ec generates key
 %%   
 %%
@@ -368,7 +368,7 @@ make_key(ec, _Opts) ->
 
 gen_rsa2(Size) -> 
     try
-        %% The numbers 2048,17 is choosen to not cause the cryptolib on
+        %% The numbers 2048,17 is chosen to not cause the cryptolib on
         %% FIPS-enabled test machines be mad at us.
         public_key:generate_key({rsa, 2048, 17})
     catch

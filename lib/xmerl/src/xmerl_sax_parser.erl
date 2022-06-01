@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -158,7 +158,7 @@ parse_binary(Xml, #xmerl_sax_parser_state{encoding={utf16,big}}=State, F) ->
 parse_binary(Xml, #xmerl_sax_parser_state{encoding=latin1}=State, F) ->
     xmerl_sax_parser_latin1:F(Xml, State);
 parse_binary(_, #xmerl_sax_parser_state{encoding=Enc}, State) ->
-    ?fatal_error(State, lists:flatten(io_lib:format("Charcter set ~p not supported", [Enc]))).
+    ?fatal_error(State, lists:flatten(io_lib:format("Character set ~p not supported", [Enc]))).
 
 %%----------------------------------------------------------------------
 %% Function: initial_state/0

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -235,7 +235,7 @@ generate_error(Error, Stack) ->
 via_logger_process(Config) ->
     case os:type() of
         {win32,_} ->
-            {skip,"Skip on windows - cant change file mode"};
+            {skip,"Skip on windows - can't change file mode"};
         _ ->
             error_logger:add_report_handler(?MODULE, self()),
             Dir = filename:join(?config(priv_dir,Config),"dummydir"),
@@ -255,12 +255,12 @@ via_logger_process(Config) ->
 
 other_node(_Config) ->
     error_logger:add_report_handler(?MODULE, self()),
-    {ok,Node} = test_server:start_node(?FUNCTION_NAME,slave,[]),
+    {ok,Peer,Node} = ?CT_PEER(),
     ok = rpc:call(Node,logger,add_handler,[error_logger,error_logger,
                                            #{level=>info,filter_default=>log}]),
     rpc:call(Node,error_logger,error_report,[hi_from_remote]),
     reported(error_report,std_error,hi_from_remote),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 

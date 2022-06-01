@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2019. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,11 @@
  *
  */
 
-/* #ifdef HAVE_CONFIG_H */
-/* #include "config.h" */
-/* #endif */
+#ifdef HAVE_CONFIG_H
+#    include "config.h"
+#endif
+
+#ifdef ESOCK_ENABLE
 
 #include <stdio.h>
 
@@ -141,3 +143,5 @@ void esock_tarray_ensure_fits(SocketTArrayInt* taP, Uint32 needs)
     taP->array = (ERL_NIF_TERM*) mem;
   }
 }
+
+#endif

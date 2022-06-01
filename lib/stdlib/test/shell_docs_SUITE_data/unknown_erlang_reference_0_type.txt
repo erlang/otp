@@ -1,0 +1,4 @@
+
+  [;1m-type reference() :: reference().[0m
+
+  An Erlang reference.

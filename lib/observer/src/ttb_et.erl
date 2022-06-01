@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ collector(Trace) ->
 %% all events backwards and collect call/return information:
 %%
 %% MFA collected from return_to events is added to call and
-%% return_from events as {caller,MFA} and {return_to,MFA} respecively.
+%% return_from events as {caller,MFA} and {return_to,MFA} respectively.
 %% MFA collected from call events is added to return_to events as
 %% {return_from,MFA}
 %%

@@ -22,3 +22,5 @@
 /emulator/pcre/pcre_exec_loop_break_cases.inc
 /emulator/beam/erl_db_insert_list.ycf.h
 
+/emulator/ryu/obj
+/obj.debug/

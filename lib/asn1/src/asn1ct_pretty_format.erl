@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ term(Term) ->
 %%______________________________________________________________________
 %% pretty_format:term(Term, Indent} -> {Indent', Chars}
 %%   Format <Term> -- use <Indent> to indent the *next* line
-%%     Note: Indent' is a new indentaion level (sometimes printing <Term>
+%%     Note: Indent' is a new indentation level (sometimes printing <Term>
 %%     the next line to need an "extra" indent!).
 
 term([], Indent) ->

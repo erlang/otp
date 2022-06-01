@@ -136,7 +136,7 @@
         <p>Joins an absolute directory with a relative filename. Similar to
           <seemfa marker="#join/2"><c>join/2</c></seemfa>, but on platforms
           with tight restrictions on raw filename length and no support for
-          symbolic links (read: VxWorks), leading parent directory components
+          symbolic links, leading parent directory components
           in <c><anno>Filename</anno></c> are matched against trailing
           directory components in <c><anno>Dir</anno></c> so they can be
           removed from the result - minimizing its length.</p>
@@ -188,7 +188,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
               The options <c>'author'</c> and <c>'version'</c> are only used with <c>'windows'</c> option mode.
           </p>
         <list type="bulleted">
-            <item><c>user_cache</c>
+            <item><marker id="user_cache"/><c>user_cache</c>
                 <p>The path location is intended for transient data files on a local machine.</p>
                 <p>
                     On Linux:
@@ -212,7 +212,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
 5> <input>filename:basedir(user_cache, "My App", #{author=>"Erlang",version=>"1.2"}).</input>
 "c:/Users/otptest/AppData/Local/Erlang/My App/1.2/Cache"</pre>
             </item>
-            <item><c>user_config</c>
+            <item><marker id="user_config"/><c>user_config</c>
                 <p>
                     The path location is intended for persistent configuration files.
                 </p>
@@ -232,7 +232,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
 2> <input>filename:basedir(user_config, "My App", #{author=>"Erlang", version=>"1.2"}).</input>
 "c:/Users/otptest/AppData/Roaming/Erlang/My App/1.2"</pre>
             </item>
-            <item><c>user_data</c>
+            <item><marker id="user_data"/><c>user_data</c>
                 <p>
                     The path location is intended for persistent data files.
                 </p>
@@ -252,7 +252,7 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
 9> <input>filename:basedir(user_data, "My App",#{author=>"Erlang",version=>"1.2"}).</input>
 "c:/Users/otptest/AppData/Local/Erlang/My App/1.2"</pre>
             </item>
-            <item><c>user_log</c>
+            <item><marker id="user_log"/><c>user_log</c>
                 <p>The path location is intended for transient log files on a local machine.</p>
                 <p>
                 On Linux:
@@ -269,11 +269,11 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
 13> <input>filename:basedir(user_log, "My App",#{author=>"Erlang",version=>"1.2"}).</input>
 "c:/Users/otptest/AppData/Local/Erlang/My App/1.2/Logs"</pre>
             </item>
-            <item><c>site_config</c><p>
+            <item><marker id="site_config"/><c>site_config</c><p>
                 On Linux:
                 Respects the os environment variable <c>XDG_CONFIG_DIRS</c>.</p>
 <pre>
-5> <input>filename:basedir(site_data, "my_application", #{os=>linux}).</input>
+5> <input>filename:basedir(site_config, "my_application", #{os=>linux}).</input>
 ["/usr/local/share/my_application",
  "/usr/share/my_application"]
 6> <input>os:getenv("XDG_CONFIG_DIRS").</input>
@@ -290,7 +290,7 @@ true
 5> <input>filename:basedir(site_config, "my_application", #{os=>darwin}).</input>
 ["/Library/Application Support/my_application"]</pre>
             </item>
-            <item><c>site_data</c><p>
+            <item><marker id="site_data"/><c>site_data</c><p>
                     On Linux:
                     Respects the os environment variable <c>XDG_DATA_DIRS</c>.</p>
                 <pre>
@@ -506,37 +506,6 @@ true
 23> <input>filename:rootname("/beam.src/foo.beam", ".erl").</input>
 "/beam.src/foo.beam"</pre>
       </desc>
-    </func>
-
-    <func>
-      <name name="safe_relative_path" arity="1" since="OTP 19.3"/>
-      <fsummary>Sanitize a relative path to avoid directory traversal attacks.</fsummary>
-      <desc>
-        <p>Sanitizes the relative path by eliminating ".." and "."
-        components to protect against directory traversal attacks.
-        Either returns the sanitized path name, or the atom
-        <c>unsafe</c> if the path is unsafe.
-        The path is considered unsafe in the following circumstances:</p>
-        <list type="bulleted">
-          <item><p>The path is not relative.</p></item>
-          <item><p>A ".." component would climb up above the root of
-          the relative path.</p></item>
-        </list>
-        <warning>
-          <p>This function is deprecated. Use <seemfa marker="filelib#safe_relative_path/2">
-          <c>filelib:safe_relative_path/2</c></seemfa> instead for sanitizing paths.</p>
-        </warning>
-        <p><em>Examples:</em></p>
-        <pre>
-1> <input>filename:safe_relative_path("dir/sub_dir/..").</input>
-"dir"
-2> <input>filename:safe_relative_path("dir/..").</input>
-[]
-3> <input>filename:safe_relative_path("dir/../..").</input>
-unsafe
-4> <input>filename:safe_relative_path("/abs/path").</input>
-unsafe</pre>
-       </desc>
     </func>
 
     <func>

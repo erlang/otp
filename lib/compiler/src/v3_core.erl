@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -109,6 +109,7 @@
 -record(ifun,      {anno=#a{},id,vars,clauses,fc,name=unnamed}).
 -record(iletrec,   {anno=#a{},defs,body}).
 -record(imatch,    {anno=#a{},pat,guard=[],arg,fc}).
+-record(iexprs,    {anno=#a{},bodies=[]}).
 -record(imap,      {anno=#a{},arg=#c_literal{val=#{}},es,is_pat=false}).
 -record(imappair,  {anno=#a{},op,key,val}).
 -record(iprimop,   {anno=#a{},name,args}).
@@ -170,6 +171,7 @@
 
 -record(imodule, {name = [],
 		  exports = ordsets:new(),
+                  nifs = sets:new([{version, 2}]),
 		  attrs = [],
 		  defs = [],
 		  file = [],
@@ -194,9 +196,8 @@ module(Forms0, Opts) ->
     Kfs = reverse(Kfs0),
     {ok,#c_module{name=#c_literal{val=Mod},exports=Cexp,attrs=As,defs=Kfs},Ws}.
 
-form({function,_,_,_,_}=F0, Module, Opts) ->
-    #imodule{file=File,defs=Defs,ws=Ws0} = Module,
-    {F,Ws} = function(F0, Ws0, File, Opts),
+form({function,_,_,_,_}=F0, #imodule{defs=Defs}=Module, Opts) ->
+    {F,Ws} = function(F0, Module, Opts),
     Module#imodule{defs=[F|Defs],ws=Ws};
 form({attribute,_,module,Mod}, Module, _Opts) ->
     true = is_atom(Mod),
@@ -204,11 +205,14 @@ form({attribute,_,module,Mod}, Module, _Opts) ->
 form({attribute,_,file,{File,_Line}}=F, #imodule{attrs=As}=Module, _Opts) ->
     Module#imodule{file=File, attrs=[attribute(F)|As]};
 form({attribute,_,import,_}, Module, _Opts) ->
-    %% Ignore. We have no futher use for imports.
+    %% Ignore. We have no further use for imports.
     Module;
 form({attribute,_,export,Es}, #imodule{exports=Exp0}=Module, _Opts) ->
     Exp = ordsets:union(ordsets:from_list(Es), Exp0),
     Module#imodule{exports=Exp};
+form({attribute,_,nifs,Ns}, #imodule{nifs=Nifs0}=Module, _Opts) ->
+    Nifs = sets:union(sets:from_list(Ns, [{version,2}]), Nifs0),
+    Module#imodule{nifs=Nifs};
 form({attribute,_,_,_}=F, #imodule{attrs=As}=Module, _Opts) ->
     Module#imodule{attrs=[attribute(F)|As]};
 form(_, Module, _Opts) ->
@@ -232,7 +236,8 @@ defined_functions(Forms) ->
 %%     io:format("~w/~w " ++ Format,[Name,Arity]++Terms),
 %%     ok.
 
-function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
+function({function,_,Name,Arity,Cs0}, Module, Opts) ->
+    #imodule{file=File, ws=Ws0, nifs=Nifs} = Module,
     try
         St0 = #core{vcount=0,function={Name,Arity},opts=Opts,
                     dialyzer=member(dialyzer, Opts),
@@ -241,7 +246,7 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
         %% ok = function_dump(Name, Arity, "body:~n~p~n",[B0]),
         {B1,St2} = ubody(B0, St1),
         %% ok = function_dump(Name, Arity, "ubody:~n~p~n",[B1]),
-        {B2,St3} = cbody(B1, St2),
+        {B2,St3} = cbody(B1, Nifs, St2),
         %% ok = function_dump(Name, Arity, "cbody:~n~p~n",[B2]),
         {B3,#core{ws=Ws}} = lbody(B2, St3),
         %% ok = function_dump(Name, Arity, "lbody:~n~p~n",[B3]),
@@ -259,7 +264,7 @@ body(Cs0, Name, Arity, St0) ->
     Args = reverse(Args0),                      %Nicer order
     {Cs1,St2} = clauses(Cs0, St1),
     {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
-    Fc = function_clause(Ps, Anno),
+    Fc = function_clause(Ps, FunAnno),
     {#ifun{anno=#a{anno=FunAnno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3}.
 
 %% clause(Clause, State) -> {Cclause,State}.
@@ -282,7 +287,7 @@ clause({clause,Lc,H0,G0,B0}, St0) ->
     catch
 	throw:nomatch ->
             %% This pattern can't possibly match. If we simply remove
-            %% the clause, varibles that are used later might not be
+            %% the clause, variables that are used later might not be
             %% bound. Therefore, we must keep the clause, but rewrite
             %% the pattern to a pattern that will bind the same
             %% variables and ensure that the clause can't be executed
@@ -303,7 +308,7 @@ head(Ps, St) ->
     pattern_list(Ps, St).
 
 %% guard([Expr], State) -> {[Cexpr],State}.
-%%  Build an explict and/or tree of guard alternatives, then traverse
+%%  Build an explicit and/or tree of guard alternatives, then traverse
 %%  top-level and/or tree and "protect" inner tests.
 
 guard([], St) -> {[],St};
@@ -422,7 +427,7 @@ gexpr_not(A, Bools0, St0, Line) ->
             %% which will produce the same result, but may eliminate
             %% redundant is_boolean/1 tests (see unforce/3).
             %%
-            %% Note that this tranformation would not be safe if the
+            %% Note that this transformation would not be safe if the
             %% original expression had been:
             %%
             %%    not(Expr =:= true)
@@ -565,6 +570,8 @@ unforce(E, Eps, Vs) ->
     Tree = unforce_tree(Eps++[E], gb_trees:empty()),
     unforce(Tree, Vs).
 
+unforce_tree([#iexprs{bodies=Exprs}|Es], D0) ->
+    unforce_tree(lists:append(Exprs) ++ Es, D0);
 unforce_tree([#iset{var=#c_var{name=V},arg=Arg0}|Es], D0) ->
     Arg = unforce_tree_subst(Arg0, D0),
     D = gb_trees:insert(V, Arg, D0),
@@ -616,6 +623,34 @@ exprs([E0|Es0], St0) ->
     {Eps ++ [E1] ++ Es1,St2};
 exprs([], St) -> {[],St}.
 
+%% exprs([Expr], State) -> {[Cexpr],State}.
+%%  Flatten top-level exprs while handling maybe_match operators.
+
+maybe_match_exprs([{maybe_match,L,P0,E0}|Es0], Fail, St0) ->
+    {Es1,St1} = maybe_match_exprs(Es0, Fail, St0),
+    {C,St2} =
+        case Es1 of
+            [] ->
+                {AllName,StInt} = new_var_name(St1),
+                All = {var,L,AllName},
+                clause({clause,L,[{match,L,P0,All}],[],[All]}, StInt);
+            [_|_] ->
+                {C0,StInt} = clause({clause,L,[P0],[],[{nil,0}]}, St1),
+                {C0#iclause{body=Es1},StInt}
+        end,
+    {E1,Eps,St3} = novars(E0, St2),
+    {Fpat,St4} = new_var(St3),
+    Lanno = lineno_anno(L, St4),
+    Fc = #iclause{anno=#a{anno=[dialyzer_ignore,compiler_generated|Lanno]},pats=[Fpat],guard=[],
+                  body=[#iapply{op=Fail,args=[Fpat]}]},
+    {Eps ++ [#icase{anno=#a{anno=Lanno},args=[E1],clauses=[C],fc=Fc}],St4};
+maybe_match_exprs([E0|Es0], Fail, St0) ->
+    {E1,Eps,St1} = expr(E0, St0),
+    {Es1,St2} = maybe_match_exprs(Es0, Fail, St1),
+    {Eps ++ [E1|Es1],St2};
+maybe_match_exprs([], _Fail, St) ->
+    {[],St}.
+
 %% expr(Expr, State) -> {Cexpr,[PreExp],State}.
 %%  Generate an internal core expression.
 
@@ -627,10 +662,9 @@ expr({atom,L,A}, St) -> {#c_literal{anno=full_anno(L, St),val=A},[],St};
 expr({nil,L}, St) -> {#c_literal{anno=full_anno(L, St),val=[]},[],St};
 expr({string,L,S}, St) -> {#c_literal{anno=full_anno(L, St),val=S},[],St};
 expr({cons,L,H0,T0}, St0) ->
-    {H1,Hps,St1} = safe(H0, St0),
-    {T1,Tps,St2} = safe(T0, St1),
-    A = full_anno(L, St2),
-    {annotate_cons(A, H1, T1, St2),Hps ++ Tps,St2};
+    {[H1,T1],Eps,St1} = safe_list([H0,T0], St0),
+    A = full_anno(L, St1),
+    {annotate_cons(A, H1, T1, St1),Eps,St1};
 expr({lc,L,E,Qs0}, St0) ->
     {Qs1,St1} = preprocess_quals(L, Qs0, St0),
     lc_tq(L, E, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
@@ -662,6 +696,84 @@ expr({block,_,Es0}, St0) ->
     {Es1,St1} = exprs(droplast(Es0), St0),
     {E1,Eps,St2} = expr(last(Es0), St1),
     {E1,Es1 ++ Eps,St2};
+expr({'maybe',L,Es}, St0) ->
+    {V,St1} = new_var_name(St0),
+    Var = {var,L,V},
+    Cs = [{clause,L,[Var],[],[Var]}],
+    expr({'maybe',L,Es,{'else',L,Cs}}, St1);
+expr({'maybe',L,Es0,{'else',_,Cs0}}, St0) ->
+    %% Translate the maybe ... else ... end construct.
+    %%
+    %% As an example, the following Erlang code:
+    %%
+    %% foo(A) ->
+    %%     maybe
+    %%         {ok, V} ?= A,
+    %%         V
+    %%     else
+    %%         Other ->
+    %%             {error, Other}
+    %%     end.
+    %%
+    %% is translated into Core Erlang like this:
+    %%
+    %% 'foo'/1 =
+    %%     fun (_0) ->
+    %%         case _0 of
+    %%             <A> when 'true' ->
+    %%                 ( letrec
+    %%                       'maybe_else_fail'/1 =
+    %%                           fun (_3) ->
+    %%                               case _3 of
+    %%                                 <_2> when 'true' ->
+    %%                                     case _2 of
+    %%                                       <Other> when 'true' ->
+    %%                                           {'error',Other}
+    %%                                       ( <_1> when 'true' ->
+    %%                                             primop 'match_fail'({'else_clause',_1})
+    %%                                         -| ['compiler_generated'] )
+    %%                                     end
+    %%                                 ( <_1> when 'true' ->
+    %%                                       primop 'match_fail'('never_fails')
+    %%                                   -| ['compiler_generated'] )
+    %%                               end
+    %%                   in
+    %%                       case A of
+    %%                         <{'ok',V}> when 'true' ->
+    %%                             V
+    %%                         ( <_4> when 'true' ->
+    %%                               apply 'maybe_else_fail'/1(_4)
+    %%                           -| ['dialyzer_ignore','compiler_generated'] )
+    %%                       end
+    %%                   -| ['letrec_goto','no_inline'] )
+    %%             ( <_5> when 'true' ->
+    %%                   primop 'match_fail'({'function_clause',_5})
+    %%               -| ['compiler_generated'] )
+    %%           end
+    {[V1,V2,FailVar],St1} = new_vars(3, St0),
+
+    %% Translate the body of the letrec.
+    Fail = {maybe_else_fail,1},
+    Lanno = lineno_anno(L, St1),
+    {Es1,St2} = maybe_match_exprs(Es0, #c_var{name=Fail}, St1),
+
+    %% Translate the 'else' clauses. Note that we must not put the clauses
+    %% as the top-level clauses in the fun, because all shawdowing variables
+    %% in a fun head will be renamed.
+    {Cs1,St3} = clauses(Cs0, St2),
+    Fc1 = fail_clause([FailVar], Lanno, c_tuple([#c_literal{val=else_clause},FailVar])),
+    FailCase = #icase{args=[V2],clauses=Cs1,fc=Fc1},
+    FailFunCs = [#iclause{pats=[V2],guard=[#c_literal{val=true}],
+                          body=[FailCase]}],
+    Anno = #a{anno=[letrec_goto,no_inline|Lanno]},
+    Fc2 = fail_clause([FailVar], Lanno, #c_literal{val=never_fails}),
+    FailFun = #ifun{id=[],vars=[V1],
+                    clauses=FailFunCs,
+                    fc=Fc2},
+
+    %% Construct the letrec.
+    Letrec = #iletrec{anno=Anno,defs=[{Fail,FailFun}],body=Es1},
+    {Letrec,[],St3};
 expr({'if',L,Cs0}, St0) ->
     {Cs1,St1} = clauses(Cs0, St0),
     Lanno = lineno_anno(L, St1),
@@ -717,6 +829,8 @@ expr({'catch',L,E0}, St0) ->
     Lanno = lineno_anno(L, St1),
     {#icatch{anno=#a{anno=Lanno},body=Eps ++ [E1]},[],St1};
 expr({'fun',L,{function,F,A}}, St0) ->
+    %% Generate a new name for eta conversion of local funs (`fun local/123`)
+    %% in case `no_shared_fun_wrappers` is given.
     {Fname,St1} = new_fun_name(St0),
     Lanno = full_anno(L, St1),
     Id = {0,0,Fname},
@@ -734,10 +848,20 @@ expr({named_fun,L,'_',Cs}, St) ->
     fun_tq(Cs, L, St, unnamed);
 expr({named_fun,L,Name,Cs}, St) ->
     fun_tq(Cs, L, St, {named,Name});
-expr({call,L,{remote,_,M,F},As0}, St0) ->
-    {[M1,F1|As1],Aps,St1} = safe_list([M,F|As0], St0),
+expr({call,L,{remote,_,M0,F0},As0}, St0) ->
+    {[M1,F1|As1],Aps,St1} = safe_list([M0,F0|As0], St0),
     Anno = full_anno(L, St1),
-    {#icall{anno=#a{anno=Anno},module=M1,name=F1,args=As1},Aps,St1};
+    case {M1,F1,As1} of
+        {#c_literal{val=erlang},
+         #c_literal{val=error},
+         [#c_tuple{es=[#c_literal{val=badrecord},_]}=Tuple]} ->
+            Fail = #iprimop{anno=#a{anno=Anno},
+                            name=#c_literal{val=match_fail},
+                            args=[Tuple]},
+            {Fail,Aps,St1};
+        {_,_,_} ->
+            {#icall{anno=#a{anno=Anno},module=M1,name=F1,args=As1},Aps,St1}
+    end;
 expr({call,Lc,{atom,Lf,F},As0}, St0) ->
     {As1,Aps,St1} = safe_list(As0, St0),
     Op = #c_var{anno=lineno_anno(Lf, St1),name={F,length(As1)}},
@@ -1162,7 +1286,7 @@ is_iexprs_small_2(_, Threshold) ->
 %%  record whereas c_literal should not have a wrapped annotation
 
 expr_bin(Es0, Anno, St0) ->
-    Es1 = [bin_element(E) || E <- Es0],
+    Es1 = bin_elements(Es0, 1),
     case constant_bin(Es1) of
 	error ->
             case expr_bin_1(Es1, St0) of
@@ -1202,12 +1326,12 @@ bitstrs([E0|Es0], St0) ->
 bitstrs([], St) ->
     {[],[],St}.
 
-bitstr({bin_element,Line,{string,_,S},{integer,_,8},_}, St) ->
-    bitstrs(bin_expand_string(S, Line, 0, 0, []), St);
-bitstr({bin_element,Line,{string,_,[]},Sz0,Ts}, St0) ->
+bitstr({bin_element,{sl,_,Line},{string,_,S},{integer,_,8},_}, St) ->
+    bitstrs(bin_expand_string(S, {sl,0,Line}, 0, 0, []), St);
+bitstr({bin_element,{sl,_,Line},{string,_,[]},Sz0,Ts}, St0) ->
     %% Empty string. We must make sure that the type is correct.
     {[#c_bitstr{size=Sz}],Eps0,St1} =
-        bitstr({bin_element,Line,{char,Line,0},Sz0,Ts}, St0),
+        bitstr({bin_element,{sl,0,Line},{char,Line,0},Sz0,Ts}, St0),
 
     %% At this point, the type is either a correct literal or
     %% an expression.
@@ -1234,12 +1358,12 @@ bitstr({bin_element,Line,{string,_,[]},Sz0,Ts}, St0) ->
             Eps = Eps0 ++ Eps1,
             {[],Eps,St2}
     end;
-bitstr({bin_element,Line,{string,_,S},Sz0,Ts}, St0) ->
-    {[Bitstr],Eps,St1} = bitstr({bin_element,Line,{char,Line,0},Sz0,Ts}, St0),
+bitstr({bin_element,{sl,_,Line},{string,_,S},Sz0,Ts}, St0) ->
+    {[Bitstr],Eps,St1} = bitstr({bin_element,{sl,0,Line},{char,Line,0},Sz0,Ts}, St0),
     Es = [Bitstr#c_bitstr{val=#c_literal{anno=full_anno(Line, St1),val=C}} ||
              C <- S],
     {Es,Eps,St1};
-bitstr({bin_element,Line,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
+bitstr({bin_element,{sl,Seg,Line},E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
     {E1,Eps0,St1} = safe(E0, St0),
     {Size1,Eps1,St2} = safe(Size0, St1),
     Eps = Eps0 ++ Eps1,
@@ -1263,16 +1387,30 @@ bitstr({bin_element,Line,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
 	#c_literal{val=all} -> ok;
 	_ -> throw({bad_binary,Eps,St2})
     end,
-    {[#c_bitstr{anno=lineno_anno(Line, St2),
+    Anno0 = lineno_anno(Line, St2),
+
+    %% We will add a 'segment' annotation to segments that could
+    %% fail. There is no need to add it to literal segments of fixed
+    %% sized. The annotation will be used by the runtime system to
+    %% provide extended error information if construction of the
+    %% binary fails.
+    Anno = if Seg =:= 0 ->
+                   Anno0;
+              true ->
+                   [{segment,Seg}|Anno0]
+           end,
+
+    {[#c_bitstr{anno=Anno,
                 val=E1,size=Size1,
                 unit=#c_literal{val=Unit},
                 type=#c_literal{val=Type},
                 flags=#c_literal{val=Flags}}],
      Eps,St2}.
 
-bin_element({bin_element,Line,Expr,Size0,Type0}) ->
+bin_elements([{bin_element,Line,Expr,Size0,Type0}|Es], Seg) ->
     {Size,Type} = make_bit_type(Line, Size0, Type0),
-    {bin_element,Line,Expr,Size,Type}.
+    [{bin_element,{sl,Seg,Line},Expr,Size,Type}|bin_elements(Es, Seg+1)];
+bin_elements([], _) -> [].
 
 make_bit_type(Line, default, Type0) ->
     case erl_bits:set_bit_type(default, Type0) of
@@ -1392,8 +1530,12 @@ bin_expand_string([H|T], Line, Val, Size, Last) ->
 bin_expand_string([], Line, Val, Size, Last) ->
     [make_combined(Line, Val, Size) | Last].
 
-make_combined(Line, Val, Size) ->
-    {bin_element,Line,{integer,Line,Val},
+make_combined(SegLine, Val, Size) ->
+    Line = case SegLine of
+               {sl,_,Line0} -> Line0;
+               _ -> SegLine
+           end,
+    {bin_element,SegLine,{integer,Line,Val},
      {integer,Line,Size},
      [integer,{unit,1},unsigned,big]}.
 
@@ -1777,6 +1919,33 @@ force_novars(#c_map{}=Bin, St) -> {Bin,[],St};
 force_novars(Ce, St) ->
     force_safe(Ce, St).
 
+
+%% safe_list(Expr, State) -> {Safe,[PreExpr],State}.
+%%  Generate an internal safe expression for a list of
+%%  expressions.
+
+safe_list(Es, St0) ->
+    {Vs,Eps0,St} =
+        foldr(fun (E, {Ces,Eps,Sti0}) ->
+                      {Ce,Ep,Sti1} = safe(E, Sti0),
+                      case Eps of
+                          [[#iexprs{bodies=Bs}]|T] ->
+                              %% A cons within a cons.
+                              {[Ce|Ces],[Ep|Bs]++T,Sti1};
+                          _ ->
+                              {[Ce|Ces],[Ep|Eps],Sti1}
+                      end
+              end, {[],[],St0}, Es),
+    case [Ep || [_|_]=Ep <- Eps0] of
+        [] ->
+            {Vs,[],St};
+        [Ep] ->
+            {Vs,Ep,St};
+        [_|_]=Eps ->
+            %% Two or more bodies. They see the same variables.
+            {Vs,[#iexprs{bodies=Eps}],St}
+    end.
+
 %% safe(Expr, State) -> {Safe,[PreExpr],State}.
 %%  Generate an internal safe expression.  These are simples without
 %%  binaries which can fail.  At this level we do not need to do a
@@ -1786,12 +1955,6 @@ safe(E0, St0) ->
     {E1,Eps,St1} = expr(E0, St0),
     {Se,Sps,St2} = force_safe(E1, St1),
     {Se,Eps ++ Sps,St2}.
-
-safe_list(Es, St) ->
-    foldr(fun (E, {Ces,Esp,St0}) ->
-		  {Ce,Ep,St1} = safe(E, St0),
-		  {[Ce|Ces],Ep ++ Esp,St1}
-	  end, {[],[],St}, Es).
 
 force_safe(#imatch{pat=P,arg=E}=Imatch, St0) ->
     {Le,Lps0,St1} = force_safe(E, St0),
@@ -2092,7 +2255,12 @@ new_vars_1(0, _, St, Vs) -> {Vs,St}.
 bad_generator(Ps, Generator, Arg) ->
     Anno = get_anno(Arg),
     Tuple = ann_c_tuple(Anno, [#c_literal{val=bad_generator},Generator]),
-    fail_clause(Ps, Anno, Tuple).
+    Call = #icall{anno=#a{anno=Anno},           %Must have an #a{}
+                  module=#c_literal{anno=Anno,val=erlang},
+                  name=#c_literal{anno=Anno,val=error},
+                  args=[Tuple]},
+    #iclause{anno=#a{anno=[compiler_generated]},
+             pats=Ps,guard=[],body=[Call]}.
 
 function_clause(Ps, LineAnno) ->
     fail_clause(Ps, LineAnno,
@@ -2129,7 +2297,155 @@ annotate_cons(A, H, T, #core{dialyzer=Dialyzer}) ->
             ann_c_cons(A, H, T)
     end.
 
-ubody(B, St) -> uexpr(B, [], St).
+%%%
+%%% Here follows an abstract data structure to help us handle Erlang's
+%%% implicit matching that occurs when a variable is bound more than
+%%% once:
+%%%
+%%%     X = Expr1(),
+%%%     X = Expr2()
+%%%
+%%% What is implicit in Erlang, must be explicit in Core Erlang; that
+%%% is, repeated variables must be eliminated and explicit matching
+%%% must be added. For simplicity, examples that follow will be given
+%%% in Erlang and not in Core Erlang. Here is how the example can be
+%%% rewritten in Erlang to eliminate the repeated variable:
+%%%
+%%%     X = Expr1(),
+%%%     X1 = Expr2(),
+%%%     if
+%%%         X1 =:= X -> X;
+%%%         true -> error({badmatch,X1})
+%%%     end
+%%%
+%%% To implement the renaming, keeping a set of the variables that
+%%% have been bound so far is **almost** sufficient. When a variable
+%%% in the set is bound a again, it will be renamed and a `case` with
+%%% guard test will be added.
+%%%
+%%% Here is another example:
+%%%
+%%%     (X=A) + (X=B)
+%%%
+%%% Note that the operands for a binary operands are allowed to be
+%%% evaluated in any order. Therefore, variables bound on the left
+%%% hand side must not referenced on the right hand side, and vice
+%%% versa. If a variable is bound on both sides, it must be bound
+%%% to the same value.
+%%%
+%%% Using the simple scheme of keeping track of known variables,
+%%% the example can be rewritten like this:
+%%%
+%%%     X = A,
+%%%     X1 = B,
+%%%     if
+%%%         X1 =:= X -> ok;
+%%%         true -> error({badmatch,X1})
+%%%     end,
+%%%     X + X1
+%%%
+%%% However, this simple scheme of keeping all previously bound variables in
+%%% a set breaks down for this example:
+%%%
+%%%     (X=A) + fun() -> X = B end()
+%%%
+%%% The rewritten code would be:
+%%%
+%%%     X = A,
+%%%     Tmp = fun() ->
+%%%               X1 = B,
+%%%               if
+%%%                   X1 =:= X -> ok;
+%%%                   true -> error({badmatch,X1})
+%%%               end
+%%%           end(),
+%%%     X + Tmp
+%%%
+%%% That is wrong, because the binding of `X` created on the left hand
+%%% side of `+` must not be seen inside the fun. The correct rewrite
+%%% would be like this:
+%%%
+%%%     X = A,
+%%%     Tmp = fun() ->
+%%%               X1 = B
+%%%           end(),
+%%%     X + Tmp
+%%%
+%%% To correctly rewrite fun bodies, we will need to keep addtional
+%%% information in a record so that we can remove `X` from the known
+%%% variables when rewriting the body of the fun.
+%%%
+
+-record(known, {base=[],ks=[],prev_ks=[]}).
+
+known_init() ->
+    #known{}.
+
+%% known_get(#known{}) -> [KnownVar].
+%%  Get the currently known variables.
+
+known_get(#known{ks=Ks}) ->
+    Ks.
+
+%% known_start_group(#known{}) -> #known{}.
+
+known_start_group(#known{base=OldBase,ks=Ks,prev_ks=PrevKs}=K) ->
+    K#known{base=[Ks|OldBase],prev_ks=[[]|PrevKs]}.
+
+%% known_end_body(#known{}) -> #known{}.
+
+known_end_body(#known{ks=Ks,prev_ks=[_|OldPrevKs]}=K) ->
+    K#known{prev_ks=[Ks|OldPrevKs]}.
+
+%% known_end_group(#known{}) -> #known{}.
+%%  Consolidate the known variables after having processed the
+%%  last body in a group of bodies that see the same bindings.
+
+known_end_group(#known{base=[_|OldBase],prev_ks=[_|OldPrevKs]}=K) ->
+    K#known{base=OldBase,prev_ks=OldPrevKs}.
+
+%% known_union(#known{}, KnownVarsSet) -> #known{}.
+%%  Update the known variables to be the union of the previous
+%%  known variables and the set KnownVarsSet.
+
+known_union(#known{ks=Ks}=K, Set) ->
+    K#known{ks=union(Ks, Set)}.
+
+%% known_bind(#known{}, BoundVarsSet) -> #known{}.
+%%  Add variables that are known to be bound in the current
+%%  body.
+
+known_bind(#known{prev_ks=[PrevKs0|OldPrevKs]}=K, BoundVs) ->
+    PrevKs = subtract(PrevKs0, BoundVs),
+    K#known{prev_ks=[PrevKs|OldPrevKs]};
+known_bind(#known{}=K, _) -> K.
+
+%% known_in_fun(#known{}) -> #known{}.
+%%  Update the known variables to only the set of variables that
+%%  should be known when entering the fun.
+
+known_in_fun(#known{base=[BaseKs|_],ks=Ks0,prev_ks=[PrevKs|_]}=K) ->
+    %% Within a group of bodies that see the same bindings, calculate
+    %% the known variables for a fun. Example:
+    %%
+    %%     A = 1,
+    %%     {X = 2, fun() -> X = 99, A = 1 end()}.
+    %%
+    %% In this example:
+    %%
+    %%     BaseKs = ['A'], Ks0 = ['A','X'], PrevKs = ['A','X']
+    %%
+    %% Thus, only `A` is known when entering the fun.
+
+    Ks = union(BaseKs, subtract(Ks0, PrevKs)),
+    K#known{base=[],ks=Ks,prev_ks=[]};
+known_in_fun(#known{}=K) -> K.
+
+%%%
+%%% End of abstract data type for known variables.
+%%%
+
+ubody(B, St) -> uexpr(B, known_init(), St).
 
 %% ufun_clauses([Lclause], [KnownVar], State) -> {[Lclause],State}.
 
@@ -2189,15 +2505,41 @@ do_uclause(#iclause{anno=A0,pats=Ps0,guard=G0,body=B0}, Ks0, St0) ->
                  false ->
                      {Pg0,A0}
              end,
-    Pu = union(Pus, intersection(Pvs, Ks0)),
+    Pu = union(Pus, intersection(Pvs, known_get(Ks0))),
     Pn = subtract(Pvs, Pu),
-    Ks1 = union(Pn, Ks0),
+    Ks1 = known_union(Ks0, Pn),
     {G1,St2} = uguard(Pg, G0, Ks1, St1),
     Gu = used_in_any(G1),
     Gn = new_in_any(G1),
-    Ks2 = union(Gn, Ks1),
-    {B1,St3} = uexprs(B0, Ks2, St2),
-    Used = intersection(union([Pu,Gu,used_in_any(B1)]), Ks0),
+    Ks2 = known_union(Ks1, Gn),
+
+    %% Consider this example:
+    %%
+    %%     {X = A,
+    %%      begin X = B, fun() -> X = C end() end}.
+    %%
+    %% At this point it has been rewritten to something similar
+    %% like this (the fun body has not been rewritten yet):
+    %%
+    %%     {X = A,
+    %%      begin
+    %%           X1 = B,
+    %%           if
+    %%             X1 =:= X -> ok;
+    %%              true -> error({badmatch,X1})
+    %%           end,
+    %%           fun() -> ... end() end
+    %%      end}.
+    %%
+    %% In this example, the variable `X` is a known variable that must
+    %% be passed into the fun body (because of `X = B` above). To ensure
+    %% that it is, we must call known_bind/2 with the variables used
+    %% in the guard (`X1` and `X`; any variables used must surely be
+    %% bound).
+
+    Ks3 = known_bind(Ks2, Gu),
+    {B1,_,St3} = uexprs(B0, Ks3, St2),
+    Used = intersection(union([Pu,Gu,used_in_any(B1)]), known_get(Ks0)),
     New = union([Pn,Gn,new_in_any(B1)]),
     {#iclause{anno=A,pats=Ps1,guard=G1,body=B1},Pvs,Used,New,St3}.
 
@@ -2222,10 +2564,31 @@ uguard(Pg, Gs0, Ks, St0) ->
 			       St3}
 		      end, {Gs0,St0}, Pg),
     %%ok = io:fwrite("core ~w: ~p~n", [?LINE,Gs3]),
-    uexprs(Gs3, Ks, St5).
+    {Gs4,_,St6} = uexprs(Gs3, Ks, St5),
+    {Gs4,St6}.
+
+%% ulinearize_exprs([[Kexpr]], [Kexpr]) -> [Kexpr].
+%%  Linearize a group of bodies to a linear list of Kernel expressions
+%%  while inserting markers for the end of each body and the group
+%%  itself.
+
+ulinearize_exprs([Bs|Bss], Les) ->
+    [known_end_body|Bs] ++ ulinearize_exprs(Bss, Les);
+ulinearize_exprs([], Les) ->
+    [known_end_group|Les].
 
 %% uexprs([Kexpr], [KnownVar], State) -> {[Kexpr],State}.
 
+uexprs([known_end_body|Les], Ks0, St0) ->
+    Ks1 = known_end_body(Ks0),
+    uexprs(Les, Ks1, St0);
+uexprs([known_end_group|Les], Ks0, St0) ->
+    Ks1 = known_end_group(Ks0),
+    uexprs(Les, Ks1, St0);
+uexprs([#iexprs{bodies=Es0}|Les], Ks0, St0) ->
+    Es = ulinearize_exprs(Es0, Les),
+    Ks1 = known_start_group(Ks0),
+    uexprs(Es, Ks1, St0);
 uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
     case upat_is_new_var(P0, Ks) of
 	true ->
@@ -2244,18 +2607,54 @@ uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
 	    uexprs([#icase{anno=A,args=[Arg],
 			   clauses=[Mc],fc=Fc}], Ks, St0)
     end;
-uexprs([Le0|Les0], Ks, St0) ->
-    {Le1,St1} = uexpr(Le0, Ks, St0),
-    {Les1,St2} = uexprs(Les0, union((get_anno(Le1))#a.ns, Ks), St1),
-    {[Le1|Les1],St2};
-uexprs([], _, St) -> {[],St}.
+uexprs([#iset{}|_]=Les0, Ks0, St0) ->
+    uexprs_iset(Les0, [], Ks0, St0);
+uexprs([Le0|Les0], Ks0, St0) ->
+    {Le1,St1} = uexpr(Le0, Ks0, St0),
+    {Les1,Ks,St2} = uexprs(Les0, known_union(Ks0, (get_anno(Le1))#a.ns), St1),
+    {[Le1|Les1],Ks,St2};
+uexprs([], Ks, St) -> {[],Ks,St}.
+
+%% Since the set of known variables can grow quite large, try minimize
+%% the number of union operations on it.
+uexprs_iset([#iset{anno=A0,var=V,arg=Arg0}=Le0|Les0], New0, Ks0, St0) ->
+    case uexpr_need_known(Arg0) of
+        true ->
+            Ks1 = known_union(Ks0, New0),
+            {Le1,St1} = uexpr(Le0, Ks1, St0),
+            New = (get_anno(Le1))#a.ns,
+            {Les1,Ks,St2} = uexprs_iset(Les0, New, Ks1, St1),
+            {[Le1|Les1],Ks,St2};
+        false ->
+            %% We don't need the set of known variables when processing
+            %% Arg0, so we can postpone the call to known_union/2. This
+            %% will save time for functions with a huge number of variables.
+            {Arg,St1} = uexpr(Arg0, none, St0),
+            #a{us=Us,ns=Ns} = get_anno(Arg),
+            A = A0#a{us=del_element(V#c_var.name, Us),
+                     ns=add_element(V#c_var.name, Ns)},
+            Le1 = Le0#iset{anno=A,arg=Arg},
+            New = union(New0, A#a.ns),
+            {Les1,Ks,St2} = uexprs_iset(Les0, New, Ks0, St1),
+            {[Le1|Les1],Ks,St2}
+    end;
+uexprs_iset(Les, New, Ks0, St) ->
+    Ks = known_union(Ks0, New),
+    uexprs(Les, Ks, St).
+
+uexpr_need_known(#icall{}) -> false;
+uexpr_need_known(#iapply{}) -> false;
+uexpr_need_known(#ibinary{}) -> false;
+uexpr_need_known(#iprimop{}) -> false;
+uexpr_need_known(#c_literal{}) -> false;
+uexpr_need_known(Core) -> not is_simple(Core).
 
 %% upat_is_new_var(Pattern, [KnownVar]) -> true|false.
 %%  Test whether the pattern is a single, previously unknown
 %%  variable.
 
 upat_is_new_var(#c_var{name=V}, Ks) ->
-    not is_element(V, Ks);
+    not is_element(V, known_get(Ks));
 upat_is_new_var(_, _) ->
     false.
 
@@ -2283,7 +2682,7 @@ uexpr(#iletrec{anno=A,defs=Fs0,body=B0}, Ks, St0) ->
 				 {F1,S1} = uexpr(F0, Ks, S0),
 				 {{Name,F1},S1}
 			 end, St0, Fs0),
-    {B1,St2} = uexprs(B0, Ks, St1),
+    {B1,_,St2} = uexprs(B0, Ks, St1),
     Used = used_in_any(map(fun ({_,F}) -> F end, Fs1) ++ B1),
     {#iletrec{anno=A#a{us=Used,ns=[]},defs=Fs1,body=B1},St2};
 uexpr(#icase{anno=#a{anno=Anno}=A,args=As0,clauses=Cs0,fc=Fc0}, Ks, St0) ->
@@ -2298,7 +2697,7 @@ uexpr(#icase{anno=#a{anno=Anno}=A,args=As0,clauses=Cs0,fc=Fc0}, Ks, St0) ->
           end,
     {#icase{anno=A#a{us=Used,ns=New},args=As1,clauses=Cs1,fc=Fc1},St3};
 uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}=Fun0, Ks0, St0) ->
-    {Fun1,St2} = case Ks0 of
+    {Fun1,St2} = case known_get(Ks0) of
                      [] ->
                          {Fun0,St0};
                      [_|_] ->
@@ -2309,12 +2708,13 @@ uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}=Fun0, Ks0, St0) 
     Avs = lit_list_vars(As),
     Ks1 = case Name of
               unnamed -> Ks0;
-              {named,FName} -> union(subtract([FName], Avs), Ks0)
+              {named,FName} -> known_union(Ks0, subtract([FName], Avs))
           end,
-    Ks2 = union(Avs, Ks1),
-    {Cs3,St3} = ufun_clauses(Cs2, Ks2, St2),
-    {Fc1,St4} = ufun_clause(Fc0, Ks2, St3),
-    Used = subtract(intersection(used_in_any(Cs3), Ks1), Avs),
+    Ks2 = known_union(Ks1, Avs),
+    KnownInFun = known_in_fun(Ks2),
+    {Cs3,St3} = ufun_clauses(Cs2, KnownInFun, St2),
+    {Fc1,St4} = ufun_clause(Fc0, KnownInFun, St3),
+    Used = subtract(intersection(used_in_any(Cs3), known_get(Ks1)), Avs),
     A1 = A0#a{us=Used,ns=[]},
     {#ifun{anno=A1,id=Id,vars=As,clauses=Cs3,fc=Fc1,name=Name},St4};
 uexpr(#iapply{anno=A,op=Op,args=As}, _, St) ->
@@ -2331,15 +2731,15 @@ uexpr(#itry{anno=A,args=As0,vars=Vs,body=Bs0,evars=Evs,handler=Hs0}, Ks, St0) ->
     %% variables bound in the argument (the code between the 'try' and
     %% the 'of' keywords) are exported to the body (the code following
     %% the 'of' keyword).
-    {As1,St1} = uexprs(As0, Ks, St0),
-    ArgKs = union(Ks, new_in_any(As1)),
-    {Bs1,St2} = uexprs(Bs0, ArgKs, St1),
-    {Hs1,St3} = uexprs(Hs0, Ks, St2),
-    Used = intersection(used_in_any(Bs1++Hs1++As1), Ks),
+    {As1,_,St1} = uexprs(As0, Ks, St0),
+    ArgKs = known_union(Ks, new_in_any(As1)),
+    {Bs1,_,St2} = uexprs(Bs0, ArgKs, St1),
+    {Hs1,_,St3} = uexprs(Hs0, Ks, St2),
+    Used = intersection(used_in_any(Bs1++Hs1++As1), known_get(Ks)),
     {#itry{anno=A#a{us=Used,ns=[]},
 	   args=As1,vars=Vs,body=Bs1,evars=Evs,handler=Hs1},St3};
 uexpr(#icatch{anno=A,body=Es0}, Ks, St0) ->
-    {Es1,St1} = uexprs(Es0, Ks, St0),
+    {Es1,_,St1} = uexprs(Es0, Ks, St0),
     {#icatch{anno=A#a{us=used_in_any(Es1)},body=Es1},St1};
 uexpr(#ireceive1{anno=A,clauses=Cs0}, Ks, St0) ->
     {Cs1,St1} = uclauses(Cs0, Ks, St0),
@@ -2349,7 +2749,7 @@ uexpr(#ireceive2{anno=A,clauses=Cs0,timeout=Te0,action=Tes0}, Ks, St0) ->
     %% Te0 will never generate new variables.
     {Te1,St1} = uexpr(Te0, Ks, St0),
     {Cs1,St2} = uclauses(Cs0, Ks, St1),
-    {Tes1,St3} = uexprs(Tes0, Ks, St2),
+    {Tes1,_,St3} = uexprs(Tes0, Ks, St2),
     Used = union([used_in_any(Cs1),used_in_any(Tes1),(get_anno(Te1))#a.us]),
     New = case Cs1 of
 	      [] -> new_in_any(Tes1);
@@ -2358,7 +2758,7 @@ uexpr(#ireceive2{anno=A,clauses=Cs0,timeout=Te0,action=Tes0}, Ks, St0) ->
     {#ireceive2{anno=A#a{us=Used,ns=New},
 		clauses=Cs1,timeout=Te1,action=Tes1},St3};
 uexpr(#iprotect{anno=A,body=Es0}, Ks, St0) ->
-    {Es1,St1} = uexprs(Es0, Ks, St0),
+    {Es1,_,St1} = uexprs(Es0, Ks, St0),
     Used = used_in_any(Es1),
     {#iprotect{anno=A#a{us=Used},body=Es1},St1}; %No new variables escape!
 uexpr(#ibinary{anno=A,segments=Ss}, _, St) ->
@@ -2383,7 +2783,7 @@ upattern(#c_var{name='_'}, _, St0) ->
     {New,St1} = new_var_name(St0),
     {#c_var{name=New},[],[New],[],St1};
 upattern(#c_var{name=V}=Var, Ks, St0) ->
-    case is_element(V, Ks) of
+    case is_element(V, known_get(Ks)) of
 	true ->
 	    {N,St1} = new_var_name(St0),
 	    New = #c_var{name=N},
@@ -2398,7 +2798,7 @@ upattern(#c_var{name=V}=Var, Ks, St0) ->
     end;
 upattern(#c_cons{hd=H0,tl=T0}=Cons, Ks, St0) ->
     {H1,Hg,Hv,Hu,St1} = upattern(H0, Ks, St0),
-    {T1,Tg,Tv,Tu,St2} = upattern(T0, union(Hv, Ks), St1),
+    {T1,Tg,Tv,Tu,St2} = upattern(T0, known_union(Ks, Hv), St1),
     {Cons#c_cons{hd=H1,tl=T1},Hg ++ Tg,union(Hv, Tv),union(Hu, Tu),St2};
 upattern(#c_tuple{es=Es0}=Tuple, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upattern_list(Es0, Ks, St0),
@@ -2408,7 +2808,7 @@ upattern(#imap{es=Es0}=Map, Ks, St0) ->
     {Map#imap{es=Es1},Esg,Esv,Eus,St1};
 upattern(#imappair{op=#c_literal{val=exact},key=K0,val=V0}=Pair,Ks,St0) ->
     {V,Vg,Vn,Vu,St1} = upattern(V0, Ks, St0),
-    {K,St2} = uexprs(K0, Ks, St1),
+    {K,_,St2} = uexprs(K0, Ks, St1),
     Ku = used_in_expr(K),
     {Pair#imappair{key=K,val=V},Vg,Vn,union(Ku, Vu),St2};
 upattern(#ibinary{segments=Es0}=Bin, Ks, St0) ->
@@ -2416,7 +2816,7 @@ upattern(#ibinary{segments=Es0}=Bin, Ks, St0) ->
     {Bin#ibinary{segments=Es1},Esg,Esv,Eus,St1};
 upattern(#c_alias{var=V0,pat=P0}=Alias, Ks, St0) ->
     {V1,Vg,Vv,Vu,St1} = upattern(V0, Ks, St0),
-    {P1,Pg,Pv,Pu,St2} = upattern(P0, union(Vv, Ks), St1),
+    {P1,Pg,Pv,Pu,St2} = upattern(P0, known_union(Ks, Vv), St1),
     {Alias#c_alias{var=V1,pat=P1},Vg ++ Pg,union(Vv, Pv),union(Vu, Pu),St2};
 upattern(Other, _, St) -> {Other,[],[],[],St}.	%Constants
 
@@ -2425,7 +2825,7 @@ upattern(Other, _, St) -> {Other,[],[],[],St}.	%Constants
 
 upattern_list([P0|Ps0], Ks, St0) ->
     {P1,Pg,Pv,Pu,St1} = upattern(P0, Ks, St0),
-    {Ps1,Psg,Psv,Psu,St2} = upattern_list(Ps0, union(Pv, Ks), St1),
+    {Ps1,Psg,Psv,Psu,St2} = upattern_list(Ps0, known_union(Ks, Pv), St1),
     {[P1|Ps1],Pg ++ Psg,union(Pv, Psv),union(Pu, Psu),St2};
 upattern_list([], _, St) -> {[],[],[],[],St}.    
 
@@ -2452,7 +2852,7 @@ upat_bin(Es0, Ks, St0) ->
 %%                        {[Pat],[GuardTest],[NewVar],[UsedVar],State}.
 upat_bin([P0|Ps0], Ks, Bs, St0) ->
     {P1,Pg,Pv,Pu,Bs1,St1} = upat_element(P0, Ks, Bs, St0),
-    {Ps1,Psg,Psv,Psu,St2} = upat_bin(Ps0, union(Pv, Ks), Bs1, St1),
+    {Ps1,Psg,Psv,Psu,St2} = upat_bin(Ps0, known_union(Ks, Pv), Bs1, St1),
     {[P1|Ps1],Pg ++ Psg,union(Pv, Psv),union(Pu, Psu),St2};
 upat_bin([], _, _, St) -> {[],[],[],[],St}.    
 
@@ -2475,16 +2875,16 @@ upat_element(#ibitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
     case Sz0 of
         [#c_var{name=Vname}] ->
             {Sz1,Us} = rename_bitstr_size(Vname, Bs0),
-            {Sz2,St2} = uexprs([Sz1], Ks, St1),
+            {Sz2,_,St2} = uexprs([Sz1], Ks, St1),
             {Seg#ibitstr{val=H1,size=Sz2},Hg,Hv,Us,Bs1,St2};
         [#c_literal{}] ->
-            {Sz1,St2} = uexprs(Sz0, Ks, St1),
+            {Sz1,_,St2} = uexprs(Sz0, Ks, St1),
             Us = [],
             {Seg#ibitstr{val=H1,size=Sz1},Hg,Hv,Us,Bs1,St2};
         Expr when is_list(Expr) ->
             Sz1 = [#iset{var=#c_var{name=Old},arg=#c_var{name=New}} ||
                       {Old,New} <- Bs0] ++ Expr,
-            {Sz2,St2} = uexprs(Sz1, Ks, St1),
+            {Sz2,_,St2} = uexprs(Sz1, Ks, St1),
             Us = used_in_expr(Sz2),
             {Seg#ibitstr{val=H1,size=Sz2},Hg,Hv,Us,Bs1,St2}
     end.
@@ -2558,7 +2958,7 @@ ren_pats([], _Ks, {_,_}=Subs, St) ->
 ren_pat(#c_var{name='_'}=P, _Ks, Subs, St) ->
     {P,Subs,St};
 ren_pat(#c_var{name=V}=Old, Ks, {Isub0,Osub0}=Subs, St0) ->
-    case member(V, Ks) of
+    case member(V, known_get(Ks)) of
         true ->
             case ren_is_subst(V, Osub0) of
                 {yes,New} ->
@@ -2630,9 +3030,19 @@ ren_is_subst(_V, []) -> no.
 %% from case/receive.  In subblocks/clauses the AfterVars of the block
 %% are just the exported variables.
 
-cbody(B0, St0) ->
+cbody(B0, Nifs, St0) ->
     {B1,_,_,St1} = cexpr(B0, [], St0),
-    {B1,St1}.
+    B2 = case sets:is_element(St1#core.function,Nifs) of
+             true ->
+                 #c_fun{body=Body0} = B1,
+                 Body1 = #c_seq{arg=#c_primop{name=#c_literal{val=nif_start},
+                                              args=[]},
+                                body=Body0},
+                 B1#c_fun{body=Body1};
+             false ->
+                 B1
+         end,
+    {B2,St1}.
 
 %% cclause(Lclause, [AfterVar], State) -> {Cclause,State}.
 %%  The AfterVars are the exported variables.
@@ -2916,8 +3326,7 @@ c_add_dummy_export(C, [], St) ->
 %%%                                     primop 'recv_wait_timeout'(Timeout)
 %%%                                 in  case TimedOut of
 %%%                                       <'true'> when 'true' ->
-%%%                                           do  primop 'timeout'()
-%%%                                               'no_message'
+%%%                                           'no_message'
 %%%                                       <'false'> when 'true' ->
 %%%                                           apply 'recv$^0'/0()
 %%%                                     end

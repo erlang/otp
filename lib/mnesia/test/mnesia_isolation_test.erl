@@ -967,7 +967,7 @@ snmp_open_table(Config) when is_list(Config) ->
     A ! end_trans,             %% Kill A, locks should be released
     ?match_receive({A,{atomic,end_trans}}),     
     
-    %% Locks released! op should be exec. Can take a while (thats the timeout)
+    %% Locks released! op should be exec. Can take a while (that's the timeout)
     receive 
 	Msg -> ?match({Pid, {atomic, ok}}, Msg)
     after
@@ -999,7 +999,7 @@ snmp_close_table(Config) when is_list(Config) ->
     A ! end_trans,             %% Kill A, locks should be released
     ?match_receive({A,{atomic,end_trans}}),     
     
-    %% Locks released! op should be exec. Can take a while (thats the timeout)
+    %% Locks released! op should be exec. Can take a while (that's the timeout)
     receive 
 	Msg -> ?match({Pid, {atomic, ok}}, Msg)
     after
@@ -1729,7 +1729,7 @@ write_shadows(Config) when is_list(Config) ->
     ?match({atomic, ok}, mnesia:transaction(Fun1)), 
 
     Fun2 = fun() ->
-		  %% write shadow old write - is the confirmed value visable
+		  %% write shadow old write - is the confirmed value visible
 		  %%                          in the shadow ?
 		  ?match([RecA1], mnesia:read({Tab, a})), 
 		  ?match([RecA1], mnesia:wread({Tab, a})), 
@@ -1738,14 +1738,14 @@ write_shadows(Config) when is_list(Config) ->
 		  ?match([RecA1], mnesia:index_match_object(PatA1, ValPos)), 
 		  ?match([RecA1], mnesia:index_read(Tab, 1, ValPos)), 
 
-		  %% write shadow new write - is a new value visable instead
+		  %% write shadow new write - is a new value visible instead
 		  %%                          of the old value ?
 		  ?match(ok, mnesia:write(RecA2)), 
 
 		  ?match([RecA2], mnesia:read({Tab, a})), 
 		  ?match([RecA2], mnesia:wread({Tab, a})), 
 		   ?match([],      mnesia:match_object(PatA1)), %% delete shadow old but not new write
-		   ?match([RecA2], mnesia:match_object(PatA2)), %% is the new value visable
+		   ?match([RecA2], mnesia:match_object(PatA2)), %% is the new value visible
 
 		  ?match([a], mnesia:all_keys(Tab)), 
 		  ?match([RecA2], mnesia:index_match_object(PatA2, ValPos)), 
@@ -1798,7 +1798,7 @@ delete_shadows(Config) when is_list(Config) ->
 		  ?match([], mnesia:index_match_object(PatA1, ValPos)), 
 		  ?match([], mnesia:index_read(Tab, 1, ValPos)), 
 
-		  %% delete shadow old but not new write - is the new value visable
+		  %% delete shadow old but not new write - is the new value visible
 		  %%                           when the old one was deleted ?
 		  ?match(ok, mnesia:write(RecA2)), 
 
@@ -1883,7 +1883,7 @@ write_delete_shadows_bag(Config) when is_list(Config) ->
 		   ?match([], mnesia:index_match_object(PatA1, ValPos)), 
 		   ?match([], mnesia:index_read(Tab, 1, ValPos)), 
 
-		   %% delete shadow old but not new write - are both new value visable
+		   %% delete shadow old but not new write - are both new value visible
 		   %%                           when the old one was deleted ?
 		   ?match(ok, mnesia:write(RecA2)), 
 		   ?match(ok, mnesia:write(RecA3)), 
@@ -2143,7 +2143,7 @@ removed_resources([_N1,N2,N3], DeleteRes) ->
 nasty(suite) -> [];
 
 nasty(doc) ->
-    ["Tries to fullfill a rather nasty locking scenario, where we have had "
+    ["Tries to fulfill a rather nasty locking scenario, where we have had "
      "bugs, the testcase tries a combination of locks in locker queue"];
 
 %%  This testcase no longer works as it was intended to show errors when 

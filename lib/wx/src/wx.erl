@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -149,14 +149,14 @@ set_env(#wx_env{sv=Pid} = Env) ->
 %% all MacOSX specific events corresponding to MacNewFile() and friends
 %% from wxWidgets wxApp https://docs.wxwidgets.org/trunk/classwx_app.html
 %%
-%% * `{file_new, ""}` 
-%% * `{file_open, Filename}`
-%% * `{file_print, Filename}`
-%% * `{url_open, Url}`
+%% * `{new_file, ""}`
+%% * `{open_file, Filename}`
+%% * `{print_file, Filename}`
+%% * `{open_url, Url}`
 %% * `{reopen_app, ""}`
 %%
 %% The call always returns ok but will have sent any already received
-%% events to the calling process. 
+%% events to the calling process.
 -spec subscribe_events() -> 'ok'.
 subscribe_events() ->
     gen_server:call(wxe_master, subscribe_msgs, infinity).

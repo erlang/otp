@@ -698,7 +698,7 @@
       <list>
         <item>
           <p>
-	    Memsup did not read memory correctly on MaxOSX
+	    Memsup did not read memory correctly on macOS X
 	    Snowleopard. This has now been corrected. (Thanks to Joel
 	    Reymont)</p>
           <p>

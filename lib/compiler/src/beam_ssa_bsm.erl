@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,15 +128,20 @@ has_bsm_ops(#b_function{bs=Blocks}) ->
 
 hbo_blocks([{_,#b_blk{is=Is}} | Blocks]) ->
     case hbo_is(Is) of
-        false -> hbo_blocks(Blocks);
-        true -> true
+        no -> hbo_blocks(Blocks);
+        yes -> true;
+        nif_start ->
+            %% Disable optimizations for declared -nifs()
+            %% to avoid leaking match contexts as NIF arguments.
+            false
     end;
 hbo_blocks([]) ->
     false.
 
-hbo_is([#b_set{op=bs_start_match} | _]) -> true;
+hbo_is([#b_set{op=bs_start_match} | _]) -> yes;
+hbo_is([#b_set{op=nif_start} | _]) -> nif_start;
 hbo_is([_I | Is]) -> hbo_is(Is);
-hbo_is([]) -> false.
+hbo_is([]) -> no.
 
 %% Checks whether it's legal to make a call with the given argument as a match
 %% context, returning the param_info() of the relevant parameter.
@@ -422,7 +427,7 @@ is_var_in_args(_Var, []) -> false.
 %%% Subpasses
 %%%
 
-%% Removes superflous chained bs_start_match instructions in the same
+%% Removes superfluous chained bs_start_match instructions in the same
 %% function. When matching on an extracted tail binary, or on a binary we've
 %% already matched on, we reuse the original match context.
 %%
@@ -991,13 +996,7 @@ add_unopt_binary_info(#b_set{op=Follow,dst=Dst}, Nested, Where, UseMap, Acc0)
     foldl(fun(Use, Acc) ->
                   add_unopt_binary_info(Use, Nested, Where, UseMap, Acc)
           end, Acc0, Uses);
-add_unopt_binary_info(#b_set{op=call,
-                             args=[#b_remote{mod=#b_literal{val=erlang},
-                                             name=#b_literal{val=error}} |
-                                   _Ignored]},
-                      _Nested, _Where, _UseMap, Acc) ->
-    %% There's no nice way to tell compiler-generated exceptions apart from
-    %% user ones so we ignore them all. I doubt anyone cares.
+add_unopt_binary_info(#b_set{op=match_fail}, _Nested, _Where, _UseMap, Acc) ->
     Acc;
 add_unopt_binary_info(#b_switch{anno=Anno}=I, Nested, Where, _UseMap, Acc) ->
     [make_promotion_warning(I, Nested, Anno, Where) | Acc];

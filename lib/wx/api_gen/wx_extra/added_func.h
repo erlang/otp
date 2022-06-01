@@ -28,7 +28,7 @@ class WXDLLIMPEXP_ADV wxTreeCtrlBase : public wxControl
     static bool IsTreeItemIdOk(wxTreeItemId id);
 };
 
-// The generater needs constructors  (is this still valid?)
+// The generator needs constructors  (is this still valid?)
 class WXDLLIMPEXP_ADV wxGridCellBoolRenderer : public wxGridCellRenderer
 {
  public:
@@ -49,7 +49,7 @@ class wxMenuBar {
     static bool GetAutoWindowMenu() { return s_macAutoWindowMenu ; }
 };
 
-// Deprectated functions in 3.1
+// Deprecated functions in 3.1
 
 class wxWindow {
  public:

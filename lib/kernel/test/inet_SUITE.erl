@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@
 	 lookup_bad_search_option/1,
 	 getif/1,
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
+	 is_ip_address/1,
 	 parse_strict_address/1, ipv4_mapped_ipv6_address/1, ntoa/1,
          simple_netns/1, simple_netns_open/1,
          add_del_host/1, add_del_host_v6/1,
@@ -71,7 +72,7 @@ all() ->
     [
      t_gethostbyaddr, t_gethostbyname, t_getaddr,
      t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6,
-     ipv4_to_ipv6, host_and_addr, {group, parse},
+     ipv4_to_ipv6, host_and_addr, is_ip_address, {group, parse},
      t_gethostnative, gethostnative_parallell, cname_loop,
      missing_hosts_reload, hosts_file_quirks,
      gethostnative_debug_level, gethostnative_soft_restart,
@@ -103,7 +104,7 @@ socknames_cases() ->
      socknames_udp
     ].
 
-%% Required configuaration
+%% Required configuration
 required(v4) ->
     [{require, test_host_ipv4_only},
      {require, test_dummy_host}];
@@ -521,7 +522,7 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
 
 
 %% Test looking up hosts and addresses. Use 'ypcat hosts'
-%% or the local eqivalent to find all hosts.
+%% or the local equivalent to find all hosts.
 
 host_and_addr() ->
     ?P("host_and_addr -> entry"),
@@ -795,18 +796,18 @@ parse_address(Config) when is_list(Config) ->
 t_parse_address(Func, _Reversable, []) ->
     io:format("~p done.~n", [Func]),
     ok;
-t_parse_address(Func, Reversable, [{Addr,String}|L]) ->
+t_parse_address(Func, Reversible, [{Addr,String}|L]) ->
     io:format("~p = ~p.~n", [Addr,String]),
     {ok,Addr} = inet:Func(String),
-    case Reversable of
+    case Reversible of
         true ->String = inet:ntoa(Addr);
         false -> ok
     end,
-    t_parse_address(Func, Reversable, L);
-t_parse_address(Func, Reversable, [String|L]) ->
+    t_parse_address(Func, Reversible, L);
+t_parse_address(Func, Reversible, [String|L]) ->
     io:format("~p.~n", [String]),
     {error,einval} = inet:Func(String),
-    t_parse_address(Func, Reversable, L).
+    t_parse_address(Func, Reversible, L).
 
 parse_strict_address(Config) when is_list(Config) ->
     {ok, {127,0,0,1}} =
@@ -815,6 +816,63 @@ parse_strict_address(Config) when is_list(Config) ->
 	inet:parse_strict_address("c11:0c22:5c33:c440:55c0:c66c:77:0088"),
     {ok, {3089,3106,23603,50240,0,0,119,136}} =
 	inet:parse_strict_address("c11:0c22:5c33:c440::077:0088").
+
+is_ip_address(Config) when is_list(Config) ->
+    IPv4Addresses = [
+        {0, 0, 0, 0},
+        {255, 255, 255, 255}
+    ],
+    IPv6Addresses = [
+        {0, 0, 0, 0, 0, 0, 0, 0},
+        {16#ffff, 16#ffff, 16#ffff, 16#ffff, 16#ffff, 16#ffff, 16#ffff, 16#ffff}
+    ],
+    NonIPAddresses = [
+        foo,
+        "0.0.0.0",
+        {},
+        {0},
+        {0, 0},
+        {0, 0, 0},
+        {0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, foo},
+        {0, 0, 0, 0, 0, 0, 0, foo},
+        {0, 0, 0, 256},
+        {0, 0, 256, 0},
+        {0, 256, 0, 0},
+        {256, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 16#10000},
+        {0, 0, 0, 0, 0, 0, 16#10000, 0},
+        {0, 0, 0, 0, 0, 16#10000, 0, 0},
+        {0, 0, 0, 0, 16#10000, 0, 0, 0},
+        {0, 0, 0, 16#10000, 0, 0, 0, 0},
+        {0, 0, 16#10000, 0, 0, 0, 0, 0},
+        {0, 16#10000, 0, 0, 0, 0, 0, 0},
+        {16#10000, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, -1},
+        {0, 0, -1, 0},
+        {0, -1, 0, 0},
+        {-1, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, -1},
+        {0, 0, 0, 0, 0, 0, -1, 0},
+        {0, 0, 0, 0, 0, -1, 0, 0},
+        {0, 0, 0, 0, -1, 0, 0, 0},
+        {0, 0, 0, -1, 0, 0, 0, 0},
+        {0, 0, -1, 0, 0, 0, 0, 0},
+        {0, -1, 0, 0, 0, 0, 0, 0},
+        {-1, 0, 0, 0, 0, 0, 0, 0}
+    ],
+
+    true = lists:all(fun inet:is_ipv4_address/1, IPv4Addresses),
+    false = lists:any(fun inet:is_ipv4_address/1, IPv6Addresses ++ NonIPAddresses),
+
+    true = lists:all(fun inet:is_ipv6_address/1, IPv6Addresses),
+    false = lists:any(fun inet:is_ipv6_address/1, IPv4Addresses ++ NonIPAddresses),
+
+    true = lists:all(fun inet:is_ip_address/1, IPv6Addresses ++ IPv4Addresses),
+    false = lists:any(fun inet:is_ip_address/1, NonIPAddresses).
 
 ipv4_mapped_ipv6_address(Config) when is_list(Config) ->
     {D1,D2,D3,D4} = IPv4Address =
@@ -907,13 +965,11 @@ gethostnative_parallell(Config) when is_list(Config) ->
     end.
 
 do_gethostnative_parallell() ->
-    PA = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = test_server:start_node(gethost_parallell, slave,
-				       [{args, "-pa " ++ PA}]),
+    {ok,Peer,Node} = ?CT_PEER(),
     ok = rpc:call(Node, ?MODULE, parallell_gethost, []),
     receive after 10000 -> ok end,
     pong = net_adm:ping(Node),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 parallell_gethost() ->
@@ -1044,9 +1100,7 @@ missing_hosts_reload(Config) when is_list(Config) ->
     ok = file:write_file(InetRc, "{hosts_file, \"" ++ HostsFile ++ "\"}.\n"),
     {error, enoent} = file:read_file_info(HostsFile),
     % start a node
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, TestNode} = test_server:start_node(?MODULE, slave,
-        [{args, "-pa " ++ Pa ++ " -kernel inetrc '\"" ++ InetRc ++ "\"'"}]),
+    {ok, Peer, TestNode} = ?CT_PEER(["-kernel", "inetrc", "\"" ++ InetRc ++ "\""]),
     % ensure it has our RC
     Rc = rpc:call(TestNode, inet_db, get_rc, []),
     {hosts_file, HostsFile} = lists:keyfind(hosts_file, 1, Rc),
@@ -1060,7 +1114,7 @@ missing_hosts_reload(Config) when is_list(Config) ->
     {ok,{hostent,"somehost",[],inet,4,[{1,2,3,4}]}} =
         rpc:call(TestNode, inet_hosts, gethostbyname, ["somehost"]),
     % cleanup
-    true = test_server:stop_node(TestNode).
+    peer:stop(Peer).
 
 
 %% The /etc/hosts file format and limitations is quite undocumented.
@@ -1138,9 +1192,7 @@ hosts_file_quirks(Config) when is_list(Config) ->
     ok = file:write_file(InetRc, "{hosts_file, \"" ++ HostsFile ++ "\"}.\n"),
     %%
     %% start a node
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, TestNode} = test_server:start_node(?MODULE, slave,
-        [{args, "-pa " ++ Pa ++ " -kernel inetrc '\"" ++ InetRc ++ "\"'"}]),
+    {ok, Peer, TestNode} = ?CT_PEER(["-kernel", "inetrc", "\"" ++ InetRc ++ "\""]),
     %% ensure it has our RC
     Rc = rpc:call(TestNode, inet_db, get_rc, []),
     {hosts_file, HostsFile} = lists:keyfind(hosts_file, 1, Rc),
@@ -1187,7 +1239,7 @@ hosts_file_quirks(Config) when is_list(Config) ->
     hosts_file_quirks_verify(TestNode, V1),
     %%
     %% cleanup
-    true = test_server:stop_node(TestNode).
+    peer:stop(Peer).
 
 hosts_file_quirks_verify(_TestNode, Vs) ->
     hosts_file_quirks_verify(_TestNode, Vs, true).
@@ -1302,7 +1354,7 @@ gethostnative_control(Config, Opts) ->
 		    {skipped, "Not running native gethostbyname"}
 	    end;
 	_ ->
-	    {skipped, "Native not only lookup metod"}
+	    {skipped, "Native not only lookup method"}
     end.
 
 gethostnative_control_1(
@@ -1916,9 +1968,14 @@ do_socknames_tcp0(_Config) ->
             ?P("Test socknames for 'new' socket (=socket nif)"),
             do_socknames_tcp1([{inet_backend, socket}])
     catch
-        error : notsup ->
+        error:notsup ->
             ?P("Skip test of socknames for 'new' socket (=socket nif)"),
-            ok
+            ok;
+        error:undef:ST ->
+            case ST of
+                [{prim_socket,info,[],_}|_] ->
+                    ?P("Skip test of socknames for 'new' socket (=socket nif)")
+            end
     end.
 
 
@@ -1995,7 +2052,12 @@ do_socknames_udp0(_Config) ->
     catch
         error : notsup ->
             ?P("Skip test of socknames for 'new' socket (=socket nif)"),
-            ok
+            ok;
+        error:undef:ST ->
+            case ST of
+                [{prim_socket,info,[],_}|_] ->
+                    ?P("Skip test of socknames for 'new' socket (=socket nif)")
+            end
     end.
 
 

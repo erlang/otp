@@ -394,7 +394,7 @@ remove_name_collisions(Modules) ->
     remove_name_collisions2(Modules,[]).
 
 %% For each definition in the first module in module list, find
-%% all definitons with same name and rename both definitions in
+%% all definitions with same name and rename both definitions in
 %% the first module and in rest of modules
 remove_name_collisions2([M|Ms],Acc) ->
     TypeOrVal = M#module.typeorval,
@@ -721,7 +721,7 @@ save_automatic_tagged_types([_M|Ms]) ->
 %% remove_in_set_imports/3 :
 %% input: list with tuples of each module's imports and module name 
 %% respectively.
-%% output: one list with same format but each occured import from a
+%% output: one list with same format but each occurred import from a
 %% module in the input set (IMNameL) is removed.
 remove_in_set_imports([{{imports,ImpL},_ModName}|Rest],InputMNameL,Acc) ->
     NewImpL = remove_in_set_imports1(ImpL,InputMNameL,[]),
@@ -1454,12 +1454,12 @@ special_decode_prepare_1(#gen{options=Options}=Gen, M) ->
 
 %% create_partial_inc_decode_gen_info/2
 %%
-%% Creats a list of tags out of the information in TypeNameList that
+%% Creates a list of tags out of the information in TypeNameList that
 %% tells which value will be incomplete decoded, i.e. each end
 %% component/type in TypeNameList. The significant types/components in
 %% the path from the toptype must be specified in the
 %% TypeNameList. Significant elements are all constructed types that
-%% branches the path to the leaf and the leaf it selfs.
+%% branches the path to the leaf and the leaf it self.
 %%
 %% Returns a list of elements, where an element may be one of
 %% mandatory|[opt,Tag]|[bin,Tag]. mandatory correspond to a mandatory
@@ -1621,7 +1621,7 @@ partial_inc_dec_toptype(_) ->
     throw({error,{"no top type found for partial incomplete decode"}}).
 
 
-%% Creats a list of tags out of the information in TypeList and Types
+%% Creates a list of tags out of the information in TypeList and Types
 %% that tells which value will be decoded.  Each constructed type that
 %% is in the TypeList will get a "choosen" command. Only the last
 %% type/component in the TypeList may be a primitive type. Components

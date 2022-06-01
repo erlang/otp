@@ -45,6 +45,7 @@
 	 id_string_own_string_server_trail_space/1, 
 	 id_string_random_client/1, 
 	 id_string_random_server/1, 
+         max_log_item_len/1,
 	 max_sessions_sftp_start_channel_parallel/1, 
 	 max_sessions_sftp_start_channel_sequential/1, 
 	 max_sessions_ssh_connect_parallel/1, 
@@ -139,6 +140,7 @@ all() ->
      id_string_own_string_server,
      id_string_own_string_server_trail_space,
      id_string_random_server,
+     max_log_item_len,
      save_accepted_host_option,
      raw_option,
      config_file,
@@ -1352,6 +1354,65 @@ one_shell_op(IO, TimeOut) ->
     end.
 
 %%--------------------------------------------------------------------
+max_log_item_len(Config) ->
+    %% Find a supported algorithm (to be removed from the daemon):
+    {ok, {Type,Alg}} = select_alg( ssh:default_algorithms() ),
+
+    %% Start a test daemon without support for {Type,Alg}
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {_Pid, Host0, Port} =
+        ssh_test_lib:daemon([
+                             {system_dir, SystemDir},
+                             {user_dir, UserDir},
+                             {user_passwords, [{"carni", "meat"}]},
+                             {modify_algorithms, [{rm, [{Type,[Alg]}]}]},
+                             {max_log_item_len, 10}
+                            ]),
+    Host = ssh_test_lib:mangle_connect_address(Host0),
+    ct:log("~p:~p Listen ~p:~p. Mangled Host = ~p",
+           [?MODULE,?LINE,Host0,Port,Host]),
+
+    {ok,ReportHandlerPid} = ssh_eqc_event_handler:add_report_handler(),
+
+    %% Connect to it with the {Type,Alg} to force a failure and log entry:
+    {error,_} = R =
+        ssh:connect(Host, Port, 
+                    [{preferred_algorithms, [{Type,[Alg]}]},
+                     {max_log_item_len, 10},
+                     {silently_accept_hosts, true},
+                     {save_accepted_host, false},
+                     {user_dir, UserDir},
+                     {user_interaction, false},
+                     {user, "carni"},
+                     {password, "meat"}
+                    ]),
+
+    {ok, Reports} = ssh_eqc_event_handler:get_reports(ReportHandlerPid),
+    ct:log("~p:~p ssh:connect -> ~p~n~p", [?MODULE,?LINE,R,Reports]),
+
+    [ok,ok] =
+        [check_skip_part(
+           string:tokens(
+             lists:flatten(io_lib:format(Fmt,Args)),
+             " \n"))
+         || {info_msg,_,{_,Fmt,Args}} <- Reports].
+
+
+check_skip_part(["Disconnect","...","("++_NumSkipped, "bytes","skipped)"]) ->
+    ok;
+check_skip_part([_|T]) ->
+    check_skip_part(T);
+check_skip_part([]) ->
+    error.
+
+select_alg([{Type,[A,_|_]}|_]) when is_atom(A) -> {ok, {Type,A}};
+select_alg([{Type,[{Dir,[A,_|_]}, _]}|_]) when is_atom(A), is_atom(Dir) -> {ok, {Type,A}};
+select_alg([{Type,[_,{Dir,[A,_|_]}]}|_]) when is_atom(A), is_atom(Dir) -> {ok, {Type,A}};
+select_alg([_|Algs]) -> select_alg(Algs);
+select_alg([]) -> false.
+
+%%--------------------------------------------------------------------
 max_sessions_ssh_connect_parallel(Config) -> 
     max_sessions(Config, true, connect_fun(ssh__connect,Config)).
 max_sessions_ssh_connect_sequential(Config) -> 
@@ -1412,7 +1473,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 	    ct:log("Connections up: ~p",[Connections]),
 	    [_|_] = Connections,
 
-	    %% N w try one more than alowed:
+	    %% N w try one more than allowed:
 	    ct:pal("Info Report expected here (if not disabled) ...",[]),
 	    try Connect(Host,Port)
 	    of
@@ -1442,7 +1503,7 @@ try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
      of
 	 _ConnectionRef1 ->
 	     timer:cancel(Tref),
-             ct:log("Step 3 ok: could set up one more connection after killing one. Thats good.",[]),
+             ct:log("Step 3 ok: could set up one more connection after killing one. That's good.",[]),
 	     ssh:stop_daemon(Pid),
 	     receive % flush. 
 		 timeout_no_connection -> ok
@@ -1634,7 +1695,7 @@ config_file(Config) ->
             ct:log("c2.config:~n~s", [Cnfs]),
 
             %% Start the slave node with the configuration just made:
-            {ok,Node} = start_node(random_node_name(?MODULE), ConfFile),
+            {ok, Peer, Node} = ?CT_PEER(["-config", ConfFile]),
 
             R0 = rpc:call(Node, ssh, default_algorithms, []),
             ct:log("R0 = ~p",[R0]),
@@ -1679,7 +1740,7 @@ config_file(Config) ->
             {options,Os2} = rpc:call(Node, ssh, connection_info, [C2, options]),
             ct:log("C2 opts:~n~p~n~nalgorithms:~n~p~n~noptions:~n~p", [C2_Opts,As2,Os2]),
 
-            stop_node_nice(Node)
+            peer:stop(Peer)
     end.
     
 %%%----------------------------------------------------------------
@@ -1732,7 +1793,7 @@ config_file_modify_algorithms_order(Config) ->
             ct:log("c3.config:~n~s", [Cnfs]),
 
             %% Start the slave node with the configuration just made:
-            {ok,Node} = start_node(random_node_name(?MODULE), ConfFile),
+            {ok, Peer, Node} = ?CT_PEER(["-config", ConfFile]),
     
             R0 = rpc:call(Node, ssh, default_algorithms, []),
             ct:log("R0 = ~p",[R0]),
@@ -1769,10 +1830,10 @@ config_file_modify_algorithms_order(Config) ->
             ConnOptions = proplists:get_value(options, ConnInfo),
             ConnPrefAlgs = proplists:get_value(preferred_algorithms, ConnOptions),
 
-            %% And now, are all levels appied in right order:
+            %% And now, are all levels applied in right order:
             [K3,K2] = proplists:get_value(kex, ConnPrefAlgs),
 
-            stop_node_nice(Node)
+            peer:stop(Peer)
     end.
 
     
@@ -1780,21 +1841,6 @@ config_file_modify_algorithms_order(Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
-start_node(Name, ConfigFile) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, 
-                                          " -pa " ++ Pa ++ 
-                                          " -config " ++ ConfigFile}]).
-
-stop_node_nice(Node) when is_atom(Node) ->
-    test_server:stop_node(Node).
-
-random_node_name(BaseName) ->
-    L = integer_to_list(erlang:unique_integer([positive])),
-    lists:concat([BaseName,"___",L]).
-
-%%%----
-  
 expected_ssh_vsn(Str) ->
     try
 	{ok,L} = application:get_all_key(ssh),
@@ -1804,7 +1850,7 @@ expected_ssh_vsn(Str) ->
 	"\r\n" -> true;
 	_ -> false
     catch
-	_:_ -> true %% ssh not started so we dont't know
+	_:_ -> true %% ssh not started so we don't know
     end.
 	    
 

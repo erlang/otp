@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -104,6 +104,8 @@
               sockaddr_in6/0,
               sockaddr_un/0,
               sockaddr_ll/0,
+              sockaddr_dl/0,
+              sockaddr_unspec/0,
               sockaddr_native/0,
 
               msg_flag/0,
@@ -317,6 +319,13 @@
                        outgoing | loopback | user | kernel | fastroute |
                        non_neg_integer().
 
+-type hatype() :: netrom | eether | ether | ax25 | pronet | chaos |
+                  ieee802 | arcnet | appletlk | dlci | atm | metricom |
+                  ieee1394 | eui64 | infiniband |
+                  tunnel | tunnel6 | loopback | localtlk |
+                  none | void |
+                  non_neg_integer().
+
 -type sockaddr_un() ::
         #{family := 'local',
           path   := binary() | string()}.
@@ -336,8 +345,16 @@
           protocol := non_neg_integer(),
           ifindex  := integer(),
           pkttype  := packet_type(),
-          hatype   := non_neg_integer(),
+          hatype   := hatype(),
           addr     := binary()}.
+-type sockaddr_dl() ::
+        #{family   := 'link',
+          index    := non_neg_integer(),
+          type     := non_neg_integer(),
+          nlen     := non_neg_integer(),
+          alen     := non_neg_integer(),
+          slen     := non_neg_integer(),
+          data     := binary()}.
 -type sockaddr_unspec() ::
         #{family := 'unspec', addr := binary()}.
 -type sockaddr_native() ::
@@ -347,6 +364,7 @@
         sockaddr_in6()     |
         sockaddr_un()      |
         sockaddr_ll()      |
+        sockaddr_dl()      |
         sockaddr_unspec()  |
         sockaddr_native().
 
@@ -619,7 +637,7 @@
 %% Even if we are able to decode both level and type, we may not be
 %% able to decode the data.  The data is always delivered as a binary()
 %% and a decoded value is delivered in the 'value' field, if decoding
-%% is succesful.
+%% is successful.
 
 -type cmsg() :: cmsg_recv() | cmsg_send().
 
@@ -806,7 +824,7 @@ number_of() ->
 %% *** which_sockets/0,1 ***
 %%
 %% Interface function to the socket registry
-%% Returns a list of all the sockets, accoring to the filter rule.
+%% Returns a list of all the sockets, according to the filter rule.
 %%
 
 -spec which_sockets() -> [socket()].
@@ -976,7 +994,7 @@ use_registry(D) when is_boolean(D) ->
 %%
 %% This produces a list of "all" the sockets, and some info about each one.
 %% This function is intended as a utility and debug function.
-%% The sockets can be selected from domain, type or porotocol.
+%% The sockets can be selected from domain, type or protocol.
 %% The sockets are not sorted.
 %% 
 %% ===========================================================================
@@ -1206,8 +1224,18 @@ fmt_port(N, Proto) ->
 -spec info() -> info().
 %%
 info() ->
-    prim_socket:info().
-
+    try
+        prim_socket:info()
+    catch error:undef:ST ->
+            case ST of
+                %% We rewrite errors coming from prim_socket not existing
+                %% to enotsup.
+                [{prim_socket,info,[],_}|_] ->
+                    erlang:raise(error,notsup,ST);
+                _ ->
+                    erlang:raise(error,undef,ST)
+            end
+    end.
 
 -spec info(Socket) -> socket_info() when
 					Socket :: socket().
@@ -1277,7 +1305,7 @@ cancel_monitor(MRef) ->
 %%
 %% supports - get information about what the platform "supports".
 %%
-%% Generates a list of various info about what the plaform can support. 
+%% Generates a list of various info about what the platform can support. 
 %% The most obvious case is 'options'. 
 %%
 %% Each item in a 'supports'-list will appear only *one* time.
@@ -1338,7 +1366,7 @@ is_supported(options, Level, Opt) when is_atom(Level), is_atom(Opt) ->
 %% The nif sets up a monitor to this process, and if it dies the socket
 %% is closed. It is also used if someone wants to monitor the socket.
 %%
-%% We may therefor need monitor function(s): 
+%% We may therefore need monitor function(s): 
 %%
 %%               socket:monitor(Socket)
 %%               socket:demonitor(Socket)
@@ -3945,7 +3973,7 @@ setopt_native(Socket, SocketOption, Value) ->
 %% If its an "invalid" option, we should not crash but return some
 %% useful error...
 %%
-%% When specifying level as an integer, and therefor using "native mode",
+%% When specifying level as an integer, and therefore using "native mode",
 %% we should make it possible to specify common types instead of the
 %% value size. Example: int | bool | {string, pos_integer()} | non_neg_integer()
 %%

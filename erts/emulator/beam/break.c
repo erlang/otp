@@ -134,12 +134,19 @@ process_killer(void)
 		if ((j = sys_get_key(0)) <= 0)
 		    erts_exit(0, "");
 		switch(j) {
-		case 'k':
+                case 'k':
+                {
+                    Process *init_proc;
+
                     ASSERT(erts_init_process_id != ERTS_INVALID_PID);
+                    init_proc = erts_proc_lookup_raw(erts_init_process_id);
+
                     /* Send a 'kill' exit signal from init process */
-                    erts_proc_sig_send_exit(NULL, erts_init_process_id,
-                                            rp->common.id, am_kill, NIL,
-                                            0);
+                    erts_proc_sig_send_exit(&init_proc->common,
+                                            erts_init_process_id,
+                                            rp->common.id,
+                                            am_kill, NIL, 0);
+                }
 		case 'n': br = 1; break;
 		case 'r': return;
 		default: return;
@@ -300,7 +307,8 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 		   p->current->arity);
     }
 
-    erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
+    erts_print(to, to_arg, "Spawned by: %T\n",
+               p->parent == am_undefined ? NIL : p->parent);
 
     if (locks & ERTS_PROC_LOCK_MAIN) {
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
@@ -705,25 +713,35 @@ bin_check(void)
 {
     Process  *rp;
     struct erl_off_heap_header* hdr;
+    struct erl_off_heap_header* oh_list;
     int i, printed = 0, max = erts_ptab_max(&erts_proc);
+
 
     for (i=0; i < max; i++) {
 	rp = erts_pix2proc(i);
 	if (!rp)
 	    continue;
-	for (hdr = rp->off_heap.first; hdr; hdr = hdr->next) {
-	    if (hdr->thing_word == HEADER_PROC_BIN) {
-		ProcBin *bp = (ProcBin*) hdr;
-		if (!printed) {
-		    erts_printf("Process %T holding binary data \n", rp->common.id);
-		    printed = 1;
-		}
-		erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
-			    bp->val, 
-			    bp->val->orig_size, 
-			    erts_refc_read(&bp->val->intern.refc, 1));
-	    }
-	}
+
+        oh_list = rp->off_heap.first;
+        for (;;) {
+            for (hdr = oh_list; hdr; hdr = hdr->next) {
+                if (hdr->thing_word == HEADER_PROC_BIN) {
+                    ProcBin *bp = (ProcBin*) hdr;
+                    if (!printed) {
+                        erts_printf("Process %T holding binary data \n", rp->common.id);
+                        printed = 1;
+                    }
+                    erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
+                                bp->val,
+                                bp->val->orig_size,
+                                erts_refc_read(&bp->val->intern.refc, 1));
+                }
+            }
+            if (oh_list == rp->wrt_bins)
+                break;
+            oh_list = rp->wrt_bins;
+        }
+
 	if (printed) {
 	    erts_printf("--------------------------------------\n");
 	    printed = 0;

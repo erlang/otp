@@ -187,7 +187,7 @@ objects(Config) ->
 	  {"{&min 1, Max 10}",3,{syntax_error,'Max'}},
 	  {"{min 1, &max 10}",3,{syntax_error,'&max'}},
 	  {"{min 1, &Max 10}",3,{syntax_error,'&Max'}},
-	  {"{RESERVERD WORD BIT}",3,{syntax_error,'BIT'}},
+	  {"{RESERVED WORD BIT}",3,{syntax_error,'BIT'}},
 	  {"{&min 1",4,{syntax_error,'END'}}
 	 ],
     L = [{Head++S++End,Line,E} || {S,Line,E} <- L0],

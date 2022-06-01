@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,6 +49,9 @@
 %% opaque types from attributes in v3_kernel.
 -opaque misc_SUITE_test_cases() :: [atom()].
 
+%% Cover handling of the `nifs` attribute.
+-nifs([all/0]).
+
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Config.
 
@@ -71,6 +74,13 @@ groups() ->
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
+    if
+        is_atom(Config) ->
+            %% Cover handling of load_nif. Will never actually be called.
+            _ = erlang:load_nif("no_real_nif", 42);
+        true ->
+            ok
+    end,
     Config.
 
 end_per_suite(_Config) ->
@@ -256,17 +266,6 @@ silly_coverage(Config) when is_list(Config) ->
     %% beam_jump
     TrimInput = BlockInput,
     expect_error(fun() -> beam_trim:module(TrimInput, []) end),
-
-    %% beam_peep. This is tricky. Use a select instruction with
-    %% an odd number of elements in the list to crash
-    %% prune_redundant_values/2 but not beam_clean:clean_labels/1.
-    PeepInput = {?MODULE,[{foo,0}],[],
-		 [{function,foo,0,2,
-		   [{label,1},
-		    {func_info,{atom,?MODULE},{atom,foo},0},
-		    {label,2},{select,select_val,r,{f,2},[{f,2}]}]}],
-		 2},
-    expect_error(fun() -> beam_peep:module(PeepInput, []) end),
 
     BeamZInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,

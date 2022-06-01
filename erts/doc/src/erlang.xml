@@ -510,14 +510,14 @@
     <datatype>
       <name name="dist_handle" prefix="true"/>
       <desc>
-        <p>An opaque handle identifing a distribution channel.</p>
+        <p>An opaque handle identifying a distribution channel.</p>
       </desc>
     </datatype>
 
     <datatype>
       <name name="nif_resource" prefix="true"/>
       <desc>
-        <p>An opaque handle identifing a
+        <p>An opaque handle identifying a
 	<seecref marker="erl_nif#resource_objects">NIF resource object
 	</seecref>.</p>
       </desc>
@@ -552,7 +552,6 @@
 	MQD)</c></seeerl> </p>
       </desc>
     </datatype>
-
     <datatype>
       <name name="stacktrace" prefix="true"/>
       <name name="stacktrace_extrainfo" prefix="true"/>
@@ -561,7 +560,15 @@
       section in the Erlang Reference Manual.
       </p></desc>
     </datatype>
-
+    <datatype>
+      <name name="send_destination" prefix="true"/>
+      <desc>
+        <p>The destination for a send operation, can be a remote or local process identifier,
+          a (local) port, a reference denoting a process alias, a locally registered name, or a tuple
+          <c>{<anno>RegName</anno>, <anno>Node</anno>}</c>
+        for a registered name at another node.</p>
+      </desc>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -1783,7 +1790,9 @@ end</code>
         <p>Prints a text representation of <c><anno>Term</anno></c> on the
           standard output.</p>
         <warning>
-          <p>This BIF is intended for debugging only.</p>
+          <p>This BIF is intended for debugging only. The printed representation
+            may contain internal details that do not match the high-level
+            representation of the term in Erlang.</p>
         </warning>
       </desc>
     </func>
@@ -1818,7 +1827,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -1847,7 +1856,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -1883,7 +1892,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -1904,7 +1913,7 @@ end</code>
 	  Once this function has been called, <c><anno>InputHandler</anno></c>
 	  is the only process allowed to call
 	  <seemfa marker="erlang#dist_ctrl_put_data/2"><c>erlang:dist_ctrl_put_data(DHandle, Data)</c></seemfa>
-	  with the <c><anno>DHandle</anno></c> identifing this distribution
+	  with the <c><anno>DHandle</anno></c> identifying this distribution
 	  channel.
 	</p>
 	<note><p>
@@ -1916,7 +1925,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -1949,7 +1958,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -1998,7 +2007,7 @@ end</code>
 	<p>
 	  This function is used when implementing an alternative
 	  distribution carrier using processes as distribution
-	  controllers. <c><anno>DHandle</anno></c> is retrived
+	  controllers. <c><anno>DHandle</anno></c> is retrieved
 	  via the callback
 	  <seeguide marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seeguide>.
 	  More information can be found in the documentation of
@@ -2364,7 +2373,14 @@ true</pre>
 > <input>float_to_binary(7.12, [{decimals, 4}, compact]).</input>
 &lt;&lt;"7.12">>
 > <input>float_to_binary(7.12, [{scientific, 3}]).</input>
-&lt;&lt;"7.120e+00">></pre>
+&lt;&lt;"7.120e+00">>
+> <input>float_to_binary(7.12, [short]).</input>
+&lt;&lt;"7.12">>
+> <input>float_to_binary(0.1+0.2, [short]).</input>
+&lt;&lt;"0.30000000000000004">>
+> <input>float_to_binary(0.1+0.2)</input>
+&lt;&lt;"3.00000000000000044409e-01">>
+</pre>
       </desc>
     </func>
 
@@ -2399,6 +2415,16 @@ true</pre>
             formatted using scientific notation with <c>Decimals</c>
             digits of precision.</p>
           </item>
+          <item><p>If option <c>short</c> is specified, the float is formatted
+          with the smallest number of digits that still guarantees that
+          <c>F =:= list_to_float(float_to_list(F, [short]))</c>. When the float
+          is inside the range (-2⁵³, 2⁵³), the notation
+          that yields the smallest number of characters is used (scientific
+          notation or normal decimal notation). Floats outside the range
+          (-2⁵³, 2⁵³) are always formatted using
+          scientific notation to avoid confusing results when doing arithmetic
+          operations.</p>
+          </item>
           <item><p>If <c>Options</c> is <c>[]</c>, the function behaves as
             <seemfa marker="#float_to_list/1">
             <c>float_to_list/1</c></seemfa>.</p>
@@ -2412,6 +2438,10 @@ true</pre>
 "7.12"
 > <input>float_to_list(7.12, [{scientific, 3}]).</input>
 "7.120e+00"
+> <input>float_to_list(7.12, [short]).</input>
+"7.12"
+> <input>float_to_list(0.1+0.2, [short]).</input>
+"0.30000000000000004"
 > <input>float_to_list(0.1+0.2)</input>
 "3.00000000000000044409e-01"
 </pre>
@@ -2640,7 +2670,7 @@ account.</p>
 {#Fun&lt;test.2.107738983>,#Fun&lt;test.3.107738983>}
 </pre>
 <p>Explanation: The string representations differ because the funs
-come from different fun experssions.</p>
+come from different fun expressions.</p>
 <pre>
 > <input>{fun() -> 1 end, fun() -> 1 end}.</input> > <input></input>
 {#Fun&lt;erl_eval.45.97283095>,#Fun&lt;erl_eval.45.97283095>}
@@ -2796,7 +2826,9 @@ uncompiled code with the same arity are mapped to the same list by
       <fsummary>Get the magic cookie of the local node.</fsummary>
       <desc>
         <p>Returns the magic cookie of the local node if the node is
-          alive, otherwise the atom <c>nocookie</c>.</p>
+          alive, otherwise the atom <c>nocookie</c>. This value is set by
+          <seemfa marker="#set_cookie/1"><c>set_cookie/1</c></seemfa>.
+        </p>
       </desc>
     </func>
 
@@ -2806,7 +2838,8 @@ uncompiled code with the same arity are mapped to the same list by
       <desc>
         <p>Returns the magic cookie for node <c><anno>Node</anno></c>
           if the local node is alive,
-          otherwise the atom <c>nocookie</c>.</p>
+          otherwise the atom <c>nocookie</c>. This value is set by
+          <seemfa marker="#set_cookie/2"><c>set_cookie/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -2875,7 +2908,7 @@ uncompiled code with the same arity are mapped to the same list by
           applications with a supervision tree, because OTP
           assumes the group leader of their processes is
           their application master.</p>
-        <p>Setting the group leader follows the signal ordering guarentees
+        <p>Setting the group leader follows the signal ordering guarantees
           described in the
           <seeguide marker="system/reference_manual:processes#signals">
           Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
@@ -3364,7 +3397,7 @@ is_process_alive(P2Pid),
        <p>See the documentation about
         <seeguide marker="system/reference_manual:processes#signals">signals</seeguide>
        and <seemfa marker="#exit/2">erlang:exit/2</seemfa> for more
-       information about signals and exit singnals.</p>
+       information about signals and exit signals.</p>
       </desc>
     </func>
 
@@ -3790,6 +3823,11 @@ is_process_alive(P2Pid),
           previous current code for <c><anno>Module</anno></c> will remain
           until the <c>on_load</c> call has finished.
           </item>
+          <tag>not_allowed</tag>
+          <item>The code in <c><anno>Binary</anno></c> has been
+          compiled with features that are currently not enabled in the
+          runtime system.
+          </item>
         </taglist>
         <warning>
           <p>This BIF is intended for the code server (see
@@ -3845,6 +3883,16 @@ is_process_alive(P2Pid),
             allowed.
           </item>
         </taglist>
+        <p>
+          If the <seeguide marker="system/reference_manual:modules#nifs_attribute">
+          <c>-nifs()</c></seeguide> attribute is used (which is recommended),
+          all NIFs in the dynamic library much be declared as such for
+          <c>load_nif/2</c> to succeed. On the other hand, all functions declared
+          with the <c>-nifs()</c> attribute do not have to be implemented by the
+          dynamic library. This allows a target independent Erlang file to
+          contain fallback implementations for functions that may lack NIF
+          support depending on target OS/hardware platform.
+        </p>
       </desc>
     </func>
 
@@ -3950,7 +3998,7 @@ is_process_alive(P2Pid),
 
     <func>
       <name name="make_tuple" arity="3" since=""/>
-      <fsummary>Create a new tuple with specifed arity and contents.</fsummary>
+      <fsummary>Create a new tuple with specified arity and contents.</fsummary>
       <desc>
         <p>Creates a tuple of size <c><anno>Arity</anno></c>, where each element
           has value <c><anno>DefaultValue</anno></c>, and then fills in
@@ -4888,6 +4936,91 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
+      <name name="nodes" arity="2" since="OTP @OTP-17934@"/>
+      <fsummary>All nodes of a certain type in the system.</fsummary>
+      <desc>
+        <p>
+          Returns a list of <c><anno>NodeInfo</anno></c> tuples. The first
+          element is the node name. Nodes to be included in the list are
+          determined by the first argument <c><anno>Arg</anno></c> in the same
+          way as for
+          <seemfa marker="#nodes/1"><c>nodes(<anno>Arg</anno>)</c></seemfa>.
+          The second element of <c><anno>NodeInfo</anno></c> tuples is a map
+          containing further information about the node identified by the
+          first element. The information present in this map is determined by
+          the <c><anno>InfoOpts</anno></c> map passed as the second argument.
+          Currently the following associations are allowed in the
+          <c><anno>InfoOpts</anno></c> map:</p>
+        <taglist>
+          <tag><c>connection_id => boolean()</c></tag>
+          <item><p>
+            If the value of the association equals <c>true</c>, the <c>Info</c>
+            map in the returned result will contain the key <c>connection_id</c>
+            associated with the value <c><anno>ConnectionId</anno></c>. If
+            <c><anno>ConnectionId</anno></c> equals <c>undefined</c>, the node
+            is not connected to the node which the caller is executing on, or
+            is the node which the caller is executing on. If
+            <c><anno>ConnectionId</anno></c> is an integer, the node is
+            currently connected to the node which the caller is executing on.
+          </p>
+          <p>
+            <marker id="connection_id"/>
+            The integer connection identifier value together with a node name
+            identifies a specific connection instance to the node with that
+            node name. The connection identifier value is node local. That is,
+            on the other node the connection identifier will <i>not</i> be the
+            same value. If a connection is taken down and then taken up again,
+            the connection identifier value will change for the connection to
+            that node. The amount of values for connection identifiers are
+            limited, so it is possible to see the same value for different
+            instances, but quite unlikely. It is undefined how the value
+            change between two consecutive connection instances.
+          </p></item>
+          <tag><c>node_type => boolean()</c></tag>
+          <item><p>
+            If the value of the association equals <c>true</c>, the <c>Info</c>
+            map in the returned result will contain the key <c>node_type</c>
+            associated with the value <c><anno>NodeTypeInfo</anno></c>.
+            Currently the following node types exist:</p>
+            <taglist>
+              <tag><c>visible</c></tag>
+              <item><p>
+                The node is connected to the node of the calling process
+                through an ordinary visible connection. That is, the node
+                name would appear in the result returned by
+                <seemfa marker="#nodes/0"><c>nodes/0</c></seemfa>.
+              </p></item>
+              <tag><c>hidden</c></tag>
+              <item><p>
+                The node is connected to the node of the calling process
+                through a hidden connection. That is, the node
+                name would <i>not</i> appear in the result returned by
+                <seemfa marker="#nodes/0"><c>nodes/0</c></seemfa>.
+              </p></item>
+              <tag><c>this</c></tag>
+              <item><p>
+                This is the node of the calling process.
+              </p></item>
+              <tag><c>known</c></tag>
+              <item><p>
+                The node is not connected but known to the node of the
+                calling process.
+              </p></item>
+            </taglist>
+          </item>
+        </taglist>
+        <p>Example:</p>
+        <code type="erl">
+(a@localhost)1> nodes([this, connected], #{connection_id=>true, node_type=>true}). 
+[{c@localhost,#{connection_id => 13892108,node_type => hidden}},
+ {b@localhost,#{connection_id => 3067553,node_type => visible}},
+ {a@localhost,#{connection_id => undefined,node_type => this}}]
+(a@localhost)2> 
+        </code>
+      </desc>
+    </func>
+
+    <func>
       <name name="now" arity="0" since=""/>
       <fsummary>Elapsed time since 00:00 GMT.</fsummary>
       <type name="timestamp"/>
@@ -4924,7 +5057,7 @@ receive_replies(ReqId, N, Acc) ->
           new Erlang port. A port can be seen as an external Erlang
           process.</p>
         <p>The name of the executable as well as the arguments
-          specifed in <c>cd</c>, <c>env</c>, <c>args</c>, and <c>arg0</c> are
+          specified in <c>cd</c>, <c>env</c>, <c>args</c>, and <c>arg0</c> are
           subject to Unicode filename translation if the system is running
           in Unicode filename mode. To avoid
           translation or to force, for example UTF-8, supply the executable
@@ -6096,6 +6229,11 @@ receive_replies(ReqId, N, Acc) ->
           If <c><anno>MaxHeapSize</anno></c> is an integer, the system default
           values for <c>kill</c> and <c>error_logger</c> are used.
         </p>
+        <p>
+          For details on how the heap grows, see
+          <seeguide marker="erts:GarbageCollection#sizing-the-heap">Sizing
+          the heap</seeguide> in the ERTS internal documentation.
+        </p>
         <taglist>
           <tag><c>size</c></tag>
           <item>
@@ -6434,7 +6572,7 @@ receive_replies(ReqId, N, Acc) ->
           <c><anno>Item</anno></c>s were included
           in <c><anno>ItemList</anno></c>. Valid <c><anno>Item</anno></c>s can
           be included multiple times in <c><anno>ItemList</anno></c>.</p>
-        <p>Getting process informations follows the signal ordering guarantees
+        <p>Getting process information follows the signal ordering guarantees
           described in the
           <seeguide marker="system/reference_manual:processes#signals">
           Processes Chapter</seeguide> in the <i>Erlang Reference Manual</i>.</p>
@@ -6632,6 +6770,14 @@ receive_replies(ReqId, N, Acc) ->
               <seeerl marker="#process_flag_message_queue_data">
               <c>process_flag(message_queue_data, MQD)</c></seeerl>.</p>
           </item>
+            <tag><c>{parent, <anno>Pid</anno>}</c></tag>
+            <item>
+                <p><c><anno>Pid</anno></c> is the identifier
+                of the parent process, the one that spawned current
+                process. When the process does not have a parent
+                <c>undefined</c> is returned. Only the initial process
+                (<c>init</c>) on a node lacks a parent, though.</p>
+            </item>
           <tag><c>{priority, <anno>Level</anno>}</c></tag>
           <item>
             <p><c><anno>Level</anno></c> is the current priority level for
@@ -7082,7 +7228,6 @@ true</pre>
     <func>
       <name name="send" arity="2" since=""/>
       <fsummary>Send a message.</fsummary>
-      <type name="dst"/>
       <desc>
         <p>Sends a message and returns <c><anno>Msg</anno></c>. This
         is the same as using the <seeguide marker="system/reference_manual:expressions#send">
@@ -7090,8 +7235,7 @@ true</pre>
 	<c><anno>Dest</anno> ! <anno>Msg</anno></c>.</p>
         <p><c><anno>Dest</anno></c> can be a remote or local process identifier,
           an alias, a (local) port, a locally registered name, or a tuple
-          <c>{<anno>RegName</anno>, <anno>Node</anno>}</c>
-        for a registered name at another node.</p>
+          <c>{RegName, Node}</c> for a registered name at another node.</p>
 	<p>The function fails with a <c>badarg</c> run-time error if
 	<c><anno>Dest</anno></c> is an atom name, but this name is not
 	registered. This is the only case when <c>send</c> fails for an
@@ -7102,7 +7246,6 @@ true</pre>
     <func>
       <name name="send" arity="3" since=""/>
       <fsummary>Send a message conditionally.</fsummary>
-      <type name="dst"/>
       <desc>
         <p>Either sends a message and returns <c>ok</c>, or does not send
           the message but returns something else (see below).
@@ -7158,7 +7301,6 @@ true</pre>
     <func>
       <name name="send_nosuspend" arity="2" since=""/>
       <fsummary>Try to send a message without ever blocking.</fsummary>
-      <type name="dst"/>
       <desc>
         <p>The same as
           <seemfa marker="#send/3"><c>erlang:send(<anno>Dest</anno>,
@@ -7208,7 +7350,6 @@ true</pre>
     <func>
       <name name="send_nosuspend" arity="3" since=""/>
       <fsummary>Try to send a message without ever blocking.</fsummary>
-      <type name="dst"/>
       <desc>
         <p>The same as
           <seemfa marker="#send/3"><c>erlang:send(<anno>Dest</anno>,
@@ -7250,6 +7391,8 @@ true</pre>
           <seeguide marker="system/reference_manual:distributed">
           Distributed Erlang</seeguide>
           in the Erlang Reference Manual in System Documentation).</p>
+        <p>You can get this value using
+          <seemfa marker="#get_cookie/0"><c>get_cookie/0</c></seemfa>.</p>
         <p>Failure: <c>function_clause</c> if the local node is not
           alive.</p>
       </desc>
@@ -7267,6 +7410,8 @@ true</pre>
           <seeguide marker="system/reference_manual:distributed">
           Distributed Erlang</seeguide>
           in the Erlang Reference Manual in System Documentation).</p>
+        <p>You can get this value using
+          <seemfa marker="#get_cookie/1"><c>get_cookie/1</c></seemfa>.</p>
         <p>Failure: <c>function_clause</c> if the local node is not
           alive.</p>
       </desc>
@@ -8037,6 +8182,11 @@ true</pre>
 	  </p>
 	  </item>
 	</taglist>
+        <p>
+          If a spawn reply message is delivered, it is guaranteed to be
+          delivered before any other signals from the newly spawned
+          process are delivered to the process issuing the spawn request.
+        </p>
 	<p>This function will fail with a <c>badarg</c> exception if:
 	</p>
 	<list>
@@ -8593,7 +8743,7 @@ lists:map(
           and <seeerl marker="#system_info_dirty_cpu_schedulers">dirty CPU</seeerl>
           schedulers in the system have been busy. This value is normally a
           better indicator of how much load an Erlang node is under instead of
-          looking at the CPU utilization privided by tools such as <c>top</c> or
+          looking at the CPU utilization provided by tools such as <c>top</c> or
           <c>sysstat</c>. This is because <c>scheduler_wall_time</c> also includes
           time where the scheduler is waiting for some other reasource (such as an internal
           mutex) to be available but does not use the CPU. In order to better
@@ -8898,7 +9048,7 @@ ok
 		</item>
 	      </taglist>
 	      <p>
-		Appart from the reply message, the <c>{asynchronous,
+		Apart from the reply message, the <c>{asynchronous,
 		ReplyTag}</c> option behaves exactly the same as the
 		<c>asynchronous</c> option without reply tag.
 	      </p>
@@ -9158,6 +9308,11 @@ ok
           <seeerl marker="#process_flag_max_heap_size">
           <c>process_flag/2</c></seeerl>.</p>
         <p>Returns the old value of the flag.</p>
+        <p>
+          For details on how the heap grows, see
+          <seeguide marker="erts:GarbageCollection#sizing-the-heap">Sizing
+          the heap</seeguide> in the ERTS internal documentation.
+        </p>
       </desc>
     </func>
 
@@ -10282,7 +10437,7 @@ Metadata = #{ pid => pid(),
               introduced in the future:</p>
             <taglist>
               <tag><c>{function, Function}</c></tag>
-              <item><p><c>Function</c> is the name of the funcion used.</p>
+              <item><p><c>Function</c> is the name of the function used.</p>
               </item>
               <tag><c>{clock_id, ClockId}</c></tag>
               <item><p>Exists only if <c>Function</c>
@@ -12460,7 +12615,7 @@ improper_end</pre>
           <item>
             <p>Returns a list of atoms indicating what kind of traces is
               enabled for the process. The list is empty if no
-              traces are enabled, and one or more of the followings
+              traces are enabled, and one or more of the following
               atoms if traces are enabled: <c>send</c>,
               <c>'receive'</c>, <c>set_on_spawn</c>, <c>call</c>,
               <c>return_to</c>, <c>procs</c>, <c>ports</c>,

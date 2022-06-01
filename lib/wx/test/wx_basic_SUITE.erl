@@ -607,7 +607,7 @@ check_events([{sync_event, #wx{event=#wxPaint{}}, Obj}|Rest], Async, Sync) ->
     ?mt(wxPaintEvent, Obj),
     check_events(Rest, Async, Sync+1);
 check_events([], Async, Sync) ->
-    case Async > 0 of  %% Test sync explictly
+    case Async > 0 of  %% Test sync explicitly
 	true -> ok;
 	false -> {Async, Sync}
     end.

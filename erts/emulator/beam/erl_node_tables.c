@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -152,8 +152,12 @@ dist_table_alloc(void *dep_tmpl)
     Eterm sysname;
     Binary *bin;
     DistEntry *dep;
+    Uint32 init_connection_id;
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
+
+    init_connection_id = (Uint32) erts_get_monotonic_time(NULL);
+    init_connection_id &= ERTS_DIST_CON_ID_MASK;
 
     sysname = ((DistEntry *) dep_tmpl)->sysname;
 
@@ -175,7 +179,7 @@ dist_table_alloc(void *dep_tmpl)
     dep->creation                       = 0; /* undefined */
     dep->cid				= NIL;
     erts_atomic_init_nob(&dep->input_handler, (erts_aint_t) NIL);
-    dep->connection_id			= 0;
+    dep->connection_id			= init_connection_id;
     dep->state				= ERTS_DE_STATE_IDLE;
     dep->pending_nodedown               = 0;
     dep->suspended_nodeup               = NULL;
@@ -1567,6 +1571,20 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
     }
 }
 
+static ERTS_INLINE ErlHeapFragment *
+get_hidden_heap_frag(Eterm val)
+{
+    ErlHeapFragment *hfp;
+    if (is_immed(val))
+        hfp = NULL;
+    else {
+        ASSERT(is_CP(val));
+        hfp = (ErlHeapFragment *) cp_val(val);
+        ASSERT(hfp->alloc_size == hfp->used_size + 1);
+    }
+    return hfp;
+}
+
 static void insert_monitor_data(ErtsMonitor *mon, int type, Eterm id)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
@@ -1580,6 +1598,23 @@ static void insert_monitor_data(ErtsMonitor *mon, int type, Eterm id)
                 ERTS_INIT_OFF_HEAP(&oh);
                 oh.first = mdep->uptr.ohhp;
                 insert_offheap(&oh, type, id);
+            }
+            if (mdp->origin.flags & ERTS_ML_FLG_TAG) {
+                ErlHeapFragment *hfp;
+                Eterm tag_storage;
+                if (mdp->origin.flags & ERTS_ML_FLG_EXTENDED)
+                    tag_storage = ((ErtsMonitorDataExtended *) mdp)->heap[0];
+                else
+                    tag_storage = ((ErtsMonitorDataTagHeap *) mdp)->heap[0];
+                hfp = get_hidden_heap_frag(tag_storage);
+                if (hfp)
+                    insert_offheap(&hfp->off_heap, type, id);
+            }
+            if (mdp->origin.flags & ERTS_ML_FLG_SPAWN_PENDING) {
+                ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
+                ErlHeapFragment *hfp = get_hidden_heap_frag(mdep->u.name);
+                if (hfp)
+                    insert_offheap(&hfp->off_heap, type, id);
             }
         }
     }

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,11 +52,9 @@ iter_max_files_1(Config) ->
             N = 10
     end,
     %% Run on a different node in order to make the test more stable.
-    Dir = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = test_server:start_node(test_iter_max_files,slave,
-                                       [{args,"-pa " ++ Dir}]),
+    {ok, Peer, Node} = ?CT_PEER(),
     L = rpc:call(Node,?MODULE,do_iter_max_files,[N, TestFile]),
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     io:format("Number of files opened in each test:~n~w\n", [L]),
     verify_max_files(L),
     Head = hd(L),

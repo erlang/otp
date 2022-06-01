@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -136,7 +136,6 @@ real_requests()->
      invalid_method,
      no_scheme,
      invalid_uri,
-     undefined_port,
      binary_url
     ].
 
@@ -258,8 +257,8 @@ init_per_group(http_unix_socket = Group, Config0) ->
             file:delete(?UNIX_SOCKET),
             start_apps(Group),
             Config = proplists:delete(port, Config0),
-            Port = server_start(Group, server_config(Group, Config)),
-            [{port, Port} | Config]
+            {Pid, Port} = server_start(Group, server_config(Group, Config)),
+            lists:append([{dummy_server_pid, Pid}, {port, Port}], Config)
     end;
 init_per_group(http_ipv6 = Group, Config0) ->
     case is_ipv6_supported() of
@@ -277,7 +276,16 @@ init_per_group(Group, Config0) ->
     Port = server_start(Group, server_config(Group, Config)),
     [{port, Port} | Config].
 
-end_per_group(http_unix_socket,_Config) ->
+end_per_group(http_unix_socket, Config) ->
+    Pid = ?config(dummy_server_pid, Config),
+    Pid ! {stop, self()},
+    %% request is needed for enforcing dummy server and handlers stop; without a
+    %% it, dummy server waits in gen_tcp:accept and will not process stop request
+    httpc:request(get, {"http://localhost/v1/kv/foo", []}, [], []),
+    receive
+        {stopped, DummyServerPid} ->
+            ok
+    end,
     file:delete(?UNIX_SOCKET),
     ok;
 end_per_group(_, _Config) ->
@@ -420,7 +428,7 @@ post() ->
      "only care about the client side of the the post. The server "
      "script will not actually use the post data."}].
 post(Config) when is_list(Config) ->
-    CGI = case test_server:os_type() of
+    CGI = case os:type() of
 	      {win32, _} ->
 		  "/cgi-bin/cgi_echo.exe";
 	      _ ->
@@ -445,7 +453,7 @@ delete() ->
      "only care about the client side of the the delete. The server "
      "script will not actually use the delete data."}].
 delete(Config) when is_list(Config) ->
-    CGI = case test_server:os_type() of
+    CGI = case os:type() of
           {win32, _} ->
           "/cgi-bin/cgi_echo.exe";
           _ ->
@@ -469,7 +477,7 @@ patch() ->
      "only care about the client side of the the patch. The server "
      "script will not actually use the patch data."}].
 patch(Config) when is_list(Config) ->
-    CGI = case test_server:os_type() of
+    CGI = case os:type() of
 	      {win32, _} ->
 		  "/cgi-bin/cgi_echo.exe";
 	      _ ->
@@ -491,7 +499,7 @@ post_stream() ->
      "We only care about the client side of the the post. "
      "The server script will not actually use the post data."}].
 post_stream(Config) when is_list(Config) ->
-    CGI = case test_server:os_type() of
+    CGI = case os:type() of
 	      {win32, _} ->
 		  "/cgi-bin/cgi_echo.exe";
 	      _ ->
@@ -1367,12 +1375,6 @@ invalid_uri(Config) ->
     {error, invalid_uri} = httpc:request(URL),
     ok.
 
-%%-------------------------------------------------------------------------
-
-undefined_port(_Config) ->
-    {error, {failed_connect, _Reason}} = httpc:request("http://:"),
-    ok.
-
 
 %%-------------------------------------------------------------------------
 remote_socket_close(Config) when is_list(Config) ->
@@ -1955,9 +1957,9 @@ server_start(http_unix_socket, Config) ->
     Inet = local,
     Socket = proplists:get_value(unix_socket, Config),
     ok = httpc:set_options([{ipfamily, Inet},{unix_socket, Socket}]),
-    {_Pid, Port} = http_test_lib:dummy_server(unix_socket, Inet, [{content_cb, ?MODULE},
+    {Pid, Port} = http_test_lib:dummy_server(unix_socket, Inet, [{content_cb, ?MODULE},
                                                                   {unix_socket, Socket}]),
-    Port;
+    {Pid, Port};
 server_start(http_ipv6, HttpdConfig) ->
     {ok, Pid} = inets:start(httpd, HttpdConfig),
     Serv = inets:services_info(),
@@ -2051,7 +2053,7 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
 			       end
 		  end, Files),
     
-    Cgi = case test_server:os_type() of
+    Cgi = case os:type() of
 	      {win32, _} ->
 		  "cgi_echo.exe";
 	      _ ->
@@ -2093,7 +2095,7 @@ receive_replys([ID|IDs]) ->
 	{http, {ID, {{_, 200, _}, [_|_], _}}} ->
 	    receive_replys(IDs);
 	{http, {Other, {{_, 200, _}, [_|_], _}}} ->
-	    ct:pal({recived_canceld_id, Other})
+	    ct:pal("~p",[{recived_canceld_id, Other}])
     end.
 
 

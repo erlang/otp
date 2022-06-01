@@ -47,7 +47,7 @@ to make the Erlang/OTP distribution for Windows better. Please submit
 any suggestions or patches to our [git project] [2] to let
 them find their way into the next version of Erlang. If making changes
 to the build system (like makefiles etc) please bear in mind that the
-same makefiles are used on Unix/VxWorks, so that your changes
+same makefiles are used on Unix, so that your changes
 don't break other platforms. That of course goes for C-code too; system
 specific code resides in the `$ERL_TOP/erts/emulator/sys/win32` and
 `$ERL_TOP/erts/etc/win32` directories mostly. The
@@ -728,7 +728,7 @@ Lets get into more detail:
 2.  `$ ./otp_build boot -a` - This uses the bootstrap directory (shipped
     with the source, `$ERL_TOP/bootstrap`) to build a complete OTP
     system. When this is done you can run erl from within the source tree; 
-    just type `$ERL_TOP/bin/erl` and you whould have the prompt. 
+    just type `$ERL_TOP/bin/erl` and you would have the prompt. 
 
 3.  `$ ./otp_build release -a` - Builds a commercial release tree from the
     source tree. The default is to put it in `$ERL_TOP/release/win32`. You can

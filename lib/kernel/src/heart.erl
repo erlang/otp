@@ -370,7 +370,7 @@ check_system([?SCHEDULER_CHECK_OPT|Opts]) ->
 %% return 'ok' if everything is alright.
 %% Terminate if with reason if something is a miss.
 %% It is fine to timeout in the callback, in fact that is the intention
-%% if something goes wront -> no heartbeat.
+%% if something goes wrong -> no heartbeat.
 
 check_callback(Callback) ->
     case Callback of

@@ -390,6 +390,8 @@ characters_to_binary_int(ML, InEncoding) ->
             fake_stacktrace(Reason, characters_to_binary, [ML, InEncoding])
     end.
 
+-spec fake_stacktrace(term(), atom(), [term()]) -> no_return().
+
 fake_stacktrace(Reason, Name, Args) ->
     try
         error(new_stacktrace, Args)

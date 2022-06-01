@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,10 +39,10 @@
 -export([m_out_of_n/3,do_times/4,do_times/2]).
 -export([call_crash/3,call_crash/4,call_crash/5]).
 -export([temp_name/1]).
--export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1]).
+-export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1, find_release/1]).
+-export([peer_name/2, start_peer/3, start_peer/5]).
 -export([app_test/1, app_test/2, appup_test/1]).
 -export([comment/1, make_priv_dir/0]).
--export([os_type/0]).
 -export([run_on_shielded_node/2]).
 -export([is_cover/0,is_debug/0,is_commercial/0]).
 
@@ -347,8 +347,7 @@ stick_all_sticky(Node,Sticky) ->
 %% Returns a tuple with the time spent (in seconds) in the test case,
 %% the return value from the test case or an {'EXIT',Reason} if the case
 %% failed, Loc points out where the test case crashed (if it did). Loc
-%% is either the name of the function, or {<Module>,<Line>} of the last
-%% line executed that had a ?line macro. If the test case did execute
+%% is the name of the function. If the test case did execute
 %% erase/0 or similar, it may be empty. Comment is the last comment added
 %% by test_server:comment/1, the reason if test_server:fail has been
 %% called or the comment given by the return value {comment,Comment} from
@@ -360,7 +359,7 @@ stick_all_sticky(Node,Sticky) ->
 %% TimetrapData = {MultiplyTimetrap,ScaleTimetrap}, which indicates a
 %% possible extension of all timetraps. Timetraps will be multiplied by
 %% MultiplyTimetrap. If it is infinity, no timetraps will be started at all.
-%% ScaleTimetrap indicates if test_server should attemp to automatically
+%% ScaleTimetrap indicates if test_server should attempt to automatically
 %% compensate timetraps for runtime delays introduced by e.g. tools like
 %% cover.
 
@@ -1889,7 +1888,7 @@ capture_stop() ->
 %% Note that since output arrive as messages to the process, it takes
 %% a short while from the call to io:format until all output is available
 %% by capture_get/0. It is not necessary to call capture_stop/0 before
-%% retreiving the output.
+%% retrieving the output.
 capture_get() ->
     test_server_sup:capture_get([]).
 
@@ -1970,6 +1969,9 @@ adjusted_sleep(MSecs) ->
 %%
 %% Immediately calls exit. Included because test suites are easier
 %% to read when using this function, rather than exit directly.
+
+-spec fail(term()) -> no_return().
+
 fail(Reason) ->
     comment(cast_to_list(Reason)),
     try
@@ -1994,6 +1996,9 @@ cast_to_list(X) -> lists:flatten(io_lib:format("~tp", [X])).
 %%
 %% Immediately calls exit. Included because test suites are easier
 %% to read when using this function, rather than exit directly.
+
+-spec fail() -> no_return().
+
 fail() ->
     try
 	exit(suite_failed)
@@ -2553,10 +2558,10 @@ m_out_of_n(M,N,Fun) ->
 %%	Time  - integer() in milliseconds.
 %%	Crash - term()
 %%
-%%	Spaws a new process that calls MFA. The call is considered
+%%	Spawns a new process that calls MFA. The call is considered
 %%      successful if the call crashes with the given reason (Crash),
 %%      or any other reason if Crash is not specified.
-%%	** The call must terminate withing the given Time (defaults
+%%	** The call must terminate within the given Time (defaults
 %%      to infinity), or it is considered a failure (exit with reason
 %%      'call_crash_timeout' is generated).
 
@@ -2575,14 +2580,12 @@ call_crash(Time,Crash,M,F,A) ->
 %% Type = slave | peer
 %% Options = [{tuple(), term()}]
 %%
-%% OptionList is a tuplelist wich may contain one
+%% OptionList is a tuplelist which may contain one
 %% or more of these members:
 %%
 %% Slave and Peer:
 %% {remote, true}         - Start the node on a remote host. If not specified,
-%%                          the node will be started on the local host (with
-%%                          some exceptions, for instance VxWorks,
-%%                          where all nodes are started on a remote host).
+%%                          the node will be started on the local host.
 %% {args, Arguments}      - Arguments passed directly to the node.
 %% {cleanup, false}       - Nodes started with this option will not be killed
 %%                          by the test server after completion of the test case
@@ -2687,6 +2690,7 @@ wait_for_node(Slave) ->
     end,
     Result.
 
+-compile([{nowarn_deprecated_function, [{slave, stop, 1}]}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% stop_node(Name) -> true|false
@@ -2766,6 +2770,117 @@ is_release_available(Release) ->
 		      {test_server_ctrl,is_release_available,[Release]}},
     receive {sync_result,R} -> R end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% find_release(Release) -> PathToReleaseErlFile | not_available
+%% Release -> string()
+%%
+%% Test if a release (such as "r10b") and if so return the path to the
+%% release's erl file
+
+find_release(Release) ->
+    group_leader() ! {sync_apply,
+		      self(),
+		      {test_server_ctrl,find_release,[Release]}},
+    receive {sync_result,R} -> R end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% API for starting peer nodes according to Common Test conventions
+peer_name(Module, TestCase) ->
+    peer:random_name(lists:concat([Module, "-", TestCase])).
+
+%% Command line arguments passed
+-spec start_peer([string()] | peer:start_options(), atom() | string(), TestCase :: atom() | string()) ->
+    {ok, gen_statem:server_ref(), node()} | {error, term()}.
+start_peer(Args, Module, TestCase) when is_list(Args) ->
+    start_peer(#{args => Args, name => peer_name(Module, TestCase)}, Module);
+
+%% Full set of options passed
+start_peer(#{name := _Name} = Opts, Module, _TestCase) ->
+    start_peer(Opts, Module);
+start_peer(Opts, Module, TestCase) ->
+    start_peer(Opts#{name => peer_name(Module, TestCase)}, Module).
+
+%% Release compatibility testing
+-spec start_peer([string()] | peer:start_options(), atom() | string(), TestCase :: atom() | string(),
+    Release :: string(), OutDir :: file:filename()) ->
+        {ok, gen_statem:server_ref(), node()} | {error, term()} | not_available.
+start_peer(Args, Module, TestCase, Release, OutDir) when is_list(Args) ->
+    start_peer(#{args => Args}, Module, TestCase, Release, OutDir);
+start_peer(Opts, Module, TestCase, Release, OutDir) ->
+    case find_release(Release) of
+        not_available ->
+            not_available;
+        Erl ->
+            %% remove ERL_AFLAGS, because they may contain "-emu_type debug" which does not exist
+            %% for old releases. Keep ERL_FLAGS, and ERL_ZFLAGS for sometimes you might need it...
+            Env = maps:get(env, Opts, []) ++ [{"ERL_AFLAGS", false}],
+            NewArgs = ["-pa", peer_compile(Erl, code:which(peer), OutDir) | maps:get(args, Opts, [])],
+            start_peer(Opts#{exec => Erl, args => NewArgs,
+                env => Env}, Module, TestCase)
+    end.
+
+%% Internal implementation
+start_peer(#{name := Name} = Opts, Module) ->
+    CrashDir = test_server_sup:crash_dump_dir(),
+    CrashFile = filename:join([CrashDir, lists:concat(["erl_crash_dump.", Name])]),
+    Args = maps:get(args, Opts, []),
+    CookieArg =
+        case lists:member("-setcookie", Args) of
+            false ->
+                ["-setcookie", atom_to_list(erlang:get_cookie())];
+            true ->
+                []
+        end,
+    FullArgs = CookieArg ++ ["-pa", filename:dirname(code:which(Module)),
+        "-env", "ERL_CRASH_DUMP", CrashFile] ++ Args,
+    %% start_cover => false is intentionally undocumented, and is not
+    %%  expected to be used by anything but cover_SUITE test.
+    case maps:get(start_cover, Opts, true) andalso test_server:is_cover() of
+        true ->
+            %% when cover is active, node must shut down gracefully, otherwise
+            %% coverage information won't be sent to cover master
+            CoverMain = cover:get_main_node(),
+            %% next line is a way to trick Dialyzer into not complaining over undocumented type
+            Shutdown = binary_to_term(term_to_binary({10000, CoverMain})),
+            case peer:start_link(Opts#{args => FullArgs, shutdown => Shutdown}) of
+                {ok, Peer, Node} ->
+                    do_cover_for_node(Node, start),
+                    {ok, Peer, Node};
+                Other ->
+                    Other
+            end;
+        false ->
+            peer:start_link(Opts#{args => FullArgs})
+    end.
+
+%% When a different release is requested, peer.erl needs to be compiled for
+%%  that specific release using the path supplied for 'erl'
+peer_compile(Erl, cover_compiled, OutDir) ->
+    {file, Path} = cover:is_compiled(peer),
+    peer_compile(Erl, Path, OutDir);
+peer_compile(Erl, ModPath, OutDir) ->
+    {ok, ModSrc} = filelib:find_source(ModPath),
+    Erlc = filename:join(filename:dirname(Erl), "erlc"),
+    cmd(Erlc, ["-o", OutDir, ModSrc]),
+    OutDir.
+
+%% This should really be implemented as os:cmd.
+cmd(Exec, Args) ->
+    %% remove all ERL_AFLAGS to drop "-emu_type debug" and similar
+    Env = [{"ERL_AFLAGS", false}],
+    Port = open_port({spawn_executable, Exec}, [{args, Args}, {env, Env},
+        stream, binary, exit_status, stderr_to_stdout]),
+    read_std(Port, lists:join(" ", [Exec|Args]), <<>>).
+
+read_std(Port, Exec, Out) ->
+    receive
+        {Port, {data, More}} ->
+            read_std(Port, Exec, <<Out/binary, More/binary>>);
+        {Port, {exit_status, 0}}  ->
+            Out;
+       {Port, {exit_status, Status}} ->
+            erlang:error({exit, Status, Exec, Out})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% run_on_shielded_node(Fun, CArgs) -> term()
@@ -2909,15 +3024,6 @@ read_comment() ->
 %% for the current test case.
 make_priv_dir() ->
     tc_supervisor_req(make_priv_dir).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% os_type() -> OsType
-%%
-%% Returns the OsType of the target node. OsType is
-%% the same as returned from os:type()
-os_type() ->
-    os:type().
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% is_cover() -> boolean()

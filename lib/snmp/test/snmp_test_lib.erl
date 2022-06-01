@@ -26,7 +26,7 @@
 -export([tc_try/2, tc_try/3,
          tc_try/4, tc_try/5]).
 -export([proxy_call/3]).
--export([hostname/0, hostname/1, localhost/0, localhost/1, os_type/0, sz/1,
+-export([hostname/0, hostname/1, localhost/0, localhost/1, sz/1,
 	 display_suite_info/1]).
 -export([non_pc_tc_maybe_skip/4,
          os_based_skip/1,
@@ -41,8 +41,7 @@
 -export([hours/1, minutes/1, seconds/1, sleep/1]).
 -export([flush_mqueue/0, mqueue/0, mqueue/1, trap_exit/0, trap_exit/1]).
 -export([ping/1, local_nodes/0, nodes_on/1]).
--export([start_node/2, stop_node/1]).
--export([is_app_running/1, 
+-export([is_app_running/1,
 	 is_crypto_running/0, is_mnesia_running/0, is_snmp_running/0,
          ensure_not_running/3]).
 -export([crypto_start/0, crypto_support/0]).
@@ -71,7 +70,7 @@
 %%         conditions.
 %% Pre:    A fun that is nominally part of the test case
 %%         but is an initiation that must be "undone". This is
-%%         done by the Post fun (regardless if the TC is successfull
+%%         done by the Post fun (regardless if the TC is successful
 %%         or not). Example: Starts a couple of nodes,
 %% TC:     The test case fun
 %% Post:   A fun that undo what was done by the Pre fun.
@@ -119,7 +118,7 @@ tc_try(Case, TCCond, Pre, TC, Post)
                                                 (C =:= exit) ->
                             tc_print("test case (~w) skip: try post", [C]),
                             (catch Post(State)),
-                            tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                            tc_end( f("skipping(caught,~w,tc)", [C]) ),
                             SKIP;
                         C:E:S ->
                             %% We always check the system events
@@ -130,7 +129,7 @@ tc_try(Case, TCCond, Pre, TC, Post)
                                 [] ->
                                     tc_print("test case failed: try post"),
                                     (catch Post(State)),
-                                    tc_end( f("failed(catched,~w,tc)", [C]) ),
+                                    tc_end( f("failed(caught,~w,tc)", [C]) ),
                                     erlang:raise(C, E, S);
                                 SysEvs ->
                                     tc_print("System Events received during tc: "
@@ -150,7 +149,7 @@ tc_try(Case, TCCond, Pre, TC, Post)
             catch
                 C:{skip, _} = SKIP when (C =:= throw) orelse
                                         (C =:= exit) ->
-                    tc_end( f("skipping(catched,~w,tc-pre)", [C]) ),
+                    tc_end( f("skipping(caught,~w,tc-pre)", [C]) ),
                     SKIP;
                 C:E:S ->
                     %% We always check the system events
@@ -162,7 +161,7 @@ tc_try(Case, TCCond, Pre, TC, Post)
                                      "~n   E: ~p"
                                      "~n   S: ~p",
                                      [C, E, S]),
-                            tc_end( f("auto-skip(catched,~w,tc-pre)", [C]) ),
+                            tc_end( f("auto-skip(caught,~w,tc-pre)", [C]) ),
                             SKIP = {skip, f("TC-Pre failure (~w)", [C])},
                             SKIP;
                         SysEvs ->
@@ -186,13 +185,13 @@ tc_try(Case, TCCond, Pre, TC, Post)
             exit({tc_cond_failed, Reason})
     catch
         C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-            tc_end( f("skipping(catched,~w,cond)", [C]) ),
+            tc_end( f("skipping(caught,~w,cond)", [C]) ),
             SKIP;
         C:E:S ->
             %% We always check the system events before we accept a failure
             case snmp_test_global_sys_monitor:events() of
                 [] ->
-                    tc_end( f("failed(catched,~w,cond)", [C]) ),
+                    tc_end( f("failed(caught,~w,cond)", [C]) ),
                     erlang:raise(C, E, S);
                 SysEvs ->
                     tc_print("System Events received: "
@@ -411,16 +410,6 @@ sz(B) when is_binary(B) ->
     size(B);
 sz(O) ->
     {unknown_size,O}.
-
-
-os_type() ->
-    case (catch test_server:os_type()) of
-	{'EXIT', _} ->
-	    %% Pre-R10 test server does not have this function
-	    os:type();
-	OsType ->
-	    OsType
-    end.
 
 display_suite_info(SUITE) when is_atom(SUITE) ->
     (catch do_display_suite_info(SUITE)).
@@ -968,7 +957,7 @@ skip(Reason, Module, Line) ->
     exit({skip, String}).
     
 
-%% This function prints various host info, which might be usefull
+%% This function prints various host info, which might be useful
 %% when analyzing the test suite (results).
 %% It also returns a "factor" that can be used when deciding 
 %% the load for some test cases. Such as run time or number of
@@ -1458,39 +1447,71 @@ analyze_and_print_openbsd_host_info(Version) ->
             io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             CPUFactor =
                 if
-                    (CPUSpeed =:= -1) ->
-                        1;
+                    (CPUSpeed >= 3000) ->
+                        if
+                            (NCPU >= 8) ->
+                                1;
+                            (NCPU >= 6) ->
+                                2;
+                            (NCPU >= 4) ->
+                                3;
+                            (NCPU >= 2) ->
+                                4;
+                            true ->
+                                10
+                        end;
                     (CPUSpeed >= 2000) ->
                         if
-                            (NCPU >= 4) ->
-                                1;
-                            (NCPU >= 2) ->
+                            (NCPU >= 8) ->
                                 2;
+                            (NCPU >= 6) ->
+                                3;
+                            (NCPU >= 4) ->
+                                4;
+                            (NCPU >= 2) ->
+                                5;
                             true ->
-                                3
+                                12
+                        end;
+                    (CPUSpeed >= 1000) ->
+                        if
+                            (NCPU >= 8) ->
+                                3;
+                            (NCPU >= 6) ->
+                                4;
+                            (NCPU >= 4) ->
+                                5;
+                            (NCPU >= 2) ->
+                                6;
+                            true ->
+                                14
                         end;
                     true ->
                         if
+                            (NCPU >= 8) ->
+                                4;
+                            (NCPU >= 6) ->
+                                6;
                             (NCPU >= 4) ->
-                                2;
+                                8;
                             (NCPU >= 2) ->
-                                3;
+                                10;
                             true ->
-                                4
+                                20
                         end
                 end,
             MemAddFactor =
                 if
-                    (Memory =:= -1) ->
+                    (Memory >= 16777216) ->
                         0;
                     (Memory >= 8388608) ->
-                        0;
-                    (Memory >= 4194304) ->
                         1;
+                    (Memory >= 4194304) ->
+                        3;
                     (Memory >= 2097152) ->
-                        2;
+                        5;
                     true ->
-                        3
+                        10
                 end,
             {CPUFactor + MemAddFactor, []}
         end
@@ -2466,15 +2487,6 @@ local_nodes() ->
 
 nodes_on(Host) when is_list(Host) ->
     net_adm:world_list([list_to_atom(Host)]).
-
-
-start_node(Name, Args) ->
-    Opts = [{cleanup, false}, {args, Args}],
-    test_server:start_node(Name, peer, Opts).
-
-
-stop_node(Node) ->
-    test_server:stop_node(Node).
 
 
 %% ----------------------------------------------------------------

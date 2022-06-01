@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@
 %%%     setuid_socket_wrap. Then the command line argument
 %%%     "-tftpd_69 22" will trigger the prebound file
 %%%     descriptor 22 to be used instead of opening port 69.
-%%%     The UDP option {udp, [{fd, 22}]} autmatically be added.
+%%%     The UDP option {udp, [{fd, 22}]} automatically be added.
 %%%     See init:get_argument/ about command line arguments and
 %%%     gen_udp:open/2 about UDP options.
 %%%
@@ -107,7 +107,7 @@
 %%%     usage is when used in conjunction with setuid_socket_wrap
 %%%     to be able to open privileged sockets. For example if the
 %%%     file descriptor 22 has been opened by setuid_socket_wrap
-%%%     and you have choosen my_tftp_fd as init argument, the
+%%%     and you have chosen my_tftp_fd as init argument, the
 %%%     command line should like this "erl -my_tftp_fd 22" and 
 %%%     FileDesc should be set to my_tftpd_fd. This would 
 %%%     automatically imply {fd, 22} to be set as UDP option.

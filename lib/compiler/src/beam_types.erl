@@ -49,6 +49,8 @@
 
 -export([limit_depth/1]).
 
+-export([decode_ext/1, encode_ext/1]).
+
 %% This is exported to help catch errors in property test generators and is not
 %% meant to be used outside of test suites.
 -export([verified_type/1]).
@@ -615,6 +617,8 @@ make_integer(Min, Max) when is_integer(Min), is_integer(Max), Min =< Max ->
 limit_depth(Type) ->
     limit_depth(Type, ?MAX_TYPE_DEPTH).
 
+-spec limit_depth(type(), non_neg_integer()) -> type().
+
 limit_depth(#t_cons{}=T, Depth) ->
     limit_depth_list(T, Depth);
 limit_depth(#t_list{}=T, Depth) ->
@@ -723,20 +727,9 @@ glb(#t_bitstring{size_unit=U1}, #t_bitstring{size_unit=U2}) ->
 glb(#t_bitstring{size_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     T#t_bitstring{size_unit=Unit};
-glb(#t_bs_context{tail_unit=UnitA,slots=SlotCountA,valid=ValidSlotsA},
-    #t_bs_context{tail_unit=UnitB,slots=SlotCountB,valid=ValidSlotsB}) ->
-    CommonSlotMask = (1 bsl min(SlotCountA, SlotCountB)) - 1,
-    CommonSlotsA = ValidSlotsA band CommonSlotMask,
-    CommonSlotsB = ValidSlotsB band CommonSlotMask,
+glb(#t_bs_context{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
-    if
-        CommonSlotsA =:= CommonSlotsB ->
-            #t_bs_context{tail_unit=Unit,
-                          slots=max(SlotCountA, SlotCountB),
-                          valid=ValidSlotsA bor ValidSlotsB};
-        CommonSlotsA =/= CommonSlotsB ->
-            none
-    end;
+    #t_bs_context{tail_unit=Unit};
 glb(#t_bs_context{tail_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     T#t_bs_context{tail_unit=Unit};
@@ -773,12 +766,17 @@ glb(#t_float{elements={MinA,MaxA}}, #t_float{elements={MinB,MaxB}})
        MinB >= MinA, MinB =< MaxA ->
     true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
     #t_float{elements={max(MinA, MinB),min(MaxA, MaxB)}};
-glb(#t_fun{arity=Same,type=TypeA}, #t_fun{arity=Same,type=TypeB}=T) ->
+glb(#t_fun{arity=SameArity,target=SameTarget,type=TypeA},
+    #t_fun{arity=SameArity,target=SameTarget,type=TypeB}=T) ->
     T#t_fun{type=meet(TypeA, TypeB)};
-glb(#t_fun{arity=any,type=TypeA}, #t_fun{type=TypeB}=T) ->
-    T#t_fun{type=meet(TypeA, TypeB)};
-glb(#t_fun{type=TypeA}=T, #t_fun{arity=any,type=TypeB}) ->
-    T#t_fun{type=meet(TypeA, TypeB)};
+glb(#t_fun{target=TargetA}=A, #t_fun{target=any}=B) when TargetA =/= any ->
+    glb(A, B#t_fun{target=TargetA});
+glb(#t_fun{target=any}=A, #t_fun{target=TargetB}=B) when TargetB =/= any ->
+    glb(A#t_fun{target=TargetB}, B);
+glb(#t_fun{arity=any}=A, #t_fun{arity=ArityB}=B) when ArityB =/= any->
+    glb(A#t_fun{arity=ArityB}, B);
+glb(#t_fun{arity=ArityA}=A, #t_fun{arity=any}=B) when ArityA =/= any ->
+    glb(A, B#t_fun{arity=ArityA});
 glb(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
     T;
 glb(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
@@ -899,11 +897,8 @@ lub(#t_bitstring{size_unit=U1}, #t_bs_context{tail_unit=U2}) ->
     #t_bs_matchable{tail_unit=gcd(U1, U2)};
 lub(#t_bitstring{size_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
     lub_bs_matchable(UnitA, UnitB);
-lub(#t_bs_context{tail_unit=UnitA,slots=SlotsA,valid=ValidA},
-    #t_bs_context{tail_unit=UnitB,slots=SlotsB,valid=ValidB}) ->
-    #t_bs_context{tail_unit=gcd(UnitA, UnitB),
-                  slots=min(SlotsA, SlotsB),
-                  valid=ValidA band ValidB};
+lub(#t_bs_context{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}) ->
+    #t_bs_context{tail_unit=gcd(UnitA, UnitB)};
 lub(#t_bs_context{tail_unit=U1}, #t_bitstring{size_unit=U2}) ->
     #t_bs_matchable{tail_unit=gcd(U1, U2)};
 lub(#t_bs_context{tail_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
@@ -932,8 +927,11 @@ lub(#t_float{}, #t_integer{}) ->
     number;
 lub(#t_float{}, number) ->
     number;
-lub(#t_fun{arity=Same,type=TypeA}, #t_fun{arity=Same,type=TypeB}) ->
-    #t_fun{arity=Same,type=join(TypeA, TypeB)};
+lub(#t_fun{arity=SameArity,target=SameTarget,type=TypeA},
+    #t_fun{arity=SameArity,target=SameTarget,type=TypeB}) ->
+    #t_fun{arity=SameArity,target=SameTarget,type=join(TypeA, TypeB)};
+lub(#t_fun{arity=SameArity,type=TypeA}, #t_fun{arity=SameArity,type=TypeB}) ->
+    #t_fun{arity=SameArity,type=join(TypeA, TypeB)};
 lub(#t_fun{type=TypeA}, #t_fun{type=TypeB}) ->
     #t_fun{type=join(TypeA, TypeB)};
 lub(#t_integer{elements={MinA,MaxA}},
@@ -1109,7 +1107,18 @@ verified_normal_type(#t_cons{type=Type,terminator=Term}=T) ->
     _ = verified_type(Type),
     _ = verified_type(Term),
     T;
-verified_normal_type(#t_fun{arity=Arity,type=ReturnType}=T)
+verified_normal_type(#t_fun{arity=Arity,
+                            target={Name,TotalArity},
+                            type=ReturnType}=T)
+  when is_integer(Arity),
+       is_atom(Name),
+       is_integer(TotalArity),
+       TotalArity >= Arity ->
+    _ = verified_type(ReturnType),
+    T;
+verified_normal_type(#t_fun{arity=Arity,
+                            target=any,
+                            type=ReturnType}=T)
   when Arity =:= any; is_integer(Arity) ->
     _ = verified_type(ReturnType),
     T;
@@ -1125,6 +1134,9 @@ verified_normal_type(#t_list{type=Type,terminator=Term}=T) ->
 verified_normal_type(#t_map{}=T) -> T;
 verified_normal_type(nil=T) -> T;
 verified_normal_type(number=T) -> T;
+verified_normal_type(pid=T) -> T;
+verified_normal_type(port=T) -> T;
+verified_normal_type(reference=T) -> T;
 verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
     %% All known elements must have a valid index and type (which may be a
     %% union). 'any' is prohibited since it's implicit and should never be
@@ -1137,3 +1149,93 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
                       verified_type(Element)
               end, [], Es),
     T.
+
+%%%
+%%% External type format
+%%%
+%%% This is a stripped-down version of our internal format, focusing solely on
+%%% primary types and unions thereof. The idea is to help the JIT skip minor
+%%% details inside instructions when we know they're pointless, such as
+%%% checking whether the source of `is_tagged_tuple` is boxed, or reducing an
+%%% equality check to a single machine compare instruction when we know that
+%%% both arguments are immediates.
+%%%
+
+-define(BEAM_TYPE_ATOM,          (1 bsl 0)).
+-define(BEAM_TYPE_BITSTRING,     (1 bsl 1)).
+-define(BEAM_TYPE_BS_MATCHSTATE, (1 bsl 2)).
+-define(BEAM_TYPE_CONS,          (1 bsl 3)).
+-define(BEAM_TYPE_FLOAT,         (1 bsl 4)).
+-define(BEAM_TYPE_FUN,           (1 bsl 5)).
+-define(BEAM_TYPE_INTEGER,       (1 bsl 6)).
+-define(BEAM_TYPE_MAP,           (1 bsl 7)).
+-define(BEAM_TYPE_NIL,           (1 bsl 8)).
+-define(BEAM_TYPE_PID,           (1 bsl 9)).
+-define(BEAM_TYPE_PORT,          (1 bsl 10)).
+-define(BEAM_TYPE_REFERENCE,     (1 bsl 11)).
+-define(BEAM_TYPE_TUPLE,         (1 bsl 12)).
+
+ext_type_mapping() ->
+    [{?BEAM_TYPE_ATOM,          #t_atom{}},
+     {?BEAM_TYPE_BITSTRING,     #t_bitstring{}},
+     {?BEAM_TYPE_BS_MATCHSTATE, #t_bs_context{}},
+     {?BEAM_TYPE_CONS,          #t_cons{}},
+     {?BEAM_TYPE_FLOAT,         #t_float{}},
+     {?BEAM_TYPE_FUN,           #t_fun{}},
+     {?BEAM_TYPE_INTEGER,       #t_integer{}},
+     {?BEAM_TYPE_MAP,           #t_map{}},
+     {?BEAM_TYPE_NIL,           nil},
+     {?BEAM_TYPE_PID,           pid},
+     {?BEAM_TYPE_PORT,          port},
+     {?BEAM_TYPE_REFERENCE,     reference},
+     {?BEAM_TYPE_TUPLE,         #t_tuple{}}].
+
+-spec decode_ext(binary()) -> type().
+decode_ext(<<TypeBits:16/big,Min:64,Max:64>>) ->
+    Res = foldl(fun({Id, Type}, Acc) ->
+                        decode_ext_bits(TypeBits, Id, Type, Acc)
+                end, none, ext_type_mapping()),
+    {Res,Min,Max}.
+
+decode_ext_bits(Input, TypeBit, Type, Acc) ->
+    case Input band TypeBit of
+        0 -> Acc;
+        _ -> join(Type, Acc)
+    end.
+
+-spec encode_ext(type()) -> binary().
+encode_ext(Input) ->
+    TypeBits = foldl(fun({Id, Type}, Acc) ->
+                             encode_ext_bits(Input, Id, Type, Acc)
+                     end, 0, ext_type_mapping()),
+    case get_integer_range(Input) of
+        none ->
+            <<TypeBits:16/big,0:64,-1:64>>;
+        {Min,Max} ->
+            <<TypeBits:16/big,Min:64,Max:64>>
+    end.
+
+encode_ext_bits(Input, TypeBit, Type, Acc) ->
+    case meet(Input, Type) of
+        none -> Acc;
+        _ -> Acc bor TypeBit
+    end.
+
+get_integer_range(#t_integer{elements={Min,Max}}) ->
+    case is_small(Min) andalso is_small(Max) of
+        true ->
+            {Min,Max};
+        false ->
+            %% Not an integer with range, or at least one of the
+            %% endpoints is a bignum.
+            none
+    end;
+get_integer_range(#t_union{number=N}) ->
+    get_integer_range(N);
+get_integer_range(_) -> none.
+
+%% Test whether the number is a small on a 64-bit machine.
+%% (Normally the compiler doesn't know/doesn't care whether something is
+%% bignum, but because the type representation is versioned this is safe.)
+is_small(N) ->
+    -(1 bsl 59) =< N andalso N =< (1 bsl 59) - 1.

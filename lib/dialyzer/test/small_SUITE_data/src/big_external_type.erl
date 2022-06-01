@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -412,7 +412,7 @@ normalise({bin,_,Fs}) ->
 	eval_bits:expr_grp(Fs, [],
 			   fun(E, _) ->
 				   {value, normalise(E), []}
-			   end, [], true),
+			   end),
     B;
 normalise({cons,_,Head,Tail}) ->
     [normalise(Head)|normalise(Tail)];

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2021</year>
+      <year>1997</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,7 +35,8 @@
   <description>
     <p>This module provides the Erlang web server API module
       programmer with miscellaneous utility functions.</p>
-
+      <note><p>Note the module is only recommended for using with httpd - for other
+      cases it should be considered as deprecated.</p></note>
     <marker id="convert_request_date"></marker>
   </description>
 

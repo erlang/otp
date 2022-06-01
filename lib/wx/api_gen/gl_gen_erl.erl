@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,6 +89,7 @@ gl_api(Fs, _GluNifs) ->
     w("-on_load(init_nif/0).~n",[]),
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
     w("-export([get_interface/0, rec/1, lookup_func/0]).\n",[]),
+    w("-nifs([lookup_func/0]).\n",[]),
     w("-define(nif_stub,nif_stub_error(?LINE)).~n", []),
     w("%% @hidden~n", []),
     w("nif_stub_error(Line) ->~n"
@@ -149,7 +150,7 @@ glu_api(Fs) ->
 
     w("%% @doc General purpose polygon triangulation.~n",[]),
     w("%% The first argument is the normal and the second a list of~n"
-      "%% vertex positions. Returned is a list of indecies of the vertices~n"
+      "%% vertex positions. Returned is a list of indices of the vertices~n"
       "%% and a binary (64bit native float) containing an array of~n"
       "%% vertex positions, it starts with the vertices in Vs and~n"
       "%% may contain newly created vertices in the end.~n", []),

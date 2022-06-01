@@ -127,7 +127,7 @@ int string_litteral_finder(symbol_finder* f, char* text){
     if(starts_with(&(text[pos]), "\"")){
       return pos + 1;
     }else {
-      printf("Broken string litteral\n");
+      printf("Broken string literal\n");
       exit(1);
     }
   }

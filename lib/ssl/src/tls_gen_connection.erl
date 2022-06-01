@@ -70,20 +70,19 @@
          close/4,
          protocol_name/0]).
 
--define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
-
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
 %%====================================================================
 %% Setup
 %%====================================================================
-start_fsm(Role, Host, Port, Socket, {#{erl_dist := false},_, Trackers} = Opts,
-	  User, {CbModule, _,_, _, _} = CbInfo, 
+start_fsm(Role, Host, Port, Socket,
+          {#{erl_dist := false, sender_spawn_opts := SenderOpts}, _, Trackers} = Opts,
+	  User, {CbModule, _, _, _, _} = CbInfo, 
 	  Timeout) -> 
-    try 
-        {ok, DynSup} =  tls_connection_sup:start_child([]),
-        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, []),
+    try
+        {ok, DynSup} = tls_connection_sup:start_child([]),
+        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, SenderOpts}]]),
 	{ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, [Role, Sender, Host, Port, Socket,
                                                              Opts, User, CbInfo]),
 	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Trackers),
@@ -93,12 +92,14 @@ start_fsm(Role, Host, Port, Socket, {#{erl_dist := false},_, Trackers} = Opts,
 	    Error
     end;
 
-start_fsm(Role, Host, Port, Socket, {#{erl_dist := true},_, Trackers} = Opts,
-	  User, {CbModule, _,_, _, _} = CbInfo, 
+start_fsm(Role, Host, Port, Socket,
+          {#{erl_dist := true, sender_spawn_opts := SenderOpts}, _, Trackers} = Opts,
+	  User, {CbModule, _, _, _, _} = CbInfo, 
 	  Timeout) -> 
-    try 
-        {ok, DynSup} =  tls_connection_sup:start_child_dist([]),
-        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, ?DIST_CNTRL_SPAWN_OPTS}]]),
+    try
+        SenderOpts1 = [{priority, max} | proplists:delete(priority, SenderOpts)],
+        {ok, DynSup} = tls_connection_sup:start_child_dist([]),
+        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, SenderOpts1}]]),
 	{ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, [Role, Sender, Host, Port, Socket,
                                                                  Opts, User, CbInfo]),
 	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Trackers),
@@ -397,6 +398,7 @@ handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data}, StateName,
 	case HSPackets of
             [] -> 
                 assert_buffer_sanity(NewHSBuffer, Options),
+
                 next_event(StateName, no_record, State);
             _ ->                
                 Events = tls_handshake_events(HSPackets, RecordRest),
@@ -779,6 +781,7 @@ handle_unnegotiated_version({3,3} , #{versions := [{3,4} = Version |_]} = Option
     <<FirstPacket:(Length+4)/binary, RecordRest/binary>> = Data,
     {HSPacket, <<>> = NewHsBuffer} = tls_handshake:get_tls_handshakes(Version, FirstPacket, Buffer, Options),
     {HSPacket, NewHsBuffer, RecordRest};
+
 %% TLS-1.3 RetryRequest
 handle_unnegotiated_version({3,3} , #{versions := [{3,4} = Version |_]} = Options, Data, Buffer, client, wait_sh) ->
     tls_handshake:get_tls_handshakes(Version, Data, Buffer, Options);

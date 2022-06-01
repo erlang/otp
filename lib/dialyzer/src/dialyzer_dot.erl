@@ -41,7 +41,7 @@
 %% filename is the name of the resulting .dot file the GraphName is
 %% pretty much useless.
 %%
-%% The resulting .dot reprsentation will be stored in the flie FileName.
+%% The resulting .dot representation will be stored in the file FileName.
 %%
 %% Interfaces:
 %%
@@ -115,12 +115,12 @@ node_format(Opt, Fun, V) ->
   Tmp = io_lib:format("~p", [Fun(V)]),
   String = lists:flatten(Tmp),
   %% io:format("~p", [String]),
-  {Width, Heigth} = calc_dim(String),
+  {Width, Height} = calc_dim(String),
   W = ((Width div 7) + 1) * 0.55,
-  H = Heigth * 0.4,
+  H = Height * 0.4,
   SL = io_lib:format("~f", [W]),
   SH = io_lib:format("~f", [H]),
-  [String, " [width=", SL, " heigth=", SH, " ", OptText,"];\n"].
+  [String, " [width=", SL, " height=", SH, " ", OptText,"];\n"].
 
 edge_format(Opt, Fun, V1, V2) ->
   OptText =

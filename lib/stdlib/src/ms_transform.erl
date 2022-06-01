@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -756,7 +756,12 @@ tg({bin_element,Anno,X,Y,Z},B) ->
 
 tg({bin,Anno,List},B) ->
     {bin,Anno,[tg(X,B) || X <- List]};
-    
+
+tg({map_field_assoc, Anno, Field, Value}, B) ->
+    {map_field_assoc, Anno, tg(Field, B), tg(Value, B)};
+tg({map, Anno, List}, B) ->
+    {map, Anno, [tg(X, B) || X <- List]};
+
 tg(T,B) when is_tuple(T), tuple_size(T) >= 2 ->
     Element = element(1,T),
     Anno = element(2,T),
@@ -858,6 +863,9 @@ th({var,Anno,Name},B,OB) ->
 	Trans ->
 	    {{atom,Anno,Trans},B}
     end;
+th({map_field_exact,Anno,Field,Value},B,OB) ->
+    {[NField, NValue], NB} = th([Field, Value], B, OB),
+    {{map_field_assoc,Anno,NField,NValue}, NB};
 th([H|T],B,OB) ->
     {NH,NB} = th(H,B,OB),
     {NT,NNB} = th(T,NB,OB),
@@ -974,8 +982,11 @@ real_guard_function(node,1) -> true;
 real_guard_function(round,1) -> true;
 real_guard_function(size,1) -> true;
 real_guard_function(bit_size,1) -> true;
+real_guard_function(byte_size,1) -> true;
 real_guard_function(map_size,1) -> true;
 real_guard_function(map_get,2) -> true;
+real_guard_function(binary_part,2) -> true;
+real_guard_function(binary_part,3) -> true;
 real_guard_function(tl,1) -> true;
 real_guard_function(trunc,1) -> true;
 real_guard_function(self,0) -> true;
@@ -1123,7 +1134,7 @@ normalise({bin,_,Fs}) ->
 	eval_bits:expr_grp(Fs, [],
 			   fun(E, _) ->
 				   {value, normalise(E), []}
-			   end, [], true),
+			   end),
     B;
 normalise({cons,_,Head,Tail}) ->
     [normalise(Head)|normalise(Tail)];
@@ -1131,12 +1142,11 @@ normalise({op,_,'++',A,B}) ->
     normalise(A) ++ normalise(B);
 normalise({tuple,_,Args}) ->
     list_to_tuple(normalise_list(Args));
-normalise({map,_,Pairs0}) ->
-    Pairs1 = lists:map(fun ({map_field_exact,_,K,V}) ->
-                               {normalise(K),normalise(V)}
-                       end,
-                       Pairs0),
-    maps:from_list(Pairs1);
+normalise({map,_,Pairs}) ->
+    maps:from_list(lists:map(fun
+		%% only allow '=>'
+		({map_field_assoc,_,K,V}) -> {normalise(K),normalise(V)}
+	    end, Pairs));
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;

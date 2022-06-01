@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -298,7 +298,7 @@ is_all_reasons(Mask, AllReasonsFun) ->
 	    %% As the "uspecified" reason should not
 	    %% be explicitly used according to RFC 3280
 	    %% and the conformance tests have test cases
-	    %% that should succed, and that does not specify
+	    %% that should succeed, and that does not specify
 	    %% "unspecified", we tolorate that it is not included.
 	    sets:is_subset(sets:del_element(unspecified, AllReasons), Mask)
     end.

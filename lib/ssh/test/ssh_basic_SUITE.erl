@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 -module(ssh_basic_SUITE).
 
+-include_lib("public_key/include/public_key.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -251,7 +252,7 @@ appup_test(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %%% Test that we can set some misc options not tested elsewhere
 %%% some options not yet present are not decided if we should support or
-%%% if they need thier own test case.
+%%% if they need their own test case.
 misc_ssh_options(Config) when is_list(Config) ->  
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
@@ -520,7 +521,7 @@ shell_socket(Config) when is_list(Config) ->
     ct:log("~p:~p udp socket failed ok", [?MODULE,?LINE]),
     gen_udp:close(BadSock),
 
-    %% And finaly test with passive mode (which should work):
+    %% And finally test with passive mode (which should work):
     IO = ssh_test_lib:start_io_server(),
     {ok,Sock} = gen_tcp:connect(Host, Port, [{active,false}]),
     Shell = ssh_test_lib:start_shell(Sock, IO, [{user_dir,UserDir}]),
@@ -659,7 +660,7 @@ cli_exit_status(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 %%% Test that get correct error message if you try to start a daemon
-%%% on an adress that already runs a daemon see also seq10667
+%%% on an address that already runs a daemon see also seq10667
 daemon_already_started(Config) when is_list(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
@@ -783,12 +784,14 @@ ssh_file_is_host_key(Config) ->
     ct:log("Dir = ~p", [Dir]),
     KnownHosts = filename:join(Dir, "known_hosts"),
 
-    Key1 = {ed_pub,ed25519,<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,
-                             214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
-    Key2 = {ed_pub,ed448,<<95,215,68,155,89,180,97,253,44,231,135,236,97,106,212,106,29,
-                           161,52,36,133,167,14,31,138,14,167,93,128,233,103,120,237,241,
-                           36,118,155,70,199,6,27,214,120,61,241,229,15,108,209,250,26,
-                           190,175,232,37,97,128>>},
+    Key1 = {#'ECPoint'{point = <<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,
+                                 214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
+            {namedCurve,?'id-Ed25519'}},
+    Key2 = {#'ECPoint'{point = <<95,215,68,155,89,180,97,253,44,231,135,236,97,106,212,106,29,
+                                 161,52,36,133,167,14,31,138,14,167,93,128,233,103,120,237,241,
+                                 36,118,155,70,199,6,27,214,120,61,241,229,15,108,209,250,26,
+                                 190,175,232,37,97,128>>},
+            {namedCurve,?'id-Ed448'}},
     Key3 = {'RSAPublicKey',26565213557098441060571713941539431805641814292761836797158846333985276408616038302348064841541244792430014595960643885863857366044141899534486816837416587694213836843799730043696945690516841209754307951050689906601353687467659852190777927968674989320642319504162787468947018505175948989102544757855693228490011564030927714896252701919941617689227585365348356580525802093985552564228730275431222515673065363441446158870936027338182083252824862151536327733046243804704721201548991176621134884093279416695997338124856506800535228380202243308550318880784741179703553922258881924287662178348044420509921666661119986374777,
             65537},
 
@@ -831,13 +834,14 @@ ssh_file_is_host_key_misc(Config) ->
     ct:log("Dir = ~p", [Dir]),
     KnownHosts = filename:join(Dir, "known_hosts"),
 
-    Key1 = {ed_pub,ed25519,<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,
-                             214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
-    Key2 = {ed_pub,ed448,<<95,215,68,155,89,180,97,253,44,231,135,236,97,106,212,106,29,
-                           161,52,36,133,167,14,31,138,14,167,93,128,233,103,120,237,241,
-                           36,118,155,70,199,6,27,214,120,61,241,229,15,108,209,250,26,
-                           190,175,232,37,97,128>>},
-
+    Key1 = {#'ECPoint'{point = <<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,
+                                 214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
+            {namedCurve,?'id-Ed25519'}},
+    Key2 = {#'ECPoint'{point = <<95,215,68,155,89,180,97,253,44,231,135,236,97,106,212,106,29,
+                                 161,52,36,133,167,14,31,138,14,167,93,128,233,103,120,237,241,
+                                 36,118,155,70,199,6,27,214,120,61,241,229,15,108,209,250,26,
+                                 190,175,232,37,97,128>>},
+            {namedCurve,?'id-Ed448'}},
     FileContents = <<"h11,h12,!h12 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIElI66JgZZo72XJ7wGBp+h3WTDw/pxXddvaomAIHrIl9\n",
                      %% Key revoked later in file:
                      "h22 ssh-ed448 AAAACXNzaC1lZDQ0OAAAADlf10SbWbRh/Sznh+xhatRqHaE0JIWnDh"
@@ -871,13 +875,14 @@ ssh_file_is_auth_key(Config) ->
     ct:log("Dir = ~p", [Dir]),
     AuthKeys = filename:join(Dir, "authorized_keys"),
 
-    Key1 = {ed_pub,ed25519,<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,
-                             214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
-    Key2 = {ed_pub,ed448,<<95,215,68,155,89,180,97,253,44,231,135,236,97,106,212,106,29,
-                           161,52,36,133,167,14,31,138,14,167,93,128,233,103,120,237,241,
-                           36,118,155,70,199,6,27,214,120,61,241,229,15,108,209,250,26,
-                           190,175,232,37,97,128>>},
-
+    Key1 = {#'ECPoint'{point = <<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,
+                                 214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
+            {namedCurve,?'id-Ed25519'}},
+    Key2 = {#'ECPoint'{point = <<95,215,68,155,89,180,97,253,44,231,135,236,97,106,212,106,29,
+                                 161,52,36,133,167,14,31,138,14,167,93,128,233,103,120,237,241,
+                                 36,118,155,70,199,6,27,214,120,61,241,229,15,108,209,250,26,
+                                 190,175,232,37,97,128>>},
+            {namedCurve,?'id-Ed448'}},
     FileContents = <<" \n",
                      "# A test file\n",
                      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIElI66JgZZo72XJ7wGBp+h3WTDw/pxXddvaomAIHrIl9 foo@example.com\n",
@@ -1393,7 +1398,7 @@ login_bad_pwd_no_retry(Config, AuthMethods) ->
 		{ok,Conn} ->
 		    ssh:close(Conn),
 		    ssh:stop_daemon(DaemonRef),
-		    {fail, "Connect erroneosly succeded"}
+		    {fail, "Connect erroneosly succeeded"}
 	    end
     end.
 
@@ -1465,7 +1470,7 @@ setopts_getopts(Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 %% Due to timing the error message may or may not be delivered to
-%% the "tcp-application" before the socket closed message is recived
+%% the "tcp-application" before the socket closed message is received
 check_error("Invalid state") -> ok;
 check_error("Connection closed") -> ok;
 check_error("Selection of key exchange algorithm failed"++_) -> ok;
@@ -1582,7 +1587,7 @@ prompt_prefix() ->
 new_do_shell_prompt(IO, N, type, Str, More) ->
     ct:log("Matched prompt ~p to trigger sending of next line to server",[N]),
     IO ! {input, self(), Str++"\r\n"},
-    ct:log("Promt '~p> ', Sent ~ts",[N,Str++"\r\n"]),
+    ct:log("Prompt '~p> ', Sent ~ts",[N,Str++"\r\n"]),
     new_do_shell(IO, N, More);
 new_do_shell_prompt(IO, N, Op, Str, More) ->
     ct:log("Matched prompt ~p",[N]),

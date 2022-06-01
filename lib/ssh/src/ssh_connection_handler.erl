@@ -425,7 +425,7 @@ init([Role, Socket, Opts]) when Role==client ; Role==server ->
     end.
 
 %%%----------------------------------------------------------------
-%%% Connection start and initalization helpers
+%%% Connection start and initialization helpers
 
 init_connection_record(Role, Socket, Opts) ->
     {WinSz, PktSz} = init_inet_buffers_window(Socket),
@@ -625,7 +625,7 @@ handle_event(internal, {version_exchange,Version}, {hello,Role}, D0) ->
     {NumVsn, StrVsn} = ssh_transport:handle_hello_version(Version),
     case handle_version(NumVsn, StrVsn, D0#data.ssh_params) of
 	{ok, Ssh1} ->
-	    %% Since the hello part is finnished correctly, we set the
+	    %% Since the hello part is finished correctly, we set the
 	    %% socket to the packet handling mode (including recbuf size):
 	    inet:setopts(D0#data.socket, [{packet,0},
 					 {mode,binary},
@@ -651,7 +651,7 @@ handle_event(state_timeout, no_hello_received, {hello,_Role}=StateName, D0 = #da
     Time = ?GET_OPT(hello_timeout, Ssh0#ssh.opts),
     {Shutdown, D} =
         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                         lists:concat(["No HELLO recieved within ",ssh_lib:format_time_ms(Time)]),
+                         lists:concat(["No HELLO received within ",ssh_lib:format_time_ms(Time)]),
                          StateName, D0),
     {stop, Shutdown, D};
 		  
@@ -939,7 +939,7 @@ handle_event({call,From}, {request, ChannelPid, ChannelId, Type, Data, Timeout},
         {error,Error} ->
             {keep_state, D0, {reply,From,{error,Error}}};
         D ->
-            %% Note reply to channel will happen later when reply is recived from peer on the socket
+            %% Note reply to channel will happen later when reply is received from peer on the socket
             start_channel_request_timer(ChannelId, From, Timeout),
             {keep_state, D, cond_set_idle_timer(D)}
     end;
@@ -950,7 +950,7 @@ handle_event({call,From}, {request, ChannelId, Type, Data, Timeout}, StateName, 
         {error,Error} ->
             {keep_state, D0, {reply,From,{error,Error}}};
         D ->
-            %% Note reply to channel will happen later when reply is recived from peer on the socket
+            %% Note reply to channel will happen later when reply is received from peer on the socket
             start_channel_request_timer(ChannelId, From, Timeout),
             {keep_state, D, cond_set_idle_timer(D)}
     end;
@@ -1242,7 +1242,7 @@ handle_event(info, {'EXIT', _Sup, Reason}, StateName, _D) ->
 	    {stop, {shutdown, Reason}};
 
 	Reason == normal ->
-	    %% An exit normal should not cause a server to crash. This has happend...
+	    %% An exit normal should not cause a server to crash. This has happened...
 	    keep_state_and_data;
 
 	true ->
@@ -1583,7 +1583,7 @@ handle_ssh_msg_ext_info(#ssh_msg_ext_info{data=Data}, D0) ->
 ext_info({"server-sig-algs",SigAlgsStr},
          D0 = #data{ssh_params=#ssh{role=client,
                                     userauth_pubkeys=ClientSigAlgs}=Ssh0}) ->
-    %% ClientSigAlgs are the pub_key algortithms that:
+    %% ClientSigAlgs are the pub_key algorithms that:
     %%  1) is usable, that is, the user has such a public key and
     %%  2) is either the default list or set by the caller
     %%     with the client option 'pref_public_key_algs'
@@ -1867,13 +1867,9 @@ log(Tag, D, Reason) ->
     end.
 
 
-do_log(F, Reason0, #data{ssh_params = S}) ->
-    Reason =
-        try io_lib:format("~s",[Reason0])
-        of _ -> Reason0
-        catch
-            _:_ -> io_lib:format("~p",[Reason0])
-        end,
+do_log(F, Reason0, #data{ssh_params=S}) ->
+    Reason1 = string:chomp(assure_string(Reason0)),
+    Reason = limit_size(Reason1, ?GET_OPT(max_log_item_len,S#ssh.opts)),
     case S of
         #ssh{role = Role} when Role==server ;
                                Role==client ->
@@ -1898,6 +1894,29 @@ do_log(F, Reason0, #data{ssh_params = S}) ->
                            [ssh_log_version(), crypto_log_info(), 
                             Reason])
     end.
+
+assure_string(S) ->
+    try io_lib:format("~s",[S])
+    of _ -> S
+    catch
+        _:_ -> io_lib:format("~p",[S])
+    end.
+
+limit_size(S, MaxLen) when is_integer(MaxLen) ->
+    limit_size(S, lists:flatlength(S), MaxLen);
+limit_size(S, _) ->
+    S.
+
+limit_size(S, Len, MaxLen) when Len =< MaxLen ->
+    S;
+limit_size(S, Len, MaxLen) when Len =< (MaxLen + 5) ->
+    %% Looks silly with e.g "... (2 bytes skipped)"
+    S;
+limit_size(S, Len, MaxLen) when Len > MaxLen ->
+    %% Cut
+    io_lib:format("~s ... (~w bytes skipped)", 
+                  [string:substr(lists:flatten(S), 1, MaxLen),
+                   Len-MaxLen]).
 
 crypto_log_info() ->
     try 

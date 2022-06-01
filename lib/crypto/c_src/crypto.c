@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@
 #include "evp.h"
 #include "fips.h"
 #include "hash.h"
+#include "hash_equals.h"
 #include "hmac.h"
 #include "info.h"
 #include "math.h"
@@ -91,6 +92,9 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_uniform_nif", 2, rand_uniform_nif, 0},
     {"mod_exp_nif", 4, mod_exp_nif, 0},
     {"do_exor", 2, do_exor, 0},
+
+    {"hash_equals_nif", 2, hash_equals_nif, 0},
+    
     {"pbkdf2_hmac_nif", 5, pbkdf2_hmac_nif, 0},
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
     {"pkey_verify_nif", 6, pkey_verify_nif, 0},
@@ -105,7 +109,7 @@ static ErlNifFunc nif_funcs[] = {
     {"srp_user_secret_nif", 7, srp_user_secret_nif, 0},
     {"srp_host_secret_nif", 5, srp_host_secret_nif, 0},
 
-    {"ec_key_generate", 2, ec_key_generate, 0},
+    {"ec_generate_key_nif", 2, ec_generate_key_nif, 0},
     {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif, 0},
 
     {"rand_seed_nif", 1, rand_seed_nif, 0},
@@ -125,7 +129,9 @@ static ErlNifFunc nif_funcs[] = {
     {"engine_get_next_nif", 1, engine_get_next_nif, 0},
     {"engine_get_id_nif", 1, engine_get_id_nif, 0},
     {"engine_get_name_nif", 1, engine_get_name_nif, 0},
-    {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif, 0}
+    {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif, 0},
+    {"ensure_engine_loaded_nif", 3, ensure_engine_loaded_nif, 0},
+    {"ensure_engine_unloaded_nif", 2, ensure_engine_unloaded_nif, 0}
 };
 
 #ifdef HAS_3_0_API
@@ -207,6 +213,9 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
         return __LINE__;
     }
     if (!init_engine_ctx(env)) {
+        return __LINE__;
+    }
+    if (!create_engine_mutex(env)) {
         return __LINE__;
     }
 
@@ -323,8 +332,10 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 
 static void unload(ErlNifEnv* env, void* priv_data)
 {
-    if (--library_refc == 0)
+    if (--library_refc == 0) {
         cleanup_algorithms_types(env);
+        destroy_engine_mutex(env);
+    }
 
 #ifdef HAS_3_0_API
     while (prov_cnt>0)
@@ -332,3 +343,4 @@ static void unload(ErlNifEnv* env, void* priv_data)
 #endif
 
 }
+

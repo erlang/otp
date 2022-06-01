@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -183,7 +183,7 @@ flush_controller(Pid, Socket) ->
 accept_connection(AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     spawn_opt(?MODULE, do_accept,
 	      [self(), AcceptPid, DistCtrl, MyNode, Allowed, SetupTime],
-	      [link, {priority, max}]).
+	      dist_util:net_ticker_spawn_options()).
 
 do_accept(Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     ?trace("~p~n",[{?MODULE, do_accept, self(), MyNode}]),
@@ -230,7 +230,7 @@ nodelay() ->
 setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
     spawn_opt(?MODULE, do_setup, 
 	      [self(), Node, Type, MyNode, LongOrShortNames, SetupTime],
-	      [link, {priority, max}]).
+	      dist_util:net_ticker_spawn_options()).
 
 do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     ?trace("~p~n",[{?MODULE, do_setup, self(), Node}]),
@@ -444,7 +444,7 @@ hs_data_common(DistCtrl) ->
 %%   the connection down if no incoming traffic is seen.
 %%   This process also executes on max priority.
 %%
-%%   These parties are linked togheter so should one
+%%   These parties are linked together so should one
 %%   of them fail, all of them are terminated and the
 %%   connection is taken down.
 %%
@@ -569,7 +569,7 @@ call_ctrlr(Ctrlr, Msg) ->
 %% non-blocking send operation exposed in its API
 %% and we don't want to run the distribution
 %% controller under high priority. Therefore this
-%% sparate process with max prio that dispatches
+%% separate process with max prio that dispatches
 %% ticks.
 %%
 dist_cntrlr_tick_handler(Socket) ->
@@ -700,7 +700,7 @@ dist_cntrlr_setup_loop(Socket, TickHandler, Sup) ->
 
 dist_cntrlr_input_setup(DHandle, Socket, Sup) ->
     link(Sup),
-    %% Ensure we don't try to put data before registerd
+    %% Ensure we don't try to put data before we are registered
     %% as input handler...
     receive
         DHandle ->
@@ -775,7 +775,7 @@ death_row() ->
 
 death_row(normal) ->
     %% We do not want to exit with normal
-    %% exit reason since it wont bring down
+    %% exit reason since it won't bring down
     %% linked processes...
     death_row();
 death_row(Reason) ->

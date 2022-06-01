@@ -129,11 +129,11 @@ struct erl_drv_entry ram_file_driver_entry = {
 
 /* A File is represented as a array of bytes, this array is
    reallocated when needed. A possibly better implementation
-   whould be to have a vector of blocks. This may be implemented
+   would be to have a vector of blocks. This may be implemented
    when we have the commandv/driver_outputv
 */
 typedef struct ram_file {
-    ErlDrvPort port;	/* the associcated port */
+    ErlDrvPort port;	/* the associated port */
     int flags;          /* flags read/write */
     ErlDrvBinary* bin;  /* binary to hold binary file */
     char* buf;          /* buffer start (in binary) */

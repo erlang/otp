@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -155,7 +155,9 @@
       <fsummary>Test for an <c>Ordset</c>.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Ordset</anno></c> is an ordered set
-          of elements, otherwise <c>false</c>.</p>
+          of elements, otherwise <c>false</c>.  This function will
+        return <c>true</c> for any ordered list, even when not
+        constructed by the functions in this module.</p>
       </desc>
     </func>
 

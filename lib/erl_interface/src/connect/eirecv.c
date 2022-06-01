@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 # include <winsock2.h>
 # include <windows.h>
 # include <winbase.h>
-#else /* Unix/VxWorks */
+#else /* Unix */
 # include <unistd.h>
 #endif
 
@@ -369,7 +369,7 @@ send_unlink_id_ack(ei_socket_callbacks *cbs, void *ctx,
     s = &ctl[0];
     /* packet size */
     put32be(s, index - 4);
-    /* pass throug */
+    /* pass through */
     put8(s, ERL_PASS_THROUGH);
 
     if (ei_tracelevel >= 4) {

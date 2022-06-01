@@ -717,7 +717,7 @@ client_info_line(Config) ->
 %%% The server does not send the extension because
 %%% the client does not tell the server to send it
 no_ext_info_s1(Config) ->
-    %% Start the dameon
+    %% Start the daemon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
                                               {system_dir, system_dir(Config)}]),
     {ok,AfterKexState} = connect_and_kex([{server,Server}|Config]),
@@ -732,7 +732,7 @@ no_ext_info_s1(Config) ->
 %%% The server does not send the extension because
 %%% the server is not configured to send it
 no_ext_info_s2(Config) ->    
-    %% Start the dameon
+    %% Start the daemon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,false},
                                               {system_dir, system_dir(Config)}]),
     {ok,AfterKexState} = connect_and_kex([{extra_options,[{recv_ext_info,true}]},
@@ -748,7 +748,7 @@ no_ext_info_s2(Config) ->
 %%%--------------------------------------------------------------------
 %%% The server sends the extension
 ext_info_s(Config) ->    
-    %% Start the dameon
+    %% Start the daemon
     Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
                                               {system_dir, system_dir(Config)}]),
     {ok,AfterKexState} = connect_and_kex([{extra_options,[{recv_ext_info,true}]},
@@ -984,7 +984,7 @@ chk_pref_algs(Config,
               ExpectedKex,
               ExpectedCiphers,
               ServerPrefOpts) ->
-    %% Start the dameon
+    %% Start the daemon
     case ssh_test_lib:daemon(
                       [{send_ext_info,false},
                        {recv_ext_info,false},
@@ -1103,7 +1103,7 @@ std_connect({Host,Port}, Config, Opts) ->
 std_connect(Host, Port, Config, Opts) ->
     {User,Pwd} = server_user_password(Config),
     ssh:connect(Host, Port, 
-		%% Prefere User's Opts to the default opts
+		%% Prefer User's Opts to the default opts
 		[O || O = {Tag,_} <- [{user,User},{password,Pwd},
 				      {silently_accept_hosts, true},
                                       {save_accepted_host, false},

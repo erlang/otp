@@ -154,10 +154,10 @@
          {logger_sasl_compatible, false},
          {net_tickintensity, 4},
          {net_ticktime, 60},
-         {prevent_overlapping_partitions, false},
+         {prevent_overlapping_partitions, true},
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-12.3", "stdlib-3.13", "sasl-3.0", "crypto-5.0"]}
- ]
+  {runtime_dependencies, ["erts-@OTP-17934:OTP-18124@", "stdlib-4.0", "sasl-3.0", "crypto-5.0"]}
+  ]
 }.

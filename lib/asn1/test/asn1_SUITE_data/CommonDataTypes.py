@@ -923,7 +923,7 @@ ConnectUUIE ::= SEQUENCE
 --   @prop	dataType
 --
 --   @descr	This parameter holds connection data that are specific for   
---   		certain types of Equipments.
+--   		certain types of Equipment.
 --   @
 --
 -- ---------------------------------
@@ -958,7 +958,7 @@ ConnectionIdentifier ::= ObjectIdentifier
 --   @prop	dataType
 --
 --   @descr	This parameter specifies information that are of interest for 
---   		the functionallity handled by component Connection Handler. 
+--   		the functionality handled by component Connection Handler. 
 --   @
 --
 -- ---------------------------------
@@ -1541,7 +1541,7 @@ EquipmentAddressLAN ::= SEQUENCE
 --
 --   @prop	dataType
 --
---   @descr	Contains the retreived data.
+--   @descr	Contains the retrieved data.
 --
 --   @
 --

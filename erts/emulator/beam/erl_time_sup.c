@@ -216,6 +216,15 @@ update_last_mtime(ErtsSchedulerData *esdp, ErtsMonotonicTime mtime)
     if (!esdp)
 	esdp = erts_get_scheduler_data();
     if (esdp) {
+#if 1
+        if (mtime < esdp->last_monotonic_time)
+            erts_exit(ERTS_ABORT_EXIT,
+                      "Monotonic time stepped backwards!\n"
+                      "Previous time: %b64d\n"
+                      "Current time:  %b64d\n",
+                      esdp->last_monotonic_time,
+                      mtime);
+#endif
 	ASSERT(mtime >= esdp->last_monotonic_time);
 	esdp->last_monotonic_time = mtime;
 	esdp->check_time_reds = 0;
@@ -1982,12 +1991,10 @@ send_time_offset_changed_notifications(void *new_offsetp)
 
 	for (mix = 0; mix < no_monitors; mix++) {
             *patch_refp = to_mon_info[mix].ref;
-            erts_proc_sig_send_persistent_monitor_msg(ERTS_MON_TYPE_TIME_OFFSET,
-                                                      *patch_refp,
-                                                      am_clock_service,
-                                                      to_mon_info[mix].pid,
-                                                      message_template,
-                                                      hsz);
+            erts_proc_sig_send_monitor_time_offset_msg(*patch_refp,
+                                                       to_mon_info[mix].pid,
+                                                       message_template,
+                                                       hsz);
         }
 
 	erts_free(ERTS_ALC_T_TMP, tmp);
@@ -2334,7 +2341,7 @@ erts_napi_convert_time_unit(ErtsMonotonicTime val, int from, int to)
 {
     ErtsMonotonicTime ffreq, tfreq, denom;
     /*
-     * Convertion between time units using floor function.
+     * Conversion between time units using floor function.
      *
      * Note that this needs to work also for negative
      * values. Ordinary integer division on a negative
@@ -2434,7 +2441,7 @@ BIF_RETTYPE timestamp_0(BIF_ALIST_0)
 
     /*
      * Mega seconds is the only value that potentially
-     * ever could be a bignum. However, that wont happen
+     * ever could be a bignum. However, that won't happen
      * during at least the next 4 million years...
      *
      * (System time will also have wrapped in the

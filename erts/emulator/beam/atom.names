@@ -118,7 +118,8 @@ atom await_sched_wall_time_modifications
 atom awaiting_load
 atom awaiting_unload
 atom backtrace backtrace_depth
-atom badarg badarith badarity badfile badfun badkey badmap badmatch badsig
+atom badarg badarith badarity badfile badfun badkey badmap badmatch
+atom badrecord badsig
 atom badopt badtype
 atom bad_map_iterator
 atom bag
@@ -159,6 +160,7 @@ atom call_count
 atom call_error_handler
 atom call_time
 atom caller
+atom caller_line
 atom capture
 atom case_clause
 atom caseless
@@ -187,6 +189,7 @@ atom convert_time_unit
 atom connect
 atom connected
 atom connection_closed
+atom connection_id
 atom const
 atom context_switches
 atom continue_exit
@@ -243,6 +246,7 @@ atom dsend_continue_trap
 atom duplicate_bag
 atom duplicated
 atom dupnames
+atom dynamic_node_name
 atom einval
 atom emu_flavor
 atom emu_type
@@ -297,9 +301,11 @@ atom flags
 atom flush
 atom flush_monitor_messages
 atom force
+atom format_bs_fail
 atom format_cpu_topology
 atom free
 atom fullsweep_after
+atom function
 atom functions
 atom function_clause
 atom garbage_collect
@@ -358,6 +364,7 @@ atom inherit
 atom init
 atom initial_call
 atom input
+atom integer
 atom internal
 atom internal_error
 atom instruction_counts
@@ -476,6 +483,7 @@ atom nodeup
 atom noeol
 atom noproc
 atom normal
+atom normal_exit
 atom nosuspend
 atom no_fail
 atom no_float
@@ -524,6 +532,7 @@ atom owner
 atom packet
 atom packet_size
 atom parallelism
+atom parent
 atom Plus='+'
 atom PlusPlus='++'
 atom pause
@@ -546,6 +555,7 @@ atom prepare_on_load
 atom print
 atom priority
 atom private
+atom private_append
 atom process
 atom processes
 atom processes_used
@@ -591,6 +601,7 @@ atom return_time_trace
 atom return_to
 atom return_to_trace
 atom return_trace
+atom run_process
 atom run_queue
 atom run_queue_lengths
 atom run_queue_lengths_all
@@ -629,6 +640,7 @@ atom set_on_spawn
 atom set_seq_token
 atom set_tcw
 atom set_tcw_fake
+atom short
 atom shutdown
 atom sighup
 atom sigterm
@@ -651,6 +663,7 @@ atom spawn_init
 atom spawn_reply
 atom spawn_request
 atom spawn_request_yield
+atom spawn_service
 atom spawned
 atom ssl_tls
 atom stack_size
@@ -710,14 +723,16 @@ atom unregister
 atom urun
 atom use_stdio
 atom used
-atom utf8
+atom utf8 utf16 utf32
 atom unblock
 atom unblock_normal
 atom uniq
+atom unit
 atom unless_suspending
 atom unloaded
 atom unloaded_only
 atom unload_cancelled
+atom unsafe
 atom value
 atom version
 atom visible
@@ -733,3 +748,5 @@ atom x86
 atom yes
 atom yield
 atom nifs
+atom auto
+atom debug_hash_fixed_number_of_locks

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,9 +33,6 @@
 #  include "config.h"
 #endif
 
-/* Needed for VxWorks va_arg */
-#include "sys.h"
-
 #ifdef ERTS_ENABLE_LOCK_CHECK
 
 #include "erl_lock_check.h"
@@ -61,7 +58,7 @@ typedef struct {
  * on initialization. Locks with small immediate Erlang terms should
  * be locked before locks with large immediate Erlang terms, and
  * locks with small addresses should be locked before locks with
- * large addresses. The immediate terms and adresses (boxed pointers)
+ * large addresses. The immediate terms and addresses (boxed pointers)
  * are compared as unsigned integers not as Erlang terms.
  *
  * Once a spinlock or rw(spin)lock has been locked, the thread is not
@@ -144,7 +141,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "port_table",                           NULL                    },
     {	"magic_ref_table",			"address"		},
     {	"pid_ref_table",			"address"		},
-    {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
     {   "dyn_lock_check",                       NULL                    },
@@ -162,13 +158,13 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "save_ops_lock",                        NULL                    },
 #endif
 #endif
-    {	"mtrace_buf",				NULL			},
     {	"os_monotonic_time",			NULL			},
     {	"erts_alloc_hard_debug",		NULL			},
     {	"hard_dbg_mseg",		        NULL	                },
     {	"perf", 				NULL			},
     {	"jit_debug_descriptor",			NULL			},
-    {	"erts_mmap",				NULL			}
+    {	"erts_mmap",				NULL			},
+    {	"proc_sig_queue_buffer",		"address"		}
 };
 
 #define ERTS_LOCK_ORDER_SIZE \
@@ -532,7 +528,7 @@ unlock_of_not_locked(lc_thread_t *thr, erts_lc_lock_t *lck)
 static void
 lock_order_violation(lc_thread_t *thr, erts_lc_lock_t *lck)
 {
-    print_lock("Lock order violation occured when locking ", lck, "!\n");
+    print_lock("Lock order violation occurred when locking ", lck, "!\n");
     print_curr_locks(thr);
     print_lock_order();
     lc_abort();
@@ -542,7 +538,7 @@ static void
 type_order_violation(char *op, lc_thread_t *thr,
 		     erts_lc_lock_t *lck)
 {
-    erts_fprintf(stderr, "Lock type order violation occured when ");
+    erts_fprintf(stderr, "Lock type order violation occurred when ");
     print_lock(op, lck, "!\n");
     ASSERT(thr);
     print_curr_locks(thr);

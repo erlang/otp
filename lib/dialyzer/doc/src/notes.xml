@@ -32,6 +32,94 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 5.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that could cause the type analyzer to
+	    enter an infinite loop.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17644 Aux Id: PR-5223 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimize operations in the <c>erl_types</c> module.
+	    Parallelize the Dialyzer pass <c>remote</c>.</p>
+          <p>
+	    Own Id: OTP-17524</p>
+        </item>
+        <item>
+	    <p>Added the <c>missing_return</c> and
+	    <c>extra_return</c> options to raise warnings when
+	    specifications differ from inferred types. These are
+	    similar to, but not quite as verbose as <c>overspecs</c>
+	    and <c>underspecs</c>.</p>
+          <p>
+	    Own Id: OTP-17654 Aux Id: GH-5214 </p>
+        </item>
+        <item>
+	    <p>The <c>race_conditions</c> option has been
+	    removed.</p>
+          <p>
+	    Own Id: OTP-17819</p>
+        </item>
+        <item>
+          <p>
+	    The default location of the plt has been changed from
+	    <c>$HOME</c> to
+	    <c>filename:basedir(user_cache,"erlang")</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-17821 Aux Id: GH-5016 PR-5408 OTP-17554 </p>
+        </item>
+        <item>
+	    <p><c>dialyzer</c> will now honor dependencies inside
+	    type declarations. That is, if the declaration of an
+	    exported type changes, all modules using said type will
+	    be revisited.</p>
+          <p>
+	    Own Id: OTP-17826 Aux Id: PR-5498 </p>
+        </item>
+        <item>
+	    <p>Dialyzer now better understands the types for
+	    <c>min/2</c>, <c>max/2</c>, and <c>erlang:raise/3</c>.
+	    Because of that, Dialyzer can potentially generate new
+	    warnings. In particular, functions that use
+	    <c>erlang:raise/3</c> could now need a spec with a
+	    <c>no_return()</c> return type to avoid an unwanted
+	    warning.</p>
+          <p>
+	    Own Id: OTP-17897 Aux Id: PR-5651 </p>
+        </item>
+        <item>
+	    <p>The <c>typer_core</c> module has been added to provide
+	    an Erlang API for running <c>typer</c>.</p>
+          <p>
+	    Own Id: OTP-17964 Aux Id: PR-5660 </p>
+        </item>
+        <item>
+	    <p>Added the <c>--annotate-in-place</c> option to
+	    <c>typer</c>, which can be used to annotate the specs
+	    that the tool inferred directly into the source code
+	    files.</p>
+          <p>
+	    Own Id: OTP-18035 Aux Id: PR-5802 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

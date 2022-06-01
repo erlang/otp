@@ -521,7 +521,7 @@ Eshell V8.0  (abort with ^G)
      <pre>1> <input>l(dyntrace).</input>
 {module,dyntrace}</pre>
 
-     <p>All tracepoints via dyntrace are now visibile and can be listed through <c>lttng list -u</c>.</p>
+     <p>All tracepoints via dyntrace are now visible and can be listed through <c>lttng list -u</c>.</p>
 
      <p>Enable the process_register LTTng tracepoint for Erlang.</p>
 

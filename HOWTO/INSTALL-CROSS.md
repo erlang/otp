@@ -57,9 +57,7 @@ cross compiling.
 The build system, including cross compilation configuration variables used,
 may be subject to non backward compatible changes without prior notice.
 Current cross build system has been tested when cross compiling some Linux/GNU
-systems, but has only been partly tested for more esoteric platforms. The
-VxWorks example file is highly dependent on our environment and is here more
-or less only for internal use.
+systems, but has only been partly tested for more esoteric platforms.
 
 ### Patches ###
 
@@ -130,11 +128,11 @@ be built.
 `<HOST>` is the host/target system that you build for. It does not have to be
 a full `CPU-VENDOR-OS` triplet, but can be. The full canonicalized
 `CPU-VENDOR-OS` triplet will be created by executing
-`$ERL_TOP/erts/autoconf/config.sub <HOST>`. If `config.sub` fails, you need
+`$ERL_TOP/make/autoconf/config.sub <HOST>`. If `config.sub` fails, you need
 to be more specific.
 
 `<BUILD>` should equal the `CPU-VENDOR-OS` triplet of the system that you
-build on. If you execute `$ERL_TOP/erts/autoconf/config.guess`, it will in
+build on. If you execute `$ERL_TOP/make/autoconf/config.guess`, it will in
 most cases print the triplet you want to use for this.
 
 The use of `<HOST>` and `<BUILD>` values that differ will trigger cross
@@ -265,7 +263,7 @@ have to be passed one way or the other; either by using `erl_xcomp_host=<HOST>`
 and `erl_xcomp_build=<BUILD>` in the configuration file, or by using the
 `--host=<HOST>`, and `--build=<BUILD>` command line arguments.
 
-`otp_build configure` will configure both for the boostrap system on the
+`otp_build configure` will configure both for the bootstrap system on the
 build machine and the cross host system.
 
   (10)
@@ -344,15 +342,15 @@ cross compilation using `$ERL_TOP/otp_build configure`.
     `--build=$erl_xcomp_build` argument to the `configure` script. It does
     not have to be a full `CPU-VENDOR-OS` triplet, but can be. The full
     `CPU-VENDOR-OS` triplet will be created by
-    `$ERL_TOP/erts/autoconf/config.sub $erl_xcomp_build`. If set to `guess`,
+    `$ERL_TOP/make/autoconf/config.sub $erl_xcomp_build`. If set to `guess`,
     the build system will be guessed using
-    `$ERL_TOP/erts/autoconf/config.guess`.
+    `$ERL_TOP/make/autoconf/config.guess`.
 
 *   `erl_xcomp_host` - Cross host/target system to build for. This value will
     be passed as `--host=$erl_xcomp_host` argument to the `configure` script.
     It does not have to be a full `CPU-VENDOR-OS` triplet, but can be. The
     full `CPU-VENDOR-OS` triplet will be created by
-    `$ERL_TOP/erts/autoconf/config.sub $erl_xcomp_host`.
+    `$ERL_TOP/make/autoconf/config.sub $erl_xcomp_host`.
 
 *   `erl_xcomp_configure_flags` - Extra configure flags to pass to the
     `configure` script.

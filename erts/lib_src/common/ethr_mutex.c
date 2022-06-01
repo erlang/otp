@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -884,7 +884,7 @@ enqueue_mtx(ethr_mutex *mtx, ethr_ts_event *tse_start, ethr_ts_event *tse_end)
      * is not currently locked by current thread, we almost certainly have a
      * hard to debug race condition. There might however be some (strange)
      * use for it. POSIX also allow a call to `pthread_cond_signal' or
-     * `pthread_cond_broadcast' even though the the associated mutex isn't
+     * `pthread_cond_broadcast' even though the associated mutex isn't
      * locked by the caller. Therefore, we also allow this kind of strange
      * usage, but optimize for the case where the mutex is locked by the
      * calling thread.
@@ -1905,7 +1905,7 @@ rwmutex_freqread_rdrs_dec_chk_wakeup(ethr_rwmutex *rwmtx,
 		 * A writer that just enqueued (not seen by us
 		 * in flag field) may depend on someone else
 		 * completing the runlock. We just took over
-		 * that responsibilty since we modified reader
+		 * that responsibility since we modified reader
 		 * groups.
 		 */
 		rwmutex_try_complete_runlock(rwmtx, act, tse, 1, 0, 0);
@@ -2720,6 +2720,28 @@ ethr_rwmutex_init(ethr_rwmutex *rwmtx)
     return ethr_rwmutex_init_opt(rwmtx, NULL);
 }
 
+size_t
+ethr_rwmutex_size(ethr_rwmutex *rwmtx) {
+#if ETHR_XCHK
+    if (ethr_not_inited__) {
+	ETHR_ASSERT(0);
+	return EACCES;
+    }
+    if (!rwmtx || rwmtx->initialized != ETHR_RWMUTEX_INITIALIZED) {
+	ETHR_ASSERT(0);
+	return EINVAL;
+    }
+#endif
+    switch (rwmtx->type) {
+    case ETHR_RWMUTEX_TYPE_FREQUENT_READ:
+        return sizeof(ethr_rwmtx_readers_array__) * (reader_groups_array_size + 1);
+    case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ:
+        return sizeof(ethr_rwmtx_readers_array__) * (main_threads_array_size + 1);
+    default:
+        return 0;
+    }
+}
+
 int
 ethr_rwmutex_destroy(ethr_rwmutex *rwmtx)
 {
@@ -3096,6 +3118,11 @@ int
 ethr_rwmutex_init_opt(ethr_rwmutex *rwmtx, ethr_rwmutex_opt *opt)
 {
     return ethr_rwmutex_init(rwmtx);
+}
+
+size_t
+ethr_rwmutex_size(ethr_rwmutex *rwmtx) {
+    return 0;
 }
 
 int

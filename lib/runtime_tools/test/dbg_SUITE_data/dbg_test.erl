@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,10 +23,10 @@
 %%% This module implements a priority queue as defined in
 %%% "Priority Queues and the STL" by Mark Nelson in Dr.Dobb's Journal, Jan 1996
 %%% see http://web2.airmail.net/markn/articles/pq_stl/priority.htm for more
-%%% information. (A heap implementation is planned aswell)
+%%% information. (A heap implementation is planned as well)
 %%%----------------------------------------------------------------------
 %%% The items of the queue is kept priority sorted, and because of that,
-%%% a push() operation costs more than a pop() operation (wich only
+%%% a push() operation costs more than a pop() operation (which only
 %%% needs to return the top item of the queue(read: list)).
 %%%----------------------------------------------------------------------
 %%% The priority queue can be deceptively nice to use when creating for

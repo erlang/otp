@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@
 %% (of the behaviour), this is done using the *Options* argument. 
 %% ---------------------------------------------------------------
 
-%% Options is callback module dependant
+%% Options is callback module dependent
 
 -callback open(Name    :: atom(), 
 	       RecName :: atom(), 

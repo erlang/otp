@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,25 +24,20 @@
 
 -module(diameter_examples_SUITE).
 
+%% testcase, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_suite/1,
-         end_per_suite/1,
-         init_per_group/2,
-         end_per_group/2]).
+         dict/1,
+         code/1]).
 
-%% testcases
--export([dict/1, dict/0,
-         code/1,
-         slave/1, slave/0,
-         enslave/1,
-         start/1,
-         traffic/1,
-         stop/1]).
-
+%% rpc calls
 -export([install/1,
-         call/1]).
+         start/1,
+         traffic/1]).
 
 -include("diameter.hrl").
 
@@ -53,11 +48,6 @@
 %% The order here is significant and causes the server to listen
 %% before the clients connect.
 -define(NODES, [server, client]).
-
-%% Options to ct_slave:start/2.
--define(TIMEOUTS, [{T, 15000} || T <- [boot_timeout,
-                                       init_timeout,
-                                       start_timeout]]).
 
 %% @inherits dependencies between example dictionaries. This is needed
 %% in order compile them in the right order. Can't compile to erl to
@@ -70,68 +60,74 @@
 -define(DICT0, [rfc3588_base, rfc6733_base]).
 
 %% Transport protocols over which the example Diameter nodes are run.
--define(PROTS, [tcp, sctp]).
+-define(PROTS, [sctp || ?util:have_sctp()] ++ [tcp]).
+
+-define(L, atom_to_list).
+-define(A, list_to_atom).
 
 %% ===========================================================================
+%% common_test wrapping
 
 suite() ->
-    [{timetrap, {minutes, 2}}].
+    [{timetrap, {seconds, 75}}].
 
 all() ->
-    [dict,
-     code,
-     {group, all}].
+    [dict, code].
 
-groups() ->
-    Tc = tc(),
-    [{all, [parallel], [{group, P} || P <- ?PROTS]}
-     | [{P, [], Tc} || P <- ?PROTS]].
+dict(Config) ->
+    run(dict, Config).
 
-%% Not used, but a convenient place to enable trace.
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(all, Config) ->
-    Config;
-
-init_per_group(tcp = N, Config) ->
-    [{group, N} | Config];
-
-init_per_group(sctp = N, Config) ->
-    case ?util:have_sctp() of
-        true ->
-            [{group, N} | Config];
-        false->
-            {skip, no_sctp}
-    end.
-
-end_per_group(_, _) ->
-    ok.
-
-tc() ->
-    [slave,
-     enslave,
-     start,
-     traffic,
-     stop].
+code(Config) ->
+    run(code, Config).
 
 %% ===========================================================================
-%% dict/1
+
+%% run/0
+
+run() ->
+    run(all()).
+
+%% run/1
+
+run({dict, Dir}) ->
+    compile_dicts(Dir);
+%% The example code doesn't use the example dictionaries, so a
+%% separate testcase.
+
+run({code, Dir}) ->
+    run_code(Dir);
+
+run(List)
+  when is_list(List) ->
+    Tmp = ?util:mktemp("diameter_examples"),
+    try
+        run(List, Tmp)
+    after
+        file:del_dir_r(Tmp)
+    end.
+
+%% run/2
+
+%% Eg. erl -noinput -s diameter_examples_SUITE run code -s init stop ...
+run(List, Dir)
+  when is_list(List) ->
+    ?util:run([{[fun run/1, {F, Dir}], 60000} || F <- List]);
+
+run(F, Config) ->
+    run([F], proplists:get_value(priv_dir, Config)).
+
+%% ===========================================================================
+%% compile_dicts/1
 %%
 %% Compile example dictionaries in examples/dict.
 
-dict() ->
-    [{timetrap, {minutes, 10}}].
-
-dict(_Config) ->
+compile_dicts(Dir) ->
+    Out = mkdir(Dir, "dict"),
     Dirs = [filename:join(H ++ ["examples", "dict"])
             || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
     [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia$")),
                       D <- ?DICT0,
-                      RC <- [make(F,D)],
+                      RC <- [make(F, D, Out)],
                       RC /= ok].
 
 sort([{_,_} | _] = Files) ->
@@ -162,11 +158,11 @@ dep([{Dict, _} | T], Rest, Acc) ->
 dep([], Rest, Acc) ->
     dep(Rest, Acc).
 
-make(Path, Dict0)
+make(Path, Dict0, Out)
   when is_atom(Dict0) ->
-    make(Path, atom_to_list(Dict0));
+    make(Path, atom_to_list(Dict0), Out);
 
-make(Path, Dict0) ->
+make(Path, Dict0, Out) ->
     Dict = filename:rootname(filename:basename(Path)),
     {Mod, Pre} = make_name(Dict),
     {"diameter_gen_base" ++ Suf = Mod0, _} = make_name(Dict0),
@@ -174,10 +170,11 @@ make(Path, Dict0) ->
     try
         ok = to_erl(Path, [{name, Name},
                            {prefix, Pre},
+                           {outdir, Out},
                            {inherits, "common/" ++ Mod0}
                            | [{inherits, D ++ "/" ++ M ++ Suf}
                               || {D,M} <- dep(Dict)]]),
-        ok = to_beam(Name)
+        ok = to_beam(filename:join(Out, Name))
     catch
         throw: {_,_} = E ->
             E
@@ -220,28 +217,35 @@ make_name(Dict) ->
     {string:join(["diameter_gen", N, R], "_"), "diameter_" ++ N}.
 
 %% ===========================================================================
-%% code/1
+%% compile_code/1
 %%
 %% Compile example code under examples/code.
 
-code(Config) ->
+compile_code(Tmpdir) ->
+    {ok, Pid, Node} = slave(peer:random_name(), here()),
     try
-        [] = rpc:call(slave(compile, here()),
-                      ?MODULE,
-                      install,
-                      [proplists:get_value(priv_dir, Config)])
+        {ok, _Ebin} = rpc:call(Node, ?MODULE, install, [Tmpdir])
     after
-        {ok, _} = ct_slave:stop(compile)
+        peer:stop(Pid)
     end.
 
-%% Compile on another node since the code path may be modified.
-install(PrivDir) ->
-    Top = install(here(), PrivDir),
+%% Compile in another node since the code path is modified.
+install(Tmpdir) ->
+    {Top, Dia, Ebin} = install(here(), Tmpdir),
+
+    %% Prepend the created directory just so that code:lib_dir/1 finds
+    %% it when compile:file/2 tries to resolve include_lib.
+    true = code:add_patha(Ebin),
+    Dia = code:lib_dir(diameter),  %% assert
+
     Src = filename:join([Top, "examples", "code"]),
     Files = find_files([Src], ".*\\.erl$"),
-    [] = [{F,E} || {_,F} <- Files,
-                   {error, _, _} = E <- [compile:file(F, [warnings_as_errors,
-                                                          return_errors])]].
+    [] = [{F,T} || {_,F} <- Files,
+                   T <- [compile:file(F, [warnings_as_errors,
+                                          return_errors,
+                                          {outdir, Ebin}])],
+                   ok /= element(1, T)],
+    {ok, Ebin}.
 
 %% Copy include files into a temporary directory and adjust the code
 %% path in order for example code to be able to include them with
@@ -251,20 +255,15 @@ install(PrivDir) ->
 %% preprocessor to find these otherwise. Generated hrls are only be
 %% under include in an installation. ("Installing" them locally is
 %% anathema.)
-install(Dir, PrivDir) ->
-    %% Remove the path added by slave/1 (needed for the rpc:call/4 in
-    %% compile/1 to find ?MODULE) so the call to code:lib_dir/2 below
-    %% returns the installed path.
-    [Ebin | _] = code:get_path(),
-    true = code:del_path(Ebin),
+install(Dir, Tmpdir) ->
     Top = top(Dir, code:lib_dir(diameter)),
 
     %% Create a new diameter/include in priv_dir. Copy all includes
     %% there, from below ../include and ../src/gen if they exist (in
     %% the repo).
-    Tmp = filename:join([PrivDir, "diameter"]),
-    TmpInc = filename:join([PrivDir, "diameter", "include"]),
-    TmpEbin = filename:join([PrivDir, "diameter", "ebin"]),
+    Tmp = filename:join([Tmpdir, "diameter"]),
+    TmpInc = filename:join([Tmp, "include"]),
+    TmpEbin = filename:join([Tmp, "ebin"]),
     [] = [{T,E} || T <- [Tmp, TmpInc, TmpEbin],
                    {error, E} <- [file:make_dir(T)]],
 
@@ -275,13 +274,7 @@ install(Dir, PrivDir) ->
                    B <- [filename:basename(F)],
                    D <- [filename:join([TmpInc, B])],
                    {error, E} <- [file:copy(F,D)]],
-
-    %% Prepend the created directory just so that code:lib_dir/1 finds
-    %% it when compile:file/2 tries to resolve include_lib.
-    true = code:add_patha(TmpEbin),
-    Tmp = code:lib_dir(diameter),  %% assert
-    %% Return the top directory containing examples/code.
-    Top.
+    {Top, Tmp, TmpEbin}.
 
 find_files(Dirs, RE) ->
     lists:foldl(fun(D,A) -> fold_files(D, RE, A) end,
@@ -296,49 +289,19 @@ store(Path, Dict) ->
 
 %% ===========================================================================
 
-%% slave/1
-%%
-%% Return how long slave start/stop is taking since it seems to be
-%% ridiculously long on some hosts.
-
-slave() ->
-    [{timetrap, {minutes, 10}}].
-
-slave(_) ->
-    T0 = diameter_lib:now(),
-    {ok, Node} = ct_slave:start(?MODULE, ?TIMEOUTS),
-    T1 = diameter_lib:now(),
-    T2 = rpc:call(Node, diameter_lib, now, []),
-    {ok, Node} = ct_slave:stop(?MODULE),
-    now_diff([T0, T1, T2, diameter_lib:now()]).
-
-now_diff([T1,T2|_] = Ts) ->
-    [diameter_lib:micro_diff(T2,T1) | now_diff(tl(Ts))];
-now_diff(_) ->
-    [].
-
-%% ===========================================================================
-
 %% enslave/1
 %%
 %% Start two nodes: one for the server, one for the client.
 
-enslave(Config) ->
-    Prot = proplists:get_value(group, Config),
-    Dir = here(),
-    Nodes = [{S, slave(N, Dir)} || S <- ?NODES, N <- [concat(Prot, S)]],
-    ?util:write_priv(Config, Prot, Nodes).
+enslave(Prefix) ->
+    [{S,N} || D <- [here()],
+              S <- ?NODES,
+              M <- [lists:append(["diameter", Prefix, ?L(S)])],
+              {ok, _, N} <- [slave(M,D)]].
 
 slave(Name, Dir) ->
-    {ok, Node} = ct_slave:start(Name, ?TIMEOUTS),
-    ok = rpc:call(Node,
-                  code,
-                  add_pathsa,
-                  [[Dir, filename:join([Dir, "..", "ebin"])]]),
-    Node.
-
-concat(Prot, Svc) ->
-    list_to_atom(atom_to_list(Prot) ++ atom_to_list(Svc)).
+    Args = ["-pa", Dir, filename:join([Dir, "..", "ebin"])],
+    {ok, _Pid, _Node} = ?util:peer(#{name => Name, args => Args}).
 
 here() ->
     filename:dirname(code:which(?MODULE)).
@@ -350,27 +313,33 @@ top(Dir, LibDir) ->
         false -> LibDir
     end.
 
-%% start/1
+%% start/2
 
-start({server, Prot}) ->
+start({server, Prot, Ebin}) ->
+    true = code:add_patha(Ebin),
     ok = diameter:start(),
     ok = server:start(),
     {ok, Ref} = server:listen({Prot, any, 3868}),
     [_] = ?util:lport(Prot, Ref),
     ok;
 
-start({client = Svc, Prot}) ->
+start({client = Svc, Prot, Ebin}) ->
+    true = code:add_patha(Ebin),
     ok = diameter:start(),
     true = diameter:subscribe(Svc),
     ok = client:start(),
     {ok, Ref} = client:connect({Prot, loopback, loopback, 3868}),
-    receive #diameter_event{info = {up, Ref, _, _, _}} -> ok end;
+    receive
+        #diameter_event{info = {up, Ref, _, _, _}} ->
+            ok
+    after
+        2000 ->
+            timeout
+    end;
 
-start(Config) ->
-    Prot = proplists:get_value(group, Config),
-    Nodes = ?util:read_priv(Config, Prot),
-    [] = [RC || {T,N} <- Nodes,
-                RC <- [rpc:call(N, ?MODULE, start, [{T, Prot}])],
+start([Prot, Ebin | Nodes]) ->
+    [] = [RC || {S,N} <- Nodes,
+                RC <- [rpc:call(N, ?MODULE, start, [{S, Prot, Ebin}])],
                 RC /= ok].
 
 %% traffic/1
@@ -381,30 +350,35 @@ traffic(server) ->
     ok;
 
 traffic(client) ->
-    {_, MRef} = spawn_monitor(fun() -> call(100) end),
+    {_, MRef} = spawn_monitor(fun() -> exit(call(100)) end),
     receive {'DOWN', MRef, process, _, Reason} -> Reason end;
 
-traffic(Config) ->
-    Prot = proplists:get_value(group, Config),
-    Nodes = ?util:read_priv(Config, Prot),
+traffic({Prot, Ebin}) ->
+    Nodes = enslave(?L(Prot)),
+    [] = start([Prot, Ebin | Nodes]),
     [] = [RC || {T,N} <- Nodes,
                 RC <- [rpc:call(N, ?MODULE, traffic, [T])],
                 RC /= ok].
 
+%% run_code/1
+
+run_code(Dir) ->
+    true = is_alive(),  %% need distribution for peer nodes
+    {ok, Ebin} = compile_code(mkdir(Dir, "code")),
+    ?util:run([[fun traffic/1, {T, Ebin}] || T <- ?PROTS]).
+
+%% call/1
+
 call(0) ->
-    exit(ok);
+    ok;
 
 call(N) ->
     {ok, _} = client:call(),
     call(N-1).
 
-%% stop/1
+%% mkdir/2
 
-stop(Name)
-  when is_atom(Name) ->
-    {ok, _Node} = ct_slave:stop(Name),
-    ok;
-
-stop(Config) ->
-    Prot = proplists:get_value(group, Config),
-    [] = [RC || N <- ?NODES, RC <- [catch stop(concat(Prot, N))], RC /= ok].
+mkdir(Top, Dir) ->
+    Tmp = filename:join(Top, Dir),
+    ok = file:make_dir(Tmp),
+    Tmp.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,14 +119,6 @@
 	 error, chunk, truncate, many_users, info, change_size,
 	 open_change_size, change_attribute, otp_6278, otp_10131,
          otp_16768, otp_16809]).
-
-%% These tests should be skipped if the VxWorks card is configured *with*
-%% nfs cache.
--define(SKIP_LARGE_CACHE,[inc_wrap_file, halt_ext, wrap_ext, read_mode, 
-			  head, wrap_notif, open_size, error_log, 
-                          error_index, chunk, 
-			  change_size_before, change_size_during, 
-			  change_size_after, default_size]).
 
 
 suite() ->
@@ -1045,7 +1037,7 @@ m() ->
     one_line("halt,int.inf. (10,1000)", W5, R5, Rep5, C5),
     io:format("\n"),
     io:format("\tWrap log time depends on how often the log wraps, as this\n"),
-    io:format("\tinvolves opening of new files, which costs alot."),
+    io:format("\tinvolves opening of new files, which costs a lot."),
     io:format("\n").
 
 one_line(Txt, W, R, Rep, C) ->

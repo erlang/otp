@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,7 +101,11 @@ ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
     if (!BN_sub(bn_to, bn_rand, bn_from))
         goto err;
+#ifdef HAS_3_0_API
+    if (!BN_rand_range(bn_rand, bn_to))
+#else
     if (!BN_pseudo_rand_range(bn_rand, bn_to))
+#endif
         goto err;
     if (!BN_add(bn_rand, bn_rand, bn_from))
         goto err;

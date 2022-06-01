@@ -571,24 +571,6 @@ handle_call({sync_get, Pid, UserId, TargetName, Oids, SendOpts},
 	    {reply, Error, State}
     end;
 
-%% <BACKWARD-COMPAT>
-%% The only case where this would be called is during code upgrade
-handle_call({sync_get, 
-	     Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo}, 
-	    From, State) ->
-    ?vlog("[~p,~p,~p] received sync_get request for: "
-	  "~n   ~p", [UserId, TargetName, CtxName, Oids]),
-    case (catch handle_sync_get(Pid, 
-				UserId, TargetName, CtxName, Oids, 
-				Timeout, ExtraInfo, From, State)) of
-	ok ->
-	    {noreply, State};
-	Error ->
-	    {reply, Error, State}
-    end;
-%% </BACKWARD-COMPAT>
-
-
 handle_call({sync_get_next, Pid, UserId, TargetName, Oids, SendOpts}, 
 	    From, State) ->
     ?vlog("[~p,~p] received sync_get_next request for: "
@@ -601,24 +583,6 @@ handle_call({sync_get_next, Pid, UserId, TargetName, Oids, SendOpts},
 	Error ->
 	    {reply, Error, State}
     end;
-
-
-%% <BACKWARD-COMPAT>
-%% The only case where this would be called is during code upgrade
-handle_call({sync_get_next, 
-	     Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo}, 
-	    From, State) ->
-    ?vlog("[~p,~p,~p] received sync_get_next request for"
-	  "~n   ~p", [UserId, TargetName, CtxName, Oids]),
-    case (catch handle_sync_get_next(Pid, 
-				     UserId, TargetName, CtxName, Oids, 
-				     Timeout, ExtraInfo, From, State)) of
-	ok ->
-	    {noreply, State};
-	Error ->
-	    {reply, Error, State}
-    end;
-%% </BACKWARD-COMPAT>
 
 
 %% Check agent version? This op not in v1
@@ -636,24 +600,6 @@ handle_call({sync_get_bulk,
 	    {reply, Error, State}
     end;
 
-%% <BACKWARD-COMPAT>
-%% The only case where this would be called is during code upgrade
-handle_call({sync_get_bulk, Pid, UserId, TargetName, 
-	     NonRep, MaxRep, CtxName, Oids, Timeout, ExtraInfo}, 
-	    From, State) ->
-    ?vlog("[~p,~p] received sync_get_bulk request for: ~p"
-	  "~n   ~p", [UserId, TargetName, CtxName, Oids]),
-    case (catch handle_sync_get_bulk(Pid, 
-				     UserId, TargetName, CtxName, 
-				     NonRep, MaxRep, Oids, 
-				     Timeout, ExtraInfo, From, State)) of
-	ok ->
-	    {noreply, State};
-	Error ->
-	    {reply, Error, State}
-    end;
-%% </BACKWARD-COMPAT>
-
 
 handle_call({sync_set, 
 	     Pid, UserId, TargetName, VarsAndVals, SendOpts}, 
@@ -670,24 +616,6 @@ handle_call({sync_set,
     end;
 
 
-%% <BACKWARD-COMPAT>
-%% The only case where this would be called is during code upgrade
-handle_call({sync_set, Pid, UserId, TargetName, 
-	     CtxName, VarsAndVals, Timeout, ExtraInfo}, 
-	    From, State) ->
-    ?vlog("[~p,~p,~p] received sync_set request for: "
-	  "~n   ~p", [UserId, TargetName, CtxName, VarsAndVals]),
-    case (catch handle_sync_set(Pid, 
-				UserId, TargetName, CtxName, VarsAndVals, 
-				Timeout, ExtraInfo, From, State)) of
-	ok ->
-	    {noreply, State};
-	Error ->
-	    {reply, Error, State}
-    end;
-%% </BACKWARD-COMPAT>
-
-
 handle_call({async_get, Pid, UserId, TargetName, Oids, SendOpts}, 
 	    _From, State) ->
     ?vlog("[~p,~p] received async_get request for: "
@@ -698,19 +626,6 @@ handle_call({async_get, Pid, UserId, TargetName, Oids, SendOpts},
     {reply, Reply, State};
 
 
-%% <BACKWARD-COMPAT>
-%% The only case where this would be called is during code upgrade
-handle_call({async_get, Pid, UserId, TargetName, 
-	     CtxName, Oids, Expire, ExtraInfo}, 
-	    _From, State) ->
-    ?vlog("[~p,~p,~p] received async_get request for: "
-	  "~n   ~p", [UserId, TargetName, CtxName, Oids]),
-    Reply = (catch handle_async_get(Pid, UserId, TargetName, CtxName, Oids, 
-				    Expire, ExtraInfo, State)),
-    {reply, Reply, State};
-%% </BACKWARD-COMPAT>
-
-
 handle_call({async_get_next, Pid, UserId, TargetName, Oids, SendOpts}, 
 	    _From, State) ->
     ?vlog("[~p,~p] received async_get_next request for: "
@@ -719,19 +634,6 @@ handle_call({async_get_next, Pid, UserId, TargetName, Oids, SendOpts},
 					 UserId, TargetName, Oids, SendOpts, 
 					 State)),
     {reply, Reply, State};
-
-
-%% <BACKWARD-COMPAT>
-%% The only case where this would be called is during code upgrade
-handle_call({async_get_next, Pid, UserId, TargetName, 
-	     CtxName, Oids, Expire, ExtraInfo}, 
-	    _From, State) ->
-    ?vlog("[~p,~p,~p] received async_get_next request for: ", 
-	  [UserId, TargetName, CtxName, Oids]),
-    Reply = (catch handle_async_get_next(Pid, UserId, TargetName, CtxName, 
-					 Oids, Expire, ExtraInfo, State)),
-    {reply, Reply, State};
-%% </BACKWARD-COMPAT>
 
 
 %% Check agent version? This op not in v1
@@ -747,21 +649,6 @@ handle_call({async_get_bulk,
     {reply, Reply, State};
 
 
-%% <BACKWARD-COMPAT>
-%% The only case where this would be called is during code upgrade
-handle_call({async_get_bulk, Pid, UserId, TargetName, 
-	     NonRep, MaxRep, CtxName, Oids, Expire, ExtraInfo}, 
-	    _From, State) ->
-    ?vlog("[~p,~p,~p] received async_get_bulk request for: "
-	  "~n   ~p", [UserId, TargetName, CtxName, Oids]),
-    Reply = (catch handle_async_get_bulk(Pid, 
-					 UserId, TargetName, CtxName, 
-					 NonRep, MaxRep, Oids, 
-					 Expire, ExtraInfo, State)),
-    {reply, Reply, State};
-%% </BACKWARD-COMPAT>
-
-
 handle_call({async_set, 
 	     Pid, UserId, TargetName, VarsAndVals, SendOpts}, 
 	    _From, State) ->
@@ -771,19 +658,6 @@ handle_call({async_set,
 				    UserId, TargetName, VarsAndVals, SendOpts, 
 				    State)),
     {reply, Reply, State};
-
-
-%% <BACKWARD-COMPAT>
-%% The only case where this would be called is during code upgrade
-handle_call({async_set, Pid, UserId, TargetName, 
-	     CtxName, VarsAndVals, Expire, ExtraInfo}, 
-	    _From, State) ->
-    ?vlog("[~p,~p,~p] received async_set request for: "
-	  "~n   ~p", [UserId, TargetName, CtxName, VarsAndVals]),
-    Reply = (catch handle_async_set(Pid, UserId, TargetName, CtxName, 
-				    VarsAndVals, Expire, ExtraInfo, State)),
-    {reply, Reply, State};
-%% </BACKWARD-COMPAT>
 
 
 handle_call({cancel_async_request, UserId, ReqId}, _From, State) ->
@@ -1024,16 +898,6 @@ terminate(Reason, #state{nis_pid = NIS, gct = GCT, cbproxy = CBP}) ->
 %% 
 %%----------------------------------------------------------------------
 
-handle_sync_get(Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo, 
-		From, State) ->    
-    SendOpts = 
-	[
-	 {context, CtxName},
-	 {timeout, Timeout},
-	 {extra,   ExtraInfo}
-	],
-    handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State).
-
 handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State) -> 
     ?vtrace("handle_sync_get -> entry with"
 	    "~n   Pid:        ~p"
@@ -1076,16 +940,6 @@ handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State) ->
 	    Error
     end.
     
-handle_sync_get_next(Pid, UserId, TargetName, CtxName, Oids, Timeout, 
-		     ExtraInfo, From, State) ->
-    SendOpts = 
-	[
-	 {context, CtxName},
-	 {timeout, Timeout},
-	 {extra,   ExtraInfo}
-	],
-    handle_sync_get_next(Pid, UserId, TargetName, Oids, SendOpts, From, State).
-
 handle_sync_get_next(Pid, UserId, TargetName, Oids, SendOpts, 
 		     From, State) ->
     ?vtrace("handle_sync_get_next -> entry with"
@@ -1130,18 +984,6 @@ handle_sync_get_next(Pid, UserId, TargetName, Oids, SendOpts,
 	    Error
     end.
 
-
-handle_sync_get_bulk(Pid, UserId, TargetName, CtxName, 
-		     NonRep, MaxRep, Oids, Timeout, 
-		     ExtraInfo, From, State) ->
-    SendOpts = 
-	[
-	 {context, CtxName},
-	 {timeout, Timeout},
-	 {extra,   ExtraInfo}
-	],
-    handle_sync_get_bulk(Pid, UserId, TargetName, NonRep, MaxRep, Oids, 
-			 SendOpts, From, State).
 
 handle_sync_get_bulk(Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts, 
 		     From, State) ->
@@ -1190,17 +1032,6 @@ handle_sync_get_bulk(Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts,
     end.
 
 
-handle_sync_set(Pid, UserId, TargetName, CtxName, VarsAndVals, Timeout, 
-		ExtraInfo, From, State) ->
-    SendOpts = 
-	[
-	 {context, CtxName},
-	 {timeout, Timeout},
-	 {extra,   ExtraInfo}
-	],
-    handle_sync_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, 
-		    From, State).
-
 handle_sync_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, From, State) ->
     ?vtrace("handle_sync_set -> entry with"
 	    "~n   Pid:         ~p"
@@ -1245,16 +1076,6 @@ handle_sync_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, From, State) ->
     end.
 
  
-handle_async_get(Pid, UserId, TargetName, CtxName, Oids, Expire, ExtraInfo, 
-		 State) ->
-    SendOpts = 
-	[
-	 {context, CtxName},
-	 {timeout, Expire},
-	 {extra,   ExtraInfo}
-	],
-    handle_async_get(Pid, UserId, TargetName, Oids, SendOpts, State).
-
 handle_async_get(Pid, UserId, TargetName, Oids, SendOpts, State) ->
     ?vtrace("handle_async_get -> entry with"
 	    "~n   Pid:        ~p"
@@ -1294,16 +1115,6 @@ handle_async_get(Pid, UserId, TargetName, Oids, SendOpts, State) ->
     end.
 
 
-handle_async_get_next(Pid, UserId, TargetName, CtxName, Oids, Expire, 
-		      ExtraInfo, State) ->
-    SendOpts = 
-	[
-	 {context, CtxName},
-	 {timeout, Expire},
-	 {extra,   ExtraInfo}
-	],
-    handle_async_get_next(Pid, UserId, TargetName, Oids, SendOpts, State).
-
 handle_async_get_next(Pid, UserId, TargetName, Oids, SendOpts, State) ->
     ?vtrace("handle_async_get_next -> entry with"
 	    "~n   Pid:        ~p"
@@ -1342,19 +1153,6 @@ handle_async_get_next(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 	    Error
     end.
 
-
-handle_async_get_bulk(Pid, UserId, TargetName, CtxName, 
-		      NonRep, MaxRep, Oids, Expire, 
-		      ExtraInfo, State) ->
-    SendOpts = 
-	[
-	 {context, CtxName},
-	 {timeout, Expire},
-	 {extra,   ExtraInfo}
-	],
-    handle_async_get_bulk(Pid, 
-			  UserId, TargetName, NonRep, MaxRep, Oids, SendOpts, 
-			  State).
 
 handle_async_get_bulk(Pid, 
 		      UserId, TargetName, NonRep, MaxRep, Oids, SendOpts, 
@@ -1397,16 +1195,6 @@ handle_async_get_bulk(Pid,
 	    Error
     end.
 
-
-handle_async_set(Pid, UserId, TargetName, CtxName, VarsAndVals, Expire, 
-		 ExtraInfo, State) ->
-    SendOpts = 
-	[
-	 {context, CtxName},
-	 {timeout, Expire},
-	 {extra,   ExtraInfo}
-	],
-    handle_async_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, State).
 
 handle_async_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, State) ->
     ?vtrace("handle_async_set -> entry with"
@@ -1549,14 +1337,14 @@ handle_snmp_error(#pdu{request_id = ReqId} = Pdu, Reason, State) ->
 		_ ->
 		    %% reply to outstanding request, for which there is no
 		    %% longer any owner (the user has unregistered).
-		    %% Therefor send it to the default user
+		    %% Therefore send it to the default user
 		    case snmpm_config:user_info() of
 			{ok, DefUserId, DefMod, DefData} ->
 			    handle_error(DefUserId, DefMod, Reason, ReqId, 
 					 DefData, State),
 			    maybe_delete(Disco, ReqId);
 			_ ->
-			    error_msg("failed retreiving the default user "
+			    error_msg("failed retrieving the default user "
 				      "info handling error [~w]: "
 				      "~n~w", [ReqId, Reason])
 		    end
@@ -1604,7 +1392,7 @@ handle_snmp_error(#pdu{request_id = ReqId} = Pdu, Reason, State) ->
 		    handle_error(DefUserId, DefMod, Reason, 
 				 ReqId, DefData, State);
 		_ ->
-		    error_msg("failed retreiving the default "
+		    error_msg("failed retrieving the default "
 			      "user info handling error [~w]: "
 			      "~n~w",[ReqId, Reason])
 	    end
@@ -1636,7 +1424,7 @@ handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
 			    handle_error(DefUserId, DefMod, Reason, 
 					 ReqId, DefData, State);
 			_Error2 ->
-			    error_msg("failed retreiving the default user "
+			    error_msg("failed retrieving the default user "
 				      "info handling snmp error "
 				      "<~p,~p>: ~n~w~n~w",
 				      [Domain, Addr, ReqId, Reason])
@@ -1648,7 +1436,7 @@ handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
 		    handle_error(DefUserId, DefMod, Reason, 
 				 ReqId, DefData, State);
 		_Error4 ->
-		    error_msg("failed retreiving the default user "
+		    error_msg("failed retrieving the default user "
 			      "info handling snmp error "
 			      "<~p,~p>: ~n~w~n~w",
 			      [Domain, Addr, ReqId, Reason])
@@ -1721,7 +1509,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 		_Error ->
 		    %% reply to outstanding request, for which there is no
 		    %% longer any owner (the user has unregistered).
-		    %% Therefor send it to the default user
+		    %% Therefore send it to the default user
 		    case snmpm_config:user_info() of
 			{ok, DefUserId, DefMod, DefData} ->
 			    handle_pdu(
@@ -1730,7 +1518,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 			      ReqId, SnmpResponse, DefData, State),
 			    maybe_delete(Disco, ReqId);
 			Error ->
-			    error_msg("failed retreiving the default user "
+			    error_msg("failed retrieving the default user "
 				      "info handling pdu from "
 				      "~p <~p,~p>: ~n~w~n~w",
 				      [Target, Domain, Addr, Error, Pdu])
@@ -1808,7 +1596,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 				    handle_error(DefUserId, DefMod, Reason, 
 						 ReqId, DefData, State);
 				Error ->
-				    error_msg("failed retreiving the default "
+				    error_msg("failed retrieving the default "
 					      "user info handling (old) "
 					      "pdu from "
 					      "<~p,~p>: ~n~w~n~w",
@@ -1835,7 +1623,7 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 			      pdu, ignore,
 			      SnmpInfo, DefData, State);
 			Error ->
-			    error_msg("failed retreiving the default user "
+			    error_msg("failed retrieving the default user "
 				      "info handling (old) pdu when no user "
 				      "found from "
 				      "<~p,~p>: ~n~w~n~w",
@@ -2105,7 +1893,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 		
 		Error1 ->
 		    %% User no longer exists, unregister agent
-		    ?vlog("[trap] failed retreiving user info for "
+		    ?vlog("[trap] failed retrieving user info for "
 			  "user ~p: "
 			  "~n      ~p", [UserId, Error1]),
 		    case snmpm_config:unregister_agent(UserId, Target) of
@@ -2120,7 +1908,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 				      SnmpTrapInfo, DefData, State);
 				Error2 ->
 				    error_msg(
-				      "failed retreiving the default "
+				      "failed retrieving the default "
 				      "user info handling report from "
 				      "~p <~p,~p>: ~n~w~n~w",
 				      [Target, Domain, Addr,
@@ -2142,7 +1930,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 	
 	Error4 ->
 	    %% Unknown agent, pass it on to the default user
-	    ?vlog("[trap] failed retreiving user id for agent <~p,~p>: "
+	    ?vlog("[trap] failed retrieving user id for agent <~p,~p>: "
 		  "~n      Error:  ~p"
 		  "~n   when"
 		  "~n      Users:  ~p"
@@ -2159,7 +1947,7 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 		      SnmpTrapInfo, DefData, State);
 		Error5 ->
 		    error_msg(
-		      "failed retreiving "
+		      "failed retrieving "
 		      "the default user info, handling trap from <~p,~p>:"
                       "~n      Error:     ~p"
                       "~n      Trap Info: ~p",
@@ -2290,7 +2078,7 @@ handle_snmp_inform(
 		    case snmpm_config:unregister_agent(UserId, Target) of
 			ok ->
 			    %% Try use the default user
-			    ?vlog("[inform] failed retreiving user "
+			    ?vlog("[inform] failed retrieving user "
 				  "info for user ~p:"
 				  "~n   ~p", [UserId, Error1]),
 			    case snmpm_config:user_info() of
@@ -2301,7 +2089,7 @@ handle_snmp_inform(
 				      inform, Ref, 
 				      SnmpInform, DefData, State);
 				Error2 ->
-				    error_msg("failed retreiving the default "
+				    error_msg("failed retrieving the default "
 					      "user info handling inform from "
 					      "~p <~p,~p>: ~n~w~n~w",
 					      [Target, Domain, Addr,
@@ -2322,7 +2110,7 @@ handle_snmp_inform(
 
 	Error4 ->
 	    %% Unknown agent, pass it on to the default user
-	    ?vlog("[inform] failed retreiving user id for agent <~p,~p>: "
+	    ?vlog("[inform] failed retrieving user id for agent <~p,~p>: "
 		  "~n   ~p", [Domain, Addr, Error4]),
 	    case snmpm_config:user_info() of
 		{ok, DefUserId, DefMod, DefData} ->
@@ -2332,7 +2120,7 @@ handle_snmp_inform(
 		      inform, Ref, 
 		      SnmpInform, DefData, State);
 		Error5 ->
-		    error_msg("failed retreiving "
+		    error_msg("failed retrieving "
 			      "the default user info handling inform from "
 			      "<~p,~p>: ~n~w~n~w",
 			      [Domain, Addr, Error5, Pdu])
@@ -2492,7 +2280,7 @@ handle_snmp_report(
 				  SnmpReport, Data, State);
  		Error1 ->
 		    %% User no longer exists, unregister agent
-		    ?vlog("[report] failed retreiving user info "
+		    ?vlog("[report] failed retrieving user info "
 			  "for user ~p:"
 			  " ~n   ~p", [UserId, Error1]),
 		    case snmpm_config:unregister_agent(UserId, Target) of
@@ -2506,7 +2294,7 @@ handle_snmp_report(
 						 SnmpReport, DefData, State);
 				
 				Error2 ->
-				    error_msg("failed retreiving the default "
+				    error_msg("failed retrieving the default "
 					      "user info handling report from "
 					      "~p <~p,~p>: ~n~w~n~w",
 					      [Target, Domain, Addr,
@@ -2527,7 +2315,7 @@ handle_snmp_report(
 		
 	Error4 ->
 	    %% Unknown agent, pass it on to the default user
-	    ?vlog("[report] failed retreiving user id for agent <~p,~p>: "
+	    ?vlog("[report] failed retrieving user id for agent <~p,~p>: "
 		  "~n   ~p", [Domain, Addr, Error4]),
 	    case snmpm_config:user_info() of
 		{ok, DefUserId, DefMod, DefData} ->
@@ -2536,7 +2324,7 @@ handle_snmp_report(
 				 report, ignore, 
 				 SnmpReport, DefData, State);
 		Error5 ->
-		    error_msg("failed retreiving "
+		    error_msg("failed retrieving "
 			      "the default user info handling report from "
 			      "<~p,~p>: ~n~w~n~w",
 			      [Domain, Addr, Error5, Pdu])
@@ -2551,7 +2339,7 @@ handle_snmp_report(CrapReport, Domain, Addr, _State) ->
 
 %% This could be from a failed get-request, so we might have a user
 %% waiting for a reply here. If there is, we handle this as an failed
-%% get-response (except for tha data which is different). Otherwise,
+%% get-response (except for the data which is different). Otherwise,
 %% we handle it as an error (reported via the handle_error callback
 %% function).
 handle_snmp_report(
@@ -2624,7 +2412,7 @@ handle_snmp_report(
 					 Data, State);
 			Error ->
 			    %% Oh crap, use the default user
-			    ?vlog("[report] failed retreiving user info for "
+			    ?vlog("[report] failed retrieving user info for "
 				  "user ~p:"
 				  " ~n   ~p", [UserId, Error]),
 			    case snmpm_config:user_info() of
@@ -2632,7 +2420,7 @@ handle_snmp_report(
 				    handle_error(DefUserId, DefMod, Reason, 
 						 ReqId, DefData, State);
 				Error ->
-				    error_msg("failed retreiving the "
+				    error_msg("failed retrieving the "
 					      "default user "
 					      "info handling report from "
 					      "<~p,~p>: ~n~w~n~w~n~w",
@@ -2642,7 +2430,7 @@ handle_snmp_report(
 		    end;
 		Error ->
 		    %% Unknown agent, pass it on to the default user
-		    ?vlog("[report] failed retreiving user id for "
+		    ?vlog("[report] failed retrieving user id for "
 			  "agent <~p,~p>: "
 			  "~n   ~p", [Domain, Addr, Error]),
 		    case snmpm_config:user_info() of
@@ -2650,7 +2438,7 @@ handle_snmp_report(
 			    handle_error(DefUserId, DefMod, Reason, ReqId, 
 					 DefData, State);
 			Error ->
-			    error_msg("failed retreiving "
+			    error_msg("failed retrieving "
 				      "the default user info handling "
 				      "report from "
 				      "<~p,~p>: ~n~w~n~w~n~w",

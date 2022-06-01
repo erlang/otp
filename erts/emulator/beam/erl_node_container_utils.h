@@ -58,7 +58,7 @@
  * are used as 'serial'. In the "emulator interface" (external format,
  * list_to_pid, etc) the least significant 15 bits are presented as
  * 'number' and the most significant 3 bits are presented as 'serial',
- * though. The makro internal_pid_index() can be used for retrieving
+ * though. The macro internal_pid_index() can be used for retrieving
  * index into the process table. Do *not* use the result from
  * pid_number() as an index into the process table. The pid_number() and
  * pid_serial() (and friends) fetch the old fixed size 'number' and
@@ -106,7 +106,7 @@
  */
 #define dist_entry_channel_no(x)				\
   ((x) == erts_this_dist_entry					\
-   ? ((Uint) 0)							\
+   ? ((Uint) ERST_INTERNAL_CHANNEL_NO)							\
    : (ASSERT(is_atom((x)->sysname)),			        \
       (Uint) atom_val((x)->sysname)))
 #define internal_channel_no(x) ((Uint) ERST_INTERNAL_CHANNEL_NO)

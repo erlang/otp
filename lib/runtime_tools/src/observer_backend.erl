@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ vsn() ->
 socket_info() ->
     Info0             = socket:info(),
     {Counters, Info1} = maps:take(counters, Info0),
-    IovMax            = maps:get(iov_max , Info1),
+    IovMax            = maps:get(iov_max, Info1),
     NumMons           = socket:number_of_monitors(),
     [{iov_max, IovMax}, {num_monitors, NumMons} | maps:to_list(Counters)].
     
@@ -205,21 +205,52 @@ inet_port_extra({_,Type},Port) when Type =:= "udp_inet";
                 [{local_address,LAddr}];
             {error, _} -> []
         end ++
-        case inet:getopts(Port,
-                          [active, broadcast, buffer, bind_to_device,
-                           delay_send, deliver, dontroute, exit_on_close,
-                           header, high_msgq_watermark, high_watermark,
-                           ipv6_v6only, keepalive, linger, low_msgq_watermark,
-                           low_watermark, mode, netns, nodelay, packet,
-                           packet_size, priority, read_packets, recbuf,
-                           reuseaddr, send_timeout, send_timeout_close,
-                           show_econnreset, sndbuf, tos, tclass]) of
-            {ok, Opts} -> [{options, Opts}];
-            {error, _} -> []
-        end,
+        [{options, get_sock_opts(Port)}],
     [{inet,Data}];
 inet_port_extra(_,_) ->
     [].
+
+sock_opts() ->
+    [active, broadcast, buffer, bind_to_device,
+     delay_send, deliver, dontroute, exit_on_close,
+     header, high_msgq_watermark, high_watermark,
+     ipv6_v6only, keepalive, linger, low_msgq_watermark,
+     low_watermark, mode, netns, nodelay, packet,
+     packet_size, priority, read_packets, recbuf,
+     reuseaddr, send_timeout, send_timeout_close,
+     show_econnreset, sndbuf, tos, tclass].
+
+get_sock_opts(Port) ->
+    get_sock_opts(Port, sock_opts()).
+
+get_sock_opts(Port, Opts) ->
+    get_sock_opts(Port, Opts, []).
+
+%% The reason we are doing it this way, is because if there
+%% is an issue with one of the options, we should just skip
+%% that option and continue with the next.
+%% Better to have some options then none.
+get_sock_opts(_Port, [], Acc) ->
+    lists:reverse(Acc);
+get_sock_opts(Port, [Opt|Opts], Acc) ->
+    case inet:getopts(Port, [Opt]) of
+        {ok, [Res]} ->
+            get_sock_opts(Port, Opts, [Res|Acc]);
+        {ok, []} -> % No value?
+            Res = {Opt, "-"},
+            get_sock_opts(Port, Opts, [Res|Acc]);
+        {error, einval} ->
+            Res = {Opt, "Not Supported"},
+            get_sock_opts(Port, Opts, [Res|Acc]);
+
+        %% If the option is "invalid", the reason would be 'einval',
+        %% so this error must be something else.
+        %% But if the option just vanish, we don't know what is
+        %% going on. So, do something similar to socket (see below).
+        {error, Reason} ->
+            Res = {Opt, f("error:~p", [Reason])},
+            get_sock_opts(Port, Opts, [Res|Acc])
+    end.
 
 
 get_socket_list() ->

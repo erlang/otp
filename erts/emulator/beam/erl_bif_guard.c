@@ -289,7 +289,7 @@ Eterm erts_trapping_length_1(Process* p, Eterm* args)
 
     if (is_list(list)) {
         /*
-         * We have exceeded the alloted number of iterations.
+         * We have exceeded the allotted number of iterations.
          * Save the result so far and signal a trap.
          */
         args[0] = list;

@@ -391,10 +391,10 @@ code_change(_OldVsn, State, _Extra) ->
 call(Pid, Msg) ->
     gen_server:call(Pid, Msg, infinity).
 
-start_tls_server_connection(SslOpts, ConnectionCb, Transport, Port, Socket, EmOpts, Trackers, CbInfo) ->    
+start_tls_server_connection(#{sender_spawn_opts := SenderOpts} = SslOpts, ConnectionCb, Transport, Port, Socket, EmOpts, Trackers, CbInfo) ->    
     try
         {ok, DynSup} = tls_connection_sup:start_child([]),
-        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, []),
+        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, SenderOpts}]]),
         ConnArgs = [server, Sender, "localhost", Port, Socket,
                     {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Trackers}, self(), CbInfo],
         {ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, ConnArgs),

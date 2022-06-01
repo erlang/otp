@@ -57,7 +57,7 @@ info:
 
 
 
-debug opt: 
+$(TYPES): 
 
 
 clean:

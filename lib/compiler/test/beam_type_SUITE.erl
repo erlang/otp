@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@
 	 arity_checks/1,elixir_binaries/1,find_best/1,
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
-         container_subtraction/1]).
+         container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
+         switch_fail_inference/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -58,7 +59,10 @@ groups() ->
        none_argument,
        success_type_oscillation,
        type_subtraction,
-       container_subtraction
+       container_subtraction,
+       is_list_opt,
+       connected_tuple_elements,
+       switch_fail_inference
       ]}].
 
 init_per_suite(Config) ->
@@ -97,6 +101,8 @@ integers(_Config) ->
     house = do_integers_7(),
 
     {'EXIT',{badarith,_}} = (catch do_integers_8()),
+
+    -693 = do_integers_9(id(7), id(1)),
 
     ok.
 
@@ -165,6 +171,9 @@ do_integers_7() ->
 
 do_integers_8() ->
     -1 band ((0 div 0) band 0).
+
+do_integers_9(X, Y) ->
+    X * (-100 bor (Y band 1)).
 
 numbers(_Config) ->
     Int = id(42),
@@ -259,7 +268,31 @@ coverage(Config) ->
 
     false = fun lot:life/147 == #{},
 
+    {'EXIT',{badarith,_}} = catch coverage_1(),
+
+    {'EXIT',{badarith,_}} = catch coverage_2(),
+
+    {'EXIT',{function_clause,_}} = catch coverage_3("a"),
+    {'EXIT',{function_clause,_}} = catch coverage_3("b"),
+
     ok.
+
+coverage_1() ->
+    try
+        []
+    catch
+        _:_ ->
+            42
+    end
+    *
+    [].
+
+coverage_2() ->
+    tl("abc") bsr [].
+
+%% Cover beam_ssa_type:infer_br_value(V, Bool, none).
+coverage_3("a" = V) when is_function(V, false) ->
+    0.
 
 booleans(_Config) ->
     {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
@@ -267,14 +300,19 @@ booleans(_Config) ->
     ok = do_booleans_2(42, 41),
     error = do_booleans_2(42, 42),
 
+    ok = do_booleans_3(id([]), id(false)),
+    error = do_booleans_3(id([]), id(true)),
+    error = do_booleans_3(id([a]), id(false)),
+    error = do_booleans_3(id([a]), id(true)),
+
     AnyAtom = id(atom),
     true = is_atom(AnyAtom),
     false = is_boolean(AnyAtom),
 
-    MaybeBool = id(maybe),
+    MaybeBool = id('maybe'),
     case MaybeBool of
         true -> ok;
-        maybe -> ok;
+        'maybe' -> ok;
         false -> ok
     end,
     false = is_boolean(MaybeBool),
@@ -308,12 +346,34 @@ do_booleans_2(A, B) ->
 
 do_booleans_cmp(A, B) -> A > B.
 
+do_booleans_3(NewContent, IsAnchor) ->
+    if NewContent == [] andalso not IsAnchor ->
+            ok;
+       true ->
+            error
+    end.
+
+
 setelement(_Config) ->
     T0 = id({a,42}),
     {a,_} = T0,
     {b,_} = setelement(1, T0, b),
     {z,b} = do_setelement_1(<<(id(1)):32>>, {a,b}, z),
     {new,two} = do_setelement_2(<<(id(1)):1>>, {one,two}, new),
+    {x,b} = setelement(id(1), id({a,b}), x),
+
+    Index0 = case id(1) of
+                 0 -> 1;
+                 1 -> 2
+            end,
+    {a,x,c} = setelement(Index0, {a,b,c}, x),
+
+    Index1 = case id(1) of
+                 0 -> 4;
+                 1 -> 5
+             end,
+    {'EXIT',{badarg,_}} = catch setelement(Index1, {a,b,c}, y),
+
     ok.
 
 do_setelement_1(<<N:32>>, Tuple, NewValue) ->
@@ -383,10 +443,42 @@ tuple(_Config) ->
     [] = [X || X <- [], #bird{b = b} == {bird,X}],
     [] = [X || X <- [], 3 == X#bird.a],
 
+    1 = do_literal_tuple_1(1),
+    1 = do_literal_tuple_1(20),
+    {'EXIT', _} = catch do_literal_tuple_1(id(0)),
+    {'EXIT', _} = catch do_literal_tuple_1(id(bad)),
+
+    2 = do_literal_tuple_2(1),
+    2 = do_literal_tuple_2(15),
+    2 = do_literal_tuple_2(20),
+
+    Counters0 = id({0,0,0}),                    %Inexact size.
+    {1,0,0} = Counters1 = increment_element(1, Counters0),
+    {1,1,0} = increment_element(2, Counters1),
+
+    Counters10 = {id(0),id(0),id(0)},           %Exact size.
+    {0,-1,0} = decrement_element(2, Counters10),
+    {0,0,-1} = decrement_element(3, Counters10),
+    {'EXIT',{badarg,_}} = catch decrement_element(4, Counters10),
+
     ok.
 
 do_tuple() ->
     {0, _} = {necessary}.
+
+do_literal_tuple_1(X) ->
+    element(X, {1,1,1,1,1, 1,1,1,1,1, 1,1,1,1,1, 1,1,1,1,1}).
+
+do_literal_tuple_2(X) ->
+    element(X, {2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2, 2,2,2,2,2}).
+
+increment_element(Pos, Cs) ->
+    Ns = element(Pos, Cs),
+    setelement(Pos, Cs, Ns + 1).
+
+decrement_element(Pos, Cs) ->
+    Ns = element(Pos, Cs),
+    setelement(Pos, Cs, Ns - 1).
 
 -record(x, {a}).
 
@@ -530,16 +622,38 @@ do_test_size(Term) when is_binary(Term) ->
     size(Term).
 
 cover_lists_functions(Config) ->
+    {data_dir,_DataDir} = lists:keyfind(data_dir, id(1), Config),
+
+    Config = lists:map(id(fun id/1), Config),
+
     case lists:suffix([no|Config], Config) of
         true ->
             ct:fail(should_be_false);
         false ->
             ok
     end,
-    Zipped = lists:zipwith(fun(A, B) -> {A,B} end,
+
+    Zipper = fun(A, B) -> {A,B} end,
+
+    [] = lists:zipwith(Zipper, [], []),
+
+    Zipped = lists:zipwith(Zipper,
                            lists:duplicate(length(Config), zip),
                            Config),
-    true = is_list(Zipped),
+    [{zip,_}|_] = Zipped,
+
+    DoubleZip = lists:zipwith(id(Zipper),
+                              lists:duplicate(length(Zipped), zip_zip),
+                              Zipped),
+    [{zip_zip,{zip,_}}|_] = DoubleZip,
+
+    {'EXIT',{bad,_}} = (catch lists:zipwith(fun(_A, _B) -> error(bad) end,
+                                            lists:duplicate(length(Zipped), zip_zip),
+                                            Zipped)),
+    [{zip_zip,{zip,_}}|_] = DoubleZip,
+
+    {[_|_],[_|_]} = lists:unzip(Zipped),
+
     ok.
 
 list_append(_Config) ->
@@ -660,6 +774,142 @@ cs_1({_,_}=Other) ->
 
 cs_2({bar,baz}) ->
     ok.
+
+is_list_opt(_Config) ->
+    true = is_list_opt_1(id(<<"application/a2l">>)),
+    false = is_list_opt_1(id(<<"">>)),
+    ok.
+
+is_list_opt_1(Type) ->
+    %% The call to is_list/1 would be optimized to an is_nonempty_list
+    %% instruction, which is illegal in a return context. That would
+    %% crash beam_ssa_codegen.
+    is_list(is_list_opt_2(Type)).
+
+is_list_opt_2(<<"application/a2l">>) -> [<<"a2l">>];
+is_list_opt_2(_Type) -> nil.
+
+%% We used to determine the type of `get_tuple_element` at the time of
+%% extraction, which is simple but sometimes throws away type information when 
+%% on tuple unions.
+%%
+%% This normally doesn't cause any issues other than slightly less optimized
+%% code, but would crash the type pass in rare cases. Consider the following
+%% SSA:
+%%
+%% ----
+%%  %% (Assume _0 is either `{a, 1}`, {b, 2}, or `{c, {d}}`)
+%%  0: 
+%%      _1 = get_tuple_element _0, `0`
+%%      _2 = get_tuple_element _0, `1`
+%%      switch _1, ^3, [
+%%          { `a`, ^1 },
+%%          { `b`, ^2 }
+%%      ]
+%%  1: ... snip ...
+%%  2: ... snip ...
+%%  3:
+%%      _3 = get_tuple_element _0, `1`
+%%      @ssa_bool = is_tagged_tuple _3, 1, `d`
+%%      br @ssa_bool ^4, ^1234
+%%  4:
+%%      _4 = get_tuple_element _3, `0`
+%% ----
+%%
+%% In block 0 we determine that the type of _1 is `a | b | c` and that _2
+%% is `1 | 2 | {d}`. From this, we know that _0 is `{a, 1}` in block 1,
+%% `{b, 2}` in block 2, and `{c, {d}}` in block 3.
+%%
+%% In block 3, we remove the `is_tagged_tuple` test since it's redundant.
+%%
+%% ... but then the compiler replaces _3 with _2 since they're the same value.
+%% However, the type is still the same old `1 | 2 | {d}` we got in block 0,
+%% which is not safe for `get_tuple_element`, crashing the type pass.
+%% 
+%% We fixed this by determining the type of `get_tuple_element` when the result
+%% is used instead of when it was extracted, giving the correct type `{d}` in
+%% block 4.
+connected_tuple_elements(_Config) ->
+    {c, 1, 2, 3} = cte_match(id(gurka), cte_generate(id(2))),
+    ok.
+
+cte_match(_, {a, A, B}) ->
+    {a, id(A), id(B)};
+cte_match(_, {b, A, B}) ->
+    {b, id(A), id(B)};
+cte_match(gurka, {c, A, {{B}, {C}}}) ->
+    {c, id(A), id(B), id(C)}.
+
+cte_generate(0) ->
+    {a, id(1), id(2)};
+cte_generate(1) ->
+    {b, id(1), id(2)};
+cte_generate(2) ->
+    {c, id(1), {{id(2)}, {id(3)}}}.
+
+%% ERIERL-799: Type inference for the fail label on switch terminators was
+%% weaker than that of the case labels, sometimes causing the compiler to crash
+%% when they were inverted.
+switch_fail_inference(_Config) ->
+    ok = sfi(id([])),
+    ok = sfi(id([{twiddle,frobnitz}, eof])),
+    {error, gaffel, gurka} = sfi(id([{twiddle, frobnitz}, {error, gurka}])),
+    {error, gaffel, gurka} = sfi(id([{ok, frobnitz}, {error, gurka}])),
+
+    ok = sfi_5(id("GET")),
+    error = sfi_5(id("OTHER")),
+
+    ok.
+
+sfi(Things) ->
+    case sfi_1(Things) of
+        {ok, _} -> ok;
+        {error, {Left, Right}} -> {error, Left, Right}
+    end.
+
+sfi_1(Things) ->
+    case sfi_2(Things) of
+        {ok, Value} -> {ok, Value};
+        {error, Reason} -> {error, Reason}
+    end.
+
+sfi_2([Thing | Rest]) ->
+    case sfi_3(Thing) of
+        {ok, _} -> sfi_2(Rest);
+        {error, Reason} -> {error, Reason}
+    end;
+sfi_2([]) ->
+    {ok, done}.
+
+sfi_3({twiddle, _}) ->
+    {ok, twiddle};
+sfi_3(Thing) ->
+    case sfi_4(Thing) of
+        {twiddle, _}=More -> sfi_3(More);
+        {ok, Value} -> {ok, Value};
+        {error, Reason} -> {error, Reason}
+    end.
+
+sfi_4(eof) ->
+    {ok, eof};
+sfi_4({ok, IgnoredLater}) ->
+    {twiddle, IgnoredLater};
+sfi_4({error, Reason}) ->
+    {error, {gaffel, Reason}}.
+
+sfi_5(Info) ->
+    ReturnValue = case Info of
+                      "GET" ->
+                          {304};
+                      _ ->
+                          {412}
+                  end,
+    sfi_send_return_value(ReturnValue).
+
+sfi_send_return_value({304}) ->
+    ok;
+sfi_send_return_value({412}) ->
+    error.
 
 id(I) ->
     I.

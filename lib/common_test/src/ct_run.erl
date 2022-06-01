@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -212,10 +212,10 @@ finish(Tracing, ExitStatus, Args) ->
             case get_start_opt(halt_with,
                                fun([HaltMod,HaltFunc]) -> 
                                        {list_to_atom(HaltMod),
-                                        list_to_atom(HaltFunc)} end,
-                               Args) of
+                                        list_to_atom(HaltFunc)}
+                               end, Args) of
                 undefined ->
-                    halt(ExitStatus);
+                    halt(ExitStatus, [{flush, false}]);
                 {M,F} ->
                     apply(M, F, [ExitStatus])
             end

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2021. All Rights Reserved.
+# Copyright Ericsson AB 2008-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -97,25 +97,25 @@ RESCOMP		= @WX_RESCOMP@
 
 ifeq (@WX_HAVE_STATIC_LIBS@,true)
 OPT_WX_LIBS      =  @WX_LIBS_STATIC@
-DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS_STATIC@
+DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS_STATIC@ @GLIB_LIBS@
 else
-OPT_WX_LIBS      =  @WX_LIBS@
-DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS@
+OPT_WX_LIBS      =  @WX_LIBS@ @GLIB_LIBS@
+DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS@ @GLIB_LIBS@
 endif
 
 ifeq ($(TYPE),debug)
 WX_CFLAGS	= @DEBUG_WX_CFLAGS@
 CFLAGS          = @DEBUG_CFLAGS@
 WX_CXX_FLAGS	= @DEBUG_WX_CXXFLAGS@
-CXX_FLAGS       = @DEBUG_CXXFLAGS@
-CXX_NO_OPT_FLAGS = @DEBUG_CXXFLAGS@
+CXX_FLAGS       = @DEBUG_CXXFLAGS@ @GLIB_CFLAGS@
+CXX_NO_OPT_FLAGS = @DEBUG_CXXFLAGS@ @GLIB_CFLAGS@
 WX_LIBS		= $(DEBUG_WX_LIBS)
 else
 WX_CFLAGS	= @WX_CFLAGS@
 CFLAGS          = @CFLAGS@
 WX_CXX_FLAGS	= @WX_CXXFLAGS@
-CXX_FLAGS       = @CXXFLAGS@
-CXX_NO_OPT_FLAGS = @CXXNOOPTFLAGS@
+CXX_FLAGS       = @CXXFLAGS@ @GLIB_CFLAGS@
+CXX_NO_OPT_FLAGS = @CXXNOOPTFLAGS@ @GLIB_CFLAGS@
 WX_LIBS		= $(OPT_WX_LIBS)
 endif
 
@@ -130,8 +130,8 @@ CXX_O_NO_OPT    = $(V_CXX) -c $(CXX_NO_OPT_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLA
 
 opt:     $(TARGET_DIR)/wxe_driver$(SO_EXT) $(TARGET_DIR)/erl_gl$(SO_EXT) $(WEBVIEW_LOADER_DLL_DEST)
 
-debug:   
-	@${MAKE} TYPE=debug
+$(filter-out opt, $(TYPES)):
+	@${MAKE} TYPE=$@ opt
 
 clean:  
 	rm -f $(OBJECTS) 

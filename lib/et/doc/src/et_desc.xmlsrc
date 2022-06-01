@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2016</year>
+      <year>2002</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -520,7 +520,7 @@ ok]]></code>
         <p><c>Hide (excluded actors)</c> - When true, this means that
         the <c>Viewer</c> will hide all <c>Events</c> whose actors are
         marked as excluded. Excluded actors are normally enclosed in
-        round brackets when they are displayed inthe
+        round brackets when they are displayed in the
         <c>Viewer</c>.</p>
       </item>
 

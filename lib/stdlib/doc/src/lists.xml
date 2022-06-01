@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2021</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -174,6 +174,48 @@
       </desc>
     </func>
 
+    <func>
+      <name name="enumerate" arity="1" since="OTP 25.0"/>
+      <fsummary>Annotates elements with their index.</fsummary>
+      <desc>
+        <p>Returns <c><anno>List1</anno></c> with each element
+        <c>H</c> replaced by a tuple of form <c>{I, H}</c> where
+        <c>I</c> is the position of <c>H</c> in
+        <c><anno>List1</anno></c>. The enumeration starts with 1 and
+        increases by 1 in each step.</p>
+        <p>That is, <c>enumerate/1</c> behaves as if it had been defined as follows:</p>
+        <code type="erl">
+enumerate(List) ->
+  {List1, _ } = lists:mapfoldl(fun(T, Acc) -> {{Acc, T}, Acc+1} end, 1, List),
+  List1.</code>
+        <p><em>Example:</em></p>
+        <pre>
+> <input>lists:enumerate([a,b,c]).</input>
+[{1,a},{2,b},{3,c}]</pre>
+      </desc>
+    </func>
+    
+    <func>
+      <name name="enumerate" arity="2" since="OTP 25.0"/>
+      <fsummary>Annotates elements with their index.</fsummary>
+      <desc>
+        <p>Returns <c><anno>List1</anno></c> with each element
+        <c>H</c> replaced by a tuple of form <c>{I, H}</c> where
+        <c>I</c> is the position of <c>H</c> in
+        <c><anno>List1</anno></c>. The enumeration starts with
+        <c><anno>Index</anno></c> and increases by 1 in each step.</p>
+        <p>That is, <c>enumerate/2</c> behaves as if it had been defined as follows:</p>
+        <code type="erl">
+enumerate(I, List) ->
+  {List1, _ } = lists:mapfoldl(fun(T, Acc) -> {{Acc, T}, Acc+1} end, I, List),
+  List1.</code>
+        <p><em>Example:</em></p>
+        <pre>
+> <input>lists:enumerate(10, [a,b,c]).</input>
+[{10,a},{11,b},{12,c}]</pre>
+      </desc>
+    </func>
+    
     <func>
       <name name="filter" arity="2" since=""/>
       <fsummary>Select elements that satisfy a predicate.</fsummary>
@@ -1084,6 +1126,43 @@ splitwith(Pred, List) ->
 [[a,x,1],[b,y,2],[c,z,3]]</pre>
       </desc>
     </func>
+
+    <func>
+      <name name="uniq" arity="1" since="OTP 25.0"/>
+      <fsummary>Removes duplicate elements of a list preserving the order.</fsummary>
+      <desc>
+        <p>Returns a list containing the elements of
+        <c><anno>List1</anno></c> with duplicated elements removed
+        (preserving the order of the elements).  The first occurrence of
+        each element is kept.</p>
+        <p><em>Examples:</em></p>
+        <pre>
+> <input>lists:uniq([3,3,1,2,1,2,3]).</input>
+[3,1,2]
+> <input>lists:uniq([a, a, 1, b, 2, a, 3]).</input>
+[a, 1, b, 2, 3]</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="uniq" arity="2" since="OTP 25.0"/>
+      <fsummary>
+        Removes duplicate elements of a list using
+        a fun as a key preserving the order.
+      </fsummary>
+      <desc>
+        <p>Returns a list containing the elements of
+        <c><anno>List1</anno></c> without the elements for which
+        <c><anno>Fun</anno></c> returned duplicate values
+        (preserving the order of the elements).  The first occurrence
+        of each element is kept.</p>
+        <p><em>Examples:</em></p>
+        <pre>
+> <input>lists:uniq(fun({X, _}) -> X end, [{b, 2}, {a, 1}, {c, 3}, {a, 2}]).</input>
+[{b, 2}, {a, 1}, {c, 3}]</pre>
+      </desc>
+    </func>
+
   </funcs>
 </erlref>
 

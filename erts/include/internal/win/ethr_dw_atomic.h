@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ typedef volatile __int64 * ethr_native_dw_ptr_t;
  * This code assumes 8 byte aligned memory in 64-bit mode, and 4 byte
  * aligned memory in 32-bit mode. A malloc implementation that does
  * not adhere to these alignment requirements is seriously broken,
- * and we wont bother trying to work around it.
+ * and we won't bother trying to work around it.
  *
  * Since memory alignment may be off by one word we need to align at
  * runtime. We, therefore, need an extra word allocated.

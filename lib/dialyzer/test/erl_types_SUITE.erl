@@ -14,8 +14,11 @@
 %%
 -module(erl_types_SUITE).
 
--export([all/0,
-         consistency_and_to_string/1, map_multiple_representations/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
+         consistency_and_to_string/1,misc/1,map_multiple_representations/1,
+         absorption/1,associativity/1,commutativity/1,idempotence/1,
+         identity/1,limit/1
+        ]).
 
 %% Simplify calls into erl_types and avoid importing the entire module.
 -define(M, erl_types).
@@ -23,7 +26,39 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [consistency_and_to_string, map_multiple_representations].
+    [consistency_and_to_string,
+     misc,
+     map_multiple_representations,
+     {group,property_tests}
+    ].
+
+groups() ->
+    [{property_tests,[parallel],
+      [absorption,
+       associativity,
+       commutativity,
+       idempotence,
+       identity,
+       limit]}].
+
+init_per_group(property_tests, Config0) ->
+    case ct_property_test:init_per_suite(Config0) of
+        [_|_]=Config ->
+            try proper_erlang_abstract_code:module() of
+                _ ->
+                    Config
+            catch
+                error:undef ->
+                    {skip, "No proper_erlang_abstract_code module"}
+            end;
+        Other ->
+            Other
+    end;
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 consistency_and_to_string(_Config) ->
     %% Check consistency of types
@@ -196,6 +231,16 @@ consistency_and_to_string(_Config) ->
     "{'false',_} | {'true',_}" = ?M:t_to_string(Union10),
     "{'true',integer()}" = ?M:t_to_string(?M:t_inf(Union10, ?M:t_tuple([?M:t_atom(true), ?M:t_integer()]))).
 
+misc(_Config) ->
+    %% Miscellaneous cases which have been fixed.
+
+    %% Used to take "forever".
+    B1_1 = ?M:t_bitstr(6442450944, 1456),
+    B1_2 = ?M:t_bitstr(85, 7),
+    R1_R = ?M:t_bitstr(547608330240, 347892352432),
+    R1_R = ?M:t_inf(B1_1, B1_2),
+    ok.
+
 %% OTP-17537.
 map_multiple_representations(_Config) ->
     DefV = erl_types:t_atom(),
@@ -311,3 +356,27 @@ map_multiple_representations(_Config) ->
             "#{'a'=>atom(), 'b'=>atom()}" = erl_types:t_to_string(T)
     end(),
     ok.
+
+absorption(Config) ->
+    %% manual test: proper:quickcheck(erl_types_prop:absorption()).
+    true = ct_property_test:quickcheck(erl_types_prop:absorption(), Config).
+
+associativity(Config) ->
+    %% manual test: proper:quickcheck(erl_types_prop:associativity()).
+    true = ct_property_test:quickcheck(erl_types_prop:associativity(), Config).
+
+commutativity(Config) ->
+    %% manual test: proper:quickcheck(erl_types_prop:commutativity()).
+    true = ct_property_test:quickcheck(erl_types_prop:commutativity(), Config).
+
+idempotence(Config) ->
+    %% manual test: proper:quickcheck(erl_types_prop:idempotence()).
+    true = ct_property_test:quickcheck(erl_types_prop:idempotence(), Config).
+
+identity(Config) ->
+    %% manual test: proper:quickcheck(erl_types_prop:identity()).
+    true = ct_property_test:quickcheck(erl_types_prop:identity(), Config).
+
+limit(Config) ->
+    %% manual test: proper:quickcheck(erl_types_prop:limit()).
+    true = ct_property_test:quickcheck(erl_types_prop:limit(), Config).

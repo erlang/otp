@@ -4,7 +4,7 @@ Cross Compiling Erlang/OTP - ANDROID
 Introduction
 ------------
 
-This document describes how to cross compile Erlang/OTP to Android/Rasberry Pi platforms.
+This document describes how to cross compile Erlang/OTP to Android/Raspberry Pi platforms.
 
 
 ### Download and Install the Android NDK ###
@@ -135,7 +135,7 @@ Use the following commands when compiling an x86 64-bit version.
     $ make RELEASE_ROOT=/path/to/release/erlang release
 
 
-### Target Deployment for Rasberry Pi ###
+### Target Deployment for Raspberry Pi ###
 
 Make a tarball out of /path/to/release/erlang and copy it to target
 device. Extract it and install.

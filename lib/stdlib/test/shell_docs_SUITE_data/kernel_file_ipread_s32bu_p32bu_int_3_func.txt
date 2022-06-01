@@ -1,0 +1,6 @@
+
+[;1m  ipread_s32bu_p32bu_int/3[0m
+
+  The documentation for ipread_s32bu_p32bu_int/3 is hidden. This
+  probably means that it is internal and not to be used by other
+  applications.

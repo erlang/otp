@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ public class OtpErlangLong extends OtpErlangObject {
      * @return true if this value fits in a long, false otherwise.
      */
     public boolean isLong() {
-        // To just chech this.bigVal is a wee bit to simple, since
+        // To just check this.bigVal is a wee bit to simple, since
         // there just might have be a mean bignum that arrived on
         // a stream, and was a long disguised as more than 8 byte integer.
         if (bigVal != null) {

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,12 +39,12 @@ void BeamGlobalAssembler::emit_dispatch_return() {
 }
 
 void BeamModuleAssembler::emit_return() {
-    Label dispatch_return = a.newLabel();
-
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
-    emit_validate(ArgVal(ArgVal::u, 1));
+    emit_validate(ArgWord(1));
 #endif
+
+    emit_leave_frame();
 
 #if !defined(NATIVE_ERLANG_STACK)
     a.mov(ARG3, getCPRef());
@@ -54,33 +54,40 @@ void BeamModuleAssembler::emit_return() {
     /* The reduction test is kept in module code because moving it to a shared
      * fragment caused major performance regressions in dialyzer. */
     a.dec(FCALLS);
-    a.short_().jl(dispatch_return);
+
+    if (yieldReturn.isValid()) {
+        /* We're in an ordinary module. Reduce the code size by branching to
+         * the yield trampoline in the module header. */
+        a.jl(yieldReturn);
+    } else {
+        Label next = a.newLabel();
+
+        a.short_().jge(next);
+        abs_jmp(ga->get_dispatch_return());
+        a.bind(next);
+    }
 
 #ifdef NATIVE_ERLANG_STACK
     a.ret();
 #else
     a.jmp(ARG3);
 #endif
-
-    a.bind(dispatch_return);
-    abs_jmp(ga->get_dispatch_return());
 }
 
-void BeamModuleAssembler::emit_i_call(const ArgVal &CallDest) {
-    Label dest = labels[CallDest.getValue()];
-
-    erlang_call(dest, RET);
+void BeamModuleAssembler::emit_i_call(const ArgLabel &CallDest) {
+    erlang_call(resolve_beam_label(CallDest), RET);
 }
 
-void BeamModuleAssembler::emit_i_call_last(const ArgVal &CallDest,
-                                           const ArgVal &Deallocate) {
+void BeamModuleAssembler::emit_i_call_last(const ArgLabel &CallDest,
+                                           const ArgWord &Deallocate) {
     emit_deallocate(Deallocate);
-
-    a.jmp(labels[CallDest.getValue()]);
+    emit_i_call_only(CallDest);
 }
 
-void BeamModuleAssembler::emit_i_call_only(const ArgVal &CallDest) {
-    a.jmp(labels[CallDest.getValue()]);
+void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallDest) {
+    emit_leave_frame();
+
+    a.jmp(resolve_beam_label(CallDest));
 }
 
 /* Handles save_calls. Export entry is in RET.
@@ -104,27 +111,31 @@ void BeamGlobalAssembler::emit_dispatch_save_calls() {
     a.mov(ARG1, imm(&the_active_code_index));
     a.mov(ARG1d, x86::dword_ptr(ARG1));
 
-    a.jmp(emit_setup_export_call(RET, ARG1));
+    a.jmp(emit_setup_dispatchable_call(RET, ARG1));
 }
 
-void BeamModuleAssembler::emit_i_call_ext(const ArgVal &Exp) {
-    make_move_patch(RET, imports[Exp.getValue()].patches);
-    x86::Mem destination = emit_setup_export_call(RET);
+void BeamModuleAssembler::emit_i_call_ext(const ArgExport &Exp) {
+    mov_arg(RET, Exp);
+    x86::Mem destination = emit_setup_dispatchable_call(RET);
     erlang_call(destination, ARG1);
 }
 
-void BeamModuleAssembler::emit_i_call_ext_only(const ArgVal &Exp) {
-    make_move_patch(RET, imports[Exp.getValue()].patches);
-    x86::Mem destination = emit_setup_export_call(RET);
+void BeamModuleAssembler::emit_i_call_ext_only(const ArgExport &Exp) {
+    mov_arg(RET, Exp);
+    x86::Mem destination = emit_setup_dispatchable_call(RET);
+
+    emit_leave_frame();
     a.jmp(destination);
 }
 
-void BeamModuleAssembler::emit_i_call_ext_last(const ArgVal &Exp,
-                                               const ArgVal &Deallocate) {
+void BeamModuleAssembler::emit_i_call_ext_last(const ArgExport &Exp,
+                                               const ArgWord &Deallocate) {
     emit_deallocate(Deallocate);
 
-    make_move_patch(RET, imports[Exp.getValue()].patches);
-    x86::Mem destination = emit_setup_export_call(RET);
+    mov_arg(RET, Exp);
+    x86::Mem destination = emit_setup_dispatchable_call(RET);
+
+    emit_leave_frame();
     a.jmp(destination);
 }
 
@@ -155,10 +166,10 @@ x86::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     a.test(RET, RET);
     a.short_().jne(dispatch);
-    emit_handle_error(entry, &apply3_mfa);
+    emit_raise_exception(entry, &apply3_mfa);
     a.bind(dispatch);
 
-    return emit_setup_export_call(RET);
+    return emit_setup_dispatchable_call(RET);
 }
 
 void BeamModuleAssembler::emit_i_apply() {
@@ -166,17 +177,19 @@ void BeamModuleAssembler::emit_i_apply() {
     erlang_call(dest, ARG1);
 }
 
-void BeamModuleAssembler::emit_i_apply_last(const ArgVal &Deallocate) {
+void BeamModuleAssembler::emit_i_apply_last(const ArgWord &Deallocate) {
     emit_deallocate(Deallocate);
     emit_i_apply_only();
 }
 
 void BeamModuleAssembler::emit_i_apply_only() {
     x86::Mem dest = emit_variable_apply(true);
+
+    emit_leave_frame();
     a.jmp(dest);
 }
 
-x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
+x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
                                                bool includeI) {
     Label dispatch = a.newLabel(), entry = a.newLabel();
 
@@ -205,113 +218,23 @@ x86::Mem BeamModuleAssembler::emit_fixed_apply(const ArgVal &Arity,
     a.test(RET, RET);
     a.short_().jne(dispatch);
 
-    emit_handle_error(entry, &apply3_mfa);
+    emit_raise_exception(entry, &apply3_mfa);
     a.bind(dispatch);
 
-    return emit_setup_export_call(RET);
+    return emit_setup_dispatchable_call(RET);
 }
 
-void BeamModuleAssembler::emit_apply(const ArgVal &Arity) {
+void BeamModuleAssembler::emit_apply(const ArgWord &Arity) {
     x86::Mem dest = emit_fixed_apply(Arity, false);
     erlang_call(dest, ARG1);
 }
 
-void BeamModuleAssembler::emit_apply_last(const ArgVal &Arity,
-                                          const ArgVal &Deallocate) {
+void BeamModuleAssembler::emit_apply_last(const ArgWord &Arity,
+                                          const ArgWord &Deallocate) {
     emit_deallocate(Deallocate);
 
     x86::Mem dest = emit_fixed_apply(Arity, true);
-    a.jmp(dest);
-}
 
-x86::Gp BeamModuleAssembler::emit_apply_fun() {
-    Label dispatch = a.newLabel();
-
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
-
-    a.mov(ARG1, c_p);
-    a.mov(ARG2, getXRef(0));
-    a.mov(ARG3, getXRef(1));
-    load_x_reg_array(ARG4);
-    a.lea(ARG5, TMP_MEM1q);
-    runtime_call<5>(apply_fun);
-
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
-
-    a.mov(ARG2, RET);
-    a.test(RET, RET);
-
-    /* Put the export entry, if any, into RET to follow the export calling
-     * convention in case we applied an external fun. See
-     * `emit_setup_export_call` for details. */
-    a.mov(RET, TMP_MEM1q);
-
-    a.short_().jne(dispatch);
-    emit_handle_error();
-    a.bind(dispatch);
-
-    return ARG2;
-}
-
-void BeamModuleAssembler::emit_i_apply_fun() {
-    x86::Gp dest = emit_apply_fun();
-
-    ASSERT(dest != ARG1);
-    erlang_call(dest, ARG1);
-}
-
-void BeamModuleAssembler::emit_i_apply_fun_last(const ArgVal &Deallocate) {
-    emit_deallocate(Deallocate);
-    emit_i_apply_fun_only();
-}
-
-void BeamModuleAssembler::emit_i_apply_fun_only() {
-    x86::Gp dest = emit_apply_fun();
-
-    a.jmp(dest);
-}
-
-x86::Gp BeamModuleAssembler::emit_call_fun(const ArgVal &Fun) {
-    Label dispatch = a.newLabel();
-
-    mov_arg(ARG2, Fun);
-
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
-
-    a.mov(ARG1, c_p);
-    load_x_reg_array(ARG3);
-    mov_imm(ARG4, THE_NON_VALUE);
-    a.lea(ARG5, TMP_MEM1q);
-    runtime_call<5>(call_fun);
-
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
-
-    a.mov(ARG2, RET);
-    a.test(RET, RET);
-
-    /* Put the export entry, if any, into RET to follow the export calling
-     * convention in case we called an external fun. See
-     * `emit_setup_export_call` for details. */
-    a.mov(RET, TMP_MEM1q);
-
-    a.short_().jne(dispatch);
-    emit_handle_error();
-    a.bind(dispatch);
-
-    return ARG2;
-}
-
-void BeamModuleAssembler::emit_i_call_fun(const ArgVal &Fun) {
-    x86::Gp dest = emit_call_fun(Fun);
-
-    ASSERT(dest != ARG1);
-    erlang_call(dest, ARG1);
-}
-
-void BeamModuleAssembler::emit_i_call_fun_last(const ArgVal &Fun,
-                                               const ArgVal &Deallocate) {
-    emit_deallocate(Deallocate);
-
-    x86::Gp dest = emit_call_fun(Fun);
+    emit_leave_frame();
     a.jmp(dest);
 }

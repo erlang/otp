@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,9 @@
 #include "beam_load.h"
 #include "erl_zlib.h"
 #include "big.h"
+#include "erl_unicode.h"
+#include "erl_binary.h"
+#include "erl_global_literals.h"
 
 #define LoadError(Expr)      \
     do {                     \
@@ -57,7 +60,10 @@ struct BeamCodeReader__ {
     BeamFile *file;
 
     BeamOp *pending;
-    Uint first;
+
+    BeamOpArg current_func_label;
+    BeamOpArg current_entry_label;
+    int first;
 };
 
 typedef struct {
@@ -230,7 +236,6 @@ static int beamreader_read_tagged(BeamReader *reader, TaggedNumber *val) {
 }
 
 static int parse_atom_chunk(BeamFile *beam,
-                            ErtsAtomEncoding enc,
                             IFF_Chunk *chunk) {
     BeamFile_AtomTable *atoms;
     BeamReader reader;
@@ -255,7 +260,6 @@ static int parse_atom_chunk(BeamFile *beam,
     atoms->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
                                 count * sizeof(atoms->entries[0]));
     atoms->entries[0] = THE_NON_VALUE;
-    atoms->encoding = enc;
     atoms->count = count;
 
     for (i = 1; i < count; i++) {
@@ -266,7 +270,7 @@ static int parse_atom_chunk(BeamFile *beam,
         LoadAssert(beamreader_read_u8(&reader, &length));
         LoadAssert(beamreader_read_bytes(&reader, length, &string));
 
-        atom = erts_atom_put(string, length, enc, 1);
+        atom = erts_atom_put(string, length, ERTS_ATOM_ENC_UTF8, 1);
         LoadAssert(atom != THE_NON_VALUE);
 
         atoms->entries[i] = atom;
@@ -320,24 +324,23 @@ static int parse_import_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     return 1;
 }
 
-static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
-    BeamFile_ExportTable *exports;
+static int parse_export_table(BeamFile_ExportTable *dest,
+			      BeamFile *beam, IFF_Chunk *chunk) {
     BeamFile_AtomTable *atoms;
     BeamReader reader;
     Sint32 count;
     int i;
 
-    exports = &beam->exports;
-    ASSERT(exports->entries == NULL);
+    ASSERT(dest->entries == NULL);
 
     beamreader_init(chunk->data, chunk->size, &reader);
 
     LoadAssert(beamreader_read_i32(&reader, &count));
-    LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(exports->entries[0])));
+    LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(dest->entries[0])));
 
-    exports->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                                  count * sizeof(exports->entries[0]));
-    exports->count = count;
+    dest->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                  count * sizeof(dest->entries[0]));
+    dest->count = count;
 
     atoms = &beam->atoms;
 
@@ -352,13 +355,23 @@ static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         LoadAssert(arity >= 0 && arity <= MAX_ARG);
         LoadAssert(label >= 0);
 
-        exports->entries[i].function = atoms->entries[atom_index];
-        exports->entries[i].arity = arity;
-        exports->entries[i].label = label;
+        dest->entries[i].function = atoms->entries[atom_index];
+        dest->entries[i].arity = arity;
+        dest->entries[i].label = label;
     }
 
     return 1;
 }
+
+static int parse_export_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+    return parse_export_table(&beam->exports, beam, chunk);
+}
+
+#ifdef BEAMASM
+static int parse_locals_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+    return parse_export_table(&beam->locals, beam, chunk);
+}
+#endif
 
 static int parse_lambda_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     BeamFile_LambdaTable *lambdas;
@@ -436,6 +449,10 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     LoadAssert(CHECK_ITEM_COUNT(item_count, 0, sizeof(lines->items[0])));
     LoadAssert(CHECK_ITEM_COUNT(name_count, 0, sizeof(lines->names[0])));
 
+    /* Include the implicit "module name with .erl suffix" entry so we don't
+     * have to special-case it anywhere else. */
+    name_count++;
+
     /* Flags are unused at the moment. */
     (void)flags;
 
@@ -448,16 +465,19 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
                               item_count * sizeof(lines->items[0]));
     lines->item_count = item_count;
 
-    lines->names = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
-                              name_count * sizeof(lines->names[0]));
-    lines->name_count = name_count;
-
-    lines->location_size = lines->name_count ? sizeof(Sint32) : sizeof(Sint16);
-
     /* The zeroth entry in the line item table is always present and contains
      * the "undefined location." */
     lines->items[0].name_index = 0;
     lines->items[0].location = 0;
+
+    lines->names = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                              name_count * sizeof(lines->names[0]));
+    lines->name_count = name_count;
+
+    /* We have to use the 32-bit representation if there's any names other than
+     * the implicit "module_name.erl" in the table, as we can't fit LOC_FILE in
+     * 16 bits. */
+    lines->location_size = name_count > 1 ? sizeof(Sint32) : sizeof(Sint16);
 
     name_index = 0;
     i = 1;
@@ -494,19 +514,129 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         }
     }
 
-    for (i = 0; i < name_count; i++) {
-        Sint16 name_length;
-        const byte *name_data;
-        Eterm name;
+    /* Add the implicit "module_name.erl" entry, followed by the rest of the
+     * name table. */
+    {
+        Eterm default_name_buf[MAX_ATOM_CHARACTERS * 2];
+        Eterm *name_heap = default_name_buf;
+        Eterm name, suffix;
+        Eterm *hp;
 
-        LoadAssert(beamreader_read_i16(&reader, &name_length));
-        LoadAssert(beamreader_read_bytes(&reader, name_length, &name_data));
+        suffix = erts_get_global_literal(ERTS_LIT_ERL_FILE_SUFFIX);
 
-        name = erts_atom_put(name_data, name_length, ERTS_ATOM_ENC_UTF8, 1);
-        LoadAssert(name != THE_NON_VALUE);
+        hp = name_heap;
+        name = erts_atom_to_string(&hp, beam->module, suffix);
 
-        lines->names[i] = name;
+        lines->names[0] = beamfile_add_literal(beam, name);
+
+        for (i = 1; i < name_count; i++) {
+            Uint num_chars, num_built, num_eaten;
+            const byte *name_data, *err_pos;
+            Sint16 name_length;
+            Eterm *hp;
+
+            LoadAssert(beamreader_read_i16(&reader, &name_length));
+            LoadAssert(name_length >= 0);
+
+            LoadAssert(beamreader_read_bytes(&reader, name_length, &name_data));
+
+            if (name_length > 0) {
+                LoadAssert(erts_analyze_utf8(name_data, name_length,
+                                             &err_pos, &num_chars,
+                                             NULL) == ERTS_UTF8_OK);
+
+                if (num_chars < MAX_ATOM_CHARACTERS) {
+                    name_heap = default_name_buf;
+                } else {
+                    name_heap = erts_alloc(ERTS_ALC_T_LOADER_TMP,
+                                           num_chars * sizeof(Eterm[2]));
+                }
+
+                hp = name_heap;
+                name = erts_make_list_from_utf8_buf(&hp, num_chars,
+                                                    name_data,
+                                                    name_length,
+                                                    &num_built,
+                                                    &num_eaten,
+                                                    NIL);
+
+                ASSERT(num_built == num_chars);
+                ASSERT(num_eaten == name_length);
+
+                lines->names[i] = beamfile_add_literal(beam, name);
+
+                if (name_heap != default_name_buf) {
+                    erts_free(ERTS_ALC_T_LOADER_TMP, name_heap);
+                }
+            } else {
+                /* Empty file names are rather unusual and annoying to deal
+                 * with since NIL isn't a valid literal, so we'll fake it with
+                 * our module name instead. */
+                lines->names[i] = lines->names[0];
+            }
+        }
     }
+
+    return 1;
+}
+
+/* We assume the presence of a type table to simplify loading, so we'll need to
+ * create a dummy table (with single entry for the "any type") when we don't
+ * have one. */
+static void init_fallback_type_table(BeamFile *beam) {
+    BeamFile_TypeTable *types;
+
+    types = &beam->types;
+    ASSERT(types->entries == NULL);
+
+    types->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                sizeof(types->entries[0]));
+    types->count = 1;
+    types->fallback = 1;
+
+    types->entries[0].type_union = BEAM_TYPE_ANY;
+    types->entries[0].min = 0;
+    types->entries[0].max = -1;
+}
+
+static int parse_type_chunk(BeamFile *beam, IFF_Chunk *chunk) {
+    BeamFile_TypeTable *types;
+    BeamReader reader;
+
+    Sint32 version, count;
+    int i;
+
+    beamreader_init(chunk->data, chunk->size, &reader);
+
+    LoadAssert(beamreader_read_i32(&reader, &version));
+    if (version != BEAM_TYPES_VERSION) {
+        /* Incompatible type format. */
+        init_fallback_type_table(beam);
+        return 1;
+    }
+
+    types = &beam->types;
+    ASSERT(types->entries == NULL);
+
+    LoadAssert(beamreader_read_i32(&reader, &count));
+    LoadAssert(CHECK_ITEM_COUNT(count, 0, sizeof(types->entries[0])));
+    LoadAssert(count >= 1);
+
+    types->entries = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                count * sizeof(types->entries[0]));
+    types->count = count;
+    types->fallback = 0;
+
+    for (i = 0; i < count; i++) {
+        const byte *type_data;
+
+        LoadAssert(beamreader_read_bytes(&reader, 18, &type_data));
+        LoadAssert(beam_types_decode(type_data, 18, &types->entries[i]));
+    }
+
+    /* The first entry MUST be the "any type." */
+    LoadAssert(types->entries[0].type_union == BEAM_TYPE_ANY);
+    LoadAssert(types->entries[0].min > types->entries[0].max);
 
     return 1;
 }
@@ -726,7 +856,7 @@ static int read_beam_chunks(const IFF_File *file,
 enum beamfile_read_result
 beamfile_read(const byte *data, size_t size, BeamFile *beam) {
     static const Uint chunk_iffs[] = {
-        MakeIffId('A', 't', 'o', 'm'), /* 0 */
+        MakeIffId('A', 't', 'U', '8'), /* 0 */
         MakeIffId('C', 'o', 'd', 'e'), /* 1 */
         MakeIffId('S', 't', 'r', 'T'), /* 2 */
         MakeIffId('I', 'm', 'p', 'T'), /* 3 */
@@ -736,10 +866,13 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         MakeIffId('A', 't', 't', 'r'), /* 7 */
         MakeIffId('C', 'I', 'n', 'f'), /* 8 */
         MakeIffId('L', 'i', 'n', 'e'), /* 9 */
-        MakeIffId('A', 't', 'U', '8'), /* 10 */
+        MakeIffId('L', 'o', 'c', 'T'), /* 10 */
+        MakeIffId('A', 't', 'o', 'm'), /* 11 */
+        MakeIffId('T', 'y', 'p', 'e'), /* 12 */
+        MakeIffId('M', 'e', 't', 'a'), /* 13 */
     };
 
-    static const int ATOM_CHUNK = 0;
+    static const int UTF8_ATOM_CHUNK = 0;
     static const int CODE_CHUNK = 1;
     static const int STR_CHUNK = 2;
     static const int IMP_CHUNK = 3;
@@ -749,7 +882,12 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
     static const int ATTR_CHUNK = 7;
     static const int COMPILE_CHUNK = 8;
     static const int LINE_CHUNK = 9;
-    static const int UTF8_ATOM_CHUNK = 10;
+#ifdef BEAMASM
+    static const int LOC_CHUNK = 10;
+#endif
+    static const int OBSOLETE_ATOM_CHUNK = 11;
+    static const int TYPE_CHUNK = 12;
+    static const int META_CHUNK = 13;
 
     static const int NUM_CHUNKS = sizeof(chunk_iffs) / sizeof(chunk_iffs[0]);
 
@@ -757,8 +895,6 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
 
     /* MSVC doesn't like the use of NUM_CHUNKS here */
     IFF_Chunk chunks[sizeof(chunk_iffs) / sizeof(chunk_iffs[0])];
-    IFF_Chunk *atom_chunk;
-    ErtsAtomEncoding enc;
 
     sys_memset(beam, 0, sizeof(*beam));
 
@@ -780,18 +916,16 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         goto error;
     }
 
-    if (chunks[UTF8_ATOM_CHUNK].size > 0) {
-        atom_chunk = &chunks[UTF8_ATOM_CHUNK];
-        enc = ERTS_ATOM_ENC_UTF8;
-    } else if (chunks[ATOM_CHUNK].size > 0) {
-        atom_chunk = &chunks[ATOM_CHUNK];
-        enc = ERTS_ATOM_ENC_LATIN1;
-    } else {
-        error = BEAMFILE_READ_MISSING_ATOM_TABLE;
+    if (chunks[UTF8_ATOM_CHUNK].size == 0) {
+        if (chunks[OBSOLETE_ATOM_CHUNK].size == 0) {
+            /* Old atom table chunk is also missing. */
+            error = BEAMFILE_READ_MISSING_ATOM_TABLE;
+        } else {
+            /* Old atom table chunk table exists. (OTP 20 or earlier.) */
+            error = BEAMFILE_READ_OBSOLETE_ATOM_TABLE;
+        }
         goto error;
-    }
-
-    if (!parse_atom_chunk(beam, enc, atom_chunk)) {
+    } else if (!parse_atom_chunk(beam, &chunks[UTF8_ATOM_CHUNK])) {
         error = BEAMFILE_READ_CORRUPT_ATOM_TABLE;
         goto error;
     }
@@ -811,6 +945,15 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         error = BEAMFILE_READ_CORRUPT_EXPORT_TABLE;
         goto error;
     }
+
+#ifdef BEAMASM
+    if (erts_jit_asm_dump && chunks[LOC_CHUNK].size > 0) {
+        if (!parse_locals_chunk(beam, &chunks[LOC_CHUNK])) {
+            error = BEAMFILE_READ_CORRUPT_LOCALS_TABLE;
+            goto error;
+        }
+    }
+#endif
 
     if (chunks[LAMBDA_CHUNK].size > 0) {
         if (!parse_lambda_chunk(beam, &chunks[LAMBDA_CHUNK])) {
@@ -833,6 +976,15 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         }
     }
 
+    if (chunks[TYPE_CHUNK].size > 0) {
+        if (!parse_type_chunk(beam, &chunks[TYPE_CHUNK])) {
+            error = BEAMFILE_READ_CORRUPT_TYPE_TABLE;
+            goto error;
+        }
+    } else {
+        init_fallback_type_table(beam);
+    }
+
     beam->strings.data = chunks[STR_CHUNK].data;
     beam->strings.size = chunks[STR_CHUNK].size;
 
@@ -849,8 +1001,8 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
         MD5Init(&md5);
 
         MD5Update(&md5,
-                  (byte*)atom_chunk->data,
-                  atom_chunk->size);
+                  (byte*)chunks[UTF8_ATOM_CHUNK].data,
+                  chunks[UTF8_ATOM_CHUNK].size);
         MD5Update(&md5,
                   (byte*)chunks[CODE_CHUNK].data,
                   chunks[CODE_CHUNK].size);
@@ -902,6 +1054,12 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam) {
                       chunks[LITERAL_CHUNK].size);
         }
 
+        if (chunks[META_CHUNK].size > 0) {
+            MD5Update(&md5,
+                      (byte*)chunks[META_CHUNK].data,
+                      chunks[META_CHUNK].size);
+        }
+
         MD5Final(beam->checksum, &md5);
     }
 
@@ -940,6 +1098,13 @@ void beamfile_free(BeamFile *beam) {
         beam->exports.entries = NULL;
     }
 
+#ifdef BEAMASM
+    if (beam->locals.entries) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, beam->locals.entries);
+        beam->locals.entries = NULL;
+    }
+#endif
+
     if (beam->lambdas.entries) {
         erts_free(ERTS_ALC_T_PREPARED_CODE, beam->lambdas.entries);
         beam->lambdas.entries = NULL;
@@ -953,6 +1118,11 @@ void beamfile_free(BeamFile *beam) {
 
         beam->lines.items = NULL;
         beam->lines.names = NULL;
+    }
+
+    if (beam->types.entries) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, beam->types.entries);
+        beam->types.entries = NULL;
     }
 
     if (beam->static_literals.entries) {
@@ -1099,6 +1269,16 @@ int iff_init(const byte *data, size_t size, IFF_File *iff) {
 int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk)
 {
     return read_beam_chunks(iff, 1, &id, chunk);
+}
+
+void beamfile_init() {
+    Eterm suffix;
+    Eterm *hp;
+
+    hp = erts_alloc_global_literal(ERTS_LIT_ERL_FILE_SUFFIX, 8);
+    suffix = erts_bin_bytes_to_list(NIL, hp, (byte*)".erl", 4, 0);
+
+    erts_register_global_literal(ERTS_LIT_ERL_FILE_SUFFIX, suffix);
 }
 
 /* * * * * * * */
@@ -1313,8 +1493,7 @@ static int beamcodereader_read_next(BeamCodeReader *code_reader, BeamOp **out) {
     reader = &code_reader->reader;
 
     LoadAssert(beamreader_read_u8(reader, &opcode));
-    LoadAssert(opcode <= MAX_GENERIC_OPCODE);
-    LoadAssert(gen_opc[opcode].name[0] != '\0');
+    LoadAssert(opcode > 0 && opcode <= MAX_GENERIC_OPCODE);
 
     arity = gen_opc[opcode].arity;
     ASSERT(arity <= ERTS_BEAM_MAX_OPARGS);
@@ -1353,12 +1532,6 @@ static int beamcodereader_read_next(BeamCodeReader *code_reader, BeamOp **out) {
             break;
         case TAG_i:
             LoadAssert(marshal_integer(code_reader, &raw_arg));
-            break;
-        case TAG_h:
-            /* Character, must be a valid unicode code point. */
-            LoadAssert(raw_arg.word_value <= 0x10FFFF &&
-                       (raw_arg.word_value < 0xD800 ||
-                        raw_arg.word_value > 0xDFFFUL));
             break;
         case TAG_x:
         case TAG_y:
@@ -1428,7 +1601,7 @@ static int beamcodereader_read_next(BeamCodeReader *code_reader, BeamOp **out) {
             case 4:
                 /* Literal */
                 {
-                    BeamFile_LiteralTable *literals;
+                    const BeamFile_LiteralTable *literals;
                     TaggedNumber index;
 
                     LoadAssert(beamreader_read_tagged(reader, &index));
@@ -1442,6 +1615,31 @@ static int beamcodereader_read_next(BeamCodeReader *code_reader, BeamOp **out) {
                     raw_arg.tag = TAG_q;
                     raw_arg.word_value = index.word_value;
 
+                    break;
+                }
+            case 5:
+                /* Register with type hint */
+                {
+                    const BeamFile_TypeTable *types;
+                    TaggedNumber index;
+
+                    LoadAssert(beamreader_read_tagged(reader, &raw_arg));
+                    LoadAssert(raw_arg.tag == TAG_x || raw_arg.tag == TAG_y);
+
+                    LoadAssert(beamreader_read_tagged(reader, &index));
+                    LoadAssert(index.tag == TAG_u);
+
+                    types = &(code_reader->file)->types;
+
+                    /* We may land here without a table if it was stripped
+                     * after compilation, in which case we want to treat these
+                     * as ordinary registers. */
+                    if (!types->fallback) {
+                        LoadAssert(index.word_value < types->count);
+
+                        ERTS_CT_ASSERT(REG_MASK < (1 << 10));
+                        raw_arg.word_value |= index.word_value << 10;
+                    }
                     break;
                 }
             default:
@@ -1465,82 +1663,101 @@ static int beamcodereader_read_next(BeamCodeReader *code_reader, BeamOp **out) {
     return 1;
 }
 
+static void synthesize_func_end(BeamCodeReader *code_reader) {
+    BeamOp *func_end;
+
+    func_end = beamopallocator_new_op(code_reader->allocator);
+    func_end->op = genop_int_func_end_2;
+    func_end->arity = 2;
+
+    ASSERT(code_reader->current_func_label.type == TAG_u);
+    func_end->a[0].val = code_reader->current_func_label.val;
+    func_end->a[0].type = TAG_f;
+
+    ASSERT(code_reader->current_entry_label.type == TAG_u);
+    func_end->a[1].val = code_reader->current_entry_label.val;
+    func_end->a[1].type = TAG_f;
+
+    func_end->next = code_reader->pending;
+    code_reader->pending = func_end;
+}
 
 int beamcodereader_next(BeamCodeReader *code_reader, BeamOp **out) {
     BeamOp *op;
 
     if (code_reader->pending) {
-        *out = code_reader->pending;
-        code_reader->pending = code_reader->pending->next;
+        op = code_reader->pending;
+        code_reader->pending = op->next;
+
+        *out = op;
         return 1;
     }
 
     LoadAssert(beamcodereader_read_next(code_reader, &op));
 
-    if (op->op != genop_label_1) {
-        *out = op;
-        return 1;
-    } else {
-        /*
-         * To simplify the rest of the loading process, attempt
-         * to synthesize int_func_start/5 and int_func_end/0
-         * instructions.
+    switch (op->op) {
+    case genop_label_1:
+        /* To simplify the rest of the loading process, attempt to synthesize
+         * int_func_start/5 and int_func_end/2 instructions.
          *
          * We look for the following instruction sequence to
          * find function boundaries: label Lbl | line Loc | func_info M F A.
          * (Where the line instruction is optional.)
          *
-         * So far we have seen a label/0 instruction. Put this
-         * instruction into the pending queue and decode the next
-         * instruction.
-         */
+         * So far we have seen a label/0 instruction. Put this instruction into
+         * the pending queue and decode the next instruction. */
         code_reader->pending = op;
         LoadAssert(beamcodereader_read_next(code_reader, &op->next));
         op = op->next;
 
-        /*
-         * If the current instruction is a line instruction, append it to
-         * the pending queue and decode the following instruction.
-         */
+        /* If the current instruction is a line instruction, append it to
+         * the pending queue and decode the following instruction. */
         if (op->op == genop_line_1) {
             LoadAssert(beamcodereader_read_next(code_reader, &op->next));
             op = op->next;
         }
 
-        /*
-         * If the current instruction is a func_info instruction, we
-         * have found a function boundary.
-         */
-        if (op->op == genop_func_info_3) {
+        /* The code must not end abruptly after a label. */
+        LoadAssert(op->op != genop_int_code_end_0);
+
+        /* If the current instruction is a func_info instruction, we
+         * have found a function boundary. */
+        if (ERTS_LIKELY(op->op != genop_func_info_3)) {
+            op->next = NULL;
+        } else {
+            BeamOpArg func_label, entry_label;
             BeamOp *func_start;
+            BeamOp *entry_op;
             BeamOp *next;
 
-            /*
-             * Prepare to walk through the queue of pending instructions.
-             */
+            /* The func_info/3 instruction must be followed by its entry
+             * label. */
+            LoadAssert(beamcodereader_read_next(code_reader, &entry_op));
+            LoadAssert(entry_op->op == genop_label_1);
+            entry_label = entry_op->a[0];
+            LoadAssert(entry_label.type == TAG_u);
+            entry_op->next = NULL;
+
+            /* Prepare to walk through the queue of pending instructions. */
             op = code_reader->pending;
+
+            /* Pick up the label from the first label/1 instruction. */
             ASSERT(op->op == genop_label_1);
+            func_label = op->a[0];
+            LoadAssert(func_label.type == TAG_u);
 
-            /*
-             * Allocate the int_func_start/0 function.
-             */
-            func_start = beamopallocator_new_op(code_reader->allocator);
-            func_start->op = genop_int_func_start_5;
-            func_start->arity = 5;
-
-            /*
-             * Pick up the label from the label/1 instruction.
-             */
-            func_start->a[0] = op->a[0];
             next = op->next;
             beamopallocator_free_op(code_reader->allocator, op);
             op = next;
 
-            /*
-             * If the current instruction is a line/1 instruction,
-             * pick up the location from that instruction.
-             * Otherwise use NIL.
-             */
+            /* Allocate the int_func_start/0 function. */
+            func_start = beamopallocator_new_op(code_reader->allocator);
+            func_start->op = genop_int_func_start_5;
+            func_start->arity = 5;
+            func_start->a[0] = func_label;
+
+            /* If the current instruction is a line/1 instruction, pick up the
+             * location from that instruction. Otherwise use NIL. */
             func_start->a[1].type = TAG_n;
             if (op->op == genop_line_1) {
                 func_start->a[1] = op->a[0];
@@ -1549,45 +1766,46 @@ int beamcodereader_next(BeamCodeReader *code_reader, BeamOp **out) {
                 op = next;
             }
 
-            /*
-             * Pick up the MFA from the func_info/3 instruction.
-             */
+            /* Pick up the MFA from the func_info/3 instruction. */
             ASSERT(op->op == genop_func_info_3);
             func_start->a[2] = op->a[0];
             func_start->a[3] = op->a[1];
             func_start->a[4] = op->a[2];
             beamopallocator_free_op(code_reader->allocator, op);
 
-            /*
-             * Put the int_func_start/5 instruction into the pending
-             * queue.
-             */
+            /* Put the int_func_start/5 instruction into the pending queue,
+             * and link the entry label after it. */
             code_reader->pending = func_start;
-            op = func_start;
+            func_start->next = entry_op;
 
-            /*
-             * Unless this is the first function in the module,
-             * synthesize an int_func_end/0 instruction and prepend
-             * it to the pending queue.
-             */
-            if (code_reader->first) {
-                code_reader->first = 0;
-            } else {
-                BeamOp *func_end;
-                func_end = beamopallocator_new_op(code_reader->allocator);
-                func_end->op = genop_int_func_end_0;
-                func_end->arity = 0;
-                func_end->next = code_reader->pending;
-                code_reader->pending = func_end;
+            /* Unless this is the first function in the module, synthesize an
+             * int_func_end/2 instruction and prepend it to the pending
+             * queue. */
+            if (!code_reader->first) {
+                synthesize_func_end(code_reader);
             }
+
+            code_reader->current_func_label = func_label;
+            code_reader->current_entry_label = entry_label;
+            code_reader->first = 0;
         }
 
-        /*
-         * At this point, there is at least one instruction in the pending
-         * queue. The op variable points to the last instruction in the queue.
-         */
+        /* At this point, there is at least one instruction in the pending
+         * queue, and the op variable points to the last instruction in the
+         * queue. */
+        return beamcodereader_next(code_reader, out);
+    case genop_int_code_end_0:
+        code_reader->pending = op;
+
+        if (!code_reader->first) {
+            synthesize_func_end(code_reader);
+        }
+
         op->next = NULL;
         return beamcodereader_next(code_reader, out);
+    default:
+        *out = op;
+        return 1;
     }
 }
 

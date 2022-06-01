@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,17 @@
  */
 /* #define FORCE_HEAP_FRAGS */
 
-/* valgrind can't handle stack switching, so we will turn off native stack. */
+/* `valgrind` can't handle stack switching, so we will turn off native
+ * stack. */
 #ifdef VALGRIND
 #undef NATIVE_ERLANG_STACK
+#undef ERLANG_FRAME_POINTERS
+#endif
+
+/* Frame pointer support costs an extra word per process even when unused, so
+ * it's worth disabling for compact builds. */
+#ifdef CODE_MODEL_SMALL
+#undef ERLANG_FRAME_POINTERS
 #endif
 
 #if defined(DEBUG) && !defined(CHECK_FOR_HOLES) && !defined(__WIN32__)
@@ -40,9 +48,10 @@
 #define EMULATOR "BEAM"
 #define SEQ_TRACE 1
 
-#define CONTEXT_REDS 4000	/* Swap process out after this number */
-#define MAX_ARG 255	        /* Max number of arguments allowed */
-#define MAX_REG 1024            /* Max number of x(N) registers used */
+#define CONTEXT_REDS 4000            /* Swap process out after this number */
+#define MAX_ARG      255             /* Max number of arguments allowed */
+#define MAX_REG      1024            /* Max number of x(N) registers used */
+#define REG_MASK     (MAX_REG - 1)
 
 /*
  * Guard BIFs and the new trapping length/1 implementation need 3 extra
@@ -54,7 +63,23 @@
 #define VH_DEFAULT_SIZE  32768     /* default virtual (bin) heap min size (words) */
 #define H_DEFAULT_MAX_SIZE 0       /* default max heap size is off */
 
-#define CP_SIZE 1
+typedef enum {
+    /* Return address only */
+    ERTS_FRAME_LAYOUT_RA,
+    /* Frame pointer, return address */
+    ERTS_FRAME_LAYOUT_FP_RA
+} ErtsFrameLayout;
+
+ERTS_GLB_INLINE
+int erts_cp_size(void);
+
+#if defined(BEAMASM) && defined(ERLANG_FRAME_POINTERS)
+extern ErtsFrameLayout ERTS_WRITE_UNLIKELY(erts_frame_layout);
+#   define CP_SIZE erts_cp_size()
+#else
+#   define erts_frame_layout ERTS_FRAME_LAYOUT_RA
+#   define CP_SIZE 1
+#endif
 
 /* In the JIT we're not guaranteed to have allocated a word for the CP when
  * allocating a stack frame (it's still reserved however), as the `call` and
@@ -75,6 +100,8 @@
  * purpose. */
 
 #if defined(BEAMASM) && defined(NATIVE_ERLANG_STACK)
+#define S_REDZONE (CP_SIZE * 3)
+#elif defined(BEAMASM) && defined(__aarch64__)
 #define S_REDZONE (CP_SIZE * 3)
 #elif defined(DEBUG)
 /* Ensure that a redzone won't cause problems in the interpreter. */
@@ -233,8 +260,6 @@ extern int H_MAX_FLAGS;         /* maximum heap flags  */
 extern int erts_atom_table_size;/* Atom table size */
 extern int erts_pd_initial_size;/* Initial Process dictionary table size */
 
-#define ORIG_CREATION 0
-
 /* macros for extracting bytes from uint16's */
 
 #define hi_byte(a) ((a) >> 8) 
@@ -290,5 +315,18 @@ extern void** beam_ops;
     ((w) == beam_return_trace || (w) == beam_exception_trace)
 
 #endif /* BEAMASM */
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE
+int erts_cp_size()
+{
+    if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
+        return 1;
+    }
+
+    ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+    return 2;
+}
+#endif
 
 #endif	/* __ERL_VM_H__ */

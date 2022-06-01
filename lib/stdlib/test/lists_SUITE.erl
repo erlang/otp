@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 %% Test cases must be exported.
 -export([member/1, reverse/1,
 	 keymember/1, keysearch_keyfind/1,
-         keystore/1, keytake/1, keyreplace/1,
+	 keystore/1, keytake/1, keyreplace/1,
 	 append_1/1, append_2/1,
 	 seq_loop/1, seq_2/1, seq_3/1, seq_2_e/1, seq_3_e/1,
 
@@ -53,12 +53,13 @@
 	 ufunmerge/1, rufunmerge/1,
 	 ufunsort_1/1, ufunsort_stable/1, ufunsort_rand/1,
 	 ufunsort_error/1,
+	 uniq_1/1, uniq_2/1,
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
 	 filter_partition/1, 
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
 	 suffix/1, subtract/1, droplast/1, search/1, hof/1,
-         error_info/1]).
+	 enumerate/1, error_info/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -81,10 +82,11 @@ suite() ->
 all() -> 
     [{group, append},
      {group, key},
-     {group,sort},
+     {group, sort},
      {group, usort},
      {group, keysort},
      {group, ukeysort},
+     {group, uniq},
      {group, funsort},
      {group, ufunsort},
      {group, sublist},
@@ -120,9 +122,10 @@ groups() ->
       [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
      {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
+     {uniq, [parallel], [uniq_1, uniq_2]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof, droplast, search, error_info]}
+			 hof, droplast, search, enumerate, error_info]}
     ].
 
 init_per_suite(Config) ->
@@ -2743,6 +2746,22 @@ hof(Config) when is_list(Config) ->
 
     ok.
 
+%% Test lists:enumerate/1 and lists:enumerate/2
+enumerate(Config) when is_list(Config) ->
+    [] = lists:enumerate([]),
+    [] = lists:enumerate(10, []),
+    [{1,a},{2,b},{3,c}] = lists:enumerate([a,b,c]),
+    [{10,a},{11,b},{12,c}] = lists:enumerate(10, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(0),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(0, 10),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, []),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, []),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, <<1,2,3>>),
+
+    ok.
+
 error_info(_Config) ->
     L = [{keyfind, [whatever, bad_position, bad_list], [{2,".*"},{3,".*"}]},
          {keymember, [key, 0, bad_list], [{2,".*"}, {3,".*"}]},
@@ -2767,3 +2786,22 @@ do_error_info(L0) ->
     NYI = [{F,lists:duplicate(A, '*'),nyi} || {F,A} <- Bifs -- Tests],
     L = lists:sort(NYI ++ L1),
     error_info_lib:test_error_info(lists, L, [snifs_only]).
+
+uniq_1(_Config) ->
+    [] = lists:uniq([]),
+    [foo] = lists:uniq([foo]),
+    ["foo", "bar", "zoo"] = lists:uniq(["foo", "foo", "bar", "foo", "zoo",
+                                        "foo", "bar", "zoo"]),
+    [a, 1, b, 2] = lists:uniq([a, a, a, 1, b, 2, a, 2, 1]),
+    [<<"home">>, "home"] = lists:uniq([<<"home">>, "home"]),
+    [3.14159, 2.71828, 3.17] = lists:uniq([3.14159, 3.14159, 2.71828, 3.17]),
+    [42, 42.0] = lists:uniq([42, 42.0, 42, 42.0]),
+    ok.
+
+uniq_2(_Config) ->
+    [] = lists:uniq(fun(X) -> X end, []),
+    [{42, 1}, {42.0, 99}, {a, 99}] =
+        lists:uniq(fun(X) -> element(1, X) end,
+                   [{42, 1}, {42.0, 99}, {a, 99}, {a, 1}, {42, 100}]),
+    [1] = lists:uniq(fun(_) -> whatever end, lists:seq(1, 10)),
+    ok.

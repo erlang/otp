@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2021</year>
+      <year>1997</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -92,6 +92,7 @@ fe80::204:acff:fe17:bf38
   </description>
 
   <datatypes>
+    <datatype_title>Exported data types</datatype_title>
     <datatype>
       <name name="hostent"/>
       <desc>
@@ -127,30 +128,6 @@ fe80::204:acff:fe17:bf38
 	  and is a complete address
 	  (for example an IP address including port number).
 	</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="inet_address" since="OTP 22.1"/>
-      <desc>
-	<warning>
-	  <p>
-	    This address format is for now experimental
-	    and for completeness to make all address families have a
-	    <c>{Family, Destination}</c> representation.
-	  </p>
-	</warning>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="inet6_address" since="OTP 22.1"/>
-      <desc>
-	<warning>
-	  <p>
-	    This address format is for now experimental
-	    and for completeness to make all address families have a
-	    <c>{Family, Destination}</c> representation.
-	  </p>
-	</warning>
       </desc>
     </datatype>
     <datatype>
@@ -210,6 +187,9 @@ fe80::204:acff:fe17:bf38
       <name name="socket_setopt"/>
     </datatype>
     <datatype>
+      <name name="socket_optval"/>
+    </datatype>
+    <datatype>
       <name name="returned_non_ip_address"/>
       <desc>
 	<p>
@@ -254,6 +234,61 @@ fe80::204:acff:fe17:bf38
 	  or for a single send operation the option(s) to override
 	  the currently active socket option(s).
 	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="posix"/>
+      <desc>
+        <p>An atom that is named from the POSIX error codes used in Unix,
+          and in the runtime libraries of most C compilers. See section
+          <seeerl marker="#error_codes">POSIX Error Codes</seeerl>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>socket()</name>
+      <desc>
+        <p>See
+          <seetype marker="gen_tcp#socket"><c>gen_tcp:type-socket</c></seetype>
+          and
+          <seetype marker="gen_udp#socket"><c>gen_udp:type-socket</c></seetype>.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="address_family"/>
+    </datatype>
+    <datatype>
+      <name name="socket_protocol"/>
+    </datatype>
+    <datatype>
+      <name name="stat_option"/>
+    </datatype>
+  </datatypes>
+
+  <datatypes>
+    <datatype_title>Internal data types</datatype_title>
+    <datatype>
+      <name name="inet_address" since="OTP 22.1"/>
+      <desc>
+	<warning>
+	  <p>
+	    This address format is for now experimental
+	    and for completeness to make all address families have a
+	    <c>{Family, Destination}</c> representation.
+	  </p>
+	</warning>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="inet6_address" since="OTP 22.1"/>
+      <desc>
+	<warning>
+	  <p>
+	    This address format is for now experimental
+	    and for completeness to make all address families have a
+	    <c>{Family, Destination}</c> representation.
+	  </p>
+	</warning>
       </desc>
     </datatype>
     <datatype>
@@ -329,34 +364,8 @@ fe80::204:acff:fe17:bf38
 	</warning>
       </desc>
     </datatype>
-    <datatype>
-      <name name="posix"/>
-      <desc>
-        <p>An atom that is named from the POSIX error codes used in Unix,
-          and in the runtime libraries of most C compilers. See section
-          <seeerl marker="#error_codes">POSIX Error Codes</seeerl>.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name>socket()</name>
-      <desc>
-        <p>See
-          <seetype marker="gen_tcp#socket"><c>gen_tcp:type-socket</c></seetype>
-          and
-          <seetype marker="gen_udp#socket"><c>gen_udp:type-socket</c></seetype>.
-        </p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="address_family"/>
-    </datatype>
-    <datatype>
-      <name name="socket_protocol"/>
-    </datatype>
-    <datatype>
-      <name name="stat_option"/>
-    </datatype>
   </datatypes>
+
 
   <funcs>
     <func>
@@ -555,11 +564,12 @@ fe80::204:acff:fe17:bf38
       <fsummary>Get one or more options for a socket.</fsummary>
       <desc>
         <p>Gets one or more options for a socket. For a list of available
-          options, see
+          inet options, see
           <seemfa marker="#setopts/2"><c>setopts/2</c></seemfa>.
-	  See also the description for the type
-          <seetype marker="gen_tcp#pktoptions_value">
-	    <c>gen_tcp:pktoptions_value()</c>
+	  See also the descriptions
+          for the protocol specific types referenced by
+          <seetype marker="#socket_optval">
+	    <c>socket_optval()</c>
 	  </seetype>.</p>
         <p>The number of elements in the returned
           <c><anno>OptionValues</anno></c>
@@ -588,7 +598,7 @@ fe80::204:acff:fe17:bf38
           correspond to the second, third, and fourth/fifth parameters to the
           <c>getsockopt</c> call in the C socket API. The value stored
           in the buffer is returned as a binary <c>ValueBin</c>,
-          where all values are coded in the native endianess.</p>
+          where all values are coded in the native endianness.</p>
         <p>Asking for and inspecting raw socket options require low-level
           information about the current operating system and TCP stack.</p>
         <p><em>Example:</em></p>
@@ -734,10 +744,10 @@ get_tcpi_sacked(Sock) ->
 
     <func>
       <name name="info" arity="1"  since="OTP 24.0"/>
-      <fsummary>Retreive miscellaneous information about a socket</fsummary>
+      <fsummary>Retrieve miscellaneous information about a socket</fsummary>
       <desc>
         <p>
-          Produces a term containg miscellaneous information about a socket.
+          Produces a term containing miscellaneous information about a socket.
         </p>
       </desc>
     </func>
@@ -779,6 +789,36 @@ get_tcpi_sacked(Sock) ->
 	<c><anno>Socket</anno></c> is not an error; it results in
 	as many independent monitoring instances. </p>
 
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_ip_address" arity="1" since="OTP 25.0"/>
+      <fsummary>Tests if <c>IPAddress</c> is an IPv4 or IPv6 address tuple.</fsummary>
+      <desc>
+        <p>Tests if <c>IPAddress</c> is an
+          <seetype marker="#ip_address"><c>ip_address()</c></seetype>
+          and returns <c>true</c> if so, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_ipv4_address" arity="1" since="OTP 25.0"/>
+      <fsummary>Tests if <c>IPAddress</c> is an IPv4 address tuple.</fsummary>
+      <desc>
+        <p>Tests if <c>IPAddress</c> is an
+          <seetype marker="#ip4_address"><c>ip4_address()</c></seetype>
+          and returns <c>true</c> if so, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_ipv6_address" arity="1" since="OTP 25.0"/>
+      <fsummary>Tests if <c>IPAddress</c> is an IPv6 address tuple.</fsummary>
+      <desc>
+        <p>Tests if <c>IPAddress</c> is an
+          <seetype marker="#ip6_address"><c>ip6_address()</c></seetype>
+          and returns <c>true</c> if so, otherwise <c>false</c>.</p>
       </desc>
     </func>
 
@@ -1621,7 +1661,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
           and the option value specified as a binary. This
           corresponds to the second, third, and fourth arguments to the
           <c>setsockopt</c> call in the C socket API. The option value
-          must be coded in the native endianess of the platform and,
+          must be coded in the native endianness of the platform and,
           if a structure is required, must follow the structure
           alignment conventions on the specific platform.</p>
         <p>Using raw socket options requires detailed knowledge about

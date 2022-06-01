@@ -793,9 +793,10 @@ lm() ->
 
 erlangrc() ->
     case init:get_argument(home) of
-	{ok,[[Home]]} ->
-	    erlangrc([Home]);
-	_ ->
+        {ok,[[Home]]} ->
+            UserConfig = filename:basedir(user_config,"erlang"),
+            erlangrc([Home, UserConfig]);
+        _ ->
             {error, enoent}
     end.
 

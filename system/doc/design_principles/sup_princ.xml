@@ -374,7 +374,7 @@ child_spec() = #{id => child_id(),             % mandatory
 	<p>Note that this identifier occasionally has been called
 	  "name". As far as possible, the terms "identifier" or "id"
 	  are now used but in order to keep backwards compatibility,
-	  some occurences of "name" can still be found, for example
+	  some occurrences of "name" can still be found, for example
 	  in error messages.</p>
       </item>
       <item>

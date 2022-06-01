@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ convopts(Opts) ->
 			%% This undocumented clause uses an undocumented 
 			%% feature of the TIPC socket interface that takes 
 			%% advantage of some gory internals of the protocol. 
-			%% It is protocol implementation dependant and 
+			%% It is protocol implementation dependent and 
 			%% breaks the whole idea of location transparency 
 			%% for name addressed messages. Therefore it should 
 			%% only be used when all other possibilities are 

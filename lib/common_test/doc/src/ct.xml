@@ -649,7 +649,7 @@
           case. <c>Scaling</c> indicates if <c>Common Test</c> will attempt
           to compensate timetraps automatically for runtime delays
           introduced by, for example, tools like cover. <c>ScaleVal</c> is
-	  the value of the current scaling multipler (always 1 if scaling is
+	  the value of the current scaling multiplier (always 1 if scaling is
 	  disabled). Note the <c>Time</c> is not the scaled result.</p>
       </desc>
     </func>
@@ -1192,7 +1192,7 @@
  {machine,[{node,[{telnet,IpAddr},{ftp,IpAddr}]}]}.</pre>
 
         <note><p>The behavior of this function changed radically in
-          <c>Common Test</c> 1.6.2. To keep some backwards compatability,
+          <c>Common Test</c> 1.6.2. To keep some backwards compatibility,
           it is still possible to do:<br/>
           <c>ct:require(a,{node,[telnet,ftp]}).</c><br/>
           This associates the name <c>a</c> with the top-level <c>node</c>

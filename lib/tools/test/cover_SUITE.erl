@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,14 +25,15 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{minutes,5}}].
+     {timetrap,{minutes,2}}].
 
 all() -> 
     NoStartStop = [eif,otp_5305,otp_5418,otp_7095,otp_8273,
                    otp_8340,otp_8188,compile_beam_opts,eep37,
                    analyse_no_beam, line_0, compile_beam_no_file,
                    compile_beam_missing_backend,
-                   otp_13277, otp_13289, guard_in_lc, gh_4796],
+                   otp_13277, otp_13289, guard_in_lc, gh_4796,
+                   eep49],
     StartStop = [start, compile, analyse, misc, stop,
                  distribution, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -440,14 +441,14 @@ distribution(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
 
-    {ok,N1} = test_server:start_node(cover_SUITE_distribution1,slave,[]),
-    {ok,N2} = test_server:start_node(cover_SUITE_distribution2,slave,[]),
-    {ok,N3} = test_server:start_node(cover_SUITE_distribution3,slave,[]),
-    {ok,N4} = test_server:start_node(cover_SUITE_distribution4,slave,[]),
+    {ok,P1,N1} = ?CT_PEER(),
+    {ok,P2,N2} = ?CT_PEER(),
+    {ok,P3,N3} = ?CT_PEER(),
+    {ok,P4,N4} = ?CT_PEER(),
 
     %% Check that an already compiled module is loaded on new nodes
     {ok,f} = cover:compile(f),
-    {ok,[_,_,_,_]} = cover:start(nodes()),
+    {ok,[_,_,_,_]} = cover:start([N1,N2,N3,N4]),
     cover_compiled = code:which(f),
     cover_compiled = rpc:call(N1,code,which,[f]),
     cover_compiled = rpc:call(N2,code,which,[f]),
@@ -474,7 +475,7 @@ distribution(Config) when is_list(Config) ->
 
     %% this is lost when the node is killed
     rpc:call(N3,f,f2,[]),
-    rpc:call(N3,erlang,halt,[]),
+    peer:stop(P3),
 
     %% this should be visible in analyse
     rpc:call(N1,f,f1,[]),
@@ -514,7 +515,7 @@ distribution(Config) when is_list(Config) ->
     %% Check that flush collects data so calls are not lost if node is killed
     rpc:call(N4,f,f2,[]),
     ok = cover:flush(N4),
-    rpc:call(N4,erlang,halt,[]),
+    peer:stop(P4),
     check_f_calls(1,3),
 
     %% Check that stop() unloads on all nodes
@@ -535,8 +536,8 @@ distribution(Config) when is_list(Config) ->
     %% Cleanup
     Files = lsfiles(),
     remove(files(Files, ".beam")),
-    test_server:stop_node(N1),
-    test_server:stop_node(N2).
+    peer:stop(P1),
+    peer:stop(P2).
 
 %% Test that a lost node is reconnected
 reconnect(Config) ->
@@ -547,19 +548,17 @@ reconnect(Config) ->
     {ok,b} = compile:file(b),
     {ok,f} = compile:file(f),
 
-    {ok,N1} = test_server:start_node(cover_SUITE_reconnect,peer,
-                                     [{args," -pa " ++ DataDir},
-                                      {start_cover,false}]),
+    {ok,P1,N1} = ?CT_PEER(#{connection => 0, args => ["-pa", DataDir]}),
     {ok,a} = cover:compile(a),
     {ok,f} = cover:compile(f),
-    {ok,[N1]} = cover:start(nodes()),
+    {ok,[N1]} = cover:start([N1]),
 
     %% Some calls to check later
     rpc:call(N1,f,f1,[]),
     cover:flush(N1),
     rpc:call(N1,f,f1,[]),
 
-    %% This will cause first casue the N1 node to initiate a
+    %% This will cause first cause the N1 node to initiate a
     %% disconnect and then call f:f2() when nodes() =:= [] on N1.
     rpc:cast(N1,f,call_f2_when_isolated,[]),
     timer:sleep(500), % allow some to detect disconnect and for f:f2() call
@@ -590,7 +589,7 @@ reconnect(Config) ->
     check_f_calls(2,1),
 
     cover:stop(),
-    test_server:stop_node(N1),
+    peer:stop(P1),
     ok.
 
 %% Test that a lost node is reconnected - also if it has been dead
@@ -600,13 +599,10 @@ die_and_reconnect(Config) ->
 
     {ok,f} = compile:file(f),
 
-    NodeName = cover_SUITE_die_and_reconnect,
-    {ok,N1} = test_server:start_node(NodeName,peer,
-                                     [{args," -pa " ++ DataDir},
-                                      {start_cover,false}]),
+    {ok, P1, N1} = ?CT_PEER(#{name => ?CT_PEER_NAME(), args => ["-pa", DataDir]}),
     %% {ok,a} = cover:compile(a),
     {ok,f} = cover:compile(f),
-    {ok,[N1]} = cover:start(nodes()),
+    {ok,[N1]} = cover:start([N1]),
 
     %% Some calls to check later
     rpc:call(N1,f,f1,[]),
@@ -614,15 +610,13 @@ die_and_reconnect(Config) ->
     rpc:call(N1,f,f1,[]),
 
     %% Kill the node
-    rpc:call(N1,erlang,halt,[]),
+    peer:stop(P1),
     cover_which_nodes([]),
 
     check_f_calls(1,0), % only the first call - before the flush
 
     %% Restart the node and check that cover reconnects
-    {ok,N1} = test_server:start_node(NodeName,peer,
-                                     [{args," -pa " ++ DataDir},
-                                      {start_cover,false}]),
+    {ok,P2,N1} = ?CT_PEER(#{name => N1, args => ["-pa", DataDir]}),
     timer:sleep(100),
     [N1] = cover:which_nodes(), % we are reconnected
     cover_compiled = rpc:call(N1,code,which,[f]),
@@ -634,7 +628,7 @@ die_and_reconnect(Config) ->
     check_f_calls(2,0),
 
     cover:stop(),
-    test_server:stop_node(N1),
+    peer:stop(P2),
     ok.
 
 %% Test that a stopped node is not marked as lost, i.e. that it is not
@@ -645,27 +639,23 @@ dont_reconnect_after_stop(Config) ->
 
     {ok,f} = compile:file(f),
 
-    NodeName = cover_SUITE_dont_reconnect_after_stop,
-    {ok,N1} = test_server:start_node(NodeName,peer,
-                                     [{args," -pa " ++ DataDir},
-                                      {start_cover,false}]),
+    {ok, P1, N1} = ?CT_PEER(#{name => ?CT_PEER_NAME(), args => ["-pa", DataDir],
+        start_cover => false}),
     {ok,f} = cover:compile(f),
-    {ok,[N1]} = cover:start(nodes()),
+    {ok,[N1]} = cover:start([N1]),
 
     %% A call to check later
     rpc:call(N1,f,f1,[]),
 
     %% Stop cover on the node, then terminate the node
     cover:stop(N1),
-    rpc:call(N1,erlang,halt,[]),
+    peer:stop(P1),
     cover_which_nodes([]),
 
     check_f_calls(1,0),
 
     %% Restart the node and check that cover does not reconnect
-    {ok,N1} = test_server:start_node(NodeName,peer,
-                                     [{args," -pa " ++ DataDir},
-                                      {start_cover,false}]),
+    {ok, P2, N1} = ?CT_PEER(#{name => N1, args => ["-pa", DataDir], start_cover => false}),
     timer:sleep(300),
     cover_which_nodes([]),
     Beam = rpc:call(N1,code,which,[f]),
@@ -679,7 +669,7 @@ dont_reconnect_after_stop(Config) ->
     check_f_calls(1,0),
 
     cover:stop(),
-    test_server:stop_node(N1),
+    peer:stop(P2),
     ok.
 
 %% Test that a node which is stopped while it is marked as lost is not
@@ -690,19 +680,17 @@ stop_node_after_disconnect(Config) ->
 
     {ok,f} = compile:file(f),
 
-    NodeName = cover_SUITE_stop_node_after_disconnect,
-    {ok,N1} = test_server:start_node(NodeName,peer,
-                                     [{args," -pa " ++ DataDir},
-                                      {start_cover,false}]),
+    {ok, P1, N1} = ?CT_PEER(#{name => ?CT_PEER_NAME(), args => ["-pa", DataDir],
+        start_cover => false}),
     {ok,f} = cover:compile(f),
-    {ok,[N1]} = cover:start(nodes()),
+    {ok,[N1]} = cover:start([N1]),
 
     %% A call to check later
     rpc:call(N1,f,f1,[]),
 
     %% Flush the node, then terminate the node to make it marked as lost
     cover:flush(N1),
-    rpc:call(N1,erlang,halt,[]),
+    peer:stop(P1),
 
     check_f_calls(1,0),
 
@@ -710,9 +698,7 @@ stop_node_after_disconnect(Config) ->
     cover:stop(N1),
 
     %% Restart the node and check that cover does not reconnect
-    {ok,N1} = test_server:start_node(NodeName,peer,
-                                     [{args," -pa " ++ DataDir},
-                                      {start_cover,false}]),
+    {ok, P2, N1} = ?CT_PEER(#{name => N1, args => ["-pa", DataDir], start_cover => false}),
     timer:sleep(300),
     cover_which_nodes([]),
     Beam = rpc:call(N1,code,which,[f]),
@@ -726,7 +712,7 @@ stop_node_after_disconnect(Config) ->
     check_f_calls(1,0),
 
     cover:stop(),
-    test_server:stop_node(N1),
+    peer:stop(P2),
     ok.
 
 distribution_performance(Config) ->
@@ -742,18 +728,14 @@ distribution_performance(Config) ->
 
     %    test_server:break(""),
 
-    NodeName = cover_SUITE_distribution_performance,
-    {ok,N1} = test_server:start_node(NodeName,peer,[{start_cover,false}]),
+    {ok, P1, N1} = ?CT_PEER(),
     %% CFun = fun() ->
     %% 		   [{ok,_} = cover:compile_beam(Mod) || Mod <- Mods]
     %% 	   end,
     CFun = fun() -> cover:compile_beam(Mods) end,
-    {CT,_CA} = timer:tc(CFun),
-    %    erlang:display(_CA),
-    erlang:display({compile,CT}),
+    {_CT, _CA} = timer:tc(CFun),
 
-    {SNT,_} = timer:tc(fun() -> {ok,[N1]} = cover:start(nodes()) end),
-    erlang:display({start_node,SNT}),
+    {ok,[N1]} = cover:start([N1]),
 
     [1 = rpc:call(N1,Mod,f1,[1]) || Mod <- Mods],
 
@@ -769,16 +751,14 @@ distribution_performance(Config) ->
 
     %    Fun = fun() -> cover:reset() end,
 
-    {AT,_A} = timer:tc(Fun),
-    erlang:display({analyse,AT}),
+    {_AT, _A} = timer:tc(Fun),
     %    erlang:display(lists:sort([X || X={_MFA,N} <- lists:append([L || {ok,L}<-A]), N=/=0])),
 
     %% fprof:apply(Fun, [],[{procs,[whereis(cover_server)]}]),
     %% fprof:profile(),
     %% fprof:analyse(dest,[]),
 
-    {SNT2,_} = timer:tc(fun() -> test_server:stop_node(N1) end),
-    erlang:display({stop_node,SNT2}),
+    peer:stop(P1),
 
     code:del_path(Dir),
     Files = filelib:wildcard(AllFiles),
@@ -861,7 +841,7 @@ export_import(Config) when is_list(Config) ->
     ok = cover:stop(),
 
     %% Check that same data exists after import and that info is written about
-    %% data comming from imported file
+    %% data coming from imported file
     ok = cover:import("f_exported"),
     test_server:capture_start(),
     check_f_calls(1,0),
@@ -946,11 +926,11 @@ export_import(Config) when is_list(Config) ->
 otp_5031(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
 
-    {ok,N1} = test_server:start_node(cover_SUITE_otp_5031,slave,[]),
+    {ok,Peer,N1} = ?CT_PEER(),
     {ok,[N1]} = cover:start(N1),
     {error,not_main_node} = rpc:call(N1,cover,modules,[]),
     cover:stop(),
-    test_server:stop_node(N1),
+    peer:stop(Peer),
     ok.
 
 %% Test the \'Exclude Included Functions\' functionality
@@ -1005,7 +985,7 @@ otp_6115(Config) when is_list(Config) ->
     {ok, f1} = cover:compile(f1),
 
     %% This test used to ensure that a process containing a
-    %% fun refering to cover compiled code was killed.
+    %% fun referring to cover compiled code was killed.
     %% check_process_code may however ignore funs as of ERTS
     %% version 8.1. The test has therefore been rewritten to
     %% check that a process with a direct reference (in this
@@ -1159,13 +1139,13 @@ otp_8270(Config) when is_list(Config) ->
 
     PrivDir = proplists:get_value(priv_dir, Config),
 
-    As = [{args," -pa " ++ PrivDir}],
-    {ok,N1} = test_server:start_node(cover_n1,slave,As),
-    {ok,N2} = test_server:start_node(cover_n2,slave,As),
-    {ok,N3} = test_server:start_node(cover_n3,slave,As),
+    As = ["-pa", PrivDir],
+    {ok,P1,N1} = ?CT_PEER(As),
+    {ok,P2,N2} = ?CT_PEER(As),
+    {ok,P3,N3} = ?CT_PEER(As),
 
     timer:sleep(500),
-    {ok,[_,_,_]} = cover:start(nodes()),
+    {ok,[_,_,_]} = cover:start([N1,N2,N3]),
 
     Test = <<"-module(m).\n"
              "-compile(export_all).\n"
@@ -1203,9 +1183,9 @@ otp_8270(Config) when is_list(Config) ->
     {N3,true} = {N3,is_list(N3_info)},
 
     exit(Pid1,kill),
-    test_server:stop_node(N1),
-    test_server:stop_node(N2),
-    test_server:stop_node(N3),
+    peer:stop(P1),
+    peer:stop(P2),
+    peer:stop(P3),
     ok.
 
 %% OTP-8273. Bug.
@@ -1607,7 +1587,7 @@ cover_clauses(Config) when is_list(Config) ->
               -export([clauses/0]).
               clauses() -> ok.
              ">>,
-    File = cc_mod(cover_clauses, Test, Config),
+    _File = cc_mod(cover_clauses, Test, Config),
     ok.
 
 %% Take compiler options from beam in cover:compile_beam
@@ -1835,9 +1815,9 @@ local_only(Config) ->
 
     %% Make sure that it is not possible to run cover on
     %% slave nodes.
-    {ok,Name} = test_server:start_node(?FUNCTION_NAME, slave, []),
+    {ok,Peer,Name} = ?CT_PEER(),
     {error,local_only} = cover:start([Name]),
-    test_server:stop_node(Name),
+    peer:stop(Peer),
     ok.
 
 %% ERL-943; We should not crash on startup when multiple servers race to
@@ -1894,6 +1874,63 @@ gh_4796(Config) ->
     {ok, gh_4796} = cover:compile_beam(gh_4796),
     ok = file:delete(File),
     ok = gh_4796:test().
+
+%% Test the maybe ... else ... end construct.
+eep49(Config) ->
+        ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+
+    File = "t.erl",
+    Test = <<"-module(t).
+              -feature(maybe_expr,enable).
+              -export([t/0]).
+
+              t() ->
+                  t1(),                         %6
+
+                  {a,b} = t2({ok,a}, {ok,b}),   %8
+                  error = t2({ok,a}, error),    %9
+                  whatever = t2(whatever, thing), %10
+
+                  {a,b} = t3({ok,a}, {ok,b}),   %12
+                  error = t3({ok,a}, {error,wrong}), %13
+                  {'EXIT',{{else_clause,whatever},_}} = catch t3(whatever, thing), %14
+
+                  ok.                           %16
+
+              t1() ->
+                  maybe                         %19
+                       ok                       %20
+                  end.
+
+              t2(X, Y) ->
+                  maybe                         %24
+                      {ok,A} ?= X,              %25
+                      {ok,B} ?= Y,              %26
+                      {A,B}                     %27
+                  end.
+
+              t3(X, Y) ->
+                  maybe                         %31
+                      {ok,A} ?= X,              %32
+                      {ok,B} ?= Y,              %33
+                      {A,B}                     %34
+                  else
+                      {error,_} ->
+                          error                 %37
+                  end.
+             ">>,
+    ok = file:write_file(File, Test),
+    {ok, t} = cover:compile(File),
+    ok = t:t(),
+    {ok,[{{t,6},1}, {{t,8},1}, {{t,9},1}, {{t,10},1}, {{t,12},1},
+         {{t,13},1}, {{t,14},1}, {{t,16},1},
+         {{t,19},1}, {{t,20},1},
+         {{t,24},3}, {{t,25},3}, {{t,26},2}, {{t,27},1},
+         {{t,31},3}, {{t,32},3}, {{t,33},2}, {{t,34},1}, {{t,37},1}
+        ]} = cover:analyse(t, calls, line),
+    ok = file:delete(File),
+    ok.
+
 
 %%--Auxiliary------------------------------------------------------------
 

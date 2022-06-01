@@ -30,7 +30,7 @@ t-lldpMIB MODULE-IDENTITY
             "This is the ripped out bits and pieces of LLDP-MIB
             that triggered a compilation problem for Erlang/OTP's
             MIB compiler due to an AUGMENTS in lldpConfigManAddrEntry
-            refering to a not yet defined OBJECT-TYPE lldpLocManAddrEntry.
+            referring to a not yet defined OBJECT-TYPE lldpLocManAddrEntry.
 	    Rip and rewrite done 2017.
 
              Management Information Base module for LLDP configuration,
@@ -199,7 +199,7 @@ lldpLocManAddrLen  OBJECT-TYPE
             The management address length field is needed so that the
             receiving systems that do not implement SNMP will not be
             required to implement an iana family numbers/address length
-            equivalency table in order to decode the management adress."
+            equivalency table in order to decode the management address."
     REFERENCE
             "IEEE 802.1AB-2005 9.5.9.2"
     ::= { lldpLocManAddrEntry 2 }

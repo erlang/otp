@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -109,7 +109,11 @@ handle_info({'DOWN',Ref,process,Pid,_},
     gen_server:reply(NextFrom, locked),
     NextRef = monitor(process, NextPid),
     {noreply,State#state{ locked = {true, NextPid, NextRef},
-			  requests = Rest } }.
+			  requests = Rest } };
+handle_info({'DOWN',Ref,process,Pid,_},
+	    #state{ locked = {true, Pid, Ref},
+		    requests = [] } = State) ->
+    {noreply, State#state{ locked = false } }.
 
 terminate(_Reason, _State) ->
     ok.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
         port->async_open_port->to = BIF_P->common.id;
 
         /*
-         * We unconditionaly *must* do a receive on a message
+         * We unconditionally *must* do a receive on a message
          * containing the reference after this...
          */
         erts_msgq_set_save_end(BIF_P);
@@ -988,7 +988,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	tp = tuple_val(name);
 	arity = *tp++;
 
-	if (arity == make_arityval(0)) {
+	if (arity == make_arityval_zero()) {
 	    goto badarg;
 	}
     
@@ -1000,7 +1000,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	    name = tp[1];
 	    encoding = erts_get_native_filename_encoding();
 	    /* Do not convert the command to utf-16le yet, do that in win32 specific code */
-	    /* since the cmd is used for comparsion with drivers names and copied to port info */
+	    /* since the cmd is used for comparison with drivers names and copied to port info */
 	    if (encoding == ERL_FILENAME_WIN_WCHAR) {
 		encoding = ERL_FILENAME_UTF8;
 	    }
@@ -1124,7 +1124,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     goto do_return;
 }
 
-/* Merges the the global environment and the given {Key, Value} list into env,
+/* Merges the global environment and the given {Key, Value} list into env,
  * unsetting all keys whose value is either 'false' or NIL. The behavior on
  * NIL is undocumented and perhaps surprising, but the previous implementation
  * worked in this manner. */

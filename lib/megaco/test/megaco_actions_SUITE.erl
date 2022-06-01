@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -191,19 +191,32 @@ end_per_testcase(Case, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+mgc_start(Node, ET) ->
+    ?MGC_START(Node, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY).
+
+mgc_stop(Mgc) ->
+    ?MGC_STOP(Mgc).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 pretty_text(suite) ->
     [];
 pretty_text(doc) ->
     [];
 pretty_text(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("pretty_text -> starting"),
+    Pre  = fun req_and_rep_pre/0,
+    Case = fun(Nodes) -> do_pretty_text(Nodes, Config) end,
+    Post = fun req_and_rep_post/1,
+    try_tc(?FUNCTION_NAME, Pre, Case, Post).
 
-    Codec = pretty_text,
-    Version = 1, 
+
+do_pretty_text(Nodes, Config) ->
+    Codec          = pretty_text,
+    Version        = 1, 
     EncodingConfig = [],
-    req_and_rep(Config, Codec, Version, EncodingConfig).
+    req_and_rep(Nodes, Config, Codec, Version, EncodingConfig).
 
 
 flex_pretty_text(suite) ->
@@ -219,14 +232,16 @@ compact_text(suite) ->
 compact_text(doc) ->
     [];
 compact_text(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("compact_text -> starting"),
+    Pre  = fun req_and_rep_pre/0,
+    Case = fun(Nodes) -> do_compact_text(Nodes, Config) end,
+    Post = fun req_and_rep_post/1,
+    try_tc(?FUNCTION_NAME, Pre, Case, Post).
 
-    Codec = compact_text,
-    Version = 1, 
+do_compact_text(Nodes, Config) ->
+    Codec          = compact_text,
+    Version        = 1, 
     EncodingConfig = [],
-    req_and_rep(Config, Codec, Version, EncodingConfig).
+    req_and_rep(Nodes, Config, Codec, Version, EncodingConfig).
 
 
 flex_compact_text(suite) ->
@@ -242,14 +257,16 @@ erl_dist(suite) ->
 erl_dist(doc) ->
     [];
 erl_dist(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("erl_dist -> starting"),
+    Pre  = fun req_and_rep_pre/0,
+    Case = fun(Nodes) -> do_erl_dist(Nodes, Config) end,
+    Post = fun req_and_rep_post/1,
+    try_tc(?FUNCTION_NAME, Pre, Case, Post).
 
-    Codec = erl_dist,
-    Version = 1, 
+do_erl_dist(Nodes, Config) ->
+    Codec          = erl_dist,
+    Version        = 1, 
     EncodingConfig = [],
-    req_and_rep(Config, Codec, Version, EncodingConfig).
+    req_and_rep(Nodes, Config, Codec, Version, EncodingConfig).
 
 
 erl_dist_mc(suite) ->
@@ -257,37 +274,45 @@ erl_dist_mc(suite) ->
 erl_dist_mc(doc) ->
     [];
 erl_dist_mc(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("erl_dist_mc -> starting"),
+    Pre  = fun req_and_rep_pre/0,
+    Case = fun(Nodes) -> do_erl_dist_mc(Nodes, Config) end,
+    Post = fun req_and_rep_post/1,
+    try_tc(?FUNCTION_NAME, Pre, Case, Post).
 
-    Codec = erl_dist,
-    Version = 1, 
+do_erl_dist_mc(Nodes, Config) ->
+    Codec          = erl_dist,
+    Version        = 1,
     EncodingConfig = [megaco_compressed],
-    req_and_rep(Config, Codec, Version, EncodingConfig).
+    req_and_rep(Nodes, Config, Codec, Version, EncodingConfig).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-req_and_rep(Config, Codec, _Version, EC) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("req_and_rep -> starting"),
+req_and_rep_pre() ->
     MgcNode = make_node_name(mgc),
     Mg1Node = make_node_name(mg1),
     Mg2Node = make_node_name(mg2),
-    d("req_and_rep -> Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p"
-      "~n   Mg2Node: ~p", 
+    d("req_and_rep_pre -> start nodes: "
+      "~n      MgcNode: ~p"
+      "~n      Mg1Node: ~p"
+      "~n      Mg2Node: ~p", 
       [MgcNode, Mg1Node, Mg2Node]),
-    ok = ?START_NODES([MgcNode, Mg1Node, Mg2Node]),
+    Nodes = [MgcNode, Mg1Node, Mg2Node],
+    ok = ?START_NODES(Nodes, true),
+    Nodes.
+
+req_and_rep_post(Nodes) ->
+    d("req_and_rep_post -> stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)).
+    
+
+req_and_rep([MgcNode, Mg1Node, Mg2Node],
+            Config, Codec, _Version, EC) when is_list(Config) ->
 
     %% Start the MGC and MGs
     i("req_and_rep -> start the MGC"),    
     ET = [{Codec, EC, tcp}, {Codec, EC, udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
+    {ok, Mgc} = mgc_start(MgcNode, ET),
 
     i("req_and_rep -> start and connect the MGs"),    
     MgConf0 = [{Mg1Node, "mg1", Codec, EC, tcp, ?MG_VERBOSITY},
@@ -363,7 +388,7 @@ req_and_rep(Config, Codec, _Version, EC) when is_list(Config) ->
 
     %% Tell Mgc to stop
     i("req_and_rep -> stop the MGC"),
-    ?MGC_STOP(Mgc),
+    mgc_stop(Mgc),
 
     i("req_and_rep -> done", []),
     ok.
@@ -462,6 +487,16 @@ sleep(X) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 i(F) ->
     i(F, []).
 
@@ -469,8 +504,8 @@ i(F, A) ->
     print(info, get(verbosity), "", F, A).
 
 
-%% d(F) ->
-%%     d(F, []).
+d(F) ->
+    d(F, []).
 
 d(F, A) ->
     print(debug, get(verbosity), "DBG: ", F, A).

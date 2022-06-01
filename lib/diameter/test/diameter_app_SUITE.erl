@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,22 +24,24 @@
 
 -module(diameter_app_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
-         all/0,
-	 init_per_suite/1,
-         end_per_suite/1]).
+         all/0]).
 
 %% testcases
 -export([keys/1,
          vsn/1,
-	 modules/1,
-	 exports/1,
+         modules/1,
+         exports/1,
          release/1,
-	 xref/1,
+         xref/1,
          relup/1]).
 
--include("diameter_ct.hrl").
-
+-define(util, diameter_util).
 -define(A, list_to_atom).
 
 %% Modules not in the app and that should not have dependencies on it
@@ -57,7 +59,7 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 20}}].
 
 all() ->
     [keys,
@@ -68,12 +70,22 @@ all() ->
      xref,
      relup].
 
-init_per_suite(Config) ->
-    [{application, ?APP, App}] = diameter_util:consult(?APP, app),
-    [{app, App} | Config].
+%% ===========================================================================
 
-end_per_suite(_Config) ->
-    ok.
+run() ->
+    run(all()).
+
+run(List) ->
+    Tmp = ?util:mktemp("diameter_app"),
+    try
+        run([{priv_dir, Tmp}], List)
+    after
+        file:del_dir_r(Tmp)
+    end.
+
+run(Config, List) ->
+    [{application, diameter, App}] = ?util:consult(diameter, app),
+    ?util:run([{{?MODULE, F, [{App, Config}]}, 10000} || F <- List]).
 
 %% ===========================================================================
 %% # keys/1
@@ -82,10 +94,12 @@ end_per_suite(_Config) ->
 %% also be caught by other testcases.
 %% ===========================================================================
 
-keys(Config) ->
-    App = fetch(app, Config),
+keys({App, _Config}) ->
     [] = lists:filter(fun(K) -> not lists:keymember(K, 1, App) end,
-                      [vsn, description, modules, registered, applications]).
+                      [vsn, description, modules, registered, applications]);
+
+keys(Config) ->
+    run(Config, [keys]).
 
 %% ===========================================================================
 %% # vsn/1
@@ -93,8 +107,11 @@ keys(Config) ->
 %% Ensure that our app version sticks to convention.
 %% ===========================================================================
 
+vsn({App, _Config}) ->
+    true = is_vsn(fetch(vsn, App));
+
 vsn(Config) ->
-    true = is_vsn(fetch(vsn, fetch(app, Config))).
+    run(Config, [vsn]).
 
 %% ===========================================================================
 %% # modules/1
@@ -103,15 +120,17 @@ vsn(Config) ->
 %% compiler/info modules.
 %% ===========================================================================
 
-modules(Config) ->
-    Mods = fetch(modules, fetch(app, Config)),
+modules({App, _Config}) ->
+    Mods = fetch(modules, App),
     Installed = code_mods(),
     Help = lists:sort(?INFO_MODULES ++ ?COMPILER_MODULES),
+    {[], Help} = {Mods -- Installed, lists:sort(Installed -- Mods)};
 
-    {[], Help} = {Mods -- Installed, lists:sort(Installed -- Mods)}.
+modules(Config) ->
+    run(Config, [modules]).
 
 code_mods() ->
-    Dir  = code:lib_dir(?APP, ebin),
+    Dir  = code:lib_dir(diameter, ebin),
     {ok, Files} = file:list_dir(Dir),
     [?A(lists:reverse(R)) || N <- Files, "maeb." ++ R <- [lists:reverse(N)]].
 
@@ -121,9 +140,12 @@ code_mods() ->
 %% Ensure that no module does export_all.
 %% ===========================================================================
 
+exports({App, _Config}) ->
+    Mods = fetch(modules, App),
+    [] = [M || M <- Mods, exports_all(M)];
+
 exports(Config) ->
-    Mods = fetch(modules, fetch(app, Config)),
-    [] = [M || M <- Mods, exports_all(M)].
+    run(Config, [exports]).
 
 exports_all(Mod) ->
     Opts = fetch(options, Mod:module_info(compile)),
@@ -136,8 +158,7 @@ exports_all(Mod) ->
 %% Ensure that it's possible to build a minimal release with our app file.
 %% ===========================================================================
 
-release(Config) ->
-    App = fetch(app, Config),
+release({App, Config}) ->
     Rel = {release,
            {"diameter test release", fetch(vsn, App)},
            {erts, erlang:system_info(version)},
@@ -146,13 +167,16 @@ release(Config) ->
     ok = write_file(filename:join([Dir, "diameter_test.rel"]), Rel),
     {ok, _, []} = systools:make_script("diameter_test", [{path, [Dir]},
                                                          {outdir, Dir},
-                                                         silent]).
+                                                         silent]);
+
+release(Config) ->
+    run(Config, [release]).
 
 %% sasl need to be included to avoid a missing_sasl warning, error
 %% in the case of relup/1.
 
 appvsn(Name) ->
-    [{application, Name, App}] = diameter_util:consult(Name, app),
+    [{application, Name, App}] = ?util:consult(Name, app),
     fetch(vsn, App).
 
 %% ===========================================================================
@@ -162,8 +186,7 @@ appvsn(Name) ->
 %% or one in an application we haven't declared as a dependency. (Almost.)
 %% ===========================================================================
 
-xref(Config) ->
-    App = fetch(app, Config),
+xref({App, _Config}) ->
     Mods = fetch(modules, App),  %% modules listed in the app file
 
     %% List of application names extracted from runtime_dependencies.
@@ -179,7 +202,7 @@ xref(Config) ->
     %% the sense that there's no .app file, and isn't listed in
     %% applications.
     ok = lists:foreach(fun(A) -> add_application(XRef, A) end,
-                       [?APP, erts | fetch(applications, App)]),
+                       [diameter, erts | fetch(applications, App)]),
 
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
     {ok, RTmods} = xref:analyze(XRef, {module_use, Mods}),
@@ -212,7 +235,10 @@ xref(Config) ->
     %% The declared application versions are ignored since we only
     %% know what we see now.
     [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
-                      RTdeps -- Mods).
+                      RTdeps -- Mods);
+
+xref(Config) ->
+    run(Config, [xref]).
 
 ignored({FromMod,_,_}, {ToMod,_,_} = To, Rel)->
     %% diameter_tcp does call ssl despite the latter not being listed
@@ -281,7 +307,7 @@ add_application(XRef, App, Dir)
     {ok, App} = xref:add_application(XRef, Dir, []).
 
 make_name(Suf) ->
-    list_to_atom(atom_to_list(?APP) ++ "_" ++ atom_to_list(Suf)).
+    list_to_atom("diameter_" ++ atom_to_list(Suf)).
 
 %% ===========================================================================
 %% # relup/1
@@ -289,11 +315,10 @@ make_name(Suf) ->
 %% Ensure that we can generate release upgrade files using our appup file.
 %% ===========================================================================
 
-relup(Config) ->
-    [{Vsn, Up, Down}] = diameter_util:consult(?APP, appup),
+relup({App, Config}) ->
+    [{Vsn, Up, Down}] = ?util:consult(diameter, appup),
     true = is_vsn(Vsn),
 
-    App = fetch(app, Config),
     Rel = [{erts, erlang:system_info(version)}
            | [{A, appvsn(A)} || A <- [sasl | fetch(applications, App)]]],
 
@@ -303,26 +328,19 @@ relup(Config) ->
     UpFrom = acc_rel(Dir, Rel, Up),
     DownTo = acc_rel(Dir, Rel, Down),
 
-    {[Name], [Name], [], []}  %% no current in up/down and go both ways
-        = {[Name] -- UpFrom,
-           [Name] -- DownTo,
-           UpFrom -- DownTo,
-           DownTo -- UpFrom},
-
+    {[], []} = {UpFrom -- DownTo, DownTo -- UpFrom},
     [[], []] = [S -- sets:to_list(sets:from_list(S))
                 || S <- [UpFrom, DownTo]],
 
     {ok, _, _, []} = systools:make_relup(Name, UpFrom, DownTo, [{path, [Dir]},
                                                                 {outdir, Dir},
-                                                                silent]).
+                                                                silent]);
+
+relup(Config) ->
+    run(Config, [relup]).
 
 acc_rel(Dir, Rel, List) ->
-    lists:foldl(fun(T,A) -> acc_rel(Dir, Rel, T, A) end,
-                [],
-                List).
-
-acc_rel(Dir, Rel, {Vsn, _}, Acc) ->
-    [write_rel(Dir, Rel, Vsn) | Acc].
+    lists:map(fun({V,_}) -> write_rel(Dir, Rel, V) end, List).
 
 %% Write a rel file and return its name.
 write_rel(Dir, [Erts | Apps], Vsn) ->

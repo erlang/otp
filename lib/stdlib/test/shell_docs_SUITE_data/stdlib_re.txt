@@ -1645,9 +1645,6 @@
   [;;4malpha[0m:
     Letters
 
-  [;;4mascii[0m:
-    Character codes 0-127
-
   [;;4mblank[0m:
     Space or tab only
 
@@ -1680,6 +1677,12 @@
 
   [;;4mxdigit[0m:
     Hexadecimal digits
+
+  There is another character class, [;;4mascii[0m, that erroneously
+  matches Latin-1 characters instead of the 0-127 range specified by
+  POSIX. This cannot be fixed without altering the behaviour of
+  other classes, so we recommend matching the range with [;;4m[\\0-\x7f][0m
+  instead.
 
   The default "space" characters are HT (9), LF (10), VT (11), FF
   (12), CR (13), and space (32). If locale-specific matching is

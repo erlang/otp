@@ -1,0 +1,4 @@
+
+  [;1m-type nonempty_string() :: [char(), ...].[0m
+
+  A string() that contains some characters.

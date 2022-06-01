@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,8 +21,11 @@
 
 -module(beam_block).
 
+-include("beam_asm.hrl").
+
 -export([module/2]).
--import(lists, [keysort/2,reverse/1,reverse/2,splitwith/2]).
+-import(lists, [keysort/2,member/2,reverse/1,reverse/2,
+                splitwith/2,usort/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -35,7 +38,8 @@ function({function,Name,Arity,CLabel,Is0}) ->
     try
         Is1 = swap_opt(Is0),
         Is2 = blockify(Is1),
-        Is = embed_lines(Is2),
+        Is3 = embed_lines(Is2),
+        Is = opt_maps(Is3),
         {function,Name,Arity,CLabel,Is}
     catch
         Class:Error:Stack ->
@@ -152,8 +156,6 @@ collect({bif,N,{f,0},As,D})  -> {set,[D],As,{bif,N,{f,0}}};
 collect({gc_bif,N,{f,0},R,As,D}) ->   {set,[D],As,{alloc,R,{gc_bif,N,{f,0}}}};
 collect({move,S,D})          -> {set,[D],[S],move};
 collect({put_list,S1,S2,D})  -> {set,[D],[S1,S2],put_list};
-collect({put_tuple,A,D})     -> {set,[D],[],{put_tuple,A}};
-collect({put,S})             -> {set,[],[S],put};
 collect({put_tuple2,D,{list,Els}}) -> {set,[D],Els,put_tuple2};
 collect({get_tuple_element,S,I,D}) -> {set,[D],[S],{get_tuple_element,I}};
 collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
@@ -216,3 +218,70 @@ sort_on_yreg([{set,[Dst],[Src],move}|_]=Moves) ->
         {{x,_},{y,_}} ->
             keysort(3, Moves)
     end.
+
+%%%
+%%% Coalesce adjacent get_map_elements and has_map_fields instructions.
+%%%
+
+opt_maps(Is) ->
+    opt_maps(Is, []).
+
+opt_maps([{get_map_elements,Fail,Src,List}=I|Is], Acc0) ->
+    case simplify_get_map_elements(Fail, Src, List, Acc0) of
+        {ok,Acc} ->
+            opt_maps(Is, Acc);
+        error ->
+            opt_maps(Is, [I|Acc0])
+    end;
+opt_maps([{test,has_map_fields,Fail,Ops}=I|Is], Acc0) ->
+    case simplify_has_map_fields(Fail, Ops, Acc0) of
+        {ok,Acc} ->
+            opt_maps(Is, Acc);
+        error ->
+            opt_maps(Is, [I|Acc0])
+    end;
+opt_maps([I|Is], Acc) ->
+    opt_maps(Is, [I|Acc]);
+opt_maps([], Acc) -> reverse(Acc).
+
+simplify_get_map_elements(Fail, Src, {list,[Key,Dst]},
+                          [{get_map_elements,Fail,Src,{list,List1}}|Acc]) ->
+    case are_keys_literals([Key]) andalso are_keys_literals(List1) andalso
+        not is_reg_overwritten(Src, List1) andalso
+        not is_reg_overwritten(Dst, List1) of
+        true ->
+            case member(Key, List1) of
+                true ->
+                    %% The key is already in the other list. That is
+                    %% very unusual, because there are optimizations to get
+                    %% rid of duplicate keys. Therefore, don't try to
+                    %% do anything smart here; just keep the
+                    %% get_map_elements instructions separate.
+                    error;
+                false ->
+                    List = [Key,Dst|List1],
+                    {ok,[{get_map_elements,Fail,Src,{list,List}}|Acc]}
+            end;
+        false ->
+            error
+    end;
+simplify_get_map_elements(_, _, _, _) -> error.
+
+simplify_has_map_fields(Fail, [Src|Keys0],
+                        [{test,has_map_fields,Fail,[Src|Keys1]}|Acc]) ->
+    case are_keys_literals(Keys0) andalso are_keys_literals(Keys1) of
+        true ->
+            Keys = usort(Keys0 ++ Keys1),
+            {ok,[{test,has_map_fields,Fail,[Src|Keys]}|Acc]};
+        false ->
+            error
+    end;
+simplify_has_map_fields(_, _, _) -> error.
+
+are_keys_literals([#tr{}|_]) -> false;
+are_keys_literals([{x,_}|_]) -> false;
+are_keys_literals([{y,_}|_]) -> false;
+are_keys_literals([_|_]) -> true.
+
+is_reg_overwritten(Src, [_Key,Src]) -> true;
+is_reg_overwritten(_, _) -> false.

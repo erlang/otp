@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ groups(Mod, Groups) ->
                    %% since this might be the first time Mod:suite()
                    %% is called, and it might just fail or return
                    %% something bad, we allow any failure here - it
-                   %% will be catched later if there is something
+                   %% will be caught later if there is something
                    %% really wrong.
                    [{?config_name,[]}]
            end,
@@ -82,7 +82,7 @@ all(Mod, Tests) ->
                CTHook when is_atom(CTHook) ->
                    [{?config_name,[CTHook]}]
            catch _:_ ->
-                   %% just allow any failure here - it will be catched
+                   %% just allow any failure here - it will be caught
                    %% later if there is something really wrong.
                    [{?config_name,[]}]
            end,
@@ -210,7 +210,7 @@ call_init(#ct_hook_config{ module = Mod, opts = Opts, id = Id, prio = P} = Hook,
 	    {Config, Hook#ct_hook_config{ state = NewState, prio = Prio } };
 	{ok, NewState, _} ->
 	    {Config, Hook#ct_hook_config{ state = NewState } };
-	NewState -> %% Keep for backward compatability reasons
+	NewState -> %% Keep for backward compatibility reasons
 	    {Config, Hook#ct_hook_config{ state = NewState } }
     end.    
 

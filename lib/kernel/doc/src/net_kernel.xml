@@ -150,6 +150,83 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
+      <name name="get_state" arity="0" since="OTP 25.0"/>
+      <fsummary>Get various distribution state.</fsummary>
+      <desc>
+        <p>Get the current state of the distribution for the local node.</p>
+        <p>Returns a map with (at least) the following key-value pairs:</p>
+        <taglist>
+          <tag><c>started => Started</c></tag>
+          <item>
+            <p>Valid values for <c>Started</c>:</p>
+            <taglist>
+              <tag><c>no</c></tag>
+              <item>
+                <p>The distribution is not started. In this state none of
+                the other keys below are present in the map.</p>
+              </item>
+              <tag><c>static</c></tag>
+              <item>
+                <p>The distribution was started with command line arguments
+                <seecom marker="erts:erl#name"><c>-name</c></seecom> or
+                <seecom marker="erts:erl#sname"><c>-sname</c></seecom>.</p>
+              </item>
+              <tag><c>dynamic</c></tag>
+              <item>
+                <p>The distribution was started with
+                <seemfa marker="#start/1"><c>net_kernel:start/1</c></seemfa>
+                and can be stopped with
+                <seemfa marker="#start/1"><c>net_kernel:stop/0</c></seemfa>.</p>
+              </item>
+            </taglist>
+          </item>
+          <tag><c>name => Name</c></tag>
+          <item>
+            <p>The name of the node. Same as returned by
+            <seemfa marker="erts:erlang#node/0"><c>erlang:node/0</c></seemfa>
+            except when <c>name_type</c> is <c>dynamic</c> in which case
+            <c>Name</c> may be <c>undefined</c> (instead of <c>nonode@nohost</c>).
+            </p>
+          </item>
+          <tag><c>name_type => NameType</c></tag>
+          <item>
+            <p>Valid values for <c>NameType</c>:</p>
+            <taglist>
+              <tag><c>static</c></tag>
+              <item>
+                <p>The node has a static node name set by the node itself.</p>
+              </item>
+              <tag><c>dynamic</c></tag>
+              <item>
+                <p>The distribution was started in
+                <seeguide marker="system/reference_manual:distributed#dyn_node_name">
+                dynamic node name</seeguide> mode, and will get its node name assigned
+                from the first node it connects to. If key <c>name</c> has value
+                <c>undefined</c> that has not happened yet.</p>
+              </item>
+            </taglist>
+          </item>
+          <tag><c>name_domain => NameDomain</c></tag>
+          <item>
+            <p>Valid values for <c>NameDomain</c>:</p>
+            <taglist>
+              <tag><c>shortnames</c></tag>
+              <item>
+                <p>The distribution was started to use node names with a short
+                host portion (not fully qualified).</p>
+              </item>
+              <tag><c>longnames</c></tag>
+              <item>
+                <p>The distribution was started to use node names with a long
+                fully qualified host portion.</p>
+              </item>
+            </taglist>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
       <name name="monitor_nodes" arity="1" since=""/>
       <name name="monitor_nodes" arity="2" since=""/>
       <fsummary>Subscribe to node status change messages.</fsummary>
@@ -165,82 +242,121 @@ $ <input>erl -sname foobar</input></pre>
           are stopped. Two
           option lists are considered the same if they contain the same
           set of options.</p>
-        <p>As from Kernel version 2.11.4, and ERTS version
-          5.5.4, the following is guaranteed:</p>
-        <list type="bulleted">
-          <item><p><c>nodeup</c> messages are delivered before delivery
-            of any message from the remote node passed through the
-            newly established connection.</p></item>
-          <item><p><c>nodedown</c> messages are not delivered until all
-            messages from the remote node that have been passed
-            through the connection have been delivered.</p></item>
-        </list>
-        <p>Notice that this is <em>not</em> guaranteed for Kernel
-          versions before 2.11.4.</p>
-        <p>As from Kernel version 2.11.4, subscriptions can also be
-          made before the <c>net_kernel</c> server is started, that is,
-          <c>net_kernel:monitor_nodes/[1,2]</c> does not return
-          <c>ignored</c>.</p>
-        <p>As from Kernel version 2.13, and ERTS version
-          5.7, the following is guaranteed:</p>
-        <list type="bulleted">
-          <item><p><c>nodeup</c> messages are delivered after the
+        <p>Delivery guarantees of <c>nodeup</c>/<c>nodedown</c> messages:</p>
+        <list>
+          <item><p>
+            <c>nodeup</c> messages are delivered before delivery
+            of any signals from the remote node through the newly
+            established connection.
+          </p></item>
+          <item>
+            <p><c>nodedown</c> messages are delivered after all
+            the signals from the remote node over the connection
+            have been delivered.
+          </p></item>
+          <item><p>
+            <c>nodeup</c> messages are delivered after the
 	    corresponding node appears in results from
-	    <c>erlang:nodes/X</c>.</p></item>
-          <item><p><c>nodedown</c> messages are delivered after the
+	    <c>erlang:nodes()</c>.
+          </p></item>
+          <item>
+            <p><c>nodedown</c> messages are delivered after the
 	    corresponding node has disappeared in results from
-	    <c>erlang:nodes/X</c>.</p></item>
+	    <c>erlang:nodes()</c>.
+          </p></item>
+          <item><p>
+            As of OTP 23.0, a <c>nodedown</c> message for a
+            connection being taken down will be delivered before a
+            <c>nodeup</c> message due to a new connection to the
+            same node. Prior to OTP 23.0, this was not
+            guaranteed to be the case.
+          </p></item>
         </list>
-        <p>Notice that this is <em>not</em> guaranteed for Kernel
-          versions before 2.13.</p>
         <p>The format of the node status change messages depends on
           <c><anno>Options</anno></c>. If <c><anno>Options</anno></c> is
-          <c>[]</c>, which is the default, the format is as follows:</p>
-        <code type="none">
+          the empty list or if <c>net_kernel:monitor_nodes/1</c> is called,
+          the format is as follows:</p>
+        <code type="erl">
 {nodeup, Node} | {nodedown, Node}
   Node = node()</code>
-        <p>If <c><anno>Options</anno></c> is not <c>[]</c>, the format is
-          as follows:</p>
-        <code type="none">
-{nodeup, Node, InfoList} | {nodedown, Node, InfoList}
+        <p>
+          When <c><anno>Options</anno></c> is the empty map or empty
+          list, the caller will only subscribe for status change messages
+          for visible nodes. That is, only nodes that appear in the
+          result of
+          <seemfa marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seemfa>.
+        </p>
+        <p>
+          If <c><anno>Options</anno></c> equals anything other than the
+          empty list, the format of the status change messages is as follows:
+        </p>
+        <code type="erl">
+{nodeup, Node, Info} | {nodedown, Node, Info}
   Node = node()
-  InfoList = [{Tag, Val}]</code>
-        <p><c>InfoList</c> is a list of tuples. Its contents depends on
-          <c><anno>Options</anno></c>, see below.</p>
-        <p>Also, when <c>OptionList == []</c>, only visible nodes, that
-          is, nodes that appear in the result of
-          <seemfa marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seemfa>,
-          are monitored.</p>
-        <p><c><anno>Option</anno></c> can be any of the following:</p>
+  Info = #{Tag => Val} | [{Tag, Val}]</code>
+        <p>
+          <c>Info</c> is either a map or a list of 2-tuples. Its content
+          depends on <c><anno>Options</anno></c>. If <c><anno>Options</anno></c>
+          is a map, <c>Info</c> will also be a map. If <c><anno>Options</anno></c>
+          is a list, <c>Info</c> will also be a list.
+        </p>
+        <p>
+          When <c><anno>Options</anno></c> is a map, currently
+          the following associations are allowed:
+        </p>
         <taglist>
-          <tag><c>{node_type, NodeType}</c></tag>
+          <tag><c>connection_id => boolean()</c></tag>
+          <item>
+            <p>
+              If the value of the association equals <c>true</c>, a
+              <c>connection_id => ConnectionId</c> association will be
+              included in the <c>Info</c> map where <c>ConnectionId</c>
+              is the connection identifier of the connection coming up
+              or going down. For more info about this connection
+              identifier see the documentation of
+              <seeerl marker="erts:erlang#connection_id">erlang:nodes/2</seeerl>.
+            </p>
+          </item>
+          <tag><c>node_type => <anno>NodeType</anno></c></tag>
           <item>
             <p>Valid values for <c>NodeType</c>:</p>
             <taglist>
               <tag><c>visible</c></tag>
               <item><p>Subscribe to node status change messages for visible
-               nodes only. The tuple <c>{node_type, visible}</c> is
-               included in <c>InfoList</c>.</p></item>
+               nodes only. The association <c>node_type => visible</c> will
+               be included in the <c>Info</c> map.</p></item>
               <tag><c>hidden</c></tag>
               <item><p>Subscribe to node status change messages for hidden
-               nodes only. The tuple <c>{node_type, hidden}</c> is
-               included in <c>InfoList</c>.</p></item>
+               nodes only. The association <c>node_type => hidden</c> will
+               be included in the <c>Info</c> map.</p></item>
               <tag><c>all</c></tag>
               <item><p>Subscribe to node status change messages for both
-               visible and hidden nodes. The tuple
-               <c>{node_type, visible | hidden}</c> is included in
-               <c>InfoList</c>.</p></item>
+               visible and hidden nodes. The association
+               <c>node_type => visible | hidden</c> will be included in
+               the <c>Info</c> map.</p></item>
             </taglist>
+            <p>
+              If no <c>node_type => <anno>NodeType</anno></c> association
+              is included in the <c><anno>Options</anno></c> map, the
+              caller will subscribe for status change messages for visible
+              nodes only, but <i>no</i> <c>node_type => visible</c>
+              association will be included in the <c>Info</c> map.
+            </p>
           </item>
-          <tag><c>nodedown_reason</c></tag>
+          <tag><c>nodedown_reason => boolean()</c></tag>
           <item>
-            <p>The tuple <c>{nodedown_reason, Reason}</c> is included in
-              <c>InfoList</c> in <c>nodedown</c> messages.</p>
+            <p>
+              If the value of the association equals <c>true</c>, a
+              <c>nodedown_reason => Reason</c> association will be
+              included in the <c>Info</c> map for <c>nodedown</c>
+              messages.
+            </p>
+            <marker id="nodedown_reasons"/>
             <p>
 	      <c>Reason</c> can, depending on which
-	      distribution module or process that is used be any term,
+	      distribution module or process that is used, be any term,
 	      but for the standard TCP distribution module it is
-	      any of the following:
+	      one of the following:
 	    </p>
             <taglist>
               <tag><c>connection_setup_failed</c></tag>
@@ -267,6 +383,82 @@ $ <input>erl -sname foobar</input></pre>
             </taglist>
           </item>
         </taglist>
+        <p>
+          When <c><anno>Options</anno></c> is a list, currently
+          <c><anno>ListOption</anno></c> can be one of the following:
+        </p>
+        <taglist>
+          <tag><c>connection_id</c></tag>
+          <item>
+            <p>
+              A <c>{connection_id, ConnectionId}</c> tuple will be
+              included in <c>Info</c> where <c>ConnectionId</c> is the
+              connection identifier of the connection coming up or
+              going down. For more info about this connection identifier
+              see the documentation of
+              <seeerl marker="erts:erlang#connection_id">erlang:nodes/2</seeerl>.
+            </p>
+          </item>
+          <tag><c>{node_type, <anno>NodeType</anno>}</c></tag>
+          <item>
+            <p>Valid values for <c><anno>NodeType</anno></c>:</p>
+            <taglist>
+              <tag><c>visible</c></tag>
+              <item><p>Subscribe to node status change messages for visible
+               nodes only. The tuple <c>{node_type, visible}</c> will be
+               included in the <c>Info</c> list.</p></item>
+              <tag><c>hidden</c></tag>
+              <item><p>Subscribe to node status change messages for hidden
+               nodes only. The tuple <c>{node_type, hidden}</c> will be
+               included in the <c>Info</c> list.</p></item>
+              <tag><c>all</c></tag>
+              <item><p>Subscribe to node status change messages for both
+               visible and hidden nodes. The tuple
+               <c>{node_type, visible | hidden}</c> will be included in
+               the <c>Info</c> list.</p></item>
+            </taglist>
+            <p>
+              If no <c>{node_type, <anno>NodeType</anno>}</c> option
+              has been given. The caller will subscribe for status
+              change messages for visible nodes only, but <i>no</i>
+              <c>{node_type, visible}</c> tuple will be included in the
+              <c>Info</c> list.
+            </p>
+          </item>
+          <tag><c>nodedown_reason</c></tag>
+          <item>
+            <p>
+              The tuple <c>{nodedown_reason, Reason}</c> will be included
+              in the <c>Info</c> list for <c>nodedown</c> messages.
+            </p>
+            <p>
+              See the documentation of the
+              <seeerl marker="#nodedown_reasons"><c>nodedown_reason
+              => boolean()</c></seeerl> association above for information
+              about possible <c>Reason</c> values.
+	    </p>
+          </item>
+        </taglist>
+        <p>Example:</p>
+        <code type="erl">
+(a@localhost)1> net_kernel:monitor_nodes(true, #{connection_id=>true, node_type=>all, nodedown_reason=>true}).
+ok
+(a@localhost)2> flush().
+Shell got {nodeup,b@localhost,
+                  #{connection_id => 3067552,node_type => visible}}
+Shell got {nodeup,c@localhost,
+                  #{connection_id => 13892107,node_type => hidden}}
+Shell got {nodedown,b@localhost,
+                    #{connection_id => 3067552,node_type => visible,
+                      nodedown_reason => connection_closed}}
+Shell got {nodedown,c@localhost,
+                    #{connection_id => 13892107,node_type => hidden,
+                      nodedown_reason => net_tick_timeout}}
+Shell got {nodeup,b@localhost,
+                  #{connection_id => 3067553,node_type => visible}}
+ok
+(a@localhost)3> 
+        </code>
       </desc>
     </func>
 
@@ -340,7 +532,7 @@ $ <input>erl -sname foobar</input></pre>
 	or <c>{error, noconnection}</c> if <c><anno>Node</anno></c> is not
 	a connected node or <c>new</c>.</p>
 	<p>If <c><anno>Node</anno></c> is <c>new</c> the <c><anno>Options</anno></c>
-	will then also be added to kernel configration parameters
+	will then also be added to kernel configuration parameters
 	<seeapp marker="kernel:kernel_app#inet_dist_listen_options">inet_dist_listen_options</seeapp>
 	and
 	<seeapp marker="kernel:kernel_app#inet_dist_connect_options">inet_dist_connect_options</seeapp>.</p>
@@ -358,10 +550,13 @@ $ <input>erl -sname foobar</input></pre>
         </p>
 
         <p>
-          If <c>Name</c> is set to <em><c>undefined</c></em> the distribution
-          will be started to request a dynamic node name from the first node it
-          connects to. See <seeguide marker="system/reference_manual:distributed#dyn_node_name">
-          Dynamic Node Name</seeguide>.
+          If <c><anno>Name</anno></c> is set to <em><c>undefined</c></em> the
+          distribution will be started to request a dynamic node name from the
+          first node it connects to. See
+          <seeguide marker="system/reference_manual:distributed#dyn_node_name">
+            Dynamic Node Name</seeguide>. Setting <c><anno>Name</anno></c> to
+            <c>undefined</c> implies options <c>dist_listen => false</c> and
+            <c>hidden => true</c>.
         </p>
 
         <p>Currently supported options:</p>
@@ -395,6 +590,30 @@ $ <input>erl -sname foobar</input></pre>
             be replaced by a valid value, but if an invalid
             <c><anno>NetTickIntensity</anno></c> value is passed as option value
             to this function, the call will fail.
+          </p></item>
+          <tag><c>dist_listen => boolean()</c></tag>
+          <item><p>
+            Enable or disable listening for incoming connections. Defaults to
+            the value of the
+            <seecom marker="erts:erl#dist_listen"><c>-dist_listen</c></seecom>
+            <c>erl</c> command line argument. Note that
+            <c>dist_listen => false</c> implies <c>hidden => true</c>.
+          </p>
+          <p>
+            If <c>undefined</c> has been passed as <c><anno>Name</anno></c>,
+            the <c>dist_listen</c> option will be overridden with
+            <c>dist_listen => false</c>.
+          </p></item>
+          <tag><c>hidden => boolean()</c></tag>
+          <item><p>
+            Enable or disable hidden node. Defaults to <c>true</c> if the
+            <seecom marker="erts:erl#hidden"><c>-hidden</c></seecom> <c>erl</c>
+            command line argument has been passed; otherwise <c>false</c>.
+          </p>
+          <p>
+            If <c>undefined</c> has been passed as <c><anno>Name</anno></c>,
+            or the option <c>dist_listen</c> equals <c>false</c>, the
+            <c>hidden</c> option will be overridden with <c>hidden => true</c>.
           </p></item>
         </taglist>
       </desc>
@@ -463,4 +682,3 @@ $ <input>erl -sname foobar</input></pre>
     </func>
   </funcs>
 </erlref>
-

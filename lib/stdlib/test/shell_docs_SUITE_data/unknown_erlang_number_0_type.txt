@@ -1,0 +1,4 @@
+
+  [;1m-type number() :: integer() | float().[0m
+
+  An Erlang number.

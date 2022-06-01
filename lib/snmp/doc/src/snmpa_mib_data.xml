@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2013</year><year>2020</year>
+      <year>2013</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -363,7 +363,7 @@
       </type>
       <desc>
         <p>Perform a backup of the mib-server data. </p>
-        <p>Note that its implementation dependant (and also 
+        <p>Note that its implementation dependent (and also 
 	dependent on mib-storage is used) if a backup is possible. </p>
 
         <marker id="code_change"></marker>

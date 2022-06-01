@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -739,7 +739,8 @@ do_start() ->
 
 load_code_server_prerequisites() ->
     %% Please keep the alphabetical order.
-    Needed = [binary,
+    Needed = [beam_lib,
+              binary,
 	      ets,
 	      filename,
 	      gb_sets,
@@ -1048,20 +1049,20 @@ module_status(Module) ->
 %% Note that we don't want to go via which/1, since it doesn't look at the
 %% disk contents at all if the module is already loaded.
 module_status(Module, PathFiles) ->
-    case code:is_loaded(Module) of
+    case is_loaded(Module) of
         false -> not_loaded;
         {file, preloaded} -> loaded;
         {file, cover_compiled} ->
-            %% cover compilation loads directly to memory and does not
-            %% create a beam file, so report 'modified' if a file exists
+            %% Cover compilation loads directly to memory and does not
+            %% create a beam file, so report 'modified' if a file exists.
             case which(Module, PathFiles) of
                 non_existing -> removed;
                 _File -> modified
             end;
         {file, []} -> loaded;  % no beam file - generated code
-        {file, OldFile} when is_list(OldFile) ->
-            %% we don't care whether or not the file is in the same location
-            %% as when last loaded, as long as it can be found in the path
+        {file, [_|_]} ->
+            %% We don't care whether or not the file is in the same location
+            %% as when last loaded, as long as it can be found in the path.
             case which(Module, PathFiles) of
                 non_existing -> removed;
                 Path ->
@@ -1076,10 +1077,24 @@ module_status(Module, PathFiles) ->
 %% be reloaded; does not care about file timestamps or compilation time
 module_changed_on_disk(Module, Path) ->
     MD5 = erlang:get_module_info(Module, md5),
-    MD5 =/= beam_file_md5(Path).
+    MD5 =/= beam_file_md5(Module, Path).
 
-beam_file_md5(Path) ->
-    case beam_lib:md5(Path) of
+beam_file_md5(Module, Path) ->
+    case do_beam_file_md5(Path) of
+        MD5 when is_binary(MD5) ->
+            MD5;
+        undefined ->
+            %% This module is probably embedded in an archive.
+            case get_object_code(Module) of
+                {Module, Code, _Path} ->
+                    do_beam_file_md5(Code);
+                error ->
+                    undefined
+            end
+    end.
+
+do_beam_file_md5(PathOrCode) ->
+    case beam_lib:md5(PathOrCode) of
         {ok,{_Mod,MD5}} -> MD5;
         _ -> undefined
     end.

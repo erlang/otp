@@ -33,6 +33,10 @@
 #include <wx/dcbuffer.h>
 #undef private
 
+#ifdef HAVE_GLIB
+ #include <glib.h>
+#endif
+
 #include "wxe_impl.h"
 #include "wxe_events.h"
 #include "wxe_return.h"
@@ -135,6 +139,23 @@ void print_cmd(wxeCommand& event)
  *  Init WxeApp the application emulator
  * ************************************************************/
 
+#ifdef HAVE_GLIB
+static GLogWriterOutput wxe_log_glib(GLogLevelFlags log_level,
+                                     const GLogField *fields,
+                                     gsize n_fields,
+                                     gpointer user_data)
+{
+  for (gsize i = 0; i < n_fields; i++) {
+    if(strcmp(fields[i].key, "MESSAGE") == 0) {
+      wxString msg;
+      msg.Printf(wxT("GTK: %s"), (char *) fields[i].value);
+      send_msg("debug", &msg);
+    }
+  }
+  return G_LOG_WRITER_HANDLED;
+}
+#endif
+
 bool WxeApp::OnInit()
 {
 
@@ -165,6 +186,10 @@ bool WxeApp::OnInit()
   macMB->MacInstallMenuBar();
   macMB->Connect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED,
 		 (wxObjectEventFunction) (wxEventFunction) &WxeApp::dummy_close);
+#endif
+
+#ifdef HAVE_GLIB
+  g_log_set_writer_func(wxe_log_glib, NULL, NULL);
 #endif
 
   SetExitOnFrameDelete(false);
@@ -198,6 +223,16 @@ void WxeApp::MacNewFile() {
 void WxeApp::MacReopenApp() {
   wxString empty;
   send_msg("reopen_app", &empty);
+}
+
+bool WxeApp::OSXIsGUIApplication() {
+  // wx manually activates the application if it's not in the bundle [1]. In particular, it calls
+  // `[NSApp setActivationPolicy: NSApplicationActivationPolicyRegular]` which prevents the app
+  // from running in the background and we cannot control it with `LSUIElement` [2]. Their check
+  // if it's a bundle always returns false for wxErlang. Thus we use our own way of detecting it.
+  // [1] https://github.com/wxWidgets/wxWidgets/blob/v3.1.5/src/osx/cocoa/utils.mm#L76:L93
+  // [2] https://developer.apple.com/documentation/bundleresources/information_property_list/lsuielement
+  return !is_packaged_app();
 }
 #endif
 
@@ -634,7 +669,7 @@ void WxeApp::destroyMemEnv(wxeMetaCommand &Ecmd)
 	    delete refd;
 	    ptr2ref.erase(it);
 	  } // overridden allocs deletes meta-data in clearPtr
-	} else { // Not alloced in erl just delete references
+	} else { // Not allocated in erl just delete references
 	  if(refd->ref >= global_me->next) { // if it is not part of global ptrs
 	    delete refd;
 	    ptr2ref.erase(it);

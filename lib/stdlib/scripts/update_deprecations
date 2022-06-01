@@ -4,7 +4,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -238,12 +238,10 @@ make_xml(Top, Type, OutFile, InfoText0) ->
     Collected = make_xml_collect(Depr, RelKey, InfoTextMap, []),
 
     All = make_xml_gen(lists:reverse(Collected), Type, OutDir),
-    file:write_file(OutFile, All),
-
-    ok.
+    ok = file:write_file(OutFile, All).
 
 make_xml_info([{Tag,M,F,A,Text} | Attributes], Tag) ->
-    [{{M,F,A}, Text} | make_xml_info(Attributes, Tag)];
+    [{{M,F,A}, info_string(Text)} | make_xml_info(Attributes, Tag)];
 make_xml_info([_ | Attributes], Tag) ->
     make_xml_info(Attributes, Tag);
 make_xml_info([], _Tag) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
          init_per_testcase/2, end_per_testcase/2,
          app_test/1, appup_test/1, assert_test/1]).
 
--compile(r21).
+-compile(r22).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -46,7 +46,19 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
+init_per_testcase(appup_test, Config) ->
+    %% We check if the test results were released using a version
+    %% of Erlang/OTP that was a tagged version or not. On a non-tagged
+    %% version this testcase most likely will fail.
+    case file:read_file(
+           filename:join(
+             proplists:get_value(data_dir,Config), "otp_version_tickets")) of
+        {ok,<<"DEVELOPMENT",_/binary>>} ->
+            {skip, "This is a development version, test might fail "
+             "because of incorrect version numbers"};
+        {ok,S} ->
+            Config
+    end;
 init_per_testcase(_Case, Config) ->
     Config.
 end_per_testcase(_Case, _Config) ->
@@ -65,8 +77,6 @@ app_test(Config) when is_list(Config) ->
 appup_test(_Config) ->
     appup_tests(stdlib,create_test_vsns(stdlib)).
 
-appup_tests(_App,{[],[]}) ->
-    {skip,"no previous releases available"};
 appup_tests(App,{OkVsns0,NokVsns}) ->
     application:load(App),
     {_,_,Vsn} = lists:keyfind(App,1,application:loaded_applications()),
@@ -79,8 +89,7 @@ appup_tests(App,{OkVsns0,NokVsns}) ->
 	    OkVsns0 ->
 		OkVsns0;
 	    Ok ->
-		ct:log("Current version, ~p, is same as in previous release.~n"
-		       "Removing this from the list of ok versions.",
+		ct:log("Removed current version ~p from the list of ok versions to test.",
 		      [Vsn]),
 		Ok
 	end,
@@ -95,57 +104,46 @@ appup_tests(App,{OkVsns0,NokVsns}) ->
     ok.
 
 create_test_vsns(App) ->
-    ThisMajor = erlang:system_info(otp_release),
-    FirstMajor = previous_major(ThisMajor),
-    SecondMajor = previous_major(previous_major(FirstMajor)),
-    Ok = app_vsn(App,[ThisMajor,FirstMajor]),
-    Nok0 = app_vsn(App,[SecondMajor]),
+    S = otp_vsns:read_state(),
+    Rel = list_to_integer(erlang:system_info(otp_release)),
+    AppStr = atom_to_list(App),
+    Ok = ok_app_vsns(S, Rel, AppStr),
+    Nok0 = nok_app_vsns(S, Rel, AppStr, hd(Ok)),
     Nok = case Ok of
-	       [Ok1|_] ->
-		   [Ok1 ++ ",1" | Nok0]; % illegal
-	       _ ->
-		   Nok0
-	   end,
-    {Ok,Nok}.
+              [Ok1|_] ->
+                  [Ok1 ++ ",1" | Nok0]; % illegal
+              _ ->
+                  Nok0
+          end,
+    {Ok, Nok}.
 
-previous_major("17") ->
-    "r16b";
-previous_major("r16b") ->
-    "r15b";
-previous_major(Rel) ->
-    integer_to_list(list_to_integer(Rel)-1).
+ok_app_vsns(S, Rel, AppStr) ->
+    AppVsns0 = get_rel_app_vsns(S, Rel-2, AppStr),
+    AppVsns1 = get_rel_app_vsns(S, Rel-1, AppStr),
+    AppVsns2 = try
+                   get_rel_app_vsns(S, Rel, AppStr)
+               catch
+                   _:_ -> []
+               end,
+    lists:usort(AppVsns2 ++ AppVsns1 ++ AppVsns0).
 
-app_vsn(App,[R|Rs]) ->
-    OldRel =
-	case test_server:is_release_available(R) of
-	    true ->
-		{release,R};
-	    false ->
-		case ct:get_config({otp_releases,list_to_atom(R)}) of
-		    undefined ->
-			false;
-		    Prog0 ->
-			case os:find_executable(Prog0) of
-			    false ->
-				false;
-			    Prog ->
-				{prog,Prog}
-			end
-		end
-	end,
-    case OldRel of
-	false ->
-	    app_vsn(App,Rs);
-	_ ->
-	    {ok,N} = test_server:start_node(prevrel,peer,[{erl,[OldRel]}]),
-	    _ = rpc:call(N,application,load,[App]),
-	    As = rpc:call(N,application,loaded_applications,[]),
-	    {_,_,V} = lists:keyfind(App,1,As),
-	    test_server:stop_node(N),
-	    [V|app_vsn(App,Rs)]
-    end;
-app_vsn(_App,[]) ->
-    [].
+nok_app_vsns(S, Rel, AppStr, EarliestOkVsn) ->
+    AppVsns0 = get_rel_app_vsns(S, Rel-4, AppStr),
+    AppVsns1 = get_rel_app_vsns(S, Rel-3, AppStr),
+    %% Earliest OK version may exist in not OK versions
+    %% as well if there were no application version bump
+    %% between two releases, so we need to remove it
+    %% if that is the case...
+    lists:usort(AppVsns1 ++ AppVsns0) -- EarliestOkVsn.
+
+get_rel_app_vsns(S, Rel, App) ->
+    RelStr = integer_to_list(Rel),
+    OtpVsns = otp_vsns:branch_vsns(S, "maint-"++RelStr),
+    lists:map(fun (OtpVsn) ->
+                      AppVsn = otp_vsns:app_vsn(S, OtpVsn, App),
+                      [_, Vsn] = string:lexemes(AppVsn, "-"),
+                      Vsn
+              end, OtpVsns).
 
 check_appup([Vsn|Vsns],Instrs,Expected) ->
     case systools_relup:appup_search_for_version(Vsn, Instrs) of

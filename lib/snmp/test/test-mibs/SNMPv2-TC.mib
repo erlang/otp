@@ -629,7 +629,7 @@ value         |              |      see 1|          ->C|          ->D
             time should be long enough to allow for human response time
             (including `think time') between the creation of the
             conceptual row and the setting of the status to `active'.
-            In the absense of such information in the DESCRIPTION
+            In the absence of such information in the DESCRIPTION
             clause, it is suggested that this period be approximately 5
             minutes in length.  This removal action applies not only to
             newly-created rows, but also to previously active rows which

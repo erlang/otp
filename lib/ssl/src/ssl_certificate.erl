@@ -80,7 +80,9 @@
          public_key_type/1,
          foldl_db/3,
          find_cross_sign_root_paths/4,
-         handle_cert_auths/4
+         handle_cert_auths/4,
+         available_cert_key_pairs/1,
+         available_cert_key_pairs/2
 	]).
 
 %%====================================================================
@@ -307,24 +309,59 @@ find_cross_sign_root_paths([_ | Rest] = Path, CertDbHandle, CertDbRef, Invalidat
     end.
 
 handle_cert_auths(Chain, [], _, _) ->
-    %% If we have no authorities extension to check we just accept 
-    %% first choice
+    %% If we have no authorities extension (or corresponding
+    %% 'certificate_authorities' in the certificate request message in
+    %% TLS-1.2 is empty) to check we just accept first choice.
     {ok, Chain};
 handle_cert_auths([Cert], CertAuths, CertDbHandle, CertDbRef) ->
-    {ok, {_, [Cert | _] = EChain}, {_, [_ | DCerts]}} = certificate_chain(Cert, CertDbHandle, CertDbRef, [], both),
-    case cert_auth_member(cert_subjects(DCerts), CertAuths) of
-        true ->
-            {ok, EChain};
-        false ->
-            {error, EChain, not_in_auth_domain}
+    case certificate_chain(Cert, CertDbHandle, CertDbRef, [], both) of
+        {ok, {_, [Cert | _] = EChain}, {_, [_ | DCerts]}}  ->
+            case cert_auth_member(cert_issuers(DCerts), CertAuths) of
+                true ->
+                    {ok, EChain};
+                false ->
+                    {error, EChain, not_in_auth_domain}
+            end;
+        _ ->
+            {ok, [Cert]}
     end;
 handle_cert_auths([_ | Certs] = EChain, CertAuths, _, _) ->
-    case cert_auth_member(cert_subjects(Certs), CertAuths) of
+    case cert_auth_member(cert_issuers(Certs), CertAuths) of
         true ->
             {ok, EChain};
         false ->
             {error, EChain, not_in_auth_domain}
     end.
+
+available_cert_key_pairs(CertKeyGroups) ->
+    %% To be able to find possible TLS session pre TLS-1.3
+    %% that may be reused. At this point the version is
+    %% not negotiated.
+    RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
+    cert_key_group_to_list(RevAlgos, CertKeyGroups, []).
+
+%% Create the prioritized list of cert key pairs that
+%% are availble for use in the negotiated version
+available_cert_key_pairs(CertKeyGroups, {3, 4}) ->
+    RevAlgos = [rsa, rsa_pss_pss, ecdsa, eddsa],
+    cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
+available_cert_key_pairs(CertKeyGroups, {3, 3}) ->
+     RevAlgos = [dsa, rsa, rsa_pss_pss, ecdsa],
+    cert_key_group_to_list(RevAlgos, CertKeyGroups, []);
+available_cert_key_pairs(CertKeyGroups, {3, N}) when N < 3->
+    RevAlgos = [dsa, rsa, ecdsa],
+    cert_key_group_to_list(RevAlgos, CertKeyGroups, []).
+
+cert_key_group_to_list([], _, Acc) ->
+    final_group_list(Acc);
+cert_key_group_to_list([Algo| Rest], CertKeyGroups, Acc) ->
+    CertKeyPairs = maps:get(Algo, CertKeyGroups, []),
+    cert_key_group_to_list(Rest, CertKeyGroups, CertKeyPairs ++ Acc).
+
+final_group_list([]) ->
+    [#{certs => [[]], private_key => #{}}];
+final_group_list(List) ->
+    List.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -667,18 +704,18 @@ maybe_shorten_path(Path, PartialChainHandler, Default) ->
     DerCerts = [Der || #cert{der=Der} <- Path],
     try PartialChainHandler(DerCerts) of
         {trusted_ca, Root} ->
-            new_trusteded_path(Root, Path, Default);
+            new_trusted_path(Root, Path, Default);
         unknown_ca ->
             Default
     catch _:_ ->
             Default
     end.
 
-new_trusteded_path(DerCert, [#cert{der=DerCert}=Cert | Chain], _) ->
-    {Cert, Chain};
-new_trusteded_path(DerCert, [_ | Rest], Default) ->
-    new_trusteded_path(DerCert, Rest, Default);
-new_trusteded_path(_, [], Default) ->
+new_trusted_path(DerCert, [#cert{der=DerCert}=Cert | Path], _) ->
+    {Cert, Path};
+new_trusted_path(DerCert, [_ | Rest], Default) ->
+    new_trusted_path(DerCert, Rest, Default);
+new_trusted_path(_, [], Default) ->
     %% User did not pick a cert present 
     %% in the cert chain so ignore
     Default.
@@ -758,21 +795,29 @@ subject(Cert) ->
     {_Serial,Subject} = public_key:pkix_subject_id(Cert),
     Subject.
 
-cert_subjects([], Acc) ->
+issuer(Cert) ->
+    case public_key:pkix_is_self_signed(Cert) of
+        true ->
+            subject(Cert);
+        false ->
+            case is_binary(Cert) of
+                true ->
+                    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
+                    public_key:pkix_normalize_name(TBSCert#'OTPTBSCertificate'.issuer);
+                false ->
+                    #'OTPCertificate'{tbsCertificate = TBSCert} = Cert,
+                    public_key:pkix_normalize_name(TBSCert#'OTPTBSCertificate'.issuer)
+            end
+    end.
+
+cert_issuers([], Acc) ->
     Acc;
-cert_subjects([Cert | Rest], Acc) ->
-    cert_subjects(Rest, [subject(Cert) | Acc]).
+cert_issuers([Cert | Rest], Acc) ->
+    cert_issuers(Rest, [issuer(Cert) | Acc]).
 
-cert_subjects(OTPCerts) ->
-    cert_subjects(OTPCerts, []).
+cert_issuers(OTPCerts) ->
+    cert_issuers(OTPCerts, []).
 
-decode_cert_auths(<<>>, Acc) ->
-    Acc;
-decode_cert_auths(<<?UINT16(Len), Auth:Len/binary, Rest/binary>>, Acc) ->
-     NormAut = public_key:pkix_normalize_name(Auth),
-    decode_cert_auths(Rest, [NormAut | Acc]).
-
-cert_auth_member(ChainSubjects, EncCertAuths) ->
-    CertAuths = decode_cert_auths(EncCertAuths, []),
+cert_auth_member(ChainSubjects, CertAuths) ->
     CommonAuthorities = sets:intersection(sets:from_list(ChainSubjects), sets:from_list(CertAuths)),
     not sets:is_empty(CommonAuthorities).

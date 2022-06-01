@@ -15,6 +15,7 @@
   <xi:include href="../specs/specs_erl_error.xml"/>
   <xi:include href="../specs/specs_erl_eval.xml"/>
   <xi:include href="../specs/specs_erl_expand_records.xml"/>
+  <xi:include href="../specs/specs_erl_features.xml"/>
   <xi:include href="../specs/specs_erl_id_trans.xml"/>
   <xi:include href="../specs/specs_erl_internal.xml"/>
   <xi:include href="../specs/specs_erl_lint.xml"/>
@@ -41,6 +42,7 @@
   <xi:include href="../specs/specs_ms_transform.xml"/>
   <xi:include href="../specs/specs_orddict.xml"/>
   <xi:include href="../specs/specs_ordsets.xml"/>
+  <xi:include href="../specs/specs_peer.xml"/>
   <xi:include href="../specs/specs_pool.xml"/>
   <xi:include href="../specs/specs_proc_lib.xml"/>
   <xi:include href="../specs/specs_proplists.xml"/>

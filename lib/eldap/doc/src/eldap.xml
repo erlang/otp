@@ -552,4 +552,3 @@ Control2 = eldap:paged_result_control(PageSize, Cookie1),
   </funcs>
 
 </erlref>
-

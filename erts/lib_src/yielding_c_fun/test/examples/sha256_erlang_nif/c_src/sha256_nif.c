@@ -105,7 +105,7 @@ sha256_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     {
       return enif_make_badarg(env);
     }
-  /* Copy the input binary to the work environemnt so it will be kept when we are yielding */
+  /* Copy the input binary to the work environment so it will be kept when we are yielding */
   ERL_NIF_TERM input_bin_term = enif_make_copy(work_env, argv[0]);
   ErlNifBinary input_bin;
   enif_inspect_binary(work_env, input_bin_term, &input_bin);

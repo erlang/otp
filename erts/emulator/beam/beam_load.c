@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,8 @@ Uint erts_total_code_size;
 
 static int load_code(LoaderState *stp);
 
+#define PLEASE_RECOMPILE "please re-compile this module with an Erlang/OTP " ERLANG_OTP_RELEASE " compiler"
+
 /**********************************************************************/
 
 void init_load(void)
@@ -54,6 +56,20 @@ void init_load(void)
     erts_total_code_size = 0;
     beam_catches_init();
     erts_init_ranges();
+
+#ifdef DEBUG
+    {
+        int i;
+
+        for (i = 1; i < NUM_GENERIC_OPS; i++) {
+            const GenOpEntry *op = &gen_opc[i];
+
+            ASSERT(op->name && op->name[0] != '\0');
+            ASSERT(op->arity <= ERTS_BEAM_MAX_OPARGS);
+            ASSERT(op->num_specific <= 1 || op->arity <= 6);
+        }
+    }
+#endif
 }
 
 Binary *erts_alloc_loader_state(void) {
@@ -128,6 +144,8 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
         BeamLoadError0(stp, "corrupt file header");
     case BEAMFILE_READ_MISSING_ATOM_TABLE:
         BeamLoadError0(stp, "missing atom table");
+    case BEAMFILE_READ_OBSOLETE_ATOM_TABLE:
+        BeamLoadError0(stp, PLEASE_RECOMPILE);
     case BEAMFILE_READ_CORRUPT_ATOM_TABLE:
         BeamLoadError0(stp, "corrupt atom table");
     case BEAMFILE_READ_MISSING_CODE_CHUNK:
@@ -148,6 +166,10 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
         BeamLoadError0(stp, "corrupt line table");
     case BEAMFILE_READ_CORRUPT_LITERAL_TABLE:
         BeamLoadError0(stp, "corrupt literal table");
+    case BEAMFILE_READ_CORRUPT_LOCALS_TABLE:
+        BeamLoadError0(stp, "corrupt locals table");
+    case BEAMFILE_READ_CORRUPT_TYPE_TABLE:
+        BeamLoadError0(stp, "corrupt type table");
     case BEAMFILE_READ_SUCCESS:
         break;
     }
@@ -161,15 +183,12 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
     if (stp->beam.code.max_opcode > MAX_GENERIC_OPCODE) {
         BeamLoadError2(stp,
                        "This BEAM file was compiled for a later version"
-                       " of the run-time system than " ERLANG_OTP_RELEASE ".\n"
-                       "  To fix this, please recompile this module with an "
-                       ERLANG_OTP_RELEASE " compiler.\n"
+                       " of the runtime system than the current (Erlang/OTP " ERLANG_OTP_RELEASE ").\n"
+                       "  To fix this, " PLEASE_RECOMPILE ".\n"
                        "  (Use of opcode %d; this emulator supports "
                        "only up to %d.)",
                        stp->beam.code.max_opcode, MAX_GENERIC_OPCODE);
     }
-
-    stp->otp_20_or_higher = (stp->beam.atoms.encoding == ERTS_ATOM_ENC_UTF8);
 
     if (!load_code(stp)) {
         goto load_error;
@@ -233,7 +252,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 
                     erts_clear_export_break(mod_tab_p, ep);
 
-                    ep->addresses[code_ix] =
+                    ep->dispatch.addresses[code_ix] =
                         (ErtsCodePtr)ep->trampoline.breakpoint.address;
                     ep->trampoline.breakpoint.address = 0;
 
@@ -369,9 +388,11 @@ static int load_code(LoaderState* stp)
 
     int num_specific;
 
-    beam_load_prepare_emit(stp);
-
     op_reader = beamfile_get_code(&stp->beam, &stp->op_allocator);
+
+    if (!beam_load_prepare_emit(stp)) {
+        goto load_error;
+    }
 
     for (;;) {
     get_next_instr:
@@ -452,14 +473,10 @@ static int load_code(LoaderState* stp)
 	     * the possible specific instructions associated with this
 	     * specific instruction.
 	     */
+            int specific, arity, arg, i;
             Uint32 mask[3] = {0, 0, 0};
 
-            int specific, arity, arg, i;
-
             arity = gen_opc[tmp_op->op].arity;
-            if (arity > 6) {
-                BeamLoadError0(stp, "no specific operation found (arity > 6)");
-            }
 
             for (arg = 0; arg < arity; arg++) {
                 int type = tmp_op->a[arg].type;
@@ -523,25 +540,15 @@ static int load_code(LoaderState* stp)
             /*
              * No specific operation found.
              */
-            if (i == num_specific) {
+            if (ERTS_UNLIKELY(i == num_specific)) {
                 stp->specific_op = -1;
-                for (arg = 0; arg < tmp_op->arity; arg++) {
-                    /*
-                     * We'll give the error message here (instead of earlier)
-                     * to get a printout of the offending operation.
-                     */
-                    if (tmp_op->a[arg].type == TAG_h) {
-                        BeamLoadError0(stp, "the character data type is not supported");
-                    }
-                }
 
                 /*
                  * No specific operations and no transformations means that
                  * the instruction is obsolete.
                  */
                 if (num_specific == 0 && gen_opc[tmp_op->op].transform == -1) {
-                    BeamLoadError0(stp, "please re-compile this module with an "
-                                   ERLANG_OTP_RELEASE " compiler ");
+                    BeamLoadError0(stp, PLEASE_RECOMPILE);
                 }
 
                 /*
@@ -550,8 +557,7 @@ static int load_code(LoaderState* stp)
                  */
                 switch (stp->genop->op) {
                 case genop_too_old_compiler_0:
-                    BeamLoadError0(stp, "please re-compile this module with an "
-                                   ERLANG_OTP_RELEASE " compiler");
+                    BeamLoadError0(stp, PLEASE_RECOMPILE);
                 case genop_unsupported_guard_bif_3:
                     {
                         Eterm Mod = (Eterm) stp->genop->a[0].val;
@@ -626,7 +632,12 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
             }
         case FUN_SUBTAG:
             {
-                ErlFunEntry* fe = ((ErlFunThing*)oh)->fe;
+                /* We _KNOW_ that this is a local fun, otherwise it would not
+                 * be part of the off-heap list. */
+                ErlFunEntry* fe = ((ErlFunThing*)oh)->entry.fun;
+
+                ASSERT(is_local_fun((ErlFunThing*)oh));
+
                 if (erts_refc_dectest(&fe->refc, 0) == 0) {
                     erts_erase_fun_entry(fe);
                 }

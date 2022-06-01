@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,12 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#    include "config.h"
+#endif
+
+#ifdef ESOCK_ENABLE
+
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
@@ -38,6 +44,9 @@
 #define TSNAME()           TNAME(TSELF())
 
 FILE* esock_dbgout = NULL;
+
+/* Leave at least 14 for the filename */
+#define PATH_LEN (MAX_PATH - 14)
 
 extern
 BOOLEAN_T esock_dbg_init(char* filename)
@@ -58,6 +67,48 @@ BOOLEAN_T esock_dbg_init(char* filename)
 
     fp = NULL;
 
+#if defined(__WIN32__)
+    {
+        /* char  path[PATH_LEN]; */
+        /* char  tf[MAX_PATH]; */
+        /* DWORD wres; */
+
+        /* wres = GetTempPathA(PATH_LEN, &path); */
+
+        /* if ((wres > PATH_LEN) || (wres == 0)) { */
+        /*     /\* */
+        /*      * We don't really care what is wrong. */
+        /*      * Just make the simplest possible solution (= use stdout) */
+        /*      *\/ */
+        /*     esock_dbgout = stdout; */
+        /*     return TRUE; // Successful file open */
+        /* }; */
+
+        /* /\* If 'filename' has been constructed in the unix */
+        /*  * way, this may result in an odd tf... */
+        /*  *\/ */
+        /* wres = GetTempFileNameA(path, filename, 0, &tf); */
+
+        /* if (wres == 0) { */
+        /*     /\* */
+        /*      * Again, we don't really care *what* is wrong. */
+        /*      * Just make the simplest possible solution (= use stdout) */
+        /*      *\/ */
+        /*     esock_dbgout = stdout; */
+        /*     return TRUE; // Successful file open */
+        /* } */
+
+        // Should we use CreateFile instead?
+        // fp = fopen(tf, mode);
+
+
+        /* For simplicity, we do not (*currently*) support generating
+         * a 'temporary' (debug) file name, we simply use the file name
+         * 'as is'.
+         */
+        fp = fopen(filename, mode);
+    }
+#else
     /* If there is trailing ?????? replace it with XXXXXX
      * and use mkstemp() to create an unique file name
      */
@@ -82,10 +133,11 @@ BOOLEAN_T esock_dbg_init(char* filename)
     } else {
         fp = fopen(filename, mode);
     }
+#endif
 
     if (fp != NULL) {
         esock_dbgout = fp;
-        return TRUE; // Succesful file open
+        return TRUE; // Successful file open
     }
 
     esock_dbgout = stdout;
@@ -129,3 +181,4 @@ void esock_dbg_printf( const char* prefix, const char* format, ... )
   }
 }
 
+#endif

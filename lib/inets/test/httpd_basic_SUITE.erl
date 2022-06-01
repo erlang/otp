@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ DUMMY
     DummyFile = filename:join([PrivDir,"dummy.html"]),
     CgiDir =  filename:join(PrivDir, "cgi-bin"),
     ok = file:make_dir(CgiDir),
-    {CgiPrintEnv, CgiSleep} = case test_server:os_type() of
+    {CgiPrintEnv, CgiSleep} = case os:type() of
 				  {win32, _} ->
 				      {"printenv.bat", "cgi_sleep.exe"};
 				  _ ->

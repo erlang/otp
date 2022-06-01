@@ -27,6 +27,90 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When a TLS-1.3 enabled client tried to talk to a TLS-1.2
+	    server that coalesces TLS-1.2 handshake message over one
+	    TLS record, the connection could fail due to some message
+	    being handled in the wrong state, this has been fixed.</p>
+          <p>
+	    Own Id: OTP-18087 Aux Id: GH-5961 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed tls-1.3 session ticket lifetime which was discarded
+	    to quickly before.</p>
+          <p>
+	    Own Id: OTP-18092 Aux Id: PR-5959 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    With this change, it is possible to provide several
+	    certificates. Most appropriate will be selected based on
+	    negotiated properties.</p>
+          <p>
+	    Own Id: OTP-15993 Aux Id: GH-4143 </p>
+        </item>
+        <item>
+          <p>
+	    Add options for users to be able to set spawn_opts for
+	    TLS processes (sender and receiver) this may be useful
+	    for tuning trade-offs between CPU and Memory usage.</p>
+          <p>
+	    Own Id: OTP-17855 Aux Id: PR-5328 </p>
+        </item>
+        <item>
+          <p>
+	    Allow key file passwords to be input as a single binary,
+	    that is we change the data type to be the more for the
+	    purpose logical data type iodata() instead of string().</p>
+          <p>
+	    Own Id: OTP-17890</p>
+        </item>
+        <item>
+          <p>
+	    Logging enhancement, add location information to the
+	    warning log message.</p>
+          <p>
+	    Own Id: OTP-18000 Aux Id: PR-5790 </p>
+        </item>
+        <item>
+          <p>
+	    Now also accepts the signature_algs_cert option in
+	    TLS-1.2 configuration.</p>
+          <p>
+	    Own Id: OTP-18014</p>
+        </item>
+        <item>
+          <p>
+	    Handle certificate selection correctly for server
+	    fallback and certificate authorities considerations.</p>
+          <p>
+	    Own Id: OTP-18045 Aux Id: ERIERL-792, OTP-15993 </p>
+        </item>
+        <item>
+          <p>
+	    Enhance handling of handshake decoding errors, especially
+	    for certificate authorities extension to ensure graceful
+	    termination.</p>
+          <p>
+	    Own Id: OTP-18085</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

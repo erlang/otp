@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@
 %%-record(event, {object, callback, cb_handler}).
 
 -define(APPLICATION, wxe).
--define(log(S,A), log(?MODULE,?LINE,S,A)).
+-define(log(S,A), log(?MODULE_STRING,?LINE,S,A)).
 
 -include("wxe.hrl").
 -include("../include/wx.hrl").
@@ -210,7 +210,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 
 log(Mod,Line,Str,Args) ->
-    error_logger:format("~p:~p: " ++ Str, [Mod,Line|Args]).
+    logger:log(error, Str, Args, #{domain => [wx], file=>Mod, line=>Line}).
 
 handle_connect(Object, #evh{handler=undefined, cb=Callback} = EvData0, 
 	       From, State0) ->

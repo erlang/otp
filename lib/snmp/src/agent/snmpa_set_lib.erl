@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@
 %% Input is a sorted Varbinds list.
 %% Output is either ok or {ErrIndex, ErrCode}.
 %%*  1) IF the variable is outside the mib view THEN noAccess.
-%%*  2a) IF the varaible doesn't exist THEN notWritable.
+%%*  2a) IF the variable doesn't exist THEN notWritable.
 %%   2b) IF mib isn't able to create instances of the variable (for 
 %%       example in a table) THEN noCreation.
 %%*  3) IF the new value provided is of the wrong ASN.1 type THEN wrongType.
@@ -59,7 +59,7 @@
 %%
 %% SNMPv1  (see rfc1157:4.1.5)
 %%*  1) IF variable not available for set in the mibview THEN noSuchName.
-%%*  2) IF variable exists, but doesn't permit writeing THEN readOnly.
+%%*  2) IF variable exists, but doesn't permit writing THEN readOnly.
 %%*  3) IF provided value doesn't match ASN.1 type THEN badValue.
 %%   4) IF any other error THEN genErr.
 %%   5) Otherwise ok!

@@ -80,35 +80,16 @@ test_phash2_no_diff_long(Config) when is_list(Config) ->
              Config).
 
 test_phash2_no_diff_between_versions(Config) when is_list(Config) ->
-    R = "21",
-    case test_server:is_release_available(R) of
-        true ->
-            Rel = {release,R},
-            %% We clear all ERL_FLAGS for the old node as all options may not
-            %% be supported.
-            ClearEnv = lists:foldl(
-                         fun({Key,_Value}, Acc) ->
-                                 case re:run(Key,"^ERL_.*FLAGS$") of
-                                     {match,_} ->
-                                         [{Key,""}|Acc];
-                                     nomatch ->
-                                         Acc
-                                 end
-                         end, [], os:env()),
-            case test_server:start_node(rel21,peer,[{erl,[Rel]},{env,ClearEnv}]) of
-                {error, Reason} -> {skip, io_lib:format("Could not start node: ~p~n", [Reason])};
-                {ok, Node} ->
-                    try
-                        true = ct_property_test:quickcheck(
-                                 phash2_properties:prop_phash2_same_in_different_versions(Node),
-                                 Config),
-                        true = ct_property_test:quickcheck(
-                                 phash2_properties:prop_phash2_same_in_different_versions_with_long_input(Node),
-                                 Config)
-                    after
-                        test_server:stop_node(Node)
-                    end
-            end;
-        false ->
+    R = integer_to_list(list_to_integer(erlang:system_info(otp_release))-2) ++ "_latest",
+    case ?CT_PEER([], R, proplists:get_value(priv_dir, Config)) of
+        {ok, Peer, Node} ->
+            true = ct_property_test:quickcheck(
+                     phash2_properties:prop_phash2_same_in_different_versions(Node),
+                     Config),
+            true = ct_property_test:quickcheck(
+                     phash2_properties:prop_phash2_same_in_different_versions_with_long_input(Node),
+                     Config),
+            peer:stop(Peer);
+        not_available ->
             {skip, io_lib:format("Release ~s not available~n", [R])}
     end.

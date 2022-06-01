@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2021</year>
+      <year>2000</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,8 +35,17 @@
   <module since="">sets</module>
   <modulesummary>Functions for set manipulation.</modulesummary>
   <description>
-    <p>Sets are collections of elements with no duplicate elements.
-      The representation of a set is undefined.</p>
+    <p>Sets are collections of elements with no duplicate
+    elements.</p>
+
+    <p>The data representing a set as used by this module is to be
+    regarded as opaque by other modules.  In abstract terms, the
+    representation is a composite type of existing Erlang terms. See
+    note on <seeguide
+    marker="system/reference_manual:data_types#no_user_types">data
+    types</seeguide>. Any code assuming knowledge of the format is
+    running on thin ice.</p>
+
 
     <p>This module provides the same interface as the
       <seeerl marker="ordsets"><c>ordsets(3)</c></seeerl> module
@@ -174,8 +183,13 @@
       <name name="is_set" arity="1" since=""/>
       <fsummary>Test for a <c>Set</c>.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if <c><anno>Set</anno></c> is a set of
-          elements, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>Set</anno></c> appears to
+        be a set of elements, otherwise <c>false</c>.  Note that the
+        test is shallow and will return <c>true</c> for any term that
+        coincides with the possible representations of a set.  See
+        also note on <seeguide
+        marker="system/reference_manual:data_types#no_user_types">data
+        types</seeguide>.</p>
       </desc>
     </func>
 

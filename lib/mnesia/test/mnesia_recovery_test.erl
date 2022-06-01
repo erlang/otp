@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1341,7 +1341,7 @@ garb_of_decisions(Kill, Nodes, Tid_list, Trans_res) ->
 	    case length(Tid_list) of
 		1 -> 
 		    %% If there was only one transaction, it should be logged as
-		    %% comitted on every node!
+		    %% committed on every node!
 		    [Tid1] = Tid_list,
 		    verify_garb_transient_logs(Nodes, [Tid1], committed);
 		2 -> 
@@ -1455,7 +1455,7 @@ receive_messages(ListOfMsgs, File, Line) ->
 		    [{Pid, Msg} | receive_messages(ListOfMsgs -- [Msg], File, Line)]
 	    end;
 	Else -> mnesia_test_lib:log("<>WARNING<>~n"
-				    "Recevied unexpected or bad formatted msg~n ~p ~n"
+				    "Received unexpected or bad formatted msg~n ~p ~n"
 				    "While waiting for ~p~n", 
 	 			    [Else, ListOfMsgs], File, Line),
 		receive_messages(ListOfMsgs, File, Line)

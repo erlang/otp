@@ -348,7 +348,7 @@ void print_definition(ycf_node_definition d){
 void print_scope(ycf_node_code_scope node){
   printf("NODE: scope\n");
   printf(">>>>>>>>>>>>>>>>>>>>>>>\n");
-  printf("Defenition Nodes:\n");
+  printf("Definition Nodes:\n");
   struct ycf_node* n = node.definition_nodes.head;
   while(n != NULL){
     print_abstract_syntax_tree(n);

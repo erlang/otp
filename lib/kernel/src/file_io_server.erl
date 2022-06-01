@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -445,6 +445,10 @@ put_chars(Chars, InEncoding, #state{handle=Handle, unic=OutEncoding}=State) ->
 	{error,_,_} ->
 	    {stop,no_translation,
 	     {error,{no_translation, InEncoding, OutEncoding}},
+	     NewState};
+	{incomplete,_,_} ->
+	    {stop,no_translation,
+	     {error,{no_translation, InEncoding, OutEncoding}},
 	     NewState}
     end.
 
@@ -673,7 +677,7 @@ get_chars_apply(Mod, Func, XtraArg, S0, OutEnc,
     end.
 	    
 %% A hack that tries to inform the caller about the position where the
-%% error occured.
+%% error occurred.
 invalid_unicode_error(Mod, Func, XtraArg, S) ->
     try
         {erl_scan,tokens,_Args} = XtraArg,

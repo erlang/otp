@@ -50,7 +50,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(OBJECTS)
+$(TYPES): $(OBJECTS)
 
 all: $(OBJECTS)
 

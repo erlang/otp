@@ -105,10 +105,9 @@
 %% To avoid the collapsing, change the value of SET_LIMIT to 50 in the
 %% file erl_types.erl in the dialyzer application.
 
--type prim_op() :: 'bs_add' | 'bs_extract' | 'bs_get_tail' |
-                   'bs_init' | 'bs_init_writable' |
-                   'bs_match' | 'bs_put' | 'bs_start_match' | 'bs_test_tail' |
-                   'bs_utf16_size' | 'bs_utf8_size' | 'build_stacktrace' |
+-type prim_op() :: 'bs_extract' | 'bs_get_tail' | 'bs_init_writable' |
+                   'bs_match' | 'bs_start_match' | 'bs_test_tail' |
+                   'build_stacktrace' |
                    'call' | 'catch_end' |
                    'extract' |
                    'get_hd' | 'get_map_element' | 'get_tl' | 'get_tuple_element' |
@@ -116,7 +115,7 @@
                    'is_nonempty_list' | 'is_tagged_tuple' |
                    'kill_try_tag' |
                    'landingpad' |
-                   'make_fun' | 'new_try_tag' | 'old_make_fun' |
+                   'make_fun' | 'match_fail' | 'new_try_tag' | 'old_make_fun' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
                    'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
                    'wait_timeout'.
@@ -133,9 +132,10 @@
 
 -import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
--spec add_anno(Key, Value, Construct) -> Construct when
+-spec add_anno(Key, Value, Construct0) -> Construct when
       Key :: atom(),
       Value :: any(),
+      Construct0 :: construct(),
       Construct :: construct().
 
 add_anno(Key, Val, #b_function{anno=Anno}=Bl) ->
@@ -156,7 +156,7 @@ add_anno(Key, Val, #b_switch{anno=Anno}=Bl) ->
 get_anno(Key, Construct) ->
     map_get(Key, get_anno(Construct)).
 
--spec get_anno(atom(), construct(),any()) -> any().
+-spec get_anno(atom(), construct(), any()) -> any().
 
 get_anno(Key, Construct, Default) ->
     maps:get(Key, get_anno(Construct), Default).
@@ -197,17 +197,13 @@ no_side_effect(#b_set{op=Op}) ->
     case Op of
         {bif,_} -> true;
         {float,get} -> true;
-        bs_add -> true;
-        bs_init -> true;
+        bs_create_bin -> true;
         bs_init_writable -> true;
         bs_extract -> true;
         bs_match -> true;
         bs_start_match -> true;
         bs_test_tail -> true;
         bs_get_tail -> true;
-        bs_put -> true;
-        bs_utf16_size -> true;
-        bs_utf8_size -> true;
         build_stacktrace -> true;
         extract -> true;
         get_hd -> true;
@@ -218,10 +214,12 @@ no_side_effect(#b_set{op=Op}) ->
         is_nonempty_list -> true;
         is_tagged_tuple -> true;
         make_fun -> true;
+        match_fail -> true;
         phi -> true;
         put_map -> true;
         put_list -> true;
         put_tuple -> true;
+        raw_raise -> true;
         {succeeded,guard} -> true;
         _ -> false
     end.
@@ -372,7 +370,7 @@ successors(#b_blk{last=Terminator}) ->
 %%  switch list to a #b_br{}.
 
 -spec normalize(b_set() | terminator()) ->
-                       b_set() | terminator().
+          b_set() | terminator().
 
 normalize(#b_set{op={bif,Bif},args=Args}=Set) ->
     case {is_commutative(Bif),Args} of
@@ -490,7 +488,7 @@ common_dominators(Ls, Dom, Numbering) ->
     dom_intersection(Doms, Numbering).
 
 -spec fold_instrs(Fun, Labels, Acc0, Blocks) -> any() when
-      Fun :: fun((b_blk()|terminator(), any()) -> any()),
+      Fun :: fun((b_set()|terminator(), any()) -> any()),
       Labels :: [label()],
       Acc0 :: any(),
       Blocks :: block_map().
@@ -520,7 +518,7 @@ mapfold_blocks_1(Fun, Lbl, {Blocks0, Acc0}) ->
     {Blocks, Acc}.
 
 -spec mapfold_instrs(Fun, Labels, Acc0, Blocks0) -> {Blocks,Acc} when
-      Fun :: fun((b_blk()|terminator(), any()) -> any()),
+      Fun :: fun((b_set()|terminator(), any()) -> any()),
       Labels :: [label()],
       Acc0 :: any(),
       Acc :: any(),
@@ -531,7 +529,7 @@ mapfold_instrs(Fun, Labels, Acc0, Blocks) ->
     mapfold_instrs_1(Labels, Fun, Blocks, Acc0).
 
 -spec flatmapfold_instrs(Fun, Labels, Acc0, Blocks0) -> {Blocks,Acc} when
-      Fun :: fun((b_blk()|terminator(), any()) -> any()),
+      Fun :: fun((b_set()|terminator(), any()) -> any()),
       Labels :: [label()],
       Acc0 :: any(),
       Acc :: any(),
@@ -607,7 +605,7 @@ between(From, To, Preds, Blocks) ->
     %% skipping the blocks that don't precede `To`.
     %%
     %% As an optimization we initialize the predecessor set with `From` to stop
-    %% gathering once seen since we're only interested in the blocks inbetween.
+    %% gathering once seen since we're only interested in the blocks in between.
     %% Uninteresting blocks can still be added if `From` doesn't dominate `To`,
     %% but that has no effect on the final result.
     Filter = between_make_filter([To], Preds, sets:from_list([From], [{version, 2}])),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,38 +25,29 @@
 
 -module(diameter_capx_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_suite/1,
-         end_per_suite/1,
-         init_per_group/2,
-         end_per_group/2,
-         init_per_testcase/2,
-         end_per_testcase/2]).
-
-%% testcases
--export([start/1,
-         vendor_id/1,
-         start_services/1,
-         add_listeners/1,
-         s_no_common_application/1,
-         c_no_common_application/1,
-         s_no_common_security/1,
-         c_no_common_security/1,
-         s_unknown_peer/1,
-         c_unknown_peer/1,
-         s_unable/1,
-         c_unable/1,
-         s_client_reject/1,
-         c_client_reject/1,
-         remove_listeners/1,
-         stop_services/1,
-         stop/1]).
+         traffic/1]).
 
 %% diameter callbacks
 -export([peer_up/4,
          peer_down/4]).
+
+%% internal
+-export([s_no_common_application/1,
+         s_no_common_security/1,
+         s_unknown_peer/1,
+         s_unable/1,
+         s_client_reject/1,
+         c_no_common_application/1,
+         c_no_common_security/1,
+         c_unknown_peer/1,
+         c_unable/1,
+         c_client_reject/1]).
 
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
@@ -108,65 +99,20 @@
 -define(caps,   #diameter_caps).
 -define(packet, #diameter_packet).
 
--define(fail(T), erlang:error({T, process_info(self(), messages)})).
-
--define(TIMEOUT, 10000).
-
 -define(DICTS, [rfc3588, rfc6733]).
 
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 20}}].
 
-all() -> [start,
-          vendor_id,
-          start_services,
-          add_listeners]
-      ++ [{group, D, P} || D <- ?DICTS, P <- [[], [parallel]]]
-      ++ [remove_listeners,
-          stop_services,
-          stop].
+all() ->
+    [traffic].
 
-groups() ->
-    Tc = lists:flatmap(fun tc/1, tc()),
-    [{D, [], Tc} || D <- ?DICTS].
+traffic(_Config) ->
+    run().
 
-init_per_suite(Config) ->
-    lists:foreach(fun load_dict/1, ?NOAPPS),
-    Config.
-
-end_per_suite(_Config) ->
-    [] = [Mod || N <- ?NOAPPS,
-                 Mod <- [dict(N)],
-                 false <- [code:delete(Mod)]],
-    ok.
-
-%% Generate a unique hostname for each testcase so that watchdogs
-%% don't prevent a connection from being brought up immediately.
-init_per_testcase(Name, Config) ->
-    [{host, ?L(Name) ++ "." ++ diameter_util:unique_string()}
-     | Config].
-
-init_per_group(Name, Config) ->
-    [{rfc, Name} | Config].
-
-end_per_group(_, _) ->
-    ok.
-
-end_per_testcase(N, _)
-  when N == start;
-       N == vendor_id;
-       N == start_services;
-       N == add_listeners;
-       N == remove_listeners;
-       N == stop_services;
-       N == stop ->
-    ok;
-
-end_per_testcase(Name, Config) ->
-    CRef = ?util:read_priv(Config, Name),
-    ok = diameter:remove_transport(?CLIENT, CRef).
+%% ===========================================================================
 
 %% Testcases all come in two flavours, client and server.
 tc(Name) ->
@@ -179,17 +125,46 @@ tc() ->
      unable,
      client_reject].
 
-%% ===========================================================================
-%% start/stop testcases
+run() ->
+    try
+        ?util:run([{fun traffic/0, 15000}])
+    after
+        ok = diameter:stop(),
+        [] = [M || N <- ?NOAPPS,
+                   M <- [dict(N)],
+                   B <- [code:delete(M)],
+                   _ <- [code:purge(M)],
+                   not B]
+    end.
 
-start(_Config) ->
-    ok = diameter:start().
+traffic() ->
+    lists:foreach(fun load_dict/1, ?NOAPPS),
+    ok = diameter:start(),
+    _ = vendor_id(),
+    ok = diameter:start_service(?SERVER, ?SERVICE),
+    ok = diameter:start_service(?CLIENT, ?SERVICE),
+    LRefs = add_listeners(),
+    ?util:run([[fun traffic/3, F, D, LRefs] || D <- ?DICTS,
+                                               N <- tc(),
+                                               F <- tc(N)]),
+    ok = diameter:remove_transport(?SERVER, true),
+    ok = diameter:stop_service(?CLIENT),
+    ok = diameter:stop_service(?SERVER).
+
+%% Generate a unique hostname for each testcase so that watchdogs
+%% don't prevent a connection from being brought up immediately.
+traffic(F, Dict, {_Base, _Acct} = LRefs) ->
+    apply(?MODULE,
+          F,
+          [[{lref, LRefs},
+            {rfc, Dict},
+            {host, ?L(F) ++ "." ++ ?util:unique_string()}]]).
 
 %% Ensure that both integer and list-valued vendor id's can be
 %% configured in a Vendor-Specific-Application-Id, the arity having
 %% changed between RFC 3588 and RFC 6733.
-vendor_id(_Config) ->
-    [] = ?util:run([[fun vid/1, V] || V <- [1, [1], [1,2], x]]).
+vendor_id() ->
+    ?util:run([[fun vid/1, V] || V <- [1, [1], [1,2], x]]).
 
 vid(V) ->
     RC = diameter:start_service(make_ref(),
@@ -203,14 +178,10 @@ vid(x, {error, _}) ->
 vid(_, ok) ->
     ok.
 
-start_services(_Config) ->
-    ok = diameter:start_service(?SERVER, ?SERVICE),
-    ok = diameter:start_service(?CLIENT, ?SERVICE).
-
 %% One server that responds only to base accounting, one that responds
 %% to both this and the common application. Share a common service just
 %% to simplify config, and because we can.
-add_listeners(Config) ->
+add_listeners() ->
     Acct = [listen(?SERVER,
                    [{capabilities, [{'Origin-Host', ?HOST(H)},
                                     {'Auth-Application-Id', []}]},
@@ -224,17 +195,7 @@ add_listeners(Config) ->
                     {capabilities_cb, [fun server_capx/3, base]}])
             || {A,H} <- [{[base3588, acct3588], "base3588-srv"},
                          {[base6733, acct6733], "base6733-srv"}]],
-    ?util:write_priv(Config, ?MODULE, {Base, Acct}). %% lref/2 reads
-
-remove_listeners(_Config) ->
-    ok = diameter:remove_transport(?SERVER, true).
-
-stop_services(_Config) ->
-    ok = diameter:stop_service(?CLIENT),
-    ok = diameter:stop_service(?SERVER).
-
-stop(_Config) ->
-    ok = diameter:stop().
+    {Base, Acct}.
 
 %% ===========================================================================
 %% All the testcases come in pairs, one for receiving an event on the
@@ -338,13 +299,10 @@ s_client_reject(Config) ->
     receive
         ?event{service = ?SERVER,
                info = {up, LRef,
-                           {_, ?caps{origin_host = {_, OH}}},
-                           {listen, _},
-                           ?packet{}}}
-                    = Info ->
-            Info
-    after ?TIMEOUT ->
-            ?fail({LRef, OH})
+                       {_, ?caps{origin_host = {_, OH}}},
+                       {listen, _},
+                       ?packet{}}}  ->
+            ok
     end.
 
 c_client_reject(Config) ->
@@ -404,12 +362,9 @@ server_closed(Config, F, RC) ->
                info = {closed, LRef,
                                {'CER', RC,
                                        ?caps{origin_host = {_, OH}},
-                                       ?packet{}}
-                               = Reason,
+                                       ?packet{}},
                                {listen, _}}} ->
-            Reason
-    after ?TIMEOUT ->
-            ?fail({LRef, OH})
+            ok
     end.
 
 %% server_reject/3
@@ -425,12 +380,9 @@ server_reject(Config, F, RC) ->
                info = {closed, LRef,
                                {'CER', {capabilities_cb, _, RC},
                                        ?caps{origin_host = {_, OH}},
-                                       ?packet{}}
-                               = Reason,
+                                       ?packet{}},
                                {listen, _}}} ->
-            Reason
-    after ?TIMEOUT ->
-            ?fail({LRef, OH})
+            ok
     end.
 
 %% client_closed/4
@@ -459,8 +411,6 @@ client_recv(CRef) ->
         ?event{service = ?CLIENT,
                info = {closed, CRef, Reason, {connect, _}}} ->
             Reason
-    after ?TIMEOUT ->
-            ?fail(CRef)
     end.
 
 %% server_capx/3
@@ -504,20 +454,14 @@ listen(Name, Opts) ->
 connect(Config, T, Opts) ->
     {_, H} = lists:keyfind(host, 1, Config),
     LRef = lref(Config, T),
-    CRef = connect(LRef, [{capabilities, [{'Origin-Host', ?HOST(H)}]}
-                          | Opts]),
-    Name = lists:takewhile(fun(C) -> C /= $. end, H),
-    ?util:write_priv(Config, Name, CRef),  %% end_per_testcase reads
+    [PortNr] = ?util:lport(tcp, LRef),
+    {ok, CRef}
+        = diameter:add_transport(?CLIENT, {connect, opts(H, PortNr, Opts)}),
     {CRef, LRef}.
 
-connect(LRef, Opts) ->
-    [PortNr] = ?util:lport(tcp, LRef),
-    {ok, CRef} = diameter:add_transport(?CLIENT,
-                                        {connect, opts(PortNr, Opts)}),
-    CRef.
-
-opts(PortNr, Opts) ->
-    [{transport_module, diameter_tcp},
+opts(Host, PortNr, Opts) ->
+    [{capabilities, [{'Origin-Host', ?HOST(Host)}]},
+     {transport_module, diameter_tcp},
      {transport_config, [{raddr, ?ADDR},
                          {rport, PortNr},
                          {ip, ?ADDR},
@@ -531,7 +475,7 @@ lref(rfc6733, [_, LRef]) ->
 
 lref(Config, T) ->
     lref(proplists:get_value(rfc, Config),
-         case ?util:read_priv(Config, ?MODULE) of
+         case proplists:get_value(lref, Config) of
              {R, _} when T == base ->
                  R;
              {_, R} when T == acct ->

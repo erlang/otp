@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2021</year>
+      <year>2000</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,41 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
+
+<section><title>Jinterface 1.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The following distribution flags are now mandatory:
+	    <c>DFLAG_BIT_BINARIES</c>, <c>DFLAG_EXPORT_PTR_TAG</c>,
+	    <c>DFLAG_MAP_TAGS</c>, <c>DFLAG_NEW_FLOATS</c>, and
+	    <c>DFLAG_FUN_TAGS</c>. This mainly concerns libraries or
+	    application that implement the distribution protocol
+	    themselves.</p>
+          <p>
+	    Own Id: OTP-17318 Aux Id: PR-4972 </p>
+        </item>
+        <item>
+          <p>
+	    Removed use of node creation value zero as a wildcard.
+	    Also prevent zero from being used as creation by
+	    <c>erl_interface</c> and <c>jinterface</c> nodes.</p>
+          <p>
+	    Own Id: OTP-17682 Aux Id: PR-5347 </p>
+        </item>
+        <item>
+          <p>
+	    Add new abstract class <c>OtpGenericTransportFactory</c>
+	    to allow implementation of any transport protocol without
+	    dependency on epmd.</p>
+          <p>
+	    Own Id: OTP-17961 Aux Id: PR-4839 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Jinterface 1.12.2</title>
 
@@ -98,6 +133,23 @@
 	    <c>function</c> and <c>arity</c> public.</p>
           <p>
 	    Own Id: OTP-17170 Aux Id: PR-3005 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Jinterface 1.11.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in <c>OtpOutputStream.write_pid/4</c> and
+	    <c>write_ref/3</c> causing faulty encodig. Bug exists
+	    since OTP 23.0.</p>
+          <p>
+	    Own Id: OTP-17887 Aux Id: ERIERL-750, PR-5640 </p>
         </item>
       </list>
     </section>
@@ -287,7 +339,7 @@
       <list>
         <item>
           <p>
-	    Update build scripts to not make assumtions about where
+	    Update build scripts to not make assumptions about where
 	    env, cp and perl are located.</p>
           <p>
 	    Own Id: OTP-13800</p>
@@ -613,7 +665,7 @@
 	    Java 1.5 has a bug where detecting codepoint offsets in
 	    strings that are created by String.substring() gives
 	    wrong results. The new implementation uses a different
-	    method, avoinding the issue. (Thanks to Vlad Dumitrescu)</p>
+	    method, avoiding the issue. (Thanks to Vlad Dumitrescu)</p>
           <p>
 	    Own Id: OTP-9927</p>
         </item>
@@ -1003,4 +1055,3 @@
     </section>
   </section>
 </chapter>
-

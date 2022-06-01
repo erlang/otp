@@ -4,7 +4,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2021. All Rights Reserved.
+# Copyright Ericsson AB 1997-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,13 +47,12 @@ CROSS_COMPILING = @CROSS_COMPILING@
 # ----------------------------------------------------
 DEFAULT_TARGETS =  opt debug release release_docs clean docs
 
-TYPES = @TYPES@
+TYPES = opt debug lcnt valgrind asan gcov
+DEFAULT_TYPES = @DEFAULT_TYPES@
 FLAVORS = @FLAVORS@
 PRIMARY_FLAVOR= @PRIMARY_FLAVOR@
 
 USE_PGO = @USE_PGO@
-
-USE_ESOCK = @USE_ESOCK@
 
 # Slash separated list of return values from $(origin VAR)
 # that are untrusted - set default in this file instead.
@@ -104,9 +103,6 @@ ifdef BOOTSTRAP
   ERL_COMPILE_FLAGS += +slim
 else
   ERL_COMPILE_FLAGS += +debug_info
-endif
-ifeq ($(USE_ESOCK),yes)
-ERL_COMPILE_FLAGS += -DUSE_ESOCK=true
 endif
 
 ERLC_WFLAGS = -W

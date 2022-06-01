@@ -41,7 +41,7 @@ function([{#c_var{name={F,Arity}}=Name,B0}|Fs]) ->
 function([]) ->
     [].
 
-%%% Reorder bit syntax matching to faciliate optimization in further passes.
+%%% Reorder bit syntax matching to facilitate optimization in further passes.
 
 bsm_reorder(#c_case{arg=#c_var{}=V}=Case) ->
     bsm_reorder_1([V], Case);

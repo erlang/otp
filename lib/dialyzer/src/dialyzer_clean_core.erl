@@ -72,11 +72,6 @@ clean(Tree) ->
       Args = clean_list(cerl:primop_args(Tree)),
       Name = cerl:primop_name(Tree),
       cerl:update_c_primop(Tree, Name, Args);
-    'receive' ->
-      Clauses = clean_clauses(cerl:receive_clauses(Tree)),
-      Timeout = clean(cerl:receive_timeout(Tree)),
-      Action = clean(cerl:receive_action(Tree)),
-      cerl:update_c_receive(Tree, Clauses, Timeout, Action);
     seq ->
       Arg = clean(cerl:seq_arg(Tree)),
       Body = clean(cerl:seq_body(Tree)),
@@ -114,6 +109,7 @@ clean_letrec(Tree) ->
       FunBody = cerl:fun_body(Fun),
       FunBody1 = clean(FunBody),
       Body = clean(cerl:letrec_body(Tree)),
+      FunVars = cerl:fun_vars(Fun),
       case dialyzer_ignore(Body) of
         true ->
           %% The body of the letrec directly transfer controls to
@@ -157,8 +153,10 @@ clean_letrec(Tree) ->
           %%    end
           %%
           PrimopUnknown = cerl:c_primop(cerl:abstract(dialyzer_unknown), []),
-          Clauses = [cerl:c_clause([cerl:abstract(a)], Body),
-                     cerl:c_clause([cerl:abstract(b)], FunBody1)],
+          PatA = [cerl:abstract(a)],
+          PatB = [cerl:c_tuple([cerl:abstract(b)|FunVars])],
+          Clauses = [cerl:c_clause(PatA, Body),
+                     cerl:c_clause(PatB, FunBody1)],
           cerl:c_case(PrimopUnknown, Clauses)
       end;
     false ->

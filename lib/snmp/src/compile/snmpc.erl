@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1322,7 +1322,7 @@ define_cols([{#mc_object_type{name        = NameOfCol,
 		     entrytype   = table_column, 
 		     access      = NewAccess,
 		     description = Description,
-		     units       = Units,   %% Propably not usefull
+		     units       = Units,   %% Probably not useful
 		     assocList   = [{table_name,TableName} | Defval]}),
     define_cols(Rest,SubIndex+1,Fields,NameOfEntry,TableName,
 		[ColumnME|ColMEs]);

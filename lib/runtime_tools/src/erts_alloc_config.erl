@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,9 @@
 %%%-------------------------------------------------------------------
 
 -module(erts_alloc_config).
+
+-deprecated({'_','_', "this module will be removed in OTP 26.0. See the "
+                      "documentation for details"}).
 
 -record(state, {have_scenario = false,
 		alloc}).
@@ -265,13 +268,13 @@ strategy_str(aoff) ->
 strategy_str(aoffcbf) ->
     "Address order first fit carrier best fit";
 strategy_str(aoffcaobf) ->
-    "Address order first fit carrier adress order best fit";
+    "Address order first fit carrier address order best fit";
 strategy_str(ageffcaoff) ->
     "Age order first fit carrier address order first fit";
 strategy_str(ageffcbf) ->
     "Age order first fit carrier best fit";
 strategy_str(ageffcaobf) ->
-    "Age order first fit carrier adress order best fit".
+    "Age order first fit carrier address order best fit".
 
 default_acul(A, S) ->
     case carrier_migration_support(S) of

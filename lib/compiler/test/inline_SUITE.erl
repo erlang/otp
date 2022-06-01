@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -332,7 +332,7 @@ badarg(Reply, _A) ->
     Reply.
 
 otp_7223(Config) when is_list(Config) ->
-    {'EXIT', {{case_clause,{1}},_}} = (catch otp_7223_1(1)),
+    {'EXIT', {function_clause, [{?MODULE,_,[1],_}|_]}} = (catch otp_7223_1(1)),
     ok.
 
 -compile({inline,[{otp_7223_1,1}]}).

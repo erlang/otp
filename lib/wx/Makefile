@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2021. All Rights Reserved.
+# Copyright Ericsson AB 2008-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,12 +19,11 @@
 #
 
 include ./vsn.mk
+include ./config.mk
 
 ifdef TERTIARY_BOOTSTRAP
- INSIDE_ERLSRC = true
  SUBDIRS = src
 else # Normal build
- include ./config.mk
  SUBDIRS = src
  ifeq ($(CAN_BUILD_DRIVER), true)
  SUBDIRS += c_src
@@ -40,5 +39,7 @@ CLEANDIRS = $(SUBDIRS) api_gen
 SUB_DIRECTORIES=$(SUBDIRS)
 
 include $(ERL_TOP)/make/otp_subdir.mk
+
+TEST_NEEDS_RELEASE=true
 
 include $(ERL_TOP)/make/app_targets.mk

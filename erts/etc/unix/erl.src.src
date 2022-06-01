@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2020. All Rights Reserved.
+# Copyright Ericsson AB 1996-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,15 +18,38 @@
 #
 # %CopyrightEnd%
 #
+prog="$0"
+progdir=`dirname "${prog}"`
+dyn_erl_path="${progdir}/%DYN_ERL_PATH%"
+if [ ! -f "$dyn_erl_path" ]
+then
+    dyn_erl_path="${progdir}/dyn_erl"
+fi
+
+if [ -f "$dyn_erl_path" ]
+then
+    dyn_rootdir=`"${dyn_erl_path}" --realpath`
+    dyn_rootdir=`dirname "${dyn_rootdir}"`
+    dyn_rootdir=`dirname "${dyn_rootdir}"`
+    dyn_rootdir="${dyn_rootdir}%DYN_ROOTDIR_BASE_EXT%"
+else
+    dyn_rootdir=""
+fi
+
 if [ -z "$ERL_ROOTDIR" ]
 then
     ROOTDIR="%FINAL_ROOTDIR%"
+    if [ "$dyn_rootdir" != "$ROOTDIR" ] && [ "$dyn_rootdir" != "" ]
+    then
+        # It is likely that the files have been copied or moved
+        ROOTDIR="$dyn_rootdir"
+    fi
 else
     ROOTDIR="$ERL_ROOTDIR"
 fi
-BINDIR=$ROOTDIR/erts-%VSN%/bin
+BINDIR="$ROOTDIR/erts-%VSN%/bin"
 EMU=%EMULATOR%%EMULATOR_NUMBER%
-PROGNAME=`echo $0 | sed 's/.*\///'`
+PROGNAME=`basename "$0"`
 export EMU
 export ROOTDIR
 export BINDIR

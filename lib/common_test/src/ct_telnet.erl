@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1019,7 +1019,7 @@ seq_expect(Name,Pid,Data,Patterns,Acc,EO) ->
     end.
 
 %% seq_expect1: For one prompt-chunk, match each pattern - line by
-%% line if it is other than the prompt we are seaching for.
+%% line if it is other than the prompt we are searching for.
 seq_expect1(Name,Pid,Data,[prompt|Patterns],Acc,Rest,EO) ->
     case EO#eo.found_prompt of
 	false ->
@@ -1253,7 +1253,7 @@ split_prompt_string([Ch|Rest],_Start,End,N,UptoPrompt,Prompt) when N==End ->
 	    {noprompt,[Ch|Prompt]++UptoPrompt,Rest};
 	[$\s,$t,$s,$a|_] when Prompt==":nigol" ->
 	    %% This is probably the "Last login:" statement which is
-	    %% written when telnet connection is openend.
+	    %% written when telnet connection is opened.
 	    {noprompt,[Ch|Prompt]++UptoPrompt,Rest};
 	_ ->
 	    {prompt,[Ch|Prompt]++UptoPrompt,[Ch|Prompt],Rest}

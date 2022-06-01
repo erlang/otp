@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ create_window(Wx) ->
     % unlike wxwidgets the stock menu items still need text to be given, 
     % although help text does appear
     _QuitMenuItem  = wxMenu:append(FileM, ?wxID_EXIT, "&Quit"),
-    % Note the keybord accelerator
+    % Note the keyboard accelerator
     _AboutMenuItem = wxMenu:append(HelpM, ?wxID_ABOUT, "&About...\tF1"),
 
     wxMenu:appendSeparator(HelpM),    

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 -module(uri_string_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-compile({nowarn_deprecated_function, [{http_uri, encode, 1}]}).
+-compile({nowarn_deprecated_function, [{http_uri, decode, 1}]}).
 
 -export([all/0, suite/0,groups/0,
          normalize/1, normalize_map/1, normalize_return_map/1, normalize_negative/1,
@@ -53,7 +55,8 @@
          interop_query_latin1/1, interop_query_utf8/1,
          regression_parse/1, regression_recompose/1, regression_normalize/1,
          recompose_host_relative_path/1,
-         recompose_host_absolute_path/1
+         recompose_host_absolute_path/1,
+         quote/1
         ]).
 
 
@@ -148,7 +151,8 @@ all() ->
      regression_recompose,
      regression_normalize,
      recompose_host_relative_path,
-     recompose_host_absolute_path
+     recompose_host_absolute_path,
+     quote
     ].
 
 groups() ->
@@ -587,18 +591,22 @@ parse_host_ipv6(_Config) ->
     {error,invalid_uri,"G"} = uri_string:parse("//[2001:0db8:0000:0000:0000:0000:1428:G7ab]").
 
 parse_port(_Config) ->
-    #{path:= "/:8042"} =
-        uri_string:parse("/:8042"),
-    #{host:= "", port := 8042} =
-        uri_string:parse("//:8042"),
-    #{host := "example.com", port:= 8042} =
-        uri_string:parse("//example.com:8042"),
-    #{scheme := "foo", path := "/:8042"} =
-        uri_string:parse("foo:/:8042"),
-    #{scheme := "foo", host := "", port := 8042} =
-        uri_string:parse("foo://:8042"),
-    #{scheme := "foo", host := "example.com", port := 8042} =
-        uri_string:parse("foo://example.com:8042").
+    parse_port_with_param("8042", 8042),
+    parse_port_with_param("", undefined).
+
+parse_port_with_param(PortString, Expected) ->
+    #{path:= "/:" ++ PortString} =
+        uri_string:parse("/:" ++ PortString),
+    #{host:= "", port := Expected} =
+        uri_string:parse("//:" ++ PortString),
+    #{host := "example.com", port:= Expected} =
+        uri_string:parse("//example.com:" ++ PortString),
+    #{scheme := "foo", path := "/:" ++ PortString} =
+        uri_string:parse("foo:/:" ++ PortString),
+    #{scheme := "foo", host := "", port := Expected} =
+        uri_string:parse("foo://:" ++ PortString),
+    #{scheme := "foo", host := "example.com", port := Expected} =
+        uri_string:parse("foo://example.com:" ++ PortString).
 
 parse_path(_Config) ->
     #{path := "over/there"} = uri_string:parse("over/there"),
@@ -1016,7 +1024,19 @@ normalize(_Config) ->
     <<"tftp://localhost">> =
         uri_string:normalize(<<"tftp://localhost:69">>),
     <<"/foo/%2F/bar">> =
-        uri_string:normalize(<<"/foo/%2f/%62ar">>).
+        uri_string:normalize(<<"/foo/%2f/%62ar">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost/">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost:/">>),
+    <<"https://localhost/">> =
+        uri_string:normalize(<<"https://localhost:">>),
+    <<"yeti://localhost/">> =
+        uri_string:normalize(<<"yeti://localhost:/">>),
+    <<"yeti://localhost">> =
+        uri_string:normalize(<<"yeti://localhost:">>).
 
 normalize_map(_Config) ->
     "/a/g" = uri_string:normalize(#{path => "/a/b/c/./../../g"}),
@@ -1047,7 +1067,13 @@ normalize_map(_Config) ->
         uri_string:normalize(#{scheme => <<"tftp">>,port => 69,path => <<>>,
                                host => <<"localhost">>}),
     "/foo/%2F/bar" =
-        uri_string:normalize(#{path => "/foo/%2f/%62ar"}).
+        uri_string:normalize(#{path => "/foo/%2f/%62ar"}),
+    <<"https://localhost/">> =
+        uri_string:normalize(#{scheme => <<"https">>,port => undefined,path => <<>>,
+                               host => <<"localhost">>}),
+    <<"yeti://localhost">> =
+        uri_string:normalize(#{scheme => <<"yeti">>,port => undefined,path => <<>>,
+                               host => <<"localhost">>}).
 
 normalize_return_map(_Config) ->
     #{scheme := "http",path := "/a/g",host := "localhost-örebro"} =
@@ -1332,3 +1358,132 @@ recompose_host_absolute_path(_Config) ->
                                path => [<<"/f">>,<<"oo">>]}),
     ok.
 
+%%-------------------------------------------------------------------------
+%% Quote tests
+%%-------------------------------------------------------------------------
+quote(_Config) ->
+    TestQuote =
+        fun(Unquoted, Quoted) ->
+                Quoted = uri_string:quote(Unquoted)
+        end,
+
+    [TestQuote(U, Q) || #{unquoted := U, quoted := Q} <- get_quote_data()],
+    [TestQuote(U, Q) || #{unquoted_b := U, quoted_b := Q} <- get_quote_data()],
+
+    Head = fun([H | _]) -> H;
+               (<<H, _/binary>>) -> H
+           end,
+
+    TestQuoteUnquote =
+        fun(Unquoted) ->
+                %% case below should be removed when functions used are removed
+                case Head(Unquoted) =< 127 of
+                    true ->
+                        Unquoted = http_uri:decode(http_uri:encode(Unquoted));
+                    _ ->
+                        ok
+                end,
+                Unquoted = uri_string:unquote(uri_string:quote(Unquoted))
+        end,
+    [TestQuoteUnquote(U) || #{unquoted := U} <- get_quote_data()],
+    [TestQuoteUnquote(U) || #{unquoted_b := U} <- get_quote_data()],
+
+    TestQuoteWithSafeList =
+        fun(Unquoted, Quoted) ->
+                Safe = "!$()*", %% characters not encoded by old http_uri:encode
+                Result = uri_string:quote(Unquoted, Safe),
+                %% case below should be removed when function used are removed
+                case Head(Unquoted) =< 127 of
+                    true ->
+                        Result = http_uri:encode(Unquoted);
+                    _ ->
+                        ok
+                end,
+                case lists:member(Head(Unquoted), Safe) of
+                    true ->
+                        Unquoted = Result;
+                    false ->
+                        Quoted = Result
+                end
+        end,
+    [TestQuoteWithSafeList(U, Q) || #{unquoted := U, quoted := Q} <- get_quote_data()],
+    [TestQuoteWithSafeList(U, Q) || #{unquoted_b := U, quoted_b := Q} <- get_quote_data()],
+
+
+    ComposePath = fun (PathSegments, Safe) ->
+                          lists:join("/", [uri_string:quote(S, Safe) ||
+                                              S <- PathSegments])
+                  end,
+
+    %% / used as data see GH-5368
+    ExampleURI1 = "https://internal.api.com/devices/Ethernet0%2F4",
+    ExampleURI1 = uri_string:recompose(
+                    #{scheme => "https",
+                      host => "internal.api.com",
+                      path => ComposePath(["devices", "Ethernet0/4"],
+                                          "")}),
+
+    %% sub-delims as data
+    %% in this example ComposePath must treat sub-delims and '%' as safe character
+    %% to avoid re-encoding encoded characters
+    ExampleURI2 = "yeti://localhost/folder/file.txt,version=1%2C1",
+    ExampleURI2 = uri_string:recompose(
+                    #{scheme => "yeti",
+                      host => "localhost",
+                      path => ComposePath(["folder", "file.txt,version=" ++
+                                           uri_string:quote("1,1")],
+                                          ",=%")}),
+
+    %% percent character as data
+    ExampleURI3 = "yeti://localhost/folder/file_with_%25.txt",
+    ExampleURI3 = uri_string:recompose(
+                    #{scheme => "yeti",
+                      host => "localhost",
+                      path => ComposePath(["folder", "file_with_" ++
+                                               uri_string:quote("%") ++ ".txt"],
+                                          "%")}),
+    ok.
+
+get_quote_data() ->
+    [%% reserved/gen-delims
+     #{unquoted => ":", quoted => "%3A", unquoted_b =><<":">>, quoted_b=> <<"%3A">>},
+     #{unquoted => "/", quoted => "%2F", unquoted_b =><<"/">>, quoted_b=> <<"%2F">>},
+     #{unquoted => "?", quoted => "%3F", unquoted_b =><<"?">>, quoted_b=> <<"%3F">>},
+     #{unquoted => "#", quoted => "%23", unquoted_b =><<"#">>, quoted_b=> <<"%23">>},
+     #{unquoted => "[", quoted => "%5B", unquoted_b =><<"[">>, quoted_b=> <<"%5B">>},
+     #{unquoted => "]", quoted => "%5D", unquoted_b =><<"]">>, quoted_b=> <<"%5D">>},
+     #{unquoted => "@", quoted => "%40", unquoted_b =><<"@">>, quoted_b=> <<"%40">>},
+     %% reserved/sub-delims
+     #{unquoted => "!", quoted => "%21", unquoted_b =><<"!">>, quoted_b=> <<"%21">>},
+     #{unquoted => "$", quoted => "%24", unquoted_b =><<"$">>, quoted_b=> <<"%24">>},
+     #{unquoted => "&", quoted => "%26", unquoted_b =><<"&">>, quoted_b=> <<"%26">>},
+     #{unquoted => "'", quoted => "%27", unquoted_b =><<"'">>, quoted_b=> <<"%27">>},
+     #{unquoted => "(", quoted => "%28", unquoted_b =><<"(">>, quoted_b=> <<"%28">>},
+     #{unquoted => ")", quoted => "%29", unquoted_b =><<")">>, quoted_b=> <<"%29">>},
+     #{unquoted => "*", quoted => "%2A", unquoted_b =><<"*">>, quoted_b=> <<"%2A">>},
+     #{unquoted => "+", quoted => "%2B", unquoted_b =><<"+">>, quoted_b=> <<"%2B">>},
+     #{unquoted => ",", quoted => "%2C", unquoted_b =><<",">>, quoted_b=> <<"%2C">>},
+     #{unquoted => ";", quoted => "%3B", unquoted_b =><<";">>, quoted_b=> <<"%3B">>},
+     #{unquoted => "=", quoted => "%3D", unquoted_b =><<"=">>, quoted_b=> <<"%3D">>},
+     %% other not unreserved
+     #{unquoted => "<", quoted => "%3C", unquoted_b =><<"<">>, quoted_b=> <<"%3C">>},
+     #{unquoted => ">", quoted => "%3E", unquoted_b =><<">">>, quoted_b=> <<"%3E">>},
+     #{unquoted => "\"", quoted => "%22", unquoted_b =><<"\"">>, quoted_b=> <<"%22">>},
+     #{unquoted => "{", quoted => "%7B", unquoted_b =><<"{">>, quoted_b=> <<"%7B">>},
+     #{unquoted => "}", quoted => "%7D", unquoted_b =><<"}">>, quoted_b=> <<"%7D">>},
+     #{unquoted => "|", quoted => "%7C", unquoted_b =><<"|">>, quoted_b=> <<"%7C">>},
+     #{unquoted => "\\", quoted => "%5C", unquoted_b =><<"\\">>, quoted_b=> <<"%5C">>},
+     #{unquoted => "^", quoted => "%5E", unquoted_b =><<"^">>, quoted_b=> <<"%5E">>},
+     #{unquoted => "%", quoted => "%25", unquoted_b =><<"%">>, quoted_b=> <<"%25">>},
+     #{unquoted => " ", quoted => "%20", unquoted_b =><<" ">>, quoted_b=> <<"%20">>},
+     %% non-ASCII
+     #{unquoted => "örebro", quoted => "%C3%B6rebro",
+       unquoted_b =><<"örebro"/utf8>>, quoted_b=> <<"%C3%B6rebro">>},
+     #{unquoted => "Łódź", quoted => "%C5%81%C3%B3d%C5%BA",
+       unquoted_b =><<"Łódź"/utf8>>, quoted_b=> <<"%C5%81%C3%B3d%C5%BA">>},
+     %% unreserved non alpha, non digit characters
+     #{unquoted => "-", quoted => "-", unquoted_b =><<"-">>, quoted_b=> <<"-">>},
+     #{unquoted => ".", quoted => ".", unquoted_b =><<".">>, quoted_b=> <<".">>},
+     #{unquoted => "_", quoted => "_", unquoted_b =><<"_">>, quoted_b=> <<"_">>},
+     #{unquoted => "~", quoted => "~", unquoted_b =><<"~">>, quoted_b=> <<"~">>}
+    ].

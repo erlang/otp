@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -309,7 +309,7 @@ create_help_menu() ->
     HelpMenu =  wxMenu:new(),
     % unlike wxwidgets the stock menu items still need text to be given, 
     % although help text does appear
-    % Note the keybord accelerator
+    % Note the keyboard accelerator
     wxMenu:append(HelpMenu, wxMenuItem:new([
             {id,    ?menuID_HELP_ABOUT},
             %{text,  "&About\tF1"},

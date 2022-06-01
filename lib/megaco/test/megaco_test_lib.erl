@@ -50,7 +50,7 @@
          display_system_info/1, display_system_info/2, display_system_info/3,
 
          executor/1, executor/2,
-         try_tc/6,
+         try_tc/6, try_tc/7,
 
          prepare_test_case/5,
 
@@ -62,6 +62,7 @@
 
          stop_nodes/3,
          stop_node/3,
+         ping/1, ping/2,
 
          is_socket_backend/1,
          inet_backend_opts/1,
@@ -719,41 +720,138 @@ num_schedulers_to_factor() ->
 
     
 linux_which_distro(Version) ->
+    try do_linux_which_distro(Version)
+    catch
+        throw:{distro, Distro} ->
+            Distro
+    end.
+
+do_linux_which_distro(Version) ->
+    %% Many (linux) distro's use the /etc/issue file, so try that first.
+    %% Then we just keep going until we are "done".
+    DistroStr = do_linux_which_distro_issue(Version),
+    %% Still not sure; try fedora
+    _ = do_linux_which_distro_fedora(Version),
+    %% Still not sure; try suse
+    _ = do_linux_which_distro_suse(Version),
+    %% And the fallback
+    io:format("Linux: ~s"
+              "~n   ~s"
+              "~n",
+              [Version, DistroStr]),
+    other.
+
+do_linux_which_distro_issue(Version) ->
     case file:read_file_info("/etc/issue") of
         {ok, _} ->
             case [string:trim(S) ||
                      S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
-                [DistroStr|_] ->
+                [DistroStr | _] ->
+                    case DistroStr of
+                        "Wind River Linux" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, wind_river});
+                        "MontaVista" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, montavista});
+                        "Yellow Dog" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, yellow_dog});
+                        "Ubuntu" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, ubuntu});
+                        "Linux Mint" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, linux_mint});
+                        _ ->
+                            DistroStr
+                    end;
+                X ->
+                    X
+            end;
+        _ ->
+            "Unknown"
+    end.
+                            
+do_linux_which_distro_fedora(Version) ->
+    %% Check if fedora
+    case file:read_file_info("/etc/fedora-release") of
+        {ok, _} ->
+            case [string:trim(S) ||
+                     S <- string:tokens(os:cmd("cat /etc/fedora-release"),
+                                        [$\n])] of
+                [DistroStr | _] ->
+                    io:format("Linux: ~s"
+                              "~n   ~s"
+                              "~n",
+                              [Version, DistroStr]);
+                _ ->
+                    io:format("Linux: ~s"
+                              "~n   ~s"
+                              "~n",
+                              [Version, "Fedora"])
+            end,
+            throw({distro, fedora});
+        _ ->
+            ignore
+    end.
+
+do_linux_which_distro_suse(Version) ->
+    %% Check if its a SuSE
+    case file:read_file_info("/etc/SuSE-release") of
+        {ok, _} ->
+            case [string:trim(S) ||
+                     S <- string:tokens(os:cmd("cat /etc/SuSE-release"),
+                                        [$\n])] of
+                ["SUSE Linux Enterprise Server" ++ _ = DistroStr | _] ->
                     io:format("Linux: ~s"
                               "~n   ~s"
                               "~n",
                               [Version, DistroStr]),
-                    case DistroStr of
-                        "Wind River Linux" ++ _ ->
-                            wind_river;
-                        "MontaVista" ++ _ ->
-                            montavista;
-                        "Yellow Dog" ++ _ ->
-                            yellow_dog;
-                        _ ->
-                            other
-                    end;
-                X ->
+                    throw({distro, sles});
+                [DistroStr | _] ->
                     io:format("Linux: ~s"
-                              "~n   ~p"
+                              "~n   ~s"
                               "~n",
-                              [Version, X]),
-                    other
+                              [Version, DistroStr]),
+                    throw({distro, suse});
+                _ ->
+                    io:format("Linux: ~s"
+                              "~n   ~s"
+                              "~n",
+                              [Version, "SuSE"]),
+                    throw({distro, suse})
             end;
         _ ->
-            io:format("Linux: ~s"
-                      "~n", [Version]),
-            other
+            ignore
     end.
 
-    
+
 analyze_and_print_linux_host_info(Version) ->
-    Distro = linux_which_distro(Version),
+    Distro =
+        case file:read_file_info("/etc/issue") of
+            {ok, _} ->
+                linux_which_distro(Version);
+            _ ->
+                io:format("Linux: ~s"
+                          "~n", [Version]),
+                other
+        end,
     Factor =
         case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
@@ -1120,45 +1218,78 @@ analyze_and_print_openbsd_host_info(Version) ->
                       "~n", [CPU, CPUSpeed, NCPU, Memory]),
             CPUFactor =
                 if
-                    (CPUSpeed =:= -1) ->
-                        1;
+                    (CPUSpeed >= 3000) ->
+                        if
+                            (NCPU >= 8) ->
+                                1;
+                            (NCPU >= 6) ->
+                                2;
+                            (NCPU >= 4) ->
+                                3;
+                            (NCPU >= 2) ->
+                                4;
+                            true ->
+                                10
+                        end;
                     (CPUSpeed >= 2000) ->
                         if
-                            (NCPU >= 4) ->
-                                1;
-                            (NCPU >= 2) ->
+                            (NCPU >= 8) ->
                                 2;
+                            (NCPU >= 6) ->
+                                3;
+                            (NCPU >= 4) ->
+                                4;
+                            (NCPU >= 2) ->
+                                5;
                             true ->
-                                3
+                                12
+                        end;
+                    (CPUSpeed >= 1000) ->
+                        if
+                            (NCPU >= 8) ->
+                                3;
+                            (NCPU >= 6) ->
+                                4;
+                            (NCPU >= 4) ->
+                                5;
+                            (NCPU >= 2) ->
+                                6;
+                            true ->
+                                14
                         end;
                     true ->
                         if
+                            (NCPU >= 8) ->
+                                4;
+                            (NCPU >= 6) ->
+                                6;
                             (NCPU >= 4) ->
-                                2;
+                                8;
                             (NCPU >= 2) ->
-                                3;
+                                10;
                             true ->
-                                4
+                                20
                         end
                 end,
             MemAddFactor =
                 if
-                    (Memory =:= -1) ->
+                    (Memory >= 16777216) ->
                         0;
                     (Memory >= 8388608) ->
-                        0;
-                    (Memory >= 4194304) ->
                         1;
+                    (Memory >= 4194304) ->
+                        3;
                     (Memory >= 2097152) ->
-                        2;
+                        5;
                     true ->
-                        3
+                        10
                 end,
             {CPUFactor + MemAddFactor, []}
         end
     catch
         _:_:_ ->
-            {5, []}
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+            {10, []}
     end.
 
 
@@ -2133,68 +2264,199 @@ executor(Fun, Timeout)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-try_tc(TCName, Name, Verbosity, Pre, Case, Post)
-  when is_function(Pre, 0)  andalso 
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    Cond = fun() -> ok end,
+    try_tc(TCName, Name, Verbosity, Cond, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Cond, Pre, Case, Post)
+  when is_function(Cond, 0)  andalso 
+       is_function(Pre,  0)  andalso 
        is_function(Case, 1) andalso
        is_function(Post, 1) ->
-    process_flag(trap_exit, true),
-    put(verbosity, Verbosity),
-    put(sname,     Name),
-    put(tc,        TCName),
-    p("try_tc -> starting: try pre"),
-    try Pre() of
-        State ->
-            p("try_tc -> pre done: try test case"),
-            try Case(State) of
-                Res ->
-                    p("try_tc -> test case done: try post"),
-                    _ = executor(fun() -> Post(State) end),
-                    p("try_tc -> done"),
-                    Res
+    tc_begin(TCName, Name, Verbosity),
+    try Cond() of
+        ok ->
+            tc_print("starting: try pre"),
+            try Pre() of
+                State ->
+                    tc_print("pre done: try test case"),
+                    try
+                        begin
+                            Res = Case(State),
+                            sleep(seconds(1)),
+                            tc_print("test case done: try post"),
+                            _ = executor(fun() ->
+                                                 put(verbosity, Verbosity),
+                                                 put(sname,     Name),
+                                                 put(tc,        TCName),
+                                                 Post(State)
+                                         end),
+                            tc_end("ok"),
+                            Res
+                        end
+                    catch
+                        C:{skip, _} = SKIP:_ when (C =:= throw) orelse
+                                                  (C =:= exit) ->
+                            tc_print("test case (~w) skip: try post", [C]),
+                            _ = executor(fun() ->
+                                                 put(verbosity, Verbosity),
+                                                 put(sname,     Name),
+                                                 put(tc,        TCName),
+                                                 Post(State)
+                                         end),
+                            tc_end( f("skipping(caught,~w,tc)", [C]) ),
+                            SKIP;
+                        C:E:S ->
+                            %% We always check the system events
+                            %% before we accept a failure.
+                            %% We do *not* run the Post here because it might
+                            %% generate sys events itself...
+                            p("try_tc -> test case failed: try post"),
+                            _ = executor(fun() -> Post(State) end),
+                            case megaco_test_global_sys_monitor:events() of
+                                [] ->
+                                    tc_print("test case failed: try post"),
+                                    _ = executor(fun() ->
+                                                         put(verbosity,
+                                                             Verbosity),
+                                                         put(sname,     Name),
+                                                         put(tc,        TCName),
+                                                         Post(State)
+                                                 end),
+                                    tc_end( f("failed(caught,~w,tc)", [C]) ),
+                                    erlang:raise(C, E, S);
+                                SysEvs ->
+                                    tc_print("System Events "
+                                             "received during tc: "
+                                             "~n   ~p"
+                                             "~nwhen tc failed:"
+                                             "~n   C: ~p"
+                                             "~n   E: ~p"
+                                             "~n   S: ~p",
+                                             [SysEvs, C, E, S]),
+                                    _ = executor(fun() ->
+                                                         put(verbosity,
+                                                             Verbosity),
+                                                         put(sname,     Name),
+                                                         put(tc,        TCName),
+                                                         Post(State)
+                                                 end),
+                                    tc_end( f("skipping(catched-sysevs,~w,tc)",
+                                              [C]) ),
+                                    SKIP =
+                                        {skip, "TC failure with system events"},
+                                    SKIP
+                            end
+                    end
             catch
-                throw:{skip, _} = SKIP:_ ->
-                    p("try_tc -> test case (throw) skip: try post"),
-                    _ = executor(fun() -> Post(State) end),
-                    p("try_tc -> test case (throw) skip: done"),
-                    SKIP;
-                exit:{skip, _} = SKIP:_ ->
-                    p("try_tc -> test case (exit) skip: try post"),
-                    _ = executor(fun() -> Post(State) end),
-                    p("try_tc -> test case (exit) skip: done"),
+                C:{skip, _} = SKIP:_ when (C =:= throw) orelse
+                                          (C =:= exit) ->
+                    tc_end( f("skipping(caught,~w,tc-pre)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    p("try_tc -> test case failed: try post"),
-                    _ = executor(fun() -> Post(State) end),
                     case megaco_test_global_sys_monitor:events() of
                         [] ->
-                            p("try_tc -> test case failed: done"),
-                            exit({case_catched, C, E, S});
+                            tc_print("tc-pre failed: auto-skip"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [C, E, S]),
+                            tc_end( f("auto-skip(caught,~w,tc-pre)", [C]) ),
+                            SKIP = {skip, f("TC-Pre failure (~w)", [C])},
+                            SKIP;
                         SysEvs ->
-                            p("try_tc -> test case failed with system event(s): "
-                              "~n   ~p", [SysEvs]),
-                            {skip, "TC failure with system events"}
+                            tc_print("System Events received: "
+                                     "~n   ~p"
+                                     "~nwhen tc-pre failed:"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [SysEvs, C, E, S], "", ""),
+                            tc_end( f("skipping(catched-sysevs,~w,tc-pre)",
+                                      [C]) ),
+                            SKIP = {skip, "TC-Pre failure with system events"},
+                            SKIP
                     end
-            end
-    catch
-        throw:{skip, _} = SKIP:_ ->
-            p("try_tc -> pre (throw) skip"),
+            end;
+        {skip, _} = SKIP ->
+            tc_end("skipping(cond)"),
             SKIP;
-        exit:{skip, _} = SKIP:_ ->
-            p("try_tc -> pre (exit) skip"),
+        {error, Reason} ->
+            tc_end("failed(cond)"),
+            exit({tc_cond_failed, Reason})
+    catch
+        C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
+            tc_end( f("skipping(caught,~w,cond)", [C]) ),
             SKIP;
         C:E:S ->
+            %% We always check the system events before we accept a failure
             case megaco_test_global_sys_monitor:events() of
                 [] ->
-                    p("try_tc -> pre failed: done"),
-                    exit({pre_catched, C, E, S});
+                    tc_end( f("failed(caught,~w,cond)", [C]) ),
+                    erlang:raise(C, E, S);
                 SysEvs ->
-                    p("try_tc -> pre failed with system event(s): "
-                      "~n   ~p", [SysEvs]),
-                    {skip, "TC pre failure with system events"}
+                    tc_print("System Events received: "
+                             "~n   ~p", [SysEvs], "", ""),
+                    tc_end( f("skipping(catched-sysevs,~w,cond)", [C]) ),
+                    SKIP = {skip, "TC cond failure with system events"},
+                    SKIP
             end
     end.
 
 
+tc_set_name(N) when is_atom(N) ->
+    tc_set_name(atom_to_list(N));
+tc_set_name(N) when is_list(N) ->
+    put(tc_name, N).
+
+tc_get_name() ->
+    get(tc_name).
+
+tc_begin(TC, Name, Verbosity) ->
+    OldVal = process_flag(trap_exit, true),
+    put(old_trap_exit, OldVal),
+    tc_set_name(TC),
+    put(sname,     Name),
+    put(verbosity, Verbosity),
+    tc_print("begin ***",
+             "~n----------------------------------------------------~n", "").
+
+tc_end(Result) when is_list(Result) ->
+    OldVal = erase(old_trap_exit),
+    process_flag(trap_exit, OldVal),
+    tc_print("done: ~s", [Result], 
+             "", "----------------------------------------------------~n~n"),
+    ok.
+
+tc_print(F) ->
+    tc_print(F, [], "", "").
+
+tc_print(F, A) ->
+    tc_print(F, A, "", "").
+
+tc_print(F, Before, After) ->
+    tc_print(F, [], Before, After).
+
+tc_print(F, A, Before, After) ->
+    Name = tc_which_name(),
+    FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
+             [formated_timestamp(), Name, self() | A]),
+    io:format(user, Before ++ FStr ++ After, []),
+    io:format(standard_io, Before ++ FStr ++ After, []).
+
+tc_which_name() ->
+    case tc_get_name() of
+        undefined ->
+            case get(sname) of
+                undefined ->
+                    "";
+                SName when is_list(SName) ->
+                    SName
+            end;
+        Name when is_list(Name) ->
+            Name
+    end.
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -2234,20 +2496,24 @@ lookup_config(Key,Config) ->
 	    []
     end.
 
-mk_nodes(N) when (N > 0) ->
-    mk_nodes(N, []).
 
-mk_nodes(0, Nodes) ->
+mk_nodes(1 = _N) ->
+    [node()];
+mk_nodes(N) when is_integer(N) andalso (N > 1) ->
+    OwnNode       = node(),
+    [Name0, Host] = node_to_name_and_host(OwnNode),
+    Uniq          = erlang:unique_integer([positive]),
+    Name          =
+        list_to_atom(lists:concat([Name0, "_", integer_to_list(Uniq)])),
+    [OwnNode | mk_nodes(N-1, Name, Host, [])].
+
+mk_nodes(0, _BaseName, _Host, Nodes) ->
     Nodes;
-mk_nodes(N, []) ->
-    mk_nodes(N - 1, [node()]);
-mk_nodes(N, Nodes) when N > 0 ->
-    Head = hd(Nodes),
-    [Name, Host] = node_to_name_and_host(Head),
-    Nodes ++ [mk_node(I, Name, Host) || I <- lists:seq(1, N)].
+mk_nodes(N, BaseName, Host, Nodes) ->
+    mk_nodes(N-1, BaseName, Host, [mk_node(N, BaseName, Host)|Nodes]).
 
-mk_node(N, Name, Host) ->
-    list_to_atom(lists:concat([Name ++ integer_to_list(N) ++ "@" ++ Host])).
+mk_node(N, BaseName, Host) ->
+    list_to_atom(lists:concat([BaseName, "_", integer_to_list(N), "@", Host])).
     
 %% Returns [Name, Host]    
 node_to_name_and_host(Node) ->
@@ -2284,10 +2550,11 @@ start_node(Node, Force, File, Line)
     start_node(Node, Force, false, File, Line).
 
 start_node(Node, Force, Retry, File, Line) ->
-    case net_adm:ping(Node) of
+    p("start_node -> check if node ~p already running", [Node]),
+    case ping(Node, ?SECS(5)) of
         %% Do not require a *new* node
 	pong when (Force =:= false) ->
-            p("node ~p already running", [Node]),
+            p("start_node -> node ~p already running", [Node]),
 	    ok;
 
         %% Do require a *new* node, so kill this one and try again
@@ -2308,26 +2575,40 @@ start_node(Node, Force, Retry, File, Line) ->
 
         % Not (yet) running
         pang ->
+            p("start_node -> node ~p not running - create args", [Node]),
 	    [Name, Host] = node_to_name_and_host(Node),
             Pa = filename:dirname(code:which(?MODULE)),
-            Args = " -pa " ++ Pa ++
+            Args0 = " -pa " ++ Pa ++
                 " -s " ++ atom_to_list(megaco_test_sys_monitor) ++ " start" ++ 
                 " -s global sync",
-            p("try start node ~p", [Node]),
-	    case slave:start_link(Host, Name, Args) of
-		{ok, NewNode} when NewNode =:= Node ->
+            Args = string:tokens(Args0, [$\ ]),
+            p("start_node -> try start node ~p", [Node]),
+            PeerOpts = #{name => Name,
+                         host => Host,
+                         args => Args},
+	    case peer:start(PeerOpts) of
+		{ok, _Peer, NewNode} when NewNode =:= Node ->
                     p("node ~p started - now set path, cwd and sync", [Node]),
-		    Path = code:get_path(),
+		    Path      = code:get_path(),
 		    {ok, Cwd} = file:get_cwd(),
-		    true = rpc:call(Node, code, set_path, [Path]),
-		    ok = rpc:call(Node, file, set_cwd, [Cwd]),
-		    true = rpc:call(Node, code, set_path, [Path]),
-		    {_, []} = rpc:multicall(global, sync, []),
+		    true      = rpc:call(Node, code, set_path, [Path]),
+		    ok        = rpc:call(Node, file, set_cwd, [Cwd]),
+		    true      = rpc:call(Node, code, set_path, [Path]),
+		    {_, []}   = rpc:multicall(global, sync, []),
 		    ok;
+		{ok, _Peer, NewNode} ->
+                    e("wrong node started: "
+                      "~n      Expected: ~p"
+                      "~n      Got:      ~p", [Node, NewNode]),
+                    stop_node(NewNode),
+                    fatal_skip({invalid_node_start, NewNode, Node}, File, Line); 
 		Other ->
                     e("failed starting node ~p: ~p", [Node, Other]),
-		    fatal_skip({cannot_start_node, Node, Other}, File, Line)
-	    end
+                    fatal_skip({cannot_start_node, Node, Other}, File, Line)
+	    end;
+        
+        timeout ->
+            fatal_skip({ping_timeout, Node}, File, Line)
     end.
 
 
@@ -2379,12 +2660,24 @@ stop_node(Node) ->
     end.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+timetrap_scale_factor() ->
+    case (catch test_server:timetrap_scale_factor()) of
+	{'EXIT', _} ->
+	    1;
+	N ->
+	    N
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
+e(F) ->
+    e(F, []).
 e(F, A) ->
     print("ERROR", F, A).
 
@@ -2470,3 +2763,49 @@ connect(Config, Ref, Opts)
     InetBackendOpts = inet_backend_opts(Config),
     megaco_tcp:connect(Ref, InetBackendOpts ++ Opts).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% The point of this cludge is to make it possible to specify a 
+%% timeout for the ping, since it can actually hang.
+ping(Node) ->
+    ping(Node, infinity).
+
+ping(Node, Timeout)
+  when is_atom(Node) andalso
+       ((is_integer(Timeout) andalso (Timeout > 0)) orelse
+        (Timeout =:= infinity)) ->
+    {Pid, Mon} = erlang:spawn_monitor(fun() -> exit(net_adm:ping(Node)) end),
+    receive
+        {'DOWN', Mon, process, Pid, Info} when (Info =:= pong) orelse 
+                                               (Info =:= pang) ->
+            Info;
+        {'DOWN', Mon, process, Pid, Info} ->
+            e("unexpected ping result: "
+              "~n      ~p", [Info]),
+            exit({unexpected_ping_result, Info});
+        {'EXIT', TCPid, {timetrap_timeout, TCTimeout, TCSTack}} ->
+            p("received timetrap timeout (~w ms) from ~p => Kill ping process"
+              "~n      TC Stack: ~p", [TCTimeout, TCPid, TCSTack]),
+            kill_and_wait(Pid, Mon, "ping"),
+            timeout
+    after Timeout ->
+            e("unexpected ping timeout"),
+            kill_and_wait(Pid, Mon, "ping"),
+            timeout
+    end.
+            
+                                             
+kill_and_wait(Pid, MRef, PStr) ->
+    exit(Pid, kill),
+    %% We do this in case we get some info about 'where'
+    %% the process is hanging...
+    receive
+        {'DOWN', MRef, process, Pid, Info} ->
+            p("~s process terminated (forced) with"
+              "~n      ~p", [PStr, Info]),
+            ok
+    after 100 -> % Give it a second...
+            ok
+    end.
+    

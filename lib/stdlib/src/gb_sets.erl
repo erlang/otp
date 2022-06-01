@@ -871,7 +871,7 @@ is_set(_) -> false.
       Set1 :: set(Element),
       Set2 :: set(Element).
 
-filter(F, S) ->
+filter(F, S) when is_function(F, 1) ->
     from_ordset([X || X <- to_list(S), F(X)]).
 
 -spec fold(Function, Acc0, Set) -> Acc1 when

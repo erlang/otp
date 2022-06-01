@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -285,7 +285,7 @@ delete_sec2group(Key) ->
 	    {error, delete_failed}
     end.
     
-%% NOTE: This function must be used in conjuction with
+%% NOTE: This function must be used in conjunction with
 %%       snmpa_vacm:dump_table.
 %%       That is, when all access has been added, call
 %%       snmpa_vacm:dump_table/0
@@ -357,7 +357,7 @@ init_vacm_mnesia() ->
     
     %% The 5 is intentional: It is a trick to get a tuple with the
     %% columns needed by the vacm ets-table (corresponding to the 
-    %% tuple read from the config files). Therefor, 5 since it it
+    %% tuple read from the config files). Therefore, 5 since it it
     %% is not a real foi...
     snmp_generic:table_foreach({vacmAccessTable, mnesia}, F, 5).
 
@@ -1048,7 +1048,7 @@ imask2emask(IMask) ->
 imask2emask([], EMask) ->
     lists:reverse(EMask);
 imask2emask(IMask, EMask) ->
-    %% Make sure we have atleast 8 bits
+    %% Make sure we have at least 8 bits
     %% (maybe extend with 1's)
     IMask2 = 
 	case length(IMask) of

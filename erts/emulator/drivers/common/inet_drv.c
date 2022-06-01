@@ -517,6 +517,13 @@ static typeof(sctp_freepaddrs) *p_sctp_freepaddrs = NULL;
 static void (*p_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #endif
 
+#if defined(__GNUC__) && defined(HAVE_SCTP_CONNECTX)
+static typeof(sctp_connectx) *p_sctp_connectx = NULL;
+#else
+static int (*p_sctp_connectx)
+        (int sd, struct sockaddr * addrs, int addrcnt, sctp_assoc_t * assoc_id) = NULL;
+#endif
+
 #endif /* #if defined(HAVE_SCTP_H) */
 
 #ifndef WANT_NONBLOCKING
@@ -690,6 +697,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_AF_LOOPBACK    4 /* INADDR_LOOPBACK or IN6ADDR_LOOPBACK_INIT */
 #define INET_AF_LOCAL       5
 #define INET_AF_UNDEFINED   6 /* Unknown */
+#define INET_AF_LIST        7 /* List of addresses for sctp connectx */
 
 /* open and INET_REQ_GETTYPE enumeration */
 #define INET_TYPE_STREAM    1
@@ -1148,7 +1156,7 @@ typedef struct {
     unsigned long recv_cnt;     /* number of packets received */
     unsigned long recv_max;     /* maximum packet size received */
     double recv_avg;            /* average packet size received */
-    double recv_dvi;            /* avarage deviation from avg_size */
+    double recv_dvi;            /* average deviation from avg_size */
 #ifdef ARCH_64
     Uint64        send_oct;     /* number of octets sent, 64 bits */
 #else
@@ -1775,7 +1783,7 @@ static int load_inet_get_address
 #define INET_DRV_CACHE_LINE_MASK (INET_DRV_CACHE_LINE_SIZE - 1)
 
 /*
-** Binary Buffer Managment
+** Binary Buffer Management
 ** We keep a stack of usable buffers 
 */
 #define BUFFER_STACK_SIZE 14
@@ -2301,6 +2309,43 @@ static int async_ok(inet_descriptor* desc)
 	return -1;
     return send_async_ok(desc->dport, aid, caller);
 }
+
+#ifdef HAVE_SCTP
+static int async_ok_assoc_id(inet_descriptor* desc, sctp_assoc_t assoc_id)
+{
+    int req;
+    int aid;
+    int i = 0;
+    ErlDrvTermData caller;
+    ErlDrvTermData spec[2*LOAD_ATOM_CNT + LOAD_PORT_CNT + LOAD_INT_CNT +
+			LOAD_ASSOC_ID_CNT + 2*LOAD_TUPLE_CNT];
+
+    if (deq_async(desc, &aid, &caller, &req) < 0)
+	return -1;
+
+    i = LOAD_ATOM(spec, i, am_inet_async);
+    i = LOAD_PORT(spec, i, desc->dport);
+    i = LOAD_INT(spec, i, aid);
+    {
+	i = LOAD_ATOM(spec, i, am_ok);
+	i = LOAD_ASSOC_ID(spec, i, assoc_id);
+	i = LOAD_TUPLE(spec, i, 2);
+    }
+    i = LOAD_TUPLE(spec, i, 4);
+
+    ASSERT(i == sizeof(spec)/sizeof(*spec));
+
+    return erl_drv_send_term(desc->dport, caller, spec, i);
+}
+
+static int async_ok_maybe_assoc_id(inet_descriptor* desc, sctp_assoc_t *p_assoc_id)
+{
+  if (p_assoc_id)
+    return async_ok_assoc_id(desc, *p_assoc_id);
+  else
+    return async_ok(desc);
+}
+#endif
 
 static int async_ok_port(inet_descriptor* desc, ErlDrvTermData Port2)
 {
@@ -3491,7 +3536,7 @@ static int compile_ancillary_data(struct msghdr *mhdr,
             break;
         }
         default:
-            /* Unknow socket option */
+            /* Unknown socket option */
             return 1;
         }
 #undef COMPILE_ANCILLARY_DATA_ITEM
@@ -4270,6 +4315,11 @@ static int inet_init()
     p_sctp_getpaddrs = NULL;
     p_sctp_freepaddrs = NULL;
 #     endif
+#     if defined(HAVE_SCTP_CONNECTX)
+    p_sctp_connectx = sctp_connectx;
+#     else
+    p_sctp_connectx = NULL;
+#     endif
     inet_init_sctp();
     add_driver_entry(&sctp_inet_driver_entry);
 #   else
@@ -4310,6 +4360,10 @@ static int inet_init()
 		    p_sctp_freepaddrs = NULL;
 		    p_sctp_getpaddrs = NULL;
 		}
+		if (erts_sys_ddll_vsym(h_libsctp, "sctp_connectx", "VERS_3", &ptr) == 0) {
+		    p_sctp_connectx = ptr;
+		}
+		else p_sctp_connectx = NULL;
 		inet_init_sctp();
 		add_driver_entry(&sctp_inet_driver_entry);
 	    }
@@ -5586,7 +5640,7 @@ static ErlDrvSSizeT inet_ctl_ifget(inet_descriptor* desc,
 	    else {
 		struct sockadd_in* ap;
 		/* emulate netmask,
-		 * (wasted stuff since noone uses classes)
+		 * (wasted stuff since no one uses classes)
 		 */
 		buf_check(sptr, s_end, 1);
 		*sptr++ = INET_IFOPT_NETMASK;
@@ -6651,15 +6705,16 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    desc->delimiter = (char)ival;
 	    continue;
 
-	case INET_OPT_REUSEADDR: 
-#ifdef __WIN32__
-	    continue;  /* Bjorn says */
-#else
-	    type = SO_REUSEADDR;
+            /* The behaviour changed in Windows Server 2003.
+             * Now it works as the combo of `SO_REUSEADDR` and 
+             * `SO_REUSEPORT` does on *BSD.
+             * This option was "dangerous" only in Windows XP,
+             * which we don't support anymore!
+             */
+	case INET_OPT_REUSEADDR: type = SO_REUSEADDR;
 	    DEBUGF(("inet_set_opts(%p): s=%d, SO_REUSEADDR=%d\r\n",
 		    desc->port, desc->s,ival));
 	    break;
-#endif
 	case INET_OPT_KEEPALIVE: type = SO_KEEPALIVE;
 	    DEBUGF(("inet_set_opts(%p): s=%d, SO_KEEPALIVE=%d\r\n",
 		    desc->port, desc->s, ival));
@@ -6995,7 +7050,7 @@ static char* sctp_get_initmsg(struct sctp_initmsg* ini, char* curr)
 }
 
 /*  "sctp_get_sendparams":
-**  Parses (from the command buffer) the 6 user-sprcified parms of
+**  Parses (from the command buffer) the 6 user-specified params of
 **  "sctp_sndrcvinfo":
 **	stream(u16),      flags(u16), ppid(u32), context(u32),
 **	timetoleave(u32), assoc_id
@@ -7523,7 +7578,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    if (pmtud_disable)			cflags |= SPP_PMTUD_DISABLE;
 
 #	    ifdef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_SACKDELAY
-	    /* The followings are missing in FreeBSD 7.1 */
+	    /* The following are missing in FreeBSD 7.1 */
 	    sackdelay_enable =eflags& SCTP_FLAG_SACDELAY_ENABLE;
 	    sackdelay_disable=eflags& SCTP_FLAG_SACDELAY_DISABLE;
 	    if (sackdelay_enable && sackdelay_disable)
@@ -8264,7 +8319,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	return (Errno);     \
     } while(0)
     
-    /* Spec is a name parmeter */
+    /* Spec is a name parameter */
 #   define PLACE_FOR(Spec, Index, N)                            \
     do {                                                        \
 	int need;                                               \
@@ -8802,7 +8857,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    i = LOAD_INT	(spec, i, ap.spp_hbinterval);
 	    i = LOAD_INT	(spec, i, ap.spp_pathmaxrxt);
 	    
-	    /* The following fields are not suported in SOLARIS10,
+	    /* The following fields are not supported in SOLARIS10,
 	    ** so put 0s for "spp_pathmtu", "spp_sackdelay",
 	    ** and empty list for "spp_flags":
 	    */
@@ -10660,7 +10715,7 @@ static int tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller)
 **   output on a socket only !
 **   a reply code will be sent to connected (caller later)
 **   {inet_reply, S, Status}
-** NOTE! normal sockets use the the tcp_inet_commandv
+** NOTE! normal sockets use the tcp_inet_commandv
 ** but distribution still uses the tcp_inet_command!!
 */
 
@@ -11182,7 +11237,7 @@ static int winsock_event_select(inet_descriptor *desc, int flags, int on)
 	    return -1;
 	}
 
-	/* Now, WSAEventSelect() is trigged only when the queue goes from
+	/* Now, WSAEventSelect() is triggered only when the queue goes from
 	   full to empty or from empty to full; therefore we need an extra test 
 	   to see whether it is writeable, readable or closed... */
 	if ((desc->event_mask & FD_WRITE)) {
@@ -12129,7 +12184,7 @@ done:
 }
 #endif /* HAVE_SENDFILE */
 
-/* socket ready for ouput:
+/* socket ready for output:
 ** 1. INET_STATE_CONNECTING => non block connect ?
 ** 2. INET_STATE_CONNECTED  => write output
 */
@@ -12595,6 +12650,8 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	char tbuf[2];
 #ifdef HAVE_SCTP
 	unsigned timeout;
+	sctp_assoc_t assoc_id = 0;
+	sctp_assoc_t *p_assoc_id = NULL;
 #endif
 	DEBUGF(("packet_inet_ctl(%p): CONNECT\r\n",
                 desc->port)); 
@@ -12619,22 +12676,55 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 
 	    /* For SCTP, we do not set the peer's addr in desc->remote, as
 	       multiple peers are possible: */
-	    if ((xerror = inet_set_faddress
-		 (desc->sfamily, &remote, &buf, &len)) != NULL)
+	    if ((*buf) == INET_AF_LIST) {
+	      /* called as gen_sctp:connectx... */
+	      int addrcnt = 0;
+	      buf++; len--;
+	      addrcnt = get_int8(buf),
+	      buf++; len--;
+	      if (! p_sctp_connectx)
+		return ctl_error(ENOTSUP, rbuf, rsize);
+	      if (addrcnt > 0) {
+		char *rabuf = ALLOC(sizeof(inet_address) * addrcnt);
+                struct sockaddr *addrs = (struct sockaddr *) rabuf;
+		ErlDrvSizeT remote_size;
+		char *ep = buf + len;
+
+		for(int ai=0; ai < addrcnt; ai++) {
+		  remote_size = ep - buf;
+		  if ((xerror = inet_set_faddress
+		       (desc->sfamily, &remote, &buf, &remote_size)) != NULL) {
+                    FREE((char *)addrs);
+		    return ctl_xerror(xerror, rbuf, rsize);
+                  }
+		  memcpy(rabuf, &remote, remote_size);
+		  rabuf += remote_size;
+		}
+		p_assoc_id = &assoc_id;
+		code = p_sctp_connectx(desc->s, addrs, addrcnt, p_assoc_id);
+                FREE((char *)addrs);
+	      } else {
+		return ctl_error(EINVAL, rbuf, rsize);
+	      }
+	    } else {
+	      /* called as gen_sctp:connect... */
+	      if ((xerror = inet_set_faddress
+		   (desc->sfamily, &remote, &buf, &len)) != NULL)
 	        return ctl_xerror(xerror, rbuf, rsize);
-	
-	    code = sock_connect(desc->s, &remote.sa, len);
+
+	      code = sock_connect(desc->s, &remote.sa, len);
+	    }
 
 	    if (IS_SOCKET_ERROR(code) && (sock_errno() == EINPROGRESS)) {
 		/* XXX: Unix only -- WinSock would have a different cond! */
 		if (timeout != INET_INFINITY)
 		    driver_set_timer(desc->port, timeout);
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
-		async_ok(desc);
+		async_ok_maybe_assoc_id(desc, p_assoc_id);
 	    }
 	    else if (code == 0) { /* OK we are connected */
 		enq_async(desc, tbuf, INET_REQ_CONNECT);
-		async_ok(desc);
+		async_ok_maybe_assoc_id(desc, p_assoc_id);
 	    }
 	    else {
 		return ctl_error(sock_errno(), rbuf, rsize);
@@ -12850,7 +12940,7 @@ static void packet_inet_timeout(ErlDrvData e)
 ** input should be: Family Address buffer .
 ** For UDP,  buffer (after Address) is just data to be sent.
 ** For SCTP, buffer contains a list representing 2 items:
-**   (1) 6 parms for sctp_sndrcvinfo, as in sctp_get_sendparams();
+**   (1) 6 params for sctp_sndrcvinfo, as in sctp_get_sendparams();
 **   (2) 0+ real data bytes.
 ** There is no destination address -- SCTP send is performed over
 ** an existing association, using "sctp_sndrcvinfo" specified.
@@ -13560,77 +13650,4 @@ static void send_to_subscribers
     subs->next = NULL;
   }
 
-}
-
-/*
- * A *very* limited socket interface. Used by the memory tracer
- * (erl_mtrace.c).
- */
-#include "erl_sock.h"
-
-erts_sock_t erts_sock_open(void)
-{
-    SOCKET s;
-    
-    if(!sock_init())
-	return ERTS_SOCK_INVALID_SOCKET;
-
-    s = sock_open(AF_INET, SOCK_STREAM, 0);
-
-    if (s == INVALID_SOCKET)
-	return ERTS_SOCK_INVALID_SOCKET;
-
-    return (erts_sock_t) s;
-}
-
-void erts_sock_close(erts_sock_t socket)
-{
-    if (socket != ERTS_SOCK_INVALID_SOCKET)
-	sock_close((SOCKET) socket);
-}
-
-
-int erts_sock_connect(erts_sock_t socket, byte *ip_addr, int len, Uint16 port)
-{
-    SOCKET s = (SOCKET) socket;
-    char buf[2 + 4], *p;
-    ErlDrvSizeT blen = 6;
-    inet_address addr;
-
-    if (socket == ERTS_SOCK_INVALID_SOCKET || len != 4)
-	return 0;
-
-    put_int16(port, buf);
-    memcpy((void *) (buf + 2), (void *) ip_addr, 4);
-
-    p = buf;
-    if (inet_set_address(AF_INET, &addr, &p, &blen) != NULL)
-	return 0;
-
-    if (IS_SOCKET_ERROR
-	(sock_connect(s, (struct sockaddr *) &addr, blen)))
-	return 0;
-    return 1;
-}
-
-Sint erts_sock_send(erts_sock_t socket, const void *buf, Sint len)
-{
-    Sint result = (Sint) sock_send((SOCKET) socket, buf, (size_t) len, 0);
-    if (IS_SOCKET_ERROR(result))
-	return SOCKET_ERROR;
-    return result;
-}
-
-
-int erts_sock_gethostname(char *buf, int bufsz)
-{
-    if (IS_SOCKET_ERROR(sock_hostname(buf, bufsz)))
-	return SOCKET_ERROR;
-    return 0;
-}
-
-
-int erts_sock_errno()
-{
-    return sock_errno();
 }

@@ -51,7 +51,7 @@
 	  global_namespace_nodes=[],
 	  checked_namespace_nodes=[{"xml",[],'http://www.w3.org/XML/1998/namespace'}],
 	  table,
-	  tab2file=false, %% for debuging of abstract syntax
+	  tab2file=false, %% for debugging of abstract syntax
 	  redefine=false,
 	  finalDefault, %% undefined | '#all' | [atom()] 
 	                %% atom() -> extension |
@@ -89,7 +89,7 @@
 	  scope,
 	  form,             %% unqualified | qualified
 	  id,
-	  occurance={1,1},  %% {minOccurs,maxOccurs}
+	  occurrence={1,1},  %% {minOccurs,maxOccurs}
 	  value_constraint, %% undefined | {default,Value} | {fixed,Value}
 	  nillable=false,   %% true | false
 	  abstract=false,   %% true | false
@@ -153,7 +153,7 @@
 	  id,
 	  ref, %% in this case no name or content
 	  content=[],
-	  occurance={1,1}
+	  occurrence={1,1}
 	 }).
 -record(schema_extension,{
 	  base,
@@ -189,9 +189,9 @@
 %% alterantive, a collection of objects of which only one is chosen.
 -record(chain,{
 	  content,
-	  occurance={1,1}
+	  occurrence={1,1}
 	 }).
 -record(alternative,{
 	  content,
-	  occurance={0,1}
+	  occurrence={0,1}
 	 }).

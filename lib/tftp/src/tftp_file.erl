@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@
 %% PeerType         = inet | inet6
 %% PeerHost         = ip_address()
 %% PeerPort         = integer()
-%% Acess            = read | write
+%% Access            = read | write
 %% Filename         = string()
 %% Mode             = string()
 %% SuggestedOptions = [{Key, Value}]
@@ -118,7 +118,7 @@ prepare(_Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(I
 %% PeerType         = inet | inet6
 %% PeerHost         = ip_address()
 %% PeerPort         = integer()
-%% Acess            = read | write
+%% Access            = read | write
 %% Filename         = string()
 %% Mode             = string()
 %% SuggestedOptions = [{Key, Value}]
@@ -135,10 +135,10 @@ prepare(_Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(I
 %%
 %% Opens a file for read or write access.
 %% 
-%% On the client side where the open/4 call has been preceeded by a
+%% On the client side where the open/4 call has been preceded by a
 %% call to prepare/4, all options must be accepted or rejected.
-%% On the server side, where there are no preceeding prepare/4 call,
-%% noo new options may be added, but the ones that are present as
+%% On the server side, where there are no preceding prepare/4 call,
+%% no new options may be added, but the ones that are present as
 %% SuggestedOptions may be omitted or replaced with new values
 %% in the AcceptedOptions.
 %%-------------------------------------------------------------------

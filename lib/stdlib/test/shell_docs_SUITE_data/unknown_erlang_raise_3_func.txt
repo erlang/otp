@@ -3,14 +3,13 @@
   [;1m                      when[0m
   [;1m                          Class :: error | exit | throw,[0m
   [;1m                          Reason :: term(),[0m
-  [;1m                          Stacktrace :: raise_stacktrace().[0m
+  [;1m                          Stacktrace ::[0m
+  [;1m                              raise_stacktrace() | stacktrace().[0m
 
   Types:
     -type raise_stacktrace() ::
           [{module(), atom(), arity() | [term()]} |
-           {function(), [term()]}] |
-          [{module(), atom(), arity() | [term()], [{atom(), term()}]} |
-           {function(), [term()], [{atom(), term()}]}].
+           {function(), arity() | [term()]}].
 
   Raises an exception of the specified class, reason, and call stack
   backtrace (stacktrace).
@@ -31,12 +30,12 @@
     end
 
   That is, a list of four-tuples [;;4m{Module, Function, Arity | Args,[0m
-  [;;4mLocation}[0m, where [;;4mModule[0m and [;;4mFunction[0m are atoms, and the third
-  element is an integer arity or an argument list. The stacktrace
-  can also contain [;;4m{Fun, Args, Location}[0m tuples, where [;;4mFun[0m is a
-  local fun and [;;4mArgs[0m is an argument list.
+  [;;4mExtraInfo}[0m, where [;;4mModule[0m and [;;4mFunction[0m are atoms, and the
+  third element is an integer arity or an argument list. The
+  stacktrace can also contain [;;4m{Fun, Args, ExtraInfo}[0m tuples, where [;;4m[0m
+  [;;4mFun[0m is a local fun and [;;4mArgs[0m is an argument list.
 
-  Element [;;4mLocation[0m at the end is optional. Omitting it is
+  Element [;;4mExtraInfo[0m at the end is optional. Omitting it is
   equivalent to specifying an empty list.
 
   The stacktrace is used as the exception stacktrace for the calling

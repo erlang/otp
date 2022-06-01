@@ -205,6 +205,11 @@ for name in "${ALL_TAGS[@]}"; do
     _upload_artifacts ${name}
 done
 
+## Rebuild erlang.org to get links to the new artifacts
+if [ ${UPLOADED} = true ]; then
+    curl -H "Authorization: token ${ERLANG_ORG_TOKEN}" -X POST -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/erlang/erlang-org/actions/workflows/update-gh-cache.yaml/dispatches" -d '{"ref":"master"}'
+fi
+
 ## If no assets were uploaded, we try to build one instead
 if [ ${UPLOADED} = false ] && [ ${#MISSING_PREBUILD[0]} != 0 ]; then
     name="${MISSING_PREBUILD[0]}"

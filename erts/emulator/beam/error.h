@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -165,8 +165,10 @@
 					/* Bad map */
 #define EXC_BADKEY		((19 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad key in map */
+#define EXC_BADRECORD		((20 << EXC_OFFSET) | EXC_ERROR)
+					/* Bad key in map */
 
-#define NUMBER_EXIT_CODES 20	/* The number of exit code indices */
+#define NUMBER_EXIT_CODES 21	/* The number of exit code indices */
 
 /*
  * Internal pseudo-error codes.

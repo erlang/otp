@@ -440,7 +440,7 @@ gen_accept_connection(
                   Driver, AcceptPid, DistCtrl,
                   MyNode, Allowed, SetupTime, Kernel)
         end,
-        [link, {priority, max}])).
+        dist_util:net_ticker_spawn_options())).
 
 do_accept(
   _Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime, Kernel) ->
@@ -539,7 +539,7 @@ gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     Kernel = self(),
     monitor_pid(
       spawn_opt(setup_fun(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime),
-                [link, {priority, max}])).
+                dist_util:net_ticker_spawn_options())).
 
 -spec setup_fun(_,_,_,_,_,_,_) -> fun(() -> no_return()).
 setup_fun(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->

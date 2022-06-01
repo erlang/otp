@@ -59,9 +59,16 @@
 #include "erl_printf.h"
 
 #ifdef __WIN32__
-/* FIXE ME config_win32.h? */
+/* FIXME config_win32.h? */
 #define HAVE_STRERROR 1
 #define snprintf _snprintf
+#endif
+
+#ifdef __IOS__
+#ifdef system
+#undef system
+#endif 
+#define system(X) 0
 #endif
 
 #ifdef DEBUG

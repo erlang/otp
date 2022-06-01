@@ -652,7 +652,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
 
         #state{connection_states = ConnectionStates0,
                session = Session0,
-               connection_env = #connection_env{cert_key_pairs = CertKeyPairs}} = State1 =
+               connection_env = #connection_env{cert_key_alts = CertKeyAlts}} = State1 =
             Maybe(ssl_gen_statem:handle_sni_extension(SNI, State0)),
 
         Maybe(validate_cookie(Cookie, State1)),
@@ -667,6 +667,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers, ServerCiphers)),
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
+        CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, {3,4}),
         #session{own_certificates = [Cert|_]} = Session =
             Maybe(select_server_cert_key_pair(Session0, CertKeyPairs, ClientSignAlgs,
                                               ClientSignAlgsCert, CertAuths, State0,
@@ -1431,7 +1432,8 @@ create_change_cipher_spec(#state{ssl_options = #{log_level := LogLevel}}) ->
 process_certificate_request(#certificate_request_1_3{
                                extensions = Extensions},
                             #state{ssl_options = #{signature_algs := ClientSignAlgs},
-                                   connection_env = #connection_env{cert_key_pairs = CertKeyPairs},
+                                   connection_env = #connection_env{cert_key_alts = CertKeyAlts,
+                                                                    negotiated_version = Version},
                                    static_env = #static_env{cert_db = CertDbHandle, cert_db_ref = CertDbRef},
                                    session = Session0} =
                                 State) ->
@@ -1441,6 +1443,7 @@ process_certificate_request(#certificate_request_1_3{
                            maps:get(signature_algs_cert, Extensions, undefined)),
     CertAuths = get_certificate_authorites(maps:get(certificate_authorities, Extensions, undefined)),
 
+    CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, Version),
     Session = select_client_cert_key_pair(Session0, CertKeyPairs,
                                           ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
                                           CertDbHandle, CertDbRef, CertAuths),
@@ -2312,14 +2315,14 @@ check_cert_sign_algo(SignAlgo, SignHash, _, ClientSignAlgsCert) ->
 
 
 %% DSA keys are not supported by TLS 1.3
-select_sign_algo(dsa, _RSAKeySize, _PeerSignAlgs, _OwnSignAlgs, _Curve) ->
+select_sign_algo(dsa, _RSAKeySize, _CertSignAlg, _OwnSignAlgs, _Curve) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
 select_sign_algo(_, _RSAKeySize, [], _, _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 select_sign_algo(_, _RSAKeySize, undefined, _OwnSignAlgs, _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
-select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve) ->
-    {_, S, _} = ssl_cipher:scheme_to_components(PeerSignAlg),
+select_sign_algo(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignAlgs, Curve) ->
+    {_, S, _} = ssl_cipher:scheme_to_components(CertSignAlg),
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
     %% TLS handshake messages: filter sha-1 and rsa_pkcs1.
     %%
@@ -2333,36 +2336,36 @@ select_sign_algo(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignA
           orelse (PublicKeyAlgo =:= eddsa andalso S =:= eddsa)
          )
         andalso
-        lists:member(PeerSignAlg, OwnSignAlgs) of
+        lists:member(CertSignAlg, OwnSignAlgs) of
         true ->
             validate_key_compatibility(PublicKeyAlgo, RSAKeySize,
-                                       [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve);
+                                       [CertSignAlg|CertSignAlgs], OwnSignAlgs, Curve);
         false ->
-            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs, Curve)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, CertSignAlgs, OwnSignAlgs, Curve)
     end.
 
-validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve)
+validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignAlgs, Curve)
   when PublicKeyAlgo =:= rsa orelse
        PublicKeyAlgo =:= rsa_pss_pss ->
-    {Hash, Sign, _} = ssl_cipher:scheme_to_components(PeerSignAlg),
+    {Hash, Sign, _} = ssl_cipher:scheme_to_components(CertSignAlg),
     case (Sign =:= rsa_pss_rsae orelse Sign =:= rsa_pss_pss) andalso
         is_rsa_key_compatible(RSAKeySize, Hash) of
         true ->
-            {ok, PeerSignAlg};
+            {ok, CertSignAlg};
         false ->
-            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs, Curve)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, CertSignAlgs, OwnSignAlgs, Curve)
     end;
-validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [PeerSignAlg|PeerSignAlgs], OwnSignAlgs, Curve)
+validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignAlgs, Curve)
   when PublicKeyAlgo =:= ecdsa ->
-    {_ , Sign, PeerCurve} = ssl_cipher:scheme_to_components(PeerSignAlg),
+    {_ , Sign, PeerCurve} = ssl_cipher:scheme_to_components(CertSignAlg),
     case Sign =:= ecdsa andalso Curve =:= PeerCurve of
         true ->
-            {ok, PeerSignAlg};
+            {ok, CertSignAlg};
         false ->
-            select_sign_algo(PublicKeyAlgo, RSAKeySize, PeerSignAlgs, OwnSignAlgs, Curve)
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, CertSignAlgs, OwnSignAlgs, Curve)
     end;
-validate_key_compatibility(_, _, [PeerSignAlg|_], _, _) ->
-    {ok, PeerSignAlg}.
+validate_key_compatibility(_, _, [CertSignAlg|_], _, _) ->
+    {ok, CertSignAlg}.
 
 is_rsa_key_compatible(KeySize, Hash) ->
     HashSize = ssl_cipher:hash_size(Hash),
@@ -2422,8 +2425,12 @@ get_certificate_params(Cert) ->
 oids_to_atoms(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm = 
                                                         #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
                                                                             parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
-    Hash = public_key:pkix_hash_type(HashOid),
-    {Hash, rsa_pss_pss};
+    case public_key:pkix_hash_type(HashOid) of
+        sha ->
+            {sha1, rsa_pss_pss};
+         Hash ->
+            {Hash, rsa_pss_pss}
+    end;    
 oids_to_atoms(SignAlgo, _) ->
     case public_key:pkix_sign_types(SignAlgo) of
         {sha, Sign} ->
@@ -2886,7 +2893,7 @@ process_ticket(#{cipher_suite := CipherSuite,
        ticket = Ticket,
        extensions = Extensions
       } = NewSessionTicket,
-    TicketAge =  erlang:system_time(seconds) - Timestamp,
+    TicketAge = erlang:system_time(millisecond) - Timestamp,
     ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
     Identity = #psk_identity{
                   identity = Ticket,
@@ -2966,33 +2973,62 @@ supported_groups_from_extensions(Extensions) ->
             {ok, undefined}
     end.
 
-select_server_cert_key_pair(_,[], _,_,_,_, {error, _} = Return) ->
-    Return;
 select_server_cert_key_pair(_,[], _,_,_,_, #session{}=Session) ->
+    %% Conformant Cert-Key pair with advertised signature algorithm is
+    %% selected.
+    {ok, Session};
+select_server_cert_key_pair(_,[], _,_,_,_, {fallback, #session{}=Session}) ->
+    %% Use fallback Cert-Key pair as no conformant pair to the advertised
+    %% signature algorithms was found.
     {ok, Session};
 select_server_cert_key_pair(_,[], _,_,_,_, undefined) ->
-    {error, ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unable_to_send_certificate_verifiable_by_client)};
+    {error, ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unable_to_supply_acceptable_cert)};
 select_server_cert_key_pair(Session, [#{private_key := Key, certs := [Cert| _] = Certs} | Rest],
                             ClientSignAlgs, ClientSignAlgsCert, CertAuths,
-                             #state{static_env = #static_env{cert_db = CertDbHandle,
-                                                             cert_db_ref = CertDbRef} = State},
-                            Default) ->
+                            #state{static_env = #static_env{cert_db = CertDbHandle,
+                                                            cert_db_ref = CertDbRef} = State},
+                            Default0) ->
     {_, SignAlgo, SignHash, _, _} = get_certificate_params(Cert),
     %% TODO: We do validate the signature algorithm and signature hash but we could also check
     %% if the signing cert has a key on a curve supported by the client for ECDSA/EDDSA certs
     case check_cert_sign_algo(SignAlgo, SignHash, ClientSignAlgs, ClientSignAlgsCert) of
         ok ->
             case ssl_certificate:handle_cert_auths(Certs, CertAuths, CertDbHandle, CertDbRef) of
-                {ok, EncodeChain} ->
+                {ok, EncodeChain} -> %% Chain fullfills certificate_authorities extension
                     {ok, Session#session{own_certificates = EncodeChain, private_key = Key}};
                 {error, EncodeChain, not_in_auth_domain} ->
+                    %% If this is the first chain to fulfill the signing requirement, use it as default,
+                    %% if not later alternative also fulfills certificate_authorities extension
                     Default = Session#session{own_certificates = EncodeChain, private_key = Key},
-                    select_server_cert_key_pair(Session, Rest, ClientSignAlgs, ClientSignAlgsCert, CertAuths, State, Default)
+                    select_server_cert_key_pair(Session, Rest, ClientSignAlgs, ClientSignAlgsCert, 
+                                                CertAuths, State, default_or_fallback(Default0, Default))
             end;
-        Error ->
-            select_server_cert_key_pair(Session, Rest, ClientSignAlgs, ClientSignAlgsCert, CertAuths, State,
-                                        default_cert_key_pair_return(Default, Error))
+        _ ->
+            %% If the server cannot produce a certificate chain that is signed only
+            %% via the indicated supported algorithms, then it SHOULD continue the
+            %% handshake by sending the client a certificate chain of its choice
+            case SignHash of
+                sha1 ->
+                    %%  According to "Server Certificate Selection - RFC 8446" 
+                    %%  Never send cert using sha1 unless client allows it
+                    select_server_cert_key_pair(Session, Rest, ClientSignAlgs, ClientSignAlgsCert,
+                                                CertAuths, State, Default0);
+                _ ->
+                    %% If there does not exist a default or fallback from previous alternatives
+                    %% use this alternative as fallback.
+                    Fallback = {fallback, Session#session{own_certificates = Certs, private_key = Key}},
+                    select_server_cert_key_pair(Session, Rest, ClientSignAlgs, ClientSignAlgsCert,
+                                                CertAuths, State,
+                                                default_or_fallback(Default0, Fallback))
+            end
     end.
+
+default_or_fallback(undefined, DefaultOrFallback) ->
+    DefaultOrFallback;
+default_or_fallback({fallback, _}, #session{} = Default) ->
+    Default;
+default_or_fallback(Default, _) ->
+    Default.
 
 select_client_cert_key_pair(Session0,
                             [#{private_key := NoKey, certs := [[]] = NoCerts}],
@@ -3000,21 +3036,12 @@ select_client_cert_key_pair(Session0,
     %% No certificate supplied : send empty certificate
     Session0#session{own_certificates = NoCerts,
                      private_key = NoKey};
-select_client_cert_key_pair(Session0, CertKeyPairs, ServerSignAlgs, ServerSignAlgsCert, 
-                            ClientSignAlgs, CertDbHandle, CertDbRef, CertAuths) ->
-    select_client_cert_key_pair(Session0, CertKeyPairs, ServerSignAlgs, ServerSignAlgsCert, 
-                                ClientSignAlgs, CertDbHandle, CertDbRef, CertAuths, undefined).
-
-select_client_cert_key_pair(Session, [],_,_,_,_,_,_, undefined = Default) ->
-    %% No certificate compliant with supported algorithms : send empty certificate in state 'wait_finished'
-    Session#session{own_certificates = Default,
-                    private_key = Default};
-select_client_cert_key_pair(_,[],_,_,_,_,_,_,#session{}=Session) ->
-    %% No certificate compliant with guide lines send default
-    Session;
-
+select_client_cert_key_pair(Session, [],_,_,_,_,_,_) ->
+    %% No certificate compliant with supported algorithms and extensison : send empty certificate in state 'wait_finished'
+    Session#session{own_certificates = [[]],
+                    private_key = #{}};
 select_client_cert_key_pair(Session0, [#{private_key := Key, certs := [Cert| _] = Certs} | Rest],
-                              ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs, CertDbHandle, CertDbRef, CertAuths, Default) ->
+                            ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs, CertDbHandle, CertDbRef, CertAuths) ->
     {PublicKeyAlgo, SignAlgo, SignHash, MaybeRSAKeySize, Curve} = get_certificate_params(Cert),
     case select_sign_algo(PublicKeyAlgo, MaybeRSAKeySize, ServerSignAlgs, ClientSignAlgs, Curve) of
         {ok, SelectedSignAlg} ->
@@ -3027,25 +3054,16 @@ select_client_cert_key_pair(Session0, [#{private_key := Key, certs := [Cert| _] 
                                              own_certificates = EncodedChain,
                                              private_key = Key
                                             };
-                        {error, EncodedChain, not_in_auth_domain} ->
-                            Session = Session0#session{sign_alg = SelectedSignAlg,
-                                                       own_certificates = EncodedChain,
-                                                       private_key = Key
-                                                      },
-                            select_client_cert_key_pair(Session, Rest, ServerSignAlgs, ServerSignAlgsCert,
-                                                        ClientSignAlgs, CertDbHandle, CertDbRef, CertAuths, 
-                                                        default_cert_key_pair_return(Default, Session))
+                        {error, _, not_in_auth_domain} ->
+                            select_client_cert_key_pair(Session0, Rest, ServerSignAlgs, ServerSignAlgsCert,
+                                                        ClientSignAlgs, CertDbHandle, CertDbRef, CertAuths)
                     end;
                 _ ->
                     select_client_cert_key_pair(Session0, Rest, ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
-                                                CertDbHandle, CertDbRef, CertAuths, Default)
+                                                CertDbHandle, CertDbRef, CertAuths)
             end;
         {error, _} ->
             select_client_cert_key_pair(Session0, Rest, ServerSignAlgsCert, ServerSignAlgsCert, ClientSignAlgs,
-                                        CertDbHandle, CertDbRef, CertAuths, Default)
+                                        CertDbHandle, CertDbRef, CertAuths)
     end.
 
-default_cert_key_pair_return(undefined, Session) ->
-    Session;
-default_cert_key_pair_return(Default, _) ->
-    Default.

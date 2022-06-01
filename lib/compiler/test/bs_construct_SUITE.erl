@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,10 +72,10 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 verify_highest_opcode(_Config) ->
     case ?MODULE of
-        bs_construct_r21_SUITE ->
+        bs_construct_r24_SUITE ->
             {ok,Beam} = file:read_file(code:which(?MODULE)),
             case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 163 ->
+                Highest when Highest =< 176 ->
                     ok;
                 TooHigh ->
                     ct:fail({too_high_opcode_for_21,TooHigh})
@@ -164,7 +164,7 @@ l(I_13, I_big1, I_16, Bin) ->
      ?T(<<869:16/little,3479:I_13,Bin/binary,7:1/unit:3,Bin/binary>>,
         [101,3,108,189,42,214,31,165,90,195]),
 
-     %% Test of aligment flag.
+     %% Test of alignment flag.
      ?T(<<0:I_13/unit:8,1:6,0:2>>,
 	[0,0,0,0,0,0,0,0,0,0,0,0,0,4]),
 
@@ -369,12 +369,17 @@ fail(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/native-bytes >>),
     {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/bytes >>),
 
+    {'EXIT',{badarg,_}} = catch fail_2(true),
+
     ok.
 
 fail_1() ->
     case <<(V0 = 1),[]/utf32>> of
         _ when V0 -> true
     end.
+
+fail_2(True) when True ->
+    <<0,True/bitstring>>.
 
 float_bin(Config) when is_list(Config) ->
     %% Some more coverage.

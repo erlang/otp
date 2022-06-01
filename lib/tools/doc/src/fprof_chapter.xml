@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2021</year>
+      <year>2001</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,7 +37,7 @@
     processes.
     </p>
   <p><c>fprof</c> uses tracing with timestamps to collect profiling
-    data. Therfore there is no need for special compilation of any
+    data. Therefore there is no need for special compilation of any
     module to be profiled.
     </p>
   <p><c>fprof</c> presents wall clock times from the host machine OS,

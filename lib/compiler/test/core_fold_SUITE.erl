@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -566,7 +566,7 @@ configuration(_Config) ->
     ok.
 
 configuration() ->
-    [forgotten || Components <- enemy, is_tuple(fun art/0)].
+    [forgotten || _Components <- enemy, is_tuple(fun art/0)].
 
 art() ->
  creating.
@@ -673,7 +673,24 @@ cover_letrec_effect(_Config) ->
         Any ->
             #{k := {{tag,42},<<42:16>>}} = Any
     end,
+
+    _ = catch cover_letrec_effect_1(),
+
     ok.
+
+cover_letrec_effect_1() ->
+    try
+        _ = catch ""
+    after
+        case any_atom of
+            31 when any_atom, force ->
+                true
+        end,
+        case "RG" of
+            1 when car, cdr, 3; 3, 4 ->
+                false
+        end
+    end.
 
 receive_effect(_Config) ->
     self() ! whatever,

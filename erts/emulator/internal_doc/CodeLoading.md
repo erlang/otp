@@ -56,7 +56,7 @@ different modules and returns a "magic binary" containing the internal
 state of each prepared module. Function `finish_loading` could take a
 list of such states and do the finishing of all of them in one go.
 
-Currenlty we use the legacy BIF `erlang:load_module` which is now
+Currently we use the legacy BIF `erlang:load_module` which is now
 implemented in Erlang by calling the above two functions in
 sequence. Function `finish_loading` is limited to only accepts a list
 with one module state as we do not yet use the multi module loading

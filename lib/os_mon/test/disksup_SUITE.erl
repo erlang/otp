@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ all() ->
     Bugs = [otp_5910],
     Always = [api, config, alarm, port, posix_only, unavailable,
               parse_df_output_posix, parse_df_output_susv3] ++ Bugs,
-    case test_server:os_type() of
+    case os:type() of
 	{unix, _OSname} -> Always;
 	{win32, _OSname} -> Always;
 	_OS -> [unavailable]
@@ -404,7 +404,7 @@ check_get_disk_data() ->
 
 % filter get_disk_data and remove entriew with zero capacity
 % "non-normal" filesystems report zero capacity
-% - Perhaps errorneous 'df -k -l'?
+% - Perhaps erroneous 'df -k -l'?
 % - Always list filesystems by type '-t ufs,zfs,..' instead?
 % It is unclear what the intention was from the beginning.
 get_disk_data() ->

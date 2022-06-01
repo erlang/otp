@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ end_per_group(_GroupName, Config) ->
 id_transform(Config) when is_list(Config) ->
     File = filename:join([code:lib_dir(stdlib),"examples",
 			"erl_id_trans.erl"]),
-    {ok,erl_id_trans,Bin} = compile:file(File,[binary]),
+    {ok,erl_id_trans,Bin} = compile:file(File, [binary,report]),
     {module,erl_id_trans} = code:load_binary(erl_id_trans, File, Bin),
     case test_server:is_valgrind() of
 	false ->

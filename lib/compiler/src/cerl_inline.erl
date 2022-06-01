@@ -615,7 +615,7 @@ i_case(E, Ctxt, Ren, Env, S) ->
     %% the arguments of the application to be evaluated *after* the
     %% switch expression, but *before* the body of the selected clause.
     %% Such interleaving is not allowed in general, and it does not seem
-    %% worthwile to make a more powerful transformation here. Therefore,
+    %% worthwhile to make a more powerful transformation here. Therefore,
     %% the clause bodies are conservatively visited for value if the
     %% context is `application'.
     Ctxt1 = safe_context(Ctxt),
@@ -967,7 +967,7 @@ i_letrec(Es, B, Xs, Ctxt, Ren, Env, NoInline, S) ->
 
     %% Finally, we create new letrec-bindings for any and all
     %% residualised definitions. All referenced functions should have
-    %% been visited; the call to `visit' below is expected to retreive a
+    %% been visited; the call to `visit' below is expected to retrieve a
     %% cached expression.
     Rs1 = keep_referenced(Rs, S4),
     {Es1, S5} = mapfoldl(fun (R, S) ->
@@ -1013,7 +1013,7 @@ i_apply(E, Ctxt, Ren, Env, S) ->
     %% location could be recycled after the flag has been tested, but
     %% there is no real advantage to that, because in practice, only
     %% 4-5% of all created store locations will ever be reused, while
-    %% there will be a noticable overhead for managing the free list.)
+    %% there will be a noticeable overhead for managing the free list.)
     case st__get_app_inlined(L, S3) of
         true ->
             %% The application was inlined, so we have the final
@@ -1124,7 +1124,7 @@ i_call_2(M, F, As, E, S) ->
 %% to rewrite the expression.
 
 i_call_3(M, F, As, E, Ctxt, Env, S) ->
-    %% Note that we extract the results of argument expessions here; the
+    %% Note that we extract the results of argument expressions here; the
     %% expressions could still be sequences with side effects.
     Vs = [concrete(result(A)) || A <- As],
     try apply(atom_val(M), atom_val(F), Vs) of
@@ -2096,7 +2096,7 @@ residualize_operand(Opnd, E, S) ->
     case st__get_opnd_effect(Opnd#opnd.loc, S) of
         true ->
             %% The operand has not been visited, so we do that now, but
-            %% in `effect' context. (Waddell's algoritm does some stuff
+            %% in `effect' context. (Waddell's algorithm does some stuff
             %% here to account specially for the operand size, which
             %% appears unnecessary.)
             {E1, S1} = i(Opnd#opnd.expr, effect, Opnd#opnd.ren,

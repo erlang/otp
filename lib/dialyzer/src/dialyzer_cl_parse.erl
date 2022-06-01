@@ -544,8 +544,6 @@ warning_options_msg() ->
      value or do not match against one of many possible return value(s).
   -Werror_handling ***
      Include warnings for functions that only return by means of an exception.
-  -Wrace_conditions ***
-     Include warnings for possible race conditions.
   -Wunderspecs ***
      Warn about underspecified functions
      (those whose -spec is strictly more allowing than the success typing).

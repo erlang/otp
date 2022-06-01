@@ -7,7 +7,7 @@
 <erlref>
 <header>
   <copyright>
-    <year>2020</year><year>2021</year>
+    <year>2020</year><year>2022</year>
     <holder>wxWidgets team.</holder></copyright>
   <legalnotice>Licensed under the wxWindows Free Documentation Licence, Version 3
   </legalnotice>
@@ -48,7 +48,7 @@
       </p><p>id:<c>{id, integer()} </c> The identifier (or first of the identifier range) to be associated with this event handler. Default is ?wxID_ANY
       </p><p>lastid:<c>{lastId,integer()} </c> The second part of the identifier range. If used 'id' must be set as the starting identifier range. Default is ?wxID_ANY
       </p><p>skip:<c>{skip,boolean()} </c> If skip is true further event_handlers will be called. This is not used if the 'callback' option is used. Default is <c>false</c>.
-      </p><p>callback:<c>{callback,function()} </c> Use a callback<c>fun(EventRecord::wx(),EventObject::wxObject()) </c> to process the event. Default not specfied i.e. a message will be delivered to the process calling this function.
+      </p><p>callback:<c>{callback,function()} </c> Use a callback<c>fun(EventRecord::wx(),EventObject::wxObject()) </c> to process the event. Default not specified i.e. a message will be delivered to the process calling this function.
       </p><p>userData:<c>{userData,term()} </c> An erlang term that will be sent with the event. Default: []. 
       </p></desc>
   </func>

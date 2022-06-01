@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,6 +44,12 @@
 -export([rand_seed/1]).
 -export([format_error/2]).
 -export([pbkdf2_hmac/5]).
+
+%%%----------------------------------------------------------------
+%% Deprecated functions
+-deprecated([crypto_dyn_iv_init/3,
+             crypto_dyn_iv_update/3
+           ]).
 
 %%%----------------------------------------------------------------
 %% Removed functions.
@@ -98,6 +104,8 @@
          crypto_final/1,
          crypto_get_data/1,
 
+         hash_equals/2,
+
          supports/1,
          mac/3, mac/4, macN/4, macN/5,
          mac_init/2, mac_init/3, mac_update/2, mac_final/1, mac_finalN/2
@@ -123,6 +131,30 @@
          ensure_engine_unloaded/1,
          ensure_engine_unloaded/2
         ]).
+
+-nifs([info_nif/0, info_lib/0, info_fips/0, enable_fips_mode_nif/1,
+       hash_algorithms/0, pubkey_algorithms/0, cipher_algorithms/0,
+       mac_algorithms/0, curve_algorithms/0, rsa_opts_algorithms/0,
+       hash_info/1, hash_nif/2, hash_init_nif/1, hash_update_nif/2,
+       hash_final_nif/1, mac_nif/4, mac_init_nif/3, mac_update_nif/2,
+       mac_final_nif/1, cipher_info_nif/1, ng_crypto_init_nif/4,
+       ng_crypto_update_nif/2, ng_crypto_update_nif/3, ng_crypto_final_nif/1,
+       ng_crypto_get_data_nif/1, ng_crypto_one_time_nif/5,
+       strong_rand_bytes_nif/1, strong_rand_range_nif/1, rand_uniform_nif/2,
+       mod_exp_nif/4, do_exor/2, hash_equals_nif/2, pbkdf2_hmac_nif/5,
+       pkey_sign_nif/5, pkey_verify_nif/6, pkey_crypt_nif/6,
+       rsa_generate_key_nif/2, dh_generate_key_nif/4, dh_compute_key_nif/3,
+       evp_compute_key_nif/3, evp_generate_key_nif/2, privkey_to_pubkey_nif/2,
+       srp_value_B_nif/5, srp_user_secret_nif/7, srp_host_secret_nif/5,
+       ec_generate_key_nif/2, ecdh_compute_key_nif/3, rand_seed_nif/1,
+       aead_cipher_nif/7, engine_by_id_nif/1, engine_init_nif/1,
+       engine_free_nif/1, engine_load_dynamic_nif/0,
+       engine_ctrl_cmd_strings_nif/3, engine_register_nif/2,
+       engine_unregister_nif/2, engine_add_nif/1, engine_remove_nif/1,
+       engine_get_first_nif/0, engine_get_next_nif/1, engine_get_id_nif/1,
+       engine_get_name_nif/1, engine_get_all_methods_nif/0,
+       ensure_engine_loaded_nif/3, ensure_engine_unloaded_nif/2
+      ]).
 
 -export_type([ %% A minimum exported: only what public_key needs.
                dh_private/0,
@@ -336,6 +368,10 @@
                    | aes_256_cbc
                    | aes_cbc
 
+                   | aes_128_ofb
+                   | aes_192_ofb
+                   | aes_256_ofb
+
                    | aes_128_cfb128
                    | aes_192_cfb128
                    | aes_256_cfb128
@@ -391,18 +427,20 @@
 
 -type crypto_integer() :: binary() | integer().
 
-%%%
-%% Exceptions
-%%   error:badarg
-%%   error:notsup
--type run_time_error() :: any().
+%% %%%--------------------------------------------------------------------
+%% %%% Exceptions
+%% %%%
+%% %% Exceptions
+%% %%   error:badarg
+%% %%   error:notsup
+%% -type run_time_error() :: badarg | notsup.
 
-%% Exceptions
-%%   error:{badarg,Reason::term()}
-%%   error:{notsup,Reason::term()}
-%%   error:{error,Reason::term()}
--type descriptive_error() :: any() .
 
+%% %% Exceptions
+%% %%   error:{badarg, file_line_info, Reason::term()}
+%% %%   error:{notsup,Reason::term()}
+%% %%   error:{error,Reason::term()}
+%% -type descriptive_error() :: {badarg | notsup | error, FileLineInfo::any, Reason::string()}.
 
 %%--------------------------------------------------------------------
 %% Compilation and loading
@@ -570,7 +608,7 @@ enable_fips_mode_nif(_) -> ?nif_stub.
                KeyLen :: pos_integer(),
                Result :: binary().
 pbkdf2_hmac(Digest, Pass, Salt, Iter, KeyLen) ->
-  pbkdf2_hmac_nif(Digest, Pass, Salt, Iter, KeyLen).
+    ?nif_call(pbkdf2_hmac_nif(Digest, Pass, Salt, Iter, KeyLen)).
 
 pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 
@@ -582,7 +620,7 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 
 -type hash_algorithm() :: sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() .
 
--spec hash_info(Type) -> Result | run_time_error()
+-spec hash_info(Type) -> Result
                              when Type :: hash_algorithm(),
                                   Result :: #{size := integer(),
                                               block_size := integer(),
@@ -604,7 +642,7 @@ hash(Type, Data) ->
 -spec hash_init(Type) -> State when Type :: hash_algorithm(),
                                     State :: hash_state().
 hash_init(Type) ->
-    notsup_to_error(hash_init_nif(Type)).
+    ?nif_call(hash_init_nif(Type)).
 
 -spec hash_update(State, Data) -> NewState when State :: hash_state(),
                                                 NewState :: hash_state(),
@@ -617,7 +655,7 @@ hash_update(Context, Data) ->
 -spec hash_final(State) -> Digest when  State :: hash_state(),
                                         Digest :: binary().
 hash_final(Context) ->
-    notsup_to_error(hash_final_nif(Context)).
+    ?nif_call(hash_final_nif(Context)).
 
 %%%================================================================
 %%%
@@ -638,7 +676,7 @@ hash_final(Context) ->
 %%%----------------------------------------------------------------
 %%% Calculate MAC for the whole text at once
 
--spec mac(Type :: poly1305, Key, Data) -> Mac | descriptive_error()
+-spec mac(Type :: poly1305, Key, Data) -> Mac
                      when Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary().
@@ -646,7 +684,7 @@ hash_final(Context) ->
 mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
 
 
--spec mac(Type, SubType, Key, Data) -> Mac | descriptive_error()
+-spec mac(Type, SubType, Key, Data) -> Mac
                      when Type :: hmac | cmac | poly1305,
                           SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
                           Key :: iodata(),
@@ -655,11 +693,10 @@ mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
 
 mac(Type, SubType, Key0, Data) ->
     Key = iolist_to_binary(Key0),
-    mac_nif(Type, alias(SubType,Key), Key, Data).
+    ?nif_call(mac_nif(Type, alias(SubType,Key), Key, Data)).
 
 
-
--spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac | descriptive_error()
+-spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac
                      when Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary(),
@@ -669,7 +706,7 @@ macN(Type, Key, Data, MacLength) ->
     macN(Type, undefined, Key, Data, MacLength).
 
 
--spec macN(Type, SubType, Key, Data, MacLength) -> Mac | descriptive_error()
+-spec macN(Type, SubType, Key, Data, MacLength) -> Mac
                      when Type :: hmac | cmac | poly1305,
                           SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
                           Key :: iodata(),
@@ -686,40 +723,40 @@ macN(Type, SubType, Key, Data, MacLength) ->
 
 -opaque mac_state() :: reference() .
 
--spec mac_init(Type :: poly1305, Key) -> State | descriptive_error()
+-spec mac_init(Type :: poly1305, Key) -> State
                           when Key :: iodata(),
                                State :: mac_state() .
 mac_init(poly1305, Key) ->
-    mac_init_nif(poly1305, undefined, Key).
+    ?nif_call(mac_init_nif(poly1305, undefined, Key)).
 
 
--spec mac_init(Type, SubType, Key) -> State | descriptive_error()
+-spec mac_init(Type, SubType, Key) -> State
                           when Type :: hmac | cmac | poly1305,
                                SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
                                Key :: iodata(),
                                State :: mac_state() .
 mac_init(Type, SubType, Key0) ->
     Key = iolist_to_binary(Key0),
-    mac_init_nif(Type, alias(SubType,Key), Key).
+    ?nif_call(mac_init_nif(Type, alias(SubType,Key), Key)).
 
 
--spec mac_update(State0, Data) -> State | descriptive_error()
+-spec mac_update(State0, Data) -> State
                      when Data :: iodata(),
                           State0 :: mac_state(),
                           State :: mac_state().
 mac_update(Ref, Data) ->
-    mac_update_nif(Ref, Data).
+    ?nif_call(mac_update_nif(Ref, Data)).
 
 
 
--spec mac_final(State) -> Mac | descriptive_error()
+-spec mac_final(State) -> Mac
                               when State :: mac_state(),
                                    Mac :: binary().
 mac_final(Ref) ->
-    mac_final_nif(Ref).
+    ?nif_call(mac_final_nif(Ref)).
 
 
--spec mac_finalN(State, MacLength) -> Mac | descriptive_error()
+-spec mac_finalN(State, MacLength) -> Mac
                               when State :: mac_state(),
                                    MacLength :: pos_integer(),
                                    Mac :: binary().
@@ -747,7 +784,7 @@ mac_final_nif(_Ref) -> ?nif_stub.
 
 
 %%%---- Cipher info
--spec cipher_info(Type) -> Result | run_time_error()
+-spec cipher_info(Type) -> Result
                                when Type :: cipher(),
                                     Result :: #{key_length := integer(),
                                                 iv_length := integer(),
@@ -802,9 +839,9 @@ cipher_info(Type) ->
 
 -opaque crypto_state() :: reference() .
 
--type crypto_opts() :: boolean() 
+-type crypto_opts() :: boolean()
                      | [ crypto_opt() ] .
--type crypto_opt() :: {encrypt,boolean()} 
+-type crypto_opt() :: {encrypt,boolean()}
                     | {padding, padding()} .
 -type padding() :: cryptolib_padding() | otp_padding().
 -type cryptolib_padding() :: none | pkcs_padding .
@@ -816,7 +853,7 @@ cipher_info(Type) ->
 %%% Create and initialize a new state for encryption or decryption
 %%%
 
--spec crypto_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error()
+-spec crypto_init(Cipher, Key, FlagOrOptions) -> State
                                                    when Cipher :: cipher_no_iv(),
                                                         Key :: iodata(),
                                                         FlagOrOptions :: crypto_opts() | boolean(),
@@ -826,7 +863,7 @@ crypto_init(Cipher, Key, FlagOrOptions) ->
               {1,2,-1,3}
              ).
 
--spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State | descriptive_error()
+-spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State
                                                        when Cipher :: cipher_iv(),
                                                             Key :: iodata(),
                                                             IV :: iodata(),
@@ -836,7 +873,7 @@ crypto_init(Cipher, Key, IV, FlagOrOptions) ->
     ?nif_call(ng_crypto_init_nif(alias(Cipher,Key), Key, IV, FlagOrOptions)).
 
 %%%----------------------------------------------------------------
--spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error()
+-spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State
                                                           when Cipher :: cipher_iv(),
                                                                Key :: iodata(),
                                                                FlagOrOptions :: crypto_opts() | boolean(),
@@ -855,7 +892,7 @@ crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
 %%% blocksize.
 %%%
 
--spec crypto_update(State, Data) -> Result | descriptive_error()
+-spec crypto_update(State, Data) -> Result
                             when State :: crypto_state(),
                                  Data :: iodata(),
                                  Result :: binary() .
@@ -863,7 +900,7 @@ crypto_update(State, Data) ->
     ?nif_call(ng_crypto_update_nif(State, Data)).
 
 %%%----------------------------------------------------------------
--spec crypto_dyn_iv_update(State, Data, IV) -> Result | descriptive_error()
+-spec crypto_dyn_iv_update(State, Data, IV) -> Result
                                                    when State :: crypto_state(),
                                                         Data :: iodata(),
                                                         IV :: iodata(),
@@ -877,7 +914,7 @@ crypto_dyn_iv_update(State, Data, IV) ->
 %%% to crypto_uptate was not an integer number of blocks, the rest
 %%% is returned from this function.
 
--spec crypto_final(State) -> FinalResult | descriptive_error()
+-spec crypto_final(State) -> FinalResult
                             when State :: crypto_state(),
                                  FinalResult :: binary() .
 crypto_final(State) ->
@@ -900,7 +937,7 @@ crypto_get_data(State) ->
 %%%
 
 -spec crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
-                             Result | descriptive_error()
+                             Result
                                  when Cipher :: cipher_no_iv(),
                                       Key :: iodata(),
                                       Data :: iodata(),
@@ -915,7 +952,7 @@ crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
 
 
 -spec crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
-                             Result | descriptive_error()
+                             Result
                                  when Cipher :: cipher_iv(),
                                       Key :: iodata(),
                                       IV :: iodata(),
@@ -930,7 +967,7 @@ crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
 
 %%%----------------------------------------------------------------
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
-                             Result | descriptive_error()
+                             Result
                                  when Cipher :: cipher_aead(),
                                       Key :: iodata(),
                                       IV :: iodata(),
@@ -948,7 +985,7 @@ crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
 
 
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, TagOrTagLength, EncFlag) ->
-                             Result | descriptive_error()
+                             Result
                                  when Cipher :: cipher_aead(),
                                       Key :: iodata(),
                                       IV :: iodata(),
@@ -1415,11 +1452,9 @@ sign(Algorithm, Type, Data, Key) ->
 
 sign(Algorithm0, Type0, Data, Key, Options) ->
     {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
-    case pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options) of
-	error -> erlang:error(badkey, [Algorithm, Type, Data, Key, Options]);
-	notsup -> erlang:error(notsup);
-	Signature -> Signature
-    end.
+    ?nif_call(pkey_sign_nif(Algorithm, Type, Data, format_pkey(Algorithm, Key), Options),
+              {1, 2, 3, 4, 5},
+              [Algorithm0, Type0, Data, Key, Options]).
 
 pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 
@@ -1464,10 +1499,9 @@ verify(Algorithm, Type, Data, Signature, Key) ->
 
 verify(Algorithm0, Type0, Data, Signature, Key, Options) ->
     {Algorithm, Type} = sign_verify_compatibility(Algorithm0, Type0, Data),
-    case pkey_verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options) of
-	notsup -> erlang:error(notsup);
-	Boolean -> Boolean
-    end.
+    ?nif_call(pkey_verify_nif(Algorithm, Type, Data, Signature, format_pkey(Algorithm, Key), Options),
+              {1,2,3,4,5},
+              [Algorithm0, Type0, Data, Signature, Key, Options]).
 
 pkey_verify_nif(_Algorithm, _Type, _Data, _Signature, _Key, _Options) -> ?nif_stub.
 
@@ -1553,12 +1587,7 @@ pkey_crypt(rsa, Text, Key, Padding, PubPriv, EncDec) when is_atom(Padding) ->
     pkey_crypt(rsa, Text, Key, [{rsa_padding, Padding}], PubPriv, EncDec);
 
 pkey_crypt(Alg, Text, Key, Options, PubPriv, EncDec) ->
-    case pkey_crypt_nif(Alg, Text, format_pkey(Alg,Key), Options, PubPriv, EncDec) of
-	error when EncDec==true  -> erlang:error(encrypt_failed, [Alg, Text, Key, Options]);
-	error when EncDec==false -> erlang:error(decrypt_failed, [Alg, Text, Key, Options]);
-	notsup -> erlang:error(notsup);
-	Out -> Out
-    end.
+    ?nif_call(pkey_crypt_nif(Alg, Text, format_pkey(Alg,Key), Options, PubPriv, EncDec)).
 
 pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_stub.
 
@@ -1593,9 +1622,11 @@ generate_key(dh, DHParameters0, PrivateKey) ->
             [P,G,L] -> {[P,G], L};
             [P,G] -> {[P,G], 0}
         end,
-    dh_generate_key_nif(ensure_int_as_bin(PrivateKey),
-			map_ensure_int_as_bin(DHParameters),
-                        0, Len);
+    ?nif_call(dh_generate_key_nif(ensure_int_as_bin(PrivateKey),
+                                  map_ensure_int_as_bin(DHParameters),
+                                  0, Len),
+              {3, 2, -1, 2},
+              [dh, DHParameters0, PrivateKey]);
 
 generate_key(srp, {host, [Verifier, Generator, Prime, Version]}, PrivArg)
   when is_binary(Verifier), is_binary(Generator), is_binary(Prime), is_atom(Version) ->
@@ -1639,14 +1670,20 @@ generate_key(ecdh, Curve, PrivKey) when Curve == x448 ;
     generate_key(eddh, Curve, PrivKey);
 generate_key(eddh, Curve, PrivKey) when Curve == x448 ;
                                         Curve == x25519 ->
-    evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey));
+    ?nif_call(evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey)),
+              {2, 3},
+              [eddh, Curve, PrivKey]
+             );
 
 generate_key(ecdh, Curve, PrivKey) ->
-    ec_key_generate(nif_curve_params(Curve), ensure_int_as_bin(PrivKey));
+    ?nif_call(ec_generate_key_nif(nif_curve_params(Curve), ensure_int_as_bin(PrivKey)));
 
 generate_key(eddsa, Curve, PrivKey) when Curve == ed448 ;
                                          Curve == ed25519 ->
-    evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey)).
+    ?nif_call(evp_generate_key_nif(Curve, ensure_int_as_bin(PrivKey)),
+              {2, 3},
+              [eddsa, Curve, PrivKey]
+             ).
 
 evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
 
@@ -1661,13 +1698,11 @@ evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
                                        .
 
 compute_key(dh, OthersPublicKey, MyPrivateKey, DHParameters) ->
-    case dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
-			    ensure_int_as_bin(MyPrivateKey),
-			    map_ensure_int_as_bin(DHParameters)) of
-	error -> erlang:error(computation_failed,
-			      [dh,OthersPublicKey,MyPrivateKey,DHParameters]);
-	Ret -> Ret
-    end;
+    ?nif_call(dh_compute_key_nif(ensure_int_as_bin(OthersPublicKey),
+                                 ensure_int_as_bin(MyPrivateKey),
+                                 map_ensure_int_as_bin(DHParameters)),
+              {2, 3, 4},
+              [dh, OthersPublicKey, MyPrivateKey, DHParameters]);
 
 compute_key(srp, HostPublic, {UserPublic, UserPrivate},
 	    {user, [DerivedKey, Prime, Generator, Version | ScramblerArg]}) when
@@ -1706,12 +1741,16 @@ compute_key(ecdh, Others, My, Curve) when Curve == x448 ;
 
 compute_key(eddh, Others, My, Curve) when Curve == x448 ;
                                           Curve == x25519 ->
-    evp_compute_key_nif(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My));
+    ?nif_call(evp_compute_key_nif(Curve, ensure_int_as_bin(Others), ensure_int_as_bin(My)),
+              {2, 3, 4},
+              [eddh, Others, My, Curve]);
 
 compute_key(ecdh, Others, My, Curve) ->
-    ecdh_compute_key_nif(ensure_int_as_bin(Others),
-			 nif_curve_params(Curve),
-			 ensure_int_as_bin(My)).
+    ?nif_call(ecdh_compute_key_nif(ensure_int_as_bin(Others),
+                                   nif_curve_params(Curve),
+                                   ensure_int_as_bin(My)),
+              {2, 4, 3},
+              [ecdh, Others, My, Curve]).
 
 
 evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
@@ -1868,8 +1907,8 @@ engine_unload(Engine, EngineMethods) ->
         %% Release the reference from engine_by_id_nif
         ok = engine_nif_wrapper(engine_free_nif(Engine))
     catch
-       throw:Error ->
-          Error
+        throw:Error ->
+            Error
     end.
 
 %%----------------------------------------------------------------------
@@ -1986,7 +2025,8 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 -spec ensure_engine_loaded(EngineId, LibPath) ->
                                   Result when EngineId :: unicode:chardata(),
                                               LibPath :: unicode:chardata(),
-                                              Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
+                                              Result :: {ok, Engine::engine_ref()} |
+                                                        {error, Reason::term()}.
 ensure_engine_loaded(EngineId, LibPath) ->
     ensure_engine_loaded(EngineId, LibPath, engine_get_all_methods()).
 
@@ -1998,55 +2038,20 @@ ensure_engine_loaded(EngineId, LibPath) ->
                                   Result when EngineId :: unicode:chardata(),
                                               LibPath :: unicode:chardata(),
                                               EngineMethods :: [engine_method_type()],
-                                              Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
-ensure_engine_loaded(EngineId, LibPath, EngineMethods) ->
-    try
-        List = crypto:engine_list(),
-        case lists:member(EngineId, List) of
-            true ->
-                notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId)));
-            false ->
-                ok = notsup_to_error(engine_load_dynamic_nif()),
-                case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(<<"dynamic">>))) of
-                    {ok, Engine} ->
-                        PreCommands = [{<<"SO_PATH">>, ensure_bin_chardata(LibPath)},
-                                       {<<"ID">>, ensure_bin_chardata(EngineId)},
-                                       <<"LOAD">>],
-                        ensure_engine_loaded_1(Engine, PreCommands, EngineMethods);
-                    {error, Error1} ->
-                        {error, Error1}
-                end
-        end
-    catch
-        throw:Error2 ->
-            Error2
+                                              Result :: {ok, Engine::engine_ref()} |
+                                                        {error, Reason::term()}.
+ensure_engine_loaded(EngineId, LibPath, Methods) ->
+    ConvertedMethods = [engine_method_atom_to_int(Method) ||
+                           Method <- Methods],
+    case notsup_to_error(ensure_engine_loaded_nif(ensure_bin_chardata(EngineId),
+                                                  ensure_bin_chardata(LibPath),
+                                                  ConvertedMethods)) of
+        {ok, Engine} ->
+            {ok, Engine};
+        {error, Error1} ->
+            {error, Error1}
     end.
 
-ensure_engine_loaded_1(Engine, PreCmds, Methods) ->
-    try
-        ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PreCmds), 0)),
-        ok = engine_nif_wrapper(engine_add_nif(Engine)),
-        ok = engine_nif_wrapper(engine_init_nif(Engine)),
-        ensure_engine_loaded_2(Engine, Methods),
-        {ok, Engine}
-    catch
-        throw:Error ->
-            %% The engine couldn't initialise, release the structural reference
-            ok = engine_free_nif(Engine),
-            throw(Error)
-    end.
-
-ensure_engine_loaded_2(Engine, Methods) ->
-    try
-        [ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) ||
-            Method <- Methods],
-        ok
-    catch
-       throw:Error ->
-          %% The engine registration failed, release the functional reference
-          ok = engine_free_nif(Engine),
-          throw(Error)
-    end.
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/1
 %%----------------------------------------------------------------------
@@ -2062,19 +2067,14 @@ ensure_engine_unloaded(Engine) ->
                                     Result when Engine :: engine_ref(),
                                                 EngineMethods :: [engine_method_type()],
                                                 Result :: ok | {error, Reason::term()}.
-ensure_engine_unloaded(Engine, EngineMethods) ->
-    List = crypto:engine_list(),
-    EngineId = crypto:engine_get_id(Engine),
-    case lists:member(EngineId, List) of
-        true ->
-            case engine_remove(Engine) of
-                ok ->
-                    engine_unload(Engine, EngineMethods);
-                {error, Error} ->
-                    {error, Error}
-            end;
-        false ->
-            engine_unload(Engine, EngineMethods)
+ensure_engine_unloaded(Engine, Methods) ->
+    ConvertedMethods = [engine_method_atom_to_int(Method) ||
+                          Method <- Methods],
+    case notsup_to_error(ensure_engine_unloaded_nif(Engine, ConvertedMethods)) of
+        ok ->
+            ok;
+        {error, Error1} ->
+            {error, Error1}
     end.
 
 
@@ -2161,17 +2161,17 @@ notsup_to_error(Other) ->
 
 %% HASH --------------------------------------------------------------------
 hash(Hash, Data, Size, Max) when Size =< Max ->
-    notsup_to_error(hash_nif(Hash, Data));
+    ?nif_call(hash_nif(Hash, Data));
 hash(Hash, Data, Size, Max) ->
     State0 = hash_init(Hash),
     State1 = hash_update(State0, Data, Size, Max),
     hash_final(State1).
 
 hash_update(State, Data, Size, MaxBytes)  when Size =< MaxBytes ->
-    notsup_to_error(hash_update_nif(State, Data));
+    ?nif_call(hash_update_nif(State, Data), {1,2});
 hash_update(State0, Data, _, MaxBytes) ->
     <<Increment:MaxBytes/binary, Rest/binary>> = Data,
-    State = notsup_to_error(hash_update_nif(State0, Increment)),
+    State = ?nif_call(hash_update_nif(State0, Increment), {1,2}),
     hash_update(State, Rest, erlang:byte_size(Rest), MaxBytes).
 
 hash_info_nif(_Hash) -> ?nif_stub.
@@ -2265,7 +2265,7 @@ dh_generate_key_nif(_PrivateKey, _DHParameters, _Mpint, _Length) -> ?nif_stub.
 %% MyPrivKey, OthersPublicKey = mpint()
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
-ec_key_generate(_Curve, _Key) -> ?nif_stub.
+ec_generate_key_nif(_Curve, _Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
@@ -2286,16 +2286,15 @@ ec_curve(X) ->
                                                                      EnginePrivateKeyRef :: engine_key_ref(),
                                                                      PublicKey ::  rsa_public() | dss_public() .
 privkey_to_pubkey(Alg, EngineMap) when Alg == rsa; Alg == dss; Alg == ecdsa ->
-    try privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap))
-    of
+    try ?nif_call(privkey_to_pubkey_nif(Alg, format_pkey(Alg,EngineMap))) of
         [_|_]=L -> map_ensure_bin_as_int(L);
         X -> X
     catch
-        error:badarg when Alg==ecdsa ->
+        error:{badarg,_,_} when Alg==ecdsa ->
             {error, notsup};
-        error:badarg ->
+        error:{badarg,_,_} ->
             {error, not_found};
-        error:notsup ->
+        error:{notsup,_,_} ->
             {error, notsup}
     end.
 
@@ -2343,6 +2342,15 @@ exor(Data1, Data2, _Size, MaxByts, Acc) ->
     exor(Rest1, Rest2, erlang:byte_size(Rest1), MaxByts, [Result | Acc]).
 
 do_exor(_A, _B) -> ?nif_stub.
+
+-spec hash_equals(BinA, BinB) -> Result
+          when BinA :: binary(),
+               BinB :: binary(),
+               Result :: boolean().
+hash_equals(A, B) ->
+  hash_equals_nif(A, B).
+
+hash_equals_nif(_A, _B) -> ?nif_stub.
 
 hash_algorithms() -> ?nif_stub.
 pubkey_algorithms() -> ?nif_stub.
@@ -2478,6 +2486,8 @@ engine_get_next_nif(_Engine) -> ?nif_stub.
 engine_get_id_nif(_Engine) -> ?nif_stub.
 engine_get_name_nif(_Engine) -> ?nif_stub.
 engine_get_all_methods_nif() -> ?nif_stub.
+ensure_engine_loaded_nif(_EngineId, _LibPath, _EngineMethods) -> ?nif_stub.
+ensure_engine_unloaded_nif(_Engine, _EngineMethods) -> ?nif_stub.
 
 %%--------------------------------------------------------------------
 %% Engine internals

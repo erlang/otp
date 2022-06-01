@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,37 +29,58 @@
 -export([start/5, start/6, debug_options/2, hibernate_after/1,
 	 name/1, unregister_name/1, get_proc_name/1, get_parent/0,
 	 call/3, call/4, reply/2,
-         send_request/3, wait_response/2,
-         receive_response/2, check_response/2,
+         send_request/3, send_request/5,
+         wait_response/2, receive_response/2, check_response/2,
+         wait_response/3, receive_response/3, check_response/3,
+         reqids_new/0, reqids_size/1,
+         reqids_add/3, reqids_to_list/1,
          stop/1, stop/3]).
 
 -export([init_it/6, init_it/7]).
 
--export([format_status_header/2]).
+-export([format_status_header/2, format_status/4]).
 
+-define(MAX_INT_TIMEOUT, 4294967295).
 -define(default_timeout, 5000).
 
+-include("logger.hrl").
+
 %%-----------------------------------------------------------------
+
+-export_type([reply_tag/0,
+              request_id/0,
+              request_id_collection/0]).
 
 -type linkage()    :: 'monitor' | 'link' | 'nolink'.
 -type emgr_name()  :: {'local', atom()}
                     | {'global', term()}
                     | {'via', Module :: module(), Name :: term()}.
 
--type start_ret()  :: {'ok', pid()} | {'ok', {pid(), reference()}} | 'ignore' | {'error', term()}.
+-type start_ret()  :: {'ok', pid()}
+                    | {'ok', {pid(), reference()}}
+                    | 'ignore'
+                    | {'error', term()}.
 
--type debug_flag() :: 'trace' | 'log' | 'statistics' | 'debug'
-                    | {'logfile', string()}.
 -type option()     :: {'timeout', timeout()}
-		    | {'debug', [debug_flag()]}
+		    | {'debug', [sys:debug_option()]}
 		    | {'hibernate_after', timeout()}
 		    | {'spawn_opt', [proc_lib:spawn_option()]}.
--type options()    :: [option()].
 
 -type server_ref() :: pid() | atom() | {atom(), node()}
                     | {global, term()} | {via, module(), term()}.
 
--type request_id() :: term().
+-opaque reply_tag() :: % As accepted by reply/2
+          reference()
+        | nonempty_improper_list('alias', reference())
+        | nonempty_improper_list(
+            nonempty_improper_list('alias', reference()), term()).
+
+-opaque request_id() :: reference().
+
+-opaque request_id_collection() :: map().
+
+-type response_timeout() ::
+        0..?MAX_INT_TIMEOUT | 'infinity' | {abs, integer()}.
 
 %%-----------------------------------------------------------------
 %% Starts a generic process.
@@ -77,7 +98,7 @@
 %%    The 'already_started' is returned only if Name is given 
 %%-----------------------------------------------------------------
 
--spec start(module(), linkage(), emgr_name(), module(), term(), options()) ->
+-spec start(module(), linkage(), emgr_name(), module(), term(), [option()]) ->
 	start_ret().
 
 start(GenMod, LinkP, Name, Mod, Args, Options) ->
@@ -88,7 +109,7 @@ start(GenMod, LinkP, Name, Mod, Args, Options) ->
 	    {error, {already_started, Pid}}
     end.
 
--spec start(module(), linkage(), module(), term(), options()) -> start_ret().
+-spec start(module(), linkage(), module(), term(), [option()]) -> start_ret().
 
 start(GenMod, LinkP, Mod, Args, Options) ->
     do_spawn(GenMod, LinkP, Mod, Args, Options).
@@ -201,6 +222,8 @@ call(Process, Label, Request, Timeout)
 
 -dialyzer({no_improper_lists, do_call/4}).
 
+do_call(Process, _Label, _Request, _Timeout) when Process =:= self() ->
+    exit(calling_self);
 do_call(Process, Label, Request, infinity)
   when (is_pid(Process)
         andalso (node(Process) == node()))
@@ -263,11 +286,12 @@ get_node(Process) ->
 	    node(Process)
     end.
 
--spec send_request(Name::server_ref(), Label::term(), Request::term()) -> request_id().
-send_request(Process, Label, Request) when is_pid(Process) ->
-    do_send_request(Process, Label, Request);
-send_request(Process, Label, Request) ->
-    Fun = fun(Pid) -> do_send_request(Pid, Label, Request) end,
+-spec send_request(Name::server_ref(), Tag::term(), Request::term()) ->
+          request_id().
+send_request(Process, Tag, Request) when is_pid(Process) ->
+    do_send_request(Process, Tag, Request);
+send_request(Process, Tag, Request) ->
+    Fun = fun(Pid) -> do_send_request(Pid, Tag, Request) end,
     try do_for_proc(Process, Fun)
     catch exit:Reason ->
             %% Make send_request async and fake a down message
@@ -276,61 +300,231 @@ send_request(Process, Label, Request) ->
             Mref
     end.
 
+-spec send_request(Name::server_ref(), Tag::term(), Request::term(),
+                   Label::term(), ReqIdCol::request_id_collection()) ->
+          request_id_collection().
+send_request(Process, Tag, Request, Label, ReqIdCol) when is_map(ReqIdCol) ->
+    maps:put(send_request(Process, Tag, Request), Label, ReqIdCol).
+
 -dialyzer({no_improper_lists, do_send_request/3}).
 
-do_send_request(Process, Label, Request) ->
-    Mref = erlang:monitor(process, Process, [{alias, demonitor}]),
-    erlang:send(Process, {Label, {self(), [alias|Mref]}, Request}, [noconnect]),
-    Mref.
+do_send_request(Process, Tag, Request) ->
+    ReqId = erlang:monitor(process, Process, [{alias, demonitor}]),
+    _ = erlang:send(Process, {Tag, {self(), [alias|ReqId]}, Request}, [noconnect]),
+    ReqId.
 
 %%
 %% Wait for a reply to the client.
 %% Note: if timeout is returned monitors are kept.
 
--spec wait_response(RequestId::request_id(), timeout()) ->
-        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
-wait_response(Mref, Timeout) when is_reference(Mref) ->
+-spec wait_response(ReqId, Timeout) -> Result when
+      ReqId :: request_id(),
+      Timeout :: response_timeout(),
+      Resp :: {reply, Reply::term()} | {error, {Reason::term(), server_ref()}},
+      Result :: Resp | 'timeout'.
+
+wait_response(ReqId, Timeout) ->
+    TMO = timeout_value(Timeout),
     receive
-        {[alias|Mref], Reply} ->
-            erlang:demonitor(Mref, [flush]),
+        {[alias|ReqId], Reply} ->
+            erlang:demonitor(ReqId, [flush]),
             {reply, Reply};
-        {'DOWN', Mref, _, Object, Reason} ->
+        {'DOWN', ReqId, _, Object, Reason} ->
             {error, {Reason, Object}}
-    after Timeout ->
+    after TMO ->
             timeout
     end.
 
--spec receive_response(RequestId::request_id(), timeout()) ->
-        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
-receive_response(Mref, Timeout) when is_reference(Mref) ->
+-spec wait_response(ReqIdCol, Timeout, Delete) -> Result when
+      ReqIdCol :: request_id_collection(),
+      Timeout :: response_timeout(),
+      Delete :: boolean(),
+      Resp :: {reply, Reply::term()} | {error, {Reason::term(), server_ref()}},
+      Result :: {Resp, Label::term(), NewReqIdCol::request_id_collection()} |
+                'no_request' | 'timeout'.
+
+wait_response(ReqIdCol, Timeout, Delete) when map_size(ReqIdCol) == 0,
+                                              is_boolean(Delete) ->
+    _ = timeout_value(Timeout),
+    no_request;
+wait_response(ReqIdCol, Timeout, Delete) when is_map(ReqIdCol),
+                                              is_boolean(Delete) ->
+    TMO = timeout_value(Timeout),
     receive
-        {[alias|Mref], Reply} ->
-            erlang:demonitor(Mref, [flush]),
+        {[alias|ReqId], _} = Msg when is_map_key(ReqId, ReqIdCol) ->
+            collection_result(Msg, ReqIdCol, Delete);
+        {'DOWN', ReqId, _, _, _} = Msg when is_map_key(ReqId, ReqIdCol) ->
+            collection_result(Msg, ReqIdCol, Delete)
+    after TMO ->
+            timeout
+    end.
+
+-spec receive_response(ReqId, Timeout) -> Result when
+      ReqId :: request_id(),
+      Timeout :: response_timeout(),
+      Resp :: {reply, Reply::term()} | {error, {Reason::term(), server_ref()}},
+      Result :: Resp | 'timeout'.
+
+receive_response(ReqId, Timeout) ->
+    TMO = timeout_value(Timeout),
+    receive
+        {[alias|ReqId], Reply} ->
+            erlang:demonitor(ReqId, [flush]),
             {reply, Reply};
-        {'DOWN', Mref, _, Object, Reason} ->
+        {'DOWN', ReqId, _, Object, Reason} ->
             {error, {Reason, Object}}
-    after Timeout ->
-            erlang:demonitor(Mref, [flush]),
+    after TMO ->
+            erlang:demonitor(ReqId, [flush]),
             receive
-                {[alias|Mref], Reply} ->
+                {[alias|ReqId], Reply} ->
                     {reply, Reply}
             after 0 ->
                     timeout
             end
     end.
 
--spec check_response(RequestId::term(), Key::request_id()) ->
-        {reply, Reply::term()} | 'no_reply' | {error, {term(), server_ref()}}.
-check_response(Msg, Mref) when is_reference(Mref) ->
+-spec receive_response(ReqIdCol, Timeout, Delete) -> Result when
+      ReqIdCol :: request_id_collection(),
+      Timeout :: response_timeout(),
+      Delete :: boolean(),
+      Resp :: {reply, Reply::term()} | {error, {Reason::term(), server_ref()}},
+      Result :: {Resp, Label::term(), NewReqIdCol::request_id_collection()}
+              | 'no_request' | 'timeout'.
+
+receive_response(ReqIdCol, Timeout, Delete) when map_size(ReqIdCol) == 0,
+                                                 is_boolean(Delete) ->
+    _ = timeout_value(Timeout),
+    no_request;
+receive_response(ReqIdCol, Timeout, Delete) when is_map(ReqIdCol),
+                                                 is_boolean(Delete) ->
+    TMO = timeout_value(Timeout),
+    receive
+        {[alias|ReqId], _} = Msg when is_map_key(ReqId, ReqIdCol) ->
+            collection_result(Msg, ReqIdCol, Delete);
+        {'DOWN', Mref, _, _, _} = Msg when is_map_key(Mref, ReqIdCol) ->
+            collection_result(Msg, ReqIdCol, Delete)
+    after TMO ->
+            maps:foreach(fun (ReqId, _Label) when is_reference(ReqId) ->
+                                 erlang:demonitor(ReqId, [flush]);
+                             (_, _) ->
+                                 error(badarg)
+                         end, ReqIdCol),
+            flush_responses(ReqIdCol),
+            timeout
+    end.
+
+-spec check_response(Msg::term(), ReqIdOrReqIdCol) -> Result when
+      ReqIdOrReqIdCol :: request_id() | request_id_collection(),
+      ReqIdResp :: {reply, Reply::term()} |
+                   {error, {Reason::term(), server_ref()}},
+      ReqIdColResp :: {{reply, Reply::term()}, Label::term()} |
+                             {{error, {Reason::term(), server_ref()}}, Label::term()},
+      Result :: ReqIdResp | ReqIdColResp | 'no_reply'.
+
+check_response(Msg, ReqId) when is_reference(ReqId) ->
     case Msg of
-        {[alias|Mref], Reply} ->
-            erlang:demonitor(Mref, [flush]),
+        {[alias|ReqId], Reply} ->
+            erlang:demonitor(ReqId, [flush]),
             {reply, Reply};
-        {'DOWN', Mref, _, Object, Reason} ->
+        {'DOWN', ReqId, _, Object, Reason} ->
             {error, {Reason, Object}};
         _ ->
             no_reply
+    end;
+check_response(_, _) ->
+    error(badarg).
+
+-spec check_response(Msg, ReqIdCol, Delete) -> Result when
+      Msg :: term(),
+      ReqIdCol :: request_id_collection(),
+      Delete :: boolean(),
+      Resp :: {reply, Reply::term()} | {error, {Reason::term(), server_ref()}},
+      Result :: {Resp, Label::term(), NewReqIdCol::request_id_collection()}
+              | 'no_request' | 'no_reply'.
+
+check_response(_Msg, ReqIdCol, Delete) when map_size(ReqIdCol) == 0,
+                                            is_boolean(Delete) ->
+    no_request;
+check_response(Msg, ReqIdCol, Delete) when is_map(ReqIdCol),
+                                           is_boolean(Delete) ->
+    case Msg of
+        {[alias|ReqId], _} = Msg when is_map_key(ReqId, ReqIdCol) ->
+            collection_result(Msg, ReqIdCol, Delete);
+        {'DOWN', Mref, _, _, _} = Msg when is_map_key(Mref, ReqIdCol) ->
+            collection_result(Msg, ReqIdCol, Delete);
+        _ ->
+            no_reply
     end.
+
+collection_result({[alias|ReqId], Reply}, ReqIdCol, Delete) ->
+    _ = erlang:demonitor(ReqId, [flush]),
+    collection_result({reply, Reply}, ReqId, ReqIdCol, Delete);
+collection_result({'DOWN', ReqId, _, Object, Reason}, ReqIdCol, Delete) ->
+    collection_result({error, {Reason, Object}}, ReqId, ReqIdCol, Delete).
+
+collection_result(Resp, ReqId, ReqIdCol, false) ->
+    {Resp, maps:get(ReqId, ReqIdCol), ReqIdCol};
+collection_result(Resp, ReqId, ReqIdCol, true) ->
+    {Label, NewReqIdCol} = maps:take(ReqId, ReqIdCol),
+    {Resp, Label, NewReqIdCol}.
+
+flush_responses(ReqIdCol) ->
+    receive
+        {[alias|Mref], _Reply} when is_map_key(Mref, ReqIdCol) ->
+            flush_responses(ReqIdCol)
+    after 0 ->
+            ok
+    end.
+
+timeout_value(infinity) ->
+    infinity;
+timeout_value(Timeout) when 0 =< Timeout, Timeout =< ?MAX_INT_TIMEOUT ->
+    Timeout;
+timeout_value({abs, Timeout}) when is_integer(Timeout) ->
+    case Timeout - erlang:monotonic_time(millisecond) of
+        TMO when TMO < 0 ->
+            0;
+        TMO when TMO > ?MAX_INT_TIMEOUT ->
+            error(badarg);
+        TMO ->
+            TMO
+    end;
+timeout_value(_) ->
+    error(badarg).
+
+-spec reqids_new() ->
+          NewReqIdCol::request_id_collection().
+
+reqids_new() ->
+    maps:new().
+
+-spec reqids_size(request_id_collection()) ->
+          non_neg_integer().
+reqids_size(ReqIdCol) when is_map(ReqIdCol) ->
+    maps:size(ReqIdCol);
+reqids_size(_) ->
+    error(badarg).
+
+-spec reqids_add(ReqId::request_id(), Label::term(),
+                 ReqIdCol::request_id_collection()) ->
+          NewReqIdCol::request_id_collection().
+
+reqids_add(ReqId, _, ReqIdCol) when is_reference(ReqId),
+                                    is_map_key(ReqId, ReqIdCol) ->
+    error(badarg);
+reqids_add(ReqId, Label, ReqIdCol) when is_reference(ReqId),
+                                        is_map(ReqIdCol) ->
+    maps:put(ReqId, Label, ReqIdCol);
+reqids_add(_, _, _) ->
+    error(badarg).
+
+-spec reqids_to_list(ReqIdCol::request_id_collection()) ->
+          [{ReqId::request_id(), Label::term()}].
+
+reqids_to_list(ReqIdCol) when is_map(ReqIdCol) ->
+    maps:to_list(ReqIdCol);
+reqids_to_list(_) ->
+    error(badarg).
 
 %%
 %% Send a reply to the client.
@@ -546,3 +740,41 @@ format_status_header(TagLine, RegName) when is_atom(RegName) ->
     lists:concat([TagLine, " ", RegName]);
 format_status_header(TagLine, Name) ->
     {TagLine, Name}.
+
+-spec format_status(Mod :: module(), Opt :: terminate | normal, Status, Args) ->
+          ReturnStatus when
+      Status :: #{ atom() => term() },
+      ReturnStatus :: #{ atom() => term(), '$status' => term()},
+      Args :: list(term()) | undefined.
+format_status(Mod, Opt, Status, Args) ->
+    case {erlang:function_exported(Mod, format_status, 1),
+          erlang:function_exported(Mod, format_status, 2)} of
+        {true, _} ->
+            try Mod:format_status(Status) of
+                NewStatus when is_map(NewStatus) ->
+                    MergedStatus = maps:merge(Status, NewStatus),
+                    case maps:size(MergedStatus) =:= maps:size(NewStatus) of
+                        true ->
+                            MergedStatus;
+                        false ->
+                            Status#{ 'EXIT' => atom_to_list(Mod) ++ ":format_status/1 returned a map with unknown keys" }
+                    end;
+                _ ->
+                    Status#{ 'EXIT' => atom_to_list(Mod) ++ ":format_status/1 did not return a map" }
+            catch
+                _:_ ->
+                    Status#{ 'EXIT' => atom_to_list(Mod) ++ ":format_status/1 crashed" }
+            end;
+        {false, true} when is_list(Args) ->
+            try Mod:format_status(Opt, Args) of
+                Result ->
+                    Status#{ '$status' => Result }
+            catch
+                throw:Result ->
+                    Status#{ '$status' => Result };
+                _:_ ->
+                    Status#{ 'EXIT' => atom_to_list(Mod) ++ ":format_status/2 crashed" }
+            end;
+        {false, _} ->
+            Status
+    end.

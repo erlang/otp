@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ behaviour_info(_) ->
 
 
 %% accept_recv({domain(), address()}) -> boolean()
-%% Called at the receiption of a message 
+%% Called at the reception of a message 
 %% (before *any* processing has been done).
 %% 
 %% accept_send({domain(), address()}) -> boolean()

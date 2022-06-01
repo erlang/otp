@@ -432,7 +432,7 @@ follow(D1, D2) ->
 %%           document()
 %% 
 %% @doc Separates two documents by either a single space, or a line
-%% break and intentation. In other words, one of the layouts
+%% break and indentation. In other words, one of the layouts
 %% ```abc def'''
 %% or
 %% ```abc

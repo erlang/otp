@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -508,6 +508,8 @@ end_per_suite(suite) -> [];
 end_per_suite(doc) -> [];
 end_per_suite(Config0) when is_list(Config0) ->
 
+    ?ANNOUNCE_SUITE_END(),
+
     p("end_per_suite -> entry with"
       "~n      Config: ~p"
       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
@@ -541,15 +543,20 @@ init_per_group(Group, Config) ->
     ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
-end_per_group(flex_pretty_tickets, Config) -> 
+end_per_group(flex_pretty_tickets = Group, Config) -> 
+    ?ANNOUNCE_GROUP_END(Group),
     flex_pretty_finish(Config);
-end_per_group(flex_compact_tickets, Config) -> 
+end_per_group(flex_compact_tickets = Group, Config) -> 
+    ?ANNOUNCE_GROUP_END(Group),
     flex_compact_finish(Config);
-end_per_group(flex_compact, Config) -> 
+end_per_group(flex_compact = Group, Config) -> 
+    ?ANNOUNCE_GROUP_END(Group),
     flex_compact_finish(Config);
-end_per_group(flex_pretty, Config) -> 
+end_per_group(flex_pretty = Group, Config) -> 
+    ?ANNOUNCE_GROUP_END(Group),
     flex_pretty_finish(Config);
-end_per_group(_GroupName, Config) ->
+end_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_END(Group),
     Config.
 
 

@@ -166,7 +166,7 @@ format(Recs, Fields, SFun)
 %%% Output: Number of entries output.
 %%%
 %%% Description: Pretty-print records in a named tables as collected
-%%%              from known nodes. Each table listing is preceeded by
+%%%              from known nodes. Each table listing is preceded by
 %%%              a banner.
 %%% ----------------------------------------------------------
 

@@ -561,25 +561,27 @@ encode_handshake(#server_key_params{params_bin = Keys, hashsign = HashSign,
 encode_handshake(#certificate_request{certificate_types = CertTypes,
                                       hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
                                       certificate_authorities = CertAuths},
-                 {Major, Minor}) when Major == 3, Minor >= 3 ->
+                 {3,3}) ->
     HashSigns = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
 		       SignatureScheme <- HashSignAlgos >>,
+    EncCertAuths = encode_cert_auths(CertAuths),
     CertTypesLen = byte_size(CertTypes),
     HashSignsLen = byte_size(HashSigns),
-    CertAuthsLen = byte_size(CertAuths),
+    CertAuthsLen = byte_size(EncCertAuths),
     {?CERTIFICATE_REQUEST,
-       <<?BYTE(CertTypesLen), CertTypes/binary,
-	?UINT16(HashSignsLen), HashSigns/binary,
-	?UINT16(CertAuthsLen), CertAuths/binary>>
+     <<?BYTE(CertTypesLen), CertTypes/binary,
+       ?UINT16(HashSignsLen), HashSigns/binary,
+       ?UINT16(CertAuthsLen), EncCertAuths/binary>>
     };
 encode_handshake(#certificate_request{certificate_types = CertTypes,
                                       certificate_authorities = CertAuths},
        _Version) ->
+    EncCertAuths = encode_cert_auths(CertAuths),
     CertTypesLen = byte_size(CertTypes),
-    CertAuthsLen = byte_size(CertAuths),
+    CertAuthsLen = byte_size(EncCertAuths),
     {?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes/binary,
-	?UINT16(CertAuthsLen), CertAuths/binary>>
+	?UINT16(CertAuthsLen), EncCertAuths/binary>>
     };
 encode_handshake(#server_hello_done{}, _Version) ->
     {?SERVER_HELLO_DONE, <<>>};
@@ -764,10 +766,11 @@ encode_extensions([#early_data_indication_nst{indication = MaxSize} | Rest], Acc
     encode_extensions(Rest, <<?UINT16(?EARLY_DATA_EXT),
                               ?UINT16(4), ?UINT32(MaxSize), Acc/binary>>);
 encode_extensions([#certificate_authorities{authorities = CertAuths}| Rest], Acc) ->
-    CertAuthsLen = byte_size(CertAuths),
+    EncCertAuths = encode_cert_auths(CertAuths),
+    CertAuthsLen = byte_size(EncCertAuths),
     Len = CertAuthsLen + 2,
     encode_extensions(Rest, <<?UINT16(?CERTIFICATE_AUTHORITIES_EXT), ?UINT16(Len),
-                              ?UINT16(CertAuthsLen), CertAuths/binary, Acc/binary>>).
+                              ?UINT16(CertAuthsLen), EncCertAuths/binary, Acc/binary>>).
 
 encode_cert_status_req(
     StatusType,
@@ -815,6 +818,16 @@ encode_protocols_advertised_on_server(undefined) ->
 encode_protocols_advertised_on_server(Protocols) ->
 	#next_protocol_negotiation{
         extension_data = lists:foldl(fun encode_protocol/2, <<>>, Protocols)}.
+
+encode_cert_auths(Auths) ->
+    encode_cert_auths(Auths, []).
+
+encode_cert_auths([], Acc) -> 
+    list_to_binary(lists:reverse(Acc));
+encode_cert_auths([Auth | Auths], Acc) ->
+    DNEncodedBin = public_key:pkix_encode('Name', Auth, otp),   
+    DNEncodedLen = byte_size(DNEncodedBin),
+    encode_cert_auths(Auths, [<<?UINT16(DNEncodedLen), DNEncodedBin/binary>> | Acc]).
 
 %%====================================================================
 %% Decode handshake 
@@ -866,16 +879,16 @@ decode_handshake(_Version, ?SERVER_KEY_EXCHANGE, Keys) ->
 decode_handshake({3, 3} = Version, ?CERTIFICATE_REQUEST,
                  <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
                    ?UINT16(HashSignsLen), HashSigns:HashSignsLen/binary,
-                   ?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>) ->
+                   ?UINT16(CertAuthsLen), EncCertAuths:CertAuthsLen/binary>>) ->
     HashSignAlgos = decode_sign_alg(Version, HashSigns),
     #certificate_request{certificate_types = CertTypes,
                          hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
-			 certificate_authorities = CertAuths};
+			 certificate_authorities = decode_cert_auths(EncCertAuths, [])};
 decode_handshake(_Version, ?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
-	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>) ->
+         ?UINT16(CertAuthsLen), EncCertAuths:CertAuthsLen/binary>>) ->
     #certificate_request{certificate_types = CertTypes,
-			 certificate_authorities = CertAuths};
+			 certificate_authorities = decode_cert_auths(EncCertAuths, [])};
 decode_handshake(_Version, ?SERVER_HELLO_DONE, <<>>) ->
     #server_hello_done{};
 decode_handshake({Major, Minor}, ?CERTIFICATE_VERIFY,<<HashSign:2/binary, ?UINT16(SignLen),
@@ -888,8 +901,8 @@ decode_handshake(_Version, ?CLIENT_KEY_EXCHANGE, PKEPMS) ->
     #client_key_exchange{exchange_keys = PKEPMS};
 decode_handshake(_Version, ?FINISHED, VerifyData) ->
     #finished{verify_data = VerifyData};
-decode_handshake(_, Message, _) ->
-    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {unknown_or_malformed_handshake, Message})).
+decode_handshake(_, MessageType, _) ->
+    throw(?ALERT_REC(?FATAL, ?DECODE_ERROR, {unknown_or_malformed_handshake, MessageType})).
 
 
 %%--------------------------------------------------------------------
@@ -970,6 +983,7 @@ decode_suites('2_bytes', Dec) ->
 decode_suites('3_bytes', Dec) ->
     from_3bytes(Dec).
 
+
 %%====================================================================
 %% Cipher suite handling
 %%====================================================================
@@ -1045,7 +1059,8 @@ cipher_suites(Suites, true) ->
 prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
-select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, Session0, Version, SslOpts, CertKeyPairs) ->
+select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessIdTracker, Session0, Version, SslOpts, CertKeyAlts) ->
+    CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, Version),
     {SessionId, Resumed} = ssl_session:server_select_session(Version, SessIdTracker, SuggestedSessionId,
                                                              SslOpts, CertKeyPairs),
     case Resumed of
@@ -1063,7 +1078,7 @@ select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, SessId
 new_session_parameters(SessionId, #session{ecc = ECCCurve0} = Session, CipherSuites, SslOpts,
                        Version, Compressions, HashSigns, CertKeyPairs) ->
     Compression = select_compression(Compressions),
-    {Certs, Key, {ECCCurve, CipherSuite}} = select_cert_key_pair_and_params(CipherSuites, CertKeyPairs, HashSigns,
+    {Certs, Key, {ECCCurve, CipherSuite}} = server_select_cert_key_pair_and_params(CipherSuites, CertKeyPairs, HashSigns,
                                                                             ECCCurve0, SslOpts, Version),
     Session#session{session_id = SessionId,
                     ecc = ECCCurve,
@@ -1074,29 +1089,43 @@ new_session_parameters(SessionId, #session{ecc = ECCCurve0} = Session, CipherSui
 
 %% Possibly support part of "trusted_ca_keys" extension that corresponds to TLS-1.3 certificate_authorities?!
 
-select_cert_key_pair_and_params(CipherSuites, [#{private_key := NoKey, certs := [[]] = NoCerts}], HashSigns, ECCCurve0,
+server_select_cert_key_pair_and_params(CipherSuites, [#{private_key := NoKey, certs := [[]] = NoCerts}], HashSigns, ECCCurve0,
               #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder}, Version) ->
     %% This can happen if anonymous cipher suites are enabled
     Suites = available_suites(undefined, UserSuites, Version, HashSigns, ECCCurve0),
     CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
     CurveAndSuite = cert_curve(undefined, ECCCurve0, CipherSuite0),
     {NoCerts, NoKey, CurveAndSuite};
-select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs}], HashSigns, ECCCurve0,
+server_select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs}], HashSigns, ECCCurve0,
                                 #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder}, Version) ->
     Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
     CipherSuite0 = select_cipher_suite(CipherSuites, Suites, HonorCipherOrder),
     CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
     {Certs, Key, CurveAndSuite};
-select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs} | Rest], HashSigns, ECCCurve0,
+server_select_cert_key_pair_and_params(CipherSuites, [#{private_key := Key, certs := [Cert | _] = Certs} | Rest], HashSigns, ECCCurve0,
                  #{ciphers := UserSuites, honor_cipher_order := HonorCipherOrder} = Opts, Version) ->
     Suites = available_suites(Cert, UserSuites, Version, HashSigns, ECCCurve0),
     case select_cipher_suite(CipherSuites, Suites, HonorCipherOrder) of
         no_suite ->
-            select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version);
+            server_select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version);
         CipherSuite0 ->
-            CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
-            {Certs, Key, CurveAndSuite}
+            case is_acceptable_cert(Cert, HashSigns, ssl:tls_version(Version)) of
+                true ->
+                    CurveAndSuite = cert_curve(Cert, ECCCurve0, CipherSuite0),
+                    {Certs, Key, CurveAndSuite};
+                false ->
+                    server_select_cert_key_pair_and_params(CipherSuites, Rest, HashSigns, ECCCurve0, Opts, Version)
+            end
     end.
+
+is_acceptable_cert(Cert, HashSigns, {Major, Minor}) when Major == 3,
+                                                         Minor >= 3 ->
+    {SignAlgo0, Param, _, _, _} = get_cert_params(Cert),
+    SignAlgo = sign_algo(SignAlgo0, Param),
+    is_acceptable_hash_sign(SignAlgo, HashSigns);
+is_acceptable_cert(_,_,_) ->
+    %% Not negotiable pre TLS-1.2. So if cert is available for version it is acceptable
+    true.
 
 supported_ecc({Major, Minor}) when ((Major == 3) and (Minor >= 1)) orelse (Major > 3) ->
     Curves = tls_v1:ecc_curves(Minor),
@@ -1923,14 +1952,10 @@ handle_ocsp_extension(false = Stapling, Extensions) ->
     end.
 
 certificate_authorities(CertDbHandle, CertDbRef) ->
-    Authorities = [ Cert || #cert{otp = Cert} <- certificate_authorities_from_db(CertDbHandle, CertDbRef)],
-    Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
-		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
-		  DNEncodedBin = public_key:pkix_encode('Name', OTPSubj, otp),
-		  DNEncodedLen = byte_size(DNEncodedBin),
-		  <<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
-	  end,
-    list_to_binary([Enc(Cert) || Cert <- Authorities]).
+    Auths = fun(#'OTPCertificate'{tbsCertificate = TBSCert}) ->
+                    TBSCert#'OTPTBSCertificate'.subject
+            end,
+    [Auths(Cert) || #cert{otp = Cert} <- certificate_authorities_from_db(CertDbHandle, CertDbRef)].
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -2080,7 +2105,7 @@ digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
 	Signature ->
 	    Signature
     catch
-	error:badkey->
+	error:_ ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
 
@@ -3060,13 +3085,13 @@ decode_extensions(<<?UINT16(?EARLY_DATA_EXT), ?UINT16(4), ?UINT32(MaxSize),
                       Acc#{early_data =>
                                #early_data_indication_nst{indication = MaxSize}});
 decode_extensions(<<?UINT16(?CERTIFICATE_AUTHORITIES_EXT), ?UINT16(Len), 
-                    CertAuts0:Len/binary, Rest/binary>>,
+                    CertAutsExt:Len/binary, Rest/binary>>,
                   Version, MessageType, Acc) ->
     CertAutsLen = Len - 2,
-    <<?UINT16(CertAutsLen), CertAuts/binary>> = CertAuts0,
+    <<?UINT16(CertAutsLen), EncCertAuts/binary>> = CertAutsExt,
     decode_extensions(Rest, Version, MessageType,
                       Acc#{certificate_authorities =>
-                               #certificate_authorities{authorities = CertAuts}});
+                               #certificate_authorities{authorities = decode_cert_auths(EncCertAuts, [])}});
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
 decode_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
@@ -3212,6 +3237,11 @@ decode_psk_binders(<<>>, Acc) ->
     lists:reverse(Acc);
 decode_psk_binders(<<?BYTE(Len), Binder:Len/binary, Rest/binary>>, Acc) ->
     decode_psk_binders(Rest, [Binder|Acc]).
+
+decode_cert_auths(<<>>, Acc) ->
+    lists:reverse(Acc);
+decode_cert_auths(<<?UINT16(Len), Auth:Len/binary, Rest/binary>>, Acc) ->
+    decode_cert_auths(Rest, [public_key:pkix_normalize_name(Auth) | Acc]).
 
 %% encode/decode stream of certificate data to/from list of certificate data
 certs_to_list(ASN1Certs) ->
@@ -3843,12 +3873,12 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                   customize_hostname_check := CustomizeHostnameCheck,
                   crl_check := CrlCheck,
                   log_level := Level,
-                  signature_algs := SignAlgos,
-                  signature_algs_cert := SignAlgosCert,
-                  depth := Depth}, 
+                  depth := Depth} = Opts,
                 #{cert_ext := CertExt,
                   ocsp_responder_certs := OcspResponderCerts,
                   ocsp_state := OcspState}) ->
+    SignAlgos = maps:get(signature_algs, Opts, undefined),
+    SignAlgosCert = maps:get(signature_algs_cert, Opts, undefined),
     ValidationFunAndState = 
         validation_fun_and_state(VerifyFun, #{role => Role,
                                               certdb => CertDbHandle,

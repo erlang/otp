@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,8 +86,10 @@ opt_opts(Mod) ->
     lists:filter(fun
                      (debug_info) -> true;
                      (dialyzer) -> true;
+                     ({feature,_,enable}) -> true;
+                     ({feature,_,disable}) -> true;
                      (inline) -> true;
-                     (no_bsm3) -> true;
+                     (no_bs_create_bin) -> true;
                      (no_bsm_opt) -> true;
                      (no_copt) -> true;
                      (no_fun_opt) -> true;
@@ -95,11 +97,11 @@ opt_opts(Mod) ->
                      (no_make_fun3) -> true;
                      (no_module_opt) -> true;
                      (no_postopt) -> true;
-                     (no_put_tuple2) -> true;
                      (no_recv_opt) -> true;
                      (no_share_opt) -> true;
                      (no_shared_fun_wrappers) -> true;
-                     (no_ssa_float) -> true;
+                     (no_ssa_opt_float) -> true;
+                     (no_ssa_opt_ranges) -> true;
                      (no_ssa_opt) -> true;
                      (no_stack_trimming) -> true;
                      (no_swap) -> true;
@@ -118,7 +120,6 @@ get_data_dir(Config) ->
                 "_no_copt_SUITE",
                 "_post_opt_SUITE",
                 "_inline_SUITE",
-                "_r21_SUITE",
                 "_no_module_opt_SUITE",
                 "_no_type_opt_SUITE",
                 "_no_ssa_opt_SUITE"],
@@ -130,14 +131,15 @@ get_data_dir(Config) ->
 is_cloned_mod(Mod) ->
     is_cloned_mod_1(atom_to_list(Mod)).
 
-%% Test whether Mod is a cloned module.
+%% Test whether Mod is a cloned module. We don't consider modules
+%% compiled with compatibility for an older release cloned (that
+%% will improve coverage).
 
 is_cloned_mod_1("_no_opt_SUITE") -> true;
 is_cloned_mod_1("_no_copt_SUITE") -> true;
 is_cloned_mod_1("_no_ssa_opt_SUITE") -> true;
 is_cloned_mod_1("_post_opt_SUITE") -> true;
 is_cloned_mod_1("_inline_SUITE") -> true;
-is_cloned_mod_1("_21_SUITE") -> true;
 is_cloned_mod_1("_no_module_opt_SUITE") -> true;
 is_cloned_mod_1([_|T]) -> is_cloned_mod_1(T);
 is_cloned_mod_1([]) -> false.

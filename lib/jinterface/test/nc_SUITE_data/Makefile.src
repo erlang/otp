@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,6 @@
 # We use both `rm' (Unix) and `del' (Windows) for removing files, but
 # with a `-' in front so that the error in not finding `rm' (`del') on
 # Windows (Unix) is ignored.
-#
-# VxWorks? XXX
-#
 
 .SUFFIXES:
 .SUFFIXES: .java
@@ -49,6 +46,6 @@ clean:
 	-del /F /Q $(CLASS_FILES)
 
 $(CLASS_FILES) : $(JAVA_FILES)
-	$(JAVAC) -classpath $(CLASSPATH) $(JAVA_FILES)
+	$(JAVAC) -encoding UTF-8 -classpath $(CLASSPATH) $(JAVA_FILES)
 
 #

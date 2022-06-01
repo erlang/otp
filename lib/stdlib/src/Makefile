@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2020. All Rights Reserved.
+# Copyright Ericsson AB 1996-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@ MODULES= \
 	erl_error \
 	erl_eval \
 	erl_expand_records \
+	erl_features \
 	erl_internal \
 	erl_lint \
 	erl_parse \
@@ -91,7 +92,6 @@ MODULES= \
 	io \
 	io_lib \
 	io_lib_format \
-	io_lib_format_ryu_table \
 	io_lib_fread \
 	io_lib_pretty \
 	lists \
@@ -103,6 +103,7 @@ MODULES= \
 	orddict \
 	ordsets \
 	re \
+	peer \
 	pool \
 	proc_lib \
 	proplists \
@@ -169,7 +170,7 @@ ERL_COMPILE_FLAGS += -I../include -I../../kernel/include
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES) 
+$(TYPES): $(TARGET_FILES) 
 
 clean:
 	rm -f $(TARGET_FILES)
@@ -184,6 +185,7 @@ primary_bootstrap_compiler: \
   $(BOOTSTRAP_COMPILER)/ebin/epp.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_anno.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_error.beam \
+  $(BOOTSTRAP_COMPILER)/ebin/erl_features.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_scan.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_lint.beam \

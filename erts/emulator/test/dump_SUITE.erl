@@ -67,7 +67,7 @@ signal_abort(Config) ->
 
     Dump = filename:join(proplists:get_value(priv_dir, Config),"signal_abort.dump"),
 
-    {ok, Node} = start_node(Config),
+    {ok, _Peer, Node} = ?CT_PEER(),
 
     false = rpc:call(Node, erts_debug, set_internal_state,
                      [available_internal_state, true]),
@@ -118,7 +118,7 @@ load() ->
 exiting_dump(Config) when is_list(Config) ->
     Dump = filename:join(proplists:get_value(priv_dir, Config),"signal_abort.dump"),
 
-    {ok, Node} = start_node(Config),
+    {ok, _Peer, Node} = ?CT_PEER(),
 
     Self = self(),
 
@@ -154,8 +154,8 @@ exiting_dump(Config) when is_list(Config) ->
 free_dump(Config) when is_list(Config) ->
     Dump = filename:join(proplists:get_value(priv_dir, Config),"signal_abort.dump"),
 
-    {ok, NodeA} = start_node(Config),
-    {ok, NodeB} = start_node(Config),
+    {ok, _PeerA, NodeA} = ?CT_PEER(),
+    {ok, PeerB, NodeB} = ?CT_PEER(),
 
     Self = self(),
 
@@ -209,14 +209,14 @@ free_dump(Config) when is_list(Config) ->
 
     unlink(PidB),
 
-    rpc:call(NodeB, erlang, halt, [0]),
+    peer:stop(PeerB),
 
     ok.
 
 %% Test that crash dumping works when heart is used
 heart_dump(Config) ->
     Dump = filename:join(proplists:get_value(priv_dir, Config),"heart.dump"),
-    {ok, Node} = start_node(Config,"-heart"),
+    {ok, _Peer, Node} = ?CT_PEER(#{ args => ["-heart"] }),
     true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP",Dump]),
     true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP_SECONDS","10"]),
     rpc:call(Node, erlang, halt, ["dump"]),
@@ -226,7 +226,7 @@ heart_dump(Config) ->
 %% Test that there is no crash dump if heart is used and DUMP_SECONDS is not set
 heart_no_dump(Config) ->
     Dump = filename:join(proplists:get_value(priv_dir, Config),"heart_no.dump"),
-    {ok, Node} = start_node(Config,"-heart"),
+    {ok, _Peer, Node} = ?CT_PEER(#{ args => ["-heart"] }),
     true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP",Dump]),
     true = rpc:call(Node, os, unsetenv, ["ERL_CRASH_DUMP_SECONDS"]),
     rpc:call(Node, erlang, halt, ["dump"]),
@@ -253,16 +253,3 @@ get_dump_when_done(Dump, Sz) ->
         {ok, #file_info{ size = NewSz }} ->
             get_dump_when_done(Dump, NewSz)
     end.
-
-start_node(Config) when is_list(Config) ->
-    start_node(Config, "").
-start_node(Config, Extra) when is_list(Config) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = list_to_atom(atom_to_list(?MODULE)
-                        ++ "-"
-                        ++ atom_to_list(proplists:get_value(testcase, Config))
-                        ++ "-"
-                        ++ integer_to_list(erlang:system_time(second))
-                        ++ "-"
-                        ++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Extra}]).

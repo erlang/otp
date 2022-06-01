@@ -15,7 +15,7 @@ CONFIGURATION:
 
     Adding/changing stuff/classes should be done by updating wxapi.conf
     and running make. Sometimes the code generator will require changes,
-    I havn't thought of everything yet.
+    I haven't thought of everything yet.
 
 RUNNING:
     I use the following alias wxgen='make GL_DIR=/home/dgud/opengl WX_DIR=/home/dgud/src/wxWidgets'

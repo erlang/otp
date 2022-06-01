@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,15 +24,15 @@
 -export([module/4]).
 -export([encode/2]).
 
--export_type([fail/0,label/0,reg/0,reg_num/0,src/0,module_code/0,function_name/0]).
+-export_type([fail/0,label/0,src/0,module_code/0,function_name/0]).
 
 -import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
+
 -include("beam_opcodes.hrl").
+-include("beam_asm.hrl").
 
 %% Common types for describing operands for BEAM instructions.
--type reg_num() :: 0..1023.
--type reg() :: {'x',reg_num()} | {'y',reg_num()}.
--type src() :: reg() |
+-type src() :: beam_reg() |
 	       {'literal',term()} |
 	       {'atom',atom()} |
 	       {'integer',integer()} |
@@ -64,11 +64,12 @@ module(Code, ExtraChunks, CompileInfo, CompilerOpts) ->
 assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
-    Dict2 = shared_fun_wrappers(CompilerOpts, Dict1),
+    {0,Dict2} = beam_dict:type(any, Dict1),
+    Dict3 = shared_fun_wrappers(CompilerOpts, Dict2),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = sets:from_list(Exp0, [{version, 2}]),
-    {Code,Dict} = assemble_1(Asm, Exp, Dict2, []),
+    {Code,Dict} = assemble_1(Asm, Exp, Dict3, []),
     build_file(Code, Attr, Dict, NumLabels, NumFuncs,
                ExtraChunks, CompileInfo, CompilerOpts).
 
@@ -130,7 +131,7 @@ assemble_function([H|T], Acc, Dict0) ->
 assemble_function([], Code, Dict) ->
     {Code, Dict}.
 
-build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, CompilerOpts) ->
+build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks0, CompileInfo, CompilerOpts) ->
     %% Create the code chunk.
 
     CodeChunk = chunk(<<"Code">>,
@@ -142,9 +143,8 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
 		      Code),
 
     %% Create the atom table chunk.
-    AtomEncoding = atom_encoding(CompilerOpts),
-    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict, AtomEncoding),
-    AtomChunk = chunk(atom_chunk_name(AtomEncoding), <<NumAtoms:32>>, AtomTab),
+    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict),
+    AtomChunk = chunk(<<"AtU8">>, <<NumAtoms:32>>, AtomTab),
 
     %% Create the import table chunk.
 
@@ -191,13 +191,27 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
 		   end,
 
     %% Create the line chunk.
-    
     LineChunk = chunk(<<"Line">>, build_line_table(Dict)),
+
+    %% Create the type table chunk.
+    {NumTypes, TypeTab} = beam_dict:type_table(Dict),
+    TypeChunk = chunk(<<"Type">>,
+                      <<?BEAM_TYPES_VERSION:32, NumTypes:32>>,
+                      TypeTab),
+
+    %% Create the meta chunk
+    Meta = proplists:get_value(<<"Meta">>, ExtraChunks0, empty),
+    MetaChunk = case Meta of
+                    empty -> [];
+                    Meta -> chunk(<<"Meta">>, Meta)
+                end,
+    %% Remove Meta chunk from ExtraChunks since it is essential
+    ExtraChunks = ExtraChunks0 -- [{<<"Meta">>, Meta}],
 
     %% Create the attributes and compile info chunks.
 
     Essentials0 = [AtomChunk,CodeChunk,StringChunk,ImportChunk,
-		   ExpChunk,LambdaChunk,LiteralChunk],
+		   ExpChunk,LambdaChunk,LiteralChunk,MetaChunk],
     Essentials1 = [iolist_to_binary(C) || C <- Essentials0],
     MD5 = module_md5(Essentials1),
     Essentials = finalize_fun_table(Essentials1, MD5),
@@ -212,22 +226,15 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks, CompileInfo, Comp
     %% Create IFF chunk.
 
     Chunks = case member(slim, CompilerOpts) of
-		 true ->
-		     [Essentials,AttrChunk];
-		 false ->
-		     [Essentials,LocChunk,AttrChunk,
-		      CompileChunk,CheckedChunks,LineChunk]
-	     end,
+                 true when NumTypes > 0 ->
+                     [Essentials,AttrChunk,TypeChunk];
+                 true when NumTypes =:= 0 ->
+                     [Essentials,AttrChunk];
+                 false ->
+                     [Essentials,LocChunk,AttrChunk,
+                      CompileChunk,CheckedChunks,LineChunk,TypeChunk]
+             end,
     build_form(<<"BEAM">>, Chunks).
-
-atom_encoding(Opts) ->
-    case proplists:get_bool(no_utf8_atoms, Opts) of
-	false -> utf8;
-	true -> latin1
-    end.
-
-atom_chunk_name(utf8) -> <<"AtU8">>;
-atom_chunk_name(latin1) -> <<"Atom">>.
 
 %% finalize_fun_table(Essentials, MD5) -> FinalizedEssentials
 %%  Update the 'old_uniq' field in the entry for each fun in the
@@ -391,6 +398,12 @@ make_op({make_fun3,{f,Lbl},_Index,_OldUniq,Dst,{list,Env}}, Dict0) ->
     NumFree = length(Env),
     {Fun,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
     make_op({make_fun3,Fun,Dst,{list,Env}}, Dict);
+make_op({call_fun2,{f,Lbl},Arity,Func}, Dict0) ->
+    %% call_fun with known target, fill in the fun entry.
+    #tr{t=#t_fun{target={_Name, TotalArity}}} = Func, %Assertion.
+    NumFree = TotalArity - Arity,
+    {Lambda,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
+    make_op({call_fun2,Lambda,Arity,Func}, Dict);
 make_op({kill,Y}, Dict) ->
     make_op({init,Y}, Dict);
 make_op({Name,Arg1}, Dict) ->
@@ -401,14 +414,9 @@ make_op({Name,Arg1,Arg2,Arg3}, Dict) ->
     encode_op(Name, [Arg1,Arg2,Arg3], Dict);
 make_op({Name,Arg1,Arg2,Arg3,Arg4}, Dict) ->
     encode_op(Name, [Arg1,Arg2,Arg3,Arg4], Dict);
-make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5}, Dict) ->
-    encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5], Dict);
-make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5,Arg6}, Dict) ->
-    encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5,Arg6], Dict);
-%% make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7}, Dict) ->
-%%     encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7], Dict);
-make_op({Name,Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7,Arg8}, Dict) ->
-    encode_op(Name, [Arg1,Arg2,Arg3,Arg4,Arg5,Arg6,Arg7,Arg8], Dict);
+make_op(Instr, Dict) when tuple_size(Instr) >= 6 ->
+    [Name|Args] = tuple_to_list(Instr),
+    encode_op(Name, Args, Dict);
 make_op(Op, Dict) when is_atom(Op) ->
     encode_op(Op, [], Dict).
 
@@ -422,6 +430,23 @@ encode_op_1([A0|As], Dict0, Acc) ->
     encode_op_1(As, Dict, [Acc,A]);
 encode_op_1([], Dict, Acc) -> {Acc,Dict}.
 
+encode_arg(#tr{r={x, X},t=Type}, Dict0) when is_integer(X), X >= 0 ->
+    %% Gracefully prevent this module from being loaded in OTP 24 and below by
+    %% forcing an opcode it doesn't understand. It would of course fail to load
+    %% without this, but the error message wouldn't be very helpful.
+    Canary = beam_opcodes:opcode(call_fun2, 3),
+    {Index, Dict} = beam_dict:type(Type, beam_dict:opcode(Canary, Dict0)),
+    Data = [encode(?tag_z, 5),
+            encode(?tag_x, X),
+            encode(?tag_u, Index)],
+    {Data, Dict};
+encode_arg(#tr{r={y, Y},t=Type}, Dict0) when is_integer(Y), Y >= 0 ->
+    Canary = beam_opcodes:opcode(call_fun2, 3),
+    {Index, Dict} = beam_dict:type(Type, beam_dict:opcode(Canary, Dict0)),
+    Data = [encode(?tag_z, 5),
+            encode(?tag_y, Y),
+            encode(?tag_u, Index)],
+    {Data, Dict};
 encode_arg({x, X}, Dict) when is_integer(X), X >= 0 ->
     {encode(?tag_x, X), Dict};
 encode_arg({y, Y}, Dict) when is_integer(Y), Y >= 0 ->

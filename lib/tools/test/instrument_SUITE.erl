@@ -73,17 +73,17 @@ allocations_test(Args, Plain, PerAlloc) ->
              end).
 
 allocations_enabled(Config) when is_list(Config) ->
-    allocations_test("+Meamax +Muatags true",
+    allocations_test(["+Meamax", "+Muatags", "true"],
                      fun verify_allocations_enabled/1,
                      fun verify_allocations_enabled/2).
 
 allocations_disabled(Config) when is_list(Config) ->
-    allocations_test("+Meamax +Muatags false",
+    allocations_test(["+Meamax", "+Muatags", "false"],
                      fun verify_allocations_disabled/1,
                      fun verify_allocations_disabled/2).
 
 allocations_ramv(Config) when is_list(Config) ->
-    allocations_test("+Meamax +Muatags true +Muramv true",
+    allocations_test(["+Meamax", "+Muatags","true", "+Muramv","true"],
                      fun verify_allocations_enabled/1,
                      fun verify_allocations_enabled/2).
 
@@ -165,12 +165,12 @@ carriers_test(Args, Plain, PerAlloc) ->
              end).
 
 carriers_enabled(Config) when is_list(Config) ->
-    carriers_test("+Meamax",
+    carriers_test(["+Meamax"],
                   fun verify_carriers_enabled/1,
                   fun verify_carriers_enabled/2).
 
 carriers_disabled(Config) when is_list(Config) ->
-    carriers_test("+Meamin",
+    carriers_test(["+Meamin"],
                   fun verify_carriers_disabled/1,
                   fun verify_carriers_disabled/2).
 
@@ -300,8 +300,8 @@ run_test(Args0, Test) ->
     %%
     %% We also set the abandon carrier threshold to 70% to provoke more
     %% activity in the carrier pool.
-    Args = Args0 ++ " +MBsbct 1 +Muacul 70",
-    Node = start_slave(Args),
+    Args = Args0 ++ ["+MBsbct", "1", "+Muacul", "70"],
+    {ok, Peer, Node} = ?CT_PEER(Args),
 
     ok = rpc:call(Node, ?MODULE, generate_test_blocks, []),
     ok = Test(Node),
@@ -309,26 +309,7 @@ run_test(Args0, Test) ->
     ok = rpc:call(Node, ?MODULE, churn_memory, []),
     ok = Test(Node),
 
-    true = test_server:stop_node(Node).
-
-start_slave(Args) ->
-    MicroSecs = erlang:monotonic_time(),
-    Name = "instr" ++ integer_to_list(MicroSecs),
-    Pa = filename:dirname(code:which(?MODULE)),
-
-    %% We pass arguments through ZFLAGS as the nightly tests rotate
-    %% +Meamax/+Meamin which breaks the _enabled and _disabled tests unless
-    %% overridden.
-    ZFlags = os:getenv("ERL_ZFLAGS", ""),
-    {ok, Node} = try
-                     os:putenv("ERL_ZFLAGS", ZFlags ++ [" " | Args]),
-                     test_server:start_node(list_to_atom(Name),
-                                            slave,
-                                            [{args, "-pa " ++ Pa}])
-                 after
-                     os:putenv("ERL_ZFLAGS", ZFlags)
-                 end,
-    Node.
+    peer:stop(Peer).
 
 generate_test_blocks() ->
     Runner = self(),

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,7 +145,7 @@ static void*
 	ei_x_free(&x);
 	ei_x_free(&xs);
     } else {
-	fprintf(file, "coudn't connect fd %d r %d\n", fd, r); fflush(file);
+	fprintf(file, "couldn't connect fd %d r %d\n", fd, r); fflush(file);
     }
     ei_close_connection(listen);
     fprintf(file, "done thread %d\n", n);

@@ -171,7 +171,7 @@
       <desc>
         <p>This function controls if user tags are to be spread to other processes with the next message. Spreading of user tags work like spreading of sequential trace tokens, so that a received user tag will be active in the process until the next message arrives (if that message does not also contain the user tag.</p>
 	<p>This functionality is used when a client process communicates with a file i/o-server to spread the user tag to the I/O-server and then down to the efile_drv driver. By using <c>spread_tag/1</c> and <c>restore_tag/1</c>, one can enable or disable spreading of user tags to other processes and then restore the previous state of the user tag. The TagData returned from this call contains all previous information so the state (including any previously spread user tags) will be completely restored by a later call to <c>restore_tag/1</c>.</p> 
-	<p>The <seeerl marker="kernel:file">file</seeerl> module already spread's tags, so there is noo need to manually call these function to get user tags spread to the efile driver through that module.</p>
+	<p>The <seeerl marker="kernel:file">file</seeerl> module already spread's tags, so there is no need to manually call these function to get user tags spread to the efile driver through that module.</p>
 	<p>The most use of this function would be if one for example uses the <seeerl marker="stdlib:io">io</seeerl> module to communicate with an I/O-server for a regular file, like in the following example:</p>
 <pre>
 f() ->

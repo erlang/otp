@@ -4834,7 +4834,7 @@ for (;; ptr++)
 
     If the class contains characters outside the 0-255 range, a different
     opcode is compiled. It may optionally have a bit map for characters < 256,
-    but those above are are explicitly listed afterwards. A flag byte tells
+    but those above are explicitly listed afterwards. A flag byte tells
     whether the bitmap is present, and whether this is a negated class or not.
 
     In JavaScript compatibility mode, an isolated ']' causes an error. In
@@ -5855,7 +5855,7 @@ for (;; ptr++)
     /* If previous was a character type match (\d or similar), abolish it and
     create a suitable repeat item. The code is shared with single-character
     repeats by setting op_type to add a suitable offset into repeat_type. Note
-    the the Unicode property types will be present only when SUPPORT_UCP is
+    the Unicode property types will be present only when SUPPORT_UCP is
     defined, but we don't wrap the little bits of code here because it just
     makes it horribly messy. */
 
@@ -7070,7 +7070,7 @@ for (;; ptr++)
         /* Optimize (?!) to (*FAIL) unless it is quantified - which is a weird
         thing to do, but Perl allows all assertions to be quantified, and when
         they contain capturing parentheses there may be a potential use for
-        this feature. Not that that applies to a quantified (?!) but we allow
+        this feature. Not that applies to a quantified (?!) but we allow
         it for uniformity. */
 
         /* ------------------------------------------------------------ */

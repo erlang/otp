@@ -1,10 +1,11 @@
 # BeamAsm, the Erlang JIT
 
 BeamAsm provides load-time conversion of Erlang BEAM instructions into
-native code on x86-64. This allows the loader to eliminate any instruction
-dispatching overhead and also specialize each instruction on their argument types.
+native code on x86-64 and aarch64. This allows the loader to eliminate any
+instruction dispatching overhead and also specialize each instruction on their
+argument types.
 
-BeamAsm does hardly any cross instruction optimizations and the x and y
+BeamAsm does hardly any cross instruction optimizations and the `x` and `y`
 register arrays work the same as when interpreting BEAM instructions.
 This allows the Erlang run-time system to be largely unchanged except for
 places that need to work with loaded BEAM instructions like code loading,
@@ -14,7 +15,8 @@ BeamAsm uses [asmjit](https://github.com/asmjit/asmjit) to generate native code
 in run-time. Only small parts of the
 [Assembler API](https://asmjit.com/doc/group__asmjit__assembler.html) of
 [asmjit](https://github.com/asmjit/asmjit) is used. At the moment
-[asmjit](https://github.com/asmjit/asmjit) only supports x86 32/64 bit assembler.
+[asmjit](https://github.com/asmjit/asmjit) only supports x86 32/64 bit and
+aarch64 assembler.
 
 ## Loading Code
 
@@ -25,12 +27,12 @@ used in BeamAsm are much simpler than the interpreter's, as most of the
 transformations for the interpreter are done only to eliminate the instruction
 dispatch overhead.
 
-Then each instruction is encoded using the C++ functions in the jit/instr_*.cpp files.
-Example:
+Then each instruction is encoded using the C++ functions in the
+`jit/$ARCH/instr_*.cpp` files. For example:
 
     void BeamModuleAssembler::emit_is_nonempty_list(const ArgVal &Fail, const ArgVal &Src) {
       a.test(getArgRef(Src), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
-      a.jne(labels[Fail.getValue()]);
+      a.jne(labels[Fail.getLabel()]);
     }
 
 [asmjit](https://github.com/asmjit/asmjit) provides a fairly straightforward
@@ -44,11 +46,14 @@ common patterns.
 
 The original register allocation done by the Erlang compiler is used to manage the
 liveness of values and the physical registers are statically allocated to keep
-the necessary process state. At the moment this is the static register allocation:
+the necessary process state. At the moment this is the static register
+allocation on x86-64:
 
     rbx: ErtsSchedulerRegisters struct (contains x/float registers and some metadata)
-    rbp: Active code index
-    r12: Optional Save slot for the Erlang stack pointer when executing C code
+    rbp: Current frame pointer when `perf` support is enabled, otherwise this
+         is an optional save slot for the Erlang stack pointer when executing C
+         code.
+    r12: Active code index
     r13: Current running process
     r14: Remaining reductions
     r15: Erlang heap pointer
@@ -132,6 +137,23 @@ handlers even when we lack a stack frame. This is merely a reservation and has
 no effect on how the stack works, and all values stored there must be valid
 Erlang terms in case of a garbage collection.
 
+## Frame pointers
+
+To aid debuggers and sampling profilers, we support running Erlang code with
+native frame pointers. At the time of writing, this is only enabled together
+with `perf` support (`+JPperf true`) to save stack space, but we may add a flag
+to explicitly enable it in the future.
+
+When enabled, continuation pointers (CP) have both a return address _and_ a
+frame pointer that points at the previous CP. CPs must form a valid chain at
+all times, and it's illegal to have "half" a CP when the stack is inspected.
+
+Frame pointers are pushed when entering an Erlang function and popped before
+leaving it, including on tail calls as the callee will immediately push the
+frame pointer on entry. This has a slight overhead but saves us the headache of
+having multiple entry points for each function depending on whether it's tail-
+or body-called, which would get very tricky once breakpoints enter the picture.
+
 ## Running C code
 
 As Erlang stacks can be very small, we have to switch over to a different stack
@@ -209,16 +231,17 @@ The `erts_writable_code_ptr` function can be used to get writable pointers,
 given a module instance:
 
     for (i = 0; i < n; ++i) {
-        ErtsCodeInfo* ci;
+        const ErtsCodeInfo* ci_exec;
+        ErtsCodeInfo* ci_rw;
         void *w_ptr;
 
-        w_ptr = erts_writable_code_ptr(&modp->curr,
-                                       code_hdr->functions[i]);
-        ci = (ErtsCodeInfo*)w_ptr;
+        ci_exec = code_hdr->functions[i];
+        w_ptr = erts_writable_code_ptr(&modp->curr, ci_exec);
+        ci_rw = (ErtsCodeInfo*)w_ptr;
 
-        uninstall_breakpoint(ci);
-        consolidate_bp_data(modp, ci, 1);
-        ASSERT(ci->u.gen_bp == NULL);
+        uninstall_breakpoint(ci_rw, ci_exec);
+        consolidate_bp_data(modp, ci_rw, 1);
+        ASSERT(ci_rw->u.gen_bp == NULL);
     }
 
 Without the module instance there's no reliable way to figure out the writable
@@ -238,11 +261,11 @@ means that all remote calls _must_ place the export entry in said register,
 even when we don't know beforehand that the call is remote, such as when
 calling a fun.
 
-This is pretty easy to do in assembler and the `emit_setup_export_call` helper
-handles it nicely for us, but we can't set registers when trapping out from C
-code. When trapping to an export entry from C code one must set `c_p->current`
-to the `ErtsCodeMFA` inside the export entry in question, and then set `c_p->i`
-to `beam_bif_export_trap`.
+This is pretty easy to do in assembler and the `emit_setup_dispatchable_call`
+helper handles it nicely for us, but we can't set registers when trapping out
+from C code. When trapping to an export entry from C code one must set
+`c_p->current` to the `ErtsCodeMFA` inside the export entry in question, and
+then set `c_p->i` to `beam_bif_export_trap`.
 
 The `BIF_TRAP` macros handle this for you, so you generally don't need to
 think about it.
@@ -254,29 +277,31 @@ think about it.
 The BeamAsm implementation resides in the `$ERL_TOP/erts/emulator/beam/jit` folder.
 The files are:
 
-* `load.h`
-    * BeamAsm specific header for loading code
 * `asm_load.c`
     * BeamAsm specific functions for loading code
-* `generators.tab`, `predicates.tab`, `ops.tab`
-    * BeamAsm specific transformations for instructions. See [beam_makeops](beam_makeops) for
-      more details.
 * `beam_asm.h`
     * Header file describing the C -> C++ api
-* `beam_asm.hpp`
+* `beam_jit_metadata.cpp`
+    * `gdb` and Linux `perf` support for BeamAsm
+* `load.h`
+    * BeamAsm specific header for loading code
+* `$ARCH/beam_asm.hpp`
     * Header file describing the structs and classes used by BeamAsm.
-* `beam_asm.cpp`
-    * Implementation of the main process loop
+* `$ARCH/beam_asm.cpp`
     * The BeamAsm initialization code
     * The C -> C++ interface functions.
-* `beam_asm_module.cpp`
+* `$ARCH/generators.tab`, `$ARCH/predicates.tab`, `$ARCH/ops.tab`
+    * BeamAsm specific transformations for instructions. See
+      [beam_makeops](beam_makeops) for more details.
+* `$ARCH/beam_asm_module.cpp`
     * The code for the BeamAsm module code generator logic
-* `beam_asm_global.cpp`
-    * Global code fragments that are used by multiple instructions, e.g. error handling code.
-* `instr_*.cpp`
+* `$ARCH/beam_asm_global.cpp`
+    * Global code fragments that are used by multiple instructions, e.g. error
+      handling code.
+* `$ARCH/instr_*.cpp`
     * Implementation of individual instructions grouped into files by area
-* `beam_asm_perf.cpp`
-    * The linux perf support for BeamAsm
+* `$ARCH/process_main.cpp`
+    * Implementation of the main process loop
 
 ## Linux perf support
 
@@ -288,14 +313,18 @@ You can run perf on BeamAsm like this:
 
     perf record erl +JPperf true
 
-and then look at the results using `perf report` as you normally would with perf.
+and then look at the results using `perf report` as you normally would with
+perf.
 
-If you want to get some context to you calls you cann use the [lbr](https://lwn.net/Articles/680985/)
-call-graph option to `perf record`. Using `lbr` is not perfect (for instance you
-do not get any syscalls in the context), but it work well enough.
+Frame pointers are enabled when the `+JPperf true` option is passed, so you can
+use `perf record --call-graph=fp` to get more context. This will give you
+accurate call graphs for pure Erlang code, but in rare cases it fails to track
+transitions from Erlang to C code and back. [`perf record --call-graph=lbr`](https://lwn.net/Articles/680985/)
+may work better in those cases, but it's worse at tracking in general.
+
 For example, you can run perf to analyze dialyzer building a PLT like this:
 
-     ERL_FLAGS="+JPperf true +S 1" perf record --call-graph lbr \
+     ERL_FLAGS="+JPperf true +S 1" perf record --call-graph=fp \
        dialyzer --build_plt -Wunknown --apps compiler crypto erts kernel stdlib \
        syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
        sasl runtime_tools snmp ssl tftp wx xmerl tools
@@ -315,10 +344,10 @@ By expanding it and looking at its parents we can see that it is the function
 at it in the source code to see if you can figure out why so much time is spent there.
 
 After `eq` we see the function `erl_types:t_has_var/1` where we spend almost
-6% of the entire execution in. A while further down you can see `copy_struct` which
-is the function used to copy terms. If we expand it to view the parents we find that
-it is mostly `ets:lookup_element/3` that contributes to this time via the Erlang
-function `dialyzer_plt:ets_table_lookup/2`.
+5% of the entire execution in. A while further down you can see `copy_struct_x`
+which is the function used to copy terms. If we expand it to view the parents
+we find that it is mostly `ets:lookup_element/3` that contributes to this time
+via the Erlang function `dialyzer_plt:ets_table_lookup/2`.
 
 ### Flame Graph
 
@@ -328,7 +357,7 @@ be more easily shared with others and manipulated to give a graph tailor-made fo
 your needs. For instance, if we run dialyzer with all schedulers:
 
     ## Run dialyzer with multiple schedulers
-    ERL_FLAGS="+JPperf true" perf record --call-graph lbr \
+    ERL_FLAGS="+JPperf true" perf record --call-graph=fp \
       dialyzer --build_plt -Wunknown --apps compiler crypto erts kernel stdlib \
       syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
       sasl runtime_tools snmp ssl tftp wx xmerl tools --statistics
@@ -367,12 +396,12 @@ you what you want.
 
 ### Annotate perf functions
 
-If you want to be able to use the `perf annotate` functionality (and in extention
+If you want to be able to use the `perf annotate` functionality (and in extension
 the annotate functionality in the `perf report` gui) you need to use a monotonic
 clock when calling `perf record`, i.e. `perf record -k mono`. So for a dialyzer
 run you would do this:
 
-    ERL_FLAGS="+JPperf true +S 1" perf record -k mono --call-graph lbr \
+    ERL_FLAGS="+JPperf true +S 1" perf record -k mono --call-graph=fp \
       dialyzer --build_plt -Wunknown --apps compiler crypto erts kernel stdlib \
       syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
       sasl runtime_tools snmp ssl tftp wx xmerl tools
@@ -389,6 +418,10 @@ and then you can view an annotated function like this:
 or by pressing `a` in the `perf report` ui. Then you get something like this:
 
 ![Linux Perf FlameGraph: dialyzer PLT build](figures/beamasm-perf-annotate.png)
+
+`perf annotate` will interleave the listing with the original source code
+whenever possible. You can use the `+{source,Filename}` or `+absolute_paths`
+compiler options to tell `perf` where to find the source code.
 
 > *WARNING*: Calling `perf inject --jit` will create a lot of files in `/tmp/`
 > and in `~/.debug/tmp/`. So make sure to cleanup in those directories from time to
@@ -420,11 +453,11 @@ we have found useful:
 You will see a banner containing `[jit]` shell when you start. You can also use
 `erlang:system_info(emu_flavor)` to check the flavor and it should be `jit`.
 
-There are three major reasons why when building Erlang/OTP you would not get the JIT.
+There are two major reasons why when building Erlang/OTP you would not get the
+JIT.
 
-* You are not building x86 64-bit
+* You are not building a 64-bit emulator for x86 or ARM
 * You do not have a C++ compiler that supports C++-17
-* You do not have an OS that supports executable *and* writable memory
 
 If you run `./configure --enable-jit` configure will abort when it discovers that
 your system cannot build the JIT.
@@ -448,29 +481,24 @@ when that happens. One such could be very short-lived small scripts. If you come
 any scenarios when this happens, please open a bug report at
 [the Erlang/OTP bug tracker](https://github.com/erlang/otp/issues).
 
-### Would it be possible to add support for BeamAsm on ARM?
+### Would it be possible to add support for BeamAsm on other CPU architectures?
 
 Any new architecture needs support in the assembler as well. Since we use
 [asmjit](https://github.com/asmjit/asmjit) for this, that means we need support
 in [asmjit](https://github.com/asmjit/asmjit). BeamAsm uses relatively few
-instructions (mostly, `mov`, `jmp`, `cmp`, `sub`, `add`), so it would not need to have
-full support of all ARM instructions.
+instructions (mostly, `mov`, `jmp`, `cmp`, `sub`, `add`), so it would not need
+to have full support of all instructions.
 
 Another approach would be to not use [asmjit](https://github.com/asmjit/asmjit)
-for ARM, but instead, use something different to assemble code during load-time.
+for the new architecture, but instead use something different to assemble code
+during load-time.
 
 ### Would it be possible to add support for BeamAsm on another OS?
 
-Adding a new OS that runs x86-64 should not need any large changes if
-the OS supports mapping of memory as executable. If the ABI used by the
+Adding a new OS that runs x86-64 or aarch64 should not need any large changes
+if the OS supports mapping of memory as executable. If the ABI used by the
 OS is not supported changes related to calling C-functions also have to
 be made.
 
-As a reference, it took us about 2-3 weeks to implement support for Windows.
-
-### Would it be possible to add support in perf to better crawl the Erlang stack?
-
-Yes, though not easily.
-
-Using `perf --call-graph lbr` works for Erlang, but it does not give a
-perfect record as the buffer has a limited size.
+As a reference, it took us about 2-3 weeks to implement support for Windows,
+and about three months to finish the aarch64 port.

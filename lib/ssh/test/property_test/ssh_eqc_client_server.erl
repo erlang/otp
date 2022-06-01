@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -299,7 +299,7 @@ do(Pid, Fun, Timeout) when is_function(Fun,0) ->
 	    
 %%%----------------
 %%% Start a new connection
-%%% Precondition:  deamon exists
+%%% Precondition:  daemon exists
 
 ssh_open_connection_pre(S) -> S#state.servers /= [].
     

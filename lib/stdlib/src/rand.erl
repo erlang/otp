@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +36,11 @@
          normal/0, normal/2, normal_s/1, normal_s/3
 	]).
 
+%% Utilities
+-export([exsp_next/1, exsp_jump/1, splitmix64_next/1,
+         mwc59/1, mwc59_value32/1, mwc59_value/1, mwc59_float/1,
+         mwc59_seed/0, mwc59_seed/1]).
+
 %% Test, dev and internal
 -export([exro928_jump_2pow512/1, exro928_jump_2pow20/1,
 	 exro928_seed/1, exro928_next/1, exro928_next_state/1,
@@ -44,10 +49,11 @@
 %% Debug
 -export([make_float/3, float2str/1, bc64/1]).
 
--compile({inline, [exs64_next/1, exsplus_next/1, exsss_next/1,
+-compile({inline, [exs64_next/1, exsp_next/1, exsss_next/1,
 		   exs1024_next/1, exs1024_calc/2,
                    exro928_next_state/4,
                    exrop_next/1, exrop_next_s/2,
+                   mwc59_value/1,
 		   get_52/1, normal_kiwi/1]}).
 
 -define(DEFAULT_ALG_HANDLER, exsss).
@@ -88,7 +94,7 @@
 %% This depends on the algorithm handler function
 -type alg_state() ::
 	exsplus_state() | exro928_state() |  exrop_state() | exs1024_state() |
-	exs64_state() | term().
+	exs64_state() | dummy_state() | term().
 
 %% This is the algorithm handling definition within this module,
 %% and the type to use for plugins.
@@ -132,7 +138,8 @@
 %% Algorithm state
 -type state() :: {alg_handler(), alg_state()}.
 -type builtin_alg() ::
-	exsss | exro928ss | exrop | exs1024s | exsp | exs64 | exsplus | exs1024.
+	exsss | exro928ss | exrop | exs1024s | exsp | exs64 | exsplus |
+        exs1024 | dummy.
 -type alg() :: builtin_alg() | atom().
 -type export_state() :: {alg(), alg_state()}.
 -type seed() :: [integer()] | integer() | {integer(), integer(), integer()}.
@@ -141,7 +148,9 @@
     state/0, export_state/0, seed/0]).
 -export_type(
    [exsplus_state/0, exro928_state/0, exrop_state/0, exs1024_state/0,
-    exs64_state/0]).
+    exs64_state/0, mwc59_state/0, dummy_state/0]).
+-export_type(
+   [uint58/0, uint64/0, splitmix64_state/0]).
 
 %% =====================================================================
 %% Range macro and helper
@@ -266,9 +275,12 @@ seed_s({Alg, AlgState}) when is_atom(Alg) ->
     {AlgHandler,_SeedFun} = mk_alg(Alg),
     {AlgHandler,AlgState};
 seed_s(Alg) ->
-    seed_s(Alg, {erlang:phash2([{node(),self()}]),
-		 erlang:system_time(),
-		 erlang:unique_integer()}).
+    seed_s(Alg, default_seed()).
+
+default_seed() ->
+    {erlang:phash2([{node(),self()}]),
+     erlang:system_time(),
+     erlang:unique_integer()}.
 
 %% seed/2: seeds RNG with the algorithm and given values
 %% and returns the NEW state.
@@ -583,6 +595,22 @@ bytes_r(N, AlgHandler, Next, R, Bits, WeakLowBits) ->
     bytes_r(N, AlgHandler, Next, R, <<>>, GoodBytes, GoodBits, Shift).
 %%
 bytes_r(N0, AlgHandler, Next, R0, Bytes0, GoodBytes, GoodBits, Shift)
+  when (GoodBytes bsl 2) < N0 ->
+    %% Loop unroll 4 iterations
+    %% - gives about 25% shorter time for large binaries
+    {V1, R1} = Next(R0),
+    {V2, R2} = Next(R1),
+    {V3, R3} = Next(R2),
+    {V4, R4} = Next(R3),
+    Bytes1 =
+        <<Bytes0/binary,
+          (V1 bsr Shift):GoodBits,
+          (V2 bsr Shift):GoodBits,
+          (V3 bsr Shift):GoodBits,
+          (V4 bsr Shift):GoodBits>>,
+    N1 = N0 - (GoodBytes bsl 2),
+    bytes_r(N1, AlgHandler, Next, R4, Bytes1, GoodBytes, GoodBits, Shift);
+bytes_r(N0, AlgHandler, Next, R0, Bytes0, GoodBytes, GoodBits, Shift)
   when GoodBytes < N0 ->
     {V, R1} = Next(R0),
     Bytes1 = <<Bytes0/binary, (V bsr Shift):GoodBits>>,
@@ -679,11 +707,11 @@ mk_alg(exs64) ->
     {#{type=>exs64, max=>?MASK(64), next=>fun exs64_next/1},
      fun exs64_seed/1};
 mk_alg(exsplus) ->
-    {#{type=>exsplus, max=>?MASK(58), next=>fun exsplus_next/1,
+    {#{type=>exsplus, max=>?MASK(58), next=>fun exsp_next/1,
        jump=>fun exsplus_jump/1},
      fun exsplus_seed/1};
 mk_alg(exsp) ->
-    {#{type=>exsp, bits=>58, weak_low_bits=>1, next=>fun exsplus_next/1,
+    {#{type=>exsp, bits=>58, weak_low_bits=>1, next=>fun exsp_next/1,
        uniform=>fun exsp_uniform/1, uniform_n=>fun exsp_uniform/2,
        jump=>fun exsplus_jump/1},
      fun exsplus_seed/1};
@@ -710,7 +738,12 @@ mk_alg(exro928ss) ->
        uniform=>fun exro928ss_uniform/1,
        uniform_n=>fun exro928ss_uniform/2,
        jump=>fun exro928_jump/1},
-     fun exro928_seed/1}.
+     fun exro928_seed/1};
+mk_alg(dummy=Name) ->
+    {#{type=>Name, bits=>58, next=>fun dummy_next/1,
+       uniform=>fun dummy_uniform/1,
+       uniform_n=>fun dummy_uniform/2},
+     fun dummy_seed/1}.
 
 %% =====================================================================
 %% exs64 PRNG: Xorshift64*
@@ -724,7 +757,7 @@ exs64_seed(L) when is_list(L) ->
     [R] = seed64_nz(1, L),
     R;
 exs64_seed(A) when is_integer(A) ->
-    [R] = seed64(1, ?MASK(64, A)),
+    [R] = seed64(1, A),
     R;
 %%
 %% Traditional integer triplet seed
@@ -788,15 +821,15 @@ exsplus_seed(L) when is_list(L) ->
     [S0,S1] = seed58_nz(2, L),
     [S0|S1];
 exsplus_seed(X) when is_integer(X) ->
-    [S0,S1] = seed58(2, ?MASK(64, X)),
+    [S0,S1] = seed58(2, X),
     [S0|S1];
 %%
 %% Traditional integer triplet seed
 exsplus_seed({A1, A2, A3}) ->
-    {_, R1} = exsplus_next(
+    {_, R1} = exsp_next(
                 [?MASK(58, (A1 * 4294967197) + 1)|
                  ?MASK(58, (A2 * 4294967231) + 1)]),
-    {_, R2} = exsplus_next(
+    {_, R2} = exsp_next(
                 [?MASK(58, (A3 * 4294967279) + 1)|
                  tl(R1)]),
     R2.
@@ -807,21 +840,21 @@ exsss_seed(L) when is_list(L) ->
     [S0,S1] = seed58_nz(2, L),
     [S0|S1];
 exsss_seed(X) when is_integer(X) ->
-    [S0,S1] = seed58(2, ?MASK(64, X)),
+    [S0,S1] = seed58(2, X),
     [S0|S1];
 %%
 %% Seed from traditional integer triple - mix into splitmix
 exsss_seed({A1, A2, A3}) ->
-    {_, X0} = seed58(?MASK(64, A1)),
-    {S0, X1} = seed58(?MASK(64, A2) bxor X0),
-    {S1, _} = seed58(?MASK(64, A3) bxor X1),
+    {_, X0} = seed58(A1),
+    {S0, X1} = seed58(A2 bxor X0),
+    {S1, _} = seed58(A3 bxor X1),
     [S0|S1].
 
 %% Advance Xorshift116 state one step
 -define(
    exs_next(S0, S1, S1_b),
    begin
-       S1_b = S1 bxor ?BSL(58, S1, 24),
+       S1_b = ?MASK(58, S1) bxor ?BSL(58, S1, 24),
        S1_b bxor S0 bxor (S1_b bsr 11) bxor (S0 bsr 41)
    end).
 
@@ -831,35 +864,38 @@ exsss_seed({A1, A2, A3}) ->
        %% The multiply by add shifted trick avoids creating bignums
        %% which improves performance significantly
        %%
-       V_a = ?MASK(58, S + ?BSL(58, S, 2)), % V_a = S * 5
-       V_b = ?ROTL(58, V_a, 7),
-       ?MASK(58, V_b + ?BSL(58, V_b, 3)) % V_b * 9
+       %% Scramble ** (all operations modulo word size)
+       %% ((S * 5) rotl 7) * 9
+       %%
+       V_a = S + ?BSL(58, S, 2),                             % * 5
+       V_b = ?BSL(58, V_a, 7) bor ?MASK(7, V_a bsr (58-7)),  % rotl 7
+       ?MASK(58, V_b + ?BSL(58, V_b, 3))                     % * 9
    end).
 
--dialyzer({no_improper_lists, exsplus_next/1}).
-
 %% Advance state and generate 58bit unsigned integer
--spec exsplus_next(exsplus_state()) -> {uint58(), exsplus_state()}.
-exsplus_next([S1|S0]) ->
+%%
+-dialyzer({no_improper_lists, exsp_next/1}).
+-spec exsp_next(AlgState :: exsplus_state()) ->
+                       {X :: uint58(), NewAlgState :: exsplus_state()}.
+exsp_next([S1|S0]) ->
     %% Note: members s0 and s1 are swapped here
-    NewS1 = ?exs_next(S0, S1, S1_1),
-    {?MASK(58, S0 + NewS1), [S0|NewS1]}.
-%%    %% Note: members s0 and s1 are swapped here
-%%    S11 = S1 bxor ?BSL(58, S1, 24),
-%%    S12 = S11 bxor S0 bxor (S11 bsr 11) bxor (S0 bsr 41),
-%%    {?MASK(58, S0 + S12), [S0|S12]}.
+    S0_1 = ?MASK(58, S0),
+    NewS1 = ?exs_next(S0_1, S1, S1_b),
+    %% Scramble + (all operations modulo word size)
+    %% S0 + NewS1
+    {?MASK(58, S0_1 + NewS1), [S0_1|NewS1]}.
 
 -dialyzer({no_improper_lists, exsss_next/1}).
 
 -spec exsss_next(exsplus_state()) -> {uint58(), exsplus_state()}.
 exsss_next([S1|S0]) ->
     %% Note: members s0 and s1 are swapped here
-    NewS1 = ?exs_next(S0, S1, S1_1),
-    {?scramble_starstar(S0, V_0, V_1), [S0|NewS1]}.
-%%    {?MASK(58, S0 + NewS1), [S0|NewS1]}.
+    S0_1 = ?MASK(58, S0),
+    NewS1 = ?exs_next(S0_1, S1, S1_b),
+    {?scramble_starstar(S0_1, V_1, V_2), [S0_1|NewS1]}.
 
 exsp_uniform({AlgHandler, R0}) ->
-    {I, R1} = exsplus_next(R0),
+    {I, R1} = exsp_next(R0),
     %% Waste the lowest bit since it is of lower
     %% randomness quality than the others
     {(I bsr (58-53)) * ?TWO_POW_MINUS53, {AlgHandler, R1}}.
@@ -869,7 +905,7 @@ exsss_uniform({AlgHandler, R0}) ->
     {(I bsr (58-53)) * ?TWO_POW_MINUS53, {AlgHandler, R1}}.
 
 exsp_uniform(Range, {AlgHandler, R}) ->
-    {V, R1} = exsplus_next(R),
+    {V, R1} = exsp_next(R),
     MaxMinusRange = ?BIT(58) - Range,
     ?uniform_range(Range, AlgHandler, R1, V, MaxMinusRange, I).
 
@@ -879,7 +915,7 @@ exsss_uniform(Range, {AlgHandler, R}) ->
     ?uniform_range(Range, AlgHandler, R1, V, MaxMinusRange, I).
 
 
-%% This is the jump function for the exs* generators,
+%% This is the jump function for the exs... generators,
 %% i.e the Xorshift116 generators,  equivalent
 %% to 2^64 calls to next/1; it can be used to generate 2^52
 %% non-overlapping subsequences for parallel computations.
@@ -918,15 +954,21 @@ exsss_uniform(Range, {AlgHandler, R}) ->
 -spec exsplus_jump({alg_handler(), exsplus_state()}) ->
                           {alg_handler(), exsplus_state()}.
 exsplus_jump({AlgHandler, S}) ->
+    {AlgHandler, exsp_jump(S)}.
+
+-dialyzer({no_improper_lists, exsp_jump/1}).
+-spec exsp_jump(AlgState :: exsplus_state()) ->
+                       NewAlgState :: exsplus_state().
+exsp_jump(S) ->
     {S1, AS1} = exsplus_jump(S, [0|0], ?JUMPCONST1, ?JUMPELEMLEN),
     {_,  AS2} = exsplus_jump(S1, AS1,  ?JUMPCONST2, ?JUMPELEMLEN),
-    {AlgHandler, AS2}.
+    AS2.
 
 -dialyzer({no_improper_lists, exsplus_jump/4}).
 exsplus_jump(S, AS, _, 0) ->
     {S, AS};
 exsplus_jump(S, [AS0|AS1], J, N) ->
-    {_, NS} = exsplus_next(S),
+    {_, NS} = exsp_next(S),
     case ?MASK(1, J) of
         1 ->
             [S0|S1] = S,
@@ -946,7 +988,7 @@ exsplus_jump(S, [AS0|AS1], J, N) ->
 exs1024_seed(L) when is_list(L) ->
     {seed64_nz(16, L), []};
 exs1024_seed(X) when is_integer(X) ->
-    {seed64(16, ?MASK(64, X)), []};
+    {seed64(16, X), []};
 %%
 %% Seed from traditional triple, remain backwards compatible
 exs1024_seed({A1, A2, A3}) ->
@@ -1135,13 +1177,13 @@ exs1024_jump({L, RL}, AS, JL, J, N, TN) ->
 exro928_seed(L) when is_list(L) ->
     {seed58_nz(16, L), []};
 exro928_seed(X) when is_integer(X) ->
-    {seed58(16, ?MASK(64, X)), []};
+    {seed58(16, X), []};
 %%
 %% Seed from traditional integer triple - mix into splitmix
 exro928_seed({A1, A2, A3}) ->
-    {S0, X0} = seed58(?MASK(64, A1)),
-    {S1, X1} = seed58(?MASK(64, A2) bxor X0),
-    {S2, X2} = seed58(?MASK(64, A3) bxor X1),
+    {S0, X0} = seed58(A1),
+    {S1, X1} = seed58(A2 bxor X0),
+    {S2, X2} = seed58(A3 bxor X1),
     {[S0,S1,S2|seed58(13, X2)], []}.
 
 
@@ -1154,13 +1196,6 @@ exro928ss_next({[S15,S0|Ss], Rs}) ->
     %% const uint64_t result_starstar = rotl(s0 * S, R) * T;
     %%
     {?scramble_starstar(S0, V_0, V_1), SR};
-%%    %% The multiply by add shifted trick avoids creating bignums
-%%    %% which improves performance significantly
-%%    %%
-%%    V0 = ?MASK(58, S0 + ?BSL(58, S0, 2)), % V0 = S0 * 5
-%%    V1 = ?ROTL(58, V0, 7),
-%%    V = ?MASK(58, V1 + ?BSL(58, V1, 3)), % V = V1 * 9
-%%    {V, SR};
 exro928ss_next({[S15], Rs}) ->
     exro928ss_next({[S15|lists:reverse(Rs)], []}).
 
@@ -1185,8 +1220,9 @@ exro928_next_state(Ss, Rs, S15, S0) ->
     %% NewS15: s[q] = rotl(s0, A) ^ s15 ^ (s15 << B);
     %% NewS0: s[p] = rotl(s15, C);
     %%
-    Q = S15 bxor S0,
-    NewS15 = ?ROTL(58, S0, 44) bxor Q bxor ?BSL(58, Q, 9),
+    S0_1 = ?MASK(58, S0),
+    Q = ?MASK(58, S15) bxor S0_1,
+    NewS15 = ?ROTL(58, S0_1, 44) bxor Q bxor ?BSL(58, Q, 9),
     NewS0 = ?ROTL(58, Q, 45),
     {[NewS0|Ss], [NewS15|Rs]}.
 
@@ -1307,7 +1343,7 @@ exrop_seed(L) when is_list(L) ->
     [S0,S1] = seed58_nz(2, L),
     [S0|S1];
 exrop_seed(X) when is_integer(X) ->
-    [S0,S1] = seed58(2, ?MASK(64, X)),
+    [S0,S1] = seed58(2, X),
     [S0|S1];
 %%
 %% Traditional integer triplet seed
@@ -1374,6 +1410,159 @@ exrop_jump([S__0|S__1] = _S, S0, S1, J, Js) ->
     end.
 
 %% =====================================================================
+%% dummy "PRNG": Benchmark dummy overhead reference
+%%
+%% As fast as possible - return something daft and update state;
+%% to measure plug-in framework overhead.
+%%
+%% =====================================================================
+
+-type dummy_state() :: uint58().
+
+dummy_uniform(_Range, {AlgHandler,R}) ->
+    {1, {AlgHandler,(R bxor ?MASK(58))}}. % 1 is always in Range
+dummy_next(R) ->
+    {R, R bxor ?MASK(58)}.
+dummy_uniform({AlgHandler,R}) ->
+    {0.5, {AlgHandler,(R bxor ?MASK(58))}}. % Perfect mean value
+
+%% Serious looking seed, to avoid rand_SUITE seed test failure
+%%
+dummy_seed(L) when is_list(L) ->
+    case L of
+        [] ->
+            erlang:error(zero_seed);
+        [X] when is_integer(X) ->
+            ?MASK(58, X);
+        [X|_] when is_integer(X) ->
+            erlang:error(too_many_seed_integers);
+        [_|_] ->
+            erlang:error(non_integer_seed)
+    end;
+dummy_seed(X) when is_integer(X) ->
+    {Z1, _} = splitmix64_next(X),
+    ?MASK(58, Z1);
+dummy_seed({A1, A2, A3}) ->
+    {_, X1} = splitmix64_next(A1),
+    {_, X2} = splitmix64_next(A2 bxor X1),
+    {Z3, _} = splitmix64_next(A3 bxor X2),
+    ?MASK(58, Z3).
+
+
+%% =====================================================================
+%% mcg58 PRNG: Multiply With Carry generator
+%%
+%% Parameters deduced in collaboration with
+%% Prof. Sebastiano Vigna of the University of Milano.
+%%
+%% X = CX0 & (2^B - 1)  % Low B bits - digit
+%% C = CX0 >> B         % High bits  - carry
+%% CX1 = A * X0 + C0
+%%
+%% An MWC generator is an efficient alternative implementation of
+%% a Multiplicative Congruential Generator, that is, the generator
+%% CX1 = (CX0 * 2^B) rem P
+%% where P is the safe prime (A * 2^B - 1), that generates
+%% the same sequence in the reverse order.  The generator
+%% CX1 = (A * CX0) rem P
+%% that uses the multiplicative inverse mod P is, indeed,
+%% an exact equevalent to the corresponding MWC generator.
+%%
+%% An MWC generator has, due to the power of two multiplier
+%% in the corresponding MCG, got known statistical weaknesses
+%% in the spectral score for 3 dimensions, so it should be used
+%% with a scrambler that hides the flaws.  The scramblers
+%% have been tried out in the PractRand and TestU01 frameworks
+%% and settled for a single Xorshift to get B good bits,
+%% and a double Xorshift to get all bits good enough.
+%%
+%% The chosen parameters are:
+%% A = 16#7fa6502
+%% B = 32
+%% Single Xorshift: 8
+%% Double Xorshift: 4, 27
+%%
+%% These parameters gives the MWC "digit" size 32 bits
+%% which gives them theoretical statistical guarantees,
+%% and keeps the state in 59 bits.
+%%
+%% The state should only be used to mask or rem out low bits.
+%% The scramblers return 58 bits from which a number should
+%% be masked or rem:ed out.
+%%
+%% =====================================================================
+-define(MWC59_A, (16#7fa6502)).
+-define(MWC59_B, (32)).
+-define(MWC59_P, ((?MWC59_A bsl ?MWC59_B) - 1)).
+
+-define(MWC59_XS, 8).
+-define(MWC59_XS1, 4).
+-define(MWC59_XS2, 27).
+
+-type mwc59_state() :: 1..?MWC59_P-1.
+
+-spec mwc59(CX0 :: mwc59_state()) -> CX1 :: mwc59_state().
+mwc59(CX0) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
+    CX = ?MASK(59, CX0),
+    C = CX bsr ?MWC59_B,
+    X = ?MASK(?MWC59_B, CX),
+    ?MWC59_A * X + C.
+
+%%% %% Verification by equivalent MCG generator
+%%% mwc59_r(CX1) ->
+%%%     (CX1 bsl ?MWC59_B) rem ?MWC59_P. % Reverse
+%%% %%%     (CX1 * ?MWC59_A) rem ?MWC59_P. % Forward
+%%%
+%%% mwc59(CX0, 0) ->
+%%%     CX0;
+%%% mwc59(CX0, N) ->
+%%%     CX1 = mwc59(CX0),
+%%%     CX0 = mwc59_r(CX1),
+%%%     mwc59(CX1, N - 1).
+
+-spec mwc59_value32(CX :: mwc59_state()) -> V :: 0..?MASK(32).
+mwc59_value32(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
+    CX = ?MASK(32, CX1),
+    CX bxor ?BSL(32, CX, ?MWC59_XS).
+
+-spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
+mwc59_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
+    CX = ?MASK(59, CX1),
+    CX2 = CX bxor ?BSL(59, CX, ?MWC59_XS1),
+    CX2 bxor ?BSL(59, CX2, ?MWC59_XS2).
+
+-spec mwc59_float(CX :: mwc59_state()) -> V :: float().
+mwc59_float(CX1) ->
+    CX = ?MASK(53, CX1),
+    CX2 = CX bxor ?BSL(53, CX, ?MWC59_XS1),
+    CX3 = CX2 bxor ?BSL(53, CX2, ?MWC59_XS2),
+    CX3 * ?TWO_POW_MINUS53.
+
+-spec mwc59_seed() -> CX :: mwc59_state().
+mwc59_seed() ->
+    {A1, A2, A3} = default_seed(),
+    X1 = hash58(A1),
+    X2 = hash58(A2),
+    X3 = hash58(A3),
+    (X1 bxor X2 bxor X3) + 1.
+
+-spec mwc59_seed(S :: 0..?MASK(58)) -> CX :: mwc59_state().
+mwc59_seed(S) when is_integer(S), 0 =< S, S =< ?MASK(58) ->
+    hash58(S) + 1.
+
+%% Constants a'la SplitMix64, MurMurHash, etc.
+%% Not that critical, just mix the bits using bijections
+%% (reversible mappings) to not have any two user input seeds
+%% become the same generator start state.
+%%
+hash58(X) ->
+    X0 = ?MASK(58, X),
+    X1 = ?MASK(58, (X0 bxor (X0 bsr 29)) * 16#351afd7ed558ccd),
+    X2 = ?MASK(58, (X1 bxor (X1 bsr 29)) * 16#0ceb9fe1a85ec53),
+    X2 bxor (X2 bsr 29).
+
+
+%% =====================================================================
 %% Mask and fill state list, ensure not all zeros
 %% =====================================================================
 
@@ -1436,6 +1625,7 @@ seed64(X_0) ->
 	    ZX
     end.
 
+%% =====================================================================
 %% The SplitMix64 generator:
 %%
 %% uint64_t splitmix64_next() {
@@ -1445,6 +1635,11 @@ seed64(X_0) ->
 %% 	return z ^ (z >> 31);
 %% }
 %%
+
+-type splitmix64_state() :: uint64().
+
+-spec splitmix64_next(AlgState :: integer()) ->
+                             {X :: uint64(), NewAlgState :: splitmix64_state()}.
 splitmix64_next(X_0) ->
     X = ?MASK(64, X_0 + 16#9e3779b97f4a7c15),
     Z_0 = ?MASK(64, (X bxor (X bsr 30)) * 16#bf58476d1ce4e5b9),
@@ -1793,7 +1988,21 @@ bc64(V) -> ?BC(V, 64).
 %% Linear from high bit - higher probability first gives faster execution
 bc(V, B, N) when B =< V -> N;
 bc(V, B, N) -> bc(V, B bsr 1, N - 1).
-    
+
+
+%%% %% Non-negative rem
+%%% mod(Q, X) when 0 =< X, X < Q ->
+%%%     X;
+%%% mod(Q, X) ->
+%%%     Y = X rem Q,
+%%%     if
+%%%         Y < 0 ->
+%%%             Y + Q;
+%%%         true ->
+%%%             Y
+%%%     end.
+
+
 make_float(S, E, M) ->
     <<F/float>> = <<S:1, E:11, M:52>>,
     F.

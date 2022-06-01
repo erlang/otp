@@ -2,7 +2,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@
 	     erl_error,
 	     erl_eval,
              erl_expand_records,
+             erl_features,
 	     erl_internal,
 	     erl_lint,
 	     erl_parse,
@@ -71,7 +72,6 @@
 	     io,
 	     io_lib,
 	     io_lib_format,
-	     io_lib_format_ryu_table,
 	     io_lib_fread,
 	     io_lib_pretty,
 	     lists,
@@ -82,6 +82,7 @@
 	     orddict,
 	     ordsets,
 	     otp_internal,
+	     peer,
 	     pool,
 	     proc_lib,
 	     proplists,
@@ -111,6 +112,6 @@
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-3.0","kernel-7.0","erts-12.0","crypto-3.3",
+  {runtime_dependencies, ["sasl-3.0","kernel-8.4","erts-@OTP-17934@","crypto-4.5",
 			  "compiler-5.0"]}
 ]}.

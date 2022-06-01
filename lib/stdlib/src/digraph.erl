@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,9 +39,9 @@
 
 -export_type([graph/0, d_type/0, vertex/0, edge/0, label/0]).
 
--record(digraph, {vtab = notable :: ets:tab(),
-		  etab = notable :: ets:tab(),
-		  ntab = notable :: ets:tab(),
+-record(digraph, {vtab = notable :: ets:table(),
+		  etab = notable :: ets:table(),
+		  ntab = notable :: ets:table(),
 	          cyclic = true  :: boolean()}).
 
 -opaque graph() :: #digraph{}.

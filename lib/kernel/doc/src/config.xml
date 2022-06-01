@@ -101,7 +101,7 @@
     <c>sys.config</c> file and from a configuration that comes
     from a file descriptor that has been pointed out with the <seecom
     marker="erts:erl#configfd"><c>-configfd</c></seecom> command-line
-    arguemnt.</p>
+    argument.</p>
 
     <p>The syntax for including files can be described by the
     <seeguide marker="system/reference_manual:typespec">Erlang type

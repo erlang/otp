@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@
  * deallocation. Memory allocation can be moved to another more suitable
  * thread using  erts_thr_q_prepare_enqueue() together with
  * erts_thr_q_enqueue_prepared() instead of using erts_thr_q_enqueue().
- * Memory deallocation can can be moved to another more suitable thread by
+ * Memory deallocation can be moved to another more suitable thread by
  * disabling auto_finalize_dequeue when initializing the queue and then use
  * erts_thr_q_get_finalize_dequeue_data() together
  * erts_thr_q_finalize_dequeue() after dequeuing or cleaning.

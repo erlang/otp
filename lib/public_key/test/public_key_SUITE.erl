@@ -119,8 +119,12 @@
          gen_ec_param_prime_field/0,
          gen_ec_param_prime_field/1,
          gen_ec_param_char_2_field/0,
-         gen_ec_param_char_2_field/1
+         gen_ec_param_char_2_field/1,
+         cacerts_load/0, cacerts_load/1
         ]).
+
+-export([list_cacerts/0]).  % debug exports
+
 
 -define(TIMEOUT, 120000). % 2 min
 -define(PASSWORD1, "1234abcd").
@@ -157,7 +161,8 @@ all() ->
      pkix_test_data_all_default,
      pkix_test_data,
      short_cert_issuer_hash, 
-     short_crl_issuer_hash
+     short_crl_issuer_hash,
+     cacerts_load
     ].
 
 groups() -> 
@@ -673,7 +678,7 @@ pkix(Config) when is_list(Config) ->
 
     true = lists:member(IssuerId, CaIds),
 
-    %% Should be normalized allready
+    %% Should be normalized already
     TestStr   = {rdnSequence, 
 		 [[{'AttributeTypeAndValue', {2,5,4,3},{printableString,"ERLANGCA"}}],
 		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString," erlang  ca "}}]]},
@@ -887,19 +892,19 @@ pkix_verify_hostname_subjAltName(Config) ->
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}]),
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"KB.EXAMPLE.ORG"}]),
 
-    %% Check that a dns_id does not match a DNS subjAltName wiht wildcard
+    %% Check that a dns_id does not match a DNS subjAltName with wildcard
     false =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}]),
 
-    %% Check that a dns_id does match a DNS subjAltName wiht wildcard with matchfun
+    %% Check that a dns_id does match a DNS subjAltName with wildcard with matchfun
     MatchFun = {match_fun, public_key:pkix_verify_hostname_match_fun(https)},
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}], [MatchFun]),
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"OTHER.EXAMPLE.ORG"}], [MatchFun]),
 
-    %% Check that a uri_id does not match a DNS subjAltName wiht wildcard
+    %% Check that a uri_id does not match a DNS subjAltName with wildcard
     false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}]),
     false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.EXAMPLE.ORG"}]),
 
-    %% Check that a dns_id does match a DNS subjAltName wiht wildcard with matchfun
+    %% Check that a dns_id does match a DNS subjAltName with wildcard with matchfun
     true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}], [MatchFun]),
     true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.EXAMPLE.ORG"}], [MatchFun]),
     true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.example.org"}], [MatchFun]),
@@ -1215,6 +1220,97 @@ gen_ec_param_char_2_field() ->
 gen_ec_param_char_2_field(Config) when is_list(Config) ->
     Datadir = proplists:get_value(data_dir, Config),
     do_gen_ec_param(filename:join(Datadir, "ec_key_param1.pem")).
+
+%%--------------------------------------------------------------------
+cacerts_load() ->
+    [{doc, "Basic tests of cacerts functionality"}].
+cacerts_load(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {error, enoent} = public_key:cacerts_load("/dummy.file"),
+    %% Load default OS certs
+    %%    there is no default installed OS certs on netbsd
+    %%    can be installed with 'pkgin install mozilla-rootcerts'
+    IsNetBsd = element(2, os:type()) =:= netbsd,
+    OsCerts = try
+                  Certs = public_key:cacerts_get(),
+                  true = public_key:cacerts_clear(),
+                  Certs
+              catch _:{badmatch, {error, enoent}} when IsNetBsd -> netbsd
+              end,
+
+    false = public_key:cacerts_clear(),
+
+    %% Reload from file
+    ok = public_key:cacerts_load(filename:join(Datadir, "cacerts.pem")),
+    [_TestCert1, _TestCert2] = public_key:cacerts_get(),
+
+    %% Re-Load default OS certs
+    try
+        ok = public_key:cacerts_load(),
+        ct:log("~p: ~p~n", [os:type(), length(OsCerts)]),
+        OsCerts = public_key:cacerts_get(),
+        Ids = cert_info(OsCerts),
+        Check = fun(ShouldBeThere) ->
+                        lists:any(fun(#{id:=Id}) -> lists:prefix(ShouldBeThere, Id) end, Ids)
+                end,
+        case lists:partition(Check, ["digicert", "globalsign"]) of
+            {_, []} -> ok;
+            {_, Fail} ->
+                cert_info(OsCerts),
+                [] = Fail
+        end,
+        ok
+    catch _:{badmatch, {error, enoent}} when IsNetBsd ->
+            ok
+    end.
+
+cert_info([#cert{der=Der, otp=#'OTPCertificate'{tbsCertificate = C0}=Cert}|Rest]) when is_binary(Der) ->
+    #'OTPTBSCertificate'{subject = Subject, serialNumber = _Nr, issuer = Issuer0} = C0,
+    C = case public_key:pkix_is_self_signed(Cert) of
+            true  -> #{id => subject(Subject), ss => true};
+            false ->
+                case public_key:pkix_issuer_id(Cert, other) of
+                    {ok, {_IsNr, Issuer}} ->
+                        #{id => subject(Subject), ss => false, issuer => subject(Issuer)};
+                    {error, _} ->
+                        #{id => subject(Subject), ss => false, issuer => subject(Issuer0)}
+                end
+        end,
+    [C|cert_info(Rest)];
+cert_info([]) ->
+    [].
+
+
+subject(S) ->
+    string:lowercase(subject(public_key:pkix_normalize_name(S), "unknown")).
+
+subject({rdnSequence, Seq}, Def) ->
+    subject(Seq, Def);
+subject([[{'AttributeTypeAndValue', ?'id-at-commonName', Name0}]|_], _Def) ->
+    case Name0 of
+        {printableString, Name} -> Name;
+        {utf8String, Name} -> unicode:characters_to_list(Name);
+        Name -> Name
+    end;
+subject([[{'AttributeTypeAndValue', ?'id-at-organizationName', Name0}]|Rest], _Def) ->
+    Name = case Name0 of
+               {printableString, Name1} -> Name1;
+               {utf8String, Name1} -> unicode:characters_to_list(Name1);
+               Name1 -> Name1
+           end,
+    subject(Rest, Name);
+subject([_|R], Def) ->
+    subject(R, Def);
+subject([], Def) ->
+    Def.
+
+list_cacerts() ->
+    Certs = public_key:cacerts_get(),
+    %% io:format("~P~n",[Certs, 20]),
+    IO = fun(C, N) -> io:format("~.3w:~0p~n", [N,C]), N+1 end,
+    lists:foldl(IO, 0, lists:sort(cert_info(Certs))),
+    ok.
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

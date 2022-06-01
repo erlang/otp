@@ -136,6 +136,43 @@ void sys_sigrelease(int sig)
     sigprocmask(SIG_UNBLOCK, &mask, (sigset_t *)NULL);
 }
 
+
+/* This version of read/write makes sure to read/write the entire size before
+   returning. Normal read/write can handle partial results which we do not want. */
+static ssize_t read_all(int fd, char *buff, size_t size) {
+    ssize_t res, pos = 0;
+    do {
+        if ((res = read(fd, buff + pos, size - pos)) < 0) {
+            if (errno == ERRNO_BLOCK || errno == EINTR)
+                continue;
+            return res;
+        }
+        if (res == 0) {
+            errno = EPIPE;
+            return -1;
+        }
+        pos += res;
+    } while(size - pos != 0);
+    return pos;
+}
+
+static ssize_t write_all(int fd, const char *buff, size_t size) {
+    ssize_t res, pos = 0;
+    do {
+        if ((res = write(fd, buff + pos, size - pos)) < 0) {
+            if (errno == ERRNO_BLOCK || errno == EINTR)
+                continue;
+            return res;
+        }
+        if (res == 0) {
+            errno = EPIPE;
+            return -1;
+        }
+        pos += res;
+    } while (size - pos != 0);
+    return pos;
+}
+
 static void add_os_pid_to_port_id_mapping(Eterm, pid_t);
 static Eterm get_port_id(pid_t);
 static int forker_hash_init(void);
@@ -148,7 +185,7 @@ start_new_child(int pipes[])
 {
     struct sigaction sa;
     int errln = -1;
-    int size, res, i, pos = 0;
+    int size, i;
     char *buff, *o_buff;
 
     char *cmd, *cwd, *wd, **new_environ, **args = NULL;
@@ -166,12 +203,8 @@ start_new_child(int pipes[])
         perror(NULL);
         exit(1);
     }
-    
-    do {
-        res = read(pipes[0], (char*)&size, sizeof(size));
-    } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
 
-    if (res <= 0) {
+    if (read_all(pipes[0], (char*)&size, sizeof(size)) <= 0) {
         errln = __LINE__;
         goto child_error;
     }
@@ -180,20 +213,10 @@ start_new_child(int pipes[])
 
     DEBUG_PRINT("size = %d", size);
 
-    do {
-        if ((res = read(pipes[0], buff + pos, size - pos)) < 0) {
-            if (errno == ERRNO_BLOCK || errno == EINTR)
-                continue;
-            errln = __LINE__;
-            goto child_error;
-        }
-        if (res == 0) {
-            errno = EPIPE;
-            errln = __LINE__;
-            goto child_error;
-        }
-        pos += res;
-    } while(size - pos != 0);
+    if (read_all(pipes[0], buff, size) <= 0) {
+        errln = __LINE__;
+        goto child_error;
+    }
 
     o_buff = buff;
 
@@ -252,18 +275,13 @@ start_new_child(int pipes[])
     }
 
     DEBUG_PRINT("read ack");
-    do {
+    {
         ErtsSysForkerProto proto;
-        res = read(pipes[0], &proto, sizeof(proto));
-        if (res > 0) {
-            ASSERT(proto.action == ErtsSysForkerProtoAction_Ack);
+        if (read_all(pipes[0], (char*)&proto, sizeof(proto)) <= 0) {
+            errln = __LINE__;
+            goto child_error;
         }
-    } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
-
-    if (res < 1) {
-        errno = EPIPE;
-        errln = __LINE__;
-        goto child_error;
+        ASSERT(proto.action == ErtsSysForkerProtoAction_Ack);
     }
 
     DEBUG_PRINT("Set cwd to: '%s'",cwd);
@@ -373,15 +391,13 @@ child_error:
  * for posterity. */
 
 static void handle_sigchld(int sig) {
-    int buff[2], res, __preverrno = errno;
+    int buff[2], __preverrno = errno;
+    ssize_t res;
 
     sys_sigblock(SIGCHLD);
 
     while ((buff[0] = waitpid((pid_t)(-1), buff+1, WNOHANG)) > 0) {
-        do {
-            res = write(sigchld_pipe[1], buff, sizeof(buff));
-        } while (res < 0 && errno == EINTR);
-        if (res <= 0)
+        if ((res = write_all(sigchld_pipe[1], (char*)buff, sizeof(buff))) <= 0)
             ABORT("Failed to write to sigchld_pipe (%d): %d (%d)", sigchld_pipe[1], res, errno);
         DEBUG_PRINT("Reap child %d (%d)", buff[0], buff[1]);
     }
@@ -553,13 +569,11 @@ main(int argc, char *argv[])
             proto.action = ErtsSysForkerProtoAction_Go;
             proto.u.go.os_pid = os_pid;
             proto.u.go.error_number = errno;
-            while (write(pipes[1], &proto, sizeof(proto)) < 0 && errno == EINTR)
-                ; /* remove gcc warning */
+            write_all(pipes[1], (char *)&proto, sizeof(proto));
 
 #ifdef FORKER_PROTO_START_ACK
             proto.action = ErtsSysForkerProtoAction_StartAck;
-            while (write(uds_fd, &proto, sizeof(proto)) < 0 && errno == EINTR)
-                ; /* remove gcc warning */
+            write_all(uds_fd, (char *)&proto, sizeof(proto));
 #endif
 
             sys_sigrelease(SIGCHLD);
@@ -571,10 +585,8 @@ main(int argc, char *argv[])
         if (FD_ISSET(sigchld_pipe[0], &read_fds)) {
             int ibuff[2];
             ErtsSysForkerProto proto;
-            res = read(sigchld_pipe[0], ibuff, sizeof(ibuff));
+            res = read_all(sigchld_pipe[0], (char *)ibuff, sizeof(ibuff));
             if (res <= 0) {
-                if (errno == EINTR)
-                    continue;
                 ABORT("Failed to read from sigchld pipe: %d (%d)", res, errno);
             }
 
@@ -586,9 +598,7 @@ main(int argc, char *argv[])
             proto.action = ErtsSysForkerProtoAction_SigChld;
             proto.u.sigchld.error_number = ibuff[1];
             DEBUG_PRINT("send sigchld to %d (errno = %d)", uds_fd, ibuff[1]);
-            if (write(uds_fd, &proto, sizeof(proto)) < 0) {
-                if (errno == EINTR)
-                    continue;
+            if (write_all(uds_fd, (char *)&proto, sizeof(proto)) < 0) {
                 /* The uds was close, which most likely means that the VM
                    has exited. This will be detected when we try to read
                    from the uds_fd. */

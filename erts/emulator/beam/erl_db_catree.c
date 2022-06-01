@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB and Kjell Winblad 1998-2020. All Rights Reserved.
+ * Copyright Ericsson AB and Kjell Winblad 1998-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,6 +79,7 @@
 #include "erl_db_catree.h"
 #include "erl_db_tree.h"
 #include "erl_db_tree_util.h"
+#include "erl_global_literals.h"
 
 #ifdef DEBUG
 #  define IF_DEBUG(X) X
@@ -873,7 +874,8 @@ Eterm copy_route_key(DbRouteKey* dst, Eterm key, Uint key_size)
         dst->oh = tmp_offheap.first;
     }
     else {
-        ASSERT(is_immed(key));
+        ASSERT(is_immed(key) ||
+               key == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
         dst->term = key;
         dst->oh = NULL;
     }
@@ -1032,6 +1034,7 @@ static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
                         "erl_db_catree_base_node",
                         NIL,
                         ERTS_LOCK_FLAGS_CATEGORY_DB);
+    ERTS_DB_ALC_MEM_UPDATE_((DbTable *) tb, 0, erts_rwmtx_size(&p->u.base.lock));
     BASE_NODE_STAT_SET(p, ((tb->common.status & DB_CATREE_FORCE_SPLIT)
                            ? INT_MAX : 0));
     p->u.base.is_valid = 1;
@@ -1090,7 +1093,7 @@ static void do_free_base_node(void* vptr)
 static void free_catree_base_node(DbTableCATree* tb, DbTableCATreeNode* p)
 {
     ASSERT(p->is_base_node);
-    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof_base_node(), 0);
+    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof_base_node() + erts_rwmtx_size(&p->u.base.lock), 0);
     do_free_base_node(p);
 }
 
@@ -1257,7 +1260,7 @@ static void join_catree(DbTableCATree *tb,
                 neighbor_parent = leftmost_route_node(GET_RIGHT(parent));
             }
         }
-    } else { /* Symetric case */
+    } else { /* Symmetric case */
         ASSERT(GET_RIGHT(parent) == thiz);
         neighbor = rightmost_base_node(GET_LEFT_ACQB(parent));
         if (try_wlock_base_node(&neighbor->u.base)) {
@@ -1332,11 +1335,13 @@ static void join_catree(DbTableCATree *tb,
                           thiz,
                           &thiz->u.base.free_item,
                           sizeof_base_node());
+    ERTS_DB_ALC_MEM_UPDATE_(tb, erts_rwmtx_size(&thiz->u.base.lock), 0);
     erts_schedule_db_free(&tb->common,
                           do_free_base_node,
                           neighbor,
                           &neighbor->u.base.free_item,
                           sizeof_base_node());
+    ERTS_DB_ALC_MEM_UPDATE_(tb, erts_rwmtx_size(&neighbor->u.base.lock), 0);
 }
 
 static void split_catree(DbTableCATree *tb,
@@ -1381,6 +1386,7 @@ static void split_catree(DbTableCATree *tb,
                               base,
                               &base->u.base.free_item,
                               sizeof_base_node());
+        ERTS_DB_ALC_MEM_UPDATE_(tb, erts_rwmtx_size(&base->u.base.lock), 0);
     }
 }
 

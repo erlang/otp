@@ -21,7 +21,7 @@
  * erl_log:
  *
  * Provides a simple debug log for the Erlang emulator.
- * It simples echoes its standard intput to the console.
+ * It simples echoes its standard input to the console.
  *
  * Author:  Bjorn Gustavsson
  * Created: 1996-12-06

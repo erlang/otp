@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1679,7 +1679,7 @@ fun_mfa(Conf) when is_list(Conf) ->
     ok = file:delete(Beam),
     ok.
 
-%% fun M:F/A with varibles.
+%% fun M:F/A with variables.
 fun_mfa_vars(Conf) when is_list(Conf) ->
     Dir = ?copydir,
     File = fname(Dir, "fun_mfa_vars.erl"),

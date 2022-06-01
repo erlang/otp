@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2021. All Rights Reserved.
+# Copyright Ericsson AB 2010-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ test "X$build_otp" = "X$used_otp" || {
 * ERROR:   Trying to cross compile an Erlang/$build_otp system with a different
 *          Erlang/$used_otp system. When cross compiling you should compile
 *          with an Erlang/OTP system of the same release. It is possible,
-*          however not recomended, to force the cross compilation even though
+*          however not recommended, to force the cross compilation even though
 *          the wrong Erlang/OTP system is used. For more information on this,
 *          and cross compiling Erlang/$build_otp in general, see the
 *          \$ERL_TOP/xcomp/README file.

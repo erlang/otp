@@ -50,7 +50,7 @@ The source code of YCF is included in the folder
 the Erlang/OTP system. The documentation of YCF can be found in
 `"$ERL_TOP"/erts/lib_src/yielding_c_fun/README.md`. A rendered version
 of YCF documentation can be found
-[here](https://github.com/erlang/otp/erts/lib_src/yielding_c_fun/README.md).
+[here](https://github.com/erlang/otp/blob/master/erts/lib_src/yielding_c_fun/README.md).
 
 Yielding C Fun in the Erlang Run-time System
 -------------------------------------------
@@ -69,7 +69,7 @@ Best Practices for YCF in the ERTS
 
 First of all, before starting to use YCF it is recommended to read
 through its documentation in
-[erts/lib_src/yielding_c_fun/README.md](https://github.com/erlang/otp/erts/lib_src/yielding_c_fun/README.md)
+[erts/lib_src/yielding_c_fun/README.md](https://github.com/erlang/otp/blob/master/erts/lib_src/yielding_c_fun/README.md)
 to understand what limitations and functionalities YCF has.
 
 ### Mark YCF Transformed Functions
@@ -114,7 +114,7 @@ If a function `F1` that is transformed by one YCF invocation depends
 on a function `F2` that is transformed by another YCF invocation, one
 needs to tell YCF that `F2` is an YCF transformed function so that
 `F1` can call the transformed version (see the documentation of
-`-fexternal` in [YCF's documentation](https://github.com/erlang/otp/erts/lib_src/yielding_c_fun/README.md)
+`-fexternal` in [YCF's documentation](https://github.com/erlang/otp/blob/master/erts/lib_src/yielding_c_fun/README.md)
 for more information about how to do that).
 
 

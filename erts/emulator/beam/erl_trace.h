@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 /*
  * The bits used effects trace flags (of processes and ports)
  * as well as sequential trace flags. If changed make sure
- * these arn't messed up...
+ * these aren't messed up...
  */
 #define ERTS_TRACE_TS_TYPE_BITS 			3
 #define ERTS_TRACE_TS_TYPE_MASK					\

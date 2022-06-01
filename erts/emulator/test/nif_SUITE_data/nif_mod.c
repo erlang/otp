@@ -391,6 +391,13 @@ static ErlNifFunc nif_funcs[] =
 #ifdef HAVE_ENIF_MONITOR_PROCESS
     {"monitor_process", 3, monitor_process},
 #endif
+#if NIF_LIB_VER == 4
+    {"non_existing", 2, get_resource},      /* error: not found */
+#endif
+#if NIF_LIB_VER == 5
+    {"make_new_resource", 2, get_resource}, /* error: duplicate */
+#endif
+
     /* Keep lib_version_check last to maximize the loading "patch distance"
        between it and lib_version */
     {"lib_version_check", 0, lib_version}

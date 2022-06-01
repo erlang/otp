@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2022. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ union db_table {
     /*TT*/
 };
 
-#define DB_DEF_MAX_TABS 8192 /* Superseeded by environment variable
+#define DB_DEF_MAX_TABS 8192 /* Superseded by environment variable
 				"ERL_MAX_ETS_TABLES" */
 #define ERL_MAX_ETS_TABLES_ENV "ERL_MAX_ETS_TABLES"
 
@@ -173,12 +173,15 @@ do {                                                                    \
 
 ERTS_GLB_INLINE void *erts_db_alloc(ErtsAlcType_t type,
 				    DbTable *tab,
-				    Uint size);
+				    Uint size) ERTS_ATTR_MALLOC_US(3);
 ERTS_GLB_INLINE void *erts_db_alloc_fnf(ErtsAlcType_t type,
 					DbTable *tab,
-					Uint size);
-ERTS_GLB_INLINE void *erts_db_alloc_nt(ErtsAlcType_t type, Uint size);
-ERTS_GLB_INLINE void *erts_db_alloc_fnf_nt(ErtsAlcType_t type, Uint size);
+					Uint size) ERTS_ATTR_MALLOC_US(3);
+ERTS_GLB_INLINE void*
+erts_db_alloc_nt(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_US(2);
+
+ERTS_GLB_INLINE void*
+erts_db_alloc_fnf_nt(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_US(2);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

@@ -644,58 +644,61 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 		}
 	    }
 	    break;
-	case EXPORT_DEF:
-	    {
-		Export* ep = *((Export **) (export_val(wobj) + 1));
-		long tdcount;
-		int tres;
+        case FUN_DEF:
+            {
+                ErlFunThing *funp = (ErlFunThing *) fun_val(wobj);
 
-		PRINT_STRING(res, fn, arg, "fun ");
+                if (is_local_fun(funp)) {
+                    ErlFunEntry *fe = funp->entry.fun;
+                    Atom *ap = atom_tab(atom_val(fe->module));
 
-		/* We pass a temporary 'dcount' and adjust the real one later to ensure
-		 * that the fun doesn't get split up between the module and function
-		 * name. */
-		tdcount = MAX_ATOM_SZ_LIMIT;
-		tres = print_atom_name(fn, arg, ep->info.mfa.module, &tdcount);
-		if (tres < 0) {
-		    res = tres;
-		    goto L_done;
-		}
-		*dcount -= (MAX_ATOM_SZ_LIMIT - tdcount);
-		res += tres;
+                    PRINT_STRING(res, fn, arg, "#Fun<");
+                    PRINT_BUF(res, fn, arg, ap->name, ap->len);
+                    PRINT_CHAR(res, fn, arg, '.');
+                    PRINT_SWORD(res, fn, arg, 'd', 0, 1,
+                            (ErlPfSWord) fe->old_index);
+                    PRINT_CHAR(res, fn, arg, '.');
+                    PRINT_SWORD(res, fn, arg, 'd', 0, 1,
+                            (ErlPfSWord) fe->old_uniq);
+                    PRINT_CHAR(res, fn, arg, '>');
+                } else {
+                    Export* ep = funp->entry.exp;
+                    long tdcount;
+                    int tres;
 
-		PRINT_CHAR(res, fn, arg, ':');
+                    ASSERT(is_external_fun(funp) && funp->next == NULL);
 
-		tdcount = MAX_ATOM_SZ_LIMIT;
-		tres = print_atom_name(fn, arg, ep->info.mfa.function, &tdcount);
-		if (tres < 0) {
-		    res = tres;
-		    goto L_done;
-		}
-		*dcount -= (MAX_ATOM_SZ_LIMIT - tdcount);
-		res += tres;
+                    PRINT_STRING(res, fn, arg, "fun ");
 
-		PRINT_CHAR(res, fn, arg, '/');
-		PRINT_SWORD(res, fn, arg, 'd', 0, 1,
-			    (ErlPfSWord) ep->info.mfa.arity);
-	    }
-	    break;
-	case FUN_DEF:
-	    {
-		ErlFunThing *funp = (ErlFunThing *) fun_val(wobj);
-		Atom *ap = atom_tab(atom_val(funp->fe->module));
+                    /* We pass a temporary 'dcount' and adjust the real one
+                     * later to ensure that the fun doesn't get split up
+                     * between the module and function name. */
+                    tdcount = MAX_ATOM_SZ_LIMIT;
+                    tres = print_atom_name(fn, arg, ep->info.mfa.module, &tdcount);
+                    if (tres < 0) {
+                        res = tres;
+                        goto L_done;
+                    }
+                    *dcount -= (MAX_ATOM_SZ_LIMIT - tdcount);
+                    res += tres;
 
-		PRINT_STRING(res, fn, arg, "#Fun<");
-		PRINT_BUF(res, fn, arg, ap->name, ap->len);
-		PRINT_CHAR(res, fn, arg, '.');
-		PRINT_SWORD(res, fn, arg, 'd', 0, 1,
-			    (ErlPfSWord) funp->fe->old_index);
-		PRINT_CHAR(res, fn, arg, '.');
-		PRINT_SWORD(res, fn, arg, 'd', 0, 1,
-			    (ErlPfSWord) funp->fe->old_uniq);
-		PRINT_CHAR(res, fn, arg, '>');
-	    }
-	    break;
+                    PRINT_CHAR(res, fn, arg, ':');
+
+                    tdcount = MAX_ATOM_SZ_LIMIT;
+                    tres = print_atom_name(fn, arg, ep->info.mfa.function, &tdcount);
+                    if (tres < 0) {
+                        res = tres;
+                        goto L_done;
+                    }
+                    *dcount -= (MAX_ATOM_SZ_LIMIT - tdcount);
+                    res += tres;
+
+                    PRINT_CHAR(res, fn, arg, '/');
+                    PRINT_SWORD(res, fn, arg, 'd', 0, 1,
+                            (ErlPfSWord) ep->info.mfa.arity);
+                }
+            }
+            break;
 	case MAP_DEF: {
             Eterm *head = boxed_val(wobj);
 

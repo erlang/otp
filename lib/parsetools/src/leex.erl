@@ -575,7 +575,7 @@ collect_action(Ifile, Chars, L0, Cont0) ->
 
 %% parse_rule(RegExpString, RegExpLine, ActionTokens, Macros, Counter, State) ->
 %%      {ok,{RE,Action},ActionData,State}.
-%%  Parse one regexp after performing macro substition.
+%%  Parse one regexp after performing macro substitution.
 
 parse_rule(S, Line, [{dot,_}], Ms, N, St) ->
     case parse_rule_regexp(S, Ms, St) of
@@ -1126,7 +1126,7 @@ comp_crs([], Last) -> [{Last,maxchar}].
 %% build_dfa(NFA, NfaFirstState) -> {DFA,DfaFirstState}.
 %%  Build a DFA from an NFA using "subset construction". The major
 %%  difference from the book is that we keep the marked and unmarked
-%%  DFA states in seperate lists. New DFA states are added to the
+%%  DFA states in separate lists. New DFA states are added to the
 %%  unmarked list and states are marked by moving them to the marked
 %%  list. We assume that the NFA accepting state numbers are in
 %%  ascending order for the rules and use ordsets to keep this order.
@@ -1264,7 +1264,7 @@ accept([], _) -> noaccept.
 %% minimise_dfa(DFA, DfaFirst) -> {DFA,DfaFirst}.
 %%  Minimise the DFA by removing equivalent states. We consider a
 %%  state if both the transitions and the their accept state is the
-%%  same.  First repeatedly run throught the DFA state list removing
+%%  same.  First repeatedly run through the DFA state list removing
 %%  equivalent states and updating remaining transitions with
 %%  remaining equivalent state numbers. When no more reductions are
 %%  possible then pack the remaining state numbers to get consecutive

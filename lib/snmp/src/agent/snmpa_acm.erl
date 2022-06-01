@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -234,7 +234,7 @@ invalidate_ca_cache() ->
 
 %%-----------------------------------------------------------------
 %% NOTE: The do_get MUST be executed in the Master agents's 
-%%       context. Therefor, force master-agent to do a GET to 
+%%       context. Therefore, force master-agent to do a GET to 
 %%       retrieve the value for snmpEnableAuthenTraps.  
 %%       A user may have another impl. than default for this 
 %%       variable.

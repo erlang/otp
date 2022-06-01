@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2022. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,16 @@
 #include "global.h"
 #include "erl_fun.h"
 #include "hash.h"
+#include "beam_common.h"
+
+/* Container structure for fun entries, allowing us to start `ErlFunEntry` with
+ * a field other than its `HashBucket`. */
+typedef struct erl_fun_entry_container {
+    /* !! MUST BE THE FIRST FIELD !! */
+    HashBucket bucket;
+
+    ErlFunEntry entry;
+} ErlFunEntryContainer;
 
 static Hash erts_fun_table;
 
@@ -37,18 +47,10 @@ static erts_rwmtx_t erts_fun_table_lock;
 #define erts_fun_write_lock()	erts_rwmtx_rwlock(&erts_fun_table_lock)
 #define erts_fun_write_unlock()	erts_rwmtx_rwunlock(&erts_fun_table_lock)
 
-static HashValue fun_hash(ErlFunEntry* obj);
-static int fun_cmp(ErlFunEntry* obj1, ErlFunEntry* obj2);
-static ErlFunEntry* fun_alloc(ErlFunEntry* template);
-static void fun_free(ErlFunEntry* obj);
-
-/*
- * The address field of every fun that has no loaded code will point
- * to unloaded_fun[]. The -1 in unloaded_fun[0] will be interpreted
- * as an illegal arity when attempting to call a fun.
- */
-static BeamInstr unloaded_fun_code[4] = {NIL, NIL, -1, 0};
-static ErtsCodePtr unloaded_fun = &unloaded_fun_code[3];
+static HashValue fun_hash(ErlFunEntryContainer* obj);
+static int fun_cmp(ErlFunEntryContainer* obj1, ErlFunEntryContainer* obj2);
+static ErlFunEntryContainer* fun_alloc(ErlFunEntryContainer* template);
+static void fun_free(ErlFunEntryContainer* obj);
 
 void
 erts_init_fun_table(void)
@@ -97,61 +99,66 @@ int erts_fun_table_sz(void)
 
 ErlFunEntry*
 erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
-		    const byte* uniq, int index, int arity)
+                    const byte* uniq, int index, int arity)
 {
-    ErlFunEntry template;
-    ErlFunEntry* fe;
+    ErlFunEntryContainer template;
+    ErlFunEntryContainer *fc;
+    ErlFunEntry *tp;
     erts_aint_t refc;
 
+    tp = &template.entry;
+
+    /* All fields are copied from the template when inserting a new entry. */
     ASSERT(is_atom(mod));
-    template.old_uniq = old_uniq;
-    template.index = index;
-    template.module = mod;
+    tp->old_index = old_index;
+    tp->old_uniq = old_uniq;
+    tp->index = index;
+    tp->module = mod;
+    tp->arity = arity;
+
+    sys_memcpy(tp->uniq, uniq, sizeof(tp->uniq));
+
     erts_fun_write_lock();
-    fe = (ErlFunEntry *) hash_put(&erts_fun_table, (void*) &template);
-    sys_memcpy(fe->uniq, uniq, sizeof(fe->uniq));
-    fe->old_index = old_index;
-    fe->arity = arity;
-    refc = erts_refc_inctest(&fe->refc, 0);
-    if (refc < 2) /* New or pending delete */
-	erts_refc_inc(&fe->refc, 1);
-    erts_fun_write_unlock();
-    return fe;
-}
-
-ErlFunEntry*
-erts_get_fun_entry(Eterm mod, int uniq, int index)
-{
-    ErlFunEntry template;
-    ErlFunEntry *ret;
-
-    ASSERT(is_atom(mod));
-    template.old_uniq = uniq;
-    template.index = index;
-    template.module = mod;
-    erts_fun_read_lock();
-    ret = (ErlFunEntry *) hash_get(&erts_fun_table, (void*) &template);
-    if (ret) {
-	erts_aint_t refc = erts_refc_inctest(&ret->refc, 1);
-	if (refc < 2) /* Pending delete */
-	    erts_refc_inc(&ret->refc, 1);
+    fc = (ErlFunEntryContainer*)hash_put(&erts_fun_table, (void*)&template);
+    refc = erts_refc_inctest(&fc->entry.refc, 0);
+    if (refc < 2) {
+        /* New or pending delete */
+        erts_refc_inc(&fc->entry.refc, 1);
     }
-    erts_fun_read_unlock();
-    return ret;
+    erts_fun_write_unlock();
+
+    return &fc->entry;
 }
 
-int erts_is_fun_loaded(ErlFunEntry* fe) {
-    int res = fe->address != unloaded_fun;
+const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe) {
+    ErtsCodePtr address = fe->dispatch.addresses[0];
 
-    ASSERT(res == (0 != ((const BeamInstr*)fe->address)[0]));
+    if (address != beam_unloaded_fun) {
+        return erts_find_function_from_pc(address);
+    }
 
-    return res;
+    return NULL;
+}
+
+void erts_set_fun_code(ErlFunEntry *fe, ErtsCodePtr address) {
+    int i;
+
+    for (i = 0; i < ERTS_ADDRESSV_SIZE; i++) {
+        fe->dispatch.addresses[i] = address;
+    }
+}
+
+int erts_is_fun_loaded(const ErlFunEntry* fe) {
+    return fe->dispatch.addresses[0] != beam_unloaded_fun;
 }
 
 static void
 erts_erase_fun_entry_unlocked(ErlFunEntry* fe)
 {
-    hash_erase(&erts_fun_table, (void *) fe);
+    ErlFunEntryContainer *fc = ErtsContainerStruct(fe, ErlFunEntryContainer,
+                                                   entry);
+
+    hash_erase(&erts_fun_table, (void *) fc);
 }
 
 void
@@ -164,28 +171,33 @@ erts_erase_fun_entry(ErlFunEntry* fe)
      */
     if (erts_refc_dectest(&fe->refc, -1) <= 0)
     {
-	if (fe->address != unloaded_fun)
-	    erts_exit(ERTS_ERROR_EXIT,
-		     "Internal error: "
-		     "Invalid reference count found on #Fun<%T.%d.%d>: "
-		     " About to erase fun still referred by code.\n",
-		     fe->module, fe->old_index, fe->old_uniq);
-	erts_erase_fun_entry_unlocked(fe);
+        if (erts_is_fun_loaded(fe)) {
+            erts_exit(ERTS_ERROR_EXIT,
+                "Internal error: "
+                "Invalid reference count found on #Fun<%T.%d.%d>: "
+                " About to erase fun still referred by code.\n",
+                fe->module, fe->old_index, fe->old_uniq);
+        }
+        erts_erase_fun_entry_unlocked(fe);
     }
     erts_fun_write_unlock();
 }
 
-static void fun_purge_foreach(ErlFunEntry *fe, struct erl_module_instance* modp)
+static void fun_purge_foreach(ErlFunEntryContainer *fc,
+                              struct erl_module_instance* modp)
 {
     const char *fun_addr, *mod_start;
+    ErlFunEntry *fe = &fc->entry;
 
-    fun_addr = (const char*)fe->address;
+    fun_addr = (const char*)fe->dispatch.addresses[0];
     mod_start = (const char*)modp->code_hdr;
 
     if (ErtsInArea(fun_addr, mod_start, modp->code_length)) {
-        fe->pend_purge_address = fe->address;
+        fe->pend_purge_address = fe->dispatch.addresses[0];
         ERTS_THR_WRITE_MEMORY_BARRIER;
-        fe->address = unloaded_fun;
+
+        erts_set_fun_code(fe, beam_unloaded_fun);
+
         erts_purge_state_add_fun(fe);
     }
 }
@@ -206,8 +218,8 @@ erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no)
     for (ix = 0; ix < no; ix++) {
         ErlFunEntry *fe = funs[ix];
 
-        if (fe->address == unloaded_fun) {
-            fe->address = fe->pend_purge_address;
+        if (fe->dispatch.addresses[0] == beam_unloaded_fun) {
+            erts_set_fun_code(fe, fe->pend_purge_address);
         }
     }
 }
@@ -236,19 +248,82 @@ erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
     ERTS_THR_WRITE_MEMORY_BARRIER;
 }
 
+
+ErlFunThing *erts_new_export_fun_thing(Eterm **hpp, Export *exp, int arity)
+{
+    ErlFunThing *funp;
+
+    funp = (ErlFunThing*)(*hpp);
+    *hpp += ERL_FUN_SIZE;
+
+    funp->thing_word = HEADER_FUN;
+    funp->next = NULL;
+    funp->entry.exp = exp;
+    funp->num_free = 0;
+    funp->creator = am_external;
+    funp->arity = arity;
+
+#ifdef DEBUG
+    {
+        const ErtsCodeMFA *mfa = &exp->info.mfa;
+        ASSERT(arity == mfa->arity);
+    }
+#endif
+
+    return funp;
+}
+
+ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
+                                      int arity, int num_free)
+{
+    ErlFunThing *funp;
+
+    funp = (ErlFunThing*) p->htop;
+    p->htop += ERL_FUN_SIZE + num_free;
+    erts_refc_inc(&fe->refc, 2);
+
+    funp->thing_word = HEADER_FUN;
+    funp->next = MSO(p).first;
+    MSO(p).first = (struct erl_off_heap_header*) funp;
+    funp->entry.fun = fe;
+    funp->num_free = num_free;
+    funp->creator = p->common.id;
+    funp->arity = arity;
+
+#ifdef DEBUG
+    {
+        /* FIXME: This assertion can fail because it may point to new code that
+         * has not been committed yet. This is an actual bug but the fix is too
+         * too involved and risky to release in a patch.
+         *
+         * As this problem has existed since the introduction of funs and is
+         * very unlikely to cause actual issues in the wild, we've decided to
+         * postpone the fix until OTP 26. See OTP-18016 for details. */
+        const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe);
+        ASSERT(funp->arity == mfa->arity - num_free);
+        ASSERT(arity == fe->arity);
+    }
+#endif
+
+    return funp;
+}
+
+
 struct dump_fun_foreach_args {
     fmtfn_t to;
     void *to_arg;
 };
 
 static void
-dump_fun_foreach(ErlFunEntry *fe, struct dump_fun_foreach_args *args)
+dump_fun_foreach(ErlFunEntryContainer *fc, struct dump_fun_foreach_args *args)
 {
+    ErlFunEntry *fe = &fc->entry;
+
     erts_print(args->to, args->to_arg, "=fun\n");
     erts_print(args->to, args->to_arg, "Module: %T\n", fe->module);
     erts_print(args->to, args->to_arg, "Uniq: %d\n", fe->old_uniq);
     erts_print(args->to, args->to_arg, "Index: %d\n",fe->old_index);
-    erts_print(args->to, args->to_arg, "Address: %p\n", fe->address);
+    erts_print(args->to, args->to_arg, "Address: %p\n", fe->dispatch.addresses[0]);
     erts_print(args->to, args->to_arg, "Refc: %ld\n", erts_refc_read(&fe->refc, 1));
 }
 
@@ -266,48 +341,48 @@ erts_dump_fun_entries(fmtfn_t to, void *to_arg)
 }
 
 static HashValue
-fun_hash(ErlFunEntry* obj)
+fun_hash(ErlFunEntryContainer* obj)
 {
-    return (HashValue) (obj->old_uniq ^ obj->index ^ atom_val(obj->module));
+    ErlFunEntry *fe = &obj->entry;
+
+    return (HashValue) (fe->old_uniq ^ fe->index ^ atom_val(fe->module));
 }
 
 static int
-fun_cmp(ErlFunEntry* obj1, ErlFunEntry* obj2)
+fun_cmp(ErlFunEntryContainer* obj1, ErlFunEntryContainer* obj2)
 {
-    /*
-     * OTP 23: Use 'index' (instead of 'old_index') when comparing fun
-     * entries. In OTP 23, multiple make_fun2 instructions may refer to the
-     * the same 'index' (for the wrapper function generated for the
-     * 'fun F/A' syntax).
-     *
-     * This is safe when loading code compiled with OTP R15 and later,
-     * because since R15 (2011), the 'index' has been reliably equal
-     * to 'old_index'. The loader refuses to load modules compiled before
-     * OTP R15.
-     */
+    ErlFunEntry* fe1 = &obj1->entry;
+    ErlFunEntry* fe2 = &obj2->entry;
 
-    return !(obj1->module == obj2->module &&
-	     obj1->old_uniq == obj2->old_uniq &&
-	     obj1->index == obj2->index);
+    return !(fe1->old_index == fe2->old_index &&
+             fe1->old_uniq == fe2->old_uniq &&
+             fe1->module == fe2->module &&
+             fe1->index == fe2->index &&
+             fe1->arity == fe2->arity &&
+             !sys_memcmp(fe1->uniq, fe2->uniq, sizeof(fe1->uniq)));
 }
 
-static ErlFunEntry*
-fun_alloc(ErlFunEntry* template)
+static ErlFunEntryContainer*
+fun_alloc(ErlFunEntryContainer* template)
 {
-    ErlFunEntry* obj = (ErlFunEntry *) erts_alloc(ERTS_ALC_T_FUN_ENTRY,
-						  sizeof(ErlFunEntry));
+    ErlFunEntryContainer* obj;
 
-    obj->old_uniq = template->old_uniq;
-    obj->index = template->index;
-    obj->module = template->module;
-    erts_refc_init(&obj->refc, -1);
-    obj->address = unloaded_fun;
-    obj->pend_purge_address = NULL;
+    obj = (ErlFunEntryContainer *) erts_alloc(ERTS_ALC_T_FUN_ENTRY,
+                                              sizeof(ErlFunEntryContainer));
+
+    sys_memcpy(obj, template, sizeof(ErlFunEntryContainer));
+
+    erts_refc_init(&obj->entry.refc, -1);
+
+    erts_set_fun_code(&obj->entry, beam_unloaded_fun);
+
+    obj->entry.pend_purge_address = NULL;
+
     return obj;
 }
 
 static void
-fun_free(ErlFunEntry* obj)
+fun_free(ErlFunEntryContainer* obj)
 {
     erts_free(ERTS_ALC_T_FUN_ENTRY, (void *) obj);
 }

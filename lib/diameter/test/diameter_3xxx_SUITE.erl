@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,19 +26,17 @@
 
 -module(diameter_3xxx_SUITE).
 
+%% testcases, no common_test dependency
+-export([run/0,
+         run/1]).
+
+%% common_test wrapping
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_suite/1,
-         end_per_suite/1,
-         init_per_group/2,
-         end_per_group/2,
-         init_per_testcase/2,
-         end_per_testcase/2]).
+         traffic/1]).
 
-%% testcases
--export([start/1,
-         send_unknown_application/1,
+%% internal
+-export([send_unknown_application/1,
          send_unknown_command/1,
          send_ok/1,
          send_invalid_hdr_bits/1,
@@ -47,9 +45,7 @@
          send_5xxx_missing_avp/1,
          send_double_error/1,
          send_3xxx/1,
-         send_5xxx/1,
-         counters/1,
-         stop/1]).
+         send_5xxx/1]).
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -67,11 +63,7 @@
 %% ===========================================================================
 
 -define(util, diameter_util).
--define(testcase(), proplists:get_value(testcase, get(?MODULE))).
--define(group(Config), begin
-                           put(?MODULE, Config),
-                           ?util:name(proplists:get_value(group, Config))
-                       end).
+-define(testcase(), get(?MODULE)).
 
 -define(L, atom_to_list).
 -define(A, list_to_atom).
@@ -106,34 +98,15 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 60}}].
+    [{timetrap, {seconds, 90}}].
 
 all() ->
-    [{group, ?util:name([E,D])} || E <- ?ERRORS, D <- ?RFCS].
+    [traffic].
 
-groups() ->
-    Tc = tc(),
-    [{?util:name([E,D]), [], [start] ++ Tc ++ [counters, stop]}
-     || E <- ?ERRORS, D <- ?RFCS].
+traffic(_Config) ->
+    run().
 
-init_per_suite(Config) ->
-    ok = diameter:start(),
-    Config.
-
-end_per_suite(_Config) ->
-    ok = diameter:stop().
-
-init_per_group(Group, Config) ->
-    [{group, Group} | Config].
-
-end_per_group(_, _) ->
-    ok.
-
-init_per_testcase(Name, Config) ->
-    [{testcase, Name} | Config].
-
-end_per_testcase(_, _) ->
-    ok.
+%% ===========================================================================
 
 tc() ->
     [send_unknown_application,
@@ -147,25 +120,36 @@ tc() ->
      send_3xxx,
      send_5xxx].
 
-%% ===========================================================================
+%% run/0
 
-%% start/1
+run() ->
+    ?util:run([[{{?MODULE, run, [{E,D}]}, 60000} || E <- ?ERRORS,
+                                                    D <- ?RFCS]]).
 
-start(Config) ->
-    Group = proplists:get_value(group, Config),
-    [Errors, RFC] = ?util:name(Group),
-    ok = diameter:start_service(?SERVER, ?SERVICE(?L(Group),
-                                                  Errors,
-                                                  RFC)),
+%% run/1
+
+run({F, [_,_] = G}) ->
+    put(?MODULE, F),
+    apply(?MODULE, F, [G]);
+
+run({E,D}) ->
+    try
+        run([E,D])
+    after
+        ok = diameter:stop()
+    end;
+
+run([Errors, RFC] = G) ->
+    Name = ?L(Errors) ++ "," ++ ?L(RFC),
+    ok = diameter:start(),
+    ok = diameter:start_service(?SERVER, ?SERVICE(Name, Errors, RFC)),
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT,
                                                   callback,
                                                   rfc6733)),
     LRef = ?util:listen(?SERVER, tcp),
-    ?util:connect(?CLIENT, tcp, LRef).
-
-%% stop/1
-
-stop(_Config) ->
+    ?util:connect(?CLIENT, tcp, LRef),
+    ?util:run([{?MODULE, run, [{F,G}]} || F <- tc()]),
+    _ = counters(G),
     ok = diameter:remove_transport(?CLIENT, true),
     ok = diameter:remove_transport(?SERVER, true),
     ok = diameter:stop_service(?SERVER),
@@ -175,9 +159,7 @@ stop(_Config) ->
 %%
 %% Check that counters are as expected.
 
-counters(Config) ->
-    Group = proplists:get_value(group, Config),
-    [_Errors, _Rfc] = G = ?util:name(Group),
+counters([_Errors, _RFC] = G) ->
     [] = ?util:run([[fun counters/3, K, S, G]
                     || K <- [statistics, transport, connections],
                        S <- [?CLIENT, ?SERVER]]).
@@ -379,10 +361,7 @@ send_unknown_application([_,_]) ->
                                                  %% UNSUPPORTED_APPLICATION
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call();
-
-send_unknown_application(Config) ->
-    send_unknown_application(?group(Config)).
+        = call().
 
 %% send_unknown_command/1
 %%
@@ -398,10 +377,7 @@ send_unknown_command([_,_]) ->
                                                  %% UNSUPPORTED_COMMAND
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call();
-
-send_unknown_command(Config) ->
-    send_unknown_command(?group(Config)).
+        = call().
 
 %% send_ok/1
 %%
@@ -412,10 +388,7 @@ send_ok([_,_]) ->
     #diameter_base_STA{'Result-Code' = 5002,  %% UNKNOWN_SESSION_ID
                        'Failed-AVP' = [],
                        'AVP' = []}
-        = call();
-
-send_ok(Config) ->
-    send_ok(?group(Config)).
+        = call().
 
 %% send_invalid_hdr_bits/1
 %%
@@ -433,10 +406,7 @@ send_invalid_hdr_bits([_,_]) ->
     #'diameter_base_answer-message'{'Result-Code' = 3008, %% INVALID_HDR_BITS
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call();
-
-send_invalid_hdr_bits(Config) ->
-    send_invalid_hdr_bits(?group(Config)).
+        = call().
 
 %% send_missing_avp/1
 %%
@@ -454,10 +424,7 @@ send_missing_avp([_,_]) ->
     #diameter_base_STA{'Result-Code' = 5005,  %% MISSING_AVP
                        'Failed-AVP' = [_],
                        'AVP' = []}
-        = call();
-
-send_missing_avp(Config) ->
-    send_missing_avp(?group(Config)).
+        = call().
 
 %% send_ignore_missing_avp/1
 %%
@@ -475,10 +442,7 @@ send_ignore_missing_avp([_,_]) ->
     #diameter_base_STA{'Result-Code' = 2001,  %% SUCCESS
                        'Failed-AVP' = [],
                        'AVP' = []}
-        = call();
-
-send_ignore_missing_avp(Config) ->
-    send_ignore_missing_avp(?group(Config)).
+        = call().
 
 %% send_5xxx_missing_avp/1
 %%
@@ -501,10 +465,7 @@ send_5xxx_missing_avp([_,_]) ->
     #diameter_base_STA{'Result-Code' = 2001,  %% SUCCESS
                        'Failed-AVP' = [],
                        'AVP' = []}
-        = call();
-
-send_5xxx_missing_avp(Config) ->
-    send_5xxx_missing_avp(?group(Config)).
+        = call().
 
 %% send_double_error/1
 %%
@@ -522,10 +483,7 @@ send_double_error([_,_]) ->
     #'diameter_base_answer-message'{'Result-Code' = 3008, %% INVALID_HDR_BITS
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call();
-
-send_double_error(Config) ->
-    send_double_error(?group(Config)).
+        = call().
 
 %% send_3xxx/1
 %%
@@ -536,10 +494,7 @@ send_3xxx([_,_]) ->
     #'diameter_base_answer-message'{'Result-Code' = 3999,
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call();
-
-send_3xxx(Config) ->
-    send_3xxx(?group(Config)).
+        = call().
 
 %% send_5xxx/1
 %%
@@ -555,10 +510,7 @@ send_5xxx([_,_]) ->
     #'diameter_base_answer-message'{'Result-Code' = 5999,
                                     'Failed-AVP' = [],
                                     'AVP' = []}
-        = call();
-
-send_5xxx(Config) ->
-    send_5xxx(?group(Config)).
+        = call().
 
 %% ===========================================================================
 

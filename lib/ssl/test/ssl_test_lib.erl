@@ -51,6 +51,7 @@
          start_upgrade_server/1,
          start_upgrade_server_error/1,
          start_upgrade_client/1,
+         start_upgrade_client_error/1,
          start_client_error/1,
          start_server_error/1,
          start_server_transport_abuse_socket/1,
@@ -70,6 +71,7 @@
          run_upgrade_server/1,
          run_upgrade_client/1,
          run_upgrade_server_error/1,
+         run_upgrade_client_error/1,
          run_client_error/1,
          send_recv_result_active/3,
          wait_for_result/2,
@@ -124,6 +126,7 @@
          client_msg/2,
          server_msg/2,
          hardcode_rsa_key/1,
+         hardcode_dsa_key/1,
          bigger_buffers/0,
          stop/2,
          working_openssl_client/0,
@@ -1324,7 +1327,10 @@ format_certs(Cert) when is_binary(Cert) ->
     lists:flatten(format_cert(Cert)).
 
 format_cert(BinCert) when is_binary(BinCert) ->
-    OtpCert = #'OTPCertificate'{tbsCertificate = Cert} = public_key:pkix_decode_cert(BinCert, otp),
+    format_cert(public_key:pkix_decode_cert(BinCert, otp));
+format_cert(#cert{otp=Otp}) ->
+    format_cert(Otp);
+format_cert(#'OTPCertificate'{tbsCertificate = Cert} = OtpCert) ->
     #'OTPTBSCertificate'{subject = Subject, serialNumber = Nr, issuer = Issuer} = Cert,
     case public_key:pkix_is_self_signed(OtpCert) of
         true ->
@@ -1989,6 +1995,25 @@ run_upgrade_client(Opts) ->
 	    ?LOG("~nUpgrade Client closing~n", []),
 	    ssl:close(SslSocket)
     end.
+
+start_upgrade_client_error(Args) ->
+    Node = proplists:get_value(node, Args),
+    spawn_link(Node, ?MODULE, run_upgrade_client_error, [Args]).
+
+run_upgrade_client_error(Opts) ->
+    Host = proplists:get_value(host, Opts),
+    Port = proplists:get_value(port, Opts),
+    Pid = proplists:get_value(from, Opts),
+    Timeout = proplists:get_value(timeout, Opts, infinity),
+    TcpOptions = proplists:get_value(tcp_options, Opts),
+    SslOptions = proplists:get_value(ssl_options, Opts),
+    ?LOG("gen_tcp:connect(~p, ~p, ~p)",
+               [Host, Port, TcpOptions]),
+    {ok, Socket} = gen_tcp:connect(Host, Port, TcpOptions),
+    send_selected_port(Pid, Port, Socket),
+    ?LOG("ssl:connect(~p, ~p)", [Socket, SslOptions]),
+    Error = ssl:connect(Socket, SslOptions, Timeout),
+    Pid ! {self(), Error}.
 
 start_upgrade_server_error(Args) ->
     Node = proplists:get_value(node, Args),

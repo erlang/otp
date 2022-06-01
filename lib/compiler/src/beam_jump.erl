@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@
 %%% Note: This modules depends on (almost) all branches and jumps only
 %%% going forward, so that we can remove instructions (including definition
 %%% of labels) after any label that has not been referenced by the code
-%%% preceeding the labels. Regarding the few instructions that have backward
+%%% preceding the labels. Regarding the few instructions that have backward
 %%% references to labels, we assume that they only transfer control back
 %%% to an instruction that has already been executed. That is, code such as
 %%%
@@ -135,7 +135,7 @@
 
 -type instruction() :: beam_utils:instruction().
 
--include("beam_types.hrl").
+-include("beam_asm.hrl").
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -184,9 +184,10 @@ eliminate_moves([{select,select_val,Reg,{f,Fail},List}=I|Is], D0, Acc) ->
     D1 = add_unsafe_label(Fail, D0),
     D = update_value_dict(List, Reg, D1),
     eliminate_moves(Is, D, [I|Acc]);
-eliminate_moves([{test,is_eq_exact,_,[Reg,Val]}=I,
+eliminate_moves([{test,is_eq_exact,_,[Reg0,Val]}=I,
                  {block,BlkIs0}|Is], D0, Acc) ->
     D = update_unsafe_labels(I, D0),
+    Reg = unpack_typed_reg(Reg0),
     RegVal = {Reg,Val},
     BlkIs = eliminate_moves_blk(BlkIs0, RegVal),
     eliminate_moves([{block,BlkIs}|Is], D, [I|Acc]);
@@ -269,7 +270,8 @@ value_to_literal(F) when is_float(F) -> {float,F};
 value_to_literal(I) when is_integer(I) -> {integer,I};
 value_to_literal(Other) -> {literal,Other}.
 
-update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
+update_value_dict([Lit,{f,Lbl}|T], Reg0, D0) ->
+    Reg = unpack_typed_reg(Reg0),
     D = case D0 of
             #{Lbl:=unsafe} -> D0;
             #{Lbl:={Reg,Lit}} -> D0;
@@ -278,6 +280,9 @@ update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
         end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
+
+unpack_typed_reg(#tr{r=Reg}) -> Reg;
+unpack_typed_reg(Reg) -> Reg.
 
 add_unsafe_label(L, D) ->
     D#{L=>unsafe}.
@@ -406,7 +411,7 @@ unambigous_exit_call([{call_ext,A,{extfunc,M,F,A}}|Is]) ->
     case erl_bifs:is_exit_bif(M, F, A) of
         true ->
             %% beam_validator requires that the size of the stack
-            %% frame is unambigously known when a function is called.
+            %% frame is unambiguously known when a function is called.
             %%
             %% That means that we must be careful when sharing function
             %% calls.
@@ -416,7 +421,7 @@ unambigous_exit_call([{call_ext,A,{extfunc,M,F,A}}|Is]) ->
             %% rare circumstances. (See the undecided_allocation_1/1
             %% function in beam_jump_SUITE.)
             %%
-            %% To ensure that the frame size is unambigous, only allow
+            %% To ensure that the frame size is unambiguous, only allow
             %% sharing of a call to exit BIFs if the call is followed
             %% by an instruction that indicates the size of the stack
             %% frame (that is almost always the case in real-world
@@ -466,7 +471,7 @@ is_shareable([]) -> true.
 %%
 %% Classify labels according to where the instructions that branch to
 %% the labels are located. Each label is assigned a set of scope
-%% identifers (but usually just one). If two labels have different
+%% identifiers (but usually just one). If two labels have different
 %% scope identfiers, sharing a sequence that raises an exception
 %% between the labels may not be safe, because one label is inside a
 %% try/catch, and the other label is outside. Note that we don't care
@@ -597,21 +602,9 @@ find_fixpoint(OptFun, Is0) ->
 	Is -> find_fixpoint(OptFun, Is)
     end.
 
-opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc, St) ->
-    %% We have
-    %%    Test Label Ops
-    %%    jump Label
-    %% The test instruction is not needed if the test is pure
-    %% (it modifies neither registers nor bit syntax state).
-    case beam_utils:is_pure_test(I) of
-	false ->
-	    %% Test is not pure; we must keep it.
-	    opt(Is, [I|Acc], label_used(Lbl, St));
-	true ->
-	    %% The test is pure and its failure label is the same
-	    %% as in the jump that follows -- thus it is not needed.
-	    opt(Is, Acc, St)
-    end;
+opt([{test,is_eq_exact,{f,L},_}|[{jump,{f,L}}|_]=Is], Acc, St) ->
+    %% The is_eq_exact test is not needed.
+    opt(Is, Acc, St);
 opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
     case is_label_defined(Is, L) of
 	false ->
@@ -629,6 +622,28 @@ opt([{test,_,{f,_}=Lbl,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
+opt([{select,select_val,R,F,Vls0}|Is], Acc, St) ->
+    case prune_redundant_values(Vls0, F) of
+        [] ->
+            %% No values left. Must convert to plain jump.
+            I = {jump,F},
+            opt([I|Is], Acc, St);
+        [{atom,_}=Value,Lbl] ->
+            %% Single value left. Convert to regular test.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            opt(Is1, Acc, St);
+        [{integer,_}=Value,Lbl] ->
+            %% Single value left. Convert to regular test.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            opt(Is1, Acc, St);
+        [{atom,B1},Lbl,{atom,B2},Lbl] when B1 =:= not B2 ->
+            %% Replace with is_boolean test.
+            Is1 = [{test,is_boolean,F,[R]},{jump,Lbl}|Is],
+            opt(Is1, Acc, St);
+        [_|_]=Vls ->
+            I = {select,select_val,R,F,Vls},
+            skip_unreachable(Is, [I|Acc], label_used([F|Vls], St))
+    end;
 opt([{select,_,_R,Fail,Vls}=I|Is], Acc, St) ->
     skip_unreachable(Is, [I|Acc], label_used([Fail|Vls], St));
 opt([{label,From}=I,{label,To}|Is], Acc, #st{replace=Replace}=St) ->
@@ -664,6 +679,12 @@ opt([], Acc, #st{replace=Replace0}) when Replace0 =/= #{} ->
 opt([], Acc, #st{replace=Replace}) when Replace =:= #{} ->
     reverse(Acc).
 
+prune_redundant_values([_Val,F|Vls], F) ->
+    prune_redundant_values(Vls, F);
+prune_redundant_values([Val,Lbl|Vls], F) ->
+    [Val,Lbl|prune_redundant_values(Vls, F)];
+prune_redundant_values([], _) -> [].
+
 normalize_replace([{From,To0}|Rest], Replace, Acc) ->
     case Replace of
         #{To0 := To} ->
@@ -687,7 +708,7 @@ collect_labels_1(Is, _Label, _Entry, Acc, St) ->
 
 %% label_defined(Is, Label) -> true | false.
 %%  Test whether the label Label is defined at the start of the instruction
-%%  sequence, possibly preceeded by other label definitions.
+%%  sequence, possibly preceded by other label definitions.
 %%
 is_label_defined([{label,L}|_], L) -> true;
 is_label_defined([{label,_}|Is], L) -> is_label_defined(Is, L);
@@ -756,6 +777,7 @@ is_exit_instruction(if_end) -> true;
 is_exit_instruction({case_end,_}) -> true;
 is_exit_instruction({try_case_end,_}) -> true;
 is_exit_instruction({badmatch,_}) -> true;
+is_exit_instruction({badrecord,_}) -> true;
 is_exit_instruction(_) -> false.
 
 %% remove_unused_labels(Instructions0) -> Instructions
@@ -800,7 +822,7 @@ drop_upto_label([]) -> [].
 
 %% unshare([Instruction]) -> [Instruction].
 %%  Replace a jump to a return sequence (a `return` instruction
-%%  optionally preced by a `deallocate` instruction) with the return
+%%  optionally precede by a `deallocate` instruction) with the return
 %%  sequence. This always saves execution time and may also save code
 %%  space (depending on the architecture). Eliminating `jump`
 %%  instructions also gives beam_trim more opportunities to trim the
@@ -879,6 +901,8 @@ instr_labels({wait_timeout,Lbl,_To}) ->
 instr_labels({bif,_Name,Lbl,_As,_R}) ->
     do_instr_labels(Lbl);
 instr_labels({gc_bif,_Name,Lbl,_Live,_As,_R}) ->
+    do_instr_labels(Lbl);
+instr_labels({bs_create_bin,Lbl,_,_,_,_,_}) ->
     do_instr_labels(Lbl);
 instr_labels({bs_init,Lbl,_,_,_,_}) ->
     do_instr_labels(Lbl);

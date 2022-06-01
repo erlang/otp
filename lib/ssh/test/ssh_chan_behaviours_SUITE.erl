@@ -104,7 +104,7 @@ end_per_testcase(_TC, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-%% Try start a subsystem whos name is not known by the server
+%% Try start a subsystem whose name is not known by the server
 noexist_subsystem(Config) ->
     C = proplists:get_value(connref, Config),
     {ok, Ch} = ssh_connection:session_channel(C, infinity),
@@ -135,7 +135,7 @@ defined_subsystem(Config) ->
     ?EXPECT({ssh_cm, C, {closed,Ch1}}, []), % self() is instead of a proper channel handler
     ok.
 
-%% Try to start and stop a subsystem from a ssh_client_channel behviour
+%% Try to start and stop a subsystem from a ssh_client_channel behaviour
 subsystem_client(Config) ->
     C = proplists:get_value(connref, Config),
 

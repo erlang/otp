@@ -44,7 +44,7 @@
        cause confusion.
     </p>
     <p>The term is used differently in <url href="http://www.openssh.com">OpenSSH</url> and SSH in Erlang/OTP.
-       The reason is the different environments and use cases that are not immediatly obvious.
+       The reason is the different environments and use cases that are not immediately obvious.
     </p>
     <p>This chapter aims at explaining the differences and giving a rationale for why Erlang/OTP handles "user" as
        it does.
@@ -95,8 +95,8 @@
 	</p>
       </section>
       <section>
-	<title>The SSH server on UNIX/Linux/etc after a succesful authentication</title>
-	<p>After a succesful incoming authentication, a new process runs as the just authenticated user.</p>
+	<title>The SSH server on UNIX/Linux/etc after a successful authentication</title>
+	<p>After a successful incoming authentication, a new process runs as the just authenticated user.</p>
 	<p>Next step is to start a service according to the ssh request. In case of a request of a shell, 
 	a new one is started which handles the OS-commands that arrives from the client (that's "you").
 	</p>
@@ -166,7 +166,7 @@
 	</list>
       </section>
       <section>
-	<title>The Erlang/OTP SSH server after a succesful authentication</title>
+	<title>The Erlang/OTP SSH server after a successful authentication</title>
 	<p>After a successful authentication an <i>Erlang process</i> is handling the service request from the remote
 	ssh client. The rights of that process are those of the user of the OS process running the Erlang emulator.
 	</p>

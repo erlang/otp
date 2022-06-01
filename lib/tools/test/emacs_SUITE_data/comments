@@ -3,11 +3,11 @@
 
 %%% 3 comment chars: always left indented
 %%% 2 comment chars: Context indented
-%%% 1 comment char: Rigth indented
+%%% 1 comment char: Right indented
 
 %%% left
 %% context dependent
-                                                % rigth
+                                                % right
 
 func() ->
 %%% left
@@ -15,7 +15,7 @@ func() ->
                                                 % right indented
     case get(foo) of
         undefined ->
-            %% Testing indention
+            %% Testing indentation
             ok;
         %% Catch all
         Other ->

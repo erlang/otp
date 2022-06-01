@@ -1,7 +1,7 @@
 % This is an -*- erlang -*- file.
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
   {modules, [
 	     beam_a,
 	     beam_asm,
+             beam_bounds,
 	     beam_block,
              beam_call_types,
 	     beam_clean,
@@ -34,14 +35,12 @@
              beam_kernel_to_ssa,
 	     beam_listing,
 	     beam_opcodes,
-	     beam_peep,
              beam_ssa,
              beam_ssa_bc_size,
              beam_ssa_bool,
              beam_ssa_bsm,
              beam_ssa_codegen,
              beam_ssa_dead,
-             beam_ssa_funs,
              beam_ssa_lint,
              beam_ssa_opt,
              beam_ssa_pp,
@@ -82,5 +81,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-3.13","kernel-7.0","erts-11.0",
-			  "crypto-3.6"]}]}.
+  {runtime_dependencies, ["stdlib-4.0","kernel-8.4","erts-13.0",
+			  "crypto-5.1"]}]}.
