@@ -2,7 +2,7 @@
 ##
 ## %CopyrightBegin%
 ##
-## Copyright Ericsson AB 2009-2020. All Rights Reserved.
+## Copyright Ericsson AB 2009-2022. All Rights Reserved.
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -26,8 +26,7 @@
 ## $0 IPAddress PortNum SubDir
 ##
 ## Helper script to run a very local name server for this test suite,
-## on a given port number, with a configuration
-## customized for the test suite.
+## on a given port number, with a test specific configuration.
 ##
 ## * Create a work directory ./SubDir, create a $CONF_FILE there
 ##   that includes $INC_FILE that refers to the zone files.
@@ -35,7 +34,7 @@
 ## * Zopy zone files and $INC_FILE from `dirname $0`/SubDir to ./SubDir.
 ## * Start name server in ./SubDir with logging to $LOG_FILE there.
 ## * Wait for "quit" on stdin.
-## * Terminate named and wait for it.
+## * Terminate name server and wait for it.
 ##
 ## Prints status lines starting with tag and colon (think mail header):
 ##   Error: have given up, no name server started
@@ -77,10 +76,8 @@ test -d "$SRCDIR" || \
 test -f "$SRCDIR/$INC_FILE" || \
     error "Missing file: $SRCDIR/$INC_FILE !"
 
-# Locate named and check version.
-# The bind-named name is used for tricking Apparmor and such
-# by copying/hardlinking the real named to that name.
-NS=named
+# Locate nsd and check version.
+NS=nsd
 for n in /usr/sbin/nsd /usr/bin/nsd /usr/local/sbin/nsd /usr/local/bin/nsd
 do
     test -x "$n" && NS="$n" && break
@@ -109,10 +106,10 @@ cat >"$CONF_FILE" <<CONF_FILE
 server:
     zonesdir:     "$DIR"
     port:          $2
-    database:     ""
+    database:     "nsd.db"
     zonelistfile: "zone.list"
     pidfile:      "nsd.pid"
-    xfrdfile:     ""
+    xfrdfile:     "xfrd.state"
     xfrdir:       "$DIR"
     username:     "$LOGNAME"
     verbosity:     2
