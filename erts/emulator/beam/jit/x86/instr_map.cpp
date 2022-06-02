@@ -25,6 +25,7 @@ using namespace asmjit;
 extern "C"
 {
 #include "erl_map.h"
+#include "erl_term_hashing.h"
 #include "beam_common.h"
 }
 
@@ -51,6 +52,10 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
     a.add(lower, ARG6d);
     a.add(upper, ARG6d);
 
+#if defined(ERL_INTERNAL_HASH_CRC32C)
+    a.crc32(hash, lower);
+    a.crc32(hash, upper);
+#else
     using rounds =
             std::initializer_list<std::tuple<x86::Gp, x86::Gp, x86::Gp, int>>;
     for (const auto &round : rounds{{lower, upper, hash, 13},
@@ -79,6 +84,7 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
 
         a.xor_(r_a, ARG6d);
     }
+#endif
 
     a.ret();
 }

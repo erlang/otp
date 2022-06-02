@@ -23,6 +23,11 @@
 
 #include "sys.h"
 
+#if (defined(__aarch64__) && defined(__ARM_FEATURE_CRC32)) ||                 \
+    (defined(__x86_64__) && defined(__SSE4_2__))
+#   define ERL_INTERNAL_HASH_CRC32C
+#endif
+
 Uint32 make_hash2(Eterm);
 Uint32 trapping_make_hash2(Eterm, Eterm*, struct process*);
 Uint32 make_hash(Eterm);

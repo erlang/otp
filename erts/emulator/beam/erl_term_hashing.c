@@ -22,6 +22,14 @@
 #  include "config.h"
 #endif
 
+#ifdef ERL_INTERNAL_HASH_CRC32C
+#   if defined(__x86_64__)
+#       include <immintrin.h>
+#   elif defined(__aarch64__)
+#       include <arm_acle.h>
+#   endif
+#endif
+
 #include "sys.h"
 #include "global.h"
 #include "erl_term_hashing.h"
@@ -1361,6 +1369,26 @@ trapping_make_hash2(Eterm term, Eterm* state_mref_write_back, Process* p)
  * This is why we cannot use cached hash values for atoms for example.
  *
  */
+
+/* Use a better mixing function if available. */
+#if defined(ERL_INTERNAL_HASH_CRC32C)
+#   undef MIX
+#   if defined(__x86_64__)
+#       define MIX(a,b,c)                                                     \
+            do {                                                              \
+                c = __builtin_ia32_crc32si(c, a);                             \
+                c = __builtin_ia32_crc32si(c, b);                             \
+            } while(0)
+#   elif defined(__aarch64__)
+#       define MIX(a,b,c)                                                     \
+            do {                                                              \
+                c = __crc32cw(c, a);                                          \
+                c = __crc32cw(c, b);                                          \
+            } while(0)
+#   else
+#   error "No suitable CRC32 intrinsic available."
+#   endif
+#endif
 
 #define CONST_HASH(AConst)                                                    \
     do {  /* Lightweight mixing of constant (type info) */                    \
