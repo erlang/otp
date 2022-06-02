@@ -131,7 +131,7 @@ static void hopefull_export(TTBEncodeContext* ctx, byte **epp, Export* exp, Uint
                             struct erl_off_heap_header** off_heap);
 static void store_in_vec(TTBEncodeContext *ctx, byte *ep, Binary *ohbin, Eterm ohpb,
                          byte *ohp, Uint ohsz);
-static void patch_hopeful_fun_size(SysIOVec* iov, Uint32 fun_end_ix, byte* size_p);
+static Uint32 calc_iovec_fun_size(SysIOVec* iov, Uint32 fun_high_ix, byte* size_p);
 
 void erts_init_external(void) {
     erts_init_trap_export(&term_to_binary_trap_export,
@@ -3156,41 +3156,46 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	case ENC_PATCH_FUN_SIZE:
 	    {
                 byte* size_p = (byte *) obj;
+                Sint32 fun_sz;
 
-                if (dflags & DFLAG_PENDING_CONNECT) {
-                    /*
-                     * Problem: The fun may contain hopefully encoded stuff in
-                     * its environment. This makes it harder to calculate its
-                     * total byte 'Size' field. Even worse, the correct size
-                     * may not be known until a final fallback transcoding has
-                     * been done in transcode_dist_obuf().
-                     */
-                    ep = begin_hopefull_data(ctx, ep);
-                    *ep++ = HOPEFUL_END_OF_FUN;
-                    sys_memcpy(ep, &size_p, sizeof(size_p));
-                    ep += sizeof(size_p);
-                    ep = end_hopefull_data(ctx, ep, 0);
-                    ERTS_ASSERT(ctx->iov[ctx->vlen - 1].iov_len == 1 + sizeof(size_p));
-                    ERTS_ASSERT(*(byte*)ctx->iov[ctx->vlen - 1].iov_base
-                                == HOPEFUL_END_OF_FUN);
-                    /*
-                     * The HOPEFUL_END_OF_FUN iovec data entry encoded above
-                     * contains no actual payload, only meta data for patching
-                     * the correct fun size in transcode_dist_obuf(). Therefor
-                     * reset its iov_len to zero to avoid output as payload.
-                     */
-                    ctx->fragment_eiovs[ctx->frag_ix].size -= 1 + sizeof(size_p);
-                    ctx->iov[ctx->vlen - 1].iov_len = 0;
+                if (use_iov && !ErtsInArea(size_p, ctx->cptr, ep - ctx->cptr)) {
+                    ERTS_ASSERT(ctx->vlen > 0);
+                    fun_sz = (ep - ctx->cptr)
+                        + calc_iovec_fun_size(ctx->iov, ctx->vlen-1, size_p);
 
-                    /* Do preliminary calculation of fun size which may later
-                     * change if fallback transcoding is needed. */
-                    patch_hopeful_fun_size(ctx->iov, ctx->vlen-2, size_p);
+                    if (dflags & DFLAG_PENDING_CONNECT) {
+                        /*
+                         * Problem: The fun may contain hopefully encoded stuff
+                         * in its environment. This makes the correct fun size
+                         * may not be known until a final fallback transcoding
+                         * has been done in transcode_dist_obuf().
+                         */
+                        ep = begin_hopefull_data(ctx, ep);
+                        *ep++ = HOPEFUL_END_OF_FUN;
+                        sys_memcpy(ep, &size_p, sizeof(size_p));
+                        ep += sizeof(size_p);
+                        ep = end_hopefull_data(ctx, ep, 0);
+                        ERTS_ASSERT(ctx->iov[ctx->vlen - 1].iov_len
+                                    == 1 + sizeof(size_p));
+                        ERTS_ASSERT(*(byte*)ctx->iov[ctx->vlen - 1].iov_base
+                                    == HOPEFUL_END_OF_FUN);
+                        /*
+                         * The HOPEFUL_END_OF_FUN iovec data entry encoded above
+                         * contains no actual payload, only meta data to patch
+                         * the correct fun size in transcode_dist_obuf().
+                         * Therefor reset its iov_len to zero to avoid output as
+                         * payload.
+                         */
+                        ctx->fragment_eiovs[ctx->frag_ix].size -= 1 + sizeof(size_p);
+                        ctx->iov[ctx->vlen - 1].iov_len = 0;
+                    }
                 }
                 else {
-                    /* No hopeful iovec encoding. Easy to calculate fun size. */
-                    Sint32 sz = ep - size_p;
-                    put_int32(sz, size_p);
+                    /* No iovec encoding or still in same iovec buffer as start
+                     * of fun. Easy to calculate fun size. */
+                    fun_sz = ep - size_p;
                 }
+                put_int32(fun_sz, size_p);
 	    }
 	    goto outer_loop;
 	case ENC_BIN_COPY: {
@@ -5439,7 +5444,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                                        + 1 /* 2 tuple size */
                                        + 1 /* BINARY_EXT */
                                        + 4 /* binary size */);
-                            trailing_result = (1 /* SMALL_INTEGER_EXT */
+                            trailing_result = (1   /* trailing bits */
+                                               + 1 /* SMALL_INTEGER_EXT */
                                                + 1 /* bitsize */);
                         }
                         csz = result - ctx->last_result;
@@ -6032,25 +6038,27 @@ transcode_decode_state_destroy(ErtsTranscodeDecodeState *state)
     erts_free(ERTS_ALC_T_TMP, state->hp);    
 }
 
-static void
-patch_hopeful_fun_size(SysIOVec* iov, Uint32 fun_end_ix, byte* size_p)
+static Uint32
+calc_iovec_fun_size(SysIOVec* iov, Uint32 fun_high_ix, byte* size_p)
 {
     Sint32 ix;
     Uint32 fun_size = 0;
 
     ERTS_ASSERT(size_p[-1] == NEW_FUN_EXT);
 
-    /* Search backwards from end of fun and add up its total byte size */
-    for (ix = fun_end_ix; ix >= 0; ix--) {
+    /*
+     * Search backwards for start of fun while adding up its total byte size.
+     */
+    for (ix = fun_high_ix; ix >= 0; ix--) {
         fun_size += iov[ix].iov_len;
 
         if (ErtsInArea(size_p, iov[ix].iov_base, iov[ix].iov_len)) {
             fun_size -= (size_p - (byte*)iov[ix].iov_base);
-            put_int32(fun_size, size_p);
             break;
         }
     }
     ERTS_ASSERT(ix >= 0);
+    return fun_size;
 }
 
 static
@@ -6466,12 +6474,14 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
 
             case HOPEFUL_END_OF_FUN: {
                 byte* size_p;
+                Uint32 fun_sz;
 
                 ERTS_ASSERT(iov[hopefull_ix].iov_len == 0);
                 ep++;
                 sys_memcpy(&size_p, ep, sizeof(size_p));
 
-                patch_hopeful_fun_size(iov, hopefull_ix-1, size_p);
+                fun_sz = calc_iovec_fun_size(iov, hopefull_ix-1, size_p);
+                put_int32(fun_sz, size_p);
                 break;
             }
 

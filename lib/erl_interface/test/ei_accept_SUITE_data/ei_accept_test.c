@@ -198,10 +198,13 @@ static void cmd_ei_accept(char* buf, int len)
 
 static void cmd_ei_receive(char* buf, int len)
 {
+    static int call_cnt = 0;
     ei_x_buff x;
     erlang_msg msg;
     long l;
     int fd, index = 0;
+
+    call_cnt++;
     
     if (ei_decode_long(buf, &index, &l) < 0)
 	fail("expected int (fd)");
@@ -227,8 +230,8 @@ static void cmd_ei_receive(char* buf, int len)
         if (skip_ret != 0)
             fail1("ei_skip_term returned %d", skip_ret);
         if (index != x.index )
-            fail2("ei_skip_term length mismatch %d != %d\n",
-                  index, x.index);
+            fail3("ei_skip_term length mismatch %d != %d (call_cnt=%d)\n",
+                  index, x.index, call_cnt);
     }
 
     index = 1;
