@@ -477,6 +477,12 @@ default(server) ->
             class => user_option
            },
 
+      no_auth_needed =>
+          #{default => false,
+            chk => fun(V) -> erlang:is_boolean(V) end,
+            class => user_option
+           },
+
       pk_check_user =>
           #{default => false,
             chk => fun(V) -> erlang:is_boolean(V) end,
