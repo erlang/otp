@@ -5254,7 +5254,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                                        + 1 /* 2 tuple size */
                                        + 1 /* BINARY_EXT */
                                        + 4 /* binary size */);
-                            trailing_result = (1 /* SMALL_INTEGER_EXT */
+                            trailing_result = (1   /* trailing bits */
+                                               + 1 /* SMALL_INTEGER_EXT */
                                                + 1 /* bitsize */);
                         }
                         csz = result - ctx->last_result;

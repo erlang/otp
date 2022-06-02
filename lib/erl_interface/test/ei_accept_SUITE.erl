@@ -155,6 +155,10 @@ hopeful_random_do(Config, CompatRel, SockImpl) ->
     Node = node(),
     [match(T, ei_receive(P, Fd), CompatRel) || T <- Terms],
 
+    %% Send again on established connection
+    [{any, EINode} ! T || T <- Terms],
+    [match(T, ei_receive(P, Fd), CompatRel) || T <- Terms],
+
     runner:finish(P),
     ok.
 
