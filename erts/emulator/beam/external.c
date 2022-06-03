@@ -5482,6 +5482,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                    during a pending connect. */
                 Uint csz;
                 ASSERT(dflags & DFLAG_BIT_BINARIES);
+                ERTS_ASSERT(vlen >= 0);
 		ASSERT(ctx);
                 csz = result - ctx->last_result;
                 /* potentially multiple elements leading up to binary */
@@ -5521,6 +5522,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		
                 ASSERT(dflags & DFLAG_NEW_FUN_TAGS);
                 if (dflags & DFLAG_PENDING_CONNECT) {
+                    ERTS_ASSERT(vlen >= 0);
                     WSTACK_PUSH(s, PATCH_FUN_SIZE_OP);
                 }
                 result += 20+1+1+4;	/* New ID + Tag */
@@ -5556,6 +5558,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                      * the hopefull index + hopefull encoding is larger...
                      */
                     ASSERT(dflags & DFLAG_EXPORT_PTR_TAG);
+                    ERTS_ASSERT(vlen >= 0);
                     csz = tmp_result - ctx->last_result;
                     /* potentially multiple elements leading up to hopefull entry */
                     vlen += (csz/MAX_SYSIOVEC_IOVLEN + 1
@@ -5591,7 +5594,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 
             case PATCH_FUN_SIZE_OP: {
                 Uint csz;
-                ERTS_ASSERT(dflags & DFLAG_PENDING_CONNECT);
+                ERTS_ASSERT(vlen >= 0 && (dflags & DFLAG_PENDING_CONNECT));
                 csz = result - ctx->last_result;
                 /* potentially multiple elements leading up to hopefull entry */
                 vlen += (csz/MAX_SYSIOVEC_IOVLEN + 1
