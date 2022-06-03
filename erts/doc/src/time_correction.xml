@@ -34,29 +34,42 @@
   </header>
 
   <section>
-    <title>New Extended Time Functionality</title>
-    <note><p>As from Erlang/OTP 18 (ERTS 7.0) the time functionality
-    has been extended. This includes a
+    <title>Extended Time Functionality</title>
+
+    <p>As of Erlang/OTP 18 (ERTS 7.0) the time functionality
+    was extended. This includes a
     <seeguide marker="#The_New_Time_API">new API</seeguide>
     for time and
     <seeguide marker="#Time_Warp_Modes">time warp
     modes</seeguide> that change the system behavior when
     system time changes.</p>
 
-    <p>The <seeguide marker="#No_Time_Warp_Mode">default
-    time warp mode</seeguide> has the same behavior as before, and the
-    old API still works. Thus, you are not required to change
-    anything unless you want to. However, <em>you are strongly
-    encouraged to use the new API</em> instead of the old API based
-    on <seemfa marker="erlang#now/0"><c>erlang:now/0</c></seemfa>.
-    <c>erlang:now/0</c> is deprecated, as it is and
-    will be a scalability bottleneck.</p>
-
-    <p>By using the new API, you
-    automatically get scalability and performance improvements. This
-    also enables you to use the
-    <seeguide marker="#Multi_Time_Warp_Mode">multi-time warp mode</seeguide>
-    that improves accuracy and precision of time measurements.</p>
+    <note>
+      <p>
+        As of Erlang/OTP 26 (ERTS 14.0) the
+        <seeguide marker="#Multi_Time_Warp_Mode">multi time warp
+        mode</seeguide> is enabled by default. This assumes that all
+        code executing on the system is
+        <seeguide marker="#Time_Warp_Safe_Code">time warp safe</seeguide>.
+      </p>
+      <p>
+        If you have old code in the system that is not time warp
+        safe, you now explicitly need to start the system in
+        <seeguide marker="#No_Time_Warp_Mode">no time warp
+        mode</seeguide> (or
+        <seeguide marker="#Single_Time_Warp_Mode">singe time warp
+        mode</seeguide> if it is partially time warp safe) in order
+        to avoid problems. When starting the system in no time warp
+        mode, the system behaves as it did prior to the introduction
+        of the extended time functionality introduced in OTP 18.
+      </p>
+      <p>
+        If you have code that is not time warp safe, you are strongly
+        encouraged to change this so that you can use multi time
+        warp mode. Compared to no time warp mode, multi time warp
+        mode improves scalability and performance as well as accuracy
+        and precision of time measurements.
+      </p>
     </note>
   </section>
 
@@ -405,13 +418,9 @@
     <section>
       <title>No Time Warp Mode</title>
       <p>The time offset is determined at runtime system start
-      and does not change later. This is the default behavior, but
-      not because it is the best mode (which it is not). It is
-      default <em>only</em> because this is how the runtime system
-      behaved until ERTS 7.0.
-      Ensure that your Erlang code that can execute during a time
-      warp is <seeguide marker="#Time_Warp_Safe_Code">time warp
-      safe</seeguide> before enabling other modes.</p>
+      and does not change later. This is the same behavior as was
+      default prior to OTP 26 (ERTS 14.0), and the only behavior
+      prior to OTP 18 (ERTS 7.0).</p>
 
       <p>As the time offset is not allowed to change, time
       correction must adjust the frequency of the Erlang
@@ -558,7 +567,8 @@
       better, and behave better on almost all platforms.
       Also, the accuracy and precision of time measurements
       are better. Only Erlang runtime systems executing on
-      ancient platforms benefit from another configuration.</p>
+      ancient platforms benefit from another configuration.
+      As of OTP 26 (ERTS 14.0) this is also the default.</p>
 
       <p>The time offset can change at any time without limitations.
       That is, Erlang system time can perform time warps both
