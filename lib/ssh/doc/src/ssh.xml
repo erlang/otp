@@ -648,6 +648,19 @@
 	    </p>
 	    <p>This variant is kept for compatibility.</p>
 	  </item>
+
+	  <tag><marker id="option-no_auth_needed"/><c>no_auth_needed</c></tag>
+	  <item>
+            <p>If <c>true</c>, a client is authenticated without any need of
+	    providing any password or key.
+	    </p>
+	    <p>This option is only intended for very special applications due
+	    to the high risk of accepting any connecting client.
+	    </p>
+	    <p>The default value is <c>false</c>.
+	    </p>
+          </item>
+
 	</taglist>
       </desc>
     </datatype>
