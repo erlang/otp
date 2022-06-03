@@ -390,18 +390,17 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
             next_event(StateName, Record, State)
     end;
 %%% TLS record protocol level handshake messages 
-handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data}, StateName, #state{protocol_buffers = Buffers,
-                                                                                       ssl_options = Options} = State0) ->
+handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data}, StateName,
+                       #state{ssl_options = Options, protocol_buffers = Buffers} = State0) ->
     try
-        {Packets, Buffer} = get_tls_handshakes(Data, StateName, State0),
-        State = State0#state{protocol_buffers =
-                                 Buffers#protocol_buffers{tls_handshake_buffer = Buffer}},
-	case Packets of
+        {HSPackets, NewHSBuffer, RecordRest} = get_tls_handshakes(Data, StateName, State0),
+        State = State0#state{protocol_buffers = Buffers#protocol_buffers{tls_handshake_buffer = NewHSBuffer}},
+	case HSPackets of
             [] -> 
-                assert_buffer_sanity(Buffer, Options),
+                assert_buffer_sanity(NewHSBuffer, Options),
                 next_event(StateName, no_record, State);
             _ ->                
-                Events = tls_handshake_events(Packets),
+                Events = tls_handshake_events(HSPackets, RecordRest),
                 case StateName of
                     connection ->
                         ssl_gen_statem:hibernate_after(StateName, State, Events);
@@ -521,17 +520,30 @@ protocol_name() ->
 %%====================================================================
 %% Internal functions 
 %%====================================================================	     
-get_tls_handshakes(Data, StateName, #state{protocol_buffers =
-                                               #protocol_buffers{tls_handshake_buffer = Buffer},
+get_tls_handshakes(Data, StateName, #state{protocol_buffers = #protocol_buffers{tls_handshake_buffer = HSBuffer},
                                            connection_env = #connection_env{negotiated_version = Version},
                                            static_env = #static_env{role = Role},
                                            ssl_options = Options}) ->
-    handle_unnegotiated_version(Version, Options, Data, Buffer, Role, StateName).
+    case handle_unnegotiated_version(Version, Options, Data, HSBuffer, Role, StateName) of
+        {HSPackets, NewHSBuffer} ->
+            %% Common case
+            NoRecordRest = <<>>,
+            {HSPackets, NewHSBuffer, NoRecordRest};
+        {_Packets, _HSBuffer, _RecordRest} = Result ->
+            %% Possible coalesced TLS record data from pre TLS-1.3 server
+            Result
+    end.
 
-tls_handshake_events(Packets) ->
-    lists:map(fun(Packet) ->
-		      {next_event, internal, {handshake, Packet}}
-	      end, Packets).
+tls_handshake_events(HSPackets, <<>>) ->
+    lists:map(fun(HSPacket) ->
+                      {next_event, internal, {handshake, HSPacket}}
+              end, HSPackets);
+
+tls_handshake_events(HSPackets, RecordRest) ->
+    %% Coalesced TLS record data to be handled after first handshake message has been handled
+    RestEvent = {next_event, internal, {protocol_record, #ssl_tls{type = ?HANDSHAKE, fragment = RecordRest}}},
+    FirstHS = tls_handshake_events(HSPackets, <<>>),
+    FirstHS ++ [RestEvent].
 
 unprocessed_events(Events) ->
     %% The first handshake event will be processed immediately
@@ -764,9 +776,9 @@ handle_unnegotiated_version({3,3} , #{versions := [{3,4} = Version |_]} = Option
     %% The effective version for decoding the server hello message should be the TLS-1.3. Possible coalesced TLS-1.2
     %% server handshake messages should be decoded with the negotiated version in later state.
     <<_:8, ?UINT24(Length), _/binary>> = Data,
-    <<FirstPacket:(Length+4)/binary, Rest/binary>> = Data,
-    {Packet, <<>>} = tls_handshake:get_tls_handshakes(Version, FirstPacket, Buffer, Options),
-    {Packet, Rest};
+    <<FirstPacket:(Length+4)/binary, RecordRest/binary>> = Data,
+    {HSPacket, <<>> = NewHsBuffer} = tls_handshake:get_tls_handshakes(Version, FirstPacket, Buffer, Options),
+    {HSPacket, NewHsBuffer, RecordRest};
 %% TLS-1.3 RetryRequest
 handle_unnegotiated_version({3,3} , #{versions := [{3,4} = Version |_]} = Options, Data, Buffer, client, wait_sh) ->
     tls_handshake:get_tls_handshakes(Version, Data, Buffer, Options);
