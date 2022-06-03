@@ -595,7 +595,7 @@ format_erlang_error(monitor_node, [Node,Flag], _) ->
 format_erlang_error(monitor_node, [Node,Flag,Options], Cause) ->
     Arg3 = case Cause of
                badopt -> bad_option;
-               true -> []
+               _ -> []
            end,
     case format_erlang_error(monitor_node, [Node,Flag], Cause) of
         [[],[]] ->
@@ -802,7 +802,7 @@ format_erlang_error(send, [_,_,Options], Cause) ->
     case Cause of
         badopt ->
             [[],[],must_be_list(Options, bad_option)];
-        true ->
+        _ ->
             [bad_destination]
     end;
 format_erlang_error(send_after, Args, Cause) ->
