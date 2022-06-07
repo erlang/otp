@@ -237,19 +237,33 @@ user_hello({call, From}, cancel, State) ->
     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled),
                                     ?FUNCTION_NAME, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
-           #state{static_env = #static_env{role = Role},
-                  handshake_env = #handshake_env{hello = Hello},
+           #state{static_env = #static_env{role = client = Role},
+                  handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = ssl:handle_options(NewOptions, Role, Options0#{handshake => full}),
+    Options = ssl:handle_options(NewOptions, Role, Options0),
     State = ssl_gen_statem:ssl_config(Options, Role, State0),
-    Next = case Role of
-               client ->
-                   wait_sh;
-               server ->
-                   start
-           end,
-    {next_state, Next, State#state{start_or_recv_from = From}, 
-     [{next_event, internal, Hello}, {{timeout, handshake}, Timeout, close}]};
+    {next_state, wait_sh, State#state{start_or_recv_from = From,
+                                      handshake_env = HSEnv#handshake_env{continue_status = continue}},
+     [{{timeout, handshake}, Timeout, close}]};
+user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
+           #state{static_env = #static_env{role = server = Role},
+                  handshake_env = #handshake_env{continue_status = {pause, ClientVersions}} = HSEnv,
+                  ssl_options = Options0} = State0) ->
+    Options = #{versions := Versions} = ssl:handle_options(NewOptions, Role, Options0),
+    State = ssl_gen_statem:ssl_config(Options, Role, State0),
+    case ssl_handshake:select_supported_version(ClientVersions, Versions) of
+        {3,4} ->
+            {next_state, start, State#state{start_or_recv_from = From,
+                                            handshake_env = HSEnv#handshake_env{continue_status = continue}},
+             [{{timeout, handshake}, Timeout, close}]};
+        undefined ->
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State);
+        _Else ->
+            {next_state, hello, State#state{start_or_recv_from = From,
+                                            handshake_env = HSEnv#handshake_env{continue_status = continue}},
+             [{change_callback_module, tls_connection},
+              {{timeout, handshake}, Timeout, close}]}
+    end;
 user_hello(info, {'DOWN', _, _, _, _} = Event, State) ->
     ssl_gen_statem:handle_info(Event, ?FUNCTION_NAME, State);
 user_hello(_, _, _) ->
@@ -257,41 +271,58 @@ user_hello(_, _, _) ->
 
 start(internal, #change_cipher_spec{}, State) ->
     tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
-start(internal, #client_hello{extensions = Extensions} = Hello, 
-      #state{ssl_options = #{handshake := hello},
-             start_or_recv_from = From,
-             handshake_env = HsEnv} = State) ->
+start(internal, #client_hello{extensions = #{client_hello_versions :=
+                                                 #client_hello_versions{versions = ClientVersions}
+                                            }} = Hello,
+      #state{ssl_options = #{handshake := full}} = State) ->
+    case tls_record:is_acceptable_version({3,4}, ClientVersions) of
+        true ->
+            do_server_start(Hello, State);
+        false ->
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State)
+    end;
+start(internal, #client_hello{extensions = #{client_hello_versions :=
+                                                 #client_hello_versions{versions = ClientVersions}
+                                            }= Extensions},
+      #state{start_or_recv_from = From,
+             handshake_env = #handshake_env{continue_status = pause} = HSEnv} = State) ->
     {next_state, user_hello,
-     State#state{start_or_recv_from = undefined,
-                 handshake_env = HsEnv#handshake_env{
-                                   hello = Hello}}, [{reply, From, {ok, Extensions}}]};
-start(internal, #client_hello{} = Hello, State0) ->
-    case tls_handshake_1_3:do_start(Hello, State0) of
-        #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, start, State0);
-        {State, start} ->
-            {next_state, start, State, []};
-        {State, negotiated} ->
-            {next_state, negotiated, State, [{next_event, internal, {start_handshake, undefined}}]};
-        {State, negotiated, PSK} ->  %% Session Resumption with PSK
-            {next_state, negotiated, State, [{next_event, internal, {start_handshake, PSK}}]}
+     State#state{start_or_recv_from = undefined, handshake_env = HSEnv#handshake_env{continue_status = {pause, ClientVersions}}},
+     [{postpone, true}, {reply, From, {ok, Extensions}}]};
+start(internal, #client_hello{} = Hello,
+      #state{handshake_env = #handshake_env{continue_status = continue}} = State) ->
+    do_server_start(Hello, State);
+start(internal, #client_hello{}, State0) -> %% Missing mandantory TLS-1.3 extensions, so it is a previous version hello.
+    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State0);
+start(internal, #server_hello{extensions = #{server_hello_selected_version :=
+                                                 #server_hello_selected_version{selected_version = Version}}} = ServerHello,
+      #state{ssl_options = #{handshake := full,
+                             versions := SupportedVersions}} = State) ->
+    case tls_record:is_acceptable_version(Version, SupportedVersions) of
+        true ->
+            do_client_start(ServerHello, State);
+        false ->
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State)
     end;
-start(internal, #server_hello{extensions = Extensions} = ServerHello, 
-      #state{ssl_options = #{handshake := hello},
-             handshake_env = HsEnv,
-             start_or_recv_from = From} 
+start(internal, #server_hello{extensions = #{server_hello_selected_version :=
+                                                 #server_hello_selected_version{selected_version = Version}}
+                              = Extensions},
+      #state{ssl_options = #{versions := SupportedVersions},
+             start_or_recv_from = From,
+             handshake_env = #handshake_env{continue_status = pause}}
       = State) ->
-     {next_state, user_hello,
-      State#state{start_or_recv_from = undefined,
-                  handshake_env = HsEnv#handshake_env{
-                                    hello = ServerHello}}, [{reply, From, {ok, Extensions}}]};
-start(internal, #server_hello{} = ServerHello, State0) ->
-    case tls_handshake_1_3:do_start(ServerHello, State0) of
-        #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, start, State0);
-        {State, NextState} ->
-            {next_state, NextState, State, []}
+    case tls_record:is_acceptable_version(Version, SupportedVersions) of
+        true ->
+            {next_state, user_hello,
+             State#state{start_or_recv_from = undefined}, [{postpone, true}, {reply, From, {ok, Extensions}}]};
+        false ->
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State)
     end;
+start(internal, #server_hello{} = ServerHello,
+      #state{handshake_env = #handshake_env{continue_status = continue}} = State) ->
+    do_client_start(ServerHello, State);
+start(internal, #server_hello{}, State0) -> %% Missing mandantory TLS-1.3 extensions, so it is a previous version hello.
+    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State0);
 start(info, Msg, State) ->
     tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
 start(Type, Msg, State) ->
@@ -359,13 +390,11 @@ wait_finished(Type, Msg, State) ->
 
 wait_sh(internal, #change_cipher_spec{}, State) ->
     tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State);
-wait_sh(internal, #server_hello{extensions = Extensions} = Hello,  #state{ssl_options = #{handshake := hello},
-                                                                          start_or_recv_from = From,
-                                                                          handshake_env = HsEnv} = State) ->
+wait_sh(internal, #server_hello{extensions = Extensions},
+        #state{handshake_env = #handshake_env{continue_status = pause},
+               start_or_recv_from = From} = State) ->
     {next_state, user_hello,
-     State#state{start_or_recv_from = undefined,
-                 handshake_env = HsEnv#handshake_env{
-                                   hello = Hello}}, [{reply, From, {ok, Extensions}}]};
+     State#state{start_or_recv_from = undefined}, [{postpone, true},{reply, From, {ok, Extensions}}]};
 wait_sh(internal, #server_hello{} = Hello, State0) ->
     case tls_handshake_1_3:do_wait_sh(Hello, State0) of
         #alert{} = Alert ->
@@ -464,6 +493,27 @@ downgrade(Type, Event, State) ->
 %--------------------------------------------------------------------
 %% internal functions
 %%--------------------------------------------------------------------
+
+do_server_start(ClientHello, State0) ->
+    case tls_handshake_1_3:do_start(ClientHello, State0) of
+        #alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, start, State0);
+        {State, start} ->
+            {next_state, start, State, []};
+        {State, negotiated} ->
+            {next_state, negotiated, State, [{next_event, internal, {start_handshake, undefined}}]};
+        {State, negotiated, PSK} ->  %% Session Resumption with PSK
+            {next_state, negotiated, State, [{next_event, internal, {start_handshake, PSK}}]}
+    end.
+
+do_client_start(ServerHello, State0) ->
+    case tls_handshake_1_3:do_start(ServerHello, State0) of
+        #alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, start, State0);
+        {State, NextState} ->
+            {next_state, NextState, State, []}
+    end.
+
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #{erl_dist := IsErlDist,
