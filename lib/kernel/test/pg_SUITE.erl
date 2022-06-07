@@ -54,7 +54,8 @@
     missing_scope_join/1,
     disconnected_start/1,
     forced_sync/0, forced_sync/1,
-    group_leave/1
+    group_leave/1,
+    monitor_scope/0, monitor_scope/1
 ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -72,15 +73,16 @@ end_per_testcase(TestCase, _Config) ->
     ok.
 
 all() ->
-    [dyn_distribution, {group, basic}, {group, cluster}, {group, performance}].
+    [dyn_distribution, {group, basic}, {group, cluster}, {group, performance}, {group, monitor}].
 
 groups() ->
     [
         {basic, [parallel], [errors, pg, leave_exit_race, single, overlay_missing]},
-        {performance, [sequential], [thundering_herd]},
+        {performance, [], [thundering_herd]},
         {cluster, [parallel], [process_owner_check, two, initial, netsplit, trisplit, foursplit,
             exchange, nolocal, double, scope_restart, missing_scope_join, empty_group_by_remote_leave,
-            disconnected_start, forced_sync, group_leave]}
+            disconnected_start, forced_sync, group_leave]},
+        {monitor, [parallel], [monitor_scope]}
     ].
 
 %%--------------------------------------------------------------------
@@ -262,13 +264,13 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     sync({?FUNCTION_NAME, Node}),
     ?assertEqual([RemotePid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     % inspecting internal state is not best practice, but there's no other way to check if the state is correct.
-    {state, _, _, #{RemoteNode := {_, RemoteMap}}} = sys:get_state(?FUNCTION_NAME),
+    {_, RemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
     ?assertEqual(#{?FUNCTION_NAME => [RemotePid]}, RemoteMap),
     % remote leave
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
     sync({?FUNCTION_NAME, Node}),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    {state, _, _, #{RemoteNode := {_, NewRemoteMap}}} = sys:get_state(?FUNCTION_NAME),
+    {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
     % empty group should be deleted.
     ?assertEqual(#{}, NewRemoteMap),
 
@@ -281,7 +283,7 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid2, RemotePid]])),
     sync({?FUNCTION_NAME, Node}),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    {state, _, _, #{RemoteNode := {_, NewRemoteMap}}} = sys:get_state(?FUNCTION_NAME),
+    {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
     peer:stop(Peer),
     ok.
 
@@ -557,6 +559,86 @@ group_leave(Config) when is_list(Config) ->
     sync(?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, two)),
     ok.
+
+monitor_scope() ->
+    [{doc, "Tests monitor_scope/1 and demonitor/2"}].
+
+monitor_scope(Config) when is_list(Config) ->
+    Self = self(),
+    Scope = ?FUNCTION_NAME,
+    Group = ?FUNCTION_ARITY,
+    %% ensure that demonitoring returns 'false' when monitor is not installed
+    ?assertEqual(false, pg:demonitor(Scope, erlang:make_ref())),
+    %% start the actual test case
+    {Ref, #{}} = pg:monitor_scope(Scope),
+    %% local join
+    ?assertEqual(ok, pg:join(Scope, Group, Self)),
+    wait_message(Ref, join, Group, [Self], "Local"),
+    %% start second monitor (which has 1 local pid at the start)
+    SecondMonitor = spawn_link(fun() -> second_monitor(Scope, Group, Self) end),
+    Ref2 = receive {second, SecondRef} -> SecondRef end,
+    %% start a remote node, and a remote monitor
+    {Peer, Node} = spawn_node(Scope),
+    ScopePid = whereis(Scope),
+    %% do not care about the remote monitor, it is started only to check DOWN handling
+    _ThirdMonitor = spawn(Node, fun() -> second_monitor(ScopePid, Group, Self) end),
+    %% remote join
+    RemotePid = erlang:spawn(Node, forever()),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [Scope, Group, [RemotePid, RemotePid]])),
+    wait_message(Ref, join, Group, [RemotePid, RemotePid], "Remote"),
+    %% verify leave event
+    ?assertEqual([Self], pg:get_local_members(Scope, Group)),
+    ?assertEqual(ok, pg:leave(Scope, Group, self())),
+    wait_message(Ref, leave, Group, [Self], "Local"),
+    %% remote leave
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [Scope, Group, RemotePid])),
+    wait_message(Ref, leave, Group, [RemotePid], "Remote"),
+    %% drop the SecondMonitor - this keeps original and remote monitors
+    SecondMonMsgs = gen_server:call(SecondMonitor, flush),
+    %% inspect the queue, it should contain double remote join, then single local and single remove leave
+    ?assertEqual([
+        {Ref2, join, Group, [RemotePid, RemotePid]},
+        {Ref2, leave, Group, [Self]},
+        {Ref2, leave, Group, [RemotePid]}],
+        SecondMonMsgs),
+    %% remote leave via stop (causes remote monitor to go DOWN)
+    ok = peer:stop(Peer),
+    wait_message(Ref, leave, Group, [RemotePid], "Remote stop"),
+    %% WHITE BOX: knowing pg state internals - only the original monitor should stay
+    {state, _, _, _, InternalMonitors} = sys:get_state(?FUNCTION_NAME),
+    ?assertEqual(#{Ref => Self}, InternalMonitors, "pg did not remove DOWNed monitor"),
+    %% demonitor
+    ?assertEqual(ok, pg:demonitor(Scope, Ref)),
+    ?assertEqual(false, pg:demonitor(Scope, Ref)),
+    %% ensure messages don't come
+    ?assertEqual(ok, pg:join(Scope, Group, Self)),
+    sync(Scope),
+    %% join should not be here
+    receive {Ref, Action, Group, [Self]} -> ?assert(false, lists:concat(["Unexpected ", Action, "event"]))
+        after 0 -> ok end.
+
+wait_message(Ref, Action, Group, Pids, Msg) ->
+    receive
+        {Ref, Action, Group, Pids} ->
+            ok
+    after 1000 ->
+        {messages, Msgs} = process_info(self(), messages),
+        ct:pal("Message queue: ~0p", [Msgs]),
+        ?assert(false, Msg ++ " " ++ atom_to_list(Action) ++ " event failed to occur")
+    end.
+
+second_monitor(Scope, Group, Control) ->
+    {Ref, #{Group := [Control]}} = pg:monitor_scope(Scope),
+    Control ! {second, Ref},
+    second_monitor([]).
+
+second_monitor(Msgs) ->
+    receive
+        {'$gen_call', Reply, flush} ->
+            gen:reply(Reply, lists:reverse(Msgs));
+        Msg ->
+            second_monitor([Msg | Msgs])
+    end.
 
 %%--------------------------------------------------------------------
 %% Test Helpers - start/stop additional Erlang nodes
