@@ -2159,7 +2159,7 @@ true</pre>
           the object by incrementing an element, and insert the resulting
           object into the table again. The operation is guaranteed to be
           <seeerl marker="#concurrency">atomic and isolated</seeerl>.</p>
-        <p>This function destructively update the object with key
+        <p>This function destructively updates the object with key
           <c><anno>Key</anno></c> in table <c><anno>Table</anno></c> by adding
           <c><anno>Incr</anno></c> to the element at position
           <c><anno>Pos</anno></c>. The new counter value is
