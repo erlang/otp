@@ -648,6 +648,7 @@ ac_includes_default="\
 ac_header_c_list=
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+CRYPTO_NO_DEPRECATE_WARN
 DISABLE_OTP_TEST_ENGINE
 DISABLE_EVP_HMAC
 DISABLE_EVP_DH
@@ -780,7 +781,6 @@ enable_dynamic_ssl_lib
 enable_evp_dh
 enable_evp_hmac
 enable_otp_test_engine
-enable_deprecated_warnings
 enable_fips
 '
       ac_precious_vars='build_alias
@@ -1456,10 +1456,6 @@ Optional Features:
                           Disable build of the otp_test_engine. (default is
                           --enable-otp-test-engine, unless for LibreSSL >=
                           3.5.0 where default is --disable-otp-test-engine)
-  --disable-deprecated-warnings
-                          disable warnings for deprecated functions in
-                          cryptolib (default is to warn, except for OpenSSL
-                          3.x where the default is not to warn)
   --enable-fips           enable OpenSSL FIPS mode support
   --disable-fips          disable OpenSSL FIPS mode support (default)
 
@@ -5728,18 +5724,6 @@ else $as_nop
 fi
 
 
-# Check whether --enable-deprecated_warnings was given.
-if test ${enable_deprecated_warnings+y}
-then :
-  enableval=$enable_deprecated_warnings;  case "$enableval" in
-    no)   deprecated_warnings=no;;
-    *)    deprecated_warnings=yes;;
-  esac
-else $as_nop
-  deprecated_warnings=default_yes
-fi
-
-
 
 
 
@@ -7553,15 +7537,10 @@ printf "%s\n" "$as_me: WARNING: ************************************************
 
 fi
 
-if test "x$v3_include" = "xyes" && test "x$deprecated_warnings" = "xdefault_yes" && test "$CRYPTO_APP" != ""
+CRYPTO_NO_DEPRECATE_WARN=
+if test "x$v3_include" = "xyes" && test "$CRYPTO_APP" != ""
 then :
-  deprecated_warnings=no
-
-fi
-
-if test "x$deprecated_warnings" = "xno"  &&  test "$CRYPTO_APP" != ""
-then :
-  SSL_FLAGS="$SSL_FLAGS -Wno-deprecated-declarations"
+  CRYPTO_NO_DEPRECATE_WARN="-Wno-deprecated-declarations"
 
 fi
 
@@ -7714,6 +7693,7 @@ fi
 CFLAGS="$saveCFLAGS"
 LDFLAGS="$saveLDFLAGS"
 LIBS="$saveLIBS"
+
 
 
 
