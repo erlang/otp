@@ -34,6 +34,7 @@
          auth_method_kb_interactive_data_tuple/1,
          auth_method_kb_interactive_data_fun3/1,
          auth_method_kb_interactive_data_fun4/1,
+         auth_none/1,
          connectfun_disconnectfun_client/1, 
 	 disconnectfun_option_client/1, 
 	 disconnectfun_option_server/1, 
@@ -115,6 +116,7 @@ all() ->
      auth_method_kb_interactive_data_tuple,
      auth_method_kb_interactive_data_fun3,
      auth_method_kb_interactive_data_fun4,
+     auth_none,
      {group, dir_options},
      ssh_connect_timeout,
      ssh_connect_arg4_timeout,
@@ -574,6 +576,30 @@ amkid(Config, {ExpectName,ExpectInstr,ExpectPrompts,ExpectEcho}, OptVal) ->
 		  end, [{"incorrect",undefined},
 			{"Bad again",1},
 			{"bar",2}]).
+
+%%--------------------------------------------------------------------
+auth_none(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {DaemonRef, Host, Port} =
+	ssh_test_lib:daemon([{system_dir, SysDir},
+			     {user_dir, UserDir},
+			     {auth_methods, "password"}, % to make even more sure we don't use public-key-auth
+			     {user_passwords, [{"foo","somepwd"}]}, % Not to be used
+                             {no_auth_needed, true} % we test this
+			    ]),
+    ClientConnRef1 =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "some-other-user"},
+					  {password, "wrong-pwd"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    "some-other-user" =
+        proplists:get_value(user, ssh:connection_info(ClientConnRef1, [user])),
+    ok = ssh:close(ClientConnRef1),
+    ok = ssh:stop_daemon(DaemonRef).
 
 %%--------------------------------------------------------------------
 system_dir_option(Config) ->
