@@ -42,7 +42,7 @@
 -export([encode_handshake/2]).
 
 %% Handshake decoding
--export([get_tls_handshake/4, decode_handshake/3]).
+-export([get_tls_handshakes/4, decode_handshake/3]).
 
 %% Handshake helper
 -export([ocsp_nonce/2]).
@@ -285,7 +285,7 @@ encode_handshake(Package, Version) ->
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec get_tls_handshake(tls_record:tls_version(), binary(), binary() | iolist(), 
+-spec get_tls_handshakes(tls_record:tls_version(), binary(), binary() | iolist(),
                         ssl_options()) ->
      {[{tls_handshake(), binary()}], binary()}.
 %%
@@ -293,10 +293,10 @@ encode_handshake(Package, Version) ->
 %% and returns it as a list of handshake messages, also returns leftover
 %% data.
 %%--------------------------------------------------------------------
-get_tls_handshake(Version, Data, <<>>, Options) ->
-    get_tls_handshake_aux(Version, Data, Options, []);
-get_tls_handshake(Version, Data, Buffer, Options) ->
-    get_tls_handshake_aux(Version, list_to_binary([Buffer, Data]), Options, []).
+get_tls_handshakes(Version, Data, <<>>, Options) ->
+    get_tls_handshakes_aux(Version, Data, Options, []);
+get_tls_handshakes(Version, Data, Buffer, Options) ->
+    get_tls_handshakes_aux(Version, list_to_binary([Buffer, Data]), Options, []).
 
 %%--------------------------------------------------------------------
 %%% Handshake helper
@@ -426,19 +426,19 @@ enc_handshake(HandshakeMsg, Version) ->
     ssl_handshake:encode_handshake(HandshakeMsg, Version).
 
 %%--------------------------------------------------------------------
-get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
+get_tls_handshakes_aux(Version, <<?BYTE(Type), ?UINT24(Length),
 				 Body:Length/binary,Rest/binary>>, 
                       #{log_level := LogLevel} = Opts,  Acc) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
     try decode_handshake(Version, Type, Body) of
 	Handshake ->
             ssl_logger:debug(LogLevel, inbound, 'handshake', Handshake),
-	    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
+	    get_tls_handshakes_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
     catch
 	error:_ ->
 	    throw(?ALERT_REC(?FATAL, ?DECODE_ERROR, handshake_decode_error))
     end;
-get_tls_handshake_aux(_Version, Data, _, Acc) ->
+get_tls_handshakes_aux(_Version, Data, _, Acc) ->
     {lists:reverse(Acc), Data}.
 
 decode_handshake({3, N}, ?HELLO_REQUEST, <<>>) when N < 4 ->

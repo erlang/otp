@@ -87,7 +87,7 @@ encode_and_decode_client_hello_test(Config) ->
     HandShakeData = create_client_handshake(undefined),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
+	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
                                         default_options_map()),
     Extensions = DecodedHandshakeMessage#client_hello.extensions,
     #{next_protocol_negotiation := undefined} = Extensions.
@@ -96,7 +96,7 @@ encode_and_decode_npn_client_hello_test(Config) ->
     HandShakeData = create_client_handshake(#next_protocol_negotiation{extension_data = <<>>}),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
+	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
                                         default_options_map()),
     Extensions = DecodedHandshakeMessage#client_hello.extensions,
     #{next_protocol_negotiation := #next_protocol_negotiation{extension_data = <<>>}} = Extensions.
@@ -105,7 +105,7 @@ encode_and_decode_server_hello_test(Config) ->
     HandShakeData = create_server_handshake(undefined),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
+	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
                                         default_options_map()),
     Extensions = DecodedHandshakeMessage#server_hello.extensions,
     #{next_protocol_negotiation := undefined} = Extensions.
@@ -115,7 +115,7 @@ encode_and_decode_npn_server_hello_test(Config) ->
     HandShakeData = create_server_handshake(#next_protocol_negotiation{extension_data = <<6, "spdy/2">>}),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>,
+	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
                                         default_options_map()),
     Extensions = DecodedHandshakeMessage#server_hello.extensions, 
     ct:log("~p ~n", [Extensions]),
