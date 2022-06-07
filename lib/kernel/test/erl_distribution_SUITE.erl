@@ -220,14 +220,14 @@ tick_test(DCfg, _Config, CheckIntensityArg) ->
 				"-kernel net_ticktime 100 -connect_all false"),
     rpc:call(ServNode, erl_distribution_SUITE, tick_serv_test, [Node, node()]),
 
-    %% We set min/max half a second lower/higher than expected since it
-    %% takes time for termination dist controller, delivery of messages
-    %% scheduling of process receiving nodedown, etc...
+    %% We set min/max a second lower/higher than expected since it takes
+    %% time for termination of the dist controller, delivery of messages,
+    %% scheduling of the process receiving nodedown, etc...
     {IArg, Min, Max} = case CheckIntensityArg of
                            false ->
-                               {"", 7500, 16500};
+                               {"", 7000, 17000};
                            true ->
-                               {" -kernel net_tickintensity 24", 11000, 13000}
+                               {" -kernel net_tickintensity 24", 10500, 13500}
                        end,
     
     {ok, Node} = start_node(DCfg, Name1,
@@ -577,15 +577,14 @@ wait_for_names(Names, N, Wait) when N > 0 ->
 
 
 dyn_node_name(Config) when is_list(Config) ->
-    %%run_dist_configs(fun dyn_node_name/2, Config).
-    dyn_node_name("", Config).
+    run_dist_configs(fun dyn_node_name/2, Config).
 
 dyn_node_name(DCfg, _Config) ->
     NameDomain = case net_kernel:get_state() of
                      #{name_domain := shortnames} -> "shortnames";
                      #{name_domain := longnames} -> "longnames"
                  end,
-    {_N1F,Port1} = start_node_unconnected(DCfg ++ " -dist_listen false",
+    {_N1F,Port1} = start_node_unconnected(DCfg,
                                           undefined, ?MODULE, run_remote_test,
                                           ["dyn_node_name_do", atom_to_list(node()),
                                            NameDomain]),
@@ -610,15 +609,21 @@ dyn_node_name_do(TestNode, [NameDomainStr]) ->
       name_domain := NameDomain} = net_kernel:get_state(),
     check([MyName], rpc:call(TestNode, erlang, nodes, [hidden])),
 
-    {nodeup, MyName, [{node_type, visible}]} = receive_any(0),
-    {nodeup, TestNode, [{node_type, hidden}]} = receive_any(0),
+    {nodeup, MyName, [{node_type, visible}]} = receive_any(),
+    {nodeup, TestNode, [{node_type, hidden}]} = receive_any(),
 
     true = net_kernel:disconnect(TestNode),
 
-    {nodedown, TestNode, [{node_type, hidden}]} = receive_any(0),
-    [] = nodes(hidden),
-    {nodedown, MyName, [{node_type, visible}]} = receive_any(1000),
+    %% We don't know the order of these nodedown messages. Often
+    %% nodedown from the connection comes first, but not always...
 
+    NodedownMsgsA = lists:sort([{nodedown, TestNode, [{node_type, hidden}]},
+                                {nodedown, MyName, [{node_type, visible}]}]),
+    NodedownMsgA1 = receive_any(),
+    NodedownMsgA2 = receive_any(),
+    NodedownMsgsA = lists:sort([NodedownMsgA1, NodedownMsgA2]),
+
+    [] = nodes(hidden),
     nonode@nohost = node(),
     #{started := static, name_type := dynamic, name := undefined,
       name_domain := NameDomain} = net_kernel:get_state(),
@@ -632,14 +637,21 @@ dyn_node_name_do(TestNode, [NameDomainStr]) ->
 
     check([MyName], rpc:call(TestNode, erlang, nodes, [hidden])),
 
-    {nodeup, MyName, [{node_type, visible}]} = receive_any(0),
-    {nodeup, TestNode, [{node_type, hidden}]} = receive_any(0),
+    {nodeup, MyName, [{node_type, visible}]} = receive_any(),
+    {nodeup, TestNode, [{node_type, hidden}]} = receive_any(),
 
     true = rpc:cast(TestNode, net_kernel, disconnect, [MyName]),
 
-    {nodedown, TestNode, [{node_type, hidden}]} = receive_any(1000),
+    %% We don't know the order of these nodedown messages. Often
+    %% nodedown from the connection comes first, but not always...
+
+    NodedownMsgsB = lists:sort([{nodedown, TestNode, [{node_type, hidden}]},
+                                {nodedown, MyName, [{node_type, visible}]}]),
+    NodedownMsgB1 = receive_any(),
+    NodedownMsgB2 = receive_any(),
+    NodedownMsgsB = lists:sort([NodedownMsgB1, NodedownMsgB2]),
+
     [] = nodes(hidden),
-    {nodedown, MyName, [{node_type, visible}]} = receive_any(1000),
     nonode@nohost = node(),
     #{started := static, name_type := dynamic, name := undefined,
       name_domain := NameDomain} = net_kernel:get_state(),
@@ -1237,9 +1249,9 @@ monitor_nodes_nodedown_reason(DCfg, _Config) ->
     Names = get_numbered_nodenames(5, node),
     [NN1, NN2, NN3, NN4, NN5] = Names,
 
-    {ok, N1} = start_node(DCfg, NN1),
-    {ok, N2} = start_node(DCfg, NN2),
-    {ok, N3} = start_node(DCfg, NN3),
+    {ok, N1} = start_node(DCfg, NN1, "-connect_all false"),
+    {ok, N2} = start_node(DCfg, NN2, "-connect_all false"),
+    {ok, N3} = start_node(DCfg, NN3, "-connect_all false"),
     {ok, N4} = start_node(DCfg, NN4, "-hidden"),
 
     receive {nodeup, N1} -> ok end,
