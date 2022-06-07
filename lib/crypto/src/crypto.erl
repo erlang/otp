@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -802,9 +802,9 @@ cipher_info(Type) ->
 
 -opaque crypto_state() :: reference() .
 
--type crypto_opts() :: boolean() 
+-type crypto_opts() :: boolean()
                      | [ crypto_opt() ] .
--type crypto_opt() :: {encrypt,boolean()} 
+-type crypto_opt() :: {encrypt,boolean()}
                     | {padding, padding()} .
 -type padding() :: cryptolib_padding() | otp_padding().
 -type cryptolib_padding() :: none | pkcs_padding .
@@ -1868,8 +1868,8 @@ engine_unload(Engine, EngineMethods) ->
         %% Release the reference from engine_by_id_nif
         ok = engine_nif_wrapper(engine_free_nif(Engine))
     catch
-       throw:Error ->
-          Error
+        throw:Error ->
+            Error
     end.
 
 %%----------------------------------------------------------------------
@@ -1986,7 +1986,8 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 -spec ensure_engine_loaded(EngineId, LibPath) ->
                                   Result when EngineId :: unicode:chardata(),
                                               LibPath :: unicode:chardata(),
-                                              Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
+                                              Result :: {ok, Engine::engine_ref()} |
+                                                        {error, Reason::term()}.
 ensure_engine_loaded(EngineId, LibPath) ->
     ensure_engine_loaded(EngineId, LibPath, engine_get_all_methods()).
 
@@ -1998,55 +1999,20 @@ ensure_engine_loaded(EngineId, LibPath) ->
                                   Result when EngineId :: unicode:chardata(),
                                               LibPath :: unicode:chardata(),
                                               EngineMethods :: [engine_method_type()],
-                                              Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
-ensure_engine_loaded(EngineId, LibPath, EngineMethods) ->
-    try
-        List = crypto:engine_list(),
-        case lists:member(EngineId, List) of
-            true ->
-                notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId)));
-            false ->
-                ok = notsup_to_error(engine_load_dynamic_nif()),
-                case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(<<"dynamic">>))) of
-                    {ok, Engine} ->
-                        PreCommands = [{<<"SO_PATH">>, ensure_bin_chardata(LibPath)},
-                                       {<<"ID">>, ensure_bin_chardata(EngineId)},
-                                       <<"LOAD">>],
-                        ensure_engine_loaded_1(Engine, PreCommands, EngineMethods);
-                    {error, Error1} ->
-                        {error, Error1}
-                end
-        end
-    catch
-        throw:Error2 ->
-            Error2
+                                              Result :: {ok, Engine::engine_ref()} |
+                                                        {error, Reason::term()}.
+ensure_engine_loaded(EngineId, LibPath, Methods) ->
+    ConvertedMethods = [engine_method_atom_to_int(Method) ||
+                           Method <- Methods],
+    case notsup_to_error(ensure_engine_loaded_nif(ensure_bin_chardata(EngineId),
+                                                  ensure_bin_chardata(LibPath),
+                                                  ConvertedMethods)) of
+        {ok, Engine} ->
+            {ok, Engine};
+        {error, Error1} ->
+            {error, Error1}
     end.
 
-ensure_engine_loaded_1(Engine, PreCmds, Methods) ->
-    try
-        ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PreCmds), 0)),
-        ok = engine_nif_wrapper(engine_add_nif(Engine)),
-        ok = engine_nif_wrapper(engine_init_nif(Engine)),
-        ensure_engine_loaded_2(Engine, Methods),
-        {ok, Engine}
-    catch
-        throw:Error ->
-            %% The engine couldn't initialise, release the structural reference
-            ok = engine_free_nif(Engine),
-            throw(Error)
-    end.
-
-ensure_engine_loaded_2(Engine, Methods) ->
-    try
-        [ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) ||
-            Method <- Methods],
-        ok
-    catch
-       throw:Error ->
-          %% The engine registration failed, release the functional reference
-          ok = engine_free_nif(Engine),
-          throw(Error)
-    end.
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/1
 %%----------------------------------------------------------------------
@@ -2062,19 +2028,14 @@ ensure_engine_unloaded(Engine) ->
                                     Result when Engine :: engine_ref(),
                                                 EngineMethods :: [engine_method_type()],
                                                 Result :: ok | {error, Reason::term()}.
-ensure_engine_unloaded(Engine, EngineMethods) ->
-    List = crypto:engine_list(),
-    EngineId = crypto:engine_get_id(Engine),
-    case lists:member(EngineId, List) of
-        true ->
-            case engine_remove(Engine) of
-                ok ->
-                    engine_unload(Engine, EngineMethods);
-                {error, Error} ->
-                    {error, Error}
-            end;
-        false ->
-            engine_unload(Engine, EngineMethods)
+ensure_engine_unloaded(Engine, Methods) ->
+    ConvertedMethods = [engine_method_atom_to_int(Method) ||
+                          Method <- Methods],
+    case notsup_to_error(ensure_engine_unloaded_nif(Engine, ConvertedMethods)) of
+        ok ->
+            ok;
+        {error, Error1} ->
+            {error, Error1}
     end.
 
 
@@ -2478,6 +2439,8 @@ engine_get_next_nif(_Engine) -> ?nif_stub.
 engine_get_id_nif(_Engine) -> ?nif_stub.
 engine_get_name_nif(_Engine) -> ?nif_stub.
 engine_get_all_methods_nif() -> ?nif_stub.
+ensure_engine_loaded_nif(_EngineId, _LibPath, _EngineMethods) -> ?nif_stub.
+ensure_engine_unloaded_nif(_Engine, _EngineMethods) -> ?nif_stub.
 
 %%--------------------------------------------------------------------
 %% Engine internals
