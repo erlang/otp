@@ -729,7 +729,6 @@ Eterm beam_jit_bs_init(Process *c_p,
                        Uint alloc,
                        unsigned Live) {
     erts_bin_offset = 0;
-    erts_writable_bin = 0;
     if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
         ErlHeapBin *hb;
         Uint bin_need;
@@ -796,7 +795,6 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
     }
 
     erts_bin_offset = 0;
-    erts_writable_bin = 0;
 
     /* num_bits = Number of bits to build
      * num_bytes = Number of bytes to allocate in the binary

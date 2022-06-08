@@ -48,6 +48,7 @@ my @beam_global_funcs = qw(
     garbage_collect
     generic_bp_global
     generic_bp_local
+    get_sint64_shared
     debug_bp
     fconv_shared
     handle_call_fun_error

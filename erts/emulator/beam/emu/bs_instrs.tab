@@ -427,7 +427,6 @@ bs_init.verify(Fail) {
 
 bs_init.execute(Live, Dst) {
     erts_bin_offset = 0;
-    erts_writable_bin = 0;
 
     if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
         ErlHeapBin* hb;
@@ -539,7 +538,6 @@ bs_init_bits.execute(Live, Dst) {
      }
 
      erts_bin_offset = 0;
-     erts_writable_bin = 0;
 
      /* num_bits = Number of bits to build
       * num_bytes = Number of bytes to allocate in the binary
@@ -1113,7 +1111,6 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
          * alloc = Total number of words to allocate on heap
          */
         erts_bin_offset = 0;
-        erts_writable_bin = 0;
         if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
             ErlHeapBin* hb;
 

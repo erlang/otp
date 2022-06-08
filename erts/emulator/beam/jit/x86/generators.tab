@@ -635,6 +635,28 @@ gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
         Flags.val = flags;
         $NativeEndian(Flags);
         op->a[i+fixed_args+3] = Flags;
+
+        /*
+         * Replace short string segments with integer segments.
+         * Integer segments can be combined with adjacent integer
+         * segments for better performance.
+         */
+        if (op->a[i+fixed_args+0].val == am_string) {
+            Sint num_chars = op->a[i+fixed_args+5].val;
+            if (num_chars <= 4) {
+                Sint index = op->a[i+fixed_args+4].val;
+                const byte* s = S->beam.strings.data + index;
+                Uint num = 0;
+                op->a[i+fixed_args+0].val = am_integer;
+                op->a[i+fixed_args+2].val = 8;
+                op->a[i+fixed_args+5].val = num_chars;
+                while (num_chars-- > 0) {
+                    num = num << 8 | *s++;
+                }
+                op->a[i+fixed_args+4].type = TAG_i;
+                op->a[i+fixed_args+4].val = num;
+            }
+        }
     }
 
     if (op->a[4].val == am_private_append && Alloc.val != 0) {

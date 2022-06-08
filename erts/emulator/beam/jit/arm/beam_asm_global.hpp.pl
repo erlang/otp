@@ -56,6 +56,7 @@ my @beam_global_funcs = qw(
     dispatch_save_calls
     export_trampoline
     fconv_shared
+    get_sint64_shared
     handle_and_error
     handle_call_fun_error
     handle_element_error_shared

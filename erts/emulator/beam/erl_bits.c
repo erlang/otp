@@ -884,7 +884,7 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
 	if (fmt_int(iptr, NBYTES(num_bits), arg, num_bits, flags) < 0) {
 	    return 0;
 	}
-	erts_copy_bits(iptr, 0, 1, erts_current_bin, bin_offset, 1, num_bits);
+	erts_copy_bits_restricted(iptr, erts_current_bin, bin_offset, num_bits);
     }
     erts_bin_offset = bin_offset + num_bits;
     return 1;
@@ -2148,6 +2148,25 @@ erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t siz
     }
 
     return 0;
+}
+
+/*
+ * Restricted version of copy_bits() for copying from a buffer into
+ * a binary. Direction is always forward and the source offset is always
+ * zero.
+ */
+void
+erts_copy_bits_restricted(byte* src,	/* Base pointer to source. */
+                          byte* dst,	/* Base pointer to destination. */
+                          size_t doffs, /* Bit offset for destination relative to dst. */
+                          size_t n)     /* Number of bits to copy. */
+{
+    if (doffs == 0) {
+        abort();
+    }
+    ASSERT(n != 0);
+    ASSERT(doffs != 0);
+    erts_copy_bits(src, 0, 1, dst, doffs, 1, n);
 }
 
 /*

@@ -246,6 +246,11 @@ struct ArgRegister : public ArgSource {
     constexpr int typeIndex() const {
         return (int)(val >> 10);
     }
+
+    template<typename T>
+    constexpr T copy(int n) const {
+        return T(n | (val & ~REG_MASK));
+    }
 };
 
 struct ArgXRegister : public ArgRegister {

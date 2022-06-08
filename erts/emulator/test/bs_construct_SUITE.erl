@@ -28,7 +28,7 @@
 	 huge_float_field/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
 	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
-         reductions/1, fp16/1, error_info/1]).
+         reductions/1, fp16/1, zero_init/1, error_info/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -41,21 +41,14 @@ all() ->
      in_guard, mem_leak, coerce_to_float, bjorn, append_empty_is_same,
      huge_float_field, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
-     bad_append, bs_append_overflow, reductions, fp16, error_info].
+     bad_append, bs_append_overflow, reductions, fp16, zero_init,
+     error_info].
 
 init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
     application:stop(os_mon).
-
-big(1) ->
-    57285702734876389752897683.
-
-i(X) -> X.
-
-r(L) ->
-    lists:reverse(L).
 
 -define(T(B, L), {B, ??B, L}).
 -define(N(B), {B, ??B, unknown}).
@@ -89,7 +82,7 @@ l(I_13, I_big1) ->
      ?T(<<57285702734876389752897684:32>>,
 	[138, 99, 0, 148]),
      ?T(<<I_big1:32/little>>,
-	r([138, 99, 0, 147])),
+	lists:reverse([138, 99, 0, 147])),
      ?T(<<-1:17/unit:8>>,
 	lists:duplicate(17, 255)),
 
@@ -142,9 +135,74 @@ l(I_13, I_big1) ->
      ?T(<<<<5:3>>/bitstring>>, <<5:3>>),
      ?T(<<42,<<7:4>>/binary-unit:4>>, <<42,7:4>>),
      ?T(<<<<344:17>>/binary-unit:17>>, <<344:17>>),
-     ?T(<<<<42,3,7656:16>>/binary-unit:16>>, <<42,3,7656:16>>)
+     ?T(<<<<42,3,7656:16>>/binary-unit:16>>, <<42,3,7656:16>>),
 
-     ].
+     %% Different sizes and types. First without types.
+     ?T(<<I_big1:8>>, [147]),
+     ?T(<<I_big1:16>>, [0, 147]),
+     ?T(<<I_big1:24>>, [99, 0, 147]),
+     ?T(<<I_big1:32>>, [138, 99, 0, 147]),
+     ?T(<<I_big1:40>>, [5, 138, 99, 0, 147]),
+     ?T(<<I_big1:48>>, [229, 5, 138, 99, 0, 147]),
+     ?T(<<I_big1:56>>, [249, 229, 5, 138, 99, 0, 147]),
+     ?T(<<I_big1:64>>, [42, 249, 229, 5, 138, 99, 0, 147]),
+
+     %% Known integer with range.
+     ?T(<<(I_big1 band ((1 bsl 56) - 1)):8>>, [147]),
+     ?T(<<(I_big1 band ((1 bsl 56) - 1)):16>>, [0, 147]),
+     ?T(<<(I_big1 band ((1 bsl 56) - 1)):24>>, [99, 0, 147]),
+     ?T(<<(I_big1 band ((1 bsl 56) - 1)):32>>, [138, 99, 0, 147]),
+     ?T(<<(I_big1 band ((1 bsl 56) - 1)):40>>, [5, 138, 99, 0, 147]),
+     ?T(<<(I_big1 band ((1 bsl 56) - 1)):48>>, [229, 5, 138, 99, 0, 147]),
+     ?T(<<(I_big1 band ((1 bsl 56) - 1)):56>>, [249, 229, 5, 138, 99, 0, 147]),
+     ?T(<<(I_big1 band ((1 bsl 64) - 1)):64>>, [42, 249, 229, 5, 138, 99, 0, 147]),
+
+     %% Known integer with exact range.
+     ?T(<<(I_big1 band ((1 bsl  8) - 1)):8>>, [147]),
+     ?T(<<(I_big1 band ((1 bsl 16) - 1)):16>>, [0, 147]),
+     ?T(<<(I_big1 band ((1 bsl 24) - 1)):24>>, [99, 0, 147]),
+     ?T(<<(I_big1 band ((1 bsl 32) - 1)):32>>, [138, 99, 0, 147]),
+     ?T(<<(I_big1 band ((1 bsl 40) - 1)):40>>, [5, 138, 99, 0, 147]),
+     ?T(<<(I_big1 band ((1 bsl 48) - 1)):48>>, [229, 5, 138, 99, 0, 147]),
+
+     %% Known integer without range.
+     ?T(<<(I_big1 + 0):8>>, [147]),
+     ?T(<<(I_big1 + 0):16>>, [0, 147]),
+     ?T(<<(I_big1 + 0):24>>, [99, 0, 147]),
+     ?T(<<(I_big1 + 0):32>>, [138, 99, 0, 147]),
+     ?T(<<(I_big1 + 0):40>>, [5, 138, 99, 0, 147]),
+     ?T(<<(I_big1 + 0):48>>, [229, 5, 138, 99, 0, 147]),
+     ?T(<<(I_big1 + 0):56>>, [249, 229, 5, 138, 99, 0, 147]),
+     ?T(<<(I_big1 + 0):64>>, [42, 249, 229, 5, 138, 99, 0, 147]),
+
+     %% Known integer. Verify that the value does not bleed into the
+     %% previous segment.
+     ?T(<<1, (I_big1 + 0):8>>,  [1, 147]),
+     ?T(<<2, (I_big1 + 0):16>>, [2, 0, 147]),
+     ?T(<<3, (I_big1 + 0):24>>, [3, 99, 0, 147]),
+     ?T(<<4, (I_big1 + 0):32>>, [4, 138, 99, 0, 147]),
+     ?T(<<5, (I_big1 + 0):40>>, [5, 5, 138, 99, 0, 147]),
+     ?T(<<6, (I_big1 + 0):48>>, [6, 229, 5, 138, 99, 0, 147]),
+     ?T(<<7, (I_big1 + 0):56>>, [7, 249, 229, 5, 138, 99, 0, 147]),
+     ?T(<<8, (I_big1 + 0):64>>, [8, 42, 249, 229, 5, 138, 99, 0, 147]),
+
+     %% Test non-byte sizes.
+     ?T(<<I_big1:33>>, <<197,49,128,73,1:1>>),
+     ?T(<<I_big1:39>>, <<11,20,198,1,19:7>>),
+
+     ?T(<<I_big1:57>>, <<124,242,130,197,49,128,73,1:1>>),
+     ?T(<<I_big1:58>>, <<190,121,65,98,152,192,36,3:2>>),
+     ?T(<<I_big1:59>>, <<95,60,160,177,76,96,18,3:3>>),
+     ?T(<<I_big1:60>>, <<175,158,80,88,166,48,9,3:4>>),
+     ?T(<<I_big1:61>>, <<87,207,40,44,83,24,4,19:5>>),
+     ?T(<<I_big1:62>>, <<171,231,148,22,41,140,2,19:6>>),
+     ?T(<<I_big1:63>>, <<85,243,202,11,20,198,1,19:7>>),
+
+     %% Test non-byte sizes and also that the value does not bleed
+     %% into the previous segment.
+     ?T(<<17, I_big1:33>>, <<17, 197,49,128,73,1:1>>),
+     ?T(<<19, I_big1:39>>, <<19, 11,20,198,1,19:7>>)
+    ].
 
 native_3798() ->
     case <<1:16/native>> of
@@ -274,10 +332,10 @@ fail_check(Res, _, _) ->
 
 %%% Simple working cases
 test1(Config) when is_list(Config) ->
-    I_13 = i(13),
-    I_big1 = big(1),
+    I_13 = id(13),
+    I_big1 = id(57285702734876389752897683),
     Vars = [{'I_13', I_13},
-		  {'I_big1', I_big1}],
+            {'I_big1', I_big1}],
     lists:foreach(fun one_test/1, eval_list(l(I_13, I_big1), Vars)).
 
 %%% Misc
@@ -717,6 +775,21 @@ dynamic_big(Bef, N, Int, Lpad, Rpad) ->
     Bin = id(<<Lpad:Bef,NumBin/bitstring,Rpad:(128-Bef-N)>>),
     Bin = <<Lpad:Bef,Int:N,Rpad:(128-Bef-N)>>,
 
+    %% Units are seldom used with integer segments even in our test
+    %% suites, and I have never seen non-power-of-two units in
+    %% production code.
+    if
+        Bef rem 8 =:= 0 ->
+            Bin = <<Lpad:(Bef div 8)/unit:8,Int:N,Rpad:(128-Bef-N)>>;
+        Bef rem 7 =:= 0 ->
+            Bin = <<Lpad:(Bef div 7)/unit:7,Int:N,Rpad:(128-Bef-N)>>;
+        (128-Bef-N) rem 5 =:= 0 ->
+            Aft = (128 - Bef - N) div 5,
+            Bin = <<Lpad:Bef,Int:N,Rpad:Aft/unit:5>>;
+        true ->
+            ok
+    end,
+
     %% Further verify the result by matching.
     LpadMasked = Lpad band ((1 bsl Bef) - 1),
     RpadMasked = Rpad band ((1 bsl (128-Bef-N)) - 1),
@@ -732,6 +805,20 @@ dynamic_little(Bef, N, Int, Lpad, Rpad) ->
     %% Construct the binary in two different ways.
     Bin = id(<<Lpad:Bef/little,NumBin/bitstring,Rpad:(128-Bef-N)/little>>),
     Bin = <<Lpad:Bef/little,Int:N/little,Rpad:(128-Bef-N)/little>>,
+
+    if
+        Bef rem 8 =:= 0 ->
+            Bin = <<Lpad:(Bef div 8)/little-unit:8,
+                    Int:N/little,Rpad:(128-Bef-N)/little>>;
+        Bef rem 9 =:= 0 ->
+            Bin = <<Lpad:(Bef div 9)/little-unit:9,
+                    Int:N/little,Rpad:(128-Bef-N)/little>>;
+        (128-Bef-N) rem 17 =:= 0 ->
+            Aft = (128 - Bef - N) div 17,
+            Bin = <<Lpad:Bef/little,Int:N/little,Rpad:Aft/little-unit:17>>;
+        true ->
+            ok
+    end,
 
     %% Further verify the result by matching.
     LpadMasked = Lpad band ((1 bsl Bef) - 1),
@@ -999,6 +1086,233 @@ fp16(_Config) ->
     ?FP16(16#4000, 2),
     ?FP16(16#4000, 2.0),
     ok.
+
+zero_init(_Config) ->
+    <<LPad:64/bits,RPad:64/bits>> = id(erlang:md5([42])),
+    Sizes = [511,512,513, 767,768,769, 1023,1024,1025,
+             16#7fff,16#ffff,16#10000] ++ lists:seq(0, 257),
+    _ = [do_zero_init(Size, LPad, RPad) || Size <- Sizes],
+    ok.
+
+do_zero_init(Size, LPad, RPad) ->
+    try
+        do_zero_init_1(Size, LPad, RPad)
+    catch
+        C:R:Stk ->
+            io:format("Size = ~p, LPad = ~p, RPad = ~p\n", [Size, LPad, RPad]),
+            erlang:raise(C, R, Stk)
+    end.
+
+do_zero_init_1(Size, LPad, RPad) ->
+    Zeroes = id(<<0:Size>>),
+    <<0:Size>> = Zeroes,
+    Bin = id(<<LPad:64/bits, Zeroes/bits, RPad:64/bits>>),
+    Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>),
+    Bin = id(<<LPad:(id(64))/bits, 0:Size, RPad:64/bits>>),
+
+    if
+        Size rem 11 =:= 0 ->
+            Bin = id(<<LPad:64/bits, 0:(Size div 11)/unit:11, RPad:64/bits>>);
+        true ->
+            ok
+    end,
+
+    case Size of
+        0 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        1 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        2 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        3 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        4 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        5 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        6 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        7 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        8 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        9 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        10 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        11 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        12 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        13 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        14 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        15 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        16 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        31 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        32 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        33 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        47 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        48 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        49 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        63 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        64 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        65 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        79 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        80 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        81 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        90 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        91 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        92 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        93 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        94 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        95 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        96 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        97 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        98 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        99 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        100 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        101 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        102 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        103 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        104 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        105 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        106 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        107 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        108 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        109 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        127 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        128 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        129 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        130 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        131 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        132 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        133 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        134 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        135 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        136 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        137 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        138 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        139 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        140 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        141 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        142 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        143 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        144 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        145 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        159 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        160 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        161 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        191 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        192 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        193 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        255 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        256 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        257 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        511 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        512 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        513 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        767 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        768 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        769 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        1023 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        1024 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        1025 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+
+        16#7fff ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        16#ffff ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        16#10000 ->
+            Bin = id(<<LPad:64/bits, 0:Size, RPad:64/bits>>);
+        _ ->
+            ok
+    end.
+
 
 -define(ERROR_INFO(Expr),
         fun() ->
