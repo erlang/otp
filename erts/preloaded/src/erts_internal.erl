@@ -116,6 +116,8 @@
 
 -export([no_aux_work_threads/0]).
 
+-export([dynamic_node_name/0, dynamic_node_name/1]).
+
 %%
 %% Await result of send to port
 %%
@@ -978,3 +980,27 @@ beamfile_module_md5(_Bin) ->
 
 no_aux_work_threads() ->
     erlang:nif_error(undefined).
+
+%%
+%% Is dynamic node name enabled?
+%%
+-spec dynamic_node_name() -> boolean().
+
+dynamic_node_name() ->
+    case persistent_term:get({?MODULE, dynamic_node_name}, false) of
+        false -> false;
+        _ -> true
+    end.
+
+%%
+%% Save whether dynamic node name is enabled or not.
+%%
+-spec dynamic_node_name(boolean()) -> ok.
+
+dynamic_node_name(true) ->
+    persistent_term:put({?MODULE, dynamic_node_name}, true);
+dynamic_node_name(false) ->
+    case dynamic_node_name() of
+        false -> ok;
+        _ -> _ = persistent_term:erase({?MODULE, dynamic_node_name}), ok
+    end.

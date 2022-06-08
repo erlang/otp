@@ -369,15 +369,15 @@ request(Req) ->
     end.
 
 retry_request_maybe(Req) ->
-    case persistent_term:get(net_kernel, undefined) of
-        dynamic_node_name ->
+    case erts_internal:dynamic_node_name() of
+        true ->
             %% net_kernel must be restarting due to lost connection
             %% toward the node that named us.
             %% We want reconnection attempts to succeed so we wait and retry.
             receive after 100 -> ok end,
             request(Req);
 
-        _ ->
+        false ->
             ignored
     end.
 
@@ -531,6 +531,7 @@ init(#{name := Name,
                         supervisor = Supervisor
 		       }};
 	Error ->
+            erts_internal:dynamic_node_name(false),
 	    {stop, Error}
     end.
 
@@ -857,12 +858,12 @@ handle_call(get_state, From, State) ->
                   net_sup -> static;
                   _ -> dynamic
               end,
-    {NameType,Name} = case {persistent_term:get(net_kernel, undefined), node()} of
-                          {undefined, Node} ->
+    {NameType,Name} = case {erts_internal:dynamic_node_name(), node()} of
+                          {false, Node} ->
                               {static, Node};
-                          {dynamic_node_name, nonode@nohost} ->
+                          {true, nonode@nohost} ->
                               {dynamic, undefined};
-                          {dynamic_node_name, Node} ->
+                          {true, Node} ->
                               {dynamic, Node}
                       end,
     NameDomain = case get(longnames) of
@@ -901,10 +902,7 @@ terminate(Reason, State) ->
         #state{supervisor = {restart, _}} ->
             ok;
         _ ->
-            case persistent_term:get(net_kernel, undefined) of
-                undefined -> ok;
-                _ -> persistent_term:erase(net_kernel)
-            end
+            erts_internal:dynamic_node_name(false)
     end,
 
     case Reason of
@@ -1885,10 +1883,10 @@ epmd_module() ->
 %% dist_listen() -> whether the erlang distribution should listen for connections
 %%
 dist_listen() ->
-    case persistent_term:get(net_kernel, undefined) of
-        dynamic_node_name ->
+    case erts_internal:dynamic_node_name() of
+        true ->
             false;
-        _ ->
+        false ->
             case init:get_argument(dist_listen) of
                 {ok,[[DoListen]]} ->
                     list_to_atom(DoListen) =/= false;
@@ -1928,7 +1926,7 @@ start_protos_no_listen(Node, [Proto | Ps], Ls, CleanHalt) ->
     {Name, "@"++_Host}  = split_node(Node),
     Ok = case Name of
              "undefined" ->
-                 persistent_term:put(net_kernel,dynamic_node_name),
+                 erts_internal:dynamic_node_name(true),
                  true;
              _ ->
                  (set_node(Node, create_creation()) =:= ok)

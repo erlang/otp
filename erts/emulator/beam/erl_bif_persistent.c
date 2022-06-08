@@ -474,9 +474,9 @@ BIF_RETTYPE persistent_term_get_0(BIF_ALIST_0)
     }
 }
 
-BIF_RETTYPE persistent_term_get_1(BIF_ALIST_1)
+static ERTS_INLINE Eterm
+persistent_term_get(Eterm key)
 {
-    Eterm key = BIF_ARG_1;
     HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
     Eterm bucket;
 
@@ -484,24 +484,33 @@ BIF_RETTYPE persistent_term_get_1(BIF_ALIST_1)
 
     if (is_boxed(bucket)) {
         ASSERT(is_tuple_arity(bucket, 2));
-        BIF_RET(tuple_val(bucket)[2]);
+        return tuple_val(bucket)[2];
     }
 
-    BIF_ERROR(BIF_P, BADARG);
+    return THE_NON_VALUE;
+}
+
+Eterm
+erts_persistent_term_get(Eterm key)
+{
+    return persistent_term_get(key);
+}
+
+BIF_RETTYPE persistent_term_get_1(BIF_ALIST_1)
+{
+    Eterm result = persistent_term_get(BIF_ARG_1);
+    if (is_non_value(result)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    BIF_RET(result);
 }
 
 BIF_RETTYPE persistent_term_get_2(BIF_ALIST_2)
 {
-    Eterm key = BIF_ARG_1;
-    Eterm result = BIF_ARG_2;
-    HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
-    Eterm bucket;
-
-    (void)lookup(hash_table, key, &bucket);
-
-    if (is_boxed(bucket)) {
-        ASSERT(is_tuple_arity(bucket, 2));
-        result = tuple_val(bucket)[2];
+    Eterm result = persistent_term_get(BIF_ARG_1);
+    if (is_non_value(result)) {
+        result = BIF_ARG_2;
     }
 
     BIF_RET(result);

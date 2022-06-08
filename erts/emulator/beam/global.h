@@ -1445,6 +1445,7 @@ void erts_init_bif_binary(void);
 Sint erts_binary_set_loop_limit(Sint limit);
 
 /* erl_bif_persistent.c */
+Eterm erts_persistent_term_get(Eterm key);
 void erts_init_bif_persistent_term(void);
 void erts_init_persistent_dumping(void);
 extern ErtsLiteralArea** erts_persistent_areas;

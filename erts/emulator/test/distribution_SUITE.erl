@@ -74,7 +74,10 @@
          system_limit/1,
          hopefull_data_encoding/1,
          hopefull_export_fun_bug/1,
-         huge_iovec/1]).
+         huge_iovec/1,
+         is_alive/1,
+         dyn_node_name_monitor_node/1,
+         dyn_node_name_monitor/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -107,7 +110,7 @@ all() ->
      dist_entry_refc_race,
      start_epmd_false, no_epmd, epmd_module, system_limit,
      hopefull_data_encoding, hopefull_export_fun_bug,
-     huge_iovec].
+     huge_iovec, is_alive, dyn_node_name_monitor_node, dyn_node_name_monitor].
 
 groups() ->
     [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
@@ -2919,8 +2922,146 @@ derr_sender(Main, Nodes) ->
     Main ! count,
     derr_sender(Main, Nodes).
 
+is_alive(Config) when is_list(Config) ->
+    %% Test that distribution is up when erlang:is_alive() return true...
+    Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
+            "-pa", filename:dirname(code:which(?MODULE))],
+    {ok, Peer, _} = peer:start(#{connection => 0, args => Args}),
+    NodeName = peer:random_name(),
+    LongNames = net_kernel:longnames(),
+    StartOpts = #{name_domain => if LongNames -> longnames;
+                                    true -> shortnames
+                                 end},
+    ThisNode = node(),
+    TestFun = fun () -> is_alive_test(list_to_atom(NodeName), StartOpts, ThisNode) end,
+    ok = peer:call(Peer, erlang, apply, [TestFun, []]),
+    Node = list_to_atom(NodeName++"@"++hostname()),
+    true = lists:member(Node, nodes()),
+    peer:stop(Peer),
+    ok.
+
+is_alive_test(NodeName, StartOpts, TestNode) ->
+    try
+        monitor_node(TestNode, true),
+        error(unexpected_success)
+    catch
+        error:notalive ->
+            ok
+    end,
+    Me = self(),
+    {Pid, Mon} = spawn_monitor(fun () ->
+                                       Me ! {self(), go},
+                                       is_alive_tester(TestNode),
+                                       Me ! {self(), ok}
+                               end),
+    receive {Pid, go} -> ok end,
+    receive after 500 -> ok end,
+    _ = net_kernel:start(NodeName, StartOpts),
+    receive
+        {Pid, ok} -> erlang:demonitor(Mon, [flush]), ok;
+        {'DOWN', Mon, process, Pid, Reason} -> error(Reason)
+    end.
+
+is_alive_tester(Node) ->
+    case erlang:is_alive() of
+        false ->
+            is_alive_tester(Node);
+        true ->
+            monitor_node(Node, true),
+            wait_until(fun () -> lists:member(Node, nodes()) end),
+            ok
+    end.
+
+dyn_node_name_monitor_node(Config) ->
+    %% Test that monitor_node() does not fail when erlang:is_alive() return true
+    %% but we have not yet gotten a name...
+    Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
+            "-pa", filename:dirname(code:which(?MODULE))],
+    {ok, Peer, _} = peer:start(#{connection => 0, args => Args}),
+    LongNames = net_kernel:longnames(),
+    StartOpts = #{name_domain => if LongNames -> longnames;
+                                    true -> shortnames
+                                 end},
+    ThisNode = node(),
+    TestFun = fun () -> dyn_node_name_monitor_node_test(StartOpts, ThisNode) end,
+    ok = peer:call(Peer, erlang, apply, [TestFun, []]),
+    peer:stop(Peer),
+    ok.
+    
+dyn_node_name_monitor_node_test(StartOpts, TestNode) ->
+    try
+        monitor_node(TestNode, true),
+        error(unexpected_success)
+    catch
+        error:notalive ->
+            ok
+    end,
+    _ = net_kernel:start(undefined, StartOpts),
+    true = erlang:is_alive(),
+    true = monitor_node(TestNode, true),
+    receive {nodedown, TestNode} -> ok end,
+    true = net_kernel:connect_node(TestNode),
+    true = monitor_node(TestNode, true),
+    true = lists:member(TestNode, nodes(hidden)),
+    receive {nodedown, TestNode} -> error(unexpected_nodedown)
+    after 1000 -> ok
+    end,
+    ok.
+
+
+dyn_node_name_monitor(Config) ->
+    %% Test that monitor() does not fail when erlang:is_alive() return true
+    %% but we have not yet gotten a name...
+    Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
+            "-pa", filename:dirname(code:which(?MODULE))],
+    {ok, Peer, _} = peer:start(#{connection => 0, args => Args}),
+    LongNames = net_kernel:longnames(),
+    StartOpts = #{name_domain => if LongNames -> longnames;
+                                    true -> shortnames
+                                 end},
+    ThisNode = node(),
+    TestFun = fun () -> dyn_node_name_monitor_test(StartOpts, ThisNode) end,
+    ok = peer:call(Peer, erlang, apply, [TestFun, []]),
+    peer:stop(Peer),
+    ok.
+    
+dyn_node_name_monitor_test(StartOpts, TestNode) ->
+    try
+        monitor(process, {net_kernel, TestNode}),
+        error(unexpected_success)
+    catch
+        error:badarg ->
+            ok
+    end,
+    _ = net_kernel:start(undefined, StartOpts),
+    true = erlang:is_alive(),
+    Mon = monitor(process, {net_kernel, TestNode}),
+    receive
+        {'DOWN', Mon, process, {net_kernel, TestNode}, noconnection} ->
+            ok
+    end,
+    true = net_kernel:connect_node(TestNode),
+    Mon2 = monitor(process, {net_kernel, TestNode}),
+    true = lists:member(TestNode, nodes(hidden)),
+    receive
+        {'DOWN', Mon2, process, {net_kernel, TestNode}, noconnection} ->
+            error(unexpected_down)
+    after
+        1000 ->
+            ok
+    end,
+    ok.
 
 %%% Utilities
+
+wait_until(Fun) ->
+    case catch Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 50 -> ok end,
+            wait_until(Fun)
+    end.
 
 timestamp() ->
     erlang:monotonic_time(millisecond).
