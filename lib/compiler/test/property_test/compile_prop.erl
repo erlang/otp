@@ -37,7 +37,9 @@
 -import(lists, [duplicate/2,foldl/3]).
 
 compile() ->
-    Opts = [{resize,true}],
+    %% {weight, {yes_multi_field_init, 0}}
+    Opts = [{weight, {yes_multi_field_init, 0}},
+            {resize,true}],
     ?FORALL(Abstr, proper_erlang_abstract_code:module(Opts),
             compile(Abstr)).
 

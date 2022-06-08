@@ -217,19 +217,6 @@ init(Config) when is_list(Config) ->
                  #r{b = b, _ = init} -> ok;
                  _ -> not_ok
              end.
-      ">>,
-      <<"-record(r, {a}).
-        t() ->
-            {42,#r{a=[]}} = foo(),
-            error = bar(),
-            ok.
-
-        foo() ->
-            R = #r{a = [], _ = V = 42},
-            {V,R}.
-
-        bar() when #r{a = [], _ = 42} -> ok;
-        bar() -> error.
       ">>
       ],
     run(Config, Ts),
