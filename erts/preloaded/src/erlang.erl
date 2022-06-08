@@ -2888,8 +2888,8 @@ tuple_to_list(_Tuple) ->
          (dirty_io_schedulers) -> non_neg_integer();
          (dist) -> binary();
          (dist_buf_busy_limit) -> non_neg_integer();
-         (dist_ctrl) -> {Node :: node(),
-                         ControllingEntity :: port() | pid()};
+         (dist_ctrl) -> [{Node :: node(),
+                          ControllingEntity :: port() | pid()}];
          (driver_version) -> string();
          (dynamic_trace) -> none | dtrace | systemtap;
          (dynamic_trace_probes) -> boolean();
