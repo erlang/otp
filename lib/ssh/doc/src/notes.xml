@@ -61,6 +61,22 @@
 
 </section>
 
+<section><title>Ssh 4.13.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Binaries can be limited in logs with the parameter
+	    <c>max_log_item_len</c>. The default value is 500 bytes.</p>
+          <p>
+	    Own Id: OTP-18094</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.13.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
