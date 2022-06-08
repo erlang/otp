@@ -31,6 +31,57 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The DNS resolver <c>inet_res</c> has been fixed to ignore
+	    trailing dot difference in the request domain between the
+	    sent request and the received response, when validating a
+	    response.</p>
+          <p>
+	    Own Id: OTP-18112 Aux Id: ERIERL-811 </p>
+        </item>
+        <item>
+          <p>
+	    A bug in <c>inet_res</c> has been fixed where a missing
+	    internal <c>{ok,_}</c> wrapper caused
+	    <c>inet_res:resolve/*</c> to return a calculated host
+	    name instead of an `<c>{ok,Msg}</c> tuple, when resolving
+	    an IP address or a host name that is an IP address
+	    string.</p>
+          <p>
+	    Own Id: OTP-18122 Aux Id: GH-6015, PR-6020 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>erlang:is_alive()</c> BIF could return <c>true</c>
+	    before configured distribution service was available.
+	    This bug was introduced in OTP 25.0 ERTS version 13.0.</p>
+          <p>
+	    The <c>erlang:monitor_node()</c> and
+	    <c>erlang:monitor()</c> BIFs could erroneously fail even
+	    though configured distribution service was available.
+	    This occurred if these BIFs were called after the
+	    distribution had been started using dynamic node name
+	    assignment but before the name had been assigned.</p>
+          <p>
+	    Own Id: OTP-18124 Aux Id: OTP-17558, PR-6032 </p>
+        </item>
+        <item>
+          <p>
+	    Added the missing mandatory <c>address/0</c> callback in
+	    the <c>gen_tcp_dist</c> example.</p>
+          <p>
+	    Own Id: OTP-18136</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

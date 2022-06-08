@@ -31,6 +31,69 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A <c>spawn_reply</c> signal from a remote node could be
+	    delayed and be delivered after other signals from the
+	    newly spawned process.</p>
+          <p>
+	    When this bug triggered, the connection to the node where
+	    the process was spawned sometimes could be taken down due
+	    to the bug. The following error message would then be
+	    logged if this happened: <c>Missing 'spawn_reply' signal
+	    from the node &lt;RemoteNode&gt; detected by &lt;Pid&gt;
+	    on the node &lt;LocalNode&gt;. The node
+	    &lt;RemoteNode&gt; probably suffers from the bug with
+	    ticket id OTP-17737.</c></p>
+          <p>
+	    This bug only affected processes which had enabled
+	    <seeerl
+	    marker="erts:erlang#process_flag_message_queue_data"><c>off_heap</c>
+	    <c>message_queue_data</c></seeerl> and parallel reception
+	    of signals had been automatically enabled.</p>
+          <p>
+	    This bug was introduced in OTP 25.0, ERTS version 13.0.</p>
+          <p>
+	    Own Id: OTP-18105 Aux Id: OTP-16982, PR-6003 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed type spec of <c>erlang:system_info(dist_ctrl)</c>.</p>
+          <p>
+	    Own Id: OTP-18106 Aux Id: PR-5992 </p>
+        </item>
+        <item>
+          <p>
+	    The zlib built in to the runtime system has been updated
+	    to version 1.2.12. (Note that on most platforms, the
+	    platform's own zlib is used.)</p>
+          <p>
+	    Own Id: OTP-18123 Aux Id: GH-5994 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>erlang:is_alive()</c> BIF could return <c>true</c>
+	    before configured distribution service was available.
+	    This bug was introduced in OTP 25.0 ERTS version 13.0.</p>
+          <p>
+	    The <c>erlang:monitor_node()</c> and
+	    <c>erlang:monitor()</c> BIFs could erroneously fail even
+	    though configured distribution service was available.
+	    This occurred if these BIFs were called after the
+	    distribution had been started using dynamic node name
+	    assignment but before the name had been assigned.</p>
+          <p>
+	    Own Id: OTP-18124 Aux Id: OTP-17558, PR-6032 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

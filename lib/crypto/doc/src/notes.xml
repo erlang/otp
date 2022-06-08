@@ -31,6 +31,43 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 5.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Note in the documentation that MODP (rfc3526) groups and
+	    OpenSSL 3.0 can give an error if a call to
+	    <c>crypto:generate_key/2</c> specifies a key length, and
+	    that length is to small.</p>
+          <p>
+	    Own Id: OTP-18046</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The cmac now uses only the 3.0 API</p>
+          <p>
+	    Own Id: OTP-18010</p>
+        </item>
+        <item>
+          <p>
+	    Documentation is now updated with which OpenSSL cryptolib
+	    versions that OTP currently is tested.</p>
+          <p>
+	    Own Id: OTP-18132</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
