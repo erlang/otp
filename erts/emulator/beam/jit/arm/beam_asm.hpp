@@ -1212,7 +1212,8 @@ protected:
                       const ArgWord &Live);
     void emit_gc_test_preserve(const ArgWord &Need,
                                const ArgWord &Live,
-                               arm::Gp term);
+                               const ArgSource &Preserve,
+                               arm::Gp preserve_reg);
 
     arm::Mem emit_variable_apply(bool includeI);
     arm::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
@@ -1238,6 +1239,11 @@ protected:
 
         BeamAssembler::emit_is_boxed(Fail, Src);
     }
+
+    /* Copies `count` words from the address at `from`, to the address at `to`.
+     *
+     * Clobbers v30 and v31. */
+    void emit_copy_words_increment(arm::Gp from, arm::Gp to, size_t count);
 
     void emit_get_list(const arm::Gp boxed_ptr,
                        const ArgRegister &Hd,
@@ -1479,8 +1485,7 @@ protected:
                       arm::Gp tmp1,
                       const ArgVal &Src2,
                       arm::Gp tmp2) {
-        if (Src1.isRegister() && Src2.isRegister() && !isRegisterBacked(Src1) &&
-            !isRegisterBacked(Src2)) {
+        if (!isRegisterBacked(Src1) && !isRegisterBacked(Src2)) {
             switch (ArgVal::memory_relation(Src1, Src2)) {
             case ArgVal::Relation::consecutive:
                 safe_ldp(tmp1, tmp2, Src1, Src2);

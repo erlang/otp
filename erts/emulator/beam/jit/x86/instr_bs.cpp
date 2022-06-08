@@ -576,9 +576,10 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgRegister &Src,
 
     a.bind(is_binary);
     {
-        /* Src is not guaranteed to be inside the live range, so we need to
-         * stash it during GC. */
-        emit_gc_test_preserve(ArgWord(ERL_BIN_MATCHSTATE_SIZE(0)), Live, ARG2);
+        emit_gc_test_preserve(ArgWord(ERL_BIN_MATCHSTATE_SIZE(0)),
+                              Live,
+                              Src,
+                              ARG2);
 
         emit_enter_runtime<Update::eStack | Update::eHeap>();
 
@@ -834,9 +835,7 @@ void BeamModuleAssembler::emit_i_bs_get_integer_64(const ArgRegister &Ctx,
 
     mov_arg(ARG4, Ctx);
 
-    /* Ctx is not guaranteed to be inside the live range, so we need to stash
-     * it during GC. */
-    emit_gc_test_preserve(ArgWord(BIG_UINT_HEAP_SIZE), Live, ARG4);
+    emit_gc_test_preserve(ArgWord(BIG_UINT_HEAP_SIZE), Live, Ctx, ARG4);
 
     address = emit_bs_get_integer_prologue(next,
                                            resolve_beam_label(Fail),
@@ -957,9 +956,7 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgRegister &Ctx,
 
     mov_arg(ARG1, Ctx);
 
-    /* Ctx is not guaranteed to be inside the live range, so we need to stash
-     * it during GC. */
-    emit_gc_test_preserve(ArgWord(EXTRACT_SUB_BIN_HEAP_NEED), Live, ARG1);
+    emit_gc_test_preserve(ArgWord(EXTRACT_SUB_BIN_HEAP_NEED), Live, Ctx, ARG1);
 
     a.mov(RET, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.size)));
     a.sub(RET, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.offset)));
@@ -1011,9 +1008,7 @@ void BeamModuleAssembler::emit_bs_get_tail(const ArgRegister &Ctx,
                                            const ArgWord &Live) {
     mov_arg(ARG1, Ctx);
 
-    /* Ctx is not guaranteed to be inside the live range, so we need to stash
-     * it during GC. */
-    emit_gc_test_preserve(ArgWord(EXTRACT_SUB_BIN_HEAP_NEED), Live, ARG1);
+    emit_gc_test_preserve(ArgWord(EXTRACT_SUB_BIN_HEAP_NEED), Live, Ctx, ARG1);
 
     safe_fragment_call(ga->get_bs_get_tail_shared());
 
@@ -1071,9 +1066,10 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
 
         mov_arg(ARG4, Ctx);
 
-        /* Ctx is not guaranteed to be inside the live range, so we need to
-         * stash it during GC. */
-        emit_gc_test_preserve(ArgWord(EXTRACT_SUB_BIN_HEAP_NEED), Live, ARG4);
+        emit_gc_test_preserve(ArgWord(EXTRACT_SUB_BIN_HEAP_NEED),
+                              Live,
+                              Ctx,
+                              ARG4);
 
         emit_enter_runtime<Update::eHeap>();
 
@@ -1106,9 +1102,7 @@ void BeamModuleAssembler::emit_i_bs_get_float2(const ArgRegister &Ctx,
 
     mov_arg(ARG4, Ctx);
 
-    /* Ctx is not guaranteed to be inside the live range, so we need to stash
-     * it during GC. */
-    emit_gc_test_preserve(ArgWord(FLOAT_SIZE_OBJECT), Live, ARG4);
+    emit_gc_test_preserve(ArgWord(FLOAT_SIZE_OBJECT), Live, Ctx, ARG4);
 
     if (emit_bs_get_field_size(Sz, unit, fail, ARG2, 64) >= 0) {
         emit_enter_runtime<Update::eHeap>();

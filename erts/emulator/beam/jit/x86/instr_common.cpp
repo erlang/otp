@@ -103,20 +103,30 @@ void BeamModuleAssembler::emit_error(int reason) {
 
 void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
                                                 const ArgWord &Live,
-                                                x86::Gp term) {
+                                                const ArgSource &Preserve,
+                                                x86::Gp preserve_reg) {
     const int32_t bytes_needed = (Need.get() + S_RESERVED) * sizeof(Eterm);
     Label after_gc_check = a.newLabel();
 
-    ASSERT(term != ARG3);
+    ASSERT(preserve_reg != ARG3);
 
     a.lea(ARG3, x86::qword_ptr(HTOP, bytes_needed));
     a.cmp(ARG3, E);
     a.short_().jbe(after_gc_check);
 
-    a.mov(getXRef(Live.get()), term);
-    mov_imm(ARG4, Live.get() + 1);
-    fragment_call(ga->get_garbage_collect());
-    a.mov(term, getXRef(Live.get()));
+    /* We don't need to stash the preserved term if it's currently live, making
+     * the code slightly shorter. */
+    if (!(Preserve.isXRegister() &&
+          Preserve.as<ArgXRegister>().get() >= Live.get())) {
+        mov_imm(ARG4, Live.get());
+        fragment_call(ga->get_garbage_collect());
+        mov_arg(preserve_reg, Preserve);
+    } else {
+        a.mov(getXRef(Live.get()), preserve_reg);
+        mov_imm(ARG4, Live.get() + 1);
+        fragment_call(ga->get_garbage_collect());
+        a.mov(preserve_reg, getXRef(Live.get()));
+    }
 
     a.bind(after_gc_check);
 }
@@ -758,6 +768,70 @@ void BeamModuleAssembler::emit_self(const ArgRegister &Dst) {
     a.mov(ARG1, x86::qword_ptr(c_p, offsetof(Process, common.id)));
 
     mov_arg(Dst, ARG1);
+}
+
+void BeamModuleAssembler::emit_update_record(const ArgAtom &Hint,
+                                             const ArgWord &TupleSize,
+                                             const ArgSource &Src,
+                                             const ArgRegister &Dst,
+                                             const ArgWord &UpdateCount,
+                                             const Span<ArgVal> &updates) {
+    size_t copy_index = 0, size_on_heap = TupleSize.get() + 1;
+    Label next = a.newLabel();
+
+    x86::Gp ptr_val;
+
+    ASSERT(UpdateCount.get() == updates.size());
+    ASSERT((UpdateCount.get() % 2) == 0);
+
+    ASSERT(size_on_heap > 2);
+
+    mov_arg(RET, Src);
+
+    /* Setting a field to the same value is pretty common, so we'll check for
+     * that since it's vastly cheaper than copying if we're right, and doesn't
+     * cost much if we're wrong. */
+    if (Hint.get() == am_reuse && updates.size() == 2) {
+        const auto next_index = updates[0].as<ArgWord>().get();
+        const auto &next_value = updates[1].as<ArgSource>();
+
+        a.mov(ARG1, RET);
+        ptr_val = emit_ptr_val(ARG1, ARG1);
+        cmp_arg(emit_boxed_val(ptr_val, next_index * sizeof(Eterm)),
+                next_value,
+                ARG2);
+        a.je(next);
+    }
+
+    ptr_val = emit_ptr_val(RET, RET);
+
+    for (size_t i = 0; i < updates.size(); i += 2) {
+        const auto next_index = updates[i].as<ArgWord>().get();
+        const auto &next_value = updates[i + 1].as<ArgSource>();
+
+        ASSERT(next_index > 0 && next_index >= copy_index);
+
+        emit_copy_words(emit_boxed_val(ptr_val, copy_index * sizeof(Eterm)),
+                        x86::qword_ptr(HTOP, copy_index * sizeof(Eterm)),
+                        next_index - copy_index,
+                        ARG1);
+
+        mov_arg(x86::qword_ptr(HTOP, next_index * sizeof(Eterm)),
+                next_value,
+                ARG1);
+        copy_index = next_index + 1;
+    }
+
+    emit_copy_words(emit_boxed_val(ptr_val, copy_index * sizeof(Eterm)),
+                    x86::qword_ptr(HTOP, copy_index * sizeof(Eterm)),
+                    size_on_heap - copy_index,
+                    ARG1);
+
+    a.lea(RET, x86::qword_ptr(HTOP, TAG_PRIMARY_BOXED));
+    a.add(HTOP, imm(size_on_heap * sizeof(Eterm)));
+
+    a.bind(next);
+    mov_arg(Dst, RET);
 }
 
 void BeamModuleAssembler::emit_set_tuple_element(const ArgSource &Element,

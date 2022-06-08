@@ -82,7 +82,10 @@
 %% [1] https://en.wikipedia.org/wiki/Lattice_(order)#General_lattice
 
 -define(ATOM_SET_SIZE, 5).
+
+%% Documented limits
 -define(MAX_FUNC_ARGS, 255).
+-define(MAX_TUPLE_SIZE, (1 bsl 24) - 1).
 
 -type float_range() :: 'any' | {'-inf',float()} | {float(),'+inf'}.
 

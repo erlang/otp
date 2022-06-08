@@ -1407,3 +1407,9 @@ recv_marker_reserve S
 recv_marker_bind S S
 recv_marker_clear S
 recv_marker_use S
+
+#
+# OTP 26
+#
+
+update_record a I s d I *

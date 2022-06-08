@@ -1421,3 +1421,9 @@ recv_marker_use S
 
 # Landing pad for fun calls/apply where we set up arguments and check errors
 i_lambda_trampoline F f W W
+
+#
+# OTP 26
+#
+
+update_record a I s d I *

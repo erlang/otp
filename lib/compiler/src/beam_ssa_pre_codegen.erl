@@ -73,7 +73,7 @@
 
 -import(lists, [all/2,any/2,append/1,duplicate/2,
                 foldl/3,last/1,member/2,partition/2,
-                reverse/1,reverse/2,seq/2,sort/1,
+                reverse/1,reverse/2,seq/2,sort/1,sort/2,
                 splitwith/2,usort/1,zip/2]).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
@@ -119,7 +119,7 @@ passes(Opts) ->
           ?PASS(fix_bs),
           ?PASS(sanitize),
           ?PASS(expand_match_fail),
-          ?PASS(use_set_tuple_element),
+          ?PASS(expand_update_tuple),
           ?PASS(place_frames),
           ?PASS(fix_receives),
 
@@ -966,128 +966,66 @@ find_fc_errors([#b_function{bs=Blocks}|Fs], Acc0) ->
 find_fc_errors([], Acc) ->
     Acc.
 
-
+%%% expand_update_tuple(St0) -> St
 %%%
-%%% Introduce the set_tuple_element instructions to make
-%%% multiple-field record updates faster.
+%%%   Expands the update_tuple psuedo-instruction into its actual instructions.
 %%%
-%%% The expansion of record field updates, when more than one field is
-%%% updated, but not a majority of the fields, will create a sequence of
-%%% calls to `erlang:setelement(Index, Value, Tuple)` where Tuple in the
-%%% first call is the original record tuple, and in the subsequent calls
-%%% Tuple is the result of the previous call. Furthermore, all Index
-%%% values are constant positive integers, and the first call to
-%%% `setelement` will have the greatest index. Thus all the following
-%%% calls do not actually need to test at run-time whether Tuple has type
-%%% tuple, nor that the index is within the tuple bounds.
-%%%
-%%% Since this optimization introduces destructive updates, it used to
-%%% be done as the very last Core Erlang pass before going to
-%%% lower-level code. However, it turns out that this kind of destructive
-%%% updates are awkward also in SSA code and can prevent or complicate
-%%% type analysis and aggressive optimizations.
-%%%
-%%% NOTE: Because there no write barriers in the system, this kind of
-%%% optimization can only be done when we are sure that garbage
-%%% collection will not be triggered between the creation of the tuple
-%%% and the destructive updates - otherwise we might insert pointers
-%%% from an older generation to a newer.
-%%%
+expand_update_tuple(#st{ssa=Blocks0,cnt=Count0}=St) ->
+    Linear0 = beam_ssa:linearize(Blocks0),
+    {Linear, Count} = expand_update_tuple_1(Linear0, Count0, []),
+    Blocks = maps:from_list(Linear),
+    St#st{ssa=Blocks,cnt=Count}.
 
-use_set_tuple_element(#st{ssa=Blocks0}=St) ->
-    Uses = count_uses(Blocks0),
-    RPO = reverse(beam_ssa:rpo(Blocks0)),
-    Blocks = use_ste_1(RPO, Uses, Blocks0),
-    St#st{ssa=Blocks}.
+expand_update_tuple_1([{L, #b_blk{is=Is0}=B} | Bs], Count0, Acc) ->
+    {Is, Count} = expand_update_tuple_is(Is0, Count0, []),
+    expand_update_tuple_1(Bs, Count, [{L, B#b_blk{is=Is}} | Acc]);
+expand_update_tuple_1([], Count, Acc) ->
+    {Acc, Count}.
 
-use_ste_1([L|Ls], Uses, Blocks) ->
-    #b_blk{is=Is0} = Blk0 = map_get(L, Blocks),
-    case use_ste_is(Is0, Uses) of
-        Is0 ->
-            use_ste_1(Ls, Uses, Blocks);
-        Is ->
-            Blk = Blk0#b_blk{is=Is},
-            use_ste_1(Ls, Uses, Blocks#{L:=Blk})
-    end;
-use_ste_1([], _, Blocks) -> Blocks.
+expand_update_tuple_is([#b_set{op=update_tuple, args=[Src | Args]}=I0 | Is],
+                        Count0, Acc) ->
+    {Expanded, Count} = expand_update_tuple_list(Args, I0, Src, Count0),
+    expand_update_tuple_is(Is, Count, Expanded ++ Acc);
+expand_update_tuple_is([I | Is], Count, Acc) ->
+    expand_update_tuple_is(Is, Count, [I | Acc]);
+expand_update_tuple_is([], Count, Acc) ->
+    {reverse(Acc), Count}.
 
-%%% Optimize within a single block.
+%% Expands an update_tuple list into setelement/3 + set_tuple_element.
+%%
+%% Note that it returns the instructions in reverse order.
+expand_update_tuple_list(Args, I0, Src, Count0) ->
+    [Index, Value | Rest] = sort_update_tuple(Args, []),
 
-use_ste_is([#b_set{}=I|Is0], Uses) ->
-    Is = use_ste_is(Is0, Uses),
-    case extract_ste(I) of
-        none ->
-            [I|Is];
-        Extracted ->
-            use_ste_call(Extracted, I, Is, Uses)
-    end;
-use_ste_is([], _Uses) -> [].
+    %% set_tuple_element is destructive, so we have to start off with a
+    %% setelement/3 call to give them something to work on.
+    I = I0#b_set{op=call,
+                 args=[#b_remote{mod=#b_literal{val=erlang},
+                       name=#b_literal{val=setelement},
+                       arity=3},
+                 Index, Src, Value]},
+    expand_update_tuple_list_1(Rest, I#b_set.dst, Count0, [I]).
 
-use_ste_call({Dst0,Pos0,_Var0,_Val0}, Call1, Is0, Uses) ->
-    case get_ste_call(Is0, []) of
-        {Prefix,{Dst1,Pos1,Dst0,Val1},Call2,Is}
-          when Pos1 > 0, Pos0 > Pos1 ->
-            case is_single_use(Dst0, Uses) of
-                true ->
-                    Call = Call1#b_set{dst=Dst1},
-                    Args = [Val1,Dst1,#b_literal{val=Pos1-1}],
-                    Dsetel = Call2#b_set{op=set_tuple_element,
-                                         dst=Dst0,
-                                         args=Args},
-                    [Call|Prefix] ++ [Dsetel|Is];
-                false ->
-                    [Call1|Is0]
-            end;
-        _ ->
-            [Call1|Is0]
-    end.
+expand_update_tuple_list_1([], _Src, Count, Acc) ->
+    {Acc, Count};
+expand_update_tuple_list_1([Index0, Value | Updates], Src, Count0, Acc) ->
+    %% Change to the 0-based indexing used by `set_tuple_element`.
+    Index = #b_literal{val=(Index0#b_literal.val - 1)},
+    {Dst, Count} = new_var('@ssa_dummy', Count0),
+    SetOp = #b_set{op=set_tuple_element,
+                   dst=Dst,
+                   args=[Value, Src, Index]},
+    expand_update_tuple_list_1(Updates, Src, Count, [SetOp | Acc]).
 
-get_ste_call([#b_set{op=get_tuple_element}=I|Is], Acc) ->
-    get_ste_call(Is, [I|Acc]);
-get_ste_call([#b_set{op=call}=I|Is], Acc) ->
-    case extract_ste(I) of
-        none ->
-            none;
-        Extracted ->
-            {reverse(Acc),Extracted,I,Is}
-    end;
-get_ste_call(_, _) -> none.
-
-extract_ste(#b_set{op=call,dst=Dst,
-                   args=[#b_remote{mod=#b_literal{val=M},
-                                  name=#b_literal{val=F}}|Args]}) ->
-    case {M,F,Args} of
-        {erlang,setelement,[#b_literal{val=Pos},Tuple,Val]} ->
-            {Dst,Pos,Tuple,Val};
-        {_,_,_} ->
-            none
-    end;
-extract_ste(#b_set{}) -> none.
-
-%% Count how many times each variable is used.
-
-count_uses(Blocks) ->
-    count_uses_blk(maps:values(Blocks), #{}).
-
-count_uses_blk([#b_blk{is=Is,last=Last}|Bs], CountMap0) ->
-    F = fun(I, CountMap) ->
-                foldl(fun(Var, Acc) ->
-                              case Acc of
-                                  #{Var:=2} -> Acc;
-                                  #{Var:=C} -> Acc#{Var:=C+1};
-                                  #{} ->       Acc#{Var=>1}
-                              end
-                      end, CountMap, beam_ssa:used(I))
-        end,
-    CountMap = F(Last, foldl(F, CountMap0, Is)),
-    count_uses_blk(Bs, CountMap);
-count_uses_blk([], CountMap) -> CountMap.
-
-is_single_use(V, Uses) ->
-    case Uses of
-        #{V:=1} -> true;
-        #{} -> false
-    end.
+%% Sorts updates so that the highest index comes first, letting us use
+%% set_tuple_element for all subsequent operations as we know their indexes
+%% will be valid.
+sort_update_tuple([_Index, _Value]=Args, []) ->
+    Args;
+sort_update_tuple([#b_literal{}=Index, Value | Updates], Acc) ->
+    sort_update_tuple(Updates, [{Index, Value} | Acc]);
+sort_update_tuple([], Acc) ->
+    append([[Index, Value] || {Index, Value} <- sort(fun erlang:'>='/2, Acc)]).
 
 %%%
 %%% Find out where frames should be placed.

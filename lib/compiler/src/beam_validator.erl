@@ -666,9 +666,12 @@ vi({set_tuple_element,Src,Tuple,N}, Vst) ->
     %% helpers as we must support overwriting (rather than just widening or
     %% narrowing) known elements, and we can't use extract_term either since
     %% the source tuple may be aliased.
-    #t_tuple{elements=Es0}=Type = normalize(get_term_type(Tuple, Vst)),
-    Es = beam_types:set_tuple_element(I, get_term_type(Src, Vst), Es0),
-    override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
+    TupleType0 = get_term_type(Tuple, Vst),
+    ArgType = get_term_type(Src, Vst),
+    TupleType = beam_types:update_tuple(TupleType0, [{I, ArgType}]),
+    override_type(TupleType, Tuple, Vst);
+vi({update_record,_Hint,Size,Src,Dst,{list,Ss}}, Vst) ->
+    verify_update_record(Size, Src, Dst, Ss, Vst);
 
 %%
 %% Calls
@@ -1518,15 +1521,46 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
     end.
 
 put_map_type(Map0, List, Vst) ->
-    Map = normalize(get_term_type(Map0, Vst)),
+    Map = get_term_type(Map0, Vst),
     pmt_1(List, Vst, Map).
 
 pmt_1([Key0, Value0 | List], Vst, Acc0) ->
-    Key = normalize(get_term_type(Key0, Vst)),
-    Value = normalize(get_term_type(Value0, Vst)),
+    Key = get_term_type(Key0, Vst),
+    Value = get_term_type(Value0, Vst),
     {Acc, _, _} = beam_call_types:types(maps, put, [Key, Value, Acc0]),
     pmt_1(List, Vst, Acc);
 pmt_1([], _Vst, Acc) ->
+    Acc.
+
+verify_update_record(Size, Src, Dst, List, Vst0) ->
+    assert_type(#t_tuple{exact=true,size=Size}, Src, Vst0),
+    verify_y_init(Vst0),
+
+    Vst = eat_heap(Size + 1, Vst0),
+
+    case update_tuple_type(List, Src, Vst) of
+        none -> error(invalid_index);
+        Type -> create_term(Type, update_record, [], Dst, Vst)
+    end.
+
+update_tuple_type([_|_]=Updates0, Src, Vst) ->
+    Filter = #t_tuple{size=update_tuple_highest_index(Updates0, -1)},
+    case meet(get_term_type(Src, Vst), Filter) of
+        none ->
+            none;
+        TupleType ->
+            Updates = update_tuple_type_1(Updates0, Vst),
+            beam_types:update_tuple(TupleType, Updates)
+    end.
+
+update_tuple_type_1([Index, Value | Updates], Vst) ->
+    [{Index, get_term_type(Value, Vst)} | update_tuple_type_1(Updates, Vst)];
+update_tuple_type_1([], _Vst) ->
+    [].
+
+update_tuple_highest_index([Index, _Val | List], Acc) when is_integer(Index) ->
+    update_tuple_highest_index(List, max(Index, Acc));
+update_tuple_highest_index([], Acc) when Acc >= 1 ->
     Acc.
 
 verify_create_bin_list([{atom,string},_Seg,Unit,Flags,Val,Size|Args], Vst) ->
@@ -3257,7 +3291,7 @@ will_bif_succeed(Op, Ss, Vst) ->
         true ->
             'maybe';
         false ->
-            Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
+            Args = [get_term_type(Arg, Vst) || Arg <- Ss],
             beam_call_types:will_succeed(erlang, Op, Args)
     end.
 
@@ -3292,7 +3326,7 @@ get_call_args(Arity, Vst) ->
 get_call_args_1(Arity, Arity, _) ->
     [];
 get_call_args_1(N, Arity, Vst) when N < Arity ->
-    ArgType = normalize(get_movable_term_type({x,N}, Vst)),
+    ArgType = get_movable_term_type({x,N}, Vst),
     [ArgType | get_call_args_1(N + 1, Arity, Vst)].
 
 check_limit({x,X}=Src) when is_integer(X) ->
