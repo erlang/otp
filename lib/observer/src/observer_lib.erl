@@ -299,13 +299,13 @@ to_str({Unit, X}) when (Unit==bytes orelse Unit==time_ms) andalso is_list(X) ->
     catch error:badarg -> X
     end;
 to_str({bytes, B}) ->
-    KB = B div 1024,
-    MB = KB div 1024,
-    GB = MB div 1024,
+    KiB = B div 1024,
+    MiB = KiB div 1024,
+    GiB = MiB div 1024,
     if
-	GB > 10 -> integer_to_list(GB) ++ " GB";
-	MB > 10 -> integer_to_list(MB) ++ " MB";
-	KB >  0 -> integer_to_list(KB) ++ " kB";
+	GiB > 10 -> integer_to_list(GiB) ++ " GiB";
+	MiB > 10 -> integer_to_list(MiB) ++ " MiB";
+	KiB >  0 -> integer_to_list(KiB) ++ " KiB";
 	true -> integer_to_list(B) ++ " B"
     end;
 to_str({{words,WSz}, Sz}) ->
