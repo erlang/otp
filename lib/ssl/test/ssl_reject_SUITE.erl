@@ -38,7 +38,9 @@
         ]).
 
 %% Test cases
--export([reject_sslv2/0,
+-export([reject_prev/0,
+         reject_prev/1,
+         reject_sslv2/0,
          reject_sslv2/1,
          reject_sslv3/0,
          reject_sslv3/1,
@@ -65,17 +67,19 @@ all() ->
      {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'}
-     ].
-
-groups() ->
-    [{'tlsv1.3', [], all_versions_tests()},
-     {'tlsv1.2', [], all_versions_tests()},
-     {'tlsv1.1', [], all_versions_tests()},
-     {'tlsv1', [], all_versions_tests()}
+     {group, 'tlsv1'},
+     {group, 'dtlsv1.2'}
     ].
 
-all_versions_tests() ->
+groups() ->
+    [{'tlsv1.3', [], [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1.2', [],  [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1.1', [],  [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1', [], all_tls_version_tests()},
+     {'dtlsv1.2', [], [reject_prev]}
+    ].
+
+all_tls_version_tests() ->
     [
      reject_sslv2,
      reject_sslv3,
@@ -145,7 +149,6 @@ reject_sslv3() ->
     [{doc,"Test that SSL v3 clients are rejected"}].
 
 reject_sslv3(Config) when is_list(Config) ->
-    Version = proplists:get_value(version, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -168,14 +171,8 @@ reject_sslv3(Config) when is_list(Config) ->
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [{active, false}]),
     gen_tcp:send(Socket, ClientHello),
     %% v3 is not a supported protocol version (but hello record could have 3.0 for legacy interop)
-    case Version of
-        'tlsv1.3' ->
-            ssl_test_lib:check_server_alert(Server, illegal_parameter),
-            client_rejected(Socket, illegal_parameter);
-        _  ->
-            ssl_test_lib:check_server_alert(Server, protocol_version),
-            client_rejected(Socket, protocol_version)
-    end.
+    ssl_test_lib:check_server_alert(Server, protocol_version),
+    client_rejected(Socket, protocol_version).
 
 accept_sslv3_record_hello() ->
     [{doc,"Test that ssl v3 record in clients hellos are ignored when higher version are advertised"}].
@@ -205,6 +202,34 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
         {error, timeout} ->       
             ct:fail(ssl3_record_not_accepted)
     end.
+
+
+reject_prev() ->
+    [{doc,"Test that prev version is rejected, for all version where there exists possible support a previous version, that is not configured"}].
+
+reject_prev(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Version = proplists:get_value(version, Config),
+    PrevVersion = prev_version(Version),
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+					      {from, self()},
+					      {mfa, {ssl_test_lib,
+						     no_result, []}},
+					      {options, ServerOpts}]),
+    Port  = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+					      {host, Hostname},
+					      {from, self()},
+					      {mfa, {ssl_test_lib,
+						     no_result, []}},
+					      {options,[{versions, [PrevVersion]} | ClientOpts]}]),
+    ssl_test_lib:check_client_alert(Server, Client, protocol_version).
+
 %%--------------------------------------------------------------------
 %% Internal functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -273,3 +298,12 @@ hello_with_3_0_record('tlsv1.3') ->
       42,42,32,73,84,134,110,74,110,163,140,111,177,126,133,118,141,2,153,
       156,157,205,101,69,0,10,0,10,0,8,0,29,0,30,0,23,0,24,0,11,0,2,1,0,0,
       ?SUPPORTED_VERSIONS_EXT,0,3,2,?TLS_MAJOR, ?TLS_1_3_MINOR>>.
+
+prev_version('tlsv1.3') ->
+    'tlsv1.2';
+prev_version('tlsv1.2') ->
+    'tlsv1.1';
+prev_version('tlsv1.1') ->
+    'tlsv1';
+prev_version('dtlsv1.2') ->
+    'dtlsv1'.

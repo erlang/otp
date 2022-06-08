@@ -153,6 +153,7 @@ init([_Role, _Host, _Port, _Socket, {TLSOpts, _, _},  _User, _CbInfo] = InitArgs
 -spec ssl_config(ssl_options(), client | server, #state{}) -> #state{}.
 %%--------------------------------------------------------------------
 ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
+                              ssl_options = #{handshake := Handshake},
                               handshake_env = HsEnv,
                               connection_env = CEnv} = State0) ->
     {ok, #{cert_db_ref := Ref,
@@ -166,6 +167,15 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
     TimeStamp = erlang:monotonic_time(),
     Session = State0#state.session,
 
+    ContinueStatus = case Handshake of
+                         hello ->
+                             %% Will pause handshake after hello message to
+                             %% enable user to react to hello extensions
+                             pause;
+                         full ->
+                             Handshake
+                     end,
+
     State0#state{session = Session#session{time_stamp = TimeStamp},
                  static_env = InitStatEnv0#static_env{
                                 file_ref_db = FileRefHandle,
@@ -174,7 +184,8 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
                                 crl_db = CRLDbHandle,
                                 session_cache = CacheHandle
                                },
-                 handshake_env = HsEnv#handshake_env{diffie_hellman_params = DHParams},
+                 handshake_env = HsEnv#handshake_env{diffie_hellman_params = DHParams,
+                                                     continue_status = ContinueStatus},
                  connection_env = CEnv#connection_env{cert_key_alts = CertKeyAlts},
                  ssl_options = Opts}.
 
