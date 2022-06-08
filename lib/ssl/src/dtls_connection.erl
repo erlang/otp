@@ -325,14 +325,12 @@ hello(internal, #hello_verify_request{cookie = Cookie},
                         },
     dtls_gen_connection:next_event(?FUNCTION_NAME, no_record, State, Actions);
 hello(internal, #client_hello{extensions = Extensions} = Hello,
-      #state{ssl_options = #{handshake := hello},
-             handshake_env = HsEnv,
+      #state{handshake_env = #handshake_env{continue_status = pause},
              start_or_recv_from = From} = State0) ->
     try tls_dtls_connection:handle_sni_extension(State0, Hello) of
         #state{} = State ->
-            {next_state, user_hello, State#state{start_or_recv_from = undefined,
-                                                 handshake_env = HsEnv#handshake_env{hello = Hello}},
-             [{reply, From, {ok, Extensions}}]}
+            {next_state, user_hello, State#state{start_or_recv_from = undefined},
+             [{postpone, true}, {reply, From, {ok, Extensions}}]}
     catch throw:#alert{} = Alert ->
             alert_or_reset_connection(Alert, ?FUNCTION_NAME, State0)
     end;
@@ -355,16 +353,11 @@ hello(internal, #client_hello{cookie = Cookie} = Hello, #state{static_env = #sta
                     hello(internal, Hello#client_hello{cookie = <<>>}, State)
             end
     end;
-hello(internal, #server_hello{extensions = Extensions} = Hello, 
-      #state{ssl_options = #{
-                 handshake := hello},
-             handshake_env = HsEnv,
+hello(internal, #server_hello{extensions = Extensions}, 
+      #state{handshake_env = #handshake_env{continue_status = pause},
              start_or_recv_from = From} = State) ->
-    {next_state, user_hello, State#state{start_or_recv_from = undefined,
-                                         handshake_env = HsEnv#handshake_env{
-                                                           hello = Hello}},
-     [{reply, From, {ok, Extensions}}]};       
-
+    {next_state, user_hello, State#state{start_or_recv_from = undefined},
+     [{postpone, true},{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{} = Hello,
       #state{
          static_env = #static_env{role = client},

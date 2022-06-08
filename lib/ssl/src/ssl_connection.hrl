@@ -55,7 +55,7 @@
 
 
 -record(handshake_env, {
-                        client_hello_version  :: ssl_record:ssl_version() | 'undefined',
+                        client_hello_version  :: ssl_record:ssl_version() | 'undefined', %% Legacy client hello
                         unprocessed_handshake_events = 0    :: integer(),
                         tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
                                                | 'undefined',
@@ -67,7 +67,9 @@
                         early_data_accepted = false :: boolean(), %% TLS 1.3
                         allow_renegotiate = true                    ::boolean(),
                         %% Ext handling
-                        hello,                %%:: #client_hello{} | #server_hello{}            
+                        %% continue_status reflects handling of the option handshake that is either full or
+                        %% hello (will pause at hello message to allow user to act on hello extensions)
+                        continue_status,  %% full | pause | {pause, ClientVersionsExt} | continue
                         sni_hostname = undefined,
                         max_frag_enum :: undefined | {max_frag_enum, integer()},
                         expecting_next_protocol_negotiation = false ::boolean(),
