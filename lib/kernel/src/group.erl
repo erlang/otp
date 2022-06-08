@@ -21,16 +21,21 @@
 
 %% A group leader process for user io.
 
--export([start/2, start/3, server/3]).
+-export([start/2, start/3, server/4]).
 
 start(Drv, Shell) ->
     start(Drv, Shell, []).
 
 start(Drv, Shell, Options) ->
-    spawn_link(group, server, [Drv, Shell, Options]).
+    Ancestors = [self() | case get('$ancestors') of
+                              undefined -> [];
+                              Anc -> Anc
+                          end],
+    spawn_link(group, server, [Ancestors, Drv, Shell, Options]).
 
-server(Drv, Shell, Options) ->
+server(Ancestors, Drv, Shell, Options) ->
     process_flag(trap_exit, true),
+    _ = [put('$ancestors', Ancestors) || Shell =/= {}],
     edlin:init(),
     put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),

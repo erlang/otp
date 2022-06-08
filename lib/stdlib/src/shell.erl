@@ -59,7 +59,14 @@ start(NoCtrlG) ->
 
 start(NoCtrlG, StartSync) ->
     _ = code:ensure_loaded(user_default),
-    spawn(fun() -> server(NoCtrlG, StartSync) end).
+    Ancestors = [self() | case get('$ancestors') of
+                              undefined -> [];
+                              Anc -> Anc
+                          end],
+    spawn(fun() ->
+                  put('$ancestors', Ancestors),
+                  server(NoCtrlG, StartSync)
+          end).
 
 %% Call this function to start a user restricted shell 
 %% from a normal shell session.
