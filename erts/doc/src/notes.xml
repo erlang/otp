@@ -549,6 +549,34 @@
 
 </section>
 
+<section><title>Erts 12.3.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Accept funs (NEW_FUN_EXT) with incorrectly encoded size
+	    field. This is a workaround for a bug (OTP-18104)
+	    existing in OTP 23 and 24 that could cause incorrect size
+	    fields in certain cases. The emulator does not use the
+	    decoded size field, but <c>erl_interface</c> still does
+	    and is not helped by this workaround.</p>
+          <p>
+	    Own Id: OTP-18093 Aux Id: OTP-18104, PR-5987 </p>
+        </item>
+        <item>
+          <p>
+	    The zlib built in to the runtime system has been updated
+	    to version 1.2.12. (Note that on most platforms, the
+	    platform's own zlib is used.)</p>
+          <p>
+	    Own Id: OTP-18123 Aux Id: GH-5994 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
