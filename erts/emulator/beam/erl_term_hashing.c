@@ -22,14 +22,6 @@
 #  include "config.h"
 #endif
 
-#ifdef ERL_INTERNAL_HASH_CRC32C
-#   if defined(__x86_64__)
-#       include <immintrin.h>
-#   elif defined(__aarch64__)
-#       include <arm_acle.h>
-#   endif
-#endif
-
 #include "sys.h"
 #include "global.h"
 #include "erl_term_hashing.h"
@@ -39,6 +31,14 @@
 #include "erl_map.h"
 #include "erl_binary.h"
 #include "erl_bits.h"
+
+#ifdef ERL_INTERNAL_HASH_CRC32C
+#   if defined(__x86_64__)
+#       include <immintrin.h>
+#   elif defined(__aarch64__)
+#       include <arm_acle.h>
+#   endif
+#endif
 
 /*                                                                           *\
  *                                                                           *
