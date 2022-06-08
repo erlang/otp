@@ -567,6 +567,16 @@ basic(Config) when is_list(Config) ->
     true =
 	(tolower(inet_dns:rr(RR2c, domain))
 	  =:= tolower(inet_dns:rr(RR2d, domain))),
+    ?P("resolve \"127.0.0.1\"~n", []),
+    {ok, Msg3} =
+        inet_res:resolve("127.0.0.1", in, a, [{nameservers,[NS]},verbose]),
+    [] = inet_dns:msg(Msg3, anlist),
+    {ok, Msg4} =
+        inet_res:resolve("127.0.0.1", in, ptr, [{nameservers,[NS]},verbose]),
+    [RR4] = inet_dns:msg(Msg4, anlist),
+    "1.0.0.127.in-addr.arpa" = inet_dns:rr(RR4, domain),
+    "test1-78901234567890123456789012345678.otptest" =
+        inet_dns:rr(RR4, data),
     %%
     %% lookup
     ?P("lookup"),
