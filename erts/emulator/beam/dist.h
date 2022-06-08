@@ -84,8 +84,12 @@
                                 | DFLAG_BIT_BINARIES              \
                                 | DFLAG_HANDSHAKE_23)
 
+/* New mandatory flags for distribution in OTP 26 */
+#define DFLAG_DIST_MANDATORY_26 (DFLAG_V4_NC)
+
 /* Mandatory flags for distribution. */
-#define DFLAG_DIST_MANDATORY DFLAG_DIST_MANDATORY_25
+#define DFLAG_DIST_MANDATORY (DFLAG_DIST_MANDATORY_25             \
+                              | DFLAG_DIST_MANDATORY_26)
 
 /*
  * Additional optimistic flags when encoding toward pending connection.
@@ -108,7 +112,6 @@
                             | DFLAG_EXIT_PAYLOAD              \
                             | DFLAG_FRAGMENTS                 \
                             | DFLAG_SPAWN                     \
-                            | DFLAG_V4_NC		      \
                             | DFLAG_ALIAS		      \
                             | DFLAG_UNLINK_ID                 \
                             | DFLAG_MANDATORY_25_DIGEST)

@@ -68,15 +68,6 @@
 
   <section>
     <title>OTP 26</title>
-    <section>
-      <title>The distribution flag DFLAG_V4_NC will become mandatory</title>
-      <p>As of OTP 26, the distribution flag <seeguide
-      marker="erts:erl_dist_protocol#DFLAG_V4_NC">DFLAG_V4_NC</seeguide>
-      will become mandatory. If you implement the Erlang distribution
-      protocol yourself, you will need to implement support for
-      <c>DFLAG_V4_NC</c> in order to communicate with Erlang nodes
-      running OTP 26.</p>
-    </section>
 
     <section>
       <title>The new link protocol will become mandatory</title>

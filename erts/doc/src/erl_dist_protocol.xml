@@ -1061,8 +1061,7 @@ DiB == gen_digest(ChA, ICA)?
 	  <seeguide marker="erl_ext_dist#V4_PORT_EXT"><c>V4_PORT_EXT</c></seeguide>,
 	  and in the reference case up to 5 32-bit ID words are now accepted in
 	  <seeguide marker="erl_ext_dist#NEWER_REFERENCE_EXT"><c>NEWER_REFERENCE_EXT</c></seeguide>.
-	  Introduced in OTP 24.</p>
-	  <note><p>This flag will become mandatory in OTP 26.</p></note>
+	  This flag was introduced in OTP 24 and became mandatory in OTP 26.</p>
         </item>
 	<tag><marker id="DFLAG_ALIAS"/><c>-define(DFLAG_ALIAS, (1 bsl 35)).</c></tag>
         <item>
