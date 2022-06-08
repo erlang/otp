@@ -1071,9 +1071,29 @@ end
 	See also <seemfa marker="public_key:public_key#generate_key/1">public_key:generate_key/1</seemfa>.
         </p>
 	<note>
+	  <p>If the linked version of cryptolib is OpenSSL 3.0</p>
+	  <list type="bulleted">
+	    <item>
+	    <p>and the <c>Type</c> is <c>dh</c> (diffie-hellman)</p>
+	    </item>
+	    <item>
+	      <p>and the parameter <c>P</c> (in <seetype marker="#dh_params">dh_params()</seetype>)
+	      is one of the MODP groups (see <url href="https://tools.ietf.org/html/rfc3526">RFC 3526</url>)</p>
+	    </item>
+	    <item>
+	      <p>and the optional <c>PrivateKeyBitLength</c> parameter
+	      (in <seetype marker="#dh_params">dh_params()</seetype>)
+	      is present,</p>
+	    </item>
+	  </list>
+	  <p>then the optional key length parameter must be at least
+	  224, 256, 302, 352 and 400 for group sizes of
+	  2048, 3072, 4096, 6144 and 8192, respectively.</p>
+	</note>
+	<note>
 	  <p>RSA key generation is only available if the runtime was
 	  built with dirty scheduler support. Otherwise, attempting to
-	  generate an RSA key will raise exception <c>error:notsup</c>.</p>
+	  generate an RSA key will raise the exception <c>error:notsup</c>.</p>
 	</note>
       </desc>
     </func>
