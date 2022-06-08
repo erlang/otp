@@ -2955,7 +2955,7 @@ raise(Name, Amount) ->
         <p><c>-mnesia dump_log_write_threshold Max</c>.
           <c>Max</c> is an integer that specifies the maximum
           number of writes allowed to the transaction log before
-          a new dump of the log is performed. Default is <c>100</c>
+          a new dump of the log is performed. Default is <c>1000</c>
           log writes.</p>
       </item>
       <item>

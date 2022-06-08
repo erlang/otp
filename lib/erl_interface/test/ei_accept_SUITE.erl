@@ -26,30 +26,41 @@
 
 -export([all/0, suite/0,
          init_per_testcase/2,
-         ei_accept/1, ei_threaded_accept/1,
+         ei_accept/1,
+         hopeful_random/1,
+         ei_threaded_accept/1,
          monitor_ei_process/1]).
 
+%% Internals
+-export([id/1]).
+
 -import(runner, [get_term/1,send_term/2]).
+
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {seconds, 30}}].
 
 all() -> 
-    [ei_accept, ei_threaded_accept,
+    [ei_accept,
+     hopeful_random,
+     ei_threaded_accept,
      monitor_ei_process].
 
 init_per_testcase(Case, Config) ->
+    rand:uniform(), % Make sure rand is initialized and seeded.
+    %%rand:seed({exsss, [61781477086241372|88832360391433009]}),
+    io:format("** rand seed = ~p\n", [rand:export_seed()]),
     runner:init_per_testcase(?MODULE, Case, Config).
 
 ei_accept(Config) when is_list(Config) ->
-    _ = [ei_accept_do(Config, 0, SI) || SI <- [default, ussi]],
+    _ = [ei_accept_do(Config, SI) || SI <- [default, ussi]],
     ok.
 
-ei_accept_do(Config, CompatRel, SockImpl) ->
-    io:format("CompatRel=~p, SockImpl=~p\n", [CompatRel, SockImpl]),
+ei_accept_do(Config, SockImpl) ->
+    io:format("SockImpl=~p\n", [SockImpl]),
     P = runner:start(Config, ?interpret),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, CompatRel, SockImpl),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, 0, SockImpl),
 
     Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
     io:format("Myname ~p ~n",  [Myname]),
@@ -58,7 +69,13 @@ ei_accept_do(Config, CompatRel, SockImpl) ->
 
     %% We take this opportunity to also test export-funs and bit-strings.
     %% Test both toward pending connection and established connection.
-    RealTerms = [<<1:1>>, fun lists:map/2],
+    %% OTP-25: This is a bit obsolete now as we no longer support
+    %%         tuple fallbacks for export-funs and bit-strings.
+    RealTerms =
+        [<<1:1>>,
+         fun lists:map/2,
+         fun_with_env(<<1:1>>),
+         fun_with_env(fun lists:map/2)],
 
     Self = self(),
     Funny = fun() -> hello end,
@@ -81,6 +98,155 @@ ei_accept_do(Config, CompatRel, SockImpl) ->
 
     runner:finish(P),
     ok.
+
+fun_with_env(Term) ->
+    Env = ?MODULE:id(Term),
+    fun() -> Env end.
+
+id(X) -> X.
+
+
+%% Send random encoded terms from emulator to c-node
+%% and verify correct encoding.
+hopeful_random(Config) when is_list(Config) ->
+    [hopeful_random_do(Config, SI)
+     || SI <- [default, ussi]],
+    ok.
+
+
+hopeful_random_do(Config, SockImpl) ->
+    io:format("SockImpl=~p\n", [SockImpl]),
+    P = runner:start(Config, ?interpret),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, 0, SockImpl),
+
+    Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
+    io:format("Myname ~p ~n",  [Myname]),
+    EINode = list_to_atom("c42@"++Myname),
+    io:format("EINode ~p ~n",  [EINode]),
+
+    Port = 6543,
+    {ok, ListenFd} = ei_publish(P, Port),
+
+    Terms = [rand_term(10) || _ <- lists:seq(1,10)],
+
+    %% lists:foldl(fun(T,N) ->
+    %%                     io:format("Term #~p = ~p\n", [N, printable(T)]),
+    %%                     N+1
+    %%             end,
+    %%             1,
+    %%             Terms),
+
+    %% Send on pending connection (hopeful encoding)
+    [{any, EINode} ! T || T <- Terms],
+    {ok, Fd, Node} = ei_accept(P, ListenFd),
+    Node = node(),
+    [match(T, ei_receive(P, Fd)) || T <- Terms],
+
+    %% Send again on established connection
+    [{any, EINode} ! T || T <- Terms],
+    [match(T, ei_receive(P, Fd)) || T <- Terms],
+
+    runner:finish(P),
+    ok.
+
+
+match(A, A) -> ok;
+match(A, B) ->
+    io:format("match failed\nA = ~p\nB = ~p\n", [printable(A), printable(B)]),
+    ct:fail("match failed").
+
+rand_term(MaxSize) ->
+    F = rand:uniform(100), % to produce non-literals
+    Big = 666_701_523_687_345_689_643 * F,
+    MagicRef = atomics:new(10,[]),
+    Leafs = {atom, 42, 42.17*F,
+             Big, -Big,
+             [], {}, #{},
+             fun lists:sort/1,
+             fun() -> ok end,
+             self(),
+             lists:last(erlang:ports()),
+             make_ref(),
+             MagicRef,
+             <<F:(8*10)>>,    % HeapBin
+             <<F:(8*65)>>,    % ProcBin
+             <<F:7>>,         % SubBin + HeapBin
+             <<F:(8*80+1)>>,  % SubBin + ProcBin
+             mk_ext_pid({a@b, 17}, 17, 42),
+             mk_ext_port({a@b, 21}, 13),
+             mk_ext_ref({a@b, 42}, [42, 19, 11])},
+    rand_term(Leafs, rand:uniform(MaxSize)).
+
+rand_term(Leafs, Arity) when Arity > 0 ->
+    Length = rand:uniform(Arity),
+    List = [rand_term(Leafs, Arity-Length) || _ <- lists:seq(1,Length)],
+    case rand:uniform(6) of
+        1 -> List;
+        2 -> list_to_improper_list(List);
+        3 -> list_to_tuple(List);
+        4 -> list_to_flatmap(List);
+        5 -> list_to_hashmap(List);
+        6 -> list_to_fun(List)
+    end;
+rand_term(Leafs, 0) ->
+    element(rand:uniform(size(Leafs)), Leafs).
+
+list_to_improper_list([A,B|T]) ->
+    T ++ [A|B];
+list_to_improper_list([H]) ->
+    [[]|H].
+
+list_to_flatmap(List) ->
+    list_to_map(List, #{}).
+
+list_to_hashmap(List) ->
+    HashMap = #{1=>1, 2=>2, 3=>3, 4=>4, 5=>5, 6=>6, 7=>7, 8=>8, 9=>9,10=>0,
+                11=>1,12=>2,13=>3,14=>4,15=>5,16=>6,17=>7,18=>8,19=>9,20=>0,
+                21=>1,22=>2,23=>3,24=>4,25=>5,26=>6,27=>7,28=>8,29=>9,30=>0,
+                31=>1,32=>2,33=>3},
+    list_to_map(List, HashMap).
+
+list_to_map([], Map) ->
+    Map;
+list_to_map([K], Map) ->
+    Map#{K => K};
+list_to_map([K,V|T], Map) ->
+    list_to_map(T, Map#{K => V}).
+
+list_to_fun([X]) ->
+    fun(A) -> A + X end;
+list_to_fun([X, Y]) ->
+    fun(A) -> A + X + Y end;
+list_to_fun([X, Y | T]) ->
+    fun(A) -> [A+X+Y | T] end.
+
+mk_ext_pid({NodeName, Creation}, Number, Serial) ->
+    erts_test_utils:mk_ext_pid({NodeName, Creation}, Number, Serial).
+
+mk_ext_port({NodeName, Creation}, Number) ->
+    erts_test_utils:mk_ext_port({NodeName, Creation}, Number).
+
+mk_ext_ref({NodeName, Creation}, Numbers) ->
+    erts_test_utils:mk_ext_ref({NodeName, Creation}, Numbers).
+
+%% Convert local funs to maps to show fun environment
+printable(Fun) when is_function(Fun) ->
+    case erlang:fun_info(Fun, type) of
+        {type,local} ->
+            {env, Env} = erlang:fun_info(Fun, env),
+            #{'fun' => [printable(T) || T <- Env]};
+        {type,external} ->
+            Fun
+    end;
+printable([H|T]) ->
+    [printable(H)|printable(T)];
+printable(Tuple) when is_tuple(Tuple) ->
+    list_to_tuple(printable(tuple_to_list(Tuple)));
+printable(Map) when is_map(Map) ->
+    maps:from_list(printable(maps:to_list(Map)));
+printable(Leaf) ->
+    Leaf.
+
 
 ei_threaded_accept(Config) when is_list(Config) ->
     Einode = filename:join(proplists:get_value(data_dir, Config), "eiaccnode"),
