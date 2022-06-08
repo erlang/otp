@@ -178,7 +178,7 @@ static char *erts_dop_to_string(enum dop dop) {
 int erts_is_alive; /* System must be blocked on change */
 int erts_dist_buf_busy_limit;
 
-int erts_dflags_test_remove_hopefull_flags;
+Uint64 erts_dflags_test_remove_hopefull_flags;
 
 Export spawn_request_yield_export;
 
@@ -5211,17 +5211,18 @@ BIF_RETTYPE erts_internal_get_dflags_0(BIF_ALIST_0)
 {
     if (erts_dflags_test_remove_hopefull_flags) {
         /* For internal emulator tests only! */
+        const Uint64 mask = ~erts_dflags_test_remove_hopefull_flags;
         Eterm *hp, **hpp = NULL;
         Uint sz = 0, *szp = &sz;
         Eterm res;
         while (1) {
             res = erts_bld_tuple(hpp, szp, 6,
                 am_erts_dflags,
-                erts_bld_uint64(hpp, szp, DFLAG_DIST_DEFAULT & ~DFLAG_DIST_HOPEFULLY),
-                erts_bld_uint64(hpp, szp, DFLAG_DIST_MANDATORY & ~DFLAG_DIST_HOPEFULLY),
-                erts_bld_uint64(hpp, szp, DFLAG_DIST_ADDABLE & ~DFLAG_DIST_HOPEFULLY),
-                erts_bld_uint64(hpp, szp, DFLAG_DIST_REJECTABLE & ~DFLAG_DIST_HOPEFULLY),
-                erts_bld_uint64(hpp, szp, DFLAG_DIST_STRICT_ORDER & ~DFLAG_DIST_HOPEFULLY));
+                erts_bld_uint64(hpp, szp, DFLAG_DIST_DEFAULT & mask),
+                erts_bld_uint64(hpp, szp, DFLAG_DIST_MANDATORY & mask),
+                erts_bld_uint64(hpp, szp, DFLAG_DIST_ADDABLE & mask),
+                erts_bld_uint64(hpp, szp, DFLAG_DIST_REJECTABLE & mask),
+                erts_bld_uint64(hpp, szp, DFLAG_DIST_STRICT_ORDER & mask));
             if (hpp) {
                 ASSERT(is_value(res));
                 return res;

@@ -30,6 +30,9 @@
 -define(ATOM_UTF8_EXT,       118).
 -define(SMALL_ATOM_UTF8_EXT, 119).
 
+-define(DFLAG_EXPORT_PTR_TAG, 16#200).
+-define(DFLAG_BIT_BINARIES,   16#400).
+
 %% Tests distribution and the tcp driver.
 
 -include_lib("common_test/include/ct.hrl").
@@ -2974,33 +2977,21 @@ address_please(_Name, "dummy", inet6) ->
 
 hopefull_data_encoding(Config) when is_list(Config) ->
     MkHopefullData = fun(Ref,Pid) -> mk_hopefull_data(Ref,Pid) end,
-    test_hopefull_data_encoding(Config, true, MkHopefullData),
-    test_hopefull_data_encoding(Config, false, MkHopefullData),
+    test_hopefull_data_encoding(MkHopefullData),
 
     %% Test funs with hopefully encoded term in environment
     MkBitstringInFunEnv = fun(_,_) -> [mk_fun_with_env(<<5:7>>)] end,
-    test_hopefull_data_encoding(Config, true, MkBitstringInFunEnv),
-    test_hopefull_data_encoding(Config, false, MkBitstringInFunEnv),
+    test_hopefull_data_encoding(MkBitstringInFunEnv),
     MkExpFunInFunEnv = fun(_,_) -> [mk_fun_with_env(fun a:a/0)] end,
-    test_hopefull_data_encoding(Config, true, MkExpFunInFunEnv),
-    test_hopefull_data_encoding(Config, false, MkExpFunInFunEnv),
+    test_hopefull_data_encoding(MkExpFunInFunEnv),
     ok.
 
 mk_fun_with_env(Term) ->
     fun() -> Term end.
 
-test_hopefull_data_encoding(Config, Fallback, MkDataFun) when is_list(Config) ->
+test_hopefull_data_encoding(MkDataFun) ->
     {ok, PeerProxy, ProxyNode} = ?CT_PEER(),
     {ok, PeerBouncer, BouncerNode} = ?CT_PEER(["-hidden"]),
-    case Fallback of
-        false ->
-            ok;
-        true ->
-            rpc:call(BouncerNode, erts_debug, set_internal_state,
-                     [available_internal_state, true]),
-            false = rpc:call(BouncerNode, erts_debug, set_internal_state,
-                            [remove_hopefull_dflags, true])
-    end,
     Tester = self(),
     R1 = make_ref(),
     R2 = make_ref(),
@@ -3030,21 +3021,11 @@ test_hopefull_data_encoding(Config, Fallback, MkDataFun) when is_list(Config) ->
         end,
     receive
         [R2, HData2] ->
-            case Fallback of
-                false ->
-                    HData = HData2;
-                true ->
-                    check_hopefull_fallback_data(HData, HData2)
-            end
+            HData = HData2
     end,
     receive
         [R3, HData3] ->
-            case Fallback of
-                false ->
-                    HData = HData3;
-                true ->
-                    check_hopefull_fallback_data(HData, HData3)
-            end
+            HData = HData3
     end,
     unlink(Proxy),
     exit(Proxy, bye),
@@ -3109,45 +3090,6 @@ mk_hopefull_data(BS) ->
                          <<_:PreOffset/bitstring, NewBs:Offset/bitstring, _/bitstring>> = BS,
                          [NewBs]
                  end, lists:seq(BSsz-32, BSsz-17))]).
-
-check_hopefull_fallback_data([], []) ->
-    ok;
-check_hopefull_fallback_data([X|Xs],[Y|Ys]) ->
-    chk_hopefull_fallback(X, Y),
-    check_hopefull_fallback_data(Xs,Ys).
-
-chk_hopefull_fallback(Binary, FallbackBinary) when is_binary(Binary) ->
-    Binary = FallbackBinary;
-chk_hopefull_fallback([BitStr], [{Bin, BitSize}]) when is_bitstring(BitStr) ->
-    chk_hopefull_fallback(BitStr, {Bin, BitSize});
-chk_hopefull_fallback(BitStr, {Bin, BitSize}) when is_bitstring(BitStr) ->
-    true = is_binary(Bin),
-    true = is_integer(BitSize),
-    true = BitSize > 0,
-    true = BitSize < 8,
-    Hsz = size(Bin) - 1,
-    <<Head:Hsz/binary, I/integer>> = Bin,
-    IBits = I bsr (8 - BitSize),
-    FallbackBitStr = list_to_bitstring([Head,<<IBits:BitSize>>]),
-    BitStr = FallbackBitStr,
-    ok;
-chk_hopefull_fallback(Func, {ModName, FuncName}) when is_function(Func) ->
-    {M, F, _} = erlang:fun_info_mfa(Func),
-    M = ModName,
-    F = FuncName,
-    ok;
-chk_hopefull_fallback(Fun1, Fun2) when is_function(Fun1), is_function(Fun2) ->
-    FI1 = erlang:fun_info(Fun1),
-    FI2 = erlang:fun_info(Fun2),
-    {env, E1} = lists:keyfind(env, 1, FI1),
-    {env, E2} = lists:keyfind(env, 1, FI1),
-    chk_hopefull_fallback(E1, E2),
-    assert_same(lists:keydelete(env, 1, FI1),
-                lists:keydelete(env, 1, FI2));
-chk_hopefull_fallback(A, B) ->
-    ok = assert_same(A,B).
-
-assert_same(A,A) -> ok.
 
 %% ERL-1254
 hopefull_export_fun_bug(Config) when is_list(Config) ->
