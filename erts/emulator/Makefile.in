@@ -1123,7 +1123,8 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_nfunc_sched.o \
 	$(OBJDIR)/erl_global_literals.o \
 	$(OBJDIR)/beam_file.o \
-	$(OBJDIR)/beam_types.o
+	$(OBJDIR)/beam_types.o \
+	$(OBJDIR)/erl_term_hashing.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 
