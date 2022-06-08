@@ -732,6 +732,7 @@ do_server_hello(Type, #{next_protocol_negotiation := NextProtocols} =
     ServerHello =
 	ssl_handshake:server_hello(SessId, ssl:tls_version(Version),
                                    ConnectionStates1, ServerHelloExt),
+    
     State = server_hello(ServerHello,
 			 State1#state{handshake_env = HsEnv#handshake_env{expecting_next_protocol_negotiation =
                                                                               NextProtocols =/= undefined}}, Connection),
@@ -1286,8 +1287,8 @@ request_client_cert(#state{handshake_env = #handshake_env{kex_algorithm = Alg}} 
 request_client_cert(#state{static_env = #static_env{cert_db = CertDbHandle,
                                                     cert_db_ref = CertDbRef},
                            connection_env = #connection_env{negotiated_version = Version},
-                           ssl_options = #{verify := verify_peer,
-                                           signature_algs := SupportedHashSigns}} = State0, Connection) ->
+                           ssl_options = #{verify := verify_peer} = Opts} = State0, Connection) ->
+    SupportedHashSigns = maps:get(signature_algs, Opts, undefined),
     TLSVersion =  ssl:tls_version(Version),
     HashSigns = ssl_handshake:available_signature_algs(SupportedHashSigns, 
 						       TLSVersion),
