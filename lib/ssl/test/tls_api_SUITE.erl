@@ -742,7 +742,7 @@ tls_dont_crash_on_handshake_garbage(Config) ->
     % Ensure we receive an alert, not sudden disconnect
     case Version of
         'tlsv1.3' ->
-            ssl_test_lib:check_server_alert(Server, illegal_parameter);
+            ssl_test_lib:check_server_alert(Server, protocol_version);
         _  ->
             ssl_test_lib:check_server_alert(Server, handshake_failure)
     end.

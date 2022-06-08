@@ -111,7 +111,8 @@
 %% Setup
 -export([init/1]).
 
--export([renegotiate/2]).
+-export([renegotiate/2,
+        choose_tls_fsm/2]).
 
 %% gen_statem state functions
 -export([initial_hello/3,
@@ -208,23 +209,18 @@ config_error(Type, Event, State) ->
 	    #state{}) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-hello(internal, #client_hello{extensions = Extensions} = Hello, 
-      #state{ssl_options = #{handshake := hello},
-             static_env = #static_env{role = server},
-             handshake_env = HsEnv,
+hello(internal, #client_hello{extensions = Extensions},
+      #state{static_env = #static_env{role = server},
+             handshake_env = #handshake_env{continue_status = pause},
              start_or_recv_from = From} = State) ->
-    {next_state, user_hello, State#state{start_or_recv_from = undefined,
-                                         handshake_env = HsEnv#handshake_env{hello = Hello}},
-     [{reply, From, {ok, Extensions}}]};
-hello(internal, #server_hello{extensions = Extensions} = Hello,
-      #state{ssl_options = #{handshake := hello},
+    {next_state, user_hello, State#state{start_or_recv_from = undefined},
+     [{postpone, true}, {reply, From, {ok, Extensions}}]};
+hello(internal, #server_hello{extensions = Extensions},
+      #state{handshake_env = #handshake_env{continue_status = pause},
              static_env = #static_env{role = client},
-             handshake_env = HsEnv,
-             start_or_recv_from = From} = State) ->   
+             start_or_recv_from = From} = State) ->
     {next_state, user_hello,
-     State#state{start_or_recv_from = undefined,
-                 handshake_env = HsEnv#handshake_env{
-                                   hello = Hello}}, [{reply, From, {ok, Extensions}}]};
+     State#state{start_or_recv_from = undefined}, [{postpone, true}, {reply, From, {ok, Extensions}}]};
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{static_env = #static_env{role = server}, connection_env = CEnv} = State0) ->
     try
