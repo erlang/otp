@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 5.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed the documentation for the <c>missing_return</c>
+	    and <c>extra_return</c> options.</p>
+          <p>
+	    Own Id: OTP-18120</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 5.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
