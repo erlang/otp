@@ -77,7 +77,8 @@
     enter_action/0,
     action/0,
     request_id/0,
-    request_id_collection/0
+    request_id_collection/0,
+    format_status/0
    ]).
 %% Old types, not advertised
 -export_type(
@@ -118,6 +119,8 @@
         {'call',From :: from()} | 'cast' | 'info'.
 -type timeout_event_type() ::
         'timeout' | {'timeout', Name :: term()} | 'state_timeout'.
+
+-type event_content() :: term().
 
 -type callback_mode_result() ::
 	callback_mode() | [callback_mode() | state_enter()].
@@ -170,7 +173,7 @@
 	%% action() list is the first to be delivered.
 	{'next_event', % Insert event as the next to handle
 	 EventType :: event_type(),
-	 EventContent :: term()} |
+	 EventContent :: event_content()} |
         {'change_callback_module', NewModule :: module()} |
         {'push_callback_module', NewModule :: module()} |
         'pop_callback_module' |
@@ -183,24 +186,24 @@
 -type timeout_action() ::
 	(Time :: event_timeout()) | % {timeout,Time,Time}
 	{'timeout', % Set the event_timeout option
-	 Time :: event_timeout(), EventContent :: term()} |
+	 Time :: event_timeout(), EventContent :: event_content()} |
 	{'timeout', % Set the event_timeout option
 	 Time :: event_timeout(),
-	 EventContent :: term(),
+	 EventContent :: event_content(),
 	 Options :: (timeout_option() | [timeout_option()])} |
 	%%
 	{{'timeout', Name :: term()}, % Set the generic_timeout option
-	 Time :: generic_timeout(), EventContent :: term()} |
+	 Time :: generic_timeout(), EventContent :: event_content()} |
 	{{'timeout', Name :: term()}, % Set the generic_timeout option
 	 Time :: generic_timeout(),
-	 EventContent :: term(),
+	 EventContent :: event_content(),
 	 Options :: (timeout_option() | [timeout_option()])} |
 	%%
 	{'state_timeout', % Set the state_timeout option
-	 Time :: state_timeout(), EventContent :: term()} |
+	 Time :: state_timeout(), EventContent :: event_content()} |
 	{'state_timeout', % Set the state_timeout option
 	 Time :: state_timeout(),
-	 EventContent :: term(),
+	 EventContent :: event_content(),
 	 Options :: (timeout_option() | [timeout_option()])} |
         timeout_cancel_action() |
         timeout_update_action().
@@ -209,9 +212,10 @@
         {{'timeout', Name :: term()}, 'cancel'} |
         {'state_timeout', 'cancel'}.
 -type timeout_update_action() ::
-        {'timeout', 'update', EventContent :: term()} |
-        {{'timeout', Name :: term()}, 'update', EventContent :: term()} |
-        {'state_timeout', 'update', EventContent :: term()}.
+        {'timeout', 'update', EventContent :: event_content()} |
+        {{'timeout', Name :: term()},
+         'update', EventContent :: event_content()} |
+        {'state_timeout', 'update', EventContent :: event_content()}.
 -type reply_action() ::
 	{'reply', % Reply to a caller
 	 From :: from(), Reply :: term()}.
@@ -317,11 +321,11 @@
 -callback state_name(
 	    'enter',
 	    OldStateName :: state_name(),
-	    Data :: data()) ->
+	    data()) ->
     state_enter_result('state_name');
            (event_type(),
-	    EventContent :: term(),
-	    Data :: data()) ->
+	    event_content(),
+	    data()) ->
     event_handler_result(state_name()).
 %%
 %% State callback for all states
@@ -329,21 +333,21 @@
 -callback handle_event(
 	    'enter',
 	    OldState :: state(),
-	    State, % Current state
-	    Data :: data()) ->
-    state_enter_result(State);
+	    CurrentState,
+	    data()) ->
+    state_enter_result(CurrentState);
            (event_type(),
-	    EventContent :: term(),
-	    State :: state(), % Current state
-	    Data :: data()) ->
-    event_handler_result(state()).
+	    event_content(),
+	    CurrentState :: state(),
+	    data()) ->
+    event_handler_result(state()). % New state
 
 %% Clean up before the server terminates.
 -callback terminate(
 	    Reason :: 'normal' | 'shutdown' | {'shutdown', term()}
 		    | term(),
-	    State :: state(),
-	    Data :: data()) ->
+	    CurrentState :: state(),
+	    data()) ->
     any().
 
 %% Note that the new code can expect to get an OldState from
@@ -371,17 +375,20 @@
     Status :: term() when
       StatusOption :: 'normal' | 'terminate'.
 
+-type format_status() ::
+        #{ state => state(),
+           data => data(),
+           reason => term(),
+           queue => [{event_type(), event_content()}],
+           postponed => [{event_type(), event_content()}],
+           timeouts => [{timeout_event_type(), event_content()}],
+           log => [sys:system_event()] }.
+
 %% Format the callback module status in some sensible that is
 %% often condensed way.
 -callback format_status(Status) -> NewStatus when
-      Status :: #{ state => state(),
-                   data => data(),
-                   reason => term(),
-                   queue => [{event_type(), term()}],
-                   postponed => [{event_type(), term()}],
-                   timeouts => [{timeout_event_type(), term()}],
-                   log => [sys:system_event()] },
-      NewStatus :: Status.
+      Status    :: format_status(),
+      NewStatus :: format_status().
 
 -optional_callbacks(
    [format_status/1, % Has got a default implementation
@@ -482,7 +489,7 @@ timeout_event_type(Type) ->
 -record(state,
         {state_data = {undefined,undefined} ::
            {State :: term(),Data :: term()},
-         postponed = [] :: [{event_type(),term()}],
+         postponed = [] :: [{event_type(),event_content()}],
          timers = #{t0q => []} ::
            #{
               %% Timeout 0 Queue.
@@ -493,7 +500,7 @@ timeout_event_type(Type) ->
 
               TimeoutType :: timeout_event_type() =>
                              {TimerRef :: reference() | 0,
-                              TimeoutMsg :: term()}},
+                              TimeoutMsg :: event_content()}},
          hibernate = false :: boolean()
         }).
 

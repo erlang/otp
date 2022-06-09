@@ -734,6 +734,19 @@ handle_event(_, _, State, Data) ->
       </desc>
     </datatype>
     <datatype>
+      <name name="event_content"/>
+      <desc>
+	<p>
+          Any event's content can be any term.
+        </p>
+        <p>
+          See <seetype marker="#event_type"><c>event_type</c></seetype>
+          that describes the origins of the different event types,
+          which is also where the event content comes from.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="callback_mode_result"/>
       <desc>
 	<p>
@@ -1683,6 +1696,45 @@ handle_event(_, _, State, Data) ->
             over and over again.
 	  </p></item>
         </taglist>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="format_status"/>
+      <desc>
+        <p>
+          A map that describes the <c>gen_statem</c> status.
+          The keys are:
+	</p>
+        <taglist>
+          <tag><c>state</c></tag>
+          <item>The current state of the <c>gen_statem</c> process.</item>
+          <tag><c>data</c></tag>
+          <item>The state data of the the <c>gen_statem</c> process.</item>
+          <tag><c>reason</c></tag>
+          <item>The reason that caused the state machine to terminate.</item>
+          <tag><c>queue</c></tag>
+          <item>The event queue of the <c>gen_statem</c> process.</item>
+          <tag><c>postponed</c></tag>
+          <item>
+            The <seetype marker="#postpone">postponed</seetype>
+            events queue of the <c>gen_statem</c> process.
+          </item>
+          <tag><c>timeouts</c></tag>
+          <item>
+            The active
+            <seetype marker="#timeout_action">time-outs</seetype>
+            of the <c>gen_statem</c> process.
+          </item>
+          <tag><c>log</c></tag>
+          <item>
+            The <seemfa marker="sys#log/2">sys log</seemfa> of the server.
+          </item>
+        </taglist>
+        <p>
+          New associations may be added to the status map
+          without prior notice.
+        </p>
       </desc>
     </datatype>
   </datatypes>
@@ -2918,25 +2970,8 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
       <fsummary>Optional function for providing a term describing the
         current <c>gen_statem</c> status.</fsummary>
       <type>
-        <v>Status = #{ state => <seetype marker="#state">state()</seetype>,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        reason => term(),</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        data => <seetype marker="#data">data()</seetype>,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        queue => Queue,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        postponed => Postponed,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        timeouts => Timeouts,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        log => Log }</v>
-        <v>NewStatus = Status</v>
-        <v>Queue = Postponed = [{EventType,EventContent}]</v>
-        <v>EventType = <seetype marker="#event_type">event_type()</seetype></v>
-        <v>Timeouts = [{<seetype marker="#timeout_event_type">timeout_event_type()</seetype>,EventContent}]</v>
-        <v>EventContent = term()</v>
-        <v>Log = [<seetype marker="sys#system_event">sys:system_event()</seetype>]</v>
+        <v>Status = <seetype marker="#format_status">format_status()</seetype></v>
+        <v>NewStatus = <seetype marker="#format_status">format_status()</seetype></v>
       </type>
       <desc>
         <note>
@@ -2971,31 +3006,18 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
           callback module wishing to change the
           <seemfa marker="sys#get_status/1"><c>sys:get_status/1,2</c></seemfa>
 	  return value and how
-          its status appears in termination error logs exports an
-          instance of <c>format_status/1</c>, which returns a map
-          describing the current status of the <c>gen_statem</c>.
+          its status appears in termination error logs exports
+          an instance of <c>format_status/1</c>,
+          which will get a map <c>Status</c> that describes
+          the current states of the <c>gen_statem</c>,
+          and shall return a map <c>NewStatus</c>
+          containing the same keys as the input map,
+          but it may transform some values.
 	</p>
-        <taglist>
-          <tag><c>state => </c><seetype marker="#state"><c>state()</c></seetype></tag>
-          <item>The current state of the <c>gen_statem</c> process.</item>
-          <tag><c>data => </c><seetype marker="#data"><c>data()</c></seetype></tag>
-          <item>The state data of the the <c>gen_statem</c> process.</item>
-          <tag><c>reason => term()</c></tag>
-          <item>The reason that caused the state machine to terminate.</item>
-          <tag><c>queue => [{</c><seetype marker="#event_type"><c>event_type()</c></seetype><c>,term()}]</c></tag>
-          <item>The event queue of the <c>gen_statem</c> process.</item>
-          <tag><c>postponed => [{</c><seetype marker="#event_type"><c>event_type()</c></seetype><c>,term()}]</c></tag>
-          <item>The <seetype marker="#postpone">postponed</seetype> events queue of the <c>gen_statem</c> process.</item>
-          <tag><c>log => [</c><seetype marker="sys#system_event"><c>sys:system_event/0</c></seetype><c>]</c></tag>
-          <item>The <seemfa marker="sys#log/2">sys log</seemfa> of the server.</item>
-        </taglist>
-        <p>New associations may be added into the status map without prior notice.</p>
-        <p>The function is to return <c>NewStatus</c>, a map containing the same
-          associations as the input map.</p>
-	<p>
+        <p>
 	  One use case for this function is to return compact alternative
           state representations to avoid having large state terms
-          printed in log files. Another use is to hide sensitive data from
+          printed in log files. Another is to hide sensitive data from
 	  being written to the error log.
 	</p>
         <p>Example:</p>

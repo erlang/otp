@@ -127,7 +127,8 @@
    [from/0,
     reply_tag/0,
     request_id/0,
-    request_id_collection/0]).
+    request_id_collection/0,
+    format_status/0]).
 
 -export_type(
    [server_name/0,
@@ -180,18 +181,20 @@
 -callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
                       Extra :: term()) ->
     {ok, NewState :: term()} | {error, Reason :: term()}.
--callback format_status(Status) -> NewStatus when
-      Status :: #{ state => term(),
-                   message => term(),
-                   reason => term(),
-                   log => [sys:system_event()] },
-      NewStatus :: Status.
 -callback format_status(Opt, StatusData) -> Status when
       Opt :: 'normal' | 'terminate',
       StatusData :: [PDict | State],
       PDict :: [{Key :: term(), Value :: term()}],
       State :: term(),
       Status :: term().
+-type format_status() ::
+        #{ state => term(),
+           message => term(),
+           reason => term(),
+           log => [sys:system_event()] }.
+-callback format_status(Status) -> NewStatus when
+      Status    :: format_status(),
+      NewStatus :: format_status().
 
 -optional_callbacks(
     [handle_info/2, handle_continue/2, terminate/2, code_change/3,
