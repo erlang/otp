@@ -31,6 +31,32 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    In the initial release of Erlang/OTP 25, the expression
+	    bound to the <c>_</c> pseudo-field in a record
+	    initialization would always be evaluated once, even if
+	    all other fields in the record were explicitly
+	    initialized. That would break the use case of binding the
+	    expression <c>error(...)</c> to <c>_</c> in order to get
+	    an exception if not all fields were initialized.</p>
+          <p>
+	    The behavior of binding to <c>_</c> has been reverted to
+	    the pre-OTP 25 behavior, that is, to not evaluate the
+	    expression if all fields have been bound to explicit
+	    values.</p>
+          <p>
+	    Own Id: OTP-18110 Aux Id: GH-6000 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 4.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
