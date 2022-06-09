@@ -19,6 +19,7 @@
  */
 
 #include "beam_asm.hpp"
+#include <numeric>
 
 extern "C"
 {
@@ -1761,11 +1762,9 @@ void BeamModuleAssembler::update_bin_state(x86::Gp bin_base,
 bool BeamModuleAssembler::need_mask(const ArgVal Val, Sint size) {
     if (size == 64) {
         return false;
-    } else if (always_small(Val)) {
-        auto [min, max] = getIntRange(Val);
-        return !(0 <= min && max >> size == 0);
     } else {
-        return true;
+        auto [min, max] = getClampedRange(Val);
+        return !(0 <= min && max >> size == 0);
     }
 }
 
@@ -1914,6 +1913,17 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
          * Test whether we can omit the code for the error handler.
          */
         switch (seg.type) {
+        case am_append:
+            if (std::gcd(seg.unit, getSizeUnit(seg.src)) != seg.unit) {
+                need_error_handler = true;
+            }
+            break;
+        case am_binary:
+            if (!(seg.size.isAtom() && seg.size.as<ArgAtom>().get() == am_all &&
+                  std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit)) {
+                need_error_handler = true;
+            }
+            break;
         case am_integer:
             if (!always_one_of(seg.src, BEAM_TYPE_INTEGER)) {
                 need_error_handler = true;
@@ -2093,11 +2103,9 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             bool can_fail = true;
             comment("size binary/integer/float/string");
 
-            if (always_small(seg.size)) {
-                auto min = std::get<0>(getIntRange(seg.size));
-                if (min >= 0) {
-                    can_fail = false;
-                }
+            if (std::get<0>(getClampedRange(seg.size)) >= 0) {
+                /* Can't fail if size is always positive. */
+                can_fail = false;
             }
 
             if (can_fail && Fail.get() == 0) {
@@ -2233,16 +2241,23 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         runtime_call<6>(erts_bs_append_checked);
-        if (Fail.get() == 0) {
-            mov_arg(ARG1, ArgXRegister(Live.get()));
-            mov_imm(ARG4,
-                    beam_jit_update_bsc_reason_info(seg.error_info,
-                                                    BSC_REASON_BADARG,
-                                                    BSC_INFO_FVALUE,
-                                                    BSC_VALUE_ARG1));
+
+        if (std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
+            /* There is no way the call can fail with a system_limit
+             * exception on a 64-bit architecture. */
+            comment("skipped test for success because units are compatible");
+        } else {
+            if (Fail.get() == 0) {
+                mov_arg(ARG1, ArgXRegister(Live.get()));
+                mov_imm(ARG4,
+                        beam_jit_update_bsc_reason_info(seg.error_info,
+                                                        BSC_REASON_BADARG,
+                                                        BSC_INFO_FVALUE,
+                                                        BSC_VALUE_ARG1));
+            }
+            emit_test_the_non_value(RET);
+            a.je(error);
         }
-        emit_test_the_non_value(RET);
-        a.je(error);
         a.mov(TMP_MEM1q, RET);
     } else if (segments[0].type == am_private_append) {
         BscSegment seg = segments[0];
@@ -2284,7 +2299,15 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         a.mov(TMP_MEM1q, RET);
     }
 
+    /* Keep track of the bit offset from the being of the binary.
+     * Set to -1 if offset is not known (when a segment of unknown
+     * size has been seen). */
     Sint bit_offset = 0;
+
+    /* Keep track of whether the current segment is byte-aligned.  (A
+     * segment can be known to be byte-aligned even if the bit offset
+     * is unknown.) */
+    bool is_byte_aligned = true;
 
     /* Build each segment of the binary. */
     for (auto seg : segments) {
@@ -2321,8 +2344,9 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_UNIT,
                                                              BSC_VALUE_FVALUE);
-                if (seg.unit == 1) {
-                    comment("skipped test for success because unit =:= 1");
+                if (std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
+                    comment("skipped test for success because units are "
+                            "compatible");
                     can_fail = false;
                 }
             } else {
@@ -2506,13 +2530,14 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                  seg.effectiveSize,
                                  x86::Gp());
 
-                if (bit_offset < 0) {
-                    /* Bit offset is unknown. Must emit an alignment test. */
+                if (bit_offset < 0 && !is_byte_aligned) {
+                    /* Bit offset is unknown and is not known to be
+                     * byte aligned. Must test alignment. */
                     a.test(bin_offset, imm(7));
                     a.short_().je(store);
                 }
 
-                if (bit_offset % 8 != 0) {
+                if (!is_byte_aligned) {
                     /* Bit offset is unknown or known to be unaligned. */
                     runtime_entered = bs_maybe_enter_runtime(runtime_entered);
                     a.mov(TMP_MEM2q, bin_data); /* MEM1q is already in use. */
@@ -2522,13 +2547,16 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                     runtime_call<4>(erts_copy_bits_restricted);
 
                     if (bit_offset < 0) {
-                        /* Need to jump around the store code. */
+                        /* The bit offset is unknown, which implies
+                         * that there exists store code that we will
+                         * need to branch past. */
                         a.short_().jmp(done);
                     }
                 }
 
                 a.bind(store);
-                if (bit_offset <= 0 || bit_offset % 8 == 0) {
+
+                if (bit_offset <= 0 || is_byte_aligned) {
                     /* Bit offset is tested or known to be
                      * byte-aligned. Emit inline code to store the
                      * value of the accumulator into the binary. */
@@ -2617,7 +2645,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                     }
                 }
 
-                if (bit_offset % 8 == 0 && seg.src.isSmall() &&
+                if (is_byte_aligned && seg.src.isSmall() &&
                     seg.src.as<ArgSmall>().getSigned() == 0) {
                     /* Optimize the special case of setting a known
                      * byte-aligned segment to zero. */
@@ -2719,6 +2747,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             break;
         }
 
+        /* Try to keep track of the bit offset. */
         if (bit_offset >= 0 && (seg.action == BscSegment::action::DIRECT ||
                                 seg.action == BscSegment::action::STORE)) {
             if (seg.effectiveSize >= 0) {
@@ -2726,6 +2755,22 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             } else {
                 bit_offset = -1;
             }
+        }
+
+        /* Try to keep track whether the next segment is byte
+         * aligned. */
+        if (seg.type == am_append || seg.type == am_private_append) {
+            if (std::gcd(getSizeUnit(seg.src), 8) != 8) {
+                is_byte_aligned = false;
+            }
+        } else if (bit_offset % 8 == 0) {
+            is_byte_aligned = true;
+        } else if (seg.effectiveSize >= 0) {
+            if (seg.effectiveSize % 8 != 0) {
+                is_byte_aligned = false;
+            }
+        } else if (std::gcd(seg.unit, 8) != 8) {
+            is_byte_aligned = false;
         }
     }
 

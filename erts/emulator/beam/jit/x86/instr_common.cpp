@@ -1652,14 +1652,36 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
 void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.newLabel(), do_jge = a.newLabel(), next = a.newLabel();
     bool both_small = always_small(LHS) && always_small(RHS);
+    bool need_generic = !both_small;
 
     mov_arg(ARG2, RHS); /* May clobber ARG1 */
     mov_arg(ARG1, LHS);
 
     if (both_small) {
         comment("skipped test for small operands since they are always small");
+    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+               hasLowerBound(RHS)) {
+        comment("simplified test because it always succeeds when RHS is a "
+                "bignum");
+        need_generic = false;
+        emit_is_not_boxed(next, ARG2, dShort);
+    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+               hasUpperBound(RHS)) {
+        comment("simplified test because it always fails when RHS is a bignum");
+        need_generic = false;
+        emit_is_not_boxed(resolve_beam_label(Fail), ARG2);
+    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasLowerBound(LHS) &&
+               always_small(RHS)) {
+        comment("simplified test because it always fails when LHS is a bignum");
+        need_generic = false;
+        emit_is_not_boxed(resolve_beam_label(Fail), ARG1);
+    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasUpperBound(LHS) &&
+               always_small(RHS)) {
+        comment("simplified test because it always succeeds when LHS is a "
+                "bignum");
+        emit_is_not_boxed(next, ARG1, dShort);
     } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
                always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
         /* The only possible kind of immediate is a small and all other
@@ -1689,32 +1711,57 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
 
     /* Both arguments are smalls. */
     a.cmp(ARG1, ARG2);
-    if (!both_small) {
-        a.short_().jmp(next);
+    if (need_generic) {
+        a.short_().jmp(do_jge);
     }
 
     a.bind(generic);
     {
-        if (!both_small) {
+        if (need_generic) {
             safe_fragment_call(ga->get_arith_compare_shared());
         }
     }
 
-    a.bind(next);
+    a.bind(do_jge);
     a.jge(resolve_beam_label(Fail));
+
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
-    Label generic = a.newLabel(), next = a.newLabel();
+    Label generic = a.newLabel(), do_jl = a.newLabel(), next = a.newLabel();
     bool both_small = always_small(LHS) && always_small(RHS);
+    bool need_generic = !both_small;
 
     mov_arg(ARG2, RHS); /* May clobber ARG1 */
     mov_arg(ARG1, LHS);
 
     if (both_small) {
         comment("skipped test for small operands since they are always small");
+    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+               hasLowerBound(RHS)) {
+        comment("simplified test because it always fails when RHS is a bignum");
+        need_generic = false;
+        emit_is_not_boxed(resolve_beam_label(Fail), ARG2);
+    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+               hasUpperBound(RHS)) {
+        comment("simplified test because it always succeeds when RHS is a "
+                "bignum");
+        need_generic = false;
+        emit_is_not_boxed(next, ARG2, dShort);
+    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasUpperBound(LHS) &&
+               always_small(RHS)) {
+        comment("simplified test because it always fails when LHS is a bignum");
+        need_generic = false;
+        emit_is_not_boxed(resolve_beam_label(Fail), ARG1);
+    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasLowerBound(LHS) &&
+               always_small(RHS)) {
+        comment("simplified test because it always succeeds when LHS is a "
+                "bignum");
+        need_generic = false;
+        emit_is_not_boxed(next, ARG1, dShort);
     } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
                always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
         /* The only possible kind of immediate is a small and all other
@@ -1744,19 +1791,21 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
 
     /* Both arguments are smalls. */
     a.cmp(ARG1, ARG2);
-    if (!both_small) {
-        a.short_().jmp(next);
+    if (need_generic) {
+        a.short_().jmp(do_jl);
     }
 
     a.bind(generic);
     {
-        if (!both_small) {
+        if (need_generic) {
             safe_fragment_call(ga->get_arith_compare_shared());
         }
     }
 
-    a.bind(next);
+    a.bind(do_jl);
     a.jl(resolve_beam_label(Fail));
+
+    a.bind(next);
 }
 
 void BeamModuleAssembler::emit_bif_is_eq_ne_exact(const ArgSource &LHS,
