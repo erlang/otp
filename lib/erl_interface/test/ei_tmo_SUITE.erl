@@ -77,6 +77,7 @@ end_per_testcase(_Case, _Config) ->
 -define(DFLAG_MAP_TAG,               16#20000).
 -define(DFLAG_BIG_CREATION,          16#40000).
 -define(DFLAG_HANDSHAKE_23,        16#1000000).
+-define(DFLAG_UNLINK_ID,           16#2000000).
 -define(DFLAG_MANDATORY_25_DIGEST, 16#4000000).
 -define(DFLAG_V4_NC,             16#400000000).
 
@@ -100,10 +101,11 @@ end_per_testcase(_Case, _Config) ->
              ?DFLAG_BIT_BINARIES bor
              ?DFLAG_HANDSHAKE_23)).
 
-%% From OTP 26 V4_NC is compulsory.
+%% From OTP 26 V4_NC, and UNLINK_ID are compulsory.
 
 -define(DFLAGS_MANDATORY_26,
-        (?DFLAG_V4_NC)).
+        (?DFLAG_V4_NC bor
+             ?DFLAG_UNLINK_ID)).
 
 -define(COMPULSORY_DFLAGS,
         (?DFLAGS_MANDATORY_25 bor

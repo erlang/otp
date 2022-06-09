@@ -85,7 +85,8 @@
                                 | DFLAG_HANDSHAKE_23)
 
 /* New mandatory flags for distribution in OTP 26 */
-#define DFLAG_DIST_MANDATORY_26 (DFLAG_V4_NC)
+#define DFLAG_DIST_MANDATORY_26 (DFLAG_V4_NC                      \
+                                 | DFLAG_UNLINK_ID)
 
 /* Mandatory flags for distribution. */
 #define DFLAG_DIST_MANDATORY (DFLAG_DIST_MANDATORY_25             \
@@ -99,8 +100,7 @@
 #define DFLAG_DIST_HOPEFULLY (DFLAG_DIST_MONITOR                \
                               | DFLAG_DIST_MONITOR_NAME         \
                               | DFLAG_SPAWN                     \
-			      | DFLAG_ALIAS			\
-                              | DFLAG_UNLINK_ID)
+			      | DFLAG_ALIAS)
 
 /* Our preferred set of flags. Used for connection setup handshake */
 #define DFLAG_DIST_DEFAULT (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY \
@@ -113,7 +113,6 @@
                             | DFLAG_FRAGMENTS                 \
                             | DFLAG_SPAWN                     \
                             | DFLAG_ALIAS		      \
-                            | DFLAG_UNLINK_ID                 \
                             | DFLAG_MANDATORY_25_DIGEST)
 
 /* Flags addable by local distr implementations */

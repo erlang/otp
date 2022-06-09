@@ -73,7 +73,8 @@
              ?DFLAG_HANDSHAKE_23)).
 
 %% New mandatory flags in OTP 26
--define(MANDATORY_DFLAGS_26, (?DFLAG_V4_NC)).
+-define(MANDATORY_DFLAGS_26, (?DFLAG_V4_NC bor
+                                  ?DFLAG_UNLINK_ID)).
 
 %% All mandatory flags
 -define(DFLAGS_MANDATORY, (?MANDATORY_DFLAGS_25 bor

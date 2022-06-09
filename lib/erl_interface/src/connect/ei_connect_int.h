@@ -107,7 +107,8 @@ typedef EI_ULONGLONG DistFlags;
                                 | DFLAG_HANDSHAKE_23)
 
 /* New mandatory flags for distribution in OTP 26. */
-#define DFLAG_DIST_MANDATORY_26 (DFLAG_V4_NC)
+#define DFLAG_DIST_MANDATORY_26 (DFLAG_V4_NC                      \
+                                 | DFLAG_UNLINK_ID)
 
 /* Mandatory flags for distribution. */
 

@@ -2243,8 +2243,7 @@ static DistFlags preferred_flags(void)
         DFLAG_MANDATORY_25_DIGEST
         | DFLAG_DIST_MANDATORY
         | DFLAG_DIST_MONITOR
-        | DFLAG_SMALL_ATOM_TAGS
-        | DFLAG_UNLINK_ID;
+        | DFLAG_SMALL_ATOM_TAGS;
     return flags;
 }
 
