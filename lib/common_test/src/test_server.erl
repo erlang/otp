@@ -1789,7 +1789,7 @@ ts_tc(M, F, A) ->
 		     set_loc(Stk),
 		     case Type of
 			 throw ->
-			     {failed,{thrown,Reason}};
+			     {failed,{thrown,{Reason,Stk}}};
 			 error ->
 			     {'EXIT',{Reason,Stk}};
 			 exit ->
