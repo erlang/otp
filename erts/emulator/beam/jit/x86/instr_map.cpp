@@ -47,13 +47,15 @@ static const Uint32 HCONST = 0x9E3779B9;
  *
  * Result is returned in ARG3. */
 void BeamGlobalAssembler::emit_internal_hash_helper() {
-    x86::Gp hash = ARG3d, lower = ARG4d, upper = ARG5d;
+    x86::Gp hash = ARG3d, lower = ARG4d, upper = ARG5d, constant = ARG6d;
 
-    a.add(lower, ARG6d);
-    a.add(upper, ARG6d);
+    a.add(lower, constant);
+    a.add(upper, constant);
 
 #if defined(ERL_INTERNAL_HASH_CRC32C)
+    a.mov(constant, hash);
     a.crc32(hash, lower);
+    a.add(hash, constant);
     a.crc32(hash, upper);
 #else
     using rounds =

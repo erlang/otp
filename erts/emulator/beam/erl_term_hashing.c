@@ -1376,14 +1376,16 @@ trapping_make_hash2(Eterm term, Eterm* state_mref_write_back, Process* p)
 #   if defined(__x86_64__)
 #       define MIX(a,b,c)                                                     \
             do {                                                              \
+                Uint32 initial_hash = c;                                      \
                 c = __builtin_ia32_crc32si(c, a);                             \
-                c = __builtin_ia32_crc32si(c, b);                             \
+                c = __builtin_ia32_crc32si(c + initial_hash, b);              \
             } while(0)
 #   elif defined(__aarch64__)
 #       define MIX(a,b,c)                                                     \
             do {                                                              \
+                Uint32 initial_hash = c;                                      \
                 c = __crc32cw(c, a);                                          \
-                c = __crc32cw(c, b);                                          \
+                c = __crc32cw(c + initial_hash, b);                           \
             } while(0)
 #   else
 #   error "No suitable CRC32 intrinsic available."
