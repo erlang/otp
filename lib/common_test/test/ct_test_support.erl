@@ -1217,6 +1217,9 @@ result_match({failed,{timetrap_timeout,{'$approx',Num}}},
 result_match({user_timetrap_error,{Why,'_'}},
 	     {user_timetrap_error,{Why,_Stack}}) ->
     true;
+result_match({SkipOrFail,{ErrorInd,{thrown,{Why,'_'}}}},
+         {SkipOrFail,{ErrorInd,{thrown,{Why,_Stack}}}}) ->
+    true;
 result_match(Result, Result) ->
     true;
 result_match(_, _) ->
