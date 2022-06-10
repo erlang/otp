@@ -167,9 +167,9 @@ basic(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -221,9 +221,9 @@ basic_anti_replay(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode},
                   {anti_replay, '10k'},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
@@ -272,13 +272,10 @@ basic_stateful_stateless() ->
 basic_stateful_stateless(Config) when is_list(Config) ->
     do_test_mixed(Config,
                   [{session_tickets, auto},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateful},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateless},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}]).
 
 basic_stateless_stateful() ->
@@ -286,13 +283,10 @@ basic_stateless_stateful() ->
 basic_stateless_stateful(Config) when is_list(Config) ->
     do_test_mixed(Config,
                   [{session_tickets, auto},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateless},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateful},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}]).
 
 basic_stateful_stateless_anti_replay() ->
@@ -300,13 +294,10 @@ basic_stateful_stateless_anti_replay() ->
 basic_stateful_stateless_anti_replay(Config) when is_list(Config) ->
     do_test_mixed(Config,
                   [{session_tickets, auto},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateful},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateless},
-                   {log_level, debug},
                    {anti_replay, '10k'},
                    {versions, ['tlsv1.2','tlsv1.3']}]).
 
@@ -315,14 +306,11 @@ basic_stateless_stateful_anti_replay() ->
 basic_stateless_stateful_anti_replay(Config) when is_list(Config) ->
     do_test_mixed(Config,
                   [{session_tickets, auto},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateless},
-                   {log_level, debug},
                    {anti_replay, '10k'},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateful},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}]).
 
 basic_stateful_stateless_faulty_ticket() ->
@@ -330,19 +318,15 @@ basic_stateful_stateless_faulty_ticket() ->
 basic_stateful_stateless_faulty_ticket(Config) when is_list(Config) ->
     do_test_mixed(Config,
                   [{session_tickets, auto},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, manual},
                    {use_ticket, [<<131,100,0,12,"faultyticket">>,
                                  <<"faulty ticket">>]},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateless},
-                   {log_level, debug},
                    {anti_replay, '10k'},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateful},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}]).
 
 basic_stateless_stateful_faulty_ticket() ->
@@ -350,19 +334,15 @@ basic_stateless_stateful_faulty_ticket() ->
 basic_stateless_stateful_faulty_ticket(Config) when is_list(Config) ->
     do_test_mixed(Config,
                   [{session_tickets, auto},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, manual},
                    {use_ticket, [<<"faulty ticket">>,
                                  <<131,100,0,12,"faultyticket">>]},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateless},
-                   {log_level, debug},
                    {anti_replay, '10k'},
                    {versions, ['tlsv1.2','tlsv1.3']}],
                   [{session_tickets, stateful},
-                   {log_level, debug},
                    {versions, ['tlsv1.2','tlsv1.3']}]).
 
 hello_retry_request() ->
@@ -374,10 +354,10 @@ hello_retry_request(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
     
     %% Configure session tickets
-    ClientOpts = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
-    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups, [x448, x25519]}|ServerOpts0],
 
@@ -430,9 +410,9 @@ multiple_tickets(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, manual}, {log_level, debug},
+    ClientOpts = [{session_tickets, manual},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -488,9 +468,9 @@ multiple_tickets_2hash(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
     
     %% Configure session tickets
-    ClientOpts = [{session_tickets, manual}, {log_level, debug},
+    ClientOpts = [{session_tickets, manual},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -617,7 +597,7 @@ early_data_trial_decryption(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send maximum sized early data to verify calculation of plain text size
     %% in the server.
@@ -625,7 +605,6 @@ early_data_trial_decryption(Config) when is_list(Config) ->
 
     %% Disabled early data triggers trial decryption upon receiving early data
     ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, disabled},
-                  {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -677,7 +656,7 @@ early_data_client_too_much_data(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, manual},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send more early data than max_early_data_size to verify calculation
     %% of plain text size in the server.
@@ -685,7 +664,6 @@ early_data_client_too_much_data(Config) when is_list(Config) ->
     ClientOpts2 = [{early_data, binary:copy(<<"F">>, 16384)}|ClientOpts1],
 
     ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, disabled},
-                  {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     application:set_env(ssl, server_session_ticket_max_early_data, MaxEarlyDataSize),
@@ -739,7 +717,7 @@ early_data_trial_decryption_failure(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, manual},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send more early data than max_early_data_size to verify calculation
     %% of plain text size in the server.
@@ -756,7 +734,6 @@ early_data_trial_decryption_failure(Config) when is_list(Config) ->
     %%    in the ticket used for the 0-RTT handshake. If more data is sent the
     %%    client will trigger an illegal_parameter alert (too_much_early_data).
     ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, disabled},
-                  {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     application:set_env(ssl, server_session_ticket_max_early_data, MaxEarlyDataSize),
@@ -812,7 +789,7 @@ early_data_decryption_failure(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, manual},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send more early data than max_early_data_size to verify calculation
     %% of plain text size in the server.
@@ -820,7 +797,6 @@ early_data_decryption_failure(Config) when is_list(Config) ->
     ClientOpts2 = [{early_data, binary:copy(<<"F">>, 16385)}|ClientOpts1],
 
     ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, enabled},
-                  {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     application:set_env(ssl, server_session_ticket_max_early_data, MaxEarlyDataSize),
@@ -876,7 +852,7 @@ early_data_disabled_small_limit(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send maximum sized early data to verify calculation of plain text size
     %% in the server.
@@ -885,7 +861,6 @@ early_data_disabled_small_limit(Config) when is_list(Config) ->
 
     %% Disabled early data triggers trial decryption upon receiving early data
     ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, disabled},
-                  {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
     application:set_env(ssl, server_session_ticket_max_early_data, MaxEarlyDataSize),
     Server0 =
@@ -938,7 +913,7 @@ early_data_enabled_small_limit(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send maximum sized early data to verify calculation of plain text size
     %% in the server.
@@ -947,7 +922,6 @@ early_data_enabled_small_limit(Config) when is_list(Config) ->
 
     %% Disabled early data triggers trial decryption upon receiving early data
     ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, enabled},
-                  {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
     application:set_env(ssl, server_session_ticket_max_early_data, MaxEarlyDataSize),
     Server0 =
@@ -1000,7 +974,7 @@ early_data_basic(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send maximum sized early data to verify calculation of plain text size
     %% in the server.
@@ -1009,7 +983,6 @@ early_data_basic(Config) when is_list(Config) ->
 
     %% Disabled early data triggers trial decryption upon receiving early data
     ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, enabled},
-                  {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -1061,7 +1034,7 @@ early_data_basic_auth(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     %% Send maximum sized early data to verify calculation of plain text size
     %% in the server.
@@ -1070,7 +1043,6 @@ early_data_basic_auth(Config) when is_list(Config) ->
 
     %% Disabled early data triggers trial decryption upon receiving early data
     ServerOpts = [{session_tickets, ServerTicketMode}, {early_data, enabled},
-                  {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =

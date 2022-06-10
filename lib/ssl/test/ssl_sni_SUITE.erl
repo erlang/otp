@@ -379,7 +379,7 @@ sni_no_trailing_dot(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
                                  {from, self()},
                                  {mfa, {ssl_test_lib, no_result, []}},
-                                 {options, [{log_level, debug} | ServerOpts]}]),
+                                 {options, [ServerOpts]}]),
 
     Port  = ssl_test_lib:inet_port(Server),
 
@@ -387,8 +387,8 @@ sni_no_trailing_dot(Config) when is_list(Config) ->
 					      {host, Hostname},
 					      {from, self()},
                                               {mfa, {ssl_test_lib, no_result, []}},
-					      {options, [{log_level, debug},
-                                                         {server_name_indication, Hostname ++ "."} |ClientOpts]}]),
+					      {options,
+                                               [{server_name_indication, Hostname ++ "."} | ClientOpts]}]),
     ssl_test_lib:check_server_alert(Server, Client, unrecognized_name).
 
 hostname_trailing_dot() ->
