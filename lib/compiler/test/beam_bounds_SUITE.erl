@@ -70,10 +70,32 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 addition_bounds(_Config) ->
-    test_commutative('+', {-12,12}).
+    test_commutative('+', {-12,12}),
+
+    {'-inf',-15} = beam_bounds:bounds('+', {'-inf',-20}, {2,5}),
+    {'-inf',55} = beam_bounds:bounds('+', {'-inf',50}, {'-inf',5}),
+    {'-inf',110} = beam_bounds:bounds('+', {1,10}, {'-inf',100}),
+    any = beam_bounds:bounds('+', {1,'+inf'}, {'-inf',100}),
+
+    {-8,'+inf'} = beam_bounds:bounds('+', {2,'+inf'}, {-10,20}),
+    {6,'+inf'} = beam_bounds:bounds('+', {1,10}, {5,'+inf'}),
+    {9,'+inf'} = beam_bounds:bounds('+', {2,'+inf'}, {7,'+inf'}),
+
+    ok.
 
 subtraction_bounds(_Config) ->
-    test_noncommutative('-', {-12,12}).
+    test_noncommutative('-', {-12,12}),
+
+    {'-inf',18} = beam_bounds:bounds('-', {'-inf',20}, {2,9}),
+    any = beam_bounds:bounds('-', {'-inf',20}, {'-inf',17}),
+    {-99,'+inf'} = beam_bounds:bounds('-', {1,10}, {'-inf',100}),
+    {-93,'+inf'} = beam_bounds:bounds('-', {7,'+inf'}, {'-inf',100}),
+
+    {-18,'+inf'} = beam_bounds:bounds('-', {2,'+inf'}, {-10,20}),
+    {'-inf',6} = beam_bounds:bounds('-', {1,11}, {5,'+inf'}),
+    any = beam_bounds:bounds('-', {2,'+inf'}, {7,'+inf'}),
+
+    ok.
 
 multiplication_bounds(_Config) ->
     test_commutative('*', {-12,12}),
