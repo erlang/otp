@@ -52,6 +52,7 @@
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
 	 process_info_messages/1, process_flag_badarg/1,
          process_flag_fullsweep_after/1, process_flag_heap_size/1,
+         command_line_max_heap_size/1,
 	 spawn_opt_heap_size/1, spawn_opt_max_heap_size/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
@@ -115,6 +116,7 @@ all() ->
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg,
      process_flag_fullsweep_after, process_flag_heap_size,
+     command_line_max_heap_size,
      spawn_opt_heap_size, spawn_opt_max_heap_size,
      spawn_huge_arglist,
      spawn_request_bif,
@@ -2293,6 +2295,18 @@ process_flag_heap_size(Config) when is_list(Config) ->
     HSize = erlang:process_flag(min_heap_size, OldHmin),
     VHSize = erlang:process_flag(min_bin_vheap_size, OldVHmin),
     ok.
+
+%% test that max_heap_size is correctly handled when passed via command line
+command_line_max_heap_size(Config) when is_list(Config) ->
+    %% test maximum heap size
+    HMax = case erlang:system_info(wordsize) of
+               8 -> (1 bsl 59) - 1;
+               4 -> (1 bsl 27) - 1
+           end,
+    {ok, Peer, Node} = ?CT_PEER(["+hmax", integer_to_list(HMax)]),
+    Pid = erlang:spawn(Node, fun () -> receive after infinity -> ok end end),
+    {max_heap_size, #{size := HMax}} = rpc:call(Node, erlang, process_info, [Pid, max_heap_size]),
+    peer:stop(Peer).
 
 spawn_opt_heap_size(Config) when is_list(Config) ->
     HSize  = 987,   % must be gc fib+ number
