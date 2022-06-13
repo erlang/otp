@@ -27,7 +27,7 @@
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
-         switch_fail_inference/1,cover_maps_functions/1]).
+         switch_fail_inference/1,cover_maps_functions/1,min_max_mixed_types/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -63,7 +63,8 @@ groups() ->
        is_list_opt,
        connected_tuple_elements,
        switch_fail_inference,
-       cover_maps_functions
+       cover_maps_functions,
+       min_max_mixed_types
       ]}].
 
 init_per_suite(Config) ->
@@ -1085,6 +1086,17 @@ cover_maps_functions(_Config) ->
 
     {'EXIT',_} = catch maps:without(not_a_list, #{}),
     {'EXIT',_} = catch maps:without([], not_a_map),
+
+    ok.
+
+%% The types for erlang:min/2 and erlang:max/2 were wrong, assuming that the
+%% result was a float if either argument was a float.
+min_max_mixed_types(_Config) ->
+    NotFloatA = erlang:min(id(12), 100.0),
+    id(NotFloatA * 0.5),
+
+    NotFloatB = erlang:max(id(12.0), 100),
+    id(NotFloatB * 0.5),
 
     ok.
 
