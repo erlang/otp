@@ -1202,7 +1202,7 @@ signature_algorithms_bad_curve_secp256r1(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
     %% Set versions
-    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']}, {log_level, debug}|ServerOpts0],
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']} | ServerOpts0],
     ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
                   {signature_algs, [ecdsa_secp384r1_sha384,
                                     ecdsa_secp521r1_sha512,
@@ -1219,7 +1219,7 @@ signature_algorithms_bad_curve_secp384r1(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
     %% Set versions
-    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']}, {log_level, debug}|ServerOpts0],
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']} | ServerOpts0],
     ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
                   {signature_algs, [ecdsa_secp256r1_sha256,
                                     ecdsa_secp521r1_sha512,
@@ -1236,7 +1236,7 @@ signature_algorithms_bad_curve_secp521r1(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
     %% Set versions
-    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']}, {log_level, debug}|ServerOpts0],
+    ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']} | ServerOpts0],
     ClientOpts = [{versions, ['tlsv1.2','tlsv1.3']},
                   {signature_algs, [ecdsa_secp256r1_sha256,
                                     ecdsa_secp384r1_sha384,

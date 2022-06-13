@@ -837,7 +837,6 @@ handshake_continue(Config) when is_list(Config) ->
                                    {from, self()},
                                    {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                    {options, ssl_test_lib:ssl_options([{reuseaddr, true},
-                                                                       {log_level, debug},
                                                                             {verify, verify_peer},
                                                                        {handshake, hello} | ServerOpts
                                                                       ],
@@ -880,7 +879,6 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
                                    {from, self()},
                                    {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                    {options, ssl_test_lib:ssl_options([{reuseaddr, true},
-                                                                       {log_level, debug},
                                                                        {verify, verify_peer},
                                                                        {ciphers, SCiphers},
                                                                       {handshake, hello} | ServerOpts
