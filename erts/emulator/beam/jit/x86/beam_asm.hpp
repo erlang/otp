@@ -881,14 +881,27 @@ protected:
         from.setSize(0);
         to.setSize(0);
 
-        using vectors = std::initializer_list<
-                std::tuple<x86::Vec, Sint32, CpuFeatures::X86::Id>>;
-        for (const auto &spec :
-             vectors{{x86::zmm0, 8, CpuFeatures::X86::kAVX512_VL},
-                     {x86::zmm0, 8, CpuFeatures::X86::kAVX512_F},
-                     {x86::ymm0, 4, CpuFeatures::X86::kAVX},
-                     {x86::xmm0, 2, CpuFeatures::X86::kSSE}}) {
-            const auto &[vector_reg, vector_size, feature] = spec;
+        using vectors = std::initializer_list<std::tuple<x86::Vec,
+                                                         Sint32,
+                                                         x86::Inst::Id,
+                                                         CpuFeatures::X86::Id>>;
+        for (const auto &spec : vectors{{x86::zmm0,
+                                         8,
+                                         x86::Inst::kIdVmovups,
+                                         CpuFeatures::X86::kAVX512_VL},
+                                        {x86::zmm0,
+                                         8,
+                                         x86::Inst::kIdVmovups,
+                                         CpuFeatures::X86::kAVX512_F},
+                                        {x86::ymm0,
+                                         4,
+                                         x86::Inst::kIdVmovups,
+                                         CpuFeatures::X86::kAVX},
+                                        {x86::xmm0,
+                                         2,
+                                         x86::Inst::kIdMovups,
+                                         CpuFeatures::X86::kSSE}}) {
+            const auto &[vector_reg, vector_size, vector_inst, feature] = spec;
 
             if (!hasCpuFeature(feature)) {
                 continue;
@@ -898,8 +911,8 @@ protected:
              * largest vector size we're capable of. */
             if (count <= vector_size * 4) {
                 while (count >= vector_size) {
-                    a.vmovups(vector_reg, from);
-                    a.vmovups(to, vector_reg);
+                    a.emit(vector_inst, vector_reg, from);
+                    a.emit(vector_inst, to, vector_reg);
 
                     from.addOffset(sizeof(UWord) * vector_size);
                     to.addOffset(sizeof(UWord) * vector_size);
@@ -920,8 +933,8 @@ protected:
                 mov_imm(spill, -loop_size);
                 a.bind(copy_next);
                 {
-                    a.vmovups(vector_reg, from);
-                    a.vmovups(to, vector_reg);
+                    a.emit(vector_inst, vector_reg, from);
+                    a.emit(vector_inst, to, vector_reg);
 
                     a.add(spill, imm(vector_size * sizeof(UWord)));
                     a.short_().jne(copy_next);
