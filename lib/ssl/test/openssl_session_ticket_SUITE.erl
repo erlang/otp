@@ -138,7 +138,7 @@ openssl_server_basic(Config) when is_list(Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
 
     Server = ssl_test_lib:start_server(openssl, [], 
@@ -184,7 +184,7 @@ openssl_client_basic(Config) when is_list(Config) ->
     Data = "Hello world",
 
     %% Configure session tickets
-    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -231,7 +231,7 @@ openssl_server_hrr(Config) when is_list(Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
 
@@ -279,7 +279,7 @@ openssl_client_hrr(Config) when is_list(Config) ->
     Data = "Hello world",
 
     %% Configure session tickets
-    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[x448, x25519]}|ServerOpts0],
 
@@ -333,7 +333,7 @@ openssl_server_hrr_multiple_tickets(Config) when is_list(Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, manual}, {log_level, debug},
+    ClientOpts = [{session_tickets, manual},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
 
@@ -380,7 +380,7 @@ openssl_server_early_data_basic(Config) when is_list(Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
@@ -422,7 +422,7 @@ openssl_server_early_data_big(Config) when is_list(Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, auto},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
@@ -467,7 +467,7 @@ openssl_server_early_data_manual(Config) when is_list(Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, manual},
                    {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
@@ -516,7 +516,7 @@ openssl_server_early_data_manual_big(Config) when is_list(Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, manual},
                    {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
@@ -563,7 +563,7 @@ openssl_server_early_data_manual_2_tickets(Config) when is_list(Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, manual},
                    {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
 
@@ -610,7 +610,7 @@ openssl_server_early_data_manual_2_chacha_tickets(Config) when is_list(Config) -
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts1 = [{session_tickets, manual}, {log_level, debug},
+    ClientOpts1 = [{session_tickets, manual},
                    {ciphers, ["TLS_CHACHA20_POLY1305_SHA256"]},
                    {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ClientOpts2 = [{early_data, <<"SampleData">>}|ClientOpts1],
@@ -670,7 +670,6 @@ openssl_client_early_data_basic(Config) when is_list(Config) ->
     %% Configure session tickets
     ServerOpts = [{session_tickets, ServerTicketMode},
                   {early_data, enabled},
-                  {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =

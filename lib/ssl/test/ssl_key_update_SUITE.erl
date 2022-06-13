@@ -95,11 +95,9 @@ key_update_at(Config) ->
     %% {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Data = "123456789012345",  %% 15 bytes
 
-    Server = ssl_test_lib:start_server(erlang, [{log_level, debug},
-                                                {key_update_at, 15}], Config),
+    Server = ssl_test_lib:start_server(erlang, [{key_update_at, 15}], Config),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client(erlang, [{port, Port},
-                                                {log_level, debug},
                                                 {key_update_at, 15}], Config),
     %% Sending bytes over limit triggers key update
     ssl_test_lib:send(Client, Data),
@@ -119,10 +117,10 @@ explicit_key_update() ->
 explicit_key_update(Config) ->
     Data = "123456789012345",  %% 15 bytes
 
-    Server = ssl_test_lib:start_server(erlang, [{log_level, debug}], Config),
+    Server = ssl_test_lib:start_server(erlang, [], Config),
     Port = ssl_test_lib:inet_port(Server),
 
-    Client = ssl_test_lib:start_client(erlang, [{port, Port}, {log_level, debug}], Config),
+    Client = ssl_test_lib:start_client(erlang, [{port, Port}], Config),
     ssl_test_lib:send_recv_result_active(Client, Server, Data),
 
     ssl_test_lib:update_keys(Client, write),

@@ -92,7 +92,7 @@ openssl_client_explicit_key_update() ->
 openssl_client_explicit_key_update(Config) ->
     Data = "123456789012345",  %% 15 bytes
 
-    Server = ssl_test_lib:start_server(erlang, [{log_level, debug}], Config),
+    Server = ssl_test_lib:start_server(erlang, [], Config),
     Port = ssl_test_lib:inet_port(Server),
 
     Client = ssl_test_lib:start_client(openssl, [{port, Port}], Config),
@@ -120,7 +120,6 @@ openssl_server_explicit_key_update(Config) ->
     Port = ssl_test_lib:inet_port(Server),
 
     Client = ssl_test_lib:start_client(erlang, [{port, Port},
-                                                {log_level, debug},
                                                 {versions, ['tlsv1.2','tlsv1.3']}],Config),
     ssl_test_lib:send(Server, Data),
     Data = ssl_test_lib:check_active_receive(Client, Data),
