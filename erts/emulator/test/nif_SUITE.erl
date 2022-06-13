@@ -1439,6 +1439,8 @@ dynamic_resource_call_do(Config, NifModBin) ->
     {1, 1000} = dynamic_resource_call(nif_mod, with_dyncall, R, 1000),
     true = erlang:purge_module(nif_mod),
     [{unload,2,2,202}] = nif_mod_call_history(),
+
+    keep_alive(R),
     ok.
 
 
