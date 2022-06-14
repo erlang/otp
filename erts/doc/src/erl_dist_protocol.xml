@@ -1025,11 +1025,8 @@ DiB == gen_digest(ChA, ICA)?
         </item>
         <tag><marker id="DFLAG_UNLINK_ID"/><c>-define(DFLAG_UNLINK_ID, 16#2000000).</c></tag>
         <item>
-	  <p>Use the <seeguide marker="#new_link_protocol">new link protocol</seeguide>.</p>
-	  <note><p>This flag will become mandatory in OTP 26.</p></note>
-	  <p>Unless both nodes have set the <c>DFLAG_UNLINK_ID</c> flag, the
-	  <seeguide marker="#old_link_protocol">old link protocol</seeguide>
-	  will be used as a fallback.</p>
+	  <p>Use the <seeguide marker="#link_protocol">new link protocol</seeguide>.</p>
+	  <note><p>This flag is mandatory as of OTP 26.</p></note>
 	</item>
 	<tag><c>-define(DFLAG_MANDATORY_25_DIGEST, (1 bsl 36)).</c></tag>
         <item>
@@ -1061,8 +1058,7 @@ DiB == gen_digest(ChA, ICA)?
 	  <seeguide marker="erl_ext_dist#V4_PORT_EXT"><c>V4_PORT_EXT</c></seeguide>,
 	  and in the reference case up to 5 32-bit ID words are now accepted in
 	  <seeguide marker="erl_ext_dist#NEWER_REFERENCE_EXT"><c>NEWER_REFERENCE_EXT</c></seeguide>.
-	  Introduced in OTP 24.</p>
-	  <note><p>This flag will become mandatory in OTP 26.</p></note>
+	  This flag was introduced in OTP 24 and became mandatory in OTP 26.</p>
         </item>
 	<tag><marker id="DFLAG_ALIAS"/><c>-define(DFLAG_ALIAS, (1 bsl 35)).</c></tag>
         <item>
@@ -1201,17 +1197,12 @@ DiB == gen_digest(ChA, ICA)?
         <p><c>{3, FromPid, ToPid, Reason}</c></p>
         <p>This signal is sent when a link has been broken</p>
       </item>
-      <tag><marker id="UNLINK"/><c>UNLINK</c> (deprecated)</tag>
+      <tag><marker id="UNLINK"/><c>UNLINK</c> (obsolete)</tag>
       <item>
         <p><c>{4, FromPid, ToPid}</c></p>
-	<p>This signal is sent by <c>FromPid</c> in order to remove
-	a link between <c>FromPid</c> and <c>ToPid</c>, when using the
-	<seeguide marker="#old_link_protocol">old link
-	protocol</seeguide>.</p>
-	<warning><p>This signal has been deprecated and will not
-	be supported in OTP 26. For more information see the
-	documentation of the
-	<seeguide marker="#new_link_protocol">new link protocol</seeguide>.
+	<warning><p>This signal is obsolete and not supported as of
+        OTP 26. For more information see the documentation of the
+	<seeguide marker="#link_protocol">link protocol</seeguide>.
 	</p></warning>
       </item>
       <tag><c>NODE_LINK</c></tag>
@@ -1501,11 +1492,9 @@ DiB == gen_digest(ChA, ICA)?
 	among all not yet acknowledged <c>UNLINK_ID</c> signals from
 	<c>FromPid</c> to <c>ToPid</c>.</p>
 	<p>
-	  This signal is only passed when the 
-	  <seeguide marker="#new_link_protocol">new link protocol</seeguide>
-	  has been negotiated using the
-	  <seeguide marker="erl_dist_protocol#DFLAG_UNLINK_ID"><c>DFLAG_UNLINK_ID</c></seeguide>
-	  <seeguide marker="erl_dist_protocol#dflags">distribution flag</seeguide>.
+	  This signal is part of the
+	  <seeguide marker="#link_protocol">new link protocol</seeguide>
+          which became mandatory as of OTP 26.
 	</p>
       </item>
       <tag><marker id="UNLINK_ID_ACK"/><c>UNLINK_ID_ACK</c></tag>
@@ -1520,11 +1509,9 @@ DiB == gen_digest(ChA, ICA)?
 	<c>ToPid</c> identifies the sender of the <c>UNLINK_ID</c>
 	signal.</p>
 	<p>
-	  This signal is only passed when the 
-	  <seeguide marker="#new_link_protocol">new link protocol</seeguide>
-	  has been negotiated using the
-	  <seeguide marker="erl_dist_protocol#DFLAG_UNLINK_ID"><c>DFLAG_UNLINK_ID</c></seeguide>
-	  <seeguide marker="erl_dist_protocol#dflags">distribution flag</seeguide>.
+	  This signal is part of the
+	  <seeguide marker="#link_protocol">new link protocol</seeguide>
+          which became mandatory as of OTP 26.
 	</p>
       </item>
     </taglist>
@@ -1555,200 +1542,173 @@ DiB == gen_digest(ChA, ICA)?
   </section>
   <section>
     <marker id="link_protocol"/>
+    <!-- The following markers kept in order not to break links
+         from the outside world... -->
+    <marker id="new_link_protocol"/>
+    <marker id="old_link_protocol"/>
     <title>Link Protocol</title>
 
-    <section>
-      <marker id="new_link_protocol"/>
-      <title>New Link Protocol</title>
+    <p>
+      The new link protocol introduced in OTP 23.3 became mandatory
+      as of OTP 26. As of OTP 26, OTP nodes will therefor refuse to
+      connect to nodes that do not indicate that they support the
+      new link protocol using the
+      <seeguide marker="#DFLAG_UNLINK_ID"><c>DFLAG_UNLINK_ID</c></seeguide>
+      <seeguide marker="#dflags">distribution flag</seeguide>.
+    </p>
 
-      <p>
-	The new link protocol will be used when both nodes flag that
-	they understand it using the
-	<seeguide marker="#DFLAG_UNLINK_ID"><c>DFLAG_UNLINK_ID</c></seeguide>
-	<seeguide marker="#dflags">distribution flag</seeguide>. If
-	one of the nodes does not understand the new link protocol, the
-	<seeguide marker="#old_link_protocol">old link protocol</seeguide>
-	will be used as a fallback.
-      </p>
-      
-      <p>
-	The new link protocol introduces two new signals,
-	<seeguide marker="#UNLINK_ID"><c>UNLINK_ID</c></seeguide> and
-	<seeguide marker="#UNLINK_ID"><c>UNLINK_ID_ACK</c></seeguide>,
-	which replace the old
-	<seeguide marker="#UNLINK"><c>UNLINK</c></seeguide>
-	signal. The old <seeguide marker="#LINK"><c>LINK</c></seeguide>
-	signal is still sent in order to set up a link, but handled
-	differently upon reception.
-      </p>
+    <p>
+      The new link protocol introduced two new signals,
+      <seeguide marker="#UNLINK_ID"><c>UNLINK_ID</c></seeguide> and
+      <seeguide marker="#UNLINK_ID"><c>UNLINK_ID_ACK</c></seeguide>,
+      which replaced the old
+      <seeguide marker="#UNLINK"><c>UNLINK</c></seeguide>
+      signal. The old <seeguide marker="#LINK"><c>LINK</c></seeguide>
+      signal is still sent in order to set up a link, but handled
+      differently upon reception.
+    </p>
 
-      <p>
-	In order to set up a link, a <c>LINK</c> signal is sent, from
-	the process initiating the operation, to the process that it
-	wants to link to. In order to remove a link, an
-	<c>UNLINK_ID</c> signal is sent, from the process initiating
-	the operation, to the linked process. The receiver of an
-	<c>UNLINK_ID</c> signal responds with an <c>UNLINK_ID_ACK</c>
-	signal. Upon reception of an <c>UNLINK_ID</c> signal, the
-	corresponding <c>UNLINK_ID_ACK</c> signal <em>must</em> be
-	sent before any other signals are sent to the sender of the
-	<c>UNLINK_ID</c> signal. Together with
-	<seeguide marker="system/reference_manual:processes#signal-delivery">the
-	signal ordering guarantee</seeguide> of Erlang this makes it
-	possible for the sender of the <c>UNLINK_ID</c> signal to know
-	the order of other signals which is essential for the protocol.
-	The <c>UNLINK_ID_ACK</c> signal should contain the same
-	<c>Id</c> as the <c>Id</c> contained in the <c>UNLINK_ID</c>
-	signal being acknowledged.
-      </p>
+    <p>
+      In order to set up a link, a <c>LINK</c> signal is sent, from
+      the process initiating the operation, to the process that it
+      wants to link to. In order to remove a link, an
+      <c>UNLINK_ID</c> signal is sent, from the process initiating
+      the operation, to the linked process. The receiver of an
+      <c>UNLINK_ID</c> signal responds with an <c>UNLINK_ID_ACK</c>
+      signal. Upon reception of an <c>UNLINK_ID</c> signal, the
+      corresponding <c>UNLINK_ID_ACK</c> signal <em>must</em> be
+      sent before any other signals are sent to the sender of the
+      <c>UNLINK_ID</c> signal. Together with
+      <seeguide marker="system/reference_manual:processes#signal-delivery">the
+      signal ordering guarantee</seeguide> of Erlang this makes it
+      possible for the sender of the <c>UNLINK_ID</c> signal to know
+      the order of other signals which is essential for the protocol.
+      The <c>UNLINK_ID_ACK</c> signal should contain the same
+      <c>Id</c> as the <c>Id</c> contained in the <c>UNLINK_ID</c>
+      signal being acknowledged.
+    </p>
 
-      <p>
-	Processes also need to maintain process local information about
-	links. The state of this process local information is changed
-	when the signals above are sent and received. This process
-	local information also determines if a signal should be sent
-	when a process calls
-	<seemfa marker="erlang#link/1"><c>link/1</c></seemfa> or
-	<seemfa marker="erlang#unlink/1"><c>unlink/1</c></seemfa>.
-	A <c>LINK</c> signal is only sent if there does not currently
-	exist an active link between the processes according to the
-	process local information and an <c>UNLINK_ID</c> signal is
-	only sent if there currently exists an active link between the
-	processes according to the process local information.
-      </p>
+    <p>
+      Processes also need to maintain process local information about
+      links. The state of this process local information is changed
+      when the signals above are sent and received. This process
+      local information also determines if a signal should be sent
+      when a process calls
+      <seemfa marker="erlang#link/1"><c>link/1</c></seemfa> or
+      <seemfa marker="erlang#unlink/1"><c>unlink/1</c></seemfa>.
+      A <c>LINK</c> signal is only sent if there does not currently
+      exist an active link between the processes according to the
+      process local information and an <c>UNLINK_ID</c> signal is
+      only sent if there currently exists an active link between the
+      processes according to the process local information.
+    </p>
 
-      <p>
-	The process local information about a link contains:
-      </p>
-      <taglist>
-	<tag>Pid</tag>
-	<item>
-	  Process identifier of the linked process.
-	</item>
-	<tag>Active Flag</tag>
-	<item>
-	  If set, the link is active and the process will react on
-	  <seeguide marker="system/reference_manual:processes#receiving_exit_signals">incoming
-	  exit signals</seeguide> issued due to the link. If not set,
-	  the link is inactive and incoming exit signals, issued due
-	  to the link, will be ignored. That is, the processes are
-	  considered as <em>not</em> linked.
-	</item>
-	<tag>Unlink Id</tag>
-	<item>
-	  Identifier of an outstanding unlink operation. That is,
-	  an unlink operation that has not yet been acknowledged.
-	  This information is only used when the active flag is not
-	  set.
-	</item>
-      </taglist>
+    <p>
+      The process local information about a link contains:
+    </p>
+    <taglist>
+      <tag>Pid</tag>
+      <item>
+	Process identifier of the linked process.
+      </item>
+      <tag>Active Flag</tag>
+      <item>
+	If set, the link is active and the process will react on
+	<seeguide marker="system/reference_manual:processes#receiving_exit_signals">incoming
+	exit signals</seeguide> issued due to the link. If not set,
+	the link is inactive and incoming exit signals, issued due
+	to the link, will be ignored. That is, the processes are
+	considered as <em>not</em> linked.
+      </item>
+      <tag>Unlink Id</tag>
+      <item>
+	Identifier of an outstanding unlink operation. That is,
+	an unlink operation that has not yet been acknowledged.
+	This information is only used when the active flag is not
+	set.
+      </item>
+    </taglist>
 
-      <p>
-	A process is only considered linked to another process
-	if it has process local information about the link
-	containing the process identifier of the other process and
-	with the active flag set.
-      </p>
+    <p>
+      A process is only considered linked to another process
+      if it has process local information about the link
+      containing the process identifier of the other process and
+      with the active flag set.
+    </p>
 
-      <p>
-	The process local information about a link is updated as
-	follows:
-      </p>
-      <taglist>
-	<tag>A <c>LINK</c> signal is sent</tag>
-	<item>
-	  Link information is created if not already existing. The
-	  active flag is set, and unlink id is cleared. That is,
-	  if we had an outstanding unlink operation we will ignore
-	  the result of that operation and enable the link.
-	</item>
-	<tag>A <c>LINK</c> signal is received</tag>
-	<item>
-	  If no link information already exists, it is created, the
-	  active flag is set and unlink id is cleared. If the link
-	  information already exists, the signal is silently ignored,
-	  regardless of whether the active flag is set or not.
-	  That is, if we have an outstanding unlink operation we will
-	  <em>not</em> activate the link. In this scenario, the sender
-	  of the <c>LINK</c> signal has not yet sent an
-	  <c>UNLINK_ID_ACK</c> signal corresponding to our
-	  <c>UNLINK_ID</c> signal which means that it will receive
-	  our <c>UNLINK_ID</c> signal after it sent its
-	  <c>LINK</c> signal. This in turn means that both processes
-	  in the end will agree that there is no link between them.
-	</item>
-	<tag>An <c>UNLINK_ID</c> signal is sent</tag>
-	<item>
-	  Link information already exists and the active flag is set
-	  (otherwise the signal would not be sent). The active flag
-	  is unset, and the unlink id of the signal is saved in the
-	  link information.
-	</item>
-	<tag>An <c>UNLINK_ID</c> signal is received</tag>
-	<item>
-	  If the active flag is set, information about the link
-	  is removed. If the active flag is not set (that is, we have
-	  an outstanding unlink operation), the information about the
-	  link is left unchanged.
-	</item>
-	<tag>An <c>UNLINK_ID_ACK</c> signal is sent</tag>
-	<item>
-	  This is done when an <c>UNLINK_ID</c> signal is received and
-	  causes no further changes of the link information.
-	</item>
-	<tag>An <c>UNLINK_ID_ACK</c> signal is received</tag>
-	<item>
-	  If information about the link exists, the active flag is not
-	  set, and the unlink id in the link information equals the
-	  <c>Id</c> in the signal, the link information is removed;
-	  otherwise, the signal is ignored.
-	</item>
-      </taglist>
+    <p>
+      The process local information about a link is updated as
+      follows:
+    </p>
+    <taglist>
+      <tag>A <c>LINK</c> signal is sent</tag>
+      <item>
+	Link information is created if not already existing. The
+	active flag is set, and unlink id is cleared. That is,
+	if we had an outstanding unlink operation we will ignore
+	the result of that operation and enable the link.
+      </item>
+      <tag>A <c>LINK</c> signal is received</tag>
+      <item>
+	If no link information already exists, it is created, the
+	active flag is set and unlink id is cleared. If the link
+	information already exists, the signal is silently ignored,
+	regardless of whether the active flag is set or not.
+	That is, if we have an outstanding unlink operation we will
+	<em>not</em> activate the link. In this scenario, the sender
+	of the <c>LINK</c> signal has not yet sent an
+	<c>UNLINK_ID_ACK</c> signal corresponding to our
+	<c>UNLINK_ID</c> signal which means that it will receive
+	our <c>UNLINK_ID</c> signal after it sent its
+	<c>LINK</c> signal. This in turn means that both processes
+	in the end will agree that there is no link between them.
+      </item>
+      <tag>An <c>UNLINK_ID</c> signal is sent</tag>
+      <item>
+	Link information already exists and the active flag is set
+	(otherwise the signal would not be sent). The active flag
+	is unset, and the unlink id of the signal is saved in the
+	link information.
+      </item>
+      <tag>An <c>UNLINK_ID</c> signal is received</tag>
+      <item>
+	If the active flag is set, information about the link
+	is removed. If the active flag is not set (that is, we have
+	an outstanding unlink operation), the information about the
+	link is left unchanged.
+      </item>
+      <tag>An <c>UNLINK_ID_ACK</c> signal is sent</tag>
+      <item>
+	This is done when an <c>UNLINK_ID</c> signal is received and
+	causes no further changes of the link information.
+      </item>
+      <tag>An <c>UNLINK_ID_ACK</c> signal is received</tag>
+      <item>
+	If information about the link exists, the active flag is not
+	set, and the unlink id in the link information equals the
+	<c>Id</c> in the signal, the link information is removed;
+	otherwise, the signal is ignored.
+      </item>
+    </taglist>
 
-      <p>
-	When a process receives an exit signal due to a link, the
-	process will first react to the exit signal if the link
-	is active and then remove the process local information about
-	the link.
-      </p>
-      <p>
-	In case the connection is lost between two nodes, exit signals
-	with exit reason <c>noconnection</c> are sent to all processes
-	with links over the connection. This will cause all process
-	local information about links over the connection to be
-	removed.
-      </p>
-      <p>
-	Exactly the same link protocol is also used internally on an
-	Erlang node. The signals however have different formats since
-	they do not have to be sent over the wire.
-      </p>
-    </section>
-
-    <section>
-      <marker id="old_link_protocol"/>
-      <title>Old Link Protocol</title>
-
-      <p>
-	The old link protocol utilize two signals
-	<seeguide marker="#LINK"><c>LINK</c></seeguide>, and
-	<seeguide marker="#UNLINK"><c>UNLINK</c></seeguide>. The
-	<c>LINK</c> signal informs the other process that a link
-	should be set up, and the <c>UNLINK</c> signal informs the
-	other process that a link should be removed. This protocol
-	is however a bit too naive. If both processes operate on the
-	link simultaneously, the link may end up in an inconsistent
-	state where one process thinks it is linked while the other
-	thinks it is not linked.
-      </p>
-      <p>
-	This protocol is deprecated and support for it will be removed
-	in OTP 26. Until then, it will be used as fallback when
-	communicating with old nodes that do not understand the
-	<seeguide marker="#new_link_protocol">new link
-	protocol</seeguide>.
-      </p>
-    </section>
+    <p>
+      When a process receives an exit signal due to a link, the
+      process will first react to the exit signal if the link
+      is active and then remove the process local information about
+      the link.
+    </p>
+    <p>
+      In case the connection is lost between two nodes, exit signals
+      with exit reason <c>noconnection</c> are sent to all processes
+      with links over the connection. This will cause all process
+      local information about links over the connection to be
+      removed.
+    </p>
+    <p>
+      Exactly the same link protocol is also used internally on an
+      Erlang node. The signals however have different formats since
+      they do not have to be sent over the wire.
+    </p>
 
   </section>
   </section>

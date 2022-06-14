@@ -1643,28 +1643,67 @@ make_internal_hash(Eterm term, Uint32 salt)
                 goto pop_next;
             }
             break;
-            case REF_SUBTAG:
-                UINT32_HASH(internal_ref_numbers(term)[0], HCONST_7);
-                ASSERT(internal_ref_no_numbers(term) == 3);
-                UINT32_HASH_2(internal_ref_numbers(term)[1],
-                              internal_ref_numbers(term)[2], HCONST_8);
+            case REF_SUBTAG: {
+                Uint32 *numbers = internal_ref_numbers(term);
+                ASSERT(internal_ref_no_numbers(term) >= 3);
+                UINT32_HASH(numbers[0], HCONST_7);
+                UINT32_HASH_2(numbers[1], numbers[2], HCONST_8);
+                if (is_internal_pid_ref(term)) {
+#ifdef ARCH_64
+                    ASSERT(internal_ref_no_numbers(term) == 5);
+                    UINT32_HASH_2(numbers[3], numbers[4], HCONST_9);
+#else
+                    ASSERT(internal_ref_no_numbers(term) == 4);
+                    UINT32_HASH(numbers[3], HCONST_9);
+#endif
+                }
                 goto pop_next;
-
+            }
             case EXTERNAL_REF_SUBTAG:
             {
                 ExternalThing* thing = external_thing_ptr(term);
+                Uint n = external_thing_ref_no_numbers(thing);
+                Uint32 *numbers = external_thing_ref_numbers(thing);
 
-                ASSERT(external_thing_ref_no_numbers(thing) == 3);
+                /* Can contain 0 to 5 32-bit numbers... */
+
                 /* See limitation #2 */
-            #ifdef ARCH_64
-                POINTER_HASH(thing->node, HCONST_7);
-                UINT32_HASH(external_thing_ref_numbers(thing)[0], HCONST_7);
-            #else
-                UINT32_HASH_2(thing->node,
-                              external_thing_ref_numbers(thing)[0], HCONST_7);
-            #endif
-                UINT32_HASH_2(external_thing_ref_numbers(thing)[1],
-                              external_thing_ref_numbers(thing)[2], HCONST_8);
+                switch (n) {
+                case 5: {
+                    Uint32 num4 = numbers[4];
+                    if (0) {
+                    case 4:
+                        num4 = 0;
+                        /* Fall through... */
+                    }
+                    UINT32_HASH_2(numbers[3], num4, HCONST_9);
+                    /* Fall through... */
+                }
+                case 3: {
+                    Uint32 num2 = numbers[2];
+                    if (0) {
+                    case 2:
+                        num2 = 0;
+                        /* Fall through... */
+                    }
+                    UINT32_HASH_2(numbers[1], num2, HCONST_8);
+                    /* Fall through... */
+                }
+                case 1:
+#ifdef ARCH_64
+                    POINTER_HASH(thing->node, HCONST_7);
+                    UINT32_HASH(numbers[0], HCONST_7);
+#else
+                    UINT32_HASH_2(thing->node, numbers[0], HCONST_7);
+#endif
+                    break;
+                case 0:
+                    POINTER_HASH(thing->node, HCONST_7);
+                    break;
+                default:
+                    ASSERT(!"Invalid amount of external reference numbers");
+                    break;
+                }
                 goto pop_next;
             }
             case EXTERNAL_PID_SUBTAG: {

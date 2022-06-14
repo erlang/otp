@@ -1331,28 +1331,14 @@ erts_dsig_send_unlink(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, Uint6
     Eterm big_heap[ERTS_MAX_UINT64_HEAP_SIZE];
     Eterm unlink_id;    
     Eterm ctl;
-    if (ctx->dflags & DFLAG_UNLINK_ID) {
-        if (IS_USMALL(0, id))
-            unlink_id = make_small(id);
-        else {
-            Eterm *hp = &big_heap[0];
-            unlink_id = erts_uint64_to_big(id, &hp);
-        }
-        ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_UNLINK_ID),
-                     unlink_id, local, remote);
-    }
+    if (IS_USMALL(0, id))
+        unlink_id = make_small(id);
     else {
-        /*
-         * A node that isn't capable of talking the new link protocol.
-         *
-         * Send an old unlink op, and send ourselves an unlink-ack. We may
-         * end up in an inconsistent state as we could before the new link
-         * protocol was introduced...
-         */
-        erts_proc_sig_send_dist_unlink_ack(ctx->dep, ctx->connection_id,
-                                           remote, local, id);
-        ctl = TUPLE3(&ctx->ctl_heap[0], make_small(DOP_UNLINK), local, remote);
+        Eterm *hp = &big_heap[0];
+        unlink_id = erts_uint64_to_big(id, &hp);
     }
+    ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_UNLINK_ID),
+                 unlink_id, local, remote);
     return dsig_send_ctl(ctx, ctl);
 }
 
@@ -1362,11 +1348,6 @@ erts_dsig_send_unlink_ack(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, U
     Eterm big_heap[ERTS_MAX_UINT64_HEAP_SIZE];
     Eterm unlink_id;
     Eterm ctl;
-
-    if (!(ctx->dflags & DFLAG_UNLINK_ID)) {
-        /* Receiving node does not understand it, so drop it... */
-        return ERTS_DSIG_SEND_OK;
-    }
 
     if (IS_USMALL(0, id))
         unlink_id = make_small(id);
@@ -2136,6 +2117,13 @@ int erts_net_message(Port *prt,
 	break;
     }
 
+    case DOP_UNLINK:
+        /*
+         * DOP_UNLINK should never be passed. The new link protocol is
+         * mandatory as of OTP 26.
+         */
+        goto invalid_message;
+        
     case DOP_UNLINK_ID: {
         Eterm *element;
         Uint64 id;
@@ -2149,14 +2137,6 @@ int erts_net_message(Port *prt,
         if (id == 0)
             goto invalid_message;
 
-        if (0) {
-        case DOP_UNLINK:
-            if (tuple_arity != 3)
-                goto invalid_message;
-            element = &tuple[2];
-            id = 0;
-        }
-        
 	from = *(element++);
 	to = *element;
 	if (is_not_external_pid(from))
