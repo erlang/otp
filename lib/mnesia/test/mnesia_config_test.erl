@@ -34,6 +34,8 @@
 	 backup_module/1,
 	 debug/1,
 	 dir/1,
+	 transaction_log_dir/1,
+	 transaction_log_dir_default/1,
 	 dump_log_load_regulation/1,
 	
 	 dump_log_update_in_place/1,
@@ -107,7 +109,8 @@ all() ->
      dump_log_update_in_place,
      event_module, backend_plugin_registration,
      inconsistent_database, max_wait_for_decision,
-     send_compressed, app_test, {group, schema_config},
+     send_compressed, transaction_log_dir, transaction_log_dir_default,
+     app_test, {group, schema_config},
      unknown_config].
 
 groups() -> 
@@ -391,6 +394,48 @@ dir(Config) when is_list(Config) ->
     ?match(Dir, mnesia:system_info(directory)),
     mnesia_test_lib:kill_mnesia(Nodes),
  
+    ?cleanup(1, Config),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+transaction_log_dir(doc) ->
+    ["Use different directories for schema and transaction logs"];
+transaction_log_dir(suite) -> [];
+transaction_log_dir(Config) when is_list(Config) ->
+    Nodes = ?init(1, Config),
+
+    PrivDir = mnesia_test_lib:lookup_config(priv_dir, Config),
+    ?match(ok, mnesia:start([{dir, tuff}, {transaction_log_dir, PrivDir}])),
+
+    {ok, CWD} = file:get_cwd(),
+    Dir = filename:join([CWD, "tuff"]),
+    ?match(Dir, mnesia:system_info(directory)),
+
+    % sanitise priv_dir, CT leaves a trailing separator at the end
+    TLogDir = filename:dirname(PrivDir),
+    ?match(TLogDir, mnesia:system_info(transaction_log_dir)),
+
+    mnesia_test_lib:kill_mnesia(Nodes),
+
+    ?cleanup(1, Config),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+transaction_log_dir_default(doc) ->
+    ["Use schema directory for transaction logs by default"];
+transaction_log_dir_default(suite) -> [];
+transaction_log_dir_default(Config) when is_list(Config) ->
+    Nodes = ?init(1, Config),
+
+    ?match(ok, mnesia:start([{dir, tuff}])),
+
+    {ok, CWD} = file:get_cwd(),
+    Dir = filename:join([CWD, "tuff"]),
+    ?match(Dir, mnesia:system_info(directory)),
+    ?match(Dir, mnesia:system_info(transaction_log_dir)),
+
+    mnesia_test_lib:kill_mnesia(Nodes),
+
     ?cleanup(1, Config),
     ok.
 

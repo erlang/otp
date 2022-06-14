@@ -306,6 +306,12 @@ exists(Fname) -> filelib:is_regular(Fname).
 
 dir() -> mnesia_monitor:get_env(dir).
 
+dir("LATEST.LOG" = Fname) ->
+    TLogDir = mnesia_monitor:get_env(transaction_log_dir),
+    filename:join(TLogDir, Fname);
+dir("PREVIOUS.LOG" = Fname) ->
+    TLogDir = mnesia_monitor:get_env(transaction_log_dir),
+    filename:join(TLogDir, Fname);
 dir(Fname) ->
     filename:join([dir(), to_list(Fname)]).
 
