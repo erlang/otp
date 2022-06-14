@@ -4409,7 +4409,7 @@ dec_term_atom_common:
                     }
 		    if (ref_words != ERTS_REF_NUMBERS) {
                         int i;
-                        if (ref_words > ERTS_REF_NUMBERS)
+                        if (ref_words > ERTS_MAX_REF_NUMBERS)
                             goto error; /* Not a ref that we created... */
                         for (i = ref_words; i < ERTS_REF_NUMBERS; i++)
                             ref_num[i] = 0;
@@ -4421,11 +4421,14 @@ dec_term_atom_common:
                     }
                     else {
                         /* Check if it is a pid reference... */
-                        Eterm pid = erts_pid_ref_lookup(ref_num);
+                        Eterm pid = erts_pid_ref_lookup(ref_num, ref_words);
                         if (is_internal_pid(pid)) {
                             write_pid_ref_thing(hp, ref_num[0], ref_num[1],
                                                 ref_num[2], pid);
                             hp += ERTS_PID_REF_THING_SIZE;
+                        }
+                        else if (is_non_value(pid)) {
+                            goto error; /* invalid reference... */
                         }
                         else {
                             /* Check if it is a magic reference... */
