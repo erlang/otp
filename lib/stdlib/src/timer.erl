@@ -20,16 +20,16 @@
 -module(timer).
 
 -export([apply_after/4,
-	 send_after/3, send_after/2,
-	 exit_after/3, exit_after/2, kill_after/2, kill_after/1,
-	 apply_interval/4, send_interval/3, send_interval/2,
-	 cancel/1, sleep/1, tc/1, tc/2, tc/3, now_diff/2,
-	 seconds/1, minutes/1, hours/1, hms/3]).
+         send_after/3, send_after/2,
+         exit_after/3, exit_after/2, kill_after/2, kill_after/1,
+         apply_interval/4, send_interval/3, send_interval/2,
+         cancel/1, sleep/1, tc/1, tc/2, tc/3, now_diff/2,
+         seconds/1, minutes/1, hours/1, hms/3]).
 
 -export([start_link/0, start/0,
-	 handle_call/3,  handle_info/2,
-	 init/1,
-	 code_change/3, handle_cast/2, terminate/2]).
+         handle_call/3,  handle_info/2,
+         init/1,
+         code_change/3, handle_cast/2, terminate/2]).
 
 %% Types which can be used by other modules
 -export_type([tref/0]).
@@ -44,9 +44,9 @@
 %%
 %% Time is in milliseconds.
 %%
--opaque tref()    :: {type(), reference()}.
--type type()      :: 'once' | 'interval' | 'instant' | 'send_local'.
--type time()      :: non_neg_integer().
+-opaque tref() :: {type(), reference()}.
+-type type()   :: 'once' | 'interval' | 'instant' | 'send_local'.
+-type time()   :: non_neg_integer().
 
 %%
 %% Interface functions
@@ -319,7 +319,7 @@ start() ->
 
 do_start() ->
     case
-	supervisor:start_child(
+        supervisor:start_child(
           kernel_sup,
           #{
             id => timer_server,
@@ -331,14 +331,21 @@ do_start() ->
            }
          )
     of
-	{ok, Pid} ->
-	    {ok, Pid};
-	{ok, Pid, _} ->
-	    {ok, Pid};
-	{error, {already_started, Pid}} ->
-	    {ok, Pid};
-	Error ->
-	    Error
+        {ok, Pid} ->
+            {ok, Pid};
+        {ok, Pid, _} ->
+            {ok, Pid};
+        {error, {already_started, Pid}} ->
+            {ok, Pid};
+        {error, already_present} ->
+            case supervisor:restart_child(kernel_sup, timer_server) of
+                {ok, Pid} ->
+                    {ok, Pid};
+                {error, {already_started, Pid}} ->
+                    {ok, Pid}
+            end;
+        Error ->
+            Error
     end.
 
 -spec start_link() -> {'ok', pid()} | {'error', term()}.
@@ -357,11 +364,11 @@ init([]) ->
 %% try starting the timer server and try once again.
 req(Req, Arg) ->
     try
-	maybe_req(Req, Arg)
+        maybe_req(Req, Arg)
     catch
-	exit:{noproc, _} ->
-	    {ok, _Pid} = do_start(),
-	    maybe_req(Req, Arg)
+        exit:{noproc, _} ->
+            {ok, _Pid} = do_start(),
+            maybe_req(Req, Arg)
     end.
 
 maybe_req(Req, Arg) ->
@@ -443,18 +450,18 @@ handle_info({timeout, TRef, {apply_once, MFA}}, Tab) ->
 %% Interval timer timeout.
 handle_info({timeout, _, {apply_interval, CurTimeout, Time, TRef, MFA}}, Tab) ->
     case ets:member(Tab, TRef) of
-	true ->
-	    NextTimeout = CurTimeout + Time,
-	    SRef = erlang:start_timer(
+        true ->
+            NextTimeout = CurTimeout + Time,
+            SRef = erlang:start_timer(
                      NextTimeout,
                      self(),
                      {apply_interval, NextTimeout, Time, TRef, MFA},
                      [{abs, true}]
                     ),
-	    ets:update_element(Tab, TRef, {2, SRef}),
-	    do_apply(MFA);
-	false ->
-	    ok
+            ets:update_element(Tab, TRef, {2, SRef}),
+            do_apply(MFA);
+        false ->
+            ok
     end,
     {noreply, Tab};
 %% A process related to an interval timer died.
@@ -484,11 +491,11 @@ code_change(_OldVsn, Tab, _Extra) ->
 %% Remove a timer.
 remove_timer(TRef, Tab) ->
     case ets:take(Tab, TRef) of
-	[{TRef, SRef}] ->
-	    ok = erlang:cancel_timer(SRef, [{async, true}, {info, false}]),
-	    true;
-	[] -> % TimerReference does not exist, do nothing
-	    false
+        [{TRef, SRef}] ->
+            ok = erlang:cancel_timer(SRef, [{async, true}, {info, false}]),
+            true;
+        [] -> % TimerReference does not exist, do nothing
+            false
     end.
 
 %% Help functions
