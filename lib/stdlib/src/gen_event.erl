@@ -62,7 +62,8 @@
 -export([format_log/1, format_log/2]).
 
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
-              del_handler_ret/0, request_id/0, request_id_collection/0]).
+              del_handler_ret/0, request_id/0, request_id_collection/0,
+              format_status/0]).
 
 -record(handler, {module             :: atom(),
 		  id = false,
@@ -122,12 +123,14 @@
       PDict :: [{Key :: term(), Value :: term()}],
       State :: term(),
       Status :: term().
+-type format_status() ::
+        #{ state => term(),
+           message => term(),
+           reason => term(),
+           log => [sys:system_event()] }.
 -callback format_status(Status) -> NewStatus when
-      Status :: #{ state => term(),
-                   message => term(),
-                   reason => term(),
-                   log => [sys:system_event()] },
-      NewStatus :: Status.
+      Status    :: format_status(),
+      NewStatus :: format_status().
 
 -optional_callbacks(
     [handle_info/2, terminate/2, code_change/3, format_status/1, format_status/2]).

@@ -473,6 +473,32 @@ gen_server:abcast     -----> Module:handle_cast/2
         </taglist>
       </desc>
     </datatype>
+
+    <datatype>
+      <name name="format_status"/>
+      <desc>
+        <p>
+          A map that describes the <c>gen_server</c> status.
+          The keys are:
+        </p>
+        <taglist>
+          <tag><c>state</c></tag>
+          <item>The internal state of the <c>gen_server</c> process.</item>
+          <tag><c>message</c></tag>
+          <item>The message that caused the server to terminate.</item>
+          <tag><c>reason</c></tag>
+          <item>The reason that caused the server to terminate.</item>
+          <tag><c>log</c></tag>
+          <item>
+            The <seemfa marker="sys#log/2">sys log</seemfa> of the server.
+          </item>
+        </taglist>
+        <p>
+          New associations may be added to the status map
+          without prior notice.
+        </p>
+      </desc>
+    </datatype>
   </datatypes>
 
 
@@ -1513,16 +1539,8 @@ gen_server:abcast     -----> Module:handle_cast/2
       <fsummary>Optional function for providing a term describing the
         current <c>gen_server</c> status.</fsummary>
       <type>
-        <v>Status = #{ state => State,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        message => Message,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        reason => Reason,</v>
-        <v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        log => Log }</v>
-        <v>NewStatus = Status</v>
-        <v>State = Message = Reason = term()</v>
-        <v>Log = [<seetype marker="sys#system_event">sys:system_event()</seetype>]</v>
+        <v>Status = <seetype marker="#format_status">format_status()</seetype></v>
+        <v>NewStatus = <seetype marker="#format_status">format_status()</seetype></v>
       </type>
       <desc>
         <note>
@@ -1545,27 +1563,25 @@ gen_server:abcast     -----> Module:handle_cast/2
             <p>The <c>gen_server</c> process terminates abnormally and logs an error.</p>
           </item>
         </list>
-        <p>This callback is to be used to limit the status of the process before
-          returned by <seemfa marker="sys#get_status/1"><c>sys:get_status/1,2</c></seemfa> or
-          sent to <seeerl marker="kernel:logger"><c>logger</c></seeerl>. The status
-          of the server is passed as a map with the following associations:
+        <p>
+          This callback is used to limit the status of the process
+          returned by
+          <seemfa marker="sys#get_status/1"><c>sys:get_status/1,2</c></seemfa>
+          or sent to <seeerl marker="kernel:logger"><c>logger</c></seeerl>.
         </p>
-        <taglist>
-          <tag><c>state => term()</c></tag>
-          <item>The internal state of the <c>gen_server</c> process.</item>
-          <tag><c>message => term()</c></tag>
-          <item>The message that caused the server to terminate.</item>
-          <tag><c>reason => term()</c></tag>
-          <item>The reason that caused the server to terminate.</item>
-          <tag><c>log => [</c><seetype marker="sys#system_event"><c>sys:system_event/0</c></seetype><c>]</c></tag>
-          <item>The <seemfa marker="sys#log/2">sys log</seemfa> of the server.</item>
-        </taglist>
-        <p>New associations may be added into the status map without prior notice.</p>
-        <p>The function is to return <c>NewStatus</c>, a map containing the same
-          associations as the input map.</p>
-        <p>Two possible use cases for this callback is to either remove
-          sensitive information from the state so that it not printed in log files,
-          or to remove large irrelevant terms of state that do clutter the logs.</p>
+        <p>
+          The callback gets a map <c>Status</c>
+          describing the current status and shall return a map
+          <c>NewStatus</c> with the same keys,
+          but it may transform some values.
+        </p>
+        <p>
+          Two possible use cases for this callback is to
+          remove sensitive information from the state
+          to prevent it from being printed in log files,
+          or to compact large irrelevant status items
+          that would only clutter the logs.
+        </p>
         <p>Example:</p>
         <code type="erl"><![CDATA[
 format_status(Status) ->
