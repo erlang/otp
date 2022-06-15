@@ -28,6 +28,13 @@
 	 process_taddrs/1, 
 	 generate_req_id/0]).
 
+%% This is just for debugging and testing
+-export([
+         empty_msg/0,
+         empty_msg_size/0
+        ]).
+
+
 -define(SNMP_USE_V3, true).
 -include("snmp_types.hrl").
 -include("SNMP-MPD-MIB.hrl").
@@ -39,7 +46,11 @@
 -include("snmp_verbosity.hrl").
 -include("snmpa_internal.hrl").
 
+-ifdef(empty_pdu_size).
+-define(empty_msg_size, ?empty_pdu_size + 3).
+-else.
 -define(empty_msg_size, 24).
+-endif.
 
 -record(state, {v1 = false, v2c = false, v3 = false}).
 -record(note, {sec_engine_id, 
@@ -51,7 +62,7 @@
 	       disco = false, 
 	       req_id}).
 
-					
+
 %%%-----------------------------------------------------------------
 %%% This module implements the Message Processing and Dispatch part of
 %%% the multi-lingual SNMP agent.
@@ -88,14 +99,13 @@ reset() ->
     ok.
 
 
-%%-----------------------------------------------------------------
-%% Purpose: We must calculate the length of a
-%%          message with an empty Pdu, and zero-length community
-%%          string.  This length is used to calculate the max
-%%          pdu size allowed for each request. This size is 
-%%          dependent on two dynamic fields, the community string
-%%          and the pdu (varbinds actually). It is calculated
-%%          as EmptySize + length(CommunityString) + 4.
+%%--------------------------------------------------------------------------
+%% Purpose: We must calculate the length of a message with an empty Pdu
+%%          and zero-length community string.
+%%          This length is used to calculate the max pdu size allowed for
+%%          each request. This size is dependent on two dynamic fields;
+%%          the community string and the pdu (varbinds actually).
+%%          It is calculated as EmptySize + length(CommunityString) + 4.
 %%          We assume that the length of the CommunityString is
 %%          less than 128 (thus requiring just one octet for the
 %%          length field (the same as the zero-length community
@@ -104,13 +114,28 @@ reset() ->
 %%          expressed. One 7bit octet is already present in the
 %%          empty msg, leaving 4 more 7bit octets.
 %% Actually, this function is not used, we use a constant instead.
-%%-----------------------------------------------------------------
+%%--------------------------------------------------------------------------
 %% Ret: 24
-%empty_msg() ->
-%    M = #message{version = 'version-1', community = "", data = 
-%		 #pdu{type = 'get-response', request_id = 1,
-%		      error_status = noError, error_index = 0, varbinds = []}},
-%    length(snmp_pdus:enc_message(M)) + 4.
+%%empty_msg() ->
+%%    M = #message{version = 'version-1', community = "", data = 
+%%		 #pdu{type = 'get-response', request_id = 1,
+%%		      error_status = noError, error_index = 0, varbinds = []}},
+%%    length(snmp_pdus:enc_message(M)) + 4.
+
+-ifdef(SNMP_USE_V3).
+empty_msg() ->
+    {message, 'version-1', "", snmpa_get:empty_pdu()}.
+-else.
+empty_msg() ->
+    #message{version   = 'version-1',
+             community = "",
+             data      = snmpa_get:empty_pdu()}.
+-endif.
+
+empty_msg_size() ->
+    ?empty_msg_size.
+
+
 
 %%-----------------------------------------------------------------
 %% Func: process_packet(Packet, Domain, Address, State, Log) ->

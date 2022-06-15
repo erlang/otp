@@ -77,8 +77,6 @@
 -define(default_verbosity,silence).
 -endif.
 
--define(empty_pdu_size, 21).
-
 -ifdef(snmp_extended_verbosity).
 -define(vt(F,A), ?vtrace(F, A)).
 -else.
@@ -482,29 +480,6 @@ start_mib_server(Prio, Ref, Mibs, Options) ->
 	    ?vinfo("failed starting mib server: ~n~p",[Error]),
 	    throw({error, {mib_server_failed, Error}})
     end.
-
-
-%%-----------------------------------------------------------------
-%% Purpose: We must calculate the length of an empty Pdu.  This
-%%          length is used to calculate the max pdu size allowed
-%%          for each get-bulk-request. This size is 
-%%          dependent on the varbinds. It is calculated
-%%          as EmptySize + 8.  8 comes from the fact that the
-%%          maximum pdu size needs 31 bits which needs 5 * 7 bits to be
-%%          expressed. One 7bit octet is already present in the
-%%          empty pdu, leaving 4 more 7bit octets. The length is
-%%          repeated twice, once for the varbinds, and once for the
-%%          entire pdu; 2 * 4 = 8.
-%% Actually, this function is not used, we use a constant instead.
-%%-----------------------------------------------------------------
-%% Ret: 21
-%% empty_pdu() ->
-%%     Pdu = #pdu{type         = 'get-response', 
-%%                request_id   = 1,
-%% 	          error_status = noError, 
-%%                error_index  = 0, 
-%%                varbinds     = []},
-%%     length(snmp_pdus:enc_pdu(Pdu)) + 8.
 
 
 %%%--------------------------------------------------

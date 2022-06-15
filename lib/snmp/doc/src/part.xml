@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -51,5 +51,6 @@
   <xi:include href="snmp_advanced_agent.xml"/>
   <xi:include href="snmp_app_a.xml"/>
   <xi:include href="snmp_app_b.xml"/>
+  <xi:include href="snmp_app_c.xml"/>
 </part>
 
