@@ -772,7 +772,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
               table is aborted, unless a majority of the table
               replicas are available for the commit. When used on a
               fragmented table, all fragments are given the same
-              the same majority setting.</p>
+              majority setting.</p>
           </item>
           <item>
             <p><c>{ram_copies, Nodelist}</c>, where
