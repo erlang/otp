@@ -160,6 +160,7 @@
           keyfile                    => {undefined, [versions,
                                                      certfile]},
           key_update_at              => {?KEY_USAGE_LIMIT_AES_GCM, [versions]},
+          ktls                       => {false,     [versions]},
           log_level                  => {notice,    [versions]},
           max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
           middlebox_comp_mode        => {true, [versions]},

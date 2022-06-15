@@ -41,6 +41,8 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -include("ssl_api.hrl").
+-include("ssl_cipher.hrl").
+-include("ssl_internal.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 %% -------------------------------------------------------------------------
@@ -70,8 +72,55 @@ is_node_name(Node) ->
 
 %% -------------------------------------------------------------------------
 
+hs_data_common(Socket) when is_port(Socket) ->
+    {ok, {Ip, Port}} = inet:peername(Socket),
+    #hs_data{
+        socket = Socket,
+        f_send = fun inet_tcp:send/2,
+        f_recv = fun inet_tcp:recv/3,
+        f_setopts_pre_nodeup =
+            fun(S) ->
+                inet:setopts(
+                    S,
+                    [
+                        {active, false},
+                        {packet, 4},
+                        nodelay()
+                    ]
+                )
+            end,
+        f_setopts_post_nodeup =
+            fun(S) ->
+                inet:setopts(
+                    S,
+                    [
+                        {active, true},
+                        {deliver, port},
+                        {packet, 4},
+                        nodelay()
+                    ]
+                )
+            end,
+
+        f_getll = fun inet:getll/1,
+        f_address =
+            fun(_, Node) ->
+                {node, _, Host} = dist_util:split_node(Node),
+                #net_address{
+                    address = {Ip, Port},
+                    host = Host,
+                    protocol = tls,
+                    family = inet
+                }
+            end,
+        mf_tick = fun(S) -> inet_tcp_dist:tick(inet_tcp, S) end,
+        mf_getstat = fun inet_tcp_dist:getstat/1,
+        mf_setopts = fun inet_tcp_dist:setopts/2,
+        mf_getopts = fun inet_tcp_dist:getopts/2
+    };
 hs_data_common(#sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
     #hs_data{
+       socket = DistCtrl,
        f_send =
            fun (_Ctrl, Packet) ->
                    f_send(SslSocket, Packet)
@@ -272,6 +321,7 @@ spawn_accept({Driver, Listen, Kernel}) ->
 
 accept_one(Driver, Kernel, Socket) ->
     Opts = setup_verify_client(Socket, get_ssl_options(server)),
+    KTLS = proplists:get_value(ktls, Opts, false),
     wait_for_code_server(),
     case
         ssl:handshake(
@@ -279,14 +329,28 @@ accept_one(Driver, Kernel, Socket) ->
           trace([{active, false},{packet, 4}|Opts]),
           net_kernel:connecttime())
     of
-        {ok, #sslsocket{pid = [_, DistCtrl| _]} = SslSocket} ->
+        {ok, #sslsocket{pid = [Receiver, Sender| _]} = SslSocket} ->
+            DistCtrl = case KTLS of
+                true ->
+                    {ok, KtlsInfo} = ssl_gen_statem:ktls_handover(Receiver),
+                    set_ktls(KtlsInfo),
+                    Socket;
+                false ->
+                    Sender
+            end,
             trace(
               Kernel !
                   {accept, self(), DistCtrl,
                    Driver:family(), tls}),
             receive
                 {Kernel, controller, Pid} ->
-                    case ssl:controlling_process(SslSocket, Pid) of
+                    ChangeOwner = case KTLS of
+                        true ->
+                            inet_tcp:controlling_process(Socket, Pid);
+                        false ->
+                            ssl:controlling_process(SslSocket, Pid)
+                    end,
+                    case ChangeOwner of
                         ok ->
                             trace(Pid ! {self(), controller});
                         Error ->
@@ -448,19 +512,22 @@ do_accept(
     receive
 	{AcceptPid, controller} ->
             erlang:demonitor(MRef, [flush]),
-            {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
-	    Timer = dist_util:start_timer(SetupTime),
-            NewAllowed = allowed_nodes(SslSocket, Allowed),
-            HSData0 = hs_data_common(SslSocket),
+            Timer = dist_util:start_timer(SetupTime),
+            {HSData0, NewAllowed} = case is_port(DistCtrl) of
+                true ->
+                    {hs_data_common(DistCtrl), Allowed};
+                false ->
+                    {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
+                    link(DistCtrl),
+                    {hs_data_common(SslSocket), allowed_nodes(SslSocket, Allowed)}
+            end,
             HSData =
                 HSData0#hs_data{
                   kernel_pid = Kernel,
                   this_node = MyNode,
-                  socket = DistCtrl,
                   timer = Timer,
                   this_flags = 0,
                   allowed = NewAllowed},
-            link(DistCtrl),
             dist_util:handshake_other_started(trace(HSData));
         {AcceptPid, exit} ->
             %% this can happen when connection was initiated, but dropped
@@ -579,35 +646,43 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 
 do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer) ->
     Opts =  trace(connect_options(get_ssl_options(client))),
+    KTLS = proplists:get_value(ktls, Opts, false),
     dist_util:reset_timer(Timer),
     case ssl:connect(
         Ip, TcpPort,
         [binary, {active, false}, {packet, 4}, {server_name_indication, Address},
             Driver:family(), {nodelay, true}] ++ Opts,
-        net_kernel:connecttime()) of
-    {ok, #sslsocket{pid = [_, DistCtrl| _]} = SslSocket} ->
-            _ = monitor_pid(DistCtrl),
-            ok = ssl:controlling_process(SslSocket, self()),
-            HSData0 = hs_data_common(SslSocket),
-        HSData =
+        net_kernel:connecttime()
+    ) of
+        {ok, #sslsocket{pid = [Receiver, Sender| _]} = SslSocket} ->
+            HSData0 = case KTLS of
+                true ->
+                    {ok, KtlsInfo} = ssl_gen_statem:ktls_handover(Receiver),
+                    set_ktls(KtlsInfo),
+                    #{socket := Socket} = KtlsInfo,
+                    hs_data_common(Socket);
+                false ->
+                    _ = monitor_pid(Sender),
+                    ok = ssl:controlling_process(SslSocket, self()),
+                    link(Sender),
+                    hs_data_common(SslSocket)
+            end,
+            HSData =
                 HSData0#hs_data{
                 kernel_pid = Kernel,
                 other_node = Node,
                 this_node = MyNode,
-                socket = DistCtrl,
                 timer = Timer,
                 this_flags = 0,
                 other_version = Version,
                 request_type = Type},
-            link(DistCtrl),
-    dist_util:handshake_we_started(trace(HSData));
-    Other ->
-    %% Other Node may have closed since
-    %% port_please !
-    ?shutdown2(
-            Node,
-            trace(
-                {ssl_connect_failed, Ip, TcpPort, Other}))
+            dist_util:handshake_we_started(trace(HSData));
+        Other ->
+        %% Other Node may have closed since
+        %% port_please !
+            ?shutdown2(
+                Node,
+                trace({ssl_connect_failed, Ip, TcpPort, Other}))
     end.
 
 close(Socket) ->
@@ -896,6 +971,39 @@ verify_fun(Value) ->
 	_ ->
 	    error(malformed_ssl_dist_opt, [Value])
     end.
+
+set_ktls(#{
+    socket := Socket,
+    tls_version := {3, 4},
+    cipher_suite := ?TLS_AES_256_GCM_SHA384,
+    socket_options := #socket_options{
+        mode = _Mode,
+        packet = Packet,
+        packet_size = PacketSize,
+        header = Header,
+        active = Active
+    },
+    write_state := #cipher_state{
+        iv = <<WriteSalt:4/bytes, WriteIV:8/bytes>>, key = WriteKey
+    },
+    write_seq := WriteSeq,
+    read_state := #cipher_state{
+        iv = <<ReadSalt:4/bytes, ReadIV:8/bytes>>, key = ReadKey
+    },
+    read_seq := ReadSeq
+}) ->
+    % SOL_TCP = 6, TCP_ULP = 31
+    inet:setopts(Socket, [{raw, 6, 31, <<"tls">>}]),
+    % SOL_TLS = 282, TLS_TX = 1, TLS_RX = 2, TLS_1_3_VERSION = <<4, 3>>, TLS_CIPHER_AES_GCM_256 = <<52, 0>>
+    inet:setopts(Socket, [
+        {raw, 282, 1, <<4, 3, 52, 0, WriteIV/binary, WriteKey/binary, WriteSalt/binary, WriteSeq:64>>}
+    ]),
+    inet:setopts(Socket, [
+        {raw, 282, 2, <<4, 3, 52, 0, ReadIV/binary, ReadKey/binary, ReadSalt/binary, ReadSeq:64>>}
+    ]),
+    inet:setopts(Socket, [
+        list, {packet, Packet}, {packet_size, PacketSize}, {header, Header}, {active, Active}
+    ]).
 
 %% -------------------------------------------------------------------------
 

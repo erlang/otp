@@ -62,7 +62,8 @@
          set_opts/2,
 	 peer_certificate/1,
          negotiated_protocol/1,
-	 connection_information/2
+	 connection_information/2,
+         ktls_handover/1
 	]).
 
 %% Erlang Distribution export
@@ -422,6 +423,14 @@ peer_certificate(ConnectionPid) ->
 negotiated_protocol(ConnectionPid) ->
     call(ConnectionPid, negotiated_protocol).
 
+%%--------------------------------------------------------------------
+-spec ktls_handover(pid()) -> {ok, map()} | {error, reason()}.
+%%
+%% Description:  Returns the negotiated protocol
+%%--------------------------------------------------------------------
+ktls_handover(ConnectionPid) ->
+    call(ConnectionPid, ktls_handover).
+
 dist_handshake_complete(ConnectionPid, DHandle) ->
     gen_statem:cast(ConnectionPid, {dist_handshake_complete, DHandle}).
 
@@ -648,6 +657,45 @@ connection({call, From},
         {error, timeout} ->
             {stop_and_reply, {shutdown, downgrade_fail}, [{reply, From, {error, timeout}}]}
     end;
+connection({call, From}, ktls_handover, #state{
+    static_env = #static_env{
+        transport_cb = Transport,
+        socket = Socket
+    },
+    connection_env = #connection_env{
+        user_application = {_Mon, Pid},
+        negotiated_version = TlsVersion
+    },
+    ssl_options = #{ktls := true},
+    socket_options = SocketOpts,
+    connection_states = #{
+        current_write := #{
+            security_parameters := #security_parameters{cipher_suite = CipherSuite},
+            cipher_state := WriteState,
+            sequence_number := WriteSeq
+        },
+        current_read := #{
+            cipher_state := ReadState,
+            sequence_number := ReadSeq
+        }
+    }
+}) ->
+    Reply = case Transport:controlling_process(Socket, Pid) of
+        ok ->
+            {ok, #{
+                socket => Socket,
+                tls_version => TlsVersion,
+                cipher_suite => CipherSuite,
+                socket_options => SocketOpts,
+                write_state => WriteState,
+                write_seq => WriteSeq,
+                read_state => ReadState,
+                read_seq => ReadSeq
+            }};
+        {error, Reason} ->
+            {error, Reason}
+    end,
+    {stop_and_reply, {shutdown, ktls}, [{reply, From, Reply}]};
 connection({call, From}, Msg, State) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State);
 connection(cast, {dist_handshake_complete, DHandle},
@@ -1129,6 +1177,9 @@ maybe_invalidate_session({false, first}, server = Role, Host, Port, Session) ->
 maybe_invalidate_session(_, _, _, _, _) ->
     ok.
 
+terminate({shutdown, ktls}, connection, State) ->
+    %% Socket shall not be closed as it should be returned to user
+    handle_trusted_certs_db(State);
 terminate({shutdown, downgrade}, downgrade, State) ->
     %% Socket shall not be closed as it should be returned to user
     handle_trusted_certs_db(State);
