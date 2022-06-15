@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2021. All Rights Reserved.
+# Copyright Ericsson AB 2001-2022. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -101,6 +101,7 @@ XML_CHAPTER_FILES = \
 	snmp_advanced_agent.xml \
 	snmp_app_a.xml \
 	snmp_app_b.xml \
+	snmp_app_c.xml \
 	notes.xml
 
 BOOK_FILES = book.xml
