@@ -3439,7 +3439,7 @@ is_module_dialyzer_option(Option) ->
                   no_behaviours,no_undefined_callbacks,unmatched_returns,
                   error_handling,race_conditions,no_missing_calls,
                   specdiffs,overspecs,underspecs,unknown,
-                  no_underspecs
+                  no_underspecs, no_extra_return, no_missing_return
                  ]).
 
 %% try_catch_clauses(Scs, Ccs, In, ImportVarTable, State) ->

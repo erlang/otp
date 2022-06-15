@@ -570,4 +570,8 @@ They are primarily intended to be used with the -dialyzer attribute:
   -Wno_underspecs
      Suppress warnings about underspecified functions (those whose -spec
      is strictly more allowing than the success typing).
+  -Wno_extra_return
+     Suppress warnings about functions whose specification includes types that the function cannot return.
+  -Wno_missing_return
+     Suppress warnings about functions that return values that are not part of the specification.
 ".
