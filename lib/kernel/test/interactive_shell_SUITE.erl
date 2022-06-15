@@ -1079,22 +1079,26 @@ width(Str) ->
     lists:sum(
       [npwcwidth(CP) || CP <- lists:flatten(Str)]).
 
-%% Poor mans character width
-npwcwidth(16#D55C) ->
-    2; %% 한
-npwcwidth(16#1f91A) ->
-    2; %% hand
-npwcwidth(16#1F3Fc) ->
-    2; %% Skintone
-npwcwidth(16#1f600) ->
-    2; %% smilie
-npwcwidth(C) ->
-    case lists:member(C, [775,776,780,785,786,787,788,791,793,794,
-                          804,813,848,852,854,858,871,875,878]) of
-        true ->
-            0;
-        false ->
-            1
+npwcwidth(CP) ->
+    try prim_tty:npwcwidth(CP)
+    catch error:undef ->
+            if CP =:= 16#D55C ->
+                    2; %% 한
+               CP =:= 16#1f91A ->
+                    2; %% hand
+               CP =:= 16#1F3Fc ->
+                    2; %% Skintone
+               CP =:= 16#1f600 ->
+                    2; %% smilie
+               true ->
+                    case lists:member(CP, [775,776,780,785,786,787,788,791,793,794,
+                                           804,813,848,852,854,858,871,875,878]) of
+                        true ->
+                            0;
+                        false ->
+                            1
+                    end
+            end
     end.
 
 -record(tmux, {peer, node, name, orig_location }).

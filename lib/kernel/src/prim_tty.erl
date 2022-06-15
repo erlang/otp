@@ -105,7 +105,7 @@
 %%        to previous line automatically.
 
 -export([init/1, reinit/2, isatty/1, handles/1, unicode/1, unicode/2, handle_signal/2,
-         window_size/1, handle_request/2, write/2, write/3]).
+         window_size/1, handle_request/2, write/2, write/3, npwcwidth/1]).
 
 -nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/0,
        tty_select/3, tty_window_size/1, write_nif/2, read_nif/2, isprint/1,
