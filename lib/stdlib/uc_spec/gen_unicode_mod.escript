@@ -242,25 +242,26 @@ gen_header(Fd) ->
     io:put_chars(Fd, "-compile({inline, [class/1]}).\n"),
     io:put_chars(Fd, "-compile(nowarn_unused_vars).\n"),
     io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2]}).\n"),
-    io:put_chars(Fd, "-type gc() :: char()|[char()].\n\n\n"),
+    io:put_chars(Fd, "-type gc() :: char()|[char()].\n\n"),
+    io:put_chars(Fd, "-define(IS_CP(CP), (is_integer(CP) andalso 0 =< CP andalso CP < 16#110000)).\n\n\n"),
     ok.
 
 gen_static(Fd) ->
     io:put_chars(Fd, "-spec lookup(char()) -> #{'canon':=[{byte(),char()}], 'ccc':=byte(), "
                  "'compat':=[] | {atom(),[{byte(),char()}]}, 'category':={atom(),atom()}}.\n"),
-    io:put_chars(Fd, "lookup(Codepoint) when is_integer(Codepoint) ->\n"
+    io:put_chars(Fd, "lookup(Codepoint) when ?IS_CP(Codepoint) ->\n"
                  "    {CCC,Can,Comp,Cat} = unicode_table(Codepoint),\n"
                  "    #{ccc=>CCC, canon=>Can, compat=>Comp, category=>category(Codepoint,Cat)}.\n\n"),
 
     io:put_chars(Fd, "-spec get_case(char()) -> #{'fold':=gc(), 'lower':=gc(), 'title':=gc(), 'upper':=gc()}.\n"),
-    io:put_chars(Fd, "get_case(Codepoint) ->\n"
+    io:put_chars(Fd, "get_case(Codepoint) when ?IS_CP(Codepoint) ->\n"
                  "    case case_table(Codepoint) of\n"
                  "        {U,L} -> #{upper=>U,lower=>L,title=>U,fold=>L};\n"
                  "        {U,L,T,F} -> #{upper=>U,lower=>L,title=>T,fold=>F}\n"
                  "    end.\n\n"),
 
     io:put_chars(Fd, "spec_version() -> {14,0}.\n\n\n"),
-    io:put_chars(Fd, "class(Codepoint) -> \n"
+    io:put_chars(Fd, "class(Codepoint) when ?IS_CP(Codepoint) -> \n"
                  "    {CCC,_,_,_} = unicode_table(Codepoint),\n    CCC.\n\n"),
 
     io:put_chars(Fd, "-spec uppercase(unicode:chardata()) -> "
@@ -316,11 +317,11 @@ gen_static(Fd) ->
 
     io:put_chars(Fd, "%% Returns true if the character is considered wide in non east asian context.\n"),
     io:put_chars(Fd, "-spec is_wide(gc()) -> boolean().\n"),
-    io:put_chars(Fd, "is_wide(C) when is_integer(C) ->\n"),
+    io:put_chars(Fd, "is_wide(C) when ?IS_CP(C) ->\n"),
     io:put_chars(Fd, "    is_wide_cp(C);\n"),
     io:put_chars(Fd, "is_wide([_, 16#FE0E|Cs]) -> true; %% Presentation sequence\n"),
     io:put_chars(Fd, "is_wide([_, 16#FE0F|Cs]) -> true; %% Presentation sequence\n"),
-    io:put_chars(Fd, "is_wide([C|Cs]) ->\n"),
+    io:put_chars(Fd, "is_wide([C|Cs]) when ?IS_CP(C) ->\n"),
     io:put_chars(Fd, "    is_wide_cp(C) orelse is_wide(Cs);\n"),
     io:put_chars(Fd, "is_wide([]) ->\n    false.\n\n"),
 
@@ -547,7 +548,7 @@ gen_ws(Fd, Props) ->
 gen_cp(Fd) ->
     io:put_chars(Fd, "-spec cp(String::unicode:chardata()) ->"
                  " maybe_improper_list() | {error, unicode:chardata()}.\n"),
-    io:put_chars(Fd, "cp([C|_]=L) when is_integer(C) -> L;\n"),
+    io:put_chars(Fd, "cp([C|_]=L) when ?IS_CP(C) -> L;\n"),
     io:put_chars(Fd, "cp([List]) -> cp(List);\n"),
     io:put_chars(Fd, "cp([List|R]) -> cpl(List, R);\n"),
     io:put_chars(Fd, "cp([]) -> [];\n"),
@@ -555,8 +556,8 @@ gen_cp(Fd) ->
     io:put_chars(Fd, "cp(<<>>) -> [];\n"),
     io:put_chars(Fd, "cp(<<R/binary>>) -> {error,R}.\n"),
     io:put_chars(Fd, "\n"),
-    io:put_chars(Fd, "cpl([C], R) when is_integer(C) -> [C|cpl_1_cont(R)];\n"),
-    io:put_chars(Fd, "cpl([C|T], R) when is_integer(C) -> [C|cpl_cont(T, R)];\n"),
+    io:put_chars(Fd, "cpl([C], R) when ?IS_CP(C) -> [C|cpl_1_cont(R)];\n"),
+    io:put_chars(Fd, "cpl([C|T], R) when ?IS_CP(C) -> [C|cpl_cont(T, R)];\n"),
     io:put_chars(Fd, "cpl([List], R) -> cpl(List, R);\n"),
     io:put_chars(Fd, "cpl([List|T], R) -> cpl(List, [T|R]);\n"),
     io:put_chars(Fd, "cpl([], R) -> cp(R);\n"),
@@ -627,13 +628,13 @@ gen_gc(Fd, GBP) ->
                  " maybe_improper_list() | {error, unicode:chardata()}.\n"),
     io:put_chars(Fd,
                  "gc([]=R) -> R;\n"
-                 "gc([CP]=R) when is_integer(CP) -> R;\n"
+                 "gc([CP]=R) when ?IS_CP(CP) -> R;\n"
                  "gc([$\\r=CP|R0]) ->\n"
                  "    case cp(R0) of % Don't break CRLF\n"
                  "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
                  "        T -> [CP|T]\n"
                  "    end;\n"
-                 "gc([CP1|T1]=T) when CP1 < 256 ->\n"
+                 "gc([CP1|T1]=T) when CP1 < 256 andalso ?IS_CP(CP1) ->\n"
                  "    case T1 of\n"
                  "        [CP2|_] when CP2 < 256 -> T; %% Ascii Fast path\n"
                  "        _ -> %% Keep the tail binary.\n"
@@ -653,7 +654,7 @@ gen_gc(Fd, GBP) ->
                  "           end;\n"
                  "      true -> gc_1([CP1|Rest])\n"
                  "    end;\n"
-                 "gc([CP|_]=T) when is_integer(CP) -> gc_1(T);\n"
+                 "gc([CP|_]=T) when ?IS_CP(CP) -> gc_1(T);\n"
                  "gc(Str) ->\n"
                  "    case cp(Str) of\n"
                  "        {error,_}=Error -> Error;\n"
@@ -865,6 +866,7 @@ gen_gc(Fd, GBP) ->
                  "                _ -> gc_extend2(R1, R0, Acc)\n"
                  "            end\n    end.\n\n"),
     io:put_chars(Fd, "%% Handle Hangul LV\n"),
+    io:put_chars(Fd, "gc_h_lv_lvt([CP|_], _R0, _Acc) when not ?IS_CP(CP) -> error(badarg);\n"),
     GenHangulLV = fun(Range) -> io:format(Fd, "gc_h_lv_lvt~s gc_h_V(R1,[CP|Acc]);\n",
                                           [gen_clause2(Range)]) end,
     [GenHangulLV(CP) || CP <- merge_ranges(maps:get(lv,GBP))],

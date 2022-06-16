@@ -92,7 +92,7 @@ casefold(_) ->
 whitespace(_) ->
     WS = unicode_util:whitespace(),
     WS = lists:filter(fun unicode_util:is_whitespace/1, WS),
-    %% TODO add more tests
+    false = unicode_util:is_whitespace($A),
     ok.
 
 cp(_) ->
@@ -103,6 +103,15 @@ cp(_) ->
     "hejsan" = fetch(["hej"|<<"san">>], Get),
     {error, <<128>>} = Get(<<128>>),
     {error, [<<128>>, 0]} = Get([<<128>>, 0]),
+
+    {'EXIT', _} = catch Get([-1]),
+    {'EXIT', _} = catch Get([-1, $a]),
+    {'EXIT', _} = catch Get([foo, $a]),
+    {'EXIT', _} = catch Get([-1, $a]),
+    {'EXIT', _} = catch Get([[], -1]),
+    {'EXIT', _} = catch Get([[-1], $a]),
+    {'EXIT', _} = catch Get([[-1, $a], $a]),
+
     ok.
 
 gc(Config) ->
@@ -114,6 +123,15 @@ gc(Config) ->
     "hejsan" = fetch(["hej"|<<"san">>], Get),
     {error, <<128>>} = Get(<<128>>),
     {error, [<<128>>, 0]} = Get([<<128>>, 0]),
+
+    {'EXIT', _} = catch Get([-1]),
+    {'EXIT', _} = catch Get([-1, $a]),
+    {'EXIT', _} = catch Get([foo, $a]),
+    {'EXIT', _} = catch Get([-1, $a]),
+    {'EXIT', _} = catch Get([[], -1]),
+    {'EXIT', _} = catch Get([[-1], $a]),
+    {'EXIT', _} = catch Get([[-1, $a], $a]),
+    {'EXIT', _} = catch Get([<<$a>>, [-1, $a], $a]), %% Current impl
 
     0 = fold(fun verify_gc/3, 0, DataDir ++ "/GraphemeBreakTest.txt"),
     ok.
