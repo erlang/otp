@@ -74,7 +74,7 @@
 -import(lists, [all/2,any/2,append/1,duplicate/2,
                 foldl/3,last/1,member/2,partition/2,
                 reverse/1,reverse/2,seq/2,sort/1,sort/2,
-                splitwith/2,usort/1,zip/2]).
+                usort/1,zip/2]).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
@@ -588,9 +588,12 @@ bs_subst_ctx(Other, _CtxChain) ->
 %%  arguments. Evaluate the instructions and remove them.
 
 sanitize(#st{ssa=Blocks0,cnt=Count0}=St) ->
-    Ls = beam_ssa:rpo(Blocks0),
-    {Blocks,Count} = sanitize(Ls, Blocks0, Count0, #{}),
+    {Blocks,Count} = sanitize(Blocks0, Count0),
     St#st{ssa=Blocks,cnt=Count}.
+
+sanitize(Blocks, Counts) ->
+    Ls = beam_ssa:rpo(Blocks),
+    sanitize(Ls, Blocks, Counts, #{}).
 
 sanitize([L|Ls], Blocks0, Count0, Values0) ->
     #b_blk{is=Is0,last=Last0} = Blk0 = map_get(L, Blocks0),
@@ -603,21 +606,28 @@ sanitize([L|Ls], Blocks0, Count0, Values0) ->
             sanitize(Ls, Blocks, Count, Values)
     end;
 sanitize([], Blocks0, Count, Values) ->
-    Blocks = if
-                    map_size(Values) =:= 0 ->
-                        Blocks0;
-                    true ->
-                        RPO = beam_ssa:rpo(Blocks0),
-                        beam_ssa:rename_vars(Values, RPO, Blocks0)
-                end,
+    Blocks1 = if
+                  map_size(Values) =:= 0 ->
+                      Blocks0;
+                  true ->
+                      RPO = beam_ssa:rpo(Blocks0),
+                      beam_ssa:rename_vars(Values, RPO, Blocks0)
+              end,
 
     %% Unreachable blocks can cause problems for the dominator calculations.
-    Ls = beam_ssa:rpo(Blocks),
-    Reachable = gb_sets:from_list(Ls),
-    {case map_size(Blocks) =:= gb_sets:size(Reachable) of
-        true -> Blocks;
-        false -> remove_unreachable(Ls, Blocks, Reachable, [])
-     end, Count}.
+    Linear = beam_ssa:linearize(Blocks1),
+    if
+        map_size(Blocks1) =:= length(Linear) ->
+            {Blocks1,Count};
+        true ->
+            %% Since blocks were removed, some phi nodes could have
+            %% been reduced to a single value. Single-valued phi nodes
+            %% can cause problem when beam_ssa_codegen does its own
+            %% constant propagation, so we will have re-run this pass
+            %% to get rid of any single-valued phi nodes.
+            Blocks = maps:from_list(Linear),
+            sanitize(Blocks, Count)
+    end.
 
 sanitize_is([#b_set{op=get_map_element,args=Args0}=I0|Is],
             Last, Blocks, Count0, Values, Changed, Acc) ->
@@ -701,6 +711,19 @@ sanitize_is([#b_set{op=bs_test_tail}=I], Last, Blocks, Count, Values,
             sanitize_is([], Last, Blocks, Count, Values, true, Acc);
         _ ->
             do_sanitize_is(I, [], Last, Blocks, Count, Values, Changed, Acc)
+    end;
+sanitize_is([#b_set{op=bs_get,args=Args0}=I0|Is], Last, Blocks, Count, Values,
+            Changed, Acc) ->
+    case {Args0,sanitize_args(Args0, Values)} of
+        {[_,_,_,#b_var{},_],[Type,Val,Flags,#b_literal{val=all},Unit]} ->
+            %% The size `all` is used for the size of the final binary
+            %% segment in a pattern. Using `all` explicitly is not allowed,
+            %% so we convert it to an obvious invalid size.
+            Args = [Type,Val,Flags,#b_literal{val=bad_size},Unit],
+            I = I0#b_set{args=Args},
+            sanitize_is(Is, Last, Blocks, Count, Values, true, [I|Acc]);
+        {_,_} ->
+            sanitize_is(Is, Last, Blocks, Count, Values, Changed, [I0|Acc])
     end;
 sanitize_is([#b_set{}=I|Is], Last, Blocks, Count, Values, Changed, Acc) ->
     do_sanitize_is(I, Is, Last, Blocks, Count, Values, Changed, Acc);
@@ -807,26 +830,10 @@ sanitize_instr(is_tagged_tuple, [#b_literal{val=Tuple},
         true ->
             {value,false}
     end;
+sanitize_instr(succeeded, [#b_literal{}], _I) ->
+    {value,true};
 sanitize_instr(_, _, _) ->
     ok.
-
-remove_unreachable([L|Ls], Blocks, Reachable, Acc) ->
-    #b_blk{is=Is0} = Blk0 = map_get(L, Blocks),
-    case split_phis(Is0) of
-        {[_|_]=Phis,Rest} ->
-            Is = [prune_phi(Phi, Reachable) || Phi <- Phis] ++ Rest,
-            Blk = Blk0#b_blk{is=Is},
-            remove_unreachable(Ls, Blocks, Reachable, [{L,Blk}|Acc]);
-        {[],_} ->
-            remove_unreachable(Ls, Blocks, Reachable, [{L,Blk0}|Acc])
-    end;
-remove_unreachable([], _Blocks, _, Acc) ->
-    maps:from_list(Acc).
-
-prune_phi(#b_set{args=Args0}=Phi, Reachable) ->
-    Args = [A || {_,Pred}=A <- Args0,
-                 gb_sets:is_element(Pred, Reachable)],
-    Phi#b_set{args=Args}.
 
 phi_all_same_literal([{#b_literal{}=Arg, _From} | Phis]) ->
     phi_all_same_literal_1(Phis, Arg);
@@ -3047,9 +3054,6 @@ rel2fam(S0) ->
     S1 = sofs:relation(S0),
     S = sofs:rel2fam(S1),
     sofs:to_external(S).
-
-split_phis(Is) ->
-    splitwith(fun(#b_set{op=Op}) -> Op =:= phi end, Is).
 
 is_yreg({y,_}) -> true;
 is_yreg({x,_}) -> false;
