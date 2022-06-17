@@ -34,6 +34,8 @@ static ErlNifResourceType* engine_ctx_rtype;
 
 static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i);
 static int zero_terminate(ErlNifBinary bin, char **buf);
+void unregister_all_possible_methods(struct engine_ctx* ctx);
+
 
 static void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
     if (ctx == NULL)
@@ -47,10 +49,54 @@ static void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
          PRINTF_ERR0("  empty ctx->id=NULL");
 
     if (ctx->engine) {
-        if (ctx->is_functional)
+        if (ctx->is_functional) {
+            ENGINE_remove(ctx->engine);
+            unregister_all_possible_methods(ctx);
             ENGINE_finish(ctx->engine);
+        }
         ENGINE_free(ctx->engine);
     }
+}
+
+// 
+void unregister_all_possible_methods(struct engine_ctx* ctx)
+{    
+#ifdef ENGINE_METHOD_RSA
+    ENGINE_unregister_RSA(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_DSA
+    ENGINE_unregister_DSA(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_DH
+    ENGINE_unregister_DH(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_RAND
+    ENGINE_unregister_RAND(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_ECDH
+    ENGINE_unregister_ECDH(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_ECDSA
+    ENGINE_unregister_ECDSA(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_STORE
+    ENGINE_unregister_STORE(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_CIPHERS
+    ENGINE_unregister_ciphers(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_DIGESTS
+    ENGINE_unregister_digests(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_PKEY_METHS
+    ENGINE_unregister_pkey_meths(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_PKEY_ASN1_METHS
+    ENGINE_unregister_pkey_asn1_meths(ctx->engine);
+#endif
+#ifdef ENGINE_METHOD_EC
+    ENGINE_unregister_EC(ctx->engine);
+#endif
 }
 
 int get_engine_and_key_id(ErlNifEnv *env, ERL_NIF_TERM key, char ** id, ENGINE **e)
