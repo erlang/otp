@@ -83,7 +83,10 @@
          t_bif_map_find/1,
          t_fold_3/1, t_from_keys/1, t_map_2/1, t_maps_take_2/1,
          t_update_with_3/1, t_update_with_4/1,
-         t_with_2/1
+         t_with_2/1,
+
+         %% miscellaneous
+         t_conflicting_destinations/1
         ]).
 
 -define(badmap(V, F, Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -153,7 +156,10 @@ all() ->
      %% cover more code
      t_bif_map_find,
      t_fold_3, t_from_keys, t_map_2, t_maps_take_2,
-     t_update_with_3, t_update_with_4, t_with_2
+     t_update_with_3, t_update_with_4, t_with_2,
+
+     %% miscellaneous
+     t_conflicting_destinations
     ].
 
 groups() -> [].
@@ -2498,6 +2504,23 @@ t_bif_map_find(Config) when is_list(Config) ->
 			  catch maps:find(a, T)
 	      end),
     ok.
+
+t_conflicting_destinations(_Config) ->
+    {'EXIT',{function_clause,_}} =
+        catch do_conflicts(#{{tag,whatever} => true}),
+    {'EXIT',{function_clause,_}} =
+        catch do_conflicts(#{[something] => 42}),
+    {'EXIT',{function_clause,_}} =
+        catch do_conflicts(#{{tag,whatever} => true,
+                             #{} => <<0>>,
+                             [something] => 42}),
+    ok.
+
+do_conflicts(#{{tag,whatever} := true,
+               #{} := <<bad_integer,0:(is_integer(a))>>} =
+                 #{[something] := 42}) ->
+    ok.
+
 
 %% aux
 
