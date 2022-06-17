@@ -23,7 +23,7 @@
 -define(BEAM_TYPES_INTERNAL, true).
 -include("beam_types.hrl").
 
--import(lists, [foldl/3, reverse/1, usort/1]).
+-import(lists, [foldl/3, mapfoldl/3, reverse/1, usort/1]).
 
 -export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
@@ -592,11 +592,9 @@ mtfv_1(A) when is_atom(A) ->
 mtfv_1(B) when is_bitstring(B) ->
     case bit_size(B) of
         0 ->
-            %% This is a bit of a hack, but saying that empty binaries have a
-            %% unit of 8 helps us get rid of is_binary/1 checks.
-            #t_bitstring{size_unit=8};
+            #t_bitstring{size_unit=256};
         Size ->
-            #t_bitstring{size_unit=Size}
+            #t_bitstring{size_unit=gcd(Size, 256)}
     end;
 mtfv_1(F) when is_float(F) ->
     make_float(F);
@@ -1331,6 +1329,10 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
 -define(BEAM_TYPE_REFERENCE,     (1 bsl 11)).
 -define(BEAM_TYPE_TUPLE,         (1 bsl 12)).
 
+-define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 13)).
+-define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 14)).
+-define(BEAM_TYPE_HAS_UNIT,        (1 bsl 15)).
+
 ext_type_mapping() ->
     [{?BEAM_TYPE_ATOM,          #t_atom{}},
      {?BEAM_TYPE_BITSTRING,     #t_bitstring{}},
@@ -1346,12 +1348,19 @@ ext_type_mapping() ->
      {?BEAM_TYPE_REFERENCE,     reference},
      {?BEAM_TYPE_TUPLE,         #t_tuple{}}].
 
--spec decode_ext(binary()) -> type().
-decode_ext(<<TypeBits:16/big,Min:64,Max:64>>) ->
+-spec decode_ext(binary()) -> {type(),binary()} | 'done'.
+decode_ext(<<TypeBits:16/big,More/binary>>) ->
     Res = foldl(fun({Id, Type}, Acc) ->
                         decode_ext_bits(TypeBits, Id, Type, Acc)
                 end, none, ext_type_mapping()),
-    {Res,Min,Max}.
+    {[Min,Max,Unit],Extra} = decode_extra(TypeBits, More),
+    R = case {Min,Max} of
+            {'-inf','+inf'} -> any;
+            R0 -> R0
+        end,
+    {decode_fix(Res, R, Unit),Extra};
+decode_ext(<<>>) ->
+    done.
 
 decode_ext_bits(Input, TypeBit, Type, Acc) ->
     case Input band TypeBit of
@@ -1359,17 +1368,50 @@ decode_ext_bits(Input, TypeBit, Type, Acc) ->
         _ -> join(Type, Acc)
     end.
 
+decode_extra(TypeBits, Extra) ->
+    L = [{?BEAM_TYPE_HAS_LOWER_BOUND, 64, '-inf'},
+         {?BEAM_TYPE_HAS_UPPER_BOUND, 64, '+inf'},
+         {?BEAM_TYPE_HAS_UNIT, 8, 1}],
+    mapfoldl(fun({Bit,Size,Default}, Acc0) ->
+                     if
+                         TypeBits band Bit =:= Bit ->
+                             <<Value:Size,Acc/binary>> = Acc0,
+                             {Value,Acc};
+                         true ->
+                             {Default,Acc0}
+                     end
+             end, Extra, L).
+
+decode_fix(#t_integer{}, Range, _Unit) ->
+    #t_integer{elements=Range};
+decode_fix(#t_number{}, Range, _Unit) ->
+    #t_number{elements=Range};
+decode_fix(#t_bitstring{}, _Range, Unit) ->
+    #t_bitstring{size_unit=Unit};
+decode_fix(#t_union{}=Type0, Range, Unit) ->
+    Type1 = case meet(Type0, #t_integer{}) of
+                #t_integer{} ->
+                    Type0#t_union{number=#t_integer{elements=Range}};
+                _ ->
+                    Type0
+            end,
+    case meet(Type1, #t_bitstring{}) of
+        #t_bitstring{} ->
+            Type1#t_union{other=#t_bitstring{size_unit=Unit}};
+        _ ->
+            Type1
+    end;
+decode_fix(Type, _, _) ->
+    Type.
+
 -spec encode_ext(type()) -> binary().
 encode_ext(Input) ->
-    TypeBits = foldl(fun({Id, Type}, Acc) ->
-                             encode_ext_bits(Input, Id, Type, Acc)
-                     end, 0, ext_type_mapping()),
-    case get_integer_range(Input) of
-        none ->
-            <<TypeBits:16/big,0:64,-1:64>>;
-        {Min,Max} ->
-            <<TypeBits:16/big,Min:64,Max:64>>
-    end.
+    TypeBits0 = foldl(fun({Id, Type}, Acc) ->
+                              encode_ext_bits(Input, Id, Type, Acc)
+                      end, 0, ext_type_mapping()),
+    {TypeBits1,Extra} = encode_extra(Input),
+    TypeBits = TypeBits0 bor TypeBits1,
+    <<TypeBits:16,Extra/binary>>.
 
 encode_ext_bits(Input, TypeBit, Type, Acc) ->
     case meet(Input, Type) of
@@ -1377,21 +1419,49 @@ encode_ext_bits(Input, TypeBit, Type, Acc) ->
         _ -> Acc bor TypeBit
     end.
 
-get_integer_range(#t_integer{elements={Min,Max}}) ->
-    case is_small(Min) andalso is_small(Max) of
+encode_extra(Input) ->
+    {TypeBits0,Extra0} = encode_range(Input),
+    {TypeBits1,Extra1} = encode_unit(Input),
+    {TypeBits0 bor TypeBits1,<<Extra0/binary,Extra1/binary>>}.
+
+encode_range(#t_integer{elements={Min,Max}}) ->
+    encode_range(Min, Max);
+encode_range(#t_number{elements={Min,Max}}) ->
+    encode_range(Min, Max);
+encode_range(#t_union{number=N}) ->
+    encode_range(N);
+encode_range(_) ->
+    {0,<<>>}.
+
+encode_range(Min, Max) ->
+    case is_small(Min) of
         true ->
-            {Min,Max};
+            encode_range(Max, ?BEAM_TYPE_HAS_LOWER_BOUND, <<Min:64>>);
         false ->
-            %% Not an integer with range, or at least one of the
-            %% endpoints is a bignum.
-            none
-    end;
-get_integer_range(#t_union{number=N}) ->
-    get_integer_range(N);
-get_integer_range(_) -> none.
+            encode_range(Max, 0, <<>>)
+    end.
+
+encode_range(Max, TypeBits, Extra) ->
+    case is_small(Max) of
+        true ->
+            {TypeBits bor ?BEAM_TYPE_HAS_UPPER_BOUND,
+             <<Extra/binary,Max:64>>};
+        false ->
+            {TypeBits,Extra}
+    end.
+
+encode_unit(#t_bitstring{size_unit=Unit}) ->
+    true = 0 < Unit andalso Unit =< 256,        %Assertion.
+    {?BEAM_TYPE_HAS_UNIT,<<(Unit-1):8>>};
+encode_unit(#t_union{other=Other}) ->
+    encode_unit(Other);
+encode_unit(_) ->
+    {0,<<>>}.
 
 %% Test whether the number is a small on a 64-bit machine.
 %% (Normally the compiler doesn't know/doesn't care whether something is
 %% bignum, but because the type representation is versioned this is safe.)
-is_small(N) ->
-    -(1 bsl 59) =< N andalso N =< (1 bsl 59) - 1.
+is_small(N) when -(1 bsl 59) =< N andalso N =< (1 bsl 59) - 1 ->
+    true;
+is_small(_) ->
+    false.

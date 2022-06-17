@@ -375,7 +375,6 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
    }
    case ERTS_ML_STATE_ALIAS_ONCE:
    case ERTS_ML_STATE_ALIAS_DEMONITOR:
-       erts_pid_ref_delete(ref);
        /* fall through... */
    default:
        erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
@@ -4715,7 +4714,7 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
         ErtsMagicBinary *mb;
         Uint32 sid;
         if (refn[0] >= MAX_REFERENCE) goto bad;
-        if (n != ERTS_REF_NUMBERS) goto bad;
+        if (n != ERTS_REF_NUMBERS && n != ERTS_PID_REF_NUMBERS) goto bad;
         sid = erts_get_ref_numbers_thr_id(refn);
         if (sid > erts_no_schedulers) goto bad;
         if (erts_is_ordinary_ref_numbers(refn)) {
@@ -4726,11 +4725,14 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
         }
         else {
             /* Check if it is a pid reference... */
-            Eterm pid = erts_pid_ref_lookup(refn);
+            Eterm pid = erts_pid_ref_lookup(refn, n);
             if (is_internal_pid(pid)) {
                 hp = HAlloc(BIF_P, ERTS_PID_REF_THING_SIZE);
                 write_pid_ref_thing(hp, refn[0], refn[1], refn[2], pid);
                 res = make_internal_ref(hp);
+            }
+            else if (is_non_value(pid)) {
+                goto bad;
             }
             else {
                 /* Check if it is a magic reference... */
@@ -5846,8 +5848,6 @@ BIF_RETTYPE unalias_1(BIF_ALIST_1)
 
     ASSERT(erts_monitor_is_origin(mon));
     
-    erts_pid_ref_delete(BIF_ARG_1);
-
     mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
     if (mon->type == ERTS_MON_TYPE_ALIAS) {
         erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), mon);

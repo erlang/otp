@@ -477,9 +477,8 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
         if (is_tuple(tuple_literal)) {
             Label next = a.newLabel(), fail = a.newLabel();
             Sint size = Sint(arityval(*tuple_val(tuple_literal)));
-            auto [min, max] = getIntRange(Pos);
-            bool is_bounded = min <= max;
-            bool can_fail = !is_bounded || min < 1 || size < max;
+            auto [min, max] = getClampedRange(Pos);
+            bool can_fail = min < 1 || size < max;
             auto [pos, tuple] = load_sources(Pos, ARG3, Tuple, ARG4);
             auto dst = init_destination(Dst, ARG1);
 
@@ -499,14 +498,14 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
 
             a.asr(TMP3, pos.reg, imm(_TAG_IMMED1_SIZE));
 
-            if (is_bounded && min >= 1) {
+            if (min >= 1) {
                 comment("skipped check for position >= 1");
             } else {
                 a.cmp(TMP3, imm(1));
                 a.b_mi(fail);
             }
 
-            if (is_bounded && size >= max) {
+            if (size >= max) {
                 comment("skipped check for position beyond tuple");
             } else {
                 mov_imm(TMP2, size);

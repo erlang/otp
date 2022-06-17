@@ -570,16 +570,24 @@ types(erlang, Op, [LHS,RHS]) when Op =:= min; Op =:= max ->
     R1 = get_range(LHS),
     R2 = get_range(RHS),
     R = beam_bounds:bounds(Op, R1, R2),
-    RetType = case mixed_arith_types([LHS,RHS]) of
-                  {#t_integer{}, _, _} ->
-                      #t_integer{elements=R};
-                  {#t_number{}, _, _} ->
-                      #t_number{elements=R};
-                  {#t_float{}, _, _} ->
-                      #t_float{};
-                  {_, _, _} ->
-                      any
+
+    %% We cannot use mixed_arith_types/1 here as we will return either argument
+    %% unchanged. The result will not be converted to a float if one of the
+    %% arguments is a float.
+    %%
+    %%   1235.0 = 1 + 1234.0
+    %%   1 = erlang:min(1, 1234.0)
+    RetType = case {normalize(LHS), normalize(RHS)} of
+                  {#t_float{}, #t_float{}} -> #t_float{elements=R};
+                  {#t_float{}, #t_integer{}} -> #t_number{elements=R};
+                  {#t_float{}, #t_number{}} -> #t_number{elements=R};
+                  {#t_integer{}, #t_integer{}} -> #t_integer{elements=R};
+                  {#t_integer{}, #t_float{}} -> #t_number{elements=R};
+                  {#t_integer{}, #t_number{}} -> #t_number{elements=R};
+                  {#t_number{}, #t_number{}} -> #t_number{elements=R};
+                  {_, _} -> any
               end,
+
     sub_unsafe(RetType, [any, any]);
 
 types(erlang, Name, Args) ->

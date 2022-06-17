@@ -29,8 +29,6 @@ import com.ericsson.otp.erlang.OtpTransportFactory;
 
 public class GenericTransportFactoryTest {
 
-    static boolean serverOk = false;
-
     /**
      * A minimalist custom generic transport factory working without epmd,
      * using the node name as the identifier of the listening socket port.
@@ -38,32 +36,37 @@ public class GenericTransportFactoryTest {
     public static class TestFactory extends OtpGenericTransportFactory {
 
         OtpSocketTransportFactory tf = new OtpSocketTransportFactory();
+		String fake_epmd_name;
+		int fake_epmd_port;
 
         public OtpTransport createTransport(final OtpPeer peer)
                 throws IOException {
             String addr = "localhost";
             String peerName = peer.alive();
             int port = 0;
-            try {
-                port = Integer.parseInt(peerName);
-            } catch (NumberFormatException e) {
-            }
-            System.out.println("Creating transport to " + addr + ", " + port);
+			if (peerName == fake_epmd_name) {
+				port = fake_epmd_port;
+			}
+			else {
+				fail("Fake epmd don't know port nr of " + peerName);
+			}
+			System.out.println("Creating transport to " + addr + ", " + port);
             return tf.createTransport(addr, port);
         }
 
         public OtpServerTransport createServerTransport(final OtpLocalNode node)
                 throws IOException {
-            String nodeName = node.alive();
-            int port = 0;
-            try {
-                port = Integer.parseInt(nodeName);
-                serverOk = true;
-            } catch (NumberFormatException e) {
-                serverOk = false;
-            }
-            System.out.println("Creating server transport to " + port);
-            return tf.createServerTransport(port);
+			  String nodeName = node.alive();
+			  OtpServerTransport transport = tf.createServerTransport(0);
+			  System.out.println("Creating server transport for node "
+								 + nodeName + " to port "
+								 + transport.getLocalPort());
+
+			  // Store last created server node in our fake "epmd database".
+			  fake_epmd_name = nodeName;
+			  fake_epmd_port = transport.getLocalPort();
+
+			  return transport;
         }
 
     }
@@ -73,22 +76,14 @@ public class GenericTransportFactoryTest {
         OtpTransportFactory customFactory = new TestFactory();
 
         // The 2 test nodes with arbitrary socket port numbers
-        String nodeName1 = "65432";
-        String nodeName2 = "54321";
+        String nodeName1 = "Alice";
+        String nodeName2 = "Bob";
 
         // Create the first node
         final OtpNode node1 = new OtpNode(nodeName1, customFactory);
-        if (!serverOk) {
-            fail("Custom server transport 1 was not created");
-        }
-        System.out.println("Node 1 accepting connections on " + node1.port());
 
         // Create the second node
         final OtpNode node2 = new OtpNode(nodeName2, customFactory);
-        if (!serverOk) {
-            fail("Custom server transport 2 was not created");
-        }
-        System.out.println("Node 2 accepting connections on " + node2.port());
 
         // Finally test the connection between the 2 nodes
         if (!node1.ping(nodeName2, 2000)) {

@@ -129,7 +129,9 @@
                        | 'unknown'
                        | 'unmatched_returns'
                        | 'overspecs'
-                       | 'specdiffs'.
+                       | 'specdiffs'
+                       | 'no_extra_return'
+                       | 'no_missing_return'.
 -type dial_option()   :: {'files', [FileName :: file:filename()]}
                        | {'files_rec', [DirName :: file:filename()]}
                        | {'defines', [{Macro :: atom(), Value :: term()}]}

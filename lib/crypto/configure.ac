@@ -286,6 +286,13 @@ yes
           [test "$host_os" = "win32"],
           [
               # Windows...
+              AS_IF([test "x$ac_cv_sizeof_void_p" = "x8"],
+                    [
+                        lib_bits=64
+                    ],
+                    [
+                        lib_bits=32
+                    ])
               AS_IF([test -f "$dir/lib/VC/static/libcrypto${lib_bits}MD.lib"],
                     [
                         static_crypto_lib_name=libcrypto${lib_bits}MD
@@ -483,11 +490,9 @@ AS_CASE(["$erl_xcomp_without_sysroot-$with_ssl"],
                       AS_IF([test "x$ac_cv_sizeof_void_p" = "x8"],
                             [
 	                        std_win_ssl_locations="/mnt/c/OpenSSL-Win64 /c/OpenSSL-Win64 /mnt/c/opt/local64/pgm/OpenSSL /opt/local64/pgm/OpenSSL /cygdrive/c/OpenSSL-Win64"
-	                        lib_bits=64
                             ],
                             [
                                 std_win_ssl_locations="/mnt/c/OpenSSL-Win32 /c/OpenSSL-Win32 /mnt/c/OpenSSL /c/OpenSSL /cygdrive/c/OpenSSL /opt/local/pgm/OpenSSL /opt/local32/pgm/OpenSSL /mnt/c/opt/local/pgm/OpenSSL /mnt/c/opt/local32/pgm/OpenSSL /cygdrive/c/OpenSSL-Win32"
-	                        lib_bits=32
                             ])
 	          ])
 

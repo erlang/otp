@@ -54,8 +54,9 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
     a.add(upper, upper, constant);
 
 #if defined(ERL_INTERNAL_HASH_CRC32C)
-    a.crc32cw(hash, lower, hash);
-    a.crc32cw(hash, upper, hash);
+    a.crc32cw(lower, hash, lower);
+    a.add(hash, hash, lower);
+    a.crc32cw(hash, hash, upper);
 #else
     using rounds =
             std::initializer_list<std::tuple<a64::Gp, a64::Gp, a64::Gp, int>>;

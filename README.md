@@ -54,7 +54,7 @@ cd otp
 Checkout the branch or tag of your choice
 
 ```sh
-git checkout maint-24    # current latest stable version
+git checkout maint-25    # current latest stable version
 ```
 
 Configure, build and install

@@ -264,8 +264,8 @@ sent_timer_late_reply(Config) when is_list(Config) ->
     Cond = fun() -> ok end,
     Pre  = fun() ->
                    put(tc, ?FUNCTION_NAME),
-                   MgcNode = make_node_name(pl_5619_mgc),
-                   MgNode  = make_node_name(pl_5619_mg),
+                   MgcNode = make_node_name(pl_stlr_mgc),
+                   MgNode  = make_node_name(pl_stlr_mg),
                    i("try start nodes: "
                      "~n      MgcNode: ~p"
                      "~n      MgNode:  ~p", 
@@ -348,8 +348,8 @@ sent_timer_exceeded(Config) when is_list(Config) ->
     Cond = fun() -> ok end,
     Pre  = fun() ->
                    put(tc, ?FUNCTION_NAME),
-                   MgcNode = make_node_name(pl_5619_mgc),
-                   MgNode  = make_node_name(pl_5619_mg),
+                   MgcNode = make_node_name(pl_ste_mgc),
+                   MgNode  = make_node_name(pl_ste_mg),
                    i("try start nodes: "
                      "~n      MgcNode: ~p"
                      "~n      MgNode:  ~p", 
@@ -429,8 +429,8 @@ sent_timer_exceeded_long(Config) when is_list(Config) ->
     Cond = fun() -> ok end,
     Pre  = fun() ->
                    put(tc, ?FUNCTION_NAME),
-                   MgcNode = make_node_name(pl_5619_mgc),
-                   MgNode  = make_node_name(pl_5619_mg),
+                   MgcNode = make_node_name(pl_stel_mgc),
+                   MgNode  = make_node_name(pl_stel_mg),
                    i("try start nodes: "
                      "~n      MgcNode: ~p"
                      "~n      MgNode:  ~p", 
@@ -512,8 +512,8 @@ sent_resend_late_reply(Config) when is_list(Config) ->
     Cond = fun megaco_test_code/0,
     Pre  = fun() ->
                    put(tc, ?FUNCTION_NAME),
-                   MgcNode = make_node_name(pl_5619_mgc),
-                   MgNode  = make_node_name(pl_5619_mg),
+                   MgcNode = make_node_name(pl_srlr_mgc),
+                   MgNode  = make_node_name(pl_srlr_mg),
                    i("try start nodes: "
                      "~n      MgcNode: ~p"
                      "~n      MgNode:  ~p", 
@@ -611,8 +611,8 @@ sent_resend_exceeded(Config) when is_list(Config) ->
     Cond = fun megaco_test_code/0,
     Pre  = fun() ->
                    put(tc, ?FUNCTION_NAME),
-                   MgcNode = make_node_name(pl_5619_mgc),
-                   MgNode  = make_node_name(pl_5619_mg),
+                   MgcNode = make_node_name(pl_sre_mgc),
+                   MgNode  = make_node_name(pl_sre_mg),
                    i("try start nodes: "
                      "~n      MgcNode: ~p"
                      "~n      MgNode:  ~p", 
@@ -701,8 +701,8 @@ sent_resend_exceeded_long(Config) when is_list(Config) ->
     Cond = fun megaco_test_code/0,
     Pre  = fun() ->
                    put(tc, ?FUNCTION_NAME),
-                   MgcNode = make_node_name(pl_5619_mgc),
-                   MgNode  = make_node_name(pl_5619_mg),
+                   MgcNode = make_node_name(pl_srel_mgc),
+                   MgNode  = make_node_name(pl_srel_mg),
                    i("try start nodes: "
                      "~n      MgcNode: ~p"
                      "~n      MgNode:  ~p", 
@@ -793,8 +793,8 @@ recv_limit_exceeded1(Config) when is_list(Config) ->
     Cond = fun() -> ok end,
     Pre  = fun() ->
                    put(tc, ?FUNCTION_NAME),
-                   MgcNode = make_node_name(pl_5619_mgc),
-                   MgNode  = make_node_name(pl_5619_mg),
+                   MgcNode = make_node_name(pl_rle_mgc),
+                   MgNode  = make_node_name(pl_rle_mg),
                    i("try start nodes: "
                      "~n      MgcNode: ~p"
                      "~n      MgNode:  ~p", 
@@ -1176,23 +1176,34 @@ recv_limit_exceeded2(Config) when is_list(Config) ->
 otp_4956(suite) ->
     [];
 otp_4956(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_4956),
-    i("starting"),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(tc, ?FUNCTION_NAME),
+                   MgcNode = make_node_name(pl_4956_mgc),
+                   MgNode  = make_node_name(pl_4956_mg),
+                   i("try start nodes: "
+                     "~n      MgcNode: ~p"
+                     "~n      MgNode:  ~p", 
+                     [MgcNode, MgNode]),
+                   Nodes = [MgcNode, MgNode],
+                   ok = ?START_NODES(Nodes, true),
+                   #{nodes => Nodes}
+           end,
+    Case = fun(State) ->
+                   do_otp_4956(State)
+           end,
+    Post = fun(#{nodes := Nodes}) ->
+                   i("stop nodes"),
+                   ?STOP_NODES(Nodes),
+                   ok
+           end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MgcNode: ~p"
-      "~n      MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = ?START_NODES([MgcNode, MgNode], true),
-
-    d("[MGC] start the simulator "),
+do_otp_4956(#{nodes := [MgcNode, MgNode]}) ->
+    i("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
-    d("[MGC] create the event sequence"),
+    i("[MGC] create the event sequence"),
     MgcEvSeq = otp_4956_mgc_event_sequence(text, tcp),
 
     i("wait some time before starting the MGC simulation"),
@@ -1226,10 +1237,6 @@ otp_4956(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES([MgcNode, MgNode]),
 
     i("done", []),
     ok.
@@ -1692,19 +1699,30 @@ otp_5310(suite) ->
 otp_5310(doc) ->
     "...";
 otp_5310(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_5310),
-    i("starting"),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   put(tc, ?FUNCTION_NAME),
+                   MgcNode = make_node_name(pl_5310_mgc),
+                   MgNode  = make_node_name(pl_5310_mg),
+                   i("try start nodes: "
+                     "~n      MgcNode: ~p"
+                     "~n      MgNode:  ~p", 
+                     [MgcNode, MgNode]),
+                   Nodes = [MgcNode, MgNode],
+                   ok = ?START_NODES(Nodes, true),
+                   #{nodes => Nodes}
+           end,
+    Case = fun(State) ->
+                   do_otp_5310(State)
+           end,
+    Post = fun(#{nodes := Nodes}) ->
+                   i("stop nodes"),
+                   ?STOP_NODES(Nodes),
+                   ok
+           end,
+    try_tc(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MgcNode: ~p"
-      "~n      MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = ?START_NODES([MgcNode, MgNode], true),
-
+do_otp_5310(#{nodes := [MgcNode, MgNode]}) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -1801,18 +1819,6 @@ otp_5310(Config) when is_list(Config) ->
     d("[MGC] ConnReps3: ~p", [ConnReps3]),
     UserReps3 = ?MGC_USER_INFO(Mgc, replies),
     d("[MGC] UserReps3: ~p", [UserReps3]),
-
-    %% Tell MG to stop
-    i("[MG] stop"),
-    ?MG_STOP(Mg),
-
-    %% Tell Mgc to stop
-    i("[MGC] stop"),
-    ?MGC_STOP(Mgc),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES([MgcNode, MgNode]),
 
     i("done", []),
     ok.
