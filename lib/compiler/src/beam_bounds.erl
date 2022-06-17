@@ -62,6 +62,12 @@ bounds('+', R1, R2) ->
                             abs(C) bsr ?NUM_BITS =:= 0,
                             abs(D) bsr ?NUM_BITS =:= 0 ->
             normalize({A+C,B+D});
+        {{'-inf',B}, {_C,D}} when abs(B) bsr ?NUM_BITS =:= 0,
+                                  abs(D) bsr ?NUM_BITS =:= 0 ->
+            normalize({'-inf',B+D});
+        {{_A,B}, {'-inf',D}} when abs(B) bsr ?NUM_BITS =:= 0,
+                                  abs(D) bsr ?NUM_BITS =:= 0 ->
+            normalize({'-inf',B+D});
         {{A,'+inf'}, {C,_D}} when abs(A) bsr ?NUM_BITS =:= 0,
                                   abs(C) bsr ?NUM_BITS =:= 0 ->
             normalize({A+C,'+inf'});
@@ -78,9 +84,18 @@ bounds('-', R1, R2) ->
                             abs(C) bsr ?NUM_BITS =:= 0,
                             abs(D) bsr ?NUM_BITS =:= 0 ->
             normalize({A-D,B-C});
+        {{A,'+inf'}, {_C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
+                                  abs(D) bsr ?NUM_BITS =:= 0 ->
+            normalize({A-D,'+inf'});
         {{_A,B}, {C,'+inf'}} when abs(B) bsr ?NUM_BITS =:= 0,
                                   abs(C) bsr ?NUM_BITS =:= 0 ->
             normalize({'-inf',B-C});
+        {{'-inf',B}, {C,_D}} when abs(B) bsr ?NUM_BITS =:= 0,
+                                  abs(C) bsr ?NUM_BITS =:= 0 ->
+            normalize({'-inf',B-C});
+        {{A,_B}, {'-inf',D}} when abs(A) bsr ?NUM_BITS =:= 0,
+                                  abs(D) bsr ?NUM_BITS =:= 0 ->
+            normalize({A-D,'+inf'});
         {_, _} ->
             any
     end;

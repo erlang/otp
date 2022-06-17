@@ -269,12 +269,17 @@ beam_disasm_types(none) ->
 beam_disasm_types(<<?BEAM_TYPES_VERSION:32,Count:32,Table/binary>>) ->
     Res = gb_trees:from_orddict(disasm_types(Table, 0)),
     Count = gb_trees:size(Res),                 %Assertion.
-    Res.
+    Res;
+beam_disasm_types(<<_/binary>>) ->
+    none.
 
-disasm_types(<<Type:18/binary,Rest/binary>>, Index) ->
-    [{Index,beam_types:decode_ext(Type)}|disasm_types(Rest, Index+1)];
-disasm_types(<<>>, _) ->
-    [].
+disasm_types(Types0, Index) ->
+    case beam_types:decode_ext(Types0) of
+        done ->
+            [];
+        {Types,Rest} ->
+            [{Index,Types}|disasm_types(Rest, Index+1)]
+    end.
 
 %%-----------------------------------------------------------------------
 %% Disassembles the code chunk of a BEAM file:

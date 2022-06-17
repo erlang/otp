@@ -1053,7 +1053,7 @@ protected:
         return beam->types.entries[typeIndex].type_union;
     }
 
-    auto getIntRange(const ArgSource &arg) const {
+    auto getClampedRange(const ArgSource &arg) const {
         if (arg.isSmall()) {
             Sint value = arg.as<ArgSmall>().getSigned();
             return std::make_pair(value, value);
@@ -1063,9 +1063,40 @@ protected:
 
             ASSERT(typeIndex < beam->types.count);
             const auto &entry = beam->types.entries[typeIndex];
-            ASSERT(entry.type_union & BEAM_TYPE_INTEGER);
-            return std::make_pair(entry.min, entry.max);
+            if (entry.min <= entry.max) {
+                return std::make_pair(entry.min, entry.max);
+            } else if (IS_SSMALL(entry.min) && !IS_SSMALL(entry.max)) {
+                return std::make_pair(entry.min, MAX_SMALL);
+            } else if (!IS_SSMALL(entry.min) && IS_SSMALL(entry.max)) {
+                return std::make_pair(MIN_SMALL, entry.max);
+            } else {
+                return std::make_pair(MIN_SMALL, MAX_SMALL);
+            }
         }
+    }
+
+    int getSizeUnit(const ArgSource &arg) const {
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+
+        ASSERT(typeIndex < beam->types.count);
+        return beam->types.entries[typeIndex].size_unit;
+    }
+
+    bool hasLowerBound(const ArgSource &arg) const {
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+        ASSERT(typeIndex < beam->types.count);
+        const auto &entry = beam->types.entries[typeIndex];
+        return IS_SSMALL(entry.min) && !IS_SSMALL(entry.max);
+    }
+
+    bool hasUpperBound(const ArgSource &arg) const {
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+        ASSERT(typeIndex < beam->types.count);
+        const auto &entry = beam->types.entries[typeIndex];
+        return !IS_SSMALL(entry.min) && IS_SSMALL(entry.max);
     }
 
     bool always_small(const ArgSource &arg) const {
@@ -1073,13 +1104,11 @@ protected:
             return true;
         }
 
-        int type_union = getTypeUnion(arg);
-        if (type_union == BEAM_TYPE_INTEGER) {
-            auto [min, max] = getIntRange(arg);
-            return min <= max;
-        } else {
-            return false;
-        }
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+        ASSERT(typeIndex < beam->types.count);
+        const auto &entry = beam->types.entries[typeIndex];
+        return entry.type_union == BEAM_TYPE_INTEGER && entry.min <= entry.max;
     }
 
     bool always_immediate(const ArgSource &arg) const {
@@ -1142,67 +1171,53 @@ protected:
         return always_one_of(arg, type_id);
     }
 
-    bool is_sum_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            Sint min, max;
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            min = min1 + min2;
-            max = max1 + max2;
-            return IS_SSMALL(min) && IS_SSMALL(max);
-        }
+    bool is_sum_small_if_args_are_small(const ArgSource &LHS,
+                                        const ArgSource &RHS) {
+        Sint min, max;
+        auto [min1, max1] = getClampedRange(LHS);
+        auto [min2, max2] = getClampedRange(RHS);
+        min = min1 + min2;
+        max = max1 + max2;
+        return IS_SSMALL(min) && IS_SSMALL(max);
     }
 
-    bool is_difference_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            Sint min, max;
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            min = min1 - max2;
-            max = max1 - min2;
-            return IS_SSMALL(min) && IS_SSMALL(max);
-        }
+    bool is_diff_small_if_args_are_small(const ArgSource &LHS,
+                                         const ArgSource &RHS) {
+        Sint min, max;
+        auto [min1, max1] = getClampedRange(LHS);
+        auto [min2, max2] = getClampedRange(RHS);
+        min = min1 - max2;
+        max = max1 - min2;
+        return IS_SSMALL(min) && IS_SSMALL(max);
     }
 
-    bool is_product_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            auto mag1 = std::max(std::abs(min1), std::abs(max1));
-            auto mag2 = std::max(std::abs(min2), std::abs(max2));
+    bool is_product_small_if_args_are_small(const ArgSource &LHS,
+                                            const ArgSource &RHS) {
+        auto [min1, max1] = getClampedRange(LHS);
+        auto [min2, max2] = getClampedRange(RHS);
+        auto mag1 = std::max(std::abs(min1), std::abs(max1));
+        auto mag2 = std::max(std::abs(min2), std::abs(max2));
 
-            /*
-             * mag1 * mag2 <= MAX_SMALL
-             * mag1 <= MAX_SMALL / mag2   (when mag2 != 0)
-             */
-            ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
-            return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
-        }
+        /*
+         * mag1 * mag2 <= MAX_SMALL
+         * mag1 <= MAX_SMALL / mag2   (when mag2 != 0)
+         */
+        ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
+        return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
     }
 
     bool is_bsl_small(const ArgSource &LHS, const ArgSource &RHS) {
-        /*
-         * In the code compiled by scripts/diffable, there never
-         * seems to be any range information for the RHS. Therefore,
-         * don't bother unless RHS is an immediate small.
-         */
-        if (!(always_small(LHS) && RHS.isSmall())) {
+        if (!(always_small(LHS) && always_small(RHS))) {
             return false;
         } else {
-            auto [min1, max1] = getIntRange(LHS);
-            auto rhs_val = RHS.as<ArgSmall>().getSigned();
+            auto [min1, max1] = getClampedRange(LHS);
+            auto [min2, max2] = getClampedRange(RHS);
 
-            if (min1 < 0 || max1 == 0 || rhs_val < 0) {
+            if (min1 < 0 || max1 == 0 || min2 < 0) {
                 return false;
             }
 
-            return rhs_val < Support::clz(max1) - _TAG_IMMED1_SIZE;
+            return max2 < Support::clz(max1) - _TAG_IMMED1_SIZE;
         }
     }
 
@@ -1248,6 +1263,19 @@ protected:
     void emit_get_list(const arm::Gp boxed_ptr,
                        const ArgRegister &Hd,
                        const ArgRegister &Tl);
+
+    void emit_add_sub_types(bool is_small_result,
+                            const ArgSource &LHS,
+                            const a64::Gp lhs_reg,
+                            const ArgSource &RHS,
+                            const a64::Gp rhs_reg,
+                            const Label next);
+
+    void emit_are_both_small(const ArgSource &LHS,
+                             const a64::Gp lhs_reg,
+                             const ArgSource &RHS,
+                             const a64::Gp rhs_reg,
+                             const Label next);
 
     void emit_div_rem(const ArgLabel &Fail,
                       const ArgSource &LHS,

@@ -37,7 +37,7 @@
 
 #include "sys.h"
 
-#define BEAM_TYPES_VERSION 1
+#define BEAM_TYPES_VERSION 2
 
 #define BEAM_TYPE_NONE               (0)
 
@@ -56,6 +56,10 @@
 #define BEAM_TYPE_TUPLE              (1 << 12)
 
 #define BEAM_TYPE_ANY                ((1 << 13) - 1)
+
+#define BEAM_TYPE_HAS_LOWER_BOUND    (1 << 13)
+#define BEAM_TYPE_HAS_UPPER_BOUND    (1 << 14)
+#define BEAM_TYPE_HAS_UNIT           (1 << 15)
 
 #define BEAM_TYPE_MASK_BOXED        \
     (BEAM_TYPE_BITSTRING |          \
@@ -91,11 +95,27 @@ typedef struct {
      * be. When a single bit is set, the term will always be of that type. */
     int type_union;
 
-    /** @brief Minimum and maximum values. Only valid if min <= max. */
+    /** @brief Minimum and maximum values. Valid if at least one of
+     * IS_SSMALL(min) and IS_SSMALL(max) is true; otherwise the range is
+     * unknown.
+     *
+     * If and only if min < max, then the value is always a small within
+     * the range min trough max (including the endpoints).
+     *
+     * If and only if IS_SSMALL(min) && !IS_SSMALL(max) is true, then
+     * the value is greater than or equal to min.
+     *
+     * If and only if !IS_SSMALL(min) && IS_SSMALL(max), then the
+     * value is less than or equal to min. */
     Sint64 min;
     Sint64 max;
+
+    /** @brief Unit for bitstring size. */
+    byte size_unit;
 } BeamType;
 
-int beam_types_decode(const byte *data, Uint size, BeamType *out);
+int beam_types_decode_type_otp_26(const byte *data, BeamType *out);
+void beam_types_decode_extra_otp_26(const byte *data, BeamType *out);
 
+int beam_types_decode_otp_25(const byte *data, Uint size, BeamType *out);
 #endif

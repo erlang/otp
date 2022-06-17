@@ -1517,25 +1517,56 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
 void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
-    mov_arg(ARG1, LHS);
-    mov_arg(ARG2, RHS);
+    auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
 
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
-        a.cmp(ARG1, ARG2);
+        a.cmp(lhs.reg, rhs.reg);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
+    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+               hasLowerBound(RHS)) {
+        Label next = a.newLabel();
+        comment("simplified test because it always succeeds when RHS is a "
+                "bignum");
+        emit_is_not_boxed(next, rhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_ge(resolve_beam_label(Fail, disp1MB));
+        a.bind(next);
+    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+               hasUpperBound(RHS)) {
+        comment("simplified test because it always fails when RHS is a bignum");
+        emit_is_not_boxed(resolve_beam_label(Fail, dispUnknown), rhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_ge(resolve_beam_label(Fail, disp1MB));
+    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasLowerBound(LHS) &&
+               always_small(RHS)) {
+        comment("simplified test because it always fails when LHS is a bignum");
+        emit_is_not_boxed(resolve_beam_label(Fail, dispUnknown), lhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_ge(resolve_beam_label(Fail, disp1MB));
+    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasUpperBound(LHS) &&
+               always_small(RHS)) {
+        Label next = a.newLabel();
+        comment("simplified test because it always succeeds when LHS is a "
+                "bignum");
+        emit_is_not_boxed(next, rhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_ge(resolve_beam_label(Fail, disp1MB));
+        a.bind(next);
     } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
                always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
         Label branch_compare = a.newLabel();
 
-        a.cmp(ARG1, ARG2);
+        a.cmp(lhs.reg, rhs.reg);
 
         /* The only possible kind of immediate is a small and all other values
          * are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
-        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED == (1 << 0));
-        a.and_(TMP1, ARG1, ARG2);
-        a.tbnz(TMP1, imm(0), branch_compare);
+        a.and_(TMP1, lhs.reg, rhs.reg);
+        emit_is_boxed(branch_compare, TMP1);
+
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
         fragment_call(ga->get_arith_compare_shared());
 
         /* The flags will either be from the initial comparison, or from the
@@ -1548,22 +1579,24 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         /* Relative comparisons are overwhelmingly likely to be used on smalls,
          * so we'll specialize those and keep the rest in a shared fragment. */
         if (RHS.isSmall()) {
-            a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
+            a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
         } else if (LHS.isSmall()) {
-            a.and_(TMP1, ARG2, imm(_TAG_IMMED1_MASK));
+            a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
         } else {
             ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-            a.and_(TMP1, ARG1, ARG2);
+            a.and_(TMP1, lhs.reg, rhs.reg);
             a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
         }
 
         a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
         a.b_ne(generic);
 
-        a.cmp(ARG1, ARG2);
+        a.cmp(lhs.reg, rhs.reg);
         a.b(next);
 
         a.bind(generic);
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
         fragment_call(ga->get_arith_compare_shared());
 
         a.bind(next);
@@ -1574,26 +1607,56 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
-    mov_arg(ARG1, LHS);
-    mov_arg(ARG2, RHS);
+    auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
 
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
-        a.cmp(ARG1, ARG2);
+        a.cmp(lhs.reg, rhs.reg);
         a.b_lt(resolve_beam_label(Fail, disp1MB));
+    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+               hasLowerBound(RHS)) {
+        comment("simplified test because it always fails when RHS is a bignum");
+        emit_is_not_boxed(resolve_beam_label(Fail, dispUnknown), rhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_lt(resolve_beam_label(Fail, disp1MB));
+    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+               hasUpperBound(RHS)) {
+        Label next = a.newLabel();
+        comment("simplified test because it always succeeds when RHS is a "
+                "bignum");
+        emit_is_not_boxed(next, rhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_lt(resolve_beam_label(Fail, disp1MB));
+        a.bind(next);
+    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasUpperBound(LHS) &&
+               always_small(RHS)) {
+        comment("simplified test because it always fails when LHS is a bignum");
+        emit_is_not_boxed(resolve_beam_label(Fail, dispUnknown), lhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_lt(resolve_beam_label(Fail, disp1MB));
+    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasLowerBound(LHS) &&
+               always_small(RHS)) {
+        Label next = a.newLabel();
+        comment("simplified test because it always succeeds when LHS is a "
+                "bignum");
+        emit_is_not_boxed(next, lhs.reg);
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_lt(resolve_beam_label(Fail, disp1MB));
+        a.bind(next);
     } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
                always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
         Label branch_compare = a.newLabel();
 
-        a.cmp(ARG1, ARG2);
+        a.cmp(lhs.reg, rhs.reg);
 
         /* The only possible kind of immediate is a small and all other values
          * are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
-        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED == (1 << 0));
-        a.and_(TMP1, ARG1, ARG2);
-        a.tbnz(TMP1, imm(0), branch_compare);
+        a.and_(TMP1, lhs.reg, rhs.reg);
+        emit_is_boxed(branch_compare, TMP1);
 
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
         fragment_call(ga->get_arith_compare_shared());
 
         /* The flags will either be from the initial comparison, or from the
@@ -1606,22 +1669,24 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         /* Relative comparisons are overwhelmingly likely to be used on smalls,
          * so we'll specialize those and keep the rest in a shared fragment. */
         if (RHS.isSmall()) {
-            a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
+            a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
         } else if (LHS.isSmall()) {
-            a.and_(TMP1, ARG2, imm(_TAG_IMMED1_MASK));
+            a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
         } else {
             ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-            a.and_(TMP1, ARG1, ARG2);
+            a.and_(TMP1, lhs.reg, rhs.reg);
             a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
         }
 
         a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
         a.b_ne(generic);
 
-        a.cmp(ARG1, ARG2);
+        a.cmp(lhs.reg, rhs.reg);
         a.b(next);
 
         a.bind(generic);
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
         fragment_call(ga->get_arith_compare_shared());
 
         a.bind(next);

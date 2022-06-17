@@ -23,7 +23,7 @@
 
 -export([all/0, suite/0, groups/0]).
 -export([edge_cases/1,
-         addition/1, subtraction/1, multiplication/1, division/1,
+         addition/1, subtraction/1, negation/1, multiplication/1, division/1,
          test_bitwise/1, test_bsl/1,
          element/1,
          range_optimization/1]).
@@ -40,7 +40,7 @@ all() ->
 groups() ->
     [{p, [parallel],
       [edge_cases,
-       addition, subtraction, multiplication, division,
+       addition, subtraction, negation, multiplication, division,
        test_bitwise, test_bsl,
        element,
        range_optimization]}].
@@ -158,36 +158,79 @@ add_gen_pairs() ->
 gen_add_function({Name,{A,B}}) ->
     APlusOne = abs(A) + 1,
     BPlusOne = abs(B) + 1,
-    ?Q("'@Name@'(X0, Y0) when is_integer(X0), is_integer(Y0)->
+    ?Q("'@Name@'(integer, X0, Y0) when is_integer(X0), is_integer(Y0)->
            X1 = X0 rem _@APlusOne@,
            Y1 = Y0 rem _@BPlusOne@,
            Res = X0 + Y0,
            Res = X1 + Y1,
            Res = Y1 + X1,
            Res = X0 + Y1,
-           Res = X1 + Y0. ").
+           Res = X1 + Y0;
+        '@Name@'(number0, X, Y) when is_number(X), is_number(Y),
+             X < _@APlusOne@, 0 =< Y, Y < _@BPlusOne@ ->
+           Res = X + Y,
+           Res = Y + X;
+        '@Name@'(number0, X, Y) when is_number(X), is_number(Y),
+             X < _@APlusOne@, -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           Res = X + Y,
+           Res = Y + X;
+        '@Name@'(number1, X, Y) when is_number(X), is_number(Y),
+             X > -_@APlusOne@, 0 =< Y, Y < _@BPlusOne@ ->
+           Res = X + Y,
+           Res = Y + X;
+        '@Name@'(number1, X, Y) when is_number(X), is_number(Y),
+             X > -_@APlusOne@, -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           Res = X + Y,
+           Res = Y + X;
+        '@Name@'(number1, X, Y) when X > -_@APlusOne@, Y > -_@BPlusOne@ ->
+           Res = X + Y,
+           Res = Y + X. ").
 
 test_addition([{Name,{A,B}}|T], Mod) ->
+    F = fun Mod:Name/3,
     try
         Res0 = A + B,
-        Res0 = Mod:Name(A, B),
+        Res0 = F(integer, A, B),
+        Res0 = F(number0, A, B),
+        Res0 = F(number1, A, B),
 
         Res1 = -A + B,
-        Res1 = Mod:Name(-A, B),
+        Res1 = F(integer, -A, B),
+        Res1 = F(number0, -A, B),
+        Res1 = F(number1, -A, B),
 
         Res2 = A + (-B),
-        Res2 = Mod:Name(A, -B),
+        Res2 = F(integer, A, -B),
+        Res2 = F(number0, A, -B),
+        Res2 = F(number1, A, -B),
 
         Res3 = -A + (-B),
-        Res3 = Mod:Name(-A, -B)
+        Res3 = F(integer, -A, -B),
+        Res3 = F(number0, -A, -B),
+        Res3 = F(number1, -A, -B),
+
+        AbsB = abs(B),
+        Res4 = A + AbsB,
+        Res4 = F(number0, A, AbsB),
+        Res4 = F(number1, A, AbsB)
     catch
         C:R:Stk ->
             io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
             erlang:raise(C, R, Stk)
     end,
 
+    bad_arith(F, [a], B),
+    bad_arith(F, aa, B),
+    bad_arith(F, A, [b]),
+    bad_arith(F, A, bb),
+    bad_arith(F, {a,b}, {c,d}),
+
     test_addition(T, Mod);
 test_addition([], _) ->
+    ok.
+
+bad_arith(F, A, B) ->
+    {'EXIT',{badarith,_}} = catch F(number1, A, B),
     ok.
 
 %% Test that the JIT only omits the overflow check when it's safe.
@@ -196,7 +239,7 @@ subtraction(_Config) ->
     io:format("Seed: ~p", [rand:export_seed()]),
     Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
     Pairs = sub_gen_pairs(),
-    io:format("~p\n", [Pairs]),
+    %% io:format("~p\n", [Pairs]),
     Fs0 = gen_func_names(Pairs, 0),
     Fs = [gen_sub_function(F) || F <- Fs0],
     Tree = ?Q(["-module('@Mod@').",
@@ -222,35 +265,131 @@ sub_gen_pairs() ->
 gen_sub_function({Name,{A,B}}) ->
     APlusOne = abs(A) + 1,
     BPlusOne = abs(B) + 1,
-    ?Q("'@Name@'(X0, Y0) when is_integer(X0), is_integer(Y0)->
+    ?Q("'@Name@'(integer, X0, Y0) when is_integer(X0), is_integer(Y0)->
            X1 = X0 rem _@APlusOne@,
            Y1 = Y0 rem _@BPlusOne@,
            Res = X0 - Y0,
            Res = X1 - Y1,
            Res = X0 - Y1,
-           Res = X1 - Y0. ").
+           Res = X1 - Y0;
+        '@Name@'(number0, X, Y) when is_number(X), is_number(Y),
+             X > -_@APlusOne@, 0 =< Y, Y < _@BPlusOne@ ->
+           X - Y;
+        '@Name@'(number0, X, Y) when is_number(X), is_number(Y),
+             X > -_@APlusOne@, -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           X - Y;
+        '@Name@'(number1, X, Y) when is_number(X), is_number(Y),
+             X > -_@APlusOne@, 0 =< Y, Y < _@BPlusOne@ ->
+           X - Y;
+        '@Name@'(number1, X, Y) when is_number(X), is_number(Y),
+             X > -_@APlusOne@, -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           X - Y;
+        '@Name@'(number1, X, Y) when X > -_@APlusOne@, Y > -_@BPlusOne@ ->
+           X - Y. ").
 
 test_subtraction([{Name,{A,B}}|T], Mod) ->
+    F = fun Mod:Name/3,
     try
         Res0 = A - B,
-        Res0 = Mod:Name(A, B),
+        Res0 = F(integer, A, B),
+        Res0 = F(number0, A, B),
 
         Res1 = -A - B,
-        Res1 = Mod:Name(-A, B),
+        Res1 = F(integer, -A, B),
+        Res1 = F(number0, -A, B),
 
         Res2 = A - (-B),
-        Res2 = Mod:Name(A, -B),
+        Res2 = F(integer, A, -B),
+        Res2 = F(number0, A, -B),
 
         Res3 = -A - (-B),
-        Res3 = Mod:Name(-A, -B)
+        Res3 = F(integer, -A, -B),
+        Res3 = F(number0, -A, -B),
+
+        AbsB = abs(B),
+        Res4 = A - AbsB,
+        Res4 = F(integer, A, AbsB),
+        Res4 = F(number0, A, AbsB)
     catch
         C:R:Stk ->
             io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
             erlang:raise(C, R, Stk)
     end,
 
+    bad_arith(F, [a], B),
+    bad_arith(F, aa, B),
+    bad_arith(F, A, [b]),
+    bad_arith(F, A, bb),
+    bad_arith(F, {a,b}, {c,d}),
+
     test_subtraction(T, Mod);
 test_subtraction([], _) ->
+    ok.
+
+%% Test that the JIT only omits the overflow check when it's safe.
+negation(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
+    Integers = neg_gen_integers(),
+    %% io:format("~p\n", [Pairs]),
+    Fs0 = gen_func_names(Integers, 0),
+    Fs = [gen_neg_function(F) || F <- Fs0],
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all])."]) ++ Fs,
+    merl:print(Tree),
+    {ok,_Bin} = merl:compile_and_load(Tree, []),
+    test_negation(Fs0, Mod),
+    ok.
+
+neg_gen_integers() ->
+    {MinSmall, MaxSmall} = determine_small_limits(0),
+
+    N = 1000,
+    M = MaxSmall + N div 2,
+    Ns = [M - rand:uniform(N) || _ <- lists:seq(1, 75)],
+
+    lists:seq(MinSmall-2, MinSmall+2) ++ lists:seq(MaxSmall-2, MaxSmall+2) ++ Ns.
+
+gen_neg_function({Name,A}) ->
+    APlusOne = abs(A) + 1,
+    ?Q("'@Name@'(integer0, X0) when is_integer(X0) ->
+           X1 = X0 rem _@APlusOne@,
+           Res = -X0,
+           Res = -X1;
+         '@Name@'(integer1, X) when is_integer(X), X > -_@APlusOne@ ->
+           -X;
+         '@Name@'(integer2, X) when is_integer(X), X > -_@APlusOne@ ->
+           -X;
+         '@Name@'(number, X) when is_number(X), X > -_@APlusOne@ ->
+           -X;
+         '@Name@'(number, X) when is_number(X), X > -_@APlusOne@ ->
+           -X;
+         '@Name@'(number, X) when is_number(X) ->
+           -X. ").
+
+test_negation([{Name,A}|T], Mod) ->
+    F = fun Mod:Name/2,
+    try
+        Res0 = -A,
+        Res0 = F(integer0, A),
+        Res0 = F(integer1, A),
+        Res0 = F(integer2, A),
+        Res0 = F(number, A),
+
+        Res1 = A,
+        Res1 = F(integer0, -A),
+        Res1 = F(integer1, -A),
+        Res1 = F(integer2, -A),
+        Res1 = F(number, -A)
+    catch
+        C:R:Stk ->
+            io:format("~p failed. numbers: ~p\n", [Name,A]),
+            erlang:raise(C, R, Stk)
+    end,
+
+    test_negation(T, Mod);
+test_negation([], _) ->
     ok.
 
 %% Test that the JIT only omits the overflow check when it's safe.
@@ -295,7 +434,7 @@ gen_mul_function({Name,{A,B}}) ->
     BPlusOne = B + 1,
     NumBitsA = num_bits(A),
     NumBitsB = num_bits(B),
-    ?Q("'@Name@'(X0, Y0, More) when is_integer(X0), is_integer(Y0)->
+    ?Q("'@Name@'(X0, Y0, More) when is_integer(X0), is_integer(Y0), is_boolean(More) ->
            X1 = X0 rem _@APlusOne@,
            Y1 = Y0 rem _@BPlusOne@,
            Res = X0 * Y0,
@@ -311,20 +450,36 @@ gen_mul_function({Name,{A,B}}) ->
                 Res = X2 * Y1;
                true ->
                 Res
-           end. ").
+           end;
+        '@Name@'(X, Y, number) when -_@APlusOne@ < X, X < _@APlusOne@, -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           Res = X * Y,
+           Res = Y * X;
+        '@Name@'(X, fixed, number) when -_@APlusOne@ < X, X < _@APlusOne@ ->
+           X * _@B@;
+        '@Name@'(fixed, Y, number) when -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           _@A@ * Y. ").
 
 test_multiplication([{Name,{A,B}}|T], Mod) ->
+    F = fun Mod:Name/3,
     try
         Res0 = A * B,
         %% io:format("~p * ~p = ~p; size = ~p\n",
         %%           [A,B,Res0,erts_debug:flat_size(Res0)]),
 
-        Res0 = Mod:Name(A, B, true),
-        Res0 = Mod:Name(-A, -B, false),
+        Res0 = F(A, B, true),
+        Res0 = F(-A, -B, false),
+        Res0 = F(A, B, number),
+        Res0 = F(fixed, B, number),
+        Res0 = F(A, fixed, number),
+        Res0 = F(-A, -B, number),
 
         Res1 = -(A * B),
-        Res1 = Mod:Name(-A, B, false),
-        Res1 = Mod:Name(A, -B, false)
+        Res1 = F(-A, B, false),
+        Res1 = F(A, -B, false),
+        Res1 = F(-A, B, number),
+        Res1 = F(A, -B, number),
+        Res1 = F(-A, fixed, number),
+        Res1 = F(fixed, -B, number)
     catch
         C:R:Stk ->
             io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
@@ -367,16 +522,22 @@ div_gen_pairs() ->
     NumBitsMaxSmall = num_bits(MaxSmall),
 
     %% Generate random pairs of smalls.
-    Pairs0 = [{rand:uniform(MaxSmall),rand:uniform(MaxSmall)} ||
+    Pairs0 = [{rand:uniform(MaxSmall) * rand_sign(),
+               rand:uniform(MaxSmall) * rand_sign()} ||
                  _ <- lists:seq(1, 75)],
 
     Pairs1 = [{rand:uniform(MaxSmall), N} ||
-                 N <- [-3,-2,-1,1,2,3,5,17,63,64,1111,22222]] ++ Pairs0,
+                 N <- [-4,-3,-2,-1,1,2,3,5,17,63,64,1111,22222]] ++ Pairs0,
 
     %% Generate pairs of numbers whose product are bignums.
     [{rand:uniform(MaxSmall),1 bsl Pow} ||
         Pow <- lists:seq(NumBitsMaxSmall - 4, NumBitsMaxSmall - 1)] ++ Pairs1.
 
+rand_sign() ->
+    case rand:uniform() < 0.2 of
+        true -> -1;
+        false -> 1
+    end.
 
 gen_div_function({Name,{A,B}}) ->
     APlusOne = abs(A) + 1,
@@ -405,6 +566,12 @@ gen_div_function({Name,{A,B}}) ->
            R = X rem Y,
            Q = X div Y,
            {Q, R};
+        '@Name@'(integer3, X, fixed) when is_integer(X), -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           put(prevent_div_rem_fusion, Q),
+           R = X rem Y,
+           {Q, R};
         '@Name@'(number0, X, Y) when -_@APlusOne@ < X, X < _@APlusOne@,
                                     -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
            Q = X div Y,
@@ -414,6 +581,22 @@ gen_div_function({Name,{A,B}}) ->
                                     -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
            R = X rem Y,
            Q = X div Y,
+           {Q, R};
+        '@Name@'(number2, X, fixed) when -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(number3, X, fixed) when -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(number4, X, fixed) when -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           put(prevent_div_rem_fusion, Q),
+           R = X rem Y,
            {Q, R}. ").
 
 test_division([{Name,{A,B}}|T], Mod) ->
@@ -423,8 +606,12 @@ test_division([{Name,{A,B}}|T], Mod) ->
         Res0 = F(integer0, A, B),
         Res0 = F(integer1, A, fixed),
         Res0 = F(integer2, A, fixed),
+        Res0 = F(integer3, A, fixed),
         Res0 = F(number0, A, B),
-        Res0 = F(number1, A, B)
+        Res0 = F(number1, A, B),
+        Res0 = F(number2, A, fixed),
+        Res0 = F(number3, A, fixed),
+        Res0 = F(number4, A, fixed)
     catch
         C:R:Stk ->
             io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
@@ -473,31 +660,59 @@ gen_bitwise_function({Name,{A,B}}) ->
            Y1 = Y0 rem _@BPlusOne@,
 
            AndRes = X0 band Y0,
+           AndRes = Y0 band X0,
            AndRes = X1 band Y1,
            AndRes = Y1 band X1,
            AndRes = X0 band Y1,
            AndRes = X1 band Y0,
 
            OrRes = X0 bor Y0,
+           OrRes = Y0 bor X0,
            OrRes = X1 bor Y1,
            OrRes = Y1 bor X1,
            OrRes = X0 bor Y1,
            OrRes = X1 bor Y0,
 
            XorRes = X0 bxor Y0,
+           XorRes = Y0 bxor X0,
            XorRes = X1 bxor Y1,
            XorRes = Y1 bxor X1,
            XorRes = X0 bxor Y1,
            XorRes = X1 bxor Y0,
 
-           {AndRes, OrRes, XorRes}. ").
+           {AndRes, OrRes, XorRes};
+        '@Name@'(X0, fixed) when is_integer(X0) ->
+           X1 = X0 rem _@APlusOne@,
+
+           AndRes = X0 band _@B@,
+           AndRes = _@B@ band X0,
+           AndRes = X1 band _@B@,
+           AndRes = _@B@ band X1,
+
+           OrRes = X0 bor _@B@,
+           OrRes = _@B@ bor X0,
+           OrRes = X1 bor _@B@,
+           OrRes = _@B@ bor X1,
+
+           XorRes = X0 bxor _@B@,
+           XorRes = _@B@ bxor X0,
+           XorRes = X1 bxor _@B@,
+           XorRes = _@B@ bxor X1,
+
+           {AndRes, OrRes, XorRes}.
+ ").
 
 test_bitwise([{Name,{A,B}}|T], Mod) ->
     try
         test_bitwise_1(A, B, Mod, Name),
         test_bitwise_1(-A, B, Mod, Name),
         test_bitwise_1(A, -B, Mod, Name),
-        test_bitwise_1(-A, -B, Mod, Name)
+        test_bitwise_1(-A, -B, Mod, Name),
+
+        AndRes = A band B,
+        OrRes = A bor B,
+        XorRes = A bxor B,
+        {AndRes, OrRes, XorRes} = Mod:Name(A, fixed)
     catch
         C:R:Stk ->
             io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
@@ -541,15 +756,42 @@ bsl_gen_pairs() ->
 
 gen_bsl_function({Name,{N,S}}) ->
     Mask = (1 bsl num_bits(N)) - 1,
-    ?Q("'@Name@'(N0) ->
+    ?Q("'@Name@'(N0, fixed) ->
+           Res = N0 bsl _@S@,
            N = N0 band _@Mask@,
-           N bsl _@S@. ").
+           Res = N0 bsl _@S@,
+           Res = N bsl _@S@;
+        '@Name@'(N0, S) when is_integer(S), 0 =< S, S =< _@S@ ->
+           Res = N0 bsl S,
+           N = N0 band _@Mask@,
+           Res = N0 bsl S,
+           Res = N bsl S. ").
 
 test_bsl([{Name,{N,S}}|T], Mod) ->
-    Res = N bsl S,
-    try Mod:Name(N) of
-        Res ->
-            ok
+    try
+        Res0 = N bsl S,
+        Res0 = Mod:Name(N, fixed),
+
+        if
+            S >= 0 ->
+                Res1 = N bsl S,
+                Res1 = Mod:Name(N, S),
+
+                N = Mod:Name(N, 0),
+
+                if
+                    S >= 2 ->
+                        Res2 = N bsl (S - 1),
+                        Res2 = Mod:Name(N, S - 1),
+
+                        Res3 = N bsl (S - 2),
+                        Res3 = Mod:Name(N, S - 2);
+                    true ->
+                        ok
+                end;
+            S < 0 ->
+                {'EXIT', {function_clause,_}} = catch Mod:Name(N, S)
+        end
     catch
         C:R:Stk ->
             io:format("~p failed. numbers: ~p ~p\n", [Name,N,S]),

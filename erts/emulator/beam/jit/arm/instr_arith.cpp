@@ -26,6 +26,68 @@ extern "C"
 #include "big.h"
 }
 
+void BeamModuleAssembler::emit_add_sub_types(bool is_small_result,
+                                             const ArgSource &LHS,
+                                             const a64::Gp lhs_reg,
+                                             const ArgSource &RHS,
+                                             const a64::Gp rhs_reg,
+                                             const Label next) {
+    if (is_small_result &&
+        always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+        always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        comment("skipped overflow test because the result is always small");
+        emit_are_both_small(LHS, lhs_reg, RHS, rhs_reg, next);
+    } else {
+        if (always_small(RHS)) {
+            a.and_(TMP1, lhs_reg, imm(_TAG_IMMED1_MASK));
+        } else if (always_small(LHS)) {
+            a.and_(TMP1, rhs_reg, imm(_TAG_IMMED1_MASK));
+        } else {
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.and_(TMP1, lhs_reg, rhs_reg);
+            a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
+        }
+
+        comment("test for not overflow and small operands");
+        a.ccmp(TMP1,
+               imm(_TAG_IMMED1_SMALL),
+               imm(NZCV::kNone),
+               imm(arm::CondCode::kVC));
+        a.b_eq(next);
+    }
+}
+
+void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
+                                              const a64::Gp lhs_reg,
+                                              const ArgSource &RHS,
+                                              const a64::Gp rhs_reg,
+                                              const Label next) {
+    if (always_small(RHS) &&
+        always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        comment("simplified test for small operand since other types are "
+                "boxed");
+        emit_is_boxed(next, lhs_reg);
+    } else if (always_small(LHS) &&
+               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        comment("simplified test for small operand since other types are "
+                "boxed");
+        emit_is_boxed(next, rhs_reg);
+    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        comment("simplified test for small operands since other types are "
+                "boxed");
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.and_(TMP1, lhs_reg, rhs_reg);
+        emit_is_boxed(next, TMP1);
+    } else {
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.and_(TMP1, lhs_reg, rhs_reg);
+        a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+        a.b_eq(next);
+    }
+}
+
 /*
  * ARG2 = LHS
  * ARG3 = RHS
@@ -73,8 +135,9 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
                                       const ArgRegister &Dst) {
     bool rhs_is_arm_literal =
             RHS.isSmall() && Support::isUInt12(RHS.as<ArgSmall>().get());
+    bool is_small_result = is_sum_small_if_args_are_small(LHS, RHS);
 
-    if (is_sum_small(LHS, RHS)) {
+    if (always_small(LHS) && always_small(RHS) && is_small_result) {
         auto dst = init_destination(Dst, ARG1);
         if (rhs_is_arm_literal) {
             auto lhs = load_source(LHS, ARG2);
@@ -96,31 +159,14 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
 
     if (rhs_is_arm_literal) {
-        comment("add small constant with overflow check");
         Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
         a.adds(ARG1, lhs.reg, imm(cleared_tag));
     } else {
-        comment("addition with overflow check");
         a.and_(TMP1, rhs.reg, imm(~_TAG_IMMED1_MASK));
         a.adds(ARG1, lhs.reg, TMP1);
     }
 
-    if (always_small(RHS)) {
-        a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-    } else if (always_small(LHS)) {
-        a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
-    } else {
-        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    }
-
-    /* Test for not overflow AND small operands. */
-    a.ccmp(TMP1,
-           imm(_TAG_IMMED1_SMALL),
-           imm(NZCV::kNone),
-           imm(arm::CondCode::kVC));
-    a.b_eq(next);
+    emit_add_sub_types(is_small_result, LHS, lhs.reg, RHS, rhs.reg, next);
 
     mov_var(ARG2, lhs);
     mov_var(ARG3, rhs);
@@ -186,11 +232,13 @@ void BeamModuleAssembler::emit_i_unary_minus(const ArgLabel &Fail,
                                              const ArgSource &Src,
                                              const ArgRegister &Dst) {
     auto src = load_source(Src, ARG2);
+    auto zero = ArgImmed(make_small(0));
+    bool is_small_result = is_diff_small_if_args_are_small(zero, Src);
 
     a.mov(TMP1, imm(_TAG_IMMED1_SMALL));
     a.and_(TMP2, src.reg, imm(~_TAG_IMMED1_MASK));
 
-    if (is_difference_small(ArgImmed(make_small(0)), Src)) {
+    if (always_small(Src) && is_small_result) {
         auto dst = init_destination(Dst, ARG1);
         comment("no overflow test because result is always small");
         a.sub(dst.reg, TMP1, TMP2);
@@ -274,8 +322,9 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
                                        const ArgRegister &Dst) {
     bool rhs_is_arm_literal =
             RHS.isSmall() && Support::isUInt12(RHS.as<ArgSmall>().get());
+    bool is_small_result = is_diff_small_if_args_are_small(LHS, RHS);
 
-    if (is_difference_small(LHS, RHS)) {
+    if (always_small(LHS) && always_small(RHS) && is_small_result) {
         auto dst = init_destination(Dst, ARG1);
         if (rhs_is_arm_literal) {
             auto lhs = load_source(LHS, ARG2);
@@ -297,31 +346,14 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
 
     if (rhs_is_arm_literal) {
-        comment("subtract small constant with overflow check");
         Uint cleared_tag = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK;
         a.subs(ARG1, lhs.reg, imm(cleared_tag));
     } else {
-        comment("subtraction with overflow check");
         a.and_(TMP1, rhs.reg, imm(~_TAG_IMMED1_MASK));
         a.subs(ARG1, lhs.reg, TMP1);
     }
 
-    if (always_small(RHS)) {
-        a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-    } else if (always_small(LHS)) {
-        a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
-    } else {
-        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    }
-
-    /* Test for not overflow AND small operands. */
-    a.ccmp(TMP1,
-           imm(_TAG_IMMED1_SMALL),
-           imm(NZCV::kNone),
-           imm(arm::CondCode::kVC));
-    a.b_eq(next);
+    emit_add_sub_types(is_small_result, LHS, lhs.reg, RHS, rhs.reg, next);
 
     mov_var(ARG2, lhs);
     mov_var(ARG3, rhs);
@@ -453,20 +485,32 @@ void BeamModuleAssembler::emit_i_times(const ArgLabel &Fail,
                                        const ArgSource &LHS,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst) {
-    if (is_product_small(LHS, RHS)) {
+    bool is_small_result = is_product_small_if_args_are_small(LHS, RHS);
+
+    if (always_small(LHS) && always_small(RHS) && is_small_result) {
         auto dst = init_destination(Dst, ARG1);
         comment("multiplication without overflow check");
         if (RHS.isSmall()) {
             auto lhs = load_source(LHS, ARG2);
+            Sint factor = RHS.as<ArgSmall>().getSigned();
+
             a.and_(TMP1, lhs.reg, imm(~_TAG_IMMED1_MASK));
-            mov_imm(TMP2, RHS.as<ArgSmall>().getSigned());
+            if (Support::isPowerOf2(factor)) {
+                int trailing_bits = Support::ctz<Eterm>(factor);
+                comment("optimized multiplication by replacing with left "
+                        "shift");
+                a.lsl(TMP1, TMP1, imm(trailing_bits));
+            } else {
+                mov_imm(TMP2, factor);
+                a.mul(TMP1, TMP1, TMP2);
+            }
         } else {
             auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
             a.and_(TMP1, lhs.reg, imm(~_TAG_IMMED1_MASK));
             a.asr(TMP2, rhs.reg, imm(_TAG_IMMED1_SIZE));
+            a.mul(TMP1, TMP1, TMP2);
         }
-        a.mul(dst.reg, TMP1, TMP2);
-        a.orr(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL));
+        a.orr(dst.reg, TMP1, imm(_TAG_IMMED1_SMALL));
         flush_var(dst);
     } else {
         auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
@@ -647,21 +691,39 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
         auto remainder = init_destination(Remainder, ARG2);
 
         comment("skipped test for smalls operands and overflow");
-        a.asr(TMP1, lhs.reg, imm(_TAG_IMMED1_SIZE));
-        mov_imm(TMP2, divisor);
-        a.sdiv(quotient.reg, TMP1, TMP2);
-        if (need_rem) {
-            a.msub(remainder.reg, quotient.reg, TMP2, TMP1);
-        }
-        mov_imm(TMP3, _TAG_IMMED1_SMALL);
-        arm::Shift tagShift = arm::lsl(_TAG_IMMED1_SIZE);
+        if (Support::isPowerOf2(divisor) &&
+            std::get<0>(getClampedRange(LHS)) >= 0) {
+            int trailing_bits = Support::ctz<Eterm>(divisor);
+            if (need_div) {
+                comment("optimized div by replacing with right shift");
+                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+                a.lsr(quotient.reg, lhs.reg, imm(trailing_bits));
+                a.orr(quotient.reg, quotient.reg, imm(_TAG_IMMED1_SMALL));
+            }
+            if (need_rem) {
+                comment("optimized rem by replacing with masking");
+                auto mask = Support::lsbMask<Uint>(trailing_bits +
+                                                   _TAG_IMMED1_SIZE);
+                a.and_(remainder.reg, lhs.reg, imm(mask));
+            }
+        } else {
+            a.asr(TMP1, lhs.reg, imm(_TAG_IMMED1_SIZE));
+            mov_imm(TMP2, divisor);
+            a.sdiv(quotient.reg, TMP1, TMP2);
+            if (need_rem) {
+                a.msub(remainder.reg, quotient.reg, TMP2, TMP1);
+            }
 
-        if (need_div) {
-            a.orr(quotient.reg, TMP3, quotient.reg, tagShift);
+            mov_imm(TMP3, _TAG_IMMED1_SMALL);
+            const arm::Shift tagShift = arm::lsl(_TAG_IMMED1_SIZE);
+            if (need_div) {
+                a.orr(quotient.reg, TMP3, quotient.reg, tagShift);
+            }
+            if (need_rem) {
+                a.orr(remainder.reg, TMP3, remainder.reg, tagShift);
+            }
         }
-        if (need_rem) {
-            a.orr(remainder.reg, TMP3, remainder.reg, tagShift);
-        }
+
         if (need_div) {
             flush_var(quotient);
         }
@@ -828,21 +890,32 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
     auto dst = init_destination(Dst, ARG1);
 
-    /* TAG & TAG = TAG, so we don't need to tag it again. */
-    a.and_(ARG1, lhs.reg, rhs.reg);
-
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
+
+        /* TAG & TAG = TAG, so we don't need to tag it again. */
+        a.and_(dst.reg, lhs.reg, rhs.reg);
+        flush_var(dst);
     } else {
         Label next = a.newLabel();
 
-        /* All other term types has at least one zero in the low 4
-         * bits. Therefore, the result will be a small iff both operands
-         * are small. */
+        /* TAG & TAG = TAG, so we don't need to tag it again. */
+        a.and_(ARG1, lhs.reg, rhs.reg);
+
         ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
-        a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-        a.b_eq(next);
+        if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+            always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+            comment("simplified test for small operands since other types are "
+                    "boxed");
+            emit_is_boxed(next, ARG1);
+        } else {
+            /* All other term types has at least one zero in the low 4
+             * bits. Therefore, the result will be a small iff both
+             * operands are small. */
+            a.and_(TMP1, ARG1, imm(_TAG_IMMED1_MASK));
+            a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+            a.b_eq(next);
+        }
 
         mov_var(ARG2, lhs);
         mov_var(ARG3, rhs);
@@ -861,10 +934,9 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
         }
 
         a.bind(next);
+        mov_var(dst, ARG1);
+        flush_var(dst);
     }
-
-    mov_var(dst, ARG1);
-    flush_var(dst);
 }
 
 /*
@@ -889,50 +961,40 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
     auto dst = init_destination(Dst, ARG1);
 
-    /* TAG | TAG = TAG, so we don't need to tag it again. */
-    a.orr(ARG1, lhs.reg, rhs.reg);
-
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
+
+        /* TAG | TAG = TAG, so we don't need to tag it again. */
+        a.orr(dst.reg, lhs.reg, rhs.reg);
+        flush_var(dst);
     } else {
-        Label generic = a.newLabel(), next = a.newLabel();
-        if (always_small(RHS)) {
-            a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-        } else if (always_small(LHS)) {
-            a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
+        Label next = a.newLabel();
+
+        /* TAG | TAG = TAG, so we don't need to tag it again. */
+        a.orr(ARG1, lhs.reg, rhs.reg);
+
+        emit_are_both_small(LHS, lhs.reg, RHS, rhs.reg, next);
+
+        mov_var(ARG2, lhs);
+        mov_var(ARG3, rhs);
+
+        if (Fail.get() != 0) {
+            emit_enter_runtime(Live.get());
+            a.mov(ARG1, c_p);
+            runtime_call<3>(erts_bor);
+            emit_leave_runtime(Live.get());
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
         } else {
-            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-            a.and_(TMP1, lhs.reg, rhs.reg);
-            a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-        }
-
-        a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-        a.b_eq(next);
-
-        a.bind(generic);
-        {
-            mov_var(ARG2, lhs);
-            mov_var(ARG3, rhs);
-
-            if (Fail.get() != 0) {
-                emit_enter_runtime(Live.get());
-                a.mov(ARG1, c_p);
-                runtime_call<3>(erts_bor);
-                emit_leave_runtime(Live.get());
-                emit_branch_if_not_value(ARG1,
-                                         resolve_beam_label(Fail, dispUnknown));
-            } else {
-                emit_enter_runtime(Live.get());
-                fragment_call(ga->get_i_bor_body_shared());
-                emit_leave_runtime(Live.get());
-            }
+            emit_enter_runtime(Live.get());
+            fragment_call(ga->get_i_bor_body_shared());
+            emit_leave_runtime(Live.get());
         }
 
         a.bind(next);
+        mov_var(dst, ARG1);
+        flush_var(dst);
     }
-
-    mov_var(dst, ARG1);
-    flush_var(dst);
 }
 
 /*
@@ -955,9 +1017,9 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+    auto dst = init_destination(Dst, ARG1);
 
     if (always_small(LHS) && always_small(RHS)) {
-        auto dst = init_destination(Dst, ARG1);
         comment("skipped test for small operands because they are always "
                 "small");
 
@@ -969,24 +1031,12 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
     }
 
     Label next = a.newLabel();
-    auto dst = init_destination(Dst, ARG1);
 
     /* TAG ^ TAG = 0, so we'll need to tag it again. */
     a.eor(ARG1, lhs.reg, rhs.reg);
     a.orr(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
 
-    if (always_small(RHS)) {
-        a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-    } else if (always_small(LHS)) {
-        a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
-    } else {
-        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    }
-
-    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.b_eq(next);
+    emit_are_both_small(LHS, lhs.reg, RHS, rhs.reg, next);
 
     mov_var(ARG2, lhs);
     mov_var(ARG3, rhs);
@@ -1221,18 +1271,26 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
-    auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
     auto dst = init_destination(Dst, ARG1);
 
     if (is_bsl_small(LHS, RHS)) {
         comment("skipped tests because operands and result are always small");
-        a.and_(TMP1, lhs.reg, imm(~_TAG_IMMED1_MASK));
-        a.lsl(TMP1, TMP1, imm(RHS.as<ArgSmall>().getSigned()));
+        if (RHS.isSmall()) {
+            auto lhs = load_source(LHS, ARG2);
+            a.and_(TMP1, lhs.reg, imm(~_TAG_IMMED1_MASK));
+            a.lsl(TMP1, TMP1, imm(RHS.as<ArgSmall>().getSigned()));
+        } else {
+            auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
+            a.and_(TMP1, lhs.reg, imm(~_TAG_IMMED1_MASK));
+            a.lsr(TMP2, rhs.reg, imm(_TAG_IMMED1_SIZE));
+            a.lsl(TMP1, TMP1, TMP2);
+        }
         a.orr(dst.reg, TMP1, imm(_TAG_IMMED1_SMALL));
         flush_var(dst);
         return;
     }
 
+    auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
     Label generic = a.newLabel(), next = a.newLabel();
     bool inline_shift = true;
 
