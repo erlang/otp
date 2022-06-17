@@ -507,6 +507,14 @@
     </func>
 
     <func>
+      <name name="zip_get_crc32" arity="2" since="OTP @OTP-18159@"/>
+      <fsummary>Extracts a crc32 checksum from an open archive.</fsummary>
+      <desc>
+        <p>Extracts one crc32 checksum from an open archive.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="zip_list_dir" arity="1" since=""/>
       <fsummary>Return a table of files in open zip archive.</fsummary>
       <desc>
