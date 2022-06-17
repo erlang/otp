@@ -2323,12 +2323,20 @@ nif_curve_params({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
       },
       undefined %% The curve name
     };
-nif_curve_params(Curve) when is_atom(Curve) ->
-    %% named curve
-    case Curve of
-        x448 -> {evp,Curve};
-        x25519 -> {evp,Curve};
-        _ -> {crypto_ec_curves:curve(Curve), Curve}
+nif_curve_params(CurveName) when is_atom(CurveName) ->
+    %% A named curve
+    case CurveName of
+        x448   -> {evp,CurveName};
+        x25519 -> {evp,CurveName};
+        _ ->
+            Spec =
+                try
+                    crypto_ec_curves:curve(CurveName)
+                catch
+                    _:_ ->
+                        undefined
+                end,
+            {Spec, CurveName}
     end.
 
 
