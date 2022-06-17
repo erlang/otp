@@ -196,6 +196,12 @@ format_error(pmod_unsupported) ->
 %%     io_lib:format("module '~s' already imported from package '~s'", [M, P]);
 format_error(non_latin1_module_unsupported) ->
     "module names with non-latin1 characters are not supported";
+format_error(empty_module_name) ->
+    "the module name must not be empty";
+format_error(blank_module_name) ->
+    "the module name must contain at least one visible character";
+format_error(ctrl_chars_in_module_name) ->
+    "the module name must not contain control characters";
 
 format_error(invalid_call) ->
     "invalid function call";
@@ -3248,15 +3254,42 @@ is_fa({FuncName, Arity})
   when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
 is_fa(_) -> false.
 
-check_module_name(M, Anno, St) ->
-    case is_latin1_name(M) of
-        true -> St;
-        false ->
-            add_error(Anno, non_latin1_module_unsupported, St)
+check_module_name(M, Anno, St0) ->
+    AllChars = atom_to_list(M),
+    VisibleChars = remove_non_visible(AllChars),
+    case {AllChars, VisibleChars} of
+        {[], []} ->
+            add_error(Anno, empty_module_name, St0);
+        {[_|_], []} ->
+            add_error(Anno, blank_module_name, St0);
+        {Cs,[_|_]} ->
+            St1 = case io_lib:latin1_char_list(Cs) of
+                      true ->
+                          St0;
+                      false ->
+                          add_error(Anno,
+                                    non_latin1_module_unsupported,
+                                    St0)
+                  end,
+            case any_control_characters(Cs) of
+                true ->
+                    add_error(Anno, ctrl_chars_in_module_name, St1);
+                false ->
+                    St1
+            end
     end.
 
-is_latin1_name(Name) ->
-    io_lib:latin1_char_list(atom_to_list(Name)).
+remove_non_visible(Cs) ->
+    SP = $\s,                                   %Plain space.
+    NBSP = 16#A0,                               %Non-breaking space.
+    SHY = 16#AD,                                %Soft hyphen.
+    [C || C <- Cs, C =/= SP, C =/= NBSP, C =/= SHY].
+
+any_control_characters(Cs) ->
+    any(fun(C) when is_integer(C), 0 =< C, C < 16#20;
+                    is_integer(C), 16#7F =< C, C < 16#A0 -> true;
+           (_) -> false
+        end, Cs).
 
 check_specs([FunType|Left], ETag, Arity, St0) ->
     {FunType1, CTypes} =

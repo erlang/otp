@@ -65,7 +65,7 @@
          maps/1,maps_type/1,maps_parallel_match/1,
          otp_11851/1,otp_11879/1,otp_13230/1,
          record_errors/1, otp_11879_cont/1,
-         non_latin1_module/1, otp_14323/1,
+         non_latin1_module/1, illegal_module_name/1, otp_14323/1,
          stacktrace_syntax/1,
          otp_14285/1, otp_14378/1,
          external_funs/1,otp_15456/1,otp_15563/1,
@@ -98,7 +98,8 @@ all() ->
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
-     record_errors, otp_11879_cont, non_latin1_module, otp_14323,
+     record_errors, otp_11879_cont,
+     non_latin1_module, illegal_module_name, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
      otp_15456, otp_15563, unused_type, binary_types, removed, otp_16516,
      undefined_nifs,
@@ -4100,9 +4101,10 @@ otp_11879_cont(Config) ->
 %% OTP-14285: We currently don't support non-latin1 module names.
 
 non_latin1_module(Config) ->
-    do_non_latin1_module('юникод'),
-    do_non_latin1_module(list_to_atom([256,$a,$b,$c])),
-    do_non_latin1_module(list_to_atom([$a,$b,256,$c])),
+    Expected = [non_latin1_module_unsupported],
+    Expected = check_module_name('юникод'),
+    Expected = check_module_name(list_to_atom([256,$a,$b,$c])),
+    Expected = check_module_name(list_to_atom([$a,$b,256,$c])),
 
     "module names with non-latin1 characters are not supported" =
         format_error(non_latin1_module_unsupported),
@@ -4161,16 +4163,48 @@ non_latin1_module(Config) ->
     run(Config, Ts),
     ok.
 
-do_non_latin1_module(Mod) ->
+illegal_module_name(_Config) ->
+    [empty_module_name] = check_module_name(''),
+
+    [ctrl_chars_in_module_name] = check_module_name('\x00'),
+    [ctrl_chars_in_module_name] = check_module_name('abc\x1F'),
+    [ctrl_chars_in_module_name] = check_module_name('\x7F'),
+    [ctrl_chars_in_module_name] = check_module_name('abc\x80'),
+    [ctrl_chars_in_module_name] = check_module_name('abc\x80xyz'),
+    [ctrl_chars_in_module_name] = check_module_name('\x9Fxyz'),
+
+    [ctrl_chars_in_module_name,
+     non_latin1_module_unsupported] = check_module_name('атом\x00'),
+
+    [blank_module_name] = check_module_name(' '),
+    [blank_module_name] = check_module_name('\xA0'),
+    [blank_module_name] = check_module_name('\xAD'),
+    [blank_module_name] = check_module_name('  \xA0\xAD '),
+
+    %% White space and soft hyphens are OK if there are visible
+    %% characters in the name.
+    ok = check_module_name(' abc '),
+    ok = check_module_name('abc '),
+    ok = check_module_name(' abc '),
+    ok = check_module_name(' abc xyz '),
+    ok = check_module_name(' abc\xADxyz '),
+
+    ok.
+
+check_module_name(Mod) ->
     File = atom_to_list(Mod) ++ ".erl",
     L1 = erl_anno:new(1),
     Forms = [{attribute,L1,file,{File,1}},
              {attribute,L1,module,Mod},
              {eof,2}],
-    error = compile:forms(Forms),
-    {error,_,[]} = compile:forms(Forms, [return]),
-    ok.
-
+    _ = compile:forms(Forms),
+    case compile:forms(Forms, [return]) of
+        {error,Errors,[]} ->
+            [{_ModName,L}] = Errors,
+            lists:sort([Reason || {1,erl_lint,Reason} <- L]);
+        {ok,Mod,Code,Ws} when is_binary(Code), is_list(Ws)  ->
+            ok
+    end.
 
 otp_14378(Config) ->
     Ts = [
