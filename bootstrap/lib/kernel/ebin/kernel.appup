@@ -1,7 +1,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,23 +19,16 @@
 %%
 %% We allow upgrade from, and downgrade to all previous
 %% versions from the following OTP releases:
-%% - OTP 22
 %% - OTP 23
 %% - OTP 24
+%% - OTP 25
 %%
 %% We also allow upgrade from, and downgrade to all
 %% versions that have branched off from the above
 %% stated previous versions.
 %%
-{"8.3.1",
- [{<<"^6\\.4$">>,[restart_new_emulator]},
-  {<<"^6\\.4\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^6\\.4\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^6\\.5$">>,[restart_new_emulator]},
-  {<<"^6\\.5\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^6\\.5\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^6\\.5\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^7\\.0$">>,[restart_new_emulator]},
+{"8.4.1",
+ [{<<"^7\\.0$">>,[restart_new_emulator]},
   {<<"^7\\.0\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^7\\.1$">>,[restart_new_emulator]},
   {<<"^7\\.1\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
@@ -57,15 +50,12 @@
   {<<"^8\\.2$">>,[restart_new_emulator]},
   {<<"^8\\.2\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^8\\.3$">>,[restart_new_emulator]},
-  {<<"^8\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}],
- [{<<"^6\\.4$">>,[restart_new_emulator]},
-  {<<"^6\\.4\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^6\\.4\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^6\\.5$">>,[restart_new_emulator]},
-  {<<"^6\\.5\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^6\\.5\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^6\\.5\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^7\\.0$">>,[restart_new_emulator]},
+  {<<"^8\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^8\\.3\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^8\\.3\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^8\\.4$">>,[restart_new_emulator]},
+  {<<"^8\\.4\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}],
+ [{<<"^7\\.0$">>,[restart_new_emulator]},
   {<<"^7\\.0\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^7\\.1$">>,[restart_new_emulator]},
   {<<"^7\\.1\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
@@ -87,4 +77,8 @@
   {<<"^8\\.2$">>,[restart_new_emulator]},
   {<<"^8\\.2\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^8\\.3$">>,[restart_new_emulator]},
-  {<<"^8\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}]}.
+  {<<"^8\\.3\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^8\\.3\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^8\\.3\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
+  {<<"^8\\.4$">>,[restart_new_emulator]},
+  {<<"^8\\.4\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]}]}.
