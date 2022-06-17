@@ -144,7 +144,7 @@
                       (((__D__) == INET_DELIVER_TERM) ? "term" : \
                        "undefined"))
 
-#if defined(__WIN32__)
+#if defined(__WIN32__) && defined(ARCH_64)
 #define SOCKET_FSTR "%lld"
 #else
 #define SOCKET_FSTR "%d"
