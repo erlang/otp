@@ -448,7 +448,7 @@ find_alternative_root([Cert | _], CertDbHandle, CertDbRef, InvalidatedList) ->
     end.
 
 find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb, InvalidatedList) ->
-    IsIssuerFun =
+   IsIssuerFun =
 	fun({_Key, #cert{otp=ErlCertCandidate}}, Acc) ->
 		case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
 		    true ->
@@ -468,12 +468,15 @@ find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb, I
 	end,
 
     Result = case is_reference(CertsDbRef) of
-		 true ->
-		     do_find_issuer(IsIssuerFun, CertDbHandle, ListDb); 
-		 false ->
+		 true when ListDb == [] ->
+                     CertEntryList = ssl_pkix_db:select_certentries_by_ref(CertsDbRef, CertDbHandle),
+		     do_find_issuer(IsIssuerFun, CertDbHandle, CertEntryList); 
+		 false when ListDb == [] ->
 		     {extracted, CertsData} = CertsDbRef,
-		     DB = [Entry || {decoded, Entry} <- CertsData],
-		     do_find_issuer(IsIssuerFun, CertDbHandle, DB)
+		     CertEntryList = [Entry || {decoded, Entry} <- CertsData],
+		     do_find_issuer(IsIssuerFun, CertDbHandle, CertEntryList);
+                 _ ->
+                     do_find_issuer(IsIssuerFun, CertDbHandle, ListDb)
 	     end,
     case Result of
         issuer_not_found ->
@@ -481,6 +484,7 @@ find_issuer(#cert{der=DerCert, otp=OtpCert}, CertDbHandle, CertsDbRef, ListDb, I
 	Result ->
 	    Result
     end.
+
 
 do_find_issuer(IssuerFun, CertDbHandle, CertDb) ->
     try 
