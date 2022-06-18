@@ -223,7 +223,7 @@ export ERL_TOP="$sdir"
 test -f "$sdir/otp_build" || error "$ERL_TOP" $invalid_src
 test -f "$sdir/OTP_VERSION" || error "$ERL_TOP" $invalid_src
 test -f "$sdir/otp_versions.table" || error "$ERL_TOP" $invalid_src
-test -f "$sdir/erts/autoconf/config.guess" || error "$ERL_TOP" $invalid_src
+test -f "$sdir/make/autoconf/config.guess" || error "$ERL_TOP" $invalid_src
 test -f "$sdir/make/verify_runtime_dependencies" || error "$ERL_TOP" $invalid_src
 test -x "$sdir/bootstrap/bin/erl" || error $not_built
 test -x "$sdir/bootstrap/bin/erlc" || error $not_built
@@ -293,7 +293,7 @@ mkdir=`find_prog mkdir`
 
 # Setup build stuff
 if [ "x$TARGET" = "x" ]; then
-    TARGET=`$ERL_TOP/erts/autoconf/config.guess`
+    TARGET=`$ERL_TOP/make/autoconf/config.guess`
 fi
 BUILDSYS=$TARGET
 if [ -z "$MAKE" ]; then

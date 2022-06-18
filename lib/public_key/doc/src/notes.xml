@@ -410,7 +410,7 @@
       <list>
         <item>
           <p>
-	    Support Pasword based encryption with AES</p>
+	    Support Password based encryption with AES</p>
           <p>
 	    Own Id: OTP-15870 Aux Id: ERL-952 </p>
         </item>
@@ -581,7 +581,7 @@
         </item>
         <item>
           <p>
-	    Compleate PKCS-8 encoding support and enhance the
+	    Complete PKCS-8 encoding support and enhance the
 	    decoding of 'PrivateKeyInfo' to conform to the rest of
 	    Erlang public_key API.</p>
           <p>
@@ -678,7 +678,7 @@
 	    saltlength setting<br/> * X9.31 RSA padding.<br/> * sha,
 	    sha224, sha256, sha384, and sha512 for dss signatures as
 	    mentioned in NIST SP 800-57 Part 1.<br/> * ripemd160 to
-	    be used for rsa signatures.</p>
+	    be used for RSA signatures.</p>
           <p>
 	    This is a manual merge of half of the pull request 838 by
 	    potatosalad from Sept 2015.</p>
@@ -689,7 +689,7 @@
           <p>
 	    Add API function pkix_test_data/1 for facilitating
 	    automated testing. This is useful for applications that
-	    preform X509-certifcate path validation of so called
+	    perform X509-certifcate path validation of so called
 	    certificate chains, such as TLS.</p>
           <p>
 	    Own Id: OTP-14181</p>
@@ -873,7 +873,7 @@
         </item>
         <item>
           <p>
-	    Add different upper bounds for diffrent string types as
+	    Add different upper bounds for different string types as
 	    suggested by comment in PKIX1Explicit88.</p>
           <p>
 	    Own Id: OTP-13132</p>
@@ -1077,7 +1077,7 @@
         <item>
           <p>
 	    Add support for ISO oids 1.3.14.3.2.29 and 1.3.14.3.2.27
-	    that are somtimes used instead of the PKCS defined oids
+	    that are sometimes used instead of the PKCS defined oids
 	    1.2.840.113549.1.1.5 and 1.2.840.10040.4.3. Add function
 	    pkix_sign_types:/1 that translates oids to to algorithm
 	    atoms ex:</p>
@@ -1170,7 +1170,7 @@
         <item>
           <p>
 	    ssh_decode now handles comments, at the end of the line,
-	    containing withe spaces correctly</p>
+	    containing with spaces correctly</p>
           <p>
 	    Own Id: OTP-9361</p>
         </item>
@@ -1188,7 +1188,7 @@
       <list>
         <item>
           <p>
-	    public_key now supports PKCS-10 and includes exprimental
+	    public_key now supports PKCS-10 and includes experimental
 	    support for PKCS-7</p>
           <p>
 	    Own Id: OTP-10509 Aux Id: kunagi-291 [202] </p>

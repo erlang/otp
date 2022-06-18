@@ -341,7 +341,7 @@ get_network_copy(Tid, Tab, Cs) ->
         ok ->
             Reason = {dumper,{add_table_copy, Tid}},
             Work = #net_load{table = Tab,reason = Reason,cstruct = Cs},
-            %% I'll need this cause it's linked trough the subscriber
+            %% I'll need this cause it's linked through the subscriber
             %% might be solved by using monitor in subscr instead.
             process_flag(trap_exit, true),
             Load = load_table_fun(Work),
@@ -374,7 +374,7 @@ get_network_copy(Tid, Tab, Cs) ->
 %%   no need for sync, since mnesia_controller not started yet
 %% schema_trans ->
 %%   already synced with mnesia_controller since the dumper
-%%   is syncronously started from mnesia_controller
+%%   is synchronously started from mnesia_controller
 
 create_table(Tab) ->
     {loaded, ok} = mnesia_loader:disc_load_table(Tab, {dumper,create_table}).
@@ -1016,7 +1016,7 @@ handle_cast(Msg, State) when State#state.schema_is_merged /= true ->
 
 %% This must be done after schema_is_merged otherwise adopt_orphan
 %% might trigger a table load from wrong nodes as a result of that we don't
-%% know which tables we can load safly first.
+%% know which tables we can load safely first.
 handle_cast({im_running, Node, NewFriends}, State) ->
     LocalTabs = mnesia_lib:local_active_tables() -- [schema],
     RemoveLocalOnly = fun(Tab) -> not val({Tab, local_content}) end,
@@ -1436,7 +1436,7 @@ orphan_tables([Tab | Tabs], Node, Ns, Local, Remote) ->
     case lists:member(Node, DiscCopyHolders) of
 	_ when BeingCreated == true ->
 	    orphan_tables(Tabs, Node, Ns, Local, Remote);
-	_ when Read == node() -> %% Allready loaded
+	_ when Read == node() -> %% Already loaded
 	    orphan_tables(Tabs, Node, Ns, Local, Remote);
 	true when Active == [] ->
 	    case DiscCopyHolders -- Ns of
@@ -2146,7 +2146,7 @@ load_and_reply(ReplyTo, Worker) ->
     spawn_link(SendAndReply).
 
 %% Now it is time to load the table
-%% but first we must check if it still is neccessary
+%% but first we must check if it still is necessary
 load_table_fun(#net_load{cstruct=Cs, table=Tab, reason=Reason, opt_reply_to=ReplyTo}) ->
     LocalC = val({Tab, local_content}),
     AccessMode = val({Tab, access_mode}),

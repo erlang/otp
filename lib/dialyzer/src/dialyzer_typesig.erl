@@ -28,12 +28,13 @@
 %%-import(helper, %% 'helper' could be any module doing sanity checks...
 -import(erl_types,
         [t_has_var/1, t_inf/2, t_is_equal/2, t_is_subtype/2,
-        t_subtract/2, t_subtract_list/2, t_sup/1, t_sup/2,t_unify/2]).
+        t_subtract/2, t_subtract_list/2, t_sup/1, t_sup/2,
+        t_unify_table_only/2]).
 
 -import(erl_types,
 	[t_any/0, t_atom/0, t_atom_vals/1,
 	 t_binary/0, t_bitstr/0, t_bitstr/2, t_bitstr_concat/1, t_boolean/0,
-	 t_collect_vars/1, t_cons/2, t_cons_hd/1, t_cons_tl/1,
+	 t_collect_var_names/1, t_cons/2, t_cons_hd/1, t_cons_tl/1,
 	 t_float/0, t_from_range/2, t_from_term/1,
 	 t_fun/0, t_fun/2, t_fun_args/1, t_fun_range/1,
          t_integer/0,
@@ -97,7 +98,7 @@
 -type typesig_funmap() :: #{type_var() => type_var()}.
 
 -type prop_types() :: orddict:orddict(label(), erl_types:erl_type()).
--type dict_prop_types() :: dict:dict(label(), erl_types:erl_type()).
+-type dict_prop_types() :: #{label() => erl_types:erl_type()}.
 
 -record(state, {callgraph                :: dialyzer_callgraph:callgraph()
                                           | 'undefined',
@@ -114,7 +115,7 @@
 		self_rec                 :: 'false' | erl_types:erl_type(),
 		plt                      :: dialyzer_plt:plt()
                                           | 'undefined',
-		prop_types  = dict:new() :: dict_prop_types(),
+		prop_types  = #{}        :: dict_prop_types(),
                 mod_records = []         :: [{module(), types()}],
 		scc         = []         :: ordsets:ordset(type_var()),
 		mfas                     :: [mfa()],
@@ -132,10 +133,8 @@
 %%-define(DEBUG_CONSTRAINTS, true).
 -ifdef(DEBUG).
 -define(DEBUG_NAME_MAP, true).
--define(DEBUG_LOOP_DETECTION, true).
 -endif.
 %%-define(DEBUG_NAME_MAP, true).
-%%-define(DEBUG_LOOP_DETECTION, true).
 
 -ifdef(DEBUG).
 -define(debug(__String, __Args), io:format(__String, __Args)).
@@ -180,7 +179,7 @@ analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
   Solvers = solvers(Solvers0),
   State1 = new_state(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes,
                      Solvers),
-  DefSet = add_def_list(maps:values(State1#state.name_map), sets:new()),
+  DefSet = add_def_list(maps:values(State1#state.name_map), sets:new([{version, 2}])),
   State2 = traverse_scc(SCC, CServer, DefSet, State1),
   State3 = state__finalize(State2),
   Funs = state__scc(State3),
@@ -308,7 +307,7 @@ traverse(Tree, DefinedVars, State) ->
       Hd = cerl:cons_hd(Tree),
       Tl = cerl:cons_tl(Tree),
       {State1, [HdVar, TlVar]} = traverse_list([Hd, Tl], DefinedVars, State),
-      case cerl:is_literal(fold_literal_maybe_match(Tree, State)) of
+      case is_foldable(Tree, State) of
 	true ->
 	  %% We do not need to do anything more here.
 	  {State, t_cons(HdVar, TlVar)};
@@ -350,10 +349,7 @@ traverse(Tree, DefinedVars, State) ->
       TreeVar = mk_var(Tree),
       State2 =
 	try
-	  State1 = case state__add_prop_constrs(Tree, State0) of
-		     not_called -> State0;
-		     PropState -> PropState
-		   end,
+	  State1 = state__add_prop_constrs(Tree, State0),
 	  {BodyState, BodyVar} = traverse(Body, DefinedVars1, State1),
 	  state__store_conj(TreeVar, eq,
 			    t_fun(mk_var_list(Vars), BodyVar), BodyState)
@@ -401,18 +397,6 @@ traverse(Tree, DefinedVars, State) ->
 	  end;
 	_ -> {State, t_from_term(cerl:concrete(Tree))}
       end;
-    module ->
-      Defs = cerl:module_defs(Tree),
-      Funs = [Fun || {_Var, Fun} <- Defs],
-      Vars = [Var || {Var, _Fun} <- Defs],
-      DefinedVars1 = add_def_list(Vars, DefinedVars),
-      State1 = state__store_funs(Vars, Funs, State),
-      FoldFun = fun(Fun, AccState) ->
-		    {S, _} = traverse(Fun, DefinedVars1,
-				      state__new_constraint_context(AccState)),
-		    S
-		end,
-      lists:foldl(FoldFun, State1, Funs);
     primop ->
       case cerl:atom_val(cerl:primop_name(Tree)) of
 	match_fail -> throw(error);
@@ -446,19 +430,6 @@ traverse(Tree, DefinedVars, State) ->
           {State, t_any()};
 	Other -> erlang:error({'Unsupported primop', Other})
       end;
-    'receive' ->
-      Clauses = cerl:receive_clauses(Tree),
-      Timeout = cerl:receive_timeout(Tree),
-      case (cerl:is_c_atom(Timeout) andalso
-	    (cerl:atom_val(Timeout) =:= infinity)) of
-	true ->
-	  handle_clauses(Clauses, mk_var(Tree), [], DefinedVars, State);
- 	false ->
-	  Action = cerl:receive_action(Tree),
-	  {State1, TimeoutVar} = traverse(Timeout, DefinedVars, State),
-	  State2 = state__store_conj(TimeoutVar, sub, t_timeout(), State1),
-	  handle_clauses(Clauses, mk_var(Tree), [], Action, DefinedVars, State2)
-     end;
     seq ->
       Body = cerl:seq_body(Tree),
       Arg = cerl:seq_arg(Tree),
@@ -470,7 +441,7 @@ traverse(Tree, DefinedVars, State) ->
       Elements = cerl:tuple_es(Tree),
       {State1, EVars} = traverse_list(Elements, DefinedVars, State),
       {State2, TupleType} =
-	case cerl:is_literal(fold_literal_maybe_match(Tree, State1)) of
+	case is_foldable(Tree, State) of
 	  true ->
 	    %% We do not need to do anything more here.
 	    {State, t_tuple(EVars)};
@@ -667,13 +638,14 @@ add_def_list([], Set) ->
   Set.
 
 add_def_from_tree(T, DefinedVars) ->
-  Vars = cerl_trees:fold(fun(X, Acc) ->
-			     case cerl:is_c_var(X) of
-			       true -> [X|Acc];
-			       false -> Acc
-			     end
-			 end, [], T),
-  add_def_list(Vars, DefinedVars).
+  cerl_trees:fold(fun(X, Set) ->
+                      case cerl:is_c_var(X) of
+                        true ->
+                          add_def(X, Set);
+                        false ->
+                          Set
+                      end
+                  end, DefinedVars, T).
 
 add_def_from_tree_list([H|T], DefinedVars) ->
   add_def_from_tree_list(T, add_def_from_tree(H, DefinedVars));
@@ -858,12 +830,6 @@ get_contract_return(C, ArgTypes) ->
 -define(MAX_NOF_CLAUSES, 15).
 
 handle_clauses(Clauses, TopVar, Arg, DefinedVars, State) ->
-  handle_clauses(Clauses, TopVar, Arg, none, DefinedVars, State).
-
-handle_clauses([], _, _, Action, DefinedVars, State) when Action =/= none ->
-  %% Can happen when a receive has no clauses, see filter_match_fail.
-  traverse(Action, DefinedVars, State);
-handle_clauses(Clauses, TopVar, Arg, Action, DefinedVars, State) ->
   SubtrTypeList =
     if length(Clauses) > ?MAX_NOF_CLAUSES -> overflow;
        true -> []
@@ -871,23 +837,8 @@ handle_clauses(Clauses, TopVar, Arg, Action, DefinedVars, State) ->
   {State1, CList} = handle_clauses_1(Clauses, TopVar, Arg, DefinedVars,
 				     State, SubtrTypeList, []),
   {NewCs, NewState} =
-    case Action of
-      none ->
-	if CList =:= [] -> throw(error);
-	   true -> {CList, State1}
-	end;
-      _ ->
-	try
-	  {State2, ActionVar} = traverse(Action, DefinedVars, State1),
-	  TmpC = mk_constraint(TopVar, eq, ActionVar),
-	  ActionCs = mk_conj_constraint_list([state__cs(State2),TmpC]),
-	  {[ActionCs|CList], State2}
-	catch
-	  throw:error ->
-	    if CList =:= [] -> throw(error);
-	       true -> {CList, State1}
-	    end
-	end
+    if CList =:= [] -> throw(error);
+       true -> {CList, State1}
     end,
   OldCs = state__cs(State),
   NewCList = mk_disj_constraint_list(NewCs),
@@ -901,29 +852,27 @@ handle_clauses_1([Clause|Tail], TopVar, Arg, DefinedVars,
   Guard = cerl:clause_guard(Clause),
   Body = cerl:clause_body(Clause),
   NewSubtrTypes =
-    case SubtrTypes =:= overflow of
-      true -> overflow;
-      false ->
+    case SubtrTypes of
+      overflow ->
+        overflow;
+      _ ->
 	ordsets:add_element(get_safe_underapprox(Pats, Guard), SubtrTypes)
     end,
   try
     DefinedVars1 = add_def_from_tree_list(Pats, DefinedVars),
     State1 = state__set_in_match(State0, true),
     {State2, PatVars} = traverse_list(Pats, DefinedVars1, State1),
+    S = state__store_conj(Arg, eq, t_product(PatVars), State2),
     State3 =
-      case Arg =:= [] of
-	true -> State2;
-        false ->
-	  S = state__store_conj(Arg, eq, t_product(PatVars), State2),
-	  case SubtrTypes =:= overflow of
-	    true -> S;
-	    false ->
-	      SubtrPatVar = ?mk_fun_var(fun(Map) ->
-					    TmpType = lookup_type(Arg, Map),
-					    t_subtract_list(TmpType, SubtrTypes)
-					end, [Arg]),
-	      state__store_conj(Arg, sub, SubtrPatVar, S)
-	  end
+      case SubtrTypes of
+        overflow ->
+          S;
+        _ ->
+          SubtrPatVar = ?mk_fun_var(fun(Map) ->
+                                        TmpType = lookup_type(Arg, Map),
+                                        t_subtract_list(TmpType, SubtrTypes)
+                                    end, [Arg]),
+          state__store_conj(Arg, sub, SubtrPatVar, S)
       end,
     State4 = handle_guard(Guard, DefinedVars1, State3),
     {State5, BodyVar} = traverse(Body, DefinedVars1,
@@ -1800,12 +1749,12 @@ get_bif_test_constr(Dst, Arg, Type, _State) ->
 solve([Fun], State) ->
   ?debug("============ Analyzing Fun: ~tw ===========\n",
 	 [debug_lookup_name(Fun)]),
-  solve_fun(Fun, map_new(), State);
+  solve_fun(Fun, #{}, State);
 solve([_|_] = SCC, State) ->
   ?debug("============ Analyzing SCC: ~tw ===========\n",
 	 [[debug_lookup_name(F) || F <- SCC]]),
   Users = comp_users(SCC, State),
-  solve_scc(SCC, map_new(), State, Users, _ToSolve=SCC, false).
+  solve_scc(SCC, #{}, State, Users, _ToSolve=SCC, false).
 
 comp_users(SCC, State) ->
   Vars0 = [{Fun, state__get_rec_var(Fun, State)} || Fun <- SCC],
@@ -1816,11 +1765,8 @@ comp_users(SCC, State) ->
                                      Vars)]).
 
 solve_fun(Fun, FunMap, State) ->
-  Cs = state__get_cs(Fun, State),
-  Deps = get_deps(Cs),
-  Ref = mk_constraint_ref(Fun, Deps),
   %% Note that functions are always considered to succeed.
-  NewMap = solve(Fun, Ref, FunMap, State),
+  NewMap = solve(Fun, FunMap, State),
   NewType = lookup_type(Fun, NewMap),
   NewFunMap1 = case state__get_rec_var(Fun, State) of
 		 error -> FunMap;
@@ -1872,10 +1818,8 @@ affected(Updated, Users) ->
                 end || V <- Updated]).
 
 scc_fold_fun(F, FunMap, State) ->
-  Deps = get_deps(state__get_cs(F, State)),
-  Cs = mk_constraint_ref(F, Deps),
   %% Note that functions are always considered to succeed.
-  Map = solve(F, Cs, FunMap, State),
+  Map = solve(F, FunMap, State),
   NewType0 = unsafe_lookup_type(F, Map),
   NewType = t_limit(NewType0, ?TYPE_LIMIT),
   NewFunMap = case state__get_rec_var(F, State) of
@@ -1888,75 +1832,23 @@ scc_fold_fun(F, FunMap, State) ->
                                                     format_type(NewType)]),
   NewFunMap.
 
-solve(Fun, Cs, FunMap, State) ->
-  Solvers = State#state.solvers,
-  R = [solver(S, solve_fun(S, Fun, Cs, FunMap, State)) || S <- Solvers],
-  check_solutions(R, Fun, no_solver, no_map).
-
-solver(Solver, SolveFun) ->
-  ?debug("Start solver ~w\n", [Solver]),
-  try timer:tc(SolveFun) of
-    {Time, {ok, Map}} ->
-      ?debug("End solver ~w (~w microsecs)\n", [Solver, Time]),
-      {Solver, Map, Time};
-    {_, _R} ->
-      ?debug("Solver ~w returned unexpected result:\n  ~P\n",
-             [Solver, _R, 60]),
-      throw(error)
-  catch E:R:S ->
-      io:format("Solver ~w failed: ~w:~p\n ~tp\n", [Solver, E, R, S]),
-      throw(error)
-  end.
-
-solve_fun(v1, _Fun, Cs, FunMap, State) ->
-  fun() ->
-      {ok, _MapDict, NewMap} = solve_ref_or_list(Cs, FunMap, map_new(), State),
-      {ok, NewMap}
-  end;
-solve_fun(v2, Fun, _Cs, FunMap, State) ->
-  fun() -> v2_solve_ref(Fun, FunMap, State) end.
-
-check_solutions([], _Fun, _S, Map) ->
-  Map;
-check_solutions([{S1,Map1,_Time1}|Maps], Fun, S, Map) ->
-  ?debug("Solver ~w needed ~w microsecs\n", [S1, _Time1]),
-  case Map =:= no_map orelse sane_maps(Map, Map1, [Fun], S, S1) of
-    true ->
-      check_solutions(Maps, Fun, S1, Map1);
-    false ->
-      ?debug("Constraint solvers do not agree on ~w\n", [Fun]),
-      ?pp_map(atom_to_list(S), Map),
-      ?pp_map(atom_to_list(S1), Map1),
-      io:format("A bug was found. Please report it, and use the option "
-                "`--solver v1' until the bug has been fixed.\n"),
-      throw(error)
-  end.
-
-sane_maps(Map1, Map2, Keys, _S1, _S2) ->
-  lists:all(fun(Key) ->
-                V1 = unsafe_lookup_type(Key, Map1),
-                V2 = unsafe_lookup_type(Key, Map2),
-                case t_is_equal(V1, V2) of
-                  true -> true;
-                  false ->
-                    ?debug("Constraint solvers do not agree on ~w\n", [Key]),
-                    ?debug("~w: ~ts\n",
-                           [_S1, format_type(unsafe_lookup_type(Key, Map1))]),
-                    ?debug("~w: ~ts\n",
-                           [_S2, format_type(unsafe_lookup_type(Key, Map2))]),
-                    false
-                end
-            end, Keys).
-
 %% Solver v2
 
 -record(v2_state, {constr_data = maps:new() :: map(),
 		   state :: state()}).
 
-v2_solve_ref(Fun, Map, State) ->
+solve(Fun, FunMap, State) ->
   V2State = #v2_state{state = State},
-  {ok, NewMap, _, _} = v2_solve_reference(Fun, Map, V2State),
-  {ok, NewMap}.
+  try v2_solve_reference(Fun, FunMap, V2State) of
+    {ok, NewMap, _, _} -> NewMap
+  catch
+    throw:infinite_loop:Stack ->
+        erlang:raise(error,
+                     {"Infinite loop detected, please report this bug.",
+                      Fun,
+                      State#state.module},
+                     Stack)
+  end.
 
 v2_solve(#constraint{}=C, Map, V2State) ->
   case solve_one_c(C, Map) of
@@ -1996,20 +1888,22 @@ v2_solve_reference(Id, Map, V2State0) ->
             {ok, Dom} -> t_fun(Dom, t_none())
           end,
         {FunType0, V2State1};
-      {ok, NewMap, V2State1, U} ->
+      {ok, ResMap, V2State1, ResU} ->
         ?debug("Done solving fun: ~tp\n", [debug_lookup_name(Id)]),
-        FunType0 = lookup_type(Id, NewMap),
-        V2State2 = save_local_map(V2State1, Id, U, NewMap),
+        FunType0 = lookup_type(Id, ResMap),
+        V2State2 = save_local_map(V2State1, Id, ResU, ResMap),
         {FunType0, V2State2}
     end,
   ?debug("ref Id=~w Assigned ~ts\n", [Id, format_type(FunType)]),
-  {NewMap1, U1} = enter_var_type(Id, FunType, Map),
-  {NewMap2, U2} =
-    case state__get_rec_var(Id, State) of
-      {ok, Var} -> enter_var_type(Var, FunType, NewMap1);
-      error -> {NewMap1, []}
-    end,
-  {ok, NewMap2, V2State, lists:umerge(U1, U2)}.
+  {NewMap0, U0} = enter_var_type(Id, FunType, Map),
+  case state__get_rec_var(Id, State) of
+    {ok, Var} ->
+      %% `Id` and `Var` are one and the same, so they need to be unified.
+      {ok, {NewMap, U}} = refine_bindings([{Var, FunType}], NewMap0, U0),
+      {ok, NewMap, V2State, U};
+    error ->
+      {ok, NewMap0, V2State, U0}
+  end.
 
 v2_solve_self_recursive(Cs, Map, Id, RecType0, V2State0) ->
   ?debug("Solving self recursive ~tw\n", [debug_lookup_name(Id)]),
@@ -2117,33 +2011,34 @@ v2_solve_disj(Is, [C|Cs], I, Map, V2State, UL, MapL, Eval, Uneval0, Failed) ->
              not is_failed_list(C, V2State)] ++ Uneval0,
   v2_solve_disj(Is, Cs, I+1, Map, V2State, UL, MapL, Eval, Uneval, Failed).
 
-save_local_map(#v2_state{constr_data = ConData}=V2State, Id, U, Map) ->
-  Part0 = [{V,maps:get(V, Map)} || V <- U],
-  Part1 =
-    case maps:find(Id, ConData) of
-      error -> []; % cannot happen
-      {ok, {Part2,[]}} -> Part2
-    end,
+save_local_map(#v2_state{constr_data = ConData0}=V2State, Id, U, Map) ->
   ?debug("save local map Id=~w:\n", [Id]),
-  Part = lists:ukeymerge(1, lists:keysort(1, Part0), Part1),
-  ?pp_map("New Part", maps:from_list(Part0)),
-  ?pp_map("Old Part", maps:from_list(Part1)),
-  ?pp_map(" => Part", maps:from_list(Part)),
-  V2State#v2_state{constr_data = maps:put(Id, {Part,[]}, ConData)}.
+
+  {Part0, []} = maps:get(Id, ConData0, {#{}, []}),
+  ?pp_map("Old Part", Part0),
+
+  Part = maps:merge(Part0, maps:with(U, Map)),
+  ?pp_map(" => Part", Part),
+
+  ConData = ConData0#{ Id => {Part,[]} },
+  V2State#v2_state{constr_data = ConData}.
 
 restore_local_map(#v2_state{constr_data = ConData}, Id, Map0) ->
-  case maps:find(Id, ConData) of
-    error -> Map0;
-    {ok, failed} -> Map0;
-    {ok, {[],_}} -> Map0;
-    {ok, {Part0,U}} ->
-      Part = [KV || {K,_V} = KV <- Part0, not lists:member(K, U)],
+  case ConData of
+    #{ Id := {Part0, U} } when map_size(Part0) =/= 0 ->
       ?debug("restore local map Id=~w U=~w\n", [Id, U]),
-      ?pp_map("Part", maps:from_list(Part)),
+
       ?pp_map("Map0", Map0),
-      Map = lists:foldl(fun({K,V}, D) -> maps:put(K, V, D) end, Map0, Part),
+
+      Part = maps:without(U, Part0),
+      ?pp_map("Part", Part0),
+
+      Map = maps:merge(Map0, Part),
       ?pp_map("Map", Map),
-      Map
+
+      Map;
+    #{} ->
+      Map0
   end.
 
 v2_solve_conjunct(Conj, Map, V2State0) ->
@@ -2189,18 +2084,19 @@ v2_solve_conj([I|Is], [Cs|Tail], I, Map0, Conj, IsFlat, V2State0,
                     [U|UL], NewFs, VarsUp, LastMap, LastFlags)
   end;
 v2_solve_conj([], _Cs, _I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
-             LastMap, LastFlags) ->
+              LastMap, LastFlags) ->
   U = lists:umerge(UL),
   case lists:umerge(NewFs) of
     [] ->
       ?debug("conjunct finished Id=~w\n", [Conj#constraint_list.id]),
       {ok, Map, V2State, lists:umerge([U|VarsUp])};
     NewFlags when NewFlags =:= LastFlags, Map =:= LastMap ->
-      %% A loop was detected! The cause is some bug, possibly in erl_types.
-      %% The evaluation continues, but the results can be wrong.
-      report_detected_loop(Conj),
-      {ok, Map, V2State, lists:umerge([U|VarsUp])};
+      %% We're stuck in an infinite loop, so we'll crash in the hopes of
+      %% getting a report. Trying to return anyway will yield potentially
+      %% misleading results.
+      throw(infinite_loop);
     NewFlags ->
+      ?debug("conjunct restart Id=~w\n", [Conj#constraint_list.id]),
       #constraint_list{type = conj, list = Cs} = Conj,
       v2_solve_conj(NewFlags, Cs, 1, Map, Conj, IsFlat, V2State,
                     [], [], [U|VarsUp], Map, NewFlags)
@@ -2218,14 +2114,6 @@ v2_solve_conj(Is, [_|Tail], I, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
   v2_solve_conj(Is, Tail, I+1, Map, Conj, IsFlat, V2State, UL, NewFs, VarsUp,
                LastMap, LastFlags).
 
--ifdef(DEBUG_LOOP_DETECTION).
-report_detected_loop(Conj) ->
-  io:format("A loop was detected in ~w\n", [Conj#constraint_list.id]).
--else.
-report_detected_loop(_) ->
-  ok.
--endif.
-
 add_mask_to_flags(Flags, [Im|M], I, L) when I > Im ->
   add_mask_to_flags(Flags, M, I, [Im|L]);
 add_mask_to_flags(Flags, [_|M], _I, L) ->
@@ -2237,24 +2125,27 @@ umerge_mask(Is, F) ->
   lists:umerge(Is, F).
 
 get_mask(V, Masks) ->
-  case maps:find(V, Masks) of
-    error -> [];
-    {ok, M} -> M
+  case Masks of
+    #{ V := M } -> M;
+    #{} -> []
   end.
 
-get_flags(#v2_state{constr_data = ConData}=V2State0, C) ->
+get_flags(#v2_state{constr_data = ConData0}=V2State0, C) ->
   #constraint_list{id = Id, list = Cs, masks = Masks} = C,
-  case maps:find(Id, ConData) of
-    error ->
-      ?debug("get_flags Id=~w Flags=all ~w\n", [Id, length(Cs)]),
-      V2State = V2State0#v2_state{constr_data = maps:put(Id, {[],[]}, ConData)},
-      {V2State, [every_i]};
-    {ok, failed} ->
-      {V2State0, failed_list};
-    {ok, {Part,U}} when U =/= [] ->
+  case ConData0 of
+    #{ Id := {Part, U} } ->
+      true = U =/= [],                          %Assertion.
       ?debug("get_flags Id=~w U=~w\n", [Id, U]),
-      V2State = V2State0#v2_state{constr_data = maps:put(Id, {Part,[]}, ConData)},
-      save_updated_vars_list(Cs, vars_per_child(U, Masks), V2State)
+      ConData = ConData0#{ Id => {Part, []}},
+      V2State = V2State0#v2_state{constr_data = ConData},
+      save_updated_vars_list(Cs, vars_per_child(U, Masks), V2State);
+    #{ Id := failed } ->
+      {V2State0, failed_list};
+    #{} ->
+      ?debug("get_flags Id=~w Flags=all ~w\n", [Id, length(Cs)]),
+      ConData = ConData0#{ Id => {#{}, []}},
+      V2State = V2State0#v2_state{constr_data = ConData},
+      {V2State, [every_i]}
   end.
 
 vars_per_child(U, Masks) ->
@@ -2279,16 +2170,16 @@ save_updated_vars(#constraint_ref{id = Id}, U, V2State) ->
   Cs = state__get_cs(Id, V2State#v2_state.state),
   save_updated_vars(Cs, U, V2State).
 
-save_updated_vars1(V2State, C, U) ->
-  #v2_state{constr_data = ConData} = V2State,
-  #constraint_list{id = Id} = C,
-  case maps:find(Id, ConData) of
-    error -> V2State; % error means everything is flagged
-    {ok, failed} -> V2State;
-    {ok, {Part,U0}} ->
+save_updated_vars1(#v2_state{constr_data = ConData0} = V2State,
+                   #constraint_list{id = Id}, U) ->
+  case ConData0 of
+    #{ Id := {Part, U0} } ->
       %% Duplicates are not so common; let masks/2 remove them.
-      U1 = U ++ U0,
-      V2State#v2_state{constr_data = maps:put(Id, {Part,U1}, ConData)}
+      ConData = ConData0#{ Id => {Part, U ++ U0}},
+      V2State#v2_state{constr_data = ConData};
+    #{} ->
+      %% Everything is flagged
+      V2State
   end.
 
 -ifdef(DEBUG).
@@ -2298,7 +2189,7 @@ pp_constr_data(_Tag, #v2_state{constr_data = D}) ->
          case _PartU of
            {_Part, _U} ->
              io:format("Id: ~w Vars: ~w\n", [_Id, _U]),
-             [?pp_map("Part", maps:from_list(_Part)) || _Part =/= []];
+             [?pp_map("Part", _Part) || _Part =/= #{}];
            failed ->
              io:format("Id: ~w failed list\n", [_Id])
          end
@@ -2311,167 +2202,16 @@ pp_constr_data(_Tag, _V2State) ->
   ok.
 -endif.
 
-failed_list(#constraint_list{id = Id}, #v2_state{constr_data = D}=V2State) ->
+failed_list(#constraint_list{id = Id}, #v2_state{constr_data = D0}=V2State) ->
   ?debug("error list ~w~n", [Id]),
-  V2State#v2_state{constr_data = maps:put(Id, failed, D)}.
+  D = D0#{ Id => failed },
+  V2State#v2_state{constr_data = D}.
 
 is_failed_list(#constraint_list{id = Id}, #v2_state{constr_data = D}) ->
-  maps:find(Id, D) =:= {ok, failed}.
-
-%% Solver v1
-
-solve_ref_or_list(#constraint_ref{id = Id, deps = Deps},
-		  Map, MapDict, State) ->
-  {OldLocalMap, Check} =
-    case maps:find(Id, MapDict) of
-      error -> {map_new(), false};
-      {ok, M} -> {M, true}
-    end,
-  ?debug("Checking ref to fun: ~tw\n", [debug_lookup_name(Id)]),
-  %% Note: mk_constraint_ref() has already removed Id from Deps. The
-  %% reason for doing it there is that it makes it easy for
-  %% calculate_masks() to make the corresponding adjustment for
-  %% version v2.
-  CheckDeps = ordsets:del_element(t_var_name(Id), Deps),
-  true = CheckDeps =:= Deps,
-  case Check andalso maps_are_equal(OldLocalMap, Map, CheckDeps) of
-    true ->
-      ?debug("Equal\n", []),
-      {ok, MapDict, Map};
-    false ->
-      ?debug("Not equal. Solving\n", []),
-      Cs = state__get_cs(Id, State),
-      Res =
-	case state__is_self_rec(Id, State) of
-	  true -> solve_self_recursive(Cs, Map, MapDict, Id, t_none(), State);
-	  false -> solve_ref_or_list(Cs, Map, MapDict, State)
-	end,
-      {NewMapDict, FunType} =
-	case Res of
-	  {error, NewMapDict0} ->
-	    ?debug("Error solving for function ~tp\n", [debug_lookup_name(Id)]),
-	    Arity = state__fun_arity(Id, State),
-	    FunType0 =
-	      case state__prop_domain(t_var_name(Id), State) of
-		error -> t_fun(Arity, t_none());
-		{ok, Dom} -> t_fun(Dom, t_none())
-	      end,
-	    {NewMapDict0, FunType0};
-	  {ok, NewMapDict0, NewMap} ->
-	    ?debug("Done solving fun: ~tp\n", [debug_lookup_name(Id)]),
-	    FunType0 = lookup_type(Id, NewMap),
-	    {NewMapDict0, FunType0}
-	end,
-      ?debug("  Id=~w Assigned ~ts\n", [Id, format_type(FunType)]),
-      NewMap1 = enter_type(Id, FunType, Map),
-      NewMap2 =
-	case state__get_rec_var(Id, State) of
-	  {ok, Var} -> enter_type(Var, FunType, NewMap1);
-	  error -> NewMap1
-	end,
-      {ok, maps:put(Id, NewMap2, NewMapDict), NewMap2}
-  end;
-solve_ref_or_list(#constraint_list{type=Type, list = Cs, deps = Deps, id = Id},
-		  Map, MapDict, State) ->
-  {OldLocalMap, Check} =
-    case maps:find(Id, MapDict) of
-      error -> {map_new(), false};
-      {ok, M} -> {M, true}
-    end,
-  ?debug("Checking ref to list: ~w\n", [Id]),
-  if
-    OldLocalMap =:= error -> {error, MapDict};
-    true ->
-      case Check andalso maps_are_equal(OldLocalMap, Map, Deps) of
-        true ->
-          ?debug("~tw equal ~w\n", [Type, Id]),
-          {ok, MapDict, Map};
-        false ->
-          ?debug("~tw not equal: ~w. Solving\n", [Type, Id]),
-          solve_clist(Cs, Type, Id, Deps, MapDict, Map, State)
-      end
+  case D of
+    #{ Id := failed } -> true;
+    #{} -> false
   end.
-
-solve_self_recursive(Cs, Map, MapDict, Id, RecType0, State) ->
-  ?debug("Solving self recursive ~tw\n", [debug_lookup_name(Id)]),
-  {ok, RecVar} = state__get_rec_var(Id, State),
-  ?debug("OldRecType ~ts\n", [format_type(RecType0)]),
-  RecType = t_limit(RecType0, ?TYPE_LIMIT),
-  Map1 = enter_type(RecVar, RecType, erase_type(t_var_name(Id), Map)),
-  ?pp_map("Map1", Map1),
-  case solve_ref_or_list(Cs, Map1, MapDict, State) of
-    {error, _} = Error ->
-      case t_is_none(RecType0) of
-	true ->
-	  %% Try again and assume that this is a non-terminating function.
-	  Arity = state__fun_arity(Id, State),
-	  NewRecType = t_fun(lists:duplicate(Arity, t_any()), t_unit()),
-	  solve_self_recursive(Cs, Map, MapDict, Id, NewRecType, State);
-	false ->
-	  Error
-      end;
-    {ok, NewMapDict, NewMap} ->
-      ?pp_map("NewMap", NewMap),
-      NewRecType = unsafe_lookup_type(Id, NewMap),
-      case is_equal(NewRecType, RecType0) of
-	true ->
-	  {ok, NewMapDict, enter_type(RecVar, NewRecType, NewMap)};
-	false ->
-	  solve_self_recursive(Cs, Map, MapDict, Id, NewRecType, State)
-      end
-  end.
-
-solve_clist(Cs, conj, Id, Deps, MapDict, Map, State) ->
-  case solve_cs(Cs, Map, MapDict, State) of
-    {error, NewMapDict} ->
-      {error, maps:put(Id, error, NewMapDict)};
-    {ok, NewMapDict, NewMap} = Ret ->
-      case Cs of
-	[_] ->
-	  %% Just a special case for one conjunctive constraint.
-	  Ret;
-	_ ->
-	  case maps_are_equal(Map, NewMap, Deps) of
-	    true -> {ok, maps:put(Id, NewMap, NewMapDict), NewMap};
-	    false -> solve_clist(Cs, conj, Id, Deps, NewMapDict, NewMap, State)
-	  end
-      end
-  end;
-solve_clist(Cs, disj, Id, _Deps, MapDict, Map, State) ->
-  Fun = fun(C, Dict) ->
-	    case solve_ref_or_list(C, Map, Dict, State) of
-	      {ok, NewDict, NewMap} -> {{ok, NewMap}, NewDict};
-	      {error, _NewDict} = Error -> Error
-	    end
-	end,
-  {Maps, NewMapDict} = lists:mapfoldl(Fun, MapDict, Cs),
-  case [X || {ok, X} <- Maps] of
-    [] -> {error, maps:put(Id, error, NewMapDict)};
-    MapList ->
-      NewMap = join_maps(MapList),
-      {ok, maps:put(Id, NewMap, NewMapDict), NewMap}
-  end.
-
-solve_cs([#constraint_ref{} = C|Tail], Map, MapDict, State) ->
-  case solve_ref_or_list(C, Map, MapDict, State) of
-    {ok, NewMapDict, Map1} -> solve_cs(Tail, Map1, NewMapDict, State);
-    {error, _NewMapDict} = Error -> Error
-  end;
-solve_cs([#constraint_list{} = C|Tail], Map, MapDict, State) ->
-  case solve_ref_or_list(C, Map, MapDict, State) of
-    {ok, NewMapDict, Map1} -> solve_cs(Tail, Map1, NewMapDict, State);
-    {error, _NewMapDict} = Error -> Error
-  end;
-solve_cs([#constraint{} = C|Tail], Map, MapDict, State) ->
-  case solve_one_c(C, Map) of
-    error ->
-      report_failed_constraint(C, Map),
-      {error, MapDict};
-    {ok, {NewMap, _U}} ->
-      solve_cs(Tail, NewMap, MapDict, State)
-  end;
-solve_cs([], Map, MapDict, _State) ->
-  {ok, MapDict, Map}.
 
 solve_one_c(#constraint{lhs = Lhs, rhs = Rhs, op = Op}, Map) ->
   LhsType = lookup_type(Lhs, Map),
@@ -2498,22 +2238,50 @@ solve_one_c(#constraint{lhs = Lhs, rhs = Rhs, op = Op}, Map) ->
   end.
 
 solve_subtype(Type, Inf, Map) ->
-  %% case cerl:is_literal(Type) of
-  %%   true ->
-  %%     case t_is_subtype(t_from_term(cerl:concrete(Type)), Inf) of
-  %%	true -> {ok, Map};
-  %%	false -> error
-  %%     end;
-  %%   false ->
-      try t_unify(Type, Inf) of
-	{_, List} -> {ok, enter_type_list(List, Map)}
-      catch
-	throw:{mismatch, _T1, _T2} ->
-	  ?debug("Mismatch between ~ts and ~ts\n",
-		 [format_type(_T1), format_type(_T2)]),
-	  error
-      end.
-  %% end.
+  try t_unify_table_only(Type, Inf) of
+    Bindings ->
+      refine_bindings(maps:to_list(Bindings), Map, [])
+  catch
+    throw:{mismatch, _T1, _T2} ->
+      ?debug("Mismatch between ~ts and ~ts\n",
+             [format_type(_T1), format_type(_T2)]),
+      error
+  end.
+
+%% Similar to enter_type/3 over a list, but refines known types rather than
+%% replaces them.
+refine_bindings([{Key, Val} | Tail], Map, U0) ->
+  ?debug("Unifying ~ts :: ~ts\n",
+         [format_type(t_var(Key)), format_type(Val)]),
+  %% It's important to keep opaque types whose internal structure is any(),
+  %% hence the equality check on t_any() rather than t_is_any/1.
+  case t_is_equal(Val, t_any()) of
+    true ->
+      refine_bindings(Tail, maps:remove(Key, Map), U0);
+    false ->
+      LimitedVal = t_limit(Val, ?INTERNAL_TYPE_LIMIT),
+      case Map of
+        #{ Key := Old } ->
+          LimitedInf = t_inf(Old, LimitedVal),
+          case t_is_none(LimitedInf) of
+            true ->
+              error;
+            false ->
+              case t_is_equal(Old, LimitedInf) of
+                true ->
+                  refine_bindings(Tail, Map, U0);
+                false ->
+                  U = ordsets:add_element(Key, U0),
+                  refine_bindings(Tail, Map#{ Key => LimitedInf }, U)
+              end
+          end;
+        #{} ->
+          U = ordsets:add_element(Key, U0),
+          refine_bindings(Tail, Map#{ Key => LimitedVal }, U)
+      end
+  end;
+refine_bindings([], Map, U) ->
+  {ok, {Map, U}}.
 
 report_failed_constraint(_C, _Map) ->
   ?debug("+++++++++++\nFailed: ~ts :: ~ts ~w ~ts :: ~ts\n+++++++++++\n",
@@ -2528,15 +2296,6 @@ report_failed_constraint(_C, _Map) ->
 %%  Maps and types.
 %%
 %% ============================================================================
-
-map_new() ->
-  maps:new().
-
-join_maps([Map]) ->
-  Map;
-join_maps(Maps) ->
-  Keys = constrained_keys(Maps),
-  join_maps(Keys, Maps, map_new()).
 
 constrained_keys(Maps) ->
   lists:foldl(fun(TmpMap, AccKeys) ->
@@ -2563,43 +2322,6 @@ join_one_key(Key, [Map|Maps], Type) ->
   end;
 join_one_key(_Key, [], Type) ->
   Type.
-
-maps_are_equal(Map1, Map2, Deps) ->
-  NewDeps = prune_keys(Map1, Map2, Deps),
-  maps_are_equal_1(Map1, Map2, NewDeps).
-
-maps_are_equal_1(Map1, Map2, [H|Tail]) ->
-  T1 = lookup_type(H, Map1),
-  T2 = lookup_type(H, Map2),
-  case is_equal(T1, T2) of
-    true -> maps_are_equal_1(Map1, Map2, Tail);
-    false ->
-      ?debug("~w: ~ts =/= ~ts\n", [H, format_type(T1), format_type(T2)]),
-      false
-  end;
-maps_are_equal_1(_Map1, _Map2, []) ->
-  true.
-
--define(PRUNE_LIMIT, 100).
-
-prune_keys(Map1, Map2, Deps) ->
-  %% This is only worthwhile if the number of deps is reasonably large,
-  %% and also bigger than the number of elements in the maps.
-  NofDeps = length(Deps),
-  case NofDeps > ?PRUNE_LIMIT of
-    true ->
-      Keys1 = maps:keys(Map1),
-      case length(Keys1) > NofDeps of
-	true ->
-	  Set1 = lists:sort(Keys1),
-	  Set2 = lists:sort(maps:keys(Map2)),
-	  ordsets:intersection(ordsets:union(Set1, Set2), Deps);
-	false ->
-	  Deps
-      end;
-    false ->
-      Deps
-  end.
 
 enter_type(Key, Val, Map) when is_integer(Key) ->
   ?debug("Entering ~ts :: ~ts\n", [format_type(t_var(Key)), format_type(Val)]),
@@ -2631,15 +2353,6 @@ enter_type_lists([Key|KeyTail], [Val|ValTail], Map) ->
   enter_type_lists(KeyTail, ValTail, Map1);
 enter_type_lists([], [], Map) ->
   Map.
-
-enter_type_list(KeyVals, Map) ->
-  enter_type_list(KeyVals, Map, []).
-
-enter_type_list([{Key, Val}|Tail], Map, U0) ->
-  {Map1,U1} = enter_type2(Key, Val, Map),
-  enter_type_list(Tail, Map1, U1++U0);
-enter_type_list([], Map, U) ->
-  {Map, ordsets:from_list(U)}.
 
 enter_type2(Key, Val, Map) ->
   Map1 = enter_type(Key, Val, Map),
@@ -2734,7 +2447,7 @@ new_state(MFAs, NextLabel, CallGraph, CServer, Plt, PropTypes0, Solvers) ->
 	end;
       _Many -> false
     end,
-  PropTypes = dict:from_list(PropTypes0),
+  PropTypes = maps:from_list(PropTypes0),
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
 	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
 	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers,
@@ -2834,29 +2547,29 @@ state__new_constraint_context(State) ->
   State#state{cs = []}.
 
 state__prop_domain(FunLabel, #state{prop_types = PropTypes}) ->
- case dict:find(FunLabel, PropTypes) of
-    error -> error;
-    {ok, {_Range_Fun, Dom}} -> {ok, Dom};
-    {ok, FunType} -> {ok, t_fun_args(FunType)}
+  case PropTypes of
+    #{FunLabel := FunType} -> {ok, t_fun_args(FunType)};
+    #{} -> error
   end.
 
 state__add_prop_constrs(Tree, #state{prop_types = PropTypes} = State) ->
   Label = cerl_trees:get_label(Tree),
-  case dict:find(Label, PropTypes) of
-    error -> State;
-    {ok, FunType} ->
+  case PropTypes of
+    #{Label := FunType} ->
       case t_fun_args(FunType) of
 	unknown -> State;
 	ArgTypes ->
 	  case erl_types:any_none(ArgTypes) of
-	    true -> not_called;
+	    true -> State;
 	    false ->
 	      ?debug("Adding propagated constr: ~ts for function ~tw\n",
 		     [format_type(FunType), debug_lookup_name(mk_var(Tree))]),
 	      FunVar = mk_var(Tree),
 	      state__store_conj(FunVar, sub, FunType, State)
 	  end
-      end
+      end;
+    #{} ->
+      State
   end.
 
 state__cs(#state{cs = Cs}) ->
@@ -2947,7 +2660,7 @@ mk_constraint(Lhs, Op, Rhs) ->
       case Deps =:= [] of
 	true ->
 	  %% This constraint is constant. Solve it immediately.
-	  case solve_one_c(C, map_new()) of
+	  case solve_one_c(C, #{}) of
 	    error -> throw(error);
 	    _R ->
 	      %% This is always true, keep it anyway for logistic reasons
@@ -2977,8 +2690,8 @@ constraint_opnd_is_any(Type) -> t_is_any(Type).
                  [erl_types:erl_type()]) -> #fun_var{}.
 
 mk_fun_var(Line, Fun, Types) ->
-  Deps = [t_var_name(Var) || Var <- t_collect_vars(t_product(Types))],
-  #fun_var{'fun' = Fun, deps = ordsets:from_list(Deps), origin = Line}.
+  Deps = t_collect_var_names(t_product(Types)),
+  #fun_var{'fun' = Fun, deps = Deps, origin = Line}.
 
 pp_map(S, Map) ->
   ?debug("\t~s: ~p\n",
@@ -2990,8 +2703,8 @@ pp_map(S, Map) ->
 -spec mk_fun_var(fun((_) -> erl_types:erl_type()), [erl_types:erl_type()]) -> #fun_var{}.
 
 mk_fun_var(Fun, Types) ->
-  Deps = [t_var_name(Var) || Var <- t_collect_vars(t_product(Types))],
-  #fun_var{'fun' = Fun, deps = ordsets:from_list(Deps)}.
+  Deps = t_collect_var_names(t_product(Types)),
+  #fun_var{'fun' = Fun, deps = Deps}.
 
 -endif.
 
@@ -3004,15 +2717,15 @@ get_deps(#constraint_ref{deps = D}) -> D.
 -spec find_constraint_deps([fvar_or_type()]) -> deps().
 
 find_constraint_deps(List) ->
-  ordsets:from_list(find_constraint_deps(List, [])).
+  find_constraint_deps(List, []).
 
 find_constraint_deps([#fun_var{deps = Deps}|Tail], Acc) ->
-  find_constraint_deps(Tail, [Deps|Acc]);
-find_constraint_deps([Type|Tail], Acc) ->
-  NewAcc = [[t_var_name(D) || D <- t_collect_vars(Type)]|Acc],
-  find_constraint_deps(Tail, NewAcc);
+  find_constraint_deps(Tail, ordsets:union(Deps, Acc));
+find_constraint_deps([Type | Tail], Acc0) ->
+  Acc = ordsets:union(t_collect_var_names(Type), Acc0),
+  find_constraint_deps(Tail, Acc);
 find_constraint_deps([], Acc) ->
-  lists:append(Acc).
+  Acc.
 
 mk_constraint_1(Lhs, eq, Rhs, Deps) when Lhs < Rhs ->
   #constraint{lhs = Lhs, op = eq, rhs = Rhs, deps = Deps};
@@ -3349,14 +3062,12 @@ find_constraint(Tuple, [#constraint_list{list = List}|Cs]) ->
 find_constraint(Tuple, [_|Cs]) ->
   find_constraint(Tuple, Cs).
 
--spec fold_literal_maybe_match(cerl:cerl(), state()) -> cerl:cerl().
+%% Test whether the term can be folded into a literal.  If `State`
+%% indicates that we are in a match, folding is not possible if any
+%% literal in the term contains a map.
 
-fold_literal_maybe_match(Tree0, State) ->
-  Tree1 = cerl:fold_literal(Tree0),
-  case state__is_in_match(State) of
-    false -> Tree1;
-    true -> dialyzer_utils:refold_pattern(Tree1)
-  end.
+is_foldable(Tree, State) ->
+  dialyzer_utils:is_foldable(Tree, state__is_in_match(State)).
 
 lookup_record(State, Tag, Arity) ->
   #state{module = M, mod_records = ModRecs, cserver = CServer} = State,

@@ -45,7 +45,7 @@ In order to be able to automatically start remote Erlang nodes,
 you need to:
 
  - put the $ERL_TOP/bin directory in your path on all nodes
- - bind IP adresses to hostnames (e.g via DNS or /etc/hosts)
+ - bind IP addresses to hostnames (e.g via DNS or /etc/hosts)
  - enable usage of ssh so it does not prompt for password
 
 If you cannot achieve this, it is possible to run the benchmark
@@ -79,11 +79,11 @@ Given some arguments such as
 
    Args = ['YourConfigFile', {statistics_detail, debug}].
 
-the invokation of
+the invocation of
 
    bench:run(Args).
 
-is equivivalent with:
+is equivalent with:
 
    SlaveNodes = bench:start_all(Args).
    bench:populate(Args).

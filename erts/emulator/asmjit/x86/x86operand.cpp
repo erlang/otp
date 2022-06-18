@@ -22,7 +22,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 #include "../core/api-build_p.h"
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
 
 #include "../core/misc_p.h"
 #include "../x86/x86operand.h"
@@ -245,4 +245,4 @@ UNIT(x86_operand) {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_BUILD_X86
+#endif // !ASMJIT_NO_X86

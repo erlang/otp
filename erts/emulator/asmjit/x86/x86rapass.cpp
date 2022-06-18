@@ -22,7 +22,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 #include "../core/api-build_p.h"
-#if defined(ASMJIT_BUILD_X86) && !defined(ASMJIT_NO_COMPILER)
+#if !defined(ASMJIT_NO_X86) && !defined(ASMJIT_NO_COMPILER)
 
 #include "../core/cpuinfo.h"
 #include "../core/support.h"
@@ -140,6 +140,39 @@ Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder&
     uint32_t singleRegOps = 0;
 
     if (opCount) {
+      // The mask is for all registers, but we are mostly interested in AVX-512
+      // registers at the moment. The mask will be combined with all available
+      // registers of the Compiler at the end so we it never use more registers
+      // than available.
+      uint32_t instructionAllowedRegs = 0xFFFFFFFFu;
+
+      if (instInfo.isEvex()) {
+        // EVEX instruction and VEX instructions that can be encoded with EVEX
+        // have the possibility to use 32 SIMD registers (XMM/YMM/ZMM).
+        if (instInfo.isVex() && !instInfo.isEvexCompatible()) {
+          if (instInfo.isEvexKRegOnly()) {
+            // EVEX encodable only if the first operand is K register (compare instructions).
+            if (!Reg::isKReg(opArray[0]))
+              instructionAllowedRegs = 0xFFFFu;
+          }
+          else if (instInfo.isEvexTwoOpOnly()) {
+            // EVEX encodable only if the instruction has two operands (gather instructions).
+            if (opCount != 2)
+              instructionAllowedRegs = 0xFFFFu;
+          }
+          else {
+            instructionAllowedRegs = 0xFFFFu;
+          }
+        }
+      }
+      else if (instInfo.isEvexTransformable()) {
+        ib.addAggregatedFlags(RAInst::kFlagIsTransformable);
+      }
+      else {
+        // Not EVEX, restrict everything to [0-15] registers.
+        instructionAllowedRegs = 0xFFFFu;
+      }
+
       for (uint32_t i = 0; i < opCount; i++) {
         const Operand& op = opArray[i];
         const OpRWInfo& opRwInfo = rwInfo.operand(i);
@@ -150,7 +183,7 @@ Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder&
           const Reg& reg = op.as<Reg>();
 
           uint32_t flags = raRegRwFlags(opRwInfo.opFlags());
-          uint32_t allowedRegs = 0xFFFFFFFFu;
+          uint32_t allowedRegs = instructionAllowedRegs;
 
           // X86-specific constraints related to LO|HI general purpose registers.
           // This is only required when the register is part of the encoding. If
@@ -281,7 +314,7 @@ Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder&
 
               uint32_t flags = raMemIndexRwFlags(opRwInfo.opFlags());
               uint32_t group = workReg->group();
-              uint32_t allocable = _pass->_availableRegs[group];
+              uint32_t allocable = _pass->_availableRegs[group] & instructionAllowedRegs;
 
               // Index registers have never fixed id on X86/x64.
               const uint32_t useId = BaseReg::kIdBad;
@@ -314,7 +347,7 @@ Error RACFGBuilder::onInst(InstNode* inst, uint32_t& controlType, RAInstBuilder&
 
         if (group == Gp::kGroupKReg) {
           // AVX-512 mask selector {k} register - read-only, allocable to any register except {k0}.
-          uint32_t allocableRegs= _pass->_availableRegs[group] & ~Support::bitMask(0);
+          uint32_t allocableRegs = _pass->_availableRegs[group];
           ASMJIT_PROPAGATE(ib.add(workReg, RATiedReg::kUse | RATiedReg::kRead, allocableRegs, BaseReg::kIdBad, rewriteMask, BaseReg::kIdBad, 0));
           singleRegOps = 0;
         }
@@ -1106,13 +1139,21 @@ X86RAPass::~X86RAPass() noexcept {}
 void X86RAPass::onInit() noexcept {
   uint32_t arch = cc()->arch();
   uint32_t baseRegCount = Environment::is32Bit(arch) ? 8u : 16u;
+  uint32_t simdRegCount = baseRegCount;
+
+  if (Environment::is64Bit(arch) && _func->frame().isAvx512Enabled())
+    simdRegCount = 32u;
+
+  bool avxEnabled = _func->frame().isAvxEnabled();
+  bool avx512Enabled = _func->frame().isAvx512Enabled();
 
   _emitHelper._emitter = _cb;
-  _emitHelper._avxEnabled = _func->frame().isAvxEnabled();
+  _emitHelper._avxEnabled = avxEnabled || avx512Enabled;
+  _emitHelper._avx512Enabled = avx512Enabled;
 
   _archTraits = &ArchTraits::byArch(arch);
   _physRegCount.set(Reg::kGroupGp  , baseRegCount);
-  _physRegCount.set(Reg::kGroupVec , baseRegCount);
+  _physRegCount.set(Reg::kGroupVec , simdRegCount);
   _physRegCount.set(Reg::kGroupMm  , 8);
   _physRegCount.set(Reg::kGroupKReg, 8);
   _buildPhysIndex();
@@ -1121,7 +1162,7 @@ void X86RAPass::onInit() noexcept {
   _availableRegs[Reg::kGroupGp  ] = Support::lsbMask<uint32_t>(_physRegCount.get(Reg::kGroupGp  ));
   _availableRegs[Reg::kGroupVec ] = Support::lsbMask<uint32_t>(_physRegCount.get(Reg::kGroupVec ));
   _availableRegs[Reg::kGroupMm  ] = Support::lsbMask<uint32_t>(_physRegCount.get(Reg::kGroupMm  ));
-  _availableRegs[Reg::kGroupKReg] = Support::lsbMask<uint32_t>(_physRegCount.get(Reg::kGroupKReg));
+  _availableRegs[Reg::kGroupKReg] = Support::lsbMask<uint32_t>(_physRegCount.get(Reg::kGroupKReg)) ^ 1u;
 
   _scratchRegIndexes[0] = uint8_t(Gp::kIdCx);
   _scratchRegIndexes[1] = uint8_t(baseRegCount - 1);
@@ -1145,6 +1186,135 @@ void X86RAPass::onDone() noexcept {}
 
 Error X86RAPass::buildCFG() noexcept {
   return RACFGBuilder(this).run();
+}
+
+// ============================================================================
+// [asmjit::x86::X86RAPass - Rewrite]
+// ============================================================================
+
+static uint32_t transformVexToEvex(uint32_t instId) {
+  switch (instId) {
+    case Inst::kIdVbroadcastf128: return Inst::kIdVbroadcastf32x4;
+    case Inst::kIdVbroadcasti128: return Inst::kIdVbroadcasti32x4;
+    case Inst::kIdVextractf128: return Inst::kIdVextractf32x4;
+    case Inst::kIdVextracti128: return Inst::kIdVextracti32x4;
+    case Inst::kIdVinsertf128: return Inst::kIdVinsertf32x4;
+    case Inst::kIdVinserti128: return Inst::kIdVinserti32x4;
+    case Inst::kIdVmovdqa: return Inst::kIdVmovdqa32;
+    case Inst::kIdVmovdqu: return Inst::kIdVmovdqu32;
+    case Inst::kIdVpand: return Inst::kIdVpandd;
+    case Inst::kIdVpandn: return Inst::kIdVpandnd;
+    case Inst::kIdVpor: return Inst::kIdVpord;
+    case Inst::kIdVpxor: return Inst::kIdVpxord;
+
+    default:
+      // This should never happen as only transformable instructions should go this path.
+      ASMJIT_ASSERT(false);
+      return 0;
+  }
+}
+
+ASMJIT_FAVOR_SPEED Error X86RAPass::_rewrite(BaseNode* first, BaseNode* stop) noexcept {
+  uint32_t virtCount = cc()->_vRegArray.size();
+
+  BaseNode* node = first;
+  while (node != stop) {
+    BaseNode* next = node->next();
+    if (node->isInst()) {
+      InstNode* inst = node->as<InstNode>();
+      RAInst* raInst = node->passData<RAInst>();
+
+      Operand* operands = inst->operands();
+      uint32_t opCount = inst->opCount();
+      uint32_t maxRegId = 0;
+
+      uint32_t i;
+
+      // Rewrite virtual registers into physical registers.
+      if (raInst) {
+        // If the instruction contains pass data (raInst) then it was a subject
+        // for register allocation and must be rewritten to use physical regs.
+        RATiedReg* tiedRegs = raInst->tiedRegs();
+        uint32_t tiedCount = raInst->tiedCount();
+
+        for (i = 0; i < tiedCount; i++) {
+          RATiedReg* tiedReg = &tiedRegs[i];
+
+          Support::BitWordIterator<uint32_t> useIt(tiedReg->useRewriteMask());
+          uint32_t useId = tiedReg->useId();
+          while (useIt.hasNext()) {
+            maxRegId = Support::max(maxRegId, useId);
+            inst->rewriteIdAtIndex(useIt.next(), useId);
+          }
+
+          Support::BitWordIterator<uint32_t> outIt(tiedReg->outRewriteMask());
+          uint32_t outId = tiedReg->outId();
+          while (outIt.hasNext()) {
+            maxRegId = Support::max(maxRegId, outId);
+            inst->rewriteIdAtIndex(outIt.next(), outId);
+          }
+        }
+
+        if (raInst->isTransformable()) {
+          if (maxRegId > 15) {
+            // Transform VEX instruction to EVEX.
+            inst->setId(transformVexToEvex(inst->id()));
+          }
+        }
+
+        // This data is allocated by Zone passed to `runOnFunction()`, which
+        // will be reset after the RA pass finishes. So reset this data to
+        // prevent having a dead pointer after the RA pass is complete.
+        node->resetPassData();
+
+        if (ASMJIT_UNLIKELY(node->type() != BaseNode::kNodeInst)) {
+          // FuncRet terminates the flow, it must either be removed if the exit
+          // label is next to it (optimization) or patched to an architecture
+          // dependent jump instruction that jumps to the function's exit before
+          // the epilog.
+          if (node->type() == BaseNode::kNodeFuncRet) {
+            RABlock* block = raInst->block();
+            if (!isNextTo(node, _func->exitNode())) {
+              cc()->_setCursor(node->prev());
+              ASMJIT_PROPAGATE(emitJump(_func->exitNode()->label()));
+            }
+
+            BaseNode* prev = node->prev();
+            cc()->removeNode(node);
+            block->setLast(prev);
+          }
+        }
+      }
+
+      // Rewrite stack slot addresses.
+      for (i = 0; i < opCount; i++) {
+        Operand& op = operands[i];
+        if (op.isMem()) {
+          BaseMem& mem = op.as<BaseMem>();
+          if (mem.isRegHome()) {
+            uint32_t virtIndex = Operand::virtIdToIndex(mem.baseId());
+            if (ASMJIT_UNLIKELY(virtIndex >= virtCount))
+              return DebugUtils::errored(kErrorInvalidVirtId);
+
+            VirtReg* virtReg = cc()->virtRegByIndex(virtIndex);
+            RAWorkReg* workReg = virtReg->workReg();
+            ASMJIT_ASSERT(workReg != nullptr);
+
+            RAStackSlot* slot = workReg->stackSlot();
+            int32_t offset = slot->offset();
+
+            mem._setBase(_sp.type(), slot->baseRegId());
+            mem.clearRegHome();
+            mem.addOffsetLo32(offset);
+          }
+        }
+      }
+    }
+
+    node = next;
+  }
+
+  return kErrorOk;
 }
 
 // ============================================================================
@@ -1283,4 +1453,4 @@ Error X86RAPass::emitPreCall(InvokeNode* invokeNode) noexcept {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_BUILD_X86 && !ASMJIT_NO_COMPILER
+#endif // !ASMJIT_NO_X86 && !ASMJIT_NO_COMPILER

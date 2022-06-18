@@ -43,7 +43,7 @@
 
 %%-----------------------------------------------------------------
 %% Options is a list of {path, Path} | silent | local where path sets
-%% the search path, silent supresses error message printing on console,
+%% the search path, silent suppresses error message printing on console,
 %% local generates a script with references to the directories there
 %% the applications are found.
 %%-----------------------------------------------------------------
@@ -57,7 +57,7 @@ make_script(RelName, Opt) ->
 %%-----------------------------------------------------------------
 %% Options is a list of {path, Path} | silent |
 %%    {dirs, [src,include,examples,..]} | {erts, ErtsDir} where path
-%% sets the search path, silent supresses error message printing on console,
+%% sets the search path, silent suppresses error message printing on console,
 %% dirs includes the specified directories (per application) in the
 %% release package and erts specifies that the erts-Vsn/bin directory
 %% should be included in the release package and there it can be found.
@@ -116,8 +116,8 @@ script2boot(File, Output0, _Opt) ->
 
 %%-----------------------------------------------------------------
 %% Options is a list of {path, Path} | silent | noexec where path sets
-%% search path, silent supresses error message printing on console,
-%% noexec supresses writing the output "relup" file
+%% search path, silent suppresses error message printing on console,
+%% noexec suppresses writing the output "relup" file
 %%-----------------------------------------------------------------
 make_relup(ReleaseName, UpNameList, DownNameList) ->
     systools_relup:mk_relup(ReleaseName, UpNameList, DownNameList, []).

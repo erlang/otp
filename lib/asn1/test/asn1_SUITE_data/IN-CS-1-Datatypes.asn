@@ -1431,7 +1431,7 @@ ServiceInteractionIndicators ::=
 -- The following example is listed to illustrate the use of this parameter:
 --	CallToBeDiverted	Allowed/NotAllowed Indicator
 -- If the CallToBeDiverted indicator is set to NotAllowed, the destination exchange shall not allow any
--- divertion on the subjected call. By this, each service can pass the applicable indicators to inform the
+-- diversion on the subjected call. By this, each service can pass the applicable indicators to inform the
 -- destination exchange of how specific services are to be handled.
 ServiceKey ::=
   Integer4

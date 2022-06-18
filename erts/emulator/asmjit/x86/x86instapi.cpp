@@ -40,7 +40,7 @@
 // ----------------------------------------------------------------------------
 
 #include "../core/api-build_p.h"
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
 
 #include "../core/cpuinfo.h"
 #include "../core/misc_p.h"
@@ -1519,6 +1519,7 @@ Error InstInternal::queryFeatures(uint32_t arch, const BaseInst& inst, const Ope
           // The instruction doesn't use XMM register(s), thus it's MMX/MMX2 only.
           out->remove(Features::kSSE);
           out->remove(Features::kSSE2);
+          out->remove(Features::kSSE4_1);
         }
         else {
           out->remove(Features::kMMX);
@@ -1532,9 +1533,6 @@ Error InstInternal::queryFeatures(uint32_t arch, const BaseInst& inst, const Ope
         // can extract directly to memory. This instruction is, of course, not
         // compatible with MMX/SSE2 and would #UD if SSE4.1 is not supported.
         if (instId == Inst::kIdPextrw) {
-          ASMJIT_ASSERT(out->has(Features::kSSE2));
-          ASMJIT_ASSERT(out->has(Features::kSSE4_1));
-
           if (opCount >= 1 && operands[0].isMem())
             out->remove(Features::kSSE2);
           else
@@ -1607,10 +1605,14 @@ Error InstInternal::queryFeatures(uint32_t arch, const BaseInst& inst, const Ope
             mustUseEvex = opCount >= 2 && x86::Reg::isGp(operands[1]);
             break;
 
-          // Special case: VPERMPD only supports YMM predicate in AVX mode, immediate
-          // precicate is only supported by AVX512-F and newer.
+          // Special case: VPERMPD - AVX2 vs AVX512-F case.
           case Inst::kIdVpermpd:
             mustUseEvex = opCount >= 3 && !operands[2].isImm();
+            break;
+
+          // Special case: VPERMQ - AVX2 vs AVX512-F case.
+          case Inst::kIdVpermq:
+            mustUseEvex = opCount >= 3 && (operands[1].isMem() || !operands[2].isImm());
             break;
         }
 
@@ -1668,4 +1670,4 @@ UNIT(x86_inst_api_text) {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_BUILD_X86
+#endif // !ASMJIT_NO_X86

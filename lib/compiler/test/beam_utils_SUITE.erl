@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -392,9 +392,9 @@ merchant([Merchant, Laws, Electric]) ->
 	     if true; Electric -> Laws end) + 42.
 oklahoma([], Int) -> Int.
 
-town(overall, {{If}, Healing = alcohol})
-  when Healing#{[] => Healing}; include ->
-    [If || Healing <- awareness].
+town(overall, {{If}, _Healing = alcohol})
+  when _Healing#{[] => _Healing}; include ->
+    [If || _Healing <- awareness].
 
 %% Cover is_reg_used_at/3.
 resulting([Conservation], stone) ->

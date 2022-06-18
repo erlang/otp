@@ -228,13 +228,10 @@ start_timer_e(Config) when is_list(Config) ->
     {'EXIT', _} = (catch erlang:start_timer(4.5, self(), hej)),
     {'EXIT', _} = (catch erlang:start_timer(a, self(), hej)),
 
-    Node = start_slave(),
+    {ok, Peer, Node} = ?CT_PEER(),
     Pid = spawn(Node, timer, sleep, [10000]),
     {'EXIT', _} = (catch erlang:start_timer(1000, Pid, hej)),
-    stop_slave(Node),
-
-
-    ok.
+    peer:stop(Peer).
 
 %% Error cases for send_after/3
 send_after_e(Config) when is_list(Config) ->
@@ -245,11 +242,10 @@ send_after_e(Config) when is_list(Config) ->
     {'EXIT', _} = (catch erlang:send_after(4.5, self(), hej)),
     {'EXIT', _} = (catch erlang:send_after(a, self(), hej)),
 
-    Node = start_slave(),
+    {ok, Peer, Node} = ?CT_PEER(),
     Pid = spawn(Node, timer, sleep, [10000]),
     {'EXIT', _} = (catch erlang:send_after(1000, Pid, hej)),
-    stop_slave(Node),
-    ok.
+    peer:stop(Peer).
 
 %% Error cases for cancel_timer/1
 cancel_timer_e(Config) when is_list(Config) ->
@@ -384,7 +380,7 @@ evil_timers(Config) when is_list(Config) ->
     %% in memory
     Self = self(),
     R1 = make_ref(),
-    Node = start_slave(),
+    {ok, Peer, Node} = ?CT_PEER(),
     spawn_link(Node,
                fun () ->
                        Self ! {R1,
@@ -396,7 +392,7 @@ evil_timers(Config) when is_list(Config) ->
                                  fun (A, B) -> A + B end]]}
                end),
     ExtList = receive {R1, L} -> L end,
-    stop_slave(Node),
+    peer:stop(Peer),
     BinList = [<<"bla">>,
                <<"blipp">>,
                <<"blupp">>,
@@ -812,17 +808,6 @@ get_msg() ->
     after 0 ->
               empty
     end.
-
-start_slave() ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    Name = atom_to_list(?MODULE)
-    ++ "-" ++ integer_to_list(erlang:system_time(second))
-    ++ "-" ++ integer_to_list(erlang:unique_integer([positive])),
-    {ok, Node} = test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
-    Node.
-
-stop_slave(Node) ->
-    test_server:stop_node(Node).
 
 collect(Last) ->
     collect(Last, []).

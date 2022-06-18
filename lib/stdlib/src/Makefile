@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2020. All Rights Reserved.
+# Copyright Ericsson AB 1996-2021. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,7 +91,6 @@ MODULES= \
 	io \
 	io_lib \
 	io_lib_format \
-	io_lib_format_ryu_table \
 	io_lib_fread \
 	io_lib_pretty \
 	lists \
@@ -103,6 +102,7 @@ MODULES= \
 	orddict \
 	ordsets \
 	re \
+	peer \
 	pool \
 	proc_lib \
 	proplists \

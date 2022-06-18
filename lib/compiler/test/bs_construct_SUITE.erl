@@ -72,10 +72,10 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 verify_highest_opcode(_Config) ->
     case ?MODULE of
-        bs_construct_r21_SUITE ->
+        bs_construct_r24_SUITE ->
             {ok,Beam} = file:read_file(code:which(?MODULE)),
             case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 163 ->
+                Highest when Highest =< 176 ->
                     ok;
                 TooHigh ->
                     ct:fail({too_high_opcode_for_21,TooHigh})
@@ -164,7 +164,7 @@ l(I_13, I_big1, I_16, Bin) ->
      ?T(<<869:16/little,3479:I_13,Bin/binary,7:1/unit:3,Bin/binary>>,
         [101,3,108,189,42,214,31,165,90,195]),
 
-     %% Test of aligment flag.
+     %% Test of alignment flag.
      ?T(<<0:I_13/unit:8,1:6,0:2>>,
 	[0,0,0,0,0,0,0,0,0,0,0,0,0,4]),
 

@@ -792,11 +792,12 @@ lm() ->
 -spec erlangrc() -> {ok, file:filename()} | {error, term()}.
 
 erlangrc() ->
+    UserConfig = filename:basedir(user_config,"erlang"),
     case init:get_argument(home) of
-	{ok,[[Home]]} ->
-	    erlangrc([Home]);
-	_ ->
-            {error, enoent}
+        {ok,[[Home]]} ->
+            erlangrc([Home, UserConfig]);
+        _ ->
+            erlangrc([UserConfig])
     end.
 
 -spec erlangrc(PathList) -> {ok, file:filename()} | {error, term()}

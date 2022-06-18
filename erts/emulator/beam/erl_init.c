@@ -53,6 +53,7 @@
 #include "erl_osenv.h"
 #include "erl_proc_sig_queue.h"
 #include "beam_load.h"
+#include "erl_global_literals.h"
 
 #include "jit/beam_asm.h"
 
@@ -303,6 +304,17 @@ void erl_error(const char *fmt, va_list args)
 
 static int early_init(int *argc, char **argv);
 
+static void init_constant_literals(void) {
+       Eterm* hp = erts_alloc_global_literal(ERTS_LIT_EMPTY_TUPLE, 2);
+       Eterm tuple;
+       hp[0] = make_arityval_zero();
+       hp[1] = make_arityval_zero();
+       tuple = make_tuple(hp);
+       erts_register_global_literal(ERTS_LIT_EMPTY_TUPLE, tuple);
+       ERTS_GLOBAL_LIT_EMPTY_TUPLE =
+           erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+}
+
 static void
 erl_init(int ncpu,
 	 int proc_tab_sz,
@@ -316,6 +328,7 @@ erl_init(int ncpu,
 	 int node_tab_delete_delay,
 	 ErtsDbSpinCount db_spin_count)
 {
+    init_constant_literals();
     erts_monitor_link_init();
     erts_bif_unique_init();
     erts_proc_sig_queue_init(); /* Must be after erts_bif_unique_init(); */
@@ -382,6 +395,7 @@ erl_init(int ncpu,
     packet_parser_init();
     erl_nif_init();
     erts_msacc_init();
+    beamfile_init();
 }
 
 static Eterm
@@ -684,6 +698,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "               none | very_short | short | medium | long | very_long\n");
     erts_fprintf(stderr, "-scl bool      enable/disable compaction of scheduler load\n");
     erts_fprintf(stderr, "-sct cput      set cpu topology\n");
+    erts_fprintf(stderr, "-ssrct         skip reading cpu topology\n");
     erts_fprintf(stderr, "-secio bool    enable or disable eager check I/O scheduling\n");
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT
     erts_fprintf(stderr, "-sub bool      enable or disable scheduler utilization balancing\n");
@@ -835,6 +850,7 @@ early_init(int *argc, char **argv) /*
     int decentralized_counter_groups;
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
+    int skip_read_topology = 0;
 
     erts_save_emu_args(*argc, argv);
 
@@ -974,7 +990,18 @@ early_init(int *argc, char **argv) /*
 		    }
 		    break;
 		}
-
+		case 's' : {
+		    char *sub_param = argv[i]+2;
+		    if (has_prefix("srct", sub_param)) {
+			/* skip reading cpu topology */
+			skip_read_topology = 1;
+		    }
+		    else if (has_prefix("ct", sub_param)) {
+			/* cpu topology */
+			skip_read_topology = 1;
+		    }
+		    break;
+		}
 		case 'S' :
 		    if (argv[i][2] == 'P') {
 			int ptot, ponln;
@@ -1271,7 +1298,8 @@ early_init(int *argc, char **argv) /*
 				 max_reader_groups,
 				 &reader_groups,
                                  max_decentralized_counter_groups,
-                                 &decentralized_counter_groups);
+                                 &decentralized_counter_groups,
+                                 skip_read_topology);
     erts_flxctr_setup(decentralized_counter_groups);
     {
 	erts_thr_late_init_data_t elid = ERTS_THR_LATE_INIT_DATA_DEF_INITER;
@@ -2100,6 +2128,9 @@ erl_start(int argc, char **argv)
 		}
 		erts_runq_supervision_interval = val;
 	    }
+	    else if (has_prefix("srct", sub_param)) {
+		/* skip reading cpu topology, already handled */
+	    }
 	    else {
 		erts_fprintf(stderr, "bad scheduling option %s\n", argv[i]);
 		erts_usage();
@@ -2492,13 +2523,21 @@ erl_start(int argc, char **argv)
 __decl_noreturn void erts_thr_fatal_error(int err, const char *what)
 {
     const char *errstr = err ? strerror(err) : NULL;
-    erts_fprintf(stderr,
-		 "Failed to %s: %s%s(%d)\n",
-		 what,
-		 errstr ? errstr : "",
-		 errstr ? " " : "",
-		 err);
-    abort();
+    if (err == ENOMEM) {
+        erts_exit(ERTS_DUMP_EXIT, "Failed to %s: %s%s(%d)\n",
+                  what,
+                  errstr ? errstr : "",
+                  errstr ? " " : "",
+                  err);
+    } else {
+        erts_fprintf(stderr,
+                     "Failed to %s: %s%s(%d)\n",
+                     what,
+                     errstr ? errstr : "",
+                     errstr ? " " : "",
+                     err);
+        abort();
+    }
 }
 
 

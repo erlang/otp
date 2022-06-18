@@ -404,7 +404,7 @@ check_get_disk_data() ->
 
 % filter get_disk_data and remove entriew with zero capacity
 % "non-normal" filesystems report zero capacity
-% - Perhaps errorneous 'df -k -l'?
+% - Perhaps erroneous 'df -k -l'?
 % - Always list filesystems by type '-t ufs,zfs,..' instead?
 % It is unclear what the intention was from the beginning.
 get_disk_data() ->

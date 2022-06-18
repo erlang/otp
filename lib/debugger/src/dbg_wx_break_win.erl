@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -214,9 +214,9 @@ handle_event(#wx{id=?wxID_OK},#winInfo{win=Win,text=Text, entries=Es, trigger=Tr
     %% Non function box
     Mod = wxComboBox:getValue(Text),
     Data = check_input(Es),
-    Trigged = get_trigger(Trigger),
+    Triggered = get_trigger(Trigger),
     wxDialog:destroy(Win),    
-    {break, [[list_to_atom(Mod)|Data]], Trigged};
+    {break, [[list_to_atom(Mod)|Data]], Triggered};
 
 handle_event(_WxEvent, _WinInfo) ->
     %% io:format("Ev: ~p ~n", [_WxEvent]),

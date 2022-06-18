@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ erlang_display(Config) when is_list(Config) ->
     chk_display(mk_ref_xstr({e@f, oth_cre(MyCre)}, [1,2,3])),
     chk_display(mk_ref_xstr({e@f, oth_cre(oth_cre(MyCre))}, [1,2,3])),
 
-    %% Compund terms
+    %% Compound terms
     {Pid, PidStr} = mk_pid_xstr({x@y, oth_cre(MyCre)}, 4712, 41),
     {Port, PortStr} = mk_port_xstr({x@y, oth_cre(MyCre)}, 4712),
     {Ref, RefStr} = mk_ref_xstr({e@f, oth_cre(MyCre)}, [11,12,13]),

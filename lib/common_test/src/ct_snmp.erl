@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -237,7 +237,7 @@ prepare_snmp_env() ->
     _ = application:load(snmp),
     
     %% Fix for older versions of snmp where there are some
-    %% inappropriate default values for alway starting an 
+    %% inappropriate default values for always starting an 
     %% agent.
     application:unset_env(snmp, agent).
 %%%---------------------------------------------------------------------------

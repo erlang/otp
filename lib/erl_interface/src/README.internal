@@ -3,7 +3,7 @@
 ******************************************************************************
 
 There are two different interfaces, the old 'erl_interface' and 'ei'.
-The old interface is to depend on the new one, not the other way arount.
+The old interface is to depend on the new one, not the other way around.
 
 Erl_interface should be "thread safe", i.e. you should be able to 
 handle connections, convert data etc from different threads.
@@ -143,7 +143,7 @@ source. "eidef.h" contains some common constants and macros and
 also includes config.h.
 
 In general avoid including other header files from header files.
-The exception is to make the protoypes complete to the user of
+The exception is to make the prototypes complete to the user of
 this library, i.e. to include <stdio.h> to defined FILE or
 to include "ei_x_encode" to define the type ei_x_buff.
 
@@ -157,11 +157,11 @@ where size matters ;-) Use uint8 for buffers where we construct
 messages.
 
 NOTE!!!! Sending a "char" to macros like isupper(), isalpha() where
-the character is > 127 will cause serios problems on some
+the character is > 127 will cause serious problems on some
 machines/OS. The reason is that
 
    'char' may be unsigned, i.e. the Swedish char 'ä' will 
-   as a number be negativ.
+   as a number be negative.
 
    The implementation of isupper() and others will on some
    machines use an array that is indexed with the incoming
@@ -237,7 +237,7 @@ long" operations will create a dependency to a "hidden" library
    libei.a[decode_longlong.o]: [6]  | 0| 0|NOTY |GLOB |0 |UNDEF |__ashldi3
    libei.a[decode_ulonglong.o]: [5] | 0| 0|NOTY |GLOB |0 |UNDEF |__ashldi3
 
-We can accept that a dependecy is created for code linked with
+We can accept that a dependency is created for code linked with
 "libei.a" that actually use 'ei' long long functions. But if we
 arrange the 'ei' source badly using a non "long long" functions from
 'ei' will still link in an object file that need "libgcc.a". One

@@ -55,12 +55,6 @@ func_info M=a a==am_module_info A=u==1 | label L | move n x==0 => too_old_compil
 
 bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
 
-# Since the constant pool was introduced in R12B, empty tuples ({})
-# are literals. Therefore we no longer need to allow put_tuple/2
-# with a tuple size of zero.
-
-put_tuple u==0 d => too_old_compiler
-
 #
 # All the other instructions.
 #
@@ -81,6 +75,7 @@ aligned_label L t
 
 i_func_info I a a I
 int_code_end
+nif_start
 
 i_generic_breakpoint
 i_debug_breakpoint
@@ -227,19 +222,25 @@ set_tuple_element s S P
 
 current_tuple/1
 current_tuple/2
+typed_current_tuple/1
 
 is_tuple Fail=f Src | test_arity Fail Src Arity => \
    i_is_tuple_of_arity Fail Src Arity | current_tuple Src
 
 test_arity Fail Src Arity => i_test_arity Fail Src Arity | current_tuple Src
 
-is_tuple NotTupleFail Tuple | is_tagged_tuple WrongRecordFail Tuple Arity Atom => \
-   i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Tuple Arity Atom | current_tuple Tuple
+is_tuple NotTupleFail Src | \
+  is_tagged_tuple WrongRecordFail Tuple Arity Atom | \
+  equal(Src, Tuple) => \
+   i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Src Arity Atom | \
+   current_tuple Src
 
 is_tagged_tuple Fail Tuple Arity Atom => \
-   i_is_tagged_tuple Fail Tuple Arity Atom | current_tuple Tuple
+   i_is_tagged_tuple Fail Tuple Arity Atom | typed_current_tuple Tuple
 
 is_tuple Fail=f Src => i_is_tuple Fail Src | current_tuple Src
+
+typed_current_tuple Tuple => remove_tuple_type(Tuple)
 
 i_is_tuple_of_arity f? s A
 i_test_arity f? s A
@@ -287,7 +288,7 @@ i_get_tuple_element s P S
 get_two_tuple_elements s P S S
 
 #
-# Expection rasing instructions. Infrequently executed.
+# Exception raising instructions. Infrequently executed.
 #
 
 %cold
@@ -391,21 +392,15 @@ is_eq_exact Lbl S S =>
 is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
 
 is_eq_exact Lbl R=xy n => is_nil Lbl R
-is_eq_exact Lbl R=xy C=ia => i_is_eq_exact_immed Lbl R C
 is_eq_exact Lbl R=xy C=q => is_eq_exact_literal(Lbl, R, C)
 
 is_ne_exact Lbl S S => jump Lbl
 is_ne_exact Lbl C=c R=xy => is_ne_exact Lbl R C
 
-is_ne_exact Lbl R=xy C=ian => i_is_ne_exact_immed Lbl R C
 is_ne_exact Lbl R=xy C=q => i_is_ne_exact_literal Lbl R C
-
-i_is_eq_exact_immed f? s c
 
 i_is_eq_exact_literal/4
 i_is_eq_exact_literal f? s c I
-
-i_is_ne_exact_immed f? s c
 
 i_is_ne_exact_literal f? s c
 
@@ -428,21 +423,6 @@ is_ne f? s s
 # Code compiled with OTP 22 and later uses put_tuple2 to
 # to construct a tuple.
 #
-# Code compiled before OTP 22 uses put_tuple + one put instruction
-# per element. Translate to put_tuple2.
-#
-
-i_put_tuple/2
-put_tuple Arity Dst => i_put_tuple Dst u
-
-i_put_tuple Dst Arity Puts=* | put S1 | put S2 | \
-  put S3 | put S4 | put S5 => \
-	    tuple_append_put5(Arity, Dst, Puts, S1, S2, S3, S4, S5)
-
-i_put_tuple Dst Arity Puts=* | put S => \
-	    tuple_append_put(Arity, Dst, Puts, S)
-
-i_put_tuple Dst Arity Puts=* => put_tuple2 Dst Arity Puts
 
 put_tuple2 S A *
 
@@ -470,7 +450,6 @@ call_bif W
 call_bif_mfa a a I
 call_nif W W W
 call_error_handler
-error_action_code
 return_trace
 %hot
 
@@ -525,6 +504,21 @@ call_ext_only u==2 u$func:erlang:load_nif/2 => \
 
 %cold
 i_load_nif
+%hot
+
+#
+# The call_on_load_function/1 BIF is an instruction.
+#
+
+call_ext u==1 u$func:erlang:call_on_load_function/1 => \
+    i_call_on_load_function
+call_ext_last u==1 u$func:erlang:call_on_load_function/1 D => \
+    i_call_on_load_function | deallocate D | return
+call_ext_only u==1 u$func:erlang:call_on_load_function/1 => \
+    i_call_on_load_function | return
+
+%cold
+i_call_on_load_function
 %hot
 
 #
@@ -643,7 +637,6 @@ bif1 Fail=f Bif=u$bif:erlang:tl/1 Src Dst => \
 bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => get(Src, Dst)
 
 bif2 Fail u$bif:erlang:element/2 S1=ixy S2 Dst => bif_element Fail S1 S2 Dst
-
 bif_element j? s s d
 
 bif1 Fail Bif S1 Dst | never_fails(Bif) => nofail_bif1 S1 Bif Dst
@@ -652,8 +645,8 @@ bif2 Fail Bif S1 S2 Dst | never_fails(Bif) => nofail_bif2 S1 S2 Bif Dst
 bif1 Fail Bif S1 Dst    => i_bif1 S1 Fail Bif Dst
 bif2 Fail Bif S1 S2 Dst => i_bif2 S1 S2 Fail Bif Dst
 
-nofail_bif2 S1=d S2=ian Bif Dst | is_eq_exact_bif(Bif) => bif_is_eq_exact_immed S1 S2 Dst
-nofail_bif2 S1=d S2=ian Bif Dst | is_ne_exact_bif(Bif) => bif_is_ne_exact_immed S1 S2 Dst
+nofail_bif2 S1=d S2 Bif Dst | is_eq_exact_bif(Bif) => bif_is_eq_exact S1 S2 Dst
+nofail_bif2 S1=d S2 Bif Dst | is_ne_exact_bif(Bif) => bif_is_ne_exact S1 S2 Dst
 
 i_get_hash c I d
 i_get s d
@@ -669,8 +662,8 @@ i_bif1 s j? b d
 i_bif2 s s j? b d
 i_bif3 s s s j? b d
 
-bif_is_eq_exact_immed S c d
-bif_is_ne_exact_immed S c d
+bif_is_eq_exact S s d
+bif_is_ne_exact S s d
 
 #
 # Internal calls.
@@ -696,6 +689,14 @@ call_fun Arity => i_call_fun Arity
 i_call_fun t
 i_call_fun_last t t
 
+call_fun2 Safe Arity Func | deallocate D | return => \
+    i_call_fun2_last Safe Arity Func D
+call_fun2 Safe Arity Func => \
+    i_call_fun2 Safe Arity Func
+
+i_call_fun2 a t S
+i_call_fun2_last a t S t
+
 #
 # A fun with an empty environment can be converted to a literal.
 # As a further optimization, the we try to move the fun to its
@@ -706,7 +707,7 @@ make_fun3 OldIndex=u Dst=d NumFree=u Env=* => make_fun3(OldIndex, Dst, NumFree, 
 
 %cold
 
-i_make_fun3 F S t *
+i_make_fun3 F S t t *
 
 # Psuedo-instruction for signalling lambda load errors. Never actually runs.
 i_lambda_error t
@@ -718,7 +719,7 @@ is_function Fail=f c => jump Fail
 
 # The start and end of a function.
 int_func_start/5
-int_func_end/0
+int_func_end/2
 
 func_prologue/2
 
@@ -739,8 +740,8 @@ int_func_start Func_Label Func_Line M F A | \
     func_line Func_Line | \
     i_func_info Func_Label M F A | \
       aligned_label Entry_Label u=8 | \
-      line Entry_Line | \
       i_breakpoint_trampoline | \
+      line Entry_Line | \
       call_bif_mfa M F A
 
 int_func_start Func_Label Func_Line M F A | \
@@ -749,13 +750,12 @@ int_func_start Func_Label Func_Line M F A | \
     func_line Func_Line | \
     i_func_info Func_Label M F A | \
       aligned_label Entry_Label u=8 | \
-      line Entry_Line | \
       i_breakpoint_trampoline | \
+      line Entry_Line | \
       i_test_yield
 
-
-int_func_end | needs_nif_padding() => i_nif_padding
-int_func_end =>
+int_func_end Func_Label Entry_Label => \
+    func_end(Func_Label, Entry_Label)
 
 # Handles yielding on function ingress (rather than on each call).
 i_test_yield
@@ -763,26 +763,11 @@ i_test_yield
 # Ensures that the prior function is large enough to allow NIF patching.
 i_nif_padding
 
+# Landing pad for fun calls/apply where we set up arguments and check errors
+i_lambda_trampoline W f W W
+
 # Handles tracing, early NIF calls, and so on.
 i_breakpoint_trampoline
-
-# ================================================================
-# Bit syntax matching obsoleted in OTP 22.
-# ================================================================
-
-%cold
-bs_start_match2 Fail=f ica X Y D => jump Fail
-bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
-i_bs_start_match2 S f t t d
-
-bs_save2 Reg Index => bs_save(Reg, Index)
-i_bs_save2 x t
-
-bs_restore2 Reg Index => bs_restore(Reg, Index)
-i_bs_restore2 S t
-
-bs_context_to_binary S
-%warm
 
 # ================================================================
 # New bit syntax matching (R11B).
@@ -821,7 +806,7 @@ bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
 i_bs_get_float2 S f? t s t d
 
-# Miscellanous
+# Miscellaneous
 
 bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u => \
 			skip_bits2(Fail, Ms, Sz, Unit, Flags)
@@ -902,9 +887,19 @@ bs_skip_utf32 Fail=f Ms=xy Live=u Flags=u => \
 i_bs_validate_unicode_retract j s S
 %hot
 
-#
-# Constructing binaries
-#
+# ================================================================
+# New binary construction (OTP 25).
+# ================================================================
+
+bs_create_bin Fail=j Alloc=u Live=u Unit=u Dst=xy N=u Segments=* => \
+    create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments)
+
+i_bs_create_bin j I t d *
+
+# ================================================================
+# Old instruction for constructing binaries (up to OTP 24).
+# ================================================================
+
 %warm
 
 bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail
@@ -1066,36 +1061,17 @@ apply t
 apply_last t t
 
 #
-# Handle compatibility with OTP 17 here.
-#
-
-i_put_map_assoc/4
-
-# We KNOW that in OTP 20 (actually OTP 18 and higher), a put_map_assoc instruction
-# is always preceded by an is_map test. That means that put_map_assoc can never
-# fail and does not need any failure label.
-
-put_map_assoc Fail Map Dst Live Size Rest=* | compiled_with_otp_20_or_higher() => \
-	      i_put_map_assoc Map Dst Live Size Rest
-
-# Translate the put_map_assoc instruction if the module was compiled by a compiler
-# before 20. This is only necessary if the OTP 17 compiler was used, but we
-# have no safe and relatively easy way to know whether OTP 18/19 was used.
-
-put_map_assoc Fail=p Map Dst Live Size Rest=* => \
-	      ensure_map Map | i_put_map_assoc Map Dst Live Size Rest
-put_map_assoc Fail=f Map Dst Live Size Rest=* => \
-	      is_map Fail Map | i_put_map_assoc Map Dst Live Size Rest
-
-ensure_map Lit=q | literal_is_map(Lit) =>
-
-%cold
-ensure_map s
-%hot
-
-#
 # Map instructions. First introduced in R17.
 #
+
+# We KNOW that in OTP 18 and higher, a put_map_assoc instruction is
+# always preceded by an is_map test. That means that put_map_assoc can
+# never fail and does not need any failure label.
+
+put_map_assoc Fail Map Dst Live Size Rest=* => \
+	      i_put_map_assoc Map Dst Live Size Rest
+
+i_put_map_assoc/4
 
 sorted_put_map_assoc/4
 i_put_map_assoc Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \

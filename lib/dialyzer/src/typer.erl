@@ -161,7 +161,8 @@ get_type_info(#analysis{callgraph = CallGraph,
   try 
     NewPlt = dialyzer_succ_typings:analyze_callgraph(StrippedCallGraph,
                                                      TrustPLT,
-                                                     CodeServer),
+                                                     CodeServer,
+                                                     none, []),
     Analysis#analysis{callgraph = StrippedCallGraph, trust_plt = NewPlt}
   catch
     error:What:Stacktrace ->
@@ -1046,7 +1047,7 @@ help_message() ->
    -pa dir
    -pz dir
        Set code path options to TypEr
-       (This is useful for files that use parse tranforms.)
+       (This is useful for files that use parse transforms.)
    --version (or -v)
        prints the Typer version and exits
    --help (or -h)

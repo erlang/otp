@@ -32,30 +32,25 @@
 #ifdef BEAMASM
 #define OP_PAD BeamInstr __pad[1];
 #define DISPATCH_SIZE 1
-#define ERTS_ADDRESSV_SIZE (ERTS_NUM_CODE_IX + 1)
-#define ERTS_SAVE_CALLS_CODE_IX (ERTS_ADDRESSV_SIZE - 1)
 #else
 #define OP_PAD
 #define DISPATCH_SIZE 0
-#define ERTS_ADDRESSV_SIZE ERTS_NUM_CODE_IX
 #endif
 
 typedef struct export_
 {
-    /* Pointer to code for function.
-     *
-     * !! THIS WAS DELIBERATELY RENAMED TO CAUSE ERRORS WHEN MERGING !!
+    /* !! WARNING !!
      *
      * The JIT has a special calling convention for export entries, assuming
      * the entry itself is in a certain register. Blindly setting `c_p->i` to
-     * one of these addresses will crash the emulator when the entry is traced,
-     * which is unlikely to be caught in our tests.
+     * one of the addresses in `dispatch` will crash the emulator when the
+     * entry is traced, which is unlikely to be caught in our tests.
      *
      * Use the `BIF_TRAP` macros if at all possible, and be _very_ careful when
-     * accessing these directly.
+     * accessing this field directly.
      *
-     * See `BeamAssembler::emit_setup_export_call` for details. */
-    ErtsCodePtr addresses[ERTS_ADDRESSV_SIZE];
+     * See `BeamAssembler::emit_setup_dispatchable_call` for details. */
+    ErtsDispatchable dispatch;
 
     /* Index into bif_table[], or -1 if not a BIF. */
     int bif_number;
@@ -167,7 +162,7 @@ ERTS_GLB_INLINE void erts_activate_export_trampoline(Export *ep, int code_ix) {
     trampoline_address = (ErtsCodePtr)&ep->trampoline.raw[0];
 #endif
 
-    ep->addresses[code_ix] = trampoline_address;
+    ep->dispatch.addresses[code_ix] = trampoline_address;
 }
 
 ERTS_GLB_INLINE int erts_is_export_trampoline_active(Export *ep, int code_ix) {
@@ -180,7 +175,7 @@ ERTS_GLB_INLINE int erts_is_export_trampoline_active(Export *ep, int code_ix) {
     trampoline_address = (ErtsCodePtr)&ep->trampoline.raw[0];
 #endif
 
-    return ep->addresses[code_ix] == trampoline_address;
+    return ep->dispatch.addresses[code_ix] == trampoline_address;
 }
 
 ERTS_GLB_INLINE Export*

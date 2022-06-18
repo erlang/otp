@@ -804,6 +804,12 @@ BIF_RETTYPE loaded_0(BIF_ALIST_0)
 
 BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
 {
+#ifdef BEAMASM
+    /* This is implemented as an instruction. We've skipped providing a more
+     * helpful error message since it's undocumented and should never be called
+     * by the user. */
+    BIF_ERROR(BIF_P, BADARG);
+#else
     Module* modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
     const BeamCodeHeader *hdr;
 
@@ -819,6 +825,7 @@ BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
     }
 
     BIF_ERROR(BIF_P, BADARG);
+#endif
 }
 
 BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
@@ -877,7 +884,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	modp->on_load = 0;
 
 	/*
-	 * The on_load function succeded. Fix up export entries.
+	 * The on_load function succeeded. Fix up export entries.
 	 */
 	num_exps = export_list_size(code_ix);
 	for (i = 0; i < num_exps; i++) {
@@ -890,7 +897,8 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
             DBG_CHECK_EXPORT(ep, code_ix);
 
             if (ep->trampoline.not_loaded.deferred != 0) {
-                    ep->addresses[code_ix] = (void*)ep->trampoline.not_loaded.deferred;
+                    ep->dispatch.addresses[code_ix] =
+                        (void*)ep->trampoline.not_loaded.deferred;
                     ep->trampoline.not_loaded.deferred = 0;
             } else {
                 if (ep->bif_number != -1) {
@@ -1255,7 +1263,7 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
  * - erts_internal:release_literal_area_switch() changes the set of
  *   counters that blocks release of literal areas
  * - The literal area collector process gets suspended waiting thread
- *   progress in order to ensure that the change of counters is visable
+ *   progress in order to ensure that the change of counters is visible
  *   by all schedulers.
  * - When the literal area collector process is resumed after thread
  *   progress has completed, erts_internal:release_literal_area_switch()
@@ -2019,6 +2027,10 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 
 		erts_remove_from_ranges(modp->old.code_hdr);
 
+                if (modp->old.code_hdr->are_nifs) {
+                    erts_free(ERTS_ALC_T_PREPARED_CODE,
+                              modp->old.code_hdr->are_nifs);
+                }
 #ifndef BEAMASM
                 erts_free(ERTS_ALC_T_CODE, (void *) modp->old.code_hdr);
 #else

@@ -662,7 +662,7 @@ pkix(Config) when is_list(Config) ->
 
     true = lists:member(IssuerId, CaIds),
 
-    %% Should be normalized allready
+    %% Should be normalized already
     TestStr   = {rdnSequence, 
 		 [[{'AttributeTypeAndValue', {2,5,4,3},{printableString,"ERLANGCA"}}],
 		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString," erlang  ca "}}]]},
@@ -876,19 +876,19 @@ pkix_verify_hostname_subjAltName(Config) ->
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"kb.example.org"}]),
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"KB.EXAMPLE.ORG"}]),
 
-    %% Check that a dns_id does not match a DNS subjAltName wiht wildcard
+    %% Check that a dns_id does not match a DNS subjAltName with wildcard
     false =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}]),
 
-    %% Check that a dns_id does match a DNS subjAltName wiht wildcard with matchfun
+    %% Check that a dns_id does match a DNS subjAltName with wildcard with matchfun
     MatchFun = {match_fun, public_key:pkix_verify_hostname_match_fun(https)},
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"other.example.org"}], [MatchFun]),
     true =  public_key:pkix_verify_hostname(Cert, [{dns_id,"OTHER.EXAMPLE.ORG"}], [MatchFun]),
 
-    %% Check that a uri_id does not match a DNS subjAltName wiht wildcard
+    %% Check that a uri_id does not match a DNS subjAltName with wildcard
     false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}]),
     false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.EXAMPLE.ORG"}]),
 
-    %% Check that a dns_id does match a DNS subjAltName wiht wildcard with matchfun
+    %% Check that a dns_id does match a DNS subjAltName with wildcard with matchfun
     true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://other.example.org"}], [MatchFun]),
     true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.EXAMPLE.ORG"}], [MatchFun]),
     true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://OTHER.example.org"}], [MatchFun]),

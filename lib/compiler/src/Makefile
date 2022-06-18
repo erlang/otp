@@ -58,7 +58,6 @@ MODULES =  \
 	beam_jump \
 	beam_listing \
 	beam_opcodes \
-	beam_peep \
 	beam_ssa \
 	beam_ssa_bc_size \
 	beam_ssa_bool \
@@ -107,6 +106,7 @@ MODULES =  \
 BEAM_H = $(wildcard ../priv/beam_h/*.h)
 
 HRL_FILES= \
+	beam_asm.hrl \
 	beam_disasm.hrl \
 	beam_ssa_opt.hrl \
 	beam_ssa.hrl \
@@ -193,25 +193,30 @@ release_docs_spec:
 # Dependencies -- alphabetically, please
 # ---------------------------------------------------- 
 
+$(EBIN)/beam_asm.beam: beam_asm.hrl
 $(EBIN)/beam_call_types.beam: beam_types.hrl
-$(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl
-$(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl
+$(EBIN)/beam_block.beam: beam_asm.hrl
+$(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl beam_asm.hrl
+$(EBIN)/beam_jump.beam: beam_asm.hrl
 $(EBIN)/beam_kernel_to_ssa.beam: v3_kernel.hrl beam_ssa.hrl
+$(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_bsm.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_codegen.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_bool.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_dead.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_funs.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_lint.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_opt.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_pre_codegen.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_pre_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_recv.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_share.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_throw.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_type.beam: beam_ssa.hrl beam_types.hrl
+$(EBIN)/beam_trim.beam: beam_asm.hrl
 $(EBIN)/beam_types.beam: beam_types.hrl
-$(EBIN)/beam_validator.beam: beam_types.hrl
+$(EBIN)/beam_validator.beam: beam_types.hrl beam_asm.hrl
 $(EBIN)/cerl.beam: core_parse.hrl
 $(EBIN)/compile.beam: core_parse.hrl ../../stdlib/include/erl_compile.hrl
 $(EBIN)/core_lib.beam: core_parse.hrl
@@ -219,6 +224,7 @@ $(EBIN)/core_lint.beam: core_parse.hrl
 $(EBIN)/core_parse.beam: core_parse.hrl $(EGEN)/core_parse.erl
 $(EBIN)/core_pp.beam: core_parse.hrl
 $(EBIN)/sys_core_alias.beam: core_parse.hrl
+$(EBIN)/sys_core_bsm.beam: core_parse.hrl
 $(EBIN)/sys_core_fold.beam: core_parse.hrl
 $(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl

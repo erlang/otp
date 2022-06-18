@@ -73,9 +73,9 @@ all() ->
 xm_sig_order(Config) when is_list(Config) ->
     LNode = node(),
     repeat(fun () -> xm_sig_order_test(LNode) end, 1000),
-    {ok, RNode} = start_node(Config),
+    {ok, Peer, RNode} = ?CT_PEER(),
     repeat(fun () -> xm_sig_order_test(RNode) end, 1000),
-    stop_node(RNode),
+    peer:stop(Peer),
     ok.
     
 
@@ -105,10 +105,9 @@ xm_sig_order_proc() ->
 kill2killed(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     kill2killed_test(node()),
-    {ok, Node} = start_node(Config),
+    {ok, Peer, Node} = ?CT_PEER(),
     kill2killed_test(Node),
-    stop_node(Node),
-    ok.
+    peer:stop(Peer).
 
 kill2killed_test(Node) ->
     if Node == node() ->
@@ -221,8 +220,8 @@ contended_signal_handling_make_ports(Drv, N, Ports) ->
 
 busy_dist_exit_signal(Config) when is_list(Config) ->
     BusyTime = 1000,
-    {ok, BusyChannelNode} = start_node(Config),
-    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    {ok, BusyChannelPeer, BusyChannelNode} = ?CT_PEER(),
+    {ok, OtherPeer, OtherNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
     Tester = self(),
     Exiter = spawn(BusyChannelNode,
                    fun () ->
@@ -253,14 +252,14 @@ busy_dist_exit_signal(Config) when is_list(Config) ->
         BusyTime*2 ->
             ct:fail(missing_exit_signal)
     end,
-    stop_node(BusyChannelNode),
-    stop_node(OtherNode),
+    peer:stop(BusyChannelPeer),
+    peer:stop(OtherPeer),
     ok.
 
 busy_dist_demonitor_signal(Config) when is_list(Config) ->
     BusyTime = 1000,
-    {ok, BusyChannelNode} = start_node(Config),
-    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    {ok, BusyChannelPeer, BusyChannelNode} = ?CT_PEER(),
+    {ok, OtherPeer, OtherNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
     Tester = self(),
     Demonitorer = spawn(BusyChannelNode,
                         fun () ->
@@ -302,14 +301,14 @@ busy_dist_demonitor_signal(Config) when is_list(Config) ->
         BusyTime*2 ->
             ct:fail(missing_demonitor_signal)
     end,
-    stop_node(BusyChannelNode),
-    stop_node(OtherNode),
+    peer:stop(BusyChannelPeer),
+    peer:stop(OtherPeer),
     ok.
 
 busy_dist_down_signal(Config) when is_list(Config) ->
     BusyTime = 1000,
-    {ok, BusyChannelNode} = start_node(Config),
-    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    {ok, BusyChannelPeer, BusyChannelNode} = ?CT_PEER(),
+    {ok, OtherPeer, OtherNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
     Tester = self(),
     Exiter = spawn(BusyChannelNode,
                    fun () ->
@@ -340,14 +339,14 @@ busy_dist_down_signal(Config) when is_list(Config) ->
         BusyTime*2 ->
             ct:fail(missing_down_signal)
     end,
-    stop_node(BusyChannelNode),
-    stop_node(OtherNode),
+    peer:stop(BusyChannelPeer),
+    peer:stop(OtherPeer),
     ok.
 
 busy_dist_spawn_reply_signal(Config) when is_list(Config) ->
     BusyTime = 1000,
-    {ok, BusyChannelNode} = start_node(Config),
-    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    {ok, BusyChannelPeer, BusyChannelNode} = ?CT_PEER(),
+    {ok, OtherPeer, OtherNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
     Tester = self(),
     Spawner = spawn_link(OtherNode,
                          fun () ->
@@ -376,8 +375,8 @@ busy_dist_spawn_reply_signal(Config) when is_list(Config) ->
         BusyTime*2 ->
             ct:fail(missing_spawn_reply_signal)
     end,
-    stop_node(BusyChannelNode),
-    stop_node(OtherNode),
+    peer:stop(BusyChannelPeer),
+    peer:stop(OtherPeer),
     ok.
 
 -record(erl_link, {type,           % process | port | dist_process
@@ -387,8 +386,8 @@ busy_dist_spawn_reply_signal(Config) when is_list(Config) ->
 
 busy_dist_unlink_ack_signal(Config) when is_list(Config) ->
     BusyTime = 1000,
-    {ok, BusyChannelNode} = start_node(Config),
-    {ok, OtherNode} = start_node(Config, "-proto_dist gen_tcp"),
+    {ok, BusyChannelPeer, BusyChannelNode} = ?CT_PEER(),
+    {ok, OtherPeer, OtherNode} = ?CT_PEER(["-proto_dist", "gen_tcp"]),
     Tester = self(),
     Unlinkee = spawn(BusyChannelNode,
                      fun () ->
@@ -429,8 +428,8 @@ busy_dist_unlink_ack_signal(Config) when is_list(Config) ->
         BusyTime*2 ->
             ct:fail(missing_unlink_ack_signal)
     end,
-    stop_node(BusyChannelNode),
-    stop_node(OtherNode),
+    peer:stop(BusyChannelPeer),
+    peer:stop(OtherPeer),
     ok.
 
 %%
@@ -555,17 +554,3 @@ repeat(_Fun, N) when is_integer(N), N =< 0 ->
 repeat(Fun, N) when is_integer(N)  ->
     Fun(),
     repeat(Fun, N-1).
-
-start_node(Config, Args) ->
-    Name = list_to_atom(atom_to_list(?MODULE)
-			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-" ++ integer_to_list(erlang:system_time(second))
-			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa ++ " " ++ Args}]).
-
-start_node(Config) ->
-    start_node(Config, "").
-
-stop_node(Node) ->
-    test_server:stop_node(Node).

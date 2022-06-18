@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
 
   /*
    * Since OTP 20 we totally ignore 'to_enc'
-   * and alway encode as UTF8.
+   * and always encode as UTF8.
    */
   {
       offs =  1 + 1;

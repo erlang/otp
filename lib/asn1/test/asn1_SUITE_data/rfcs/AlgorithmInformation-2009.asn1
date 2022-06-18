@@ -50,7 +50,7 @@ ParamOptions ::= ENUMERATED {
 --  Additional information such as the length of the hash could have
 --      been encoded.  Without a clear understanding of what information
 --      is needed by applications, such extraneous information was not
---      considered to be of sufficent importance.
+--      considered to be of sufficient importance.
 --
 --  Example:
 --  mda-sha1 DIGEST-ALGORITHM ::= {

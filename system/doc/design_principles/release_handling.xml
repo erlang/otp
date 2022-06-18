@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2020</year>
+      <year>2003</year><year>2021</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -311,7 +311,7 @@
         the following instruction is used:</p>
       <code type="none">
 {apply, {M, F, A}}</code>
-      <p>The release handler evalutes <c>apply(M, F, A)</c>.</p>
+      <p>The release handler evaluates <c>apply(M, F, A)</c>.</p>
     </section>
 
     <section>

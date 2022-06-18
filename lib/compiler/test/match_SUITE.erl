@@ -351,8 +351,8 @@ entirely() ->
     [receive _ -> Voice end || banking <- printer].
 
 printer() ->
-    {[Indoor] = [] = associates},
-    [ireland || Indoor <- Indoor].
+    {[_Indoor] = [] = associates},
+    [ireland || _Indoor <- _Indoor].
 
 tench() ->
     E = begin
@@ -364,7 +364,7 @@ tench() ->
 perch(X) ->
     begin
 	put(perch, get(perch)+1),
-	[A] = [] = {spine,X}
+	[_A] = [] = {spine,X}
     end.
 
 salmon() ->

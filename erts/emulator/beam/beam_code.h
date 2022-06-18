@@ -93,6 +93,13 @@ typedef struct beam_code_header {
     const byte *md5_ptr;
 
     /*
+     * Boolean array with functions declared as -nifs().
+     * Indexed same as functions[].
+     * NULL if no -nifs().
+     */
+    byte* are_nifs;
+
+    /*
      * Start of function pointer table.  This table contains pointers to
      * all functions in the module plus an additional pointer just beyond
      * the end of the last function.

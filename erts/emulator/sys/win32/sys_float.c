@@ -113,7 +113,7 @@ sys_double_to_chars_ext(double fp, char *buffer, size_t buffer_size, size_t deci
 
     if (erts_snprintf(buffer, buffer_size, "%.*e", decimals, fp) >= buffer_size)
         return -1;
-    /* Search upto decimal point */
+    /* Search up to decimal point */
     if (*s == '+' || *s == '-') s++;
     while (isdigit(*s)) s++;
     if (*s == ',') *s++ = '.'; /* Replace ',' with '.' */

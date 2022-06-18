@@ -52,7 +52,7 @@ groups() ->
        encode_list, encode_list_to_string,
        mime_binary_decode, mime_binary_decode_to_string,
        mime_list_decode, mime_list_decode_to_string]},
-     {io, [{repeat, 5}], [double_random_to_list]},
+     {io, [{repeat, 5}], [double_random_to_list, double_random_to_list_array]},
      {gen_server, [{repeat,5}], cases(gen_server)},
      {gen_statem, [{repeat,3}], cases(gen_statem)},
      {gen_server_comparison, [],
@@ -283,14 +283,17 @@ mbb(N, Acc) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(MAX_DOUBLE, (1 bsl 62) - 1).
--define(DOUBLE_SAMPLE, 10000).
+-define(DOUBLE_SAMPLE, 100000).
 -define(SMALL_DIGITS, 6).
 
 double_random_to_list(_Config) ->
-    comment(test_double(io_lib_format, fwrite_g, 0)).
+    comment(test_double(0)).
+
+double_random_to_list_array(_Config) ->
+    comment(test_double_array(0)).
 
 double_small_digit_to_list(_Config) ->
-    comment(test_double(io_lib_format, fwrite_g, ?SMALL_DIGITS)).
+    comment(test_double(?SMALL_DIGITS)).
 
 double(0) ->
     Int = rand:uniform(?MAX_DOUBLE),
@@ -319,17 +322,34 @@ exp10(Acc, 0) ->
 exp10(Acc, X) ->
     exp10(Acc, X - 1).
 
-test_double(Mod, Fun, SmallDigits) ->
-    test_double(?DOUBLE_SAMPLE, Mod, Fun, SmallDigits).
-test_double(Iter, Mod, Fun, SmallDigits) ->
-    F = fun() -> loop_double(Iter, Mod, Fun, SmallDigits) end,
+test_double(Samples) when is_list(Samples) ->
+    F = fun() -> loop_double(Samples) end,
     {Time, ok} = timer:tc(fun() -> lspawn(F) end),
-    report_mfa(Iter, Time, Mod).
+    report_mfa(?DOUBLE_SAMPLE, Time, io_lib_format);
+test_double(SmallDigits) when is_integer(SmallDigits) ->
+    rand:seed(exsplus, {1201,855653,380975}),
+    Samples = [double(SmallDigits) || _ <- lists:seq(1, ?DOUBLE_SAMPLE)],
+    test_double(Samples).
 
-loop_double(0, _M, _F, _SmallDigits) -> garbage_collect(), ok;
-loop_double(N, M, F, SmallDigits) ->
-    _ = apply(M, F, [double(SmallDigits)]),
-    loop_double(N - 1, M, F, SmallDigits).
+loop_double([]) -> garbage_collect(), ok;
+loop_double([Sample | Rest]) ->
+    _ = io_lib_format:fwrite_g(Sample),
+    loop_double(Rest).
+
+test_double_array(SmallDigits) when is_integer(SmallDigits) ->
+    rand:seed(exsplus, {1201,855653,380975}),
+    Samples = [double(SmallDigits) || _ <- lists:seq(1, ?DOUBLE_SAMPLE)],
+    Samples_array = array:from_list(Samples),
+    test_double_array(?DOUBLE_SAMPLE - 1, Samples_array).
+test_double_array(Iter, Samples_array) ->
+    F = fun() -> loop_double_array(Iter, Samples_array) end,
+    {Time, ok} = timer:tc(fun() -> lspawn(F) end),
+    report_mfa(?DOUBLE_SAMPLE, Time, io_lib_format).
+
+loop_double_array(0, _Samples_array) -> garbage_collect(), ok;
+loop_double_array(Iter, Samples_array) ->
+    _ = io_lib_format:fwrite_g(array:get(Iter, Samples_array)),
+    loop_double_array(Iter - 1, Samples_array).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -644,6 +644,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= ERTS_MAGIC_BIN_UNALIGNED_SIZE(sizeof(ErtsMagicIndirectionWord));
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_RECV_MARK_BLK)]
         = sizeof(ErtsRecvMarkerBlock);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_SIGQ_BUFFERS)]
+        = sizeof(ErtsSignalInQueueBufferArray);
 
 #ifdef HARD_DEBUG
     hdbg_init();
@@ -2201,7 +2203,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
     ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 
-    /* Figure out whats wanted... */
+    /* Figure out what's wanted... */
 
     length = 0;
     if (is_non_value(earg)) { /* i.e. wants all */
@@ -3138,7 +3140,7 @@ reply_alloc_info(void *vair)
 			if (hpp)
 			    sys_alloc_stat(&sas);
 			if (szp) {
-			    /* ensure ehough heap */
+			    /* ensure enough heap */
 			    sas.top_pad = INT_MAX;
 			    sas.trim_threshold = INT_MAX;
 			}

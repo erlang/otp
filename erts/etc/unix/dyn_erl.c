@@ -362,6 +362,15 @@ main(int argc, char **argv)
     char progname[PATH_MAX]; /* Name of this program. */
     char erlexec[PATH_MAX];  /* Path to erlexec */
 
+    if (argc == 2 && strcmp(argv[1], "--realpath") == 0) {
+        abspath = find_prog(argv[0]);
+        /* Remove program name from output */
+        for (p = abspath+strlen(abspath)-1;p >= abspath && *p != '/'; --p)
+            ;
+        *p = '\0';
+        printf("%s", abspath);
+        return 0;
+    }
     /* Determine progname */
     abspath = find_prog(argv[0]);
     strcpy(progname, abspath);

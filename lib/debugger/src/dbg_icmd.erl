@@ -382,19 +382,14 @@ eval_restricted({From,_Mod,Cmd,SP}, Bs) ->
     case catch parse_cmd(Cmd, 1) of
 	{'EXIT', _Reason} ->
 	    From ! {self(), {eval_rsp, 'Parse error'}};
-	{[{var,_,Var}], XBs} ->
+	[{var,_,Var}] ->
 	    Bs2 = bindings(Bs, SP),
 	    Res = case get_binding(Var, Bs2) of
 		      {value, Value} -> Value;
-		      unbound ->
-                          case get_binding(Var, XBs) of
-                              {value, _} ->
-                                  'Only possible to inspect variables';
-                              unbound -> unbound
-                          end
+		      unbound -> unbound
 		  end,
 	    From ! {self(), {eval_rsp, Res}};
-	{_Forms, _XBs} ->
+	_Forms ->
 	    Rsp = 'Only possible to inspect variables',
 	    From ! {self(), {eval_rsp, Rsp}}
     end.
@@ -409,18 +404,17 @@ eval_nonrestricted({From, _Mod, Cmd, _SP}, Bs,
 	{'EXIT', _Reason} ->
 	    From ! {self(), {eval_rsp, 'Parse error'}},
 	    Bs;
-	{Forms, XBs} ->
+	Forms ->
 	    mark_running(Line, Le),
-            Bs1 = merge_bindings(Bs, XBs),
-	    {Res, Bs2} =
+	    {Res, Bs1} =
 		lists:foldl(fun(Expr, {_Res, Bs0}) ->
 				    eval_nonrestricted_1(Expr,Bs0,Ieval)
 			    end,
-			    {null, Bs1},
+			    {null, Bs},
 			    Forms),
 	    mark_break(M, Line, Le),
 	    From ! {self(), {eval_rsp, Res}},
-	    remove_binding_structs(Bs2, XBs)
+	    Bs1
     end.
 
 eval_nonrestricted_1({match,_,{var,_,Var},Expr}, Bs, Ieval) ->
@@ -445,14 +439,6 @@ eval_expr(Expr, Bs, Ieval) ->
         dbg_ieval:eval_expr(Expr, Bs, Ieval#ieval{top=false}),
     {Res,Bs2}.
 
-%% XBs have unique keys.
-merge_bindings(Bs1, XBs) ->
-    Bs1 ++ erl_eval:bindings(XBs).
-
-remove_binding_structs(Bs1, XBs) ->
-    lists:foldl(fun({N, _V}, Bs) -> lists:keydelete(N, 1, Bs)
-                end, Bs1, erl_eval:bindings(XBs)).
-
 mark_running(LineNo, Le) ->
     put(next_break, running),
     put(user_eval, [{LineNo, Le} | get(user_eval)]),
@@ -467,8 +453,8 @@ mark_break(Cm, LineNo, Le) ->
 
 parse_cmd(Cmd, LineNo) ->
     {ok,Tokens,_} = erl_scan:string(Cmd, LineNo, [text]),
-    {ok,Forms,Bs} = erl_eval:extended_parse_exprs(Tokens),
-    {Forms, Bs}.
+    {ok,Forms} = erl_eval:extended_parse_exprs(Tokens),
+    Forms.
 
 %%====================================================================
 %% Library functions for attached process handling

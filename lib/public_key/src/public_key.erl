@@ -2043,8 +2043,8 @@ match_wild(_,          _) -> false.
 %% Match the parts after the only wildcard by comparing them from the end
 match_wild_suffixes(A, B) -> match_wild_sfx(lists:reverse(A), lists:reverse(B)).
 
-match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards alowed)
-match_wild_sfx(_,      [$*|_]) -> false; % Bad pattern (no more wildcards alowed)
+match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards allowed)
+match_wild_sfx(_,      [$*|_]) -> false; % Bad pattern (no more wildcards allowed)
 match_wild_sfx([A|Ar], [A|Br]) -> match_wild_sfx(Ar, Br);
 match_wild_sfx(Ar,         []) -> not lists:member($*, Ar); % Chk for bad name (= wildcards)
 match_wild_sfx(_,           _) -> false.

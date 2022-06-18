@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -408,7 +408,7 @@ EXTERN ErlDrvBinary* driver_alloc_binary(ErlDrvSizeT size);
 EXTERN ErlDrvBinary* driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size);
 EXTERN void driver_free_binary(ErlDrvBinary *bin);
 
-/* Referenc count on driver binaries */
+/* Reference count on driver binaries */
 EXTERN ErlDrvSInt driver_binary_get_refc(ErlDrvBinary *dbp);
 EXTERN ErlDrvSInt driver_binary_inc_refc(ErlDrvBinary *dbp);
 EXTERN ErlDrvSInt driver_binary_dec_refc(ErlDrvBinary *dbp);

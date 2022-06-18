@@ -3124,7 +3124,7 @@ maxCellMeas					INTEGER ::= 32	-- Maximum number of entries in each of the neigh
 											-- cell lists in a measurement object
 maxCellReport				INTEGER ::= 8	-- Maximum number of reported cells
 maxDRB						INTEGER ::= 11	-- Maximum number of Data Radio Bearers
-maxEARFCN					INTEGER ::= 65535	-- Maximum value of EUTRA carrier fequency
+maxEARFCN					INTEGER ::= 65535	-- Maximum value of EUTRA carrier frequency
 maxFreq						INTEGER ::= 8	-- Maximum number of EUTRA carrier frequencies
 maxCellInfo-GERAN-r9 		INTEGER ::=	32	-- Maximum number of GERAN cells for which system in-
 											-- formation can be provided as redirection assistance

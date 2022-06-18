@@ -1,0 +1,5 @@
+
+  [;1m-type no_return() :: none().[0m
+
+  The type used to show that a function will never return a value,
+  that is it will always throw an exception.

@@ -38,7 +38,7 @@ const std::map<BeamGlobalAssembler::GlobalLabels, BeamGlobalAssembler::emitFptr>
 
 #define DECL_LABEL_NAME(NAME) {NAME, STRINGIFY(NAME)},
 
-const std::map<BeamGlobalAssembler::GlobalLabels, std::string>
+const std::map<BeamGlobalAssembler::GlobalLabels, const std::string>
         BeamGlobalAssembler::labelNames = {BEAM_GLOBAL_FUNCS(
                 DECL_LABEL_NAME) PROCESS_MAIN_LABELS(DECL_LABEL_NAME)};
 #undef DECL_LABEL_NAME
@@ -91,8 +91,10 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
                           .name = code.labelEntry(labels[val.first])->name()});
     }
 
-    update_gdb_jit_info("global", ranges);
-    beamasm_update_perf_info("global", ranges);
+    beamasm_metadata_update("global",
+                            (ErtsCodePtr)getBaseAddress(),
+                            code.codeSize(),
+                            ranges);
 #endif
 
     /* `this->get_xxx` are populated last to ensure that we crash if we use them
@@ -103,31 +105,29 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
     }
 }
 
-void BeamGlobalAssembler::emit_handle_error() {
-    /* Move return address into ARG2 so we know where we crashed.
-     *
-     * This bluntly assumes that we haven't pushed anything to the (Erlang)
-     * stack in the fragments that jump here. */
-
-#ifdef NATIVE_ERLANG_STACK
-    a.mov(ARG2, x86::qword_ptr(E));
-#else
-    a.pop(ARG2);
-#endif
-    a.jmp(labels[handle_error_shared]);
-}
-
-/* ARG3 = (HTOP + bytes needed) !!
+/* ARG3 = (HTOP + S_RESERVED + bytes needed) !!
  * ARG4 = Live registers */
 void BeamGlobalAssembler::emit_garbage_collect() {
-    /* Convert ARG3 to words needed and move it to the correct argument slot */
+    emit_enter_frame();
+
+    /* Convert ARG3 to words needed and move it to the correct argument slot.
+     *
+     * Note that we cancel out the S_RESERVED that we added in the GC check, as
+     * the GC routines handle that separately and we don't want it to be added
+     * twice. */
     a.sub(ARG3, HTOP);
     a.shr(ARG3, imm(3));
-    a.mov(ARG2, ARG3);
+    a.lea(ARG2, x86::qword_ptr(ARG3, -S_RESERVED));
 
     /* Save our return address in c_p->i so we can tell where we crashed if we
      * do so during GC. */
-    a.mov(RET, x86::qword_ptr(x86::rsp));
+    if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
+        a.mov(RET, x86::qword_ptr(x86::rsp));
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+        a.mov(RET, x86::qword_ptr(x86::rsp, 8));
+    }
+
     a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), RET);
 
     emit_enter_runtime<Update::eStack | Update::eHeap>();
@@ -139,6 +139,7 @@ void BeamGlobalAssembler::emit_garbage_collect() {
     a.sub(FCALLS, RET);
 
     emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_frame();
 
     a.ret();
 }
@@ -149,12 +150,11 @@ void BeamGlobalAssembler::emit_garbage_collect() {
  *
  * Assumes that c_p->current points into the MFA of an export entry. */
 void BeamGlobalAssembler::emit_bif_export_trap() {
-    int export_offset = offsetof(Export, info.mfa);
-
     a.mov(RET, x86::qword_ptr(c_p, offsetof(Process, current)));
-    a.sub(RET, export_offset);
+    a.sub(RET, imm(offsetof(Export, info.mfa)));
 
-    a.jmp(emit_setup_export_call(RET));
+    emit_leave_frame();
+    a.jmp(emit_setup_dispatchable_call(RET));
 }
 
 /* Handles export breakpoints, error handler, jump tracing, and so on.
@@ -182,6 +182,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
     a.je(jump_trace);
 
     /* Must never happen. */
+    comment("Unexpected export trampoline op");
     a.ud2();
 
     a.bind(call_bif);
@@ -197,6 +198,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
         a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, i)));
         a.mov(ARG4, x86::qword_ptr(RET, func_offset));
 
+        emit_enter_frame();
         a.jmp(labels[call_bif_shared]);
     }
 
@@ -205,6 +207,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
     a.bind(error_handler);
     {
+        emit_enter_frame();
         emit_enter_runtime<Update::eReductions | Update::eStack |
                            Update::eHeap>();
 
@@ -218,8 +221,10 @@ void BeamGlobalAssembler::emit_export_trampoline() {
                            Update::eHeap>();
 
         a.test(RET, RET);
-        a.je(labels[error_action_code]);
-        a.jmp(emit_setup_export_call(RET));
+        a.je(labels[process_exit]);
+
+        emit_leave_frame();
+        a.jmp(emit_setup_dispatchable_call(RET));
     }
 }
 
@@ -227,13 +232,13 @@ void BeamGlobalAssembler::emit_export_trampoline() {
  * Get the error address implicitly by calling the shared fragment and using
  * the return address as the error address.
  */
-void BeamModuleAssembler::emit_handle_error() {
-    emit_handle_error(nullptr);
+void BeamModuleAssembler::emit_raise_exception() {
+    emit_raise_exception(nullptr);
 }
 
-void BeamModuleAssembler::emit_handle_error(const ErtsCodeMFA *exp) {
-    mov_imm(ARG4, (Uint)exp);
-    safe_fragment_call(ga->get_handle_error_shared_prologue());
+void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
+    mov_imm(ARG4, exp);
+    safe_fragment_call(ga->get_raise_exception());
 
     /*
      * It is important that error address is not equal to a line
@@ -244,44 +249,81 @@ void BeamModuleAssembler::emit_handle_error(const ErtsCodeMFA *exp) {
     last_error_offset = getOffset() & -8;
 }
 
-void BeamModuleAssembler::emit_handle_error(Label I, const ErtsCodeMFA *exp) {
+void BeamModuleAssembler::emit_raise_exception(Label I,
+                                               const ErtsCodeMFA *exp) {
     a.lea(ARG2, x86::qword_ptr(I));
-    mov_imm(ARG4, (Uint)exp);
+    emit_raise_exception(ARG2, exp);
+}
+
+void BeamModuleAssembler::emit_raise_exception(x86::Gp I,
+                                               const ErtsCodeMFA *exp) {
+    if (I != ARG2) {
+        a.mov(ARG2, I);
+    }
+
+    mov_imm(ARG4, exp);
 
 #ifdef NATIVE_ERLANG_STACK
     /* The CP must be reserved for try/catch to work, so we'll fake a call with
      * the return address set to the error address. */
     a.push(ARG2);
+
+    if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+#    ifdef ERLANG_FRAME_POINTERS
+        a.push(frame_pointer);
+#    endif
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+    }
 #endif
 
-    abs_jmp(ga->get_handle_error_shared());
+    abs_jmp(ga->get_raise_exception_shared());
 }
 
-/* This is an alias for handle_error */
-void BeamGlobalAssembler::emit_error_action_code() {
+void BeamGlobalAssembler::emit_process_exit() {
+    emit_enter_runtime();
+
+    a.mov(ARG1, c_p);
     mov_imm(ARG2, 0);
     mov_imm(ARG4, 0);
+    load_x_reg_array(ARG3);
+    runtime_call<4>(handle_error);
 
-    a.jmp(labels[handle_error_shared]);
+    emit_leave_runtime();
+
+    a.test(RET, RET);
+    a.je(labels[do_schedule]);
+    comment("End of process");
+    a.ud2();
 }
 
-void BeamGlobalAssembler::emit_handle_error_shared_prologue() {
-    /*
-     * We must align the return address to make it a proper tagged CP.
-     * This is safe because we will never actually return to the
-     * return address.
-     */
+/* Helper function for throwing exceptions from global fragments.
+ *
+ * Assumes that the next item on the _machine stack_ is a return address: we
+ * must not jump here while in a frame. */
+void BeamGlobalAssembler::emit_raise_exception() {
+    /* We must align the return address to make it a proper tagged CP, in case
+     * we were called with `safe_fragment_call`. This is safe because we will
+     * never actually return to the return address. */
     a.pop(ARG2);
     a.and_(ARG2, imm(-8));
 
 #ifdef NATIVE_ERLANG_STACK
     a.push(ARG2);
+
+    if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+#    ifdef ERLANG_FRAME_POINTERS
+        a.push(frame_pointer);
+#    endif
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+    }
 #endif
 
-    a.jmp(labels[handle_error_shared]);
+    a.jmp(labels[raise_exception_shared]);
 }
 
-void BeamGlobalAssembler::emit_handle_error_shared() {
+void BeamGlobalAssembler::emit_raise_exception_shared() {
     Label crash = a.newLabel();
 
     emit_enter_runtime<Update::eStack | Update::eHeap>();
@@ -303,6 +345,7 @@ void BeamGlobalAssembler::emit_handle_error_shared() {
     a.jmp(RET);
 
     a.bind(crash);
+    comment("Error address is not a CP or NULL or ARG2 and ARG4 are unset");
     a.ud2();
 }
 

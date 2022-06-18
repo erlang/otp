@@ -49,9 +49,7 @@
 
 -type abstract_code() :: [erl_parse:abstract_form()].
 
-%% Internal representations used for 'from_asm' compilation can also be valid,
-%% but have no relevant types defined.
--type forms() :: abstract_code() | cerl:c_module().
+-type forms() :: abstract_code() | cerl:c_module() | beam_disasm:asm_form().
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
@@ -271,18 +269,15 @@ expand_opt(no_bsm4, Os) ->
     %% bsm4 instructions are only used when type optimization has determined
     %% that a match instruction won't fail.
     expand_opt(no_type_opt, Os);
-expand_opt(r18, Os) ->
-    expand_opt_before_21(Os);
-expand_opt(r19, Os) ->
-    expand_opt_before_21(Os);
-expand_opt(r20, Os) ->
-    expand_opt_before_21(Os);
-expand_opt(r21, Os) ->
-    expand_opt(r22, [no_put_tuple2 | expand_opt(no_bsm3, Os)]);
 expand_opt(r22, Os) ->
-    expand_opt(r23, [no_shared_fun_wrappers, no_swap | expand_opt(no_bsm4, Os)]);
+    expand_opt(r23, [no_bs_create_bin, no_shared_fun_wrappers,
+                     no_swap | expand_opt(no_bsm4, Os)]);
 expand_opt(r23, Os) ->
-    expand_opt(no_make_fun3, [no_ssa_opt_float, no_recv_opt, no_init_yregs | Os]);
+    expand_opt(no_make_fun3, [no_bs_create_bin, no_ssa_opt_float,
+                              no_recv_opt, no_init_yregs |
+                              expand_opt(r24, Os)]);
+expand_opt(r24, Os) ->
+    expand_opt(no_type_opt, [no_bs_create_bin | Os]);
 expand_opt(no_make_fun3, Os) ->
     [no_make_fun3, no_fun_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->
@@ -298,15 +293,10 @@ expand_opt(no_module_opt=O, Os) ->
     [O,no_recv_opt | Os];
 expand_opt(O, Os) -> [O|Os].
 
-expand_opt_before_21(Os) ->
-    [no_init_yregs, no_make_fun3, no_fun_opt,
-     no_shared_fun_wrappers, no_swap,
-     no_put_tuple2, no_get_hd_tl, no_ssa_opt_record,
-     no_utf8_atoms, no_recv_opt | expand_opt(no_bsm3, Os)].
-
-
 -spec format_error(error_description()) -> iolist().
 
+format_error({obsolete_option,Ver}) ->
+    io_lib:fwrite("the ~p option is no longer supported", [Ver]);
 format_error(no_crypto) ->
     "this system is not configured with crypto support.";
 format_error(bad_crypto_key) ->
@@ -817,6 +807,7 @@ abstr_passes(AbstrStatus) ->
 
          ?pass(expand_records),
          {iff,'dexp',{listing,"expand"}},
+         {iff,'E',?pass(legalize_vars)},
          {iff,'E',{src_listing,"E"}},
          {iff,'to_exp',{done,"E"}},
 
@@ -916,8 +907,6 @@ asm_passes() ->
 	 {iff,dblk,{listing,"block"}},
 	 {unless,no_jopt,{pass,beam_jump}},
 	 {iff,djmp,{listing,"jump"}},
-	 {unless,no_peep_opt,{pass,beam_peep}},
-	 {iff,dpeep,{listing,"peep"}},
 	 {pass,beam_clean},
 	 {iff,dclean,{listing,"clean"}},
 	 {unless,no_stack_trimming,{pass,beam_trim}},
@@ -1019,8 +1008,13 @@ parse_module(_Code, St) ->
 do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
     SourceName0 = proplists:get_value(source, Opts, File),
     SourceName = case member(deterministic, Opts) of
-                     true -> filename:basename(SourceName0);
-                     false -> SourceName0
+                     true ->
+                         filename:basename(SourceName0);
+                     false ->
+                         case member(absolute_source, Opts) of
+                             true -> paranoid_absname(SourceName0);
+                             false -> SourceName0
+                         end
                  end,
     StartLocation = case with_columns(Opts) of
                         true ->
@@ -1406,7 +1400,7 @@ makedep_output(Code, #compile{options=Opts,ofile=Ofile}=St) ->
 
     if
         is_list(Output) ->
-            %% Write the depedencies to a file.
+            %% Write the dependencies to a file.
             case file:write_file(Output, Code) of
                 ok ->
                     {ok,Code,St};
@@ -1415,7 +1409,7 @@ makedep_output(Code, #compile{options=Opts,ofile=Ofile}=St) ->
                     {error,St#compile{errors=St#compile.errors++[Err]}}
             end;
         true ->
-            %% Write the depedencies to a device.
+            %% Write the dependencies to a device.
             try io:fwrite(Output, "~ts", [Code]) of
                 ok ->
                     {ok,Code,St}
@@ -1430,9 +1424,43 @@ expand_records(Code0, #compile{options=Opts}=St) ->
     Code = erl_expand_records:module(Code0, Opts),
     {ok,Code,St}.
 
-compile_directives(Forms, #compile{options=Opts0}=St) ->
-    Opts = expand_opts(flatten([C || {attribute,_,compile,C} <- Forms])),
-    {ok, Forms, St#compile{options=Opts ++ Opts0}}.
+legalize_vars(Code0, St) ->
+    Code = map(fun(F={function,_,_,_,_}) ->
+                       erl_pp:legalize_vars(F);
+                  (F) ->
+                       F
+               end, Code0),
+    {ok,Code,St}.
+
+compile_directives(Forms, #compile{options=Opts0}=St0) ->
+    Opts1 = expand_opts(flatten([C || {attribute,_,compile,C} <- Forms])),
+    Opts = Opts1 ++ Opts0,
+    St1 = St0#compile{options=Opts},
+    case any_obsolete_option(Opts) of
+        {yes,Opt} ->
+            Error = {St1#compile.ifile,[{none,?MODULE,{obsolete_option,Opt}}]},
+            St = St1#compile{errors=[Error|St1#compile.errors]},
+            {error,St};
+        no ->
+            {ok,Forms,St1}
+    end.
+
+any_obsolete_option([Opt|Opts]) ->
+    case is_obsolete(Opt) of
+        true -> {yes,Opt};
+        false -> any_obsolete_option(Opts)
+    end;
+any_obsolete_option([]) -> no.
+
+is_obsolete(r18) -> true;
+is_obsolete(r19) -> true;
+is_obsolete(r20) -> true;
+is_obsolete(r21) -> true;
+is_obsolete(no_bsm3) -> true;
+is_obsolete(no_get_hd_tl) -> true;
+is_obsolete(no_put_tuple2) -> true;
+is_obsolete(no_utf8_atoms) -> true;
+is_obsolete(_) -> false.
 
 core(Forms, #compile{options=Opts}=St) ->
     {ok,Core,Ws} = v3_core:module(Forms, Opts),
@@ -2020,7 +2048,6 @@ pre_load() ->
 	 beam_jump,
 	 beam_kernel_to_ssa,
 	 beam_opcodes,
-	 beam_peep,
 	 beam_ssa,
 	 beam_ssa_bc_size,
 	 beam_ssa_bool,

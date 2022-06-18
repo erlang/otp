@@ -47,11 +47,7 @@ DIALYZER_DIR = $(ERL_TOP)/lib/dialyzer
 # Target Specs
 # ----------------------------------------------------
 MODULES = \
-	cerl_closurean \
-	cerl_lib \
-	cerl_pmatch \
 	cerl_prettypr \
-	cerl_typean \
 	dialyzer \
 	dialyzer_analysis_callgraph \
 	dialyzer_behaviours \
@@ -68,11 +64,10 @@ MODULES = \
 	dialyzer_gui_wx \
 	dialyzer_options \
 	dialyzer_plt \
-	dialyzer_race_data_server \
-	dialyzer_races \
 	dialyzer_succ_typings \
 	dialyzer_timing \
 	dialyzer_typesig \
+	dialyzer_typegraph \
 	dialyzer_coordinator \
 	dialyzer_worker \
 	dialyzer_utils \
@@ -156,6 +151,7 @@ $(EBIN)/dialyzer_race_data_server.beam: dialyzer.hrl
 $(EBIN)/dialyzer_races.beam: dialyzer.hrl
 $(EBIN)/dialyzer_succ_typings.beam: dialyzer.hrl
 $(EBIN)/dialyzer_typesig.beam: dialyzer.hrl
+$(EBIN)/dialyzer_typegraph.beam: dialyzer.hrl
 $(EBIN)/dialyzer_utils.beam: dialyzer.hrl
 
 # ----------------------------------------------------

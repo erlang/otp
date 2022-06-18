@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2020. All Rights Reserved.
+// Copyright Ericsson AB 2020-2021. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,10 +21,6 @@
 
 pred.never() {
     return 0;
-}
-
-pred.compiled_with_otp_20_or_higher() {
-    return S->otp_20_or_higher;
 }
 
 // Test whether a jump table can be used.
@@ -144,25 +140,18 @@ pred.is_heavy_bif(Bif) {
     return 0;
 }
 
-// Test whether the given literal is a map.
-pred.literal_is_map(Lit) {
-    Eterm term;
-
-    ASSERT(Lit.type == TAG_q);
-    term = beamfile_get_literal(&S->beam, Lit.val);
-    return is_map(term);
-}
-
 // Predicate to test whether all of the given new small map keys are literals
 pred.is_small_map_literal_keys(Size, Rest) {
-    if (Size.val > MAP_SMALL_MAP_LIMIT) {
+    Uint pair_count = Size.val / 2;
+
+    if (pair_count > MAP_SMALL_MAP_LIMIT) {
         return 0;
     }
 
     /*
      * Operations with non-literals have always only one key.
      */
-    if (Size.val != 2) {
+    if (pair_count != 1) {
         return 1;
     }
 
@@ -228,5 +217,25 @@ pred.map_key_sort(Size, Rest) {
 
 // Test that the two registers are distinct.
 pred.distinct(Reg1, Reg2) {
-    return Reg1.type != Reg2.type || Reg1.val != Reg2.val;
+    if (Reg1.type != Reg2.type) {
+        return 1;
+    } else if (Reg1.type == TAG_x || Reg1.type == TAG_y) {
+        /* We must not compare the type indices (if any). */
+        return (Reg1.val & REG_MASK) != (Reg2.val & REG_MASK);
+    } else {
+        return Reg1.val != Reg2.val;
+    }
+}
+
+// Test that two registers are equal when disregarding types. Opposite of the
+// `distinct` predicate.
+pred.equal(Reg1, Reg2) {
+    if (Reg1.type != Reg2.type) {
+        return 0;
+    } else if (Reg1.type == TAG_x || Reg1.type == TAG_y) {
+        /* We must not compare the type indices (if any). */
+        return (Reg1.val & REG_MASK) == (Reg2.val & REG_MASK);
+    } else {
+        return Reg1.val == Reg2.val;
+    }
 }

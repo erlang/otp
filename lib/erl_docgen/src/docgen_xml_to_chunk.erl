@@ -31,14 +31,24 @@
 main([_Application, FromBeam, _Escript, ToChunk]) ->
     %% The given module is not documented, generate a hidden beam chunk file
     Name = filename:basename(filename:rootname(FromBeam)) ++ ".erl",
+    {ok, {_Module, [{exports, Exports}]}} = beam_lib:chunks(FromBeam, [exports]),
 
-    EmptyDocs = #docs_v1{ anno = erl_anno:set_file(Name, erl_anno:new(0)),
-                          module_doc = hidden, docs = []},
+    Anno = erl_anno:set_file(Name, erl_anno:new(0)),
+
+    EmptyDocs = add_hidden_docs(
+                  Exports,
+                  #docs_v1{ anno = Anno,
+                            module_doc = hidden,
+                            docs = []}),
     ok = file:write_file(ToChunk, term_to_binary(EmptyDocs,[compressed])),
     ok;
-main([Application, FromXML, FromBeam, _Escript, ToChunk]) ->
+main([Application, FromXML, FromBeam, Escript, ToChunk]) ->
     _ = erlang:process_flag(max_heap_size,20 * 1000 * 1000),
     case docs(Application, FromXML, FromBeam) of
+        {error, not_erlref} ->
+            %% The XML files was not a erlref, so we generate
+            %% a hidden entry for this module.
+            main([Application, FromBeam, Escript, ToChunk]);
         {error, Reason} ->
             io:format("Failed to create chunks: ~p~n",[Reason]),
             erlang:halt(1);
@@ -68,7 +78,7 @@ main([Application, FromXML, FromBeam, _Escript, ToChunk]) ->
             erlang:halt(1),
             ok;
         Docs ->
-            ok = file:write_file(ToChunk, term_to_binary(Docs,[compressed]))
+            ok = file:write_file(ToChunk, term_to_binary(Docs, [compressed]))
     end.
 
 %% Error handling
@@ -269,16 +279,33 @@ docs(Application, OTPXml, FromBEAM)->
                                 {event_state,initial_state()}]) of
         {ok,Tree,_} ->
             {ok, {Module, Chunks}} = beam_lib:chunks(FromBEAM,[exports,abstract_code]),
-            Dom = get_dom(Tree),
-            put(application, Application),
-            put(module, filename:basename(filename:rootname(FromBEAM))),
-            NewDom = transform(Dom,[]),
-            Chunk = to_chunk(NewDom, OTPXml, Module, proplists:get_value(abstract_code, Chunks)),
-            verify_chunk(Module,proplists:get_value(exports, Chunks), Chunk),
-            Chunk;
+            case get_dom(Tree) of
+                [{erlref,_,_}] = Dom ->
+                    put(application, Application),
+                    put(module, filename:basename(filename:rootname(FromBEAM))),
+                    NewDom = transform(Dom, []),
+                    Chunk = add_hidden_docs(
+                              proplists:get_value(exports, Chunks),
+                              to_chunk(NewDom, OTPXml, Module,
+                                       proplists:get_value(abstract_code, Chunks))),
+                    verify_chunk(Module, proplists:get_value(exports, Chunks), Chunk),
+                    Chunk;
+                _Else ->
+                    {error,not_erlref}
+            end;
         Else ->
             {error,Else}
     end.
+
+%% Create hidden function entries for any exported functions that
+%% does not have any documentation.
+add_hidden_docs(Exports, #docs_v1{ anno = Anno, docs = Docs } = Chunk) ->
+    HiddenFuncs =
+        [{{function, F, A}, Anno,
+          [iolist_to_binary(io_lib:format("~p/~p", [F, A]))],
+          hidden, #{}} || {F, A} <- Exports, F =/= module_info,
+                          lists:keysearch({function, F, A}, 1, Docs) == false ],
+    Chunk#docs_v1{ docs = HiddenFuncs ++ Docs }.
 
 verify_chunk(M, Exports, #docs_v1{ docs = Docs } = Doc) ->
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2015-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2015-2021. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -359,7 +359,7 @@
  *                        int indent,
  *                        (void)(*print_node)(ERTS_RBT_T *));
  *         Prints the tree. Note that this function is recursive.
- *         Should only be used for debuging.
+ *         Should only be used for debugging.
  */
 
 #ifdef ERTS_RBT_CMP_KEYS

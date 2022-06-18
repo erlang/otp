@@ -527,7 +527,7 @@ recv_in_try_1(Timeout, Format) ->
                 %% {test,test_arity,{f,148},[{x,0},2]}.
                 %% {get_tuple_element,{x,0},0,{y,1}}.  %y1 is fragile.
                 %%
-                %% %% Here the fragility of y1 would be be progated to
+                %% %% Here the fragility of y1 would be be propagated to
                 %% %% the 'catch' below. Incorrect, since get_tuple_element
                 %% %% can't fail.
                 %% {get_tuple_element,{x,0},1,{x,2}}.

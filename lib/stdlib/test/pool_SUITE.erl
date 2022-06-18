@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([basic/1, link_race/1, echo/1]).
+
+-include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames, 1}]}]}].
 
@@ -45,7 +47,7 @@ end_per_group(_GroupName, Config) ->
 
 basic(Config) ->
 
-    {ok, Node, PoolNode} = init_pool(pool_SUITE_basic, basic, Config),
+    {ok, Peer, Node, PoolNode} = init_pool(?FUNCTION_NAME, basic, Config),
 
     Node = rpc:call(Node, pool, get_node, []),
     PoolNode = rpc:call(Node, pool, get_node, []),
@@ -53,19 +55,19 @@ basic(Config) ->
     do_echo(Node),
     do_echo(Node),
 
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 link_race(Config) ->
 
-    {ok, Node, PoolNode} = init_pool(pool_SUITE_basic, basic, Config),
+    {ok, Peer, Node, PoolNode} = init_pool(?FUNCTION_NAME, basic, Config),
 
     Node = rpc:call(Node, pool, get_node, []),
     PoolNode = rpc:call(Node, pool, get_node, []),
 
     rpc:call(Node, pool, pspawn_link, [erlang, is_atom, [?MODULE]]),
 
-    test_server:stop_node(Node),
+    peer:stop(Peer),
     ok.
 
 do_echo(Node) ->
@@ -79,10 +81,9 @@ echo(Parent) ->
     end.
 
 
-init_pool(Proxy, Name, Config) ->
+init_pool(Case, Name, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    [Slave] = proplists:get_value(nodenames, Config),
-    {ok, Node} = test_server:start_node(Proxy, slave, []),
+    {ok, Peer, Node} = ?CT_PEER(#{name => Case}),
     {ok, Hostname} = inet:gethostname(),
     file:write_file(filename:join(PrivDir,".hosts.erlang"),"'"++Hostname++"'.\n"),
     ok = rpc:call(Node, file, set_cwd, [PrivDir]),
@@ -92,4 +93,4 @@ init_pool(Proxy, Name, Config) ->
     Nodes = rpc:call(Node, pool, get_nodes, []),
     [rpc:call(N, code, add_patha, [filename:dirname(code:which(?MODULE))]) || N <- Nodes],
 
-    {ok, Node, PoolNode}.
+    {ok, Peer, Node, PoolNode}.

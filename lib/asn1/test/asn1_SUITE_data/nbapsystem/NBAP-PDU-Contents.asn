@@ -5606,13 +5606,13 @@ DL-CCTrCH-InformationAddItem-RL-ReconfPrepTDD-ExtIEs  NBAP-PROTOCOL-EXTENSION ::
 	{ ID id-DL-DPCH-LCR-InformationAddList-RL-ReconfPrepTDD				CRITICALITY reject	EXTENSION DL-DPCH-LCR-InformationAddList-RL-ReconfPrepTDD		PRESENCE optional }|	-- Applicable to 1.28Mcps TDD only
 -- This DPCH Information is the for the first RL repetition, DPCH information for RL repetitions 2 and on, should be defined in MultipleRL-DL-DPCH-InformationAddList-RL-ReconfPrepTDD
 	{ ID id-CCTrCH-Initial-DL-Power-RL-ReconfPrepTDD					CRITICALITY ignore	EXTENSION DL-Power	PRESENCE optional	}|
--- This DL Power inforrmation is the for the first RL repetition, DL power information for RL repetitions 2 and on, should be defined in MultipleRL-DL-DPCH-InformationAddList-RL-ReconfPrepTDD
+-- This DL Power information is the for the first RL repetition, DL power information for RL repetitions 2 and on, should be defined in MultipleRL-DL-DPCH-InformationAddList-RL-ReconfPrepTDD
 	{ ID id-TDD-TPC-DownlinkStepSize-InformationAdd-RL-ReconfPrepTDD	CRITICALITY reject	EXTENSION  TDD-TPC-DownlinkStepSize	 PRESENCE optional}|
 -- This DL step size is the for the first RL repetition, DL step size information for RL repetitions 2 and on, should be defined in MultipleRL-DL-DPCH-InformationAddList-RL-ReconfPrepTDD
 	{ ID id-CCTrCH-Maximum-DL-Power-InformationAdd-RL-ReconfPrepTDD		CRITICALITY ignore	EXTENSION DL-Power	PRESENCE optional	}|
--- This DL Power inforrmation is the for the first RL repetition, DL power information for RL repetitions 2 and on, should be defined in MultipleRL-DL-DPCH-InformationAddList-RL-ReconfPrepTDD
+-- This DL Power information is the for the first RL repetition, DL power information for RL repetitions 2 and on, should be defined in MultipleRL-DL-DPCH-InformationAddList-RL-ReconfPrepTDD
 	{ ID id-CCTrCH-Minimum-DL-Power-InformationAdd-RL-ReconfPrepTDD		CRITICALITY ignore	EXTENSION DL-Power	PRESENCE optional	}|
--- This DL Power inforrmation is the for the first RL repetition, DL power information for RL repetitions 2 and on, should be defined in MultipleRL-DL-DPCH-InformationAddList-RL-ReconfPrepTDD
+-- This DL Power information is the for the first RL repetition, DL power information for RL repetitions 2 and on, should be defined in MultipleRL-DL-DPCH-InformationAddList-RL-ReconfPrepTDD
 	{ ID id-RL-ID														CRITICALITY ignore	EXTENSION RL-ID	PRESENCE optional	}|
 -- This is the RL ID for the first RL repetition
 	{ ID id-multipleRL-ul-DPCH-InformationList							CRITICALITY reject	EXTENSION MultipleRL-DL-DPCH-InformationAddList-RL-ReconfPrepTDD	PRESENCE optional	},

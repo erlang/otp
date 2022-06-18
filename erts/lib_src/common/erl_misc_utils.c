@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2006-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,15 +41,9 @@
 #  ifdef SYS_SELECT_H
 #    include <sys/select.h>
 #  endif
-#  if TIME_WITH_SYS_TIME
-#     include <sys/time.h>
-#     include <time.h>
-#  else
-#     if HAVE_SYS_TIME_H
-#         include <sys/time.h>
-#     else
-#         include <time.h>
-#     endif
+#  include <time.h>
+#  if HAVE_SYS_TIME_H
+#    include <sys/time.h>
 #  endif
 #  include <string.h>
 #  include <stdio.h>
@@ -240,7 +234,7 @@ erts_cpu_info_create(void)
     cpuinfo->online = -1;
     cpuinfo->available = -1;
     cpuinfo->quota = -1;
-    erts_cpu_info_update(cpuinfo);
+    erts_cpu_info_update(cpuinfo, 1);
     return cpuinfo;
 }
 
@@ -265,7 +259,8 @@ erts_cpu_info_destroy(erts_cpu_info_t *cpuinfo)
 }
 
 int
-erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
+erts_cpu_info_update(erts_cpu_info_t *cpuinfo,
+                     int skip_read_topology)
 {
     int changed = 0;
     int configured = 0;
@@ -430,7 +425,9 @@ erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
     old_topology_size = cpuinfo->topology_size;
     cpuinfo->topology = NULL;
 
-    read_topology(cpuinfo);
+    if (!skip_read_topology) {
+        read_topology(cpuinfo);
+    }
 
     if (cpuinfo->topology_size != old_topology_size
 	|| (old_topology_size != 0

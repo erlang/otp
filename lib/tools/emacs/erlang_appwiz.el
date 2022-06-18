@@ -23,7 +23,7 @@
 ;;(defvar erlang-skel-makefile-src 
 ;;  '((erlang-skel-include erlang-skel-nomodule-header)
 ;;    "CC_ROOT := $(shell pwd | sed 's/erts.*$$//')" n
-;;    "AUTOCONF := $(CC_ROOT)/erts/autoconf" n
+;;    "AUTOCONF := $(CC_ROOT)/make/autoconf" n
 ;;    "TARGET := $(shell $(AUTOCONF)/config.guess)"
 ;;    "include $(CC_ROOT)/internal_tools/make/$(TARGET)/otp.mk" n
 ;;    n

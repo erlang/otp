@@ -397,20 +397,20 @@ typedef struct ei_x_buff_TAG {
 /* Handle the connection */
 
 int ei_connect_init(ei_cnode* ec, const char* this_node_name,
-		    const char *cookie, short creation);
+		    const char *cookie, unsigned int creation);
 int ei_connect_xinit (ei_cnode* ec, const char *thishostname,
 		      const char *thisalivename, const char *thisnodename,
 		      Erl_IpAddr thisipaddr, const char *cookie,
-		      const short creation);
+		      unsigned int creation);
 
 int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
-                         const char *cookie, short creation,
+                         const char *cookie, unsigned int creation,
                          ei_socket_callbacks *cbs, int cbs_sz,
                          void *setup_context);
 int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
                           const char *thisalivename, const char *thisnodename,
                           Erl_IpAddr thisipaddr, const char *cookie,
-                          const short creation, ei_socket_callbacks *cbs,
+                          unsigned int creation, ei_socket_callbacks *cbs,
                           int cbs_sz, void *setup_context);
 
 int ei_connect(ei_cnode* ec, char *nodename);

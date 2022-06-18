@@ -752,7 +752,7 @@
   <xsl:template match="marker" mode="local_type">
     <xsl:param name="local_types"/>
     <xsl:param name="global_types"/>
-    <!-- Craete no anchor -->
+    <!-- Create no anchor -->
     <!-- It would be possible to create a link to the global type
          (if there is one), but that would mean even more code...
     -->

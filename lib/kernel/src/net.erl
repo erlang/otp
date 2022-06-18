@@ -49,7 +49,6 @@
 	 cast/4,
 	 broadcast/3,
 	 ping/1,
-	 relay/1,
 	 sleep/1]).
 
 %% Should we define these here or refer to the prim_net module
@@ -73,7 +72,7 @@
 -deprecated({cast,      4, "use rpc:cast/4 instead"}).
 -deprecated({broadcast, 3, "use rpc:eval_everywhere/3 instead"}).
 -deprecated({ping,      1, "use net_adm:ping/1 instead"}).
--deprecated({relay,     1, "use slave:relay/1 instead"}).
+-removed({relay,        1, "use fun Relay(Pid) -> receive X -> Pid ! X end, Relay(Pid) instead"}).
 -deprecated({sleep,     1, "use 'receive after T -> ok end' instead"}).
 
 
@@ -130,7 +129,6 @@ cast(N,M,F,A) -> rpc:cast(N,M,F,A).
 broadcast(M,F,A) -> rpc:eval_everywhere(M,F,A).
 ping(Node) -> net_adm:ping(Node).
 sleep(T) -> receive after T -> ok end.
-relay(X) -> slave:relay(X).
 
 
 %% ===========================================================================

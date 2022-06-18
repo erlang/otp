@@ -28,7 +28,7 @@
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
 	 printable_range/1, bad_printable_range/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
-         otp_10836/1, io_lib_width_too_small/1,
+         otp_10836/1, io_lib_width_too_small/1, calling_self/1,
          io_with_huge_message_queue/1, format_string/1, format_neg_zero/1,
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
@@ -63,7 +63,7 @@ all() ->
      io_fread_newlines, otp_8989, io_lib_fread_literal,
      printable_range, bad_printable_range, format_neg_zero,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
-     io_lib_width_too_small, io_with_huge_message_queue,
+     io_lib_width_too_small, io_with_huge_message_queue, calling_self,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
      otp_15639, otp_15705, otp_15847, otp_15875, github_4801, chars_limit,
@@ -208,6 +208,10 @@ float_w(Config) when is_list(Config) ->
      "9.007199254740992e15"] =
         [begin g_t(X), fmt("~w", [X]) end || X <- Nums],
 
+    ok.
+
+calling_self(Config) when is_list(Config) ->
+    {'EXIT', {calling_self, _}} = (catch io:format(self(), "~p", [oops])),
     ok.
 
 %% OTP-5403. ~s formats I/O lists and a single binary.
@@ -1966,22 +1970,16 @@ io_lib_fread_literal(Suite) when is_list(Suite) ->
 
 %% Check that the printable range set by the user actually works.
 printable_range(Suite) when is_list(Suite) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
-					 [{args, " +pc unicode -pa " ++ Pa}]),
-    {ok, LNode} = test_server:start_node(printable_range_latin1, slave,
-					 [{args, " +pc latin1 -pa " ++ Pa}]),
-    {ok, DNode} = test_server:start_node(printable_range_default, slave,
-					 [{args, " -pa " ++ Pa}]),
-    unicode = rpc:call(UNode,io,printable_range,[]),
-    latin1 = rpc:call(LNode,io,printable_range,[]),
+    {ok, UPeer0, UNode0} = ?CT_PEER(["+pc", "unicode"]),
+    {ok, LPeer0, LNode0} = ?CT_PEER(["+pc", "latin1"]),
+    {ok, DPeer, DNode} = ?CT_PEER(),
+    unicode = rpc:call(UNode0,io,printable_range,[]),
+    latin1 = rpc:call(LNode0,io,printable_range,[]),
     latin1 = rpc:call(DNode,io,printable_range,[]),
-    test_server:stop_node(UNode),
-    test_server:stop_node(LNode),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
-					 [{args, " +pcunicode -pa " ++ Pa}]),
-    {ok, LNode} = test_server:start_node(printable_range_latin1, slave,
-					 [{args, " +pclatin1 -pa " ++ Pa}]),
+    peer:stop(UPeer0),
+    peer:stop(LPeer0),
+    {ok, UPeer, UNode} = ?CT_PEER(["+pcunicode"]),
+    {ok, LPeer, LNode} = ?CT_PEER(["+pclatin1"]),
     unicode = rpc:call(UNode,io,printable_range,[]),
     latin1 = rpc:call(LNode,io,printable_range,[]),
     PrettyOptions = [{column,1},
@@ -2029,9 +2027,9 @@ printable_range(Suite) when is_list(Suite) ->
     $\e = format_max(LNode, ["~ts", [PrintableControls]]),
     $\e = format_max(DNode, ["~ts", [PrintableControls]]),
 
-    test_server:stop_node(UNode),
-    test_server:stop_node(LNode),
-    test_server:stop_node(DNode),
+    peer:stop(UPeer),
+    peer:stop(LPeer),
+    peer:stop(DPeer),
     ok.
 
 print_max(Node, Args) ->
@@ -2079,11 +2077,8 @@ io_lib_print_binary_depth_one(Suite) when is_list(Suite) ->
 
 %% OTP-10302. Unicode.
 otp_10302(Suite) when is_list(Suite) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
-					 [{args, " +pc unicode -pa " ++ Pa}]),
-    {ok, LNode} = test_server:start_node(printable_range_latin1, slave,
-					 [{args, " +pc latin1 -pa " ++ Pa}]),
+    {ok, UPeer, UNode} = ?CT_PEER(["+pc", "unicode"]),
+    {ok, LPeer, LNode} = ?CT_PEER(["+pc", "latin1"]),
     "\"\x{400}\"" = rpc:call(UNode,?MODULE,pretty,["\x{400}", -1]),
     "<<\"\x{400}\"/utf8>>" = rpc:call(UNode,?MODULE,pretty,
 				      [<<"\x{400}"/utf8>>, -1]),
@@ -2094,8 +2089,8 @@ otp_10302(Suite) when is_list(Suite) ->
     "<<208,128>>" = rpc:call(LNode,?MODULE,pretty,[<<"\x{400}"/utf8>>, -1]),
 
     "<<208,...>>" = rpc:call(LNode,?MODULE,pretty,[<<"\x{400}foo"/utf8>>, 2]),
-    test_server:stop_node(UNode),
-    test_server:stop_node(LNode),
+    peer:stop(UPeer),
+    peer:stop(LPeer),
 
     "<<\"äppl\"/utf8>>" = pretty(<<"äppl"/utf8>>, 2),
     "<<\"äppl\"/utf8...>>" = pretty(<<"äpple"/utf8>>, 2),
@@ -2740,9 +2735,7 @@ trunc_string() ->
     "str str" = trf("str ~s", ["str"], 7),
     "str str" = trf("str ~8s", ["str"], 6),
     "str ..." = trf("str ~8s", ["str1"], 6),
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok, UNode} = test_server:start_node(printable_range_unicode, slave,
-					 [{args, " +pc unicode -pa " ++ Pa}]),
+    {ok, UPeer, UNode} = ?CT_PEER(["+pc", "unicode"]),
     U = "кирилли́ческий атом",
     UFun = fun(Format, Args, CharsLimit) ->
                    rpc:call(UNode,
@@ -2760,7 +2753,7 @@ trunc_string() ->
     "<<\"кирилли́\"/utf8...>>" = UFun("~tp", [BU], 20),
     "<<\"кирилли́\"/utf8...>>" = UFun("~tp", [BU], 21),
     "<<\"кирилли́ческ\"/utf8...>>" = UFun("~tp", [BU], 22),
-    test_server:stop_node(UNode).
+    peer:stop(UPeer).
 
 trunc_depth(D, Fun) ->
     "..." = Fun("", D, 0),
@@ -3034,6 +3027,8 @@ error_info(Config) ->
          {put_chars,[a], [{1,"not valid character data"}]},
          {put_chars,[UnknownDev(),"test"], [{general,"unknown error: 'Спутник-1'"}]},
          {put_chars,["test"], [{gl,UnknownDev()},{general,"unknown error: 'Спутник-1'"}]},
+         {put_chars,[self(),"test"],[{1,"the device is not allowed to be the current process"}]},
+         {put_chars,["test"],[{gl,self()},{general,"the device is not allowed to be the current process"}]},
 
          {write,[DeadDev,"test"],[{1,"terminated"}]},
          {write,["test"],[{gl,DeadDev},{general,"terminated"}]},

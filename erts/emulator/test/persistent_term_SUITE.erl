@@ -74,10 +74,10 @@ end_per_suite(Config) ->
 init_per_testcase(_, Config) ->
     Config.
 
-end_per_testcase(_, _Config) ->
-    ok;
 end_per_testcase(get_all_race, _Config) ->
     get_all_race_cleanup(),
+    ok;
+end_per_testcase(_, _Config) ->
     ok.
 
 basic(_Config) ->

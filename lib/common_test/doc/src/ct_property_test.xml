@@ -236,7 +236,7 @@ ct_property_test:present_result(?MODULE, Cmds, RunResult, Config)
 	</item>
 
 	<item><c>FrequencyFun/0</c> returns a fun/1 which is supposed to take a list of items as input,
-	and return an iolist wich will be printed as the table. Per default, the number of each item is counted
+	and return an iolist which will be printed as the table. Per default, the number of each item is counted
 	and the percentage is printed for each.  The list [a,b,a,a,c] could for example return
 	<pre>
  ["a 60%\n","b 20%\n","c 20%\n"]</pre>

@@ -104,6 +104,8 @@
          rand_threads/1,
          rand_uniform/0,
          rand_uniform/1,
+         hash_equals/0,
+         hash_equals/1,
          sign_verify/0,
          sign_verify/1,
          ec_key_padding/1,
@@ -195,6 +197,7 @@ all() ->
      info,
      cipher_info,
      hash_info,
+     hash_equals,
      pbkdf2_hmac
     ].
 
@@ -691,35 +694,20 @@ make_crypto_key(String) ->
     {[K1,K2,K3],IVec,8}.
 %%--------------------------------------------------------------------
 %% Test that a spawned node has initialized the cache
--define(at_node, 
-        (fun(N, M, F, As) ->
-                 R = rpc:call(N, M, F, As),
-                 ct:log("~p ~p ~p:~p(~s) = ~p", [?LINE,N,M,F,args2list(As), R]),
-                 R
-         end) ).
-args2list(As) -> lists:join(", ", [io_lib:format("~p",[A]) || A <- As]).
 
 node_supports_cache(_Config) ->
     ECs = crypto:supports(curves),
-    {ok,Node} = start_slave_node(random_node_name(?MODULE)),
-    case ?at_node(Node, crypto, supports, [curves]) of
+    {ok,Peer,Node} = ?CT_PEER(),
+    case erpc:call(Node, crypto, supports, [curves]) of
         ECs ->
-            test_server:stop_node(Node);
+            peer:stop(Peer);
         OtherECs ->
+            peer:stop(Peer),
             ct:log("At master:~p~nAt slave:~p~n"
                    "Missing at slave: ~p~nmissing at master: ~p",
                    [ECs, OtherECs, ECs--OtherECs, OtherECs--ECs]),
             {fail, "different support at slave"}
     end.
-
-
-start_slave_node(Name) ->
-    Pa = filename:dirname(code:which(?MODULE)),
-    test_server:start_node(Name, slave, [{args, " -pa " ++ Pa}]).
-
-random_node_name(BaseName) ->
-    L = integer_to_list(erlang:unique_integer([positive])),
-    lists:concat([BaseName,"___",L]).
 
 %%--------------------------------------------------------------------
 hash() ->
@@ -1246,6 +1234,18 @@ exor() ->
 exor(Config) when is_list(Config) ->
     do_exor(<<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>>),
     do_exor(term_to_binary(lists:seq(1, 1000000))).
+%%--------------------------------------------------------------------
+hash_equals() ->
+    [{doc, "Test the hash_equals function"}].
+hash_equals(Config) when is_list(Config) ->
+    try
+        true = crypto:hash_equals(<<>>, <<>>),
+        true = crypto:hash_equals(<<"abc">>, <<"abc">>),
+        false = crypto:hash_equals(<<"abc">>, <<"abe">>)
+    catch
+        error:{notsup,{"hash_equals.c",_Line},"Unsupported CRYPTO_memcmp"} ->
+            {skip, "No CRYPTO_memcmp"}
+    end.
 %%--------------------------------------------------------------------
 rand_uniform() ->
     [{doc, "rand_uniform and random_bytes testing"}].

@@ -505,7 +505,7 @@
         Specify a <c>receiver</c> option at session creation to
         provide a destination for incoming notifications independently
         of a call to &create_subscription;, and use &send_rpc; to send
-        establish-subscription and other arbirary RPCs.</p>
+        establish-subscription and other arbitrary RPCs.</p>
         </note>
       </desc>
     </func>
@@ -697,7 +697,7 @@
 
         <p>Which target parameters that can be used depends on if
           <c>:candidate</c> and/or <c>:startup</c> are supported by the
-          server. If successfull, the configuration system of the device is
+          server. If successful, the configuration system of the device is
           unavailable to other clients (NETCONF, CORBA, SNMP, and so on).
           Locks are intended to be short-lived.</p>
 

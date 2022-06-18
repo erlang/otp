@@ -189,7 +189,20 @@ format_lists_error(keysearch, Args) ->
 format_lists_error(member, [_Key, List]) ->
     [[], must_be_list(List)];
 format_lists_error(reverse, [List, _Acc]) ->
-    [must_be_list(List)].
+    [must_be_list(List)];
+format_lists_error(seq, [First, Last, Inc]) ->
+    case [must_be_integer(First), must_be_integer(Last), must_be_integer(Inc)] of
+        [[], [], []] ->
+            IncError = if
+                (Inc =< 0 andalso First - Inc =< Last) ->
+                    <<"not a positive increment">>;
+                (Inc >= 0 andalso First - Inc >= Last) ->
+                    <<"not a negative increment">>
+            end,
+            [[], [], IncError];
+        Errors -> Errors
+    end.
+
 
 format_maps_error(filter, Args) ->
     format_maps_error(map, Args);
@@ -426,6 +439,11 @@ format_io_error(_, _, {io, arguments}, true) ->
     [device_arguments];
 format_io_error(_, _, {io, arguments}, false) ->
     [{general,device_arguments}];
+%% calling_self, Io =:= self()
+format_io_error(_, _, {io, calling_self}, true) ->
+    [calling_self];
+format_io_error(_, _, {io, calling_self}, false) ->
+    [{general,calling_self}];
 %% terminated, monitor(Io) failed
 format_io_error(_, _, {io, terminated}, true) ->
     [device_terminated];
@@ -1008,6 +1026,8 @@ expand_error(bad_update_op) ->
     <<"not a valid update operation">>;
 expand_error(bitstring) ->
     <<"is a bitstring (expected a binary)">>;
+expand_error(calling_self) ->
+    <<"the device is not allowed to be the current process">>;
 expand_error(counter_not_integer) ->
     <<"the value in the given position, in the object, is not an integer">>;
 expand_error(dead_process) ->

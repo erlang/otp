@@ -51,6 +51,7 @@
 #include "erl_thr_progress.h"
 #include "erl_bif_unique.h"
 #include "erl_nif.h"
+#include "erl_global_literals.h"
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #include "erl_lock_count.h"
@@ -1780,7 +1781,7 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
                      * This carrier has just been given back to us by writing
                      * to crr->allctr with a write barrier (see abandon_carrier).
                      *
-                     * We need a mathing read barrier to guarantee a correct view
+                     * We need a matching read barrier to guarantee a correct view
                      * of the carrier for deallocation work.
                      */
                     act = erts_atomic_cmpxchg_rb(&crr->allctr,
@@ -3079,7 +3080,7 @@ mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
     }
 
     if (cand_blk_sz < get_blk_sz) {
-	/* We wont fit in cand_blk get a new one */
+	/* We won't fit in cand_blk get a new one */
 
 #endif /* !MBC_REALLOC_ALWAYS_MOVES */
 
@@ -3153,7 +3154,7 @@ mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
 	    /*
 	     * Copy user-data then update new blocks in mbc_alloc_finalize().
 	     * mbc_alloc_finalize() may write headers at old location of
-	     * user data; therfore, order is important.
+	     * user data; therefore, order is important.
 	     */
 
 	    new_p = BLK2UMEM(new_blk);
@@ -7682,16 +7683,22 @@ static int gather_ahist_append_result(hist_tree_t *node, void *arg, Sint reds)
 
     ASSERT(state->building_result);
 
-    hp = erts_produce_heap(&state->msg_factory, 7 + state->hist_slot_count, 0);
+    hp = erts_produce_heap(&state->msg_factory,
+                           7 + state->hist_slot_count +
+                           (state->hist_slot_count == 0 ? -1 : 0),
+                           0);
+    if (state->hist_slot_count == 0) {
+        histogram_tuple = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+    } else {
+        hp[0] = make_arityval(state->hist_slot_count);
 
-    hp[0] = make_arityval(state->hist_slot_count);
+        for (ix = 0; ix < state->hist_slot_count; ix++) {
+            hp[1 + ix] = make_small(node->histogram[ix]);
+        }
 
-    for (ix = 0; ix < state->hist_slot_count; ix++) {
-        hp[1 + ix] = make_small(node->histogram[ix]);
+        histogram_tuple = make_tuple(hp);
+        hp += 1 + state->hist_slot_count;
     }
-
-    histogram_tuple = make_tuple(hp);
-    hp += 1 + state->hist_slot_count;
 
     hp[0] = make_arityval(3);
     hp[1] = ATAG_ID(node->tag);
@@ -7959,7 +7966,7 @@ static void gather_cinfo_append_result(gather_cinfo_t *state,
     term_size = 0;
 
     /* Free block histogram. */
-    term_size += 1 + state->hist_slot_count;
+    term_size += (state->hist_slot_count == 0 ? 0 : 1) + state->hist_slot_count;
 
     /* Per-type block list. */
     for (ix = ERTS_ALC_A_MIN; ix <= ERTS_ALC_A_MAX; ix++) {
@@ -8010,13 +8017,16 @@ static void gather_cinfo_append_result(gather_cinfo_t *state,
             hp += 2;
         }
     }
-
-    hp[0] = make_arityval(state->hist_slot_count);
-    for (ix = 0; ix < state->hist_slot_count; ix++) {
-        hp[1 + ix] = make_small(info->free_histogram[ix]);
+    if (state->hist_slot_count == 0) {
+        histogram_tuple = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+    } else {
+        hp[0] = make_arityval(state->hist_slot_count);
+        for (ix = 0; ix < state->hist_slot_count; ix++) {
+            hp[1 + ix] = make_small(info->free_histogram[ix]);
+        }
+        histogram_tuple = make_tuple(hp);
+        hp += 1 + state->hist_slot_count;
     }
-    histogram_tuple = make_tuple(hp);
-    hp += 1 + state->hist_slot_count;
 
     carrier_size = bld_unstable_uint(&hp, NULL, info->carrier_size);
     unscanned_size = bld_unstable_uint(&hp, NULL, info->unscanned_size);

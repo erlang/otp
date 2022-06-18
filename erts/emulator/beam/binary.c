@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -241,7 +241,7 @@ erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, ErtsAlcType_t al
 }
 
 Eterm
-erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, Uint bitoffs)
+erts_bin_bytes_to_list(Eterm previous, Eterm* hp, const byte* bytes, Uint size, Uint bitoffs)
 {
     if (bitoffs == 0) {
 	while (size) {
@@ -996,7 +996,7 @@ BIF_RETTYPE erts_list_to_binary_bif(Process *c_p, Eterm arg, Export *bif)
 			    break; /* done */
 			}
 			if (!ERTS_IOLIST_TO_BUF_FAILED(res))
-			    ERTS_INTERNAL_ERROR("iolist_size/iolist_to_buf missmatch");
+			    ERTS_INTERNAL_ERROR("iolist_size/iolist_to_buf mismatch");
 			if (res == ERTS_IOLIST_TO_BUF_OVERFLOW)
 			    goto overflow;
 			goto type_error;
@@ -1106,7 +1106,7 @@ BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 			    break; /* done */
 			}
 			if (!ERTS_IOLIST_TO_BUF_FAILED(res))
-			    ERTS_INTERNAL_ERROR("iolist_size/iolist_to_buf missmatch");
+			    ERTS_INTERNAL_ERROR("iolist_size/iolist_to_buf mismatch");
 			if (res == ERTS_IOLIST_TO_BUF_OVERFLOW)
 			    goto overflow;
 			goto type_error;

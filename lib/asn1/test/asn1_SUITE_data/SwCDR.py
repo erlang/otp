@@ -199,7 +199,7 @@ StartDate			::=	OCTET STRING (SIZE (8))
 StartTime			::=	OCTET STRING (SIZE (6))
 
 CallDuration			::=	INTEGER
---	Expressed as number of millseconds
+--	Expressed as number of milliseconds
 
 Cellrate			::=	INTEGER
 --	Value range 0-2^64

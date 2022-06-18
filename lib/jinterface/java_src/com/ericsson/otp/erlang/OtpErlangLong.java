@@ -117,7 +117,7 @@ public class OtpErlangLong extends OtpErlangObject {
      * @return true if this value fits in a long, false otherwise.
      */
     public boolean isLong() {
-        // To just chech this.bigVal is a wee bit to simple, since
+        // To just check this.bigVal is a wee bit to simple, since
         // there just might have be a mean bignum that arrived on
         // a stream, and was a long disguised as more than 8 byte integer.
         if (bigVal != null) {

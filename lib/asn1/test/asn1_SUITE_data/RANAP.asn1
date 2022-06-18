@@ -872,7 +872,7 @@ RAB-Parameters ::= SEQUENCE {
 	transferDelay			TransferDelay OPTIONAL
 	-- This IE is only present when traffic class indicates Conversational or Streaming --,
 	trafficHandlingPriority		TrafficHandlingPriority OPTIONAL
-	-- This IE is only present when traffic class indicates Interactiv --,
+	-- This IE is only present when traffic class indicates Interactive --,
 	allocationOrRetentionPriority	AllocationOrRetentionPriority OPTIONAL,
 	sourceStatisticsDescriptor	SourceStatisticsDescriptor OPTIONAL
 	-- This IE is only present when traffic class indicates Conversational or Streaming --,
@@ -1640,7 +1640,7 @@ RelocationCancelAcknowledgeExtensions RANAP-PROTOCOL-EXTENSION ::= {
 
 -- **************************************************************
 --
--- SRNS CONTEXT TRANSFER OPEARATION
+-- SRNS CONTEXT TRANSFER OPERATION
 --
 -- **************************************************************
 

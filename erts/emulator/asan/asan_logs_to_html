@@ -152,7 +152,7 @@ match_loop(Out, Bin, RegEx0, LogAcc0, PrevEnd, Unmatched0, LM0) ->
 		  %% ErrorReport
 		  "(?:(==ERROR: AddressSanitizer:.*\n"
 		  "(?:.*\n)+?)"   % any lines (non-greedy)
-		  "(?:^(?:==|--)|\\z))"   % stop at line begining with == or --
+		  "(?:^(?:==|--)|\\z))"   % stop at line beginning with == or --
 					  % or at end-of-string
 		  "|"
 		  %% Skipped
@@ -188,7 +188,7 @@ match_loop(Out, Bin, RegEx0, LogAcc0, PrevEnd, Unmatched0, LM0) ->
             Unmatched1 = [BP({PrevEnd, Start-PrevEnd})|Unmatched0],
             TypeBin = BP(TypeIx),
 
-            %% We indentify a leak by its type (direct or indirect)
+            %% We identify a leak by its type (direct or indirect)
             %% and its full call stack.
             Key = {TypeBin, BP(StackIx)},
             {LogAcc2, LM2} =
@@ -360,7 +360,7 @@ try_delete_srcfile(LogAcc) ->
             ignore;
         #logacc{did_output=false} ->
             %% This file did not contribute any output.
-            %% Optimize future script invokations by removing it.
+            %% Optimize future script invocations by removing it.
             delete_file(LogAcc#logacc.srcfile);
         _ ->
             keep

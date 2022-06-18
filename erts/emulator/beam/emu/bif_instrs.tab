@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2020. All Rights Reserved.
+// Copyright Ericsson AB 2017-2021. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -307,7 +307,7 @@ call_light_bif(Bif, Exp) {
 
 //
 // Call a BIF tail-recursively, storing the result in x(0) and doing
-// a return to the continuation poiner.
+// a return to the continuation pointer.
 //
 call_light_bif_only(Bif, Exp) {
     ErlHeapFragment *live_hf_end;
@@ -443,6 +443,9 @@ send() {
     } else {
         goto find_func_info;
     }
+}
+
+nif_start() {
 }
 
 call_nif_early() {

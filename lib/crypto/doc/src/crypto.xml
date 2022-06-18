@@ -1960,6 +1960,20 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
+      <name name="hash_equals" arity="2" since="OTP 25.0"/>
+      <fsummary>Constant time memory comparison for fixed length binaries</fsummary>
+      <desc>
+        <p>
+          Constant time memory comparison for fixed length binaries, such as results of HMAC computations.
+        </p>
+        <p>
+          Returns true if the binaries are identical, false if they are of the same length but not identical.
+          The function raises an <c>error:badarg</c> exception if the binaries are of different size.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="pbkdf2_hmac" arity="5" since="OTP 24.2"/>
       <fsummary>PBKDF2 in combination with HMAC</fsummary>
       <desc>

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -305,7 +305,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 
     if (enc == ERTS_ATOM_ENC_UTF8) {
 	/* Need to verify encoding and length */
-	byte *err_pos;
+	const byte *err_pos;
 	Uint no_chars;
 	switch (erts_analyze_utf8_x((byte *) text,
 				    (Uint) tlen,

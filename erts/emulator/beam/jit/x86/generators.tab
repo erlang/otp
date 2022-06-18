@@ -114,7 +114,7 @@ gen.select_tuple_arity(Src, Fail, Size, Rest) {
     for (i = 3; i < arity; i += 2) {
         tmp[i - 2]      = Rest[i - 2];
         tmp[i - 3].type = TAG_v;
-        tmp[i - 3].val  = make_arityval(Rest[i - 3].val);
+        tmp[i - 3].val  = make_arityval_unchecked(Rest[i - 3].val);
     }
 
     /* Sort the values to make them useful for a binary or sentinel search. */
@@ -384,9 +384,13 @@ gen.new_small_map_lit(Dst, Live, Size, Rest) {
     $BeamOpArity(op, 4 + size/2);
     op->next = NULL;
 
-    tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, (1 + size/2) * sizeof(*tmp));
-    keys = make_tuple(thp);
-    *thp++ = make_arityval(size/2);
+    tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, ((size == 0 ? 0 : 1) + size/2) * sizeof(*tmp));
+    if (size == 0) {
+        keys = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+    } else {
+        keys = make_tuple(thp);
+        *thp++ = make_arityval(size/2);
+    }
 
     dst = op->a+4;
 
@@ -527,4 +531,131 @@ gen.allocate_heap_zero(Ns, Nh, Live) {
     }
 
     return alloc;
+}
+
+gen.func_end(Func_Label, Entry_Label) {
+    BeamOp *op = NULL;
+
+    if (S->labels[Entry_Label.val].lambda_index != -1) {
+        int index = S->labels[Entry_Label.val].lambda_index;
+        BeamFile_LambdaEntry *lambda_entry;
+        BeamOp *lambda;
+
+        lambda_entry = &S->beam.lambdas.entries[index];
+
+        $NewBeamOp(S, lambda);
+        $BeamOpNameArity(lambda, i_lambda_trampoline, 4);
+
+        lambda->a[0].type = TAG_u;
+        lambda->a[0].val = index;
+        lambda->a[1] = Entry_Label;
+        lambda->a[2].type = TAG_u;
+        lambda->a[2].val = lambda_entry->arity;
+        lambda->a[3].type = TAG_u;
+        lambda->a[3].val = lambda_entry->num_free;
+
+        lambda->next = op;
+        op = lambda;
+    }
+
+    if (S->may_load_nif && (S->load_hdr->are_nifs == NULL ||
+                            S->load_hdr->are_nifs[S->function_number-1])) {
+        BeamOp *padding;
+
+        $NewBeamOp(S, padding);
+        $BeamOpNameArity(padding, i_nif_padding, 0);
+
+        padding->next = op;
+        op = padding;
+    }
+
+    if (op == NULL) {
+        /* Workaround for the fact that we have to return an instruction from
+         * generators. The loader will remove this dummy instruction. */
+        $NewBeamOp(S, op);
+        $BeamOpNameArity(op, delete_me, 0);
+
+        op->next = NULL;
+    }
+
+    return op;
+}
+
+gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
+    BeamOp* op;
+    int fixed_args;
+    int i;
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_bs_create_bin, 4);
+    fixed_args = op->arity;
+    $BeamOpArity(op, (N.val + fixed_args));
+
+    op->a[0] = Fail;
+    op->a[1] = Alloc;
+    op->a[2] = Live;
+    op->a[3] = Dst;
+
+    for (i = 0; i < N.val; i += 6) {
+        BeamOpArg Flags;
+        Uint flags = 0;
+
+        /* Copy all but flags. */
+        op->a[i+fixed_args+0] = Segments[i+0];
+        op->a[i+fixed_args+1] = Segments[i+1];
+        op->a[i+fixed_args+2] = Segments[i+2];
+        op->a[i+fixed_args+4] = Segments[i+4];
+        op->a[i+fixed_args+5] = Segments[i+5];
+
+        /* Translate flags. */
+        Flags = Segments[i+3];              /* Flags */
+        if (Flags.type != TAG_n) {
+            if (Flags.type == TAG_q) {
+                Eterm term = beamfile_get_literal(&S->beam, Flags.val);
+                while (is_list(term)) {
+                    Eterm* consp = list_val(term);
+                    Eterm elem = CAR(consp);
+                    switch (elem) {
+                    case am_little:
+                        flags |= BSF_LITTLE;
+                        break;
+                    case am_native:
+                        flags |= BSF_NATIVE;
+                        break;
+                    }
+                    term = CDR(consp);
+                }
+                ASSERT(is_nil(term));
+            }
+        }
+        Flags.type = TAG_u;
+        Flags.val = flags;
+        $NativeEndian(Flags);
+        op->a[i+fixed_args+3] = Flags;
+    }
+
+    if (op->a[4].val == am_private_append && Alloc.val != 0) {
+        BeamOp* th;
+        $NewBeamOp(S, th);
+        $BeamOpNameArity(th, test_heap, 2);
+        th->a[0] = Alloc;
+        th->a[1] = Live;
+        th->next = op;
+
+        op->a[1].val = 0;
+
+        op = th;
+    }
+
+    return op;
+}
+
+gen.remove_tuple_type(Tuple) {
+    BeamOp* op;
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, current_tuple, 1);
+    op->a[0] = Tuple;
+    op->a[0].val = Tuple.val & REG_MASK;
+    return op;
 }

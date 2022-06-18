@@ -201,14 +201,14 @@ loop(State) ->
 	    end;
 
 	%% If test_set_sticky fails, we send this to all nodes
-	%% after aquiring a real write lock on Oid
+	%% after acquiring a real write lock on Oid
 
 	{stick, {Tab, _}, N} ->
 	    ?ets_insert(mnesia_sticky_locks, {Tab, N}),
 	    loop(State);
 
 	%% The caller which sends this message, must have first
-	%% aquired a write lock on the entire table
+	%% acquired a write lock on the entire table
 	{unstick, Tab} ->
 	    ?ets_delete(mnesia_sticky_locks, Tab),
 	    loop(State);
@@ -680,7 +680,7 @@ ix_read_res(Tab,IxKey,Pos) ->
 %% ********************* end server code ********************
 %% The following code executes at the client side of a transactions
 
-%% Aquire a write lock, but do a read, used by
+%% Acquire a write lock, but do a read, used by
 %% mnesia:wread/1
 
 rwlock(Tid, Store, Oid) ->
@@ -743,7 +743,7 @@ check_majority(Tab, HaveNs) ->
 	    ok
     end.
 
-%% aquire a sticky wlock, a sticky lock is a lock
+%% acquire a sticky wlock, a sticky lock is a lock
 %% which remains at this node after the termination of the
 %% transaction.
 
@@ -840,11 +840,11 @@ dirty_sticky_lock(Tab, Key, Nodes, Lock) ->
 sticky_wlock_table(Tid, Store, Tab) ->
     sticky_lock(Tid, Store, {Tab, ?ALL}, write).
 
-%% aquire a wlock on Oid
+%% acquire a wlock on Oid
 %% We store a {Tabname, write, Tid} in all locktables
 %% on all nodes containing a copy of Tabname
 %% We also store an item {{locks, Tab, Key}, write} in the
-%% local store when we have aquired the lock.
+%% local store when we have acquired the lock.
 %%
 wlock(Tid, Store, Oid) ->
     wlock(Tid, Store, Oid, _CheckMajority = true).
@@ -913,7 +913,7 @@ get_wlocks_on_nodes([Node | Tail], Orig, Store, Request, Oid) ->
     case node() of
 	Node -> %% Local done try one more
 	    get_wlocks_on_nodes(Tail, Orig, Store, Request, Oid);
-	_ ->    %% The first succeded cont with the rest
+	_ ->    %% The first succeeded cont with the rest
 	    get_wlocks_on_nodes(Tail, Store, Request),
 	    receive_wlocks(Tail, Orig, Store, Oid)
     end;
@@ -1027,7 +1027,7 @@ return_granted_or_nodes(_           , _Nodes) -> granted.
 %% locks table on the node where we actually do pick up the object
 %% and we also store an item {lock, Oid, read} in our local store
 %% so that we can release any locks we hold when we commit.
-%% This function not only aquires a read lock, but also reads the object
+%% This function not only acquires a read lock, but also reads the object
 
 %% Oid's are always {Tab, Key} tuples
 rlock(Tid, Store, Oid) ->

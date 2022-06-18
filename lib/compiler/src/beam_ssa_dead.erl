@@ -27,24 +27,24 @@
 -export([opt/1]).
 
 -include("beam_ssa.hrl").
--import(lists, [append/1,keymember/3,last/1,member/2,
-                reverse/1,takewhile/2]).
+-import(lists, [append/1,foldl/3,keymember/3,last/1,member/2,
+                reverse/1,reverse/2,takewhile/2]).
 
 -type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:var_name())}.
 
 -type basic_type_test() :: atom() | {'is_tagged_tuple',pos_integer(),atom()}.
 -type type_test() :: basic_type_test() | {'not',basic_type_test()}.
 -type op_name() :: atom().
--type basic_rel_op() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
-                         {basic_type_test(),beam_ssa:value()}.
--type rel_op() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
-                  {type_test(),beam_ssa:value()}.
+-type basic_test() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
+                      {basic_type_test(),beam_ssa:value()}.
+-type test() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
+                {type_test(),beam_ssa:value()}.
 
 -record(st,
         {bs :: beam_ssa:block_map(),
          us :: used_vars(),
          skippable :: #{beam_ssa:label():='true'},
-         rel_op=none :: 'none' | rel_op(),
+         test=none :: 'none' | test(),
          target=any :: 'any' | 'one_way' | beam_ssa:label()
         }).
 
@@ -54,13 +54,13 @@
       Label :: beam_ssa:label(),
       Block :: beam_ssa:b_blk().
 
-opt(Linear) ->
-    {Used,Skippable} = used_vars(Linear),
-    Blocks0 = maps:from_list(Linear),
+opt(Linear0) ->
+    {Used,Skippable} = used_vars(Linear0),
+    Blocks0 = maps:from_list(Linear0),
     St0 = #st{bs=Blocks0,us=Used,skippable=Skippable},
     St = shortcut_opt(St0),
     #st{bs=Blocks} = combine_eqs(St#st{us=#{}}),
-    beam_ssa:linearize(Blocks).
+    opt_redundant_tests(Blocks).
 
 %%%
 %%% Shortcut br/switch targets.
@@ -116,20 +116,20 @@ shortcut_opt([], St) -> St.
 
 shortcut_terminator(#b_br{bool=#b_literal{val=true},succ=Succ0},
                     _Is, From, St0) ->
-    St = St0#st{rel_op=none},
+    St = St0#st{test=none},
     shortcut(Succ0, From, #{}, St);
 shortcut_terminator(#b_br{bool=#b_var{}=Bool,succ=Succ0,fail=Fail0}=Br,
                     Is, From, St0) ->
     St = St0#st{target=one_way},
-    RelOp = get_rel_op(Bool, Is),
+    Test = get_test(Bool, Is),
 
     %% The boolean in a `br` is seldom used by the successors. By
     %% not binding its value unless it is actually used we might be able
     %% to skip some work in shortcut/4 and sub/2.
     SuccBs = bind_var_if_used(Succ0, Bool, #b_literal{val=true}, St),
-    BrSucc = shortcut(Succ0, From, SuccBs, St#st{rel_op=RelOp}),
+    BrSucc = shortcut(Succ0, From, SuccBs, St#st{test=Test}),
     FailBs = bind_var_if_used(Fail0, Bool, #b_literal{val=false}, St),
-    BrFail = shortcut(Fail0, From, FailBs, St#st{rel_op=invert_op(RelOp)}),
+    BrFail = shortcut(Fail0, From, FailBs, St#st{test=invert_test(Test)}),
 
     case {BrSucc,BrFail} of
         {#b_br{bool=#b_literal{val=true},succ=Succ},
@@ -158,8 +158,8 @@ shortcut_sw_fail(Fail0, List, Bool, From, St0) ->
     case List of
         [{#b_literal{val=false},_},
          {#b_literal{val=true},_}] ->
-            RelOp = {{'not',is_boolean},Bool},
-            St = St0#st{rel_op=RelOp,target=one_way},
+            Test = {{'not',is_boolean},Bool},
+            St = St0#st{test=Test,target=one_way},
             #b_br{bool=#b_literal{val=true},succ=Fail} =
                 shortcut(Fail0, From, #{}, St),
             Fail;
@@ -168,18 +168,19 @@ shortcut_sw_fail(Fail0, List, Bool, From, St0) ->
     end.
 
 shortcut_sw_list([{Lit,L0}|T], Bool, From, St0) ->
-    RelOp = {'=:=',Bool,Lit},
-    St = St0#st{rel_op=RelOp},
+    Test = {'=:=',Bool,Lit},
+    St = St0#st{test=Test},
     #b_br{bool=#b_literal{val=true},succ=L} =
         shortcut(L0, From, bind_var(Bool, Lit, #{}), St#st{target=one_way}),
     [{Lit,L}|shortcut_sw_list(T, Bool, From, St0)];
 shortcut_sw_list([], _, _, _) -> [].
 
-shortcut(L, _From, Bs, #st{rel_op=none,target=one_way}) when map_size(Bs) =:= 0 ->
-    %% There is no way that we can find a suitable branch, because there is no
-    %% relational operator stored, there are no bindings, and the block L can't
-    %% have any phi nodes from which we could pick bindings because when the target
-    %% is `one_way`, it implies the From block has a two-way `br` terminator.
+shortcut(L, _From, Bs, #st{test=none,target=one_way}) when map_size(Bs) =:= 0 ->
+    %% There is no way that we can find a suitable branch, because
+    %% there are no stored tests, there are no bindings, and the block
+    %% L can't have any phi nodes from which we could pick bindings
+    %% because when the target is `one_way`, it implies that the From
+    %% block has a two-way `br` terminator.
     #b_br{bool=#b_literal{val=true},succ=L,fail=L};
 shortcut(L, From, Bs, St) ->
     shortcut_1(L, From, Bs, sets:new([{version, 2}]), St).
@@ -463,7 +464,7 @@ eval_is([#b_set{op={bif,_},dst=Dst}=I0|Is], From, Bs, St) ->
 eval_is([#b_set{op=Op,dst=Dst}=I|Is], From, Bs, St)
   when Op =:= is_tagged_tuple; Op =:= is_nonempty_list ->
     #b_set{args=Args} = sub(I, Bs),
-    case eval_rel_op(Op, Args, St) of
+    case eval_test(Op, Args, St) of
         #b_literal{}=Val ->
             eval_is(Is, From, bind_var(Dst, Val, Bs), St);
         none ->
@@ -524,7 +525,7 @@ eval_terminator(#b_switch{arg=Arg,fail=Fail,list=List}=Sw, Bs, St) ->
 eval_terminator(#b_ret{}, _Bs, _St) ->
     none.
 
-eval_switch(List, Arg, #st{rel_op={_,Arg,_}=PrevOp}, Fail) ->
+eval_switch(List, Arg, #st{test={_,Arg,_}=PrevOp}, Fail) ->
     %% There is a previous relational operator testing the same variable.
     %% Optimization may be possible.
     eval_switch_1(List, Arg, PrevOp, Fail);
@@ -534,8 +535,8 @@ eval_switch(_, _, _, _) ->
     none.
 
 eval_switch_1([{Lit,Lbl}|T], Arg, PrevOp, Fail) ->
-    RelOp = {'=:=',Arg,Lit},
-    case will_succeed(PrevOp, RelOp) of
+    Test = {'=:=',Arg,Lit},
+    case will_succeed(PrevOp, Test) of
         yes ->
             %% Success. This branch will always be taken.
             Lbl;
@@ -577,7 +578,7 @@ eval_bif(#b_set{op={bif,Bif},args=Args}, St) ->
                 none ->
                     %% Not literal arguments. Try to evaluate
                     %% it based on a previous relational operator.
-                    eval_rel_op({bif,Bif}, Args, St);
+                    eval_test({bif,Bif}, Args, St);
                 LitArgs ->
                     try apply(erlang, Bif, LitArgs) of
                         Val -> #b_literal{val=Val}
@@ -602,61 +603,61 @@ get_lit_args(_) -> none.
 %%% Handling of relational operators.
 %%%
 
-get_rel_op(Bool, [_|_]=Is) ->
+get_test(Bool, [_|_]=Is) ->
     case last(Is) of
         #b_set{op=Op,dst=Bool,args=Args} ->
-            normalize_op(Op, Args);
+            normalize_test(Op, Args);
         #b_set{} ->
             none
     end;
-get_rel_op(_, []) -> none.
+get_test(_, []) -> none.
 
-%% normalize_op(Instruction) -> {Normalized,FailLabel} | error
+%% normalize_test(Instruction) -> {Normalized,FailLabel} | error
 %%    Normalized = {Operator,Variable,Variable|Literal} |
 %%                 {TypeTest,Variable}
-%%    Operation = '<' | '=<' | '=:=' | '=/=' | '>=' | '>'
+%%    Operation = '<' | '=<' | '=:=' | '=/=' | '>=' | '>' | '==' | '/='
 %%    TypeTest = is_atom | is_integer ...
 %%    Variable = #b_var{}
 %%    Literal = #b_literal{}
 %%
-%%  Normalize a relational operator to facilitate further
-%%  comparisons between operators. Always make the register
-%%  operand the first operand. If there are two registers,
-%%  order the registers in lexical order.
+%%  Normalize type tests and relational operators to facilitate
+%%  further comparisons between test. Always make the register
+%%  operand the first operand. If there are two registers, order the
+%%  registers in lexical order.
 %%
 %%  For example, this instruction:
 %%
-%%    #b_set{op={bif,=<},args=[#b_literal{}, #b_var{}}
+%%    #b_set{op={bif,'<'},args=[#b_literal{}, #b_var{}}
 %%
 %%  will be normalized to:
 %%
-%%    {'=<',#b_var{},#b_literal{}}
+%%    {'>',#b_var{},#b_literal{}}
 
--spec normalize_op(Op, Args) -> NormalizedOp | 'none' when
+-spec normalize_test(Op, Args) -> NormalizedTest | 'none' when
       Op :: beam_ssa:op(),
       Args :: [beam_ssa:value()],
-      NormalizedOp :: basic_rel_op().
+      NormalizedTest :: basic_test().
 
-normalize_op(is_tagged_tuple, [Arg,#b_literal{val=Size},#b_literal{val=Tag}])
+normalize_test(is_tagged_tuple, [Arg,#b_literal{val=Size},#b_literal{val=Tag}])
   when is_integer(Size), is_atom(Tag) ->
     {{is_tagged_tuple,Size,Tag},Arg};
-normalize_op(is_nonempty_list, [Arg]) ->
+normalize_test(is_nonempty_list, [Arg]) ->
     {is_nonempty_list,Arg};
-normalize_op({bif,Bif}, [Arg]) ->
+normalize_test({bif,Bif}, [Arg]) ->
     case erl_internal:new_type_test(Bif, 1) of
         true -> {Bif,Arg};
         false -> none
     end;
-normalize_op({bif,Bif}, [_,_]=Args) ->
+normalize_test({bif,Bif}, [_,_]=Args) ->
     case erl_internal:comp_op(Bif, 2) of
         true ->
-            normalize_op_1(Bif, Args);
+            normalize_test_1(Bif, Args);
         false ->
             none
     end;
-normalize_op(_, _) -> none.
+normalize_test(_, _) -> none.
 
-normalize_op_1(Bif, Args) ->
+normalize_test_1(Bif, Args) ->
     case Args of
         [#b_literal{}=Arg1,#b_var{}=Arg2] ->
             {turn_op(Bif),Arg2,Arg1};
@@ -670,22 +671,22 @@ normalize_op_1(Bif, Args) ->
             none
     end.
 
--spec invert_op(basic_rel_op() | 'none') -> rel_op() | 'none'.
+-spec invert_test(basic_test() | 'none') -> test() | 'none'.
 
-invert_op({Op,Arg1,Arg2}) ->
-    {invert_op_1(Op),Arg1,Arg2};
-invert_op({TypeTest,Arg}) ->
+invert_test({Op,Arg1,Arg2}) ->
+    {invert_op(Op),Arg1,Arg2};
+invert_test({TypeTest,Arg}) ->
     {{'not',TypeTest},Arg};
-invert_op(none) -> none.
+invert_test(none) -> none.
 
-invert_op_1('>=') -> '<';
-invert_op_1('<') -> '>=';
-invert_op_1('=<') -> '>';
-invert_op_1('>') -> '=<';
-invert_op_1('=:=') -> '=/=';
-invert_op_1('=/=') -> '=:=';
-invert_op_1('==') -> '/=';
-invert_op_1('/=') -> '=='.
+invert_op('>=') -> '<';
+invert_op('<') -> '>=';
+invert_op('=<') -> '>';
+invert_op('>') -> '=<';
+invert_op('=:=') -> '=/=';
+invert_op('=/=') -> '=:=';
+invert_op('==') -> '/=';
+invert_op('/=') -> '=='.
 
 turn_op('<') -> '>';
 turn_op('=<') -> '>=';
@@ -696,14 +697,14 @@ turn_op('=/='=Op) -> Op;
 turn_op('=='=Op) -> Op;
 turn_op('/='=Op) -> Op.
 
-eval_rel_op(_Bif, _Args, #st{rel_op=none}) ->
+eval_test(_Bif, _Args, #st{test=none}) ->
     none;
-eval_rel_op(Bif, Args, #st{rel_op=Prev}) ->
-    case normalize_op(Bif, Args) of
+eval_test(Bif, Args, #st{test=Prev}) ->
+    case normalize_test(Bif, Args) of
         none ->
             none;
-        RelOp ->
-            case will_succeed(Prev, RelOp) of
+        Test ->
+            case will_succeed(Prev, Test) of
                 yes -> #b_literal{val=true};
                 no -> #b_literal{val=false};
                 maybe -> none
@@ -1048,6 +1049,320 @@ lit_type(Val) ->
         is_integer(Val) -> integer;
         true -> none
     end.
+
+
+%%%
+%%% Remove redundant tests.
+%%%
+%%% Repeated tests can be introduced by inlining, macros, or
+%%% complex guards such as:
+%%%
+%%%     is_head(M, S) when M =:= <<1>>, S =:= <<2>> ->
+%%%         true;
+%%%     is_head(M, S) when M =:= <<1>>, S =:= <<3>> ->
+%%%         false.
+%%%
+%%% The repeated test is not removed by any of the other optimizing
+%%% passes:
+%%%
+%%%     0:
+%%%       _2 = bif:'=:=' _0, `<<1>>`
+%%%       br _2, ^19, ^3
+%%%
+%%%     19:
+%%%       _3 = bif:'=:=' _1, `<<2>>`
+%%%       br _3, ^7, ^4
+%%%
+%%%     7:
+%%%       ret `true`
+%%%
+%%%     4:
+%%%       _4 = bif:'=:=' _0, `<<1>>`
+%%%       br _4, ^15, ^3
+%%%
+%%%     15:
+%%%       _5 = bif:'=:=' _1, `<<3>>`
+%%%       br _5, ^11, ^3
+%%%
+%%%     11:
+%%%       ret `false`
+%%%
+%%%     3:
+%%%       %% Generate function clause error.
+%%%       . . .
+%%%
+%%% This sub pass will keep track of all tests that are known to have
+%%% been executed at each block in the SSA code. If a repeated or
+%%% inverted test is seen, it can be eliminated. For the example
+%%% above, this sub pass will rewrite block 4 like this:
+%%%
+%%%     4:
+%%%       _4 = bif:'=:=' `true`, `true`
+%%%       br ^15
+%%%
+%%% This sub pass also removes redundant inverted test such as the
+%%% last test in this code:
+%%%
+%%%     if
+%%%         A < B -> . . . ;
+%%%         A >= B -> . . .
+%%%     end
+%%%
+%%% and this code:
+%%%
+%%%     if
+%%%         A < B -> . . . ;
+%%%         A > B -> . . . ;
+%%%         A == B -> . . .
+%%%     end
+%%%
+
+opt_redundant_tests(Blocks) ->
+    All = #{0 => #{}, ?EXCEPTION_BLOCK => #{}},
+    RPO = beam_ssa:rpo(Blocks),
+    Linear = opt_redundant_tests(RPO, Blocks, All),
+    beam_ssa:trim_unreachable(Linear).
+
+opt_redundant_tests([L|Ls], Blocks, All0) ->
+    case All0 of
+        #{L := Tests} ->
+            Blk0 = map_get(L, Blocks),
+            Tests = map_get(L, All0),
+            Blk1 = opt_switch(Blk0, Tests),
+            #b_blk{is=Is0} = Blk1,
+            case opt_redundant_tests_is(Is0, Tests, []) of
+                none ->
+                    All = update_successors(Blk1, Tests, All0),
+                    [{L,Blk1}|opt_redundant_tests(Ls, Blocks, All)];
+                {new_test,Bool,Test,MustInvert} ->
+                    All = update_successors(Blk1, Bool, Test, MustInvert,
+                                            Tests, All0),
+                    [{L,Blk1}|opt_redundant_tests(Ls, Blocks, All)];
+                {old_test,Is,BoolVar,BoolValue} ->
+                    Blk = case Blk1 of
+                              #b_blk{last=#b_br{bool=BoolVar}=Br0} ->
+                                  Br = beam_ssa:normalize(Br0#b_br{bool=BoolValue}),
+                                  Blk1#b_blk{is=Is,last=Br};
+                              #b_blk{}=Blk2 ->
+                                  Blk2#b_blk{is=Is}
+                          end,
+                    All = update_successors(Blk, Tests, All0),
+                    [{L,Blk}|opt_redundant_tests(Ls, Blocks, All)]
+            end;
+        #{} ->
+            opt_redundant_tests(Ls, Blocks, All0)
+    end;
+opt_redundant_tests([], _Blocks, _All) -> [].
+
+opt_switch(#b_blk{last=#b_switch{arg=Arg,list=List0}=Sw}=Blk, Tests)
+  when map_size(Tests) =/= 0 ->
+    List = opt_switch_1(List0, Arg, Tests),
+    Blk#b_blk{last=Sw#b_switch{list=List}};
+opt_switch(Blk, _Tests) -> Blk.
+
+opt_switch_1([{Lit,_}=H|T], Arg, Tests) ->
+    case Tests of
+        #{{'=:=',Arg,Lit} := false} ->
+            opt_switch_1(T, Arg, Tests);
+        #{} ->
+            [H|opt_switch_1(T, Arg, Tests)]
+    end;
+opt_switch_1([], _, _) -> [].
+
+opt_redundant_tests_is([#b_set{op=Op,args=Args,dst=Bool}=I0], Tests, Acc) ->
+    case canonical_test(Op, Args) of
+        none ->
+            none;
+        {Test,MustInvert} ->
+            case old_result(Test, Tests) of
+                Result0 when is_boolean(Result0) ->
+                    Result = #b_literal{val=Result0 xor MustInvert},
+                    I = I0#b_set{op={bif,'=:='},args=[Result,#b_literal{val=true}]},
+                    {old_test,reverse(Acc, [I]),Bool,Result};
+                none ->
+                    {new_test,Bool,Test,MustInvert}
+            end
+    end;
+opt_redundant_tests_is([I|Is], Tests, Acc) ->
+    opt_redundant_tests_is(Is, Tests, [I|Acc]);
+opt_redundant_tests_is([], _Tests, _Acc) -> none.
+
+old_result(Test, Tests) ->
+    case Tests of
+        #{Test := Val} -> Val;
+        #{} -> old_result_1(Test, Tests)
+    end.
+
+%%
+%% Remove the last test in a sequence of tests (in any order):
+%%
+%%   if
+%%     Val1 < Val2   -> . . .
+%%     Val1 > Val2   -> . . .
+%%     Val1 == Val2 -> . . .
+%%   end
+%%
+%% NOTE: The same optimization is not possible to do with `=:=`, unless
+%% we have type information so that we know that `==` and `=:=` produces
+%% the same result.
+%%
+
+old_result_1({'==',A,B}, Tests) ->
+    case Tests of
+        #{{'<',A,B} := false, {'=<',A,B} := true} ->
+            %% not A < B, not A > B  ==>  A == B
+            true;
+        #{} ->
+            none
+    end;
+old_result_1({'=<',A,B}, Tests) ->
+    case Tests of
+        #{{'<',A,B} := false, {'==',A,B} := false} ->
+            %% not A < B, not A == B    ==>  A > B
+            false;
+        #{} ->
+            none
+    end;
+old_result_1({'<',A,B}, Tests) ->
+    case Tests of
+        #{{'=<',A,B} := true, {'==',A,B} := false} ->
+            %% not A < B, not A == B   ==>  A < B
+            true;
+        #{} ->
+            none
+    end;
+old_result_1({is_nonempty_list,A}, Tests) ->
+    case Tests of
+        #{{is_list,A} := false} -> false;
+        #{} -> none
+    end;
+old_result_1(_, _) -> none.
+
+%% canonical_test(Op0, Args0) -> {CanonicalTest, MustInvert}
+%%    CanonicalTest = {Operator,Variable,Variable|Literal} |
+%%                  {TypeTest,Variable}
+%%    Operation = '<' | '=<' | '=:=' | '=='
+%%    TypeTest = is_atom | is_integer ...
+%%    Variable = #b_var{}
+%%    Literal = #b_literal{}
+%%    MustInvert = true | false
+%%
+%%  Canonicalize a test. Always make the register
+%%  operand the first operand. If there are two registers,
+%%  order the registers in lexical order. Invert four of
+%%  the relation operators and indicate with MustInvert
+%%  whether the operator was inverted.
+%%
+%%  For example, this instruction:
+%%
+%%    #b_set{op={bif,'=:='},args=[#b_literal{}, #b_var{}}
+%%
+%%  will be canonicalized to:
+%%
+%%    {{'=:=',#b_var{},#b_literal{}}, false}
+%%
+%%  while:
+%%
+%%    #b_set{op={bif,'>'},args=[#b_var{}, #b_literal{}}}
+%%
+%%  will be canonicalized to:
+%%
+%%    {{'=<',#b_var{},#b_literal{}}, true}
+%%
+canonical_test(Op, Args) ->
+    case normalize_test(Op, Args) of
+        none ->
+            none;
+        Test ->
+            Inv = case Test of
+                      {'=/=',_,_} -> true;
+                      {'/=',_,_} -> true;
+                      {'>',_,_} -> true;
+                      {'>=',_,_} -> true;
+                      _ -> false
+                  end,
+            case Inv of
+                true -> {invert_test(Test),true};
+                false -> {Test,false}
+            end
+    end.
+
+update_successors(#b_blk{last=#b_br{bool=Bool,succ=Succ,fail=Fail}},
+                  Bool, Test, MustInvert, Tests, All0) ->
+    All1 = update_successor(Succ, Tests#{Test => not MustInvert}, All0),
+    update_successor(Fail, Tests#{Test => MustInvert}, All1);
+update_successors(Blk, _, _, _, TestsA, All) ->
+    update_successors(Blk, TestsA, All).
+
+update_successors(#b_blk{last=#b_ret{}}, _Tests, All) ->
+    All;
+update_successors(#b_blk{last=#b_switch{arg=Arg,fail=Fail,list=List}},
+                  Tests, All0) ->
+    All1 = update_successors_sw_fail(List, Arg, Fail, Tests, All0),
+    update_successors_sw(List, Arg, Tests, All1);
+update_successors(Blk, Tests, All) ->
+    foldl(fun(L, A) ->
+                  update_successor(L, Tests, A)
+          end, All, beam_ssa:successors(Blk)).
+
+update_successors_sw_fail(List, Arg, Fail, Tests0, All) ->
+    Tests = foldl(fun({Lit,_}, A) ->
+                          A#{{'=:=',Arg,Lit} => false}
+                  end, Tests0, List),
+    update_successor(Fail, Tests, All).
+
+update_successors_sw([{Lit,L}|T], Arg, Tests, All0) ->
+    All = update_successor(L, Tests#{{'=:=',Arg,Lit} => true}, All0),
+    update_successors_sw(T, Arg, Tests, All);
+update_successors_sw([], _, _, All) -> All.
+
+update_successor(?EXCEPTION_BLOCK, _Tests, All) ->
+    All;
+update_successor(L, TestsA, All0) ->
+    case All0 of
+        #{L := TestsB} ->
+            All0#{L := maps_intersect_kv(TestsA, TestsB)};
+        #{} ->
+            All0#{L => TestsA}
+    end.
+
+maps_intersect_kv(Map, Map) ->
+    Map;
+maps_intersect_kv(Map1, Map2) ->
+    if
+        map_size(Map1) < map_size(Map2) ->
+            map_intersect_kv_1(Map1, Map2);
+        true ->
+            map_intersect_kv_1(Map2, Map1)
+    end.
+
+map_intersect_kv_1(SmallMap, BigMap) ->
+    Next = maps:next(maps:iterator(SmallMap)),
+    case maps_is_subset_kv(Next, BigMap) of
+        true -> SmallMap;
+        false -> map_intersect_kv_2(Next, BigMap, [])
+    end.
+
+map_intersect_kv_2({K, V, Iterator}, BigMap, Acc) ->
+    Next = maps:next(Iterator),
+    case BigMap of
+        #{K := V} ->
+            map_intersect_kv_2(Next, BigMap, [{K,V}|Acc]);
+        #{} ->
+            map_intersect_kv_2(Next, BigMap, Acc)
+    end;
+map_intersect_kv_2(none, _BigMap, Acc) ->
+    maps:from_list(Acc).
+
+maps_is_subset_kv({K, V, Iterator}, BigMap) ->
+    Next = maps:next(Iterator),
+    case BigMap of
+        #{K := V} ->
+            maps_is_subset_kv(Next, BigMap);
+        #{} ->
+            false
+    end;
+maps_is_subset_kv(none, _BigMap) -> true.
 
 %%%
 %%% Calculate used variables for each block.

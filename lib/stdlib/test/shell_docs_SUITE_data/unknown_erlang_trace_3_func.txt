@@ -328,9 +328,6 @@
   [;;4m[;;4m{trace, PidPort, getting_unlinked, Pid2}[0m[0m:
     When [;;4mPidPort[0m gets unlinked from a process [;;4mPid2[0m.
 
-  [;;4m[;;4m{trace, Pid, exit, Reason}[0m[0m:
-    When [;;4mPid[0m exits with reason [;;4mReason[0m.
-
   [;;4m[;;4m{trace, Port, open, Pid, Driver}[0m[0m:
     When [;;4mPid[0m opens a new port [;;4mPort[0m with the running [;;4mDriver[0m.
 
@@ -411,6 +408,12 @@
     [;;4m[;;4mbin_old_vheap_block_size[0m[0m:
       The total size of binaries allowed in the virtual old heap
       in the process before doing a garbage collection.
+
+    [;;4m[;;4mwordsize[0m[0m:
+      For the [;;4mgc_minor_start[0m event it is the size of the need
+      that triggered the GC. For the corresponding [;;4mgc_minor_end[0m
+      event it is the size of reclaimed memory = start [;;4m[0m
+      [;;4mheap_size[0m - end [;;4mheap_size[0m.
 
     All sizes are in words.
 

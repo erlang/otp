@@ -2032,7 +2032,7 @@
         </item>
         <item>
           <p>
-	    In <c>send_exit.c</c> an errorneous size of memory
+	    In <c>send_exit.c</c> an erroneous size of memory
 	    allocation could occur when reallocating a buffer.</p>
           <p>
 	    In <c>ei_decode_trace.c</c> the index could be updated

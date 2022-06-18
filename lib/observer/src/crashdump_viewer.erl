@@ -1651,7 +1651,7 @@ read_heap_lines_1(Fd, Acc) ->
 
             %% Reduce the memory consumption by converting the
             %% line to a binary. Measurements show that it may also
-            %% be benefical for performance, too, because it makes the
+            %% be beneficial for performance, too, because it makes the
             %% garbage collections cheaper.
 
             Line = list_to_binary(Line1),
@@ -3356,7 +3356,7 @@ collect(Pids,Acc) ->
 	    collect(lists:delete(Pid,Pids),[Result|Acc]);
         {'DOWN', _Ref, process, Pid, _Error} ->
             Warning =
-                "WARNING: an error occured while parsing data.\n" ++
+                "WARNING: an error occurred while parsing data.\n" ++
                 case get(truncated) of
                     true -> "This might be because the dump is truncated.\n";
                     false -> ""

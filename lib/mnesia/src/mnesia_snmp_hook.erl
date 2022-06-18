@@ -134,7 +134,7 @@ keys_to_oid(N, Key, Oid, Types) ->
 %%--------------------------------------------------
 %% The reverse of the above, i.e. snmp oid to mnesia key.
 %% This can be lookup up in tree but that might be on a remote node.
-%% It's probably faster to look it up, but use when it migth be remote 
+%% It's probably faster to look it up, but use when it might be remote 
 oid_to_key(Oid, Tab) ->
     [{key, Types}] = mnesia_lib:val({Tab,snmp}),
     oid_to_key_1(Types, Oid). 
@@ -208,7 +208,7 @@ get_next_index(Name, RowIndex) ->
 %% Purpose: Get the mnesia key corresponding to the RowIndex.
 %% Args: Name is the name of the table (atom)
 %%       RowIndex is an Oid
-%% Returns: {ok, Key} | undefiend
+%% Returns: {ok, Key} | undefined
 %%-----------------------------------------------------------------
 get_mnesia_key(Name, RowIndex) ->
     Tree = mnesia_lib:val({Name, {index, snmp}}),

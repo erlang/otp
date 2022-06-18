@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 /* Internal atom cache needs MAX_ATOM_TABLE_SIZE to be less than an
    unsigned 32 bit integer. See external.c(erts_encode_ext_dist_header_setup)
    for more details. */
-#define MAX_ATOM_TABLE_SIZE ((MAX_ATOM_INDEX + 1 < (UWORD_CONSTANT(1) << 32)) ? MAX_ATOM_INDEX + 1 : ((UWORD_CONSTANT(1) << 31) - 1)) /* Here we use maximum signed interger value to avoid integer overflow */
+#define MAX_ATOM_TABLE_SIZE ((MAX_ATOM_INDEX + 1 < (UWORD_CONSTANT(1) << 32)) ? MAX_ATOM_INDEX + 1 : ((UWORD_CONSTANT(1) << 31) - 1)) /* Here we use maximum signed integer value to avoid integer overflow */
 #else
 #define MAX_ATOM_TABLE_SIZE (MAX_ATOM_INDEX + 1)
 #endif

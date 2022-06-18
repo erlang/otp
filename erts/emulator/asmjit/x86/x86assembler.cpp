@@ -22,7 +22,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 #include "../core/api-build_p.h"
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
 
 #include "../core/assembler.h"
 #include "../core/codewriter_p.h"
@@ -5144,4 +5144,4 @@ Error Assembler::onDetach(CodeHolder* code) noexcept {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_BUILD_X86
+#endif // !ASMJIT_NO_X86

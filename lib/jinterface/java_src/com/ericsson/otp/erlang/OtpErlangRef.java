@@ -106,12 +106,11 @@ public class OtpErlangRef extends OtpErlangObject {
      *            three numbers will be read from the array.
      *
      * @param creation
-     *            another arbitrary number. Only the low order 2 bits will be
-     *            used.
+	 *  		  node incarnation number. Avoid values 0 to 3.
      */
     public OtpErlangRef(final String node, final int[] ids, final int creation) {
-	this(OtpExternal.newRefTag, node, ids, creation);
-    }
+		this(OtpExternal.newerRefTag, node, ids, creation);
+	}
 
     /**
      * Create a new(er) style Erlang ref from its components.
@@ -246,7 +245,7 @@ public class OtpErlangRef extends OtpErlangObject {
     /**
      * Determine if two refs are equal. Refs are equal if their components are
      * equal. New refs and old refs are considered equal if the node, creation
-     * and first id numnber are equal.
+     * and first id number are equal.
      *
      * @param o
      *            the other ref to compare to.

@@ -42,6 +42,7 @@
 #include "evp.h"
 #include "fips.h"
 #include "hash.h"
+#include "hash_equals.h"
 #include "hmac.h"
 #include "info.h"
 #include "math.h"
@@ -91,6 +92,9 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_uniform_nif", 2, rand_uniform_nif, 0},
     {"mod_exp_nif", 4, mod_exp_nif, 0},
     {"do_exor", 2, do_exor, 0},
+
+    {"hash_equals_nif", 2, hash_equals_nif, 0},
+    
     {"pbkdf2_hmac_nif", 5, pbkdf2_hmac_nif, 0},
     {"pkey_sign_nif", 5, pkey_sign_nif, 0},
     {"pkey_verify_nif", 6, pkey_verify_nif, 0},
@@ -306,3 +310,4 @@ static void unload(ErlNifEnv* env, void* priv_data)
     if (--library_refc == 0)
         cleanup_algorithms_types(env);
 }
+

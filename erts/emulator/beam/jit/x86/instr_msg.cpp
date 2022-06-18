@@ -150,6 +150,8 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     x86::Mem await_addr = TMP_MEM1q, message_ptr = TMP_MEM2q,
              get_out = TMP_MEM3d;
 
+    emit_enter_frame();
+
     a.or_(x86::dword_ptr(c_p, offsetof(Process, flags)), imm(F_DELAY_GC));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, i)), ARG1);
     a.mov(await_addr, ARG2);
@@ -223,7 +225,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
          * Note that the message queue lock is still held in this case. */
         a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)), imm(~F_DELAY_GC));
 
-        emit_discard_cp();
+        emit_unwind_frame();
         a.jmp(await_addr);
     }
 
@@ -235,7 +237,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
         a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
 
-        emit_discard_cp();
+        emit_unwind_frame();
         a.jmp(labels[do_schedule]);
     }
 
@@ -269,6 +271,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.mov(ARG1, x86::qword_ptr(ARG1, offsetof(ErtsMessage, m[0])));
         a.mov(getXRef(0), ARG1);
 
+        emit_leave_frame();
         a.ret();
     }
 }
@@ -280,7 +283,7 @@ void BeamModuleAssembler::emit_i_loop_rec(const ArgVal &Wait) {
     a.bind(entry);
 
     a.lea(ARG1, x86::qword_ptr(entry));
-    a.lea(ARG2, x86::qword_ptr(labels[Wait.getValue()]));
+    a.lea(ARG2, x86::qword_ptr(resolve_beam_label(Wait)));
     fragment_call(ga->get_i_loop_rec_shared());
 }
 
@@ -310,14 +313,14 @@ void BeamModuleAssembler::emit_loop_rec_end(const ArgVal &Dest) {
     emit_leave_runtime();
 
     a.dec(FCALLS);
-    a.jmp(labels[Dest.getValue()]);
+    a.jmp(resolve_beam_label(Dest));
 }
 
 void BeamModuleAssembler::emit_wait_unlocked(const ArgVal &Dest) {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    a.lea(ARG2, x86::qword_ptr(labels[Dest.getValue()]));
+    a.lea(ARG2, x86::qword_ptr(resolve_beam_label(Dest)));
     runtime_call<2>(beam_jit_wait_unlocked);
 
     emit_leave_runtime();
@@ -329,7 +332,7 @@ void BeamModuleAssembler::emit_wait_locked(const ArgVal &Dest) {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    a.lea(ARG2, x86::qword_ptr(labels[Dest.getValue()]));
+    a.lea(ARG2, x86::qword_ptr(resolve_beam_label(Dest)));
     runtime_call<2>(beam_jit_wait_locked);
 
     emit_leave_runtime();
@@ -372,7 +375,7 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgVal &Src,
     a.short_().jl(next);
 #endif
 
-    emit_handle_error(currLabel, (ErtsCodeMFA *)nullptr);
+    emit_raise_exception(currLabel, (ErtsCodeMFA *)nullptr);
 
     a.bind(wait);
     emit_wait_locked(Dest);

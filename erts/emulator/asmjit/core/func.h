@@ -881,6 +881,14 @@ public:
 //! prolog and epilog. Function frame calculation is based on `CallConv` and
 //! other function attributes.
 //!
+//! SSE vs AVX vs AVX-512
+//! ---------------------
+//!
+//! Function frame provides a way to tell prolog/epilog inserter to use AVX
+//! instructions instead of SSE. Use `setAvxEnabled()` and `setAvx512Enabled()`
+//! to enable AVX and/or AVX-512, respectively. Enabling AVX-512 is mostly for
+//! Compiler as it would use 32 SIMD registers instead of 16 when enabled.
+//!
 //! Function Frame Structure
 //! ------------------------
 //!
@@ -922,12 +930,22 @@ public:
     //! Function calls other functions (is not leaf).
     kAttrHasFuncCalls = 0x00000020u,
 
-    //! Use AVX instead of SSE for all operations (X86).
+    //! Function uses AVX (X86).
+    //!
+    //! This flag instructs prolog and epilog emitter to use AVX instead of SSE for manipulating
+    //! XMM registers.
     kAttrX86AvxEnabled = 0x00010000u,
-    //! Emit VZEROUPPER instruction in epilog (X86).
-    kAttrX86AvxCleanup = 0x00020000u,
-    //! Emit EMMS instruction in epilog (X86).
+    //! Function uses AVX-512 (X86).
+    //!
+    //! This flag instructs Compiler register allocator to use additional 16 registers introduced
+    //! by AVX-512.
+    kAttrX86Avx512Enabled = 0x00020000u,
+
+    //! This flag instructs epilog writer to emit EMMS instruction before RET (X86).
     kAttrX86MmxCleanup = 0x00040000u,
+
+    //! This flag instructs epilog writer to emit VZEROUPPER instruction before RET (X86).
+    kAttrX86AvxCleanup = 0x00080000u,
 
     //! Function has aligned save/restore of vector registers.
     kAttrAlignedVecSR = 0x40000000u,
@@ -1054,26 +1072,33 @@ public:
   //! Sets `kFlagHasCalls` to false.
   inline void resetFuncCalls() noexcept { clearAttributes(kAttrHasFuncCalls); }
 
-  //! Tests whether the function contains AVX cleanup - 'vzeroupper' instruction in epilog.
-  inline bool hasAvxCleanup() const noexcept { return hasAttribute(kAttrX86AvxCleanup); }
-  //! Enables AVX cleanup.
-  inline void setAvxCleanup() noexcept { addAttributes(kAttrX86AvxCleanup); }
-  //! Disables AVX cleanup.
-  inline void resetAvxCleanup() noexcept { clearAttributes(kAttrX86AvxCleanup); }
-
-  //! Tests whether the function contains AVX cleanup - 'vzeroupper' instruction in epilog.
+  //! Tests whether the function has AVX enabled.
   inline bool isAvxEnabled() const noexcept { return hasAttribute(kAttrX86AvxEnabled); }
-  //! Enables AVX cleanup.
+  //! Enables AVX use.
   inline void setAvxEnabled() noexcept { addAttributes(kAttrX86AvxEnabled); }
-  //! Disables AVX cleanup.
+  //! Disables AVX use.
   inline void resetAvxEnabled() noexcept { clearAttributes(kAttrX86AvxEnabled); }
 
-  //! Tests whether the function contains MMX cleanup - 'emms' instruction in epilog.
+  //! Tests whether the function has AVX-512 enabled.
+  inline bool isAvx512Enabled() const noexcept { return hasAttribute(kAttrX86Avx512Enabled); }
+  //! Enables AVX-512 use.
+  inline void setAvx512Enabled() noexcept { addAttributes(kAttrX86Avx512Enabled); }
+  //! Disables AVX-512 use.
+  inline void resetAvx512Enabled() noexcept { clearAttributes(kAttrX86Avx512Enabled); }
+
+  //! Tests whether the function has MMX cleanup - 'emms' instruction in epilog.
   inline bool hasMmxCleanup() const noexcept { return hasAttribute(kAttrX86MmxCleanup); }
   //! Enables MMX cleanup.
   inline void setMmxCleanup() noexcept { addAttributes(kAttrX86MmxCleanup); }
   //! Disables MMX cleanup.
   inline void resetMmxCleanup() noexcept { clearAttributes(kAttrX86MmxCleanup); }
+
+  //! Tests whether the function has AVX cleanup - 'vzeroupper' instruction in epilog.
+  inline bool hasAvxCleanup() const noexcept { return hasAttribute(kAttrX86AvxCleanup); }
+  //! Enables AVX cleanup.
+  inline void setAvxCleanup() noexcept { addAttributes(kAttrX86AvxCleanup); }
+  //! Disables AVX cleanup.
+  inline void resetAvxCleanup() noexcept { clearAttributes(kAttrX86AvxCleanup); }
 
   //! Tests whether the function uses call stack.
   inline bool hasCallStack() const noexcept { return _callStackSize != 0; }

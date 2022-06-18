@@ -212,14 +212,14 @@ make_expected_ext2term_drv([T|Ts]) ->
 %%
 
 generate_external_terms_files(BaseDir) ->
-    {ok,Node} = slave:start(hostname(), a_node),
+    {ok, Peer, Node} = ?CT_PEER(),
     RPid = rpc:call(Node, erlang, self, []),
     true = is_pid(RPid),
     RRef = rpc:call(Node, erlang, make_ref, []),
     true = is_reference(RRef),
     RPort = hd(rpc:call(Node, erlang, ports, [])),
     true = is_port(RPort),
-    slave:stop(Node),
+    peer:stop(Peer),
     Terms = [{4711, -4711, [an_atom, "a list"]},
              [1000000000000000000000,-1111111111111111, "blupp!", blipp],
              {RPid, {RRef, RPort}, self(), hd(erlang:ports()), make_ref()},
@@ -341,12 +341,3 @@ write_license(IoDev) ->
 	" * and needs to be consistent with each other.~n"
 	" */~n",
     io:format(IoDev, S, []).
-
-
-hostname() ->    
-    hostname(atom_to_list(node())).
-
-hostname([$@ | Hostname]) ->
-    list_to_atom(Hostname);
-hostname([_C | Cs]) ->
-    hostname(Cs).

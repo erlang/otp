@@ -720,7 +720,7 @@ dets:close(N).</pre>
         </item>
         <item><c>Source</c> and <c>Target</c> are opaque data used
          exclusively by the modules <c>SourceMod</c> and
-         <c>TargetMod</c> for initializing the backup medias.
+         <c>TargetMod</c> for initializing the backup media.
         </item>
         <item><c>Acc</c> is an initial accumulator value.
         </item>

@@ -1062,33 +1062,32 @@ stop(Process) ->
       Reason :: term(),
       Timeout :: timeout().
 stop(Process, Reason, Timeout) ->
-    {Pid, Mref} = erlang:spawn_monitor(do_stop(Process, Reason)),
+    Mref = erlang:monitor(process, Process),
+    T0 = erlang:monotonic_time(millisecond),
+    RemainingTimeout = try
+	sys:terminate(Process, Reason, Timeout)
+    of
+	ok when Timeout =:= infinity ->
+	    infinity;
+	ok ->
+	    Timeout - (((erlang:monotonic_time(microsecond) + 999) div 1000) - T0)
+    catch
+	exit:{noproc, {sys, terminate, _}} ->
+	    demonitor(Mref, [flush]),
+	    exit(noproc);
+	exit:{timeout, {sys, terminate, _}} ->
+	    demonitor(Mref, [flush]),
+	    exit(timeout);
+	exit:Reason1 ->
+	    demonitor(Mref, [flush]),
+	    exit(Reason1)
+    end,
     receive
 	{'DOWN', Mref, _, _, Reason} ->
 	    ok;
-	{'DOWN', Mref, _, _, {noproc,{sys,terminate,_}}} ->
-	    exit(noproc);
-	{'DOWN', Mref, _, _, CrashReason} ->
-	    exit(CrashReason)
-    after Timeout ->
-	    exit(Pid, kill),
-	    receive
-		{'DOWN', Mref, _, _, _} ->
-		    exit(timeout)
-	    end
-    end.
-
--spec do_stop(Process, Reason) -> Fun when
-      Process :: pid() | RegName | {RegName,node()},
-      RegName :: atom(),
-      Reason :: term(),
-      Fun :: fun(() -> no_return()).
-do_stop(Process, Reason) ->
-    fun() ->
-	    Mref = erlang:monitor(process, Process),
-	    ok = sys:terminate(Process, Reason, infinity),
-	    receive
-		{'DOWN', Mref, _, _, ExitReason} ->
-		    exit(ExitReason)
-	    end
+	{'DOWN', Mref, _, _, Reason2} ->
+	    exit(Reason2)
+    after RemainingTimeout ->
+	demonitor(Mref, [flush]),
+	exit(timeout)
     end.

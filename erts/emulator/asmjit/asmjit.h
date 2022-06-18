@@ -26,12 +26,8 @@
 
 #include "./core.h"
 
-#ifdef ASMJIT_BUILD_X86
+#ifndef ASMJIT_NO_X86
   #include "./x86.h"
-#endif
-
-#ifdef ASMJIT_BUILD_ARM
-  #include "./arm.h"
 #endif
 
 #endif // ASMJIT_ASMJIT_H_INCLUDED

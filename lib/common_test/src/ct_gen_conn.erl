@@ -332,7 +332,7 @@ call(Pid, Msg, infinity = Tmo) ->
     gen_call(Pid, Msg, Tmo);
 
 %% Spawn a middleman process if the call can timeout to avoid the
-%% possibilty of a reply being left in the caller's mailbox after a
+%% possibility of a reply being left in the caller's mailbox after a
 %% timeout.
 call(Pid, Msg, Tmo) ->
     {_, MRef} = spawn_monitor(fun() -> exit(gen_call(Pid, Msg, Tmo)) end),

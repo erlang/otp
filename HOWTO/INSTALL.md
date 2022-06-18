@@ -409,7 +409,7 @@ Some of the available `configure` options are:
 	should be compiled without one or more applications, i.e. `--without-wx`. There is
 	no automatic dependency handling between applications. If you disable
 	an application that another application depends on, you also have to disable the
-	dependant application.
+	dependent application.
 *   `--enable-gettimeofday-as-os-system-time` - Force usage of `gettimeofday()` for
     OS system time.
 *   `--enable-prefer-elapsed-monotonic-time-during-suspend` - Prefer an OS monotonic

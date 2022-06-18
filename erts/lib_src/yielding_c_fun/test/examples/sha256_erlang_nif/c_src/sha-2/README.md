@@ -13,7 +13,7 @@ At the moment, only SHA-256 is implemented.
 - ANSI C with as little specific C99 as possible (e.g. extended
   integer types are used, but not bool).
 
-- Portable. Makes no assumptions on the target system's endianess or
+- Portable. Makes no assumptions on the target system's endianness or
   word size.
 
 - The SHA-256 implementation is a straightforward implementation of

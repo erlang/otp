@@ -134,7 +134,7 @@
  * will be triggered at once. The circular list of the slot will
  * be moved to the 'sentinel' field while bumping these timers
  * as when bumping an ordinary wheel slot. A yielding bump
- * operation and cancelation of timers is handled the same way
+ * operation and cancellation of timers is handled the same way
  * as if the timer was in a wheel slot.
  *
  * -- Searching for Next Timeout --

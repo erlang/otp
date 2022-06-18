@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -276,7 +276,7 @@ ia(Pid) ->
 
 %% -------------------------------------------
 %% Attach to process.
-%% X,Y,Z is combind to a process identity.
+%% X,Y,Z is combined to a process identity.
 %% -------------------------------------------
 
 ia(X,Y,Z) ->

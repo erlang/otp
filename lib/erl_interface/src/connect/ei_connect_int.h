@@ -43,15 +43,9 @@
 #include <sys/types.h>
 #include <sys/times.h>
 
-#if TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# if HAVE_SYS_TIME_H
+#include <time.h>
+#if HAVE_SYS_TIME_H
 #  include <sys/time.h>
-# else
-#  include <time.h>
-# endif
 #endif
 
 #include <sys/socket.h>
@@ -62,7 +56,7 @@
 #include <sys/utsname.h>  /* for gen_challenge (NEED FIX?) */
 #endif
 
-/* FIXME remove duplicate defintions */
+/* FIXME remove duplicate definitions */
 
 #define DEFBUF_SIZ 100
 
@@ -90,19 +84,39 @@ typedef EI_ULONGLONG DistFlags;
 #define DFLAG_BIG_CREATION          0x40000
 #define DFLAG_HANDSHAKE_23        0x1000000
 #define DFLAG_UNLINK_ID           0x2000000
-#define DFLAG_RESERVED           0xfc000000
-#define DFLAG_NAME_ME            ((DistFlags)0x2 << 32)
+#define DFLAG_MANDATORY_25_DIGEST 0x4000000
+#define DFLAG_RESERVED           0xf8000000
+#define DFLAG_NAME_ME            (((DistFlags)0x2) << 32)
 #define DFLAG_V4_NC              (((DistFlags)0x4) << 32)
 
 /* Control message tags not exposed to user... */
 #define ERL_UNLINK_ID                   35
 #define ERL_UNLINK_ID_ACK               36
 
+/* Mandatory flags for distribution in OTP 25. */
+#define DFLAG_DIST_MANDATORY_25 (DFLAG_EXTENDED_REFERENCES        \
+                                | DFLAG_FUN_TAGS                  \
+                                | DFLAG_EXTENDED_PIDS_PORTS       \
+                                | DFLAG_UTF8_ATOMS                \
+                                | DFLAG_NEW_FUN_TAGS              \
+                                | DFLAG_BIG_CREATION              \
+                                | DFLAG_NEW_FLOATS                \
+                                | DFLAG_MAP_TAG                   \
+                                | DFLAG_EXPORT_PTR_TAG            \
+                                | DFLAG_BIT_BINARIES)
+
+/* Mandatory flags for distribution. */
+
+/*
+ * Mandatory flags for distribution. Keep them in sync with
+ * erts/emulator/beam/dist.h.
+ */
+#define DFLAG_DIST_MANDATORY DFLAG_DIST_MANDATORY_25
+
 
 ei_cnode   *ei_fd_to_cnode(int fd);
 int         ei_distversion(int fd);
 const char* ei_getfdcookie(int fd);
-short       ei_thiscreation(const ei_cnode* ec);
 const char *ei_thiscookie(const ei_cnode* ec);
 
 int ei_do_receive_msg(int fd, int staticbuffer_p, 

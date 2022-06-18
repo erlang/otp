@@ -55,7 +55,7 @@
       process that issued this request, have called [;;4m[0m
       [;;4mresume_process(Suspendee)[0m before getting the reply.
 
-    Appart from the reply message, the [;;4m{asynchronous, ReplyTag}[0m
+    Apart from the reply message, the [;;4m{asynchronous, ReplyTag}[0m
     option behaves exactly the same as the [;;4masynchronous[0m option
     without reply tag.
 

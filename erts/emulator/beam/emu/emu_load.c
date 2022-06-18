@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ extern void check_allocated_block(Uint type, void *blk);
 
 static void init_label(Label* lp);
 
-void beam_load_prepare_emit(LoaderState *stp) {
+int beam_load_prepare_emit(LoaderState *stp) {
     BeamCodeHeader *hdr;
     int i;
 
@@ -76,6 +76,7 @@ void beam_load_prepare_emit(LoaderState *stp) {
     hdr->compile_size_on_heap = 0;
     hdr->literal_area = NULL;
     hdr->md5_ptr = NULL;
+    hdr->are_nifs = NULL;
 
     stp->code_hdr = hdr;
 
@@ -136,6 +137,8 @@ void beam_load_prepare_emit(LoaderState *stp) {
                                     stp->beam.code.function_count *
                                         sizeof(unsigned int));
     }
+
+    return 1;
 }
 
 void beam_load_prepared_free(Binary* magic)
@@ -154,11 +157,6 @@ int beam_load_prepared_dtor(Binary* magic)
 
     beamfile_free(&stp->beam);
     beamopallocator_dtor(&stp->op_allocator);
-
-    if (stp->bin) {
-        driver_free_binary(stp->bin);
-        stp->bin = NULL;
-    }
 
     if (stp->code_hdr) {
         BeamCodeHeader *hdr = stp->code_hdr;
@@ -330,6 +328,7 @@ int beam_load_finish_emit(LoaderState *stp) {
         BeamCodeLineTab* const line_tab = (BeamCodeLineTab *) (codev+stp->ci);
         const unsigned int ftab_size = stp->beam.code.function_count;
         const unsigned int num_instrs = stp->current_li;
+        const unsigned int num_names = stp->beam.lines.name_count;
         const void** const line_items =
             (const void**) &line_tab->func_tab[ftab_size + 1];
         const void *locp_base;
@@ -346,10 +345,10 @@ int beam_load_finish_emit(LoaderState *stp) {
         }
         line_items[i] = codev + stp->ci - 1;
 
-        line_tab->fname_ptr = (Eterm*) &line_items[i + 1];
-        if (stp->beam.lines.name_count) {
-            sys_memcpy((void*)line_tab->fname_ptr, stp->beam.lines.names,
-                       stp->beam.lines.name_count*sizeof(Eterm));
+        line_tab->fname_ptr = (Eterm*)&line_items[i + 1];
+        for (i = 0; i < num_names; i++) {
+            Eterm *fname = (Eterm*)&line_tab->fname_ptr[i];
+            *fname = beamfile_get_literal(&stp->beam, stp->beam.lines.names[i]);
         }
 
         locp_base = &line_tab->fname_ptr[stp->beam.lines.name_count];
@@ -630,7 +629,8 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                 erts_refc_dectest(&fun_entry->refc, 1);
             }
 
-            fun_entry->address = stp->codev + stp->labels[lambda->label].value;
+            erts_set_fun_code(fun_entry,
+                              stp->codev + stp->labels[lambda->label].value);
         }
 
         lp = stp->lambda_patches;
@@ -686,7 +686,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
              */
             ep->trampoline.not_loaded.deferred = (BeamInstr) address;
         } else {
-            ep->addresses[erts_staging_code_ix()] = address;
+            ep->dispatch.addresses[erts_staging_code_ix()] = address;
         }
     }
 
@@ -699,7 +699,8 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
             Export *ep = erts_export_put(entry->module,
                                          entry->name,
                                          entry->arity);
-            const BeamInstr *addr = ep->addresses[erts_staging_code_ix()];
+            const BeamInstr *addr =
+                ep->dispatch.addresses[erts_staging_code_ix()];
 
             if (!ErtsInArea(addr, stp->codev, stp->ci * sizeof(BeamInstr))) {
                 erts_exit(ERTS_ABORT_EXIT,
@@ -714,18 +715,6 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
 
     /* Prevent code from being freed. */
     stp->code_hdr = NULL;
-}
-
-static int
-is_bif(Eterm mod, Eterm func, unsigned arity)
-{
-    Export *e = erts_active_export_entry(mod, func, arity);
-
-    if (e != NULL) {
-        return e->bif_number != -1;
-    }
-
-    return 0;
 }
 
 static void init_label(Label* lp)
@@ -843,11 +832,11 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             break;
         case 'x':        /* x(N) */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
-            code[ci++] = tmp_op->a[arg].val * sizeof(Eterm);
+            code[ci++] = (tmp_op->a[arg].val & REG_MASK) * sizeof(Eterm);
             break;
         case 'y':        /* y(N) */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
-            code[ci++] = (tmp_op->a[arg].val + CP_SIZE) * sizeof(Eterm);
+            code[ci++] = ((tmp_op->a[arg].val & REG_MASK) + CP_SIZE) * sizeof(Eterm);
             break;
         case 'a':                /* Tagged atom */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
@@ -877,10 +866,10 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         case 's':        /* Any source (tagged constant or register) */
             switch (tag) {
             case TAG_x:
-                code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
+                code[ci++] = make_loader_x_reg(tmp_op->a[arg].val & REG_MASK);
                 break;
             case TAG_y:
-                code[ci++] = make_loader_y_reg(tmp_op->a[arg].val + CP_SIZE);
+                code[ci++] = make_loader_y_reg((tmp_op->a[arg].val & REG_MASK) + CP_SIZE);
                 break;
             case TAG_i:
                 code[ci++] = (BeamInstr) make_small((Uint)tmp_op->a[arg].val);
@@ -915,10 +904,10 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         case 'S':   /* Source (x(N), y(N)) */
             switch (tag) {
             case TAG_x:
-                code[ci++] = tmp_op->a[arg].val * sizeof(Eterm);
+                code[ci++] = (tmp_op->a[arg].val & REG_MASK) * sizeof(Eterm);
                 break;
             case TAG_y:
-                code[ci++] = (tmp_op->a[arg].val + CP_SIZE) * sizeof(Eterm) + 1;
+                code[ci++] = ((tmp_op->a[arg].val & REG_MASK) + CP_SIZE) * sizeof(Eterm) + 1;
                 break;
             default:
                 BeamLoadError1(stp, "bad tag %d for destination",
@@ -949,7 +938,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             break;
         case 'A':        /* Arity value. */
             BeamLoadVerifyTag(stp, tag, TAG_u);
-            code[ci++] = make_arityval(tmp_op->a[arg].val);
+            code[ci++] = make_arityval_unchecked(tmp_op->a[arg].val);
             break;
         case 'f':                /* Destination label */
             BeamLoadVerifyTag(stp, tag_to_letter[tag], *sign);
@@ -1356,38 +1345,43 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
 #endif
         }
         break;
-    case op_int_func_end:
-	{
-	    /*
-	     * Native function calls may be larger than their stubs, so
-	     * we'll need to make sure any potentially-native function stub
-	     * is padded with enough room.
-	     */
-	    int padding_required;
+    case op_nif_start:
+        if (!stp->code_hdr->are_nifs) {
+            int bytes = stp->beam.code.function_count * sizeof(byte);
+            stp->code_hdr->are_nifs = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                                                 bytes);
+            sys_memzero(stp->code_hdr->are_nifs, bytes);
+        }
+        ASSERT(stp->function_number > 0);
+        ASSERT(stp->function_number <= stp->beam.code.function_count);
+        stp->code_hdr->are_nifs[stp->function_number-1] = 1;
 
-	    ci--;		/* Get rid of the instruction */
+        ci -= 1;         /* Get rid of the instruction */
+        break;
+    case op_i_nif_padding:
+        {
+            /* Native function calls may be larger than their stubs, so we'll
+             * need to make sure any potentially-native function stub is padded
+             * with enough room. */
+            Sint pad;
 
-	    padding_required = stp->may_load_nif ||
-		is_bif(stp->module, stp->function, stp->arity);
+            ci -= 1;         /* Get rid of the instruction */
 
-	    ASSERT(stp->last_func_start);
-	    if (padding_required) {
-		Sint pad = BEAM_NATIVE_MIN_FUNC_SZ - (ci - stp->last_func_start);
-		if (pad > 0) {
-		    ASSERT(pad < BEAM_NATIVE_MIN_FUNC_SZ);
-		    CodeNeed(pad);
-		    while (pad-- > 0) {
-			/*
-			 * Filling with actual instructions (instead
-			 * of zeroes) will look nicer in a disassembly
-			 * listing.
-			 */
-			code[ci++] = BeamOpCodeAddr(op_padding);
-		    }
-		}
-	    }
-	}
-	break;
+            ASSERT(stp->last_func_start);
+            pad = BEAM_NATIVE_MIN_FUNC_SZ - (ci - stp->last_func_start);
+
+            if (pad > 0) {
+                ASSERT(pad < BEAM_NATIVE_MIN_FUNC_SZ);
+                CodeNeed(pad);
+
+                while (pad-- > 0) {
+                /* Filling with actual instructions (instead of zeroes) will
+                 * look nicer in a disassembly listing. */
+                    code[ci++] = BeamOpCodeAddr(op_padding);
+                }
+            }
+        }
+        break;
     case op_on_load:
         ci--;                /* Get rid of the instruction */
 
@@ -1398,6 +1392,21 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
     case op_i_bs_match_string_xfWW:
     case op_i_bs_match_string_yfWW:
         new_string_patch(stp, ci-1);
+        break;
+    case op_i_bs_create_bin_jIWdW:
+        {
+            int n = tmp_op->arity;
+            BeamInstr* p = &code[ci-n];
+            BeamInstr* end_p = &code[ci];
+            while (p < end_p) {
+                switch (*p) {
+                case BSC_STRING:
+                    new_string_patch(stp, p+3-code);
+                    break;
+                }
+                p += 5;
+            }
+        }
         break;
     case op_catch_yf:
         /* code[ci-3]        &&lb_catch_yf

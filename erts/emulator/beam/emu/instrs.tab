@@ -243,7 +243,7 @@ APPLY(I, Deallocate, Next) {
         save_calls(c_p, ep);
     }
 
-    $Next = ep->addresses[erts_active_code_ix()];
+    $Next = ep->dispatch.addresses[erts_active_code_ix()];
 }
 
 HANDLE_APPLY_ERROR() {
@@ -290,7 +290,7 @@ FIXED_APPLY(Arity, I, Deallocate, Next) {
         save_calls(c_p, ep);
     }
 
-    $Next = ep->addresses[erts_active_code_ix()];
+    $Next = ep->dispatch.addresses[erts_active_code_ix()];
 }
 
 apply(Arity) {
@@ -310,10 +310,8 @@ apply_last(Arity, Deallocate) {
 }
 
 APPLY_FUN(Next) {
-    Export *ignored;
-
     HEAVY_SWAPOUT;
-    $Next = apply_fun(c_p, r(0), x(1), reg, &ignored);
+    $Next = apply_fun(c_p, r(0), x(1), reg);
     HEAVY_SWAPIN;
 
     if (ERTS_UNLIKELY(next == NULL)) {
@@ -350,10 +348,9 @@ i_apply_fun_only() {
 
 CALL_FUN(Fun, Next) {
     //| -no_next
-    Export *ignored;
 
     HEAVY_SWAPOUT;
-    $Next = call_fun(c_p, $Fun, reg, THE_NON_VALUE, &ignored);
+    $Next = call_fun(c_p, $Fun, reg, THE_NON_VALUE);
     HEAVY_SWAPIN;
 
     if (ERTS_UNLIKELY(next == NULL)) {
@@ -543,12 +540,13 @@ init3(Y1, Y2, Y3) {
     make_blank($Y3);
 }
 
-i_make_fun3(FunP, Dst, NumFree) {
+i_make_fun3(FunP, Dst, Arity, NumFree) {
     ErlFunThing* funp;
+    ErlFunEntry *fe = (ErlFunEntry *) $FunP;
     int i, num_free = $NumFree;
     //| -no_next
     SWAPOUT;
-    funp = new_fun_thing(c_p, (ErlFunEntry *) $FunP, num_free);
+    funp = erts_new_local_fun_thing(c_p, fe, $Arity, num_free);
     SWAPIN;
     I = $NEXT_INSTRUCTION;
     for (i = 0; i < num_free; i++) {
@@ -1088,28 +1086,39 @@ catch(Y, Fail) {
 }
 
 catch_end(Y) {
+    /*
+     * At entry:
+     *
+     *    x0 = Result of expression or THE_NON_VALUE
+     *
+     * If x0 is THE_NON_VALUE, the following registers are also set:
+     *
+     *    x1 = Error reason/thrown value
+     *    x2 = Stacktrace
+     *    x3 = Exception class
+     */
     $try_end($Y);
     if (is_non_value(r(0))) {
-        c_p->fvalue = NIL;
-        c_p->ftrace = NIL;
-        if (x(1) == am_throw) {
-            r(0) = x(2);
+        ASSERT(c_p->fvalue == NIL);
+        ASSERT(c_p->ftrace == NIL);
+        if (x(3) == am_throw) {
+            r(0) = x(1);
         } else {
-            if (x(1) == am_error) {
+            if (x(3) == am_error) {
                 SWAPOUT;
-                x(2) = add_stacktrace(c_p, x(2), x(3));
+                x(1) = add_stacktrace(c_p, x(1), x(2));
                 SWAPIN;
             }
-            /* only x(2) is included in the rootset here */
+            /* only x(1) is included in the rootset here */
             if ((E - HTOP) < (3 + S_RESERVED)) {
                 $GC_SWAPOUT();
                 PROCESS_MAIN_CHK_LOCKS(c_p);
-                FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+2, 1, FCALLS);
+                FCALLS -= erts_garbage_collect_nobump(c_p, 3, reg+1, 1, FCALLS);
                 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
                 PROCESS_MAIN_CHK_LOCKS(c_p);
                 SWAPIN;
             }
-            r(0) = TUPLE2(HTOP, am_EXIT, x(2));
+            r(0) = TUPLE2(HTOP, am_EXIT, x(1));
             HTOP += 3;
         }
     }
@@ -1126,9 +1135,7 @@ try_case(Y) {
     ASSERT(is_non_value(r(0)));
     ASSERT(c_p->fvalue == NIL);
     ASSERT(c_p->ftrace == NIL);
-    r(0) = x(1);
-    x(1) = x(2);
-    x(2) = x(3);
+    r(0) = x(3);
 }
 
 try_case_end(Src) {

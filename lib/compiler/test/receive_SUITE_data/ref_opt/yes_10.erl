@@ -7,7 +7,7 @@
 f() ->
     Ref = make_ref(),
     receive
-	%% Artifical example to cover more code in beam_receive.
+	%% Artificial example to cover more code in beam_receive.
 	{X,Y} when Ref =/= X, Ref =:= Y ->
 	    ok
     end.

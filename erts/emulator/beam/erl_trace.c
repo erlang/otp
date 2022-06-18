@@ -53,6 +53,7 @@
 #include "erl_thr_progress.h"
 #include "erl_bif_unique.h"
 #include "erl_map.h"
+#include "erl_global_literals.h"
 
 #if 0
 #define DEBUG_PRINTOUTS
@@ -2793,8 +2794,12 @@ send_to_tracer_nif_raw(Process *c_p, Process *tracee,
             map_values[map_elem_count++] = am_monotonic;
 
         map->size = map_elem_count;
-        map->keys = make_tuple(local_heap);
-        local_heap[0] = make_arityval(map_elem_count);
+        if (map_elem_count == 0) {
+            map->keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+        } else {
+            map->keys = make_tuple(local_heap);
+            local_heap[0] = make_arityval(map_elem_count);
+        }
 
 #undef MAP_SIZE
         erts_nif_call_function(c_p, tracee ? tracee : c_p,

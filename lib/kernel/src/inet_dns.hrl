@@ -190,9 +190,11 @@
 	 cnt = 0,       %% access count
 	 ttl = 0,       %% time to live
 	 data = [],     %% raw data
-	  %%
+	 %%
 	 tm,            %% creation time
-         bm = [],       %% Bitmap storing domain character case information.
+         bm = "",       %% Used to be defined as:
+         %%                Bitmap storing domain character case information
+         %%       but now; Case normalized domain
          func = false   %% Was: Optional function calculating the data field.
          %%                Now: cache-flush Class flag from mDNS RFC 6762
 	}).

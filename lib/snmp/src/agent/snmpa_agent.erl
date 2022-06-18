@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,18 +65,11 @@
 -export([increment_counter/3]).
 -export([restart_worker/1, restart_set_worker/1, restart_notif_worker/1]).
 
-%% For backward compatibillity
--export([send_trap/6, send_trap/7]).
-
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3, tr_var/2, tr_varbind/1,
 	 handle_pdu/8, worker/4, worker_loop/2, 
 	 do_send_trap/7, do_send_trap/8]).
-%% <BACKWARD-COMPAT>
--export([handle_pdu/7, 
-	 load_mibs/2, unload_mibs/2]).
-%% </BACKWARD-COMPAT>
 
 -include("snmpa_internal.hrl").
 
@@ -559,20 +552,8 @@ subagent_set(SubAgent, Arguments) ->
     call(SubAgent, {subagent_set, Arguments, PduData}).
 
 
-%% Called by administrator (not agent; deadlock would occur)
-%% <BACKWARD-COMPAT>
-load_mibs(Agent, Mibs) ->
-    load_mibs(Agent, Mibs, false).
-%% </BACKWARD-COMPAT>
-
 load_mibs(Agent, Mibs, Force) ->
     call(Agent, {load_mibs, Mibs, Force}).
-
-%% Called by administrator (not agent; deadlock would occur)
-%% <BACKWARD-COMPAT>
-unload_mibs(Agent, Mibs) ->
-    unload_mibs(Agent, Mibs, false).
-%% </BACKWARD-COMPAT>
 
 unload_mibs(Agent, Mibs, Force) ->
     call(Agent, {unload_mibs, Mibs, Force}).
@@ -622,51 +603,6 @@ send_notification(Agent, Notification, SendOpts) ->
     Msg = {send_notif, Notification, SendOpts},
     maybe_call(Agent, Msg).
     
-%% <BACKWARD-COMPAT>
-send_trap(Agent, Trap, NotifyName, CtxName, Recv, Varbinds) ->
-    ?d("send_trap -> entry with"
-       "~n   self():        ~p"
-       "~n   Agent:         ~p [~p]"
-       "~n   Trap:          ~p"
-       "~n   NotifyName:    ~p"
-       "~n   CtxName:       ~p"
-       "~n   Recv:          ~p"
-       "~n   Varbinds:      ~p", 
-       [self(), Agent, wis(Agent), 
-	Trap, NotifyName, CtxName, Recv, Varbinds]),
-    SendOpts = [
-		{receiver, Recv},
-		{varbinds, Varbinds}, 
-		{name,     NotifyName},
-		{context,  CtxName}, 
-		{extra,    ?DEFAULT_NOTIF_EXTRA_INFO}
-	       ],
-    send_notification(Agent, Trap, SendOpts).
-    
-send_trap(Agent, Trap, NotifyName, CtxName, Recv, Varbinds, LocalEngineID) ->
-    ?d("send_trap -> entry with"
-       "~n   self():        ~p"
-       "~n   Agent:         ~p [~p]"
-       "~n   Trap:          ~p"
-       "~n   NotifyName:    ~p"
-       "~n   CtxName:       ~p"
-       "~n   Recv:          ~p"
-       "~n   Varbinds:      ~p" 
-       "~n   LocalEngineID: ~p", 
-       [self(), Agent, wis(Agent), 
-	Trap, NotifyName, CtxName, Recv, Varbinds, LocalEngineID]),
-    SendOpts = [
-		{receiver,        Recv},
-		{varbinds,        Varbinds}, 
-		{name,            NotifyName},
-		{context,         CtxName}, 
-		{extra,           ?DEFAULT_NOTIF_EXTRA_INFO}, 
-		{local_engine_id, LocalEngineID}
-	       ],
-    send_notification(Agent, Trap, SendOpts).
-    
-%% </BACKWARD-COMPAT>
-
 
 %% -- Discovery functions --
 
@@ -863,51 +799,6 @@ handle_info({send_notif, Notification, SendOpts}, S) ->
 	    {noreply, S}
     end;
 
-%% <BACKWARD-COMPAT>
-handle_info({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds}, S) ->
-    ?vlog("[handle_info] send trap request:"
-	  "~n   Trap:          ~p"
-	  "~n   NotifyName:    ~p"
-	  "~n   ContextName:   ~p"
-	  "~n   Recv:          ~p" 
-	  "~n   Varbinds:      ~p", 
-	  [Trap, NotifyName, ContextName, Recv, Varbinds]),
-    ExtraInfo     = ?DEFAULT_NOTIF_EXTRA_INFO, 
-    LocalEngineID = local_engine_id(S),
-    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
-				 Recv, Varbinds, LocalEngineID, ExtraInfo)) of
-	{ok, NewS} ->
-	    {noreply, NewS};
-	{'EXIT', R} ->
-	    ?vinfo("Trap not sent:~n   ~p", [R]),
-	    {noreply, S};
-	_ ->
-	    {noreply, S}
-    end;
-
-handle_info({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds, 
-	     LocalEngineID}, S) ->
-    ?vlog("[handle_info] send trap request:"
-	  "~n   Trap:          ~p"
-	  "~n   NotifyName:    ~p"
-	  "~n   ContextName:   ~p"
-	  "~n   Recv:          ~p" 
-	  "~n   Varbinds:      ~p" 
-	  "~n   LocalEngineID: ~p", 
-	  [Trap, NotifyName, ContextName, Recv, Varbinds, LocalEngineID]),
-    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
-    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
-				 Recv, Varbinds, LocalEngineID, ExtraInfo)) of
-	{ok, NewS} ->
-	    {noreply, NewS};
-	{'EXIT', R} ->
-	    ?vinfo("Trap not sent:~n   ~p", [R]),
-	    {noreply, S};
-	_ ->
-	    {noreply, S}
-    end;
-%% </BACKWARD-COMPAT>
-
 handle_info({forward_trap, TrapRecord, NotifyName, ContextName, 
 	     Recv, Varbinds, ExtraInfo}, S) ->
     ?vlog("[handle_info] forward trap request:"
@@ -928,30 +819,6 @@ handle_info({forward_trap, TrapRecord, NotifyName, ContextName,
 	_ ->
 	    {noreply, S}
     end;
-
-%% <BACKWARD-COMPAT>
-handle_info({forward_trap, TrapRecord, NotifyName, ContextName, 
-	     Recv, Varbinds}, S) ->
-    ?vlog("[handle_info] forward trap request:"
-	  "~n   TrapRecord:    ~p"
-	  "~n   NotifyName:    ~p"
-	  "~n   ContextName:   ~p"
-	  "~n   Recv:          ~p"
-	  "~n   Varbinds:      ~p", 
-	  [TrapRecord, NotifyName, ContextName, Recv, Varbinds]),
-    ExtraInfo     = ?DEFAULT_NOTIF_EXTRA_INFO, 
-    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
-    case (catch maybe_send_trap(S, TrapRecord, NotifyName, ContextName,
-				Recv, Varbinds, LocalEngineID, ExtraInfo)) of
-	{ok, NewS} ->
-	    {noreply, NewS};
-	{'EXIT', R} ->
-	    ?vinfo("Trap not sent:~n   ~p", [R]),
-	    {noreply, S};
-	_ ->
-	    {noreply, S}
-    end;
-%% </BACKWARD-COMPAT>
 
 handle_info({backup_done, Reply}, #state{backup = {_, From}} = S) ->
     ?vlog("[handle_info] backup done:"
@@ -1074,55 +941,6 @@ handle_call({send_notif, Notification, SendOpts}, _From, S) ->
 	    ?vinfo("Trap not sent", []),
 	    {reply, {error, send_failed}, S}
     end;
-
-%% <BACKWARD-COMPAT>
-handle_call({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds}, 
-	    _From, S) ->
-    ?vlog("[handle_call] send trap request:"
-	  "~n   Trap:          ~p"
-	  "~n   NotifyName:    ~p"
-	  "~n   ContextName:   ~p"
-	  "~n   Recv:          ~p" 
-	  "~n   Varbinds:      ~p", 
-	  [Trap, NotifyName, ContextName, Recv, Varbinds]),
-    ExtraInfo     = ?DEFAULT_NOTIF_EXTRA_INFO, 
-    LocalEngineID = local_engine_id(S),
-    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
-				 Recv, Varbinds, LocalEngineID, ExtraInfo)) of
-	{ok, NewS} ->
-	    {reply, ok, NewS};
-	{'EXIT', Reason} ->
-	    ?vinfo("Trap not sent:~n   ~p", [Reason]),
-	    {reply, {error, {send_failed, Reason}}, S};
-	_ ->
-	    ?vinfo("Trap not sent", []),
-	    {reply, {error, send_failed}, S}
-    end;
-
-handle_call({send_trap, Trap, NotifyName, 
-	     ContextName, Recv, Varbinds, LocalEngineID}, 
-	    _From, S) ->
-    ?vlog("[handle_call] send trap request:"
-	  "~n   Trap:          ~p"
-	  "~n   NotifyName:    ~p"
-	  "~n   ContextName:   ~p"
-	  "~n   Recv:          ~p" 
-	  "~n   Varbinds:      ~p" 
-	  "~n   LocalEngineID: ~p", 
-	  [Trap, NotifyName, ContextName, Recv, Varbinds, LocalEngineID]),
-    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
-    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
-				 Recv, Varbinds, LocalEngineID, ExtraInfo)) of
-	{ok, NewS} ->
-	    {reply, ok, NewS};
-	{'EXIT', Reason} ->
-	    ?vinfo("Trap not sent:~n   ~p", [Reason]),
-	    {reply, {error, {send_failed, Reason}}, S};
-	_ ->
-	    ?vinfo("Trap not sent", []),
-	    {reply, {error, send_failed}, S}
-    end;
-%% </BACKWARD-COMPAT>
 
 handle_call({discovery, 
 	     TargetName, Notification, ContextName, Vbs, DiscoHandler, 
@@ -1262,21 +1080,9 @@ handle_call({unregister_subagent, SubTreeOid}, _From, S) ->
 	end,
     {reply, Reply, S};
 
-%% <BACKWARD-COMPAT>
-handle_call({load_mibs, Mibs}, _From, S) ->
-    ?vlog("load mibs ~p", [Mibs]),
-    {reply, snmpa_mib:load_mibs(get(mibserver), Mibs), S};
-%% </BACKWARD-COMPAT>
-
 handle_call({load_mibs, Mibs, Force}, _From, S) ->
     ?vlog("[~w] load mibs ~p", [Force, Mibs]),
     {reply, snmpa_mib:load_mibs(get(mibserver), Mibs, Force), S};
-
-%% <BACKWARD-COMPAT>
-handle_call({unload_mibs, Mibs}, _From, S) ->
-    ?vlog("unload mibs ~p", [Mibs]),
-    {reply, snmpa_mib:unload_mibs(get(mibserver), Mibs), S};
-%% </BACKWARD-COMPAT>
 
 handle_call({unload_mibs, Mibs, Force}, _From, S) ->
     ?vlog("[~w] unload mibs ~p", [Force, Mibs]),
@@ -1876,46 +1682,6 @@ worker_loop(Master, Report) ->
 		exit(normal);
 
 
-
-
-	    %% *************************************************************
-	    %% 
-	    %%         Kept for backward compatibillity reasons
-	    %% 
-	    %% *************************************************************
-	    
-	    {Vsn, Pdu, PduMS, ACMData, Address, Extra} ->
-		?vtrace("worker_loop -> received request", []),
-		handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, 
-			    ?DEFAULT_GB_MAX_VBS, Extra),
-		Master ! worker_available;
-	    
-	    %% We don't trap exits!
-	    {TrapRec, NotifyName, ContextName, Recv, Vbs} -> 
-		?vtrace("worker_loop -> send trap:"
-			"~n   ~p", [TrapRec]),
-		snmpa_trap:send_trap(TrapRec, NotifyName, 
-				     ContextName, Recv, Vbs, get(net_if)),
-		Master ! worker_available;
-	    
-	    %% We don't trap exits!
-	    {send_trap, 
-	     TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID,
-	     ExtraInfo} -> 
-		?vtrace("worker_loop -> send trap:"
-			"~n   ~p", [TrapRec]),
-		snmpa_trap:send_trap(TrapRec, NotifyName, 
-				     ContextName, Recv, Vbs, 
-				     LocalEngineID, ExtraInfo, 
-				     get(net_if)),
-		Master ! worker_available;
-	    
-	    {verbosity, Verbosity} ->
-		put(verbosity, snmp_verbosity:validate(Verbosity));
-	    
-	    terminate ->
-		exit(normal);
-	    
 	    _X ->
 		%% ignore
 		ignore_unknown
@@ -1972,12 +1738,6 @@ handle_snmp_pdu(_, _Vsn, _Pdu, _PduMS, _ACMData, _Address, _Extra, S) ->
     S.
 
 
-%% Called via the spawn_thread function
-%% <BACKWARD-COMPAT>
-handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, Extra, Dict) ->
-    handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, ?DEFAULT_GB_MAX_VBS, Extra, 
-	       Dict).
-%% </BACKWARD-COMPAT>
 handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra, Dict) ->
     lists:foreach(fun({Key, Val}) -> put(Key, Val) end, Dict),
     put(sname, pdu_handler_short_name(get(sname))),

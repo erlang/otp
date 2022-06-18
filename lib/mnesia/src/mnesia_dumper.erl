@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -526,8 +526,8 @@ disc_delete_table(Tab, Storage) ->
 disc_delete_indecies(Tab, Cs, Storage) ->
     case storage_semantics(Storage) of
 	disc_only_copies ->
-	    Indecies = Cs#cstruct.index,
-	    mnesia_index:del_transient(Tab, Indecies, Storage);
+	    Indices = Cs#cstruct.index,
+	    mnesia_index:del_transient(Tab, Indices, Storage);
 	_ ->
 	    ok
     end.
@@ -815,7 +815,7 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
 			ram_copies ->
 			    ignore;
 			_ ->
-			    %% Indecies are still created by loader
+			    %% Indices are still created by loader
 			    disc_delete_indecies(Tab, Cs, Storage)
 			    %% disc_delete_table(Tab, Storage)
 		    end,
@@ -1433,10 +1433,10 @@ chunk_from_log(eof, _, _, _) ->
 %%
 %% This is a poor mans substitute for a fair scheduler algorithm
 %% in the Erlang emulator. The mnesia_dumper process performs many
-%% costly BIF invokations and must pay for this. But since the
+%% costly BIF invocations and must pay for this. But since the
 %% Emulator does not handle this properly we must compensate for
 %% this with some form of load regulation of ourselves in order to
-%% not steal all computation power in the Erlang Emulator ans make
+%% not steal all computation power in the Erlang Emulator and make
 %% other processes starve. Hopefully this is a temporary solution.
 
 start_regulator() ->

@@ -755,10 +755,8 @@
 	  <item><p>A 32-bit big endian unsigned integer. All identifiers
 	    originating from the same node incarnation must have identical <c>Creation</c>
 	    values. This makes it possible to separate identifiers from old
-	    (crashed) nodes from a new one. The value zero should be avoided for
-	    normal operations as it is used as a wild card for debug purpose
-	    (like a pid returned by <seemfa marker="erts:erlang#list_to_pid/1">
-	    erlang:list_to_pid/1</seemfa>).</p>
+	    (crashed) nodes from a new one. The value zero is reserved and
+            must be avoided for normal operations.</p>
 	  </item>
 	</taglist>
 	<p><c>NEW_PID_EXT</c> was introduced in OTP 19, but only to be decoded
@@ -1110,7 +1108,7 @@
 
     <section>
       <marker id="FUN_EXT"/>
-      <title>FUN_EXT</title>
+      <title>FUN_EXT (removed)</title>
 	<table align="left">
 	  <row>
 	    <cell align="center">1</cell>
@@ -1131,46 +1129,7 @@
 	    <cell align="center"><c>Free vars ...</c></cell>
 	  </row>
 	<tcaption>FUN_EXT</tcaption></table>
-	<taglist>
-	  <tag><c>Pid</c></tag>
-	  <item>
-	    <p>A process identifier as in
-	      <seeguide marker="#PID_EXT"><c>PID_EXT</c></seeguide>.
-	      Represents the process in which the fun was created.
-	    </p>
-	  </item>
-	<tag><c>Module</c></tag>
-	<item>
-	  <p>
-	    The module that the fun is implemented in,
-            <seeguide marker="#utf8_atoms">encoded as an atom</seeguide>.
-	  </p>
-	</item>
-	<tag><c>Index</c></tag>
-	<item>
-	  <p>An integer encoded using
-	    <seeguide marker="#SMALL_INTEGER_EXT">
-	    <c>SMALL_INTEGER_EXT</c></seeguide> 
-	    or <seeguide marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seeguide>.
-	    It is typically a small index into the module's fun table.
-	  </p>
-	</item>
-	<tag><c>Uniq</c></tag>
-	<item>
-	  <p>An integer encoded using
-	    <seeguide marker="#SMALL_INTEGER_EXT">
-	    <c>SMALL_INTEGER_EXT</c></seeguide> or 
-	    <seeguide marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seeguide>.
-	    <c>Uniq</c> is the hash value of the parse for the fun.
-	  </p>
-	</item>
-	<tag><c>Free vars</c></tag>
-	<item>
-	  <p><c>NumFree</c> number of terms, each one encoded according
-	    to its type.
-	  </p>
-	</item>
-	</taglist>
+	<p>Not emitted since OTP R8, and not decoded since OTP 23.</p>
     </section>
 
     <section>
@@ -1205,7 +1164,7 @@
 	  </row>
 	<tcaption>NEW_FUN_EXT</tcaption></table>
 	<p>
-	  This is the new encoding of internal funs: <c>fun F/A</c> and
+	  This is the encoding of internal funs: <c>fun F/A</c> and
 	  <c>fun(Arg1,..) -> ... end</c>.
 	</p>
 	<taglist>

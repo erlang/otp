@@ -49,10 +49,12 @@ static ASMJIT_INLINE uint32_t vecTypeIdToRegType(uint32_t typeId) noexcept {
 class EmitHelper : public BaseEmitHelper {
 public:
   bool _avxEnabled;
+  bool _avx512Enabled;
 
-  inline explicit EmitHelper(BaseEmitter* emitter = nullptr, bool avxEnabled = false) noexcept
+  inline explicit EmitHelper(BaseEmitter* emitter = nullptr, bool avxEnabled = false, bool avx512Enabled = false) noexcept
     : BaseEmitHelper(emitter),
-      _avxEnabled(avxEnabled) {}
+      _avxEnabled(avxEnabled || avx512Enabled),
+      _avx512Enabled(avx512Enabled) {}
 
   Error emitRegMove(
     const Operand_& dst_,

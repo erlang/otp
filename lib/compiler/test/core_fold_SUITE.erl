@@ -566,7 +566,7 @@ configuration(_Config) ->
     ok.
 
 configuration() ->
-    [forgotten || Components <- enemy, is_tuple(fun art/0)].
+    [forgotten || _Components <- enemy, is_tuple(fun art/0)].
 
 art() ->
  creating.

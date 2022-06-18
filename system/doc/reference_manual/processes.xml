@@ -798,7 +798,7 @@ spawn(Module, Name, Args) -> pid()
 	  <list>
 	    <item><p>
 	      <c>noproc</c> in case no process or port was
-	      found when setting up a link in a preceeding
+	      found when setting up a link in a preceding
 	      call to the
 	      <seemfa marker="erts:erlang#link/1"><c>link(PidOrPort)</c></seemfa>
 	      BIF. The process or port identified as sender

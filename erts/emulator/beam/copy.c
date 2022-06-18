@@ -34,6 +34,7 @@
 #include "erl_binary.h"
 #include "erl_bits.h"
 #include "dtrace-wrapper.h"
+#include "erl_global_literals.h"
 
 static void move_one_frag(Eterm** hpp, ErlHeapFragment*, ErlOffHeap*, int);
 
@@ -114,12 +115,20 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
 		ASSERT(is_header(hdr));
 		switch (hdr & _TAG_HEADER_MASK) {
 		case ARITYVAL_SUBTAG:
-		    ptr = tuple_val(obj);
 		    arity = header_arity(hdr);
-		    sum += arity + 1;
 		    if (arity == 0) { /* Empty tuple -- unusual. */
+                        ASSERT(!litopt &&
+                               erts_is_literal(obj,ptr) &&
+                               obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+                        /*
+                          The empty tuple is always a global literal
+                          constant so it does not take up any extra
+                          space.
+                        */
 			goto pop_next;
 		    }
+                    ptr = tuple_val(obj);
+                    sum += arity + 1;
 		    while (arity-- > 1) {
 			obj = *++ptr;
 			if (!IS_CONST(obj)) {
@@ -365,7 +374,10 @@ Uint size_shared(Eterm obj)
 		int arity = header_arity(hdr);
 		sum += arity + 1;
 		if (arity == 0) { /* Empty tuple -- unusual. */
-		    goto pop_next;
+                    ASSERT(COUNT_OFF_HEAP &&
+                           erts_is_literal(obj,ptr) &&
+                           obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+                    goto pop_next;
 		}
 		while (arity-- > 0) {
 		    obj = *++ptr;
@@ -523,6 +535,9 @@ cleanup:
 	    case ARITYVAL_SUBTAG: {
 		int arity = header_arity(hdr);
 		if (arity == 0) { /* Empty tuple -- unusual. */
+                    ASSERT(COUNT_OFF_HEAP &&
+                           erts_is_literal(obj,ptr) &&
+                           obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
 		    goto cleanup_next;
 		}
 		while (arity-- > 0) {
@@ -736,6 +751,13 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 		{
 		    int const_flag = 1; /* assume constant tuple */
 		    i = arityval(hdr);
+                    if (i == 0) {
+                        ASSERT(!litopt &&
+                               erts_is_literal(obj,objp) &&
+                               obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+                        *argp = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+                        break;
+                    }
 		    *argp = make_tuple(htop);
 		    tp = htop;	/* tp is pointer to new arity value */
 		    *htop++ = *objp++; /* copy arity value */
@@ -849,9 +871,15 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 			*htop++ = *objp++;
 		    }
 		    funp = (ErlFunThing *) tp;
-		    funp->next = off_heap->first;
-		    off_heap->first = (struct erl_off_heap_header*) funp;
-		    erts_refc_inc(&funp->fe->refc, 2);
+
+                    if (is_local_fun(funp)) {
+                        funp->next = off_heap->first;
+                        off_heap->first = (struct erl_off_heap_header*) funp;
+                        erts_refc_inc(&funp->entry.fun->refc, 2);
+                    } else {
+                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+                    }
+
 		    *argp = make_fun(tp);
 		}
 		break;
@@ -1094,7 +1122,9 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 #ifdef DEBUG
     Eterm mypid = erts_get_current_pid();
 #endif
-
+    const Eterm empty_tuple_literal =
+        ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+    
     DECLARE_EQUEUE_INIT_INFO(s, info);
     DECLARE_BITSTORE_INIT_INFO(b, info);
     DECLARE_SHTABLE_INIT_INFO(t, info);
@@ -1184,10 +1214,12 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	case TAG_PRIMARY_BOXED: {
 	    Eterm hdr;
 	    ptr = boxed_val(obj);
-	    /* off heap pointers to boxes are copied verbatim */
+	    /* off heap pointers to boxes (except pointers to the
+               empty tuple) are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
 		VERBOSE(DEBUG_SHCOPY, ("[pid=%T] bypassed copying %p is %T\n", mypid, ptr, obj));
-                if (copy_literals || in_literal_purge_area(ptr))
+                if (obj != empty_tuple_literal &&
+                    (copy_literals || in_literal_purge_area(ptr)))
                     info->literal_size += size_object(obj);
 		goto pop_next;
 	    }
@@ -1211,10 +1243,10 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG: {
 		int arity = header_arity(hdr);
+                /* arity cannot be 0 as the empty tuple is always a
+                   global constant literal which is handled above */
+                ASSERT(arity != 0);
 		sum += arity + 1;
-		if (arity == 0) { /* Empty tuple -- unusual. */
-		    goto pop_next;
-		}
 		while (arity-- > 0) {
 		    obj = *++ptr;
 		    if (!IS_CONST(obj)) {
@@ -1382,7 +1414,8 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
     Eterm mypid = erts_get_current_pid();
     Eterm saved_obj = obj;
 #endif
-
+    const Eterm empty_tuple_literal =
+        ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     DECLARE_EQUEUE_FROM_INFO(s, info);
     DECLARE_BITSTORE_FROM_INFO(b, info);
     DECLARE_SHTABLE_FROM_INFO(t, info);
@@ -1499,7 +1532,8 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 	    ptr = boxed_val(obj);
 	    /* off heap pointers to boxes are copied verbatim */
 	    if (erts_is_literal(obj,ptr)) {
-                if (!(copy_literals || in_literal_purge_area(ptr))) {
+                if (obj == empty_tuple_literal ||
+                    !(copy_literals || in_literal_purge_area(ptr))) {
                     *resp = obj;
                 } else {
                     Uint bsz = 0;
@@ -1577,9 +1611,15 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 			*hp++ = HEAP_ELEM_TO_BE_FILLED;
 		    }
 		}
-		funp->next = off_heap->first;
-		off_heap->first = (struct erl_off_heap_header*) funp;
-		erts_refc_inc(&funp->fe->refc, 2);
+
+                if (is_local_fun(funp)) {
+                    funp->next = off_heap->first;
+                    off_heap->first = (struct erl_off_heap_header*) funp;
+                    erts_refc_inc(&funp->entry.fun->refc, 2);
+                } else {
+                    ASSERT(is_external_fun(funp) && funp->next == NULL);
+                }
+
 		goto cleanup_next;
 	    }
 	    case MAP_SUBTAG:
@@ -1899,7 +1939,8 @@ copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_h
     Eterm* hp = *hpp;
     const Eterm res = make_tuple(hp);
     const Sint offs = (hp - tp) * sizeof(Eterm);
-
+    const Eterm empty_tuple_literal =
+        ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     while (sz--) {
 	Eterm val = *tp++;
 
@@ -1909,7 +1950,11 @@ copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_h
 	    break;
 	case TAG_PRIMARY_LIST:
 	case TAG_PRIMARY_BOXED:
-	    *hp++ = byte_offset_ptr(val, offs);
+            if (val == empty_tuple_literal) {
+                *hp++ = empty_tuple_literal;
+            } else {
+                *hp++ = byte_offset_ptr(val, offs);
+            }
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    *hp++ = val;
@@ -1924,12 +1969,18 @@ copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_h
 		}
 		goto off_heap_common;
 
-	    case FUN_SUBTAG:
-		{
-		    ErlFunThing* funp = (ErlFunThing *) (tp-1);
-		    erts_refc_inc(&funp->fe->refc, 2);
-		}
-		goto off_heap_common;
+            case FUN_SUBTAG:
+                {
+                    ErlFunThing* funp = (ErlFunThing *) (tp-1);
+
+                    if (is_local_fun(funp)) {
+                        erts_refc_inc(&funp->entry.fun->refc, 2);
+                        goto off_heap_common;
+                    } else {
+                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+                        goto default_copy;
+                    }
+                }
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
@@ -1963,6 +2014,7 @@ copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_h
 		}
 		/* Fall through... */
 	    }
+            default_copy:
 	    default:
 		{
 		    int tari = header_arity(val);
@@ -2054,34 +2106,49 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
     Eterm* hp = *hpp;
 
     while (ptr != end) {
-	Eterm val;
-	ASSERT(ptr < end);
-	val = *ptr;
-	ASSERT(val != ERTS_HOLE_MARKER);
-	if (is_header(val)) {
-	    struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
-	    ASSERT(ptr + header_arity(val) < end);
-	    ptr = move_boxed(ptr, val, &hp, &dummy_ref);
-	    switch (val & _HEADER_SUBTAG_MASK) {
-	    case REF_SUBTAG:
-		if (!is_magic_ref_thing(hdr))
-		    break;
-	    case REFC_BINARY_SUBTAG:
-	    case FUN_SUBTAG:
-	    case EXTERNAL_PID_SUBTAG:
-	    case EXTERNAL_PORT_SUBTAG:
-	    case EXTERNAL_REF_SUBTAG:
-		hdr->next = off_heap->first;
-		off_heap->first = hdr;
-		break;
-	    }
-	}
-	else { /* must be a cons cell */
-	    ASSERT(ptr+1 < end);
-	    move_cons(ptr, val, &hp, &dummy_ref);
-	    ptr += 2;
-	}
+        Eterm val;
+        ASSERT(ptr < end);
+        val = *ptr;
+        ASSERT(val != ERTS_HOLE_MARKER);
+
+        if (is_header(val)) {
+            struct erl_off_heap_header* hdr = (struct erl_off_heap_header*)hp;
+
+            ASSERT(ptr + header_arity(val) < end);
+            ptr = move_boxed(ptr, val, &hp, &dummy_ref);
+
+            switch (val & _HEADER_SUBTAG_MASK) {
+            case REF_SUBTAG:
+                if (!is_magic_ref_thing(hdr)) {
+                    break;
+                }
+            case REFC_BINARY_SUBTAG:
+            case EXTERNAL_PID_SUBTAG:
+            case EXTERNAL_PORT_SUBTAG:
+            case EXTERNAL_REF_SUBTAG:
+                hdr->next = off_heap->first;
+                off_heap->first = hdr;
+                break;
+            case FUN_SUBTAG:
+                {
+                    ErlFunThing *funp = (ErlFunThing*)hdr;
+
+                    if (is_local_fun(funp)) {
+                        hdr->next = off_heap->first;
+                        off_heap->first = hdr;
+                    } else {
+                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+                    }
+                }
+                break;
+            }
+        } else { /* must be a cons cell */
+            ASSERT(ptr+1 < end);
+            move_cons(ptr, val, &hp, &dummy_ref);
+            ptr += 2;
+        }
     }
+
     *hpp = hp;
     OH_OVERHEAD(off_heap, frag->off_heap.overhead);
     frag->off_heap.first = NULL;

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,5 +35,5 @@
   {registered, []},
   {applications, [stdlib, kernel]},
   {env, []},
-  {runtime_dependencies, ["stdlib-2.0","kernel-3.0","erts-6.0"]}
+  {runtime_dependencies, ["stdlib-3.13","kernel-3.0","erts-6.0"]}
  ]}.

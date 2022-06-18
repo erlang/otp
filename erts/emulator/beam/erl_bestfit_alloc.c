@@ -735,7 +735,7 @@ bf_link_free_block(Allctr_t *allctr, Block_t *block)
 		    BF_LIST_PREV(BF_LIST_NEXT(x)) = blk;
 		BF_LIST_NEXT(x) = blk;
 
-		return; /* Finnished */
+		return; /* Finished */
 	    }
 	    else if (blk_sz < size) {
 		if (!x->left) {
@@ -1009,11 +1009,11 @@ static void print_tree(RBTree_t *, int);
 
 /*
  * Checks that the order between parent and children are correct,
- * and that the Red-Black Tree properies are satisfied. if size > 0,
+ * and that the Red-Black Tree properties are satisfied. if size > 0,
  * check_tree() returns a node that satisfies "best fit" resp.
  * "address order best fit".
  *
- * The Red-Black Tree properies are:
+ * The Red-Black Tree properties are:
  *   1. Every node is either red or black.
  *   2. Every leaf (NIL) is black.
  *   3. If a node is red, then both its children are black.

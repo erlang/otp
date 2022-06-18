@@ -22,7 +22,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 
 #include "../core/api-build_p.h"
-#if defined(ASMJIT_BUILD_X86) && ASMJIT_ARCH_X86
+#if !defined(ASMJIT_NO_X86) && ASMJIT_ARCH_X86
 
 #include "../core/cpuinfo.h"
 #include "../core/support.h"
@@ -449,4 +449,4 @@ ASMJIT_FAVOR_SIZE void detectCpu(CpuInfo& cpu) noexcept {
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // ASMJIT_BUILD_X86 && ASMJIT_ARCH_X86
+#endif // !ASMJIT_NO_X86 && ASMJIT_ARCH_X86

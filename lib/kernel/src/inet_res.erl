@@ -355,40 +355,42 @@ gethostbyaddr(IP,Timeout) ->
     _ = inet:stop_timer(Timer),
     Res.    
 
-gethostbyaddr_tm({A,B,C,D} = IP, Timer) when ?ip(A,B,C,D) ->
-    inet_db:res_update_conf(),
-    case inet_db:gethostbyaddr(IP) of
-	{ok, HEnt} -> {ok, HEnt};
-	_ -> res_gethostbyaddr(dn_in_addr_arpa(A,B,C,D), IP, Timer)
-    end;
-gethostbyaddr_tm({A,B,C,D,E,F,G,H} = IP, Timer) when ?ip6(A,B,C,D,E,F,G,H) ->
-    inet_db:res_update_conf(),
-    case inet_db:gethostbyaddr(IP) of
-	{ok, HEnt} -> {ok, HEnt};
-	_ -> res_gethostbyaddr(dn_ip6_int(A,B,C,D,E,F,G,H), IP, Timer)
-    end;
-gethostbyaddr_tm(Addr,Timer) when is_list(Addr) ->
+gethostbyaddr_tm(Addr, Timer) when is_atom(Addr) ->
+    gethostbyaddr_tm(atom_to_list(Addr), Timer);
+gethostbyaddr_tm(Addr, Timer) when is_list(Addr) ->
     case inet_parse:address(Addr) of
-	{ok, IP} -> gethostbyaddr_tm(IP,Timer);
+	{ok, IP} -> gethostbyaddr_tm(IP, Timer);
 	_Error -> {error, formerr}
     end;
-gethostbyaddr_tm(Addr,Timer) when is_atom(Addr) ->
-    gethostbyaddr_tm(atom_to_list(Addr),Timer);
-gethostbyaddr_tm(_,_) -> {error, formerr}.
-
-%%
-%%  Send the gethostbyaddr query to:
-%%  1. the list of normal names servers
-%%  2. the list of alternative name servers
-%%
-res_gethostbyaddr(Addr, IP, Timer) ->
-    case res_query(Addr, in, ptr, [], Timer) of
-	{ok, Rec} ->
-	    inet_db:res_gethostbyaddr(IP, Rec);
-	{error,{qfmterror,_}} -> {error,einval};
-	{error,{Reason,_}} -> {error,Reason};
-	Error ->
-	    Error
+gethostbyaddr_tm(IP, Timer) ->
+    %% The call to norm_ip/1 here translates a lookup of
+    %% ::ffff:A.B.C.D (AAAA in ...ip6.arpa) into a plain
+    %% A.B.C.D (A in ...in-addr.arpa) lookup, and pretends
+    %% the result as if it was from the original IPv6 lookup
+    %%
+    case dn_ip(norm_ip(IP)) of
+        {error, _} = Error ->
+            Error;
+        Name ->
+            %% Try cached first
+            inet_db:res_update_conf(),
+            case inet_db:gethostbyaddr(Name, IP) of
+                {ok, _HEnt} = Result ->
+                    Result;
+                {error, nxdomain} ->
+                    %% Do a resolver lookup
+                    case res_query(Name, in, ?S_PTR, [], Timer) of
+                        {ok, Rec} ->
+                            %% Process and cache DNS Record
+                            inet_db:res_gethostbyaddr(Name, IP, Rec);
+                        {error,{qfmterror,_}} ->
+                            {error,einval};
+                        {error,{Reason,_}} ->
+                            {error,Reason};
+                        Error ->
+                            Error
+                    end
+            end
     end.
 
 %% --------------------------------------------------------------------------
@@ -479,12 +481,17 @@ getbyname_tm(Name, Type, Timer) when is_list(Name) ->
     case type_p(Type) of
 	true ->
 	    case inet_parse:visible_string(Name) of
-		false -> {error, formerr};
+		false ->
+                    {error, formerr};
 		true ->
+                    %% Try cached first
 		    inet_db:res_update_conf(),
 		    case inet_db:getbyname(Name, Type) of
-			{ok, HEnt} -> {ok, HEnt};
-			_ -> res_getbyname(Name, Type, Timer)
+			{ok, HEnt} ->
+                            {ok, HEnt};
+			_ ->
+                            %% Do a resolver lookup
+                            res_getbyname(Name, Type, Timer)
 		    end
 	    end;
 	false ->
@@ -577,6 +584,7 @@ res_getby_search(_Name, [], Reason,_,_) ->
 res_getby_query(Name, Type, Timer) ->
     case res_query(Name, in, Type, [], Timer) of
 	{ok, Rec} ->
+            %% Process and cache DNS Record
 	    inet_db:res_hostent_by_domain(Name, Type, Rec);
 	{error,{qfmterror,_}} -> {error,einval};
 	{error,{Reason,_}} -> {error,Reason};
@@ -586,6 +594,7 @@ res_getby_query(Name, Type, Timer) ->
 res_getby_query(Name, Type, Timer, NSs) ->
     case res_query(Name, in, Type, [], Timer, NSs) of
 	{ok, Rec} ->
+            %% Process and cache DNS Record
 	    inet_db:res_hostent_by_domain(Name, Type, Rec);
 	{error,{qfmterror,_}} -> {error,einval};
 	{error,{Reason,_}} -> {error,Reason};
@@ -649,6 +658,7 @@ make_query(Dname, Class, Type, Opts) ->
 make_query(Dname, Class, Type, Options, Edns) ->
     Id = inet_db:res_option(next_id),
     Recurse = Options#options.recurse,
+    RD = Recurse =:= 1 orelse Recurse =:= true, % (0 | 1 | true | false)
     ARList = case Edns of
 		 false -> [];
 		 _ ->
@@ -656,17 +666,18 @@ make_query(Dname, Class, Type, Options, Edns) ->
 		     [#dns_rr_opt{udp_payload_size=PSz,
 				  version=Edns}]
 	     end,
-    Msg = #dns_rec{header=#dns_header{id=Id, 
+    Msg = #dns_rec{header=#dns_header{id=Id,
+                                      qr=false,
 				      opcode='query',
-				      rd=Recurse,
+				      rd=RD,
 				      rcode=?NOERROR},
-		    qdlist=[#dns_query{domain=Dname, 
-				       type=Type, 
-				       class=Class}],
+                   qdlist=[#dns_query{domain=Dname,
+                                      type=Type,
+                                      class=Class}],
 		   arlist=ARList},
     ?verbose(Options#options.verbose, "Query: ~p~n", [dns_msg(Msg)]),
     Buffer = inet_dns:encode(Msg),
-    {Id, Buffer}.
+    {Msg, Buffer}.
 
 %% --------------------------------------------------------------------------
 %% socket helpers
@@ -820,13 +831,13 @@ query_nss_edns(
   #q{options =
          #options{
             udp_payload_size = PSz}=Options,
-     edns = {Id,Buffer}}=Q,
+     edns = EDNSQuery}=Q,
   [NsSpec|NSs], Timer, Retry, I, S_0, Reason, RetryNSs) ->
     %%
     {IP,Port} = NS = servfail_retry_wait(NsSpec),
     {S,Result} =
 	query_ns(
-          S_0, Id, Buffer, IP, Port, Timer, Retry, I, Options, PSz),
+          S_0, EDNSQuery, IP, Port, Timer, Retry, I, Options, PSz),
     case Result of
 	{error,{E,_}}
           when E =:= qfmterror;
@@ -848,19 +859,21 @@ query_nss_edns(
     end.
 
 query_nss_dns(
-  #q{dns = Qdns}=Q_0,
+  #q{dns = DNSQuery_0}=Q_0,
   [NsSpec|NSs], Timer, Retry, I, S_0, Reason, RetryNSs) ->
     %%
     {IP,Port} = NS = servfail_retry_wait(NsSpec),
     #q{options = Options,
-       dns = {Id,Buffer}}=Q =
+       dns = DNSQuery}=Q =
 	if
-	    is_function(Qdns, 0) -> Q_0#q{dns=Qdns()};
-	    true -> Q_0
+	    is_function(DNSQuery_0, 0) ->
+                Q_0#q{dns=DNSQuery_0()};
+	    true ->
+                Q_0
 	end,
     {S,Result} =
 	query_ns(
-	  S_0, Id, Buffer, IP, Port, Timer, Retry, I, Options, ?PACKETSZ),
+	  S_0, DNSQuery, IP, Port, Timer, Retry, I, Options, ?PACKETSZ),
     query_nss_result(
       Q, NSs, Timer, Retry, I, S, Reason, RetryNSs, NS, Result).
 
@@ -952,14 +965,14 @@ query_retries_error(#q{options=#options{nxdomain_reply=NxReply}}, S, Reason) ->
     end.
 
 
-query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
+query_ns(S0, {Msg, Buffer}, IP, Port, Timer, Retry, I,
 	 #options{timeout=Tm,usevc=UseVC,verbose=Verbose},
 	 PSz) ->
     case UseVC orelse iolist_size(Buffer) > PSz of
 	true ->
 	    TcpTimeout = inet:timeout(Tm*5, Timer),
 	    {S0,
-             query_tcp(TcpTimeout, Id, Buffer, IP, Port, Verbose)};
+             query_tcp(TcpTimeout, Msg, Buffer, IP, Port, Verbose)};
 	false ->
 	    case udp_open(S0, IP) of
 		{ok,S} ->
@@ -967,13 +980,13 @@ query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
 			inet:timeout( (Tm * (1 bsl I)) div Retry, Timer),
 		     case
                          query_udp(
-                           S, Id, Buffer, IP, Port, UdpTimeout, Verbose)
+                           S, Msg, Buffer, IP, Port, UdpTimeout, Verbose)
                      of
 			 {ok,#dns_rec{header=H}} when H#dns_header.tc ->
 			     TcpTimeout = inet:timeout(Tm*5, Timer),
 			     {S,
                               query_tcp(
-                                TcpTimeout, Id, Buffer, IP, Port, Verbose)};
+                                TcpTimeout, Msg, Buffer, IP, Port, Verbose)};
 			{error, econnrefused} = Err ->
                             ok = udp_close(S),
 	                    {#sock{}, Err};
@@ -984,9 +997,9 @@ query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
 	    end
     end.
 
-query_udp(_S, _Id, _Buffer, _IP, _Port, 0, _Verbose) ->
+query_udp(_S, _Msg, _Buffer, _IP, _Port, 0, _Verbose) ->
     timeout;
-query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
+query_udp(S, Msg, Buffer, IP, Port, Timeout, Verbose) ->
     ?verbose(Verbose, "Try UDP server : ~p:~p (timeout=~w)\n",
 	     [IP,Port,Timeout]),
     case
@@ -999,7 +1012,7 @@ query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
 	    Decode =
 		fun ({RecIP,RecPort,Answer})
 		      when RecIP =:= IP, RecPort =:= Port ->
-			case decode_answer(Answer, Id, Verbose) of
+			case decode_answer(Answer, Msg, Verbose) of
 			    {error,badid} ->
 				false;
 			    Reply ->
@@ -1020,9 +1033,9 @@ query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
 	    {error,econnrefused}
     end.
 
-query_tcp(0, _Id, _Buffer, _IP, _Port, _Verbose) ->
+query_tcp(0, _Msg, _Buffer, _IP, _Port, _Verbose) ->
     timeout;
-query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
+query_tcp(Timeout, Msg, Buffer, IP, Port, Verbose) ->
     ?verbose(Verbose, "Try TCP server : ~p:~p (timeout=~w)\n",
 	     [IP, Port, Timeout]),
     Family = case IP of
@@ -1038,7 +1051,7 @@ query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
 		    case gen_tcp:recv(S, 0, Timeout) of
 			{ok, Answer} ->
 			    gen_tcp:close(S),
-			    case decode_answer(Answer, Id, Verbose) of
+			    case decode_answer(Answer, Msg, Verbose) of
 				{ok, _} = OK -> OK;
 				{error, badid} -> {error, servfail};
 				Error -> Error
@@ -1062,36 +1075,61 @@ query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
 	_:_ -> {error, einval}
     end.
 
-decode_answer(Answer, Id, Verbose) ->
+decode_answer(Answer, Q_Msg, Verbose) ->
     case inet_dns:decode(Answer) of
-	{ok, Msg} ->
+	{ok, #dns_rec{header = H, arlist = ARList} = Msg} ->
 	    ?verbose(Verbose, "Got reply: ~p~n", [dns_msg(Msg)]),
-	    E = case lists:keyfind(dns_rr_opt, 1, Msg#dns_rec.arlist) of
+	    E = case lists:keyfind(dns_rr_opt, 1, ARList) of
 		    false -> 0;
 		    #dns_rr_opt{ext_rcode=ExtRCode} -> ExtRCode
 		end,
-	    H = Msg#dns_rec.header,
 	    RCode = (E bsl 4) bor H#dns_header.rcode,
 	    case RCode of
-		?NOERROR ->
-		    if H#dns_header.id =/= Id ->
-			    {error,badid};
-		       length(Msg#dns_rec.qdlist) =/= 1 ->
-			    {error,{noquery,Msg}};
-		       true ->
-			    {ok, Msg}
-		    end;
+		?NOERROR  -> decode_answer_noerror(Q_Msg, Msg, H);
 		?FORMERR  -> {error,{qfmterror,Msg}};
 		?SERVFAIL -> {error,{servfail,Msg}};
 		?NXDOMAIN -> {error,{nxdomain,Msg}};
 		?NOTIMP   -> {error,{notimp,Msg}};
 		?REFUSED  -> {error,{refused,Msg}};
 		?BADVERS  -> {error,{badvers,Msg}};
-		_ ->         {error,{unknown,Msg}}
+		_         -> {error,{unknown,Msg}}
 	    end;
 	{error, formerr} = Error ->
 	    ?verbose(Verbose, "Got reply: decode format error~n", []),
 	    Error
+    end.
+
+decode_answer_noerror(
+  #dns_rec{header = Q_H, qdlist = [Q_RR]},
+  #dns_rec{qdlist = QDList} = Msg,
+  H) ->
+    %% Validate the reply
+    if
+        H#dns_header.id     =/= Q_H#dns_header.id ->
+            {error,badid};
+        H#dns_header.qr     =/= true;
+        H#dns_header.opcode =/= Q_H#dns_header.opcode;
+        H#dns_header.rd     =/= Q_H#dns_header.rd ->
+            {error,{unknown,Msg}};
+        true ->
+            case QDList of
+                [RR] ->
+                    case
+                        (RR#dns_query.class =:= Q_RR#dns_query.class)
+                        andalso
+                        (RR#dns_query.type =:= Q_RR#dns_query.type)
+                        andalso
+                        inet_db:eq_domains(
+                          RR#dns_query.domain, Q_RR#dns_query.domain)
+                    of
+                        true ->
+                            {ok, Msg};
+                        false ->
+                            {error,{noquery,Msg}}
+                    end;
+                _ when is_list(QDList) ->
+                    {error,{noquery,Msg}}
+            end
     end.
 
 %%
@@ -1099,59 +1137,85 @@ decode_answer(Answer, Id, Verbose) ->
 %% 1.  "a.b.c"    => 
 %%       "a.b.c"
 %% 2.  "1.2.3.4"  =>  
-%%       "4.3.2.1.IN-ADDR.ARPA"
+%%       "4.3.2.1.in-addr.arpa"
 %% 3.  "4321:0:1:2:3:4:567:89ab" =>
-%%      "b.a.9.8.7.6.5.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.1.2.3.4.IP6.ARPA"
+%%      "b.a.9.8.7.6.5.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.1.2.3.4.ip6.arpa"
 %% 4.  {1,2,3,4} => as 2.
 %% 5.  {1,2,3,4,5,6,7,8} => as 3.
+%% 6.  Atom -> Recurse(String(Atom))
+%% 7.  Term => {error, formerr}
 %%
-nsdname({A,B,C,D}) -> 
-    {ok, dn_in_addr_arpa(A,B,C,D)};
-nsdname({A,B,C,D,E,F,G,H}) -> 
-    {ok, dn_ip6_int(A,B,C,D,E,F,G,H)};
+nsdname(Name) when is_atom(Name) ->
+    nsdname(atom_to_list(Name));
 nsdname(Name) when is_list(Name) ->
     case inet_parse:visible_string(Name) of
 	true ->
 	    case inet_parse:address(Name) of
-		{ok, Addr} -> 
-		    nsdname(Addr);
+		{ok, IP} ->
+                    dn_ip(IP);
 		_ ->
 		    {ok, Name}
 	    end;
 	_ -> {error, formerr}
     end;
-nsdname(Name) when is_atom(Name) ->
-    nsdname(atom_to_list(Name));
-nsdname(_) -> {error, formerr}.
+nsdname(IP) ->
+    dn_ip(IP).
 
-dn_in_addr_arpa(A,B,C,D) ->
-    integer_to_list(D) ++
-	("." ++	integer_to_list(C) ++ 
-	 ("." ++ integer_to_list(B) ++
-	  ("." ++ integer_to_list(A) ++ ".IN-ADDR.ARPA"))).
-
-dn_ip6_int(A,B,C,D,E,F,G,H) ->
-    dnib(H) ++ 
-	(dnib(G) ++ 
-	 (dnib(F) ++ 
-	  (dnib(E) ++ 
-	   (dnib(D) ++ 
-	    (dnib(C) ++ 
-	     (dnib(B) ++ 
-	      (dnib(A) ++ "IP6.ARPA"))))))).
-
-
-
--compile({inline, [dnib/1, dnib/3]}).
-dnib(X) ->
-    L = erlang:integer_to_list(X, 16),
-    dnib(4-length(L), L, []).
+%% Return the domain name for a PTR lookup of
+%% the argument IP address
 %%
-dnib(0, [], Acc) -> Acc;
-dnib(0, [C|Cs], Acc) ->
-    dnib(0, Cs, [C,$.|Acc]);
-dnib(N, Cs, Acc) ->
-    dnib(N-1, Cs, [$0,$.|Acc]).
+dn_ip({A,B,C,D}) when ?ip(A,B,C,D) ->
+    dn_ipv4([A,B,C,D], "in-addr.arpa");
+dn_ip({A,B,C,D,E,F,G,H}) when ?ip6(A,B,C,D,E,F,G,H) ->
+    dn_ipv6([A,B,C,D,E,F,G,H], "ip6.arpa");
+dn_ip(_) ->
+    {error, formerr}.
+
+dn_ipv4([], Dn) ->
+    Dn;
+dn_ipv4([A | As], Dn_0) when is_integer(A), A =< 255 ->
+    Dn = [$. | Dn_0],
+    if
+        A < 10 ->
+            dn_ipv4(As, dn_dec(A, Dn));
+        A < 100 ->
+            dn_ipv4(As, dn_dec(A div 10, dn_dec(A rem 10, Dn)));
+        true ->
+            B = A rem 100,
+            dn_ipv4(
+              As,
+              dn_dec(A div 100, dn_dec(B div 10, dn_dec(B rem 10, Dn))))
+    end.
+
+dn_ipv6([], Dn) ->
+    Dn;
+dn_ipv6([W | Ws], Dn) when is_integer(W), W =< 16#ffff ->
+    D = W band 16#f,   W_1 = W bsr 4,
+    C = W_1 band 16#f, W_2 = W_1 bsr 4,
+    B = W_2 band 16#f,
+    A = W_2 bsr 4,
+    dn_ipv6(Ws, dn_hex(D, dn_hex(C, dn_hex(B, dn_hex(A, Dn))))).
+
+-compile({inline, [dn_dec/2, dn_hex/2]}).
+dn_dec(N, Tail) when is_integer(N) ->
+    [N + $0 | Tail].
+
+dn_hex(N, Tail) when is_integer(N) ->
+    if
+        N < 10 ->
+            [N + $0, $. | Tail];
+        true ->
+            [(N - 10) + $a, $. | Tail]
+end.
+
+%% Normalize an IPv4-compatible IPv6 address
+%% into a plain IPv4 address
+%%
+norm_ip({0,0,0,0,0,16#ffff,G,H}) ->
+    A = G bsr 8, B = G band 16#ff, C = H bsr 8, D = H band 16#ff,
+    {A,B,C,D};
+norm_ip(IP) ->
+    IP.
 
 
 

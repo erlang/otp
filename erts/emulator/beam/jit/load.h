@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,11 @@
  * Type for a label.
  */
 typedef struct {
-    Uint value;            /* Value of label (0 if not known yet). */
-    Uint looprec_targeted; /* Non-zero if this label is the target of a
-                            * loop_rec instruction. */
+    Uint value;           /* Value of label (0 if not known yet). */
+    int looprec_targeted; /* Non-zero if this label is the target of a
+                           * loop_rec instruction. */
+    int lambda_index;     /* The lambda index of this label, or -1 if not
+                           * a target of a lambda. */
 } Label;
 
 /*
@@ -41,8 +43,6 @@ typedef struct {
 
 /* This structure contains all information about the module being loaded. */
 struct LoaderState_ {
-    ErlDrvBinary *bin; /* Binary holding BEAM file (or NULL) */
-
     /*
      * The following are used mainly for diagnostics.
      */
@@ -89,8 +89,6 @@ struct LoaderState_ {
 
     int function_number;
     int last_label;
-
-    int otp_20_or_higher;
 
     BeamOpAllocator op_allocator;
     BeamFile beam;

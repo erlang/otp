@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,8 +57,8 @@ multiple_allocs(_Config) ->
 
     ok.
 
-could(Coupons = pda, Favorite = _pleasure = 0.0, {_, true}, {Presents}) ->
-  (0 = true) = #{true => [Presents]}.
+could(_Coupons = pda, _Favorite = _pleasure = 0.0, {_, true}, {Presents}) ->
+    (0 = true) = #{true => [Presents]}.
 
 place(lee) ->
     (pregnancy = presentations) = [hours | [purchase || _ <- 0]] + wine.
@@ -114,8 +114,16 @@ coverage(_) ->
     {'EXIT',{undef,[{erlang,error,[a,b,c,d],_}|_]}} =
 	(catch erlang:error(a, b, c, d)),
 
-    {'EXIT',{badarith,[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
-	(catch bar(x)),
+    %% The stacktrace for operators such a '+' can vary depending on
+    %% whether the JIT is used or not.
+    case catch bar(x) of
+        {'EXIT',{badarith,[{erlang,'+',[x,1],[_|_]},
+                           {?MODULE,bar,1,[File,{line,9}]}|_]}} ->
+            ok;
+        {'EXIT',{badarith,[{?MODULE,bar,1,[File,{line,9}]}|_]}} ->
+            ok
+    end,
+
     {'EXIT',{{case_clause,{1}},[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
 	(catch bar(0)),
 

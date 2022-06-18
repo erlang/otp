@@ -35,7 +35,7 @@
 %%   a database system.
 %%
 %%   The definition of the TPC-B states lots of detailed rules and
-%%   conditions that must be fullfilled, e.g. how the ACID (atomicity,
+%%   conditions that must be fulfilled, e.g. how the ACID (atomicity,
 %%   consistency, isolation and durability) properties are verified,
 %%   how the random numbers must be distributed, minimum sizes of
 %%   the different types of records, minimum duration of the benchmark,

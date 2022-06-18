@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -151,7 +151,7 @@ are_equivalent(_Succ, #b_blk{is=Is1,last=#b_ret{arg=RetVal1}=Ret1},
                     false
             end;
         {#b_var{},#b_var{}} ->
-            %% The return values are varibles. We must canonicalize
+            %% The return values are variables. We must canonicalize
             %% the blocks (including returns) and compare them.
             Can1 = canonical_is(Is1 ++ [Ret1]),
             Can2 = canonical_is(Is2 ++ [Ret2]),

@@ -29,6 +29,7 @@
 
 %% Includes
 -include_lib("wx/include/wx.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -include("observer_defs.hrl").
 
@@ -558,7 +559,7 @@ try_rpc(Node, Mod, Func, Args) ->
 return_to_localnode(Frame, Node) ->
     case node() =/= Node of
 	true ->
-	    create_txt_dialog(Frame, "Error occured on remote node",
+	    create_txt_dialog(Frame, "Error occurred on remote node",
 			      "Error", ?wxICON_ERROR),
 	    disconnect_node(Node);
 	false ->
@@ -658,14 +659,16 @@ create_connect_dialog(connect, #state{frame = Frame}) ->
     wxWindow:setSizerAndFit(Dialog, VSizer),
     wxSizer:setSizeHints(VSizer, Dialog),
     {ok,[[HomeDir]]} = init:get_argument(home),
-    CookiePath = filename:join(HomeDir, ".erlang.cookie"),
-    DefaultCookie = case filelib:is_file(CookiePath) of
-			true ->
-			    {ok, Bin} = file:read_file(CookiePath),
-			    binary_to_list(Bin);
-			false ->
-			    ""
-		    end,
+    XDGHome = filename:basedir(user_config,"erlang"),
+    DefaultCookie =
+        case file:path_open([HomeDir,XDGHome], ".erlang.cookie", [read]) of
+            {ok, File, _} ->
+                {ok, #file_info{ size = Sz }} = file:read_file_info(File),
+                {ok, Data} = file:read(File, Sz),
+                Data;
+            _ ->
+                ""
+        end,
     wxTextCtrl:setValue(CookieCtrl, DefaultCookie),
     case wxDialog:showModal(Dialog) of
 	?wxID_OK ->
@@ -833,7 +836,7 @@ is_rb_compatible(Node) ->
 
 is_rb_server_running(Node, LogState) ->
    %% If already started, somebody else may use it.
-   %% We cannot use it too, as far log file would be overriden. Not fair.
+   %% We cannot use it too, as far log file would be overridden. Not fair.
    case rpc:block_call(Node, erlang, whereis, [rb_server]) of
        Pid when is_pid(Pid), (LogState == false) ->
 	   throw("Error: rb_server is already started and maybe used by someone.");

@@ -1,0 +1,4 @@
+
+  [;1m-type non_neg_integer() :: non_neg_integer().[0m
+
+  A non-negative integer, that is any positive integer or 0.

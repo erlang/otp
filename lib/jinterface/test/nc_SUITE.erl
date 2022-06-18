@@ -125,8 +125,6 @@ end_per_testcase(_Case, Config) ->
 %% Test cases
 %%
 
-pid_roundtrip(doc) -> [];
-pid_roundtrip(suite) -> [];
 pid_roundtrip(Config) when is_list(Config)->
     ThisNode = {node(), erlang:system_info(creation)},
     RemPids = [mk_pid({gurka@sallad, Cr}, Num, Ser)
@@ -138,8 +136,6 @@ pid_roundtrip(Config) when is_list(Config)->
 	     | RemPids],
 	    Config).
 
-fun_roundtrip(doc) -> [];
-fun_roundtrip(suite) -> [];
 fun_roundtrip(Config) when is_list(Config)->
     do_echo([fun(A, B) -> A + B end,
 	     fun(A) -> lists:reverse(A) end,
@@ -148,8 +144,6 @@ fun_roundtrip(Config) when is_list(Config)->
              fun ?MODULE:fun_roundtrip/1],
 	    Config).
 
-port_roundtrip(doc) -> [];
-port_roundtrip(suite) -> [];
 port_roundtrip(Config) when is_list(Config)->
     ThisNode = {node(), erlang:system_info(creation)},
     RemPorts = [mk_port({gurka@sallad, Cr}, Num)
@@ -166,8 +160,6 @@ port_roundtrip(Config) when is_list(Config)->
 	     | RemPorts],
 	    Config).
 
-ref_roundtrip(doc) -> [];
-ref_roundtrip(suite) -> [];
 ref_roundtrip(Config) when is_list(Config)->
     ThisNode = {node(), erlang:system_info(creation)},
     RemRefs = [mk_ref({gurka@sallad, Cr}, Words)
@@ -183,8 +175,6 @@ ref_roundtrip(Config) when is_list(Config)->
 	     | RemRefs],
 	    Config).
 
-new_float(doc) -> [];
-new_float(suite) -> [];
 new_float(Config) when is_list(Config)->
     Two16 = float(1 bsl 16),
     X = math:sqrt(2),
@@ -193,8 +183,6 @@ new_float(Config) when is_list(Config)->
     io:format("~w", [Floats]),
     do_echo(Floats, Config).
 
-old_stuff(doc) -> [];
-old_stuff(suite) -> [];
 old_stuff(Config) when is_list(Config)->
     Terms = [0.0,math:sqrt(2)],
     OutTrans =
@@ -207,8 +195,6 @@ old_stuff(Config) when is_list(Config)->
 	end,
     do_echo(Terms, Config, OutTrans, InTrans).
 
-binary_roundtrip(doc) -> [];
-binary_roundtrip(suite) -> [];
 binary_roundtrip(Config) when is_list(Config) ->
     do_echo([<<17>>,
 	     <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17>>,
@@ -217,8 +203,6 @@ binary_roundtrip(Config) when is_list(Config) ->
 	     <<>>],
 	    Config).
 
-decompress_roundtrip(doc) -> [];
-decompress_roundtrip(suite) -> [];
 decompress_roundtrip(Config) when is_list(Config) ->
 	RandomBin = erlang:term_to_binary(lists:seq(1, 5 * 1024 * 1024)), % roughly 26MB
 	<<RandomBin1k:1024/binary,_/binary>> = RandomBin,
@@ -247,8 +231,6 @@ decompress_roundtrip(Config) when is_list(Config) ->
 	end,
     do_echo(Terms, Config, OutTrans, InTrans).
 
-compress_roundtrip(doc) -> [];
-compress_roundtrip(suite) -> [];
 compress_roundtrip(Config) when is_list(Config) ->
 	RandomBin = erlang:term_to_binary(lists:seq(1, 5 * 1024 * 1024)), % roughly 26MB
 	<<RandomBin1k:1024/binary,_/binary>> = RandomBin,
@@ -279,8 +261,6 @@ compress_roundtrip(Config) when is_list(Config) ->
 
 
 
-integer_roundtrip(doc) -> [];
-integer_roundtrip(suite) -> [];
 integer_roundtrip(Config) when is_list(Config) ->
     Xs = [1 bsl X || X <- [26,27,28,29,30,31,32,33,
 			   62,63,64,65,
@@ -319,8 +299,6 @@ bitlength(V) when is_integer(V) ->
 
 
 
-lists_roundtrip(doc) -> [];
-lists_roundtrip(suite) -> [];
 lists_roundtrip(Config) when is_list(Config) ->
     Ls = [lists:seq(1,10),
 	  lists:seq(11,17)++last_tail,
@@ -332,8 +310,6 @@ lists_roundtrip(Config) when is_list(Config) ->
 
 
 
-lists_roundtrip_2(doc) -> [];
-lists_roundtrip_2(suite) -> [];
 lists_roundtrip_2(Config) when is_list(Config) ->
     Ls = [{[a,b],tail},
 	  {[c,d,e],tail},
@@ -385,8 +361,6 @@ lists_roundtrip_2(Config) when is_list(Config) ->
 
 
 
-lists_iterator(doc) -> [];
-lists_iterator(suite) -> [];
 lists_iterator(Config) when is_list(Config) ->
     Ls = [["able ","was ","I ","ere ","I ","saw ","elba"]],
     do_echo(Ls, Config,
@@ -398,8 +372,6 @@ lists_iterator(Config) when is_list(Config) ->
 
 
 
-unicode(doc) -> [];
-unicode(suite) -> [];
 unicode(Config) when is_list(Config) ->
     S1 = "plain ascii",
     S2 = "iso-latin åäö ñ",
@@ -447,8 +419,6 @@ unicode_cp_gen(Cont) when is_function(Cont, 0) ->
 
 
 
-unicode_list_to_string(doc) -> [];
-unicode_list_to_string(suite) -> [];
 unicode_list_to_string(Config) when is_list(Config) ->
     do_echo(cp_gen(73), Config,
 	    fun ({L,_}) -> {self(),L,to_string_neg_int_list} end,
@@ -469,8 +439,6 @@ unicode_list_to_string(Config) when is_list(Config) ->
 
 
 
-unicode_string_to_list(doc) -> [];
-unicode_string_to_list(suite) -> [];
 unicode_string_to_list(Config) when is_list(Config) ->
     do_echo(cp_gen(79), Config,
 	    fun ({L,_}) -> {self(),L,to_neg_int_list} end,
@@ -592,11 +560,8 @@ cp_validity(UnicodeCP) ->
 
 
 
-connect(doc) -> [];
-connect(suite) -> [];
 connect(Config) when is_list(Config) ->
-    WD = filename:dirname(code:which(?MODULE)),
-    {ok,Other} = test_server:start_node(make_name(), slave, [{args,"-pa "++WD}]),
+    {ok,Peer,Other} = ?CT_PEER(),
     Action =
 	fun (Pid) ->
 		JName = node(Pid),
@@ -628,7 +593,8 @@ connect(Config) when is_list(Config) ->
 		end,
 		Hidden = rpc:call(Other, erlang, nodes, [hidden])
 	end,
-    run_server(connection_server, Config, Action, []).
+    run_server(connection_server, Config, Action, []),
+    peer:stop(Peer).
 
 
 

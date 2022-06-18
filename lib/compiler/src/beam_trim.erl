@@ -21,7 +21,9 @@
 -module(beam_trim).
 -export([module/2]).
 
--import(lists, [any/2,member/2,reverse/1,reverse/2,sort/1]).
+-import(lists, [any/2,reverse/1,reverse/2,sort/1]).
+
+-include("beam_asm.hrl").
 
 -record(st,
 	{safe :: sets:set(beam_asm:label()) %Safe labels.
@@ -210,10 +212,18 @@ expand_recipe({Layout,Trim,Moves}, FrameSize) ->
     end.
 
 create_map(Trim, []) ->
-    fun({y,Y}) when Y < Trim -> throw(not_possible);
-       ({y,Y}) -> {y,Y-Trim};
-       ({frame_size,N}) -> N - Trim;
-       (Any) -> Any
+    fun({y,Y}) when Y < Trim ->
+            throw(not_possible);
+       ({y,Y}) ->
+            {y,Y-Trim};
+       (#tr{r={y,Y}}) when Y < Trim ->
+            throw(not_possible);
+       (#tr{r={y,Y},t=Type}) ->
+            #tr{r={y,Y-Trim},t=Type};
+       ({frame_size,N}) ->
+            N - Trim;
+       (Any) ->
+            Any
     end;
 create_map(Trim, Moves) ->
     Map0 = [{Src,Dst-Trim} || {move,{y,Src},{y,Dst}} <- Moves],
@@ -225,12 +235,24 @@ create_map(Trim, Moves) ->
                 #{} -> throw(not_possible)
             end;
        ({y,Y}) ->
-	    case sets:is_element(Y, IllegalTargets) of
-		true -> throw(not_possible);
-		false -> {y,Y-Trim}
-	    end;
-       ({frame_size,N}) -> N - Trim;
-       (Any) -> Any
+            case sets:is_element(Y, IllegalTargets) of
+                true -> throw(not_possible);
+                false -> {y,Y-Trim}
+            end;
+       (#tr{r={y,Y0},t=Type}) when Y0 < Trim ->
+            case Map of
+                #{Y0:=Y} -> #tr{r={y,Y},t=Type};
+                #{} -> throw(not_possible)
+            end;
+       (#tr{r={y,Y},t=Type}) ->
+            case sets:is_element(Y, IllegalTargets) of
+                true -> throw(not_possible);
+                false -> #tr{r={y,Y-Trim},t=Type}
+            end;
+       ({frame_size,N}) ->
+            N - Trim;
+       (Any) ->
+            Any
     end.
 
 remap([{'%',Comment}=I|Is], Map, Acc) ->
@@ -269,14 +291,6 @@ remap([{gc_bif,Name,Fail,Live,Ss,D}|Is], Map, Acc) ->
 remap([{get_map_elements,Fail,M,{list,L0}}|Is], Map, Acc) ->
     L = [Map(E) || E <- L0],
     I = {get_map_elements,Fail,Map(M),{list,L}},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_init,Fail,Info,Live,Ss0,Dst0}|Is], Map, Acc) ->
-    Ss = [Map(Src) || Src <- Ss0],
-    Dst = Map(Dst0),
-    I = {bs_init,Fail,Info,Live,Ss,Dst},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_put=Op,Fail,Info,Ss}|Is], Map, Acc) ->
-    I = {Op,Fail,Info,[Map(S) || S <- Ss]},
     remap(Is, Map, [I|Acc]);
 remap([{init_yregs,{list,Yregs0}}|Is], Map, Acc) ->
     Yregs = sort([Map(Y) || Y <- Yregs0]),
@@ -357,7 +371,8 @@ is_safe_label([{call_ext,_,{extfunc,M,F,A}}|_]) ->
 is_safe_label(_) -> false.
 
 is_safe_label_block([{set,Ds,Ss,_}|Is]) ->
-    IsYreg = fun({y,_}) -> true;
+    IsYreg = fun(#tr{r={y,_}}) -> true;
+                ({y,_}) -> true;
                 (_) -> false
              end,
     %% This instruction is safe if the instruction
@@ -418,10 +433,6 @@ frame_size([{test,_,{f,L},_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
 frame_size([{test,_,{f,L},_,_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
-frame_size([{bs_init,{f,L},_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_put,{f,L},_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
 frame_size([{init_yregs,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
@@ -480,10 +491,6 @@ is_not_used(Y, [{block,Bl}|Is]) ->
     end;
 is_not_used(Y, [{bs_get_tail,Src,Dst,_}|Is]) ->
     is_not_used_ss_dst(Y, [Src], Dst, Is);
-is_not_used(Y, [{bs_init,_,_,_,Ss,Dst}|Is]) ->
-    is_not_used_ss_dst(Y, Ss, Dst, Is);
-is_not_used(Y, [{bs_put,{f,_},_,Ss}|Is]) ->
-    not member(Y, Ss) andalso is_not_used(Y, Is);
 is_not_used(Y, [{bs_start_match4,_Fail,_Live,Src,Dst}|Is]) ->
     Y =/= Src andalso Y =/= Dst andalso
         is_not_used(Y, Is);
@@ -502,14 +509,14 @@ is_not_used(Y, [{gc_bif,_,{f,_},_Live,Ss,Dst}|Is]) ->
     is_not_used_ss_dst(Y, Ss, Dst, Is);
 is_not_used(Y, [{get_map_elements,{f,_},S,{list,List}}|Is]) ->
     {Ss,Ds} = beam_utils:split_even(List),
-    case member(Y, [S|Ss]) of
+    case is_y_member(Y, [S|Ss]) of
 	true ->
 	    false;
 	false ->
-            member(Y, Ds) orelse is_not_used(Y, Is)
+            is_y_member(Y, Ds) orelse is_not_used(Y, Is)
     end;
 is_not_used(Y, [{init_yregs,{list,Yregs}}|Is]) ->
-    member(Y, Yregs) orelse is_not_used(Y, Is);
+    is_y_member(Y, Yregs) orelse is_not_used(Y, Is);
 is_not_used(Y, [{line,_}|Is]) ->
     is_not_used(Y, Is);
 is_not_used(Y, [{make_fun2,_,_,_,_}|Is]) ->
@@ -523,16 +530,16 @@ is_not_used(Y, [{recv_marker_reserve,Dst}|Is]) ->
 is_not_used(Y, [{swap,Reg1,Reg2}|Is]) ->
     Y =/= Reg1 andalso Y =/= Reg2 andalso is_not_used(Y, Is);
 is_not_used(Y, [{test,_,_,Ss}|Is]) ->
-    not member(Y, Ss) andalso is_not_used(Y, Is);
+    not is_y_member(Y, Ss) andalso is_not_used(Y, Is);
 is_not_used(Y, [{test,_Op,{f,_},_Live,Ss,Dst}|Is]) ->
     is_not_used_ss_dst(Y, Ss, Dst, Is).
 
 is_not_used_block(Y, [{set,Ds,Ss,_}|Is]) ->
-    case member(Y, Ss) of
+    case is_y_member(Y, Ss) of
         true ->
             used;
         false ->
-            case member(Y, Ds) of
+            case is_y_member(Y, Ds) of
                 true ->
                     killed;
                 false ->
@@ -542,4 +549,13 @@ is_not_used_block(Y, [{set,Ds,Ss,_}|Is]) ->
 is_not_used_block(_Y, []) -> transparent.
 
 is_not_used_ss_dst(Y, Ss, Dst, Is) ->
-    not member(Y, Ss) andalso (Y =:= Dst orelse is_not_used(Y, Is)).
+    not is_y_member(Y, Ss) andalso (Y =:= Dst orelse is_not_used(Y, Is)).
+
+is_y_member({y,N0}, Ss) ->
+    any(fun(#tr{r={y,N}}) ->
+                N =:= N0;
+           ({y,N}) ->
+                N =:= N0;
+           (_) ->
+                false
+        end, Ss).

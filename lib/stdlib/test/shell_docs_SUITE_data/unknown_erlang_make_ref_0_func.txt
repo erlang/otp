@@ -5,7 +5,7 @@
   connected nodes.
 
   Warning:
-    Known issue: When a node is restarted multiple times with the
+    Before OTP-23 when a node is restarted multiple times with the
     same node name, references created on a newer node can be
     mistaken for a reference created on an older node with the
     same node name.

@@ -235,6 +235,35 @@ types(erlang, 'list_to_bitstring', [_]) ->
     %% As list_to_binary but with bitstrings rather than binaries.
     sub_unsafe(#t_bitstring{}, [proper_list()]);
 
+%% Process operations
+types(erlang, alias, [_]) ->
+    sub_unsafe(reference, [any]);
+types(erlang, alias, [_, _]) ->
+    sub_unsafe(reference, [any, proper_list()]);
+types(erlang, monitor, [_, _]) ->
+    sub_unsafe(reference, [any, any]);
+types(erlang, monitor, [_, _, _]) ->
+    sub_unsafe(reference, [any, any, proper_list()]);
+types(erlang, 'spawn', [_]) ->
+    sub_unsafe(pid, [#t_fun{arity=0}]);
+types(erlang, 'spawn', [_, _]) ->
+    sub_unsafe(pid, [#t_atom{}, #t_fun{arity=0}]);
+types(erlang, 'spawn', [_, _, _]) ->
+    sub_unsafe(pid, [#t_atom{}, #t_atom{}, proper_list()]);
+types(erlang, 'spawn_link', Args) ->
+    types(erlang, 'spawn', Args);
+types(erlang, 'spawn_monitor', [_]) ->
+    RetType = make_two_tuple(pid, reference),
+    sub_unsafe(RetType, [#t_fun{arity=0}]);
+types(erlang, 'spawn_monitor', [_, _]) ->
+    RetType = make_two_tuple(pid, reference),
+    sub_unsafe(RetType, [#t_atom{}, #t_fun{arity=0}]);
+types(erlang, 'spawn_monitor', [_, _, _]) ->
+    RetType = make_two_tuple(pid, reference),
+    sub_unsafe(RetType, [#t_atom{}, #t_atom{}, proper_list()]);
+types(erlang, 'spawn_request', [_ | _]=Args) when length(Args) =< 5 ->
+    sub_unsafe(reference, [any || _ <- Args]);
+
 %% Misc ops.
 types(erlang, 'binary_part', [_, _]) ->
     PosLen = make_two_tuple(#t_integer{}, #t_integer{}),
@@ -249,6 +278,8 @@ types(erlang, 'is_map_key', [Key, Map]) ->
                   _ -> beam_types:make_boolean()
               end,
     sub_unsafe(RetType, [any, #t_map{}]);
+types(erlang, make_ref, []) ->
+    sub_unsafe(reference, []);
 types(erlang, 'map_get', [Key, Map]) ->
     RetType = erlang_map_get_type(Key, Map),
     sub_unsafe(RetType, [any, #t_map{}]);

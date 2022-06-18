@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -200,7 +200,7 @@ Accs = lists:foldl(fun({V,<<"ERL_NODE_INC">>,_},M) -> Val = maps:get(V,M,0), M#{
 lists:usort(lists:filter(fun({V,N}) -> N /= 0 end, maps:to_list(Accs))).
 
  * There are bound to be bugs in the the instrumentation code, but
- * atleast this is a place to start when hunting refc bugs.
+ * at least this is a place to start when hunting refc bugs.
  *
  */
 #ifdef ERL_NODE_BOOKKEEP

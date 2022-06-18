@@ -79,7 +79,7 @@ public abstract class AbstractConnection extends Thread {
     protected static final int unlinkIdTag = 35;
     protected static final int unlinkIdAckTag = 36;
 
-    // MD5 challenge messsage tags
+    // MD5 challenge message tags
     protected static final int ChallengeReply = 'r';
     protected static final int ChallengeAck = 'a';
     protected static final int ChallengeStatus = 's';
@@ -1062,7 +1062,7 @@ public abstract class AbstractConnection extends Thread {
                         + port);
             }
             final int send_name_tag = sendName(peer.distChoose, localNode.flags,
-                                               localNode.creation);
+                                               localNode.creation());
             recvStatus();
             final int her_challenge = recvChallenge();
             final byte[] our_digest = genDigest(her_challenge,
@@ -1187,14 +1187,14 @@ public abstract class AbstractConnection extends Thread {
             obuf.write1('c');
             final int flagsHigh = (int)(localNode.flags >> 32);
             obuf.write4BE(flagsHigh);
-            obuf.write4BE(localNode.creation);
+            obuf.write4BE(localNode.creation());
 
             obuf.writeToAndFlush(socket.getOutputStream());
 
             if (traceLevel >= handshakeThreshold) {
                 System.out.println("-> " + "HANDSHAKE sendComplement" +
                                    " flagsHigh=" + flagsHigh +
-                                   " creation=" + localNode.creation);
+                                   " creation=" + localNode.creation());
             }
         }
     }
@@ -1218,7 +1218,7 @@ public abstract class AbstractConnection extends Thread {
             obuf.write1('N');
             obuf.write8BE(our_flags);
             obuf.write4BE(challenge);
-            obuf.write4BE(localNode.creation);
+            obuf.write4BE(localNode.creation());
             obuf.write2BE(str.length());
             obuf.write(str.getBytes());
         }
@@ -1273,7 +1273,7 @@ public abstract class AbstractConnection extends Thread {
                 apeer.flags = ibuf.read8BE();
                 if ((apeer.flags & AbstractNode.dFlagHandshake23) == 0)
                     throw new IOException("Missing DFLAG_HANDSHAKE_23");
-                apeer.creation = ibuf.read4BE();
+                apeer.setCreation(ibuf.read4BE());
                 int namelen = ibuf.read2BE();
                 tmpname = new byte[namelen];
                 ibuf.readN(tmpname);
@@ -1283,14 +1283,13 @@ public abstract class AbstractConnection extends Thread {
                 throw new IOException("Unknown remote node type");
             }
 
-            if ((apeer.flags & AbstractNode.dFlagExtendedReferences) == 0) {
-                throw new IOException(
-                        "Handshake failed - peer cannot handle extended references");
+            if ((apeer.flags & AbstractNode.dFlagMandatory25Digest) != 0) {
+                apeer.flags |= AbstractNode.mandatoryFlags25;
             }
 
-            if ((apeer.flags & AbstractNode.dFlagExtendedPidsPorts) == 0) {
+            if ((apeer.flags & AbstractNode.mandatoryFlags) != AbstractNode.mandatoryFlags) {
                 throw new IOException(
-                        "Handshake failed - peer cannot handle extended pids and ports");
+                        "Handshake failed - peer cannot handle all mandatory capabilities");
             }
 
         } catch (final OtpErlangDecodeException e) {
@@ -1335,7 +1334,7 @@ public abstract class AbstractConnection extends Thread {
                 if ((peer.flags & AbstractNode.dFlagHandshake23) == 0)
                     throw new IOException("New challenge missing DFLAG_HANDHAKE_23");
                 challenge = ibuf.read4BE();
-                peer.creation = ibuf.read4BE();
+                peer.setCreation(ibuf.read4BE());
                 namelen = ibuf.read2BE();
                 break;
             default:
@@ -1349,14 +1348,13 @@ public abstract class AbstractConnection extends Thread {
                         "Handshake failed - peer has wrong name: " + hisname);
             }
 
-            if ((peer.flags & AbstractNode.dFlagExtendedReferences) == 0) {
-                throw new IOException(
-                        "Handshake failed - peer cannot handle extended references");
+            if ((peer.flags & AbstractNode.dFlagMandatory25Digest) != 0) {
+                peer.flags |= AbstractNode.mandatoryFlags25;
             }
 
-            if ((peer.flags & AbstractNode.dFlagExtendedPidsPorts) == 0) {
+            if ((peer.flags & AbstractNode.mandatoryFlags) != AbstractNode.mandatoryFlags) {
                 throw new IOException(
-                        "Handshake failed - peer cannot handle extended pids and ports");
+                        "Handshake failed - peer cannot handle all mandatory capabilities");
             }
 
         } catch (final OtpErlangDecodeException e) {
@@ -1385,7 +1383,7 @@ public abstract class AbstractConnection extends Thread {
 
                 final long flagsHigh = ibuf.read4BE();
                 peer.flags |= flagsHigh << 32;
-                peer.creation = ibuf.read4BE();
+                peer.setCreation(ibuf.read4BE());
 
             } catch (final OtpErlangDecodeException e) {
                 throw new IOException("Handshake failed - not enough data");

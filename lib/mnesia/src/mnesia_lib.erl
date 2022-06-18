@@ -568,10 +568,10 @@ set_remote_where_to_read(Tab, Ignore) ->
 	end,    
     Available = mnesia_lib:intersect(val({current, db_nodes}), Valid -- Ignore),    
     DiscOnlyC = val({Tab, disc_only_copies}),
-    Prefered  = Available -- DiscOnlyC,
+    Preferred  = Available -- DiscOnlyC,
     if
-	Prefered /= [] ->
-	    set({Tab, where_to_read}, hd(Prefered));
+	Preferred /= [] ->
+	    set({Tab, where_to_read}, hd(Preferred));
 	Available /= [] ->
 	    set({Tab, where_to_read}, hd(Available));
 	true ->
@@ -936,7 +936,7 @@ error_desc(mnesia_down) -> "A transaction involving objects at some remote "
                            "node which died while transaction was executing"
                            "*and* object(s) are no longer available elsewhere"
                            "in the network";
-error_desc(not_a_db_node) -> "A node which is non existant in "
+error_desc(not_a_db_node) -> "A node which is non existent in "
                               "the schema was mentioned";
 error_desc(bad_type)            -> "Bad type on some provided arguments";
 error_desc(node_not_running)    -> "Node not running";

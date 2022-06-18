@@ -337,7 +337,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
             {#k_call{anno=A,op=Remote,args=Kargs},Ap,St1};
         error ->
             %% Invalid call (e.g. M:42/3). Issue a warning, and let
-            %% the generated code use the old explict apply.
+            %% the generated code use the old explicit apply.
             St = add_warning(get_location(A), {failed,bad_call}, A, St0),
 	    Call = #c_call{anno=A,
 			   module=#c_literal{val=erlang},
@@ -1216,7 +1216,7 @@ expand_pat_lit(Lit, A) ->
 %%  comparing with the literal (that is especially true for binaries).
 %%
 %%  It is important not to do this transformation for atomic literals
-%%  (such as `[]`), since that would cause the test for an emtpy list
+%%  (such as `[]`), since that would cause the test for an empty list
 %%  to be executed before the test for a nonempty list.
 
 opt_single_valued(Ttcs) ->
@@ -1610,7 +1610,7 @@ new_clauses(Cs0, U, St) ->
 %%  will be grouped next.
 %%
 %%  We also try to not create too large groups. If we have too many clauses,
-%%  it is preferrable to match on 8-bits, select a branch, then match on the
+%%  it is preferable to match on 8-bits, select a branch, then match on the
 %%  next 8-bits, rather than match on 16-bits which would force us to have
 %%  to select to many values at the same time, which would not be efficient.
 %%

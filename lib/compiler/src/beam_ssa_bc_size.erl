@@ -276,32 +276,13 @@ calc_size_is([I|Is], Bs0) ->
     calc_size_is(Is, Bs);
 calc_size_is([], Bs) -> Bs.
 
-calc_size_instr(#b_set{op=bs_add,args=[A,B,U],dst=Dst}, Bs) ->
-    %% We must make sure that the value of bs_add only depends on literals
-    %% and arguments passed from the function that created the writable
-    %% binary.
-    case {get_value(A, Bs),get_arg_value(B, Bs)} of
-        {#b_literal{}=Lit,Val} ->
-            Bs#{Dst => {expr,{{bif,'+'},[Lit,{{bif,'*'},[Val,U]}]}}};
-        {{expr,Expr},Val} ->
-            Bs#{Dst => {expr,{{bif,'+'},[Expr,{{bif,'*'},[Val,U]}]}}};
-        {_,_} ->
-            %% The value depends on a variable of which we know nothing.
-            Bs#{Dst => any}
-    end;
-calc_size_instr(#b_set{op=bs_init,args=[#b_literal{val=private_append},
-                                        Writable,Size,Unit],
+calc_size_instr(#b_set{op=bs_create_bin,
+                       args=[#b_literal{val=private_append},_,Writable,_|Args],
                        dst=Dst}, Bs) ->
-    case get_value(Size, Bs) of
-        {arg,SizeOrigin} ->
-            Expr = {{bif,'*'},[SizeOrigin,Unit]},
-            update_writable(Dst, Writable, Expr, Bs);
-        #b_literal{} ->
-            Expr = {{bif,'*'},[Size,Unit]},
-            update_writable(Dst, Writable, Expr, Bs);
+    case calc_create_bin_size(Args, Bs) of
         {expr,Expr} ->
             update_writable(Dst, Writable, Expr, Bs);
-        _ ->
+        any ->
             Bs#{Dst => any}
     end;
 calc_size_instr(#b_set{op=bs_match,args=[_Type,Ctx,_Flags,
@@ -346,6 +327,26 @@ calc_size_instr(#b_set{op={succeeded,_},args=[Arg],dst=Dst}, Bs) ->
     Bs#{Dst => {succeeded,Arg}};
 calc_size_instr(#b_set{dst=Dst}, Bs) ->
     Bs#{Dst => any}.
+
+calc_create_bin_size(Args, Bs) ->
+    calc_create_bin_size(Args, Bs, #b_literal{val=0}).
+
+calc_create_bin_size([_,#b_literal{val=[0|_]},_,_|_], _Bs, _Acc) ->
+    %% Construction without size (utf8/utf16/utf32).
+    any;
+calc_create_bin_size([_,#b_literal{val=[U|_]},_,Size|T], Bs, Acc0) when is_integer(U) ->
+    case get_value(Size, Bs) of
+        #b_literal{val=Val} when is_integer(Val) ->
+            Acc = {{bif,'+'},[Acc0,#b_literal{val=U*Val}]},
+            calc_create_bin_size(T, Bs, Acc);
+        {arg,Var} ->
+            Acc = {{bif,'+'},[Acc0,{{bif,'*'},[Var,#b_literal{val=U}]}]},
+            calc_create_bin_size(T, Bs, Acc);
+        _ ->
+            any
+    end;
+calc_create_bin_size([], _Bs, Acc) ->
+    {expr,Acc}.
 
 update_writable(Dst, Writable, Expr, Bs) ->
     case get_value(Writable, Bs) of

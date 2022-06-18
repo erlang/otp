@@ -55,7 +55,7 @@
 
  * get_disk_info 'd'Driveroot (where Driveroot is a string like this "A:\\"
  *      (request info of specific drive)
- *      The result is returned with the same format as above exept that 
+ *      The result is returned with the same format as above except that 
  *      Type will be DRIVE_NOT_EXIST if the drive does not exist.
  *
  * get_mem_info 'm' (request info about memory)

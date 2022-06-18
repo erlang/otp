@@ -228,10 +228,10 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
     N = N0 + 1,
     {Eval_1,Bs0,Ds0,Prompt} = prompt(N, Eval_0, Bs00, RT, Ds00),
     {Res,Eval0} = get_command(Prompt, Eval_1, Bs0, RT, Ds0),
+
     case Res of 
-	{ok,Es0,XBs} ->
-            Es1 = erl_eval:subst_values_for_vars(Es0, XBs),
-            case expand_hist(Es1, N) of
+	{ok,Es0} ->
+            case expand_hist(Es0, N) of
                 {ok,Es} ->
                     {V,Eval,Bs,Ds} = shell_cmd(Es, Eval0, Bs0, RT, Ds0, cmd),
                     {History,Results} = check_and_get_history_and_results(),
@@ -315,9 +315,9 @@ get_command1(Pid, Eval, Bs, RT, Ds) ->
 prompt(N, Eval0, Bs0, RT, Ds0) ->
     case get_prompt_func() of
         {M,F} ->
-            L = [{history,N}],
             A = erl_anno:new(1),
-            C = {call,A,{remote,A,{atom,A,M},{atom,A,F}},[{value,A,L}]},
+            L = {cons,A,{tuple,A,[{atom,A,history},{integer,A,N}]},{nil,A}},
+            C = {call,A,{remote,A,{atom,A,M},{atom,A,F}},[L]},
             {V,Eval,Bs,Ds} = shell_cmd([C], Eval0, Bs0, RT, Ds0, pmt),
             {Eval,Bs,Ds,case V of
                             {pmt,Val} ->
@@ -414,12 +414,12 @@ expand_expr({call,A,{atom,_,e},[N]}, C) ->
 	{Ces,_V,_CommandN} when is_list(Ces) ->
 	    {block,A,Ces}
     end;
-expand_expr({call,_A,{atom,_,v},[N]}, C) ->
+expand_expr({call,CA,{atom,VA,v},[N]}, C) ->
     case get_cmd(N, C) of
         {_,undefined,_} ->
 	    no_command(N);
-	{Ces,V,CommandN} when is_list(Ces) ->
-            {value,erl_anno:new(CommandN),V}
+	{Ces,_V,CommandN} when is_list(Ces) ->
+            {call,CA,{atom,VA,v},[{integer,VA,CommandN}]}
     end;
 expand_expr({call,A,F,Args}, C) ->
     {call,A,expand_expr(F, C),expand_exprs(Args, C)};
@@ -539,6 +539,9 @@ shell_rep(Ev, Bs0, RT, Ds0) ->
             fwrite_severity(benign, <<"~s: ~ts">>,
                             [pos(Location), M:format_error(Error)]),
             {{'EXIT',Error},Ev,Bs0,Ds0};
+        {shell_req,Ev,{get_cmd,N}} ->
+	    Ev ! {shell_rep,self(),getc(N)},
+	    shell_rep(Ev, Bs0, RT, Ds0);
 	{shell_req,Ev,get_cmd} ->
 	    Ev ! {shell_rep,self(),get()},
 	    shell_rep(Ev, Bs0, RT, Ds0);
@@ -956,6 +959,10 @@ init_dict([]) -> true.
 %% handled in this module (i.e. those that are not eventually handled by 
 %% non_builtin_local_func/3 (user_default/shell_default).
 
+local_func(v, [{integer,_,V}], Bs, Shell, _RT, _Lf, _Ef) ->
+    %% This command is validated and expanded prior.
+    {_Ces,Value,_N} = shell_req(Shell, {get_cmd, V}),
+    {value,Value,Bs};
 local_func(h, [], Bs, Shell, RT, _Lf, _Ef) ->
     Cs = shell_req(Shell, get_cmd),
     Cs1 = lists:filter(fun({{command, _},_}) -> true;

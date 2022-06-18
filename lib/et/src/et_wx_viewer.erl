@@ -55,7 +55,7 @@
          first_event,          % Key of first event (regardless of visibility)
          last_event,           % Key of last event (regardless of visibility)
          events_per_page,      % Maximum number of shown events
-         events,               % Queue containg all event keys (regardless of visibility)
+         events,               % Queue containing all event keys (regardless of visibility)
 	 n_events,             % Number of events available in the collector
          max_actors,           % Maximum number of shown actors
          actors,               % List of known actors

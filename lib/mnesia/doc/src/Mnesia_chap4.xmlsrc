@@ -520,10 +520,10 @@
         <list type="ordered">
           <item>It is much more efficient.
           </item>
-          <item>The funcion
+          <item>The function
            <seemfa marker="mnesia#dirty_update_counter/2">dirty_update_counter/2</seemfa>
            is performed as an atomic operation although it is not protected
-           by a transaction. Therfore no table update is lost if two
+           by a transaction. Therefore no table update is lost if two
            processes simultaneously execute the function
           <c>dirty_update_counter/2</c>.
           </item>

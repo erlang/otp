@@ -274,7 +274,7 @@ init(Parent) ->
     <section>
       <marker id="debug"></marker>
       <title>Debugging</title>
-      <p>To support the debug facilites in <c>sys</c>, a
+      <p>To support the debug facilities in <c>sys</c>, a
         <em>debug structure</em> is needed. The <c>Deb</c> term is
         initialized using <c>sys:debug_options/1</c>:</p>
       <code type="none">

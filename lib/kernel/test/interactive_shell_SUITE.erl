@@ -18,11 +18,12 @@
 %% %CopyrightEnd%
 %%
 -module(interactive_shell_SUITE).
--include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
+
+-export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
+	 get_columns_and_rows/1, exit_initial/1, job_control_local/1,
 	 job_control_remote/1,stop_during_init/1,
          shell_history/1, shell_history_resize/1, shell_history_eaccess/1,
          shell_history_repair/1, shell_history_repair_corrupt/1,
@@ -30,32 +31,26 @@
          shell_history_custom/1, shell_history_custom_errors/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
-         remsh/1, remsh_longnames/1, remsh_no_epmd/1]).
+         remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
 %% For spawn
 -export([toerl_server/3]).
 %% Exports for custom shell history module
 -export([load/0, add/1]).
 
-init_per_testcase(_Func, Config) ->
-    Config.
-
-end_per_testcase(_Func, _Config) ->
-    ok.
-
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,3}}].
 
-all() -> 
+all() ->
     [get_columns_and_rows_escript,get_columns_and_rows,
      exit_initial, job_control_local,
      job_control_remote, job_control_remote_noshell,
-     ctrl_keys, stop_during_init, {group, shell_history},
-     remsh, remsh_longnames, remsh_no_epmd].
+     ctrl_keys, stop_during_init,
+     {group, shell_history},
+     {group, remsh}].
 
-groups() -> 
+groups() ->
     [{shell_history, [],
       [shell_history,
        shell_history_resize,
@@ -63,25 +58,61 @@ groups() ->
        shell_history_repair,
        shell_history_repair_corrupt,
        shell_history_corrupt,
-       shell_history_custom,
-       shell_history_custom_errors
-      ]}].
+       {group, sh_custom}
+      ]},
+     {sh_custom, [],
+      [shell_history_custom,
+       shell_history_custom_errors]},
+     {remsh, [],
+      [remsh_basic,
+       remsh_longnames,
+       remsh_no_epmd]}
+    ].
 
 init_per_suite(Config) ->
-    Term = os:getenv("TERM", "dumb"),
-    os:putenv("TERM","vt100"),
-    DefShell = get_default_shell(),
-    [{default_shell,DefShell},{term,Term}|Config].
+    case get_progs() of
+        {error, Error} ->
+            {skip, Error};
+        _ ->
+            Term = os:getenv("TERM", "dumb"),
+            os:putenv("TERM", "vt100"),
+            DefShell = get_default_shell(),
+            [{default_shell,DefShell},{term,Term}|Config]
+    end.
 
 end_per_suite(Config) ->
     Term = proplists:get_value(term,Config),
     os:putenv("TERM",Term),
     ok.
 
+init_per_group(remsh, Config) ->
+    case proplists:get_value(default_shell, Config) of
+        old -> {skip, "Not supported in old shell"};
+        new -> Config
+    end;
 init_per_group(shell_history, Config) ->
     case proplists:get_value(default_shell, Config) of
         old -> {skip, "Not supported in old shell"};
         new -> Config
+    end;
+init_per_group(sh_custom, Config) ->
+    %% Ensure that ERL_AFLAGS will not override the value of the
+    %% shell_history variable.
+    Name = interactive_shell_sh_custom,
+    Args = "-noshell -kernel shell_history not_overridden",
+    {ok, Node} = test_server:start_node(Name, slave, [{args,Args}]),
+    try erpc:call(Node, application, get_env, [kernel, shell_history], timeout(normal)) of
+        {ok, not_overridden} ->
+            Config;
+        _ ->
+            SkipText = "shell_history variable is overridden (probably by ERL_AFLAGS)",
+            {skip, SkipText}
+    catch
+        C:R:Stk ->
+            io:format("~p\n~p\n~p\n", [C,R,Stk]),
+            {skip, "Unexpected error"}
+    after
+        test_server:stop_node(Node)
     end;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -89,6 +120,15 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(_Func, Config) ->
+    Config.
+
+end_per_testcase(_Case, _Config) ->
+    %% Terminate any connected nodes. They may disturb test cases that follow.
+    lists:foreach(fun(Node) ->
+                          catch erpc:call(Node, erlang, halt, [])
+                  end, nodes()),
+    ok.
 
 %%-define(DEBUG,1).
 -ifdef(DEBUG).
@@ -153,98 +193,107 @@ get_columns_and_rows_escript(Config) when is_list(Config) ->
 
 %% Test that the shell can access columns and rows.
 get_columns_and_rows(Config) when is_list(Config) ->
-    case proplists:get_value(default_shell,Config) of
+    case proplists:get_value(default_shell, Config) of
 	old ->
-	    %% Old shell tests
-	    ?dbg(old_shell),
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline,"io:columns()."},
-		    {getline_re,".*{error,enotsup}"},
-		    {putline,"io:rows()."},
-		    {getline_re,".*{error,enotsup}"}
-
-		   ],[]),
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline,"io:columns()."},
-		    {getline_re,".*{ok,90}"},
-		    {putline,"io:rows()."},
-		    {getline_re,".*{ok,40}"}],
-		   [],
-		   "stty rows 40; stty columns 90; ");
+            test_columns_and_rows(old, []);
 	new ->
-	    %% New shell tests
-	    ?dbg(new_shell),
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline,"io:columns()."},
-		    %% Behaviour change in R12B-5, returns 80
-		    %%		  {getline,"{error,enotsup}"},
-		    {getline,"{ok,80}"},
-		    {putline,"io:rows()."},
-		    %% Behaviour change in R12B-5, returns 24
-		    %%		  {getline,"{error,enotsup}"}
-		    {getline,"{ok,24}"}
-		   ],[]),
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline,"io:columns()."},
-		    {getline,"{ok,90}"},
-		    {putline,"io:rows()."},
-		    {getline,"{ok,40}"}],
-		   [],
-		   "stty rows 40; stty columns 90; ")
-    end.
+            test_columns_and_rows(old, ["-oldshell"]),
+            test_columns_and_rows(new, [])
+    end,
+    ok.
 
+test_columns_and_rows(old, Args) ->
+    rtnode([{putline, ""},
+            {putline, "2."},
+            {expect, "2\r\n"},
+            {putline, "io:columns()."},
+            {expect, "{error,enotsup}\r\n"},
+            {putline, "io:rows()."},
+            {expect, "{error,enotsup}\r\n"}
+           ], [], [], Args),
 
+    rtnode([{putline, ""},
+            {putline, "2."},
+            {expect, "2\r\n"},
+            {putline, "io:columns()."},
+            {expect, "{ok,90}\r\n"},
+            {putline,"io:rows()."},
+            {expect, "{ok,40}\r\n"}],
+           [],
+           "stty rows 40; stty columns 90; ",
+           Args);
+test_columns_and_rows(new, _Args) ->
+    rtnode([{putline, ""},
+            {expect, "1> $"},
+            {putline, "2."},
+            {expect, "\r\n2\r\n"},
+            {expect, "> $"},
+            {putline, "io:columns()."},
+            {expect, "{ok,80}\r\n"},
+            {expect, "> $"},
+            {putline, "io:rows()."},
+            {expect, "\r\n{ok,24}\r\n"}
+           ]),
+
+    rtnode([{putline, ""},
+            {expect, "1> $"},
+            {putline, "2."},
+            {expect,  "\r\n2\r\n"},
+            {expect, "> $"},
+            {putline, "io:columns()."},
+            {expect, "\r\n{ok,90}\r\n"},
+            {expect, "> $"},
+            {putline, "io:rows()."},
+            {expect, "\r\n{ok,40}\r\n"}],
+           [],
+           "stty rows 40; stty columns 90; ").
 
 %% Tests that exit of initial shell restarts shell.
 exit_initial(Config) when is_list(Config) ->
-    case proplists:get_value(default_shell,Config) of
+    case proplists:get_value(default_shell, Config) of
 	old ->
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline_re, ".*2"},
-		    {putline,"exit()."},
-		    {getline,""},
-		    {getline,"Eshell"},
-		    {putline,""},
-		    {putline,"35."},
-		    {getline_re,".*35"}],[]);
-	new ->
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline,"exit()."},
-		    {getline,""},
-		    {getline,"Eshell"},
-		    {putline,""},
-		    {putline,"35."},
-		    {getline_re,"35"}],[])
-    end.
+            test_exit_initial(old);
+        new ->
+            test_exit_initial(old),
+            test_exit_initial(new)
+    end,
+    ok.
+
+test_exit_initial(old) ->
+    rtnode([{putline, ""},
+            {putline, "2."},
+            {expect, "2\r\n"},
+            {putline, "exit()."},
+            {expect, "Eshell"},
+            {putline, ""},
+            {putline, "35."},
+            {expect, "35\r\n"}],
+           [], [], ["-oldshell"]);
+test_exit_initial(new) ->
+    rtnode([{putline, ""},
+            {expect, "1> $"},
+            {putline, "2."},
+            {expect, "2"},
+            {putline,"exit()."},
+            {expect, "Eshell"},
+            {expect, "1> $"},
+            {putline, "35."},
+            {expect, "35\r\n"}]).
 
 stop_during_init(Config) when is_list(Config) ->
-    case get_progs() of
-	{error,_Reason} ->
-	    {skip,"No runerl present"};
-	{RunErl,_ToErl,Erl} ->
-	    case create_tempdir() of
-		{error, Reason2} ->
-		    {skip, Reason2};
-		Tempdir ->
-		    XArg = " -kernel shell_history enabled -s init stop",
-		    start_runerl_command(RunErl, Tempdir, "\\\""++Erl++"\\\""++XArg),
-                    Logs = rtnode_read_logs(Tempdir),
-                    rtnode_dump_logs(Logs),
-		    nomatch = binary:match(maps:get("erlang.log.1",Logs),
-                                           <<"*** ERROR: Shell process terminated! ***">>)
-	    end
-     end.
+    {RunErl,_ToErl,Erl} = get_progs(),
+    case create_tempdir() of
+        {error, Reason} ->
+            {skip, Reason};
+        Tempdir ->
+            XArg = " -kernel shell_history enabled -s init stop",
+            start_runerl_command(RunErl, Tempdir, "\\\""++Erl++"\\\""++XArg),
+            Logs = rtnode_read_logs(Tempdir),
+            rtnode_dump_logs(Logs),
+            nomatch = binary:match(map_get("erlang.log.1", Logs),
+                                   <<"*** ERROR: Shell process terminated! ***">>),
+            ok
+    end.
 
 %% This testcase tests that shell_history works as it should.
 %% We use Ctrl + P = Cp=[$\^p] in order to navigate up
@@ -257,50 +306,52 @@ shell_history(Config) when is_list(Config) ->
     Path = shell_history_path(Config, "basic"),
     rtnode([
             {putline, "echo1."},
-            {getline, "echo1"},
+            {expect, "echo1\r\n"},
             {putline, "echo2."},
-            {getline, "echo2"},
+            {expect, "echo2\r\n"},
             {putline, "echo3."},
-            {getline, "echo3"},
+            {expect, "echo3\r\n"},
             {putline, "echo4."},
-            {getline, "echo4"},
+            {expect, "echo4\r\n"},
             {putline, "echo5."},
-            {getline, "echo5"}
+            {expect, "echo5\r\n"}
            ], [], [], " -kernel shell_history enabled " ++
                "-kernel shell_history_drop '[\\\"init:stop().\\\"]' " ++
                mk_sh_param(Path)),
+    receive after 1000 -> ok end,
     rtnode([
             {putline, ""},
             %% the init:stop that stopped the node is dropped
-            {putdata, [$\^p]}, {getdata, "echo5."},
+            {putdata, [$\^p]}, {expect, "echo5[.]$"},
             {putdata, [$\n]},
-            {getline, "echo5"},
-            {putdata, [$\^p]}, {getdata,"echo5."},
-            {putdata, [$\^p]}, {getdata,"echo4."},
-            {putdata, [$\^p]}, {getdata,"echo3."},
-            {putdata, [$\^p]}, {getdata,"echo2."},
-            {putdata, [$\^n]}, {getdata,"echo3."},
-            {putdata, [$\^n]}, {getdata,"echo4."},
+            {expect, "echo5\r\n"},
+            {putdata, [$\^p]}, {expect, "echo5[.]$"},
+            {putdata, [$\^p]}, {expect, "echo4[.]$"},
+            {putdata, [$\^p]}, {expect, "echo3[.]$"},
+            {putdata, [$\^p]}, {expect, "echo2[.]$"},
+            {putdata, [$\^n]}, {expect, "echo3[.]$"},
+            {putdata, [$\^n]}, {expect, "echo4[.]$"},
             {putdata, [$\^b]}, {sleep,50}, %% the echo4. (cursor moved one left)
-            {putline, ["echo"]},
-            {getline, "echo4echo"}
-           ], [], [], " -kernel shell_history enabled " ++ mk_sh_param(Path)).
+            {putline, ["ECHO"]},
+            {expect, "echo4ECHO\r\n"}
+           ], [], [], " -kernel shell_history enabled " ++ mk_sh_param(Path)),
+    ok.
 
 shell_history_resize(Config) ->
     Path = shell_history_path(Config, "resize"),
     rtnode([
             {putline, "echo."},
-            {getline, "echo"}
+            {expect, "echo\r\n"}
            ], [], [], " -kernel shell_history_file_bytes 123456 " ++
                "-kernel shell_history enabled " ++ mk_sh_param(Path)),
 
     {ok, Logs} =
         rtnode([
                 {putline, ""},
-                {putdata, [$\^p]}, {getdata,"init:stop()."},
-                {putdata, [$\^p]}, {getdata,"echo."},
+                {putdata, [$\^p]}, {expect, "init:stop\\(\\)[.]$"},
+                {putdata, [$\^p]}, {expect, "echo[.]$"},
                 {putdata, [$\n]},
-                {getline, "echo"}
+                {expect, "echo"}
                ], [], [], " -kernel shell_history_file_bytes 654321 " ++
                    "-kernel shell_history enabled " ++ mk_sh_param(Path)),
 
@@ -324,7 +375,7 @@ shell_history_eaccess(Config) ->
         {ok, Logs1} =
             rtnode([
                     {putline, "echo."},
-                    {getline, "echo"}
+                    {expect, "echo\r\n"}
                    ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
 
         rtnode_check_logs("erlang.log.1", "Error handling file", Logs1),
@@ -332,10 +383,10 @@ shell_history_eaccess(Config) ->
         %% shell_docs recursively creates the folder to store the
         %% logs. This test checks that erlang still starts if we
         %% cannot create the folders to the path.
-        {ok, Logs2} = 
+        {ok, Logs2} =
             rtnode([
                     {putline, "echo."},
-                    {getline, "echo"}
+                    {expect, "echo\r\n"}
                    ], [], [], "-kernel shell_history enabled " ++
                        mk_sh_param(filename:join(Path,"logs"))),
 
@@ -343,34 +394,25 @@ shell_history_eaccess(Config) ->
 
     after
         file:write_file_info(Path, Info)
-    end.
+    end,
+    ok.
 
 shell_history_repair(Config) ->
     Path = shell_history_path(Config, "repair"),
 
     %% We stop a node without closing the log
-    try rtnode([
-            {putline, "echo."},
-            {getline, "echo"},
-            {sleep, 2500}, %% disk_log internal cache timer is 2000 ms
-            {putline, "erlang:halt(0)."}
-           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)) of
-        _ ->
-            ok
-    catch _:_ ->
-            ok
-    end,
+    shell_history_halt(Path),
 
     {ok, Logs} =
         rtnode([
                 {putline, ""},
-                {putdata, [$\^p]}, {getdata,"echo."},
+                {putdata, [$\^p]}, {expect, "echo[.]$"},
                 {putdata, [$\n]},
-                {getline, "echo"}
+                {expect, "echo\r\n"}
                ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
 
     %% The regexp below checks that he string is NOT part of the log
-    rtnode_check_logs("erlang.log.1", 
+    rtnode_check_logs("erlang.log.1",
                       "The shell history log file was corrupted and was repaired",
                       false,
                       Logs),
@@ -380,17 +422,7 @@ shell_history_repair_corrupt(Config) ->
     Path = shell_history_path(Config, "repair_corrupt"),
 
     %% We stop a node without closing the log
-    try rtnode([
-            {putline, "echo."},
-            {getline, "echo"},
-            {sleep, 2500}, %% disk_log internal cache timer is 2000 ms
-            {putline, "erlang:halt(0)."}
-           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)) of
-        _ ->
-            ok
-    catch _:_ ->
-            ok
-    end,
+    shell_history_halt(Path),
 
     %% We corrupt the disklog
     {ok, D} = file:open(filename:join(Path,"erlang-shell-log.1"), [read,append]),
@@ -400,12 +432,12 @@ shell_history_repair_corrupt(Config) ->
     {ok, Logs} =
         rtnode([
                 {putline, ""},
-                {putdata, [$\^p]}, {getdata,"echo."},
+                {putdata, [$\^p]}, {expect, "echo[.]$"},
                 {putdata, [$\n]},
-                {getline, "echo"}
+                {expect, "echo\r\n"}
                ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
 
-    rtnode_check_logs("erlang.log.1", 
+    rtnode_check_logs("erlang.log.1",
                       "The shell history log file was corrupted and was repaired.",
                       Logs),
     ok.
@@ -413,18 +445,12 @@ shell_history_repair_corrupt(Config) ->
 shell_history_corrupt(Config) ->
     Path = shell_history_path(Config, "corrupt"),
 
-    %% We stop a node without closing the log
-    try rtnode([
-            {putline, "echo."},
-            {getline, "echo"}
-           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)) of
-        _ ->
-            ok
-    catch _:_ ->
-            ok
-    end,
+    %% We initialize the shell history log with a known value.
+    rtnode([{putline, "echo."},
+            {expect, "echo\r\n"}
+           ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
 
-    %% We corrupt the disklog
+    %% We corrupt the disklog.
     {ok, D} = file:open(filename:join(Path,"erlang-shell-log.1"), [read, append]),
     ok = file:write(D, [10, 10]),
     ok = file:close(D),
@@ -432,16 +458,29 @@ shell_history_corrupt(Config) ->
     {ok, Logs} =
         rtnode([
                 {putline, ""},
-                {putdata, [$\^p]}, {getdata,"init:stop()."},
-                {putdata, [$\^p]}, {getdata,"echo."},
+                {putdata, [$\^p]}, {expect, "init:stop\\(\\)[.]$"},
+                {putdata, [$\^p]}, {expect, "echo[.]$"},
                 {putdata, [$\n]},
-                {getline, "echo"}
+                {expect, "echo\r\n"}
                ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path)),
 
-    rtnode_check_logs("erlang.log.1",  "Invalid chunk in the file", Logs),
+    rtnode_check_logs("erlang.log.1", "Invalid chunk in the file", Logs),
     ok.
 
-    
+%% Stop the node without closing the log.
+shell_history_halt(Path) ->
+    try
+        rtnode([
+                {putline, "echo."},
+                {expect, "echo\r\n"},
+                {sleep, 2500}, % disk_log internal cache timer is 2000 ms
+                {putline, "halt(0)."}
+               ], [], [], "-kernel shell_history enabled " ++ mk_sh_param(Path))
+    catch
+        _:_ ->
+            ok
+    end.
+
 shell_history_path(Config, TestCase) ->
         filename:join([proplists:get_value(priv_dir, Config),
                        "shell_history", TestCase]).
@@ -451,63 +490,66 @@ mk_sh_param(Path) ->
 
 shell_history_custom(_Config) ->
     %% Up key: Ctrl + P = Cp=[$\^p]
-    rtnode([
-            {putline, ""},
-            {putdata, [$\^p]}, {getdata,"0."},
+    rtnode([{expect, "1> $"},
+            %% {putline, ""},
+            {putdata, [$\^p]}, {expect, "0[.]"},
             {putdata, [$\n]},
-            {getline, "0"},
+            {expect, "0\r\n"},
             {putline, "echo."},
-            {getline, "!echo"} %% exclamation sign is printed by custom history module
+            {expect, "!echo\r\n"} % exclamation mark is printed by custom history module
            ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
-               " -pz " ++ filename:dirname(code:which(?MODULE))).
+               " -pz " ++ filename:dirname(code:which(?MODULE))),
+    ok.
 
 shell_history_custom_errors(_Config) ->
 
     %% Check that we can start with a node with an undefined
     %% provider module.
-    rtnode([
+    rtnode([{expect, "1> $"},
             {putline, "echo."},
-            {getline, "echo"}
+            {expect, "echo\r\n"}
            ], [], [], " -kernel shell_history very_broken " ++
                " -pz " ++ filename:dirname(code:which(?MODULE))),
 
     %% Check that we can start with a node with a provider module
-    %% that crashes in load/0
+    %% that crashes in load/0.
     rtnode([
             {putline, "echo."},
-            {getline, "echo"}
+            {expect, "echo\r\n"}
            ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
                " -kernel provider_load crash" ++
                " -pz " ++ filename:dirname(code:which(?MODULE))),
 
     %% Check that we can start with a node with a provider module
-    %% that return incorrect in load/0
+    %% that return incorrect in load/0.
     rtnode([
             {putline, "echo."},
-            {getline, "echo"}
+            {expect, "echo\r\n"}
            ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
                " -kernel provider_load badreturn" ++
                " -pz " ++ filename:dirname(code:which(?MODULE))),
 
     %% Check that we can start with a node with a provider module
-    %% that crashes in load/0
+    %% that crashes in load/0.
     rtnode([
             {putline, "echo."},
-            {getline, "Disabling shell history logging."},
-            {getline, "echo"}
+            {expect, "Disabling shell history logging.\r\n"},
+            {expect, "echo\r\n"}
            ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
                " -kernel provider_add crash" ++
                " -pz " ++ filename:dirname(code:which(?MODULE))),
 
     %% Check that we can start with a node with a provider module
-    %% that return incorrect in load/0
+    %% that return incorrect in load/0.
     rtnode([
             {putline, "echo."},
-            {getline, "It returned {error,badreturn}."},
-            {getline, "echo"}
+            {expect, "It returned {error,badreturn}.\r\n"},
+            {expect, "echo\r\n"}
            ], [], [], " -kernel shell_history " ++ atom_to_list(?MODULE) ++
                " -kernel provider_add badreturn" ++
-               " -pz " ++ filename:dirname(code:which(?MODULE))).    
+               " -pz " ++ filename:dirname(code:which(?MODULE))),
+
+    ok.
 
 load() ->
     case application:get_env(kernel,provider_load) of
@@ -533,298 +575,273 @@ add(_Line) ->
 
 %% Tests that local shell can be started by means of job control.
 job_control_local(Config) when is_list(Config) ->
-    case proplists:get_value(default_shell,Config) of
+    case proplists:get_value(default_shell, Config) of
 	old ->
 	    %% Old shell tests
 	    {skip,"No new shell found"};
 	new ->
 	    %% New shell tests
-	    rtnode([{putline,""},
+	    rtnode([{putline, ""},
+                    {expect, "1> $"},
 		    {putline, "2."},
-		    {getline, "2"},
-		    {putline,[7]},
-		    {sleep,timeout(short)},
-		    {putline,""},
-		    {getline," -->"},
-		    {putline,"s"},
-		    {putline,"c"},
-		    {putline_raw,""},
-		    {getline,"Eshell"},
-		    {putline_raw,""},
-		    {getline,"1>"},
-		    {putline,"35."},
-		    {getline,"35"}],[])
+		    {expect, "\r\n2\r\n"},
+		    {putline, "\^g"},
+                    {expect, ["--> $"]},
+		    {putline, "s"},
+                    {expect, ["--> $"]},
+		    {putline, "c"},
+                    {expect, ["\r\nEshell"]},
+                    {expect, ["1> $"]},
+		    {putline, "35."},
+                    {expect, "\r\n35\r\n2> $"}],
+                   []),
+            ok
     end.
 
-job_control_remote(doc) -> [ "Tests that remote shell can be "
-			     "started by means of job control" ];
+%% Tests that remote shell can be started by means of job control.
 job_control_remote(Config) when is_list(Config) ->
-    case {node(),proplists:get_value(default_shell,Config)} of
-	{nonode@nohost,_} ->
-	    exit(not_distributed);
-	{_,old} ->
+    case proplists:get_value(default_shell, Config) of
+	old ->
 	    {skip,"No new shell found"};
 	_ ->
-	    RNode = create_nodename(),
-	    MyNode = atom2list(node()),
-	    Pid = spawn_link(fun() ->
-				     receive die ->
-					     ok
-				     end
-			     end),
-	    PidStr = pid_to_list(Pid),
-	    register(kalaskula,Pid),
-	    CookieString = lists:flatten(
-			     io_lib:format("~w",
-					   [erlang:get_cookie()])),
-	    Res = rtnode([{putline,""},
-			  {putline, "erlang:get_cookie()."},
-			  {getline, CookieString},
-			  {putline,[7]},
-			  {sleep,timeout(short)},
-			  {putline,""},
-			  {getline," -->"},
-			  {putline,"r '"++MyNode++"'"},
-			  {putline,"c"},
-			  {putline_raw,""},
-			  {getline,"Eshell"},
-			  {sleep,timeout(short)},
-			  {putline_raw,""},
-			  {getline,"("++MyNode++")1>"},
-			  {putline,"whereis(kalaskula)."},
-			  {getline,PidStr},
-			  {sleep,timeout(short)}, % Race, known bug.
-			  {putline_raw,"exit()."},
-			  {getline,"***"},
-			  {putline,[7]},
-			  {putline,""},
-			  {getline," -->"},
-			  {putline,"c 1"},
-			  {putline,""},
-			  {sleep,timeout(short)},
-			  {putline_raw,""},
-			  {getline,"("++RNode++")"}],RNode),
-	    Pid ! die,
-	    Res
+	    NSNode = start_node(?FUNCTION_NAME, []),
+            try
+                test_remote_job_control(NSNode)
+            after
+                test_server:stop_node(NSNode)
+            end
     end.
 
-%% Tests that remote shell can be
-%% started by means of job control to -noshell node.
+%% Tests that remote shell can be started by means of job control to
+%% -noshell node.
 job_control_remote_noshell(Config) when is_list(Config) ->
-    case {node(),proplists:get_value(default_shell,Config)} of
-	{nonode@nohost,_} ->
-	    exit(not_distributed);
-	{_,old} ->
+    case proplists:get_value(default_shell, Config) of
+	old ->
 	    {skip,"No new shell found"};
 	_ ->
-	    RNode = create_nodename(),
-	    NSNode = start_noshell_node(interactive_shell_noshell),
-	    Pid = spawn_link(NSNode, fun() ->
-					     receive die ->
-						     ok
-					     end
-				     end),
-	    PidStr = rpc:call(NSNode,erlang,pid_to_list,[Pid]),
-	    true = rpc:call(NSNode,erlang,register,[kalaskula,Pid]),
-	    NSNodeStr = atom2list(NSNode),
-	    CookieString = lists:flatten(
-			     io_lib:format("~w",
-					   [erlang:get_cookie()])),
-	    Res = rtnode([{putline,""},
-			  {putline, "erlang:get_cookie()."},
-			  {getline, CookieString},
-			  {putline,[7]},
-			  {sleep,timeout(short)},
-			  {putline,""},
-			  {getline," -->"},
-			  {putline,"r '"++NSNodeStr++"'"},
-			  {putline,"c"},
-			  {putline_raw,""},
-			  {getline,"Eshell"},
-			  {sleep,timeout(short)},
-			  {putline_raw,""},
-			  {getline,"("++NSNodeStr++")1>"},
-			  {putline,"whereis(kalaskula)."},
-			  {getline,PidStr},
-			  {sleep,timeout(short)}, % Race, known bug.
-			  {putline_raw,"exit()."},
-			  {getline,"***"},
-			  {putline,[7]},
-			  {putline,""},
-			  {getline," -->"},
-			  {putline,"c 1"},
-			  {putline,""},
-			  {sleep,timeout(short)},
-			  {putline_raw,""},
-			  {getline,"("++RNode++")"}],RNode),
-	    Pid ! die,
-	    stop_noshell_node(NSNode),
-	    Res
+	    NSNode = start_node(?FUNCTION_NAME, ["-noshell"]),
+            try
+                test_remote_job_control(NSNode)
+            after
+                test_server:stop_node(NSNode)
+            end
     end.
+
+test_remote_job_control(Node) ->
+    RemNode = create_nodename(),
+    Pid = spawn_link(Node, fun() ->
+                                   receive die ->
+                                           ok
+                                   end
+                             end),
+    PidStr = erpc:call(Node, erlang, pid_to_list, [Pid]),
+    true = erpc:call(Node, erlang, register, [kalaskula,Pid]),
+    PrintedNode = printed_atom(Node),
+    CookieString = printed_atom(erlang:get_cookie()),
+
+    rtnode([{putline, ""},
+            {putline, "erlang:get_cookie()."},
+            {expect, "\r\n\\Q" ++ CookieString ++ "\\E"},
+            {putdata, "\^g"},
+            {expect, " --> $"},
+            {putline, "r " ++ PrintedNode},
+            {expect, "\r\n"},
+            {putline, "c"},
+            {expect, "\r\n"},
+            {expect, "Eshell"},
+            {expect, "\\Q(" ++ atom_to_list(Node) ++")1> \\E$"},
+            {putline, "whereis(kalaskula)."},
+            {expect, PidStr},
+            {putline, "exit()."},
+            {expect, "[*][*][*] Shell process terminated!"},
+            {putdata, "\^g"},
+            {expect, " --> $"},
+            {putline, "c 1"},
+            {expect, "\r\n"},
+            {putline, ""},
+            {expect, "\\Q("++RemNode++")\\E[12]> $"}
+           ], RemNode),
+    Pid ! die,
+    ok.
 
 %% Tests various control keys.
-ctrl_keys(_Conf) when is_list(_Conf) ->
-    Cu=[$\^u],
-    Cw=[$\^w],
-    Cy=[$\^y],
-    Home=[27,$O,$H],
-    End=[27,$O,$F],
+ctrl_keys(_Config) ->
+    Cu = [$\^u],
+    Cw = [$\^w],
+    Cy = [$\^y],
+    Home = [27,$O,$H],
+    End = [27,$O,$F],
     rtnode([{putline,""},
 	    {putline,"2."},
-	    {getline,"2"},
+	    {expect,"2"},
 	    {putline,"\"hello "++Cw++"world\"."},	% test <CTRL>+W
-	    {getline,"\"world\""},
+	    {expect,"\"world\""},
 	    {putline,"\"hello "++Cu++"\"world\"."},	% test <CTRL>+U
-	    {getline,"\"world\""},
+	    {expect,"\"world\""},
 	    {putline,"world\"."++Home++"\"hello "},	% test <HOME>
-	    {getline,"\"hello world\""},
+	    {expect,"\"hello world\""},
 	    {putline,"world"++Home++"\"hello "++End++"\"."},	% test <END>
-	    {getline,"\"hello world\""},
+	    {expect,"\"hello world\""},
 	    {putline,"\"hello world\""++Cu++Cy++"."},
-	    {getline,"\"hello world\""}]
-	   ++wordLeft()++wordRight(),[]).
-
+	    {expect,"\"hello world\""}] ++
+               wordLeft() ++ wordRight(), []),
+    ok.
 
 wordLeft() ->
-    L1=[27,27,$[,$D],
-    L2=[27]++"[5D",
-    L3=[27]++"[1;5D",
-    wordLeft(L1)++wordLeft(L2)++wordLeft(L3).
+    L1 = "\e\e[D",
+    L2 = "\e[5D",
+    L3 = "\e[1;5D",
+    wordLeft(L1) ++ wordLeft(L2) ++ wordLeft(L3).
 
 wordLeft(Chars) ->
-    End=[27,$O,$F],
+    End = "\eOF",
     [{putline,"\"world\""++Chars++"hello "++End++"."},
-     {getline,"\"hello world\""}].
+     {expect,"\"hello world\""}].
 
 wordRight() ->
-    R1=[27,27,$[,$C],
-    R2=[27]++"[5C",
-    R3=[27]++"[1;5C",
-    wordRight(R1)++wordRight(R2)++wordRight(R3).
+    R1 = "\e\e[C",
+    R2 = "\e[5C",
+    R3 = "\e[1;5C",
+    wordRight(R1) ++ wordRight(R2) ++ wordRight(R3).
 
 wordRight(Chars) ->
-    Home=[27,$O,$H],
+    Home = "\eOH",
     [{putline,"world"++Home++"\"hello "++Chars++"\"."},
-     {getline,"\"hello world\""}].
+     {expect,"\"hello world\""}].
 
 %% Test that -remsh works
-remsh(Config) when is_list(Config) ->
-    case proplists:get_value(default_shell,Config) of
-        old -> {skip,"Not supported in old shell"};
-        new ->
-            NodeStr = lists:flatten(io_lib:format("~p",[node()])),
-            [_Name,Host] = string:split(atom_to_list(node()),"@"),
-            Cmds = [{kill_emulator_command,sigint},
-                    {putline,""},
-                    {putline,"node()."},
-                    {getline,NodeStr}],
+remsh_basic(Config) when is_list(Config) ->
+    TargetNode = start_node(?FUNCTION_NAME, []),
+    TargetNodeStr = printed_atom(TargetNode),
+    [_Name,Host] = string:split(atom_to_list(node()), "@"),
 
-            %% Test that remsh works with explicit -sname
-            rtnode(Cmds ++ [{putline,"nodes()."},
-                            {getline,"['Remshtest@"++Host++"']"}],
-                   "Remshtest", [], "-remsh " ++ NodeStr),
+    PreCmds = [{putline,""},
+               {putline,"node()."},
+               {expect, "\\Q" ++ TargetNodeStr ++ "\\E\r\n"}],
 
-            %% Test that remsh works without -sname
-            rtnode(Cmds, [], [], " -remsh " ++ NodeStr)
+    PostCmds = quit_hosting_node(),
 
+    %% Test that remsh works with explicit -sname.
+    HostNode = atom_to_list(?FUNCTION_NAME) ++ "_host",
+    HostNodeStr = printed_atom(list_to_atom(HostNode ++ "@" ++ Host)),
+    rtnode(PreCmds ++
+               [{putline,"nodes()."},
+                {expect, "\\Q" ++ HostNodeStr ++ "\\E"}] ++
+               PostCmds,
+           HostNode, [], "-remsh " ++ TargetNodeStr),
 
-    end.
+    %% Test that remsh works without -sname.
+    rtnode(PreCmds ++ PostCmds, [], [], " -remsh " ++ TargetNodeStr),
 
-%% Test that -remsh works with long names
+    test_server:stop_node(TargetNode),
+
+    ok.
+
+quit_hosting_node() ->
+    %% Command sequence for entering a shell on the hosting node.
+    [{putdata, "\^g"},
+     {expect, "--> $"},
+     {putline, "s"},
+     {expect, "--> $"},
+     {putline, "c"},
+     {expect, ["Eshell"]},
+     {expect, ["1> $"]}].
+
+%% Test that -remsh works with long names.
 remsh_longnames(Config) when is_list(Config) ->
-
-    case proplists:get_value(default_shell,Config) of
-        old -> {skip,"Not supported in old shell"};
-        new ->
-            %% If we cannot resolve the domain, we need to add localhost to the longname
-            Domain =
-                case inet_db:res_option(domain) of
-                    [] ->
-                        "@127.0.0.1";
-                    _ -> ""
-                end,
-            case rtstart(" -name " ++ atom_to_list(?FUNCTION_NAME)++Domain) of
-                {ok, _SRPid, _STPid, SState} ->
-                    {ok, _CRPid, CTPid, CState} =
-                        rtstart("-name undefined" ++ Domain ++
-                                    " -remsh " ++ atom_to_list(?FUNCTION_NAME)),
-                    try
-                        ok = get_and_put(
-                               CTPid,
-                               [{kill_emulator_command,sigint},
-                                {putline,""},
-                                {putline,"node()."},
-                                {getline_re,atom_to_list(?FUNCTION_NAME)}], 1)
-                    after
-                        rtstop(CState), %% Stop client before server
-                        rtstop(SState)
-                    end;
-                Else ->
-                    Else
-            end
+    %% If we cannot resolve the domain, we need to add localhost to the longname
+    Domain =
+        case inet_db:res_option(domain) of
+            [] ->
+                "@127.0.0.1";
+            _ -> ""
+        end,
+    case rtstart(" -name " ++ atom_to_list(?FUNCTION_NAME)++Domain) of
+        {ok, _SRPid, STPid, SState} ->
+            {ok, _CRPid, CTPid, CState} =
+                rtstart("-name undefined" ++ Domain ++
+                            " -remsh " ++ atom_to_list(?FUNCTION_NAME)),
+            ok = send_commands(
+                   STPid,
+                   [{putline, ""},
+                    {putline, "node()."},
+                    {expect, "\\Q" ++ atom_to_list(?FUNCTION_NAME) ++ "\\E"}], 1),
+            try
+                ok = send_commands(
+                       CTPid,
+                       [{putline, ""},
+                        {putline, "node()."},
+                        {expect, "\\Q" ++ atom_to_list(?FUNCTION_NAME) ++ "\\E"} | quit_hosting_node()], 1)
+            after
+                rtstop(CState), %% Stop client before server
+                rtstop(SState)
+            end;
+        Else ->
+            Else
     end.
 
-%% Test that -remsh works without epmd
+%% Test that -remsh works without epmd.
 remsh_no_epmd(Config) when is_list(Config) ->
-
-    case proplists:get_value(default_shell,Config) of
-        old -> {skip,"Not supported in old shell"};
-        new ->
-            EPMD_ARGS = "-start_epmd false -erl_epmd_port 12345 ",
-            case rtstart([],"ERL_EPMD_PORT=12345 ",
-                         EPMD_ARGS ++ " -sname " ++ atom_to_list(?FUNCTION_NAME)) of
-                {ok, _SRPid, STPid, SState} ->
-                    try
-                        ok = get_and_put(
-                               STPid,
-                               [{putline,""},
-                                {putline,"node()."},
-                                {getline_re,atom_to_list(?FUNCTION_NAME)}], 1),
-                            {ok, _CRPid, CTPid, CState} =
-                            rtstart([],"ERL_EPMD_PORT=12345 ",
-                                    EPMD_ARGS ++ " -remsh "++atom_to_list(?FUNCTION_NAME)),
-                        try
-                            ok = get_and_put(
-                                   CTPid,
-                                   [{kill_emulator_command,sigint},
-                                    {putline,""},
-                                    {putline,"node()."},
-                                    {getline_re,atom_to_list(?FUNCTION_NAME)}], 1)
-                        after
-                            rtstop(CState)
-                        end
-                    after
-                        rtstop(SState)
-                    end;
-                Else ->
-                    Else
-            end
+    EPMD_ARGS = "-start_epmd false -erl_epmd_port 12345 ",
+    case rtstart([],"ERL_EPMD_PORT=12345 ",
+                 EPMD_ARGS ++ " -sname " ++ atom_to_list(?FUNCTION_NAME)) of
+        {ok, _SRPid, STPid, SState} ->
+            try
+                ok = send_commands(
+                       STPid,
+                       [{putline, ""},
+                        {putline, "node()."},
+                        {expect, "\\Q" ++ atom_to_list(?FUNCTION_NAME) ++ "\\E"}], 1),
+                {ok, _CRPid, CTPid, CState} =
+                    rtstart([],"ERL_EPMD_PORT=12345 ",
+                            EPMD_ARGS ++ " -remsh "++atom_to_list(?FUNCTION_NAME)),
+                try
+                    ok = send_commands(
+                           CTPid,
+                           [{putline, ""},
+                            {putline, "node()."},
+                            {expect, "\\Q" ++ atom_to_list(?FUNCTION_NAME) ++ "\\E"} | quit_hosting_node()], 1)
+                after
+                    rtstop(CState)
+                end
+            after
+                rtstop(SState)
+            end;
+        Else ->
+            Else
     end.
 
-rtnode(C,N) ->
-    rtnode(C,N,[]).
-rtnode(Commands,Nodename,ErlPrefix) ->
-    rtnode(Commands,Nodename,ErlPrefix,[]).
-rtnode(Commands,Nodename,ErlPrefix,Args) ->
-    case rtstart(Nodename,ErlPrefix,Args) of
+rtnode(C) ->
+    rtnode(C, []).
+
+rtnode(C, N) ->
+    rtnode(C, N, []).
+
+rtnode(Commands, Nodename, ErlPrefix) ->
+    rtnode(Commands, Nodename, ErlPrefix, []).
+
+rtnode(Commands, Nodename, ErlPrefix, Args) ->
+    case rtstart(Nodename, ErlPrefix, Args) of
         {ok, _SPid, CPid, RTState} ->
-            erase(getline_skipped),
-            Res = (catch get_and_put(CPid, Commands, 1)),
+            Res = catch send_commands(CPid, Commands, 1),
             Logs = rtstop(RTState),
             case Res of
                 ok ->
-                    {Res, Logs};
-                _Else ->
+                    rtnode_dump_logs(Logs),
+                    ok;
+                _ ->
                     rtnode_dump_logs(Logs),
                     ok = Res
-            end;
+            end,
+            {ok, Logs};
         Skip ->
             Skip
     end.
 
 rtstart(Args) ->
-    rtstart([],[],Args).
-rtstart(Nodename,ErlPrefix,Args) ->
+    rtstart([], [], Args).
+
+rtstart(Nodename, ErlPrefix, Args) ->
     case get_progs() of
 	{error,_Reason} ->
 	    {skip,"No runerl present"};
@@ -844,20 +861,7 @@ rtstart(Nodename,ErlPrefix,Args) ->
 rtstop({CPid, SPid, ToErl, Tempdir}) ->
     case stop_runerl_node(CPid) of
         {error,_} ->
-            CPid2 =
-                start_toerl_server(ToErl,Tempdir),
-            erase(getline_skipped),
-            ok = get_and_put
-                   (CPid2,
-                    [{putline,[7]},
-                     {sleep,
-                      timeout(short)},
-                     {putline,""},
-                     {getline," -->"},
-                     {putline,"s"},
-                     {putline,"c"},
-                     {putline,""}],1),
-            stop_runerl_node(CPid2);
+            catch rtstop_try_harder(ToErl, Tempdir);
         _ ->
             ok
     end,
@@ -866,6 +870,18 @@ rtstop({CPid, SPid, ToErl, Tempdir}) ->
     file:del_dir_r(Tempdir),
     Logs.
 
+rtstop_try_harder(ToErl, Tempdir) ->
+    CPid = start_toerl_server(ToErl, Tempdir),
+    ok = send_commands(CPid,
+                       [{putline,[7]},
+                        {expect, " --> $"},
+                        {putline, "s"},
+                        {putline, "c"},
+                        {putline, ""}], 1),
+    stop_runerl_node(CPid).
+
+timeout(longest) ->
+    timeout(long) + timeout(normal);
 timeout(long) ->
     2 * timeout(normal);
 timeout(short) ->
@@ -873,154 +889,72 @@ timeout(short) ->
 timeout(normal) ->
     10000 * test_server:timetrap_scale_factor().
 
-
-start_noshell_node(Name) ->
-    PADir =  filename:dirname(code:which(?MODULE)),
-    {ok, Node} = test_server:start_node(Name,slave,[{args," -noshell -pa "++
-							 PADir++" "}]),
+start_node(Name, Args0) ->
+    PaDir =  filename:dirname(code:which(?MODULE)),
+    Args1 = ["-pa",PaDir|Args0],
+    Args = lists:append(lists:join(" ", Args1)),
+    {ok, Node} = test_server:start_node(Name, slave, [{args,Args}]),
     Node.
-stop_noshell_node(Node) ->
-    test_server:stop_node(Node).
 
-get_and_put(_CPid,[],_) ->
-    ok;
-get_and_put(CPid, [{sleep, X}|T],N) ->
+send_commands(CPid, [{sleep, X}|T], N) ->
     ?dbg({sleep, X}),
     receive
     after X ->
-	    get_and_put(CPid,T,N+1)
+	    send_commands(CPid, T, N+1)
     end;
-get_and_put(CPid, [{kill_emulator_command, Cmd}|T],N) ->
-    ?dbg({kill_emulator_command, Cmd}),
-    CPid ! {self(), {kill_emulator_command, Cmd}},
-    receive
-        {kill_emulator_command,_Res} ->
-            get_and_put(CPid,T,N)
+send_commands(CPid, [{expect, Expect}|T], N) when is_list(Expect) ->
+    ?dbg(Exp),
+    case command(CPid, {expect, [Expect], timeout(normal)}) of
+        ok ->
+            send_commands(CPid, T, N + 1);
+        {expect_timeout, Got} ->
+            ct:pal("expect timed out waiting for ~p\ngot: ~p\n", [Expect,Got]),
+            {error, timeout};
+        Other ->
+            Other
     end;
-get_and_put(CPid, [{getline, Match}|T],N) ->
-    ?dbg({getline, Match}),
-    CPid ! {self(), {get_line, timeout(normal)}},
-    receive
-	{get_line, timeout} ->
-	    error_logger:error_msg("~p: getline timeout waiting for \"~s\" "
-				   "(command number ~p, skipped: ~p)~n",
-				   [?MODULE, Match,N,get(getline_skipped)]),
-	    {error, timeout};
-	{get_line, Data} ->
-	    ?dbg({data,Data}),
-	    case lists:prefix(Match, Data) of
-		true ->
-		    erase(getline_skipped),
-		    get_and_put(CPid, T,N+1);
-		false ->
-		    case get(getline_skipped) of
-			undefined ->
-			    put(getline_skipped,[Data]);
-			List ->
-			    put(getline_skipped,List ++ [Data])
-		    end,
-		    get_and_put(CPid,  [{getline, Match}|T],N)
-	    end
-    end;
-
-%% Hey ho copy paste from stdlib/io_proto_SUITE
-get_and_put(CPid, [{getline_re, Match}|T],N) ->
-    ?dbg({getline_re, Match}),
-    CPid ! {self(), {get_line, timeout(normal)}},
-    receive
-	{get_line, timeout} ->
-	    error_logger:error_msg("~p: getline_re timeout waiting for \"~s\" "
-				   "(command number ~p, skipped: ~p)~n",
-				   [?MODULE, Match,N,get(getline_skipped)]),
-	    {error, timeout};
-	{get_line, Data} ->
-	    ?dbg({data,Data}),
-	    case re:run(Data, Match,[{capture,none}]) of
-		match ->
-		    erase(getline_skipped),
-		    get_and_put(CPid, T,N+1);
-		_ ->
-		    case get(getline_skipped) of
-			undefined ->
-			    put(getline_skipped,[Data]);
-			List ->
-			    put(getline_skipped,List ++ [Data])
-		    end,
-		    get_and_put(CPid,  [{getline_re, Match}|T],N)
-	    end
-    end;
-
-get_and_put(CPid, [{getdata, Match}|T],N) ->
-    ?dbg({getdata, Match}),
-    CPid ! {self(), {get_data, timeout(normal), Match}},
-    receive
-	{get_data, timeout} ->
-	    error_logger:error_msg("~p: getdata timeout waiting for \"~s\" "
-				   "(command number ~p, skipped: ~p)~n",
-				   [?MODULE, Match,N,get(getline_skipped)]),
-	    {error, timeout};
-	{get_data, _Data} ->
-	    ?dbg({CPid,data,_Data}),
-            get_and_put(CPid, T, N+1)
-    end;
-
-get_and_put(CPid, [{putline_raw, Line}|T],N) ->
-    ?dbg({putline_raw, Line}),
-    CPid ! {self(), {send_line, Line}},
-    Timeout = timeout(normal),
-    receive
-	{send_line, ok} ->
-	    get_and_put(CPid, T,N+1)
-    after Timeout ->
-	    error_logger:error_msg("~p: putline_raw timeout (~p) sending "
-				   "\"~s\" (command number ~p)~n",
-				   [?MODULE, Timeout, Line, N]),
-	    {error, timeout}
-    end;
-
-get_and_put(CPid, [{putline, Line}|T],N) ->
-    ?dbg({putline, Line}),
-    CPid ! {self(), {send_line, Line}},
-    Timeout = timeout(normal),
-    receive
-	{send_line, ok} ->
-	    get_and_put(CPid, [{getline, []}|T],N)
-    after Timeout ->
-	    error_logger:error_msg("~p: putline timeout (~p) sending "
-				   "\"~s\" (command number ~p)~n[~p]~n",
-				   [?MODULE, Timeout, Line, N,get()]),
-	    {error, timeout}
-    end;
-get_and_put(CPid, [{putdata, Data}|T],N) ->
+send_commands(CPid, [{putline, Line}|T], N) ->
+    send_commands(CPid, [{putdata, Line ++ "\n"}|T], N);
+send_commands(CPid, [{putdata, Data}|T], N) ->
     ?dbg({putdata, Data}),
-    CPid ! {self(), {send_data, Data}},
-    Timeout = timeout(normal),
+    case command(CPid, {send_data, Data}) of
+        ok ->
+	    send_commands(CPid, T, N+1);
+        Error ->
+            Error
+    end;
+send_commands(_CPid, [], _) ->
+    ok.
+
+command(Pid, Req) ->
+    Timeout = timeout(longest),
+    Ref = erlang:monitor(process, Pid),
+    Pid ! {self(), Ref, Req},
     receive
-	{send_data, ok} ->
-	    get_and_put(CPid, T,N+1)
+        {Ref, Reply} ->
+            erlang:demonitor(Ref, [flush]),
+            Reply;
+        {'DOWN', Ref, _, _, Reason} ->
+            {error, Reason}
     after Timeout ->
-	    error_logger:error_msg("~p: putline_raw timeout (~p) sending "
-				   "\"~s\" (command number ~p)~n",
-				   [?MODULE, Timeout, Data, N]),
-	    {error, timeout}
+            io:format("timeout while executing ~p\n", [Req]),
+            {error, timeout}
     end.
 
 wait_for_runerl_server(SPid) ->
-    Ref = erlang:monitor(process, SPid), 
+    Ref = erlang:monitor(process, SPid),
     Timeout = timeout(long),
     receive
-	{'DOWN', Ref, process, SPid, _} ->
+	{'DOWN', Ref, process, SPid, _Reason} ->
 	    ok
     after Timeout ->
-	    {error, timeout}
+	    {error, runerl_server_timeout}
     end.
-
-
 
 stop_runerl_node(CPid) ->
     Ref = erlang:monitor(process, CPid),
     CPid ! {self(), kill_emulator},
-    Timeout = timeout(long),
+    Timeout = timeout(longest),
     receive
 	{'DOWN', Ref, process, CPid, noproc} ->
 	    ok;
@@ -1029,34 +963,38 @@ stop_runerl_node(CPid) ->
 	{'DOWN', Ref, process, CPid, {error, Reason}} ->
 	    {error, Reason}
     after Timeout ->
-	    {error, timeout}
+	    {error, toerl_server_timeout}
     end.
 
 get_progs() ->
+    try
+        do_get_progs()
+    catch
+        throw:Thrown ->
+            {error, Thrown}
+    end.
+
+do_get_progs() ->
     case os:type() of
 	{unix,freebsd} ->
-	    {error,"cant use run_erl on freebsd"};
+	    throw("Can't use run_erl on FreeBSD");
 	{unix,openbsd} ->
-	    {error,"cant use run_erl on openbsd"};
+	    throw("Can't use run_erl on OpenBSD");
 	{unix,_} ->
-	    case os:find_executable("run_erl") of
-		RE when is_list(RE) ->
-		    case  os:find_executable("to_erl") of
-			TE when is_list(TE) ->
-			    case os:find_executable("erl") of
-				E when is_list(E) ->
-				    {RE,TE,E};
-				_ ->
-				    {error, "Could not find erl command"}
-			    end;
-			_ ->
-			    {error, "Could not find to_erl command"}
-		    end;
-		_ ->
-		    {error, "Could not find run_erl command"}
-	    end;
+            RunErl = find_executable("run_erl"),
+            ToErl = find_executable("to_erl"),
+            Erl = find_executable("erl"),
+            {RunErl, ToErl, Erl};
 	_ ->
-	    {error, "Not a unix OS"}
+	    throw("Not a Unix OS")
+    end.
+
+find_executable(Name) ->
+    case os:find_executable(Name) of
+        Prog when is_list(Prog) ->
+            Prog;
+        false ->
+            throw("Could not find " ++ Name)
     end.
 
 create_tempdir() ->
@@ -1143,8 +1081,8 @@ try_to_erl(Command, N) ->
 	    Port
     end.
 
-toerl_server(Parent,ToErl,Tempdir) ->
-    Port = try_to_erl("\""++ToErl++"\" "++Tempdir++"/ 2>/dev/null", 8),
+toerl_server(Parent, ToErl, TempDir) ->
+    Port = try_to_erl("\""++ToErl++"\" "++TempDir++"/ 2>/dev/null", 8),
     case Port of
 	P when is_port(P) ->
 	    Parent ! {self(),started};
@@ -1152,7 +1090,9 @@ toerl_server(Parent,ToErl,Tempdir) ->
 	    Parent ! {self(),error,Other},
 	    exit(Other)
     end,
-    case toerl_loop(#{ port => Port}) of
+
+    State = #{port => Port, acc => [], kill_emulator_command => init_stop},
+    case toerl_loop(State) of
 	normal ->
 	    ok;
 	{error, Reason} ->
@@ -1161,99 +1101,132 @@ toerl_server(Parent,ToErl,Tempdir) ->
 	    exit(Reason)
     end.
 
-toerl_loop(#{ port := Port } = State0) ->
-    ?dbg({toerl_loop, Port, maps:get(acc,State0,[]),
-          maps:get(match,State0,nomatch)}),
+toerl_loop(#{port := Port} = State0) ->
+    ?dbg({toerl_loop, Port, map_get(acc, State0),
+          maps:get(match, State0, nomatch)}),
 
-    State = handle_match(State0),
+    State = handle_expect(State0),
 
     receive
 	{Port,{data,Data}} when is_port(Port) ->
 	    ?dbg({?LINE,Port,{data,Data}}),
-            toerl_loop(State#{ acc => lists:flatten([maps:get(acc,State,[]),Data])});
-        {Pid, {get_data, Timeout, Match}} ->
-            toerl_loop(
-              State#{ get =>
-                          #{ match => Match,
-                             timer => erlang:start_timer(Timeout, self(), timeout),
-                             tag => get_data,
-                             from => Pid }
-                    });
-        {Pid, {get_line, Timeout}} ->
-            toerl_loop(
-              State#{ get =>
-                          #{ match => "\r\n",
-                             timer => erlang:start_timer(Timeout, self(), timeout),
-                             tag => get_line,
-                             from => Pid }
-                    });
-	{Pid, {send_line, Data7}} ->
-	    Port ! {self(),{command, Data7++"\n"}},
-	    Pid ! {send_line, ok},
-	    toerl_loop(State);
-        {Pid, {send_data, Data}} ->
-            Port ! {self(),{command, Data}},
-	    Pid ! {send_data, ok},
-	    toerl_loop(State);
-        {Pid, {kill_emulator_command, Cmd}} ->
-            put(kill_emulator_command, Cmd),
-            Pid ! {kill_emulator_command, ok},
+            toerl_loop(State#{acc => map_get(acc, State) ++ Data});
+        {Pid, Ref, {expect, Expect, Timeout}} ->
+            toerl_loop(init_expect(Pid, Ref, Expect, Timeout, State));
+        {Pid, Ref, {send_data, Data}} ->
+            Port ! {self(), {command, Data}},
+	    Pid ! {Ref, ok},
 	    toerl_loop(State);
 	{_Pid, kill_emulator} ->
-            case get(kill_emulator_command) of
-                undefined ->
-                    Port ! {self(),{command, "init:stop().\n"}};
-                sigint ->
-                    ?dbg({putdata,[$\^c]}),
-                    Port ! {self(),{command, [$\^c]}},
-                    receive
-                        {Port,{data,_Data}} ->
-                            ?dbg({exit_data, _Data}),
-                            ok
-                    after 2000 ->
-                            ok
-                    end,
-                    ?dbg({putdata,"a\n"}),
-                    Port ! {self(),{command, "a\n"}}
-            end,
-	    Timeout1 = timeout(long),
-	    receive
-		{Port,eof} ->
-		    normal
-	    after Timeout1 ->
-		    {error, kill_timeout}
-	    end;
-        {timeout,Timer,timeout} ->
-            #{ get := #{ tag := Tag, from := Pid, timer := Timer } } = State,
-            Pid ! {Tag, timeout},
-            toerl_loop(maps:remove(get, State));
+            kill_emulator(State);
+        {timeout,Timer,expect_timeout} ->
+            toerl_loop(handle_expect_timeout(Timer, State));
 	{Port, eof} ->
 	    {error, unexpected_eof};
 	Other ->
 	    {error, {unexpected, Other}}
     end.
 
-handle_match(#{ acc := Acc, get := #{ tag := Tag,
-                                      match := Match,
-                                      from := From,
-                                      timer := Timer}} = State) ->
-    case string:split(Acc, Match) of
-        [Pre,Post] ->
-            ?dbg({match,Pre}),
-            From ! {Tag, Pre},
-            erlang:cancel_timer(Timer),
-            receive
-                {timeout,Timer,timeout} ->
-                    ok
-            after 0 ->
-                    ok
-            end,
-            maps:put(acc, Post, maps:remove(get, State));
-        [Acc] ->
-            State
+kill_emulator(#{port := Port}) ->
+    %% If the line happens to end in a ".", issuing "init:stop()."
+    %% will result in a syntax error.  To avoid that, issue a "\n"
+    %% before "init:stop().".
+    Port ! {self(),{command, "\ninit:stop().\n"}},
+    wait_for_eof(Port).
+
+wait_for_eof(Port) ->
+    receive
+        {Port,eof} ->
+            normal;
+        _Other ->
+            wait_for_eof(Port)
+    after
+        timeout(long) ->
+            {error, kill_timeout}
+    end.
+
+init_expect(Pid, Ref, ExpectList, Timeout, State) ->
+    try compile_expect(ExpectList) of
+        Expect ->
+            Exp = #{expect => Expect,
+                    ref => Ref,
+                    source => ExpectList,
+                    timer => erlang:start_timer(Timeout, self(), expect_timeout),
+                    from => Pid},
+            State#{expect => Exp}
+    catch
+        Class:Reason:Stk ->
+            io:put_chars("Compilation of expect pattern failed:"),
+            io:format("~p\n", [ExpectList]),
+            io:put_chars(erl_error:format_exception(Class, Reason, Stk)),
+            exit(expect_pattern_error)
+    end.
+
+handle_expect(#{acc := Acc, expect := Exp} = State) ->
+    #{expect := Expect, from := Pid, ref := Ref} = Exp,
+    case Expect(Acc) of
+        nomatch ->
+            State;
+        {matched, Eaten, Result} ->
+            Pid ! {Ref, Result},
+            finish_expect(Eaten, State)
     end;
-handle_match(State) ->
+handle_expect(State) ->
     State.
+
+handle_expect_timeout(Timer, State) ->
+    #{acc := Acc, expect := Exp} = State,
+    #{expect := Expect, timer := Timer, from := Pid, ref := Ref} = Exp,
+    case Expect({timeout, Acc}) of
+        nomatch ->
+            Result = {expect_timeout, Acc},
+            Pid ! {Ref, Result},
+            finish_expect(0, State);
+        {matched, Eaten, Result} ->
+            Pid ! {Ref, Result},
+            finish_expect(Eaten, State)
+    end.
+
+finish_expect(Eaten, #{acc := Acc0,
+                       expect := #{timer := Timer}}=State) ->
+    erlang:cancel_timer(Timer),
+    receive
+        {timeout,Timer,timeout} ->
+            ok
+    after 0 ->
+            ok
+    end,
+    Acc = lists:nthtail(Eaten, Acc0),
+    maps:remove(expect, State#{acc := Acc}).
+
+compile_expect([{timeout,Action}|T]) when is_function(Action, 1) ->
+    Next = compile_expect(T),
+    fun({timeout, _}=Tm) ->
+            {matched, 0, Action(Tm)};
+       (Subject) ->
+            Next(Subject)
+    end;
+compile_expect([{{re,RE0},Action}|T]) when is_binary(RE0), is_function(Action, 1) ->
+    {ok, RE} = re:compile(RE0),
+    Next = compile_expect(T),
+    fun({timeout, _}=Subject) ->
+            Next(Subject);
+       (Subject) ->
+            case re:run(Subject, RE, [{capture,first,index}]) of
+                nomatch ->
+                    Next(Subject);
+                {match, [{Pos,Len}]} ->
+                    Matched = binary:part(list_to_binary(Subject), Pos, Len),
+                    {matched, Pos+Len, Action(Matched)}
+            end
+    end;
+compile_expect([RE|T]) when is_list(RE) ->
+    Ok = fun(_) -> ok end,
+    compile_expect([{{re,list_to_binary(RE)},Ok}|T]);
+compile_expect([]) ->
+    fun(_) ->
+            nomatch
+    end.
 
 rtnode_check_logs(Logname, Pattern, Logs) ->
 rtnode_check_logs(Logname, Pattern, true, Logs).
@@ -1275,7 +1248,15 @@ rtnode_dump_logs(Logs) ->
       end, Logs).
 
 rtnode_read_logs(Tempdir) ->
-    {ok, LogFiles} = file:list_dir(Tempdir),
+    {ok, LogFiles0} = file:list_dir(Tempdir),
+
+    %% Make sure that we only read log files and not any named pipes.
+    LogFiles = [F || F <- LogFiles0,
+                     case F of
+                         "erlang.log" ++ _ -> true;
+                         _ -> false
+                     end],
+
     lists:foldl(
       fun(File, Acc) ->
               case file:read_file(filename:join(Tempdir, File)) of
@@ -1289,13 +1270,13 @@ rtnode_read_logs(Tempdir) ->
 get_default_shell() ->
     try
         rtnode([{putline,""},
-                {putline, "whereis(user_drv)."},
-                {getline, "undefined"}],[]),
-        old
+                {putline, "is_pid(whereis(user_drv))."},
+                {expect, "true\r\n"}], []),
+        new
     catch _E:_R ->
             ?dbg({_E,_R}),
-            new
+            old
     end.
 
-atom2list(A) ->
-    lists:flatten(io_lib:format("~s", [A])).
+printed_atom(A) ->
+    lists:flatten(io_lib:format("~w", [A])).

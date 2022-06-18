@@ -2,6 +2,14 @@
   [;1m-spec process_flag(save_calls, N) -> OldN[0m
   [;1m                      when N :: 0..10000, OldN :: 0..10000.[0m
 
+  [;1m-spec process_flag(fullsweep_after, FullsweepAfter) -> OldFullsweepAfter[0m
+  [;1m                      when[0m
+  [;1m                          FullsweepAfter :: non_neg_integer(),[0m
+  [;1m                          OldFullsweepAfter :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP 24.0
+
   [;1m-spec process_flag(min_bin_vheap_size, MinBinVHeapSize) ->[0m
   [;1m                      OldMinBinVHeapSize[0m
   [;1m                      when[0m

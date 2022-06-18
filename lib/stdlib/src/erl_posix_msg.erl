@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -139,7 +139,7 @@ message_1(eprocunavail) -> <<"bad procedure for program">>;
 message_1(eprogmismatch) -> <<"program version wrong">>;
 message_1(eprogunavail) -> <<"RPC program not available">>;
 message_1(eproto) -> <<"protocol error">>;
-message_1(eprotonosupport) -> <<"protocol not suppored">>;
+message_1(eprotonosupport) -> <<"protocol not supported">>;
 message_1(eprototype) -> <<"protocol wrong type for socket">>;
 message_1(erange) -> <<"math result unrepresentable">>;
 message_1(erefused) -> <<"EREFUSED">>;

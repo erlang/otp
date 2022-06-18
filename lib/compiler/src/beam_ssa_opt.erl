@@ -39,7 +39,7 @@
 
 -include("beam_ssa_opt.hrl").
 
--import(lists, [all/2,append/1,duplicate/2,flatten/1,foldl/3,
+-import(lists, [all/2,append/1,droplast/1,duplicate/2,flatten/1,foldl/3,
                 keyfind/3,last/1,mapfoldl/3,member/2,
                 partition/2,reverse/1,reverse/2,
                 splitwith/2,sort/1,takewhile/2,unzip/1]).
@@ -277,7 +277,7 @@ module_passes(Opts) ->
 repeated_passes(Opts) ->
     Ps = [?PASS(ssa_opt_live),
           ?PASS(ssa_opt_ne),
-          ?PASS(ssa_opt_bs_puts),
+          ?PASS(ssa_opt_bs_create_bin),
           ?PASS(ssa_opt_dead),
           ?PASS(ssa_opt_cse),
           ?PASS(ssa_opt_tail_phis),
@@ -301,6 +301,7 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_bsm_shortcut),
           ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_blockify),
+          ?PASS(ssa_opt_redundant_br),
           ?PASS(ssa_opt_merge_blocks),
           ?PASS(ssa_opt_get_tuple_element),
           ?PASS(ssa_opt_tail_calls),
@@ -1070,7 +1071,7 @@ cse_suitable(#b_set{}) -> false.
 %%% will take special care to keep not using them in guards.  Using
 %%% them in guards would require a new version of the 'fconv'
 %%% instruction that would take a failure label.  Since it is unlikely
-%%% that using float instructions in guards would be benefical, why
+%%% that using float instructions in guards would be beneficial, why
 %%% bother implementing a new instruction?
 %%%
 
@@ -1122,7 +1123,7 @@ float_opt_1(L, #b_blk{is=Is0}=Blk0, Bs0, Count0, Fs0) ->
     end.
 
 %% Split out {float,convert} instructions into separate blocks, number
-%% the blocks, and add {succeded,body} in each {float,convert} block.
+%% the blocks, and add {succeeded,body} in each {float,convert} block.
 float_fixup_conv(L, Is, Blk, Count0) ->
     Split = float_split_conv(Is, Blk),
     {Blks,Count} = float_number(Split, L, Count0),
@@ -1419,7 +1420,7 @@ live_opt_is([], Live, Acc) ->
 %%%
 %%% try/catch optimization.
 %%%
-%%% Attemps to rewrite try/catches as guards when we know the exception won't
+%%% Attempts to rewrite try/catches as guards when we know the exception won't
 %%% be inspected in any way, and removes try/catches whose expressions will
 %%% never throw.
 %%%
@@ -1787,105 +1788,73 @@ bsm_shortcut([], _PosMap) -> [].
 %%% If an integer segment or a float segment has a literal size and
 %%% a literal value, convert to a binary segment. Coalesce adjacent
 %%% literal binary segments. Literal binary segments will be converted
-%%% to bs_put_string instructions in later pass.
+%%% to bs_put_string instructions in a later pass.
 %%%
 
-ssa_opt_bs_puts({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
-    {Linear,Count} = opt_bs_puts(Linear0, Count0, []),
-    {St#opt_st{ssa=Linear,cnt=Count}, FuncDb}.
+ssa_opt_bs_create_bin({#opt_st{ssa=Linear0}=St, FuncDb}) ->
+    Linear = opt_create_bin_fs(Linear0),
+    {St#opt_st{ssa=Linear}, FuncDb}.
 
-opt_bs_puts([{L,#b_blk{is=Is}=Blk0}|Bs], Count0, Acc0) ->
-    case Is of
-        [#b_set{op=bs_put},#b_set{op={succeeded,_}}]=Is ->
-            case opt_bs_put(L, Is, Blk0, Count0, Acc0) of
-                not_possible ->
-                    opt_bs_puts(Bs, Count0, [{L,Blk0}|Acc0]);
-                {Count,Acc1} ->
-                    Acc = opt_bs_puts_merge(Acc1),
-                    opt_bs_puts(Bs, Count, Acc)
-            end;
-        _ ->
-            opt_bs_puts(Bs, Count0, [{L,Blk0}|Acc0])
-    end;
-opt_bs_puts([], Count, Acc) ->
-    {reverse(Acc),Count}.
+opt_create_bin_fs([{L,#b_blk{is=Is0}=Blk0}|Bs]) ->
+    Is = opt_create_bin_is(Is0),
+    Blk = Blk0#b_blk{is=Is},
+    [{L,Blk}|opt_create_bin_fs(Bs)];
+opt_create_bin_fs([]) -> [].
 
-opt_bs_puts_merge([{L1,#b_blk{is=Is}=Blk0},{L2,#b_blk{is=AccIs}}=BAcc|Acc]) ->
-    case {AccIs,Is} of
-        {[#b_set{op=bs_put,
-                 args=[#b_literal{val=binary},
-                       #b_literal{},
-                       #b_literal{val=Bin0},
-                       #b_literal{val=all},
-                       #b_literal{val=1}]},
-          #b_set{op={succeeded,_}}],
-         [#b_set{op=bs_put,
-                 args=[#b_literal{val=binary},
-                       #b_literal{},
-                       #b_literal{val=Bin1},
-                       #b_literal{val=all},
-                       #b_literal{val=1}]}=I0,
-          #b_set{op={succeeded,_}}=Succeeded]} ->
-            %% Coalesce the two segments to one.
-            Bin = <<Bin0/bitstring,Bin1/bitstring>>,
-            I = I0#b_set{args=bs_put_args(binary, Bin, all)},
-            Blk = Blk0#b_blk{is=[I,Succeeded]},
-            [{L2,Blk}|Acc];
-        {_,_} ->
-            [{L1,Blk0},BAcc|Acc]
-    end.
+opt_create_bin_is([#b_set{op=bs_create_bin,args=Args0}=I0|Is]) ->
+    Args = opt_create_bin_args(Args0),
+    I = I0#b_set{args=Args},
+    [I|opt_create_bin_is(Is)];
+opt_create_bin_is([I|Is]) ->
+    [I|opt_create_bin_is(Is)];
+opt_create_bin_is([]) -> [].
 
-opt_bs_put(L, [I0,Succeeded], #b_blk{last=Br0}=Blk0, Count0, Acc) ->
-    case opt_bs_put(I0) of
-        [Bin] when is_bitstring(Bin) ->
-            Args = bs_put_args(binary, Bin, all),
-            I = I0#b_set{args=Args},
-            Blk = Blk0#b_blk{is=[I,Succeeded]},
-            {Count0,[{L,Blk}|Acc]};
-        [{int,Int,Size},Bin] when is_bitstring(Bin) ->
-            %% Construct a bs_put_integer instruction following
-            %% by a bs_put_binary instruction.
-            IntArgs = bs_put_args(integer, Int, Size),
-            BinArgs = bs_put_args(binary, Bin, all),
-
-            {BinL,BinVarNum,BinBoolNum} = {Count0,Count0+1,Count0+2},
-            Count = Count0 + 3,
-            BinVar = #b_var{name={'@ssa_bs_put',BinVarNum}},
-            BinBool = #b_var{name={'@ssa_bool',BinBoolNum}},
-
-            BinI = I0#b_set{dst=BinVar,args=BinArgs},
-            BinSucceeded = Succeeded#b_set{dst=BinBool,args=[BinVar]},
-            BinBlk = Blk0#b_blk{is=[BinI,BinSucceeded],
-                                last=Br0#b_br{bool=BinBool}},
-
-            IntI = I0#b_set{args=IntArgs},
-            IntBlk = Blk0#b_blk{is=[IntI,Succeeded],last=Br0#b_br{succ=BinL}},
-
-            {Count,[{BinL,BinBlk},{L,IntBlk}|Acc]};
+opt_create_bin_args([#b_literal{val=binary},#b_literal{val=[1|_]},
+                     #b_literal{val=Bin0},#b_literal{val=all},
+                     #b_literal{val=binary},#b_literal{val=[1|_]},
+                     #b_literal{val=Bin1},#b_literal{val=all}|Args0]) ->
+    %% Coalesce two litary binary segments to one.
+    Bin = <<Bin0/bitstring,Bin1/bitstring>>,
+    Args = [#b_literal{val=binary},#b_literal{val=[1]},
+            #b_literal{val=Bin},#b_literal{val=all}|Args0],
+    opt_create_bin_args(Args);
+opt_create_bin_args([#b_literal{val=Type}=Type0,#b_literal{val=UFs}=UFs0,Val,Size|Args0]) ->
+    [Unit|Flags] = UFs,
+    case opt_create_bin_arg(Type, Unit, UFs, Val, Size) of
         not_possible ->
-            not_possible
-    end.
-
-opt_bs_put(#b_set{args=[#b_literal{val=binary},_,#b_literal{val=Val},
-                        #b_literal{val=all},#b_literal{val=Unit}]})
-  when is_bitstring(Val) ->
-    if
-        bit_size(Val) rem Unit =:= 0 ->
-            [Val];
-        true ->
-            not_possible
+            [Type0,UFs0,Val,Size|opt_create_bin_args(Args0)];
+        [Bin] when is_bitstring(Bin) ->
+            Args = [#b_literal{val=binary},#b_literal{val=[1]},
+                    #b_literal{val=Bin},#b_literal{val=all}|Args0],
+            opt_create_bin_args(Args);
+        [{int,Int,IntSize},Bin] when is_bitstring(Bin) ->
+            Args = [#b_literal{val=integer},#b_literal{val=[1|Flags]},
+                    #b_literal{val=Int},#b_literal{val=IntSize},
+                    #b_literal{val=binary},#b_literal{val=[1]},
+                    #b_literal{val=Bin},#b_literal{val=all}|Args0],
+            opt_create_bin_args(Args)
     end;
-opt_bs_put(#b_set{args=[#b_literal{val=Type},#b_literal{val=Flags},
-                        #b_literal{val=Val},#b_literal{val=Size},
-                        #b_literal{val=Unit}]}=I0) when is_integer(Size) ->
+opt_create_bin_args([]) -> [].
+
+opt_create_bin_arg(binary, Unit, _Flags, #b_literal{val=Val}, #b_literal{val=all})
+  when Unit =/= 1, bit_size(Val) rem Unit =:= 0 ->
+    [Val];
+opt_create_bin_arg(Type, Unit, Flags, #b_literal{val=Val}, #b_literal{val=Size})
+  when is_integer(Size), is_integer(Unit) ->
     EffectiveSize = Size * Unit,
     if
         EffectiveSize > 0 ->
-            case {Type,opt_bs_put_endian(Flags)} of
+            case {Type,opt_create_bin_endian(Flags)} of
                 {integer,big} when is_integer(Val) ->
                     if
                         EffectiveSize < 64 ->
                             [<<Val:EffectiveSize>>];
+                        EffectiveSize > 1 bsl 24 ->
+                            %% The binary construction could fail with a
+                            %% system_limit. Don't optimize to ensure that
+                            %% the extended error information will be
+                            %% accurate.
+                            not_possible;
                         true ->
                             opt_bs_put_split_int(Val, EffectiveSize)
                     end;
@@ -1893,9 +1862,8 @@ opt_bs_put(#b_set{args=[#b_literal{val=Type},#b_literal{val=Flags},
                     %% To avoid an explosion in code size, we only try
                     %% to optimize relatively small fields.
                     <<Int:EffectiveSize>> = <<Val:EffectiveSize/little>>,
-                    Args = bs_put_args(Type, Int, EffectiveSize),
-                    I = I0#b_set{args=Args},
-                    opt_bs_put(I);
+                    opt_create_bin_arg(Type, 1, [], #b_literal{val=Int},
+                                       #b_literal{val=EffectiveSize});
                 {binary,_} when is_bitstring(Val) ->
                     case Val of
                         <<Bitstring:EffectiveSize/bits,_/bits>> ->
@@ -1906,8 +1874,14 @@ opt_bs_put(#b_set{args=[#b_literal{val=Type},#b_literal{val=Flags},
                     end;
                 {float,Endian} ->
                     try
-                        [opt_bs_put_float(Val, EffectiveSize, Endian)]
-                    catch error:_ ->
+                        case Endian of
+                            big ->
+                                [<<Val:EffectiveSize/big-float-unit:1>>];
+                            little ->
+                                [<<Val:EffectiveSize/little-float-unit:1>>]
+                        end
+                    catch
+                        error:_ ->
                             not_possible
                     end;
                 {_,_} ->
@@ -1916,25 +1890,12 @@ opt_bs_put(#b_set{args=[#b_literal{val=Type},#b_literal{val=Flags},
         true ->
             not_possible
     end;
-opt_bs_put(#b_set{}) -> not_possible.
+opt_create_bin_arg(_, _, _, _, _) -> not_possible.
 
-opt_bs_put_float(N, Sz, Endian) ->
-    case Endian of
-        big -> <<N:Sz/big-float-unit:1>>;
-        little -> <<N:Sz/little-float-unit:1>>
-    end.
-
-bs_put_args(Type, Val, Size) ->
-    [#b_literal{val=Type},
-     #b_literal{val=[unsigned,big]},
-     #b_literal{val=Val},
-     #b_literal{val=Size},
-     #b_literal{val=1}].
-
-opt_bs_put_endian([big=E|_]) -> E;
-opt_bs_put_endian([little=E|_]) -> E;
-opt_bs_put_endian([native=E|_]) -> E;
-opt_bs_put_endian([_|Fs]) -> opt_bs_put_endian(Fs).
+opt_create_bin_endian([little=E|_]) -> E;
+opt_create_bin_endian([native=E|_]) -> E;
+opt_create_bin_endian([_|Fs]) -> opt_create_bin_endian(Fs);
+opt_create_bin_endian([]) -> big.
 
 opt_bs_put_split_int(Int, Size) ->
     Pos = opt_bs_put_split_int_1(Int, 0, Size - 1),
@@ -2511,7 +2472,6 @@ unsuitable(Linear, Blocks) ->
 unsuitable_1([{L,#b_blk{is=[#b_set{op=Op}=I|_]}}|Bs]) ->
     Unsuitable = case Op of
                      bs_extract -> true;
-                     bs_put -> true;
                      {float,_} -> true;
                      landingpad -> true;
                      _ -> beam_ssa:is_loop_header(I)
@@ -2971,8 +2931,8 @@ unfold_arg(Expr, _LitMap, _X) -> Expr.
 %%%      ret @ssa_ret
 %%%
 %%% The beam_ssa_codegen pass will not recognize this code as a tail
-%%% call and will generate an unncessary stack frame. It may also
-%%% generate unecessary `kill` instructions.
+%%% call and will generate an unnecessary stack frame. It may also
+%%% generate unnecessary `kill` instructions.
 %%%
 %%% To avoid those extra instructions, this optimization will
 %%% eliminate the `succeeded:body` and `br` instructions and insert
@@ -3100,6 +3060,127 @@ is_tail_call_is([#b_set{op=call,dst=Dst}=Call,
 is_tail_call_is([I|Is], Bool, Ret, Acc) ->
     is_tail_call_is(Is, Bool, Ret, [I|Acc]);
 is_tail_call_is([], _Bool, _Ret, _Acc) -> no.
+
+%%%
+%%% Eliminate redundant branches.
+%%%
+%%% Redundant `br` instructions following calls to guard BIFs such as:
+%%%
+%%%     @bif_result = bif:Bif ...
+%%%     br @bif_result, ^100, ^200
+%%%
+%%%   100:
+%%%      ret `true`
+%%%
+%%%   200:
+%%%      ret `false`
+%%%
+%%% can can be rewritten to:
+%%%
+%%%     @bif_result = bif:Bif ...
+%%%     ret @bif_result
+%%%
+%%% A similar rewriting is possible if the true and false branches end
+%%% up at a phi node.
+%%%
+%%% A code sequence such as:
+%%%
+%%%   @ssa_bool = bif:'=:=' Var, Other
+%%%   br @ssa_bool, ^100, ^200
+%%%
+%%% 100:
+%%%   ret Other
+%%%
+%%% 200:
+%%%   ret Var
+%%%
+%%% can be rewritten to:
+%%%
+%%%   ret Var
+%%%
+
+ssa_opt_redundant_br({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
+    Blocks = redundant_br(beam_ssa:rpo(Blocks0), Blocks0),
+    {St#opt_st{ssa=Blocks}, FuncDb}.
+
+redundant_br([L|Ls], Blocks0) ->
+    Blk0 = map_get(L, Blocks0),
+    case Blk0 of
+        #b_blk{is=Is,
+               last=#b_br{bool=#b_var{}=Bool,
+                          succ=Succ,
+                          fail=Fail}} ->
+            case Blocks0 of
+                #{Succ := #b_blk{is=[],last=#b_ret{arg=#b_literal{val=true}}},
+                  Fail := #b_blk{is=[],last=#b_ret{arg=#b_literal{val=false}}}} ->
+                    case redundant_br_safe_bool(Is, Bool) of
+                        true ->
+                            Blk = Blk0#b_blk{last=#b_ret{arg=Bool}},
+                            Blocks = Blocks0#{L => Blk},
+                            redundant_br(Ls, Blocks);
+                        false ->
+                            redundant_br(Ls, Blocks0)
+                    end;
+                #{Succ := #b_blk{is=[],last=#b_br{succ=PhiL,fail=PhiL}},
+                  Fail := #b_blk{is=[],last=#b_br{succ=PhiL,fail=PhiL}}} ->
+                    case redundant_br_safe_bool(Is, Bool) of
+                        true ->
+                            Blocks = redundant_br_phi(L, Blk0, PhiL, Blocks0),
+                            redundant_br(Ls, Blocks);
+                        false ->
+                            redundant_br(Ls, Blocks0)
+                    end;
+                #{Succ := #b_blk{is=[],last=#b_ret{arg=Other}},
+                  Fail := #b_blk{is=[],last=#b_ret{arg=Var}}} when Is =/= [] ->
+                    case last(Is) of
+                        #b_set{op={bif,'=:='},args=[Var,Other]} ->
+                            Blk = Blk0#b_blk{is=droplast(Is),
+                                             last=#b_ret{arg=Var}},
+                            Blocks = Blocks0#{L => Blk},
+                            redundant_br(Ls, Blocks);
+                        #b_set{} ->
+                            redundant_br(Ls, Blocks0)
+                    end;
+                #{} ->
+                    redundant_br(Ls, Blocks0)
+            end;
+        _ ->
+            redundant_br(Ls, Blocks0)
+    end;
+redundant_br([], Blocks) -> Blocks.
+
+redundant_br_phi(L, Blk0, PhiL, Blocks) ->
+    #b_blk{is=Is0} = PhiBlk0 = map_get(PhiL, Blocks),
+    case Is0 of
+        [#b_set{op=phi},#b_set{op=phi}|_] ->
+            Blocks;
+        [#b_set{op=phi,args=PhiArgs0}=I0|Is] ->
+            #b_blk{last=#b_br{succ=Succ,fail=Fail}} = Blk0,
+            BoolPhiArgs = [{#b_literal{val=false},Fail},
+                           {#b_literal{val=true},Succ}],
+            PhiArgs1 = ordsets:from_list(PhiArgs0),
+            case ordsets:is_subset(BoolPhiArgs, PhiArgs1) of
+                true ->
+                    #b_blk{last=#b_br{bool=Bool}} = Blk0,
+                    PhiArgs = ordsets:add_element({Bool,L}, PhiArgs1),
+                    I = I0#b_set{args=PhiArgs},
+                    PhiBlk = PhiBlk0#b_blk{is=[I|Is]},
+                    Br = #b_br{bool=#b_literal{val=true},succ=PhiL,fail=PhiL},
+                    Blk = Blk0#b_blk{last=Br},
+                    Blocks#{L := Blk, PhiL := PhiBlk};
+                false ->
+                    Blocks
+            end
+    end.
+
+redundant_br_safe_bool([], _Bool) ->
+    true;
+redundant_br_safe_bool(Is, Bool) ->
+    case last(Is) of
+        #b_set{op={bif,_}} -> true;
+        #b_set{op=has_map_field} -> true;
+        #b_set{dst=Dst} -> Dst =/= Bool
+    end.
 
 %%%
 %%% Common utilities.

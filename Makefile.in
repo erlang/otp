@@ -399,9 +399,15 @@ ifeq ($(OTP_SMALL_BUILD),true)
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
 	    $(MAKE) TESTROOT="$(RELEASE_ROOT)" release
 else
+ifeq ($(OTP_TINY_BUILD),true)
+	cd $(ERL_TOP)/lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
+	    $(MAKE) TINY_BUILD=true TESTROOT="$(RELEASE_ROOT)" release
+else
 	cd $(ERL_TOP)/lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
 	    $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" release
+endif
 endif
 	cd $(ERL_TOP)/erts && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
@@ -571,10 +577,12 @@ else
 bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/escript $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun
 
 $(BOOTSTRAP_ROOT)/bootstrap/bin/erl: $(ERL_TOP)/erts/etc/unix/erl.src.src $(BOOTSTRAP_ROOT)/bootstrap/target
-	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl 
+	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl
 	@sed	-e "s;%FINAL_ROOTDIR%;$(BOOTSTRAP_ROOT)/bootstrap;"   \
 		-e "s;\$$ROOTDIR/erts-.*/bin;$(ERL_TOP)/bin/$(TARGET);"    \
 		-e "s;EMU=.*;EMU=beam$(TYPEMARKER);" \
+		-e "s;%DYN_ERL_PATH%;../../bin/$(TARGET)/dyn_erl;" \
+		-e "s;%DYN_ROOTDIR_BASE_EXT%;/bootstrap;"	\
 	        $(ERL_TOP)/erts/etc/unix/erl.src.src > \
 			$(BOOTSTRAP_ROOT)/bootstrap/bin/erl
 	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/erl
@@ -1095,7 +1103,7 @@ tests release_tests: $(TEST_DIRS)
 
 $(TEST_DIRS):
 	if test -f $@/Makefile; then \
-	    (cd $@; $(MAKE) TESTROOT="$(TESTSUITE_ROOT)" \
+	    (cd $@; $(MAKE) TESTROOT="$(TESTSUITE_ROOT)" ERL_TOP="$(ERL_TOP)" \
 	    PATH=$(TEST_PATH_PREFIX)$(BOOT_PREFIX)"$${PATH}" release_tests) || exit $$?; \
 	fi
 

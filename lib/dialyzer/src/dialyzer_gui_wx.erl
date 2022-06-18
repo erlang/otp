@@ -242,7 +242,6 @@ create_window(Wx, #options{init_plts = InitPltFiles} = DialyzerOptions) ->
 	      {?WARN_OPAQUE, ?menuID_WARN_OPAQUE},
 	      {?WARN_FAILING_CALL, ?menuID_WARN_FAIL_FUN_CALLS},
 	      {?WARN_CALLGRAPH, ?menuID_WARN_UNEXPORTED_FUN},
-              {?WARN_RACE_CONDITION, ?menuID_WARN_RACE_CONDITIONS},
 	      %% For contracts.
 	      {?WARN_CONTRACT_TYPES,?menuID_WARN_WRONG_CONTRACTS},
 	      {?WARN_CONTRACT_SYNTAX, ?menuID_WARN_CONTRACT_SYNTAX}
@@ -313,8 +312,6 @@ createWarningsMenu() ->
 		 "Functions of no return"),
   addCheckedItem(WarningsMenu, ?menuID_WARN_UNEXPORTED_FUN,
 		 "Call to unexported function"),
-  _ = wxMenu:appendCheckItem(WarningsMenu, ?menuID_WARN_RACE_CONDITIONS,
-			     "Possible race conditions"),
   addCheckedItem(WarningsMenu, ?menuID_WARN_WRONG_CONTRACTS, "Wrong contracts"),
   addCheckedItem(WarningsMenu, ?menuID_WARN_CONTRACT_SYNTAX,
 		 "Wrong contract syntax"),

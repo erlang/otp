@@ -264,7 +264,7 @@ gen_partial_inc_dec_refed_funcs(Rtmod, #gen{erule=ber}=Gen) ->
 
 pgen_partial_dec(_Rtmod,Erules,_Module) ->
     Type_pattern = asn1ct:get_gen_state_field(type_pattern),
-    %% Get the typedef of the top type and follow into the choosen
+    %% Get the typedef of the top type and follow into the chosen
     %% components until the last type/component.
     pgen_partial_types(Erules,Type_pattern),
     ok.

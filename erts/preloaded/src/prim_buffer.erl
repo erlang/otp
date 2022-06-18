@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ skip(_Buffer, _Size) ->
 wipe(Buffer) ->
     skip(Buffer, prim_buffer:size(Buffer)).
 
-%% Finds the start-index of the first occurence of Needle, for implementing
+%% Finds the start-index of the first occurrence of Needle, for implementing
 %% read_line and similar.
 -spec find_byte_index(Buffer, Needle) -> Result when
       Buffer :: prim_buffer(),

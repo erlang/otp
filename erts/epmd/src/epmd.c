@@ -2,7 +2,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -253,7 +253,7 @@ static void run_daemon(EpmdVars *g)
     if (( child_pid = fork()) < 0)
       {
 #ifdef HAVE_SYSLOG_H
-	syslog(LOG_ERR,"erlang mapper daemon cant fork %m");
+	syslog(LOG_ERR,"erlang mapper daemon can't fork %m");
 #endif
 	epmd_cleanup_exit(g,1);
       }
@@ -265,7 +265,7 @@ static void run_daemon(EpmdVars *g)
     
     if (setsid() < 0)
       {
-	dbg_perror(g,"epmd: Cant setsid()");
+	dbg_perror(g,"epmd: Can't setsid()");
 	epmd_cleanup_exit(g,1);
       }
 
@@ -279,7 +279,7 @@ static void run_daemon(EpmdVars *g)
     if ((child_pid = fork()) < 0)
       {
 #ifdef HAVE_SYSLOG_H
-	syslog(LOG_ERR,"erlang mapper daemon cant fork 2'nd time %m");
+	syslog(LOG_ERR,"erlang mapper daemon can't fork 2'nd time %m");
 #endif
 	epmd_cleanup_exit(g,1);
       }

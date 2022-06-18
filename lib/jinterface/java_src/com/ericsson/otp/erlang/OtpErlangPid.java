@@ -85,12 +85,11 @@ public class OtpErlangPid extends OtpErlangObject implements Comparable<Object> 
      *            used.
      *
      * @param creation
-     *            yet another arbitrary number. Ony the low order 2 bits will
-     *            be used.
+	 *  		  node incarnation number. Avoid values 0 to 3.
      */
     public OtpErlangPid(final String node, final int id, final int serial,
 			final int creation) {
-	this(OtpExternal.pidTag, node, id, serial, creation);
+		this(OtpExternal.newPidTag, node, id, serial, creation);
     }
 
     /**

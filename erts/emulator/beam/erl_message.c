@@ -161,19 +161,22 @@ erts_resize_message_buffer(ErlHeapFragment *bp, Uint size,
 
 
 void
-erts_cleanup_offheap(ErlOffHeap *offheap)
+erts_cleanup_offheap_list(struct erl_off_heap_header* first)
 {
     union erl_off_heap_ptr u;
 
-    for (u.hdr = offheap->first; u.hdr; u.hdr = u.hdr->next) {
+    for (u.hdr = first; u.hdr; u.hdr = u.hdr->next) {
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
             erts_bin_release(u.pb->val);
 	    break;
 	case FUN_SUBTAG:
-	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {
-		erts_erase_fun_entry(u.fun->fe);		    
-	    }
+            /* We _KNOW_ that this is a local fun, otherwise it would not
+             * be part of the off-heap list. */
+            ASSERT(is_local_fun(u.fun));
+            if (erts_refc_dectest(&u.fun->entry.fun->refc, 0) == 0) {
+                erts_erase_fun_entry(u.fun->entry.fun);
+            }
 	    break;
 	case REF_SUBTAG:
 	    ASSERT(is_magic_ref_thing(u.hdr));
@@ -186,6 +189,13 @@ erts_cleanup_offheap(ErlOffHeap *offheap)
 	}
     }
 }
+
+void
+erts_cleanup_offheap(ErlOffHeap *offheap)
+{
+    erts_cleanup_offheap_list(offheap->first);
+}
+
 
 void
 free_message_buffer(ErlHeapFragment* bp)
@@ -343,7 +353,8 @@ erts_queue_dist_message(Process *rcvr,
 
 /* Add messages last in message queue */
 static void
-queue_messages(Process* receiver,
+queue_messages(Process* sender, /* is NULL if the sender is not a local process */
+               Process* receiver,
                ErtsProcLocks receiver_locks,
                ErtsMessage* first,
                ErtsMessage** last,
@@ -367,8 +378,17 @@ queue_messages(Process* receiver,
     ERTS_LC_ASSERT((erts_proc_lc_my_proc_locks(receiver) & ERTS_PROC_LOCK_MSGQ)
                    == (receiver_locks & ERTS_PROC_LOCK_MSGQ));
 
+    /*
+     * Try to enqueue to an outer message queue buffer instead of
+     * directly to the outer message queue
+     */
+    if (erts_proc_sig_queue_try_enqueue_to_buffer(sender, receiver, receiver_locks,
+                                                  first, last, NULL, len, 0)) {
+        return;
+    }
+
     if (!(receiver_locks & ERTS_PROC_LOCK_MSGQ)) {
-        erts_proc_lock(receiver, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_sig_queue_lock(receiver);
 	locked_msgq = 1;
     }
 
@@ -390,8 +410,23 @@ queue_messages(Process* receiver,
         return;
     }
 
+    /*
+     * Install buffers for the outer message if the heuristic
+     * indicates that this is beneficial. It is best to do this as
+     * soon as possible to avoid as much contention as possible.
+     */
+    erts_proc_sig_queue_maybe_install_buffers(receiver, state);
+
     if (last == &first->next) {
         ASSERT(len == 1);
+        if (state & ERTS_PSFLG_OFF_HEAP_MSGQ) {
+            /*
+             * Flush outer signal queue buffers, if such buffers are
+             * installed, to ensure that messages from the same
+             * process cannot be reordered.
+             */
+            erts_proc_sig_queue_flush_buffers(receiver);
+        }
         LINK_MESSAGE(receiver, first);
     }
     else {
@@ -446,7 +481,7 @@ erts_queue_message(Process* receiver, ErtsProcLocks receiver_locks,
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = from;
     ERL_MESSAGE_TOKEN(mp) = am_undefined;
-    queue_messages(receiver, receiver_locks, mp, &mp->next, 1);
+    queue_messages(NULL, receiver, receiver_locks, mp, &mp->next, 1);
 }
 
 /**
@@ -463,7 +498,7 @@ erts_queue_message_token(Process* receiver, ErtsProcLocks receiver_locks,
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = from;
     ERL_MESSAGE_TOKEN(mp) = token;
-    queue_messages(receiver, receiver_locks, mp, &mp->next, 1);
+    queue_messages(NULL, receiver, receiver_locks, mp, &mp->next, 1);
 }
 
 
@@ -484,7 +519,7 @@ erts_queue_proc_message(Process* sender,
 {
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = sender->common.id;
-    queue_messages(receiver, receiver_locks,
+    queue_messages(sender, receiver, receiver_locks,
                    prepend_pending_sig_maybe(sender, receiver, mp),
                    &mp->next, 1);
 }
@@ -495,7 +530,7 @@ erts_queue_proc_messages(Process* sender,
                          Process* receiver, ErtsProcLocks receiver_locks,
                          ErtsMessage* first, ErtsMessage** last, Uint len)
 {
-    queue_messages(receiver, receiver_locks,
+    queue_messages(sender, receiver, receiver_locks,
                    prepend_pending_sig_maybe(sender, receiver, first),
                    last, len);
 }
@@ -988,8 +1023,19 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	case am_off_heap:
 	    break;
 	case am_on_heap:
-	    c_p->sig_qs.flags |= FS_ON_HEAP_MSGQ;
+            erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+            /*
+             * The flags are changed while holding the
+             * ERTS_PROC_LOCK_MSGQ lock so that it is guaranteed that
+             * there are no messages in buffers if (c_p->sig_qs.flags
+             * & FS_ON_HEAP_MSGQ) and the ERTS_PROC_LOCK_MSGQ is held.
+             */
+            erts_proc_sig_queue_flush_and_deinstall_buffers(c_p);
+
+            c_p->sig_qs.flags |= FS_ON_HEAP_MSGQ;
 	    c_p->sig_qs.flags &= ~FS_OFF_HEAP_MSGQ;
+
+            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 	    /*
 	     * We are not allowed to clear ERTS_PSFLG_OFF_HEAP_MSGQ
 	     * if a off heap change is ongoing. It will be adjusted

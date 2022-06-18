@@ -36,6 +36,7 @@
 -export([autoimported/1]).
 -export([semicolon/1]).
 -export([bitsyntax/1]).
+-export([binary_bifs/1]).
 -export([record_defaults/1]).
 -export([andalso_orelse/1]).
 -export([float_1_function/1]).
@@ -59,7 +60,7 @@ suite() ->
 
 all() -> 
     [from_shell, basic_ets, basic_dbg, records,
-     record_index, multipass, bitsyntax, record_defaults,
+     record_index, multipass, bitsyntax, binary_bifs, record_defaults,
      andalso_orelse, float_1_function, action_function,
      warnings, no_warnings, top_match, old_guards, autoimported,
      semicolon, eep37, otp_14454, otp_16824, unused_record].
@@ -255,6 +256,32 @@ bitsyntax(Config) when is_list(Config) ->
 	"            when B =:= <<16>>, C =:= <<27,28,19>> -> "
 	"              <<B:4,12:4,13:16>> "
 	"            end)">>),
+    ok.
+
+
+%% Test that binary BIFs byte_size/1, binary_part/2, binary_part/3 are accepted
+binary_bifs(Config) when is_list(Config) ->
+    setup(Config),
+    TestSet = [{<<"hello">>, <<"world">>}, {<<"souldn't">>, <<"match">>}],
+    RunMS = fun(MS) -> ets:match_spec_run(TestSet, ets:match_spec_compile(MS)) end,
+    % check byte_size/1
+    MS1 = compile_and_run(<<"ets:fun2ms(fun({A, B}) when byte_size(A) == 5 -> {A, byte_size(B)} end)">>),
+    [{{'$1','$2'},
+      [{'==',{byte_size,'$1'},5}],
+      [{{'$1',{byte_size,'$2'}}}]}] = MS1,
+    [{<<"hello">>, 5}] = RunMS(MS1),
+    % check binary_part/2
+    MS2 = compile_and_run(<<"ets:fun2ms(fun({A, B}) when binary_part(A, {1, 2}) == <<\"el\">> -> binary_part(B, {2, 3}) end)">>),
+    [{{'$1','$2'},
+      [{'==',{binary_part,'$1',{{1,2}}},<<"el">>}],
+      [{binary_part,'$2',{{2,3}}}]}] = MS2,
+    [<<"rld">>] = RunMS(MS2),
+    % check binary_part/3
+    MS3 = compile_and_run(<<"ets:fun2ms(fun({A, B}) when binary_part(A, 1, 2) == <<\"el\">> -> binary_part(B, 2, 3) end)">>),
+    [{{'$1','$2'},
+      [{'==',{binary_part,'$1',1,2},<<"el">>}],
+      [{binary_part,'$2',2,3}]}] = MS3,
+    [<<"rld">>] = RunMS(MS3),
     ok.
 
 %% Test that record defaults works.

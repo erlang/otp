@@ -46,11 +46,12 @@
 -define(WARN_CONTRACT_SYNTAX, warn_contract_syntax).
 -define(WARN_CONTRACT_NOT_EQUAL, warn_contract_not_equal).
 -define(WARN_CONTRACT_SUBTYPE, warn_contract_subtype).
+-define(WARN_CONTRACT_MISSING_RETURN, warn_contract_missing_return).
 -define(WARN_CONTRACT_SUPERTYPE, warn_contract_supertype).
+-define(WARN_CONTRACT_EXTRA_RETURN, warn_contract_extra_return).
 -define(WARN_CONTRACT_RANGE, warn_contract_range).
 -define(WARN_CALLGRAPH, warn_callgraph).
 -define(WARN_UNMATCHED_RETURN, warn_umatched_return).
--define(WARN_RACE_CONDITION, warn_race_condition).
 -define(WARN_BEHAVIOUR, warn_behaviour).
 -define(WARN_UNDEFINED_CALLBACK, warn_undefined_callbacks).
 -define(WARN_UNKNOWN, warn_unknown).
@@ -69,7 +70,7 @@
                        | ?WARN_FUN_APP | ?WARN_MAP_CONSTRUCTION
                        | ?WARN_MATCHING | ?WARN_NON_PROPER_LIST
                        | ?WARN_NOT_CALLED | ?WARN_OPAQUE
-                       | ?WARN_RACE_CONDITION | ?WARN_RETURN_NO_RETURN
+                       | ?WARN_RETURN_NO_RETURN
                        | ?WARN_RETURN_ONLY_EXIT | ?WARN_UNDEFINED_CALLBACK
                        | ?WARN_UNKNOWN | ?WARN_UNMATCHED_RETURN.
 
@@ -124,7 +125,6 @@
                        | 'no_undefined_callbacks'
                        | 'no_underspecs'
                        | 'no_unused'
-                       | 'race_conditions'
                        | 'underspecs'
                        | 'unknown'
                        | 'unmatched_returns'
@@ -168,6 +168,7 @@
 -define(ERROR_LOCATION, column).
 
 -type doc_plt() :: 'undefined' | dialyzer_plt:plt().
+-record(plt_info, {files :: [dialyzer_plt:file_md5()], mod_deps :: dict:dict()}).
 
 -record(analysis, {analysis_pid			   :: pid() | 'undefined',
 		   type		  = succ_typings   :: anal_type(),
@@ -178,7 +179,6 @@
 		   start_from     = byte_code	   :: start_from(),
 		   plt                             :: dialyzer_plt:plt(),
 		   use_contracts  = true           :: boolean(),
-		   race_detection = false	   :: boolean(),
 		   behaviours_chk = false          :: boolean(),
 		   timing         = false          :: boolean() | 'debug',
 		   timing_server  = none           :: dialyzer_timing:timing_server(),

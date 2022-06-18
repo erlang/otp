@@ -1,0 +1,6 @@
+
+[;1m  garbage_collect_message_area/0[0m
+
+  The documentation for garbage_collect_message_area/0 is hidden.
+  This probably means that it is internal and not to be used by
+  other applications.

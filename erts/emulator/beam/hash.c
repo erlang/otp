@@ -110,7 +110,7 @@ static ERTS_INLINE void set_thresholds(Hash* h)
     if (h->shift < h->max_shift)
         h->shrink_threshold = hash_get_slots(h) / 5;  /* shrink at 20% load */
     else
-        h->shrink_threshold = -1;  /* never shrink below inital size */
+        h->shrink_threshold = -1;  /* never shrink below initial size */
 }
 
 /*

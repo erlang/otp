@@ -63,20 +63,7 @@ class JitAllocator {
 public:
   ASMJIT_NONCOPYABLE(JitAllocator)
 
-  struct Impl {
-    //! Allocator options, see \ref JitAllocator::Options.
-    uint32_t options;
-    //! Base block size (0 if the allocator is not initialized).
-    uint32_t blockSize;
-    //! Base granularity (0 if the allocator is not initialized).
-    uint32_t granularity;
-    //! A pattern that is used to fill unused memory if secure mode is enabled.
-    uint32_t fillPattern;
-  };
-
-  //! Allocator implementation (private).
-  Impl* _impl;
-
+  //! Jit allocator options.
   enum Options : uint32_t {
     //! Enables the use of an anonymous memory-mapped memory that is mapped into
     //! two buffers having a different pointer. The first buffer has read and
@@ -115,6 +102,20 @@ public:
     //! Use a custom fill pattern, must be combined with `kFlagFillUnusedMemory`.
     kOptionCustomFillPattern = 0x10000000u
   };
+
+  struct Impl {
+    //! Allocator options, see \ref JitAllocator::Options.
+    uint32_t options;
+    //! Base block size (0 if the allocator is not initialized).
+    uint32_t blockSize;
+    //! Base granularity (0 if the allocator is not initialized).
+    uint32_t granularity;
+    //! A pattern that is used to fill unused memory if secure mode is enabled.
+    uint32_t fillPattern;
+  };
+
+  //! Allocator implementation (private).
+  Impl* _impl;
 
   //! \name Construction & Destruction
   //! \{
@@ -199,20 +200,34 @@ public:
   //! \name Alloc & Release
   //! \{
 
-  //! Allocate `size` bytes of virtual memory.
+  //! Allocates `size` bytes of virtual memory.
+  //!
+  //! When the function is successful it stores two pointers in `rxPtrOut` and `rwPtrOut`.
+  //! The pointers will be different only if `kOptionUseDualMapping` was used to setup the
+  //! allocator (in that case the `rxPtrOut` would point to a Read+Execute region and
+  //! `rwPtrOut` would point to a Read+Write region of the same memory-mapped block.
   //!
   //! \remarks This function is thread-safe.
-  ASMJIT_API Error alloc(void** roPtrOut, void** rwPtrOut, size_t size) noexcept;
+  ASMJIT_API Error alloc(void** rxPtrOut, void** rwPtrOut, size_t size) noexcept;
 
-  //! Release a memory returned by `alloc()`.
+  //! Releases a memory returned by `alloc()`.
   //!
   //! \remarks This function is thread-safe.
-  ASMJIT_API Error release(void* roPtr) noexcept;
+  ASMJIT_API Error release(void* rxPtr) noexcept;
 
-  //! Free extra memory allocated with `p` by restricting it to `newSize` size.
+  //! Frees extra memory allocated with `p` by restricting it to `newSize` size.
   //!
   //! \remarks This function is thread-safe.
-  ASMJIT_API Error shrink(void* roPtr, size_t newSize) noexcept;
+  ASMJIT_API Error shrink(void* rxPtr, size_t newSize) noexcept;
+
+  //! Queries information about an allocated memory block that contains the given `rxPtr`.
+  //!
+  //! The function returns `kErrorOk` when `rxPtr` is matched and fills `rxPtrOut`, `rwPtrOut`, and `sizeOut` output
+  //! arguments. The returned `rxPtrOut` and `rwPtrOut` pointers point to the beginning of the block, and `sizeOut`
+  //! describes the total amount of bytes this allocation uses - the `sizeOut` will always be aligned to the allocation
+  //! granularity, so for example if an allocation was 1 byte and the size granularity is 64, the returned `sizeOut`
+  //! will be 64 bytes, because that's what the allocator sees.
+  ASMJIT_API Error query(void* rxPtr, void** rxPtrOut, void** rwPtrOut, size_t* sizeOut) const noexcept;
 
   //! \}
 
@@ -223,6 +238,8 @@ public:
   struct Statistics {
     //! Number of blocks `JitAllocator` maintains.
     size_t _blockCount;
+    //! Number of active allocations.
+    size_t _allocationCount;
     //! How many bytes are currently used / allocated.
     size_t _usedSize;
     //! How many bytes are currently reserved by the allocator.
@@ -239,6 +256,9 @@ public:
 
     //! Returns count of blocks managed by `JitAllocator` at the moment.
     inline size_t blockCount() const noexcept { return _blockCount; }
+
+    //! Returns the number of active allocations.
+    inline size_t allocationCount() const noexcept { return _allocationCount; }
 
     //! Returns how many bytes are currently used.
     inline size_t usedSize() const noexcept { return _usedSize; }

@@ -171,7 +171,7 @@ collect_string([], _, _) ->
     throw({error,missing_quote_at_eof}).
            
 %% <name> is letters digits hyphens.
-%% Hypen is not the last character. Hypen hyphen is NOT allowed.
+%% Hyphen is not the last character. Hyphen hyphen is NOT allowed.
 %%
 %% <identifier> ::= <lowercase> <name>
 

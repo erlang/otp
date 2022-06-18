@@ -327,7 +327,7 @@
 	    decoding a recursively enclosed term the length was not
 	    propagated to that term decoding, so if the length of the
 	    enclosed term was longer than the enclosing that error
-	    was not dectected</p> <p>A hard coded C stack limitation
+	    was not detected</p> <p>A hard coded C stack limitation
 	    for decoding recursive ASN.1 terms has been introduced.
 	    This is currently set to 8 kWords giving a nesting depth
 	    of about 1000 levels. Deeper terms can not be decoded,
@@ -389,7 +389,7 @@
         <item>
           <p>
 	    Compiling an ASN.1 module using the option {n2n,
-	    EnumTypeName} when EnumTypeName contains a hypen like for
+	    EnumTypeName} when EnumTypeName contains a hyphen like for
 	    example Cause-Misc caused syntax errors when compiling
 	    the generated Erlang code. This is now corrected.</p>
           <p>
@@ -1044,7 +1044,7 @@
         <item>
 	    <p>The ASN.1 compiler will now always include necessary
 	    run-time functions in the generated Erlang modules
-	    (except for <c>asn1rt_nif</c> which is still neeeded). If
+	    (except for <c>asn1rt_nif</c> which is still needed). If
 	    the option '<c>inline</c>' is used the ASN.1 compiler
 	    will generate a warning. But if
 	    '<c>{inline,OutputFile}</c>' is use, the ASN.1 compiler

@@ -181,7 +181,7 @@ tmpid(Pid) ->
 
 %% Returns a list of participant transaction Tid's
 mnesia_down(Node) ->
-    %% Syncronously call needed in order to avoid
+    %% Synchronously call needed in order to avoid
     %% race with mnesia_tm's coordinator processes
     %% that may restart and acquire new locks.
     %% mnesia_monitor takes care of the sync
@@ -598,7 +598,7 @@ recover_coordinator(Tid, Etabs) ->
 		    recover_coordinator(Tid, Protocol, Outcome, Local, DiscNs, RamNs),
 		    ?eval_debug_fun({?MODULE, recover_coordinator, post},
 				    [{tid, Tid}, {outcome, Outcome}, {prot, Protocol}]);
-		false ->  %% When killed before store havn't been copied to
+		false ->  %% When killed before store haven't been copied to
 		    ok    %% to the new nested trans store.
 	    end
     catch _:Reason:Stacktrace ->
@@ -881,7 +881,7 @@ try_again(_) -> no.
 %% We can only restart toplevel transactions.
 %% If a deadlock situation occurs in a nested transaction
 %% The whole thing including all nested transactions need to be
-%% restarted. The stack is thus popped by a consequtive series of
+%% restarted. The stack is thus popped by a consecutive series of
 %% exit({aborted, #cyclic{}}) calls
 
 restart(Mod, Tid, Ts, Fun, Args, Factor0, Retries0, Type, Why) ->
@@ -1070,7 +1070,7 @@ dirty(Protocol, Item) ->
 	async_dirty ->
 	    %% Send commit records to the other involved nodes,
 	    %% but do only wait for one node to complete.
-	    %% Preferrably, the local node if possible.
+	    %% Preferably, the local node if possible.
 
 	    ReadNode = val({Tab, where_to_read}),
 	    {WaitFor, FirstRes} = async_send_dirty(Tid, CR, Tab, ReadNode),
@@ -1088,7 +1088,7 @@ dirty(Protocol, Item) ->
 %% This is the commit function, The first thing it does,
 %% is to find out which nodes that have been participating
 %% in this particular transaction, all of the mnesia_locker:lock*
-%% functions insert the names of the nodes where it aquires locks
+%% functions insert the names of the nodes where it acquires locks
 %% into the local shadow Store
 %% This function exacutes in the context of the user process
 t_commit(Type) ->
@@ -1379,7 +1379,7 @@ multi_commit(read_only, _Maj = [], Tid, CR, _Store) ->
 
 multi_commit(sym_trans, _Maj = [], Tid, CR, Store) ->
     %% This lightweight commit protocol is used when all
-    %% the involved tables are replicated symetrically.
+    %% the involved tables are replicated symmetrically.
     %% Their storage types must match on each node.
     %%
     %% 1  Ask the other involved nodes if they want to commit
@@ -1431,7 +1431,7 @@ multi_commit(sym_trans, _Maj = [], Tid, CR, Store) ->
 
 multi_commit(sync_sym_trans, _Maj = [], Tid, CR, Store) ->
     %%   This protocol is the same as sym_trans except that it
-    %%   uses syncronized calls to disk_log and syncronized commits
+    %%   uses synchronized calls to disk_log and synchronized commits
     %%   when several nodes are involved.
 
     {DiscNs, RamNs} = commit_nodes(CR, [], []),
@@ -1763,7 +1763,7 @@ commit_participant(Protocol, Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 
 do_abort(Tid, Bin) when is_binary(Bin) ->
     %% Possible optimization:
-    %% If we want we could pass arround a flag
+    %% If we want we could pass around a flag
     %% that tells us whether the binary contains
     %% schema ops or not. Only if the binary
     %% contains schema ops there are meningful

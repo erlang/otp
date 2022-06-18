@@ -72,7 +72,7 @@ verify_data(DerCert) ->
 -spec init_validation_state(#'OTPCertificate'{}, integer(), list()) ->
 				   #path_validation_state{}.
 %%
-%% Description: Creates inital version of path_validation_state for
+%% Description: Creates initial version of path_validation_state for
 %% basic path validation of x509 certificates.
 %%--------------------------------------------------------------------	 
 init_validation_state(#'OTPCertificate'{} = OtpCert, DefaultPathLen, 
@@ -247,7 +247,7 @@ validate_extensions(OtpCert, ValidationState, UserState, VerifyFun) ->
 -spec normalize_general_name({rdnSequence, term()}) -> {rdnSequence, term()}. 
 %%
 %% Description: Normalizes a general name so that it can be easily
-%%              compared to another genral name. 
+%%              compared to another general name. 
 %%--------------------------------------------------------------------	
 normalize_general_name({rdnSequence, Issuer}) ->
     NormIssuer = do_normalize_general_name(Issuer),
@@ -1301,7 +1301,7 @@ cert_chain(Role, IssuerCert, IssuerKey, [PeerOpts], _, Acc) ->
 cert_chain(Role, IssuerCert, IssuerKey, [CAOpts | Rest], N, Acc) ->
     Key = gen_key(proplists:get_value(key, CAOpts, default_key_gen())),
     Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, Key, "webadmin", 
-                " Intermidiate CA " ++ integer_to_list(N), CAOpts, ca),
+                " Intermediate CA " ++ integer_to_list(N), CAOpts, ca),
     cert_chain(Role, Cert, Key, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
 
 cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}}, 

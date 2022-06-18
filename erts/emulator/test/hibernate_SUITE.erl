@@ -55,7 +55,7 @@ basic(Config) when is_list(Config) ->
 maximum_hibernate_heap_size(Term) ->
     %% When hibernating, a few extra words will be allocated to hold the
     %% continuation pointer as well as scratch space for the interpreter/jit.
-    erts_debug:size(Term) + 4.
+    erts_debug:size(Term) + 8.
 
 hibernate_wake_up(0, _, _) -> ok;
 hibernate_wake_up(N, MaxHeapSz, Child) ->
@@ -188,7 +188,7 @@ min_heap_size(Config) when is_list(Config) ->
     {heap_size,HeapSz} = process_info(Child, heap_size),
     io:format("Heap size: ~p\n", [HeapSz]),
     if
-        HeapSz < 20 -> ok
+        HeapSz =< 20 -> ok
     end,
     Child ! wake_up,
     receive
@@ -334,7 +334,7 @@ no_heap(Config) when is_list(Config) ->
                           wait_until(fun () -> is_hibernated(H) end),
                           [{heap_size, Size}, {total_heap_size, Size}]
                               = process_info(H, [heap_size, total_heap_size]),
-                          true = Size =< 4,
+                          true = Size =< maximum_hibernate_heap_size(0),
                           receive after 10 -> ok end,
                           H ! again
                   end, lists:seq(1, 100)),

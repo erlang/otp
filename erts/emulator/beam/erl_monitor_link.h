@@ -1310,7 +1310,7 @@ ERTS_GLB_INLINE int erts_monitor_dist_insert(ErtsMonitor *mon, ErtsMonLnkDist *d
  * @brief Delete monitor from dist monitor tree or list
  *
  * When the function is called it is assumed that:
- * - 'mon' monitor earler has been inserted into 'dist'
+ * - 'mon' monitor earlier has been inserted into 'dist'
  * If the above is not true, bad things will happen.
  *
  * @param[in]    mon            Pointer to monitor
@@ -1735,7 +1735,7 @@ void erts_link_tree_replace(ErtsLink **root, ErtsLink *old, ErtsLink *new_);
 
 /**
  *
- * @brief Replace a link in a link tree if key already exist based on adress
+ * @brief Replace a link in a link tree if key already exist based on address
  *
  * Inserts the link 'lnk' in the tree if no link with the same key
  * already exists in tree. If a link with the same key exists in
@@ -2162,7 +2162,7 @@ ErtsLinkData *erts_link_external_create(Uint16 type, Eterm this_, Eterm other);
  *
  * @param[in]     id            Id of the entity linked.
  *
- * @returns                     A pointer to the link stucture.
+ * @returns                     A pointer to the link structure.
  */
 ErtsLink *erts_link_internal_create(Uint16 type, Eterm id);
 
@@ -2283,7 +2283,7 @@ ERTS_GLB_INLINE int erts_link_dist_insert(ErtsLink *lnk, ErtsMonLnkDist *dist);
  * @brief Delete link from dist link list
  *
  * When the function is called it is assumed that:
- * - 'lnk' link earler has been inserted into 'dist'
+ * - 'lnk' link earlier has been inserted into 'dist'
  * If the above is not true, bad things will happen.
  *
  * @param[in]    lnk            Pointer to link

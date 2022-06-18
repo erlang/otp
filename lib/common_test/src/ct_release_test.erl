@@ -21,7 +21,7 @@
 %% EXPERIMENTAL support for testing of upgrade.
 %%
 %% This is a library module containing support for test of release
-%% related activities in one or more applications. Currenty it
+%% related activities in one or more applications. Currently it
 %% supports upgrade only.
 %%
 %% == Configuration ==
@@ -57,7 +57,7 @@
 %%     CtData = ct_data()
 %%     State = NewState = cb_state()
 %%
-%%     Initialyze system before upgrade test starts.
+%%     Initialize system before upgrade test starts.
 %%
 %%     This function is called before the upgrade is started. All
 %%     applications given in upgrade/4 are already started by
@@ -154,7 +154,7 @@
 %%
 %% If the initialization fails, e.g. if a required release
 %% cannot be found, the function returns `{skip,Reason}'. In
-%% this case the other test support functions in this mudule
+%% this case the other test support functions in this module
 %% cannot be used.
 %%
 %% Example:
@@ -230,20 +230,20 @@ init(Config) ->
 %% `Level' specifies which OTP release to
 %% pick the "From" versions from.
 %%   major
-%%   From verions are picked from the previous major
+%%   From versions are picked from the previous major
 %%     release. For example, if the test is run on an OTP-17
 %%     node, ct_release_test will pick the application
 %%     "From" versions from an OTP installation running OTP
 %%     R16B.
 %%
 %%   minor
-%%   From verions are picked from the current major
+%%   From versions are picked from the current major
 %%     release. For example, if the test is run on an OTP-17
 %%     node, ct_release_test will pick the application
 %%     "From" versions from an OTP installation running an
 %%     earlier patch level of OTP-17.
 %%
-%% The application "To" versions are allways picked from the
+%% The application "To" versions are always picked from the
 %% current node, i.e. the common_test node.
 %%
 %% `Callback' specifies the module (normally the

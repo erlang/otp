@@ -147,7 +147,7 @@ SectionIn 1 RO
 
   	SetOutPath "$INSTDIR"
 
-; Don't let Users nor Autenticated Users group create new files
+; Don't let Users nor Authenticated Users group create new files
 ; Avoid dll injection when installing to non /Program Files/ dirs
 
         StrCmp $INSTDIR $InstallDir cp_files
@@ -201,7 +201,7 @@ continue_create:
 
   	StrCmp $MYTEMP "" 0 done_startmenu
 
-; If startmenu was skipped, this might be unnecessary, but wont hurt...	
+; If startmenu was skipped, this might be unnecessary, but won't hurt...	
   	WriteRegStr HKCU "Software\Ericsson\Erlang\${ERTS_VERSION}" \
 		"" $INSTDIR
   	WriteRegStr HKCU "${MY_STARTMENUPAGE_REGISTRY_KEY}" \

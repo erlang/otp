@@ -1623,9 +1623,9 @@ mos_int_receive(Msg) ->
     Res.
 
 mos_int_fun(B) ->
-    L = ignore_me,
-    F = fun ([<<L,I:L,X:32>>]) -> {I,X};
-            ([<<L,I:L,X:64>>]) -> {I,X}
+    _L = ignore_me,
+    F = fun ([<<_L,I:_L,X:32>>]) -> {I,X};
+            ([<<_L,I:_L,X:64>>]) -> {I,X}
         end,
     F(B).
 

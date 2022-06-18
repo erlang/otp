@@ -261,7 +261,7 @@
 
     <p>Note that in order for reltool to sort application versions and
     thereby be able to select the latest, it is required that the
-    version id for the application consits of integers and dots only,
+    version id for the application consists of integers and dots only,
     for example <c>1</c>, <c>2.0</c> or <c>3.17.1</c>.</p>
     
     <p>By default the <c>Application inclusion policy</c> on system

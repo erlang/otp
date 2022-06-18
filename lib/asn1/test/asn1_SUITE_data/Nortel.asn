@@ -153,7 +153,7 @@ LocationAreaCode		::= OCTET STRING (SIZE(2))
 
 CallEventRecord	::= CHOICE
 {
--- Record values 0..16 are 3G curcuit switch specifick
+-- Record values 0..16 are 3G circuit switch specifick
 --
 --	sgsnPDPRecord		[20] SGSNPDPRecord,
 	ggsnPDPRecord		[21] GGSNPDPRecord
@@ -372,7 +372,7 @@ FFDAppendIndicator	::= BOOLEAN
 
 FreeFormatData	::=	OCTET STRING (SIZE(1..160))
 	--
-	-- Free formated data as sent in the FurnishChargingInformationGPRS
+	-- Free formatted data as sent in the FurnishChargingInformationGPRS
 	-- see TS 29.078
 	--
 

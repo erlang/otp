@@ -93,8 +93,12 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [source]"
 #endif
 #endif	
-#ifdef ARCH_64
+#if defined(ARCH_64)
 				     " [64-bit]"
+#elif defined(ARCH_32)
+                                     " [32-bit]"
+#else
+# error "Unknown ARCH_?"
 #endif
 				     " [smp:%beu:%beu]"
 				     " [ds:%beu:%beu:%beu]"
@@ -104,9 +108,9 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [async-threads:%d]"
 #ifdef BEAMASM
 #ifdef NATIVE_ERLANG_STACK
-				     " [jit]"
+				     " [jit:ns%s]"
 #else
-				     " [jit:no-native-stack]"
+				     " [jit%s]"
 #endif
 #endif
 #ifdef ET_DEBUG
@@ -428,7 +432,7 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
         break;
     }
     default:
-        ERTS_INTERNAL_ERROR("Unkown link type");
+        ERTS_INTERNAL_ERROR("Unknown link type");
         t = am_undefined;
         break;
     }
@@ -494,6 +498,7 @@ erts_print_system_version(fmtfn_t to, void *arg, Process *c_p)
 		      , total, online
 		      , dirty_cpu, dirty_cpu_onln, dirty_io
 		      , erts_async_max_threads
+              , (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA ? ":fp" : "")
 	);
 }
 
@@ -1110,7 +1115,7 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
         sreds = reds_left;
 
         if (!local_only) {
-            erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+            erts_proc_sig_queue_lock(c_p);
             erts_proc_sig_fetch(c_p);
             erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
         }
@@ -1218,7 +1223,7 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
         }
         if (flags & ERTS_PI_FLAG_NEED_MSGQ_LEN) {
             ASSERT(locks & ERTS_PROC_LOCK_MAIN);
-            erts_proc_lock(rp, ERTS_PROC_LOCK_MSGQ);
+            erts_proc_sig_queue_lock(rp);
             erts_proc_sig_fetch(rp);
             if (c_p->sig_qs.cont) {
                 erts_proc_unlock(rp, locks|ERTS_PROC_LOCK_MSGQ);
@@ -1296,7 +1301,7 @@ send_signal: {
         flags |= ERTS_PI_FLAG_REQUEST_FOR_OTHER;
         need_msgq_len = (flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
         /*
-         * Set save pointer to the end of the message queue so we wont
+         * Set save pointer to the end of the message queue so we won't
          * have to scan the whole* message queue for the result. Note
          * that caller unconditionally has to enter a receive only
          * matching messages containing 'ref', or restore save pointer.
@@ -3531,126 +3536,96 @@ fun_info_2(BIF_ALIST_2)
     Process* p = BIF_P;
     Eterm fun = BIF_ARG_1;
     Eterm what = BIF_ARG_2;
+
+    const ErtsCodeMFA *mfa;
+    ErlFunThing *funp;
+    ErlFunEntry *fe;
     Eterm* hp;
     Eterm val;
 
-    if (is_fun(fun)) {
-	ErlFunThing* funp = (ErlFunThing *) fun_val(fun);
-
-	switch (what) {
-	case am_type:
-	    hp = HAlloc(p, 3);
-	    val = am_local;
-	    break;
-	case am_pid:
-	    hp = HAlloc(p, 3);
-	    val = funp->creator;
-	    break;
-	case am_module:
-	    hp = HAlloc(p, 3);
-	    val = funp->fe->module;
-	    break;
-	case am_new_index:
-	    hp = HAlloc(p, 3);
-	    val = make_small(funp->fe->index);
-	    break;
-	case am_new_uniq:
-	    val = new_binary(p, funp->fe->uniq, 16);
-	    hp = HAlloc(p, 3);
-	    break;
-	case am_index:
-	    hp = HAlloc(p, 3);
-	    val = make_small(funp->fe->old_index);
-	    break;
-	case am_uniq:
-	    hp = HAlloc(p, 3);
-	    val = make_small(funp->fe->old_uniq);
-	    break;
-	case am_env:
-	    {
-		Uint num_free = funp->num_free;
-		int i;
-
-		hp = HAlloc(p, 3 + 2*num_free);
-		val = NIL;
-		for (i = num_free-1; i >= 0; i--) {
-		    val = CONS(hp, funp->env[i], val);
-		    hp += 2;
-		}
-	    }
-	    break;
-	case am_refc:
-	    val = erts_make_integer(erts_atomic_read_nob(&funp->fe->refc), p);
-	    hp = HAlloc(p, 3);
-	    break;
-	case am_arity:
-	    hp = HAlloc(p, 3);
-	    val = make_small(funp->arity);
-	    break;
-	case am_name:
-            {
-                const ErtsCodeMFA *mfa = erts_code_to_codemfa((funp->fe)->address);
-                hp = HAlloc(p, 3);
-                val = mfa->function;
-            }
-            break;
-	default:
-	    goto error;
-	}
-    } else if (is_export(fun)) {
-	Export* exp = (Export *) ((UWord) (export_val(fun))[1]);
-	switch (what) {
-	case am_type:
-	    hp = HAlloc(p, 3);
-	    val = am_external;
-	    break;
-	case am_pid:
-	    hp = HAlloc(p, 3);
-	    val = am_undefined;
-	    break;
-	case am_module:
-	    hp = HAlloc(p, 3);
-	    val = exp->info.mfa.module;
-	    break;
-	case am_new_index:
-	    hp = HAlloc(p, 3);
-	    val = am_undefined;
-	    break;
-	case am_new_uniq:
-	    hp = HAlloc(p, 3);
-	    val = am_undefined;
-	    break;
-	case am_index:
-	    hp = HAlloc(p, 3);
-	    val = am_undefined;
-	    break;
-	case am_uniq:
-	    hp = HAlloc(p, 3);
-	    val = am_undefined;
-	    break;
-	case am_env:
-	    hp = HAlloc(p, 3);
-	    val = NIL;
-	    break;
-	case am_refc:
-	    hp = HAlloc(p, 3);
-	    val = am_undefined;
-	    break;
-	case am_arity:
-	    hp = HAlloc(p, 3);
-	    val = make_small(exp->info.mfa.arity);
-	    break;
-	case am_name:
-	    hp = HAlloc(p, 3);
-	    val = exp->info.mfa.function;
-	    break;
-	default:
-	    goto error;
-	}
-    } else {
-    error:
-	BIF_ERROR(p, BADARG);
+    if (is_not_any_fun(fun)) {
+        BIF_ERROR(p, BADARG);
     }
+
+    funp = (ErlFunThing *) fun_val(fun);
+
+    if (is_local_fun(funp)) {
+        fe = funp->entry.fun;
+        mfa = erts_get_fun_mfa(fe);
+    } else {
+        ASSERT(is_external_fun(funp) && funp->next == NULL);
+        mfa = &(funp->entry.exp)->info.mfa;
+        fe = NULL;
+    }
+
+    switch (what) {
+    case am_type:
+        val = is_local_fun(funp) ? am_local : am_external;
+        hp = HAlloc(p, 3);
+        break;
+    case am_pid:
+        val = is_local_fun(funp) ? funp->creator : am_undefined;
+        hp = HAlloc(p, 3);
+        break;
+    case am_module:
+        /* Unloaded funs must report their module even though we can't find
+         * their full MFA. */
+        val = (mfa != NULL) ? mfa->module : fe->module;
+        hp = HAlloc(p, 3);
+        break;
+    case am_new_index:
+        val = is_local_fun(funp) ? make_small(fe->index) : am_undefined;
+        hp = HAlloc(p, 3);
+        break;
+    case am_new_uniq:
+        val = is_local_fun(funp) ? new_binary(p, fe->uniq, 16) :
+                                   am_undefined;
+        hp = HAlloc(p, 3);
+        break;
+    case am_index:
+        val = is_local_fun(funp) ? make_small(fe->old_index) : am_undefined;
+        hp = HAlloc(p, 3);
+        break;
+    case am_uniq:
+        val = is_local_fun(funp) ? make_small(fe->old_uniq) : am_undefined;
+        hp = HAlloc(p, 3);
+        break;
+    case am_env:
+        {
+            Uint num_free = funp->num_free;
+            int i;
+
+            hp = HAlloc(p, 3 + 2 * num_free);
+            val = NIL;
+
+            for (i = num_free - 1; i >= 0; i--) {
+                val = CONS(hp, funp->env[i], val);
+                hp += 2;
+            }
+        }
+        break;
+    case am_refc:
+        if (is_local_fun(funp)) {
+            val = erts_make_integer(erts_atomic_read_nob(&fe->refc), p);
+        } else {
+            val = am_undefined;
+        }
+
+        hp = HAlloc(p, 3);
+        break;
+    case am_arity:
+        val = make_small(funp->arity);
+        hp = HAlloc(p, 3);
+        break;
+    case am_name:
+        /* Name must be `[]` for unloaded funs. */
+        val = (mfa != NULL) ? mfa->function : NIL;
+        hp = HAlloc(p, 3);
+        break;
+    default:
+        BIF_ERROR(p, BADARG);
+    }
+
     return TUPLE2(hp, what, val);
 }
 
@@ -3659,26 +3634,38 @@ fun_info_mfa_1(BIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm fun = BIF_ARG_1;
-    Eterm* hp;
 
-    if (is_fun(fun)) {
+    if (is_any_fun(fun)) {
         const ErtsCodeMFA *mfa;
         ErlFunThing* funp;
-        funp = (ErlFunThing *) fun_val(fun);
-        mfa = erts_code_to_codemfa((funp->fe)->address);
+        Eterm* hp;
 
+        funp = (ErlFunThing *) fun_val(fun);
         hp = HAlloc(p, 4);
+
+        if (is_local_fun(funp)) {
+            mfa = erts_get_fun_mfa(funp->entry.fun);
+
+            if (mfa == NULL) {
+                /* Unloaded funs must report their module even though we can't
+                 * find their full MFA, and their function name must be
+                 * `[]`. */
+                BIF_RET(TUPLE3(hp,
+                               funp->entry.fun->module,
+                               NIL,
+                               make_small(funp->arity)));
+            }
+        } else {
+            ASSERT(is_external_fun(funp) && funp->next == NULL);
+            mfa = &(funp->entry.exp)->info.mfa;
+        }
+
         BIF_RET(TUPLE3(hp,
-                       (funp->fe)->module,
+                       mfa->module,
                        mfa->function,
                        make_small(funp->arity)));
-    } else if (is_export(fun)) {
-	Export* exp = (Export *) ((UWord) (export_val(fun))[1]);
-	hp = HAlloc(p, 4);
-	BIF_RET(TUPLE3(hp,exp->info.mfa.module,
-                       exp->info.mfa.function,
-                       make_small(exp->info.mfa.arity)));
     }
+
     BIF_ERROR(p, BADARG);
 }
 
@@ -4149,6 +4136,21 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
         else if (ERTS_IS_ATOM_STR("persistent_term", BIF_ARG_1)) {
             BIF_RET(erts_debug_persistent_term_xtra_info(BIF_P));
         }
+#ifdef DEBUG
+        else if (ERTS_IS_ATOM_STR("check_no_empty_boxed_non_literal_on_heap", BIF_ARG_1)) {
+            /*
+              There is an optimization that assumes that it is always
+              safe to read the word after the arity word of boxed
+              terms. This checks if there is a boxed term with nothing
+              after the arity word that is not a literal. Such
+              literals needs to be padded to make the above mentioned
+              optimization safe. Debug builds also do this check every
+              time the GC is run.
+             */
+            erts_dbg_check_no_empty_boxed_non_literal_on_heap(BIF_P, NULL);
+            BIF_RET(am_ok);
+        }
+#endif
     }
     else if (is_tuple(BIF_ARG_1)) {
 	Eterm* tp = tuple_val(BIF_ARG_1);
@@ -4359,15 +4361,6 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		    }
 		    BIF_RET(res);
 		}
-	    }
-	    else if (ERTS_IS_ATOM_STR("term_to_binary_tuple_fallbacks", tp[1])) {
-		Uint64 dflags = (TERM_TO_BINARY_DFLAGS
-                                 & ~DFLAG_EXPORT_PTR_TAG
-                                 & ~DFLAG_BIT_BINARIES);
-		Eterm res = erts_term_to_binary(BIF_P, tp[2], 0, dflags);
-                if (is_value(res))
-                    BIF_RET(res);
-                BIF_ERROR(BIF_P, SYSTEM_LIMIT);
 	    }
 	    else if (ERTS_IS_ATOM_STR("dist_ctrl", tp[1])) {
 		Eterm res = am_undefined;
@@ -4927,6 +4920,26 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                                           (void *) BIF_P);
                 BIF_RET(am_ok);
             }
+        } else if (ERTS_IS_ATOM_STR("jit_asm_dump", BIF_ARG_1)) {
+#ifdef BEAMASM
+            /* Undocumented debug option for the JIT, changing the +JDdump
+             * setting at runtime. This saves us from dumping half of OTP every
+             * time we want to debug the loading of a single module. */
+            Eterm res = erts_jit_asm_dump ? am_true : am_false;
+            switch (BIF_ARG_2)
+            {
+            case am_false:
+                erts_jit_asm_dump = 0;
+                BIF_RET(res);
+            case am_true:
+                erts_jit_asm_dump = 1;
+                BIF_RET(res);
+            default:
+                break;
+            }
+#else
+            BIF_RET(am_notsup);
+#endif
         }
     }
 

@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2020. All Rights Reserved.
+// Copyright Ericsson AB 2017-2021. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -474,7 +474,7 @@ shift.execute(Fail, Dst) {
             HRelease(c_p, hp_end, hp);
             if (ERTS_UNLIKELY(is_nil(Op1))) {
                 /*
-                 * This result must have been only slighty larger
+                 * This result must have been only slightly larger
                  * than allowed since it wasn't caught by the
                  * previous test.
                  */

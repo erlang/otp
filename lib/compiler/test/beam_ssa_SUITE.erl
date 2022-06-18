@@ -25,7 +25,8 @@
          cover_ssa_dead/1,combine_sw/1,share_opt/1,
          beam_ssa_dead_crash/1,stack_init/1,
          mapfoldl/0,mapfoldl/1,
-         grab_bag/1,coverage/1]).
+         grab_bag/1,redundant_br/1,
+         coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -45,6 +46,7 @@ groups() ->
        beam_ssa_dead_crash,
        stack_init,
        grab_bag,
+       redundant_br,
        coverage
       ]}].
 
@@ -712,7 +714,7 @@ do_beam_ssa_dead_crash(A, B) ->
     %% paths happens to end up in the same place.
     %%
     %% During the simulated execution of this function, the boolean
-    %% varible for a `br` instruction would be replaced with the
+    %% variable for a `br` instruction would be replaced with the
     %% literal atom `nil`, which is not allowed, and would crash the
     %% compiler. In practice, during the actual execution, control
     %% would never be transferred to that `br` instruction when the
@@ -933,7 +935,7 @@ grab_bag_4() ->
             end
     end.
 
-grab_bag_5(A, B) when <<business:(node(power))>> ->
+grab_bag_5(_A, _B) when <<business:(node(power))>> ->
     true.
 
 grab_bag_6(face) ->
@@ -997,7 +999,7 @@ grab_bag_11() ->
         _ -> other
     catch
         _:_ ->
-            catched
+            caught
     end.
 
 grab_bag_12() ->
@@ -1084,6 +1086,18 @@ grab_bag_17() ->
             []
     end.
 
+redundant_br(_Config) ->
+    {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
+    {true,[[a,b,c]]} = redundant_br_1(id([[[a,b,c]]])),
+    ok.
+
+redundant_br_1(Specs0) ->
+    {Join,Specs} =
+        if
+            is_list(hd(hd(Specs0))) -> {true,hd(Specs0)};
+            true -> {false,Specs0}
+        end,
+    id({Join,Specs}).
 
 coverage(_Config) ->
 

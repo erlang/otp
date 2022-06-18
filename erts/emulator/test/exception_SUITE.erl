@@ -163,7 +163,7 @@ pending({Code,[{?MODULE,Func,Arity,Loc}|_]}, Func, Args, Code)
 pending(Reason, _Function, _Args, _Code) ->
     ct:fail({bad_exit_reason,Reason}).
 
-%% Test that doing arithmetics on [] gives a badarith EXIT and not a crash.
+%% Test that doing arithmetic on [] gives a badarith EXIT and not a crash.
 
 nil_arith(Config) when is_list(Config) ->
     ba_plus_minus_times([], []),
@@ -699,7 +699,7 @@ error_info(_Config) ->
                     end,
 
     %% Pick up external pid and port.
-    {ok, ExternalNode} = test_server:start_node(?FUNCTION_NAME, slave, []),
+    {ok, Peer, ExternalNode} = ?CT_PEER(),
     ExternalPid = rpc:call(ExternalNode, erlang, whereis, [code_server]),
     ExternalPort = hd(rpc:call(ExternalNode, erlang, ports, [])),
 
@@ -1314,7 +1314,7 @@ error_info(_Config) ->
     try
         do_error_info(L)
     after
-        test_server:stop_node(ExternalNode)
+        peer:stop(Peer)
     end.
 
 dead_process() ->
@@ -1443,11 +1443,23 @@ line_numbers(Config) when is_list(Config) ->
                [{file,"fake_file.erl"},{line,3}]},
               {?MODULE,line_numbers,1,_}|_]}} =
     (catch line1(bad_tag, 0)),
-    {'EXIT',{badarith,
-             [{?MODULE,line1,2,
-               [{file,"fake_file.erl"},{line,5}]},
-              {?MODULE,line_numbers,1,_}|_]}} =
-    (catch line1(a, not_an_integer)),
+
+    %% The stacktrace for operators such a '+' can vary depending on
+    %% whether the JIT is used or not.
+    case catch line1(a, not_an_integer) of
+        {'EXIT',{badarith,
+                 [{erlang,'+',[not_an_integer,1],_},
+                  {?MODULE,line1,2,
+                   [{file,"fake_file.erl"},{line,5}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok;
+        {'EXIT',{badarith,
+                 [{?MODULE,line1,2,
+                   [{file,"fake_file.erl"},{line,5}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok
+    end,
+
     {'EXIT',{{badmatch,{ok,1}},
              [{?MODULE,line1,2,
                [{file,"fake_file.erl"},{line,7}]},
@@ -1480,7 +1492,7 @@ line_numbers(Config) when is_list(Config) ->
     <<0,0>> = build_binary1(16),
     {'EXIT',{badarg,
              [{?MODULE,build_binary1,1,
-               [{file,"bit_syntax.erl"},{line,72503}]},
+               [{file,"bit_syntax.erl"},{line,72503},{error_info,_}]},
               {?MODULE,line_numbers,1,
                [{file,ModFile},{line,_}]}|_]}} =
     (catch build_binary1(bad_size)),
@@ -1488,21 +1500,20 @@ line_numbers(Config) when is_list(Config) ->
     <<7,1,2,3>> = build_binary2(8, <<1,2,3>>),
     {'EXIT',{badarg,
              [{?MODULE,build_binary2,2,
-               [{file,"bit_syntax.erl"},{line,72507}]},
+               [{file,"bit_syntax.erl"},{line,72507},{error_info,_}]},
               {?MODULE,line_numbers,1,
                [{file,ModFile},{line,_}]}|_]}} =
     (catch build_binary2(bad_size, <<>>)),
     {'EXIT',{badarg,
-             [{erlang,bit_size,[bad_binary],[{error_info,_}]},
-              {?MODULE,build_binary2,2,
-               [{file,"bit_syntax.erl"},{line,72507}]},
+             [{?MODULE,build_binary2,2,
+               [{file,"bit_syntax.erl"},{line,72507},{error_info,_}]},
               {?MODULE,line_numbers,1,
                [{file,ModFile},{line,_}]}|_]}} =
     (catch build_binary2(8, bad_binary)),
 
     <<"abc",357:16>> = build_binary3(<<"abc">>),
     {'EXIT',{badarg,[{?MODULE,build_binary3,1,
-                      [{file,"bit_syntax.erl"},{line,72511}]},
+                      [{file,"bit_syntax.erl"},{line,72511},{error_info,_}]},
                      {?MODULE,line_numbers,1,
                       [{file,ModFile},{line,_}]}|_]}} =
     (catch build_binary3(no_binary)),
@@ -1531,14 +1542,29 @@ line_numbers(Config) when is_list(Config) ->
               {?MODULE,line_numbers,1,_}|_]}} =
     (catch applied_bif_2()),
 
-    {'EXIT',{badarith,
-             [{?MODULE,increment1,1,[{file,"increment.erl"},{line,45}]},
-              {?MODULE,line_numbers,1,_}|_]}} =
-        (catch increment1(x)),
-    {'EXIT',{badarith,
-             [{?MODULE,increment2,1,[{file,"increment.erl"},{line,48}]},
-              {?MODULE,line_numbers,1,_}|_]}} =
-        (catch increment2(x)),
+    case catch increment1(x) of
+        {'EXIT',{badarith,
+                 [{erlang,'+',[x,1],_},
+                  {?MODULE,increment1,1,[{file,"increment.erl"},{line,45}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok;
+        {'EXIT',{badarith,
+                 [{?MODULE,increment1,1,[{file,"increment.erl"},{line,45}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok
+    end,
+
+    case catch increment2(x) of
+        {'EXIT',{badarith,
+                 [{erlang,'+',[x,1],_},
+                  {?MODULE,increment2,1,[{file,"increment.erl"},{line,48}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok;
+        {'EXIT',{badarith,
+                 [{?MODULE,increment2,1,[{file,"increment.erl"},{line,48}]},
+                  {?MODULE,line_numbers,1,_}|_]}} ->
+            ok
+    end,
 
     {'EXIT',{{badmap,not_a_map},
              [{?MODULE,update_map,1,[{file,"map.erl"},{line,3}]}|_]}} =

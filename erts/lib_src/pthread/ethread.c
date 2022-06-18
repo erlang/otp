@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2021. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,15 +30,9 @@
 #define ETHR_CHILD_WAIT_SPIN_COUNT 4000
 
 #include <stdio.h>
-#ifdef ETHR_TIME_WITH_SYS_TIME
-#  include <time.h>
+#include <time.h>
+#ifdef ETHR_HAVE_SYS_TIME_H
 #  include <sys/time.h>
-#else
-#  ifdef ETHR_HAVE_SYS_TIME_H
-#    include <sys/time.h>
-#  else
-#    include <time.h>
-#  endif
 #endif
 #include <sys/types.h>
 #include <unistd.h>
@@ -152,7 +146,7 @@ ppc_init__(void)
 {
     int pid;
 
-    /* If anything what so ever failes we assume no lwsync for safety */
+    /* If anything what so ever fails we assume no lwsync for safety */
     ethr_runtime__.conf.have_lwsync = 0;
 
     /*
@@ -225,7 +219,7 @@ ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx)
 #endif
 #if ETHR_SIZEOF_PTR == 4 && defined(__PIC__) && __PIC__
     /*
-     * When position independet code is used in 32-bit mode, the B register
+     * When position independent code is used in 32-bit mode, the B register
      * is used for storage of global offset table address, and we may not
      * use it as input or output in an asm. We need to save and restore the
      * B register explicitly (for some reason gcc doesn't provide this

@@ -1124,7 +1124,7 @@ request_wakeup_managed(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
     ASSERT(!erts_thr_progress_has_reached(value));
 
     /*
-     * This thread is guarranteed to issue a full memory barrier:
+     * This thread is guaranteed to issue a full memory barrier:
      * - after the request has been written, but
      * - before the global thread progress reach the (possibly
      *   increased) requested wakeup value.
@@ -1383,7 +1383,7 @@ erts_thr_progress_fatal_error_wait(SWord timeout) {
     /*
      * Counting poll intervals may give us a too long timeout
      * if cpu is busy. We use timeout time to try to prevent
-     * this. In case we havn't got time correction this may
+     * this. In case we haven't got time correction this may
      * however fail too...
      */
     timeout_time = erts_get_monotonic_time(esdp);

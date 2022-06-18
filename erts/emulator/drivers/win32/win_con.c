@@ -1903,7 +1903,7 @@ void LogFileWrite(TCHAR *buf, int num_chars)
             to = *((int *)buf);
             buf += (sizeof(int)/sizeof(TCHAR))-1;
             num_chars -= 2 * (sizeof(int)/sizeof(TCHAR));
-	    // Wont seek in Unicode file, sorry...
+	    // Won't seek in Unicode file, sorry...
             // fseek(logfile,to-from *sizeof(TCHAR),SEEK_CUR);
             break;
         default:

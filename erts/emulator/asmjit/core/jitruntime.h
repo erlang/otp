@@ -102,19 +102,6 @@ public:
   //! Type-unsafe version of `release()`.
   ASMJIT_API virtual Error _release(void* p) noexcept;
 
-  //! Flushes an instruction cache.
-  //!
-  //! This member function is called after the code has been copied to the
-  //! destination buffer. It is only useful for JIT code generation as it
-  //! causes a flush of the processor's cache.
-  //!
-  //! Flushing is basically a NOP under X86, but is needed by architectures
-  //! that do not have a transparent instruction cache like ARM.
-  //!
-  //! This function can also be overridden to improve compatibility with tools
-  //! such as Valgrind, however, it's not an official part of AsmJit.
-  ASMJIT_API virtual void flush(const void* p, size_t size) noexcept;
-
   //! \}
 };
 

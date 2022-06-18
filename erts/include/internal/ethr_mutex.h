@@ -341,6 +341,7 @@ struct ethr_rwmutex_ {
 int ethr_rwmutex_set_reader_group(int);
 int ethr_rwmutex_init_opt(ethr_rwmutex *, ethr_rwmutex_opt *);
 int ethr_rwmutex_init(ethr_rwmutex *);
+size_t ethr_rwmutex_size(ethr_rwmutex *);
 int ethr_rwmutex_destroy(ethr_rwmutex *);
 #if defined(ETHR_USE_OWN_RWMTX_IMPL__) \
     || !defined(ETHR_TRY_INLINE_FUNCS) \

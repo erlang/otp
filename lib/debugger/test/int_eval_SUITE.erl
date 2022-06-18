@@ -89,7 +89,7 @@ bifs_outside_erlang(Config) when is_list(Config) ->
     ok = spawn_eval(Fun),
     ok.
 
-%% Try evalutate spawn_link/3.
+%% Try evaluating spawn_link/3.
 spawning(Config) when is_list(Config) ->
     ok = spawn_eval(fun() -> ?IM:spawn_test() end).
 

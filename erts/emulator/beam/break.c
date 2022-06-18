@@ -708,25 +708,35 @@ bin_check(void)
 {
     Process  *rp;
     struct erl_off_heap_header* hdr;
+    struct erl_off_heap_header* oh_list;
     int i, printed = 0, max = erts_ptab_max(&erts_proc);
+
 
     for (i=0; i < max; i++) {
 	rp = erts_pix2proc(i);
 	if (!rp)
 	    continue;
-	for (hdr = rp->off_heap.first; hdr; hdr = hdr->next) {
-	    if (hdr->thing_word == HEADER_PROC_BIN) {
-		ProcBin *bp = (ProcBin*) hdr;
-		if (!printed) {
-		    erts_printf("Process %T holding binary data \n", rp->common.id);
-		    printed = 1;
-		}
-		erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
-			    bp->val, 
-			    bp->val->orig_size, 
-			    erts_refc_read(&bp->val->intern.refc, 1));
-	    }
-	}
+
+        oh_list = rp->off_heap.first;
+        for (;;) {
+            for (hdr = oh_list; hdr; hdr = hdr->next) {
+                if (hdr->thing_word == HEADER_PROC_BIN) {
+                    ProcBin *bp = (ProcBin*) hdr;
+                    if (!printed) {
+                        erts_printf("Process %T holding binary data \n", rp->common.id);
+                        printed = 1;
+                    }
+                    erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
+                                bp->val,
+                                bp->val->orig_size,
+                                erts_refc_read(&bp->val->intern.refc, 1));
+                }
+            }
+            if (oh_list == rp->wrt_bins)
+                break;
+            oh_list = rp->wrt_bins;
+        }
+
 	if (printed) {
 	    erts_printf("--------------------------------------\n");
 	    printed = 0;

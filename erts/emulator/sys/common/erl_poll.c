@@ -1965,7 +1965,7 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet *ps,
         /*
          * This may have happened because another thread deselected
          * a fd in our poll set and then closed it, i.e. the driver
-         * behaved correctly. We wan't to avoid looking for a bad
+         * behaved correctly. We want to avoid looking for a bad
          * fd, that may even not exist anymore. Therefore, handle
          * update requests and try again. This behaviour should only
          * happen when using SELECT as the polling mechanism.

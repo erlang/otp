@@ -503,7 +503,7 @@ load_when_down_from_all_other_replica_nodes(Config) when is_list(Config) ->
     ?match([], mnesia_test_lib:kill_mnesia([N2])),
     ?match({atomic,ok},rpc:call(N3,mnesia,transaction,[Write_one,[33,33]])),
     ?match([], mnesia_test_lib:kill_mnesia([N3])),
-    ?verbose("Mnesia stoped on all three nodes.~n",[]),
+    ?verbose("Mnesia stopped on all three nodes.~n",[]),
 
     %%Start Mnesia on N3; wait for 'test_rec' table to load
     ?match(ok, rpc:call(N3, mnesia, start, [])),
@@ -528,7 +528,7 @@ load_when_down_from_all_other_replica_nodes(Config) when is_list(Config) ->
 late_load_transforms_into_disc_load(doc) ->
     ["Difficult case that needs instrumentation of Mnesia.",
      "A table is force loaded, and Mnesia decides to load it from another ",
-     "Mnesia node because it is avaliable there. The other Mnesia node then ",
+     "Mnesia node because it is available there. The other Mnesia node then ",
      "dies in mid copy which shall make the first Mnesia node to really ",
      "force load from disc.",
      "Check this by starting N1 and N2 and replicating a table between ",
@@ -1028,7 +1028,7 @@ master_nodes(Config) when is_list(Config) ->
     ?match({timeout, [Tab]}, rpc:call(A, mnesia, wait_for_tables, [[Tab], 2000])),
 
     %% Test 6: Force load on table that couldn't be loaded due to master 
-    %%         table setttings, loads other active replicas i.e. from C
+    %%         table settings, loads other active replicas i.e. from C
 
     ?match(yes, rpc:call(A, mnesia, force_load_table, [Tab])),
     ?match(ok, rpc:call(A, mnesia, wait_for_tables, [[Tab], 3000])),
@@ -1041,7 +1041,7 @@ master_nodes(Config) when is_list(Config) ->
     ?match([{Tab, 1, update_2}], rpc:call(C, mnesia, dirty_read, [{Tab, 1}])),
 
     %% Test 7: Master [B] and B is down the table should not be loaded, 
-    %%         force_load when there are no active replicas availible 
+    %%         force_load when there are no active replicas available 
     %%         should generate a load of a local table
 
     ?match(ok, rpc:call(A, mnesia, set_master_nodes, [Tab, [B]])),
@@ -1138,7 +1138,7 @@ master_on_non_local_tables(Config) when is_list(Config) ->
 remote_force_load_with_local_master_node(doc) ->
     ["Force load a table on a remote node while the ",
      "local node is down. Start the local node and ",
-     "verfify that the tables is loaded from disc locally "
+     "verify that the tables is loaded from disc locally "
      "if the local node has itself as master node and ",
      "the remote node has both the local and remote node ",
      "as master nodes"];
@@ -1345,13 +1345,13 @@ dump_ram_copies(Config) when is_list(Config)  ->
     %% start Mnesia only on node 3
     ?verbose("starting mnesia on Node3~n",[]),
     
-    %% test_lib:mnesia_start doesnt work, because it waits
+    %% test_lib:mnesia_start doesn't work, because it waits
     %% for the schema on all nodes ... ???
     ?match(ok,rpc:call(Node3,mnesia,start,[]) ),
     ?match(ok,rpc:call(Node3,mnesia,wait_for_tables,
 		       [[Tab],timer:seconds(30)]   ) ),
     
-    %% node3  shall have the conents of the dump
+    %% node3  shall have the contents of the dump
     cross_check_tables([C],Tab,{[{Tab,1,4711}],[{Tab,2,42}],[{Tab,3,256}]}),
     
     %% start Mnesia on the other 2 nodes, too
@@ -1569,7 +1569,7 @@ receive_messages(ListOfMsgs) ->
                     [{Pid, Msg} | receive_messages(ListOfMsgs -- [Msg])]
             end;
 
-        Else -> ?warning("Recevied unexpected Msg~n ~p ~n", [Else])
+        Else -> ?warning("Received unexpected Msg~n ~p ~n", [Else])
     after timer:seconds(40) -> 
             ?error("Timeout in receive msgs while waiting for ~p~n", 
                    [ListOfMsgs])

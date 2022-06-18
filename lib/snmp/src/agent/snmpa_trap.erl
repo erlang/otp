@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,11 +33,6 @@
 	 init_v3_inform/9, init_v3_inform/10, init_v3_inform/11, 
 	 send_inform/6]).
 -export([init_discovery_inform/13, send_discovery_inform/5]).
-
-%% <BACKWARD-COMPAT>
--export([send_discovery/5, 
-	 init_discovery_inform/12]).
-%% </BACKWARD-COMPAT>
 
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/src/agent/snmpa_internal.hrl").
@@ -438,9 +433,6 @@ do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs,
     send_trap_pdus(Dests, ContextName, {TrapRec, VarbindList}, [], [], [],
 		   Recv, LocalEngineID, ExtraInfo, NetIf).
 
-send_discovery(TargetName, Record, ContextName, Vbs, NetIf) ->
-    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
-    send_discovery(TargetName, Record, ContextName, Vbs, NetIf, ExtraInfo).
 send_discovery(TargetName, Record, ContextName, Vbs, NetIf, ExtraInfo) ->
     case find_dest(TargetName) of
 	{ok, Dest} ->
@@ -715,16 +707,6 @@ send_discovery_pdu(Record, Dest, Vbs,
 				  ExtraInfo]),
     {ok, Sender, SecLevel}.
 
-init_discovery_inform(Parent, 
-		      Dest, 
-		      SecModel, SecName, SecLevel, TargetName, 
-		      ContextName, Timeout, Retry, Vbs, NetIf, Verbosity) ->
-    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
-    init_discovery_inform(Parent, 
-			  Dest, 
-			  SecModel, SecName, SecLevel, TargetName, 
-			  ContextName, Timeout, Retry, Vbs, NetIf, 
-			  Verbosity, ExtraInfo).
 init_discovery_inform(Parent, 
 		      Dest, 
 		      SecModel, SecName, SecLevel, TargetName, 

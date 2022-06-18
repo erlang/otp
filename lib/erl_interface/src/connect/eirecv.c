@@ -369,7 +369,7 @@ send_unlink_id_ack(ei_socket_callbacks *cbs, void *ctx,
     s = &ctl[0];
     /* packet size */
     put32be(s, index - 4);
-    /* pass throug */
+    /* pass through */
     put8(s, ERL_PASS_THROUGH);
 
     if (ei_tracelevel >= 4) {

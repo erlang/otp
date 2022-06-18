@@ -920,7 +920,7 @@ static VOID WINAPI service_main_loop(DWORD argc, wchar_t **argv){
 		    L"The service is not restarted, ignoring OnFail option.");
 	} else {
 	  log_error(L"Erlang machine seems to die "
-		    L"continously, not restarted.");
+		    L"continuously, not restarted.");
 	}
 	CloseHandle(eventStop);
 	set_stopped(ERROR_PROCESS_ABORTED);

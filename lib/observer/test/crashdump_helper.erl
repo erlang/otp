@@ -25,7 +25,7 @@
          dump_persistent_terms/0,
          create_persistent_terms/0,
          dump_global_literals/0]).
--compile(r20).
+-compile(r22).
 -include_lib("common_test/include/ct.hrl").
 
 n1_proc(N2,Creator) ->

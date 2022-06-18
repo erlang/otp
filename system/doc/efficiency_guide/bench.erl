@@ -424,7 +424,7 @@ create_html_table(File, {Bm, Res}) ->
 			  create_html_row(File, Name, ResultDict) 
 		  end, Order),
 
-    %% Tabel end-tags
+    %% Table end-tags
     io:put_chars(File, "</table></td></tr></table>\n"),
     
     %% Create link to benchmark source code
@@ -435,7 +435,7 @@ create_html_table(File, {Bm, Res}) ->
 %% create_html_row(File, Name, Dict) -> _
 %%	File = file() - html file to write data to. 
 %%	Name = atom() - Name of benchmark test 
-%%	Dict = dict() - Dictonary where the relative time measures for 
+%%	Dict = dict() - Dictionary where the relative time measures for 
 %%      the test can be found.
 %%
 %% Creates an actual html table-row.

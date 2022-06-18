@@ -208,7 +208,7 @@ accept_connection(AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 gen_accept_connection(Driver, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     spawn_opt(?MODULE, do_accept,
 	      [Driver, self(), AcceptPid, Socket, MyNode, Allowed, SetupTime],
-	      [link, {priority, max}]).
+	      net_ticker_spawn_options()).
 
 do_accept(Driver, Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     receive
@@ -275,6 +275,14 @@ nodelay() ->
     end.
 
 
+% we may want different spawn options for dist_util processes
+
+net_ticker_spawn_options() ->
+    Opts = application:get_env(kernel, net_ticker_spawn_options, []),
+    Opts1 = [{priority, max} | proplists:delete(priority, Opts)],
+    [link | proplists:delete(link, Opts1)].
+
+
 %% ------------------------------------------------------------
 %% Get remote information about a Socket.
 %% ------------------------------------------------------------
@@ -304,7 +312,7 @@ setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
 gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     spawn_opt(?MODULE, do_setup, 
 	      [Driver, self(), Node, Type, MyNode, LongOrShortNames, SetupTime],
-	      [link, {priority, max}]).
+	      net_ticker_spawn_options()).
 
 do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     ?trace("~p~n",[{inet_tcp_dist,self(),setup,Node}]),

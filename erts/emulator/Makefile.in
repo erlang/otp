@@ -33,6 +33,7 @@ LIBS = @LIBS@
 Z_LIB=@Z_LIB@
 CROSS_COMPILING = @CROSS_COMPILING@
 NO_INLINE_FUNCTIONS=false
+USING_VC=@MIXED_VC@
 
 OPCODE_TABLES = \
     $(ERL_TOP)/lib/compiler/src/genop.tab \
@@ -56,7 +57,7 @@ JIT_ENABLED=no
 endif
 
 ifeq ($(FLAVOR),jit)
-OMIT_OMIT_FP=no
+OMIT_OMIT_FP=yes
 OPCODE_TABLES += \
     beam/jit/$(JIT_ARCH)/ops.tab \
     beam/jit/$(JIT_ARCH)/predicates.tab \
@@ -202,8 +203,10 @@ space+=
 STATIC_NIFS=@STATIC_NIFS@
 ifneq ($(STATIC_NIFS),no)
 ifeq ($(STATIC_NIFS),yes)
-STATIC_NIFS=$(ERL_TOP)/lib/asn1/priv/lib/$(TARGET)/asn1rt_nif.a \
-	$(ERL_TOP)/lib/crypto/priv/lib/$(TARGET)/crypto$(TYPEMARKER).a
+STATIC_NIFS=$(ERL_TOP)/lib/asn1/priv/lib/$(TARGET)/asn1rt_nif.a
+ifeq ($(wildcard $(ERL_TOP)/lib/crypto/SKIP),)
+	STATIC_NIFS+=$(ERL_TOP)/lib/crypto/priv/lib/$(TARGET)/crypto$(TYPEMARKER).a
+endif
 endif
 STATIC_NIFS:=$(subst $(comma),$(space),$(STATIC_NIFS))
 endif
@@ -218,7 +221,7 @@ endif
 
 
 #
-# NOTE: When adding a new type update ERL_BUILD_TYPE_MARKER in sys/unix/sys.c
+# NOTE: When adding a new type update ERL_BUILD_TYPE_MARKER in sys/unix/sys_drivers.c
 #
 
 FLAVOR_MARKER=.$(FLAVOR)
@@ -371,6 +374,14 @@ endif
 EPCRE_LIB = $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
 DEPLIBS += $(EPCRE_LIB)
 
+DEPLIBS += $(RYU_LIBRARY)
+ifeq ($(TARGET),win32)
+LIBS += -L$(RYU_OBJDIR) -lryu
+else
+# Build on darwin fails if -lryu is used
+LIBS += $(RYU_LIBRARY)
+endif
+
 LIBSCTP = @LIBSCTP@
 
 ORG_THR_LIBS=@EMU_THR_LIBS@
@@ -412,7 +423,8 @@ OBJDIR = obj/$(TTF_DIR)
 
 CREATE_DIRS += $(OBJDIR) \
 	pcre/obj/$(TARGET)/$(TYPE) \
-	$(ZLIB_OBJDIR)
+	$(ZLIB_OBJDIR) \
+	$(RYU_OBJDIR)
 
 ifeq ($(FLAVOR),jit)
 CREATE_DIRS+=$(OBJDIR)/asmjit/ $(OBJDIR)/asmjit/core $(OBJDIR)/asmjit/$(JIT_ARCH)
@@ -427,8 +439,10 @@ ENABLE_ALLOC_TYPE_VARS += @ERLANG_OSTYPE@
 
 ifeq ($(TARGET), win32)
 FLAVOR_EXECUTABLE = beam$(TF_MARKER).dll
+EMULATOR_LIB = libbeam.lib
 else
 FLAVOR_EXECUTABLE = beam$(TF_MARKER)
+EMULATOR_LIB = libbeam.a
 PROFILE_EXECUTABLE = beam.prof$(TF_MARKER)
 endif
 CS_EXECUTABLE = erl_child_setup$(TYPEMARKER)
@@ -467,7 +481,7 @@ ifdef VOID_EMULATOR
 all:
 	@echo $(VOID_EMULATOR)' - omitted target all'
 else
-all: $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
+all: $(BINDIR)/$(EMULATOR_EXECUTABLE) $(BINDIR)/$(EMULATOR_LIB) $(UNIX_ONLY_BUILDS)
 endif
 
 $(BINDIR)/$(PRIMARY_EXECUTABLE): $(BINDIR)/$(FLAVOR_EXECUTABLE)
@@ -478,6 +492,7 @@ endif
 
 include zlib/zlib.mk
 include pcre/pcre.mk
+include ryu/ryu.mk
 
 $(ERTS_LIB):
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) $(TYPE)
@@ -490,6 +505,7 @@ clean:
 	$(RM) -r obj/$(TARGET)
 	$(RM) -r pcre/obj/$(TARGET) $(PCRE_GENINC)
 	$(RM) -r zlib/obj/$(TARGET)
+	$(RM) -r ryu/obj/$(TARGET)
 	$(RM) -r bin/$(TARGET)
 	cd $(ERTS_LIB_DIR) && $(MAKE) clean
 
@@ -522,6 +538,10 @@ release_spec: all
 	$(INSTALL_DATA) $(RELEASE_INCLUDES) "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DATA) $(RELEASE_INCLUDES) "$(RELSYSDIR)/include"
 	$(INSTALL_PROGRAM) $(BINDIR)/$(EMULATOR_EXECUTABLE) "$(RELSYSDIR)/bin"
+ifeq ($(RELEASE_LIBBEAM),yes)
+	$(INSTALL_DIR) "$(RELSYSDIR)/lib"
+	$(INSTALL_PROGRAM) $(BINDIR)/$(EMULATOR_LIB) "$(RELSYSDIR)/lib"
+endif
 ifeq ($(ERLANG_OSTYPE), unix)
 	$(INSTALL_PROGRAM) $(BINDIR)/$(CS_EXECUTABLE) "$(RELSYSDIR)/bin"
 endif
@@ -696,7 +716,7 @@ ASMJIT_H = $(wildcard asmjit/*.h) $(wildcard asmjit/core/*.h) $(wildcard asmjit/
 ASMJIT_TTF_H = $(foreach HEADER,$(ASMJIT_H),$(TTF_DIR)/$(HEADER))
 
 ifeq ($(FLAVOR),jit)
-GENERATE+=$(ASMJIT_TTF_H)
+GENERATE+=$(ASMJIT_TTF_H) $(TTF_DIR)/asmjit/asmjit.hpp
 endif
 
 # Preloaded code.
@@ -774,6 +794,7 @@ ifndef Z_LIB
 COMMON_INCLUDES += -Izlib 
 endif
 COMMON_INCLUDES += -Ipcre
+COMMON_INCLUDES += -Iryu
 COMMON_INCLUDES += -I../include -I../include/$(TARGET)
 COMMON_INCLUDES += -I../include/internal -I../include/internal/$(TARGET)
 
@@ -902,18 +923,31 @@ $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 # because GCC only allows one precompiled header, and requires it to be
 # included before any other directives, including other #includes.
 #
-ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_DEPRECATED=1 -DASMJIT_STATIC=1
+ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_DEPRECATED=1 -DASMJIT_STATIC=1 -DASMJIT_NO_FOREIGN=1
+
+ifeq ($(JIT_ARCH), arm)
+# Work around a bug in the current beta release causing a linking
+# error.
+ASMJIT_FLAGS+=-DASMJIT_NO_VALIDATION
+endif
+
 ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/asmjit.hpp.gch
 ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/asmjit.hpp
 
-$(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp $(ASMJIT_PCH_OBJ)
-	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)    			\
-          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))            	\
+$(OBJDIR)/%.o: beam/jit/%.cpp $(ASMJIT_PCH_OBJ)
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                            \
+          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
+          -include $(ASMJIT_PCH_SRC) -c $< -o $@
+
+$(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp \
+	$(ASMJIT_PCH_OBJ)
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                            \
+          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
 
 $(OBJDIR)/asmjit/%.o: asmjit/%.cpp $(ASMJIT_PCH_OBJ) $(dir $@)
-	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)    			\
-          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))            	\
+	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                            \
+          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
 
 ## The dependency on erl_bif_info.c is in order to trigger a rebuild when
@@ -992,21 +1026,37 @@ COMMON_OBJS = \
 ASMJIT_OBJS = $(patsubst %.cpp,$(OBJDIR)/%.o,$(ASMJIT_CPP))
 
 JIT_OBJS = \
-        $(OBJDIR)/asm_load.o \
-        $(OBJDIR)/beam_jit_common.o
+    $(OBJDIR)/asm_load.o \
+    $(OBJDIR)/beam_asm_global.o \
+    $(OBJDIR)/beam_asm_module.o \
+    $(OBJDIR)/beam_jit_common.o \
+    $(OBJDIR)/beam_jit_main.o \
+    $(OBJDIR)/beam_jit_metadata.o \
+    $(OBJDIR)/process_main.o
 
 ifeq ($(JIT_ARCH), x86)
 JIT_OBJS += \
-	$(OBJDIR)/beam_asm.o \
-	$(OBJDIR)/beam_asm_global.o \
-	$(OBJDIR)/beam_asm_module.o \
-	$(OBJDIR)/beam_asm_perf.o \
 	$(OBJDIR)/instr_arith.o \
 	$(OBJDIR)/instr_bs.o \
 	$(OBJDIR)/instr_bif.o \
 	$(OBJDIR)/instr_call.o \
 	$(OBJDIR)/instr_common.o \
 	$(OBJDIR)/instr_float.o \
+	$(OBJDIR)/instr_fun.o \
+	$(OBJDIR)/instr_guard_bifs.o \
+	$(OBJDIR)/instr_map.o \
+	$(OBJDIR)/instr_msg.o \
+	$(OBJDIR)/instr_select.o \
+	$(OBJDIR)/instr_trace.o
+else
+JIT_OBJS += \
+	$(OBJDIR)/instr_arith.o \
+	$(OBJDIR)/instr_bs.o \
+	$(OBJDIR)/instr_bif.o \
+	$(OBJDIR)/instr_call.o \
+	$(OBJDIR)/instr_common.o \
+	$(OBJDIR)/instr_float.o \
+	$(OBJDIR)/instr_fun.o \
 	$(OBJDIR)/instr_guard_bifs.o \
 	$(OBJDIR)/instr_map.o \
 	$(OBJDIR)/instr_msg.o \
@@ -1099,7 +1149,8 @@ RUN_OBJS += \
 	$(ESOCK_RUN_OBJS)		$(OBJDIR)/erl_flxctr.o \
 	$(OBJDIR)/erl_nfunc_sched.o \
 	$(OBJDIR)/erl_global_literals.o \
-	$(OBJDIR)/beam_file.o
+	$(OBJDIR)/beam_file.o \
+	$(OBJDIR)/beam_types.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 
@@ -1235,6 +1286,26 @@ $(BINDIR)/$(FLAVOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 endif
 
 # ----------------------------------------------------------------------
+# The emulator as a static lib ...
+#
+ifeq ($(USING_VC),yes)
+AR_OUT=-out:
+AR_FLAGS=
+else
+AR_OUT=
+ifeq ($(V),0)
+AR_FLAGS=rc
+else
+AR_FLAGS=rcv
+endif
+endif
+
+$(BINDIR)/${EMULATOR_LIB}: $(PRELOAD_OBJ) $(OBJS) $(DEPLIBS)
+	$(V_AR) $(AR_FLAGS) $(AR_OUT)$@ \
+	$(PRELOAD_OBJ) $(OBJS)
+	$(V_RANLIB) $@
+
+# ----------------------------------------------------------------------
 # Dependencies
 #
 $(TARGET)/Makefile: Makefile.in
@@ -1301,7 +1372,7 @@ DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 \
 	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
 	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
 
-# ifeq (@MIXED_VC@,yes)
+# ifeq ($(USING_VC),yes)
 # VC++ used for compiling. If __GNUC__ is defined we will include
 # other headers then when compiling which will result in faulty
 # dependencies.
@@ -1363,6 +1434,8 @@ $(TTF_DIR)/depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(ZLIB_SRC) \
 		| $(SED_DEPEND_ZLIB) >> $(TTF_DIR)/depend.mk
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(RYU_SRC) \
+		| $(SED_DEPEND_ZLIB) >> $(TTF_DIR)/depend.mk
 ifeq ($(JIT_ENABLED),yes)
 	$(V_at)$(DEP_CXX) $(DEP_CXXFLAGS) $(BEAM_CPP_SRC) \
 		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
@@ -1389,11 +1462,11 @@ compdb:
 
 format-check:
 	clang-format --Werror --dry-run -i beam/jit/*.hpp beam/jit/*.c beam/jit/*.h \
-            beam/jit/*/*.cpp beam/jit/*/*.hpp
+            beam/jit/*.cpp beam/jit/*/*.cpp beam/jit/*/*.hpp
 
 format:
 	clang-format -i beam/jit/*.hpp beam/jit/*.c beam/jit/*.h \
-            beam/jit/*/*.cpp beam/jit/*/*.hpp
+            beam/jit/*.cpp beam/jit/*/*.cpp beam/jit/*/*.hpp
 
 ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)

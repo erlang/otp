@@ -28,11 +28,11 @@
 #include "../core/type.h"
 #include "../core/funcargscontext_p.h"
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   #include "../x86/x86func_p.h"
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   #include "../arm/armfunc_p.h"
 #endif
 
@@ -45,12 +45,12 @@ ASMJIT_BEGIN_NAMESPACE
 ASMJIT_FAVOR_SIZE Error CallConv::init(uint32_t ccId, const Environment& environment) noexcept {
   reset();
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   if (environment.isFamilyX86())
     return x86::FuncInternal::initCallConv(*this, ccId, environment);
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   if (environment.isFamilyARM())
     return arm::FuncInternal::initCallConv(*this, ccId, environment);
 #endif
@@ -87,12 +87,12 @@ ASMJIT_FAVOR_SIZE Error FuncDetail::init(const FuncSignature& signature, const E
   if (ret != Type::kIdVoid)
     _rets[0].initTypeId(Type::deabstract(ret, deabstractDelta));
 
-#ifdef ASMJIT_BUILD_X86
+#if !defined(ASMJIT_NO_X86)
   if (environment.isFamilyX86())
     return x86::FuncInternal::initFuncDetail(*this, signature, registerSize);
 #endif
 
-#ifdef ASMJIT_BUILD_ARM
+#if !defined(ASMJIT_NO_ARM)
   if (environment.isFamilyARM())
     return arm::FuncInternal::initFuncDetail(*this, signature, registerSize);
 #endif

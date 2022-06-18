@@ -1,0 +1,5 @@
+
+[;1m  'xor'/2[0m
+
+  The documentation for 'xor'/2 is hidden. This probably means
+  that it is internal and not to be used by other applications.

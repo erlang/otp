@@ -746,11 +746,11 @@ verify_lit_terms([], _) ->
     ok.
 
 get_external_terms() ->
-    {ok,Node} =	test_server:start_node(?FUNCTION_NAME, slave, []),
+    {ok, Peer, Node}= ?CT_PEER(),
     Ref = rpc:call(Node, erlang, make_ref, []),
     Ports = rpc:call(Node, erlang, ports, []),
     Pid = rpc:call(Node, erlang, self, []),
-    _ = test_server:stop_node(Node),
+    peer:stop(Peer),
     {Ref,hd(Ports),Pid}.
 
 %% OTP-7559: c_p->cp could contain garbage and create a false dependency
@@ -1096,9 +1096,9 @@ erl_544(Config) when is_list(Config) ->
                 File = proplists:get_value(file, Info2),
                 StackFun = fun(_, _, _) -> false end,
                 FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
-                Formated =
+                Formatted =
                     erl_error:format_stacktrace(1, Stack, StackFun, FormatFun),
-                true = is_list(Formated),
+                true = is_list(Formatted),
                 ok
             after
                 ok = file:set_cwd(CWD)

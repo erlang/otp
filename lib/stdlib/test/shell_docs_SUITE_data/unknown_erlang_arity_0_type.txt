@@ -1,0 +1,4 @@
+
+  [;1m-type arity() :: arity().[0m
+
+  The arity of a function or type.

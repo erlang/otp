@@ -143,7 +143,7 @@ the different tools:
     You need this to build crypto, ssh and ssl libs.
 
     We recommend v1.1.1d or later.
-    There are prebuilt avaiable binaries, which you can just
+    There are prebuilt available binaries, which you can just
     download and install, available here:
     URL: <http://wiki.openssl.org/index.php/Binaries>
 

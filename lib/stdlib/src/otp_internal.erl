@@ -83,8 +83,6 @@ obsolete(net, cast, 4) ->
     {deprecated, "use rpc:cast/4 instead"};
 obsolete(net, ping, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
-obsolete(net, relay, 1) ->
-    {deprecated, "use slave:relay/1 instead"};
 obsolete(net, sleep, 1) ->
     {deprecated, "use 'receive after T -> ok end' instead"};
 obsolete(public_key, ssh_decode, 2) ->
@@ -97,70 +95,6 @@ obsolete(public_key, ssh_hostkey_fingerprint, 2) ->
     {deprecated, "use ssh:hostkey_fingerprint/2 instead", "OTP 26"};
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
-obsolete(snmpm, async_get, 3) ->
-    {deprecated, "use snmpm:async_get2/3 instead.", "OTP 25"};
-obsolete(snmpm, async_get, 4) ->
-    {deprecated, "use snmpm:async_get2/4 instead.", "OTP 25"};
-obsolete(snmpm, async_get, 5) ->
-    {deprecated, "use snmpm:async_get2/4 instead.", "OTP 25"};
-obsolete(snmpm, async_get, 6) ->
-    {deprecated, "use snmpm:async_get2/4 instead.", "OTP 25"};
-obsolete(snmpm, async_get_bulk, 5) ->
-    {deprecated, "use snmpm:async_get_bulk2/5 instead.", "OTP 25"};
-obsolete(snmpm, async_get_bulk, 6) ->
-    {deprecated, "use snmpm:async_get_bulk2/6 instead.", "OTP 25"};
-obsolete(snmpm, async_get_bulk, 7) ->
-    {deprecated, "use snmpm:async_get_bulk2/6 instead.", "OTP 25"};
-obsolete(snmpm, async_get_bulk, 8) ->
-    {deprecated, "use snmpm:async_get_bulk2/6 instead.", "OTP 25"};
-obsolete(snmpm, async_get_next, 3) ->
-    {deprecated, "use snmpm:async_get_next2/3 instead.", "OTP 25"};
-obsolete(snmpm, async_get_next, 4) ->
-    {deprecated, "use snmpm:async_get_next2/4 instead.", "OTP 25"};
-obsolete(snmpm, async_get_next, 5) ->
-    {deprecated, "use snmpm:async_get_next2/4 instead.", "OTP 25"};
-obsolete(snmpm, async_get_next, 6) ->
-    {deprecated, "use snmpm:async_get_next2/4 instead.", "OTP 25"};
-obsolete(snmpm, async_set, 3) ->
-    {deprecated, "use snmpm:async_set2/3 instead.", "OTP 25"};
-obsolete(snmpm, async_set, 4) ->
-    {deprecated, "use snmpm:async_set2/4 instead.", "OTP 25"};
-obsolete(snmpm, async_set, 5) ->
-    {deprecated, "use snmpm:async_set2/4 instead.", "OTP 25"};
-obsolete(snmpm, async_set, 6) ->
-    {deprecated, "use snmpm:async_set2/4 instead.", "OTP 25"};
-obsolete(snmpm, sync_get, 3) ->
-    {deprecated, "use snmpm:sync_get2/3 instead.", "OTP 25"};
-obsolete(snmpm, sync_get, 4) ->
-    {deprecated, "use snmpm:sync_get2/4 instead.", "OTP 25"};
-obsolete(snmpm, sync_get, 5) ->
-    {deprecated, "use snmpm:sync_get2/4 instead.", "OTP 25"};
-obsolete(snmpm, sync_get, 6) ->
-    {deprecated, "use snmpm:sync_get2/4 instead.", "OTP 25"};
-obsolete(snmpm, sync_get_bulk, 5) ->
-    {deprecated, "use snmpm:sync_get_bulk2/5 instead.", "OTP 25"};
-obsolete(snmpm, sync_get_bulk, 6) ->
-    {deprecated, "use snmpm:sync_get_bulk2/6 instead.", "OTP 25"};
-obsolete(snmpm, sync_get_bulk, 7) ->
-    {deprecated, "use snmpm:sync_get_bulk2/6 instead.", "OTP 25"};
-obsolete(snmpm, sync_get_bulk, 8) ->
-    {deprecated, "use snmpm:sync_get_bulk2/6 instead.", "OTP 25"};
-obsolete(snmpm, sync_get_next, 3) ->
-    {deprecated, "use snmpm:sync_get_next2/3 instead.", "OTP 25"};
-obsolete(snmpm, sync_get_next, 4) ->
-    {deprecated, "use snmpm:sync_get_next2/4 instead.", "OTP 25"};
-obsolete(snmpm, sync_get_next, 5) ->
-    {deprecated, "use snmpm:sync_get_next2/4 instead.", "OTP 25"};
-obsolete(snmpm, sync_get_next, 6) ->
-    {deprecated, "use snmpm:sync_get_next2/4 instead.", "OTP 25"};
-obsolete(snmpm, sync_set, 3) ->
-    {deprecated, "use snmpm:sync_set2/3 instead.", "OTP 25"};
-obsolete(snmpm, sync_set, 4) ->
-    {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
-obsolete(snmpm, sync_set, 5) ->
-    {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
-obsolete(snmpm, sync_set, 6) ->
-    {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
 obsolete(sys, get_debug, 3) ->
     {deprecated, "incorrectly documented and only for internal use. Can often be replaced with sys:get_log/1"};
 obsolete(wxCalendarCtrl, enableYearChange, 1) ->
@@ -255,6 +189,8 @@ obsolete(httpd_conf, is_file, 1) ->
     {removed, "use filelib:is_file/1 instead"};
 obsolete(httpd_conf, make_integer, 1) ->
     {removed, "use erlang:list_to_integer/1 instead"};
+obsolete(net, relay, 1) ->
+    {removed, "use fun Relay(Pid) -> receive X -> Pid ! X end, Relay(Pid) instead"};
 obsolete(rpc, safe_multi_server_call, 2) ->
     {removed, "use rpc:multi_server_call/2 instead"};
 obsolete(rpc, safe_multi_server_call, 3) ->
@@ -289,6 +225,10 @@ obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
+obsolete(slave, _, _) ->
+    {deprecated, "use the 'peer' module instead", "OTP 27"};
+obsolete(ct_slave, _, _) ->
+    {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 27"};
 obsolete(os_mon_mib, _, _) ->
     {removed, "this module was removed in OTP 22.0"};
 obsolete(pg2, _, _) ->

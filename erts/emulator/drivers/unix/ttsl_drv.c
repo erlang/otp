@@ -82,7 +82,7 @@ char *tgetstr(char* cap, char** buf);
 char *tgoto(char* cm, int col, int line);
 int tputs(char* cp, int affcnt, int (*outc)(int c));
 
-/* Terminal capabilites in which we are interested. */
+/* Terminal capabilities in which we are interested. */
 static char *capbuf;
 static char *up, *down, *left, *right;
 static int cols, xn;
@@ -947,7 +947,7 @@ static int put_chars(byte *s, int l)
 }
 
 /*
- * Move the current postition forwards or backwards within the current
+ * Move the current position forwards or backwards within the current
  * line. We know about padding.
  */
 static int move_rel(int n)
@@ -1546,7 +1546,7 @@ static int tty_reset(int fd)         /* of terminal device */
 
 /* 
  * Signal handler to cope with signals so that we can reset the tty
- * to the orignal settings
+ * to the original settings
  */
 
 #ifdef ERTS_NOT_USED

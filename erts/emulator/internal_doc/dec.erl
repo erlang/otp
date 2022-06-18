@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 %% The C header is generated from a text file containing tuples in the 
 %% following format:
 %% {RevList,Translation}
-%% Where 'RevList' is a reversed list of the denormalized repressentation of
+%% Where 'RevList' is a reversed list of the denormalized representation of
 %% the character 'Translation'. An example would be the swedish character 
 %% 'ö', which would be represented in the file as:
 %% {[776,111],246}, as the denormalized representation of codepoint 246

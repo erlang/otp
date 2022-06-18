@@ -1,0 +1,5 @@
+
+  [;1m-type nonempty_improper_list(ContentType, TerminationType) ::[0m
+  [;1m          nonempty_improper_list(ContentType, TerminationType).[0m
+
+  A maybe_improper_list/2 that contains some items.

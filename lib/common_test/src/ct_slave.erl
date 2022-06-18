@@ -29,6 +29,8 @@
 
 -export([slave_started/2, slave_ready/2, monitor_master/1]).
 
+-deprecated([{'_','_',"use ?CT_PEER(), or the 'peer' module instead"}]).
+
 -record(options, {username, password, boot_timeout, init_timeout,
 		  startup_timeout, startup_functions, monitor_master,
 		  kill_if_fail, erl_flags, env, ssh_port, ssh_opts,

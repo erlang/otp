@@ -121,7 +121,7 @@ ET_DEFINE_CHECKED(Uint,arityval,Eterm,is_sane_arity_value);
 ET_DEFINE_CHECKED(Uint,thing_arityval,Eterm,is_thing);
 ET_DEFINE_CHECKED(Uint,thing_subtag,Eterm,is_thing);
 ET_DEFINE_CHECKED(Eterm*,binary_val,Wterm,is_binary);
-ET_DEFINE_CHECKED(Eterm*,fun_val,Wterm,is_fun);
+ET_DEFINE_CHECKED(Eterm*,fun_val,Wterm,is_any_fun);
 ET_DEFINE_CHECKED(int,bignum_header_is_neg,Eterm,_is_bignum_header);
 ET_DEFINE_CHECKED(Eterm,bignum_header_neg,Eterm,_is_bignum_header);
 ET_DEFINE_CHECKED(Uint,bignum_header_arity,Eterm,_is_bignum_header);
@@ -144,7 +144,6 @@ ET_DEFINE_CHECKED(struct erl_node_*,external_port_node,Wterm,is_external_port);
 ET_DEFINE_CHECKED(Uint,external_ref_data_words,Wterm,is_external_ref);
 ET_DEFINE_CHECKED(Uint32*,external_ref_data,Wterm,is_external_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,external_ref_node,Eterm,is_external_ref);
-ET_DEFINE_CHECKED(Eterm*,export_val,Wterm,is_export);
 ET_DEFINE_CHECKED(Uint,external_thing_data_words,ExternalThing*,is_thing_ptr);
 
 ET_DEFINE_CHECKED(Eterm,make_cp,ErtsCodePtr,_is_legal_cp);

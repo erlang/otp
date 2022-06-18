@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -634,9 +634,9 @@ hopeless_darwin() ->
     case {os:type(),os:version()} of
         {{unix,darwin},{Major,_,_}} ->
             %% icky file names worked between 10 and 17, but started returning
-            %% EILSEQ in 18. The check against 18..19 is exact in case newer
+            %% EILSEQ in 18. The check against 18..20 is exact in case newer
             %% versions of Darwin support them again.
-            Major < 9 orelse (Major >= 18 andalso Major =< 19);
+            Major < 9 orelse (Major >= 18 andalso Major =< 20);
         _ ->
             false
     end.

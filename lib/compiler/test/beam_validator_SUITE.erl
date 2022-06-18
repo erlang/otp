@@ -803,7 +803,7 @@ bs_saved_position_units(Config) when is_list(Config) ->
                {'%',
                    {var_info,
                        {x,0},
-                       [{type,{t_bs_context,8,0,0}},accepts_match_context]}},
+                       [{type,{t_bs_context,8}},accepts_match_context]}},
                {move,nil,{x,0}},
                return]},
           {function,no_errors,1,4,
@@ -864,8 +864,8 @@ bs_saved_position_units(Config) when is_list(Config) ->
       {{call_only,1,{f,2}},
        14,
        {bad_arg_type,{x,0},
-                     {t_bs_context,12,0,0},
-                     {t_bs_context,8,0,0}}}}] = Errors,
+                     {t_bs_context,12},
+                     {t_bs_context,8}}}}] = Errors,
 
     ok.
 

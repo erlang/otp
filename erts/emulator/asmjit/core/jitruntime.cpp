@@ -30,28 +30,6 @@
 ASMJIT_BEGIN_NAMESPACE
 
 // ============================================================================
-// [asmjit::JitRuntime - Utilities]
-// ============================================================================
-
-// Only useful on non-x86 architectures.
-static inline void JitRuntime_flushInstructionCache(const void* p, size_t size) noexcept {
-#if ASMJIT_ARCH_X86
-  DebugUtils::unused(p, size);
-#else
-# if defined(_WIN32)
-  // Windows has a built-in support in `kernel32.dll`.
-  ::FlushInstructionCache(::GetCurrentProcess(), p, size);
-# elif defined(__GNUC__)
-  char* start = static_cast<char*>(const_cast<void*>(p));
-  char* end = start + size;
-  __builtin___clear_cache(start, end);
-# else
-  DebugUtils::unused(p, size);
-# endif
-#endif
-}
-
-// ============================================================================
 // [asmjit::JitRuntime - Construction / Destruction]
 // ============================================================================
 
@@ -77,50 +55,47 @@ Error JitRuntime::_add(void** dst, CodeHolder* code) noexcept {
   if (ASMJIT_UNLIKELY(estimatedCodeSize == 0))
     return DebugUtils::errored(kErrorNoCodeGenerated);
 
-  uint8_t* ro;
+  uint8_t* rx;
   uint8_t* rw;
-  ASMJIT_PROPAGATE(_allocator.alloc((void**)&ro, (void**)&rw, estimatedCodeSize));
+  ASMJIT_PROPAGATE(_allocator.alloc((void**)&rx, (void**)&rw, estimatedCodeSize));
 
   // Relocate the code.
-  Error err = code->relocateToBase(uintptr_t((void*)ro));
+  Error err = code->relocateToBase(uintptr_t((void*)rx));
   if (ASMJIT_UNLIKELY(err)) {
-    _allocator.release(ro);
+    _allocator.release(rx);
     return err;
   }
 
   // Recalculate the final code size and shrink the memory we allocated for it
   // in case that some relocations didn't require records in an address table.
   size_t codeSize = code->codeSize();
+  if (codeSize < estimatedCodeSize)
+    _allocator.shrink(rx, codeSize);
 
-  for (Section* section : code->_sections) {
-    size_t offset = size_t(section->offset());
-    size_t bufferSize = size_t(section->bufferSize());
-    size_t virtualSize = size_t(section->virtualSize());
+  {
+    VirtMem::ProtectJitReadWriteScope rwScope(rx, codeSize);
 
-    ASMJIT_ASSERT(offset + bufferSize <= codeSize);
-    memcpy(rw + offset, section->data(), bufferSize);
+    for (Section* section : code->_sections) {
+      size_t offset = size_t(section->offset());
+      size_t bufferSize = size_t(section->bufferSize());
+      size_t virtualSize = size_t(section->virtualSize());
 
-    if (virtualSize > bufferSize) {
-      ASMJIT_ASSERT(offset + virtualSize <= codeSize);
-      memset(rw + offset + bufferSize, 0, virtualSize - bufferSize);
+      ASMJIT_ASSERT(offset + bufferSize <= codeSize);
+      memcpy(rw + offset, section->data(), bufferSize);
+
+      if (virtualSize > bufferSize) {
+        ASMJIT_ASSERT(offset + virtualSize <= codeSize);
+        memset(rw + offset + bufferSize, 0, virtualSize - bufferSize);
+      }
     }
   }
 
-  if (codeSize < estimatedCodeSize)
-    _allocator.shrink(ro, codeSize);
-
-  flush(ro, codeSize);
-  *dst = ro;
-
+  *dst = rx;
   return kErrorOk;
 }
 
 Error JitRuntime::_release(void* p) noexcept {
   return _allocator.release(p);
-}
-
-void JitRuntime::flush(const void* p, size_t size) noexcept {
-  JitRuntime_flushInstructionCache(p, size);
 }
 
 ASMJIT_END_NAMESPACE

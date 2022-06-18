@@ -117,7 +117,7 @@
 %% when debugging).
 
 %% Non-terminals are also given integer codes, starting with -1. The
-%% absolut value of the code is used for indexing a tuple of lists of
+%% absolute value of the code is used for indexing a tuple of lists of
 %% rules.
 
 -define(SYMBOLS_AS_CODES, true).
@@ -1317,7 +1317,7 @@ compute_state(Seed, Tables) ->
     Closure = keysort(1, erase()),
     state_items(Closure, [], [], Tables#tabs.rp_rhs).
 
-%% Collects a uniqe id for the state (all rule pointers). 
+%% Collects a unique id for the state (all rule pointers). 
 state_items([{RP, LA} | L], Is, Id, RpRhs) ->
     I = #item{rule_pointer = RP, look_ahead = LA, rhs = element(RP, RpRhs)},
     state_items(L, [I | Is], [RP | Id], RpRhs);
@@ -1911,13 +1911,13 @@ report_conflict(Conflict, St, ActionName, How) ->
     if
         St#yecc.verbose ->
             io:fwrite(<<"~s\n">>, [format_conflict(Conflict)]),
-            Formated = format_symbol(ActionName),
+            Formatted = format_symbol(ActionName),
             case How of 
                 prec ->
-                    io:fwrite(<<"Resolved in favor of ~ts.\n\n">>, [Formated]);
+                    io:fwrite(<<"Resolved in favor of ~ts.\n\n">>, [Formatted]);
                 default ->
                     io:fwrite(<<"Conflict resolved in favor of ~ts.\n\n">>, 
-                              [Formated])
+                              [Formatted])
             end;
         true ->
             ok
@@ -2130,7 +2130,7 @@ output_goto_fini(F, NT, #yecc{includefile_version = {1,1}}=St0) ->
                 [F]),
     fwrite(St, 
            ?YECC_BUG(<<"{~ts, State, missing_in_goto_table}">>,
-                     [quoted_atom(St0, NT)]),
+                     [quoted_atom(NT)]),
            []);
 output_goto_fini(_F, _NT, St) ->
     fwrite(St, <<".\n\n">>, []).
@@ -2255,13 +2255,13 @@ output_action(St, State, Terminal, #reduce{}=Action, IsFirst, SI) ->
 output_action(St0, State, Terminal, #shift{state = NewState}, IsFirst, _SI) ->
     St10 = delim(St0, IsFirst),
     St = fwrite(St10, <<"yeccpars2_~w(S, ~ts, Ss, Stack, T, Ts, Tzr) ->\n">>,
-                [State, quoted_atom(St10, Terminal)]),
+                [State, quoted_atom(Terminal)]),
     output_call_to_includefile(NewState, St);
 output_action(St0, State, Terminal, accept, IsFirst, _SI) ->
     St10 = delim(St0, IsFirst),
     St = fwrite(St10, 
                 <<"yeccpars2_~w(_S, ~ts, _Ss, Stack, _T, _Ts, _Tzr) ->\n">>,
-                [State, quoted_atom(St10, Terminal)]),
+                [State, quoted_atom(Terminal)]),
     fwrite(St, <<" {ok, hd(Stack)}">>, []);
 output_action(St, _State, _Terminal, nonassoc, _IsFirst, _SI) ->
     St.
@@ -2287,7 +2287,7 @@ output_reduce(St0, State, Terminal,
               IsFirst, StateInfo) ->
     St10 = delim(St0, IsFirst),
     QuotedTerminal = if 
-                         is_atom(Terminal) -> quoted_atom(St10, Terminal);
+                         is_atom(Terminal) -> quoted_atom(Terminal);
                          true -> Terminal
                      end,
     St20 = fwrite(St10,
@@ -2341,11 +2341,13 @@ delim(St, true) ->
 delim(St, false) ->
     fwrite(St, <<";\n">>, []).
 
-quoted_atom(#yecc{encoding = latin1}, Atom) when is_atom(Atom) ->
-    io_lib:write_atom_as_latin1(Atom);
-quoted_atom(_St, Atomic) ->
-    io_lib:write(Atomic).
-    
+%% Always quote atoms to ensure compatibility with future reserved words.
+quoted_atom(Atom) when is_atom(Atom) ->
+    case lists:flatten(io_lib:write_atom_as_latin1(Atom)) of
+        "'" ++ _ = Quoted -> Quoted;
+        NotQuoted -> ["'", NotQuoted, "'"]
+    end.
+
 output_inlined(St, UserCodeActions, Infile) ->
     foldl(fun(#user_code{funname = InlinedFunctionName, 
                          action = Action}, St_0) ->
@@ -2407,13 +2409,23 @@ output_nowarn(St, Function, Suffix, Arity) ->
 inlined_function_name(St, State, Terminal) ->
     End = case Terminal of
               "Cat" -> [];
-              _ -> [quoted_atom(St, Terminal)]
+              _ -> [safe_atom_chars(St, Terminal)]
           end,
     list_to_atom(concat([yeccpars2_, State, '_'] ++ End)).
 
 -compile({nowarn_unused_function,function_name/3}).
 function_name(St, Name, Suf) ->
-    list_to_atom(concat([Name, '_'] ++ [quoted_atom(St, Suf)])).
+    list_to_atom(concat([Name, '_', safe_atom_chars(St, Suf)])).
+
+safe_atom_chars(St, Atom) when is_atom(Atom) ->
+    case St of
+        #yecc{encoding = latin1} ->
+            io_lib:write_atom_as_latin1(Atom);
+        #yecc{} ->
+            atom_to_list(Atom)
+    end;
+safe_atom_chars(_St, Atomic) ->
+    io_lib:write(Atomic).
 
 rule(RulePointer, St) ->
     #rule{n = N, location = Location, symbols = Symbols} =

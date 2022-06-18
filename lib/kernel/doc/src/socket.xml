@@ -1543,7 +1543,7 @@
 	<note>
 	  <p>
 	    Note that when this call has returned
-	    <c>{error, timeout</c> the connection state of the socket
+	    <c>{error, timeout}</c> the connection state of the socket
 	    is uncertain since the platform's network stack
 	    may complete the connection at any time,
 	    up to some platform specific time-out.

@@ -200,6 +200,12 @@ static constexpr X sar(const X& x, const Y& y) noexcept {
   return X(S(x) >> y);
 }
 
+template<typename X, typename Y>
+static constexpr X ror(const X& x, const Y& y) noexcept {
+  typedef typename std::make_unsigned<X>::type U;
+  return X((U(x) >> y) | (U(x) << (bitSizeOf<U>() - y)));
+}
+
 //! Returns `x | (x >> y)` - helper used by some bit manipulation helpers.
 template<typename X, typename Y>
 static constexpr X or_shr(const X& x, const Y& y) noexcept { return X(x | shr(x, y)); }
@@ -211,7 +217,33 @@ static constexpr T blsi(T x) noexcept {
   return T(U(x) & neg(U(x)));
 }
 
-//! Generate a trailing bit-mask that has `n` least significant (trailing) bits set.
+//! Tests whether the given value `x` has `n`th bit set.
+template<typename T, typename IndexT>
+static constexpr bool bitTest(T x, IndexT n) noexcept {
+  typedef typename std::make_unsigned<T>::type U;
+  return (U(x) & (U(1) << n)) != 0;
+}
+
+// Tests whether the given `value` is a consecutive mask of bits that starts at
+// the least significant bit.
+template<typename T>
+static constexpr inline bool isLsbMask(const T& value) {
+  typedef typename std::make_unsigned<T>::type U;
+  return value && ((U(value) + 1u) & U(value)) == 0;
+}
+
+// Tests whether the given value contains at least one bit or whether it's a
+// bit-mask of consecutive bits.
+//
+// This function is similar to \ref isLsbMask(), but the mask doesn't have to
+// start at a least significant bit.
+template<typename T>
+static constexpr inline bool isConsecutiveMask(const T& value) {
+  typedef typename std::make_unsigned<T>::type U;
+  return value && isLsbMask((U(value) - 1u) | U(value));
+}
+
+//! Generates a trailing bit-mask that has `n` least significant (trailing) bits set.
 template<typename T, typename CountT>
 static constexpr T lsbMask(const CountT& n) noexcept {
   typedef typename std::make_unsigned<T>::type U;
@@ -222,11 +254,15 @@ static constexpr T lsbMask(const CountT& n) noexcept {
     : n ? T(shr(allOnes<T>(), bitSizeOf<T>() - size_t(n))) : T(0);
 }
 
-//! Tests whether the given value `x` has `n`th bit set.
-template<typename T, typename IndexT>
-static constexpr bool bitTest(T x, IndexT n) noexcept {
+//! Generats a leading bit-mask that has `n` most significant (leading) bits set.
+template<typename T, typename CountT>
+static constexpr T msbMask(const CountT& n) noexcept {
   typedef typename std::make_unsigned<T>::type U;
-  return (U(x) & (U(1) << n)) != 0;
+  return (sizeof(U) < sizeof(uintptr_t))
+    // Prevent undefined behavior by using a larger type than T.
+    ? T(allOnes<uintptr_t>() >> (bitSizeOf<uintptr_t>() - n))
+    // Prevent undefined behavior by performing `n & (nBits - 1)` so it's always within the range.
+    : T(sar(U(n != 0) << (bitSizeOf<U>() - 1), n ? uint32_t(n - 1) : uint32_t(0)));
 }
 
 //! Returns a bit-mask that has `x` bit set.

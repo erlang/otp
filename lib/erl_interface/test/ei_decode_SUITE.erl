@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ init_per_testcase(Case, Config) ->
 
 %% ---------------------------------------------------------------------------
 
-% NOTE: for historical reasons we don't pach as tight as we can,
+% NOTE: for historical reasons we don't patch as tight as we can,
 %       we only fill 27 bits in 32 bit INTEGER_EXT 
 
 

@@ -324,19 +324,16 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
     %%   (in addition to any warnings that may have been emitted
     %%   according to the rules above).
     %%
-    case opt_bool_case(Case0, Sub) of
-	#c_case{anno=Anno,arg=Arg0,clauses=Cs0}=Case1 ->
-	    Arg1 = body(Arg0, value, Sub),
-	    LitExpr = cerl:is_literal(Arg1),
-	    {Arg2,Cs1} = case_opt(Arg1, Cs0, Sub),
-	    Cs2 = clauses(Arg2, Cs1, Ctxt, Sub, LitExpr, Anno),
-	    Case = Case1#c_case{arg=Arg2,clauses=Cs2},
-	    warn_no_clause_match(Case1, Case),
-	    Expr = eval_case(Case, Sub),
-            move_case_into_arg(Expr, Sub);
-	Other ->
-	    expr(Other, Ctxt, Sub)
-    end;
+    Case1 = opt_bool_case(Case0, Sub),
+    #c_case{anno=Anno,arg=Arg0,clauses=Cs0} = Case1,
+    Arg1 = body(Arg0, value, Sub),
+    LitExpr = cerl:is_literal(Arg1),
+    {Arg2,Cs1} = case_opt(Arg1, Cs0, Sub),
+    Cs2 = clauses(Arg2, Cs1, Ctxt, Sub, LitExpr, Anno),
+    Case = Case1#c_case{arg=Arg2,clauses=Cs2},
+    warn_no_clause_match(Case1, Case),
+    Expr = eval_case(Case, Sub),
+    move_case_into_arg(Expr, Sub);
 expr(#c_apply{anno=Anno,op=Op0,args=As0}=Apply0, _, Sub) ->
     Op1 = expr(Op0, value, Sub),
     As1 = expr_list(As0, value, Sub),
@@ -604,10 +601,7 @@ eval_binary(#c_binary{anno=Anno,segments=Ss}=Bin) ->
 	    Bin;
 	  throw:{badarg,Warning} ->
 	    add_warning(Bin, {failed,Warning}),
-	    #c_call{anno=Anno,
-		    module=#c_literal{val=erlang},
-		    name=#c_literal{val=error},
-		    args=[#c_literal{val=badarg}]}
+            Bin
     end.
 
 eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},
@@ -1591,33 +1585,11 @@ opt_bool_not(#c_case{arg=Arg,clauses=Cs0}=Case0) ->
 	    Case = Case0#c_case{arg=Expr,clauses=Cs},
 	    opt_bool_not(Case);
 	_ ->
-	    opt_bool_case_redundant(Case0)
+            Case0
     end.
 
 opt_bool_not_invert(#c_clause{pats=[#c_literal{val=Bool}]}=C) ->
     C#c_clause{pats=[#c_literal{val=not Bool}]}.
-
-%% opt_bool_case_redundant(Core) -> Core'.
-%%  If the sole purpose of the case is to verify that the case
-%%  expression is indeed boolean, we do not need the case
-%%  (since we have already verified that the case expression is
-%%  boolean).
-%%
-%%    case BoolExpr of
-%%      true -> true   	       	       ==>      BoolExpr
-%%      false -> false
-%%    end.
-%%
-opt_bool_case_redundant(#c_case{arg=Arg,clauses=Cs}=Case) ->
-    case all(fun opt_bool_case_redundant_1/1, Cs) of
-	true -> Arg;
-	false -> Case
-    end.
-
-opt_bool_case_redundant_1(#c_clause{pats=[#c_literal{val=B}],
-				    body=#c_literal{val=B}}) ->
-    true;
-opt_bool_case_redundant_1(_) -> false.
 
 %% eval_case(Case) -> #c_case{} | #c_let{}.
 %%  If possible, evaluate a case at compile time.  We know that the
@@ -2773,7 +2745,7 @@ void() -> #c_literal{val=ok}.
 %%% While optimizing this code fragment, two warnings for useless
 %%% building will be generated: one for the list and one for the tuple
 %%% inside. Before the introduction of column numbers, those two warnings
-%%% would be coalesced to one becuase they had the same line number.
+%%% would be coalesced to one because they had the same line number.
 %%%
 %%% With column numbers, we will need a more sophisticated solution to
 %%% avoid emitting annoying duplicate warnings.

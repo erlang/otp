@@ -36,15 +36,9 @@
 #include <unistd.h>
 #include <sys/times.h>
 
-#if TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# if HAVE_SYS_TIME_H
+#include <time.h>
+#if HAVE_SYS_TIME_H
 #  include <sys/time.h>
-# else
-#  include <time.h>
-# endif
 #endif
 
 #include <sys/socket.h>
@@ -514,11 +508,6 @@ const char *ei_thisalivename(const ei_cnode* ec)
     return ec->thisalivename;
 }
 
-short ei_thiscreation(const ei_cnode* ec)
-{
-    return ec->creation;
-}
-
 /* FIXME: this function is not an api, why not? */
 const char *ei_thiscookie(const ei_cnode* ec)
 {
@@ -624,7 +613,7 @@ int ei_make_pid(ei_cnode *ec, erlang_pid *pid)
      * of modifying the 'num' field in the pid returned by
      * ei_self(). Since 'serial' field in pid returned by
      * ei_self() is initialized to 0, pids created by
-     * ei_make_pid() wont clash with such badly created pids
+     * ei_make_pid() won't clash with such badly created pids
      * using ei_self() unless user also modified serial, but
      * that has at least never been suggested by the
      * documentation.
@@ -687,7 +676,7 @@ static ei_mutex_t *ref_mtx = NULL;
 
 /*
  * We use a global counter for all c-nodes in this process.
- * We wont wrap anyway due to the enormous amount of values
+ * We won't wrap anyway due to the enormous amount of values
  * available.
  */
 #ifdef EI_MAKE_REF_ATOMIC__
@@ -902,13 +891,13 @@ int ei_init_connect(void)
 
 /*
 * Perhaps run this routine instead of ei_connect_init/2 ?
-* Initailize by setting:
+* Initialize by setting:
 * thishostname, thisalivename, thisnodename and thisipaddr
 */
 int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
                           const char *thisalivename, const char *thisnodename,
                           Erl_IpAddr thisipaddr, const char *cookie,
-                          const short creation, ei_socket_callbacks *cbs,
+                          unsigned int creation, ei_socket_callbacks *cbs,
                           int cbs_sz, void *setup_context)
 {
     char *dbglevel;
@@ -925,6 +914,10 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
     }
     
     ec->creation = creation;
+    if (ec->creation < 4) {
+        /* Avoid invalid 0-creation as well as old tiny 1,2,3 values. */
+        ec->creation += 0xE10000;
+    }
     ec->pidsn = 0;
     
     if (cookie) {
@@ -962,7 +955,7 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
         strcpy(ec->self.node, thisnodename);
         ec->self.num = 0;
         ec->self.serial = 0;
-        ec->self.creation = creation;
+        ec->self.creation = ec->creation;
     }
     else {
         /* dynamic name */
@@ -987,7 +980,7 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
 int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
                      const char *thisalivename, const char *thisnodename,
                      Erl_IpAddr thisipaddr, const char *cookie,
-                     const short creation)
+                     unsigned int creation)
 {
     return ei_connect_xinit_ussi(ec, thishostname, thisalivename, thisnodename,
                                  thisipaddr, cookie, creation,
@@ -1002,7 +995,7 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
 * otherwise return -1.
 */
 int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
-                         const char *cookie, short creation,
+                         const char *cookie, unsigned int creation,
                          ei_socket_callbacks *cbs, int cbs_sz,
                          void *setup_context)
 {
@@ -1083,7 +1076,7 @@ int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
 }
 
 int ei_connect_init(ei_cnode* ec, const char* this_node_name,
-                    const char *cookie, short creation)
+                    const char *cookie, unsigned int creation)
 {
     return ei_connect_init_ussi(ec, this_node_name, cookie, creation,
                                 &ei_default_socket_callbacks,
@@ -1162,7 +1155,7 @@ static int ip_address_from_hostname(char* hostname,
     hp = dyn_gethostbyname_r(hostname,&host,buffer_p,buffer_size,&ei_h_errno);
     if (hp == NULL) {
 	char thishostname[EI_MAXHOSTNAMELEN+1];
-        /* gethostname requies len to be max(hostname) + 1*/
+        /* gethostname requires len to be max(hostname) + 1*/
 	if (gethostname(thishostname,EI_MAXHOSTNAMELEN+1) < 0) {
 	    EI_TRACE_ERR0("ip_address_from_hostname",
 			  "Failed to get name of this host");
@@ -2270,7 +2263,8 @@ error:
 static DistFlags preferred_flags(void)
 {
     DistFlags flags =
-        DFLAG_EXTENDED_REFERENCES
+        DFLAG_MANDATORY_25_DIGEST
+        | DFLAG_EXTENDED_REFERENCES
         | DFLAG_DIST_MONITOR
         | DFLAG_EXTENDED_PIDS_PORTS
         | DFLAG_FUN_TAGS
@@ -2285,10 +2279,6 @@ static DistFlags preferred_flags(void)
         | DFLAG_HANDSHAKE_23
         | DFLAG_V4_NC
         | DFLAG_UNLINK_ID;
-    if (ei_internal_use_21_bitstr_expfun()) {
-        flags &= ~(DFLAG_EXPORT_PTR_TAG
-                   | DFLAG_BIT_BINARIES);
-    }
     return flags;
 }
 
@@ -2417,7 +2407,7 @@ static int send_challenge(ei_cnode *ec,
     flags = preferred_flags();
     put8(s, tag);
     if (tag == 'n') {
-        put16be(s, EI_DIST_5);  /* choosen version */
+        put16be(s, EI_DIST_5);  /* chosen version */
         put32be(s, flags);
         put32be(s, challenge);
     }
@@ -2518,22 +2508,13 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx,
         goto error;
     }
 
-    if (!(*flags & DFLAG_EXTENDED_REFERENCES)) {
-	EI_TRACE_ERR0("recv_challenge","<- RECV_CHALLENGE peer cannot "
-		      "handle extended references");
-	goto error;
+    if (*flags & DFLAG_MANDATORY_25_DIGEST) {
+        *flags |= DFLAG_DIST_MANDATORY_25;
     }
 
-    if (!(*flags & DFLAG_EXTENDED_PIDS_PORTS)) {
+    if ((*flags & DFLAG_DIST_MANDATORY) != DFLAG_DIST_MANDATORY) {
 	EI_TRACE_ERR0("recv_challenge","<- RECV_CHALLENGE peer cannot "
-		      "handle extended pids and ports");
-	erl_errno = EIO;
-	goto error;
-    }
-	    
-    if (!(*flags & DFLAG_NEW_FLOATS)) {
-	EI_TRACE_ERR0("recv_challenge","<- RECV_CHALLENGE peer cannot "
-		      "handle binary float encoding");
+		      "handle all mandatory capabilities");
 	goto error;
     }
 
@@ -2924,15 +2905,13 @@ static int recv_name(ei_socket_callbacks *cbs, void *ctx,
         namelen = get16be(s);
     }
 
-    if (!(*flags & DFLAG_EXTENDED_REFERENCES)) {
-	EI_TRACE_ERR0("recv_name","<- RECV_NAME peer cannot handle"
-		      "extended references");
-	goto error;
+    if (*flags & DFLAG_MANDATORY_25_DIGEST) {
+        *flags |= DFLAG_DIST_MANDATORY_25;
     }
 
-    if (!(*flags & DFLAG_EXTENDED_PIDS_PORTS)) {
+    if ((*flags & DFLAG_DIST_MANDATORY) != DFLAG_DIST_MANDATORY) {
 	EI_TRACE_ERR0("recv_name","<- RECV_NAME peer cannot "
-		      "handle extended pids and ports");
+		      "handle all mandatory capabilities");
 	erl_errno = EIO;
 	goto error;
     }

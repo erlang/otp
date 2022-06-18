@@ -876,7 +876,7 @@ flush(Acc) ->
     end.
 
 foo() ->
-    %% Sync between nodes is not always exact, so here is a litle timeout to 
+    %% Sync between nodes is not always exact, so here is a little timeout to 
     %% make sure traces come i correct sequence when merging.
     %% In the real world there is no way to avoid this kind of trouble
     timer:sleep(100),

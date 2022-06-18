@@ -591,7 +591,7 @@ set_flag(_Flag,false,Flags) ->
     {ok,Flags};
 set_flag(Flag,Value,Flags) when is_list(Value) ->
     %% The flag here can be -boot or -config, which means the value is
-    %% a file name! Thus the file name encoding is used when coverting.
+    %% a file name! Thus the file name encoding is used when converting.
     Encoding = file:native_name_encoding(),
     case catch unicode:characters_to_binary(Value,Encoding,Encoding) of
 	{'EXIT',_} ->
@@ -1475,7 +1475,7 @@ run_on_load_handlers([M|Ms], Debug) ->
 	    erlang:finish_after_on_load(M, Keep),
 	    case Keep of
 		false ->
-		    Error = {on_load_function_failed,M},
+		    Error = {on_load_function_failed,M,OnLoadRes},
 		    debug(Debug, Error),
 		    exit(Error);
 		true ->
@@ -1531,6 +1531,8 @@ collect_mfas([MFA|MFAs],Info) ->
         {call_time, []} ->
             collect_mfas(MFAs,Info);
         {call_time, false} ->
+            collect_mfas(MFAs,Info);
+        {call_time, undefined} ->
             collect_mfas(MFAs,Info);
         {call_time, Data} ->
             case collect_mfa(MFA,Data,0,0) of

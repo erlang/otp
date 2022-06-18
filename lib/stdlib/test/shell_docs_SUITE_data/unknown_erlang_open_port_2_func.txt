@@ -36,7 +36,7 @@
   Returns a port identifier as the result of opening a new Erlang
   port. A port can be seen as an external Erlang process.
 
-  The name of the executable as well as the arguments specifed in [;;4m[0m
+  The name of the executable as well as the arguments specified in [;;4m[0m
   [;;4mcd[0m, [;;4menv[0m, [;;4margs[0m, and [;;4marg0[0m are subject to Unicode filename
   translation if the system is running in Unicode filename mode. To
   avoid translation or to force, for example UTF-8, supply the

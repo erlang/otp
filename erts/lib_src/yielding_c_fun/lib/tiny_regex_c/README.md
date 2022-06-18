@@ -10,7 +10,7 @@ Supports a subset of the syntax and semantics of the Python standard library imp
 ### Current status
 All supported regex-operators seem to work properly according to the test-set, with the following exception:
 
-There is a problem with ranges (e.g. `[0-9]` for a digit 0-9) combined with inverted character-cases, e.g. `[^ab]` for anything but 'a' or 'b' - like `[^-0-9]` for anything not '-' or a digit 0-9. I think the code mathces too broadly in that case. 
+There is a problem with ranges (e.g. `[0-9]` for a digit 0-9) combined with inverted character-cases, e.g. `[^ab]` for anything but 'a' or 'b' - like `[^-0-9]` for anything not '-' or a digit 0-9. I think the code matches too broadly in that case. 
 
 I think you should test the patterns you are going to use. You can easily modify the test-harness to generate tests for your intended patterns to check for compliance.
 

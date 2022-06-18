@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,30 +80,35 @@ default_settings_dir(Win) ->
     case filelib:is_dir(DefDir) of
 	true -> DefDir;
 	false ->
-	    {ok, CWD} = file:get_cwd(),
-	    
-	    Msg = ["Default directory ", DefDir, " does not exist. ",
-		   "Click OK to create it or ",
-		   "Cancel to use other directory."],
-	    case dbg_wx_win:confirm(Win, Msg) of
-		ok ->
-		    ToolsDir = filename:dirname(DefDir),
-		    case filelib:is_dir(ToolsDir) of
-			true ->
-			    case file:make_dir(DefDir) of
-				ok -> DefDir;
-				_Error -> CWD
-			    end;
-			false ->
-			    case file:make_dir(ToolsDir) of
-				ok ->
-				    case file:make_dir(DefDir) of
-					ok -> DefDir;
-					_Error -> CWD
-				    end;
-				_Error -> CWD
-			    end
-		    end;
-		cancel -> CWD
-	    end
+            XDGDir = filename:join(filename:basedir(user_config,"erlang"),"debugger"),
+            case filelib:is_dir(XDGDir) of
+                true -> XDGDir;
+                false ->
+                    {ok, CWD} = file:get_cwd(),
+
+                    Msg = ["Default directory ", XDGDir, " does not exist. ",
+                           "Click OK to create it or ",
+                           "Cancel to use other directory."],
+                    case dbg_wx_win:confirm(Win, Msg) of
+                        ok ->
+                            ToolsDir = filename:dirname(XDGDir),
+                            case filelib:is_dir(ToolsDir) of
+                                true ->
+                                    case file:make_dir(XDGDir) of
+                                        ok -> XDGDir;
+                                        _Error -> CWD
+                                    end;
+                                false ->
+                                    case file:make_dir(ToolsDir) of
+                                        ok ->
+                                            case file:make_dir(XDGDir) of
+                                                ok -> XDGDir;
+                                                _Error -> CWD
+                                            end;
+                                        _Error -> CWD
+                                    end
+                            end;
+                        cancel -> CWD
+                    end
+            end
     end.
