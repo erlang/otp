@@ -5965,6 +5965,7 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     }
 
     esdp->reductions = 0;
+    esdp->rand_state = (Uint64)(UWord)esdp + ((Uint64)(UWord)esdp << 32);
 
     init_sched_wall_time(esdp, time_stamp);
     erts_port_task_handle_init(&esdp->nosuspend_port_task_handle);

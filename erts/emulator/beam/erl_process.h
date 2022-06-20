@@ -723,6 +723,7 @@ struct ErtsSchedulerData_ {
     } pending_signal;
 
     Uint64 reductions;
+    Uint64 rand_state;
     ErtsSchedWallTime sched_wall_time;
     ErtsGCInfo gc_info;
     ErtsPortTaskHandle nosuspend_port_task_handle;
@@ -2884,19 +2885,15 @@ Uint32 erts_sched_local_random_hash_64_to_32_shift(Uint64 key)
 
 /*
  * This function attempts to return a random number based on the state
- * of the scheduler, the current process and the additional_seed
- * parameter.
+ * of the scheduler and the additional_seed parameter.
  */
 ERTS_GLB_INLINE
 Uint32 erts_sched_local_random(Uint additional_seed)
 {
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
-    Uint64 seed =
-        additional_seed +
-        esdp->reductions +
-        esdp->current_process->fcalls +
-        (((Uint64)esdp->no) << 32);
-    return erts_sched_local_random_hash_64_to_32_shift(seed);
+    esdp->rand_state++;
+    return erts_sched_local_random_hash_64_to_32_shift(esdp->rand_state
+                                                       + additional_seed);
 }
 
 #ifdef DEBUG
