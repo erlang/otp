@@ -1405,7 +1405,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgSource &LHS,
         } else {
             mov_arg(x86::rcx, RHS);
             a.shr(x86::rcx, imm(_TAG_IMMED1_SIZE));
-            a.shl(RET, x86::rcx);
+            a.shl(RET, x86::cl);
         }
         a.or_(RET, imm(_TAG_IMMED1_SMALL));
         mov_arg(Dst, RET);
