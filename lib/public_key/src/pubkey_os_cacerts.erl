@@ -144,9 +144,11 @@ store(CaCerts) ->
     persistent_term:put(?MODULE, CaCerts).
 
 linux_paths() ->
-    ["/etc/ssl/certs/ca-certificates.crt",
-     "/etc/pki/tls/certs/ca-bundle.crt",
-     "/etc/ssl/ca-bundle.pem"
+    ["/etc/ssl/certs/ca-certificates.crt",                %% Debian, Ubuntu, Gentoo
+     "/etc/pki/tls/certs/ca-bundle.crt",                  %% Fedora, RHEL 6, Amazon Linux
+     "/etc/ssl/ca-bundle.pem",                            %% OpenSUSE
+     "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", %% CentOS, RHEL 7
+     "/etc/ssl/cert.pem"                                  %% Alpine Linux
     ].
 
 bsd_paths() ->
