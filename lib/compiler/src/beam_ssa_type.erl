@@ -2148,6 +2148,8 @@ type(update_tuple, [Src | Updates], _Anno, Ts, _Ds) ->
 type(wait_timeout, [#b_literal{val=infinity}], _Anno, _Ts, _Ds) ->
     %% Waits forever, never reaching the 'after' block.
     beam_types:make_atom(false);
+type(bs_init_writable, [_Size], _, _, _) ->
+    beam_types:make_type_from_value(<<>>);
 type(_, _, _, _, _) ->
     any.
 

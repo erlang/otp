@@ -38,7 +38,7 @@
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
          compile_attribute/1, message_printing/1, other_options/1,
-         transforms/1, erl_compile_api/1, types_pp/1
+         transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -58,7 +58,7 @@ all() ->
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
      compile_attribute, message_printing, other_options, transforms,
-     erl_compile_api, types_pp].
+     erl_compile_api, types_pp, bs_init_writable].
 
 groups() -> 
     [].
@@ -2063,6 +2063,22 @@ get_result_types([CallLine|Lines], TypeLine, Acc) ->
     [_,Callee,_] = string:split(CallLine, "`", all),
     get_result_types(Lines, Acc#{ Callee => TypeLine }).
 
+%% Check that the beam_ssa_type pass knows about bs_init_writable.
+bs_init_writable(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    InFile = filename:join(DataDir, "bs_init_writable.erl"),
+    OutDir = filename:join(PrivDir, "bs_init_writable"),
+    OutFile = filename:join(OutDir, "bs_init_writable.S"),
+    ok = file:make_dir(OutDir),
+    {ok,bs_init_writable} = compile:file(InFile, ['S',{outdir,OutDir}]),
+    {ok,Listing} = file:read_file(OutFile),
+    Os = [global,multiline,{capture,all_but_first,list}],
+    %% The is_bitstr test should be optimized away.
+    nomatch = re:run(Listing, "({test,is_bitstr,.+})", Os),
+    %% The is_bitstr test should be optimized away.
+    nomatch = re:run(Listing, "({test,is_binary,.+})", Os),
+    ok = file:del_dir_r(OutDir).
 
 
 %%%
