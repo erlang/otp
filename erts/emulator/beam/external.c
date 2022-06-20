@@ -5229,55 +5229,22 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                         /* potentially multiple elements for binary */
                         vlen += bin_size/MAX_SYSIOVEC_IOVLEN;
                         ctx->extra_size += bin_size;
-
-                        if (dflags & DFLAG_PENDING_CONNECT) {
-			    ASSERT(ctx);
-                            vlen += 2; /* for hopefull prolog and epilog */
-                            result += (4 /* for hopefull prolog (see below) */
-                                       + 4); /* for hopefull epilog (see below) */
-                            ctx->last_result = result;
-                        }
                         break;
                     }
                 }
 	    }
 
             if (bitsize == 0) {
-                result += (1 /* BIT_BINARY_EXT */
-                           + 4 /* size */
-                           + bin_size);
-            }
-            else if (dflags & DFLAG_PENDING_CONNECT) {
-                /* This is the odd case when we have an un-aligned bit-string
-                   during a pending connect. */
-                Uint csz;
-		ASSERT(ctx);
-                csz = result - ctx->last_result;
-                /* potentially multiple elements leading up to binary */
-                vlen += (csz + MAX_SYSIOVEC_IOVLEN - 1)/MAX_SYSIOVEC_IOVLEN;
-
-                vlen++; /* hopefull prolog */
-                /*
-                 * Size for hopefull prolog is max of
-                 * - fallback: 1 + 1 + 1 + 4
-                 * - hopfull index + bit binary prolog: 4 + 1 + 4 + 1
-                 */
-                result += 4 + 1 + 4 + 1;
-                /* potentially multiple elements for binary */
-                vlen += bin_size/MAX_SYSIOVEC_IOVLEN + 1;
-                result += bin_size;
-                vlen++; /* hopefull epiolog */
-                /*
-                 * Size for hopefull epiolog is max of
-                 * - fallback: 1 + 1 + 1
-                 * - hopfull index + bit binary epilog: 4 + 1
-                 */
-                result += 4 + 1;
-                ctx->last_result = result;
+                result += (1     /* BINARY_EXT */
+                           + 4); /* size */
             }
             else {
-                result += 1 + 4 + 1 + bin_size + 1;
+                result += (1     /* BIT_BINARY_EXT */
+                           + 4   /* size */
+                           + 1   /* bits */
+                           + 1); /* trailing bits */
             }
+            result += bin_size;
 	    break;
         }
         case FUN_DEF:
@@ -5300,7 +5267,6 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                     }
                 } else {
                     Export* ep = funp->entry.exp;
-                    Uint tmp_result = result;
 
                     ASSERT(is_external_fun(funp) && funp->next == NULL);
 
@@ -5308,24 +5274,6 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                     result += encode_size_struct2(acmp, ep->info.mfa.module, dflags);
                     result += encode_size_struct2(acmp, ep->info.mfa.function, dflags);
                     result += encode_size_struct2(acmp, make_small(ep->info.mfa.arity), dflags);
-
-                    if (dflags & DFLAG_PENDING_CONNECT) {
-                        Uint csz;
-                        ASSERT(ctx);
-
-                        /* Fallback is 1 + 1 + Module size + Function size,
-                         * that is, the hopeful index + hopeful encoding is
-                         * larger... */
-                        ASSERT(dflags & DFLAG_EXPORT_PTR_TAG);
-                        csz = tmp_result - ctx->last_result;
-
-                        /* Potentially multiple elements leading up to hopeful
-                         * entry */
-                        vlen += (csz/MAX_SYSIOVEC_IOVLEN + 1
-                                 + 1); /* hopeful entry */
-                        result += 4; /* hopeful index */
-                        ctx->last_result = result;
-                    }
                 }
                 break;
         }
