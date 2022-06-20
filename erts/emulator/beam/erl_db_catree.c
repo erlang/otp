@@ -1205,7 +1205,7 @@ static void join_catree(DbTableCATree *tb,
     DbTableCATreeNode *neighbor_parent;
 
     ASSERT(thiz->is_base_node);
-    if (parent == NULL) {
+    if (parent == NULL || ERTS_IS_CRASH_DUMPING) {
         BASE_NODE_STAT_SET(thiz, 0);
         wunlock_base_node(thiz);
         return;
@@ -1353,7 +1353,7 @@ static void split_catree(DbTableCATree *tb,
     DbTableCATreeNode* ERTS_RESTRICT new_right;
     DbTableCATreeNode* ERTS_RESTRICT new_route;
 
-    if (less_than_two_elements(base->u.base.root)) {
+    if (less_than_two_elements(base->u.base.root) || ERTS_IS_CRASH_DUMPING) {
         if (!(tb->common.status & DB_CATREE_FORCE_SPLIT))
             BASE_NODE_STAT_SET(base, 0);
         wunlock_base_node(base);
