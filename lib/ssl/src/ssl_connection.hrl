@@ -123,7 +123,7 @@
                 %% need to worry about packet loss in TLS. In DTLS we
                 %% need to track DTLS handshake seqnr
                 flight_buffer = []   :: list() | map(),  
-                client_certificate_requested = false :: boolean(),
+                client_certificate_status = not_requested :: not_requested | requested  | empty | needs_verifying | verified,
                 protocol_specific = #{}      :: map(),
                 session               :: #session{} | secret_printout(),
                 key_share,
@@ -155,8 +155,8 @@
 %%   session_cache_cb             - not implemented
 %%   crl_db                       - not implemented
 %%   client_hello_version         - Bleichenbacher mitigation in TLS 1.2
-%%   client_certificate_requested - Built into TLS 1.3 state machine
-%%   key_algorithm                - not used
+%%   client_certificate_status    - only uses non_requested| requested
+%%   key_algorithm                - only uses  not_requested and requested 
 %%   diffie_hellman_params        - used in TLS 1.2 ECDH key exchange
 %%   diffie_hellman_keys          - used in TLS 1.2 ECDH key exchange
 %%   psk_identity                 - not used
