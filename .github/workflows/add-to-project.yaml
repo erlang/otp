@@ -12,6 +12,7 @@ jobs:
   add-to-project:
     name: Add issue to project
     runs-on: ubuntu-latest
+    if: github.repository == 'erlang/otp'
     steps:
       - name: Generate token
         id: generate_token
