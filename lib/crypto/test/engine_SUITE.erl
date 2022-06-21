@@ -61,6 +61,8 @@
          ctrl_cmd_string_optional/1,
          ensure_load/0,
          ensure_load/1,
+	 gc_clean/0,
+         gc_clean/1,
          sign_verify_rsa/1,
          sign_verify_rsa_fake/1,
          sign_verify_dsa/1,
@@ -103,6 +105,7 @@ all() ->
      ctrl_cmd_string,
      ctrl_cmd_string_optional,
      ensure_load,
+     gc_clean,
      {group, engine_stored_key},
      {group, engine_fakes_rsa}
     ].
@@ -638,10 +641,10 @@ ensure_load(Config) when is_list(Config) ->
             {skip, "OTP Test engine not found"};
         {ok, Engine} ->
             try
-                Md5Hash1 =  <<106,30,3,246,166,222,229,158,244,217,241,179,50,232,107,109>>,
-                Md5Hash1 = crypto:hash(md5, "Don't panic"),
-                Md5Hash2 =  <<0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
-                case crypto:ensure_engine_loaded(<<"MD5">>, Engine) of
+                Md5Hash1 = <<106,30,3,246,166,222,229,158,244,217,241,179,50,232,107,109>>,
+	        Md5Hash1 = crypto:hash(md5, "Don't panic"),
+	        Md5Hash2 =  <<0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
+	        case crypto:ensure_engine_loaded(<<"MD5">>, Engine) of
                     {ok, E} ->
 
                         case crypto:hash(md5, "Don't panic") of
@@ -722,6 +725,79 @@ ensure_load(Config) when is_list(Config) ->
                error:notsup ->
                    {skip, "Engine not supported on this SSL version"}
            end
+    end.
+
+gc_clean()->
+    [{doc, "Test the special ensure load function."}].
+
+gc_clean(Config) when is_list(Config) ->
+    case crypto:get_test_engine() of
+        {error, notexist} ->
+            {skip, "OTP Test engine not found"};
+        {ok, Engine} ->
+
+	    Md5Hash1 = <<106,30,3,246,166,222,229,158,244,217,241,179,50,232,107,109>>,
+	    Md5Hash1 = crypto:hash(md5, "Don't panic"),
+	    Md5Hash2 =  <<0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
+
+	    load_without_unload(Engine, Md5Hash1, Md5Hash2),
+
+	    erlang:garbage_collect(),
+	    timer:sleep(1000),
+
+	    case crypto:hash(md5, "Don't panic") of
+		Md5Hash2 ->
+		    ct:fail(fail_to_unload_still_test_engine);
+		Md5Hash1 ->
+		    ok;
+		_ ->
+		    ct:fail(fail_to_unload_engine)
+	    end,
+	    
+	    try
+		case crypto:ensure_engine_loaded(<<"MD5">>, Engine) of
+		    {ok, E} ->
+			case crypto:hash(md5, "Don't panic") of
+			    Md5Hash1 ->
+				ct:fail(fail_to_load_still_original_engine);
+			    Md5Hash2 ->
+				ok;
+			    _ ->
+				ct:fail(fail_to_load_engine)
+			end,
+			
+			ok = crypto:ensure_engine_unloaded(E),
+			
+			case crypto:hash(md5, "Don't panic") of
+			    Md5Hash2 ->
+				ct:fail(fail_to_unload_still_test_engine);
+			    Md5Hash1 ->
+				ok;
+			    _ ->
+				ct:fail(fail_to_unload_engine)
+			end;
+		    {error, bad_engine_id} ->
+                        {skip, "Dynamic Engine not supported"}
+		end
+	     catch
+		 error:notsup ->
+			     {skip, "Engine not supported on this SSL version"}
+	     end
+    end.
+    
+load_without_unload(Engine, Md5Hash1, Md5Hash2) ->
+    case crypto:ensure_engine_loaded(<<"MD5">>, Engine) of
+	{ok, _E} ->
+	    case crypto:hash(md5, "Don't panic") of
+		Md5Hash1 ->
+		    ct:fail(fail_to_load_still_original_engine);
+		Md5Hash2 ->
+		    ok;
+		_ ->
+		    ct:fail(fail_to_load_engine)
+	    end;
+	 {error, bad_engine_id} ->
+	    io:format("load_without_unload: bad_engine_id\n", [])
     end.
 
 %%%----------------------------------------------------------------
