@@ -46,7 +46,8 @@
 %%    ClientKeyExchange                                          \
 %%    CertificateVerify*                                          Flight 5
 %%    [ChangeCipherSpec]                                         /
-%%    Finished                -------->                         /
+%%    NextProtocol*                                             /
+%%    Finished                -------->                        /
 %%
 %%                                        [ChangeCipherSpec]    \ Flight 6
 %%                            <--------             Finished    /
@@ -64,7 +65,8 @@
 %%                             <--------             Finished    / part 2
 %%
 %%    [ChangeCipherSpec]                                         \ Abbrev Flight 3
-%%    Finished                 -------->                         /
+%%    NextProtocol*                                              /      
+%%    Finished                 -------->                        /
 %%
 %% 
 %%                  Message Flights for Abbbriviated Handshake
@@ -142,6 +144,7 @@
          user_hello/3,
          wait_ocsp_stapling/3,
          certify/3,
+         wait_cert_verify/3,
          cipher/3,
          abbreviated/3,
 	 connection/3]). 
@@ -462,6 +465,24 @@ certify(state_timeout, Event, State) ->
     handle_state_timeout(Event, ?FUNCTION_NAME, State);
 certify(Type, Event, State) ->
     gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+
+%%--------------------------------------------------------------------
+-spec wait_cert_verify(gen_statem:event_type(), term(), #state{}) ->
+          gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_cert_verify(enter, _Event, State0) ->
+    {State, Actions} = handle_flight_timer(State0),
+    {keep_state, State, Actions};
+wait_cert_verify(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_cert_verify(state_timeout, Event, State) ->
+    handle_state_timeout(Event, ?FUNCTION_NAME, State);
+wait_cert_verify(Type, Event, State) ->
+    try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
 
 %%--------------------------------------------------------------------
 -spec cipher(gen_statem:event_type(), term(), #state{}) ->

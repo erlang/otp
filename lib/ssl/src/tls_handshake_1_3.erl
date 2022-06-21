@@ -1208,7 +1208,7 @@ maybe_append_change_cipher_spec(#state{
 maybe_append_change_cipher_spec(State, Bin) ->
     {State, Bin}.
 
-maybe_queue_cert_cert_cv(#state{client_certificate_requested = false} = State) ->
+maybe_queue_cert_cert_cv(#state{client_certificate_status = not_requested} = State) ->
     {ok, State};
 maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
                                 session = #session{session_id = _SessionId,
@@ -1447,7 +1447,7 @@ process_certificate_request(#certificate_request_1_3{
     Session = select_client_cert_key_pair(Session0, CertKeyPairs,
                                           ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
                                           CertDbHandle, CertDbRef, CertAuths),
-    {ok, {State#state{client_certificate_requested = true, session = Session}, wait_cert}}.
+    {ok, {State#state{client_certificate_status = requested, session = Session}, wait_cert}}.
 
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
