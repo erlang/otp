@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>On computers with the ARM64 (AArch64) architecture
+	    (such as Apple Silicon Macs) a <c>rem</c> expression
+	    followed by a <c>div</c> expression with the same
+	    operands could evaluate to the wrong result if the result
+	    of the <c>rem</c> expression was unused.</p>
+          <p>
+	    Own Id: OTP-18143</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
