@@ -2084,7 +2084,8 @@ bit_size_check(Anno, all, #bittype{type=Type}, St) ->
         binary -> {all,St};
         _ -> {unknown,add_error(Anno, illegal_bitsize, St)}
     end;
-bit_size_check(Anno, Size, #bittype{type=Type,unit=Unit}, St) ->
+bit_size_check(Anno, Size, #bittype{type=Type,unit=Unit}, St)
+  when is_integer(Size), is_integer(Unit) ->
     Sz = Unit * Size,                           %Total number of bits!
     St2 = elemtype_check(Anno, Type, Sz, St),
     {Sz,St2}.
@@ -4370,9 +4371,11 @@ extract_sequences(Fmt, Need0) ->
             end
     end.
 
-extract_sequence(1, [$-,C|Fmt], Need) when C >= $0, C =< $9 ->
+extract_sequence(1, [$-,C|Fmt], Need)
+  when is_integer(C), C >= $0, C =< $9 ->
     extract_sequence_digits(1, Fmt, Need);
-extract_sequence(1, [C|Fmt], Need) when C >= $0, C =< $9 ->
+extract_sequence(1, [C|Fmt], Need)
+  when is_integer(C), C >= $0, C =< $9 ->
     extract_sequence_digits(1, Fmt, Need);
 extract_sequence(1, [$-,$*|Fmt], Need) ->
     extract_sequence(2, Fmt, [int|Need]);
@@ -4381,7 +4384,8 @@ extract_sequence(1, [$*|Fmt], Need) ->
 extract_sequence(1, Fmt, Need) ->
     extract_sequence(2, Fmt, Need);
 
-extract_sequence(2, [$.,C|Fmt], Need) when C >= $0, C =< $9 ->
+extract_sequence(2, [$.,C|Fmt], Need)
+  when is_integer(C), C >= $0, C =< $9 ->
     extract_sequence_digits(2, Fmt, Need);
 extract_sequence(2, [$.,$*|Fmt], Need) ->
     extract_sequence(3, Fmt, [int|Need]);
@@ -4435,7 +4439,8 @@ extract_sequence(5, [C|Fmt], Need0) ->
     end;
 extract_sequence(_, [], _Need) -> {error,"truncated"}.
 
-extract_sequence_digits(Fld, [C|Fmt], Need) when C >= $0, C =< $9 ->
+extract_sequence_digits(Fld, [C|Fmt], Need)
+  when is_integer(C), C >= $0, C =< $9 ->
     extract_sequence_digits(Fld, Fmt, Need);
 extract_sequence_digits(Fld, Fmt, Need) ->
     extract_sequence(Fld+1, Fmt, Need).
