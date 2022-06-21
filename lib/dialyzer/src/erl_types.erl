@@ -4309,6 +4309,8 @@ from_form_loop(Form, State, D, Limit, C, T0) ->
 %%
 %% It is assumed that site_module(S) can be found in MR.
 
+from_form(_, _S, D, L, _C) when not is_integer(D); not is_integer(L) ->
+  error(badarg);
 from_form(_, _S, D, L, C) when D =< 0 ; L =< 0 ->
   {t_any(), L, C};
 from_form({var, _Anno, '_'}, _S, _D, L, C) ->
