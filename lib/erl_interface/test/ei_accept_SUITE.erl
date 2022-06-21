@@ -37,6 +37,8 @@
 -import(runner, [get_term/1,send_term/2]).
 
 
+-define(ERL_ONHEAP_BIN_LIMIT, 64).
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {seconds, 30}}].
@@ -127,7 +129,7 @@ hopeful_random_do(Config, SockImpl) ->
     Port = 6543,
     {ok, ListenFd} = ei_publish(P, Port),
 
-    Terms = [rand_term(10) || _ <- lists:seq(1,10)],
+    Terms = [random_term(20) || _ <- lists:seq(1,10)],
 
     %% lists:foldl(fun(T,N) ->
     %%                     io:format("Term #~p = ~p\n", [N, printable(T)]),
@@ -155,31 +157,11 @@ match(A, B) ->
     io:format("match failed\nA = ~p\nB = ~p\n", [printable(A), printable(B)]),
     ct:fail("match failed").
 
-rand_term(MaxSize) ->
-    F = rand:uniform(100), % to produce non-literals
-    Big = 666_701_523_687_345_689_643 * F,
-    MagicRef = atomics:new(10,[]),
-    Leafs = {atom, 42, 42.17*F,
-             Big, -Big,
-             [], {}, #{},
-             fun lists:sort/1,
-             fun() -> ok end,
-             self(),
-             lists:last(erlang:ports()),
-             make_ref(),
-             MagicRef,
-             <<F:(8*10)>>,    % HeapBin
-             <<F:(8*65)>>,    % ProcBin
-             <<F:7>>,         % SubBin + HeapBin
-             <<F:(8*80+1)>>,  % SubBin + ProcBin
-             mk_ext_pid({a@b, 17}, 17, 42),
-             mk_ext_port({a@b, 21}, 13),
-             mk_ext_ref({a@b, 42}, [42, 19, 11])},
-    rand_term(Leafs, rand:uniform(MaxSize)).
+random_term(MaxSize) ->
+    rand_term(rand:uniform(MaxSize)).
 
-rand_term(Leafs, Arity) when Arity > 0 ->
-    Length = rand:uniform(Arity),
-    List = [rand_term(Leafs, Arity-Length) || _ <- lists:seq(1,Length)],
+rand_term(Arity) when Arity > 0 ->
+    List = rand_list(Arity, []),
     case rand:uniform(6) of
         1 -> List;
         2 -> list_to_improper_list(List);
@@ -188,8 +170,68 @@ rand_term(Leafs, Arity) when Arity > 0 ->
         5 -> list_to_hashmap(List);
         6 -> list_to_fun(List)
     end;
-rand_term(Leafs, 0) ->
-    element(rand:uniform(size(Leafs)), Leafs).
+rand_term(0) ->
+    rand_leaf().
+
+rand_list(0, Acc) ->
+    %% Shuffle result list to not favor tail heavy lists.
+    {_, MixedList} = lists:unzip(lists:sort(Acc)),
+    MixedList;
+rand_list(Budget, Acc) ->
+    Depth = rand:uniform(Budget),
+    SortIx = rand:uniform(1 bsl 26),
+    rand_list(Budget-Depth, [{SortIx, rand_term(Depth-1)} | Acc]).
+
+rand_leaf() ->
+    case rand:uniform(19) of
+        1 -> rand_integer();
+        2 -> rand_float();
+        3 -> rand_heapbin();
+        4 -> rand_procbin();
+        5 -> rand_subbin(rand_heapbin());
+        6 -> rand_subbin(rand_procbin());
+        7 -> atom;
+        8 -> [];
+        9 -> {};
+        10 -> #{};
+        11 -> fun lists:sort/1;
+        12 -> fun() -> ok end;
+        13 -> self();
+        14 -> lists:last(erlang:ports());
+        15 -> make_ref();
+        16 -> atomics:new(10,[]); % Magic ref
+        17 -> mk_ext_pid({a@b, 17}, 17, 42);
+        18 -> mk_ext_port({a@b, 21}, 13);
+        19 -> mk_ext_ref({a@b, 42}, [42, 19, 11])
+    end.
+
+rand_integer() ->
+    Bits = rand:uniform(150),
+    Uint = rand:uniform(1 bsl Bits),
+    case rand:uniform(2) of
+        1 -> Uint;
+        2 -> -Uint
+    end.
+
+rand_float() ->
+    rand:uniform().
+
+rand_heapbin() ->
+    HeapBinSz = rand:uniform(?ERL_ONHEAP_BIN_LIMIT + 1) - 1,
+    HeapBig = rand:uniform(1 bsl (HeapBinSz*8)),
+    <<HeapBig:HeapBinSz/unit:8>>.
+
+rand_procbin() ->
+    ProcBinSz = ?ERL_ONHEAP_BIN_LIMIT + rand:uniform(?ERL_ONHEAP_BIN_LIMIT),
+    ProcBig = rand:uniform(1 bsl (ProcBinSz*8)),
+    <<ProcBig:ProcBinSz/unit:8>>.
+
+rand_subbin(Bin) ->
+    TotSz = bit_size(Bin),
+    Offs = rand:uniform(TotSz + 1) - 1,
+    Bits = rand:uniform(TotSz - Offs + 1) - 1,
+    <<_:Offs, BitStr:Bits/bits, _/bits>> = Bin,
+    BitStr.
 
 list_to_improper_list([A,B|T]) ->
     T ++ [A|B];
