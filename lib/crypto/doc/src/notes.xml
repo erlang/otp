@@ -219,6 +219,21 @@
 
 </section>
 
+<section><title>Crypto 5.0.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix configure with <c>--with-ssl</c> and
+	    <c>--disable-dynamic-ssl-lib</c> on Windows.</p>
+          <p>
+	    Own Id: OTP-18147 Aux Id: GH-6024, PR-6056 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.0.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

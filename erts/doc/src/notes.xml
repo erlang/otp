@@ -630,6 +630,23 @@
 
 </section>
 
+<section><title>Erts 12.3.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed emulator crash that could happen during crashdump
+	    generation of ETS tables with options <c>ordered_set</c>
+	    and <c>{write_concurrency,true}</c>.</p>
+          <p>
+	    Own Id: OTP-18144 Aux Id: GH-5981 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
