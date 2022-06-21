@@ -31,6 +31,33 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.9.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix timing bug in ensure_engine_loaded</p> <p>When two
+	    ensure_engine_loaded() calls were done in parallel there
+	    was a possibility that a crypto lib function was called
+	    by both instead of just one of them which resulted in an
+	    error. This is solved by moving the implementation from
+	    erlang down into a NIF function that uses a mutex to
+	    protect the sensitive part.</p>
+          <p>
+	    Own Id: OTP-17858 Aux Id: ERIERL-728 </p>
+        </item>
+        <item>
+	    <p> Remove all references correctly in the garbage
+	    collection if an engine handle was not explicit unloaded.
+	    </p>
+          <p>
+	    Own Id: OTP-18152</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.9.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
