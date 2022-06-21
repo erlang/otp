@@ -1480,27 +1480,30 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 AC_DEFUN(ETHR_CHK_INTERLOCKED,
 [
     ilckd="$1"
-    AC_MSG_CHECKING([for ${ilckd}()])
     case "$2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, ($3) 0);";;
 	"3") ilckd_call="${ilckd}(var, ($3) 0, ($3) 0);";;
 	"4") ilckd_call="${ilckd}(var, ($3) 0, ($3) 0, arr);";;
     esac
-    have_interlocked_op=no
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
-	]], [[
-	    volatile $3 *var;
-	    volatile $3 arr[2];
+    AC_CACHE_CHECK([for ${ilckd}()],ethr_cv_have_$1,
+        [ethr_cv_have_$1=no
+         AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
+	   ]], [[
+	     volatile $3 *var;
+	     volatile $3 arr[2];
 
-	    $ilckd_call
-	    return 0;
-	]])],[have_interlocked_op=yes],[])
-    test $have_interlocked_op = yes && $4
-    AC_MSG_RESULT([$have_interlocked_op])
+	      $ilckd_call
+	      return 0;
+	   ]])],[ethr_cv_have_$1=yes],[])])
+    if [[ "${ethr_cv_have_$1}" = "yes" ]]; then
+      $4
+    else
+      m4_default([$5], [:])
+    fi
 ])
 
 dnl ----------------------------------------------------------------------
@@ -1687,13 +1690,15 @@ AS_CASE(
 	    ETHR_CHK_INTERLOCKED([_InterlockedAnd], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDAND, 1, [Define if you have _InterlockedAnd()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedOr], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDOR, 1, [Define if you have _InterlockedOr()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedExchange], [2], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGE, 1, [Define if you have _InterlockedExchange()]))
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE, 1, [Define if you have _InterlockedCompareExchange()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_acq], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_ACQ, 1, [Define if you have _InterlockedCompareExchange_acq()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_rel], [3], [long], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_REL, 1, [Define if you have _InterlockedCompareExchange_rel()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange], [3], [long],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE, 1, [Define if you have _InterlockedCompareExchange()])
+               ethr_have_native_atomics=yes])
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_acq], [3], [long],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_ACQ, 1, [Define if you have _InterlockedCompareExchange_acq()])
+               ethr_have_native_atomics=yes])
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange_rel], [3], [long],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_REL, 1, [Define if you have _InterlockedCompareExchange_rel()])
+              ethr_have_native_atomics=yes])
 	    ETHR_CHK_INTERLOCKED([_InterlockedDecrement64], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT64, 1, [Define if you have _InterlockedDecrement64()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedDecrement64_rel], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDDECREMENT64_REL, 1, [Define if you have _InterlockedDecrement64_rel()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedIncrement64], [1], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDINCREMENT64, 1, [Define if you have _InterlockedIncrement64()]))
@@ -1703,13 +1708,15 @@ AS_CASE(
 	    ETHR_CHK_INTERLOCKED([_InterlockedAnd64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDAND64, 1, [Define if you have _InterlockedAnd64()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedOr64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDOR64, 1, [Define if you have _InterlockedOr64()]))
 	    ETHR_CHK_INTERLOCKED([_InterlockedExchange64], [2], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDEXCHANGE64, 1, [Define if you have _InterlockedExchange64()]))
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64, 1, [Define if you have _InterlockedCompareExchange64()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_acq], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_ACQ, 1, [Define if you have _InterlockedCompareExchange64_acq()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_rel], [3], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_REL, 1, [Define if you have _InterlockedCompareExchange64_rel()]))
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
-
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64], [3], [__int64],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64, 1, [Define if you have _InterlockedCompareExchange64()])
+               ethr_have_native_atomics=yes])
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_acq], [3], [__int64],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_ACQ, 1, [Define if you have _InterlockedCompareExchange64_acq()])
+               ethr_have_native_atomics=yes])
+	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange64_rel], [3], [__int64],
+              [AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_REL, 1, [Define if you have _InterlockedCompareExchange64_rel()])
+               ethr_have_native_atomics=yes])
 	    ETHR_CHK_INTERLOCKED([_InterlockedCompareExchange128], [4], [__int64], AC_DEFINE_UNQUOTED(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE128, 1, [Define if you have _InterlockedCompareExchange128()]))
 	fi
 	if test "$ethr_have_native_atomics" = "yes"; then

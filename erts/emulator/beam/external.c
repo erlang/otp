@@ -3701,7 +3701,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                     ep += 16;
                     put_int32(fe->index, ep);
                     ep += 4;
-                    put_int32(funp->num_free, ep);
+                    put_int32((Uint32)funp->num_free, ep);
                     ep += 4;
                     ep = enc_atom(acmp, fe->module, ep, dflags);
                     ep = enc_term(acmp, make_small(fe->old_index), ep, dflags, off_heap);
