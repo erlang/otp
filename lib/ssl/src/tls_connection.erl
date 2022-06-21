@@ -34,6 +34,7 @@
 %%       ClientKeyExchange                                             \
 %%       CertificateVerify*                                             Flight 3 part 1
 %%       [ChangeCipherSpec]                                            / 
+%%       NextProtocol*
 %%       Finished                     -------->                       / Flight 3 part 2
 %%                                                [ChangeCipherSpec]  
 %%                                    <--------             Finished Flight 4
@@ -48,6 +49,7 @@
 %%                                                 [ChangeCipherSpec]
 %%                                     <--------             Finished  Abbrev Flight 2 part 2
 %%       [ChangeCipherSpec]
+%%       NextProtocol*
 %%       Finished                      -------->                       Abbrev Flight 3
 %%       Application Data              <------->     Application Data
 %%
@@ -70,12 +72,13 @@
 %%                                             |
 %%                                New session  | Resumed session
 %%  WAIT_OCSP_STAPELING   CERTIFY  <----------------------------------> ABBRIVIATED
-%%     
+%%  WAIT_CERT_VERIFY   
 %%  <- Possibly Receive  --  |                                              |
-%%     OCSP Stapel ------>   |  Flight 3 part 1                             |
+%% OCSP Stapel/CertVerify -> |  Flight 3 part 1                             |
 %%                           |                                              |
 %%                           V                                              |  Abbrev Flight 2 part 2 to Abbrev Flight 3
 %%                         CIPHER                                           |
+%%                           |                                              |
 %%                           |                                              |
 %%                           | Fligth 3 part 2 to Flight 4                  |   
 %%                           |                                              |   
@@ -122,6 +125,7 @@
          user_hello/3,
          wait_ocsp_stapling/3,
          certify/3,
+         wait_cert_verify/3,
          cipher/3,
          abbreviated/3,
 	 connection/3]).
@@ -311,6 +315,19 @@ wait_ocsp_stapling(Type, Event, State) ->
 certify(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 certify(Type, Event, State) ->
+    try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
+    catch throw:#alert{} = Alert ->
+            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
+    end.
+
+
+%%--------------------------------------------------------------------
+-spec wait_cert_verify(gen_statem:event_type(), term(), #state{}) ->
+          gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_cert_verify(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_cert_verify(Type, Event, State) ->
     try tls_dtls_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State)
     catch throw:#alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State)
