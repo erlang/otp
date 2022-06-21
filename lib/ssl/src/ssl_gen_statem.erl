@@ -656,9 +656,6 @@ handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName,
     Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
 handle_common_event(timeout, hibernate, _, _) ->
     {keep_state_and_data, [hibernate]};
-handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName,
-		    #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), Version, StateName, State);
 handle_common_event({timeout, handshake}, close, _StateName, #state{start_or_recv_from = StartFrom} = State) ->
     {stop_and_reply,
      {shutdown, user_timeout},

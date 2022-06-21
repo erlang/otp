@@ -68,14 +68,18 @@
 all() ->
     [{group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'}
+     {group, 'tlsv1'},
+     {group, 'dtlsv1.2'},
+     {group, 'dtlsv1'}
     ].
 
 groups() ->
     [
      {'tlsv1.2', [], next_protocol_tests()},
      {'tlsv1.1', [], next_protocol_tests()},
-     {'tlsv1', [], next_protocol_tests()}
+     {'tlsv1', [], next_protocol_tests()},
+     {'dtlsv1.2', [], next_protocol_tests()},
+     {'dtlsv1', [], next_protocol_tests()}
     ].
 
 next_protocol_tests() ->
