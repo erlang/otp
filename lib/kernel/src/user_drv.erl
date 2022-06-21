@@ -24,6 +24,8 @@
 %% This is responsible for a couple of things:
 %%   - Dispatching I/O messages when erl is running
 %%      * as a terminal.
+%%      * with -noshell
+%%      * with -noinput
 %%     The messages are listed in the type message/0.
 %%   - Any data received from the terminal is sent to the current group like this:
 %%     `{DrvPid :: pid(), {data, UnicodeCharacters :: list()}}`
@@ -80,7 +82,8 @@
 -record(state, { tty, write, read, shell_started = true, user, current_group, groups, queue }).
 
 -type shell() :: {module(), atom(), arity()} | {node(), module(), atom(), arity()}.
--type arguments() :: #{ initial_shell => shell() | {remote, unicode:charlist()} }.
+-type arguments() :: #{ initial_shell => noshell | shell() | {remote, unicode:charlist()},
+                        input => boolean() }.
 
 %% Default line editing shell
 -spec start() -> pid().
@@ -111,19 +114,28 @@ init(Args) ->
     process_flag(trap_exit, true),
     prim_tty:on_load(),
     IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
-    if IsTTY ->
-            try prim_tty:init(#{}) of
-                TTYState ->
-                    init_standard_error(TTYState, true),
-                    {ok, init, {Args, #state{ user = start_user() } },
-                     {next_event, internal, TTYState}}
-            catch error:enotsup ->
-                    %% This is thrown by prim_tty:init when
-                    %% it could not start the terminal,
-                    %% probably because TERM=dumb was set.
-                    {stop, normal}
-            end;
-       not IsTTY ->
+    StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
+    try
+        if IsTTY, StartShell ->
+                TTYState = prim_tty:init(#{}),
+                init_standard_error(TTYState, true),
+                {ok, init, {Args, #state{ user = start_user() } },
+                 {next_event, internal, TTYState}};
+           not IsTTY, StartShell ->
+                %% We start an oldshell if stdout or stdin are not a TTY
+                %% and we have been told to start a shell.
+                {stop, normal};
+           true ->
+                TTYState = prim_tty:init(#{input => maps:get(input, Args, true),
+                                           tty => false}),
+                init_standard_error(TTYState, false),
+                {ok, init, {Args,#state{ user = start_user() } },
+                 {next_event, internal, TTYState}}
+        end
+    catch error:enotsup ->
+            %% This is thrown by prim_tty:init when
+            %% it could not start the terminal,
+            %% probably because TERM=dumb was set.
             {stop, normal}
     end.
 
@@ -150,6 +162,8 @@ init(internal, TTYState, {Args, State = #state{ user = User }}) ->
                           },
 
     case Args of
+        #{ initial_shell := noshell } ->
+            init_noshell(NewState);
         #{ initial_shell := {remote, Node} } ->
             init_remote_shell(NewState, Node);
         #{ initial_shell := InitialShell } ->
@@ -157,6 +171,11 @@ init(internal, TTYState, {Args, State = #state{ user = User }}) ->
         _ ->
             init_local_shell(NewState, {shell,start,[init]})
     end.
+
+%% We have been started with -noshell. In this mode the current_group is
+%% the `user` group process.
+init_noshell(State) ->
+    init_shell(State#state{ shell_started = false }, "").
 
 init_remote_shell(State, Node) ->
 
@@ -246,7 +265,7 @@ init_shell(State, Slogan) ->
 start_user() ->
     case whereis(user) of
 	undefined ->
-	    User = group:start(self(), {}),
+	    User = group:start(self(), {}, [{echo,false}]),
 	    register(user, User),
 	    User;
 	User ->
@@ -304,17 +323,26 @@ server(info, Req, State = #state{ user = User, current_group = Curr })
     {NewTTYState, NewQueue} = handle_req(Req, State#state.tty, State#state.queue),
     {keep_state, State#state{ tty = NewTTYState, queue = NewQueue }};
 server(info, {WriteRef, ok}, State = #state{ write = WriteRef,
-                                             queue = {{Origin, Reply}, IOQ} }) ->
-    %% We get this ok from the port, in io_request we store
+                                             queue = {{Origin, MonitorRef, Reply}, IOQ} }) ->
+    %% We get this ok from the user_drv_writer, in io_request we store
     %% info about where to send reply at head of queue
-    Origin ! {reply, Reply},
+    Origin ! {reply, Reply, ok},
+    erlang:demonitor(MonitorRef, [flush]),
     {NewTTYState, NewQueue} = handle_req(next, State#state.tty, {false, IOQ}),
     {keep_state, State#state{ tty = NewTTYState, queue = NewQueue }};
+server(info, {'DOWN', MonitorRef, _, _, Reason},
+       #state{ queue = {{Origin, MonitorRef, Reply}, _IOQ} }) ->
+    %% The writer process died, we send the correct error to the caller and
+    %% then stop this process. This will bring down all linked groups (including 'user').
+    %% All writes from now on will throw badarg terminated.
+    Origin ! {reply, Reply, {error, Reason}},
+    ?LOG_INFO("Failed to write to standard out (~p)", [Reason]),
+    stop;
 server(info,{Requester, {put_chars_sync, _, _, Reply}}, _State) ->
     %% This is a sync request from an unknown or inactive group.
     %% We need to ack the Req otherwise originating process will hang forever.
     %% We discard the output to non visible shells
-    Requester ! {reply, Reply},
+    Requester ! {reply, Reply, ok},
     keep_state_and_data;
 
 server(info,{'EXIT',User, shutdown}, #state{ user = User }) ->
@@ -551,15 +579,16 @@ list_commands() ->
         QuitReq ++
         [{put_chars, unicode,<<"  ? | h             - this message\n">>}].
 
--spec io_request(request(), prim_tty:state()) -> {noreply | term(), prim_tty:state()}.
+-spec io_request(request(), prim_tty:state()) -> {noreply, prim_tty:state()} |
+          {term(), reference(), prim_tty:state()}.
 io_request({requests,Rs}, TTY) ->
     {noreply, io_requests(Rs, TTY)};
 io_request({put_chars, unicode, Chars}, TTY) ->
     write(prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}));
 io_request({put_chars_sync, unicode, Chars, Reply}, TTY) ->
     {Output, NewTTY} = prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}),
-    ok = prim_tty:write(NewTTY, Output, self()),
-    {Reply, NewTTY};
+    {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
+    {Reply, MonitorRef, NewTTY};
 io_request({move_rel, N}, TTY) ->
     write(prim_tty:handle_request(TTY, {move, N}));
 io_request({insert_chars, unicode, Chars}, TTY) ->
@@ -583,26 +612,26 @@ io_requests([R|Rs], TTY) ->
 io_requests([], TTY) ->
     TTY.
 
-handle_req(next,TTYState,{false,IOQ}=IOQueue) ->
+handle_req(next, TTYState, {false, IOQ} = IOQueue) ->
     case queue:out(IOQ) of
-        {empty,_} ->
+        {empty, _} ->
 	    {TTYState, IOQueue};
-        {{value,{Origin,Req}},ExecQ} ->
-            case io_request(Req,TTYState) of
+        {{value, {Origin, Req}}, ExecQ} ->
+            case io_request(Req, TTYState) of
                 {noreply, NewTTYState} ->
-		    handle_req(next,NewTTYState,{false,ExecQ});
-                {Reply, NewTTYState} ->
-		    {NewTTYState, {{Origin,Reply},ExecQ}}
+		    handle_req(next, NewTTYState, {false, ExecQ});
+                {Reply, MonitorRef, NewTTYState} ->
+		    {NewTTYState, {{Origin, MonitorRef, Reply}, ExecQ}}
             end
     end;
-handle_req(Msg,TTYState,{false,IOQ}=IOQueue) ->
+handle_req(Msg, TTYState, {false, IOQ} = IOQueue) ->
     empty = queue:peek(IOQ),
     {Origin, Req} = Msg,
     case io_request(Req, TTYState) of
         {noreply, NewTTYState} ->
 	    {NewTTYState, IOQueue};
-        {Reply, NewTTYState} ->
-	    {NewTTYState, {{Origin,Reply}, IOQ}}
+        {Reply, MonitorRef, NewTTYState} ->
+	    {NewTTYState, {{Origin, MonitorRef, Reply}, IOQ}}
     end;
 handle_req(Msg,TTYState,{Resp, IOQ}) ->
     %% All requests are queued when we have outstanding sync put_chars

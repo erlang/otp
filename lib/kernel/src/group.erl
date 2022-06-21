@@ -97,7 +97,7 @@ server_loop(Drv, Shell, Buf0) ->
             %% selective receive loops elsewhere in this module.
             Buf = io_request(Req, From, ReplyAs, Drv, Shell, Buf0),
             server_loop(Drv, Shell, Buf);
-        {reply,{{From,ReplyAs},Reply}} ->
+        {reply,{From,ReplyAs},Reply} ->
             io_reply(From, ReplyAs, Reply),
 	    server_loop(Drv, Shell, Buf0);
 	{driver_id,ReplyTo} ->
@@ -191,7 +191,7 @@ io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
 io_request({put_chars,unicode,Chars}, Drv, _Shell, From, Buf) ->
     case catch unicode:characters_to_binary(Chars,utf8) of
 	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars_sync, unicode, Binary, {From,ok}}),
+	    send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
 	    {noreply,Buf};
 	_ ->
 	    {error,{error,{put_chars, unicode,Chars}},Buf}
@@ -199,12 +199,12 @@ io_request({put_chars,unicode,Chars}, Drv, _Shell, From, Buf) ->
 io_request({put_chars,unicode,M,F,As}, Drv, _Shell, From, Buf) ->
     case catch apply(M, F, As) of
 	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars_sync, unicode, Binary, {From,ok}}),
+	    send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
 	    {noreply,Buf};
 	Chars ->
 	    case catch unicode:characters_to_binary(Chars,utf8) of
 		B when is_binary(B) ->
-		    send_drv(Drv, {put_chars_sync, unicode, B, {From,ok}}),
+		    send_drv(Drv, {put_chars_sync, unicode, B, From}),
 		    {noreply,Buf};
 		_ ->
 		    {error,{error,F},Buf}
@@ -213,12 +213,12 @@ io_request({put_chars,unicode,M,F,As}, Drv, _Shell, From, Buf) ->
 io_request({put_chars,latin1,Binary}, Drv, _Shell, From, Buf) when is_binary(Binary) ->
     send_drv(Drv, {put_chars_sync, unicode,
                    unicode:characters_to_binary(Binary,latin1),
-                   {From,ok}}),
+                   From}),
     {noreply,Buf};
 io_request({put_chars,latin1,Chars}, Drv, _Shell, From, Buf) ->
     case catch unicode:characters_to_binary(Chars,latin1) of
 	Binary when is_binary(Binary) ->
-	    send_drv(Drv, {put_chars_sync, unicode, Binary, {From,ok}}),
+	    send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
 	    {noreply,Buf};
 	_ ->
 	    {error,{error,{put_chars,latin1,Chars}},Buf}
@@ -228,12 +228,12 @@ io_request({put_chars,latin1,M,F,As}, Drv, _Shell, From, Buf) ->
 	Binary when is_binary(Binary) ->
 	    send_drv(Drv, {put_chars_sync, unicode,
                            unicode:characters_to_binary(Binary,latin1),
-                           {From,ok}}),
+                           From}),
 	    {noreply,Buf};
 	Chars ->
 	    case catch unicode:characters_to_binary(Chars,latin1) of
 		B when is_binary(B) ->
-		    send_drv(Drv, {put_chars_sync, unicode, B, {From,ok}}),
+		    send_drv(Drv, {put_chars_sync, unicode, B, From}),
 		    {noreply,Buf};
 		_ ->
 		    {error,{error,F},Buf}
@@ -654,7 +654,7 @@ more_data(What, Cont0, Drv, Shell, Ls, Encoding) ->
 	    io_request(Req, From, ReplyAs, Drv, Shell, []), %WRONG!!!
 	    send_drv_reqs(Drv, edlin:redraw_line(Cont)),
 	    get_line1({more_chars,Cont,[]}, Drv, Shell, Ls, Encoding);
-        {reply,{{From,ReplyAs},Reply}} ->
+        {reply,{From,ReplyAs},Reply} ->
             %% We take care of replies from puts here as well
             io_reply(From, ReplyAs, Reply),
             more_data(What, Cont0, Drv, Shell, Ls, Encoding);
@@ -682,7 +682,7 @@ get_line_echo_off1({Chars,[]}, Drv, Shell) ->
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
 	    io_request(Req, From, ReplyAs, Drv, Shell, []),
 	    get_line_echo_off1({Chars,[]}, Drv, Shell);
-        {reply,{{From,ReplyAs},Reply}} when From =/= undefined ->
+        {reply,{From,ReplyAs},Reply} when From =/= undefined ->
             %% We take care of replies from puts here as well
             io_reply(From, ReplyAs, Reply),
             get_line_echo_off1({Chars,[]},Drv, Shell);
@@ -709,7 +709,7 @@ get_chars_echo_off1(Drv, Shell) ->
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
 	    io_request(Req, From, ReplyAs, Drv, Shell, []),
 	    get_chars_echo_off1(Drv, Shell);
-        {reply,{{From,ReplyAs},Reply}} when From =/= undefined ->
+        {reply,{From,ReplyAs},Reply} when From =/= undefined ->
             %% We take care of replies from puts here as well
             io_reply(From, ReplyAs, Reply),
             get_chars_echo_off1(Drv, Shell);
@@ -857,7 +857,7 @@ get_password1({Chars,[]}, Drv, Shell) ->
 	    %% set to []. But do we expect anything but plain output?
 
 	    get_password1({Chars, []}, Drv, Shell);
-        {reply,{{From,ReplyAs},Reply}} ->
+        {reply,{From,ReplyAs},Reply} ->
             %% We take care of replies from puts here as well
             io_reply(From, ReplyAs, Reply),
             get_password1({Chars, []},Drv, Shell);

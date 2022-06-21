@@ -107,7 +107,7 @@
 -export([init/1, reinit/2, isatty/1, handles/1, unicode/1, unicode/2, handle_signal/2,
          window_size/1, handle_request/2, write/2, write/3, npwcwidth/1]).
 
--nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/0,
+-nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
        tty_select/3, tty_window_size/1, write_nif/2, read_nif/2, isprint/1,
        wcwidth/1, wcswidth/1,
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
@@ -156,6 +156,7 @@
                }).
 
 -type options() :: #{ tty => boolean(),
+                      input => boolean(),
                       canon => boolean(),
                       echo => boolean(),
                       sig => boolean()
@@ -200,7 +201,7 @@ init(UserOptions) when is_map(UserOptions) ->
 
     %% Initialize the locale to see if we support utf-8 or not
     UnicodeMode =
-        case setlocale() of
+        case setlocale(TTY) of
             primitive ->
                 lists:any(
                   fun(Key) ->
@@ -222,10 +223,23 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
                 State
         end,
 
-    {ok, Writer} = proc_lib:start_link(?MODULE, writer, [State#state.tty]),
-    {ok, Reader} = proc_lib:start_link(?MODULE, reader, [[State#state.tty, self()]]),
+    WriterState =
+        if TTYState#state.writer =:= undefined ->
+                {ok, Writer} = proc_lib:start_link(?MODULE, writer, [State#state.tty]),
+                TTYState#state{ writer = Writer };
+           true ->
+                TTYState
+        end,
+    ReaderState =
+        case {maps:get(input, Options), TTYState#state.reader} of
+            {true, undefined} ->
+                {ok, Reader} = proc_lib:start_link(?MODULE, reader, [[State#state.tty, self()]]),
+                WriterState#state{ reader = Reader };
+            {false, undefined} ->
+                WriterState
+        end,
 
-    update_geometry(TTYState#state{ reader = Reader, writer = Writer }).
+    update_geometry(ReaderState).
 
 -spec reinit(state(), options()) -> state().
 reinit(State, UserOptions) ->
@@ -346,7 +360,15 @@ reader([TTY, Parent]) ->
     proc_lib:init_ack({ok, {self(), ReaderRef}}),
     FromEnc = case os:type() of
                   {unix, _} -> utf8;
-                  {win32, _} -> {utf16, little}
+                  {win32, _} ->
+                      case isatty(stdin) of
+                          true ->
+                              {utf16, little};
+                          _ ->
+                              %% When not reading from a console
+                              %% the data read is utf8 encoded
+                              utf8
+                      end
               end,
     reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, <<>>).
 
@@ -409,16 +431,18 @@ writer(TTY) ->
 -spec write(state(), unicode:chardata()) -> ok.
 write(#state{ writer = {WriterPid, _}}, Chars) ->
     WriterPid ! {write, erlang:iolist_to_iovec(Chars)}, ok.
--spec write(state(), unicode:chardata(), From :: pid()) -> ok.
-write(#state{ writer = {WriterPid, _}}, Chars, From) ->
-    WriterPid ! {write, From, erlang:iolist_to_iovec(Chars)}, ok.
+-spec write(state(), unicode:chardata(), From :: pid()) -> {ok, reference()}.
+write(#state{ writer = {WriterPid, _WriterRef}}, Chars, From) ->
+    Ref = erlang:monitor(process, WriterPid),
+    WriterPid ! {write, From, erlang:iolist_to_iovec(Chars)},
+    {ok, Ref}.
 
 writer_loop(TTY, WriterRef) ->
     receive
         {write, []} ->
             writer_loop(TTY, WriterRef);
         {write, Chars} ->
-            ok = write_nif(TTY, Chars),
+            _ = write_nif(TTY, Chars),
             writer_loop(TTY, WriterRef);
         {write, From, []} ->
             From ! {WriterRef, ok},
@@ -428,9 +452,8 @@ writer_loop(TTY, WriterRef) ->
                 ok ->
                     From ! {WriterRef, ok},
                     writer_loop(TTY, WriterRef);
-                Else ->
-                    From ! {WriterRef, Else},
-                    writer_loop(TTY, WriterRef)
+                {error, Reason} ->
+                    exit(self(), Reason)
             end
     end.
 
@@ -790,7 +813,7 @@ tty_init(_TTY, _Fd, _Options) ->
     erlang:nif_error(undef).
 tty_set(_TTY) ->
     erlang:nif_error(undef).
-setlocale() ->
+setlocale(_TTY) ->
     erlang:nif_error(undef).
 tty_select(_TTY, _SignalRef, _ReadRef) ->
     erlang:nif_error(undef).

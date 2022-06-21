@@ -79,6 +79,10 @@ typedef struct {
 #ifdef __WIN32__
     HANDLE ofd;
     HANDLE ifd;
+    DWORD dwOriginalOutMode;
+    DWORD dwOriginalInMode;
+    DWORD dwOutMode;
+    DWORD dwInMode;
 #else
     int ofd;       /* stdout */
     int ifd;       /* stdin */
@@ -127,7 +131,7 @@ static ErlNifFunc nif_funcs[] = {
     {"tty_init", 3, tty_init_nif},
     {"tty_set", 1, tty_set_nif},
     {"tty_read_signal", 2, tty_read_signal_nif},
-    {"setlocale", 0, setlocale_nif},
+    {"setlocale", 1, setlocale_nif},
     {"tty_select", 3, tty_select_nif},
     {"tty_window_size", 1, tty_window_size_nif},
     {"write_nif", 2, tty_write_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
@@ -179,16 +183,18 @@ static ERL_NIF_TERM make_enotsup(ErlNifEnv *env) {
     return make_error(env, enif_make_atom(env, "enotsup"));
 }
 
-static ERL_NIF_TERM make_errno_error(ErlNifEnv *env, const char *function) {
-    ERL_NIF_TERM errorInfo;
+static ERL_NIF_TERM make_errno(ErlNifEnv *env) {
 #ifdef __WIN32__
-    errorInfo = enif_make_atom(env, last_error());
+    return enif_make_atom(env, last_error());
 #else
-    errorInfo = enif_make_atom(env, erl_errno_id(errno));
+    return enif_make_atom(env, erl_errno_id(errno));
 #endif
+}
+
+static ERL_NIF_TERM make_errno_error(ErlNifEnv *env, const char *function) {
     return make_error(
         env, enif_make_tuple2(
-            env, enif_make_atom(env, function), errorInfo));
+            env, enif_make_atom(env, function), make_errno(env)));
 }
 
 static int tty_get_fd(ErlNifEnv *env, ERL_NIF_TERM atom, int *fd) {
@@ -302,7 +308,8 @@ static ERL_NIF_TERM tty_write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 #else
             for (int i = 0; i < iovec->iovcnt; i++) {
                 ssize_t written;
-                BOOL r = WriteFile(tty->ofd, iovec->iov[i].iov_base, iovec->iov[i].iov_len, &written, NULL);
+                BOOL r = WriteFile(tty->ofd, iovec->iov[i].iov_base,
+                                   iovec->iov[i].iov_len, &written, NULL);
                 if (!r) {
                     res = -1;
                     break;
@@ -312,7 +319,7 @@ static ERL_NIF_TERM tty_write_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 #endif
             if (res < 0) {
                 if (q) enif_ioq_destroy(q);
-                return make_errno_error(env, "writev");
+                return make_error(env, make_errno(env));
             }
             if (res != size) {
                 if (!q) {
@@ -341,10 +348,12 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ErlNifBinary bin;
     ERL_NIF_TERM res_term;
     ssize_t res = 0;
+
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
+
 #ifdef __WIN32__
-    {
+    if (tty->dwInMode) {
         ssize_t inputs_read, num_characters = 0;
         wchar_t *characters = NULL;
         INPUT_RECORD inputs[128];
@@ -401,6 +410,23 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
             }
         }
         res *= sizeof(wchar_t);
+    } else {
+        DWORD bytesTransferred;
+        enif_alloc_binary(1024, &bin);
+        if (ReadFile(tty->ifd, bin.data, bin.size,
+                     &bytesTransferred, NULL)) {
+            res = bytesTransferred;
+            if (res == 0) {
+                enif_release_binary(&bin);
+                return make_error(env, enif_make_atom(env, "closed"));
+            }
+        } else {
+            DWORD error = GetLastError();
+            enif_release_binary(&bin);
+            if (error == ERROR_BROKEN_PIPE)
+                return make_error(env, enif_make_atom(env, "closed"));
+            return make_errno_error(env, "ReadFile");
+        }
     }
 #else
     enif_alloc_binary(1024, &bin);
@@ -435,8 +461,16 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
 static ERL_NIF_TERM setlocale_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef __WIN32__
-    if (!SetConsoleOutputCP(CP_UTF8)) {
-        return make_errno_error(env, "SetConsoleOutputCP");
+    TTYResource *tty;
+
+    if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
+        return enif_make_badarg(env);
+
+    if (tty->dwOutMode)
+    {
+        if (!SetConsoleOutputCP(CP_UTF8)) {
+            return make_errno_error(env, "SetConsoleOutputCP");
+        }
     }
     return atom_true;
 #elif defined(PRIMITIVE_UTF8_CHECK)
@@ -566,7 +600,31 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     tty->ofd = 1;
 #else
     tty->ifd = GetStdHandle(STD_INPUT_HANDLE);
+    if (tty->ifd == INVALID_HANDLE_VALUE || tty->ifd == NULL) {
+        tty->ifd = CreateFile("nul", GENERIC_READ, 0,
+                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    }
     tty->ofd = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (tty->ofd == INVALID_HANDLE_VALUE || tty->ofd == NULL) {
+        tty->ofd = CreateFile("nul", GENERIC_WRITE, 0,
+                              NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    }
+    if (GetConsoleMode(tty->ofd, &tty->dwOriginalOutMode))
+    {
+        tty->dwOutMode = ENABLE_VIRTUAL_TERMINAL_PROCESSING | tty->dwOriginalOutMode;
+        if (!SetConsoleMode(tty->ofd, tty->dwOutMode)) {
+            /* Failed to set any VT mode, can't do anything here. */
+            return make_errno_error(env, "SetConsoleMode");
+        }
+    }
+    if (GetConsoleMode(tty->ifd, &tty->dwOriginalInMode))
+    {
+        tty->dwInMode = ENABLE_VIRTUAL_TERMINAL_INPUT | tty->dwOriginalInMode;
+        if (!SetConsoleMode(tty->ifd, tty->dwInMode)) {
+            /* Failed to set any VT mode, can't do anything here. */
+            return make_errno_error(env, "SetConsoleMode");
+        }
+    }
 #endif
 
     tty_term = enif_make_resource(env, tty);
@@ -663,53 +721,18 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
 
 #else
-    /* Set output mode to handle virtual terminal sequences */
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hOut == INVALID_HANDLE_VALUE)
-    {
-        return make_errno_error(env, "GetStdHandle");
-    }
-    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-    if (hIn == INVALID_HANDLE_VALUE)
-    {
-        return make_errno_error(env, "GetStdHandle");
-    }
-
-    DWORD dwOriginalOutMode = 0;
-    DWORD dwOriginalInMode = 0;
-    if (!GetConsoleMode(hOut, &dwOriginalOutMode))
-    {
-        return make_errno_error(env, "GetConsoleMode");
-    }
-    if (!GetConsoleMode(hIn, &dwOriginalInMode))
-    {
-        return make_errno_error(env, "GetConsoleMode");
-    }
-
     /* fprintf(stderr, "origOutMode: %x origInMode: %x\r\n", */
-    /*     dwOriginalOutMode, dwOriginalInMode); */
+    /*     tty->dwOriginalOutMode, tty->dwOriginalInMode); */
 
-    DWORD dwRequestedOutModes = ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN;
-    DWORD dwRequestedInModes = ENABLE_VIRTUAL_TERMINAL_INPUT;
-    DWORD dwDisabledInModes = ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT;
-
-    DWORD dwOutMode = dwOriginalOutMode | dwRequestedOutModes;
-    if (!SetConsoleMode(hOut, dwOutMode))
-    {
-        /* we failed to set both modes, try to step down mode gracefully. */
-        dwRequestedOutModes = ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-        dwOutMode = dwOriginalOutMode | dwRequestedOutModes;
-        if (!SetConsoleMode(hOut, dwOutMode))
-        {
-            /* Failed to set any VT mode, can't do anything here. */
-            return make_errno_error(env, "SetConsoleMode");
-        }
+    /* If we cannot disable NEWLINE_AUTO_RETURN we continue anyway as things work */
+    if (SetConsoleMode(tty->ofd, tty->dwOutMode | DISABLE_NEWLINE_AUTO_RETURN)) {
+        tty->dwOutMode |= DISABLE_NEWLINE_AUTO_RETURN;
     }
 
-    DWORD dwInMode = (dwOriginalInMode | dwRequestedInModes) & ~dwDisabledInModes;
-    if (!SetConsoleMode(hIn, dwInMode))
+    tty->dwInMode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
+    if (!SetConsoleMode(tty->ifd, tty->dwInMode))
     {
-        /* Failed to set VT input mode, can't do anything here. */
+        /* Failed to set disable echo or line input mode */
         return make_errno_error(env, "SetConsoleMode");
     }
 
@@ -922,6 +945,7 @@ static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     sys_signal(SIGWINCH, tty_winch);
 
     using_oldshell = 0;
+
 #endif
 
     enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
