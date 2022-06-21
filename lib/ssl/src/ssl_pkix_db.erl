@@ -365,7 +365,7 @@ remove_crls([_,_,_, {Cache, Mapping} | _], Path) ->
     case lookup(Path, Cache) of
 	undefined ->
 	    ok;
-	CRLs ->
+	[CRLs] ->
 	    remove(Path, Cache),
 	    [rm_crls(CRL, Mapping) || CRL <- CRLs]
     end.
