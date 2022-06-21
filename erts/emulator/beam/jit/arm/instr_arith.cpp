@@ -698,8 +698,9 @@ void BeamModuleAssembler::emit_i_rem_div(const ArgLabel &Fail,
                                          const ArgRegister &Remainder,
                                          const ArgRegister &Quotient) {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_rem, 2};
+    bool need_rem = Quotient != Remainder;
 
-    emit_div_rem(Fail, LHS, RHS, &bif_mfa, Quotient, Remainder, true, true);
+    emit_div_rem(Fail, LHS, RHS, &bif_mfa, Quotient, Remainder, true, need_rem);
 }
 
 void BeamModuleAssembler::emit_i_div_rem(const ArgLabel &Fail,
@@ -709,8 +710,9 @@ void BeamModuleAssembler::emit_i_div_rem(const ArgLabel &Fail,
                                          const ArgRegister &Quotient,
                                          const ArgRegister &Remainder) {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_div, 2};
+    bool need_div = Quotient != Remainder;
 
-    emit_div_rem(Fail, LHS, RHS, &bif_mfa, Quotient, Remainder, true, true);
+    emit_div_rem(Fail, LHS, RHS, &bif_mfa, Quotient, Remainder, need_div, true);
 }
 
 void BeamModuleAssembler::emit_i_int_div(const ArgLabel &Fail,

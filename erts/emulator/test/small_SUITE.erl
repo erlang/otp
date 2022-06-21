@@ -22,7 +22,8 @@
 -include_lib("syntax_tools/include/merl.hrl").
 
 -export([all/0, suite/0, groups/0]).
--export([edge_cases/1, addition/1, subtraction/1, multiplication/1,
+-export([edge_cases/1,
+         addition/1, subtraction/1, multiplication/1, division/1,
          test_bitwise/1, test_bsl/1,
          element/1,
          range_optimization/1]).
@@ -38,7 +39,8 @@ all() ->
 
 groups() ->
     [{p, [parallel],
-      [edge_cases, addition, subtraction, multiplication,
+      [edge_cases,
+       addition, subtraction, multiplication, division,
        test_bitwise, test_bsl,
        element,
        range_optimization]}].
@@ -331,6 +333,106 @@ test_multiplication([{Name,{A,B}}|T], Mod) ->
 
     test_multiplication(T, Mod);
 test_multiplication([], _) ->
+    ok.
+
+%% Test that the JIT only omits the overflow check when it's safe.
+division(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
+    Pairs = div_gen_pairs(),
+    Fs0 = gen_func_names(Pairs, 0),
+    Fs = [gen_div_function(F) || F <- Fs0],
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all])."]) ++ Fs,
+    %% merl:print(Tree),
+    {ok,_Bin} = merl:compile_and_load(Tree, []),
+    test_division(Fs0, Mod),
+
+    3 = ignore_rem(ignore, 10, 3),
+    1 = ignore_div(ignore, 16, 5),
+
+    ok.
+
+ignore_rem(_, X, Y) ->
+    _ = X rem Y,                                %Result in x0.
+    X div Y.                                    %Reuse x0 for result.
+
+ignore_div(_, X, Y) ->
+    _ = X div Y,                                %Result in x0.
+    X rem Y.                                    %Reuse x0 for result.
+
+div_gen_pairs() ->
+    {_, MaxSmall} = determine_small_limits(0),
+    NumBitsMaxSmall = num_bits(MaxSmall),
+
+    %% Generate random pairs of smalls.
+    Pairs0 = [{rand:uniform(MaxSmall),rand:uniform(MaxSmall)} ||
+                 _ <- lists:seq(1, 75)],
+
+    Pairs1 = [{rand:uniform(MaxSmall), N} ||
+                 N <- [-3,-2,-1,1,2,3,5,17,63,64,1111,22222]] ++ Pairs0,
+
+    %% Generate pairs of numbers whose product are bignums.
+    [{rand:uniform(MaxSmall),1 bsl Pow} ||
+        Pow <- lists:seq(NumBitsMaxSmall - 4, NumBitsMaxSmall - 1)] ++ Pairs1.
+
+
+gen_div_function({Name,{A,B}}) ->
+    APlusOne = abs(A) + 1,
+    BPlusOne = abs(B) + 1,
+    NumBitsA = num_bits(abs(A)+1),
+    NumBitsB = num_bits(abs(B)+1),
+    ?Q("'@Name@'(integer0, X0, Y0) ->
+           Q = X0 div Y0,
+           R = X0 rem Y0,
+           if X0 > 0, Y0 > 0 ->
+             <<X:_@NumBitsA@>> = <<X0:_@NumBitsA@>>,
+             <<Y:_@NumBitsB@>> = <<Y0:_@NumBitsB@>>,
+             Q = X div Y,
+             R = X rem Y,
+             {Q, R};
+           true ->
+             {Q, R}
+           end;
+        '@Name@'(integer1, X, fixed) when is_integer(X), -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(integer2, X, fixed) when is_integer(X), -_@APlusOne@ < X, X < _@APlusOne@ ->
+           Y = _@B@,
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R};
+        '@Name@'(number0, X, Y) when -_@APlusOne@ < X, X < _@APlusOne@,
+                                    -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           Q = X div Y,
+           R = X rem Y,
+           {Q, R};
+        '@Name@'(number1, X, Y) when -_@APlusOne@ < X, X < _@APlusOne@,
+                                    -_@BPlusOne@ < Y, Y < _@BPlusOne@ ->
+           R = X rem Y,
+           Q = X div Y,
+           {Q, R}. ").
+
+test_division([{Name,{A,B}}|T], Mod) ->
+    F = fun Mod:Name/3,
+    try
+        Res0 = {A div B, A rem B},
+        Res0 = F(integer0, A, B),
+        Res0 = F(integer1, A, fixed),
+        Res0 = F(integer2, A, fixed),
+        Res0 = F(number0, A, B),
+        Res0 = F(number1, A, B)
+    catch
+        C:R:Stk ->
+            io:format("~p failed. numbers: ~p ~p\n", [Name,A,B]),
+            erlang:raise(C, R, Stk)
+    end,
+
+    test_division(T, Mod);
+test_division([], _) ->
     ok.
 
 %% Test that the JIT only omits the overflow check when it's safe.
