@@ -64,7 +64,7 @@ fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
     case get_crls(Names, undefined) of
 	not_available ->
 	    CRL;
-	[NewCRL] ->
+	NewCRL ->
 	    NewCRL
     end.
 
