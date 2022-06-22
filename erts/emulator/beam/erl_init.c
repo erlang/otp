@@ -162,7 +162,7 @@ int erts_initialized = 0;
 
 int H_MIN_SIZE;			/* The minimum heap grain */
 int BIN_VH_MIN_SIZE;		/* The minimum binary virtual*/
-int H_MAX_SIZE;			/* The maximum heap size */
+Uint H_MAX_SIZE;		/* The maximum heap size */
 int H_MAX_FLAGS;		/* The maximum heap flags */
 
 Uint32 erts_debug_flags;	/* Debug flags. */
@@ -1624,8 +1624,11 @@ erl_start(int argc, char **argv)
 		}
 		VERBOSE(DEBUG_SYSTEM, ("using max heap log %d\n", H_MAX_FLAGS));
 	    } else if (has_prefix("max", sub_param)) {
+                Sint hMaxSize;
+                char *rest;
 		arg = get_arg(sub_param+3, argv[i+1], &i);
-		if ((H_MAX_SIZE = atoi(arg)) < 0) {
+		hMaxSize = ErtsStrToSint(arg, &rest, 10);
+		if (hMaxSize < 0 || hMaxSize > MAX_SMALL) {
 		    erts_fprintf(stderr, "bad max heap size %s\n", arg);
 		    erts_usage();
 		}
@@ -1635,6 +1638,7 @@ erl_start(int argc, char **argv)
                                  arg, H_MIN_SIZE);
 		    erts_usage();
 		}
+		H_MAX_SIZE = hMaxSize;
 		VERBOSE(DEBUG_SYSTEM, ("using max heap size %d\n", H_MAX_SIZE));
 	    } else {
 	        /* backward compatibility */
