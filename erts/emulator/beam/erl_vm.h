@@ -254,7 +254,7 @@ extern Uint erts_instr_count[];
 
 extern int H_MIN_SIZE;		/* minimum (heap + stack) */
 extern int BIN_VH_MIN_SIZE;	/* minimum virtual (bin) heap */
-extern int H_MAX_SIZE;          /* maximum (heap + stack) */
+extern Uint H_MAX_SIZE;          /* maximum (heap + stack) */
 extern int H_MAX_FLAGS;         /* maximum heap flags  */
 
 extern int erts_atom_table_size;/* Atom table size */

@@ -933,7 +933,7 @@ $ <input>erl \
       <tag><marker id="+hmax"/><c><![CDATA[+hmax Size]]></c></tag>
       <item>
         <p>Sets the default maximum heap size of processes to the size
-          <c><![CDATA[Size]]></c>. Defaults to <c>0</c>, which means that no
+          <c><![CDATA[Size]]></c> words. Defaults to <c>0</c>, which means that no
           maximum heap size is used. For more information, see
           <seeerl marker="erlang#process_flag_max_heap_size">
           <c>process_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
