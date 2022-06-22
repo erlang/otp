@@ -279,7 +279,7 @@ insert(Key, Val, {S, T}) when is_integer(S) ->
 
 insert_1(Key, Value, {Key1, V, Smaller, Bigger}, S) when Key < Key1 -> 
     case insert_1(Key, Value, Smaller, ?div2(S)) of
-	{T1, H1, S1} ->
+        {T1, H1, S1} when is_integer(H1), is_integer(S1) ->
 	    T = {Key1, V, T1, Bigger},
 	    {H2, S2} = count(Bigger),
 	    H = ?mul2(erlang:max(H1, H2)),
@@ -296,7 +296,7 @@ insert_1(Key, Value, {Key1, V, Smaller, Bigger}, S) when Key < Key1 ->
     end;
 insert_1(Key, Value, {Key1, V, Smaller, Bigger}, S) when Key > Key1 -> 
     case insert_1(Key, Value, Bigger, ?div2(S)) of
-	{T1, H1, S1} ->
+        {T1, H1, S1} when is_integer(H1), is_integer(S1) ->
 	    T = {Key1, V, Smaller, T1},
 	    {H2, S2} = count(Smaller),
 	    H = ?mul2(erlang:max(H1, H2)),
@@ -349,7 +349,7 @@ count(nil) ->
       Tree1 :: tree(Key, Value),
       Tree2 :: tree(Key, Value).
 
-balance({S, T}) ->
+balance({S, T}) when is_integer(S), S >= 0 ->
     {S, balance(T, S)}.
 
 balance(T, S) ->

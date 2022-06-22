@@ -259,13 +259,13 @@ is_member_1(_, nil) ->
       Set1 :: set(Element),
       Set2 :: set(Element).
 
-insert(Key, {S, T}) ->
+insert(Key, {S, T}) when is_integer(S), S >= 0 ->
     S1 = S + 1,
     {S1, insert_1(Key, T, ?pow(S1, ?p))}.
 
 insert_1(Key, {Key1, Smaller, Bigger}, S) when Key < Key1 -> 
     case insert_1(Key, Smaller, ?div2(S)) of
-	{T1, H1, S1} when is_integer(H1) ->
+	{T1, H1, S1} when is_integer(H1), is_integer(S1) ->
 	    T = {Key1, T1, Bigger},
 	    {H2, S2} = count(Bigger),
 	    H = ?mul2(erlang:max(H1, H2)),
@@ -282,7 +282,7 @@ insert_1(Key, {Key1, Smaller, Bigger}, S) when Key < Key1 ->
     end;
 insert_1(Key, {Key1, Smaller, Bigger}, S) when Key > Key1 -> 
     case insert_1(Key, Bigger, ?div2(S)) of
-	{T1, H1, S1} when is_integer(H1) ->
+	{T1, H1, S1} when is_integer(H1), is_integer(S1) ->
 	    T = {Key1, Smaller, T1},
 	    {H2, S2} = count(Smaller),
 	    H = ?mul2(erlang:max(H1, H2)),
@@ -317,7 +317,7 @@ count(nil) ->
       Set1 :: set(Element),
       Set2 :: set(Element).
 
-balance({S, T}) ->
+balance({S, T}) when is_integer(S), S >= 0 ->
     {S, balance(T, S)}.
 
 balance(T, S) ->
@@ -550,9 +550,9 @@ next([]) ->
       Set2 :: set(Element),
       Set3 :: set(Element).
 
-union({N1, T1}, {N2, T2}) when N2 < N1 ->
+union({N1, T1}, {N2, T2}) when is_integer(N1), is_integer(N2), N2 < N1 ->
     union(to_list_1(T2), N2, T1, N1);
-union({N1, T1}, {N2, T2}) ->
+union({N1, T1}, {N2, T2}) when is_integer(N1), is_integer(N2) ->
     union(to_list_1(T1), N1, T2, N2).
 
 %% We avoid the expensive mathematical computations if there is little
@@ -633,7 +633,7 @@ push([X | Xs], As) ->
 push([], As) ->
     As.
 
-balance_revlist(L, S) ->
+balance_revlist(L, S) when is_integer(S) ->
     {T, _} = balance_revlist_1(L, S),
     T.
 
@@ -670,9 +670,9 @@ union_list(S, []) -> S.
       Set2 :: set(Element),
       Set3 :: set(Element).
 
-intersection({N1, T1}, {N2, T2}) when N2 < N1 ->
+intersection({N1, T1}, {N2, T2}) when is_integer(N1), is_integer(N2), N2 < N1 ->
     intersection(to_list_1(T2), N2, T1, N1);
-intersection({N1, T1}, {N2, T2}) ->
+intersection({N1, T1}, {N2, T2}) when is_integer(N1), is_integer(N2) ->
     intersection(to_list_1(T1), N1, T2, N2).
 
 intersection(L, _N1, T2, N2) when N2 < 10 ->
@@ -770,7 +770,8 @@ subtract(S1, S2) ->
       Set2 :: set(Element),
       Set3 :: set(Element).
 
-difference({N1, T1}, {N2, T2}) ->
+difference({N1, T1}, {N2, T2}) when is_integer(N1), N1 >= 0,
+                                    is_integer(N2), N2 >= 0 ->
     difference(to_list_1(T1), N1, T2, N2).
 
 difference(L, N1, T2, N2) when N2 < 10 ->
@@ -820,7 +821,8 @@ difference_2(Xs, [], As, S) ->
       Set1 :: set(Element),
       Set2 :: set(Element).
 
-is_subset({N1, T1}, {N2, T2}) ->
+is_subset({N1, T1}, {N2, T2}) when is_integer(N1), N1 >= 0,
+                                   is_integer(N2), N2 >= 0 ->
     is_subset(to_list_1(T1), N1, T2, N2).
 
 is_subset(L, _N1, T2, N2) when N2 < 10 ->
