@@ -335,7 +335,7 @@ gen_norm(Fd) ->
                  "-spec nfd(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfd(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when GC < 128 -> [GC|R];\n"
+                 "        [GC|R] when is_integer(GC), 0 =< GC, GC < 128 -> [GC|R];\n"
                  "        [GC|Str] -> [decompose(GC)|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -345,7 +345,7 @@ gen_norm(Fd) ->
                  "-spec nfkd(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfkd(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when GC < 128 -> [GC|R];\n"
+                 "        [GC|R] when is_integer(GC), 0 =< GC, GC < 128 -> [GC|R];\n"
                  "        [GC|Str] -> [decompose_compat(GC)|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -355,7 +355,7 @@ gen_norm(Fd) ->
                  "-spec nfc(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfc(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when GC < 256 -> [GC|R];\n"
+                 "        [GC|R] when is_integer(GC), 0 =< GC, GC < 256 -> [GC|R];\n"
                  "        [GC|Str] -> [compose(decompose(GC))|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -365,7 +365,7 @@ gen_norm(Fd) ->
                  "-spec nfkc(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfkc(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when GC < 128 -> [GC|R];\n"
+                 "        [GC|R] when is_integer(GC), 0 =< GC, GC < 128 -> [GC|R];\n"
                  "        [GC|Str] -> [compose_compat_0(decompose_compat(GC))|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -380,7 +380,7 @@ gen_norm(Fd) ->
                  "decompose(CP) ->\n"
                  "   canonical_order(decompose_1(CP)).\n"
                  "\n"
-                 "decompose_1(CP) when 16#AC00 =< CP, CP =< 16#D7A3 ->\n"
+                 "decompose_1(CP) when is_integer(CP), 16#AC00 =< CP, CP =< 16#D7A3 ->\n"
                  "    Syll = CP-16#AC00,\n"
                  "    T = 28,\n"
                  "    N = 588,\n"
@@ -424,7 +424,7 @@ gen_norm(Fd) ->
                  "decompose_compat(CP) ->\n"
                  "   canonical_order(decompose_compat_1(CP)).\n"
                  "\n"
-                 "decompose_compat_1(CP) when 16#AC00 =< CP, CP =< 16#D7A3 ->\n"
+                 "decompose_compat_1(CP) when is_integer(CP), 16#AC00 =< CP, CP =< 16#D7A3 ->\n"
                  "    Syll = CP-16#AC00,\n"
                  "    T = 28,\n"
                  "    N = 588,\n"
@@ -442,17 +442,18 @@ gen_norm(Fd) ->
                  "    end;\n"
                  "decompose_compat_1([CP|CPs]) ->\n"
                  "    decompose_compat_1(CP) ++ decompose_compat_1(CPs);\n"
-                 "decompose_compat_1([]) -> [].\n"),
+                 "decompose_compat_1([]) -> [].\n\n"),
 
 
     io:put_chars(Fd,
                  "compose(CP) when is_integer(CP) -> CP;\n"
                  "compose([Lead,Vowel|Trail]) %% Hangul\n"
-                 "  when 16#1100 =< Lead, Lead =< 16#1112 ->\n"
+                 "  when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->\n"
                  "    if 16#1161 =< Vowel, Vowel =< 16#1175 ->\n"
                  "            CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),\n"
                  "            case Trail of\n"
-                 "                [T|Acc] when 16#11A7 =< T, T =< 16#11C2 -> nolist(CP+T-16#11A7,Acc);\n"
+                 "                [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->"
+                 "                     nolist(CP+T-16#11A7,Acc);\n"
                  "                Acc -> nolist(CP,Acc)\n"
                  "            end;\n"
                  "       true ->\n"
@@ -494,11 +495,12 @@ gen_norm(Fd) ->
                  "    end.\n\n"
                  "compose_compat(CP) when is_integer(CP) -> CP;\n"
                  "compose_compat([Lead,Vowel|Trail]) %% Hangul\n"
-                 "  when 16#1100 =< Lead, Lead =< 16#1112 ->\n"
+                 "  when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->\n"
                  "    if 16#1161 =< Vowel, Vowel =< 16#1175 ->\n"
                  "            CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),\n"
                  "            case Trail of\n"
-                 "                [T|Acc] when 16#11A7 =< T, T =< 16#11C2 -> nolist(CP+T-16#11A7,Acc);\n"
+                 "                [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->"
+                 "                    nolist(CP+T-16#11A7,Acc);\n"
                  "                Acc -> nolist(CP,Acc)\n"
                  "            end;\n"
                  "       true ->\n"
@@ -634,12 +636,12 @@ gen_gc(Fd, GBP) ->
                  "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
                  "        T -> [CP|T]\n"
                  "    end;\n"
-                 "gc([CP1|T1]=T) when CP1 < 256 andalso ?IS_CP(CP1) ->\n"
+                 "gc([CP1|T1]=T) when ?IS_CP(CP1), CP1 < 256 ->\n"
                  "    case T1 of\n"
-                 "        [CP2|_] when CP2 < 256 -> T; %% Ascii Fast path\n"
+                 "        [CP2|_] when is_integer(CP2), 0 =< CP2, CP2 < 256 -> T; %% Ascii Fast path\n"
                  "        _ -> %% Keep the tail binary.\n"
                  "            case cp_no_bin(T1) of\n"
-                 "                [CP2|_]=T3 when CP2 < 256 -> [CP1|T3]; %% Asciii Fast path\n"
+                 "                [CP2|_]=T3 when is_integer(CP2), 0 =< CP2, CP2 < 256 -> [CP1|T3]; %% Asciii Fast path\n"
                  "                binary_found -> gc_1(T);\n"
                  "                T4 -> gc_1([CP1|T4])\n"
                  "            end\n"
@@ -682,13 +684,14 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "\n%% Optimize Latin-1\n"),
     [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicLow)],
 
-    io:format(Fd,
-              "gc_1([CP|R]=R0) when CP < 256 ->\n"
-              "    case R of\n"
-              "        [CP2|_] when CP2 < 256 -> R0;\n"
-              "        _ -> gc_extend(cp(R), R, CP)\n"
-              "    end;\n",
-              []),
+    io:put_chars(Fd,
+                 "gc_1([CP|R]=R0) when is_integer(CP), 0 =< CP, CP < 256 ->\n"
+                 "    case R of\n"
+                 "        [CP2|_] when is_integer(CP2), 0 =< CP2, CP2 < 256 -> R0;\n"
+                 "        _ -> gc_extend(cp(R), R, CP)\n"
+                 "    end;\n"
+                 "gc_1([CP|_]) when not ?IS_CP(CP) ->\n"
+                 "    error({badarg,CP});\n"),
     io:put_chars(Fd, "\n%% Continue control\n"),
     [GenControl(CP) || CP <- Crs],
     %% One clause per CP
@@ -709,7 +712,7 @@ gen_gc(Fd, GBP) ->
     GenHangulT = fun(Range) -> io:format(Fd, "gc_1~s gc_h_T(R1,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulT(CP) || CP <- merge_ranges(maps:get(t,GBP))],
     io:put_chars(Fd, "%% Handle Hangul LV and LVT special, since they are large\n"),
-    io:put_chars(Fd, "gc_1([CP|_]=R0) when 44000 < CP, CP < 56000 -> gc_h_lv_lvt(R0, R0, []);\n"),
+    io:put_chars(Fd, "gc_1([CP|_]=R0) when is_integer(CP), 44000 < CP, CP < 56000 -> gc_h_lv_lvt(R0, R0, []);\n"),
 
     io:put_chars(Fd, "\n%% Handle Regional\n"),
     GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R1,CP);\n", [gen_clause(Range)]) end,
@@ -825,7 +828,9 @@ gen_gc(Fd, GBP) ->
     [{RLess,RLarge}] = merge_ranges(maps:get(regional_indicator,GBP)),
     io:put_chars(Fd,"gc_regional(R0, CP0) ->\n"
                  "    case cp(R0) of\n"),
-    io:format(Fd,   "        [CP|R1] when ~w =< CP,CP =< ~w-> gc_extend2(cp(R1),R1,[CP,CP0]);~n",[RLess, RLarge]),
+    io:format(Fd,   "        [CP|R1] when is_integer(CP), ~w =< CP, CP =< ~w ->\n"
+              "             gc_extend2(cp(R1),R1,[CP,CP0]);~n",
+              [RLess, RLarge]),
     io:put_chars(Fd,"        R1 -> gc_extend(R1, R0, CP0)\n"
                  "    end.\n\n"),
 
@@ -893,7 +898,8 @@ gen_compose_pairs(Fd, ExclData, Data) ->
     [io:format(Fd, "compose_pair(~w,~w) -> ~w;~n", [A,B,CP]) || {[A,B],CP} <- lists:sort(DeCmp2)],
     io:put_chars(Fd, "compose_pair(_,_) -> false.\n\n"),
 
-    io:put_chars(Fd, "nolist(CP, []) -> CP;\nnolist(CP,L) -> [CP|L].\n\n"),
+    io:put_chars(Fd, "nolist(CP, []) when ?IS_CP(CP) -> CP;\n"
+                 "nolist(CP, L) when ?IS_CP(CP) -> [CP|L].\n\n"),
     ok.
 
 gen_case_table(Fd, Data) ->
@@ -1164,23 +1170,23 @@ gen_width_table(Fd, WideChars) ->
 gen_clause({R0, undefined}) ->
     io_lib:format("([~w=CP|R1]=R0) ->", [R0]);
 gen_clause({R0, R1}) ->
-    io_lib:format("([CP|R1]=R0) when ~w =< CP, CP =< ~w ->", [R0,R1]).
+    io_lib:format("([CP|R1]=R0) when is_integer(CP), ~w =< CP, CP =< ~w ->", [R0,R1]).
 
 gen_clause2({R0, undefined}) ->
     io_lib:format("([~w=CP|R1], R0, Acc) ->", [R0]);
 gen_clause2({R0, R1}) ->
-    io_lib:format("([CP|R1], R0, Acc) when ~w =< CP, CP =< ~w ->", [R0,R1]).
+    io_lib:format("([CP|R1], R0, Acc) when is_integer(CP), ~w =< CP, CP =< ~w ->", [R0,R1]).
 
 gen_case_clause({R0, undefined}) ->
     io_lib:format("[~w=CP|R1] ->", [R0]);
 gen_case_clause({R0, R1}) ->
-    io_lib:format("[CP|R1] when ~w =< CP, CP =< ~w ->", [R0,R1]).
+    io_lib:format("[CP|R1] when is_integer(CP), ~w =< CP, CP =< ~w ->", [R0,R1]).
 
 
 gen_single_clause({R0, undefined}) ->
     io_lib:format("(~w) ->", [R0]);
 gen_single_clause({R0, R1}) ->
-    io_lib:format("(CP) when ~w =< CP, CP =< ~w ->", [R0,R1]).
+    io_lib:format("(CP) when is_integer(CP), ~w =< CP, CP =< ~w ->", [R0,R1]).
 
 
 merge_ranges(List) ->
