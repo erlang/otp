@@ -112,7 +112,7 @@ errors(_Config) ->
     ?assertException(error, badarg, pg:handle_cast(garbage, garbage)),
     %% kill with call
     {ok, _Pid} = pg:start(second),
-    ?assertException(exit, {{badarg, _}, _}, gen_server:call(second, garbage)).
+    ?assertException(exit, {{badarg, _}, _}, gen_server:call(second, garbage, infinity)).
 
 leave_exit_race() ->
     [{doc, "Tests that pg correctly handles situation when leave and 'DOWN' messages are both in pg queue"}].
@@ -498,6 +498,14 @@ missing_scope_join(Config) when is_list(Config) ->
     ok.
 
 disconnected_start(Config) when is_list(Config) ->
+    case test_server:is_cover() of
+        true ->
+            {skip, "Cover is running"};
+        false ->
+            disconnected_start_test(Config)
+    end.
+
+disconnected_start_test(Config) when is_list(Config) ->
     {Peer, Node} = spawn_disconnected_node(?FUNCTION_NAME, ?FUNCTION_NAME),
     ?assertNot(lists:member(Node, nodes())),
     ?assertEqual(ok, peer:call(Peer, gen_server, stop, [?FUNCTION_NAME])),
