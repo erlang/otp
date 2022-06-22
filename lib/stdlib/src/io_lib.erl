@@ -350,9 +350,9 @@ write(Term, Options) when is_list(Options) ->
     if
         Depth =:= 0; CharsLimit =:= 0 ->
             "...";
-        CharsLimit < 0 ->
+        is_integer(CharsLimit), CharsLimit < 0, is_integer(Depth) ->
             write1(Term, Depth, Encoding);
-        CharsLimit > 0 ->
+        is_integer(CharsLimit), CharsLimit > 0 ->
             RecDefFun = fun(_, _) -> no end,
             If = io_lib_pretty:intermediate
                  (Term, Depth, CharsLimit, RecDefFun, Encoding, _Str=false),
@@ -439,7 +439,7 @@ write_binary(B, D) when is_integer(D) ->
     {S, _} = write_binary(B, D, -1),
     S.
 
-write_binary(B, D, T) ->
+write_binary(B, D, T) when is_integer(T) ->
     {S, Rest} = write_binary_body(B, D, tsub(T, 4), []),
     {[$<,$<,lists:reverse(S),$>,$>], Rest}.
 
@@ -509,15 +509,16 @@ quote_atom(Atom, Cs0) ->
 	true -> true;
 	false ->
 	    case Cs0 of
-		[C|Cs] when C >= $a, C =< $z ->
+		[C|Cs] when is_integer(C), C >= $a, C =< $z ->
 		    not name_chars(Cs);
-		[C|Cs] when C >= $ß, C =< $ÿ, C =/= $÷ ->
+		[C|Cs] when is_integer(C), C >= $ß, C =< $ÿ, C =/= $÷ ->
 		    not name_chars(Cs);
-		_ -> true
+		[C|_] when is_integer(C) -> true;
+                [] -> true
 	    end
     end.
 
-name_chars([C|Cs]) ->
+name_chars([C|Cs]) when is_integer(C) ->
     case name_char(C) of
 	true -> name_chars(Cs);
 	false -> false
@@ -580,7 +581,7 @@ write_string_as_latin1(S, Q) ->
 
 write_string1(_,[], Q) ->
     [Q];
-write_string1(Enc,[C|Cs], Q) ->
+write_string1(Enc,[C|Cs], Q) when is_integer(C) ->
     string_char(Enc,C, Q, write_string1(Enc,Cs, Q)).
 
 string_char(_,Q, Q, Tail) -> [$\\,Q|Tail];	%Must check these first!
@@ -803,7 +804,7 @@ collect_chars(Tag, Data, N) ->
     collect_chars(Tag, Data, latin1, N).
 
 %% Now we are aware of encoding...    
-collect_chars(start, Data, unicode, N) when is_binary(Data) ->
+collect_chars(start, Data, unicode, N) when is_binary(Data), is_integer(N) ->
     {Size,Npos} = count_and_find_utf8(Data,N),
     if Size > N ->
 	    {B1,B2} = split_binary(Data, Npos),
@@ -813,7 +814,7 @@ collect_chars(start, Data, unicode, N) when is_binary(Data) ->
        true ->
 	    {stop,Data,eof}
     end;
-collect_chars(start, Data, latin1, N) when is_binary(Data) ->
+collect_chars(start, Data, latin1, N) when is_binary(Data), is_integer(N) ->
     Size = byte_size(Data),
     if Size > N ->
 	    {B1,B2} = split_binary(Data, N),
@@ -823,13 +824,13 @@ collect_chars(start, Data, latin1, N) when is_binary(Data) ->
        true ->
 	    {stop,Data,eof}
     end;
-collect_chars(start,Data,_,N) when is_list(Data) ->
+collect_chars(start,Data,_,N) when is_list(Data), is_integer(N) ->
     collect_chars_list([], N, Data);
 collect_chars(start, eof, _,_) ->
     {stop,eof,eof};
 collect_chars({binary,Stack,_N}, eof, _,_) ->
     {stop,binrev(Stack),eof};
-collect_chars({binary,Stack,N}, Data,unicode, _) ->
+collect_chars({binary,Stack,N}, Data,unicode, _) when is_integer(N) ->
     {Size,Npos} = count_and_find_utf8(Data,N),
     if Size > N ->
 	    {B1,B2} = split_binary(Data, Npos),
@@ -839,7 +840,7 @@ collect_chars({binary,Stack,N}, Data,unicode, _) ->
        true ->
 	    {stop,binrev(Stack, [Data]),eof}
     end;
-collect_chars({binary,Stack,N}, Data,latin1, _) ->
+collect_chars({binary,Stack,N}, Data,latin1, _) when is_integer(N) ->
     Size = byte_size(Data),
     if Size > N ->
 	    {B1,B2} = split_binary(Data, N),
@@ -849,7 +850,7 @@ collect_chars({binary,Stack,N}, Data,latin1, _) ->
        true ->
 	    {stop,binrev(Stack, [Data]),eof}
     end;
-collect_chars({list,Stack,N}, Data, _,_) ->
+collect_chars({list,Stack,N}, Data, _,_) when is_integer(N) ->
     collect_chars_list(Stack, N, Data);
 
 %% collect_chars(Continuation, MoreChars, Count)
@@ -857,9 +858,9 @@ collect_chars({list,Stack,N}, Data, _,_) ->
 %%	{done,Result,RestChars}
 %%	{more,Continuation}
 
-collect_chars([], Chars, _, N) ->
+collect_chars([], Chars, _, N) when is_integer(N) ->
     collect_chars1(N, Chars, []);
-collect_chars({Left,Sofar}, Chars, _, _N) ->
+collect_chars({Left,Sofar}, Chars, _, _N) when is_integer(Left) ->
     collect_chars1(Left, Chars, Sofar).
 
 collect_chars1(N, Chars, Stack) when N =< 0 ->
@@ -991,13 +992,13 @@ binrev(L) ->
 binrev(L, T) ->
     list_to_binary(lists:reverse(L, T)).
 
--spec limit_term(term(), non_neg_integer()) -> term().
+-spec limit_term(term(), depth()) -> term().
 
 %% The intention is to mimic the depth limitation of io_lib:write()
 %% and io_lib_pretty:print(). The leaves ('...') should never be
 %% seen when printed with the same depth. Bitstrings are never
 %% truncated, which is OK as long as they are not sent to other nodes.
-limit_term(Term, Depth) ->
+limit_term(Term, Depth) when is_integer(Depth), Depth >= -1 ->
     try test_limit(Term, Depth) of
         ok -> Term
     catch
