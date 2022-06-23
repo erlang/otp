@@ -3279,6 +3279,9 @@ join_tuple_elements(I, Tuple, Type0) ->
 call_types({extfunc,M,F,A}, A, Vst) ->
     Args = get_call_args(A, Vst),
     beam_call_types:types(M, F, Args);
+call_types(bs_init_writable, A, Vst) ->
+    T = beam_types:make_type_from_value(<<>>),
+    {T, get_call_args(A, Vst), false};
 call_types(_, A, Vst) ->
     {any, get_call_args(A, Vst), false}.
 
