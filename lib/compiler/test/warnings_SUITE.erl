@@ -620,6 +620,44 @@ bin_opt_info(Config) when is_list(Config) ->
     %% For coverage: don't give the bin_opt_info option.
     [] = (catch run_test(Config, Code, [])),
 
+    %% Now try with abstract code and no location.
+    %%
+    %% t1(Bin) ->
+    %%   case Bin of
+    %%     _ when byte_size(Bin) > 20 -> erlang:error(too_long);
+    %%     <<_,T/binary>> -> t1(T);
+    %%     <<>> -> ok
+    %% end.
+    Forms = [{attribute,0,module,nolocation_binary},
+             {attribute,0,export,[{t1,1}]},
+             {function,0,t1,1,
+                [{clause,0,[{var,0,'Bin'}],[],
+                     [{'case',0,{var,0,'Bin'},
+                          [{clause,0,
+                               [{var,0,'_'}],
+                               [[{op,0,'>',
+                                     {call,0,{atom,0,byte_size},[{var,0,'Bin'}]},
+                                     {integer,0,20}}]],
+                               [{call,0,
+                                    {remote,0,{atom,0,erlang},{atom,0,error}},
+                                    [{atom,0,too_long}]}]},
+                           {clause,0,
+                               [{bin,0,
+                                    [{bin_element,0,{var,0,'_'},default,default},
+                                     {bin_element,0,{var,0,'T'},default,[binary]}]}],
+                               [],
+                               [{call,0,{atom,0,t1},[{var,0,'T'}]}]},
+                           {clause,0,[{bin,0,[]}],[],[{atom,0,ok}]}]}]}]}],
+    Wsf = (catch run_forms(Forms, [bin_opt_info])),
+
+    {warnings,
+     [{none,beam_ssa_bsm,{unsuitable_call,
+                       {{b_local,{b_literal,t1},1},
+                        {used_before_match,
+                         {b_set,_,_,{bif,byte_size},[_]}}}}},
+      {none,beam_ssa_bsm,{binary_created,_,_}}
+     ]} = Wsf,
+
     ok.
 
 bin_construction(Config) when is_list(Config) ->
@@ -1092,6 +1130,28 @@ recv_opt_info(Config) when is_list(Config) ->
     %% For coverage: don't give the recv_opt_info option.
     [] = (catch run_test(Config, Code, [])),
 
+    %% Now try with abstract code and no location.
+    %%
+    %% simple_receive() ->
+    %%     receive
+    %%         Message -> handle:msg(Message)
+    %%     end.
+    Forms = [{attribute,0,module,nolocation_recv},
+             {attribute,0,export,[{t1,0}]},
+             {function,0,t1,0,
+                 [{clause,0,[],[],
+                      [{'receive',0,
+                           [{clause,0,
+                                [{var,0,'Msg'}],
+                                [],
+                                [{call,0,
+                                     {remote,0,{atom,0,handle},{atom,0,msg}},
+                                     [{var,0,'Msg'}]}]}]}]}]}
+    ],
+
+    Wsf = (catch run_forms(Forms, [recv_opt_info])),
+    {warnings, [{none,beam_ssa_recv,matches_any_message}]} = Wsf,
+
     ok.
 
 %% OTP-17260: Test that opportunistic warnings can be disabled.
@@ -1247,25 +1307,32 @@ run_test(Conf, Test0, Warnings) ->
     compile:file(File, [binary,export_all,report|Warnings]),
 
     %% Test result of compilation.
-    Res = case compile:file(File, Opts) of
-	      {ok, _M, Bin, []} when is_binary(Bin) ->
-		  [];
-	      {ok, _M, Bin, Ws0} when is_binary(Bin) ->
-		  %% We are not interested in warnings from
-		  %% erl_lint here.
-		  WsL = [{F,[W || {_,Mod,_}=W <- Ws,
-				  Mod =/= erl_lint]} ||
-			    {F,Ws} <- Ws0],
-		  case WsL of
-		      [{_File,Ws}] ->
-                          print_warnings(Ws, Test),
-                          {warnings, Ws};
-		      _ ->
-                          list_to_tuple([warnings, WsL])
-		  end
-	  end,
+    Res = get_warnings(compile:file(File, Opts)),
+    case Res of
+        [] -> [];
+        {warnings, Ws} -> print_warnings(Ws, Test)
+    end,
     file:delete(File),
     Res.
+
+run_forms(Forms, Warnings) ->
+    get_warnings(compile:forms(Forms, [binary,return|Warnings])).
+
+get_warnings(Result) ->
+    case Result of
+        {ok, _M, Bin, []} when is_binary(Bin) ->
+            [];
+        {ok, _M, Bin, Ws0} when is_binary(Bin) ->
+            %% We are not interested in warnings from
+            %% erl_lint here.
+            WsL = [{F,[W || {_,Mod,_}=W <- Ws,
+                            Mod =/= erl_lint]} ||
+                      {F,Ws} <- Ws0],
+            case WsL of
+                [{_File,Ws}] -> {warnings, Ws};
+                _ -> list_to_tuple([warnings, WsL])
+            end
+    end.
 
 print_warnings(Warnings, Source) ->
     Lines = binary:split(Source, <<"\n">>, [global]),

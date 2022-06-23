@@ -906,7 +906,11 @@ coi_creations([], _Blocks, _Defs) ->
     [].
 
 make_warning(Term, Anno, Where) ->
-    {File, Line} = maps:get(location, Anno, Where),
+    {File, Line} =
+        case maps:get(location, Anno, Where) of
+            {_, _} = Location -> Location;
+            _ -> {"no_file", none}
+        end,
     {File,[{Line,?MODULE,Term}]}.
 
 format_opt_info(matches_any_message) ->

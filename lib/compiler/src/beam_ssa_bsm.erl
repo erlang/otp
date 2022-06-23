@@ -1011,7 +1011,11 @@ make_promotion_warning(I, Nested, Anno, Where) ->
     make_warning({binary_created, I, Nested}, Anno, Where).
 
 make_warning(Term, Anno, Where) ->
-    {File, Line} = maps:get(location, Anno, Where),
+    {File, Line} =
+        case maps:get(location, Anno, Where) of
+            {_, _} = Location -> Location;
+            _ -> {"no_file", none}
+        end,
     {File,[{Line,?MODULE,Term}]}.
 
 format_opt_info(context_reused) ->
