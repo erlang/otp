@@ -1016,7 +1016,7 @@ arith_type(_Op, _Args) ->
 %%
 
 mixed_arith_types(Args0) ->
-    [FirstType|_] = Args = [normalize(A) || A <- Args0],
+    [FirstType|_] = Args = [meet(A, #t_number{}) || A <- Args0],
     RetType = foldl(fun(#t_integer{}, #t_integer{}) -> #t_integer{};
                        (#t_integer{}, #t_number{}) -> #t_number{};
                        (#t_integer{}, #t_float{}) -> #t_float{};
@@ -1026,7 +1026,6 @@ mixed_arith_types(Args0) ->
                        (#t_number{}, #t_integer{}) -> #t_number{};
                        (#t_number{}, #t_float{}) -> #t_float{};
                        (#t_number{}, #t_number{}) -> #t_number{};
-                       (any, _) -> #t_number{};
                        (_, _) -> none
                     end, FirstType, Args),
     sub_unsafe(RetType, [#t_number{} || _ <- Args]).
