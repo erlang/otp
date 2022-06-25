@@ -986,6 +986,9 @@ types(_, _, Args) ->
       ArgTypes :: [type()],
       RetType :: type().
 
+arith_type({bif,'-'}, [Arg]) ->
+    ArgTypes = [#t_integer{elements={0,0}},Arg],
+    beam_bounds_type('-', #t_number{}, ArgTypes);
 arith_type({bif,Op}, [_,_]=ArgTypes) when Op =:= '+';
                                           Op =:= '-';
                                           Op =:= '*' ->
