@@ -584,15 +584,12 @@ types(erlang, Op, [LHS,RHS]) when Op =:= min; Op =:= max ->
     %%
     %%   1235.0 = 1 + 1234.0
     %%   1 = erlang:min(1, 1234.0)
-    RetType = case {normalize(LHS), normalize(RHS)} of
-                  {#t_float{}, #t_float{}} -> #t_float{elements=R};
-                  {#t_float{}, #t_integer{}} -> #t_number{elements=R};
-                  {#t_float{}, #t_number{}} -> #t_number{elements=R};
+    RetType = case {LHS, RHS} of
                   {#t_integer{}, #t_integer{}} -> #t_integer{elements=R};
-                  {#t_integer{}, #t_float{}} -> #t_number{elements=R};
                   {#t_integer{}, #t_number{}} -> #t_number{elements=R};
+                  {#t_number{}, #t_integer{}} -> #t_number{elements=R};
                   {#t_number{}, #t_number{}} -> #t_number{elements=R};
-                  {_, _} -> any
+                  {_, _} -> join(LHS, RHS)
               end,
 
     sub_unsafe(RetType, [any, any]);

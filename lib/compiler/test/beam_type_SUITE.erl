@@ -1104,11 +1104,17 @@ cover_maps_functions(_Config) ->
 %% The types for erlang:min/2 and erlang:max/2 were wrong, assuming that the
 %% result was a float if either argument was a float.
 min_max_mixed_types(_Config) ->
-    NotFloatA = erlang:min(id(12), 100.0),
+    NotFloatA = min(id(12), 100.0),
     id(NotFloatA * 0.5),
 
-    NotFloatB = erlang:max(id(12.0), 100),
+    NotFloatB = max(id(12.0), 100),
     id(NotFloatB * 0.5),
+
+    %% Cover more of the type analysis code.
+    1 = id(min(id(0)+1, 42)),
+    -10 = id(min(id(0)+1, -10)),
+    43 = id(max(3, id(42)+1)),
+    42 = id(max(-99, id(41)+1)),
 
     ok.
 
