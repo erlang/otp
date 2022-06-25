@@ -414,8 +414,15 @@ types(erlang, 'rem', Args) ->
 %% Some mixed-type arithmetic.
 types(erlang, Op, [LHS, RHS]) when Op =:= '+'; Op =:= '-' ->
     case get_range(LHS, RHS, #t_number{}) of
-        {Type, {A,B}, {C,_D}} when is_integer(C), C > 0 ->
+        {Type, {A,B}, {C,_D}} when is_integer(C), C >= 0 ->
             R = beam_bounds:bounds(Op, {A,B}, {C,'+inf'}),
+            RetType = case Type of
+                          integer -> #t_integer{elements=R};
+                          number -> #t_number{elements=R}
+                      end,
+            sub_unsafe(RetType, [#t_number{}, #t_number{}]);
+        {Type, {A,_B}, {C,D}} when Op =:= '+', is_integer(A), A >= 0 ->
+            R = beam_bounds:bounds(Op, {A,'+inf'}, {C,D}),
             RetType = case Type of
                           integer -> #t_integer{elements=R};
                           number -> #t_number{elements=R}

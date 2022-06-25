@@ -306,6 +306,15 @@ coverage(Config) ->
     {'EXIT',{function_clause,_}} = catch coverage_3("a"),
     {'EXIT',{function_clause,_}} = catch coverage_3("b"),
 
+    Number = id(1),
+    if
+        0 =< Number, Number < 10 ->
+            0 = coverage_4(-1, Number),
+            10 = coverage_4(0, Number),
+            20 = coverage_4(1, Number),
+            30 = coverage_4(2, Number)
+    end,
+
     ok.
 
 coverage_1() ->
@@ -324,6 +333,9 @@ coverage_2() ->
 %% Cover beam_ssa_type:infer_br_value(V, Bool, none).
 coverage_3("a" = V) when is_function(V, false) ->
     0.
+
+coverage_4(X, Y) ->
+    10 * (X + Y).
 
 booleans(_Config) ->
     {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
