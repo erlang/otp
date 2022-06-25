@@ -993,6 +993,13 @@ types(_, _, Args) ->
 arith_type({bif,'-'}, [Arg]) ->
     ArgTypes = [#t_integer{elements={0,0}},Arg],
     beam_bounds_type('-', #t_number{}, ArgTypes);
+arith_type({bif,'bnot'}, [Arg0]) ->
+    case meet(Arg0, #t_integer{}) of
+        none ->
+            none;
+        #t_integer{elements=R} ->
+            #t_integer{elements=beam_bounds:bounds('bnot', R)}
+    end;
 arith_type({bif,Op}, [_,_]=ArgTypes) when Op =:= '+';
                                           Op =:= '-';
                                           Op =:= '*' ->

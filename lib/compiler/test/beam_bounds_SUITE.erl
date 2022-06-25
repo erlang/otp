@@ -25,6 +25,7 @@
          multiplication_bounds/1, division_bounds/1, rem_bounds/1,
          band_bounds/1, bor_bounds/1, bxor_bounds/1,
          bsr_bounds/1, bsl_bounds/1,
+         bnot_bounds/1,
          lt_bounds/1, le_bounds/1, gt_bounds/1, ge_bounds/1,
          min_bounds/1, max_bounds/1,
          abs_bounds/1,
@@ -45,6 +46,7 @@ groups() ->
        band_bounds,
        bor_bounds,
        bxor_bounds,
+       bnot_bounds,
        bsr_bounds,
        bsl_bounds,
        lt_bounds,
@@ -170,6 +172,33 @@ bxor_bounds(_Config) ->
     any = beam_bounds:bounds('bxor', {-20,-10}, {-1,10}),
 
     ok.
+
+bnot_bounds(_Config) ->
+    Min = -7,
+    Max = 7,
+    Seq = lists:seq(Min, Max),
+    _ = [bnot_bounds_1({A,B}) ||
+            A <- Seq,
+            B <- lists:nthtail(A-Min, Seq)],
+
+    {-43,'+inf'} = beam_bounds:bounds('bnot', {'-inf',42}),
+    {99,'+inf'} = beam_bounds:bounds('bnot', {'-inf',-100}),
+    {'-inf',-8} = beam_bounds:bounds('bnot', {7,'+inf'}),
+    {'-inf',9} = beam_bounds:bounds('bnot', {-10,'+inf'}),
+
+    ok.
+
+bnot_bounds_1(R) ->
+    {HighestMin,LowestMax} = min_max_unary_op('bnot', R),
+    {Min,Max} = beam_bounds:bounds('bnot', R),
+    if
+        Min =< HighestMin, LowestMax =< Max ->
+            ok;
+        true ->
+            io:format("bnot(~p) evaluates to ~p; should be ~p\n",
+                      [R,{Min,Max},{HighestMin,LowestMax}]),
+            ct:fail(bad_min_or_max)
+        end.
 
 bsr_bounds(_Config) ->
     test_noncommutative('bsr', {-12,12}, {0,7}),

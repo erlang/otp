@@ -43,6 +43,14 @@
 
 -spec bounds(op(), range()) -> range_result().
 
+bounds('bnot', R0) ->
+    case R0 of
+        {A,B} ->
+            R = {inf_add(inf_neg(B), -1), inf_add(inf_neg(A), -1)},
+            normalize(R);
+        _ ->
+            any
+    end;
 bounds(abs, R) ->
     case R of
         {A,B} when is_integer(A), is_integer(B) ->
