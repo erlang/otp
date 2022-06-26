@@ -168,10 +168,11 @@
       </item>
       <tag><c>-list-features</c></tag>
       <item>
-        <p><marker id="list-features"/>
-        List short descriptions of the current available
-	<seeguide
-            marker="system/reference_manual:features#features">features</seeguide>.
+        <p><marker id="list-features"/> List short descriptions of the
+        current configurable <seeguide
+        marker="system/reference_manual:features#features">features</seeguide>.
+        Non configurable features, i.e., those with a status of
+        <c>rejected</c> or <c>permanent</c> will not be shown.
       </p>
       </item>
       <tag><c>-describe-feature &lt;feature&gt;</c></tag>

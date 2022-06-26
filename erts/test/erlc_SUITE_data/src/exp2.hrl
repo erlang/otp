@@ -1,0 +1,6 @@
+-if(?enable_exp_2 > 0).
+-feature(experimental_ftr_2, enable).
+-record(conditional, {on=off, 'until'=none}).
+-else.
+-record(conditional, {on=on, until=until}).
+-endif.

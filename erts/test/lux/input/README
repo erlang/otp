@@ -1,3 +1,0 @@
-This directory contains Erlang files used as input when testing the
-compiler.  They are probably not the best examples of Erlang code with
-any deeper meaning.

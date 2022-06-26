@@ -1,6 +1,6 @@
--module(f_include_maybe).
+-module(f_include_exp2).
 
--include("maybe.hrl").
+-include("exp2.hrl").
 
 -export([foo/0,
          bar/0]).
@@ -9,7 +9,7 @@
 foo() ->
     #conditional{}.
 
--if(?enable_maybe == 1).
+-if(?enable_exp_2 == 1).
 bar() ->
     until.
 -else.

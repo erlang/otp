@@ -251,6 +251,30 @@ behaviour_info(callbacks) -> Callbacks.</pre>
   </section>
 
   <section>
+    <title>
+      The feature directive
+    </title>
+
+    <p>
+      While not a module attribute, but rather a directive (since it
+      might affect syntax), there is the <c>-feature(..)</c>
+      directive used for enabling and disabling <seeguide
+      marker="system/reference_manual:features#features">features</seeguide>.
+    </p>
+    <p>
+      The syntax is similar to that of an attribute, but has two
+      arguments:
+    </p>
+    <pre>
+-feature(FeatureName, enable | disable).</pre>
+    <p>
+      Note that the <seeguide
+      marker="macros#feature-directive">feature directive</seeguide>
+      can only appear in a prefix of the module.
+    </p>
+  </section>
+
+  <section>
     <title>Comments</title>
     <p>Comments can be placed anywhere in a module except within strings
       and quoted atoms. A comment begins with the character "%",

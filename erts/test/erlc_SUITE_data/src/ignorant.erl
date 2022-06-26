@@ -18,15 +18,27 @@
 %% %CopyrightEnd%
 %%
 
-%% This module knows about the feature maybe, but not about maybe ifn
-%% and thus use ifn as an ordinary atom
+%% This module is ignorant about any features and thus use 'ifn',
+%% 'while' and 'until' as ordinary atoms.
 
--module(f_maybe).
+-module(ignorant).
 
--export([foo/0]).
+-export([foo/0,
+         frob/1,
+         bar/0,
+         until/1,
+         baz/1]).
+
+until(X) ->
+    until(X).
 
 foo() ->
-    [ifn, 'xmaybe', 'then'].
+    [ifn, while, until].
+
+frob(while) -> false.
 
 bar() ->
-    ['then', 'xmaybe'].
+    [until, while].
+
+baz(ifn) ->
+    {true, 'ifnot'}.

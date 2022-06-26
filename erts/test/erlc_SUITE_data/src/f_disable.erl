@@ -18,16 +18,29 @@
 %% %CopyrightEnd%
 %%
 
--module(f_directives).
+-module(f_disable).
 
-%% This module uses both features ifn_expr and maybe_expr, so atoms
-%% belonging to these need t be quoted.
+-feature(experimental_ftr_1, disable).
+-feature(experimental_ftr_2, disable).
+-feature(approved_ftr_1, disable).
 
--feature(ifn_expr, enable).
--feature(while_expr, enable).
+-export([no_experimental/0,
+	 no_ftrs/0]).
 
--export([bar/0
-	]).
+-if(?FEATURE_ENABLED(experimental_ftr_1)).
+-define(FOO, has_experimental).
+-else.
+-define(FOO, no_experimental).
+-endif.
 
-bar() ->
-    ['xelse', 'xwhile', 'ifn'].
+no_experimental() ->
+    ?FOO.
+
+-if(?FEATURE_ENABLED(experimental_ftr_2)).
+-define(BAR, has_exp2).
+-else.
+-define(BAR, no_exp2).
+-endif.
+
+no_ftrs() ->
+    ?BAR.

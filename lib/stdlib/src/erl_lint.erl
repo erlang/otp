@@ -4205,7 +4205,7 @@ test_overriden_by_local(Anno, OldTest, Arity, St) ->
     end.
 
 feature_keywords() ->
-    Features = erl_features:all(),
+    Features = erl_features:configurable(),
     G = fun(Ftr, Map) ->
                 Keywords = erl_features:keywords(Ftr),
                 Add = fun(Keyword, M) -> maps:put(Keyword, Ftr, M) end,
