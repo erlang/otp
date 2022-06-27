@@ -26,7 +26,8 @@
 %%
 %%
 -module(beam_bounds).
--export([bounds/2, bounds/3, relop/3, infer_relop_types/3]).
+-export([bounds/2, bounds/3, relop/3, infer_relop_types/3,
+         is_masking_redundant/2]).
 -export_type([range/0]).
 
 -type range() :: {integer(), integer()} |
@@ -260,6 +261,19 @@ infer_relop_types('>', any, {C,_}=R2) ->
     {normalize({inf_add(C, 1), '+inf'}), R2};
 infer_relop_types(_Op, _R1, _R2) ->
     any.
+
+-spec is_masking_redundant(range(), integer()) -> boolean().
+
+is_masking_redundant(_, -1) ->
+    true;
+is_masking_redundant({A,B}, M)
+  when M band (M + 1) =:= 0,            %Is M + 1 a power of two?
+       M > 0,
+       is_integer(A), A >= 0,
+       B band M =:= B ->
+    true;
+is_masking_redundant(_, _) ->
+    false.
 
 %%%
 %%% Internal functions.

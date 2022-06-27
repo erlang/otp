@@ -1035,6 +1035,19 @@ simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
             Sub#{ Dst => Var }
     end.
 
+simplify(#b_set{op={bif,'band'},args=Args}=I, Ts, Ds) ->
+    case normalized_types(Args, Ts) of
+        [#t_integer{elements=R},#t_integer{elements={M,M}}] ->
+            case beam_bounds:is_masking_redundant(R, M) of
+                true ->
+                    %% M is mask that will have no effect.
+                    hd(Args);
+                false ->
+                    eval_bif(I, Ts, Ds)
+            end;
+        [_,_] ->
+            eval_bif(I, Ts, Ds)
+    end;
 simplify(#b_set{op={bif,'and'},args=Args}=I, Ts, Ds) ->
     case is_safe_bool_op(Args, Ts) of
         true ->

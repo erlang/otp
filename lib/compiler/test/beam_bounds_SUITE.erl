@@ -29,7 +29,8 @@
          lt_bounds/1, le_bounds/1, gt_bounds/1, ge_bounds/1,
          min_bounds/1, max_bounds/1,
          abs_bounds/1,
-         infer_lt_gt_bounds/1]).
+         infer_lt_gt_bounds/1,
+         redundant_masking/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -56,7 +57,8 @@ groups() ->
        min_bounds,
        max_bounds,
        abs_bounds,
-       infer_lt_gt_bounds]}].
+       infer_lt_gt_bounds,
+       redundant_masking]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -500,3 +502,37 @@ rel_op_2(Op, A, C, D, BoolResult0) when C =< D ->
     rel_op_2(Op, A, C + 1, D, BoolResult);
 rel_op_2(_Op, _, _, _, BoolResult) ->
     BoolResult.
+
+redundant_masking(_Config) ->
+    Min = -7,
+    Max = 15,
+    Seq = lists:seq(Min, Max),
+    _ = [test_redundant_masking({A,B}, M) ||
+            A <- Seq,
+            B <- lists:nthtail(A-Min, Seq),
+            M <- Seq],
+
+    false = beam_bounds:is_masking_redundant({'-inf',10}, 16#ff),
+    false = beam_bounds:is_masking_redundant({0,'+inf'}, 16#ff),
+    ok.
+
+test_redundant_masking({A,B}=R, M) ->
+    ShouldBe = test_redundant_masking(A, B, M),
+    case beam_bounds:is_masking_redundant(R, M) of
+        ShouldBe ->
+            ok;
+        false when M band (M + 1) =/= 0 ->
+            %% M + 1 is not a power of two.
+            ok;
+        false when A =:= B ->
+            ok;
+        Unexpected ->
+            io:format("beam_bounds:is_masking_redundant(~p, ~p) "
+                      "evaluates to ~p; should be ~p\n",
+                      [R,M,Unexpected,ShouldBe]),
+            ct:fail(bad_boolean)
+    end.
+
+test_redundant_masking(A, B, M) when A =< B ->
+    A band M =:= A andalso test_redundant_masking(A + 1, B, M);
+test_redundant_masking(_, _, _) -> true.
