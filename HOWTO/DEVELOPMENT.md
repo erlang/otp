@@ -1,7 +1,7 @@
 # Developing Erlang/OTP
 
 The Erlang/OTP development repository is quite large and the make system
-contains a lot of functionality to help when a developing. This howto
+contains a lot of functionality to help when developing. This howto
 will try to showcase the most important features of the make system.
 
 The guide is mostly aimed towards development on a Unix platform, but
