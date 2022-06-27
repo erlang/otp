@@ -749,6 +749,7 @@ load_code_server_prerequisites() ->
 	      os,
 	      unicode],
     _ = [M = M:module_info(module) || M <- Needed],
+    _ = erl_features:enabled(),
     ok.
 
 maybe_stick_dirs(interactive) ->

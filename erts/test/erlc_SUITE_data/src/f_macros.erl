@@ -20,46 +20,46 @@
 
 -module(f_macros).
 
--export([has_ifn/0,
-	 has_hindly_milner/0,
+-export([has_experimental/0,
+	 has_hindley_milner/0,
          with_hm/0,
-	 uses_ifn/0,
-	 uses_maybe/0
+	 uses_experimental/0,
+	 uses_exp2/0
 	]).
 
 %% This test feature exists
--if(?FEATURE_AVAILABLE(ifn_expr)).
-has_ifn() ->
+-if(?FEATURE_AVAILABLE(experimental_ftr_1)).
+has_experimental() ->
     true.
 -else.
-has_ifn() ->
+has_experimental() ->
     false.
 -endif.
 
 %% This feature will probably never exist :-(
 -if(?FEATURE_AVAILABLE(hindley_milner)).
-has_hindly_milner() ->
+has_hindley_milner() ->
     true.
 -else.
-has_hindly_milner() ->
+has_hindley_milner() ->
     false.
 -endif.
 
 with_hm() ->
     ?FEATURE_ENABLED(hindley_milner).
 
--if(?FEATURE_ENABLED(ifn_expr)).
-uses_ifn() ->
+-if(?FEATURE_ENABLED(experimental_ftr_1)).
+uses_experimental() ->
     true.
 -else.
-uses_ifn() ->
+uses_experimental() ->
     false.
 -endif.
 
--if(?FEATURE_ENABLED(while_expr)).
-uses_maybe() ->
+-if(?FEATURE_ENABLED(experimental_ftr_2)).
+uses_exp2() ->
     true.
 -else.
-uses_maybe() ->
+uses_exp2() ->
     false.
 -endif.

@@ -142,13 +142,12 @@
       <item>The compiler option <seeerl
       marker="compiler:compile#feature-option"><c>{feature,
       &lt;feature&gt;, enable|disable}</c></seeerl> can be used either
-      as a <c>+&lt;term&gt;</c> option to <c>erlc</c>, in the options
-      argument to function in the <c>compile</c> module, or in the
-      <c>-compile(..)</c> attribute in a file.</item>
+      as a <c>+&lt;term&gt;</c> option to <c>erlc</c> or in the options
+      argument to functions in the <c>compile</c> module.</item>
       <tag>The feature directive</tag>
-      <item>Inside a prefix of a module, one can use a <seeerl
-      marker="compiler:compile#feature-directive"><c>-feature(&lt;feature&gt;,
-      enable|disable)</c></seeerl> directive.  This is the preferred
+      <item>Inside a prefix of a module, one can use a <seeguide
+      marker="macros#feature-directive"><c>-feature(&lt;feature&gt;,
+      enable|disable)</c></seeguide> directive.  This is the preferred
       method of enabling and disabling features.</item>
     </taglist>
     <p>

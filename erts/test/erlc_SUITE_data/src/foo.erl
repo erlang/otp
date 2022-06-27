@@ -3,4 +3,4 @@
 -export [foo/0].
 
 foo() ->
-    ['maybe', 'else'].
+    ['while', 'until'].

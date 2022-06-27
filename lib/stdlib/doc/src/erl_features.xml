@@ -63,7 +63,20 @@
       <name name="all" arity="0" since="OTP 25.0"/>
       <fsummary>Return all known features.</fsummary>
       <desc>
-        <p>Return a list of all known features.</p>
+        <p>Return a list of all known features.  This list will
+        include features that have been removed (status
+        <c>rejected</c>) and features that are no longer configurable
+        (status <c>permanent</c>).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="configurable" arity="0" since="OTP 25.0"/>
+      <fsummary>Return all configurable features.</fsummary>
+      <desc>
+        <p>Return a list of all configurable features, that is, features
+        with status <c>experimental</c> or <c>approved</c>.  These are
+        the features that can be enabled or disabled.</p>
       </desc>
     </func>
 

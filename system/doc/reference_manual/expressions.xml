@@ -1815,7 +1815,7 @@ end</pre>
       <item>Expressions that construct atoms, integer, floats, lists,
       tuples, records, binaries, and maps</item>
       <item>Expressions that update a map</item>
-      <item>The record epxressions <c>Expr#Name.Field</c> and <c>#Name.Field</c></item>
+      <item>The record expressions <c>Expr#Name.Field</c> and <c>#Name.Field</c></item>
       <item>Calls to the BIFs specified in tables <em>Type Test BIFs</em> and
       <em>Other BIFs Allowed in Guard Expressions</em></item>
       <item>Term comparisons</item>

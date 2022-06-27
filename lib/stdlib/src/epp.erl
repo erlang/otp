@@ -246,7 +246,7 @@ format_error({error,Term}) ->
 format_error({warning,Term}) ->
     io_lib:format("-warning(~tp).", [Term]);
 format_error(ftr_after_prefix) ->
-    "feature directive not allowed after anything interesting";
+    "feature directive not allowed after exports or record definitions";
 format_error(E) -> file:format_error(E).
 
 -spec scan_file(FileName, Options) ->
@@ -644,7 +644,7 @@ init_server(Pid, FileName, Options, St0) ->
 %% configurable features.  Need in erl_lint to avoid warning about
 %% them.
 keep_ftr_keywords() ->
-    Features = erl_features:all(),
+    Features = erl_features:configurable(),
     Keywords = lists:flatmap(fun erl_features:keywords/1, Features),
     F = fun(Atom) -> atom_to_list(Atom) ++ "'" end,
     Strings = lists:map(F, Keywords),
@@ -656,11 +656,17 @@ keep_ftr_keywords() ->
 %%  Initialise the macro dictionary with the default predefined macros,
 %%  FILE, LINE, MODULE as undefined, MACHINE and MACHINE value.
 
-predef_macros(File, EnabledFeatures) ->
+predef_macros(File, EnabledFeatures0) ->
     Machine = list_to_atom(erlang:system_info(machine)),
     Anno = line1(),
     OtpVersion = list_to_integer(erlang:system_info(otp_release)),
-    AvailableFeatures = erl_features:all(),
+    AvailableFeatures =
+        [Ftr || Ftr <- erl_features:all(),
+                maps:get(status, erl_features:info(Ftr)) /= rejected],
+    PermanentFeatures =
+        [Ftr || Ftr <- erl_features:all(),
+                maps:get(status, erl_features:info(Ftr)) == permanent],
+    EnabledFeatures = EnabledFeatures0 ++ PermanentFeatures,
     Defs = [{'FILE', 	           {none,[{string,Anno,File}]}},
 	    {'FUNCTION_NAME',      undefined},
 	    {'FUNCTION_ARITY',     undefined},
@@ -672,8 +678,6 @@ predef_macros(File, EnabledFeatures) ->
 	    {'MACHINE',	           {none,[{atom,Anno,Machine}]}},
 	    {Machine,	           {none,[{atom,Anno,true}]}},
 	    {'OTP_RELEASE',	   {none,[{integer,Anno,OtpVersion}]}},
-            %% FIXME Understand this has to be a list.  Is it because
-            %% it takes an argument?
             {'FEATURE_AVAILABLE',  [ftr_macro(AvailableFeatures)]},
             {'FEATURE_ENABLED', [ftr_macro(EnabledFeatures)]}
 	   ],
@@ -1039,7 +1043,6 @@ scan_feature(Toks, {atom, _, Tag} = Token, From, St) ->
     epp_reply(From, {error,{loc(T),epp,{bad,Tag}}}),
     wait_req_scan(St).
 
-%% FIXME Rewrite this
 update_features(St0, Ind, Ftr, Loc) ->
     Ftrs0 = St0#epp.features,
     ScanOpts0 = St0#epp.erl_scan_opts,
