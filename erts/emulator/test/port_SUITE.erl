@@ -227,7 +227,12 @@ init_per_testcase(Case, Config) ->
     [{testcase, Case} |Config].
 
 end_per_testcase(_Case, _Config) ->
-    ok.
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 init_per_suite(Config) when is_list(Config) ->
     ignore_cores:init(Config).

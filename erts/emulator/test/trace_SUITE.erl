@@ -73,7 +73,13 @@ end_per_testcase(_Case, Config) ->
     Receiver = proplists:get_value(receiver, Config),
     unlink(Receiver),
     exit(Receiver, die),
-    ok.
+
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %% No longer testing anything, just reporting whether cpu_timestamp
 %% is enabled or not.

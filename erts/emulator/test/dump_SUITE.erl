@@ -54,8 +54,13 @@ init_per_testcase(_, Config) ->
     Config.
 
 
-end_per_testcase(_, Config) ->
-    Config.
+end_per_testcase(_, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %%%
 %%% The test cases -------------------------------------------------------------

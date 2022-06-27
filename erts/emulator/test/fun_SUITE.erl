@@ -21,6 +21,7 @@
 -module(fun_SUITE).
 
 -export([all/0, suite/0,
+         init_per_testcase/2, end_per_testcase/2,
 	 bad_apply/1,bad_fun_call/1,badarity/1,ext_badarity/1,
          bad_arglist/1,
 	 equality/1,ordering/1,
@@ -45,6 +46,17 @@ all() ->
      t_phash2, md5, refc, refc_ets, refc_dist,
      const_propagation, t_arity, t_is_function2, t_fun_info,
      t_fun_info_mfa,t_fun_to_list].
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
+
 
 %% Test that the correct EXIT code is returned for all types of bad funs.
 bad_apply(Config) when is_list(Config) ->

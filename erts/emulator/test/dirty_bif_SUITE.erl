@@ -83,7 +83,12 @@ init_per_testcase(Case, Config) ->
     [{testcase, Case} | Config].
 
 end_per_testcase(_Case, _Config) ->
-    ok.
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 dirty_bif(Config) when is_list(Config) ->
     dirty_cpu = erts_debug:dirty_cpu(scheduler,type),

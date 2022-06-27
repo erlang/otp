@@ -189,7 +189,15 @@ init_per_suite(Config) ->
 
 end_per_suite(_Config) ->
     logger:remove_handler_filter(default, checkio_filter),
-    catch erts_debug:set_internal_state(available_internal_state, false).
+    catch erts_debug:set_internal_state(available_internal_state, false),
+
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            io:format("LEAKED connections: ~p\n", [Nodes])
+    end.
+
 
 init_per_group(poll_thread, Config) ->
     [{node_args, ["+IOt", "2"]} | Config];
