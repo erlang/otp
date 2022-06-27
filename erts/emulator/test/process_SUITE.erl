@@ -71,6 +71,7 @@
          spawn_request_monitor_child_exit/1,
          spawn_request_link_child_exit/1,
          spawn_request_link_parent_exit/1,
+         spawn_request_link_parent_exit_nodedown/1,
          spawn_request_abandon_bif/1,
          dist_spawn_monitor/1,
          spawn_old_node/1,
@@ -109,6 +110,7 @@ all() ->
      spawn_request_monitor_child_exit,
      spawn_request_link_child_exit,
      spawn_request_link_parent_exit,
+     spawn_request_link_parent_exit_nodedown,
      spawn_request_abandon_bif,
      dist_spawn_monitor,
      spawn_old_node,
@@ -2932,6 +2934,73 @@ spawn_request_link_parent_exit_test(Node) ->
               end,
     Comment.
 
+spawn_request_link_parent_exit_nodedown(Config) when is_list(Config) ->
+    {ok, Node} = start_peer_node(Config),
+    N = 1000,
+    ExitCounter = spawn(Node, fun exit_counter/0),
+    lists:foreach(fun (_) ->
+                          spawn_request_link_parent_exit_nodedown_test(Node)
+                  end,
+                  lists:seq(1, N)),
+    ResRef = make_ref(),
+    ExitCounter ! {get_results, self(), ResRef},
+    Cmnt = receive
+               {ResRef, CntMap} ->
+                   lists:flatten(
+                     ["In total ", integer_to_list(N), " exits. ",
+                      "Detected exits: ",
+                      maps:fold(fun (ExitReason, Count, "") ->
+                                        io_lib:format("~p exit ~p times",
+                                                      [ExitReason, Count]);
+                                    (ExitReason, Count, Acc) ->
+                                        [Acc, io_lib:format("; ~p exit ~p times",
+                                                            [ExitReason, Count])]
+                                end,
+                                "",
+                                CntMap),
+                      "."])
+           end,
+    io:format("~s~n", [Cmnt]),
+    stop_node(Node),
+    {comment, Cmnt}.
+
+exit_counter() ->
+    true = register(exit_counter, self()),
+    exit_counter(#{}).
+
+exit_counter(CntMap) ->
+    receive
+        {get_results, From, Ref} ->
+            From ! {Ref, CntMap};
+        {exit, Reason} ->
+            OldCnt = maps:get(Reason, CntMap, 0),
+            exit_counter(CntMap#{Reason => OldCnt+1})
+    end.
+
+spawn_request_link_parent_exit_nodedown_test(Node) ->
+    pong = net_adm:ping(Node),
+    ChildFun = fun () ->
+                       process_flag(trap_exit, true),
+                       receive
+                           {'EXIT', _, Reason} ->
+                               exit_counter ! {exit, Reason}
+                       end
+               end,
+    {Pid, Mon} = spawn_monitor(fun () ->
+                                       _ReqID = spawn_request(Node,
+                                                              ChildFun,
+                                                              [link,
+                                                               {priority,max}]),
+                                       exit(bye)
+                               end),
+    receive
+        {'DOWN', Mon, process, Pid, Reason} ->
+            bye = Reason,
+            erlang:disconnect_node(Node)
+    end,
+    ok.
+
+
 spawn_request_abandon_bif(Config) when is_list(Config) ->
     {ok, Node} = start_node(Config),
     false = spawn_request_abandon(make_ref()),
@@ -4023,6 +4092,14 @@ start_node(Config, Args) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = make_nodename(Config),
     test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
+
+start_peer_node(Config) ->
+    start_peer_node(Config, "").
+
+start_peer_node(Config, Args) when is_list(Config) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    Name = make_nodename(Config),
+    test_server:start_node(Name, peer, [{args, "-pa "++Pa++" "++Args}]).
 
 stop_node(Node) ->
     verify_nc(node()),
