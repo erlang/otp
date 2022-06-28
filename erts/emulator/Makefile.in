@@ -242,9 +242,6 @@ VOID_EMULATOR =
 endif
 
 OPSYS=@OPSYS@
-ifeq ($(OPSYS),darwin)
-LDFLAGS += -sectcreate __TEXT __info_plist "$(ERL_TOP)/erts/etc/darwin/Info.plist"
-endif
 
 sol2CFLAGS=
 linuxCFLAGS=
