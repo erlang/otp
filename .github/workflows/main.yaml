@@ -127,7 +127,7 @@ jobs:
           tar -xzf ./otp_src.tar.gz
           export PATH=$PWD/wxWidgets/release/bin:$PATH
           cd otp
-          $GITHUB_WORKSPACE/.github/scripts/build-macos.sh
+          $GITHUB_WORKSPACE/.github/scripts/build-macos.sh build_docs --disable-dynamic-ssl-lib
           tar -czf otp_macos_$(cat OTP_VERSION)_x86-64.tar.gz -C release .
 
       - name: Test Erlang
@@ -152,6 +152,7 @@ jobs:
     runs-on: macos-12
     needs: pack
     steps:
+      - uses: actions/checkout@v2
       - name: Download source archive
         uses: actions/download-artifact@v2
         with:
@@ -161,12 +162,7 @@ jobs:
         run: |
           tar -xzf ./otp_src.tar.gz
           cd otp
-          export ERL_TOP=`pwd`
-          export MAKEFLAGS="-j$(($(nproc) + 2)) -O"
-          export ERLC_USE_SERVER=true
-          ./otp_build configure --xcomp-conf=./xcomp/erl-xcomp-arm64-ios.conf --without-ssl
-          ./otp_build boot -a
-          ./otp_build release -a
+          $GITHUB_WORKSPACE/.github/scripts/build-macos.sh --xcomp-conf=./xcomp/erl-xcomp-arm64-ios.conf --without-ssl
 
       - name: Package .xcframework
         run: |
