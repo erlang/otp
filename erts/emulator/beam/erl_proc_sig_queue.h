@@ -260,6 +260,7 @@ int erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
                                               ErtsMessage** last_next,
                                               Uint len,
                                               int is_signal);
+int erts_proc_sig_queue_force_buffers(Process*);
 
 #define ERTS_SIG_Q_OP_BITS      8                      
 #define ERTS_SIG_Q_OP_SHIFT     0

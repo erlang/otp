@@ -8341,15 +8341,14 @@ erts_proc_sig_queue_flush_get_buffers(Process* proc, int *need_unget_buffers)
             }
         }
     }
-    buffers->nr_of_rounds += 1;
-    if (buffers->nr_of_rounds >
-        ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE) {
+    if (--buffers->nr_of_rounds_left == 0) {
         /* Take decision if we should adapt back to the normal state */
         if(buffers->nr_of_enqueues <
            ERTS_PROC_SIG_INQ_BUFFERED_MIN_NO_ENQUEUES_TO_KEEP) {
             erts_proc_sig_queue_flush_and_deinstall_buffers(proc);
         } else {
-            buffers->nr_of_rounds = 0;
+            buffers->nr_of_rounds_left =
+                ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE;
             buffers->nr_of_enqueues = 0;
         }
     }
@@ -8461,7 +8460,8 @@ void erts_proc_sig_queue_maybe_install_buffers(Process* p, erts_aint32_t state)
     erts_atomic64_init_nob(&buffers->nonmsg_slots, (erts_aint64_t)(Uint64)0);
     erts_atomic64_init_nob(&buffers->dirty_refc, (erts_aint64_t)(Uint64)1);
     buffers->nr_of_enqueues = 0;
-    buffers->nr_of_rounds = 0;
+    buffers->nr_of_rounds_left =
+        ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE;
     buffers->alive = 1;
     /* Initialize  slots */
     for(i = 0; i < ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS; i++) {
@@ -8519,4 +8519,26 @@ void erts_proc_sig_queue_unget_buffers(ErtsSignalInQueueBufferArray* buffers,
         }
         erts_free(ERTS_ALC_T_SIGQ_BUFFERS, buffers);
     }
+}
+
+/* Only for test purposes */
+int erts_proc_sig_queue_force_buffers(Process* p)
+{
+    erts_aint32_t state;
+    ErtsSignalInQueueBufferArray* buffers;
+
+    erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
+    state = erts_atomic32_read_nob(&p->state);
+    /* Fake contention */
+    p->sig_inq_contention_counter =
+        1 + ERTS_PROC_SIG_INQ_BUFFERED_CONTENTION_INSTALL_LIMIT;
+    erts_proc_sig_queue_maybe_install_buffers(p, state);
+    buffers = ((ErtsSignalInQueueBufferArray*)
+               erts_atomic_read_nob(&p->sig_inq_buffers));
+    if (buffers) {
+        /* "Prevent" buffer deinstallation */
+        buffers->nr_of_rounds_left = ERTS_UINT_MAX;
+    }
+    erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+    return buffers != NULL;
 }
