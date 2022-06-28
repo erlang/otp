@@ -4951,6 +4951,17 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 #else
             BIF_RET(am_notsup);
 #endif
+        } else if (ERTS_IS_ATOM_STR("proc_sig_buffers", BIF_ARG_1)) {
+            switch (BIF_ARG_2)
+            {
+            case am_true: {
+                int has_buffers = erts_proc_sig_queue_force_buffers(BIF_P);
+                BIF_RET(has_buffers ? am_true : am_false);
+            }
+            default:
+                break;
+            }
+            BIF_RET(am_notsup);
         }
     }
 

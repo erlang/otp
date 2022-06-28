@@ -42,7 +42,12 @@
          busy_dist_down_signal/1,
          busy_dist_spawn_reply_signal/1,
          busy_dist_unlink_ack_signal/1,
-         monitor_order/1]).
+         monitor_order/1,
+         monitor_named_order_local/1,
+         monitor_named_order_remote/1,
+         monitor_nodes_order/1]).
+
+-export([spawn_spammers/3]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
@@ -69,14 +74,17 @@ all() ->
      busy_dist_down_signal,
      busy_dist_spawn_reply_signal,
      busy_dist_unlink_ack_signal,
-     monitor_order].
+     monitor_order,
+     monitor_named_order_local,
+     monitor_named_order_remote,
+     monitor_nodes_order].
 
 %% Test that exit signals and messages are received in correct order
 xm_sig_order(Config) when is_list(Config) ->
     LNode = node(),
-    repeat(fun () -> xm_sig_order_test(LNode) end, 1000),
+    repeat(fun (_) -> xm_sig_order_test(LNode) end, 1000),
     {ok, Peer, RNode} = ?CT_PEER(),
-    repeat(fun () -> xm_sig_order_test(RNode) end, 1000),
+    repeat(fun (_) -> xm_sig_order_test(RNode) end, 1000),
     peer:stop(Peer),
     ok.
     
@@ -490,9 +498,123 @@ monitor_order_1(N) ->
             monitor_order_1(N - 1)
     end.
 
+%% Signal order: Message vs DOWN from local process monitored by name.
+monitor_named_order_local(_Config) ->
+    process_flag(message_queue_data, off_heap),
+    erts_debug:set_internal_state(available_internal_state, true),
+    true = erts_debug:set_internal_state(proc_sig_buffers, true),
+
+    LNode = node(),
+    repeat(fun (N) -> monitor_named_order(LNode, N) end, 100),
+    ok.
+
+%% Signal order: Message vs DOWN from remote process monitored by name.
+monitor_named_order_remote(_Config) ->
+    process_flag(message_queue_data, off_heap),
+    erts_debug:set_internal_state(available_internal_state, true),
+    true = erts_debug:set_internal_state(proc_sig_buffers, true),
+
+    {ok, Peer, RNode} = ?CT_PEER(),
+    repeat(fun (N) -> monitor_named_order(RNode, N) end, 10),
+    peer:stop(Peer),
+    ok.
+
+monitor_named_order(Node, N) ->
+    %% Send messages using pid, name and alias.
+    Pid = self(),
+    register(tester, Pid),
+    Name = {tester, node()},
+    AliasA = alias(),
+    NumMsg = 1000 + N,
+    Sender = spawn_link(Node,
+                     fun() ->
+                             register(monitor_named_order, self()),
+                             Pid ! {self(), ready},
+                             {go, AliasM} = receive_any(),
+                             send_msg_seq(Pid, Name, AliasA, AliasM, NumMsg),
+                             exit(normal)
+                     end),
+    {Sender, ready} = receive_any(),
+    AliasM = monitor(process, {monitor_named_order,Node},
+                     [{alias,explicit_unalias}]),
+    Sender ! {go, AliasM},
+    recv_msg_seq(NumMsg),
+    {'DOWN', AliasM, process, {monitor_named_order,Node}, normal}
+        = receive_any(),
+    unregister(tester),
+    unalias(AliasA),
+    unalias(AliasM),
+    ok.
+
+send_msg_seq(_, _, _, _, 0) -> ok;
+send_msg_seq(To1, To2, To3, To4, N) ->
+    To1 ! N,
+    send_msg_seq(To2, To3, To4, To1, N-1).
+
+recv_msg_seq(0) -> ok;
+recv_msg_seq(N) ->
+    N = receive M -> M end,
+    recv_msg_seq(N-1).
+
+receive_any() ->
+    receive M -> M end.
+
+receive_any(Timeout) ->
+    receive M -> M
+    after Timeout -> timeout
+    end.
+
+monitor_nodes_order(_Config) ->
+    process_flag(message_queue_data, off_heap),
+    erts_debug:set_internal_state(available_internal_state, true),
+    true = erts_debug:set_internal_state(proc_sig_buffers, true),
+
+    {ok, Peer, RNode} = ?CT_PEER(#{peer_down => continue,
+                                   connection => 0}),
+    Self = self(),
+    ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
+    [] = nodes(connected),
+    Pids = peer:call(Peer, ?MODULE, spawn_spammers, [64, Self, []]),
+    {nodeup, RNode, []} = receive_any(),
+
+    ok = peer:cast(Peer, erlang, halt, [0]),
+
+    [put(P, 0) || P <- Pids],  % spam counters per sender
+    {nodedown, RNode, [{nodedown_reason,connection_closed}]} =
+        receive_filter_spam(),
+    [io:format("From spammer ~p: ~p messages\n", [P, get(P)]) || P <- Pids],
+    timeout = receive_any(100),   % Nothing after nodedown
+
+    {down, tcp_closed} = peer:get_state(Peer),
+    peer:stop(Peer),
+    ok.
+
+spawn_spammers(0, _To, Acc) ->
+    Acc;
+spawn_spammers(N, To, Acc) ->
+    Pid = spawn(fun() -> spam_pid(To, 1) end),
+    spawn_spammers(N-1, To, [Pid | Acc]).
+
+spam_pid(To, N) ->
+    To ! {spam, self(), N},
+    erlang:yield(), % Let other spammers run to get lots of different senders
+    spam_pid(To, N+1).
+
+receive_filter_spam() ->
+    receive
+        {spam, From, N} ->
+            match(N, get(From) + 1),
+            put(From, N),
+            receive_filter_spam();
+        M -> M
+    end.
+
+
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
+
+match(X,X) -> ok.
 
 load_driver(Config, Driver) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -610,5 +732,5 @@ spam(To, Data) ->
 repeat(_Fun, N) when is_integer(N), N =< 0 ->
     ok;
 repeat(Fun, N) when is_integer(N)  ->
-    Fun(),
+    Fun(N),
     repeat(Fun, N-1).
