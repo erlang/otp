@@ -1607,6 +1607,20 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
+    if (always_small(LHS) && RHS.isSmall() && RHS.isImmed()) {
+        auto lhs = load_source(LHS, ARG1);
+        comment("simplified compare because one operand is an immediate small");
+        cmp(lhs.reg, RHS.as<ArgImmed>().get());
+        a.b_lt(resolve_beam_label(Fail, disp1MB));
+        return;
+    } else if (LHS.isSmall() && LHS.isImmed() && always_small(RHS)) {
+        auto rhs = load_source(RHS, ARG1);
+        comment("simplified compare because one operand is an immediate small");
+        cmp(rhs.reg, LHS.as<ArgImmed>().get());
+        a.b_gt(resolve_beam_label(Fail, disp1MB));
+        return;
+    }
+
     auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
 
     if (always_small(LHS) && always_small(RHS)) {
@@ -1964,6 +1978,29 @@ void BeamModuleAssembler::emit_is_ge_lt(ArgLabel const &Fail1,
 }
 
 /*
+ * 1190 occurrences in OTP at the time of writing.
+ */
+void BeamModuleAssembler::emit_is_ge_ge(ArgLabel const &Fail1,
+                                        ArgLabel const &Fail2,
+                                        ArgRegister const &Src,
+                                        ArgConstant const &A,
+                                        ArgConstant const &B) {
+    if (!always_small(Src)) {
+        /* In practice, it is uncommon that Src is not a known small
+         * integer, so we will not bother optimizing that case. */
+        emit_is_ge(Fail1, Src, A);
+        emit_is_ge(Fail2, Src, B);
+        return;
+    }
+
+    auto src = load_source(Src, ARG1);
+    subs(TMP1, src.reg, A.as<ArgImmed>().get());
+    a.b_lt(resolve_beam_label(Fail1, disp1MB));
+    cmp(TMP1, B.as<ArgImmed>().get() - A.as<ArgImmed>().get());
+    a.b_lo(resolve_beam_label(Fail2, disp1MB));
+}
+
+/*
  * 60 occurrences in OTP at the time of writing. Seems to be common in
  * Elixir code.
  *
@@ -1990,7 +2027,7 @@ void BeamModuleAssembler::emit_is_int_in_range(ArgLabel const &Fail,
 }
 
 /*
- * 428 occurrencs in OTP at the time of writing.
+ * 428 occurrences in OTP at the time of writing.
  */
 void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
                                          ArgRegister const &Src,

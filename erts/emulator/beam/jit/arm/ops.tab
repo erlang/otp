@@ -485,6 +485,11 @@ is_ge Small N1=xy A=i | is_lt Large B=i N2=xy | equal(N1, N2) =>
 
 is_ge_lt f f S c c
 
+is_ge Fail1 N1=xy A=i | is_ge Fail2 N2=xy B=i | equal(N1, N2) =>
+    is_ge_ge Fail1 Fail2 N1 A B
+
+is_ge_ge f f S c c
+
 is_lt f s s
 is_ge f s s
 
