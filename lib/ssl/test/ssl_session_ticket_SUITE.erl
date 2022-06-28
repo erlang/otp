@@ -35,8 +35,16 @@
 %% Testcases
 -export([basic/0,
          basic/1,
-         basic_anti_replay/0,
-         basic_anti_replay/1,
+         ticketage_smaller_than_windowsize_anti_replay/0,
+         ticketage_smaller_than_windowsize_anti_replay/1,
+         ticketage_bigger_than_windowsize_anti_replay/0,
+         ticketage_bigger_than_windowsize_anti_replay/1,
+         ticketage_out_of_lifetime_anti_replay/0,
+         ticketage_out_of_lifetime_anti_replay/1,
+         ticket_reuse_anti_replay/0,
+         ticket_reuse_anti_replay/1,
+         ticket_reuse_anti_replay_server_restart/0,
+         ticket_reuse_anti_replay_server_restart/1,
          basic_stateful_stateless/0,
          basic_stateful_stateless/1,
          basic_stateless_stateful/0,
@@ -92,7 +100,11 @@ groups() ->
                       {group, stateless},
                       {group, mixed}]},
      {stateful, [], session_tests()},
-     {stateless, [], session_tests() ++ [basic_anti_replay]},
+     {stateless, [], session_tests() ++
+          [ticketage_smaller_than_windowsize_anti_replay,
+           ticketage_bigger_than_windowsize_anti_replay,
+           ticketage_out_of_lifetime_anti_replay, ticket_reuse_anti_replay,
+           ticket_reuse_anti_replay_server_restart]},
      {mixed, [], mixed_tests()}].
 
 session_tests() ->
@@ -212,60 +224,185 @@ basic(Config) when is_list(Config) ->
     ssl_test_lib:close(Server0),
     ssl_test_lib:close(Client1).
 
-basic_anti_replay() ->
-    [{doc,"Test session resumption with stateless session tickets and anti_replay (erlang client - erlang server)"}].
-basic_anti_replay(Config) when is_list(Config) ->
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+ticketage_smaller_than_windowsize_anti_replay() ->
+    [{doc, "Session resumption with stateless tickets and anti_replay enabled."
+      "ClientHello with DeltaAge smaller than Bloom filter window size - fresh ClientHello."
+      "DeltaAge treated as particular ClientHello adjective, calculated "
+      "as a difference between RealAge and ReportedAge of a ticket used in ClientHello."
+      "Ticket age smaller than windowsize."
+      "(Erlang client - Erlang server)"}].
+ticketage_smaller_than_windowsize_anti_replay(Config) when is_list(Config) ->
+    {Server0, Client0, Port0, ClientNode, Hostname, ClientOpts} =
+        anti_replay_helper_init(Config, auto, 10),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+    Client1 = anti_replay_helper_connect(Server0, Client0, Port0, ClientNode,
+                                         Hostname, ClientOpts, 0, true),
+    process_flag(trap_exit, false),
+    [ssl_test_lib:close(A) || A <- [Server0, Client0, Client1]].
 
+ticketage_bigger_than_windowsize_anti_replay() ->
+    [{doc, "Session resumption with stateless tickets and anti_replay enabled."
+      "Fresh ClientHellos."
+      "Ticket age bigger than windowsize. 0-RTT is expected to fail."
+      "(Erlang client - Erlang server)"}].
+ticketage_bigger_than_windowsize_anti_replay(Config) when is_list(Config) ->
+    WindowSize = 3,
+    {Server0, Client0, Port0, ClientNode, Hostname, ClientOpts} =
+        anti_replay_helper_init(Config, auto, WindowSize),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+    Client1 = anti_replay_helper_connect(Server0, Client0, Port0, ClientNode,
+                                         Hostname, ClientOpts,
+                                         {seconds, WindowSize + 2}, false),
+    Client2 = anti_replay_helper_connect(Server0, Client0, Port0, ClientNode,
+                                         Hostname, ClientOpts,
+                                         {seconds, 2*WindowSize + 2}, false),
+    process_flag(trap_exit, false),
+    [ssl_test_lib:close(A) || A <- [Server0, Client0, Client1, Client2]].
+
+ticketage_out_of_lifetime_anti_replay() ->
+    [{doc, "Session resumption with stateless tickets and anti_replay enabled."
+      "Fresh ClientHello."
+      "Ticket age beyond its lifetime. 0-RTT is expected to fail."
+      "(Erlang client - Erlang server)"}].
+ticketage_out_of_lifetime_anti_replay(Config) when is_list(Config) ->
+    Lifetime = 4,
+    WindowSize = 2,
+    {Server0, Client0, Port0, ClientNode, Hostname, ClientOpts} =
+        anti_replay_helper_init(Config, auto, WindowSize, Lifetime),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+    Client1 = anti_replay_helper_connect(Server0, Client0, Port0, ClientNode,
+                                         Hostname, ClientOpts,
+                                         {seconds, Lifetime + 2}, false),
+    process_flag(trap_exit, false),
+    [ssl_test_lib:close(A) || A <- [Server0, Client0, Client1]].
+
+ticket_reuse_anti_replay() ->
+    [{doc, "Verify that 2 connection attempts with same stateless tickets "
+      "are successful."
+      "Fresh ClientHellos."
+      "Ticket age smaller than windowsize."
+      "Anti_replay allows it because both "
+      "ClientHellos are unique, look fresh(small enough DeltaAge) "
+      "and do not look like a replay attempt."
+      "(Erlang client - Erlang server)"}].
+ticket_reuse_anti_replay(Config) when is_list(Config) ->
+    {Server0, Client0, Port0, ClientNode, Hostname, ClientOpts0} =
+        anti_replay_helper_init(Config, manual, 10),
+    [Ticket] = ssl_test_lib:check_tickets(Client0),
+    ssl_test_lib:check_result(Server0, ok),
+    ClientOpts1 = [{use_ticket, [Ticket]} | ClientOpts0],
+    Client1 = anti_replay_helper_connect(Server0, Client0, Port0, ClientNode,
+                                         Hostname, ClientOpts1, 0, true),
+    Client2 = anti_replay_helper_connect(Server0, Client1, Port0, ClientNode,
+                                         Hostname, ClientOpts1, 0, true),
+    process_flag(trap_exit, false),
+    [ssl_test_lib:close(A) || A <- [Server0, Client0, Client2]].
+
+ticket_reuse_anti_replay_server_restart() ->
+    [{doc, "Verify 2 connection attempts with same stateless tickets "
+      "and server restart between. Second attempt is expected to fail as long as "
+      "Bloom filter window overlaps with startup time."
+      "Fresh ClientHellos."
+      "(Erlang client - Erlang server)"
+
+      "RFC8446 8.2: When implementations are freshly started, they SHOULD reject "
+      "0-RTT as long as any portion of their recording window overlaps the startup "
+      "time. Otherwise, they run the risk of accepting replays which were "
+      "originally sent during that period."
+     }].
+ticket_reuse_anti_replay_server_restart(Config) when is_list(Config) ->
+    WindowSize = 10,
+    {Server0, Client0, Port0, ClientNode, Hostname, ClientOpts0} =
+        anti_replay_helper_init(Config, manual, WindowSize),
+    [Ticket] = ssl_test_lib:check_tickets(Client0),
+    ssl_test_lib:check_result(Server0, ok),
+    ClientOpts1 = [{use_ticket, [Ticket]} | ClientOpts0],
+    Client1 = anti_replay_helper_connect(Server0, Client0, Port0, ClientNode,
+                                         Hostname, ClientOpts1, 0, true),
+    {Server1, Port1} = anti_replay_helper_start_server(Config, WindowSize),
+    Client2 = anti_replay_helper_connect(Server1, Client1, Port1, ClientNode,
+                                         Hostname, ClientOpts1, 0, false, false),
+    process_flag(trap_exit, false),
+    [ssl_test_lib:close(A) || A <- [Server0, Client2, Server1]].
+
+anti_replay_helper_init(Config, Mode, WindowSize) ->
+    DefaultLifetime = ssl_config:get_ticket_lifetime(),
+    anti_replay_helper_init(Config, Mode, WindowSize, DefaultLifetime).
+
+anti_replay_helper_init(Config, Mode, WindowSize, Lifetime) ->
+    application:set_env(ssl, server_session_ticket_lifetime, Lifetime),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     %% Configure session tickets
-    ClientOpts = [{session_tickets, auto},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
+    ClientOpts = [{session_tickets, Mode},
+                  {versions, ['tlsv1.2','tlsv1.3']} | ClientOpts0],
+
+    {Server0 , Port0} = anti_replay_helper_start_server(Config, WindowSize),
+    MFA = case Mode of
+              auto ->
+                  {ssl_test_lib,
+                   verify_active_session_resumption,
+                   [false]};
+              manual ->
+                  {ssl_test_lib,
+                   verify_active_session_resumption,
+                   [false, wait_reply, {tickets, 1}]}
+          end,
+
+    %% Store ticket from first connection
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, MFA},
+                                         {from, self()}, {options, ClientOpts}]),
+    {Server0, Client0, Port0, ClientNode, Hostname, ClientOpts}.
+
+anti_replay_helper_start_server(Config, WindowSize) ->
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
     ServerOpts = [{session_tickets, ServerTicketMode},
-                  {anti_replay, '10k'},
+                  {anti_replay, {WindowSize, 5, 72985}},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
-    Server0 =
+    Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib,
                                           verify_active_session_resumption,
                                           [false]}},
 				   {options, ServerOpts}]),
-    Port0 = ssl_test_lib:inet_port(Server0),
+    Port0 = ssl_test_lib:inet_port(Server),
+    {Server, Port0}.
 
-    %% Store ticket from first connection
-    Client0 = ssl_test_lib:start_client([{node, ClientNode},
-                                         {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib,  %% Full handshake
-                                                verify_active_session_resumption,
-                                                [false]}},
-                                         {from, self()}, {options, ClientOpts}]),
-    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+anti_replay_helper_connect(Server, Client0, Port0, ClientNode, Hostname,
+                           ClientOpts, Delay, ExpectedResumption) ->
+    anti_replay_helper_connect(Server, Client0, Port0, ClientNode, Hostname,
+                               ClientOpts, Delay, ExpectedResumption, true).
 
-    Server0 ! {listen, {mfa, {ssl_test_lib,
-                              verify_active_session_resumption,
-                              [true]}}},
+anti_replay_helper_connect(Server, Client0, Port0, ClientNode, Hostname,
+                           ClientOpts, Delay, ExpectedResumption, SendListen) ->
+    case SendListen of
+        true ->
+            Server ! {listen, {mfa, {ssl_test_lib,
+                                     verify_active_session_resumption,
+                                     [ExpectedResumption]}}};
+        _ ->
+            ok
+    end,
 
     %% Wait for session ticket
     ct:sleep(100),
-
     ssl_test_lib:close(Client0),
-
+    ct:sleep(Delay),
     %% Use ticket
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib,  %% Short handshake
                                                 verify_active_session_resumption,
-                                                [true]}},
+                                                [ExpectedResumption]}},
                                          {from, self()}, {options, ClientOpts}]),
-    ssl_test_lib:check_result(Server0, ok, Client1, ok),
-
-    process_flag(trap_exit, false),
-    ssl_test_lib:close(Server0),
-    ssl_test_lib:close(Client1).
+    ssl_test_lib:check_result(Server, ok, Client1, ok),
+    Client1.
 
 basic_stateful_stateless() ->
     [{doc,"Test session resumption with session tickets (erlang client - erlang server)"}].
@@ -769,7 +906,7 @@ early_data_trial_decryption_failure(Config) when is_list(Config) ->
     ssl_test_lib:close(Client0),
 
     %% Use ticket
-    Client1 = ssl_test_lib:start_client_error([{node, ClientNode},
+    _Client1 = ssl_test_lib:start_client_error([{node, ClientNode},
                                                {port, Port0}, {host, Hostname},
                                                {mfa, {ssl_test_lib,  %% Short handshake
                                                       verify_active_session_resumption,
@@ -832,7 +969,7 @@ early_data_decryption_failure(Config) when is_list(Config) ->
     ssl_test_lib:close(Client0),
 
     %% Use ticket
-    Client1 = ssl_test_lib:start_client_error([{node, ClientNode},
+    _Client1 = ssl_test_lib:start_client_error([{node, ClientNode},
                                                {port, Port0}, {host, Hostname},
                                                {mfa, {ssl_test_lib,  %% Short handshake
                                                       verify_active_session_resumption,
