@@ -3241,7 +3241,8 @@ dyn_node_name_monitor_node(Config) ->
     %% but we have not yet gotten a name...
     Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
             "-pa", filename:dirname(code:which(?MODULE))],
-    {ok, Peer, _} = peer:start(#{connection => 0, args => Args}),
+    {ok, Peer, nonode@nohost} = peer:start_link(#{connection => 0, args => Args}),
+    [] = nodes(),
     LongNames = net_kernel:longnames(),
     StartOpts = #{name_domain => if LongNames -> longnames;
                                     true -> shortnames
