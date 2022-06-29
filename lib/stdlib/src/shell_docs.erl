@@ -1005,18 +1005,18 @@ nl(Chars) ->
 init_ansi(#config{ ansi = undefined, io_opts = Opts }) ->
     %% We use this as our heuristic to see if we should print ansi or not
     case {application:get_env(kernel, shell_docs_ansi),
+          proplists:get_value(tty, Opts, false),
           proplists:is_defined(echo, Opts) andalso
-          proplists:is_defined(expand_fun, Opts),
-          os:type()} of
+          proplists:is_defined(expand_fun, Opts)} of
         {{ok,false}, _, _} ->
             put(ansi, noansi);
         {{ok,true}, _, _} ->
             put(ansi, []);
-        {_, _, {win32,_}} ->
-            put(ansi, noansi);
-        {_, true,_} ->
+        {_, true, _} ->
             put(ansi, []);
-        {_, false,_} ->
+        {_, _, true} ->
+            put(ansi, []);
+        {_, _, false} ->
             put(ansi, noansi)
     end;
 init_ansi(#config{ ansi = true }) ->

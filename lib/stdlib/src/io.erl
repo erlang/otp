@@ -215,14 +215,16 @@ get_password(Io) ->
                     | {'expand_fun', expand_fun()}
                     | {'encoding', encoding()}
                     | {atom(), term()}.
+-type get_opt_pair() :: opt_pair()
+                      | {'terminal', boolean()}.
 
--spec getopts() -> [opt_pair()] | {'error', Reason} when
+-spec getopts() -> [get_opt_pair()] | {'error', Reason} when
       Reason :: term().
 
 getopts() ->
     getopts(default_input()).
 
--spec getopts(IoDevice) -> [opt_pair()] | {'error', Reason} when
+-spec getopts(IoDevice) -> [get_opt_pair()] | {'error', Reason} when
       IoDevice :: device(),
       Reason :: term().
 

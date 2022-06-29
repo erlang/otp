@@ -155,7 +155,16 @@ set_unicode_state(Drv,Bool) ->
     after 2000 ->
 	    timeout
     end.
-			   
+get_terminal_state(Drv) ->
+    Drv ! {self(),get_terminal_state},
+    receive
+	{Drv,get_terminal_state,UniState} ->
+	    UniState;
+	{Drv,get_terminal_state,error} ->
+	    {error, internal}
+    after 2000 ->
+	    {error,timeout}
+    end.
 
 io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
     case io_request(Req, Drv, Shell, {From,ReplyAs}, Buf0) of
@@ -411,8 +420,8 @@ getopts(Drv,Buf) ->
 			true -> unicode;
 			_ -> latin1
 		     end},
-    {ok,[Exp,Echo,Bin,Uni],Buf}.
-    
+    Tty = {terminal, get_terminal_state(Drv)},
+    {ok,[Exp,Echo,Bin,Uni,Tty],Buf}.
 
 %% get_chars_*(Prompt, Module, Function, XtraArgument, Drv, Buffer)
 %%  Gets characters from the input Drv until as the applied function

@@ -316,6 +316,9 @@ server(info, {Requester, set_unicode_state, Bool}, #state{ tty = TTYState } = St
     ok = io:setopts(standard_error,[{encoding, if Bool -> unicode; true -> latin1 end}]),
     Requester ! {self(), set_unicode_state, OldUnicode},
     {keep_state, State#state{ tty = NewTTYState }};
+server(info, {Requester, get_terminal_state}, _State) ->
+    Requester ! {self(), get_terminal_state, prim_tty:isatty(stdout) },
+    keep_state_and_data;
 server(info, Req, State = #state{ user = User, current_group = Curr })
   when element(1,Req) =:= User orelse element(1,Req) =:= Curr,
        tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3 ->
