@@ -52,6 +52,8 @@
 
 -export_type([attrib_entry/0, compinfo_entry/0, labeled_entry/0, label/0]).
 -export_type([chnk_rsn/0]).
+-export_type([info_rsn/0, chunkid/0, cmp_rsn/0, beam/0, chunkdata/0, chunkref/0, dataB/0, crypto_fun/0, mode/0]).
+-export_type([abst_code/0, debug_info/0, index/0, chunkname/0, crypto_fun_arg/0, forms/0]).
 
 -import(lists, [append/1, delete/2, foreach/2, keysort/2, 
 		member/2, reverse/1, sort/1, splitwith/2]).
