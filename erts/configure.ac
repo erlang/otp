@@ -3570,6 +3570,19 @@ CFLAGS="$CFLAGS $sanitizers"
 LDFLAGS="$LDFLAGS $sanitizers"
 ])
 
+dnl ----------------------------------------------------------------------
+dnl Enable build determinism flag
+dnl ----------------------------------------------------------------------
+
+AC_ARG_ENABLE(deterministic-build,
+AS_HELP_STRING([--enable-deterministic-build], [enable build determinism, stripping absolute paths from build output]),
+[ case "$enableval" in
+    no)  ERL_DETERMINISTIC=no ;;
+    *) ERL_DETERMINISTIC=yes ;;
+  esac ],
+ERL_DETERMINISTIC=no)
+AC_SUBST(ERL_DETERMINISTIC)
+
 AC_MSG_CHECKING([CFLAGS for -O switch])
 dnl                               Remove all "-O*" options
 no_opt_CFLAGS=$(echo " $CFLAGS" | sed 's/ -O[[^ ]]*/ /g')

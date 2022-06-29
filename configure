@@ -139,6 +139,10 @@ while test $# != 0; do
 	    pie_cflags="-fno-PIE"
 	    pie_ldflags="-no-pie"
 	    ;;
+	--enable-deterministic-build)
+      config_arguments="$config_arguments --enable-deterministic-build";;
+	--disable-deterministic-build)
+      config_arguments="$config_arguments --disable-deterministic-build";;
 	CFLAGS=* | LDFLAGS=*)
         flgs_var=`echo "$1" | sed 's/=.*$//'`
         flgs_val=`echo "$1" | sed 's/^[^=]*=//'`

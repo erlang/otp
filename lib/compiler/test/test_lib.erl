@@ -82,7 +82,8 @@ uniq() ->
 
 opt_opts(Mod) ->
     Comp = Mod:module_info(compile),
-    {options,Opts} = lists:keyfind(options, 1, Comp),
+    %% `options` may not be set at all if +deterministic is enabled.
+    Opts = proplists:get_value(options, Comp, []),
     lists:filter(fun
                      (debug_info) -> true;
                      (dialyzer) -> true;

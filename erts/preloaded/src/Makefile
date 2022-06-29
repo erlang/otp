@@ -86,6 +86,10 @@ STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 
 ERL_COMPILE_FLAGS += +debug_info -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
 
+ifeq ($(ERL_DETERMINISTIC),yes)
+	ERL_COMPILE_FLAGS += deterministic
+endif
+
 DIA_PLT      = erts-preloaded.plt
 DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
 ifeq ($(DIAW_EH),true)
