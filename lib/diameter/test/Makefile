@@ -59,6 +59,7 @@ ERL_COMPILE_FLAGS += +warn_export_vars \
                      -I ../include \
                      -I ../src/gen \
                      $(STRICT_FLAGS)
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 # ----------------------------------------------------
 # Targets

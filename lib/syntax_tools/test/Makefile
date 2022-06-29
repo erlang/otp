@@ -27,6 +27,7 @@ RELSYSDIR = $(RELEASE_PATH)/syntax_tools_test
 
 ERL_MAKE_FLAGS += 
 ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
 

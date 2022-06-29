@@ -35,6 +35,10 @@ ifeq ($(MEGACO_INLINE_ASN1_RT),true)
 ASN1_CT_OPTS += +inline
 endif
 
+ifeq ($(ERL_DETERMINISTIC),yes)
+ASN1_CT_OPTS += +deterministic
+endif
+
 BER_V1_FLAGS             = $(ASN1_CT_OPTS) +asn1config
 BER_V2_FLAGS             = $(ASN1_CT_OPTS) +asn1config
 BER_V3_FLAGS             = $(ASN1_CT_OPTS) +asn1config

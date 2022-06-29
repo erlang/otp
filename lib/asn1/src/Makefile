@@ -102,7 +102,13 @@ ERL_COMPILE_FLAGS += \
 	-I$(ERL_TOP)/lib/stdlib \
 	-Werror
 
-YRL_FLAGS = 
+ifeq ($(ERL_DETERMINISTIC),yes)
+	YRL_FLAGS = +deterministic
+	DETERMINISM_FLAG = +deterministic
+else
+	YRL_FLAGS = 
+	DETERMINISM_FLAG =
+endif
 
 # ----------------------------------------------------
 # Targets
@@ -182,10 +188,10 @@ asn1ct_rtt.erl: prepare_templates.$(EMULATOR) $(RT_TEMPLATES_TARGET)
            $(RT_TEMPLATES_TARGET)
 
 prepare_templates.$(EMULATOR): prepare_templates.erl
-	$(V_ERLC) prepare_templates.erl
+	$(V_ERLC) $(DETERMINISM_FLAG) prepare_templates.erl
 
 asn1rtt_%.$(EMULATOR): asn1rtt_%.erl
-	$(V_ERLC) +debug_info $<
+	$(V_ERLC) +debug_info $(DETERMINISM_FLAG) $<
 
 $(EVAL_CT_MODULES:%=%.erl): prepare_templates.$(EMULATOR) \
 			    $(EBIN)/asn1ct_rtt.$(EMULATOR) \

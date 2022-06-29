@@ -141,9 +141,10 @@ compile(Input0, Output0,
     Output = shorten_filename(Output0),
     Includefile = lists:sublist(Includes, 1),
     Werror = proplists:get_bool(warnings_as_errors, Specific),
+    Deterministic = proplists:get_bool(deterministic, Specific),
     Opts = [{parserfile,Output}, {includefile,Includefile}, {verbose,Verbose},
             {report_errors, true}, {report_warnings, WarnLevel > 0},
-	    {warnings_as_errors, Werror}],
+	    {warnings_as_errors, Werror}, {deterministic, Deterministic}],
     case file(Input, Opts) of
         {ok, _OutFile} ->
             ok;
@@ -265,6 +266,7 @@ file(GrammarFile) ->
               | {'parserfile', Parserfile :: file:filename()}
               | {'verbose', boolean()}
               | {'warnings_as_errors', boolean()}
+              | {'deterministic', boolean()}
               | 'report_errors' | 'report_warnings' | 'report'
               | 'return_errors' | 'return_warnings' | 'return'
               | 'verbose' | 'warnings_as_errors'.
@@ -407,7 +409,7 @@ check_options(_Options, _, _L) ->
 all_options() ->
     [error_location, file_attributes, includefile, parserfile,
      report_errors, report_warnings, return_errors, return_warnings,
-     time, verbose, warnings_as_errors].
+     time, verbose, warnings_as_errors, deterministic].
 
 default_option(error_location) -> column;
 default_option(file_attributes) -> true;
@@ -419,7 +421,8 @@ default_option(return_errors) -> false;
 default_option(return_warnings) -> false;
 default_option(time) -> false;
 default_option(verbose) -> false;
-default_option(warnings_as_errors) -> false.
+default_option(warnings_as_errors) -> false;
+default_option(deterministic) -> false.
 
 atom_option(file_attributes) -> {file_attributes, true};
 atom_option(report_errors) -> {report_errors, true};
@@ -429,6 +432,7 @@ atom_option(return_warnings) -> {return_warnings, true};
 atom_option(time) -> {time, true};
 atom_option(verbose) -> {verbose, true};
 atom_option(warnings_as_errors) -> {warnings_as_errors, true};
+atom_option(deterministic) -> {deterministic, true};
 atom_option(Key) -> Key.
 
 is_filename(T) ->
@@ -2695,7 +2699,12 @@ nl(#yecc{outport = Outport, line = Line}=St) ->
     St#yecc{line = Line + 1}.
 
 format_filename(Filename0, St) ->
-    Filename = filename:flatten(Filename0),
+    Deterministic = proplists:get_bool(deterministic, St#yecc.options),
+    Filename =
+      case Deterministic of
+        true -> filename:basename(filename:flatten(Filename0));
+        false -> filename:flatten(Filename0)
+      end,
     case lists:keyfind(encoding, 1, io:getopts(St#yecc.outport)) of
         {encoding, unicode} -> io_lib:write_string(Filename);
         _ ->                   io_lib:write_string_as_latin1(Filename)

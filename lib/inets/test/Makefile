@@ -200,6 +200,7 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 ERL_COMPILE_FLAGS += \
 	$(INCLUDES) \
 	$(INETS_FLAGS)
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 # ----------------------------------------------------
 # Targets

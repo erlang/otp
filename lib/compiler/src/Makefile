@@ -138,6 +138,12 @@ ERL_COMPILE_FLAGS += -Werror
 ERL_COMPILE_FLAGS += +inline +warn_unused_import \
  -I../../stdlib/include -I$(EGEN) -W +warn_missing_spec
 
+ifeq ($(ERL_DETERMINISTIC),yes)
+	DETERMINISM_FLAG = +deterministic
+else
+	DETERMINISM_FLAG =
+endif
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------

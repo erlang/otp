@@ -78,9 +78,10 @@ compile(Input0, Output0,
     Output = assure_extension(shorten_filename(Output0), ".erl"),
     Includefile = lists:sublist(Includes, 1),
     Werror = proplists:get_bool(warnings_as_errors, Specific),
+    Deterministic = proplists:get_bool(deterministic, Specific),
     Opts = [{scannerfile,Output},{includefile,Includefile},{verbose,Verbose},
             {report_errors,true},{report_warnings,WarnLevel > 0},
-	    {warnings_as_errors, Werror}],
+	    {warnings_as_errors, Werror}, {deterministic, Deterministic}],
     case file(Input, Opts) of
         {ok, _} ->
             ok;
@@ -117,6 +118,7 @@ file(File) -> file(File, []).
               | {'scannerfile', Scannerfile :: file:filename()}
               | {'verbose', boolean()}
               | {'warnings_as_errors', boolean()}
+              | {'deterministic', boolean()}
               | 'dfa_graph'
               | 'report_errors' | 'report_warnings' | 'report'
               | 'return_errors' | 'return_warnings' | 'return'
@@ -287,7 +289,7 @@ check_options(_Options, _, _L) ->
 all_options() ->
     [dfa_graph,includefile,report_errors,report_warnings,
      return_errors,return_warnings,scannerfile,verbose,
-     warnings_as_errors].
+     warnings_as_errors, deterministic].
 
 default_option(dfa_graph) -> false;
 default_option(includefile) -> [];
@@ -297,7 +299,8 @@ default_option(return_errors) -> false;
 default_option(return_warnings) -> false;
 default_option(scannerfile) -> [];
 default_option(verbose) -> false;
-default_option(warnings_as_errors) -> false.
+default_option(warnings_as_errors) -> false;
+default_option(deterministic) -> false.
 
 atom_option(dfa_graph) -> {dfa_graph,true};
 atom_option(report_errors) -> {report_errors,true};
@@ -306,6 +309,7 @@ atom_option(warnings_as_errors) -> {warnings_as_errors,true};
 atom_option(return_errors) -> {return_errors,true};
 atom_option(verbose) -> {verbose,true};
 atom_option(return_warnings) -> {return_warnings,true};
+atom_option(deterministic) -> {deterministic,true};
 atom_option(Key) -> Key.
 
 is_filename(T) ->
@@ -1362,7 +1366,8 @@ out_file(St0, DFA, DF, Actions, Code) ->
                         set_encoding(St0, Ofile),
                         try 
                             output_encoding_comment(Ofile, St0),
-                            output_file_directive(Ofile, St0#leex.ifile, 0),
+                            Deterministic = proplists:get_bool(deterministic, St0#leex.opts),
+                            output_file_directive(Ofile, St0#leex.ifile, Deterministic, 0),
                             out_file(Ifile, Ofile, St0, DFA, DF, Actions,
                                      Code, 1),
                             verbose_print(St0, "ok~n", []),
@@ -1400,15 +1405,18 @@ inc_file_name(Filename) ->
 %%  characters.
 
 out_file(Ifile, Ofile, St, DFA, DF, Actions, Code, L) ->
+    Deterministic = proplists:get_bool(deterministic, St#leex.opts),
     case io:get_line(Ifile, leex) of
-        eof -> output_file_directive(Ofile, St#leex.ifile, L);
-        {error, _} -> add_error(St#leex.ifile, {L, leex, cannot_parse}, St);
+        eof ->
+            output_file_directive(Ofile, St#leex.ifile, Deterministic, L);
+        {error, _} ->
+            add_error(St#leex.ifile, {L, leex, cannot_parse}, St);
         Line ->
             case string:slice(Line, 0, 5) of
                 "##mod" -> out_module(Ofile, St);
                 "##cod" -> out_erlang_code(Ofile, St, Code, L);
                 "##dfa" -> out_dfa(Ofile, St, DFA, Code, DF, L);
-                "##act" -> out_actions(Ofile, St#leex.xfile, Actions);
+                "##act" -> out_actions(Ofile, St#leex.xfile, Deterministic, Actions);
                 _ -> io:put_chars(Ofile, Line)
             end,
             out_file(Ifile, Ofile, St, DFA, DF, Actions, Code, L+1)
@@ -1419,7 +1427,8 @@ out_module(File, St) ->
 
 out_erlang_code(File, St, Code, L) ->
     {CodeL,CodePos,_NCodeLines} = Code,
-    output_file_directive(File, St#leex.xfile, CodeL),
+    Deterministic = proplists:get_bool(deterministic, St#leex.opts),
+    output_file_directive(File, St#leex.xfile, Deterministic, CodeL),
     {ok,Xfile} = file:open(St#leex.xfile, [read]),
     try
         set_encoding(St, Xfile),
@@ -1429,7 +1438,7 @@ out_erlang_code(File, St, Code, L) ->
         ok = file:close(Xfile)
     end,
     io:nl(File),
-    output_file_directive(File, St#leex.ifile, L).
+    output_file_directive(File, St#leex.ifile, Deterministic, L).
 
 file_copy(From, To) ->
     case io:get_line(From, leex) of
@@ -1441,8 +1450,9 @@ file_copy(From, To) ->
 
 out_dfa(File, St, DFA, Code, DF, L) ->
     {_CodeL,_CodePos,NCodeLines} = Code,
+    Deterministic = proplists:get_bool(deterministic, St#leex.opts),
     %% Three file attributes before this one...
-    output_file_directive(File, St#leex.efile, L+(NCodeLines-1)+3),
+    output_file_directive(File, St#leex.efile, Deterministic, L+(NCodeLines-1)+3),
     io:fwrite(File, "yystate() -> ~w.~n~n", [DF]),
     foreach(fun (S) -> out_trans(File, S) end, DFA),
     io:fwrite(File, "yystate(S, Ics, Line, Tlen, Action, Alen) ->~n", []),
@@ -1565,14 +1575,14 @@ pack_trans([Tr|Trs], Pt) ->                % The default uninteresting case
     pack_trans(Trs, Pt ++ [Tr]);
 pack_trans([], Pt) -> Pt.
 
-%% out_actions(File, XrlFile, ActionList) -> ok.
+%% out_actions(File, XrlFile, Deterministic, ActionList) -> ok.
 %% Write out the action table.
 
-out_actions(File, XrlFile, As) ->
+out_actions(File, XrlFile, Deterministic, As) ->
     As1 = prep_out_actions(As),
     foreach(fun (A) -> out_action(File, A) end, As1),
     io:fwrite(File, "yyaction(_, _, _, _) -> error.~n", []),
-    foreach(fun (A) -> out_action_code(File, XrlFile, A) end, As1).
+    foreach(fun (A) -> out_action_code(File, XrlFile, Deterministic, A) end, As1).
 
 prep_out_actions(As) ->
     map(fun ({A,empty_action}) ->
@@ -1603,14 +1613,14 @@ out_action(File, {A,_Code,Vars,Name,_Args,ArgsChars}) ->
     end,
     io:fwrite(File, "    ~s(~s);~n", [Name, ArgsChars]).
 
-out_action_code(_File, _XrlFile, {_A,empty_action}) ->
+out_action_code(_File, _XrlFile, _Deterministic, {_A,empty_action}) ->
     ok;
-out_action_code(File, XrlFile, {_A,Code,_Vars,Name,Args,ArgsChars}) ->
+out_action_code(File, XrlFile, Deterministic, {_A,Code,_Vars,Name,Args,ArgsChars}) ->
     %% Should set the file to the .erl file, but instead assumes that
     %% ?LEEXINC is syntactically correct.
     io:fwrite(File, "\n-compile({inline,~w/~w}).\n", [Name, length(Args)]),
     L = erl_scan:line(hd(Code)),
-    output_file_directive(File, XrlFile, L-2),
+    output_file_directive(File, XrlFile, Deterministic, L-2),
     io:fwrite(File, "~s(~s) ->~n", [Name, ArgsChars]),
     io:fwrite(File, "    ~ts\n", [pp_tokens(Code, L, File)]).
 
@@ -1710,12 +1720,18 @@ output_encoding_comment(_File, #leex{encoding = none}) ->
 output_encoding_comment(File, #leex{encoding = Encoding}) ->
     io:fwrite(File, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
 
-output_file_directive(File, Filename, Line) ->
+output_file_directive(File, Filename, Deterministic, Line) ->
     io:fwrite(File, <<"-file(~ts, ~w).\n">>,
-              [format_filename(Filename, File), Line]).
+              [format_filename(Filename, File, Deterministic), Line]).
 
-format_filename(Filename0, File) ->
-    Filename = filename:flatten(Filename0),
+format_filename(Filename0, File, Deterministic) ->
+    Filename =
+        case Deterministic of
+            true ->
+                filename:basename(filename:flatten(Filename0));
+            false ->
+                filename:flatten(Filename0)
+        end,
     case enc(File) of
         unicode -> io_lib:write_string(Filename);
         latin1  -> io_lib:write_string_as_latin1(Filename)

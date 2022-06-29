@@ -182,7 +182,7 @@ RELSYSDIR = $(RELEASE_PATH)/emulator_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS += 
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS := $(filter-out +deterministic,$($(ERL_COMPILE_FLAGS)))
 
 # ----------------------------------------------------
 # Targets
