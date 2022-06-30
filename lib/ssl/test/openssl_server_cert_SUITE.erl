@@ -350,7 +350,17 @@ init_per_group(dsa = Group, Config0) ->
             {skip, "Missing DSS crypto support"}
     end;    
 init_per_group(GroupName, Config) ->
-    ssl_test_lib:init_per_group_openssl(GroupName, Config).
+    case ssl_test_lib:is_protocol_version(GroupName) of
+        true  ->
+            case ssl_test_lib:check_sane_openssl_version(GroupName) of
+                true ->
+                    ssl_test_lib:init_per_group_openssl(GroupName, Config);
+                false  ->
+                    {skip, {atom_to_list(GroupName) ++ " not supported by OpenSSL"}}
+            end;
+        false ->
+            Config
+    end.
 
 end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
