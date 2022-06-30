@@ -342,7 +342,7 @@ si_remote_call_1(Dst, [Callee | Args], Lbl, Blocks) ->
                   none
           end,
     case MFA of
-        {erlang,alias,A} when 0 =< A, A =< 1 ->
+        {erlang,alias,A} when is_integer(A), 0 =< A, A =< 1 ->
             {makes_ref, Lbl, Dst};
         {erlang,demonitor,2} ->
             case Args of
@@ -357,12 +357,12 @@ si_remote_call_1(Dst, [Callee | Args], Lbl, Blocks) ->
             end;
         {erlang,make_ref,0} ->
             {makes_ref, Lbl, Dst};
-        {erlang,monitor,A} when 2 =< A, A =< 3 ->
+        {erlang,monitor,A} when is_integer(A), 2 =< A, A =< 3 ->
             {makes_ref, Lbl, Dst};
-        {erlang,spawn_monitor,A} when 1 =< A, A =< 4 ->
+        {erlang,spawn_monitor,A} when is_integer(A), 1 =< A, A =< 4 ->
             RPO = beam_ssa:rpo([Lbl], Blocks),
             si_ref_in_tuple(RPO, Blocks, Dst);
-        {erlang,spawn_request,A} when 1 =< A, A =< 5 ->
+        {erlang,spawn_request,A} when is_integer(A), 1 =< A, A =< 5 ->
             {makes_ref, Lbl, Dst};
         _ ->
             %% As an aside, spawn_opt/2-5 is trivially supported by handling it
