@@ -35,6 +35,8 @@
 %%
 -define(SIZE_UPPER_LIMIT, ((1 bsl 58) - 1)).
 
+-define(UNICODE_TYPE, #t_integer{elements={0,16#10FFFF}}).
+
 %%
 %% Returns whether a call will succeed or not.
 %%
@@ -459,6 +461,8 @@ types(erlang, '--', [LHS, _]) ->
     RetType = copy_list(LHS, new_length, proper),
     sub_unsafe(RetType, [proper_list(), proper_list()]);
 
+types(erlang, atom_to_list, [_]) ->
+    sub_unsafe(proper_list(?UNICODE_TYPE), [#t_atom{}]);
 types(erlang, 'iolist_to_binary', [_]) ->
     %% Arg is an iodata(), despite its name.
     ArgType = join(#t_list{}, #t_bitstring{size_unit=8}),
@@ -474,6 +478,10 @@ types(erlang, 'list_to_binary', [_]) ->
 types(erlang, 'list_to_bitstring', [_]) ->
     %% As list_to_binary but with bitstrings rather than binaries.
     sub_unsafe(#t_bitstring{}, [proper_list()]);
+types(erlang, list_to_integer, [_]) ->
+    sub_unsafe(#t_integer{}, [proper_cons()]);
+types(erlang, list_to_integer, [_, _]) ->
+    sub_unsafe(#t_integer{}, [proper_cons(), #t_integer{}]);
 
 %% Process operations
 types(erlang, alias, []) ->
