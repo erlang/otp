@@ -32,22 +32,12 @@
 -export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, 
 	 proxy_setnext/2, proxy_quit/1]).
 %% For spawn
--export([toerl_server/3,answering_machine1/3,
-	 answering_machine2/3]).
+-export([toerl_server/4,answering_machine1/3,answering_machine2/3]).
 
 -export([uprompt/1]).
 
-%%-define(without_test_server, true).
-
--ifdef(without_test_server).
--define(line, put(line, ?LINE), ).
--define(config(X,Y), foo).
--define(t, test_server).
--define(privdir(_), "./io_SUITE_priv").
--else.
 -include_lib("common_test/include/ct.hrl").
 -define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
--endif.
 
 %%-define(debug, true).
 
@@ -114,36 +104,42 @@ unicode_prompt(Config) when is_list(Config) ->
 	old ->
 	    ok;
 	new ->
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
-		    {getline, "default"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "\"hej\\n\""},
-		    {putline, "io:setopts([{binary,true}])."},
-		    {getline, "ok"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "<<\"hej\\n\">>"}
-		   ],[],[],"-pa \""++ PA++"\"")
+	    rtnode(
+              [{putline,""},
+               {putline, "2."},
+               {expect, "[\n ]2"},
+               {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
+               {expect, "[\n ]default"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect, "\\Q\"hej\\n\"\\E"},
+               {putline, "io:setopts([{binary,true}])."},
+               {expect, "[\n ]ok"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect,"[\n ]hej"},
+               {expect, "\\Q<<\"hej\\n\">>\\E"}
+              ],[],"",["-pa",PA]);
+        _ ->
+            ok
     end,
     %% And one with oldshell
-    rtnode([{putline,""},
-	    {putline, "2."},
-	    {getline_re, ".*2$"},
-	    {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
-	    {getline_re, ".*default"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*\"hej\\\\n\""},
-	    {putline, "io:setopts([{binary,true}])."},
-	    {getline_re, ".*ok"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*<<\"hej\\\\n\">>"}
-	   ],[],[],"-oldshell -pa \""++PA++"\""),
+    rtnode(
+      [{putline,""},
+       {putline, "2."},
+       {expect, "[\n ]2"},
+       {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
+       {expect, "default"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect, "\\Q\"hej\\n\"\\E"},
+       {putline, "io:setopts([{binary,true}])."},
+       {expect, "[\n ]ok"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect,"[\n ]hej"},
+       {expect, "\\Q<<\"hej\\n\">>\\E"}
+      ],[],"",["-oldshell","-pa",PA]),
     ok.
 
 
@@ -226,36 +222,40 @@ setopts_getopts(Config) when is_list(Config) ->
 	    ok;
 	new ->
 	    %% So, lets test another node with new interactive shell
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline, "lists:keyfind(binary,1,io:getopts())."},
-		    {getline, "{binary,false}"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "\"hej\\n\""},
-		    {putline, "io:setopts([{binary,true}])."},
-		    {getline, "ok"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "<<\"hej\\n\">>"}
-		   ],[])
+	    rtnode(
+              [{putline,""},
+               {putline, "2."},
+               {expect, "[\n ]2[^.]"},
+               {putline, "lists:keyfind(binary,1,io:getopts())."},
+               {expect, "{binary,false}"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect, "\\Q\"hej\\n\"\\E"},
+               {putline, "io:setopts([{binary,true}])."},
+               {expect, "[\n ]ok"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect, "\\Q<<\"hej\\n\">>\\E"}
+              ],[]);
+        _ ->
+            ok
     end,
     %% And one with oldshell
-    rtnode([{putline,""},
-	    {putline, "2."},
-	    {getline_re, ".*2$"},
-	    {putline, "lists:keyfind(binary,1,io:getopts())."},
-	    {getline_re, ".*{binary,false}"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*\"hej\\\\n\""},
-	    {putline, "io:setopts([{binary,true}])."},
-	    {getline_re, ".*ok"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*<<\"hej\\\\n\">>"}
-	   ],[],[],"-oldshell"),
+    rtnode(
+      [{putline,""},
+       {putline, "2."},
+       {expect, "[\n ]2[^.]"},
+       {putline, "lists:keyfind(binary,1,io:getopts())."},
+       {expect, "[\n ]{binary,false}"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect, "\\Q\"hej\\n\"\\E"},
+       {putline, "io:setopts([{binary,true}])."},
+       {expect, "[\n ]ok"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect, "\\Q<<\"hej\\n\">>\\E"}
+      ],[],"",["-oldshell"]),
     ok.
 
 
@@ -423,38 +423,36 @@ unicode_options(Config) when is_list(Config) ->
 	    ok;
 	new ->
 	    %% OK, time for the group_leaders...
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline, "lists:keyfind(encoding,1,io:getopts())."},
-		    {getline, "{encoding,latin1}"},
-		    {putline, "io:format(\"~ts~n\",[[1024]])."},
-		    {getline, "\\x{400}"},
-		    {putline, "io:setopts([unicode])."},
-		    {getline, "ok"},
-		    {putline, "io:format(\"~ts~n\",[[1024]])."},
-		    {getline,
-		     binary_to_list(unicode:characters_to_binary(
-				      [1024],unicode,utf8))}
-		   ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; "
-		   "export LC_CTYPE; ")
+	    rtnode(
+              [{putline,""},
+               {putline, "2."},
+               {expect, "[\n ]2[^.]"},
+               {putline, "lists:keyfind(encoding,1,io:getopts())."},
+               {expect, "{encoding,latin1}"},
+               {putline, "io:format(\"~ts~n\",[[1024]])."},
+               {expect, "\\Q\\x{400}\\E"},
+               {putline, "io:setopts([unicode])."},
+               {expect, "[\n ]ok"},
+               {putline, "io:format(\"~ts~n\",[[1024]])."},
+               {expect, "[\n ]"++[1024]}
+              ],[],"",["-env","LC_ALL",get_lc_ctype()]);
+        _ ->
+            ok
     end,
-    rtnode([{putline,""},
-	    {putline, "2."},
-	    {getline_re, ".*2$"},
-	    {putline, "lists:keyfind(encoding,1,io:getopts())."},
-	    {getline_re, ".*{encoding,latin1}"},
-	    {putline, "io:format(\"~ts~n\",[[1024]])."},
-	    {getline_re, ".*\\\\x{400\\}"},
-	    {putline, "io:setopts([{encoding,unicode}])."},
-	    {getline_re, ".*ok"},
-	    {putline, "io:format(\"~ts~n\",[[1024]])."},
-	    {getline_re,
-	     ".*"++binary_to_list(unicode:characters_to_binary(
-				    [1024],unicode,utf8))}
-	   ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; ",
-	   " -oldshell "),
-
+    rtnode(
+      [{putline,""},
+       {putline, "2."},
+       {expect, "[\n ]2[^.]"},
+       {putline, "lists:keyfind(encoding,1,io:getopts())."},
+       {expect, "[\n ]{encoding,latin1}"},
+       {putline, "io:format(\"~ts~n\",[[1024]])."},
+       {expect, "\\Q\\x{400}\\E"},
+       {putline, "io:setopts([{encoding,unicode}])."},
+       {expect, "[\n ]ok"},
+       {putline, "io:format(\"~ts~n\",[[1024]])."},
+       {expect, "[\n ]"++[1024]}
+      ],[],"",
+      ["-oldshell","-env","LC_ALL",get_lc_ctype()]),
     ok.
 
 %% Tests various unicode options on random generated files.
@@ -712,40 +710,44 @@ binary_options(Config) when is_list(Config) ->
 	old ->
 	    ok;
 	new ->
-	    rtnode([{putline, "2."},
-		    {getline, "2"},
-		    {putline, "lists:keyfind(binary,1,io:getopts())."},
-		    {getline, "{binary,false}"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "\"hej\\n\""},
-		    {putline, "io:setopts([{binary,true},unicode])."},
-		    {getline, "ok"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "<<\"hej\\n\">>"},
-		    {putline, "io:get_line('')."},
-		    {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-		    {getline, "<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>"}
-		   ],[])
+	    rtnode(
+              [{putline, "2."},
+               {expect, "[\n ]2[^.]"},
+               {putline, "lists:keyfind(binary,1,io:getopts())."},
+               {expect, "[\n ]{binary,false}"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect, "\\Q\"hej\\n\"\\E"},
+               {putline, "io:setopts([{binary,true},unicode])."},
+               {expect, "[\n ]ok"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect, "\\Q<<\"hej\\n\">>\\E"},
+               {putline, "io:get_line('')."},
+               {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
+               {expect, latin1, "[\n ]\\Q<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>\\E"}
+              ],[]);
+        _ ->
+            ok
     end,
     %% And one with oldshell
-    rtnode([{putline, "2."},
-	    {getline_re, ".*2$"},
-	    {putline, "lists:keyfind(binary,1,io:getopts())."},
-	    {getline_re, ".*{binary,false}"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*\"hej\\\\n\""},
-	    {putline, "io:setopts([{binary,true},unicode])."},
-	    {getline_re, ".*ok"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*<<\"hej\\\\n\">>"},
-	    {putline, "io:get_line('')."},
-	    {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-	    {getline_re, ".*<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\\\n\"/utf8>>"}
-	   ],[],[],"-oldshell"),
+    rtnode(
+      [{putline, "2."},
+       {expect, "[\n ]2[^.]"},
+       {putline, "lists:keyfind(binary,1,io:getopts())."},
+       {expect, "[\n ]{binary,false}"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect, "[\n ]\\Q\"hej\\n\"\\E"},
+       {putline, "io:setopts([{binary,true},unicode])."},
+       {expect, "[\n ]ok"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect, "\\Q<<\"hej\\n\">>\\E"},
+       {putline, "io:get_line('')."},
+       {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
+       {expect, latin1, "[\n ]\\Q<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>\\E"}
+      ],[],"",["-oldshell"]),
     ok.
 
 
@@ -756,68 +758,70 @@ answering_machine1(OthNode,OthReg,Me) ->
     TestDataUtf = binary_to_list(unicode:characters_to_binary(TestDataLine1)),
     rtnode([{putline,""},
 	    {putline, "2."},
-	    {getline, "2"},
+	    {expect, "2"},
+	    {putline, "io:getopts()."},
+	    {expect, ">"},
 	    {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
-	    {getline, "<"},
+	    {expect, "<"},
 	    %% get_line
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
+	    {expect, ".*Okej"},
 	    %% get_chars
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
+	    {expect, ".*Okej"},
 	    %% fread
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"}
+	    {expect, ".*Okej"}
 
-	   ],Me,"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "),
+	   ],Me,"",["-env","LC_ALL",get_lc_ctype()]),
     O = list_to_atom(OthReg),
     O ! {self(),done},
     ok.
@@ -827,68 +831,68 @@ answering_machine2(OthNode,OthReg,Me) ->
     TestDataUtf = binary_to_list(unicode:characters_to_binary(TestDataLine1)),
     rtnode([{putline,""},
 	    {putline, "2."},
-	    {getline, "2"},
+	    {expect, "2"},
 	    {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
-	    {getline_re, ".*<[0-9].*"},
+	    {expect, ".*<[0-9].*"},
 	    %% get_line
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
+	    {expect, ".*Okej"},
 	    %% get_chars
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
+	    {expect, ".*Okej"},
 	    %% fread
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
+	    {expect, ".*Okej"},
+	    {expect, ".*Prompt"},
 	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"}
+	    {expect, ".*Okej"}
 
-	   ],Me,"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "," -oldshell "),
+	   ],Me,"",["-oldshell","-env","LC_ALL",get_lc_ctype()]),
     O = list_to_atom(OthReg),
     O ! {self(),done},
     ok.
@@ -909,7 +913,7 @@ read_modes_gl(Config) when is_list(Config) ->
 	{{error,Reason},_} ->
 	    {skipped,Reason};
 	{_,old} ->
-	    {skipper,"No new shell"};
+	    {skipped,"No new shell"};
 	_ ->
 	    read_modes_gl_1(Config,answering_machine1)
     end.
@@ -919,7 +923,7 @@ read_modes_gl_1(_Config,Machine) ->
     TestDataLine1BinUtf = unicode:characters_to_binary(TestDataLine1),
     TestDataLine1BinLatin = list_to_binary(TestDataLine1),
 
-    {ok,N2List} = create_nodename(),
+    N2List = peer:random_name(?FUNCTION_NAME),
     MyNodeList = atom2list(node()),
     register(io_proto_suite,self()),
     AM1 = spawn(?MODULE,Machine,
@@ -1079,51 +1083,85 @@ eof_on_pipe(Config) when is_list(Config) ->
 %% Tool for running interactive shell (stolen from the kernel
 %% test suite interactive_shell_SUITE)
 %%
--undef(line).
--define(line,).
-rtnode(C,N) ->
-    rtnode(C,N,[]).
-rtnode(Commands,Nodename,ErlPrefix) ->
-    rtnode(Commands,Nodename,ErlPrefix,[]).
-rtnode(Commands,Nodename,ErlPrefix,Extra) ->
+rtnode(C) ->
+    rtnode(C, [], [], []).
+
+rtnode(C, N) ->
+    rtnode(C, N, [], []).
+
+rtnode(Commands, Nodename, ErlPrefix) ->
+    rtnode(Commands, Nodename, ErlPrefix, []).
+
+rtnode(Commands, Nodename, ErlPrefix, Args) ->
+    case rtstart(Nodename, ErlPrefix, Args) of
+        {ok, _SPid, CPid, RTState} ->
+            Res = catch send_commands(CPid, Commands, 1),
+            Logs = rtstop(RTState),
+            case Res of
+                ok ->
+                    rtnode_dump_logs(Logs),
+                    ok;
+                _ ->
+                    rtnode_dump_logs(Logs),
+                    ok = Res
+            end,
+            {ok, Logs};
+        Skip ->
+            Skip
+    end.
+
+rtstart(Args) ->
+    rtstart([], " ", Args).
+
+rtstart(Nodename, ErlPrefix, Args) ->
     case get_progs() of
 	{error,_Reason} ->
 	    {skip,"No runerl present"};
-	{RunErl,ToErl,Erl} ->
+	{RunErl,ToErl,[Erl|ErlArgs] = ErlWArgs} ->
 	    case create_tempdir() of
 		{error, Reason2} ->
 		    {skip, Reason2};
-		Tempdir ->
-		    SPid = start_runerl_node(RunErl, ErlPrefix++
-						 "\\\""++Erl++"\\\"",
-					     Tempdir, Nodename, Extra),
-		    CPid = start_toerl_server(ToErl, Tempdir),
-		    put(getline_skipped, []),
-		    Res = (catch get_and_put(CPid, Commands, 1)),
-		    case stop_runerl_node(CPid) of
-			{error,_} ->
-			    CPid2 = start_toerl_server(ToErl, Tempdir),
-			    put(getline_skipped, []),
-			    ok = get_and_put
-				   (CPid2,
-				    [{putline,[7]},
-				     {sleep,
-				      timeout(short)},
-				     {putline,""},
-				     {getline," -->"},
-				     {putline,"s"},
-				     {putline,"c"},
-				     {putline,""}], 1),
-			    stop_runerl_node(CPid2);
-			_ ->
-			    ok
-		    end,
-		    wait_for_runerl_server(SPid),
-		    ok = ?RM_RF(Tempdir),
-		    ok = Res
-	    end
+		Tempdir when ErlPrefix =/= [] ->
+		    SPid =
+			start_runerl_node(RunErl,
+                                          ErlPrefix++"\\\""++Erl++"\\\" "++
+                                              lists:join($\s, ErlArgs),
+					  Tempdir,Nodename,Args),
+		    CPid = start_toerl_server(ToErl,Tempdir,undefined),
+                    {ok, SPid, CPid, {CPid, SPid, ToErl, Tempdir}};
+                Tempdir ->
+                    SPid = start_peer_runerl_node(RunErl,ErlWArgs,Tempdir,Nodename,Args),
+                    CPid = start_toerl_server(ToErl,Tempdir,SPid),
+                    {ok, SPid, CPid, {CPid, SPid, ToErl, Tempdir}}
+            end
     end.
 
+rtstop({CPid, SPid, ToErl, Tempdir}) ->
+    %% Unlink from peer so that we don't crash when peer quits
+    unlink(SPid),
+    case stop_runerl_node(CPid) of
+        {error,_} ->
+            catch rtstop_try_harder(ToErl, Tempdir, SPid);
+        _ ->
+            ok
+    end,
+    wait_for_runerl_server(SPid),
+    Logs = rtnode_read_logs(Tempdir),
+%    file:del_dir_r(Tempdir),
+    Logs.
+
+rtstop_try_harder(ToErl, Tempdir, SPid) ->
+    CPid = start_toerl_server(ToErl, Tempdir, SPid),
+    ok = send_commands(CPid,
+                       [{putline,[7]},
+                        {expect, " --> $"},
+                        {putline, "s"},
+                        {putline, "c"},
+                        {putline, ""}], 1),
+    stop_runerl_node(CPid).
+
+timeout(longest) ->
+    timeout(long) + timeout(normal);
 timeout(long) ->
     2 * timeout(normal);
 timeout(short) ->
@@ -1131,130 +1169,65 @@ timeout(short) ->
 timeout(normal) ->
     10000 * test_server:timetrap_scale_factor().
 
-
-%% start_noshell_node(Name) ->
-%%     PADir =  filename:dirname(code:which(?MODULE)),
-%%     {ok, Node} = test_server:start_node(Name,slave,[{args," -noshell -pa "++
-%% 						     PADir++" "}]),
-%%     Node.
-%% stop_noshell_node(Node) ->
-%%     test_server:stop_node(Node).
-
--ifndef(debug).
-rm_rf(Dir) ->
-    try
-	{ok,List} = file:list_dir(Dir),
-	Files = [filename:join([Dir,X]) || X <- List],
-	[case file:list_dir(Y) of
-	     {error, enotdir} ->
-		 ok = file:delete(Y);
-	     _ ->
-		 ok = rm_rf(Y)
-	 end || Y <- Files],
-	ok = file:del_dir(Dir),
-	ok
-    catch
-	_:Exception -> {error, {Exception,Dir}}
-    end.
--endif.       
-
-get_and_put(_CPid,[],_) ->
-    ok;
-get_and_put(CPid, [{sleep, X}|T],N) ->
+send_commands(CPid, [{sleep, X}|T], N) ->
     ?dbg({sleep, X}),
     receive
     after X ->
-	    get_and_put(CPid,T,N+1)
+	    send_commands(CPid, T, N+1)
     end;
-get_and_put(CPid, [{getline_pred,Pred,Msg}|T]=T0, N)
-  when is_function(Pred) ->
-    ?dbg({getline, Match}),
-    CPid ! {self(), {get_line, timeout(normal)}},
-    receive
-	{get_line, timeout} ->
-	    error_logger:error_msg("~p: getline timeout waiting for \"~s\" "
-				   "(command number ~p, skipped: ~p)~n",
-				   [?MODULE,Msg,N,get(getline_skipped)]),
-	    {error, timeout};
-	{get_line, Data} ->
-	    ?dbg({data,Data}),
-	    case Pred(Data) of
-		yes ->
-		    put(getline_skipped, []),
-		    get_and_put(CPid, T,N+1);
-		no ->
-		    error_logger:error_msg("~p: getline match failure "
-					   "\"~s\" "
-					   "(command number ~p)\n",
-					   [?MODULE,Msg,N]),
-		    {error, no_match};
-		'maybe' ->
-		    List = get(getline_skipped),
-		    put(getline_skipped, List ++ [Data]),
-		    get_and_put(CPid, T0, N)
-	    end
+send_commands(CPid, [{expect, Expect}|T], N) when is_list(Expect) ->
+    ?dbg({expect, Expect}),
+    case command(CPid, {expect, [Expect], timeout(normal)}) of
+        ok ->
+            send_commands(CPid, T, N + 1);
+        {expect_timeout, Got} ->
+            ct:pal("expect timed out waiting for ~p\ngot: ~p\n", [Expect,Got]),
+            {error, timeout};
+        Other ->
+            Other
     end;
-get_and_put(CPid, [{getline, Match}|T],N) ->
-    ?dbg({getline, Match}),
-    F = fun(Data) ->
-		case lists:prefix(Match, Data) of
-		    true -> yes;
-		    false -> 'maybe'
-		end
-	end,
-    get_and_put(CPid, [{getline_pred,F,Match}|T], N);
-get_and_put(CPid, [{getline_re, Match}|T],N) ->
-    F = fun(Data) ->
-		case re:run(Data, Match, [{capture,none}]) of
-		    match -> yes;
-		    _ -> 'maybe'
-		end
-	end,
-    get_and_put(CPid, [{getline_pred,F,Match}|T], N);
-get_and_put(CPid, [{putline_raw, Line}|T],N) ->
-    ?dbg({putline_raw, Line}),
-    CPid ! {self(), {send_line, Line}},
-    Timeout = timeout(normal),
-    receive
-	{send_line, ok} ->
-	    get_and_put(CPid, T,N+1)
-    after Timeout ->
-	    error_logger:error_msg("~p: putline_raw timeout (~p) sending "
-				   "\"~s\" (command number ~p)~n",
-				   [?MODULE, Timeout, Line, N]),
-	    {error, timeout}
+send_commands(CPid, [{putline, Line}|T], N) ->
+    send_commands(CPid, [{putdata, Line ++ "\n"}|T], N);
+send_commands(CPid, [{putdata, Data}|T], N) ->
+    ?dbg({putdata, Data}),
+    case command(CPid, {send_data, Data}) of
+        ok ->
+	    send_commands(CPid, T, N+1);
+        Error ->
+            Error
     end;
+send_commands(_CPid, [], _) ->
+    ok.
 
-get_and_put(CPid, [{putline, Line}|T],N) ->
-    ?dbg({putline, Line}),
-    CPid ! {self(), {send_line, Line}},
-    Timeout = timeout(normal),
+command(Pid, Req) ->
+    Timeout = timeout(longest),
+    Ref = erlang:monitor(process, Pid),
+    Pid ! {self(), Ref, Req},
     receive
-	{send_line, ok} ->
-	    get_and_put(CPid, [{getline, []}|T],N)
+        {Ref, Reply} ->
+            erlang:demonitor(Ref, [flush]),
+            Reply;
+        {'DOWN', Ref, _, _, Reason} ->
+            {error, Reason}
     after Timeout ->
-	    error_logger:error_msg("~p: putline timeout (~p) sending "
-				   "\"~s\" (command number ~p)~n[~p]~n",
-				   [?MODULE, Timeout, Line, N,get()]),
-	    {error, timeout}
+            io:format("timeout while executing ~p\n", [Req]),
+            {error, timeout}
     end.
 
 wait_for_runerl_server(SPid) ->
-    Ref = erlang:monitor(process, SPid), 
+    Ref = erlang:monitor(process, SPid),
     Timeout = timeout(long),
     receive
-	{'DOWN', Ref, process, SPid, _} ->
+	{'DOWN', Ref, process, SPid, _Reason} ->
 	    ok
     after Timeout ->
-	    {error, timeout}
+	    {error, runerl_server_timeout}
     end.
-
-
 
 stop_runerl_node(CPid) ->
     Ref = erlang:monitor(process, CPid),
     CPid ! {self(), kill_emulator},
-    Timeout = timeout(long),
+    Timeout = timeout(longest),
     receive
 	{'DOWN', Ref, process, CPid, noproc} ->
 	    ok;
@@ -1263,34 +1236,30 @@ stop_runerl_node(CPid) ->
 	{'DOWN', Ref, process, CPid, {error, Reason}} ->
 	    {error, Reason}
     after Timeout ->
-	    {error, timeout}
+	    {error, toerl_server_timeout}
     end.
 
 get_progs() ->
     case os:type() of
-	{unix,freebsd} ->
-	    {error,"cant use run_erl on freebsd"};
-	{unix,openbsd} ->
-	    {error,"cant use run_erl on openbsd"};
-	{unix,_} ->
-	    case os:find_executable("run_erl") of
-		RE when is_list(RE) ->
-		    case  os:find_executable("to_erl") of
-			TE when is_list(TE) ->
-			    case os:find_executable("erl") of
-				E when is_list(E) ->
-				    {RE,TE,E};
-				_ ->
-				    {error, "Could not find erl command"}
-			    end;
-			_ ->
-			    {error, "Could not find to_erl command"}
-		    end;
-		_ ->
-		    {error, "Could not find run_erl command"}
-	    end;
-	_ ->
-	    {error, "Not a unix OS"}
+        {unix,freebsd} ->
+            {error,"Can't use run_erl on FreeBSD"};
+        {unix,openbsd} ->
+            {error,"Can't use run_erl on OpenBSD"};
+        {unix,_} ->
+            RunErl = find_executable("run_erl"),
+            ToErl = find_executable("to_erl"),
+            Erl = string:split(ct:get_progname()," ",all),
+            {RunErl, ToErl, Erl};
+        _ ->
+            {error,"Not a Unix OS"}
+        end.
+
+find_executable(Name) ->
+    case os:find_executable(Name) of
+        Prog when is_list(Prog) ->
+            Prog;
+        false ->
+            throw("Could not find " ++ Name)
     end.
 
 create_tempdir() ->
@@ -1318,25 +1287,7 @@ create_tempdir(Dir0, Ch) ->
 	    Dir
     end.
 
-create_nodename() ->
-    create_nodename($A).
-
-create_nodename(X) when X > $Z, X < $a ->
-    create_nodename($a);
-create_nodename(X) when X > $z -> 
-    {error,out_of_nodenames};
-create_nodename(X) ->
-    NN = "rtnode"++os:getpid()++[X],
-    case file:read_file_info(filename:join(["/tmp",NN])) of
-	{error,enoent} ->
-	    Host = lists:nth(2,string:tokens(atom_to_list(node()),"@")),
-	    {ok,NN++"@"++Host};
-	_ ->
-	    create_nodename(X+1)
-    end.
-
-
-start_runerl_node(RunErl,Erl,Tempdir,Nodename,Extra) ->
+start_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
     XArg = case Nodename of
 	       [] ->
 		   [];
@@ -1345,22 +1296,56 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename,Extra) ->
 				   true -> Nodename
 				end)++
 		       " -setcookie "++atom_to_list(erlang:get_cookie())
-	   end,
-    XXArg = case Extra of
-		[] ->
-		    [];
-		_ ->
-		    " "++Extra
-	    end,
-    spawn(fun() ->
-		  ?dbg("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++
-			   " \""++Erl++XArg++XXArg++"\""),
-		  os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++
-			     " \""++Erl++XArg++XXArg++"\"")
-	  end).
+	   end ++ " " ++ Args,
+    spawn(fun() -> start_runerl_command(RunErl, Tempdir, Erl++XArg) end).
 
-start_toerl_server(ToErl,Tempdir) ->
-    Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir]),
+start_runerl_command(RunErl, Tempdir, Cmd) ->
+    FullCmd = "\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"",
+    ct:pal("~ts",[FullCmd]),
+    os:cmd(FullCmd).
+
+start_peer_runerl_node(RunErl,Erl,Tempdir,[],Args) ->
+    start_peer_runerl_node(RunErl,Erl,Tempdir,peer:random_name(),Args);
+start_peer_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
+    {ok, Peer, Node} =
+        ?CT_PEER(#{ name => Nodename,
+                    exec => {RunErl,Erl},
+                    detached => false,
+                    shutdown => 10000,
+                    post_process_args =>
+                        fun(As) ->
+                                [Tempdir++"/",Tempdir,
+                                 lists:flatten(
+                                   lists:join(
+                                     " ",[[$',A,$'] || A <- As]))]
+                        end,
+                    args => ["-connect_all","false"|Args] }),
+    Self = self(),
+    TraceLog = filename:join(Tempdir,Nodename++".trace"),
+    ct:pal("Link to trace: file://~ts",[TraceLog]),
+
+    spawn(Node,
+          fun() ->
+                  try
+                      %% {ok, _} = dbg:tracer(file, TraceLog),
+                      %% dbg:p(whereis(user_drv),[c,m,timestamp]),
+                      %% dbg:p(whereis(user_drv_reader),[c,m,timestamp]),
+                      %% dbg:p(whereis(user_drv_writer),[c,m,timestamp]),
+                      %% dbg:p(whereis(user),[c,m,timestamp]),
+                      %% dbg:tp(user_drv,x),
+                      %% dbg:tp(prim_tty,x),
+                      %% dbg:tpl(prim_tty,read_nif,x),
+                      Ref = monitor(process, Self),
+                      receive {'DOWN',Ref,_,_,_} -> ok end
+                  catch E:R:ST ->
+                          io:format(user,"~p:~p:~p",[E,R,ST]),
+                          erlang:raise(E,R,ST)
+                  end
+          end),
+    Peer.
+
+start_toerl_server(ToErl,Tempdir,SPid) ->
+    Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir,SPid]),
     receive
 	{Pid,started} ->
 	    Pid;
@@ -1372,21 +1357,19 @@ try_to_erl(_Command, 0) ->
     {error, cannot_to_erl};
 try_to_erl(Command, N) ->
     ?dbg({?LINE,N}),
-    Port = open_port({spawn, Command},[eof,{line,1000}]),
-    Timeout = timeout(normal) div 2,
+    Port = open_port({spawn, Command},[eof]),
+    Timeout = timeout(short) div 2,
     receive
-	{Port, eof} -> 	
-	    receive after Timeout ->
-			    ok
-		    end,
+	{Port, eof} ->
+            timer:sleep(Timeout),
 	    try_to_erl(Command, N-1)
     after Timeout ->
 	    ?dbg(Port),
 	    Port
     end.
 
-toerl_server(Parent,ToErl,Tempdir) ->
-    Port = try_to_erl("\""++ToErl++"\" "++Tempdir++"/ 2>/dev/null",8),
+toerl_server(Parent, ToErl, TempDir, SPid) ->
+    Port = try_to_erl("\""++ToErl++"\" "++TempDir++"/ 2>/dev/null", 8),
     case Port of
 	P when is_port(P) ->
 	    Parent ! {self(),started};
@@ -1394,7 +1377,9 @@ toerl_server(Parent,ToErl,Tempdir) ->
 	    Parent ! {self(),error,Other},
 	    exit(Other)
     end,
-    case toerl_loop(Port,[]) of
+
+    State = #{port => Port, acc => [], spid => SPid},
+    case toerl_loop(State) of
 	normal ->
 	    ok;
 	{error, Reason} ->
@@ -1403,122 +1388,185 @@ toerl_server(Parent,ToErl,Tempdir) ->
 	    exit(Reason)
     end.
 
-toerl_loop(Port,Acc) ->
-    ?dbg({toerl_loop, Port, Acc}),
+toerl_loop(#{port := Port} = State0) ->
+    ?dbg({toerl_loop, Port, map_get(acc, State0),
+          maps:get(match, State0, nomatch)}),
+
+    State = handle_expect(State0),
+
     receive
-	{Port,{data,{Tag0,Data}}} when is_port(Port) ->
-	    ?dbg({?LINE,Port,{data,{Tag0,Data}}}),
-	    case Acc of
-		[{noeol,Data0}|T0] ->
-		    toerl_loop(Port,[{Tag0, Data0++Data}|T0]);
-		_ ->
-		    toerl_loop(Port,[{Tag0,Data}|Acc])
-	    end;
-	{Pid,{get_line,Timeout}} ->
-	    case Acc of
-		[] ->
-		    case get_data_within(Port,Timeout,[]) of
-			timeout ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[]);
-			{noeol,Data1} ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[{noeol,Data1}]);
-			{eol,Data2} ->
-			    Pid ! {get_line, Data2}, 
-			    toerl_loop(Port,[])
-		    end;
-		[{noeol,Data3}] ->
-		    case get_data_within(Port,Timeout,Data3) of
-			timeout ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,Acc);
-			{noeol,Data4} ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[{noeol,Data4}]);
-			{eol,Data5} ->
-			    Pid ! {get_line, Data5},
-			    toerl_loop(Port,[])
-		    end;
-		List ->
-		    {NewAcc,[{eol,Data6}]} = lists:split(length(List)-1,List),
-		    Pid ! {get_line,Data6},
-		    toerl_loop(Port,NewAcc)
-	    end;
-	{Pid, {send_line, Data7}} ->
-	    Port ! {self(),{command, Data7++"\n"}},
-	    Pid ! {send_line, ok},
-	    toerl_loop(Port,Acc);
+	{Port,{data,Data}} when is_port(Port) ->
+	    ?dbg({?LINE,Port,{data,Data}}),
+            toerl_loop(State#{acc => map_get(acc, State) ++ Data});
+        {Pid, Ref, {expect, Expect, Timeout}} ->
+            toerl_loop(init_expect(Pid, Ref, Expect, Timeout, State));
+        {Pid, Ref, {send_data, Data}} ->
+	    ?dbg({?LINE,Port,{send_data,Data}}),
+            Port ! {self(), {command, Data}},
+	    Pid ! {Ref, ok},
+	    toerl_loop(State);
 	{_Pid, kill_emulator} ->
-	    Port ! {self(),{command, "init:stop().\n"}},
-	    Timeout1 = timeout(long),
-	    receive
-		{Port,eof} ->
-		    normal
-	    after Timeout1 ->
-		    {error, kill_timeout}
-	    end;
+            kill_emulator(State);
+        {timeout,Timer,expect_timeout} ->
+            toerl_loop(handle_expect_timeout(Timer, State));
 	{Port, eof} ->
 	    {error, unexpected_eof};
 	Other ->
 	    {error, {unexpected, Other}}
     end.
 
-millistamp() ->
-    erlang:monotonic_time(millisecond).
+kill_emulator(#{spid := SPid, port := Port}) when is_pid(SPid) ->
+    catch peer:stop(SPid),
+    wait_for_eof(Port);
+kill_emulator(#{port := Port}) ->
+    %% If the line happens to end in a ".", issuing "init:stop()."
+    %% will result in a syntax error.  To avoid that, issue a "\n"
+    %% before "init:stop().".
+    Port ! {self(),{command, "\ninit:stop().\n"}},
+    wait_for_eof(Port).
 
-get_data_within(Port, X, Acc) when X =< 0 ->
-    ?dbg({get_data_within, X, Acc, ?LINE}),
+wait_for_eof(Port) ->
     receive
-	{Port,{data,{Tag0,Data}}} ->
-	    ?dbg({?LINE,Port,{data,{Tag0,Data}}}),
-	    {Tag0, Acc++Data}
-    after 0 ->
-	    case Acc of
-		[] ->
-		    timeout;
-		Noeol ->
-		    {noeol,Noeol}
-	    end
-    end;
-
-
-get_data_within(Port, Timeout, Acc) ->	
-    ?dbg({get_data_within, Timeout, Acc, ?LINE}),
-    T1 = millistamp(),
-    receive 
-	{Port,{data,{noeol,Data}}} ->
-	    ?dbg({?LINE,Port,{data,{noeol,Data}}}),
-	    Elapsed = millistamp() - T1 + 1,
-	    get_data_within(Port, Timeout - Elapsed, Acc ++ Data); 
-	{Port,{data,{eol,Data1}}} ->
-	    ?dbg({?LINE,Port,{data,{eol,Data1}}}),
-	    {eol, Acc ++ Data1}
-    after Timeout ->
-	    timeout
+        {Port,eof} ->
+            normal;
+        _Other ->
+            wait_for_eof(Port)
+    after
+        timeout(long) ->
+            {error, kill_timeout}
     end.
 
+init_expect(Pid, Ref, ExpectList, Timeout, State) ->
+    try compile_expect(ExpectList) of
+        Expect ->
+            Exp = #{expect => Expect,
+                    ref => Ref,
+                    source => ExpectList,
+                    timer => erlang:start_timer(Timeout, self(), expect_timeout),
+                    from => Pid},
+            State#{expect => Exp}
+    catch
+        Class:Reason:Stk ->
+            io:put_chars("Compilation of expect pattern failed:"),
+            io:format("~p\n", [ExpectList]),
+            io:put_chars(erl_error:format_exception(Class, Reason, Stk)),
+            exit(expect_pattern_error)
+    end.
+
+handle_expect(#{acc := Acc, expect := Exp} = State) ->
+    #{expect := Expect, from := Pid, ref := Ref} = Exp,
+    case Expect(Acc) of
+        nomatch ->
+            State;
+        {matched, Eaten, Result} ->
+            Pid ! {Ref, Result},
+            finish_expect(Eaten, State)
+    end;
+handle_expect(State) ->
+    State.
+
+handle_expect_timeout(Timer, State) ->
+    #{acc := Acc, expect := Exp} = State,
+    #{expect := Expect, timer := Timer, from := Pid, ref := Ref} = Exp,
+    case Expect({timeout, Acc}) of
+        nomatch ->
+            Result = {expect_timeout, Acc},
+            Pid ! {Ref, Result},
+            finish_expect(0, State);
+        {matched, Eaten, Result} ->
+            Pid ! {Ref, Result},
+            finish_expect(Eaten, State)
+    end.
+
+finish_expect(Eaten, #{acc := Acc0,
+                       expect := #{timer := Timer}}=State) ->
+    erlang:cancel_timer(Timer),
+    receive
+        {timeout,Timer,timeout} ->
+            ok
+    after 0 ->
+            ok
+    end,
+    Acc = lists:nthtail(Eaten, Acc0),
+    maps:remove(expect, State#{acc := Acc}).
+
+compile_expect([{timeout,Action}|T]) when is_function(Action, 1) ->
+    Next = compile_expect(T),
+    fun({timeout, _}=Tm) ->
+            {matched, 0, Action(Tm)};
+       (Subject) ->
+            Next(Subject)
+    end;
+compile_expect([{{re,RE0},Action}|T]) when is_binary(RE0), is_function(Action, 1) ->
+    {ok, RE} = re:compile(RE0),
+    Next = compile_expect(T),
+    fun({timeout, _}=Subject) ->
+            Next(Subject);
+       (Subject) ->
+            case re:run(Subject, RE, [{capture,first,index}]) of
+                nomatch ->
+                    Next(Subject);
+                {match, [{Pos,Len}]} ->
+                    Matched = binary:part(list_to_binary(Subject), Pos, Len),
+                    {matched, Pos+Len, Action(Matched)}
+            end
+    end;
+compile_expect([RE|T]) when is_list(RE) ->
+    Ok = fun(_) -> ok end,
+    compile_expect([{{re,list_to_binary(RE)},Ok}|T]);
+compile_expect([]) ->
+    fun(_) ->
+            nomatch
+    end.
+
+rtnode_check_logs(Logname, Pattern, Logs) ->
+rtnode_check_logs(Logname, Pattern, true, Logs).
+rtnode_check_logs(Logname, Pattern, Match, Logs) ->
+        case re:run(maps:get(Logname, Logs), Pattern) of
+            {match, [_]} when Match ->
+                ok;
+            nomatch when not Match ->
+                ok;
+            _ ->
+                rtnode_dump_logs(Logs),
+                ct:fail("~p not found in log ~ts",[Pattern, Logname])
+        end.
+
+rtnode_dump_logs(Logs) ->
+    maps:foreach(
+      fun(File, Data) ->
+              ct:pal("~ts: ~ts",[File, Data])
+      end, Logs).
+
+rtnode_read_logs(Tempdir) ->
+    {ok, LogFiles0} = file:list_dir(Tempdir),
+
+    %% Make sure that we only read log files and not any named pipes.
+    LogFiles = [F || F <- LogFiles0,
+                     case F of
+                         "erlang.log" ++ _ -> true;
+                         _ -> false
+                     end],
+
+    lists:foldl(
+      fun(File, Acc) ->
+              case file:read_file(filename:join(Tempdir, File)) of
+                  {ok, Data} ->
+                      Acc#{ File => Data };
+                  _ ->
+                      Acc
+              end
+      end, #{}, LogFiles).
+
 get_default_shell() ->
-    Match = fun(Data) ->
-		    case lists:prefix("undefined", Data) of
-			true ->
-			    yes;
-			false ->
-			    case re:run(Data, "<\\d+[.]\\d+[.]\\d+>",
-					[{capture,none}]) of
-				match -> no;
-				_ -> 'maybe'
-			    end
-		    end
-	    end,
     try
-	rtnode([{putline,""},
-		{putline, "whereis(user_drv)."},
-		{getline_pred, Match, "matching of user_drv pid"}], []),
-	old
+        rtnode([{putline,""},
+                {putline, "is_pid(whereis(user_drv))."},
+                {expect, "true\r\n"}]),
+        new
     catch _E:_R ->
-	    ?dbg({_E,_R}),
-	    new
+            ?dbg({_E,_R}),
+            old
     end.
 
 %%
