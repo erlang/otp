@@ -3146,8 +3146,13 @@ is_fips(openssl) ->
     VersionStr = portable_cmd("openssl",["version"]),
     case re:split(VersionStr, "fips") of
 	[_] ->
-	    false;
-	_ ->
+            case re:split(VersionStr, "FIPS") of
+                [_] ->
+                    false;
+                _ ->
+                    true
+            end;
+        _ ->
 	    true
     end;
 is_fips(crypto) ->
