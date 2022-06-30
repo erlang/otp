@@ -113,8 +113,8 @@
           %%  saving exit reason in the state
           %% crash: when peer terminates, origin process
           %%  terminates with underlying reason
-          exec => exec(),                     %% path to executable, or SSH/Docker support
           connection => connection(),         %% alternative connection specification
+          exec => exec(),                     %% path to executable, or SSH/Docker support
           args => [string()],                 %% additional command line parameters to append
           env => [{string(), string()}],      %% additional environment variables
           wait_boot => wait_boot(),           %% default is synchronous start with 15 sec timeout
