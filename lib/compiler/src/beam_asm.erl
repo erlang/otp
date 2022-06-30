@@ -454,7 +454,7 @@ encode_arg({y, Y}, Dict) when is_integer(Y), Y >= 0 ->
 encode_arg({atom, Atom}, Dict0) when is_atom(Atom) ->
     {Index, Dict} = beam_dict:atom(Atom, Dict0),
     {encode(?tag_a, Index), Dict};
-encode_arg({integer, N}, Dict) when is_integer(N) ->
+encode_arg({integer, N}, Dict) ->
     %% Conservatively assume that all integers whose absolute
     %% value is greater than 1 bsl 128 will be bignums in
     %% the runtime system.
