@@ -281,6 +281,9 @@ rfc3339(Config) when is_list(Config) ->
     "2000-01-01T10:02:00.000+00:02" =
         do_format(TO * NaPerSec, [{offset, 120 * NaPerSec}]++Na),
 
+    1656147840 = do_parse("2022-06-25 11:04:00+02", []),
+    1656155040 = do_parse("2022-06-25 11:04:00-00", []),
+
 
     NStr = "2000-01-01T09:58:00-00:02",
     NStr = do_format(TO, [{offset, -120}]),
