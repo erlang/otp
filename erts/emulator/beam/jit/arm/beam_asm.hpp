@@ -739,6 +739,17 @@ protected:
         }
     }
 
+    void subs(arm::Gp to, arm::Gp src, int64_t val) {
+        if (Support::isUInt12(val)) {
+            a.subs(to, src, imm(val));
+        } else if (Support::isUInt12(-val)) {
+            a.adds(to, src, imm(-val));
+        } else {
+            mov_imm(SUPER_TMP, val);
+            a.subs(to, src, SUPER_TMP);
+        }
+    }
+
     void cmp(arm::Gp src, int64_t val) {
         if (Support::isUInt12(val)) {
             a.cmp(src, imm(val));

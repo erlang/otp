@@ -752,6 +752,115 @@ combined_relops(_Config) ->
     other = test_tok_char(atom),
     other = test_tok_char(self()),
 
+    %%
+    b = ge_ge_int_range_1(-200),
+    b = ge_ge_int_range_1(-101),
+
+    a = ge_ge_int_range_1(-100),
+    a = ge_ge_int_range_1(-50),
+    a = ge_ge_int_range_1(-10),
+
+    b = ge_ge_int_range_1(-9),
+    b = ge_ge_int_range_1(-6),
+
+    a = ge_ge_int_range_1(-5),
+
+    b = ge_ge_int_range_1(-4),
+    b = ge_ge_int_range_1(0),
+    b = ge_ge_int_range_1(42),
+
+    %%
+    b = ge_ge_int_range_2(-1 bsl 59),
+
+    a = ge_ge_int_range_2((-1 bsl 59) + 1),
+    a = ge_ge_int_range_2(-1 bsl 58),
+    a = ge_ge_int_range_2(-1000),
+    a = ge_ge_int_range_2(1 bsl 58),
+    a = ge_ge_int_range_2((1 bsl 59) - 10),
+
+    b = ge_ge_int_range_2((1 bsl 59) - 9),
+
+    a = ge_ge_int_range_2((1 bsl 59) - 5),
+
+    b = ge_ge_int_range_2((1 bsl 59) - 4),
+    b = ge_ge_int_range_2((1 bsl 59) - 1),
+
+    %%
+    b = ge_ge_int_range_3(-1 bsl 59),
+
+    b = ge_ge_int_range_3((-1 bsl 59) + 1),
+    b = ge_ge_int_range_3(-1 bsl 58),
+    b = ge_ge_int_range_3(-1000),
+    b = ge_ge_int_range_3(1 bsl 58),
+
+    a = ge_ge_int_range_3((1 bsl 59) - 20),
+    a = ge_ge_int_range_3((1 bsl 59) - 15),
+    a = ge_ge_int_range_3((1 bsl 59) - 10),
+
+    b = ge_ge_int_range_3((1 bsl 59) - 9),
+
+    a = ge_ge_int_range_3((1 bsl 59) - 5),
+
+    b = ge_ge_int_range_3((1 bsl 59) - 4),
+    b = ge_ge_int_range_3((1 bsl 59) - 1),
+
+    %%
+    b = ge_ge_int_range_4(-1 bsl 59),
+
+    a = ge_ge_int_range_4((-1 bsl 59) + 1),
+    a = ge_ge_int_range_4((-1 bsl 59) + 3),
+    a = ge_ge_int_range_4((-1 bsl 59) + 5),
+
+    b = ge_ge_int_range_4((-1 bsl 59) + 6),
+    b = ge_ge_int_range_4((-1 bsl 59) + 9),
+
+    a = ge_ge_int_range_4((-1 bsl 59) + 10),
+
+    b = ge_ge_int_range_4((-1 bsl 59) + 11),
+
+    b = ge_ge_int_range_4(0),
+    b = ge_ge_int_range_4(1000),
+
+    b = ge_ge_int_range_4((1 bsl 59) - 1),
+
+    %% Test a sequence that can't occur in optimized code:
+    %%   is_ge Fail Src 10
+    %%   is_ge Fail Src 5
+    Module = {?FUNCTION_NAME,[{test,1}],[],
+              [{function, test, 1, 2,
+                [{label,1},
+                 {line,[{location,"t.erl",4}]},
+                 {func_info,{atom,?FUNCTION_NAME},{atom,test},1},
+                 {label,2},
+                 {test,is_ge,{f,4},
+                  [{tr,{x,0},{t_integer,{0,1000}}},
+                   {integer,10}]},
+                 {test,is_ge,
+                  {f,3},
+                  [{tr,{x,0},{t_integer,{0,1000}}},
+                   {integer,5}]},
+                 {label,3},
+                 {move,{atom,a},{x,0}},
+                 return,
+                 {label,4},
+                 {move,{atom,b},{x,0}},
+                 return]}],
+              5},
+
+    {ok,Mod,Code} = compile:forms(Module, [from_asm,time,report]),
+    {module,Mod} = code:load_binary(Mod, Mod, Code),
+
+    b = Mod:test(0),
+    b = Mod:test(5),
+    b = Mod:test(9),
+
+    a = Mod:test(10),
+    a = Mod:test(11),
+    a = Mod:test(1000),
+
+    true = code:delete(Mod),
+    _ = code:purge(Mod),
+
     ok.
 
 test_tok_char(C) ->
@@ -793,6 +902,35 @@ tok_char_int_range($_) ->
     var;
 tok_char_int_range(_) ->
     other.
+
+%% is_ge + is_ge
+ge_ge_int_range_1(X) when -100 =< X, X =< -10 ->
+    a;
+ge_ge_int_range_1(-5) ->
+    a;
+ge_ge_int_range_1(_) ->
+    b.
+
+ge_ge_int_range_2(X) when (-1 bsl 59) + 1 =< X, X =< (1 bsl 59) - 10 ->
+    a;
+ge_ge_int_range_2((1 bsl 59) - 5) ->
+    a;
+ge_ge_int_range_2(_) ->
+    b.
+
+ge_ge_int_range_3(X) when (1 bsl 59) - 20 =< X, X =< (1 bsl 59) - 10 ->
+    a;
+ge_ge_int_range_3((1 bsl 59) - 5) ->
+    a;
+ge_ge_int_range_3(_) ->
+    b.
+
+ge_ge_int_range_4(X) when (-1 bsl 59) + 1 =< X, X =< (-1 bsl 59) + 5 ->
+    a;
+ge_ge_int_range_4((-1 bsl 59) + 10) ->
+    a;
+ge_ge_int_range_4(_) ->
+    b.
 
 %%%
 %%% Utilities.

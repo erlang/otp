@@ -1731,8 +1731,23 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
-    Label generic = a.newLabel(), do_jl = a.newLabel(), next = a.newLabel();
     bool both_small = always_small(LHS) && always_small(RHS);
+
+    if (both_small && LHS.isRegister() && RHS.isImmed() &&
+        Support::isInt32(RHS.as<ArgImmed>().get())) {
+        comment("simplified compare because one operand is an immediate small");
+        a.cmp(getArgRef(LHS.as<ArgRegister>()), imm(RHS.as<ArgImmed>().get()));
+        a.jl(resolve_beam_label(Fail));
+        return;
+    } else if (both_small && RHS.isRegister() && LHS.isImmed() &&
+               Support::isInt32(LHS.as<ArgImmed>().get())) {
+        comment("simplified compare because one operand is an immediate small");
+        a.cmp(getArgRef(RHS.as<ArgRegister>()), imm(LHS.as<ArgImmed>().get()));
+        a.jg(resolve_beam_label(Fail));
+        return;
+    }
+
+    Label generic = a.newLabel(), do_jl = a.newLabel(), next = a.newLabel();
     bool need_generic = !both_small;
 
     mov_arg(ARG2, RHS); /* May clobber ARG1 */
@@ -2124,6 +2139,30 @@ void BeamModuleAssembler::emit_is_ge_lt(ArgLabel const &Fail1,
     a.jg(resolve_beam_label(Fail2));
 
     a.bind(next);
+}
+
+/*
+ * The optimized instruction sequence is not always shorter,
+ * but it ensures that Src is only read from memory once.
+ */
+void BeamModuleAssembler::emit_is_ge_ge(ArgLabel const &Fail1,
+                                        ArgLabel const &Fail2,
+                                        ArgRegister const &Src,
+                                        ArgConstant const &A,
+                                        ArgConstant const &B) {
+    if (!always_small(Src)) {
+        /* In practice, it is uncommon that Src is not a known small
+         * integer, so we will not bother optimizing that case. */
+        emit_is_ge(Fail1, Src, A);
+        emit_is_ge(Fail2, Src, B);
+        return;
+    }
+
+    mov_arg(RET, Src);
+    sub(RET, A.as<ArgImmed>().get(), ARG1);
+    a.jl(resolve_beam_label(Fail1));
+    cmp(RET, B.as<ArgImmed>().get() - A.as<ArgImmed>().get(), ARG1);
+    a.jb(resolve_beam_label(Fail2));
 }
 
 /*
