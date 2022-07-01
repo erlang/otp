@@ -315,6 +315,9 @@ coverage(Config) ->
             30 = coverage_4(2, Number)
     end,
 
+    {'EXIT',{badarg,_}} = catch false ++ true,
+    {'EXIT',{badarg,_}} = catch false -- true,
+
     ok.
 
 coverage_1() ->
