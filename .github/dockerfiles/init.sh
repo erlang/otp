@@ -1,5 +1,9 @@
 #!/bin/sh
 
+if [ -f "/buildroot/env.sh" ]; then
+    . "/buildroot/env.sh"
+fi
+
 sudo mkdir -p -m0755 /var/run/sshd
 
 sudo /usr/sbin/sshd
