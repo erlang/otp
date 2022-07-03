@@ -1,9 +1,8 @@
 ARG BASE=docker.pkg.github.com/erlang/otp/ubuntu-base
 FROM $BASE
 
-ARG MAKEFLAGS=-j4
+ARG MAKEFLAGS=$MAKEFLAGS
 ENV MAKEFLAGS=$MAKEFLAGS \
-    ERLC_USE_SERVER=yes \
     ERL_TOP=/buildroot/otp \
     PATH=/otp/bin:/buildroot/otp/bin:$PATH
 
