@@ -199,6 +199,7 @@ release_docs_spec:
 # Dependencies -- alphabetically, please
 # ---------------------------------------------------- 
 
+$(EBIN)/beam_a.beam: beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_asm.beam: beam_asm.hrl beam_opcodes.hrl beam_types.hrl
 $(EBIN)/beam_call_types.beam: beam_types.hrl
 $(EBIN)/beam_block.beam: beam_asm.hrl
