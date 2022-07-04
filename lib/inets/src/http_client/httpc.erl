@@ -44,6 +44,7 @@
 	 stream_next/1,
 	 default_profile/0, 
 	 profile_name/1, profile_name/2,
+         ssl_verify_host_options/1,
 	 info/0, info/1
 	]).
 
@@ -296,6 +297,21 @@ get_option(Key, Profile) ->
 	    Error
     end.
 
+%%--------------------------------------------------------------------------
+%% Default client ssl options to verify server
+%%
+%%  UseWildcard=true  does wildcard matching on the hostname check
+%%--------------------------------------------------------------------------
+-spec ssl_verify_host_options(UseWildCard::boolean()) -> list().
+ssl_verify_host_options(UseWildCard) ->
+    WildCard = case UseWildCard of
+                   true ->
+                       Fun = public_key:pkix_verify_hostname_match_fun(https),
+                       [{customize_hostname_check,[{match_fun, Fun}]}];
+                   false ->
+                       []
+               end,
+    [{verify, verify_peer}, {cacerts, public_key:cacerts_get()} | WildCard].
 
 %%--------------------------------------------------------------------------
 %% store_cookies(SetCookieHeaders, Url [, Profile]) -> ok | {error, reason} 
