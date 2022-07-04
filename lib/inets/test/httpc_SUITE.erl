@@ -31,11 +31,13 @@
 -include("http_internal.hrl").
 -include("httpc_internal.hrl").
 %% Note: This directive should only be used in test suites.
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -define(URL_START, "http://").
 -define(TLS_URL_START, "https://").
 -define(NOT_IN_USE_PORT, 8997).
+
+-define(SSL_NO_VERIFY, {ssl, [{verify, verify_none}]}).
 
 %% Using hardcoded file path to keep it below 107 characters
 %% (maximum length supported by erlang)
@@ -391,17 +393,17 @@ head() ->
 
 head(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
-    {ok, {{_,200,_}, [_ | _], []}} = httpc:request(head, Request, [], []).
+    {ok, {{_,200,_}, [_ | _], []}} = httpc:request(head, Request, [?SSL_NO_VERIFY], []).
 %%--------------------------------------------------------------------
 get() ->
     [{doc, "Test http get request against local server"}].
 get(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
-    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [], []),
+    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [?SSL_NO_VERIFY], []),
 
     inets_test_lib:check_body(Body),
 
-    {ok, {{_,200,_}, [_ | _], BinBody}} =  httpc:request(get, Request, [], [{body_format, binary}]),
+    {ok, {{_,200,_}, [_ | _], BinBody}} =  httpc:request(get, Request, [?SSL_NO_VERIFY], [{body_format, binary}]),
     true = is_binary(BinBody).
 
 
@@ -409,7 +411,7 @@ get_query_string() ->
     [{doc, "Test http get request with query string against local server"}].
 get_query_string(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html?foo=bar", Config), []},
-    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [], []),
+    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [?SSL_NO_VERIFY], []),
 
     inets_test_lib:check_body(Body).
 
@@ -418,7 +420,7 @@ get_space() ->
     [{"Test http get request with '%20' in the path of the URL."}].
 get_space(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/space%20.html", Config), []},
-    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [], []),
+    {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} = httpc:request(get, Request, [?SSL_NO_VERIFY], []),
 
     inets_test_lib:check_body(Body).
 
@@ -442,11 +444,11 @@ post(Config) when is_list(Config) ->
 
     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
 	httpc:request(post, {URL, [{"expect","100-continue"}],
-			     "text/plain", Body}, [], []),
+			     "text/plain", Body}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,504,_}, [_ | _], []}} =
 	httpc:request(post, {URL, [{"expect","100-continue"}],
-			     "text/plain", "foobar"}, [], []).
+			     "text/plain", "foobar"}, [?SSL_NO_VERIFY], []).
 %%--------------------------------------------------------------------
 delete() ->
     [{"Test http delete request against local server. We do in this case "
@@ -465,11 +467,11 @@ delete(Config) when is_list(Config) ->
 
     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
     httpc:request(delete, {URL, [{"expect","100-continue"}],
-                 "text/plain", Body}, [], []),
+                 "text/plain", Body}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,504,_}, [_ | _], []}} =
     httpc:request(delete, {URL, [{"expect","100-continue"}],
-                 "text/plain", "foobar"}, [], []).
+                 "text/plain", "foobar"}, [?SSL_NO_VERIFY], []).
 
 %%--------------------------------------------------------------------
 patch() ->
@@ -491,7 +493,7 @@ patch(Config) when is_list(Config) ->
 
     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
 	httpc:request(patch, {URL, [{"expect","100-continue"}],
-			     "text/plain", Body}, [], []).
+			     "text/plain", Body}, [?SSL_NO_VERIFY], []).
 
 %%--------------------------------------------------------------------
 post_stream() ->
@@ -519,20 +521,20 @@ post_stream(Config) when is_list(Config) ->
 	httpc:request(post, {URL,
 			     [{"expect", "100-continue"},
 			      {"content-length", "100"}],
-			     "text/plain", {BodyFun, 100}}, [], []),
+			     "text/plain", {BodyFun, 100}}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,504,_}, [_ | _], []}} =
 	httpc:request(post, {URL,
 			     [{"expect", "100-continue"},
 			      {"content-length", "10"}],
-			     "text/plain", {BodyFun, 10}}, [], []).
+			     "text/plain", {BodyFun, 10}}, [?SSL_NO_VERIFY], []).
 
 %%--------------------------------------------------------------------
 trace() ->
     [{doc, "Perform a TRACE request."}].
 trace(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/trace.html", Config), []},
-    case httpc:request(trace, Request, [], []) of
+    case httpc:request(trace, Request, [?SSL_NO_VERIFY], []) of
 	{ok, {{_,200,_}, [_ | _], "TRACE /trace.html" ++ _}} ->
 	    ok;
 	 Other ->
@@ -543,7 +545,7 @@ trace(Config) when is_list(Config) ->
 
 pipeline(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
-    {ok, _} = httpc:request(get, Request, [], [], pipeline),
+    {ok, _} = httpc:request(get, Request, [?SSL_NO_VERIFY], [], pipeline),
 
     %% Make sure pipeline session is registered
     ct:sleep(4000),
@@ -553,7 +555,7 @@ pipeline(Config) when is_list(Config) ->
 
 persistent_connection(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
-    {ok, _} = httpc:request(get, Request, [], [], persistent),
+    {ok, _} = httpc:request(get, Request, [?SSL_NO_VERIFY], [], persistent),
 
     %% Make sure pipeline session is registered
     ct:sleep(4000),
@@ -566,7 +568,7 @@ async(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
 
     {ok, RequestId} =
-	httpc:request(get, Request, [], [{sync, false}]),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}]),
     Body =
 	receive
 	    {http, {RequestId, {{_, 200, _}, _, BinBody}}} ->
@@ -577,7 +579,7 @@ async(Config) when is_list(Config) ->
     inets_test_lib:check_body(binary_to_list(Body)),
 
     {ok, NewRequestId} =
-	httpc:request(get, Request, [], [{sync, false}]),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}]),
     ok = httpc:cancel_request(NewRequestId).
 
 %%-------------------------------------------------------------------------
@@ -589,7 +591,7 @@ save_to_file(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/dummy.html", Config),
     Request = {URL, []},
     {ok, saved_to_file}
-	= httpc:request(get, Request, [], [{stream, FilePath}]),
+	= httpc:request(get, Request, [?SSL_NO_VERIFY], [{stream, FilePath}]),
     {ok, Bin} = file:read_file(FilePath),
     {ok, {{_,200,_}, [_ | _], Body}} = httpc:request(URL),
     Bin == Body.
@@ -602,7 +604,7 @@ save_to_file_async(Config) when is_list(Config) ->
     FilePath = filename:join(PrivDir, "dummy.html"),
     URL = url(group_name(Config), "/dummy.html", Config),
     Request = {URL, []},
-    {ok, RequestId} = httpc:request(get, Request, [],
+    {ok, RequestId} = httpc:request(get, Request, [?SSL_NO_VERIFY],
 				    [{stream, FilePath},
 				     {sync, false}]),
     receive
@@ -673,10 +675,10 @@ redirect_multiple_choises(Config) when is_list(Config) ->
     URL300 = url(group_name(Config), "/300.html", Config),
 
     catch {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL300, []}, [], []),
+	= httpc:request(get, {URL300, []}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,300,_}, [_ | _], _}} =
-	httpc:request(get, {URL300, []}, [{autoredirect, false}], []).
+	httpc:request(get, {URL300, []}, [{autoredirect, false},?SSL_NO_VERIFY], []).
 %%-------------------------------------------------------------------------
 redirect_moved_permanently() ->
     [{doc, "The server SHOULD generate a Location header field in the response "
@@ -689,14 +691,14 @@ redirect_moved_permanently(Config) when is_list(Config) ->
     URL301 = url(group_name(Config), "/301.html", Config),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL301, []}, [], []),
+	= httpc:request(get, {URL301, []}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL301, []}, [], []),
+	= httpc:request(head, {URL301, []}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL301, [],"text/plain", "foobar"},
-			[], []).
+			[?SSL_NO_VERIFY], []).
 %%-------------------------------------------------------------------------
 redirect_found() ->
     [{doc, "The server SHOULD generate a Location header field in the response "
@@ -709,14 +711,14 @@ redirect_found(Config) when is_list(Config) ->
     URL302 = url(group_name(Config), "/302.html", Config),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL302, []}, [], []),
+	= httpc:request(get, {URL302, []}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL302, []}, [], []),
+	= httpc:request(head, {URL302, []}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL302, [],"text/plain", "foobar"},
-			[], []).
+			[?SSL_NO_VERIFY], []).
 %%-------------------------------------------------------------------------
 redirect_see_other() ->
     [{doc, "The different URI SHOULD be given by the Location field in the response. "
@@ -727,14 +729,14 @@ redirect_see_other(Config) when is_list(Config) ->
     URL303 =  url(group_name(Config), "/303.html", Config),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL303, []}, [], []),
+	= httpc:request(get, {URL303, []}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL303, []}, [], []),
+	= httpc:request(head, {URL303, []}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL303, [],"text/plain", "foobar"},
-			[], []).
+			[?SSL_NO_VERIFY], []).
 %%-------------------------------------------------------------------------
 redirect_temporary_redirect() ->
     [{doc, "The server SHOULD generate a Location header field in the response "
@@ -783,7 +785,7 @@ redirect_loop(Config) when is_list(Config) ->
     URL =  url(group_name(Config), "/redirectloop.html", Config),
 
     {ok, {{_,300,_}, [_ | _], _}}
-	= httpc:request(get, {URL, []}, [], []).
+	= httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
 
 %%-------------------------------------------------------------------------
 redirect_http_to_https() ->
@@ -795,14 +797,15 @@ redirect_http_to_https(Config) when is_list(Config) ->
     Headers = [{"x-test-301-url", TargetUrl}],
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL301, Headers}, [], []),
+	= httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,200,_}, [_ | _], []}}
-	= httpc:request(head, {URL301, Headers}, [], []),
+	= httpc:request(head, {URL301, Headers}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL301, Headers, "text/plain", "foobar"},
-			[], []).
+			[?SSL_NO_VERIFY], []).
+
 %%-------------------------------------------------------------------------
 redirect_relative_different_port() ->
     [{doc, "Test that a 30X redirect with a relative target, but different "
@@ -836,7 +839,7 @@ cookie(Config) when is_list(Config) ->
     Request0 = {url(group_name(Config), "/cookie.html", Config), []},
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, Request0, [], []),
+	= httpc:request(get, Request0, [?SSL_NO_VERIFY], []),
 
     %% Populate table to be used by the "dummy" server
     ets:new(cookie, [named_table, public, set]),
@@ -845,7 +848,7 @@ cookie(Config) when is_list(Config) ->
     Request1 = {url(group_name(Config), "/", Config), []},
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, Request1, [], []),
+	= httpc:request(get, Request1, [?SSL_NO_VERIFY], []),
 
    [{session_cookies, [_|_]}] = httpc:which_cookies(httpc:default_profile()),
 
@@ -864,7 +867,7 @@ cookie_profile(Config) when is_list(Config) ->
     Request0 = {url(group_name(Config), "/cookie.html", Config), []},
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, Request0, [], [], cookie_test),
+	= httpc:request(get, Request0, [?SSL_NO_VERIFY], [], cookie_test),
 
     %% Populate table to be used by the "dummy" server
     ets:new(cookie, [named_table, public, set]),
@@ -873,7 +876,7 @@ cookie_profile(Config) when is_list(Config) ->
     Request1 = {url(group_name(Config), "/", Config), []},
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, Request1, [], [], cookie_test),
+	= httpc:request(get, Request1, [?SSL_NO_VERIFY], [], cookie_test),
 
     ets:delete(cookie),
     inets:stop(httpc, cookie_test).
@@ -887,7 +890,7 @@ empty_set_cookie(Config) when is_list(Config) ->
     Request0 = {url(group_name(Config), "/empty_set_cookie.html", Config), []},
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, Request0, [], []),
+	= httpc:request(get, Request0, [?SSL_NO_VERIFY], []),
 
     ok = httpc:set_options([{cookies, disabled}]).
 
@@ -899,7 +902,7 @@ invalid_set_cookie(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/invalid_set_cookie.html", Config),
     {ok, {{_,200,_}, [_|_], [_|_]}} =
-        httpc:request(get, {URL, []}, [], []),
+        httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []),
 
     ok = httpc:set_options([{cookies, disabled}]).
 
@@ -910,10 +913,10 @@ headers_as_is(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/dummy.html", Config),
     {ok, {{_,200,_}, [_|_], [_|_]}} =
 	httpc:request(get, {URL, [{"Host", "localhost"},{"Te", ""}]},
-		     [], [{headers_as_is, true}]),
+		     [?SSL_NO_VERIFY], [{headers_as_is, true}]),
 
     {ok, {{_,400,_}, [_|_], [_|_]}} =
-	httpc:request(get, {URL, [{"Te", ""}]},[], [{headers_as_is, true}]).
+	httpc:request(get, {URL, [{"Te", ""}]}, [?SSL_NO_VERIFY], [{headers_as_is, true}]).
 %%-------------------------------------------------------------------------
 
 userinfo(doc) ->
@@ -925,12 +928,12 @@ userinfo(Config) when is_list(Config) ->
     URLAuth = url(group_name(Config), "alladin:sesame@" ++ Host ++ ":","/userinfo.html", Config),
 
     {ok, {{_,200,_}, [_ | _], _}}
-	= httpc:request(get, {URLAuth, []}, [], []),
+	= httpc:request(get, {URLAuth, []}, [?SSL_NO_VERIFY], []),
 
     URLUnAuth = url(group_name(Config), "alladin:foobar@" ++ Host ++ ":","/userinfo.html", Config),
 
     {ok, {{_,401, _}, [_ | _], _}} =
-	httpc:request(get, {URLUnAuth, []}, [], []).
+	httpc:request(get, {URLUnAuth, []}, [?SSL_NO_VERIFY], []).
 
 %%-------------------------------------------------------------------------
 
@@ -939,7 +942,7 @@ page_does_not_exist(doc) ->
 page_does_not_exist(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/doesnotexist.html", Config),
     {ok, {{_,404,_}, [_ | _], [_ | _]}}
-	= httpc:request(get, {URL, []}, [], []).
+	= httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
 %%-------------------------------------------------------------------------
 
 streaming_error(doc) ->
@@ -949,9 +952,9 @@ streaming_error(Config) when is_list(Config) ->
     Method      = get,
     Request     = {url(group_name(Config), "/dummy.html", Config), []},
     {error, streaming_error} = httpc:request(Method, Request,
-					     [],  [{sync, true}, {stream, {self, once}}]),
+					     [?SSL_NO_VERIFY],  [{sync, true}, {stream, {self, once}}]),
     {error, streaming_error} = httpc:request(Method, Request,
-					     [], [{sync, true}, {stream, self}]).
+					     [?SSL_NO_VERIFY], [{sync, true}, {stream, self}]).
 %%-------------------------------------------------------------------------
 
 server_does_not_exist(doc) ->
@@ -961,14 +964,14 @@ server_does_not_exist(Config) when is_list(Config) ->
     {error, _} =
 	httpc:request(get, {"http://localhost:" ++
 				integer_to_list(?NOT_IN_USE_PORT)
-			    ++ "/", []},[], []).
+			    ++ "/", []},[?SSL_NO_VERIFY], []).
 %%-------------------------------------------------------------------------
 
 no_content_204(doc) ->
     ["Test the case that the HTTP 204 no content header - Solves OTP 6982"];
 no_content_204(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/no_content.html", Config),
-    {ok, {{_,204,_}, [], []}} = httpc:request(URL).
+    {ok, {{_,204,_}, [], []}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
 
 %%-------------------------------------------------------------------------
 
@@ -977,7 +980,7 @@ tolerate_missing_CR() ->
      "as delimiter. Solves OTP-7304"}].
 tolerate_missing_CR(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/missing_CR.html", Config),
-    {ok, {{_,200,_}, _, [_ | _]}} = httpc:request(URL).
+    {ok, {{_,200,_}, _, [_ | _]}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
 %%-------------------------------------------------------------------------
 
 empty_body() ->
@@ -986,7 +989,7 @@ empty_body() ->
 empty_body(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/empty.html", Config),
     {ok, {{_,200,_}, [_ | _], []}} =
-	httpc:request(get, {URL, []}, [], []).
+	httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
 
 %%-------------------------------------------------------------------------
 
@@ -994,13 +997,13 @@ transfer_encoding() ->
     [{doc, "Transfer encoding is case insensitive. Solves OTP-6807"}].
 transfer_encoding(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/capital_transfer_encoding.html", Config),
-    {ok, {{_,200,_}, [_|_], [_ | _]}} = httpc:request(URL).
+    {ok, {{_,200,_}, [_|_], [_ | _]}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
 
 %%-------------------------------------------------------------------------
 
 transfer_encoding_identity(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/identity_transfer_encoding.html", Config),
-    {ok, {{_,200,_}, [_|_], "IDENTITY"}} = httpc:request(URL).
+    {ok, {{_,200,_}, [_|_], "IDENTITY"}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
 
 %%-------------------------------------------------------------------------
 
@@ -1008,7 +1011,7 @@ empty_response_header() ->
     [{doc, "Test the case that the HTTP server does not send any headers. Solves OTP-6830"}].
 empty_response_header(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/no_headers.html", Config),
-    {ok, {{_,200,_}, [], [_ | _]}} = httpc:request(URL).
+    {ok, {{_,200,_}, [], [_ | _]}} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
 
 %%-------------------------------------------------------------------------
 
@@ -1020,8 +1023,8 @@ bad_response(Config) when is_list(Config) ->
     URL0 = url(group_name(Config), "/missing_crlf.html", Config),
     URL1 = url(group_name(Config), "/wrong_statusline.html", Config),
 
-    {error, timeout} = httpc:request(get, {URL0, []}, [{timeout, 400}], []),
-    {error, Reason} = httpc:request(URL1),
+    {error, timeout} = httpc:request(get, {URL0, []}, [{timeout, 400},?SSL_NO_VERIFY], []),
+    {error, Reason} = httpc:request(get, {URL1, []}, [?SSL_NO_VERIFY], []),
 
     ct:print("Wrong Statusline: ~p~n", [Reason]).
 %%-------------------------------------------------------------------------
@@ -1030,7 +1033,7 @@ timeout_redirect() ->
     [{doc, "Test that timeout works for redirects, check ERL-420."}].
 timeout_redirect(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/redirect_to_missing_crlf.html", Config),
-    {error, timeout} = httpc:request(get, {URL, []}, [{timeout, 400}], []).
+    {error, timeout} = httpc:request(get, {URL, []}, [{timeout, 400},?SSL_NO_VERIFY], []).
 
 %%-------------------------------------------------------------------------
 
@@ -1041,7 +1044,7 @@ internal_server_error(Config) when is_list(Config) ->
     URL500 = url(group_name(Config), "/500.html", Config),
 
     {ok, {{_,500,_}, [_ | _], _}}
-	= httpc:request(get, {URL500, []}, [], []),
+	= httpc:request(get, {URL500, []}, [?SSL_NO_VERIFY], []),
 
     URL503 = url(group_name(Config), "/503.html", Config),
 
@@ -1050,12 +1053,12 @@ internal_server_error(Config) when is_list(Config) ->
     ets:insert(unavailable, {503, unavailable}),
 
     {ok, {{_,200, _}, [_ | _], [_|_]}} =
-	httpc:request(get, {URL503, []}, [], []),
+	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], []),
 
     ets:insert(unavailable, {503, long_unavailable}),
 
     {ok, {{_,503, _}, [_ | _], [_|_]}} =
-	httpc:request(get, {URL503, []}, [], []),
+	httpc:request(get, {URL503, []}, [?SSL_NO_VERIFY], []),
 
     ets:delete(unavailable).
 
@@ -1070,7 +1073,7 @@ invalid_http(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/invalid_http.html", Config),
 
     {error, {could_not_parse_as_http, _} = Reason} =
-	httpc:request(get, {URL, []}, [], []),
+	httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []),
 
     ct:print("Parse error: ~p ~n", [Reason]).
 
@@ -1085,7 +1088,7 @@ invalid_chunk_size(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/invalid_chunk_size.html", Config),
 
     {error, {chunk_size, _} = Reason} =
-	httpc:request(get, {URL, []}, [], []),
+	httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []),
 
     ct:print("Parse error: ~p ~n", [Reason]).
 
@@ -1098,10 +1101,10 @@ emulate_lower_versions(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/dummy.html", Config),
 
     {ok, {{"HTTP/1.0", 200, _}, [_ | _], Body1 = [_ | _]}} =
-	httpc:request(get, {URL, []}, [{version, "HTTP/1.0"}], []),
+	httpc:request(get, {URL, []}, [{version, "HTTP/1.0"}, ?SSL_NO_VERIFY], []),
     inets_test_lib:check_body(Body1),
     {ok, {{"HTTP/1.1", 200, _}, [_ | _], Body2 = [_ | _]}} =
-	httpc:request(get, {URL, []}, [{version, "HTTP/1.1"}], []),
+	httpc:request(get, {URL, []}, [{version, "HTTP/1.1"}, ?SSL_NO_VERIFY], []),
     inets_test_lib:check_body(Body2).
 
 %%-------------------------------------------------------------------------
@@ -1113,12 +1116,12 @@ relaxed(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/missing_reason_phrase.html", Config),
 
     {error, Reason} =
-	httpc:request(get, {URL, []}, [{relaxed, false}], []),
+	httpc:request(get, {URL, []}, [{relaxed, false}, ?SSL_NO_VERIFY], []),
 
     ct:print("Not relaxed: ~p~n", [Reason]),
 
     {ok, {{_, 200, _}, [_ | _], [_ | _]}} =
-	httpc:request(get, {URL, []}, [{relaxed, true}], []).
+	httpc:request(get, {URL, []}, [{relaxed, true}, ?SSL_NO_VERIFY], []).
 
 %%-------------------------------------------------------------------------
 
@@ -1146,7 +1149,7 @@ headers(Config) when is_list(Config) ->
 				   Mod},
 				  {"From","webmaster@erlang.se"},
 				  {"Date", Date}
-				 ]}, [], []),
+				 ]}, [?SSL_NO_VERIFY], []),
 
     Mod1 =  httpd_util:rfc1123_date(
 	      calendar:gregorian_seconds_to_datetime(
@@ -1155,7 +1158,7 @@ headers(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
 	httpc:request(get, {URL, [{"If-UnModified-Since",
 				   Mod1}
-				 ]}, [], []),
+				 ]}, [?SSL_NO_VERIFY], []),
 
     Tag = httpd_util:create_etag(FileInfo),
 
@@ -1163,13 +1166,13 @@ headers(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
 	httpc:request(get, {URL, [{"If-Match",
 				   Tag}
-				 ]}, [], []),
+				 ]}, [?SSL_NO_VERIFY], []),
 
     {ok, {{_,200,_}, [_ | _], _}} =
 	httpc:request(get, {URL, [{"If-None-Match",
 				   "NotEtag,NeihterEtag"},
 				  {"Connection", "Close"}
-				 ]}, [], []).
+				 ]}, [?SSL_NO_VERIFY], []).
 %%-------------------------------------------------------------------------
 headers_dummy() ->
     ["Test the code for handling headers we do not want/can send "
@@ -1228,14 +1231,14 @@ headers_dummy(Config) when is_list(Config) ->
 		       {"Last-Modified", "Sat, 29 Oct 1994 19:43:31 GMT"},
 		       {"Trailer","1#User-Agent"}
 		      ], "text/plain", FooBar},
-		     [], []).
+		     [?SSL_NO_VERIFY], []).
 
 
 %%-------------------------------------------------------------------------
 
 headers_with_obs_fold(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/obs_folded_headers.html", Config), []},
-    {ok, {{_,200,_}, Headers, [_|_]}} = httpc:request(get, Request, [], []),
+    {ok, {{_,200,_}, Headers, [_|_]}} = httpc:request(get, Request, [?SSL_NO_VERIFY], []),
     "a b" = proplists:get_value("folded", Headers).
 
 %%-------------------------------------------------------------------------
@@ -1246,8 +1249,8 @@ headers_conflict_chunked_with_length(doc) ->
      "and must receive successful response in relaxed mode"];
 headers_conflict_chunked_with_length(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/headers_conflict_chunked_with_length.html", Config), []},
-    {error, {could_not_parse_as_http, _}} = httpc:request(get, Request, [{relaxed, false}], []),
-    {ok,{{_,200,_},_,_}} = httpc:request(get, Request, [{relaxed, true}], []),
+    {error, {could_not_parse_as_http, _}} = httpc:request(get, Request, [{relaxed, false}, ?SSL_NO_VERIFY], []),
+    {ok,{{_,200,_},_,_}} = httpc:request(get, Request, [{relaxed, true}, ?SSL_NO_VERIFY], []),
     ok.
 
 %%-------------------------------------------------------------------------
@@ -1257,13 +1260,13 @@ invalid_headers_key(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config),
                 [{cookie, "valid cookie"}]},
     {error, {headers_error, invalid_field}} =
-        httpc:request(get, Request, [], []).
+        httpc:request(get, Request, [?SSL_NO_VERIFY], []).
 
 invalid_headers_value(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config),
                 [{"cookie", atom_value}]},
     {error, {headers_error, invalid_value}} =
-        httpc:request(get, Request, [], []).
+        httpc:request(get, Request, [?SSL_NO_VERIFY], []).
 
 %%-------------------------------------------------------------------------
 
@@ -1303,7 +1306,7 @@ test_header_type(Config, Method, Value) ->
         {Method, Value,
          httpc:request(Method,
                       make_request(Config, Method, Value),
-                      [],
+                      [?SSL_NO_VERIFY],
                       [])}.
 
 make_request(Config, Method, Value) ->
@@ -1356,7 +1359,10 @@ invalid_method(Config) ->
 
 binary_url(Config) ->
     URL = uri_string:normalize(url(group_name(Config), "/dummy.html", Config)),
-    {ok, _Response} = httpc:request(unicode:characters_to_binary(URL)).
+    case group_name(Config) of
+        https -> ok;
+        _ -> {ok, _Response} = httpc:request(unicode:characters_to_binary(URL))
+    end.
 
 
 %%-------------------------------------------------------------------------
@@ -1379,7 +1385,7 @@ invalid_uri(Config) ->
 %%-------------------------------------------------------------------------
 remote_socket_close(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/just_close.html", Config),
-    {error, socket_closed_remotely} = httpc:request(URL).
+    {error, socket_closed_remotely} = httpc:request(get, {URL, []}, [?SSL_NO_VERIFY], []).
 
 
 %%-------------------------------------------------------------------------
@@ -1389,7 +1395,7 @@ remote_socket_close_async(Config) when is_list(Config) ->
     Options     = [{sync, false}],
     Profile     = httpc:default_profile(),
     {ok, RequestId} =
-	httpc:request(get, Request, [], Options, Profile),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], Options, Profile),
     receive
 	{http, {RequestId, {error, socket_closed_remotely}}} ->
 	    ok
@@ -1457,7 +1463,7 @@ inet_opts(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     Timeout      = timer:seconds(1),
     ConnTimeout  = Timeout + timer:seconds(1),
-    HttpOptions = [{timeout, Timeout}, {connect_timeout, ConnTimeout}],
+    HttpOptions = [{timeout, Timeout}, {connect_timeout, ConnTimeout}, ?SSL_NO_VERIFY],
     Options0     = [{socket_opts, [{tos,    87},
 				   {recbuf, 16#FFFF},
 				   {sndbuf, 16#FFFF}]}],
@@ -1468,7 +1474,7 @@ inet_opts(Config) when is_list(Config) ->
     Options1 = [{socket_opts, [{tos,    84},
 			       {recbuf, 32#1FFFF},
 			       {sndbuf, 32#1FFFF}]}],
-    {ok, {{_,200,_}, [_ | _], ReplyBody1 = [_ | _]}} = httpc:request(get, Request, [], Options1),
+    {ok, {{_,200,_}, [_ | _], ReplyBody1 = [_ | _]}} = httpc:request(get, Request, [?SSL_NO_VERIFY], Options1),
     inets_test_lib:check_body(ReplyBody1).
 
 %%-------------------------------------------------------------------------
@@ -1797,7 +1803,7 @@ post_with_content_type(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/delete_no_body.html", Config),
     %% Simulated server replies 500 if 'Content-Type' header is present
     {ok, {{_,500,_}, _, _}} =
-        httpc:request(post, {URL, [], "application/x-www-form-urlencoded", ""}, [], []).
+        httpc:request(post, {URL, [], "application/x-www-form-urlencoded", ""}, [?SSL_NO_VERIFY], []).
 
 %%--------------------------------------------------------------------
 request_options() ->
@@ -1827,7 +1833,7 @@ stream(ReceiverPid, Receiver, Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     Options     = [{sync, false}, {receiver, Receiver}],
     {ok, RequestId} =
-	 httpc:request(get, Request, [], Options),
+	 httpc:request(get, Request, [?SSL_NO_VERIFY], Options),
      Body =
 	 receive
 	     {reply, ReceiverPid, {RequestId, {{_, 200, _}, _, B}}} ->
@@ -1874,9 +1880,9 @@ stream_deliver(ReplyInfo, Type, ReceiverPid) ->
 
 stream_test(Request, To) ->
     {ok, {{_,200,_}, [_ | _], Body}} =
-	httpc:request(get, Request, [], []),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], []),
     {ok, RequestId} =
-	httpc:request(get, Request, [], [{sync, false}, To]),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}, To]),
 
     StreamedBody =
 	receive
@@ -1892,9 +1898,9 @@ stream_test(Request, To) ->
 
 not_streamed_test(Request, To) ->
     {ok, {{_,Code,_}, [_ | _], Body}} =
-	httpc:request(get, Request, [], [{body_format, binary}]),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{body_format, binary}]),
     {ok, RequestId} =
-	httpc:request(get, Request, [], [{body_format, binary}, {sync, false}, To]),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{body_format, binary}, {sync, false}, To]),
 
     receive
 	{http, {RequestId, {{_, Code, _}, _Headers, Body}}} ->
@@ -2077,20 +2083,20 @@ setup_server_dirs(ServerRoot, DocRoot, DataDir) ->
 
 keep_alive_requests(Request, Profile) ->
     {ok, RequestIdA0} =
-	httpc:request(get, Request, [], [{sync, false}], Profile),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}], Profile),
     {ok, RequestIdA1} =
-	httpc:request(get, Request, [], [{sync, false}], Profile),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}], Profile),
     {ok, RequestIdA2} =
-	httpc:request(get, Request, [], [{sync, false}], Profile),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}], Profile),
 
     receive_replys([RequestIdA0, RequestIdA1, RequestIdA2]),
 
     {ok, RequestIdB0} =
-	httpc:request(get, Request, [], [{sync, false}], Profile),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}], Profile),
     {ok, RequestIdB1} =
-	httpc:request(get, Request, [], [{sync, false}], Profile),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}], Profile),
     {ok, RequestIdB2} =
-	httpc:request(get, Request, [], [{sync, false}], Profile),
+	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}], Profile),
 
     ok = httpc:cancel_request(RequestIdB1, Profile),
     ct:print("Cancel ~p~n", [RequestIdB1]),

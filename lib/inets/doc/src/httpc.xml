@@ -351,7 +351,11 @@
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
             <p>This is the <c>SSL/TLS</c> connecting configuration option.</p>
-            <p>Defaults to <c>[]</c>. See <seeerl marker="ssl:ssl">ssl:connect/[2,3,4]</seeerl>  for available options.</p>
+            <p>Default value is obtained by calling
+            <seemfa marker="#ssl_verify_host_options/1"><c>httpc:ssl_verify_host_options(true)</c>.
+            </seemfa>.
+            See <seeerl marker="ssl:ssl">ssl:connect/[2,3,4]</seeerl> for available options.
+            </p>
 	  </item>
 
           <tag><c><![CDATA[autoredirect]]></c></tag>
