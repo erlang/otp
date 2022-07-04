@@ -647,7 +647,23 @@
         <marker id="get_options"></marker>
       </desc>
     </func>
-     
+
+    <func>
+      <name since="OTP @OTP-18118@">ssl_verify_host_options(WildcardHostName) -> list() </name>
+      <fsummary>Returns ssl options for host verification.</fsummary>
+      <type>
+        <v>WildcardHostName = boolean()</v>
+      </type>
+      <desc>
+        <p>Returns ssl options which can be used to verify the host, uses
+        <seemfa marker="public_key:public_key#cacerts_get/0"><c>public_key:cacerts_get()</c></seemfa>
+        to read CA certicates and if <c>WildcardHostName</c> is true adds the hostname check from
+        <seemfa marker="public_key:public_key#pkix_verify_hostname_match_fun/1">
+          <c> public_key:public_key:pkix_verify_hostname_match_fun(https)</c></seemfa> to the options.
+        </p>
+      </desc>
+    </func>
+
     <func>
       <name since="OTP R14B02">store_cookies(SetCookieHeaders, Url) -> </name>
       <name since="OTP R14B02">store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason}</name>

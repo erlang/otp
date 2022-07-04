@@ -73,7 +73,7 @@ groups() ->
      {sim_http, [], only_simulated() ++ server_closing_connection() ++ [process_leak_on_keepalive]},
      {http_internal, [], real_requests_esi()},
      {http_unix_socket, [], simulated_unix_socket()},
-     {https, [], real_requests()},
+     {https, [], [def_ssl_opt | real_requests()]},
      {sim_https, [], only_simulated()},
      {misc, [], misc()},
      {sim_mixed, [], sim_mixed()}
@@ -1809,7 +1809,16 @@ request_options(Config) when is_list(Config) ->
                                                             [{socket_opts,[{ipfamily, inet6}]}]),
     {error,{failed_connect,_ }} = httpc:request(get, Request, [], []).
 
-
+%%--------------------------------------------------------------------
+def_ssl_opt(_Config) ->
+    CaCerts = public_key:cacerts_get(),
+    Ver = {verify, verify_peer},
+    Certs = {cacerts, CaCerts},
+    [Ver, Certs] = httpc:ssl_verify_host_options(false),
+    [Ver, Certs | WildCard] = httpc:ssl_verify_host_options(true),
+    [{customize_hostname_check, [{match_fun, _}]}] = WildCard,
+    {'EXIT', _} = catch httpc:ssl_verify_host_options(other),
+    ok.
 
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
