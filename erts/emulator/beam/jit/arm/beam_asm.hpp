@@ -1353,6 +1353,8 @@ protected:
 
     void emit_validate_unicode(Label next, Label fail, arm::Gp value);
 
+    void ubif_comment(const ArgWord &Bif);
+
     void emit_bif_is_eq_ne_exact_immed(const ArgSource &LHS,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst,
