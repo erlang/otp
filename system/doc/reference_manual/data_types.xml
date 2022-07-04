@@ -93,8 +93,8 @@
       <p>When working with floats you may not see what you expect when printing or
         doing arithmetic operations. This is because floats
         are represented by a fixed number of bits in a base-2 system while
-        printed floats are represented with a base-10 system. Here are
-        examples of this phenomenon:
+        printed floats are represented with a base-10 system. Erlang
+        uses 64-bit floats. Here are examples of this phenomenon:
       </p>
       <pre>
 > <input>0.1+0.2.</input>
