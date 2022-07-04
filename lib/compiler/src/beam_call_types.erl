@@ -35,6 +35,8 @@
 %%
 -define(SIZE_UPPER_LIMIT, ((1 bsl 58) - 1)).
 
+-define(UNICODE_TYPE, #t_integer{elements={0,16#10FFFF}}).
+
 %%
 %% Returns whether a call will succeed or not.
 %%
@@ -414,8 +416,15 @@ types(erlang, 'rem', Args) ->
 %% Some mixed-type arithmetic.
 types(erlang, Op, [LHS, RHS]) when Op =:= '+'; Op =:= '-' ->
     case get_range(LHS, RHS, #t_number{}) of
-        {Type, {A,B}, {C,_D}} when is_integer(C), C > 0 ->
+        {Type, {A,B}, {C,_D}} when is_integer(C), C >= 0 ->
             R = beam_bounds:bounds(Op, {A,B}, {C,'+inf'}),
+            RetType = case Type of
+                          integer -> #t_integer{elements=R};
+                          number -> #t_number{elements=R}
+                      end,
+            sub_unsafe(RetType, [#t_number{}, #t_number{}]);
+        {Type, {A,_B}, {C,D}} when Op =:= '+', is_integer(A), A >= 0 ->
+            R = beam_bounds:bounds(Op, {A,'+inf'}, {C,D}),
             RetType = case Type of
                           integer -> #t_integer{elements=R};
                           number -> #t_number{elements=R}
@@ -452,6 +461,8 @@ types(erlang, '--', [LHS, _]) ->
     RetType = copy_list(LHS, new_length, proper),
     sub_unsafe(RetType, [proper_list(), proper_list()]);
 
+types(erlang, atom_to_list, [_]) ->
+    sub_unsafe(proper_list(?UNICODE_TYPE), [#t_atom{}]);
 types(erlang, 'iolist_to_binary', [_]) ->
     %% Arg is an iodata(), despite its name.
     ArgType = join(#t_list{}, #t_bitstring{size_unit=8}),
@@ -467,6 +478,10 @@ types(erlang, 'list_to_binary', [_]) ->
 types(erlang, 'list_to_bitstring', [_]) ->
     %% As list_to_binary but with bitstrings rather than binaries.
     sub_unsafe(#t_bitstring{}, [proper_list()]);
+types(erlang, list_to_integer, [_]) ->
+    sub_unsafe(#t_integer{}, [proper_cons()]);
+types(erlang, list_to_integer, [_, _]) ->
+    sub_unsafe(#t_integer{}, [proper_cons(), #t_integer{}]);
 
 %% Process operations
 types(erlang, alias, []) ->
@@ -577,15 +592,12 @@ types(erlang, Op, [LHS,RHS]) when Op =:= min; Op =:= max ->
     %%
     %%   1235.0 = 1 + 1234.0
     %%   1 = erlang:min(1, 1234.0)
-    RetType = case {normalize(LHS), normalize(RHS)} of
-                  {#t_float{}, #t_float{}} -> #t_float{elements=R};
-                  {#t_float{}, #t_integer{}} -> #t_number{elements=R};
-                  {#t_float{}, #t_number{}} -> #t_number{elements=R};
+    RetType = case {LHS, RHS} of
                   {#t_integer{}, #t_integer{}} -> #t_integer{elements=R};
-                  {#t_integer{}, #t_float{}} -> #t_number{elements=R};
                   {#t_integer{}, #t_number{}} -> #t_number{elements=R};
+                  {#t_number{}, #t_integer{}} -> #t_number{elements=R};
                   {#t_number{}, #t_number{}} -> #t_number{elements=R};
-                  {_, _} -> any
+                  {_, _} -> join(LHS, RHS)
               end,
 
     sub_unsafe(RetType, [any, any]);
@@ -986,6 +998,16 @@ types(_, _, Args) ->
       ArgTypes :: [type()],
       RetType :: type().
 
+arith_type({bif,'-'}, [Arg]) ->
+    ArgTypes = [#t_integer{elements={0,0}},Arg],
+    beam_bounds_type('-', #t_number{}, ArgTypes);
+arith_type({bif,'bnot'}, [Arg0]) ->
+    case meet(Arg0, #t_integer{}) of
+        none ->
+            none;
+        #t_integer{elements=R} ->
+            #t_integer{elements=beam_bounds:bounds('bnot', R)}
+    end;
 arith_type({bif,Op}, [_,_]=ArgTypes) when Op =:= '+';
                                           Op =:= '-';
                                           Op =:= '*' ->
@@ -1006,7 +1028,7 @@ arith_type(_Op, _Args) ->
 %%
 
 mixed_arith_types(Args0) ->
-    [FirstType|_] = Args = [normalize(A) || A <- Args0],
+    [FirstType|_] = Args = [meet(A, #t_number{}) || A <- Args0],
     RetType = foldl(fun(#t_integer{}, #t_integer{}) -> #t_integer{};
                        (#t_integer{}, #t_number{}) -> #t_number{};
                        (#t_integer{}, #t_float{}) -> #t_float{};
@@ -1016,7 +1038,6 @@ mixed_arith_types(Args0) ->
                        (#t_number{}, #t_integer{}) -> #t_number{};
                        (#t_number{}, #t_float{}) -> #t_float{};
                        (#t_number{}, #t_number{}) -> #t_number{};
-                       (any, _) -> #t_number{};
                        (_, _) -> none
                     end, FirstType, Args),
     sub_unsafe(RetType, [#t_number{} || _ <- Args]).

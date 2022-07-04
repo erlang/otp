@@ -1024,7 +1024,7 @@ simplify(#b_set{op=bs_create_bin=Op,dst=Dst,args=Args0,anno=Anno}=I0,
 simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
-    case simplify(I1, Ts0) of
+    case simplify(I1, Ts0, Ds0) of
         #b_set{}=I ->
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{ Dst => I },
@@ -1035,54 +1035,67 @@ simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
             Sub#{ Dst => Var }
     end.
 
-simplify(#b_set{op={bif,'and'},args=Args}=I, Ts) ->
+simplify(#b_set{op={bif,'band'},args=Args}=I, Ts, Ds) ->
+    case normalized_types(Args, Ts) of
+        [#t_integer{elements=R},#t_integer{elements={M,M}}] ->
+            case beam_bounds:is_masking_redundant(R, M) of
+                true ->
+                    %% M is mask that will have no effect.
+                    hd(Args);
+                false ->
+                    eval_bif(I, Ts, Ds)
+            end;
+        [_,_] ->
+            eval_bif(I, Ts, Ds)
+    end;
+simplify(#b_set{op={bif,'and'},args=Args}=I, Ts, Ds) ->
     case is_safe_bool_op(Args, Ts) of
         true ->
             case Args of
                 [_,#b_literal{val=false}=Res] -> Res;
                 [Res,#b_literal{val=true}] -> Res;
-                _ -> eval_bif(I, Ts)
+                _ -> eval_bif(I, Ts, Ds)
             end;
         false ->
             I
     end;
-simplify(#b_set{op={bif,'or'},args=Args}=I, Ts) ->
+simplify(#b_set{op={bif,'or'},args=Args}=I, Ts, Ds) ->
     case is_safe_bool_op(Args, Ts) of
         true ->
             case Args of
                 [Res,#b_literal{val=false}] -> Res;
                 [_,#b_literal{val=true}=Res] -> Res;
-                _ -> eval_bif(I, Ts)
+                _ -> eval_bif(I, Ts, Ds)
             end;
         false ->
             I
     end;
-simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts) ->
+simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts, Ds) ->
     case normalized_type(Tuple, Ts) of
         #t_tuple{size=Size} when is_integer(Index),
                                  1 =< Index,
                                  Index =< Size ->
             I = I0#b_set{op=get_tuple_element,
                          args=[Tuple,#b_literal{val=Index-1}]},
-            simplify(I, Ts);
+            simplify(I, Ts, Ds);
         _ ->
-            eval_bif(I0, Ts)
+            eval_bif(I0, Ts, Ds)
     end;
-simplify(#b_set{op={bif,hd},args=[List]}=I, Ts) ->
+simplify(#b_set{op={bif,hd},args=[List]}=I, Ts, Ds) ->
     case normalized_type(List, Ts) of
         #t_cons{} ->
             I#b_set{op=get_hd};
         _ ->
-            eval_bif(I, Ts)
+            eval_bif(I, Ts, Ds)
     end;
-simplify(#b_set{op={bif,tl},args=[List]}=I, Ts) ->
+simplify(#b_set{op={bif,tl},args=[List]}=I, Ts, Ds) ->
     case normalized_type(List, Ts) of
         #t_cons{} ->
             I#b_set{op=get_tl};
         _ ->
-            eval_bif(I, Ts)
+            eval_bif(I, Ts, Ds)
     end;
-simplify(#b_set{op={bif,size},args=[Term]}=I, Ts) ->
+simplify(#b_set{op={bif,size},args=[Term]}=I, Ts, Ds) ->
     case normalized_type(Term, Ts) of
         #t_tuple{} ->
             simplify(I#b_set{op={bif,tuple_size}}, Ts);
@@ -1090,26 +1103,26 @@ simplify(#b_set{op={bif,size},args=[Term]}=I, Ts) ->
             %% If the bitstring is a binary (the size in bits is
             %% evenly divisibly by 8), byte_size/1 gives
             %% the same result as size/1.
-            simplify(I#b_set{op={bif,byte_size}}, Ts);
+            simplify(I#b_set{op={bif,byte_size}}, Ts, Ds);
         _ ->
-            eval_bif(I, Ts)
+            eval_bif(I, Ts, Ds)
     end;
-simplify(#b_set{op={bif,tuple_size},args=[Term]}=I, Ts) ->
+simplify(#b_set{op={bif,tuple_size},args=[Term]}=I, Ts, _Ds) ->
     case normalized_type(Term, Ts) of
         #t_tuple{size=Size,exact=true} ->
             #b_literal{val=Size};
         _ ->
             I
     end;
-simplify(#b_set{op={bif,is_map_key},args=[Key,Map]}=I, Ts) ->
+simplify(#b_set{op={bif,is_map_key},args=[Key,Map]}=I, Ts, _Ds) ->
     case normalized_type(Map, Ts) of
         #t_map{} ->
             I#b_set{op=has_map_field,args=[Map,Key]};
         _ ->
             I
     end;
-simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '==';
-                                                    Op0 =:= '/=' ->
+simplify(#b_set{op={bif,Op0},args=Args}=I, Ts, Ds) when Op0 =:= '==';
+                                                        Op0 =:= '/=' ->
     Types = normalized_types(Args, Ts),
     EqEq0 = case {beam_types:meet(Types),beam_types:join(Types)} of
                 {none,any} -> true;
@@ -1126,13 +1139,13 @@ simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '==';
                      '==' -> '=:=';
                      '/=' -> '=/='
                  end,
-            simplify(I#b_set{op={bif,Op}}, Ts);
+            simplify(I#b_set{op={bif,Op}}, Ts, Ds);
         false ->
-            eval_bif(I, Ts)
+            eval_bif(I, Ts, Ds)
     end;
-simplify(#b_set{op={bif,'=:='},args=[Same,Same]}, _Ts) ->
+simplify(#b_set{op={bif,'=:='},args=[Same,Same]}, _Ts, _Ds) ->
     #b_literal{val=true};
-simplify(#b_set{op={bif,'=:='},args=[LHS,RHS]}=I, Ts) ->
+simplify(#b_set{op={bif,'=:='},args=[LHS,RHS]}=I, Ts, Ds) ->
     LType = concrete_type(LHS, Ts),
     RType = concrete_type(RHS, Ts),
     case beam_types:meet(LType, RType) of
@@ -1154,12 +1167,12 @@ simplify(#b_set{op={bif,'=:='},args=[LHS,RHS]}=I, Ts) ->
                     %% comparison operator (such as >=) that can be
                     %% translated to test instruction, this
                     %% optimization will eliminate one instruction.
-                    simplify(I#b_set{op={bif,'not'},args=[LHS]}, Ts);
+                    simplify(I#b_set{op={bif,'not'},args=[LHS]}, Ts, Ds);
                 {_,_} ->
-                    eval_bif(I, Ts)
+                    eval_bif(I, Ts, Ds)
             end
     end;
-simplify(#b_set{op={bif,is_list},args=[Src]}=I0, Ts) ->
+simplify(#b_set{op={bif,is_list},args=[Src]}=I0, Ts, Ds) ->
     case concrete_type(Src, Ts) of
         #t_union{list=#t_cons{}} ->
             I = I0#b_set{op=is_nonempty_list,args=[Src]},
@@ -1170,17 +1183,20 @@ simplify(#b_set{op={bif,is_list},args=[Src]}=I0, Ts) ->
         #t_union{list=nil} ->
             I0#b_set{op={bif,'=:='},args=[Src,#b_literal{val=[]}]};
         _ ->
-            eval_bif(I0, Ts)
+            eval_bif(I0, Ts, Ds)
     end;
-simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
+simplify(#b_set{op={bif,Op},args=Args}=I, Ts, Ds) ->
     Types = normalized_types(Args, Ts),
     case is_float_op(Op, Types) of
         false ->
-            eval_bif(I, Ts);
+            eval_bif(I, Ts, Ds);
         true ->
             AnnoArgs = [anno_float_arg(A) || A <- Types],
-            eval_bif(beam_ssa:add_anno(float_op, AnnoArgs, I), Ts)
+            eval_bif(beam_ssa:add_anno(float_op, AnnoArgs, I), Ts, Ds)
     end;
+simplify(I, Ts, _Ds) ->
+    simplify(I, Ts).
+
 simplify(#b_set{op=bs_extract,args=[Ctx]}=I, Ts) ->
     case concrete_type(Ctx, Ts) of
         #t_bitstring{} ->
@@ -1659,7 +1675,7 @@ is_safe_bool_op([LHS, RHS], Ts) ->
     beam_types:is_boolean_type(LType) andalso
         beam_types:is_boolean_type(RType).
 
-eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
+eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts, Ds) ->
     Arity = length(Args),
     case erl_bifs:is_pure(erlang, Bif, Arity) of
         false ->
@@ -1667,7 +1683,7 @@ eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
         true ->
             case make_literal_list(Args) of
                 none ->
-                    eval_bif_1(I, Bif, concrete_types(Args, Ts));
+                    eval_bif_1(I, Bif, Ts, Ds);
                 LitArgs ->
                     try apply(erlang, Bif, LitArgs) of
                         Val -> #b_literal{val=Val}
@@ -1678,8 +1694,8 @@ eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
             end
     end.
 
-eval_bif_1(I, Op, Types) ->
-    case Types of
+eval_bif_1(#b_set{args=Args}=I, Op, Ts, Ds) ->
+    case concrete_types(Args, Ts) of
         [#t_integer{},#t_integer{elements={0,0}}] when Op =:= 'bor'; Op =:= 'bxor' ->
             #b_set{args=[Result,_]} = I,
             Result;
@@ -1701,9 +1717,29 @@ eval_bif_1(I, Op, Types) ->
                 false ->
                     I
             end;
+        [#t_integer{},#t_integer{}] ->
+            reassociate(I, Ts, Ds);
         _ ->
             I
     end.
+
+reassociate(#b_set{op={bif,OpB},args=[#b_var{}=V0,#b_literal{val=B0}]}=I, _Ts, Ds)
+  when OpB =:= '+'; OpB =:= '-' ->
+    case map_get(V0, Ds) of
+        #b_set{op={bif,OpA},args=[#b_var{}=V,#b_literal{val=A0}]}
+          when OpA =:= '+'; OpA =:= '-' ->
+            A = erlang:OpA(A0),
+            B = erlang:OpB(B0),
+            case A + B of
+                Combined when Combined < 0 ->
+                    I#b_set{op={bif,'-'},args=[V,#b_literal{val=-Combined}]};
+                Combined when Combined >= 0 ->
+                    I#b_set{op={bif,'+'},args=[V,#b_literal{val=Combined}]}
+            end;
+        #b_set{} ->
+            I
+    end;
+reassociate(I, _Ts, _Ds) -> I.
 
 simplify_args(Args, Ts, Sub) ->
     [simplify_arg(Arg, Ts, Sub) || Arg <- Args].
