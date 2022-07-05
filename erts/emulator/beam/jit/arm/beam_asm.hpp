@@ -1367,11 +1367,12 @@ protected:
 
     void ubif_comment(const ArgWord &Bif);
 
-    void emit_bif_is_eq_ne_exact_immed(const ArgSource &LHS,
-                                       const ArgSource &RHS,
-                                       const ArgRegister &Dst,
-                                       Eterm fail_value,
-                                       Eterm succ_value);
+    void emit_cmp_immed_to_bool(arm::CondCode cc,
+                                const ArgSource &LHS,
+                                const ArgSource &RHS,
+                                const ArgRegister &Dst);
+
+    void emit_cond_to_bool(arm::CondCode cc, const ArgRegister &Dst);
 
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);

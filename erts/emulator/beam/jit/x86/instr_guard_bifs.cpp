@@ -35,6 +35,8 @@ using namespace asmjit;
 /* ================================================================
  *  '=:='/2
  *  '=/='/2
+ *  '>='/2
+ *  '<'/2
  * ================================================================
  */
 
@@ -89,6 +91,121 @@ void BeamModuleAssembler::emit_bif_is_ne_exact(const ArgRegister &LHS,
                                                const ArgSource &RHS,
                                                const ArgRegister &Dst) {
     emit_bif_is_eq_ne_exact(LHS, RHS, Dst, am_true, am_false);
+}
+
+void BeamModuleAssembler::emit_cond_to_bool(uint32_t instId,
+                                            const ArgRegister &Dst) {
+    mov_imm(RET, am_true);
+    mov_imm(ARG1, am_false);
+    a.emit(instId, RET, ARG1);
+    mov_arg(Dst, RET);
+}
+
+void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
+                                         const ArgSource &RHS,
+                                         const ArgRegister &Dst) {
+    bool both_small = always_small(LHS) && always_small(RHS);
+
+    if (both_small && LHS.isRegister() && RHS.isImmed() &&
+        Support::isInt32(RHS.as<ArgImmed>().get())) {
+        comment("simplified compare because one operand is an immediate small");
+        a.cmp(getArgRef(LHS.as<ArgRegister>()), imm(RHS.as<ArgImmed>().get()));
+        emit_cond_to_bool(x86::Inst::kIdCmovl, Dst);
+
+        return;
+    } else if (both_small && RHS.isRegister() && LHS.isImmed() &&
+               Support::isInt32(LHS.as<ArgImmed>().get())) {
+        comment("simplified compare because one operand is an immediate small");
+        a.cmp(getArgRef(RHS.as<ArgRegister>()), imm(LHS.as<ArgImmed>().get()));
+        emit_cond_to_bool(x86::Inst::kIdCmovg, Dst);
+
+        return;
+    }
+
+    Label generic = a.newLabel(), do_jl = a.newLabel();
+
+    mov_arg(ARG2, RHS); /* May clobber ARG1 */
+    mov_arg(ARG1, LHS);
+
+    if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+        always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        /* The only possible kind of immediate is a small and all other
+         * values are boxed, so we can test for smalls by testing boxed. */
+        comment("simplified small test since all other types are boxed");
+        a.mov(RETd, ARG1d);
+        a.and_(RETd, ARG2d);
+        a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
+        a.short_().je(generic);
+    } else {
+        /* Relative comparisons are overwhelmingly likely to be used on
+         * smalls, so we'll specialize those and keep the rest in a shared
+         * fragment. */
+        if (RHS.isSmall()) {
+            a.mov(RETd, ARG1d);
+        } else if (LHS.isSmall()) {
+            a.mov(RETd, ARG2d);
+        } else {
+            a.mov(RETd, ARG1d);
+            a.and_(RETd, ARG2d);
+        }
+
+        a.and_(RETb, imm(_TAG_IMMED1_MASK));
+        a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+        a.short_().jne(generic);
+    }
+
+    /* Both arguments are smalls. */
+    a.cmp(ARG1, ARG2);
+    a.short_().jmp(do_jl);
+
+    a.bind(generic);
+    {
+        a.cmp(ARG1, ARG2);
+        a.short_().je(do_jl);
+        safe_fragment_call(ga->get_arith_compare_shared());
+    }
+
+    a.bind(do_jl);
+    emit_cond_to_bool(x86::Inst::kIdCmovl, Dst);
+}
+
+void BeamModuleAssembler::emit_bif_is_lt(const ArgSource &LHS,
+                                         const ArgSource &RHS,
+                                         const ArgRegister &Dst) {
+    Label generic = a.newLabel(), do_jge = a.newLabel();
+
+    mov_arg(ARG2, RHS); /* May clobber ARG1 */
+    mov_arg(ARG1, LHS);
+
+    /* Relative comparisons are overwhelmingly likely to be used on
+     * smalls, so we'll specialize those and keep the rest in a shared
+     * fragment. */
+    if (RHS.isSmall()) {
+        a.mov(RETd, ARG1d);
+    } else if (LHS.isSmall()) {
+        a.mov(RETd, ARG2d);
+    } else {
+        /* Avoid the expensive generic comparison for equal terms. */
+        a.cmp(ARG1, ARG2);
+        a.short_().je(do_jge);
+
+        a.mov(RETd, ARG1d);
+        a.and_(RETd, ARG2d);
+    }
+
+    a.and_(RETb, imm(_TAG_IMMED1_MASK));
+    a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+    a.short_().jne(generic);
+
+    /* Both arguments are smalls. */
+    a.cmp(ARG1, ARG2);
+    a.short_().jmp(do_jge);
+
+    a.bind(generic);
+    safe_fragment_call(ga->get_arith_compare_shared());
+
+    a.bind(do_jge);
+    emit_cond_to_bool(x86::Inst::kIdCmovge, Dst);
 }
 
 /* ================================================================

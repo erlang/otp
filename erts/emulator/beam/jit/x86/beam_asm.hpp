@@ -1456,6 +1456,8 @@ protected:
                                  Eterm fail_value,
                                  Eterm succ_value);
 
+    void emit_cond_to_bool(uint32_t instId, const ArgRegister &Dst);
+
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);
 
