@@ -35,6 +35,7 @@ static ErlNifMutex *ensure_engine_loaded_mtx = NULL;
 
 static int zero_terminate(ErlNifBinary bin, char **buf);
 
+
 static void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
     if (ctx == NULL)
         return;
@@ -47,8 +48,10 @@ static void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
          PRINTF_ERR0("  empty ctx->id=NULL");
 
     if (ctx->engine) {
-        if (ctx->is_functional)
+        if (ctx->is_functional) {
+            //printf("\nCalling finish gc\n\n");
             ENGINE_finish(ctx->engine);
+        }
         ENGINE_free(ctx->engine);
     }
 }
@@ -199,30 +202,6 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
     return -1;
 }
 
-static int get_engine_method_list(ErlNifEnv* env, const ERL_NIF_TERM term, unsigned int *methods, int i)
-{
-    ERL_NIF_TERM head, tail;
-    unsigned int method;
-
-    if (enif_is_empty_list(env, term)) {
-        return 0;
-    }
-
-    if (!enif_get_list_cell(env, term, &head, &tail))
-        goto err;
-
-    if (!enif_get_uint(env, head, &method))
-        goto err;
-
-    methods[i] = method;
-
-    i++;
-    return get_engine_method_list(env, tail, methods, i);
-
- err:
-    return -1;
-}
-
 static int register_method(ENGINE *engine, unsigned int method)
 {
     int ret = 0;
@@ -368,28 +347,6 @@ static void unregister_method(ENGINE *engine, unsigned int method)
     return;
 }
 
-static int register_engine_methods(ENGINE *engine, unsigned int methods_len, unsigned int *methods)
-{
-    unsigned int i;
-    int ret;
-
-    for(i = 0; i < methods_len; i++)
-        if((ret = register_method(engine, methods[i])) != 1)
-            return ret;
-
-    return 1;
-}
-
-static void unregister_engine_methods(ENGINE *engine, unsigned int methods_len, unsigned int *methods)
-{
-    unsigned int i;
-
-    for(i = 0; i < methods_len; i++)
-        unregister_method(engine, methods[i]);
-
-    return;
-}
-
 #endif /* HAS_ENGINE_SUPPORT */
 
 ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -419,7 +376,6 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         ret = ERROR_Atom(env, "bad_engine_id");
         goto done;
     }
-
     if ((ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL)
         goto err;
     ctx->engine = engine;
@@ -486,6 +442,7 @@ ERL_NIF_TERM engine_free_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
     if (ctx->engine) {
         if (ctx->is_functional) {
+            printf("\nCalling finish\n\n");
             if (!ENGINE_finish(ctx->engine))
                 goto err;
             ctx->is_functional = 0;
@@ -949,22 +906,20 @@ ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 }
 
 ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (EngineId, LibPath, MethodList) */
+{/* (EngineId, LibPath) */
 #ifdef HAS_ENGINE_SUPPORT
     ERL_NIF_TERM ret, result;
     ErlNifBinary engine_id_bin,
         library_path_bin;
     char *engine_id = NULL,
         *library_path = NULL;
-    unsigned int methods_len = 0;
-    unsigned int *methods = NULL;
     int is_locked = 0;
 
     ENGINE *engine = NULL;
     struct engine_ctx *ctx = NULL;
 
     /* Get Arguments */
-    ASSERT(argc == 3);
+    ASSERT(argc == 2);
 
     /* EngineId */
     if (!enif_inspect_binary(env, argv[0], &engine_id_bin))
@@ -986,42 +941,12 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     (void) memcpy(library_path, library_path_bin.data, library_path_bin.size);
     library_path[library_path_bin.size] = '\0';
 
-    /* Method List */
-    if (!enif_get_list_length(env, argv[2], &methods_len))
-        goto bad_arg;
-    if (methods_len > UINT_MAX - 1)
-        goto bad_arg;
-    if ((size_t)methods_len > SIZE_MAX / sizeof(unsigned int))
-        goto bad_arg;
-    if ((methods = enif_alloc((methods_len) * sizeof(unsigned int))) == NULL)
-        goto bad_arg;
-    if (get_engine_method_list(env, argv[2], methods, 0))
-        goto bad_arg;
-
     /* Loading Engine */
     enif_mutex_lock(ensure_engine_loaded_mtx);
     is_locked = 1;
 
-    if ((engine = ENGINE_by_id(engine_id)) != NULL)
+    if ((engine = ENGINE_by_id(engine_id)) == NULL)
     {
-        
-        PRINTF_ERR0("Engine already loaded, get a reference\r\n");
-        /* Get structural reference to already loaded engine */
-        if ((ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL) {
-            ret = enif_make_badarg(env);
-            goto err;
-        }
-        ctx->engine = engine;
-        ctx->is_functional = 0;
-        ctx->id = engine_id;
-        /* ctx now owns engine_id */
-        engine_id = NULL;
-
-        result = enif_make_resource(env, ctx);
-        ret = enif_make_tuple2(env, atom_ok, result);
-        goto done;
-
-      } else {
         PRINTF_ERR0("Load engine\r\n");
         /* Load dynamic engine */
         ENGINE_load_dynamic();
@@ -1054,45 +979,31 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             ret = ERROR_Atom(env, "add_engine_failed");
             goto err;
         }
-
-        /* Init engine and get functional reference */
-        if (!ENGINE_init(engine)) {
-            ret = ERROR_Atom(env, "engine_init_failed");
-            goto err;
-        }
-
-        /* From this point an ENGINE_finish() is done on failure */
-        /* Register the methods that the engine handles */
-        switch(register_engine_methods(engine, methods_len, methods)) {
-        case 1:
-            break;
-        case 0:
-            ret = ERROR_Atom(env, "register_engine_failed");
-            ENGINE_finish(engine);
-            goto done;
-            break;
-        case -1:
-            ret = ERROR_Atom(env, "engine_method_not_supported");
-            ENGINE_finish(engine);
-            goto done;
-            break;
-        }
-
-        if ((ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL) {
-            ret = enif_make_badarg(env);
-            ENGINE_finish(engine);
-            goto done;
-        }
-        ctx->engine = engine;
-        ctx->is_functional = 1;
-        ctx->id = engine_id;
-        /* ctx now owns engine_id */
-        engine_id = NULL;
-
-        result = enif_make_resource(env, ctx);
-        ret = enif_make_tuple2(env, atom_ok, result);
-        goto done;
     }
+  
+    PRINTF_ERR0("Initialize engine\r\n");
+
+    /* Init engine and get functional reference */
+    if (!ENGINE_init(engine)) {
+        ret = ERROR_Atom(env, "engine_init_failed");
+        goto err;
+    }
+        
+    /* Get structural reference to already loaded engine */
+    if ((ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL) {
+        ret = enif_make_badarg(env);
+        ENGINE_finish(engine);
+        goto err;
+    }
+    ctx->engine = engine;
+    ctx->is_functional = 1;
+    ctx->id = engine_id;
+    /* ctx now owns engine_id */
+    engine_id = NULL;
+
+    result = enif_make_resource(env, ctx);
+    ret = enif_make_tuple2(env, atom_ok, result);
+    goto done;
 
  bad_arg:
     ret = enif_make_badarg(env);
@@ -1110,95 +1021,11 @@ ERL_NIF_TERM ensure_engine_loaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
         is_locked = 0;
     }
 
-    if (methods != NULL)
-        enif_free(methods);
     if (engine_id)
         enif_free(engine_id);
     if (ctx)
         enif_release_resource(ctx);
 
-    return ret;
-
-#else
-    return atom_notsup;
-#endif
-}
-
-ERL_NIF_TERM ensure_engine_unloaded_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Engine, MethodList) */
-#ifdef HAS_ENGINE_SUPPORT
-    ERL_NIF_TERM ret;
-    struct engine_ctx *ctx;
-    unsigned int methods_len = 0;
-    unsigned int *methods = NULL;
-    int is_locked = 0;
-    ENGINE *tmp_engine = NULL;
-    const char *tmp_engine_id;
-
-    /* Get Arguments */
-    ASSERT(argc == 2);
-
-    /* Engine */
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)
-        || !ctx->engine)
-        goto bad_arg;
-
-    /* Method List */
-    if (!enif_get_list_length(env, argv[1], &methods_len))
-        goto bad_arg;
-    if (methods_len > UINT_MAX - 1)
-        goto bad_arg;
-    if ((size_t)methods_len > SIZE_MAX / sizeof(unsigned int))
-        goto bad_arg;
-    if ((methods = enif_alloc((methods_len) * sizeof(unsigned int))) == NULL)
-        goto bad_arg;
-    if (get_engine_method_list(env, argv[1], methods, 0))
-        goto bad_arg;
-
-    /* Unloading Engine */
-    enif_mutex_lock(ensure_engine_loaded_mtx);
-    is_locked = 1;
-
-    /* Remove functional reference */
-    if(ctx->is_functional) {
-
-        /* Remove engine from OpenSSls internal list if existing */
-        if((tmp_engine_id = ENGINE_get_id(ctx->engine)) != NULL)
-            if ((tmp_engine = ENGINE_by_id(tmp_engine_id)) != NULL) {
-                ENGINE_free(tmp_engine);
-                if(!ENGINE_remove(ctx->engine)) {
-                    ret = ERROR_Atom(env, "remove_engine_failed");
-                    goto done;
-                }
-            }
-        /* Register the methods that the engine handles */
-        unregister_engine_methods(ctx->engine, methods_len, methods);
-
-        if (!ENGINE_finish(ctx->engine))
-            goto err;
-       ctx->is_functional = 0;
-    }
-
-    /* Remove structural reference */
-    if (!ENGINE_free(ctx->engine))
-        goto err;
-    ctx->engine = NULL;
-
-    ret = atom_ok;
-    goto done;
-
- bad_arg:
- err:
-    ret = enif_make_badarg(env);
-
- done:
-
-    enif_free(methods);
-
-    if(is_locked) {
-        enif_mutex_unlock(ensure_engine_loaded_mtx);
-        is_locked = 0;
-    }
     return ret;
 
 #else
