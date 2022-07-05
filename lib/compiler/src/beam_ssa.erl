@@ -105,7 +105,8 @@
 %% To avoid the collapsing, change the value of SET_LIMIT to 50 in the
 %% file erl_types.erl in the dialyzer application.
 
--type prim_op() :: 'bs_extract' | 'bs_get_tail' | 'bs_init_writable' |
+-type prim_op() :: 'bs_create_bin' |
+                   'bs_extract' | 'bs_get_tail' | 'bs_init_writable' |
                    'bs_match' | 'bs_start_match' | 'bs_test_tail' |
                    'build_stacktrace' |
                    'call' | 'catch_end' |
