@@ -236,7 +236,8 @@ defined_functions(Forms) ->
 %%     io:format("~w/~w " ++ Format,[Name,Arity]++Terms),
 %%     ok.
 
-function({function,_,Name,Arity,Cs0}, Module, Opts) ->
+function({function,_,Name,Arity,Cs0}, Module, Opts)
+  when is_integer(Arity), 0 =< Arity, Arity =< 255 ->
     #imodule{file=File, ws=Ws0, nifs=Nifs} = Module,
     try
         St0 = #core{vcount=0,function={Name,Arity},opts=Opts,
@@ -1516,7 +1517,7 @@ verify_suitable_fields([]) -> ok.
 %% Count the number of bits approximately needed to store Int.
 %% (We don't need an exact result for this purpose.)
 
-count_bits(Int) -> 
+count_bits(Int) when is_integer(Int) ->
     count_bits_1(abs(Int), 64).
 
 count_bits_1(0, Bits) -> Bits;
@@ -2215,19 +2216,19 @@ string_to_conses(Line, Cs, Tail) ->
 
 make_vars(Vs) -> [ #c_var{name=V} || V <- Vs ].
 
-new_fun_name(#core{function={F,A},fcount=I}=St) ->
+new_fun_name(#core{function={F,A},fcount=I}=St) when is_integer(I) ->
     Name = "-" ++ atom_to_list(F) ++ "/" ++ integer_to_list(A)
         ++ "-fun-" ++ integer_to_list(I) ++ "-",
     {list_to_atom(Name),St#core{fcount=I+1}}.
 
 %% new_fun_name(Type, State) -> {FunName,State}.
 
-new_fun_name(Type, #core{fcount=C}=St) ->
+new_fun_name(Type, #core{fcount=C}=St) when is_integer(C) ->
     {list_to_atom(Type ++ "$^" ++ integer_to_list(C)),St#core{fcount=C+1}}.
 
 %% new_var_name(State) -> {VarName,State}.
 
-new_var_name(#core{vcount=C}=St) ->
+new_var_name(#core{vcount=C}=St) when is_integer(C) ->
     {C,St#core{vcount=C + 1}}.
 
 %% new_var(State) -> {{var,Name},State}.

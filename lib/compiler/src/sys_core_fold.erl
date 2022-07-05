@@ -93,6 +93,9 @@
 -define(ASSERT(E), ignore).
 -endif.
 
+-define(MAX_FUNC_ARGS, 255).
+-define(IS_FUNC_ARITY(A), is_integer(A) andalso 0 =< A andalso A =< ?MAX_FUNC_ARGS).
+
 %% Variable value info.
 -record(sub, {v=[],                                 %Variable substitutions
               s=sets:new([{version, 2}]) :: sets:set(), %Variables in scope
@@ -1866,6 +1869,7 @@ case_opt_data_2(P, TypeSig, Bs0) ->
 	{[V|Vs],none} ->
 	    {Type,Arity} = TypeSig,
 	    Ann = [compiler_generated],
+            true = ?IS_FUNC_ARITY(Arity),
 	    Vars = make_vars(Ann, Arity),
 	    Data = cerl:ann_make_data(Ann, Type, Vars),
 	    Bs = [{V,Data} | [{Var,V} || Var <- Vs] ++ Bs0],
@@ -1923,7 +1927,7 @@ pat_to_expr(P) ->
 
 pat_to_expr_list(Ps) -> [pat_to_expr(P) || P <- Ps].
 
-make_vars(A, Max) ->
+make_vars(A, Max) when ?IS_FUNC_ARITY(Max) ->
     make_vars(A, 1, Max).
 
 make_vars(A, I, Max) when I =< Max ->
@@ -2443,6 +2447,7 @@ delay_build_1(Core0, TypeSig) ->
 	Core ->
 	    {Type,Arity} = TypeSig,
 	    Ann = [compiler_generated],
+            true = ?IS_FUNC_ARITY(Arity),
 	    Vars = make_vars(Ann, Arity),
 	    Data = cerl:ann_make_data(Ann, Type, Vars),
 	    {yes,Vars,Core,Data}

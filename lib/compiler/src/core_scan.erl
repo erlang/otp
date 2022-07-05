@@ -58,6 +58,12 @@
 -type error_description() :: term().
 -type error_info() :: {erl_anno:location(), module(), error_description()}.
 
+-define(IS_UNICODE(C),
+        (is_integer(C) andalso
+         (C >= 0 andalso C < 16#D800 orelse
+          C > 16#DFFF andalso C < 16#FFFE orelse
+          C > 16#FFFF andalso C =< 16#10FFFF))).
+
 %% string([Char]) ->
 %% string([Char], StartPos) ->
 %%    {ok, [Tok], EndPos} |
@@ -256,6 +262,8 @@ scan(Cs, Pos) ->
 %% scan1(Characters, TokenStack, Position)
 %%  Scan a list of characters into tokens.
 
+scan1([C|_s], _Toks, _Pos) when not ?IS_UNICODE(C) ->
+    error({badchar,C});
 scan1([$\n|Cs], Toks, Pos) ->            	        %Skip newline
     scan1(Cs, Toks, Pos+1);
 scan1([C|Cs], Toks, Pos) when C >= $\000, C =< $\s -> 	%Skip control chars
@@ -272,9 +280,9 @@ scan1([C|Cs], Toks, Pos) when C >= $À, C =< $Þ, C /= $× ->
     scan_variable(C, Cs, Toks, Pos);
 scan1([C|Cs], Toks, Pos) when C >= $0, C =< $9 ->	%Numbers
     scan_number(C, Cs, Toks, Pos);
-scan1([$-,C|Cs], Toks, Pos) when C >= $0, C =< $9 ->	%Signed numbers
+scan1([$-,C|Cs], Toks, Pos) when is_integer(C), C >= $0, C =< $9 -> %Signed numbers
     scan_signed_number($-, C, Cs, Toks, Pos);
-scan1([$+,C|Cs], Toks, Pos) when C >= $0, C =< $9 ->	%Signed numbers
+scan1([$+,C|Cs], Toks, Pos) when is_integer(C), C >= $0, C =< $9 -> %Signed numbers
     scan_signed_number($+, C, Cs, Toks, Pos);
 scan1([$_|Cs], Toks, Pos) ->				%_ variables
     scan_variable($_, Cs, Toks, Pos);
@@ -338,6 +346,8 @@ scan_name([C|Cs], Ncs) ->
 scan_name([], Ncs) ->
     {Ncs,[]}.
 
+name_char(C) when not ?IS_UNICODE(C) ->
+    error({badchar,C});
 name_char(C) when C >= $a, C =< $z -> true;
 name_char(C) when C >= $ß, C =< $ÿ, C /= $÷ -> true;
 name_char(C) when C >= $A, C =< $Z -> true;
@@ -374,15 +384,18 @@ scan_char([C|Cs], Pos) ->
     {C,Cs,Pos}.
 
 scan_escape([O1,O2,O3|Cs], Pos) when            %\<1-3> octal digits
-    O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7, O3 >= $0, O3 =< $7 ->
+      is_integer(O1), O1 >= $0, O1 =< $7,
+      is_integer(O2), O2 >= $0, O2 =< $7,
+      is_integer(O3), O3 >= $0, O3 =< $7 ->
     Val = (O1*8 + O2)*8 + O3 - 73*$0,
     {Val,Cs,Pos};
 scan_escape([O1,O2|Cs], Pos) when
-    O1 >= $0, O1 =< $7, O2 >= $0, O2 =< $7 ->
+      is_integer(O1), O1 >= $0, O1 =< $7,
+      is_integer(O2), O2 >= $0, O2 =< $7 ->
     Val = (O1*8 + O2) - 9*$0,
     {Val,Cs,Pos};
 scan_escape([O1|Cs], Pos) when
-    O1 >= $0, O1 =< $7 ->
+      is_integer(O1), O1 >= $0, O1 =< $7 ->
     {O1 - $0,Cs,Pos};
 scan_escape([$^,C|Cs], Pos) ->			%\^X -> CTL-X
     Val = C band 31,
@@ -422,7 +435,8 @@ escape_char(C) -> C.
 %%  SPos == Start position
 %%  CPos == Current position
 
-scan_number(C, Cs0, Toks, Pos) ->
+scan_number(C, Cs0, Toks, Pos) when
+      is_integer(C), C >= $0, C =< $9 ->
     {Ncs,Cs,Pos1} = scan_integer(Cs0, [C], Pos),
     scan_after_int(Cs, Ncs, Toks, Pos, Pos1).
 
@@ -430,17 +444,19 @@ scan_signed_number(S, C, Cs0, Toks, Pos) ->
     {Ncs,Cs,Pos1} = scan_integer(Cs0, [C,S], Pos),
     scan_after_int(Cs, Ncs, Toks, Pos, Pos1).
 
-scan_integer([C|Cs], Stack, Pos) when C >= $0, C =< $9 ->
+scan_integer([C|Cs], Stack, Pos) when
+      is_integer(C), C >= $0, C =< $9 ->
     scan_integer(Cs, [C|Stack], Pos);
 scan_integer(Cs, Stack, Pos) ->
     {Stack,Cs,Pos}.
 
-scan_after_int([$.,C|Cs0], Ncs0, Toks, SPos, CPos) when C >= $0, C =< $9 ->
+scan_after_int([$.,C|Cs0], Ncs0, Toks, SPos, CPos) when
+      is_integer(C), C >= $0, C =< $9 ->
     {Ncs,Cs,CPos1} = scan_integer(Cs0, [C,$.|Ncs0], CPos),
-    scan_after_fraction(Cs, Ncs, Toks, SPos, CPos1);	
+    scan_after_fraction(Cs, Ncs, Toks, SPos, CPos1);
 scan_after_int([$#|Cs], Ncs, Toks, SPos, CPos) ->
     case list_to_integer(reverse(Ncs)) of
-	Base when Base >= 2, Base =< 16 ->
+	Base when is_integer(Base), Base >= 2, Base =< 16 ->
 	    scan_based_int(Cs, 0, Base, Toks, SPos, CPos);
 	Base ->
 	    scan_error({base,Base}, CPos)
@@ -450,15 +466,15 @@ scan_after_int(Cs, Ncs, Toks, SPos, CPos) ->
     scan1(Cs, [{integer,SPos,N}|Toks], CPos).
 
 scan_based_int([C|Cs], SoFar, Base, Toks, SPos, CPos) when
-    C >= $0, C =< $9, C < Base + $0 ->
+      is_integer(C), C >= $0, C =< $9, C < Base + $0 ->
     Next = SoFar * Base + (C - $0),
     scan_based_int(Cs, Next, Base, Toks, SPos, CPos);
 scan_based_int([C|Cs], SoFar, Base, Toks, SPos, CPos) when
-    C >= $a, C =< $f, C < Base + $a - 10 ->
+      is_integer(C), C >= $a, C =< $f, C < Base + $a - 10 ->
     Next = SoFar * Base + (C - $a + 10),
     scan_based_int(Cs, Next, Base, Toks, SPos, CPos);
 scan_based_int([C|Cs], SoFar, Base, Toks, SPos, CPos) when
-    C >= $A, C =< $F, C < Base + $A - 10 ->
+      is_integer(C), C >= $A, C =< $F, C < Base + $A - 10 ->
     Next = SoFar * Base + (C - $A + 10),
     scan_based_int(Cs, Next, Base, Toks, SPos, CPos);
 scan_based_int(Cs, SoFar, _, Toks, SPos, CPos) ->
@@ -485,7 +501,8 @@ scan_exponent([$-|Cs], Ncs, Toks, SPos, CPos) ->
 scan_exponent(Cs, Ncs, Toks, SPos, CPos) ->
     scan_exponent1(Cs, Ncs, Toks, SPos, CPos).
 
-scan_exponent1([C|Cs0], Ncs0, Toks, SPos, CPos) when C >= $0, C =< $9 ->
+scan_exponent1([C|Cs0], Ncs0, Toks, SPos, CPos) when
+      is_integer(C), C >= $0, C =< $9 ->
     {Ncs,Cs,CPos1} = scan_integer(Cs0, [C|Ncs0], CPos),
     case catch list_to_float(reverse(Ncs)) of
 	N when is_float(N) ->
