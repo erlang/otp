@@ -26,10 +26,10 @@
 -ifndef(tls_handshake_1_3).
 -define(tls_handshake_1_3, true).
 
-%% Common to TLS-1.3 and previous TLS versions 
-%% Some definitions may not exist in TLS-1.3 this is 
+%% Common to TLS-1.3 and previous TLS versions
+%% Some definitions may not exist in TLS-1.3 this is
 %% handled elsewhere
--include("tls_handshake.hrl"). 
+-include("tls_handshake.hrl").
 
 %% New handshake types in TLS-1.3 RFC 8446 B.3
 -define(NEW_SESSION_TICKET, 4).

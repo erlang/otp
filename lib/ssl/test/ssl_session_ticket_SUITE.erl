@@ -792,7 +792,7 @@ early_data_trial_decryption_failure(Config) when is_list(Config) ->
     ssl_test_lib:close(Client0),
 
     %% Use ticket
-    Client1 = ssl_test_lib:start_client_error([{node, ClientNode},
+    _Client1 = ssl_test_lib:start_client_error([{node, ClientNode},
                                                {port, Port0}, {host, Hostname},
                                                {mfa, {ssl_test_lib,  %% Short handshake
                                                       verify_active_session_resumption,

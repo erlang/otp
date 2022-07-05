@@ -2737,8 +2737,8 @@ maybe_send_early_data(#state{
             %% Set 0-RTT traffic keys for sending early_data and EndOfEarlyData
             State3 = ssl_record:step_encryption_state_write(State2),
             {ok, encode_early_data(Cipher, State3)};
-        {ok, {_, _, _, _MaxSize}} ->
-            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, too_much_early_data)};
+        {ok, {_, _, _, MaxSize}} ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {too_much_early_data, {max, MaxSize}})};
         {error, Alert} ->
             {error, Alert}
     end;

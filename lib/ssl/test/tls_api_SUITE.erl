@@ -750,7 +750,7 @@ tls_app_data_in_initial_hs_state() ->
 tls_app_data_in_initial_hs_state(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
-    Version =  ssl_test_lib:protocol_version(Config, tuple),
+    Version = ssl_test_lib:protocol_version(Config, tuple),
     {Major, Minor} = case Version of
                          {3,4} ->
                              {3,3};
@@ -763,15 +763,14 @@ tls_app_data_in_initial_hs_state(Config) when is_list(Config) ->
 					 {options, [{versions, [ssl_test_lib:protocol_version(Config)]} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
-    AppData = <<?BYTE(?APPLICATION_DATA), ?BYTE(Major), ?BYTE(Minor), ?UINT16(3), ?BYTE($F), ?BYTE($O), ?BYTE($O)>>,
+    AppData = case Version of
+                  {3, 4} ->
+                      <<?BYTE(?APPLICATION_DATA), ?BYTE(3), ?BYTE(3), ?UINT16(4), ?BYTE($F), ?BYTE($O), ?BYTE($O), ?BYTE(?APPLICATION_DATA)>>;
+                  _ ->
+                     <<?BYTE(?APPLICATION_DATA), ?BYTE(Major), ?BYTE(Minor), ?UINT16(3), ?BYTE($F), ?BYTE($O), ?BYTE($O)>>
+              end,
     gen_tcp:send(Socket, AppData),
-     UnexpectedMsgAlert =
-        case Version of
-            {_, 4} ->
-                <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?DECODE_ERROR)>>;
-            _  ->
-                <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>
-        end,
+    UnexpectedMsgAlert = <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>,
     {ok, UnexpectedMsgAlert} = gen_tcp:recv(Socket, 7),
     {error, closed} = gen_tcp:recv(Socket, 0).
 
