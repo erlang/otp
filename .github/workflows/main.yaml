@@ -89,7 +89,7 @@ jobs:
         id: apps
         run: |
           .github/scripts/path-filters.sh > .github/scripts/path-filters.yaml
-          ALL_APPS=$(grep '^[a-z_]*:$' .github/scripts/path-filters.yaml | sed 's/:$//')
+          ALL_APPS=$(grep '^[a-z_]*:' .github/scripts/path-filters.yaml | sed 's/:.*$//')
           ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
           echo "::set-output name=all::${ALL_APPS}"
       - uses: dorny/paths-filter@v2
