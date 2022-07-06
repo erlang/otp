@@ -727,68 +727,81 @@ linux_which_distro(Version) ->
     end.
 
 do_linux_which_distro(Version) ->
-    %% Many (linux) distro's use the /etc/issue file, so try that first.
-    %% Then we just keep going until we are "done".
-    DistroStr = do_linux_which_distro_issue(Version),
-    %% Still not sure; try fedora
-    _ = do_linux_which_distro_fedora(Version),
-    %% Still not sure; try suse
-    _ = do_linux_which_distro_suse(Version),
-    %% And the fallback
-    io:format("Linux: ~s"
-              "~n   ~s"
-              "~n",
-              [Version, DistroStr]),
+    %% There are a bunch of info file to check:
+    %% /etc/os-release     (openSUSE, ...)
+    %% /etc/issue          (debian, ...)
+    %% /etc/fedora-release (Fedora)
+    %% /etc/SuSE-release   (SLES/SLED and old openSUSE)
+    %% We try them, one at a time. If they get info, they throw
+    %% {distro, <distro tag>}, otherwise {error, <someting>},
+    %% and we continue until the end, when we return with 'other'.
+    try_distro_file(fun() -> do_linux_which_distro_os_release(Version) end),
+    try_distro_file(fun() -> do_linux_which_distro_suse_release(Version) end),
+    try_distro_file(fun() -> do_linux_which_distro_fedora_release(Version) end),
+    try_distro_file(fun() -> do_linux_which_distro_issue(Version) end),
     other.
 
-do_linux_which_distro_issue(Version) ->
-    case file:read_file_info("/etc/issue") of
-        {ok, _} ->
-            case [string:trim(S) ||
-                     S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
-                [DistroStr | _] ->
-                    case DistroStr of
-                        "Wind River Linux" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   ~s"
-                                      "~n",
-                                      [Version, DistroStr]),
-                            throw({distro, wind_river});
-                        "MontaVista" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   ~s"
-                                      "~n",
-                                      [Version, DistroStr]),
-                            throw({distro, montavista});
-                        "Yellow Dog" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   ~s"
-                                      "~n",
-                                      [Version, DistroStr]),
-                            throw({distro, yellow_dog});
-                        "Ubuntu" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   ~s"
-                                      "~n",
-                                      [Version, DistroStr]),
-                            throw({distro, ubuntu});
-                        "Linux Mint" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   ~s"
-                                      "~n",
-                                      [Version, DistroStr]),
-                            throw({distro, linux_mint});
-                        _ ->
-                            DistroStr
-                    end;
-                X ->
-                    X
-            end;
-        _ ->
-            "Unknown"
+try_distro_file(F) ->
+    try F()
+    catch
+	throw:{error, _} ->
+	    retry
     end.
-                            
-do_linux_which_distro_fedora(Version) ->
+
+do_linux_which_distro_os_release(Version) ->
+    case file:read_file_info("/etc/os-release") of
+	{ok, _} ->
+	    %% The lines in this file are like this:
+	    %%   NAME="openSUSE Leap"
+	    %% So, this fun splits each line into
+	    %%   {NAME, Value}
+	    Split =
+		fun(S) ->
+			case string:tokens(S, [$=]) of
+			    [Token, Value] ->
+				{Token, string:strip(Value, both, $")};
+
+			    %% We keep these for debugging
+			    [Token | Values] ->
+				{bad_format, {Token, Values}};
+			    _ ->
+				{bad_format, S}
+			end
+		end,
+	    Info =
+		[Split(S) ||
+		    S <- string:tokens(os:cmd("cat /etc/os-release"), [$\n])],
+	    DistroStr =
+		case lists:keysearch("NAME", 1, Info) of
+		    {value, {_, DValue}} ->
+			DValue;
+		    false ->
+			throw({error, no_distro})
+		end,
+	    DistroVersion =
+		case lists:keysearch("VERSION", 1, Info) of
+		    {value, {_, DVValue}} ->
+			DVValue;
+		    false ->
+			throw({error, no_distro_version})
+		end,
+	    io:format("Linux: ~s"
+		      "~n   Distro:         ~s"
+		      "~n   Distro Version: ~s"
+		      "~n",
+		      [Version, DistroStr, DistroVersion]),
+	    case DistroStr of
+		["openSUSE" ++ _] ->
+		    throw({distro, openSUSE});
+		_ ->
+		    throw({error, unknown_distro})
+	    end;
+	_ ->
+	    throw({error, not_found})
+    end.
+	    
+
+do_linux_which_distro_fedora_release(Version) ->
     %% Check if fedora
     case file:read_file_info("/etc/fedora-release") of
         {ok, _} ->
@@ -802,16 +815,16 @@ do_linux_which_distro_fedora(Version) ->
                               [Version, DistroStr]);
                 _ ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro: ~s"
                               "~n",
                               [Version, "Fedora"])
             end,
             throw({distro, fedora});
         _ ->
-            ignore
+            throw({error, not_found})
     end.
 
-do_linux_which_distro_suse(Version) ->
+do_linux_which_distro_suse_release(Version) ->
     %% Check if its a SuSE
     case file:read_file_info("/etc/SuSE-release") of
         {ok, _} ->
@@ -820,27 +833,74 @@ do_linux_which_distro_suse(Version) ->
                                         [$\n])] of
                 ["SUSE Linux Enterprise Server" ++ _ = DistroStr | _] ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro: ~s"
                               "~n",
                               [Version, DistroStr]),
                     throw({distro, sles});
                 [DistroStr | _] ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro: ~s"
                               "~n",
                               [Version, DistroStr]),
                     throw({distro, suse});
                 _ ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro: ~s"
                               "~n",
                               [Version, "SuSE"]),
                     throw({distro, suse})
             end;
         _ ->
-            ignore
+            throw({error, not_found})
     end.
 
+do_linux_which_distro_issue(Version) ->
+    case file:read_file_info("/etc/issue") of
+        {ok, _} ->
+            case [string:trim(S) ||
+                     S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
+                [DistroStr | _] ->
+                    case DistroStr of
+                        "Wind River Linux" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro: ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, wind_river});
+                        "MontaVista" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro: ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, montavista});
+                        "Yellow Dog" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro: ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, yellow_dog});
+                        "Ubuntu" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro: ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, ubuntu});
+                        "Linux Mint" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro: ~s"
+                                      "~n",
+                                      [Version, DistroStr]),
+                            throw({distro, linux_mint});
+                        _ ->
+                            DistroStr
+                    end;
+                X ->
+                    X
+            end;
+        _ ->
+            throw({error, not_found})
+    end.
+                            
 
 analyze_and_print_linux_host_info(Version) ->
     Distro =
