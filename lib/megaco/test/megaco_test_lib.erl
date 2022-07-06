@@ -735,15 +735,20 @@ do_linux_which_distro(Version) ->
     %% We try them, one at a time. If they get info, they throw
     %% {distro, <distro tag>}, otherwise {error, <someting>},
     %% and we continue until the end, when we return with 'other'.
-    retry = try_distro_file(fun() -> do_linux_which_distro_os_release(Version) end),
-    retry = try_distro_file(fun() -> do_linux_which_distro_suse_release(Version) end),
-    retry = try_distro_file(fun() -> do_linux_which_distro_fedora_release(Version) end),
-    retry = try_distro_file(fun() -> do_linux_which_distro_issue(Version) end),
+    retry = try_distro_file("os-release",
+			    fun() -> do_linux_which_distro_os_release(Version) end),
+    retry = try_distro_file("suse-release",
+			    fun() -> do_linux_which_distro_suse_release(Version) end),
+    retry = try_distro_file("fedora-release",
+			    fun() -> do_linux_which_distro_fedora_release(Version) end),
+    retry = try_distro_file("issue",
+			    fun() -> do_linux_which_distro_issue(Version) end),
     io:format("Linux: ~s"
               "~n", [Version]),
     other.
 
-try_distro_file(F) ->
+try_distro_file(_File, F) ->
+    %% io:format("try distro file ~s~n", [_File]),
     try F()
     catch
 	throw:{error,  _Reason} ->
@@ -794,7 +799,7 @@ do_linux_which_distro_os_release(Version) ->
                               "~n   Distro Version: ~s"
                               "~n",
                               [Version, DistroStr, DistroVersion]),
-		    throw({distro, openSUSE});
+		    throw({distro, opensuse});
 		"SLES" ++ _ ->
                     io:format("Linux: ~s"
                               "~n   Distro:         ~s"
@@ -1150,8 +1155,9 @@ linux_which_cpuinfo(wind_river) ->
             {ok, {CPU, BMips}}
     end;
 
-linux_which_cpuinfo(Distro) when ((Distro =:= sles) orelse (Distro =:= opensuse)) ->
-    %% Check for x86 (Intel or AMD)
+linux_which_cpuinfo(Distro)
+  when (Distro =:= sles) orelse
+       (Distro =:= opensuse) ->
     CPU =
         case linux_cpuinfo_model_name() of
             "-" ->
