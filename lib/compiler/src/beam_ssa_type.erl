@@ -1187,6 +1187,12 @@ simplify(#b_set{op={bif,is_list},args=[Src]}=I0, Ts, Ds) ->
         _ ->
             eval_bif(I0, Ts, Ds)
     end;
+simplify(#b_set{op={bif,Op},args=[Term]}=I, Ts, _Ds)
+  when Op =:= trunc; Op =:= round; Op =:= ceil; Op =:= floor ->
+    case normalized_type(Term, Ts) of
+        #t_integer{} -> Term;
+        _ -> I
+    end;
 simplify(#b_set{op={bif,Op},args=Args}=I, Ts, Ds) ->
     Types = normalized_types(Args, Ts),
     case is_float_op(Op, Types) of
