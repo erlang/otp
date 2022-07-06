@@ -161,7 +161,7 @@ connect(SockAddr, Opts) ->
 -spec connect(Address, Port, Opts) -> {ok, Socket} | {error, Reason} when
       Address  :: inet:socket_address() | inet:hostname(),
       Port     :: inet:port_number(),
-      Opts     :: [connect_option()],
+      Opts     :: [inet:inet_backend() | connect_option()],
       Socket   :: socket(),
       Reason   :: inet:posix();
              (SockAddr, Opts, Timeout) -> {ok, Socket} | {error, Reason} when
