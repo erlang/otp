@@ -807,10 +807,17 @@ do_linux_which_distro_os_release(Version) ->
                               "~n",
                               [Version, DistroStr, DistroVersion]),
 		    throw({distro, sles});
-		_ ->
+		"Fedora" ++ _ ->
+                    io:format("Linux: ~s"
+                              "~n   Distro:         ~s"
+                              "~n   Distro Version: ~s"
+                              "~n",
+                              [Version, DistroStr, DistroVersion]),
+		    throw({distro, fedora});
+		_Unknown ->
 		    throw({error, unknown_distro})
 	    end;
-	_ ->
+	_X ->
 	    throw({error, not_found})
     end.
 	    
@@ -824,7 +831,7 @@ do_linux_which_distro_fedora_release(Version) ->
                                         [$\n])] of
                 [DistroStr | _] ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro: ~s"
                               "~n",
                               [Version, DistroStr]);
                 _ ->
@@ -1157,7 +1164,8 @@ linux_which_cpuinfo(wind_river) ->
 
 linux_which_cpuinfo(Distro)
   when (Distro =:= sles) orelse
-       (Distro =:= opensuse) ->
+       (Distro =:= opensuse) orelse
+       (Distro =:= fedora) ->
     CPU =
         case linux_cpuinfo_model_name() of
             "-" ->
