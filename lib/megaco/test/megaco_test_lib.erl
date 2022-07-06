@@ -814,6 +814,13 @@ do_linux_which_distro_os_release(Version) ->
                               "~n",
                               [Version, DistroStr, DistroVersion]),
 		    throw({distro, fedora});
+		"Linux Mint" ++ _ ->
+                    io:format("Linux: ~s"
+                              "~n   Distro:         ~s"
+                              "~n   Distro Version: ~s"
+                              "~n",
+                              [Version, DistroStr, DistroVersion]),
+		    throw({distro, linuxmint});
 		_Unknown ->
 		    throw({error, unknown_distro})
 	    end;
@@ -1165,7 +1172,8 @@ linux_which_cpuinfo(wind_river) ->
 linux_which_cpuinfo(Distro)
   when (Distro =:= sles) orelse
        (Distro =:= opensuse) orelse
-       (Distro =:= fedora) ->
+       (Distro =:= fedora) orelse
+       (Distro =:= linuxmint) ->
     CPU =
         case linux_cpuinfo_model_name() of
             "-" ->
