@@ -735,16 +735,18 @@ do_linux_which_distro(Version) ->
     %% We try them, one at a time. If they get info, they throw
     %% {distro, <distro tag>}, otherwise {error, <someting>},
     %% and we continue until the end, when we return with 'other'.
-    try_distro_file(fun() -> do_linux_which_distro_os_release(Version) end),
-    try_distro_file(fun() -> do_linux_which_distro_suse_release(Version) end),
-    try_distro_file(fun() -> do_linux_which_distro_fedora_release(Version) end),
-    try_distro_file(fun() -> do_linux_which_distro_issue(Version) end),
+    retry = try_distro_file(fun() -> do_linux_which_distro_os_release(Version) end),
+    retry = try_distro_file(fun() -> do_linux_which_distro_suse_release(Version) end),
+    retry = try_distro_file(fun() -> do_linux_which_distro_fedora_release(Version) end),
+    retry = try_distro_file(fun() -> do_linux_which_distro_issue(Version) end),
+    io:format("Linux: ~s"
+              "~n", [Version]),
     other.
 
 try_distro_file(F) ->
     try F()
     catch
-	throw:{error, _} ->
+	throw:{error,  _Reason} ->
 	    retry
     end.
 
@@ -785,14 +787,21 @@ do_linux_which_distro_os_release(Version) ->
 		    false ->
 			throw({error, no_distro_version})
 		end,
-	    io:format("Linux: ~s"
-		      "~n   Distro:         ~s"
-		      "~n   Distro Version: ~s"
-		      "~n",
-		      [Version, DistroStr, DistroVersion]),
 	    case DistroStr of
-		["openSUSE" ++ _] ->
+		"openSUSE" ++ _ ->
+                    io:format("Linux: ~s"
+                              "~n   Distro:         ~s"
+                              "~n   Distro Version: ~s"
+                              "~n",
+                              [Version, DistroStr, DistroVersion]),
 		    throw({distro, openSUSE});
+		"SLES" ++ _ ->
+                    io:format("Linux: ~s"
+                              "~n   Distro:         ~s"
+                              "~n   Distro Version: ~s"
+                              "~n",
+                              [Version, DistroStr, DistroVersion]),
+		    throw({distro, sles});
 		_ ->
 		    throw({error, unknown_distro})
 	    end;
@@ -903,15 +912,7 @@ do_linux_which_distro_issue(Version) ->
                             
 
 analyze_and_print_linux_host_info(Version) ->
-    Distro =
-        case file:read_file_info("/etc/issue") of
-            {ok, _} ->
-                linux_which_distro(Version);
-            _ ->
-                io:format("Linux: ~s"
-                          "~n", [Version]),
-                other
-        end,
+    Distro = linux_which_distro(Version),
     Factor =
         case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
@@ -1143,6 +1144,22 @@ linux_which_cpuinfo(wind_river) ->
                 end
         end,
     case linux_cpuinfo_total_bogomips() of
+        "-" ->
+            {ok, CPU};
+        BMips ->
+            {ok, {CPU, BMips}}
+    end;
+
+linux_which_cpuinfo(Distro) when ((Distro =:= sles) orelse (Distro =:= opensuse)) ->
+    %% Check for x86 (Intel or AMD)
+    CPU =
+        case linux_cpuinfo_model_name() of
+            "-" ->
+                throw(noinfo);
+            ModelName ->
+                ModelName
+        end,
+    case linux_cpuinfo_bogomips() of
         "-" ->
             {ok, CPU};
         BMips ->
