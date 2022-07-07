@@ -10233,7 +10233,9 @@ done:
 }
 
 
-static void exit_permanent_prio_elevation(Process *c_p, erts_aint32_t state);
+static void exit_permanent_prio_elevation(Process *c_p,
+                                          erts_aint32_t state,
+                                          int prio);
 static void save_gc_task(Process *c_p, ErtsProcSysTask *st, int prio);
 static void save_dirty_task(Process *c_p, ErtsProcSysTask *st);
 
@@ -10367,7 +10369,7 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
             reds -= sig_reds;
 
             if (state & ERTS_PSFLG_EXITING) {
-                exit_permanent_prio_elevation(c_p, state);
+                exit_permanent_prio_elevation(c_p, state, st_prio);
                 break;
             }
 
@@ -10383,8 +10385,8 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
                 st = NULL;
             }
             else {
-                state = erts_atomic32_read_nob(&c_p->state);                         
-                exit_permanent_prio_elevation(c_p, state);
+                state = erts_atomic32_read_nob(&c_p->state);
+                exit_permanent_prio_elevation(c_p, state, st_prio);
             }
             break;
         }
@@ -10441,7 +10443,7 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	switch (st->type) {
         case ERTS_PSTT_PRIO_SIG:
             state = erts_atomic32_read_nob(&c_p->state);                         
-            exit_permanent_prio_elevation(c_p, state);
+            exit_permanent_prio_elevation(c_p, state, st_prio);
             /* fall through... */
         case ERTS_PSTT_GC_MAJOR:
         case ERTS_PSTT_GC_MINOR:
@@ -10473,29 +10475,32 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 }
 
 static void
-exit_permanent_prio_elevation(Process *c_p, erts_aint32_t state)
+exit_permanent_prio_elevation(Process *c_p, erts_aint32_t state, int elev_prio)
 {
-    erts_aint32_t a;
+    erts_aint32_t a, nprio = (erts_aint32_t) elev_prio;
     /*
      * we are about to terminate; permanently elevate
      * prio in order to ensure high prio signal
      * handling...
      */
+    ASSERT(PRIORITY_MAX <= elev_prio && elev_prio <= PRIORITY_LOW);
+
     a = state;
     while (1) {
-        erts_aint32_t aprio, uprio, n, e;
+        erts_aint32_t uprio, n, e;
         ASSERT(a & ERTS_PSFLG_EXITING);
-        aprio = ERTS_PSFLGS_GET_ACT_PRIO(a);
         uprio = ERTS_PSFLGS_GET_USR_PRIO(a);
-        if (aprio >= uprio)
-            break; /* user prio >= actual prio */
+        if (nprio >= uprio)
+            break; /* user prio is higher than or equal to elevation prio */
         /*
          * actual prio is higher than user prio; raise
          * user prio to actual prio...
          */
         n = e = a;
-        n &= ~ERTS_PSFLGS_USR_PRIO_MASK;
-        n |= aprio << ERTS_PSFLGS_USR_PRIO_OFFSET;
+        n &= ~(ERTS_PSFLGS_USR_PRIO_MASK
+               | ERTS_PSFLGS_ACT_PRIO_MASK);
+        n |= ((nprio << ERTS_PSFLGS_USR_PRIO_OFFSET)
+              | (nprio << ERTS_PSFLGS_ACT_PRIO_OFFSET));
         a = erts_atomic32_cmpxchg_mb(&c_p->state, n, e);
         if (a == e)
             break;
