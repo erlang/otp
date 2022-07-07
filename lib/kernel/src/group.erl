@@ -474,6 +474,8 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
 
 get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, Line, Encoding) ->
     case catch M:F(State0, cast(Line,get(read_mode), Encoding), Encoding, Xa) of
+        {stop,Result,eof} ->
+            {ok,Result,eof};
         {stop,Result,Rest} ->
             {ok,Result,append(Rest, Buf, Encoding)};
         {'EXIT',_} ->
@@ -702,6 +704,8 @@ get_line_echo_off1({Chars,[]}, Drv, Shell) ->
 	{'EXIT',Shell,R} ->
 	    exit(R)
     end;
+get_line_echo_off1(eof, _Drv, _Shell) ->
+    {done,eof,eof};
 get_line_echo_off1({Chars,Rest}, _Drv, _Shell) ->
     {done,lists:reverse(Chars),case Rest of done -> []; _ -> Rest end}.
 
@@ -739,8 +743,10 @@ get_chars_echo_off1(Drv, Shell) ->
 %% - ^d in posix/icanon mode: eof, delete-forward in edlin
 %% - ^r in posix/icanon mode: reprint (silly in echo-off mode :-))
 %% - ^w in posix/icanon mode: word-erase (produces a beep in edlin)
+edit_line(eof, []) ->
+    eof;
 edit_line(eof, Chars) ->
-    {Chars,done};
+    {Chars,eof};
 edit_line([],Chars) ->
     {Chars,[]};
 edit_line([$\r,$\n|Cs],Chars) ->
