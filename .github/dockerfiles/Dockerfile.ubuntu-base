@@ -19,6 +19,7 @@ RUN apt-get update && apt-get -y upgrade && \
     unixodbc odbc-postgresql postgresql \
     tzdata ssh openssh-server groff-base sudo gdb tinyproxy bind9 nsd expect vsftpd python \
     linux-tools-common linux-tools-generic linux-tools-`uname -r` curl jq \
+    xvfb libgl1-mesa-dri \
     ${INSTALL_LIBS} && \
     for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
     if [ ! -f /etc/apache2/apache2.conf ]; then apt-get install -y apache2; fi && \
