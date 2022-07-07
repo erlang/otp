@@ -94,8 +94,8 @@
 	 connection_information/1, 
          connection_information/2]).
 %% Misc
--export([handle_options/2,
-         handle_options/3,
+-export([handle_options/3,
+         update_options/3,
          tls_version/1, 
          suite_to_str/1,
          suite_to_openssl_str/1,
@@ -640,7 +640,7 @@ listen(_Port, []) ->
     {error, nooptions};
 listen(Port, Options0) ->
     try
-	{ok, Config} = handle_options(Options0, server),
+	{ok, Config} = handle_options(Options0, server, undefined),
         do_listen(Port, Config, Config#config.connection_cb)
     catch
 	Error = {error, _} ->
@@ -1513,20 +1513,16 @@ do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_g
 do_listen(Port,  Config, dtls_gen_connection) ->
     dtls_socket:listen(Port, Config).
 	
--spec handle_options([any()], client | server) -> {ok, #config{}};
-                    ([any()], ssl_options()) -> ssl_options().
-
-handle_options(Opts, Role) ->
-    handle_options(undefined, undefined, Opts, Role, undefined).   
-
-handle_options(Opts, Role, InheritedSslOpts) ->
-    handle_options(undefined, undefined, Opts, Role, InheritedSslOpts).   
-
 %% Handle ssl options at handshake, handshake_continue
-handle_options(_, _, Opts0, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
-    {SslOpts, _} = expand_options(Opts0, ?RULES),
-    process_options(SslOpts, InheritedSslOpts, #{role => Role,
-                                                 rules => ?RULES});
+-spec update_options([any()], client | server, map()) -> map().
+update_options(Opts, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
+    {SslOpts, _} = expand_options(Opts, ?RULES),
+    process_options(SslOpts, InheritedSslOpts, #{role => Role, rules => ?RULES}).
+
+-spec handle_options([any()], client | server, undefined|host()) -> {ok, #config{}}.
+handle_options(Opts, Role, Host) ->
+    handle_options(undefined, undefined, Opts, Role, Host).
+
 %% Handle all options in listen, connect and handshake
 handle_options(Transport, Socket, Opts0, Role, Host) ->
     {SslOpts0, SockOpts0} = expand_options(Opts0, ?RULES),

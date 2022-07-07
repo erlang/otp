@@ -377,7 +377,7 @@ client_restarts(Config) ->
                 ct:log("Info: ~p~n", [inet:info(UDPSocket)]),
 
                 {ok, #config{transport_info = CbInfo, connection_cb = ConnectionCb,
-                             ssl = SslOpts0}} = ssl:handle_options(ClientOpts, client, Address),
+                             ssl = SslOpts0}} = ssl:update_options(ClientOpts, client, Address),
                 SslOpts = {SslOpts0, #socket_options{}, undefined},
 
                 ct:sleep(250),
