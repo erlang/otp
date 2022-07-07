@@ -474,10 +474,8 @@ code_change(_OldVsn, StateName, State, _) ->
 %%--------------------------------------------------------------------
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
-    #{erl_dist := IsErlDist,
-      %% Use highest supported version for client/server random nonce generation
-      versions := [Version|_],
-      client_renegotiation := ClientRenegotiation} = SSLOptions,
+    %% Use highest supported version for client/server random nonce generation
+    #{erl_dist := IsErlDist,  versions := [Version|_]} = SSLOptions,
     BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
     ConnectionStates = tls_record:init_connection_states(Role,
                                                          Version,
@@ -503,7 +501,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        handshake_env = #handshake_env{
                           tls_handshake_history = ssl_handshake:init_handshake_history(),
                           renegotiation = {false, first},
-                          allow_renegotiate = ClientRenegotiation
+                          allow_renegotiate = maps:get(client_renegotiation, SSLOptions, undefined)
                          },
        connection_env = #connection_env{user_application = {UserMonitor, User}},
        socket_options = SocketOptions,

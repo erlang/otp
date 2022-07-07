@@ -245,8 +245,10 @@ ecc_unknown_curve(Config) ->
                                                       ecdhe_ecdsa, ecdhe_ecdsa, Config),
     COpts = ssl_test_lib:ssl_options(COpts0, Config),
     SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
-    ECCOpts = [{eccs, ['123_fake_curve']}],
-    ssl_test_lib:ecc_test_error(COpts, SOpts, [], ECCOpts, Config).
+    ECCALL = ssl:eccs(),
+    SECCOpts = [{eccs, [hd(ECCALL)]}],
+    CECCOpts = [{eccs, tl(ECCALL)}],
+    ssl_test_lib:ecc_test_error(COpts, SOpts, CECCOpts, SECCOpts, Config).
 
 client_ecdh_rsa_server_ecdhe_ecdsa_server_custom(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),

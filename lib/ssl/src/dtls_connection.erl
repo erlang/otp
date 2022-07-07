@@ -642,7 +642,7 @@ format_status(Type, Data) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 initial_state(Role, Host, Port, Socket,
-              {#{client_renegotiation := ClientRenegotiation} = SSLOptions, SocketOptions, Trackers}, User,
+              {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
     ConnectionStates = dtls_record:init_connection_states(Role, BeastMitigation),
@@ -668,13 +668,11 @@ initial_state(Role, Host, Port, Socket,
            handshake_env = #handshake_env{
                               tls_handshake_history = ssl_handshake:init_handshake_history(),
                               renegotiation = {false, first},
-                              allow_renegotiate = ClientRenegotiation
+                              allow_renegotiate = maps:get(client_renegotiation, SSLOptions, undefined)
                              },
            connection_env = #connection_env{user_application = {Monitor, User}},
            socket_options = SocketOptions,
-	   %% We do not want to save the password in the state so that
-	   %% could be written in the clear into error logs.
-	   ssl_options = SSLOptions#{password => undefined},
+	   ssl_options = SSLOptions,
 	   session = #session{is_resumable = false},
 	   connection_states = ConnectionStates,
 	   protocol_buffers = #protocol_buffers{},

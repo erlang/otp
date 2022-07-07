@@ -66,6 +66,8 @@
          missing_root_cert_auth_user_verify_fun_accept/1,
          missing_root_cert_auth_user_verify_fun_reject/0,
          missing_root_cert_auth_user_verify_fun_reject/1,
+         missing_root_cert_auth_user_old_verify_fun_accept/0,
+         missing_root_cert_auth_user_old_verify_fun_accept/1,
          verify_fun_always_run_client/0,
          verify_fun_always_run_client/1,
          verify_fun_always_run_server/0,
@@ -235,6 +237,7 @@ all_version_tests() ->
      missing_root_cert_auth,
      missing_root_cert_auth_user_verify_fun_accept,
      missing_root_cert_auth_user_verify_fun_reject,
+     missing_root_cert_auth_user_old_verify_fun_accept,
      verify_fun_always_run_client,
      verify_fun_always_run_server,
      incomplete_chain_auth,
@@ -506,7 +509,8 @@ missing_root_cert_auth(Config) when is_list(Config) ->
 					      {options, no_reuse(n_version(Version)) ++ [{verify, verify_peer}
                                                                              | ServerOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error, {options, {cacertfile, ""}}}),
+    Error = {error, {options, incompatible, [{verify,verify_peer}, {cacerts,undefined}]}},
+    ssl_test_lib:check_result(Server, Error),
     
     ClientOpts =  proplists:delete(cacertfile, ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)),
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0},
@@ -514,7 +518,7 @@ missing_root_cert_auth(Config) when is_list(Config) ->
 					      {options, [{verify, verify_peer}
 							 | ClientOpts]}]),
 
-    ssl_test_lib:check_result(Client, {error, {options, {cacertfile, ""}}}).
+    ssl_test_lib:check_result(Client, Error).
     
 %%--------------------------------------------------------------------
 missing_root_cert_auth_user_verify_fun_accept() ->
@@ -523,6 +527,7 @@ missing_root_cert_auth_user_verify_fun_accept() ->
 
 missing_root_cert_auth_user_verify_fun_accept(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
+    ClientCaCerts = public_key:cacerts_get(),
     FunAndState =  {fun(_,{bad_cert, unknown_ca}, UserState) ->
 			    {valid, UserState};
 		       (_,{bad_cert, _} = Reason, _) ->
@@ -534,16 +539,19 @@ missing_root_cert_auth_user_verify_fun_accept(Config) ->
 		       (_, valid_peer, UserState) ->
 			    {valid, UserState}
 		    end, []},
-    ClientOpts = ssl_test_lib:ssl_options(extra_client,  [{verify, verify_peer},
-                                                         {verify_fun, FunAndState}], Config),
+    ClientOpts = ssl_test_lib:ssl_options(extra_client,
+                                          [{verify, verify_peer}, {verify_fun, FunAndState},
+                                           {cacerts, ClientCaCerts}],
+                                          Config),
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
-missing_root_cert_auth_user_backwardscompatibility_verify_fun_accept() ->
+missing_root_cert_auth_user_old_verify_fun_accept() ->
     [{doc, "Test old style verify fun"}].
 
-missing_root_cert_auth_user_backwardscompatibility_verify_fun_accept(Config) ->
+missing_root_cert_auth_user_old_verify_fun_accept(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
+    ClientCaCerts = public_key:cacerts_get(),
     AcceptBadCa = fun({bad_cert,unknown_ca}, Acc) ->  Acc;
                      (Other, Acc) -> [Other | Acc]
 		  end,
@@ -554,8 +562,10 @@ missing_root_cert_auth_user_backwardscompatibility_verify_fun_accept(Config) ->
 		    [_|_] -> false
 		end
 	end,
-    ClientOpts = ssl_test_lib:ssl_options(extra_client, [{verify, verify_peer},
-                                                         {verify_fun, VerifyFun}], Config),
+    ClientOpts = ssl_test_lib:ssl_options(extra_client,
+                                          [{verify, verify_peer},
+                                           {verify_fun, VerifyFun},
+                                           {cacerts, ClientCaCerts}], Config),
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
@@ -565,6 +575,7 @@ missing_root_cert_auth_user_verify_fun_reject() ->
 
 missing_root_cert_auth_user_verify_fun_reject(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
+    ClientCaCerts = public_key:cacerts_get(),
     FunAndState =  {fun(_,{bad_cert, unknown_ca} = Reason, _UserState) ->
 			    {fail, Reason};
 		       (_,{bad_cert, _} = Reason, _) ->
@@ -576,8 +587,11 @@ missing_root_cert_auth_user_verify_fun_reject(Config) ->
 		       (_, valid_peer, UserState) ->
 			    {valid, UserState}
 		    end, []},
-    ClientOpts =  ssl_test_lib:ssl_options(extra_client, [{verify, verify_peer},
-                                                          {verify_fun, FunAndState}], Config),
+    ClientOpts = ssl_test_lib:ssl_options(extra_client,
+                                          [{verify, verify_peer},
+                                           {verify_fun, FunAndState},
+                                           {cacerts, ClientCaCerts}],
+                                          Config),
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca).
 
 

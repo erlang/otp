@@ -1349,7 +1349,9 @@ format_subject({rdnSequence, Seq}) ->
 format_subject([[{'AttributeTypeAndValue', ?'id-at-commonName', {_, String}}]|_]) ->
     String;
 format_subject([_|R]) ->
-    format_subject(R).
+    format_subject(R);
+format_subject([]) ->
+    "no commonname".
 
 cert_options(Config) ->
     ClientCaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
@@ -2765,6 +2767,8 @@ init_protocol_version(Version, Config) ->
     [{protocol, tls} | NewConfig].
 
 clean_protocol_version(Config) ->
+    application:unset_env(ssl, protocol_version),
+    application:unset_env(ssl, dtls_protocol_version),
     proplists:delete(version, proplists:delete(protocol_opts, proplists:delete(protocol, Config))).
 
 sufficient_crypto_support(Version)

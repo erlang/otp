@@ -37,6 +37,7 @@
 %% Test cases
 -export([erlang_client_openssl_server_npn/0,
          erlang_client_openssl_server_npn/1,
+         erlang_server_openssl_client_npn/0,
          erlang_server_openssl_client_npn/1,
          erlang_server_openssl_client_npn_only_client/1,
          erlang_server_openssl_client_npn_only_server/1,
@@ -240,8 +241,8 @@ erlang_server_openssl_client_npn(Config) when is_list(Config) ->
 
    
 %%--------------------------------------------------------------------------
-erlang_server_openssl_client_npn_renegotiate() ->
-    [{doc,"Test erlang server with openssl client and npn negotiation with renegotiation"}].
+%% erlang_server_openssl_client_npn_renegotiate() ->
+%%     [{doc,"Test erlang server with openssl client and npn negotiation with renegotiation"}].
 
 erlang_server_openssl_client_npn_renegotiate(Config) when is_list(Config) ->
     ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
@@ -332,17 +333,18 @@ erlang_server_openssl_client_npn_only_server(Config) when is_list(Config) ->
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     Server =
         ssl_test_lib:start_server(erlang, [{from, self()}],
-                                  [{server_opts, [{client_preferred_next_protocols,
-                                                   {client, [<<"spdy/2">>], <<"http/1.1">>}
-                                                  } | ServerOpts]} | Config]),
+                                  [{server_opts,
+                                    [{next_protocols_advertised,
+                                      [<<"spdy/2">>, <<"http/1.1">>]}
+                                    | ServerOpts]} | Config]),
     Port = ssl_test_lib:inet_port(Server),
-    {_Client, OpenSSLPort} = ssl_test_lib:start_client(openssl, [{port, Port}, 
-                                                                 {options, ClientOpts}, 
+    {_Client, OpenSSLPort} = ssl_test_lib:start_client(openssl, [{port, Port},
+                                                                 {options, ClientOpts},
                                                                  return_port], Config),
-    
+
     Server ! get_socket,
-    SSocket = 
-        receive 
+    SSocket =
+        receive
             {Server, {socket, Socket}} ->
                 Socket
         end,

@@ -555,7 +555,7 @@ initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
             ssl_options = OrigSSLOptions,
             socket_options = SockOpts} = State0) ->
     try
-        SslOpts = ssl:handle_options(Opts, Role, OrigSSLOptions),
+        SslOpts = ssl:update_options(Opts, Role, OrigSSLOptions),
 	State = ssl_config(SslOpts, Role, State0),
 	initial_hello({call, From}, {start, Timeout},
 	     State#state{ssl_options = SslOpts,
@@ -1376,7 +1376,7 @@ update_ssl_options_from_sni(#{sni_fun := SNIFun,
         _ ->
             VersionsOpt = proplists:get_value(versions, SSLOptions, []),
             FallBackOptions = filter_for_versions(VersionsOpt, OrigSSLOptions),
-            ssl:handle_options(SSLOptions, server, FallBackOptions)
+            ssl:update_options(SSLOptions, server, FallBackOptions)
     end.
 
 filter_for_versions([], OrigSSLOptions) ->
