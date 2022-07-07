@@ -10665,7 +10665,7 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	}
 
 	if (st)
-	    reds += notify_sys_task_executed(c_p, st, st_res, 1);
+	    reds -= notify_sys_task_executed(c_p, st, st_res, 1);
 
 	state = erts_atomic32_read_acqb(&c_p->state);
     } while (qmask && reds > 0);
@@ -10682,8 +10682,7 @@ static int
 cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 {
     erts_aint32_t state = in_state;
-    int max_reds = in_reds;
-    int reds = 0;
+    int reds = in_reds;
     int qmask = 1;          /* Set to 1 to force looping as long as there
                              * are dirty tasks.
                              */
@@ -10731,10 +10730,10 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	    break;
 	}
 
-	reds += notify_sys_task_executed(c_p, st, st_res, 1);
+	reds -= notify_sys_task_executed(c_p, st, st_res, 1);
 
 	state = erts_atomic32_read_acqb(&c_p->state);
-    } while (qmask && reds < max_reds);
+    } while (qmask && reds > 0);
 
     return reds;
 }
