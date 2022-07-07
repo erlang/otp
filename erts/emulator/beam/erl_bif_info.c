@@ -1228,7 +1228,7 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
             ASSERT(locks & ERTS_PROC_LOCK_MAIN);
             erts_proc_sig_queue_lock(rp);
             erts_proc_sig_fetch(rp);
-            if (c_p->sig_qs.cont) {
+            if (rp->sig_qs.cont) {
                 erts_proc_unlock(rp, locks|ERTS_PROC_LOCK_MSGQ);
                 locks = 0;
                 goto send_signal;
@@ -1519,6 +1519,7 @@ process_info_aux(Process *c_p,
     case ERTS_PI_IX_MESSAGE_QUEUE_LEN: {
         Sint len = rp->sig_qs.len;
         ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
+        ASSERT(!rp->sig_qs.cont);
         ASSERT(len >= 0);
         if (len <= MAX_SMALL)
             res = make_small(len);

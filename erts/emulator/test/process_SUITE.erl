@@ -38,6 +38,7 @@
 	 t_exit_2_catch/1, trap_exit_badarg/1, trap_exit_badarg_in_bif/1,
 	 exit_and_timeout/1, exit_twice/1,
 	 t_process_info/1, process_info_other/1, process_info_other_msg/1,
+         process_info_other_message_queue_len_signal_race/1,
 	 process_info_other_dist_msg/1,
          process_info_other_status/1,
 	 process_info_2_list/1, process_info_lock_reschedule/1,
@@ -107,6 +108,7 @@ all() ->
      process_info_lock_reschedule,
      process_info_lock_reschedule2,
      process_info_lock_reschedule3,
+     process_info_other_message_queue_len_signal_race,
      process_info_garbage_collection,
      process_info_parent,
      process_info_smoke_all,
@@ -666,6 +668,69 @@ process_info_other_msg(Config) when is_list(Config) ->
 
     Pid ! stop,
     ok.
+
+process_info_other_message_queue_len_signal_race(Config) when is_list(Config) ->
+    %% OTP-18169
+    %%
+    %% The race window triggering this bug is quite small. This test
+    %% wont fail even with the bug present, but it may trigger an
+    %% assertion in the debug compiled emulator if the bug is
+    %% present...
+    process_flag(priority, high),
+    SSchdlr = case erlang:system_info(schedulers_online) of
+                  1 -> 1;
+                  _ -> 2
+              end,
+    Flush = fun Flush () ->
+                    receive _ -> Flush()
+                    after 0 -> ok
+                    end
+            end,
+    RFun = fun RFun () ->
+                   receive
+                       {flush, From} ->
+                           Flush(),
+                           From ! flushed
+                   end,
+                   RFun()
+           end,
+    R = spawn_opt(RFun, [link,
+                         {scheduler, 1},
+                         {message_queue_data, on_heap}]),
+    SFun = fun SFun () ->
+                   receive go -> ok end,
+                   M = erlang:monitor(process, R),
+                   R ! hi,
+                   receive
+                       {demonitor, From} ->
+                           _ = erlang:demonitor(M),
+                           From ! demonitored
+                   end,
+                   SFun()
+           end,
+    S = spawn_opt(SFun, [link,
+                         {scheduler, SSchdlr},
+                         {priority, high}]),
+    process_info_other_message_queue_len_signal_race_test(10000, S, R),
+    unlink(R),
+    exit(R, kill),
+    unlink(S),
+    exit(S, kill),
+    false = is_process_alive(R),
+    false = is_process_alive(S),
+    ok.
+
+process_info_other_message_queue_len_signal_race_test(0, _S, _R) ->
+    ok;
+process_info_other_message_queue_len_signal_race_test(N, S, R) ->
+    S ! go,
+    erlang:yield(),
+    _ = process_info(R, message_queue_len),
+    S ! {demonitor, self()},
+    receive demonitored -> ok end,
+    R ! {flush, self()},
+    receive flushed -> ok end,
+    process_info_other_message_queue_len_signal_race_test(N-1, S, R).
 
 process_info_other_dist_msg(Config) when is_list(Config) ->
     %%
