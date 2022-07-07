@@ -45,6 +45,8 @@
          ticket_reuse_anti_replay/1,
          ticket_reuse_anti_replay_server_restart/0,
          ticket_reuse_anti_replay_server_restart/1,
+         ticket_reuse_anti_replay_server_restart_reused_seed/0,
+         ticket_reuse_anti_replay_server_restart_reused_seed/1,
          basic_stateful_stateless/0,
          basic_stateful_stateless/1,
          basic_stateless_stateful/0,
@@ -107,6 +109,7 @@ groups() ->
            ticketage_bigger_than_windowsize_anti_replay,
            ticketage_out_of_lifetime_anti_replay, ticket_reuse_anti_replay,
            ticket_reuse_anti_replay_server_restart,
+           ticket_reuse_anti_replay_server_restart_reused_seed,
            stateless_multiple_servers]},
      {mixed, [], mixed_tests()}].
 
@@ -328,6 +331,36 @@ ticket_reuse_anti_replay_server_restart(Config) when is_list(Config) ->
     process_flag(trap_exit, false),
     [ssl_test_lib:close(A) || A <- [Server0, Client2, Server1]].
 
+ticket_reuse_anti_replay_server_restart_reused_seed() ->
+    [{doc, "Verify 2 connection attempts with same stateless tickets "
+      "and server restart between, with the server using the same session "
+      "ticket encryption seed between restarts. Second attempt is expected to "
+      "fail as long as the Bloom filter window overlaps with startup time."
+     }].
+ticket_reuse_anti_replay_server_restart_reused_seed(Config) when is_list(Config) ->
+    WindowSize = 10,
+    Seed = crypto:strong_rand_bytes(32),
+    Config1 = [{server_ticket_seed, Seed} | Config],
+    {Server1 , Port1} = anti_replay_helper_start_server(Config1, WindowSize),
+    {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ClientOpts1 = [{session_tickets, manual},
+                  {versions, ['tlsv1.2','tlsv1.3']} | ClientOpts0],
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port1}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% full handshake
+                                                verify_active_session_resumption,
+                                                [false, wait_reply, {tickets, 1}]}},
+                                         {from, self()}, {options, ClientOpts1}]),
+    [Ticket] = ssl_test_lib:check_tickets(Client1),
+    ssl_test_lib:check_result(Server1, ok),
+    ClientOpts2 = [{use_ticket, [Ticket]} | ClientOpts1],
+    {Server2, Port2} = anti_replay_helper_start_server(Config1, WindowSize),
+    Client2 = anti_replay_helper_connect(Server2, Client1, Port2, ClientNode,
+                                         Hostname, ClientOpts2, 0, false, false),
+    process_flag(trap_exit, false),
+    [ssl_test_lib:close(A) || A <- [Server1, Client2, Server2]].
+
 anti_replay_helper_init(Config, Mode, WindowSize) ->
     DefaultLifetime = ssl_config:get_ticket_lifetime(),
     anti_replay_helper_init(Config, Mode, WindowSize, DefaultLifetime).
@@ -363,9 +396,17 @@ anti_replay_helper_start_server(Config, WindowSize) ->
     {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+    ServerTicketSeed =
+        case proplists:get_value(server_ticket_seed, Config) of
+            undefined ->
+                [];
+            Seed ->
+                [{stateless_tickets_seed, Seed}]
+        end,
     ServerOpts = [{session_tickets, ServerTicketMode},
                   {anti_replay, {WindowSize, 5, 72985}},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0
+                 ] ++ ServerTicketSeed,
 
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
