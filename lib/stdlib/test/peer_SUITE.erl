@@ -45,7 +45,9 @@
     duplicate_name/0, duplicate_name/1,
     old_release/0, old_release/1,
     ssh/0, ssh/1,
-    docker/0, docker/1
+    docker/0, docker/1,
+    post_process_args/0, post_process_args/1,
+    attached/0, attached/1
 ]).
 
 suite() ->
@@ -56,12 +58,12 @@ shutdown_alternatives() ->
 
 alternative() ->
     [basic, peer_states, cast, detached, dyn_peer, stop_peer,
-     io_redirect, multi_node, duplicate_name] ++ shutdown_alternatives().
+     io_redirect, multi_node, duplicate_name, attached] ++ shutdown_alternatives().
 
 groups() ->
     [
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
-            dist_up_down, dist_localhost] ++ shutdown_alternatives()},
+                            dist_up_down, dist_localhost, post_process_args, attached] ++ shutdown_alternatives()},
         {dist_seq, [], [dist_io_redirect,      %% Cannot be run in parallel in dist group
                         peer_down_crash_tcp]},
         {tcp, [parallel], alternative()},
@@ -483,6 +485,29 @@ duplicate_name(Config) when is_list(Config) ->
     ?assertException(exit, _, peer:start_link(#{connection => standard_io, name => ?FUNCTION_NAME})),
     peer:stop(Peer).
 
+post_process_args() ->
+    [{doc, "Test that the post_process_args option works"}].
+
+post_process_args(Config) when is_list(Config) ->
+    case {os:type(),os:find_executable("bash")} of
+        {{win32,_}, _Bash} ->
+            {skip,"Test does not work on windows"};
+        {_, false} ->
+            {skip,"Test needs bash to run"};
+        {_, Bash} ->
+            Erl = string:split(ct:get_progname()," ",all),
+            [throw({skip, "Needs bash to run"}) || Bash =:= false],
+            {ok, Peer, _Node} =
+                peer:start_link(
+                  #{ name => ?CT_PEER_NAME(),
+                     exec => {Bash,["-c"|Erl]},
+                     post_process_args =>
+                         fun(["-c"|Args]) ->
+                                 ["-c", lists:flatten(lists:join($\s, Args))]
+                         end }),
+            peer:stop(Peer)
+    end.
+
 %% -------------------------------------------------------------------
 %% Compatibility: old releases
 old_release() ->
@@ -562,4 +587,33 @@ docker(Config) when is_list(Config) ->
                 exec => {Docker, ["run", "-i", "lambda"]}, connection => standard_io}),
             ?assertEqual(Node, peer:call(Peer, erlang, node, [])),
             peer:stop(Peer)
+    end.
+
+attached() ->
+    [{doc, "Test that it is possible to start a peer node using run_erl aka attached"}].
+
+attached(Config) ->
+    RunErl = os:find_executable("run_erl"),
+    [throw({skip, "Could not find run_erl"}) || RunErl =:= false],
+    Erl = string:split(ct:get_progname()," ",all),
+    RunErlDir = filename:join(proplists:get_value(priv_dir, Config),?FUNCTION_NAME),
+    filelib:ensure_path(RunErlDir),
+    Connection = proplists:get_value(connection, Config),
+    Conn = if Connection =:= undefined -> #{ name => ?CT_PEER_NAME() };
+              true -> #{ connection => Connection }
+           end,
+    try peer:start(
+           Conn#{
+                 exec => {RunErl, Erl},
+                 detached => false,
+                 post_process_args =>
+                     fun(Args) ->
+                             [RunErlDir ++ "/", RunErlDir,
+                              lists:flatten(lists:join(" ",[[$',A,$'] || A <- Args]))]
+                     end
+                }) of
+        {ok, Peer, _Node} when Connection =:= undefined; Connection =:= 0 ->
+            peer:stop(Peer)
+    catch error:{detached,_} when Connection =:= standard_io ->
+            ok
     end.

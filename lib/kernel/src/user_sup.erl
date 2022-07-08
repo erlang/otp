@@ -39,7 +39,9 @@ start() ->
 -spec init([]) -> 'ignore' | {'error', 'nouser'} | {'ok', pid(), pid()}.
 
 init([]) ->
-    case get_user() of
+    init(init:get_arguments());
+init(Flags) ->
+    case get_user(Flags) of
 	nouser ->
 	    ignore;
 	{master, Master} ->
@@ -112,8 +114,7 @@ wait_for_user_p(N) ->
 	    wait_for_user_p(N-1)
     end.
 
-get_user() ->
-    Flags = init:get_arguments(),
+get_user(Flags) ->
     check_flags(Flags, {user_drv, start, []}).
 
 %% These flags depend upon what arguments the erl script passes on
