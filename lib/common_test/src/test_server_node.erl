@@ -467,7 +467,17 @@ find_release(previous) ->
 find_release(Rel) ->
     case find_release(os:type(), Rel) of
         none ->
-            find_release_path(Rel);
+            case find_release_path(Rel) of
+                none ->
+                    case string:take(Rel,"_",true) of
+                        {Rel,[]} ->
+                            false;
+                        {RelNum,_} ->
+                            find_release_path(RelNum)
+                    end;
+                Release ->
+                    Release
+            end;
         Else ->
             Else
     end.

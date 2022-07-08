@@ -19,6 +19,7 @@ RUN apt-get update && apt-get -y upgrade && \
     unixodbc odbc-postgresql postgresql \
     tzdata ssh openssh-server groff-base sudo gdb tinyproxy bind9 nsd expect vsftpd python \
     linux-tools-common linux-tools-generic linux-tools-`uname -r` curl jq \
+    xvfb libgl1-mesa-dri \
     ${INSTALL_LIBS} && \
     for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
     if [ ! -f /etc/apache2/apache2.conf ]; then apt-get install -y apache2; fi && \
@@ -27,6 +28,24 @@ RUN apt-get update && apt-get -y upgrade && \
 
 ## EXTRA_LIBS are installed using a for loop because of bugs in the erlang-doc deb package
 ## Apache2 may already be installed, if so we do not want to install it again
+
+ARG MAKEFLAGS=-j4
+ENV MAKEFLAGS=$MAKEFLAGS \
+    ERLC_USE_SERVER=yes
+
+## We install the latest version of the previous three releases in order to do
+## backwards compatability testing of the Erlang distribution.
+RUN apt-get install -y git && \
+    curl -L https://raw.githubusercontent.com/kerl/kerl/master/kerl > /usr/bin/kerl && \
+    chmod +x /usr/bin/kerl && \
+    kerl update releases && \
+    LATEST=$(kerl list releases | tail -1 | awk -F '.' '{print $1}') && \
+    for release in $(seq $(( LATEST - 3 )) $(( LATEST - 1 ))); do \
+      VSN=$(kerl list releases | grep "^$release" | tail -1); \
+      kerl build ${VSN} ${VSN} && \
+      kerl install ${VSN} /usr/local/lib/erlang-${VSN}; \
+    done && \
+    rm -rf ~/.kerl
 
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 

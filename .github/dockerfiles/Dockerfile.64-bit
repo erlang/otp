@@ -1,9 +1,8 @@
 ARG BASE=docker.pkg.github.com/erlang/otp/ubuntu-base
 FROM $BASE
 
-ARG MAKEFLAGS=-j4
+ARG MAKEFLAGS=$MAKEFLAGS
 ENV MAKEFLAGS=$MAKEFLAGS \
-    ERLC_USE_SERVER=yes \
     ERL_TOP=/buildroot/otp \
     PATH=/otp/bin:/buildroot/otp/bin:$PATH
 
@@ -40,3 +39,10 @@ RUN latest () { \
 ENV ERL_LIBS=/buildroot/proper:/buildroot/jsx
 
 WORKDIR /buildroot/otp/
+
+## Update init.sh with correct env vars
+RUN echo "export MAKEFLAGS=$MAKEFLAGS" > /buildroot/env.sh && \
+    echo "export ERLC_USE_SERVER=$ERLC_USE_SERVER" >> /buildroot/env.sh && \
+    echo "export ERL_TOP=$ERL_TOP" >> /buildroot/env.sh && \
+    echo "export PATH=$PATH" >> /buildroot/env.sh && \
+    echo "export ERL_LIBS=$ERL_LIBS" >> /buildroot/env.sh
