@@ -31,6 +31,7 @@ jobs:
         id: base
         run: >-
             BASE_TAG=docker.pkg.github.com/erlang/otp/${{ matrix.type }}
+            BASE_USE_CACHE=false
             .github/scripts/build-base-image.sh
       - name: Push base image
         run: docker push ${{ steps.base.outputs.BASE_TAG }}
