@@ -105,10 +105,12 @@ MODULES= \
 
 ERTS_MODULES= erts_test_utils
 SASL_MODULES= otp_vsns
+KERNEL_MODULES= rtnode
 
 ERL_FILES=	$(MODULES:%=%.erl) \
 		$(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl) \
-		$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl)
+		$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl) \
+		$(KERNEL_MODULES:%=$(ERL_TOP)/lib/kernel/test/%.erl)
 
 EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
@@ -136,7 +138,7 @@ COVERFILE=stdlib.cover
 
 make_emakefile:
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
-		$(MODULES) $(ERTS_MODULES) $(SASL_MODULES) \
+		$(MODULES) $(ERTS_MODULES) $(SASL_MODULES) $(KERNEL_MODULES) \
 	> $(EMAKEFILE)
 
 tests $(TYPES): make_emakefile

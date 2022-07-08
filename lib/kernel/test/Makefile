@@ -107,6 +107,7 @@ MODULES= \
 	net_SUITE \
 	os_SUITE \
 	pg_SUITE \
+	rtnode \
 	seq_trace_SUITE \
 	$(SOCKET_MODULES) \
 	wrap_log_reader_SUITE \
