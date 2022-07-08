@@ -27,12 +27,8 @@ jobs:
           registry: docker.pkg.github.com
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Calculate BASE image
-        id: base
-        run: |
-          echo "::set-output name=BASE_TAG::docker.pkg.github.com/erlang/otp/${{ matrix.type }}"
-          .github/scripts/base-tag "${{ matrix.type }}"
       - name: Build base image
+        id: base
         run: >-
             BASE_TAG=docker.pkg.github.com/erlang/otp/${{ matrix.type }}
             .github/scripts/build-base-image.sh
