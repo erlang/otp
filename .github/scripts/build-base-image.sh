@@ -2,7 +2,6 @@
 
 if [ -z "${BASE_TAG}" ]; then
     BASE_TAG=$(grep "ARG BASE=" ".github/dockerfiles/Dockerfile.${1}" | head -1 | tr '=' ' ' | awk '{print $3}')
-    BASE_CACHE="--cache-from ${BASE_TAG}"
 fi
 
 case "${BASE_TAG}" in
@@ -31,8 +30,9 @@ elif [ -f "otp_docker_base/otp_docker_base.tar" ]; then
     docker load -i "otp_docker_base/otp_docker_base.tar"
     echo "::set-output name=BASE_BUILD::loaded"
 else
-    if [ -n "${BASE_CACHE}" ]; then
+    if [ "${BASE_USE_CACHE}" != "false" ]; then
         docker pull "${BASE_TAG}"
+        BASE_CACHE="--cache-from ${BASE_TAG}"
     fi
 
     BASE_IMAGE_ID=$(docker images -q "${BASE_TAG}")
