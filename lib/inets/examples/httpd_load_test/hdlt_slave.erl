@@ -108,7 +108,7 @@ wait_for_slave(Parent, Host, Name, Node, Paths, Args,
     ?SET_LEVEL(DebugLevel),
     ?DEBUG("begin", []),
     Waiter = register_unique_name(0),
-    case mk_cmd(Host, Name, Paths, Args, Waiter, Prog) of
+    case (catch mk_cmd(Host, Name, Paths, Args, Waiter, Prog)) of
 	{ok, Cmd} ->
   	    ?DEBUG("command generated: ~n~s", [Cmd]),
 	    case (catch ssh_slave_start(Host, Cmd)) of

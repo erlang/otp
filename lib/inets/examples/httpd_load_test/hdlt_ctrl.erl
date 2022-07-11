@@ -27,7 +27,7 @@
 %%----------------------------------------------------------------------
 
 -module(hdlt_ctrl).
-
+-dialyzer({no_fail_call, proxy_loop/1}).
 -export([start/1, stop/0, help/0]).
 
 -export([init/1, proxy/7]).
