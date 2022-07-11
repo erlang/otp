@@ -3665,8 +3665,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
 static int
 handle_dist_spawn_reply_exiting(Process *c_p,
                                 ErtsMessage *sig,
-                                ErtsMonitor **pend_spawn_mon_pp,
-                                Eterm reason)
+                                ErtsProcExitContext *pe_ctxt_p)
 {
     ErtsDistSpawnReplySigData *datap = get_dist_spawn_reply_data(sig);
     Eterm result = datap->result;
@@ -3678,7 +3677,7 @@ handle_dist_spawn_reply_exiting(Process *c_p,
     ASSERT(is_atom(result) || is_external_pid(result));
     ASSERT(is_atom(result) || size_object(result) == EXTERNAL_THING_HEAD_SIZE + 1);
 
-    omon = erts_monitor_tree_lookup(*pend_spawn_mon_pp, datap->ref);
+    omon = erts_monitor_tree_lookup(pe_ctxt_p->pend_spawn_monitors, datap->ref);
     if (!omon) {
         /* May happen when connection concurrently close... */
         ErtsLink *lnk = datap->link;
@@ -3696,7 +3695,7 @@ handle_dist_spawn_reply_exiting(Process *c_p,
         ASSERT(omon->flags & ERTS_ML_FLG_SPAWN_PENDING);
         ASSERT(!datap->link || is_external_pid(result));
 
-        erts_monitor_tree_delete(pend_spawn_mon_pp, omon);
+        erts_monitor_tree_delete(&pe_ctxt_p->pend_spawn_monitors, omon);
         mdp = erts_monitor_to_data(omon);
 
         if (!erts_dist_pend_spawn_exit_delete(&mdp->target))
@@ -3717,12 +3716,17 @@ handle_dist_spawn_reply_exiting(Process *c_p,
             ASSERT(!(omon->flags & ERTS_ML_FLG_SPAWN_LINK) || datap->link);
 
             if (datap->link) {
-                /* This link exit *should* have actual reason... */
-                ErtsProcExitContext pectxt = {c_p, reason};
                 /* unless operation has been abandoned... */
-                if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED)
-                    pectxt.reason = am_abandoned;
-                erts_proc_exit_handle_link(datap->link, (void *) &pectxt, -1);
+                if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED) {
+                    ErtsProcExitContext pectxt = {c_p, am_abandoned};
+                    erts_proc_exit_handle_link(datap->link, (void *) &pectxt, -1);
+                }
+                else {
+                    /* This link exit *should* have actual reason... */
+                    erts_proc_exit_handle_link(datap->link,
+                                               (void *) pe_ctxt_p,
+                                               -1);
+                }
                 cnt++;
             }
         }
@@ -4437,8 +4441,7 @@ stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
 
 int
 erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
-                          ErtsMonitor **pend_spawn_mon_pp,
-                          Eterm reason)
+                          ErtsProcExitContext *pe_ctxt_p)
 {
     int cnt;
     Sint limit;
@@ -4589,9 +4592,8 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
         }
 
         case ERTS_SIG_Q_OP_DIST_SPAWN_REPLY: {
-            cnt += handle_dist_spawn_reply_exiting(c_p, sig,
-                                                   pend_spawn_mon_pp,
-                                                   reason);
+            cnt += handle_dist_spawn_reply_exiting(c_p, sig, pe_ctxt_p);
+
             break;
         }
 
