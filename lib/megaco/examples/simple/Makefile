@@ -100,6 +100,19 @@ MGC_START_ARGS += "{debug,false}"
 endif
 
 
+DIA_PLT      = megaco_example_simple.plt
+DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
+ifeq ($(DIAW_EH),true)
+DIA_WARNINGS += -Werror_handling
+endif
+ifeq ($(DIAW_US),true)
+DIA_WARNINGS += -Wunderspecs
+endif
+ifeq ($(DIAW_UR),true)
+DIA_WARNINGS += -Wunmatched_returns
+endif
+
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
@@ -116,6 +129,36 @@ docs:
 
 info: 
 	@echo "MEGACO_ROOT_DIR = $(MEGACO_ROOT_DIR)"
+
+
+dclean:
+	rm -f $(DIA_PLT)
+	rm -f $(DIA_ANALYSIS)
+
+dialyzer_plt: $(DIA_PLT)
+
+$(DIA_PLT): $(ERL_FILES)
+	@echo "Building ($(basename $(DIA_PLT))) plt file"
+	@dialyzer --build_plt \
+                  --output_plt $@ \
+                  -r ../../ebin \
+                     ../../../../lib/asn1/ebin \
+                     ../../../../lib/et/ebin \
+                     ../../../../lib/kernel/ebin \
+                     ../../../../lib/stdlib/ebin \
+                     ../../../../lib/debugger/ebin \
+                     ../../../../lib/runtime_tools/ebin \
+                     ../../../../erts/preloaded/ebin \
+                  --output $(DIA_ANALYSIS) \
+                  --verbose
+
+dialyzer: $(DIA_PLT)
+	@echo "Running dialyzer on $(basename $(DIA_PLT))"
+	@dialyzer --plt $< \
+                  -r ../../ebin \
+                  $(DIA_WARNINGS) \
+                  --verbose
+
 
 # ----------------------------------------------------
 # Special Build Targets
