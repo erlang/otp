@@ -65,6 +65,19 @@ TARGET_FILES= \
 	$(ERL_FILES:%.erl=%.$(EMULATOR))
 
 
+DIA_PLT      = snmp_example_ex2.plt
+DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
+ifeq ($(DIAW_EH),true)
+DIA_WARNINGS += -Werror_handling
+endif
+ifeq ($(DIAW_US),true)
+DIA_WARNINGS += -Wunderspecs
+endif
+ifeq ($(DIAW_UR),true)
+DIA_WARNINGS += -Wunmatched_returns
+endif
+
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
@@ -78,6 +91,35 @@ clean:
 docs:
 
 build: $(TARGET_FILES)
+
+
+dclean:
+	rm -f $(DIA_PLT)
+	rm -f $(DIA_ANALYSIS)
+
+dialyzer_plt: $(DIA_PLT)
+
+$(DIA_PLT): $(ERL_FILES)
+	@echo "Building ($(basename $(DIA_PLT))) plt file"
+	@dialyzer --build_plt \
+                  --output_plt $@ \
+                  -r ../../ebin \
+                     ../../../../lib/kernel/ebin \
+                     ../../../../lib/stdlib/ebin \
+                     ../../../../lib/crypto/ebin \
+                     ../../../../lib/mnesia/ebin \
+                     ../../../../lib/runtime_tools/ebin \
+                     ../../../../lib/compiler/ebin \
+                     ../../../../erts/preloaded/ebin \
+                  --output $(DIA_ANALYSIS) \
+                  --verbose
+
+dialyzer: $(DIA_PLT)
+	@echo "Running dialyzer on $(basename $(DIA_PLT))"
+	@dialyzer --plt $< \
+                  -r ../../ebin \
+                  $(DIA_WARNINGS) \
+                  --verbose
 
 
 # ----------------------------------------------------
