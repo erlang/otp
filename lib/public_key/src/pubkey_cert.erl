@@ -670,8 +670,8 @@ is_dir_name(_,_,_) ->
 
 is_dir_name2(Value, Value) -> true;
 is_dir_name2({printableString, Value1}, {printableString, Value2}) ->
-    string:to_lower(strip_spaces(Value1)) =:= 
-	string:to_lower(strip_spaces(Value2));
+    string:casefold(strip_spaces(Value1)) =:=
+	string:casefold(strip_spaces(Value2));
 is_dir_name2({utf8String, Value1}, String) ->
     is_dir_name2({printableString, unicode:characters_to_list(Value1)}, String);
 is_dir_name2(String, {utf8String, Value1}) ->
