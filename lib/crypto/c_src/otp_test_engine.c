@@ -113,6 +113,15 @@ err:
 #endif
 }
 
+static int test_finish(ENGINE *e) {
+    printf("OTP Test Engine Finish!\r\n");
+
+    //    EVP_cleanup();
+
+    return 111;
+
+}
+
 static void add_test_data(unsigned char *md, unsigned int len)
 {
     unsigned int i;
@@ -263,6 +272,8 @@ static int bind_helper(ENGINE * e, const char *id)
     if (!ENGINE_set_name(e, test_engine_name))
         goto err;
     if (!ENGINE_set_init_function(e, test_init))
+        goto err;
+    if (!ENGINE_set_finish_function(e, test_finish))
         goto err;
     if (!ENGINE_set_digests(e, &test_engine_digest_selector))
         goto err;
