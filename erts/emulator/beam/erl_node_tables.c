@@ -1645,6 +1645,9 @@ insert_dist_monitors(DistEntry *dep)
         erts_monitor_tree_foreach(dep->mld->orig_name_monitors,
                                   insert_monitor,
                                   (void *) &dep->sysname);
+        erts_monitor_tree_foreach(dep->mld->dist_pend_spawn_exit,
+                                  insert_monitor,
+                                  (void *) &dep->sysname);
     }
 }
 
