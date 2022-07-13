@@ -1186,6 +1186,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
  *                              used by the call. On output, the
  *                              amount of reductions consumed.
  *
+ * @param[in,out] pe_ctxtp      Process exit context pointer.
+ *
  * @return                      Returns a non-zero value, when
  *                              no more signals to handle in the
  *                              middle queue remain. A zero
@@ -1195,8 +1197,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
  */
 int
 erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
-                          ErtsMonitor **pend_spawn_mon_pp,
-                          Eterm reason);
+                          ErtsProcExitContext *pe_ctxt_p);
 
 /**
  *

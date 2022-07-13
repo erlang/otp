@@ -290,6 +290,15 @@ static int monitor_connection_down(ErtsMonitor *mon, void *unused, Sint reds)
 
 static int dist_pend_spawn_exit_connection_down(ErtsMonitor *mon, void *unused, Sint reds)
 {
+    Process *proc = mon->other.ptr;
+    ASSERT(!erts_monitor_is_origin(mon));
+    if (proc) {
+        ErtsMonitorData *mdp = erts_monitor_to_data(mon);
+        if (mdp->origin.other.item == am_pending) {
+            /* Resume the parent process waiting for a result... */
+            erts_resume(proc, 0);
+        }
+    }
     erts_monitor_release(mon);
     return 1;
 }
