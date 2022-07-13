@@ -10697,6 +10697,7 @@ cleanup_sys_tasks(Process *c_p, erts_aint32_t in_state, int in_reds)
 	int st_prio;
 
 	if (c_p->dirty_sys_tasks) {
+            st_prio = PRIORITY_MAX; /* Silence warning... */
 	    st = c_p->dirty_sys_tasks;
 	    c_p->dirty_sys_tasks = st->next;
 	}
