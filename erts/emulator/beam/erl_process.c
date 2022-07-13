@@ -13581,6 +13581,8 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
     switch (lnk->type) {
     case ERTS_LNK_TYPE_PROC:
         ASSERT(is_internal_pid(lnk->other.item));
+        if (((ErtsILink *) lnk)->unlinking)
+            break;
         erts_proc_sig_send_link_exit(&c_p->common, c_p->common.id, lnk,
                                      reason, SEQ_TRACE_TOKEN(c_p));
         lnk = NULL;
@@ -13588,6 +13590,8 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
     case ERTS_LNK_TYPE_PORT: {
         Port *prt;
         ASSERT(is_internal_port(lnk->other.item));
+        if (((ErtsILink *) lnk)->unlinking)
+            break;
         prt = erts_port_lookup(lnk->other.item,
                                ERTS_PORT_SFLGS_INVALID_LOOKUP);
         if (prt)
@@ -13607,8 +13611,14 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
         ErtsDSigSendContext ctx;
         int code;
 
+        dlnk = erts_link_to_other(lnk, &elnk);
+        if (elnk->unlinking) {
+            if (!erts_link_dist_delete(dlnk))
+                elnk = NULL;
+            break;
+        }
+
         if (is_immed(reason)) {
-            dlnk = erts_link_to_other(lnk, &elnk);
             dist = elnk->dist;
 
             ASSERT(is_external_pid(lnk->other.item));
