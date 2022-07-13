@@ -42,6 +42,7 @@
          busy_dist_down_signal/1,
          busy_dist_spawn_reply_signal/1,
          busy_dist_unlink_ack_signal/1,
+         unlink_exit/1,
          monitor_order/1,
          monitor_named_order_local/1,
          monitor_named_order_remote/1,
@@ -74,6 +75,7 @@ all() ->
      busy_dist_down_signal,
      busy_dist_spawn_reply_signal,
      busy_dist_unlink_ack_signal,
+     unlink_exit,
      monitor_order,
      monitor_named_order_local,
      monitor_named_order_remote,
@@ -87,7 +89,6 @@ xm_sig_order(Config) when is_list(Config) ->
     repeat(fun (_) -> xm_sig_order_test(RNode) end, 1000),
     peer:stop(Peer),
     ok.
-    
 
 xm_sig_order_test(Node) ->
     P = spawn(Node, fun () -> xm_sig_order_proc() end),
@@ -467,6 +468,102 @@ busy_dist_unlink_ack_signal(Config) when is_list(Config) ->
     peer:stop(OtherPeer),
     ok.
 
+unlink_exit(Config) when is_list(Config) ->
+    %% OTP-18177
+    %%
+    %% This bug is theoretically possible, at least in the
+    %% node local scenario, but more or less undetectable and
+    %% quite harmless when it hits. A process A (the child in
+    %% the testcase) could get actual exit reason of another
+    %% process B (the parent in the testcase) when it should
+    %% have gotten 'noproc' as exit reason. This can happen if
+    %% 1. B unlinks A
+    %% 2. B begin terminating before it has received an unlink
+    %%    ack from A
+    %% 3. A links to B after it has received the unlink signal
+    %%
+    %% This testcase hammers on the above scenario, but I have
+    %% not seen it fail yet though when the bug is present...
+    repeat(fun unlink_exit_test/0, 1000).
+
+unlink_exit_test() ->
+    Tester = self(),
+    ChildFun =
+        fun () ->
+                process_flag(trap_exit, true),
+                Tester ! {child, self()},
+                Parent = receive {tester_parent, Tester, Pid} -> Pid end,
+                Parent ! {go, self()},
+                busy_wait_until(fun () ->
+                                        receive {go, Parent} -> true
+                                        after 0 -> false
+                                        end
+                                end),
+                IsAlive = erlang:is_process_alive(Parent),
+                try
+                    link(Parent),
+                    case IsAlive of
+                        false ->
+                            receive
+                                {'EXIT', Parent, noproc} ->
+                                    exit(ok);
+                                {'EXIT', Parent, R1} ->
+                                    exit({not_alive_unexpected_exit_reason, R1})
+                            after 1000 ->
+                                    exit(not_alive_missing_exit)
+                            end;
+                        true ->
+                            receive
+                                {'EXIT', Parent, R2} when R2 == noproc;
+                                                          R2 == bye ->
+                                    exit(ok);
+                                {'EXIT', Parent, R2} ->
+                                    exit({alive_unexpected_exit_reason, R2})
+                            after 1000 ->
+                                    exit(alive_missing_exit)
+                            end
+                    end
+                catch error:noproc ->
+                        receive
+                            {'EXIT', Parent, _} = X0 ->
+                                exit({unexpected_exit, X0})
+                        after 1000 ->
+                                exit(ok)
+                        end
+                end
+        end,
+    {Parent, PMon} = spawn_opt(fun () ->
+                                       %% Work to do when terminating in order
+                                       %% to increase the likelyhood of the
+                                       %% bug triggering (if present)...
+                                       T = ets:new(x,[]),
+                                       ets:insert(T, lists:map(fun (I) ->
+                                                                       {I,I}
+                                                               end,
+                                                               lists:seq(1,10000))),
+
+                                       Child = spawn_opt(ChildFun,
+                                                         [{priority, high},
+                                                          link]),
+                                       receive {go, Child} -> ok end,
+                                       unlink(Child),
+                                       Child ! {go, self()},
+                                       exit(bye)
+                               end, [{priority, high}, monitor]),
+    Child = receive {child, Chld} -> Chld end,
+    CMon = erlang:monitor(process, Child),
+    Child ! {tester_parent, Tester, Parent},
+    receive
+        {'DOWN', PMon, process, Parent, bye} ->
+            ok
+    end,
+    receive
+        {'DOWN', CMon, process, Child, ok} ->
+            ok;
+        {'DOWN', CMon, process, Child, ChildReason} ->
+            ct:fail(ChildReason)
+    end.
+
 %% Monitors could be reordered relative to message signals when the parallel
 %% signal sending optimization was active.
 monitor_order(_Config) ->
@@ -731,6 +828,15 @@ spam(To, Data) ->
 
 repeat(_Fun, N) when is_integer(N), N =< 0 ->
     ok;
-repeat(Fun, N) when is_integer(N)  ->
+repeat(Fun, N) when is_function(Fun, 0), is_integer(N)  ->
+    Fun(),
+    repeat(Fun, N-1);
+repeat(Fun, N) when is_function(Fun, 1), is_integer(N)  ->
     Fun(N),
     repeat(Fun, N-1).
+
+busy_wait_until(Fun) ->
+    case catch Fun() of
+        true -> ok;
+        _ -> busy_wait_until(Fun)
+    end.
