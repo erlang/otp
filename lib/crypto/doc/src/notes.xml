@@ -634,6 +634,39 @@
 
 </section>
 
+<section><title>Crypto 4.9.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Changed the behaviour of the engine load/unload
+	    functions</p> <p> The engine load/unload functions have
+	    got changed semantics to get a more consistent behaviour
+	    and work correct when variables are garbage collected.
+	    </p> <p> The load functions now don't register the
+	    methods for the engine to replace. That will now be
+	    handled with the new functions
+	    engine_register/engine_unregister if needed. </p> <p>
+	    Some functions functions are removed from the
+	    documentation and therefor the API, but they are left in
+	    the code for compatibility. </p> <list>
+	    <item>engine_load/4: is now the same as
+	    engine_load/3</item> <item>engine_unload/2: is now the
+	    same as engine_unload/1</item>
+	    <item>ensure_engine_loaded/3: is now the same as
+	    ensure_engine_loaded/2</item>
+	    <item>ensure_engine_unloaded/1, ensure_engine_unloaded/2:
+	    is now the same as engine_unload/1</item> </list>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18172 Aux Id: ERIERL-826 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.9.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

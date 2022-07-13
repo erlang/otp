@@ -2267,6 +2267,32 @@
 
 </section>
 
+<section><title>Erts 11.2.2.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix faulty distribution encoding of terms with
+	    either</p> <list> <item>a fun with bit-string or
+	    export-fun in its environment when encoded toward a not
+	    yet established (pending) connection</item> <item>or a
+	    fun with a binary/bitstring, in its environment,
+	    referring to an off-heap binary (larger than 64
+	    bytes).</item> </list> <p>The symptom could be failed
+	    decoding on the receiving side leading to aborted
+	    connection. Fix OTP-18093 is a workaround for theses bugs
+	    that makes the VM accepts such faulty encoded funs.</p>
+	    <p>The first encoding bug toward pending connection
+	    exists only in OTP 23 and 24, but the second one exists
+	    also on OTP 25.</p>
+          <p>
+	    Own Id: OTP-18104 Aux Id: OTP-18093 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.2.2.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
