@@ -75,6 +75,8 @@
          spawn_request_monitor_child_exit/1,
          spawn_request_link_child_exit/1,
          spawn_request_link_parent_exit/1,
+         spawn_request_link_parent_exit_compound_reason/1,
+         spawn_request_link_parent_exit_nodedown/1,
          spawn_request_abandon_bif/1,
          dist_spawn_monitor/1,
          spawn_against_ei_node/1,
@@ -92,6 +94,8 @@
 
 -export([hangaround/2, processes_bif_test/0, do_processes/1,
 	 processes_term_proc_list_test/1, huge_arglist_child/255]).
+
+-export([spawn_request_test_exit_child/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -117,18 +121,8 @@ all() ->
      process_flag_fullsweep_after, process_flag_heap_size,
      spawn_opt_heap_size, spawn_opt_max_heap_size,
      spawn_huge_arglist,
-     spawn_request_bif,
-     spawn_request_monitor_demonitor,
-     spawn_request_monitor_child_exit,
-     spawn_request_link_child_exit,
-     spawn_request_link_parent_exit,
-     spawn_request_abandon_bif,
-     dist_spawn_monitor,
-     spawn_against_ei_node,
-     spawn_against_old_node,
-     spawn_against_new_node,
-     spawn_request_reply_option,
      otp_6237,
+     {group, spawn_request},
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
      {group, system_task},
@@ -140,6 +134,20 @@ groups() ->
       [t_exit_2_other, t_exit_2_other_normal, self_exit,
        normal_suicide_exit, abnormal_suicide_exit,
        t_exit_2_catch, exit_and_timeout, exit_twice]},
+     {spawn_request, [],
+      [spawn_request_bif,
+       spawn_request_monitor_demonitor,
+       spawn_request_monitor_child_exit,
+       spawn_request_link_child_exit,
+       spawn_request_link_parent_exit,
+       spawn_request_link_parent_exit_compound_reason,
+       spawn_request_link_parent_exit_nodedown,
+       spawn_request_abandon_bif,
+       dist_spawn_monitor,
+       spawn_against_ei_node,
+       spawn_against_old_node,
+       spawn_against_new_node,
+       spawn_request_reply_option]},
      {processes_bif, [],
       [processes_large_tab, processes_default_tab,
        processes_small_tab, processes_this_tab,
@@ -2951,60 +2959,156 @@ spawn_request_link_child_exit(Config) when is_list(Config) ->
     ok.
 
 spawn_request_link_parent_exit(Config) when is_list(Config) ->
-    C1 = spawn_request_link_parent_exit_test(node()),
+    C1 = spawn_request_link_parent_exit_test(node(), false),
     {ok, Peer, Node} = ?CT_PEER(),
-    C2 = spawn_request_link_parent_exit_test(Node),
+    C2 = spawn_request_link_parent_exit_test(Node, false),
     stop_node(Peer, Node),
     {comment, C1 ++ " " ++ C2}.
 
-spawn_request_link_parent_exit_test(Node) ->
+spawn_request_link_parent_exit_compound_reason(Config) when is_list(Config) ->
+    C1 = spawn_request_link_parent_exit_test(node(), true),
+    {ok, Peer, Node} = ?CT_PEER(),
+    C2 = spawn_request_link_parent_exit_test(Node, true),
+    stop_node(Peer, Node),
+    {comment, C1 ++ " " ++ C2}.
+
+spawn_request_link_parent_exit_test(Node, CompoundExitReason) ->
     %% Early parent exit...
     Tester = self(),
+
+    ExitReason = if CompoundExitReason -> "kaboom";
+                    true -> kaboom
+                 end,
 
     verify_nc(node()),
 
     %% Ensure code loaded on other node...
     _ = rpc:call(Node, ?MODULE, module_info, []),
 
-    ChildFun = fun () ->
-                       Child = self(),
-                       spawn_opt(fun () ->
-                                         process_flag(trap_exit, true),
-                                         receive
-                                             {'EXIT', Child, Reason} ->
-                                                 Tester ! {parent_exit, Reason}
-                                         end
-                                 end, [link,{priority,max}]),
-                       receive after infinity -> ok end
-               end,
     ParentFun = case node() == Node of
                     true ->
                         fun (Wait) ->
-                                spawn_request(ChildFun, [link,{priority,max}]),
+                                spawn_request(?MODULE, spawn_request_test_exit_child,
+                                              [Tester], [link,{priority,max}]),
                                 receive after Wait -> ok end,
-                                exit(kaboom)
+                                exit(ExitReason)
                         end;
                     false ->
                         fun (Wait) ->
-                                spawn_request(Node, ChildFun, [link,{priority,max}]),
+                                spawn_request(Node, ?MODULE,
+                                              spawn_request_test_exit_child,
+                                              [Tester], [link,{priority,max}]),
                                 receive after Wait -> ok end,
-                                exit(kaboom)
+                                exit(ExitReason)
                         end
                 end,
     lists:foreach(fun (N) ->
-                          spawn(fun () -> ParentFun(N rem 10) end)
+                          spawn_opt(fun () ->
+                                            %% Give parent some work to do when
+                                            %% exiting and by this increase
+                                            %% possibilities for races...
+                                            T = ets:new(x,[]),
+                                            ets:insert(T, lists:map(fun (I) ->
+                                                                            {I,I}
+                                                                    end,
+                                                                    lists:seq(1,10000))),
+                                            ParentFun(N rem 10) end,
+                                    [{priority, max}])
                   end,
-                  lists:seq(1, 1000)),
-    N = gather_parent_exits(kaboom, false),
-    Comment = case node() == Node of
-                  true ->
-                      "Got " ++ integer_to_list(N) ++ " node local kabooms!";
-                  false ->
-                      C = "Got " ++ integer_to_list(N) ++ " node remote kabooms!",
-                      true = N /= 0,
-                      C
-              end,
+                  lists:seq(1, 10000)),
+    N = gather_parent_exits(ExitReason, false),
+    CFs = erpc:call(Node,
+                    fun () ->
+                            %% Ensure all children have had time to enter an exiting state...
+                            receive after 100*test_server:timetrap_scale_factor() -> ok end,
+                            lists:map(fun (P) ->
+                                              {P, process_info(P, current_function)}
+                                      end, processes())
+                    end),
+    lists:foreach(fun ({P, {current_function, {?MODULE, spawn_request_test_exit_child, 1}}}) ->
+                          ct:fail({missing_exit_to_child_detected, P});
+                      (_) ->
+                          ok
+                  end, CFs),
+    Comment =
+        "Got "
+        ++ integer_to_list(N)
+        ++ if node() == Node -> " node local";
+                  true -> " node remote"
+           end
+        ++ if CompoundExitReason -> " \"kaboom\"";
+              true -> " \'kaboom\'"
+           end
+        ++ " exits!",
+    erlang:display(Comment),
     Comment.
+
+spawn_request_link_parent_exit_nodedown(Config) when is_list(Config) ->
+    {ok, Peer, Node} = ?CT_PEER(#{connection => 0}),
+    N = 1000,
+    ExitCounter = spawn(Node, fun exit_counter/0),
+    lists:foreach(fun (_) ->
+                          spawn_request_link_parent_exit_nodedown_test(Node)
+                  end,
+                  lists:seq(1, N)),
+    ResRef = make_ref(),
+    ExitCounter ! {get_results, self(), ResRef},
+    Cmnt = receive
+               {ResRef, CntMap} ->
+                   lists:flatten(
+                     ["In total ", integer_to_list(N), " exits. ",
+                      "Detected exits: ",
+                      maps:fold(fun (ExitReason, Count, "") ->
+                                        io_lib:format("~p exit ~p times",
+                                                      [ExitReason, Count]);
+                                    (ExitReason, Count, Acc) ->
+                                        [Acc, io_lib:format("; ~p exit ~p times",
+                                                            [ExitReason, Count])]
+                                end,
+                                "",
+                                CntMap),
+                      "."])
+           end,
+    io:format("~s~n", [Cmnt]),
+    stop_node(Peer, Node),
+    {comment, Cmnt}.
+
+exit_counter() ->
+    true = register(exit_counter, self()),
+    exit_counter(#{}).
+
+exit_counter(CntMap) ->
+    receive
+        {get_results, From, Ref} ->
+            From ! {Ref, CntMap};
+        {exit, Reason} ->
+            OldCnt = maps:get(Reason, CntMap, 0),
+            exit_counter(CntMap#{Reason => OldCnt+1})
+    end.
+
+spawn_request_link_parent_exit_nodedown_test(Node) ->
+    pong = net_adm:ping(Node),
+    ChildFun = fun () ->
+                       process_flag(trap_exit, true),
+                       receive
+                           {'EXIT', _, Reason} ->
+                               exit_counter ! {exit, Reason}
+                       end
+               end,
+    {Pid, Mon} = spawn_monitor(fun () ->
+                                       _ReqID = spawn_request(Node,
+                                                              ChildFun,
+                                                              [link,
+                                                               {priority,max}]),
+                                       exit(bye)
+                               end),
+    receive
+        {'DOWN', Mon, process, Pid, Reason} ->
+            bye = Reason,
+            erlang:disconnect_node(Node)
+    end,
+    ok.
+
 
 spawn_request_abandon_bif(Config) when is_list(Config) ->
     {ok, Peer, Node} = ?CT_PEER(),
@@ -3033,19 +3137,10 @@ spawn_request_abandon_bif(Config) when is_list(Config) ->
     TotOps = 1000,
     Tester = self(),
 
-    ChildFun = fun () ->
-                       Child = self(),
-                       spawn_opt(fun () ->
-                                         process_flag(trap_exit, true),
-                                         receive
-                                             {'EXIT', Child, Reason} ->
-                                                 Tester ! {parent_exit, Reason}
-                                         end
-                                 end, [link,{priority,max}]),
-                       receive after infinity -> ok end
-               end,
     ParentFun = fun (Wait, Opts) ->
-                        ReqId = spawn_request(Node, ChildFun, Opts),
+                        ReqId = spawn_request(Node, ?MODULE,
+                                              spawn_request_test_exit_child,
+                                              [Tester], Opts),
                         receive after Wait -> ok end,
                         case spawn_request_abandon(ReqId) of
                             true ->
@@ -3085,6 +3180,19 @@ spawn_request_abandon_bif(Config) when is_list(Config) ->
                   end,
                   lists:seq(1, TotOps)),
     NoA2 = gather_parent_exits(abandoned, true),
+    CFs = erpc:call(Node,
+                    fun () ->
+                            %% Ensure all children have had time to enter an exiting state...
+                            receive after 100*test_server:timetrap_scale_factor() -> ok end,
+                            lists:map(fun (P) ->
+                                              {P, process_info(P, current_function)}
+                                      end, processes())
+                    end),
+    lists:foreach(fun ({P, {current_function, {?MODULE, spawn_request_test_exit_child, 1}}}) ->
+                          ct:fail({missing_exit_to_child_detected, P});
+                      (_) ->
+                          ok
+                  end, CFs),
     %% Parent exit early...
     lists:foreach(fun (N) ->
                           spawn_opt(fun () ->
@@ -3116,6 +3224,17 @@ spawn_request_abandon_bif(Config) when is_list(Config) ->
     true = NoA2 /= 0,
     true = NoA2 /= TotOps,
     {comment, C}.
+
+spawn_request_test_exit_child(Tester) ->
+  Child = self(),
+  _ = spawn_opt(fun () ->
+                        process_flag(trap_exit, true),
+                        receive
+                            {'EXIT', Child, Reason} ->
+                                Tester ! {parent_exit, Reason}
+                        end
+                end, [link,{priority,max}]),
+  receive after infinity -> ok end.
 
 gather_parent_exits(Reason, AllowOther) ->
     receive after 2000 -> ok end,

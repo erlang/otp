@@ -14056,9 +14056,7 @@ restart:
     case ERTS_CONTINUE_EXIT_HANDLE_PROC_SIG: {
         Sint r = reds;
 
-        if (!erts_proc_sig_handle_exit(p, &r,
-                                       &trap_state->pectxt.pend_spawn_monitors,
-                                       trap_state->reason)) {
+        if (!erts_proc_sig_handle_exit(p, &r, &trap_state->pectxt)) {
             goto yield;
         }
 
