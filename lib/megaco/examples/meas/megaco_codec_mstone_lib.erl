@@ -83,12 +83,8 @@ display_os_info() ->
 	    Str ->
 		Str
 	end,
-    case os:type() of
-	{OsFam, OsName} ->
-	    io:format("OS:                  ~p-~p: ~s~n", [OsFam, OsName, V]);
-	OsFam ->
-	    io:format("OS:                  ~p: ~s~n", [OsFam, V])
-    end.
+    {OsFam, OsName} = os:type(),
+    io:format("OS:                  ~p-~p: ~s~n", [OsFam, OsName, V]).
 	    
 
 %%----------------------------------------------------------------------
@@ -191,12 +187,8 @@ display_alloc_info([{Alloc, Mem}|AllocInfo]) ->
     display_alloc_info(AllocInfo).
 
 alloc_info() ->
-    case erlang:system_info(allocator) of
-        {_Allocator, _Version, Features, _Settings} ->
-            alloc_info(Features);
-        _ ->
-            []
-    end.
+    {_Allocator, _Version, Features, _Settings} = erlang:system_info(allocator),
+    alloc_info(Features).
 
 alloc_info(Allocators) ->
     Allocs = [temp_alloc, sl_alloc, std_alloc, ll_alloc, eheap_alloc,

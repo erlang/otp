@@ -113,7 +113,7 @@ start([RunTimeAtom, Mode, MessagePackage])
              ?LIB:parse_runtime(RunTimeAtom), Mode, MessagePackage);
 start(RunTime) when is_integer(RunTime) andalso (RunTime > 0) ->
     do_start(?DEFAULT_FACTOR,
-             time:minutes(RunTime), ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE);
+             timer:minutes(RunTime), ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE);
 start(MessagePackage) ->
     do_start(?DEFAULT_FACTOR,
              ?DEFAULT_RUN_TIME, ?DEFAULT_MODE, MessagePackage).
@@ -304,30 +304,26 @@ loader(Factor, RunTime, Mode, Codecs, MessagePackage) ->
     case (catch init(Factor, RunTime, Mode, Codecs, MessagePackage)) of
 	{ok, State} ->
 	    loader_loop(running, State);
-	Error ->
+	{error, Reason} = Error ->
+            io:format("<ERROR> Failed starting loader: "
+                      "~n      ~p", [Reason]),
 	    exit(Error)
     end.
 
 init(Factor, RunTime, Mode, Codecs, MessagePackage) ->
     ets:new(mstone, [set, private, named_table, {keypos, 1}]),
     ets:insert(mstone, {worker_cnt, 0}),
-    case ?LIB:start_flex_scanner() of
-        {Pid, FlexConf} when is_pid(Pid) ->
-            io:format("prepare messages", []),
-            EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, Mode), 
-            io:format("~ninit codec data", []),
-            CodecData = init_codec_data(Factor, EMessages, FlexConf),
-            Timer = erlang:send_after(RunTime, self(), mstone_finished), 
-            io:format(" => ~w concurrent workers~n", [length(CodecData)]),
-            {ok, #state{timer        = Timer, 
-                        idle         = CodecData, 
-                        flex_handler = Pid, 
-                        flex_conf    = FlexConf}};
-        {error, Reason} = ERROR ->
-            io:format("<ERROR> Failed starting flex scanner: "
-                      "~n      ~p", [Reason]),
-            ERROR
-    end.
+    {Pid, FlexConf} = ?LIB:start_flex_scanner(),
+    io:format("prepare messages", []),
+    EMessages = ?LIB:expanded_messages(MessagePackage, Codecs, Mode), 
+    io:format("~ninit codec data", []),
+    CodecData = init_codec_data(Factor, EMessages, FlexConf),
+    Timer = erlang:send_after(RunTime, self(), mstone_finished), 
+    io:format(" => ~w concurrent workers~n", [length(CodecData)]),
+    {ok, #state{timer        = Timer, 
+                idle         = CodecData, 
+                flex_handler = Pid, 
+                flex_conf    = FlexConf}}.
 
 init_codec_data(Factor, EMsgs, FlexConf) ->
     init_codec_data_expand(Factor, init_codec_data(EMsgs, FlexConf)).
@@ -345,7 +341,7 @@ init_codec_data(Codec, Mod, Conf0, Msgs0, FlexConf)
   when is_atom(Codec) andalso 
        is_atom(Mod)   andalso 
        is_list(Conf0) andalso 
-       is_list(Msgs0)  ->
+       is_list(Msgs0) ->
     io:format(".", []),
     Conf = [{version3,?VERSION3}|init_codec_conf(FlexConf, Conf0)], 
     Msgs = [?LIB:detect_version(Mod, Conf, Bin) || {_, Bin} <- Msgs0],
