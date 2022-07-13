@@ -3768,8 +3768,11 @@ typedef struct {
 static int link_port_exit(ErtsLink *lnk, void *vpectxt, Sint reds)
 {
     ErtsPortExitContext *pectxt = vpectxt;
-    erts_proc_sig_send_link_exit(NULL, pectxt->port_id,
-                                 lnk, pectxt->reason, NIL);
+    if (((ErtsILink *) lnk)->unlinking)
+        erts_link_release(lnk);
+    else
+        erts_proc_sig_send_link_exit(NULL, pectxt->port_id,
+                                     lnk, pectxt->reason, NIL);
     return 1;
 }
 
