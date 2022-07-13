@@ -1519,7 +1519,7 @@ process_info_aux(Process *c_p,
     case ERTS_PI_IX_MESSAGE_QUEUE_LEN: {
         Sint len = rp->sig_qs.len;
         ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
-        ASSERT(!rp->sig_qs.cont);
+        ASSERT((flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER) || !rp->sig_qs.cont);
         ASSERT(len >= 0);
         if (len <= MAX_SMALL)
             res = make_small(len);
