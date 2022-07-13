@@ -1915,6 +1915,7 @@ otp_5112(Config) when is_list(Config) ->
     true = lists:member(Port, Links1),
     Port ! {self(), {command, ""}},
     wait_until(fun () -> lists:member(Port, erlang:ports()) == false end),
+    receive after 1000 -> ok end, %% Give signal some time to propagate...
     {links, Links2} = process_info(self(),links),
     io:format("Links2: ~p~n",[Links2]),
     false = lists:member(Port, Links2), %% This used to fail

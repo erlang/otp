@@ -2479,7 +2479,7 @@ define etp-proc-state-int
     printf "active | "
   end
   if ($arg0 & 0x1000)
-    printf "unused | "
+    printf "maybe-self-sigs | "
   end
   if ($arg0 & 0x800)
     printf "exiting | "

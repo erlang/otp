@@ -172,6 +172,7 @@ atom cflags
 atom CHANGE='CHANGE'
 atom characters_to_binary_int
 atom characters_to_list_int
+atom check_gc
 atom clear
 atom clock_service
 atom close

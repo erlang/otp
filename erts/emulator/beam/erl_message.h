@@ -284,6 +284,7 @@ typedef struct {
 typedef struct {
     ErtsSignal sig;
     ErtsMessage **prev_next;
+    signed char is_yield_mark;
     signed char pass;
     signed char set_save;
     signed char in_sigq;

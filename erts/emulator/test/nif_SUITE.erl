@@ -1152,6 +1152,7 @@ monitor_process_c(Config) ->
     Pid = spawn_link(fun() ->
                              R_ptr = alloc_monitor_resource_nif(),
                              {0,Mon} = monitor_process_nif(R_ptr, self(), true, Papa),
+                             receive after 1000 -> ok end,
                              [R_ptr] = monitored_by(self()),
                              put(store, make_resource(R_ptr)),
                              ok = release_resource(R_ptr),
@@ -1159,8 +1160,8 @@ monitor_process_c(Config) ->
                              Papa ! {self(), done, R_ptr, Mon},
                              exit
                      end),
-    [{Pid, done, R_ptr, Mon1},
-     {monitor_resource_down, R_ptr, Pid, Mon2}] = flush(2),
+    receive {Pid, done, R_ptr, Mon1} -> ok end,
+    [{monitor_resource_down, R_ptr, Pid, Mon2}] = flush(1),
     compare_monitors_nif(Mon1, Mon2),
     {R_ptr, _, 1} = last_resource_dtor_call(),
     ok.
