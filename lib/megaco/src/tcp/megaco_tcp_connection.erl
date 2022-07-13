@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -146,7 +146,7 @@ handle_info({tcp, Socket, <<3:8, _X:8, Length:16, Msg/binary>>},
     incNumInMessages(Socket),
     incNumInOctets(Socket, 4+size(Msg)),
     apply(Mod, receive_message, [RH, self(), Socket, Msg]),
-    inet:setopts(Socket, [{active, once}]),
+    _ = inet:setopts(Socket, [{active, once}]),
     {noreply, TcpRec};
 handle_info({tcp, Socket, <<3:8, _X:8, Length:16, Msg/binary>>}, 
 	    #megaco_tcp{socket = Socket, serialize = false} = TcpRec) ->
@@ -154,7 +154,7 @@ handle_info({tcp, Socket, <<3:8, _X:8, Length:16, Msg/binary>>},
     incNumInMessages(Socket),
     incNumInOctets(Socket, 4+size(Msg)),
     receive_message(Mod, RH, Socket, Length, Msg),
-    inet:setopts(Socket, [{active, once}]),
+    _ = inet:setopts(Socket, [{active, once}]),
     {noreply, TcpRec};
 handle_info({tcp, Socket, <<3:8, _X:8, _Length:16, Msg/binary>>},
             #megaco_tcp{socket = Socket, serialize = true} = TcpRec) ->
@@ -162,7 +162,7 @@ handle_info({tcp, Socket, <<3:8, _X:8, _Length:16, Msg/binary>>},
     incNumInMessages(Socket),
     incNumInOctets(Socket, 4+size(Msg)),
     process_received_message(Mod, RH, Socket, Msg),
-    inet:setopts(Socket, [{active, once}]),
+    _ = inet:setopts(Socket, [{active, once}]),
     {noreply, TcpRec};
 handle_info({tcp, Socket, Msg}, TcpRec) ->
     incNumErrors(Socket),
@@ -188,8 +188,8 @@ process_received_message(Mod, RH, SH, Msg) ->
 
 receive_message(Mod, RH, SendHandle, Length, Msg) ->
     Opts = [link , {min_heap_size, ?HEAP_SIZE(Length)}],
-    spawn_opt(?MODULE, handle_received_message,
-	      [Mod, RH, self(), SendHandle, Msg], Opts),
+    _ = spawn_opt(?MODULE, handle_received_message,
+                  [Mod, RH, self(), SendHandle, Msg], Opts),
     ok.
 
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,10 +32,12 @@
 -define(SMP_SUPPORT_DEFAULT(), erlang:system_info(smp_support)).
 
 -dialyzer({nowarn_function, is_enabled/0}).
+-spec is_enabled() -> boolean().
 is_enabled() -> 
     (true =:= ?ENABLE_MEGACO_FLEX_SCANNER).
 
 -dialyzer({nowarn_function, is_reentrant_enabled/0}).
+-spec is_reentrant_enabled() -> boolean().
 is_reentrant_enabled() ->
     (true =:= ?MEGACO_REENTRANT_FLEX_SCANNER).
 
@@ -72,7 +74,7 @@ start(SMP) when ((SMP =:= true) orelse (SMP =:= false)) ->
 
 do_start(SMP) ->
     Path = lib_dir(),
-    erl_ddll:start(), 
+    _ = erl_ddll:start(), 
     load_driver(Path),
     PortOrPorts = open_drv_port(SMP),
     {ok, PortOrPorts}.
@@ -117,7 +119,7 @@ open_drv_port() ->
 	Port when is_port(Port) ->
 	    Port;
 	{'EXIT', Reason} ->
-	    erl_ddll:unload_driver(drv_name()),
+	    _ = erl_ddll:unload_driver(drv_name()),
 	    throw({error, {open_port, Reason}})
     end.
 
@@ -136,13 +138,13 @@ drv_name() ->
 
 stop(Port) when is_port(Port) ->
     erlang:port_close(Port), 
-    erl_ddll:unload_driver(drv_name()),
+    _ = erl_ddll:unload_driver(drv_name()),
     stopped;
 stop(Ports) when is_tuple(Ports) ->
     stop(tuple_to_list(Ports));
 stop(Ports) when is_list(Ports) ->
     lists:foreach(fun(Port) ->  erlang:port_close(Port) end, Ports),
-    erl_ddll:unload_driver(drv_name()),
+    _ = erl_ddll:unload_driver(drv_name()),
     stopped.
 
 
