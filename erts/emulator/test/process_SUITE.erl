@@ -49,6 +49,10 @@
          process_info_smoke_all/1,
          process_info_status_handled_signal/1,
          process_info_reductions/1,
+         process_info_self_signal/1,
+         process_info_self_msgq_len/1,
+         process_info_self_msgq_len_messages/1,
+         process_info_self_msgq_len_more/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -107,21 +111,8 @@ suite() ->
 all() ->
     [spawn_with_binaries, t_exit_1, {group, t_exit_2},
      trap_exit_badarg, trap_exit_badarg_in_bif,
-     t_process_info, process_info_other, process_info_other_msg,
-     process_info_other_dist_msg, process_info_other_status,
-     process_info_2_list,
-     process_info_lock_reschedule,
-     process_info_lock_reschedule2,
-     process_info_lock_reschedule3,
-     process_info_other_message_queue_len_signal_race,
-     process_info_garbage_collection,
-     process_info_parent,
-     process_info_smoke_all,
-     process_info_status_handled_signal,
-     process_info_reductions,
      bump_reductions, low_prio, yield, yield2, otp_4725,
-     dist_unlink_ack_exit_leak,
-     bad_register, garbage_collect, process_info_messages,
+     dist_unlink_ack_exit_leak, bad_register, garbage_collect,
      process_flag_badarg,
      process_flag_fullsweep_after, process_flag_heap_size,
      command_line_max_heap_size,
@@ -129,6 +120,7 @@ all() ->
      spawn_huge_arglist,
      otp_6237,
      {group, spawn_request},
+     {group, process_info_bif},
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
      {group, system_task},
@@ -159,6 +151,24 @@ groups() ->
        processes_small_tab, processes_this_tab,
        processes_last_call_trap, processes_apply_trap,
        processes_gc_trap, processes_term_proc_list]},
+     {process_info_bif, [],
+      [t_process_info, process_info_messages,
+       process_info_other, process_info_other_msg,
+       process_info_other_message_queue_len_signal_race,
+       process_info_other_dist_msg, process_info_other_status,
+       process_info_2_list,
+       process_info_lock_reschedule,
+       process_info_lock_reschedule2,
+       process_info_lock_reschedule3,
+       process_info_garbage_collection,
+       process_info_parent,
+       process_info_smoke_all,
+       process_info_status_handled_signal,
+       process_info_reductions,
+       process_info_self_signal,
+       process_info_self_msgq_len,
+       process_info_self_msgq_len_messages,
+       process_info_self_msgq_len_more]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -1351,6 +1361,146 @@ pi_reductions_main_unlocker_loop(Other) ->
     erlang:yield(),
     pi_reductions_main_unlocker_loop(Other).
 
+process_info_self_signal(Config) when is_list(Config) ->
+    %% Test that signals that we have sent to ourselves are
+    %% visible in process_info() result. This is not strictly
+    %% a necessary property, but implemented so now. See
+    %% process_info.c:process_info_bif() for more info.
+    Self = self(),
+    Ref = make_ref(),
+    pi_sig_spam_test(fun () ->
+                             process_info_self_signal_spammer(Self)
+                     end,
+                     fun () ->
+                             self() ! Ref,
+                             process_info(self(), messages)
+                     end,
+                     fun (Res) ->
+                             {messages, [Ref]} = Res
+                     end).
+
+process_info_self_signal_spammer(To) ->
+    erlang:demonitor(erlang:monitor(process, To)),
+    process_info_self_signal_spammer(To).
+
+process_info_self_msgq_len(Config) when is_list(Config) ->
+    %% Spam ourselves with signals forcing us to flush own
+    %% signal queue..
+    Self = self(),
+    pi_sig_spam_test(fun () ->
+                             process_info_self_msgq_len_spammer(Self)
+                     end,
+                     fun () ->
+                             process_info(self(), message_queue_len)
+                     end,
+                     fun (Res) ->
+                             {message_queue_len, Len} = Res,
+                             true = Len > 0,
+                             ok
+                     end).
+
+
+process_info_self_msgq_len_messages(Config) when is_list(Config) ->
+    %% Spam ourselves with signals normally forcing us to flush own
+    %% signal queue, but since we also want messages wont be flushed...
+    Self = self(),
+    pi_sig_spam_test(fun () ->
+                             process_info_self_msgq_len_spammer(Self, 100000)
+                     end,
+                     fun () ->
+                             process_info(self(),
+                                          [message_queue_len,
+                                           messages])
+                     end,
+                     fun (Res) ->
+                             [{message_queue_len, Len},
+                              {messages, Msgs}] = Res,
+                             Len = length(Msgs),
+                             ok
+                     end).
+
+process_info_self_msgq_len_more(Config) when is_list(Config) ->
+    self() ! hej,
+    BodyRes = process_info_self_msgq_len_more_caller_body(),
+    ok = process_info_self_msgq_len_more_caller_body_result(BodyRes),
+    TailRes = process_info_self_msgq_len_more_caller_tail(),
+    ok = process_info_self_msgq_len_more_caller_tail_result(TailRes),
+    receive hej -> ok end,
+    %% Check that current_function, current_location, and
+    %% current_stacktrace give sane results flushing or not...
+    Self = self(),
+    pi_sig_spam_test(fun () ->
+                             process_info_self_msgq_len_spammer(Self)
+                     end,
+                     fun process_info_self_msgq_len_more_caller_body/0,
+                     fun process_info_self_msgq_len_more_caller_body_result/1),
+    pi_sig_spam_test(fun () ->
+                             process_info_self_msgq_len_spammer(Self)
+                     end,
+                     fun process_info_self_msgq_len_more_caller_tail/0,
+                     fun process_info_self_msgq_len_more_caller_tail_result/1).
+
+process_info_self_msgq_len_more_caller_body() ->
+    Res = process_info(self(),
+                       [message_queue_len,
+                        current_function,
+                        current_location,
+                        current_stacktrace]),
+    id(Res).
+
+process_info_self_msgq_len_more_caller_body_result(Res) ->
+    [{message_queue_len, Len},
+     {current_function, {process_SUITE,process_info_self_msgq_len_more_caller_body,0}},
+     {current_location, {process_SUITE,process_info_self_msgq_len_more_caller_body,0,_}},
+     {current_stacktrace,
+      [{process_SUITE,process_info_self_msgq_len_more_caller_body,0,_} | _]}] = Res,
+    true = Len > 0,
+    ok.
+
+process_info_self_msgq_len_more_caller_tail() ->
+    process_info(self(),
+                 [message_queue_len,
+                  current_function,
+                  current_location,
+                  current_stacktrace]).
+
+process_info_self_msgq_len_more_caller_tail_result(Res) ->
+    [{message_queue_len, Len},
+     {current_function, {process_SUITE,process_info_self_msgq_len_more_caller_tail,0}},
+     {current_location, {process_SUITE,process_info_self_msgq_len_more_caller_tail,0,_}},
+     {current_stacktrace,
+      [{process_SUITE,process_info_self_msgq_len_more_caller_tail,0,_} | _]}] = Res,
+    true = Len > 0,
+    ok.
+    
+
+process_info_self_msgq_len_spammer(To) ->
+    process_info_self_msgq_len_spammer(To, 10000000).
+
+process_info_self_msgq_len_spammer(_To, 0) ->
+    ok;
+process_info_self_msgq_len_spammer(To, N) ->
+    To ! hejhopp,
+    erlang:demonitor(erlang:monitor(process, To)),
+    process_info_self_msgq_len_spammer(To, N-1).
+
+pi_sig_spam_test(SpamFun, PITest, PICheckRes) ->
+    SO = erlang:system_flag(schedulers_online, 1),
+    try
+        Self = self(),
+        SigSpammer = spawn_link(SpamFun),
+        process_flag(priority, low),
+        receive after 10 -> ok end,
+        Res = PITest(),
+        process_flag(priority, high),
+        unlink(SigSpammer),
+        exit(SigSpammer, kill),
+        false = is_process_alive(SigSpammer),
+        PICheckRes(Res)
+    after
+        _ = erlang:system_flag(schedulers_online, SO)
+    end.
+    
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->

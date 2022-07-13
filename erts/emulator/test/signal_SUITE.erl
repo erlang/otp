@@ -32,6 +32,7 @@
 -include_lib("common_test/include/ct.hrl").
 -export([all/0, suite/0,init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
+-export([groups/0, init_per_group/2, end_per_group/2]).
 
 % Test cases
 -export([xm_sig_order/1,
@@ -46,7 +47,19 @@
          monitor_order/1,
          monitor_named_order_local/1,
          monitor_named_order_remote/1,
-         monitor_nodes_order/1]).
+         monitor_nodes_order/1,
+         move_msgs_off_heap_signal_basic/1,
+         move_msgs_off_heap_signal_recv/1,
+         move_msgs_off_heap_signal_exit/1,
+         move_msgs_off_heap_signal_recv_exit/1,
+         copy_literal_area_signal_basic/1,
+         copy_literal_area_signal_recv/1,
+         copy_literal_area_signal_exit/1,
+         copy_literal_area_signal_recv_exit/1,
+         simultaneous_signals_basic/1,
+         simultaneous_signals_recv/1,
+         simultaneous_signals_exit/1,
+         simultaneous_signals_recv_exit/1]).
 
 -export([spawn_spammers/3]).
 
@@ -79,7 +92,29 @@ all() ->
      monitor_order,
      monitor_named_order_local,
      monitor_named_order_remote,
-     monitor_nodes_order].
+     monitor_nodes_order,
+     {group, adjust_message_queue}].
+
+groups() ->
+    [{adjust_message_queue, [],
+      [move_msgs_off_heap_signal_basic,
+       move_msgs_off_heap_signal_recv,
+       move_msgs_off_heap_signal_exit,
+       move_msgs_off_heap_signal_recv_exit,
+       copy_literal_area_signal_basic,
+       copy_literal_area_signal_recv,
+       copy_literal_area_signal_exit,
+       copy_literal_area_signal_recv_exit,
+       simultaneous_signals_basic,
+       simultaneous_signals_recv,
+       simultaneous_signals_exit,
+       simultaneous_signals_recv_exit]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 %% Test that exit signals and messages are received in correct order
 xm_sig_order(Config) when is_list(Config) ->
@@ -706,6 +741,281 @@ receive_filter_spam() ->
         M -> M
     end.
 
+move_msgs_off_heap_signal_basic(Config) when is_list(Config) ->
+    move_msgs_off_heap_signal_test(false, false).
+
+move_msgs_off_heap_signal_recv(Config) when is_list(Config) ->
+    move_msgs_off_heap_signal_test(true, false).
+
+move_msgs_off_heap_signal_exit(Config) when is_list(Config) ->
+    move_msgs_off_heap_signal_test(false, true).
+
+move_msgs_off_heap_signal_recv_exit(Config) when is_list(Config) ->
+    move_msgs_off_heap_signal_test(true, true).
+
+move_msgs_off_heap_signal_test(RecvPair, Exit) ->
+    erlang:trace(new_processes, true, [running_procs]),
+    SFact = test_server:timetrap_scale_factor(),
+    GoTime = erlang:monotonic_time(millisecond) + 1000*SFact,
+    ProcF = fun () ->
+                    Now = erlang:monotonic_time(millisecond),
+                    Tmo = case GoTime - Now of
+                              Left when Left < 0 ->
+                                  erlang:display({go_time_passed, Left}),
+                                  0;
+                              Left ->
+                                  Left
+                          end,
+                    receive after Tmo -> ok end,
+                    on_heap = process_flag(message_queue_data, off_heap),
+                    if RecvPair -> receive_integer_pairs(infinity);
+                       true -> receive after infinity -> ok end
+                    end
+            end,
+    Ps = lists:map(fun (_) ->
+                           spawn_opt(ProcF,
+                                     [link,
+                                      {message_queue_data, on_heap}])
+                   end, lists:seq(1, 100)),
+    lists:foreach(fun (P) ->
+                          lists:foreach(fun (N) when N rem 100 == 0 ->
+                                                P ! [N|N];
+                                            (N) ->
+                                                P ! N
+                                        end, lists:seq(1, 10000))
+                  end, Ps),
+    Now = erlang:monotonic_time(millisecond),
+    Tmo = case GoTime - Now + 10 of
+              Left when Left < 0 ->
+                  erlang:display({go_time_passed, Left}),
+                  0;
+              Left ->
+                  Left
+          end,
+    receive after Tmo -> ok end,
+    if Exit ->
+            _ = lists:foldl(fun (P, N) when N rem 10 ->
+                                    unlink(P),
+                                    exit(P, terminated),
+                                    N+1;
+                                (_P, N) ->
+                                    N+1
+                            end,
+                            0,
+                            Ps),
+            ok;
+       true ->
+            ok
+    end,
+    wait_traced_not_running(1000 + 200*SFact),
+    erlang:trace(new_processes, false, [running_procs]),
+    lists:foreach(fun (P) ->
+                          unlink(P),
+                          exit(P, kill)
+                  end, Ps),
+    lists:foreach(fun (P) ->
+                          false = is_process_alive(P)
+                  end, Ps),
+    ok.
+
+copy_literal_area_signal_basic(Config) when is_list(Config) ->
+    copy_literal_area_signal_test(false, false).
+
+copy_literal_area_signal_recv(Config) when is_list(Config) ->
+    copy_literal_area_signal_test(true, false).
+
+copy_literal_area_signal_exit(Config) when is_list(Config) ->
+    copy_literal_area_signal_test(false, true).
+
+copy_literal_area_signal_recv_exit(Config) when is_list(Config) ->
+    copy_literal_area_signal_test(true, true).
+
+copy_literal_area_signal_test(RecvPair, Exit) ->
+    persistent_term:put({?MODULE, ?FUNCTION_NAME}, make_ref()),
+    Literal = persistent_term:get({?MODULE, ?FUNCTION_NAME}),
+    true = is_reference(Literal),
+    0 = erts_debug:size_shared(Literal), %% Should be a literal...
+    ProcF = fun () ->
+                    0 = erts_debug:size_shared(Literal), %% Should be a literal...
+                    if RecvPair ->
+                            receive receive_pairs -> ok end,
+                            receive_integer_pairs(0);
+                       true ->
+                            ok
+                    end,
+                    receive check_literal_conversion -> ok end,
+                    receive
+                        Literal ->
+                            %% Should not be a literal anymore...
+                            false = (0 == erts_debug:size_shared(Literal))
+                    end
+            end,
+    PMs = lists:map(fun (_) ->
+                            spawn_opt(ProcF, [link, monitor])
+                    end, lists:seq(1, 100)),
+    lists:foreach(fun ({P,_M}) ->
+                          lists:foreach(fun (N) when N rem 100 == 0 ->
+                                                P ! [N|N];
+                                            (N) ->
+                                                P ! N
+                                        end, lists:seq(1, 10000)),
+                          P ! Literal
+                  end, PMs),
+    persistent_term:erase({?MODULE, ?FUNCTION_NAME}),
+    receive after 1 -> ok end,
+    if RecvPair ->
+            lists:foreach(fun ({P,_M}) ->
+                                  P ! receive_pairs
+                          end, PMs);
+       true ->
+            ok
+    end,
+    if Exit ->
+            _ = lists:foldl(fun ({P, _M}, N) when N rem 10 ->
+                                    unlink(P),
+                                    exit(P, terminated),
+                                    N+1;
+                                (_PM, N) ->
+                                    N+1
+                            end,
+                            0,
+                            PMs),
+            ok;
+       true ->
+            ok
+    end,
+    literal_area_collector_test:check_idle(),
+    lists:foreach(fun ({P,_M}) ->
+                          P ! check_literal_conversion
+                  end, PMs),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, R} ->
+                                  case R of
+                                      normal -> ok;
+                                      terminated -> ok
+                                  end
+                          end
+                  end, PMs),
+    ok.
+
+simultaneous_signals_basic(Config) when is_list(Config) ->
+    simultaneous_signals_test(false, false).
+
+simultaneous_signals_recv(Config) when is_list(Config) ->
+    simultaneous_signals_test(true, false).
+
+simultaneous_signals_exit(Config) when is_list(Config) ->
+    simultaneous_signals_test(false, true).
+
+simultaneous_signals_recv_exit(Config) when is_list(Config) ->
+    simultaneous_signals_test(true, true).
+
+simultaneous_signals_test(RecvPairs, Exit) ->
+    erlang:trace(new_processes, true, [running_procs]),
+    persistent_term:put({?MODULE, ?FUNCTION_NAME}, make_ref()),
+    Literal = persistent_term:get({?MODULE, ?FUNCTION_NAME}),
+    true = is_reference(Literal),
+    0 = erts_debug:size_shared(Literal), %% Should be a literal...
+    SFact = test_server:timetrap_scale_factor(),
+    GoTime = erlang:monotonic_time(millisecond) + 1000*SFact,
+    ProcF = fun () ->
+                    0 = erts_debug:size_shared(Literal), %% Should be a literal...
+                    Now = erlang:monotonic_time(millisecond),
+                    Tmo = case GoTime - Now of
+                              Left when Left < 0 ->
+                                  erlang:display({go_time_passed, Left}),
+                                  0;
+                              Left ->
+                                  Left
+                          end,
+                    receive after Tmo -> ok end,
+                    on_heap = process_flag(message_queue_data, off_heap),
+                    if RecvPairs -> receive_integer_pairs(0);
+                       true -> ok
+                    end,
+                    receive check_literal_conversion -> ok end,
+                    receive
+                        Literal ->
+                            %% Should not be a literal anymore...
+                            false = (0 == erts_debug:size_shared(Literal))
+                    end
+            end,
+    PMs = lists:map(fun (_) ->
+                            spawn_opt(ProcF,
+                                      [link,
+                                       monitor,
+                                       {message_queue_data, on_heap}])
+                    end, lists:seq(1, 100)),
+    lists:foreach(fun ({P,_M}) ->
+                          lists:foreach(fun (N) when N rem 100 == 0 ->
+                                                P ! [N|N];
+                                            (N) ->
+                                                P ! N
+                                        end, lists:seq(1, 10000)),
+                          P ! Literal
+                  end, PMs),
+    Now = erlang:monotonic_time(millisecond),
+    Tmo = case GoTime - Now - 5 of % a bit earlier...
+              Left when Left < 0 ->
+                  erlang:display({go_time_passed, Left}),
+                  0;
+              Left ->
+                  Left
+          end,
+    receive after Tmo -> ok end,
+    persistent_term:erase({?MODULE, ?FUNCTION_NAME}),
+    receive after 10 -> ok end,
+    if Exit ->
+            _ = lists:foldl(fun ({P, _M}, N) when N rem 10 ->
+                                    unlink(P),
+                                    exit(P, terminated),
+                                    N+1;
+                                (_PM, N) ->
+                                    N+1
+                            end,
+                            0,
+                            PMs),
+            ok;
+       true ->
+            ok
+    end,
+    wait_traced_not_running(1000 + 200*SFact),
+    erlang:trace(new_processes, false, [running_procs]),
+    literal_area_collector_test:check_idle(),
+    lists:foreach(fun ({P,_M}) ->
+                          P ! check_literal_conversion
+                  end, PMs),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, R} ->
+                                  case R of
+                                      normal -> ok;
+                                      terminated -> ok
+                                  end
+                          end
+                  end, PMs),
+    ok.
+    
+
+wait_traced_not_running(Tmo) ->
+    receive
+        {trace,_,What,_} when What == in;
+                              What == out ->
+            wait_traced_not_running(Tmo)
+    after
+        Tmo ->
+            ok
+    end.
+
+receive_integer_pairs(Tmo) ->
+    receive
+        [N|N] ->
+            receive_integer_pairs(Tmo)
+    after
+        Tmo ->
+            ok
+    end.
 
 %%
 %% -- Internal utils --------------------------------------------------------

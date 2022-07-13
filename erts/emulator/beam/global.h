@@ -957,6 +957,7 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_check_process_code(Process *c_p, Eterm module, int *redsp, int fcalls);
 #define ERTS_CLA_SCAN_WORDS_PER_RED 512
 
+int erts_check_copy_literals_gc_need_max_reds(Process *c_p);
 int erts_check_copy_literals_gc_need(Process *c_p, int *redsp,
                                      char *literals, Uint lit_bsize);
 Eterm erts_copy_literals_gc(Process *c_p, int *redsp, int fcalls);

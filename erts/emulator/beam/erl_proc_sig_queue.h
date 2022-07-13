@@ -110,7 +110,7 @@ typedef struct {
  * Note that not all signal are handled using this functionality!
  */
 
-#define ERTS_SIG_Q_OP_MAX 18
+#define ERTS_SIG_Q_OP_MAX 19
 
 #define ERTS_SIG_Q_OP_EXIT                      0  /* Exit signal due to bif call */
 #define ERTS_SIG_Q_OP_EXIT_LINKED               1  /* Exit signal due to link break*/
@@ -130,7 +130,8 @@ typedef struct {
 #define ERTS_SIG_Q_OP_ALIAS_MSG                 15
 #define ERTS_SIG_Q_OP_RECV_MARK                 16
 #define ERTS_SIG_Q_OP_UNLINK_ACK                17
-#define ERTS_SIG_Q_OP_ADJ_MSGQ                  ERTS_SIG_Q_OP_MAX
+#define ERTS_SIG_Q_OP_ADJ_MSGQ                  18
+#define ERTS_SIG_Q_OP_FLUSH			ERTS_SIG_Q_OP_MAX
 
 #define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 10)
 
@@ -1133,6 +1134,9 @@ erts_proc_sig_send_move_msgq_off_heap(Eterm to);
  *
  * @param[out]    statep        Pointer to process state after
  *                              signal handling. May not be NULL.
+ *                              The state should recently have
+ *                              been updated before calling
+ *                              this function.
  *
  * @param[in,out] redsp         Pointer to an integer containing
  *                              reductions. On input, the amount
@@ -1253,6 +1257,58 @@ erts_proc_sig_receive_helper(Process *c_p, int fcalls,
                              int neg_o_reds, ErtsMessage **msgpp,
                              int *get_outp);
 
+/*
+ * CLEAN_SIGQ - Flush until middle queue is empty, i.e.
+ *              the content of inner+middle queue equals
+ *              the message queue.
+ */
+#define ERTS_PROC_SIG_FLUSH_FLG_CLEAN_SIGQ          (1 << 0)
+/*
+ * FROM_ALL   - Flush signals from all local senders (processes
+ *              and ports).
+ */
+#define ERTS_PROC_SIG_FLUSH_FLG_FROM_ALL            (1 << 1)
+/*
+ * FROM_ID    - Flush signals from process or port identified
+ *              by 'id'.
+ */
+#define ERTS_PROC_SIG_FLUSH_FLG_FROM_ID             (1 << 2)
+
+/*
+ * All erts_proc_sig_init_flush_signals() flags.
+ */
+#define ERTS_PROC_SIG_FLUSH_FLGS                                \
+    (ERTS_PROC_SIG_FLUSH_FLG_CLEAN_SIGQ                         \
+     | ERTS_PROC_SIG_FLUSH_FLG_FROM_ALL                         \
+     | ERTS_PROC_SIG_FLUSH_FLG_FROM_ID)
+
+/**
+ *
+ * @brief Initialize flush of signals from another process or port
+ *
+ * Inserts a flush signal in the outer signal queue of
+ * current process and sets the FS_FLUSHING_SIGS flag in
+ * 'c_p->sig_qs.flags'. When the flush signal has been
+ * handled the FS_FLUSHED_SIGS flag is set as well.
+ *
+ * While the flushing is ongoing the process *should* only
+ * handle incoming signals and not execute Erlang code. When
+ * the functionality that initiated the flush detects that
+ * the flush is done by the FS_FLUSHED_SIGS flag being set,
+ * it should clear both the FS_FLUSHED_SIGS flag and the
+ * FS_FLUSHING_SIGS flag.
+ *
+ * @param[in]   c_p             Pointer to process struct of
+ *                              currently executing process.
+ *              flags           Flags indicating how to flush.
+ *                              (see above).
+ *              from            Identifier of sender to flush
+ *                              signals from in case the
+ *                              FROM_ID flag is set.
+ */
+void
+erts_proc_sig_init_flush_signals(Process *c_p, int flags, Eterm from);
+
 /**
  *
  * @brief Fetch signals from the outer queue
@@ -1370,12 +1426,16 @@ typedef struct {
  *
  * @param[in]   mip             Pointer to array of
  *                              ErtsMessageInfo structures.
+ *
+ * @param[out]  msgq_lenp       Pointer to integer containing
+ *                              amount of messages.
  */
 Uint erts_proc_sig_prep_msgq_for_inspection(Process *c_p,
                                             Process *rp,
                                             ErtsProcLocks rp_locks,
                                             int info_on_self,
-                                            ErtsMessageInfo *mip);
+                                            ErtsMessageInfo *mip,
+                                            Sint *msgq_lenp);
 
 /**
  *
@@ -1676,7 +1736,7 @@ Eterm erts_msgq_recv_marker_create_insert(Process *c_p, Eterm id);
 void erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id);
 ErtsMessage **erts_msgq_pass_recv_markers(Process *c_p,
 					  ErtsMessage **markpp);
-void erts_msgq_remove_leading_recv_markers(Process *c_p);
+void erts_msgq_remove_leading_recv_markers_set_save_first(Process *c_p);
 
 #define ERTS_RECV_MARKER_IX__(BLKP, MRKP) \
     ((int) ((MRKP) - &(BLKP)->marker[0]))
@@ -1724,6 +1784,10 @@ erts_proc_sig_fetch(Process *proc)
                            | ERTS_PROC_LOCK_MSGQ))
                        == (ERTS_PROC_LOCK_MAIN
                            | ERTS_PROC_LOCK_MSGQ)));
+
+    ASSERT(!(proc->sig_qs.flags & FS_FLUSHING_SIGS)
+           || ERTS_PROC_IS_EXITING(proc)
+           || ERTS_IS_CRASH_DUMPING);
 
     ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(proc);
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
@@ -2048,8 +2112,9 @@ erts_msgq_set_save_first(Process *c_p)
      * anymore...
      */
     if (c_p->sig_qs.first && ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first))
-	erts_msgq_remove_leading_recv_markers(c_p);
-    c_p->sig_qs.save = &c_p->sig_qs.first;
+	erts_msgq_remove_leading_recv_markers_set_save_first(c_p);
+    else
+        c_p->sig_qs.save = &c_p->sig_qs.first;
 }
 
 ERTS_GLB_INLINE void

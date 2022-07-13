@@ -6631,10 +6631,12 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t state, Process *p,
              */
 
             /*
-             * No normal execution until dirty CLA or hibernat has
+             * No normal execution until dirty CLA or hibernate has
              * been handled...
              */
-            ASSERT(!(p->flags & (F_DIRTY_CLA | F_DIRTY_GC_HIBERNATE)));
+            ASSERT(!(p->flags & (F_DIRTY_CHECK_CLA
+                                 | F_DIRTY_CLA
+                                 | F_DIRTY_GC_HIBERNATE)));
 
             a = erts_atomic32_read_band_nob(&p->state,
                                             ~ERTS_PSFLG_DIRTY_ACTIVE_SYS);
@@ -10063,27 +10065,35 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             /* On normal scheduler */
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
-                    int local_only = (!!(p->sig_qs.flags & FS_LOCAL_SIGS_ONLY)
-                                      & !(state & (ERTS_PSFLG_SUSPENDED|ERTS_PSFLGS_DIRTY_WORK)));
-                    if (!local_only | !!(state & ERTS_PSFLG_SIG_Q)) {
-                        int sig_reds;
+		    int sig_reds;
+		    /*
+		     * If we have dirty work scheduled we allow
+		     * usage of all reductions since we need to
+		     * handle all signals before doing dirty
+		     * work...
+                     *
+                     * If a BIF is flushing signals, we also allow
+                     * usage of all reductions since the BIF cannot
+                     * continue exectution until the flush
+                     * completes...
+		     */
+                    sig_reds = reds;
+                    if (((state & (ERTS_PSFLGS_DIRTY_WORK
+                                   | ERTS_PSFLG_ACTIVE)) == ERTS_PSFLG_ACTIVE)
+                        && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
                         /*
-                         * If we have dirty work scheduled we allow
-                         * usage of all reductions since we need to
-                         * handle all signals before doing dirty
-                         * work...
+                         * We are active, i.e., have erlang work to do,
+                         * and have no dirty work and are not flushing
+                         * limit amount of signal handling work...
                          */
-                        if (state & ERTS_PSFLGS_DIRTY_WORK)
-                            sig_reds = reds;
-                        else
-                            sig_reds = ERTS_SIG_HANDLE_REDS_MAX_PREFERED;
-                        (void) erts_proc_sig_handle_incoming(p,
-                                                             &state,
-                                                             &sig_reds,
-                                                             sig_reds,
-                                                             local_only);
-                        reds -= sig_reds;
+                        sig_reds = ERTS_SIG_HANDLE_REDS_MAX_PREFERED;
                     }
+		    (void) erts_proc_sig_handle_incoming(p,
+							 &state,
+							 &sig_reds,
+							 sig_reds,
+							 0);
+		    reds -= sig_reds;
                 }
                 if ((state & (ERTS_PSFLG_SYS_TASKS
                               | ERTS_PSFLG_EXITING)) == ERTS_PSFLG_SYS_TASKS) {
@@ -10093,8 +10103,14 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                      * hand written beam assembly in
                      * prim_eval:'receive'. If GC is delayed we are
                      * not allowed to execute system tasks.
+                     *
+                     * We also don't allow execution of system tasks
+                     * if a BIF is flushing signals, since there are
+                     * system tasks that might need to fetch from the
+                     * outer signal queue...
                      */
-                    if (!(p->flags & F_DELAY_GC)) {
+                    if (!(p->flags & F_DELAY_GC)
+                        && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
                         int cost = execute_sys_tasks(p, &state, reds);
                         calls += cost;
                         reds -= cost;
@@ -10591,25 +10607,49 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    int fcalls;
             int cla_reds = 0;
 
-	    if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
-		fcalls = reds;
-	    else
-		fcalls = reds - CONTEXT_REDS;
-	    st_res = erts_copy_literals_gc(c_p, &cla_reds, fcalls);
-            reds -= cla_reds;
-	    if (is_non_value(st_res)) {
-		if (c_p->flags & F_DIRTY_CLA) {
-		    save_dirty_task(c_p, st);
-		    st = NULL;
-		    break;
-		}
-		/* Needed gc, but gc was disabled */
-		save_gc_task(c_p, st, st_prio);
-		st = NULL;
-		break;
-	    }
-            /* We did a major gc */
-            minor_gc = major_gc = 1;
+            if (st->arg[0] == am_true) {
+                /*
+                 * Check if copy literal area GC is needed and only
+                 * do GC if needed. This check is never requested unless
+                 * we know that this is to much work to do on a normal
+                 * scheduler, so we do not even try to check it here
+                 * but instead unconditionally schedule this as dirty
+                 * work...
+                 */
+                if (c_p->flags & F_DISABLE_GC) {
+                    /* We might need to GC, but GC was disabled */
+                    save_gc_task(c_p, st, st_prio);
+                    st = NULL;
+                }
+                else {
+                    c_p->flags |= F_DIRTY_CHECK_CLA;
+                    save_dirty_task(c_p, st);
+                    st = NULL;
+                    erts_schedule_dirty_sys_execution(c_p);
+                }
+            }
+            else {
+                /* Copy literal area GC needed... */
+                if (!ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
+                    fcalls = reds;
+                else
+                    fcalls = reds - CONTEXT_REDS;
+                st_res = erts_copy_literals_gc(c_p, &cla_reds, fcalls);
+                reds -= cla_reds;
+                if (is_non_value(st_res)) {
+                    if (c_p->flags & F_DIRTY_CLA) {
+                        save_dirty_task(c_p, st);
+                        st = NULL;
+                        break;
+                    }
+                    /* Needed gc, but gc was disabled */
+                    save_gc_task(c_p, st, st_prio);
+                    st = NULL;
+                    break;
+                }
+                /* We did a major gc */
+                minor_gc = major_gc = 1;
+            }
 	    break;
         }
         case ERTS_PSTT_FTMQ:
@@ -10622,15 +10662,19 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 	    break;
         case ERTS_PSTT_PRIO_SIG: {
             erts_aint32_t fail_state, state;
-            int sig_res, sig_reds = reds;
+            int sig_res, sig_reds;
 	    st_res = am_false;
+
+            ASSERT(!(c_p->sig_qs.flags & FS_FLUSHING_SIGS));
 
             if (st->arg[0] == am_false) {
                 erts_proc_sig_queue_lock(c_p);
                 erts_proc_sig_fetch(c_p);
                 erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+                st->arg[0] = am_true;
             }
 
+	    state = erts_atomic32_read_nob(&c_p->state);
             sig_reds = reds;
             sig_res = erts_proc_sig_handle_incoming(c_p, &state, &sig_reds,
                                                     reds, !0);
@@ -10644,8 +10688,6 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
             if (sig_res)
                 break;
 
-            st->arg[0] = am_true;
-
             fail_state = ERTS_PSFLG_EXITING;
 
             if (schedule_process_sys_task(c_p, st_prio, st, &fail_state)) {
@@ -10656,6 +10698,7 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
                 state = erts_atomic32_read_nob(&c_p->state);
                 exit_permanent_prio_elevation(c_p, state, st_prio);
             }
+
             break;
         }
         case ERTS_PSTT_TEST:
@@ -10811,16 +10854,49 @@ erts_execute_dirty_system_task(Process *c_p)
     /*
      * If multiple operations, perform them in the following
      * order (in order to avoid unnecessary GC):
-     *  1. Copy Literal Area (implies major GC).
-     *  2. GC Hibernate (implies major GC if not woken).
-     *  3. Major GC (implies minor GC).
-     *  4. Minor GC.
+     *  1. Check for Copy Literals Area GC need. This may
+     *     trigger a Copy Literals Area GC.
+     *  2. Copy Literal Area GC (implies major GC).
+     *  3. GC Hibernate (implies major GC if not woken).
+     *  4. Major GC (implies minor GC).
+     *  5. Minor GC.
      *
      * System task requests are handled after the actual
      * operations have been performed...
      */
 
     ASSERT(!(c_p->flags & (F_DELAY_GC|F_DISABLE_GC)));
+
+    if (c_p->flags & F_DIRTY_CHECK_CLA) {
+        ErtsLiteralArea *la = ERTS_COPY_LITERAL_AREA();
+
+        ASSERT(!(c_p->flags & F_DIRTY_CLA));
+        c_p->flags &= ~F_DIRTY_CHECK_CLA;
+        if (!la)
+            cla_res = am_ok;
+        else {
+            int check_cla_reds = 0;
+            char *literals = (char *) &la->start[0];
+            Uint lit_bsize = (char *) la->end - literals;
+            if (erts_check_copy_literals_gc_need(c_p,
+                                                 &check_cla_reds,
+                                                 literals,
+                                                 lit_bsize)) {
+                /*
+                 * We had references to this literal area on the heap;
+                 * need a copy literals GC...
+                 */
+                c_p->flags |= F_DIRTY_CLA;
+            }
+            else {
+                /*
+                 * We have no references to this literal area on the
+                 * heap; no copy literals GC needed...
+                 */
+                cla_res = am_ok;
+            }
+        }
+    }
 
     if (c_p->flags & F_DIRTY_CLA) {
 	int cla_reds = 0;
@@ -10850,7 +10926,8 @@ erts_execute_dirty_system_task(Process *c_p)
 					   c_p->arity, c_p->fcalls);
     }
 
-    ASSERT(!(c_p->flags & (F_DIRTY_CLA
+    ASSERT(!(c_p->flags & (F_DIRTY_CHECK_CLA
+                           | F_DIRTY_CLA
 			   | F_DIRTY_GC_HIBERNATE
 			   | F_DIRTY_MAJOR_GC
 			   | F_DIRTY_MINOR_GC)));
@@ -11234,7 +11311,7 @@ erts_internal_request_system_task_4(BIF_ALIST_4)
 }
 
 void
-erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id)
+erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id, int check)
 {
     Process *rp;
     ErtsProcSysTask *st;
@@ -11260,7 +11337,8 @@ erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id)
                                                        req_id_sz,
                                                        &hp,
                                                        &st->off_heap);
-    for (i = 0; i < ERTS_MAX_PROC_SYS_TASK_ARGS; i++)
+    st->arg[0] = check ? am_true : am_false;
+    for (i = 1; i < ERTS_MAX_PROC_SYS_TASK_ARGS; i++)
         st->arg[i] = THE_NON_VALUE;
 
     rp = erts_proc_lookup_raw(to);
