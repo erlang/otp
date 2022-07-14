@@ -3794,8 +3794,11 @@ static int link_port_exit(ErtsLink *lnk, void *vpectxt, Sint reds)
     ErtsPortExitContext *pectxt = vpectxt;
     Port *port = pectxt->port;
 
-    erts_proc_sig_send_link_exit(&port->common, port->common.id,
-                                 lnk, pectxt->reason, NIL);
+    if (((ErtsILink *) lnk)->unlinking)
+        erts_link_release(lnk);
+    else
+        erts_proc_sig_send_link_exit(&port->common, port->common.id,
+                                     lnk, pectxt->reason, NIL);
     return 1;
 }
 
