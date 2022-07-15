@@ -1484,17 +1484,22 @@ analyze_and_print_win_host_info(Version) ->
     OsVersion  = win_sys_info_lookup(os_version,          SysInfo),
     SysMan     = win_sys_info_lookup(system_manufacturer, SysInfo),
     SysMod     = win_sys_info_lookup(system_model,        SysInfo),
+    SysType    = win_sys_info_lookup(system_type,         SysInfo),
     NumProcs   = win_sys_info_lookup(num_processors,      SysInfo),
     TotPhysMem = win_sys_info_lookup(total_phys_memory,   SysInfo),
     io:format("Windows: ~s"
               "~n   OS Version:             ~s (~p)"
               "~n   System Manufacturer:    ~s"
               "~n   System Model:           ~s"
+              "~n   System Type:            ~s"
               "~n   Number of Processor(s): ~s"
               "~n   Total Physical Memory:  ~s"
+              "~n   (Erlang) WordSize:      ~w"
               "~n   Num Online Schedulers:  ~s"
               "~n~n", [OsName, OsVersion, Version,
-                       SysMan, SysMod, NumProcs, TotPhysMem,
+                       SysMan, SysMod, SysType,
+                       NumProcs, TotPhysMem,
+                       erlang:system_info(wordsize),
                        str_num_schedulers()]),
     io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
     MemFactor =
@@ -1600,6 +1605,9 @@ process_win_system_info([H|T], Acc) ->
                 "system model" ->
                     process_win_system_info(T,
                                             [{system_model, string:trim(Value)}|Acc]);
+                "system type" ->
+                    process_win_system_info(T,
+                                            [{system_type, string:trim(Value)}|Acc]);
                 "processor(s)" ->
                     [NumProcStr|_] = string:tokens(Value, [$\ ]),
                     T2 = lists:nthtail(list_to_integer(NumProcStr), T),

@@ -628,16 +628,25 @@ controlling_process_self(Config) when is_list(Config) ->
 %% without doing any accept.  The connected socket should receive
 %% a tcp_closed message.
 no_accept(Config) when is_list(Config) ->
-    {ok, L}         = ?LISTEN(Config, 0, []),
+    ?P("create listen socket"),
+    %% LOpts = [{debug, true}],
+    LOpts = [],
+    {ok, L}         = ?LISTEN(Config, 0, LOpts),
     {ok, {_, Port}} = inet:sockname(L),
-    {ok, Client}    = ?CONNECT(Config, localhost, Port, []),
+    ?P("create connection socket"),
+    %% COpts = [{debug, true}],
+    COpts = [],
+    {ok, Client}    = ?CONNECT(Config, localhost, Port, COpts),
+    ?P("close listen socket"),
     ok = gen_tcp:close(L),
+    ?P("await connection socket closed"),
     receive
         {tcp_closed, Client} ->
+            ?P("connection socket closed message received => OK"),
             ok
     after 5000 ->
-            ct:fail(never_closed)
-    
+            ?P("connection socket closed message *not* received => FAIL"),
+            ct:fail(never_closed)    
     end.
 
 %% Send several packets to a socket and close it.  All packets should
@@ -695,6 +704,7 @@ do_close_with_pending_output(Node, Config) ->
     ?P("~w -> sender spawned - accept connection", [?FUNCTION_NAME]),
     {ok, A} = gen_tcp:accept(L),
     ?P("~w -> connection accepted - recv ~w data", [?FUNCTION_NAME, Total]),
+    %% ok = inet:setopts(A, [{debug, true}]),    
     case gen_tcp:recv(A, Total) of
         {ok, Bin} when byte_size(Bin) == Total ->
             ?P("~w -> [OK] received expected ~w bytes of data - "
@@ -747,7 +757,11 @@ do_active_n(Config) ->
     N = 3,
     LS = ok(?LISTEN(Config, 0, [{active,N}])),
     [{active,N}] = ok(inet:getopts(LS, [active])),
-    ok = inet:setopts(LS, [{active,-N}]),
+    %% ok = inet:setopts(LS, [{active,-N}]),
+    %% The point of this is to "demonstrate" that its possible to 
+    %% enable and then later disable debug in one (setopts) call!
+    %% Note the order! Its reversed!!
+    ok = inet:setopts(LS, [{debug, false}, {active,-N}, {debug, true}]),
     receive
         {tcp_passive, LS} -> ok
     after
@@ -1354,6 +1368,7 @@ do_sort(Config, P, List0) ->
             {error, eaddrnotavail = Reason} ->
                 ?SKIPT(connect_failed_str(Reason))
         end,
+    ok = inet:setopts(S, [{debug, true}]),
     send_lines(S, List),
     ok = gen_tcp:shutdown(S, write),
     Lines = collect_lines(S, true),
