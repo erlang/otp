@@ -76,6 +76,7 @@ endif
 ifeq ($(DIAW_UR),true)
 DIA_WARNINGS += -Wunmatched_returns
 endif
+DIA_PLT_APPS = erts kernel stdlib crypto mnesia runtime_tools compiler
 
 
 # ----------------------------------------------------
@@ -103,21 +104,14 @@ $(DIA_PLT): $(ERL_FILES)
 	@echo "Building ($(basename $(DIA_PLT))) plt file"
 	@dialyzer --build_plt \
                   --output_plt $@ \
-                  -r ../../ebin \
-                     ../../../../lib/kernel/ebin \
-                     ../../../../lib/stdlib/ebin \
-                     ../../../../lib/crypto/ebin \
-                     ../../../../lib/mnesia/ebin \
-                     ../../../../lib/runtime_tools/ebin \
-                     ../../../../lib/compiler/ebin \
-                     ../../../../erts/preloaded/ebin \
+                  --apps $(sort snmp $(DIA_PLT_APPS)) \
                   --output $(DIA_ANALYSIS) \
                   --verbose
 
 dialyzer: $(DIA_PLT)
-	@echo "Running dialyzer on $(basename $(DIA_PLT))"
+	@echo "Running dialyzer on snmp example ex2"
 	@dialyzer --plt $< \
-                  -r ../../ebin \
+                  $(ERL_TOP)/lib/snmp/examples/ex2 \
                   $(DIA_WARNINGS) \
                   --verbose
 
