@@ -97,6 +97,9 @@ endif
 ifeq ($(DIAW_UR),true)
 DIA_WARNINGS += -Wunmatched_returns
 endif
+DIA_PLT_APPS = \
+	erts et asn1 kernel stdlib compiler debugger \
+	runtime_tools crypto mnesia wx
 
 
 # ----------------------------------------------------
@@ -122,6 +125,10 @@ info:
 	@echo "SCRIPT_SKELETONS    = $(SCRIPT_SKELETONS)"
 	@echo ""
 	@echo "TARGET_FILES = $(TARGET_FILES)"
+	@echo ""
+	@echo "DIA_PLT      = $(DIA_PLT)"
+	@echo "DIA_ANALYSIS = $(DIA_ANALYSIS)"
+	@echo "DIA_PLT_APPS = $(DIA_PLT_APPS)"
 	@echo ""
 
 clean:
@@ -159,31 +166,20 @@ dclean:
 dialyzer_plt: $(DIA_PLT)
 
 $(DIA_PLT): $(ERL_FILES)
-	@echo "Building ($(basename $(DIA_PLT))) plt file"
+	@echo "Building $(basename $(DIA_PLT)) plt file"
 	@dialyzer --build_plt \
                   --output_plt $@ \
-                  -r . \
-                     ../../ebin \
-                     ../../../../lib/asn1/ebin \
-                     ../../../../lib/et/ebin \
-                     ../../../../lib/kernel/ebin \
-                     ../../../../lib/stdlib/ebin \
-                     ../../../../lib/compiler/ebin \
-                     ../../../../lib/debugger/ebin \
-                     ../../../../lib/runtime_tools/ebin \
-                     ../../../../lib/crypto/ebin \
-                     ../../../../lib/mnesia/ebin \
-                     ../../../../lib/wx/ebin \
-                     ../../../../erts/preloaded/ebin \
+                  --apps --apps $(sort $(APPLICATION) $(DIA_PLT_APPS)) \
                   --output $(DIA_ANALYSIS) \
                   --verbose
 
 dialyzer: $(DIA_PLT)
-	@echo "Running dialyzer on $(basename $(DIA_PLT))"
+	@echo "Running dialyzer on megaco example meas"
 	@dialyzer --plt $< \
-                  -r ../../ebin \
+                  $(ERL_TOP)/lib/megaco/examples/meas \
                   $(DIA_WARNINGS) \
                   --verbose
+
 
 # ----------------------------------------------------
 # Include dependencies
