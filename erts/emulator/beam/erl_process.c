@@ -9457,6 +9457,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     Uint32 flags;
     erts_aint32_t state = 0; /* Suppress warning... */
     int is_normal_sched;
+#ifdef DEBUG
+    int aborted_execution = 0;
+#endif
 
     ERTS_MSACC_DECLARE_CACHE();
 
@@ -9581,7 +9584,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
             if (state & ERTS_PSFLG_FREE) {
                 if (!is_normal_sched) {
-                    ASSERT(p->flags & F_DELAYED_DEL_PROC);
+                    ASSERT((p->flags & F_DELAYED_DEL_PROC)
+                           || aborted_execution);
                 }
                 else {
                     ASSERT(esdp->free_process == p);
@@ -9608,6 +9612,10 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	erts_aint32_t psflg_running, psflg_running_sys;
 	ErtsMigrationPaths *mps;
 	ErtsMigrationPath *mp;
+
+#ifdef DEBUG
+        aborted_execution = 0;
+#endif
 
 	if (is_normal_sched) {
 
@@ -10008,6 +10016,9 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
                 if (IS_TRACED(p))
                     trace_schedule_in(p, state);
+#ifdef DEBUG
+                aborted_execution = !0;
+#endif
 		goto sched_out_proc;
 	    }
 	}
