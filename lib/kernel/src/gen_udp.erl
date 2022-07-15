@@ -34,6 +34,7 @@
         {add_membership,  {inet:ip_address(), inet:ip_address()}} |
         {broadcast,       boolean()} |
         {buffer,          non_neg_integer()} |
+        {debug,           boolean()} |
         {deliver,         port | term} |
         {dontroute,       boolean()} |
         {drop_membership, {inet:ip_address(), inet:ip_address()}} |
@@ -64,6 +65,7 @@
         active |
         broadcast |
         buffer |
+        debug |
         deliver |
         dontroute |
         header |
