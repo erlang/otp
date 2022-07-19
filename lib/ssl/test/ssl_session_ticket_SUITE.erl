@@ -243,7 +243,7 @@ ticketage_smaller_than_windowsize_anti_replay(Config) when is_list(Config) ->
 ticketage_bigger_than_windowsize_anti_replay() ->
     [{doc, "Session resumption with stateless tickets and anti_replay enabled."
       "Fresh ClientHellos."
-      "Ticket age bigger than windowsize. 0-RTT is expected to fail."
+      "Ticket age bigger than windowsize. 0-RTT is expected to succeed."
       "(Erlang client - Erlang server)"}].
 ticketage_bigger_than_windowsize_anti_replay(Config) when is_list(Config) ->
     WindowSize = 3,
@@ -252,10 +252,10 @@ ticketage_bigger_than_windowsize_anti_replay(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server0, ok, Client0, ok),
     Client1 = anti_replay_helper_connect(Server0, Client0, Port0, ClientNode,
                                          Hostname, ClientOpts,
-                                         {seconds, WindowSize + 2}, false),
+                                         {seconds, WindowSize + 2}, true),
     Client2 = anti_replay_helper_connect(Server0, Client0, Port0, ClientNode,
                                          Hostname, ClientOpts,
-                                         {seconds, 2*WindowSize + 2}, false),
+                                         {seconds, 2*WindowSize + 2}, true),
     process_flag(trap_exit, false),
     [ssl_test_lib:close(A) || A <- [Server0, Client0, Client1, Client2]].
 

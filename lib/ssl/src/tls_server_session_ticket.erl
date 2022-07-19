@@ -382,15 +382,50 @@ stateless_usable_ticket(#stateless_ticket{hash = Prf,
 
 stateless_living_ticket(0, _, _, _, _) ->
     true;
+%% If `anti_replay` is not enabled, then a ticket is considered to be living
+%% if it has not exceeded its lifetime.
+%%
+%% If `anti_replay` is enabled, we must additionally perform a freshness check
+%% as is outlined in section 8.3 Freshness Checks - RFC 8446
 stateless_living_ticket(ObfAge, TicketAgeAdd, Lifetime, Timestamp, Window) ->
-    ReportedAge = ObfAge - TicketAgeAdd,
+    %% RealAge is the server's view of the age of the ticket in seconds.
     RealAge = erlang:system_time(second) - Timestamp,
+
+    %% ReportedAge is the client's view of the age of the ticket in milliseconds.
+    ReportedAge = ObfAge - TicketAgeAdd,
+
+    %% DeltaAge is the difference of the client's view of the age of the ticket
+    %% and the server's view of the age of the ticket in seconds.
+    DeltaAge = abs(RealAge - (ReportedAge / 1000)),
+
+    %% We ensure that both the client's view of the age of the ticket and the
+    %% server's view of the age of the ticket do not exceed the lifetime specified.
     (ReportedAge =< Lifetime * 1000)
         andalso (RealAge =< Lifetime)
-        andalso (in_window(RealAge, Window)).
+        andalso (in_window(DeltaAge, Window)).
 
 in_window(_, undefined) ->
     true;
+%% RFC 8446 - section 8.2 Client Hello Recording
+%% describes an anti-replay implementation that can use bounded memory
+%% by storing a unique value from a ClientHello (in our case the PSK binder)
+%% withing a given time window.
+%%
+%% In order implement this, when a ClientHello is received, the server
+%% must ensure that a ClientHello has been sent relatively recently.
+%% We do this by ensuring that the client and server view of the age
+%% of the ticket is not larger than our recording window.
+%%
+%% In the case of an attempted replay attack, there are 2 possible
+%% outcomes:
+%%   - A ClientHello is replayed within the recording window
+%%      * The ticket looks valid, `in_window` returns true
+%%        so we proceed to check the unique value
+%%      * The unique value (PSK Binder) is stored in the bloom filter
+%%        and we reject the ticket.
+%%
+%%   - A ClientHello is replayed outside the recording window
+%%      * We reject the ticket as `in_window` returns false.
 in_window(Age, Window) when is_integer(Window) ->
     Age =< Window.
 
