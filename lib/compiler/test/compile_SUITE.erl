@@ -2133,8 +2133,16 @@ annotations_pp(Config) when is_list(Config) ->
     {ok,_} = compile:file(File, [dssaopt, {outdir, TargetDir}]),
     {ok, Data} = file:read_file(Listing),
     Lines = string:split(binary_to_list(Data), "\n", all),
+
     ResultTypes = get_annotations("  %% Result type:", Lines),
     10 = length(ResultTypes),
+
+    Uniques = get_annotations("  %% Unique:", Lines),
+    10 = length(Uniques),
+
+    Aliased = get_annotations("  %% Aliased:", Lines),
+    17 = length(Aliased),
+
     ok = file:del_dir_r(TargetDir),
     ok.
 

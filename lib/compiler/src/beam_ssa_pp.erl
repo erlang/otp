@@ -280,6 +280,16 @@ format_instr_anno(#{arg_types:=Ts}=Anno0, FuncAnno, Args) ->
     [io_lib:format("  %% Argument types:~s~ts\n",
                    [Break, unicode:characters_to_list(Formatted)]) |
      format_instr_anno(Anno, FuncAnno, Args)];
+format_instr_anno(#{aliased:=As}=Anno, FuncAnno, Args) ->
+    Break = "\n  %%    ",
+    ["  %% Aliased:",
+     string:join([[Break, format_var(V)] || V <- As], ", "), "\n",
+     format_instr_anno(maps:remove(aliased, Anno), FuncAnno, Args)];
+format_instr_anno(#{unique:=Us}=Anno, FuncAnno, Args) ->
+    Break = "\n  %%    ",
+    ["  %% Unique:",
+     string:join([[Break, format_var(V)] || V <- Us], ", "), "\n",
+     format_instr_anno(maps:remove(unique, Anno), FuncAnno, Args)];
 format_instr_anno(Anno, _FuncAnno, _Args) ->
     format_instr_anno_1(Anno).
 
