@@ -116,9 +116,15 @@
                    'is_nonempty_list' | 'is_tagged_tuple' |
                    'kill_try_tag' |
                    'landingpad' |
-                   'make_fun' | 'match_fail' | 'new_try_tag' | 'old_make_fun' |
+                   'make_fun' | 'match_fail' | 'new_try_tag' |
+                   'nif_start' |
+                   'old_make_fun' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
-                   'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
+                   'raw_raise' |
+                   'recv_marker_bind' |
+                   'recv_marker_clear' |
+                   'recv_marker_reserve' |
+                   'recv_next' | 'remove_message' | 'resume' |
                    'update_tuple' | 'update_record' |
                    'wait_timeout'.
 
