@@ -181,10 +181,18 @@ math_functions(Config) when is_list(Config) ->
 
 mixed_float_and_int(Config) when is_list(Config) ->
     129.0 = pc(77, 23, 5),
+
+    {'EXIT',{badarith,_}} = catch mixed_1(id({a,b,c})),
+    {'EXIT',{{badarg,1/42},_}} = catch mixed_1(id(42)),
+
     ok.
 
 pc(Cov, NotCov, X) ->
     round(Cov/(Cov+NotCov)*100) + 42 + 2.0*X.
+
+mixed_1(V) ->
+    {is_tuple(V) orelse 1 / V,
+     1 / V andalso true}.
 
 subtract_number_type(Config) when is_list(Config) ->
     120 = fact(5).
