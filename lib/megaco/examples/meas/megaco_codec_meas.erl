@@ -144,12 +144,8 @@ display_os_info() ->
 	    Str ->
 		Str
 	end,
-    case os:type() of
-	{OsFam, OsName} ->
-	    io:format("OS:                  ~p-~p: ~s~n", [OsFam, OsName, V]);
-	OsFam ->
-	    io:format("OS:                  ~p: ~s~n", [OsFam, V])
-    end.
+    {OsFam, OsName} = os:type(),
+    io:format("OS:                  ~p-~p: ~s~n", [OsFam, OsName, V]).
 	    
 display_system_info() ->
     SysArch = string:strip(erlang:system_info(system_architecture),right,$\n),
@@ -163,6 +159,16 @@ display_app_info() ->
     display_megaco_info(),
     display_asn1_info().
 
+%% The instruction, nowarn_function, is because I can't figure out
+%% how to suppress the warnings about
+%% megaco_flex_scanner:is_enabled/0 and
+%% megaco_flex_scanner:is_reentrant_enabled/0:
+%%
+%%      "The pattern 'false' can never match the type 'true'"
+%%
+%% This is because the result of calling these function(s) is
+%% basically decided at compile time (true or false).
+-dialyzer({nowarn_function, display_megaco_info/0}).
 display_megaco_info() ->
     MI = megaco:module_info(),
     {value, {attributes, Attr}} = lists:keysearch(attributes, 1, MI),
@@ -303,9 +309,7 @@ expand_codec(Codec) ->
 	     {Codec, megaco_erl_dist_encoder, [compressed], 400},
 	     {Codec, megaco_erl_dist_encoder, [megaco_compressed], 10000},
  	     {Codec, megaco_erl_dist_encoder, [], 10000}
-	    ];
-	Else ->
-	    exit({error, {invalid_codec, Else}})
+	    ]
     end.
 
 

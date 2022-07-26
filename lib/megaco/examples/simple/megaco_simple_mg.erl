@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,6 +107,13 @@ parse_args(Key, Val, Args) ->
 get_arg(Key, Args) ->
     {value, {Key, Val}} = lists:keysearch(Key, 1, Args),
     Val.
+
+
+-spec init_batch(ReplyTo :: pid(),
+                 MgcHost :: term(),
+                 Trace   :: term(),
+                 Debug   :: term()) ->
+           no_return().
 
 init_batch(ReplyTo, MgcHost, Trace, Debug) ->
     register(?MODULE, self()),

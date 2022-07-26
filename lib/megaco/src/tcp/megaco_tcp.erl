@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -205,7 +205,7 @@ connect(SupPid, Parameters) ->
 			{ok, Pid} ->
 			    ?d1("connect -> connection started: "
 				"~n   Pid: ~p", [Pid]),
-			    gen_tcp:controlling_process(Socket, Pid),
+			    _ = gen_tcp:controlling_process(Socket, Pid),
 			    ?d2("connect -> control transferred"),
 			    {ok, Socket, Pid};
 			{error, Reason} ->
@@ -249,13 +249,13 @@ send_message(Socket, Data) ->
 	"~n   size(Data): ~p", [Socket, sz(Data)]),
     {Size, NewData} = add_tpkt_header(Data),
     Res = gen_tcp:send(Socket, NewData),
-    case Res of
-	ok ->
-	    incNumOutMessages(Socket),
-	    incNumOutOctets(Socket, Size);
-	_ ->
-	    ok
-    end,
+    _ = case Res of
+            ok ->
+                incNumOutMessages(Socket),
+                incNumOutOctets(Socket, Size);
+            _ ->
+                ok
+        end,
     Res.
 	    
 -ifdef(megaco_debug).

@@ -86,6 +86,21 @@ ERL_COMPILE_FLAGS += \
 	-pa $(ERL_TOP)/lib/megaco/ebin \
 	-I../include
 
+DIA_PLT      = megaco_example_meas.plt
+DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
+ifeq ($(DIAW_EH),true)
+DIA_WARNINGS += -Werror_handling
+endif
+ifeq ($(DIAW_US),true)
+DIA_WARNINGS += -Wunderspecs
+endif
+ifeq ($(DIAW_UR),true)
+DIA_WARNINGS += -Wunmatched_returns
+endif
+DIA_PLT_APPS = \
+	erts et asn1 kernel stdlib compiler debugger \
+	runtime_tools crypto mnesia wx
+
 
 # ----------------------------------------------------
 # Special Build Targets
@@ -104,12 +119,16 @@ script_skeletons: $(SCRIPT_SKELETONS)
 
 info:
 	@echo "MODULES   = $(MODULES)"
-	@echo "ERL_FILED = $(ERL_FILES)"
+	@echo "ERL_FILES = $(ERL_FILES)"
 	@echo ""
 	@echo "SCRIPT_SKELETON_SRC = $(SCRIPT_SKELETON_SRC)"
 	@echo "SCRIPT_SKELETONS    = $(SCRIPT_SKELETONS)"
 	@echo ""
 	@echo "TARGET_FILES = $(TARGET_FILES)"
+	@echo ""
+	@echo "DIA_PLT      = $(DIA_PLT)"
+	@echo "DIA_ANALYSIS = $(DIA_ANALYSIS)"
+	@echo "DIA_PLT_APPS = $(DIA_PLT_APPS)"
 	@echo ""
 
 clean:
@@ -138,6 +157,28 @@ release_spec: opt
 
 
 release_docs_spec:
+
+
+dclean:
+	rm -f $(DIA_PLT)
+	rm -f $(DIA_ANALYSIS)
+
+dialyzer_plt: $(DIA_PLT)
+
+$(DIA_PLT): $(ERL_FILES)
+	@echo "Building $(basename $(DIA_PLT)) plt file"
+	@dialyzer --build_plt \
+                  --output_plt $@ \
+                  --apps --apps $(sort $(APPLICATION) $(DIA_PLT_APPS)) \
+                  --output $(DIA_ANALYSIS) \
+                  --verbose
+
+dialyzer: $(DIA_PLT)
+	@echo "Running dialyzer on megaco example meas"
+	@dialyzer --plt $< \
+                  $(ERL_TOP)/lib/megaco/examples/meas \
+                  $(DIA_WARNINGS) \
+                  --verbose
 
 
 # ----------------------------------------------------

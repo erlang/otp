@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@ open(SupPid, Options) ->
 		    NewUdpRec = UdpRec#megaco_udp{socket = Socket},
 		    case start_udp_server(SupPid, NewUdpRec) of
 			{ok, ControlPid} ->
-			    gen_udp:controlling_process(Socket, ControlPid),
+			    _ = gen_udp:controlling_process(Socket, ControlPid),
 			    {ok, Socket, ControlPid};
 			{error, Reason} ->
 			    Error = {error, {could_not_start_udp_server, Reason}},
@@ -220,13 +220,13 @@ create_snmp_counters(SH, [Counter|Counters]) ->
 send_message(SH, Data) when is_record(SH, send_handle) ->
     #send_handle{socket = Socket, addr = Addr, port = Port} = SH,
     Res = gen_udp:send(Socket, Addr, Port, Data),
-    case Res of
-	ok ->
-	    incNumOutMessages(SH),
-	    incNumOutOctets(SH, size(Data));
-	_ ->
-	    ok
-    end,
+    _ = case Res of
+            ok ->
+                incNumOutMessages(SH),
+                incNumOutOctets(SH, size(Data));
+            _ ->
+                ok
+        end,
     Res;
 send_message(SH, _Data) ->
     {error, {bad_send_handle, SH}}.

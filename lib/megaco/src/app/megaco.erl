@@ -721,10 +721,10 @@ nc() ->
     nc(Mods).
 
 nc(all) ->
-    application:load(?APPLICATION),
+    _ = application:load(?APPLICATION),
     case application:get_key(?APPLICATION, modules) of
 	{ok, Mods} ->
-	    application:unload(?APPLICATION),
+	    _ = application:unload(?APPLICATION),
 	    nc(Mods);
 	_ ->
 	    {error, not_found}
@@ -741,10 +741,10 @@ ni() ->
     end.
 
 ni(all) -> 
-    application:load(?APPLICATION),
+    _ = application:load(?APPLICATION),
     case application:get_key(?APPLICATION, modules) of
 	{ok, Mods} ->
-	    application:unload(?APPLICATION),
+	    _ = application:unload(?APPLICATION),
 	    ni(Mods);
 	_ ->
 	    {error, not_found}
