@@ -27,7 +27,7 @@
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
-         switch_fail_inference/1]).
+         switch_fail_inference/1,failures/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -62,7 +62,8 @@ groups() ->
        container_subtraction,
        is_list_opt,
        connected_tuple_elements,
-       switch_fail_inference
+       switch_fail_inference,
+       failures
       ]}].
 
 init_per_suite(Config) ->
@@ -910,6 +911,21 @@ sfi_send_return_value({304}) ->
     ok;
 sfi_send_return_value({412}) ->
     error.
+
+failures(_Config) ->
+    {'EXIT',{function_clause,_}} = catch failures_1(id(a), id(b), id(c)),
+    {'EXIT',{badarith,_}} = catch failures_1([], 2, 3),
+    {'EXIT',{badarith,_}} = catch failures_1([], x, y),
+    ok.
+
+failures_1([] = V1, V2, V3)  ->
+    %% beam_call_types:types(erlang, '-', [any,nil]) would return
+    %% {none,_,_}, indicating that the call would fail, while
+    %% beam_call_types:will_succeed/3 called with the same arguments
+    %% would return `maybe` instead of `no`. That would cause
+    %% generation of incorrect BEAM code that would ultimately cause
+    %% beam_clean to crash.
+    {V1 - V3, (V1 = V2) - V3}.
 
 id(I) ->
     I.

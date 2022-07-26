@@ -29,9 +29,14 @@
 %%
 %% Returns whether a call will succeed or not.
 %%
-%% Note that it only answers 'yes' for functions in the 'erlang' module as
+%% Notes:
+%%
+%% This function only answers 'yes' for functions in the 'erlang' module as
 %% calls to other modules may fail due to not being loaded, even if we consider
 %% the module to be known.
+%%
+%% This function MUST return 'no' if types/3 with the same arguments will return
+%% the return type 'none'.
 %%
 
 -spec will_succeed(Mod, Func, ArgTypes) -> Result when
@@ -161,13 +166,21 @@ succeeds_if_type(ArgType, Required) ->
 succeeds_if_smallish(#t_integer{elements={Min,Max}})
   when abs(Min) bsr 128 =:= 0, abs(Max) bsr 128 =:= 0 ->
     yes;
-succeeds_if_smallish(_) ->
-    'maybe'.
+succeeds_if_smallish(ArgType) ->
+    case succeeds_if_type(ArgType, number) of
+        yes ->
+            %% Could potentially fail with a `system_limit` exception.
+            'maybe';
+        Other ->
+            Other
+    end.
 
 succeeds_if_smallish(LHS, RHS) ->
     case {succeeds_if_smallish(LHS),
           succeeds_if_smallish(RHS)} of
         {yes, yes} -> yes;
+        {no, _} -> no;
+        {_, no} -> no;
         {_, _} -> 'maybe'
     end.
 
