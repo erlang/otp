@@ -246,33 +246,31 @@ verify_vbs([Vb|T], NameAndTypes, Acc) ->
     Acc2 = lists:flatten(io_lib:format("~s~n   ~s", [Acc, Val])),
     verify_vbs(T, NameAndTypes, Acc2).
 
-verify_vb(#varbind{oid = Oid, variabletype = Type, value = Val} = Vb, 
-	  NameAndTypes) ->
+verify_vb(#varbind{oid = Oid} = Vb, NameAndTypes) ->
     case lists:reverse(Oid) of
 	[0|RevOid] ->
-	    case snmp_ex2_manager:oid_to_name(lists:reverse(RevOid)) of
-		{ok, Name} ->
-		    case lists:keysearch(Name, 1, NameAndTypes) of
-			{value, {Name, Type}} ->
-			    Val;
-			{value, {Name, WrongType}} ->
-			    error({wrong_type, {WrongType, Vb}});
-			false ->
-			    error({unexpected_name, {Name, Vb}})
-		    end;
-		{error, Reason} ->
-		    error({unexpected_oid, {Reason, Vb}})
-	    end;
+            verify_vb_value(lists:reverse(RevOid), Vb, NameAndTypes);
 	_ ->
-	    case lists:keysearch(Oid, 1, NameAndTypes) of
-		{value, {Oid, Type}} ->
-		    Val;
-		{value, {Oid, WrongType}} ->
-		    error({wrong_type, {WrongType, Vb}});
-		false ->
-		    error({unexpected_oid, Vb})
-	    end
+            verify_vb_value(Oid, Vb, NameAndTypes)
     end.
+
+verify_vb_value(Oid,
+                #varbind{variabletype = Type, value = Val} = Vb,
+                NameAndTypes) ->
+    case snmp_ex2_manager:oid_to_name(Oid) of
+        {ok, Name} ->
+            case lists:keysearch(Name, 1, NameAndTypes) of
+                {value, {Name, Type}} ->
+                    Val;
+                {value, {Name, WrongType}} ->
+                    error({wrong_type, {WrongType, Vb}});
+                false ->
+                    error({unexpected_name, {Name, Vb}})
+            end;
+        {error, Reason} ->
+            error({unexpected_oid, {Reason, Vb}})
+    end.
+    
 
 
 std_mib(MibName) ->
