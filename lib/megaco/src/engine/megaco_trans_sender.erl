@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -162,12 +162,12 @@ loop(#state{reqs = [], acks = [], timeout = Timeout} = S, _) ->
 
 	{send_ack_now, Serial} ->
 	    ?d("loop(empty) -> received send_ack_now [~w] request", [Serial]),
-	    send_msg(S#state.conn_handle, [], [Serial]),
+	    _ = send_msg(S#state.conn_handle, [], [Serial]),
 	    loop(S, Timeout);
 
 	{send_req, Tid, Req} when size(Req) >= S#state.req_maxsize ->
 	    ?d("loop(empty) -> received (big) send_req request ~w", [Tid]),
-	    send_msg(S#state.conn_handle, [{Tid, Req}], []),
+	    _ = send_msg(S#state.conn_handle, [{Tid, Req}], []),
 	    loop(S, Timeout);
 
 	{send_req, Tid, Req} ->
@@ -691,7 +691,7 @@ system_continue(_Parent, _Dbg, {S,To}) ->
 
 system_terminate(Reason, _Parent, _Dbg, {S, _}) ->
     #state{conn_handle = CH, reqs = Reqs, acks = Acks} = S,
-    send_msg(CH, Reqs, Acks),
+    _ = send_msg(CH, Reqs, Acks),
     exit(Reason).
 
 system_code_change(S, _Module, _OLdVsn, _Extra) ->
