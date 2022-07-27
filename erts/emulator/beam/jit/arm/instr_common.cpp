@@ -1583,6 +1583,10 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         } else if (LHS.isSmall()) {
             a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
         } else {
+            /* Avoid the expensive generic comparison for equal terms. */
+            a.cmp(lhs.reg, rhs.reg);
+            a.b_eq(next);
+
             ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
             a.and_(TMP1, lhs.reg, rhs.reg);
             a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
@@ -1687,6 +1691,10 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         } else if (LHS.isSmall()) {
             a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
         } else {
+            /* Avoid the expensive generic comparison for equal terms. */
+            a.cmp(lhs.reg, rhs.reg);
+            a.b_eq(next);
+
             ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
             a.and_(TMP1, lhs.reg, rhs.reg);
             a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));

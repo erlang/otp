@@ -1700,6 +1700,10 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         } else if (LHS.isSmall()) {
             a.mov(RETd, ARG2d);
         } else {
+            /* Avoid the expensive generic comparison for equal terms. */
+            a.cmp(ARG1, ARG2);
+            a.short_().je(do_jge);
+
             a.mov(RETd, ARG1d);
             a.and_(RETd, ARG2d);
         }
@@ -1795,6 +1799,10 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         } else if (LHS.isSmall()) {
             a.mov(RETd, ARG2d);
         } else {
+            /* Avoid the expensive generic comparison for equal terms. */
+            a.cmp(ARG1, ARG2);
+            a.short_().je(do_jl);
+
             a.mov(RETd, ARG1d);
             a.and_(RETd, ARG2d);
         }
