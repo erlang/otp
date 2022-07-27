@@ -50,7 +50,6 @@
 	 }).
 
 -define(CLEAR_PEM_CACHE, 120000).
--define(DEFAULT_MAX_SESSION_CACHE, 1000).
 
 %%====================================================================
 %% API
