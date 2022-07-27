@@ -121,7 +121,7 @@ start_channel(Dest) ->
 %%% function clauses.
 
 -spec start_channel(ssh:open_socket(),
-                    [ssh:client_options() | sftp_option()]
+                    [ssh:client_option() | sftp_option()]
                    )
                    -> {ok,pid(),ssh:connection_ref()} | {error,reason()};
 
@@ -131,7 +131,7 @@ start_channel(Dest) ->
                    -> {ok,pid()}  | {ok,pid(),ssh:connection_ref()} | {error,reason()};
 
                    (ssh:host(),
-                    [ssh:client_options() | sftp_option()]
+                    [ssh:client_option() | sftp_option()]
                    )
                    -> {ok,pid(),ssh:connection_ref()} | {error,reason()} .
 

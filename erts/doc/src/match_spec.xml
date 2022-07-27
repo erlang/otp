@@ -113,7 +113,7 @@
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
         <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
         <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
-        <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c>
+        <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c> |
         <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
         <c><![CDATA[binary_part]]></c> |
         <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
@@ -197,7 +197,7 @@
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
         <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
         <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
-        <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c>
+        <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c> |
         <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
         <c><![CDATA[binary_part]]></c> |
         <c><![CDATA['+']]></c> | <c><![CDATA['-']]></c> |
