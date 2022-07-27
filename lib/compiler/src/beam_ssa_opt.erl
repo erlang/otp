@@ -1131,13 +1131,15 @@ cse_suitable(#b_set{}) -> false.
 -record(fs,
         {regs=#{} :: #{beam_ssa:b_var():=beam_ssa:b_var()},
          non_guards :: gb_sets:set(beam_ssa:label()),
-         bs :: beam_ssa:block_map()
+         bs :: beam_ssa:block_map(),
+         preds :: #{beam_ssa:label() => [beam_ssa:label()]}
         }).
 
 ssa_opt_float({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     NonGuards = non_guards(Linear0),
     Blocks = maps:from_list(Linear0),
-    Fs = #fs{non_guards=NonGuards,bs=Blocks},
+    Preds = beam_ssa:predecessors(Blocks),
+    Fs = #fs{non_guards=NonGuards,bs=Blocks,preds=Preds},
     {Linear,Count} = float_opt(Linear0, Count0, Fs),
     {St#opt_st{ssa=Linear,cnt=Count}, FuncDb}.
 
@@ -1261,9 +1263,15 @@ float_maybe_flush(Blk0, Fs0, Count0) ->
             {FlushBs,Blk,Fs,Count}
     end.
 
-float_safe_to_skip_flush(L, #fs{bs=Blocks}=Fs) ->
+float_safe_to_skip_flush(L, #fs{bs=Blocks,preds=Preds}=Fs) ->
     #b_blk{is=Is} = Blk = map_get(L, Blocks),
-    float_can_optimize_blk(Blk, Fs) andalso float_optimizable_is(Is).
+    case Preds of
+        #{L := [_]} ->
+            float_can_optimize_blk(Blk, Fs) andalso float_optimizable_is(Is);
+        #{} ->
+            %% This block can be reached from more than one block; must flush.
+            false
+    end.
 
 float_optimizable_is([#b_set{anno=#{float_op:=_}}|_]) ->
     true;

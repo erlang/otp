@@ -2547,6 +2547,7 @@ beam_bool_SUITE(_Config) ->
     gh4788(),
     beam_ssa_bool_coverage(),
     bad_map_in_guard(),
+    gh_6164(),
     ok.
 
 before_and_inside_if() ->
@@ -3057,6 +3058,23 @@ beam_ssa_bool_coverage_1(V) when V andalso 0, tuple_size(0) ->
     ok;
 beam_ssa_bool_coverage_1(_) ->
     error.
+
+gh_6164() ->
+    true = do_gh_6164(id([])),
+    {'EXIT',{{case_clause,42},_}} = catch do_gh_6164(id(0)),
+
+    ok.
+
+do_gh_6164(V1) ->
+    case 42 of
+        V2 ->
+            case is_list(V1) of
+                V3 ->
+                    case V3 orelse V2 of
+                        _ when V3 -> 100
+                    end =< V3
+            end
+    end.
 
 -record(bad_map_in_guard, {name}).
 bad_map_in_guard() ->
