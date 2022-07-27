@@ -31,7 +31,7 @@
          ensure_path_invalid_path/1,
 	 wildcard_symlink/1, is_file_symlink/1, file_props_symlink/1,
          find_source/1, find_source_subdir/1, find_source_otp/1,
-         safe_relative_path/1, safe_relative_path_links/1]).
+         safe_relative_path/1, safe_relative_path_links/1, wildcard_symlink_loop/1]).
 
 -import(lists, [foreach/2]).
 
@@ -59,7 +59,7 @@ all() ->
      ensure_path_invalid_path,
      wildcard_symlink, is_file_symlink, file_props_symlink,
      find_source, find_source_subdir, find_source_otp,
-     safe_relative_path, safe_relative_path_links].
+     safe_relative_path, safe_relative_path_links, wildcard_symlink_loop].
 
 groups() -> 
     [].
@@ -533,6 +533,30 @@ ensure_path_symlink(Config) when is_list(Config) ->
             SymlinkedName = filename:join(Symlink, "same_name_as_file_and_dir"),
             ok = filelib:ensure_dir(SymlinkedName)
     end.
+
+wildcard_symlink_loop(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?MODULE_STRING++"_wildcard_symlink_loop"),
+    SymlinkA = filename:join(Dir, "symlink_a"),
+    SymlinkB = filename:join(Dir, "symlink_b"),
+    ok = file:make_dir(Dir),
+    case create_symlink([[Dir, SymlinkA], [Dir, SymlinkB]]) of
+        ok ->
+            true = lists:sort([SymlinkA, SymlinkB]) =:= lists:sort(filelib:wildcard(filename:join(Dir,"**")));
+        Other -> Other
+    end.
+
+create_symlink([H|T]) ->
+    [E,N] = H,
+    case create_symlink(E, N) of
+        true -> create_symlink(T);
+        false -> {skipped, "This platform/user can't create symlinks."}
+    end;
+create_symlink([]) ->
+    ok.
+
+create_symlink(Existing, New) ->
+    ok =:= file:make_symlink(Existing, New).
 
 wildcard_symlink(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

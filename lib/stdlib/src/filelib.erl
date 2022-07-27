@@ -354,15 +354,25 @@ prepare_base(Base0) ->
     lists:reverse(Base2).
 
 do_double_star(Base, [H|T], Patterns, Result0, Mod, Root) ->
-    Full = case Root of
-               false -> filename:join(Base, H);
-               true -> H
+    {Full, Loop} = case Root of
+               false ->
+                    F = filename:join(Base, H),
+                    L = case file:read_link(F) of
+                            {ok, LinkTarget} ->
+                                lists:prefix(filename:split(LinkTarget), filename:split(Base));
+                            _ -> false
+                        end,
+                    {F, L};
+               true -> {H, false}
            end,
-    Result1 = case do_list_dir(Full, Mod) of
-                  {ok, Files} ->
-                      do_double_star(Full, Files, Patterns, Result0, Mod, false);
-                  _ -> Result0
-              end,
+    Result1 = if Loop -> Result0;
+                true ->
+                    case do_list_dir(Full, Mod) of
+                        {ok, Files} ->
+                            do_double_star(Full, Files, Patterns, Result0, Mod, false);
+                        _ -> Result0
+                    end
+                end,
     Result2 = case Patterns of
                   %% The root is never included in the result.
                   _ when Root -> Result1;
