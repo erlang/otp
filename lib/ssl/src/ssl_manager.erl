@@ -465,7 +465,7 @@ invalidate_session(Cache, CacheCb, Key, _Session,
 
 clean_cert_db(Ref, CertDb, RefDb, FileMapDb, File) ->
     case ssl_pkix_db:ref_count(Ref, RefDb, 0) of
-	0 ->	  
+	0 ->
 	    ssl_pkix_db:remove(Ref, RefDb),
 	    ssl_pkix_db:remove(File, FileMapDb),
 	    ssl_pkix_db:remove_trusted_certs(Ref, CertDb);
