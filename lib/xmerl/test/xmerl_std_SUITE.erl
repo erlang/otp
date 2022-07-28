@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%----------------------------------------------------------------------
@@ -43,14 +43,14 @@
 %% Test groups
 %%----------------------------------------------------------------------
 %% totally 1788 test cases
-all() -> 
+all() ->
     ['sun-valid'(suite), 'sun-invalid'(suite),
      'sun-not-wf'(suite), 'sun-error'(suite),
      'jclark-xmltest'(suite), 'xerox-japanese'(suite),
      'nist-oasis'(suite), 'ibm-invalid'(suite),
-     'ibm-not-wf'(suite), 'ibm-valid'(suite)].
+     'ibm-not-wf'(suite), 'ibm-valid'(suite),'formatter'(suite)].
 
-groups() -> 
+groups() ->
     [{sun_test_cases, [],
       'sun-valid'(suite) ++
 	  'sun-invalid'(suite) ++
@@ -60,7 +60,8 @@ groups() ->
 	  'ibm-not-wf'(suite) ++ 'ibm-valid'(suite)},
      {xmltest_test_cases, [], 'jclark-xmltest'(suite)},
      {japanese_test_cases, [], 'xerox-japanese'(suite)},
-     {oasis_test_cases, [], 'nist-oasis'(suite)}].
+     {oasis_test_cases, [], 'nist-oasis'(suite)},
+     {formatter_test_cases, [],'formatter'(suite)}].
 
 suite() ->
     [{timetrap,{minutes,10}}].
@@ -93,10 +94,10 @@ suite() ->
      content02,content01,cond02,cond01,attlist11,attlist10,attlist09,
      attlist08,attlist07,attlist06,attlist05,attlist04,attlist03,
      attlist02,attlist01,'not-wf-sa03'].
-'sun-error'(suite)-> 
-    %% 1 test case 
-    [uri01].  
-'jclark-xmltest'(suite) -> 
+'sun-error'(suite)->
+    %% 1 test case
+    [uri01].
+'jclark-xmltest'(suite) ->
     %% 364 test cases
     ['valid-ext-sa-014','valid-ext-sa-013','valid-ext-sa-012',
      'valid-ext-sa-011','valid-ext-sa-009','valid-ext-sa-008',
@@ -194,7 +195,7 @@ suite() ->
      'not-wf-sa-010','not-wf-sa-009','not-wf-sa-008','not-wf-sa-007',
      'not-wf-sa-006','not-wf-sa-005','not-wf-sa-004','not-wf-sa-003',
      'not-wf-sa-002','not-wf-sa-001'].
-'xerox-japanese'(suite) -> 
+'xerox-japanese'(suite) ->
     %% 12 test cases
     ['japanese-weekly-utf-8','japanese-weekly-utf-16',
      'japanese-weekly-shift_jis','japanese-weekly-little',
@@ -202,7 +203,7 @@ suite() ->
      'japanese-pr-xml-utf-8','japanese-pr-xml-utf-16',
      'japanese-pr-xml-shift_jis','japanese-pr-xml-little',
      'japanese-pr-xml-iso-2022-jp','japanese-pr-xml-euc-jp'].
-'nist-oasis'(suite) -> 
+'nist-oasis'(suite) ->
     %% 348 test cases
     ['o-p11pass1','o-p76fail4','o-p76fail3','o-p76fail2','o-p76fail1',
      'o-p75fail6','o-p75fail5','o-p75fail4','o-p75fail3','o-p75fail2',
@@ -274,7 +275,7 @@ suite() ->
      'o-p28pass5','o-p28pass4','o-p28pass3','o-p28pass1','o-p22pass6',
      'o-p22pass5','o-p22pass4','o-p12pass1','o-p09pass1','o-p08pass1',
      'o-p07pass1','o-p06pass1','o-p01pass2'].
-'ibm-invalid'(suite) -> 
+'ibm-invalid'(suite) ->
     %% 48 test cases
     ['ibm-invalid-P76-ibm76i01','ibm-invalid-P69-ibm69i04',
      'ibm-invalid-P69-ibm69i03','ibm-invalid-P69-ibm69i02',
@@ -300,7 +301,7 @@ suite() ->
      'ibm-invalid-P39-ibm39i02','ibm-invalid-P39-ibm39i01',
      'ibm-invalid-P32-ibm32i04','ibm-invalid-P32-ibm32i03',
      'ibm-invalid-P32-ibm32i01','ibm-invalid-P28-ibm28i01'].
-'ibm-not-wf'(suite) -> 
+'ibm-not-wf'(suite) ->
     %% 731 test cases
     ['ibm-not-wf-P89-ibm89n12','ibm-not-wf-P89-ibm89n11',
      'ibm-not-wf-P89-ibm89n10','ibm-not-wf-P89-ibm89n09',
@@ -669,7 +670,7 @@ suite() ->
      'ibm-not-wf-P01-ibm01n03','ibm-not-wf-P01-ibm01n02',
      'ibm-not-wf-P01-ibm01n01'].
 
-'ibm-valid'(suite) -> 
+'ibm-valid'(suite) ->
     %% 149 test cases
     ['ibm-valid-P89-ibm89v01','ibm-valid-P88-ibm88v01',
      'ibm-valid-P87-ibm87v01','ibm-valid-P86-ibm86v01',
@@ -746,6 +747,9 @@ suite() ->
      'ibm-valid-P09-ibm09v02','ibm-valid-P09-ibm09v01',
      'ibm-valid-P03-ibm03v01','ibm-valid-P02-ibm02v01',
      'ibm-valid-P01-ibm01v01'].
+
+'formatter'(suite) ->
+      ['formatter-pass','formatter-fail'].
 
 %%----------------------------------------------------------------------
 %% Initializations
@@ -9891,6 +9895,103 @@ end_per_testcase(_Func,_Config) ->
     {A,_} = xmerl_scan:file(datadir_join(Config,[ibm,"ibm-valid-P01-ibm01v01.xml"]),[]),
     xmerl:export([A],xmerl_test).
 
+%%======================================================================
+%% New formatter tests input/output
+%%======================================================================
+
+html() ->
+  "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"DTD/xhtml1-strict.dtd\"><html>"
+  "<head><title>Doc Title</title><author>Ulf Wiger</author></head>"
+  "<h1>heading1</h1>"
+  "<p>This is a paragraph of text.</p>"
+  "<h2>heading2</h2>"
+  "<p>This is another paragraph.</p>"
+  "<table>"
+  "<thead><tr><td>head1</td><td>head2</td></tr></thead>"
+  "<tr><td>col11</td><td>col122</td></tr>"
+  "<tr><td>col21</td><td>col122</td></tr>"
+  "</table>"
+  "</html>".
+
+html_indented() ->
+  "<?xml version=\"1.0\"?>"
+  "\n<html>"
+  "\n  <head>"
+  "\n    <title>Doc Title</title>"
+  "\n    <author>Ulf Wiger</author>"
+  "\n  </head>"
+  "\n  <h1>heading1</h1>"
+  "\n  <p>This is a paragraph of text.</p>"
+  "\n  <h2>heading2</h2>"
+  "\n  <p>This is another paragraph.</p>"
+  "\n  <table>"
+  "\n    <thead>"
+  "\n      <tr>"
+  "\n        <td>head1</td>"
+  "\n        <td>head2</td>"
+  "\n      </tr>"
+  "\n    </thead>"
+  "\n    <tr>"
+  "\n      <td>col11</td>"
+  "\n      <td>col122</td>"
+  "\n    </tr>"
+  "\n    <tr>"
+  "\n      <td>col21</td>"
+  "\n      <td>col122</td>"
+  "\n    </tr>"
+  "\n  </table>"
+  "\n</html>".
+
+xml_namespace() ->
+  "<?xml version=\"1.0\"?>"
+  "<!-- initially, the default namespace is \"books\" -->"
+  "<book xmlns='urn:loc.gov:books' xmlns:isbn='urn:ISBN:0-395-36341-6'>"
+  "<title>Cheaper by the Dozen</title>"
+  "<isbn:number>1568491379</isbn:number>"
+  "<notes>"
+  "<!-- make HTML the default namespace for some comments -->"
+  "<p xmlns='urn:w3-org-ns:HTML'>"
+  "This is a <i>funny</i> book!"
+  "</p>"
+  "</notes>"
+  "</book>".
+
+xml_namespace_indented() ->
+"<?xml version=\"1.0\"?>"
+"\n<book xmlns=\"urn:loc.gov:books\" xmlns:isbn=\"urn:ISBN:0-395-36341-6\">"
+"\n  <title>Cheaper by the Dozen</title>"
+"\n  <isbn:number>1568491379</isbn:number>"
+"\n  <notes>"
+"\n    <p xmlns=\"urn:w3-org-ns:HTML\">This is a <i>funny</i> book!</p>"
+"\n  </notes>"
+"\n</book>".
+
+output_element_to_str(E) ->
+  Output = xmerl:export([E], xmerl_xml_indent),
+  [Str] = io_lib:format("~s", [lists:flatten(Output)]),
+  Str.
+
+%%======================================================================
+%% New formatter tests
+%%======================================================================
+'formatter-pass'(_Config) ->
+
+  FetchFun = fun(_DTDSpec, S) -> {ok, not_fetched, S} end,
+  % Generate based on namespace-example
+  {Ns, _} = xmerl_scan:string(xml_namespace(), [{fetch_fun, FetchFun}]),
+  GNs = output_element_to_str(Ns),
+  INs = xml_namespace_indented(),
+  INs = GNs,
+
+  % Generate based on html-example
+  {Html, _} = xmerl_scan:string(html(), [{fetch_fun, FetchFun}]),
+  GHtml = output_element_to_str(Html),
+  IHtml = html_indented(),
+  GHtml = IHtml,
+  ok.
+
+'formatter-fail'(_Config) ->
+  ok.
 
 
 %%======================================================================
@@ -9937,7 +10038,7 @@ change_mode3([F|Fs]) ->
 	    chmod(F)
     end,
     change_mode3(Fs).
-    
+
 chmod(F) ->
     case file:read_file_info(F) of
 	{ok,FileInfo} ->
@@ -9946,7 +10047,7 @@ chmod(F) ->
 	_ ->
 	    ok
     end.
-    
+
 privdir(Config) ->
     proplists:get_value(priv_dir, Config).
 datadir(Config) ->
