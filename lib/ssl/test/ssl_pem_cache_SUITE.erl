@@ -27,6 +27,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include("ssl_test_lib.hrl").
 
 %% Callback functions
 -export([all/0,
@@ -69,6 +70,7 @@
 
 -define(CLEANUP_INTERVAL, 5000).
 -define(SLEEP_AMOUNT, 1000).
+-define(KEY(NUMBER), ssl_test_lib:hardcode_rsa_key(NUMBER)).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -165,20 +167,19 @@ pem_manual_cleanup(Config) when is_list(Config) ->
     2 = get_total_counter(),
     [6, 6, 2, 2] = get_table_sizes(),
     [{pem_cache, PemCacheData0}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
-     {ca_file_ref, CaFileRefData0}] = get_tables(),
+                  {ca_file_ref, CaFileRefData0}] = get_tables(),
 
     ssl:clear_pem_cache(),
     _ = sys:get_status(whereis(ssl_manager)),
     [0, 6, 2, 2] = get_table_sizes(),
-    [{pem_cache, PemCacheData1}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
-     {ca_file_ref, CaFileRefData0}] = get_tables(),
-    [true = lists:member(Row, PemCacheData0) || Row <- PemCacheData1],
-
+    check_tables([{pem_cache, []}, {cert, CertData0},
+                  {ca_ref_cnt, CaRefCntData0}, {ca_file_ref, CaFileRefData0}]),
     {Server1, Client1} = basic_verify_test_no_close(Config),
     4 = get_total_counter(),
     [4, 6, 2, 2] = get_table_sizes(),
-    [{pem_cache, PemCacheData2}, {cert, CertData0}, {ca_ref_cnt, _CaRefCntData1},
-     {ca_file_ref, CaFileRefData0}] = get_tables(),
+    [{pem_cache, PemCacheData2}, _, {ca_ref_cnt, CaRefCntData2}, _] = get_tables(),
+    check_tables([{pem_cache, PemCacheData2}, {cert, CertData0},
+                  {ca_ref_cnt, CaRefCntData2}, {ca_file_ref, CaFileRefData0}]),
     [true = lists:member(Row, PemCacheData0) || Row <- PemCacheData2],
 
     [ssl_test_lib:close(A) || A <- [Server, Client]],
@@ -188,8 +189,8 @@ pem_manual_cleanup(Config) when is_list(Config) ->
     2 = get_total_counter(),
 
     [4, 6, 2, 2] = get_table_sizes(),
-    [{pem_cache, PemCacheData2}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
-     {ca_file_ref, CaFileRefData0}] = get_tables(),
+    check_tables([{pem_cache, PemCacheData2}, {cert, CertData0},
+                  {ca_ref_cnt, CaRefCntData0}, {ca_file_ref, CaFileRefData0}]),
 
     [ssl_test_lib:close(A) || A <- [Server1, Client1]],
     ct:sleep(2 * ?SLEEP_AMOUNT),
@@ -197,8 +198,8 @@ pem_manual_cleanup(Config) when is_list(Config) ->
     _ = sys:get_status(whereis(ssl_manager)),
     0 = get_total_counter(),
     [4, 0, 0, 0] = get_table_sizes(),
-    [{pem_cache, PemCacheData2}, {cert, []}, {ca_ref_cnt, []},
-     {ca_file_ref, []}] = get_tables(),
+    check_tables([{pem_cache, PemCacheData2}, {cert, []},
+                  {ca_ref_cnt, []}, {ca_file_ref, []}]),
     ok.
 
 invalid_insert() ->
@@ -233,7 +234,9 @@ new_root_pem_manual_cleanup(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                  cleaned => [0, 6, 2, 2], connected2 => [4, 6, 2, 2],
                  disconnected1 => [4, 6, 2, 2], disconnected2 => [4,0,0,0]},
-    new_root_pem_helper(Config, manual, Expected, direct).
+    new_root_pem_helper(Config, manual, Expected, fun identity/1),
+    %% verify also same key sequence for initial and overwritten certs PEM files
+    new_root_pem_helper(Config, manual, Expected, fun identity/1, 5).
 
 new_root_pem_periodical_cleanup() ->
     [{doc, "Test that changed PEM-files on disk followed by periodical cleanup"
@@ -243,37 +246,39 @@ new_root_pem_periodical_cleanup(Config) when is_list(Config) ->
     ExpectedStats = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                       cleaned => [0, 6, 2, 2], connected2 => [4, 6, 2, 2],
                       disconnected1 => [4, 6, 2, 2], disconnected2 => [4,0,0,0]},
-    new_root_pem_helper(Config, periodical, ExpectedStats, direct).
+    new_root_pem_helper(Config, periodical, ExpectedStats, fun identity/1),
+    %% verify also same key sequence for initial and overwritten certs PEM files
+    new_root_pem_helper(Config, periodical, ExpectedStats, fun identity/1, 5).
 
 new_root_pem_no_cleanup() ->
     [{doc, "Test that changed PEM-files on disk not followed by any cleanup"
-      " will be used for making connection. "
+      " will not be used for making connection."
       "This test case recreates a PEM file, resulting with its actual content change."}].
 new_root_pem_no_cleanup(Config) when is_list(Config) ->
     ExpectedStats = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                       cleaned => [6, 6, 2, 2], connected2 => [6, 6, 2, 2],
                       disconnected1 => [6, 6, 2, 2], disconnected2 => [6,0,0,0]},
-    new_root_pem_helper(Config, no_cleanup, ExpectedStats, direct).
+    new_root_pem_helper(Config, no_cleanup, ExpectedStats, fun identity/1).
 
 new_root_pem_no_cleanup_symlink() ->
     [{doc, "Test that changed PEM-files on disk not followed by any cleanup"
-      " will be used for making connection - even with symlink. "
+      " will not be used for making connection - even with symlink. "
       "This test case recreates a PEM file, resulting with its actual content change."}].
 new_root_pem_no_cleanup_symlink(Config) when is_list(Config) ->
     ExpectedStats = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                       cleaned => [6, 6, 2, 2], connected2 => [6, 6, 2, 2],
                       disconnected1 => [6, 6, 2, 2], disconnected2 => [6,0,0,0]},
-    new_root_pem_helper(Config, no_cleanup, ExpectedStats, symlink).
+    new_root_pem_helper(Config, no_cleanup, ExpectedStats, fun make_symlink/1).
 
 new_root_pem_no_cleanup_hardlink() ->
     [{doc, "Test that changed PEM-files on disk not followed by any cleanup"
-      " will be used for making connection - even with hardlink. "
+      " will not be used for making connection - even with hardlink. "
       "This test case recreates a PEM file, resulting with its actual content change."}].
 new_root_pem_no_cleanup_hardlink(Config) when is_list(Config) ->
     ExpectedStats = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                       cleaned => [6, 6, 2, 2], connected2 => [6, 6, 2, 2],
                       disconnected1 => [6, 6, 2, 2], disconnected2 => [6,0,0,0]},
-    new_root_pem_helper(Config, no_cleanup, ExpectedStats, hardlink).
+    new_root_pem_helper(Config, no_cleanup, ExpectedStats, fun make_hardlink/1).
 
 alternative_path_hardlink() ->
     [{doc,"Test that internal reference table contains expected data for"
@@ -355,67 +360,80 @@ get_table_refs() ->
     end.
 
 get_tables() ->
-    [{Id, get_table(T, Id)} || {Id, T} <- get_table_refs()].
+    [{Id, get_table(T)} || {Id, T} <- get_table_refs()].
 
-get_table(TableRef, Id) ->
-    get_table(TableRef, Id, ets:first(TableRef), []).
+check_tables(ExpectedTables) ->
+    ActualTables = [{Id, get_table(T)} || {Id, T} <- get_table_refs(),
+                                          proplists:is_defined(Id, ExpectedTables)],
+    Zipped = lists:zip(ExpectedTables, ActualTables),
 
-get_table(TableRef, Id, Key, Acc) ->
+    CompareTables = fun({ExpectedLabel, ExpectedTable},
+                        {ActualLabel, ActualTable}) ->
+                            ExpectedLabel = ActualLabel,
+                            ExpectedTableSorted = lists:sort(ExpectedTable),
+                            ActualTableSorted = lists:sort(ActualTable),
+                            case ExpectedTableSorted == ActualTableSorted of
+                                true ->
+                                    ok;
+                                _ ->
+                                    ?PAL("Mismatch for table ~w", [ActualLabel]),
+                                    ?PAL("Expected = ~w", [ExpectedTableSorted]),
+                                    ?PAL("Actual = ~w", [ActualTableSorted]),
+                                    ct:fail({data_mismatch, ActualLabel})
+                            end
+                    end,
+    [CompareTables(Expected, Actual) || {Expected, Actual} <- Zipped].
+
+get_table(TableRef) ->
+    get_table(TableRef, ets:first(TableRef), []).
+
+get_table(TableRef, Key, Acc) ->
     case Key of
         '$end_of_table' ->
             Acc;
         _ ->
-            get_table(TableRef, Id, ets:next(TableRef, Key),
+            get_table(TableRef, ets:next(TableRef, Key),
                       [ets:lookup(TableRef, Key) | Acc])
     end.
 
+new_root_pem_helper(Config, CleanMode, ExpectedStats, TransformFun) ->
+    %% by default use different key sequence for initial and overwritten certs PEM files
+    new_root_pem_helper(Config, CleanMode, ExpectedStats, TransformFun, 6).
 new_root_pem_helper(Config, CleanMode,
                    #{init := Init, connected1 := Connected1, cleaned := Cleaned,
                     connected2 := Connected2, disconnected1 := Disconnected1,
-                    disconnected2 := Disconnected2} = _ExpectedStats, AccessMode) ->
+                    disconnected2 := Disconnected2} = _ExpectedStats, TransformFun,
+                    IntermediateServerKeyId) ->
     %% ExpectedStats map passed to function contains expected sizes of tables
     %% holding various cert, cacert, keyfile data.
     %% Init - represents initial state
     %% ConnectedN - state after establishing Nth connection
     %% Cleaned - state after periodical cleanup
     %% DisconnectedN - state after closing Nth connection
-    {SCAFile, ClientConf0, ServerConf, OrgSRoot, ClientBase, ServerBase} =
+    ?PAL(">>> IntermediateServerKeyId = ~w", [IntermediateServerKeyId]),
+    {ServerCAFile, ClientConf0, ServerConf, ServerRootCert0, ClientBase, ServerBase} =
         create_initial_config(Config),
 
-    TryLink =
-        fun(MakeLink, Conf0) ->
-                CACertfilePath = proplists:get_value(cacertfile, Conf0),
-                case MakeLink(CACertfilePath) of
-                    {ok, LinkPath} ->
-                         [{cacertfile, LinkPath} | proplists:delete(cacertfile, Conf0)];
-                    {skip, Reason} ->
-                        [{skip, Reason}]
-                end
-        end,
-    ClientConf = case AccessMode of
-                     direct -> ClientConf0;
-                     hardlink->
-                         TryLink(fun make_hardlink/1, ClientConf0);
-                     symlink->
-                         TryLink(fun make_symlink/1, ClientConf0)
-                 end,
-
-    case proplists:lookup(skip, ClientConf) of
-        none ->
+    CACertfilePath = proplists:get_value(cacertfile, ClientConf0),
+    case TransformFun(CACertfilePath) of
+        {ok, TransformedPath} ->
+            ClientConf = [{cacertfile, TransformedPath} | proplists:delete(cacertfile, ClientConf0)],
             {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
             Init = get_table_sizes(),
             {Client0, Server0} =
-                make_connection_check_cert(OrgSRoot, ClientNode, ClientConf,
-                                           ServerNode, ServerConf, Hostname, SCAFile),
+                make_connection_check_cert(ServerRootCert0, ClientNode, ClientConf,
+                                           ServerNode, ServerConf, Hostname, ServerCAFile),
             Connected1 = get_table_sizes(),
-            [{pem_cache, PemCacheData0}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
-             {ca_file_ref, CaFileRefData0}] = get_tables(),
-
-            NewCert = overwrite_files_with_new_configuration(OrgSRoot, ClientBase, ServerBase),
-            Connected1 = get_table_sizes(),
-            [{pem_cache, PemCacheData0}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
-             {ca_file_ref, CaFileRefData0}] = get_tables(),
-
+            [{pem_cache, PemCacheData0}, {cert, CertData0},
+             {ca_ref_cnt, CaRefCntData0}, {ca_file_ref, CaFileRefData0}] = get_tables(),
+            ServerCAFile0 = ServerCAFile ++ "_original",
+            {ok, _} = file:copy(ServerCAFile, ServerCAFile0),
+            ServerRootCert =
+                overwrite_files_with_new_configuration(ServerRootCert0,
+                                                       ClientBase, ServerBase,
+                                                       IntermediateServerKeyId),
+            check_tables([{pem_cache, PemCacheData0}, {cert, CertData0},
+                          {ca_ref_cnt, CaRefCntData0}, {ca_file_ref, CaFileRefData0}]),
             case CleanMode of
                 manual -> ssl:clear_pem_cache();
                 periodical -> ct:sleep(round(1.5 * ?CLEANUP_INTERVAL));
@@ -423,34 +441,39 @@ new_root_pem_helper(Config, CleanMode,
             end,
             Cleaned = get_table_sizes(),
 
-            [{pem_cache, PemCacheData1}, {cert, CertData1}, {ca_ref_cnt, CaRefCntData1},
-             {ca_file_ref, CaFileRefData1}] = get_tables(),
+            [{pem_cache, PemCacheData1}, {cert, CertData1},
+             {ca_ref_cnt, CaRefCntData1}, {ca_file_ref, _}] = get_tables(),
             case CleanMode of
                 no_cleanup ->
-                    PemCacheData0 = PemCacheData1,
-                    CertData0 = CertData1,
-                    CaRefCntData0 = CaRefCntData1,
-                    CaFileRefData0 = CaFileRefData1;
+                    check_tables([{pem_cache, PemCacheData0},
+                                  {cert, CertData0},
+                                  {ca_ref_cnt, CaRefCntData0},
+                                  {ca_file_ref, CaFileRefData0}]),
+                    {Client1, Server1} =
+                        make_connection_check_cert(ServerRootCert0, ClientNode, ClientConf,
+                                                   ServerNode, ServerConf, Hostname, ServerCAFile0);
                 _ ->
-                    CaRefCntData0 = CaRefCntData1,
-                    CaFileRefData0 = CaFileRefData1,
-                    false = (CertData1 == CertData0)
+                    check_tables([{pem_cache, []},
+                                  {ca_ref_cnt, CaRefCntData0},
+                                  {ca_file_ref, CaFileRefData0}]),
+                    false = (CertData1 == CertData0),
+                    {Client1, Server1} =
+                        make_connection_check_cert(ServerRootCert, ClientNode, ClientConf,
+                                                   ServerNode, ServerConf, Hostname, ServerCAFile)
             end,
-            {Client1, Server1} =
-                make_connection_check_cert(NewCert, ClientNode, ClientConf,
-                                           ServerNode, ServerConf, Hostname, SCAFile),
+
             4 = get_total_counter(),
             Connected2 = get_table_sizes(),
-            [{pem_cache, PemCacheData2}, {cert, CertData2}, {ca_ref_cnt, CaRefCntData2},
-             {ca_file_ref, CaFileRefData2}] = get_tables(),
+            [{pem_cache, PemCacheData2}, {cert, CertData2},
+             {ca_ref_cnt, CaRefCntData2}, {ca_file_ref, _}] = get_tables(),
             case CleanMode of
                 no_cleanup ->
-                    PemCacheData0 = PemCacheData2,
-                    CertData0 = CertData2;
+                    check_tables([{pem_cache, PemCacheData0},
+                                  {cert, CertData0}]);
                 _ ->
-                    CaFileRefData0 = CaFileRefData2,
+                    check_tables([{ca_file_ref, CaFileRefData0}]),
                     false = (CertData0 == CertData2),
-                    true = (PemCacheData0 /= PemCacheData2)
+                    false = (PemCacheData0 == PemCacheData2)
             end,
             true = (CaRefCntData2 /= CaRefCntData1),
 
@@ -458,28 +481,24 @@ new_root_pem_helper(Config, CleanMode,
             2 = get_total_counter(),
             Disconnected1 = get_table_sizes(),
 
-            [{pem_cache, PemCacheData3}, {cert, CertData3}, {ca_ref_cnt, CaRefCntData3},
-             {ca_file_ref, CaFileRefData3}] = get_tables(),
             case CleanMode of
                 no_cleanup ->
-                    PemCacheData1 = PemCacheData3;
+                    check_tables([{pem_cache, PemCacheData1}]);
                 _ ->
-                    PemCacheData2 = PemCacheData3
+                    check_tables([{pem_cache, PemCacheData2}])
             end,
-            CertData1 = CertData3,
-            CaRefCntData0 = CaRefCntData3,
-            CaFileRefData0 = CaFileRefData3,
-
+            check_tables([{cert, CertData1}, {ca_ref_cnt, CaRefCntData0},
+                          {ca_file_ref, CaFileRefData0}]),
             [ssl_test_lib:close(A) || A <- [Client0, Server0]],
             0 = get_total_counter(),
             Disconnected2 = get_table_sizes(),
-            [{pem_cache, PemCacheData4}, {cert, []}, {ca_ref_cnt, []},
-             {ca_file_ref, []}] = get_tables(),
             case CleanMode of
                 no_cleanup ->
-                    PemCacheData1 = PemCacheData4;
+                    check_tables([{pem_cache, PemCacheData1}, {cert, []},
+                                  {ca_ref_cnt, []}, {ca_file_ref, []}]);
                 _ ->
-                    PemCacheData2 = PemCacheData4
+                    check_tables([{pem_cache, PemCacheData2}, {cert, []},
+                                  {ca_ref_cnt, []}, {ca_file_ref, []}])
             end,
 
             ssl:clear_pem_cache(),
@@ -558,8 +577,8 @@ alternative_path_helper(Config, GetAlternative,
             {skip, Reason}
     end.
 
-make_connection_check_cert(Cert, ClientNode, ClientConf, ServerNode, ServerConf,
-                          Hostname, SCAFile) ->
+make_connection_check_cert(ServerRootCert, ClientNode, ClientConf, ServerNode,
+                           ServerConf, Hostname, ServerCAFile) ->
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
@@ -570,7 +589,8 @@ make_connection_check_cert(Cert, ClientNode, ClientConf, ServerNode, ServerConf,
 	ssl_test_lib:start_client([{node, ClientNode},
                                    {port, Port}, {host, Hostname},
 				   {from, self()},
-				   {mfa, {?MODULE, check_cert, [Cert, SCAFile]}},
+				   {mfa, {?MODULE, check_cert,
+                                          [ServerRootCert, ServerCAFile]}},
                                    {options, [{verify, verify_peer} | ClientConf]}]),
 
     ssl_test_lib:check_result(Client, ok),
@@ -578,62 +598,51 @@ make_connection_check_cert(Cert, ClientNode, ClientConf, ServerNode, ServerConf,
 
 create_initial_config(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    #{cert := OrgSRoot} = SRoot =
+    #{cert := ServerRootCert0} = SRoot =
         public_key:pkix_test_root_cert("OTP test server ROOT",
-                                       [{key, ssl_test_lib:hardcode_rsa_key(6)}]),
-
-    DerConfig = public_key:pkix_test_data(
-                  #{server_chain =>
-                        #{root => SRoot,
-                          intermediates =>
-                              [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
-                          peer =>
-                              [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
-                    client_chain => #{root =>
-                                          [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                      intermediates =>
-                                          [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                      peer =>
-                                          [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}),
-
+                                       [{key, ?KEY(6)}]),
+    DerConfig =
+        public_key:pkix_test_data(
+          #{server_chain =>
+                #{root => SRoot,
+                  intermediates => [[{key, ?KEY(5)}]],
+                  peer => [{key, ?KEY(4)}]},
+            client_chain =>
+                #{root => [{key, ?KEY(1)}],
+                  intermediates => [[{key, ?KEY(2)}]],
+                  peer => [{key, ?KEY(3)}]}}),
     ClientBase = filename:join(PrivDir, "client_test"),
     ServerBase =  filename:join(PrivDir, "server_test"),
     PemConfig = x509_test:gen_pem_config_files(DerConfig, ClientBase, ServerBase),
     ClientConf = proplists:get_value(client_config, PemConfig),
     ServerConf = proplists:get_value(server_config, PemConfig),
-
-    {proplists:get_value(cacertfile, ServerConf), ClientConf, ServerConf, OrgSRoot,
+    {proplists:get_value(cacertfile, ServerConf), ClientConf, ServerConf, ServerRootCert0,
     ClientBase, ServerBase}.
 
-overwrite_files_with_new_configuration(OrgSRoot, ClientBase, ServerBase) ->
-    Key = ssl_test_lib:hardcode_rsa_key(1),
-    OTPCert = public_key:pkix_decode_cert(OrgSRoot, otp),
+overwrite_files_with_new_configuration(ServerRootCert0, ClientBase,
+                                       ServerBase, IntermediateServerKey) ->
+    Key = ?KEY(1),
+    OTPCert = public_key:pkix_decode_cert(ServerRootCert0, otp),
     TBS = OTPCert#'OTPCertificate'.tbsCertificate,
     #'RSAPrivateKey'{modulus=N, publicExponent=E} = Key,
     Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
     Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters='NULL'},
     SPKI = #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
                                       subjectPublicKey = Public},
-    NewCert = public_key:pkix_sign(TBS#'OTPTBSCertificate'{subjectPublicKeyInfo = SPKI}, Key),
-
-    DerConfig1 = public_key:pkix_test_data(
-                   #{server_chain =>
-                         #{root =>
-                               #{cert => NewCert, key => Key},
-                           intermediates =>
-                               [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
-                           peer =>
-                               [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
-                     client_chain =>
-                         #{root =>
-                               [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                           intermediates =>
-                               [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                           peer =>
-                               [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}),
+    ServerRootCert1 = public_key:pkix_sign(TBS#'OTPTBSCertificate'{subjectPublicKeyInfo = SPKI}, Key),
+    DerConfig1 =
+        public_key:pkix_test_data(
+          #{server_chain =>
+                #{root => #{cert => ServerRootCert1, key => Key},
+                  intermediates => [[{key, ?KEY(IntermediateServerKey)}]],
+                  peer => [{key, ?KEY(4)}]},
+            client_chain =>
+                #{root => [{key, ?KEY(1)}],
+                  intermediates => [[{key, ?KEY(2)}]],
+                  peer => [{key, ?KEY(3)}]}}),
     %% Overwrite old config files
     _ = x509_test:gen_pem_config_files(DerConfig1, ClientBase, ServerBase),
-    NewCert.
+    ServerRootCert1.
 
 pem_periodical_cleanup(Config, FileIds,
             #{init := Init, connected := Connected,
@@ -686,8 +695,10 @@ pem_periodical_cleanup(Config, FileIds,
     ct:sleep(round(1.5 * ?CLEANUP_INTERVAL)),
 
     Cleaned = get_table_sizes(),
-    [{pem_cache, PemCacheData1}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
-     {ca_file_ref, CaFileRefData0}] = get_tables(),
+    [{pem_cache, PemCacheData1}, _, _, _] = get_tables(),
+    false = PemCacheData1 == PemCacheData0,
+    check_tables([{pem_cache, PemCacheData1}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
+                  {ca_file_ref, CaFileRefData0}]),
     [true = lists:member(Row, PemCacheData0) || Row <- PemCacheData1],
 
     [ssl_test_lib:close(A) || A <- [Server, Client]],
@@ -754,3 +765,5 @@ make_symlink(AbsPath) ->
         Reason ->
             {skip, Reason}
     end.
+
+identity(Path) -> {ok, Path}.
