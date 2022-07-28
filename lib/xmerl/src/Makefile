@@ -1,8 +1,8 @@
 #
 # %CopyrightBegin%
-# 
+#
 # Copyright Ericsson AB 2003-2022. All Rights Reserved.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #
@@ -77,6 +77,7 @@ MODULES = $(EDOC_MODULES) \
 	xmerl_validate \
 	xmerl_xlate \
 	xmerl_xml \
+	xmerl_xml_indent \
 	xmerl_xpath_lib \
 	xmerl_xpath_parse \
 	xmerl_xpath_pred \
@@ -89,7 +90,7 @@ MODULES = $(EDOC_MODULES) \
 	xmerl_sax_parser_utf16be \
 	xmerl_sax_parser_utf16le \
 	xmerl_sax_simple_dom \
-	xmerl_sax_old_dom 
+	xmerl_sax_old_dom
 
 
 
@@ -123,9 +124,9 @@ TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
 		-I ../include \
-		+warn_unused_vars 
+		+warn_unused_vars
 
-#		+bin_opt_info 
+#		+bin_opt_info
 
 ifeq ($(ERL_DETERMINISTIC),yes)
 	DETERMINISM_FLAG = +deterministic
@@ -136,7 +137,7 @@ endif
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-$(TYPES): $(TARGET_FILES) 
+$(TYPES): $(TARGET_FILES)
 
 docs:
 #docs:	$(DOC_TARGET_FILES)
@@ -207,11 +208,11 @@ $(DOCDIR)/%.html:	%.erl
 
 
 #$(DOCDIR)/%.html:	%.erl
-#	$(ERL) $(EDOC_PATHS) -s edoc file $< ['{dir,"$(DOCDIR)"}'] 
+#	$(ERL) $(EDOC_PATHS) -s edoc file $< ['{dir,"$(DOCDIR)"}']
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 #ifeq "${MA_TOP}" ""
 #MA_TOP = ../../..
 #endif
@@ -242,6 +243,7 @@ $(EBIN)/xmerl_lib.beam:../include/xmerl.hrl
 $(EBIN)/xmerl_scan.beam:../include/xmerl.hrl
 $(EBIN)/xmerl_xlate.beam:../include/xmerl.hrl
 $(EBIN)/xmerl_xml.beam:../include/xmerl.hrl
+$(EBIN)/xmerl_xml_indent.beam:../include/xmerl.hrl
 $(EBIN)/xmerl_html.beam:../include/xmerl.hrl
 $(EBIN)/xmerl_text.beam:../include/xmerl.hrl
 $(EBIN)/xmerl_eventp.beam:../include/xmerl.hrl
