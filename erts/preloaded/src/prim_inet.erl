@@ -1684,9 +1684,9 @@ type_opt_1(ipv6_v6only)     -> bool;
 %% multicast
 type_opt_1(multicast_ttl)   -> int;
 type_opt_1(multicast_loop)  -> bool;
-type_opt_1(multicast_if)    -> ip;
-type_opt_1(add_membership)  -> {ip,ip};
-type_opt_1(drop_membership) -> {ip,ip};
+type_opt_1(multicast_if)    -> mif;
+type_opt_1(add_membership)  -> membership;
+type_opt_1(drop_membership) -> membership;
 %% driver options
 type_opt_1(header)          -> uint;
 type_opt_1(buffer)          -> int;
@@ -1921,7 +1921,23 @@ type_value_2(uint16, X) when X band 16#ffff =:= X     -> true;
 type_value_2(uint8, X)  when X band 16#ff =:= X       -> true;
 type_value_2(time, infinity)                          -> true;
 type_value_2(time, X) when is_integer(X), X >= 0      -> true;
-type_value_2(ip,{A,B,C,D}) when ?ip(A,B,C,D)          -> true;
+%% type_value_2(ip,{A,B,C,D}) when ?ip(A,B,C,D)          -> true;
+type_value_2(mif,{A,B,C,D}) when ?ip(A,B,C,D)         -> true;
+type_value_2(mif,Idx) when is_integer(Idx)            -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, {A2,B2,C2,D2}})
+  when ?ip(A1,B1,C1,D1) andalso ?ip(A2,B2,C2,D2)      -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, any})
+  when ?ip(A1,B1,C1,D1)                               -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, {A2,B2,C2,D2}, Idx})
+  when ?ip(A1,B1,C1,D1) andalso
+       ?ip(A2,B2,C2,D2) andalso
+       is_integer(Idx)                                -> true;
+type_value_2(membership,{{A1,B1,C1,D1}, any, Idx})
+  when ?ip(A1,B1,C1,D1) andalso
+       is_integer(Idx)                                -> true;
+type_value_2(membership,{{A,B,C,D,E,F,G,H}, Idx})
+  when ?ip6(A,B,C,D,E,F,G,H) andalso
+       is_integer(Idx)                                -> true;
 %%
 type_value_2(addr, {any,Port}) ->
     type_value_2(uint16, Port);
@@ -2081,21 +2097,58 @@ enc_value_tuple(_, _, _, _) -> [].
 %%
 %% Encoding of option VALUES:
 %%
-enc_value_2(bool, true)     -> [0,0,0,1];
-enc_value_2(bool, false)    -> [0,0,0,0];
-enc_value_2(bool8, true)    -> [1];
-enc_value_2(bool8, false)   -> [0];
-enc_value_2(int, Val)       -> ?int32(Val);
-enc_value_2(uint, Val)      -> ?int32(Val);
-enc_value_2(uint32, Val)    -> ?int32(Val);
-enc_value_2(uint24, Val)    -> ?int24(Val);
-enc_value_2(uint16, Val)    -> ?int16(Val);
-enc_value_2(uint8, Val)     -> ?int8(Val);
-enc_value_2(time, infinity) -> ?int32(-1);
-enc_value_2(time, Val)      -> ?int32(Val);
-enc_value_2(ip,{A,B,C,D})   -> [A,B,C,D];
-enc_value_2(ip, any)        -> ip4_any();
-enc_value_2(ip, loopback)   -> ip4_loopback();
+enc_value_2(bool, true)      -> [0,0,0,1];
+enc_value_2(bool, false)     -> [0,0,0,0];
+enc_value_2(bool8, true)     -> [1];
+enc_value_2(bool8, false)    -> [0];
+enc_value_2(int, Val)        -> ?int32(Val);
+enc_value_2(uint, Val)       -> ?int32(Val);
+enc_value_2(uint32, Val)     -> ?int32(Val);
+enc_value_2(uint24, Val)     -> ?int24(Val);
+enc_value_2(uint16, Val)     -> ?int16(Val);
+enc_value_2(uint8, Val)      -> ?int8(Val);
+enc_value_2(time, infinity)  -> ?int32(-1);
+enc_value_2(time, Val)       -> ?int32(Val);
+%% enc_value_2(ip, IP)
+%%   when (tuple_size(IP) =:= 4) -> ip4_to_bytes(IP);
+%% enc_value_2(ip, any)          -> ip4_any();
+%% enc_value_2(ip, loopback)     -> ip4_loopback();
+enc_value_2(mif, IP)
+  when (tuple_size(IP) =:= 4) -> ip4_to_bytes(IP);
+enc_value_2(mif, Idx)
+  when is_integer(Idx)        -> ?int32(Idx);
+enc_value_2(membership, {IP1, IP2})
+  when (tuple_size(IP1) =:= 4) andalso
+       (tuple_size(IP2) =:= 4) ->
+    enc_value_2(membership, {IP1, IP2, 0});
+enc_value_2(membership, {IP1, IP2})
+  when (tuple_size(IP1) =:= 4) andalso
+       (IP2 =:= any) ->
+    enc_value_2(membership, {IP1, IP2, 0});
+%% enc_value_2(membership, {IP1, any = _IP2})
+%%   when (tuple_size(IP1) =:= 4) ->
+%%     [?INET_AF_INET, ?int32(0), ip4_to_bytes(IP1), ip4_any()];
+enc_value_2(membership, {IP1, IP2, Idx})
+  when (tuple_size(IP1) =:= 4) andalso
+       (tuple_size(IP2) =:= 4) andalso
+       is_integer(Idx) ->
+    %% The reason for turning this thing around (the interface
+    %% before the two address'es) so that we as much as possible
+    %% "look like" IPv6...se below
+    [?int32(?INET_AF_INET), ?int32(Idx), ip4_to_bytes(IP1), ip4_to_bytes(IP2)];
+enc_value_2(membership, {IP1, any = _IP2, Idx})
+  when (tuple_size(IP1) =:= 4) andalso
+       is_integer(Idx) ->
+    [?int32(?INET_AF_INET), ?int32(Idx), ip4_to_bytes(IP1), ip4_any()];
+enc_value_2(membership, {IP, Idx})
+  when (tuple_size(IP) =:= 8) andalso
+       is_integer(Idx) ->
+    %% The reason for turning this thing around (the interface
+    %% before the address) is because of the inet-driver (it reads out a
+    %% 32-bit value for *all* options, so we might as well put a 32-bit
+    %% value "first".
+    [?int32(?INET_AF_INET6), ?int32(Idx), ip6_to_bytes(IP)];
+
 %%
 enc_value_2(addr, {any,Port}) ->
     [?INET_AF_ANY|?int16(Port)];
@@ -2195,7 +2248,15 @@ dec_value(time, [X3,X2,X1,X0|T]) ->
 	-1 -> {infinity, T};
 	Val -> {Val, T}
     end;
-dec_value(ip, [A,B,C,D|T])             -> {{A,B,C,D}, T};
+%% dec_value(ip,  [A,B,C,D|T])             -> {{A,B,C,D}, T};
+dec_value(mif, [A,B,C,D, X3,X2,X1,X0|T]) ->
+    Domain = ?i32(X3, X2, X1, X0),
+    case Domain of
+        ?INET_AF_INET ->
+            {{A,B,C,D}, T};
+        ?INET_AF_INET6 ->
+            {?i32(A,B,C,D), T}
+    end;
 %% dec_value(ether, [X1,X2,X3,X4,X5,X6|T]) -> {[X1,X2,X3,X4,X5,X6],T};
 dec_value(sockaddr, [X|T]) ->
     get_ip(X, T);
@@ -2501,7 +2562,8 @@ decode_ifopts([B | Buf], Acc) ->
 	undefined -> 
 	    {error, einval};
 	Opt ->
-	    {Val,T} = dec_value(type_ifopt(Opt), Buf),
+            OptType = type_ifopt(Opt),
+	    {Val,T} = dec_value(OptType, Buf),
 	    decode_ifopts(T, [{Opt,Val} | Acc])
     end;
 decode_ifopts(_,Acc) -> {ok,Acc}.
