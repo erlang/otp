@@ -244,7 +244,7 @@ body_length(Body) when is_binary(Body) ->
    integer_to_list(size(Body));
 
 body_length(Body) when is_list(Body) ->
-  integer_to_list(length(Body)).
+  integer_to_list(iolist_size(Body)).
 
 %% Set 'Content-Type' when it is explicitly set.
 handle_content_type(Headers, "") ->
