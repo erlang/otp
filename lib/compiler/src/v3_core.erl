@@ -160,7 +160,8 @@
 	       opts=[]     :: [compile:option()], %Options.
                dialyzer=false :: boolean(),     %Help dialyzer or not.
 	       ws=[]    :: [warning()],		%Warnings.
-               file=[{file,""}]			%File.
+               file=[{file,""}],                %File.
+               load_nif=false :: boolean()      %true if calls erlang:load_nif/2
 	      }).
 
 %% XXX: The following type declarations do not belong in this module
@@ -171,12 +172,16 @@
 
 -record(imodule, {name = [],
 		  exports = ordsets:new(),
-                  nifs = sets:new([{version, 2}]),
+                  nifs = none ::
+                    'none' | sets:set(), % Is a set if the attribute is
+                                         % present in the module.
 		  attrs = [],
 		  defs = [],
 		  file = [],
 		  opts = [],
-		  ws = []}).
+		  ws = [],
+                  load_nif=false :: boolean() %true if calls erlang:load_nif/2
+                 }).
 
 -spec module([form()], [compile:option()]) ->
         {'ok',cerl:c_module(),[warning()]}.
@@ -186,19 +191,28 @@ module(Forms0, Opts) ->
     Module = foldl(fun (F, Acc) ->
 			   form(F, Acc, Opts)
 		   end, #imodule{}, Forms),
-    #imodule{name=Mod,exports=Exp0,attrs=As0,defs=Kfs0,ws=Ws} = Module,
+    #imodule{name=Mod,exports=Exp0,attrs=As0,
+             defs=Kfs0,ws=Ws,load_nif=LoadNif,nifs=Nifs} = Module,
     Exp = case member(export_all, Opts) of
 	      true -> defined_functions(Forms);
 	      false -> Exp0
 	  end,
     Cexp = [#c_var{name=FA} || {_,_}=FA <- Exp],
+    Kfs1 = reverse(Kfs0),
+    Kfs = if LoadNif and (Nifs =:= none) ->
+                  insert_nif_start(Kfs1);
+             true ->
+                  Kfs1
+          end,
     As = reverse(As0),
-    Kfs = reverse(Kfs0),
+
     {ok,#c_module{name=#c_literal{val=Mod},exports=Cexp,attrs=As,defs=Kfs},Ws}.
 
-form({function,_,_,_,_}=F0, #imodule{defs=Defs}=Module, Opts) ->
-    {F,Ws} = function(F0, Module, Opts),
-    Module#imodule{defs=[F|Defs],ws=Ws};
+form({function,_,_,_,_}=F0,
+     #imodule{defs=Defs,load_nif=LoadNif0}=Module,
+     Opts) ->
+    {F,Ws,LoadNif} = function(F0, Module, Opts),
+    Module#imodule{defs=[F|Defs],ws=Ws,load_nif=LoadNif or LoadNif0};
 form({attribute,_,module,Mod}, Module, _Opts) ->
     true = is_atom(Mod),
     Module#imodule{name=Mod};
@@ -211,7 +225,13 @@ form({attribute,_,export,Es}, #imodule{exports=Exp0}=Module, _Opts) ->
     Exp = ordsets:union(ordsets:from_list(Es), Exp0),
     Module#imodule{exports=Exp};
 form({attribute,_,nifs,Ns}, #imodule{nifs=Nifs0}=Module, _Opts) ->
-    Nifs = sets:union(sets:from_list(Ns, [{version,2}]), Nifs0),
+    Nifs1 = case Nifs0 of
+                none ->
+                    sets:new([{version, 2}]);
+                _ ->
+                    Nifs0
+            end,
+    Nifs = sets:union(sets:from_list(Ns, [{version,2}]), Nifs1),
     Module#imodule{nifs=Nifs};
 form({attribute,_,_,_}=F, #imodule{attrs=As}=Module, _Opts) ->
     Module#imodule{attrs=[attribute(F)|As]};
@@ -249,9 +269,9 @@ function({function,_,Name,Arity,Cs0}, Module, Opts)
         %% ok = function_dump(Name, Arity, "ubody:~n~p~n",[B1]),
         {B2,St3} = cbody(B1, Nifs, St2),
         %% ok = function_dump(Name, Arity, "cbody:~n~p~n",[B2]),
-        {B3,#core{ws=Ws}} = lbody(B2, St3),
+        {B3,#core{ws=Ws,load_nif=LoadNif}} = lbody(B2, St3),
         %% ok = function_dump(Name, Arity, "lbody:~n~p~n",[B3]),
-        {{#c_var{name={Name,Arity}},B3},Ws}
+        {{#c_var{name={Name,Arity}},B3},Ws,LoadNif}
     catch
         Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
@@ -860,6 +880,9 @@ expr({call,L,{remote,_,M0,F0},As0}, St0) ->
                             name=#c_literal{val=match_fail},
                             args=[Tuple]},
             {Fail,Aps,St1};
+        {#c_literal{val=erlang},#c_literal{val=load_nif},[_,_]} ->
+            {#icall{anno=#a{anno=Anno},module=M1,name=F1,args=As1},
+             Aps,St1#core{load_nif=true}};
         {_,_,_} ->
             {#icall{anno=#a{anno=Anno},module=M1,name=F1,args=As1},Aps,St1}
     end;
@@ -3031,6 +3054,9 @@ ren_is_subst(_V, []) -> no.
 %% from case/receive.  In subblocks/clauses the AfterVars of the block
 %% are just the exported variables.
 
+cbody(B0, none, St0) ->
+    {B1,_,_,St1} = cexpr(B0, [], St0),
+    {B1,St1};
 cbody(B0, Nifs, St0) ->
     {B1,_,_,St1} = cexpr(B0, [], St0),
     B2 = case sets:is_element(St1#core.function,Nifs) of
@@ -3878,6 +3904,18 @@ is_simple(_) -> false.
 -spec is_simple_list([cerl:cerl()]) -> boolean().
 
 is_simple_list(Es) -> lists:all(fun is_simple/1, Es).
+
+insert_nif_start([VF={V,F=#c_fun{body=Body}}|Funs]) ->
+    case Body of
+        #c_seq{arg=#c_primop{name=#c_literal{val=nif_start}}} ->
+            [VF|insert_nif_start(Funs)];
+        #c_case{} ->
+            NifStart = #c_primop{name=#c_literal{val=nif_start},args=[]},
+            [{V,F#c_fun{body=#c_seq{arg=NifStart,body=Body}}}
+            |insert_nif_start(Funs)]
+    end;
+insert_nif_start([]) ->
+    [].
 
 %%%
 %%% Handling of warnings.
