@@ -101,6 +101,18 @@ pg(_Config) ->
     ?assertEqual(ok, pg:leave(?FUNCTION_NAME, self())),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME)),
     ?assertEqual([], pg:which_groups(?FUNCTION_NAME)),
+    ?assertEqual([], pg:which_local_groups(?FUNCTION_NAME)),
+    %% tagged pid
+    ?assertEqual(ok, pg:join(?FUNCTION_NAME, {tag, self()})),
+    ?assertEqual(not_joined, pg:leave(?FUNCTION_NAME, self())),
+    ?assertException(error, function_clause, pg:join(?FUNCTION_NAME, {wrong, tag, self()})),
+    ?assertException(error, function_clause, pg:join(?FUNCTION_NAME, {wrong, tag})),
+    ?assertEqual([{tag, self()}], pg:get_local_members(?FUNCTION_NAME)),
+    ?assertEqual([?FUNCTION_NAME], pg:which_groups()),
+    ?assertEqual([?FUNCTION_NAME], pg:which_local_groups()),
+    ?assertEqual(ok, pg:leave(?FUNCTION_NAME, {tag, self()})),
+    ?assertEqual([], pg:get_members(?FUNCTION_NAME)),
+    ?assertEqual([], pg:which_groups(?FUNCTION_NAME)),
     ?assertEqual([], pg:which_local_groups(?FUNCTION_NAME)).
 
 errors() ->
@@ -153,6 +165,32 @@ single(Config) when is_list(Config) ->
     sync(?FUNCTION_NAME),
     ?assertEqual([self()], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     ?assertEqual(ok, pg:leave(?FUNCTION_NAME, ?FUNCTION_NAME, self())),
+
+    %% tagged pid
+    ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, {tag, self()})),
+    ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [{tag1, self()}, {tag2, self()}])),
+    ?assertEqual(lists:sort([{tag, self()}, {tag1, self()}, {tag2, self()}]),
+        lists:sort(pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+    ?assertEqual(lists:sort([{tag, self()}, {tag1, self()}, {tag2, self()}]),
+        lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+    ?assertEqual(not_joined, pg:leave(?FUNCTION_NAME, '$missing$', {tag, self()})),
+    ?assertEqual(ok, pg:leave(?FUNCTION_NAME, ?FUNCTION_NAME, [{tag1, self()}, {tag2, self()}])),
+    ?assertEqual(ok, pg:leave(?FUNCTION_NAME, ?FUNCTION_NAME, {tag, self()})),
+    ?assertEqual([], pg:which_groups(?FUNCTION_NAME)),
+    ?assertEqual([], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    %% double
+    ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, {tag, self()})),
+    Pid2 = erlang:spawn(forever()),
+    ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, {other, Pid2})),
+    Expected2 = lists:sort([{other, Pid2}, {tag, self()}]),
+    ?assertEqual(Expected2, lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+    ?assertEqual(Expected2, lists:sort(pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+
+    stop_proc(Pid2),
+    sync(?FUNCTION_NAME),
+    ?assertEqual([{tag, self()}], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    ?assertEqual(ok, pg:leave(?FUNCTION_NAME, ?FUNCTION_NAME, {tag, self()})),
     ok.
 
 dyn_distribution() ->
@@ -208,7 +246,7 @@ overlay_missing(_Config) ->
     %% rejected!
     ?assertEqual([self()], pg:get_members(?FUNCTION_NAME, group)),
     %% ... reject leave too
-    ?FUNCTION_NAME ! {leave, PgPid, RemotePid, [group]},
+    ?FUNCTION_NAME ! {leave, PgPid, [{group, [RemotePid]}]},
     ?assertEqual([self()], pg:get_members(?FUNCTION_NAME, group)),
     %% join many times on remote
     %RemotePids = [erlang:spawn(TwoPeer, forever()) || _ <- lists:seq(1, 1024)],
@@ -243,11 +281,11 @@ two(Config) when is_list(Config) ->
 
     Pid2 = erlang:spawn(Node, forever()),
     Pid3 = erlang:spawn(Node, forever()),
-    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid2])),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, {tag, Pid2}])),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid3])),
     %% serialise through the *other* node
     sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
-    ?assertEqual(lists:sort([Pid2, Pid3]),
+    ?assertEqual(lists:sort([{tag, Pid2}, Pid3]),
         lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     %% stop the peer
     peer:stop(Peer),
@@ -277,7 +315,7 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     % empty group should be deleted.
     ?assertEqual(#{}, NewRemoteMap),
 
-    %% another variant of emptying a group remotely: join([Pi1, Pid2]) and leave ([Pid2, Pid1])
+    %% another variant of emptying a group remotely: join([Pid1, Pid2]) and leave([Pid2, Pid1])
     RemotePid2 = erlang:spawn(Node, forever()),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid2]])),
     sync({?FUNCTION_NAME, Node}),
@@ -286,7 +324,72 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid2, RemotePid]])),
     sync({?FUNCTION_NAME, Node}),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    {_, NewRemoteMap2} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    % empty group should be deleted.
+    ?assertEqual(#{}, NewRemoteMap2),
+
+    %% another variant of emptying a group remotely: join({tag, Pid1}) and leave({tag, Pid1})
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, {tag, RemotePid}])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([{tag, RemotePid}], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    %% now leave
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, {tag, RemotePid}])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    {_, NewRemoteMap3} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    % empty group should be deleted.
+    ?assertEqual(#{}, NewRemoteMap3),
+
+    %% another variant of emptying a group remotely: join([{tag, Pid1}, {tag, Pid2}]) and leave([{tag, Pid1}, {tag, Pid2}])
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [{tag, RemotePid}, {tag, RemotePid2}]])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual(lists:sort([{tag, RemotePid}, {tag, RemotePid2}]), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+    %% now leave
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [{tag, RemotePid}, {tag, RemotePid2}]])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    {_, NewRemoteMap4} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    % empty group should be deleted.
+    ?assertEqual(#{}, NewRemoteMap4),
+
+    %% another variant of emptying a group remotely: join([Pid, {tag, Pid2}]) and leave([Pid1, {tag, Pid2}])
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, {tag, RemotePid2}]])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([RemotePid, {tag, RemotePid2}], lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+    %% now leave
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, {tag, RemotePid2}]])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    {_, NewRemoteMap5} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    % empty group should be deleted.
+    ?assertEqual(#{}, NewRemoteMap5),
+
+    %% another variant of emptying a group remotely: join([Pid, {tag, Pid2}]) and leave(Pid1), leave({tag, Pid2})
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, {tag, RemotePid2}]])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([RemotePid, {tag, RemotePid2}], lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+    %% now leave
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, {tag, RemotePid2}])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    {_, NewRemoteMap6} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    % empty group should be deleted.
+    ?assertEqual(#{}, NewRemoteMap6),
+
+    %% another variant of emptying a group remotely: join([Pid, {tag, Pid2}]) and leave({tag, Pid2}), leave(Pid1)
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, {tag, RemotePid2}]])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([RemotePid, {tag, RemotePid2}], lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+    %% now leave
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, {tag, RemotePid2}])),
+    ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    sync({?FUNCTION_NAME, Node}),
+    ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    {_, NewRemoteMap7} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
+    % empty group should be deleted.
+    ?assertEqual(#{}, NewRemoteMap7),
+
     peer:stop(Peer),
     ok.
 
@@ -400,6 +503,7 @@ exchange(Config) when is_list(Config) ->
     {Peer2, Node2} = spawn_node(?FUNCTION_NAME),
     Pids10 = [peer:call(Peer1, erlang, spawn, [forever()]) || _ <- lists:seq(1, 10)],
     Pids2 = [peer:call(Peer2, erlang, spawn, [forever()]) || _ <- lists:seq(1, 10)],
+    TaggedPids2 = [{tag, Pid} || Pid <- Pids2],
     Pids11 = [peer:call(Peer1, erlang, spawn, [forever()]) || _ <- lists:seq(1, 10)],
     %% kill first 3 pids from node1
     {PidsToKill, Pids1} = lists:split(3, Pids10),
@@ -413,6 +517,7 @@ exchange(Config) when is_list(Config) ->
     sync({?FUNCTION_NAME, Node1}),
 
     Pids = lists:sort(Pids1 ++ Pids2 ++ Pids11),
+    TaggedPids = lists:sort(Pids1 ++ TaggedPids2 ++ Pids11),
     ?assert(lists:all(fun erlang:is_pid/1, Pids)),
 
     disconnect_nodes([Node1, Node2]),
@@ -420,7 +525,7 @@ exchange(Config) when is_list(Config) ->
     sync(?FUNCTION_NAME), %% Processed nodedowns...
     ?assertEqual([], lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
 
-    [?assertEqual(ok, peer:call(Peer2, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid])) || Pid <- Pids2],
+    [?assertEqual(ok, peer:call(Peer2, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, TaggedPid])) || TaggedPid <- TaggedPids2],
     [?assertEqual(ok, peer:call(Peer1, pg, join, [?FUNCTION_NAME, second, Pid])) || Pid <- Pids11],
     ?assertEqual(ok, peer:call(Peer1, pg, join, [?FUNCTION_NAME, third, Pids11])),
     %% rejoin
@@ -428,7 +533,7 @@ exchange(Config) when is_list(Config) ->
     ?assertEqual(true, net_kernel:connect_node(Node2)),
     %% need to sleep longer to ensure both nodes made the exchange
     ensure_peers_info(?FUNCTION_NAME, [Node1, Node2]),
-    ?assertEqual(Pids, lists:sort(pg:get_members(?FUNCTION_NAME, second) ++ pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+    ?assertEqual(TaggedPids, lists:sort(pg:get_members(?FUNCTION_NAME, second) ++ pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     ?assertEqual(lists:sort(Pids11), lists:sort(pg:get_members(?FUNCTION_NAME, third))),
 
     {Left, Stay} = lists:split(3, Pids11),
@@ -453,6 +558,7 @@ nolocal(Config) when is_list(Config) ->
     RemotePid = erlang:spawn(Node, forever()),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, {tag, RemotePid}])),
     ?assertEqual([], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     peer:stop(Peer),
     ok.
@@ -461,22 +567,22 @@ double(Config) when is_list(Config) ->
     Pid = erlang:spawn(forever()),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, Pid)),
     {Peer, Node} = spawn_node(?FUNCTION_NAME),
-    ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [Pid])),
-    ?assertEqual([Pid, Pid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
+    ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [Pid, {tag, Pid}])),
+    ?assertEqual(lists:sort([Pid, Pid, {tag, Pid}]), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     sync(?FUNCTION_NAME),
     sync({?FUNCTION_NAME, Node}),
-    ?assertEqual([Pid, Pid], rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
+    ?assertEqual(lists:sort([Pid, Pid, {tag, Pid}]), lists:sort(rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME]))),
     peer:stop(Peer),
     ok.
 
 scope_restart(Config) when is_list(Config) ->
     Pid = erlang:spawn(forever()),
-    ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [Pid, Pid])),
+    ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [Pid, {tag, Pid}])),
     {Peer, Node} = spawn_node(?FUNCTION_NAME),
     RemotePid = erlang:spawn(Node, forever()),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
     sync({?FUNCTION_NAME, Node}),
-    ?assertEqual(lists:sort([RemotePid, Pid, Pid]), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+    ?assertEqual(lists:sort([RemotePid, Pid, {tag, Pid}]), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     %% stop scope locally, and restart
     gen_server:stop(?FUNCTION_NAME),
     pg:start(?FUNCTION_NAME),
@@ -494,6 +600,8 @@ missing_scope_join(Config) when is_list(Config) ->
     RemotePid = erlang:spawn(Node, forever()),
     ?assertMatch({badrpc, {'EXIT', {noproc, _}}}, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
     ?assertMatch({badrpc, {'EXIT', {noproc, _}}}, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
+    ?assertMatch({badrpc, {'EXIT', {noproc, _}}}, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, {tag, RemotePid}])),
+    ?assertMatch({badrpc, {'EXIT', {noproc, _}}}, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, {tag, RemotePid}])),
     peer:stop(Peer),
     ok.
 
@@ -561,7 +669,8 @@ forced_sync(Config) when is_list(Config) ->
 group_leave(Config) when is_list(Config) ->
     {Peer, Node} = spawn_node(?FUNCTION_NAME),
     RemotePid = erlang:spawn(Node, forever()),
-    Total = lists:duplicate(16, RemotePid),
+    %% interleave tagged and untagged pids so both will be left/remaining
+    Total = lists:foldl(fun(Pid, Acc) -> [{tag, Pid}, Pid] ++ Acc end, [], lists:duplicate(8, RemotePid)),
     {Left, Remain} = lists:split(4, Total),
     %% join 16 times!
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, two, Total])),
@@ -569,7 +678,7 @@ group_leave(Config) when is_list(Config) ->
 
     sync({?FUNCTION_NAME, Node}),
     sync(?FUNCTION_NAME),
-    ?assertEqual(Remain, pg:get_members(?FUNCTION_NAME, two)),
+    ?assertEqual(lists:sort(Remain), lists:sort(pg:get_members(?FUNCTION_NAME, two))),
     peer:stop(Peer),
     sync(?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, two)),
@@ -619,8 +728,8 @@ monitor_test_impl(Scope, Group, InitialMonitor, SecondMonitor, DownMonitor) ->
     Ref3 = receive {ThirdMonitor, ThirdRef} -> ThirdRef end,
     %% remote join
     RemotePid = erlang:spawn(Node, forever()),
-    ?assertEqual(ok, rpc:call(Node, pg, join, [Scope, Group, [RemotePid, RemotePid]])),
-    wait_message(Ref, join, Group, [RemotePid, RemotePid], "Remote"),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [Scope, Group, [RemotePid, {tag, RemotePid}]])),
+    wait_message(Ref, join, Group, [RemotePid, {tag, RemotePid}], "Remote"),
     %% verify leave event
     ?assertEqual([Self], pg:get_local_members(Scope, Group)),
     ?assertEqual(ok, pg:leave(Scope, Group, self())),
@@ -634,20 +743,20 @@ monitor_test_impl(Scope, Group, InitialMonitor, SecondMonitor, DownMonitor) ->
     SecondMonMsgs = gen_server:call(ExtraMonitor, flush),
     %% inspect the queue, it should contain double remote join, then single local and single remove leave
     ExpectedLocalMessages = [
-        {Ref2, join, Group, [RemotePid, RemotePid]},
+        {Ref2, join, Group, [RemotePid, {tag, RemotePid}]},
         {Ref2, leave, Group, [Self]},
         {Ref2, leave, Group, [RemotePid]}],
     ?assertEqual(ExpectedLocalMessages, SecondMonMsgs, "Local monitor failed"),
     %% inspect remote monitor queue
     ThirdMonMsgs = gen_server:call(ThirdMonitor, flush),
     ExpectedRemoteMessages = [
-        {Ref3, join, Group, [RemotePid, RemotePid]},
+        {Ref3, join, Group, [RemotePid, {tag, RemotePid}]},
         {Ref3, leave, Group, [Self]},
         {Ref3, leave, Group, [RemotePid]}],
     ?assertEqual(ExpectedRemoteMessages, ThirdMonMsgs, "Remote monitor failed"),
     %% remote leave via stop (causes remote monitor to go DOWN)
     ok = peer:stop(Peer),
-    wait_message(Ref, leave, Group, [RemotePid], "Remote stop"),
+    wait_message(Ref, leave, Group, [{tag, RemotePid}], "Remote stop"),
     DownMonitor(Scope, Ref, Self),
     %% demonitor
     ?assertEqual(ok, pg:demonitor(Scope, Ref)),
@@ -699,7 +808,7 @@ ensure_peers_info(Scope, Nodes) ->
     %% Ensures that pg server on local node has gotten info from
     %% pg servers on all Peer nodes passed as argument (assuming
     %% no connection failures).
-    %% 
+    %%
     %% This function assumes that all nodeup messages has been
     %% delivered to all local recipients (pg server) when called.
     %%
@@ -727,7 +836,7 @@ ensure_synced(Scope, Nodes) ->
     %% Ensures that the pg server on local node have synced
     %% with pg servers on all Peer nodes (assuming no connection
     %% failures).
-    %% 
+    %%
     %% This function assumes that all nodeup messages has been
     %% delivered to all local recipients (pg server) when called.
     %%

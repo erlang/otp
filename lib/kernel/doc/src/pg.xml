@@ -55,6 +55,12 @@
       <seemfa marker="#get_local_members/1"><c>get_local_members/1</c></seemfa>
       to determine which processes are members of the group.
       Then the message can be sent to one or more group members.</p>
+    <p>To help identifying particular processes within a group, processes can be
+       associated with a tag. These tagged processes are returned along with
+       untagged processes by <c>pg</c> functions. There are no special functions
+       for handling tagged or untagged processes only.
+    </p>
+
     <p>If a member terminates, it is automatically removed from the group.</p>
 
     <p>A process may join multiple groups. It may join the same group multiple times.
@@ -98,6 +104,14 @@
     <datatype>
       <name name="group"/>
       <desc><p>The identifier of a process group.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="tag"/>
+      <desc><p>The tag associated with a process.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="pid_or_tagged_pid"/>
+      <desc><p>An untagged or tagged process.</p></desc>
     </datatype>
   </datatypes>
 
