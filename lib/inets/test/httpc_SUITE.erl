@@ -25,6 +25,7 @@
 
 -module(httpc_SUITE).
 
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").
@@ -136,7 +137,8 @@ real_requests()->
      invalid_method,
      no_scheme,
      invalid_uri,
-     binary_url
+     binary_url,
+     iolist_body
     ].
 
 real_requests_esi() ->
@@ -1357,6 +1359,62 @@ invalid_method(Config) ->
 binary_url(Config) ->
     URL = uri_string:normalize(url(group_name(Config), "/dummy.html", Config)),
     {ok, _Response} = httpc:request(unicode:characters_to_binary(URL)).
+
+%%-------------------------------------------------------------------------
+
+iolist_body(Config) ->
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
+    {ok,{_,Port}} = inet:sockname(ListenSocket),
+
+    ProcessHeaders = 
+        fun 
+            F([], Acc) ->
+                Acc;
+            F([Line|Tail], Acc0) ->
+                Acc1 = 
+                    case binary:split(Line, <<": ">>, [trim_all]) of
+                        [Key, Value] ->
+                            Acc0#{Key => Value};
+                        _ ->
+                            Acc0
+                    end,
+                F(Tail, Acc1)
+        end,
+    
+    proc_lib:spawn(fun() ->
+        {ok, Accept} = gen_tcp:accept(ListenSocket),
+        receive
+            {tcp, Accept, Msg} ->
+                ct:log("Message received: ~p", [Msg]),
+                [_HeadLine | HeaderLines] = binary:split(Msg, <<"\r\n">>, [global]),
+                Headers = ProcessHeaders(HeaderLines, #{}),
+                ContentLength = maps:get(<<"content-length">>, Headers, "-1"),
+                gen_tcp:send(Accept, [
+                    "HTTP/1.1 200 OK\r\n",
+                    "\r\n",
+                    ContentLength
+                ])
+        after
+            1000 ->
+                ct:fail("Timeout: did not receive packet")
+        end
+    end),
+
+    {ok, Host} = inet:gethostname(),
+    URL = ?URL_START ++ Host ++ ":" ++ integer_to_list(Port),
+    ReqBody = [
+        <<"abc">>,
+        <<"def">>
+    ],
+    {ok, Resp} = httpc:request(post, {URL, _Headers = [], _ContentType = "text/plain", ReqBody}, [], []),
+    ct:log("Got response ~p", [Resp]),
+    case Resp of
+        {{"HTTP/1.1", 200, "OK"}, [], RespBody} ->
+            ReqBody_ContentLength = list_to_integer([C || C <- RespBody, C =/= $\s]),
+            ?assertEqual(iolist_size(ReqBody), ReqBody_ContentLength);
+        _ ->
+            ct:fail("Didn't receive the correct response")
+    end.
 
 
 %%-------------------------------------------------------------------------
