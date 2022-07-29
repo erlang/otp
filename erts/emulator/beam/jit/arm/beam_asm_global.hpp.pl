@@ -83,7 +83,6 @@ my @beam_global_funcs = qw(
     i_length_guard_shared
     i_length_body_shared
     i_loop_rec_shared
-    i_new_small_map_lit_shared
     i_test_yield_shared
     i_bxor_body_shared
     int_div_rem_body_shared
