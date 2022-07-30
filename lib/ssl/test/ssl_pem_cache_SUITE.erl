@@ -17,7 +17,8 @@
 %%
 %% %CopyrightEnd%
 %%
-
+%% (Note: See the document internal_doc/pem_and_cert_cache.md for additional
+%% information)
 %%
 
 -module(ssl_pem_cache_SUITE).
@@ -143,6 +144,12 @@ end_per_testcase(_TestCase, Config) ->
 pem_certfile_keyfile_periodical_cleanup() ->
     [{doc, "Test pem cache invalidate mechanism using mtime attribute "
       "adjustment - certfile and keyfile."}].
+%% 1. establish TLS connection
+%% 2. mtime adjusted for certfile, keyfile for server
+%% 3. during cleanup:
+%%    1. 2 files removed from PemCache
+%%    2. tables unchanged (Cert, CaFileRef, CaRefCnt)
+%% 4. after TLS disconnect PemCache size is 4, rest of tables are empty
 pem_certfile_keyfile_periodical_cleanup(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected => [6, 6, 2, 2],
                 cleaned => [4, 6, 2, 2], disconnected => [4, 0, 0, 0]},
@@ -152,6 +159,12 @@ pem_certfile_keyfile_periodical_cleanup(Config) when is_list(Config) ->
 pem_cacertfile_periodical_cleanup() ->
     [{doc, "Test pem cache invalidate mechanism using mtime attribute "
       "adjustment - cacertfile."}].
+%% 1. establish TLS connection
+%% 2. mtime adjusted for cacertfile for server
+%% 3. during cleanup:
+%%    1. 1 file removed from PemCache
+%%    2. tables unchanged (Cert, CaFileRef, CaRefCnt)
+%% 4. after TLS disconnect PemCache size is 5, rest of tables are empty
 pem_cacertfile_periodical_cleanup(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected => [6, 6, 2, 2],
                  cleaned => [5, 6, 2, 2], disconnected => [5, 0, 0, 0]},
@@ -161,6 +174,23 @@ pem_cacertfile_periodical_cleanup(Config) when is_list(Config) ->
 pem_manual_cleanup() ->
     [{doc,"Test that internal reference table is cleaned properly even when "
       " the PEM cache is cleared" }].
+%% 1. establish 1st TLS connection
+%% 2. check CaRefCnt content - expecting summed ref counters value of 2
+%% 3. store content of all tables for future checks
+%% 4. ssl:clear_pem_cache()
+%% 5. verify that PemCache table is now empty
+%% 6. verify Cert, CaFileRef, CaRefCnt were unchanged
+%% 7. establish 2nd TLS connection
+%% 8. check CaRefCnt content - expecting summed ref counters value of 4
+%% 9. verify that PemCache table size is 4 (cafileoption is ignored? not loaded
+%%    to PemCache because CaFileRef contains entry for path; probably previously
+%%    cached CA certs are used)
+%% 10. verify that Cert and CaFileRef table content is the same as after 1st connection
+%% 11. PemCache contains files specified with certfile and keyfile - their
+%%     content should be the same as for 1st TLS connection
+%% 12. Upon disconnecting summed ref counters are reduced to 2 and 0
+%% 13. When that value becomes 0 (after terminating both connection) CaFileRef,
+%%     Cert, CaRefCnt tables are cleared
 pem_manual_cleanup(Config) when is_list(Config) ->
     [0, 0, 0, 0] = get_table_sizes(),
     {Server, Client} = basic_verify_test_no_close(Config),
@@ -204,6 +234,13 @@ pem_manual_cleanup(Config) when is_list(Config) ->
 
 invalid_insert() ->
     [{doc, "Test that insert of invalid pem does not cause empty cache entry"}].
+%% 1. attempt to establish TLS connection with client passing invalid path in
+%%    cacertfile option
+%% 2. verify PemCache table is populated with options passed by server
+%% 3. verify Cert, CaFileRef, CaRefCnt tables are empty
+%% 4. connection is not established
+%% 5. error happens during handshake, when client tries to open file passed in
+%%    cacertfile option
 invalid_insert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     [0, 0, 0, 0] = get_table_sizes(),
@@ -230,6 +267,35 @@ new_root_pem_manual_cleanup() ->
     [{doc, "Test that changed PEM-files on disk followed by ssl:clear_pem_cache()"
       " invalidates trusted CA cache as well as ordinary PEM cache. "
       "This test case recreates a PEM file, resulting with its actual content change."}].
+%% 1. ITERATE below over 2 cert chains
+%%    1. in one scenario overwritten cert chain has the same private keys - so both
+%%       cert chains are 'compatible'
+%%    2. in second scenario overwrittern cert chain has a differet private key for
+%%       intermediate cert - cert chains are not 'compatible'
+%% 2. create initial config in PEM files - 1st cert chain is created
+%% 3. make 1st TLS connection
+%% 4. verify cert on client side by:
+%%    1. get server Cert with ssl:peercert(Socket)
+%%    2. extract trusted certs from file - load data from disk
+%%    3. with CA certs extracted from file, attempt to build a chain for server Cert
+%%    4. verify that RootCert found is the same as one passed as argument
+%% 5. check tables are populated as expected
+%% 6. (copy server cacertfile to separate file - for checking chain with not
+%%    cleanup flow)
+%% 7. overwrite config in PEM files - server cert chain is updated
+%% 8. check in-memory tables were not changed even though files on disk are updated
+%% 9. -> ssl:clear_pem_cache() / ct:sleep() -
+%% 10. check PemCache is empty CaRefCnt and CaFileRef tables are unchanged
+%% 11. check Cert table was update (certificate conntent was updated)
+%% 12. make 2nd TLS connection
+%% 13. verify server cert on client side (use NEW server root as argument)
+%% 14. check the sum of  counters is 4 - 2 connections using same cert data
+%% 15. check CaFileRef table contains same data as for 1st connection
+%% 16. check Cert table was reloaded with different certs
+%% 17. check PemCache table was loaded with different file content
+%% 18. close connections in a sequence, check sum of counters value and final
+%%     content of tables (connection related should be empty when last connection
+%%     is terminated)
 new_root_pem_manual_cleanup(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                  cleaned => [0, 6, 2, 2], connected2 => [4, 6, 2, 2],
@@ -242,6 +308,7 @@ new_root_pem_periodical_cleanup() ->
     [{doc, "Test that changed PEM-files on disk followed by periodical cleanup"
       " invalidates trusted CA cache as well as ordinary PEM cache. "
       "This test case recreates a PEM file, resulting with its actual content change."}].
+%% see new_root_pem_manual_cleanup for specification
 new_root_pem_periodical_cleanup(Config) when is_list(Config) ->
     ExpectedStats = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                       cleaned => [0, 6, 2, 2], connected2 => [4, 6, 2, 2],
@@ -254,6 +321,27 @@ new_root_pem_no_cleanup() ->
     [{doc, "Test that changed PEM-files on disk not followed by any cleanup"
       " will not be used for making connection."
       "This test case recreates a PEM file, resulting with its actual content change."}].
+%% 1. for link variant, replace path in ClientConf with a link - both
+%%    connection will use links on client side
+%% 2. create initial config in PEM files - 1st cert chain is created
+%% 3. make 1st TLS connection
+%% 4. verify server cert on client side by:
+%%    1. get server Cert with ssl:peercert(Socket)
+%%    2. extract trusted certs from file - load data from disk
+%%    3. with CA certs extracted from file, attempt to build a chain for server Cert
+%%    4. verify that RootCert found is the same as one passed as argument
+%% 5. check tables are populated as expected
+%% 6. (copy server cacertfile to separate file - for checking chain with not
+%%    cleanup flow)
+%% 7. overwrite config in PEM files - server cert chain is updated
+%% 8. check in-memory tables were not changed even though files on disk are updated
+%% 9. make 2nd TLS connection
+%% 10. verify server cert on client side (use the same server root as argument)
+%% 11. check the sum of  counters is 4 - 2 connections using same cert data
+%% 12. check PemCache and Cert tables hold the same data as for 1st connection
+%% 13. close connections in a sequence, check sum of counters value and final
+%%     content of tables (connection related should be empty when last connection
+%%     is terminated)
 new_root_pem_no_cleanup(Config) when is_list(Config) ->
     ExpectedStats = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                       cleaned => [6, 6, 2, 2], connected2 => [6, 6, 2, 2],
@@ -264,6 +352,7 @@ new_root_pem_no_cleanup_symlink() ->
     [{doc, "Test that changed PEM-files on disk not followed by any cleanup"
       " will not be used for making connection - even with symlink. "
       "This test case recreates a PEM file, resulting with its actual content change."}].
+%% see new_root_pem_no_cleanup for specification
 new_root_pem_no_cleanup_symlink(Config) when is_list(Config) ->
     ExpectedStats = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                       cleaned => [6, 6, 2, 2], connected2 => [6, 6, 2, 2],
@@ -274,6 +363,7 @@ new_root_pem_no_cleanup_hardlink() ->
     [{doc, "Test that changed PEM-files on disk not followed by any cleanup"
       " will not be used for making connection - even with hardlink. "
       "This test case recreates a PEM file, resulting with its actual content change."}].
+%% see new_root_pem_no_cleanup for specification
 new_root_pem_no_cleanup_hardlink(Config) when is_list(Config) ->
     ExpectedStats = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                       cleaned => [6, 6, 2, 2], connected2 => [6, 6, 2, 2],
@@ -284,6 +374,18 @@ alternative_path_hardlink() ->
     [{doc,"Test that internal reference table contains expected data for"
       " absolute and hard link. "
       "This test verifies handling of same file with an alternative reference."}].
+%% 1. copy client cacertfile to CWD
+%% 2. establish connection using client CA cert file specified with full path
+%% 3. check sum of counters is 2
+%% 4. check table sizes
+%% 5. establish connection using client CA cert file specified with alternative
+%%    - hardlink, symlink or just filename instead of path
+%% 6. check sum of counters is 4
+%% 7. check table sizes
+%% 8. copy client CA cert file into sub-directory
+%% 9. change CWD to subdirectory
+%% 10. establish connection using client CA cert file specified with alternative
+%%    - hardlink, symlink or just filename instead of path
 alternative_path_hardlink(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                  connected2 => [7, 9, 3, 3], connected3 => [8, 12, 4, 4],
@@ -294,6 +396,7 @@ alternative_path_symlink() ->
     [{doc,"Test that internal reference table contains expected data for"
       " absolute and symbolic link. "
       "This test verifies handling of same file with an alternative reference."}].
+%% see alternative_path_hardlink for specification
 alternative_path_symlink(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                  connected2 => [7, 9, 3, 3], connected3 => [8, 12, 4, 4],
@@ -304,6 +407,7 @@ alternative_path_noabspath() ->
     [{doc,"Test that internal reference table contains expected data for"
       " absolute and relative paths. "
       "This test verifies handling of same file with an alternative reference."}].
+%% see alternative_path_hardlink for specification
 alternative_path_noabspath(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
                  connected2 => [7, 9, 3, 3], connected3 => [7, 9, 3, 3],
@@ -313,21 +417,6 @@ alternative_path_noabspath(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
-%% |---------------|                   |------------------------|
-%% | PemCache      |                   | Cert                   |
-%% |---------------|0,1               *|------------------------|
-%% | FilePath (PK) |-------------------| {Ref, SN, Issuer} (PK) |
-%% | FileContent   |                   | Cert                   |
-%% |---------------|                   |------------------------|
-%%    |0,1     |0,1
-%%    |        +------------------------+
-%%    |0,1                              |0,1
-%% |-----------------|               |------------|
-%% | CaFileRef       |               | CaRefCnt   |
-%% |-----------------|               |------------|
-%% | CaCertFile (PK) |               | Ref (PK)   |
-%% | Ref (FK)        |               | Counter    |
-%% |-----------------|               |------------|
 get_table_sizes() ->
     ct:sleep(?SLEEP_AMOUNT),
     DbSizes = [{Label, Db, ssl_pkix_db:db_size(Db)} ||
