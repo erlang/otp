@@ -20,6 +20,8 @@
 
 %%----------------------------------------------------------------------
 %% Purpose: Manages ssl sessions and trusted certifacates
+%% (Note: See the document internal_doc/pem_and_cert_cache.md for additional
+%% information)
 %%----------------------------------------------------------------------
 
 -module(ssl_pem_cache).
