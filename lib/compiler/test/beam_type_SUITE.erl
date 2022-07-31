@@ -28,7 +28,8 @@
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
          switch_fail_inference/1,failures/1,
-         cover_maps_functions/1,min_max_mixed_types/1]).
+         cover_maps_functions/1,min_max_mixed_types/1,
+         not_equal/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -66,7 +67,8 @@ groups() ->
        switch_fail_inference,
        failures,
        cover_maps_functions,
-       min_max_mixed_types
+       min_max_mixed_types,
+       not_equal
       ]}].
 
 init_per_suite(Config) ->
@@ -1137,6 +1139,24 @@ min_max_mixed_types(_Config) ->
     42 = id(max(-99, id(41)+1)),
 
     ok.
+
+%% GH-6183. beam_validator had a stronger type analysis for '=/=' and
+%% is_ne_exact than the beam_ssa_type pass. It would figure out that
+%% at the time the comparison 'a /= V' was evaluated, V must be equal
+%% to 'true' and the comparison would therefore always return 'false'.
+%% beam_validator would report that as a type conflict.
+
+not_equal(_Config) ->
+    true = do_not_equal(true),
+    {'EXIT',{function_clause,_}} = catch do_not_equal(false),
+    {'EXIT',{function_clause,_}} = catch do_not_equal(0),
+    {'EXIT',{function_clause,_}} = catch do_not_equal(42),
+    {'EXIT',{function_clause,_}} = catch do_not_equal(self()),
+
+    ok.
+
+do_not_equal(V) when (V / V < (V orelse true)); V; V ->
+    (V = (a /= V)) orelse 0.
 
 id(I) ->
     I.

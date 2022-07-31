@@ -342,6 +342,39 @@ subtract(any, #t_number{elements={'-inf',Max}}) ->
              number=#t_number{elements={Max,'+inf'}},
              tuple_set=#t_tuple{},
              other=other};
+subtract(any, nil) ->
+    %%
+    %% We handle this subtraction mainly for correctness. Consider:
+    %%
+    %%   foobar(L) when L =/= [], is_list(L), L =/= [], hd(L) -> ok.
+    %%
+    %% The type-based optimizations would rewrite the hd/1 BIF call to
+    %% a get_hd instruction:
+    %%
+    %%   foobar(L) when L =/= [], is_list(L), L =/= [], get_hd(L) -> ok.
+    %%
+    %% The beam_ssa_dead pass would later remove the redundant second
+    %% test of `L =/= []`:
+    %%
+    %%   foobar(L) when L =/= [], is_list(L), get_hd(L) -> ok.
+    %%
+    %% With that test removed, the type for L in the get_hd instruction
+    %% would be #t_list{} instead of the required #t_cons{} and that
+    %% would trigger an assertion. (If the assertion were to be removed,
+    %% beam_validator would complain instead.)
+    %%
+    %% By letting the type subtraction of `any` by `nil` return a
+    %% union, the optimized code above becomes legal. As an added bonus,
+    %% the is_list/1 guard test can be replaced with the cheaper
+    %% is_nonempty_list instruction:
+    %%
+    %%   foobar(L) when L =/= [], is_nonempty_list(L), get_hd(L) -> ok.
+    %%
+    #t_union{atom=#t_atom{},
+             list=#t_cons{},
+             number=#t_number{},
+             tuple_set=#t_tuple{},
+             other=other};
 subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
     case ordsets:subtract(Set0, Set1) of
         [] -> none;
