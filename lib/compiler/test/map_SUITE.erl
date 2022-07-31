@@ -83,7 +83,10 @@
          t_bif_map_find/1,
          t_fold_3/1, t_from_keys/1, t_map_2/1, t_maps_take_2/1,
          t_update_with_3/1, t_update_with_4/1,
-         t_with_2/1
+         t_with_2/1,
+
+         %% miscellaneous
+         t_cse_assoc/1
         ]).
 
 -define(badmap(V, F, Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -153,7 +156,10 @@ all() ->
      %% cover more code
      t_bif_map_find,
      t_fold_3, t_from_keys, t_map_2, t_maps_take_2,
-     t_update_with_3, t_update_with_4, t_with_2
+     t_update_with_3, t_update_with_4, t_with_2,
+
+     %% miscellaneous
+     t_cse_assoc
     ].
 
 groups() -> [].
@@ -2498,6 +2504,29 @@ t_bif_map_find(Config) when is_list(Config) ->
 			  catch maps:find(a, T)
 	      end),
     ok.
+
+t_cse_assoc(_Config) ->
+    {'EXIT',{{case_clause,#{key:=any}},_}} = catch do_cse_assoc(id(any)),
+
+    {'EXIT',{{case_clause,#{key:=value}},_}} = catch do_cse_assoc(id(#{}), id(value)),
+    42 = do_cse_assoc(id(#{assoc => 42}), id(any)),
+
+    ok.
+
+do_cse_assoc(V) ->
+    case #{key => V} of
+        #{assoc := Assoc} ->
+            %% The CSE optimization would consider the first two arguments in
+            %% the argument for `put_map` to be the key `alloc` and the value
+            %% `#{}`.
+            Assoc
+    end.
+
+do_cse_assoc(M, V) ->
+    case M#{key => V} of
+        #{assoc := Assoc} ->
+            Assoc
+    end.
 
 %% aux
 
