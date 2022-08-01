@@ -35,6 +35,8 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
     const ERL_NIF_TERM *field;
     int f_arity = -1;
     BIGNUM *p = NULL;
+    int arity = -1;
+    const ERL_NIF_TERM* curve_tuple;
 
     /* Here are two random curve definition examples, one prime_field and
        one characteristic_two_field. Both are from the crypto/src/crypto_ec_curves.erl.
@@ -66,8 +68,12 @@ int get_curve_definition(ErlNifEnv* env, ERL_NIF_TERM *ret, ERL_NIF_TERM def,
            };
     */
 
+    /* Separate the curve definition from the curve name */
+    if (!enif_get_tuple(env, def, &arity, &curve_tuple) || (arity != 2))
+        assign_goto(*ret, err, EXCP_ERROR(env, "Tuple arity 2 expected."));
+
     /* {Field, Prime, Point, Order, CoFactor} = CurveDef */
-    if (!enif_get_tuple(env, def, &c_arity, &curve) ||
+    if (!enif_get_tuple(env, curve_tuple[0], &c_arity, &curve) ||
         c_arity != 5)
         assign_goto(*ret, err, EXCP_ERROR_N(env, 1, "Bad curve def. Expect 5-tuple."));
 
@@ -792,6 +798,8 @@ int get_ec_key_sz(ErlNifEnv* env,
     BIGNUM *priv_key = NULL;
     EC_POINT *pub_key = NULL;
     EC_GROUP *group = NULL;
+    int arity = -1;
+    const ERL_NIF_TERM* curve_tuple;
 
     if (priv != atom_undefined) {
         if (!get_bn_from_bin(env, priv, &priv_key))
@@ -802,7 +810,10 @@ int get_ec_key_sz(ErlNifEnv* env,
             goto err;
     }
 
-    if ((key = ec_key_new(env, curve, size)) == NULL)
+    if (!enif_get_tuple(env, curve, &arity, &curve_tuple) || (arity != 2))
+        goto err;
+
+    if ((key = ec_key_new(env, curve_tuple[0], size)) == NULL)
         goto err;
 
     if ((group = EC_GROUP_dup(EC_KEY_get0_group(key))) == NULL)
