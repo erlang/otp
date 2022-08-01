@@ -70,6 +70,7 @@
 
 
 -define(CLEANUP_INTERVAL, 5000).
+-define(BIG_CLEANUP_INTERVAL, 600000).
 -define(SLEEP_AMOUNT, 1000).
 -define(KEY(NUMBER), ssl_test_lib:hardcode_rsa_key(NUMBER)).
 
@@ -113,23 +114,26 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(pem_certfile_keyfile_periodical_cleanup = Case, Config) ->
-    adjust_pem_periodical_cleanup_interval(Case, Config),
+    adjust_pem_periodical_cleanup_interval(Case, Config, ?CLEANUP_INTERVAL),
     Config;
 init_per_testcase(pem_cacertfile_periodical_cleanup = Case, Config) ->
-    adjust_pem_periodical_cleanup_interval(Case, Config),
+    adjust_pem_periodical_cleanup_interval(Case, Config, ?CLEANUP_INTERVAL),
     Config;
 init_per_testcase(new_root_pem_periodical_cleanup = Case, Config) ->
-    adjust_pem_periodical_cleanup_interval(Case, Config),
+    adjust_pem_periodical_cleanup_interval(Case, Config, ?CLEANUP_INTERVAL),
+    Config;
+init_per_testcase(new_root_pem_manual_cleanup = Case, Config) ->
+    adjust_pem_periodical_cleanup_interval(Case, Config, ?BIG_CLEANUP_INTERVAL),
     Config;
 init_per_testcase(_Case, Config) ->
     ssl_test_lib:clean_start(),
     ct:timetrap({seconds, 20}),
     Config.
 
-adjust_pem_periodical_cleanup_interval(Case, Config)->
+adjust_pem_periodical_cleanup_interval(Case, Config, Interval) ->
     application:load(ssl),
     end_per_testcase(Case, Config) ,
-    application:set_env(ssl, ssl_pem_cache_clean, ?CLEANUP_INTERVAL),
+    application:set_env(ssl, ssl_pem_cache_clean, Interval),
     ssl:start(),
     ct:timetrap({minutes, 1}).
 
