@@ -362,7 +362,9 @@
       | {user_passwords, [{UserName::string(),Pwd::string()}]}
       | {pk_check_user, boolean()}  
       | {password, string()}
-      | {pwdfun, pwdfun_2() | pwdfun_4()} .
+      | {pwdfun, pwdfun_2() | pwdfun_4()}
+      | {no_auth_needed, boolean()}
+        .
 
 -type prompt_texts() ::
         kb_int_tuple()
