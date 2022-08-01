@@ -64,10 +64,15 @@ handle_event(internal,
     case {ServiceName, Ssh0#ssh.service, Method} of
 	{"ssh-connection", "ssh-connection", "none"} ->
 	    %% Probably the very first userauth_request but we deny unauthorized login
-	    {not_authorized, _, {Reply,Ssh}} =
-		ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0),
-            D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
-	    {keep_state, D};
+            %% However, we *may* accept unauthorized login if instructed so
+            case ssh_auth:handle_userauth_request(Msg, Ssh0#ssh.session_id, Ssh0) of
+                {not_authorized, _, {Reply,Ssh}} ->
+                    D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
+                    {keep_state, D};
+                {authorized, User, {Reply, Ssh1}} ->
+                    D = connected_state(Reply, Ssh1, User, Method, D0),
+                    {next_state, {connected,server}, D, {change_callback_module,ssh_connection_handler}}
+            end;
 	
 	{"ssh-connection", "ssh-connection", Method} ->
 	    %% Userauth request with a method like "password" or so
