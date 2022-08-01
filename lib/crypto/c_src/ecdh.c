@@ -34,7 +34,7 @@ ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 #  include "bn.h"
 
 ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-/* (OtherPublicKey, Curve, My) */
+/* (OtherPublicKey, {CurveDef,CurveName}, My) */
 {
     ERL_NIF_TERM ret = atom_undefined;
     ErlNifBinary ret_bin;

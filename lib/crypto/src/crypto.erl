@@ -2314,17 +2314,29 @@ term_to_nif_curve({A, B, Seed}) ->
     {ensure_int_as_bin(A), ensure_int_as_bin(B), Seed}.
 
 nif_curve_params({PrimeField, Curve, BasePoint, Order, CoFactor}) ->
-    {term_to_nif_prime(PrimeField),
-     term_to_nif_curve(Curve),
-     ensure_int_as_bin(BasePoint),
-     ensure_int_as_bin(Order),
-     ensure_int_as_bin(CoFactor)};
-nif_curve_params(Curve) when is_atom(Curve) ->
-    %% named curve
-    case Curve of
-        x448 -> {evp,Curve};
-        x25519 -> {evp,Curve};
-        _ -> crypto_ec_curves:curve(Curve)
+    {
+      {term_to_nif_prime(PrimeField),
+       term_to_nif_curve(Curve),
+       ensure_int_as_bin(BasePoint),
+       ensure_int_as_bin(Order),
+       ensure_int_as_bin(CoFactor)
+      },
+      undefined %% The curve name
+    };
+nif_curve_params(CurveName) when is_atom(CurveName) ->
+    %% A named curve
+    case CurveName of
+        x448   -> {evp,CurveName};
+        x25519 -> {evp,CurveName};
+        _ ->
+            Spec =
+                try
+                    crypto_ec_curves:curve(CurveName)
+                catch
+                    _:_ ->
+                        undefined
+                end,
+            {Spec, CurveName}
     end.
 
 
