@@ -891,14 +891,14 @@ AS_IF([test "$enable_fips_support" = "yes"],
       ])
 
 AS_IF([test "x$v3_include" = "xyes"],
-      [echo "Using OpenSSL 3.0 is not yet recommended for production code." >> ./CONF_INFO
-       AC_MSG_WARN(******************************************************************)
-       AC_MSG_WARN(* Using OpenSSL 3.0 is not yet recommended for production code.  *)
+      [
        AS_IF([test "x$SSL_DYNAMIC_ONLY" = "xno" ],
-             [echo "Static linking with OpenSSL 3.0 *MAY* require special configuring of the cryptolib." >> ./CONF_INFO
+             [
+              echo "Static linking with OpenSSL 3.0 *MAY* require special configuring of the cryptolib." >> ./CONF_INFO
+              AC_MSG_WARN(******************************************************************)
               AC_MSG_WARN(* Static linking *MAY* require re-configuring the 3.0 cryptolib. *)
+              AC_MSG_WARN(******************************************************************)
              ])
-       AC_MSG_WARN(******************************************************************)
       ])
 
 CRYPTO_NO_DEPRECATE_WARN=
