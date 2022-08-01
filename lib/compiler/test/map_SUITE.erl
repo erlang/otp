@@ -86,7 +86,8 @@
          t_with_2/1,
 
          %% miscellaneous
-         t_conflicting_destinations/1
+         t_conflicting_destinations/1,
+         t_cse_assoc/1
         ]).
 
 -define(badmap(V, F, Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -159,7 +160,8 @@ all() ->
      t_update_with_3, t_update_with_4, t_with_2,
 
      %% miscellaneous
-     t_conflicting_destinations
+     t_conflicting_destinations,
+     t_cse_assoc
     ].
 
 groups() -> [].
@@ -2521,6 +2523,28 @@ do_conflicts(#{{tag,whatever} := true,
                  #{[something] := 42}) ->
     ok.
 
+t_cse_assoc(_Config) ->
+    {'EXIT',{{case_clause,#{key:=any}},_}} = catch do_cse_assoc(id(any)),
+
+    {'EXIT',{{case_clause,#{key:=value}},_}} = catch do_cse_assoc(id(#{}), id(value)),
+    42 = do_cse_assoc(id(#{assoc => 42}), id(any)),
+
+    ok.
+
+do_cse_assoc(V) ->
+    case #{key => V} of
+        #{assoc := Assoc} ->
+            %% The CSE optimization would consider the first two arguments in
+            %% the argument for `put_map` to be the key `alloc` and the value
+            %% `#{}`.
+            Assoc
+    end.
+
+do_cse_assoc(M, V) ->
+    case M#{key => V} of
+        #{assoc := Assoc} ->
+            Assoc
+    end.
 
 %% aux
 

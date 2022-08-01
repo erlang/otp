@@ -1073,7 +1073,7 @@ cse_add_inferred_exprs(#b_set{op={bif,tl},dst=Tl,args=[List]}, Es) ->
     Es#{{get_tl,[List]} => Tl};
 cse_add_inferred_exprs(#b_set{op={bif,map_get},dst=Value,args=[Key,Map]}, Es) ->
     Es#{{get_map_element,[Map,Key]} => Value};
-cse_add_inferred_exprs(#b_set{op=put_map,dst=Map,args=Args}, Es) ->
+cse_add_inferred_exprs(#b_set{op=put_map,dst=Map,args=[_,_|Args]}, Es) ->
     cse_add_map_get(Args, Map, Es);
 cse_add_inferred_exprs(_, Es) -> Es.
 
