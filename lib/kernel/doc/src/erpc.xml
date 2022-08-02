@@ -508,7 +508,7 @@
 	    The <c>call</c> operation for this specific node
 	    raised an exception of class <c>Class</c> with
 	    exception reason <c>ExceptionReason</c>. These
-	    corresponds the the exceptions that
+	    correspond to the exceptions that
 	    <seemfa marker="#call/5"><c>call/5</c></seemfa>
 	    can raise.
 	  </p></item>
