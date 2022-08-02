@@ -130,7 +130,9 @@
                        | 'unmatched_returns'
                        | 'overspecs'
                        | 'specdiffs'
+                       | 'extra_return'
                        | 'no_extra_return'
+                       | 'missing_return'
                        | 'no_missing_return'.
 -type dial_option()   :: {'files', [FileName :: file:filename()]}
                        | {'files_rec', [DirName :: file:filename()]}
