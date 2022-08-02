@@ -528,6 +528,9 @@ message_to_string({callback_spec_arg_type_mismatch, [B, F, A, N, ST, CT]},
 message_to_string({callback_missing, [B, F, A]}, _I, _E) ->
   io_lib:format("Undefined callback function ~tw/~w (behaviour ~w)\n",
 		[F, A, B]);
+message_to_string({callback_not_exported, [B, F, A]}, _I, _E) ->
+  io_lib:format("Callback function ~tw/~w exists but is not exported (behaviour ~w)\n",
+		[F, A, B]);
 message_to_string({callback_info_missing, [B]}, _I, _E) ->
   io_lib:format("Callback info about the ~w behaviour is not available\n", [B]);
 %%----- Warnings for unknown functions, types, and behaviours -------------
