@@ -1141,6 +1141,7 @@ sub emulator_output {
     print '#include "erl_map.h"', "\n";
     print '#include "big.h"', "\n";
     print '#include "erl_bits.h"', "\n";
+    print '#include "erl_binary.h"', "\n";
     print '#include "beam_transform_helpers.h"', "\n";
     print '#include "erl_global_literals.h"', "\n";
     print "\n";

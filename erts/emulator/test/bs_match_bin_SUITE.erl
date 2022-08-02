@@ -23,17 +23,17 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
          init_per_group/2,end_per_group/2,
          byte_split_binary/1,bit_split_binary/1,match_huge_bin/1,
-         bs_match_string_edge_case/1]).
+         bs_match_string_edge_case/1,contexts/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [byte_split_binary, bit_split_binary, match_huge_bin,
-     bs_match_string_edge_case].
+     bs_match_string_edge_case, contexts].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -235,3 +235,38 @@ bs_match_string_edge_case(_Config) ->
     <<?MATCH512, " ", Tail1/binary>> = Bin,
     <<" ", Tail1/binary>> = id(Tail0),
     ok.
+
+contexts(_Config) ->
+    Bytes = rand:bytes(12),
+    _ = [begin
+             <<B:N/binary,_/binary>> = Bytes,
+             B = id(get_binary(B))
+         end || N <- lists:seq(0, 12)],
+    ok.
+
+get_binary(Bin) ->
+    [A,B,C,D,E,F] = id([1,2,3,4,5,6]),
+    {Res,_} = get_binary_memory_ctx(A, B, C, D, E, F, Bin),
+    Res.
+
+
+get_binary_memory_ctx(A, B, C, D, E, F, Bin) ->
+    %% The match context will be in {x,6}, which is not
+    %% a X register backed by a CPU register on any platform.
+    Res = case Bin of
+              <<Res0:0/binary>> -> Res0;
+              <<Res0:1/binary>> -> Res0;
+              <<Res0:2/binary>> -> Res0;
+              <<Res0:3/binary>> -> Res0;
+              <<Res0:4/binary>> -> Res0;
+              <<Res0:5/binary>> -> Res0;
+              <<Res0:6/binary>> -> Res0;
+              <<Res0:7/binary>> -> Res0;
+              <<Res0:8/binary>> -> Res0;
+              <<Res0:9/binary>> -> Res0;
+              <<Res0:10/binary>> -> Res0;
+              <<Res0:11/binary>> -> Res0;
+              <<Res0:12/binary>> -> Res0
+          end,
+    {Res,{A,B,C,D,E,F}}.
+

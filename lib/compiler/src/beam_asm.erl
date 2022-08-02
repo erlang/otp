@@ -26,7 +26,7 @@
 
 -export_type([fail/0,label/0,src/0,module_code/0,function_name/0]).
 
--import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
+-import(lists, [append/1,duplicate/2,map/2,member/2,keymember/3,splitwith/2]).
 
 -include("beam_opcodes.hrl").
 -include("beam_asm.hrl").
@@ -481,6 +481,13 @@ encode_arg({extfunc, M, F, A}, Dict0) ->
 encode_arg({list, List}, Dict0) ->
     {L, Dict} = encode_list(List, Dict0, []),
     {[encode(?tag_z, 1), encode(?tag_u, length(List))|L], Dict};
+encode_arg({commands, List0}, Dict) ->
+    List1 = [begin
+                 [H|T] = tuple_to_list(Tuple),
+                 [{atom,H}|T]
+             end || Tuple <- List0],
+    List = append(List1),
+    encode_arg({list, List}, Dict);
 encode_arg({float, Float}, Dict) when is_float(Float) ->
     encode_literal(Float, Dict);
 encode_arg({fr,Fr}, Dict) ->

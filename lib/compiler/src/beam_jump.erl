@@ -925,6 +925,8 @@ instr_labels({bs_start_match4,Fail,_,_,_}) ->
         {f,L} -> [L];
         {atom,_} -> []
     end;
+instr_labels({bs_match,{f,Fail},_Ctx,_List}) ->
+    [Fail];
 instr_labels(_) ->
     [].
 

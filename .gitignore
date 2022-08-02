@@ -240,6 +240,7 @@ JAVADOC-GENERATED
 /lib/compiler/test/*_inline_SUITE.erl
 /lib/compiler/test/*_r23_SUITE.erl
 /lib/compiler/test/*_r24_SUITE.erl
+/lib/compiler/test/*_r25_SUITE.erl
 /lib/compiler/test/*_no_module_opt_SUITE.erl
 /lib/compiler/test/*_no_type_opt_SUITE.erl
 /lib/compiler/test/*_dialyzer_SUITE.erl

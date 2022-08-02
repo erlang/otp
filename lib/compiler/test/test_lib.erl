@@ -92,6 +92,7 @@ opt_opts(Mod) ->
                      (inline) -> true;
                      (no_bs_create_bin) -> true;
                      (no_bsm_opt) -> true;
+                     (no_bs_match) -> true;
                      (no_copt) -> true;
                      (no_fun_opt) -> true;
                      (no_init_yregs) -> true;

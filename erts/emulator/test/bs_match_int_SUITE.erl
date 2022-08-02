@@ -19,10 +19,10 @@
 
 -module(bs_match_int_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 integer/1,signed_integer/1,dynamic/1,more_dynamic/1,mml/1,
-	 match_huge_int/1,bignum/1,unaligned_32_bit/1]).
+	 integer/1,mixed_sizes/1,signed_integer/1,dynamic/1,more_dynamic/1,
+         mml/1,match_huge_int/1,bignum/1,unaligned_32_bit/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -30,11 +30,11 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [integer, signed_integer, dynamic, more_dynamic, mml,
+all() ->
+    [integer, mixed_sizes, signed_integer, dynamic, more_dynamic, mml,
      match_huge_int, bignum, unaligned_32_bit].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -51,6 +51,9 @@ end_per_group(_GroupName, Config) ->
 
 
 integer(Config) when is_list(Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+
     0 = get_int(mkbin([])),
     0 = get_int(mkbin([0])),
     42 = get_int(mkbin([42])),
@@ -58,36 +61,628 @@ integer(Config) when is_list(Config) ->
     256 = get_int(mkbin([1,0])),
     257 = get_int(mkbin([1,1])),
     258 = get_int(mkbin([1,2])),
-    258 = get_int(mkbin([1,2])),
     65534 = get_int(mkbin([255,254])),
     16776455 = get_int(mkbin([255,253,7])),
     4245492555 = get_int(mkbin([253,13,19,75])),
     4294967294 = get_int(mkbin([255,255,255,254])),
     4294967295 = get_int(mkbin([255,255,255,255])),
+
+    16#cafebeef = get_int(<<16#cafebeef:32>>),
+    16#cafebeef42 = get_int(<<16#cafebeef42:40>>),
+    16#cafebeeffeed = get_int(<<16#cafebeeffeed:48>>),
+    16#cafebeeffeed42 = get_int(<<16#cafebeeffeed42:56>>),
+    16#1cafebeeffeed42 = get_int(<<16#1cafebeeffeed42:57>>),
+    16#2cafebeeffeed42 = get_int(<<16#2cafebeeffeed42:58>>),
+    16#7cafebeeffeed42 = get_int(<<16#7cafebeeffeed42:59>>),
+
+    16#beefcafefeed = get_int(<<16#beefcafefeed:60>>),
+    16#beefcafefeed = get_int(<<16#beefcafefeed:61>>),
+    16#beefcafefeed = get_int(<<16#beefcafefeed:62>>),
+    16#beefcafefeed = get_int(<<16#beefcafefeed:63>>),
+
+    16#cafebeeffeed42 = get_int(<<16#cafebeeffeed42:60>>),
+    16#cafebeeffeed42 = get_int(<<16#cafebeeffeed42:61>>),
+    16#cafebeeffeed42 = get_int(<<16#cafebeeffeed42:62>>),
+    16#cafebeeffeed42 = get_int(<<16#cafebeeffeed42:63>>),
+
+    16#acafebeeffeed42 = get_int(<<16#acafebeeffeed42:60>>),
+    16#acafebeeffeed42 = get_int(<<16#acafebeeffeed42:61>>),
+    16#acafebeeffeed42 = get_int(<<16#acafebeeffeed42:62>>),
+    16#acafebeeffeed42 = get_int(<<16#acafebeeffeed42:63>>),
+
+    16#cafebeeffeed = get_int(<<16#cafebeeffeed:64>>),
+    16#cafebeeffeedface = get_int(<<16#cafebeeffeedface:64>>),
+
+    get_int_roundtrip(rand:bytes(12), 0),
+    get_int_roundtrip(rand:bytes(12), 0),
+
     Eight = [200,1,19,128,222,42,97,111],
     cmp128(Eight, uint(Eight)),
-    fun_clause(catch get_int(mkbin(seq(1,5)))),
+    fun_clause(catch get_int(mkbin(seq(1, 20)))),
     ok.
 
-get_int(Bin) ->
-    I = get_int1(Bin),
-    get_int(Bin, I).
+get_int_roundtrip(Bin0, Size) when Size =< 8*byte_size(Bin0) ->
+    <<Bin:Size/bits,_/bits>> = Bin0,
+    <<I:Size>> = Bin,
+    I = get_int(Bin),
+    get_int_roundtrip(Bin0, Size+1);
+get_int_roundtrip(_, _) -> ok.
 
-get_int(Bin0, I) when size(Bin0) < 4 ->
-    Bin = <<0,Bin0/binary>>,
-    I = get_int1(Bin),
-    get_int(Bin, I);
-get_int(_, I) -> I.
+get_int(Bin0) ->
+    %% Note that it has become impossible to create a byte-sized sub
+    %% binary (see erts_extract_sub_binary() in erl_bits.c) of size 64
+    %% or less. Therefore, to be able to create an unaligned binary,
+    %% we'll need to base it on on a binary with more than 64 bytes.
+    Size = bit_size(Bin0),
+    Filler = rand:bytes(65),
+    UnsignedBigBin = id(<<Filler/binary,Bin0/bits>>),
+    I = get_unsigned_big(UnsignedBigBin),
 
-get_int1(<<I:0>>) -> I;
-get_int1(<<I:8>>) -> I;
-get_int1(<<I:16>>) -> I;
-get_int1(<<I:24>>) -> I;
-get_int1(<<I:32>>) -> I.
+    %% io:format("~p ~p\n", [Size,I]),
+    if
+        Size =< 10*8 ->
+            OversizedUnsignedBig = id(<<Filler/binary,0:16,Bin0/bits>>),
+            I = get_unsigned_big(OversizedUnsignedBig);
+        true ->
+            ok
+    end,
+
+    test_unaligned(UnsignedBigBin, I, fun get_unsigned_big/1),
+
+    %% Test unsigned little-endian integers.
+
+    UnsignedLittleBin = id(<<Filler/binary,I:Size/little>>),
+    I = get_unsigned_little(UnsignedLittleBin),
+
+    test_unaligned(UnsignedLittleBin, I, fun get_unsigned_little/1),
+
+    %% Test signed big-endian integers.
+
+    SignedBigBin1 = id(<<Filler/binary,(-I):(Size+1)/big>>),
+    I = -get_signed_big(SignedBigBin1),
+
+    SignedBigBin2 = id(<<Filler/binary,I:(Size+1)/big>>),
+    I = get_signed_big(SignedBigBin2),
+
+    %% test_unaligned(SignedBigBin1, -I, fun get_signed_big/1),
+    test_unaligned(SignedBigBin2, I, fun get_signed_big/1),
+
+    %% Test signed little-endian integers.
+
+    SignedLittleBin1 = id(<<Filler/binary,(-I):(Size+1)/little>>),
+    I = -get_signed_little(SignedLittleBin1),
+
+    SignedLittleBin2 = id(<<Filler/binary,I:(Size+1)/little>>),
+    I = get_signed_little(SignedLittleBin2),
+
+    test_unaligned(SignedLittleBin1, -I, fun get_signed_little/1),
+    test_unaligned(SignedLittleBin2, I, fun get_signed_little/1),
+
+    I.
+
+test_unaligned(Bin, I, Matcher) ->
+    <<RandBytes1:8/binary,RandBytes2:8/binary>> = rand:bytes(16),
+    Size = bit_size(Bin),
+    _ = [begin
+             <<_:(Offset+32),UnalignedBin:Size/bits,_/bits>> =
+                 id(<<RandBytes1:(Offset+32)/bits,
+                      Bin:Size/bits,
+                      RandBytes2/binary>>),
+             I = Matcher(UnalignedBin)
+         end || Offset <- [1,2,3,4,5,6,7]],
+    ok.
+
+
+
+get_unsigned_big(Bin) ->
+    Res = get_unsigned_big_plain(Bin),
+    [A,B,C,D,E] = id([1,2,3,4,5]),
+    {Res,_} = get_unsigned_big_memory_ctx(A, B, C, D, E, Res, Bin),
+    Res.
+
+get_unsigned_big_memory_ctx(A, B, C, D, E, Res0, Bin) ->
+    %% The match context will be in {x,6}, which is not
+    %% a X register backed by a CPU register on any platform.
+    Res = case Bin of
+              <<_:65/unit:8,I:7>> -> I;
+              <<_:65/unit:8,I:8>> -> I;
+              <<_:65/unit:8,I:36>> -> I;
+              <<_:65/unit:8,I:59>> -> I;
+              <<_:65/unit:8,I:60>> -> I;
+              <<_:65/unit:8,I:61>> -> I;
+              <<_:65/unit:8,I:62>> -> I;
+              <<_:65/unit:8,I:63>> -> I;
+              <<_:65/unit:8,I:64>> -> I;
+              <<_:65/unit:8,I:65>> -> I;
+              <<_:65/unit:8,I:70>> -> I;
+              <<_:65/unit:8,I:80>> -> I;
+              <<_:65/unit:8,I:95>> -> I;
+              _ -> Res0
+          end,
+    {Res,{A,B,C,D,E}}.
+
+get_unsigned_big_plain(<<_:65/unit:8,I:0>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:1>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:2>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:3>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:4>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:5>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:6>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:7>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:8>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:9>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:10>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:11>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:12>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:13>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:14>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:15>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:16>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:17>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:18>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:19>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:20>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:21>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:22>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:23>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:24>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:25>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:26>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:27>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:28>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:29>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:30>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:31>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:32>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:33>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:34>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:35>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:36>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:37>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:38>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:39>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:40>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:41>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:42>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:43>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:44>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:45>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:46>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:47>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:48>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:49>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:50>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:51>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:52>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:53>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:54>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:55>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:56>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:57>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:58>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:59>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:60>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:61>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:62>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:63>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:64>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:65>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:66>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:67>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:68>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:69>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:70>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:71>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:72>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:73>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:74>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:75>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:76>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:77>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:78>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:79>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:80>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:81>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:82>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:83>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:84>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:85>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:86>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:87>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:88>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:89>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:90>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:91>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:92>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:93>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:94>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:95>>) -> I;
+get_unsigned_big_plain(<<_:65/unit:8,I:96>>) -> I.
+
+get_unsigned_little(<<_:65/unit:8,I:0/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:1/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:2/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:3/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:4/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:5/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:6/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:7/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:8/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:9/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:10/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:11/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:12/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:13/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:14/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:15/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:16/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:17/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:18/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:19/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:20/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:21/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:22/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:23/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:24/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:25/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:26/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:27/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:28/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:29/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:30/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:31/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:32/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:33/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:34/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:35/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:36/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:37/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:38/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:39/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:40/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:41/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:42/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:43/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:44/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:45/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:46/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:47/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:48/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:49/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:50/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:51/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:52/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:53/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:54/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:55/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:56/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:57/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:58/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:59/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:60/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:61/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:62/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:63/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:64/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:65/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:66/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:67/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:68/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:69/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:70/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:71/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:72/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:73/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:74/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:75/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:76/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:77/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:78/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:79/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:80/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:81/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:82/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:83/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:84/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:85/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:86/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:87/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:88/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:89/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:90/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:91/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:92/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:93/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:94/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:95/little>>) -> I;
+get_unsigned_little(<<_:65/unit:8,I:96/little>>) -> I.
+
+get_signed_big(<<_:65/unit:8,I:0/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:1/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:2/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:3/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:4/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:5/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:6/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:7/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:8/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:9/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:10/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:11/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:12/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:13/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:14/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:15/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:16/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:17/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:18/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:19/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:20/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:21/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:22/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:23/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:24/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:25/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:26/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:27/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:28/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:29/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:30/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:31/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:32/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:33/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:34/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:35/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:36/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:37/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:38/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:39/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:40/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:41/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:42/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:43/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:44/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:45/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:46/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:47/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:48/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:49/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:50/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:51/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:52/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:53/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:54/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:55/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:56/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:57/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:58/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:59/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:60/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:61/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:62/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:63/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:64/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:65/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:66/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:67/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:68/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:69/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:70/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:71/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:72/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:73/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:74/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:75/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:76/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:77/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:78/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:79/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:80/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:81/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:82/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:83/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:84/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:85/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:86/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:87/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:88/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:89/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:90/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:91/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:92/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:93/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:94/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:95/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:96/signed-big>>) -> I;
+get_signed_big(<<_:65/unit:8,I:97/signed-big>>) -> I.
+
+get_signed_little(<<_:65/unit:8,I:0/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:1/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:2/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:3/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:4/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:5/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:6/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:7/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:8/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:9/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:10/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:11/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:12/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:13/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:14/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:15/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:16/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:17/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:18/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:19/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:20/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:21/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:22/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:23/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:24/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:25/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:26/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:27/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:28/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:29/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:30/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:31/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:32/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:33/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:34/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:35/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:36/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:37/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:38/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:39/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:40/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:41/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:42/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:43/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:44/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:45/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:46/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:47/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:48/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:49/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:50/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:51/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:52/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:53/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:54/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:55/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:56/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:57/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:58/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:59/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:60/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:61/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:62/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:63/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:64/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:65/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:66/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:67/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:68/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:69/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:70/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:71/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:72/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:73/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:74/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:75/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:76/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:77/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:78/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:79/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:80/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:81/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:82/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:83/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:84/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:85/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:86/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:87/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:88/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:89/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:90/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:91/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:92/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:93/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:94/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:95/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:96/signed-little>>) -> I;
+get_signed_little(<<_:65/unit:8,I:97/signed-little>>) -> I.
 
 cmp128(<<I:128>>, I) -> equal;
 cmp128(_, _) -> not_equal.
-    
+
+mixed_sizes(_Config) ->
+    mixed({345,42},
+          fun({A,B}) ->
+                  <<A:9,1:1,B:6>>;
+             (<<A:9,_:1,B:6>>) ->
+                  {A,B}
+          end),
+
+    mixed({27033,59991,16#c001cafe,12345,2},
+          fun({A,B,C,D,E}) ->
+                  <<A:16,B:16,C:32,D:22,E:2>>;
+             (<<A:16,B:16,C:32,D:22,E:2>>) ->
+                  {A,B,C,D,E}
+          end),
+
+    mixed({79,153,17555,50_000,777_000,36#hugebignumber,2222},
+          fun({A,B,C,D,E,F,G}) ->
+                  <<A:7,B:8,C:15,0:3,D:17,E:23,F:88,G:13>>;
+             (<<A:7,B:8,C:15,_:3,D:17,E:23,F:88,G:13>>) ->
+                  {A,B,C,D,E,F,G}
+          end),
+
+    mixed({16#123456789ABCDEF,13,36#hugenum,979},
+          fun({A,B,C,D}) ->
+                  <<A:60,B:4,C:50,D:10>>;
+             (<<A:60,B:4,C:50,D:10>>) ->
+                  {A,B,C,D}
+          end),
+
+    mixed({16#123456789ABCDEF,13,36#hugenum,979},
+          fun({A,B,C,D}) ->
+                  <<A:60/little,B:4/little,C:50/little,D:10/little>>;
+             (<<A:60/little,B:4/little,C:50/little,D:10/little>>) ->
+                  {A,B,C,D}
+          end),
+
+    mixed({15692284513449131826, 17798, 33798},
+          fun({A,B,C}) ->
+                  <<A:64,B:15/little,C:16/little>>;
+             (<<A:64,B:15/little,C:16/little>>) ->
+                  {A,B,C}
+          end),
+
+    mixed({15692344284519131826, 1779863, 13556268},
+          fun({A,B,C}) ->
+                  <<A:64,B:23/little,C:24/little>>;
+             (<<A:64,B:23/little,C:24/little>>) ->
+                  {A,B,C}
+          end),
+
+    mixed({15519169234428431825, 194086885, 2813274043},
+          fun({A,B,C}) ->
+                  <<A:64,B:29/little,C:32/little>>;
+             (<<A:64,B:29/little,C:32/little>>) ->
+                  {A,B,C}
+          end),
+
+    mixed({5,9,38759385,93},
+          fun({A,B,C,D}) ->
+                  <<1:3,A:4,B:5,C:47,D:7>>;
+             (<<1:3,A:4,B:5,C:47,D:7>>) ->
+                  {A,B,C,D}
+          end),
+
+    mixed({2022,8,22},
+          fun({A,B,C}) ->
+                  <<A:16/little,B,C>>;
+             (<<A:16/little,B,C>>) ->
+                  {A,B,C}
+          end),
+
+    mixed({2022,8,22},
+          fun({A,B,C}) ->
+                  <<A:16/little,B,C>>;
+             (<<A:16/little,B,C>>) ->
+                  _ = id(0),
+                  {A,B,C}
+          end),
+    ok.
+
+mixed(Data, F) ->
+    Bin = F(Data),
+    Data = F(Bin),
+    true = is_bitstring(Bin).
+
 signed_integer(Config) when is_list(Config) ->
     {no_match,_} = sint(mkbin([])),
     {no_match,_} = sint(mkbin([1,2,3])),
@@ -133,7 +728,7 @@ dynamic(Bin, S1, S2, A, B) ->
 %% Extract integers at different alignments and of different sizes.
 more_dynamic(Config) when is_list(Config) ->
 
-    % Unsigned big-endian numbers.
+    %% Unsigned big-endian numbers.
     Unsigned  = fun(Bin, List, SkipBef, N) ->
 			SkipAft = 8*size(Bin) - N - SkipBef,
 			<<_:SkipBef,Int:N,_:SkipAft>> = Bin,
@@ -249,34 +844,39 @@ match_huge_int(Config) when is_list(Config) ->
             %% because of insufficient memory.
             {skip, "unoptimized code would use too much memory"};
         bs_match_int_SUITE ->
-            Sz = 1 bsl 27,
-            Bin = <<0:Sz,13:8>>,
-            skip_huge_int_1(Sz, Bin),
-            0 = match_huge_int_1(Sz, Bin),
-
-            %% Test overflowing the size of an integer field.
-            nomatch = overflow_huge_int_skip_32(Bin),
-            case erlang:system_info(wordsize) of
-                4 ->
-                    nomatch = overflow_huge_int_32(Bin);
-                8 ->
-                    %% An attempt will be made to allocate heap space for
-                    %% the bignum (which will probably fail); only if the
-                    %% allocation succeeds will the matching fail because
-                    %% the binary is too small.
-                    ok
-            end,
-            nomatch = overflow_huge_int_skip_64(Bin),
-            nomatch = overflow_huge_int_64(Bin),
-
-            %% Test overflowing the size of an integer field using
-            %% variables as sizes.
-            Sizes = case erlang:system_info(wordsize) of
-                        4 -> lists:seq(25, 32);
-                        8 -> []
-                    end ++ lists:seq(50, 64),
-            ok = overflow_huge_int_unit128(Bin, Sizes)
+            do_match_huge_int();
+        bs_match_int_r25_SUITE ->
+            do_match_huge_int()
     end.
+
+do_match_huge_int() ->
+    Sz = 1 bsl 27,
+    Bin = <<0:Sz,13:8>>,
+    skip_huge_int_1(Sz, Bin),
+    0 = match_huge_int_1(Sz, Bin),
+
+    %% Test overflowing the size of an integer field.
+    nomatch = overflow_huge_int_skip_32(Bin),
+    case erlang:system_info(wordsize) of
+        4 ->
+            nomatch = overflow_huge_int_32(Bin);
+        8 ->
+            %% An attempt will be made to allocate heap space for
+            %% the bignum (which will probably fail); only if the
+            %% allocation succeeds will the matching fail because
+            %% the binary is too small.
+            ok
+    end,
+    nomatch = overflow_huge_int_skip_64(Bin),
+    nomatch = overflow_huge_int_64(Bin),
+
+    %% Test overflowing the size of an integer field using
+    %% variables as sizes.
+    Sizes = case erlang:system_info(wordsize) of
+                4 -> lists:seq(25, 32);
+                8 -> []
+            end ++ lists:seq(50, 64),
+    ok = overflow_huge_int_unit128(Bin, Sizes).
 
 overflow_huge_int_unit128(Bin, [Sz0|Sizes]) ->
     Sz = id(1 bsl Sz0),
@@ -375,5 +975,9 @@ unaligned_32_bit_1(_) ->
 unaligned_32_bit_verify([], 0) -> ok;
 unaligned_32_bit_verify([4294967295|T], N) when N > 0 ->
     unaligned_32_bit_verify(T, N-1).
-    
+
+%%%
+%%% Common utilities.
+%%%
+
 id(I) -> I.

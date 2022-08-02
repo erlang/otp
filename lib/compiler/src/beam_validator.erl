@@ -920,6 +920,20 @@ vi({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
 %% Bit syntax matching
 %%
 
+vi({bs_match,{f,Fail},Ctx0,{commands,List}}, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0),
+
+    assert_no_exception(Fail),
+    assert_type(#t_bs_context{}, Ctx, Vst),
+    verify_y_init(Vst),
+
+    branch(Fail, Vst,
+           fun(FailVst) ->
+                   validate_failed_bs_match(List, Ctx, FailVst)
+           end,
+           fun(SuccVst) ->
+                   validate_bs_match(List, Ctx, 1, SuccVst)
+           end);
 vi({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     assert_type(#t_bs_context{}, Ctx, Vst0),
     verify_live(Live, Vst0),
@@ -978,25 +992,9 @@ vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,Size,Unit,_],Dst}, Vst) ->
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,
     [Ctx,{integer,Sz},Unit,{field_flags,Flags}],Dst},Vst) ->
-
     NumBits = Unit * Sz,
     Stride = NumBits,
-
-    Type = if
-               0 =< NumBits, NumBits =< 64 ->
-                   Max = (1 bsl NumBits) - 1,
-                   case member(unsigned, Flags) of
-                       true ->
-                           beam_types:make_integer(0, Max);
-                       false ->
-                           Min = -(Max + 1),
-                           beam_types:make_integer(Min, Max)
-                   end;
-               true ->
-                   %% Way too large or negative size.
-                   #t_integer{}
-           end,
-
+    Type = bs_integer_type(NumBits, Flags),
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,_Sz,Unit,_Flags],Dst},Vst) ->
     validate_bs_get(Op, Fail, Ctx, Live, Unit, #t_integer{}, Dst, Vst);
@@ -1721,8 +1719,79 @@ validate_bs_start_match({f,Fail}, Live, Src, Dst, Vst) ->
            end).
 
 %%
+%% Validate the bs_match instruction.
+%%
+
+validate_bs_match([{get_tail,Live,_,Dst}], Ctx, _, Vst0) ->
+    validate_ctx_live(Ctx, Live),
+    verify_live(Live, Vst0),
+    Vst = prune_x_regs(Live, Vst0),
+    #t_bs_context{tail_unit=Unit} = get_concrete_type(Ctx, Vst0),
+    Type = #t_bitstring{size_unit=Unit},
+    extract_term(Type, get_tail, [Ctx], Dst, Vst, Vst0);
+validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
+    case I of
+        {ensure_at_least,_Size,Unit} ->
+            Type = #t_bs_context{tail_unit=Unit},
+            Vst1 = update_bs_unit(Ctx, Unit, Vst0),
+            Vst = update_type(fun meet/2, Type, Ctx, Vst1),
+            validate_bs_match(Is, Ctx, Unit, Vst);
+        {ensure_exactly,Stride} ->
+            Vst = advance_bs_context(Ctx, Stride, Vst0),
+            validate_bs_match(Is, Ctx, Unit0, Vst);
+        {Type0,Live,{literal,Flags},Size,Unit,Dst} when Type0 =:= binary;
+                                                        Type0 =:= integer ->
+            validate_ctx_live(Ctx, Live),
+            verify_live(Live, Vst0),
+            Vst1 = prune_x_regs(Live, Vst0),
+            Stride = Size * Unit,
+            Type = case Type0 of
+                       integer ->
+                           bs_integer_type(Stride, Flags);
+                       binary ->
+                           #t_bitstring{size_unit=bsm_size_unit({integer,Size}, Unit)}
+                   end,
+            Vst = extract_term(Type, bs_match, [Ctx], Dst, Vst1, Vst0),
+            validate_bs_match(Is, Ctx, Unit0, Vst);
+        {skip,_Stride} ->
+            validate_bs_match(Is, Ctx, Unit0, Vst0)
+    end;
+validate_bs_match([], _Ctx, _Unit, Vst) ->
+    Vst.
+
+validate_ctx_live({x,X}=Ctx, Live) when X >= Live ->
+    error({live_does_not_preserve_context,Live,Ctx});
+validate_ctx_live(_, _) ->
+    ok.
+
+validate_failed_bs_match([{ensure_at_least,_Size,Unit}|_], Ctx, Vst) ->
+    Type = #t_bs_context{tail_unit=Unit},
+    update_type(fun subtract/2, Type, Ctx, Vst);
+validate_failed_bs_match([_|Is], Ctx, Vst) ->
+    validate_failed_bs_match(Is, Ctx, Vst);
+validate_failed_bs_match([], _Ctx, Vst) ->
+    Vst.
+
+bs_integer_type(NumBits, Flags) ->
+    if
+        0 =< NumBits, NumBits =< 64 ->
+            Max = (1 bsl NumBits) - 1,
+            case member(signed, Flags) of
+                false ->
+                    beam_types:make_integer(0, Max);
+                true ->
+                    Min = -(Max + 1),
+                    beam_types:make_integer(Min, Max)
+            end;
+        true ->
+            %% Way too large or negative size.
+            #t_integer{}
+    end.
+
+%%
 %% Common code for validating bs_get* instructions.
 %%
+
 validate_bs_get(Op, Fail, Ctx0, Live, Stride, Type, Dst, Vst) ->
     Ctx = unpack_typed_arg(Ctx0),
 

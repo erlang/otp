@@ -203,20 +203,23 @@ assert_no_ces(_, _, Blocks) -> Blocks.
 fix_bs(#st{ssa=Blocks,cnt=Count0}=St) ->
     F = fun(#b_set{op=bs_start_match,dst=Dst}, A) ->
                 %% Mark the root of the match context list.
-                [{Dst,{context,Dst}}|A];
+                A#{Dst => {context,Dst}};
+           (#b_set{op=bs_ensure,dst=Dst,args=[ParentCtx|_]}, A) ->
+                %% Link this match context to the previous match context.
+                A#{Dst => ParentCtx};
            (#b_set{op=bs_match,dst=Dst,args=[_,ParentCtx|_]}, A) ->
-                %% Link this match context the previous match context.
-                [{Dst,ParentCtx}|A];
+                %% Link this match context to the previous match context.
+                A#{Dst => ParentCtx};
            (_, A) ->
                 A
         end,
     RPO = beam_ssa:rpo(Blocks),
-    case beam_ssa:fold_instrs(F, RPO, [], Blocks) of
-        [] ->
+    CtxChain = beam_ssa:fold_instrs(F, RPO, #{}, Blocks),
+    case map_size(CtxChain) of
+        0 ->
             %% No binary matching in this function.
             St;
-        [_|_]=M ->
-            CtxChain = maps:from_list(M),
+        _ ->
             Linear0 = beam_ssa:linearize(Blocks),
 
             %% Insert position instructions where needed.
@@ -346,6 +349,33 @@ bs_restores_is([#b_set{op=bs_start_match,dst=Start}|Is],
     %% entered the current block with.
     FPos = SPos0,
     SPos = SPos0#{Start=>Start},
+    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
+bs_restores_is([#b_set{op=bs_ensure,dst=NewPos,args=Args}|Is],
+               CtxChain, SPos0, _FPos, Rs0) ->
+    Start = bs_subst_ctx(NewPos, CtxChain),
+    [FromPos|_] = Args,
+    case SPos0 of
+        #{Start := FromPos} ->
+            %% Same position, no restore needed.
+            SPos = SPos0#{Start := NewPos},
+            FPos = SPos0,
+            bs_restores_is(Is, CtxChain, SPos, FPos, Rs0);
+        #{} ->
+            SPos = SPos0#{Start := NewPos},
+            FPos = SPos0#{Start := FromPos},
+            Rs = Rs0#{NewPos=>{Start,FromPos}},
+            bs_restores_is(Is, CtxChain, SPos, FPos, Rs)
+    end;
+bs_restores_is([#b_set{anno=#{ensured := _},
+                       op=bs_match,dst=NewPos,args=Args}|Is],
+               CtxChain, SPos0, _FPos, Rs) ->
+    %% This match instruction will be a part of a `bs_match` BEAM
+    %% instruction, so there will never be a restore to this
+    %% position.
+    Start = bs_subst_ctx(NewPos, CtxChain),
+    [_,FromPos|_] = Args,
+    SPos = SPos0#{Start := NewPos},
+    FPos = SPos0#{Start := FromPos},
     bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
 bs_restores_is([#b_set{op=bs_match,dst=NewPos,args=Args}=I|Is],
                CtxChain, SPos0, _FPos, Rs0) ->
@@ -483,13 +513,13 @@ bs_restore_args([], Pos, _CtxChain, _Dst, Rs) ->
 %% Insert all bs_save and bs_restore instructions.
 
 bs_insert_bsm3(Blocks, Saves, Restores) ->
-    bs_insert_1(Blocks, [], Saves, Restores, fun(I) -> I end).
+    bs_insert_1(Blocks, [], Saves, Restores).
 
-bs_insert_1([{L,#b_blk{is=Is0}=Blk} | Bs], Deferred0, Saves, Restores, XFrm) ->
+bs_insert_1([{L,#b_blk{is=Is0}=Blk} | Bs], Deferred0, Saves, Restores) ->
     Is1 = bs_insert_deferred(Is0, Deferred0),
-    {Is, Deferred} = bs_insert_is(Is1, Saves, Restores, XFrm, []),
-    [{L,Blk#b_blk{is=Is}} | bs_insert_1(Bs, Deferred, Saves, Restores, XFrm)];
-bs_insert_1([], [], _, _, _) ->
+    {Is, Deferred} = bs_insert_is(Is1, Saves, Restores, []),
+    [{L,Blk#b_blk{is=Is}} | bs_insert_1(Bs, Deferred, Saves, Restores)];
+bs_insert_1([], [], _, _) ->
     [].
 
 bs_insert_deferred([#b_set{op=bs_extract}=I | Is], Deferred) ->
@@ -497,8 +527,7 @@ bs_insert_deferred([#b_set{op=bs_extract}=I | Is], Deferred) ->
 bs_insert_deferred(Is, Deferred) ->
     Deferred ++ Is.
 
-bs_insert_is([#b_set{dst=Dst}=I0|Is], Saves, Restores, XFrm, Acc0) ->
-    I = XFrm(I0),
+bs_insert_is([#b_set{dst=Dst}=I|Is], Saves, Restores, Acc0) ->
     Pre = case Restores of
               #{Dst:=R} -> [R];
               #{} -> []
@@ -513,9 +542,9 @@ bs_insert_is([#b_set{dst=Dst}=I0|Is], Saves, Restores, XFrm, Acc0) ->
             %% Defer the save sequence to the success block.
             {reverse(Acc, Is), Post};
         _ ->
-            bs_insert_is(Is, Saves, Restores, XFrm, Post ++ Acc)
+            bs_insert_is(Is, Saves, Restores, Post ++ Acc)
     end;
-bs_insert_is([], _, _, _, Acc) ->
+bs_insert_is([], _, _, Acc) ->
     {reverse(Acc), []}.
 
 %% Translate bs_match instructions to bs_get, bs_match_string,
@@ -534,7 +563,28 @@ bs_instrs([{L,#b_blk{is=Is0}=Blk}|Bs], CtxChain, Acc0) ->
             bs_instrs(Bs, CtxChain, [{L,Blk#b_blk{is=Is}}|Acc0])
     end;
 bs_instrs([], _, Acc) ->
-    reverse(Acc).
+    bs_rewrite_skip(Acc).
+
+bs_rewrite_skip([{L,#b_blk{is=Is0,last=Last0}=Blk}|Bs]) ->
+    case bs_rewrite_skip_is(Is0, []) of
+        no ->
+            [{L,Blk}|bs_rewrite_skip(Bs)];
+        {yes,Is} ->
+            #b_br{succ=Succ} = Last0,
+            Last = beam_ssa:normalize(Last0#b_br{fail=Succ}),
+            [{L,Blk#b_blk{is=Is,last=Last}}|bs_rewrite_skip(Bs)]
+    end;
+bs_rewrite_skip([]) ->
+    [].
+
+bs_rewrite_skip_is([#b_set{anno=#{ensured := true},op=bs_skip}=I0,
+                    #b_set{op={succeeded,guard}}], Acc) ->
+    I = I0#b_set{op=bs_checked_skip},
+    {yes,reverse(Acc, [I])};
+bs_rewrite_skip_is([I|Is], Acc) ->
+    bs_rewrite_skip_is(Is, [I|Acc]);
+bs_rewrite_skip_is([], _Acc) ->
+    no.
 
 bs_instrs_is([#b_set{op={succeeded,_}}=I|Is], CtxChain, Acc) ->
     %% This instruction refers to a specific operation, so we must not
@@ -560,10 +610,19 @@ bs_instrs_is([], _, Acc) ->
 
 bs_combine(Dst, Ctx, [{L,#b_blk{is=Is0}=Blk}|Acc]) ->
     [#b_set{}=Succeeded,
-     #b_set{op=bs_match,args=[Type,_|As]}=BsMatch|Is1] = reverse(Is0),
-    Is = reverse(Is1, [BsMatch#b_set{op=bs_get,dst=Dst,args=[Type,Ctx|As]},
-                       Succeeded#b_set{args=[Dst]}]),
-    [{L,Blk#b_blk{is=Is}}|Acc].
+     #b_set{anno=Anno,op=bs_match,args=[Type,_|As]}=BsMatch|Is1] = reverse(Is0),
+    if
+        is_map_key(ensured, Anno) ->
+            Is = reverse(Is1, [BsMatch#b_set{op=bs_checked_get,dst=Dst,
+                                             args=[Type,Ctx|As]}]),
+            #b_blk{last=#b_br{succ=Succ}=Br0} = Blk,
+            Br = beam_ssa:normalize(Br0#b_br{fail=Succ}),
+            [{L,Blk#b_blk{is=Is,last=Br}}|Acc];
+        true ->
+            Is = reverse(Is1, [BsMatch#b_set{op=bs_get,dst=Dst,args=[Type,Ctx|As]},
+                               Succeeded#b_set{args=[Dst]}]),
+            [{L,Blk#b_blk{is=Is}}|Acc]
+    end.
 
 bs_subst_ctx(#b_var{}=Var, CtxChain) ->
     case CtxChain of
@@ -2440,6 +2499,7 @@ reserve_zreg([#b_set{op=Op,dst=Dst} | Is], Last, ShortLived, A) ->
     end;
 reserve_zreg([], _, _, A) -> A.
 
+use_zreg(bs_checked_skip) -> yes;
 use_zreg(bs_match_string) -> yes;
 use_zreg(bs_set_position) -> yes;
 use_zreg(kill_try_tag) -> yes;

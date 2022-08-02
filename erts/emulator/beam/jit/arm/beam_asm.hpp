@@ -1323,6 +1323,20 @@ protected:
                           arm::Gp size_reg);
     void set_zero(Sint effectiveSize);
 
+    void emit_read_bits(Uint bits,
+                        const arm::Gp bin_offset,
+                        const arm::Gp bin_base,
+                        const arm::Gp bitdata);
+
+    void emit_extract_integer(const arm::Gp bitdata,
+                              Uint flags,
+                              Uint bits,
+                              const ArgRegister &Dst);
+
+    void emit_extract_binary(const arm::Gp bitdata,
+                             Uint bits,
+                             const ArgRegister &Dst);
+
     void emit_raise_exception();
     void emit_raise_exception(const ErtsCodeMFA *exp);
     void emit_raise_exception(Label I, const ErtsCodeMFA *exp);

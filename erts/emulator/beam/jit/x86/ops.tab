@@ -849,7 +849,19 @@ i_lambda_trampoline F f W W
 i_breakpoint_trampoline
 
 # ================================================================
-# New bit syntax matching (R11B).
+# New bit syntax matching for fixed sizes (from OTP 26).
+# ================================================================
+
+bs_match Fail Ctx Size Rest=* => bs_match(Fail, Ctx, Size, Rest)
+
+i_bs_match Fail Ctx Rest=* | test_heap Need Live =>
+    i_bs_match_test_heap Fail Ctx Need Live Rest
+
+i_bs_match f S *
+i_bs_match_test_heap f S I t *
+
+# ================================================================
+# Bit syntax matching (from R11B).
 # ================================================================
 
 %warm
