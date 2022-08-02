@@ -2548,6 +2548,7 @@ beam_bool_SUITE(_Config) ->
     beam_ssa_bool_coverage(),
     bad_map_in_guard(),
     gh_6164(),
+    gh_6184(),
     ok.
 
 before_and_inside_if() ->
@@ -3075,6 +3076,16 @@ do_gh_6164(V1) ->
                     end =< V3
             end
     end.
+
+gh_6184() ->
+    {'EXIT',{function_clause,_}} = catch do_gh_6184(id(true), id({a,b,c})),
+    {'EXIT',{function_clause,_}} = catch do_gh_6184(true, true),
+    {'EXIT',{function_clause,_}} = catch do_gh_6184({a,b,c}, {x,y,z}),
+
+    ok.
+
+do_gh_6184(V1, V2) when (false and is_tuple(V2)) andalso (V1 orelse V2) ->
+    V2 orelse V2.
 
 -record(bad_map_in_guard, {name}).
 bad_map_in_guard() ->
