@@ -435,7 +435,11 @@ pre_opt_terminator(#b_switch{arg=Arg0}=Sw0, Sub, Blocks) ->
 pre_opt_sw(#b_switch{arg=Arg,fail=Fail}=Sw, False, True, Sub, Blocks) ->
     case Sub of
         #{Arg:={true_or_any,PhiL}} ->
-            #{Fail:=FailBlk,False:=FalseBlk,PhiL:=PhiBlk} = Blocks,
+            #{Fail := FailBlk,False := FalseBlk} = Blocks,
+            PhiBlk = case Blocks of
+                         #{PhiL := PhiBlk0} -> PhiBlk0;
+                         #{} -> none
+                     end,
             case {FailBlk,FalseBlk,PhiBlk} of
                 {#b_blk{is=[],last=#b_br{succ=PhiL,fail=PhiL}},
                  #b_blk{is=[],last=#b_br{succ=PhiL,fail=PhiL}},
