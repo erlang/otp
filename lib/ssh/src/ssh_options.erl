@@ -34,7 +34,8 @@
          keep_set_options/2,
          no_sensitive/2,
          initial_default_algorithms/2,
-         check_preferred_algorithms/1
+         check_preferred_algorithms/1,
+         merge_options/3
         ]).
 
 -export_type([private_options/0
@@ -153,6 +154,14 @@ delete_key(internal_options, Key, Opts, _CallerMod, _CallerLine) when is_map(Opt
 
 %%%================================================================
 %%%
+%%% Replace 0 or more options in an options map
+%%%
+merge_options(Role, NewPropList, Opts0) when is_list(NewPropList),
+                                             is_map(Opts0) ->
+    check_and_save(NewPropList, default(Role), Opts0).
+
+%%%================================================================
+%%%
 %%% Initialize the options
 %%%
 
@@ -219,10 +228,8 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
 
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
-        final_preferred_algorithms(
-          lists:foldl(fun(KV, Vals) ->
-                              save(KV, OptionDefinitions, Vals)
-                      end, InitialMap, OptsList2))
+        check_and_save(OptsList2, OptionDefinitions, InitialMap)
+
     catch
         error:{EO, KV, Reason} when EO == eoptions ; EO == eerl_env ->
             if
@@ -234,6 +241,13 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                     {error, {EO,{KV,Reason}}}
             end
     end.
+
+check_and_save(OptsList, OptionDefinitions, InitialMap) ->
+    final_preferred_algorithms(
+      lists:foldl(fun(KV, Vals) ->
+                          save(KV, OptionDefinitions, Vals)
+                  end, InitialMap, OptsList)).
+    
 
 cnf_key(server) -> server_options;
 cnf_key(client) -> client_options.
