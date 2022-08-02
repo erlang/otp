@@ -1025,6 +1025,30 @@ cse_is([#b_set{op={succeeded,_},dst=Bool,args=[Src]}=I0|Is], Es, Sub0, Acc) ->
             Sub = Sub0#{Bool=>#b_literal{val=true}},
             cse_is(Is, Es, Sub, Acc)
     end;
+cse_is([#b_set{op=put_map,dst=Dst,args=[_Kind,Map|_]}=I0|Is],
+       Es0, Sub0, Acc) ->
+    I1 = sub(I0, Sub0),
+    {ok,ExprKey} = cse_expr(I1),
+    case Es0 of
+        #{ExprKey:=PrevPutMap} ->
+            Sub = Sub0#{Dst=>PrevPutMap},
+            cse_is(Is, Es0, Sub, Acc);
+        #{Map:=PutMap} ->
+            case combine_put_maps(PutMap, I1) of
+                none ->
+                    Es1 = Es0#{ExprKey=>Dst},
+                    Es = cse_add_inferred_exprs(I1, Es1),
+                    cse_is(Is, Es, Sub0, [I1|Acc]);
+                I ->
+                    Es1 = Es0#{ExprKey=>Dst},
+                    Es = cse_add_inferred_exprs(I1, Es1),
+                    cse_is(Is, Es, Sub0, [I|Acc])
+            end;
+        #{} ->
+            Es1 = Es0#{ExprKey=>Dst},
+            Es = cse_add_inferred_exprs(I1, Es1),
+            cse_is(Is, Es, Sub0, [I1|Acc])
+    end;
 cse_is([#b_set{dst=Dst}=I0|Is], Es0, Sub0, Acc) ->
     I = sub(I0, Sub0),
     case beam_ssa:clobbers_xregs(I) of
@@ -1073,8 +1097,9 @@ cse_add_inferred_exprs(#b_set{op={bif,tl},dst=Tl,args=[List]}, Es) ->
     Es#{{get_tl,[List]} => Tl};
 cse_add_inferred_exprs(#b_set{op={bif,map_get},dst=Value,args=[Key,Map]}, Es) ->
     Es#{{get_map_element,[Map,Key]} => Value};
-cse_add_inferred_exprs(#b_set{op=put_map,dst=Map,args=[_,_|Args]}, Es) ->
-    cse_add_map_get(Args, Map, Es);
+cse_add_inferred_exprs(#b_set{op=put_map,dst=Map,args=[_,_|Args]}=I, Es0) ->
+    Es = cse_add_map_get(Args, Map, Es0),
+    Es#{Map => I};
 cse_add_inferred_exprs(_, Es) -> Es.
 
 cse_add_map_get([Key,Value|T], Map, Es0) ->
@@ -1112,6 +1137,42 @@ cse_suitable(#b_set{anno=Anno,op={bif,Name},args=Args}) ->
          erl_internal:comp_op(Name, Arity) orelse
          erl_internal:bool_op(Name, Arity));
 cse_suitable(#b_set{}) -> false.
+
+combine_put_maps(#b_set{dst=Prev,args=[#b_literal{val=assoc},Map|Args1]},
+                 #b_set{args=[#b_literal{val=assoc},Prev|Args2]}=I) ->
+    case are_map_keys_literals(Args1) andalso are_map_keys_literals(Args2) of
+        true ->
+            Args = combine_put_map_args(Args1, Args2),
+            I#b_set{args=[#b_literal{val=assoc},Map|Args]};
+        false ->
+            none
+    end;
+combine_put_maps(#b_set{}, #b_set{}) ->
+    none.
+
+combine_put_map_args(Args1, Args2) ->
+    Keys = sets:from_list(get_map_keys(Args2), [{version,2}]),
+    combine_put_map_args_1(Args1, Args2, Keys).
+
+combine_put_map_args_1([Key,Value|T], Tail, Keys) ->
+    case sets:is_element(Key, Keys) of
+        true ->
+            combine_put_map_args_1(T, Tail, Keys);
+        false ->
+            [Key,Value|combine_put_map_args_1(T, Tail, Keys)]
+    end;
+combine_put_map_args_1([], Tail, _Keys) -> Tail.
+
+get_map_keys([Key,_|T]) ->
+    [Key|get_map_keys(T)];
+get_map_keys([]) -> [].
+
+are_map_keys_literals([#b_literal{},_Value|Args]) ->
+    are_map_keys_literals(Args);
+are_map_keys_literals([#b_var{}|_]) ->
+    false;
+are_map_keys_literals([]) ->
+    true.
 
 %%%
 %%% Using floating point instructions.
