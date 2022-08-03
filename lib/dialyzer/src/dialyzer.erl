@@ -29,6 +29,8 @@
 %%--------------------------------------------------------------------
 -export([plain_cl/0,
 	 run/1,
+	 run_report_modules_analyzed/1,
+	 run_report_modules_changed_and_analyzed/1,
 	 gui/0,
 	 gui/1,
 	 plt_info/1,
@@ -41,6 +43,14 @@
 %% Interfaces:
 %%  - plain_cl/0 :      to be used ONLY by the dialyzer C program.
 %%  - run/1:            Erlang interface for a command line-like analysis
+%%  - run_report_modules_analyzed/1: Erlang interface for a command line-like
+%%                      analysis, but also returns the list of modules that
+%%                      had to be analyzed to compute the result
+%%  - run_report_modules_analyzed/1: Erlang interface for a command line-like
+%%                      analysis, but also returns the list of modules that
+%%                      had to be analyzed to compute the result, plus the
+%%                      set of modules that have changed since the PLT was
+%%                      created (if applicable)
 %%  - gui/0/1:          Erlang interface for the gui.
 %%  - format_warning/1: Get the string representation of a warning.
 %%  - format_warning/2: Likewise, but with an option whether
@@ -88,6 +98,7 @@ cl_check_init(#options{analysis_type = AnalType} = Opts) ->
     plt_build ->  {ok, ?RET_NOTHING_SUSPICIOUS};
     plt_add ->    {ok, ?RET_NOTHING_SUSPICIOUS};
     plt_remove -> {ok, ?RET_NOTHING_SUSPICIOUS};
+    incremental -> {ok, ?RET_NOTHING_SUSPICIOUS};
     Other when Other =:= succ_typings; Other =:= plt_check ->
       F = fun() ->
 	      NewOpts = Opts#options{analysis_type = plt_check},
@@ -109,16 +120,37 @@ print_plt_info(#options{init_plts = PLTs, output_file = OutputFile}) ->
 
 get_plt_info([PLT|PLTs]) ->
   String =
-    case dialyzer_plt:included_files(PLT) of
-      {ok, Files} ->
-	io_lib:format("The PLT ~ts includes the following files:\n~tp\n\n",
-		      [PLT, Files]);
-      {error, read_error} ->
-	Msg = io_lib:format("Could not read the PLT file ~tp\n\n", [PLT]),
-	throw({dialyzer_error, Msg});
-      {error, no_such_file} ->
-	Msg = io_lib:format("The PLT file ~tp does not exist\n\n", [PLT]),
-	throw({dialyzer_error, Msg})
+    case dialyzer_plt:plt_kind(PLT) of
+      cplt ->
+        case dialyzer_cplt:included_files(PLT) of
+          {ok, Files} ->
+            io_lib:format("The classic PLT ~ts includes the following files:\n~tp\n\n",
+                    [PLT, Files]);
+          {error, read_error} ->
+            Msg = io_lib:format("Could not read the classic PLT file ~tp\n\n", [PLT]),
+            throw({dialyzer_error, Msg});
+          {error, no_such_file} ->
+            Msg = io_lib:format("The classic PLT file ~tp does not exist\n\n", [PLT]),
+            throw({dialyzer_error, Msg})
+        end;
+      iplt ->
+        case dialyzer_iplt:included_modules(PLT) of
+          {ok, Modules} ->
+            io_lib:format("The incremental PLT ~ts includes the following modules:\n~tp\n\n",
+                    [PLT, Modules]);
+          {error, read_error} ->
+            Msg = io_lib:format("Could not read the incremental PLT file ~tp\n\n", [PLT]),
+            throw({dialyzer_error, Msg});
+          {error, no_such_file} ->
+            Msg = io_lib:format("The incremental PLT file ~tp does not exist\n\n", [PLT]),
+            throw({dialyzer_error, Msg})
+        end;
+      bad_file ->
+        Msg = io_lib:format("Could not read the PLT file ~tp\n\n", [PLT]),
+        throw({dialyzer_error, Msg});
+      no_file ->
+        Msg = io_lib:format("The PLT file ~tp does not exist\n\n", [PLT]),
+        throw({dialyzer_error, Msg})
     end,
   String ++ get_plt_info(PLTs);
 get_plt_info([]) -> "".
@@ -142,10 +174,17 @@ do_print_plt_info(PLTInfo, OutputFile) ->
   end.
 
 cl(Opts) ->
-  F = fun() ->
-	  {Ret, _Warnings} = dialyzer_cl:start(Opts),
-	  Ret
-      end,
+  F =
+    fun() ->
+        {Ret, _Warnings} =
+          case Opts#options.analysis_type of
+            incremental ->
+              dialyzer_incremental:start(Opts);
+            _ ->
+              dialyzer_cl:start(Opts)
+          end,
+        Ret
+    end,
   doit(F).
 
 -spec run(Options) -> Warnings when
@@ -153,15 +192,41 @@ cl(Opts) ->
     Warnings :: [dial_warning()].
 
 run(Opts) ->
+  {Warnings, _ModulesAnalyzed} = run_report_modules_analyzed(Opts),
+  Warnings.
+
+-spec run_report_modules_analyzed(Options) -> {Warnings, ModulesAnalyzed} when
+    Options :: [dial_option()],
+    Warnings :: [dial_warning()],
+    ModulesAnalyzed :: [module()].
+
+-spec run_report_modules_changed_and_analyzed(Options) -> {Warnings, ModulesChanged, ModulesAnalyzed} when
+    Options :: [dial_option()],
+    Warnings :: [dial_warning()],
+    ModulesChanged :: undefined | [module()],
+    ModulesAnalyzed :: [module()].
+
+run_report_modules_analyzed(Opts) ->
+  {Warnings, _ModulesChanged, ModulesAnalyzed} = run_report_modules_changed_and_analyzed(Opts),
+  {Warnings, ModulesAnalyzed}.
+
+run_report_modules_changed_and_analyzed(Opts) ->
   try dialyzer_options:build([{report_mode, quiet},
 			      {erlang_mode, true}|Opts]) of
     {error, Msg} ->
       throw({dialyzer_error, Msg});
     OptsRecord ->
       ok = check_init(OptsRecord),
-      case dialyzer_cl:start(OptsRecord) of
-        {?RET_DISCREPANCIES, Warnings} -> Warnings;
-        {?RET_NOTHING_SUSPICIOUS, _}  -> []
+      AnalysisResult =
+        case OptsRecord#options.analysis_type of
+          incremental ->
+            dialyzer_incremental:start_report_modules_changed_and_analyzed(OptsRecord);
+          _ ->
+            dialyzer_cl:start_report_modules_changed_and_analyzed(OptsRecord)
+        end,
+      case AnalysisResult of
+        {{?RET_DISCREPANCIES, Warnings}, ModulesChanged, ModulesAnalyzed} -> {Warnings, ModulesChanged, ModulesAnalyzed};
+        {{?RET_NOTHING_SUSPICIOUS, _}, ModulesChanged, ModulesAnalyzed}  -> {[], ModulesChanged, ModulesAnalyzed}
       end
   catch
     throw:{dialyzer_error, ErrorMsg} ->
@@ -219,15 +284,26 @@ check_gui_options(#options{analysis_type = Mode}) ->
   throw({dialyzer_error, Msg}).
 
 -spec plt_info(Plt) ->
-     {'ok', Result} | {'error', Reason} when
+     {'ok', ClassicResult | IncrementalResult } | {'error', Reason} when
     Plt :: file:filename(),
-    Result :: [{'files', [file:filename()]}],
+    ClassicResult :: [{'files', [file:filename()]}],
+    IncrementalResult :: {incremental, [{'modules', [module()]}]},
     Reason :: 'not_valid' | 'no_such_file' | 'read_error'.
 
 plt_info(Plt) ->
-  case dialyzer_plt:included_files(Plt) of
-    {ok, Files} -> {ok, [{files, Files}]};
-    Error -> Error
+  case dialyzer_plt:plt_kind(Plt) of
+    cplt ->
+      case dialyzer_cplt:included_files(Plt) of
+        {ok, Files} -> {ok, [{files, Files}]};
+        Error -> Error
+      end;
+    iplt ->
+      case dialyzer_iplt:included_modules(Plt) of
+        {ok, Modules} -> {ok, {incremental, [{modules, Modules}]}};
+        Error -> Error
+      end;
+    bad_file -> {error, not_valid};
+    no_file -> {error, no_such_file}
   end.
 
 

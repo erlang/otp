@@ -14,7 +14,9 @@ AUXILIARY_FILES=\
 	dialyzer_SUITE.erl\
 	dialyzer_cl_SUITE.erl\
 	abstract_SUITE.erl\
-	plt_SUITE.erl\
+	iplt_SUITE.erl\
+	cplt_SUITE.erl\
+	incremental_SUITE.erl\
 	typer_SUITE.erl\
 	erl_types_SUITE.erl
 

@@ -185,7 +185,7 @@ process_contract_remote_types_module(ModuleName, CodeServer) ->
   RecordTable = dialyzer_codeserver:get_records_table(CodeServer),
   ExpTypes = dialyzer_codeserver:get_exported_types_table(CodeServer),
   ContractFun =
-    fun({MFA, {File, TmpContract, Xtra}}, C0) ->
+    fun({{_,_,_} = MFA, {File, TmpContract, Xtra}}, C0) ->
         #tmp_contract{contract_funs = CFuns, forms = Forms} = TmpContract,
         {NewCs, C2} = lists:mapfoldl(fun(CFun, C1) ->
                                          CFun(ExpTypes, RecordTable, C1)

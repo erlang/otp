@@ -45,7 +45,8 @@
          ets_tab2list/1,
          ets_move/2,
 	 parallelism/0,
-         family/1
+         family/1,
+   p_foreach/2
 	]).
 
 %% For dialyzer_worker.
@@ -1146,3 +1147,46 @@ parallelism() ->
 
 family(L) ->
     sofs:to_external(sofs:rel2fam(sofs:relation(L))).
+
+-spec p_foreach(fun((X) -> any()), [X]) -> ok.
+p_foreach(Fun, List) ->
+  N = dialyzer_utils:parallelism(),
+  Ref = make_ref(),
+  start(Fun, List, Ref, N, gb_sets:new()).
+
+start(Fun, [Arg|Rest], Ref, N, Outstanding) when N > 0 ->
+  Self = self(),
+  Pid = spawn_link(
+    fun() ->
+      try Fun(Arg) of
+        _Val -> Self ! {done, Ref, self()}
+      catch
+        throw:Throw -> Self ! {throw, Throw, Ref, self()}
+      end
+    end),
+  start(Fun, Rest, Ref, N-1, gb_sets:add_element(Pid, Outstanding));
+start(Fun, Args, Ref, N, Outstanding) when N >= 0 ->
+  case {gb_sets:is_empty(Outstanding), Args} of
+    {true, []} -> ok;
+    {true, Args} -> start(Fun, Args, Ref, 1, Outstanding);
+    {false, _} ->
+      receive
+        {done, Ref, Pid} ->
+          start(Fun, Args, Ref, N+1, gb_sets:delete(Pid, Outstanding));
+        {throw, Throw, Ref, Pid} ->
+          clean_up(Throw, Ref, gb_sets:delete(Pid, Outstanding))
+      end
+  end.
+
+clean_up(ThrowVal, Ref, Outstanding) ->
+  case gb_sets:is_empty(Outstanding) of
+    true ->
+      throw(ThrowVal);
+    false ->
+      receive
+        {done, Ref, Pid} ->
+          clean_up(ThrowVal, Ref, gb_sets:delete(Pid, Outstanding));
+        {throw, _Throw, Ref, Pid} ->
+          clean_up(ThrowVal, Ref, gb_sets:delete(Pid, Outstanding))
+      end
+  end.

@@ -89,7 +89,7 @@ explain_fail_with_lock() ->
 
 obtain_plt(PltFilename) ->
     io:format("Obtaining plt:"),
-    InitPlt = dialyzer_plt:get_default_plt(),
+    InitPlt = dialyzer_cplt:get_default_cplt_filename(),
     io:format("Will try to use ~s as a starting point and add otp apps ~w.",
 	      [InitPlt, ?required_modules]),
     try dialyzer:run([{analysis_type, plt_add},
@@ -164,7 +164,7 @@ check(TestCase, Opts, Dir, OutDir) ->
 		Any    -> escape_strings(Any)
 	    end
     catch
-	Kind:Error -> {'dialyzer crashed', Kind, Error}
+	Kind:Error:Stacktrace -> {'dialyzer crashed', Kind, Error, Stacktrace}
     end.
 
 fix_options(Opts, Dir) ->
@@ -216,7 +216,8 @@ get_suites(Dir) ->
 	    FullFilenames = [filename:join(Dir, F) || F <-Filenames ],
 	    Dirs = [is_suite_data(filename:basename(F), ?suite_data) ||
 		       F <- FullFilenames,
-		       file_utils:file_type(F) =:= {ok, 'directory'}],
+		       file_utils:file_type(F) =:= {ok, 'directory'},
+			   file_utils:file_type(filename:join(F, ?input_files_directory)) =:= {ok, 'directory'}],
 	    [S || {yes, S} <- Dirs]
     end.
 
