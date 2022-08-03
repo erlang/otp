@@ -1649,12 +1649,9 @@ calculate_client_early_traffic_secret(
             PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
             PendingRead1 = maybe_store_early_data_secret(KeepSecrets, ClientEarlyTrafficSecret,
                                                          PendingRead0),
-            PendingRead2 = update_connection_state(PendingRead1, undefined, undefined,
+            PendingRead = update_connection_state(PendingRead1, undefined, undefined,
                                                    undefined,
                                                    Key, IV, undefined),
-            %% Signal start of early data. This is to prevent handshake messages to be
-            %% counted in max_early_data_size.
-            PendingRead = PendingRead2#{count_early_data => true},
             State0#state{connection_states = ConnectionStates#{pending_read => PendingRead}}
     end.
 
