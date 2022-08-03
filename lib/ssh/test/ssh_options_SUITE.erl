@@ -1417,12 +1417,14 @@ max_log_item_len(Config) ->
     {ok, Reports} = ssh_eqc_event_handler:get_reports(ReportHandlerPid),
     ct:log("~p:~p ssh:connect -> ~p~n~p", [?MODULE,?LINE,R,Reports]),
 
-    [ok,ok] =
-        [check_skip_part(
-           string:tokens(
-             lists:flatten(io_lib:format(Fmt,Args)),
-             " \n"))
-         || {info_msg,_,{_,Fmt,Args}} <- Reports].
+    [ok] =
+        lists:usort(
+          [check_skip_part(
+             string:tokens(
+               lists:flatten(io_lib:format(Fmt,Args)),
+               " \n"))
+           || {info_msg,_,{_,Fmt,Args}} <- Reports]
+          ).
 
 
 check_skip_part(["Disconnect","...","("++_NumSkipped, "bytes","skipped)"]) ->
