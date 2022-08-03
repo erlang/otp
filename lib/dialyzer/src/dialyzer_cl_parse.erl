@@ -584,6 +584,12 @@ warning_options_msg() ->
   -Wunderspecs ***
      Warn about underspecified functions
      (those whose -spec is strictly more allowing than the success typing).
+  -Wextra_return ***
+     Warn about functions whose specification includes types that the
+     function cannot return.
+  -Wmissing_return ***
+     Warn about functions that return values that are not part
+     of the specification.
   -Wunknown ***
      Let warnings about unknown functions and types affect the
      exit status of the command line version. The default is to ignore
