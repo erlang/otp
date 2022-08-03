@@ -368,7 +368,7 @@ connect4_invalid_two_1(Config) ->
     ssh:stop_daemon(Pid).
 
 connect4_invalid_two_2(Config) ->
-    {Pid, Host, Port, _UserDir} = daemon_start(Config),
+    {Pid, Host, _Port, _UserDir} = daemon_start(Config),
 
     %% Actual error implementation dependent
     {error, _} =
@@ -380,7 +380,7 @@ connect4_invalid_two_2(Config) ->
 
 %% All three args incorrect
 connect4_invalid_three(Config) ->
-    {Pid, Host, Port, _UserDir} = daemon_start(Config),
+    {Pid, Host, _Port, _UserDir} = daemon_start(Config),
 
     %% Actual error implementation dependent
     {error, _} =
