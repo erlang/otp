@@ -106,9 +106,9 @@ encode_decode(_Config) ->
                            <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
                              147,61,168,145,177,118,160,153,33,53,48,108,191,174>>},
                 sequence_number => 0,server_verify_data => undefined,
-                max_early_data_size => 0,
+                pending_early_data_size => 0,
                 trial_decryption => false,
-                early_data_limit => false},
+                early_data_accepted => false},
           current_write =>
               #{beast_mitigation => one_n_minus_one,
                 cipher_state =>

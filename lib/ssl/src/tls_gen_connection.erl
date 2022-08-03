@@ -703,7 +703,7 @@ next_record(#state{connection_env = #connection_env{negotiated_version = {3,4} =
                 [_|_] ->
                     next_record(State, CipherTexts, ConnectionStates, Check, [Fragment|Acc], Record#ssl_tls.early_data)
             end;
-        {trial_decryption_failed, ConnectionStates} ->
+        {no_record, ConnectionStates} ->
             case CipherTexts of
                 [] ->
                     Record = accumulated_app_record(Acc, IsEarlyData),

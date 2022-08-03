@@ -27,7 +27,8 @@
 -include("ssl_cipher.hrl").
 
 %% Encoding 
--export([encode_handshake/2, encode_alert_record/2,
+-export([encode_handshake/2,
+         encode_alert_record/2,
 	 encode_data/2]).
 -export([encode_plain_text/3]).
 
@@ -44,7 +45,8 @@
 %
 %% Description: Encodes a handshake message to send on the tls-1.3-socket.
 %%--------------------------------------------------------------------
-encode_handshake(Frag, #{current_write := #{max_fragment_length := MaxFragmentLength}} =
+encode_handshake(Frag, #{current_write :=
+                             #{max_fragment_length := MaxFragmentLength}} =
                      ConnectionStates) ->
     MaxLength = if is_integer(MaxFragmentLength) ->
                         MaxFragmentLength;
@@ -76,7 +78,8 @@ encode_alert_record(#alert{level = Level, description = Description},
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_data(Frag, #{current_write := #{max_fragment_length := MaxFragmentLength}} =
+encode_data(Frag, #{current_write :=
+                        #{max_fragment_length := MaxFragmentLength}} =
                      ConnectionStates) ->
     MaxLength = if is_integer(MaxFragmentLength) ->
                         MaxFragmentLength;
@@ -86,7 +89,8 @@ encode_data(Frag, #{current_write := #{max_fragment_length := MaxFragmentLength}
     Data = tls_record:split_iovec(Frag, MaxLength),
     encode_iolist(?APPLICATION_DATA, Data, ConnectionStates).
 
-encode_plain_text(Type, Data0, #{current_write := Write0} = ConnectionStates) ->
+encode_plain_text(Type, Data0, #{current_write := Write0} =
+                      ConnectionStates) ->
     PadLen = 0, %% TODO where to specify PadLen?
     Data = inner_plaintext(Type, Data0, PadLen),
     CipherFragment = encode_plain_text(Data, Write0),
@@ -108,12 +112,13 @@ encode_iolist(Type, Data, ConnectionStates0) ->
 
 %%--------------------------------------------------------------------
 -spec decode_cipher_text(#ssl_tls{}, ssl_record:connection_states()) ->
-				{#ssl_tls{} | trial_decryption_failed,
+				{#ssl_tls{} | no_record,
                                  ssl_record:connection_states()}| #alert{}.
 %%
-%% Description: Decode cipher text, use legacy type ssl_tls instead of tls_cipher_text
-%% in decoding context so that we can reuse the code from earlier versions. 
-%%--------------------------------------------------------------------
+%% Description: Decode cipher text, use legacy type ssl_tls instead of
+%% tls_cipher_text in decoding context so that we can reuse the code
+%% from earlier versions.
+%% --------------------------------------------------------------------
 decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
                             version = ?LEGACY_VERSION,
                             fragment = CipherFragment},
@@ -127,22 +132,25 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
 				  cipher_type = ?AEAD,
                                   bulk_cipher_algorithm =
                                       BulkCipherAlgo},
-                           max_early_data_size := MaxEarlyDataSize0,
+                           pending_early_data_size := PendingMaxEarlyDataSize0,
                            trial_decryption := TrialDecryption,
-                           early_data_limit := EarlyDataLimit
+                           early_data_accepted := EarlyDataAccepted
 			  } = ReadState0} = ConnectionStates0) ->
     case decipher_aead(CipherFragment, BulkCipherAlgo, Key, Seq, IV, TagLen) of
 	#alert{} when TrialDecryption =:= true andalso
-                      MaxEarlyDataSize0 > 0 -> %% Trial decryption
-            trial_decrypt(ConnectionStates0, ReadState0, MaxEarlyDataSize0,
-                          BulkCipherAlgo, CipherFragment);
+                      EarlyDataAccepted =:= false andalso
+                      PendingMaxEarlyDataSize0 > 0 -> %% Trial decryption
+            ignore_early_data(ConnectionStates0, ReadState0,
+                              PendingMaxEarlyDataSize0,
+                              BulkCipherAlgo, CipherFragment);
 	#alert{} = Alert ->
 	    Alert;
-        PlainFragment0 when EarlyDataLimit =:= true andalso
-                            MaxEarlyDataSize0 > 0 ->
+        PlainFragment0 when EarlyDataAccepted =:= true andalso
+                            PendingMaxEarlyDataSize0 > 0 ->
             PlainFragment = remove_padding(PlainFragment0),
-            process_early_data(ConnectionStates0, ReadState0, MaxEarlyDataSize0, Seq,
-                               BulkCipherAlgo, CipherFragment, PlainFragment);
+            process_early_data(ConnectionStates0, ReadState0,
+                               PendingMaxEarlyDataSize0, Seq,
+                               PlainFragment);
 	PlainFragment0 ->
             PlainFragment = remove_padding(PlainFragment0),
 	    ConnectionStates =
@@ -209,20 +217,24 @@ decode_cipher_text(#ssl_tls{type = Type}, _) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-trial_decrypt(ConnectionStates0, ReadState0, MaxEarlyDataSize0,
+ignore_early_data(ConnectionStates0, ReadState0, PendingMaxEarlyDataSize0,
               BulkCipherAlgo, CipherFragment) ->
-    MaxEarlyDataSize = approximate_early_data_size(MaxEarlyDataSize0, BulkCipherAlgo, CipherFragment),
+    PendingMaxEarlyDataSize =
+        approximate_pending_early_data_size(PendingMaxEarlyDataSize0,
+                                            BulkCipherAlgo, CipherFragment),
     ConnectionStates =
          ConnectionStates0#{current_read =>
-                                ReadState0#{max_early_data_size => MaxEarlyDataSize}},
-     if MaxEarlyDataSize < 0 ->
+                                ReadState0#{pending_early_data_size => PendingMaxEarlyDataSize}},
+     if PendingMaxEarlyDataSize < 0 ->
              %% More early data is trial decrypted as the configured limit
-             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed);
+             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {decryption_failed,
+                                                  {max_early_data_threshold_exceeded,
+                                                   PendingMaxEarlyDataSize}});
         true ->
-             {trial_decryption_failed, ConnectionStates}
+             {no_record, ConnectionStates}
      end.
-process_early_data(ConnectionStates0, ReadState0, MaxEarlyDataSize0, Seq,
-                   _BulkCipherAlgo, _CipherFragment, PlainFragment) ->
+process_early_data(ConnectionStates0, ReadState0, PendingMaxEarlyDataSize0, Seq,
+                   PlainFragment) ->
     %% First packet is deciphered anyway so we must check if more early data is received
     %% than the configured limit (max_early_data_size).
     Record = decode_inner_plaintext(PlainFragment),
@@ -233,16 +245,19 @@ process_early_data(ConnectionStates0, ReadState0, MaxEarlyDataSize0, Seq,
                                ReadState0#{sequence_number => Seq + 1}},
             {Record, ConnectionStates};
         {?APPLICATION_DATA, Data} ->
-            MaxEarlyDataSize =
-                update_max_early_date_size(MaxEarlyDataSize0, Data),
-            if MaxEarlyDataSize < 0 ->
+            PendingMaxEarlyDataSize =
+                pending_early_data_size(PendingMaxEarlyDataSize0, Data),
+            if PendingMaxEarlyDataSize < 0 ->
                     %% Too much early data received, send alert unexpected_message
-                    ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, {too_much_early_data, left, MaxEarlyDataSize});
+                    ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
+                               {too_much_early_data,
+                                {max_early_data_threshold_exceeded,
+                                 PendingMaxEarlyDataSize}});
                true ->
                     ConnectionStates =
                         ConnectionStates0#{current_read =>
                                                ReadState0#{sequence_number => Seq + 1,
-                                                           max_early_data_size => MaxEarlyDataSize}},
+                                                           pending_early_data_size => PendingMaxEarlyDataSize}},
                     {Record#ssl_tls{early_data = true}, ConnectionStates}
             end
     end.
@@ -271,7 +286,8 @@ encode_plain_text(#inner_plaintext{
                         }) ->
     PlainText = [Data, Type, Zeros],
     Encoded = cipher_aead(PlainText, BulkCipherAlgo, Key, Seq, IV, TagLen),
-    #tls_cipher_text{opaque_type = ?OPAQUE_TYPE,  %% 23 (application_data) for outward compatibility
+    %% 23 (application_data) for outward compatibility
+    #tls_cipher_text{opaque_type = ?OPAQUE_TYPE,
                      legacy_version = {3,3},
                      encoded_record = Encoded};
 encode_plain_text(#inner_plaintext{
@@ -315,7 +331,8 @@ cipher_aead(Fragment, BulkCipherAlgo, Key, Seq, IV, TagLen) ->
 
 encode_tls_cipher_text(#tls_cipher_text{opaque_type = Type,
                                         legacy_version = {MajVer, MinVer},
-                                        encoded_record = Encoded}, #{sequence_number := Seq} = Write) ->
+                                        encoded_record = Encoded},
+                       #{sequence_number := Seq} = Write) ->
     Length = erlang:iolist_size(Encoded),
     {[<<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>, Encoded],
      Write#{sequence_number => Seq +1}}.
@@ -374,16 +391,19 @@ remove_padding(InnerPlainText) ->
             InnerPlainText
     end.
 
-update_max_early_date_size(MaxEarlyDataSize, PlainFragment) ->
-    %%The maximum amount of 0-RTT data that the
-    %% client is allowed to send when using this ticket, in bytes.  Only
-    %% Application Data payload (i.e., plaintext but not padding or the
-    %% inner content type byte) is counted. 
-    MaxEarlyDataSize - (byte_size(PlainFragment)).
+pending_early_data_size(PendingMaxEarlyDataSize, PlainFragment) ->
+    %% The maximum amount of 0-RTT data that the client is allowed to
+    %% send when using this ticket, in bytes.  Only Application Data
+    %% payload (i.e., plaintext but not padding or the inner content
+    %% type byte) is counted.
+    PendingMaxEarlyDataSize - (byte_size(PlainFragment)).
 
-approximate_early_data_size(MaxEarlyDataSize, BulkCipherAlgo, CipherFragment) ->
-    TypeLen = 1,
-    MaxEarlyDataSize - (byte_size(CipherFragment) - TypeLen - bca_tag_len(BulkCipherAlgo)).
+approximate_pending_early_data_size(PendingMaxEarlyDataSize,
+                                    BulkCipherAlgo, CipherFragment) ->
+    %% We can not know how much is padding!
+    InnerContTypeLen = 1,
+    PendingMaxEarlyDataSize - (byte_size(CipherFragment) -
+                                   InnerContTypeLen - bca_tag_len(BulkCipherAlgo)).
 
 bca_tag_len(?AES_CCM_8) ->
     8;

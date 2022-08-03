@@ -58,8 +58,7 @@
          maybe_add_binders/4,
          maybe_add_early_data_indication/3,
          maybe_automatic_session_resumption/1,
-         maybe_send_early_data/1,
-         update_current_read/3]).
+         maybe_send_early_data/1]).
 
 -export([get_max_early_data/1,
          is_valid_binder/4,
@@ -864,11 +863,11 @@ do_negotiated({start_handshake, PSK0},
                     ssl_record:step_encryption_state_write(State3);
                 false ->
                     %% Read state is overwritten when handshake secrets are set.
-                    %% Trial_decryption and early_data_limit must be set here!
+                    %% Trial_decryption and early_data_accepted must be set here!
                     update_current_read(
                       ssl_record:step_encryption_state(State3),
                       true,   %% trial_decryption
-                      false   %% early data limit
+                      false   %% early_data_accepted
                     )
 
             end,
@@ -1659,10 +1658,10 @@ calculate_client_early_traffic_secret(
             State0#state{connection_states = ConnectionStates#{pending_read => PendingRead}}
     end.
 
-update_current_read(#state{connection_states = CS} = State, TrialDecryption, EarlyDataLimit) ->
+update_current_read(#state{connection_states = CS} = State, TrialDecryption, EarlyDataExpected) ->
     Read0 = ssl_record:current_connection_state(CS, read),
     Read = Read0#{trial_decryption => TrialDecryption,
-                  early_data_limit => EarlyDataLimit},
+                  early_data_accepted => EarlyDataExpected},
     State#state{connection_states = CS#{current_read => Read}}.
 
 maybe_store_early_data_secret(true, EarlySecret, State) ->
