@@ -160,20 +160,20 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
 %% the signature algorithm of the client's certificate.)
 decode_cipher_text(#ssl_tls{type = ?ALERT,
                             version = ?LEGACY_VERSION,
-                            fragment = <<2,47>>},
+                            fragment = <<?FATAL,?ILLEGAL_PARAMETER>>},
 		   ConnectionStates0) ->
     {#ssl_tls{type = ?ALERT,
               version = {3,4}, %% Internally use real version
-              fragment = <<2,47>>}, ConnectionStates0};
+              fragment = <<?FATAL,?ILLEGAL_PARAMETER>>}, ConnectionStates0};
 %% TLS 1.3 server can receive a User Cancelled Alert when handshake is
 %% paused and then cancelled on the client side.
 decode_cipher_text(#ssl_tls{type = ?ALERT,
                             version = ?LEGACY_VERSION,
-                            fragment = <<2,90>>},
+                            fragment = <<?FATAL,?USER_CANCELED>>},
 		   ConnectionStates0) ->
     {#ssl_tls{type = ?ALERT,
               version = {3,4}, %% Internally use real version
-              fragment = <<2,90>>}, ConnectionStates0};
+              fragment = <<?FATAL,?USER_CANCELED>>}, ConnectionStates0};
 %% RFC8446 - TLS 1.3
 %% D.4.  Middlebox Compatibility Mode
 %%    -  If not offering early data, the client sends a dummy
@@ -271,7 +271,7 @@ encode_plain_text(#inner_plaintext{
                         }) ->
     PlainText = [Data, Type, Zeros],
     Encoded = cipher_aead(PlainText, BulkCipherAlgo, Key, Seq, IV, TagLen),
-    #tls_cipher_text{opaque_type = 23,  %% 23 (application_data) for outward compatibility
+    #tls_cipher_text{opaque_type = ?OPAQUE_TYPE,  %% 23 (application_data) for outward compatibility
                      legacy_version = {3,3},
                      encoded_record = Encoded};
 encode_plain_text(#inner_plaintext{
