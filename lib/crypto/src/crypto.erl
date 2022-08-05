@@ -118,12 +118,15 @@
          engine_load/3,
          engine_load/4,
          engine_unload/1,
+         engine_unload/2,
          engine_by_id/1,
          engine_list/0,
          engine_ctrl_cmd_string/3,
          engine_ctrl_cmd_string/4,
          engine_add/1,
          engine_remove/1,
+         engine_register/2,
+         engine_unregister/2,
          engine_get_id/1,
          engine_get_name/1,
          ensure_engine_loaded/2,
@@ -1833,24 +1836,11 @@ engine_get_all_methods() ->
                                      Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
 engine_load(EngineId, PreCmds, PostCmds) when is_list(PreCmds),
                                               is_list(PostCmds) ->
-    engine_load(EngineId, PreCmds, PostCmds, engine_get_all_methods()).
-
-%%----------------------------------------------------------------------
-%% Function: engine_load/4
-%%----------------------------------------------------------------------
--spec engine_load(EngineId, PreCmds, PostCmds, EngineMethods) ->
-                         Result when EngineId::unicode:chardata(),
-                                     PreCmds::[engine_cmnd()],
-                                     PostCmds::[engine_cmnd()],
-                                     EngineMethods::[engine_method_type()],
-                                     Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
-engine_load(EngineId, PreCmds, PostCmds, EngineMethods) when is_list(PreCmds),
-                                                             is_list(PostCmds) ->
     try
         ok = notsup_to_error(engine_load_dynamic_nif()),
         case notsup_to_error(engine_by_id_nif(ensure_bin_chardata(EngineId))) of
             {ok, Engine} ->
-                engine_load_1(Engine, PreCmds, PostCmds, EngineMethods);
+                engine_load_1(Engine, PreCmds, PostCmds);
             {error, Error1} ->
                 {error, Error1}
         end
@@ -1859,11 +1849,23 @@ engine_load(EngineId, PreCmds, PostCmds, EngineMethods) when is_list(PreCmds),
             Error2
     end.
 
-engine_load_1(Engine, PreCmds, PostCmds, EngineMethods) ->
+-spec engine_load(EngineId, PreCmds, PostCmds, EngineMethods) ->
+                         Result when EngineId::unicode:chardata(),
+                                     PreCmds::[engine_cmnd()],
+                                     PostCmds::[engine_cmnd()],
+                                     EngineMethods::[engine_method_type()],
+                                     Result :: {ok, Engine::engine_ref()} | {error, Reason::term()}.
+engine_load(EngineId, PreCmds, PostCmds, _EngineMethods) when is_list(PreCmds),
+							      is_list(PostCmds) ->
+    engine_load(EngineId, PreCmds, PostCmds).
+
+
+%%----------------------------------------------------------------------
+engine_load_1(Engine, PreCmds, PostCmds) ->
     try
         ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PreCmds), 0)),
         ok = engine_nif_wrapper(engine_init_nif(Engine)),
-        engine_load_2(Engine, PostCmds, EngineMethods),
+        engine_load_2(Engine, PostCmds),
         {ok, Engine}
     catch
         throw:Error ->
@@ -1876,15 +1878,13 @@ engine_load_1(Engine, PreCmds, PostCmds, EngineMethods) ->
             error(badarg)
     end.
 
-engine_load_2(Engine, PostCmds, EngineMethods) ->
+engine_load_2(Engine, PostCmds) ->
     try
         ok = engine_nif_wrapper(engine_ctrl_cmd_strings_nif(Engine, ensure_bin_cmds(PostCmds), 0)),
-        [ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) ||
-            Method <- EngineMethods],
         ok
     catch
        throw:Error ->
-          %% The engine registration failed, release the functional reference
+          %% The engine registration failed, release the structural and functional references
           ok = engine_free_nif(Engine),
           throw(Error)
     end.
@@ -1895,21 +1895,19 @@ engine_load_2(Engine, PostCmds, EngineMethods) ->
 -spec engine_unload(Engine) -> Result when Engine :: engine_ref(),
                                            Result :: ok | {error, Reason::term()}.
 engine_unload(Engine) ->
-    engine_unload(Engine, engine_get_all_methods()).
-
--spec engine_unload(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
-                                                          EngineMethods :: [engine_method_type()],
-                                                          Result :: ok | {error, Reason::term()}.
-engine_unload(Engine, EngineMethods) ->
     try
-        [ok = engine_nif_wrapper(engine_unregister_nif(Engine, engine_method_atom_to_int(Method))) ||
-            Method <- EngineMethods],
         %% Release the reference from engine_by_id_nif
         ok = engine_nif_wrapper(engine_free_nif(Engine))
     catch
         throw:Error ->
             Error
     end.
+
+-spec engine_unload(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
+					      EngineMethods :: [engine_method_type()],
+					      Result :: ok | {error, Reason::term()}.
+engine_unload(Engine, _EngineMethods) ->
+    engine_unload(Engine).
 
 %%----------------------------------------------------------------------
 %% Function: engine_by_id/1
@@ -1940,6 +1938,36 @@ engine_add(Engine) ->
 engine_remove(Engine) ->
     notsup_to_error(engine_remove_nif(Engine)).
 
+%%----------------------------------------------------------------------
+%% Function: engine_register/2
+%%----------------------------------------------------------------------
+-spec engine_register(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
+					       EngineMethods::[engine_method_type()],
+					       Result ::  ok | {error, Reason::term()} .
+engine_register(Engine, EngineMethods) when is_list(EngineMethods) ->
+    try
+	[ok = engine_nif_wrapper(engine_register_nif(Engine, engine_method_atom_to_int(Method))) || 
+	    Method <- EngineMethods],
+        ok
+    catch
+	throw:Error -> Error
+    end.
+
+%%----------------------------------------------------------------------
+%% Function: engine_unregister/2
+%%----------------------------------------------------------------------
+-spec engine_unregister(Engine, EngineMethods) -> Result when Engine :: engine_ref(),
+						 EngineMethods::[engine_method_type()],
+						 Result ::  ok | {error, Reason::term()} .
+engine_unregister(Engine, EngineMethods) when is_list(EngineMethods) ->
+    try
+	[ok = engine_nif_wrapper(engine_unregister_nif(Engine, engine_method_atom_to_int(Method))) || 
+	    Method <- EngineMethods],
+        ok
+    catch
+	throw:Error -> Error
+    end.
+    
 %%----------------------------------------------------------------------
 %% Function: engine_get_id/1
 %%----------------------------------------------------------------------
@@ -2022,13 +2050,18 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 %% Function: ensure_engine_loaded/2
 %% Special version of load that only uses dynamic engine to load
 %%----------------------------------------------------------------------
--spec ensure_engine_loaded(EngineId, LibPath) ->
-                                  Result when EngineId :: unicode:chardata(),
-                                              LibPath :: unicode:chardata(),
-                                              Result :: {ok, Engine::engine_ref()} |
-                                                        {error, Reason::term()}.
+-spec ensure_engine_loaded(EngineId, LibPath) -> Result when EngineId :: unicode:chardata(),
+						 LibPath :: unicode:chardata(),
+						 Result :: {ok, Engine::engine_ref()} |
+	{error, Reason::term()}.
 ensure_engine_loaded(EngineId, LibPath) ->
-    ensure_engine_loaded(EngineId, LibPath, engine_get_all_methods()).
+    case notsup_to_error(ensure_engine_loaded_nif(ensure_bin_chardata(EngineId),
+                                                  ensure_bin_chardata(LibPath))) of
+        {ok, Engine} ->
+            {ok, Engine};
+        {error, Error1} ->
+            {error, Error1}
+    end.
 
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_loaded/3
@@ -2040,17 +2073,8 @@ ensure_engine_loaded(EngineId, LibPath) ->
                                               EngineMethods :: [engine_method_type()],
                                               Result :: {ok, Engine::engine_ref()} |
                                                         {error, Reason::term()}.
-ensure_engine_loaded(EngineId, LibPath, Methods) ->
-    ConvertedMethods = [engine_method_atom_to_int(Method) ||
-                           Method <- Methods],
-    case notsup_to_error(ensure_engine_loaded_nif(ensure_bin_chardata(EngineId),
-                                                  ensure_bin_chardata(LibPath),
-                                                  ConvertedMethods)) of
-        {ok, Engine} ->
-            {ok, Engine};
-        {error, Error1} ->
-            {error, Error1}
-    end.
+ensure_engine_loaded(EngineId, LibPath, _EngineMethods) ->
+    ensure_engine_loaded(EngineId, LibPath).
 
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/1
@@ -2058,7 +2082,7 @@ ensure_engine_loaded(EngineId, LibPath, Methods) ->
 -spec ensure_engine_unloaded(Engine) -> Result when Engine :: engine_ref(),
                                                     Result :: ok | {error, Reason::term()}.
 ensure_engine_unloaded(Engine) ->
-    ensure_engine_unloaded(Engine, engine_get_all_methods()).
+    engine_unload(Engine).
 
 %%----------------------------------------------------------------------
 %% Function: ensure_engine_unloaded/2
@@ -2067,15 +2091,8 @@ ensure_engine_unloaded(Engine) ->
                                     Result when Engine :: engine_ref(),
                                                 EngineMethods :: [engine_method_type()],
                                                 Result :: ok | {error, Reason::term()}.
-ensure_engine_unloaded(Engine, Methods) ->
-    ConvertedMethods = [engine_method_atom_to_int(Method) ||
-                          Method <- Methods],
-    case notsup_to_error(ensure_engine_unloaded_nif(Engine, ConvertedMethods)) of
-        ok ->
-            ok;
-        {error, Error1} ->
-            {error, Error1}
-    end.
+ensure_engine_unloaded(Engine, _EngineMethods) ->
+    ensure_engine_unloaded(Engine).
 
 
 %%--------------------------------------------------------------------
@@ -2498,8 +2515,7 @@ engine_get_next_nif(_Engine) -> ?nif_stub.
 engine_get_id_nif(_Engine) -> ?nif_stub.
 engine_get_name_nif(_Engine) -> ?nif_stub.
 engine_get_all_methods_nif() -> ?nif_stub.
-ensure_engine_loaded_nif(_EngineId, _LibPath, _EngineMethods) -> ?nif_stub.
-ensure_engine_unloaded_nif(_Engine, _EngineMethods) -> ?nif_stub.
+ensure_engine_loaded_nif(_EngineId, _LibPath) -> ?nif_stub.
 
 %%--------------------------------------------------------------------
 %% Engine internals
