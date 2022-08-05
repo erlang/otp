@@ -130,8 +130,7 @@ static ErlNifFunc nif_funcs[] = {
     {"engine_get_id_nif", 1, engine_get_id_nif, 0},
     {"engine_get_name_nif", 1, engine_get_name_nif, 0},
     {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif, 0},
-    {"ensure_engine_loaded_nif", 3, ensure_engine_loaded_nif, 0},
-    {"ensure_engine_unloaded_nif", 2, ensure_engine_unloaded_nif, 0}
+    {"ensure_engine_loaded_nif", 2, ensure_engine_loaded_nif, 0}
 };
 
 #ifdef HAS_3_0_API

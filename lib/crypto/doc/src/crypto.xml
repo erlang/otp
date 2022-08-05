@@ -1715,33 +1715,11 @@ FloatValue = rand:uniform().     % again
 
     <func>
       <name name="engine_load" arity="3" since="OTP 20.2"/>
-      <fsummary>Dynamical load an encryption engine</fsummary>
+      <fsummary>Load an encryption engine</fsummary>
       <desc>
 	<p>
-	  Loads the OpenSSL engine given by <c>EngineId</c> if it is available and then returns ok and
-	  an engine handle. This function is the same as calling <c>engine_load/4</c> with
-	  <c>EngineMethods</c> set to a list of all the possible methods.  An error tuple is
-	  returned if the engine can't be loaded.
-	</p>
-	<p>
-	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
-	  It may also raise the exception <c>error:notsup</c> in case there is
-	  no engine support in the underlying OpenSSL implementation.
-	</p>
-	<p>
-	  See also the chapter <seeguide marker="crypto:engine_load#engine_load">Engine Load</seeguide>
-	  in the User's Guide.
-	</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="engine_load" arity="4" since="OTP 20.2"/>
-      <fsummary>Dynamical load an encryption engine</fsummary>
-      <desc>
-	<p>
-	  Loads the OpenSSL engine given by <c>EngineId</c> if it is available and then returns ok and
-	  an engine handle. An error tuple is returned if the engine can't be loaded.
+	  Loads the OpenSSL engine given by <c>EngineId</c> if it is available and intialize it.
+	  Returns ok and an engine handle, if the engine can't be loaded an error tuple is returned.
 	</p>
 	<p>
 	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
@@ -1757,7 +1735,7 @@ FloatValue = rand:uniform().     % again
 
     <func>
       <name name="engine_unload" arity="1" since="OTP 20.2"/>
-      <fsummary>Dynamical load an encryption engine</fsummary>
+      <fsummary>Unload an encryption engine</fsummary>
       <desc>
 	<p>
 	  Unloads the OpenSSL engine given by <c>Engine</c>.
@@ -1860,6 +1838,32 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
+      <name name="engine_register" arity="2" since="OTP @OTP-18172@"/>
+      <fsummary>Register engine for some methods</fsummary>
+      <desc>
+	<p>Register engine to handle some type of methods, for example engine_method_digests.</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="engine_unregister" arity="2" since="OTP @OTP-18172@"/>
+      <fsummary>Unregister engine for some methods</fsummary>
+      <desc>
+	<p>Unregister engine so it don't handle some type of methods.</p>
+	<p>
+	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
+	  It may also raise the exception <c>error:notsup</c> in case there is
+	  no engine support in the underlying OpenSSL implementation.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="engine_get_id" arity="1" since="OTP 21.0.6"/>
       <fsummary>Fetch engine ID</fsummary>
       <desc>
@@ -1907,50 +1911,26 @@ FloatValue = rand:uniform().     % again
 
     <func>
       <name name="ensure_engine_loaded" arity="2" since="OTP 21.0.6"/>
-      <name name="ensure_engine_loaded" arity="3" since="OTP 21.0.6"/>
       <fsummary>Ensure encryption engine just loaded once</fsummary>
       <desc>
 	<p>
 	  Loads an engine given by <c>EngineId</c> and the path to the dynamic library
-	  implementing the engine. If the function with arity three is used, one can specify which 
-	  engine methods it should handle. An error tuple is returned if the engine can't be loaded. 
+	  implementing the engine. An error tuple is returned if the engine can't be loaded. 
 
 	</p>
 	<p>
 	  This function differs from the normal engine_load in the sense that it
-	  also add the engine id to OpenSSL's internal engine list. The reference from the first call 
-	  holds a functional reference to the engine. Then in the following calls to the function
-	  just fetch a structural reference by looking up the EngineId in OpenSSL's internal engine list.
-	  Therefor there is a difference when unloading the references, see <c>ensure_engine_unloaded</c>.
+	  also add the engine id to OpenSSL's internal engine list. The difference between
+	  the first call and the following is that the first loads the engine with the dynamical 
+	  engine and the following calls fetch it from the OpenSSL's engine list.
+	  All references that is returned are equal.
 	</p>
 	<p>
-	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
-	  It may also raise the exception <c>error:notsup</c> in case there is
-	  no engine support in the underlying OpenSSL implementation.
-	</p>
-	<p>
-	  See also the chapter <seeguide marker="crypto:engine_load#engine_load">Engine Load</seeguide>
-	  in the User's Guide.
-	</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="ensure_engine_unloaded" arity="1" since="OTP 21.0.6"/>
-      <name name="ensure_engine_unloaded" arity="2" since="OTP 21.0.6"/>
-      <fsummary>Unload an engine loaded with the ensure function</fsummary>
-      <desc>
-	<p>
-	  Unloads an engine loaded with the <c>ensure_engine_loaded</c> functions.
-	  The variant with arity two is used when the engine was loaded with <c>ensure_engine_loaded/3</c>
-	  and the second parameter is the method list (same as when loaded).
-	</p>
-	<p>
-	  Exactly what happens differ a bit on the reference, if it's the first reference got by 
-	  <c>ensure_engine_loaded</c> it both removes the label from OpenSSL's internal engine list 
-	  and unloads the engine. If it's not the reference from the first call it just removes that 
-	  refence.
-	</p>
+	  Use <c>engine_unload/1</c> function to remove the references. But remember that
+	  <c>engine_unload/1</c> just removes the references to the engine and not the
+	  tag in OpenSSL's engine list. That has to be done with the <c>engine_remove/1</c> 
+	  function when needed (just called once, from any of the references you got).
+        </p>
 	<p>
 	  The function raises a <c>error:badarg</c> if the parameters are in wrong format.
 	  It may also raise the exception <c>error:notsup</c> in case there is
