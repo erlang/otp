@@ -72,6 +72,8 @@
          verify_fun_always_run_server/1,
          incomplete_chain_auth/0,
          incomplete_chain_auth/1,
+         no_chain_client_auth/0,
+         no_chain_client_auth/1,
          invalid_signature_client/0,
          invalid_signature_client/1,
          invalid_signature_server/0,
@@ -233,6 +235,7 @@ all_version_tests() ->
      verify_fun_always_run_client,
      verify_fun_always_run_server,
      incomplete_chain_auth,
+     no_chain_client_auth,
      invalid_signature_client,
      invalid_signature_server,
      critical_extension_auth,
@@ -573,6 +576,8 @@ missing_root_cert_auth_user_verify_fun_reject(Config) ->
     ClientOpts =  ssl_test_lib:ssl_options(extra_client, [{verify, verify_peer},
                                                           {verify_fun, FunAndState}], Config),
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca).
+
+
 %%--------------------------------------------------------------------
 incomplete_chain_auth() ->
     [{doc,"Test that we can verify an incompleat chain when we have the certs to rebuild it"}].
@@ -591,6 +596,31 @@ incomplete_chain_auth(Config) when is_list(Config) ->
                                                          proplists:delete(cacerts, ClientOpts0)], Config),
     ServerOpts = ssl_test_lib:ssl_options(extra_server, [{verify, verify_peer},
                                                          {cacerts, [ServerRoot]} |
+                                                         proplists:delete(cacerts, ServerOpts0)], Config),
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+no_chain_client_auth() ->
+    [{doc,"In TLS-1.3 test that we allow sending only peer cert if chain CAs are missing and hence"
+      " we can not determine if client is in servers auth domain or not, so send and hope"
+      " that the cert chain is in the auth domain and that the server possess "
+      " intermediates to recreate the chain."}].
+no_chain_client_auth(Config) when is_list(Config) ->
+    Prop = proplists:get_value(tc_group_properties, Config),
+    Group = proplists:get_value(name, Prop),
+    DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(Group),
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                                                        [{server_chain, DefaultCertConf},
+                                                                         {client_chain, DefaultCertConf}]),
+    ServerCas = proplists:get_value(cacerts, ServerOpts0),
+    [ClientRoot| _] = ClientCas = proplists:get_value(cacerts, ClientOpts0),
+    ClientOpts = ssl_test_lib:ssl_options(extra_client, [{verify, verify_peer},
+                                                         {cacerts, [ClientRoot]} |
+                                                         proplists:delete(cacerts, ClientOpts0)], Config),
+    ServerOpts = ssl_test_lib:ssl_options(extra_server, [{verify, verify_peer},
+                                                         {fail_if_no_peer_cert, true},
+                                                         {cacerts,  ClientCas ++ ServerCas} |
                                                          proplists:delete(cacerts, ServerOpts0)], Config),
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 

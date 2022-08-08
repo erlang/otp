@@ -133,14 +133,17 @@ client_auth_no_suitable_chain() ->
     [{doc, "Client sends an empty cert chain as no suitable chain is found."}].
 
 client_auth_no_suitable_chain(Config) when is_list(Config) ->
+    CRoot = public_key:pkix_test_root_cert("OTP other client test ROOT", []),
+    #{client_config := ClientOpts0} = public_key:pkix_test_data(#{server_chain => #{root => [],
+                                                                                    intermediates => [[]],
+                                                                                    peer => []},
+                                                                  client_chain => #{root => CRoot,
+                                                                                    intermediates => [[]],
+                                                                                    peer => []}}),
+    ClientOpts = ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config),
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
 		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
-    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
-    {ok, ClientCAs} = file:read_file(proplists:get_value(cacertfile, ClientOpts0)),
-    [{_,RootCA,_} | _] = public_key:pem_decode(ClientCAs),
-    ClientOpts =  [{cacerts, [RootCA]} |
-                   proplists:delete(cacertfile, ClientOpts0)],
-    Version = proplists:get_value(version,Config),
+    Version = proplists:get_value(version, Config),
 
     case Version of
         'tlsv1.3' ->
@@ -149,7 +152,6 @@ client_auth_no_suitable_chain(Config) when is_list(Config) ->
             ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, handshake_failure)
     end.
 
-    
 %%--------------------------------------------------------------------
 client_auth_use_partial_chain() ->
     [{doc, "Client trusts intermediat CA and verifies the shorter chain."}].
@@ -308,16 +310,7 @@ invalid_signature_client(Config) when is_list(Config) ->
     ssl_test_lib:der_to_pem(NewClientCertFile, [{'Certificate', NewClientDerCert, not_encrypted}]),
     ClientOpts = [{certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts0)],
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true} | ServerOpts0],
-    Version = proplists:get_value(version,Config),
-
-    case Version of
-        'tlsv1.3' ->
-            %% Client will not be able to create chain to send that matches
-            %% certificate authorities
-            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required);
-        _ ->
-            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca)
-    end.
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unknown_ca).
 
 %%--------------------------------------------------------------------
 invalid_signature_server() ->
