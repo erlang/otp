@@ -28,6 +28,7 @@
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
+-include_lib("ssl/src/ssl_cipher.hrl").
 
 %% Common test
 -export([all/0,
@@ -89,6 +90,10 @@
          tls_reject_fake_warning_alert_in_initial_hs/1,
          tls_app_data_in_initial_hs_state/0,
          tls_app_data_in_initial_hs_state/1,
+         tls_13_reject_change_cipher_spec_as_first_msg/0,
+         tls_13_reject_change_cipher_spec_as_first_msg/1,
+         tls_13_middlebox_reject_change_cipher_spec_as_first_msg/0,
+         tls_13_middlebox_reject_change_cipher_spec_as_first_msg/1,
          peername/0,
          peername/1,
          sockname/0,
@@ -137,7 +142,8 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [],  api_tests() -- [sockname]},
+     {'tlsv1.3', [],  (api_tests() ++  [tls_13_reject_change_cipher_spec_as_first_msg,
+                                        tls_13_middlebox_reject_change_cipher_spec_as_first_msg]) -- [sockname]},
      {'tlsv1.2', [],  api_tests()},
      {'tlsv1.1', [],  api_tests()},
      {'tlsv1', [],  api_tests()}
@@ -833,7 +839,7 @@ tls_app_data_in_initial_hs_state() ->
 tls_app_data_in_initial_hs_state(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
-    Version =  ssl_test_lib:protocol_version(Config, tuple),
+    Version = ssl_test_lib:protocol_version(Config, tuple),
     {Major, Minor} = case Version of
                          {3,4} ->
                              {3,3};
@@ -846,18 +852,60 @@ tls_app_data_in_initial_hs_state(Config) when is_list(Config) ->
 					 {options, [{versions, [ssl_test_lib:protocol_version(Config)]} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
-    AppData = <<?BYTE(?APPLICATION_DATA), ?BYTE(Major), ?BYTE(Minor), ?UINT16(3), ?BYTE($F), ?BYTE($O), ?BYTE($O)>>,
+    AppData = case Version of
+                  {3, 4} ->
+                      <<?BYTE(?APPLICATION_DATA), ?BYTE(3), ?BYTE(3), ?UINT16(4), ?BYTE($F), 
+                        ?BYTE($O), ?BYTE($O), ?BYTE(?APPLICATION_DATA)>>;
+                  _ ->
+                     <<?BYTE(?APPLICATION_DATA), ?BYTE(Major), ?BYTE(Minor), 
+                       ?UINT16(3), ?BYTE($F), ?BYTE($O), ?BYTE($O)>>
+              end,
     gen_tcp:send(Socket, AppData),
-     UnexpectedMsgAlert =
-        case Version of
-            {_, 4} ->
-                <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?DECODE_ERROR)>>;
-            _  ->
-                <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>
-        end,
+    UnexpectedMsgAlert = <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), 
+                           ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>,
+    {ok, UnexpectedMsgAlert} = gen_tcp:recv(Socket, 7),
+    {error, closed} = gen_tcp:recv(Socket, 0).
+%%--------------------------------------------------------------------
+tls_13_reject_change_cipher_spec_as_first_msg() ->
+     [{doc,"change_cipher_spec messages can be sent in TLS-1.3 middlebox_comp_mode, but can not be sent as first msg"}].
+tls_13_reject_change_cipher_spec_as_first_msg(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                         {from, self()},
+                                         {mfa, {ssl_test_lib, no_result, []}},
+                                         {options, [{versions, [ssl_test_lib:protocol_version(Config)]} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
+    ChangeCipherSpec = <<?BYTE(?CHANGE_CIPHER_SPEC), ?BYTE(3), ?BYTE(3),
+                         ?UINT16(1), ?BYTE(?CHANGE_CIPHER_SPEC_PROTO)>>,
+    gen_tcp:send(Socket, ChangeCipherSpec),
+    UnexpectedMsgAlert = <<?BYTE(?ALERT), ?BYTE(3), ?BYTE(3), ?UINT16(2),
+                           ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>,
     {ok, UnexpectedMsgAlert} = gen_tcp:recv(Socket, 7),
     {error, closed} = gen_tcp:recv(Socket, 0).
 
+%%--------------------------------------------------------------------
+tls_13_middlebox_reject_change_cipher_spec_as_first_msg() ->
+     [{doc,"change_cipher_spec messages can be sent in TLS-1.3 middlebox_comp_mode, but can not be sent as first msg"}].
+tls_13_middlebox_reject_change_cipher_spec_as_first_msg(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                         {from, self()},
+                                         {mfa, {ssl_test_lib, no_result, []}},
+                                         {options, [{middlebox_comp_mode, false},
+                                                    {versions, [ssl_test_lib:protocol_version(Config)]}
+                                                   | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
+    ChangeCipherSpec = <<?BYTE(?CHANGE_CIPHER_SPEC), ?BYTE(3), ?BYTE(3),
+                         ?UINT16(1), ?BYTE(?CHANGE_CIPHER_SPEC_PROTO)>>,
+    gen_tcp:send(Socket, ChangeCipherSpec),
+    UnexpectedMsgAlert = <<?BYTE(?ALERT), ?BYTE(3), ?BYTE(3), ?UINT16(2),
+                           ?BYTE(?FATAL), ?BYTE(?UNEXPECTED_MESSAGE)>>,
+    {ok, UnexpectedMsgAlert} = gen_tcp:recv(Socket, 7),
+    {error, closed} = gen_tcp:recv(Socket, 0).
 %%--------------------------------------------------------------------
 peername() ->
     [{doc,"Test API function peername/1"}].
