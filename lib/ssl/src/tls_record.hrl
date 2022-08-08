@@ -30,10 +30,11 @@
 -include("ssl_record.hrl"). %% Common TLS and DTLS records and Constantes
 
 %% Used to handle tls_plain_text, tls_compressed and tls_cipher_text
--record(ssl_tls, {   
-	  type,
-	  version, 
-	  fragment
-	 }).
+-record(ssl_tls, {
+                  type,
+                  version, 
+                  fragment,
+                  early_data = false % TLS-1.3
+                 }).
 
 -endif. % -ifdef(tls_record).
