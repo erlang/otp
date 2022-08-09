@@ -539,4 +539,9 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 }
 
+ERL_NIF_TERM hash_final_xof_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return EXCP_NOTSUP(env, "Low-level EVP_DigestFinalXOF function is not supported in this cryptolib");
+}
+
 #endif  /* OPENSSL_VERSION_NUMBER < 1.0 */
