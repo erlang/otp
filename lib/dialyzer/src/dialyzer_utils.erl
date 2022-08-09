@@ -46,7 +46,8 @@
          ets_move/2,
 	 parallelism/0,
          family/1,
-   p_foreach/2
+   p_foreach/2,
+   p_map/2
 	]).
 
 %% For dialyzer_worker.
@@ -1177,6 +1178,39 @@ start(Fun, Args, Ref, N, Outstanding) when N >= 0 ->
           clean_up(Throw, Ref, gb_sets:delete(Pid, Outstanding))
       end
   end.
+
+-spec p_map(fun((X) -> Y), [X]) -> [Y].
+p_map(Fun, List) ->
+  Parent = self(),
+  Batches = batch(List, dialyzer_utils:parallelism()),
+  BatchJobs =
+    [spawn_link(
+      fun() ->
+        try
+          Result = lists:map(Fun,Batch),
+          Parent ! {done, self(), Result}
+        catch
+          throw:Throw -> Parent ! {throw, self(), Throw}
+        end
+      end)
+    || Batch <- Batches],
+  lists:append([
+    receive
+      {done, Pid, BatchResult} -> BatchResult;
+      {throw, Pid, Throw} -> throw(Throw)
+    end
+  || Pid <- BatchJobs]).
+
+-spec batch([X], non_neg_integer()) -> [[X]].
+batch(List, BatchSize) ->
+  batch(BatchSize, 0, List, []).
+batch(_, _, [], Acc) ->
+  [lists:reverse(Acc)];
+batch(BatchSize, BatchSize, List, Acc) ->
+  [lists:reverse(Acc) | batch(BatchSize, 0, List, [])];
+batch(BatchSize, PartialBatchSize, [H|T], Acc) ->
+  batch(BatchSize, PartialBatchSize+1, T, [H|Acc]).
+
 
 clean_up(ThrowVal, Ref, Outstanding) ->
   case gb_sets:is_empty(Outstanding) of

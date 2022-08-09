@@ -24,7 +24,6 @@
 -module(dialyzer_iplt).
 
 -export([check_incremental_plt/3,
-         compute_md5_from_files/1,
          included_modules/1,
          from_file/1,
          get_default_iplt_filename/0,
@@ -375,7 +374,7 @@ check_version_and_compute_md5(Rec, RemoveFiles, AddFiles, ModuleToPathLookup) ->
   end.
 
 compute_new_md5(Md5, [], [], ModuleToPathLookup) ->
-  compute_new_md5_1(Md5, [], [], ModuleToPathLookup);
+  compute_new_md5_1(Md5, [], ModuleToPathLookup);
 compute_new_md5(Md5, RemoveFiles0, AddFiles0, ModuleToPathLookup) ->
   %% Assume that files are first removed and then added. Files that
   %% are both removed and added will be checked for consistency in the
@@ -384,22 +383,36 @@ compute_new_md5(Md5, RemoveFiles0, AddFiles0, ModuleToPathLookup) ->
   AddFiles = AddFiles0 -- RemoveFiles0,
   InitDiffList = init_diff_list(RemoveFiles, AddFiles),
   case init_md5_list(Md5, RemoveFiles, AddFiles) of
-    {ok, NewMd5} -> compute_new_md5_1(NewMd5, [], InitDiffList, ModuleToPathLookup);
+    {ok, NewMd5} -> compute_new_md5_1(NewMd5, InitDiffList, ModuleToPathLookup);
     {error, _What} = Error -> Error
   end.
 
-compute_new_md5_1([{Module, Md5} = Entry|Entries], NewList, Diff, ModuleToPathLookup) ->
-  ModuleFile = maps:get(Module, ModuleToPathLookup),
-  case compute_md5_from_file(ModuleFile) of
-    Md5 ->
-      compute_new_md5_1(Entries, [Entry|NewList], Diff, ModuleToPathLookup);
-    NewMd5 ->
-      compute_new_md5_1(Entries, [{Module, NewMd5}|NewList], [{differ, Module}|Diff], ModuleToPathLookup)
-  end;
-compute_new_md5_1([], _NewList, [], _ModuleToPathLookup) ->
-  ok;
-compute_new_md5_1([], NewList, Diff, _ModuleToPathLookup) ->
-  {differ, lists:keysort(1, NewList), Diff}.
+compute_new_md5_1(Entries, InitDiffs, ModuleToPathLookup) ->
+  Modules = [Module || {Module, _Md5} <- Entries],
+  ExistingHashes = [Md5 || {_Module, Md5} <- Entries],
+  Files = [maps:get(Module, ModuleToPathLookup) || Module <- Modules],
+  NewHashes = dialyzer_utils:p_map(fun compute_md5_from_file/1, Files),
+  Diffs =
+    lists:zipwith3(
+      fun (Module, BeforeHash, AfterHash) ->
+          case BeforeHash of
+            AfterHash ->
+              none;
+            _ ->
+              {differ, Module}
+          end
+      end,
+      Modules,
+      ExistingHashes,
+      NewHashes),
+  Diffs1 = InitDiffs ++ lists:filter(fun ({differ,_}) -> true; (none) -> false end, Diffs),
+  case Diffs1 of
+    [] ->
+      ok;
+    _ ->
+      ModuleHashes = lists:zip(Modules, NewHashes),
+      {differ, lists:keysort(1, ModuleHashes), Diffs1}
+  end.
 
 -spec implementation_module_paths() -> module_file_path_lookup().
 implementation_module_paths() ->
@@ -417,7 +430,9 @@ compute_implementation_md5() ->
 -spec compute_md5_from_files(module_file_path_lookup()) -> [module_md5()].
 
 compute_md5_from_files(ModuleToPathLookup) ->
-  lists:keysort(1, [{ModuleName, compute_md5_from_file(FileName)} || {ModuleName, FileName} <- maps:to_list(ModuleToPathLookup)]).
+  {Modules,Files} = lists:unzip(maps:to_list(ModuleToPathLookup)),
+  Hashes = dialyzer_utils:p_map(fun compute_md5_from_file/1, Files),
+  lists:keysort(1, lists:zip(Modules, Hashes)).
 
 compute_md5_from_file(File) ->
   case beam_lib:chunks(File, [debug_info]) of
