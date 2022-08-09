@@ -99,7 +99,7 @@
 %%--------------------------------------------------------------------
 
 -type anal_type()     :: 'succ_typings' | 'plt_build'.
--type anal_type1()    :: anal_type() | 'plt_add' | 'plt_check' | 'plt_remove'.
+-type anal_type1()    :: anal_type() | 'plt_add' | 'plt_check' | 'plt_remove' | 'incremental'.
 -type contr_constr()  :: {'subtype', erl_types:erl_type(), erl_types:erl_type()}.
 -type contract_pair() :: {erl_types:erl_type(), [contr_constr()]}.
 -type dial_define()   :: {atom(), term()}.
