@@ -499,19 +499,25 @@ wake_hib(Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
 
 fetch_msg(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib) ->
     receive
+	Msg ->
+	    decode_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib)
+    after HibernateAfterTimeout ->
+	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true)
+    end.
+
+decode_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib) ->
+    case Msg of
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
 				  [ServerName, MSL, HibernateAfterTimeout, Hib],Hib);
 	{'EXIT', Parent, Reason} ->
 	    terminate_server(Reason, Parent, MSL, ServerName);
-	Msg when Debug =:= [] ->
+	_Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, []);
-	Msg ->
+	_Msg ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      ServerName, {in, Msg}),
 	    handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug1)
-    after HibernateAfterTimeout ->
-	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true)
     end.
 
 handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
