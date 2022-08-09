@@ -1176,8 +1176,14 @@ cg_block([#cg_set{op=bs_create_bin,dst=Dst0,args=Args0,anno=Anno}=I,
                _ ->
                    Unit0
            end,
+    TypeInfo = case Anno of
+                   #{result_type := #t_bitstring{appendable=true}=Type} ->
+                       [{'%',{var_info,Dst,[{type,Type}]}}];
+                   _ ->
+                       []
+               end,
     Is = [Line,{bs_create_bin,Fail,Alloc,Live,Unit,Dst,{list,Args}}],
-    {Is,St};
+    {Is++TypeInfo,St};
 cg_block([#cg_set{op=bs_start_match,
                   dst=Ctx0,
                   args=[#b_literal{val=new},Bin0]}=I,

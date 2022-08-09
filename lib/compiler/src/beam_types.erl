@@ -382,8 +382,11 @@ subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
     end;
 subtract(#t_bitstring{size_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
     subtract_matchable(T, UnitA, UnitB);
-subtract(#t_bitstring{size_unit=UnitA}=T, #t_bitstring{size_unit=UnitB}) ->
+subtract(#t_bitstring{appendable=App,size_unit=UnitA}=T,
+         #t_bitstring{appendable=App,size_unit=UnitB}) ->
     subtract_matchable(T, UnitA, UnitB);
+subtract(#t_bitstring{}=T, #t_bitstring{}) ->
+    T;
 subtract(#t_bs_context{tail_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
     subtract_matchable(T, UnitA, UnitB);
 subtract(#t_bs_context{tail_unit=UnitA}=T, #t_bs_context{tail_unit=UnitB}) ->
@@ -628,7 +631,9 @@ mtfv_1(A) when is_atom(A) ->
 mtfv_1(B) when is_bitstring(B) ->
     case bit_size(B) of
         0 ->
-            #t_bitstring{size_unit=256};
+            %% See the #t_bitstring{} definition in beam_types.hrl for
+            %% why empty binaries are considered appendable.
+            #t_bitstring{size_unit=256,appendable=true};
         Size ->
             #t_bitstring{size_unit=gcd(Size, 256)}
     end;
@@ -821,11 +826,13 @@ glb(#t_atom{elements=[_|_]}=T, #t_atom{elements=any}) ->
     T;
 glb(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
     T;
-glb(#t_bitstring{size_unit=U1}, #t_bitstring{size_unit=U2}) ->
-    #t_bitstring{size_unit=U1 * U2 div gcd(U1, U2)};
-glb(#t_bitstring{size_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
+glb(#t_bitstring{size_unit=U1,appendable=A1},
+    #t_bitstring{size_unit=U2,appendable=A2}) ->
+    #t_bitstring{size_unit=U1 * U2 div gcd(U1, U2),appendable=A1 or A2};
+glb(#t_bitstring{size_unit=UnitA,appendable=Appendable}=T,
+    #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
-    T#t_bitstring{size_unit=Unit};
+    T#t_bitstring{size_unit=Unit,appendable=Appendable};
 glb(#t_bs_context{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     #t_bs_context{tail_unit=Unit};
@@ -835,9 +842,10 @@ glb(#t_bs_context{tail_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
 glb(#t_bs_matchable{tail_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     #t_bs_matchable{tail_unit=Unit};
-glb(#t_bs_matchable{tail_unit=UnitA}, #t_bitstring{size_unit=UnitB}=T) ->
+glb(#t_bs_matchable{tail_unit=UnitA},
+    #t_bitstring{size_unit=UnitB,appendable=Appendable}=T) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
-    T#t_bitstring{size_unit=Unit};
+    T#t_bitstring{size_unit=Unit,appendable=Appendable};
 glb(#t_bs_matchable{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}=T) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     T#t_bs_context{tail_unit=Unit};
@@ -1014,8 +1022,9 @@ lub(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
     end;
 lub(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
 lub(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
-lub(#t_bitstring{size_unit=U1}, #t_bitstring{size_unit=U2}) ->
-    #t_bitstring{size_unit=gcd(U1, U2)};
+lub(#t_bitstring{size_unit=U1,appendable=A1},
+    #t_bitstring{size_unit=U2,appendable=A2}) ->
+    #t_bitstring{size_unit=gcd(U1, U2),appendable=A1 and A2};
 lub(#t_bitstring{size_unit=U1}, #t_bs_context{tail_unit=U2}) ->
     #t_bs_matchable{tail_unit=gcd(U1, U2)};
 lub(#t_bitstring{size_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->

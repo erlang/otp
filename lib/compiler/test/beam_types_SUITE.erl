@@ -101,6 +101,16 @@ binary_absorption(Config) when is_list(Config) ->
     A = beam_types:meet(A, beam_types:join(A, B)),
     A = beam_types:join(A, beam_types:meet(A, B)),
 
+    %% Tests that the appendable flag behaves as intended.
+    C = #t_bitstring{size_unit=4,appendable=true},
+    D = #t_bitstring{size_unit=6},
+
+    #t_bitstring{size_unit=12,appendable=true} = beam_types:meet(C, D),
+    #t_bitstring{size_unit=2,appendable=false} = beam_types:join(C, D),
+
+    C = beam_types:meet(C, beam_types:join(C, D)),
+    C = beam_types:join(C, beam_types:meet(C, D)),
+
     ok.
 
 integer_absorption(Config) when is_list(Config) ->

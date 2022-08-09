@@ -217,7 +217,8 @@ gen_atom() ->
 gen_bs_matchable() ->
     oneof([?LET(Unit, range(1, 16), #t_bs_matchable{tail_unit=Unit}),
            ?LET(Unit, range(1, 16), #t_bs_context{tail_unit=Unit}),
-           ?LET(Unit, range(1, 16), #t_bitstring{size_unit=Unit})]).
+           ?LET({Unit, Appendable}, {range(1, 16), boolean()},
+                #t_bitstring{size_unit=Unit,appendable=Appendable})]).
 
 gen_float() ->
     oneof([?LET({A, B}, {integer(), integer()},

@@ -302,6 +302,8 @@ format_type(#t_atom{elements=Es}) ->
                  || E <- ordsets:to_list(Es)], " | ");
 format_type(#t_bs_matchable{tail_unit=U}) ->
     io_lib:format("bs_matchable(~p)", [U]);
+format_type(#t_bitstring{size_unit=S,appendable=true}) ->
+    io_lib:format("bitstring(~p,appendable)", [S]);
 format_type(#t_bitstring{size_unit=S}) ->
     io_lib:format("bitstring(~p)", [S]);
 format_type(#t_bs_context{tail_unit=U}) ->
