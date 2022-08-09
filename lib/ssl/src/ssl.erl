@@ -1516,7 +1516,7 @@ do_listen(Port,  Config, dtls_gen_connection) ->
 %% Handle ssl options at handshake, handshake_continue
 -spec update_options([any()], client | server, map()) -> map().
 update_options(Opts, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
-    {SslOpts, _} = expand_options(Opts, ?RULES),
+    {SslOpts, _} = split_options(Opts, ?RULES),
     process_options(SslOpts, InheritedSslOpts, #{role => Role, rules => ?RULES}).
 
 -spec handle_options([any()], client | server, undefined|host()) -> {ok, #config{}}.
@@ -1525,20 +1525,19 @@ handle_options(Opts, Role, Host) ->
 
 %% Handle all options in listen, connect and handshake
 handle_options(Transport, Socket, Opts0, Role, Host) ->
-    {SslOpts0, SockOpts0} = expand_options(Opts0, ?RULES),
-    
+    {SslOpts0, SockOpts0} = split_options(Opts0, ?RULES),
+
     %% Ensure all options are evaluated at startup
     SslOpts1 = add_missing_options(SslOpts0, ?RULES),
-    SslOpts2 = #{protocol := Protocol}
-        = process_options(SslOpts1,
-                          #{},
-                          #{role => Role,
-                            host => Host,
-                            rules => ?RULES}),
-    
+
+    Env = #{role => Role, host => Host, rules => ?RULES},
+    SslOpts2 = process_options(SslOpts1, #{}, Env),
+
     maybe_client_warn_no_verify(SslOpts2, Role),
     SslOpts = maps:without([warn_verify_none], SslOpts2),
+
     %% Handle special options
+    #{protocol := Protocol} = SslOpts2,
     {Sock, Emulated} = emulated_options(Transport, Socket, Protocol, SockOpts0),
     ConnetionCb = connection_cb(Protocol),
     CbInfo = handle_option_cb_info(Opts0, Protocol),
@@ -1566,23 +1565,29 @@ handle_options(Transport, Socket, Opts0, Role, Host) ->
 %% after each successful pass.
 %% If the value of the counter is unchanged at the end of a pass,
 %% the processing stops due to faulty input data.
-process_options({[], [], _}, OptionsMap, _Env) ->
-    OptionsMap;
-process_options({[], [_|_] = Skipped, Counter}, OptionsMap, Env)
-  when length(Skipped) < Counter ->
-    %% Continue handling options if current pass was successful
-    process_options({Skipped, [], length(Skipped)}, OptionsMap, Env);
-process_options({[], [_|_], _Counter}, _OptionsMap, _Env) ->
-    throw({error, faulty_configuration});
-process_options({[{K0,V} = E|T], S, Counter}, OptionsMap0, Env) ->
+
+process_options(Opts, Map, Env) ->
+    process_options(Opts, [], length(Opts), Map, Env).
+
+process_options([{K0,V} = E|T], S, Counter, OptionsMap0, Env) ->
     K = maybe_map_key_internal(K0),
     case check_dependencies(K, OptionsMap0, Env) of
         true ->
             OptionsMap = handle_option(K, V, OptionsMap0, Env),
-            process_options({T, S, Counter}, OptionsMap, Env);
+            process_options(T, S, Counter, OptionsMap, Env);
         false ->
             %% Skip option for next pass
-            process_options({T, [E|S], Counter}, OptionsMap0, Env)
+            process_options(T, [E|S], Counter, OptionsMap0, Env)
+    end;
+process_options([], [], _, OptionsMap, _Env) ->
+    OptionsMap;
+process_options([], Skipped, Counter, OptionsMap, Env) ->
+    case length(Skipped) < Counter of
+        true ->
+            %% Continue handling options if current pass was successful
+            process_options(Skipped, [], length(Skipped), OptionsMap, Env);
+        false ->
+            throw({error, faulty_configuration})
     end.
 
 handle_option(anti_replay = Option, unbound, OptionsMap, #{rules := Rules}) ->
@@ -1971,28 +1976,19 @@ dependecies_already_defined(L, OptionsMap) ->
     lists:all(Fun, L).
 
 
-expand_options(Opts0, Rules) ->
+split_options(Opts0, Rules) ->
     Opts1 = proplists:expand([{binary, [{mode, binary}]},
-                      {list, [{mode, list}]}], Opts0),
+                              {list, [{mode, list}]}], Opts0),
     Opts2 = handle_option_format(Opts1, []),
-
     %% Remove deprecated ssl_imp option
     Opts = proplists:delete(ssl_imp, Opts2),
-    AllOpts = maps:keys(Rules),
-    SockOpts = lists:foldl(fun(Key, PropList) -> proplists:delete(Key, PropList) end,
-                           Opts,
-                           AllOpts ++
-                               [ssl_imp,                          %% TODO: remove ssl_imp
-                                cb_info,
-                                client_preferred_next_protocols,  %% next_protocol_selector
-                                log_alert]),                      %% obsoleted by log_level
-    
-    SslOpts0 = Opts -- SockOpts,
-    SslOpts = {SslOpts0, [], length(SslOpts0)},
-    {SslOpts, SockOpts}.
 
+    DeleteSSLOpts = fun(Key, PropList) -> proplists:delete(Key, PropList) end,
+    AllOpts = [cb_info, client_preferred_next_protocols] ++ maps:keys(Rules),
+    SockOpts = lists:foldl(DeleteSSLOpts, Opts, AllOpts),
+    {Opts -- SockOpts, SockOpts}.
 
-add_missing_options({L0, S, _C}, Rules) ->
+add_missing_options(L0, Rules) ->
     Fun = fun(K0, Acc) ->
                   K = maybe_map_key_external(K0),
                   case proplists:is_defined(K, Acc) of
@@ -2004,8 +2000,7 @@ add_missing_options({L0, S, _C}, Rules) ->
                   end
           end,
     AllOpts = maps:keys(Rules),
-    L = lists:foldl(Fun, L0, AllOpts),
-    {L, S, length(L)}.
+    lists:foldl(Fun, L0, AllOpts).
 
 default_value(Key, Rules) ->
     {Default, _} = maps:get(Key, Rules, {undefined, []}),
