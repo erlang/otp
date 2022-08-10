@@ -68,7 +68,6 @@
          check_cert/3
         ]).
 
-
 -define(CLEANUP_INTERVAL, 5000).
 -define(BIG_CLEANUP_INTERVAL, 600000).
 -define(SLEEP_AMOUNT, 1000).
@@ -115,18 +114,23 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(pem_certfile_keyfile_periodical_cleanup = Case, Config) ->
     adjust_pem_periodical_cleanup_interval(Case, Config, ?CLEANUP_INTERVAL),
+    ssl:clear_pem_cache(),
     Config;
 init_per_testcase(pem_cacertfile_periodical_cleanup = Case, Config) ->
     adjust_pem_periodical_cleanup_interval(Case, Config, ?CLEANUP_INTERVAL),
+    ssl:clear_pem_cache(),
     Config;
 init_per_testcase(new_root_pem_periodical_cleanup = Case, Config) ->
     adjust_pem_periodical_cleanup_interval(Case, Config, ?CLEANUP_INTERVAL),
+    ssl:clear_pem_cache(),
     Config;
 init_per_testcase(new_root_pem_manual_cleanup = Case, Config) ->
+     ssl:clear_pem_cache(),
     adjust_pem_periodical_cleanup_interval(Case, Config, ?BIG_CLEANUP_INTERVAL),
     Config;
 init_per_testcase(_Case, Config) ->
     ssl_test_lib:clean_start(),
+    ssl:clear_pem_cache(),
     ct:timetrap({seconds, 20}),
     Config.
 
@@ -146,19 +150,18 @@ end_per_testcase(_TestCase, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 pem_certfile_keyfile_periodical_cleanup() ->
-    [{doc, "Test pem cache invalidate mechanism using mtime attribute "
+    [{doc, "Test PEM cache invalidate mechanism using mtime attribute "
       "adjustment - certfile and keyfile."}].
 %% 1. establish TLS connection
 %% 2. mtime adjusted for certfile, keyfile for server
 %% 3. during cleanup:
-%%    1. 2 files removed from PemCache
-%%    2. tables unchanged (Cert, CaFileRef, CaRefCnt)
-%% 4. after TLS disconnect PemCache size is 4, rest of tables are empty
+%%    1. 2 files removed from PEM Cache
+%%    2. Ca trust store and its references mapping tables are not affected    
+%% 4. After TLS disconnect only the PEM cache is populated
 pem_certfile_keyfile_periodical_cleanup(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected => [6, 6, 2, 2],
                 cleaned => [4, 6, 2, 2], disconnected => [4, 0, 0, 0]},
-    pem_periodical_cleanup(Config, [certfile, keyfile], Expected),
-    ok.
+    pem_periodical_cleanup(Config, [certfile, keyfile], Expected, false).
 
 pem_cacertfile_periodical_cleanup() ->
     [{doc, "Test pem cache invalidate mechanism using mtime attribute "
@@ -166,88 +169,77 @@ pem_cacertfile_periodical_cleanup() ->
 %% 1. establish TLS connection
 %% 2. mtime adjusted for cacertfile for server
 %% 3. during cleanup:
-%%    1. 1 file removed from PemCache
-%%    2. tables unchanged (Cert, CaFileRef, CaRefCnt)
-%% 4. after TLS disconnect PemCache size is 5, rest of tables are empty
+%%    1. 1 file removed from PEM Cache
+%%    2. The file will however be reentered as it is a CA file that is
+%%       referenced 
+%% 4. After TLS disconnect only the PEM cache is populated
 pem_cacertfile_periodical_cleanup(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected => [6, 6, 2, 2],
-                 cleaned => [5, 6, 2, 2], disconnected => [5, 0, 0, 0]},
-    pem_periodical_cleanup(Config, [cacertfile], Expected),
-    ok.
+                 cleaned => [6, 6, 2, 2], disconnected => [6, 0, 0, 0]},
+    pem_periodical_cleanup(Config, [cacertfile], Expected, true).
 
 pem_manual_cleanup() ->
     [{doc,"Test that internal reference table is cleaned properly even when "
       " the PEM cache is cleared" }].
 %% 1. establish 1st TLS connection
-%% 2. check CaRefCnt content - expecting summed ref counters value of 2
-%% 3. store content of all tables for future checks
-%% 4. ssl:clear_pem_cache()
-%% 5. verify that PemCache table is now empty
-%% 6. verify Cert, CaFileRef, CaRefCnt were unchanged
-%% 7. establish 2nd TLS connection
-%% 8. check CaRefCnt content - expecting summed ref counters value of 4
-%% 9. verify that PemCache table size is 4 (cafileoption is ignored? not loaded
-%%    to PemCache because CaFileRef contains entry for path; probably previously
-%%    cached CA certs are used)
-%% 10. verify that Cert and CaFileRef table content is the same as after 1st connection
-%% 11. PemCache contains files specified with certfile and keyfile - their
-%%     content should be the same as for 1st TLS connection
-%% 12. Upon disconnecting summed ref counters are reduced to 2 and 0
-%% 13. When that value becomes 0 (after terminating both connection) CaFileRef,
-%%     Cert, CaRefCnt tables are cleared
+%% 2. The server and client process will now have a reference to its CA file 
+%% 3. ssl:clear_pem_cache() will empty the PEM cache but as we have
+%%    references to the CAfiles they will be read back, and possible updated
+%%    in the CA store. (Will not happen in this test).
+%% 4. establish 2nd TLS connection
+%% 5. Now there will be two server and two client processes in total 4 references
+%% 6. The same files are used for both connections so the total amount of file is
+%%    still 6.
+%% 7. Upon disconnecting summed ref counters are reduced to 2 and 0 
+%%    When there is no reference to a CA file (the entries for its CA certs)
+%%    will be removed from the CA store. All files will still be cached.
+%% 10. Clear the PEM cache and check that it is empty.
 pem_manual_cleanup(Config) when is_list(Config) ->
+    %% Initialy all tables are empty. First size will be nubmer of
+    %% files (PEM cache), second size will be number of CA certs (CA store), 
+    %% third and forth number of CA files (used for reference counting and mapping
+    %% from filename to ref key)
     [0, 0, 0, 0] = get_table_sizes(),
-    {Server, Client} = basic_verify_test_no_close(Config),
-    2 = get_total_counter(),
-    [6, 6, 2, 2] = get_table_sizes(),
-    [{pem_cache, PemCacheData0}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
-                  {ca_file_ref, CaFileRefData0}] = get_tables(),
 
-    ssl:clear_pem_cache(),
-    _ = sys:get_status(whereis(ssl_manager)),
-    [0, 6, 2, 2] = get_table_sizes(),
-    check_tables([{pem_cache, []}, {cert, CertData0},
-                  {ca_ref_cnt, CaRefCntData0}, {ca_file_ref, CaFileRefData0}]),
+    {Server, Client} = basic_verify_test_no_close(Config),
+    2 = get_total_number_of_references(),
+    %% 6 files (cacerts,cert,key x 2), 6 CA certs in 2 different CA files
+    [6, 6, 2, 2] = get_table_sizes(),
+
+    ssl:clear_pem_cache(),                              
+    [2, 6, 2, 2] = get_table_sizes(), %% Pemcache cleared and used CAs read back
+
     {Server1, Client1} = basic_verify_test_no_close(Config),
-    4 = get_total_counter(),
-    [4, 6, 2, 2] = get_table_sizes(),
-    [{pem_cache, PemCacheData2}, _, {ca_ref_cnt, CaRefCntData2}, _] = get_tables(),
-    check_tables([{pem_cache, PemCacheData2}, {cert, CertData0},
-                  {ca_ref_cnt, CaRefCntData2}, {ca_file_ref, CaFileRefData0}]),
-    [true = lists:member(Row, PemCacheData0) || Row <- PemCacheData2],
+    %% Total 4 processes reference a CA file
+    4 = get_total_number_of_references(),
+    %% New connection causes keys end entity certs and keys to be cached again
+    [6, 6, 2, 2] = get_table_sizes(),
 
     [ssl_test_lib:close(A) || A <- [Server, Client]],
-    ct:sleep(2 * ?SLEEP_AMOUNT),
-
-    _ = sys:get_status(whereis(ssl_manager)),
-    2 = get_total_counter(),
-
-    [4, 6, 2, 2] = get_table_sizes(),
-    check_tables([{pem_cache, PemCacheData2}, {cert, CertData0},
-                  {ca_ref_cnt, CaRefCntData0}, {ca_file_ref, CaFileRefData0}]),
+    [6, 6, 2, 2] = get_table_sizes(), %% All CA files are still referenced
+    %% Total 2 processes reference a CA file
+    2 = get_total_number_of_references(),
 
     [ssl_test_lib:close(A) || A <- [Server1, Client1]],
-    ct:sleep(2 * ?SLEEP_AMOUNT),
+     %% No processes reference a CA file
+    0 = get_total_number_of_references(),
+    %% All files are still cached
+    [6, 0, 0, 0] = get_table_sizes(),
 
-    _ = sys:get_status(whereis(ssl_manager)),
-    0 = get_total_counter(),
-    [4, 0, 0, 0] = get_table_sizes(),
-    check_tables([{pem_cache, PemCacheData2}, {cert, []},
-                  {ca_ref_cnt, []}, {ca_file_ref, []}]),
-    ok.
+    ssl:clear_pem_cache(),
+    [0, 0, 0, 0] = get_table_sizes().
 
 invalid_insert() ->
     [{doc, "Test that insert of invalid pem does not cause empty cache entry"}].
 %% 1. attempt to establish TLS connection with client passing invalid path in
 %%    cacertfile option
-%% 2. verify PemCache table is populated with options passed by server
-%% 3. verify Cert, CaFileRef, CaRefCnt tables are empty
-%% 4. connection is not established
-%% 5. error happens during handshake, when client tries to open file passed in
-%%    cacertfile option
+%% 2. verify PEM Cache table is populated with options passed by server
+%% 3. connection is not established as error happens during handshake, 
+%%    when client tries to open file passed in cacertfile option
+%% 4. verify Cert, CaFileRef tables are empty and the reference count is zero
 invalid_insert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    [0, 0, 0, 0] = get_table_sizes(),
+    [0, 0, 0, 0] = get_table_sizes(),  %% Initialy all tables are empty
     ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
     ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -262,10 +254,9 @@ invalid_insert(Config) when is_list(Config) ->
     ssl_test_lib:start_client_error([{node, ClientNode},
                                {port, Port}, {host, Hostname},
                                {from, self()}, {options, BadClientOpts}]),
-    [3, 0, 0, 0] = get_table_sizes(),
-    ssl_test_lib:close(Server),
-    ct:sleep(?SLEEP_AMOUNT),
-    [3, 0, 0, 0] = get_table_sizes().
+    [3, 0, 0, 0] = get_table_sizes(), %% Server options are cached and bad client options ignored
+    0 = get_total_number_of_references(),
+    [3, 0, 0, 0] = get_table_sizes(). %% Cache is still valid
 
 new_root_pem_manual_cleanup() ->
     [{doc, "Test that changed PEM-files on disk followed by ssl:clear_pem_cache()"
@@ -302,21 +293,21 @@ new_root_pem_manual_cleanup() ->
 %%     is terminated)
 new_root_pem_manual_cleanup(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
-                 cleaned => [0, 6, 2, 2], connected2 => [4, 6, 2, 2],
-                 disconnected1 => [4, 6, 2, 2], disconnected2 => [4,0,0,0]},
+                 cleaned => [2, 6, 2, 2], connected2 => [6, 6, 2, 2],
+                 disconnected1 => [6, 6, 2, 2], disconnected2 => [6,0,0,0]},
     new_root_pem_helper(Config, manual, Expected, fun identity/1),
     %% verify also same key sequence for initial and overwritten certs PEM files
     new_root_pem_helper(Config, manual, Expected, fun identity/1, 5).
 
 new_root_pem_periodical_cleanup() ->
     [{doc, "Test that changed PEM-files on disk followed by periodical cleanup"
-      " invalidates trusted CA cache as well as ordinary PEM cache. "
+      " invalidates trusted CA store as well as ordinary PEM cache. "
       "This test case recreates a PEM file, resulting with its actual content change."}].
 %% see new_root_pem_manual_cleanup for specification
 new_root_pem_periodical_cleanup(Config) when is_list(Config) ->
     ExpectedStats = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
-                      cleaned => [0, 6, 2, 2], connected2 => [4, 6, 2, 2],
-                      disconnected1 => [4, 6, 2, 2], disconnected2 => [4,0,0,0]},
+                      cleaned => [2, 6, 2, 2], connected2 => [6, 6, 2, 2],
+                      disconnected1 => [6, 6, 2, 2], disconnected2 => [6,0,0,0]},
     new_root_pem_helper(Config, periodical, ExpectedStats, fun identity/1),
     %% verify also same key sequence for initial and overwritten certs PEM files
     new_root_pem_helper(Config, periodical, ExpectedStats, fun identity/1, 5).
@@ -427,13 +418,11 @@ get_table_sizes() ->
                 {Label, Db} <- get_table_refs()],
     [Size || {_, _, Size} <- DbSizes].
 
-get_total_counter() ->
+get_total_number_of_references() ->
     CaFileRef = proplists:get_value(ca_ref_cnt, get_table_refs()),
-    CountReferencedFiles = fun({_, -1}, Acc) ->
-				   Acc;
-			      ({_, N}, Acc) ->
-				   N + Acc
-			   end,
+    CountReferencedFiles = fun({Ref, _}, Acc) ->
+                                   ets:update_counter(CaFileRef,Ref,0) + Acc
+                           end,
     ets:foldl(CountReferencedFiles, 0, CaFileRef).
 
 get_table_refs() ->
@@ -536,26 +525,21 @@ new_root_pem_helper(Config, CleanMode,
 
             [{pem_cache, PemCacheData1}, {cert, CertData1},
              {ca_ref_cnt, CaRefCntData1}, {ca_file_ref, _}] = get_tables(),
-            case CleanMode of
-                no_cleanup ->
-                    check_tables([{pem_cache, PemCacheData0},
-                                  {cert, CertData0},
-                                  {ca_ref_cnt, CaRefCntData0},
-                                  {ca_file_ref, CaFileRefData0}]),
-                    {Client1, Server1} =
-                        make_connection_check_cert(ServerRootCert0, ClientNode, ClientConf,
-                                                   ServerNode, ServerConf, Hostname, ServerCAFile0);
-                _ ->
-                    check_tables([{pem_cache, []},
-                                  {ca_ref_cnt, CaRefCntData0},
-                                  {ca_file_ref, CaFileRefData0}]),
-                    false = (CertData1 == CertData0),
-                    {Client1, Server1} =
-                        make_connection_check_cert(ServerRootCert, ClientNode, ClientConf,
-                                                   ServerNode, ServerConf, Hostname, ServerCAFile)
-            end,
-
-            4 = get_total_counter(),
+            {Client1, Server1} = case CleanMode of
+                                     no_cleanup ->
+                                         check_tables([{pem_cache, PemCacheData0},
+                                                       {cert, CertData0},
+                                                       {ca_ref_cnt, CaRefCntData0},
+                                                       {ca_file_ref, CaFileRefData0}]),
+                                         make_connection_check_cert(ServerRootCert0, ClientNode, ClientConf,
+                                                                    ServerNode, ServerConf, Hostname, ServerCAFile0);
+                                     _ ->
+                                         false = (CertData1 == CertData0),
+                                         make_connection_check_cert(ServerRootCert, ClientNode, ClientConf,
+                                                                    ServerNode, ServerConf, Hostname, ServerCAFile)
+                                 end,
+            
+            4 = get_total_number_of_references(),
             Connected2 = get_table_sizes(),
             [{pem_cache, PemCacheData2}, {cert, CertData2},
              {ca_ref_cnt, CaRefCntData2}, {ca_file_ref, _}] = get_tables(),
@@ -571,7 +555,7 @@ new_root_pem_helper(Config, CleanMode,
             true = (CaRefCntData2 /= CaRefCntData1),
 
             [ssl_test_lib:close(A) || A <- [Client1, Server1]],
-            2 = get_total_counter(),
+            2 = get_total_number_of_references(),
             Disconnected1 = get_table_sizes(),
 
             case CleanMode of
@@ -583,7 +567,7 @@ new_root_pem_helper(Config, CleanMode,
             check_tables([{cert, CertData1}, {ca_ref_cnt, CaRefCntData0},
                           {ca_file_ref, CaFileRefData0}]),
             [ssl_test_lib:close(A) || A <- [Client0, Server0]],
-            0 = get_total_counter(),
+            0 = get_total_number_of_references(),
             Disconnected2 = get_table_sizes(),
             case CleanMode of
                 no_cleanup ->
@@ -617,13 +601,13 @@ alternative_path_helper(Config, GetAlternative,
 
     CACertFilePath1 = filename:join([Cwd, CACertFilename]),
     {ok, _} = file:copy(CACertFilePath0, CACertFilePath1),
-    0 = get_total_counter(),
+    0 = get_total_number_of_references(),
     Init = get_table_sizes(),
 
     %% connect with full path
     {Server0, Client0} = basic_verify_test_no_close(
                          replace_cacertfile(Config, CACertFilePath1)),
-    2 = get_total_counter(),
+    2 = get_total_number_of_references(),
     Connected1 = get_table_sizes(),
 
     TestAlternative = fun(ExpectedTotalCounter, ExpectedSizes, CertPath) ->
@@ -634,7 +618,7 @@ alternative_path_helper(Config, GetAlternative,
                                       %% connect with filename only
                                       {Server, Client} = basic_verify_test_no_close(
                                                            replace_cacertfile(Config, Alternative)),
-                                      ExpectedTotalCounter = get_total_counter(),
+                                      ExpectedTotalCounter = get_total_number_of_references(),
                                       ExpectedSizes = get_table_sizes(),
                                       [Server, Client]
                               end
@@ -663,7 +647,7 @@ alternative_path_helper(Config, GetAlternative,
                                               ProcessesCreated],
             ct:sleep(?SLEEP_AMOUNT),
             _ = sys:get_status(whereis(ssl_manager)),
-            0 = get_total_counter(),
+            0 = get_total_number_of_references(),
             Disconnected = get_table_sizes(),
             ok;
         {skip, Reason} ->
@@ -705,7 +689,7 @@ create_initial_config(Config) ->
                   intermediates => [[{key, ?KEY(2)}]],
                   peer => [{key, ?KEY(3)}]}}),
     ClientBase = filename:join(PrivDir, "client_test"),
-    ServerBase =  filename:join(PrivDir, "server_test"),
+    ServerBase = filename:join(PrivDir, "server_test"),
     PemConfig = x509_test:gen_pem_config_files(DerConfig, ClientBase, ServerBase),
     ClientConf = proplists:get_value(client_config, PemConfig),
     ServerConf = proplists:get_value(server_config, PemConfig),
@@ -739,7 +723,7 @@ overwrite_files_with_new_configuration(ServerRootCert0, ClientBase,
 
 pem_periodical_cleanup(Config, FileIds,
             #{init := Init, connected := Connected,
-              cleaned := Cleaned, disconnected := Disconnected} = _ExpectedStats)->
+              cleaned := Cleaned, disconnected := Disconnected} = _ExpectedStats, IsSame)->
     %% ExpectedStats map passed to function contains expected sizes of tables
     %% holding various cert, cacert, keyfile data.
     %% Init - represents initial state
@@ -754,20 +738,9 @@ pem_periodical_cleanup(Config, FileIds,
     ct:sleep(4 * ?SLEEP_AMOUNT),
     Init = get_table_sizes(),
 
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
     ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server =
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-				   {from, self()},
-				   {mfa, {ssl_test_lib, no_result, []}},
-				   {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client =
-	ssl_test_lib:start_client([{node, ClientNode},
-                                   {port, Port}, {host, Hostname},
-				   {mfa, {ssl_test_lib, no_result, []}},
-				   {from, self()}, {options, ClientOpts}]),
+    
+    {Server, Client} = basic_verify_test_no_close(Config),
 
     Connected = get_table_sizes(),
     [{pem_cache, PemCacheData0}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
@@ -786,21 +759,32 @@ pem_periodical_cleanup(Config, FileIds,
 
     Memory = [MakeLookingYounger(F) || F <- FileIds],
     ct:sleep(round(1.5 * ?CLEANUP_INTERVAL)),
+    _ = sys:get_status(whereis(ssl_manager)),
+    Result =
+        try
+            Cleaned = get_table_sizes(),
+            [{pem_cache, PemCacheData1}, _, _, _] = get_tables(),
+            IsSame = PemCacheData1 == PemCacheData0,
+            check_tables([{pem_cache, PemCacheData1}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
+                          {ca_file_ref, CaFileRefData0}]),
+            [true = lists:member(Row, PemCacheData0) || Row <- PemCacheData1],
+ 
+            [ssl_test_lib:close(A) || A <- [Server, Client]],
+            Disconnected = get_table_sizes(),
+            ok
+        catch _:Reason ->
+                Reason
+        end,
 
-    Cleaned = get_table_sizes(),
-    [{pem_cache, PemCacheData1}, _, _, _] = get_tables(),
-    false = PemCacheData1 == PemCacheData0,
-    check_tables([{pem_cache, PemCacheData1}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
-                  {ca_file_ref, CaFileRefData0}]),
-    [true = lists:member(Row, PemCacheData0) || Row <- PemCacheData1],
-
-    [ssl_test_lib:close(A) || A <- [Server, Client]],
-    ct:sleep(?SLEEP_AMOUNT),
-
-    Disconnected = get_table_sizes(),
     %% restore original mtime attributes
     [ok = file:write_file_info(C, F#file_info{mtime = OT}) ||
-        {C, F, OT} <- Memory].
+        {C, F, OT} <- Memory],
+    case Result of
+        ok ->
+            ok;
+        _ ->
+            ct:fail(Result)
+    end.
 
 later()->
     DateTime = calendar:now_to_local_time(os:timestamp()),
