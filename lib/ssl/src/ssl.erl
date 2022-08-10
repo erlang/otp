@@ -96,6 +96,7 @@
 %% Misc
 -export([handle_options/3,
          update_options/3,
+         option_rules/0,
          tls_version/1, 
          suite_to_str/1,
          suite_to_openssl_str/1,
@@ -1516,8 +1517,8 @@ do_listen(Port,  Config, dtls_gen_connection) ->
 %% Handle ssl options at handshake, handshake_continue
 -spec update_options([any()], client | server, map()) -> map().
 update_options(Opts, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
-    {SslOpts, _} = split_options(Opts, ?RULES),
-    process_options(SslOpts, InheritedSslOpts, #{role => Role, rules => ?RULES}).
+    {SslOpts, _} = split_options(Opts, option_rules()),
+    process_options(SslOpts, InheritedSslOpts, #{role => Role, rules => option_rules()}).
 
 -spec handle_options([any()], client | server, undefined|host()) -> {ok, #config{}}.
 handle_options(Opts, Role, Host) ->
@@ -1525,12 +1526,12 @@ handle_options(Opts, Role, Host) ->
 
 %% Handle all options in listen, connect and handshake
 handle_options(Transport, Socket, Opts0, Role, Host) ->
-    {SslOpts0, SockOpts0} = split_options(Opts0, ?RULES),
+    {SslOpts0, SockOpts0} = split_options(Opts0, option_rules()),
 
     %% Ensure all options are evaluated at startup
-    SslOpts1 = add_missing_options(SslOpts0, ?RULES),
+    SslOpts1 = add_missing_options(SslOpts0, option_rules()),
 
-    Env = #{role => Role, host => Host, rules => ?RULES},
+    Env = #{role => Role, host => Host, rules => option_rules()},
     SslOpts2 = process_options(SslOpts1, #{}, Env),
 
     maybe_client_warn_no_verify(SslOpts2, Role),
@@ -1550,6 +1551,110 @@ handle_options(Transport, Socket, Opts0, Role, Host) ->
             transport_info = CbInfo,
             connection_cb = ConnetionCb
            }}.
+
+
+%% This map stores all supported options with default values and
+%% list of dependencies:
+%%   #{<option> => {<default_value>, [<option>]},
+%%     ...}
+option_rules() ->
+    #{
+      alpn_advertised_protocols  => {undefined, [versions]},
+      alpn_preferred_protocols   => {undefined, [versions]},
+      anti_replay                => {undefined, [versions, session_tickets]},
+      beast_mitigation           => {one_n_minus_one, [versions]},
+      cacertfile                 => {undefined, [versions,
+                                                 verify_fun,
+                                                 cacerts]},
+      cacerts                    => {undefined, [versions]},
+      cert                       => {undefined, [versions]},
+      certs_keys                 => {undefined, [versions]},
+      certfile                   => {<<>>,      [versions]},
+      certificate_authorities    => {false,     [versions]},
+      ciphers                    => {[],        [versions]},
+      client_renegotiation       => {undefined, [versions]},
+      cookie                     => {true,      [versions]},
+      crl_cache                  => {{ssl_crl_cache, {internal, []}}, [versions]},
+      crl_check                  => {false,     [versions]},
+      customize_hostname_check   => {[],        [versions]},
+      depth                      => {10,         [versions]},
+      dh                         => {undefined, [versions]},
+      dhfile                     => {undefined, [versions]},
+      early_data                 => {undefined, [versions,
+                                                 session_tickets,
+                                                 use_ticket]},
+      eccs                       => {undefined, [versions]},
+      erl_dist                   => {false,     [versions]},
+      fail_if_no_peer_cert       => {false,     [versions]},
+      fallback                   => {false,     [versions]},
+      handshake                  => {full,      [versions]},
+      hibernate_after            => {infinity,  [versions]},
+      honor_cipher_order         => {false,     [versions]},
+      honor_ecc_order            => {undefined, [versions]},
+      keep_secrets               => {false,     [versions]},
+      key                        => {undefined, [versions]},
+      keyfile                    => {undefined, [versions,
+                                                 certfile]},
+      key_update_at              => {?KEY_USAGE_LIMIT_AES_GCM, [versions]},
+      log_level                  => {notice,    [versions]},
+      max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
+      middlebox_comp_mode        => {true, [versions]},
+      max_fragment_length        => {undefined, [versions]},
+      next_protocol_selector     => {undefined, [versions]},
+      next_protocols_advertised  => {undefined, [versions]},
+      %% If enable OCSP stapling
+      ocsp_stapling              => {false, [versions]},
+      %% Optional arg, if give suggestion of OCSP responders
+      ocsp_responder_certs       => {[], [versions,
+                                          ocsp_stapling]},
+      %% Optional arg, if add nonce extension in request
+      ocsp_nonce                 => {true, [versions,
+                                            ocsp_stapling]},
+      padding_check              => {true,      [versions]},
+      partial_chain              => {fun(_) -> unknown_ca end, [versions]},
+      password                   => {"",        [versions]},
+      protocol                   => {tls,       []},
+      psk_identity               => {undefined, [versions]},
+      receiver_spawn_opts        => {[],        [versions]},
+      renegotiate_at             => {?DEFAULT_RENEGOTIATE_AT, [versions]},
+      reuse_session              => {undefined, [versions]},
+      reuse_sessions             => {true,      [versions]},
+      secure_renegotiate         => {true,      [versions]},
+      sender_spawn_opts          => {[],        [versions]},
+      server_name_indication     => {undefined, [versions]},
+      session_tickets            => {disabled,     [versions]},
+      signature_algs             => {undefined, [versions]},
+      signature_algs_cert        => {undefined, [versions]},
+      sni_fun                    => {undefined, [versions,
+                                                 sni_hosts]},
+      sni_hosts                  => {[],        [versions]},
+      srp_identity               => {undefined, [versions]},
+      supported_groups           => {undefined, [versions]},
+      use_ticket                 => {undefined, [versions]},
+      user_lookup_fun            => {undefined, [versions]},
+      verify                     => {verify_none, [versions,
+                                                   fail_if_no_peer_cert,
+                                                   partial_chain]},
+      verify_fun                 =>
+          {
+           {fun(_, {bad_cert, _}, UserState) ->
+                    {valid, UserState};
+               (_, {extension, #'Extension'{critical = true}}, UserState) ->
+                    %% This extension is marked as critical, so
+                    %% certificate verification should fail if we don't
+                    %% understand the extension.  However, this is
+                    %% `verify_none', so let's accept it anyway.
+                    {valid, UserState};
+               (_, {extension, _}, UserState) ->
+                    {unknown, UserState};
+               (_, valid, UserState) ->
+                    {valid, UserState};
+               (_, valid_peer, UserState) ->
+                    {valid, UserState}
+            end, []},
+           [versions, verify]},
+      versions                   => {[], [protocol]}
+     }.
 
 
 %% process_options(SSLOptions, OptionsMap, Env) where
@@ -2441,7 +2546,7 @@ validate_option(verify_fun, {Fun, _} = Value, _) when is_function(Fun) ->
 validate_option(versions, Versions, _)  ->
     validate_versions(Versions, Versions);
 validate_option(Opt, undefined = Value, _) ->
-    AllOpts = maps:keys(?RULES),
+    AllOpts = maps:keys(option_rules()),
     case lists:member(Opt, AllOpts) of
         true ->
             Value;

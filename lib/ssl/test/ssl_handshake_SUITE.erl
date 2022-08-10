@@ -283,4 +283,4 @@ is_supported(Hash) ->
 
 default_options_map() ->
     Fun = fun (_Key, {Default, _}) -> Default end,
-    maps:map(Fun, ?RULES).
+    maps:map(Fun, ssl:option_rules()).
