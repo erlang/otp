@@ -24,7 +24,8 @@
 
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
 	 binary_options/1, read_modes_gl/1,
-	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
+	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,
+         unicode_prompt/1, shell_slogan/1]).
 
 
 -export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, 
@@ -49,7 +50,8 @@ suite() ->
 all() -> 
     [setopts_getopts, unicode_options, unicode_options_gen,
      binary_options, read_modes_gl, read_modes_ogl,
-     broken_unicode, eof_on_pipe, unicode_prompt].
+     broken_unicode, eof_on_pipe, unicode_prompt,
+     shell_slogan].
 
 groups() -> 
     [].
@@ -122,6 +124,20 @@ unicode_prompt(Config) when is_list(Config) ->
        {expect, "\\Q<<\"hej\\n\">>\\E"}
       ],[],"",["-oldshell","-pa",PA]),
     ok.
+
+%% Test that an Unicode prompt does not crash the shell.
+shell_slogan(Config) when is_list(Config) ->
+    case proplists:get_value(default_shell,Config) of
+	new ->
+	    rtnode:run(
+              [{expect, "\\Q"++string:trim(erlang:system_info(system_version))++"\\E"}
+              ],[],"",[]),
+      	    rtnode:run(
+              [{expect, "\nTest slogan"}
+              ],[],"",["-stdlib","shell_slogan","\"Test slogan\""]);
+        _ ->
+            ok
+    end.
 
 
 %% Check io:setopts and io:getopts functions.

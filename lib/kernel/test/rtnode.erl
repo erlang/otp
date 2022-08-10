@@ -343,7 +343,9 @@ toerl_server(Parent, ToErl, TempDir, SPid) ->
 	    exit(Other)
     end,
 
-    State = #{port => Port, acc => [], spid => SPid},
+    {ok, InitialData} = file:read_file(filename:join(TempDir,"erlang.log.1")),
+
+    State = #{port => Port, acc => unicode:characters_to_list(InitialData), spid => SPid},
     case toerl_loop(State) of
 	normal ->
 	    ok;
