@@ -235,6 +235,8 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
             {true, undefined} ->
                 {ok, Reader} = proc_lib:start_link(?MODULE, reader, [[State#state.tty, self()]]),
                 WriterState#state{ reader = Reader };
+            {true, _} ->
+                WriterState;
             {false, undefined} ->
                 WriterState
         end,
@@ -336,12 +338,17 @@ unicode(State) ->
     State#state.unicode.
 
 -spec unicode(state(), boolean()) -> state().
-unicode(#state{ reader = {ReaderPid, _} } = State, Bool) ->
-    MonRef = erlang:monitor(process, ReaderPid),
-    ReaderPid ! {self(), set_unicode_state, Bool},
-    receive
-        {ReaderPid, set_unicode_state, _} -> ok;
-        {'DOWN',MonRef,_,_,_} -> ok
+unicode(#state{ reader = Reader } = State, Bool) ->
+    case Reader of
+        {ReaderPid, _} ->
+            MonRef = erlang:monitor(process, ReaderPid),
+            ReaderPid ! {self(), set_unicode_state, Bool},
+            receive
+                {ReaderPid, set_unicode_state, _} -> ok;
+                {'DOWN',MonRef,_,_,_} -> ok
+            end;
+        undefined ->
+            ok
     end,
     State#state{ unicode = Bool }.
 

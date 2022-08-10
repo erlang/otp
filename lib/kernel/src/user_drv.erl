@@ -69,7 +69,7 @@
         {requests, [request()]}.
 
 -export_type([message/0]).
--export([start/0, start/1]).
+-export([start/0, start/1, start_shell/0, start_shell/1]).
 
 %% gen_statem state callbacks
 -export([init/3,server/3,switch_loop/3]).
@@ -94,6 +94,13 @@ start() ->
         E when E =:= error ; E =:= {ok,[[]]} ->
             start(#{ })
     end.
+
+-spec start_shell() -> ok | {error, Reason :: term()}.
+start_shell() ->
+    start_shell(#{ }).
+-spec start_shell(arguments()) -> ok | {error, enottty | already_started}.
+start_shell(Args) ->
+    gen_statem:call(?MODULE, {start_shell, Args}).
 
 %% Backwards compatibility with pre OTP-26 for Elixir/LFE etc
 -spec start(['tty_sl -c -e'| shell()]) -> pid();
@@ -272,6 +279,38 @@ start_user() ->
 	    User
     end.
 
+server({call, From}, {start_shell, Args},
+       State = #state{ tty = TTY, shell_started = false }) ->
+    case prim_tty:isatty(stdin) andalso prim_tty:isatty(stdout) of
+        true ->
+            try prim_tty:reinit(TTY, #{input => maps:get(input, Args, true) }) of
+                NewTTY ->
+                    #{ read := ReadHandle, write := WriteHandle } = prim_tty:handles(NewTTY),
+                    gen_statem:reply(From, ok),
+                    NewState = State#state{ tty = NewTTY,
+                                            read = ReadHandle,
+                                            write = WriteHandle },
+                    case Args of
+                        #{ initial_shell := noshell } ->
+                            init_noshell(NewState);
+                        #{ initial_shell := {remote, Node} } ->
+                            init_remote_shell(NewState, Node);
+                        #{ initial_shell := InitialShell } ->
+                            init_local_shell(NewState, InitialShell);
+                        _ ->
+                            init_local_shell(NewState, {shell,start,[init]})
+                    end
+            catch error:enotsup ->
+                    gen_statem:reply(From, {error, enotsup}),
+                    keep_state_and_data
+            end;
+        false ->
+            gen_statem:reply(From, {error, enottty}),
+            keep_state_and_data
+    end;
+server({call, From}, {start_shell, _Args}, _State) ->
+    gen_statem:reply(From, {error, already_started}),
+    keep_state_and_data;
 server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle })
   when State#state.current_group =:= State#state.user ->
     State#state.current_group !

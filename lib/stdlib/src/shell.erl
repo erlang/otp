@@ -23,6 +23,7 @@
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_allowed/3, non_local_allowed/3]).
 -export([catch_exception/1, prompt_func/1, strings/1]).
+-export([start_interactive/0, start_interactive/1]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
@@ -46,6 +47,16 @@ non_local_allowed({init,stop},[],State) ->
     {true,State};
 non_local_allowed(_,_,State) ->
     {false,State}.
+
+-spec start_interactive() -> ok | {error, already_started | enottty}.
+start_interactive() ->
+    user_drv:start_shell().
+-spec start_interactive(noshell | mfa() | {node(), mfa()} | {remote, string()}) ->
+          ok | {error, already_started | enottty}.
+start_interactive({Node, {M, F, A}}) ->
+    user_drv:start_shell(#{ initial_shell => {Node, M, F ,A} });
+start_interactive(InitialShell) ->
+    user_drv:start_shell(#{ initial_shell => InitialShell }).
 
 -spec start() -> pid().
 

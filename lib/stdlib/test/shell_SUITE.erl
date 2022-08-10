@@ -36,6 +36,8 @@
 -export([ start_restricted_from_shell/1, 
 	  start_restricted_on_command_line/1,restricted_local/1]).
 
+-export([ start_interactive/1 ]).
+
 %% Internal export.
 -export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1,
 	 prompt5/1]).
@@ -3012,6 +3014,57 @@ otp_14296(Config) when is_list(Config) ->
     {error, {_, _, ["syntax error"++_|_]}} = TF("{1"),
     {error, {_,_,"bad term"}} = TF("fun() -> foo end"),
     {error, {_,_,"bad term"}} = TF("1, 2"),
+    ok.
+
+start_interactive(_Config) ->
+    rtnode:run(
+      [{expect, "test"},
+       {putline, "test."},
+       {eval, fun() -> shell:start_interactive() end},
+       {expect, "1>"},
+       {expect, "2>"}
+      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+
+    rtnode:run(
+      [{expect, "test"},
+       {putline, "test."},
+       {eval, fun() -> shell:start_interactive({shell,start,[]}) end},
+       {expect, "1>"},
+       {expect, "2>"}
+      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+
+    rtnode:run(
+      [{expect, "test"},
+       {putline, "test."},
+       {eval, fun() -> shell:start_interactive(noshell) end},
+       {eval, fun() -> io:format(user,"~ts",[io:get_line(user, "")]) end},
+       {expect, "test\\."},
+       {putline, "test."},
+       {eval, fun() -> shell:start_interactive() end},
+       {expect, "1>"},
+       {expect, "2>"}
+      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+
+    {ok, RPeer, RNode} = ?CT_PEER(),
+    unlink(RPeer),
+    SRNode = atom_to_list(RNode),
+    rtnode:run(
+      [{expect, "test"},
+       {putline, "test."},
+       {eval, fun() -> shell:start_interactive({remote, SRNode}) end},
+       {expect, "\\Q("++SRNode++")\\E2>"}
+      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+
+    {ok, Peer, Node} = ?CT_PEER(),
+    unlink(Peer),
+    SNode = atom_to_list(Node),
+    rtnode:run(
+      [{expect, "test"},
+       {putline, "test."},
+       {eval, fun() -> shell:start_interactive({Node, {shell,start,[]}}) end},
+       {expect, "\\Q("++SNode++")\\E2>"}
+      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+
     ok.
 
 term_to_string(T) ->
