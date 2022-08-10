@@ -154,12 +154,24 @@ server(StartSync) ->
 		undefined
 	end,
 
-    case get(no_control_g) of
-	true ->
-	    io:fwrite(<<"Eshell V~s\n">>, [erlang:system_info(version)]);
-	_undefined_or_false ->
-	    io:fwrite(<<"Eshell V~s  (abort with ^G)\n">>,
-		      [erlang:system_info(version)])
+    JCL =
+        case get(no_control_g) of
+            true -> " (type help(). for help)";
+            _ -> " (press Ctrl+G to abort, type help(). for help)"
+        end,
+    DefaultSessionSlogan =
+        io_lib:format(<<"Eshell V~s">>, [erlang:system_info(version)]),
+    SessionSlogan =
+        case application:get_env(stdlib, shell_session_slogan, DefaultSessionSlogan) of
+            SloganFun when is_function(SloganFun, 0) ->
+                SloganFun();
+            Slogan ->
+                Slogan
+        end,
+    try
+        io:fwrite("~ts~ts\n",[unicode:characters_to_list(SessionSlogan),JCL])
+    catch _:_ ->
+            io:fwrite("Warning! The slogan \"~p\" could not be printed.\n",[SessionSlogan])
     end,
     erase(no_control_g),
 

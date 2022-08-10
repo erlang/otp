@@ -33,7 +33,7 @@
 %% For spawn
 -export([answering_machine1/3, answering_machine2/3]).
 
--export([uprompt/1]).
+-export([uprompt/1, slogan/0, session_slogan/0]).
 
 %%-define(debug, true).
 
@@ -127,18 +127,32 @@ unicode_prompt(Config) when is_list(Config) ->
 
 %% Test that an Unicode prompt does not crash the shell.
 shell_slogan(Config) when is_list(Config) ->
+    PA = filename:dirname(code:which(?MODULE)),
     case proplists:get_value(default_shell,Config) of
 	new ->
 	    rtnode:run(
-              [{expect, "\\Q"++string:trim(erlang:system_info(system_version))++"\\E"}
+              [{expect, "\\Q"++string:trim(erlang:system_info(system_version))++"\\E"},
+               {expect, "\\Q"++io_lib:format("Eshell V~s (press Ctrl+G to abort, type help(). for help)",[erlang:system_info(version)])++"\\E"}
               ],[],"",[]),
       	    rtnode:run(
-              [{expect, "\nTest slogan"}
-              ],[],"",["-stdlib","shell_slogan","\"Test slogan\""]);
+              [{expect, "\nTest slogan"},
+               {expect, "\nTest session slogan \\("}
+              ],[],"",["-stdlib","shell_slogan","\"Test slogan\"",
+                       "-stdlib","shell_session_slogan","\"Test session slogan\""]),
+      	    rtnode:run(
+              [{expect, "\nTest slogan"},
+               {expect, "\\Q\nTest session slogan (\\E"}
+              ],[],"",["-stdlib","shell_slogan","fun io_proto_SUITE:slogan/0",
+                       "-stdlib","shell_session_slogan","fun io_proto_SUITE:session_slogan/0",
+                       "-pa",PA]);
         _ ->
             ok
     end.
 
+slogan() ->
+    "Test slogan".
+session_slogan() ->
+    "Test session slogan".
 
 %% Check io:setopts and io:getopts functions.
 setopts_getopts(Config) when is_list(Config) ->
