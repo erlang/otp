@@ -1378,7 +1378,7 @@ static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     vs2 = flatmap_get_values(mp2);
 
     while(i1 < n1 && i2 < n2) {
-	c = CMP_TERM(ks1[i1],ks2[i2]);
+	c = (ks1[i1] == ks2[i2]) ? 0 : CMP_TERM(ks1[i1],ks2[i2]);
 	if (c == 0) {
 	    /* use righthand side arguments map value,
 	     * but advance both maps */

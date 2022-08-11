@@ -903,8 +903,6 @@ modify_combo(Config) ->
 
 %%%----------------------------------------------------------------
 %%%
-client_close_after_hello() -> [{timetrap,{seconds,80}}].
-
 client_close_after_hello(Config0) ->
     MaxSessions = 20,
     SleepSec = 15,
@@ -913,7 +911,7 @@ client_close_after_hello(Config0) ->
                                         {negotiation_timeout,SleepSec*1000}
                                        ]),
 
-    {Parents0, Conns0, []} = find_handshake_parent(server_port(Config)),
+    {_Parents0, Conns0, []} = find_handshake_parent(server_port(Config)),
 
     Cs =
         [ssh_trpt_test_lib:exec(

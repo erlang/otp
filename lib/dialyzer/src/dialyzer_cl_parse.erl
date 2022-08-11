@@ -54,6 +54,11 @@ cl(["--apps"|T]) ->
   {Args, T2} = collect_args(T1),
   append_var(dialyzer_options_files_rec, Args),
   cl(T2);
+cl(["--warning_apps"|T]) ->
+  T1 = get_lib_dir(T),
+  {Args, T2} = collect_args(T1),
+  append_var(dialyzer_options_warning_files_rec, Args),
+  cl(T2);
 cl(["--build_plt"|T]) ->
   put(dialyzer_options_analysis_type, plt_build),
   cl(T);
@@ -108,6 +113,9 @@ cl(["-r"++_|T0]) ->
 cl(["--remove_from_plt"|T]) ->
   put(dialyzer_options_analysis_type, plt_remove),
   cl(T);
+cl(["--incremental"|T]) ->
+  put(dialyzer_options_analysis_type, incremental),
+  cl(T);
 cl(["--com"++_|T]) ->
   NewTail = command_line(T),
   cl(NewTail);
@@ -117,6 +125,12 @@ cl(["-o"]) ->
   cl_error("No outfile specified");
 cl(["--output",Output|T]) ->
   put(dialyzer_output, Output),
+  cl(T);
+cl(["--metrics_file",MetricsFile|T]) ->
+  put(dialyzer_metrics, MetricsFile),
+  cl(T);
+cl(["--module_lookup_file",ModuleLookupFile|T]) ->
+  put(dialyzer_module_lookup, ModuleLookupFile),
   cl(T);
 cl(["--output_plt"]) ->
   cl_error("No outfile specified for --output_plt");
@@ -194,6 +208,11 @@ cl(["--dump_callgraph"]) ->
 cl(["--dump_callgraph", File|T]) ->
   put(dialyzer_callgraph_file, File),
   cl(T);
+cl(["--dump_full_dependencies_graph"]) ->
+  cl_error("No outfile specified for --dump_full_dependencies_graph");
+cl(["--dump_full_dependencies_graph", File|T]) ->
+  put(dialyzer_mod_deps_file, File),
+  cl(T);
 cl(["--gui"|T]) ->
   put(dialyzer_options_mode, gui),
   cl(T);
@@ -256,6 +275,9 @@ init() ->
   %% common_options(), then the environment variables (currently only
   %% ERL_COMPILER_OPTIONS) would be overwritten by default values.
   put(dialyzer_options_mode, cl),
+  put(dialyzer_options_files_rec, []),
+  put(dialyzer_options_warning_files_rec, []),
+  put(dialyzer_options_report_mode, normal),
   put(dialyzer_warnings, []),
   ok.
 
@@ -296,17 +318,20 @@ collect_args_1([], Acc) ->
 
 cl_options() ->
   OptsList = [{files, dialyzer_options_files},
-              {files_rec, dialyzer_options_files_rec},
-              {output_file, dialyzer_output},
-              {output_format, dialyzer_output_format},
-              {filename_opt, dialyzer_filename_opt},
-              {indent_opt, dialyzer_indent_opt},
-              {error_location, dialyzer_error_location_opt},
-              {analysis_type, dialyzer_options_analysis_type},
-              {get_warnings, dialyzer_options_get_warnings},
-              {timing, dialyzer_timing},
-              {callgraph_file, dialyzer_callgraph_file}],
-  get_options(OptsList) ++ common_options().
+   {files_rec, dialyzer_options_files_rec},
+   {warning_files_rec, dialyzer_options_warning_files_rec},
+   {output_file, dialyzer_output},
+   {metrics_file, dialyzer_metrics},
+   {module_lookup_file, dialyzer_module_lookup},
+   {output_format, dialyzer_output_format},
+   {filename_opt, dialyzer_filename_opt},
+   {indent_opt, dialyzer_indent_opt},
+   {analysis_type, dialyzer_options_analysis_type},
+   {get_warnings, dialyzer_options_get_warnings},
+   {timing, dialyzer_timing},
+   {callgraph_file, dialyzer_callgraph_file},
+   {mod_deps_file, dialyzer_mod_deps_file}],
+   get_options(OptsList) ++ common_options().
 
 common_options() ->
   OptsList = [{defines, dialyzer_options_defines},
@@ -380,7 +405,7 @@ help_message() ->
                 [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
                 [--error_location flag] [files_or_dirs] [--fullpath]
                 [--get_warnings] [--gui] [--help] [-I include_dir]*
-                [--no_check_plt] [--no_indentation] [-o outfile]
+                [--incremental] [--no_check_plt] [--no_indentation] [-o outfile]
                 [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
                 [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
                 [--shell] [--src] [--statistics] [--verbose] [--version]
@@ -424,7 +449,7 @@ Options:
   --output_plt file
       Store the plt at the specified file after building it.
   --plt plt
-      Use the specified plt as the initial plt (if the plt was built 
+      Use the specified plt as the initial plt (if the plt was built
       during setup the files will be checked for consistency).
   --plts plt*
       Merge the specified plts to create the initial plt -- requires
@@ -475,6 +500,13 @@ Options:
   --no_check_plt (or -n)
       Skip the plt check when running Dialyzer. Useful when working with
       installed plts that never change.
+  --incremental
+      The analysis starts from an existing incremental PLT, or builds one from
+      scratch if one doesn't exist, and runs the minimal amount of additional
+      analysis to report all issues in the given set of apps. Notably, incremental
+      PLT files are not compatible with \"classic\" PLT files, and vice versa.
+      The initial incremental PLT will be updated unless an alternative output
+      incremental PLT is given.
   --plt_info
       Make Dialyzer print information about the plt and then quit. The plt
       can be specified with --plt(s).
@@ -486,6 +518,11 @@ Options:
       by the file name extension. Supported extensions are: raw, dot, and ps.
       If something else is used as file name extension, default format '.raw'
       will be used.
+  --dump_full_dependencies_graph file
+      Dump the full dependency graph (i.e. dependencies induced by function
+      calls, usages of types in specs, behaviour implementations, etc.) into
+      the specified file whose format is determined by the file name
+      extension. Supported extensions are: dot and ps.
   --error_location column | line
       Use a pair {Line, Column} or an integer Line to pinpoint the location
       of warnings. The default is to use a pair {Line, Column}. When
@@ -547,6 +584,12 @@ warning_options_msg() ->
   -Wunderspecs ***
      Warn about underspecified functions
      (those whose -spec is strictly more allowing than the success typing).
+  -Wextra_return ***
+     Warn about functions whose specification includes types that the
+     function cannot return.
+  -Wmissing_return ***
+     Warn about functions that return values that are not part
+     of the specification.
   -Wunknown ***
      Let warnings about unknown functions and types affect the
      exit status of the command line version. The default is to ignore

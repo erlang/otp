@@ -131,10 +131,10 @@
                                 {rsa, Size::integer(), PubExp::integer()}. 
 -type der_encoded()          :: binary().
 -type pki_asn1_type()        ::  'Certificate' | 'RSAPrivateKey' | 'RSAPublicKey'
-			       | 'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter'
-                               | 'SubjectPublicKeyInfo' | 'PrivateKeyInfo' | 
-				 'CertificationRequest' | 'CertificateList' |
-				 'ECPrivateKey' | 'EcpkParameters'.
+			       | 'SubjectPublicKeyInfo' | 'DSAPrivateKey'
+                               | 'DHParameter' | 'PrivateKeyInfo' |
+				 'CertificationRequest' | 'ContentInfo' | 'CertificateList' |
+				 'ECPrivateKey' | 'OneAsymmetricKey'| 'EcpkParameters'.
 -type pem_entry()            :: {pki_asn1_type(), 
 				 der_or_encrypted_der(),
 				 not_encrypted | cipher_info()

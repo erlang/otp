@@ -58,8 +58,7 @@
          maybe_add_binders/4,
          maybe_add_early_data_indication/3,
          maybe_automatic_session_resumption/1,
-         maybe_send_early_data/1,
-         update_current_read/3]).
+         maybe_send_early_data/1]).
 
 -export([get_max_early_data/1,
          is_valid_binder/4,
@@ -646,7 +645,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                            maps:get(signature_algs, Extensions, undefined)),
         ClientSignAlgsCert = get_signature_scheme_list(
                                maps:get(signature_algs_cert, Extensions, undefined)),
-        CertAuths = get_certificate_authorites(maps:get(certificate_authorities, Extensions, undefined)),
+        CertAuths = get_certificate_authorities(maps:get(certificate_authorities, Extensions, undefined)),
         CookieExt = maps:get(cookie, Extensions, undefined),
         Cookie = get_cookie(CookieExt),
 
@@ -865,11 +864,11 @@ do_negotiated({start_handshake, PSK0},
                     ssl_record:step_encryption_state_write(State3);
                 false ->
                     %% Read state is overwritten when handshake secrets are set.
-                    %% Trial_decryption and early_data_limit must be set here!
+                    %% Trial_decryption and early_data_accepted must be set here!
                     update_current_read(
                       ssl_record:step_encryption_state(State3),
                       true,   %% trial_decryption
-                      false   %% early data limit
+                      false   %% early_data_accepted
                     )
 
             end,
@@ -1129,8 +1128,9 @@ do_wait_eoed(#end_of_early_data{}, State0) ->
 %% Upon receiving a message with type server_hello, implementations MUST
 %% first examine the Random value and, if it matches this value, process
 %% it as described in Section 4.1.4).
-maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM} = ServerHello, State0) ->
-    {error, {State0, start, ServerHello}};
+maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM} = ServerHello, 
+                          #state{protocol_specific = PS} = State0) ->
+    {error, {State0#state{protocol_specific = PS#{hello_retry => true}}, start, ServerHello}};
 maybe_hello_retry_request(_, _) ->
     ok.
 
@@ -1441,7 +1441,7 @@ process_certificate_request(#certificate_request_1_3{
                        maps:get(signature_algs, Extensions, undefined)),
     ServerSignAlgsCert = get_signature_scheme_list(
                            maps:get(signature_algs_cert, Extensions, undefined)),
-    CertAuths = get_certificate_authorites(maps:get(certificate_authorities, Extensions, undefined)),
+    CertAuths = get_certificate_authorities(maps:get(certificate_authorities, Extensions, undefined)),
 
     CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, Version),
     Session = select_client_cert_key_pair(Session0, CertKeyPairs,
@@ -1652,19 +1652,16 @@ calculate_client_early_traffic_secret(
             PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
             PendingRead1 = maybe_store_early_data_secret(KeepSecrets, ClientEarlyTrafficSecret,
                                                          PendingRead0),
-            PendingRead2 = update_connection_state(PendingRead1, undefined, undefined,
+            PendingRead = update_connection_state(PendingRead1, undefined, undefined,
                                                    undefined,
                                                    Key, IV, undefined),
-            %% Signal start of early data. This is to prevent handshake messages to be
-            %% counted in max_early_data_size.
-            PendingRead = PendingRead2#{count_early_data => true},
             State0#state{connection_states = ConnectionStates#{pending_read => PendingRead}}
     end.
 
-update_current_read(#state{connection_states = CS} = State, TrialDecryption, EarlyDataLimit) ->
+update_current_read(#state{connection_states = CS} = State, TrialDecryption, EarlyDataExpected) ->
     Read0 = ssl_record:current_connection_state(CS, read),
     Read = Read0#{trial_decryption => TrialDecryption,
-                  early_data_limit => EarlyDataLimit},
+                  early_data_accepted => EarlyDataExpected},
     State#state{connection_states = CS#{current_read => Read}}.
 
 maybe_store_early_data_secret(true, EarlySecret, State) ->
@@ -2465,9 +2462,9 @@ get_signature_scheme_list(#signature_algorithms{
     lists:filter(fun (E) -> is_atom(E) andalso E =/= unassigned end,
                  ClientSignatureSchemes).
 
-get_certificate_authorites(#certificate_authorities{authorities = Auths}) ->
+get_certificate_authorities(#certificate_authorities{authorities = Auths}) ->
     Auths;
-get_certificate_authorites(undefined) ->
+get_certificate_authorities(undefined) ->
     [].
 
 get_supported_groups(undefined = Groups) ->
@@ -2744,8 +2741,8 @@ maybe_send_early_data(#state{
             %% Set 0-RTT traffic keys for sending early_data and EndOfEarlyData
             State3 = ssl_record:step_encryption_state_write(State2),
             {ok, encode_early_data(Cipher, State3)};
-        {ok, {_, _, _, _MaxSize}} ->
-            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, too_much_early_data)};
+        {ok, {_, _, _, MaxSize}} ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {too_much_early_data, {max, MaxSize}})};
         {error, Alert} ->
             {error, Alert}
     end;
@@ -3066,4 +3063,3 @@ select_client_cert_key_pair(Session0, [#{private_key := Key, certs := [Cert| _] 
             select_client_cert_key_pair(Session0, Rest, ServerSignAlgsCert, ServerSignAlgsCert, ClientSignAlgs,
                                         CertDbHandle, CertDbRef, CertAuths)
     end.
-

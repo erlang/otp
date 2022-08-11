@@ -1,7 +1,4 @@
-%% This suite is the only hand made and simply
-%% checks if we can build and update a plt.
-
--module(plt_SUITE).
+-module(cplt_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -39,8 +36,12 @@
          mod_dep_from_exported_fun_spec_args/1,
          mod_dep_from_unexported_fun_spec_return/1,
          mod_dep_from_exported_fun_spec_return/1,
-         mod_dep_from_unexported_type/1
-         ]).
+         mod_dep_from_unexported_type/1,
+         adding_warning_apps_after_a_run_without_them_causes_any_new_warnings_to_be_reported/1,
+         removing_warning_apps_after_a_run_with_them_causes_any_warnings_for_the_removed_apps_not_to_be_reported/1,
+         removing_legal_warnings_with_existing_stored_warnings_in_plt_does_not_result_in_old_warnings_being_printed/1,
+         adding_legal_warnings_with_existing_stored_warnings_in_plt_results_in_new_warnings_being_printed/1
+        ]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
@@ -73,7 +74,11 @@ all() -> [build_plt, build_xdg_plt, beam_tests, update_plt, run_plt_check,
           mod_dep_from_exported_fun_spec_args,
           mod_dep_from_unexported_fun_spec_return,
           mod_dep_from_exported_fun_spec_return,
-          mod_dep_from_unexported_type
+          mod_dep_from_unexported_type,
+          adding_warning_apps_after_a_run_without_them_causes_any_new_warnings_to_be_reported,
+          removing_warning_apps_after_a_run_with_them_causes_any_warnings_for_the_removed_apps_not_to_be_reported,
+          removing_legal_warnings_with_existing_stored_warnings_in_plt_does_not_result_in_old_warnings_being_printed,
+          adding_legal_warnings_with_existing_stored_warnings_in_plt_results_in_new_warnings_being_printed
           ].
 
 build_plt(Config) ->
@@ -252,7 +257,7 @@ update_plt(Config) ->
               test() ->
                   plt_gc:one().">>,
     {ok, TestBeam} = compile(Config, Test, test, []),
-    [{warn_callgraph, _, {call_to_missing, [plt_gc, one, 0]}}] =
+    [{warn_callgraph, {_Filename, {5,19}}, {call_to_missing, [plt_gc,one,0]}}] =
         dialyzer:run([{analysis_type, succ_typings},
                       {files, [TestBeam]},
                       {init_plt, Plt}] ++ Opts),
@@ -550,7 +555,7 @@ missing_plt_file_2(Config, PltFile, BeamFile2) ->
     end.
 
 missing_plt_file_3() ->
-    try dialyzer_plt:from_file("no_such_file"), false
+    try dialyzer_cplt:from_file("no_such_file"), false
     catch throw:{dialyzer_error, _} -> true
     end.
 
@@ -872,7 +877,7 @@ check_plt_deps(Config, TestName, DependerSrc, ExpectedTypeDepsInPltUnsorted) ->
     {ok, DepsBeamFile} = compile(Config, type_deps, []),
     {ok, DependerBeamFile} = compile(Config, DependerSrc, depender, []),
     [] = run_dialyzer(plt_build, [DependerBeamFile, DepsBeamFile], [{output_plt, PltFile}]),
-    {_ResPlt, #plt_info{mod_deps = DepsByModule}} = dialyzer_plt:plt_and_info_from_file(PltFile),
+    {_ResPlt, #plt_info{mod_deps = DepsByModule}} = dialyzer_cplt:plt_and_info_from_file(PltFile),
 
     ActualTypeDepsInPlt =
       lists:sort(dict:to_list(dict:erase(erlang, DepsByModule))),
@@ -895,7 +900,7 @@ erlang_beam() ->
             EBeam
     end.
 
-%% Builds the named module using the source in the plt_SUITE_data dir
+%% Builds the named module using the source in the cplt_SUITE_data dir
 compile(Config, Module, CompileOpts) ->
     Source = lists:concat([Module, ".erl"]),
     PrivDir = proplists:get_value(priv_dir,Config),
@@ -920,3 +925,81 @@ run_dialyzer(Analysis, Files, Opts) ->
 		  {files, Files},
 		  {from, byte_code} |
 		  Opts]).
+
+
+m_src_without_warning() -> <<"
+  -module(m).
+  -export([updt/3]).
+
+  updt(X, K, V) -> X#{ K => V }.
+  ">>.
+
+m_src_with_warning() -> <<"
+  -module(m).
+  -export([updt/3]).
+
+  -spec updt(list(), term(), term()) -> list(). % Warning: Spec is wrong! Function takes a map, not a list
+  updt(X, K, V) -> X#{ K => V }.
+  ">>.
+
+adding_warning_apps_after_a_run_without_them_causes_any_new_warnings_to_be_reported(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    PltFile = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME) ++ ".plt"),
+    Opts = [{init_plt, [PltFile]}],
+    OptsNoContractWarn = [{init_plt, [PltFile]}, {warnings, [no_contracts]}],
+    {ok, Beam} = compile(Config, m_src_with_warning(), m, []),
+    [] = run_dialyzer(incremental, [Beam], OptsNoContractWarn),
+    ?assertMatch(
+      [{warn_contract_types,
+          {_, {5,4}},
+          {invalid_contract,[m,updt,3,"(map(),_,_) -> map()"]}}
+      ],
+      run_dialyzer(incremental, [Beam], Opts)).
+
+removing_warning_apps_after_a_run_with_them_causes_any_warnings_for_the_removed_apps_not_to_be_reported(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    PltFile = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME) ++ ".plt"),
+    Opts = [{init_plt, [PltFile]}],
+    OptsNoContractWarn = [{init_plt, [PltFile]}, {warnings, [no_contracts]}],
+    {ok, Beam} = compile(Config, m_src_with_warning(), m, []),
+    ?assertMatch(
+      [{warn_contract_types,
+          {_, {5,4}},
+          {invalid_contract,[m,updt,3,"(map(),_,_) -> map()"]}}
+      ],
+      run_dialyzer(incremental, [Beam], Opts)),
+    ?assertEqual(
+       [],
+       run_dialyzer(incremental, [Beam], OptsNoContractWarn)).
+
+removing_legal_warnings_with_existing_stored_warnings_in_plt_does_not_result_in_old_warnings_being_printed(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    PltFile = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME) ++ ".plt"),
+    Opts = [{init_plt, [PltFile]}],
+    {ok, BeamFileBefore} = compile(Config, m_src_with_warning(), m, []),
+    ?assertMatch(
+      [{warn_contract_types,
+          {_, {5,4}},
+          {invalid_contract,[m,updt,3,"(map(),_,_) -> map()"]}}
+      ],
+      run_dialyzer(incremental, [BeamFileBefore], Opts)),
+    {ok, BeamFileAfter} = compile(Config, m_src_without_warning(), m, []),
+    ?assertEqual(
+       [],
+       run_dialyzer(incremental, [BeamFileAfter], Opts)).
+
+adding_legal_warnings_with_existing_stored_warnings_in_plt_results_in_new_warnings_being_printed(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    PltFile = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME) ++ ".plt"),
+    Opts = [{init_plt, [PltFile]}],
+    {ok, BeamFileAfter} = compile(Config, m_src_without_warning(), m, []),
+    ?assertEqual(
+       [],
+       run_dialyzer(incremental, [BeamFileAfter], Opts)),
+    {ok, BeamFileBefore} = compile(Config, m_src_with_warning(), m, []),
+    ?assertMatch(
+       [{warn_contract_types,
+        {_, {5,4}},
+        {invalid_contract,[m,updt,3,"(map(),_,_) -> map()"]}}
+       ],
+       run_dialyzer(incremental, [BeamFileBefore], Opts)).

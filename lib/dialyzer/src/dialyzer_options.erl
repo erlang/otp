@@ -47,10 +47,8 @@ build(Opts) ->
 		  ?WARN_BEHAVIOUR,
 		  ?WARN_UNDEFINED_CALLBACK],
   DefaultWarns1 = ordsets:from_list(DefaultWarns),
-  InitPlt = dialyzer_plt:get_default_plt(),
   DefaultOpts = #options{},
-  DefaultOpts1 = DefaultOpts#options{legal_warnings = DefaultWarns1,
-                                     init_plts = [InitPlt]},
+  DefaultOpts1 = DefaultOpts#options{legal_warnings = DefaultWarns1},
   try
     Opts1 = preprocess_opts(Opts),
     Env = env_default_opts(),
@@ -69,14 +67,45 @@ preprocess_opts([Opt|Opts]) ->
   [Opt|preprocess_opts(Opts)].
 
 postprocess_opts(Opts = #options{}) ->
-  check_file_existence(Opts),
-  Opts1 = check_output_plt(Opts),
-  adapt_get_warnings(Opts1).
+  Opts1 =
+    case {Opts#options.init_plts, Opts#options.analysis_type} of
+      {[],incremental} -> Opts#options{init_plts=[dialyzer_iplt:get_default_iplt_filename()]};
+      {[],_} -> Opts#options{init_plts=[dialyzer_cplt:get_default_cplt_filename()]};
+      {[_|_],_} -> Opts
+    end,
+  check_file_existence(Opts1),
+  check_metrics_file_validity(Opts1),
+  check_module_lookup_file_validity(Opts1),
+  Opts2 = check_output_plt(Opts1),
+  check_init_plt_kind(Opts2),
+  Opts3 = manage_default_apps(Opts2),
+  adapt_get_warnings(Opts3).
+
+check_metrics_file_validity(#options{analysis_type = incremental, metrics_file = none}) ->
+  ok;
+check_metrics_file_validity(#options{analysis_type = incremental, metrics_file = FileName}) ->
+  assert_filename(FileName);
+check_metrics_file_validity(#options{analysis_type = _NotIncremental, metrics_file = none}) ->
+  ok;
+check_metrics_file_validity(#options{analysis_type = _NotIncremental, metrics_file = FileName}) ->
+  bad_option("A metrics filename may only be given when in incremental mode", {metrics_file, FileName}).
+
+check_module_lookup_file_validity(#options{analysis_type = incremental, module_lookup_file = none}) ->
+  ok;
+check_module_lookup_file_validity(#options{analysis_type = incremental, module_lookup_file = FileName}) ->
+  assert_filename(FileName);
+check_module_lookup_file_validity(#options{analysis_type = _NotIncremental, module_lookup_file = none}) ->
+  ok;
+check_module_lookup_file_validity(#options{analysis_type = _NotIncremental, module_lookup_file = FileName}) ->
+  bad_option("A module lookup filename may only be given when in incremental mode", {module_lookup_file, FileName}).
 
 check_file_existence(#options{analysis_type = plt_remove}) -> ok;
-check_file_existence(#options{files = Files, files_rec = FilesRec}) ->
+check_file_existence(#options{files = Files, files_rec = FilesRec,
+  warning_files = WarningFiles, warning_files_rec = WarningFilesRec}) ->
   assert_filenames_exist(Files),
-  assert_filenames_exist(FilesRec).
+  assert_filenames_exist(FilesRec),
+  assert_filenames_exist(WarningFiles),
+  assert_filenames_exist(WarningFilesRec).
 
 check_output_plt(Opts = #options{analysis_type = Mode, from = From,
 				 output_plt = OutPLT}) ->
@@ -96,6 +125,71 @@ check_output_plt(Opts = #options{analysis_type = Mode, from = From,
 			      "in analysis mode ~w", [Mode]),
 	  throw({dialyzer_error, lists:flatten(Msg)})
       end
+  end.
+
+check_init_plt_kind(#options{analysis_type = incremental, init_plts = InitPlts}) ->
+  RunCheck = fun(FileName) ->
+                 case dialyzer_plt:plt_kind(FileName) of
+                   no_file -> ok;
+                   iplt -> ok;
+                   cplt ->
+                     bad_option("Given file is a classic PLT file, "
+                                "but in incremental mode, "
+                                "an incremental PLT file is expected",
+                                {init_plt_file, FileName});
+                   bad_file ->
+                     bad_option("Given file is not a PLT file", {init_plt_file, FileName})
+                 end
+             end,
+  lists:foreach(RunCheck, InitPlts);
+check_init_plt_kind(#options{analysis_type = _NotIncremental, init_plts = InitPlts}) ->
+  RunCheck = fun(FileName) ->
+                 case dialyzer_plt:plt_kind(FileName) of
+                   no_file -> ok;
+                   cplt -> ok;
+                   iplt ->
+                     bad_option("Given file is an incremental PLT file, "
+                                "but outside of incremental mode, "
+                                "a classic PLT file is expected",
+                                {init_plt_file, FileName});
+                   bad_file ->
+                     bad_option("Given file is not a PLT file", {init_plt_file, FileName})
+                 end
+             end,
+  lists:foreach(RunCheck, InitPlts).
+
+%% If no apps are set explicitly, we fall back to config
+manage_default_apps(Opts = #options{analysis_type = incremental, files = [], files_rec = [], warning_files = [], warning_files_rec = []}) ->
+  DefaultConfig = get_default_config_filename(),
+  case file:consult(DefaultConfig) of
+    {ok, [{incremental, {default_apps, DefaultApps}=Term}]} when
+      is_list(DefaultApps) ->
+        AppDirs = get_app_dirs(DefaultApps),
+        assert_filenames_form(Term, AppDirs),
+        Opts#options{files_rec = AppDirs};
+    {ok, [{incremental, {default_apps, DefaultApps}=TermApps,
+                        {default_warning_apps, DefaultWarningApps}=TermWarns}]} when
+      is_list(DefaultApps), is_list(DefaultWarningApps) ->
+        AppDirs = get_app_dirs(DefaultApps),
+        assert_filenames_form(TermApps, AppDirs),
+        WarningAppDirs = get_app_dirs(DefaultWarningApps),
+        assert_filenames_form(TermWarns, WarningAppDirs),
+        Opts#options{files_rec = AppDirs, warning_files_rec = WarningAppDirs};
+    {ok, _Terms} ->
+      bad_option("Given Erlang terms could not be understood as Dialyzer config", DefaultConfig);
+    {error, Reason} ->
+      bad_option(file:format_error(Reason), DefaultConfig)
+  end;
+manage_default_apps(Opts) ->
+  Opts.
+
+% Intended to work like dialyzer_iplt:get_default_iplt_filename()
+get_default_config_filename() ->
+  case os:getenv("DIALYZER_CONFIG") of
+     false ->
+       CacheDir = filename:basedir(user_config, "erlang"),
+       filename:join(CacheDir, "dialyzer.config");
+     UserSpecConfig -> UserSpecConfig
   end.
 
 adapt_get_warnings(Opts = #options{analysis_type = Mode,
@@ -138,6 +232,18 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
       OldValues = Options#options.files_rec,
       assert_filenames_form(Term, Value),
       build_options(Rest, Options#options{files_rec = Value ++ OldValues});
+    warning_apps ->
+      OldValues = Options#options.warning_files_rec,
+      AppDirs = get_app_dirs(Value),
+      assert_filenames_form(Term, AppDirs),
+      build_options(Rest, Options#options{warning_files_rec = AppDirs ++ OldValues});
+    warning_files ->
+      assert_filenames_form(Term, Value),
+      build_options(Rest, Options#options{warning_files = Value});
+    warning_files_rec ->
+      OldValues = Options#options.warning_files_rec,
+      assert_filenames_form(Term, Value),
+      build_options(Rest, Options#options{warning_files_rec = Value ++ OldValues});
     analysis_type ->
       NewOptions =
 	case Value of
@@ -146,6 +252,7 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
 	  plt_build    -> Options#options{analysis_type = Value};
 	  plt_check    -> Options#options{analysis_type = Value};
 	  plt_remove   -> Options#options{analysis_type = Value};
+    incremental -> Options#options{analysis_type = Value};
 	  dataflow  -> bad_option("Analysis type is no longer supported", Term);
 	  old_style -> bad_option("Analysis type is no longer supported", Term);
 	  Other     -> bad_option("Unknown analysis type", Other)
@@ -164,7 +271,7 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     get_warnings ->
       build_options(Rest, Options#options{get_warnings = Value});
     plts ->
-      assert_filenames(Term, Value),
+      %assert_filenames(Term, Value),
       build_options(Rest, Options#options{init_plts = Value});
     include_dirs ->
       assert_filenames(Term, Value),
@@ -178,6 +285,12 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     output_file ->
       assert_filename(Value),
       build_options(Rest, Options#options{output_file = Value});
+    metrics_file ->
+      assert_filename(Value),
+      build_options(Rest, Options#options{metrics_file = Value});
+    module_lookup_file ->
+      assert_filename(Value),
+      build_options(Rest, Options#options{module_lookup_file = Value});
     output_format ->
       assert_output_format(Value),
       build_options(Rest, Options#options{output_format = Value});
@@ -199,6 +312,9 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     callgraph_file ->
       assert_filename(Value),
       build_options(Rest, Options#options{callgraph_file = Value});
+    mod_deps_file ->
+      assert_filename(Value),
+      build_options(Rest, Options#options{mod_deps_file = Value});
     error_location ->
       assert_error_location(Value),
       build_options(Rest, Options#options{error_location = Value});
@@ -271,7 +387,7 @@ assert_filename_opt(fullpath) ->
 assert_filename_opt(Term) ->
   bad_option("Illegal value for filename_opt", Term).
 
-assert_plt_op(#options{analysis_type = OldVal}, 
+assert_plt_op(#options{analysis_type = OldVal},
 	      #options{analysis_type = NewVal}) ->
   case is_plt_mode(OldVal) andalso is_plt_mode(NewVal) of
     true -> bad_option("Options cannot be combined", [OldVal, NewVal]);
@@ -282,6 +398,7 @@ is_plt_mode(plt_add)      -> true;
 is_plt_mode(plt_build)    -> true;
 is_plt_mode(plt_remove)   -> true;
 is_plt_mode(plt_check)    -> true;
+is_plt_mode(incremental)  -> true;
 is_plt_mode(succ_typings) -> false.
 
 assert_error_location(column) ->

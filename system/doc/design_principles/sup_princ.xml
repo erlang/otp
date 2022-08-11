@@ -69,7 +69,7 @@ init(_Args) ->
                     restart => permanent,
                     shutdown => brutal_kill,
                     type => worker,
-                    modules => [cg3]}],
+                    modules => [ch3]}],
     {ok, {SupFlags, ChildSpecs}}.</code>
     <p>The <c>SupFlags</c> variable in the return value
       from <c>init/1</c> represents

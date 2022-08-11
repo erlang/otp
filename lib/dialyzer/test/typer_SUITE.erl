@@ -19,37 +19,39 @@
 %%
 -module(typer_SUITE).
 
--export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
-         init_per_group/2,end_per_group/2,
-         smoke/1]).
+-export([all/0,suite/0,
+         smoke/1, smoke_incremental_plt/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [smoke].
+    [smoke,smoke_incremental_plt].
 
-groups() ->
-    [].
-
-init_per_suite(Config) ->
+smoke(Config) ->
     OutDir = proplists:get_value(priv_dir, Config),
     case dialyzer_common:check_plt(OutDir) of
         fail -> {skip, "Plt creation/check failed."};
-        ok -> [{dialyzer_options, []}|Config]
+        ok ->
+          Code = <<"-module(typer_test_module).
+                   -compile([export_all,nowarn_export_all]).
+                   a(L) ->
+                     L ++ [1,2,3].">>,
+          PrivDir = proplists:get_value(priv_dir, Config),
+          Src = filename:join(PrivDir, "typer_test_module.erl"),
+          ok = file:write_file(Src, Code),
+          Args = "--plt " ++ PrivDir ++ "dialyzer_plt",
+          Res = ["^$",
+                 "^%% File:",
+                 "^%% ----",
+                 "^-spec a",
+                 "^_OK_"],
+          run(Config, Args, Src, Res),
+          ok
     end.
 
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-smoke(Config) ->
+smoke_incremental_plt(Config) ->
     Code = <<"-module(typer_test_module).
              -compile([export_all,nowarn_export_all]).
              a(L) ->
@@ -57,7 +59,15 @@ smoke(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Src = filename:join(PrivDir, "typer_test_module.erl"),
     ok = file:write_file(Src, Code),
-    Args = "--plt " ++ PrivDir ++ "dialyzer_plt",
+    {ok, Beam} = compile(Config, Code, typer_test_module, []),
+    Plt = PrivDir ++ "dialyzer_iplt",
+    _ = dialyzer:run([{analysis_type, incremental},
+                      {files, [Beam]},
+                      {apps, [stdlib, kernel, erts]},
+                      {from, byte_code},
+                      {init_plt, Plt},
+                      {output_plt, Plt}]),
+    Args = "--plt " ++ Plt,
     Res = ["^$",
            "^%% File:",
            "^%% ----",
@@ -65,6 +75,15 @@ smoke(Config) ->
            "^_OK_"],
     run(Config, Args, Src, Res),
     ok.
+
+compile(Config, Prog, Module, CompileOpts) ->
+    Source = lists:concat([Module, ".erl"]),
+    PrivDir = proplists:get_value(priv_dir,Config),
+    Filename = filename:join([PrivDir, Source]),
+    ok = file:write_file(Filename, Prog),
+    Opts = [{outdir, PrivDir}, debug_info | CompileOpts],
+    {ok, Module} = compile:file(Filename, Opts),
+    {ok, filename:join([PrivDir, lists:concat([Module, ".beam"])])}.
 
 typer() ->
     case os:find_executable("typer") of

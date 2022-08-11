@@ -27,6 +27,10 @@
 -ifndef(tls_record_1_3).
 -define(tls_record_1_3, true).
 
+%% Common to TLS-1.3 and previous TLS versions 
+%% Some definitions may not exist in TLS-1.3 this is 
+%% handled elsewhere
+-include("tls_record.hrl"). 
 %% enum {
 %%         invalid(0),
 %%         %% defined in ssl_record.hrl

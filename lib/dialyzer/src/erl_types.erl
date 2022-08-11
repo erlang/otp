@@ -4875,7 +4875,7 @@ remote_from_form(Anno, RemMod, Name, Args, S, D, L, C) ->
   end.
 
 ext_types_message(MFA, Anno, Site) ->
-  {MFA, {site_file(Site), erl_anno:location(Anno)}}.
+  {MFA, {site_file(Site), erl_anno:location(Anno), site_mfa(Site)}}.
 
 remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
                   Site, S, D, L, C) ->
@@ -5205,6 +5205,9 @@ list_check_record_fields([H|Tail], S, C) ->
 
 site_module({_, {Module, _, _}, _}) ->
   Module.
+
+site_mfa({_, {M, F, A}, _}) ->
+  {M, F, A}.
 
 site_file({_, _, File}) ->
   File.

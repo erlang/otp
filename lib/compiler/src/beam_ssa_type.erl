@@ -2414,27 +2414,56 @@ infer_types_br_1(V, Ts, Ds) ->
 
     case inv_relop(Op0) of
         none ->
-            %% No a relation operator.
+            %% Not a relational operator.
             {PosTypes, NegTypes} = infer_type(Op0, Args, Ts, Ds),
             SuccTs = meet_types(PosTypes, Ts),
-            FailTs = subtract_types(NegTypes, Ts),
+            FailTs = infer_subtract_types(NegTypes, Ts),
             {SuccTs, FailTs};
         InvOp ->
             %% This is an relational operator.
             {bif,Op} = Op0,
 
-            %% Infer the types for both sides for operator succceding
+            %% Infer the types for both sides of operator succceding.
             Types = concrete_types(Args, Ts),
-            TrueTypes0 = infer_relop(Op, Args, Types),
+            TrueTypes0 = infer_relop(Op, Args, Types, Ds),
             TrueTypes = meet_types(TrueTypes0, Ts),
 
-            %% Infer the types for both sides operator failing.
-            FalseTypes0 = infer_relop(InvOp, Args, Types),
+            %% Infer the types for both sides of operator failing.
+            FalseTypes0 = infer_relop(InvOp, Args, Types, Ds),
             FalseTypes = meet_types(FalseTypes0, Ts),
 
             {TrueTypes, FalseTypes}
     end.
 
+infer_relop('=:=', [LHS,RHS], [LType,RType], Ds) ->
+    EqTypes = infer_eq_type(map_get(LHS, Ds), RType),
+
+    %% As an example, assume that L1 is known to be 'list', and L2 is
+    %% known to be 'cons'. Then if 'L1 =:= L2' evaluates to 'true', it
+    %% can be inferred that L1 is 'cons' (the meet of 'cons' and
+    %% 'list').
+    Type = beam_types:meet(LType, RType),
+    Types = [{LHS,Type},{RHS,Type}],
+    [{V,T} || {#b_var{}=V,T} <- Types, T =/= any] ++ EqTypes;
+infer_relop(Op, Args, Types, _Ds) ->
+    infer_relop(Op, Args, Types).
+
+infer_relop('=/=', [LHS,RHS], [LType,RType]) ->
+    %% We must be careful with types inferred from '=/='.
+    %%
+    %% For example, if we have L =/= [a], we must not subtract 'cons'
+    %% from the type of L. In general, subtraction is only safe if
+    %% the type being subtracted is singled-valued, for example if it
+    %% is [] or the the atom 'true'.
+    %%
+    %% Note that we subtract the left-hand type from the right-hand
+    %% value and vice versa. We must not subtract the meet of the two
+    %% as it may be too specific. See beam_type_SUITE:type_subtraction/1
+    %% for details.
+    [{V,beam_types:subtract(ThisType, OtherType)} ||
+        {#b_var{}=V, ThisType, OtherType} <-
+            [{RHS, RType, LType}, {LHS, LType, RType}],
+        beam_types:is_singleton_type(OtherType)];
 infer_relop(Op, [Arg1,Arg2], Types0) ->
     case infer_relop(Op, Types0) of
         any ->
@@ -2512,11 +2541,28 @@ inv_relop_1('<') -> '>=';
 inv_relop_1('=<') -> '>';
 inv_relop_1('>=') -> '<';
 inv_relop_1('>') ->  '=<';
+inv_relop_1('=:=') -> '=/=';
+inv_relop_1('=/=') -> '=:=';
 inv_relop_1(_) -> none.
 
 infer_get_range(#t_integer{elements=R}) -> R;
 infer_get_range(#t_number{elements=R}) -> R;
 infer_get_range(_) -> unknown.
+
+infer_subtract_types([{V,T0}|Vs], Ts) ->
+    T1 = concrete_type(V, Ts),
+    case beam_types:subtract(T1, T0) of
+        T1 ->
+            infer_subtract_types(Vs, Ts);
+        T ->
+            %% We only do this subtraction for type tests whose
+            %% outcome is unknown. The outcome would have been known
+            %% (false) if type subtraction produced 'none'.
+            true = T =/= none,                  %Assertion.
+            infer_subtract_types(Vs, Ts#{V := T})
+    end;
+infer_subtract_types([], Ts) ->
+    Ts.
 
 infer_br_value(_V, _Bool, none) ->
     none;
@@ -2531,7 +2577,9 @@ infer_br_value(V, Bool, NewTs) ->
     end.
 
 infer_types_switch(V, Lit, Ts0, IsTempVar, Ds) ->
-    {PosTypes, _} = infer_type({bif,'=:='}, [V, Lit], Ts0, Ds),
+    Args = [V,Lit],
+    Types = concrete_types(Args, Ts0),
+    PosTypes = infer_relop('=:=', Args, Types, Ds),
     Ts = meet_types(PosTypes, Ts0),
     case IsTempVar of
         true -> ts_remove_var(V, Ts);
@@ -2610,47 +2658,6 @@ infer_type({bif,is_reference}, [#b_var{}=Arg], _Ts, _Ds) ->
 infer_type({bif,is_tuple}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_tuple{}},
     {[T], [T]};
-infer_type({bif,'=:='}, [#b_var{}=LHS,#b_var{}=RHS], Ts, _Ds) ->
-    %% As an example, assume that L1 is known to be 'list', and L2 is
-    %% known to be 'cons'. Then if 'L1 =:= L2' evaluates to 'true', it can
-    %% be inferred that L1 is 'cons' (the meet of 'cons' and 'list').
-    LType = concrete_type(LHS, Ts),
-    RType = concrete_type(RHS, Ts),
-    Type = beam_types:meet(LType, RType),
-
-    PosTypes = [{V,Type} || {V, OrigType} <- [{LHS, LType}, {RHS, RType}],
-                            OrigType =/= Type],
-
-    %% We must be careful with types inferred from '=:='.
-    %%
-    %% If we have seen L =:= [a], we know that L is 'cons' if the
-    %% comparison succeeds. However, if the comparison fails, L could
-    %% still be 'cons'. Therefore, we must not subtract 'cons' from the
-    %% previous type of L.
-    %%
-    %% However, it is safe to subtract a type inferred from '=:=' if
-    %% it is single-valued, e.g. if it is [] or the atom 'true'.
-    %%
-    %% Note that we subtract the left-hand type from the right-hand
-    %% value and vice versa. We must not subtract the meet of the two
-    %% as it may be too specific. See beam_type_SUITE:type_subtraction/1
-    %% for details.
-    NegTypes = [T || {_, OtherType}=T <- [{RHS, LType}, {LHS, RType}],
-                     beam_types:is_singleton_type(OtherType)],
-
-    {PosTypes, NegTypes};
-infer_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
-    Def = maps:get(Src, Ds),
-    LitType = concrete_type(Lit, Ts),
-    PosTypes = [{Src, LitType} | infer_eq_type(Def, LitType)],
-
-    %% Subtraction is only safe if LitType is single-valued.
-    NegTypes = case beam_types:is_singleton_type(LitType) of
-                   true -> PosTypes;
-                   false -> []
-               end,
-
-    {PosTypes, NegTypes};
 infer_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
@@ -2740,16 +2747,6 @@ meet_types([{V,T0}|Vs], Ts) ->
         T -> meet_types(Vs, Ts#{ V := T })
     end;
 meet_types([], Ts) ->
-    Ts.
-
-subtract_types([{V,T0}|Vs], Ts) ->
-    T1 = concrete_type(V, Ts),
-    case beam_types:subtract(T1, T0) of
-        none -> none;
-        T1 -> subtract_types(Vs, Ts);
-        T -> subtract_types(Vs, Ts#{ V:= T })
-    end;
-subtract_types([], Ts) ->
     Ts.
 
 parallel_join([A | As], [B | Bs]) ->

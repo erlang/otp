@@ -86,7 +86,9 @@
          t_with_2/1,
 
          %% miscellaneous
-         t_conflicting_destinations/1
+         t_conflicting_destinations/1,
+         t_cse_assoc/1,
+         shared_key_tuples/1
         ]).
 
 -define(badmap(V, F, Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -159,7 +161,9 @@ all() ->
      t_update_with_3, t_update_with_4, t_with_2,
 
      %% miscellaneous
-     t_conflicting_destinations
+     t_conflicting_destinations,
+     t_cse_assoc,
+     shared_key_tuples
     ].
 
 groups() -> [].
@@ -2521,6 +2525,47 @@ do_conflicts(#{{tag,whatever} := true,
                  #{[something] := 42}) ->
     ok.
 
+t_cse_assoc(_Config) ->
+    {'EXIT',{{case_clause,#{key:=any}},_}} = catch do_cse_assoc(id(any)),
+
+    {'EXIT',{{case_clause,#{key:=value}},_}} = catch do_cse_assoc(id(#{}), id(value)),
+    42 = do_cse_assoc(id(#{assoc => 42}), id(any)),
+
+    ok.
+
+do_cse_assoc(V) ->
+    case #{key => V} of
+        #{assoc := Assoc} ->
+            %% The CSE optimization would consider the first two arguments in
+            %% the argument for `put_map` to be the key `alloc` and the value
+            %% `#{}`.
+            Assoc
+    end.
+
+do_cse_assoc(M, V) ->
+    case M#{key => V} of
+        #{assoc := Assoc} ->
+            Assoc
+    end.
+
+shared_key_tuples(_Config) ->
+    A = decimal(0),
+    B = decimal(1),
+
+    case ?MODULE of
+        map_inline_SUITE ->
+            %% With inlining, two separate map literals will be created. They
+            %% will not share keys.
+            ok;
+        _ ->
+            %% The two instances should share the key tuple.
+            true = erts_debug:same(erts_internal:map_to_tuple_keys(A),
+                                   erts_internal:map_to_tuple_keys(B))
+    end,
+    ok.
+
+decimal(Int) ->
+    #{type => decimal, int => Int, exp => 0}.
 
 %% aux
 
