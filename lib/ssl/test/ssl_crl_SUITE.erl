@@ -52,7 +52,8 @@
          crl_hash_dir_collision/0,
          crl_hash_dir_collision/1,
          crl_hash_dir_expired/0,
-         crl_hash_dir_expired/1]).
+         crl_hash_dir_expired/1,
+         delete_crl_with_path/1]).
 
 -define(TIMEOUT, {seconds, 30}).
 
@@ -83,7 +84,7 @@ groups() ->
 			      {group, crl_hash_dir}]},
      {v2_crl,  [], basic_tests()},
      {v1_crl,  [], basic_tests()},
-     {idp_crl, [], basic_tests()},
+     {idp_crl, [], basic_tests() ++ idp_crl_tests()},
      {crl_hash_dir, [], basic_tests() ++ crl_hash_dir_tests()},
      {crl_verify_crldp_crlissuer, [], [crl_verify_valid]}].
 
@@ -93,6 +94,9 @@ basic_tests() ->
      crl_verify_valid_derCAs,
      crl_verify_revoked_derCAs,
      crl_verify_no_crl].
+
+idp_crl_tests() ->
+    [delete_crl_with_path].
 
 crl_hash_dir_tests() ->
     [crl_hash_dir_collision, crl_hash_dir_expired].
@@ -557,6 +561,35 @@ crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts, Expec
 					      {options, ClientOpts}]),
 
     ssl_test_lib:check_client_alert(Server, Client, ExpectedAlert).
+
+delete_crl_with_path(Config) ->
+    PrivDir = proplists:get_value(cert_dir, Config),
+
+    CertFilepath = filename:join([PrivDir, "server", "cert.pem"]),
+    {ok, PemCert} = file:read_file(CertFilepath),
+    [{_, DerCert, _}] = public_key:pem_decode(PemCert),
+    OTPCert = public_key:pkix_decode_cert(DerCert, otp),
+    [DP | _] = public_key:pkix_dist_points(OTPCert),
+
+    CRLFilepath = filename:join([PrivDir, "otpCA", "crl.pem"]),
+    {ok, PemBin} = file:read_file(CRLFilepath),
+    PemEntries = public_key:pem_decode(PemBin),
+    CRLs = [CRL || {'CertificateList', CRL, not_encrypted}
+                       <- PemEntries],
+
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    case element(5, State) of
+        [_, _, _, {CRLCache, _}] ->
+            URI = "http://localhost/otpCA/crl.pem",
+            not_available = ssl_crl_cache:lookup(DP, issuer, {{CRLCache, unused}, unused}),
+            ok = ssl_crl_cache:insert(URI, {der, CRLs}),
+            CRLs = ssl_crl_cache:lookup(DP, issuer, {{CRLCache, unused}, unused}),
+            ok = ssl_crl_cache:delete(URI),
+            not_available = ssl_crl_cache:lookup(DP, issuer, {{CRLCache, unused}, unused}),
+            ok
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
