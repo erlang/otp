@@ -158,41 +158,34 @@ init_per_testcase(plain_verify_options = Case, Config) when is_list(Config) ->
     common_init(Case, [{old_flags, Flags} | Config]);
 
 init_per_testcase(ktls_basic = Case, Config) when is_list(Config) ->
-    try
-        {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
-        {ok, Port} = inet:port(Listen),
-        {ok, Client} = gen_tcp:connect("localhost", Port, [{active, false}]),
-        {ok, Server} = gen_tcp:accept(Listen),
-        ServerTx = <<4,3,52,0,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
-                     2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,0,0,0,0,0,0,0,0>>,
-        ServerRx = <<4,3,52,0,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
-                     5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6,0,0,0,0,0,0,0,0>>,
-        ClientTx = ServerRx,
-        ClientRx = ServerTx,
-        inet:setopts(Server, [{raw, 6, 31, <<"tls">>}]),
-        inet:setopts(Server, [{raw, 282, 1, ServerTx}]),
-        inet:setopts(Server, [{raw, 282, 2, ServerRx}]),
-        inet:setopts(Client, [{raw, 6, 31, <<"tls">>}]),
-        inet:setopts(Client, [{raw, 282, 1, ClientTx}]),
-        inet:setopts(Client, [{raw, 282, 2, ClientRx}]),
-        {ok, [{raw, 6, 31, <<"tls">>}]} = inet:getopts(Server, [{raw, 6, 31, 3}]),
-        {ok, [{raw, 282, 1, ServerTx}]} = inet:getopts(Server, [{raw, 282, 1, 56}]),
-        {ok, [{raw, 6, 31, <<"tls">>}]} = inet:getopts(Client, [{raw, 6, 31, 3}]),
-        {ok, [{raw, 282, 1, ClientTx}]} = inet:getopts(Client, [{raw, 282, 1, 56}]),
-        ok = gen_tcp:send(Client, "client"),
-        {ok, "client"} = gen_tcp:recv(Server, 6, 1000),
-        ok = gen_tcp:send(Server, "server"),
-        {ok, "server"} = gen_tcp:recv(Client, 6, 1000),
-        gen_tcp:close(Server),
-        gen_tcp:close(Client),
-        gen_tcp:close(Listen),
-        common_init(Case, Config)
-    catch
-        Class:Reason:Stacktrace ->
-            {skip, lists:flatten(io_lib:format(
-                "ktls not supported, ~p:~p:~0p",
-                [Class, Reason, Stacktrace]
-            ))}
+    case {os:type(), os:version()} of
+        {{unix,linux}, {Major,Minor,_}}
+          when 5 == Major, 2 =< Minor;
+               5 < Major ->
+            {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
+            {ok, Port} = inet:port(Listen),
+            {ok, Client} =
+                gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
+            {ok, Server} = gen_tcp:accept(Listen),
+            %%
+            _ = inet:setopts(Server, [{raw, 6, 31, <<"tls">>}]),
+            Result = inet:getopts(Server, [{raw, 6, 31, 4}]),
+            %%
+            _ = gen_tcp:close(Server),
+            _ = gen_tcp:close(Client),
+            _ = gen_tcp:close(Listen),
+            case Result of
+                {ok, [{raw, 6, 31, <<"tls",0>>}]} ->
+                    common_init(Case, Config);
+                Other ->
+                    {skip,
+                     lists:flatten(
+                       io_lib:format("kTLS not supported, ~p", [Other]))}
+            end;
+        OS ->
+            {skip,
+             lists:flatten(
+               io_lib:format("kTLS not supported by OS: ~p", [OS]))}
     end;
 
 init_per_testcase(Case, Config) when is_list(Config) ->
