@@ -212,10 +212,6 @@ AS_HELP_STRING([--disable-parallel-configure], [disable parallel execution of co
 AC_ARG_ENABLE(dirty-schedulers,
 AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]))
 
-AC_ARG_ENABLE(plain-emulator,
-AS_HELP_STRING([--enable-plain-emulator], [enable threaded non-smp emulator])
-AS_HELP_STRING([--disable-plain-emulator], [disable threaded non-smp emulator]))
-
 AC_ARG_WITH(termcap,
 AS_HELP_STRING([--with-termcap], [use termcap (default)])
 AS_HELP_STRING([--without-termcap],
