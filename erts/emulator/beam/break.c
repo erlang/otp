@@ -193,6 +193,7 @@ static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
     case ERTS_MON_TYPE_PORT:
     case ERTS_MON_TYPE_TIME_OFFSET:
     case ERTS_MON_TYPE_DIST_PROC:
+    case ERTS_MON_TYPE_DIST_PORT:
     case ERTS_MON_TYPE_RESOURCE:
     case ERTS_MON_TYPE_NODE:
 
