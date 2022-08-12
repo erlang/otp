@@ -515,13 +515,12 @@ gen_dist_test(Test, Config) ->
     try 
 	?MODULE:Test(NH1, NH2, Config)
     catch
-	_:Reason ->
-	    stop_ssl_node(NH1),
-	    stop_ssl_node(NH2),
-	    ct:fail(Reason)
+	Class:Reason:Stacktrace ->
+	    ct:fail({Class,Reason,Stacktrace})
+    after
+        stop_ssl_node(NH1),
+        stop_ssl_node(NH2)
     end,
-    stop_ssl_node(NH1),
-    stop_ssl_node(NH2),	
     success(Config).
 
 %% ssl_node side api
