@@ -336,7 +336,8 @@ accept_one(Driver, Kernel, Socket) ->
                     case set_ktls(KtlsInfo) of
                         ok ->
                             accept_one(
-                              Driver, Kernel, Socket, KTLS, Socket);
+                              Driver, Kernel, Socket,
+                              fun inet_tcp:controlling_process/2, Socket);
                         {error, KtlsReason} ->
                             ?LOG_ERROR(
                                [{slogan, set_ktls_failed},
@@ -346,7 +347,9 @@ accept_one(Driver, Kernel, Socket) ->
                             trace({ktls_error, KtlsReason})
                     end;
                 false ->
-                    accept_one(Driver, Kernel, SslSocket, KTLS, Sender)
+                    accept_one(
+                      Driver, Kernel, Sender,
+                      fun ssl:controlling_process/2, SslSocket)
             end;
         {error, {options, _}} = Error ->
             %% Bad options: that's probably our fault.
@@ -361,18 +364,11 @@ accept_one(Driver, Kernel, Socket) ->
             trace(Other)
     end.
 %%
-accept_one(Driver, Kernel, DistSocket, KTLS, DistCtrl) ->
+accept_one(Driver, Kernel, DistCtrl, ControllingProcessFun, DistSocket) ->
     trace(Kernel ! {accept, self(), DistCtrl, Driver:family(), tls}),
     receive
         {Kernel, controller, Pid} ->
-            case
-                case KTLS of
-                    true ->
-                        inet_tcp:controlling_process(DistSocket, Pid);
-                    false ->
-                        ssl:controlling_process(DistSocket, Pid)
-                end
-            of
+            case ControllingProcessFun(DistSocket, Pid) of
                 ok ->
                     trace(Pid ! {self(), controller});
                 {error, Reason} ->
@@ -678,7 +674,7 @@ do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNo
                             {error, KtlsReason} ->
                                 ?shutdown2(
                                    Node,
-                                   trace({set_ktls_falied, KtlsReason}))
+                                   trace({set_ktls_failed, KtlsReason}))
                         end;
                     false ->
                         _ = monitor_pid(Sender),
@@ -992,57 +988,66 @@ verify_fun(Value) ->
 	    error(malformed_ssl_dist_opt, [Value])
     end.
 
-set_ktls(#{socket := Socket} = KtlsInfo) ->
-    %% Check OS support
+set_ktls(KtlsInfo) ->
+    %%
+    %% Check OS type and version
+    %%
     case {os:type(), os:version()} of
         {{unix,linux}, {Major,Minor,_}}
           when 5 == Major, 2 =< Minor;
                5 < Major ->
-            set_ktls(KtlsInfo, Socket);
+            set_ktls_1(KtlsInfo);
         OsTypeVersion ->
             {error, {ktls_invalid_os, OsTypeVersion}}
     end.
-%%
+
 %% Check TLS version and cipher suite
-set_ktls(
+%%
+set_ktls_1(
   #{tls_version := {3,4}, % 'tlsv1.3'
-    cipher_suite := CipherSuite} = KtlsInfo,
-  Socket)
+    cipher_suite := CipherSuite,
+    socket := Socket} = KtlsInfo)
   when CipherSuite =:= ?TLS_AES_256_GCM_SHA384 ->
     %%
-    %% See include/netinet/tcp.h
+    %% See https://www.kernel.org/doc/html/latest/networking/tls.html
+    %% and include/netinet/tcp.h
     %%
     SOL_TCP = 6,
     TCP_ULP = 31,
     _ = inet:setopts(Socket, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
-    set_ktls(
-      KtlsInfo, Socket,
-      inet:getopts(Socket, [{raw, SOL_TCP, TCP_ULP, 4}]),
-      {raw, SOL_TCP, TCP_ULP, <<"tls",0>>});
-set_ktls(
-  #{tls_version := TLSVersion, cipher_suite := CipherSuite},
- _Socket) ->
+    %%
+    %% Check if kernel module loaded,
+    %% i.e if getopts SOL_TCP,TCP_ULP returns "tls"
+    %%
+    case inet:getopts(Socket, [{raw, SOL_TCP, TCP_ULP, 4}]) of
+        {ok, [{raw, SOL_TCP, TCP_ULP, <<"tls",0>>}]} ->
+            set_ktls_2(KtlsInfo, Socket);
+        Other ->
+            {error, {ktls_not_supported, Other}}
+    end;
+set_ktls_1(
+  #{tls_version := TLSVersion,
+    cipher_suite := CipherSuite,
+    socket := _}) ->
     {error, {ktls_invalid_cipher, TLSVersion, CipherSuite}}.
+
+%% Set kTLS cipher
 %%
-%% Check if kernel module loaded,
-%% i.e if getopts SOL_TCP,TCP_ULP returned "tls"
-set_ktls(
-  KtlsInfo, Socket,
-  {ok, [ULP]},
-  ULP) ->
-    #{write_state :=
-          #cipher_state{
-             key = <<WriteKey:32/bytes>>,
-             iv = <<WriteSalt:4/bytes, WriteIV:8/bytes>>
-            },
-      write_seq := WriteSeq,
-      read_state :=
-          #cipher_state{
-             key = <<ReadKey:32/bytes>>,
-             iv = <<ReadSalt:4/bytes, ReadIV:8/bytes>>
-            },
-      read_seq := ReadSeq,
-      socket_options := SocketOptions} = KtlsInfo,
+set_ktls_2(
+  #{write_state :=
+        #cipher_state{
+           key = <<WriteKey:32/bytes>>,
+           iv = <<WriteSalt:4/bytes, WriteIV:8/bytes>>
+          },
+    write_seq := WriteSeq,
+    read_state :=
+        #cipher_state{
+           key = <<ReadKey:32/bytes>>,
+           iv = <<ReadSalt:4/bytes, ReadIV:8/bytes>>
+          },
+    read_seq := ReadSeq,
+    socket_options := SocketOptions},
+  Socket) ->
     %%
     %% See include/linux/tls.h
     %%
@@ -1070,6 +1075,7 @@ set_ktls(
     _ = inet:setopts(Socket, [RawOptRX]),
     %%
     %% Check if cipher could be set
+    %%
     case
         inet:getopts(
           Socket, [{raw, SOL_TLS, TLS_TX, byte_size(TLS_crypto_info_TX)}])
@@ -1094,9 +1100,7 @@ set_ktls(
             end;
         Other ->
             {error, {ktls_set_cipher_failed, Other}}
-    end;
-set_ktls(_KtlsInfo, _Socket, BadGetoptULP, _ULP) ->
-    {error, {ktls_not_supported, BadGetoptULP}}.
+    end.
 
 %% -------------------------------------------------------------------------
 
