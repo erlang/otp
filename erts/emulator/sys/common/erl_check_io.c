@@ -1918,6 +1918,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
             /* fallthrough */
 	case ERTS_EV_TYPE_NONE: /* Deselected ... */
         case_ERTS_EV_TYPE_NONE:
+            state->flags &= ~ERTS_EV_FLAG_FALLBACK;
             ASSERT(!state->events && !state->active_events && !state->flags);
             check_fd_cleanup(state, &free_select, &free_nif);
 	    break;
