@@ -151,6 +151,8 @@ create_http_header_elements(ScriptType, [{Name, [Value | _] = Values } |
 create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc, OtherAcc) 
   when is_list(Value) ->
     try http_env_element(ScriptType, Name, Value) of
+        skipped ->
+            create_http_header_elements(ScriptType, Headers, Acc, [OtherAcc]);
         Element ->
             create_http_header_elements(ScriptType, Headers, [Element | Acc],
                                        OtherAcc)
@@ -160,6 +162,11 @@ create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc, OtherAcc
                                        [{Name, Value} | OtherAcc])
     end.
 
+http_env_element(cgi, "proxy", _Value)  ->
+  %% CVE-2016-1000107 – https://github.com/erlang/otp/issues/3392
+  skipped;
+http_env_element(cgi, "PROXY", _Value)  ->
+  skipped;
 http_env_element(cgi, VarName0, Value)  ->
     VarName = re:replace(VarName0,"-","_", [{return,list}, global]),
     {"HTTP_"++ http_util:to_upper(VarName), Value};
