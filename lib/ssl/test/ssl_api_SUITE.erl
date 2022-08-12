@@ -25,6 +25,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
+-include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 %% Common test
@@ -133,6 +134,7 @@
          options_not_proplist/1,
          invalid_options/0,
          invalid_options/1,
+         options_whitebox/0, options_whitebox/1,
          cb_info/0,
          cb_info/1,
          log_alert/0,
@@ -231,7 +233,7 @@ all() ->
      {group, 'tlsv1'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
-    ].
+    ] ++ simple_api_tests().
 
 groups() ->
     [
@@ -247,13 +249,9 @@ groups() ->
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ beast_mitigation_test()},
-     {'dtlsv1.2', [], (gen_api_tests() --
-                           [invalid_keyfile, invalid_certfile, invalid_cacertfile,
-                            invalid_options, new_options_in_handshake])  ++
+     {'dtlsv1.2', [], gen_api_tests() ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
-     {'dtlsv1', [],  (gen_api_tests() --
-                          [invalid_keyfile, invalid_certfile, invalid_cacertfile,
-                           invalid_options, new_options_in_handshake]) ++
+     {'dtlsv1', [],  gen_api_tests() ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()}
     ].
 
@@ -270,6 +268,18 @@ pre_1_3() ->
      connection_information_with_srp,
      prf
     ].
+
+simple_api_tests() ->
+    [
+     invalid_keyfile,
+     invalid_certfile,
+     invalid_cacertfile,
+     invalid_options,
+     new_options_in_handshake,
+     options_not_proplist,
+     options_whitebox
+    ].
+
 
 gen_api_tests() ->
     [
@@ -305,13 +315,7 @@ gen_api_tests() ->
      honor_client_cipher_order,
      ipv6,
      der_input,
-     new_options_in_handshake,
      max_handshake_size,
-     invalid_certfile,
-     invalid_cacertfile,
-     invalid_keyfile,
-     options_not_proplist,
-     invalid_options,
      cb_info,
      log_alert,
      getstat,
@@ -2165,6 +2169,217 @@ invalid_options(Config) when is_list(Config) ->
          ok
      end || {TestOpt, ErrorMsg} <- TestOpts2],
     ok.
+
+options_whitebox() ->
+    [{doc,"Whitebox tests of option handling"}].
+
+
+-define(T(EXP, Test),
+        fun() ->
+                try Test of
+                    {ok, #config{ssl=EXP}} -> ok;
+                    Other -> error({unexpected, Other})
+                catch
+                    throw:{error, {options, EXP}} -> ok;
+                    throw:{error, EXP} -> ok; %% FIXME
+                    error:EXP -> ok;  %% FIXME
+                    C:Other:ST -> error({unexpected, C, Other,ST})
+                end
+        end()).
+
+options_whitebox(Config) when is_list(Config) ->
+    Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
+    true = is_binary(Cert),
+    ?T(#{}, ssl:handle_options([], client, "dummy.host.org")),
+
+    begin %% protocol
+        ?T(#{protocol := tls},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{protocol := tls},
+           ssl:handle_options([{protocol, tls}], client, "dummy.host.org")),
+        ?T(#{protocol := dtls},
+           ssl:handle_options([{protocol, dtls}], client, "dummy.host.org")),
+
+        %% Errors
+        ?T({protocol, foo},
+           ssl:handle_options([{protocol, 'foo'}], client, "dummy.host.org"))
+    end,
+
+    begin %% version
+        ?T(#{versions := [{3,4},{3,3}]},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{versions := [{3,4},{3,3},{3,2},{3,1}]},
+           ssl:handle_options([{versions, ['tlsv1','tlsv1.1','tlsv1.2','tlsv1.3']}],
+                              client, "dummy.host.org")),
+        ?T(#{versions := [{3,4}]},
+           ssl:handle_options([{versions, ['tlsv1.3']}], client, "dummy.host.org")),
+
+        ?T(#{versions := [{254,253},{254,255}]},
+           ssl:handle_options([{protocol, dtls}, {versions, ['dtlsv1', 'dtlsv1.2']}],
+                              client, "dummy.host.org")),
+        ?T(#{versions := [{254,253}]},
+           ssl:handle_options([{protocol, dtls}, {versions, ['dtlsv1.2']}],
+                              client, "dummy.host.org")),
+
+
+        %% Errors
+        %% ?T(#{versions := [{3,4},{3,3}]},  %% FIXME Hangs :-/
+        %%    ssl:handle_options([{versions, []}], client, "dummy.host.org")),
+        %% ?T(#{versions := [{3,4},{3,3}]},  %% FIXME Hangs :-/
+        %%    ssl:handle_options([{protocol, dtls}, {versions, []}], client, "dummy.host.org")),
+
+        ?T({'tlsv1.4',{versions, ['tlsv1.4']}},
+           ssl:handle_options([{versions, ['tlsv1.4']}], client, "dummy.host.org")),
+        ?T(function_clause,  %% FIXME
+           ssl:handle_options([{versions, ['dtlsv1', 'dtlsv1.2']}], client, "dummy.host.org")),
+
+        ?T(function_clause,  %% FIXME
+           ssl:handle_options([{protocol, dtls}, {versions, ['tlsv1','tlsv1.1','tlsv1.2','tlsv1.3']}],
+                              client, "dummy.host.org")),
+        ?T({'dtlsv1.3',{versions, ['dtlsv1.3']}},
+           ssl:handle_options([{protocol, dtls}, {versions, ['dtlsv1.3']}],
+                              client, "dummy.host.org")),
+        ?T({options,missing_version,{'tlsv1.2',_}},
+           ssl:handle_options([{versions, ['tlsv1.1','tlsv1.3']}],
+                              client, "dummy.host.org"))
+    end,
+
+    begin %% alpn & next_protocols 
+        Http = <<"HTTP/2">>,
+        ?T(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
+             next_protocol_selector := undefined, next_protocols_advertised := undefined},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
+             next_protocol_selector := undefined, next_protocols_advertised := undefined},
+           ssl:handle_options([], server, "dummy.host.org")),
+
+        ?T(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := [Http],
+             next_protocol_selector := undefined, next_protocols_advertised := undefined},
+           ssl:handle_options([{alpn_preferred_protocols, [Http]}], server, "dummy.host.org")),
+        ?T(#{alpn_advertised_protocols := [Http], alpn_preferred_protocols := undefined,
+             next_protocol_selector := undefined, next_protocols_advertised := undefined},
+           ssl:handle_options([{alpn_advertised_protocols, [Http]}], client, "dummy.host.org")),
+
+        %% Note names have been swapped in client/server variants
+
+        ?T(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
+             next_protocol_selector := undefined, next_protocols_advertised := [Http]},
+           ssl:handle_options([{next_protocols_advertised, [Http]}], server, "dummy.host.org")),
+        ?T(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
+             next_protocol_selector := _, next_protocols_advertised := undefined},
+           ssl:handle_options([{client_preferred_next_protocols, {server,[Http], Http}}],
+                              client, "dummy.host.org")),
+
+        %% Breaking specs should be errors?
+        ?T(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined},
+           ssl:handle_options([{alpn_preferred_protocols, undefined}], server, "dummy.host.org")),
+        ?T(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined},
+           ssl:handle_options([{alpn_advertised_protocols, undefined}], client, "dummy.host.org")),
+
+        %% Should be Errors  setting client/server options on server/client
+        ?T(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := [Http]},
+           ssl:handle_options([{alpn_preferred_protocols, [Http]}], client, "dummy.host.org")),
+        ?T(#{alpn_advertised_protocols := [Http], alpn_preferred_protocols := undefined},
+           ssl:handle_options([{alpn_advertised_protocols, [Http]}], server, "dummy.host.org")),
+
+        %% Errors
+        ?T({alpn_preferred_protocols, {invalid_protocol, <<>>}},
+           ssl:handle_options([{alpn_preferred_protocols, [Http, <<>>]}], server, "dummy.host.org")),
+        ?T({alpn_advertised_protocols, Http},
+           ssl:handle_options([{alpn_advertised_protocols, Http}], client, "dummy.host.org"))
+    end,
+
+    begin %% anti_replay
+        ?T(#{anti_replay := undefined},
+           ssl:handle_options([], server, "dummy.host.org")),
+        ?T(#{anti_replay := {_,_,_}},
+           ssl:handle_options([{anti_replay, '10k'}, {session_tickets, stateless}],
+                              server, "dummy.host.org")),
+        ?T(#{anti_replay := {_,_,_}},
+           ssl:handle_options([{anti_replay, {42,4711,21}}, {session_tickets, stateless}],
+                              server, "dummy.host.org")),
+
+
+        %% Errors
+        ?T({options, role, {session_tickets, {stateless, _}}},
+           ssl:handle_options([{anti_replay, '10k'}, {session_tickets, stateless}],
+                              client, "dummy.host.org")),
+        ?T({options, dependency, {anti_replay, {session_tickets, _}}},
+           ssl:handle_options([{anti_replay, '10k'}],
+                              server, "dummy.host.org")),
+
+        ?T({anti_replay, '1k'},
+           ssl:handle_options([{anti_replay, '1k'}, {session_tickets, stateless}],
+                              server, "dummy.host.org")),
+        ?T({anti_replay, _},
+           ssl:handle_options([{anti_replay, {1,1,1,1}}, {session_tickets, stateless}],
+                              server, "dummy.host.org"))
+    end,
+
+    begin %% Beast mitigation
+        ?T(#{beast_mitigation := one_n_minus_one},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{beast_mitigation := disabled},
+           ssl:handle_options([{beast_mitigation, disabled}, {versions, [tlsv1]}], client, "dummy.host.org")),
+        ?T(#{beast_mitigation := zero_n},
+           ssl:handle_options([{beast_mitigation, zero_n}, {versions, [tlsv1]}], client, "dummy.host.org")),
+
+        %% Errors
+        ?T({beast_mitigation, enabled},
+           ssl:handle_options([{beast_mitigation, enabled}, {versions, [tlsv1]}], client, "dummy.host.org")),
+        ?T({options, dependency, {beast_mitigation, {versions, _}}}, %% ok?
+           ssl:handle_options([{beast_mitigation, disabled}], client, "dummy.host.org"))
+    end,
+
+    begin %% cacert[s]file
+        ?T(#{cacerts := undefined, cacertfile := <<>>},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{cacerts := undefined, cacertfile := <<"/tmp/foo">>},
+           ssl:handle_options([{cacertfile, <<"/tmp/foo">>}], client, "dummy.host.org")),
+        ?T(#{cacerts := [Cert], cacertfile := <<>>},
+           ssl:handle_options([{cacerts, [Cert]}, {verify, verify_peer}], client, "dummy.host.org")),
+        ?T(#{cacerts := [#cert{}], cacertfile := <<>>},
+           ssl:handle_options([{cacerts, [#cert{der=Cert, otp=dummy}]}], client, "dummy.host.org")),
+        ?T(#{cacerts := [Cert], cacertfile := <<"/tmp/foo">>},
+           ssl:handle_options([{cacerts, [Cert]}, {cacertfile, "/tmp/foo"}], client, "dummy.host.org")),
+
+        %% Errors
+        ?T({cacertfile, []},
+           ssl:handle_options([{verify, verify_peer}], server, "dummy.host.org")),
+        ?T({cacerts, Cert},
+           ssl:handle_options([{cacerts, Cert}], client, "dummy.host.org")),
+        ?T({cacertfile, cert},
+           ssl:handle_options([{cacertfile, cert}], client, "dummy.host.org"))
+    end,
+
+    begin %% oscp
+        ?T(#{ocsp_stapling := false, ocsp_nonce := true, ocsp_responder_certs := []},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{ocsp_stapling := true},
+           ssl:handle_options([{ocsp_stapling, true}], client, "dummy.host.org")),
+        ?T(#{ocsp_stapling := true, ocsp_nonce := false, ocsp_responder_certs := [_,_]},
+           ssl:handle_options([{ocsp_stapling, true}, {ocsp_nonce, false}, {ocsp_responder_certs, [Cert,Cert]}],
+                              client, "dummy.host.org")),
+        %% Should error, or turn on stapling?
+        ?T(#{ocsp_stapling := false, ocsp_nonce := false},
+           ssl:handle_options([{ocsp_nonce, false}], client, "dummy.host.org")),
+        ?T(#{ocsp_stapling := false, ocsp_responder_certs := [_]},
+           ssl:handle_options([{ocsp_responder_certs, [Cert]}], server, "dummy.host.org")),
+        ?T(#{ocsp_stapling := true, ocsp_responder_certs := []},
+           ssl:handle_options([{ocsp_stapling, true}, {ocsp_responder_certs, ['NOT A BINARY']}],
+                              client, "dummy.host.org")),
+        %% Errors
+        ?T({ocsp_stapling, foo},
+           ssl:handle_options([{ocsp_stapling, 'foo'}], client, "dummy.host.org")),
+        ?T({ocsp_nonce, foo},
+           ssl:handle_options([{ocsp_nonce, 'foo'}], client, "dummy.host.org")),
+        ?T({ocsp_responder_certs, foo},
+           ssl:handle_options([{ocsp_responder_certs, 'foo'}], client, "dummy.host.org"))
+    end,
+
+    ok.
+
+
 
 %%-------------------------------------------------------------------
 
