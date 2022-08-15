@@ -294,6 +294,11 @@ static int do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc, Sint reds)
         t = AM_dist_process;
         break;
     }
+    case ERTS_MON_TYPE_DIST_PORT: {
+        ERTS_DECL_AM(dist_port);
+        t = AM_dist_port;
+        break;
+    }
     case ERTS_MON_TYPE_RESOURCE: {
         ERTS_DECL_AM(resource);
         t = AM_resource;
@@ -582,6 +587,7 @@ static int collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_PORT:
         case ERTS_MON_TYPE_DIST_PROC:
+        case ERTS_MON_TYPE_DIST_PORT:
         case ERTS_MON_TYPE_TIME_OFFSET:
             if (mon->flags & ERTS_ML_FLG_SPAWN_PENDING)
                 break; /* Not an active monitor... */
@@ -634,6 +640,7 @@ static int collect_one_target_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_PORT:
         case ERTS_MON_TYPE_DIST_PROC:
+        case ERTS_MON_TYPE_DIST_PORT:
 
             micp->mi[micp->mi_i].entity.term = mon->other.item;
             micp->mi[micp->mi_i].node = NIL;

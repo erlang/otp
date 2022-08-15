@@ -2398,7 +2398,7 @@ erts_proc_sig_send_demonitor(ErtsPTabElementCommon *sender, Eterm from,
     Uint16 type = mon->type;
     Eterm to = mon->other.item;
 
-    ASSERT(is_internal_pid(to));
+    ASSERT(is_internal_pid(to) || to == am_undefined);
     ASSERT(erts_monitor_is_origin(mon));
     ASSERT(!erts_monitor_is_in_table(mon));
     ASSERT(!system || sender == NULL);
@@ -2406,9 +2406,10 @@ erts_proc_sig_send_demonitor(ErtsPTabElementCommon *sender, Eterm from,
     sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_DEMONITOR,
                                              type, 0);
 
-    if (!proc_queue_signal(sender, from, to, sig,
-                           !(system || (is_pid(from) || is_port(from))),
-                           ERTS_SIG_Q_OP_DEMONITOR)) {
+    if (is_not_internal_pid(to)
+        || !proc_queue_signal(sender, from, to, sig,
+                              !(system || (is_pid(from) || is_port(from))),
+                              ERTS_SIG_Q_OP_DEMONITOR)) {
         erts_monitor_release(mon);
     }
 }
@@ -4086,7 +4087,7 @@ convert_to_down_message(Process *c_p,
             hsz += 3;  /* reg name 2-tuple */
         else {
             ASSERT(is_pid(mdp->origin.other.item)
-                   || is_internal_port(mdp->origin.other.item));
+                   || is_port(mdp->origin.other.item));
             hsz += NC_HEAP_SIZE(mdp->origin.other.item);
         }
 
@@ -4131,6 +4132,22 @@ convert_to_down_message(Process *c_p,
                 ERL_MESSAGE_FROM(mp) = mdp->origin.other.item;
             }
             break;
+        case ERTS_MON_TYPE_DIST_PORT: {
+#ifdef DEBUG
+            ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
+#endif
+            ASSERT(mdp->origin.flags & ERTS_ML_FLG_EXTENDED);
+            type = am_port;
+            ASSERT(node == am_undefined);
+            ASSERT(!mdep->dist);
+            ASSERT(is_external_port(from)
+                   && (external_port_dist_entry(from)
+                       == erts_this_dist_entry));
+            node = erts_this_dist_entry->sysname;
+            ASSERT(is_atom(node) && node != am_undefined);
+            ERL_MESSAGE_FROM(mp) = node;
+            break;
+        }
         case ERTS_MON_TYPE_PROC:
             type = am_process;
             if (mdp->origin.other.item == am_undefined) {
@@ -4148,8 +4165,14 @@ convert_to_down_message(Process *c_p,
                 ErtsMonitorDataExtended *mdep;
                 ASSERT(mdp->origin.flags & ERTS_ML_FLG_EXTENDED);
                 mdep = (ErtsMonitorDataExtended *) mdp;
-                ASSERT(mdep->dist);
-                node = mdep->dist->nodename;
+                if (mdep->dist)
+                    node = mdep->dist->nodename;
+                else {
+                    ASSERT(is_external_pid(from));
+                    ASSERT(external_pid_dist_entry(from)
+                           == erts_this_dist_entry);
+                    node = erts_this_dist_entry->sysname;
+                }
             }
             ASSERT(is_atom(node) && node != am_undefined);
             ERL_MESSAGE_FROM(mp) = node;
@@ -5289,6 +5312,7 @@ handle_alias_message(Process *c_p, ErtsMessage *sig, ErtsMessage ***next_nm_sig)
         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
         
         switch (mon->type) {
+        case ERTS_MON_TYPE_DIST_PORT:
         case ERTS_MON_TYPE_ALIAS:
             erts_monitor_release(mon);
             break;
@@ -5499,6 +5523,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
             switch (type) {
             case ERTS_MON_TYPE_DIST_PROC:
+            case ERTS_MON_TYPE_DIST_PORT:
             case ERTS_MON_TYPE_PROC:
             case ERTS_MON_TYPE_PORT:
                 tmon = (ErtsMonitor *) sig;
@@ -6376,6 +6401,7 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
             case ERTS_MON_TYPE_PORT:
             case ERTS_MON_TYPE_PROC:
             case ERTS_MON_TYPE_DIST_PROC:
+            case ERTS_MON_TYPE_DIST_PORT:
             case ERTS_MON_TYPE_NODE:
             case ERTS_MON_TYPE_NODES:
             case ERTS_MON_TYPE_SUSPEND:
@@ -6560,6 +6586,7 @@ clear_seq_trace_token(ErtsMessage *sig)
             case ERTS_MON_TYPE_PORT:
             case ERTS_MON_TYPE_PROC:
             case ERTS_MON_TYPE_DIST_PROC:
+            case ERTS_MON_TYPE_DIST_PORT:
             case ERTS_MON_TYPE_NODE:
             case ERTS_MON_TYPE_NODES:
             case ERTS_MON_TYPE_SUSPEND:
@@ -6665,6 +6692,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
         case ERTS_MON_TYPE_PORT:
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_DIST_PROC:
+        case ERTS_MON_TYPE_DIST_PORT:
         case ERTS_MON_TYPE_NODE:
         case ERTS_MON_TYPE_SUSPEND:
             size = erts_monitor_size((ErtsMonitor *) sig);
@@ -8187,6 +8215,7 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                     case ERTS_MON_TYPE_PORT:
                     case ERTS_MON_TYPE_PROC:
                     case ERTS_MON_TYPE_DIST_PROC:
+                    case ERTS_MON_TYPE_DIST_PORT:
                     case ERTS_MON_TYPE_NODE:
                         mon_func((ErtsMonitor *) sig, arg, -1);
                         break;
