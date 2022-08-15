@@ -65,6 +65,7 @@
          dyn_node_name_do/2,
          epmd_reconnect_do/2,
 	 setopts_do/2,
+         setopts_deadlock_test/2,
 	 keep_conn/1, time_ping/1,
          ddc_remote_run/2]).
 
@@ -664,7 +665,7 @@ setopts(Config) when is_list(Config) ->
 
 setopts(DCfg, _Config) ->
     register(setopts_regname, self()),
-    [N1,N2,N3,N4] = get_nodenames(4, setopts),
+    [N1,N2,N3,N4,N5] = get_nodenames(5, setopts),
 
     {_N1F,Port1} = start_node_unconnected(DCfg, N1, ?MODULE, run_remote_test,
 					["setopts_do", atom_to_list(node()), "1", "ping"]),
@@ -688,6 +689,32 @@ setopts(DCfg, _Config) ->
 					 "2", integer_to_list(LTcpPort)]),
     wait_and_connect(LSock, N4F, Port4),
     0 = wait_for_port_exit(Port4),
+
+    %% net_kernel:setopts(new, _) used to be able to produce a deadlock
+    %% in net_kernel. GH-6129/OTP-18198
+    {N5F,Port5} = start_node_unconnected(DCfg, N5, ?MODULE, run_remote_test,
+					["setopts_deadlock_test", atom_to_list(node()),
+					 integer_to_list(LTcpPort)]),
+    wait_and_connect(LSock, N5F, Port5),
+    repeat(fun () ->
+                   receive after 10 -> ok end,
+                   erlang:disconnect_node(N5F),
+                   WD = spawn_link(fun () ->
+                                           receive after 2000 -> ok end,
+                                           exit({net_kernel_probably_deadlocked, N5F})
+                                   end),
+                   pong = net_adm:ping(N5F),
+                   unlink(WD),
+                   exit(WD, kill),
+                   false = is_process_alive(WD)
+           end,
+           200),
+    try
+        erpc:call(N5F, erlang, halt, [])
+    catch
+        error:{erpc,noconnection} -> ok
+    end,
+    0 = wait_for_port_exit(Port5),
 
     unregister(setopts_regname),
     ok.
@@ -777,6 +804,19 @@ setopts_do(TestNode, [OptNr, ConnectData]) ->
 
     ok.
 
+setopts_deadlock_test(_TestNode, [TcpPort]) ->
+    {ok, Sock} = gen_tcp:connect("localhost", list_to_integer(TcpPort),
+                                 [{active,false},{packet,2}]),
+    ok = gen_tcp:send(Sock, "Connect please"),
+    {ok, "Connect done"} = gen_tcp:recv(Sock, 0),
+    gen_tcp:close(Sock),
+    setopts_new_loop().
+    
+setopts_new_loop() ->
+    ok = net_kernel:setopts(new, [{nodelay, true}]),
+    receive after 10 -> ok end,
+    setopts_new_loop().
+    
 opt_from_nr("1") -> {nodelay, true};
 opt_from_nr("2") -> {nodelay, false}.
 
