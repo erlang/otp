@@ -2191,17 +2191,16 @@ do_configfd_test_bash() ->
         ok -> case proplists:get_value(system_total_memory,
                                        memsup:get_system_memory_data()) of
                   Memory when is_integer(Memory),
-                              Memory > 16*1024*1024*1024 ->
+                              Memory > 8*1024*1024*1024 ->
                       application:stop(os_mon),
-                      true =
-                          ("magic42" =/=
-                               RunInBash(
-                                 "erl "
-                                 "-noshell "
-                                 "-configfd 3 "
-                                 "-eval "
-                                 "'io:format(\"magic42\"),erlang:halt()' "
-                                 "3< <(erl -noshell -eval '(fun W(D) -> io:put_chars(D), W([D,D]) end)(<<\"00000000000000000\">>)') "));
+                      Res = RunInBash(
+                              "erl "
+                              "-noshell "
+                              "-configfd 3 "
+                              "-eval "
+                              "'io:format(\"magic42\"),erlang:halt()' "
+                              "3< <(erl -noshell -eval '(fun W(D) -> io:put_chars(D), W([D,<<\"00000000000000000\">>]) end)([])') "),
+                      {match, _} = re:run(Res,"Max size 134217728 bytes exceeded");
                   _ ->
                       io:format("Skipped huge file check to avoid flaky test on machine with less than 8GB of memory")
               end;

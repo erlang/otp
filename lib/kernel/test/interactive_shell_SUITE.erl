@@ -1967,7 +1967,7 @@ remsh_longnames(Config) when is_list(Config) ->
             after
                 rtnode:dump_logs(rtnode:stop(SState))
             end;
-        Else ->
+        {skip, _} = Else ->
             Else
     end.
 
@@ -2001,7 +2001,7 @@ remsh_no_epmd(Config) when is_list(Config) ->
             after
                 rtnode:stop(SState)
             end;
-        Else ->
+        {skip, _} = Else ->
             Else
     end.
 

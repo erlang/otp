@@ -117,10 +117,10 @@ unicode_prompt(Config) when is_list(Config) ->
        {putline, "hej"},
        {expect, "\\Q\"hej\\n\"\\E"},
        {putline, "io:setopts([{binary,true}])."},
-       {expect, "[\n ]ok"},
+       {expect, "[\n ]\\?*ok"},
        {putline, "io:get_line('')."},
        {putline, "hej"},
-       {expect,"[\n ]hej"},
+       {expect,"[\n ]\\?*hej"},
        {expect, "\\Q<<\"hej\\n\">>\\E"}
       ],[],"",["-oldshell","-pa",PA]),
     ok.
