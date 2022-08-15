@@ -1637,6 +1637,7 @@ t_map_compare(Config) when is_list(Config) ->
     io:format("seed = ~p\n", [rand:export_seed()]),
     repeat(100, fun(_) -> float_int_compare() end, []),
     repeat(100, fun(_) -> recursive_compare() end, []),
+    repeat(10, fun(_) -> atoms_compare() end, []),
     ok.
 
 float_int_compare() ->
@@ -1644,10 +1645,24 @@ float_int_compare() ->
     %%io:format("Keys to use: ~p\n", [Terms]),
     Pairs = lists:map(fun(K) -> list_to_tuple([{K,V} || V <- Terms]) end, Terms),
     lists:foreach(fun(Size) ->
-			  MapGen = fun() -> map_gen(list_to_tuple(Pairs), Size) end,
+			  MapGen = fun() -> map_gen(Pairs, Size) end,
 			  repeat(100, fun do_compare/1, [MapGen, MapGen])
 		  end,
 		  lists:seq(1,length(Terms))),
+    ok.
+
+atoms_compare() ->
+    Atoms = [true, false, ok, '', ?MODULE, list_to_atom(id("a new atom"))],
+    Pairs = lists:map(fun(K) -> list_to_tuple([{K,V} || V <- Atoms]) end,
+                      Atoms),
+    lists:foreach(
+      fun(Size) ->
+              M1 = map_gen(Pairs, Size),
+              M2 = map_gen(Pairs, Size),
+              %%io:format("Atom maps to compare: ~p AND ~p\n", [M1, M2]),
+              do_cmp(M1, M2)
+      end,
+      lists:seq(1,length(Atoms))),
     ok.
 
 numeric_keys(N) ->
@@ -1765,6 +1780,8 @@ cmp_others(I, F, true) when is_integer(I), is_float(F) ->
     -1;
 cmp_others(F, I, true) when is_float(F), is_integer(I) ->
     1;
+cmp_others(A1, A2, Exact) when is_atom(A1), is_atom(A2) ->
+    cmp_others(atom_to_list(A1), atom_to_list(A2), Exact);
 cmp_others(T1, T2, _) ->
     case {T1<T2, T1==T2} of
 	{true,false} -> -1;
@@ -1779,7 +1796,7 @@ map_gen(Pairs, Size) ->
 				KV = element(rand:uniform(size(K)), K),
 				{erlang:delete_element(KI,Keys), [KV | Acc]}
 			end,
-			{Pairs, []},
+			{list_to_tuple(Pairs), []},
 			lists:seq(1,Size)),
 
     maps:from_list(L).
@@ -1791,12 +1808,8 @@ recursive_compare() ->
     %%io:format("Recursive term A = ~p\n", [A]),
     %%io:format("Recursive term B = ~p\n", [B]),
 
-    ?CHECK({true,false} =:=  case do_cmp(A, B, false) of
-				 -1 -> {A<B, A>=B};
-				 0 -> {A==B, A/=B};
-				 1 -> {A>B, A=<B}
-			     end,
-	   {A,B}),
+    do_cmp(A, B),
+
     A2 = copy_term(A),
     ?CHECK(A == A2, {A,A2}),
     ?CHECK(0 =:= cmp(A, A2, false), {A,A2}),
@@ -1806,9 +1819,13 @@ recursive_compare() ->
     ?CHECK(0 =:= cmp(B, B2, false), {B,B2}),
     ok.
 
-do_cmp(A, B, Exact) ->
-    C = cmp(A, B, Exact),
-    C.
+do_cmp(A, B) ->
+    ?CHECK({true,false} =:=  case cmp(A, B, false) of
+				 -1 -> {A<B, A>=B};
+				 0 -> {A==B, A/=B};
+				 1 -> {A>B, A=<B}
+			     end,
+	   {A,B}).
 
 %% Generate two terms {A,B} that may only differ
 %% at float vs integer types.
