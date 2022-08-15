@@ -60,15 +60,15 @@ static struct cipher_type_t cipher_types[] =
 #endif
 
 #ifdef HAVE_BF
-    {{"blowfish_cbc"},   "BF-CBC",   {&EVP_bf_cbc},   0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"blowfish_cfb64"}, "BF-CFB64", {&EVP_bf_cfb64}, 0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"blowfish_ofb64"}, "BF-OFB64", {&EVP_bf_ofb},   0, NO_FIPS_CIPHER, NOT_AEAD},
-    {{"blowfish_ecb"},   "BF-ECB",   {&EVP_bf_ecb},   0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L, NOT_AEAD},
+    {{"blowfish_cbc"},   "BF-CBC", {&EVP_bf_cbc},   0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"blowfish_cfb64"}, "BF-CFB", {&EVP_bf_cfb64}, 0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"blowfish_ofb64"}, "BF-OFB", {&EVP_bf_ofb},   0, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"blowfish_ecb"},   "BF-ECB", {&EVP_bf_ecb},   0, NO_FIPS_CIPHER | ECB_BUG_0_9_8L, NOT_AEAD},
 #else
-    {{"blowfish_cbc"},   "BF-CBC",   {NULL}, 0, 0, NOT_AEAD},
-    {{"blowfish_cfb64"}, "BF-CFB64", {NULL}, 0, 0, NOT_AEAD},
-    {{"blowfish_ofb64"}, "BF-OFB64", {NULL}, 0, 0, NOT_AEAD},
-    {{"blowfish_ecb"},   "BF-ECB",   {NULL}, 0, 0, NOT_AEAD},
+    {{"blowfish_cbc"},   "BF-CBC", {NULL}, 0, 0, NOT_AEAD},
+    {{"blowfish_cfb64"}, "BF-CFB", {NULL}, 0, 0, NOT_AEAD},
+    {{"blowfish_ofb64"}, "BF-OFB", {NULL}, 0, 0, NOT_AEAD},
+    {{"blowfish_ecb"},   "BF-ECB", {NULL}, 0, 0, NOT_AEAD},
 #endif
 
     {{"aes_128_cbc"}, "aes-128-cbc", {&EVP_aes_128_cbc}, 16, 0, NOT_AEAD},
@@ -83,9 +83,9 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_192_cfb8"}, "aes-192-cfb8", {&EVP_aes_192_cfb8}, 24, AES_CFBx, NOT_AEAD},
     {{"aes_256_cfb8"}, "aes-256-cfb8", {&EVP_aes_256_cfb8}, 32, AES_CFBx, NOT_AEAD},
 
-    {{"aes_128_cfb128"}, "aes-128-cfb128", {&EVP_aes_128_cfb128}, 16, AES_CFBx, NOT_AEAD},
-    {{"aes_192_cfb128"}, "aes-192-cfb128", {&EVP_aes_192_cfb128}, 24, AES_CFBx, NOT_AEAD},
-    {{"aes_256_cfb128"}, "aes-256-cfb128", {&EVP_aes_256_cfb128}, 32, AES_CFBx, NOT_AEAD},
+    {{"aes_128_cfb128"}, "aes-128-cfb", {&EVP_aes_128_cfb128}, 16, AES_CFBx, NOT_AEAD},
+    {{"aes_192_cfb128"}, "aes-192-cfb", {&EVP_aes_192_cfb128}, 24, AES_CFBx, NOT_AEAD},
+    {{"aes_256_cfb128"}, "aes-256-cfb", {&EVP_aes_256_cfb128}, 32, AES_CFBx, NOT_AEAD},
 
     {{"aes_128_ecb"}, "aes-128-ecb", {&EVP_aes_128_ecb}, 16, ECB_BUG_0_9_8L, NOT_AEAD},
     {{"aes_192_ecb"}, "aes-192-ecb", {&EVP_aes_192_ecb}, 24, ECB_BUG_0_9_8L, NOT_AEAD},
