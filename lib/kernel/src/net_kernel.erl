@@ -113,7 +113,8 @@
 	  allowed,       %% list of allowed nodes in a restricted system
 	  verbose = 0,   %% level of verboseness
           dyn_name_pool = #{},  %% Reusable remote node names: #{Host => [{Name,Creation}]}
-          supervisor    %% Our supervisor (net_sup | net_sup_dynamic | {restart,Restarter})
+          supervisor,   %% Our supervisor (net_sup | net_sup_dynamic | {restart,Restarter})
+          req_map = #{} %% Map for outstanding async requests
 	 }).
 
 -record(listen, {
@@ -874,36 +875,13 @@ handle_call({new_ticktime,_T,_TP},
     async_reply({reply, {ongoing_change_to, T}, State}, From);
 
 handle_call({setopts, new, Opts}, From, State) ->
-    Ret = setopts_new(Opts, State),
-    async_reply({reply, Ret, State}, From);
+    setopts_new(Opts, From, State);
 
 handle_call({setopts, Node, Opts}, From, State) ->
-    Return =
-	case ets:lookup(sys_dist, Node) of
-	    [Conn] when Conn#connection.state =:= up ->
-		case call_owner(Conn#connection.owner, {setopts, Opts}) of
-		    {ok, Ret} -> Ret;
-		    _ -> {error, noconnection}
-		end;
-
-	    _ ->
-		{error, noconnection}
-    end,
-    async_reply({reply, Return, State}, From);
+    opts_node(setopts, Node, Opts, From, State);
 
 handle_call({getopts, Node, Opts}, From, State) ->
-    Return =
-	case ets:lookup(sys_dist, Node) of
-	    [Conn] when Conn#connection.state =:= up ->
-		case call_owner(Conn#connection.owner, {getopts, Opts}) of
-		    {ok, Ret} -> Ret;
-		    _ -> {error, noconnection}
-		end;
-
-	    _ ->
-		{error, noconnection}
-    end,
-    async_reply({reply, Return, State}, From);
+    opts_node(getopts, Node, Opts, From, State);
 
 
 handle_call(get_state, From, State) ->
@@ -1164,6 +1142,16 @@ handle_info({AcceptPid, {wait_pending, Node}}, State) ->
     %% Exiting controller will trigger {Kernel,pending} reply
     %% in up_pending_nodedown()
     {noreply, State};
+
+%%
+%% Responses to asynchronous requests we've made...
+%%
+handle_info({ReqId, Reply},
+            #state{req_map = ReqMap} = S) when is_map_key(ReqId, ReqMap) ->
+    handle_async_response(reply, ReqId, Reply, S);
+handle_info({'DOWN', ReqId, process, _Pid, Reason},
+            #state{req_map = ReqMap} = S) when is_map_key(ReqId, ReqMap) ->
+    handle_async_response(down, ReqId, Reason, S);
 
 %%
 %% Handle different types of process terminations.
@@ -2378,16 +2366,39 @@ async_gen_server_reply(From, Msg) ->
         _:_ -> ok
     end.
 
-call_owner(Owner, Msg) ->
-    Mref = monitor(process, Owner),
-    Owner ! {self(), Mref, Msg},
-    receive
-	{Mref, Reply} ->
-	    erlang:demonitor(Mref, [flush]),
-	    {ok, Reply};
-	{'DOWN', Mref, _, _, _} ->
-	    error
+handle_async_response(ResponseType, ReqId, Result, #state{req_map = ReqMap0} = S0) ->
+    if ResponseType == down -> ok;
+       true -> _ = erlang:demonitor(ReqId, [flush]), ok
+    end,
+    case maps:take(ReqId, ReqMap0) of
+
+        {{SetGetOpts, From}, ReqMap1} when SetGetOpts == setopts;
+                                           SetGetOpts == getopts ->
+            Reply = case ResponseType of
+                        reply -> Result;
+                        down -> {error, noconnection}
+                    end,
+            S1 = S0#state{req_map = ReqMap1},
+            async_reply({reply, Reply, S1}, From);
+
+        {{setopts_new, Op}, ReqMap1} ->
+            case maps:get(Op, ReqMap1) of
+                {setopts_new, From, 1} ->
+                    %% Last response for this operation...
+                    ReqMap2 = maps:remove(Op, ReqMap1),
+                    S1 = S0#state{req_map = ReqMap2},
+                    async_reply({reply, ok, S1}, From);
+                {setopts_new, From, N} ->
+                    ReqMap2 = ReqMap1#{Op => {setopts_new, From, N-1}},
+                    S1 = S0#state{req_map = ReqMap2},
+                    {noreply, S1}
+            end
     end.
+
+send_owner_request(ReqOpMap, Label, Owner, Msg) ->
+    ReqId = monitor(process, Owner),
+    Owner ! {self(), ReqId, Msg},
+    ReqOpMap#{ReqId => Label}.
 
 -spec setopts(Node, Options) -> ok | {error, Reason} | ignored when
       Node :: node() | new,
@@ -2397,15 +2408,16 @@ call_owner(Owner, Msg) ->
 setopts(Node, Opts) when is_atom(Node), is_list(Opts) ->
     request({setopts, Node, Opts}).
 
-setopts_new(Opts, State) ->
+setopts_new(Opts, From, State) ->
     %% First try setopts on listening socket(s)
     %% Bail out on failure.
     %% If successful, we are pretty sure Opts are ok
     %% and we continue with config params and pending connections.
     case setopts_on_listen(Opts, State#state.listen) of
 	ok ->
-	    setopts_new_1(Opts);
-	Fail -> Fail
+	    setopts_new_1(Opts, From, State);
+	Fail ->
+            async_reply({reply, Fail, State}, From)
     end.
 
 setopts_on_listen(_, []) -> ok;
@@ -2418,7 +2430,7 @@ setopts_on_listen(Opts, [#listen {listen = LSocket, module = Mod} | T]) ->
 	error:undef -> {error, enotsup}
     end.
 
-setopts_new_1(Opts) ->
+setopts_new_1(Opts, From, #state{req_map = ReqMap0} = State) ->
     ConnectOpts = case application:get_env(kernel, inet_dist_connect_options) of
 		      {ok, CO} -> CO;
 		      _ -> []
@@ -2441,13 +2453,36 @@ setopts_new_1(Opts) ->
     PendingConns = ets:select(sys_dist, [{'_',
 					  [{'=/=',{element,#connection.state,'$_'},up}],
 					  ['$_']}]),
-    lists:foreach(fun(#connection{state = pending, owner = Owner}) ->
-			  call_owner(Owner, {setopts, Opts});
-		     (#connection{state = up_pending, pending_owner = Owner}) ->
-			  call_owner(Owner, {setopts, Opts});
-		     (_) -> ignore
-		  end, PendingConns),
-    ok.
+
+    Op = make_ref(),
+    SendReq = fun (ReqMap, N, Owner) ->
+                      {send_owner_request(ReqMap, {setopts_new, Op},
+                                          Owner,
+                                          {setopts, Opts}),
+                       N+1}
+              end,
+    {ReqMap1, NoReqs} = lists:foldl(fun(#connection{state = pending,
+                                                    owner = Owner},
+                                        {ReqMap, N}) ->
+                                            SendReq(ReqMap, N, Owner);
+                                       (#connection{state = up_pending,
+                                                    pending_owner = Owner},
+                                        {ReqMap, N}) ->
+                                            SendReq(ReqMap, N, Owner);
+                                       (_, Acc) ->
+                                            Acc
+                                    end,
+                                    {ReqMap0, 0},
+                                    PendingConns),
+    if NoReqs == 0 ->
+            async_reply({reply, ok, State}, From);
+       true ->
+            %% Reply made later from handle_async_response() when
+            %% we've got responses from all owners that we've
+            %% made requests to...
+            ReqMap2 = ReqMap1#{Op => {setopts_new, From, NoReqs}},
+            {noreply, State#state{req_map = ReqMap2}}
+    end.
 
 merge_opts([], B) ->
     B;
@@ -2465,3 +2500,20 @@ merge_opts([H|T], B0) ->
 
 getopts(Node, Opts) when is_atom(Node), is_list(Opts) ->
     request({getopts, Node, Opts}).
+
+opts_node(Op, Node, Opts, From, #state{req_map = ReqMap0} = S0) ->
+    case ets:lookup(sys_dist, Node) of
+        [Conn] when Conn#connection.state =:= up ->
+            ReqMap1 = send_owner_request(ReqMap0,
+                                         {Op, From},
+                                         Conn#connection.owner,
+                                         {Op, Opts}),
+            %% Reply made later from handle_async_response() when
+            %% we get a response from the owner that we made the
+            %% request to...
+            S1 = S0#state{req_map = ReqMap1},
+            {noreply, S1};
+        _ ->
+            async_reply({reply, {error, noconnection}, S0}, From)
+    end.
+
