@@ -159,28 +159,57 @@ init_per_testcase(plain_verify_options = Case, Config) when is_list(Config) ->
 
 init_per_testcase(ktls_basic = Case, Config) when is_list(Config) ->
     case {os:type(), os:version()} of
-        {{unix,linux}, {Major,Minor,_}}
-          when 5 == Major, 2 =< Minor;
-               5 < Major ->
+        {{unix,linux}, OsVersion} when {5,2,0} =< OsVersion ->
+            %% We need a connected socket
             {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
             {ok, Port} = inet:port(Listen),
             {ok, Client} =
                 gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
             {ok, Server} = gen_tcp:accept(Listen),
-            %%
-            _ = inet:setopts(Server, [{raw, 6, 31, <<"tls">>}]),
-            Result = inet:getopts(Server, [{raw, 6, 31, 4}]),
-            %%
-            _ = gen_tcp:close(Server),
-            _ = gen_tcp:close(Client),
-            _ = gen_tcp:close(Listen),
-            case Result of
-                {ok, [{raw, 6, 31, <<"tls",0>>}]} ->
-                    common_init(Case, Config);
-                Other ->
+            %% We'll use the Server socket
+            Skip = make_ref(),
+            try
+                SOL_TCP = 6, TCP_ULP = 31,
+                _ = inet:setopts(
+                      Server, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
+                (GetULP =
+                     inet:getopts(Server, [{raw, SOL_TCP, TCP_ULP, 4}]))
+                    =:=
+                    {ok, [{raw, SOL_TCP, TCP_ULP, <<"tls",0>>}]}
+                    orelse
+                    throw({Skip,{get_ulp, GetULP}}),
+                TLS_VER    = ((3 bsl 8) bor 4),
+                TLS_CIPHER = 52,
+                TLS_SALT   = <<1,1,1,1>>,
+                TLS_IV     = <<2,2,2,2,2,2,2,2>>,
+                TLS_KEY    =
+                    <<3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+                      3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3>>,
+                TLS_crypto_info =
+                    <<TLS_VER:16/native, TLS_CIPHER:16/native,
+                      TLS_IV/binary, TLS_KEY/binary, TLS_SALT/binary,
+                      0:64/native>>,
+                SOL_TLS = 282, TLS_TX = 1,
+                RawOpt =
+                    {raw, SOL_TLS, TLS_TX, TLS_crypto_info},
+                _ = inet:setopts(Server, [RawOpt]),
+                (GetCryptoInfo =
+                    inet:getopts(
+                      Server,
+                      [{raw, SOL_TLS, TLS_TX, byte_size(TLS_crypto_info)}]))
+                    =:=
+                    {ok, [RawOpt]}
+                    orelse throw({Skip,{get_crypto_info,GetCryptoInfo}}),
+                common_init(Case, Config)
+                %%
+            catch {Skip,SkipReason} ->
                     {skip,
                      lists:flatten(
-                       io_lib:format("kTLS not supported, ~p", [Other]))}
+                       io_lib:format("kTLS not supported, ~p", [SkipReason]))}
+            after
+                _ = gen_tcp:close(Server),
+                _ = gen_tcp:close(Client),
+                _ = gen_tcp:close(Listen)
             end;
         OS ->
             {skip,
