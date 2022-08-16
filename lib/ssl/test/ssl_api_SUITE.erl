@@ -2352,6 +2352,330 @@ options_whitebox(Config) when is_list(Config) ->
            ssl:handle_options([{cacertfile, cert}], client, "dummy.host.org"))
     end,
 
+    begin %% cert[file] cert_keys keys
+        {ok, #config{ssl = DefMap}} = ssl:handle_options([], client, "dummy.host.org"),
+        false = maps:is_key(certs_keys, DefMap),  %% ??
+
+        ?T(#{cert := undefined, certfile := <<>>, key := undefined, keyfile := <<>>},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{cert := [Cert], certfile := <<>>, key := undefined, keyfile := <<>>},
+           ssl:handle_options([{cert,Cert}], client, "dummy.host.org")),
+        ?T(#{cert := [Cert], certfile := <<>>, key := undefined, keyfile := <<>>},
+           ssl:handle_options([{cert,[Cert]}], client, "dummy.host.org")),
+        ?T(#{cert := undefined, certfile := <<"/tmp/foo">>, key := undefined, keyfile := <<"/tmp/foo">>},
+           ssl:handle_options([{certfile, <<"/tmp/foo">>}], client, "dummy.host.org")),
+
+        ?T(#{cert := undefined, certfile := <<>>, certs_keys := undefined, key := undefined, keyfile := <<>>},
+           ssl:handle_options([{certs_keys, undefined}], client, "dummy.host.org")),
+        ?T(#{cert := undefined, certfile := <<>>, certs_keys := [#{}], key := undefined, keyfile := <<>>},
+           ssl:handle_options([{certs_keys, [#{}]}], client, "dummy.host.org")),
+
+        ?T(#{cert := undefined, certfile := <<>>, key := {rsa, <<>>}, keyfile := <<>>},
+           ssl:handle_options([{key, {rsa, <<>>}}], client, "dummy.host.org")),
+        ?T(#{cert := undefined, certfile := <<>>, key := #{}, keyfile := <<>>},
+           ssl:handle_options([{key, #{algorithm => foo}}], client, "dummy.host.org")),
+
+        ?T(#{cert := undefined, certfile := <<"/tmp/foo">>, key := undefined, keyfile := <<"/tmp/baz">>},
+           ssl:handle_options([{certfile, <<"/tmp/foo">>}, {keyfile, "/tmp/baz"}], client, "dummy.host.org")),
+
+        ?T(#{cert := [Cert], certfile := <<"/tmp/foo">>, key := undefined, keyfile := <<"/tmp/foo">>},
+           ssl:handle_options([{cert, Cert}, {certfile, "/tmp/foo"}, {certs_keys, [#{}]}],
+                              client, "dummy.host.org")),
+
+        %% Errors
+        ?T({cert, #{}},
+           ssl:handle_options([{cert, #{}}], client, "dummy.host.org")),
+        ?T({certfile, cert},
+           ssl:handle_options([{certfile, cert}], client, "dummy.host.org")),
+        ?T({certs_keys, #{}},
+           ssl:handle_options([{certs_keys, #{}}], client, "dummy.host.org")),
+        ?T({keyfile, #{}},
+           ssl:handle_options([{keyfile, #{}}], client, "dummy.host.org")),
+        ?T({key, <<>>},
+           ssl:handle_options([{key, <<>>}], client, "dummy.host.org"))
+    end,
+
+    begin %% certificate_authorities
+        ?T(#{certificate_authorities := false},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{certificate_authorities := true},
+           ssl:handle_options([{certificate_authorities, true}], client, "dummy.host.org")),
+
+        ?T(#{certificate_authorities := undefined},  %% FIXME bug
+           ssl:handle_options([{certificate_authorities, undefined}], server, "dummy.host.org")),
+
+        %% Errors
+        ?T({certificate_authorities, []},
+           ssl:handle_options([{certificate_authorities,  []}], client, "dummy.host.org")),
+        ?T({option, client_only, certificate_authorities},
+           ssl:handle_options([{certificate_authorities, true}], server, "dummy.host.org")),
+        ?T({options, dependency, {certificate_authorities, {versions, _}}},
+           ssl:handle_options([{certificate_authorities, true}, {versions, ['tlsv1.2']}],
+                              client, "dummy.host.org"))
+    end,
+
+    begin %% ciphers
+        CipherSuite = ssl_test_lib:ecdh_dh_anonymous_suites({3,3}),
+        ?T(#{ciphers := [_|_]},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{ciphers := [_|_]},
+           ssl:handle_options([{ciphers, CipherSuite}], client, "dummy.host.org")),
+        ?T(#{ciphers := [_|_]},
+           ssl:handle_options([{ciphers, "RC4-SHA:RC4-MD5"}], client, "dummy.host.org")),
+        ?T(#{ciphers := [_|_]},
+           ssl:handle_options([{ciphers, ["RC4-SHA", "RC4-MD5"]}], client, "dummy.host.org"))
+        %% FIXME extend this
+    end,
+
+    begin %% client_renegotiation
+        ?T(#{client_renegotiation := true},
+           ssl:handle_options([], server, "dummy.host.org")),
+        ?T(#{client_renegotiation := false},
+           ssl:handle_options([{client_renegotiation, false}], server, "dummy.host.org")),
+
+        %% Errors
+        ?T({client_renegotiation, []},
+           ssl:handle_options([{client_renegotiation,  []}], server, "dummy.host.org")),
+        ?T({option, server_only, client_renegotiation},
+           ssl:handle_options([{client_renegotiation, true}], client, "dummy.host.org")),
+        ?T({options, dependency, {client_renegotiation, {versions, _}}},
+           ssl:handle_options([{client_renegotiation, true}, {versions, ['tlsv1.3']}],
+                              server, "dummy.host.org"))
+    end,
+
+    begin %% cookie
+        ?T(#{cookie := true},
+           ssl:handle_options([], server, "dummy.host.org")),
+        ?T(#{cookie := false},
+           ssl:handle_options([{cookie, false}], server, "dummy.host.org")),
+
+        %% Errors
+        ?T({cookie, []},
+           ssl:handle_options([{cookie,  []}], server, "dummy.host.org")),
+        ?T({option, server_only, cookie},
+           ssl:handle_options([{cookie, true}], client, "dummy.host.org")),
+        ?T({options, dependency, {cookie, {versions, _}}},
+           ssl:handle_options([{cookie, true}, {versions, ['tlsv1.2']}],
+                              server, "dummy.host.org"))
+    end,
+
+    begin %% crl options
+        ?T(#{crl_cache := {ssl_crl_cache, _}, crl_check := false},
+           ssl:handle_options([], server, "dummy.host.org")),
+        ?T(#{crl_cache := {ssl_crl_cache, _}, crl_check := true},
+           ssl:handle_options([{crl_check, true}], server, "dummy.host.org")),
+        ?T(#{crl_cache := {ssl_crl_hash_dir, {_,_}}, crl_check := true},
+           ssl:handle_options([{crl_check, true},
+                               {crl_cache, {ssl_crl_hash_dir, {internal, [{dir, "/tmp"}]}}}],
+                              server, "dummy.host.org")),
+        ?T(#{crl_cache := {ssl_crl_cache, {_,_}}, crl_check := true},
+           ssl:handle_options([{crl_check, true},
+                               {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}}],
+                              server, "dummy.host.org")),
+        %% Errors
+        ?T({crl_check, foo},
+           ssl:handle_options([{crl_check, foo}], server, "dummy.host.org")),
+        ?T({crl_cache, {a,b,c}},
+           ssl:handle_options([{crl_cache, {a,b,c}}], server, "dummy.host.org"))
+    end,
+
+    begin %% hostname_check
+        ?T(#{customize_hostname_check := []},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{customize_hostname_check := [{match_fun, _}]},
+           ssl:handle_options([{customize_hostname_check, [{match_fun, fun() -> ok end}]}],
+                              client, "dummy.host.org")),
+        %% Error
+        ?T({customize_hostname_check, _},
+           ssl:handle_options([{customize_hostname_check, {match_fun, pb_fun}}], client, "dummy.host.org"))
+    end,
+
+    begin %% depth
+        ?T(#{depth := 10},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{depth := 5},
+           ssl:handle_options([{depth, 5}], client, "dummy.host.org")),
+        %% Error
+        ?T({depth, not_an_int},
+           ssl:handle_options([{depth, not_an_int}], client, "dummy.host.org"))
+    end,
+
+    begin %% dh dhfile
+        ?T(#{dh := undefined, dhfile := undefined},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{dh := <<>>, dhfile := undefined},
+           ssl:handle_options([{dh, <<>>}], client, "dummy.host.org")),
+        ?T(#{dh := undefined, dhfile := <<"/tmp/foo">>},
+           ssl:handle_options([{dhfile, <<"/tmp/foo">>}], client, "dummy.host.org")),
+        ?T(#{dh := <<>>, dhfile := <<"/tmp/foo">>},
+           ssl:handle_options([{dh, <<>>}, {dhfile, <<"/tmp/foo">>}], client, "dummy.host.org")),
+        %% Error
+        ?T({dh, not_a_bin},
+           ssl:handle_options([{dh, not_a_bin}], client, "dummy.host.org")),
+        ?T({dhfile, not_a_filename},
+           ssl:handle_options([{dhfile, not_a_filename}], client, "dummy.host.org"))
+    end,
+
+    begin %% early_data, session_tickets and use_ticket
+        ?T(#{early_data := undefined, session_tickets := disabled},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{early_data := undefined, session_tickets := disabled},
+           ssl:handle_options([], server, "dummy.host.org")),
+
+        ?T(#{early_data := <<>>, session_tickets := auto},
+           ssl:handle_options([{early_data, <<>>}, {session_tickets, auto}], client, "dummy.host.org")),
+        ?T(#{early_data := <<>>, session_tickets := manual, use_ticket := []},
+           ssl:handle_options([{early_data, <<>>}, {session_tickets, manual}, {use_ticket, []}],
+                              client, "dummy.host.org")),
+
+        ?T(#{early_data := enabled},
+           ssl:handle_options([{early_data, enabled}, {session_tickets, stateless}], server, "dummy.host.org")),
+
+        %% FIXME should be ok
+        ?T({options, dependency, {early_data, _}},
+           ssl:handle_options([{early_data, disabled}], server, "dummy.host.org")),
+        ?T({options, dependency, {early_data, _}},
+           ssl:handle_options([{early_data, disabled}], client, "dummy.host.org")),
+        ?T(#{use_ticket := []},  %% client option only
+           ssl:handle_options([{use_ticket, []}], server, "dummy.host.org")),
+        ?T(#{use_ticket := []},  %% requires session_tickets manual
+           ssl:handle_options([{use_ticket, []}], client, "dummy.host.org")),
+
+        %% Errors
+        ?T({options, role, {session_tickets, {foo, _}}},
+           ssl:handle_options([{session_tickets, foo}], server, "dummy.host.org")),
+        ?T({options, role, {session_tickets, {manual, _}}},
+           ssl:handle_options([{session_tickets, manual}], server, "dummy.host.org")),
+        ?T({options, role, {session_tickets, {stateful, _}}},
+           ssl:handle_options([{session_tickets, stateful}], client, "dummy.host.org")),
+        ?T({options, dependency, {session_tickets, {versions, _}}},
+           ssl:handle_options([{session_tickets, stateful}, {versions, ['tlsv1.2']}], server, "dummy.host.org")),
+
+        ?T({use_ticket, foo},
+           ssl:handle_options([{use_ticket, foo}, {session_tickets, manual}], client, "dummy.host.org")),
+
+        ?T({options, dependency, {early_data, {session_tickets, _}}},
+           ssl:handle_options([{early_data, <<>>}], client, "dummy.host.org")),
+        ?T({options, type, {early_data, {enabled, _}}},
+           ssl:handle_options([{early_data, enabled}, {session_tickets, auto}], client, "dummy.host.org")),
+        ?T({options, dependency, {early_data, use_ticket}},
+           ssl:handle_options([{early_data, enabled}, {session_tickets, manual}], client, "dummy.host.org")),
+
+        ?T({options, dependency, {early_data, {session_tickets, _}}},
+           ssl:handle_options([{early_data, enabled}], server, "dummy.host.org")),
+        ?T({options, role, {early_data, {<<>>, {server, _}}}},
+           ssl:handle_options([{early_data, <<>>}, {session_tickets, stateless}], server, "dummy.host.org"))
+    end,
+
+    begin %% eccs
+        ?T(#{eccs := {elliptic_curves, [_|_]}},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{eccs := {elliptic_curves, [_|_]}},
+           ssl:handle_options([{eccs, [sect571r1, sect571k1]}], client, "dummy.host.org")),
+
+        %% Should be errors?
+        ?T(#{eccs := {elliptic_curves, []}},   %% FIXME Is this ok?
+           ssl:handle_options([{eccs, []}], client, "dummy.host.org")),
+        ?T(#{eccs := {elliptic_curves, []}},   %% FIXME Is this ok, unreachable error case?
+           ssl:handle_options([{eccs, [foo]}], client, "dummy.host.org")),
+
+        %% Errors
+        ?T(function_clause,
+           ssl:handle_options([{eccs, not_a_list}], client, "dummy.host.org"))
+    end,
+
+    begin %% erl_dist
+        ?T(#{erl_dist := false},
+             ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{erl_dist := true},
+             ssl:handle_options([{erl_dist, true}], client, "dummy.host.org"))
+    end,
+
+    begin %% fail_if_no_peer_cert, verify, verify_fun, partial_chain
+        ?T(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, []}, partial_chain := _},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, []}, partial_chain := _},
+           ssl:handle_options([], server, "dummy.host.org")),
+        ?T(#{fail_if_no_peer_cert := true, verify := verify_peer, verify_fun := undefined, partial_chain := _},
+           ssl:handle_options([{fail_if_no_peer_cert, true}, {verify, verify_peer}, {cacerts, [Cert]}],
+                              server, "dummy.host.org")),
+        ?T(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, []}, partial_chain := _},
+           ssl:handle_options([{verify, verify_none}], client, "dummy.host.org")),
+        ?T(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := undefined, partial_chain := _},
+           ssl:handle_options([{verify, verify_peer}, {cacerts, [Cert]}], server, "dummy.host.org")),
+        ?T(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, []}, partial_chain := _},
+           ssl:handle_options([{partial_chain, fun() -> ok end}], client, "dummy.host.org")),
+
+        F = fun(_) -> ok end,
+        ?T(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, F}, partial_chain := _},
+           ssl:handle_options([{verify_fun, F}], client, "dummy.host.org")),
+        ?T(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {F, foo}, partial_chain := _},
+           ssl:handle_options([{verify_fun, {F, foo}}], client, "dummy.host.org")),
+        ?T(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := {F, foo}, partial_chain := _},
+           ssl:handle_options([{verify_fun, {F, foo}}, {verify, verify_peer}, {cacerts, [Cert]}],
+                               server, "dummy.host.org")),
+
+        %% Should fail
+        ?T(#{fail_if_no_peer_cert := true}, %% server option according to specs/docs
+           ssl:handle_options([{fail_if_no_peer_cert, true}, {verify, verify_peer}, {cacerts, [Cert]}],
+                              client, "dummy.host.org")),
+        ?T(#{partial_chain := undefined},   %% Can it be undefined?
+           ssl:handle_options([{partial_chain, undefined}], client, "dummy.host.org")),
+
+        %% Errors
+        ?T({options, incompatible, {verify, verify_none}, {fail_if_no_peer_cert, true}},
+           ssl:handle_options([{fail_if_no_peer_cert, true}], client, "dummy.host.org")),
+        ?T({verify, verify},
+           ssl:handle_options([{verify, verify}], client, "dummy.host.org")),
+        ?T({cacertfile, []},
+           ssl:handle_options([{verify, verify_peer}], server, "dummy.host.org")),
+        ?T({partial_chain, not_a_fun},
+           ssl:handle_options([{partial_chain, not_a_fun}], client, "dummy.host.org")),
+        ?T({verify_fun, not_a_fun},
+           ssl:handle_options([{verify_fun, not_a_fun}], client, "dummy.host.org"))
+    end,
+
+    begin %% fallback
+        ?T(#{fallback := false},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{fallback := true},
+           ssl:handle_options([{fallback, true}], client, "dummy.host.org")),
+
+        %% Errors
+        ?T({option, client_only, fallback},
+           ssl:handle_options([{fallback, true}], server, "dummy.host.org")),
+        ?T({fallback, []},
+           ssl:handle_options([{fallback, []}], client, "dummy.host.org"))
+    end,
+
+    begin %% handshake
+        ?T(#{handshake := full, max_handshake_size := 262144},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{handshake := hello, max_handshake_size := 123800},
+           ssl:handle_options([{handshake, hello}, {max_handshake_size, 123800}], client, "dummy.host.org")),
+
+        ?T(#{handshake := hello, max_handshake_size := -1},  %% Hmm FIXME
+           ssl:handle_options([{handshake, hello}, {max_handshake_size, -1}], client, "dummy.host.org")),
+
+        %% Errors
+        ?T({handshake, []},
+           ssl:handle_options([{handshake, []}], server, "dummy.host.org")),
+        ?T({max_handshake_size, 8388608},
+           ssl:handle_options([{max_handshake_size, 8388608}], server, "dummy.host.org"))
+    end,
+
+    begin % hibernate_after
+        ?T(#{hibernate_after := infinity},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{hibernate_after := 10000},
+           ssl:handle_options([{hibernate_after, 10000}], client, "dummy.host.org")),
+        %% Errors
+        ?T({hibernate_after, -1},
+           ssl:handle_options([{hibernate_after, -1}], server, "dummy.host.org"))
+    end,
+
+
+
     begin %% oscp
         ?T(#{ocsp_stapling := false, ocsp_nonce := true, ocsp_responder_certs := []},
            ssl:handle_options([], client, "dummy.host.org")),
