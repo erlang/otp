@@ -214,10 +214,9 @@ end_per_group(_, Config) ->
 init_per_testcase(Case, Config) ->
     HasMD5 = lists:member(md5, crypto:supports(hashs)),
     case Case of
-        multiple_engine_load     when HasMD5==false -> {skip, "md5 not available"};
-        ensure_load              when HasMD5==false -> {skip, "md5 not available"};
-        engine_load_some_methods when HasMD5==false -> {skip, "md5 not available"};
-        engine_load_all_methods  when HasMD5==false -> {skip, "md5 not available"};
+        ensure_load                 when HasMD5==false -> {skip, "md5 not available"};
+	engine_load_register_method when HasMD5==false -> {skip, "md5 not available"};
+	gc_clean                    when HasMD5==false -> {skip, "md5 not available"};
         _ ->
             case string:tokens(atom_to_list(Case),"_") of
                 ["sign","verify",Type|_] ->
