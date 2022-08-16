@@ -1446,7 +1446,7 @@ process_certificate_request(#certificate_request_1_3{
     CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, Version),
     Session = select_client_cert_key_pair(Session0, CertKeyPairs,
                                           ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
-                                          CertDbHandle, CertDbRef, CertAuths),
+                                          CertDbHandle, CertDbRef, CertAuths, undefined),
     {ok, {State#state{client_certificate_status = requested, session = Session}, wait_cert}}.
 
 process_certificate(#certificate_1_3{
@@ -3029,16 +3029,24 @@ default_or_fallback(Default, _) ->
 
 select_client_cert_key_pair(Session0,
                             [#{private_key := NoKey, certs := [[]] = NoCerts}],
-                            _,_,_,_,_,_) ->
+                            _,_,_,_,_,_, _) ->
     %% No certificate supplied : send empty certificate
     Session0#session{own_certificates = NoCerts,
                      private_key = NoKey};
-select_client_cert_key_pair(Session, [],_,_,_,_,_,_) ->
-    %% No certificate compliant with supported algorithms and extensison : send empty certificate in state 'wait_finished'
+select_client_cert_key_pair(Session, [],_,_,_,_,_,_, undefined) ->
+    %% No certificate compliant with supported algorithms and
+    %% extensison : send empty certificate in state 'wait_finished'
     Session#session{own_certificates = [[]],
                     private_key = #{}};
+select_client_cert_key_pair(_,[],_,_,_,_,_,_, #session{} = Plausible) ->
+    %% If we do not find an alternative chain with a cert signed in auth_domain,
+    %% but have a single cert without chain certs it might be verifiable by
+    %% a server that has the means to recreate the chain 
+    Plausible;
 select_client_cert_key_pair(Session0, [#{private_key := Key, certs := [Cert| _] = Certs} | Rest],
-                            ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs, CertDbHandle, CertDbRef, CertAuths) ->
+                            ServerSignAlgs, ServerSignAlgsCert, 
+                            ClientSignAlgs, CertDbHandle, CertDbRef, 
+                            CertAuths, Plausible0) ->
     {PublicKeyAlgo, SignAlgo, SignHash, MaybeRSAKeySize, Curve} = get_certificate_params(Cert),
     case select_sign_algo(PublicKeyAlgo, MaybeRSAKeySize, ServerSignAlgs, ClientSignAlgs, Curve) of
         {ok, SelectedSignAlg} ->
@@ -3051,15 +3059,27 @@ select_client_cert_key_pair(Session0, [#{private_key := Key, certs := [Cert| _] 
                                              own_certificates = EncodedChain,
                                              private_key = Key
                                             };
-                        {error, _, not_in_auth_domain} ->
+                        {error, EncodedChain, not_in_auth_domain} ->
+                            Plausible = plausible_missing_chain(EncodedChain, Plausible0,
+                                                                SelectedSignAlg, Key, Session0),
                             select_client_cert_key_pair(Session0, Rest, ServerSignAlgs, ServerSignAlgsCert,
-                                                        ClientSignAlgs, CertDbHandle, CertDbRef, CertAuths)
+                                                        ClientSignAlgs, CertDbHandle, CertDbRef, CertAuths,
+                                                        Plausible)
                     end;
                 _ ->
                     select_client_cert_key_pair(Session0, Rest, ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
-                                                CertDbHandle, CertDbRef, CertAuths)
+                                                CertDbHandle, CertDbRef, CertAuths, Plausible0)
             end;
         {error, _} ->
             select_client_cert_key_pair(Session0, Rest, ServerSignAlgsCert, ServerSignAlgsCert, ClientSignAlgs,
-                                        CertDbHandle, CertDbRef, CertAuths)
+                                        CertDbHandle, CertDbRef, CertAuths, Plausible0)
     end.
+
+plausible_missing_chain([_] = EncodedChain, undefined, SignAlg, Key, Session0) ->
+    Session0#session{sign_alg = SignAlg,
+                     own_certificates = EncodedChain,
+                     private_key = Key
+                    };
+plausible_missing_chain(_,Plausible,_,_,_) ->
+    Plausible.
+
