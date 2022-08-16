@@ -24,7 +24,7 @@ decode(Data) ->
         {with_tail, Json, <<>>} ->
             Json;
         {with_tail, Json, Tail} ->
-            Json ++ decodeTail(Tail)
+            lists:concat([Json | decodeTail(Tail)])
     catch E:R:ST ->
             io:format("Failed to decode: ~ts",[Data]),
             erlang:raise(E,R,ST)
@@ -35,7 +35,7 @@ decodeTail(Data) ->
         {with_tail, Json, <<>>} ->
             [Json];
         {with_tail, Json, Tail} ->
-            Json ++ decodeTail(Tail)
+            [Json | decodeTail(Tail)]
     catch E:R:ST ->
             io:format("Failed to decode: ~ts",[Data]),
             erlang:raise(E,R,ST)
