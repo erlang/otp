@@ -147,12 +147,14 @@ decode(Data) ->
     try jsx:decode(Data,[{return_maps, true}, return_tail]) of
         {with_tail, Json, <<>>} ->
             Json;
-        {with_tail, Json, Tail} ->
+        {with_tail, Json, Tail} when is_map(Json) ->
             [Key] = maps:keys(maps:remove(<<"total_count">>, Json)),
             #{ Key => lists:flatmap(
                         fun(J) -> maps:get(Key, J) end,
                         [Json | decodeTail(Tail)])
-                       }
+                       };
+        {with_tail, Json, Tail} when is_list(Json) ->
+            lists:concat([Json | decodeTail(Tail)])
     catch E:R:ST ->
             io:format("Failed to decode: ~ts",[Data]),
             erlang:raise(E,R,ST)
