@@ -224,11 +224,9 @@ init_remote_shell(State, Node) ->
                         SloganEnv
                 end,
 
-            RShellOpts = [{expand_fun,fun(B)-> rpc:call(RemoteNode,edlin_expand,expand,[B]) end}],
-
             RShell = {RemoteNode,shell,start,[]},
             Gr = gr_add_cur(State#state.groups,
-                            group:start(self(), RShell, RShellOpts),
+                            group:start(self(), RShell, remsh_opts(RemoteNode)),
                             RShell),
 
             init_shell(State#state{ groups = Gr }, [Slogan,$\n]);
@@ -571,7 +569,7 @@ switch_cmd(r, Gr0) ->
     case is_alive() of
 	true ->
 	    Node = pool:get_node(),
-	    Pid = group:start(self(), {Node,shell,start,[]}),
+	    Pid = group:start(self(), {Node,shell,start,[]}, remsh_opts(Node)),
 	    Gr = gr_add_cur(Gr0, Pid, {Node,shell,start,[]}),
 	    {retry, [], Gr};
 	false ->
@@ -582,7 +580,7 @@ switch_cmd({r, Node}, Gr) when is_atom(Node)->
 switch_cmd({r,Node,Shell}, Gr0) when is_atom(Node), is_atom(Shell) ->
     case is_alive() of
 	true ->
-            Pid = group:start(self(), {Node,Shell,start,[]}),
+            Pid = group:start(self(), {Node,Shell,start,[]}, remsh_opts(Node)),
             Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
             {retry, [], Gr};
         false ->
@@ -620,6 +618,9 @@ list_commands() ->
      {put_chars, unicode,<<"  r [node [shell]]  - start remote shell\n">>}] ++
         QuitReq ++
         [{put_chars, unicode,<<"  ? | h             - this message\n">>}].
+
+remsh_opts(Node) ->
+    [{expand_fun,fun(B)-> rpc:call(Node,edlin_expand,expand,[B]) end}].
 
 -spec io_request(request(), prim_tty:state()) -> {noreply, prim_tty:state()} |
           {term(), reference(), prim_tty:state()}.
