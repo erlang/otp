@@ -1808,7 +1808,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_register" arity="2" since="OTP @OTP-18172@"/>
+      <name name="engine_register" arity="2" since="OTP 24.3.4.3"/>
       <fsummary>Register engine for some methods</fsummary>
       <desc>
 	<p>Register engine to handle some type of methods, for example engine_method_digests.</p>
@@ -1821,7 +1821,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_unregister" arity="2" since="OTP @OTP-18172@"/>
+      <name name="engine_unregister" arity="2" since="OTP 24.3.4.3"/>
       <fsummary>Unregister engine for some methods</fsummary>
       <desc>
 	<p>Unregister engine so it don't handle some type of methods.</p>
