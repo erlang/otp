@@ -224,6 +224,8 @@
 	<row><cell><c>sha3_256</c></cell>  <cell>32</cell></row>
 	<row><cell><c>sha3_384</c></cell>  <cell>48</cell></row>
 	<row><cell><c>sha3_512</c></cell>  <cell>64</cell></row>
+	<row><cell><c>shake128</c></cell>  <cell>64</cell></row>
+	<row><cell><c>shake256</c></cell>  <cell>64</cell></row>
 	<row><cell><c>blake2b</c></cell>   <cell>64</cell></row>
 	<row><cell><c>blake2s</c></cell>   <cell>32</cell></row>
 	<row><cell><c>md4</c></cell>       <cell>16</cell></row>
@@ -258,11 +260,11 @@
     <table>
       <row><cell><strong>Type</strong></cell>
            <cell><strong>Names</strong></cell>
-           <cell><strong>Limitated to</strong><br/><strong>OpenSSL versions</strong></cell>
+           <cell><strong>Limited to</strong><br/><strong>OpenSSL versions</strong></cell>
       </row>
       <row><cell>SHA1</cell><cell>sha</cell><cell></cell></row>
       <row><cell>SHA2</cell><cell>sha224, sha256, sha384, sha512</cell><cell></cell></row>
-      <row><cell>SHA3</cell><cell>sha3_224, sha3_256, sha3_384, sha3_512</cell><cell>&#8805;1.1.1</cell></row>
+      <row><cell>SHA3</cell><cell>sha3_224, sha3_256, sha3_384, sha3_512, shake128, shake256</cell><cell>&#8805;1.1.1</cell></row>
       <row><cell>MD4</cell><cell>md4</cell><cell></cell></row>
       <row><cell>MD5</cell><cell>md5</cell><cell></cell></row>
       <row><cell>RIPEMD</cell><cell>ripemd160</cell><cell></cell></row>

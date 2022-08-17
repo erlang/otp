@@ -76,6 +76,7 @@ static ErlNifFunc nif_funcs[] = {
     {"hash_init_nif", 1, hash_init_nif, 0},
     {"hash_update_nif", 2, hash_update_nif, 0},
     {"hash_final_nif", 1, hash_final_nif, 0},
+    {"hash_final_xof_nif", 2, hash_final_xof_nif, 0},
     {"mac_nif", 4, mac_nif, 0},
     {"mac_init_nif", 3, mac_init_nif, 0},
     {"mac_update_nif", 2, mac_update_nif, 0},
