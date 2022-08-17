@@ -29,8 +29,6 @@
 -export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
 	 gen_setup/6, gen_close/2, gen_select/2, gen_address/1]).
 
--export([nodelay/0]).
-
 -export([verify_client/3, cert_nodes/1]).
 
 -export([dbg/0]). % Debug
@@ -44,6 +42,8 @@
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include_lib("kernel/include/logger.hrl").
+
+-define(PROTOCOL, tls).
 
 %% -------------------------------------------------------------------------
 
@@ -72,53 +72,25 @@ is_node_name(Node) ->
 
 %% -------------------------------------------------------------------------
 
-hs_data_common(Socket) when is_port(Socket) ->
-    {ok, {Ip, Port}} = inet:peername(Socket),
+hs_data_inet_tcp(Driver, Socket) ->
+    Family = Driver:family(),
+    {ok, Peername} = inet:peername(Socket),
+    (inet_tcp_dist:gen_hs_data(Driver, Socket))
     #hs_data{
-        socket = Socket,
-        f_send = fun inet_tcp:send/2,
-        f_recv = fun inet_tcp:recv/3,
-        f_setopts_pre_nodeup =
-            fun(S) ->
-                inet:setopts(
-                    S,
-                    [
-                        {active, false},
-                        {packet, 4},
-                        nodelay()
-                    ]
-                )
-            end,
-        f_setopts_post_nodeup =
-            fun(S) ->
-                inet:setopts(
-                    S,
-                    [
-                        {active, true},
-                        {deliver, port},
-                        {packet, 4},
-                        nodelay()
-                    ]
-                )
-            end,
+      f_address =
+          fun(_, Node) ->
+                  {node, _, Host} = dist_util:split_node(Node),
+                  #net_address{
+                     address  = Peername,
+                     host     = Host,
+                     protocol = ?PROTOCOL,
+                     family   = Family
+                    }
+          end}.
 
-        f_getll = fun inet:getll/1,
-        f_address =
-            fun(_, Node) ->
-                {node, _, Host} = dist_util:split_node(Node),
-                #net_address{
-                    address = {Ip, Port},
-                    host = Host,
-                    protocol = tls,
-                    family = inet
-                }
-            end,
-        mf_tick = fun(S) -> inet_tcp_dist:tick(inet_tcp, S) end,
-        mf_getstat = fun inet_tcp_dist:getstat/1,
-        mf_setopts = fun inet_tcp_dist:setopts/2,
-        mf_getopts = fun inet_tcp_dist:getopts/2
-    };
-hs_data_common(#sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
+hs_data_ssl(Driver, #sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
+    Family = Driver:family(),
+    {ok, Peername} = ssl:peername(SslSocket),
     #hs_data{
        socket = DistCtrl,
        f_send =
@@ -144,7 +116,7 @@ hs_data_common(#sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
            end,
        f_address =
            fun (Ctrl, Node) when Ctrl == DistCtrl ->
-                   f_address(SslSocket, Node)
+                   f_address(Family, Peername, Node)
            end,
        mf_tick =
            fun (Ctrl) when Ctrl == DistCtrl ->
@@ -182,22 +154,19 @@ f_setopts_pre_nodeup(_SslSocket) ->
     ok.
 
 f_setopts_post_nodeup(SslSocket) ->
-    ssl:setopts(SslSocket, [nodelay()]).
+    ssl:setopts(SslSocket, [inet_tcp_dist:nodelay()]).
 
 f_getll(DistCtrl) ->
     {ok, DistCtrl}.
 
-f_address(SslSocket, Node) ->
-    case ssl:peername(SslSocket) of
-        {ok, Address} ->
-            case dist_util:split_node(Node) of
-                {node,_,Host} ->
-                    #net_address{
-                       address=Address, host=Host,
-                       protocol=tls, family=inet};
-                _ ->
-                    {error, no_node}
-            end
+f_address(Family, Address, Node) ->
+    case dist_util:split_node(Node) of
+        {node,_,Host} ->
+            #net_address{
+               address=Address, host=Host,
+               protocol=?PROTOCOL, family=Family};
+        _ ->
+            {error, no_node}
     end.
 
 mf_tick(DistCtrl) ->
@@ -249,7 +218,7 @@ gen_listen(Driver, Name, Host) ->
     case inet_tcp_dist:gen_listen(Driver, Name, Host) of
         {ok, {Socket, Address, Creation}} ->
             inet:setopts(Socket, [{packet, 4}, {nodelay, true}]),
-            {ok, {Socket, Address#net_address{protocol=tls}, Creation}};
+            {ok, {Socket, Address#net_address{protocol=?PROTOCOL}, Creation}};
         Other ->
             Other
     end.
@@ -365,7 +334,7 @@ accept_one(Driver, Kernel, Socket) ->
     end.
 %%
 accept_one(Driver, Kernel, DistCtrl, ControllingProcessFun, DistSocket) ->
-    trace(Kernel ! {accept, self(), DistCtrl, Driver:family(), tls}),
+    trace(Kernel ! {accept, self(), DistCtrl, Driver:family(), ?PROTOCOL}),
     receive
         {Kernel, controller, Pid} ->
             case ControllingProcessFun(DistSocket, Pid) of
@@ -514,20 +483,23 @@ gen_accept_connection(
         dist_util:net_ticker_spawn_options())).
 
 do_accept(
-  _Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime, Kernel) ->
+  Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime, Kernel) ->
     MRef = erlang:monitor(process, AcceptPid),
     receive
 	{AcceptPid, controller} ->
             erlang:demonitor(MRef, [flush]),
             Timer = dist_util:start_timer(SetupTime),
-            {HSData0, NewAllowed} = case is_port(DistCtrl) of
-                true ->
-                    {hs_data_common(DistCtrl), Allowed};
-                false ->
-                    {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
-                    link(DistCtrl),
-                    {hs_data_common(SslSocket), allowed_nodes(SslSocket, Allowed)}
-            end,
+            {HSData0, NewAllowed} =
+                case is_port(DistCtrl) of
+                    true ->
+                        {hs_data_inet_tcp(Driver, DistCtrl),
+                         Allowed};
+                    false ->
+                        {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
+                        link(DistCtrl),
+                        {hs_data_ssl(Driver, SslSocket),
+                         allowed_nodes(SslSocket, Allowed)}
+                end,
             HSData =
                 HSData0#hs_data{
                   kernel_pid = Kernel,
@@ -657,12 +629,13 @@ do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNo
     dist_util:reset_timer(Timer),
     case ssl:connect(
         Ip, TcpPort,
-        [binary, {active, false}, {packet, 4}, {server_name_indication, Address},
+        [binary, {active, false}, {packet, 4},
+         {server_name_indication, Address},
             Driver:family(), {nodelay, true}] ++ Opts,
         net_kernel:connecttime()
     ) of
         {ok, #sslsocket{pid = [Receiver, Sender| _]} = SslSocket} ->
-            DistSocket =
+            HSData =
                 case KTLS of
                     true ->
                         {ok, KtlsInfo} =
@@ -670,7 +643,7 @@ do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNo
                         case set_ktls(KtlsInfo) of
                             ok ->
                                 #{socket := Socket} = KtlsInfo,
-                                Socket;
+                                hs_data_inet_tcp(Driver, Socket);
                             {error, KtlsReason} ->
                                 ?shutdown2(
                                    Node,
@@ -680,10 +653,8 @@ do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNo
                         _ = monitor_pid(Sender),
                         ok = ssl:controlling_process(SslSocket, self()),
                         link(Sender),
-                        SslSocket
-                end,
-            HSData =
-                (hs_data_common(DistSocket))
+                        hs_data_ssl(Driver, SslSocket)
+                end
                 #hs_data{
                   kernel_pid = Kernel,
                   other_node = Node,
@@ -883,21 +854,6 @@ connect_options(Opts) ->
 	    Opts
     end.
 
-%% we may not always want the nodelay behaviour
-%% for performance reasons
-nodelay() ->
-    case application:get_env(kernel, dist_nodelay) of
-	undefined ->
-	    {nodelay, true};
-	{ok, true} ->
-	    {nodelay, true};
-	{ok, false} ->
-	    {nodelay, false};
-	_ ->
-	    {nodelay, true}
-    end.
-
-
 get_ssl_options(Type) ->
     try ets:lookup(ssl_dist_opts, Type) of
         [{Type, Opts0}] ->
@@ -1014,13 +970,17 @@ set_ktls_1(
     %%
     SOL_TCP = 6,
     TCP_ULP = 31,
-    _ = inet:setopts(Socket, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
+    KtlsMod = <<"tls">>, % Linux kernel module name
+    KtlsModSize = byte_size(KtlsMod),
+    _ = inet:setopts(Socket, [{raw, SOL_TCP, TCP_ULP, KtlsMod}]),
     %%
     %% Check if kernel module loaded,
-    %% i.e if getopts SOL_TCP,TCP_ULP returns "tls"
+    %% i.e if getopts SOL_TCP,TCP_ULP returns KtlsMod
     %%
-    case inet:getopts(Socket, [{raw, SOL_TCP, TCP_ULP, 4}]) of
-        {ok, [{raw, SOL_TCP, TCP_ULP, <<"tls",0>>}]} ->
+    case
+        inet:getopts(Socket, [{raw, SOL_TCP, TCP_ULP, KtlsModSize + 1}])
+    of
+        {ok, [{raw, SOL_TCP, TCP_ULP, <<KtlsMod:KtlsModSize/binary,0>>}]} ->
             set_ktls_2(KtlsInfo, Socket);
         Other ->
             {error, {ktls_not_supported, Other}}

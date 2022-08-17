@@ -30,6 +30,8 @@
 %% Generalized dist API
 -export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
 	 gen_setup/6, gen_select/2, gen_address/1]).
+%% OTP internal (e.g ssl)
+-export([gen_hs_data/2, nodelay/0]).
 
 %% internal exports
 
@@ -41,6 +43,8 @@
 
 -include("dist.hrl").
 -include("dist_util.hrl").
+
+-define(PROTOCOL, tcp).
 
 %% ------------------------------------------------------------
 %%  Select this protocol based on node name
@@ -70,6 +74,34 @@ address() ->
     gen_address(inet_tcp).
 gen_address(Driver) ->
     get_tcp_address(Driver).
+
+%% ------------------------------------------------------------
+%% Set up the general fields in #hs_data{}
+%% ------------------------------------------------------------
+gen_hs_data(Driver, Socket) ->
+    Nodelay = nodelay(),
+    #hs_data{
+       socket = Socket,
+       f_send = fun Driver:send/2,
+       f_recv = fun Driver:recv/3,
+       f_setopts_pre_nodeup =
+           fun (S) ->
+                   inet:setopts(
+                     S,
+                     [{active, false}, {packet, 4}, Nodelay])
+           end,
+       f_setopts_post_nodeup =
+           fun (S) ->
+                   inet:setopts(
+                     S,
+                     [{active, true}, {packet,4},
+                      {deliver, port}, binary, Nodelay])
+           end,
+       f_getll    = fun inet:getll/1,
+       mf_tick    = fun (S) -> ?MODULE:tick(Driver, S) end,
+       mf_getstat = fun ?MODULE:getstat/1,
+       mf_setopts = fun ?MODULE:setopts/2,
+       mf_getopts = fun ?MODULE:getopts/2}.
 
 %% ------------------------------------------------------------
 %% Create the listen socket, i.e. the port that this erlang
@@ -167,7 +199,7 @@ gen_accept(Driver, Listen) ->
 accept_loop(Driver, Kernel, Listen) ->
     case Driver:accept(Listen) of
 	{ok, Socket} ->
-	    Kernel ! {accept,self(),Socket,Driver:family(),tcp},
+	    Kernel ! {accept,self(),Socket,Driver:family(),?PROTOCOL},
 	    _ = controller(Driver, Kernel, Socket),
 	    accept_loop(Driver, Kernel, Listen);
 	Error ->
@@ -216,40 +248,19 @@ do_accept(Driver, Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 	    Timer = dist_util:start_timer(SetupTime),
 	    case check_ip(Driver, Socket) of
 		true ->
-		    HSData = #hs_data{
-		      kernel_pid = Kernel,
-		      this_node = MyNode,
-		      socket = Socket,
-		      timer = Timer,
-		      this_flags = 0,
-		      allowed = Allowed,
-		      f_send = fun Driver:send/2,
-		      f_recv = fun Driver:recv/3,
-		      f_setopts_pre_nodeup = 
-		      fun(S) ->
-			      inet:setopts(S, 
-					   [{active, false},
-					    {packet, 4},
-					    nodelay()])
-		      end,
-		      f_setopts_post_nodeup = 
-		      fun(S) ->
-			      inet:setopts(S, 
-					   [{active, true},
-					    {deliver, port},
-					    {packet, 4},
-                                            binary,
-					    nodelay()])
-		      end,
-		      f_getll = fun(S) ->
-					inet:getll(S)
-				end,
-		      f_address = fun(S, Node) -> get_remote_id(Driver, S, Node) end,
-		      mf_tick = fun(S) -> ?MODULE:tick(Driver, S) end,
-		      mf_getstat = fun ?MODULE:getstat/1,
-		      mf_setopts = fun ?MODULE:setopts/2,
-		      mf_getopts = fun ?MODULE:getopts/2
-		     },
+                    Family = Driver:family(),
+                    HSData =
+                        (gen_hs_data(Driver, Socket))
+                        #hs_data{
+                          kernel_pid = Kernel,
+                          this_node = MyNode,
+                          timer = Timer,
+                          this_flags = 0,
+                          allowed = Allowed,
+                          f_address =
+                              fun (S, Node) ->
+                                      get_remote_id(Family, S, Node)
+                              end},
 		    dist_util:handshake_other_started(HSData);
 		{false,IP} ->
 		    error_msg("** Connection attempt from "
@@ -277,13 +288,13 @@ nodelay() ->
 %% ------------------------------------------------------------
 %% Get remote information about a Socket.
 %% ------------------------------------------------------------
-get_remote_id(Driver, Socket, Node) ->
+get_remote_id(Family, Socket, Node) ->
     case inet:peername(Socket) of
 	{ok,Address} ->
 	    case split_node(atom_to_list(Node), $@, []) of
 		[_,Host] ->
 		    #net_address{address=Address,host=Host,
-				 protocol=tcp,family=Driver:family()};
+				 protocol=?PROTOCOL,family=Family};
 		_ ->
 		    %% No '@' or more than one '@' in node name.
 		    ?shutdown(no_node)
@@ -346,49 +357,24 @@ do_setup_connect(Driver, Kernel, Node, Address, AddressFamily,
 	  connect_options([{active, false}, {packet, 2}]))
 	of
 	{ok, Socket} ->
-		HSData = #hs_data{
-		  kernel_pid = Kernel,
-		  other_node = Node,
-		  this_node = MyNode,
-		  socket = Socket,
-		  timer = Timer,
-		  this_flags = 0,
-		  other_version = Version,
-		  f_send = fun Driver:send/2,
-		  f_recv = fun Driver:recv/3,
-		  f_setopts_pre_nodeup =
-		  fun(S) ->
-			  inet:setopts
-			(S,
-			 [{active, false},
-			  {packet, 4},
-			  nodelay()])
-		  end,
-		  f_setopts_post_nodeup =
-		  fun(S) ->
-			  inet:setopts
-			(S,
-			 [{active, true},
-			  {deliver, port},
-			  {packet, 4},
-			  nodelay()])
-		  end,
-
-		  f_getll = fun inet:getll/1,
-		  f_address =
-		  fun(_,_) ->
-			  #net_address{
-		   address = {Ip,TcpPort},
-		   host = Address,
-		   protocol = tcp,
-		   family = AddressFamily}
-		  end,
-		  mf_tick = fun(S) -> ?MODULE:tick(Driver, S) end,
-		  mf_getstat = fun ?MODULE:getstat/1,
-		  request_type = Type,
-		  mf_setopts = fun ?MODULE:setopts/2,
-		  mf_getopts = fun ?MODULE:getopts/2
-		 },
+                HSData =
+                    (gen_hs_data(Driver, Socket))
+                    #hs_data{
+                      kernel_pid = Kernel,
+                      other_node = Node,
+                      this_node = MyNode,
+                      timer = Timer,
+                      this_flags = 0,
+                      other_version = Version,
+                      f_address =
+                          fun(_,_) ->
+                                  #net_address{
+                                     address = {Ip,TcpPort},
+                                     host = Address,
+                                     protocol = ?PROTOCOL,
+                                     family = AddressFamily}
+                          end,
+                      request_type = Type},
 		dist_util:handshake_we_started(HSData);
 	_ ->
 		%% Other Node may have closed since
@@ -465,7 +451,7 @@ get_tcp_address(Driver) ->
     {ok, Host} = inet:gethostname(),
     #net_address {
 		  host = Host,
-		  protocol = tcp,
+		  protocol = ?PROTOCOL,
 		  family = Driver:family()
 		 }.
 
