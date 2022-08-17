@@ -2352,13 +2352,13 @@ options_whitebox(Config) when is_list(Config) ->
            ssl:handle_options([{cacertfile, cert}], client, "dummy.host.org"))
     end,
 
-    begin %% cert[file] cert_keys keys
+    begin %% cert[file] cert_keys keys password
         {ok, #config{ssl = DefMap}} = ssl:handle_options([], client, "dummy.host.org"),
         false = maps:is_key(certs_keys, DefMap),  %% ??
 
-        ?T(#{cert := undefined, certfile := <<>>, key := undefined, keyfile := <<>>},
+        ?T(#{cert := undefined, certfile := <<>>, key := undefined, keyfile := <<>>, password := ""},
            ssl:handle_options([], client, "dummy.host.org")),
-        ?T(#{cert := [Cert], certfile := <<>>, key := undefined, keyfile := <<>>},
+        ?T(#{cert := [Cert], certfile := <<>>, key := undefined, keyfile := <<>>, password := ""},
            ssl:handle_options([{cert,Cert}], client, "dummy.host.org")),
         ?T(#{cert := [Cert], certfile := <<>>, key := undefined, keyfile := <<>>},
            ssl:handle_options([{cert,[Cert]}], client, "dummy.host.org")),
@@ -2375,10 +2375,19 @@ options_whitebox(Config) when is_list(Config) ->
         ?T(#{cert := undefined, certfile := <<>>, key := #{}, keyfile := <<>>},
            ssl:handle_options([{key, #{algorithm => foo}}], client, "dummy.host.org")),
 
+        ?T(#{key := undefined, keyfile := <<>>, password := "foobar"},
+           ssl:handle_options([{password, "foobar"}], client, "dummy.host.org")),
+        ?T(#{key := undefined, keyfile := <<>>, password := <<"foobar">>},
+           ssl:handle_options([{password, <<"foobar">>}], client, "dummy.host.org")),
+        Pwd = fun() -> "foobar" end,
+        ?T(#{key := undefined, keyfile := <<>>, password := Pwd},
+           ssl:handle_options([{password, Pwd}], client, "dummy.host.org")),
+
         ?T(#{cert := undefined, certfile := <<"/tmp/foo">>, key := undefined, keyfile := <<"/tmp/baz">>},
            ssl:handle_options([{certfile, <<"/tmp/foo">>}, {keyfile, "/tmp/baz"}], client, "dummy.host.org")),
 
-        ?T(#{cert := [Cert], certfile := <<"/tmp/foo">>, key := undefined, keyfile := <<"/tmp/foo">>},
+        ?T(#{cert := [Cert], certfile := <<"/tmp/foo">>, certs_keys := [#{}],
+             key := undefined, keyfile := <<"/tmp/foo">>},
            ssl:handle_options([{cert, Cert}, {certfile, "/tmp/foo"}, {certs_keys, [#{}]}],
                               client, "dummy.host.org")),
 
@@ -2392,7 +2401,9 @@ options_whitebox(Config) when is_list(Config) ->
         ?T({keyfile, #{}},
            ssl:handle_options([{keyfile, #{}}], client, "dummy.host.org")),
         ?T({key, <<>>},
-           ssl:handle_options([{key, <<>>}], client, "dummy.host.org"))
+           ssl:handle_options([{key, <<>>}], client, "dummy.host.org")),
+        ?T({password, _},
+           ssl:handle_options([{password, fun(Arg) -> Arg end}], client, "dummy.host.org"))
     end,
 
     begin %% certificate_authorities
@@ -2664,17 +2675,101 @@ options_whitebox(Config) when is_list(Config) ->
            ssl:handle_options([{max_handshake_size, 8388608}], server, "dummy.host.org"))
     end,
 
-    begin % hibernate_after
-        ?T(#{hibernate_after := infinity},
+    begin % hibernate_after, spawn_opts
+        ?T(#{hibernate_after := infinity, receiver_spawn_opts := [], sender_spawn_opts := []},
            ssl:handle_options([], client, "dummy.host.org")),
-        ?T(#{hibernate_after := 10000},
-           ssl:handle_options([{hibernate_after, 10000}], client, "dummy.host.org")),
+        ?T(#{hibernate_after := 10000, receiver_spawn_opts := [foo], sender_spawn_opts := [bar]},
+           ssl:handle_options([{hibernate_after, 10000},
+                               {receiver_spawn_opts, [foo]},
+                               {sender_spawn_opts, [bar]}],
+                              client, "dummy.host.org")),
         %% Errors
         ?T({hibernate_after, -1},
-           ssl:handle_options([{hibernate_after, -1}], server, "dummy.host.org"))
+           ssl:handle_options([{hibernate_after, -1}], server, "dummy.host.org")),
+        ?T({receiver_spawn_opts, not_a_list},
+           ssl:handle_options([{receiver_spawn_opts, not_a_list}], server, "dummy.host.org")),
+        ?T({sender_spawn_opts, not_a_list},
+           ssl:handle_options([{sender_spawn_opts, not_a_list}], server, "dummy.host.org"))
     end,
 
+    begin %% honor_cipher_order & honor_ecc_order
+        ?T(#{honor_cipher_order := false, honor_ecc_order := false},
+           ssl:handle_options([], server, "dummy.host.org")),
+        ?T(#{honor_cipher_order := true, honor_ecc_order := true},
+           ssl:handle_options([{honor_cipher_order, true}, {honor_ecc_order, true}],
+                              server, "dummy.host.org")),
+        %% Errors
+        ?T({option, server_only, honor_cipher_order},  %% FIXME looks different
+           ssl:handle_options([{honor_cipher_order, true}], client, "dummy.host.org")),
+        ?T({option, server_only, honor_ecc_order},
+           ssl:handle_options([{honor_ecc_order, true}], client, "dummy.host.org")),
+        ?T({honor_ecc_order, foo},
+           ssl:handle_options([{honor_ecc_order, foo}], server, "dummy.host.org"))
+    end,
 
+    begin %% debug  log_level keep_secrets
+        ?T(#{log_level := notice, keep_secrets := false},
+           ssl:handle_options([], server, "dummy.host.org")),
+        ?T(#{log_level := debug, keep_secrets := true},
+           ssl:handle_options([{log_level, debug}, {keep_secrets, true}], server, "dummy.host.org")),
+        %% Errors
+        ?T({log_level, foo},
+           ssl:handle_options([{log_level, foo}], server, "dummy.host.org")),
+        ?T({keep_secrets, foo},
+           ssl:handle_options([{keep_secrets, foo}], server, "dummy.host.org"))
+    end,
+
+    begin %% key_update_at   renegotiate_at  secure_renegotiate
+        ?T(#{key_update_at := ?KEY_USAGE_LIMIT_AES_GCM, renegotiate_at := 268435456, secure_renegotiate := true},
+           ssl:handle_options([], server, "dummy.host.org")),
+        ?T(#{key_update_at := 123456, renegotiate_at := 64000, secure_renegotiate := false},
+           ssl:handle_options([{key_update_at, 123456}, {renegotiate_at, 64000}, {secure_renegotiate, false}],
+                              server, "dummy.host.org")),
+
+        ?T(#{renegotiate_at := -1},  %% FIXME?  Also renegotiate_at is undocumented
+           ssl:handle_options([{renegotiate_at, -1}], server, "dummy.host.org")),
+
+        %% Errors
+        ?T({options, dependency, {key_update_at, {versions, _}}},
+           ssl:handle_options([{key_update_at, 123456}, {versions, ['tlsv1.2']}], server, "dummy.host.org")),
+        ?T({options, dependency, {secure_renegotiate, {versions, _}}},
+           ssl:handle_options([{secure_renegotiate, true}, {versions, ['tlsv1.3']}], server, "dummy.host.org")),
+
+        ?T({key_update_at, -1},
+           ssl:handle_options([{key_update_at, -1}], server, "dummy.host.org")),
+        ?T({renegotiate_at, not_a_int},
+           ssl:handle_options([{renegotiate_at, not_a_int}], server, "dummy.host.org"))
+    end,
+
+    begin %% middlebox_comp_mode
+        ?T(#{middlebox_comp_mode := true},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{middlebox_comp_mode := false},
+           ssl:handle_options([{middlebox_comp_mode, false}], client, "dummy.host.org")),
+
+        %% Should fail ?
+        ?T(#{middlebox_comp_mode := false},  %% tlsv1.3 option FIXME
+           ssl:handle_options([{middlebox_comp_mode, false}, {versions, ['tlsv1.2']}], server, "dummy.host.org")),
+
+        %% Errors
+        ?T({middlebox_comp_mode, foo},
+           ssl:handle_options([{middlebox_comp_mode, foo}], server, "dummy.host.org"))
+    end,
+
+    begin %% max_fragment_length
+        ?T(#{max_fragment_length := undefined},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{max_fragment_length := 2048},
+           ssl:handle_options([{max_fragment_length, 2048}], client, "dummy.host.org")),
+
+        %% Should fail?
+        ?T(#{max_fragment_length := 2048},  %% client option
+           ssl:handle_options([{max_fragment_length, 2048}], server, "dummy.host.org")),
+
+        %% Errors
+        ?T({max_fragment_length,2000},
+           ssl:handle_options([{max_fragment_length, 2000}], client, "dummy.host.org"))
+    end,
 
     begin %% oscp
         ?T(#{ocsp_stapling := false, ocsp_nonce := true, ocsp_responder_certs := []},
@@ -2701,6 +2796,174 @@ options_whitebox(Config) when is_list(Config) ->
            ssl:handle_options([{ocsp_responder_certs, 'foo'}], client, "dummy.host.org"))
     end,
 
+    begin
+        ?T(#{padding_check := true},
+           ssl:handle_options([], server, "dummy.host.org")),
+        ?T(#{padding_check := false},
+           ssl:handle_options([{padding_check, false}, {versions, [tlsv1]}], server, "dummy.host.org")),
+        %% Errors
+        ?T({padding_check, foo},
+           ssl:handle_options([{padding_check, foo}, {versions, [tlsv1]}], server, "dummy.host.org")),
+        ?T({options, dependency, {padding_check, {versions, _}}},
+           ssl:handle_options([{padding_check, false}], server, "dummy.host.org"))
+    end,
+
+    begin %% psk_identity  srp_identity and user_lookup_fun
+        ?T(#{psk_identity := undefined, srp_identity := undefined, user_lookup_fun := undefined},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{psk_identity := <<"foobar">>, srp_identity := undefined, user_lookup_fun := undefined},
+           ssl:handle_options([{psk_identity, "foobar"}], server, "dummy.host.org")),
+        ?T(#{psk_identity := undefined, srp_identity := {<<"user">>, <<"pwd">>}, user_lookup_fun := undefined},
+           ssl:handle_options([{srp_identity, {"user", "pwd"}}], client, "dummy.host.org")),
+        ?T(#{psk_identity := undefined, srp_identity := undefined, user_lookup_fun := {_, args}},
+           ssl:handle_options([{user_lookup_fun, {fun(_,_,_) -> ok end, args}}], client, "dummy.host.org")),
+
+        %% Should fail client option only
+        ?T(#{psk_identity := undefined, srp_identity := {<<"user">>, <<"pwd">>}, user_lookup_fun := undefined},
+           ssl:handle_options([{srp_identity, {"user", "pwd"}}], server, "dummy.host.org")),
+
+        %% Errors
+        ?T({srp_identity, {_,_}},  %% FIXME doesn't like binary strings
+           ssl:handle_options([{srp_identity, {<<"user">>, <<"pwd">>}}], client, "dummy.host.org")),
+        ?T({psk_identity, _},  %% FIXME doesn't like binary strings
+           ssl:handle_options([{psk_identity, <<"user">>}], client, "dummy.host.org")),
+        ?T({srp_identity, _},
+           ssl:handle_options([{srp_identity, "user"}], client, "dummy.host.org")),
+        ?T({user_lookup_fun, _},
+           ssl:handle_options([{user_lookup_fun, {fun(_,_) -> ok end, args}}],
+                              client, "dummy.host.org")),
+
+        ?T({options, dependency, {psk_identity, _}},
+           ssl:handle_options([{psk_identity, "foobar"},{versions, ['tlsv1.3']}],
+                              server, "dummy.host.org")),
+        ?T({options, dependency, {srp_identity, _}},
+           ssl:handle_options([{srp_identity, {"user", "pwd"}},{versions, ['tlsv1.3']}],
+                              client, "dummy.host.org")),
+        ?T({options, dependency, {user_lookup_fun, _}},
+           ssl:handle_options([{user_lookup_fun, {fun(_,_) -> ok end, args}}, {versions, ['tlsv1.3']}],
+                              client, "dummy.host.org"))
+    end,
+
+    begin % reuse_session[s]
+        ?T(#{reuse_session := undefined, reuse_sessions := true},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{reuse_session := _fun, reuse_sessions := true},
+           ssl:handle_options([], server, "dummy.host.org")),
+
+        ?T(#{reuse_session := <<>>, reuse_sessions := save},
+           ssl:handle_options([{reuse_session, <<>>}, {reuse_sessions, save}], client, "dummy.host.org")),
+        ?T(#{reuse_session := {<<>>, <<>>}, reuse_sessions := false},
+           ssl:handle_options([{reuse_session, {<<>>, <<>>}}, {reuse_sessions, false}], client, "dummy.host.org")),
+
+        RS_F = fun() -> ok end,
+        ?T(#{reuse_session := RS_F, reuse_sessions := false},
+           ssl:handle_options([{reuse_session, RS_F}, {reuse_sessions, false}],
+                              server, "dummy.host.org")),
+
+        %% Should be errors
+        ?T(#{reuse_sessions := save},   %% FIXME client only save
+           ssl:handle_options([{reuse_sessions, save}], server, "dummy.host.org")),
+        ?T(#{reuse_session := <<>>},    %% FIXME binary not allowed on server
+           ssl:handle_options([{reuse_session, <<>>}], server, "dummy.host.org")),
+        ?T(#{reuse_session := RS_F, reuse_sessions := false},  %% Fun as server option
+           ssl:handle_options([{reuse_session, RS_F}, {reuse_sessions, false}],
+                              client, "dummy.host.org")),
+
+        %% Errors
+        ?T({options, dependency, {reuse_session, _}},
+           ssl:handle_options([{reuse_session, RS_F}, {versions, ['tlsv1.3']}],
+                              server, "dummy.host.org")),
+        ?T({options, dependency, {reuse_sessions, _}},
+           ssl:handle_options([{reuse_sessions, true}, {versions, ['tlsv1.3']}],
+                              server, "dummy.host.org")),
+        ?T({reuse_sessions, foo},
+           ssl:handle_options([{reuse_sessions, foo}], server, "dummy.host.org")),
+        ?T({reuse_session, foo},
+           ssl:handle_options([{reuse_session, foo}], server, "dummy.host.org"))
+    end,
+
+    begin %% server_name_indication
+        ?T(#{server_name_indication := "dummy.host.org", sni_fun := undefined, sni_hosts := []},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{server_name_indication := disable, sni_fun := undefined, sni_hosts := []},
+           ssl:handle_options([{server_name_indication, disable}], client, "dummy.host.org")),
+        ?T(#{server_name_indication := "dummy.org", sni_fun := undefined, sni_hosts := []},
+           ssl:handle_options([{server_name_indication, "dummy.org"}], client, "dummy.host.org")),
+
+        ?T(#{sni_fun := undefined, sni_hosts := [{[],[]}]},
+           ssl:handle_options([{sni_hosts, [{"", []}]}], server, "dummy.host.org")),
+        SNI_F = fun() -> sni end,
+        ?T(#{sni_fun := SNI_F, sni_hosts := []},
+           ssl:handle_options([{sni_fun, SNI_F}], server, "dummy.host.org")),
+
+        %% Should be error
+        ?T(#{server_name_indication := "dummy.org", sni_fun := undefined, sni_hosts := []},
+           ssl:handle_options([{server_name_indication, "dummy.org"}], server, "dummy.host.org")),
+        ?T(#{sni_fun := undefined, sni_hosts := [{[],[]}]},
+           ssl:handle_options([{sni_hosts, [{"", []}]}], client, "dummy.host.org")),
+
+        %% Errors
+        ?T({server_name_indication, foo},
+           ssl:handle_options([{server_name_indication, foo}], client, "dummy.host.org")),
+        ?T({sni_hosts, foo},
+           ssl:handle_options([{sni_hosts, foo}], server, "dummy.host.org")),
+        ?T({sni_fun, foo},
+           ssl:handle_options([{sni_fun, foo}], server, "dummy.host.org")),
+
+        ?T({conflict_options, _},
+           ssl:handle_options([{sni_fun, SNI_F}, {sni_hosts, [{"", []}]}], server, "dummy.host.org"))
+    end,
+
+    begin %% signature_algs[_cert]
+        ?T(#{signature_algs := [_|_], signature_algs_cert := undefined},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{signature_algs := [rsa_pss_rsae_sha512,{sha512,rsa}], signature_algs_cert := undefined},
+           ssl:handle_options([{signature_algs, [rsa_pss_rsae_sha512,{sha512,rsa}]}], client, "dummy.host.org")),
+        ?T(#{signature_algs := [_|_], signature_algs_cert := [eddsa_ed25519, rsa_pss_rsae_sha512]},
+           ssl:handle_options([{signature_algs_cert, [eddsa_ed25519, rsa_pss_rsae_sha512]}],
+                              client, "dummy.host.org")),
+
+        ?T(#{signature_algs := undefined, signature_algs_cert := undefined},
+           ssl:handle_options([{signature_algs_cert, [eddsa_ed25519, rsa_pss_rsae_sha512]},
+                               {versions, ['tlsv1.1']}],
+                              client, "dummy.host.org")),
+        %% Should fail FIXME
+        ?T(#{signature_algs := undefined},
+           ssl:handle_options([{signature_algs, not_a_list}], client, "dummy.host.org")),
+
+        ?T(#{signature_algs_cert := undefined},
+           ssl:handle_options([{signature_algs_cert, not_a_list}], client, "dummy.host.org")),
+
+        %% Errors
+        ?T(function_clause,
+           ssl:handle_options([{signature_algs, [foobar]}], client, "dummy.host.org")),
+        ?T({options,no_supported_signature_schemes, {signature_algs,[]}},
+           ssl:handle_options([{signature_algs, []}], client, "dummy.host.org")),
+        ?T({options,no_supported_signature_schemes, {signature_algs_cert,[]}},
+           ssl:handle_options([{signature_algs_cert, []}],
+                              client, "dummy.host.org"))
+    end,
+
+    begin %% supported_groups
+        %% FIXME group() type doesn't cover the values below
+        %% Also why is there a record for supported_groups?
+        ?T(#{supported_groups := {supported_groups, [x25519,x448,secp256r1,secp384r1]}},
+           ssl:handle_options([], client, "dummy.host.org")),
+        ?T(#{supported_groups := {supported_groups, [secp521r1, ffdhe2048]}},
+           ssl:handle_options([{supported_groups, [secp521r1, ffdhe2048]}], client, "dummy.host.org")),
+
+        ?T(#{supported_groups := {supported_groups, []}},  %% FIXME is this allowed?
+           ssl:handle_options([{supported_groups, []}], client, "dummy.host.org")),
+        ?T(#{supported_groups := {supported_groups, []}},  %% FIXME is this allowed?
+           ssl:handle_options([{supported_groups, [foo]}], client, "dummy.host.org")),
+
+
+        %% ERRORs
+        ?T({{'tlvs1.2'},{versions,[{'tlvs1.2'}]}},
+           ssl:handle_options([{supported_groups, []}, {versions, [{'tlvs1.2'}]}], client, "dummy.host.org")),
+        ?T(function_clause,
+           ssl:handle_options([{supported_groups, not_a_list}], client, "dummy.host.org"))
+    end,
     ok.
 
 
