@@ -2158,6 +2158,10 @@ time_unit_conversion(Process *c_p, Eterm term, ErtsMonotonicTime val, ErtsMonoto
 
     /* Convert to common user specified time units */
     switch (term) {
+    case am_native:
+        result = val + muloff*ERTS_MONOTONIC_OFFSET_NATIVE;
+	ERTS_BIF_PREP_RET(ret, make_time_val(c_p, result));
+        break;
     case am_second:
     case am_seconds:
     case make_small(1):
