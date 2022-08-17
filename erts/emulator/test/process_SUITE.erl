@@ -48,8 +48,9 @@
          process_info_status_handled_signal/1,
          process_info_reductions/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
-	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
-	 process_info_messages/1, process_flag_badarg/1,
+	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
+         garbage_collect/1, otp_6237/1, process_info_messages/1,
+         process_flag_badarg/1,
          process_flag_fullsweep_after/1, process_flag_heap_size/1,
 	 spawn_opt_heap_size/1, spawn_opt_max_heap_size/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
@@ -114,6 +115,7 @@ all() ->
      process_info_status_handled_signal,
      process_info_reductions,
      bump_reductions, low_prio, yield, yield2, otp_4725,
+     dist_unlink_ack_exit_leak,
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg,
      process_flag_fullsweep_after, process_flag_heap_size,
@@ -1561,6 +1563,43 @@ next_tmsg(Pid) ->
     after 100 ->
 	    none
     end.
+
+dist_unlink_ack_exit_leak(Config) when is_list(Config) ->
+    %% Verification of nc reference counts when stopping node
+    %% will find the bug if it exists...
+    {ok, Node} = start_node(Config),
+    ParentFun =
+        fun () ->
+                %% Give parent some work to do when
+                %% exiting to increase the likelyhood
+                %% of the bug triggereing...
+                T = ets:new(x,[]),
+                ets:insert(T, lists:map(fun (I) ->
+                                                {I,I}
+                                        end,
+                                        lists:seq(1,10000))),
+                Chld = spawn_link(Node,
+                                  fun () ->
+                                          receive
+                                          after infinity ->
+                                                  ok
+                                          end
+                                  end),
+                erlang:yield(),
+                unlink(Chld),
+                exit(bye)
+        end,
+    PMs = lists:map(fun (_) ->
+                            spawn_monitor(ParentFun)
+                    end, lists:seq(1, 10)),
+    lists:foreach(fun ({P, M}) ->
+                          receive
+                              {'DOWN', M, process, P, bye} ->
+                                  ok
+                          end
+                  end, PMs),
+    stop_node(Node),
+    ok.
 
 %% Test that bad arguments to register/2 cause an exception.
 bad_register(Config) when is_list(Config) ->
