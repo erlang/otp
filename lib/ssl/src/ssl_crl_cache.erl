@@ -64,7 +64,7 @@ fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
     case get_crls(Names, undefined) of
 	not_available ->
 	    CRL;
-	[NewCRL] ->
+	NewCRL ->
 	    NewCRL
     end.
 
@@ -175,7 +175,7 @@ cache_lookup(URL, {{Cache, _}, _}) ->
     case ssl_pkix_db:lookup(string:trim(Path, leading, "/"), Cache) of
 	undefined ->
 	    [];
-	CRLs ->
+	[CRLs] ->
 	    CRLs
     end.
 

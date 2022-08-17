@@ -356,7 +356,7 @@ new_trusted_cert_entry(File, [CertsDb, RefsDb, _ | _]) ->
 add_crls([_,_,_, {_, Mapping} | _], ?NO_DIST_POINT, CRLs) ->
     [add_crls(CRL, Mapping) || CRL <- CRLs];
 add_crls([_,_,_, {Cache, Mapping} | _], Path, CRLs) ->
-    insert(Path, CRLs, Cache), 
+    insert(Path, CRLs, Cache),
     [add_crls(CRL, Mapping) || CRL <- CRLs].
 
 add_crls(CRL, Mapping) ->
@@ -369,7 +369,7 @@ remove_crls([_,_,_, {Cache, Mapping} | _], Path) ->
     case lookup(Path, Cache) of
 	undefined ->
 	    ok;
-	CRLs ->
+	[CRLs] ->
 	    remove(Path, Cache),
 	    [rm_crls(CRL, Mapping) || CRL <- CRLs]
     end.
