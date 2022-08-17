@@ -62,6 +62,7 @@
 #define DIST_FRAG_HEADER  'E'
 #define DIST_FRAG_CONT    'F'
 #define HOPEFUL_DATA      'H'
+#define HOPEFUL_END_OF_FUN 'Q'
 #define ATOM_CACHE_REF    'R'
 #define ATOM_INTERNAL_REF2 'I'
 #define ATOM_INTERNAL_REF3 'K'

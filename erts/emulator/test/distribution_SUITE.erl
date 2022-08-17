@@ -30,6 +30,9 @@
 -define(ATOM_UTF8_EXT,       118).
 -define(SMALL_ATOM_UTF8_EXT, 119).
 
+-define(DFLAG_EXPORT_PTR_TAG, 16#200).
+-define(DFLAG_BIT_BINARIES,   16#400).
+
 %% Tests distribution and the tcp driver.
 
 -include_lib("common_test/include/ct.hrl").
@@ -2800,33 +2803,41 @@ address_please(_Name, "dummy", inet6) ->
     {ok, {0,0,0,0,0,0,0,1}}.
 
 hopefull_data_encoding(Config) when is_list(Config) ->
+
+    FallbackCombos = [A bor B || A <- [0, ?DFLAG_EXPORT_PTR_TAG],
+                                 B <- [0, ?DFLAG_BIT_BINARIES]],
+
+    [hopefull_data_encoding_do(FB) || FB <- FallbackCombos],
+    ok.
+
+
+hopefull_data_encoding_do(Fallback) ->
+    io:format("Fallback = 16#~.16B\n", [Fallback]),
+
     MkHopefullData = fun(Ref,Pid) -> mk_hopefull_data(Ref,Pid) end,
-    test_hopefull_data_encoding(Config, true, MkHopefullData),
-    test_hopefull_data_encoding(Config, false, MkHopefullData),
+    test_hopefull_data_encoding(Fallback, MkHopefullData),
 
     %% Test funs with hopefully encoded term in environment
     MkBitstringInFunEnv = fun(_,_) -> [mk_fun_with_env(<<5:7>>)] end,
-    test_hopefull_data_encoding(Config, true, MkBitstringInFunEnv),
-    test_hopefull_data_encoding(Config, false, MkBitstringInFunEnv),
+    test_hopefull_data_encoding(Fallback, MkBitstringInFunEnv),
     MkExpFunInFunEnv = fun(_,_) -> [mk_fun_with_env(fun a:a/0)] end,
-    test_hopefull_data_encoding(Config, true, MkExpFunInFunEnv),
-    test_hopefull_data_encoding(Config, false, MkExpFunInFunEnv),
+    test_hopefull_data_encoding(Fallback, MkExpFunInFunEnv),
     ok.
 
 mk_fun_with_env(Term) ->
     fun() -> Term end.
 
-test_hopefull_data_encoding(Config, Fallback, MkDataFun) when is_list(Config) ->
+test_hopefull_data_encoding(Fallback, MkDataFun) ->
     {ok, ProxyNode} = start_node(hopefull_data_normal),
     {ok, BouncerNode} = start_node(hopefull_data_bouncer, "-hidden"),
     case Fallback of
-        false ->
+        0 ->
             ok;
-        true ->
+        _ ->
             rpc:call(BouncerNode, erts_debug, set_internal_state,
                      [available_internal_state, true]),
-            false = rpc:call(BouncerNode, erts_debug, set_internal_state,
-                            [remove_hopefull_dflags, true])
+            ok = rpc:call(BouncerNode, erts_debug, set_internal_state,
+                          [remove_hopefull_dflags, Fallback])
     end,
     Tester = self(),
     R1 = make_ref(),
@@ -2858,19 +2869,19 @@ test_hopefull_data_encoding(Config, Fallback, MkDataFun) when is_list(Config) ->
     receive
         [R2, HData2] ->
             case Fallback of
-                false ->
+                0 ->
                     HData = HData2;
-                true ->
-                    check_hopefull_fallback_data(HData, HData2)
+                _ ->
+                    check_hopefull_fallback_data(HData, HData2, Fallback)
             end
     end,
     receive
         [R3, HData3] ->
             case Fallback of
-                false ->
+                0 ->
                     HData = HData3;
-                true ->
-                    check_hopefull_fallback_data(HData, HData3)
+                _ ->
+                    check_hopefull_fallback_data(HData, HData3, Fallback)
             end
     end,
     unlink(Proxy),
@@ -2937,17 +2948,18 @@ mk_hopefull_data(BS) ->
                          [NewBs]
                  end, lists:seq(BSsz-32, BSsz-17))]).
 
-check_hopefull_fallback_data([], []) ->
+check_hopefull_fallback_data([], [], _) ->
     ok;
-check_hopefull_fallback_data([X|Xs],[Y|Ys]) ->
-    chk_hopefull_fallback(X, Y),
-    check_hopefull_fallback_data(Xs,Ys).
+check_hopefull_fallback_data([X|Xs],[Y|Ys], FB) ->
+    chk_hopefull_fallback(X, Y, FB),
+    check_hopefull_fallback_data(Xs, Ys, FB).
 
-chk_hopefull_fallback(Binary, FallbackBinary) when is_binary(Binary) ->
+chk_hopefull_fallback(Binary, FallbackBinary, _) when is_binary(Binary) ->
     Binary = FallbackBinary;
-chk_hopefull_fallback([BitStr], [{Bin, BitSize}]) when is_bitstring(BitStr) ->
-    chk_hopefull_fallback(BitStr, {Bin, BitSize});
-chk_hopefull_fallback(BitStr, {Bin, BitSize}) when is_bitstring(BitStr) ->
+chk_hopefull_fallback([BitStr], [{Bin, BitSize}], FB) when is_bitstring(BitStr) ->
+    chk_hopefull_fallback(BitStr, {Bin, BitSize}, FB);
+chk_hopefull_fallback(BitStr, {Bin, BitSize}, FB) when is_bitstring(BitStr) ->
+    true = ((FB band ?DFLAG_BIT_BINARIES) =/= 0),
     true = is_binary(Bin),
     true = is_integer(BitSize),
     true = BitSize > 0,
@@ -2958,20 +2970,22 @@ chk_hopefull_fallback(BitStr, {Bin, BitSize}) when is_bitstring(BitStr) ->
     FallbackBitStr = list_to_bitstring([Head,<<IBits:BitSize>>]),
     BitStr = FallbackBitStr,
     ok;
-chk_hopefull_fallback(Func, {ModName, FuncName}) when is_function(Func) ->
+chk_hopefull_fallback(Func, {ModName, FuncName}, FB) when is_function(Func) ->
+    true = ((FB band ?DFLAG_EXPORT_PTR_TAG) =/= 0),
     {M, F, _} = erlang:fun_info_mfa(Func),
     M = ModName,
     F = FuncName,
     ok;
-chk_hopefull_fallback(Fun1, Fun2) when is_function(Fun1), is_function(Fun2) ->
+chk_hopefull_fallback(Fun1, Fun2, FB) when is_function(Fun1), is_function(Fun2) ->
+    %% Recursive diff of funs with their environments
     FI1 = erlang:fun_info(Fun1),
     FI2 = erlang:fun_info(Fun2),
     {env, E1} = lists:keyfind(env, 1, FI1),
     {env, E2} = lists:keyfind(env, 1, FI1),
-    chk_hopefull_fallback(E1, E2),
+    chk_hopefull_fallback(E1, E2, FB),
     assert_same(lists:keydelete(env, 1, FI1),
                 lists:keydelete(env, 1, FI2));
-chk_hopefull_fallback(A, B) ->
+chk_hopefull_fallback(A, B, _) ->
     ok = assert_same(A,B).
 
 assert_same(A,A) -> ok.
