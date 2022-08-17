@@ -931,13 +931,6 @@ Eterm erts_bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh, Eterm tail);
 void erts_bif_info_init(void);
 
 /* bif.c */
-
-void erts_queue_monitor_message(Process *,
-				ErtsProcLocks*,
-				Eterm,
-				Eterm,
-				Eterm,
-				Eterm);
 void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
 			   Eterm (*bif)(Process*, Eterm*, ErtsCodePtr));
 void erts_init_bif(void);

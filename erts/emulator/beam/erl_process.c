@@ -13332,6 +13332,10 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             erts_fire_nif_monitor(mon);
             mon = NULL;
             break;
+        case ERTS_MON_TYPE_DIST_PORT:
+            /* Target of a dist port monitor is never inserted... */
+            ERTS_INTERNAL_ERROR("Unexpected dist port monitor");
+            break;
         case ERTS_MON_TYPE_DIST_PROC: {
             ErtsMonLnkDist *dist;
             DistEntry *dep;
@@ -13407,7 +13411,8 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             break;
         case ERTS_MON_TYPE_PORT: {
             Port *prt;
-            ASSERT(is_internal_port(mon->other.item));
+            ASSERT(is_internal_port(mon->other.item)
+                   || mon->other.item == am_undefined);
             prt = erts_port_lookup_raw(mon->other.item);
             if (prt) {
                 if (erts_port_demonitor(c_p, prt, mon) != ERTS_PORT_OP_DROPPED)
@@ -13415,6 +13420,9 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             }
             break;
         }
+        case ERTS_MON_TYPE_DIST_PORT:
+            /* just release it... */
+            break;
         case ERTS_MON_TYPE_DIST_PROC: {
             ErtsMonLnkDist *dist;
             DistEntry *dep;
@@ -13429,7 +13437,14 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             
             mdp = erts_monitor_to_data(mon);
             dist = ((ErtsMonitorDataExtended *) mdp)->dist;
-            ASSERT(dist);
+            if (!dist) {
+                ASSERT(is_external_pid(mon->other.item));
+		ASSERT(external_pid_dist_entry(mon->other.item)
+                       == erts_this_dist_entry);
+                /* Target part is in our signal queue... */
+                mdp = NULL;
+                break;
+            }
             if (mon->flags & ERTS_ML_FLG_NAME) {
                 watched = ((ErtsMonitorDataExtended *) mdp)->u.name;
                 ASSERT(is_atom(watched));
