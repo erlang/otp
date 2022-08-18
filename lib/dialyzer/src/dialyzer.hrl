@@ -150,7 +150,8 @@
                                            'plt_add' |
                                            'plt_build' |
                                            'plt_check' |
-                                           'plt_remove'}
+                                           'plt_remove' |
+                                           'incremental'}
                        | {'warnings', [warn_option()]}
                        | {'get_warnings', boolean()}
                        | {'error_location', error_location()}.
