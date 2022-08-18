@@ -63,7 +63,7 @@ BOOK_FILES = book.xml
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES)  $(XML_REF6_FILES)\
             $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
-IMAGE_FILES = SSH_protocols.png
+IMAGE_FILES = SSH_protocols.png ssh_timeouts.jpg
 
 TOP_SPECS_FILE = specs.xml
 
