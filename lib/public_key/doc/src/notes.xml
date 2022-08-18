@@ -76,6 +76,21 @@
 
 </section>
 
+<section><title>Public_Key 1.12.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct asn1 typenames available in type pki_asn1_type()</p>
+          <p>
+	    Own Id: OTP-18189 Aux Id: ERIERL-829 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.12</title>
 
     <section><title>Improvements and New Features</title>
