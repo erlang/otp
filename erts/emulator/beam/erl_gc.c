@@ -1421,7 +1421,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 
     if (OLD_HEAP(p) &&
 	((mature_size <= OLD_HEND(p) - OLD_HTOP(p)) &&
-	 ((BIN_OLD_VHEAP_SZ(p) > BIN_OLD_VHEAP(p))) ) ) {
+	 ((p->bin_old_vheap_sz > p->bin_old_vheap)) ) ) {
 	Eterm *prev_old_htop;
 	Uint stack_size, size_after, adjust_size, need_after, new_sz, new_mature;
 
@@ -2940,7 +2940,7 @@ sweep_off_heap(Process *p, int fullsweep)
     Uint oheap_sz = 0;
     Uint64 bin_vheap = 0;
 #ifdef DEBUG
-    Uint64 orig_bin_old_vheap = BIN_OLD_VHEAP(p);
+    Uint64 orig_bin_old_vheap = p->bin_old_vheap;
     int seen_mature = 0;
 #endif
     Uint shrink_ncandidates;
@@ -2976,7 +2976,7 @@ sweep_off_heap(Process *p, int fullsweep)
 		if (to_new_heap) {
 		    bin_vheap += ptr->size / sizeof(Eterm);
 		} else {
-		    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm);
+		    p->bin_old_vheap += ptr->size / sizeof(Eterm);
 		}
                 ASSERT(!(((ProcBin*)ptr)->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE)));
                 break;
@@ -2990,7 +2990,7 @@ sweep_off_heap(Process *p, int fullsweep)
 		if (to_new_heap)
 		    bin_vheap += size / sizeof(Eterm);
                 else
-		    BIN_OLD_VHEAP(p) += size / sizeof(Eterm); /* for binary gc (words)*/
+		    p->bin_old_vheap += size / sizeof(Eterm); /* for binary gc (words)*/
                 /* fall through... */
             }
             default:
@@ -3056,7 +3056,7 @@ sweep_off_heap(Process *p, int fullsweep)
 #ifdef DEBUG
     if (fullsweep) {
         ASSERT(ptr == NULL);
-        ASSERT(BIN_OLD_VHEAP(p) == orig_bin_old_vheap);
+        ASSERT(p->bin_old_vheap == orig_bin_old_vheap);
     }
     else {
         /* The rest of the list resides on the old heap and needs no
@@ -3104,7 +3104,7 @@ sweep_off_heap(Process *p, int fullsweep)
             if (!on_old_heap) {
                 bin_vheap += pb->size / sizeof(Eterm);
             } else {
-                BIN_OLD_VHEAP(p) += pb->size / sizeof(Eterm);
+                p->bin_old_vheap += pb->size / sizeof(Eterm);
             }
         }
         else {
@@ -3202,11 +3202,12 @@ sweep_off_heap(Process *p, int fullsweep)
     }
 
     if (fullsweep) {
-        ASSERT(BIN_OLD_VHEAP(p) == orig_bin_old_vheap);
-        BIN_OLD_VHEAP(p) = 0;
-        BIN_OLD_VHEAP_SZ(p) = next_vheap_size(p, MSO(p).overhead, BIN_OLD_VHEAP_SZ(p));
+        ASSERT(p->bin_old_vheap == orig_bin_old_vheap);
+        p->bin_old_vheap = 0;
+        p->bin_old_vheap_sz = next_vheap_size(p, MSO(p).overhead,
+                                              p->bin_old_vheap_sz);
     }
-    BIN_VHEAP_SZ(p)     = next_vheap_size(p, bin_vheap, BIN_VHEAP_SZ(p));
+    p->bin_vheap_sz     = next_vheap_size(p, bin_vheap, p->bin_vheap_sz);
     MSO(p).overhead     = bin_vheap;
 }
 
@@ -3634,9 +3635,9 @@ erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp,
         OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) : 0,
         HEAP_TOP(p) - HEAP_START(p),
         MSO(p).overhead,
-        BIN_VHEAP_SZ(p),
-        BIN_OLD_VHEAP(p),
-        BIN_OLD_VHEAP_SZ(p)
+        p->bin_vheap_sz,
+        p->bin_old_vheap,
+        p->bin_old_vheap_sz
     };
 
     Eterm res = THE_NON_VALUE;

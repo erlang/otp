@@ -1866,9 +1866,9 @@ process_info_aux(Process *c_p,
 
     case ERTS_PI_IX_MIN_BIN_VHEAP_SIZE: {
 	Uint hsz = 0;
-	(void) erts_bld_uint(NULL, &hsz, MIN_VHEAP_SIZE(rp));
+	(void) erts_bld_uint(NULL, &hsz, rp->min_vheap_size);
         hp = erts_produce_heap(hfact, hsz, reserve_size);
-	res = erts_bld_uint(&hp, NULL, MIN_VHEAP_SIZE(rp));
+	res = erts_bld_uint(&hp, NULL, rp->min_vheap_size);
 	break;
     }
 
@@ -1951,7 +1951,7 @@ process_info_aux(Process *c_p,
 
 	t = TUPLE2(hp, am_min_heap_size, make_small(MIN_HEAP_SIZE(rp))); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
-	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(MIN_VHEAP_SIZE(rp))); hp += 3;
+	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(rp->min_vheap_size)); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
 
         t = erts_max_heap_size_map(MAX_HEAP_SIZE_GET(rp), MAX_HEAP_SIZE_FLAGS_GET(rp), &hp, NULL);
