@@ -1435,8 +1435,8 @@ depend:
 else
 depend: $(TTF_DIR)/depend.mk
 $(TTF_DIR)/depend.mk: $(foreach dep, $(DEPEND_DEPS), $(TTF_DIR)/$(dep).depend.mk)
-	-rm $@
-	for dep in $^; do cat $$dep >> $@; done
+	$(V_at)if [ -f "$@" ]; then rm "$@"; fi
+	$(V_at)for dep in $^; do cat $$dep >> $@; done
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) depend
 endif
 

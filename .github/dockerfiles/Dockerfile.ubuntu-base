@@ -18,6 +18,7 @@ RUN apt-get update && apt-get -y upgrade && \
     default-jdk libxml2-utils flex pkg-config \
     unixodbc odbc-postgresql postgresql \
     tzdata ssh openssh-server groff-base sudo gdb tinyproxy bind9 nsd expect vsftpd python \
+    emacs \
     linux-tools-common linux-tools-generic linux-tools-`uname -r` curl jq \
     xvfb libgl1-mesa-dri \
     ${INSTALL_LIBS} && \

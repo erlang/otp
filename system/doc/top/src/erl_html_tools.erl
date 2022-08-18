@@ -67,18 +67,18 @@ top_index(RootDir)  when is_atom(RootDir) ->
 
 
 top_index(Source, RootDir, DestDir, OtpBaseVsn) ->
-    report("****\nRootDir: ~p", [RootDir]),
-    report("****\nDestDir: ~p", [DestDir]),
-    report("****\nOtpBaseVsn: ~p", [OtpBaseVsn]),
+    report("****\nRootDir: ~tp", [RootDir]),
+    report("****\nDestDir: ~tp", [DestDir]),
+    report("****\nOtpBaseVsn: ~tp", [OtpBaseVsn]),
 
     put(otp_base_vsn, OtpBaseVsn),
 
     Templates = find_templates(["","templates",DestDir]),
-    report("****\nTemplates: ~p", [Templates]),
+    report("****\nTemplates: ~tp", [Templates]),
     Bases = [{"../lib/", filename:join(RootDir,"lib")},
 	     {"../",     RootDir}],
     Groups = find_information(Source, Bases),
-    report("****\nGroups: ~p", [Groups]),
+    report("****\nGroups: ~tp", [Groups]),
     process_templates(Templates, DestDir, Groups).
 
 top_index_silent(RootDir, DestDir, OtpBaseVsn) ->
@@ -97,7 +97,7 @@ top_index_silent(RootDir, DestDir, OtpBaseVsn) ->
 process_templates([], _DestDir, _Groups) ->
     report("\n", []);
 process_templates([Template | Templates], DestDir, Groups) ->
-    report("****\nIN-FILE: ~s", [Template]),
+    report("****\nIN-FILE: ~ts", [Template]),
     BaseName = filename:basename(Template, ".src"),
     case lists:reverse(filename:rootname(BaseName)) of
 	"_"++_ ->
@@ -127,7 +127,7 @@ process_multi_template_1([{Suffix,Group}|Gs], BaseName, Ext, Template, DestDir, 
 process_multi_template_1([], _, _, _, _, _) -> ok.
 
 subst_file(Group, OutFile, Template, Info) ->
-    report("\nOUTFILE: ~s", [OutFile]),
+    report("\nOUTFILE: ~ts", [OutFile]),
     case subst_template(Group, Template, Info) of
 	{ok,Text,_NewInfo} ->
 	    case file:open(OutFile, [write]) of
@@ -135,10 +135,10 @@ subst_file(Group, OutFile, Template, Info) ->
 		    file:write(Stream, Text),
 		    file:close(Stream);
 		Error ->
-		    local_error("Can't write to file ~s: ~w", [OutFile,Error])
+		    local_error("Can't write to file ~ts: ~w", [OutFile,Error])
 	    end;
 	Error ->
-	    local_error("Can't write to file ~s: ~w", [OutFile,Error])
+	    local_error("Can't write to file ~ts: ~w", [OutFile,Error])
     end.
 
 
@@ -203,11 +203,11 @@ get_app_paths(src, AppDirs, URL) ->
 			      {match, [V]} ->
 				  V;
 			      nomatch ->
-				  exit(io_lib:format("No VSN variable found in ~s\n",
+				  exit(io_lib:format("No VSN variable found in ~ts\n",
 						     [VsnFile]))
 			  end;
 		      {error, Reason} ->
-			  exit(io_lib:format("~p : ~s\n", [Reason, VsnFile]))
+			  exit(io_lib:format("~p : ~ts\n", [Reason, VsnFile]))
 		  end,
 	      AppURL = URL ++ App ++ "-" ++ VsnStr,
 	      {App, VsnStr, AppPath, AppURL ++ "/" ++ Sub1}

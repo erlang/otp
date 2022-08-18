@@ -2326,7 +2326,7 @@ safe_second_element(Other) -> Other.
 search_for_file_attr(PartialFilePathRegex, Forms) ->
     lists:search(fun
                    ({attribute, _, file, {FileAttr, _}}) ->
-                      case re:run(FileAttr, PartialFilePathRegex) of
+                      case re:run(FileAttr, PartialFilePathRegex, [unicode]) of
                         nomatch -> false;
                         _ -> true
                       end;

@@ -32,7 +32,7 @@ XMLDIR := $(XMLDIR)/system_principles
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = "$(RELEASE_PATH)/doc/system_principles"
+RELSYSDIR = $(RELEASE_PATH)/doc/system_principles
 
 # ----------------------------------------------------
 # Target Specs
@@ -95,7 +95,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_html_spec: html
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(GIF_FILES) $(EXTRA_FILES) $(HTMLDIR)/*.html \
-		$(RELSYSDIR)
+		"$(RELSYSDIR)"
 
 release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
 

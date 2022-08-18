@@ -77,7 +77,6 @@ static void* emalloc(size_t size);
 static void efree(void *p);
 #endif
 static char* strsave(char* string);
-static void push_words(char* src);
 static int run_erlang(char* name, char** argv);
 static char* get_default_emulator(char* progname);
 #ifdef __WIN32__
@@ -187,8 +186,7 @@ int main(int argc, char** argv)
     eargv_base = (char **) emalloc(eargv_size*sizeof(char*));
     eargv = eargv_base;
     eargc = 0;
-    push_words(emulator);
-    free(emulator);
+    PUSH(emulator);
     eargc_base = eargc;
     eargv = eargv + eargv_size/2;
     eargc = 0;
@@ -319,26 +317,6 @@ int main(int argc, char** argv)
     return run_erlang(eargv[0], eargv);
 }
 
-static void
-push_words(char* src)
-{
-    char sbuf[MAXPATHLEN];
-    char* dst;
-
-    dst = sbuf;
-    while ((*dst++ = *src++) != '\0') {
-	if (isspace((int)*src)) {
-	    *dst = '\0';
-	    PUSH(strsave(sbuf));
-	    dst = sbuf;
-	    do {
-		src++;
-	    } while (isspace((int)*src));
-	}
-    }
-    if (sbuf[0])
-	PUSH(strsave(sbuf));
-}
 #ifdef __WIN32__
 wchar_t *make_commandline(char **argv)
 {
