@@ -65,7 +65,7 @@
          callbacks = term_to_binary(#{})      :: binary(), %% encoded map()
          types = term_to_binary(#{})          :: binary(), %% encoded map()
          exported_types = term_to_binary(#{}) :: binary(), %% encoded sets:set()
-         incremental_data                     :: #incremental_data{},
+         incremental_data = term_to_binary(#incremental_data{}) :: #incremental_data{} | binary(), %% encoded #incremental_data{}
          implementation_md5 = []              :: [module_md5()]}).
 
 %%----------------------------------------------------------------------
@@ -140,7 +140,7 @@ from_file1(Plt, FileName, ReturnInfo) ->
           case ReturnInfo of
             false -> {ok, Plt};
             true ->
-              IncrementalData = Rec#ifile_plt.incremental_data,
+              IncrementalData = get_incremental_data(Rec),
               PltInfo =
                 #iplt_info{files = Rec#ifile_plt.module_md5_list,
                            mod_deps = IncrementalData#incremental_data.mod_deps,
@@ -153,6 +153,15 @@ from_file1(Plt, FileName, ReturnInfo) ->
       Msg = io_lib:format("Could not read IPLT file ~ts: ~p\n",
                           [FileName, Reason]),
       {error, Msg}
+  end.
+
+-spec get_incremental_data(#ifile_plt{}) -> #incremental_data{}.
+get_incremental_data(#ifile_plt{incremental_data = Data}) ->
+  case Data of
+    CompressedData when is_binary(CompressedData) ->
+      binary_to_term(CompressedData);
+    UncompressedData = #incremental_data{} -> % To support older PLTs that didn't have this field compressed
+      UncompressedData
   end.
 
 -type err_rsn() :: 'not_valid' | 'no_such_file' | 'read_error'.
@@ -256,12 +265,12 @@ to_file_custom_vsn(
   ExpTypes = sets:from_list([E || {E} <- dialyzer_utils:ets_tab2list(ETSExpTypes)], [{version, 2}]),
   Record = #ifile_plt{version = Vsn,
                       module_md5_list = MD5,
-                      info = term_to_binary(Info, [compressed]),
-                      contracts = term_to_binary(Contracts, [compressed]),
-                      callbacks = term_to_binary(Callbacks, [compressed]),
-                      types = term_to_binary(Types, [compressed]),
-                      exported_types = term_to_binary(ExpTypes, [compressed]),
-                      incremental_data = IncrementalData,
+                      info = term_to_binary(Info, [{compressed,9}]),
+                      contracts = term_to_binary(Contracts, [{compressed,9}]),
+                      callbacks = term_to_binary(Callbacks, [{compressed,9}]),
+                      types = term_to_binary(Types, [{compressed,9}]),
+                      exported_types = term_to_binary(ExpTypes, [{compressed,9}]),
+                      incremental_data = term_to_binary(IncrementalData, [{compressed,9}]),
                       implementation_md5 = ImplMd5},
   Bin = term_to_binary(Record),
   case file:write_file(FileName, Bin) of
@@ -314,8 +323,9 @@ check_incremental_plt(FileName, Opts, PltFiles) ->
 check_incremental_plt1(FileName, Opts, PltFiles) ->
   PltModulePathLookup = maps:from_list([ {beam_file_to_module(PltFile), PltFile} || PltFile <- PltFiles ]),
   case get_record_from_file(FileName) of
-    {ok, #ifile_plt{module_md5_list = Md5, incremental_data = IncrementalData} = Rec} ->
+    {ok, #ifile_plt{module_md5_list = Md5} = Rec} ->
       {RemoveModules, AddModules} = find_files_to_remove_and_add(Md5, maps:keys(PltModulePathLookup)),
+      IncrementalData = get_incremental_data(Rec),
       PltLegalWarnings = IncrementalData#incremental_data.legal_warnings,
       LegalWarnings = Opts#options.legal_warnings,
       LegalWarningsMatch = PltLegalWarnings /= none andalso lists:usort(PltLegalWarnings) =:= lists:usort(LegalWarnings),
@@ -357,7 +367,7 @@ check_version_and_compute_md5(Rec, RemoveFiles, AddFiles, ModuleToPathLookup) ->
       case compute_new_md5(Md5, RemoveFiles, AddFiles, ModuleToPathLookup) of
         ok -> ok;
         {differ, NewMd5, DiffMd5} ->
-          IncrementalData = Rec#ifile_plt.incremental_data,
+          IncrementalData = get_incremental_data(Rec),
           {differ,
            NewMd5,
            DiffMd5,
