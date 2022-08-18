@@ -3638,7 +3638,7 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 	Block_t* first_blk = MBC_TO_FIRST_BLK(allctr, crr);
 	ERTS_ALC_CPOOL_ASSERT(IS_FREE_LAST_MBC_BLK(first_blk));
 
-	ERTS_ALC_CPOOL_ASSERT(IS_MBC_FIRST_ABLK(allctr, first_blk));
+	ERTS_ALC_CPOOL_ASSERT(IS_MBC_FIRST_FBLK(allctr, first_blk));
 	ERTS_ALC_CPOOL_ASSERT(crr == FBLK_TO_MBC(first_blk));
 	ERTS_ALC_CPOOL_ASSERT(crr == FIRST_BLK_TO_MBC(allctr, first_blk));
 	ERTS_ALC_CPOOL_ASSERT((erts_atomic_read_nob(&crr->allctr)
