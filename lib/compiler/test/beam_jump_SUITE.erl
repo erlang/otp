@@ -321,6 +321,14 @@ cs_2(I) -> I.
 undecided_allocation(_Config) ->
     ok = catch undecided_allocation_1(<<10:(3*7)>>),
     {'EXIT',{{badrecord,<<0>>},_}} = catch undecided_allocation_1(8),
+
+    {bar,1} = undecided_allocation_2(id(<<"bar">>)),
+    {foo,2} = undecided_allocation_2(id(<<"foo">>)),
+    {'EXIT',_} = catch undecided_allocation_2(id(<<"foobar">>)),
+    {'EXIT',{{badmatch,error},_}} = catch undecided_allocation_2(id("foo,bar")),
+    {'EXIT',_} = catch undecided_allocation_2(id(foobar)),
+    {'EXIT',_} = catch undecided_allocation_2(id(make_ref())),
+
     ok.
 
 -record(rec, {}).
@@ -340,6 +348,38 @@ undecided_allocation_1(V) ->
       <<0>> || <<0:V>> <= <<0>>
     >>#rec{},
     if whatever -> [] end.
+
+undecided_allocation_2(Order) ->
+    {_, _} =
+        case Order of
+            <<"bar">> ->
+                {bar, 1};
+            <<"foo">> ->
+                {foo, 2};
+            S ->
+                case string:split("foo", "o") of
+                    [] ->
+                        ok;
+                    _ ->
+                        %% The beam_ssa_bsm pass will duplicate this code,
+                        %% and beam_jump would undo the duplication by sharing
+                        %% the code that calls lists:flatten/1. The problem was
+                        %% that the stack frames had different sizes for the
+                        %% two calls to lists:flatten/1. The diagnostic would be:
+                        %%
+                        %%  Internal consistency check failed - please report this bug.
+                        %%  Instruction: {call_ext,1,{extfunc,lists,flatten,1}}
+                        %%  Error:       {allocated,undecided}:
+
+                        lists:flatten(
+                            case S of
+                                Y when is_binary(Y) -> Y;
+                                Y -> string:split(Y, ",")
+                            end
+                        )
+                end,
+                error
+        end.
 
 
 id(I) ->
