@@ -178,6 +178,42 @@
 
 </section>
 
+<section><title>SSL 10.7.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reject unexpected application data in all relevant places
+	    for all TLS versions. Also, handle TLS-1.3 middlebox
+	    compatibility with more care. This will make malicious
+	    connections fail early and further, mitigate possible DoS
+	    attacks, that would be caught by the handshake timeout.</p>
+          <p>
+	    Thanks to Aina Toky Rasoamanana and Olivier Levillain
+	    from Télécom SudParis for alerting us of the issues in
+	    our implementation.</p>
+          <p>
+	    Own Id: OTP-18044</p>
+        </item>
+        <item>
+	    <p> The link to crypto:engine_load refered the function
+	    with wrong arity. </p>
+          <p>
+	    Own Id: OTP-18173</p>
+        </item>
+        <item>
+          <p>
+	    Make sure periodical refresh of CA certificate files
+	    repopulates cache properly.</p>
+          <p>
+	    Own Id: OTP-18195</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.7.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
