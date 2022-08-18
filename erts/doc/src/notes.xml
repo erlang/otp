@@ -31,6 +31,43 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="erlang#monitor/3"><c>monitor/3</c></seemfa> BIF
+	    did not apply options to the created monitor if the
+	    target process or port did not exist. That is, the
+	    corresponding down message would get a <c>`DOWN`</c> tag
+	    even if a custom tag had been set, and the returned
+	    reference was not an alias even if the <c>alias</c>
+	    option had been passed.</p>
+          <p>
+	    Own Id: OTP-18190 Aux Id: GH-6185, PR-6209 </p>
+        </item>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="erts:erlang#monotonic_time/1"><c>erlang:monotonic_time/1</c></seemfa>,
+	    <seemfa
+	    marker="erts:erlang#system_time/1"><c>erlang:system_time/1</c></seemfa>,
+	    <seemfa
+	    marker="erts:erlang#time_offset/1"><c>erlang:time_offset/1</c></seemfa>,
+	    and <seemfa
+	    marker="kernel:os#system_time/1"><c>os:system_time/1</c></seemfa>
+	    BIFs erroneously failed when passed the argument
+	    <c>native</c>.</p>
+          <p>
+	    Own Id: OTP-18197 Aux Id: GH-6165, PR-6213 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
