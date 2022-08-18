@@ -933,7 +933,12 @@ void BeamModuleAssembler::emit_bs_test_tail2(const ArgLabel &Fail,
     a.sub(ARG2, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.offset)));
 
     if (Offset.get() != 0) {
-        a.cmp(ARG2, imm(Offset.get()));
+        if (Support::isInt32(Offset.get())) {
+            a.cmp(ARG2, imm(Offset.get()));
+        } else {
+            mov_imm(RET, Offset.get());
+            a.cmp(ARG2, RET);
+        }
     }
 
     a.jne(resolve_beam_label(Fail));

@@ -714,7 +714,7 @@ void BeamModuleAssembler::emit_bs_test_tail2(const ArgLabel &Fail,
     a.sub(TMP2, TMP2, TMP3);
 
     if (Offset.get() != 0) {
-        a.cmp(TMP2, imm(Offset.get()));
+        cmp(TMP2, Offset.get());
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
         a.cbnz(TMP2, resolve_beam_label(Fail, disp1MB));

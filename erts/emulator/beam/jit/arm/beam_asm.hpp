@@ -706,6 +706,8 @@ protected:
     void sub(arm::Gp to, arm::Gp src, int64_t val) {
         if (val < 0) {
             add(to, src, -val);
+        } else if (val == 0 && to != src) {
+            a.mov(to, src);
         } else if (val < (1 << 24)) {
             if (val & 0xFFF) {
                 a.sub(to, src, imm(val & 0xFFF));
@@ -724,6 +726,8 @@ protected:
     void add(arm::Gp to, arm::Gp src, int64_t val) {
         if (val < 0) {
             sub(to, src, -val);
+        } else if (val == 0 && to != src) {
+            a.mov(to, src);
         } else if (val < (1 << 24)) {
             if (val & 0xFFF) {
                 a.add(to, src, imm(val & 0xFFF));
