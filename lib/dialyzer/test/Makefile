@@ -12,6 +12,7 @@ AUXILIARY_FILES=\
 	dialyzer_common.erl\
 	file_utils.erl\
 	dialyzer_SUITE.erl\
+	dialyzer_utils_SUITE.erl\
 	dialyzer_cl_SUITE.erl\
 	abstract_SUITE.erl\
 	iplt_SUITE.erl\
