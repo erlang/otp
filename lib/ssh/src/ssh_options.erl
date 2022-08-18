@@ -533,6 +533,12 @@ default(server) ->
             class => user_option
            },
 
+      max_initial_idle_time =>
+          #{default => infinity, %% To not break compatibility
+            chk => fun(V) -> check_timeout(V) end,
+            class => user_option
+           },
+
       negotiation_timeout =>
           #{default => 2*60*1000,
             chk => fun(V) -> check_timeout(V) end,
