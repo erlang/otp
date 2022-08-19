@@ -129,10 +129,9 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm,
     if (type == atom_none && algorithm == atom_rsa)
         return 1;
 
-    if (type == atom_undefined && algorithm == atom_eddsa)
-        return 1;
-    
-    if (type == atom_none && algorithm == atom_eddsa)
+    if (algorithm == atom_eddsa) /* Type was skipped for eddsa in < OTP-25
+                                    For eddsa the RFC 8032 mandates sha512 in
+                                    the algorithm */
         return 1;
     
     if ((digp = get_digest_type(type)) == NULL)
