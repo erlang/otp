@@ -59,6 +59,7 @@
          eddsa_priv_pkcs8/1,
          eddsa_priv_rfc5958/0,
          eddsa_priv_rfc5958/1,
+         edsa_sign_verify_24_compat/1,
          init_ec_pem_encode_generated/1,
          ec_pem_encode_generated/0,
          ec_pem_encode_generated/1,
@@ -173,7 +174,8 @@ groups() ->
 			      eddsa_priv_pkcs8, eddsa_priv_rfc5958,
 			      ec_pem_encode_generated, gen_ec_param_prime_field,
 			      gen_ec_param_char_2_field]},
-     {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, dsa_sign_verify]}
+     {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, dsa_sign_verify,
+                        edsa_sign_verify_24_compat]}
     ].
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -439,6 +441,45 @@ eddsa_priv_rfc5958(Config) when is_list(Config) ->
     PrivEntry0 = public_key:pem_entry_encode('OneAsymmetricKey', ECPrivKey),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
+edsa_sign_verify_24_compat(_Config) ->
+    Key =
+        {'ECPrivateKey',1,
+         <<15,192,10,239,169,93,9,105,143,13,221,71,191,255,201,
+           60,8,80,43,234,82,68,151,219,233,144,174,41,227,241,
+           229,232>>,
+         {namedCurve,{1,3,101,112}},
+         <<209,208,142,135,125,251,57,203,2,49,232,74,238,214,170,
+           181,23,107,221,39,187,225,106,19,34,133,117,198,138,
+           180,16,70>>,
+         asn1_NOVALUE},
+    Body =
+        <<83,83,72,83,73,71,0,0,0,4,116,101,120,116,0,0,0,0,0,0,0,6,115,104,97,
+          53,49,50,0,0,0,64,119,199,206,154,93,134,187,56,109,68,59,185,99,144,
+          250,161,32,99,49,88,105,156,136,68,195,11,19,171,11,249,39,96,183,228,
+          65,106,234,57,125,185,27,74,192,229,221,86,184,239,126,75,6,97,98,171,
+          31,220,8,131,25,206,109,239,200,118>>,
+    ExpectedSignature =
+        <<203,148,171,54,165,4,216,251,189,124,35,227,88,183,187,225,142,10,132,163,98,
+          48,167,195,67,12,49,148,85,146,41,14,58,0,198,68,103,114,90,61,31,38,200,198,
+          64,179,135,138,31,172,236,105,0,71,50,195,168,247,216,110,210,61,159,5>>,
+    lists:foreach(
+      fun(Sha) ->
+              case public_key:sign(Body, Sha, Key) of
+                  ExpectedSignature ->
+                      ok;
+                  Others ->
+                      ct:log("Sha: ~p~nGot:    ~p~nExpect: ~p", [Sha,Others,ExpectedSignature]),
+                      ct:fail("Bad sign result")
+              end,
+              case public_key:verify(Body, Sha, ExpectedSignature, Key) of
+                  true ->
+                      ok;
+                  false ->
+                      ct:fail("Bad verify result for ~p",[Sha])
+              end
+      end, [none, undefined | crypto:supports(hashs)]).
+
 
 init_ec_pem_encode_generated(Config) ->
     case catch true = lists:member('secp384r1', crypto:ec_curves()) of
