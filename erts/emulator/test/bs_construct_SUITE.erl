@@ -28,7 +28,7 @@
 	 huge_float_field/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
 	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
-         reductions/1, fp16/1, zero_init/1, error_info/1]).
+         reductions/1, fp16/1, zero_init/1, error_info/1, little/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -42,7 +42,7 @@ all() ->
      huge_float_field, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
      bad_append, bs_append_overflow, reductions, fp16, zero_init,
-     error_info].
+     error_info, little].
 
 init_per_suite(Config) ->
     Config.
@@ -1452,6 +1452,161 @@ error_info_verify(Reason, Stk0, Expr, Overrides) ->
     true = is_binary(String),
     io:format("~ts: ~ts\n", [Expr,String]),
     {Reason, Cause, String}.
+
+little(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+
+    RandBytes = rand:bytes(10),
+    _ = [do_little(RandBytes, N) || N <- lists:seq(0, 10*8)],
+
+    ok.
+
+do_little(Bin0, N) ->
+    <<Bin1:N/bits,Bin2/bits>> = Bin0,
+    Bin2Size = bit_size(Bin2),
+
+    <<I1:N/little-integer>> = Bin1,
+    <<I2:Bin2Size/little-integer>> = Bin2,
+
+    Bin1 = <<I1:N/little-integer>>,
+    Bin1 = do_little_1(N, id(I1)),
+
+    Bin2 = <<I2:Bin2Size/little-integer>>,
+    Bin2 = do_little_1(Bin2Size, id(I2)),
+
+    ok.
+
+do_little_1(0, I) -> <<I:0/little-integer>>;
+do_little_1(1, I) -> <<I:1/little-integer>>;
+do_little_1(2, I) -> <<I:2/little-integer>>;
+do_little_1(3, I) -> <<I:3/little-integer>>;
+do_little_1(4, I) -> <<I:4/little-integer>>;
+do_little_1(5, I) -> <<I:5/little-integer>>;
+do_little_1(6, I) -> <<I:6/little-integer>>;
+do_little_1(7, I) -> <<I:7/little-integer>>;
+do_little_1(8, I) -> <<I:8/little-integer>>;
+do_little_1(9, I) -> <<I:9/little-integer>>;
+do_little_1(10, I) -> <<I:10/little-integer>>;
+do_little_1(11, I) -> <<I:11/little-integer>>;
+do_little_1(12, I) -> <<I:12/little-integer>>;
+do_little_1(13, I) -> <<I:13/little-integer>>;
+do_little_1(14, I) -> <<I:14/little-integer>>;
+do_little_1(15, I) -> <<I:15/little-integer>>;
+do_little_1(16, I) -> <<I:16/little-integer>>;
+do_little_1(17, I) -> <<I:17/little-integer>>;
+do_little_1(18, I) -> <<I:18/little-integer>>;
+do_little_1(19, I) -> <<I:19/little-integer>>;
+do_little_1(20, I) -> <<I:20/little-integer>>;
+do_little_1(21, I) -> <<I:21/little-integer>>;
+do_little_1(22, I) -> <<I:22/little-integer>>;
+do_little_1(23, I) -> <<I:23/little-integer>>;
+do_little_1(24, I) -> <<I:24/little-integer>>;
+do_little_1(25, I) -> <<I:25/little-integer>>;
+do_little_1(26, I) -> <<I:26/little-integer>>;
+do_little_1(27, I) -> <<I:27/little-integer>>;
+do_little_1(28, I) -> <<I:28/little-integer>>;
+do_little_1(29, I) -> <<I:29/little-integer>>;
+do_little_1(30, I) -> <<I:30/little-integer>>;
+do_little_1(31, I) -> <<I:31/little-integer>>;
+do_little_1(32, I) -> <<I:32/little-integer>>;
+do_little_1(33, I) -> <<I:33/little-integer>>;
+do_little_1(34, I) -> <<I:34/little-integer>>;
+do_little_1(35, I) -> <<I:35/little-integer>>;
+do_little_1(36, I) -> <<I:36/little-integer>>;
+do_little_1(37, I) -> <<I:37/little-integer>>;
+do_little_1(38, I) -> <<I:38/little-integer>>;
+do_little_1(39, I) -> <<I:39/little-integer>>;
+do_little_1(40, I) -> <<I:40/little-integer>>;
+do_little_1(41, I) -> <<I:41/little-integer>>;
+do_little_1(42, I) -> <<I:42/little-integer>>;
+do_little_1(43, I) -> <<I:43/little-integer>>;
+do_little_1(44, I) -> <<I:44/little-integer>>;
+do_little_1(45, I) -> <<I:45/little-integer>>;
+do_little_1(46, I) -> <<I:46/little-integer>>;
+do_little_1(47, I) -> <<I:47/little-integer>>;
+do_little_1(48, I) -> <<I:48/little-integer>>;
+do_little_1(49, I) -> <<I:49/little-integer>>;
+do_little_1(50, I) -> <<I:50/little-integer>>;
+do_little_1(51, I) -> <<I:51/little-integer>>;
+do_little_1(52, I) -> <<I:52/little-integer>>;
+do_little_1(53, I) -> <<I:53/little-integer>>;
+do_little_1(54, I) -> <<I:54/little-integer>>;
+do_little_1(55, I) -> <<I:55/little-integer>>;
+do_little_1(56, I) -> <<I:56/little-integer>>;
+do_little_1(57, I) -> <<I:57/little-integer>>;
+do_little_1(58, I) -> <<I:58/little-integer>>;
+do_little_1(59, I) -> <<I:59/little-integer>>;
+do_little_1(60, I) -> <<I:60/little-integer>>;
+do_little_1(61, I) -> <<I:61/little-integer>>;
+do_little_1(62, I) -> <<I:62/little-integer>>;
+do_little_1(63, I) -> <<I:63/little-integer>>;
+do_little_1(64, I) -> <<I:64/little-integer>>;
+do_little_1(65, I) -> <<I:65/little-integer>>;
+do_little_1(66, I) -> <<I:66/little-integer>>;
+do_little_1(67, I) -> <<I:67/little-integer>>;
+do_little_1(68, I) -> <<I:68/little-integer>>;
+do_little_1(69, I) -> <<I:69/little-integer>>;
+do_little_1(70, I) -> <<I:70/little-integer>>;
+do_little_1(71, I) -> <<I:71/little-integer>>;
+do_little_1(72, I) -> <<I:72/little-integer>>;
+do_little_1(73, I) -> <<I:73/little-integer>>;
+do_little_1(74, I) -> <<I:74/little-integer>>;
+do_little_1(75, I) -> <<I:75/little-integer>>;
+do_little_1(76, I) -> <<I:76/little-integer>>;
+do_little_1(77, I) -> <<I:77/little-integer>>;
+do_little_1(78, I) -> <<I:78/little-integer>>;
+do_little_1(79, I) -> <<I:79/little-integer>>;
+do_little_1(80, I) -> <<I:80/little-integer>>;
+do_little_1(81, I) -> <<I:81/little-integer>>;
+do_little_1(82, I) -> <<I:82/little-integer>>;
+do_little_1(83, I) -> <<I:83/little-integer>>;
+do_little_1(84, I) -> <<I:84/little-integer>>;
+do_little_1(85, I) -> <<I:85/little-integer>>;
+do_little_1(86, I) -> <<I:86/little-integer>>;
+do_little_1(87, I) -> <<I:87/little-integer>>;
+do_little_1(88, I) -> <<I:88/little-integer>>;
+do_little_1(89, I) -> <<I:89/little-integer>>;
+do_little_1(90, I) -> <<I:90/little-integer>>;
+do_little_1(91, I) -> <<I:91/little-integer>>;
+do_little_1(92, I) -> <<I:92/little-integer>>;
+do_little_1(93, I) -> <<I:93/little-integer>>;
+do_little_1(94, I) -> <<I:94/little-integer>>;
+do_little_1(95, I) -> <<I:95/little-integer>>;
+do_little_1(96, I) -> <<I:96/little-integer>>;
+do_little_1(97, I) -> <<I:97/little-integer>>;
+do_little_1(98, I) -> <<I:98/little-integer>>;
+do_little_1(99, I) -> <<I:99/little-integer>>;
+do_little_1(100, I) -> <<I:100/little-integer>>;
+do_little_1(101, I) -> <<I:101/little-integer>>;
+do_little_1(102, I) -> <<I:102/little-integer>>;
+do_little_1(103, I) -> <<I:103/little-integer>>;
+do_little_1(104, I) -> <<I:104/little-integer>>;
+do_little_1(105, I) -> <<I:105/little-integer>>;
+do_little_1(106, I) -> <<I:106/little-integer>>;
+do_little_1(107, I) -> <<I:107/little-integer>>;
+do_little_1(108, I) -> <<I:108/little-integer>>;
+do_little_1(109, I) -> <<I:109/little-integer>>;
+do_little_1(110, I) -> <<I:110/little-integer>>;
+do_little_1(111, I) -> <<I:111/little-integer>>;
+do_little_1(112, I) -> <<I:112/little-integer>>;
+do_little_1(113, I) -> <<I:113/little-integer>>;
+do_little_1(114, I) -> <<I:114/little-integer>>;
+do_little_1(115, I) -> <<I:115/little-integer>>;
+do_little_1(116, I) -> <<I:116/little-integer>>;
+do_little_1(117, I) -> <<I:117/little-integer>>;
+do_little_1(118, I) -> <<I:118/little-integer>>;
+do_little_1(119, I) -> <<I:119/little-integer>>;
+do_little_1(120, I) -> <<I:120/little-integer>>;
+do_little_1(121, I) -> <<I:121/little-integer>>;
+do_little_1(122, I) -> <<I:122/little-integer>>;
+do_little_1(123, I) -> <<I:123/little-integer>>;
+do_little_1(124, I) -> <<I:124/little-integer>>;
+do_little_1(125, I) -> <<I:125/little-integer>>;
+do_little_1(126, I) -> <<I:126/little-integer>>;
+do_little_1(127, I) -> <<I:127/little-integer>>;
+do_little_1(128, I) -> <<I:128/little-integer>>.
+
 
 %%%
 %%% Common utilities.

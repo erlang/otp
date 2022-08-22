@@ -2508,9 +2508,24 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 /* First we'll need to ensure that the value in the
                  * accumulator is in little endian format. */
                 if (seg.effectiveSize % 8 != 0) {
+                    Uint complete_bytes = 8 * (seg.effectiveSize / 8);
+                    Uint num_partial = seg.effectiveSize % 8;
                     if ((seg.flags & BSF_LITTLE) == 0) {
                         a.shl(bin_data, imm(64 - seg.effectiveSize));
                         a.bswap(bin_data);
+                    } else {
+                        Sint mask = (1ll << complete_bytes) - 1;
+                        a.mov(RET, bin_data);
+                        a.shr(RET, imm(complete_bytes));
+                        a.and_(RETd, imm((1ull << num_partial) - 1));
+                        a.shl(RET, imm(complete_bytes + 8 - num_partial));
+                        if (Support::isInt32(mask)) {
+                            a.and_(bin_data, imm(mask));
+                        } else {
+                            mov_imm(tmp, mask);
+                            a.and_(bin_data, tmp);
+                        }
+                        a.or_(bin_data, RET);
                     }
                 } else if ((seg.flags & BSF_LITTLE) == 0) {
                     switch (seg.effectiveSize) {

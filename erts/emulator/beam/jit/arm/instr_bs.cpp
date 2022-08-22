@@ -2308,10 +2308,20 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                  * accumulator is in little endian format. */
                 ASSERT(seg.effectiveSize >= 0);
                 if (seg.effectiveSize % 8) {
+                    Uint complete_bytes = 8 * (seg.effectiveSize / 8);
+                    Uint num_partial = seg.effectiveSize % 8;
                     if (seg.flags & BSF_LITTLE) {
+                        a.ubfx(TMP1,
+                               ARG8,
+                               imm(complete_bytes),
+                               imm(num_partial));
                         a.bfc(ARG8,
-                              arm::lsr(seg.effectiveSize),
-                              64 - seg.effectiveSize);
+                              arm::lsr(complete_bytes),
+                              imm(64 - complete_bytes));
+                        a.bfi(ARG8,
+                              TMP1,
+                              imm(complete_bytes + 8 - num_partial),
+                              imm(num_partial));
                     } else {
                         a.lsl(ARG8, ARG8, imm(64 - seg.effectiveSize));
                         a.rev64(ARG8, ARG8);
