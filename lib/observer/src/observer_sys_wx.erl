@@ -138,10 +138,10 @@ info_fields() ->
 	      {"Async thread pool size",  thread_pool_size}
 	     ]}],
 
-    Cpu = [{"CPU's and Threads",
-	    [{"Logical CPU's", logical_processors},
-	     {"Online Logical CPU's", logical_processors_online},
-	     {"Available Logical CPU's", logical_processors_available},
+    Cpu = [{"CPUs and Threads",
+	    [{"Logical CPUs", logical_processors},
+	     {"Online Logical CPUs", logical_processors_online},
+	     {"Available Logical CPUs", logical_processors_available},
 	     {"Schedulers", schedulers},
 	     {"Online schedulers", schedulers_online},
 	     {"Available schedulers", schedulers_available}
