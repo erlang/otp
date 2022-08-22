@@ -92,6 +92,8 @@ huge_tail(_Config) ->
 
     {'EXIT',{function_clause,_}} = catch huge_tail_2(id(<<0:8,0:100>>)),
 
+    {'EXIT',{function_clause,_}} = catch huge_tail_3(id(<<0:8,0:200>>)),
+
     %% The following code is commented out by default because it
     %% constructs a 2Gb binary.
 
@@ -110,6 +112,9 @@ huge_tail_1(<<B:8,_:16#1001>>) -> B.
 
 %% On x86_64, the immediate for the `cmp` instruction is 32 bits (signed).
 huge_tail_2(<<B:8, _:16#8000_0000>>) -> B.
+
+%% Matching will fail on all platforms.
+huge_tail_3(<<B:8, _:16#1_0000_0000_0000_0000>>) -> B.
 
 %%%
 %%% Common utilities.
