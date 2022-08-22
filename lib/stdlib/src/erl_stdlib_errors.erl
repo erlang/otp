@@ -641,6 +641,9 @@ format_ets_error(lookup_element, [_,_,Pos]=Args, Cause) ->
                     [TabCause, "", PosCause]
             end
     end;
+format_ets_error(lookup_element, [Tab, Key, Pos, _Default], Cause) ->
+    % The default argument cannot cause an error.
+    format_ets_error(lookup_element, [Tab, Key, Pos], Cause);
 format_ets_error(match, [_], _Cause) ->
     [bad_continuation];
 format_ets_error(match, [_,_,_]=Args, Cause) ->

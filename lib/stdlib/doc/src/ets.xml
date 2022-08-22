@@ -956,6 +956,32 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
+      <name name="lookup_element" arity="4" since="OTP @OTP-18279@"/>
+      <fsummary>Return the <c>Pos</c>:th element of all objects with a
+        specified key in an ETS table, or <c>Default</c> if there is no such object.</fsummary>
+      <desc>
+        <p>For a table <c><anno>Table</anno></c> of type <c>set</c> or
+          <c>ordered_set</c>, the function returns the
+          <c><anno>Pos</anno></c>:th
+          element of the object with key <c><anno>Key</anno></c>.</p>
+        <p>For tables of type <c>bag</c> or <c>duplicate_bag</c>,
+          the functions returns a list with the <c><anno>Pos</anno></c>:th
+          element of every object with key <c><anno>Key</anno></c>.</p>
+        <p>If no object with key <c><anno>Key</anno></c> exists, the
+          function returns <c><anno>Default</anno></c>.</p>
+        <p>If <c><anno>Pos</anno></c> is larger than the size of
+          any tuple with a matching key, the function exits with
+          reason <c>badarg</c>.</p>
+        <p>The difference between <c>set</c>, <c>bag</c>, and
+          <c>duplicate_bag</c> on one hand, and <c>ordered_set</c> on
+          the other, regarding the fact that <c>ordered_set</c>
+          view keys as equal when they <em>compare equal</em>
+          whereas the other table types regard them equal only when
+          they <em>match</em>, holds for <c>lookup_element/4</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="match" arity="1" since=""/>
       <fsummary>Continues matching objects in an ETS table.</fsummary>
       <desc>
