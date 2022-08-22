@@ -921,6 +921,8 @@ bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u =>
 i_bs_skip_bits_imm2 f S W
 i_bs_skip_bits2 S S f t
 
+bs_test_tail2 Fail=f Ms=xy o => jump Fail
+
 bs_test_tail2 f S t
 
 bs_test_unit f S t
