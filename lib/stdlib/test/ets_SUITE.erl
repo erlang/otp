@@ -35,6 +35,7 @@
 -export([match1/1, match2/1, match_object/1, match_object2/1]).
 -export([dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
 -export([info_binary_stress/1]).
+-export([info_whereis_busy/1]).
 -export([tab2file/1, tab2file2/1, tabfile_ext1/1,
 	 tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1, badfile/1]).
 -export([heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
@@ -197,7 +198,7 @@ groups() ->
      {match, [],
       [match1, match2, match_object, match_object2]},
      {misc, [],
-      [misc1, safe_fixtable, info, info_binary_stress, dups, tab2list]},
+      [misc1, safe_fixtable, info, info_binary_stress, info_whereis_busy, dups, tab2list]},
      {files, [],
       [tab2file, tab2file2, tabfile_ext1,
        tabfile_ext2, tabfile_ext3, tabfile_ext4, badfile]},
@@ -5111,6 +5112,31 @@ test_table_counter_concurrency(WhatToTest, TableOptions) ->
             ok
     end,
     erts_debug:set_internal_state(available_internal_state, IntStatePrevOn),
+    ok.
+
+%% ERIERL-855: Calling info or whereis on a table being busy trapping (insert)
+%% could return 'undefined'.
+info_whereis_busy(Config) when is_list(Config) ->
+    TName = info_whereis_busy,
+    TName = ets:new(TName, [named_table, public]),
+    T = ets:whereis(TName),
+    NKeys = 100_000,
+    Tuples = [{K} || K <- lists:seq(1,NKeys)],
+    _Inserter = spawn_link(fun() ->
+                                   ets:insert(TName, Tuples)
+                           end),
+    repeat_while(fun() ->
+                         Info = ets:info(TName),
+                         false = (Info =:= undefined),
+                         T = ets:whereis(TName),
+                         case lists:keyfind(size, 1, Info) of
+                             {size, NKeys} ->
+                                 false;
+                             {size, _} ->
+                                 true
+                         end
+                 end),
+    ets:delete(T),
     ok.
 
 test_table_size_concurrency(Config) when is_list(Config) ->
