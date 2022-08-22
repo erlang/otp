@@ -944,6 +944,8 @@ Error: fun containing local Erlang function calls
           element of every object with key <c><anno>Key</anno></c>.</p>
         <p>If no object with key <c><anno>Key</anno></c> exists, the
           function exits with reason <c>badarg</c>.</p>
+        <p>If <c><anno>Pos</anno></c> is larger than the size of the tuple,
+          the function exits with reason <c>badarg</c>.</p>
         <p>The difference between <c>set</c>, <c>bag</c>, and
           <c>duplicate_bag</c> on one hand, and <c>ordered_set</c> on
           the other, regarding the fact that <c>ordered_set</c>
