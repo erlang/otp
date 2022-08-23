@@ -23,6 +23,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0, groups/0,
+         init_per_testcase/2, end_per_testcase/2,
          fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
          t_mul_add_ops/1,negative_zero/1,
          bad_float_unpack/1, write/1, cmp_zero/1, cmp_integer/1, cmp_bignum/1]).
@@ -42,6 +43,16 @@ all() ->
 
 groups() -> 
     [{comparison, [parallel], [cmp_zero, cmp_integer, cmp_bignum]}].
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %%
 %% OTP-7178, list_to_float on very small numbers should give 0.0

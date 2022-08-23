@@ -21,6 +21,7 @@
 -module(message_queue_data_SUITE).
 
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, process_info_messages/1, total_heap_size/1,
 	 change_to_off_heap/1, change_to_off_heap_gc/1]).
 
@@ -39,6 +40,16 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     erts_debug:set_internal_state(available_internal_state, false),
     ok.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 all() ->
     [basic, process_info_messages, total_heap_size, change_to_off_heap,

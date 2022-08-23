@@ -67,7 +67,12 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
 
 end_per_testcase(_Func, _Config) ->
-    ok.
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 init_per_suite(Config) ->
     Config.

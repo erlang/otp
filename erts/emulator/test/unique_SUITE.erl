@@ -21,6 +21,7 @@
 -module(unique_SUITE).
 
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 -export([unique_monotonic_integer_white_box/1,
 	 unique_integer_white_box/1]).
 
@@ -46,6 +47,16 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     erts_debug:set_internal_state(available_internal_state, false),
     ok.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %%
 %%

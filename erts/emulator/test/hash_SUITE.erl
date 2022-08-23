@@ -95,6 +95,7 @@ notify(X) ->
 	 test_basic/1,test_cmp/1,test_range/1,test_spread/1,
 	 test_phash2/1,otp_5292/1,bit_level_binaries/1,otp_7127/1,
          test_hash_zero/1, init_per_suite/1, end_per_suite/1,
+         init_per_testcase/2, end_per_testcase/2,
          init_per_group/2, end_per_group/2]).
 
 suite() ->
@@ -169,6 +170,15 @@ init_per_group(_, Config) ->
 end_per_group(_, Config) ->
     Config.
 
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %% Tests basic functionality of erlang:phash and that the
 %% hashes has not changed (neither hash nor phash)

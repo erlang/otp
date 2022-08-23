@@ -23,6 +23,7 @@
 -include_lib("common_test/include/ct_event.hrl").
 
 -export([all/0, suite/0, groups/0,
+         init_per_testcase/2, end_per_testcase/2,
          test_size/1,flat_size_big/1,df/1,term_type/1,
          instructions/1, stack_check/1, alloc_blocks_size/1,
          t_copy_shared/1,
@@ -42,6 +43,16 @@ all() ->
 
 groups() -> 
     [{interpreter_size_bench, [], [interpreter_size_bench]}].
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 interpreter_size_bench(_Config) ->
     Size = erts_debug:interpreter_size(),

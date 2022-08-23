@@ -21,6 +21,7 @@
 -module(match_spec_SUITE).
 
 -export([all/0, suite/0]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 -export([test_1/1, test_2/1, test_3/1, test_4a/1, test_4b/1, test_5a/1,
          test_5b/1, caller_and_return_to/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
@@ -56,6 +57,16 @@ all() ->
      empty_list,
      otp_9422,
      maps].
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 test_1(Config) when is_list(Config) ->
     tr(fun() -> ?MODULE:f1(a) end,

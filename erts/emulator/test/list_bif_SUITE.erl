@@ -21,7 +21,8 @@
 -module(list_bif_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0]).
+-export([all/0, suite/0,
+         init_per_testcase/2, end_per_testcase/2]).
 -export([hd_test/1,tl_test/1,t_length/1,t_list_to_pid/1,
          t_list_to_ref/1, t_list_to_ext_pidportref/1,
          t_list_to_port/1,t_list_to_float/1,t_list_to_integer/1]).
@@ -36,6 +37,16 @@ all() ->
     [hd_test, tl_test, t_length, t_list_to_pid, t_list_to_port,
      t_list_to_ref, t_list_to_ext_pidportref,
      t_list_to_float, t_list_to_integer].
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %% Tests list_to_integer and string:to_integer
 t_list_to_integer(Config) when is_list(Config) ->

@@ -30,8 +30,10 @@
 
 -module(hash_property_test_SUITE).
 
--export([suite/0,all/0,groups/0,init_per_suite/1,
-         end_per_suite/1,init_per_group/2,end_per_group/2]).
+-export([suite/0,all/0,groups/0,
+         init_per_testcase/2, end_per_testcase/2,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2]).
 
 -export([test_phash2_no_diff/1,
          test_phash2_no_diff_long/1,
@@ -68,6 +70,16 @@ init_per_group(_, Config) ->
 
 end_per_group(_, Config) ->
     Config.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 test_phash2_no_diff(Config) when is_list(Config) ->
     true = ct_property_test:quickcheck(

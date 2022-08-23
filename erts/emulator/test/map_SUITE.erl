@@ -18,6 +18,7 @@
 %%
 -module(map_SUITE).
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
+         init_per_testcase/2, end_per_testcase/2,
          groups/0]).
 
 -export([t_build_and_match_literals/1, t_build_and_match_literals_large/1,
@@ -195,6 +196,16 @@ end_per_suite(Config) ->
     As = proplists:get_value(started_apps, Config),
     lists:foreach(fun (A) -> application:stop(A) end, As),
     Config.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %% tests
 

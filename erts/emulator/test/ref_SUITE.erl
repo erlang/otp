@@ -39,7 +39,12 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
 
 end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    ok.
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 all() -> 
     [wrap_1, compare_list, compare_ets, internal_size, external_size].
