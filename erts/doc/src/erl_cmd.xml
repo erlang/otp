@@ -338,7 +338,10 @@ $ <input>erl \
           build a specific flavor by doing <c>make FLAVOR=$FLAVOR</c> in the
           Erlang/OTP source repository.)</p>
       </item>
-      <tag><c><![CDATA[-emu_type Type]]></c></tag>
+      <tag>
+	<marker id="emu_type"></marker>
+	<c><![CDATA[-emu_type Type]]></c>
+      </tag>
       <item>
         <p>Start an emulator of a different type. For example, to start
 	  the lock-counter emulator, use <c>-emu_type lcnt</c>.

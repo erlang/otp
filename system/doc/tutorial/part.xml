@@ -36,5 +36,6 @@
   <xi:include href="c_portdriver.xml"/>
   <xi:include href="cnode.xml"/>
   <xi:include href="nif.xml"/>
+  <xi:include href="debugging.xml"/>
 </part>
 
