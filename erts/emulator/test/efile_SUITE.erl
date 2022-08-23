@@ -19,6 +19,7 @@
 
 -module(efile_SUITE).
 -export([all/0, suite/0]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 -export([iter_max_files/1, proc_zero_sized_files/1]).
 
 -export([do_iter_max_files/2]).
@@ -30,6 +31,17 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [iter_max_files, proc_zero_sized_files].
+
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %%
 %% Open as many files as possible. Do this several times and check 

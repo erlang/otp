@@ -1,5 +1,6 @@
 -module(complex6).
 -export([foo/1, bar/1]).
+-nifs([foo/1, bar/1]).
 -on_load(init/0).
 
 init() ->

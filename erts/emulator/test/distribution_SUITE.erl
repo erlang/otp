@@ -40,6 +40,7 @@
 -export([all/0, suite/0, groups/0,
          init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
          ping/1, bulk_send_small/1,
          group_leader/1, nodes2/1,
          optimistic_dflags/1,
@@ -156,6 +157,17 @@ init_per_group(_, Config) ->
 
 end_per_group(_, Config) ->
     Config.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, Config) ->
+    case wait_until(fun() -> nodes(connected) == [] end, 10_000) of
+        ok -> ok;
+        timeout ->
+            Nodes = nodes(connected),
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %% Tests pinging a node in different ways.
 ping(Config) when is_list(Config) ->
@@ -3178,7 +3190,7 @@ is_alive(Config) when is_list(Config) ->
     %% Test that distribution is up when erlang:is_alive() return true...
     Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
             "-pa", filename:dirname(code:which(?MODULE))],
-    {ok, Peer, _} = peer:start(#{connection => 0, args => Args}),
+    {ok, Peer, _} = peer:start_link(#{connection => 0, args => Args}),
     NodeName = peer:random_name(),
     LongNames = net_kernel:longnames(),
     StartOpts = #{name_domain => if LongNames -> longnames;
@@ -3229,7 +3241,8 @@ dyn_node_name_monitor_node(Config) ->
     %% but we have not yet gotten a name...
     Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
             "-pa", filename:dirname(code:which(?MODULE))],
-    {ok, Peer, _} = peer:start(#{connection => 0, args => Args}),
+    {ok, Peer, nonode@nohost} = peer:start_link(#{connection => 0, args => Args}),
+    [] = nodes(),
     LongNames = net_kernel:longnames(),
     StartOpts = #{name_domain => if LongNames -> longnames;
                                     true -> shortnames
@@ -3307,12 +3320,17 @@ dyn_node_name_monitor_test(StartOpts, TestNode) ->
 %%% Utilities
 
 wait_until(Fun) ->
+    wait_until(Fun, 24*60*60*1000).
+
+wait_until(Fun, Timeout) when Timeout < 0 ->
+    timeout;
+wait_until(Fun, Timeout) ->
     case catch Fun() of
         true ->
             ok;
         _ ->
             receive after 50 -> ok end,
-            wait_until(Fun)
+            wait_until(Fun, Timeout-50)
     end.
 
 timestamp() ->

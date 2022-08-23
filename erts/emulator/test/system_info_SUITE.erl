@@ -63,7 +63,12 @@ init_per_testcase(_, Config) ->
 end_per_testcase(procs_bug, Config) ->
     procs_bug(end_per_testcase, Config);
 end_per_testcase(_, _) ->
-    ok.
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %%%
 %%% The test cases -------------------------------------------------------------

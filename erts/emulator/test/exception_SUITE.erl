@@ -21,6 +21,7 @@
 -module(exception_SUITE).
 
 -export([all/0, suite/0,
+         init_per_testcase/2, end_per_testcase/2,
          badmatch/1, pending_errors/1, nil_arith/1, top_of_stacktrace/1,
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
          change_exception_class/1,
@@ -50,6 +51,16 @@ all() ->
      exception_with_heap_frag, backtrace_depth,
      error_3, error_info,
      no_line_numbers, line_numbers].
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+end_per_testcase(_TestCase, _Config) ->
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 -define(try_match(E),
         catch ?MODULE:bar(),

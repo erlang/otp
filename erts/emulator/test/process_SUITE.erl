@@ -221,7 +221,12 @@ end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
                        #{size => 0,
                          kill => true,
                          error_logger => true}),
-    ok.
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 fun_spawn(Fun) ->
     spawn_link(erlang, apply, [Fun, []]).

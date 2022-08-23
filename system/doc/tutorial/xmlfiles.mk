@@ -1,3 +1,4 @@
+
 #
 # %CopyrightBegin%
 #
@@ -19,7 +20,8 @@
 #
 TUTORIAL_CHAPTER_FILES = \
 	introduction.xml\
-	overview.xml
+	overview.xml\
+	debugging.xml
 
 TUTORIAL_CHAPTER_GEN_FILES = \
 	cnode.xml\

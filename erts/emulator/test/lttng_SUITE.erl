@@ -74,7 +74,12 @@ init_per_testcase(Case, Config) ->
 end_per_testcase(Case, _Config) ->
     Name = atom_to_list(Case),
     ok = ensure_lttng_stopped(Name),
-    ok.
+    case nodes(connected) of
+        [] -> ok;
+        Nodes ->
+            [net_kernel:disconnect(N) || N <- Nodes],
+            {fail, {"Leaked connections", Nodes}}
+    end.
 
 %% Not tested yet
 %%   org_erlang_otp:driver_process_exit

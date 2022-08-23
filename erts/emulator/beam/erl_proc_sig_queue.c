@@ -9041,7 +9041,7 @@ void erts_proc_sig_queue_maybe_install_buffers(Process* p, erts_aint32_t state)
                          sizeof(ErtsSignalInQueueBufferArray));
     erts_atomic64_init_nob(&buffers->nonempty_slots, (erts_aint64_t)(Uint64)0);
     erts_atomic64_init_nob(&buffers->nonmsg_slots, (erts_aint64_t)(Uint64)0);
-    erts_atomic64_init_nob(&buffers->dirty_refc, (erts_aint64_t)(Uint64)1);
+    erts_refc_init(&buffers->dirty_refc, 1);
     buffers->nr_of_enqueues = 0;
     buffers->nr_of_rounds_left =
         ERTS_PROC_SIG_INQ_BUFFERED_MIN_FLUSH_ALL_OPS_BEFORE_CHANGE;
@@ -9079,7 +9079,7 @@ erts_proc_sig_queue_get_buffers(Process* p, int *need_unread)
         erts_thr_progress_unmanaged_continue(dhndl);
         return NULL;
     }
-    erts_atomic64_inc_mb(&buffers->dirty_refc);
+    erts_refc_inc(&buffers->dirty_refc, 2);
     erts_thr_progress_unmanaged_continue(dhndl);
     *need_unread = 1;
     return buffers;
@@ -9092,12 +9092,13 @@ void erts_proc_sig_queue_unget_buffers(ErtsSignalInQueueBufferArray* buffers,
         return;
     } else {
         int i;
-        erts_aint64_t refc = erts_atomic64_dec_read_mb(&buffers->dirty_refc);
-        ASSERT(refc >= 0);
+        erts_aint_t refc = erts_refc_dectest(&buffers->dirty_refc, 0);
         if (refc != 0) {
             return;
         }
+        ASSERT(!buffers->alive);
         for (i = 0; i < ERTS_PROC_SIG_INQ_BUFFERED_NR_OF_BUFFERS; i++) {
+            ASSERT(!buffers->slots[i].b.alive);
             erts_mtx_destroy(&buffers->slots[i].b.lock);
         }
         erts_free(ERTS_ALC_T_SIGQ_BUFFERS, buffers);

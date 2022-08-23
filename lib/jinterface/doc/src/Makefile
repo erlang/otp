@@ -74,7 +74,7 @@ JAVA_SRC_FILES = $(JAVA_FILES:%=$(JAVA_SRC_PATH)/%.java)
 
 
 ../html/java/index.html: $(JAVA_SRC_FILES)
-	(cd ../../java_src;$(JAVADOC) -sourcepath . -d $(JAVADOC_DEST) \
+	(cd ../../java_src;$(JAVADOC) -encoding UTF-8 -sourcepath . -d $(JAVADOC_DEST) \
 		-windowtitle $(JAVADOC_TITLE) $(JAVADOC_PKGS))
 
 html: ../html/java/index.html
