@@ -748,7 +748,8 @@ static DbTable* handle_lacking_permission(Process* p, DbTable* tb,
         p->fvalue = EXI_TYPE;
     }
     else if (p->common.id != tb->common.owner
-             && !(p->flags & F_ETS_SUPER_USER)) {
+             && (!(p->flags & F_ETS_SUPER_USER)
+                 || (tb->common.status & DB_DELETE))) {
         p->fvalue = (tb->common.status & DB_DELETE) ? EXI_ID : EXI_ACCESS;
         db_unlock(tb, kind);
         tb = NULL;
