@@ -196,7 +196,6 @@
          openssl_sane_dtls/0,
          kill_openssl/0,
          openssl_allows_server_renegotiate/1,
-         openssl_dtls_maxfraglen_support/0,
          openssl_maxfraglen_support/0,
          is_sane_oppenssl_pss/1,
          consume_port_exit/1,
@@ -4000,26 +3999,6 @@ openssl_maxfraglen_support() ->
             false;
 	"OpenSSL 1.1.1" ++ _ ->
             true;
-        "OpenSSL" ++ _ ->
-            true;
-        _  ->
-            false
-    end.
-
-openssl_dtls_maxfraglen_support() -> 
-    case portable_cmd("openssl", ["version"]) of
-        "OpenSSL 0" ++ _  ->
-            false;
-        "OpenSSL 1.0" ++ _  ->
-            false;
-        "OpenSSL 1.1.0" ++ _ ->
-            false;
-	"OpenSSL 1.1.1" ++ _ ->
-            false;
-        "OpenSSL 1.1" ++ _ ->
-            false;
-	"OpenSSL 3.0.1" ++ _ ->
-	    false; %% OpenSSL sends internal error alert
         "OpenSSL" ++ _ ->
             true;
         _  ->
