@@ -226,7 +226,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #endif
     if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) return __LINE__;
     if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "base"))) return __LINE__;
-    if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "legacy"))) return __LINE__;
+    if (prov_cnt<MAX_NUM_PROVIDERS) {prov_cnt++; OSSL_PROVIDER_load(NULL, "legacy");}
 #endif
 
     if (library_initialized) {
