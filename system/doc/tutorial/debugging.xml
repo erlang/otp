@@ -99,9 +99,11 @@
     </p>
     <p>
       If the <c>debug</c> emulator is part of the Erlang/OTP installation, it can be
-      started with</p>
+      started with the <seecom marker="erts:erl#emu_type"><c>-emu_type</c></seecom>
+      option.
+    </p>
       <pre>
-> <input>erl <seecom marker="erts:erl#emu_type">-emu_type</seecom> debug</input>
+> <input>erl -emu_type debug</input>
 Erlang/OTP 25 [erts-13.0.2] ... <em>[type-assertions] [debug-compiled] [lock-checking]</em>
 
 Eshell V13.0.2  (abort with ^G)
@@ -258,7 +260,7 @@ Eshell V13.0.2  (abort with ^G)
     <title>rr - Record and Replay</title>
     <p>
       Last but not least, the fantastic interactive debugging tool <url
-      href="https://rr-project.org/"><c>rr</c></url>, developed by Mozilla as
+      href="https://rr-project.org/">rr</url>, developed by Mozilla as
       open source. <c>rr</c> stands for Record and Replay. While a core dump
       represents only a static snapshot of the OS process when it crashed, with
       <c>rr</c> you instead record the entire session, from start of the OS
