@@ -452,12 +452,17 @@ handle_info({timeout, _, {apply_interval, CurTimeout, Time, TRef, MFA}}, Tab) ->
     case ets:member(Tab, TRef) of
         true ->
             NextTimeout = CurTimeout + Time,
-            SRef = erlang:start_timer(
+            SRef = case NextTimeout > system_time() of
+                true -> erlang:start_timer(
                      NextTimeout,
                      self(),
                      {apply_interval, NextTimeout, Time, TRef, MFA},
                      [{abs, true}]
-                    ),
+                    );
+		false ->
+                    self() ! {timeout, undefined, {apply_interval, NextTimeout, Time, TRef, MFA}},
+		    undefined
+            end,
             ets:update_element(Tab, TRef, {2, SRef}),
             do_apply(MFA);
         false ->
@@ -491,6 +496,8 @@ code_change(_OldVsn, Tab, _Extra) ->
 %% Remove a timer.
 remove_timer(TRef, Tab) ->
     case ets:take(Tab, TRef) of
+        [{TRef, undefined}] ->
+            true;
         [{TRef, SRef}] ->
             ok = erlang:cancel_timer(SRef, [{async, true}, {info, false}]),
             true;
