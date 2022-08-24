@@ -75,6 +75,9 @@
     <datatype>
       <name name="compile_option"/>
     </datatype>
+    <datatype>
+      <name name="replace_fun"/>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -363,7 +366,7 @@
         elements with Replacement.</fsummary>
       <desc>
         <p>Replaces the matched part of the <c><anno>Subject</anno></c> string
-          with the contents of <c><anno>Replacement</anno></c>.</p>
+          with <c><anno>Replacement</anno></c>.</p>
         <p>The permissible options are the same as for
           <seemfa marker="#run/3"><c>run/3</c></seemfa>, except that option<c>
           capture</c> is not allowed. Instead a <c>{return,
@@ -378,8 +381,8 @@
           <c>unicode</c> compilation option is specified to this function, both
           the regular expression and <c><anno>Subject</anno></c> are to
           specified as valid Unicode <c>charlist()</c>s.</p>
-        <p>The replacement string can contain the special character
-          <c>&amp;</c>, which inserts the whole matching expression in the
+        <p>If the replacement is given as a string, it  can contain the special
+          character <c>&amp;</c>, which inserts the whole matching expression in the
           result, and the special sequence <c>\</c>N (where N is an integer &gt;
           0), <c>\g</c>N, or <c>\g{</c>N<c>}</c>, resulting in the subexpression
           number N, is inserted in the result. If no subexpression with that
@@ -401,6 +404,35 @@ re:replace("abcd","c","[\\&amp;]",[{return,list}]).</code>
         <p>gives</p>
         <code>
 "ab[&amp;]d"</code>
+        <p>If the replacement is given as a fun, it will be called with the
+          whole matching expression as the first argument and a list of subexpression
+          matches in the order in which they appear in the regular expression.
+          The returned value will be inserted in the result.</p>
+        <p><em>Example:</em></p>
+        <code>
+re:replace("abcd", ".(.)", fun(Whole, [&lt;&lt;C&gt;&gt;]) -> &lt;&lt;$#, Whole/binary, $-, (C - $a + $A), $#&gt;&gt; end, [{return, list}]).</code>
+        <p>gives</p>
+        <code>
+"#ab-B#cd"</code>
+        <note>
+          <p>Non-matching optional subexpressions will not be included in the list
+            of subexpression matches if they are the last subexpressions in the
+            regular expression.</p>
+          <p><em>Example:</em></p>
+          <p>The regular expression <c>"(a)(b)?(c)?"</c> ("a", optionally followed
+            by "b", optionally followed by "c") will create the following subexpression
+            lists:</p>
+          <list>
+            <item><c>[&lt;&lt;"a"&gt;&gt;, &lt;&lt;"b"&gt;&gt;, &lt;&lt;"c"&gt;&gt;]</c>
+              when applied to the string <c>"abc"</c></item>
+            <item><c>[&lt;&lt;"a"&gt;&gt;, &lt;&lt;&gt;&gt;, &lt;&lt;"c"&gt;&gt;]</c>
+              when applied to the string <c>"acx"</c></item>
+            <item><c>[&lt;&lt;"a"&gt;&gt;, &lt;&lt;"b"&gt;&gt;]</c>
+              when applied to the string <c>"abx"</c></item>
+            <item><c>[&lt;&lt;"a"&gt;&gt;]</c>
+              when applied to the string <c>"axx"</c></item>
+          </list>
+        </note>
         <p>As with <c>run/3</c>, compilation errors raise the <c>badarg</c>
           exception. <seemfa marker="#compile/2"><c>compile/2</c></seemfa>
           can be used to get more information about the error.</p>
@@ -972,7 +1004,7 @@ re:run("ABCabcdABC",".*(?&lt;FOO&gt;abcd).*",[{capture,['FOO']}]).</code>
             <p>Here the empty binary (<c>&lt;&lt;&gt;&gt;</c>) represents the
               unassigned subpattern. In the <c>binary</c> case, some information
               about the matching is therefore lost, as
-	      <c>&lt;&lt;&gt;&gt;</c> can
+              <c>&lt;&lt;&gt;&gt;</c> can
               also be an empty string captured.</p>
             <p>If differentiation between empty matches and non-existing
               subpatterns is necessary, use the <c>type</c> <c>index</c> and do
