@@ -29,6 +29,8 @@
 
 %% Common test
 -export([all/0,
+         init_per_suite/1,
+         end_per_suite/1,
          init_per_testcase/2,
          end_per_testcase/2
         ]).
@@ -54,6 +56,19 @@ all() ->
      bad_connect_response
     ].
 
+init_per_suite(Config0) ->
+    catch crypto:stop(),
+    try crypto:start() of
+	ok ->
+            ssl_test_lib:clean_start(),
+            Config0
+    catch _:_ ->
+	    {skip, "Crypto did not start"}
+    end.
+
+end_per_suite(_Config) ->
+    ssl:stop(),
+    application:stop(crypto).
 init_per_testcase(_TestCase, Config) ->
     ct:timetrap({seconds, 5}),
     Config.

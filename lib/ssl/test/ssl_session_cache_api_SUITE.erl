@@ -28,7 +28,9 @@
 -include("tls_handshake.hrl").
 
 %% Callback functions
--export([all/0]).
+-export([all/0,
+        init_per_suite/1,
+         end_per_suite/1]).
 
 %% Testcases
 -export([server_cb/0,
@@ -43,6 +45,21 @@
 all() ->
     [server_cb,
      client_cb].
+
+init_per_suite(Config0) ->
+    catch crypto:stop(),
+    try crypto:start() of
+	ok ->
+            ssl_test_lib:clean_start(),
+            Config0
+    catch _:_ ->
+	    {skip, "Crypto did not start"}
+    end.
+
+end_per_suite(_Config) ->
+    ssl:stop(),
+    application:stop(crypto).
+
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
