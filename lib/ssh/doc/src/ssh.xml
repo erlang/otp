@@ -725,6 +725,10 @@
 	Defaults to 30000 ms (30 seconds). If the client fails to send the first message within this time,
 	the connection is closed.
 	</p>
+	<p>For more information about timeouts, see the
+	<seeguide marker="hardening#timeouts">Timeouts section </seeguide>
+	in the User's Guide <seeguide marker="hardening">Hardening</seeguide> chapter.
+	</p>
       </desc>
     </datatype>
 
@@ -735,12 +739,33 @@
 	Defaults to 120000 ms (2 minutes). If the client fails to log in within this time,
 	the connection is closed.
 	</p>
+	<p>For more information about timeouts, see the
+	<seeguide marker="hardening#timeouts">Timeouts section </seeguide>
+	in the User's Guide <seeguide marker="hardening">Hardening</seeguide> chapter.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="max_initial_idle_time_daemon_option"/>
+      <desc>
+	<p>Maximum time in milliseconds for the first channel start after
+	completion of the authentication negotiation.
+	Defaults to <c>infinity</c>.
+	</p>
+	<p>For more information about timeouts, see the
+	<seeguide marker="hardening#timeouts">Timeouts section </seeguide>
+	in the User's Guide <seeguide marker="hardening">Hardening</seeguide> chapter.
+	</p>
       </desc>
     </datatype>
 
     <datatype>
       <name name="hardening_daemon_options"/>
       <desc>
+	<p>For more information about hardening, see the
+	<seeguide marker="hardening">Hardening</seeguide> section in the User's Guide chapter.
+	</p>
 	<taglist>
 	  <tag>
 	    <marker id="hardening_daemon_options--max_sessions"/>
@@ -892,6 +917,10 @@
 	</p>
 	<p>The timeout is not active until channels are started, so it does
 	not limit the time from the connection creation to the first channel opening.
+	</p>
+	<p>For more information about timeouts, see the
+	<seeguide marker="hardening#timeouts">Timeouts section </seeguide>
+	in the User's Guide <seeguide marker="hardening">Hardening</seeguide> chapter.
 	</p>
       </desc>
     </datatype>

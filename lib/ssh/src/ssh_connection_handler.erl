@@ -1118,7 +1118,10 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
                 #ssh_msg_global_request{}            = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_request_success{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_request_failure{}           = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
-                #ssh_msg_channel_open{}              = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
+                #ssh_msg_channel_open{}              = Msg -> {keep_state, D1,
+                                                               [{{timeout, max_initial_idle_time}, cancel} |
+                                                                ?CONNECTION_MSG(Msg)
+                                                               ]};
                 #ssh_msg_channel_open_confirmation{} = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_channel_open_failure{}      = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
                 #ssh_msg_channel_window_adjust{}     = Msg -> {keep_state, D1, ?CONNECTION_MSG(Msg)};
@@ -1231,6 +1234,9 @@ handle_event({timeout,idle_time}, _Data,  _StateName, D) ->
         _ ->
             keep_state_and_data
     end;
+
+handle_event({timeout,max_initial_idle_time}, _Data,  _StateName, _D) ->
+    {stop, {shutdown, "Timeout"}};
 
 %%% So that terminate will be run when supervisor is shutdown
 handle_event(info, {'EXIT', _Sup, Reason}, StateName, _D) ->
