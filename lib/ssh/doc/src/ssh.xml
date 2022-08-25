@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
-      
+
       http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -21,7 +21,7 @@
       limitations under the License.
 
     </legalnotice>
-    
+
     <title>ssh</title>
     <prepared></prepared>
     <docno></docno>
@@ -40,8 +40,8 @@
     <p>With the SSH application it is possible to start <i>clients</i> and to start <i>daemons</i> (servers).
     </p>
     <p>Clients are started with
-    <seemfa marker="#connect/2">connect/2</seemfa>, 
-    <seemfa marker="#connect/3">connect/3</seemfa> or 
+    <seemfa marker="#connect/2">connect/2</seemfa>,
+    <seemfa marker="#connect/3">connect/3</seemfa> or
     <seemfa marker="#connect/4">connect/4</seemfa>. They open an encrypted connection on top of TCP/IP.
     In that encrypted connection one or more channels could be opened with
     <seemfa marker="ssh_connection#session_channel/2">ssh_connection:session_channel/2,4</seemfa>.
@@ -52,32 +52,32 @@
     the user is not necessarily a human but probably a system interfacing the SSH app.
     </p>
     <p>A server-side subssystem (channel) server is requested by the client with
-    <seemfa marker="ssh_connection#subsystem/4">ssh_connection:subsystem/4</seemfa>. 
+    <seemfa marker="ssh_connection#subsystem/4">ssh_connection:subsystem/4</seemfa>.
     </p>
-    <p>A server (daemon) is started with 
+    <p>A server (daemon) is started with
     <seemfa marker="#daemon/2">daemon/1</seemfa>,
     <seemfa marker="#daemon/2">daemon/2</seemfa> or
     <seemfa marker="#daemon/2">daemon/3</seemfa>.
     Possible channel handlers (subsystems) are declared with the
     <seetype marker="#subsystem_daemon_option">subsystem</seetype> option when the daemon is started.
     </p>
-    <p>To just run a shell on a remote machine, there are functions that bundles the needed 
+    <p>To just run a shell on a remote machine, there are functions that bundles the needed
     three steps needed into one:
     <seemfa marker="#shell/1">shell/1,2,3</seemfa>.
     Similarly, to just open an sftp (file transfer) connection to a remote machine, the simplest way is to use
     <seemfa marker="ssh_sftp#start_channel/1">ssh_sftp:start_channel/1,2,3</seemfa>.
     </p>
-    <p>To write your own client channel handler, use the behaviour 
-    <seeerl marker="ssh_client_channel">ssh_client_channel</seeerl>. For server channel handlers use 
+    <p>To write your own client channel handler, use the behaviour
+    <seeerl marker="ssh_client_channel">ssh_client_channel</seeerl>. For server channel handlers use
     <seeerl marker="ssh_server_channel">ssh_server_channel</seeerl> behaviour (replaces ssh_daemon_channel).
     </p>
     <p>Both clients and daemons accepts options that controls the exact behaviour. Some options are common to both.
-    The three sets are called 
-    <seetype marker="#client_options">Client Options</seetype>, 
+    The three sets are called
+    <seetype marker="#client_options">Client Options</seetype>,
     <seetype marker="#daemon_options">Daemon Options</seetype> and
     <seetype marker="#common_options">Common Options</seetype>.
     </p>
-    <p>The descriptions of the options uses the 
+    <p>The descriptions of the options uses the
     <seeguide marker="system/reference_manual:typespec">Erlang Type Language</seeguide> with explaining text.
     </p>
     <note>
@@ -90,7 +90,7 @@
 
   <section>
     <title>Keys and files</title>
-    <p>A number of objects must be present for the SSH application to work. 
+    <p>A number of objects must be present for the SSH application to work.
     Those objects are per default stored in files.
     The default names, paths and file formats are the same as for
     <url href="http://www.openssh.com">OpenSSH</url>. Keys could be generated with the <c>ssh-keygen</c>
@@ -122,12 +122,12 @@
 	  <item><c>ssh_host_rsa_key</c> and <c>ssh_host_rsa_key.pub</c></item>
 	  <item><c>ssh_host_ecdsa_key</c> and <c>ssh_host_ecdsa_key.pub</c></item>
 	</list>
-	<p>The host keys directory could be changed with the option 
+	<p>The host keys directory could be changed with the option
 	<seetype marker="ssh_file#system_dir_daemon_option"><c>system_dir</c></seetype>.</p>
 	</item>
 	<item>Optional: one or more <i>User's public key</i> in case of <c>publickey</c> authorization.
 	Default is to store them concatenated in the file <c>.ssh/authorized_keys</c> in the user's home directory.
-	<p>The user keys directory could be changed with the option 
+	<p>The user keys directory could be changed with the option
 	<seetype marker="ssh_file#user_dir_common_option"><c>user_dir</c></seetype>.</p>
 	</item>
       </list>
@@ -137,14 +137,14 @@
       <title>Clients</title>
       <p>The keys and some other data are by default stored in files in the directory <c>.ssh</c>
       in the user's home directory.</p>
-      <p>The directory could be changed with the option 
+      <p>The directory could be changed with the option
       <seetype marker="ssh_file#user_dir_common_option"><c>user_dir</c></seetype>.
       </p>
       <list>
 	<item>Optional: a list of <i>Host public key(s)</i> for previously connected hosts. This list
 	is handled by the SSH application without any need of user assistance. The default
 	is to store them in the file <c>known_hosts</c>.
-	<p>The 
+	<p>The
 	<seetype marker="#host_accepting_client_options">host_accepting_client_options()</seetype>
 	are associated with this list of keys.
 	</p>
@@ -206,12 +206,12 @@
 	    <c>silently_accept_hosts</c>
 	  </tag>
 	  <item>
-            <p>This option guides the <c>connect</c> function on how to act when the connected server presents a Host 
+            <p>This option guides the <c>connect</c> function on how to act when the connected server presents a Host
             Key that the client has not seen before. The default is to ask the user with a question on stdio of whether to
             accept or reject the new Host Key.
             See the option <seetype marker="ssh_file#user_dir_common_option"><c>user_dir</c></seetype>
             for specifying the path to the file <c>known_hosts</c> where previously accepted Host Keys are recorded.
-	    See also the option 
+	    See also the option
 	    <seetype marker="#key_cb_common_option">key_cb</seetype>
 	    for the general way to handle keys.
 	    </p>
@@ -228,7 +228,7 @@
               result the connection will be closed. The arguments to the fun are:
               <list type="bulleted">
 	        <item><c>PeerName</c> - a string with the name or address of the remote host.</item>
-                <item><c>FingerPrint</c> - the fingerprint of the Host Key as 
+                <item><c>FingerPrint</c> - the fingerprint of the Host Key as
                 <seemfa marker="#hostkey_fingerprint/1">hostkey_fingerprint/1</seemfa>
                 calculates it.
                 </item>
@@ -241,12 +241,12 @@
               is either an atom or a list of atoms as the first argument in
               <seemfa marker="#hostkey_fingerprint/2">hostkey_fingerprint/2</seemfa>.
               If it is a list of hash algorithm names, the <c>FingerPrint</c> argument in the
-	      <c>accept_callback()</c> will be 
+	      <c>accept_callback()</c> will be
               a list of fingerprints in the same order as the corresponding name in the <c>HashAlgoSpec</c> list.
               </item>
             </list>
 	  </item>
-	  
+	
 	  <tag><c>user_interaction</c></tag>
 	  <item>
 	    <p>If <c>false</c>, disables the client to connect to the server
@@ -322,7 +322,7 @@
       <name name="connect_timeout_client_option"/>
       <desc>
 	<p>Sets a timeout on the transport layer connect time.
-	For <seeerl marker="kernel:gen_tcp"><c>gen_tcp</c></seeerl> the time is in milli-seconds and the default 
+	For <seeerl marker="kernel:gen_tcp"><c>gen_tcp</c></seeerl> the time is in milli-seconds and the default
 	value is <c>infinity</c>.
 	</p>
 	<p>See the parameter <c>Timeout</c> in <seemfa marker="#connect/4">connect/4</seemfa> for
@@ -335,7 +335,7 @@
       <name name="recv_ext_info_client_option"/>
       <desc>
 	<p>Make the client tell the server that the client accepts extension negotiation, that is,
-	include <c>ext-info-c</c> in the kexinit message sent.  See 
+	include <c>ext-info-c</c> in the kexinit message sent.  See
 	<url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>
 	for details and	<seeapp marker="SSH_app#supported-ext-info">ssh(6)</seeapp>
 	for a list of currently implemented extensions.
@@ -370,7 +370,7 @@
       </desc>
     </datatype>
 
-    
+
     <datatype>
       <name name="subsystem_daemon_option"/>
       <name name="subsystem_specs"/>
@@ -382,7 +382,7 @@
 	</p>
 	<p>The <c>channel_callback</c> is the module that implements the
 	<seeerl marker="ssh_server_channel">ssh_server_channel</seeerl> (replaces ssh_daemon_channel)
-	behaviour in the daemon. See the section 
+	behaviour in the daemon. See the section
 	<seeguide marker="using_ssh#usersguide_creating_a_subsystem">Creating a Subsystem</seeguide>
 	in the User's Guide for more information and an example.
 	</p>
@@ -473,7 +473,7 @@
 	    <seetype marker="#shell_daemon_option"><c>shell_spec</c></seetype>'s value.
 	    </p>
 	  </item>
-	  
+	
 	  <tag>4. If the <seetype marker="#exec_daemon_option"><c>exec-option</c></seetype> is absent, and the
 	  <seetype marker="#shell_daemon_option"><c>shell-option</c></seetype>
 	  is present with the default Erlang shell as the
@@ -483,7 +483,7 @@
 	    <p>The default Erlang evaluator is used both for exec and shell requests.
 	    The result is returned to the client.</p>
 	  </item>
-	  
+	
 	  <tag>5. If the <seetype marker="#exec_daemon_option"><c>exec-option</c></seetype> is absent, and the
 	  <seetype marker="#shell_daemon_option"><c>shell-option</c></seetype>
 	  is present with a value that is neither the default Erlang shell nor the value <c>disabled</c>:</tag>
@@ -492,7 +492,7 @@
 	    are executed according to the value of the
 	    <seetype marker="#shell_daemon_option"><c>shell_spec</c></seetype>.</p>
 	  </item>
-	  
+	
 	  <tag>6. If the <seetype marker="#exec_daemon_option"><c>exec-option</c></seetype> is absent, and the
 	  <seetype marker="#shell_daemon_option"><c>shell_spec</c></seetype>'s value is <c>disabled</c>:</tag>
 	  <item>
@@ -601,7 +601,7 @@
 	    </warning>
 	  </item>
 
-	  <tag><marker id="option-pwdfun"/><c>pwdfun</c> with 
+	  <tag><marker id="option-pwdfun"/><c>pwdfun</c> with
 	  <seetype marker="#pwdfun_4"><c>pwdfun_4()</c></seetype>
 	  </tag>
 	  <item>
@@ -618,13 +618,13 @@
 	    </p>
 	    <list type="bulleted">
 	      <item><c>true</c> if the user and password is valid</item>
-	      <item><c>false</c> if the user or password is invalid</item> 
+	      <item><c>false</c> if the user or password is invalid</item>
 	      <item><c>disconnect</c> if a SSH_MSG_DISCONNECT message should be sent immediately. It will
 	      be followed by a close of the underlying tcp connection.</item>
 	      <item><c>{true,  NewState:any()}</c> if the user and password is valid</item>
-	      <item><c>{false, NewState:any()}</c> if the user or password is invalid</item> 
+	      <item><c>{false, NewState:any()}</c> if the user or password is invalid</item>
 	    </list>
-	    <p>A third usage is to block login attempts from a missbehaving peer. The <c>State</c> described above 
+	    <p>A third usage is to block login attempts from a missbehaving peer. The <c>State</c> described above
 	    can be used for this. The return value <c>disconnect</c> is useful for this.</p>
 	    <p>In case of the <seeerl marker="#option-pk_check_user"><c>pk_check_user</c></seeerl> is set,
 	    the atom <c>pubkey</c> is put in the password argument when validating a public key login. The
@@ -640,7 +640,7 @@
 	    as strings, and returns:</p>
 	    <list type="bulleted">
 	      <item><c>true</c> if the user and password is valid</item>
-	      <item><c>false</c> if the user or password is invalid</item> 
+	      <item><c>false</c> if the user or password is invalid</item>
 	    </list>
 	    <p>In case of the <seeerl marker="#option-pk_check_user"><c>pk_check_user</c></seeerl> is set,
 	    the atom <c>pubkey</c> is put in the password argument when validating a public key login. The
@@ -675,7 +675,7 @@
 	  <tag><c>dh_gex_groups</c></tag>
 	  <item>
 	    <p>Defines the groups the server may choose among when diffie-hellman-group-exchange is negotiated.
-	    See 
+	    See
 	    <url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>
 	    for details. The three variants of this option are:
 	    </p>
@@ -685,7 +685,7 @@
 	      In such a case, the server will choose one randomly in the negotiated Size.
 	      </item>
 	      <tag><c>{file,filename()}</c></tag>
-	      <item>The file must have one or more three-tuples <c>{Size=integer(),G=integer(),P=integer()}</c> 
+	      <item>The file must have one or more three-tuples <c>{Size=integer(),G=integer(),P=integer()}</c>
 	      terminated by a dot. The file is read when the daemon starts.
 	      </item>
 	      <tag><c>{ssh_moduli_file,filename()}</c></tag>
@@ -694,7 +694,7 @@
 	      The file is read when the daemon starts.
 	      </item>
 	    </taglist>
-	    <p>The default list is fetched from the 
+	    <p>The default list is fetched from the
 	      <seemfa marker="public_key:public_key#dh_gex_group/4">public_key</seemfa> application.
 	    </p>
 	  </item>
@@ -703,14 +703,14 @@
 	  <item>
 	    <p>Limits what a client can ask for in diffie-hellman-group-exchange.
 	    The limits will be
-	    <c>{MaxUsed = min(MaxClient,Max), MinUsed = max(MinClient,Min)}</c> where <c>MaxClient</c> and 
+	    <c>{MaxUsed = min(MaxClient,Max), MinUsed = max(MinClient,Min)}</c> where <c>MaxClient</c> and
 	    <c>MinClient</c> are the values proposed by a connecting client.
 	    </p>
 	    <p>The default value is <c>{0,infinity}</c>.
 	    </p>
 	    <p>If <c>MaxUsed &lt; MinUsed</c> in a key exchange, it will fail with a disconnect.
 	    </p>
-	    <p>See 
+	    <p>See
 	    <url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>
 	    for the function of the Max and Min values.</p>
 	  </item>
@@ -789,7 +789,7 @@
 	    <p>By default, this option is not set. This means that the number is not limited.
 	    </p>
 	  </item>
-	  
+	
 	  <tag>
 	    <marker id="hardening_daemon_options--max_channels"/>
 	    <c>max_channels</c>
@@ -830,11 +830,11 @@
 	    The default value is 0.
 	    </p>
 	  </item>
-	  
+	
 	</taglist>
       </desc>
     </datatype>
- 
+
     <datatype>
       <name name="callbacks_daemon_options"/>
       <desc>
@@ -976,10 +976,10 @@
 	<code>
 	  Module:F(..., [{key_cb_private,Opts}|UserOptions])
 	</code>
-	<p>where <c>...</c> are arguments to <c>F</c> as in 
+	<p>where <c>...</c> are arguments to <c>F</c> as in
 	<seeerl marker="ssh_client_key_api">ssh_client_key_api</seeerl> and/or
 	<seeerl marker="ssh_server_key_api">ssh_server_key_api</seeerl>.
-	The <c>UserOptions</c> are the options given to 
+	The <c>UserOptions</c> are the options given to
 	<seemfa marker="ssh:ssh#connect/3">ssh:connect</seemfa>,
 	<seemfa marker="ssh:ssh#shell/1">ssh:shell</seemfa> or
 	<seemfa marker="ssh:ssh#daemon/2">ssh:daemon</seemfa>.
@@ -1024,7 +1024,7 @@
       <name name="ssh_msg_debug_fun_common_option"/>
       <desc>
 	<p>Provide a fun to implement your own logging of the SSH message SSH_MSG_DEBUG.
-	The last three parameters are from the message, see 
+	The last three parameters are from the message, see
 	<url href="https://tools.ietf.org/html/rfc4253#section-11.3">RFC 4253, section 11.3</url>.
 	The <seetype marker="#connection_ref"><c>connection_ref()</c></seetype> is the reference
 	to the connection on which the message arrived.
@@ -1069,7 +1069,7 @@
 	<p>If an alg_entry() is missing in the algs_list(), the default value is used for that entry.</p>
 	<p>Here is an example of this option:</p>
 	<code>
-	  {preferred_algorithms, 
+	  {preferred_algorithms,
 	  [{public_key,['ssh-rsa','ssh-dss']},
 	  {cipher,[{client2server,['aes128-ctr']},
           {server2client,['aes128-cbc','3des-cbc']}]},
@@ -1136,7 +1136,7 @@
 	<p>If there are more than one modify_algorithms options, the result is undefined.</p>
 	<p>Here is an example of this option:</p>
 	<code>
-	  {modify_algorithms, 
+	  {modify_algorithms,
 	  [{prepend, [{kex, ['diffie-hellman-group1-sha1']}],
 	  {rm,      [{compression, [none]}]}
 	  ]
@@ -1182,7 +1182,7 @@
 
     <!--................................................................-->
     <datatype_title>Other data types</datatype_title>
-    
+
     <datatype>
       <name name="host"/>
       <desc>
@@ -1200,13 +1200,13 @@
       <desc>
       </desc>
     </datatype>
-      
+
     <datatype>
       <name name="mod_fun_args"/>
       <desc>
       </desc>
     </datatype>
-      
+
     <datatype>
       <name name="open_socket"/>
       <desc>
@@ -1273,7 +1273,7 @@
 	<p>In the <c>option</c> info tuple are only the options included that differs from the default values.
 	</p>
       </desc>
-    </datatype> 
+    </datatype>
 
     <datatype>
       <name>opaque_client_options()</name>
@@ -1299,7 +1299,7 @@
       <fsummary>Closes an SSH connection.</fsummary>
       <desc><p>Closes an SSH connection.</p></desc>
     </func>
-    
+
 <!-- CONNECT/2 etc -->
    <func>
      <name since="">connect(Host, Port, Options) -> Result </name>
@@ -1462,7 +1462,7 @@
      </desc>
    </func>
 
-<!-- DAEMON_INFO/1 -->   
+<!-- DAEMON_INFO/1 -->
    <func>
      <name name="daemon_info" arity="1" since="OTP 19.0"/>
      <name name="daemon_info" arity="2" since="OTP 22.1"/>
@@ -1539,7 +1539,7 @@
 	manual page in Kernel.</p>
       </desc>
     </func>
-    
+
     <func>
       <name name="stop_daemon" arity="1" since=""/>
       <name name="stop_daemon" arity="2" since=""/>
@@ -1581,7 +1581,7 @@
 	</p>
       </desc>
     </func>
-    
+
     <func>
       <name name="tcpip_tunnel_to_server" arity="5" since="OTP 23.0"/>
       <name name="tcpip_tunnel_to_server" arity="6" since="OTP 23.0"/>
@@ -1619,7 +1619,7 @@
 	in uppercase as in newer ssh-keygen commands.</p>
 	<p>Examples:</p>
       <code>
- 2> ssh:hostkey_fingerprint(Key).    
+ 2> ssh:hostkey_fingerprint(Key).
  "f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
 
  3> ssh:hostkey_fingerprint(md5,Key).
@@ -1641,5 +1641,5 @@
 
 
   </funcs>
-  
+
 </erlref>
