@@ -74,6 +74,7 @@
          login_bad_pwd_no_retry3/1,
          login_bad_pwd_no_retry4/1,
          login_bad_pwd_no_retry5/1,
+         max_initial_idle_time/1,
          misc_ssh_options/1,
          multi_daemon_opt_fd/1,
          openssh_zlib_basic_test/1,
@@ -155,7 +156,9 @@ groups() ->
                              exec, exec_compressed, 
                              exec_with_io_out, exec_with_io_in,
                              cli, cli_exit_normal, cli_exit_status,
-                             idle_time_client, idle_time_server, openssh_zlib_basic_test, 
+                             idle_time_client, idle_time_server,
+                             max_initial_idle_time,
+                             openssh_zlib_basic_test,
                              misc_ssh_options, inet_option, inet6_option,
                              shell, shell_socket, shell_ssh_conn, shell_no_unicode, shell_unicode_string,
                              close
@@ -469,6 +472,25 @@ idle_time_common(DaemonExtraOpts, ClientExtraOpts, Config) ->
     after 10000 ->
 	    {error, closed} = ssh_connection:session_channel(ConnectionRef, 1000)
     end,
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+max_initial_idle_time(Config) ->
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2},
+                                             {max_initial_idle_time, 2000}
+                                            ]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false}
+                                         ]),
+    timer:sleep(8000),
+    {error, closed} = ssh_connection:session_channel(ConnectionRef, 1000),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
