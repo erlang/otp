@@ -27,8 +27,14 @@
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
 
 %% Callback functions
--export([all/0, groups/0, init_per_group/2, end_per_group/2,
-         init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,
+         groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_group/2,
+         end_per_group/2,
+         init_per_testcase/2,
+         end_per_testcase/2]).
 %% Testcases
 -export([expired_ticket_test/0,
          expired_ticket_test/1,
@@ -60,6 +66,20 @@ groups() ->
      {stateless, [], [expired_ticket_test, invalid_ticket_test, main_test]},
      {stateless_antireplay, [], [main_test, misc_test, valid_ticket_older_than_windowsize_test]}
     ].
+
+init_per_suite(Config0) ->
+    catch crypto:stop(),
+    try crypto:start() of
+	ok ->
+            ssl_test_lib:clean_start(),
+            Config0
+    catch _:_ ->
+	    {skip, "Crypto did not start"}
+    end.
+
+end_per_suite(_Config) ->
+    ssl:stop(),
+    application:stop(crypto).
 
 init_per_group(stateless_antireplay, Config) ->
     check_environment([{server_session_tickets, stateless},
