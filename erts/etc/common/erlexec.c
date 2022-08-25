@@ -453,6 +453,18 @@ int main(int argc, char **argv)
 	Eargsp[argc] = NULL;
 	emu = argv[0];
 	start_emulator_program = strsave(argv[0]);
+        /* We set the stdandard handles to nul in order for prim_tty_nif
+           and erlang:display_string to work without returning ebadf for
+           detached emulators */
+        SetStdHandle(STD_INPUT_HANDLE,
+                     CreateFile("nul", GENERIC_READ, 0, NULL, OPEN_EXISTING,
+                                FILE_ATTRIBUTE_NORMAL, NULL));
+        SetStdHandle(STD_OUTPUT_HANDLE,
+                     CreateFile("nul", GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                                FILE_ATTRIBUTE_NORMAL, NULL));
+        SetStdHandle(STD_ERROR_HANDLE,
+                     CreateFile("nul", GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                                FILE_ATTRIBUTE_NORMAL, NULL));
 	goto skip_arg_massage;
     }
     free_env_val(s);
