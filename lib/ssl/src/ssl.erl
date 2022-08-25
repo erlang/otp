@@ -336,7 +336,6 @@
                                 {ssl_imp, ssl_imp()} |
                                 {session_tickets, session_tickets()} |
                                 {key_update_at, key_update_at()} |
-                                {middlebox_comp_mode, middlebox_comp_mode()} |
                                 {receiver_spawn_opts, spawn_opts()} |
                                 {sender_spawn_opts, spawn_opts()}.
 
@@ -418,6 +417,7 @@
                                 {max_fragment_length, max_fragment_length()} |
                                 {customize_hostname_check, customize_hostname_check()} |
                                 {fallback, fallback()} |
+                                {middlebox_comp_mode, middlebox_comp_mode()} |
                                 {certificate_authorities, certificate_authorities()} |
                                 {session_tickets, client_session_tickets()} |
                                 {use_ticket, use_ticket()} |
