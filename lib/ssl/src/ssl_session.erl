@@ -30,7 +30,7 @@
 -include("ssl_api.hrl").
 
 %% Internal application API
--export([is_new/2, client_select_session/5, server_select_session/5, valid_session/2, legacy_session_id/0]).
+-export([is_new/2, client_select_session/5, server_select_session/5, valid_session/2, legacy_session_id/1]).
 
 -type seconds()   :: integer(). 
 
@@ -42,18 +42,27 @@
 %% If now lower versions are configured this function can be called
 %% for a dummy value.
 %%--------------------------------------------------------------------
-legacy_session_id() ->
-    crypto:strong_rand_bytes(32).
-
+legacy_session_id(#{middlebox_comp_mode := true}) ->
+    legacy_session_id();
+legacy_session_id(_) ->
+    ?EMPTY_ID.
 %%--------------------------------------------------------------------
--spec is_new(ssl:session_id(), ssl:session_id()) -> boolean().
+-spec is_new(ssl:session_id() | #session{}, ssl:session_id()) -> boolean().
 %%
 %% Description: Checks if the session id decided by the server is a
-%%              new or resumed sesion id.
+%%              new or resumed sesion id. TLS-1.3 middlebox negotiation
+%%              requies that client also needs to check "is_resumable" in
+%%              its current session data when pre TLS-1.3 version is
+%%              negotiated.
 %%--------------------------------------------------------------------
-is_new(<<>>, _) ->
+is_new(?EMPTY_ID, _) ->
     true;
 is_new(SessionId, SessionId) ->
+    false;
+is_new(#session{session_id = ?EMPTY_ID}, _) ->
+    true;
+is_new(#session{session_id = SessionId,
+                is_resumable = true}, SessionId) ->
     false;
 is_new(_ClientSuggestion, _ServerDecision) ->
     true.
@@ -66,17 +75,25 @@ is_new(_ClientSuggestion, _ServerDecision) ->
 %%              for the client hello message.
 %%--------------------------------------------------------------------
 client_select_session({_, _, #{versions := Versions,
-                               protocol := Protocol}} = ClientInfo, 
+                               protocol := Protocol} = Opts} = ClientInfo,
                       Cache, CacheCb, NewSession, CertKeyPairs) ->
     
     RecordCb = record_cb(Protocol),
-    Version = RecordCb:lowest_protocol_version(Versions),
+    LVersion = RecordCb:lowest_protocol_version(Versions),
+    HVersion = RecordCb:highest_protocol_version(Versions),
     
-    case Version of
-        {3, N} when N >= 4 ->
-          NewSession#session{session_id = legacy_session_id()};
+    case LVersion of
+        {3, 4} ->
+            %% Session reuse is not supported, do pure legacy middlebox comp mode
+            %% negotiation, by providing either empty session id (no middle box)
+            %% or random id (middle box mode).
+            NewSession#session{session_id = legacy_session_id(Opts)};
         _ ->
-            do_client_select_session(ClientInfo, Cache, CacheCb, NewSession, CertKeyPairs)
+            Session =  do_client_select_session(ClientInfo, Cache, CacheCb, NewSession, CertKeyPairs),
+            %% If TLS-1.3 is highest version and there was no previous session
+            %% id that could be reused, if TLS-1.3 is not negotiated,
+            %% possible use random id for middle box mode negotiation.
+            maybe_handle_middlebox(HVersion, Session, Opts)
     end.  
 
 %%--------------------------------------------------------------------
@@ -115,7 +132,7 @@ do_client_select_session({_, _, #{reuse_session := {SessionId, SessionData}}}, _
                                                                                                          is_binary(SessionData) ->
     try binary_to_term(SessionData, [safe]) of
         Session ->
-            Session
+            Session#session{is_resumable = true}
     catch
         _:_ ->
             NewSession#session{session_id = <<>>}
@@ -130,7 +147,7 @@ do_client_select_session({Host, Port, #{reuse_session := SessionId}}, Cache, Cac
 do_client_select_session(ClientInfo, Cache, CacheCb, NewSession, CertKeyPairs) ->
     case select_session(ClientInfo, Cache, CacheCb, CertKeyPairs) of
         no_session ->
-            NewSession#session{session_id = <<>>};
+            NewSession#session{session_id = ?EMPTY_ID};
         Session ->
             Session
     end.
@@ -207,3 +224,12 @@ record_cb(tls) ->
     tls_record;
 record_cb(dtls) ->
     dtls_record.
+
+legacy_session_id() ->
+    crypto:strong_rand_bytes(32).
+
+maybe_handle_middlebox({3, 4}, #session{session_id = ?EMPTY_ID} = Session, 
+                       #{middlebox_comp_mode := true})->
+    Session#session{session_id = legacy_session_id()};
+maybe_handle_middlebox(_, Session, _) ->
+    Session.

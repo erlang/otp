@@ -333,8 +333,7 @@
                                 {beast_mitigation, beast_mitigation()} |
                                 {ssl_imp, ssl_imp()} |
                                 {session_tickets, session_tickets()} |
-                                {key_update_at, key_update_at()} |
-                                {middlebox_comp_mode, middlebox_comp_mode()}.
+                                {key_update_at, key_update_at()}.
 
 -type protocol()                  :: tls | dtls.
 -type handshake_completion()      :: hello | full.
@@ -407,6 +406,7 @@
                                 {max_fragment_length, max_fragment_length()} |
                                 {customize_hostname_check, customize_hostname_check()} |
                                 {fallback, fallback()} |
+                                {middlebox_comp_mode, middlebox_comp_mode()} |
                                 {certificate_authorities, certificate_authorities()} |
                                 {session_tickets, client_session_tickets()} |
                                 {use_ticket, use_ticket()} |
