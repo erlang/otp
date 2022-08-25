@@ -29,7 +29,7 @@
                                marker|anno|image" >
 <!-- XXX --> 
 <!ELEMENT p                   (%inline;)* >
-<!ELEMENT pre                 (#PCDATA|%refs;|input|anno)* >
+<!ELEMENT pre                 (#PCDATA|%refs;|input|anno|em)* >
 <!ELEMENT input               (#PCDATA|%refs;|anno)* >
 <!ELEMENT code                (#PCDATA|anno)* >
 <!ATTLIST code                type (erl|c|none) "none" >
