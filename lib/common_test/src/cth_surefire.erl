@@ -131,7 +131,11 @@ pre_init_per_suite(Suite,Config,#state{ test_cases = [] } = State) ->
                          {debug_info_v1,
                           erl_abstract_code,
                           {Abstr,_Opts}}}]}} ->
-                Abstr;
+                if Abstr =:= none ->
+                        undefined;
+                   true ->
+                        Abstr
+                end;
             _ ->
                 undefined
         end,
