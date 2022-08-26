@@ -73,7 +73,8 @@
 	 otp_8180/1, trapping/1, large/1,
 	 error_after_yield/1, cmp_old_impl/1,
          t2b_system_limit/1,
-         term_to_iovec/1]).
+         term_to_iovec/1,
+         is_binary_test/1]).
 
 %% Internal exports.
 -export([sleeper/0,trapping_loop/4]).
@@ -98,7 +99,8 @@ all() ->
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
      robustness, otp_8180, trapping, large,
-     error_after_yield, cmp_old_impl].
+     error_after_yield, cmp_old_impl,
+     is_binary_test].
 
 groups() -> 
     [
@@ -2038,6 +2040,38 @@ echo(Papa) ->
     receive M -> Papa ! M end,
     echo(Papa).
 
+%% GH-6239.
+is_binary_test(_Config) ->
+    <<"foo42">> = concat_stuff(foo, 42),
+    <<"foo2749963626218098647">> = concat_stuff(foo, 2749963626218098647), %Bignum.
+    <<"foobar">> = concat_stuff(foo, <<"bar">>),
+    <<"bar100">> = concat_stuff(<<"bar">>, 100),
+    <<"bar2749963626218098647">> = concat_stuff(<<"bar">>, 2749963626218098647), %Bignum.
+    <<"barfood">> = concat_stuff(<<"bar">>, <<"food">>),
+
+    ok.
+
+concat_stuff(A, B) when is_integer(B); is_binary(B) ->
+    <<(case A of
+           X when is_binary(X) -> X;
+           _ -> atom_to_binary(A)
+       end)/binary,
+      (case B of
+           %% The JIT would do an unsafe simplification of the is_binary/1 test,
+           %% accepting any boxed term (such as a bignum) as a binary.
+           Y when is_binary(Y) -> Y;
+           _ -> integer_to_binary(B)
+       end)/binary>>.
+
+build_binary(A, B) when is_integer(B); is_binary(B) ->
+    <<(case A of
+           X when is_binary(X) -> X;
+           _ -> atom_to_binary(A)
+       end)/binary,
+      (case B of
+           Y when is_binary(Y) -> Y;
+           _ -> integer_to_binary(B)
+       end)/binary>>.
 
 %% Utilities.
 
