@@ -48,7 +48,7 @@
  * Extended error information for ETS functions.
  */
 
-#define EXI_TYPE     am_type	/* The type is wrong. */
+#define EXI_TYPE     am_type	/* The type is wrong (or TRAP). */
 #define EXI_ID       am_id	/* The table identifier is invalid. */
 #define EXI_ACCESS   am_access /* Insufficient access rights for ETS table. */
 #define EXI_TAB_TYPE am_table_type /* Unsupported table type for this operation. */
@@ -762,12 +762,14 @@ static DbTable* handle_lacking_permission(Process* p, DbTable* tb,
         db_unlock(tb, LCK_WRITE);
         tb = NULL;
         *freason_p = TRAP;
+        p->fvalue = EXI_TYPE;
     }
     else if (p->common.id != tb->common.owner
-             && !(p->flags & F_ETS_SUPER_USER)) {
+             && (!(p->flags & F_ETS_SUPER_USER)
+                 || (tb->common.status & DB_DELETE))) {
+        p->fvalue = (tb->common.status & DB_DELETE) ? EXI_ID : EXI_ACCESS;
         db_unlock(tb, kind);
         tb = NULL;
-        p->fvalue = EXI_ACCESS;
         *freason_p = BADARG | EXF_HAS_EXT_INFO;
     }
     return tb;
@@ -2563,10 +2565,10 @@ BIF_RETTYPE ets_whereis_1(BIF_ALIST_1)
     if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_INFO, LCK_READ, &freason)) == NULL) {
         if (BIF_P->fvalue == EXI_ID) {
             BIF_RET(am_undefined);
-        } else {
-            //ToDo: Could we avoid this
-            return db_bif_fail(BIF_P, freason, BIF_ets_whereis_1, NULL);
         }
+        ASSERT(BIF_P->fvalue == EXI_TYPE);
+        /* ToDo: Could we avoid this for freason==TRAP */
+        return db_bif_fail(BIF_P, freason, BIF_ets_whereis_1, NULL);
     }
 
     res = make_tid(BIF_P, tb);
@@ -4086,13 +4088,13 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
         table = BIF_ARG_1;
     }
     if ((tb = db_get_table(BIF_P, table, DB_INFO, LCK_READ, &freason)) == NULL) {
-        if (BIF_P->fvalue == EXI_TYPE) {
-            /* TRAP or invalid table identifier (not atom or magic reference). */
-            return db_bif_fail(BIF_P, freason, BIF_ets_info_1, NULL);
-        } else {
+        if (BIF_P->fvalue == EXI_ID) {
             /* The table no longer exists. */
             BIF_RET(am_undefined);
         }
+        /* TRAP or invalid table identifier (not atom or magic reference). */
+        ASSERT(BIF_P->fvalue == EXI_TYPE);
+        return db_bif_fail(BIF_P, freason, BIF_ets_info_1, NULL);
     }
 
     /* If/when we implement lockless private tables:
@@ -4196,13 +4198,12 @@ BIF_RETTYPE ets_info_2(BIF_ALIST_2)
         BIF_TRAP1(ets_info_binary_trap, BIF_P, BIF_ARG_1);
 
     if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_INFO, LCK_READ, &freason)) == NULL) {
-        if (BIF_P->fvalue == EXI_TYPE) {
-            /* TRAP or invalid table identifier (not atom or magic reference). */
-            return db_bif_fail(BIF_P, freason, BIF_ets_info_2, NULL);
-        } else {
-            /* The table no longer exists. */
+        if (BIF_P->fvalue == EXI_ID) {
             BIF_RET(am_undefined);
         }
+        /* TRAP or invalid table identifier (not atom or magic reference). */
+        ASSERT(BIF_P->fvalue == EXI_TYPE);
+        return db_bif_fail(BIF_P, freason, BIF_ets_info_2, NULL);
     }
     if (BIF_ARG_2 == am_size || BIF_ARG_2 == am_memory) {
         ErtsFlxCtrSnapshotResult res =
