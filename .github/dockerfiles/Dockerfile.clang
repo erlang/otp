@@ -25,7 +25,8 @@ ENV CC=clang CXX=clang++ \
 # give us this information such as gcc does...
 RUN  ./configure --with-ssl --with-ssl-lib-subdir=lib/x86_64-linux-gnu --prefix=/otp && \
         if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
-        make && sudo make install
+    make && sudo make install && \
+    make FLAVOR=emu && sudo make install FLAVOR=emu
 
 ## Disable -Werror as testcases do not compile with it on
 ENV CFLAGS="-O2 -g"
