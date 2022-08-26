@@ -851,7 +851,7 @@ arm::Gp BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
     a.cmp(TMP1, imm(_TAG_HEADER_SUB_BIN));
     a.b_eq(subbin);
 
-    if (masked_types(Src, BEAM_TYPE_MASK_ALWAYS_BOXED) == BEAM_TYPE_BITSTRING) {
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_BITSTRING) {
         comment("simplified binary test since source is always a bitstring "
                 "when boxed");
     } else {
