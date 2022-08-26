@@ -44,7 +44,7 @@
 	 underscore/1,no_warnings/1,
 	 bit_syntax/1,inlining/1,tuple_calls/1,
          recv_opt_info/1,opportunistic_warnings/1,
-         eep49/1]).
+         eep49/1,inline_list_funcs/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -68,7 +68,7 @@ groups() ->
        redundant_boolean_clauses,
        underscore,no_warnings,bit_syntax,inlining,
        tuple_calls,recv_opt_info,opportunistic_warnings,
-       eep49]}].
+       eep49,inline_list_funcs]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1246,6 +1246,35 @@ eep49(Config) ->
            []}
 	 ],
     run(Config, Ts),
+    ok.
+
+%% GH-6158: There would be a warning for a clause that could not match.
+inline_list_funcs(Config) ->
+    Ts = [{basic,
+           <<"all(L) ->
+                  lists:all(fun erlang:is_integer/1, L).
+              any(L) ->
+                  lists:any(fun erlang:is_integer/1, L).
+              foreach(L) ->
+                  lists:foreach(fun erlang:is_integer/1, L).
+              map(L) ->
+                  lists:map(fun erlang:abs/1, L).
+              filter(L) ->
+                  lists:map(fun erlang:is_integer/1, L).
+              foldl(L) ->
+                  lists:foldl(fun erlang:is_function/2, L).
+              foldr(L) ->
+                  lists:foldl(fun erlang:is_function/2, L).
+              mapfoldl(L) ->
+                  lists:mapfoldl(fun erlang:is_function/2, L).
+              mapfoldr(L) ->
+                  lists:mapfoldr(fun erlang:is_function/2, L).
+              ">>,
+           [inline_list_funcs],
+           []}
+         ],
+    run(Config, Ts),
+
     ok.
 
 
