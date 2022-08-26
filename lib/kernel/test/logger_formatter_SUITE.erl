@@ -272,7 +272,7 @@ template(_Config) ->
                                [[nested,subkey]]),
     String8 = format(info,{"~p",[term]},Meta8,#{template=>Template8,
                                                 single_line=>true}),
-    ct:log(String6),
+    ct:log(String8),
     SelfStr = pid_to_list(self()),
     RefStr8 = ref_to_list(Ref8),
     ListStr = "[list,\"string\",4321,#{},{tuple}]",
@@ -344,6 +344,18 @@ template(_Config) ->
         "exist:#{key1 => #{subkey1 => value1},key2 => value2}" -> ok;
         _ -> ct:fail({full_nested_map_unexpected,MultipleKeysStr10})
     end,
+
+    Meta11A = #{time=>Time,be_short=>ok},
+    Meta11B = #{time=>Time},
+    Template11 =
+        [{be_short,
+          ["short:",msg],
+          ["long:[",level,"]",msg]}],
+    String11A = format(info,{"~p",[term]},Meta11A,#{template=>Template11,single_line=>true}),
+    String11B = format(info,{"~p",[term]},Meta11B,#{template=>Template11,single_line=>true}),
+    ct:log(String11A),
+    ct:log(String11B),
+    {"short:term","long:[info]term"} = {String11A,String11B},
 
     ok.
 
