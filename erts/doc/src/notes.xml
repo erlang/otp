@@ -760,6 +760,24 @@
 
 </section>
 
+<section><title>Erts 12.3.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug causing <c>ets:info</c> (and sometimes
+	    <c>ets:whereis</c>) to return 'undefined' for an existing
+	    table if a concurrent process were doing
+	    <c>ets:insert</c> with a long list on the same table.</p>
+          <p>
+	    Own Id: OTP-18218 Aux Id: ERIERL-855 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
