@@ -516,9 +516,16 @@ message_to_string({contract_range, [Contract, M, F, ArgStrings,
 		" return for ~tw~ts on position ~s is ~ts\n",
 		[con(M, F, Contract, I), F, a(ArgStrings, I),
                  pos(Location, E), t(CRet, I)]);
-message_to_string({invalid_contract, [M, F, A, Sig]}, I, _E) ->
-  io_lib:format("Invalid type specification for function ~w:~tw/~w."
-		" The success typing is ~ts\n", [M, F, A, sig(Sig, I)]);
+message_to_string({invalid_contract, [M, F, A, none, Contract, Sig]}, I, _E) ->
+  io_lib:format("Invalid type specification for function ~w:~tw/~w.\n"
+		" The success typing is ~ts\n"
+		" But the spec is ~ts\n", [M, F, A, con(M, F, Sig, I), con(M, F, Contract, I)]);
+message_to_string({invalid_contract, [M, F, A, InvalidContractDetails, Contract, Sig]}, I, _E) ->
+  io_lib:format("Invalid type specification for function ~w:~tw/~w.\n"
+		" The success typing is ~ts\n"
+		" But the spec is ~ts\n"
+		"~ts",
+    [M, F, A, con(M, F, Sig, I), con(M, F, Contract, I), format_invalid_contract_details(InvalidContractDetails)]);
 message_to_string({contract_with_opaque, [M, F, A, OpaqueType, SigType]},
                  I, _E) ->
   io_lib:format("The specification for ~w:~tw/~w"
@@ -620,6 +627,27 @@ message_to_string({unknown_behaviour, B}, _I, _E) ->
 %%-----------------------------------------------------------------------------
 %% Auxiliary functions below
 %%-----------------------------------------------------------------------------
+
+format_invalid_contract_details({InvalidArgIdxs, IsRangeInvalid}) ->
+  ArgOrd = form_position_string(InvalidArgIdxs),
+  ArgDesc =
+    case InvalidArgIdxs of
+      [] -> "";
+      [_] -> io_lib:format("They do not overlap in the ~ts argument", [ArgOrd]);
+      [_|_] -> io_lib:format("They do not overlap in the ~ts arguments", [ArgOrd])
+    end,
+  RangeDesc =
+    case IsRangeInvalid of
+      true -> "return types do not overlap";
+      false -> ""
+    end,
+  case {ArgDesc, RangeDesc} of
+    {"", ""} -> "";
+    {"", [_|_]} -> io_lib:format(" The ~ts\n", [RangeDesc]);
+    {[_|_], ""} -> io_lib:format(" ~ts\n", [ArgDesc]);
+    {[_|_], [_|_]} -> io_lib:format(" ~ts, and the ~ts\n", [ArgDesc, RangeDesc])
+  end.
+
 
 call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet,
 			{IsOverloaded, Contract}, I) ->

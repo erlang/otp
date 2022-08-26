@@ -21,7 +21,10 @@ rec_api.erl:123:5: The attempt to match a term of type #r3{f1::10} against the p
 rec_api.erl:24:18: Record construction #r1{f1::10} violates the declared type of field f1::rec_api:a()
 rec_api.erl:29:5: Matching of pattern {'r1', 10} tagged with a record name violates the declared type of #r1{f1::10}
 rec_api.erl:33:5: The attempt to match a term of type rec_adt:r1() against the pattern {'r1', 'a'} breaks the opacity of the term
-rec_api.erl:35:2: Invalid type specification for function rec_api:adt_t1/1. The success typing is (#r1{f1::'a'}) -> #r1{f1::'a'}
+rec_api.erl:35:2: Invalid type specification for function rec_api:adt_t1/1.
+ The success typing is rec_api:adt_t1(#r1{f1::'a'}) -> #r1{f1::'a'}
+ But the spec is rec_api:adt_t1(rec_adt:r1()) -> rec_adt:r1()
+ They do not overlap in the 1st argument, and the return types do not overlap
 rec_api.erl:40:2: The specification for rec_api:adt_r1/0 has an opaque subtype rec_adt:r1() which is violated by the success typing () -> #r1{f1::'a'}
 rec_api.erl:85:13: The attempt to match a term of type rec_adt:f() against the record field 'f' declared to be of type rec_api:f() breaks the opacity of the term
 rec_api.erl:99:18: Record construction #r2{f1::10} violates the declared type of field f1::rec_api:a()
@@ -55,11 +58,20 @@ simple1_api.erl:319:16: Guard test not(and('true','true')) can never succeed
 simple1_api.erl:337:8: Clause guard cannot succeed.
 simple1_api.erl:342:8: Guard test B::simple1_adt:b2() =:= 'true' contains an opaque term as 1st argument
 simple1_api.erl:347:8: Guard test A::simple1_adt:b1() =:= 'true' contains an opaque term as 1st argument
-simple1_api.erl:355:2: Invalid type specification for function simple1_api:bool_adt_t6/1. The success typing is ('true') -> 1
+simple1_api.erl:355:2: Invalid type specification for function simple1_api:bool_adt_t6/1.
+ The success typing is simple1_api:bool_adt_t6('true') -> 1
+ But the spec is simple1_api:bool_adt_t6(simple1_adt:b1()) -> integer()
+ They do not overlap in the 1st argument
 simple1_api.erl:365:8: Clause guard cannot succeed.
-simple1_api.erl:368:2: Invalid type specification for function simple1_api:bool_adt_t8/2. The success typing is (boolean(),boolean()) -> 1
+simple1_api.erl:368:2: Invalid type specification for function simple1_api:bool_adt_t8/2.
+ The success typing is simple1_api:bool_adt_t8(boolean(),boolean()) -> 1
+ But the spec is simple1_api:bool_adt_t8(simple1_adt:b1(),simple1_adt:b2()) -> integer()
+ They do not overlap in the 1st and 2nd arguments
 simple1_api.erl:378:8: Clause guard cannot succeed.
-simple1_api.erl:381:2: Invalid type specification for function simple1_api:bool_adt_t9/2. The success typing is ('false','false') -> 1
+simple1_api.erl:381:2: Invalid type specification for function simple1_api:bool_adt_t9/2.
+ The success typing is simple1_api:bool_adt_t9('false','false') -> 1
+ But the spec is simple1_api:bool_adt_t9(simple1_adt:b1(),simple1_adt:b2()) -> integer()
+ They do not overlap in the 1st and 2nd arguments
 simple1_api.erl:407:12: The size simple1_adt:i1() breaks the opacity of A
 simple1_api.erl:418:9: The attempt to match a term of type non_neg_integer() against the variable A breaks the opacity of simple1_adt:i1()
 simple1_api.erl:425:9: The attempt to match a term of type non_neg_integer() against the variable B breaks the opacity of simple1_adt:i1()

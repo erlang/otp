@@ -683,7 +683,7 @@ replace_location(Warnings) ->
 
 warning_for_module(Mod) -> {warn_contract_types,loc,
                        {invalid_contract,
-                           [Mod,wrong,1,"(integer()) -> integer()"]}}.
+                           [Mod,wrong,1,{[1],true},"(float()) -> float()","(integer()) -> integer()"]}}.
 
 compile_all(DataDir, PrivDir) ->
     [{ok, _} = compile:file(File, [{outdir, PrivDir}, debug_info]) || File <- filelib:wildcard(DataDir ++ "*.erl")].
