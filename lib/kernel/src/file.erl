@@ -39,7 +39,7 @@
 %% Specialized
 -export([ipread_s32bu_p32bu/3]).
 %% Generic file contents.
--export([open/2, close/1, advise/4, allocate/3,
+-export([open/2, close/1, flock/2, advise/4, allocate/3,
 	 read/2, write/2, 
 	 pread/2, pread/3, pwrite/2, pwrite/3,
 	 read_line/1,
@@ -560,6 +560,24 @@ close(File) when is_pid(File) ->
 close(#file_descriptor{module = Module} = Handle) ->
     Module:close(Handle);
 close(_) ->
+    {error, badarg}.
+
+-spec flock(IoDevice, Flags) -> ok | {error, Reason} when
+      IoDevice :: io_device(),
+      Flags :: list(Flag),
+      Flag :: shared | exclusive | non_blocking | unlock,
+      Reason :: posix() | badarg | terminated.
+
+flock(File, Flags) when is_pid(File) ->
+    case file_request(File, {flock, Flags}) of
+	{error, terminated} ->
+	    ok;
+	Other ->
+	    Other
+    end;
+flock(#file_descriptor{module = Module} = Handle, Flags) ->
+    Module:flock(Handle, Flags);
+flock(_, _) ->
     {error, badarg}.
 
 -spec advise(IoDevice, Offset, Length, Advise) -> ok | {error, Reason} when

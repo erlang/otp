@@ -262,6 +262,49 @@ int efile_close(efile_data_t *d, posix_errno_t *error) {
     return 1;
 }
 
+static int get_flock_flags(enum efile_lock_t modes) {
+    int flags = 0;
+
+    if(modes & EFILE_LOCK_SH) {
+        flags |= LOCK_SH;
+    }
+
+    if(modes & EFILE_LOCK_EX) {
+        flags |= LOCK_EX;
+    }
+
+    if(modes & EFILE_LOCK_NB) {
+        flags |= LOCK_NB;
+    }
+
+    if(modes & EFILE_LOCK_UN) {
+        flags |= LOCK_UN;
+    }
+
+    return flags;
+}
+
+int efile_flock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error) {
+    efile_unix_t *u = (efile_unix_t*)d;
+    int fd;
+    int flags = get_flock_flags(modes);
+
+    ASSERT(enif_thread_type() == ERL_NIF_THR_DIRTY_IO_SCHEDULER);
+    ASSERT(u->fd != -1);
+
+    fd = u->fd;
+
+    do {
+        if(flock(fd, flags) == 0) {
+            return 1;
+        }
+    } while(errno == EINTR);
+
+    *error = errno;
+
+    return 0;
+}
+
 static void shift_iov(SysIOVec **iov, int *iovlen, ssize_t shift) {
     SysIOVec *head_vec = (*iov);
 

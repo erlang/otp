@@ -267,6 +267,25 @@
       </desc>
     </func>
     <func>
+      <name name="flock" arity="2" since="OTP 26"/>
+      <fsummary>Locks or unlocks a file for shared or exclusive access.</fsummary>
+      <desc>
+        <p>Locks the file referenced by <c><anno>IoDevice</anno></c>. Returns <c>ok</c>
+          if the operation succedes or <c>{error, atom()}</c> otherwise.</p>
+        <p>If the flag <c>unlock</c> is set then the function unlocks the file.</p>
+        <p>On Unix shared locks can be upgraded to exclusive and vice versa.
+          Note however, that it is not atomic.</p>
+        <p>On Unix this function uses <c>flock(2)</c> syscall</p>
+        <p>On Windows one process can hold both shared and exclusive locks
+          over the same file range. This situation needs two unlock operations.</p>
+        <p>On Windows this function uses <c>LockFileEx</c> and <c>UnlokcFileEx</c>
+          win32 API calls</p>
+        <p>Notice that unless option <c>non_blocking</c> was
+          set, <c>flock/2</c> may block if the file is already locked by
+          some other operating system process with an incompatible lock type.</p>
+      </desc>
+    </func>
+    <func>
       <name name="consult" arity="1" since=""/>
       <fsummary>Read Erlang terms from a file.</fsummary>
       <desc>

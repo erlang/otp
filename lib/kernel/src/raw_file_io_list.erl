@@ -19,7 +19,7 @@
 %%
 -module(raw_file_io_list).
 
--export([close/1, sync/1, datasync/1, truncate/1, advise/4, allocate/3,
+-export([close/1, flock/2, sync/1, datasync/1, truncate/1, advise/4, allocate/3,
          position/2, write/2, pwrite/2, pwrite/3,
          read_line/1, read/2, pread/2, pread/3,
          read_handle_info/2]).
@@ -49,6 +49,10 @@ make_public_fd(PrivateFd, Modes) ->
 close(Fd) ->
     PrivateFd = Fd#file_descriptor.data,
     ?CALL_FD(PrivateFd, close, []).
+
+flock(Fd, Opts) ->
+    PrivateFd = Fd#file_descriptor.data,
+    ?CALL_FD(PrivateFd, flock, [Opts]).
 
 sync(Fd) ->
     PrivateFd = Fd#file_descriptor.data,
