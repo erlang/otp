@@ -40,7 +40,7 @@
 #include <linux/falloc.h>
 #endif
 
-#ifdef defined(__linux__) || defined(__DARWIN__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun) || defined(__sun__)
+#if defined(__linux__) || defined(__DARWIN__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun) || defined(__sun__)
 #include <sys/file.h>
 #endif
 
