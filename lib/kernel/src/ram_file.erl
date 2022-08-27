@@ -28,7 +28,7 @@
 	 position/2, truncate/1, datasync/1, sync/1]).
 
 %% Specialized file operations
--export([get_size/1, get_file/1, advise/4]).
+-export([get_size/1, get_file/1, advise/4, flock/2]).
 -export([allocate/3]).
 -export([ipread_s32bu_p32bu/3]).
 
@@ -334,7 +334,8 @@ allocate(#file_descriptor{module = ?MODULE, data = Port}, Offset, Length) ->
 allocate(#file_descriptor{}, _Offset, _Length) ->
     {error, enotsup}.
 
-
+flock(#file_descriptor{}, _Modes) ->
+    {error, enotsup}.
 
 %%%-----------------------------------------------------------------
 %%% Functions to communicate with the driver
