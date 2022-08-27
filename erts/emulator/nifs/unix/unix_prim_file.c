@@ -32,12 +32,16 @@
 #define __DARWIN__ 1
 #endif
 
-#if defined(__DARWIN__) || defined(HAVE_LINUX_FALLOC_H) || defined(HAVE_POSIX_FALLOCATE)
+#if defined(__DARWIN__) || defined(HAVE_LINUX_FALLOC_H) || defined(HAVE_POSIX_FALLOCATE) || defined(__OpenBSD__) || defined(__NetBSD__)
 #include <fcntl.h>
 #endif
 
 #ifdef HAVE_LINUX_FALLOC_H
 #include <linux/falloc.h>
+#endif
+
+#ifdef defined(__linux__) || defined(__DARWIN__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun) || defined(__sun__)
+#include <sys/file.h>
 #endif
 
 #include <utime.h>
