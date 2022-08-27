@@ -278,7 +278,7 @@
         <p>On Unix this function uses <c>flock(2)</c> syscall.</p>
         <p>On Windows one process can hold both shared and exclusive locks
           over the same file range. This situation needs two unlock operations.</p>
-        <p>On Windows this function uses <c>LockFileEx</c> and <c>UnlokcFileEx</c>
+        <p>On Windows this function uses <c>LockFileEx</c> and <c>UnlockFileEx</c>
           win32 API calls</p>
         <p>Notice that unless option <c>non_blocking</c> was
           set, <c>flock/2</c> may block if the file is already locked by
