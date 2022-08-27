@@ -275,7 +275,7 @@
         <p>If the flag <c>unlock</c> is set then the function unlocks the file.</p>
         <p>On Unix shared locks can be upgraded to exclusive and vice versa.
           Note however, that it is not atomic.</p>
-        <p>On Unix this function uses <c>flock(2)</c> syscall</p>
+        <p>On Unix this function uses <c>flock(2)</c> syscall.</p>
         <p>On Windows one process can hold both shared and exclusive locks
           over the same file range. This situation needs two unlock operations.</p>
         <p>On Windows this function uses <c>LockFileEx</c> and <c>UnlokcFileEx</c>
