@@ -570,10 +570,10 @@ close(_) ->
 
 flock(File, Flags) when is_pid(File) ->
     case file_request(File, {flock, Flags}) of
-	{error, terminated} ->
-	    ok;
-	Other ->
-	    Other
+        {error, terminated} ->
+            ok;
+        Other ->
+            Other
     end;
 flock(#file_descriptor{module = Module} = Handle, Flags) ->
     Module:flock(Handle, Flags);
