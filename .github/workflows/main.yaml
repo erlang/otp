@@ -99,7 +99,7 @@ jobs:
 
   build-macos:
     name: Build Erlang/OTP (macOS)
-    runs-on: macos-10.15
+    runs-on: macos-12
     needs: pack
     env:
       WXWIDGETS_VERSION: 3.1.5
@@ -116,7 +116,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: wxWidgets
-          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-12
 
       - name: Compile wxWidgets
         if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
@@ -149,7 +149,7 @@ jobs:
       RELEASE_LIBBEAM: yes
       TARGET_ARCH: aarch64-apple-ios
     name: Build Erlang/OTP (iOS)
-    runs-on: macos-10.15
+    runs-on: macos-12
     needs: pack
     steps:
       - name: Download source archive
