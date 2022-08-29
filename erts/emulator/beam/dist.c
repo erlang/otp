@@ -983,6 +983,7 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 	    ASSERT(erts_atomic32_read_nob(&dep->qflgs) & ERTS_DE_QFLG_EXIT);
 	}
 	else {
+            ASSERT(dep->state == ERTS_DE_STATE_CONNECTED);
 	    dep->state = ERTS_DE_STATE_EXITING;
 	    erts_mtx_lock(&dep->qlock);
 	    ASSERT(!(erts_atomic32_read_nob(&dep->qflgs) & ERTS_DE_QFLG_EXIT));
