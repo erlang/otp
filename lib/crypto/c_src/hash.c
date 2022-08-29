@@ -522,7 +522,7 @@ ERL_NIF_TERM hash_final_xof_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
         return EXCP_BADARG_N(env, 0, "Bad state");
     if (!enif_get_uint(env, argv[1], &len))
-        return EXCP_BADARG_N(env, 0, "Bad state");
+        return EXCP_BADARG_N(env, 1, "Bad len");
     ASSERT(0 < len);
 
     if ((new_ctx = EVP_MD_CTX_new()) == NULL)
@@ -533,8 +533,6 @@ ERL_NIF_TERM hash_final_xof_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         assign_goto(ret, done, EXCP_ERROR(env, "Can't make a new binary"));
     if (EVP_DigestFinalXOF(new_ctx, outp, len>>3) != 1)
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestFinalXOF failed"));
-
-    ASSERT(len == (unsigned)EVP_MD_CTX_size(ctx->ctx));
 
  done:
     if (new_ctx)
