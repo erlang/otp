@@ -59,7 +59,7 @@
          eddsa_priv_pkcs8/1,
          eddsa_priv_rfc5958/0,
          eddsa_priv_rfc5958/1,
-         edsa_sign_verify_24_compat/1,
+         eddsa_sign_verify_24_compat/1,
          init_ec_pem_encode_generated/1,
          ec_pem_encode_generated/0,
          ec_pem_encode_generated/1,
@@ -175,7 +175,7 @@ groups() ->
 			      ec_pem_encode_generated, gen_ec_param_prime_field,
 			      gen_ec_param_char_2_field]},
      {sign_verify, [], [rsa_sign_verify, rsa_pss_sign_verify, dsa_sign_verify,
-                        edsa_sign_verify_24_compat]}
+                        eddsa_sign_verify_24_compat]}
     ].
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -226,6 +226,15 @@ init_per_testcase(rsa_pss_sign_verify, Config) ->
         false ->
             {skip, not_supported_by_crypto}
     end;
+
+init_per_testcase(eddsa_sign_verify_24_compat, Config) ->
+    case lists:member(eddsa, crypto:supports(public_keys)) of
+        true ->
+            Config;
+        false ->
+            {skip, eddsa_not_supported_by_crypto}
+    end;
+
 init_per_testcase(TestCase, Config) ->
     case TestCase of
         ec_pem_encode_generated ->
@@ -442,7 +451,7 @@ eddsa_priv_rfc5958(Config) when is_list(Config) ->
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
-edsa_sign_verify_24_compat(_Config) ->
+eddsa_sign_verify_24_compat(_Config) ->
     Key =
         {'ECPrivateKey',1,
          <<15,192,10,239,169,93,9,105,143,13,221,71,191,255,201,
@@ -465,20 +474,36 @@ edsa_sign_verify_24_compat(_Config) ->
           64,179,135,138,31,172,236,105,0,71,50,195,168,247,216,110,210,61,159,5>>,
     lists:foreach(
       fun(Sha) ->
-              case public_key:sign(Body, Sha, Key) of
-                  ExpectedSignature ->
-                      ok;
-                  Others ->
-                      ct:log("Sha: ~p~nGot:    ~p~nExpect: ~p", [Sha,Others,ExpectedSignature]),
-                      ct:fail("Bad sign result")
-              end,
-              case public_key:verify(Body, Sha, ExpectedSignature, Key) of
-                  true ->
-                      ok;
-                  false ->
-                      ct:fail("Bad verify result for ~p",[Sha])
+              ct:log("Try Sha = ~p", [Sha]),
+              try
+                  case public_key:sign(Body, Sha, Key) of
+                      ExpectedSignature ->
+                          ct:log("sign Sha ~p ok", [Sha]),
+                          ExpectedSignature;
+                      Others ->
+                          ct:log("Sha: ~p~nGot:    ~p~nExpect: ~p", [Sha,Others,ExpectedSignature]),
+                          ct:fail("Bad sign result")
+                  end
+              of
+                  Sig ->
+                      try
+                          case public_key:verify(Body, Sha, Sig, Key) of
+                              true ->
+                                  ct:log("verify Sha ~p ok", [Sha]);
+                              false ->
+                                  ct:fail("Bad verify result for ~p",[Sha])
+                          end
+                      catch
+                          C:E ->
+                              ct:log("Verify: ~p:~p  Sha = ~p", [C,E,Sha]),
+                              ct:fail("Bad verify",[])
+                      end
+              catch
+                  C:E ->
+                      ct:log("Sign: ~p:~p  Sha = ~p", [C,E,Sha]),
+                      ct:fail("Bad sign",[])
               end
-      end, [none, undefined | crypto:supports(hashs)]).
+      end, [undefined, none | crypto:supports(hashs)]).
 
 
 init_ec_pem_encode_generated(Config) ->
