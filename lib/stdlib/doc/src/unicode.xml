@@ -37,7 +37,7 @@
     representations. It converts between ISO Latin-1 characters and Unicode
     characters, but it can also convert between different Unicode encodings
     (like UTF-8, UTF-16, and UTF-32).</p>
-  <p>The default Unicode encoding in Erlang is in binaries UTF-8, which is also
+  <p>The default Unicode encoding in Erlang binaries is UTF-8, which is also
     the format in which built-in functions and libraries in OTP expect to find
     binary Unicode data. In lists, Unicode data is encoded as integers, each
     integer representing one character and encoded simply as the Unicode code
