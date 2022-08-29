@@ -1225,14 +1225,21 @@ start_it([]) ->
     ok;
 start_it({eval,Bin}) ->
     Str = b2s(Bin),
-    {ok,Ts,_} = erl_scan:string(Str),
-    Ts1 = case reverse(Ts) of
-	      [{dot,_}|_] -> Ts;
-	      TsR -> reverse([{dot,erl_anno:new(1)} | TsR])
-	  end,
-    {ok,Expr} = erl_parse:parse_exprs(Ts1),
-    {value, _Value, _Bs} = erl_eval:exprs(Expr, erl_eval:new_bindings()),
-    ok;
+    try
+        {ok,Ts,_} = erl_scan:string(Str),
+        Ts1 = case reverse(Ts) of
+                  [{dot,_}|_] -> Ts;
+                  TsR -> reverse([{dot,erl_anno:new(1)} | TsR])
+              end,
+        {ok,Expr} = erl_parse:parse_exprs(Ts1),
+        {value, _Value, _Bs} = erl_eval:exprs(Expr, erl_eval:new_bindings()),
+        ok
+    catch E:R:ST ->
+            erlang:display_string(
+              binary_to_list(
+                iolist_to_binary(["Failed to eval: ",Bin,"\n"]))),
+            erlang:raise(E,R,ST)
+    end;
 start_it([_|_]=MFA) ->
     case MFA of
 	[M]        -> M:start();
