@@ -119,8 +119,7 @@
 %% proc_lib exports
 -export([reader/1, writer/1]).
 
--export([on_load/0]).
-
+-on_load(on_load/0).
 
 %%-define(debug, true).
 -ifdef(debug).

@@ -119,7 +119,6 @@ callback_mode() -> state_functions.
 -spec init(arguments()) -> gen_statem:init_result(init).
 init(Args) ->
     process_flag(trap_exit, true),
-    prim_tty:on_load(),
     IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
     StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
     try

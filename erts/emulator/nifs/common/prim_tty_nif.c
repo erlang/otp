@@ -996,9 +996,7 @@ static void tty_select_stop(ErlNifEnv* caller_env, void* obj, ErlNifEvent event,
 #endif
 }
 
-static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
-{
-
+static void load_resources(ErlNifEnv* env, ErlNifResourceFlags rt_flags) {
     ErlNifResourceTypeInit rt = {
         NULL /* dtor */,
         tty_select_stop,
@@ -1008,10 +1006,13 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 ATOMS
 #undef ATOM_DECL
 
+    tty_rt = enif_open_resource_type_x(env, "tty", &rt, rt_flags, NULL);
+}
+
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
     *priv_data = NULL;
-
-    tty_rt = enif_open_resource_type_x(env, "tty", &rt, ERL_NIF_RT_CREATE, NULL);
-
+    load_resources(env, ERL_NIF_RT_CREATE);
     return 0;
 }
 
@@ -1029,8 +1030,7 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
     if (*priv_data != NULL) {
 	return -1; /* Don't know how to do that */
     }
-    if (load(env, priv_data, load_info)) {
-	return -1;
-    }
+    *priv_data = NULL;
+    load_resources(env, ERL_NIF_RT_TAKEOVER);
     return 0;
 }
