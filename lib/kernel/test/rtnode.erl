@@ -19,7 +19,7 @@
 %%
 -module(rtnode).
 
--export([run/1, run/2, run/3, run/4, start/1, start/3, send_commands/4, stop/1,
+-export([run/1, run/2, run/3, run/4, start/1, start/3, start/4, send_commands/4, stop/1,
          start_runerl_command/3,
          check_logs/3, check_logs/4, read_logs/1, dump_logs/1,
          get_default_shell/0, get_progs/0, create_tempdir/0, timeout/1]).
@@ -67,19 +67,20 @@ run(Commands, Nodename, ErlPrefix, Args) ->
     end.
 
 start(Args) ->
-    start([], " ", Args).
-
+    start([], " ", Args, []).
 start(Nodename, ErlPrefix, Args) ->
-    case get_progs() of
-	{error,_Reason} ->
-	    {skip,"No runerl present"};
-	{RunErl,ToErl,[Erl|ErlArgs] = ErlWArgs} ->
-	    case create_tempdir() of
-		{error, Reason2} ->
-		    {skip, Reason2};
-		Tempdir when ErlPrefix =/= [] ->
-		    SPid =
-			start_runerl_node(RunErl,
+    start(Nodename, ErlPrefix, Args, []).
+start(Nodename, ErlPrefix, Args, Options) ->
+    case get_progs(Options) of
+        {error,Reason} ->
+            {skip,Reason};
+        {RunErl,ToErl,[Erl|ErlArgs] = ErlWArgs} ->
+            case create_tempdir() of
+                {error, Reason2} ->
+                    {skip, Reason2};
+                Tempdir when ErlPrefix =/= [] ->
+                    SPid =
+                        start_runerl_node(RunErl,
                                           ErlPrefix++"\\\""++Erl++"\\\" "++
                                               lists:join($\s, ErlArgs),
 					  Tempdir,Nodename,Args),
@@ -112,9 +113,9 @@ stop_try_harder(ToErl, Tempdir, SPid) ->
                        [{putline,[7]},
                         {expect, " --> $"},
                         {putline, "s"},
-                        {putline, "c"},
-                        {putline, ""}], 1),
-    stop_runerl_node(CPid).
+                         {putline, "c"},
+                         {putline, ""}], 1),
+                       stop_runerl_node(CPid).
 
 timeout(longest) ->
     timeout(long) + timeout(normal);
@@ -183,10 +184,10 @@ wait_for_runerl_server(SPid) ->
     Ref = erlang:monitor(process, SPid),
     Timeout = timeout(long),
     receive
-	{'DOWN', Ref, process, SPid, _Reason} ->
-	    ok
+        {'DOWN', Ref, process, SPid, _Reason} ->
+            ok
     after Timeout ->
-	    {error, runerl_server_timeout}
+            {error, runerl_server_timeout}
     end.
 
 stop_runerl_node(CPid) ->
@@ -194,14 +195,14 @@ stop_runerl_node(CPid) ->
     CPid ! {self(), kill_emulator},
     Timeout = timeout(longest),
     receive
-	{'DOWN', Ref, process, CPid, noproc} ->
-	    ok;
-	{'DOWN', Ref, process, CPid, normal} ->
-	    ok;
-	{'DOWN', Ref, process, CPid, {error, Reason}} ->
-	    {error, Reason}
+        {'DOWN', Ref, process, CPid, noproc} ->
+            ok;
+        {'DOWN', Ref, process, CPid, normal} ->
+            ok;
+        {'DOWN', Ref, process, CPid, {error, Reason}} ->
+            {error, Reason}
     after Timeout ->
-	    {error, toerl_server_timeout}
+            {error, toerl_server_timeout}
     end.
 
 get_progs() ->
@@ -217,7 +218,21 @@ get_progs() ->
             {RunErl, ToErl, Erl};
         _ ->
             {error,"Not a Unix OS"}
-        end.
+    end.
+get_progs(Opts) ->
+    case get_progs() of
+        {RunErl, ToErl, Erl} ->
+            case proplists:get_value(release, Opts) of
+                undefined -> {RunErl, ToErl, Erl};
+                Release ->
+                    case test_server_node:find_release(Release) of
+                        none -> {error, "Could not find release "++Release};
+                        R -> {RunErl, ToErl, [R]}
+                    end
+            end;
+        E -> E
+    end.
+
 
 find_executable(Name) ->
     case os:find_executable(Name) of
@@ -234,34 +249,34 @@ create_tempdir(Dir,X) when X > $Z, X < $a ->
     create_tempdir(Dir,$a);
 create_tempdir(Dir,X) when X > $z -> 
     Estr = lists:flatten(
-	     io_lib:format("Unable to create ~s, reason eexist",
-			   [Dir++[$z]])),
+             io_lib:format("Unable to create ~s, reason eexist",
+                           [Dir++[$z]])),
     {error, Estr};
 create_tempdir(Dir0, Ch) ->
     %% Expect fairly standard unix.
     Dir = Dir0++[Ch],
     case file:make_dir(Dir) of
-	{error, eexist} ->
-	    create_tempdir(Dir0, Ch+1);
-	{error, Reason} ->
-	    Estr = lists:flatten(
-		     io_lib:format("Unable to create ~s, reason ~p",
-				   [Dir,Reason])),
-	    {error,Estr};
-	ok ->
-	    Dir
+        {error, eexist} ->
+            create_tempdir(Dir0, Ch+1);
+        {error, Reason} ->
+            Estr = lists:flatten(
+                     io_lib:format("Unable to create ~s, reason ~p",
+                                   [Dir,Reason])),
+            {error,Estr};
+        ok ->
+            Dir
     end.
 
 start_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
     XArg = case Nodename of
-	       [] ->
-		   [];
-	       _ ->
-		   " -sname "++(if is_atom(Nodename) -> atom_to_list(Nodename);
-				   true -> Nodename
-				end)++
-		       " -setcookie "++atom_to_list(erlang:get_cookie())
-	   end ++ " " ++ Args,
+               [] ->
+                   [];
+               _ ->
+                   " -sname "++(if is_atom(Nodename) -> atom_to_list(Nodename);
+                                   true -> Nodename
+                                end)++
+                       " -setcookie "++atom_to_list(erlang:get_cookie())
+           end ++ " " ++ Args,
     spawn(fun() -> start_runerl_command(RunErl, Tempdir, Erl++XArg) end).
 
 start_runerl_command(RunErl, Tempdir, Cmd) ->
@@ -312,10 +327,10 @@ start_peer_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
 start_toerl_server(ToErl,Tempdir,SPid) ->
     Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir,SPid]),
     receive
-	{Pid,started} ->
-	    Pid;
-	{Pid,error,Reason} ->
-	    {error,Reason}
+        {Pid,started} ->
+            Pid;
+        {Pid,error,Reason} ->
+            {error,Reason}
     end.
 
 try_to_erl(_Command, 0) ->
@@ -325,34 +340,34 @@ try_to_erl(Command, N) ->
     Port = open_port({spawn, Command},[eof]),
     Timeout = timeout(short) div 2,
     receive
-	{Port, eof} ->
+        {Port, eof} ->
             timer:sleep(Timeout),
-	    try_to_erl(Command, N-1)
+            try_to_erl(Command, N-1)
     after Timeout ->
-	    ?dbg(Port),
-	    Port
+            ?dbg(Port),
+            Port
     end.
 
 toerl_server(Parent, ToErl, TempDir, SPid) ->
     Port = try_to_erl("\""++ToErl++"\" "++TempDir++"/ 2>/dev/null", 8),
     case Port of
-	P when is_port(P) ->
-	    Parent ! {self(),started};
-	{error,Other} ->
-	    Parent ! {self(),error,Other},
-	    exit(Other)
+        P when is_port(P) ->
+            Parent ! {self(),started};
+        {error,Other} ->
+            Parent ! {self(),error,Other},
+            exit(Other)
     end,
 
     {ok, InitialData} = file:read_file(filename:join(TempDir,"erlang.log.1")),
 
     State = #{port => Port, acc => unicode:characters_to_list(InitialData), spid => SPid},
     case toerl_loop(State) of
-	normal ->
-	    ok;
-	{error, Reason} ->
-	    error_logger:error_msg("toerl_server exit with reason ~p~n",
-				   [Reason]),
-	    exit(Reason)
+        normal ->
+            ok;
+        {error, Reason} ->
+            error_logger:error_msg("toerl_server exit with reason ~p~n",
+                                   [Reason]),
+            exit(Reason)
     end.
 
 toerl_loop(#{port := Port} = State0) ->
@@ -362,24 +377,24 @@ toerl_loop(#{port := Port} = State0) ->
     State = handle_expect(State0),
 
     receive
-	{Port,{data,Data}} when is_port(Port) ->
-	    ?dbg({?LINE,Port,{data,Data}}),
+        {Port,{data,Data}} when is_port(Port) ->
+            ?dbg({?LINE,Port,{data,Data}}),
             toerl_loop(State#{acc => map_get(acc, State) ++ Data});
         {Pid, Ref, {expect, Encoding, Expect, Timeout}} ->
             toerl_loop(init_expect(Pid, Ref, Encoding, Expect, Timeout, State));
         {Pid, Ref, {send_data, Data}} ->
-	    ?dbg({?LINE,Port,{send_data,Data}}),
+            ?dbg({?LINE,Port,{send_data,Data}}),
             Port ! {self(), {command, Data}},
-	    Pid ! {Ref, ok},
-	    toerl_loop(State);
-	{_Pid, kill_emulator} ->
+            Pid ! {Ref, ok},
+            toerl_loop(State);
+        {_Pid, kill_emulator} ->
             kill_emulator(State);
         {timeout,Timer,expect_timeout} ->
             toerl_loop(handle_expect_timeout(Timer, State));
-	{Port, eof} ->
-	    {error, unexpected_eof};
-	Other ->
-	    {error, {unexpected, Other}}
+        {Port, eof} ->
+            {error, unexpected_eof};
+        Other ->
+            {error, {unexpected, Other}}
     end.
 
 kill_emulator(#{spid := SPid, port := Port}) when is_pid(SPid) ->
@@ -493,17 +508,17 @@ compile_expect([], _E) ->
     end.
 
 check_logs(Logname, Pattern, Logs) ->
-check_logs(Logname, Pattern, true, Logs).
+    check_logs(Logname, Pattern, true, Logs).
 check_logs(Logname, Pattern, Match, Logs) ->
-        case re:run(maps:get(Logname, Logs), Pattern) of
-            {match, [_]} when Match ->
-                ok;
-            nomatch when not Match ->
-                ok;
-            _ ->
-                dump_logs(Logs),
-                ct:fail("~p not found in log ~ts",[Pattern, Logname])
-        end.
+    case re:run(maps:get(Logname, Logs), Pattern) of
+        {match, [_]} when Match ->
+            ok;
+        nomatch when not Match ->
+            ok;
+        _ ->
+            dump_logs(Logs),
+            ct:fail("~p not found in log ~ts",[Pattern, Logname])
+    end.
 
 dump_logs(Logs) ->
     maps:foreach(
