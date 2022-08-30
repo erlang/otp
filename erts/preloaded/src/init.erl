@@ -53,7 +53,7 @@
 	 get_argument/1,script_id/0,script_name/0]).
 
 %% for the on_load functionality; not for general use
--export([run_on_load_handlers/0]).
+-export([run_on_load_handlers/0, run_on_load_handlers/1]).
 
 %% internal exports
 -export([fetch_loaded/0,ensure_loaded/1,make_permanent/2,
@@ -1463,8 +1463,11 @@ archive_extension() ->
 %%%
 
 run_on_load_handlers() ->
+    run_on_load_handlers(all).
+
+run_on_load_handlers(Mods) when is_list(Mods); Mods =:= all ->
     Ref = monitor(process, ?ON_LOAD_HANDLER),
-    catch ?ON_LOAD_HANDLER ! run_on_load,
+    catch ?ON_LOAD_HANDLER ! {run_on_load, self(), Ref, Mods},
     receive
 	{'DOWN',Ref,process,_,noproc} ->
 	    %% There is no on_load handler process,
@@ -1477,7 +1480,9 @@ run_on_load_handlers() ->
 	{'DOWN',Ref,process,_,Res} ->
 	    %% Failure to run an on_load handler.
 	    %% This is fatal during start-up.
-	    exit(Res)
+	    exit(Res);
+        {reply, Ref, on_load_done} ->
+            ok
     end.
 
 start_on_load_handler_process() ->
@@ -1493,9 +1498,14 @@ on_load_loop(Mods, Debug0) ->
 	    on_load_loop(Mods, Debug);
 	{loaded,Mod} ->
 	    on_load_loop([Mod|Mods], Debug0);
-	run_on_load ->
+	{run_on_load, _, _, all} ->
 	    run_on_load_handlers(Mods, Debug0),
-	    exit(on_load_done)
+	    exit(on_load_done);
+        {run_on_load, From, Ref, ModsToRun} ->
+            [run_on_load_handlers([Mod], Debug0)
+             || Mod <- ModsToRun, lists:member(Mod, Mods)],
+            From ! {reply, Ref, on_load_done},
+            on_load_loop(Mods -- ModsToRun, Debug0)
     end.
 
 run_on_load_handlers([M|Ms], Debug) ->
