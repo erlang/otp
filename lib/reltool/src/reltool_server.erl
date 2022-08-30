@@ -1587,7 +1587,7 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
                 Sys#sys{embedded_app_type = Val};
             app_file when Val =:= keep; Val =:= strip; Val =:= all ->
                 Sys#sys{app_file = Val};
-            debug_info when Val =:= keep; Val =:= strip ->
+            debug_info when Val =:= keep; Val =:= strip; is_list(Val) ->
                 Sys#sys{debug_info = Val};
             _ ->
 		reltool_utils:throw_error("Illegal option: ~tp", [{Key, Val}])
@@ -1608,7 +1608,8 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
                 App#app{incl_cond = Val};
 
             debug_info when Val =:= keep;
-			    Val =:= strip ->
+			    Val =:= strip;
+                            is_list(Val) ->
                 App#app{debug_info = Val};
             app_file when Val =:= keep;
 			  Val =:= strip;
@@ -1663,7 +1664,7 @@ decode(#mod{} = Mod, [{Key, Val} | KeyVals]) ->
         case Key of
             incl_cond when Val =:= include; Val =:= exclude; Val =:= derived ->
                 Mod#mod{incl_cond = Val};
-            debug_info when Val =:= keep; Val =:= strip ->
+            debug_info when Val =:= keep; Val =:= strip; is_list(Val) ->
                 Mod#mod{debug_info = Val};
             _ ->
 		reltool_utils:throw_error("Illegal option: ~tp", [{Key, Val}])

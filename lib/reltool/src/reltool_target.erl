@@ -1172,7 +1172,9 @@ spec_mod(Mod, DebugInfo) ->
         keep ->
             {copy_file, File};
         strip ->
-            {strip_beam, File}
+            {strip_beam, File, []};
+        ChunkIds ->
+            {strip_beam, File, ChunkIds}
     end.
 
 spec_app_file(#app{name = Name,
@@ -1315,11 +1317,14 @@ do_eval_spec({write_file, File, Bin},
 	     TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
     reltool_utils:write_file(TargetFile, Bin);
-do_eval_spec({strip_beam, File}, _OrigSourceDir, SourceDir, TargetDir) ->
+do_eval_spec({strip_beam, File, ChunkIds},
+             _OrigSourceDir,
+             SourceDir,
+             TargetDir) ->
     SourceFile = filename:join([SourceDir, File]),
     TargetFile = filename:join([TargetDir, File]),
     BeamBin = reltool_utils:read_file(SourceFile),
-    {ok, {_, BeamBin2}} = beam_lib:strip(BeamBin),
+    {ok, {_, BeamBin2}} = beam_lib:strip(BeamBin, ChunkIds),
     reltool_utils:write_file(TargetFile, BeamBin2).
 
 cleanup_spec(List, TargetDir) when is_list(List) ->
@@ -1349,7 +1354,7 @@ cleanup_spec({copy_file, NewFile, _OldFile}, TargetDir) ->
 cleanup_spec({write_file, File, _}, TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
     file:delete(TargetFile);
-cleanup_spec({strip_beam, File}, TargetDir) ->
+cleanup_spec({strip_beam, File, _ChunkIds}, TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
     file:delete(TargetFile).
 
@@ -1419,7 +1424,7 @@ do_filter_spec(Path,
 do_filter_spec(Path, {write_file, File, _}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
     match(Path2, InclRegexps, ExclRegexps);
-do_filter_spec(Path, {strip_beam, File}, InclRegexps, ExclRegexps) ->
+do_filter_spec(Path, {strip_beam, File, _ChunkIds}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
     match(Path2, InclRegexps, ExclRegexps).
 
