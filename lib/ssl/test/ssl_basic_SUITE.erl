@@ -75,7 +75,9 @@
          fake_intermediate_cert/0,
          fake_intermediate_cert/1,
          incompleat_chain_length/0,
-         incompleat_chain_length/1
+         incompleat_chain_length/1,
+         user_dies/0,
+         user_dies/1
         ]).
 
 %% Apply export
@@ -85,7 +87,8 @@
          version_info_result/1,
          connect_dist_s/1,
          connect_dist_c/1,
-         dummy/1
+         dummy/1,
+         many_client_starter/4
         ]).
 
 -define(TIMEOUT, 20000).
@@ -127,7 +130,8 @@ basic_tests() ->
      fake_root_legacy,
      fake_root_no_intermediate_legacy,
      fake_intermediate_cert,
-     incompleat_chain_length
+     incompleat_chain_length,
+     user_dies
     ].
 
 options_tests() ->
@@ -755,6 +759,28 @@ incompleat_chain_length(Config) when is_list(Config)->
                                         {options, [{verify, verify_peer}, {verify_fun, VerifyFun} | ClientConf]}]),
     ssl_test_lib:check_result(Client, ok, Server, ok).
 
+
+user_dies() ->
+    [{doc, "Test that we do no leak processess when user dies during startup of connection"}].
+user_dies(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Port = ssl_test_lib:inet_port(ServerNode),
+    Server = spawn_link(fun() ->
+                                {ok, L} = ssl:listen(Port, ServerOpts),
+                                loop(L)
+                        end),
+    {ok, _} = ssl:connect(Hostname, Port, ClientOpts),
+    2 = proplists:get_value(supervisors, supervisor:count_children(tls_connection_sup)), 
+    Pid = spawn_link(fun() -> many_client_starter(Hostname, Port, ClientOpts, Server) end),
+    receive
+        {'EXIT', Pid, _} ->
+            check_process_count()
+    end.
+
 %%--------------------------------------------------------------------
 %% callback functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -954,3 +980,42 @@ chipher_suite_checks(Version) ->
             ok
     end.
    
+many_client_starter(Hostname, Port, ClientOpts, Server) ->
+    spawn_clients(Hostname, Port, ClientOpts, 50),
+    ct:sleep(100),
+    many_client_starter(Hostname, Port, ClientOpts, Server).
+
+spawn_clients(_, _, _, 0) ->
+    ok;
+spawn_clients(Hostname, Port, ClientOpts, N) ->
+    spawn_link(fun() ->
+                     case N of
+                         20 ->
+                             exit(self(), kill);
+                         _ ->
+                             {ok, _} = ssl:connect(Hostname, Port, ClientOpts) 
+                     end
+               end),
+    spawn_clients(Hostname, Port, ClientOpts, N-1).
+
+loop(L) ->
+    {ok, A} = ssl:transport_accept(L),
+    spawn(fun() ->
+                  ssl:handshake(A)
+          end),
+    loop(L).
+                 
+check_process_count() ->
+    check_process_count(5).
+
+check_process_count(0) ->
+    2 = proplists:get_value(supervisors, supervisor:count_children(tls_connection_sup));
+check_process_count(N) ->
+    case proplists:get_value(supervisors, supervisor:count_children(tls_connection_sup)) of
+        2 ->
+            ok;
+        Other ->
+            ct:pal("Other ~p", [Other]),
+            ct:sleep(500),
+            check_process_count(N-1)
+    end.
