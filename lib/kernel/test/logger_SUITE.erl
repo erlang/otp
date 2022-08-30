@@ -91,6 +91,7 @@ all() ->
      set_application_level,
      cache_module_level,
      format_report,
+     filter_successful,
      filter_failed,
      handler_failed,
      config_sanity_check,
@@ -523,6 +524,58 @@ format_report(_Config) ->
 
     {"~tp",[[]]} = logger:format_report([[],[],[]]),
 
+    ok.
+
+filter_successful(_Config) ->
+    ok = logger:add_handler(h1,?MODULE,#{level=>all,filter_default=>log}),
+    HF = {fun(#{meta:=#{filter:={set_msg,Msg}}} = Log,_) ->
+                  Log#{msg:=Msg};
+             (#{meta:=#{filter:={return,Ret}}},_) ->
+                  Ret
+          end,
+          []},
+    ok = logger:add_handler_filter(h1,hf,HF),
+
+    ?LOG_NOTICE("hello",#{filter=>{return,stop}}),
+    {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
+    ok = check_no_log(),
+
+    ?LOG_NOTICE("hello",#{filter=>{return,ignore}}),
+    {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
+    ok = check_logged(notice,"hello",?MY_LOC(2)),
+
+    ?LOG_NOTICE("",#{filter=>{set_msg,{'hello',[]}}}),
+    {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
+    ok = check_logged(notice,'hello',[],?MY_LOC(2)),
+
+    ?LOG_NOTICE("",#{filter=>{set_msg,{"hello",[]}}}),
+    {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
+    ok = check_logged(notice,"hello",[],?MY_LOC(2)),
+
+    ?LOG_NOTICE("",#{filter=>{set_msg,{<<"hello">>,[]}}}),
+    {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
+    ok = check_logged(notice,<<"hello">>,[],?MY_LOC(2)),
+
+    ?LOG_NOTICE("",#{filter=>{set_msg,{string,"hello"}}}),
+    {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
+    ok = check_logged(notice,"hello",?MY_LOC(2)),
+
+    ?LOG_NOTICE("",#{filter=>{set_msg,{string,<<"hello">>}}}),
+    {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
+    ok = check_logged(notice,<<"hello">>,?MY_LOC(2)),
+
+    logger:notice("",#{filter=>{set_msg,{report,M1=?map_rep}}}),
+    {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
+    ok = check_logged(notice,M1,#{}),
+
+    logger:notice("",#{filter=>{set_msg,{report,M2=?keyval_rep}}}),
+    {ok,#{filters:=[_]}} = logger:get_handler_config(h1),
+    ok = check_logged(notice,M2,#{}),
+
+    ok.
+
+filter_successful(cleanup,_Config) ->
+    logger:remove_handler(h1),
     ok.
 
 filter_failed(_Config) ->
