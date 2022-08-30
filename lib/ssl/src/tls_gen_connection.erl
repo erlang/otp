@@ -72,41 +72,68 @@
 
 %%====================================================================
 %% Internal application API
-%%====================================================================	     
+%%====================================================================
 %%====================================================================
 %% Setup
 %%====================================================================
 start_fsm(Role, Host, Port, Socket,
-          {#{erl_dist := false, sender_spawn_opts := SenderOpts}, _, Trackers} = Opts,
-	  User, {CbModule, _, _, _, _} = CbInfo, 
-	  Timeout) -> 
-    try
-        {ok, DynSup} = tls_connection_sup:start_child([]),
-        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, SenderOpts}]]),
-	{ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, [Role, Sender, Host, Port, Socket,
-                                                             Opts, User, CbInfo]),
-	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Trackers),
-        ssl_gen_statem:handshake(SslSocket, Timeout)
-    catch
-	error:{badmatch, {error, _} = Error} ->
-	    Error
-    end;
+          {#{erl_dist := ErlDist, sender_spawn_opts := SenderSpawnOpts}, _, Trackers} = Opts,
+	  User, {CbModule, _, _, _, _} = CbInfo,
+	  Timeout) ->
+    SenderOptions = handle_sender_options(ErlDist, SenderSpawnOpts),
+    Starter = start_connection_tree(User, ErlDist, SenderOptions,
+                                    Role, [Host, Port, Socket, Opts, User, CbInfo]),
+    receive
+        {Starter, SockReceiver, SockSender} ->
+            socket_control(Socket, SockReceiver, SockSender, CbModule, Trackers, Timeout);
+        {Starter, Error} ->
+            Error
+    end.
 
-start_fsm(Role, Host, Port, Socket,
-          {#{erl_dist := true, sender_spawn_opts := SenderOpts}, _, Trackers} = Opts,
-	  User, {CbModule, _, _, _, _} = CbInfo, 
-	  Timeout) -> 
-    try
-        SenderOpts1 = [{priority, max} | proplists:delete(priority, SenderOpts)],
-        {ok, DynSup} = tls_connection_sup:start_child_dist([]),
-        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, SenderOpts1}]]),
-	{ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, [Role, Sender, Host, Port, Socket,
-                                                                 Opts, User, CbInfo]),
-	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Trackers),
-        ssl_gen_statem:handshake(SslSocket, Timeout)
-    catch
-	error:{badmatch, {error, _} = Error} ->
-	    Error
+handle_sender_options(ErlDist, SpawnOpts) ->
+    case ErlDist of
+        true ->
+            [[{spawn_opt, [{priority, max} | proplists:delete(priority, SpawnOpts)]}]];
+        false ->
+            [[{spawn_opt, SpawnOpts}]]
+    end.
+
+start_connection_tree(User, IsErlDist, SenderOpts, Role, ReceiverOpts) ->
+    StartConnectionTree =
+        fun() ->
+                case start_dyn_connection_sup(IsErlDist) of
+                    {ok, DynSup} ->
+                        case tls_dyn_connection_sup:start_child(DynSup, sender, SenderOpts) of
+                            {ok, Sender} ->
+                                case tls_dyn_connection_sup:start_child(DynSup, receiver,
+                                                                        [Role, Sender | ReceiverOpts]) of
+                                    {ok, Receiver} ->
+                                        User ! {self(), Receiver, Sender};
+                                    {error, Error} ->
+                                        User ! {self(), Error},
+                                        exit(DynSup, shutdown)
+                                end;
+                            {error, Error} ->
+                                User ! {self(), Error},
+                                exit(DynSup, shutdown)
+                        end;
+                    {error, Error} ->
+                        User ! {self(), Error}
+                end
+        end,
+    spawn(StartConnectionTree).
+
+start_dyn_connection_sup(true) ->
+    tls_connection_sup:start_child_dist([]);
+start_dyn_connection_sup(false) ->
+    tls_connection_sup:start_child([]).
+
+socket_control(Socket, SockReceiver, SockSender, CbModule, Trackers, Timeout) ->
+    case ssl_gen_statem:socket_control(?MODULE, Socket, [SockReceiver, SockSender], CbModule, Trackers) of
+        {ok, SslSocket} ->
+            ssl_gen_statem:handshake(SslSocket, Timeout);
+        Error ->
+            Error
     end.
 
 pids(#state{protocol_specific = #{sender := Sender}}) ->
