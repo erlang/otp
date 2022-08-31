@@ -540,12 +540,12 @@ $ <input>erl \
           to implement an Alternative Carrier for the Erlang
           Distribution</seeguide>.</p>
       </item>
-      <tag><c><![CDATA[-noinput]]></c></tag>
+      <tag><marker id="noinput"/><c><![CDATA[-noinput]]></c></tag>
       <item>
         <p>Ensures that the Erlang runtime system never tries to read
           any input. Implies <c><![CDATA[-noshell]]></c>.</p>
       </item>
-      <tag><c><![CDATA[-noshell]]></c></tag>
+      <tag><marker id="noshell"/><c><![CDATA[-noshell]]></c></tag>
       <item>
         <p>Starts an Erlang runtime system with no shell. This flag
           makes it possible to have the Erlang runtime system as a

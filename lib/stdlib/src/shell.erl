@@ -20,10 +20,10 @@
 -module(shell).
 
 -export([start/0, start/1, start/2, server/1, server/2, history/1, results/1]).
--export([whereis_evaluator/0, whereis_evaluator/1]).
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_allowed/3, non_local_allowed/3]).
 -export([catch_exception/1, prompt_func/1, strings/1]).
+-export([start_interactive/0, start_interactive/1]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
@@ -48,6 +48,16 @@ non_local_allowed({init,stop},[],State) ->
 non_local_allowed(_,_,State) ->
     {false,State}.
 
+-spec start_interactive() -> ok | {error, already_started | enottty}.
+start_interactive() ->
+    user_drv:start_shell().
+-spec start_interactive(noshell | mfa() | {node(), mfa()} | {remote, string()}) ->
+          ok | {error, already_started | enottty}.
+start_interactive({Node, {M, F, A}}) ->
+    user_drv:start_shell(#{ initial_shell => {Node, M, F ,A} });
+start_interactive(InitialShell) ->
+    user_drv:start_shell(#{ initial_shell => InitialShell }).
+
 -spec start() -> pid().
 
 start() ->
@@ -60,60 +70,14 @@ start(NoCtrlG) ->
 
 start(NoCtrlG, StartSync) ->
     _ = code:ensure_loaded(user_default),
-    spawn(fun() -> server(NoCtrlG, StartSync) end).
-
-%% Find the pid of the current evaluator process.
--spec whereis_evaluator() -> 'undefined' | pid().
-
-whereis_evaluator() ->
-    %% locate top group leader, always registered as user
-    %% can be implemented by group (normally) or user 
-    %% (if oldshell or noshell)
-    case whereis(user) of
-	undefined ->
-	    undefined;
-	User ->
-	    %% get user_drv pid from group, or shell pid from user
-	    case group:interfaces(User) of
-		[] ->				% old- or noshell
-		    case user:interfaces(User) of
-			[] ->
-			    undefined;
-			[{shell,Shell}] ->
-			    whereis_evaluator(Shell)
-		    end;
-		[{user_drv,UserDrv}] ->
-		    %% get current group pid from user_drv
-		    case user_drv:interfaces(UserDrv) of
-			[] ->
-			    undefined;
-			[{current_group,Group}] ->
-			    %% get shell pid from group
-			    GrIfs = group:interfaces(Group),
-			    case lists:keyfind(shell, 1, GrIfs) of
-				{shell, Shell} ->
-				    whereis_evaluator(Shell);
-				false ->
-				    undefined
-			    end
-		    end
-	    end
-    end.
-
--spec whereis_evaluator(pid()) -> 'undefined' | pid().
-
-whereis_evaluator(Shell) ->
-    case process_info(Shell, dictionary) of
-	{dictionary,Dict} ->
-	    case lists:keyfind(evaluator, 1, Dict) of
-		{_, Eval} when is_pid(Eval) ->
-		    Eval;
-		_ ->
-		    undefined
-	    end;
-	_ ->
-	    undefined
-    end.
+    Ancestors = [self() | case get('$ancestors') of
+                              undefined -> [];
+                              Anc -> Anc
+                          end],
+    spawn(fun() ->
+                  put('$ancestors', Ancestors),
+                  server(NoCtrlG, StartSync)
+          end).
 
 %% Call this function to start a user restricted shell 
 %% from a normal shell session.
@@ -201,12 +165,24 @@ server(StartSync) ->
 		undefined
 	end,
 
-    case get(no_control_g) of
-	true ->
-	    io:fwrite(<<"Eshell V~s\n">>, [erlang:system_info(version)]);
-	_undefined_or_false ->
-	    io:fwrite(<<"Eshell V~s  (abort with ^G)\n">>,
-		      [erlang:system_info(version)])
+    JCL =
+        case get(no_control_g) of
+            true -> " (type help(). for help)";
+            _ -> " (press Ctrl+G to abort, type help(). for help)"
+        end,
+    DefaultSessionSlogan =
+        io_lib:format(<<"Eshell V~s">>, [erlang:system_info(version)]),
+    SessionSlogan =
+        case application:get_env(stdlib, shell_session_slogan, DefaultSessionSlogan) of
+            SloganFun when is_function(SloganFun, 0) ->
+                SloganFun();
+            Slogan ->
+                Slogan
+        end,
+    try
+        io:fwrite("~ts~ts\n",[unicode:characters_to_list(SessionSlogan),JCL])
+    catch _:_ ->
+            io:fwrite("Warning! The slogan \"~p\" could not be printed.\n",[SessionSlogan])
     end,
     erase(no_control_g),
 

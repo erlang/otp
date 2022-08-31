@@ -23,7 +23,6 @@
 %% Basic standard i/o server for user interface port.
 
 -export([start/0, start/1, start_out/0]).
--export([interfaces/1]).
 
 -define(NAME, user).
 
@@ -54,22 +53,6 @@ start_port(PortSettings) ->
     Id = spawn(fun() -> server({fd,0,1}, PortSettings) end),
     register(?NAME, Id),
     Id.
-
-%% Return the pid of the shell process.
-%% Note: We can't ask the user process for this info since it
-%% may be busy waiting for data from the port.
-interfaces(User) ->
-    case process_info(User, dictionary) of
-	{dictionary,Dict} ->
-	    case lists:keysearch(shell, 1, Dict) of
-		{value,Sh={shell,Shell}} when is_pid(Shell) ->
-		    [Sh];
-		_ ->
-		    []
-	    end;
-	_ ->
-	    []
-    end.
 
 server(Pid) when is_pid(Pid) ->
     process_flag(trap_exit, true),

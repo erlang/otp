@@ -45,7 +45,7 @@ init(Flags) ->
 	nouser ->
 	    ignore;
 	{master, Master} ->
-	    Pid = start_slave(Master),
+	    Pid = start_relay(Master),
 	    {ok, Pid, Pid};
 	{M, F, A} ->
 	    case start_user(M, F, A) of
@@ -56,7 +56,7 @@ init(Flags) ->
 	    end
     end.
 
-start_slave(Master) ->
+start_relay(Master) ->
     case rpc:call(Master, erlang, whereis, [user]) of
 	User when is_pid(User) ->
 	    spawn(?MODULE, relay, [User]);
@@ -122,9 +122,12 @@ get_user(Flags) ->
 check_flags([{nouser, []} |T], _) -> check_flags(T, nouser);
 check_flags([{user, [User]} | T], _) ->
     check_flags(T, {list_to_atom(User), start, []});
-check_flags([{noshell, []} | T], _) -> check_flags(T, {user, start, []});
+check_flags([{noshell, []} | T], _) ->
+    check_flags(T,{user_drv, start, [#{ initial_shell => noshell }]});
 check_flags([{oldshell, []} | T], _) -> check_flags(T, {user, start, []});
-check_flags([{noinput, []} | T], _) -> check_flags(T, {user, start_out, []});
+check_flags([{noinput, []} | T], _) ->
+    check_flags(T, {user_drv, start, [#{ initial_shell => noshell,
+                                         input => false }]});
 check_flags([{master, [Node]} | T], _) ->
     check_flags(T, {master, list_to_atom(Node)});
 check_flags([_H | T], User) -> check_flags(T, User);

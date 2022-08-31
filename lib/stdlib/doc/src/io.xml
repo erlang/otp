@@ -83,6 +83,9 @@
     <datatype>
       <name name="opt_pair"/>
     </datatype>
+        <datatype>
+      <name name="get_opt_pair"/>
+    </datatype>
     <datatype>
       <name name="expand_fun"/>
     </datatype>
@@ -779,9 +782,14 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
 [{expand_fun,#Fun&lt;group.0.120017273&gt;},
  {echo,true},
  {binary,false},
- {encoding,unicode}]</pre>
+ {encoding,unicode},
+ {terminal,true}]</pre>
       <p>This example is, as can be seen, run in an environment where the
         terminal supports Unicode input and output.</p>
+      <p>The <c>terminal</c> option is read only and indicates whether
+        the output stream is a terminal or not.
+        See <seemfa marker="#setopts/1"><c>setopts/1</c></seemfa> for a description
+        of the other options.</p>
       </desc>
     </func>
 

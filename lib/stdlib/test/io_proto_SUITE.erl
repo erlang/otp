@@ -24,7 +24,8 @@
 
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
 	 binary_options/1, read_modes_gl/1,
-	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
+	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,
+         unicode_prompt/1, shell_slogan/1]).
 
 
 -export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, 
@@ -32,7 +33,7 @@
 %% For spawn
 -export([answering_machine1/3, answering_machine2/3]).
 
--export([uprompt/1]).
+-export([uprompt/1, slogan/0, session_slogan/0]).
 
 %%-define(debug, true).
 
@@ -49,7 +50,8 @@ suite() ->
 all() -> 
     [setopts_getopts, unicode_options, unicode_options_gen,
      binary_options, read_modes_gl, read_modes_ogl,
-     broken_unicode, eof_on_pipe, unicode_prompt].
+     broken_unicode, eof_on_pipe, unicode_prompt,
+     shell_slogan].
 
 groups() -> 
     [].
@@ -115,14 +117,42 @@ unicode_prompt(Config) when is_list(Config) ->
        {putline, "hej"},
        {expect, "\\Q\"hej\\n\"\\E"},
        {putline, "io:setopts([{binary,true}])."},
-       {expect, "[\n ]ok"},
+       {expect, "[\n ]\\?*ok"},
        {putline, "io:get_line('')."},
        {putline, "hej"},
-       {expect,"[\n ]hej"},
+       {expect,"[\n ]\\?*hej"},
        {expect, "\\Q<<\"hej\\n\">>\\E"}
       ],[],"",["-oldshell","-pa",PA]),
     ok.
 
+%% Test that an Unicode prompt does not crash the shell.
+shell_slogan(Config) when is_list(Config) ->
+    PA = filename:dirname(code:which(?MODULE)),
+    case proplists:get_value(default_shell,Config) of
+	new ->
+	    rtnode:run(
+              [{expect, "\\Q"++string:trim(erlang:system_info(system_version))++"\\E"},
+               {expect, "\\Q"++io_lib:format("Eshell V~s (press Ctrl+G to abort, type help(). for help)",[erlang:system_info(version)])++"\\E"}
+              ],[],"",[]),
+      	    rtnode:run(
+              [{expect, "\nTest slogan"},
+               {expect, "\nTest session slogan \\("}
+              ],[],"",["-stdlib","shell_slogan","\"Test slogan\"",
+                       "-stdlib","shell_session_slogan","\"Test session slogan\""]),
+      	    rtnode:run(
+              [{expect, "\nTest slogan"},
+               {expect, "\\Q\nTest session slogan (\\E"}
+              ],[],"",["-stdlib","shell_slogan","fun io_proto_SUITE:slogan/0",
+                       "-stdlib","shell_session_slogan","fun io_proto_SUITE:session_slogan/0",
+                       "-pa",PA]);
+        _ ->
+            ok
+    end.
+
+slogan() ->
+    "Test slogan".
+session_slogan() ->
+    "Test session slogan".
 
 %% Check io:setopts and io:getopts functions.
 setopts_getopts(Config) when is_list(Config) ->

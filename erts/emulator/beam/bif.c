@@ -23,6 +23,10 @@
 #endif
 
 #include <stddef.h> /* offsetof() */
+#ifdef HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>
+#endif
+#define WANT_NONBLOCKING
 #include "sys.h"
 #include "erl_vm.h"
 #include "erl_sys_driver.h"
@@ -4180,27 +4184,100 @@ BIF_RETTYPE erts_debug_display_1(BIF_ALIST_1)
     BIF_RET(res);
 }
 
-
-BIF_RETTYPE display_string_1(BIF_ALIST_1)
+BIF_RETTYPE display_string_2(BIF_ALIST_2)
 {
     Process* p = BIF_P;
-    Eterm string = BIF_ARG_1;
-    Sint len = erts_unicode_list_to_buf_len(string);
+    Eterm string = BIF_ARG_2;
+    Sint len;
     Sint written;
     byte *str;
     int res;
+    byte *temp_alloc = NULL;
 
-    if (len < 0) {
-	BIF_ERROR(p, BADARG);
+#ifdef __WIN32__
+    HANDLE fd;
+    if (ERTS_IS_ATOM_STR("stdout", BIF_ARG_1)) {
+        fd = GetStdHandle(STD_OUTPUT_HANDLE);
+    } else if (ERTS_IS_ATOM_STR("stderr", BIF_ARG_1)) {
+        fd = GetStdHandle(STD_ERROR_HANDLE);
     }
-    str = (byte *) erts_alloc(ERTS_ALC_T_TMP, sizeof(char)*(len + 1));
-    res = erts_unicode_list_to_buf(string, str, len, &written);
-    if (res != 0 || written != len)
-	erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error (%d)\n", __FILE__, __LINE__, res);
-    str[len] = '\0';
-    erts_fprintf(stderr, "%s", str);
-    erts_free(ERTS_ALC_T_TMP, (void *) str);
+#else
+    int fd;
+    if (ERTS_IS_ATOM_STR("stdout", BIF_ARG_1)) {
+        fd = fileno(stdout);
+    } else if (ERTS_IS_ATOM_STR("stderr", BIF_ARG_1)) {
+        fd = fileno(stderr);
+    }
+#if defined(HAVE_SYS_IOCTL_H) && defined(TIOCSTI)
+    else if (ERTS_IS_ATOM_STR("stdin", BIF_ARG_1)) {
+        fd = open("/proc/self/fd/0",0);
+    }
+#endif
+#endif
+    else {
+        BIF_ERROR(p, BADARG);
+    }
+    if (is_list(string) || is_nil(string)) {
+        len = erts_unicode_list_to_buf_len(string);
+        if (len < 0) BIF_ERROR(p, BADARG);
+        str = temp_alloc = (byte *) erts_alloc(ERTS_ALC_T_TMP, sizeof(char)*len);
+        res = erts_unicode_list_to_buf(string, str, len, &written);
+        if (res != 0 || written != len)
+            erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error (%d)\n", __FILE__, __LINE__, res);
+    } else if (is_binary(string)) {
+        Uint bitoffs, bitsize;
+        ERTS_GET_BINARY_BYTES(string, str, bitoffs, bitsize);
+        if (bitsize % 8 != 0) BIF_ERROR(p, BADARG);
+        len = binary_size(string);
+        if (bitoffs != 0) {
+            str = erts_get_aligned_binary_bytes(string, &temp_alloc);
+        }
+    } else {
+        BIF_ERROR(p, BADARG);
+    }
+
+#if defined(HAVE_SYS_IOCTL_H) && defined(TIOCSTI)
+    if (ERTS_IS_ATOM_STR("stdin", BIF_ARG_1)) {
+        for (int i = 0; i < len; i++) {
+            if (ioctl(fd, TIOCSTI, str+i) < 0) {
+                fprintf(stderr,"failed to write to %s (%s)\r\n", "/proc/self/fd/0",
+                        strerror(errno));
+                close(fd);
+                goto error;
+            }
+        }
+        close(fd);
+    } else
+#endif
+    {
+#ifdef __WIN32__
+        if (!WriteFile(fd, str, len, &written, NULL)) {
+            goto error;
+        }
+#else
+        written = 0;
+        do {
+            res = write(fd, str+written, len-written);
+            if (res < 0 && errno != ERRNO_BLOCK && errno != EINTR)
+                goto error;
+            written += res;
+        } while (written < len);
+#endif
+    }
+    if (temp_alloc)
+        erts_free(ERTS_ALC_T_TMP, (void *) temp_alloc);
     BIF_RET(am_true);
+
+error: {
+#ifdef __WIN32__
+        char *errnostr = last_error();
+#else
+        char *errnostr = erl_errno_id(errno);
+#endif
+        BIF_P->fvalue = am_atom_put(errnostr, strlen(errnostr));
+        erts_free(ERTS_ALC_T_TMP, (void *) str);
+        BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
+    }
 }
 
 BIF_RETTYPE display_nl_0(BIF_ALIST_0)

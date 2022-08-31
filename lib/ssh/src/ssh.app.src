@@ -59,9 +59,9 @@
   {mod, {ssh_app, []}},
   {runtime_dependencies, [
 			  "crypto-5.0",
-			  "erts-11.0",
-			  "kernel-6.0",
+			  "erts-@OTP-17932@",
+			  "kernel-@OTP-17932@",
 			  "public_key-1.6.1",
-                          "stdlib-3.15",
+                          "stdlib-@OTP-17932@",
                           "runtime_tools-1.15.1"
 			 ]}]}.

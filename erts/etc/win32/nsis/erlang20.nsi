@@ -190,7 +190,7 @@ cp_files:
     	CreateDirectory "$SMPROGRAMS\$STARTMENU_FOLDER"
 continue_create:
   	CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\Erlang.lnk" \
-		"$INSTDIR\bin\werl.exe"
+		"$INSTDIR\bin\erl.exe"
   
   	!insertmacro MUI_STARTMENU_WRITE_END
 ; And once again, the verbosity...

@@ -851,6 +851,8 @@ error_info(_Config) ->
 
          {display, ["test erlang:display/1"], [no_fail]},
          {display_string, [{a,b,c}]},
+         {display_string, [standard_out,"test erlang:display/2"]},
+         {display_string, [stdout,{a,b,c}]},
 
          %% Internal undcoumented BIFs.
          {dist_ctrl_get_data, 1},

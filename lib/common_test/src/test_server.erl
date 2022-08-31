@@ -2860,7 +2860,7 @@ peer_compile(Erl, cover_compiled, OutDir) ->
 peer_compile(Erl, ModPath, OutDir) ->
     {ok, ModSrc} = filelib:find_source(ModPath),
     Erlc = filename:join(filename:dirname(Erl), "erlc"),
-    cmd(Erlc, ["-o", OutDir, ModSrc]),
+    cmd(Erlc, ["-o", OutDir, unicode:characters_to_binary(ModSrc)]),
     OutDir.
 
 %% This should really be implemented as os:cmd.
