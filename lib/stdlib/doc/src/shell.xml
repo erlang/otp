@@ -957,7 +957,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="start_interactive" arity="0" since="OTP-17932"/>
+      <name name="start_interactive" arity="0" since="OTP @OTP-17932@"/>
       <fsummary>Start the interactive shell</fsummary>
       <desc>
         <p>Starts the interactive shell if it has not already been started.
@@ -967,7 +967,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="start_interactive" arity="1" since="OTP-17932"/>
+      <name name="start_interactive" arity="1" since="OTP @OTP-17932@"/>
       <fsummary>Start the interactive shell</fsummary>
       <desc>
         <p>Starts the interactive shell if it has not already been started.
