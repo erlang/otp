@@ -532,7 +532,11 @@ check_logs(Logname, Pattern, Match, Logs) ->
 dump_logs(Logs) ->
     maps:foreach(
       fun(File, Data) ->
-              ct:pal("~ts: ~ts",[File, Data])
+              try re:replace(Data,"\e","\\\\e",[unicode,global]) of
+                  D -> ct:pal("~ts: ~ts",[File, D])
+              catch error:badarg ->
+                      ct:pal("~ts: ~s",[File, re:replace(Data,"\e","\\\\e",[global])])
+              end
       end, Logs).
 
 read_logs(Tempdir) ->

@@ -116,6 +116,9 @@ edit([C|Cs], P, {Bef,Aft}, Prefix, Rs0) ->
             Rs1 = erase(P, Bef, Aft, Rs0),
             Rs = redraw(P, Bef, Aft, Rs1),
             edit(Cs, P, {Bef,Aft}, none, Rs);
+        clear ->
+            Rs = redraw(P, Bef, Aft, [clear | Rs0]),
+            edit(Cs, P, {Bef,Aft}, none, Rs);
 	tab_expand ->
 	    {expand, Bef, Cs,
 	     {line, P, {Bef, Aft}, tab_expand},
@@ -179,7 +182,7 @@ key_map($\t, none) -> tab_expand;
 key_map($\t, tab_expand) -> tab_expand_full;
 key_map(C, tab_expand) -> key_map(C, none);
 key_map($\^K, none) -> kill_line;
-key_map($\^L, none) -> redraw_line;
+key_map($\^L, none) -> clear;
 key_map($\n, none) -> new_line;
 key_map($\r, none) -> new_line;
 key_map($\^T, none) -> transpose_char;
@@ -201,11 +204,13 @@ key_map($], Prefix) when Prefix =/= meta,
 key_map($B, meta) -> backward_word;
 key_map($D, meta) -> kill_word;
 key_map($F, meta) -> forward_word;
+key_map($L, meta) -> redraw_line;
 key_map($T, meta) -> transpose_word;
 key_map($Y, meta) -> yank_pop;
 key_map($b, meta) -> backward_word;
 key_map($d, meta) -> kill_word;
 key_map($f, meta) -> forward_word;
+key_map($l, meta) -> redraw_line;
 key_map($t, meta) -> transpose_word;
 key_map($y, meta) -> yank_pop;
 key_map($O, meta) -> meta_o;

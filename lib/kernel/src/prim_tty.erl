@@ -142,6 +142,7 @@
                 cols = 80,
                 rows = 24,
                 xn = false,
+                clear = <<"\e[H\e[2J">>,
                 up = <<"\e[A">>,
                 down = <<"\n">>,
                 left = <<"\b">>,
@@ -170,6 +171,7 @@
         {insert, unicode:unicode_binary()} |
         {delete, integer()} |
         {move, integer()} |
+        clear |
         beep.
 -opaque state() :: #state{}.
 -export_type([state/0]).
@@ -274,6 +276,10 @@ init(State, {unix,_}) ->
 
     %% See https://www.gnu.org/software/termutils/manual/termcap-1.3/html_mono/termcap.html#SEC23
     %% for a list of all possible termcap capabilities
+    Clear = case tgetstr("clear") of
+             {ok, C} -> C;
+             false -> (#state{})#state.clear
+         end,
     Cols = case tgetnum("co") of
                {ok, Cs} -> Cs;
                _ -> (#state{})#state.cols
@@ -334,6 +340,7 @@ init(State, {unix,_}) ->
 
     State#state{
       cols = Cols,
+      clear = Clear,
       xn = tgetflag("xn"),
       up = Up,
       down = Down,
@@ -609,6 +616,8 @@ handle_request(State = #state{ xn = OrigXn, unicode = U }, {insert, Chars}) ->
      NewState};
 handle_request(State, beep) ->
     {<<7>>, State};
+handle_request(State, clear) ->
+    {State#state.clear, State};
 handle_request(State, Req) ->
     erlang:display({unhandled_request, Req}),
     {"", State}.
