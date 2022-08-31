@@ -489,7 +489,7 @@ wait_ee(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
 wait_ee(internal = Type, #change_cipher_spec{} = Msg,
-                #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+        #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_ee(internal, #encrypted_extensions{} = EE, State0) ->
     case tls_handshake_1_3:do_wait_ee(EE, State0) of

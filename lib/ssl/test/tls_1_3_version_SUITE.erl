@@ -280,7 +280,7 @@ tls12_client_tls_server(Config) when is_list(Config) ->
 
 
 middle_box_tls13_client() ->
-       [{doc,"Test that a TLS 1.3 client can connect to a 1.3 server with and without middle box compatible mode."}].
+    [{doc,"Test that a TLS 1.3 client can connect to a 1.3 server with and without middle box compatible mode."}].
 middle_box_tls13_client(Config) when is_list(Config) ->
     ClientOpts = [{versions,
                    ['tlsv1.3']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
@@ -290,9 +290,9 @@ middle_box_tls13_client(Config) when is_list(Config) ->
     middlebox_test(false, empty, ClientOpts, ServerOpts, Config).
 
 middle_box_tls12_enabled_client() ->
-       [{doc,"Test that a TLS 1.2 enabled client can connect to a TLS 1.3 server with and without middle box compatible mode."}].
+    [{doc,"Test that a TLS 1.2 enabled client can connect to a TLS 1.3 server with and without middle box compatible mode."}].
 middle_box_tls12_enabled_client(Config) when is_list(Config) ->
-   ClientOpts = [{versions, ['tlsv1.2', 'tlsv1.3']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
+    ClientOpts = [{versions, ['tlsv1.2', 'tlsv1.3']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
     ServerOpts =  [{versions, ['tlsv1.3']} |
                    ssl_test_lib:ssl_options(server_cert_opts, Config)],
     middlebox_test(true, not_empty, ClientOpts, ServerOpts, Config),
@@ -300,7 +300,6 @@ middle_box_tls12_enabled_client(Config) when is_list(Config) ->
 
 middle_box_client_tls_v2_session_reused() ->
     [{doc, "Test that TLS-1.3 middlebox enabled client can reuse TLS-1.2 session when talking to TLS-1.2 server"}].
-
 middle_box_client_tls_v2_session_reused(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
