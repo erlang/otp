@@ -258,8 +258,6 @@ init_local_shell(State, InitialShell) ->
 
 init_shell(State, Slogan) ->
 
-    init_standard_error(State#state.tty, State#state.shell_started),
-
     {next_state, server, State#state{ current_group = gr_cur_pid(State#state.groups) },
      {next_event, info,
       {gr_cur_pid(State#state.groups),
@@ -286,19 +284,20 @@ server({call, From}, {start_shell, Args},
             try prim_tty:reinit(TTY, #{input => maps:get(input, Args, true) }) of
                 NewTTY ->
                     #{ read := ReadHandle, write := WriteHandle } = prim_tty:handles(NewTTY),
+                    Shell = maps:get(initial_shell, Args, {shell,start,[init]}),
+                    init_standard_error(NewTTY, Shell =/= noshell),
                     gen_statem:reply(From, ok),
                     NewState = State#state{ tty = NewTTY,
                                             read = ReadHandle,
                                             write = WriteHandle },
-                    case Args of
-                        #{ initial_shell := noshell } ->
+
+                    case Shell of
+                        noshell ->
                             init_noshell(NewState);
-                        #{ initial_shell := {remote, Node} } ->
+                        {remote, Node} ->
                             init_remote_shell(NewState, Node);
-                        #{ initial_shell := InitialShell } ->
-                            init_local_shell(NewState, InitialShell);
-                        _ ->
-                            init_local_shell(NewState, {shell,start,[init]})
+                        InitialShell ->
+                            init_local_shell(NewState, InitialShell)
                     end
             catch error:enotsup ->
                     gen_statem:reply(From, {error, enotsup}),
