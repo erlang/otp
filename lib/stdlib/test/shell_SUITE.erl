@@ -76,7 +76,8 @@ suite() ->
 
 all() ->
     [forget, known_bugs, otp_5226, otp_5327,
-     otp_5435, otp_5195, otp_5915, otp_5916, {group, bits},
+     otp_5435, otp_5195, otp_5915, otp_5916,
+     start_interactive, {group, bits},
      {group, refman}, {group, progex}, {group, tickets},
      {group, restricted}, {group, records}, {group, definitions}].
 
@@ -3075,13 +3076,18 @@ otp_14296(Config) when is_list(Config) ->
     ok.
 
 start_interactive(_Config) ->
+    start_interactive_shell([]),
+    start_interactive_shell(["-env","TERM","dumb"]).
+
+start_interactive_shell(ExtraArgs) ->
     rtnode:run(
       [{expect, "test"},
        {putline, "test."},
        {eval, fun() -> shell:start_interactive() end},
        {expect, "1>"},
-       {expect, "2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+       {expect, "2>"},
+       {eval, fun() -> {error,already_started} = shell:start_interactive(), ok end}
+      ],[],"",["-noinput","-eval","io:format(\"test~n\")"] ++ ExtraArgs),
 
     rtnode:run(
       [{expect, "test"},
@@ -3089,7 +3095,7 @@ start_interactive(_Config) ->
        {eval, fun() -> shell:start_interactive({shell,start,[]}) end},
        {expect, "1>"},
        {expect, "2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+      ],[],"",["-noinput","-eval","io:format(\"test~n\")"] ++ ExtraArgs),
 
     rtnode:run(
       [{expect, "test"},
@@ -3101,28 +3107,23 @@ start_interactive(_Config) ->
        {eval, fun() -> shell:start_interactive() end},
        {expect, "1>"},
        {expect, "2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+      ],[],"",["-noinput","-eval","io:format(\"test~n\")"] ++ ExtraArgs),
 
-    {ok, RPeer, RNode} = ?CT_PEER(),
-    unlink(RPeer),
-    SRNode = atom_to_list(RNode),
-    rtnode:run(
-      [{expect, "test"},
-       {putline, "test."},
-       {eval, fun() -> shell:start_interactive({remote, SRNode}) end},
-       {expect, "\\Q("++SRNode++")\\E2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
-
-    {ok, Peer, Node} = ?CT_PEER(),
-    unlink(Peer),
-    SNode = atom_to_list(Node),
-    rtnode:run(
-      [{expect, "test"},
-       {putline, "test."},
-       {eval, fun() -> shell:start_interactive({Node, {shell,start,[]}}) end},
-       {expect, "\\Q("++SNode++")\\E2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
-
+    [ begin
+          {ok, Peer, Node} = ?CT_PEER(),
+          unlink(Peer),
+          SNode = atom_to_list(Node),
+          rtnode:run(
+            [{expect, "test"},
+             {putline, "test."},
+             {eval, fun() -> shell:start_interactive(Arg(Node)) end},
+             {expect, "\\Q("++SNode++")\\E2>"}
+            ],[],"",["-noinput","-eval","io:format(\"test~n\")"] ++ ExtraArgs)
+      end || Arg <- [fun(Node) -> {Node, {shell,start,[]}} end,
+                     fun(Node) -> {remote, atom_to_list(Node)} end,
+                     fun(Node) -> {remote, hd(string:split(atom_to_list(Node),"@"))} end,
+                     fun(Node) -> {remote, atom_to_list(Node), {shell,start,[]}} end
+                    ]],
     ok.
 
 term_to_string(T) ->

@@ -23,9 +23,6 @@
 %%
 %% This is responsible for a couple of things:
 %%   - Dispatching I/O messages when erl is running
-%%      * as a terminal.
-%%      * with -noshell
-%%      * with -noinput
 %%     The messages are listed in the type message/0.
 %%   - Any data received from the terminal is sent to the current group like this:
 %%     `{DrvPid :: pid(), {data, UnicodeCharacters :: list()}}`
@@ -79,14 +76,21 @@
 %% gen_statem callbacks
 -export([init/1, callback_mode/0]).
 
--export([interfaces/1]).
-
 -include_lib("kernel/include/logger.hrl").
 
--record(state, { tty, write, read, shell_started = true, editor_port, editor_tmp_file, editor_requester, user, current_group, groups, queue }).
+-record(editor, { port :: port(), file :: file:name(), requester :: pid() }).
+-record(state, { tty :: prim_tty:state() | undefined,
+                 write :: reference() | undefined,
+                 read :: reference() | undefined,
+                 shell_started = new :: new | old | false,
+                 editor :: #editor{} | undefined,
+                 user :: pid(),
+                 current_group :: pid() | undefined,
+                 groups, queue }).
 
 -type shell() :: {module(), atom(), arity()} | {node(), module(), atom(), arity()}.
--type arguments() :: #{ initial_shell => noshell | shell() | {remote, unicode:charlist()},
+-type arguments() :: #{ initial_shell => noshell | shell() |
+                        {remote, unicode:charlist()} | {remote, unicode:charlist(), mfa()},
                         input => boolean() }.
 
 %% Default line editing shell
@@ -102,7 +106,7 @@ start() ->
 -spec start_shell() -> ok | {error, Reason :: term()}.
 start_shell() ->
     start_shell(#{ }).
--spec start_shell(arguments()) -> ok | {error, enottty | already_started}.
+-spec start_shell(arguments()) -> ok | {error, already_started}.
 start_shell(Args) ->
     gen_statem:call(?MODULE, {start_shell, Args}).
 
@@ -114,8 +118,8 @@ start(['tty_sl -c -e', Shell]) ->
 start(Args) when is_map(Args) ->
     case gen_statem:start({local, ?MODULE}, ?MODULE, Args, []) of
         {ok, Pid} -> Pid;
-        {error, _Reason} ->
-            user:start()
+        {error, Reason} ->
+            {error, Reason}
     end.
 
 callback_mode() -> state_functions.
@@ -147,16 +151,16 @@ init(Args) ->
     ok = init:run_on_load_handlers([prim_tty]),
     IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
     StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
+    OldShell = maps:get(initial_shell, Args, undefined) =:= oldshell,
     try
-        if IsTTY, StartShell ->
+        if
+            not IsTTY andalso StartShell; OldShell ->
+                error(enotsup);
+            IsTTY, StartShell ->
                 TTYState = prim_tty:init(#{}),
                 init_standard_error(TTYState, true),
                 {ok, init, {Args, #state{ user = start_user() } },
                  {next_event, internal, TTYState}};
-           not IsTTY, StartShell ->
-                %% We start an oldshell if stdout or stdin are not a TTY
-                %% and we have been told to start a shell.
-                {stop, normal};
            true ->
                 TTYState = prim_tty:init(#{input => maps:get(input, Args, true),
                                            tty => false}),
@@ -168,7 +172,14 @@ init(Args) ->
             %% This is thrown by prim_tty:init when
             %% it could not start the terminal,
             %% probably because TERM=dumb was set.
-            {stop, normal}
+            %%
+            %% The oldshell mode is important as it is
+            %% the mode used when running erlang in an
+            %% emacs buffer.
+            CatchTTYState = prim_tty:init(#{tty => false}),
+            init_standard_error(CatchTTYState, false),
+            {ok, init, {Args,#state{ shell_started = old, user = start_user() } },
+             {next_event, internal, CatchTTYState}}
     end.
 
 %% Initialize standard_error
@@ -198,6 +209,9 @@ init(internal, TTYState, {Args, State = #state{ user = User }}) ->
             init_noshell(NewState);
         #{ initial_shell := {remote, Node} } ->
             init_remote_shell(NewState, Node);
+        #{ initial_shell := oldshell } ->
+            old = State#state.shell_started,
+            init_local_shell(NewState, {shell,start,[]});
         #{ initial_shell := InitialShell } ->
             init_local_shell(NewState, InitialShell);
         _ ->
@@ -238,6 +252,7 @@ init_remote_shell(State, Node) ->
 
     case net_kernel:connect_node(RemoteNode) of
         true ->
+
             %% We fetch the shell slogan from the remote node
             Slogan =
                 case erpc:call(RemoteNode, application, get_env,
@@ -251,7 +266,7 @@ init_remote_shell(State, Node) ->
 
             RShell = {RemoteNode,shell,start,[]},
             Gr = gr_add_cur(State#state.groups,
-                            group:start(self(), RShell, remsh_opts(RemoteNode)),
+                            group:start(self(), RShell, [{echo,State#state.shell_started =:= new}] ++ remsh_opts(RemoteNode)),
                             RShell),
 
             init_shell(State#state{ groups = Gr }, [Slogan,$\n]);
@@ -274,17 +289,18 @@ init_local_shell(State, InitialShell) ->
       end,
 
     Gr = gr_add_cur(State#state.groups,
-                    group:start(self(), InitialShell),
+                    group:start(self(), InitialShell,
+                                [{echo,State#state.shell_started =:= new}]),
                     InitialShell),
 
     init_shell(State#state{ groups = Gr }, [Slogan,$\n]).
 
 init_shell(State, Slogan) ->
 
-    init_standard_error(State#state.tty, State#state.shell_started),
+    init_standard_error(State#state.tty, State#state.shell_started =:= new),
     Curr = gr_cur_pid(State#state.groups),
     put(current_group, Curr),
-    {next_state, server, State#state{ current_group = Curr},
+    {next_state, server, State#state{ current_group = gr_cur_pid(State#state.groups) },
      {next_event, info,
       {gr_cur_pid(State#state.groups),
        {put_chars, unicode,
@@ -305,33 +321,52 @@ start_user() ->
 
 server({call, From}, {start_shell, Args},
        State = #state{ tty = TTY, shell_started = false }) ->
-    case prim_tty:isatty(stdin) andalso prim_tty:isatty(stdout) of
-        true ->
-            try prim_tty:reinit(TTY, #{input => maps:get(input, Args, true) }) of
-                NewTTY ->
-                    #{ read := ReadHandle, write := WriteHandle } = prim_tty:handles(NewTTY),
-                    gen_statem:reply(From, ok),
-                    NewState = State#state{ tty = NewTTY,
-                                            read = ReadHandle,
-                                            write = WriteHandle },
-                    case Args of
-                        #{ initial_shell := noshell } ->
-                            init_noshell(NewState);
-                        #{ initial_shell := {remote, Node} } ->
-                            init_remote_shell(NewState, Node);
-                        #{ initial_shell := InitialShell } ->
-                            init_local_shell(NewState, InitialShell);
-                        _ ->
-                            init_local_shell(NewState, {shell,start,[init]})
-                    end
-            catch error:enotsup ->
-                    gen_statem:reply(From, {error, enotsup}),
-                    keep_state_and_data
-            end;
-        false ->
-            gen_statem:reply(From, {error, enottty}),
-            keep_state_and_data
-    end;
+    IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
+    StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
+    OldShell = maps:get(initial_shell, Args, undefined) =:= oldshell,
+    NewState =
+        try
+            if
+                not IsTTY andalso StartShell; OldShell ->
+                    error(enotsup);
+                IsTTY, StartShell ->
+                    NewTTY = prim_tty:reinit(TTY, #{ }),
+                    State#state{ tty = NewTTY,
+                                 shell_started = new };
+               true ->
+                    NewTTY = prim_tty:reinit(TTY, #{ tty => false }),
+                    State#state{ tty = NewTTY, shell_started = false }
+            end
+        catch error:enotsup ->
+                NewTTYState = prim_tty:reinit(TTY, #{ tty => false }),
+                State#state{ tty = NewTTYState, shell_started = old }
+        end,
+    #{ read := ReadHandle, write := WriteHandle } = prim_tty:handles(NewState#state.tty),
+    NewHandleState = NewState#state {
+                       read = ReadHandle,
+                       write = WriteHandle
+                      },
+    R = case maps:get(initial_shell, Args, undefined) of
+            noshell ->
+                init_noshell(NewHandleState);
+            {remote, Node} ->
+                init_remote_shell(NewHandleState, Node);
+            undefined ->
+                case NewHandleState#state.shell_started of
+                    old ->
+                        init_local_shell(NewHandleState, {shell,start,[]});
+                    new ->
+                        init_local_shell(NewHandleState, {shell,start,[init]});
+                    false ->
+                        %% This can never happen, but dialyzer complains so we add
+                        %% this clause.
+                        keep_state_and_data
+                end;
+            InitialShell ->
+                init_local_shell(NewHandleState, InitialShell)
+        end,
+    gen_statem:reply(From, ok),
+    R;
 server({call, From}, {start_shell, _Args}, _State) ->
     gen_statem:reply(From, {error, already_started}),
     keep_state_and_data;
@@ -388,13 +423,13 @@ server(info, {Requester, {open_editor, Buffer}}, #state{tty = TTYState } = State
             Requester ! {self(), {editor_data, Buffer}},
             keep_state_and_data;
         {EditorPort, TmpPath} ->
-            {keep_state, State#state{ editor_port = EditorPort,
-                                      editor_tmp_file = TmpPath,
-                                      editor_requester = Requester }}
+            {keep_state, State#state{ editor = #editor{ port = EditorPort,
+                                                        file = TmpPath,
+                                                        requester = Requester }}}
     end;
-server(info, Req, State = #state{ user = User, current_group = Curr, editor_port = EditorPort })
+server(info, Req, State = #state{ user = User, current_group = Curr, editor = undefined })
   when element(1,Req) =:= User orelse element(1,Req) =:= Curr,
-       tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3, EditorPort =:= undefined ->
+       tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3 ->
     %% We match {User|Curr,_}|{User|Curr,_,_}
     {NewTTYState, NewQueue} = handle_req(Req, State#state.tty, State#state.queue),
     {keep_state, State#state{ tty = NewTTYState, queue = NewQueue }};
@@ -427,10 +462,11 @@ server(info,{'EXIT',User, _Reason}, State = #state{ user = User }) ->
     NewUser = start_user(),
     {keep_state, State#state{ user = NewUser,
                               groups = gr_set_num(State#state.groups, 1, NewUser, {})}};
-server(info, {'EXIT', EditorPort, _R}, State = #state{tty = TTYState,
-                                                      editor_requester = Requester,
-                                                      editor_port = EditorPort,
-                                                      editor_tmp_file = PathTmp}) ->
+server(info, {'EXIT', EditorPort, _R},
+       State = #state{tty = TTYState,
+                      editor = #editor{ requester = Requester,
+                                        port = EditorPort,
+                                        file = PathTmp}}) ->
     {ok, Content} = file:read_file(PathTmp),
     _ = file:del_dir_r(PathTmp),
     Unicode = case unicode:characters_to_list(Content,unicode) of
@@ -440,9 +476,7 @@ server(info, {'EXIT', EditorPort, _R}, State = #state{tty = TTYState,
               end,
     Requester ! {self(), {editor_data, string:chomp(Unicode)}},
     ok = prim_tty:enable_reader(TTYState),
-    {keep_state, State#state{editor_requester = undefined,
-                             editor_port = undefined,
-                             editor_tmp_file = undefined}};
+    {keep_state, State#state{editor = undefined}};
 server(info,{'EXIT', Group, Reason}, State) -> % shell and group leader exit
     case gr_cur_pid(State#state.groups) of
         Group when Reason =/= die, Reason =/= terminated  ->	% current shell exited

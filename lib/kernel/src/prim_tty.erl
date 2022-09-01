@@ -104,9 +104,11 @@
 %%      * Same problem as insert mode, it only deleted current line, and does not move
 %%        to previous line automatically.
 
--export([init/1, reinit/2, isatty/1, handles/1, unicode/1, unicode/2, handle_signal/2,
-         window_size/1, handle_request/2, write/2, write/3, npwcwidth/1, npwcwidthstring/1]).
--export([disable_reader/1, enable_reader/1]).
+-export([init/1, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
+         handle_signal/2, window_size/1, handle_request/2, write/2, write/3, npwcwidth/1,
+         npwcwidthstring/1]).
+-export([reader_stop/1, disable_reader/1, enable_reader/1]).
+
 -nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
        tty_select/3, tty_window_size/1, write_nif/2, read_nif/2, isprint/1,
        wcwidth/1, wcswidth/1,
@@ -182,6 +184,7 @@ on_load(Extra) ->
             ok
     end.
 
+-spec window_size(state()) -> {ok, {non_neg_integer(), non_neg_integer()}} | {error, term()}.
 window_size(State = #state{ tty = TTY }) ->
     case tty_window_size(TTY) of
         {error, enotsup} when map_get(tty, State#state.options) ->
@@ -356,6 +359,11 @@ unicode(#state{ reader = Reader } = State, Bool) ->
     end,
     State#state{ unicode = Bool }.
 
+-spec reader_stop(state()) -> state().
+reader_stop(#state{ reader = {ReaderPid, _} } = State) ->
+    {error, _} = call(ReaderPid, stop),
+    State#state{ reader = undefined }.
+
 -spec handle_signal(state(), winch | cont) -> state().
 handle_signal(State, winch) ->
     update_geometry(State);
@@ -364,20 +372,12 @@ handle_signal(State, cont) ->
     State.
 
 -spec disable_reader(state()) -> ok.
-disable_reader(State) ->
-    case State#state.reader of
-        {ReaderPid, _} ->
-            ok = call(ReaderPid, disable);
-        undefined -> ok
-    end.
+disable_reader(#state{ reader = {ReaderPid, _} }) ->
+    ok = call(ReaderPid, disable).
 
 -spec enable_reader(state()) -> ok.
-enable_reader(State) ->
-    case State#state.reader of
-        {ReaderPid, _} ->
-            ok = call(ReaderPid, enable);
-        undefined -> ok
-    end.
+enable_reader(#state{ reader = {ReaderPid, _} }) ->
+    ok = call(ReaderPid, enable).
 
 call(Pid, Msg) ->
     Alias = erlang:monitor(process, Pid, [{alias, reply_demonitor}]),
@@ -430,6 +430,8 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
             Alias ! {Alias, FromEnc =/= latin1},
             NewFromEnc = if Bool -> utf8; not Bool -> latin1 end,
             reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
+        {_Alias, stop} ->
+            ok;
         {select, TTY, ReaderRef, ready_input} ->
             case read_nif(TTY, ReaderRef) of
                 {error, closed} ->

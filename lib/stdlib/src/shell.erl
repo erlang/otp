@@ -57,8 +57,9 @@ non_local_allowed(_,_,State) ->
 -spec start_interactive() -> ok | {error, already_started | enottty}.
 start_interactive() ->
     user_drv:start_shell().
--spec start_interactive(noshell | mfa() | {node(), mfa()} | {remote, string()}) ->
-          ok | {error, already_started | enottty}.
+-spec start_interactive(noshell | mfa() | {node(), mfa()} |
+                        {remote, string()} | {remote, string(), mfa()}) ->
+          ok | {error, already_started}.
 start_interactive({Node, {M, F, A}}) ->
     user_drv:start_shell(#{ initial_shell => {Node, M, F ,A} });
 start_interactive(InitialShell) ->
@@ -318,9 +319,11 @@ server_loop(N0, Eval_0, Bs00, RT, FT, Ds00, History0, Results0) ->
     end.
 
 get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
+    Ancestors = [self() | get('$ancestors')],
     ResWordFun = fun erl_scan:reserved_word/1,
     Parse =
         fun() ->
+                put('$ancestors', Ancestors),
                 exit(
                   case
                       io:scan_erl_exprs(group_leader(), Prompt, {1,1},
@@ -739,7 +742,11 @@ report_exception(Class, Severity, {Reason,Stacktrace}, RT) ->
 
 start_eval(Bs, RT, FT, Ds) ->
     Self = self(),
-    Eval = spawn_link(fun() -> evaluator(Self, Bs, RT, FT, Ds) end),
+    Ancestors = [self() | get('$ancestors')],
+    Eval = spawn_link(fun() ->
+                              put('$ancestors', Ancestors),
+                              evaluator(Self, Bs, RT, FT, Ds)
+                      end),
     put(evaluator, Eval),
     Eval.
 
