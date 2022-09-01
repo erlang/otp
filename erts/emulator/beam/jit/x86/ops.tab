@@ -895,7 +895,7 @@ i_bs_skip_bits2 S S f t
 
 bs_test_tail2 Fail=f Ms=xy o => jump Fail
 
-bs_test_tail2 f S t
+bs_test_tail2 f S W
 
 bs_test_unit f S t
 
