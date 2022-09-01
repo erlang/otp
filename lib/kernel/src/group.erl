@@ -45,7 +45,11 @@ server(Ancestors, Drv, Shell, Options) ->
 			    fun(B) -> edlin_expand:expand(B) end)),
     put(echo, proplists:get_value(echo, Options, true)),
 
-    server_loop(Drv, start_shell(Shell), []).
+    %% The shell is stored in the pdict in order
+    %% to find the current active shell process.
+    ShellPid = start_shell(Shell),
+    put(shell, ShellPid),
+    server_loop(Drv, ShellPid, []).
 
 %% start_shell(Shell)
 %%  Spawn a shell with its group_leader from the beginning set to ourselves.

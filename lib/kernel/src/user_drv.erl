@@ -260,7 +260,7 @@ init_shell(State, Slogan) ->
 
     init_standard_error(State#state.tty, State#state.shell_started),
 
-    {next_state, server, State#state{ current_group = gr_cur_pid(State#state.groups) },
+    {next_state, server, set_current_group(State),
      {next_event, info,
       {gr_cur_pid(State#state.groups),
        {put_chars, unicode,
@@ -412,9 +412,8 @@ server(info,{'EXIT', Group, Reason}, State) -> % shell and group leader exit
                     NewGroup = group:start(self(), {shell,start,Params}),
                     {ok,Gr2} = gr_set_cur(gr_set_num(Gr1, Ix, NewGroup,
                                                      {shell,start,Params}), Ix),
-                    {keep_state, State#state{ tty = NewTTyState,
-                                              current_group = NewGroup,
-                                              groups = Gr2 }};
+                    NewState = State#state{ tty = NewTTyState, groups = Gr2 },
+                    {keep_state, set_current_group(NewGroup, NewState)};
                 _ -> % remote shell
                     NewTTYState = io_requests(
                                     Reqs ++ [{put_chars,unicode,<<"(^G to start new job) ***\n">>}],
@@ -477,15 +476,15 @@ switch_loop(internal, {line, Line}, State) ->
             case switch_cmd(Tokens, State#state.groups) of
                 {ok, Groups} ->
                     {next_state, server,
-                     State#state{ current_group = gr_cur_pid(Groups), groups = Groups } };
+                     set_current_group(State#state{ groups = Groups })};
                 {retry, Requests} ->
                     {keep_state, State#state{ tty = io_requests(Requests, State#state.tty) },
                      {next_event, internal, line}};
                 {retry, Requests, Groups} ->
-                    {keep_state, State#state{
-                                   tty = io_requests(Requests, State#state.tty),
-                                   current_group = gr_cur_pid(Groups),
-                                   groups = Groups },
+                    NewState = State#state{ tty = io_requests(Requests, State#state.tty),
+                                            groups = Groups
+                                          },
+                    {keep_state, set_current_group(NewState),
                      {next_event, internal, line}}
             end;
         {error, _, _} ->
@@ -681,6 +680,15 @@ handle_req(Msg, TTYState, {false, IOQ} = IOQueue) ->
 handle_req(Msg,TTYState,{Resp, IOQ}) ->
     %% All requests are queued when we have outstanding sync put_chars
     {TTYState, {Resp, queue:in(Msg,IOQ)}}.
+
+%% Store the current group in the pdict in order
+%% to find the current active shell process.
+set_current_group(State) ->
+    set_current_group(gr_cur_pid(State#state.groups), State).
+
+set_current_group(Pid, State) ->
+    put(current_group, Pid),
+    State#state{current_group = Pid}.
 
 %% gr_new()
 %% gr_get_num(Group, Index)
