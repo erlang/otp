@@ -179,6 +179,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #endif
 #define is_not_both_immed(x,y)	(!is_both_immed((x),(y)))
 
+#define is_zero_sized(x)        (is_immed(x) || (x) == ERTS_GLOBAL_LIT_EMPTY_TUPLE)
 
 /* boxed object access methods */
 

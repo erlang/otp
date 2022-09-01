@@ -619,7 +619,6 @@ cleanup:
     return sum;
 }
 
-
 /*
  *  Copy a structure to a heap.
  */
@@ -1932,19 +1931,52 @@ all_clean:
  * pointers are offsetted to point correctly in the new location.
  *
  * Typically used to copy a term from an ets table.
- *
- * NOTE: Assumes that term is a tuple (ptr is an untagged tuple ptr).
  */
-Eterm
-copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap
+Eterm copy_shallow_obj_x(Eterm obj, Uint sz, Eterm **hpp, ErlOffHeap *off_heap
 #ifdef ERTS_COPY_REGISTER_LOCATION
-               , char *file, int line
+                         ,
+                         char *file, int line
 #endif
-    )
-{
-    Eterm* tp = ptr;
-    Eterm* hp = *hpp;
-    const Eterm res = make_tuple(hp);
+) {
+    Eterm *source_ptr;
+    Eterm *target_ptr;
+
+    if (sz == 0) {
+        ASSERT(is_zero_sized(obj));
+        return obj;
+    }
+
+    ASSERT(is_boxed(obj) || is_list(obj));
+    ASSERT(!is_zero_sized(obj));
+
+    source_ptr = ptr_val(obj);
+#ifdef ERTS_COPY_REGISTER_LOCATION
+    target_ptr = copy_shallow_x(source_ptr, sz, hpp, off_heap, file, line);
+#else
+    target_ptr = copy_shallow_x(source_ptr, sz, hpp, off_heap);
+#endif
+
+    return is_boxed(obj) ? make_boxed(target_ptr) : make_list(target_ptr);
+}
+
+
+/*
+ * Copy a term that is guaranteed to be contained in a single
+ * heap block. The heap block is copied word by word, and any
+ * pointers are offsetted to point correctly in the new location.
+ *
+ * Typically used to copy a term from an ets table.
+ */
+Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
+                     ErlOffHeap *off_heap
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                     ,
+                     char *file, int line
+#endif
+) {
+    Eterm *tp = ptr;
+    Eterm *hp = *hpp;
+    Eterm* res = hp;
     const Sint offs = (hp - tp) * sizeof(Eterm);
     const Eterm empty_tuple_literal =
         ERTS_GLOBAL_LIT_EMPTY_TUPLE;
