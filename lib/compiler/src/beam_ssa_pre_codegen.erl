@@ -1010,16 +1010,36 @@ expand_update_tuple(#st{ssa=Blocks0,cnt=Count0}=St) ->
     Blocks = maps:from_list(Linear),
     St#st{ssa=Blocks,cnt=Count}.
 
-expand_update_tuple_1([{L, #b_blk{is=Is0}=B} | Bs], Count0, Acc) ->
-    {Is, Count} = expand_update_tuple_is(Is0, Count0, []),
-    expand_update_tuple_1(Bs, Count, [{L, B#b_blk{is=Is}} | Acc]);
+expand_update_tuple_1([{L, #b_blk{is=Is0}=B0} | Bs], Count0, Acc0) ->
+    case expand_update_tuple_is(Is0, Count0, []) of
+        {Is, Count} ->
+            expand_update_tuple_1(Bs, Count, [{L, B0#b_blk{is=Is}} | Acc0]);
+        {Is, NextIs, Count1} ->
+            %% There are `set_tuple_element` instructions that we must put into
+            %% a new block to avoid separating the `setelement` instruction from
+            %% its `succeeded` instruction.
+            #b_blk{last=Br} = B0,
+            #b_br{succ=Succ} = Br,
+            NextL = Count1,
+            Count = Count1 + 1,
+            NextBr = #b_br{bool=#b_literal{val=true},succ=Succ,fail=Succ},
+            NextB = #b_blk{is=NextIs,last=NextBr},
+            B = B0#b_blk{is=Is,last=Br#b_br{succ=NextL}},
+            Acc = [{NextL, NextB}, {L, B} | Acc0],
+            expand_update_tuple_1(Bs, Count, Acc)
+    end;
 expand_update_tuple_1([], Count, Acc) ->
     {Acc, Count}.
 
 expand_update_tuple_is([#b_set{op=update_tuple, args=[Src | Args]}=I0 | Is],
                         Count0, Acc) ->
-    {Expanded, Count} = expand_update_tuple_list(Args, I0, Src, Count0),
-    expand_update_tuple_is(Is, Count, Expanded ++ Acc);
+    {SetElement, Sets, Count} = expand_update_tuple_list(Args, I0, Src, Count0),
+    case {Sets, Is} of
+        {[_ | _], [#b_set{op=succeeded}]} ->
+            {reverse(Acc, [SetElement | Is]), reverse(Sets), Count};
+        {_, _} ->
+            expand_update_tuple_is(Is, Count, Sets ++ [SetElement | Acc])
+    end;
 expand_update_tuple_is([I | Is], Count, Acc) ->
     expand_update_tuple_is(Is, Count, [I | Acc]);
 expand_update_tuple_is([], Count, Acc) ->
@@ -1038,7 +1058,8 @@ expand_update_tuple_list(Args, I0, Src, Count0) ->
                        name=#b_literal{val=setelement},
                        arity=3},
                  Index, Src, Value]},
-    expand_update_tuple_list_1(Rest, I#b_set.dst, Count0, [I]).
+    {Sets, Count} = expand_update_tuple_list_1(Rest, I#b_set.dst, Count0, []),
+    {I, Sets, Count}.
 
 expand_update_tuple_list_1([], _Src, Count, Acc) ->
     {Acc, Count};
