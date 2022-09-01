@@ -1630,12 +1630,12 @@ static void *realloc_wrapper(void *current, ErlDrvSizeT size){
     return ret;
 }
 #define REALLOC(X,Y) realloc_wrapper(X,Y)
-#define FREE(P) driver_free((P))
+#define FREE(P)      driver_free((P))
 #else /* FATAL_MALLOC */
 
-#define ALLOC(X) driver_alloc((X))
+#define ALLOC(X)     driver_alloc((X))
 #define REALLOC(X,Y) driver_realloc((X), (Y))
-#define FREE(P) driver_free((P))
+#define FREE(P)      driver_free((P))
 
 #endif /* FATAL_MALLOC */
 
@@ -5969,9 +5969,10 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 {
     int i;
     DWORD ret, n;
-    IP_INTERFACE_INFO *info_p;
-    MIB_IPADDRTABLE *ip_addrs_p;
-    IP_ADAPTER_ADDRESSES *ip_adaddrs_p, *ia_p;
+    IP_INTERFACE_INFO *info_p = NULL;
+    MIB_IPADDRTABLE *ip_addrs_p = NULL;
+    IP_ADAPTER_ADDRESSES *ip_adaddrs_p = NULL;
+    IP_ADAPTER_ADDRESSES *ia_p = NULL;
 
     char *buf_p;
     char *buf_alloc_p;
@@ -6030,10 +6031,11 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 		if (ret == NO_ERROR) break;
 		if (ret == ERROR_BUFFER_OVERFLOW) continue;
 		i = 0;
+		break;
 	    }
 	    if (! i) {
 		FREE(ip_adaddrs_p);
-		ip_adaddrs_p = NULL;
+                ip_adaddrs_p = NULL;
 	    }
 	} else ip_adaddrs_p = NULL;
     }
@@ -6050,11 +6052,12 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	    if (ret == NO_ERROR) break;
 	    if (ret == ERROR_INSUFFICIENT_BUFFER) continue;
 	    i = 0;
+	    break;
 	}
 	if (! i) {
-	    FREE(info_p);
-	    info_p = NULL;
-	}
+            FREE(info_p);
+            info_p = NULL;
+        }
     }
 
     if (! ip_adaddrs_p) {
@@ -6069,6 +6072,7 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	    if (ret == NO_ERROR) break;
 	    if (ret == ERROR_INSUFFICIENT_BUFFER) continue;
 	    i = 0;
+	    break;
 	}
 	if (! i) {
 	    if (info_p) FREE(info_p);
@@ -6111,13 +6115,15 @@ index:
 	} else {
 	    /* Then try IP_ADAPTER_INDEX_MAP.Name (only IPv4 adapters) */
 	    int j;
-	    for (j = 0;  j < info_p->NumAdapters;  j++) {
-		if (info_p->Adapter[j].Index == (ULONG) ifrow.dwIndex) {
-		    if (info_p->Adapter[j].Name[0] != 0) {
-			wname_p = info_p->Adapter[j].Name;
+	    if (info_p) {
+	        for (j = 0;  j < info_p->NumAdapters;  j++) {
+		    if (info_p->Adapter[j].Index == (ULONG) ifrow.dwIndex) {
+		        if (info_p->Adapter[j].Name[0] != 0) {
+			    wname_p = info_p->Adapter[j].Name;
+		        }
+		        break;
 		    }
-		    break;
-		}
+                }
 	    }
 	}
 	if (wname_p) {
@@ -14616,7 +14622,7 @@ subs_list *subs;
   this = subs->next;
   while(this) {
     next = this->next;
-    FREE((void *) this);
+    FREE(this);
     this = next;
   }
 
@@ -14647,7 +14653,7 @@ static void send_to_subscribers
 
     if(free_subs && !first) {
       next = this->next;
-      FREE((void *) this);
+      FREE(this);
       this = next;
     }
     else
