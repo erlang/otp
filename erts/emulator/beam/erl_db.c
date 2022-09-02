@@ -388,7 +388,7 @@ typedef enum {
     LCK_READ=1,     /* read only access */
     LCK_WRITE=2,    /* exclusive table write access */
     LCK_WRITE_REC=3, /* record write access */
-    NOLCK_ACCESS=4 /* Used to access the table structure
+    LCK_NOLOCK_ACCESS=4 /* Used to access the table structure
                       without acquiring the table lock */
 } db_lock_kind_t;
 
@@ -650,13 +650,15 @@ static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock)
 
 static ERTS_INLINE void db_lock(DbTable* tb, db_lock_kind_t kind)
 {
+    ASSERT(kind != LCK_NOLOCK_ACCESS);
     if (DB_LOCK_FREE(tb))
         return;
     if (tb->common.type & DB_FINE_LOCKED) {
         if (kind == LCK_WRITE) {
             erts_rwmtx_rwlock(&tb->common.rwlock);
             tb->common.is_thread_safe = 1;
-        } else if (kind != NOLCK_ACCESS) {
+        }
+        else {
             erts_rwmtx_rlock(&tb->common.rwlock);
             ASSERT(!tb->common.is_thread_safe);
         }
@@ -668,8 +670,6 @@ static ERTS_INLINE void db_lock(DbTable* tb, db_lock_kind_t kind)
         case LCK_WRITE_REC:
             erts_rwmtx_rwlock(&tb->common.rwlock);
             break;
-        case NOLCK_ACCESS:
-            return;
         default:
             erts_rwmtx_rlock(&tb->common.rwlock);
         }
@@ -679,7 +679,7 @@ static ERTS_INLINE void db_lock(DbTable* tb, db_lock_kind_t kind)
 
 static ERTS_INLINE void db_unlock(DbTable* tb, db_lock_kind_t kind)
 {
-    if (DB_LOCK_FREE(tb) || kind == NOLCK_ACCESS)
+    if (DB_LOCK_FREE(tb) || kind == LCK_NOLOCK_ACCESS)
         return;
     if (tb->common.type & DB_FINE_LOCKED) {
         if (kind == LCK_WRITE) {
@@ -712,7 +712,7 @@ static ERTS_INLINE int db_is_exclusive(DbTable* tb, db_lock_kind_t kind)
 
     return
         kind != LCK_READ &&
-        kind != NOLCK_ACCESS &&
+        kind != LCK_NOLOCK_ACCESS &&
         tb->common.is_thread_safe;
 }
 
@@ -774,7 +774,7 @@ DbTable* db_get_table_aux(Process *p,
      */
     ASSERT(erts_get_scheduler_data() && !ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
 
-    ASSERT((what == DB_READ_TBL_STRUCT) == (kind == NOLCK_ACCESS));
+    ASSERT((what == DB_READ_TBL_STRUCT) == (kind == LCK_NOLOCK_ACCESS));
 
     if (META_DB_LOCK_FREE())
         meta_already_locked = 1;
@@ -817,13 +817,16 @@ DbTable* db_get_table_aux(Process *p,
     }
 
     if (tb) {
+        if (what == DB_READ_TBL_STRUCT)
+            return tb;
+
 	db_lock(tb, kind);
 #ifdef ETS_DBG_FORCE_TRAP
         /*
          * The ets_SUITE uses this to verify that all table lookups calls
          * can handle a failed TRAP return correctly.
          */
-        if (what != DB_READ_TBL_STRUCT && tb->common.dbg_force_trap) {
+         if (tb->common.dbg_force_trap) {
             if (!(p->flags & F_DBG_FORCED_TRAP)) {
                 db_unlock(tb, kind);
                 tb = NULL;
@@ -837,11 +840,7 @@ DbTable* db_get_table_aux(Process *p,
             }
         }
 #endif
-        if (what != DB_READ_TBL_STRUCT
-            /* IMPORTANT: the above check is necessary as the status field
-                          might be in an intermediate state when
-                          kind==NOLCK_ACCESS */
-                && ERTS_UNLIKELY(!(tb->common.status & what))) {
+        if (ERTS_UNLIKELY(!(tb->common.status & what))) {
             tb = handle_lacking_permission(p, tb, kind, freason_p);
         }
     }
@@ -1939,7 +1938,8 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
             DbTable* tb;
             /* First check if another process has completed the
                operation without acquiring the lock */
-            tb = db_get_table(p, tid, DB_READ_TBL_STRUCT, NOLCK_ACCESS, &freason);
+            tb = db_get_table(p, tid, DB_READ_TBL_STRUCT, LCK_NOLOCK_ACCESS,
+                              &freason);
             ASSERT(tb || freason != TRAP);
             if (tb != NULL &&
                 (void*)erts_atomic_read_acqb(&tb->common.continuation_state) ==
@@ -1978,7 +1978,8 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
         ictx.status = ETS_INSERT_2_LIST_PROCESS_LOCAL;
         ictx.tb = NULL;
         ctx = &ictx;
-        DB_GET_TABLE(ctx->tb, tid, DB_READ_TBL_STRUCT, NOLCK_ACCESS, bix, NULL, p);
+        DB_GET_TABLE(ctx->tb, tid, DB_READ_TBL_STRUCT, LCK_NOLOCK_ACCESS, bix,
+                     NULL, p);
 #if defined(DEBUG) && defined(ARCH_64)
         ycf_debug_set_stack_start(&nr_of_reductions);
 #endif
