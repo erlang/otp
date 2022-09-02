@@ -4614,7 +4614,10 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
             break;
 
         case ERTS_SIG_Q_OP_UNLINK_ACK:
-            erts_proc_sig_destroy_unlink_op((ErtsSigUnlinkOp *) sig);
+            if (type == ERTS_SIG_Q_TYPE_DIST_LINK)
+                destroy_sig_dist_unlink_op((ErtsSigDistUnlinkOp *) sig);
+            else
+                erts_proc_sig_destroy_unlink_op((ErtsSigUnlinkOp *) sig);
             break;
 
         case ERTS_SIG_Q_OP_GROUP_LEADER: {
