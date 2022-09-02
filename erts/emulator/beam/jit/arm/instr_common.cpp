@@ -2233,11 +2233,11 @@ void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
 
 void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
                                      const ArgSource &Value) {
-    mov_arg(TMP1, Value);
+    auto value = load_source(Value, TMP1);
     mov_arg(ARG2, Trace);
 
     /* This is an error, attach a stacktrace to the reason. */
-    a.str(TMP1, arm::Mem(c_p, offsetof(Process, fvalue)));
+    a.str(value.reg, arm::Mem(c_p, offsetof(Process, fvalue)));
     a.str(ARG2, arm::Mem(c_p, offsetof(Process, ftrace)));
 
     emit_enter_runtime(0);

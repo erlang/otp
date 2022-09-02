@@ -585,9 +585,8 @@ void BeamModuleAssembler::emit_i_bs_match_string(const ArgRegister &Ctx,
         a.and_(ARG4, TMP2, imm(7));
 
         /* ARG3 = mb->base + (mb->offset >> 3) */
-        a.lsr(TMP2, TMP2, imm(3));
         a.ldur(TMP1, emit_boxed_val(ctx_reg.reg, base_offset));
-        a.add(ARG3, TMP1, TMP2);
+        a.add(ARG3, TMP1, TMP2, arm::lsr(3));
     }
 
     emit_enter_runtime();
@@ -1890,10 +1889,10 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             if (can_fail) {
                 a.tbnz(ARG3, 63, resolve_label(error, disp32K));
             }
-            a.asr(TMP1, ARG3, imm(_TAG_IMMED1_SIZE));
             if (seg.unit == 1) {
-                a.add(sizeReg, sizeReg, TMP1);
+                a.add(sizeReg, sizeReg, ARG3, arm::asr(_TAG_IMMED1_SIZE));
             } else {
+                a.asr(TMP1, ARG3, imm(_TAG_IMMED1_SIZE));
                 if (Fail.get() == 0) {
                     mov_imm(ARG4,
                             beam_jit_update_bsc_reason_info(
@@ -2162,8 +2161,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                  * the value is a non-negative small in the
                  * appropriate range. Multiply the size with the
                  * unit. */
-                mov_arg(ARG3, seg.size);
-                a.asr(ARG3, ARG3, imm(_TAG_IMMED1_SIZE));
+                auto r = load_source(seg.size, ARG3);
+                a.asr(ARG3, r.reg, imm(_TAG_IMMED1_SIZE));
                 if (seg.unit != 1) {
                     mov_imm(TMP1, seg.unit);
                     a.mul(ARG3, ARG3, TMP1);
@@ -2194,8 +2193,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             if (seg.effectiveSize >= 0) {
                 mov_imm(ARG3, seg.effectiveSize);
             } else {
-                mov_arg(ARG3, seg.size);
-                a.asr(ARG3, ARG3, imm(_TAG_IMMED1_SIZE));
+                auto r = load_source(seg.size, ARG3);
+                a.asr(ARG3, r.reg, imm(_TAG_IMMED1_SIZE));
                 if (seg.unit != 1) {
                     mov_imm(TMP1, seg.unit);
                     a.mul(ARG3, ARG3, TMP1);
