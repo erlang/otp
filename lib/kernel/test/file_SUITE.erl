@@ -4092,6 +4092,21 @@ do_large_file(Name) ->
     {ok,R}   = ?FILE_MODULE:read(F1, L+1),
     ok       = ?FILE_MODULE:close(F1),
 
+    %% Reopen the file try to read all of it; used to fail on macOS
+    %% We open with binary in order to not get a memory explosion.
+    {ok, F2} = ?FILE_MODULE:open(Name, [raw,read,binary]),
+    IsWindows = element(1,os:type()) =:= win32,
+    case {?FILE_MODULE:read(F2, P), erlang:system_info(wordsize)} of
+        {{ok, B}, 8} ->
+            P = byte_size(B);
+        {eof, 8} when IsWindows ->
+            ok;
+        {eof, 4} ->
+            %% Cannot read such large files on 32-bit
+            ok
+    end,
+    ok = ?FILE_MODULE:close(F2),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -4119,6 +4134,10 @@ do_large_write(Name) ->
 	    Bin = <<0:Size/unit:8>>,
 	    ok = file:write_file(Name, Bin),
 	    {ok,#file_info{size=Size}} = file:read_file_info(Name),
+
+            %% Even multiples of MAX_SYSIOVEC_IOVLEN would cause a crash
+            ok = file:write_file(Name, binary:part(Bin, 0, 1 bsl 31)),
+	    {ok,#file_info{size=1 bsl 31}} = file:read_file_info(Name),
 	    ok
     end.
 
