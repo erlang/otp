@@ -3738,7 +3738,7 @@ static int examine_iovec_term(Eterm list, UWord max_length, iovec_slice_t *resul
                 result->referenced_size += byte_size;
             }
 
-            result->iovec_len += 1 + byte_size / MAX_SYSIOVEC_IOVLEN;
+            result->iovec_len += (MAX_SYSIOVEC_IOVLEN - 1 + byte_size) / MAX_SYSIOVEC_IOVLEN;
         }
 
         result->sublist_length += 1;
