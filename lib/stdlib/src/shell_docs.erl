@@ -1005,7 +1005,7 @@ nl(Chars) ->
 init_ansi(#config{ ansi = undefined, io_opts = Opts }) ->
     %% We use this as our heuristic to see if we should print ansi or not
     case {application:get_env(kernel, shell_docs_ansi),
-          proplists:get_value(tty, Opts, false),
+          proplists:get_value(terminal, Opts, false),
           proplists:is_defined(echo, Opts) andalso
           proplists:is_defined(expand_fun, Opts)} of
         {{ok,false}, _, _} ->
