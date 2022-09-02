@@ -42,6 +42,8 @@
 
 #include <utime.h>
 
+#define FALLBACK_RW_LENGTH ((1ull << 31) - 1)
+
 /* Macros for testing file types. */
 #ifdef NO_UMASK
 #define FILE_MODE 0644
@@ -313,6 +315,11 @@ Sint64 efile_readv(efile_data_t *d, SysIOVec *iov, int iovlen) {
 
         if(use_fallback) {
             result = read(u->fd, iov->iov_base, iov->iov_len);
+
+            /* Some OSs (e.g. macOS) does not allow reads greater than 2 GB,
+               so if we get EINVAL in the fallback, we try with a smaller length */
+            if (result < 0 && errno == EINVAL && iov->iov_len > FALLBACK_RW_LENGTH)
+                result = read(u->fd, iov->iov_base, FALLBACK_RW_LENGTH);
         }
 
         if(result > 0) {
@@ -358,6 +365,11 @@ Sint64 efile_writev(efile_data_t *d, SysIOVec *iov, int iovlen) {
 
         if(use_fallback) {
             result = write(u->fd, iov->iov_base, iov->iov_len);
+
+            /* Some OSs (e.g. macOS) does not allow writes greater than 2 GB,
+               so if we get EINVAL in the fallback, we try with a smaller length */
+            if (result < 0 && errno == EINVAL && iov->iov_len > FALLBACK_RW_LENGTH)
+                result = write(u->fd, iov->iov_base, FALLBACK_RW_LENGTH);
         }
 
         if(result > 0) {
