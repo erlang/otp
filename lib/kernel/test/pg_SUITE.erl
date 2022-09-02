@@ -55,6 +55,7 @@
     disconnected_start/1,
     forced_sync/0, forced_sync/1,
     group_leave/1,
+    monitor_nonempty_scope/0, monitor_nonempty_scope/1,
     monitor_scope/0, monitor_scope/1,
     monitor/1
 ]).
@@ -83,7 +84,7 @@ groups() ->
         {cluster, [parallel], [process_owner_check, two, initial, netsplit, trisplit, foursplit,
             exchange, nolocal, double, scope_restart, missing_scope_join, empty_group_by_remote_leave,
             disconnected_start, forced_sync, group_leave]},
-        {monitor, [parallel], [monitor_scope, monitor]}
+        {monitor, [parallel], [monitor_nonempty_scope, monitor_scope, monitor]}
     ].
 
 %%--------------------------------------------------------------------
@@ -574,6 +575,27 @@ group_leave(Config) when is_list(Config) ->
     sync(?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, two)),
     ok.
+
+monitor_nonempty_scope() ->
+    [{doc, "Ensure that monitor_scope returns full map of groups in the scope"}].
+
+monitor_nonempty_scope(Config) when is_list(Config) ->
+    {Peer, Node} = spawn_node(?FUNCTION_NAME),
+    Pid = erlang:spawn_link(forever()),
+    RemotePid = erlang:spawn(Node, forever()),
+    Expected = lists:sort([Pid, RemotePid]),
+    pg:join(?FUNCTION_NAME, one, Pid),
+    ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, one, RemotePid])),
+    %% Ensure that initial monitoring request returns current map of groups to pids
+    {Ref, #{one := Actual} = FullScope} = pg:monitor_scope(?FUNCTION_NAME),
+    ?assertEqual(Expected, Actual),
+    %% just in case - check there are no extra groups in that scope
+    ?assertEqual(1, map_size(FullScope)),
+    pg:demonitor(?FUNCTION_NAME, Ref),
+    %% re-check
+    {_Ref, FullScope} = pg:monitor_scope(?FUNCTION_NAME),
+    peer:stop(Peer),
+    exit(Pid, normal).
 
 monitor_scope() ->
     [{doc, "Tests monitor_scope/1 and demonitor/2"}].
