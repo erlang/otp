@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,19 +19,22 @@
 %%
 -module(eunit_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2,
-	 app_test/1,appup_test/1,eunit_test/1,surefire_utf8_test/1,surefire_latin_test/1,
+-export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
+	 init_per_group/2, end_per_group/2,
+	 app_test/1, appup_test/1, eunit_test/1, eunit_exact_test/1,
+         surefire_utf8_test/1, surefire_latin_test/1,
 	 surefire_c0_test/1, surefire_ensure_dir_test/1,
 	 stacktrace_at_timeout_test/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-define(TIMEOUT, 1000).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [app_test, appup_test, eunit_test, surefire_utf8_test, surefire_latin_test,
-     surefire_c0_test, surefire_ensure_dir_test, stacktrace_at_timeout_test].
+    [app_test, appup_test, eunit_test, eunit_exact_test, surefire_utf8_test,
+     surefire_latin_test, surefire_c0_test, surefire_ensure_dir_test,
+     stacktrace_at_timeout_test].
 
 groups() ->
     [].
@@ -57,6 +60,30 @@ appup_test(Config) when is_list(Config) ->
 eunit_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),
     ok = eunit:test(eunit).
+
+eunit_exact_test(Config) when is_list(Config) ->
+    ok = file:set_cwd(code:lib_dir(eunit)),
+    ok = eunit:test([eunit, eunit_tests],
+                    [{report, {eunit_test_listener, [self()]}}]),
+    check_test_results(14, 0, 0, 0),
+    ok = eunit:test([eunit, eunit_tests],
+                    [{report, {eunit_test_listener, [self()]}},
+                     {exact_execution, false}]),
+    check_test_results(14, 0, 0, 0),
+    ok = eunit:test([eunit, eunit_tests],
+                    [{report, {eunit_test_listener, [self()]}},
+                     {exact_execution, true}]),
+    check_test_results(7, 0, 0, 0),
+    ok.
+
+check_test_results(Pass, Fail, Skip, Cancel) ->
+    receive
+        {test_report, TestReport} ->
+            #{pass := Pass, fail := Fail,
+              skip := Skip, cancel := Cancel} = TestReport
+    after ?TIMEOUT ->
+            ct:fail(no_test_report_not_received)
+    end.
 
 surefire_latin_test(Config) when is_list(Config) ->
     ok = file:set_cwd(proplists:get_value(priv_dir, Config, ".")),

@@ -243,7 +243,8 @@ start_job(Job, From, Reference, St) ->
     From ! {start, Reference},
     %% The default is to run tests in order unless otherwise specified
     Order = proplists:get_value(order, Job#job.options, inorder),
-    eunit_proc:start(Job#job.test, Order, Job#job.super, Reference),
+    eunit_proc:start(Job#job.test, Order, Job#job.super, Reference,
+                     Job#job.options),
     St#state{jobs = dict:store(Reference, From, St#state.jobs)}.
 
 handle_done(Reference, St) ->

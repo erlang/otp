@@ -29,13 +29,12 @@
 -include("eunit.hrl").
 -include("eunit_internal.hrl").
 
--export([start/4, get_output/0]).
+-export([start/5, get_output/0]).
 
 %% This must be exported; see new_group_leader/1 for details.
 -export([group_leader_process/1]).
 
--record(procstate, {ref, id, super, insulator, parent, order}).
-
+-record(procstate, {ref, id, super, insulator, parent, order, options}).
 
 %% Spawns test process and returns the process Pid; sends {done,
 %% Reference, Pid} to caller when finished. See the function
@@ -44,12 +43,13 @@
 %% The `Super' process receives a stream of status messages; see
 %% message_super/3 for details.
 
-start(Tests, Order, Super, Reference)
+start(Tests, Order, Super, Reference, Options)
   when is_pid(Super), is_reference(Reference) ->
     St = #procstate{ref = Reference,
 		    id = [],
 		    super = Super,
-		    order = Order},
+		    order = Order,
+                    options = Options},
     spawn_group(local, #group{tests = Tests}, St).
 
 %% Fetches the output captured by the eunit group leader. This is
@@ -436,7 +436,7 @@ wait_for_tasks(PidSet, St) ->
 %% TODO: Flow control, starting new job as soon as slot is available
 
 tests(T, St) ->
-    I = eunit_data:iter_init(T, St#procstate.id),
+    I = eunit_data:iter_init(T, St#procstate.id, St#procstate.options),
     case St#procstate.order of
 	inorder -> tests_inorder(I, St);
 	inparallel -> tests_inparallel(I, 0, St);

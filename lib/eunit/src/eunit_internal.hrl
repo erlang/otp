@@ -50,6 +50,7 @@
 	      }).
 
 -record(group, {desc = undefined,
+                options = undefined,
 		order = undefined,	% run in order or in parallel
 		timeout = undefined,
 		context = undefined,	% setup-context record
