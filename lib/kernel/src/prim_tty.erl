@@ -216,8 +216,9 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
         case maps:get(tty, Options) of
             true ->
                 ok = tty_init(TTY, stdout, Options),
+                NewState = init(State, os:type()),
                 ok = tty_set(TTY),
-                init(State, os:type());
+                NewState;
             false ->
                 State
         end,
