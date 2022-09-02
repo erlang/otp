@@ -1586,6 +1586,15 @@ protected:
                 a.mov(spill, imm(val));
                 a.mov(to, spill);
             }
+        } else if (from.isWord()) {
+            auto val = from.as<ArgWord>().get();
+
+            if (Support::isInt32((Sint)val)) {
+                a.mov(to, imm(val));
+            } else {
+                a.mov(spill, imm(val));
+                a.mov(to, spill);
+            }
         } else {
             mov_arg(spill, from);
             a.mov(to, spill);
