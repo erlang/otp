@@ -55,7 +55,7 @@
          shell_delete_unicode_not_at_cursor_wrap/1,
          shell_update_window_unicode_wrap/1,
          shell_standard_error_nlcr/1,
-         remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1,
+         remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
          external_editor_unicode/1, shell_ignore_pager_commands/1]).
@@ -96,6 +96,7 @@ groups() ->
        shell_history_custom_errors]},
      {remsh, [],
       [remsh_basic,
+       remsh_error,
        remsh_longnames,
        remsh_no_epmd,
        remsh_expand_compatibility_25,
@@ -2073,9 +2074,19 @@ remsh_basic(Config) when is_list(Config) ->
     %% Test that remsh works without -sname.
     rtnode:run(PreCmds ++ PostCmds, [], " ", "-remsh " ++ TargetNodeStr),
 
+    %% Test that if multiple remsh are given, we select the first
+    rtnode:run([{expect, "Multiple"}] ++ PreCmds ++ PostCmds,
+               [], " ",
+               "-remsh " ++ TargetNodeStr ++ " -remsh invalid_node"),
+
     peer:stop(Peer),
 
     ok.
+
+%% Test that if we cannot connect to a node, we get a correct error
+remsh_error(_Config) ->
+    "Could not connect to \"invalid_node\"\n" =
+        os:cmd(ct:get_progname() ++ " -remsh invalid_node").
 
 quit_hosting_node() ->
     %% Command sequence for entering a shell on the hosting node.

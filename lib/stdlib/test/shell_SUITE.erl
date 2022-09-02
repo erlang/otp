@@ -3080,25 +3080,29 @@ start_interactive(_Config) ->
     start_interactive_shell(["-env","TERM","dumb"]).
 
 start_interactive_shell(ExtraArgs) ->
+
+    %% Basic test case
     rtnode:run(
-      [{expect, "test"},
+      [{expect, "eval_test"},
        {putline, "test."},
        {eval, fun() -> shell:start_interactive() end},
        {expect, "1>"},
        {expect, "2>"},
        {eval, fun() -> {error,already_started} = shell:start_interactive(), ok end}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"] ++ ExtraArgs),
+      ],[],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
 
+    %% Test that custom MFA works
     rtnode:run(
-      [{expect, "test"},
+      [{expect, "eval_test"},
        {putline, "test."},
        {eval, fun() -> shell:start_interactive({shell,start,[]}) end},
        {expect, "1>"},
        {expect, "2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"] ++ ExtraArgs),
+      ],[],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
 
+    %% Test that we can start noshell and then a shell
     rtnode:run(
-      [{expect, "test"},
+      [{expect, "eval_test"},
        {putline, "test."},
        {eval, fun() -> shell:start_interactive(noshell) end},
        {eval, fun() -> io:format(user,"~ts",[io:get_line(user, "")]) end},
@@ -3107,24 +3111,56 @@ start_interactive_shell(ExtraArgs) ->
        {eval, fun() -> shell:start_interactive() end},
        {expect, "1>"},
        {expect, "2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"] ++ ExtraArgs),
+      ],[],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
 
+    %% Test that we can start various remote shell combos
     [ begin
           {ok, Peer, Node} = ?CT_PEER(),
-          unlink(Peer),
           SNode = atom_to_list(Node),
           rtnode:run(
-            [{expect, "test"},
+            [{expect, "eval_test"},
              {putline, "test."},
              {eval, fun() -> shell:start_interactive(Arg(Node)) end},
              {expect, "\\Q("++SNode++")\\E2>"}
-            ],[],"",["-noinput","-eval","io:format(\"test~n\")"] ++ ExtraArgs)
+            ] ++ quit_hosting_node(),
+            [],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
+          peer:stop(Peer)
       end || Arg <- [fun(Node) -> {Node, {shell,start,[]}} end,
                      fun(Node) -> {remote, atom_to_list(Node)} end,
                      fun(Node) -> {remote, hd(string:split(atom_to_list(Node),"@"))} end,
                      fun(Node) -> {remote, atom_to_list(Node), {shell,start,[]}} end
                     ]],
+
+    %% Test that errors work as they should
+    {ok, Peer, Node} = ?CT_PEER(),
+    rtnode:run(
+      [{expect, "eval_test"},
+       {eval, fun() ->
+                      {error,noconnection} = shell:start_interactive(
+                                               {remote,"invalid_node"}),
+                      {error,noconnection} = shell:start_interactive(
+                                               {remote,"invalid_node",
+                                                {invalid_module, start, []}}),
+                      {error,nofile} = shell:start_interactive(
+                                         {remote,atom_to_list(Node),
+                                          {invalid_module, start, []}}),
+                      shell:start_interactive({remote, atom_to_list(Node)})
+              end},
+       {expect, "1> $"}
+      ] ++ quit_hosting_node(),
+      [],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
+    peer:stop(Peer),
+
     ok.
+
+quit_hosting_node() ->
+    [{putline, "\^g"},
+     {expect, "--> $"},
+     {putline, "s"},
+     {expect, "--> $"},
+     {putline, "c"},
+     {expect, ["Eshell"]},
+     {expect, ["1> $"]}].
 
 term_to_string(T) ->
     lists:flatten(io_lib:format("~w", [T])).

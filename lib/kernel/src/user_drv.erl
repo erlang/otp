@@ -99,6 +99,9 @@ start() ->
     case init:get_argument(remsh) of
         {ok,[[Node]]} ->
             start(#{ initial_shell => {remote, Node} });
+        {ok,[[Node]|_]} ->
+            ?LOG_WARNING("Multiple -remsh given to erl, using the first, ~p", [Node]),
+            start(#{ initial_shell => {remote, Node} });
         E when E =:= error ; E =:= {ok,[[]]} ->
             start(#{ })
     end.
@@ -149,6 +152,7 @@ init(Args) ->
     %% When running in embedded mode we need to call prim_tty:on_load manually here
     %% as the automatic call happens after user is started.
     ok = init:run_on_load_handlers([prim_tty]),
+
     IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
     StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
     OldShell = maps:get(initial_shell, Args, undefined) =:= oldshell,
@@ -208,7 +212,12 @@ init(internal, TTYState, {Args, State = #state{ user = User }}) ->
         #{ initial_shell := noshell } ->
             init_noshell(NewState);
         #{ initial_shell := {remote, Node} } ->
-            init_remote_shell(NewState, Node);
+            InitialShell = {shell,start,[]},
+            exit_on_remote_shell_error(
+              Node, InitialShell, init_remote_shell(NewState, Node, InitialShell));
+        #{ initial_shell := {remote, Node, InitialShell} } ->
+            exit_on_remote_shell_error(
+              Node, InitialShell, init_remote_shell(NewState, Node, InitialShell));
         #{ initial_shell := oldshell } ->
             old = State#state.shell_started,
             init_local_shell(NewState, {shell,start,[]});
@@ -218,21 +227,29 @@ init(internal, TTYState, {Args, State = #state{ user = User }}) ->
             init_local_shell(NewState, {shell,start,[init]})
     end.
 
+exit_on_remote_shell_error(RemoteNode, _, {error, noconnection}) ->
+    io:format(standard_error, "Could not connect to ~p\n", [RemoteNode]),
+    erlang:halt(1);
+exit_on_remote_shell_error(RemoteNode, {M, _, _}, {error, Reason}) ->
+    io:format(standard_error, "Could not load ~p on ~p (~p)\n", [RemoteNode, M, Reason]),
+    erlang:halt(1);
+exit_on_remote_shell_error(_, _, Result) ->
+    Result.
+
 %% We have been started with -noshell. In this mode the current_group is
 %% the `user` group process.
 init_noshell(State) ->
     init_shell(State#state{ shell_started = false }, "").
 
-init_remote_shell(State, Node) ->
+init_remote_shell(State, Node, {M, F, A}) ->
 
-    StartedDist =
-        case net_kernel:get_state() of
-            #{ started := no } ->
-                {ok, _} = net_kernel:start([undefined, shortnames]),
-                true;
-            _ ->
-                false
-        end,
+    case net_kernel:get_state() of
+        #{ started := no } ->
+            {ok, _} = net_kernel:start([undefined, shortnames]),
+            ok;
+        _ ->
+            ok
+    end,
 
     LocalNode =
         case net_kernel:get_state() of
@@ -253,27 +270,44 @@ init_remote_shell(State, Node) ->
     case net_kernel:connect_node(RemoteNode) of
         true ->
 
-            %% We fetch the shell slogan from the remote node
-            Slogan =
-                case erpc:call(RemoteNode, application, get_env,
-                               [stdlib, shell_slogan,
-                                erpc:call(RemoteNode, erlang, system_info, [system_version])]) of
-                    Fun when is_function(Fun, 0) ->
-                        erpc:call(RemoteNode, Fun);
-                    SloganEnv ->
-                        SloganEnv
-                end,
+            case erpc:call(RemoteNode, code, ensure_loaded, [M]) of
+                {error, Reason} when Reason =/= embedded ->
+                    {error, Reason};
+                _ ->
 
-            RShell = {RemoteNode,shell,start,[]},
-            Gr = gr_add_cur(State#state.groups,
-                            group:start(self(), RShell, [{echo,State#state.shell_started =:= new}] ++ remsh_opts(RemoteNode)),
-                            RShell),
+                    %% Setup correct net tick times
+                    case erpc:call(RemoteNode, net_kernel, get_net_ticktime, []) of
+                        {ongoing_change_to, NetTickTime} ->
+                            _ = net_kernel:set_net_ticktime(NetTickTime),
+                            ok;
+                        NetTickTime ->
+                            _ = net_kernel:set_net_ticktime(NetTickTime),
+                            ok
+                    end,
 
-            init_shell(State#state{ groups = Gr }, [Slogan,$\n]);
+                    RShell = {RemoteNode, M, F, A},
+
+                    %% We fetch the shell slogan from the remote node
+                    Slogan =
+                        case erpc:call(RemoteNode, application, get_env,
+                                       [stdlib, shell_slogan,
+                                        erpc:call(RemoteNode, erlang, system_info, [system_version])]) of
+                            Fun when is_function(Fun, 0) ->
+                                erpc:call(RemoteNode, Fun);
+                            SloganEnv ->
+                                SloganEnv
+                        end,
+
+                    Group = group:start(self(), RShell,
+                                        [{echo,State#state.shell_started =:= new}] ++
+                                            remsh_opts(RemoteNode)),
+
+                    Gr = gr_add_cur(State#state.groups, Group, RShell),
+
+                    init_shell(State#state{ groups = Gr }, [Slogan,$\n])
+            end;
         false ->
-            ?LOG_ERROR("Could not connect to ~p, starting local shell",[RemoteNode]),
-            _ = [net_kernel:stop() || StartedDist],
-            init_local_shell(State, {shell, start, []})
+            {error, noconnection}
     end.
 
 init_local_shell(State, InitialShell) ->
@@ -346,27 +380,40 @@ server({call, From}, {start_shell, Args},
                        read = ReadHandle,
                        write = WriteHandle
                       },
-    R = case maps:get(initial_shell, Args, undefined) of
-            noshell ->
-                init_noshell(NewHandleState);
-            {remote, Node} ->
-                init_remote_shell(NewHandleState, Node);
-            undefined ->
-                case NewHandleState#state.shell_started of
-                    old ->
-                        init_local_shell(NewHandleState, {shell,start,[]});
-                    new ->
-                        init_local_shell(NewHandleState, {shell,start,[init]});
-                    false ->
-                        %% This can never happen, but dialyzer complains so we add
-                        %% this clause.
-                        keep_state_and_data
-                end;
-            InitialShell ->
-                init_local_shell(NewHandleState, InitialShell)
+    {Result, Reply}
+        = case maps:get(initial_shell, Args, undefined) of
+              noshell ->
+                  {init_noshell(NewHandleState), ok};
+              {remote, Node} ->
+                  case init_remote_shell(NewHandleState, Node, {shell, start, []}) of
+                      {error, _} = Error ->
+                          {init_noshell(NewHandleState), Error};
+                      R ->
+                          {R, ok}
+                  end;
+              {remote, Node, InitialShell} ->
+                  case init_remote_shell(NewHandleState, Node, InitialShell) of
+                      {error, _} = Error ->
+                          {init_noshell(NewHandleState), Error};
+                      R ->
+                          {R, ok}
+                  end;
+              undefined ->
+                  case NewHandleState#state.shell_started of
+                      old ->
+                          {init_local_shell(NewHandleState, {shell,start,[]}), ok};
+                      new ->
+                          {init_local_shell(NewHandleState, {shell,start,[init]}), ok};
+                      false ->
+                          %% This can never happen, but dialyzer complains so we add
+                          %% this clause.
+                          {keep_state_and_data, ok}
+                  end;
+              InitialShell ->
+                  {init_local_shell(NewHandleState, InitialShell), ok}
         end,
-    gen_statem:reply(From, ok),
-    R;
+    gen_statem:reply(From, Reply),
+    Result;
 server({call, From}, {start_shell, _Args}, _State) ->
     gen_statem:reply(From, {error, already_started}),
     keep_state_and_data;
