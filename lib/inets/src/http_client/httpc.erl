@@ -58,6 +58,95 @@
 
 -define(DEFAULT_PROFILE, default).
 
+%%%=========================================================================
+%%%  Type specifications
+%%%=========================================================================
+
+%%%=========================================================================
+%%% HTTP request types
+%%%=========================================================================
+
+-type url() :: string().
+-type http_string() :: string().
+%% url() Syntax according to the URI definition in RFC 3986, for example "http://www.erlang.org.
+
+-type status_line() :: {http_version(), status_code(), reason_phrase()}.
+-type status_code() :: non_neg_integer().
+-type reason_phrase() :: string().
+
+-type http_method() :: head | get | put | patch | post | trace | options | delete.
+-type http_request() :: {url(), headers()} | {url(), headers(), content_type(), body()}.
+-type headers() :: header().
+-type header() :: {field(), value()}.
+-type field() :: [byte()].
+-type value() :: binary() | iolist().
+-type accumulator() :: term().
+-type content_type() :: http_string().
+-type body_processing_result() :: eof | {ok, iolist(), accumulator()}.
+-type body() :: http_string()
+              | binary()
+              | { fun((accumulator()) -> body_processing_result()), accumulator()}
+              | { chunkify, fun((accumulator()) -> body_processing_result()), accumulator() }.
+
+-type profile_request() :: profile() | pid().
+-type profile() :: atom().
+
+-type ssl_options() :: [ssl_option()].
+%% ssl for information about SSL options (ssl_options()).
+
+-type ssl_option() :: ssl:tls_option().
+
+-type http_option() :: {timeout, timeout()}
+                     | {connect_timeout, timeout()}
+                     | {ssl, ssl_options()}
+                     | {essl, ssl_options()}
+                     | {autoredirect, boolean()}
+                     | {proxy_auth, {userstring(), passwordstring()}}
+                     | {version, http_version()} | {relaxed, boolean()}.
+
+-type userstring() :: string().
+-type passwordstring() :: string().
+
+-type http_version() :: http_string().
+% http_version(). For example, "HTTP/1.1"
+
+-type request_id() :: reference().
+
+-type http_body_result() :: http_string() | binary().
+-type request_result() :: {ok, {status_line(), headers(), http_body_result()}}
+                        | {ok, {status_code(), http_body_result()}}
+                        | {ok, request_id()}
+                        | {ok, saved_to_file}
+                        | {error, term()}.
+
+%%%=========================================================================
+%%%  Option type to request/4
+%%%=========================================================================
+
+%% TODO: I may be mixing options_request() and request_options()...
+-type options_request() :: [option_request()].
+-type option_request() :: {sync, boolean()}
+                        | {stream, stream_to()}
+                        | {body_format, body_format()}
+	                    | {full_result, boolean()}
+                        | {headers_as_is, boolean()}
+                        | {socket_opts, socket_opts()}
+                        | {receiver, receiver()}
+                        | {ipv6_host_with_brackets, boolean()}.
+-type stream_to() :: none | self | {self, once} | filename().
+-type body_format() :: string() | binary().
+-type filename() :: string().
+
+-type socket_opts() :: [socket_opt()].
+-type socket_opt() :: term().
+%% see `gen_tcp' options and see `ssl:connect' options
+
+-type receiver() :: pid() | fun((term()) -> term()) | {receiver_module(), receiver_function(), receiver_args()}.
+-type receiver_module() :: atom().
+-type receiver_function() :: atom().
+-type receiver_args() :: list().
+
+-type cookie_header_opt() :: {ipv6_host_with_brackets, boolean()}.
 
 %%%=========================================================================
 %%%  API
@@ -66,7 +155,9 @@
 default_profile() ->
     ?DEFAULT_PROFILE.
 
-
+-spec profile_name(default) -> httpc_manager;
+                  (pid())   -> pid();
+                  (atom()) -> atom().
 profile_name(?DEFAULT_PROFILE) ->
     httpc_manager;
 profile_name(Profile) when is_pid(Profile) -> 
@@ -75,85 +166,192 @@ profile_name(Profile) ->
     Prefix = lists:flatten(io_lib:format("~w_", [?MODULE])),
     profile_name(Prefix, Profile).
 
+
+-spec profile_name(string(), atom()) -> atom();
+                  (term(), pid()) -> pid().
 profile_name(Prefix, Profile) when is_atom(Profile) ->
     list_to_atom(Prefix ++ atom_to_list(Profile));
 profile_name(_Prefix, Profile) when is_pid(Profile) ->
     Profile.
 
 
-%%--------------------------------------------------------------------------
-%% request(Url) -> {ok, {StatusLine, Headers, Body}} | {error,Reason} 
-%% request(Url Profile) ->
-%%           {ok, {StatusLine, Headers, Body}} | {error,Reason} 
-%%
-%%	Url - string() 
-%% Description: Calls request/4 with default values.
-%%--------------------------------------------------------------------------
-
+-spec request(url()) -> request_result().
 request(Url) ->
     request(Url, default_profile()).
 
+%%
+%% @doc Sends an HTTP request. The function can be both synchronous and
+%% asynchronous. In the latter case, the function returns `{ok, RequestId}' and
+%% then the information is delivered to the `receiver' depending on that value.
+%%
+%% Type information:
+%% <dl>
+%%   <dt>`Profile'</dt>
+%%   <dd>When started `stand_alone' only the pid can be used.</dd>
+%% </dl>
+%%
+%% This function is equivalent to `httpc:request(get, {Url, []}, [], [])'.
+-spec request(Url :: url(), Profile :: profile()) -> request_result().
 request(Url, Profile) ->
     request(get, {Url, []}, [], [], Profile).
 
-
-%%--------------------------------------------------------------------------
-%% request(Method, Request, HTTPOptions, Options [, Profile]) ->
-%%           {ok, {StatusLine, Headers, Body}}
-%%         | {ok, {Status, Body}}
-%%         | {ok, RequestId}
-%%         | {ok, {saved_as, FilePath}
-%%         | {error, Reason}
 %%
-%%	Method - atom() = head | get | put | patch | post | trace |
-%%	                  options | delete 
-%%	Request - {Url, Headers} | {Url, Headers, ContentType, Body} 
-%%	Url - string() 
-%%	HTTPOptions - [HttpOption]
-%%	HTTPOption - {timeout, Time} | {connect_timeout, Time} | 
-%%                   {ssl, SSLOptions} | {proxy_auth, {User, Password}}
-%%	Ssloptions = ssl_options() | 
-%%                   {ssl,  ssl_options()} | 
-%%                   {essl, ssl_options()}
-%%      ssl_options() = [ssl_option()]
-%%	ssl_option() =  {verify, code()} | 
-%%                      {depth, depth()} | 
-%%                      {certfile, path()} |
-%%	{keyfile, path()} | {password, string()} | {cacertfile, path()} |
-%%	{ciphers, string()} 
-%%	Options - [Option]
-%%	Option -  {sync, Boolean}           | 
-%%                {body_format, BodyFormat} | 
-%%	          {full_result, Boolean}    | 
-%%                {stream, To}              |
-%%                {headers_as_is, Boolean}  
-%%	StatusLine = {HTTPVersion, StatusCode, ReasonPhrase}</v>
-%%	HTTPVersion = string()
-%%	StatusCode = integer()
-%%	ReasonPhrase = string()
-%%	Headers = [Header]
-%%      Header = {Field, Value}
-%%	Field = [byte()]
-%%	Value = binary() | iolist()
-%%	Body = string() | binary() | {fun(SendAcc) -> SendFunResult, SendAcc} |
-%%              {chunkify, fun(SendAcc) -> SendFunResult, SendAcc} - HTML-code
-%%      SendFunResult = eof | {ok, iolist(), NewSendAcc}
-%%      SendAcc = NewSendAcc = term()
+%% @doc Sends a HTTP-request. The function can be both synchronous and
+%% asynchronous in the later case the function will return `{ok, RequestId}' and
+%% and then the information is delivered to the receiver depending on that
+%% value. Type information follows for HTTP option ({@link http_option()}):
+%% <dl>
+%%   <dt>`timeout'</dt>
+%%   <dd>Time-out for the request. The clock starts ticking when the request is sent.
+%%            Time is in milliseconds; default is `infinity'.</dd>
+%%   <dt>`connect_timeout'</dt>
+%%   <dd>Connection time-out time, used during the initial request, when the
+%%       client is connecting to the server. Time is in milliseconds. Default is
+%%       the value of option timeout.</dd>
+%%   <dt>`ssl'</dt>
+%%   <dd>This is the SSL/TLS connecting configuration option.
+%%        Defaults to `[]'. @see ssl:connect/1 for available options.</dd>
+%%   <dt>`autoredirect'</dt>
+%%   <dd>The client automatically retrieves the information from the new
+%%        URI and returns that as the result, instead of a 30X-result code.
 %%
-%% Description: Sends a HTTP-request. The function can be both
-%% synchronous and asynchronous in the later case the function will
-%% return {ok, RequestId} and later on a message will be sent to the
-%% calling process on the format {http, {RequestId, {StatusLine,
-%% Headers, Body}}} or {http, {RequestId, {error, Reason}}}.
-%% Only octects are accepted in header fields and values.
-%%--------------------------------------------------------------------------
-
+%%        For some 30X-result codes, automatic redirect is not allowed.
+%%
+%%        In these cases the 30X-result is always returned. Default is `true'.</dd>
+%%   <dt>proxy_auth</dt>
+%%   <dd> A proxy-authorization header using the provided username and
+%%        password is added to the request.</dd>
+%%   <dt>version</dt>
+%%   <dd>Can be used to make the client act as an HTTP/1.0 client.
+%%       By default this is an HTTP/1.1 client. When using HTTP/1.0
+%%       persistent connections are not used.
+%%
+%%       Default is the string "HTTP/1.1".</dd>
+%%   <dt>relaxed</dt>
+%%   <dd>If set to `true', workarounds for known server deviations from
+%%       the HTTP-standard are enabled.
+%%       Default is `false'.</dd>
+%% </dl>
+%%
+%% Request options details ({@link http_option()}):
+%% <dl>
+%%   <dt>`sync'</dt>
+%%   <dd>Option for the request to be synchronous or asynchronous.
+%%     Default is `true'.</dd>
+%%   <dt>`stream'</dt>
+%%   <dd>Streams the body of a 200 or 206 response to the calling process or to a
+%%     file. When streaming to the calling process using option `self', the
+%%     following stream messages are sent to that process: `{http, {RequestId,
+%%     stream_start, Headers}}', `{http, {RequestId, stream, BinBodyPart}}', and
+%%     `{http, {RequestId, stream_end, Headers}}'.
+%%
+%%     When streaming to the calling processes using option `{self, once}', the
+%%     first message has an extra element, that is, `{http, {RequestId,
+%%     stream_start, Headers, Pid}}'. This is the process id to be used as an
+%%     argument to {@link httpc:stream_next/1} to trigger the next message to be sent to
+%%     the calling process.
+%%
+%%     Notice that chunked encoding can add headers so that there are more
+%%     headers in the `stream_end' message than in `stream_start'. When streaming to
+%%     a file and the request is asynchronous, the message `{http, {RequestId,
+%%     saved_to_file}}' is sent.
+%%
+%%     Default is `none'.</dd>
+%%   <dt>`body_format'</dt>
+%%   <dd>Defines if the body is to be delivered as a `string' or `binary'. This
+%%   option is only valid for the synchronous request.
+%%
+%%     Default is `string'.</dd>
+%%   <dt>`full_result'</dt>
+%%   <dd> Defines if a "full result" is to be returned to the caller (that is,
+%%   the body, the headers, and the entire status line) or not (the body and the
+%%   status code).
+%%
+%%     Default is `true'.</dd>
+%%   <dt>`headers_as_is'</dt>
+%%   <dd> Defines if the headers provided by the user are to be made lower case or
+%%     to be regarded as case sensitive.
+%%
+%%     The HTTP standard requires them to be case insensitive. Use this feature
+%%     only if there is no other way to communicate with the server or for
+%%     testing purpose. When this option is used, no headers are automatically
+%%     added. All necessary headers must be provided by the user.
+%%
+%%     Default is `false'.</dd>
+%%   <dt>`socket_opts'</dt>
+%%   <dd> Socket options to be used for this request.
+%%
+%%     Overrides any value set by function {@link set_options/1} {@link set_option/2}.
+%%
+%%     The validity of the options is not checked by the HTTP client they are
+%%     assumed to be correct and passed on to `ssl' application and inet driver,
+%%     which may reject them if they are not correct.
+%%
+%%     <note>
+%%     Persistent connections are not supported when setting the socket_opts
+%%     option. When socket_opts is not set the current implementation assumes
+%%     the requests to the same host, port combination will use the same socket
+%%     options.
+%%     </note>
+%%
+%%     By default the socket options set by functions {@link set_options/1}
+%%     {@link set_options/2} are used when establishing a connection.</dd>
+%%   <dt>`receiver'</dt>
+%%   <dd> Defines how the client delivers the result of an asynchronous request
+%%     (`sync' has the value `false'). The `receiver' (type {@link receiver()})
+%%     <dl>
+%%     <dt>`pid()'</dt>
+%%     <dd>Messages are sent to this process in the format `{http, ReplyInfo}'</dd>
+%%     <dt>`function/1'</dt>
+%%     <dd>Information is delivered to the receiver through calls to the provided `fun Receiver(ReplyInfo)'.</dd>
+%%     <dt>`{Module, Function, Args}'</dt>
+%%     <dd>Information is delivered to the receiver through calls to the
+%%       callback function `apply(Module, Function, [ReplyInfo | Args])'.
+%%       In all of these cases, `ReplyInfo' has the following structure:
+%%       ```
+%%       {RequestId, saved_to_file}
+%%       {RequestId, {error, Reason}}
+%%       {RequestId, Result}
+%%       {RequestId, stream_start, Headers}
+%%       {RequestId, stream_start, Headers, HandlerPid}
+%%       {RequestId, stream, BinBodyPart}
+%%       {RequestId, stream_end, Headers}
+%%       '''
+%%
+%%       Default is the pid of the process calling the request function (self()).</dd>
+%%     </dl>
+%%   </dd>
+%% </dl>
+-spec request(Method, Request, HttpOptions, Options) -> request_result() when
+      Method :: http_method(),
+      Request :: http_request(),
+      HttpOptions :: [http_option()],
+      Options :: options_request().
 request(Method, Request, HttpOptions, Options) ->
     request(Method, Request, HttpOptions, Options, default_profile()).
+
 
 -define(WITH_BODY, [post, put, patch, delete]).
 -define(WITHOUT_BODY, [get, head, options, trace, put, delete]).
 
+%%
+%% @doc Sends a HTTP-request. The function can be both synchronous and
+%% asynchronous in the later case the function will return `{ok, RequestId}' and
+%% and then the information is delivered to the receiver depending on that
+%% value. For the type information follows for HTTP option ({@link http_option()})
+%% read {@link request/4}.
+%%
+%% Type information:
+%% <dl>
+%%   <dt>`Profile'</dt>
+%%   <dd>When started `stand_alone' only the pid can be used.</dd>
+%% </dl>
+-spec request(Method, Request, HttpOptions, Options, Profile) -> request_result() when
+      Method :: http_method(),
+      Request :: http_request(),
+      HttpOptions :: [http_option()],
+      Options :: options_request(),
+      Profile :: pid() | atom().
 request(Method, Request, HTTPOptions, Options, Profile)
   when is_atom(Profile) orelse is_pid(Profile) ->
     WithBody = lists:member(Method, ?WITH_BODY),
@@ -198,16 +396,35 @@ check_request(true, _, {_URL, _Headers, ContentType, Body})
 check_request(_, _, _Request) ->
     {error, invalid_request}.
 
-%%--------------------------------------------------------------------------
-%% cancel_request(RequestId) -> ok
-%% cancel_request(RequestId, Profile) -> ok
-%%   RequestId - As returned by request/4  
-%%                                 
-%% Description: Cancels a HTTP-request.
-%%-------------------------------------------------------------------------
+%%
+%% @doc Description: Cancels a HTTP-request.
+%%
+%% Type description:
+%% <dl>
+%%   <dt>`RequestId'</dt>
+%%   <dd>A unique identifier as returned by {@link request/4}.</dd>
+%% </dl>
+-spec cancel_request(RequestId) -> ok when
+      RequestId :: profile_request().
 cancel_request(RequestId) ->
     cancel_request(RequestId, default_profile()).
 
+%%
+%% @doc Cancels an asynchronous HTTP request. Notice that this does not
+%% guarantee that the request response is not delivered. Because it is
+%% asynchronous, the request can already have been completed when the
+%% cancellation arrives.
+%%
+%% Type description:
+%% <dl>
+%%   <dt>`RequestId'</dt>
+%%   <dd>A unique identifier as returned by {@link request/4}.</dd>
+%%   <dt>`Profile'</dt>
+%%   <dd>When started `stand_alone' only the pid can be used.</dd>
+%% </dl>
+-spec cancel_request(RequestId, Profile) -> ok when
+      RequestId :: request_id(),
+      Profile :: profile_request().
 cancel_request(RequestId, Profile) 
   when is_atom(Profile) orelse is_pid(Profile) ->
     httpc_manager:cancel_request(RequestId, profile_name(Profile)).
@@ -229,8 +446,157 @@ cancel_request(RequestId, Profile)
 %%   IpFamily - inet | inet6 | inet6fb4
 %% Description: Informs the httpc_manager of the new settings. 
 %%-------------------------------------------------------------------------
+
+%% note: it is not clear why these options are not the same
+%%       as options_request().
+%% @doc Sets options to be used for subsequent requests.
+%% @see set_options/2
+-spec set_options(Options) -> ok | {error, Reason} when
+      Options :: [Option],
+      Option :: {proxy, {Proxy, NoProxy}}
+              | {https_proxy, {Proxy, NoProxy}}
+              | {max_sessions, MaxSessions}
+              | {max_keep_alive_length, MaxKeepAlive}
+              | {keep_alive_timeout, KeepAliveTimeout}
+              | {max_pipeline_length, MaxPipeline}
+              | {pipeline_timeout, PipelineTimeout}
+              | {cookies, CookieMode}
+              | {ipfamily, IpFamily}
+              | {ip, IpAddress}
+              | {port, Port}
+              | {socket_opts, socket_opts()}
+              | {verbose, VerboseMode}
+              | {unix_socket, UnixSocket},
+      Proxy :: {HostName, Port},
+      Port :: non_neg_integer(),
+      NoProxy :: [DomainDesc | HostName | IpAddressDesc],
+      MaxSessions :: integer(),
+      MaxKeepAlive :: integer(),
+      KeepAliveTimeout :: integer(),
+      MaxPipeline :: integer(),
+      PipelineTimeout :: integer(),
+      CookieMode :: enabled | disabled | verify,
+      IpFamily :: inet | inet6 | local | inet6fb4,
+      IpAddressDesc :: http_string(),
+      IpAddress :: inet:ip_address(),
+      VerboseMode :: false | verbose | debug | trace,
+      UnixSocket :: string(),
+      Reason :: term(),
+      DomainDesc :: string(),
+      HostName :: http_string().
 set_options(Options) ->
     set_options(Options, default_profile()).
+
+%% @doc Sets options to be used for subsequent requests.
+%%
+%% Type information:
+%% <dl>
+%%   <dt>`Hostname'</dt>
+%%   <dd>Example: `"localhost"' or `foo.bar.se'</dd>
+%%   <dt>`Port'</dt>
+%%   <dd>Example: 8080</dd>
+%%   <dt>`DomainDesc'</dt>
+%%   <dd>Example: "*.ericsson.se"</dd>
+%%   <dt>`IpAddressDesc'</dt>
+%%   <dd>Example: "134.138" or "[FEDC:BA98" (all IP
+%%   addresses starting with 134.138 or FEDC:BA98), "66.35.250.150" or
+%%   "[2010:836B:4179::836B:4179]" (a complete IP address). `proxy' defaults to
+%%   `{undefined, []}', that is, no proxy is configured and `https_proxy' defaults to
+%%   the value of `proxy'.</dd>
+%%   <dt>`MaxSessions'</dt>
+%%   <dd>Maximum number of persistent connections to a host. Default is `2'.</dd>
+%%   <dt>`MaxKeepAlive'</dt>
+%%   <dd>Maximum number of outstanding requests on the same connection to a host. Default is `5'.</dd>
+%%   <dt>`KeepAliveTimeout'</dt>
+%%   <dd>If a persistent connection is idle longer than the `keep_alive_timeout' in
+%%   milliseconds, the client closes the connection. The server can also have such
+%%   a time-out but do not take that for granted. Default is `120000' (= 2 min).</dd>
+%%   <dt>`MaxPipeline'</dt>
+%%   <dd>Maximum number of outstanding requests on a pipelined connection to a host. Default is `2'.</dd>
+%%   <dt>`PipelineTimeout'</dt>
+%%   <dd>If a persistent connection is idle longer than the `pipeline_timeout' in
+%%   milliseconds, the client closes the connection. Default is `0', which results in
+%%   pipelining not being used.</dd>
+%%   <dt>`CookieMode'</dt>
+%%   <dd>If cookies are enabled, all valid cookies are automatically saved in the
+%%   cookie database of the client manager. If option `verify' is used, function
+%%   {@link store_cookies/2} has to be called for the cookies to be saved. Default is
+%%   `disabled'.</dd>
+%%   <dt>`IpFamily'</dt>
+%%   <dd>Default is `inet'. With `inet6fb4' option, IPv6 will be preferred but if
+%%   connection fails, an IPv4 fallback connection attempt will be made.</dd>
+%%   <dt>`IpAddress'</dt>
+%%   <dd>If the host has several network interfaces, this option specifies which
+%%   one to use. See {@link gen_tcp:connect/3} and {@link gen_tcp:connect/4} for details.</dd>
+%%   <dt>`Port'</dt>
+%%   <dd>Local port number to use.
+%%       See {@link gen_tcp:connect/3} and {@link gen_tcp:connect/4} for details.</dd>
+%%   <dt>`SocketOptions'</dt>
+%%   <dd>The options are appended to the socket options used by the client. These
+%%   are the default values when a new request handler is started (for the initial
+%%   connect). They are passed directly to the underlying transport ({@link gen_tcp} or
+%%   {@link ssl}) without verification.</dd>
+%%   <dt>`VerboseMode'</dt>
+%%   <dd>Default is `false'. This option is used to switch on (or off) different
+%%   levels of Erlang trace on the client. It is a debug feature.</dd>
+%%   <dt>`Profile'</dt>
+%%   <dd>When started `stand_alone' only the pid can be used.</dd>
+%%   <dt>`UnixSocket'</dt>
+%%   <dd>Experimental option for sending HTTP requests over a unix domain socket.
+%%   The value of `unix_socket' shall be the full path to a unix domain socket file
+%%   with read/write permissions for the erlang process. Default is `undefined'.
+%%   </dd>
+%% </dl>
+%%
+%% <note>
+%% If possible, the client keeps its connections alive and uses persistent
+%% connections with or without pipeline depending on configuration and current
+%% circumstances. The HTTP/1.1 specification does not provide a guideline for how
+%% many requests that are ideal to be sent on a persistent connection. This depends
+%% much on the application.
+%%
+%% A long queue of requests can cause a user-perceived delay, as earlier requests
+%% can take a long time to complete. The HTTP/1.1 specification suggests a limit of
+%% two persistent connections per server, which is the default value of option
+%% max_sessions.
+%%
+%% The current implementation assumes the requests to the same host, port
+%% combination will use the same socket options.
+%% </note>
+-spec set_options(Options, Profile) -> ok | {error, Reason} when
+      Options :: [Option],
+      Option :: {proxy, {Proxy, NoProxy}}
+              | {https_proxy, {Proxy, NoProxy}}
+              | {max_sessions, MaxSessions}
+              | {max_keep_alive_length, MaxKeepAlive}
+              | {keep_alive_timeout, KeepAliveTimeout}
+              | {max_pipeline_length, MaxPipeline}
+              | {pipeline_timeout, PipelineTimeout}
+              | {cookies, CookieMode}
+              | {ipfamily, IpFamily}
+              | {ip, IpAddress}
+              | {port, Port}
+              | {socket_opts, socket_opts()}
+              | {verbose, VerboseMode}
+              | {unix_socket, UnixSocket},
+      Profile :: profile(),
+      Proxy :: {HostName, Port},
+      Port :: non_neg_integer(),
+      NoProxy :: [DomainDesc | HostName | IpAddressDesc],
+      MaxSessions :: integer(),
+      MaxKeepAlive :: integer(),
+      KeepAliveTimeout :: integer(),
+      MaxPipeline :: integer(),
+      PipelineTimeout :: integer(),
+      CookieMode :: enabled | disabled | verify,
+      IpFamily :: inet | inet6 | local | inet6fb4,
+      IpAddressDesc :: http_string(),
+      IpAddress :: inet:ip_address(),
+      VerboseMode :: false | verbose | debug | trace,
+      UnixSocket :: string(),
+      Reason :: term(),
+      DomainDesc :: string(),
+      HostName :: http_string().
 set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
     case validate_options(Options) of
 	{ok, Opts} ->
@@ -239,33 +605,48 @@ set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
 	    {error, Reason}
     end.
 
+-spec set_option(atom(), term()) -> ok | {error, term()}.
 set_option(Key, Value) ->
     set_option(Key, Value, default_profile()).
 
+-spec set_option(atom(), term(), atom()) -> ok | {error, term()}.
 set_option(Key, Value, Profile) ->
     set_options([{Key, Value}], Profile).
 
 
-%%--------------------------------------------------------------------------
-%% get_options(OptionItems) -> {ok, Values} | {error, Reason}
-%% get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason}
-%%   OptionItems   - all | [option_item()]
-%%   option_item() - proxy | pipeline_timeout | max_pipeline_length | 
-%%                   keep_alive_timeout | max_keep_alive_length | 
-%%                   max_sessions | verbose | 
-%%                   cookies | ipfamily | ip | port | socket_opts
-%%   Profile       - atom()
-%%   Values - [{option_item(), term()}]
-%%   Reason - term()
-%% Description: Retrieves the current options. 
-%%-------------------------------------------------------------------------
-
+-spec get_options() -> term().
 get_options() ->
     record_info(fields, options).
 
+%%
+%% @doc Retrieves the options currently used by the client.
+%%
+-spec get_options(OptionItems) -> {ok, Values} | {error, Reason} when
+      OptionItems :: all | [OptionItem],
+      OptionItem :: proxy | https_proxy | max_sessions | keep_alive_timeout
+                  | max_keep_alive_length | pipeline_timeout | max_pipeline_length | cookies
+                  | ipfamily | ip | port | socket_opts | verbose | unix_socket,
+      Values :: [{OptionItem, term()}],
+      Reason :: term().
 get_options(Options) ->
     get_options(Options, default_profile()).
 
+%%
+%% @doc Retrieves the options currently used by the client.
+%%
+%% Type information:
+%% <dl>
+%%   <dt>`Profile'</dt>
+%%   <dd>When started `stand_alone' only the pid can used.</dd>
+%% </dl>
+-spec get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason} when
+      OptionItems :: all | [OptionItem],
+      OptionItem :: proxy | https_proxy | max_sessions | keep_alive_timeout
+                  | max_keep_alive_length | pipeline_timeout | max_pipeline_length | cookies
+                  | ipfamily | ip | port | socket_opts | verbose | unix_socket,
+      Values :: [{OptionItem, term()}],
+      Profile :: profile(),
+      Reason :: term().
 get_options(all = _Options, Profile) ->
     get_options(get_options(), Profile);
 get_options(Options, Profile) 
@@ -313,18 +694,27 @@ ssl_verify_host_options(UseWildCard) ->
                end,
     [{verify, verify_peer}, {cacerts, public_key:cacerts_get()} | WildCard].
 
-%%--------------------------------------------------------------------------
-%% store_cookies(SetCookieHeaders, Url [, Profile]) -> ok | {error, reason} 
-%%   
-%%                                 
-%% Description: Store the cookies from <SetCookieHeaders> 
-%%              in the cookie database
-%% for the profile <Profile>. This function shall be used when the option
-%% cookies is set to verify.
-%%-------------------------------------------------------------------------
+
+-spec store_cookies(SetCookieHeaders, Url) -> ok | {error, Reason} when
+      SetCookieHeaders :: headers(),
+      Url :: term(),
+      Reason :: term().
 store_cookies(SetCookieHeaders, Url) ->
     store_cookies(SetCookieHeaders, Url, default_profile()).
 
+%%
+%% @doc Saves the cookies defined in `SetCookieHeaders; in the client profile
+%% cookie database. Call this function if option `cookies' is set to `verify'. If no
+%% profile is specified, the default profile is used.
+%%
+%% Type description:
+%% <dl>
+%%   <dt>`SetCookieHeader' ({@link headers()})</dt>
+%%   <dd>where `field = "set-cookie"'.</dd>
+%%   <dt>`Profile'</dt>
+%%   <dd>When started `stand_alone' only the pid can be used.</dd>
+%% </dl>
+%%
 store_cookies(SetCookieHeaders, Url, Profile) 
   when is_atom(Profile) orelse is_pid(Profile) ->
     case normalize_and_parse_url(Url) of
@@ -350,22 +740,39 @@ default_port(http) ->
 default_port(https) ->
     443.
 
-%%--------------------------------------------------------------------------
-%% cookie_header(Url) -> Header | {error, Reason}
-%% cookie_header(Url, Profile) -> Header | {error, Reason}
-%% cookie_header(Url, Opts,  Profile) -> Header | {error, Reason}
-%% 
-%% Description: Returns the cookie header that would be sent when making
-%% a request to <Url>.
-%%-------------------------------------------------------------------------
+
+-spec cookie_header(Url) -> Header | {error, Reason} when
+      Url :: url(),
+      Header :: header(),
+      Reason :: term().
 cookie_header(Url) ->
     cookie_header(Url, default_profile()).
 
+-spec cookie_header(Url, Profile | Opts) -> Header | {error, Reason} when
+      Url :: url(),
+      Header :: header(),
+      Profile :: profile(),
+      Opts :: [cookie_header_opt()],
+      Reason :: term().
 cookie_header(Url, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
     cookie_header(Url, [], Profile);
 cookie_header(Url, Opts) when is_list(Opts) ->
     cookie_header(Url, Opts, default_profile()).
 
+%%
+%% @doc Returns the cookie header that would have been sent when making a
+%% request to Url using profile Profile. If no profile is specified, the default
+%% profile is used.
+%%
+%% Option `ipv6_host_with_bracket' deals with how to parse IPv6 addresses. For
+%% details, see argument Options of {@link request/4} and {@link request/5}.
+%%
+-spec cookie_header(Url, Opts, Profile) -> Header | {error, Reason} when
+      Url :: url(),
+      Header :: header(),
+      Profile :: profile(),
+      Opts :: [cookie_header_opt()],
+      Reason :: term().
 cookie_header(Url, Opts, Profile) 
   when (is_list(Opts) andalso (is_atom(Profile) orelse is_pid(Profile))) ->
     try 
@@ -378,15 +785,27 @@ cookie_header(Url, Opts, Profile)
     end.
     
 
-%%--------------------------------------------------------------------------
-%% which_cookies() -> [cookie()]
-%% which_cookies(Profile) -> [cookie()]
-%%               
-%% Description: Debug function, dumping the cookie database
-%%-------------------------------------------------------------------------
+-spec which_cookies() -> [CookieStores] when
+      CookieStores :: {cookies, Cookies} | {session_cookies, Cookies},
+      Cookies :: [term()].
 which_cookies() ->
     which_cookies(default_profile()).
 
+%%
+%% @doc Produces a list of the entire cookie database. Intended for
+%% debugging/testing purposes. If no profile is specified, the default profile
+%% is used.
+%%
+%% Type information:
+%% <dl>
+%%   <dt>`Profile'</dt>
+%%   <dd>When started `stand_alone' only the pid can used.</dd>
+%% </dl>
+%%
+-spec which_cookies(Profile) -> [CookieStores] when
+      Profile :: profile(),
+      CookieStores :: {cookies, Cookies} | {session_cookies, Cookies},
+      Cookies :: [term()].
 which_cookies(Profile) ->
     ?hcrt("which cookies", [{profile, Profile}]),
     try 
@@ -399,16 +818,39 @@ which_cookies(Profile) ->
     end.
 
 
-%%--------------------------------------------------------------------------
-%% which_sessions() -> {GoodSession, BadSessions, NonSessions}
-%% which_sessions(Profile) -> {GoodSession, BadSessions, NonSessions}
-%%               
-%% Description: Debug function, dumping the sessions database, sorted 
-%%              into three groups (Good-, Bad- and Non-sessions).
-%%-------------------------------------------------------------------------
+-spec which_sessions() -> SessionInfo when
+      SessionInfo :: {GoodSession, BadSessions, NonSessions},
+      GoodSession :: [Session],
+      BadSessions :: [term()],
+      NonSessions :: [term()],
+      Session :: term().
 which_sessions() ->
     which_sessions(default_profile()).
 
+%%
+%% @doc This function is intended for debugging only. It produces a slightly
+%% processed dump of the session database. The first list of the session
+%% information tuple will contain session information on an internal format. The
+%% last two lists of the session information tuple should always be empty if the
+%% code is working as intended. If no profile is specified, the default profile
+%% is used. The dumped sessions database is sorted into three groups
+%% (Good-, Bad- and Non-sessions).
+%%
+%% Type information:
+%% <dl>
+%%   <dt>`Profile'</dt>
+%%   <dd>When started `stand_alone' only the pid can be used.</dd>
+%%   <dt>`Session'</dt>
+%%   <dd>Internal representation of a session.</dd>
+%% </dl>
+%%
+-spec which_sessions(Profile) -> SessionInfo when
+      Profile :: profile(),
+      SessionInfo :: {GoodSession, BadSessions, NonSessions},
+      GoodSession :: [Session],
+      BadSessions :: [term()],
+      NonSessions :: [term()],
+      Session :: term().
 which_sessions(Profile) ->
     try 
 	begin
@@ -420,15 +862,28 @@ which_sessions(Profile) ->
     end.
 
 
-%%--------------------------------------------------------------------------
-%% info() -> list()
-%% info(Profile) -> list()
-%%               
-%% Description: Debug function, retrieve info about the profile
-%%-------------------------------------------------------------------------
+
+%%
+%% @doc Produces a list of miscellaneous information. Intended for debugging. If
+%% no profile is specified, the default profile is used.
+%%
+-spec info() -> list() | {error, Reason} when
+      Reason :: term().
 info() ->
     info(default_profile()).
 
+%%
+%% @doc Produces a list of miscellaneous information. Intended for debugging. If
+%% no profile is specified, the default profile is used.
+%%
+%% Type information:
+%% <dl>
+%%   <dt>`Profile'</dt>
+%%   <dd>When started `stand_alone' only the pid can used.</dd>
+%% </dl>
+-spec info(Profile) -> list() | {error, Reason} when
+      Reason :: term(),
+      Profile :: profile().
 info(Profile) ->
     try 
 	begin
@@ -440,15 +895,27 @@ info(Profile) ->
     end.
 
 
-%%--------------------------------------------------------------------------
-%% reset_cookies() -> void()
-%% reset_cookies(Profile) -> void()
-%%               
-%% Description: Debug function, reset the cookie database
-%%-------------------------------------------------------------------------
+%%
+%% @doc Debug function. Resets (clears) the cookie database for the default profile
+%%
+-spec reset_cookies() -> Void when
+      Void :: term().
 reset_cookies() ->
     reset_cookies(default_profile()).
 
+%%
+%% @doc Debug function. Resets (clears) the cookie database for the specified
+%% `Profile'. If no profile is specified the default profile is used.
+%%
+%% type information:
+%% <dl>
+%%   <dt>`Profile'</dt>
+%%   <dd>When started `stand_alone' only the pid can used.</dd>
+%% </dl>
+%%
+-spec reset_cookies(Profile) -> Void when
+      Profile :: profile(),
+      Void :: term().
 reset_cookies(Profile) ->
     try 
 	begin
@@ -460,12 +927,12 @@ reset_cookies(Profile) ->
     end.
 
 
-%%--------------------------------------------------------------------------
-%% stream_next(Pid) -> Header | {error, Reason}
-%%               
-%% Description: Triggers the next message to be streamed, e.i. 
-%%              same behavior as active once for sockets.
-%%-------------------------------------------------------------------------
+%%
+%% @doc Triggers the next message to be streamed, that is, the same behavior as
+%% active ones for sockets.
+%%
+-spec stream_next(Pid) -> ok when
+      Pid :: pid().
 stream_next(Pid) ->
     httpc_handler:stream_next(Pid).
 
@@ -514,6 +981,10 @@ service_info(Pid) ->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+-spec normalize_and_parse_url(Characters) -> NormalizedURI when
+      Characters    :: url(),
+      NormalizedURI :: uri_string:uri_string() | uri_string:uri_map()
+                     | uri_string:error().
 normalize_and_parse_url(Url) ->
     uri_string:normalize(unicode:characters_to_list(Url), [return_map]).
 
@@ -667,6 +1138,7 @@ maybe_format_body(BinBody, Options) ->
 	    BinBody
     end.
 
+-spec headers_as_is(header_request(), options_request()) -> header_request().
 %% This options is a workaround for http servers that do not follow the 
 %% http standard and have case sensitive header parsing. Should only be
 %% used if there is no other way to communicate with the server or for
@@ -679,11 +1151,13 @@ headers_as_is(Headers, Options) ->
 	     Headers
      end.
 
-
+-spec http_options([{atom(), term()}]) -> tuple().
 http_options(HttpOptions) ->
     HttpOptionsDefault = http_options_default(),
     http_options(HttpOptionsDefault, HttpOptions, #http_options{}).
 
+
+-spec http_options(request_options(), [{atom(), term()}], http_options()) -> tuple().
 http_options([], [], Acc) ->
     Acc;
 http_options([], HttpOptions, Acc) ->
@@ -720,7 +1194,31 @@ http_options([{Tag, Default, Idx, Post} | Defaults], HttpOptions, Acc) ->
 	    Acc2 = setelement(Idx, Acc, DefaultVal),
 	    http_options(Defaults, HttpOptions, Acc2)
     end.
-		    
+
+-spec http_options_default() -> Response when
+      Response :: [{version,          {value, string()},    non_neg_integer(), VersionPost} |
+                   {timeout,         {value, atom()},       non_neg_integer(), TimeoutPost} |
+                   {autoredirect,    {value, true},         non_neg_integer(), BoolFun} |
+                   {ssl,             {value, {atom(), []}}, non_neg_integer(), SslPost} |
+                   {proxy_auth,      {value, undefined},    non_neg_integer(), ProxyAuthPost} |
+                   {relaxed,         {value, false},        non_neg_integer(), BoolFun} |
+                   {url_encode,      {value, false},        non_neg_integer(), BoolFun} |
+                   {connect_timeout, {field, integer()},    non_neg_integer(), ConnTimeoutPost}],
+      VersionPost :: fun((atom() | list()) -> {ok, unicode:chardata()} | error)
+                   | fun((term()) -> error),
+      TimeoutPost :: fun((integer()) -> {ok, integer()})
+                   | fun((infinity) -> {ok, infinity})
+                   | fun((term()) -> error),
+      BoolFun :: fun(((true | false)) -> {ok, true | false}) | fun((term()) -> error),
+      SslPost :: fun((list()) -> {ok, {atom(), list()}})
+               | fun(({ssl | essl, list()}) -> {ok, {atom(), list()}})
+               | fun((term()) -> error),
+      ProxyAuthPost :: fun(({User, Password}) -> {ok, {User, Password}}),
+      User :: list(),
+      Password :: list(),
+      ConnTimeoutPost :: fun((integer()) -> {ok, integer()})
+                       | fun((infinity) -> {ok, infinity})
+                       | fun((term()) -> error).
 http_options_default() ->
     VersionPost = 
 	fun(Value) when is_atom(Value) ->
@@ -778,6 +1276,7 @@ http_options_default() ->
      {connect_timeout, {field, #http_options.timeout}, #http_options.connect_timeout, ConnTimeoutPost}
     ].
 
+-spec boolfun() -> fun(((true | false)) -> {ok, true | false}) | fun((term()) -> error).
 boolfun() ->
     fun(Value) when (Value =:= true) orelse
 		    (Value =:= false) ->
@@ -786,6 +1285,45 @@ boolfun() ->
 	    error
     end.
 
+-type option_verify_bool() :: fun(((boolean())) -> {ok, boolean()}) | fun((term()) -> error).
+-type option_verify_stream() :: fun((none | self | {self, once} | list()) -> ok) | fun((term()) -> error).
+-type option_verify_body_format() :: fun((string | binary) -> ok) | fun((term()) -> error).
+-type option_verify_receiver() :: fun((pid() | {atom(), atom(), list() | fun((term()) -> term())}) -> ok)
+                               | fun((term()) -> error).
+-type option_verify_socket_opts() :: fun(([]) -> {ok, undefined})
+                                   | fun((list()) -> ok)
+                                   | fun((term()) -> error).
+
+%% TODO: I do not know if the request_options have verifying functions. I do know that the defaults do.
+%% TODO: revisit these options.
+-type request_options() :: [request_sync_option() | request_stream_option() | request_body_format_option() |
+                            request_full_result_option() | request_header_option() | request_receiver_option() |
+                            request_socket_option() | request_ipv6_option()].
+-type request_sync_option() :: {sync, boolean(), option_verify_bool()}.
+-type request_stream_option() :: {stream, none | atom(), option_verify_stream()}.
+-type request_body_format_option() :: {body_format, string | atom(), option_verify_body_format()}.
+-type request_full_result_option() :: {full_result, boolean(), option_verify_bool()}.
+-type request_header_option() :: {headers_as_is, boolean(), option_verify_bool()}.
+-type request_receiver_option() :: {receiver, pid(), option_verify_receiver()}.
+-type request_socket_option() :: {socket_opts, undefined | atom(), option_verify_socket_opts()}.
+-type request_ipv6_option() :: {ipv6_host_with_brackets, boolean(), option_verify_bool()}.
+
+
+-type default_request_options() :: [default_request_sync_option() | default_request_stream_option() | default_request_body_format_option() |
+                                    default_request_full_result_option() | default_request_header_option() | default_request_receiver_option() |
+                                    default_request_socket_option() | default_request_ipv6_option()].
+-type default_request_sync_option() :: {sync, true, option_verify_bool()}.
+-type default_request_stream_option() :: {stream, none, option_verify_stream()}.
+-type default_request_body_format_option() :: {body_format, string, option_verify_body_format()}.
+-type default_request_full_result_option() :: {full_result, true, option_verify_bool()}.
+-type default_request_header_option() :: {headers_as_is, false, option_verify_bool()}.
+-type default_request_receiver_option() :: {receiver, pid(), option_verify_receiver()}.
+-type default_request_socket_option() :: {socket_opts, undefined, option_verify_socket_opts()}.
+-type default_request_ipv6_option() :: {ipv6_host_with_brackets, false, option_verify_bool()}.
+
+
+
+-spec request_options_defaults() -> default_request_options().
 request_options_defaults() ->
     VerifyBoolean = boolfun(),
 
@@ -852,10 +1390,13 @@ request_options_defaults() ->
      {ipv6_host_with_brackets, false,     VerifyBrackets}
     ]. 
 
+-spec request_options(options_request()) -> term().
 request_options(Options) ->
     Defaults = request_options_defaults(), 
     request_options(Defaults, Options, []).
 
+%% options_request should be a [{ of field sync, value, stream, value, etc}]
+-spec request_options(default_request_options(), options_request(), options_request()) -> options_request().
 request_options([], [], Acc) ->
     request_options_sanity_check(Acc),
     lists:reverse(Acc);
@@ -888,6 +1429,7 @@ request_options([{Key, DefaultVal, Verify} | Defaults], Options, Acc) ->
 	    request_options(Defaults, Options, [{Key, DefaultVal} | Acc])
     end.
 
+-spec request_options_sanity_check(options_request()) -> ok | no_return().
 request_options_sanity_check(Opts) ->
     case proplists:get_value(sync, Opts) of
 	Sync when (Sync =:= true) ->
@@ -928,7 +1470,7 @@ validate_ipfamily_unix_socket(IpFamily, UnixSocket, Options, Acc) ->
     validate_unix_socket(UnixSocket),
     {Options, Acc}.
 
-
+%% -spec validate_options(Option) -> Response | {error, term()}.
 validate_options(Options0) ->
     try
         {Options, Acc} = validate_ipfamily_unix_socket(Options0),
@@ -1007,6 +1549,9 @@ validate_options([{_, _} = Opt| _], _Acc) ->
     {error, {not_an_option, Opt}}.
 
 
+-spec validate_proxy(ValidProxySettings) -> ValidProxySettings when
+      ValidProxySettings :: {{list(), non_neg_integer()}, list()};
+                    (term()) -> no_return().
 validate_proxy({{ProxyHost, ProxyPort}, NoProxy} = Proxy) 
   when is_list(ProxyHost) andalso 
        is_integer(ProxyPort) andalso 
@@ -1269,7 +1814,10 @@ validate_headers(RequestHeaders, _, _) ->
 %%--------------------------------------------------------------------------
 %% These functions are just simple wrappers to parse specifically HTTP URIs
 %%--------------------------------------------------------------------------
+-type invalid_header_parsed() :: {error, {headers_error, invalid_field | invalid_value}}.
+-type header_request() :: [{list(), list() | binary()}] | [tuple()].
 
+-spec header_parse(header_request()) -> ok | invalid_header_parsed().
 header_parse([]) ->
     ok;
 header_parse([{Field, Value}|T])
