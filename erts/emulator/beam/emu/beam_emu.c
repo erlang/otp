@@ -313,6 +313,8 @@ void process_main(ErtsSchedulerData *esdp)
 #endif
 #endif
 
+    Uint bitdata = 0;
+
     Uint64 start_time = 0;          /* Monitor long schedule */
     ErtsCodePtr start_time_i = NULL;
 

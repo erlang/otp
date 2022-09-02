@@ -1691,7 +1691,8 @@ bc_options(Config) ->
          {168, small, [r22]},
          {168, small, [no_init_yregs,no_shared_fun_wrappers,
                        no_ssa_opt_record,no_make_fun3,
-                       no_ssa_opt_float,no_line_info,no_type_opt]},
+                       no_ssa_opt_float,no_line_info,no_type_opt,
+                       no_bs_match]},
          {169, small, [r23]},
 
          {169, big, [no_init_yregs,no_shared_fun_wrappers,

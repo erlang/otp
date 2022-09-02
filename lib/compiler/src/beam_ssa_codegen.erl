@@ -46,8 +46,9 @@
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_asm:module_code()}.
 
-module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
-    {Asm,St} = functions(Fs, {atom,Mod}),
+module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
+    NoBsMatch = member(no_bs_match, Opts),
+    {Asm,St} = functions(Fs, NoBsMatch, {atom,Mod}),
     {ok,{Mod,Es,Attrs,Asm,St#cg.lcount}}.
 
 -record(need, {h=0 :: non_neg_integer(),   % heap words
@@ -107,11 +108,11 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
 
 -type ssa_register() :: xreg() | yreg() | freg() | zreg().
 
-functions(Forms, AtomMod) ->
-    mapfoldl(fun (F, St) -> function(F, AtomMod, St) end,
+functions(Forms, NoBsMatch, AtomMod) ->
+    mapfoldl(fun (F, St) -> function(F, NoBsMatch, AtomMod, St) end,
              #cg{lcount=1}, Forms).
 
-function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
+function(#b_function{anno=Anno,bs=Blocks}, NoBsMatch, AtomMod, St0) ->
     #{func_info:={_,Name,Arity}} = Anno,
     try
         assert_exception_block(Blocks),            %Assertion.
@@ -124,7 +125,7 @@ function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
         Labels = (St4#cg.labels)#{0=>Entry,?EXCEPTION_BLOCK=>0},
         St5 = St4#cg{labels=Labels,used_labels=gb_sets:singleton(Entry),
                      ultimate_fail=Ult},
-        {Body,St} = cg_fun(Blocks, St5#cg{fc_label=Fi}),
+        {Body,St} = cg_fun(Blocks, NoBsMatch, St5#cg{fc_label=Fi}),
         Asm = [{label,Fi},line(Anno),
                {func_info,AtomMod,{atom,Name},Arity}] ++
                add_parameter_annos(Body, Anno) ++
@@ -165,16 +166,20 @@ add_parameter_annos([{label, _}=Entry | Body], Anno) ->
 
     [Entry | sort(Annos)] ++ Body.
 
-cg_fun(Blocks, St0) ->
+cg_fun(Blocks, NoBsMatch, St0) ->
     Linear0 = linearize(Blocks),
-    St = collect_catch_labels(Linear0, St0),
+    St1 = collect_catch_labels(Linear0, St0),
     Linear1 = need_heap(Linear0),
-    Linear2 = prefer_xregs(Linear1, St),
-    Linear3 = liveness(Linear2, St),
-    Linear4 = defined(Linear3, St),
-    Linear5 = opt_allocate(Linear4, St),
+    Linear2 = prefer_xregs(Linear1, St1),
+    Linear3 = liveness(Linear2, St1),
+    Linear4 = defined(Linear3, St1),
+    Linear5 = opt_allocate(Linear4, St1),
     Linear = fix_wait_timeout(Linear5),
-    cg_linear(Linear, St).
+    {Asm,St} = cg_linear(Linear, St1),
+    case NoBsMatch of
+        true -> {Asm,St};
+        false -> {bs_translate(Asm),St}
+    end.
 
 %% collect_catch_labels(Linear, St) -> St.
 %%  Collect all catch labels (labels for blocks that begin
@@ -368,6 +373,9 @@ classify_heap_need(Name, _Args) ->
 %%  Note: Only handle operations in this function that are not handled
 %%  by classify_heap_need/2.
 
+classify_heap_need(bs_ensure) -> gc;
+classify_heap_need(bs_checked_get) -> gc;
+classify_heap_need(bs_checked_skip) -> gc;
 classify_heap_need(bs_get) -> gc;
 classify_heap_need(bs_get_tail) -> gc;
 classify_heap_need(bs_init_writable) -> gc;
@@ -672,6 +680,7 @@ need_live_anno(Op) ->
     case Op of
         {bif,_} -> true;
         bs_create_bin -> true;
+        bs_checked_get -> true;
         bs_get -> true;
         bs_get_position -> true;
         bs_get_tail -> true;
@@ -1135,6 +1144,13 @@ cg_block([#cg_set{op=bs_start_match,
     {Bin,Pre} = force_reg(Bin1, Dst),
     Live = get_live(I),
     Is = Pre ++ [{test,bs_start_match3,Fail,Live,[Bin],Dst}],
+    {Is,St};
+cg_block([#cg_set{op=bs_ensure,args=Ss0},
+          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
+    %% Temporary instruction that will be incorporated into a bs_match
+    %% instruction by the bs_translate sub pass.
+    [Ctx,{integer,Size},{integer,Unit}] = beam_args(Ss0, St),
+    Is = [{test,bs_ensure,Fail,[Ctx,Size,Unit]}],
     {Is,St};
 cg_block([#cg_set{op=bs_get}=Set,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
@@ -1718,6 +1734,17 @@ cg_instr(bs_start_match, [{atom,new}, Src0], Dst, Set) ->
     {Src, Pre} = force_reg(Src0, Dst),
     Live = get_live(Set),
     Pre ++ [{bs_start_match4,{atom,no_fail},Live,Src,Dst}];
+cg_instr(bs_checked_get, [Kind,Ctx,{literal,Flags},{integer,Size},{integer,Unit}], Dst, Set) ->
+    %% Temporary instruction that will be incorporated into a bs_match
+    %% instruction by the bs_translate sub pass.
+    Live = get_live(Set),
+    [{bs_checked_get,Live,Kind,Ctx,field_flags(Flags, Set),Size,Unit,Dst}];
+cg_instr(bs_checked_get, [{atom,binary},Ctx,{literal,_Flags},
+                          {atom,all},{integer,Unit}], Dst, Set) ->
+    %% Temporary instruction that will be incorporated into a bs_match
+    %% instruction by the bs_translate sub pass.
+    Live = get_live(Set),
+    [{bs_checked_get_tail,Live,Ctx,Unit,Dst}];
 cg_instr(bs_get_tail, [Src], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_tail,Src,Dst,Live}];
@@ -1738,6 +1765,13 @@ cg_instr(is_nonempty_list, Ss, Dst, Set) ->
 cg_instr(Op, Args, Dst, _Set) ->
     cg_instr(Op, Args, Dst).
 
+cg_instr(bs_checked_skip, [_Type,Ctx,_Flags,{integer,Sz},{integer,U}], {z,_})
+  when is_integer(Sz) ->
+    %% Temporary instruction that will be incorporated into a bs_match
+    %% instruction by the bs_translate sub pass.
+    [{bs_checked_skip,Ctx,Sz*U}];
+cg_instr(bs_checked_skip, [_Type,_Ctx,_Flags,{atom,all},{integer,_U}], {z,_}) ->
+    [];
 cg_instr(bs_init_writable, Args, Dst) ->
     setup_args(Args) ++ [bs_init_writable|copy({x,0}, Dst)];
 cg_instr(bs_set_position, [Ctx,Pos], _Dst) ->
@@ -2132,6 +2166,80 @@ break_up_cycle_1(Dst, [{move,_Src,Dst}|Path], Acc) ->
     reverse(Acc, Path);
 break_up_cycle_1(Dst, [{move,S,D}|Path], Acc) ->
     break_up_cycle_1(Dst, Path, [{swap,S,D}|Acc]).
+
+%%%
+%%% Collect and translate binary match instructions, producing a
+%%% bs_match instruction.
+%%%
+
+bs_translate([{bs_get_tail,_,_,_}=I|Is]) ->
+    %% A lone bs_get_tail. There is no advantage to incorporating it into
+    %% a bs_match instruction.
+    [I|bs_translate(Is)];
+bs_translate([I|Is0]) ->
+    case bs_translate_instr(I) of
+        none ->
+            [I|bs_translate(Is0)];
+        {Ctx,Fail0,First} ->
+            {Instrs,Fail,Is} = bs_translate_collect(Is0, Ctx, Fail0, [First]),
+            [{bs_match,Fail,Ctx,{commands,Instrs}}|bs_translate(Is)]
+    end;
+bs_translate([]) -> [].
+
+bs_translate_collect([I|Is]=Is0, Ctx, Fail, Acc) ->
+    case bs_translate_instr(I) of
+        {Ctx,Fail,Instr} ->
+            bs_translate_collect(Is, Ctx, Fail, [Instr|Acc]);
+        {Ctx,{f,0},Instr} ->
+            bs_translate_collect(Is, Ctx, Fail, [Instr|Acc]);
+        {_,_,_} ->
+            {bs_translate_fixup(Acc),Fail,Is0};
+        none ->
+            {bs_translate_fixup(Acc),Fail,Is0}
+    end.
+
+bs_translate_fixup([{get_tail,_,_,_}=GT,{test_tail,Bits}|Is0]) ->
+    Is = reverse(Is0),
+    bs_translate_fixup_tail(Is, Bits) ++ [GT];
+bs_translate_fixup([{test_tail,Bits}|Is0]) ->
+    Is = reverse(Is0),
+    bs_translate_fixup_tail(Is, Bits);
+bs_translate_fixup(Is) ->
+    reverse(Is).
+
+bs_translate_fixup_tail([{ensure_at_least,Bits0,_}|Is], Bits) ->
+    [{ensure_exactly,Bits0+Bits}|Is];
+bs_translate_fixup_tail([I|Is], Bits) ->
+    [I|bs_translate_fixup_tail(Is, Bits)];
+bs_translate_fixup_tail([], Bits) ->
+    [{ensure_exactly,Bits}].
+
+bs_translate_instr({test,bs_ensure,Fail,[Ctx,Size,Unit]}) ->
+    {Ctx,Fail,{ensure_at_least,Size,Unit}};
+bs_translate_instr({bs_checked_get,Live,{atom,Type},Ctx,{field_flags,Flags0},
+                    Size,Unit,Dst}) ->
+    %% Only keep flags that have a meaning for binary matching and are
+    %% distinct from the default value.
+    Flags = [Flag || Flag <- Flags0,
+                     case Flag of
+                         little -> true;
+                         native -> true;
+                         big -> false;
+                         signed -> true;
+                         unsigned -> false;
+                         {anno,_} -> false
+                     end],
+    {Ctx,{f,0},{Type,Live,{literal,Flags},Size,Unit,Dst}};
+bs_translate_instr({bs_checked_skip,Ctx,Stride}) ->
+    {Ctx,{f,0},{skip,Stride}};
+bs_translate_instr({bs_checked_get_tail,Live,Ctx,Unit,Dst}) ->
+    {Ctx,{f,0},{get_tail,Live,Unit,Dst}};
+bs_translate_instr({bs_get_tail,Ctx,Dst,Live}) ->
+    {Ctx,{f,0},{get_tail,Live,1,Dst}};
+bs_translate_instr({test,bs_test_tail2,Fail,[Ctx,Bits]}) ->
+    {Ctx,Fail,{test_tail,Bits}};
+bs_translate_instr(_) -> none.
+
 
 %%%
 %%% General utility functions.

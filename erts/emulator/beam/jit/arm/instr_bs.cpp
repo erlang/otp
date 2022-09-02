@@ -2610,3 +2610,761 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
     comment("done");
     mov_arg(Dst, TMP_MEM1q);
 }
+
+/*
+ * Here follows the bs_match instruction and friends.
+ */
+
+struct BsmSegment {
+    BsmSegment()
+            : action(action::TEST_HEAP), live(ArgNil()), size(0), unit(1),
+              flags(0), dst(ArgXRegister(0)){};
+
+    enum class action {
+        TEST_HEAP,
+        ENSURE_AT_LEAST,
+        ENSURE_EXACTLY,
+        READ,
+        EXTRACT_BINARY,
+        EXTRACT_INTEGER,
+        GET_INTEGER,
+        GET_BINARY,
+        SKIP,
+        DROP,
+        GET_TAIL
+    } action;
+    ArgVal live;
+    Uint size;
+    Uint unit;
+    Uint flags;
+    ArgRegister dst;
+};
+
+void BeamModuleAssembler::emit_read_bits(Uint bits,
+                                         const arm::Gp bin_base,
+                                         const arm::Gp bin_offset,
+                                         const arm::Gp bitdata) {
+    Label handle_partial = a.newLabel();
+    Label shift = a.newLabel();
+    Label read_done = a.newLabel();
+
+    const arm::Gp bin_byte_ptr = TMP2;
+    const arm::Gp bit_offset = TMP4;
+    const arm::Gp tmp = TMP5;
+
+    auto num_partial = bits % 8;
+
+    ASSERT(1 <= bits && bits <= 64);
+
+    a.add(bin_byte_ptr, bin_base, bin_offset, arm::lsr(3));
+
+    if (bits == 1) {
+        a.and_(bit_offset, bin_offset, imm(7));
+        a.ldrb(bitdata.w(), arm::Mem(bin_byte_ptr));
+        a.rev64(bitdata, bitdata);
+
+        a.bind(handle_partial); /* Not used, but must bind. */
+    } else if (bits <= 8) {
+        a.ands(bit_offset, bin_offset, imm(7));
+
+        if (num_partial == 0) {
+            /* Byte-sized segment. If bit_offset is not byte-aligned,
+             * this segment always spans two bytes. */
+            a.b_ne(handle_partial);
+        } else {
+            /* Segment smaller than one byte. Test whether the segment
+             * fits within the current byte. */
+            a.cmp(bit_offset, imm(8 - num_partial));
+            a.b_gt(handle_partial);
+        }
+
+        /* The segment fits in the current byte. */
+        a.ldrb(bitdata.w(), arm::Mem(bin_byte_ptr));
+        a.rev64(bitdata, bitdata);
+        a.b(num_partial ? shift : read_done);
+
+        /* The segment is unaligned and spans two bytes. */
+        a.bind(handle_partial);
+        a.ldrh(bitdata.w(), arm::Mem(bin_byte_ptr));
+        a.rev64(bitdata, bitdata);
+    } else if (bits <= 16) {
+        a.ands(bit_offset, bin_offset, imm(7));
+
+        /* We always need to read at least two bytes. */
+        a.ldrh(bitdata.w(), arm::Mem(bin_byte_ptr));
+        a.rev64(bitdata, bitdata);
+        a.b_eq(read_done); /* Done if segment is byte-aligned. */
+
+        /* The segment is unaligned. */
+        a.bind(handle_partial);
+        if (num_partial != 0) {
+            /* If segment size is less than 15 bits or less, it is
+             * possible that it fits into two bytes. */
+            a.cmp(bit_offset, imm(8 - num_partial));
+            a.b_le(shift);
+        }
+
+        /* The segment spans three bytes. Read an additional byte and
+         * shift into place (right below the already read two bytes a
+         * the top of the word). */
+        a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 2));
+        a.orr(bitdata, bitdata, tmp, arm::lsl(40));
+    } else if (bits <= 24) {
+        a.ands(bit_offset, bin_offset, imm(7));
+
+        if (num_partial == 0) {
+            /* Byte-sized segment. If bit_offset is not byte-aligned,
+             * this segment always spans four bytes. */
+            a.b_ne(handle_partial);
+        } else {
+            /* The segment is smaller than three bytes. Test whether
+             * it spans three or four bytes. */
+            a.cmp(bit_offset, imm(8 - num_partial));
+            a.b_gt(handle_partial);
+        }
+
+        /* This segment spans three bytes. */
+        a.ldrh(bitdata.w(), arm::Mem(bin_byte_ptr));
+        a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 2));
+        a.orr(bitdata, bitdata, tmp, arm::lsl(16));
+        a.rev64(bitdata, bitdata);
+        a.b(num_partial ? shift : read_done);
+
+        /* This segment spans four bytes. */
+        a.bind(handle_partial);
+        a.ldr(bitdata.w(), arm::Mem(bin_byte_ptr));
+        a.rev64(bitdata, bitdata);
+    } else if (bits <= 32) {
+        a.ands(bit_offset, bin_offset, imm(7));
+
+        /* We always need to read at least four bytes. */
+        a.ldr(bitdata.w(), arm::Mem(bin_byte_ptr));
+        a.rev64(bitdata, bitdata);
+        a.b_eq(read_done);
+
+        a.bind(handle_partial);
+        if (num_partial != 0) {
+            a.cmp(bit_offset, imm(8 - num_partial));
+            a.b_le(shift);
+        }
+        a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 4));
+        a.orr(bitdata, bitdata, tmp, arm::lsl(24));
+    } else if (bits <= 40) {
+        a.ands(bit_offset, bin_offset, imm(7));
+
+        /* We always need to read four bytes. */
+        a.ldr(bitdata.w(), arm::Mem(bin_byte_ptr));
+        a.rev64(bitdata, bitdata);
+
+        if (num_partial == 0) {
+            /* Byte-sized segment. If bit_offset is not byte-aligned,
+             * this segment always spans six bytes. */
+            a.b_ne(handle_partial);
+        } else {
+            /* The segment is smaller than five bytes. Test whether it
+             * spans five or six bytes. */
+            a.cmp(bit_offset, imm(8 - num_partial));
+            a.b_gt(handle_partial);
+        }
+
+        /* This segment spans five bytes. Read an additional byte. */
+        a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 4));
+        a.orr(bitdata, bitdata, tmp, arm::lsl(24));
+        a.b(num_partial ? shift : read_done);
+
+        /* This segment spans six bytes. Read two additional bytes. */
+        a.bind(handle_partial);
+        a.ldrh(tmp.w(), arm::Mem(bin_byte_ptr, 4));
+        a.rev16(tmp.w(), tmp.w());
+        a.orr(bitdata, bitdata, tmp, arm::lsl(16));
+    } else if (bits <= 48) {
+        a.ands(bit_offset, bin_offset, imm(7));
+        a.ldr(bitdata.w(), arm::Mem(bin_byte_ptr));
+        a.ldrh(tmp.w(), arm::Mem(bin_byte_ptr, 4));
+        a.orr(bitdata, bitdata, tmp, arm::lsl(32));
+        a.rev64(bitdata, bitdata);
+        a.b_eq(read_done);
+
+        a.bind(handle_partial);
+        if (num_partial != 0) {
+            a.cmp(bit_offset, imm(8 - num_partial));
+            a.b_le(shift);
+        }
+        a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 6));
+        a.orr(bitdata, bitdata, tmp, arm::lsl(8));
+    } else if (bits <= 56) {
+        a.ands(bit_offset, bin_offset, imm(7));
+
+        if (num_partial == 0) {
+            /* Byte-sized segment. If bit_offset is not byte-aligned,
+             * this segment always spans 8 bytes. */
+            a.b_ne(handle_partial);
+        } else {
+            /* The segment is smaller than 8 bytes. Test whether it
+             * spans 7 or 8 bytes. */
+            a.cmp(bit_offset, imm(8 - num_partial));
+            a.b_gt(handle_partial);
+        }
+
+        /* This segment spans 7 bytes. */
+        a.ldr(bitdata, arm::Mem(bin_byte_ptr, -1));
+        a.lsr(bitdata, bitdata, imm(8));
+        a.rev64(bitdata, bitdata);
+        a.b(shift);
+
+        /* This segment spans 8 bytes. */
+        a.bind(handle_partial);
+        a.ldr(bitdata, arm::Mem(bin_byte_ptr));
+        a.rev64(bitdata, bitdata);
+    } else if (bits <= 64) {
+        a.ands(bit_offset, bin_offset, imm(7));
+        a.ldr(bitdata, arm::Mem(bin_byte_ptr));
+        a.rev64(bitdata, bitdata);
+
+        if (num_partial == 0) {
+            /* Byte-sized segment. If bit_offset is not byte-aligned,
+             * this segment always spans 8 bytes. */
+            a.b_eq(read_done);
+        } else {
+            /* The segment is smaller than 8 bytes. Test whether it
+             * spans 8 or 9 bytes. */
+            a.cmp(bit_offset, imm(8 - num_partial));
+            a.b_le(shift);
+        }
+
+        /* This segments spans 9 bytes. Read an additional byte. */
+        a.bind(handle_partial);
+        a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 8));
+        a.lsl(bitdata, bitdata, bit_offset);
+        a.lsl(tmp, tmp, bit_offset);
+        a.orr(bitdata, bitdata, tmp, arm::lsr(8));
+        a.b(read_done);
+    }
+
+    /* Shift the read data into the most significant bits of the
+     * word. */
+    a.bind(shift);
+    a.lsl(bitdata, bitdata, bit_offset);
+
+    a.bind(read_done);
+}
+
+void BeamModuleAssembler::emit_extract_integer(const arm::Gp bitdata,
+                                               Uint flags,
+                                               Uint bits,
+                                               const ArgRegister &Dst) {
+    Label big = a.newLabel();
+    Label done = a.newLabel();
+    arm::Gp data_reg;
+    auto dst = init_destination(Dst, TMP1);
+    Uint num_partial = bits % 8;
+    Uint num_complete = 8 * (bits / 8);
+
+    if (bits <= 8) {
+        /* Endian does not matter for values that fit in a byte. */
+        flags &= ~BSF_LITTLE;
+    }
+
+    /* If this segment is little-endian, reverse endianness. */
+    if ((flags & BSF_LITTLE) != 0) {
+        comment("reverse endian for a little-endian segment");
+    }
+    data_reg = TMP2;
+    if ((flags & BSF_LITTLE) == 0) {
+        data_reg = bitdata;
+    } else if (bits == 16) {
+        a.rev16(TMP2, bitdata);
+    } else if (bits == 32) {
+        a.rev32(TMP2, bitdata);
+    } else if (num_partial == 0) {
+        a.rev64(TMP2, bitdata);
+        a.lsr(TMP2, TMP2, arm::lsr(64 - bits));
+    } else {
+        a.ubfiz(TMP3, bitdata, imm(num_complete), imm(num_partial));
+        a.ubfx(TMP2, bitdata, imm(num_partial), imm(num_complete));
+        a.rev64(TMP2, TMP2);
+        a.orr(TMP2, TMP3, TMP2, arm::lsr(64 - num_complete));
+    }
+
+    /* Sign-extend the number if the segment is signed. */
+    if ((flags & BSF_SIGNED) != 0) {
+        if (bits < 64) {
+            comment("sign extend extracted value");
+            a.lsl(TMP2, data_reg, imm(64 - bits));
+            a.asr(TMP2, TMP2, imm(64 - bits));
+            data_reg = TMP2;
+        }
+    }
+
+    /* Handle segments whose values might not fit in a small integer. */
+    if (bits >= SMALL_BITS) {
+        comment("test whether it fits in a small");
+        if (bits < 64 && (flags & BSF_SIGNED) == 0) {
+            a.and_(TMP2, data_reg, imm((1ull << bits) - 1));
+            data_reg = TMP2;
+        }
+        if ((flags & BSF_SIGNED) != 0) {
+            /* Signed segment. */
+            a.adds(TMP3, ZERO, data_reg, arm::lsr(SMALL_BITS - 1));
+            a.ccmp(TMP3,
+                   imm(_TAG_IMMED1_MASK << 1 | 1),
+                   imm(NZCV::kEqual),
+                   imm(arm::CondCode::kNE));
+            a.b_ne(big);
+        } else {
+            /* Unsigned segment. */
+            a.lsr(TMP3, data_reg, imm(SMALL_BITS - 1));
+            a.cbnz(TMP3, big);
+        }
+    }
+
+    /* Tag and store the extracted small integer. */
+    comment("store extracted integer as a small");
+    mov_imm(dst.reg, _TAG_IMMED1_SMALL);
+    if ((flags & BSF_SIGNED) != 0) {
+        a.orr(dst.reg, dst.reg, data_reg, arm::lsl(_TAG_IMMED1_SIZE));
+    } else {
+        if (bits >= SMALL_BITS) {
+            a.bfi(dst.reg,
+                  data_reg,
+                  arm::lsl(_TAG_IMMED1_SIZE),
+                  imm(SMALL_BITS));
+        } else {
+            a.bfi(dst.reg, data_reg, arm::lsl(_TAG_IMMED1_SIZE), imm(bits));
+        }
+    }
+
+    if (bits >= SMALL_BITS) {
+        a.b(done);
+    }
+
+    /* Handle a bignum (up to 64 bits). */
+    a.bind(big);
+    if (bits >= SMALL_BITS) {
+        comment("store extracted integer as a bignum");
+        a.add(dst.reg, HTOP, imm(TAG_PRIMARY_BOXED));
+        mov_imm(TMP3, make_pos_bignum_header(1));
+        if ((flags & BSF_SIGNED) == 0) {
+            /* Unsigned. */
+            a.stp(TMP3, data_reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else {
+            /* Signed. */
+            Label store = a.newLabel();
+            a.adds(TMP2, data_reg, ZERO);
+            a.b_pl(store);
+
+            mov_imm(TMP3, make_neg_bignum_header(1));
+            a.neg(TMP2, TMP2);
+
+            a.bind(store);
+            a.stp(TMP3, TMP2, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+        }
+    }
+
+    a.bind(done);
+    flush_var(dst);
+}
+
+void BeamModuleAssembler::emit_extract_binary(const arm::Gp bitdata,
+                                              Uint bits,
+                                              const ArgRegister &Dst) {
+    auto dst = init_destination(Dst, TMP1);
+    Uint num_bytes = bits / 8;
+
+    a.add(dst.reg, HTOP, imm(TAG_PRIMARY_BOXED));
+    mov_imm(TMP2, header_heap_bin(num_bytes));
+    mov_imm(TMP3, num_bytes);
+    a.rev64(TMP4, bitdata);
+    a.stp(TMP2, TMP3, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+    a.str(TMP4, arm::Mem(HTOP).post(sizeof(Eterm[1])));
+    flush_var(dst);
+}
+
+static std::vector<BsmSegment> opt_bsm_segments(
+        const std::vector<BsmSegment> segments,
+        const ArgWord &Need,
+        const ArgWord &Live) {
+    std::vector<BsmSegment> segs;
+
+    Uint heap_need = Need.get();
+
+    /*
+     * First calculate the total number of heap words needed for
+     * bignums and binaries.
+     */
+    for (auto seg : segments) {
+        switch (seg.action) {
+        case BsmSegment::action::GET_INTEGER:
+            if (seg.size >= SMALL_BITS) {
+                heap_need += BIG_NEED_FOR_BITS(seg.size);
+            }
+            break;
+        case BsmSegment::action::GET_BINARY:
+            heap_need += heap_bin_size((seg.size + 7) / 8);
+            break;
+        case BsmSegment::action::GET_TAIL:
+            heap_need += EXTRACT_SUB_BIN_HEAP_NEED;
+            break;
+        default:
+            break;
+        }
+    }
+
+    int index = 0;
+    int read_action_pos = -1;
+
+    index = 0;
+    for (auto seg : segments) {
+        if (heap_need != 0 && seg.live.isWord()) {
+            BsmSegment s = seg;
+
+            s.action = BsmSegment::action::TEST_HEAP;
+            s.size = heap_need;
+            segs.push_back(s);
+            index++;
+            heap_need = 0;
+        }
+
+        switch (seg.action) {
+        case BsmSegment::action::GET_INTEGER:
+        case BsmSegment::action::GET_BINARY:
+            if (seg.size > 64) {
+                read_action_pos = -1;
+            } else if (seg.action == BsmSegment::action::GET_BINARY &&
+                       seg.size % 8 != 0) {
+                read_action_pos = -1;
+            } else {
+                if ((seg.flags & BSF_LITTLE) != 0 || read_action_pos < 0 ||
+                    seg.size + segs.at(read_action_pos).size > 64) {
+                    BsmSegment s;
+
+                    /* Create a new READ action. */
+                    read_action_pos = index;
+                    s.action = BsmSegment::action::READ;
+                    s.size = seg.size;
+                    segs.push_back(s);
+                    index++;
+                } else {
+                    /* Reuse previous READ action. */
+                    segs.at(read_action_pos).size += seg.size;
+                }
+                switch (seg.action) {
+                case BsmSegment::action::GET_INTEGER:
+                    seg.action = BsmSegment::action::EXTRACT_INTEGER;
+                    break;
+                case BsmSegment::action::GET_BINARY:
+                    seg.action = BsmSegment::action::EXTRACT_BINARY;
+                    break;
+                default:
+                    break;
+                }
+            }
+            segs.push_back(seg);
+            break;
+        case BsmSegment::action::SKIP:
+            if (read_action_pos >= 0 &&
+                seg.size + segs.at(read_action_pos).size <= 64) {
+                segs.at(read_action_pos).size += seg.size;
+                seg.action = BsmSegment::action::DROP;
+            } else {
+                read_action_pos = -1;
+            }
+            segs.push_back(seg);
+            break;
+        default:
+            read_action_pos = -1;
+            segs.push_back(seg);
+            break;
+        }
+        index++;
+    }
+
+    /* Handle a trailing test_heap instruction (for the
+     * i_bs_match_test_heap instruction). */
+    if (heap_need) {
+        BsmSegment seg;
+
+        seg.action = BsmSegment::action::TEST_HEAP;
+        seg.size = heap_need;
+        seg.live = Live;
+        segs.push_back(seg);
+    }
+    return segs;
+}
+
+void BeamModuleAssembler::emit_i_bs_match(ArgLabel const &Fail,
+                                          ArgRegister const &Ctx,
+                                          Span<ArgVal> const &List) {
+    emit_i_bs_match_test_heap(Fail, Ctx, ArgWord(0), ArgWord(0), List);
+}
+
+void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
+                                                    ArgRegister const &Ctx,
+                                                    ArgWord const &Need,
+                                                    ArgWord const &Live,
+                                                    Span<ArgVal> const &List) {
+    const int orig_offset = offsetof(ErlBinMatchState, mb.orig);
+    const int base_offset = offsetof(ErlBinMatchState, mb.base);
+    const int position_offset = offsetof(ErlBinMatchState, mb.offset);
+    const int size_offset = offsetof(ErlBinMatchState, mb.size);
+
+    std::vector<BsmSegment> segments;
+
+    auto current = List.begin();
+    auto end = List.begin() + List.size();
+
+    while (current < end) {
+        auto cmd = current++->as<ArgImmed>().get();
+        BsmSegment seg;
+
+        switch (cmd) {
+        case am_ensure_at_least: {
+            seg.action = BsmSegment::action::ENSURE_AT_LEAST;
+            seg.size = current[0].as<ArgWord>().get();
+            seg.unit = current[1].as<ArgWord>().get();
+            current += 2;
+            break;
+        }
+        case am_ensure_exactly: {
+            seg.action = BsmSegment::action::ENSURE_EXACTLY;
+            seg.size = current[0].as<ArgWord>().get();
+            current += 1;
+            break;
+        }
+        case am_binary:
+        case am_integer: {
+            auto size = current[2].as<ArgWord>().get();
+            auto unit = current[3].as<ArgWord>().get();
+
+            switch (cmd) {
+            case am_integer:
+                seg.action = BsmSegment::action::GET_INTEGER;
+                break;
+            case am_binary:
+                seg.action = BsmSegment::action::GET_BINARY;
+                break;
+            }
+
+            seg.live = current[0];
+            seg.size = size * unit;
+            seg.unit = unit;
+            seg.flags = current[1].as<ArgWord>().get();
+            seg.dst = current[4].as<ArgRegister>();
+            current += 5;
+            break;
+        }
+        case am_get_tail: {
+            seg.action = BsmSegment::action::GET_TAIL;
+            seg.live = current[0].as<ArgWord>();
+            seg.dst = current[2].as<ArgRegister>();
+            current += 3;
+            break;
+        }
+        case am_skip: {
+            seg.action = BsmSegment::action::SKIP;
+            seg.size = current[0].as<ArgWord>().get();
+            seg.flags = 0;
+            current += 1;
+            break;
+        }
+        default:
+            abort();
+            break;
+        }
+        segments.push_back(seg);
+    }
+
+    segments = opt_bsm_segments(segments, Need, Live);
+
+    const arm::Gp bin_base = ARG2;
+    const arm::Gp bin_position = ARG3;
+    const arm::Gp bin_size = ARG4;
+    const arm::Gp bitdata = ARG8;
+    bool position_is_valid = false;
+
+    for (auto seg : segments) {
+        switch (seg.action) {
+        case BsmSegment::action::ENSURE_AT_LEAST: {
+            comment("ensure_at_least %ld %ld", seg.size, seg.unit);
+            auto ctx_reg = load_source(Ctx, TMP1);
+            auto stride = seg.size;
+            auto unit = seg.unit;
+
+            a.ldur(bin_position, emit_boxed_val(ctx_reg.reg, position_offset));
+            a.ldur(bin_size, emit_boxed_val(ctx_reg.reg, size_offset));
+            a.sub(TMP5, bin_size, bin_position);
+            cmp(TMP5, stride);
+            a.b_lo(resolve_beam_label(Fail, disp1MB));
+
+            if (unit != 1) {
+                if (stride % unit != 0) {
+                    sub(TMP5, TMP5, stride);
+                }
+
+                if ((unit & (unit - 1)) != 0) {
+                    mov_imm(TMP4, unit);
+
+                    a.udiv(TMP3, TMP5, TMP4);
+                    a.msub(TMP5, TMP3, TMP4, TMP5);
+
+                    a.cbnz(TMP5, resolve_beam_label(Fail, disp1MB));
+                } else {
+                    a.tst(TMP5, imm(unit - 1));
+                    a.b_ne(resolve_beam_label(Fail, disp1MB));
+                }
+            }
+
+            position_is_valid = true;
+            break;
+        }
+        case BsmSegment::action::ENSURE_EXACTLY: {
+            comment("ensure_exactly %ld", seg.size);
+            auto ctx_reg = load_source(Ctx, TMP1);
+            auto size = seg.size;
+
+            a.ldur(bin_position, emit_boxed_val(ctx_reg.reg, position_offset));
+            a.ldur(TMP3, emit_boxed_val(ctx_reg.reg, size_offset));
+            if (size != 0) {
+                a.sub(TMP1, TMP3, bin_position);
+                cmp(TMP1, size);
+            } else {
+                a.subs(TMP1, TMP3, bin_position);
+            }
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+            position_is_valid = true;
+            break;
+        }
+        case BsmSegment::action::TEST_HEAP: {
+            comment("test_heap %ld", seg.size);
+            emit_gc_test(ArgWord(0), ArgWord(seg.size), seg.live);
+            position_is_valid = false;
+            break;
+        }
+        case BsmSegment::action::READ: {
+            comment("read %ld", seg.size);
+            if (seg.size == 0) {
+                comment("(nothing to do)");
+            } else {
+                auto ctx = load_source(Ctx, ARG1);
+
+                if (!position_is_valid) {
+                    a.ldur(bin_position,
+                           emit_boxed_val(ctx.reg, position_offset));
+                    position_is_valid = true;
+                }
+                a.ldur(bin_base, emit_boxed_val(ctx.reg, base_offset));
+
+                emit_read_bits(seg.size, bin_base, bin_position, bitdata);
+
+                a.add(bin_position, bin_position, imm(seg.size));
+                a.stur(bin_position, emit_boxed_val(ctx.reg, position_offset));
+            }
+            break;
+        }
+        case BsmSegment::action::EXTRACT_BINARY: {
+            auto bits = seg.size;
+            auto Dst = seg.dst;
+
+            comment("extract binary %ld", bits);
+            emit_extract_binary(bitdata, bits, Dst);
+            if (bits != 0 && bits != 64) {
+                a.ror(bitdata, bitdata, imm(64 - bits));
+            }
+            break;
+        }
+        case BsmSegment::action::EXTRACT_INTEGER: {
+            auto bits = seg.size;
+            auto flags = seg.flags;
+            auto Dst = seg.dst;
+
+            comment("extract integer %ld", bits);
+            if (bits != 0 && bits != 64) {
+                a.ror(bitdata, bitdata, imm(64 - bits));
+            }
+            emit_extract_integer(bitdata, flags, bits, Dst);
+            break;
+        }
+        case BsmSegment::action::GET_INTEGER: {
+            Uint live = seg.live.as<ArgWord>().get();
+            Uint flags = seg.flags;
+            auto bits = seg.size;
+            auto Dst = seg.dst;
+
+            comment("get integer %ld", bits);
+            auto ctx = load_source(Ctx, TMP1);
+
+            if (bits >= SMALL_BITS) {
+                emit_enter_runtime<Update::eHeap>(live);
+            } else {
+                emit_enter_runtime(live);
+            }
+
+            a.mov(ARG1, c_p);
+            a.mov(ARG2, bits);
+            a.mov(ARG3, flags);
+            lea(ARG4, emit_boxed_val(ctx.reg, offsetof(ErlBinMatchState, mb)));
+            runtime_call<4>(erts_bs_get_integer_2);
+
+            if (bits >= SMALL_BITS) {
+                emit_leave_runtime<Update::eHeap>(live);
+            } else {
+                emit_leave_runtime(live);
+            }
+
+            mov_arg(Dst, ARG1);
+
+            position_is_valid = false;
+            break;
+        }
+        case BsmSegment::action::GET_BINARY: {
+            auto Live = seg.live;
+            comment("get binary %ld", seg.size);
+            auto ctx = load_source(Ctx, TMP1);
+
+            emit_enter_runtime<Update::eHeap>(Live.as<ArgWord>().get());
+
+            lea(ARG1, arm::Mem(c_p, offsetof(Process, htop)));
+            a.ldur(ARG2, emit_boxed_val(ctx.reg, orig_offset));
+            a.ldur(ARG3, emit_boxed_val(ctx.reg, base_offset));
+            a.ldur(ARG4, emit_boxed_val(ctx.reg, position_offset));
+            mov_imm(ARG5, seg.size);
+            a.add(TMP2, ARG4, ARG5);
+            a.stur(TMP2, emit_boxed_val(ctx.reg, position_offset));
+            runtime_call<5>(erts_extract_sub_binary);
+
+            emit_leave_runtime<Update::eHeap>(Live.as<ArgWord>().get());
+
+            mov_arg(seg.dst, ARG1);
+            position_is_valid = false;
+            break;
+        }
+        case BsmSegment::action::GET_TAIL: {
+            comment("get_tail");
+
+            mov_arg(ARG1, Ctx);
+            fragment_call(ga->get_bs_get_tail_shared());
+            mov_arg(seg.dst, ARG1);
+            position_is_valid = false;
+            break;
+        }
+        case BsmSegment::action::SKIP: {
+            comment("skip %ld", seg.size);
+            auto ctx = load_source(Ctx, TMP1);
+            if (!position_is_valid) {
+                a.ldur(bin_position, emit_boxed_val(ctx.reg, position_offset));
+                position_is_valid = true;
+            }
+            add(bin_position, bin_position, seg.size);
+            a.stur(bin_position, emit_boxed_val(ctx.reg, position_offset));
+            break;
+        }
+        case BsmSegment::action::DROP:
+            auto bits = seg.size;
+            comment("drop %ld", bits);
+            if (bits != 0 && bits != 64) {
+                a.ror(bitdata, bitdata, imm(64 - bits));
+            }
+            break;
+        }
+    }
+}

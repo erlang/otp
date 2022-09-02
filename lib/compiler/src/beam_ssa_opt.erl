@@ -289,6 +289,7 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_redundant_br),
+          ?PASS(ssa_opt_bs_ensure),
           ?PASS(ssa_opt_merge_blocks),
           ?PASS(ssa_opt_get_tuple_element),
           ?PASS(ssa_opt_tail_literals),
@@ -300,14 +301,16 @@ epilogue_passes(Opts) ->
 passes_1(Ps, Opts0) ->
     Negations = [{list_to_atom("no_"++atom_to_list(N)),N} ||
                     {N,_} <- Ps],
-    Opts = proplists:substitute_negations(Negations, Opts0),
+    Expansions = [{no_bs_match,[no_ssa_opt_bs_ensure,no_bs_match]}],
+    Opts = proplists:normalize(Opts0, [{expand,Expansions},
+                                       {negations,Negations}]),
     [case proplists:get_value(Name, Opts, true) of
          true ->
              P;
          false ->
              {NoName,Name} = keyfind(Name, 2, Negations),
              {NoName,fun(S) -> S end}
-     end || {Name,_}=P <- Ps].
+         end || {Name,_}=P <- Ps].
 
 %% Builds a function information map with basic information about incoming and
 %% outgoing local calls, as well as whether the function is exported.
@@ -2688,6 +2691,7 @@ unsuitable(Linear, Blocks, Predecessors) ->
 unsuitable_1([{L,#b_blk{is=[#b_set{op=Op}=I|_]}}|Bs]) ->
     Unsuitable = case Op of
                      bs_extract -> true;
+                     bs_match -> true;
                      {float,_} -> true;
                      landingpad -> true;
                      _ -> beam_ssa:is_loop_header(I)
@@ -3249,6 +3253,147 @@ redundant_br_safe_bool(Is, Bool) ->
         #b_set{op=has_map_field} -> true;
         #b_set{dst=Dst} -> Dst =/= Bool
     end.
+
+%%%
+%%% Add the bs_ensure instruction before a sequence of `bs_match`
+%%% (SSA) instructions, each having a literal size and the
+%%% same failure label.
+%%%
+%%% This is the first part of building the `bs_match` (BEAM)
+%%% instruction that can match multiple segments having the same
+%%% failure label.
+%%%
+
+ssa_opt_bs_ensure({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
+    RPO = beam_ssa:rpo(Blocks0),
+    Seen = sets:new([{version,2}]),
+    {Blocks,Count} = ssa_opt_bs_ensure(RPO, Seen, Count0, Blocks0),
+    {St#opt_st{ssa=Blocks,cnt=Count}, FuncDb}.
+
+ssa_opt_bs_ensure([L|Ls], Seen0, Count0, Blocks0) ->
+    case sets:is_element(L, Seen0) of
+        true ->
+            %% This block is already covered by a `bs_ensure`
+            %% instruction.
+            ssa_opt_bs_ensure(Ls, Seen0, Count0, Blocks0);
+        false ->
+            case is_bs_match_blk(L, Blocks0) of
+                no ->
+                    ssa_opt_bs_ensure(Ls, Seen0, Count0, Blocks0);
+                {yes,Size0,#b_br{succ=Succ,fail=Fail}} ->
+                    {Size,Blocks1,Seen} =
+                        ssa_opt_bs_ensure_collect(Succ, Fail,
+                                                  Blocks0, Seen0, Size0),
+                    Blocks2 = annotate_match(L, Blocks1),
+                    {Blocks,Count} = build_bs_ensure_match(L, Size, Count0, Blocks2),
+                    ssa_opt_bs_ensure(Ls, Seen, Count, Blocks)
+            end
+    end;
+ssa_opt_bs_ensure([], _Seen, Count, Blocks) ->
+    {Blocks,Count}.
+
+ssa_opt_bs_ensure_collect(L, Fail, Blocks0, Seen0, Acc) ->
+    case is_bs_match_blk(L, Blocks0) of
+        no ->
+            {Acc,Blocks0,Seen0};
+        {yes,Size,#b_br{succ=Succ,fail=Fail}} ->
+            Seen = sets:add_element(L, Seen0),
+            Blocks = annotate_match(L, Blocks0),
+            ssa_opt_bs_ensure_collect(Succ, Fail, Blocks, Seen, update_size(Size, Acc));
+        {yes,_,_} ->
+            {Acc,Blocks0,Seen0}
+    end.
+
+annotate_match(L, Blocks) ->
+    #b_blk{is=Is0} = Blk0 = map_get(L, Blocks),
+    Is = [case I of
+              #b_set{op=bs_match} ->
+                  beam_ssa:add_anno(ensured, true, I);
+              #b_set{} ->
+                  I
+          end || I <- Is0],
+    Blk = Blk0#b_blk{is=Is},
+    Blocks#{L := Blk}.
+
+update_size({Size,Unit}, {Sum,Unit0}) ->
+    {Sum + Size,max(Unit, Unit0)}.
+
+is_bs_match_blk(L, Blocks) ->
+    Blk = map_get(L, Blocks),
+    case Blk of
+        #b_blk{is=Is,last=#b_br{bool=#b_var{}}=Last} ->
+            case is_bs_match_is(Is) of
+                no ->
+                    no;
+                {yes,SizeUnit} ->
+                    {yes,SizeUnit,Last}
+            end;
+        #b_blk{} ->
+            no
+    end.
+
+is_bs_match_is([#b_set{op=bs_match,dst=Dst}=I,
+                #b_set{op={succeeded,guard},args=[Dst]}]) ->
+    case is_viable_match(I) of
+        no ->
+            no;
+        {yes,{Size,_}=SizeUnit} when Size bsr 24 =:= 0 ->
+            %% Only include matches of reasonable size.
+            {yes,SizeUnit};
+        {yes,_} ->
+            %% Too large size.
+            no
+    end;
+is_bs_match_is([_|Is]) ->
+    is_bs_match_is(Is);
+is_bs_match_is([]) -> no.
+
+is_viable_match(#b_set{op=bs_match,args=Args}) ->
+    case Args of
+        [#b_literal{val=binary},_,_,#b_literal{val=all},#b_literal{val=U}]
+          when is_integer(U), 1 =< U, U =< 256 ->
+            {yes,{0,U}};
+        [#b_literal{val=binary},_,_,#b_literal{val=Size},#b_literal{val=U}]
+          when is_integer(Size) ->
+            {yes,{Size*U,1}};
+        [#b_literal{val=integer},_,_,#b_literal{val=Size},#b_literal{val=U}]
+          when is_integer(Size) ->
+            {yes,{Size*U,1}};
+        [#b_literal{val=skip},_,_,_,#b_literal{val=all},#b_literal{val=U}] ->
+            {yes,{0,U}};
+        [#b_literal{val=skip},_,_,_,#b_literal{val=Size},#b_literal{val=U}]
+          when is_integer(Size) ->
+            {yes,{Size*U,1}};
+        _ ->
+            no
+    end.
+
+build_bs_ensure_match(L, {Size,Unit}, Count0, Blocks0) ->
+    BsMatchL = Count0,
+    Count1 = Count0 + 1,
+    {NewCtx,Count2} = new_var('@context', Count1),
+    {SuccBool,Count} = new_var('@ssa_bool', Count2),
+
+    BsMatchBlk0 = map_get(L, Blocks0),
+
+    #b_blk{is=MatchIs,last=#b_br{fail=Fail}} = BsMatchBlk0,
+    {Prefix,Suffix0} = splitwith(fun(#b_set{op=Op}) -> Op =/= bs_match end, MatchIs),
+    [BsMatch0|Suffix1] = Suffix0,
+    #b_set{args=[Type,_Ctx|Args]} = BsMatch0,
+    BsMatch = BsMatch0#b_set{args=[Type,NewCtx|Args]},
+    Suffix = [BsMatch|Suffix1],
+    BsMatchBlk = BsMatchBlk0#b_blk{is=Suffix},
+
+    #b_set{args=[_,Ctx|_]} = keyfind(bs_match, #b_set.op, MatchIs),
+    Is = Prefix ++ [#b_set{op=bs_ensure,
+                           dst=NewCtx,
+                           args=[Ctx,#b_literal{val=Size},#b_literal{val=Unit}]},
+                    #b_set{op={succeeded,guard},dst=SuccBool,args=[NewCtx]}],
+    Blk = #b_blk{is=Is,last=#b_br{bool=SuccBool,succ=BsMatchL,fail=Fail}},
+
+    Blocks = Blocks0#{L := Blk, BsMatchL => BsMatchBlk},
+
+    {Blocks,Count}.
 
 %%%
 %%% Common utilities.

@@ -1371,10 +1371,12 @@ protected:
 
     void emit_error(int code);
 
-    x86::Mem emit_bs_get_integer_prologue(Label next,
-                                          Label fail,
-                                          int flags,
-                                          int size);
+    void emit_bs_get_integer(const ArgRegister &Ctx,
+                             const ArgLabel &Fail,
+                             const ArgWord &Live,
+                             const ArgWord Flags,
+                             int bits,
+                             const ArgRegister &Dst);
 
     int emit_bs_get_field_size(const ArgSource &Size,
                                int unit,
@@ -1395,6 +1397,25 @@ protected:
     void set_zero(Sint effectiveSize);
     bool bs_maybe_enter_runtime(bool entered);
     void bs_maybe_leave_runtime(bool entered);
+
+    void emit_read_bits(Uint bits,
+                        const x86::Gp bin_base,
+                        const x86::Gp bin_offset,
+                        const x86::Gp bitdata);
+    void emit_extract_integer(const x86::Gp bitdata,
+                              const x86::Gp tmp,
+                              Uint flags,
+                              Uint bits,
+                              const ArgRegister &Dst);
+    void emit_extract_binary(const x86::Gp bitdata,
+                             Uint bits,
+                             const ArgRegister &Dst);
+    void emit_read_integer(const x86::Gp bin_base,
+                           const x86::Gp bin_position,
+                           const x86::Gp tmp,
+                           Uint flags,
+                           Uint bits,
+                           const ArgRegister &Dst);
 
     void emit_raise_exception();
     void emit_raise_exception(const ErtsCodeMFA *exp);

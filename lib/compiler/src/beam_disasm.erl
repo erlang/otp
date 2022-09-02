@@ -417,6 +417,8 @@ disasm_instr(B, Bs, Atoms, Literals, Types) ->
 	    disasm_init_yregs(Bs, Atoms, Literals, Types);
 	bs_create_bin ->
 	    disasm_bs_create_bin(Bs, Atoms, Literals, Types);
+	bs_match ->
+	    disasm_bs_match(Bs, Atoms, Literals, Types);
 	update_record ->
 	    disasm_update_record(Bs, Atoms, Literals, Types);
 	_ ->
@@ -494,6 +496,16 @@ disasm_bs_create_bin(Bs0, Atoms, Literals, Types) ->
     {u, Len} = U,
     {List, RestBs} = decode_n_args(Len, Bs7, Atoms, Literals, Types),
     {{bs_create_bin, [{A1,A2,A3,A4,A5,Z,U,List}]}, RestBs}.
+
+disasm_bs_match(Bs0, Atoms, Literals, Types) ->
+    {A1, Bs1} = decode_arg(Bs0, Atoms, Literals, Types),
+    {A2, Bs2} = decode_arg(Bs1, Atoms, Literals, Types),
+    Bs5 = Bs2,
+    {Z, Bs6} = decode_arg(Bs5, Atoms, Literals, Types),
+    {U, Bs7} = decode_arg(Bs6, Atoms, Literals, Types),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs7, Atoms, Literals, Types),
+    {{bs_match, [{A1,A2,Z,U,List}]}, RestBs}.
 
 disasm_update_record(Bs1, Atoms, Literals, Types) ->
     {Hint, Bs2} = decode_arg(Bs1, Atoms, Literals, Types),
@@ -1264,6 +1276,8 @@ resolve_inst({badrecord,[Arg]},_,_,_) ->
 
 resolve_inst({update_record,[Hint,Size,Src,Dst,List]},_,_,_) ->
     {update_record,Hint,Size,Src,Dst,List};
+resolve_inst({bs_match,[{Fail,Ctx,{z,1},{u,_},Args}]},_,_,_) ->
+    {bs_match,Fail,Ctx,{list,Args}};
 
 %%
 %% Catches instructions that are not yet handled.

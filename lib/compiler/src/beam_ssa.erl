@@ -106,7 +106,7 @@
 %% file erl_types.erl in the dialyzer application.
 
 -type prim_op() :: 'bs_create_bin' |
-                   'bs_extract' | 'bs_get_tail' | 'bs_init_writable' |
+                   'bs_extract' | 'bs_ensure' | 'bs_get_tail' | 'bs_init_writable' |
                    'bs_match' | 'bs_start_match' | 'bs_test_tail' |
                    'build_stacktrace' |
                    'call' | 'catch_end' |
@@ -132,7 +132,8 @@
                     '+' | '-' | '*' | '/'.
 
 %% Primops only used internally during code generation.
--type cg_prim_op() :: 'bs_get' | 'bs_get_position' | 'bs_match_string' |
+-type cg_prim_op() :: 'bs_checked_get' | 'bs_checked_skip' |
+                      'bs_get' | 'bs_get_position' | 'bs_match_string' |
                       'bs_restore' | 'bs_save' | 'bs_set_position' | 'bs_skip' |
                       'copy' | 'match_fail' | 'put_tuple_arity' |
                       'set_tuple_element' | 'succeeded' |
