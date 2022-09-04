@@ -254,7 +254,16 @@ options(UserOptions) ->
          echo => false }, UserOptions).
 
 init(State, {unix,_}) ->
-    ok = tgetent(os:getenv("TERM")),
+
+    case os:getenv("TERM") of
+        false ->
+            error(enotsup);
+        Term ->
+            case tgetent(Term) of
+                ok -> ok;
+                {error,_} -> error(enotsup)
+            end
+    end,
 
     %% See https://www.gnu.org/software/termutils/manual/termcap-1.3/html_mono/termcap.html#SEC23
     %% for a list of all possible termcap capabilities
