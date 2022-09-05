@@ -1073,6 +1073,17 @@ q                 - quit erlang
           string syntax.</p>
       </desc>
     </func>
+
+    <func>
+        <name name="whereis" arity="0" since="OTP @OTP-17932@"/>
+        <fsummary>Return the current shell process.</fsummary>
+        <desc>
+            <p>Returns the current shell process on the node where the
+              calling process' group_leader is located. If that node
+              has no shell this function will return undefined.</p>
+        </desc>
+    </func>
+
   </funcs>
 </erlref>
 

@@ -68,7 +68,7 @@
         {open_editor, string()}.
 
 -export_type([message/0]).
--export([start/0, start/1, start_shell/0, start_shell/1]).
+-export([start/0, start/1, start_shell/0, start_shell/1, whereis_group/0]).
 
 %% gen_statem state callbacks
 -export([init/3,server/3,switch_loop/3]).
@@ -113,6 +113,12 @@ start_shell() ->
 start_shell(Args) ->
     gen_statem:call(?MODULE, {start_shell, Args}).
 
+-spec whereis_group() -> pid() | undefined.
+whereis_group() ->
+    {dictionary, Dict} =
+        erlang:process_info(whereis(?MODULE), dictionary),
+    proplists:get_value(current_group, Dict).
+
 %% Backwards compatibility with pre OTP-26 for Elixir/LFE etc
 -spec start(['tty_sl -c -e'| shell()]) -> pid();
            (arguments()) -> pid().
@@ -126,25 +132,6 @@ start(Args) when is_map(Args) ->
     end.
 
 callback_mode() -> state_functions.
-
-%% Return the pid of the active group process.
-%% Note: We can't ask the user_drv process for this info since it
-%% may be busy waiting for data from the port.
-
--spec interfaces(pid()) -> [{'current_group', pid()}].
-
-interfaces(UserDrv) ->
-    case process_info(UserDrv, dictionary) of
-	{dictionary,Dict} ->
-	    case lists:keysearch(current_group, 1, Dict) of
-		{value,Gr={_,Group}} when is_pid(Group) ->
-		    [Gr];
-		_ ->
-		    []
-	    end;
-	_ ->
-	    []
-    end.
 
 -spec init(arguments()) -> gen_statem:init_result(init).
 init(Args) ->
@@ -902,13 +889,16 @@ gr_get_info(#gr{ groups = Gs }, Pid) ->
     end.
 
 gr_add_cur(#gr{ next = Next, groups = Gs}, Pid, Shell) ->
+    put(current_group, Pid),
     #gr{ next = Next + 1, current = Next, pid = Pid,
          groups = Gs ++ [gr_new_group(Next, Pid, Shell)]
        }.
 
 gr_set_cur(Gr, I) ->
     case gr_get_num(Gr, I) of
-	{pid,Pid} -> {ok, Gr#gr{ current = I, pid = Pid }};
+	{pid,Pid} ->
+            put(current_group, Pid),
+            {ok, Gr#gr{ current = I, pid = Pid }};
 	undefined -> undefined
     end.
 

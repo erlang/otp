@@ -35,7 +35,7 @@
 -export([ start_restricted_from_shell/1,
 	  start_restricted_on_command_line/1,restricted_local/1]).
 
--export([ start_interactive/1 ]).
+-export([ start_interactive/1, whereis/1 ]).
 
 %% Internal export.
 -export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1,
@@ -77,7 +77,7 @@ suite() ->
 all() ->
     [forget, known_bugs, otp_5226, otp_5327,
      otp_5435, otp_5195, otp_5915, otp_5916,
-     start_interactive, {group, bits},
+     start_interactive, whereis, {group, bits},
      {group, refman}, {group, progex}, {group, tickets},
      {group, restricted}, {group, records}, {group, definitions}].
 
@@ -3149,6 +3149,106 @@ start_interactive_shell(ExtraArgs) ->
        {expect, "1> $"}
       ] ++ quit_hosting_node(),
       [],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
+    peer:stop(Peer),
+
+    ok.
+
+whereis(_Config) ->
+    Proxy = spawn_link(
+              fun() ->
+                      (fun F(P) ->
+                               receive
+                                   {set,NewPid} ->
+                                       F(NewPid);
+                                   {get,From} ->
+                                       From ! P,
+                                       F(P)
+                               end
+                       end)(undefined)
+              end),
+
+    %% Test that shell:whereis() works with JCL in newshell
+    rtnode:run(
+      [{expect,"1> $"},
+       {putline,"shell:whereis()."},
+       {expect,"2> $"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     Proxy ! {set,shell:whereis()},
+                     ok
+             end},
+       {putline,"\^g"},
+       {expect,  "--> $"},
+       {putline, "s"},
+       {expect,  "--> $"},
+       {putline, "c"},
+       {expect,  "\r\nEshell"},
+       {putline,"shell:whereis()."},
+       {expect,"2> $"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     Proxy ! {get, self()},
+                     receive PrevPid -> PrevPid end,
+                     io:format("~p =:= ~p~n",[PrevPid, shell:whereis()]),
+                     false = PrevPid =:= shell:whereis(),
+                     ok
+             end},
+       {putline,"\^g"},
+       {expect,  "--> $"},
+       {putline, "c 1"},
+       {expect, "\r\n"},
+       {putline, ""},
+       {expect, "2> $"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     Proxy ! {get, self()},
+                     receive PrevPid -> PrevPid end,
+                     true = PrevPid =:= shell:whereis(),
+                     ok
+             end}]),
+
+    %% Test that shell:whereis() works in oldshell
+    rtnode:run(
+      [{expect,"1>"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     true = is_pid(shell:whereis()),
+                     ok
+             end}],
+     [],"",["-env","TERM","dumb"]),
+
+    %% Test that noinput and noshell gives undefined shell process
+    rtnode:run(
+      [{eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     undefined = shell:whereis(),
+                     ok
+             end}],
+      [],"",["-noinput"]),
+    rtnode:run(
+      [{eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     undefined = shell:whereis(),
+                     ok
+             end}],
+      [],"",["-noshell"]),
+
+    %% Test that remsh gives the correct shell process
+    {ok, Peer, Node} = ?CT_PEER(),
+    NodeStr = lists:flatten(io_lib:format("~w",[Node])),
+    rtnode:run(
+      [{expect, "1>"},
+       {putline,"shell:whereis()."},
+       {expect,"\n<0[.]"},
+       {expect, "2>"},
+       {eval, fun() ->
+                      group_leader(erlang:whereis(user),self()),
+                      true = Node =:= node(shell:whereis()),
+                      ok
+              end}] ++ quit_hosting_node(),
+      peer:random_name(?FUNCTION_NAME), " ", "-remsh " ++ NodeStr  ++
+          " -pa " ++ filename:dirname(code:which(?MODULE))),
+
     peer:stop(Peer),
 
     ok.
