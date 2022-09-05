@@ -921,10 +921,8 @@ build_iolist(N0, Base) ->
 	    [47,L,L|Seq]
     end.
 
-approx_4GB_bin() ->
-    Bin = lists:duplicate(4194304, 255),
-    BinRet = erlang:iolist_to_binary(lists:duplicate(1124, Bin)),
-    BinRet.
+approx_1GB_bin() ->
+    iolist_to_binary(lists:duplicate(281, <<-1:4194304/unit:8>>)).
 
 duplicate_iolist(IOList, 0) ->
     IOList;
@@ -934,9 +932,15 @@ duplicate_iolist(IOList, NrOfTimes) ->
 t_iolist_size_huge_list(Config)  when is_list(Config) ->
     run_when_enough_resources(
       fun() ->
-              {TimeToCreateIOList, IOList} = timer:tc(fun()->duplicate_iolist(approx_4GB_bin(), 32) end),
-              {IOListSizeTime, CalculatedSize} = timer:tc(fun()->erlang:iolist_size(IOList) end),
-              20248183924657750016 = CalculatedSize,
+              {TimeToCreateIOList, IOList} =
+                  timer:tc(fun() ->
+                                   duplicate_iolist(approx_1GB_bin(), 32)
+                           end),
+              {IOListSizeTime, CalculatedSize} =
+                  timer:tc(fun() ->
+                                   iolist_size(IOList)
+                           end),
+              5062045981164437504 = CalculatedSize,
               {comment, io_lib:format("Time to create iolist: ~f s. Time to calculate size: ~f s.", 
                                       [TimeToCreateIOList / 1000000, IOListSizeTime / 1000000])}
       end).
@@ -945,9 +949,10 @@ t_iolist_size_huge_bad_arg_list(Config)  when is_list(Config) ->
     run_when_enough_resources(
       fun() ->
               P = self(),
-              spawn_link(fun()-> IOListTmp = duplicate_iolist(approx_4GB_bin(), 32),
+              spawn_link(fun() ->
+                                 IOListTmp = duplicate_iolist(approx_1GB_bin(), 32),
                                  IOList = [IOListTmp, [badarg]],
-                                 {'EXIT',{badarg,_}} = (catch erlang:iolist_size(IOList)),
+                                 {'EXIT',{badarg,_}} = catch iolist_size(IOList),
                                  P ! ok
                          end),
               receive ok -> ok end
