@@ -9891,6 +9891,9 @@ otp_6442_resend_request1(suite) ->
     [];
 otp_6442_resend_request1(Config) when is_list(Config) ->
     Pre = fun() ->
+                  put(verbosity, debug),
+                  put(tc, ?FUNCTION_NAME),
+
                   MgNode = make_node_name(mg),
                   d("start (MG) node: ~p", [MgNode]),
                   Nodes = [MgNode],
@@ -10262,6 +10265,9 @@ otp_6442_resend_request2(suite) ->
     [];
 otp_6442_resend_request2(Config) when is_list(Config) ->
     Pre = fun() ->
+                  put(verbosity, debug),
+                  put(tc, ?FUNCTION_NAME),
+
                   MgNode = make_node_name(mg),
                   d("start (MG) node: ~p", [MgNode]),
                   Nodes = [MgNode],
@@ -10571,6 +10577,9 @@ otp_6442_resend_reply1(suite) ->
 otp_6442_resend_reply1(Config) when is_list(Config) ->
     Factor = ?config(megaco_factor, Config),
     Pre = fun() ->
+                  put(verbosity, debug),
+                  put(tc, ?FUNCTION_NAME),
+
                   MgNode = make_node_name(mg),
                   d("start (MG) node: ~p", [MgNode]),
                   Nodes = [MgNode],
