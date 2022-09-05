@@ -9568,12 +9568,13 @@ await_ack(User, N, Timeout, Expected)
 	{ack_received, User, UnExpected} ->
 	    e("await_ack -> received unexpected ack result: ~p"
               "~n   when"
+              "~n      User:      ~p"
               "~n      N:         ~p"
               "~n      Remaining: ~p",
-              [UnExpected, N, Timeout - (tim() - T)]),
-	    exit({unexpected_ack_result, UnExpected, Expected})
+              [UnExpected, User, N, Timeout - (tim() - T)]),
+	    exit({unexpected_ack_result, User, UnExpected, Expected})
     after Timeout ->
-	    exit({await_ack_timeout, N})
+	    exit({await_ack_timeout, N, User})
     end;
 await_ack(User, N, infinity, Expected) when N > 0 ->
     d("await_ack -> entry with N: ~p", [N]),
@@ -9584,8 +9585,9 @@ await_ack(User, N, infinity, Expected) when N > 0 ->
 	{ack_received, User, UnExpected} ->
 	    e("await_ack -> unexpected ack result: ~p"
               "~n   when"
-              "~n      N: ~p", [UnExpected, N]),
-	    exit({unexpected_ack_result, UnExpected, Expected})
+              "~n      User: ~p"
+              "~n      N:    ~p", [UnExpected, User, N]),
+	    exit({unexpected_ack_result, User, UnExpected, Expected})
     end.
 
 

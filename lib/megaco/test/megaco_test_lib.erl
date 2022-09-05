@@ -78,7 +78,7 @@
 
 -include("megaco_test_lib.hrl").
 
--record('REASON', {mod, line, desc}).
+%% -record('REASON', {mod, line, desc}).
 
 
 %% ----------------------------------------------------------------
@@ -364,19 +364,11 @@ display_system_info(WhenStr, ModFuncStr) ->
 %% Stores the result in the process dictionary if mismatch
 
 error(Actual, Mod, Line) ->
-    global:send(megaco_global_logger, {failed, Mod, Line}),
     log("<ERROR> Bad result: ~p~n", [Actual], Mod, Line),
     Label = lists:concat([Mod, "(", Line, ") unexpected result"]),
     megaco:report_event(60, Mod, Mod, Label,
 			[{line, Mod, Line}, {error, Actual}]),
-    case global:whereis_name(megaco_test_case_sup) of
-	undefined -> 
-	    ignore;
-	Pid -> 
-	    Fail = #'REASON'{mod = Mod, line = Line, desc = Actual},
-	    Pid ! {fail, self(), Fail}
-    end,
-    Actual.
+    exit(Actual).
 
 log(Format, Args, Mod, Line) ->
     case global:whereis_name(megaco_global_logger) of
