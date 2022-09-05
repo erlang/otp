@@ -2553,6 +2553,123 @@
 
 </section>
 
+<section><title>Erts 11.2.2.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Distributed exit signals could be lost under the
+	    following conditions:</p> <list> <item><p> An exit signal
+	    from a parent process to a child process was lost if:</p>
+	    <list> <item><p> the parent process terminated before the
+	    spawn request that created the child had completed,
+	    </p></item> <item><p> the spawn request set up a link
+	    between parent and child </p></item> <item><p> the spawn
+	    request was distributed, and </p></item> <item><p> the
+	    exit reason was larger than one machine word. </p></item>
+	    </list> </item> <item><p> Loss of a connection over which
+	    a not yet completed spawn request was ongoing could cause
+	    loss of exit signals. Such loss of exit signals was very
+	    rare. Besides the above described connection loss also
+	    the following conditions had to be satisfied:</p> <list>
+	    <item><p> The spawn request that was interrupted by the
+	    connection loss also had to set up a link between the
+	    parent process and the child process. </p></item>
+	    <item><p> The parent process that issued the spawn
+	    request also had to be terminating while the spawn
+	    request was interrupted by the connection loss.
+	    </p></item> <item><p> The same parent process also had to
+	    have made other spawn requests to other nodes than to the
+	    node to which the connection was lost. </p></item>
+	    <item><p> These spawn requests to the other nodes also
+	    had to set up links. </p></item> <item><p> These spawn
+	    requests to the other nodes also had to be not yet
+	    completed at the time of the connection loss. That is,
+	    the spawn reply from the child process had not yet
+	    reached the parent process. </p></item> </list> <p>If all
+	    the conditions above were met, exit signals to the
+	    children spawned due to the above described spawn
+	    requests to other nodes <em>could</em> be lost.</p>
+	    <p>The above bug also caused a significant memory leak
+	    when it was triggered since the destruction of the parent
+	    process never completed.</p> </item> </list>
+          <p>
+	    Own Id: OTP-18164 Aux Id: PR-6114 </p>
+        </item>
+        <item>
+          <p>
+	    A race could cause <c>process_info(Pid,
+	    message_queue_len)</c> on other processes to return
+	    invalid results.</p>
+          <p>
+	    Own Id: OTP-18169 Aux Id: PR-6134 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed reduction counting for handling process system
+	    tasks.</p>
+          <p>
+	    Own Id: OTP-18170 Aux Id: PR-6135 </p>
+        </item>
+        <item>
+          <p>
+	    Priority elevation of terminating processes did not work
+	    which could cause execution of such processes to be
+	    delayed.</p>
+          <p>
+	    Own Id: OTP-18175 Aux Id: PR-6142 </p>
+        </item>
+        <item>
+          <p>
+	    An unlink operation made by a process that terminated
+	    before the unlink operation completed, i.e., before it
+	    had received an unlink-ack signal from the linked
+	    process, caused an exit signal to erroneously be sent
+	    from the terminating process to the process being
+	    unlinked. This exit signal would most often be ignored by
+	    the receiver, but if the receiver of the exit signal
+	    concurrently set up a new link, it could receive the exit
+	    signal with the actual exit reason of the terminating
+	    process instead of a <c>noproc</c> exit reason. It is
+	    however very hard to detect that this has happened and
+	    has no obvious negative consequences, so it should be
+	    considered harmless.</p>
+          <p>
+	    A distributed unlink-ack signal received by a terminating
+	    process was also not properly removed which could cause a
+	    minor memory leak.</p>
+          <p>
+	    Own Id: OTP-18177 Aux Id: PR-6150 </p>
+        </item>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="erts:erlang#monotonic_time/1"><c>erlang:monotonic_time/1</c></seemfa>,
+	    <seemfa
+	    marker="erts:erlang#system_time/1"><c>erlang:system_time/1</c></seemfa>,
+	    <seemfa
+	    marker="erts:erlang#time_offset/1"><c>erlang:time_offset/1</c></seemfa>,
+	    and <seemfa
+	    marker="kernel:os#system_time/1"><c>os:system_time/1</c></seemfa>
+	    BIFs erroneously failed when passed the argument
+	    <c>native</c>.</p>
+          <p>
+	    Own Id: OTP-18197 Aux Id: GH-6165, PR-6213 </p>
+        </item>
+        <item>
+          <p>
+	    Fix writing and reading of more than 2 GB in a single
+	    read/write operation on macOS. Before this fix attempting
+	    to read/write more than 2GB would result in
+	    <c>{error,einval}</c>.</p>
+          <p>
+	    Own Id: OTP-18222 Aux Id: PR-6248 GH-6242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.2.2.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
