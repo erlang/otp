@@ -142,14 +142,16 @@ create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc, OtherAcc
                                        [{Name, Value} | OtherAcc])
     end.
 
-http_env_element(cgi, "proxy", _Value)  ->
-  %% CVE-2016-1000107 – https://github.com/erlang/otp/issues/3392
-  skipped;
-http_env_element(cgi, "PROXY", _Value)  ->
-  skipped;
-http_env_element(cgi, VarName0, Value)  ->
-    VarName = re:replace(VarName0,"-","_", [{return,list}, global]),
-    {"HTTP_"++ http_util:to_upper(VarName), Value};
+http_env_element(cgi, VarName0, Value) ->
+  case http_util:to_upper(VarName0) of
+    "PROXY" ->
+      %% CVE-2016-1000107 – https://github.com/erlang/otp/issues/3392
+      skipped;
+    VarName1 ->
+      VarNameUpper = re:replace(VarName1, "-", "_", [{return, list}, global]),
+      {"HTTP_" ++ VarNameUpper, Value}
+  end;
+
 http_env_element(esi, VarName0, Value)  ->
     list_to_existing_atom(VarName0),
     VarName = re:replace(VarName0,"-","_", [{return,list}, global]),
