@@ -70,21 +70,30 @@ encode_list_to_string([B1,B2,B3|Ls]) ->
      b64e((BB bsr 6) band 63),
      b64e(BB band 63) | encode_list_to_string(Ls)].
 
+encode_binary(<<B1:6, B2:6, B3:6, B4:6, B5:6, B6:6, B7:6, B8:6, Ls/bits>>, A) ->
+    encode_binary(Ls,
+                  <<A/bits,
+                    (b64e(B1)):8,
+                    (b64e(B2)):8,
+                    (b64e(B3)):8,
+                    (b64e(B4)):8,
+                    (b64e(B5)):8,
+                    (b64e(B6)):8,
+                    (b64e(B7)):8,
+                    (b64e(B8)):8>>);
 encode_binary(<<>>, A) ->
     A;
-encode_binary(<<B1:8>>, A) ->
-    <<A/bits,(b64e(B1 bsr 2)):8,(b64e((B1 band 3) bsl 4)):8,$=:8,$=:8>>;
-encode_binary(<<B1:8, B2:8>>, A) ->
-    <<A/bits,(b64e(B1 bsr 2)):8,
-      (b64e(((B1 band 3) bsl 4) bor (B2 bsr 4))):8,
-      (b64e((B2 band 15) bsl 2)):8, $=:8>>;
-encode_binary(<<B1:8, B2:8, B3:8, Ls/bits>>, A) ->
-    BB = (B1 bsl 16) bor (B2 bsl 8) bor B3,
+encode_binary(<<B1:6, B2:6, B3:6, B4:6, Ls/bits>>, A) ->
     encode_binary(Ls,
-                  <<A/bits,(b64e(BB bsr 18)):8,
-                    (b64e((BB bsr 12) band 63)):8,
-                    (b64e((BB bsr 6) band 63)):8,
-                    (b64e(BB band 63)):8>>).
+                  <<A/bits,
+                    (b64e(B1)):8,
+                    (b64e(B2)):8,
+                    (b64e(B3)):8,
+                    (b64e(B4)):8>>);
+encode_binary(<<B1:6, B2:2>>, A) ->
+    <<A/bits,(b64e(B1)):8,(b64e(B2 bsl 4)):8,$=:8,$=:8>>;
+encode_binary(<<B1:6, B2:6, B3:4>>, A) ->
+    <<A/bits,(b64e(B1)):8,(b64e(B2)):8,(b64e(B3 bsl 2)):8, $=:8>>.
 
 encode_list([], A) ->
     A;
@@ -358,13 +367,56 @@ decode_list([C4 | Cs], A, B1, B2, B3) ->
         B4                -> decode_list(Cs, <<A/bits,B1:6,B2:6,B3:6,B4:6>>)
     end.
 
+decode_binary(<<C1:8, C2:8, C3:8, C4:8, Cs/bits>>, A) ->
+    case {b64d(C1), b64d(C2), b64d(C3), b64d(C4)} of
+        {B1, B2, B3, B4} when is_integer(B1), is_integer(B2),
+                              is_integer(B3), is_integer(B4) ->
+            decode_binary(Cs, <<A/bits,B1:6,B2:6,B3:6,B4:6>>);
+        {B1, B2, B3, B4} ->
+            dec_bin(Cs, B1, B2, B3, B4, A)
+    end;
+decode_binary(<<>>, A) ->
+    A;
 decode_binary(<<C1:8, Cs/bits>>, A) ->
     case b64d(C1) of
         ws -> decode_binary(Cs, A);
         B1 -> decode_binary(Cs, A, B1)
-    end;
-decode_binary(<<>>, A) ->
-    A.
+    end.
+
+dec_bin(Cs, ws, B2, B3, B4, A) ->
+    dec_bin(Cs, B2, B3, B4, A);
+dec_bin(Cs, B1, ws, B3, B4, A) ->
+    dec_bin(Cs, B1, B3, B4, A);
+dec_bin(Cs, B1, B2, ws, B4, A) ->
+    dec_bin(Cs, B1, B2, B4, A);
+dec_bin(Cs, B1, B2, B3, B4, A) ->
+    case B4 of
+        ws                -> decode_binary(Cs, A, B1, B2, B3);
+        eq when B3 =:= eq -> only_ws_binary(Cs, <<A/bits,B1:6,(B2 bsr 4):2>>);
+        eq                -> only_ws_binary(Cs, <<A/bits,B1:6,B2:6,(B3 bsr 2):4>>);
+        B4                -> decode_binary(Cs, <<A/bits,B1:6,B2:6,B3:6,B4:6>>)
+    end.
+
+dec_bin(Cs, ws, B2, B3, A) ->
+    dec_bin(Cs, B2, B3, A);
+dec_bin(Cs, B1, ws, B3, A) ->
+    dec_bin(Cs, B1, B3, A);
+dec_bin(Cs, B1, B2, ws, A) ->
+    dec_bin(Cs, B1, B2, A);
+dec_bin(Cs, B1, B2, B3, A) ->
+    decode_binary(Cs, A, B1, B2, B3).
+
+dec_bin(Cs, ws, B2, A) ->
+    dec_bin(Cs, B2, A);
+dec_bin(Cs, B1, ws, A) ->
+    dec_bin(Cs, B1, A);
+dec_bin(Cs, B1, B2, A) ->
+    decode_binary(Cs, A, B1, B2).
+
+dec_bin(Cs, ws, A) ->
+    decode_binary(Cs, A);
+dec_bin(Cs, B1, A) ->
+    decode_binary(Cs, A, B1).
 
 decode_binary(<<C2:8, Cs/bits>>, A, B1) ->
     case b64d(C2) of
