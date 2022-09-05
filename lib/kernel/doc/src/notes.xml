@@ -1496,6 +1496,26 @@
 
 </section>
 
+<section><title>Kernel 7.3.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A call to <seemfa
+	    marker="net_kernel#setopts/2"><c>net_kernel:setopts(new,
+	    Opts)</c></seemfa> at the same time as a connection was
+	    being set up could cause a deadlock between the
+	    <c>net_kernel</c> process and the process setting up the
+	    connection.</p>
+          <p>
+	    Own Id: OTP-18198 Aux Id: GH-6129, PR-6216 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 7.3.1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

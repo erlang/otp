@@ -329,6 +329,21 @@
 
 </section>
 
+  <section><title>Inets 7.3.2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove documentation of no longer supported callback.</p>
+          <p>
+	    Own Id: OTP-18193 Aux Id: GH-6122 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
   <section><title>Inets 7.3.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
