@@ -286,8 +286,8 @@ start(internal = Type, #change_cipher_spec{} = Msg,
         Hist -> %% First message must always be client hello
             ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State);
         _ ->
-            tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State)
-    end;
+            handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State)
+        end;
 start(internal = Type, #change_cipher_spec{} = Msg,
       #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
