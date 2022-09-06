@@ -86,6 +86,7 @@
          t_with_2/1,
 
          %% miscellaneous
+         t_conflicting_destinations/1,
          t_cse_assoc/1
         ]).
 
@@ -159,6 +160,7 @@ all() ->
      t_update_with_3, t_update_with_4, t_with_2,
 
      %% miscellaneous
+     t_conflicting_destinations,
      t_cse_assoc
     ].
 
@@ -2503,6 +2505,22 @@ t_bif_map_find(Config) when is_list(Config) ->
 		      {'EXIT',{{badmap,T},[{maps,find,_,_}|_]}} =
 			  catch maps:find(a, T)
 	      end),
+    ok.
+
+t_conflicting_destinations(_Config) ->
+    {'EXIT',{function_clause,_}} =
+        catch do_conflicts(#{{tag,whatever} => true}),
+    {'EXIT',{function_clause,_}} =
+        catch do_conflicts(#{[something] => 42}),
+    {'EXIT',{function_clause,_}} =
+        catch do_conflicts(#{{tag,whatever} => true,
+                             #{} => <<0>>,
+                             [something] => 42}),
+    ok.
+
+do_conflicts(#{{tag,whatever} := true,
+               #{} := <<bad_integer,0:(is_integer(a))>>} =
+                 #{[something] := 42}) ->
     ok.
 
 t_cse_assoc(_Config) ->
