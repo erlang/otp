@@ -137,7 +137,21 @@ purge_suite(SuiteFilePath) ->
               end, filelib:wildcard(filename:join(SuiteDir,"*.html")));
         _FailedTestcases ->
             io:format("Purging logs from: ~ts~n",[SuiteDir]),
-            ok
+            lists:foreach(
+              fun(File) ->
+                      {ok, B} = file:read_file(File),
+                      case re:run(B,"^=== Config value:",[multiline]) of
+                          {match,_} ->
+                              case re:run(B,"^=== successfully completed test case",[multiline]) of
+                                  {match, _} ->
+                                      file:write_file(File,Placeholder);
+                                  nomatch ->
+                                      ok
+                              end;
+                          nomatch ->
+                              ok
+                      end
+              end, filelib:wildcard(filename:join(SuiteDir,"*.html")))
     end.
 
 ghapi(CMD) ->
