@@ -2068,16 +2068,6 @@ concat_stuff(A, B) when is_integer(B); is_binary(B) ->
            _ -> integer_to_binary(B)
        end)/binary>>.
 
-build_binary(A, B) when is_integer(B); is_binary(B) ->
-    <<(case A of
-           X when is_binary(X) -> X;
-           _ -> atom_to_binary(A)
-       end)/binary,
-      (case B of
-           Y when is_binary(Y) -> Y;
-           _ -> integer_to_binary(B)
-       end)/binary>>.
-
 %% Utilities.
 
 huge_iolist(Lim) ->
