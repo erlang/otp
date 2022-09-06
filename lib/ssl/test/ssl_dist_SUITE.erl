@@ -37,6 +37,8 @@
 %% Test cases
 -export([basic/0,
          basic/1,
+         embedded/0,
+         embedded/1,
          monitor_nodes/1,
          payload/0,
          payload/1,
@@ -105,6 +107,7 @@ start_ssl_node_name(Name, Args) ->
 %%--------------------------------------------------------------------
 all() ->
     [basic,
+     embedded,
      monitor_nodes,
      payload,
      dist_port_overload,
@@ -176,6 +179,74 @@ basic() ->
     [{doc,"Test that two nodes can connect via ssl distribution"}].
 basic(Config) when is_list(Config) ->
     gen_dist_test(basic_test, Config).
+
+embedded() ->
+    [{doc,"Test that two nodes can connect via ssl distribution in embedded mode"}].
+embedded(Config) when is_list(Config) ->
+    ReleaseDir = filename:join(proplists:get_value(priv_dir,Config), "embedded"),
+    EbinDir = filename:join(ReleaseDir,"ebin/"),
+
+    %% Create an application for the test modules
+    Modules = [ssl_dist_test_lib, ?MODULE],
+    App = {application, tls_test,
+           [{description, "Erlang/OTP SSL test application"},
+            {vsn, "1.0"},
+            {modules, Modules},
+            {registered,[]},
+            {applications, [kernel, stdlib]}]},
+    ok = filelib:ensure_path(EbinDir),
+    [{ok,_} = file:copy(code:which(Mod), filename:join(EbinDir, atom_to_list(Mod)++".beam"))
+     || Mod <- Modules],
+    ok = file:write_file(filename:join(EbinDir,"tls_test.app"),
+                         io_lib:format("~p.",[App])),
+
+    %% Create a release that we can boot from
+    Rel = {release, {"tls","1.0"}, {erts, get_app_vsn(erts)},
+           [{tls_test, "1.0"},
+            {kernel, get_app_vsn(kernel)},
+            {stdlib, get_app_vsn(stdlib)},
+            {public_key, get_app_vsn(public_key)},
+            {asn1, get_app_vsn(asn1)},
+            {sasl, get_app_vsn(sasl)},
+            {crypto, get_app_vsn(crypto)},
+            {ssl, get_app_vsn(ssl)}]},
+    TlsRel = filename:join(ReleaseDir, "tls"),
+    ok = file:write_file(TlsRel ++ ".rel", io_lib:format("~p.",[Rel])),
+    code:add_patha(EbinDir),
+    ok = systools:make_script(TlsRel),
+    ok = systools:script2boot(TlsRel),
+
+    %% Start two nodes in embedded mode and make sure they can connect
+    %% There used to be a bug here where crypto was not loaded early enough
+    %% for the distributed connection to work.
+    NodeConfig = [{app_opts, "-boot "++TlsRel++" -mode embedded -pa "++EbinDir++" "} | Config],
+    Node1 = peer:random_name(),
+    Node2 = peer:random_name(),
+
+    NH1 = start_ssl_node([{node_name,Node1}|NodeConfig]),
+    %% The second node does `sync_nodes_mandatory` with the first in order for
+    %% a connection to be established very early in the boot sequence
+    ok = file:write_file(
+           filename:join(ReleaseDir,"node2.config"),
+           io_lib:format(
+             "~p.",[[{kernel,
+                      [{sync_nodes_timeout,infinity},
+                       {sync_nodes_mandatory,
+                        [list_to_atom(Node1++"@"++inet_db:gethostname())]}]}]])),
+    NH2 = start_ssl_node([{node_name,Node2}|NodeConfig],
+                         " -config " ++ filename:join(ReleaseDir,"node2")),
+
+    try
+        basic_test(NH1, NH2, Config)
+    catch
+	_:Reason ->
+	    stop_ssl_node(NH1),
+	    stop_ssl_node(NH2),
+	    ct:fail(Reason)
+    end,
+    stop_ssl_node(NH1),
+    stop_ssl_node(NH2),
+    success(Config).
 
 %%--------------------------------------------------------------------
 %% Test net_kernel:monitor_nodes with nodedown_reason (OTP-17838)
@@ -791,23 +862,27 @@ start_ssl_node(Config, XArgs) ->
     App = proplists:get_value(app_opts, Config),
     SSLOpts = setup_tls_opts(Config),
     start_ssl_node_name(
-      Name, App ++ " " ++ SSLOpts ++ XArgs).
+      Name, App ++ " " ++ SSLOpts ++ " " ++ XArgs).
 
 
 mk_node_name(Config) ->
-    N = erlang:unique_integer([positive]),
-    Case = proplists:get_value(testcase, Config),
-    Hostname =
-        case proplists:get_value(hostname, Config) of
-            undefined -> "";
-            Host -> "@" ++ Host
-        end,
-    atom_to_list(?MODULE)
-	++ "_"
-	++ atom_to_list(Case)
-	++ "_"
-	++ integer_to_list(N) ++ Hostname.
-
+    case proplists:get_value(node_name, Config) of
+        undefined ->
+            N = erlang:unique_integer([positive]),
+            Case = proplists:get_value(testcase, Config),
+            Hostname =
+                case proplists:get_value(hostname, Config) of
+                    undefined -> "";
+                    Host -> "@" ++ Host
+                end,
+            atom_to_list(?MODULE)
+                ++ "_"
+                ++ atom_to_list(Case)
+                ++ "_"
+                ++ integer_to_list(N) ++ Hostname;
+        Name ->
+            Name
+    end.
 
 setup_certs(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -874,9 +949,9 @@ add_ssl_opts_config(Config) ->
 	KrnlDir = filename:join([LibDir, "kernel-" ++ KRNL_VSN]),
 	{ok, _} = file:read_file_info(StdlDir),
 	{ok, _} = file:read_file_info(KrnlDir),
-	SSL_VSN = vsn(ssl),
-	VSN_CRYPTO = vsn(crypto),
-	VSN_PKEY = vsn(public_key),
+	SSL_VSN = get_app_vsn(ssl),
+	VSN_CRYPTO = get_app_vsn(crypto),
+	VSN_PKEY = get_app_vsn(public_key),
 
 	SslDir = filename:join([LibDir, "ssl-" ++ SSL_VSN]),
 	{ok, _} = file:read_file_info(SslDir),
@@ -928,19 +1003,12 @@ success(Config) ->
 	_ -> ok
     end.
 
-vsn(App) ->
-    application:start(App),
-    try
-	{value,
-	 {ssl,
-	  _,
-	  VSN}} = lists:keysearch(App,
-				  1,
-				  application:which_applications()),
-	VSN
-     after
-	 application:stop(ssl)
-     end.
+get_app_vsn(erts) ->
+    erlang:system_info(version);
+get_app_vsn(App) ->
+    application:load(App),
+    {ok, AppKeys} = application:get_all_key(App),
+    proplists:get_value(vsn, AppKeys).
 
 verify_fail_always(_Certificate, _Event, _State) ->
     %% Create an ETS table, to record the fact that the verify function ran.
