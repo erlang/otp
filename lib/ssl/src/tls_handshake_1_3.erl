@@ -1181,11 +1181,10 @@ maybe_queue_change_cipher_spec(#state{flight_buffer = FlightBuffer0} = State0, l
 %%      first ClientHello.
 %% @end
 maybe_prepend_change_cipher_spec(#state{
-                                    ssl_options =
-                                        #{middlebox_comp_mode := true},
+                                    session = #session{session_id = Id},
                                     handshake_env =
                                         #handshake_env{
-                                           change_cipher_spec_sent = false} = HSEnv} = State, Bin) ->
+                                           change_cipher_spec_sent = false} = HSEnv} = State, Bin) when Id =/= ?EMPTY_ID ->
     CCSBin = create_change_cipher_spec(State),
     {State#state{handshake_env =
                      HSEnv#handshake_env{change_cipher_spec_sent = true}},
@@ -1196,11 +1195,10 @@ maybe_prepend_change_cipher_spec(State, Bin) ->
 %% @doc Appends a change_cipher_spec record to the input binary
 %% @end
 maybe_append_change_cipher_spec(#state{
-                                    ssl_options =
-                                        #{middlebox_comp_mode := true},
+                                   session = #session{session_id = Id},
                                     handshake_env =
                                         #handshake_env{
-                                           change_cipher_spec_sent = false} = HSEnv} = State, Bin) ->
+                                           change_cipher_spec_sent = false} = HSEnv} = State, Bin) when Id =/= ?EMPTY_ID  ->
     CCSBin = create_change_cipher_spec(State),
     {State#state{handshake_env =
                      HSEnv#handshake_env{change_cipher_spec_sent = true}},

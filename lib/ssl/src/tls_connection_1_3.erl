@@ -286,10 +286,10 @@ start(internal = Type, #change_cipher_spec{} = Msg,
         Hist -> %% First message must always be client hello
             ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State);
         _ ->
-            tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State)
-    end;
+            handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State)
+        end;
 start(internal = Type, #change_cipher_spec{} = Msg,
-      #state{ssl_options = #{middlebox_comp_mode := true}} = State) ->
+      #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 start(internal, #client_hello{extensions = #{client_hello_versions :=
                                                  #client_hello_versions{versions = ClientVersions}
@@ -352,7 +352,7 @@ negotiated(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
 negotiated(internal = Type, #change_cipher_spec{} = Msg,
-           #state{ssl_options = #{middlebox_comp_mode := true}} = State) ->
+           #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 negotiated(internal, Message, State0) ->
     case tls_handshake_1_3:do_negotiated(Message, State0) of
@@ -368,7 +368,7 @@ wait_cert(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
 wait_cert(internal = Type, #change_cipher_spec{} = Msg,
-          #state{ssl_options = #{middlebox_comp_mode := true}} = State) ->
+          #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_cert(internal,
           #certificate_1_3{} = Certificate, State0) ->
@@ -387,7 +387,7 @@ wait_cv(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
 wait_cv(internal = Type, #change_cipher_spec{} = Msg,
-        #state{ssl_options = #{middlebox_comp_mode := true}} = State) ->
+        #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_cv(internal,
           #certificate_verify_1_3{} = CertificateVerify, State0) ->
@@ -406,7 +406,7 @@ wait_finished(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
 wait_finished(internal = Type, #change_cipher_spec{} = Msg,
-              #state{ssl_options = #{middlebox_comp_mode := true}} = State) ->
+              #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_finished(internal,
              #finished{} = Finished, State0) ->
@@ -427,15 +427,15 @@ wait_sh(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
 wait_sh(internal = Type, #change_cipher_spec{} = Msg,
-        #state{ssl_options = #{middlebox_comp_mode := true}} = State) ->
+        #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_sh(internal, #server_hello{extensions = Extensions},
         #state{handshake_env = #handshake_env{continue_status = pause},
                start_or_recv_from = From} = State) ->
     {next_state, user_hello,
      State#state{start_or_recv_from = undefined}, [{postpone, true},{reply, From, {ok, Extensions}}]};
-wait_sh(internal, #server_hello{} = Hello, 
-        #state{ssl_options = #{middlebox_comp_mode := false}} = State0) ->
+wait_sh(internal, #server_hello{session_id = ?EMPTY_ID} = Hello, #state{session = #session{session_id = ?EMPTY_ID},
+                                                                        ssl_options = #{middlebox_comp_mode := false}} = State0) ->
     case tls_handshake_1_3:do_wait_sh(Hello, State0) of
          #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, wait_sh, State0);
@@ -445,17 +445,17 @@ wait_sh(internal, #server_hello{} = Hello,
         {State1, wait_ee} ->
              tls_gen_connection:next_event(wait_ee, no_record, State1)
     end;
-wait_sh(internal, #server_hello{} = Hello, 
-         #state{ssl_options = #{middlebox_comp_mode := true}, protocol_specific = PS} = State0) ->
+wait_sh(internal, #server_hello{} = Hello,
+        #state{protocol_specific = PS, ssl_options = #{middlebox_comp_mode := true}} = State0) ->
     IsRetry = maps:get(hello_retry, PS, false),
     case tls_handshake_1_3:do_wait_sh(Hello, State0) of
         #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, wait_sh, State0);
-         {State1, start, ServerHello} ->
-            %% hello_retry_request: go to start
+        {State1 = #state{}, start, ServerHello} ->
+            %% hello_retry_request : assert middlebox before going back to start
             {next_state, hello_retry_middlebox_assert, State1, [{next_event, internal, ServerHello}]};
         {State1, wait_ee} when IsRetry == true ->
-            tls_gen_connection:next_event(wait_ee, no_record, State1); 
+            tls_gen_connection:next_event(wait_ee, no_record, State1);
         {State1, wait_ee} when IsRetry == false ->
             tls_gen_connection:next_event(hello_middlebox_assert, no_record, State1)
     end;
@@ -488,7 +488,7 @@ wait_ee(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
 wait_ee(internal = Type, #change_cipher_spec{} = Msg,
-        #state{ssl_options = #{middlebox_comp_mode := true}} = State) ->
+        #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_ee(internal, #encrypted_extensions{} = EE, State0) ->
     case tls_handshake_1_3:do_wait_ee(EE, State0) of
@@ -506,7 +506,7 @@ wait_cert_cr(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
 wait_cert_cr(internal = Type, #change_cipher_spec{} = Msg,
-             #state{ssl_options = #{middlebox_comp_mode := true}} = State) ->
+             #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_cert_cr(internal, #certificate_1_3{} = Certificate, State0) ->
     case tls_handshake_1_3:do_wait_cert_cr(Certificate, State0) of
@@ -531,7 +531,7 @@ wait_eoed(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
 wait_eoed(internal = Type, #change_cipher_spec{} = Msg,
-          #state{ssl_options = #{middlebox_comp_mode := true}}= State) ->
+          #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_eoed(internal, #end_of_early_data{} = EOED, State0) ->
     case tls_handshake_1_3:do_wait_eoed(EOED, State0) of
@@ -638,7 +638,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        socket_options = SocketOptions,
        ssl_options = SSLOptions,
        session = #session{is_resumable = false,
-                          session_id = ssl_session:legacy_session_id()},
+                          session_id = ssl_session:legacy_session_id(SSLOptions)},
        connection_states = ConnectionStates,
        protocol_buffers = #protocol_buffers{},
        user_data_buffer = {[],0,[]},
@@ -729,8 +729,8 @@ init_max_early_data_size(client) ->
 init_max_early_data_size(server) ->
     ssl_config:get_max_early_data_size().
 
-handle_middlebox(#state{ssl_options = #{middlebox_comp_mode := true},
-                        protocol_specific = PS} = State0) ->
+handle_middlebox(#state{session = #session{session_id = Id},
+                        protocol_specific = PS} = State0)  when Id =/= ?EMPTY_ID ->
     State0#state{protocol_specific = PS#{change_cipher_spec => ignore}};
 handle_middlebox(State) ->
     State.
