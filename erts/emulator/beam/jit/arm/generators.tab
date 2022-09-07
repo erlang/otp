@@ -19,47 +19,6 @@
 // %CopyrightEnd%
 //
 
-// Generate the fastest instruction to fetch an integer from a binary.
-gen.get_integer2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
-    BeamOp* op;
-    UWord bits;
-
-    $NewBeamOp(S, op);
-    $NativeEndian(Flags);
-
-    if (Size.type == TAG_i) {
-        if (!beam_load_safe_mul(Size.val, Unit.val, &bits)) {
-            $BeamOpNameArity(op, jump, 1);
-            op->a[0] = Fail;
-
-            return op;
-        } else if (bits <= 1023) {
-            $BeamOpNameArity(op, i_bs_get_fixed_integer, 6);
-            op->a[0] = Ms;
-            op->a[1] = Fail;
-            op->a[2] = Live;
-            op->a[3].type = TAG_u;
-            op->a[3].val = Flags.val;
-            op->a[4].type = TAG_u;
-            op->a[4].val = bits;
-            op->a[5] = Dst;
-
-            return op;
-        }
-    }
-
-    $BeamOpNameArity(op, i_bs_get_integer, 6);
-    op->a[0] = Ms;
-    op->a[1] = Fail;
-    op->a[2] = Live;
-    op->a[3].type = TAG_u;
-    op->a[3].val = (Unit.val << 3) | Flags.val;
-    op->a[4] = Size;
-    op->a[5] = Dst;
-
-    return op;
-}
-
 gen.select_tuple_arity(Src, Fail, Size, Rest) {
     BeamOp* op;
     BeamOpArg *tmp;
