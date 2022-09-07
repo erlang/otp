@@ -108,7 +108,7 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 handle_session(#server_hello{cipher_suite = CipherSuite,
 			     compression_method = Compression}, 
 	       Version, NewId, ConnectionStates, ProtoExt, Protocol0,
-	       #state{session = #session{session_id = OldId},
+	       #state{session = Session,
 		      handshake_env = #handshake_env{negotiated_protocol = CurrentProtocol} = HsEnv,
                       connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv} = State0) ->
     #{key_exchange := KeyAlgorithm} =
@@ -129,7 +129,7 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
                                                              negotiated_protocol = Protocol},
                          connection_env = CEnv#connection_env{negotiated_version = Version}},
     
-    case ssl_session:is_new(OldId, NewId) of
+    case ssl_session:is_new(Session, NewId) of
 	true ->
 	    handle_new_session(NewId, CipherSuite, Compression,
 			       State#state{connection_states = ConnectionStates});
