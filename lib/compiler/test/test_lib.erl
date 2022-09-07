@@ -120,6 +120,7 @@ get_data_dir(Config) ->
     Opts = [{return,list}],
     Suffixes = ["_no_opt_SUITE",
                 "_no_copt_SUITE",
+                "_no_copt_ssa_SUITE",
                 "_post_opt_SUITE",
                 "_inline_SUITE",
                 "_no_module_opt_SUITE",
@@ -139,6 +140,7 @@ is_cloned_mod(Mod) ->
 
 is_cloned_mod_1("_no_opt_SUITE") -> true;
 is_cloned_mod_1("_no_copt_SUITE") -> true;
+is_cloned_mod_1("_no_copt_ssa_SUITE") -> true;
 is_cloned_mod_1("_no_ssa_opt_SUITE") -> true;
 is_cloned_mod_1("_post_opt_SUITE") -> true;
 is_cloned_mod_1("_inline_SUITE") -> true;

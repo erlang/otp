@@ -888,6 +888,8 @@ grab_bag(_Config) ->
 
     {'EXIT',{{badmatch,[whatever]},[_|_]}} = catch grab_bag_19(),
 
+    {'EXIT',{if_clause,[_|_]}} = catch grab_bag_20(),
+
     ok.
 
 grab_bag_1() ->
@@ -1126,6 +1128,30 @@ grab_bag_19() ->
              _:_ when false ->
                  ok
          end) ! (some_atom ++ <<>>).
+
+grab_bag_20() ->
+    %% Similarly to grab_bag_19, beam_ssa_pre_codegen would produce
+    %% single-valued phi nodes. The fix for grab_bag_19 would not
+    %% suffice because several phi nodes were involved.
+    {[_ | _] =
+         receive
+             list ->
+                 "list";
+             1 when day ->
+                 []
+         after
+             0 ->
+                 if
+                     false ->
+                         error
+                 end
+         end,
+     try
+         ok
+     catch
+         error:_ ->
+             error
+     end}.
 
 redundant_br(_Config) ->
     {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
