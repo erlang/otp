@@ -1814,8 +1814,8 @@ erl_start(int argc, char **argv)
 		errno = 0;
 		port_tab_sz = strtol(arg, NULL, 10);
 		if (errno != 0
-		    || port_tab_sz < ERTS_MIN_PROCESSES
-		    || ERTS_MAX_PROCESSES < port_tab_sz) {
+		    || port_tab_sz < ERTS_MIN_PORTS
+		    || ERTS_MAX_PORTS < port_tab_sz) {
 		    erts_fprintf(stderr, "bad number of ports %s\n", arg);
 		    erts_usage();
 		}
