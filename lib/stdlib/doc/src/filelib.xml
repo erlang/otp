@@ -137,7 +137,8 @@
       <fsummary>Fold over all files matching a regular expression.</fsummary>
       <desc>
         <p>Folds function <c><anno>Fun</anno></c> over all (regular) files
-          <c><anno>F</anno></c> in directory <c><anno>Dir</anno></c> that match
+          <c><anno>F</anno></c> in directory <c><anno>Dir</anno></c> whose basename
+          (for example, just <c>"baz.erl"</c> in <c>"foo/bar/baz.erl"</c>) matches
           the regular expression <c><anno>RegExp</anno></c> (for a description
           of the allowed regular expressions,
           see the <seeerl marker="re"><c>re</c></seeerl> module).
