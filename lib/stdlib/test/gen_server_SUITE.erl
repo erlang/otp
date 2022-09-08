@@ -1045,6 +1045,9 @@ continue(Config) when is_list(Config) ->
     Pid ! {continue_continue, self()},
     [{Pid, before_continue}, {Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
 
+    Pid ! {continue_throw_continue, self()},
+    [{Pid, before_continue}, {Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
+
     Ref = monitor(process, Pid),
     Pid ! continue_stop,
     verify_down_reason(Ref, Pid, normal).
@@ -3067,6 +3070,8 @@ handle_info({continue_noreply, Pid}, State) ->
     {noreply, State, {continue, {message, Pid}}};
 handle_info({continue_continue, Pid}, State) ->
     {noreply, State, {continue, {continue, Pid}}};
+handle_info({continue_throw_continue, Pid}, State) ->
+    {noreply, State, {continue, {throw_continue, Pid}}};
 handle_info(continue_stop, State) ->
     {noreply, State, {continue, stop}};
 handle_info(_Info, State) ->
@@ -3076,6 +3081,8 @@ handle_continue({continue, Pid}, State) ->
     Pid ! {self(), before_continue},
     self() ! {after_continue, Pid},
     {noreply, State, {continue, {message, Pid}}};
+handle_continue({throw_continue, Pid}, State) ->
+    throw(handle_continue({continue, Pid}, State));
 handle_continue(stop, State) ->
     {stop, normal, State};
 handle_continue({message, Pid}, State) ->
