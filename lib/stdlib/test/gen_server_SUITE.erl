@@ -1033,6 +1033,9 @@ continue(Config) when is_list(Config) ->
     gen_server:cast(Pid, {continue_noreply, self()}),
     [{Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
 
+    gen_server:cast(Pid, {throw_continue_noreply, self()}),
+    [{Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
+
     Pid ! {continue_noreply, self()},
     [{Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
 
@@ -3007,6 +3010,9 @@ handle_cast({call_undef_fun, Mod, Fun}, State) ->
 handle_cast({continue_noreply, Pid}, State) ->
     self() ! {after_continue, Pid},
     {noreply, State, {continue, {message, Pid}}};
+handle_cast({throw_continue_noreply, Pid}, State) ->
+    self() ! {after_continue, Pid},
+    throw({noreply, State, {continue, {message, Pid}}});
 handle_cast({From, stop}, State) ->
     io:format("BAZ"),
     {stop, {From,stopped}, State}.
