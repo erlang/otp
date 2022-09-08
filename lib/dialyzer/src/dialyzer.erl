@@ -586,19 +586,19 @@ message_to_string({callback_type_mismatch, [B, F, A, ST, CT]}, I, _E) ->
                 " the callback of the ~w behaviour\n",
                 [F, A, t("("++ST++")", I), t(CT, I), B]);
 message_to_string({callback_arg_type_mismatch, [B, F, A, N, ST, CT]}, I, _E) ->
-  io_lib:format("The inferred type for the ~s argument of ~tw/~w (~ts) is"
-		" not a supertype of ~ts, which is expected type for this"
+  io_lib:format("The inferred type for the ~s argument of ~tw/~w (~ts)"
+		" has nothing in common with ~ts, which is expected type for this"
 		" argument in the callback of the ~w behaviour\n",
 		[ordinal(N), F, A, t(ST, I), t(CT, I), B]);
 message_to_string({callback_spec_type_mismatch, [B, F, A, ST, CT]}, I, _E) ->
-  io_lib:format("The return type ~ts in the specification of ~tw/~w is not a"
-		" subtype of ~ts, which is the expected return type for the"
+  io_lib:format("The return type ~ts in the specification of ~tw/~w has nothing"
+		" in common with ~ts, which is the expected return type for the"
 		" callback of the ~w behaviour\n",
                 [t(ST, I), F, A, t(CT, I), B]);
 message_to_string({callback_spec_arg_type_mismatch, [B, F, A, N, ST, CT]},
                   I, _E) ->
-  io_lib:format("The specified type for the ~ts argument of ~tw/~w (~ts) is"
-		" not a supertype of ~ts, which is expected type for this"
+  io_lib:format("The specified type for the ~ts argument of ~tw/~w (~ts) has"
+		" nothing in common with ~ts, which is expected type for this"
 		" argument in the callback of the ~w behaviour\n",
 		[ordinal(N), F, A, t(ST, I), t(CT, I), B]);
 message_to_string({callback_missing, [B, F, A]}, _I, _E) ->
