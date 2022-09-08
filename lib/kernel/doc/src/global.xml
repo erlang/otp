@@ -142,7 +142,7 @@
     </func>
 
     <func>
-      <name name="disconnect" arity="0" since=""/>
+      <name name="disconnect" arity="0" since="OTP @OTP-18232@"/>
       <fsummary>Disconnect from all other nodes known to global</fsummary>
       <desc>
         <p>
