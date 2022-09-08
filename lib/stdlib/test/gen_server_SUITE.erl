@@ -599,6 +599,7 @@ call(Config) when is_list(Config) ->
     timer:sleep(500),
     ok = gen_server:call(my_test_name, next_call),
     ok = gen_server:call(my_test_name, {call_within, 1000}),
+    ok = gen_server:call(my_test_name, throw_reply),
     timer:sleep(1500),
     false = gen_server:call(my_test_name, next_call),
 
@@ -2970,6 +2971,8 @@ handle_call(stop, _From, State) ->
     {stop,stopped,ok,State};
 handle_call(crash, _From, _State) ->
     exit(crashed);
+handle_call(throw_reply, _From, State) ->
+    throw({reply,ok,State});
 handle_call(exit_shutdown, _From, _State) ->
     exit(shutdown);
 handle_call(stop_shutdown, _From, State) ->
