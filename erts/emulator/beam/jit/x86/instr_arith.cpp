@@ -276,9 +276,8 @@ void BeamModuleAssembler::emit_i_plus(const ArgSource &LHS,
     emit_are_both_small(mixed, LHS, ARG2, RHS, ARG3);
 
     a.mov(RET, ARG2);
-    a.mov(ARG4, ARG3);
-    a.and_(ARG4, imm(~_TAG_IMMED1_MASK));
-    a.add(RET, ARG4);
+    a.and_(RET, imm(~_TAG_IMMED1_MASK));
+    a.add(RET, ARG3);
     if (small_result) {
         comment("skipped overflow test because the result is always small");
         a.short_().jmp(next);
@@ -376,14 +375,17 @@ void BeamModuleAssembler::emit_i_minus(const ArgSource &LHS,
 
     emit_are_both_small(mixed, LHS, ARG2, RHS, ARG3);
 
-    a.mov(RET, ARG2);
-    a.mov(ARG4, ARG3);
-    a.and_(ARG4, imm(~_TAG_IMMED1_MASK));
-    a.sub(RET, ARG4);
     if (small_result) {
         comment("skipped overflow test because the result is always small");
+        a.mov(RET, ARG2);
+        a.and_(ARG3, imm(~_TAG_IMMED1_MASK));
+        a.sub(RET, ARG3);
         a.short_().jmp(next);
     } else {
+        a.mov(RET, ARG2);
+        a.mov(ARG4, ARG3);
+        a.and_(ARG4, imm(~_TAG_IMMED1_MASK));
+        a.sub(RET, ARG4);
         a.short_().jno(next);
     }
 
@@ -1078,15 +1080,24 @@ void BeamModuleAssembler::emit_i_band(const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgLabel &Fail,
                                       const ArgRegister &Dst) {
-    mov_arg(ARG2, LHS);
-    mov_arg(RET, RHS);
-
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
-        a.and_(RET, ARG2);
+        mov_arg(RET, LHS);
+        if (RHS.isSmall() && Support::isInt32(RHS.as<ArgSmall>().get())) {
+            a.and_(RETd, imm(RHS.as<ArgSmall>().get()));
+        } else if (RHS.isSmall() &&
+                   Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
+            a.and_(RET, imm(RHS.as<ArgSmall>().get()));
+        } else {
+            mov_arg(ARG2, RHS);
+            a.and_(RET, ARG2);
+        }
         mov_arg(Dst, RET);
         return;
     }
+
+    mov_arg(ARG2, LHS);
+    mov_arg(RET, RHS);
 
     Label generic = a.newLabel(), next = a.newLabel();
 
@@ -1129,15 +1140,21 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
-    mov_arg(ARG2, LHS);
-    mov_arg(RET, RHS);
-
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
-        a.or_(RET, ARG2);
+        mov_arg(RET, LHS);
+        if (RHS.isImmed() && Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
+            a.or_(RET, imm(RHS.as<ArgSmall>().get()));
+        } else {
+            mov_arg(ARG2, RHS);
+            a.or_(RET, ARG2);
+        }
         mov_arg(Dst, RET);
         return;
     }
+
+    mov_arg(ARG2, LHS);
+    mov_arg(RET, RHS);
 
     Label generic = a.newLabel(), next = a.newLabel();
 
@@ -1180,17 +1197,23 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
-    mov_arg(ARG2, LHS);
-    mov_arg(RET, RHS);
-
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
-        /* TAG ^ TAG = 0, so we need to tag it again. */
-        a.xor_(RET, ARG2);
-        a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        mov_arg(RET, LHS);
+        if (RHS.isImmed() && Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
+            a.xor_(RET, imm(RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_SMALL));
+        } else {
+            /* TAG ^ TAG = 0, so we need to tag it again. */
+            mov_arg(ARG2, RHS);
+            a.xor_(RET, ARG2);
+            a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        }
         mov_arg(Dst, RET);
         return;
     }
+
+    mov_arg(ARG2, LHS);
+    mov_arg(RET, RHS);
 
     Label generic = a.newLabel(), next = a.newLabel();
 
