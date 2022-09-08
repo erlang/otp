@@ -1660,10 +1660,6 @@ format_status(terminate, [_Pdict, StateData]) ->
 format_status(normal, [_Pdict, _StateData]) ->
     [format_status_called].
 
-code_change(_OldVsn, State,
-            {idle, {undef_in_code_change, {Mod, Fun}}} = Data, _Extra) ->
-    Mod:Fun(),
-    {ok, State, Data};
 code_change(_OldVsn, State, Data, _Extra) ->
     {ok, State, Data}.
 

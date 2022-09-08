@@ -3049,10 +3049,7 @@ handle_continue({message, Pid, From}, State) ->
     gen_server:reply(From, ok),
     {noreply, State}.
 
-code_change(_OldVsn,
-            {new, {undef_in_code_change, {Mod, Fun}}} = State,
-            _Extra) ->
-    Mod:Fun(),
+code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 terminate({From, stopped}, _State) ->
