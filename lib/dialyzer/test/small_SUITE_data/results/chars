@@ -1,4 +1,7 @@
 
-chars.erl:37:2: Invalid type specification for function chars:f/1. The success typing is (#{'b':=50}) -> 'ok'
+chars.erl:37:2: Invalid type specification for function chars:f/1.
+ The success typing is chars:f(#{'b':=50}) -> 'ok'
+ But the spec is chars:f(#{'a':=49,'b'=>50,'c'=>51}) -> 'ok'
+ They do not overlap in the 1st argument
 chars.erl:40:11: The call chars:f(#{'b'=>50}) breaks the contract (#{'a':=49,'b'=>50,'c'=>51}) -> 'ok'
 chars.erl:40:1: Function t1/0 has no local return

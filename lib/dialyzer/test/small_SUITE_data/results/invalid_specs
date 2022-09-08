@@ -1,3 +1,6 @@
 
-invalid_spec1.erl:5:2: Invalid type specification for function invalid_spec1:get_plan_dirty/1. The success typing is ([string()]) -> {maybe_improper_list(),[atom()]}
+invalid_spec1.erl:5:2: Invalid type specification for function invalid_spec1:get_plan_dirty/1.
+ The success typing is invalid_spec1:get_plan_dirty([string()]) -> {maybe_improper_list(),[atom()]}
+ But the spec is invalid_spec1:get_plan_dirty([string()]) -> {{atom(),any()},[atom()]}
+ The return types do not overlap
 invalid_spec2.erl:5:1: Function foo/0 has no local return

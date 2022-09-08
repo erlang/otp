@@ -120,7 +120,7 @@ build_plt(PltFilename) ->
     end.
 
 -spec check(atom(), dialyzer:dial_options(), string(), string()) ->
-		   'same' | {differ, [term()]}.
+		   'same' | {differ, TestCase :: atom(), [term()]}.
 
 check(TestCase, Opts, Dir, OutDir) ->
     PltFilename = plt_file(OutDir),
@@ -161,7 +161,7 @@ check(TestCase, Opts, Dir, OutDir) ->
 	    case file_utils:diff(NewResFile, OldResFile) of
 		'same' -> file:delete(NewResFile),
 			  'same';
-		Any    -> escape_strings(Any)
+        {'differ', List} -> escape_strings({'differ', TestCase, List})
 	    end
     catch
 	Kind:Error:Stacktrace -> {'dialyzer crashed', Kind, Error, Stacktrace}
@@ -203,9 +203,9 @@ create_all_suites() ->
     Suites = get_suites(Cwd),
     lists:foreach(fun create_suite/1, Suites).
 
-escape_strings({differ,List}) ->
+escape_strings({differ, TestCase, List}) ->
     Map = fun({T,L,S}) -> {T,L,xmerl_lib:export_text(S)} end,
-    {differ, lists:keysort(3, lists:map(Map, List))}.
+    {differ, TestCase, lists:keysort(3, lists:map(Map, List))}.
 
 -spec get_suites(file:filename()) -> [string()].
 

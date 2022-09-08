@@ -1,2 +1,5 @@
 
-empty_list_infimum.erl:38:2: Invalid type specification for function empty_list_infimum:list_vhost_permissions/1. The success typing is (_) -> [[{_,_}]]
+empty_list_infimum.erl:38:2: Invalid type specification for function empty_list_infimum:list_vhost_permissions/1.
+ The success typing is empty_list_infimum:list_vhost_permissions(_) -> [[{_,_}]]
+ But the spec is empty_list_infimum:list_vhost_permissions(vhost()) -> infos()
+ The return types do not overlap

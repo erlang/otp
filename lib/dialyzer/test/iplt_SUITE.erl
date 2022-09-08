@@ -655,7 +655,7 @@ adding_warning_apps_after_a_run_without_them_causes_any_new_warnings_to_be_repor
     ?assertMatch(
        [{warn_contract_types,
          {_, {5,4}},
-         {invalid_contract,[m,updt,3,"(map(),_,_) -> map()"]}}
+         {invalid_contract,[m,updt,3,{[1],true},"([any()],term(),term()) -> [any()]","(map(),_,_) -> map()"]}}
        ],
        run_dialyzer(incremental, [Beam], Opts)).
 
@@ -668,7 +668,7 @@ removing_warning_apps_after_a_run_with_them_causes_any_warnings_for_the_removed_
     ?assertMatch(
       [{warn_contract_types,
           {_, {5,4}},
-          {invalid_contract,[m,updt,3,"(map(),_,_) -> map()"]}}
+          {invalid_contract,[m,updt,3,{[1],true},"([any()],term(),term()) -> [any()]","(map(),_,_) -> map()"]}}
       ],
       run_dialyzer(incremental, [Beam], Opts)),
     ?assertEqual(
@@ -683,7 +683,7 @@ removing_legal_warnings_with_existing_stored_warnings_in_plt_does_not_result_in_
     ?assertMatch(
       [{warn_contract_types,
           {_, {5,4}},
-          {invalid_contract,[m,updt,3,"(map(),_,_) -> map()"]}}
+          {invalid_contract,[m,updt,3,{[1],true},"([any()],term(),term()) -> [any()]","(map(),_,_) -> map()"]}}
       ],
       run_dialyzer(incremental, [BeamFileBefore], Opts)),
     {ok, BeamFileAfter} = compile(Config, m_src_without_warning(), m, []),
@@ -703,7 +703,7 @@ adding_legal_warnings_with_existing_stored_warnings_in_plt_results_in_new_warnin
     ?assertMatch(
       [{warn_contract_types,
           {_, {5,4}},
-          {invalid_contract,[m,updt,3,"(map(),_,_) -> map()"]}}
+          {invalid_contract,[m,updt,3,{[1],true},"([any()],term(),term()) -> [any()]","(map(),_,_) -> map()"]}}
       ],
       run_dialyzer(incremental, [BeamFileBefore], Opts)).
 
