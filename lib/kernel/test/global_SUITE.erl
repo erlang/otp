@@ -47,7 +47,8 @@
          ring_line/1,
          flaw1/1,
          lost_connection/1,
-         lost_connection2/1
+         lost_connection2/1,
+         global_disconnect/1
         ]).
 
 %% Not used
@@ -136,7 +137,7 @@ all() ->
 	     re_register_name, name_exit, external_nodes, many_nodes,
 	     sync_0, global_groups_change, register_1, both_known_1,
 	     lost_unregister, mass_death, garbage_messages, flaw1,
-             lost_connection, lost_connection2
+             lost_connection, lost_connection2, global_disconnect
             ]
     end.
 
@@ -165,6 +166,8 @@ end_per_suite(_Config) ->
 -define(registered, proplists:get_value(registered, Config)).
 
 init_per_testcase(Case, Config0) when is_atom(Case) andalso is_list(Config0) ->
+    start_node_tracker(Config0),
+
     ?P("init_per_testcase -> entry with"
        "~n   Config:   ~p"
        "~n   Nodes:    ~p"
@@ -175,11 +178,6 @@ init_per_testcase(Case, Config0) when is_atom(Case) andalso is_list(Config0) ->
     ok = gen_server:call(global_name_server,
                          high_level_trace_start,
                          infinity),
-
-    %% Make sure that everything is dead and done. Otherwise there are problems
-    %% on platforms on which it takes a long time to shut down a node.
-    stop_nodes(nodes()),
-    timer:sleep(1000),
 
     Config1 = [{?TESTCASE, Case}, {registered, registered()} | Config0],
 
@@ -217,7 +215,7 @@ end_per_testcase(_Case, Config) ->
        "~n   Monitors: ~p",
        [erlang:nodes(), pi(links), pi(monitors)]),
 
-    ok.
+    stop_node_tracker(Config). %% Needs to be last and produce return value...
 
 %%% General comments:
 %%% One source of problems with failing tests can be that the nodes from the
@@ -3980,6 +3978,7 @@ start_node_rel(Name0, Rel, Config) ->
     record_started_node(Res).
 
 record_started_node({ok, Node}) ->
+    node_started(Node),
     case erase(?nodes_tag) of
         undefined -> ok;
         Nodes -> put(?nodes_tag, [Node | Nodes])
@@ -4004,12 +4003,15 @@ stop_nodes(Nodes) ->
     lists:foreach(fun(Node) -> stop_node(Node) end, Nodes).
 
 stop_node(Node) ->
-    test_server:stop_node(Node).
+    Res = test_server:stop_node(Node),
+    node_stopped(Node),
+    Res.
 
 
 stop() ->
     lists:foreach(fun(Node) ->
-			  test_server:stop_node(Node)
+			  test_server:stop_node(Node),
+                          node_stopped(Node)
 		  end, nodes()).
 
 %% Tests that locally loaded nodes do not loose contact with other nodes.
@@ -4420,8 +4422,107 @@ flaw1_test(Config) ->
     OrigNames = global:registered_names(),
     write_high_level_trace(Config),
     stop_nodes(OtherNodes),
+    stop_partition_controller(PartCtrlr),
     init_condition(Config),
     ok.
+
+global_disconnect(Config) when is_list(Config) ->
+    Timeout = 30,
+    ct:timetrap({seconds,Timeout}),
+
+    [] = nodes(connected),
+
+    {ok, H1} = start_hidden_node(h1, Config),
+    {ok, H2} = start_hidden_node(h2, Config),
+    {ok, Cp1} = start_node(cp1, peer, Config),
+    {ok, Cp2} = start_node(cp2, peer, Config),
+    {ok, Cp3} = start_node(cp3, peer, Config),
+
+    ThisNode = node(),
+    HNodes = lists:sort([H1, H2]),
+    OtherGNodes = lists:sort([Cp1, Cp2, Cp3]),
+    AllGNodes = lists:sort([ThisNode|OtherGNodes]),
+
+    lists:foreach(fun (Node) -> pong = net_adm:ping(Node) end, OtherGNodes),
+
+    wait_for_ready_net(Config),
+
+    ok = erpc:call(
+           H2,
+           fun () ->
+                   lists:foreach(fun (Node) ->
+                                         pong = net_adm:ping(Node)
+                                 end, OtherGNodes)
+           end),
+
+    lists:foreach(
+      fun (Node) ->
+              AllGNodes = erpc:call(
+                            H1,
+                            fun () ->
+                                    erpc:call(
+                                      Node,
+                                      fun () ->
+                                              lists:sort([node()|nodes()])
+                                      end)
+                            end),
+              HNodes = erpc:call(
+                         H1,
+                         fun () ->
+                                 erpc:call(
+                                   Node,
+                                   fun () ->
+                                           lists:sort(nodes(hidden))
+                                   end)
+                         end)
+      end, AllGNodes),
+
+    OtherGNodes = lists:sort(global:disconnect()),
+
+    GNodesAfterDisconnect = nodes(),
+
+    HNodes = lists:sort(nodes(hidden)),
+
+    lists:foreach(fun (Node) ->
+                          false = lists:member(Node, GNodesAfterDisconnect)
+                  end,
+                  OtherGNodes),
+
+    %% Wait a while giving the other nodes time to react to the disconnects
+    %% before we check that everything is as expected...
+    receive after 2000 -> ok end,
+
+    lists:foreach(
+      fun (Node) ->
+              OtherGNodes = erpc:call(
+                              H1,
+                              fun () ->
+                                      erpc:call(
+                                        Node,
+                                        fun () ->
+                                                lists:sort([node()|nodes()])
+                                        end)
+                              end),
+              HNodes = erpc:call(
+                         H1,
+                         fun () ->
+                                 erpc:call(
+                                   Node,
+                                   fun () ->
+                                           lists:sort(nodes(hidden))
+                                   end)
+                         end)
+      end, OtherGNodes),
+
+    stop_node(Cp1),
+    stop_node(Cp2),
+    stop_node(Cp3),
+    stop_node(H1),
+    stop_node(H2),
+
+    ok.
+
+%% ---
 
 wait_for_ready_net(Config) ->
     {Pid, MRef} = spawn_monitor(fun() ->
@@ -4760,3 +4861,117 @@ handle_call(_Query, State) -> {ok, {error, bad_query}, State}.
 terminate(_Reason, State) ->
     State.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Keep track of started nodes so we can kill them if test
+%%% cases fail to stop them. This typically happens on test case
+%%% failure with peer nodes, and if left might mess up following
+%%% test-cases.
+%%%
+%%% This can be removed when the suite is converted to use CT_PEER.
+%%% This can however at earliest be made in OTP 25.
+%%%
+
+node_started(Node) ->
+    _ = global_SUITE_node_tracker ! {node_started, Node},
+    ok.
+
+node_stopped(Node) ->
+    _ = global_SUITE_node_tracker ! {node_stopped, Node},
+    ok.
+
+start_node_tracker(Config) ->
+    case whereis(global_SUITE_node_tracker) of
+        undefined ->
+            ok;
+        _ ->
+            try
+                stop_node_tracker(Config),
+                ok
+            catch
+                _:_ ->
+                    ok
+            end
+    end,
+    _ = spawn(fun () ->
+                      _ = register(global_SUITE_node_tracker, self()),
+                      node_tracker_loop(#{})
+              end),
+    ok.
+
+node_tracker_loop(Nodes) ->
+    receive
+        {node_started, Node} ->
+            node_tracker_loop(Nodes#{Node => alive});
+        {node_stopped, Node} ->
+            node_tracker_loop(Nodes#{Node => stopped});
+        stop ->
+            Fact = try 
+                       test_server:timetrap_scale_factor()
+                   catch _:_ -> 1
+                   end,
+            Tmo = 1000*Fact,
+            lists:foreach(
+              fun (N) ->
+                      case maps:get(N, Nodes) of
+                          stopped ->
+                              ok;
+                          alive ->
+                              ct:pal("WARNING: The node ~p was not "
+                                     "stopped by the test case!", [N])
+                      end,
+                      %% We try to kill every node, even those reported as
+                      %% stopped since they might have failed at stopping...
+                      case rpc:call(N, erlang, halt, [], Tmo) of
+                          {badrpc,nodedown} ->
+                              ok;
+                          {badrpc,timeout} ->
+                              ct:pal("WARNING: Failed to kill node: ~p~n"
+                                     "         Disconnecting it, but it may "
+                                     "still be alive!", [N]),
+                              erlang:disconnect_node(N),
+                              ok;
+                          Unexpected ->
+                              ct:pal("WARNING: Failed to kill node: ~p~n"
+                                     "         Got response: ~p~n"
+                                     "         Disconnecting it, but it may "
+                                     "still be alive!", [N, Unexpected]),
+                              erlang:disconnect_node(N),
+                              ok
+                      end
+              end, maps:keys(Nodes))
+    end.
+
+stop_node_tracker(Config) ->
+    NTRes = case whereis(global_SUITE_node_tracker) of
+                undefined ->
+                    {fail, missing_node_tracker};
+                NT when is_port(NT) ->
+                    NTMon = erlang:monitor(port, NT),
+                    exit(NT, kill),
+                    receive {'DOWN', NT, port, NT, _} -> ok end,
+                    {fail, {port_node_tracker, NT}};
+                NT when is_pid(NT) ->
+                    NTMon = erlang:monitor(process, NT),
+                    NT ! stop,
+                    receive
+                        {'DOWN', NTMon, process, NT, normal} ->
+                            ok;
+                        {'DOWN', NTMon, process, NT, Reason} ->
+                            {fail, {node_tracker_failed, Reason}}
+                    end
+            end,
+    case NTRes of
+        ok ->
+            ok;
+        NTFailure ->
+            case proplists:get_value(tc_status, Config) of
+                ok ->
+                    %% Fail test case with info about node tracker...
+                    NTFailure;
+                _ ->
+                    %% Don't fail due to node tracker...
+                    ct:pal("WARNING: Node tracker failure: ~p", [NTFailure]),
+                    ok
+            end
+    end.

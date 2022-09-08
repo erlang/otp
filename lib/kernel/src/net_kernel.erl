@@ -344,7 +344,7 @@ passive_cnct(Node) ->
 disconnect(Node) ->            request({disconnect, Node}).
 
 async_disconnect(Node) ->
-    gen_server:cast(net_kernel, {disconnect, Node}).
+    gen_server:cast(net_kernel, {async_disconnect, Node}).
 
 %% Should this node publish itself on Node?
 publish_on_node(Node) when is_atom(Node) ->
@@ -747,7 +747,7 @@ handle_call({disconnect, Node}, From, State) when Node =:= node() ->
     async_reply({reply, false, State}, From);
 handle_call({disconnect, Node}, From, State) ->
     verbose({disconnect, Node}, 1, State),
-    {Reply, State1} = do_disconnect(Node, State),
+    {Reply, State1} = do_disconnect(Node, State, false),
     async_reply({reply, Reply, State1}, From);
 
 %%
@@ -914,11 +914,11 @@ handle_call(_Msg, _From, State) ->
 %% handle_cast.
 %% ------------------------------------------------------------
 
-handle_cast({disconnect, Node}, State) when Node =:= node() ->
+handle_cast({async_disconnect, Node}, State) when Node =:= node() ->
     {noreply, State};
-handle_cast({disconnect, Node}, State) ->
-    verbose({disconnect, Node}, 1, State),
-    {_Reply, State1} = do_disconnect(Node, State),
+handle_cast({async_disconnect, Node}, State) ->
+    verbose({async_disconnect, Node}, 1, State),
+    {_Reply, State1} = do_disconnect(Node, State, true),
     {noreply, State1};
 
 handle_cast(_, State) ->
@@ -1172,7 +1172,7 @@ handle_info({From,registered_send,To,Mess},State) ->
 handle_info({From,badcookie,_To,_Mess}, State) ->
     error_logger:error_msg("~n** Got OLD cookie from ~w~n",
 			   [getnode(From)]),
-    {_Reply, State1} = do_disconnect(getnode(From), State),
+    {_Reply, State1} = do_disconnect(getnode(From), State, false),
     {noreply,State1};
 
 %%
@@ -1636,23 +1636,30 @@ mk_monitor_nodes_error(_Flag, Opts) ->
 
 % -------------------------------------------------------------
 
-do_disconnect(Node, State) ->
+do_disconnect(Node, State, Async) ->
     case ets:lookup(sys_dist, Node) of
 	[Conn] when Conn#connection.state =:= up ->
-	    disconnect_ctrlr(Conn#connection.ctrlr, State);
+	    disconnect_ctrlr(Conn#connection.ctrlr, State, Async);
 	[Conn] when Conn#connection.state =:= up_pending ->
-	    disconnect_ctrlr(Conn#connection.ctrlr, State);
+	    disconnect_ctrlr(Conn#connection.ctrlr, State, Async);
 	_ ->
 	    {false, State}
     end.
 
-disconnect_ctrlr(Ctrlr, State) ->
+disconnect_ctrlr(Ctrlr, S0, Async) ->
     exit(Ctrlr, disconnect),
-    receive
-        {'EXIT',Ctrlr,Reason} ->
-            {_,State1} = handle_exit(Ctrlr, Reason, State),
-            {true, State1}
-    end.
+    S2 = case Async of
+             true ->
+                 S0;
+             false ->
+                 receive
+                     {'EXIT',Ctrlr,Reason} ->
+                         {_,S1} = handle_exit(Ctrlr, Reason, S0),
+                         S1
+                 end
+         end,
+    {true, S2}.
+
 
 %%
 %%
