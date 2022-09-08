@@ -36,7 +36,8 @@
 	 set_lock/1, set_lock/2, set_lock/3,
 	 del_lock/1, del_lock/2,
 	 trans/2, trans/3, trans/4,
-	 random_exit_name/3, random_notify_name/3, notify_all_name/3]).
+	 random_exit_name/3, random_notify_name/3, notify_all_name/3,
+         disconnect/0]).
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -471,6 +472,11 @@ trans(Id, Fun, Nodes, Retries) ->
 info() ->
     gen_server:call(global_name_server, info, infinity).
 
+-spec disconnect() -> [node()].
+
+disconnect() ->
+    gen_server:call(global_name_server, disconnect, infinity).
+
 %%%-----------------------------------------------------------------
 %%% Call-back functions from gen_server
 %%%-----------------------------------------------------------------
@@ -743,6 +749,39 @@ handle_call(get_names_ext, _From, S) ->
 
 handle_call(info, _From, S) ->
     {reply, S, S};
+
+handle_call(disconnect, _From, #state{known = Known} = S0) ->
+    %% Disconnect from all nodes global knows of without
+    %% sending any lost_connection messages...
+    Disconnect = fun (N, Ns) ->
+                         ?trace({'####', disconnect, {node,N}}),
+                         net_kernel:async_disconnect(N),
+                         [N|Ns]
+                 end,
+    Nodes = maps:fold(fun (N, _, Ns) when is_atom(N) ->
+                              Disconnect(N, Ns);
+                          ({pending, N}, _, Ns) when is_atom(N) ->
+                              case is_map_key(N, Known)
+                                  orelse is_map_key({removing, N}, Known) of
+                                  true -> Ns;
+                                  false -> Disconnect(N, Ns)
+                              end;
+                          ({removing, N}, _, Ns) when is_atom(N) ->
+                              case is_map_key(N, Known)
+                                  orelse is_map_key({pending, N}, Known) of
+                                  true -> Ns;
+                                  false -> Disconnect(N, Ns)
+                              end;
+                          (_, _, Ns) ->
+                              Ns
+                      end, [], Known),
+    S1 = lists:foldl(fun (N, SAcc0) ->
+                             receive {nodedown, N} -> ok end,
+                             ?trace({'####', nodedown, {node,N}}),
+                             SAcc1 = trace_message(SAcc0, {nodedown, N}, []),
+                             handle_nodedown(N, SAcc1, ignore_node)
+                     end, S0, Nodes),
+    {reply, Nodes, S1};
 
 %% "High level trace". For troubleshooting only.
 handle_call(high_level_trace_start, _From, S) ->
@@ -2291,7 +2330,7 @@ pid_locks(Ref) ->
              ref_is_locking(Ref, PidRefs)].
 
 ref_is_locking(Ref, PidRefs) ->
-    lists:keyfind(Ref, 2, PidRefs) =/= false.
+    lists:keyfind(Ref, 2, PidRefs) =/= false.                                  
 
 handle_nodedown(Node, #state{synced = Syncs,
                              known = Known0} = S, What) ->
