@@ -2884,6 +2884,11 @@ do_recv_close(Socket) ->
 
 tls_close(Socket) ->
     ok = ssl_test_lib:send_recv_result(Socket),
+    %% So both sides will have time to send
+    %% and recv before close is called, as this
+    %% function will be called by both client
+    %% and server in the test.
+    ct:sleep(100),
     case ssl:close(Socket, 10000) of
         ok ->
             ok;
