@@ -953,6 +953,9 @@ continue(Config) when is_list(Config) ->
     Pid ! {continue_noreply, self()},
     [{Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
 
+    Pid ! {throw_continue_noreply, self()},
+    [{Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
+
     Pid ! {continue_continue, self()},
     [{Pid, before_continue}, {Pid, continue}, {Pid, after_continue}] = read_replies(Pid),
 
@@ -2625,6 +2628,9 @@ handle_info({after_continue, Pid}, State) ->
     Pid ! {self(), after_continue},
     Pid ! {self(), ack},
     {noreply, State};
+handle_info({throw_continue_noreply, Pid}, State) ->
+    self() ! {after_continue, Pid},
+    throw({noreply, State, {continue, {message, Pid}}});
 handle_info({continue_noreply, Pid}, State) ->
     self() ! {after_continue, Pid},
     {noreply, State, {continue, {message, Pid}}};
