@@ -51,14 +51,6 @@
          global_disconnect/1
         ]).
 
-%% Not used
--export([config_dc/4,
-         w/2,
-         check_same/2,
-         check_same/1,
-         stop/0,
-         start_nodes_serially/3]).
-
 -export([lock_global/2, lock_global2/2]).
 
 -export([
@@ -3623,17 +3615,6 @@ create_script_dc(ScriptName) ->
     file:close(Fd),
     {KernelVer, StdlibVer}.
 
-%% Not used?
-config_dc(Fd, Ncp1, Ncp2, Ncp3) ->
-    M = from($@, atom_to_list(node())),
-    io:format(Fd, "[{kernel, [{sync_nodes_optional, ['~s@~s','~s@~s','~s@~s']},"
-	      "{sync_nodes_timeout, 1000},"
-	      "{global_groups, [{gg1, ['~s@~s', '~s@~s']},"
-	      "               {gg2, ['~s@~s']}]}"
-	      "              ]}].~n",
-	      [Ncp1, M, Ncp2, M, Ncp3, M,  Ncp1, M, Ncp2, M, Ncp3, M]).
-
-
 config_dc1(Fd, Ncp1, Ncp2, Ncp3, NcpA, NcpB, NcpC, NcpD, NcpE) ->
     M = from($@, atom_to_list(node())),
     io:format(Fd, "[{kernel, [{sync_nodes_optional, ['~s@~s','~s@~s','~s@~s','~s@~s','~s@~s','~s@~s','~s@~s','~s@~s']},"
@@ -3665,11 +3646,6 @@ from(_H, []) -> [].
 
 other(A, [A, _B]) -> A;
 other(_, [_A, B]) -> B.
-
-w(X,Y) ->
-    {ok, F} = file:open("cp2.log", [write]),
-    io:format(F, X, Y),
-    file:close(F).
 
 start_procs(Parent, N1, N2, N3, Config) ->
     S1 = lists:sort([N1, N2, N3]),
@@ -3792,11 +3768,6 @@ assert_pid(Pid) ->
 	is_pid(Pid) -> true;
 	true -> exit({not_a_pid, Pid})
     end.
-
-check_same([H|T]) -> check_same(T, H).
-
-check_same([H|T], H) -> check_same(T, H);
-check_same([], _H) -> ok.
 
 check_same_p([H|T]) -> check_same_p(T, H).
 
@@ -4007,13 +3978,6 @@ stop_node(Node) ->
     node_stopped(Node),
     Res.
 
-
-stop() ->
-    lists:foreach(fun(Node) ->
-			  test_server:stop_node(Node),
-                          node_stopped(Node)
-		  end, nodes()).
-
 %% Tests that locally loaded nodes do not loose contact with other nodes.
 global_lost_nodes(Config) when is_list(Config) ->
     Timeout = 60,
@@ -4182,13 +4146,6 @@ start_nodes(L, How, Config) ->
 		  Nodes),
     verify_nodes(Nodes, Config),
     Nodes.
-
-%% Not used?
-start_nodes_serially([], _, _Config) ->
-    [];
-start_nodes_serially([Name | Rest], How, Config) ->
-    {ok, R} = start_node(Name, How, Config),
-    [R | start_nodes_serially(Rest, How, Config)].
 
 verify_nodes(Nodes, Config) ->
     verify_nodes(Nodes, lists:sort([node() | Nodes]), Config).
