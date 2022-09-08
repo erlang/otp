@@ -45,7 +45,8 @@
          throw_in_format_status/1, format_all_status/1,
 	 get_state/1, replace_state/1, call_with_huge_message_queue/1,
 	 undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
-	 undef_init/1, undef_code_change/1, undef_terminate1/1,
+	 undef_init/1, throw_code_change/1, undef_code_change/1,
+	 undef_terminate1/1,
 	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1,
 	 undef_handle_continue/1,
 
@@ -2386,6 +2387,11 @@ undef_init(_Config) ->
             ok
     end.
 
+throw_code_change(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(?MODULE, {state, throw_code_change}, []),
+    ok = fake_upgrade(Server, ?MODULE),
+    true = is_process_alive(Server).
+
 %% The upgrade should fail if code_change is expected in the callback module
 %% but not exported, but the server should continue with the old code
 undef_code_change(Config) when is_list(Config) ->
@@ -3049,8 +3055,8 @@ handle_continue({message, Pid, From}, State) ->
     gen_server:reply(From, ok),
     {noreply, State}.
 
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
+code_change(_OldVsn, {new, throw_code_change} = State, _Extra) ->
+    throw({ok, State}).
 
 terminate({From, stopped}, _State) ->
     io:format("FOOBAR"),
