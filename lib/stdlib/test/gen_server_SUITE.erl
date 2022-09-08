@@ -46,7 +46,7 @@
 	 get_state/1, replace_state/1, call_with_huge_message_queue/1,
 	 undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
 	 undef_init/1, throw_code_change/1, undef_code_change/1,
-	 undef_terminate1/1,
+	 throw_terminate/1, undef_terminate1/1,
 	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1,
 	 undef_handle_continue/1,
 
@@ -2357,6 +2357,12 @@ echo_loop() ->
 	    echo_loop()
     end.
 
+throw_terminate(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start_link(?MODULE, [], []),
+    MRef = monitor(process, Pid),
+    Server ! throw_terminate,
+    ok = verify_down_reason(MRef, Server, normal).
+
 %% Test the default implementation of terminate if the callback module
 %% does not export it
 undef_terminate1(Config) when is_list(Config) ->
@@ -3027,6 +3033,8 @@ handle_info(continue, From) ->
     {noreply, []};
 handle_info({From, stop}, State) ->
     {stop, {From,stopped_info}, State};
+handle_info(throw_terminate, State) ->
+    {stop, throw_terminate, State};
 handle_info({after_continue, Pid}, State) ->
     Pid ! {self(), after_continue},
     Pid ! {self(), ack},
@@ -3065,6 +3073,8 @@ terminate({From, stopped}, _State) ->
 terminate({From, stopped_info}, _State) ->
     From ! {self(), stopped_info},
     ok;
+terminate(throw_terminate, _State) ->
+    throw(ok);
 terminate(_, crash_terminate) ->
     exit({crash, terminate});
 terminate(_, {undef_in_terminate, {Mod, Fun}}) ->
