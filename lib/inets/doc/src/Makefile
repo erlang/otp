@@ -62,9 +62,11 @@ XML_FILES = \
 	$(BOOK_FILES)        \
 	$(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES)    \
-	$(XML_REF6_FILES)    \
 	$(XML_REF3_FILES)    \
 	$(XML_APPLICATION_FILES)
+
+SPEC_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+TOP_SPECS_FILE = specs.xml
 
 NO_CHUNKS = httpd_custom_api.xml
 

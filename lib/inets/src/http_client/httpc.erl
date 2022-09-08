@@ -19,10 +19,35 @@
 %%
 %%
 
-%% Description:
-%%% This version of the HTTP/1.1 client supports:
-%%%      - RFC 2616 HTTP 1.1 client part
-%%%      - RFC 2818 HTTP Over TLS
+%% @doc An HTTP/1.1 client.
+%%
+%% Module httpc was introduced in OTP R13B04.
+%%
+%% <b>Description</b>
+%% This version of the HTTP/1.1 client supports (caching is not supported):
+%%      - RFC 2616 HTTP 1.1 client part (http://www.ietf.org/rfc/rfc2616.txt)
+%%      - RFC 2818 HTTP Over TLS (http://www.ietf.org/rfc/rfc2817.txt)
+%%
+%% <note>
+%% When starting the Inets application, a manager process for the default profile
+%% is started. The functions in this API that do not explicitly use a profile
+%% accesses the default profile. A profile keeps track of proxy options, cookies,
+%% and other options that can be applied to more than one request.
+%%
+%% if the scheme `https' is used, the SSL application must be started. When https
+%% links need to go through a proxy, the CONNECT method extension to HTTP-1.1 is
+%% used to establish a tunnel and then the connection is upgraded to TLS. However,
+%% "TLS upgrade" according to RFC 2817 (http://www.ietf.org/rfc/rfc2817.txt) is not supported.
+%%
+%% Pipelining is only used if the pipeline time-out is set, otherwise persistent
+%% connections without pipelining are used. That is, the client always waits for
+%% the previous response before sending the next request.
+%% </note>
+%%
+%% Some examples are provided in the <a
+%% href="https://www.erlang.org/doc/apps/inets/http_client.html">Inets User's
+%% Guide</a>.
+%%
 
 -module(httpc).
 
@@ -62,68 +87,76 @@
 %%%  Type specifications
 %%%=========================================================================
 
+%% These are used more than once in this module
+-type http_string() :: string().
+-type request_id() :: reference().
+-type profile() :: atom().
+-type path() :: string().
+-type ip_address() :: inet:ip_address().
+% See the inet(3) manual page in Kernel
+
+-type socket_opts() :: [socket_opt()].
+-type socket_opt() :: term().
+%% see `gen_tcp' options and see `ssl:connect' options
+
 %%%=========================================================================
 %%% HTTP request types
 %%%=========================================================================
 
--type url() :: string().
--type http_string() :: string().
-%% url() Syntax according to the URI definition in RFC 3986, for example "http://www.erlang.org.
-
--type status_line() :: {http_version(), status_code(), reason_phrase()}.
--type status_code() :: non_neg_integer().
--type reason_phrase() :: string().
-
--type http_method() :: head | get | put | patch | post | trace | options | delete.
+-type method() :: head | get | put | patch | post | trace | options | delete.
 -type http_request() :: {url(), headers()} | {url(), headers(), content_type(), body()}.
--type headers() :: header().
+
+%% url() Syntax according to the URI definition in RFC 3986, for example
+%% "http://www.erlang.org.
+-type url() :: http_string().
+-type status_line() :: {http_version(), status_code(), reason_phrase()}.
+-type http_version() :: http_string().
+-type status_code() :: integer().
+-type reason_phrase() :: string().
+-type content_type() :: http_string().
+-type headers() :: [header()].
 -type header() :: {field(), value()}.
 -type field() :: [byte()].
 -type value() :: binary() | iolist().
--type accumulator() :: term().
--type content_type() :: http_string().
--type body_processing_result() :: eof | {ok, iolist(), accumulator()}.
 -type body() :: http_string()
               | binary()
               | { fun((accumulator()) -> body_processing_result()), accumulator()}
               | { chunkify, fun((accumulator()) -> body_processing_result()), accumulator() }.
-
--type profile_request() :: profile() | pid().
--type profile() :: atom().
-
--type ssl_options() :: [ssl_option()].
-%% ssl for information about SSL options (ssl_options()).
-
--type ssl_option() :: ssl:tls_option().
-
--type http_option() :: {timeout, timeout()}
-                     | {connect_timeout, timeout()}
-                     | {ssl, ssl_options()}
-                     | {essl, ssl_options()}
-                     | {autoredirect, boolean()}
-                     | {proxy_auth, {userstring(), passwordstring()}}
-                     | {version, http_version()} | {relaxed, boolean()}.
-
--type userstring() :: string().
--type passwordstring() :: string().
-
--type http_version() :: http_string().
-% http_version(). For example, "HTTP/1.1"
-
--type request_id() :: reference().
-
+-type body_processing_result() :: eof | {ok, iolist(), accumulator()}.
+-type accumulator() :: term().
+-type filename() :: string().
 -type http_body_result() :: http_string() | binary().
+
+%% HTTP results type `request_result()'.
 -type request_result() :: {ok, {status_line(), headers(), http_body_result()}}
                         | {ok, {status_code(), http_body_result()}}
                         | {ok, request_id()}
                         | {ok, saved_to_file}
                         | {error, term()}.
 
-%%%=========================================================================
-%%%  Option type to request/4
-%%%=========================================================================
+%% HTTP requests use profile_request() as Profile.
+-type profile_request() :: profile() | pid().
 
-%% TODO: I may be mixing options_request() and request_options()...
+%% ssl for information about SSL options (ssloptions()).
+-type ssloptions() :: [ssloption()].
+-type ssloption() :: ssl:tls_option().
+
+-type http_option() :: {timeout, timeout()}
+                     | {connect_timeout, timeout()}
+                     | {ssl, ssloptions()}
+                     | {essl, ssloptions()}
+                     | {autoredirect, boolean()}
+                     | {proxy_auth, {userstring(), passwordstring()}}
+                     | {version, http_version()} | {relaxed, boolean()}.
+-type userstring() :: string().
+-type passwordstring() :: string().
+
+%%%========================================================================= %
+%% Option specs to pass to HTTP requests
+%% %=========================================================================
+%% These are not HTTP options, but additional options that one can pass to
+%% {@link request/3} and {@link request/4}
+
 -type options_request() :: [option_request()].
 -type option_request() :: {sync, boolean()}
                         | {stream, stream_to()}
@@ -134,19 +167,14 @@
                         | {receiver, receiver()}
                         | {ipv6_host_with_brackets, boolean()}.
 -type stream_to() :: none | self | {self, once} | filename().
--type body_format() :: string() | binary().
--type filename() :: string().
-
--type socket_opts() :: [socket_opt()].
--type socket_opt() :: term().
-%% see `gen_tcp' options and see `ssl:connect' options
-
+-type body_format() :: string() | binary() | atom().
 -type receiver() :: pid() | fun((term()) -> term()) | {receiver_module(), receiver_function(), receiver_args()}.
 -type receiver_module() :: atom().
 -type receiver_function() :: atom().
 -type receiver_args() :: list().
-
 -type cookie_header_opt() :: {ipv6_host_with_brackets, boolean()}.
+
+%% HERE
 
 %%%=========================================================================
 %%%  API
@@ -155,9 +183,6 @@
 default_profile() ->
     ?DEFAULT_PROFILE.
 
--spec profile_name(default) -> httpc_manager;
-                  (pid())   -> pid();
-                  (atom()) -> atom().
 profile_name(?DEFAULT_PROFILE) ->
     httpc_manager;
 profile_name(Profile) when is_pid(Profile) -> 
@@ -167,8 +192,6 @@ profile_name(Profile) ->
     profile_name(Prefix, Profile).
 
 
--spec profile_name(string(), atom()) -> atom();
-                  (term(), pid()) -> pid().
 profile_name(Prefix, Profile) when is_atom(Profile) ->
     list_to_atom(Prefix ++ atom_to_list(Profile));
 profile_name(_Prefix, Profile) when is_pid(Profile) ->
@@ -191,7 +214,7 @@ request(Url) ->
 %% </dl>
 %%
 %% This function is equivalent to `httpc:request(get, {Url, []}, [], [])'.
--spec request(Url :: url(), Profile :: profile()) -> request_result().
+-spec request(Url :: url(), Profile :: profile_request()) -> request_result().
 request(Url, Profile) ->
     request(get, {Url, []}, [], [], Profile).
 
@@ -323,7 +346,7 @@ request(Url, Profile) ->
 %%   </dd>
 %% </dl>
 -spec request(Method, Request, HttpOptions, Options) -> request_result() when
-      Method :: http_method(),
+      Method :: method(),
       Request :: http_request(),
       HttpOptions :: [http_option()],
       Options :: options_request().
@@ -347,11 +370,11 @@ request(Method, Request, HttpOptions, Options) ->
 %%   <dd>When started `stand_alone' only the pid can be used.</dd>
 %% </dl>
 -spec request(Method, Request, HttpOptions, Options, Profile) -> request_result() when
-      Method :: http_method(),
+      Method :: method(),
       Request :: http_request(),
       HttpOptions :: [http_option()],
       Options :: options_request(),
-      Profile :: pid() | atom().
+      Profile :: profile_request().
 request(Method, Request, HTTPOptions, Options, Profile)
   when is_atom(Profile) orelse is_pid(Profile) ->
     WithBody = lists:member(Method, ?WITH_BODY),
@@ -405,7 +428,7 @@ check_request(_, _, _Request) ->
 %%   <dd>A unique identifier as returned by {@link request/4}.</dd>
 %% </dl>
 -spec cancel_request(RequestId) -> ok when
-      RequestId :: profile_request().
+      RequestId :: request_id().
 cancel_request(RequestId) ->
     cancel_request(RequestId, default_profile()).
 
@@ -425,30 +448,11 @@ cancel_request(RequestId) ->
 -spec cancel_request(RequestId, Profile) -> ok when
       RequestId :: request_id(),
       Profile :: profile_request().
-cancel_request(RequestId, Profile) 
+cancel_request(RequestId, Profile)
   when is_atom(Profile) orelse is_pid(Profile) ->
     httpc_manager:cancel_request(RequestId, profile_name(Profile)).
    
 
-%%--------------------------------------------------------------------------
-%% set_options(Options) -> ok | {error, Reason}
-%% set_options(Options, Profile) -> ok | {error, Reason}
-%%   Options - [Option]
-%%   Profile - atom()
-%%   Option - {proxy, {Proxy, NoProxy}} | {max_sessions, MaxSessions} | 
-%%            {max_pipeline_length, MaxPipeline} | 
-%%            {pipeline_timeout, PipelineTimeout} | {cookies, CookieMode} | 
-%%            {ipfamily, IpFamily}
-%%   Proxy - {Host, Port}
-%%   NoProxy - [Domain | HostName | IPAddress]   
-%%   MaxSessions, MaxPipeline, PipelineTimeout = integer()   
-%%   CookieMode - enabled | disabled | verify
-%%   IpFamily - inet | inet6 | inet6fb4
-%% Description: Informs the httpc_manager of the new settings. 
-%%-------------------------------------------------------------------------
-
-%% note: it is not clear why these options are not the same
-%%       as options_request().
 %% @doc Sets options to be used for subsequent requests.
 %% @see set_options/2
 -spec set_options(Options) -> ok | {error, Reason} when
@@ -478,9 +482,9 @@ cancel_request(RequestId, Profile)
       CookieMode :: enabled | disabled | verify,
       IpFamily :: inet | inet6 | local | inet6fb4,
       IpAddressDesc :: http_string(),
-      IpAddress :: inet:ip_address(),
+      IpAddress :: ip_address(),
       VerboseMode :: false | verbose | debug | trace,
-      UnixSocket :: string(),
+      UnixSocket :: path(),
       Reason :: term(),
       DomainDesc :: string(),
       HostName :: http_string().
@@ -591,7 +595,7 @@ set_options(Options) ->
       CookieMode :: enabled | disabled | verify,
       IpFamily :: inet | inet6 | local | inet6fb4,
       IpAddressDesc :: http_string(),
-      IpAddress :: inet:ip_address(),
+      IpAddress :: ip_address(),
       VerboseMode :: false | verbose | debug | trace,
       UnixSocket :: string(),
       Reason :: term(),
@@ -715,6 +719,11 @@ store_cookies(SetCookieHeaders, Url) ->
 %%   <dd>When started `stand_alone' only the pid can be used.</dd>
 %% </dl>
 %%
+-spec store_cookies(SetCookieHeaders, Url, Profile) -> ok | {error, Reason} when
+      SetCookieHeaders :: headers(),
+      Url :: term(),
+      Profile :: profile_request(),
+      Reason :: term().
 store_cookies(SetCookieHeaders, Url, Profile) 
   when is_atom(Profile) orelse is_pid(Profile) ->
     case normalize_and_parse_url(Url) of
@@ -773,7 +782,7 @@ cookie_header(Url, Opts) when is_list(Opts) ->
       Profile :: profile(),
       Opts :: [cookie_header_opt()],
       Reason :: term().
-cookie_header(Url, Opts, Profile) 
+cookie_header(Url, Opts, Profile)
   when (is_list(Opts) andalso (is_atom(Profile) orelse is_pid(Profile))) ->
     try 
 	begin
@@ -1151,13 +1160,12 @@ headers_as_is(Headers, Options) ->
 	     Headers
      end.
 
--spec http_options([{atom(), term()}]) -> tuple().
 http_options(HttpOptions) ->
     HttpOptionsDefault = http_options_default(),
     http_options(HttpOptionsDefault, HttpOptions, #http_options{}).
 
 
--spec http_options(request_options(), [{atom(), term()}], http_options()) -> tuple().
+%% -spec http_options(request_options(), [{atom(), term()}], http_options()) -> tuple().
 http_options([], [], Acc) ->
     Acc;
 http_options([], HttpOptions, Acc) ->
@@ -1195,30 +1203,6 @@ http_options([{Tag, Default, Idx, Post} | Defaults], HttpOptions, Acc) ->
 	    http_options(Defaults, HttpOptions, Acc2)
     end.
 
--spec http_options_default() -> Response when
-      Response :: [{version,          {value, string()},    non_neg_integer(), VersionPost} |
-                   {timeout,         {value, atom()},       non_neg_integer(), TimeoutPost} |
-                   {autoredirect,    {value, true},         non_neg_integer(), BoolFun} |
-                   {ssl,             {value, {atom(), []}}, non_neg_integer(), SslPost} |
-                   {proxy_auth,      {value, undefined},    non_neg_integer(), ProxyAuthPost} |
-                   {relaxed,         {value, false},        non_neg_integer(), BoolFun} |
-                   {url_encode,      {value, false},        non_neg_integer(), BoolFun} |
-                   {connect_timeout, {field, integer()},    non_neg_integer(), ConnTimeoutPost}],
-      VersionPost :: fun((atom() | list()) -> {ok, unicode:chardata()} | error)
-                   | fun((term()) -> error),
-      TimeoutPost :: fun((integer()) -> {ok, integer()})
-                   | fun((infinity) -> {ok, infinity})
-                   | fun((term()) -> error),
-      BoolFun :: fun(((true | false)) -> {ok, true | false}) | fun((term()) -> error),
-      SslPost :: fun((list()) -> {ok, {atom(), list()}})
-               | fun(({ssl | essl, list()}) -> {ok, {atom(), list()}})
-               | fun((term()) -> error),
-      ProxyAuthPost :: fun(({User, Password}) -> {ok, {User, Password}}),
-      User :: list(),
-      Password :: list(),
-      ConnTimeoutPost :: fun((integer()) -> {ok, integer()})
-                       | fun((infinity) -> {ok, infinity})
-                       | fun((term()) -> error).
 http_options_default() ->
     VersionPost = 
 	fun(Value) when is_atom(Value) ->
@@ -1285,45 +1269,6 @@ boolfun() ->
 	    error
     end.
 
--type option_verify_bool() :: fun(((boolean())) -> {ok, boolean()}) | fun((term()) -> error).
--type option_verify_stream() :: fun((none | self | {self, once} | list()) -> ok) | fun((term()) -> error).
--type option_verify_body_format() :: fun((string | binary) -> ok) | fun((term()) -> error).
--type option_verify_receiver() :: fun((pid() | {atom(), atom(), list() | fun((term()) -> term())}) -> ok)
-                               | fun((term()) -> error).
--type option_verify_socket_opts() :: fun(([]) -> {ok, undefined})
-                                   | fun((list()) -> ok)
-                                   | fun((term()) -> error).
-
-%% TODO: I do not know if the request_options have verifying functions. I do know that the defaults do.
-%% TODO: revisit these options.
--type request_options() :: [request_sync_option() | request_stream_option() | request_body_format_option() |
-                            request_full_result_option() | request_header_option() | request_receiver_option() |
-                            request_socket_option() | request_ipv6_option()].
--type request_sync_option() :: {sync, boolean(), option_verify_bool()}.
--type request_stream_option() :: {stream, none | atom(), option_verify_stream()}.
--type request_body_format_option() :: {body_format, string | atom(), option_verify_body_format()}.
--type request_full_result_option() :: {full_result, boolean(), option_verify_bool()}.
--type request_header_option() :: {headers_as_is, boolean(), option_verify_bool()}.
--type request_receiver_option() :: {receiver, pid(), option_verify_receiver()}.
--type request_socket_option() :: {socket_opts, undefined | atom(), option_verify_socket_opts()}.
--type request_ipv6_option() :: {ipv6_host_with_brackets, boolean(), option_verify_bool()}.
-
-
--type default_request_options() :: [default_request_sync_option() | default_request_stream_option() | default_request_body_format_option() |
-                                    default_request_full_result_option() | default_request_header_option() | default_request_receiver_option() |
-                                    default_request_socket_option() | default_request_ipv6_option()].
--type default_request_sync_option() :: {sync, true, option_verify_bool()}.
--type default_request_stream_option() :: {stream, none, option_verify_stream()}.
--type default_request_body_format_option() :: {body_format, string, option_verify_body_format()}.
--type default_request_full_result_option() :: {full_result, true, option_verify_bool()}.
--type default_request_header_option() :: {headers_as_is, false, option_verify_bool()}.
--type default_request_receiver_option() :: {receiver, pid(), option_verify_receiver()}.
--type default_request_socket_option() :: {socket_opts, undefined, option_verify_socket_opts()}.
--type default_request_ipv6_option() :: {ipv6_host_with_brackets, false, option_verify_bool()}.
-
-
-
--spec request_options_defaults() -> default_request_options().
 request_options_defaults() ->
     VerifyBoolean = boolfun(),
 
@@ -1390,13 +1335,10 @@ request_options_defaults() ->
      {ipv6_host_with_brackets, false,     VerifyBrackets}
     ]. 
 
--spec request_options(options_request()) -> term().
 request_options(Options) ->
     Defaults = request_options_defaults(), 
     request_options(Defaults, Options, []).
 
-%% options_request should be a [{ of field sync, value, stream, value, etc}]
--spec request_options(default_request_options(), options_request(), options_request()) -> options_request().
 request_options([], [], Acc) ->
     request_options_sanity_check(Acc),
     lists:reverse(Acc);
@@ -1470,7 +1412,6 @@ validate_ipfamily_unix_socket(IpFamily, UnixSocket, Options, Acc) ->
     validate_unix_socket(UnixSocket),
     {Options, Acc}.
 
-%% -spec validate_options(Option) -> Response | {error, term()}.
 validate_options(Options0) ->
     try
         {Options, Acc} = validate_ipfamily_unix_socket(Options0),
@@ -1549,10 +1490,7 @@ validate_options([{_, _} = Opt| _], _Acc) ->
     {error, {not_an_option, Opt}}.
 
 
--spec validate_proxy(ValidProxySettings) -> ValidProxySettings when
-      ValidProxySettings :: {{list(), non_neg_integer()}, list()};
-                    (term()) -> no_return().
-validate_proxy({{ProxyHost, ProxyPort}, NoProxy} = Proxy) 
+validate_proxy({{ProxyHost, ProxyPort}, NoProxy} = Proxy)
   when is_list(ProxyHost) andalso 
        is_integer(ProxyPort) andalso 
        is_list(NoProxy) ->

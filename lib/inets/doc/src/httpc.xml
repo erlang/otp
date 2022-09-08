@@ -73,10 +73,10 @@
     <p><c>path() = string()</c> representing a file path or directory path</p>
     <p><c>ip_address()</c> = See the
     <seeerl marker="kernel:inet">inet(3)</seeerl> manual page in Kernel.</p>
+    <p><c>socket_opts() = [socket_opt()]</c></p>
     <p><c>socket_opt()</c> = See the options used by
     <seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl> <c>gen_tcp(3)</c> and 
     <seeerl marker="ssl:ssl">ssl(3)</seeerl> connect(s)</p>
-  
   </section>
   
   <section>
@@ -85,7 +85,7 @@
 
     <p><c>method() = head | get | put | post | trace | options | delete | patch</c></p>
     <taglist>
-      <tag><c>request()</c></tag>
+      <tag><c>http_request()</c></tag>
       <item><p>= <c>{url(), headers()}</c></p>
       <p>| <c>{url(), headers(), content_type(), body()}</c></p>
       </item>
@@ -122,12 +122,64 @@
     <p><c>body_processing_result() = eof | {ok, iolist(), accumulator()}</c></p>
     <p><c>accumulator() = term()</c></p>
     <p><c>filename() = string()</c></p>
+    <taglist>
+      <tag><c>http_option()</c></tag>
+      <item><p>= <c>{timeout, timeout()}</c></p>
+            <p>| <c>{connect_timeout, timeout()}</c></p>
+            <p>| <c>{ssl, ssloptions()}</c></p>
+            <p>| <c>{essl, ssloptions()}</c></p>
+            <p>| <c>{autoredirect, boolean()}</c></p>
+            <p>| <c>{proxy_auth, {userstring(), passwordstring()}}</c></p>
+            <p>| <c>{version, http_version()} | {relaxed, boolean()}</c></p>
+      </item>
+    </taglist>
+    <p><c>userstring() = string()</c></p>
+    <p><c>password() = string()</c></p>
+    <p><c>http_body_result() = http_string() | binary()</c></p>
+    <taglist>
+      <tag><c>request_result()</c></tag>
+      <item><p>= <c>{ok, {status_line(), headers(), http_body_result()}}</c></p>
+            <p>| <c>{ok, {status_code(), http_body_result()}}</c></p>
+            <p>| <c>{ok, request_id()}</c></p>
+            <p>| <c>{ok, saved_to_file}</c></p>
+            <p>| <c>{error, term()}</c></p>
+      </item>
+    </taglist>
+    <p><c>profile_request() = profile() | pid()</c></p>
+
  <p>For more information about HTTP, see
  <url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>.</p> 
 </section>
+
+  <section>
+    <title>HTTP Request Options</title>
+    <p>Type definitions related to HTTP request options:</p>
+    <p><c>options_request() = [option_request()]</c></p>
+    <taglist>
+      <tag><c>option_request()</c></tag>
+      <item><p>= <c>{sync, boolean()}</c></p>
+            <p>| <c>{stream, stream_to()}</c></p>
+            <p>| <c>{body_format, body_format()}</c></p>
+            <p>| <c>{full_result, boolean()}</c></p>
+            <p>| <c>{headers_as_is, boolean()}</c></p>
+            <p>| <c>{socket_opts, socket_opts()}</c></p>
+            <p>| <c>{receiver, receiver()}</c></p>
+            <p>| <c>{ipv6_host_with_brackets, boolean()}</c></p>
+      </item>
+    </taglist>
+    <p><c>stream_to() = none | self | {self, once} | filename()</c></p>
+    <p><c>body_format() = string() | binary() | atom()</c></p>
+    <p><c>receiver() = pid() | fun((term()) -> term()) | {receiver_module(), receiver_function(), receiver_args()}.</c></p>
+    <p><c>receiver_module() = atom()</c></p>
+    <p><c>receiver_function() = atom()</c></p>
+    <p><c>receiver_args() = list()</c></p>
+    <p><c>cookie_header_opt() = {ipv6_host_with_brackets, boolean()}</c></p>
+  </section>
   
   <section>
     <title>SSL DATA TYPES</title>
+    <p><c>ssloptions() = [ssloption()]</c></p>
+    <p><c>ssloption() = ssl:tls_option()</c></p>
     <p>See <seeerl marker="ssl:ssl">ssl(3)</seeerl> for information
     about <c>SSL</c> options (<c>ssloptions()</c>). </p>
   </section>
@@ -159,20 +211,23 @@
   <funcs>
    
     <func>
-      <name since="OTP R13B04">cancel_request(RequestId) -></name>
-      <name since="OTP R13B04">cancel_request(RequestId, Profile) -> ok</name>
+      <name since="OTP R13B04" name="cancel_request" arity="1" />
+      <name since="OTP R13B04" name="cancel_request" arity="2" />
       <fsummary>Cancels an asynchronous HTTP request.</fsummary>
-      <type>
-        <v>RequestId = request_id() - A unique identifier as returned
-        by request/4</v>
-	<v>Profile = profile() | pid()</v>
-	<d>When started <c>stand_alone</c> only the pid can be used.</d>
-      </type>
+      <type name="request_id" />
+      <type_desc variable="RequestId">
+        A unique identifier as returned by
+        <seemfa marker="#request/4"><c>request/4</c></seemfa>
+      </type_desc>
+      <type name="Profile" />
+	    <type_desc variable="Profile">
+        When started <c>stand_alone</c> only the pid can be used.
+      </type_desc>
       <desc>
-        <p>Cancels an asynchronous HTTP request. Notice that this does not guarantee
+        <p>Cancels an asynchronous HTTP request. Notice that this does not   guarantee
 	that the request response is not delivered. Because it is asynchronous,
 	the request can already have been completed when the cancellation arrives.
-	</p>
+	      </p>
       </desc>
     </func>
 
@@ -286,7 +341,7 @@
       <fsummary>Sends an HTTP request.</fsummary>
       <type>
         <v>Method = method()</v>
-        <v>Request = request()</v>
+        <v>Request = http_request()</v>
         <v>HTTPOptions = http_options()</v>
         <v>http_options() = [http_option()]</v>
         <v>http_option() = {timeout,         timeout()} | 
