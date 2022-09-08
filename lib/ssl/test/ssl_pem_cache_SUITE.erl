@@ -125,8 +125,8 @@ init_per_testcase(new_root_pem_periodical_cleanup = Case, Config) ->
     ssl:clear_pem_cache(),
     Config;
 init_per_testcase(new_root_pem_manual_cleanup = Case, Config) ->
-     ssl:clear_pem_cache(),
     adjust_pem_periodical_cleanup_interval(Case, Config, ?BIG_CLEANUP_INTERVAL),
+    ssl:clear_pem_cache(),
     Config;
 init_per_testcase(_Case, Config) ->
     ssl_test_lib:clean_start(),
@@ -768,17 +768,16 @@ pem_periodical_cleanup(Config, FileIds,
             check_tables([{pem_cache, PemCacheData1}, {cert, CertData0}, {ca_ref_cnt, CaRefCntData0},
                           {ca_file_ref, CaFileRefData0}]),
             [true = lists:member(Row, PemCacheData0) || Row <- PemCacheData1],
- 
+            %% restore original mtime attributes
+            [ok = file:write_file_info(C, F#file_info{mtime = OT}) ||
+                {C, F, OT} <- Memory],
+
             [ssl_test_lib:close(A) || A <- [Server, Client]],
             Disconnected = get_table_sizes(),
             ok
         catch _:Reason ->
                 Reason
         end,
-
-    %% restore original mtime attributes
-    [ok = file:write_file_info(C, F#file_info{mtime = OT}) ||
-        {C, F, OT} <- Memory],
     case Result of
         ok ->
             ok;
