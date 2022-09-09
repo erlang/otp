@@ -35,7 +35,7 @@
          end_per_testcase/2]).
 
 %% Testcases
--export([dhe_psk_des_cbc/1,
+-export([%%dhe_psk_des_cbc/1,
          dhe_rsa_3des_ede_cbc/1,
          dhe_rsa_aes_128_cbc/1,
          dhe_rsa_aes_128_gcm/1,
@@ -622,38 +622,38 @@ aes_128_ccm_8_sha256(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% SRP --------------------------------------------------------
 %%--------------------------------------------------------------------
-srp_rsa_3des_ede_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(srp_rsa, '3des_ede_cbc', Config).
+%% srp_rsa_3des_ede_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(srp_rsa, '3des_ede_cbc', Config).
 
-srp_rsa_aes_128_cbc(Config) when is_list(Config) ->
-   run_ciphers_test(srp_rsa, 'aes_128_cbc', Config).
+%% srp_rsa_aes_128_cbc(Config) when is_list(Config) ->
+%%    run_ciphers_test(srp_rsa, 'aes_128_cbc', Config).
 
-srp_rsa_aes_256_cbc(Config) when is_list(Config) ->
-   run_ciphers_test(srp_rsa, 'aes_256_cbc', Config).
+%% srp_rsa_aes_256_cbc(Config) when is_list(Config) ->
+%%    run_ciphers_test(srp_rsa, 'aes_256_cbc', Config).
 
-srp_dss_3des_ede_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(srp_dss, '3des_ede_cbc', Config).
+%% srp_dss_3des_ede_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(srp_dss, '3des_ede_cbc', Config).
 
-srp_dss_aes_128_cbc(Config) when is_list(Config) ->
-   run_ciphers_test(srp_dss, 'aes_128_cbc', Config).
+%% srp_dss_aes_128_cbc(Config) when is_list(Config) ->
+%%    run_ciphers_test(srp_dss, 'aes_128_cbc', Config).
 
-srp_dss_aes_256_cbc(Config) when is_list(Config) ->
-   run_ciphers_test(srp_dss, 'aes_256_cbc', Config).
+%% srp_dss_aes_256_cbc(Config) when is_list(Config) ->
+%%    run_ciphers_test(srp_dss, 'aes_256_cbc', Config).
 
 %%--------------------------------------------------------------------
 %% PSK --------------------------------------------------------
 %%--------------------------------------------------------------------
-rsa_psk_3des_ede_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(rsa_psk, '3des_ede_cbc', Config).
+%% rsa_psk_3des_ede_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(rsa_psk, '3des_ede_cbc', Config).
 
-rsa_psk_aes_128_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(rsa_psk, 'aes_128_cbc', Config).
+%% rsa_psk_aes_128_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(rsa_psk, 'aes_128_cbc', Config).
 
-rsa_psk_aes_256_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(rsa_psk, 'aes_256_cbc', Config).
+%% rsa_psk_aes_256_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(rsa_psk, 'aes_256_cbc', Config).
 
-rsa_psk_rc4_128(Config) when is_list(Config) ->
-    run_ciphers_test(rsa_psk, 'rc4_128', Config).
+%% rsa_psk_rc4_128(Config) when is_list(Config) ->
+%%     run_ciphers_test(rsa_psk, 'rc4_128', Config).
 
 %%--------------------------------------------------------------------
 %% RSA --------------------------------------------------------
@@ -808,107 +808,107 @@ ecdh_anon_aes_128_cbc(Config) when is_list(Config) ->
 ecdh_anon_aes_256_cbc(Config) when is_list(Config) ->
     run_ciphers_test(ecdh_anon, 'aes_256_cbc', Config).
 
-srp_anon_3des_ede_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(srp_anon, '3des_ede_cbc', Config).
+%% srp_anon_3des_ede_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(srp_anon, '3des_ede_cbc', Config).
 
-srp_anon_aes_128_cbc(Config) when is_list(Config) ->
-   run_ciphers_test(srp_anon, 'aes_128_cbc', Config).
+%% srp_anon_aes_128_cbc(Config) when is_list(Config) ->
+%%    run_ciphers_test(srp_anon, 'aes_128_cbc', Config).
 
-srp_anon_aes_256_cbc(Config) when is_list(Config) ->
-   run_ciphers_test(srp_anon, 'aes_256_cbc', Config).
+%% srp_anon_aes_256_cbc(Config) when is_list(Config) ->
+%%    run_ciphers_test(srp_anon, 'aes_256_cbc', Config).
 
-dhe_psk_des_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, 'des_cbc', Config).
+%% dhe_psk_des_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, 'des_cbc', Config).
 
-dhe_psk_rc4_128(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, 'rc4_128', Config).
+%% dhe_psk_rc4_128(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, 'rc4_128', Config).
 
-dhe_psk_3des_ede_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, '3des_ede_cbc', Config).
+%% dhe_psk_3des_ede_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, '3des_ede_cbc', Config).
 
-dhe_psk_aes_128_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, 'aes_128_cbc', Config).
+%% dhe_psk_aes_128_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, 'aes_128_cbc', Config).
 
-dhe_psk_aes_256_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, 'aes_256_cbc', Config).
+%% dhe_psk_aes_256_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, 'aes_256_cbc', Config).
 
-dhe_psk_aes_128_gcm(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, 'aes_128_gcm', Config).
+%% dhe_psk_aes_128_gcm(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, 'aes_128_gcm', Config).
 
-dhe_psk_aes_256_gcm(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, 'aes_256_gcm', Config).
+%% dhe_psk_aes_256_gcm(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, 'aes_256_gcm', Config).
 
-dhe_psk_aes_128_ccm(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, 'aes_128_ccm', Config).
+%% dhe_psk_aes_128_ccm(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, 'aes_128_ccm', Config).
 
-dhe_psk_aes_256_ccm(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, 'aes_256_ccm', Config).
+%% dhe_psk_aes_256_ccm(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, 'aes_256_ccm', Config).
 
-dhe_psk_aes_128_ccm_8(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, 'aes_128_ccm_8', Config).
+%% dhe_psk_aes_128_ccm_8(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, 'aes_128_ccm_8', Config).
 
-dhe_psk_aes_256_ccm_8(Config) when is_list(Config) ->
-    run_ciphers_test(dhe_psk, 'aes_256_ccm_8', Config).
+%% dhe_psk_aes_256_ccm_8(Config) when is_list(Config) ->
+%%     run_ciphers_test(dhe_psk, 'aes_256_ccm_8', Config).
 
-ecdhe_psk_des_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(ecdhe_psk, 'des_cbc', Config).
+%% ecdhe_psk_des_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(ecdhe_psk, 'des_cbc', Config).
 
-ecdhe_psk_rc4_128(Config) when is_list(Config) ->
-    run_ciphers_test(ecdhe_psk, 'rc4_128', Config).
+%% ecdhe_psk_rc4_128(Config) when is_list(Config) ->
+%%     run_ciphers_test(ecdhe_psk, 'rc4_128', Config).
 
-ecdhe_psk_3des_ede_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(ecdhe_psk, '3des_ede_cbc', Config).
+%% ecdhe_psk_3des_ede_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(ecdhe_psk, '3des_ede_cbc', Config).
 
-ecdhe_psk_aes_128_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(ecdhe_psk, 'aes_128_cbc', Config).
+%% ecdhe_psk_aes_128_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(ecdhe_psk, 'aes_128_cbc', Config).
 
-ecdhe_psk_aes_256_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(ecdhe_psk, 'aes_256_cbc', Config).
+%% ecdhe_psk_aes_256_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(ecdhe_psk, 'aes_256_cbc', Config).
 
-ecdhe_psk_aes_128_gcm(Config) when is_list(Config) ->
-    run_ciphers_test(ecdhe_psk, 'aes_128_gcm', Config).
+%% ecdhe_psk_aes_128_gcm(Config) when is_list(Config) ->
+%%     run_ciphers_test(ecdhe_psk, 'aes_128_gcm', Config).
 
-ecdhe_psk_aes_256_gcm(Config) when is_list(Config) ->
-    run_ciphers_test(ecdhe_psk, 'aes_256_gcm', Config).
+%% ecdhe_psk_aes_256_gcm(Config) when is_list(Config) ->
+%%     run_ciphers_test(ecdhe_psk, 'aes_256_gcm', Config).
 
-ecdhe_psk_aes_128_ccm(Config) when is_list(Config) ->
-    run_ciphers_test(ecdhe_psk, 'aes_128_ccm', Config).
+%% ecdhe_psk_aes_128_ccm(Config) when is_list(Config) ->
+%%     run_ciphers_test(ecdhe_psk, 'aes_128_ccm', Config).
 
-ecdhe_psk_aes_128_ccm_8(Config) when is_list(Config) ->
-    run_ciphers_test(ecdhe_psk, 'aes_128_ccm_8', Config).
+%% ecdhe_psk_aes_128_ccm_8(Config) when is_list(Config) ->
+%%     run_ciphers_test(ecdhe_psk, 'aes_128_ccm_8', Config).
 
-psk_des_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(psk, 'des_cbc', Config).
+%% psk_des_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, 'des_cbc', Config).
 
-psk_rc4_128(Config) when is_list(Config) ->
-    run_ciphers_test(psk, 'rc4_128', Config).
+%% psk_rc4_128(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, 'rc4_128', Config).
 
-psk_3des_ede_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(psk, '3des_ede_cbc', Config).
+%% psk_3des_ede_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, '3des_ede_cbc', Config).
 
-psk_aes_128_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(psk, 'aes_128_cbc', Config).
+%% psk_aes_128_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, 'aes_128_cbc', Config).
 
-psk_aes_256_cbc(Config) when is_list(Config) ->
-    run_ciphers_test(psk, 'aes_256_cbc', Config).
+%% psk_aes_256_cbc(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, 'aes_256_cbc', Config).
 
-psk_aes_128_gcm(Config) when is_list(Config) ->
-    run_ciphers_test(psk, 'aes_128_gcm', Config).
+%% psk_aes_128_gcm(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, 'aes_128_gcm', Config).
 
-psk_aes_256_gcm(Config) when is_list(Config) ->
-    run_ciphers_test(psk, 'aes_256_gcm', Config).
+%% psk_aes_256_gcm(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, 'aes_256_gcm', Config).
 
-psk_aes_128_ccm(Config) when is_list(Config) ->
-    run_ciphers_test(psk, 'aes_128_ccm', Config).
+%% psk_aes_128_ccm(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, 'aes_128_ccm', Config).
 
-psk_aes_256_ccm(Config) when is_list(Config) ->
-    run_ciphers_test(psk, 'aes_256_ccm', Config).
+%% psk_aes_256_ccm(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, 'aes_256_ccm', Config).
 
-psk_aes_128_ccm_8(Config) when is_list(Config) ->
-    run_ciphers_test(psk, 'aes_128_ccm_8', Config).
+%% psk_aes_128_ccm_8(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, 'aes_128_ccm_8', Config).
 
-psk_aes_256_ccm_8(Config) when is_list(Config) ->
-    run_ciphers_test(psk, 'aes_256_ccm_8', Config).
+%% psk_aes_256_ccm_8(Config) when is_list(Config) ->
+%%     run_ciphers_test(psk, 'aes_256_ccm_8', Config).
 
 %%--------------------------------------------------------------------
 %% Internal functions  ----------------------------------------------
