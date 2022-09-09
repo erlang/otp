@@ -131,12 +131,12 @@ reject_sslv2(Config) when is_list(Config) ->
                                               {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
 
-    %% SSL-2.0 Hello 
+    %% SSL-2.0 Hello
     ClientHello = <<128,43,?CLIENT_HELLO, ?SSL_2_0_MAJOR, ?SSL_2_0_MINOR,
                     0,18,0,0,0,16,7,0,192,3,0,128,1,0,128,6,0,64,4,0,
                     128,2,0,128,115,245,33,148,17,175,69,226,204,214,132,216,182,
                     41,238,196>>,
-    
+
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [{active, false}]),
 
     gen_tcp:send(Socket, ClientHello),
@@ -159,7 +159,7 @@ reject_sslv3(Config) when is_list(Config) ->
 
     %% SSL-3.0 Hello
     ClientHello =
-        <<?HANDSHAKE, ?SSL_3_0_MAJOR, ?SSL_3_0_MINOR,0,162, ?CLIENT_HELLO, 0,0,158, 
+        <<?HANDSHAKE, ?SSL_3_0_MAJOR, ?SSL_3_0_MINOR,0,162, ?CLIENT_HELLO, 0,0,158,
           ?TLS_MAJOR, ?SSL_3_0_MINOR, 97,160,130,59,226,182,64,143,134,112,117,
           64,10,57,164,101,182,215,0,199,145,232,172,194,45,242,48,176,5,153,
           101,54,0,0,26,0,255,192,10,192,20,192,5,192,15,192,9,192,19,192,4,192,
@@ -195,17 +195,18 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [{active, false}]),
     gen_tcp:send(Socket, ClientHello),
     case gen_tcp:recv(Socket, 3, 5000) of
-        %% Minor needs to be a TLS version that is a version 
-        %% above SSL-3.0 
+        %% Minor needs to be a TLS version that is a version
+        %% above SSL-3.0
         {ok, [?HANDSHAKE, ?TLS_MAJOR, Minor]} when Minor > ?SSL_3_0_MINOR ->
             ok;
-        {error, timeout} ->       
+        {error, timeout} ->
             ct:fail(ssl3_record_not_accepted)
     end.
 
 
 reject_prev() ->
-    [{doc,"Test that prev version is rejected, for all version where there exists possible support a previous version, that is not configured"}].
+    [{doc,"Test that prev version is rejected, for all version where there"
+      "exists possible support a previous version, that is not configured"}].
 
 reject_prev(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
