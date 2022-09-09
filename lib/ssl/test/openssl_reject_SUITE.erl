@@ -36,8 +36,6 @@
 %% Test cases
 -export([erlang_client_bad_openssl_server/0,
          erlang_client_bad_openssl_server/1,
-         erlang_server_reject_sslv2/0,
-         erlang_server_reject_sslv2/1,
          erlang_server_reject_sslv3/0,
          erlang_server_reject_sslv3/1
         ]).
@@ -54,7 +52,7 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-all() -> 
+all() ->
     [{group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
@@ -72,7 +70,6 @@ groups() ->
 all_versions_tests() ->
     [
      erlang_client_bad_openssl_server,
-     erlang_server_reject_sslv2,
      erlang_server_reject_sslv3
     ].
 
@@ -85,7 +82,7 @@ init_per_suite(Config0) ->
             catch crypto:stop(),
             try crypto:start() of
                 ok ->
-                    ssl_test_lib:clean_start(),                   
+                    ssl_test_lib:clean_start(),
                     ssl_test_lib:make_rsa_cert(Config0)
             catch _:_  ->
                     {skip, "Crypto did not start"}
@@ -147,11 +144,11 @@ erlang_client_bad_openssl_server(Config) when is_list(Config) ->
     Exe = "openssl",
     Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
             "-cert", CertFile, "-key", KeyFile],
-    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args), 
+    OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),
 
     ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
-    Client0 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+    Client0 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                                          {host, Hostname},
                                          {from, self()},
                                          {mfa, {?MODULE, server_sent_garbage, []}},
@@ -183,32 +180,6 @@ erlang_client_bad_openssl_server(Config) when is_list(Config) ->
     process_flag(trap_exit, false).
 
 %%--------------------------------------------------------------------
-erlang_server_reject_sslv2() ->
-    [{doc,"Test that ssl v2 clients are rejected"}].
-
-erlang_server_reject_sslv2(Config) when is_list(Config) ->
-    process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-
-    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
-                                              {from, self()},
-                                              {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
-
-    Exe = "openssl",
-    Args = ["s_client", "-connect", ssl_test_lib:hostname_format(Hostname) ++ ":" ++ integer_to_list(Port), 
-            "-ssl2", "-msg"],
-
-    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),  
-
-    ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
-    ssl_test_lib:consume_port_exit(OpenSslPort),
-    ssl_test_lib:check_server_alert(Server, unexpected_message),
-    process_flag(trap_exit, false).
-
-%%--------------------------------------------------------------------
 erlang_server_reject_sslv3() ->
     [{doc,"Test that ssl v3 clients are rejected"}].
 
@@ -218,18 +189,19 @@ erlang_server_reject_sslv3(Config) when is_list(Config) ->
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
                                               {from, self()},
                                               {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
 
     Exe = "openssl",
-    Args = ["s_client", "-connect", ssl_test_lib:hostname_format(Hostname) ++ ":" ++ integer_to_list(Port), 
+    Args = ["s_client", "-connect", ssl_test_lib:hostname_format(Hostname) ++
+                ":" ++ integer_to_list(Port),
             "-ssl3", "-msg"],
 
-    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),  
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
 
-    ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
+    ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]),
     ssl_test_lib:consume_port_exit(OpenSslPort),
     ssl_test_lib:check_server_alert(Server, protocol_version),
     process_flag(trap_exit, false).
@@ -239,8 +211,7 @@ erlang_server_reject_sslv3(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 server_sent_garbage(Socket) ->
-    receive 
+    receive
 	server_sent_garbage ->
 	    {error, closed} == ssl:send(Socket, "data")
-	    
     end.
