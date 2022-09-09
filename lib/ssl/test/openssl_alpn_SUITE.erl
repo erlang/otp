@@ -474,11 +474,23 @@ erlang_server_alpn_npn_openssl_client_alpn_npn(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
-check_openssl_alpn_support(Config) ->
-    HelpText = ssl_test_lib:portable_cmd("openssl", ["s_client --help"]),
-    case string:str(HelpText, "alpn") of
-        0 ->
-            {skip, "Openssl not compiled with alpn support"};
+check_openssl_alpn_support(_Config) ->
+    case ssl_test_lib:portable_cmd("openssl", ["version"]) of
+        "OpenSSL 1.0."  ++ _ = Str->
+            SubStr = Str -- "OpenSSL 1.0.",
+            atleast(SubStr, 2) andalso (not ssl_test_lib:is_fips(openssl));
+        "OpenSSL 1.1" ++ _ ->
+            not ssl_test_lib:is_fips(openssl);
+        "OpenSSL 3" ++ _ ->
+            not ssl_test_lib:is_fips(openssl);
+        "LibreSSL 2.0" ++ _ ->
+            false;
+        "LibreSSL 2.1." ++ _ = Str ->
+            SubStr = Str -- "LibreSSL 2.1.",
+            atleast(SubStr, 3);
         _ ->
-            Config
+            false
     end.
+
+atleast([StrNum|_], Num) ->
+    list_to_integer([StrNum]) >= Num.

@@ -198,6 +198,7 @@
          openssl_allows_server_renegotiate/1,
          openssl_maxfraglen_support/0,
          is_sane_oppenssl_pss/1,
+         is_fips/1,
          consume_port_exit/1,
          is_sane_oppenssl_client/0,
          openssl_sane_dtls_session_reuse/0,
