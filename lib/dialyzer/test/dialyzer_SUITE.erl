@@ -22,7 +22,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+-define(default_timeout, ?t:minutes(10)).
 -define(application, dialyzer).
 
 %% Test server specific exports
@@ -31,12 +31,12 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
--export([app_test/1, appup_test/1]).
+-export([app_test/1, appup_test/1, file_list/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [app_test, appup_test].
+    [app_test, appup_test, file_list].
 
 groups() ->
     [].
@@ -55,7 +55,7 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
@@ -76,3 +76,56 @@ app_test(Config) when is_list(Config) ->
 %% Test that the .appup file does not contain any `basic' errors
 appup_test(Config) when is_list(Config) ->
     ok = ?t:appup_test(dialyzer).
+
+file_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    case dialyzer_common:check_plt(PrivDir) of
+        fail -> ct:fail("Plt creation/check failed");
+        ok -> ok
+    end,
+
+    Files = generate_modules(PrivDir, 26),
+    ListFile = filename:join(PrivDir, "list_of_files"),
+    ok = file:write_file(ListFile, [lists:join("\n", Files), "\n"]),
+
+    Expected = expected(Files),
+    ExpectedFile = filename:join(PrivDir, "expected"),
+    ok = file:write_file(ExpectedFile, Expected),
+
+    Plt = dialyzer_common:plt_file(PrivDir),
+    Result = os:cmd("dialyzer --plt " ++ Plt ++ " -q --src --input_list_file " ++ ListFile),
+    ResultFile = filename:join(PrivDir, "result"),
+    ok = file:write_file(ResultFile, Result),
+
+    case file_utils:diff(ResultFile, ExpectedFile) of
+        same ->
+            ok;
+        Diff ->
+            io:format("~p\n", [Diff]),
+            ct:fail(unexpected_result)
+    end.
+
+generate_modules(_Dir, 0) ->
+    [];
+generate_modules(Dir, N) ->
+    Name = "module_" ++ integer_to_list(N),
+    File = filename:join(Dir, Name ++ ".erl"),
+    Code = <<"-module(",(list_to_binary(Name))/binary,").\n",
+             "-export([main/1]).\n",
+             "main(L) ->\n",
+             "  case list_to_atom(L) of\n",
+             "    Atom when is_atom(Atom) -> {ok,Atom};\n",
+             "    _ -> error\n",
+             "  end.\n"
+           >>,
+    ok = file:write_file(File, Code),
+    [File|generate_modules(Dir, N - 1)].
+
+expected(Files0) ->
+    Files = lists:sort(Files0),
+    S = "\n" ++
+        [filename:basename(F) ++
+             ":6: The variable _ can never match since previous clauses completely covered the type \n"
+         "          atom()\n" || F <- Files],
+    iolist_to_binary(S).
