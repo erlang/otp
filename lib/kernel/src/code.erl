@@ -885,8 +885,11 @@ get_doc_chunk(Filename, Mod) when is_atom(Mod) ->
             {ok,binary_to_term(Bin)}
     end;
 get_doc_chunk(Filename, Mod) ->
+    RootDir = code:root_dir(),
     case filename:dirname(Filename) of
         Filename ->
+            {error,missing};
+        RootDir ->
             {error,missing};
         Dir ->
             ChunkFile = filename:join([Dir,"doc","chunks",Mod ++ ".chunk"]),
