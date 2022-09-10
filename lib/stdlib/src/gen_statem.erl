@@ -445,7 +445,7 @@ timeout_event_type(Type) ->
         {callback_mode = state_functions :: callback_mode(),
          state_enter = false :: boolean(),
          parent :: pid(),
-         modules = [] :: [module()],
+         modules = [?MODULE] :: nonempty_list(module()),
          name :: atom() | pid(),
          hibernate_after = infinity :: timeout()
         }).
