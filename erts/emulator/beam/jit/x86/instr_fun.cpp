@@ -242,7 +242,7 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
             a.cmp(ARG1d, imm(NIL));
             a.short_().je(finished);
 
-            a.test(ARG1d, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
+            a.test(ARG1.r8(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
             a.short_().jne(malformed_list);
 
             emit_ptr_val(ARG1, ARG1);

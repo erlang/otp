@@ -1914,7 +1914,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             } else if (always_one_of(seg.size,
                                      BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
                 comment("simplified test for small size since it is a number");
-                a.test(ARG1d, imm(TAG_PRIMARY_LIST));
+                a.test(ARG1.r8(), imm(TAG_PRIMARY_LIST));
                 a.je(error);
             } else {
                 a.mov(RETd, ARG1d);
