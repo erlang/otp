@@ -393,25 +393,35 @@ state_enter(StateEnter) ->
             false
     end.
 %%
+-define(
+   timeout_event_type(Type),
+   case (Type) of
+       timeout -> true;
+       state_timeout -> true;
+       {timeout,_} -> true;
+       _ -> false
+   end).
+timeout_event_type(Type) ->
+    ?timeout_event_type(Type).
+%%
+-define(
+   from(From),
+   case (From) of
+       {_,_} when is_pid(element(1, (From))) -> true;
+       _ -> false
+   end).
+from(From) ->
+    ?from(From).
+%%
 event_type(Type) ->
     case Type of
-	{call,From} -> from(From);
+	{call,From} -> ?from(From);
         %%
 	cast -> true;
 	info -> true;
 	internal -> true;
-        _ -> timeout_event_type(Type)
-    end.
-%%
-from({Pid,_}) when is_pid(Pid) -> true;
-from(_) -> false.
-%%
-timeout_event_type(Type) ->
-    case Type of
-        timeout -> true;
-        state_timeout -> true;
-        {timeout,_Name} -> true;
-        _ -> false
+        %%
+        _ -> ?timeout_event_type(Type)
     end.
 
 
@@ -1121,25 +1131,24 @@ loop_event(
     %% and immediately was awakened.
     %%
     _ = garbage_collect(),
-    loop_event_handler(P, Debug, S, Event, Events);
-loop_event(P, Debug, S, Event, Events) ->
-    loop_event_handler(P, Debug, S, Event, Events).
-
-%% Call the state function, eventually
-%%
--compile({inline, [loop_event_handler/5]}).
-loop_event_handler(
-  P, Debug, #state{state_data = State_Data} = S, Event, Events) ->
     %%
     %% The field 'hibernate' in S is now invalid and will be
     %% restored when looping back to loop/3 or loop_event/5.
     %%
     Q = [Event|Events],
-    loop_state_callback(P, Debug, S, Q, State_Data, Event).
+    loop_state_callback(P, Debug, S, Q, S#state.state_data, Event);
+loop_event(P, Debug, S, Event, Events) ->
+    %%
+    %% The field 'hibernate' in S is now invalid and will be
+    %% restored when looping back to loop/3 or loop_event/5.
+    %%
+    Q = [Event|Events],
+    loop_state_callback(P, Debug, S, Q, S#state.state_data, Event).
 
 %% Make a state enter call to the state function, we loop back here
 %% from further down if state enter calls are enabled
 %%
+-compile({inline, [loop_state_enter/9]}).
 loop_state_enter(
   P, Debug, #state{state_data = {PrevState,_PrevData}} = S,
   Q, NextState_NewData,
@@ -1156,6 +1165,7 @@ loop_state_enter(
 %% since we should not call a state callback, but initialize
 %% loop variables in the same way; compare to
 %% loop_state_callback/6 just below
+-compile({inline, [loop_enter/6]}).
 loop_enter(P, Debug, S, Q, State_Data, Actions) ->
     NextEventsR = [],
     Hibernate = false,
@@ -1170,6 +1180,7 @@ loop_enter(P, Debug, S, Q, State_Data, Actions) ->
 
 %% Make a state call (not state enter call) to the state function
 %%
+-compile({inline, [loop_state_callback/6]}).
 loop_state_callback(P, Debug, S, Q, State_Data, CallbackEvent) ->
     NextEventsR = [],
     Hibernate = false,
@@ -1371,7 +1382,6 @@ loop_actions(
       CallEnter, StateCall, listify(Actions)).
 %%
 %% Shortcut for no actions
--compile({inline, [loop_actions/10]}).
 loop_actions(
   P, Debug, S, Q, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postpone,
@@ -1723,41 +1733,46 @@ loop_actions_next_event(
     case event_type(Type) of
         true when StateCall ->
             NextEvent = {Type,Content},
-            case Debug of
-                ?not_sys_debug ->
+            if
+                Debug =:= ?not_sys_debug ->
                     loop_actions_list(
                       P, Debug, S, Q, NextState_NewData,
                       [NextEvent|NextEventsR],
                       Hibernate, TimeoutsR, Postpone,
                       CallEnter, StateCall, Actions);
-                _ ->
+                true ->
                     Name = P#params.name,
                     {NextState,_NewData} = NextState_NewData,
-                    Debug_1 =
-                        sys_debug(
-                          Debug, Name, {in,{Type,Content},NextState}),
+                    Debug_1 = sys_debug(Debug, Name, {in,NextEvent,NextState}),
                     loop_actions_list(
                       P, Debug_1, S, Q, NextState_NewData,
                       [NextEvent|NextEventsR],
                       Hibernate, TimeoutsR, Postpone,
                       CallEnter, StateCall, Actions)
-              end;
+            end;
         _ ->
-            terminate(
-              error,
-              {if
-                   StateCall ->
-                       bad_action_from_state_function;
-                   true ->
-                       bad_state_enter_action_from_state_function
-               end,
-               {next_event,Type,Content}},
-              ?STACKTRACE(), P, Debug,
-              S#state{
-                state_data = NextState_NewData,
-                hibernate = Hibernate},
-              Q)
+            loop_actions_next_event_bad(
+              P, Debug, S, Q, NextState_NewData,
+              StateCall, Hibernate, Type, Content)
     end.
+
+loop_actions_next_event_bad(
+  P, Debug, S, Q, NextState_NewData,
+  StateCall, Hibernate, Type, Content) ->
+    terminate(
+      error,
+      {case StateCall of
+           true ->
+               bad_action_from_state_function;
+           false ->
+               bad_state_enter_action_from_state_function
+       end,
+       {next_event,Type,Content}},
+      ?STACKTRACE(), P, Debug,
+      S#state{
+        state_data = NextState_NewData,
+        hibernate = Hibernate},
+      Q).
 
 %% Do the state transition
 %%
