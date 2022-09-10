@@ -711,8 +711,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
         } else if (always_one_of(LHS, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
             comment("simplified test for small dividend since it is an "
                     "integer");
-            a.mov(ARG2d, x86::eax);
-            a.test(ARG2d, imm(TAG_PRIMARY_LIST));
+            a.test(x86::al, imm(TAG_PRIMARY_LIST));
             a.short_().je(generic_div);
         } else {
             comment("testing for a small dividend");
