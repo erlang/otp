@@ -182,23 +182,24 @@ void BeamModuleAssembler::emit_return_trace() {
     emit_return();
 }
 
-void BeamModuleAssembler::emit_i_return_time_trace() {
+void BeamModuleAssembler::emit_i_call_trace_return() {
     /* Pass prev_info if present (is a CP), otherwise null. */
     a.mov(ARG2, getYRef(0));
-    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
 
     a.test(ARG2, imm(_CPMASK));
     a.lea(ARG2, x86::qword_ptr(ARG2, -(Sint)sizeof(ErtsCodeInfo)));
-    a.cmovnz(ARG2, ARG3);
+    a.cmovnz(ARG2, ARG4);
+    a.mov(ARG3, getYRef(1));
 
     emit_enter_runtime<Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_trace_time_return);
+    runtime_call<3>(erts_call_trace_return);
 
     emit_leave_runtime<Update::eStack | Update::eHeap>();
 
-    emit_deallocate(ArgWord(1));
+    emit_deallocate(ArgWord(2));
     emit_return();
 }
 

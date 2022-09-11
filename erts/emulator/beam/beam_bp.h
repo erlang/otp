@@ -26,28 +26,36 @@
 #include "erl_vm.h"
 #include "global.h"
 
+/* Use the same signed long long for both call_time and call_memory.
+* There is not much value in future-proofing until there is a need
+* to support anything other than a simple 8-byte number. When such
+* a use-case is identified, this type could be turned into a union.
+*/
+typedef ErtsMonotonicTime BpDataAccumulator;
+
 typedef struct {
     Eterm pid;
     Sint  count;
-    ErtsMonotonicTime time;
-} bp_data_time_item_t;
+    BpDataAccumulator accumulator;
+} bp_data_trace_item_t;
 
 typedef struct {
     Uint n;
     Uint used;
-    bp_data_time_item_t *item;
-} bp_time_hash_t;
+    bp_data_trace_item_t *item;
+} bp_trace_hash_t;
 
-typedef struct bp_data_time {     /* Call time */
+typedef struct bp_data_time {     /* Call time, Memory trace */
     Uint n;
-    bp_time_hash_t *hash;
+    bp_trace_hash_t *hash;
     erts_refc_t refc;
-} BpDataTime;
+} BpDataCallTrace;
 
 typedef struct {
     const ErtsCodeInfo *ci;
-    ErtsMonotonicTime time;
-} process_breakpoint_time_t; /* used within psd */
+    BpDataAccumulator accumulator;
+    BpDataAccumulator allocated;        /* adjustment for GC and messages on the heap */
+} process_breakpoint_trace_t; /* used within psd */
 
 typedef struct {
     erts_atomic_t acount;
@@ -65,7 +73,8 @@ typedef struct generic_bp_data {
     Binary* meta_ms;		/* Match spec for meta trace */
     BpMetaTracer* meta_tracer;	/* Meta tracer */
     BpCount* count;		/* For call count */
-    BpDataTime* time;		/* For time trace */
+    BpDataCallTrace* time;	/* For time trace */
+    BpDataCallTrace* memory;	/* For memory trace */
 } GenericBpData;
 
 #define ERTS_NUM_BP_IX 2
@@ -150,15 +159,16 @@ int erts_is_mtrace_break(const ErtsCodeInfo *ci, Binary **match_spec_ret,
 			 ErtsTracer *tracer_ret);
 
 int erts_is_count_break(const ErtsCodeInfo *ci, Uint *count_ret);
-int erts_is_time_break(Process *p, const ErtsCodeInfo *ci, Eterm *call_time);
+int erts_is_call_break(Process *p, int is_time, const ErtsCodeInfo *ci, Eterm *call_time);
 
-const ErtsCodeInfo* erts_trace_time_call(Process* c_p,
-                                         const ErtsCodeInfo *ci,
-                                         BpDataTime* bdt);
-void erts_trace_time_return(Process* c_p, const ErtsCodeInfo *ci);
+void erts_call_trace_return(Process* c_p, const ErtsCodeInfo *ci, Eterm bp_flags_term);
 void erts_schedule_time_break(Process *p, Uint out);
+ERTS_GLB_INLINE void erts_adjust_memory_break(Process *p, Sint adjustment);
+ERTS_GLB_INLINE void erts_adjust_message_break(Process *p, Eterm message);
 void erts_set_time_break(BpFunctions *f, enum erts_break_op);
+void erts_set_memory_break(BpFunctions *f, enum erts_break_op);
 void erts_clear_time_break(BpFunctions *f);
+void erts_clear_memory_break(BpFunctions *f);
 
 const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 
@@ -176,6 +186,23 @@ ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void)
 {
     return erts_atomic32_read_nob(&erts_staging_bp_index);
 }
+
+ERTS_GLB_INLINE
+void erts_adjust_memory_break(Process *p, Sint adjustment)
+{
+    process_breakpoint_trace_t * pbt = ERTS_PROC_GET_CALL_MEMORY(p);
+    if (pbt)
+        pbt->allocated += adjustment;
+}
+
+ERTS_GLB_INLINE
+void erts_adjust_message_break(Process *p, Eterm message)
+{
+    process_breakpoint_trace_t * pbt = ERTS_PROC_GET_CALL_MEMORY(p);
+    if (pbt)
+        pbt->allocated += size_object(message);
+}
+
 #endif
 
 #endif /* _BEAM_BP_H */

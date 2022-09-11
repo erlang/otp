@@ -172,6 +172,7 @@ struct trace_pattern_flags {
     unsigned int meta       : 1; /* Metadata trace breakpoint */
     unsigned int call_count : 1; /* Fast call count breakpoint */
     unsigned int call_time  : 1; /* Fast call time breakpoint */
+    unsigned int call_memory: 1; /* Fast memory tracing breakpoint */
 };
 extern const struct trace_pattern_flags erts_trace_pattern_flags_off;
 extern int erts_call_time_breakpoint_tracing;

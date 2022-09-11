@@ -79,7 +79,7 @@ nif_start
 
 i_generic_breakpoint
 i_debug_breakpoint
-i_return_time_trace
+i_call_trace_return
 i_return_to_trace
 trace_jump W
 i_yield

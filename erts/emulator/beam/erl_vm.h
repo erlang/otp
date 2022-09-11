@@ -298,8 +298,8 @@ extern void** beam_ops;
 
 #ifndef BEAMASM
 
-#define BeamIsReturnTimeTrace(w) \
-    BeamIsOpCode(*(const BeamInstr*)(w), op_i_return_time_trace)
+#define BeamIsReturnCallAccTrace(w) \
+    BeamIsOpCode(*(const BeamInstr*)(w), op_i_call_trace_return)
 #define BeamIsReturnToTrace(w) \
     BeamIsOpCode(*(const BeamInstr*)(w), op_i_return_to_trace)
 #define BeamIsReturnTrace(w) \
@@ -307,8 +307,8 @@ extern void** beam_ops;
 
 #else /* BEAMASM */
 
-#define BeamIsReturnTimeTrace(w) \
-    ((w) == beam_return_time_trace)
+#define BeamIsReturnCallAccTrace(w) \
+    ((w) == beam_call_trace_return)
 #define BeamIsReturnToTrace(w) \
     ((w) == beam_return_to_trace)
 #define BeamIsReturnTrace(w) \

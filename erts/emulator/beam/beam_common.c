@@ -416,8 +416,8 @@ ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) {
 
         if (BeamIsReturnTrace(return_address)) {
             scanner += CP_SIZE + 2;
-        } else if (BeamIsReturnTimeTrace(return_address)) {
-            scanner += CP_SIZE + 1;
+        } else if (BeamIsReturnCallAccTrace(return_address)) {
+            scanner += CP_SIZE + 2;
         } else if (BeamIsReturnToTrace(return_address)) {
             scanner += CP_SIZE;
         } else {
@@ -624,8 +624,8 @@ next_catch(Process* c_p, Eterm *reg) {
                 }
 
                 ptr += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_address)) {
-                ptr += CP_SIZE + 1;
+            } else if (BeamIsReturnCallAccTrace(return_address)) {
+                ptr += CP_SIZE + 2;
             } else if (BeamIsReturnToTrace(return_address)) {
                 have_return_to_trace = 1; /* Record next cp */
                 return_to_trace_address = NULL;
@@ -802,8 +802,8 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
 
             if (BeamIsReturnTrace(return_address)) {
                 ptr += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_address)) {
-                ptr += CP_SIZE + 1;
+            } else if (BeamIsReturnCallAccTrace(return_address)) {
+                ptr += CP_SIZE + 2;
             } else if (BeamIsReturnToTrace(return_address)) {
                 ptr += CP_SIZE;
             } else {

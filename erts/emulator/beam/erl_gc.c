@@ -41,6 +41,7 @@
 #include "erl_nfunc_sched.h"
 #include "erl_proc_sig_queue.h"
 #include "beam_common.h"
+#include "beam_bp.h"
 
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE 20
@@ -551,6 +552,7 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
 	    }
 	}
 	p->abandoned_heap = orig_heap;
+        erts_adjust_memory_break(p, orig_htop - p->high_water);
     }
 
 #ifdef CHECK_FOR_HOLES
@@ -736,6 +738,12 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
         dtrace_proc_str(p, pidbuf);
     }
 #endif
+
+    if (p->abandoned_heap)
+        erts_adjust_memory_break(p, p->htop - p->heap + p->mbuf_sz);
+    else
+        erts_adjust_memory_break(p, p->htop - p->high_water + p->mbuf_sz);
+
     /*
      * Test which type of GC to do.
      */
@@ -3824,9 +3832,9 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
         ASSERT_MFA((ErtsCodeMFA*)cp_val(scanner[0]));
         ASSERT(IS_TRACER_VALID(scanner[1]));
         scanner += 2;
-    } else if (BeamIsReturnTimeTrace(p->i)) {
+    } else if (BeamIsReturnCallAccTrace(p->i)) {
         /* Skip prev_info. */
-        scanner += 1;
+        scanner += 2;
     }
 
     while (next_fp) {
@@ -3849,9 +3857,9 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
             ASSERT_MFA((ErtsCodeMFA*)cp_val(scanner[2]));
             ASSERT(IS_TRACER_VALID(scanner[3]));
             scanner += 2;
-        } else if (BeamIsReturnTimeTrace((ErtsCodePtr)scanner[1])) {
+        } else if (BeamIsReturnCallAccTrace((ErtsCodePtr)scanner[1])) {
             /* Skip prev_info. */
-            scanner += 1;
+            scanner += 2;
         }
 
         scanner += CP_SIZE;

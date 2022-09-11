@@ -138,9 +138,9 @@ ErtsCodePtr beam_return_trace;
 static BeamInstr beam_exception_trace_[1];
 ErtsCodePtr beam_exception_trace;
 
-/* OpCode(i_return_time_trace) */
-static BeamInstr beam_return_time_trace_[1];
-ErtsCodePtr beam_return_time_trace;
+/* OpCode(i_call_trace_return) */
+static BeamInstr beam_call_trace_return_[1];
+ErtsCodePtr beam_call_trace_return;
 
 /* The address field of every fun that has no loaded code will point to
  * beam_unloaded_fun[]. The -1 in beam_unloaded_fun[0] will be interpreted
@@ -696,8 +696,8 @@ init_emulator_finish(void)
     beam_exception_trace_[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
     beam_exception_trace = (ErtsCodePtr)&beam_exception_trace_[0];
 
-    beam_return_time_trace_[0] = BeamOpCodeAddr(op_i_return_time_trace);
-    beam_return_time_trace = (ErtsCodePtr)&beam_return_time_trace_[0];
+    beam_call_trace_return_[0] = BeamOpCodeAddr(op_i_call_trace_return);
+    beam_call_trace_return = (ErtsCodePtr)&beam_call_trace_return_[0];
 
     install_bifs();
 }
