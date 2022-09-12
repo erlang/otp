@@ -2102,10 +2102,10 @@ validate_option(cacertfile, undefined, _) ->
    <<>>;
 validate_option(cacertfile, Value, _)
   when is_binary(Value) ->
-    Value;
+    unambiguous_path(Value);
 validate_option(cacertfile, Value, _)
   when is_list(Value), Value =/= ""->
-    binary_filename(Value);
+    binary_filename(unambiguous_path(Value));
 validate_option(cacerts, Value, _)
   when Value == undefined;
        is_list(Value) ->
@@ -2579,7 +2579,7 @@ dtls_validate_versions([Version | Rest], Versions) when  Version == 'dtlsv1';
 dtls_validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).
 
-%% The option cacerts overrides cacertsfile
+%% The option cacerts overrides cacertfile
 ca_cert_default(_,_, [_|_]) ->
     undefined;
 ca_cert_default(verify_none, _, _) ->
@@ -2878,3 +2878,12 @@ maybe_client_warn_no_verify(#{verify := verify_none,
 maybe_client_warn_no_verify(_,_) ->
     %% Warning not needed. Note client certificate validation is optional in TLS
     ok.
+
+unambiguous_path(Value) ->
+    AbsName = filename:absname(Value),
+    case file:read_link(AbsName) of
+        {ok, PathWithNoLink} ->
+            PathWithNoLink;
+        _ ->
+            AbsName
+    end.
