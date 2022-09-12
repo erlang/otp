@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -92,7 +92,10 @@ init_per_group(GroupName, Config)
        GroupName =:= sys_handle_event ->
     [{callback_mode,handle_event_function}|Config];
 init_per_group(undef_callbacks, Config) ->
-    compile_oc_statem(Config),
+    try compile_oc_statem(Config)
+    catch Class : Reason : Stacktrace ->
+             {fail,{Class,Reason,Stacktrace}}
+    end,
     Config;
 init_per_group(sys, Config) ->
     compile_format_status_statem(Config),
@@ -1929,12 +1932,14 @@ pop_too_many(_Config) ->
     Machine =
 	#{init =>
 	      fun () ->
-		      {ok,start,undefined}
+		      {ok,state_1,undefined}
 	      end,
-	  start =>
-	      fun ({call, From}, {change_callback_module, _Module} = Action,
-                   undefined = _Data) ->
-		      {keep_state_and_data,
+	  state_1 =>
+	      fun (enter, state_2, undefined) ->
+                      {keep_state, enter}; % OTP-18239, should not be called
+                  ({call, From}, {change_callback_module, _Module} = Action,
+                   undefined = Data) ->
+                      {next_state, state_2, Data,
                        [Action,
                         {reply,From,ok}]};
                   ({call, From}, {verify, ?MODULE},
@@ -1942,8 +1947,8 @@ pop_too_many(_Config) ->
 		      {keep_state_and_data,
                        [{reply,From,ok}]};
                   ({call, From}, pop_callback_module = Action,
-                   undefined = _Data) ->
-		      {keep_state_and_data,
+                   undefined = Data) ->
+                      {next_state, state_2, Data,
                        [Action,
                         {reply,From,ok}]}
 	      end},
@@ -1953,10 +1958,11 @@ pop_too_many(_Config) ->
           {map_statem, Machine, []},
           [{debug, [trace]}]),
 
-    ok = gen_statem:call(STM, {change_callback_module, oc_statem}),
-    ok = gen_statem:call(STM, {push_callback_module, ?MODULE}),
-    ok = gen_statem:call(STM, {verify, ?MODULE}),
-    ok = gen_statem:call(STM, pop_callback_module),
+    ok    = gen_statem:call(STM, {change_callback_module, oc_statem}),
+    enter = gen_statem:call(STM, get_data), % OTP-18239
+    ok    = gen_statem:call(STM, {push_callback_module, ?MODULE}),
+    ok    = gen_statem:call(STM, {verify, ?MODULE}),
+    ok    = gen_statem:call(STM, pop_callback_module),
     BadAction = {bad_action_from_state_function, pop_callback_module},
     {{BadAction, _},
      {gen_statem,call,[STM,pop_callback_module,infinity]}} =
