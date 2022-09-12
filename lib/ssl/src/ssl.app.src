@@ -2,7 +2,7 @@
    [{description, "Erlang/OTP SSL application"},
     {vsn, "%VSN%"},
     {modules, [
-	       %% TLS/SSL 
+	       %% TLS/SSL
 	       tls_connection,
 	       tls_connection_1_3,
 	       tls_handshake,
@@ -34,7 +34,7 @@
                dtls_server_sup,
                dtls_server_session_cache_sup,
 	       %% API
-	       ssl,  %% Main API		  
+	       ssl,  %% Main API
 	       ssl_session_cache_api,
 	       %% Both TLS/SSL and DTLS
                tls_dtls_connection,
@@ -46,7 +46,7 @@
                ssl_cipher_format,
 	       ssl_srp_primes,
 	       ssl_alert,
-	       ssl_listen_tracker_sup, %% may be used by DTLS over SCTP	
+	       ssl_listen_tracker_sup, %% may be used by DTLS over SCTP
 	       tls_bloom_filter,
 	       tls_client_ticket_store,
 	       %% Erlang Distribution over SSL/TLS
@@ -55,8 +55,8 @@
 	       ssl_dist_sup,
                ssl_dist_connection_sup,
                ssl_dist_admin_sup,
-               tls_dist_sup,  
-               tls_dist_server_sup,               
+               tls_dist_sup,
+               tls_dist_server_sup,
 	       %% SSL/TLS session and cert handling
 	       ssl_session,
                ssl_client_session_cache_db,
@@ -70,7 +70,7 @@
 	       ssl_certificate,
 	       %% CRL handling
 	       ssl_crl,
-	       ssl_crl_cache, 
+	       ssl_crl_cache,
 	       ssl_crl_cache_api,
 	       ssl_crl_hash_dir,
 	       %% Logging
@@ -85,6 +85,6 @@
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}},
-    {runtime_dependencies, ["stdlib-3.12","public_key-1.11.3","kernel-8.4",
+    {runtime_dependencies, ["stdlib-4.1","public_key-1.11.3","kernel-8.4",
                             "erts-10.0","crypto-5.0", "inets-5.10.7",
                             "runtime_tools-1.15.1"]}]}.
