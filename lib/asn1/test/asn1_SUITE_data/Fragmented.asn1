@@ -21,4 +21,13 @@ PDU ::= SEQUENCE {
   arg FUNCTION.&ArgumentType ({ObjSet}{@code})
 }
 
+IntBoolSeqs ::= SEQUENCE (SIZE (1..65536)) OF IntBoolSeq
+
+IntBoolSeqsU ::= SEQUENCE OF IntBoolSeq
+
+IntBoolSeq ::= SEQUENCE {
+  a INTEGER,
+  b BOOLEAN
+}
+
 END
