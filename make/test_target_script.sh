@@ -291,6 +291,8 @@ then
     exit 1
 fi
 
+CT_NODENAME=${CT_NODENAME:-test_server}
+
 if [ "${WSLcross}" != "true" ]
 then
     if [ -n "${CTRUN_TIMEOUT}" ]; then
@@ -311,7 +313,7 @@ then
         -pz "."\
         -ct_test_vars "{net_dir,\"\"}"\
         -noshell\
-        -sname test_server\
+        -sname ${CT_NODENAME}\
         -rsh ssh\
         ${ERL_ARGS}
 else
@@ -332,7 +334,7 @@ else
         -pz "."\
         -ct_test_vars "{net_dir,\"\"}"\
         -noshell\
-        -sname test_server\
+        -sname ${CT_NODENAME}\
         -rsh ssh\
         ${ERL_ARGS}
 fi
