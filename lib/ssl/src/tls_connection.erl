@@ -225,25 +225,13 @@ hello(internal, #server_hello{extensions = Extensions},
              start_or_recv_from = From} = State) ->
     {next_state, user_hello,
      State#state{start_or_recv_from = undefined}, [{postpone, true}, {reply, From, {ok, Extensions}}]};
-hello(internal, #client_hello{client_version = ClientVersion, session_id = Id} = Hello,
-      #state{static_env = #static_env{role = server}, connection_env = CEnv,
-             protocol_specific = PS} = State0) ->
+hello(internal, #client_hello{client_version = ClientVersion} = Hello,
+      #state{static_env = #static_env{role = server}, connection_env = CEnv} = State0) ->
     try
         #state{ssl_options = SslOpts} = State1 = tls_dtls_connection:handle_sni_extension(State0, Hello),
         case choose_tls_fsm(SslOpts, Hello) of
             tls_1_3_fsm ->
-                %% Continue in TLS 1.3 'start' state
-                %% Set 'change_cipher_spec' to fail | ignore, to workaround that enter state function
-                %% of the start state is currently not run upon the change of callback module.
-                %% This due to a bug in handling a change from a state machine without state enter
-                %% events to one with. Remove when bug is fixed!
-                MiddleBoxHandling = case Id of
-                                        ?EMPTY_ID ->
-                                            fail;
-                                        _ ->
-                                            ignore
-                                    end,
-                {next_state, start, State1#state{protocol_specific = PS#{change_cipher_spec => MiddleBoxHandling}},
+                {next_state, start, State1,
                  [{change_callback_module, tls_connection_1_3}, {next_event, internal, Hello}]};
             tls_1_0_to_1_2_fsm ->
                 {ServerHelloExt, Type, State} = handle_client_hello(Hello, State1),
