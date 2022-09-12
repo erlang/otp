@@ -386,7 +386,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_3des_ede_cbc;
                                          TestCase == ecdh_anon_3des_ede_cbc;
                                          TestCase == ecdhe_ecdsa_3des_ede_cbc ->
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
-    case lists:member(des_ede3, SupCiphers) of
+    case lists:member(des_ede3_cbc, SupCiphers) of
         true ->
             ct:timetrap(?TIMEOUT),
             Config;
