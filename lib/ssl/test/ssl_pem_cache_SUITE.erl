@@ -388,24 +388,28 @@ alternative_path_hardlink(Config) when is_list(Config) ->
     alternative_path_helper(Config, fun make_hardlink/1, Expected).
 
 alternative_path_symlink() ->
-    [{doc,"Test that internal reference table contains expected data for"
-      " absolute and symbolic link. "
-      "This test verifies handling of same file with an alternative reference."}].
-%% see alternative_path_hardlink for specification
+    [{doc,"Test that internal reference table contains only one instance of data "
+      "for absolute path and symbolic link pointing to same file."
+      "This test verifies handling of same file with an alternative reference."
+      "Symlink is expected to be converted to absolute file path - "
+      "as a result establishing 2nd connection should not add new data to tables."}].
+%% see alternative_path_hardlink for detailed specification
 alternative_path_symlink(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
-                 connected2 => [7, 9, 3, 3], connected3 => [8, 12, 4, 4],
-                 disconnected => [8, 0, 0, 0]},
+                 connected2 => [6, 6, 2, 2], connected3 => [7, 9, 3, 3],
+                 disconnected => [7, 0, 0, 0]},
     alternative_path_helper(Config, fun make_symlink/1, Expected).
 
 alternative_path_noabspath() ->
-    [{doc,"Test that internal reference table contains expected data for"
-      " absolute and relative paths. "
-      "This test verifies handling of same file with an alternative reference."}].
-%% see alternative_path_hardlink for specification
+    [{doc,"Test that internal reference table contains only one instance of data "
+      "for absolute and relative paths pointing to same file. "
+      "This test verifies handling of same file with an alternative reference."
+      "Relative file path is expected to be converted to absolute file path  - "
+      "as a result establishing 2nd connection should not add new data to tables."}].
+%% see alternative_path_hardlink for detailed specification
 alternative_path_noabspath(Config) when is_list(Config) ->
     Expected = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
-                 connected2 => [7, 9, 3, 3], connected3 => [7, 9, 3, 3],
+                 connected2 => [6, 6, 2, 2], connected3 => [7, 9, 3, 3],
                  disconnected => [7, 0, 0, 0]},
     alternative_path_helper(Config, fun strip_path/1, Expected).
 
