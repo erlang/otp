@@ -1912,7 +1912,7 @@ do_unlock() ->
       to implicitly postpone any events to the <c>locked</c> state.
     </p>
     <p>
-      A receive all should never be used from a <c>gen_statem</c>
+      A catch-all receive should never be used from a <c>gen_statem</c>
       behaviour (or from any <c>gen_*</c> behaviour),
       as the receive statement is within the <c>gen_*</c> engine itself.
       Using a receive with a catch all match may result in system messages
