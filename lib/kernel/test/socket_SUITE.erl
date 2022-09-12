@@ -674,7 +674,8 @@
          otp16359_maccept_tcp4/1,
          otp16359_maccept_tcp6/1,
          otp16359_maccept_tcpL/1,
-         otp18240_accept_mon_leak_tcp4/1
+         otp18240_accept_mon_leak_tcp4/1,
+         otp18240_accept_mon_leak_tcp6/1
         ]).
 
 
@@ -857,7 +858,8 @@ groups() ->
 
      %% Ticket groups
      {tickets,                     [], tickets_cases()},
-     {otp16359,                    [], otp16359_cases()}
+     {otp16359,                    [], otp16359_cases()},
+     {otp18240,                    [], otp18240_cases()}
     ].
      
 api_cases() ->
@@ -2035,7 +2037,7 @@ ttest_ssockt_csockt_cases() ->
 tickets_cases() ->
     [
      {group, otp16359},
-     otp18240_accept_mon_leak_tcp4
+     {group, otp18240}
     ].
 
 otp16359_cases() ->
@@ -2043,6 +2045,13 @@ otp16359_cases() ->
      otp16359_maccept_tcp4,
      otp16359_maccept_tcp6,
      otp16359_maccept_tcpL
+    ].
+
+
+otp18240_cases() ->
+    [
+     otp18240_accept_mon_leak_tcp4,
+     otp18240_accept_mon_leak_tcp6
     ].
 
 
@@ -47731,6 +47740,21 @@ otp18240_accept_mon_leak_tcp4(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% This test case is to verify that we do not leak monitors.
+otp18240_accept_mon_leak_tcp6(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain    => inet6,
+                                 protocol  => tcp,
+                                 num_socks => 10},
+                   ok = otp18240_accept_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 otp18240_accept_tcp(#{domain    := Domain,
                       protocol  := Proto,
                       num_socks := NumSocks}) ->
@@ -47762,7 +47786,7 @@ otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
     MonitoredBy0 = monitored_by(),
     {ok, LSock}  = socket:open(Domain, stream, Proto,
                                #{use_registry => false}),
-    ok = socket:bind(LSock, #{family => inet, port => 0, addr => any}),
+    ok = socket:bind(LSock, #{family => Domain, port => 0, addr => any}),
     ok = socket:listen(LSock),
     MonitoredBy1 = monitored_by(),
     [LSockMon] = MonitoredBy1 -- MonitoredBy0,
