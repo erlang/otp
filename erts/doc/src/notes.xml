@@ -760,6 +760,24 @@
 
 </section>
 
+<section><title>Erts 12.3.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix writing and reading of more than 2 GB in a single
+	    read/write operation on macOS. Before this fix attempting
+	    to read/write more than 2GB would result in
+	    <c>{error,einval}</c>.</p>
+          <p>
+	    Own Id: OTP-18222 Aux Id: PR-6248 GH-6242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
