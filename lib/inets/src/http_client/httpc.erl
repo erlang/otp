@@ -183,9 +183,8 @@
 default_profile() ->
     ?DEFAULT_PROFILE.
 
--spec profile_name(default) -> httpc_manager;
-                  (pid()) -> pid();
-                  (term()) -> pid() | atom().
+-spec profile_name(pid()) -> pid();
+                  (atom()) -> pid() | atom().
 profile_name(?DEFAULT_PROFILE) ->
     httpc_manager;
 profile_name(Profile) when is_pid(Profile) -> 
@@ -471,7 +470,7 @@ cancel_request(RequestId, Profile)
               | {ipfamily, IpFamily}
               | {ip, IpAddress}
               | {port, Port}
-              | {socket_opts, socket_opts()}
+              | {socket_opts, SocketOpts}
               | {verbose, VerboseMode}
               | {unix_socket, UnixSocket},
       Proxy :: {HostName, Port},
@@ -487,6 +486,7 @@ cancel_request(RequestId, Profile)
       IpAddressDesc :: http_string(),
       IpAddress :: ip_address(),
       VerboseMode :: false | verbose | debug | trace,
+      SocketOpts :: socket_opts(),
       UnixSocket :: path(),
       Reason :: term(),
       DomainDesc :: string(),
