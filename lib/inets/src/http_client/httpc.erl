@@ -183,6 +183,9 @@
 default_profile() ->
     ?DEFAULT_PROFILE.
 
+-spec profile_name(default) -> httpc_manager;
+                  (pid()) -> pid();
+                  (term()) -> pid() | atom().
 profile_name(?DEFAULT_PROFILE) ->
     httpc_manager;
 profile_name(Profile) when is_pid(Profile) -> 

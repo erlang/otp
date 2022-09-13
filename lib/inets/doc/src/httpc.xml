@@ -219,7 +219,7 @@
         A unique identifier as returned by
         <seemfa marker="#request/4"><c>request/4</c></seemfa>
       </type_desc>
-      <type name="Profile" />
+      <type name="profile_request" />
 	    <type_desc variable="Profile">
         When started <c>stand_alone</c> only the pid can be used.
       </type_desc>
