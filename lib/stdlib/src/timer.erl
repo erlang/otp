@@ -22,7 +22,8 @@
 -export([apply_after/4,
          send_after/3, send_after/2,
          exit_after/3, exit_after/2, kill_after/2, kill_after/1,
-         apply_interval/4, send_interval/3, send_interval/2,
+         apply_interval/4, apply_repeatedly/4,
+         send_interval/3, send_interval/2,
          cancel/1, sleep/1, tc/1, tc/2, tc/3, now_diff/2,
          seconds/1, minutes/1, hours/1, hms/3]).
 
@@ -61,7 +62,7 @@
                    Reason :: term().
 apply_after(0, M, F, A)
   when ?valid_mfa(M, F, A) ->
-    do_apply({M, F, A}),
+    _ = do_apply({M, F, A}, false),
     {ok, {instant, make_ref()}};
 apply_after(Time, M, F, A)
   when ?valid_time(Time),
@@ -158,6 +159,21 @@ apply_interval(Time, M, F, A)
        ?valid_mfa(M, F, A) ->
     req(apply_interval, {system_time(), Time, self(), {M, F, A}});
 apply_interval(_Time, _M, _F, _A) ->
+    {error, badarg}.
+
+-spec apply_repeatedly(Time, Module, Function, Arguments) ->
+          {'ok', TRef} | {'error', Reason}
+              when Time :: time(),
+                   Module :: module(),
+                   Function :: atom(),
+                   Arguments :: [term()],
+                   TRef :: tref(),
+                   Reason :: term().
+apply_repeatedly(Time, M, F, A)
+  when ?valid_time(Time),
+       ?valid_mfa(M, F, A) ->
+    req(apply_repeatedly, {system_time(), Time, self(), {M, F, A}});
+apply_repeatedly(_Time, _M, _F, _A) ->
     {error, badarg}.
 
 -spec send_interval(Time, Destination, Message) -> {'ok', TRef} | {'error', Reason}
@@ -399,15 +415,11 @@ handle_call({apply_once, {Started, Time, MFA}}, _From, Tab) ->
     {reply, Reply, Tab};
 %% Start an interval timer.
 handle_call({apply_interval, {Started, Time, Pid, MFA}}, _From, Tab) ->
-    Tag = make_ref(),
-    TimeServerPid = self(),
-    {TPid, TRef} = spawn_monitor(fun() ->
-        TimeServerRef = monitor(process, TimeServerPid),
-        TargetRef = monitor(process, Pid),
-        NextTimeout = Started + Time,
-        TimerRef = erlang:start_timer(NextTimeout, self(), {apply_interval, NextTimeout, Time, MFA}, [{abs, true}]),
-        _ = interval_loop(TimeServerRef, TargetRef, Tag, TimerRef)
-    end),
+    {TRef, TPid, Tag} = start_interval_loop(Started, Time, Pid, MFA, false),
+    ets:insert(Tab, {TRef, TPid, Tag}),
+    {reply, {ok, {interval, TRef}}, Tab};
+handle_call({apply_repeatedly, {Started, Time, Pid, MFA}}, _From, Tab) ->
+    {TRef, TPid, Tag} = start_interval_loop(Started, Time, Pid, MFA, true),
     ets:insert(Tab, {TRef, TPid, Tag}),
     {reply, {ok, {interval, TRef}}, Tab};
 %% Cancel a one-shot timer.
@@ -432,9 +444,9 @@ handle_call(_Req, _From, Tab) ->
               when Tab :: ets:tid().
 %% One-shot timer timeout.
 handle_info({timeout, TRef, {apply_once, MFA}}, Tab) ->
-    case ets:take(Tab, TRef) of
+    _ = case ets:take(Tab, TRef) of
         [{TRef}] ->
-            do_apply(MFA);
+            do_apply(MFA, false);
         [] ->
             ok
     end,
@@ -466,8 +478,8 @@ terminate(Reason, Tab) ->
                 TPid ! {cancel, Tag},
                 Acc
         end,
-	undefined,
-	Tab),
+        undefined,
+        Tab),
     true = ets:delete(Tab),
     terminate(Reason, undefined).
 
@@ -476,8 +488,19 @@ code_change(_OldVsn, Tab, _Extra) ->
     %% According to the man for gen server no timer can be set here.
     {ok, Tab}.
 
+start_interval_loop(Started, Time, TargetPid, MFA, WaitComplete) ->
+    Tag = make_ref(),
+    TimeServerPid = self(),
+    {TPid, TRef} = spawn_monitor(fun() ->
+        TimeServerRef = monitor(process, TimeServerPid),
+        TargetRef = monitor(process, TargetPid),
+        TimerRef = schedule_interval_timer(Started, Time, MFA),
+        _ = interval_loop(TimeServerRef, TargetRef, Tag, WaitComplete, TimerRef)
+    end),
+    {TRef, TPid, Tag}.
+
 %% Interval timer loop.
-interval_loop(TimerServerMon, TargetMon, Tag, TimerRef0) ->
+interval_loop(TimerServerMon, TargetMon, Tag, WaitComplete, TimerRef0) ->
     receive
         {cancel, Tag} ->
             ok = cancel_timer(TimerRef0);
@@ -486,16 +509,34 @@ interval_loop(TimerServerMon, TargetMon, Tag, TimerRef0) ->
         {'DOWN', TargetMon, process, _, _} ->
             ok = cancel_timer(TimerRef0);
         {timeout, TimerRef0, {apply_interval, CurTimeout, Time, MFA}} ->
-            do_apply(MFA),
-            NextTimeout = CurTimeout + Time,
-            TimerRef1 = case NextTimeout =< system_time() of
-                true ->
-                    self() ! {timeout, TimerRef0, {apply_interval, NextTimeout, Time, MFA}},
-                    TimerRef0;
-                false ->
-                    erlang:start_timer(NextTimeout, self(), {apply_interval, NextTimeout, Time, MFA}, [{abs, true}])
-            end,
-            interval_loop(TimerServerMon, TargetMon, Tag, TimerRef1)
+            case do_apply(MFA, WaitComplete) of
+                {ok, {spawn, ActionMon}} ->
+                    receive
+                        {cancel, Tag} ->
+                            ok;
+                        {'DOWN', TimerServerMon, process, _, _} ->
+                            ok;
+                        {'DOWN', TargetMon, process, _, _} ->
+                            ok;
+                        {'DOWN', ActionMon, process, _, _} ->
+                            TimerRef1 = schedule_interval_timer(CurTimeout, Time, MFA),
+                            interval_loop(TimerServerMon, TargetMon, Tag, WaitComplete, TimerRef1)
+                    end;
+                _ ->
+                    TimerRef1 = schedule_interval_timer(CurTimeout, Time, MFA),
+                    interval_loop(TimerServerMon, TargetMon, Tag, WaitComplete, TimerRef1)
+            end
+    end.
+
+schedule_interval_timer(CurTimeout, Time, MFA) ->
+    NextTimeout = CurTimeout + Time,
+    case NextTimeout =< system_time() of
+        true ->
+            TimerRef = make_ref(),
+            self() ! {timeout, TimerRef, {apply_interval, NextTimeout, Time, MFA}},
+            TimerRef;
+        false ->
+            erlang:start_timer(NextTimeout, self(), {apply_interval, NextTimeout, Time, MFA}, [{abs, true}])
     end.
 
 %% Remove a timer.
@@ -505,9 +546,7 @@ remove_timer(TRef, Tab) ->
             ok = cancel_timer(TRef),
             true;
         [{TRef, TPid, Tag}] -> % Interval timer.
-            Mon = monitor(process, TPid),
             TPid ! {cancel, Tag},
-            receive {'DOWN', Mon, process, _, _} -> ok end,
             true;
         [] -> % TimerReference does not exist, do nothing
             false
@@ -520,13 +559,27 @@ cancel_timer(TRef) ->
 %% Help functions
 
 %% If send op. send directly (faster than spawn)
-do_apply({?MODULE, send, A}) ->
-    catch send(A);
+do_apply({?MODULE, send, A}, _) ->
+    try send(A)
+    of _ -> {ok, send}
+    catch _:_ -> error
+    end;
 %% If exit op. resolve registered name
-do_apply({erlang, exit, [Name, Reason]}) ->
-    catch exit(get_pid(Name), Reason);
-do_apply({M,F,A}) ->
-    catch spawn(M, F, A).
+do_apply({erlang, exit, [Name, Reason]}, _) ->
+    try exit(get_pid(Name), Reason)
+    of _ -> {ok, exit}
+    catch _:_ -> error
+    end;
+do_apply({M,F,A}, false) ->
+    try spawn(M, F, A)
+    of _ -> {ok, spawn}
+    catch _:_ -> error
+    end;
+do_apply({M, F, A}, true) ->
+    try spawn_monitor(M, F, A)
+    of {_, Ref} -> {ok, {spawn, Ref}}
+    catch _:_ -> error
+    end.
 
 %% Get current time in milliseconds,
 %% ceil'ed to the next millisecond.
