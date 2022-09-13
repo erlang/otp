@@ -1918,7 +1918,7 @@ do_unlock() ->
       Using such a receive may result in system messages
       being discarded which in turn may lead to unexpected behaviour.
       If a selective receive must be used then great care should be taken to
-      ensure messages only messages pertinent to the operation are caught.
+      ensure only messages pertinent to the operation are caught.
       Likewise, long running operations may result in timeouts and the
       deferment of system messages, which in turn can lead to undesirable behaviour;
       thus a reasonable timeout for any blocking operation should be used.
