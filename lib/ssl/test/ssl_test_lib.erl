@@ -198,6 +198,7 @@
          openssl_allows_server_renegotiate/1,
          openssl_maxfraglen_support/0,
          is_sane_oppenssl_pss/1,
+         is_fips/1,
          consume_port_exit/1,
          is_sane_oppenssl_client/0,
          openssl_sane_dtls_session_reuse/0,
@@ -3882,14 +3883,15 @@ erlang_ssl_receive_and_assert_negotiated_protocol(Socket, Protocol, Data) ->
             {error, {{expected, Protocol}, {got, Result}}}
     end. 
 
-check_openssl_npn_support(Config) ->
-    HelpText = portable_cmd("openssl", ["s_client --help"]),
-    case string:str(HelpText, "nextprotoneg") of
-        0 ->
-            {skip, "Openssl not compiled with nextprotoneg support"};
+check_openssl_npn_support(_Config) ->
+    case ssl_test_lib:portable_cmd("openssl", ["version"]) of
+        "OpenSSL 1.0"  ++ _  ->
+            false;
+        "OpenSSL 1.1" ++ _ ->
+            true;
         _ ->
-            Config
-    end.
+            false
+     end.
 
 new_config(PrivDir, ServerOpts0) ->
     CaCertFile = proplists:get_value(cacertfile, ServerOpts0),

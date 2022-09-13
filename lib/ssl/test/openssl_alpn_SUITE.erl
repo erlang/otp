@@ -57,7 +57,7 @@
 %%--------------------------------------------------------------------
 
 all() ->
-    case ssl_test_lib:openssl_sane_dtls_alpn() of 
+    case ssl_test_lib:openssl_sane_dtls_alpn() of
         true ->
             [
              {group, 'tlsv1.3'},
@@ -76,8 +76,8 @@ all() ->
     end.
 
 groups() ->
-    case ssl_test_lib:openssl_sane_dtls_alpn() of 
-        true ->             
+    case ssl_test_lib:openssl_sane_dtls_alpn() of
+        true ->
             [
              {'tlsv1.3', [], alpn_tests()},
              {'tlsv1.2', [], alpn_tests() ++ alpn_npn_coexist() ++ rengotiation_tests()},
@@ -94,7 +94,7 @@ groups() ->
              {'tlsv1', [], alpn_tests() ++ alpn_npn_coexist() ++ rengotiation_tests()}
             ]
      end.
- 
+
 alpn_tests() ->
     [erlang_client_alpn_openssl_server_alpn,
      erlang_server_alpn_openssl_client_alpn,
@@ -107,7 +107,7 @@ alpn_tests() ->
 alpn_npn_coexist() ->
     [
      erlang_client_alpn_npn_openssl_server_alpn_npn,
-     erlang_server_alpn_npn_openssl_client_alpn_npn  
+     erlang_server_alpn_npn_openssl_client_alpn_npn
     ].
 rengotiation_tests() ->
     [
@@ -147,7 +147,7 @@ init_per_group(GroupName, Config) ->
 end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
 
-init_per_testcase(TestCase, Config) -> 
+init_per_testcase(TestCase, Config) ->
     ct:timetrap({seconds, 30}),
     special_init(TestCase, Config).
 
@@ -160,12 +160,12 @@ special_init(TestCase, Config) when TestCase == erlang_client_alpn_openssl_serve
         Config ->
             ssl_test_lib:openssl_allows_server_renegotiate(Config)
     end;
-special_init(TestCase, Config) when TestCase == erlang_client_alpn_npn_openssl_server_alpn_npn; 
+special_init(TestCase, Config) when TestCase == erlang_client_alpn_npn_openssl_server_alpn_npn;
                                     TestCase == erlang_server_alpn_npn_openssl_client_alpn_npn ->
     case ssl_test_lib:check_openssl_npn_support(Config) of
         {skip, _} = Skip ->
             Skip;
-        Config -> 
+        Config ->
             Config
     end;
 special_init(_, Config) ->
@@ -182,19 +182,19 @@ erlang_client_alpn_openssl_server_alpn(Config) when is_list(Config) ->
     ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     AlpnProtocol = <<"spdy/2">>,
-   
+
     {Server, OpenSSLPort} =
         ssl_test_lib:start_server(openssl, [{alpn,"http/1.1,spdy/2"}, return_port],
                                   [{server_opts, ServerOpts} | Config]),
     Port = ssl_test_lib:inet_port(Server),
-    
+
     {Client, CSocket} = ssl_test_lib:start_client(erlang, [{port, Port},
-                                                           return_socket], 
-                                                  [{client_opts, 
+                                                           return_socket],
+                                                  [{client_opts,
                                                     [{alpn_advertised_protocols,
-                                                      [AlpnProtocol]} | ClientOpts]} 
+                                                      [AlpnProtocol]} | ClientOpts]}
                                                   | Config]),
-   
+
     case ssl:negotiated_protocol(CSocket) of
         {ok, AlpnProtocol} ->
             ok;
@@ -210,17 +210,17 @@ erlang_server_alpn_openssl_client_alpn(Config) when is_list(Config) ->
     ClientOpts = proplists:get_value(client_rsa_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     Protocol = <<"spdy/2">>,
-    Server = ssl_test_lib:start_server(erlang, [{from, self()}],  
-                                       [{server_opts, [{alpn_preferred_protocols, 
+    Server = ssl_test_lib:start_server(erlang, [{from, self()}],
+                                       [{server_opts, [{alpn_preferred_protocols,
                                                         [<<"spdy/2">>]} |ServerOpts]} | Config]),
     Port = ssl_test_lib:inet_port(Server),
     {_Client, OpenSSLPort} =
         ssl_test_lib:start_client(openssl, [{port, Port},{alpn, "spdy/2"},
                                             {options, ClientOpts}, return_port], Config),
-    
+
     Server ! get_socket,
-    SSocket = 
-        receive 
+    SSocket =
+        receive
             {Server, {socket, Socket}} ->
                 Socket
         end,
@@ -239,11 +239,11 @@ erlang_client_alpn_openssl_server(Config) when is_list(Config) ->
     ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     Protocol = <<"spdy/2">>,
-   
+
     {Server, OpenSSLPort} = ssl_test_lib:start_server(openssl, [return_port],
                                                       [{server_opts, ServerOpts} | Config]),
     Port = ssl_test_lib:inet_port(Server),
-    
+
     {Client, CSocket} =
         ssl_test_lib:start_client(erlang, [{port, Port},
                                            return_socket],
@@ -264,15 +264,15 @@ erlang_client_alpn_openssl_server(Config) when is_list(Config) ->
 erlang_client_openssl_server_alpn(Config) when is_list(Config) ->
     ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-   
-    {Server, OpenSSLPort} = ssl_test_lib:start_server(openssl, [{alpn,"spdy/2"}, return_port], 
+
+    {Server, OpenSSLPort} = ssl_test_lib:start_server(openssl, [{alpn,"spdy/2"}, return_port],
                                        [{server_opts, ServerOpts} | Config]),
     Port = ssl_test_lib:inet_port(Server),
-    
+
     {Client, CSocket} = ssl_test_lib:start_client(erlang, [{port, Port},
-                                                           return_socket], 
+                                                           return_socket],
                                                   [{client_opts, ClientOpts} | Config]),
-  
+
     case ssl:negotiated_protocol(CSocket) of
         {error, protocol_not_negotiated} ->
             ok;
@@ -285,17 +285,17 @@ erlang_client_openssl_server_alpn(Config) when is_list(Config) ->
 erlang_server_alpn_openssl_client(Config) when is_list(Config) ->
     ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    Server = ssl_test_lib:start_server(erlang, [{from, self()}],  
+    Server = ssl_test_lib:start_server(erlang, [{from, self()}],
                                        [{server_opts, [{alpn_preferred_protocols,
                                                         [<<"spdy/2">>]} | ServerOpts]} | Config]),
     Port = ssl_test_lib:inet_port(Server),
     {_Client, OpenSSLPort} =
         ssl_test_lib:start_client(openssl, [{port, Port},
                                             {options, ClientOpts}, return_port], Config),
-    
+
     Server ! get_socket,
-    SSocket = 
-        receive 
+    SSocket =
+        receive
             {Server, {socket, Socket}} ->
                 Socket
         end,
@@ -312,16 +312,16 @@ erlang_server_alpn_openssl_client(Config) when is_list(Config) ->
 erlang_server_openssl_client_alpn(Config) when is_list(Config) ->
     ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    Server = ssl_test_lib:start_server(erlang, [{from, self()}],  
+    Server = ssl_test_lib:start_server(erlang, [{from, self()}],
                                        [{server_opts, [ServerOpts]} | Config]),
     Port = ssl_test_lib:inet_port(Server),
     {_Client, OpenSSLPort} =
         ssl_test_lib:start_client(openssl, [{port, Port}, {alpn, "spdy/2"},
                                             {options, ClientOpts}, return_port], Config),
-    
+
     Server ! get_socket,
-    SSocket = 
-        receive 
+    SSocket =
+        receive
             {Server, {socket, Socket}} ->
                 Socket
         end,
@@ -337,16 +337,16 @@ erlang_server_openssl_client_alpn(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 erlang_client_alpn_openssl_server_alpn_renegotiate(Config) when is_list(Config) ->
-    
+
     ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     AlpnProtocol = <<"spdy/2">>,
-   
+
     {Server, OpenSSLPort} =
         ssl_test_lib:start_server(openssl, [{alpn,"http/1.1,spdy/2"}, return_port],
                                   [{server_opts, ServerOpts} | Config]),
     Port = ssl_test_lib:inet_port(Server),
-    
+
     {Client, CSocket} =
         ssl_test_lib:start_client(erlang, [{port, Port},
                                            return_socket],
@@ -378,17 +378,17 @@ erlang_server_alpn_openssl_client_alpn_renegotiate(Config) when is_list(Config) 
     ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     AlpnProtocol = <<"spdy/2">>,
-    Server = ssl_test_lib:start_server(erlang, [{from, self()}],  
-                                       [{server_opts, [{alpn_preferred_protocols, 
+    Server = ssl_test_lib:start_server(erlang, [{from, self()}],
+                                       [{server_opts, [{alpn_preferred_protocols,
                                                         [AlpnProtocol]} | ServerOpts]} | Config]),
     Port = ssl_test_lib:inet_port(Server),
     {_Client, OpenSSLPort} =
         ssl_test_lib:start_client(openssl, [{port, Port}, {alpn, "spdy/2"},
                                             {options, ClientOpts}, return_port], Config),
-    
+
     Server ! get_socket,
-    SSocket = 
-        receive 
+    SSocket =
+        receive
             {Server, {socket, Socket}} ->
                 Socket
         end,
@@ -415,13 +415,13 @@ erlang_client_alpn_npn_openssl_server_alpn_npn(Config) when is_list(Config) ->
     ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     AlpnProtocol = <<"spdy/2">>,
-   
+
     {Server, OpenSSLPort} =
         ssl_test_lib:start_server(openssl, [{alpn,"http/1.1,spdy/2"},
                                             {np,  "spdy/3"}, return_port],
                                   [{server_opts, ServerOpts} | Config]),
     Port = ssl_test_lib:inet_port(Server),
-    
+
     {Client, CSocket} =
         ssl_test_lib:start_client(erlang, [{port, Port},
                                            return_socket],
@@ -443,11 +443,11 @@ erlang_server_alpn_npn_openssl_client_alpn_npn(Config) when is_list(Config) ->
     ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     AlpnProtocol = <<"spdy/2">>,
-    Server = ssl_test_lib:start_server(erlang, 
-                                       [{from, self()}],  
-                                       [{server_opts, [{alpn_preferred_protocols, 
+    Server = ssl_test_lib:start_server(erlang,
+                                       [{from, self()}],
+                                       [{server_opts, [{alpn_preferred_protocols,
                                                         [<<"spdy/2">>]},
-                                                       {next_protocols_advertised, 
+                                                       {next_protocols_advertised,
                                                         [<<"spdy/3">>, <<"http/1.1">>]}
                                                       | ServerOpts]} | Config]),
     Port = ssl_test_lib:inet_port(Server),
@@ -455,10 +455,10 @@ erlang_server_alpn_npn_openssl_client_alpn_npn(Config) when is_list(Config) ->
         ssl_test_lib:start_client(openssl, [{port, Port}, {alpn, "http/1.1,spdy/2"},
                                             {np,"spdy/3"}, {options, ClientOpts},
                                             return_port], Config),
-    
+
     Server ! get_socket,
-    SSocket = 
-        receive 
+    SSocket =
+        receive
             {Server, {socket, Socket}} ->
                 Socket
         end,
@@ -474,11 +474,23 @@ erlang_server_alpn_npn_openssl_client_alpn_npn(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
-check_openssl_alpn_support(Config) ->
-    HelpText = ssl_test_lib:portable_cmd("openssl", ["s_client --help"]),
-    case string:str(HelpText, "alpn") of
-        0 ->
-            {skip, "Openssl not compiled with alpn support"};
+check_openssl_alpn_support(_Config) ->
+    case ssl_test_lib:portable_cmd("openssl", ["version"]) of
+        "OpenSSL 1.0."  ++ _ = Str->
+            SubStr = Str -- "OpenSSL 1.0.",
+            atleast(SubStr, 2) andalso (not ssl_test_lib:is_fips(openssl));
+        "OpenSSL 1.1" ++ _ ->
+            not ssl_test_lib:is_fips(openssl);
+        "OpenSSL 3" ++ _ ->
+            not ssl_test_lib:is_fips(openssl);
+        "LibreSSL 2.0" ++ _ ->
+            false;
+        "LibreSSL 2.1." ++ _ = Str ->
+            SubStr = Str -- "LibreSSL 2.1.",
+            atleast(SubStr, 3);
         _ ->
-            Config
+            false
     end.
+
+atleast([StrNum|_], Num) ->
+    list_to_integer([StrNum]) >= Num.
