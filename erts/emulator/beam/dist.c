@@ -1013,6 +1013,7 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 	    ASSERT(erts_atomic32_read_nob(&dep->qflgs) & ERTS_DE_QFLG_EXIT);
 	}
 	else {
+            ASSERT(dep->state == ERTS_DE_STATE_CONNECTED);
 	    dep->state = ERTS_DE_STATE_EXITING;
 	    erts_mtx_lock(&dep->qlock);
 	    ASSERT(!(erts_atomic32_read_nob(&dep->qflgs) & ERTS_DE_QFLG_EXIT));
@@ -4967,24 +4968,28 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
                      : dist_port_command);
         ASSERT(dep->send);
 
-        /*
-         * Dist-ports do not use the "busy port message queue" functionality, but
-         * instead use "busy dist entry" functionality.
-        */
-        {
-            ErlDrvSizeT disable = ERL_DRV_BUSY_MSGQ_DISABLED;
-            erl_drv_busy_msgq_limits(ERTS_Port2ErlDrvPort(pp), &disable, NULL);
-        }
-
         conn_id = dep->connection_id;
         set_res = setup_connection_epiloge_rwunlock(BIF_P, dep, BIF_ARG_2, flags,
                                                     creation, BIF_P->common.id,
                                                     net_kernel);
         /* Dec of refc on net_kernel by setup_connection_epiloge_rwunlock() */
         net_kernel = NULL;
-        if (set_res == 0)
+        if (set_res == 0) {
+            erts_atomic32_read_band_nob(&pp->state, ~ERTS_PORT_SFLG_DISTRIBUTION);
+            erts_prtsd_set(pp, ERTS_PRTSD_DIST_ENTRY, NULL);
+            erts_prtsd_set(pp, ERTS_PRTSD_CONN_ID, NULL);
             goto badarg;
+        }
         de_locked = 0;
+
+        /*
+         * Dist-ports do not use the "busy port message queue" functionality,
+         * but instead use "busy dist entry" functionality.
+         */
+        {
+            ErlDrvSizeT disable = ERL_DRV_BUSY_MSGQ_DISABLED;
+            erl_drv_busy_msgq_limits(ERTS_Port2ErlDrvPort(pp), &disable, NULL);
+        }
 
         hp = HAlloc(BIF_P, 3 + ERTS_DHANDLE_SIZE);
         res = erts_build_dhandle(&hp, &BIF_P->off_heap, dep, conn_id);
