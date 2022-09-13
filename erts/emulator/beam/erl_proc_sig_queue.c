@@ -4620,6 +4620,7 @@ handle_process_info(Process *c_p, ErtsSigRecvTracing *tracing,
                 *c_p->sig_qs.last = c_p->sig_qs.cont;
                 c_p->sig_qs.last = *next_nm_sig;
 
+                ASSERT(*next_nm_sig);
                 c_p->sig_qs.cont = **next_nm_sig;
                 if (c_p->sig_qs.nmsigs.last == *next_nm_sig)
                     c_p->sig_qs.nmsigs.last = &c_p->sig_qs.cont;
