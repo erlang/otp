@@ -132,12 +132,12 @@ lookup_trusted_cert(_DbHandle, {extracted,Certs}, SerialNumber, Issuer) ->
 add_trusted_certs(_Pid, {extracted, _} = Certs, _) ->
     {ok, Certs};
 
-add_trusted_certs(_Pid, {der, DerList}, [CertDb, _,_ | _]) ->
+add_trusted_certs(_Pid, {der, DerList}, [CertDb, _, _ | _]) ->
     NewRef = make_ref(),
     add_certs_from_der(DerList, NewRef, CertDb),
     {ok, NewRef};
 
-add_trusted_certs(_Pid, File, [ _, {RefDb, FileMapDb} | _] = Db) ->
+add_trusted_certs(_Pid, File, [_, {RefDb, FileMapDb} | _] = Db) ->
     case lookup(File, FileMapDb) of
 	[Ref] ->
 	    ref_count(Ref, RefDb, 1),
