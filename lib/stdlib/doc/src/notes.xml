@@ -454,6 +454,29 @@
 
 </section>
 
+<section><title>STDLIB 3.17.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>When changing callback module in <c>gen_statem</c> the
+	    state_enter calls flag from the old module was used in
+	    for the first event in the new module, which could
+	    confuse the new module and cause malfunction. This bug
+	    has been corrected. </p><p> With this change some
+	    <c>sys</c> debug message formats have been modified,
+	    which can be a problem for debug code relying on the
+	    format. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18239</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.17.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
