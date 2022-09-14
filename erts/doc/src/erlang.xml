@@ -9307,7 +9307,7 @@ ok
         <p>
           Sets the default maximum heap size settings for processes.
           The size is specified in words. The new <c>max_heap_size</c>
-          effects only processes spawned efter the change has been made.
+          effects only processes spawned after the change has been made.
           <c>max_heap_size</c> can be set for individual processes using
           <seemfa marker="#spawn_opt/4"><c>spawn_opt/2,3,4</c></seemfa> or
           <seeerl marker="#process_flag_max_heap_size">
