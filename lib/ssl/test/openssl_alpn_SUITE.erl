@@ -121,9 +121,9 @@ init_per_suite(Config0) ->
             {skip, "Openssl not found"};
         _ ->
             case check_openssl_alpn_support(Config0) of
-                {skip, _} = Skip ->
-                    Skip;
-                _ ->
+                false ->
+                    {skip, "No ALPN support"};
+                true ->
                     ct:pal("Version: ~p", [os:cmd("openssl version")]),
                     catch crypto:stop(),
                     try crypto:start() of
@@ -478,11 +478,11 @@ check_openssl_alpn_support(_Config) ->
     case ssl_test_lib:portable_cmd("openssl", ["version"]) of
         "OpenSSL 1.0."  ++ _ = Str->
             SubStr = Str -- "OpenSSL 1.0.",
-            atleast(SubStr, 2) andalso (not ssl_test_lib:is_fips(openssl));
+            atleast(SubStr, 2);
         "OpenSSL 1.1" ++ _ ->
-            not ssl_test_lib:is_fips(openssl);
+            true;
         "OpenSSL 3" ++ _ ->
-            not ssl_test_lib:is_fips(openssl);
+            true;
         "LibreSSL 2.0" ++ _ ->
             false;
         "LibreSSL 2.1." ++ _ = Str ->
