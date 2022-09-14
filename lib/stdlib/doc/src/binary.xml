@@ -244,15 +244,23 @@
 
     <func>
       <name name="encode_hex" arity="1" since="OTP 24.0"/>
-      <fsummary>Encodes a binary into a hex encoded binary.</fsummary>
+      <name name="encode_hex" arity="2" since="OTP @OTP-18354@"/>
+      <fsummary>Encodes a binary into a hex encoded binary with specified case</fsummary>
       <desc>
-      <p>Encodes a binary into a hex encoded binary.</p>
+        <p>Encodes a binary into a hex encoded binary using the specified case for the hexadecimal digits "a" to "f".</p>
+        <p>The default case is <c>uppercase</c>.</p>
+        <p><em>Example:</em></p>
 
-      <p><em>Example:</em></p>
-
-      <code>
+        <code>
 1> binary:encode_hex(&lt;&lt;"f"&gt;&gt;).
-&lt;&lt;"66"&gt;&gt;</code>
+&lt;&lt;"66"&gt;&gt;
+2> binary:encode_hex(&lt;&lt;"/"&gt;&gt;).
+&lt;&lt;"2F"&gt;&gt;
+3> binary:encode_hex(&lt;&lt;"/"&gt;&gt;, lowercase).
+&lt;&lt;"2f"&gt;&gt;
+4> binary:encode_hex(&lt;&lt;"/"&gt;&gt;, uppercase).
+&lt;&lt;"2F"&gt;&gt;
+        </code>
       </desc>
     </func>
 

@@ -1462,7 +1462,8 @@ error_info(_Config) ->
          {split, [<<1,2,3>>, {bm,make_ref()}, []]},
          {split, [<<1,2,3>>, <<"2">>, [bad_option]]},
 
-         {encode_hex, [{no,a,binary}]},
+         {encode_hex, [{no,a,binary}], [allow_rename]},
+         {encode_hex, [<<"foobar">>, othercase]},
          {decode_hex, [{no,a,binary}]},
          {decode_hex, [<<"000">>],[allow_rename]},
          {decode_hex, [<<"GG">>],[allow_rename]}
@@ -1478,6 +1479,23 @@ hex_encoding(Config) when is_list(Config) ->
     <<"666F6F62">> = binary:encode_hex(<<"foob">>),
     <<"666F6F6261">> = binary:encode_hex(<<"fooba">>),
     <<"666F6F626172">> = binary:encode_hex(<<"foobar">>),
+
+
+    <<>> = binary:encode_hex(<<>>, uppercase),
+    <<"66">> = binary:encode_hex(<<"f">>, uppercase),
+    <<"666F">> = binary:encode_hex(<<"fo">>, uppercase),
+    <<"666F6F">> = binary:encode_hex(<<"foo">>, uppercase),
+    <<"666F6F62">> = binary:encode_hex(<<"foob">>, uppercase),
+    <<"666F6F6261">> = binary:encode_hex(<<"fooba">>, uppercase),
+    <<"666F6F626172">> = binary:encode_hex(<<"foobar">>, uppercase),
+
+    <<>> = binary:encode_hex(<<>>, lowercase),
+    <<"66">> = binary:encode_hex(<<"f">>, lowercase),
+    <<"666f">> = binary:encode_hex(<<"fo">>, lowercase),
+    <<"666f6f">> = binary:encode_hex(<<"foo">>, lowercase),
+    <<"666f6f62">> = binary:encode_hex(<<"foob">>, lowercase),
+    <<"666f6f6261">> = binary:encode_hex(<<"fooba">>, lowercase),
+    <<"666f6f626172">> = binary:encode_hex(<<"foobar">>, lowercase),
 
     <<>> = binary:decode_hex(<<>>),
     <<"f">> = binary:decode_hex(<<"66">>),
