@@ -2139,7 +2139,7 @@ remsh_longnames(Config) when is_list(Config) ->
 
 %% Test that -remsh works without epmd.
 remsh_no_epmd(Config) when is_list(Config) ->
-    EPMD_ARGS = "-start_epmd false -erl_epmd_port 12345 ",
+    EPMD_ARGS = "-start_epmd false -erl_epmd_port 12346 ",
     Name = ?CT_PEER_NAME(),
     case rtnode:start([],"ERL_EPMD_PORT=12345 ",
                       EPMD_ARGS ++ " -sname " ++ Name) of
@@ -2162,10 +2162,10 @@ remsh_no_epmd(Config) when is_list(Config) ->
                             {putline, "node()."},
                             {expect, "\\Q" ++ Name ++ "\\E"} | quit_hosting_node()], 1)
                 after
-                    rtnode:stop(CState)
+                    rtnode:dump_logs(rtnode:stop(CState))
                 end
             after
-                rtnode:stop(SState)
+                rtnode:dump_logs(rtnode:stop(SState))
             end;
         {skip, _} = Else ->
             Else
