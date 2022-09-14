@@ -398,12 +398,8 @@ maybe_req(Req, Arg) ->
 handle_call({apply_once, {Started, Time, MFA}}, _From, Tab) ->
     Timeout = Started + Time,
     Reply = try
-                erlang:start_timer(
-                  Timeout,
-                  self(),
-                  {apply_once, MFA},
-                  [{abs, true}]
-                 )
+                erlang:start_timer(Timeout, self(), {apply_once, MFA},
+				   [{abs, true}])
             of
                 SRef ->
                     ets:insert(Tab, {SRef}),
@@ -429,11 +425,11 @@ handle_call({cancel, {once, TRef}}, _From, Tab) ->
 %% Cancel an interval timer.
 handle_call({cancel, {interval, TRef}}, _From, Tab) ->
     _ = case remove_timer(TRef, Tab) of
-        true ->
-            demonitor(TRef, [flush]);
-        false ->
-            ok
-    end,
+            true ->
+                demonitor(TRef, [flush]);
+            false ->
+                ok
+        end,
     {reply, {ok, cancel}, Tab};
 %% Unexpected.
 handle_call(_Req, _From, Tab) ->
@@ -445,11 +441,11 @@ handle_call(_Req, _From, Tab) ->
 %% One-shot timer timeout.
 handle_info({timeout, TRef, {apply_once, MFA}}, Tab) ->
     _ = case ets:take(Tab, TRef) of
-        [{TRef}] ->
-            do_apply(MFA, false);
-        [] ->
-            ok
-    end,
+            [{TRef}] ->
+                do_apply(MFA, false);
+            [] ->
+                ok
+        end,
     {noreply, Tab};
 %% An interval timer loop process died.
 handle_info({'DOWN', TRef, process, _Pid, _Reason}, Tab) ->
@@ -471,15 +467,15 @@ terminate(_Reason, undefined) ->
     ok;
 terminate(Reason, Tab) ->
     _ = ets:foldl(fun
-            ({TRef}, Acc) ->
-                _ = cancel_timer(TRef),
-                Acc;
-            ({_TRef, TPid, Tag}, Acc) ->
-                TPid ! {cancel, Tag},
-                Acc
-        end,
-        undefined,
-        Tab),
+                      ({TRef}, Acc) ->
+                          _ = cancel_timer(TRef),
+                          Acc;
+                      ({_TRef, TPid, Tag}, Acc) ->
+                          TPid ! {cancel, Tag},
+                          Acc
+                  end,
+                  undefined,
+                  Tab),
     true = ets:delete(Tab),
     terminate(Reason, undefined).
 
@@ -492,11 +488,13 @@ start_interval_loop(Started, Time, TargetPid, MFA, WaitComplete) ->
     Tag = make_ref(),
     TimeServerPid = self(),
     {TPid, TRef} = spawn_monitor(fun() ->
-        TimeServerRef = monitor(process, TimeServerPid),
-        TargetRef = monitor(process, TargetPid),
-        TimerRef = schedule_interval_timer(Started, Time, MFA),
-        _ = interval_loop(TimeServerRef, TargetRef, Tag, WaitComplete, TimerRef)
-    end),
+                                     TimeServerRef = monitor(process, TimeServerPid),
+                                     TargetRef = monitor(process, TargetPid),
+                                     TimerRef = schedule_interval_timer(Started, Time,
+                                                                        MFA),
+                                     _ = interval_loop(TimeServerRef, TargetRef, Tag,
+                                                       WaitComplete, TimerRef)
+                                 end),
     {TRef, TPid, Tag}.
 
 %% Interval timer loop.
