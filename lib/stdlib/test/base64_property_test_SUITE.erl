@@ -24,18 +24,18 @@
 
 all() ->
     [
-     encode_case,
-     encode_to_string_case,
-     decode_case,
-     decode_malformed_case,
-     decode_noisy_case,
-     decode_to_string_case,
-     decode_to_string_malformed_case,
-     decode_to_string_noisy_case,
-     mime_decode_case,
-     mime_decode_malformed_case,
-     mime_decode_to_string_case,
-     mime_decode_to_string_malformed_case
+     encode_1_case, encode_2_case,
+     encode_to_string_1_case, encode_to_string_2_case,
+     decode_1_case, decode_2_case,
+     decode_1_malformed_case, decode_2_malformed_case,
+     decode_1_noisy_case, decode_2_noisy_case,
+     decode_to_string_1_case, decode_to_string_2_case,
+     decode_to_string_1_malformed_case, decode_to_string_2_malformed_case,
+     decode_to_string_1_noisy_case, decode_to_string_2_noisy_case,
+     mime_decode_1_case, mime_decode_2_case,
+     mime_decode_1_malformed_case, mime_decode_2_malformed_case,
+     mime_decode_to_string_1_case, mime_decode_to_string_2_case,
+     mime_decode_to_string_1_malformed_case, mime_decode_to_string_2_malformed_case
     ].
 
 init_per_suite(Config) ->
@@ -44,41 +44,77 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     Config.
 
-encode_case(Config) ->
-    do_proptest(prop_encode, Config).
+encode_1_case(Config) ->
+    do_proptest(prop_encode_1, Config).
 
-encode_to_string_case(Config) ->
-    do_proptest(prop_encode_to_string, Config).
+encode_2_case(Config) ->
+    do_proptest(prop_encode_2, Config).
 
-decode_case(Config) ->
-    do_proptest(prop_decode, Config).
+encode_to_string_1_case(Config) ->
+    do_proptest(prop_encode_to_string_1, Config).
 
-decode_malformed_case(Config) ->
-    do_proptest(prop_decode_malformed, Config).
+encode_to_string_2_case(Config) ->
+    do_proptest(prop_encode_to_string_2, Config).
 
-decode_noisy_case(Config) ->
-    do_proptest(prop_decode_noisy, Config).
+decode_1_case(Config) ->
+    do_proptest(prop_decode_1, Config).
 
-decode_to_string_case(Config) ->
-    do_proptest(prop_decode_to_string, Config).
+decode_2_case(Config) ->
+    do_proptest(prop_decode_2, Config).
 
-decode_to_string_malformed_case(Config) ->
-    do_proptest(prop_decode_to_string_malformed, Config).
+decode_1_malformed_case(Config) ->
+    do_proptest(prop_decode_1_malformed, Config).
 
-decode_to_string_noisy_case(Config) ->
-    do_proptest(prop_decode_to_string_noisy, Config).
+decode_2_malformed_case(Config) ->
+    do_proptest(prop_decode_2_malformed, Config).
 
-mime_decode_case(Config) ->
-    do_proptest(prop_mime_decode, Config).
+decode_1_noisy_case(Config) ->
+    do_proptest(prop_decode_1_noisy, Config).
 
-mime_decode_malformed_case(Config) ->
-    do_proptest(prop_mime_decode_malformed, Config).
+decode_2_noisy_case(Config) ->
+    do_proptest(prop_decode_2_noisy, Config).
 
-mime_decode_to_string_case(Config) ->
-    do_proptest(prop_mime_decode_to_string, Config).
+decode_to_string_1_case(Config) ->
+    do_proptest(prop_decode_to_string_1, Config).
 
-mime_decode_to_string_malformed_case(Config) ->
-    do_proptest(prop_mime_decode_to_string_malformed, Config).
+decode_to_string_2_case(Config) ->
+    do_proptest(prop_decode_to_string_2, Config).
+
+decode_to_string_1_malformed_case(Config) ->
+    do_proptest(prop_decode_to_string_1_malformed, Config).
+
+decode_to_string_2_malformed_case(Config) ->
+    do_proptest(prop_decode_to_string_2_malformed, Config).
+
+decode_to_string_1_noisy_case(Config) ->
+    do_proptest(prop_decode_to_string_1_noisy, Config).
+
+decode_to_string_2_noisy_case(Config) ->
+    do_proptest(prop_decode_to_string_2_noisy, Config).
+
+mime_decode_1_case(Config) ->
+    do_proptest(prop_mime_decode_1, Config).
+
+mime_decode_2_case(Config) ->
+    do_proptest(prop_mime_decode_2, Config).
+
+mime_decode_1_malformed_case(Config) ->
+    do_proptest(prop_mime_decode_1_malformed, Config).
+
+mime_decode_2_malformed_case(Config) ->
+    do_proptest(prop_mime_decode_2_malformed, Config).
+
+mime_decode_to_string_1_case(Config) ->
+    do_proptest(prop_mime_decode_to_string_1, Config).
+
+mime_decode_to_string_2_case(Config) ->
+    do_proptest(prop_mime_decode_to_string_2, Config).
+
+mime_decode_to_string_1_malformed_case(Config) ->
+    do_proptest(prop_mime_decode_to_string_1_malformed, Config).
+
+mime_decode_to_string_2_malformed_case(Config) ->
+    do_proptest(prop_mime_decode_to_string_2_malformed, Config).
 
 do_proptest(Prop, Config) ->
     ct_property_test:quickcheck(
