@@ -66,7 +66,9 @@
         %% Trigger a terminal "bell"
         beep |
         %% Execute multiple request() actions
-        {requests, [request()]}.
+        {requests, [request()]} |
+        %% Open external editor
+        {open_editor, string()}.
 
 -export_type([message/0]).
 -export([start/0, start/1, start_shell/0, start_shell/1]).
@@ -77,9 +79,11 @@
 %% gen_statem callbacks
 -export([init/1, callback_mode/0]).
 
+-export([interfaces/1]).
+
 -include_lib("kernel/include/logger.hrl").
 
--record(state, { tty, write, read, shell_started = true, user, current_group, groups, queue }).
+-record(state, { tty, write, read, shell_started = true, editor_port, editor_tmp_file, editor_requester, user, current_group, groups, queue }).
 
 -type shell() :: {module(), atom(), arity()} | {node(), module(), atom(), arity()}.
 -type arguments() :: #{ initial_shell => noshell | shell() | {remote, unicode:charlist()},
@@ -115,6 +119,25 @@ start(Args) when is_map(Args) ->
     end.
 
 callback_mode() -> state_functions.
+
+%% Return the pid of the active group process.
+%% Note: We can't ask the user_drv process for this info since it
+%% may be busy waiting for data from the port.
+
+-spec interfaces(pid()) -> [{'current_group', pid()}].
+
+interfaces(UserDrv) ->
+    case process_info(UserDrv, dictionary) of
+	{dictionary,Dict} ->
+	    case lists:keysearch(current_group, 1, Dict) of
+		{value,Gr={_,Group}} when is_pid(Group) ->
+		    [Gr];
+		_ ->
+		    []
+	    end;
+	_ ->
+	    []
+    end.
 
 -spec init(arguments()) -> gen_statem:init_result(init).
 init(Args) ->
@@ -259,8 +282,9 @@ init_local_shell(State, InitialShell) ->
 init_shell(State, Slogan) ->
 
     init_standard_error(State#state.tty, State#state.shell_started),
-
-    {next_state, server, State#state{ current_group = gr_cur_pid(State#state.groups) },
+    Curr = gr_cur_pid(State#state.groups),
+    put(current_group, Curr),
+    {next_state, server, State#state{ current_group = Curr},
      {next_event, info,
       {gr_cur_pid(State#state.groups),
        {put_chars, unicode,
@@ -358,9 +382,19 @@ server(info, {Requester, set_unicode_state, Bool}, #state{ tty = TTYState } = St
 server(info, {Requester, get_terminal_state}, _State) ->
     Requester ! {self(), get_terminal_state, prim_tty:isatty(stdout) },
     keep_state_and_data;
-server(info, Req, State = #state{ user = User, current_group = Curr })
+server(info, {Requester, {open_editor, Buffer}}, #state{tty = TTYState } = State) ->
+    case open_editor(TTYState, Buffer) of
+        false ->
+            Requester ! {self(), {editor_data, Buffer}},
+            keep_state_and_data;
+        {EditorPort, TmpPath} ->
+            {keep_state, State#state{ editor_port = EditorPort,
+                                      editor_tmp_file = TmpPath,
+                                      editor_requester = Requester }}
+    end;
+server(info, Req, State = #state{ user = User, current_group = Curr, editor_port = EditorPort })
   when element(1,Req) =:= User orelse element(1,Req) =:= Curr,
-       tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3 ->
+       tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3, EditorPort =:= undefined ->
     %% We match {User|Curr,_}|{User|Curr,_,_}
     {NewTTYState, NewQueue} = handle_req(Req, State#state.tty, State#state.queue),
     {keep_state, State#state{ tty = NewTTYState, queue = NewQueue }};
@@ -393,6 +427,22 @@ server(info,{'EXIT',User, _Reason}, State = #state{ user = User }) ->
     NewUser = start_user(),
     {keep_state, State#state{ user = NewUser,
                               groups = gr_set_num(State#state.groups, 1, NewUser, {})}};
+server(info, {'EXIT', EditorPort, _R}, State = #state{tty = TTYState,
+                                                      editor_requester = Requester,
+                                                      editor_port = EditorPort,
+                                                      editor_tmp_file = PathTmp}) ->
+    {ok, Content} = file:read_file(PathTmp),
+    _ = file:del_dir_r(PathTmp),
+    Unicode = case unicode:characters_to_list(Content,unicode) of
+                  {error, _, _} -> unicode:characters_to_list(
+                                     unicode:characters_to_list(Content,latin1), unicode);
+                  U -> U
+              end,
+    Requester ! {self(), {editor_data, string:chomp(Unicode)}},
+    ok = prim_tty:enable_reader(TTYState),
+    {keep_state, State#state{editor_requester = undefined,
+                             editor_port = undefined,
+                             editor_tmp_file = undefined}};
 server(info,{'EXIT', Group, Reason}, State) -> % shell and group leader exit
     case gr_cur_pid(State#state.groups) of
         Group when Reason =/= die, Reason =/= terminated  ->	% current shell exited
@@ -425,7 +475,6 @@ server(info,{'EXIT', Group, Reason}, State) -> % shell and group leader exit
             {keep_state, State#state{ groups = gr_del_pid(State#state.groups, Group) }}
     end;
 server(_, _, _) ->
-    %% Ignore unknown messages.
     keep_state_and_data.
 
 contains_ctrl_g_or_ctrl_c(<<$\^G,_/binary>>) ->
@@ -476,15 +525,19 @@ switch_loop(internal, {line, Line}, State) ->
         {ok, Tokens, _} ->
             case switch_cmd(Tokens, State#state.groups) of
                 {ok, Groups} ->
+                    Curr = gr_cur_pid(Groups),
+                    put(current_group, Curr),
                     {next_state, server,
-                     State#state{ current_group = gr_cur_pid(Groups), groups = Groups } };
+                     State#state{ current_group = Curr, groups = Groups } };
                 {retry, Requests} ->
                     {keep_state, State#state{ tty = io_requests(Requests, State#state.tty) },
                      {next_event, internal, line}};
                 {retry, Requests, Groups} ->
+                    Curr = gr_cur_pid(Groups),
+                    put(current_group, Curr),
                     {keep_state, State#state{
                                    tty = io_requests(Requests, State#state.tty),
-                                   current_group = gr_cur_pid(Groups),
+                                   current_group = Curr,
                                    groups = Groups },
                      {next_event, internal, line}}
             end;
@@ -588,6 +641,7 @@ switch_cmd({r,Node,Shell}, Gr0) when is_atom(Node), is_atom(Shell) ->
         false ->
             {retry, [{put_chars,unicode,"Node is not alive\n"}]}
     end;
+
 switch_cmd(q, _Gr) ->
     case erlang:system_info(break_ignored) of
 	true ->					% noop
@@ -622,7 +676,12 @@ list_commands() ->
         [{put_chars, unicode,<<"  ? | h             - this message\n">>}].
 
 remsh_opts(Node) ->
-    [{expand_fun,fun(B)-> rpc:call(Node,edlin_expand,expand,[B]) end}].
+    VersionString = erpc:call(Node, erlang, system_info, [otp_release]),
+    Version = list_to_integer(VersionString),
+    case Version > 25 of
+        true -> [{expand_fun,fun(B, Opts)-> erpc:call(Node,edlin_expand,expand,[B, Opts]) end}];
+        false -> [{expand_fun,fun(B, _)-> erpc:call(Node,edlin_expand,expand,[B]) end}]
+    end.
 
 -spec io_request(request(), prim_tty:state()) -> {noreply, prim_tty:state()} |
           {term(), reference(), prim_tty:state()}.
@@ -656,6 +715,49 @@ io_requests([R|Rs], TTY) ->
     io_requests(Rs, NewTTY);
 io_requests([], TTY) ->
     TTY.
+
+open_editor(TTY, Buffer) ->
+    DefaultEditor =
+        case os:type() of
+            {win32, _} -> "notepad";
+            {unix, _} -> "nano"
+        end,
+    Editor = os:getenv("VISUAL", os:getenv("EDITOR", DefaultEditor)),
+    TmpFile = string:chomp(mktemp()) ++ ".erl",
+    _ = file:write_file(TmpFile, unicode:characters_to_binary(Buffer, unicode)),
+    case filelib:is_file(TmpFile) of
+        true ->
+            ok = prim_tty:disable_reader(TTY),
+            try
+                EditorPort =
+                    case os:type() of
+                        {win32, _} ->
+                            [Cmd | Args] = string:split(Editor," ", all),
+                            open_port({spawn_executable, os:find_executable(Cmd)},
+                                      [{args,Args ++ [TmpFile]}, nouse_stdio]);
+                        {unix, _ } ->
+                            open_port({spawn, Editor ++ " " ++ TmpFile}, [nouse_stdio])
+                    end,
+                {EditorPort, TmpFile}
+            catch error:enoent ->
+                    ok = prim_tty:enable_reader(TTY),
+                    io:format(standard_error, "Could not find EDITOR '~ts'.~n", [Editor]),
+                    false
+            end;
+        false ->
+            io:format(standard_error,
+                      "Could not find create temp file '~ts'.~n",
+                      [TmpFile]),
+            false
+    end.
+
+mktemp() ->
+    case os:type() of
+        {win32, _} ->
+            os:cmd("powershell \"write-host (& New-TemporaryFile | Select-Object -ExpandProperty FullName)\"");
+        {unix,_} ->
+            os:cmd("mktemp")
+    end.
 
 handle_req(next, TTYState, {false, IOQ} = IOQueue) ->
     case queue:out(IOQ) of

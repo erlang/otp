@@ -105,8 +105,8 @@
 %%        to previous line automatically.
 
 -export([init/1, reinit/2, isatty/1, handles/1, unicode/1, unicode/2, handle_signal/2,
-         window_size/1, handle_request/2, write/2, write/3, npwcwidth/1]).
-
+         window_size/1, handle_request/2, write/2, write/3, npwcwidth/1, npwcwidthstring/1]).
+-export([disable_reader/1, enable_reader/1]).
 -nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
        tty_select/3, tty_window_size/1, write_nif/2, read_nif/2, isprint/1,
        wcwidth/1, wcswidth/1,
@@ -127,7 +127,8 @@
 -else.
 -define(dbg(Term), ok).
 -endif.
-
+%% Copied from https://github.com/chalk/ansi-regex/blob/main/index.js
+-define(ANSI_REGEXP, <<"^[\e",194,155,"][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?",7,")|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))">>).
 -record(state, {tty,
                 reader,
                 writer,
@@ -148,8 +149,7 @@
                 delete = false,
                 position = <<"\e[6n">>, %% "u7" on my Linux
                 position_reply = <<"\e\\[([0-9]+);([0-9]+)R">>,
-                %% Copied from https://github.com/chalk/ansi-regex/blob/main/index.js
-                ansi_regexp = <<"^[\e",194,155,"][[\\]()#;?]*(?:(?:(?:(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]+)*|[a-zA-Z\\d]+(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?",7,")|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))">>,
+                ansi_regexp = ?ANSI_REGEXP,
                 %% The SGR (Select Graphic Rendition) parameters https://en.wikipedia.org/wiki/ANSI_escape_code#SGR
                 ansi_sgr = <<"^[\e",194,155,"]\\[[0-9;:]*m">>
                }).
@@ -340,12 +340,7 @@ unicode(State) ->
 unicode(#state{ reader = Reader } = State, Bool) ->
     case Reader of
         {ReaderPid, _} ->
-            MonRef = erlang:monitor(process, ReaderPid),
-            ReaderPid ! {self(), set_unicode_state, Bool},
-            receive
-                {ReaderPid, set_unicode_state, _} -> ok;
-                {'DOWN',MonRef,_,_,_} -> ok
-            end;
+            call(ReaderPid, {set_unicode_state, Bool});
         undefined ->
             ok
     end,
@@ -357,6 +352,32 @@ handle_signal(State, winch) ->
 handle_signal(State, cont) ->
     tty_set(State#state.tty),
     State.
+
+-spec disable_reader(state()) -> ok.
+disable_reader(State) ->
+    case State#state.reader of
+        {ReaderPid, _} ->
+            ok = call(ReaderPid, disable);
+        undefined -> ok
+    end.
+
+-spec enable_reader(state()) -> ok.
+enable_reader(State) ->
+    case State#state.reader of
+        {ReaderPid, _} ->
+            ok = call(ReaderPid, enable);
+        undefined -> ok
+    end.
+
+call(Pid, Msg) ->
+    Alias = erlang:monitor(process, Pid, [{alias, reply_demonitor}]),
+    Pid ! {Alias, Msg},
+    receive
+        {Alias, Reply} ->
+            Reply;
+        {'DOWN',Alias,_,_,Reason}  ->
+            {error, Reason}
+    end.
 
 reader([TTY, Parent]) ->
     register(user_drv_reader, self()),
@@ -380,16 +401,23 @@ reader([TTY, Parent]) ->
 
 reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
     receive
+        {DisableAlias, disable} ->
+            DisableAlias ! {DisableAlias, ok},
+            receive
+                {EnableAlias, enable} ->
+                    EnableAlias ! {EnableAlias, ok},
+                    reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc)
+            end;
         {select, TTY, SignalRef, ready_input} ->
             {ok, Signal} = tty_read_signal(TTY, SignalRef),
             Parent ! {ReaderRef,{signal,Signal}},
             reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
-        {Parent, set_unicode_state, _} when FromEnc =:= {utf16, little} ->
+        {Alias, {set_unicode_state, _}} when FromEnc =:= {utf16, little} ->
             %% Ignore requests on windows
-            Parent ! {self(), set_unicode_state, true},
+            Alias ! {Alias, true},
             reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
-        {Parent, set_unicode_state, Bool} ->
-            Parent ! {self(), set_unicode_state, FromEnc =/= latin1},
+        {Alias, {set_unicode_state, Bool}} ->
+            Alias ! {Alias, FromEnc =/= latin1},
             NewFromEnc = if Bool -> utf8; not Bool -> latin1 end,
             reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
         {select, TTY, ReaderRef, ready_input} ->
@@ -410,8 +438,8 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                                 FromEnc = utf8,
                                 Parent ! {self(), set_unicode_state, false},
                                 receive
-                                    {Parent, set_unicode_state, false} ->
-                                        Parent ! {self(), set_unicode_state, true}
+                                    {Alias, {set_unicode_state, false}} ->
+                                        Alias ! {Alias, true}
                                 end,
                                 receive
                                     {Parent, set_unicode_state, true} -> ok
@@ -618,6 +646,22 @@ update_geometry(State) ->
         _Error ->
             ?dbg({?FUNCTION_NAME, _Error}),
             State
+    end.
+
+npwcwidthstring(String) when is_list(String) ->
+    npwcwidthstring(unicode:characters_to_binary(String));
+npwcwidthstring(String) ->
+    case string:next_grapheme(String) of
+        [] -> 0;
+        [$\e | Rest] ->
+            case re:run(String, ?ANSI_REGEXP, [unicode]) of
+                {match, [{0, N}]} ->
+                    <<_Ansi:N/binary, AnsiRest/binary>> = String,
+                    npwcwidthstring(AnsiRest);
+                _ ->
+                    npwcwidth($\e) + npwcwidthstring(Rest)
+            end;
+        [H|Rest] -> npwcwidth(H) + npwcwidthstring(Rest)
     end.
 
 npwcwidth(Char) ->
