@@ -69,8 +69,9 @@ the key `config`, and can contain the following parameters:
   - If none of `delayed_write` or `{delayed_write,Size,Delay}` is found in the
     list, `delayed_write` is added.
 
-  Log files are always UTF-8 encoded. The encoding cannot be changed by setting
-  the mode `{encoding,Encoding}`.
+  Log files are UTF-8 encoded, unless the formatter returns plain binaries,
+  which are written unchanged (see `c:logger_formatter:format/2`). The encoding
+  cannot be changed by setting the mode `{encoding,Encoding}`.
 
   The value is set when the handler is added, and it cannot be changed in
   runtime.
