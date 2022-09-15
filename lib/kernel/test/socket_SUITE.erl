@@ -47787,7 +47787,7 @@ otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
     {ok, LSock}  = socket:open(Domain, stream, Proto,
                                #{use_registry => false}),
     ok = socket:bind(LSock, #{family => Domain, port => 0, addr => any}),
-    ok = socket:listen(LSock),
+    ok = socket:listen(LSock, NumSocks),
     MonitoredBy1 = monitored_by(),
     [LSockMon] = MonitoredBy1 -- MonitoredBy0,
     i("[acceptor]: listen socket created"
@@ -47854,7 +47854,7 @@ otp18240_client(ID, Domain, Proto, PortNo) ->
 	{error, closed} ->
 	    i("[connector ~w] expected socket close", [ID]);
 	{error, Reason} ->
-	    i("[connector ~w] unexpected error: "
+	    i("[connector ~w] unexpected error when reading: "
 	      "~n   ~p", [ID, Reason]),
 	    (catch socket:close(Sock))
     end,
