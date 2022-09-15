@@ -422,6 +422,8 @@ try_format(Log,Formatter,FormatterConfig) ->
             end
     end.
 
+string_to_binary(String) when is_binary(String) ->
+    String;
 string_to_binary(String) ->
     case unicode:characters_to_binary(String) of
         Binary when is_binary(Binary) ->
