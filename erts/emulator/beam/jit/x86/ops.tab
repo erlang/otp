@@ -1366,6 +1366,13 @@ i_length_setup j t s
 i_length j t d
 
 #
+# Specialized guard BIFs.
+#
+
+gc_bif1 Fail Live Bif=u$bif:erlang:map_size/1 Src Dst=d => bif_map_size Fail Src Dst
+bif_map_size j s d
+
+#
 # Guard BIFs.
 #
 gc_bif1 Fail Live Bif Src Dst      => i_bif1 Src Fail Bif Dst

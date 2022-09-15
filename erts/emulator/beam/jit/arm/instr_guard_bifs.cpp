@@ -717,20 +717,26 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
     }
 
     arm::Gp boxed_ptr = emit_ptr_val(TMP3, src.reg);
-    a.ldur(TMP4, emit_boxed_val(boxed_ptr));
-    a.and_(TMP4, TMP4, imm(_TAG_HEADER_MASK));
-    a.cmp(TMP4, imm(_TAG_HEADER_MAP));
 
-    if (Fail.get() == 0) {
-        a.b_eq(good_map);
-        a.bind(error);
-        {
-            mov_var(XREG0, src);
-            fragment_call(ga->get_handle_map_size_error());
-        }
-    } else {
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
+    if (exact_type(Src, BEAM_TYPE_MAP)) {
+        comment("skipped type check because the argument is always a map");
         a.bind(error); /* Never referenced. */
+    } else {
+        a.ldur(TMP4, emit_boxed_val(boxed_ptr));
+        a.and_(TMP4, TMP4, imm(_TAG_HEADER_MASK));
+        a.cmp(TMP4, imm(_TAG_HEADER_MAP));
+
+        if (Fail.get() == 0) {
+            a.b_eq(good_map);
+            a.bind(error);
+            {
+                mov_var(XREG0, src);
+                fragment_call(ga->get_handle_map_size_error());
+            }
+        } else {
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+            a.bind(error); /* Never referenced. */
+        }
     }
 
     a.bind(good_map);

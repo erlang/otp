@@ -53,6 +53,7 @@ my @beam_global_funcs = qw(
     handle_call_fun_error
     handle_element_error
     handle_hd_error
+    handle_map_size_error
     i_band_body_shared
     i_band_guard_shared
     i_bif_body_shared

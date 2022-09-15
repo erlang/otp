@@ -28,6 +28,7 @@ extern "C"
 #include "beam_catches.h"
 #include "beam_common.h"
 #include "code_ix.h"
+#include "erl_map.h"
 }
 
 using namespace asmjit;
@@ -492,6 +493,64 @@ void BeamModuleAssembler::emit_bif_hd(const ArgLabel &Fail,
     x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
     a.mov(ARG2, getCARRef(boxed_ptr));
     mov_arg(Hd, ARG2);
+}
+
+/* ================================================================
+ *  map_size/1
+ * ================================================================
+ */
+
+void BeamGlobalAssembler::emit_handle_map_size_error() {
+    static ErtsCodeMFA mfa = {am_erlang, am_map_size, 1};
+
+    a.mov(getXRef(0), RET);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, fvalue)), RET);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), imm(BADMAP));
+    a.mov(ARG4, imm(&mfa));
+    a.jmp(labels[raise_exception]);
+}
+
+void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
+                                            const ArgSource &Src,
+                                            const ArgRegister &Dst) {
+    Label error = a.newLabel(), good_map = a.newLabel();
+
+    mov_arg(RET, Src);
+
+    if (Fail.get() == 0) {
+        emit_is_boxed(error, Src, RET);
+    } else {
+        emit_is_boxed(resolve_beam_label(Fail), Src, RET);
+    }
+
+    x86::Gp boxed_ptr = emit_ptr_val(x86::rdx, RET);
+
+    if (exact_type(Src, BEAM_TYPE_MAP)) {
+        comment("skipped type check because the argument is always a map");
+        a.bind(error); /* Never referenced. */
+    } else {
+        a.mov(x86::ecx, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+        a.and_(x86::cl, imm(_TAG_HEADER_MASK));
+        a.cmp(x86::cl, imm(_TAG_HEADER_MAP));
+        if (Fail.get() == 0) {
+            a.short_().je(good_map);
+
+            a.bind(error);
+            safe_fragment_call(ga->get_handle_map_size_error());
+        } else {
+            a.jne(resolve_beam_label(Fail));
+            a.bind(error); /* Never referenced. */
+        }
+    }
+
+    a.bind(good_map);
+    {
+        ERTS_CT_ASSERT(offsetof(flatmap_t, size) == sizeof(Eterm));
+        a.mov(RET, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+        a.shl(RET, imm(4));
+        a.or_(RETb, imm(_TAG_IMMED1_SMALL));
+        mov_arg(Dst, RET);
+    }
 }
 
 /* ================================================================
