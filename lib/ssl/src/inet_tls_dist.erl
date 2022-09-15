@@ -421,6 +421,7 @@ wait_for_code_server() ->
 	    timer:sleep(10),
 	    wait_for_code_server();
 	Pid when is_pid(Pid) ->
+            init:run_on_load_handlers([crypto,asn1rt_nif]),
 	    ok
     end.
 
@@ -552,6 +553,8 @@ setup_fun(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 
 -spec do_setup(_,_,_,_,_,_,_) -> no_return().
 do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
+    wait_for_code_server(),
+
     {Name, Address} = split_node(Driver, Node, LongOrShortNames),
     ErlEpmd = net_kernel:epmd_module(),
     {ARMod, ARFun} = get_address_resolver(ErlEpmd, Driver),
