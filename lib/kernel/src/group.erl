@@ -504,10 +504,17 @@ get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, Line, Encoding) ->
         {stop,Result,eof} ->
             {ok,Result,eof};
         {stop,Result,Rest} ->
-            {ok,Result,append(Rest, Buf, Encoding)};
+            case {M,F} of
+                {io_lib, get_until} ->
+                    save_line_buffer(Line, get_lines(new_stack(get(line_buffer)))),
+                    {ok,Result,append(Rest, Buf, Encoding)};
+                _ ->
+                    {ok,Result,append(Rest, Buf, Encoding)}
+            end;
         {'EXIT',_} ->
             {error,{error,err_func(M, F, Xa)},[]};
         State1 ->
+            save_line_buffer(Line, get_lines(new_stack(get(line_buffer)))),
             get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf, State1, Encoding)
     end.
 
@@ -547,9 +554,8 @@ get_line(Chars, Pbs, Drv, Shell, Encoding) ->
     get_line1(edlin:edit_line(Chars, Cont), Drv, Shell, new_stack(get(line_buffer)),
 	      Encoding).
 
-get_line1({done,Line,Rest,Rs}, Drv, _Shell, Ls, _Encoding) ->
+get_line1({done,Line,Rest,Rs}, Drv, _Shell, _Ls, _Encoding) ->
     send_drv_reqs(Drv, Rs),
-    save_line_buffer(Line, get_lines(Ls)),
     {done,Line,Rest};
 get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding)
   when ((Mode =:= none) and (Char =:= $\^P))
