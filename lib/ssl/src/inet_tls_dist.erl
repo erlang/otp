@@ -918,7 +918,13 @@ ssl_option(client, Opt) ->
         "secure_renegotiate" -> fun atomize/1;
         "depth" -> fun erlang:list_to_integer/1;
         "hibernate_after" -> fun erlang:list_to_integer/1;
-        "ciphers" -> fun listify/1;
+        "ciphers" ->
+            %% Allows just one cipher, for now (could be , separated)
+            fun (Val) -> [listify(Val)] end;
+        "versions" ->
+            %% Allows just one version, for now (could be , separated)
+            fun (Val) -> [atomize(Val)] end;
+        "ktls" -> fun atomize/1;
         _ -> error
     end.
 

@@ -37,8 +37,14 @@
 %% Test cases
 -export([basic/0,
          basic/1,
+         ktls_encrypt_decrypt/0,
+         ktls_encrypt_decrypt/1,
          ktls_basic/0,
          ktls_basic/1,
+         ktls_verify/0,
+         ktls_verify/1,
+         ktls_verify_asymmetric/0,
+         ktls_verify_asymmetric/1,
          monitor_nodes/1,
          payload/0,
          payload/1,
@@ -108,7 +114,10 @@ start_ssl_node_name(Name, Args) ->
 %%--------------------------------------------------------------------
 all() ->
     [basic,
+     ktls_encrypt_decrypt,
      ktls_basic,
+     ktls_verify,
+     ktls_verify_asymmetric,
      monitor_nodes,
      payload,
      dist_port_overload,
@@ -157,64 +166,25 @@ init_per_testcase(plain_verify_options = Case, Config) when is_list(Config) ->
     end,
     common_init(Case, [{old_flags, Flags} | Config]);
 
-init_per_testcase(ktls_basic = Case, Config) when is_list(Config) ->
-    case {os:type(), os:version()} of
-        {{unix,linux}, OsVersion} when {5,2,0} =< OsVersion ->
-            %% We need a connected socket
-            {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
-            {ok, Port} = inet:port(Listen),
-            {ok, Client} =
-                gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
-            {ok, Server} = gen_tcp:accept(Listen),
-            %% We'll use the Server socket
-            Skip = make_ref(),
-            try
-                SOL_TCP = 6, TCP_ULP = 31,
-                _ = inet:setopts(
-                      Server, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
-                (GetULP =
-                     inet:getopts(Server, [{raw, SOL_TCP, TCP_ULP, 4}]))
-                    =:=
-                    {ok, [{raw, SOL_TCP, TCP_ULP, <<"tls",0>>}]}
-                    orelse
-                    throw({Skip,{get_ulp, GetULP}}),
-                TLS_VER    = ((3 bsl 8) bor 4),
-                TLS_CIPHER = 52,
-                TLS_SALT   = <<1,1,1,1>>,
-                TLS_IV     = <<2,2,2,2,2,2,2,2>>,
-                TLS_KEY    =
-                    <<3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-                      3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3>>,
-                TLS_crypto_info =
-                    <<TLS_VER:16/native, TLS_CIPHER:16/native,
-                      TLS_IV/binary, TLS_KEY/binary, TLS_SALT/binary,
-                      0:64/native>>,
-                SOL_TLS = 282, TLS_TX = 1,
-                RawOpt =
-                    {raw, SOL_TLS, TLS_TX, TLS_crypto_info},
-                _ = inet:setopts(Server, [RawOpt]),
-                (GetCryptoInfo =
-                    inet:getopts(
-                      Server,
-                      [{raw, SOL_TLS, TLS_TX, byte_size(TLS_crypto_info)}]))
-                    =:=
-                    {ok, [RawOpt]}
-                    orelse throw({Skip,{get_crypto_info,GetCryptoInfo}}),
-                common_init(Case, Config)
-                %%
-            catch {Skip,SkipReason} ->
-                    {skip,
-                     lists:flatten(
-                       io_lib:format("kTLS not supported, ~p", [SkipReason]))}
-            after
-                _ = gen_tcp:close(Server),
-                _ = gen_tcp:close(Client),
-                _ = gen_tcp:close(Listen)
-            end;
-        OS ->
-            {skip,
-             lists:flatten(
-               io_lib:format("kTLS not supported by OS: ~p", [OS]))}
+init_per_testcase(Case, Config)
+  when Case =:= ktls_basic, is_list(Config);
+       Case =:= ktls_verify, is_list(Config);
+       Case =:= ktls_verify_asymmetric, is_list(Config) ->
+    %% We need a connected socket
+    {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
+    {ok, Port} = inet:port(Listen),
+    {ok, Client} =
+        gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
+    {ok, Server} = gen_tcp:accept(Listen),
+    try ktls_encrypt_decrypt(Client, Server, false) of
+        ok ->
+            common_init(Case, Config);
+        Other ->
+            Other
+    after
+        _ = gen_tcp:close(Server),
+        _ = gen_tcp:close(Client),
+        _ = gen_tcp:close(Listen)
     end;
 
 init_per_testcase(Case, Config) when is_list(Config) ->
@@ -242,10 +212,164 @@ basic(Config) when is_list(Config) ->
     gen_dist_test(basic_test, Config).
 
 %%--------------------------------------------------------------------
+ktls_encrypt_decrypt() ->
+    [{doc,"Test that kTLS encryption offloading works"}].
+ktls_encrypt_decrypt(Config) when is_list(Config) ->
+    %% We need a connected socket
+    {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
+    {ok, Port} = inet:port(Listen),
+    {ok, Client} =
+        gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
+    {ok, Server} = gen_tcp:accept(Listen),
+    try ktls_encrypt_decrypt(Client, Server, true)
+    after
+        _ = gen_tcp:close(Server),
+        _ = gen_tcp:close(Client),
+        _ = gen_tcp:close(Listen)
+    end.
+
+ktls_encrypt_decrypt(Client, Server, Test) ->
+    Done = make_ref(),
+    try
+        case {os:type(), os:version()} of
+            {{unix,linux}, OsVersion} when {5,2,0} =< OsVersion ->
+                ok;
+            OS ->
+                throw({Done, skip, {os,OS}})
+        end,
+        %%
+        SOL_TCP = 6, TCP_ULP = 31,
+        _ = inet:setopts(Server, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
+        (GetULP =
+             inet:getopts(Server, [{raw, SOL_TCP, TCP_ULP, 4}]))
+            =:= {ok, [{raw, SOL_TCP, TCP_ULP, <<"tls",0>>}]}
+            orelse
+            throw({Done, skip, {get_ulp, GetULP}}),
+        ok = inet:setopts(Client, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
+        TLS_VER    = ((3 bsl 8) bor 4),
+        TLS_CIPHER = 52,
+        TLS_SALT   = <<1,1,1,1>>,
+        TLS_IV     = <<2,2,2,2,2,2,2,2>>,
+        TLS_KEY    =
+            <<3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+              3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3>>,
+        TLS_crypto_info =
+            <<TLS_VER:16/native, TLS_CIPHER:16/native,
+              TLS_IV/binary, TLS_KEY/binary, TLS_SALT/binary,
+              0:64/native>>,
+        SOL_TLS = 282, TLS_TX = 1, TLS_RX = 2,
+        RawOptTX = {raw, SOL_TLS, TLS_TX, TLS_crypto_info},
+        (SetoptsResult = inet:setopts(Server, [RawOptTX])) =:= ok
+            orelse throw({Done, skip, {setopts_error,SetoptsResult}}),
+        (GetCryptoInfo =
+             inet:getopts(
+               Server,
+               [{raw, SOL_TLS, TLS_TX, byte_size(TLS_crypto_info)}]))
+            =:= {ok, [RawOptTX]}
+            orelse throw({Done, skip, {get_crypto_info,GetCryptoInfo}}),
+        %%
+        %%
+        %%
+        Test orelse throw(Done),
+        %%
+        %%
+        %%
+        Data = "The quick brown fox jumps over a lazy dog 0123456789",
+        %% Send from Server when Client has no decryption parameters
+        ok = gen_tcp:send(Server, Data),
+        case gen_tcp:recv(Client, 0, 1000) of
+            {ok, Data} ->
+                ct:fail(recv_cleartext_data);
+            {ok, _RandomData} ->
+                ok
+        end,
+        %% Configure Client -> Server
+        RawOptRX = {raw, SOL_TLS, TLS_RX, TLS_crypto_info},
+        ok = inet:setopts(Client, [RawOptTX]),
+        ok = inet:setopts(Server, [RawOptRX]),
+        %% Send encrypted Client -> Server
+        ok = gen_tcp:send(Client, Data),
+        {ok, Data} = gen_tcp:recv(Server, 0, 1000),
+        ok
+    catch
+        Done ->
+            ok;
+        {Done, skip,SkipReason} ->
+            {skip,
+             lists:flatten(
+               io_lib:format("kTLS not supported: ~p", [SkipReason]))}
+    end.
+
+
+
+
+%%--------------------------------------------------------------------
 ktls_basic() ->
     [{doc,"Test that two nodes can connect via ssl distribution"}].
 ktls_basic(Config) when is_list(Config) ->
     gen_dist_test(ktls_basic_test, Config).
+
+%%--------------------------------------------------------------------
+ktls_verify() ->
+    [{doc,
+      "Test that two nodes can connect via ssl distribution over kTLS"}].
+ktls_verify(Config) ->
+    KTLSOpts = "-ssl_dist_opt "
+        "client_versions tlsv1.3 "
+        "server_versions tlsv1.3 "
+        "client_ciphers TLS_AES_256_GCM_SHA384 "
+        "server_ciphers TLS_AES_256_GCM_SHA384 "
+        "client_ktls true "
+        "server_ktls true ",
+    gen_dist_test(basic_test, [{tls_verify_opts, KTLSOpts} | Config]).
+
+%%--------------------------------------------------------------------
+ktls_verify_asymmetric() ->
+    [{doc,
+      "Test that two nodes can connect via ssl distribution "
+      "when one uses kTLS and the other our regular TSL"}].
+ktls_verify_asymmetric(Config) ->
+    KTLSOpts = "-ssl_dist_opt "
+        "client_versions tlsv1.3 "
+        "server_versions tlsv1.3 "
+        "client_ciphers TLS_AES_256_GCM_SHA384 "
+        "server_ciphers TLS_AES_256_GCM_SHA384 "
+        "server_ktls true "
+        "client_ktls false ",
+    KTLSConfig = [{tls_verify_opts, KTLSOpts} | Config],
+    gen_dist_test(
+      fun (NH1, NH2) ->
+              basic_test(NH1, NH2, KTLSConfig),
+              %%
+              %% NH1 should have connected to NH2 so the connection should
+              %% use the client on NH1 and the server on NH2, therefore
+              %% NH2 should run kTLS but NH1 should run regular TLS
+              %%
+              case ktls_count_tls_dist(NH1) of
+                  N when 0 < N -> ok
+              end,
+              0 = ktls_count_tls_dist(NH2),
+              ok
+      end, KTLSConfig).
+
+%% Verify that kTLS was activated (whitebox verification);
+%% check that a specific supervisor has no child supervisor
+%% which indicates that ssl_gen_statem:ktls_handover/1 has succeeded
+%%
+ktls_count_tls_dist(Node) ->
+    Key = supervisors,
+    case
+        lists:keyfind(
+          Key, 1,
+          apply_on_ssl_node(
+            Node, supervisor, count_children,
+            [tls_dist_connection_sup]))
+    of
+        {Key, N} ->
+            N;
+        false ->
+            0
+    end.
 
 %%--------------------------------------------------------------------
 %% Test net_kernel:monitor_nodes with nodedown_reason (OTP-17838)
@@ -541,8 +665,13 @@ address_please(_, _, _) ->
 gen_dist_test(Test, Config) ->
     NH1 = start_ssl_node(Config),
     NH2 = start_ssl_node(Config),
-    try 
-	?MODULE:Test(NH1, NH2, Config)
+    try
+        if
+            is_atom(Test) ->
+                ?MODULE:Test(NH1, NH2, Config);
+            is_function(Test, 2) ->
+                Test(NH1, NH2)
+        end
     catch
 	Class:Reason:Stacktrace ->
 	    ct:fail({Class,Reason,Stacktrace})
@@ -572,6 +701,7 @@ try_setting_priority(TestFun, Config) ->
 	{error,_} ->
 	    {skip, "Can not set priority on socket"}
     end.
+
 basic_test(NH1, NH2, _) ->
     Node1 = NH1#node_handle.nodename,
     Node2 = NH2#node_handle.nodename,
