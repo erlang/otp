@@ -555,15 +555,29 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
 
 /* ================================================================
  *  tuple_size/1
- */
-
-/* We considered specializing tuple_size/1, but ultimately didn't
- * consider it worth doing.
- *
- * At the time of writing, there were 294 uses of tuple_size/1
- * in the OTP source code. (11 of them were in dialyzer.)
- *
- * The code size for the specialization was 34 bytes,
- * while the code size for the bif1 instruction was 24 bytes.
  * ================================================================
  */
+
+void BeamModuleAssembler::emit_bif_tuple_size(const ArgWord &Bif,
+                                              const ArgLabel &Fail,
+                                              const ArgRegister &Src,
+                                              const ArgRegister &Dst) {
+    if (exact_type(Src, BEAM_TYPE_TUPLE)) {
+        comment("inlined tuple_size/1 because the argument is always a tuple");
+        mov_arg(RET, Src);
+
+        /* Instructions operating on dwords are shorter. */
+        ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
+        x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+
+        ERTS_CT_ASSERT(_HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE > 0);
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.shr(RETd, imm(_HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE));
+        a.or_(RETb, imm(_TAG_IMMED1_SMALL));
+        mov_arg(Dst, RET);
+    } else {
+        /* Unknown type. Use the standard BIF instruction. */
+        emit_i_bif1(Src, Fail, Bif, Dst);
+    }
+}

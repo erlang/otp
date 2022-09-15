@@ -916,15 +916,27 @@ void BeamModuleAssembler::emit_bif_tuple_size(const ArgLabel &Fail,
     auto src = load_source(Src, ARG1);
     auto dst = init_destination(Dst, ARG1);
 
-    mov_var(ARG1, src);
-
-    if (Fail.get() == 0) {
-        fragment_call(ga->get_bif_tuple_size_body());
+    if (exact_type(Src, BEAM_TYPE_TUPLE)) {
+        comment("simplifed tuple_size/1 because the argument is always a "
+                "tuple");
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+        ERTS_CT_ASSERT(_HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE > 0);
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.lsr(TMP1, TMP1, _HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE);
+        a.orr(dst.reg, TMP1, imm(_TAG_IMMED1_SMALL));
     } else {
-        fragment_call(ga->get_bif_tuple_size_guard());
-        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
-    }
+        mov_var(ARG1, src);
 
-    mov_var(dst, ARG1);
+        if (Fail.get() == 0) {
+            fragment_call(ga->get_bif_tuple_size_body());
+        } else {
+            fragment_call(ga->get_bif_tuple_size_guard());
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        }
+
+        mov_var(dst, ARG1);
+    }
     flush_var(dst);
 }
