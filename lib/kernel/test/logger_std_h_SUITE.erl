@@ -47,6 +47,7 @@
 
 -define(msg,"Log from "++atom_to_list(?FUNCTION_NAME)++
             ":"++integer_to_list(?LINE)).
+-define(report,#{from => {?FUNCTION_NAME, ?LINE}}).
 -define(bin(Msg), list_to_binary(Msg++"\n")).
 -define(domain,#{domain=>[?MODULE]}).
 
@@ -123,6 +124,7 @@ all() ->
      add_remove_instance_file3,
      add_remove_instance_file4,
      default_formatter,
+     binary_formatter,
      filter_config,
      errors,
      formatter_fail,
@@ -249,6 +251,19 @@ default_formatter(_Config) ->
     [Msg] = ct:capture_get(),
     match = re:run(Msg,"=NOTICE REPORT====.*\n"++M1,[{capture,none}]),
     ok.
+
+binary_formatter(Config) ->
+    Dir = ?config(priv_dir,Config),
+    Log = filename:join(Dir,?FUNCTION_NAME),
+    ok = logger:add_handler(?MODULE,
+                            logger_std_h,
+                            #{config => #{file => Log},
+                              formatter=>{?MODULE,bin}}),
+    logger:notice(M1=?report),
+    try_read_file(Log, {ok,term_to_binary(M1)}, filesync_rep_int()),
+    ok.
+binary_formatter(cleanup, _Config) ->
+    logger_std_h_remove().
 
 filter_config(_Config) ->
     ok = logger:add_handler(?MODULE,logger_std_h,#{}),
@@ -2008,6 +2023,8 @@ format(#{msg:={F,A}},OpOrPid) when is_list(F), is_list(A) ->
        true -> ok
     end,
     String++"\n";
+format(#{msg:={report,Report}},bin) ->
+    term_to_binary(Report);
 format(#{msg:={string,String0}},Pid) ->
     String = unicode:characters_to_list(String0),
     Pid ! {log,String},
