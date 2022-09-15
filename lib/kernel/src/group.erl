@@ -22,6 +22,7 @@
 %% A group leader process for user io.
 
 -export([start/2, start/3, server/4]).
+-export([interfaces/1]).
 
 start(Drv, Shell) ->
     start(Drv, Shell, []).
@@ -45,7 +46,30 @@ server(Ancestors, Drv, Shell, Options) ->
 			    fun(B) -> edlin_expand:expand(B) end)),
     put(echo, proplists:get_value(echo, Options, true)),
 
-    server_loop(Drv, start_shell(Shell), []).
+    start_shell(Shell),
+    server_loop(Drv, get(shell), []).
+
+%% Return the pid of user_drv and the shell process.
+%% Note: We can't ask the group process for this info since it
+%% may be busy waiting for data from the driver.
+interfaces(Group) ->
+    case process_info(Group, dictionary) of
+	{dictionary,Dict} ->
+	    get_pids(Dict, [], false);
+	_ ->
+	    []
+    end.
+
+get_pids([Drv = {user_drv,_} | Rest], Found, _) ->
+    get_pids(Rest, [Drv | Found], true);
+get_pids([Sh = {shell,_} | Rest], Found, Active) ->
+    get_pids(Rest, [Sh | Found], Active);
+get_pids([_ | Rest], Found, Active) ->
+    get_pids(Rest, Found, Active);
+get_pids([], Found, true) ->
+    Found;
+get_pids([], _Found, false) ->
+    [].
 
 %% start_shell(Shell)
 %%  Spawn a shell with its group_leader from the beginning set to ourselves.
@@ -62,9 +86,9 @@ start_shell(Shell) when is_function(Shell) ->
 start_shell(Shell) when is_pid(Shell) ->
     group_leader(self(), Shell),		% we are the shells group leader
     link(Shell),				% we're linked to it.
-    Shell;
+    put(shell, Shell);
 start_shell(_Shell) ->
-    undefined.
+    ok.
 
 start_shell1(M, F, Args) ->
     G = group_leader(),
@@ -73,9 +97,10 @@ start_shell1(M, F, Args) ->
 	Shell when is_pid(Shell) ->
 	    group_leader(G, self()),
 	    link(Shell),			% we're linked to it.
-	    Shell;
+	    put(shell, Shell);
 	Error ->				% start failure
 	    exit(Error)				% let the group process crash
+
     end.
 
 start_shell1(Fun) ->
@@ -85,14 +110,14 @@ start_shell1(Fun) ->
 	Shell when is_pid(Shell) ->
 	    group_leader(G, self()),
 	    link(Shell),			% we're linked to it.
-	    Shell;
+	    put(shell, Shell);
 	Error ->				% start failure
 	    exit(Error)				% let the group process crash
     end.
 
 server_loop(Drv, Shell, Buf0) ->
     receive
-	{io_request,From,ReplyAs,Req} when is_pid(From) ->
+        {io_request,From,ReplyAs,Req} when is_pid(From) ->
             %% This io_request may cause a transition to a couple of
             %% selective receive loops elsewhere in this module.
             Buf = io_request(Req, From, ReplyAs, Drv, Shell, Buf0),
@@ -108,7 +133,7 @@ server_loop(Drv, Shell, Buf0) ->
 	    server_loop(Drv, Shell, Buf0);
 	{'EXIT',Drv,interrupt} ->
 	    %% Send interrupt to the shell.
-	    exit_shell(Shell, interrupt),
+	    exit_shell(interrupt),
 	    server_loop(Drv, Shell, Buf0);
 	{'EXIT',Drv,R} ->
 	    exit(R);
@@ -124,37 +149,39 @@ server_loop(Drv, Shell, Buf0) ->
 	    server_loop(Drv, Shell, Buf0)
     end.
 
-exit_shell(undefined, _Reason) ->
-    true;
-exit_shell(Pid, Reason) ->
-    exit(Pid, Reason).
+exit_shell(Reason) ->
+    case get(shell) of
+	undefined -> true;
+	Pid -> exit(Pid, Reason)
+    end.
 
 get_tty_geometry(Drv) ->
     Drv ! {self(),tty_geometry},
     receive
-	{Drv,tty_geometry,Geometry} ->
-	    Geometry
+        {Drv,tty_geometry,Geometry} ->
+            Geometry
     after 2000 ->
-	    timeout
+            timeout
     end.
 get_unicode_state(Drv) ->
     Drv ! {self(),get_unicode_state},
     receive
-	{Drv,get_unicode_state,UniState} ->
-	    UniState;
-	{Drv,get_unicode_state,error} ->
-	    {error, internal}
+        {Drv,get_unicode_state,UniState} ->
+            UniState;
+        {Drv,get_unicode_state,error} ->
+            {error, internal}
     after 2000 ->
-	    {error,timeout}
+            {error,timeout}
     end.
 set_unicode_state(Drv,Bool) ->
     Drv ! {self(),set_unicode_state,Bool},
     receive
-	{Drv,set_unicode_state,_OldUniState} ->
-	    ok
+        {Drv,set_unicode_state,_OldUniState} ->
+            ok
     after 2000 ->
-	    timeout
+            timeout
     end.
+
 get_terminal_state(Drv) ->
     Drv ! {self(),get_terminal_state},
     receive
@@ -181,17 +208,17 @@ io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
 	    %% 'kill' instead of R, since the shell is not always in
 	    %% a state where it is ready to handle a termination
 	    %% message.
-	    exit_shell(Shell, kill),
+	    exit_shell(kill),
 	    exit(R)
     end.
 
 
-%% Put_chars, unicode is the normal message, characters are always in 
+%% Put_chars, unicode is the normal message, characters are always in
 %%standard unicode
 %% format.
-%% You might be tempted to send binaries unchecked, but the driver 
+%% You might be tempted to send binaries unchecked, but the driver
 %% expects unicode, so that is what we should send...
-%% io_request({put_chars,unicode,Binary}, Drv, Buf) when is_binary(Binary) -> 
+%% io_request({put_chars,unicode,Binary}, Drv, Buf) when is_binary(Binary) ->
 %%     send_drv(Drv, {put_chars,Binary}),
 %%     {ok,ok,Buf};
 %%
