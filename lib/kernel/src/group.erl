@@ -557,6 +557,18 @@ get_line(Chars, Pbs, Drv, Shell, Encoding) ->
 get_line1({done,Line,Rest,Rs}, Drv, _Shell, _Ls, _Encoding) ->
     send_drv_reqs(Drv, Rs),
     {done,Line,Rest};
+get_line1({undefined,{_A, Mode, Char}, _Cs, Cont, Rs}, Drv, Shell, Ls0, Encoding)
+  when ((Mode =:= none) and (Char =:= $\^O)) ->
+    send_drv_reqs(Drv, Rs),
+    Buffer = edlin:current_chars(Cont),
+    send_drv(Drv, {open_editor, Buffer}),
+    receive
+        {Drv, {editor_data, Cs}} ->
+            send_drv_reqs(Drv, edlin:erase_line(Cont)),
+            {more_chars,NewCont,NewRs} = edlin:start(edlin:prompt(Cont)),
+            send_drv_reqs(Drv, NewRs),
+            get_line1(edlin:edit_line(Cs, NewCont), Drv, Shell, Ls0, Encoding)
+    end;
 get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls0, Encoding)
   when ((Mode =:= none) and (Char =:= $\^P))
        or ((Mode =:= meta_left_sq_bracket) and (Char =:= $A)) ->

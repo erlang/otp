@@ -54,7 +54,9 @@
          shell_unicode_wrap/1, shell_delete_unicode_wrap/1,
          shell_delete_unicode_not_at_cursor_wrap/1,
          shell_update_window_unicode_wrap/1,
-         remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1]).
+         remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1,
+         external_editor/1, external_editor_visual/1,
+         external_editor_unicode/1, shell_ignore_pager_commands/1]).
 
 %% Exports for custom shell history module
 -export([load/0, add/1]).
@@ -98,11 +100,15 @@ groups() ->
       [{group,tty_unicode},
        {group,tty_latin1},
        shell_suspend,
-       shell_full_queue
+       shell_full_queue,
+       external_editor,
+       external_editor_visual,
+       shell_ignore_pager_commands
       ]},
      {tty_unicode,[parallel],
       [{group,tty_tests},
-       shell_invalid_unicode
+       shell_invalid_unicode,
+       external_editor_unicode
        %% unicode wrapping does not work right yet
        %% shell_unicode_wrap,
        %% shell_delete_unicode_wrap,
@@ -215,9 +221,10 @@ init_per_testcase(Func, Config) ->
     [{tc_path, lists:concat(lists:join("-",lists:flatten(Path)))} | Config].
 
 end_per_testcase(_Case, Config) ->
-    case proplists:get_value(name, proplists:get_value(tc_group_properties, Config)) of
-        tty_tests -> ok;
-        _ ->
+    GroupProperties = proplists:get_value(tc_group_properties, Config),
+    case (GroupProperties =/= false) andalso proplists:get_value(parallel, GroupProperties, false) of
+        true -> ok;
+        false ->
             %% Terminate any connected nodes. They may disturb test cases that follow.
             lists:foreach(fun(Node) ->
                                   catch erpc:call(Node, erlang, halt, [])
@@ -883,6 +890,111 @@ shell_invalid_ansi(_Config) ->
       ]).
 
 
+shell_ignore_pager_commands(Config) ->
+    Term = start_tty(Config),
+    case code:get_doc(file, #{sources=>[eep48]}) of
+        {error, _} -> {skip, "No documentation available"};
+        _ ->
+            try
+                send_tty(Term, "h(file).\n"),
+                check_content(Term,"\\Qmore (y/n)? (y)\\E"),
+                send_tty(Term, "n\n"),
+                check_content(Term,"ok"),
+                send_tty(Term, "C-P"),
+                check_content(Term,"\\Qh(file).\\E"),
+                ok
+            after
+                stop_tty(Term),
+                ok
+            end
+    end.
+
+external_editor(Config) ->
+    case os:find_executable("nano") of
+        false -> {skip, "nano is not installed"};
+        _ ->
+            Term = start_tty(Config),
+            try
+                tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
+                send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
+                send_tty(Term, "\"some text with\nnewline in it\""),
+                check_content(Term,"3> \"some text with\\s*\n.+3>\\s*newline in it\""),
+                send_tty(Term, "C-O"),
+                check_content(Term,"GNU nano [\\d.]+"),
+                check_content(Term,"newline in it\""),
+                send_tty(Term, "still"),
+                send_tty(Term, "Enter"),
+                send_tty(Term, "C-O"), %% save in nano
+                send_tty(Term, "Enter"),
+                send_tty(Term, "C-X"), %% quit in nano
+                check_content(Term,"still\n.+3> newline in it\""),
+                send_tty(Term,".\n"),
+                check_content(Term,"\\Q\"some text with\\nstill\\nnewline in it\"\\E"),
+                ok
+            after
+                stop_tty(Term),
+                ok
+            end
+    end.
+
+external_editor_visual(Config) ->
+    case os:find_executable("vim") of
+        false ->
+            {skip, "vim is not installed"};
+        _ ->
+            Term = start_tty(Config),
+            try
+                tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
+                send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
+                check_content(Term, "3>"),
+                send_tty(Term,"os:putenv(\"VISUAL\",\"vim -u DEFAULTS -U NONE -i NONE\").\n"),
+                check_content(Term, "4>"),
+                send_tty(Term,"\"hello"),
+                send_tty(Term, "C-O"), %% Open vim
+                check_content(Term, "\"hello"),
+                send_tty(Term, "$"), %% Set cursor at end
+                send_tty(Term, "a"), %% Enter insert mode at end
+                check_content(Term, "-- INSERT --"),
+                send_tty(Term, "\"."),
+                send_tty(Term,"Escape"),
+                send_tty(Term,":wq"),
+                send_tty(Term,"Enter"),
+                check_content(Term, "\"hello\"[.]$"),
+                send_tty(Term,"Enter"),
+                check_content(Term, "\"hello\""),
+                check_content(Term, "5>$")
+            after
+                stop_tty(Term),
+                ok
+            end
+    end.
+
+external_editor_unicode(Config) ->
+    NanoPath = os:find_executable("nano"),
+    case NanoPath of
+        false -> {skip, "nano is not installed"};
+        _ ->
+            Term = start_tty(Config),
+            try
+                tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
+                send_tty(Term,"os:putenv(\"EDITOR\",\"nano\").\n"),
+                send_tty(Term, hard_unicode()),
+                check_content(Term,"3> " ++ hard_unicode_match(Config)),
+                send_tty(Term, "C-O"), %% open external editor (nano)
+                check_content(Term,"GNU nano [\\d.]+"),
+                send_tty(Term, "still "),
+                check_content(Term,"\nstill "),
+                send_tty(Term, "C-O"), %% save in nano
+                send_tty(Term, "Enter"),
+                send_tty(Term, "C-X"), %% quit in nano
+                check_content(Term,"still "++hard_unicode_match(Config)),
+                ok
+            after
+                stop_tty(Term),
+                ok
+            end
+    end.
+
 %% We test that suspending of `erl` and then resuming restores the shell
 shell_suspend(Config) ->
 
@@ -1442,6 +1554,16 @@ shell_history(Config) when is_list(Config) ->
        {expect, "echo4ECHO\r\n"}
       ], [], [],
       mk_history_param(Path)),
+    receive after 1000 -> ok end,
+
+    %% ignore input given after io:get_line, and after h(module) pager
+    rtnode:run(
+       [{putdata, "io:get_line(\"getline>\").\n"},
+        {expect, "getline>"},
+        {putline, "hej"}, {expect, "hej\r\n"},
+        {putdata, [$\^p]}, {expect, "\\Qio:get_line(\"getline>\")\\E[.]$"}
+       ], [], [],
+       mk_history_param(Path)),
     ok.
 
 shell_history_resize(Config) ->
