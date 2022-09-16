@@ -196,7 +196,8 @@ primary_bootstrap_compiler: \
   $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_lint.beam \
   $(BOOTSTRAP_COMPILER)/ebin/io.beam \
-  $(BOOTSTRAP_COMPILER)/ebin/otp_internal.beam
+  $(BOOTSTRAP_COMPILER)/ebin/otp_internal.beam \
+  $(BOOTSTRAP_COMPILER)/ebin/erl_internal.beam
 
 
 $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam: erl_parse.yrl
