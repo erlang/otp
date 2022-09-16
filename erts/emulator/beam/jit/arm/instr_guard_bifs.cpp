@@ -643,19 +643,51 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
         }
     }
 
-    mov_arg(ARG1, Pos);
-    mov_arg(ARG2, Tuple);
+    bool const_position;
 
-    if (Fail.get() != 0) {
-        fragment_call(ga->get_bif_element_guard_shared());
-        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    const_position = Pos.isSmall() && Pos.as<ArgSmall>().getSigned() > 0 &&
+                     Pos.as<ArgSmall>().getSigned() <= (Sint)MAX_ARITYVAL;
+
+    if (const_position && exact_type(Tuple, BEAM_TYPE_TUPLE)) {
+        comment("simplified element/2 because arguments are known types");
+        auto tuple = load_source(Tuple, ARG2);
+        auto dst = init_destination(Dst, ARG1);
+        Uint position = Pos.as<ArgSmall>().getUnsigned();
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
+
+        a.ldur(TMP2, emit_boxed_val(boxed_ptr));
+        ERTS_CT_ASSERT(make_arityval_zero() == 0);
+        cmp(TMP2, position << _HEADER_ARITY_OFFS);
+        if (Fail.get() != 0) {
+            a.b_lo(resolve_beam_label(Fail, disp1MB));
+        } else {
+            Label good = a.newLabel();
+            a.b_hs(good);
+            mov_arg(ARG1, Pos);
+            mov_var(ARG2, tuple);
+            fragment_call(ga->get_handle_element_error_shared());
+            a.bind(good);
+        }
+
+        safe_ldur(dst.reg, emit_boxed_val(boxed_ptr, position << 3));
+        flush_var(dst);
     } else {
-        fragment_call(ga->get_bif_element_body_shared());
-    }
+        /* Too much code to inline. Call a helper fragment. */
+        mov_arg(ARG1, Pos);
+        mov_arg(ARG2, Tuple);
 
-    auto dst = init_destination(Dst, ARG1);
-    mov_var(dst, ARG1);
-    flush_var(dst);
+        if (Fail.get() != 0) {
+            fragment_call(ga->get_bif_element_guard_shared());
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        } else {
+            fragment_call(ga->get_bif_element_body_shared());
+        }
+
+        auto dst = init_destination(Dst, ARG1);
+        mov_var(dst, ARG1);
+        flush_var(dst);
+    }
 }
 
 /* ================================================================

@@ -204,6 +204,7 @@ protected:
     /* Number of highest element displacement for L/SDP and L/STR. */
     static const size_t MAX_LDP_STP_DISPLACEMENT = 0x3F;
     static const size_t MAX_LDR_STR_DISPLACEMENT = 0xFFF;
+    static const size_t MAX_LDUR_STUR_DISPLACEMENT = 0xFF;
 
     /* Constants for "alternate flag state" operands, which are distinct from
      * `arm::CondCode::xyz`. Mainly used in `CCMP` instructions. */
@@ -1756,6 +1757,20 @@ protected:
 
         if (std::abs(offset) <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             a.ldr(gp, mem);
+        } else {
+            add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
+            a.ldr(gp, arm::Mem(SUPER_TMP));
+        }
+    }
+
+    void safe_ldur(arm::Gp gp, arm::Mem mem) {
+        auto offset = mem.offset();
+
+        ASSERT(mem.hasBaseReg() && !mem.hasIndex());
+        ASSERT(gp.isGpX());
+
+        if (std::abs(offset) <= MAX_LDUR_STUR_DISPLACEMENT) {
+            a.ldur(gp, mem);
         } else {
             add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
             a.ldr(gp, arm::Mem(SUPER_TMP));
