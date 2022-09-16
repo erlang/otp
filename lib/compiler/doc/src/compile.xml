@@ -826,7 +826,23 @@ module.beam: module.erl \
                 (or contract) for an exported or unexported function is not
                 given. Use this option to turn on this kind of warning.</p>
           </item>
-        </taglist>
+
+          <tag><c>nowarn_redefined_builtin_type</c></tag>
+          <item>
+            <p>By default, a warning is emitted when a built-in type
+            is locally redefined. Use this option to turn off this
+            kind of warning.</p>
+          </item>
+
+          <tag><c>{nowarn_redefined_builtin_type, Types}</c></tag>
+          <item>
+            <p>By default, a warning is emitted when a built-in type
+            is locally redefined. Use this option to turn off this
+            kind of warning for the types in <c>Types</c>, where
+            <c>Types</c> is a tuple <c>{TypeName,Arity}</c> or a list
+            of such tuples.</p>
+          </item>
+</taglist>
 
 	<p>Other kinds of warnings are <em>opportunistic
 	warnings</em>. They are generated when the compiler happens to

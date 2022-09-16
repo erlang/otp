@@ -436,12 +436,8 @@ format_error({undefined_type, {TypeName, Arity}}) ->
     io_lib:format("type ~tw~s undefined", [TypeName, gen_type_paren(Arity)]);
 format_error({unused_type, {TypeName, Arity}}) ->
     io_lib:format("type ~tw~s is unused", [TypeName, gen_type_paren(Arity)]);
-format_error({new_builtin_type, {TypeName, Arity}}) ->
-    io_lib:format("type ~w~s is a new builtin type; "
-		  "its (re)definition is allowed only until the next release",
-		  [TypeName, gen_type_paren(Arity)]);
-format_error({builtin_type, {TypeName, Arity}}) ->
-    io_lib:format("type ~w~s is a builtin type; it cannot be redefined",
+format_error({redefine_builtin_type, {TypeName, Arity}}) ->
+    io_lib:format("local redefinition of built-in type: ~w~s",
 		  [TypeName, gen_type_paren(Arity)]);
 format_error({renamed_type, OldName, NewName}) ->
     io_lib:format("type ~w() is now called ~w(); "
@@ -674,7 +670,10 @@ start(File, Opts) ->
                       true, Opts)},
          {keyword_warning,
           bool_option(warn_keywords, nowarn_keywords,
-                      false, Opts)}
+                      false, Opts)},
+         {redefined_builtin_type,
+          bool_option(warn_redefined_builtin_type, nowarn_redefined_builtin_type,
+                      true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
     Enabled = ordsets:from_list(Enabled1),
@@ -2975,17 +2974,13 @@ type_def(Attr, Anno, TypeName, ProtoType, Args, St0) ->
         not member(no_auto_import_types, St0#lint.compile) of
         true ->
             case is_obsolete_builtin_type(TypePair) of
-                true -> StoreType(St0);
+                true ->
+                    StoreType(St0);
                 false ->
-                     case is_newly_introduced_builtin_type(TypePair) of
-                         %% allow some types just for bootstrapping
-                         true ->
-                             Warn = {new_builtin_type, TypePair},
-                             St1 = add_warning(Anno, Warn, St0),
-                             StoreType(St1);
-                         false ->
-                             add_error(Anno, {builtin_type, TypePair}, St0)
-                     end
+                    %% Starting from OTP 26, redefining built-in types
+                    %% is allowed.
+                    St1 = StoreType(St0),
+                    warn_redefined_builtin_type(Anno, TypePair, St1)
             end;
         false ->
             case is_map_key(TypePair, TypeDefs) of
@@ -3005,12 +3000,29 @@ type_def(Attr, Anno, TypeName, ProtoType, Args, St0) ->
 	    end
     end.
 
+warn_redefined_builtin_type(Anno, TypePair, #lint{compile=Opts}=St) ->
+    case is_warn_enabled(redefined_builtin_type, St) of
+        true ->
+            NoWarn = [Type ||
+                         {nowarn_redefined_builtin_type, Type0} <- Opts,
+                         Type <- lists:flatten([Type0])],
+            case lists:member(TypePair, NoWarn) of
+                true ->
+                    St;
+                false ->
+                    Warn = {redefine_builtin_type, TypePair},
+                    add_warning(Anno, Warn, St)
+            end;
+        false ->
+            St
+    end.
+
 is_underspecified({type,_,term,[]}, 0) -> true;
 is_underspecified({type,_,any,[]}, 0) -> true;
 is_underspecified(_ProtType, _Arity) -> false.
 
 check_type(Types, St) ->
-    {SeenVars, St1} = check_type(Types, maps:new(), St),
+    {SeenVars, St1} = check_type_1(Types, maps:new(), St),
     maps:fold(fun(Var, {seen_once, Anno}, AccSt) ->
 		      case atom_to_list(Var) of
 			  "_"++_ -> AccSt;
@@ -3020,24 +3032,39 @@ check_type(Types, St) ->
 		      AccSt
 	      end, St1, SeenVars).
 
-check_type({ann_type, _A, [_Var, Type]}, SeenVars, St) ->
-    check_type(Type, SeenVars, St);
-check_type({remote_type, A, [{atom, _, Mod}, {atom, _, Name}, Args]},
+check_type_1({type, Anno, TypeName, Args}=Type, SeenVars, #lint{types=Types}=St) ->
+    TypePair = {TypeName,
+                if
+                    is_list(Args) -> length(Args);
+                    true -> 0
+                end},
+    case is_map_key(TypePair, Types) of
+        true ->
+            check_type_2(Type, SeenVars, used_type(TypePair, Anno, St));
+        false ->
+            check_type_2(Type, SeenVars, St)
+    end;
+check_type_1(Types, SeenVars, St) ->
+    check_type_2(Types, SeenVars, St).
+
+check_type_2({ann_type, _A, [_Var, Type]}, SeenVars, St) ->
+    check_type_1(Type, SeenVars, St);
+check_type_2({remote_type, A, [{atom, _, Mod}, {atom, _, Name}, Args]},
 	   SeenVars, St00) ->
     St0 = check_module_name(Mod, A, St00),
     St = deprecated_type(A, Mod, Name, Args, St0),
     CurrentMod = St#lint.module,
     case Mod =:= CurrentMod of
-	true -> check_type({user_type, A, Name, Args}, SeenVars, St);
+	true -> check_type_2({user_type, A, Name, Args}, SeenVars, St);
 	false ->
 	    lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
-				check_type(T, AccSeenVars, AccSt)
+				check_type_1(T, AccSeenVars, AccSt)
 			end, {SeenVars, St}, Args)
     end;
-check_type({integer, _A, _}, SeenVars, St) -> {SeenVars, St};
-check_type({atom, _A, _}, SeenVars, St) -> {SeenVars, St};
-check_type({var, _A, '_'}, SeenVars, St) -> {SeenVars, St};
-check_type({var, A, Name}, SeenVars, St) ->
+check_type_2({integer, _A, _}, SeenVars, St) -> {SeenVars, St};
+check_type_2({atom, _A, _}, SeenVars, St) -> {SeenVars, St};
+check_type_2({var, _A, '_'}, SeenVars, St) -> {SeenVars, St};
+check_type_2({var, A, Name}, SeenVars, St) ->
     NewSeenVars =
 	case maps:find(Name, SeenVars) of
 	    {ok, {seen_once, _}} -> maps:put(Name, seen_multiple, SeenVars);
@@ -3045,34 +3072,34 @@ check_type({var, A, Name}, SeenVars, St) ->
 	    error -> maps:put(Name, {seen_once, A}, SeenVars)
 	end,
     {NewSeenVars, St};
-check_type({type, A, bool, []}, SeenVars, St) ->
+check_type_2({type, A, bool, []}, SeenVars, St) ->
     {SeenVars, add_warning(A, {renamed_type, bool, boolean}, St)};
-check_type({type, A, 'fun', [Dom, Range]}, SeenVars, St) ->
+check_type_2({type, A, 'fun', [Dom, Range]}, SeenVars, St) ->
     St1 =
 	case Dom of
 	    {type, _, product, _} -> St;
 	    {type, _, any} -> St;
 	    _ -> add_error(A, {type_syntax, 'fun'}, St)
 	end,
-    check_type({type, nowarn(), product, [Dom, Range]}, SeenVars, St1);
-check_type({type, A, range, [From, To]}, SeenVars, St) ->
+    check_type_2({type, nowarn(), product, [Dom, Range]}, SeenVars, St1);
+check_type_2({type, A, range, [From, To]}, SeenVars, St) ->
     St1 =
 	case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
 	    {{integer, _, X}, {integer, _, Y}} when X < Y -> St;
 	    _ -> add_error(A, {type_syntax, range}, St)
 	end,
     {SeenVars, St1};
-check_type({type, _A, map, any}, SeenVars, St) ->
+check_type_2({type, _A, map, any}, SeenVars, St) ->
     {SeenVars, St};
-check_type({type, _A, map, Pairs}, SeenVars, St) ->
+check_type_2({type, _A, map, Pairs}, SeenVars, St) ->
     lists:foldl(fun(Pair, {AccSeenVars, AccSt}) ->
-			check_type(Pair, AccSeenVars, AccSt)
+                        check_type_2(Pair, AccSeenVars, AccSt)
 		end, {SeenVars, St}, Pairs);
-check_type({type, _A, map_field_assoc, [Dom, Range]}, SeenVars, St) ->
-    check_type({type, nowarn(), product, [Dom, Range]}, SeenVars, St);
-check_type({type, _A, tuple, any}, SeenVars, St) -> {SeenVars, St};
-check_type({type, _A, any}, SeenVars, St) -> {SeenVars, St};
-check_type({type, A, binary, [Base, Unit]}, SeenVars, St) ->
+check_type_2({type, _A, map_field_assoc, [Dom, Range]}, SeenVars, St) ->
+    check_type_2({type, nowarn(), product, [Dom, Range]}, SeenVars, St);
+check_type_2({type, _A, tuple, any}, SeenVars, St) -> {SeenVars, St};
+check_type_2({type, _A, any}, SeenVars, St) -> {SeenVars, St};
+check_type_2({type, A, binary, [Base, Unit]}, SeenVars, St) ->
     St1 =
 	case {erl_eval:partial_eval(Base), erl_eval:partial_eval(Unit)} of
 	    {{integer, _, BaseVal},
@@ -3080,20 +3107,20 @@ check_type({type, A, binary, [Base, Unit]}, SeenVars, St) ->
 	    _ -> add_error(A, {type_syntax, binary}, St)
 	end,
     {SeenVars, St1};
-check_type({type, A, record, [Name|Fields]}, SeenVars, St) ->
+check_type_2({type, A, record, [Name|Fields]}, SeenVars, St) ->
     case Name of
 	{atom, _, Atom} ->
 	    St1 = used_record(Atom, St),
 	    check_record_types(A, Atom, Fields, SeenVars, St1);
 	_ -> {SeenVars, add_error(A, {type_syntax, record}, St)}
     end;
-check_type({type, _A, Tag, Args}, SeenVars, St) when Tag =:= product;
+check_type_2({type, _A, Tag, Args}, SeenVars, St) when Tag =:= product;
                                                      Tag =:= union;
                                                      Tag =:= tuple ->
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
-			check_type(T, AccSeenVars, AccSt)
+			check_type_1(T, AccSeenVars, AccSt)
 		end, {SeenVars, St}, Args);
-check_type({type, Anno, TypeName, Args}, SeenVars, St) ->
+check_type_2({type, Anno, TypeName, Args}, SeenVars, St) ->
     #lint{module = Module, types=Types} = St,
     Arity = length(Args),
     TypePair = {TypeName, Arity},
@@ -3109,20 +3136,21 @@ check_type({type, Anno, TypeName, Args}, SeenVars, St) ->
                           Tag = deprecated_builtin_type,
                           W = {Tag, TypePair, Replacement, Rel},
                           add_warning(Anno, W, St)
-                end;
-            _ -> St
-        end,
-    check_type({type, nowarn(), product, Args}, SeenVars, St1);
-check_type({user_type, A, TypeName, Args}, SeenVars, St) ->
+                  end;
+              _ ->
+                  St
+          end,
+    check_type_2({type, nowarn(), product, Args}, SeenVars, St1);
+check_type_2({user_type, A, TypeName, Args}, SeenVars, St) ->
     Arity = length(Args),
     TypePair = {TypeName, Arity},
     St1 = used_type(TypePair, A, St),
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
-			check_type(T, AccSeenVars, AccSt)
+			check_type_1(T, AccSeenVars, AccSt)
 		end, {SeenVars, St1}, Args);
-check_type([{typed_record_field,Field,_T}|_], SeenVars, St) ->
+check_type_2([{typed_record_field,Field,_T}|_], SeenVars, St) ->
     {SeenVars, add_error(element(2, Field), old_abstract_code, St)};
-check_type(I, SeenVars, St) ->
+check_type_2(I, SeenVars, St) ->
     case erl_eval:partial_eval(I) of
         {integer,_A,_Integer} -> {SeenVars, St};
         _Other ->
@@ -3157,7 +3185,7 @@ check_record_types([{type, _, field_type, [{atom, Anno, FName}, Type]}|Left],
 	      false -> St1
 	  end,
     %% Check Type
-    {NewSeenVars, St3} = check_type(Type, SeenVars, St2),
+    {NewSeenVars, St3} = check_type_2(Type, SeenVars, St2),
     NewSeenFields = ordsets:add_element(FName, SeenFields),
     check_record_types(Left, Name, DefFields, NewSeenVars, St3, NewSeenFields);
 check_record_types([], _Name, _DefFields, SeenVars, St, _SeenFields) ->
@@ -3172,8 +3200,6 @@ used_type(TypePair, Anno, #lint{usage = Usage, file = File} = St) ->
 
 is_default_type({Name, NumberOfTypeVariables}) ->
     erl_internal:is_type(Name, NumberOfTypeVariables).
-
-is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
 
 is_obsolete_builtin_type(TypePair) ->
     obsolete_builtin_type(TypePair) =/= no.

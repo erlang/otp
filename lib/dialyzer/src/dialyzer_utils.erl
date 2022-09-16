@@ -552,13 +552,52 @@ get_spec_info([], SpecMap, CallbackMap,
   {ok, SpecMap, CallbackMap}.
 
 core_to_attr_tuples(Core) ->
-  [{cerl:concrete(Key), get_core_location(cerl:get_ann(Key)), cerl:concrete(Value)} ||
-   {Key, Value} <- cerl:module_attrs(Core)].
+  As = [{cerl:concrete(Key), get_core_location(cerl:get_ann(Key)), cerl:concrete(Value)} ||
+         {Key, Value} <- cerl:module_attrs(Core)],
+  case cerl:concrete(cerl:module_name(Core)) of
+    erlang ->
+      As;
+    _ ->
+      %% Starting from Erlang/OTP 26, locally defining a type having
+      %% the same name as a built-in type is allowed. Change the tag
+      %% from `type` to `user_type` for all such redefinitions.
+      massage_forms(As, sets:new([{version, 2}]))
+  end.
 
 get_core_location([L | _As]) when is_integer(L) -> L;
 get_core_location([{L, C} | _As]) when is_integer(L), is_integer(C) -> {L, C};
 get_core_location([_ | As]) -> get_core_location(As);
 get_core_location([]) -> undefined.
+
+massage_forms([{type, Loc, [{Name, Type0, Args}]} | T], Defs0) ->
+  Type = massage_type(Type0, Defs0),
+  Defs = sets:add_element({Name, length(Args)}, Defs0),
+  [{type, Loc, [{Name, Type, Args}]} | massage_forms(T, Defs)];
+massage_forms([{spec, Loc, [{Name, [Type0]}]} | T], Defs) ->
+  Type = massage_type(Type0, Defs),
+  [{spec, Loc, [{Name, [Type]}]} | massage_forms(T, Defs)];
+massage_forms([H | T], Defs) ->
+  [H | massage_forms(T, Defs)];
+massage_forms([], _Defs) ->
+  [].
+
+massage_type({type, Loc, Name, Args0}, Defs) when is_list(Args0) ->
+  case sets:is_element({Name, length(Args0)}, Defs) of
+    true ->
+      %% This name for a built-in type has been overriden locally
+      %% with a new definition.
+      {user_type, Loc, Name, Args0};
+    false ->
+      Args = massage_type_list(Args0, Defs),
+      {type, Loc, Name, Args}
+  end;
+massage_type(Type, _Defs) ->
+  Type.
+
+massage_type_list([H|T], Defs) ->
+  [massage_type(H, Defs) | massage_type_list(T, Defs)];
+massage_type_list([], _Defs) ->
+  [].
 
 -spec get_fun_meta_info(module(), cerl:c_module(), [dial_warn_tag()]) ->
                 dialyzer_codeserver:fun_meta_info() | {'error', string()}.

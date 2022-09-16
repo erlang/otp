@@ -314,11 +314,6 @@
     <tcaption>Additional built-in types</tcaption>
   </table>
 
-  <p>
-    Users are not allowed to define types with the same names as the
-    predefined or built-in ones. This is checked by the compiler and
-    its violation results in a compilation error.
-  </p>
   <note>
     <p>
       The following built-in list types also exist,
@@ -345,7 +340,34 @@
     This is described in <seeguide marker="#typeinrecords">
     Type Information in Record Declarations</seeguide>.
   </p>
+
+  <section>
+    <title>Redefining built-in types</title>
+    <p>
+      Starting from Erlang/OTP 26, is is permitted to define a type
+      having the same name as a built-in type. It is recommended to
+      avoid deliberately reusing built-in names because it can be
+      confusing. However, when an Erlang/OTP release introduces a new
+      type, code that happened to define its own type having the same
+      name will continue to work.
+    </p>
+
+    <p>As an example, imagine that the Erlang/OTP 42 release introduces
+    a new type <c>gadget()</c> defined like this:</p>
+
+    <pre>
+  -type gadget() :: {'gadget', reference()}.</pre>
+
+    <p>Further imagine that some code has its own (different)
+    definition of <c>gadget()</c>, for example:</p>
+
+    <pre>
+  -type gadget() :: #{}.</pre>
+
+    <p>Since redefinitions are allowed, the code will still compile (but
+    with a warning), and Dialyzer will not emit any additional warnings.</p>
   </section>
+</section>
 
   <section>
     <title>Type Declarations of User-Defined Types</title>
