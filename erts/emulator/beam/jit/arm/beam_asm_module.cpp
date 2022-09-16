@@ -350,6 +350,8 @@ void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
 
     currLabel = rawLabels[Label.get()];
     bind_veneer_target(currLabel);
+
+    last_destination_offset = ~0;
 }
 
 void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,

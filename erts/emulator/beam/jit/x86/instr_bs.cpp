@@ -652,114 +652,62 @@ void BeamModuleAssembler::emit_i_bs_get_position(const ArgRegister &Ctx,
     mov_arg(Dst, ARG1);
 }
 
-void BeamModuleAssembler::emit_bs_get_integer(const ArgRegister &Ctx,
-                                              const ArgLabel &Fail,
-                                              const ArgWord &Live,
-                                              const ArgWord Flags,
-                                              int bits,
-                                              const ArgRegister &Dst) {
-    const int base_offset = offsetof(ErlBinMatchState, mb.base);
-    const int position_offset = offsetof(ErlBinMatchState, mb.offset);
-    const int size_offset = offsetof(ErlBinMatchState, mb.size);
+void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
+                                               const ArgRegister &Ctx,
+                                               const ArgWord &Live,
+                                               const ArgSource &Sz,
+                                               const ArgWord &Unit,
+                                               const ArgWord &Flags,
+                                               const ArgRegister &Dst) {
+    Uint size;
+    Uint flags = Flags.get();
 
-#ifdef WIN32
-    const x86::Gp bin_position = ARG1;
-    const x86::Gp bitdata = ARG4;
-#else
-    const x86::Gp bin_position = ARG4;
-    const x86::Gp bitdata = ARG1;
-#endif
-    ASSERT(bin_position == x86::rcx);
-    const x86::Gp bin_base = ARG2;
-    const x86::Gp ctx = ARG3;
-    const x86::Gp tmp = ARG5;
-
-    mov_arg(ctx, Ctx);
-
-    if (bits == 64) {
-        a.mov(ARG1, ctx);
-        emit_gc_test_preserve(ArgWord(BIG_UINT_HEAP_SIZE), Live, Ctx, ARG1);
-        a.mov(ARG3, ARG1);
+    if (flags & BSF_NATIVE) {
+        flags &= ~BSF_NATIVE;
+        flags |= BSF_LITTLE;
     }
 
-    a.mov(bin_position, emit_boxed_val(ctx, position_offset));
-    a.lea(RET, qword_ptr(bin_position, bits));
-    a.cmp(RET, emit_boxed_val(ctx, size_offset));
-    a.ja(resolve_beam_label(Fail));
+    if (Sz.isSmall() &&
+        (size = Sz.as<ArgSmall>().getUnsigned()) < 8 * sizeof(Uint)) {
+        /* Segment of a fixed size supported by bs_match. */
+        const ArgVal match[] = {ArgAtom(am_ensure_at_least),
+                                ArgWord(size),
+                                Unit,
+                                ArgAtom(am_integer),
+                                Live,
+                                ArgWord(flags),
+                                ArgWord(size),
+                                Unit,
+                                Dst};
 
-    a.mov(bin_base, emit_boxed_val(ctx, base_offset));
-    a.mov(emit_boxed_val(ctx, position_offset), RET);
-
-    if (bits == 64) {
-        emit_read_bits(bits, bin_base, bin_position, bitdata);
-        emit_extract_integer(bitdata, tmp, Flags.get(), bits, Dst);
+        const Span<ArgVal> args(match, sizeof(match) / sizeof(match[0]));
+        emit_i_bs_match(Fail, Ctx, args);
     } else {
-        emit_read_integer(bin_base, bin_position, tmp, Flags.get(), bits, Dst);
-    }
-}
+        Label fail = resolve_beam_label(Fail);
+        int unit = Unit.get();
 
-void BeamModuleAssembler::emit_i_bs_get_integer_8(const ArgRegister &Ctx,
-                                                  const ArgWord &Flags,
-                                                  const ArgLabel &Fail,
-                                                  const ArgRegister &Dst) {
-    emit_bs_get_integer(Ctx, Fail, ArgWord(0), Flags, 8, Dst);
-}
+        /* Clobbers RET + ARG3, returns a negative result if we always
+         * fail and further work is redundant. */
+        if (emit_bs_get_field_size(Sz, unit, fail, ARG5) >= 0) {
+            mov_arg(ARG3, Ctx);
+            mov_imm(ARG4, flags);
+            mov_arg(ARG6, Live);
 
-void BeamModuleAssembler::emit_i_bs_get_integer_16(const ArgRegister &Ctx,
-                                                   const ArgWord &Flags,
-                                                   const ArgLabel &Fail,
-                                                   const ArgRegister &Dst) {
-    emit_bs_get_integer(Ctx, Fail, ArgWord(0), Flags, 16, Dst);
-}
+            emit_enter_runtime<Update::eReductions | Update::eStack |
+                               Update::eHeap>();
 
-void BeamModuleAssembler::emit_i_bs_get_integer_32(const ArgRegister &Ctx,
-                                                   const ArgWord &Flags,
-                                                   const ArgLabel &Fail,
-                                                   const ArgRegister &Dst) {
-    emit_bs_get_integer(Ctx, Fail, ArgWord(0), Flags, 32, Dst);
-}
+            a.mov(ARG1, c_p);
+            load_x_reg_array(ARG2);
+            runtime_call<6>(beam_jit_bs_get_integer);
 
-void BeamModuleAssembler::emit_i_bs_get_integer_64(const ArgRegister &Ctx,
-                                                   const ArgWord &Flags,
-                                                   const ArgLabel &Fail,
-                                                   const ArgWord &Live,
-                                                   const ArgRegister &Dst) {
-    emit_bs_get_integer(Ctx, Fail, Live, Flags, 64, Dst);
-}
+            emit_leave_runtime<Update::eReductions | Update::eStack |
+                               Update::eHeap>();
 
-void BeamModuleAssembler::emit_i_bs_get_integer(const ArgRegister &Ctx,
-                                                const ArgLabel &Fail,
-                                                const ArgWord &Live,
-                                                const ArgWord &FlagsAndUnit,
-                                                const ArgSource &Sz,
-                                                const ArgRegister &Dst) {
-    Label fail;
-    int unit;
+            emit_test_the_non_value(RET);
+            a.je(fail);
 
-    fail = resolve_beam_label(Fail);
-    unit = FlagsAndUnit.get() >> 3;
-
-    /* Clobbers RET + ARG3, returns a negative result if we always fail and
-     * further work is redundant. */
-    if (emit_bs_get_field_size(Sz, unit, fail, ARG5) >= 0) {
-        mov_arg(ARG3, Ctx);
-        mov_arg(ARG4, FlagsAndUnit);
-        mov_arg(ARG6, Live);
-
-        emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
-
-        a.mov(ARG1, c_p);
-        load_x_reg_array(ARG2);
-        runtime_call<6>(beam_jit_bs_get_integer);
-
-        emit_leave_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
-
-        emit_test_the_non_value(RET);
-        a.je(fail);
-
-        mov_arg(Dst, RET);
+            mov_arg(Dst, RET);
+        }
     }
 }
 
@@ -1119,8 +1067,8 @@ void BeamModuleAssembler::emit_validate_unicode(Label next,
                                                 Label fail,
                                                 x86::Gp value) {
     a.mov(ARG3d, value.r32());
-    a.and_(ARG3d, imm(_TAG_IMMED1_MASK));
-    a.cmp(ARG3d, imm(_TAG_IMMED1_SMALL));
+    a.and_(ARG3d.r8(), imm(_TAG_IMMED1_MASK));
+    a.cmp(ARG3d.r8(), imm(_TAG_IMMED1_SMALL));
     a.jne(fail);
 
     a.cmp(value, imm(make_small(0xD800UL)));
@@ -1966,7 +1914,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             } else if (always_one_of(seg.size,
                                      BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
                 comment("simplified test for small size since it is a number");
-                a.test(ARG1d, imm(TAG_PRIMARY_LIST));
+                a.test(ARG1.r8(), imm(TAG_PRIMARY_LIST));
                 a.je(error);
             } else {
                 a.mov(RETd, ARG1d);
@@ -2672,21 +2620,69 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
                                          const x86::Gp bin_base,
                                          const x86::Gp bin_offset,
                                          const x86::Gp bitdata) {
-    Label handle_partial = a.newLabel();
-    Label shift = a.newLabel();
     Label read_done = a.newLabel();
     auto num_partial = bits % 8;
     auto num_bytes_to_read = (bits + 7) / 8;
 
+    ASSERT(bin_offset == x86::rcx);
+
     a.mov(RET, bin_offset);
     a.shr(RET, imm(3));
+    if (num_bytes_to_read != 1) {
+        a.add(bin_base, RET);
+    }
     a.and_(bin_offset.r32(), imm(7));
+
+    /*
+     * Special-case handling of reading 8 or 9 bytes.
+     */
+    if (num_bytes_to_read == 8) {
+        if (hasCpuFeature(CpuFeatures::X86::kMOVBE)) {
+            a.movbe(bitdata, x86::qword_ptr(bin_base, num_bytes_to_read - 8));
+        } else {
+            a.mov(bitdata, x86::qword_ptr(bin_base, num_bytes_to_read - 8));
+            a.bswap(bitdata);
+        }
+
+        a.shl(bitdata, bin_offset.r8());
+
+        a.test(x86::cl, imm(7));
+        if (num_partial == 0) {
+            /* Byte-sized segment. If bit_offset is not byte-aligned, this
+             * segment always needs an additional byte. */
+            a.jz(read_done);
+        } else if (num_partial > 1) {
+            /* Non-byte-sized segment. Test whether we will need an
+             * additional byte. */
+            a.cmp(bin_offset.r32(), imm(8 - num_partial));
+            a.jle(read_done);
+        }
+
+        if (num_partial != 1) {
+            /* Read an extra byte. */
+            a.movzx(RETd, x86::byte_ptr(bin_base, 8));
+            a.shl(RETd, bin_offset.r8());
+            a.shr(RETd, imm(8));
+            a.or_(bitdata, RET);
+        }
+
+        a.bind(read_done);
+
+        return;
+    }
+
+    /*
+     * Handle reading of up to 7 bytes.
+     */
+    Label handle_partial = a.newLabel();
+    Label swap = a.newLabel();
+    Label shift = a.newLabel();
 
     if (num_partial == 0) {
         /* Byte-sized segment. If bit_offset is not byte-aligned, this
          * segment always needs an additional byte. */
         a.jnz(handle_partial);
-    } else {
+    } else if (num_partial > 1) {
         /* Non-byte-sized segment. Test whether we will need an
          * additional byte. */
         a.cmp(bin_offset.r32(), imm(8 - num_partial));
@@ -2699,12 +2695,10 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
         if (num_partial == 0) {
             a.bswap(bitdata);
             a.short_().jmp(read_done);
-        } else {
-            a.add(bin_offset.r32(), imm(56));
-            a.short_().jmp(shift);
+        } else if (num_partial > 1) {
+            a.short_().jmp(swap);
         }
     } else if (num_bytes_to_read <= 4) {
-        a.add(bin_base, RET);
         if (hasCpuFeature(CpuFeatures::X86::kMOVBE)) {
             a.movbe(bitdata.r32(),
                     x86::dword_ptr(bin_base, num_bytes_to_read - 4));
@@ -2716,59 +2710,36 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
         a.add(bin_offset.r32(), imm(64 - 8 * num_bytes_to_read));
         a.short_().jmp(shift);
     } else {
-        a.add(bin_base, RET);
         if (hasCpuFeature(CpuFeatures::X86::kMOVBE)) {
             a.movbe(bitdata, x86::qword_ptr(bin_base, num_bytes_to_read - 8));
         } else {
             a.mov(bitdata, x86::qword_ptr(bin_base, num_bytes_to_read - 8));
             a.bswap(bitdata);
         }
-        if (num_bytes_to_read < 8) {
-            a.add(bin_offset.r32(), imm(64 - 8 * num_bytes_to_read));
-        }
+        ASSERT(num_bytes_to_read < 8);
+        a.add(bin_offset.r32(), imm(64 - 8 * num_bytes_to_read));
         a.short_().jmp(shift);
     }
 
     /* We'll need an extra byte and we will need to shift. */
     a.bind(handle_partial);
-
-    if (num_bytes_to_read == 1) {
-        a.mov(bitdata.r16(), x86::word_ptr(bin_base, RET));
-        a.bswap(bitdata);
-    } else if (num_bytes_to_read < 8) {
-        a.add(bin_base, RET);
-        a.mov(bitdata, x86::qword_ptr(bin_base, num_bytes_to_read - 7));
-        a.shr(bitdata, imm(64 - 8 * (num_bytes_to_read + 1)));
-        a.bswap(bitdata);
-    } else {
-        a.add(bin_base, RET);
-        if (hasCpuFeature(CpuFeatures::X86::kMOVBE)) {
-            a.movbe(bitdata, x86::qword_ptr(bin_base));
+    if (num_partial != 1) {
+        if (num_bytes_to_read == 1) {
+            a.mov(bitdata.r16(), x86::word_ptr(bin_base, RET));
         } else {
-            a.mov(bitdata, x86::qword_ptr(bin_base));
-            a.bswap(bitdata);
+            ASSERT(num_bytes_to_read < 8);
+            a.mov(bitdata, x86::qword_ptr(bin_base, num_bytes_to_read - 7));
+            a.shr(bitdata, imm(64 - 8 * (num_bytes_to_read + 1)));
         }
-        ASSERT(bitdata != x86::rcx);
-        if (bin_offset != x86::rcx) {
-            a.mov(x86::cl, bin_offset.r8());
-        }
-        a.shl(bitdata, x86::cl);
-        a.mov(RET.r8(), x86::byte_ptr(bin_base, 8));
-        a.movzx(RET.r32(), RET.r8());
-        a.shl(RET.r32(), x86::cl);
-        a.shr(RET.r32(), imm(8));
-        a.or_(bitdata, RET);
-        a.short_().jmp(read_done);
     }
+
+    a.bind(swap);
+    a.bswap(bitdata);
 
     /* Shift the read data into the most significant bits of the
      * word. */
     a.bind(shift);
-    ASSERT(bitdata != x86::rcx);
-    if (bin_offset != x86::rcx) {
-        a.mov(x86::cl, bin_offset.r8());
-    }
-    a.shl(bitdata, x86::cl);
+    a.shl(bitdata, bin_offset.r8());
 
     a.bind(read_done);
 }
@@ -2817,7 +2788,7 @@ void BeamModuleAssembler::emit_read_integer(const x86::Gp bin_base,
         }
         ASSERT(bin_offset == x86::rcx);
         a.shl(RETd, bin_offset.r8());
-        a.shr(RETd, imm(8));
+        a.mov(x86::al, x86::ah);
         if ((flags & BSF_SIGNED) == 0) {
             a.movzx(RETd, RETb);
         } else {
@@ -3296,16 +3267,23 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
 
     segments = opt_bsm_segments(segments, Need, Live);
 
+    /* Constraints:
+     *
+     * bin_position must be RCX because only CL can be used for
+     * a variable shift without using the SHLX instruction from BMI2.
+     */
 #ifdef WIN32
     const x86::Gp bin_position = ARG1;
-    const x86::Gp bitdata = ARG4;
+    const x86::Gp bitdata = ARG2;
+    const x86::Gp bin_base = ARG3;
+    const x86::Gp ctx = ARG4;
 #else
     const x86::Gp bin_position = ARG4;
-    const x86::Gp bitdata = ARG1;
+    const x86::Gp bitdata = ARG3;
+    const x86::Gp bin_base = ARG1;
+    const x86::Gp ctx = ARG2;
 #endif
     ASSERT(bin_position == x86::rcx);
-    const x86::Gp bin_base = ARG2;
-    const x86::Gp ctx = ARG3;
     const x86::Gp tmp = ARG5;
 
     bool is_ctx_valid = false;
@@ -3341,7 +3319,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
 
             if (unit != 1) {
                 if (size % unit != 0) {
-                    sub(RET, size, ARG1);
+                    sub(RET, size, tmp);
                 }
 
                 if ((unit & (unit - 1))) {

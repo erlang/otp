@@ -899,17 +899,13 @@ i_bs_match_test_heap f S I t *
 
 %warm
 
-# Matching integers
+# Matching integers.
 bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
 
 i_bs_match_string S f W M
 
 # Fetching integers from binaries.
-bs_get_integer2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
-    get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
-
-i_bs_get_integer S f t t s d
-i_bs_get_fixed_integer S f t t t d
+bs_get_integer2 f S t s t t d
 
 # Fetching binaries from binaries.
 bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>

@@ -31,6 +31,9 @@ extern "C"
 #include "erl_bif_table.h"
 }
 
+/*
+ * Clobbers ARG1.
+ */
 void BeamModuleAssembler::emit_is_small(Label fail,
                                         const ArgSource &Arg,
                                         x86::Gp Reg) {
@@ -40,7 +43,7 @@ void BeamModuleAssembler::emit_is_small(Label fail,
         comment("skipped test for small operand since it is always small");
     } else if (always_one_of(Arg, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
         comment("simplified test for small operand since it is a number");
-        a.test(Reg.r32(), imm(TAG_PRIMARY_LIST));
+        a.test(Reg.r8(), imm(TAG_PRIMARY_LIST));
         a.short_().je(fail);
     } else {
         comment("is the operand small?");
@@ -51,6 +54,9 @@ void BeamModuleAssembler::emit_is_small(Label fail,
     }
 }
 
+/*
+ * Clobbers RET, ARG1.
+ */
 void BeamModuleAssembler::emit_are_both_small(Label fail,
                                               const ArgSource &LHS,
                                               x86::Gp A,
@@ -63,9 +69,9 @@ void BeamModuleAssembler::emit_are_both_small(Label fail,
                always_one_of(RHS, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
         comment("simplified test for small operands since both are numbers");
         if (always_small(RHS)) {
-            a.test(A.r32(), imm(TAG_PRIMARY_LIST));
+            a.test(A.r8(), imm(TAG_PRIMARY_LIST));
         } else if (always_small(LHS)) {
-            a.test(B.r32(), imm(TAG_PRIMARY_LIST));
+            a.test(B.r8(), imm(TAG_PRIMARY_LIST));
         } else if (A != RET && B != RET) {
             a.mov(RETd, A.r32());
             a.and_(RETd, B.r32());
@@ -73,9 +79,29 @@ void BeamModuleAssembler::emit_are_both_small(Label fail,
         } else {
             a.mov(ARG1d, A.r32());
             a.and_(ARG1d, B.r32());
-            a.test(ARG1d, imm(TAG_PRIMARY_LIST));
+            a.test(ARG1.r8(), imm(TAG_PRIMARY_LIST));
         }
         a.short_().je(fail);
+    } else if (always_small(LHS)) {
+        if (A == RET || B == RET) {
+            emit_is_small(fail, RHS, B);
+        } else {
+            comment("is the operand small?");
+            a.mov(RETd, B.r32());
+            a.and_(RETb, imm(_TAG_IMMED1_MASK));
+            a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+            a.short_().jne(fail);
+        }
+    } else if (always_small(RHS)) {
+        if (A == RET || B == RET) {
+            emit_is_small(fail, LHS, A);
+        } else {
+            comment("is the operand small?");
+            a.mov(RETd, A.r32());
+            a.and_(RETb, imm(_TAG_IMMED1_MASK));
+            a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+            a.short_().jne(fail);
+        }
     } else {
         comment("are both operands small?");
         if (A != RET && B != RET) {
@@ -250,9 +276,8 @@ void BeamModuleAssembler::emit_i_plus(const ArgSource &LHS,
     emit_are_both_small(mixed, LHS, ARG2, RHS, ARG3);
 
     a.mov(RET, ARG2);
-    a.mov(ARG4, ARG3);
-    a.and_(ARG4, imm(~_TAG_IMMED1_MASK));
-    a.add(RET, ARG4);
+    a.and_(RET, imm(~_TAG_IMMED1_MASK));
+    a.add(RET, ARG3);
     if (small_result) {
         comment("skipped overflow test because the result is always small");
         a.short_().jmp(next);
@@ -350,14 +375,17 @@ void BeamModuleAssembler::emit_i_minus(const ArgSource &LHS,
 
     emit_are_both_small(mixed, LHS, ARG2, RHS, ARG3);
 
-    a.mov(RET, ARG2);
-    a.mov(ARG4, ARG3);
-    a.and_(ARG4, imm(~_TAG_IMMED1_MASK));
-    a.sub(RET, ARG4);
     if (small_result) {
         comment("skipped overflow test because the result is always small");
+        a.mov(RET, ARG2);
+        a.and_(ARG3, imm(~_TAG_IMMED1_MASK));
+        a.sub(RET, ARG3);
         a.short_().jmp(next);
     } else {
+        a.mov(RET, ARG2);
+        a.mov(ARG4, ARG3);
+        a.and_(ARG4, imm(~_TAG_IMMED1_MASK));
+        a.sub(RET, ARG4);
         a.short_().jno(next);
     }
 
@@ -683,8 +711,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
         } else if (always_one_of(LHS, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
             comment("simplified test for small dividend since it is an "
                     "integer");
-            a.mov(ARG2d, x86::eax);
-            a.test(ARG2d, imm(TAG_PRIMARY_LIST));
+            a.test(x86::al, imm(TAG_PRIMARY_LIST));
             a.short_().je(generic_div);
         } else {
             comment("testing for a small dividend");
@@ -1052,23 +1079,28 @@ void BeamModuleAssembler::emit_i_band(const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgLabel &Fail,
                                       const ArgRegister &Dst) {
-    mov_arg(ARG2, LHS);
-    mov_arg(RET, RHS);
-
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
-        a.and_(RET, ARG2);
+        mov_arg(RET, LHS);
+        if (RHS.isSmall() && Support::isInt32(RHS.as<ArgSmall>().get())) {
+            a.and_(RETd, imm(RHS.as<ArgSmall>().get()));
+        } else if (RHS.isSmall() &&
+                   Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
+            a.and_(RET, imm(RHS.as<ArgSmall>().get()));
+        } else {
+            mov_arg(ARG2, RHS);
+            a.and_(RET, ARG2);
+        }
         mov_arg(Dst, RET);
         return;
     }
 
+    mov_arg(ARG2, LHS);
+    mov_arg(RET, RHS);
+
     Label generic = a.newLabel(), next = a.newLabel();
 
-    if (always_small(RHS)) {
-        emit_is_small(generic, LHS, ARG2);
-    } else {
-        emit_are_both_small(generic, LHS, ARG2, RHS, RET);
-    }
+    emit_are_both_small(generic, LHS, ARG2, RHS, RET);
 
     /* TAG & TAG = TAG, so we don't need to tag it again. */
     a.and_(RET, ARG2);
@@ -1107,23 +1139,25 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
-    mov_arg(ARG2, LHS);
-    mov_arg(RET, RHS);
-
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
-        a.or_(RET, ARG2);
+        mov_arg(RET, LHS);
+        if (RHS.isImmed() && Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
+            a.or_(RET, imm(RHS.as<ArgSmall>().get()));
+        } else {
+            mov_arg(ARG2, RHS);
+            a.or_(RET, ARG2);
+        }
         mov_arg(Dst, RET);
         return;
     }
 
+    mov_arg(ARG2, LHS);
+    mov_arg(RET, RHS);
+
     Label generic = a.newLabel(), next = a.newLabel();
 
-    if (always_small(RHS)) {
-        emit_is_small(generic, LHS, ARG2);
-    } else {
-        emit_are_both_small(generic, LHS, ARG2, RHS, RET);
-    }
+    emit_are_both_small(generic, LHS, ARG2, RHS, RET);
 
     /* TAG | TAG = TAG, so we don't need to tag it again. */
     a.or_(RET, ARG2);
@@ -1162,25 +1196,27 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
-    mov_arg(ARG2, LHS);
-    mov_arg(RET, RHS);
-
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
-        /* TAG ^ TAG = 0, so we need to tag it again. */
-        a.xor_(RET, ARG2);
-        a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        mov_arg(RET, LHS);
+        if (RHS.isImmed() && Support::isInt32((Sint)RHS.as<ArgSmall>().get())) {
+            a.xor_(RET, imm(RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_SMALL));
+        } else {
+            /* TAG ^ TAG = 0, so we need to tag it again. */
+            mov_arg(ARG2, RHS);
+            a.xor_(RET, ARG2);
+            a.or_(RET, imm(_TAG_IMMED1_SMALL));
+        }
         mov_arg(Dst, RET);
         return;
     }
 
+    mov_arg(ARG2, LHS);
+    mov_arg(RET, RHS);
+
     Label generic = a.newLabel(), next = a.newLabel();
 
-    if (always_small(RHS)) {
-        emit_is_small(generic, LHS, ARG2);
-    } else {
-        emit_are_both_small(generic, LHS, ARG2, RHS, RET);
-    }
+    emit_are_both_small(generic, LHS, ARG2, RHS, RET);
 
     /* TAG ^ TAG = 0, so we need to tag it again. */
     a.xor_(RET, ARG2);

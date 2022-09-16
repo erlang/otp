@@ -623,78 +623,58 @@ void BeamModuleAssembler::emit_i_bs_get_position(const ArgRegister &Ctx,
     flush_var(dst_reg);
 }
 
-void BeamModuleAssembler::emit_i_bs_get_fixed_integer(const ArgRegister &Ctx,
-                                                      const ArgLabel &Fail,
-                                                      const ArgWord &Live,
-                                                      const ArgWord &Flags,
-                                                      const ArgWord &Bits,
-                                                      const ArgRegister &Dst) {
-    auto ctx = load_source(Ctx, TMP1);
-    int flags, bits;
+void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
+                                               const ArgRegister &Ctx,
+                                               const ArgWord &Live,
+                                               const ArgSource &Sz,
+                                               const ArgWord &Unit,
+                                               const ArgWord &Flags,
+                                               const ArgRegister &Dst) {
+    Uint size;
+    Uint flags = Flags.get();
 
-    flags = Flags.get();
-    bits = Bits.get();
-
-    if (bits >= SMALL_BITS) {
-        emit_gc_test_preserve(ArgWord(BIG_NEED_FOR_BITS(bits)),
-                              Live,
-                              Ctx,
-                              ctx.reg);
+    if (flags & BSF_NATIVE) {
+        flags &= ~BSF_NATIVE;
+        flags |= BSF_LITTLE;
     }
 
-    lea(ARG4, emit_boxed_val(ctx.reg, offsetof(ErlBinMatchState, mb)));
+    if (Sz.isSmall() &&
+        (size = Sz.as<ArgSmall>().getUnsigned()) < 8 * sizeof(Uint)) {
+        /* Segment of a fixed size supported by bs_match. */
+        const ArgVal match[] = {ArgAtom(am_ensure_at_least),
+                                ArgWord(size),
+                                Unit,
+                                ArgAtom(am_integer),
+                                Live,
+                                ArgWord(flags),
+                                ArgWord(size),
+                                Unit,
+                                Dst};
 
-    if (bits >= SMALL_BITS) {
-        emit_enter_runtime<Update::eHeap>(Live.get());
+        const Span<ArgVal> args(match, sizeof(match) / sizeof(match[0]));
+        emit_i_bs_match(Fail, Ctx, args);
     } else {
-        emit_enter_runtime(Live.get());
-    }
+        Label fail = resolve_beam_label(Fail, dispUnknown);
+        int unit = Unit.get();
 
-    a.mov(ARG1, c_p);
-    a.mov(ARG2, bits);
-    a.mov(ARG3, flags);
-    /* ARG4 set above. */
-    runtime_call<4>(erts_bs_get_integer_2);
+        if (emit_bs_get_field_size(Sz, unit, fail, ARG5) >= 0) {
+            mov_arg(ARG3, Ctx);
+            mov_imm(ARG4, flags);
+            mov_arg(ARG6, Live);
 
-    if (bits >= SMALL_BITS) {
-        emit_leave_runtime<Update::eHeap>(Live.get());
-    } else {
-        emit_leave_runtime(Live.get());
-    }
+            emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+                               Update::eReductions>(Live.get());
 
-    emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
-    mov_arg(Dst, ARG1);
-}
+            a.mov(ARG1, c_p);
+            load_x_reg_array(ARG2);
+            runtime_call<6>(beam_jit_bs_get_integer);
 
-void BeamModuleAssembler::emit_i_bs_get_integer(const ArgRegister &Ctx,
-                                                const ArgLabel &Fail,
-                                                const ArgWord &Live,
-                                                const ArgWord &FlagsAndUnit,
-                                                const ArgSource &Sz,
-                                                const ArgRegister &Dst) {
-    Label fail;
-    int unit;
+            emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+                               Update::eReductions>(Live.get());
 
-    fail = resolve_beam_label(Fail, dispUnknown);
-    unit = FlagsAndUnit.get() >> 3;
-
-    if (emit_bs_get_field_size(Sz, unit, fail, ARG5) >= 0) {
-        mov_arg(ARG3, Ctx);
-        mov_arg(ARG4, FlagsAndUnit);
-        mov_arg(ARG6, Live);
-
-        emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
-                           Update::eReductions>(Live.get());
-
-        a.mov(ARG1, c_p);
-        load_x_reg_array(ARG2);
-        runtime_call<6>(beam_jit_bs_get_integer);
-
-        emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
-                           Update::eReductions>(Live.get());
-
-        emit_branch_if_not_value(ARG1, fail);
-        mov_arg(Dst, ARG1);
+            emit_branch_if_not_value(ARG1, fail);
+            mov_arg(Dst, ARG1);
+        }
     }
 }
 
@@ -2645,8 +2625,11 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
                                          const arm::Gp bin_offset,
                                          const arm::Gp bitdata) {
     Label handle_partial = a.newLabel();
+    Label rev64 = a.newLabel();
     Label shift = a.newLabel();
     Label read_done = a.newLabel();
+
+    bool need_rev64 = false;
 
     const arm::Gp bin_byte_ptr = TMP2;
     const arm::Gp bit_offset = TMP4;
@@ -2658,35 +2641,35 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
 
     a.add(bin_byte_ptr, bin_base, bin_offset, arm::lsr(3));
 
-    if (bits == 1) {
-        a.and_(bit_offset, bin_offset, imm(7));
-        a.ldrb(bitdata.w(), arm::Mem(bin_byte_ptr));
-        a.rev64(bitdata, bitdata);
-
-        a.bind(handle_partial); /* Not used, but must bind. */
-    } else if (bits <= 8) {
+    if (bits <= 8) {
         a.ands(bit_offset, bin_offset, imm(7));
 
         if (num_partial == 0) {
             /* Byte-sized segment. If bit_offset is not byte-aligned,
              * this segment always spans two bytes. */
             a.b_ne(handle_partial);
-        } else {
-            /* Segment smaller than one byte. Test whether the segment
-             * fits within the current byte. */
+        } else if (num_partial > 1) {
+            /* The segment is smaller than one byte but more than one
+             * bit. Test whether it fits within the current byte. */
             a.cmp(bit_offset, imm(8 - num_partial));
             a.b_gt(handle_partial);
         }
 
         /* The segment fits in the current byte. */
         a.ldrb(bitdata.w(), arm::Mem(bin_byte_ptr));
-        a.rev64(bitdata, bitdata);
-        a.b(num_partial ? shift : read_done);
+        if (num_partial == 0) {
+            a.rev64(bitdata, bitdata);
+            a.b(read_done);
+        } else if (num_partial > 1) {
+            a.b(rev64);
+        }
 
         /* The segment is unaligned and spans two bytes. */
         a.bind(handle_partial);
-        a.ldrh(bitdata.w(), arm::Mem(bin_byte_ptr));
-        a.rev64(bitdata, bitdata);
+        if (num_partial != 1) {
+            a.ldrh(bitdata.w(), arm::Mem(bin_byte_ptr));
+        }
+        need_rev64 = true;
     } else if (bits <= 16) {
         a.ands(bit_offset, bin_offset, imm(7));
 
@@ -2695,20 +2678,23 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
         a.rev64(bitdata, bitdata);
         a.b_eq(read_done); /* Done if segment is byte-aligned. */
 
-        /* The segment is unaligned. */
+        /* The segment is unaligned. If its size is 9, it always fits
+         * in two bytes and we fall through to the shift instruction. */
         a.bind(handle_partial);
-        if (num_partial != 0) {
+        if (num_partial > 1) {
             /* If segment size is less than 15 bits or less, it is
              * possible that it fits into two bytes. */
             a.cmp(bit_offset, imm(8 - num_partial));
             a.b_le(shift);
         }
 
-        /* The segment spans three bytes. Read an additional byte and
-         * shift into place (right below the already read two bytes a
-         * the top of the word). */
-        a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 2));
-        a.orr(bitdata, bitdata, tmp, arm::lsl(40));
+        if (num_partial != 1) {
+            /* The segment spans three bytes. Read an additional byte and
+             * shift into place (right below the already read two bytes a
+             * the top of the word). */
+            a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 2));
+            a.orr(bitdata, bitdata, tmp, arm::lsl(40));
+        }
     } else if (bits <= 24) {
         a.ands(bit_offset, bin_offset, imm(7));
 
@@ -2716,7 +2702,7 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
             /* Byte-sized segment. If bit_offset is not byte-aligned,
              * this segment always spans four bytes. */
             a.b_ne(handle_partial);
-        } else {
+        } else if (num_partial > 1) {
             /* The segment is smaller than three bytes. Test whether
              * it spans three or four bytes. */
             a.cmp(bit_offset, imm(8 - num_partial));
@@ -2727,13 +2713,19 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
         a.ldrh(bitdata.w(), arm::Mem(bin_byte_ptr));
         a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 2));
         a.orr(bitdata, bitdata, tmp, arm::lsl(16));
-        a.rev64(bitdata, bitdata);
-        a.b(num_partial ? shift : read_done);
+        if (num_partial == 0) {
+            a.rev64(bitdata, bitdata);
+            a.b(read_done);
+        } else if (num_partial > 1) {
+            a.b(rev64);
+        }
 
         /* This segment spans four bytes. */
         a.bind(handle_partial);
-        a.ldr(bitdata.w(), arm::Mem(bin_byte_ptr));
-        a.rev64(bitdata, bitdata);
+        if (num_partial != 1) {
+            a.ldr(bitdata.w(), arm::Mem(bin_byte_ptr));
+        }
+        need_rev64 = true;
     } else if (bits <= 32) {
         a.ands(bit_offset, bin_offset, imm(7));
 
@@ -2743,12 +2735,17 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
         a.b_eq(read_done);
 
         a.bind(handle_partial);
-        if (num_partial != 0) {
+        if (num_partial > 0) {
             a.cmp(bit_offset, imm(8 - num_partial));
             a.b_le(shift);
         }
-        a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 4));
-        a.orr(bitdata, bitdata, tmp, arm::lsl(24));
+
+        if (num_partial != 1) {
+            /* The segment spans five bytes. Read an additional byte and
+             * shift into place. */
+            a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 4));
+            a.orr(bitdata, bitdata, tmp, arm::lsl(24));
+        }
     } else if (bits <= 40) {
         a.ands(bit_offset, bin_offset, imm(7));
 
@@ -2760,7 +2757,7 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
             /* Byte-sized segment. If bit_offset is not byte-aligned,
              * this segment always spans six bytes. */
             a.b_ne(handle_partial);
-        } else {
+        } else if (num_partial > 1) {
             /* The segment is smaller than five bytes. Test whether it
              * spans five or six bytes. */
             a.cmp(bit_offset, imm(8 - num_partial));
@@ -2770,13 +2767,19 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
         /* This segment spans five bytes. Read an additional byte. */
         a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 4));
         a.orr(bitdata, bitdata, tmp, arm::lsl(24));
-        a.b(num_partial ? shift : read_done);
+        if (num_partial == 0) {
+            a.b(read_done);
+        } else if (num_partial > 1) {
+            a.b(shift);
+        }
 
-        /* This segment spans six bytes. Read two additional bytes. */
         a.bind(handle_partial);
-        a.ldrh(tmp.w(), arm::Mem(bin_byte_ptr, 4));
-        a.rev16(tmp.w(), tmp.w());
-        a.orr(bitdata, bitdata, tmp, arm::lsl(16));
+        if (num_partial != 1) {
+            /* This segment spans six bytes. Read two additional bytes. */
+            a.ldrh(tmp.w(), arm::Mem(bin_byte_ptr, 4));
+            a.rev16(tmp.w(), tmp.w());
+            a.orr(bitdata, bitdata, tmp, arm::lsl(16));
+        }
     } else if (bits <= 48) {
         a.ands(bit_offset, bin_offset, imm(7));
         a.ldr(bitdata.w(), arm::Mem(bin_byte_ptr));
@@ -2786,12 +2789,15 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
         a.b_eq(read_done);
 
         a.bind(handle_partial);
-        if (num_partial != 0) {
+        if (num_partial > 1) {
             a.cmp(bit_offset, imm(8 - num_partial));
             a.b_le(shift);
         }
-        a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 6));
-        a.orr(bitdata, bitdata, tmp, arm::lsl(8));
+
+        if (num_partial != 1) {
+            a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 6));
+            a.orr(bitdata, bitdata, tmp, arm::lsl(8));
+        }
     } else if (bits <= 56) {
         a.ands(bit_offset, bin_offset, imm(7));
 
@@ -2799,7 +2805,7 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
             /* Byte-sized segment. If bit_offset is not byte-aligned,
              * this segment always spans 8 bytes. */
             a.b_ne(handle_partial);
-        } else {
+        } else if (num_partial > 1) {
             /* The segment is smaller than 8 bytes. Test whether it
              * spans 7 or 8 bytes. */
             a.cmp(bit_offset, imm(8 - num_partial));
@@ -2809,22 +2815,26 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
         /* This segment spans 7 bytes. */
         a.ldr(bitdata, arm::Mem(bin_byte_ptr, -1));
         a.lsr(bitdata, bitdata, imm(8));
-        a.rev64(bitdata, bitdata);
-        a.b(shift);
+        a.b(rev64);
 
         /* This segment spans 8 bytes. */
         a.bind(handle_partial);
-        a.ldr(bitdata, arm::Mem(bin_byte_ptr));
-        a.rev64(bitdata, bitdata);
+        if (num_partial != 1) {
+            a.ldr(bitdata, arm::Mem(bin_byte_ptr));
+        }
+        need_rev64 = true;
     } else if (bits <= 64) {
         a.ands(bit_offset, bin_offset, imm(7));
         a.ldr(bitdata, arm::Mem(bin_byte_ptr));
         a.rev64(bitdata, bitdata);
 
         if (num_partial == 0) {
-            /* Byte-sized segment. If bit_offset is not byte-aligned,
-             * this segment always spans 8 bytes. */
+            /* Byte-sized segment. If it is aligned it spans 8 bytes
+             * and we are done. */
             a.b_eq(read_done);
+        } else if (num_partial == 1) {
+            /* This segment is 57 bits wide. It always spans 8 bytes. */
+            a.b(shift);
         } else {
             /* The segment is smaller than 8 bytes. Test whether it
              * spans 8 or 9 bytes. */
@@ -2834,11 +2844,18 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
 
         /* This segments spans 9 bytes. Read an additional byte. */
         a.bind(handle_partial);
-        a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 8));
-        a.lsl(bitdata, bitdata, bit_offset);
-        a.lsl(tmp, tmp, bit_offset);
-        a.orr(bitdata, bitdata, tmp, arm::lsr(8));
-        a.b(read_done);
+        if (num_partial != 1) {
+            a.ldrb(tmp.w(), arm::Mem(bin_byte_ptr, 8));
+            a.lsl(bitdata, bitdata, bit_offset);
+            a.lsl(tmp, tmp, bit_offset);
+            a.orr(bitdata, bitdata, tmp, arm::lsr(8));
+            a.b(read_done);
+        }
+    }
+
+    a.bind(rev64);
+    if (need_rev64) {
+        a.rev64(bitdata, bitdata);
     }
 
     /* Shift the read data into the most significant bits of the

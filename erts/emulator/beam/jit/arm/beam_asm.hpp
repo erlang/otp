@@ -1003,6 +1003,12 @@ class BeamModuleAssembler : public BeamAssembler {
      * fragments as if they were local. */
     std::unordered_map<void (*)(), Label> _dispatchTable;
 
+    /* Skip unnecessary moves in load_source(), load_sources(), and
+     * mov_arg(). */
+    size_t last_destination_offset = 0;
+    arm::Gp last_destination_from;
+    arm::Mem last_destination_to;
+
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
@@ -1353,6 +1359,8 @@ protected:
 
     void emit_validate_unicode(Label next, Label fail, arm::Gp value);
 
+    void ubif_comment(const ArgWord &Bif);
+
     void emit_bif_is_eq_ne_exact_immed(const ArgSource &LHS,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst,
@@ -1522,11 +1530,32 @@ protected:
         } else if (arg.isRegister()) {
             if (isRegisterBacked(arg)) {
                 auto index = arg.as<ArgXRegister>().get();
-                return Variable(register_backed_xregs[index]);
+                arm::Gp reg = register_backed_xregs[index];
+                if (reg == last_destination_from) {
+                    last_destination_offset = ~0;
+                }
+                return Variable(reg);
             }
 
             auto ref = getArgRef(arg);
-            a.ldr(tmp, ref);
+
+            if (a.offset() == last_destination_offset &&
+                ref == last_destination_to) {
+                if (last_destination_from != tmp) {
+                    comment("simplified fetching of BEAM register");
+                    a.mov(tmp, last_destination_from);
+                } else {
+                    comment("skipped fetching of BEAM register");
+                }
+                last_destination_offset = ~0;
+            } else if (a.offset() == last_destination_offset) {
+                a.ldr(tmp, ref);
+                if (last_destination_from != tmp) {
+                    last_destination_offset = a.offset();
+                }
+            } else {
+                a.ldr(tmp, ref);
+            }
             return Variable(tmp, ref);
         } else {
             if (arg.isImmed() || arg.isWord()) {
@@ -1595,8 +1624,16 @@ protected:
         }
     }
 
-    template<typename Reg>
-    void flush_var(const Variable<Reg> &to) {
+    void flush_var(const Variable<arm::Gp> &to) {
+        if (to.mem.hasBase()) {
+            a.str(to.reg, to.mem);
+            last_destination_offset = a.offset();
+            last_destination_to = to.mem;
+            last_destination_from = to.reg;
+        }
+    }
+
+    void flush_var(const Variable<arm::VecD> &to) {
         if (to.mem.hasBase()) {
             a.str(to.reg, to.mem);
         }

@@ -19,60 +19,6 @@
 // %CopyrightEnd%
 //
 
-// Generate the fastest instruction to fetch an integer from a binary.
-gen.get_integer2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
-    BeamOp* op;
-    UWord bits;
-
-    $NewBeamOp(S, op);
-    $NativeEndian(Flags);
-    if (Size.type == TAG_i) {
-        if (!beam_load_safe_mul(Size.val, Unit.val, &bits)) {
-            $BeamOpNameArity(op, jump, 1);
-            op->a[0] = Fail;
-        } else if (bits == 8) {
-            $BeamOpNameArity(op, i_bs_get_integer_8, 4);
-            op->a[0] = Ms;
-            op->a[1] = Flags;
-            op->a[2] = Fail;
-            op->a[3] = Dst;
-        } else if (bits == 16) {
-            $BeamOpNameArity(op, i_bs_get_integer_16, 4);
-            op->a[0] = Ms;
-            op->a[1] = Flags;
-            op->a[2] = Fail;
-            op->a[3] = Dst;
-        } else if (bits == 32) {
-            $BeamOpNameArity(op, i_bs_get_integer_32, 4);
-            op->a[0] = Ms;
-            op->a[1] = Flags;
-            op->a[2] = Fail;
-            op->a[3] = Dst;
-        } else if (bits == 64) {
-            $BeamOpNameArity(op, i_bs_get_integer_64, 5);
-            op->a[0] = Ms;
-            op->a[1] = Flags;
-            op->a[2] = Fail;
-            op->a[3] = Live;
-            op->a[4] = Dst;
-        } else {
-            goto generic;
-        }
-    } else {
-    generic:
-        $BeamOpNameArity(op, i_bs_get_integer, 6);
-        op->a[0] = Ms;
-        op->a[1] = Fail;
-        op->a[2] = Live;
-        op->a[3].type = TAG_u;
-        op->a[3].val = (Unit.val << 3) | Flags.val;
-        op->a[4] = Size;
-        op->a[5] = Dst;
-        return op;
-    }
-    return op;
-}
-
 gen.select_tuple_arity(Src, Fail, Size, Rest) {
     BeamOp* op;
     BeamOpArg *tmp;

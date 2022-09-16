@@ -1086,6 +1086,11 @@ class BeamModuleAssembler : public BeamAssembler {
     /* Save the last PC for an error. */
     size_t last_error_offset = 0;
 
+    /* Skip unnecessary moves in mov_arg. */
+    size_t last_movarg_offset = 0;
+    x86::Gp last_movarg_from;
+    x86::Mem last_movarg_to;
+
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
@@ -1550,6 +1555,8 @@ protected:
 
     /* Note: May clear flags. */
     void mov_arg(x86::Gp to, const ArgVal &from, const x86::Gp &spill) {
+        bool is_last_offset_valid = a.offset() == last_movarg_offset;
+
         if (from.isBytePtr()) {
             make_move_patch(to, strings, from.as<ArgBytePtr>().get());
         } else if (from.isExport()) {
@@ -1561,11 +1568,26 @@ protected:
         } else if (from.isLiteral()) {
             make_move_patch(to, literals[from.as<ArgLiteral>().get()].patches);
         } else if (from.isRegister()) {
-            a.mov(to, getArgRef(from.as<ArgRegister>()));
+            auto mem = getArgRef(from.as<ArgRegister>());
+
+            if (a.offset() == last_movarg_offset && mem == last_movarg_to) {
+                if (last_movarg_from != to) {
+                    comment("simplified fetching of BEAM register");
+                    a.mov(to, last_movarg_from);
+                } else {
+                    comment("skipped fetching of BEAM register");
+                }
+            } else {
+                a.mov(to, mem);
+            }
         } else if (from.isWord()) {
             mov_imm(to, from.as<ArgWord>().get());
         } else {
             ASSERT(!"mov_arg with incompatible type");
+        }
+
+        if (is_last_offset_valid && last_movarg_from != to) {
+            last_movarg_offset = a.offset();
         }
 
 #ifdef DEBUG
@@ -1604,7 +1626,12 @@ protected:
     void mov_arg(const ArgVal &to, x86::Gp from, const x86::Gp &spill) {
         (void)spill;
 
-        a.mov(getArgRef(to), from);
+        auto mem = getArgRef(to);
+        a.mov(mem, from);
+
+        last_movarg_offset = a.offset();
+        last_movarg_to = mem;
+        last_movarg_from = from;
     }
 
     void mov_arg(const ArgVal &to, x86::Mem from, const x86::Gp &spill) {

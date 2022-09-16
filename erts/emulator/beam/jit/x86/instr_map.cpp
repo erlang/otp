@@ -148,7 +148,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
         emit_ptr_val(node, node);
 
         /* Have we found our leaf? */
-        a.test(node.r32(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
+        a.test(node.r8(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
         a.short_().je(leaf_node);
 
         /* Nope, we have to search another node. */
