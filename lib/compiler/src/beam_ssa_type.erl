@@ -634,6 +634,8 @@ benefits_from_type_anno({bif,Op}, Args) ->
     not erl_internal:bool_op(Op, length(Args));
 benefits_from_type_anno(bs_create_bin, _Args) ->
     true;
+benefits_from_type_anno(bs_match, _Args) ->
+    true;
 benefits_from_type_anno(is_tagged_tuple, _Args) ->
     true;
 benefits_from_type_anno(call, [#b_var{} | _]) ->

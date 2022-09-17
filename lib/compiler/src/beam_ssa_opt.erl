@@ -1847,7 +1847,8 @@ bsm_skip([], _) -> [].
 
 bsm_skip_is([I0|Is], Extracted) ->
     case I0 of
-        #b_set{op=bs_match,
+        #b_set{anno=Anno0,
+               op=bs_match,
                dst=Ctx,
                args=[#b_literal{val=T}=Type,PrevCtx|Args0]}
           when T =/= float, T =/= string, T =/= skip ->
@@ -1859,7 +1860,8 @@ bsm_skip_is([I0|Is], Extracted) ->
                     false ->
                         %% The value is never extracted.
                         Args = [#b_literal{val=skip},PrevCtx,Type|Args0],
-                        I0#b_set{args=Args}
+                        Anno = maps:remove(arg_types, Anno0),
+                        I0#b_set{anno=Anno,args=Args}
                 end,
             [I|Is];
         #b_set{} ->

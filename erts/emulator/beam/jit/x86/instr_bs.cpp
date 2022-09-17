@@ -58,12 +58,22 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
         a.jmp(fail);
         return -1;
     } else {
+        bool can_fail = true;
+
         mov_arg(RET, Size);
 
-        a.mov(ARG3d, RETd);
-        a.and_(ARG3d, imm(_TAG_IMMED1_MASK));
-        a.cmp(ARG3d, imm(_TAG_IMMED1_SMALL));
-        a.jne(fail);
+        if (always_small(Size)) {
+            auto [min, max] = getClampedRange(Size);
+            can_fail =
+                    !(0 <= min && (max >> (SMALL_BITS - ERL_UNIT_BITS)) == 0);
+            comment("simplified segment size checks because "
+                    "the types are known");
+        } else {
+            a.mov(ARG3d, RETd);
+            a.and_(ARG3d, imm(_TAG_IMMED1_MASK));
+            a.cmp(ARG3d, imm(_TAG_IMMED1_SMALL));
+            a.jne(fail);
+        }
 
         if (max_size) {
             ASSERT(Support::isInt32((Sint)make_small(max_size)));
@@ -71,19 +81,35 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
             a.ja(fail);
         }
 
-        if (unit == 1) {
+        if (unit == 0) {
+            mov_imm(RET, 0);
+        } else if (unit == 1) {
             a.sar(RET, imm(_TAG_IMMED1_SIZE));
-            a.js(fail);
+            if (can_fail) {
+                a.js(fail);
+            }
+        } else if (!can_fail && Support::isPowerOf2(unit)) {
+            int trailing_bits = Support::ctz<Eterm>(unit);
+            a.and_(RET, imm(~_TAG_IMMED1_MASK));
+            if (trailing_bits < _TAG_IMMED1_SIZE) {
+                a.sar(RET, imm(_TAG_IMMED1_SIZE - trailing_bits));
+            } else if (trailing_bits > _TAG_IMMED1_SIZE) {
+                a.shl(RET, imm(trailing_bits - _TAG_IMMED1_SIZE));
+            }
         } else {
             /* Untag the size but don't shift it just yet, we want to fail on
              * overflow if the final result doesn't fit into a small. */
             a.and_(RET, imm(~_TAG_IMMED1_MASK));
-            a.js(fail);
+            if (can_fail) {
+                a.js(fail);
+            }
 
             /* Size = (Size) * (Unit) */
             mov_imm(ARG3, unit);
             a.mul(ARG3); /* CLOBBERS ARG3! */
-            a.jo(fail);
+            if (can_fail) {
+                a.jo(fail);
+            }
 
             a.sar(RET, imm(_TAG_IMMED1_SIZE));
         }
@@ -689,19 +715,49 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
         /* Clobbers RET + ARG3, returns a negative result if we always
          * fail and further work is redundant. */
         if (emit_bs_get_field_size(Sz, unit, fail, ARG5) >= 0) {
+            /* This operation can be expensive if a bignum can be
+             * created because there can be a garbage collection. */
+            auto [_, max] = getClampedRange(Sz);
+            bool potentially_expensive =
+                    max >= SMALL_BITS || (max * Unit.get()) >= SMALL_BITS;
+
             mov_arg(ARG3, Ctx);
             mov_imm(ARG4, flags);
-            mov_arg(ARG6, Live);
+            if (potentially_expensive) {
+                mov_arg(ARG6, Live);
+            } else {
+#ifdef DEBUG
+                /* Never actually used. */
+                mov_imm(ARG6, 1023);
+#endif
+            }
 
-            emit_enter_runtime<Update::eReductions | Update::eStack |
-                               Update::eHeap>();
+            if (potentially_expensive) {
+                emit_enter_runtime<Update::eReductions | Update::eStack |
+                                   Update::eHeap>();
+            } else {
+                comment("simplified entering runtime because result is always "
+                        "small");
+                emit_enter_runtime();
+            }
 
             a.mov(ARG1, c_p);
-            load_x_reg_array(ARG2);
+            if (potentially_expensive) {
+                load_x_reg_array(ARG2);
+            } else {
+#ifdef DEBUG
+                /* Never actually used. */
+                mov_imm(ARG2, 0);
+#endif
+            }
             runtime_call<6>(beam_jit_bs_get_integer);
 
-            emit_leave_runtime<Update::eReductions | Update::eStack |
-                               Update::eHeap>();
+            if (potentially_expensive) {
+                emit_leave_runtime<Update::eReductions | Update::eStack |
+                                   Update::eHeap>();
+            } else {
+                emit_leave_runtime();
+            }
 
             emit_test_the_non_value(RET);
             a.je(fail);

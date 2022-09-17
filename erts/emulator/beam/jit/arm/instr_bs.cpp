@@ -30,8 +30,6 @@ extern "C"
 
 /* Clobbers TMP1+TMP2
  *
- * If max_size > 0, we jump to the fail label when Size > max_size
- *
  * Returns -1 when the field check always fails, 1 if it may fail, and 0 if it
  * never fails. */
 int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
@@ -56,18 +54,40 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
         return -1;
     } else {
         auto size_reg = load_source(Size, TMP2);
+        bool can_fail = true;
+
+        if (always_small(Size)) {
+            auto [min, max] = getClampedRange(Size);
+            can_fail =
+                    !(0 <= min && (max >> (SMALL_BITS - ERL_UNIT_BITS)) == 0);
+        }
 
         /* Negating the tag bits lets us guard against non-smalls, negative
          * numbers, and overflow with a single `tst` instruction. */
         ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
         ASSERT(unit <= 1024);
 
-        a.eor(out, size_reg.reg, imm(_TAG_IMMED1_SMALL));
-        a.tst(out, imm(0xFFF0000000000000UL | _TAG_IMMED1_MASK));
+        if (!can_fail) {
+            comment("simplified segment size checks because "
+                    "the types are known");
+        }
+
+        if (unit == 1 && !can_fail) {
+            a.lsr(out, size_reg.reg, imm(_TAG_IMMED1_SIZE));
+        } else {
+            a.eor(out, size_reg.reg, imm(_TAG_IMMED1_SMALL));
+        }
+
+        if (can_fail) {
+            a.tst(out, imm(0xFFF0000000000000UL | _TAG_IMMED1_MASK));
+        }
 
         if (unit == 0) {
             /* Silly but legal.*/
             mov_imm(out, 0);
+        } else if (unit == 1 && !can_fail) {
+            /* The result is already in the out register. */
+            ;
         } else if (Support::isPowerOf2(unit)) {
             int trailing_bits = Support::ctz<Eterm>(unit);
 
@@ -89,9 +109,11 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
             a.mul(out, out, TMP1);
         }
 
-        a.b_ne(fail);
+        if (can_fail) {
+            a.b_ne(fail);
+        }
 
-        return 1;
+        return can_fail;
     }
 }
 
@@ -658,19 +680,51 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
         int unit = Unit.get();
 
         if (emit_bs_get_field_size(Sz, unit, fail, ARG5) >= 0) {
+            /* This operation can be expensive if a bignum can be
+             * created because there can be a garbage collection. */
+            auto [_, max] = getClampedRange(Sz);
+            bool potentially_expensive =
+                    max >= SMALL_BITS || (max * Unit.get()) >= SMALL_BITS;
+
             mov_arg(ARG3, Ctx);
             mov_imm(ARG4, flags);
-            mov_arg(ARG6, Live);
+            if (potentially_expensive) {
+                mov_arg(ARG6, Live);
+            } else {
+#ifdef DEBUG
+                /* Never actually used. */
+                mov_imm(ARG6, 1023);
+#endif
+            }
 
-            emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
-                               Update::eReductions>(Live.get());
+            if (potentially_expensive) {
+                emit_enter_runtime<Update::eStack | Update::eHeap |
+                                   Update::eXRegs | Update::eReductions>(
+                        Live.get());
+            } else {
+                comment("simplified entering runtime because result is always "
+                        "small");
+                emit_enter_runtime(Live.get());
+            }
 
             a.mov(ARG1, c_p);
-            load_x_reg_array(ARG2);
+            if (potentially_expensive) {
+                load_x_reg_array(ARG2);
+            } else {
+#ifdef DEBUG
+                /* Never actually used. */
+                mov_imm(ARG2, 0);
+#endif
+            }
             runtime_call<6>(beam_jit_bs_get_integer);
 
-            emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
-                               Update::eReductions>(Live.get());
+            if (potentially_expensive) {
+                emit_leave_runtime<Update::eStack | Update::eHeap |
+                                   Update::eXRegs | Update::eReductions>(
+                        Live.get());
+            } else {
+                emit_leave_runtime(Live.get());
+            }
 
             emit_branch_if_not_value(ARG1, fail);
             mov_arg(Dst, ARG1);
@@ -813,12 +867,34 @@ void BeamModuleAssembler::emit_bs_skip_bits(const ArgLabel &Fail,
 }
 
 void BeamModuleAssembler::emit_i_bs_skip_bits2(const ArgRegister &Ctx,
-                                               const ArgRegister &Bits,
+                                               const ArgRegister &Size,
                                                const ArgLabel &Fail,
                                                const ArgWord &Unit) {
     Label fail = resolve_beam_label(Fail, dispUnknown);
 
-    if (emit_bs_get_field_size(Bits, Unit.get(), fail, ARG1) >= 0) {
+    bool can_fail = true;
+
+    if (always_small(Size)) {
+        auto [min, max] = getClampedRange(Size);
+        can_fail = !(0 <= min && (max >> (SMALL_BITS - ERL_UNIT_BITS)) == 0);
+    }
+
+    if (!can_fail && Unit.get() == 1) {
+        comment("simplified skipping because the types are known");
+
+        const int position_offset = offsetof(ErlBinMatchState, mb.offset);
+        const int size_offset = offsetof(ErlBinMatchState, mb.size);
+        auto [ctx, size] = load_sources(Ctx, TMP1, Size, TMP2);
+
+        a.ldur(TMP3, emit_boxed_val(ctx.reg, position_offset));
+        a.ldur(TMP4, emit_boxed_val(ctx.reg, size_offset));
+
+        a.add(TMP3, TMP3, size.reg, arm::lsr(_TAG_IMMED1_SIZE));
+        a.cmp(TMP3, TMP4);
+        a.b_hi(resolve_beam_label(Fail, disp1MB));
+
+        a.stur(TMP3, emit_boxed_val(ctx.reg, position_offset));
+    } else if (emit_bs_get_field_size(Size, Unit.get(), fail, ARG1) >= 0) {
         emit_bs_skip_bits(Fail, Ctx);
     }
 }
@@ -1881,7 +1957,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                     BSC_INFO_SIZE,
                                     BSC_VALUE_ARG3));
                 }
-                a.tst(TMP1, imm(0xffful << 52));
+                a.tst(TMP1, imm(0xffful << (SMALL_BITS - ERL_UNIT_BITS)));
                 a.b_ne(resolve_label(error, disp1MB));
                 mov_imm(TMP2, seg.unit);
                 a.madd(sizeReg, TMP1, TMP2, sizeReg);

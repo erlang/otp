@@ -951,7 +951,8 @@ vi({test,bs_start_match3,{f,_}=Fail,Live,[Src],Dst}, Vst) ->
 vi({test,bs_match_string,{f,Fail},[Ctx,Stride,{string,String}]}, Vst) ->
     true = is_bitstring(String),                %Assertion.
     validate_bs_skip(Fail, Ctx, Stride, Vst);
-vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size,Unit,_Flags]}, Vst) ->
+vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size0,Unit,_Flags]}, Vst) ->
+    Size = unpack_typed_arg(Size0),
     assert_term(Size, Vst),
 
     Stride = case get_concrete_type(Size, Vst) of

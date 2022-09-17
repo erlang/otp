@@ -147,6 +147,11 @@ void erts_bits_destroy_state(ERL_BITS_PROTO_0);
 #define WSIZE(n) ((n + sizeof(Eterm) - 1) / sizeof(Eterm))
 
 /*
+ * Define the maximum number of bits in a unit for the binary syntax.
+ */
+#define ERL_UNIT_BITS 8
+
+/*
  * Binary matching.
  */
 

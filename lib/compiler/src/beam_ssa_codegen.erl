@@ -1203,6 +1203,10 @@ cg_block([#cg_set{op={float,convert},dst=Dst0,args=Args0,anno=Anno},
     [Src] = typed_args(Args0, Anno, St),
     Dst = beam_arg(Dst0, St),
     {[line(Anno),{fconv,Src,Dst}], St};
+cg_block([#cg_set{op=bs_skip,args=Args0,anno=Anno}=I,
+          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
+    Args = typed_args(Args0, Anno, St),
+    {cg_bs_skip(bif_fail(Fail), Args, I),St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
@@ -1816,8 +1820,6 @@ cg_instr(update_record, [Hint, {integer,Size}, Src | Ss0], Dst) ->
     Ss = cg_update_record_list(Ss0, []),
     [{update_record,Hint,Size,Src,Dst,{list,Ss}}].
 
-cg_test(bs_skip, Fail, Args, _Dst, I) ->
-    cg_bs_skip(Fail, Args, I);
 cg_test({float,Op0}, Fail, Args, Dst, #cg_set{anno=Anno}) ->
     Op = case Op0 of
              '+' -> fadd;
@@ -1847,7 +1849,9 @@ cg_update_record_list([{integer, Index}, Value | Updates], Acc) ->
 cg_update_record_list([], Acc) ->
     append([[Index, Value] || {Index, Value} <- sort(Acc)]).
 
-cg_bs_get(Fail, #cg_set{dst=Dst0,args=[#b_literal{val=Type}|Ss0]}=Set, St) ->
+cg_bs_get(Fail, #cg_set{dst=Dst0,args=Args,anno=Anno}=Set, St) ->
+    [{atom,Type}|Ss0] = typed_args(Args, Anno, St),
+    Dst = beam_arg(Dst0, St),
     Op = case Type of
              integer -> bs_get_integer2;
              float   -> bs_get_float2;
@@ -1856,8 +1860,7 @@ cg_bs_get(Fail, #cg_set{dst=Dst0,args=[#b_literal{val=Type}|Ss0]}=Set, St) ->
              utf16   -> bs_get_utf16;
              utf32   -> bs_get_utf32
          end,
-    [Dst|Ss1] = beam_args([Dst0|Ss0], St),
-    Ss = case Ss1 of
+    Ss = case Ss0 of
              [Ctx,{literal,Flags},Size,{integer,Unit}] ->
                  %% Plain integer/float/binary.
                  [Ctx,Size,Unit,field_flags(Flags, Set)];
