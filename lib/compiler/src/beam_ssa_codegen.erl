@@ -2184,7 +2184,8 @@ bs_translate([I|Is0]) ->
         none ->
             [I|bs_translate(Is0)];
         {Ctx,Fail0,First} ->
-            {Instrs,Fail,Is} = bs_translate_collect(Is0, Ctx, Fail0, [First]),
+            {Instrs0,Fail,Is} = bs_translate_collect(Is0, Ctx, Fail0, [First]),
+            Instrs = bs_eq_fixup(Instrs0),
             [{bs_match,Fail,Ctx,{commands,Instrs}}|bs_translate(Is)]
     end;
 bs_translate([]) -> [].
@@ -2209,6 +2210,24 @@ bs_translate_fixup([{test_tail,Bits}|Is0]) ->
     bs_translate_fixup_tail(Is, Bits);
 bs_translate_fixup(Is) ->
     reverse(Is).
+
+bs_eq_fixup([{'=:=',nil,Bits,Value}|Is]) ->
+    EqInstrs = bs_eq_fixup_split(Bits, <<Value:Bits>>),
+    EqInstrs ++ bs_eq_fixup(Is);
+bs_eq_fixup([I|Is]) ->
+    [I|bs_eq_fixup(Is)];
+bs_eq_fixup([]) -> [].
+
+%% In the 32-bit runtime system, each integer to be matched must
+%% fit in a SIGNED 32-bit word. Therefore, we will split the
+%% instruction into multiple instructions each matching at most
+%% 31 bits.
+bs_eq_fixup_split(Bits, Value) when Bits =< 31 ->
+    <<I:Bits>> = Value,
+    [{'=:=',nil,Bits,I}];
+bs_eq_fixup_split(Bits, Value0) ->
+    <<I:31,Value/bits>> = Value0,
+    [{'=:=',nil,31,I} | bs_eq_fixup_split(Bits - 31, Value)].
 
 bs_translate_fixup_tail([{ensure_at_least,Bits0,_}|Is], Bits) ->
     [{ensure_exactly,Bits0+Bits}|Is];
@@ -2241,6 +2260,11 @@ bs_translate_instr({bs_get_tail,Ctx,Dst,Live}) ->
     {Ctx,{f,0},{get_tail,Live,1,Dst}};
 bs_translate_instr({test,bs_test_tail2,Fail,[Ctx,Bits]}) ->
     {Ctx,Fail,{test_tail,Bits}};
+bs_translate_instr({test,bs_match_string,Fail,[Ctx,Bits,{string,String}]})
+  when bit_size(String) =< 64 ->
+    <<Value:Bits,_/bitstring>> = String,
+    Live = nil,
+    {Ctx,Fail,{'=:=',Live,Bits,Value}};
 bs_translate_instr(_) -> none.
 
 

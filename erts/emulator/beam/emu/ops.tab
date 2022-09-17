@@ -1121,6 +1121,8 @@ i_bs_ensure_bits_unit xy I t f
 
 i_bs_read_bits xy t
 
+i_bs_eq f t W
+
 i_bs_extract_integer t d
 
 i_bs_read_bits Ctx=x u==8 | i_bs_extract_integer u==8 Dst=x =>

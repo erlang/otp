@@ -1978,6 +1978,18 @@ i_bs_read_bits.execute() {
     }
 }
 
+// i_bs_eq Fail Size Value
+i_bs_eq(Fail, NumBits, Value) {
+    Uint size = $NumBits;
+    Eterm result;
+
+    result = bitdata >> (8 * sizeof(Uint) - size);
+    bitdata <<= size;
+    if (result != $Value) {
+        $FAIL($Fail);
+    }
+}
+
 // i_bs_extract_integer Size Dst
 i_bs_extract_integer(NumBits, Dst) {
     Uint size = $NumBits;

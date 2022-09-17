@@ -1080,6 +1080,9 @@ gen.bs_match(Fail, Ctx, N, List) {
     BeamOp** next_ptr = &first_op;
     BeamOp* test_heap_op = 0;
     BeamOp* read_op = 0;
+#ifdef ARCH_64
+    BeamOp* eq_op = 0;
+#endif
     int src;
 
     src = 0;
@@ -1114,14 +1117,13 @@ gen.bs_match(Fail, Ctx, N, List) {
 
         /* Emit a test_heap instrution if needed and there is
          * no previous one. */
-        if (words_needed && test_heap_op == 0) {
+        if ((List[src].val == am_Eq || words_needed) && test_heap_op == 0 &&
+            List[src+1].type == TAG_u) {
             $NewBeamOp(S, test_heap_op);
             $BeamOpNameArity(test_heap_op, test_heap, 2);
 
             test_heap_op->a[0].type = TAG_u;
             test_heap_op->a[0].val = 0; /* Number of heap words */
-
-            ASSERT(List[src+1].type == TAG_u);
             test_heap_op->a[1] = List[src+1]; /* Live */
 
             *next_ptr = test_heap_op;
@@ -1247,7 +1249,7 @@ gen.bs_match(Fail, Ctx, N, List) {
                  * endian integer that fits in a small. */
                 if (read_op == 0 || read_op->a[READ_OP_SIZE].val + size > 8*sizeof(Uint)) {
                     /* There is either no previous i_bs_read_bits instruction or
-                     * size of this segment don't fit into it. */
+                     * the size of this segment don't fit into it. */
                     $NewBeamOp(S, read_op);
                     $BeamOpNameArity(read_op, i_bs_read_bits, 2);
 
@@ -1281,6 +1283,56 @@ gen.bs_match(Fail, Ctx, N, List) {
             }
 
             src += 6;
+            break;
+        }
+        case am_Eq: {
+            ASSERT(List[src+2].type == TAG_u);
+            ASSERT(List[src+3].type == TAG_u);
+            size = List[src+2].val;
+
+            if (read_op == 0 || read_op->a[READ_OP_SIZE].val + size > 8*sizeof(Uint)) {
+                /* There is either no previous i_bs_read_bits instruction or
+                 * the size of this segment don't fit into it. */
+                $NewBeamOp(S, read_op);
+                $BeamOpNameArity(read_op, i_bs_read_bits, 2);
+
+                read_op->a[0] = Ctx;
+                read_op->a[1].type = TAG_u;
+                read_op->a[1].val = 0;
+
+                *next_ptr = read_op;
+                next_ptr = &read_op->next;
+            }
+
+            read_op->a[READ_OP_SIZE].val += size;
+
+#ifdef ARCH_64
+            if (eq_op &&
+                eq_op->next == 0 && /* Previous instruction? */
+                eq_op->a[1].val + size <= 8*sizeof(Uint)) {
+                /* Coalesce with the previous `=:=` instruction. */
+                eq_op->a[1].val += size;
+                eq_op->a[2].val = eq_op->a[2].val << size | List[src+3].val;
+            }
+#else
+            if (0) {
+                ;
+            }
+#endif
+            else {
+                $NewBeamOp(S, op);
+                $BeamOpNameArity(op, i_bs_eq, 3);
+
+#ifdef ARCH_64
+                eq_op = op;
+#endif
+
+                op->a[0] = Fail;
+                op->a[1] = List[src+2]; /* Size */
+                op->a[2] = List[src+3]; /* Value */
+            }
+
+            src += 4;
             break;
         }
         case am_get_tail:
@@ -1320,6 +1372,13 @@ gen.bs_match(Fail, Ctx, N, List) {
             *next_ptr = op;
             next_ptr = &op->next;
         }
+    }
+
+    if (test_heap_op && test_heap_op->a[0].val == 0) {
+        /* This test_heap instruction was forced by the `=:=` sub
+         * instruction, but it turned out that no test_heap instruction was
+         * needed. */
+        $BeamOpNameArity(test_heap_op, delete_me, 0);
     }
 
     if (first_op == 0) {

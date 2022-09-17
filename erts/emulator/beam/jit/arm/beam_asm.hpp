@@ -759,7 +759,11 @@ protected:
             a.cmp(src, imm(val));
         } else if (Support::isUInt12(-val)) {
             a.cmn(src, imm(-val));
+        } else if (src.isGpW()) {
+            mov_imm(SUPER_TMP.w(), val);
+            a.cmp(src, SUPER_TMP.w());
         } else {
+            ERTS_ASSERT(src.isGpX());
             mov_imm(SUPER_TMP, val);
             a.cmp(src, SUPER_TMP);
         }
@@ -1342,6 +1346,8 @@ protected:
     void emit_extract_binary(const arm::Gp bitdata,
                              Uint bits,
                              const ArgRegister &Dst);
+
+    UWord bs_get_flags(const ArgVal &val);
 
     void emit_raise_exception();
     void emit_raise_exception(const ErtsCodeMFA *exp);

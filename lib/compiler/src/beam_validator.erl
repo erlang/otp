@@ -1748,6 +1748,8 @@ validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
         {ensure_exactly,Stride} ->
             Vst = advance_bs_context(Ctx, Stride, Vst0),
             validate_bs_match(Is, Ctx, Unit0, Vst);
+        {'=:=',nil,Bits,Value} when Bits =< 64, is_integer(Value) ->
+            validate_bs_match(Is, Ctx, Unit0, Vst0);
         {Type0,Live,{literal,Flags},Size,Unit,Dst} when Type0 =:= binary;
                                                         Type0 =:= integer ->
             validate_ctx_live(Ctx, Live),

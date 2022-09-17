@@ -581,35 +581,9 @@ gen.bs_match(Fail, Ctx, N, List) {
 
     for (i = 0; i < N.val; i++) {
         BeamOpArg current;
-        Uint flags = 0;
 
         current = List[i];
-        if (current.type == TAG_n) {
-            current.type = TAG_u;
-            current.val = 0;
-        } else if (current.type == TAG_q) {
-            Eterm term = beamfile_get_literal(&S->beam, current.val);
-            while (is_list(term)) {
-                Eterm* consp = list_val(term);
-                Eterm elem = CAR(consp);
-                switch (elem) {
-                case am_little:
-                    flags |= BSF_LITTLE;
-                    break;
-                case am_native:
-                    flags |= BSF_NATIVE;
-                    break;
-                case am_signed:
-                    flags |= BSF_SIGNED;
-                    break;
-                }
-                term = CDR(consp);
-            }
-            ASSERT(is_nil(term));
-            current.type = TAG_u;
-            current.val = flags;
-            $NativeEndian(current);
-        } else if (current.type == TAG_o) {
+        if (current.type == TAG_o) {
             /* An overflow tag (in ensure_at_least or ensure_exactly)
              * means that the match will always fail. */
             $BeamOpNameArity(op, jump, 1);
