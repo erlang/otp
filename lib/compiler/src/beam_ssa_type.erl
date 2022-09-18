@@ -2022,9 +2022,9 @@ type({bif,Bif}, Args, _Anno, Ts, _Ds) ->
 type(bs_create_bin, Args, _Anno, Ts, _Ds) ->
     SizeUnit = bs_size_unit(Args, Ts),
     #t_bitstring{size_unit=SizeUnit};
-type(bs_extract, [Ctx], _Anno, _Ts, Ds) ->
+type(bs_extract, [Ctx], _Anno, Ts, Ds) ->
     #b_set{op=bs_match,args=Args} = map_get(Ctx, Ds),
-    bs_match_type(Args);
+    bs_match_type(Args, Ts);
 type(bs_start_match, [_, Src], _Anno, Ts, _Ds) ->
     case beam_types:meet(#t_bs_matchable{}, concrete_type(Src, Ts)) of
         none ->
@@ -2305,21 +2305,20 @@ bs_match_stride(_, _, _) ->
 
 -define(UNICODE_MAX, (16#10FFFF)).
 
-bs_match_type([#b_literal{val=Type}|Args]) ->
-    bs_match_type(Type, Args).
+bs_match_type([#b_literal{val=Type}|Args], Ts) ->
+    bs_match_type(Type, Args, Ts).
 
-bs_match_type(binary, Args) ->
+bs_match_type(binary, Args, _Ts) ->
     [_,_,_,#b_literal{val=U}] = Args,
     #t_bitstring{size_unit=U};
-bs_match_type(float, _) ->
+bs_match_type(float, _, _Ts) ->
     #t_float{};
-bs_match_type(integer, Args) ->
-    case Args of
-        [_,
-         #b_literal{val=Flags},
-         #b_literal{val=Size},
-         #b_literal{val=Unit}] when Size * Unit < 64 ->
-            NumBits = Size * Unit,
+bs_match_type(integer, Args, Ts) ->
+    [_,#b_literal{val=Flags},Size,#b_literal{val=Unit}] = Args,
+    SizeType = beam_types:meet(concrete_type(Size, Ts), #t_integer{}),
+    case SizeType of
+        #t_integer{elements={_,SizeMax}} when SizeMax * Unit < 64 ->
+            NumBits = SizeMax * Unit,
             Max = (1 bsl NumBits) - 1,
             case member(unsigned, Flags) of
                 true ->
@@ -2328,18 +2327,14 @@ bs_match_type(integer, Args) ->
                     Min = -(Max + 1),
                     beam_types:make_integer(Min, Max)
             end;
-        [_|_] ->
+        _ ->
             #t_integer{}
     end;
-bs_match_type(skip, _) ->
-    any;
-bs_match_type(string, _) ->
-    any;
-bs_match_type(utf8, _) ->
+bs_match_type(utf8, _, _) ->
     beam_types:make_integer(0, ?UNICODE_MAX);
-bs_match_type(utf16, _) ->
+bs_match_type(utf16, _, _) ->
     beam_types:make_integer(0, ?UNICODE_MAX);
-bs_match_type(utf32, _) ->
+bs_match_type(utf32, _, _) ->
     beam_types:make_integer(0, ?UNICODE_MAX).
 
 normalized_types(Values, Ts) ->

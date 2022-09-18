@@ -997,8 +997,16 @@ vi({test,bs_get_integer2=Op,{f,Fail},Live,
     Stride = NumBits,
     Type = bs_integer_type(NumBits, Flags),
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
-vi({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,_Sz,Unit,_Flags],Dst},Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, Unit, #t_integer{}, Dst, Vst);
+vi({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,Sz0,Unit,{field_flags,Flags}],Dst},Vst) ->
+    Sz = unpack_typed_arg(Sz0),
+    Type = case meet(get_term_type(Sz, Vst), #t_integer{}) of
+               #t_integer{elements={_,SizeMax}} when SizeMax * Unit < 64 ->
+                   NumBits = SizeMax * Unit,
+                   bs_integer_type(NumBits, Flags);
+               _ ->
+                   #t_integer{}
+           end,
+    validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 vi({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,Size,Unit,_],Dst},Vst) ->
     Stride = bsm_stride(Size, Unit),
     validate_bs_get(Op, Fail, Ctx, Live, Stride, #t_float{}, Dst, Vst);
