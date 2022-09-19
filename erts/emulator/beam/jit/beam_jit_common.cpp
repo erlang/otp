@@ -378,8 +378,13 @@ void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
         start = getCode(functions[i]);
         ci = (const ErtsCodeInfo *)start;
 
-        stop = ((const char *)erts_codeinfo_to_code(ci)) +
-               BEAM_ASM_FUNC_PROLOGUE_SIZE;
+        stop = ((const char *)erts_codeinfo_to_code(ci));
+
+        if (ci->mfa.module != AM_erts_beamasm) {
+            /* All modules (except erts_beamasm, which is a JIT internal module)
+               have a prologue that should be counted as part of the CodeInfo */
+            stop = ((const char *)stop) + BEAM_ASM_FUNC_PROLOGUE_SIZE;
+        }
 
         n = erts_snprintf(name_buffer,
                           1024,
