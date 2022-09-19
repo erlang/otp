@@ -1161,7 +1161,8 @@ handle_erpc_response(ok, Nodes, {nodeup_conf_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_erpc_response(error, nodedown, {nodeup_conf_check, Node, ReqCId},
+handle_erpc_response(error, {erpc,noconnection},
+                     {nodeup_conf_check, Node, ReqCId},
                      #state{connections = Conns} = S) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
@@ -1204,7 +1205,8 @@ handle_erpc_response(ok, Nodes, {conf_changed_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_erpc_response(error, nodedown, {conf_changed_check, Node, ReqCId},
+handle_erpc_response(error, {erpc,noconnection},
+                     {conf_changed_check, Node, ReqCId},
                      #state{connections = Conns} = S) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
@@ -1238,7 +1240,7 @@ handle_erpc_response(ok, agreed, {ng_add_check, Node, ReqCId},
             %% no action taken...
             S
     end;
-handle_erpc_response(error, nodedown, {ng_add_check, Node, ReqCId},
+handle_erpc_response(error, {erpc,noconnection}, {ng_add_check, Node, ReqCId},
                      #state{connections = Conns} = S) ->
     case maps:get(Node, Conns, undefined) of
         CId when ReqCId == CId orelse (ReqCId == not_connected
