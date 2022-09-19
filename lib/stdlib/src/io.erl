@@ -209,7 +209,7 @@ get_password(Io) ->
 
 -type encoding()   :: 'latin1' | 'unicode' | 'utf8' | 'utf16' | 'utf32'
                     | {'utf16', 'big' | 'little'} | {'utf32','big' | 'little'}.
--type expand_fun() :: fun((term()) -> {'yes'|'no', string(), [string(), ...]}).
+-type expand_fun() :: fun((string()) -> {'yes'|'no', string(), list()}).
 -type opt_pair()   :: {'binary', boolean()}
                     | {'echo', boolean()}
                     | {'expand_fun', expand_fun()}

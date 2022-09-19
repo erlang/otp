@@ -55,6 +55,7 @@
          shell_delete_unicode_not_at_cursor_wrap/1,
          shell_update_window_unicode_wrap/1,
          remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1,
+         remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
          external_editor_unicode/1, shell_ignore_pager_commands/1]).
 
@@ -95,7 +96,9 @@ groups() ->
      {remsh, [],
       [remsh_basic,
        remsh_longnames,
-       remsh_no_epmd]},
+       remsh_no_epmd,
+       remsh_expand_compatibility_25,
+       remsh_expand_compatibility_later_version]},
      {tty,[],
       [{group,tty_unicode},
        {group,tty_latin1},
@@ -2125,6 +2128,44 @@ remsh_no_epmd(Config) when is_list(Config) ->
             end;
         {skip, _} = Else ->
             Else
+    end.
+remsh_expand_compatibility_25(Config) when is_list(Config) ->
+    {ok, _Peer, TargetNode} = ?CT_PEER(#{}), %% Create a vsn 26 node
+    NodeName = atom_to_list(TargetNode), %% compatibility
+    %% Start a node on vsn 25 but run the shell on vsn 26
+    case rtnode:start(peer:random_name(), "ERL_AFLAGS= ", "-remsh "++NodeName, [{release, "25"}|Config]) of
+        {ok, _SRPid, STPid, _, SState} ->
+            try
+                ok = rtnode:send_commands(undefined,
+                       STPid,
+                       [{putdata, "erlang:is_atom\t"},
+                        {expect, "\\Qerlang:is_atom(\\E"}], 1)
+            after
+                Logs = rtnode:stop(SState),
+                rtnode:dump_logs(Logs)
+            end;
+        Else when element(1, Else) =/= ok -> Else
+    end.
+remsh_expand_compatibility_later_version(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    case ?CT_PEER([], "25", PrivDir) of
+        not_available -> {skip, "25 not available"};
+        {ok, _Peer, TargetNode}  ->
+            NodeName = atom_to_list(TargetNode),
+            %% Start a node on later version but run the shell on vsn 25
+            case rtnode:start(peer:random_name(), "", ["-remsh", NodeName], Config) of
+                {ok, _SRPid, STPid, _, SState} ->
+                    try
+                        ok = rtnode:send_commands(undefined,
+                            STPid,
+                            [{putdata, "  erlang:is_atom\t"},
+                                {expect, "\\Qerlang:is_atom(\\E"}], 1)
+                    after
+                        Logs = rtnode:stop(SState),
+                        rtnode:dump_logs(Logs)
+                    end;
+                Else when element(1, Else) =/= ok -> Else
+            end
     end.
 
 printed_atom(A) ->

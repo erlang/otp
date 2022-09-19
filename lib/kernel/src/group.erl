@@ -41,9 +41,12 @@ server(Ancestors, Drv, Shell, Options) ->
     put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
     put(user_drv, Drv),
-    put(expand_fun,
-	proplists:get_value(expand_fun, Options,
-			    fun(B) -> edlin_expand:expand(B) end)),
+    ExpandFun = case proplists:get_value(expand_fun, Options,
+        fun edlin_expand:expand/2) of
+            Fun when is_function(Fun, 1) -> fun(X,_) -> Fun(X) end;
+            Fun -> Fun
+        end,
+    put(expand_fun,ExpandFun),
     put(echo, proplists:get_value(echo, Options, true)),
 
     start_shell(Shell),
@@ -629,18 +632,28 @@ get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Shell, Ls, Encoding)
 get_line1({expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding) ->
     send_drv_reqs(Drv, Rs),
     ExpandFun = get(expand_fun),
-    {Found, Add, Matches} = ExpandFun(Before),
+    {Found, CompleteChars, Matches} = ExpandFun(Before, []),
     case Found of
-	no -> send_drv(Drv, beep);
-	yes -> ok
+        no -> send_drv(Drv, beep);
+        _ -> ok
     end,
-    Cs1 = append(Add, Cs0, Encoding), %%XXX:PaN should this always be unicode?
-    Cs = case Matches of
-	     [] -> Cs1;
-	     _ -> MatchStr = edlin_expand:format_matches(Matches),
-		  send_drv(Drv, {put_chars, unicode, unicode:characters_to_binary(MatchStr,unicode)}),
-		  [$\^L | Cs1]
-	 end,
+    {Width, _Height} = get_tty_geometry(Drv),
+    Cs1 = append(CompleteChars, Cs0, Encoding),
+
+    MatchStr = case Matches of
+        [] -> [];
+        _ -> edlin_expand:format_matches(Matches, Width)
+    end,
+    Cs = case {Cs1, MatchStr} of
+        {_,[]} -> Cs1;
+        {[],_} ->
+            send_drv(Drv, {put_chars, unicode, unicode:characters_to_binary("\n"++MatchStr,unicode)}),
+            [$\^L | Cs1];
+        {_,[_SingleMatch]} -> Cs1;
+        _ ->
+            send_drv(Drv, {put_chars, unicode, unicode:characters_to_binary("\n"++MatchStr,unicode)}),
+            [$\^L | Cs1]
+    end,
     get_line1(edlin:edit_line(Cs, Cont), Drv, Shell, Ls0, Encoding);
 get_line1({undefined,_Char,Cs,Cont,Rs}, Drv, Shell, Ls, Encoding) ->
     send_drv_reqs(Drv, Rs),

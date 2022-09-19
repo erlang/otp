@@ -56,7 +56,9 @@ MODULES= \
 	digraph \
 	digraph_utils \
 	edlin \
+	edlin_context \
 	edlin_expand \
+	edlin_type_suggestion \
 	epp \
 	erl_abstract_code \
 	erl_anno \
