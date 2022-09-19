@@ -79,7 +79,8 @@
  {"2.2.3",    [{load_module, diameter_types},
                {update, diameter_sctp}]},          %% 22.3
  {"2.2.4",    [{load_module, diameter_types}]},    %% 23.3.4
- {"2.2.5",    [{load_module, diameter_types}]}     %% 24.3
+ {"2.2.5",    [{load_module, diameter_types}]},     %% 24.3
+ {"2.2.6",   [{restart_application, diameter}]}
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -140,6 +141,7 @@
   {"2.2.3",   [{load_module, diameter_types},
                {update, diameter_sctp}]},
   {"2.2.4",   [{load_module, diameter_types}]},
-  {"2.2.5",   [{load_module, diameter_types}]}
+  {"2.2.5",   [{load_module, diameter_types}]},
+  {"2.2.6",   [{restart_application, diameter}]}
  ]
 }.
