@@ -1046,18 +1046,28 @@ mk_node_name(Config) ->
 
 
 setup_certs(Config) ->
+    {ok,Host} = inet:gethostname(),
+    Extensions =
+        {extensions,
+         [#'Extension'{
+             extnID = ?'id-ce-subjectAltName',
+             extnValue = [{dNSName, Host}],
+             critical = false}]},
     PrivDir = proplists:get_value(priv_dir, Config),
-    DerConfig = public_key:pkix_test_data(#{server_chain => #{root => rsa_root_key(1),
-                                                              intermediates => [rsa_intermediate(2)],
-                                                              peer => rsa_peer_key(3)},
-                                            client_chain => #{root => rsa_root_key(1), 
-                                                              intermediates => [rsa_intermediate(5)],
-                                                              peer => rsa_peer_key(6)}}), 
+    DerConfig =
+        public_key:pkix_test_data(
+          #{server_chain =>
+                #{root => [rsa_root_key(1)],
+                  intermediates => [rsa_intermediate_conf(2)],
+                  peer => [rsa_peer_key(3), Extensions]},
+            client_chain =>
+                #{root => [rsa_root_key(1)],
+                  intermediates => [rsa_intermediate_conf(5)],
+                  peer => [rsa_peer_key(6), Extensions]}}),
     ClientBase = filename:join([PrivDir, "rsa"]),
-    SeverBase =  filename:join([PrivDir, "rsa"]),   
-   
-    _  = x509_test:gen_pem_config_files(DerConfig, ClientBase, SeverBase).
-    
+    ServerBase =  filename:join([PrivDir, "rsa"]),
+    _  = x509_test:gen_pem_config_files(DerConfig, ClientBase, ServerBase).
+
 setup_tls_opts(Config) ->    
     PrivDir = proplists:get_value(priv_dir, Config),
     SC = filename:join([PrivDir, "rsa_server_cert.pem"]),
@@ -1243,13 +1253,13 @@ inet_ver() ->
 
 rsa_root_key(N) ->
     %% As rsa keygen is not guaranteed to be fast
-    [{key, ssl_test_lib:hardcode_rsa_key(N)}].
+    {key, ssl_test_lib:hardcode_rsa_key(N)}.
 
 rsa_peer_key(N) ->
     %% As rsa keygen is not guaranteed to be fast
-    [{key, ssl_test_lib:hardcode_rsa_key(N)}].
+    {key, ssl_test_lib:hardcode_rsa_key(N)}.
 
-rsa_intermediate(N) -> 
+rsa_intermediate_conf(N) ->
     [{key, ssl_test_lib:hardcode_rsa_key(N)}].
 
 
