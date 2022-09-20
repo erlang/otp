@@ -1044,7 +1044,7 @@ handle_info({dist_ctrlr, Ctrlr, Node, SetupPid} = Msg,
 %%
 %% A node has successfully been connected.
 %%
-handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe}},
+handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe} = Nodeup},
             #state{tick = Tick} = State) ->
     case ets:lookup(sys_dist, Node) of
 	[Conn] when (Conn#connection.state =:= pending)
@@ -1065,6 +1065,7 @@ handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe}},
                          true -> State#state{node = node()};
                          false -> State
                      end,
+            verbose(Nodeup, 1, State1),
             {noreply, State1};
 	_ ->
 	    SetupPid ! {self(), bad_request},

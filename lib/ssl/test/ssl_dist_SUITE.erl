@@ -22,6 +22,7 @@
 
 -behaviour(ct_suite).
 
+-include_lib("kernel/include/net_address.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include("ssl_dist_test_lib.hrl").
@@ -154,18 +155,6 @@ init_per_suite(Config0) ->
 end_per_suite(_Config) ->
     application:stop(crypto).
 
-init_per_testcase(plain_verify_options = Case, Config) when is_list(Config) ->
-    SslFlags = setup_tls_opts(Config),
-    Flags = case os:getenv("ERL_FLAGS") of
-		false ->
-		    os:putenv("ERL_FLAGS", SslFlags),
-		    "";
-		OldFlags ->
-		    os:putenv("ERL_FLAGS", OldFlags ++ " " ++ SslFlags),
-		    OldFlags
-    end,
-    common_init(Case, [{old_flags, Flags} | Config]);
-
 init_per_testcase(Case, Config)
   when Case =:= ktls_basic, is_list(Config);
        Case =:= ktls_verify, is_list(Config);
@@ -194,12 +183,7 @@ common_init(Case, Config) ->
     ct:timetrap({seconds, ?DEFAULT_TIMETRAP_SECS}),
     [{testcase, Case}|Config].
 
-end_per_testcase(Case, Config) when is_list(Config) ->
-    Flags = proplists:get_value(old_flags, Config),
-    catch os:putenv("ERL_FLAGS", Flags),
-    common_end(Case, Config).
-
-common_end(_, _Config) ->
+end_per_testcase(_, _Config) ->
     ok.
 
 %%--------------------------------------------------------------------
@@ -451,11 +435,15 @@ plain_options(Config) when is_list(Config) ->
 plain_verify_options() ->
     [{doc,"Test specifying tls options including certificate verification options"}].
 plain_verify_options(Config) when is_list(Config) ->
-    TLSOpts = "-ssl_dist_opt server_secure_renegotiate true "
-	"client_secure_renegotiate true "
-        "server_hibernate_after 500 client_hibernate_after 500"
-	"server_reuse_sessions true client_reuse_sessions true  "
-        "server_depth 1 client_depth 1 ",
+    TLSOpts = "-ssl_dist_opt "
+        "server_secure_renegotiate true "
+        "client_secure_renegotiate true "
+        "server_hibernate_after 500 "
+        "client_hibernate_after 500 "
+        "server_reuse_sessions true "
+        "client_reuse_sessions true "
+        "server_depth 1 "
+        "client_depth 1 ",
     gen_dist_test(plain_verify_options_test, [{tls_verify_opts, TLSOpts} | Config]).
 
 %%--------------------------------------------------------------------
@@ -709,6 +697,8 @@ basic_test(NH1, NH2, _) ->
     [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
     [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
 
+    verify_tls(NH1, NH2),
+
     %% The test_server node has the same cookie as the ssl nodes
     %% but it should not be able to communicate with the ssl nodes
     %% via the erlang distribution.
@@ -839,6 +829,8 @@ payload_test(NH1, NH2, _) ->
 
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
 
+    verify_tls(NH1, NH2),
+
     [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
     [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
 
@@ -875,6 +867,8 @@ plain_options_test(NH1, NH2, _) ->
 
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
 
+    verify_tls(NH1, NH2),
+
     [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
     [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end).
 
@@ -883,6 +877,8 @@ plain_verify_options_test(NH1, NH2, _) ->
     Node2 = NH2#node_handle.nodename,
 
     pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    verify_tls(NH1, NH2),
 
     [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
     [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end).
@@ -1211,6 +1207,18 @@ verify_pass_always(_Certificate, _Event, State) ->
       end),
     receive go_ahead -> ok end,
     {valid, State}.
+
+verify_tls(NH1, NH2) ->
+    %% Verify that distribution protocol between nodes is TLS
+    Node1 = NH1#node_handle.nodename,
+    Node2 = NH2#node_handle.nodename,
+    {ok,NodeInfo2} = apply_on_ssl_node(NH1, net_kernel, node_info, [Node2]),
+    {ok,NodeInfo1} = apply_on_ssl_node(NH2, net_kernel, node_info, [Node1]),
+    {address,#net_address{protocol = tls}} =
+        lists:keyfind(address, 1, NodeInfo1),
+    {address,#net_address{protocol = tls}} =
+        lists:keyfind(address, 1, NodeInfo2),
+    ok.
 
 localhost_ip(InetVer) ->
     {ok, Addr} = inet:getaddr(net_adm:localhost(), InetVer),
