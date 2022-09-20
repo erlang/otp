@@ -649,7 +649,7 @@
     </func>
 
     <func>
-      <name since="OTP @OTP-18118@">ssl_verify_host_options(WildcardHostName) -> list() </name>
+      <name since="OTP 25.1">ssl_verify_host_options(WildcardHostName) -> list() </name>
       <fsummary>Returns ssl options for host verification.</fsummary>
       <type>
         <v>WildcardHostName = boolean()</v>

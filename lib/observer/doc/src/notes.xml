@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed units in gui.</p>
+          <p>
+	    Own Id: OTP-18151 Aux Id: PR-6063 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

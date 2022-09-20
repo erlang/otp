@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix javadoc build error by adding option <c>-encoding
+	    UTF-8</c>.</p>
+          <p>
+	    Own Id: OTP-18215 Aux Id: PR-6154 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.13</title>
 
     <section><title>Improvements and New Features</title>

@@ -32,6 +32,39 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 5.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Two bugs have been fixed in Dialyzer's checking of
+	    behaviors:</p>
+	    <p>When a <em>mandatory</em> callback function is present
+	    but not exported, Dialyzer would not complain about a
+	    missing callback.</p>
+	    <p>When an <em>optional</em> callback function was not
+	    exported and had incompatible arguments and/or the return
+	    values were incompatible, Dialyzer would complain. This
+	    has been changed to suppress the warning, because the
+	    function might not be intended to be a callback function,
+	    for instance if a release added a new optional callback
+	    function (such as <c>format_status/1</c> for the
+	    gen_server behaviour added in OTP 25).</p>
+          <p>
+	    Own Id: OTP-18127 Aux Id: ERIERL-817 </p>
+        </item>
+        <item>
+	    <p>The <c>no_extra_return</c> and
+	    <c>no_missing_return</c> warnings can now be suppressed
+	    through <c>-dialyzer</c> directives in source code.</p>
+          <p>
+	    Own Id: OTP-18148 Aux Id: PR-6068 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 5.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

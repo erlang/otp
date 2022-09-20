@@ -30,6 +30,67 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handling rare race condition at channel close.</p>
+          <p>
+	    Own Id: OTP-18220 Aux Id: ERIERL-666, ERIERL-661 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New ssh option <c>no_auth_needed</c> to skip the ssh
+	    authentication. Use with caution!</p>
+          <p>
+	    Own Id: OTP-18134 Aux Id: GH-6021 </p>
+        </item>
+        <item>
+          <p>
+	    This change fixes dialyzer warnings generated for
+	    inets/httpd examples (includes needed adjustment of spec
+	    for ssh_sftp module).</p>
+          <p>
+	    Own Id: OTP-18178 Aux Id: ERIERL-833, ERIERL-834,
+	    ERIERL-835 </p>
+        </item>
+        <item>
+          <p>
+	    The new function <c>ssh:daemon_replace_options/2</c>
+	    makes it possible to change the <c>Options</c> in a
+	    running SSH server.</p>
+          <p>
+	    Established connections are not affected, only those
+	    created after the call to this new function.</p>
+          <p>
+	    Own Id: OTP-18196</p>
+        </item>
+        <item>
+          <p>
+	    Add a timeout as option <c>max_initial_idle_time</c>. It
+	    closes a connection that does not allocate a channel
+	    within the timeout time.</p>
+          <p>
+	    For more information about timeouts, see the <seeguide
+	    marker="hardening#timeouts">Timeouts section </seeguide>
+	    in the User's Guide <seeguide
+	    marker="hardening">Hardening</seeguide> chapter.</p>
+          <p>
+	    Own Id: OTP-18207 Aux Id: PR-6231 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.14.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

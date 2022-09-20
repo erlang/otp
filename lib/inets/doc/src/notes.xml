@@ -33,7 +33,38 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 8.0</title>
+  <section><title>Inets 8.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>httpc:ssl_verify_host_options/1</c> to help
+	    setting default ssl options for the https client.</p>
+          <p>
+	    Own Id: OTP-18118</p>
+        </item>
+        <item>
+          <p>
+	    This change fixes dialyzer warnings generated for
+	    inets/httpd examples (includes needed adjustment of spec
+	    for ssh_sftp module).</p>
+          <p>
+	    Own Id: OTP-18178 Aux Id: ERIERL-833, ERIERL-834,
+	    ERIERL-835 </p>
+        </item>
+        <item>
+          <p>
+	    Remove documentation of no longer supported callback.</p>
+          <p>
+	    Own Id: OTP-18193 Aux Id: GH-6122 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

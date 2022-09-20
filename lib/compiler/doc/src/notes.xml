@@ -32,6 +32,109 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler will now forbid using the empty atom
+	    <c>''</c> as module name. Also forbidden are modules
+	    names containing control characters, and module names
+	    containing only spaces and soft hyphens.</p>
+          <p>
+	    Own Id: OTP-18125 Aux Id: GH-6026 </p>
+        </item>
+        <item>
+	    <p>The <c>bin_opt_info</c> and <c>recv_opt_info</c>
+	    options would cause the compiler to crash when attempting
+	    to compile generated code without location
+	    information.</p>
+          <p>
+	    Own Id: OTP-18162 Aux Id: PR-6102 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances involving floating point
+	    operations, the compiler could terminate with an internal
+	    consistency check failure.</p>
+          <p>
+	    Own Id: OTP-18182 Aux Id: GH-6163 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances when doing arithmetic
+	    instructions on non-numbers, the compiler could
+	    crash.</p>
+          <p>
+	    Own Id: OTP-18183 Aux Id: GH-6169 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, complex boolean expressions in
+	    nested cases could cause the compiler to crash.</p>
+          <p>
+	    Own Id: OTP-18184 Aux Id: GH-6164 </p>
+        </item>
+        <item>
+	    <p>Expression similar to <c>#{assoc:=V} =
+	    #key=&gt;self()}, V</c> would return the empty map
+	    instead of raising an exception.</p>
+          <p>
+	    Own Id: OTP-18186</p>
+        </item>
+        <item>
+	    <p>Eliminated a crash in the <c>beam_ssa_bool</c> pass of
+	    the compiler when compiling a complex guard
+	    expression.</p>
+          <p>
+	    Own Id: OTP-18187 Aux Id: GH-6184 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, the compiler could crash with
+	    an internal consistency check failure.</p>
+          <p>
+	    Own Id: OTP-18202 Aux Id: GH-6222 </p>
+        </item>
+        <item>
+	    <p>When compiling with the option
+	    <c>inline_list_funcs</c>, the compiler could produce a
+	    nonsensical warning.</p>
+          <p>
+	    Own Id: OTP-18214 Aux Id: GH-6158 </p>
+        </item>
+        <item>
+	    <p>When given the <c>no_ssa_opt</c> option, the compiler
+	    could terminate with an internal consistency failure
+	    diagnostic when compiling map matching.</p>
+          <p>
+	    Own Id: OTP-18234 Aux Id: GH-6277 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Made warnings for existing atoms being keywords in
+	    experimental features more precise, by not warning about
+	    quoted atoms.</p>
+          <p>
+	    Own Id: OTP-18050</p>
+        </item>
+        <item>
+	    <p>There is a new configure option,
+	    <c>--enable-deterministic-build</c>, which will apply the
+	    <c>deterministic</c> compiler option when building
+	    Erlang/OTP. The <c>deterministic</c> option has been
+	    improved to eliminate more sources of non-determinism in
+	    several applications.</p>
+          <p>
+	    Own Id: OTP-18165 Aux Id: PR-5965 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
