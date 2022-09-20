@@ -372,35 +372,64 @@ erts_db_make_tid(Process *c_p, DbTableCommon *tb)
 */
 #  define META_NAME_TAB_LOCK_CNT 256
 union {
-    erts_rwmtx_t lck;
-    byte align[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_rwmtx_t))];
-}meta_name_tab_rwlocks[META_NAME_TAB_LOCK_CNT];
-static struct meta_name_tab_entry {
-    union {
-	Eterm name_atom;
-	Eterm mcnt; /* Length of mvec in multiple tab entry */
-    }u;
-    union {
-	DbTable *tb;
-	struct meta_name_tab_entry* mvec;
-    }pu;
+    erts_mtx_t lck;
+    byte align[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_mtx_t))];
+} meta_name_tab_locks[META_NAME_TAB_LOCK_CNT];
+struct meta_name_tab_entry {
+    Eterm name_atom;
+    DbTable *tb;
+};
+struct meta_name_tab_entries {
+    // This is fundamentally a simple vector.
+    erts_atomic32_t size;
+    unsigned capacity;
+    struct meta_name_tab_entry data[1];
+};
+struct meta_name_tab_bucket {
+    // Either this points to the inline_entry right after;
+    // Or it points to a larger meta_name_tab_entries.
+    //   In that case, there is a ErtsThrPrgrLaterOp allocated right before its target.
+    erts_atomic_t entries;
+    struct meta_name_tab_entries inline_entry;
 } *meta_name_tab;
+struct meta_name_tab_entries_allocated {
+    ErtsThrPrgrLaterOp later_op;
+    struct meta_name_tab_entries data;
+};
 
 static unsigned meta_name_tab_mask;
 
 static ERTS_INLINE
-struct meta_name_tab_entry* meta_name_tab_bucket(Eterm name, 
-						 erts_rwmtx_t** lockp)
+struct meta_name_tab_bucket* meta_name_tab_bucket_and_lock(Eterm name,
+                                                             erts_mtx_t** lockp)
 {
     unsigned bix = atom_val(name) & meta_name_tab_mask;
-    struct meta_name_tab_entry* bucket = &meta_name_tab[bix];
+    struct meta_name_tab_bucket* bucket = &meta_name_tab[bix];
     /* Only non-dirty schedulers are allowed to access the metatable
        The smp 1 optimizations for ETS depend on that */
     ASSERT(erts_get_scheduler_data() && !ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
-    *lockp = &meta_name_tab_rwlocks[bix % META_NAME_TAB_LOCK_CNT].lck;
+    *lockp = &meta_name_tab_locks[bix % META_NAME_TAB_LOCK_CNT].lck;
     return bucket;
-}    
+}
 
+static ERTS_INLINE
+struct meta_name_tab_bucket* meta_name_tab_bucket(Eterm name)
+{
+    unsigned bix = atom_val(name) & meta_name_tab_mask;
+    struct meta_name_tab_bucket* bucket = &meta_name_tab[bix];
+    /* Only non-dirty schedulers are allowed to access the metatable
+       The smp 1 optimizations for ETS depend on that */
+    ASSERT(erts_get_scheduler_data() && !ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
+    return bucket;
+}
+
+static ERTS_INLINE
+erts_mtx_t* meta_name_tab_lock(Eterm name)
+{
+    unsigned bix = atom_val(name) & meta_name_tab_mask;
+    ASSERT(erts_get_scheduler_data() && !ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
+    return &meta_name_tab_locks[bix % META_NAME_TAB_LOCK_CNT].lck;
+}
 
 typedef enum {
     LCK_READ=1,     /* read only access */
@@ -772,10 +801,9 @@ DbTable* db_get_table_aux(Process *p,
 			  int what,
 			  db_lock_kind_t kind,
 			  int name_already_locked,
-                          Uint* freason_p)
+              Uint* freason_p)
 {
     DbTable *tb;
-    erts_rwmtx_t *name_lck = NULL;
 
     /*
      * IMPORTANT: Only non-dirty scheduler threads are allowed
@@ -785,57 +813,71 @@ DbTable* db_get_table_aux(Process *p,
 
     ASSERT((what == DB_READ_TBL_STRUCT) == (kind == LCK_NOLOCK_ACCESS));
 
-    if (META_DB_LOCK_FREE())
-        name_already_locked = 1;
-
     if (is_not_atom(id)) {
         tb = tid2tab(id, &p->fvalue);
     } else {
-	struct meta_name_tab_entry* bucket = meta_name_tab_bucket(id,&name_lck);
-	if (!name_already_locked)
-	    erts_rwmtx_rlock(name_lck);
-	else {
-	    ERTS_LC_ASSERT(META_DB_LOCK_FREE()
-                           || erts_lc_rwmtx_is_rlocked(name_lck)
-                           || erts_lc_rwmtx_is_rwlocked(name_lck));
-            name_lck = NULL;
-	}
-        tb = NULL;
-	if (bucket->pu.tb != NULL) {
-	    if (is_atom(bucket->u.name_atom)) { /* single */
-		if (bucket->u.name_atom == id)
-		    tb = bucket->pu.tb;
-	    }
-	    else { /* multi */
-		Uint cnt = unsigned_val(bucket->u.mcnt);
-		Uint i;
-		for (i=0; i<cnt; i++) {
-		    if (bucket->pu.mvec[i].u.name_atom == id) {
-			tb = bucket->pu.mvec[i].pu.tb;
-			break;
-		    }
-		}
-	    }
-	}
+        struct meta_name_tab_bucket* bucket = meta_name_tab_bucket(id);
+        struct meta_name_tab_entries *entries =
+            (struct meta_name_tab_entries*) erts_atomic_read_ddrb(&bucket->entries);
+        Uint bucket_size = erts_atomic32_read_rb(&entries->size);
 
-	if (tb == NULL) {
-            if (name_lck)
-                erts_rwmtx_runlock(name_lck);
+        tb = NULL;
+
+        for (Uint i = 0; i < bucket_size; ++i) {
+            if (entries->data[i].name_atom == id) {
+                tb = entries->data[i].tb;
+                break;
+            }
+        }
+
+        if (tb == NULL) {
             p->fvalue = EXI_ID;
-	}
+        }
     }
 
     if (tb) {
         if (what == DB_READ_TBL_STRUCT) {
-            if (name_lck)
-                erts_rwmtx_runlock(name_lck);
+            // See comment later in this function for why this is needed.
+            // We don't have the lock yet, so we may miss a race with a
+            //  rename operation, but that is fine here because
+            //  what == DB_READ_TBL_STRUCT is only used by the insert operation,
+            //  which later does its own double-check after taking the lock 
+            //  (see code and comment in ets_insert_2_list_lock_tbl).
+            if (is_atom(id) && ERTS_UNLIKELY(tb->common.the_name != id)) {
+                *freason_p = BADARG | EXF_HAS_EXT_INFO;
+                p->fvalue = EXI_ID;
+                tb = NULL;
+            }
             return tb;
         }
 
         DB_HASH_ADAPT_NUMBER_OF_LOCKS(tb);
-	db_lock(tb, kind);
-        if (name_lck)
-            erts_rwmtx_runlock(name_lck);
+        db_lock(tb, kind);
+
+        if (is_atom(id)) {
+            // We are re-checking the name <-> id mapping.
+            // This protects from an ABA issue:
+            // - Reader sees inline vector of size 1
+            // - Reader reads the name NameA that corresponds to table IdA,
+            //   sees it matches what it looked for
+            // - Writer deletes (or rename the table), moving us to an empty vector
+            // - Writer inserts another table in that bucket, with a different
+            //   name: NameB -> IdB
+            // - Reader reads IdB, concluding that NameA -> IdB.
+            // In that case, we will correctly fail with badarg, since IdB points
+            // to a table with the_name = NameB != NameA.
+            // This must be done while holding the lock, to deal with the following case:
+            // - Writer does ets:rename(a, b), ets:insert(b, {key, value})
+            // - Reader does ets:lookup(a, key)
+            // We want to make sure that the reader does not get {key, value},
+            // when it was not ever in a table called "a".
+            if (ERTS_UNLIKELY(tb->common.the_name != id)) {
+                db_unlock(tb, kind);
+                *freason_p = BADARG | EXF_HAS_EXT_INFO;
+                p->fvalue = EXI_ID;
+                return NULL;
+            }
+        }
 
 #ifdef ETS_DBG_FORCE_TRAP
         /*
@@ -904,142 +946,169 @@ static DbTable* db_get_table_or_fail_return(Binary* btid,
     return tb;
 }
 
+static ERTS_INLINE
+size_t alloc_size_meta_name_tab_entries(unsigned capacity)
+{
+    return sizeof(struct meta_name_tab_entries_allocated)
+        + (capacity - 1) * sizeof(struct meta_name_tab_entry);
+}
+
+static void
+free_meta_name_tab_entries(void *ptr)
+{
+    struct meta_name_tab_entries* entries =
+        &((struct meta_name_tab_entries_allocated*) ptr)->data;
+    int alloc_size = alloc_size_meta_name_tab_entries(entries->capacity);
+    ERTS_ETS_MISC_MEM_ADD(-alloc_size);
+
+    erts_free(ERTS_ALC_T_DB_NTAB_ENT, ptr);
+}
+
+static ERTS_INLINE
+void schedule_meta_name_tab_entries_for_deletion(struct meta_name_tab_entries *entries)
+{
+    struct meta_name_tab_entries_allocated* allocated =
+        ErtsContainerStruct(entries,struct meta_name_tab_entries_allocated, data);
+    erts_schedule_thr_prgr_later_cleanup_op(free_meta_name_tab_entries,
+        (void *) allocated,
+        &allocated->later_op,
+        alloc_size_meta_name_tab_entries(entries->capacity));
+}
+
+#define ERTS_MAX(A, B) (((A) < (B)) ? (B) : (A))
+#define META_NAME_TAB_ENTRIES_MIN_CAPACITY 8
+
+static ERTS_INLINE struct meta_name_tab_entries*
+alloc_meta_name_tab_entries(unsigned size)
+{
+    unsigned log_capacity = erts_fit_in_bits_uint(size);
+    unsigned capacity = ERTS_MAX(META_NAME_TAB_ENTRIES_MIN_CAPACITY, 1 << log_capacity);
+    int alloc_size;
+    struct meta_name_tab_entries_allocated *allocated;
+    struct meta_name_tab_entries *entries;
+    ASSERT(capacity >= size);
+    alloc_size = alloc_size_meta_name_tab_entries(capacity);
+    allocated = erts_db_alloc_nt(ERTS_ALC_T_DB_NTAB_ENT, alloc_size);
+    ERTS_ETS_MISC_MEM_ADD(alloc_size);
+    entries = &allocated->data;
+    erts_atomic32_init_nob(&entries->size, size);
+    entries->capacity = capacity;
+    return entries;
+}
+
 static int insert_named_tab(Eterm name_atom, DbTable* tb, int have_lock)
 {
     int ret = 0;
-    erts_rwmtx_t* rwlock;
-    struct meta_name_tab_entry* new_entry;
-    struct meta_name_tab_entry* bucket = meta_name_tab_bucket(name_atom,
-							      &rwlock);
+    struct meta_name_tab_entries *entries, *new_entries;
+    unsigned size;
+    erts_mtx_t* lock;
+    struct meta_name_tab_bucket* bucket =
+        meta_name_tab_bucket_and_lock(name_atom, &lock);
 
     if (META_DB_LOCK_FREE())
         have_lock = 1;
-
     if (!have_lock)
-	erts_rwmtx_rwlock(rwlock);
+        erts_mtx_lock(lock);
 
-    if (bucket->pu.tb == NULL) { /* empty */
-	new_entry = bucket;
+    entries = (struct meta_name_tab_entries*) erts_atomic_read_nob(&bucket->entries);
+    size = erts_atomic32_read_nob(&entries->size);
+
+    for (unsigned i = 0; i < size; ++i) {
+        if (entries->data[i].name_atom == name_atom) {
+            goto done;
+        }
     }
-    else {
-	struct meta_name_tab_entry* entries;
-	Uint cnt;
-	if (is_atom(bucket->u.name_atom)) { /* single */
-	    size_t size;
-	    if (bucket->u.name_atom == name_atom) {
-		goto done;
-	    }
-	    cnt = 2;
-	    size = sizeof(struct meta_name_tab_entry)*cnt;
-	    entries = erts_db_alloc_nt(ERTS_ALC_T_DB_NTAB_ENT, size);
-	    ERTS_ETS_MISC_MEM_ADD(size);
-	    new_entry = &entries[0];
-	    entries[1] = *bucket;
-	}
-	else { /* multi */
-	    size_t size, old_size;
-	    Uint i;
-	    cnt = unsigned_val(bucket->u.mcnt);
-	    for (i=0; i<cnt; i++) {
-		if (bucket->pu.mvec[i].u.name_atom == name_atom) {
-		    goto done;
-		}
-	    }
-	    old_size = sizeof(struct meta_name_tab_entry)*cnt;
-	    size = sizeof(struct meta_name_tab_entry)*(cnt+1);
-	    entries = erts_db_realloc_nt(ERTS_ALC_T_DB_NTAB_ENT,
-					 bucket->pu.mvec,
-					 old_size,
-					 size);
-	    ERTS_ETS_MISC_MEM_ADD(size-old_size);
-	    new_entry = &entries[cnt];
-	    cnt++;
-	}
-	bucket->pu.mvec = entries;
-	bucket->u.mcnt = make_small(cnt);
+
+    if (size < entries->capacity) {
+        entries->data[size].name_atom = name_atom;
+        entries->data[size].tb = tb;
+        erts_atomic32_set_wb(&entries->size, size + 1);
+    } else {
+        new_entries = alloc_meta_name_tab_entries(size + 1);
+        memcpy(&new_entries->data[0], &entries->data[0],
+            size * sizeof(struct meta_name_tab_entry));
+        new_entries->data[size].name_atom = name_atom;
+        new_entries->data[size].tb = tb;
+        // Write barrier to ensure that readers that see the new entries pointer
+        // also see the new size and contents.
+        erts_atomic_set_wb(&bucket->entries, (erts_aint_t) new_entries);
+
+        if (entries != &bucket->inline_entry) {
+            schedule_meta_name_tab_entries_for_deletion(entries);
+        }
     }
-    new_entry->pu.tb = tb;
-    new_entry->u.name_atom = name_atom;
     ret = 1; /* Ok */
 
 done:
     if (!have_lock)
-	erts_rwmtx_rwunlock(rwlock);
+        erts_mtx_unlock(lock);
     return ret;
 }
 
 static int remove_named_tab(DbTable *tb, int have_lock)
 {
     int ret = 0;
-    erts_rwmtx_t* rwlock;
+    erts_mtx_t* lock;
+    struct meta_name_tab_entries *entries, *new_entries;
+    unsigned size, index;
     Eterm name_atom = tb->common.the_name;
-    struct meta_name_tab_entry* bucket = meta_name_tab_bucket(name_atom,
-							      &rwlock);
+    struct meta_name_tab_bucket* bucket =
+        meta_name_tab_bucket_and_lock(name_atom, &lock);
     ASSERT(is_table_named(tb));
 
     if (META_DB_LOCK_FREE())
         have_lock = 1;
 
-    if (!have_lock && erts_rwmtx_tryrwlock(rwlock) == EBUSY) {
-	db_unlock(tb, LCK_WRITE);
-	erts_rwmtx_rwlock(rwlock);
-	db_lock(tb, LCK_WRITE);
+    if (!have_lock && erts_mtx_trylock(lock) == EBUSY) {
+        db_unlock(tb, LCK_WRITE);
+        erts_mtx_lock(lock);
+        db_lock(tb, LCK_WRITE);
     }
 
-    ERTS_LC_ASSERT(META_DB_LOCK_FREE() || erts_lc_rwmtx_is_rwlocked(rwlock));
+    ERTS_LC_ASSERT(META_DB_LOCK_FREE() || erts_lc_mtx_is_locked(lock));
 
-    if (bucket->pu.tb == NULL) {
-	goto done;
+    entries = (struct meta_name_tab_entries*) erts_atomic_read_nob(&bucket->entries);
+    size = erts_atomic32_read_nob(&entries->size);
+
+    index = size;
+    for (unsigned i = 0; i < size; ++i) {
+        if (entries->data[i].name_atom == name_atom) {
+            index = i;
+            break;
+        }
     }
-    else if (is_atom(bucket->u.name_atom)) { /* single */
-	if (bucket->u.name_atom != name_atom) {
-	    goto done;
-	}
-	bucket->pu.tb = NULL;
+    if (index == size) {
+        goto done;
     }
-    else { /* multi */
-	Uint cnt = unsigned_val(bucket->u.mcnt);
-	Uint i = 0;
-	for (;;) {
-	    if (bucket->pu.mvec[i].u.name_atom == name_atom) {
-		break;
-	    }
-	    if (++i >= cnt) {
-		goto done;
-	    }
-	}
-	if (cnt == 2) { /* multi -> single */
-	    size_t size;
-	    struct meta_name_tab_entry* entries = bucket->pu.mvec;
-	    *bucket = entries[1-i];
-	    size = sizeof(struct meta_name_tab_entry)*cnt;
-	    erts_db_free_nt(ERTS_ALC_T_DB_NTAB_ENT, entries, size);
-	    ERTS_ETS_MISC_MEM_ADD(-size);
-	    ASSERT(is_atom(bucket->u.name_atom));
-	}
-	else {
-	    size_t size, old_size;
-	    ASSERT(cnt > 2);
-	    bucket->u.mcnt = make_small(--cnt);
-	    if (i != cnt) {
-		/* reposition last one before realloc destroys it */
-		bucket->pu.mvec[i] = bucket->pu.mvec[cnt];
-	    }
-	    old_size = sizeof(struct meta_name_tab_entry)*(cnt+1);
-	    size = sizeof(struct meta_name_tab_entry)*cnt;
-	    bucket->pu.mvec = erts_db_realloc_nt(ERTS_ALC_T_DB_NTAB_ENT,
-						 bucket->pu.mvec,
-						 old_size,
-						 size);
-	    ERTS_ETS_MISC_MEM_ADD(size - old_size);
-    
-	}
+
+    if (entries == &bucket->inline_entry) {
+        // We don't need to do anything to the actual entry: if a reader thread
+        // sees size=0 it won't look further.
+        // And if it saw size = 1, then it is as if it had fully run before us.
+        ASSERT(erts_atomic32_read_nob(&bucket->inline_entry.size) == 1);
+        erts_atomic32_set_nob(&bucket->inline_entry.size, (erts_aint_t) 0);
+    } else {
+        // Trying to remove an entry from the vector without reallocation
+        // while reader threads concurrently access it would be a nightmare.
+        // So we just move things to a new vector instead
+        if (size - 1 > 1) {
+            new_entries = alloc_meta_name_tab_entries(size - 1);
+        } else {
+            ASSERT(erts_atomic32_read_nob(&bucket->inline_entry.size) == 1);
+            new_entries = &bucket->inline_entry;
+        }
+        memcpy(&new_entries->data[0], &entries->data[0],
+            index * sizeof(struct meta_name_tab_entry));
+        memcpy(&new_entries->data[index], &entries->data[index+1],
+            (size - index - 1) * sizeof(struct meta_name_tab_entry));
+        erts_atomic_set_wb(&bucket->entries, (erts_aint_t) new_entries);
+        schedule_meta_name_tab_entries_for_deletion(entries);
     }
+
     ret = 1; /* Ok */
-
 done:
     if (!have_lock)
-	erts_rwmtx_rwunlock(rwlock);
+        erts_mtx_unlock(lock);
     return ret;
 }
 
@@ -2370,7 +2439,7 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
     DbTable* tb;
     Eterm ret;
     Eterm old_name;
-    erts_rwmtx_t *lck1, *lck2;
+    erts_mtx_t *lck1, *lck2;
     Uint freason;
 
 #ifdef HARDDEBUG
@@ -2387,20 +2456,21 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
         db_unlock(tb, LCK_READ);
         BIF_ERROR(BIF_P, BADARG);
     }
+
 retry:
-    (void) meta_name_tab_bucket(BIF_ARG_2, &lck1);
+    lck1 = meta_name_tab_lock(BIF_ARG_2);
 
     if (is_atom(BIF_ARG_1)) {
         old_name = BIF_ARG_1;
-    named_tab:
-        (void)meta_name_tab_bucket(old_name, &lck2);
-	if (lck1 == lck2)
-	    lck2 = NULL;
-	else if (lck1 > lck2) {
-	    erts_rwmtx_t *tmp = lck1;
-	    lck1 = lck2;
-	    lck2 = tmp;
-	}
+named_tab:
+        lck2 = meta_name_tab_lock(old_name);
+        if (lck1 == lck2)
+            lck2 = NULL;
+        else if (lck1 > lck2) {
+            erts_mtx_t *tmp = lck1;
+            lck1 = lck2;
+            lck2 = tmp;
+        }
     }
     else {
         tb = tid2tab(BIF_ARG_1, &BIF_P->fvalue);
@@ -2417,9 +2487,9 @@ retry:
     }
 
     if (lck1)
-        erts_rwmtx_rwlock(lck1);
+        erts_mtx_lock(lck1);
     if (lck2)
-	erts_rwmtx_rwlock(lck2);
+        erts_mtx_lock(lck2);
 
     tb = db_get_table_aux(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE, 1, &freason);
     if (!tb)
@@ -2430,9 +2500,9 @@ retry:
             /* Wow! Racing rename op. Unlock all and retry. */
             ASSERT(is_not_atom(BIF_ARG_1));
             if (lck1)
-                erts_rwmtx_rwunlock(lck1);
+                erts_mtx_unlock(lck1);
             if (lck2)
-                erts_rwmtx_rwunlock(lck2);
+                erts_mtx_unlock(lck2);
             db_unlock(tb, LCK_WRITE);
             goto retry;
         }
@@ -2450,9 +2520,9 @@ retry:
 
     db_unlock(tb, LCK_WRITE);
     if (lck1)
-        erts_rwmtx_rwunlock(lck1);
+        erts_mtx_unlock(lck1);
     if (lck2)
-	erts_rwmtx_rwunlock(lck2);
+        erts_mtx_unlock(lck2);
     BIF_RET(ret);
 
 badarg:
@@ -2462,9 +2532,9 @@ fail:
     if (tb)
 	db_unlock(tb, LCK_WRITE);
     if (lck1)
-        erts_rwmtx_rwunlock(lck1);
+        erts_mtx_unlock(lck1);
     if (lck2)
-	erts_rwmtx_rwunlock(lck2);
+        erts_mtx_unlock(lck2);
 
     return db_bif_fail(BIF_P, freason, BIF_ets_rename_2, NULL);
 }
@@ -4659,9 +4729,6 @@ void init_db(ErtsDbSpinCount db_spin_count)
     size_t size;
 
     int max_spin_count = (1 << 15) - 1; /* internal limit */
-    erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
-    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
-    rwmtx_opt.lived = ERTS_RWMTX_LONG_LIVED;
 
     switch (db_spin_count) {
     case ERTS_DB_SPNCNT_NONE:
@@ -4697,13 +4764,11 @@ void init_db(ErtsDbSpinCount db_spin_count)
 	break;
     }
 
-    if (erts_ets_rwmtx_spin_count >= 0)
-	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
-
     for (i=0; i<META_NAME_TAB_LOCK_CNT; i++) {
-        erts_rwmtx_init_opt(&meta_name_tab_rwlocks[i].lck, &rwmtx_opt,
-            "meta_name_tab", make_small(i),
-            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DB);
+        erts_mtx_init(&meta_name_tab_locks[i].lck
+            , "meta_name_tab"
+            , make_small(i)
+            , ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DB);
     }
 
     erts_atomic_init_nob(&erts_ets_misc_mem_size, 0);
@@ -4725,13 +4790,16 @@ void init_db(ErtsDbSpinCount db_spin_count)
      * but we use 'db_max_tabs' to determine size of name hash table.
      */
     meta_name_tab_mask = (((Uint) 1)<<bits) - 1;
-    size = sizeof(struct meta_name_tab_entry)*(meta_name_tab_mask+1);
+    size = sizeof(struct meta_name_tab_bucket)*(meta_name_tab_mask+1);
     meta_name_tab = erts_db_alloc_nt(ERTS_ALC_T_DB_TABLES, size);
     ERTS_ETS_MISC_MEM_ADD(size);
 
     for (i=0; i<=meta_name_tab_mask; i++) {
-	meta_name_tab[i].pu.tb = NULL;
-	meta_name_tab[i].u.name_atom = NIL;
+        erts_atomic_init_nob(&meta_name_tab[i].entries, (erts_aint_t) &meta_name_tab[i].inline_entry);
+        meta_name_tab[i].inline_entry.capacity = 1;
+        erts_atomic32_init_nob(&meta_name_tab[i].inline_entry.size, 0);
+        meta_name_tab[i].inline_entry.data[0].tb = NULL;
+        meta_name_tab[i].inline_entry.data[0].name_atom = NIL;
     }
 
     db_initialize_hash();
