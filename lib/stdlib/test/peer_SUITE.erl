@@ -45,7 +45,8 @@
     duplicate_name/0, duplicate_name/1,
     old_release/0, old_release/1,
     ssh/0, ssh/1,
-    docker/0, docker/1
+    docker/0, docker/1,
+    user_crash/0, user_crash/1
 ]).
 
 suite() ->
@@ -61,11 +62,11 @@ alternative() ->
 groups() ->
     [
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
-            dist_up_down, dist_localhost] ++ shutdown_alternatives()},
+            dist_up_down, dist_localhost, user_crash] ++ shutdown_alternatives()},
         {dist_seq, [], [dist_io_redirect,      %% Cannot be run in parallel in dist group
                         peer_down_crash_tcp]},
-        {tcp, [parallel], alternative()},
-        {standard_io, [parallel], [init_debug | alternative()]},
+        {tcp, [parallel], [user_crash | alternative()]},
+        {standard_io, [parallel], [init_debug, user_crash | alternative()]},
         {compatibility, [parallel], [old_release]},
         {remote, [parallel], [ssh]}
     ].
@@ -562,4 +563,25 @@ docker(Config) when is_list(Config) ->
                 exec => {Docker, ["run", "-i", "lambda"]}, connection => standard_io}),
             ?assertEqual(Node, peer:call(Peer, erlang, node, [])),
             peer:stop(Peer)
+    end.
+
+user_crash() ->
+    [{doc, "Test that peer node is halted if peer user process crashes"}].
+
+user_crash(Config) ->
+    Opts = case proplists:get_value(connection, Config) of
+               undefined -> #{name => ?CT_PEER_NAME()};
+               Conn -> #{connection => Conn, name => ?CT_PEER_NAME()}
+           end,
+    {ok, _Peer, Node} = peer:start_link(Opts),
+    true = monitor_node(Node, true),
+    PeerUser = erpc:call(Node, erlang, whereis, [user]),
+    true = is_pid(PeerUser),
+    ok = erpc:cast(Node, erlang, exit, [PeerUser, kill]),
+    receive
+        {nodedown, Node} ->
+            ok
+    after
+        5000 ->
+            ct:fail(peer_did_not_halt)
     end.

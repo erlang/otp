@@ -890,6 +890,17 @@ notify_started(Kind, Port) ->
 %% I/O redirection: peer side
 -spec start() -> pid().
 start() ->
+    %% watchdog: a process that has the only purpose of halting the node
+    %%  if controlling process terminates for whatever reason
+    Self = self(),
+    spawn_link(
+        fun () ->
+            false = process_flag(trap_exit, true),
+            receive
+                {'EXIT', Self, _Reason} ->
+                    erlang:halt(0)
+            end
+        end),
     case init:get_argument(origin) of
         {ok, [[IpStr, PortString]]} ->
             %% enter this clause when -origin IpList Port is specified in the command line.
