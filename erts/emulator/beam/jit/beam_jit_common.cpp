@@ -359,6 +359,7 @@ void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
     char name_buffer[MAX_ATOM_SZ_LIMIT];
     std::string module_name = getAtom(mod);
     std::vector<AsmRange> ranges;
+    ERTS_DECL_AM(erts_beamasm);
 
     ranges.reserve(functions.size() + 2);
 
