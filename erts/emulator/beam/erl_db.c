@@ -763,10 +763,11 @@ DbTable* db_get_table_aux(Process *p,
 			  Eterm id,
 			  int what,
 			  db_lock_kind_t kind,
-			  int meta_already_locked,
+			  int name_already_locked,
                           Uint* freason_p)
 {
     DbTable *tb;
+    erts_rwmtx_t *name_lck = NULL;
 
     /*
      * IMPORTANT: Only non-dirty scheduler threads are allowed
@@ -777,19 +778,19 @@ DbTable* db_get_table_aux(Process *p,
     ASSERT((what == DB_READ_TBL_STRUCT) == (kind == LCK_NOLOCK_ACCESS));
 
     if (META_DB_LOCK_FREE())
-        meta_already_locked = 1;
+        name_already_locked = 1;
 
     if (is_not_atom(id)) {
         tb = tid2tab(id, &p->fvalue);
     } else {
-        erts_rwmtx_t *mtl;
-	struct meta_name_tab_entry* bucket = meta_name_tab_bucket(id,&mtl);
-	if (!meta_already_locked)
-	    erts_rwmtx_rlock(mtl);
+	struct meta_name_tab_entry* bucket = meta_name_tab_bucket(id,&name_lck);
+	if (!name_already_locked)
+	    erts_rwmtx_rlock(name_lck);
 	else {
 	    ERTS_LC_ASSERT(META_DB_LOCK_FREE()
-                           || erts_lc_rwmtx_is_rlocked(mtl)
-                           || erts_lc_rwmtx_is_rwlocked(mtl));
+                           || erts_lc_rwmtx_is_rlocked(name_lck)
+                           || erts_lc_rwmtx_is_rwlocked(name_lck));
+            name_lck = NULL;
 	}
         tb = NULL;
 	if (bucket->pu.tb != NULL) {
@@ -808,19 +809,25 @@ DbTable* db_get_table_aux(Process *p,
 		}
 	    }
 	}
-        if (!meta_already_locked)
-            erts_rwmtx_runlock(mtl);
 
 	if (tb == NULL) {
+            if (name_lck)
+                erts_rwmtx_runlock(name_lck);
             p->fvalue = EXI_ID;
 	}
     }
 
     if (tb) {
-        if (what == DB_READ_TBL_STRUCT)
+        if (what == DB_READ_TBL_STRUCT) {
+            if (name_lck)
+                erts_rwmtx_runlock(name_lck);
             return tb;
+        }
 
 	db_lock(tb, kind);
+        if (name_lck)
+            erts_rwmtx_runlock(name_lck);
+
 #ifdef ETS_DBG_FORCE_TRAP
         /*
          * The ets_SUITE uses this to verify that all table lookups calls
