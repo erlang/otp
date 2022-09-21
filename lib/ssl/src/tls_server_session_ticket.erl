@@ -31,7 +31,7 @@
 -include("ssl_cipher.hrl").
 
 %% API
--export([start_link/6,
+-export([start_link/7,
          new/3,
          use/4
         ]).
@@ -54,12 +54,16 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
--spec start_link(term(), atom(), integer(), integer(), integer(), tuple()) -> {ok, Pid :: pid()} |
+-spec start_link(term(), Mode, integer(), integer(), integer(), tuple(), Seed) ->
+                      {ok, Pid :: pid()} |
                       {error, Error :: {already_started, pid()}} |
                       {error, Error :: term()} |
-                      ignore.
-start_link(Listener, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay) ->
-    gen_server:start_link(?MODULE, [Listener, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay], []).
+                      ignore
+    when Mode :: stateless | stateful,
+         Seed :: undefined | binary().
+start_link(Listener, Mode, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiReplay, Seed) ->
+    gen_server:start_link(?MODULE, [Listener, Mode, Lifetime, TicketStoreSize,
+                                    MaxEarlyDataSize, AntiReplay, Seed], []).
 
 new(Pid, Prf, MasterSecret) ->
     gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret}, infinity).
@@ -118,10 +122,13 @@ handle_cast(_Request, State) ->
           {noreply, NewState :: term()}.
 handle_info(rotate_bloom_filters, 
             #state{stateless = #{bloom_filter := BloomFilter0,
+                                 warm_up_windows_remaining := WarmUp0,
                                  window := Window} = Stateless} = State) ->
     BloomFilter = tls_bloom_filter:rotate(BloomFilter0),
     erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
-    {noreply, State#state{stateless = Stateless#{bloom_filter => BloomFilter}}};
+    WarmUp = max(WarmUp0 - 1, 0),
+    {noreply, State#state{stateless = Stateless#{bloom_filter => BloomFilter,
+                                                 warm_up_windows_remaining => WarmUp}}};
 handle_info({'DOWN', Monitor, _, _, _}, #state{listen_monitor = Monitor} = State) ->
     {stop, normal, State};
 handle_info(_Info, State) ->
@@ -148,20 +155,19 @@ format_status(_Opt, Status) ->
 %%% Internal functions
 %%%===================================================================
 
-inital_state([stateless, Lifetime, _, MaxEarlyDataSize, undefined]) ->
+inital_state([stateless, Lifetime, _, MaxEarlyDataSize, undefined, Seed]) ->
     #state{nonce = 0,
-           stateless = #{seed => {crypto:strong_rand_bytes(16), 
-                                  crypto:strong_rand_bytes(32)},
+           stateless = #{seed => stateless_seed(Seed),
                          window => undefined},
            lifetime = Lifetime,
            max_early_data_size = MaxEarlyDataSize
           };
-inital_state([stateless, Lifetime, _, MaxEarlyDataSize, {Window, K, M}]) ->
+inital_state([stateless, Lifetime, _, MaxEarlyDataSize, {Window, K, M}, Seed]) ->
     erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
     #state{nonce = 0,
            stateless = #{bloom_filter => tls_bloom_filter:new(K, M),
-                         seed => {crypto:strong_rand_bytes(16),
-                                  crypto:strong_rand_bytes(32)},
+                         warm_up_windows_remaining => warm_up_windows(Seed),
+                         seed => stateless_seed(Seed),
                          window => Window},
            lifetime = Lifetime,
            max_early_data_size = MaxEarlyDataSize
@@ -429,7 +435,15 @@ in_window(_, undefined) ->
 in_window(Age, Window) when is_integer(Window) ->
     Age =< Window.
 
-stateless_anti_replay(Index, PSK, Binder, 
+stateless_anti_replay(_Index, _PSK, _Binder,
+                      #state{stateless = #{warm_up_windows_remaining := WarmUpRemaining}
+                            } = State) when WarmUpRemaining > 0 ->
+    %% Reject all tickets during the warm-up period:
+    %% RFC 8446 8.2 Client Hello Recording
+    %% "When implementations are freshly started, they SHOULD reject 0-RTT as
+    %% long as any portion of their recording window overlaps the startup time."
+    {{ok, undefined}, State};
+stateless_anti_replay(Index, PSK, Binder,
                       #state{stateless = #{bloom_filter := BloomFilter0} 
                              = Stateless} = State) ->
     case tls_bloom_filter:contains(BloomFilter0, Binder) of
@@ -443,3 +457,20 @@ stateless_anti_replay(Index, PSK, Binder,
     end;
 stateless_anti_replay(Index, PSK, _, State) ->
      {{ok, {Index, PSK}}, State}.
+
+-spec stateless_seed(Seed :: undefined | binary()) ->
+          {IV :: binary(), Shard :: binary()}.
+stateless_seed(undefined) ->
+    {crypto:strong_rand_bytes(16), crypto:strong_rand_bytes(32)};
+stateless_seed(Seed) ->
+    <<IV:16/binary, Shard:32/binary, _/binary>> = crypto:hash(sha512, Seed),
+    {IV, Shard}.
+
+-spec warm_up_windows(Seed :: undefined | binary()) -> 0 | 2.
+warm_up_windows(undefined) ->
+    0;
+warm_up_windows(_) ->
+    %% When the encryption seed is specified, "warm up" the bloom filter for
+    %% 2*WindowSize to ensure tickets from a previous instance of the server
+    %% (before a restart) cannot be reused, if the ticket encryption seed is reused.
+    2.
