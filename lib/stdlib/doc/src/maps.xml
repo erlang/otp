@@ -87,7 +87,7 @@
           returns <c>true</c>, the association is copied to the result map. If
           it returns <c>false</c>, the association is not copied. If it returns
           <c>{true, NewValue}</c>, the value for <c><anno>Key</anno></c> is
-          replaced with <c>NewValue</c>at this position is replaced in the
+          replaced with <c>NewValue</c> at this position is replaced in the
           result map.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>MapOrIter</anno></c> is not a map or valid iterator,
