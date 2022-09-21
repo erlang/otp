@@ -2178,13 +2178,13 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
         db_unlock(tb, LCK_READ);
         BIF_ERROR(BIF_P, BADARG);
     }
-
+retry:
     (void) meta_name_tab_bucket(BIF_ARG_2, &lck1);
 
     if (is_atom(BIF_ARG_1)) {
         old_name = BIF_ARG_1;
     named_tab:
-	(void) meta_name_tab_bucket(old_name, &lck2);
+        (void)meta_name_tab_bucket(old_name, &lck2);
 	if (lck1 == lck2)
 	    lck2 = NULL;
 	else if (lck1 > lck2) {
@@ -2198,15 +2198,17 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
         if (!tb)
             BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
         else {
+            old_name = tb->common.the_name;
             if (is_table_named(tb)) {
-                old_name = tb->common.the_name;
                 goto named_tab;
             }
+            lck1 = NULL;
             lck2 = NULL;
         }
     }
 
-    erts_rwmtx_rwlock(lck1);
+    if (lck1)
+        erts_rwmtx_rwlock(lck1);
     if (lck2)
 	erts_rwmtx_rwlock(lck2);
 
@@ -2215,6 +2217,16 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
 	goto fail;
 
     if (is_table_named(tb)) {
+        if (tb->common.the_name != old_name) {
+            /* Wow! Racing rename op. Unlock all and retry. */
+            ASSERT(is_not_atom(BIF_ARG_1));
+            if (lck1)
+                erts_rwmtx_rwunlock(lck1);
+            if (lck2)
+                erts_rwmtx_rwunlock(lck2);
+            db_unlock(tb, LCK_WRITE);
+            goto retry;
+        }
         if (!insert_named_tab(BIF_ARG_2, tb, 1))
             goto badarg;
 
@@ -2228,7 +2240,8 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
     tb->common.the_name = BIF_ARG_2;
 
     db_unlock(tb, LCK_WRITE);
-    erts_rwmtx_rwunlock(lck1);
+    if (lck1)
+        erts_rwmtx_rwunlock(lck1);
     if (lck2)
 	erts_rwmtx_rwunlock(lck2);
     BIF_RET(ret);
@@ -2239,7 +2252,8 @@ badarg:
 fail:
     if (tb)
 	db_unlock(tb, LCK_WRITE);
-    erts_rwmtx_rwunlock(lck1);
+    if (lck1)
+        erts_rwmtx_rwunlock(lck1);
     if (lck2)
 	erts_rwmtx_rwunlock(lck2);
 
