@@ -282,39 +282,60 @@ listen_port_options() ->
 listen_port_options(Config) when is_list(Config) ->
     %% Start a node, and get the port number it's listening on.
     NH1 = start_ssl_node(Config),
+    NH1Args = apply_on_ssl_node(NH1, init, get_arguments, []),
+    {ok, NH1NodesPorts} = apply_on_ssl_node(NH1, net_adm, names, []),
+    io:format(
+      "Node 1 Args:  ~p~n"
+      "Node 1 NodesPorts: ~p~n"
+      "Node 1 SocketsInfo: ~p~n",
+      [NH1Args, NH1NodesPorts,
+       apply_on_ssl_node(NH1, fun sockets_info/0)]),
+
     Node1 = NH1#node_handle.nodename,
     Name1 = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node1)),
-    {ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
-    {Name1, Port1} = lists:keyfind(Name1, 1, NodesPorts),
-    
+    {Name1, Port1} = lists:keyfind(Name1, 1, NH1NodesPorts),
+
     %% Now start a second node, configuring it to use the same port
     %% number.
     PortOpt1 = "-kernel inet_dist_listen_min " ++ integer_to_list(Port1) ++
         " inet_dist_listen_max " ++ integer_to_list(Port1),
-    
-    try start_ssl_node([{tls_verify_opts, PortOpt1} | proplists:delete(tls_verify_opts, Config)]) of
-	#node_handle{} ->
+
+    try
+        start_ssl_node(
+          [{tls_verify_opts, PortOpt1}
+          | proplists:delete(tls_verify_opts, Config)])
+    of
+	#node_handle{} = NH2x ->
 	    %% If the node was able to start, it didn't take the port
 	    %% option into account.
+            NH2xArgs = apply_on_ssl_node(NH2x, init, get_arguments, []),
+            {ok, NH2xNodesPorts} = apply_on_ssl_node(NH2x, net_adm, names, []),
+            io:format(
+              "Node 2x Args:  ~p~n"
+              "Node 2x NodesPorts: ~p~n"
+              "Node 2x SocketsInfo: ~p~n",
+              [NH2xArgs, NH2xNodesPorts,
+               apply_on_ssl_node(NH2x, fun sockets_info/0)]),
 	    stop_ssl_node(NH1),
+	    stop_ssl_node(NH2x),
 	    exit(unexpected_success)
     catch
 	exit:{accept_failed, timeout} ->
 	    %% The node failed to start, as expected.
 	    ok
     end,
-    
+
     %% Try again, now specifying a high max port.
     PortOpt2 = "-kernel inet_dist_listen_min " ++ integer_to_list(Port1) ++
 	" inet_dist_listen_max 65535",
     NH2 = start_ssl_node([{tls_verify_opts, PortOpt2} |  proplists:delete(tls_verify_opts, Config)]),
-    
-    try 
+
+    try
 	Node2 = NH2#node_handle.nodename,
 	Name2 = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node2)),
 	{ok, NodesPorts2} = apply_on_ssl_node(NH2, fun net_adm:names/0),
 	{Name2, Port2} = lists:keyfind(Name2, 1, NodesPorts2),
-	
+
 	%% The new port should be higher:
 	if Port2 > Port1 ->
 		ok;
@@ -330,6 +351,17 @@ listen_port_options(Config) when is_list(Config) ->
     stop_ssl_node(NH2),
     stop_ssl_node(NH1),
     success(Config).
+
+sockets_info() ->
+    [{element(2, inet:sockname(Socket)),
+      element(2, inet:peername(Socket)),
+      element(2, prim_inet:getstatus(Socket))}
+     ||
+        Socket <-
+            lists:filter(
+              fun (Port) ->
+                      erlang:port_info(Port, name) =:= {name, "tcp_inet"}
+              end, erlang:ports())].
 
 %%--------------------------------------------------------------------
 listen_options() ->
