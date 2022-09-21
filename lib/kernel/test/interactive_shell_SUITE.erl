@@ -863,7 +863,13 @@ shell_support_ansi_input(Config) ->
 %%   tmux cannot handle this... so we test this using to_erl
 shell_invalid_ansi(_Config) ->
 
-    InvalidAnsiPrompt = ["\e]94m",54620,44397,50612,47,51312,49440,47568,"\e]0m"],
+    InvalidAnsiPrompt =
+        case proplists:get_value(encoding, io:getopts(user)) of
+            unicode ->
+                ["\e]94m",54620,44397,50612,47,51312,49440,47568,"\e]0m"];
+            latin1 ->
+                ["\e]94minvalid_test\e]0m"]
+        end,
 
     rtnode:run(
       [{eval, fun() -> application:set_env(
