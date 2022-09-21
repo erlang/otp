@@ -37,7 +37,39 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 4.4</title>
+  <section><title>Megaco 4.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed various dialyzer related issues in the examples and
+	    the application proper.</p>
+          <p>
+	    Own Id: OTP-18179 Aux Id: ERIERL-836 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>There is a new configure option,
+	    <c>--enable-deterministic-build</c>, which will apply the
+	    <c>deterministic</c> compiler option when building
+	    Erlang/OTP. The <c>deterministic</c> option has been
+	    improved to eliminate more sources of non-determinism in
+	    several applications.</p>
+          <p>
+	    Own Id: OTP-18165 Aux Id: PR-5965 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>

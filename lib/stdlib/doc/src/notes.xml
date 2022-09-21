@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2021</year>
+      <year>2004</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,125 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
+
+<section><title>STDLIB 4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed inconsistency bugs in <seeerl
+	    marker="kernel:global"><c>global</c></seeerl> due to
+	    <c>nodeup</c>/<c>nodedown</c> messages not being
+	    delivered before/after traffic over connections. Also
+	    fixed various other inconsistency bugs and deadlocks in
+	    both <seeerl
+	    marker="kernel:global_group"><c>global_group</c></seeerl>
+	    and <c>global</c>.</p>
+          <p>
+	    As building blocks for these fixes, a new BIF <seemfa
+	    marker="erts:erlang#nodes/2"><c>erlang:nodes/2</c></seemfa>
+	    has been introduced and <seemfa
+	    marker="kernel:net_kernel#monitor_nodes/2"><c>net_kernel:monitor_nodes/2</c></seemfa>
+	    has been extended.</p>
+          <p>
+	    The <seecom
+	    marker="erts:erl#hidden"><c>-hidden</c></seecom> and
+	    <seecom
+	    marker="erts:erl#connect_all"><c>-connect_all</c></seecom>
+	    command line arguments did not work if multiple instances
+	    were present on the command line which has been fixed.
+	    The new kernel parameter <seeapp
+	    marker="kernel:kernel_app#connect_all"><c>connect_all</c></seeapp>
+	    has also been introduced in order to replace the
+	    <c>-connect_all</c> command line argument.</p>
+          <p>
+	    Own Id: OTP-17934 Aux Id: PR-6007 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the <c>public_key:ssh*</c> functions to be listed
+	    under the correct release in the Removed Functionality
+	    User's Guide.</p>
+          <p>
+	    Own Id: OTP-18139 Aux Id: PR-6060 </p>
+        </item>
+        <item>
+          <p>
+	    The type spec for <c>format_status/1</c> in
+	    <c>gen_statem</c>, <c>gen_server</c> and <c>gen_event</c>
+	    has been corrected to state that the return value is of
+	    the same type as the argument (instead of the same value
+	    as the argument).</p>
+          <p>
+	    Own Id: OTP-18142 Aux Id: PR-6078 </p>
+        </item>
+        <item>
+          <p>
+	    If the <c>timer</c> server child spec was already present
+	    in <c>kernel_sup</c> but it was not started, the
+	    <c>timer</c> server would fail to start with an
+	    <c>{error, already_present}</c> error instead of
+	    restarting the server.</p>
+          <p>
+	    Own Id: OTP-18146 Aux Id: PR-5983 </p>
+        </item>
+        <item>
+	    <p>When changing callback module in <c>gen_statem</c> the
+	    state_enter calls flag from the old module was used in
+	    for the first event in the new module, which could
+	    confuse the new module and cause malfunction. This bug
+	    has been corrected. </p><p> With this change some
+	    <c>sys</c> debug message formats have been modified,
+	    which can be a problem for debug code relying on the
+	    format. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18239</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>There is a new configure option,
+	    <c>--enable-deterministic-build</c>, which will apply the
+	    <c>deterministic</c> compiler option when building
+	    Erlang/OTP. The <c>deterministic</c> option has been
+	    improved to eliminate more sources of non-determinism in
+	    several applications.</p>
+          <p>
+	    Own Id: OTP-18165 Aux Id: PR-5965 </p>
+        </item>
+        <item>
+	    <p>The <c>rfc339_to_system_time/1,2</c> functions now
+	    allows the minutes part to be omitted from the time
+	    zone.</p>
+          <p>
+	    Own Id: OTP-18166 Aux Id: PR-6108 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>receive</c> statement in <c>gen_event</c> has been
+	    optimized to not use selective receive (which was never
+	    needed, and could cause severe performance degradation
+	    under heavy load).</p>
+          <p>
+	    Own Id: OTP-18194 Aux Id: PR-6199 </p>
+        </item>
+        <item>
+          <p>
+	    Add new API function erl_features:configurable/0</p>
+          <p>
+	    Own Id: OTP-18199 Aux Id: PR-5790 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>STDLIB 4.0.1</title>
 

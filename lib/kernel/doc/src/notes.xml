@@ -31,6 +31,139 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed inconsistency bugs in <seeerl
+	    marker="kernel:global"><c>global</c></seeerl> due to
+	    <c>nodeup</c>/<c>nodedown</c> messages not being
+	    delivered before/after traffic over connections. Also
+	    fixed various other inconsistency bugs and deadlocks in
+	    both <seeerl
+	    marker="kernel:global_group"><c>global_group</c></seeerl>
+	    and <c>global</c>.</p>
+          <p>
+	    As building blocks for these fixes, a new BIF <seemfa
+	    marker="erts:erlang#nodes/2"><c>erlang:nodes/2</c></seemfa>
+	    has been introduced and <seemfa
+	    marker="kernel:net_kernel#monitor_nodes/2"><c>net_kernel:monitor_nodes/2</c></seemfa>
+	    has been extended.</p>
+          <p>
+	    The <seecom
+	    marker="erts:erl#hidden"><c>-hidden</c></seecom> and
+	    <seecom
+	    marker="erts:erl#connect_all"><c>-connect_all</c></seecom>
+	    command line arguments did not work if multiple instances
+	    were present on the command line which has been fixed.
+	    The new kernel parameter <seeapp
+	    marker="kernel:kernel_app#connect_all"><c>connect_all</c></seeapp>
+	    has also been introduced in order to replace the
+	    <c>-connect_all</c> command line argument.</p>
+          <p>
+	    Own Id: OTP-17934 Aux Id: PR-6007 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed IPv6 multicast_if and membership socket options.</p>
+          <p>
+	    Own Id: OTP-18091 Aux Id: #5789 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed issue with inet:getifaddrs hanging on pure IPv6
+	    Windows</p>
+          <p>
+	    Own Id: OTP-18102 Aux Id: #5904 </p>
+        </item>
+        <item>
+          <p>
+	    The type specifications for <c>inet:getopts/2</c> and
+	    <c>inet:setopts/2</c> have been corrected regarding SCTP
+	    options.</p>
+          <p>
+	    Own Id: OTP-18115 Aux Id: PR-5939 </p>
+        </item>
+        <item>
+          <p>
+	    The type specifications for <c>inet:parse_*</c> have been
+	    tightened.</p>
+          <p>
+	    Own Id: OTP-18121 Aux Id: PR-5972 </p>
+        </item>
+        <item>
+          <p>
+	    Fix gen_tcp:connect/3 spec to include the inet_backend
+	    option.</p>
+          <p>
+	    Own Id: OTP-18171 Aux Id: PR-6131 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where using a binary as the format when calling
+	    <c>logger:log(Level, Format, Args)</c> (or any other
+	    logging function) would cause a crash or incorrect
+	    logging.</p>
+          <p>
+	    Own Id: OTP-18229 Aux Id: PR-6212 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add rudimentary debug feature (option) for the
+	    inet-driver based sockets, such as gen_tcp and gen_udp.</p>
+          <p>
+	    Own Id: OTP-18032</p>
+        </item>
+        <item>
+          <p>
+	    Introduced the <c>hidden</c> and <c>dist_listen</c>
+	    options to <seemfa
+	    marker="kernel:net_kernel#start/2"><c>net_kernel:start/2</c></seemfa>.</p>
+          <p>
+	    Also documented the <seecom
+	    marker="erts:erl#dist_listen"><c>-dist_listen</c></seecom>
+	    command line argument which was erroneously documented as
+	    a <c>kernel</c> parameter and not as a command line
+	    argument.</p>
+          <p>
+	    Own Id: OTP-18107 Aux Id: PR-6009 </p>
+        </item>
+        <item>
+          <p>
+	    Scope and group monitoring have been introduced in
+	    <seeerl marker="kernel:pg"><c>pg</c></seeerl>. For more
+	    information see the documentation of <seemfa
+	    marker="kernel:pg#monitor_scope/0"><c>pg:monitor_scope()</c></seemfa>,
+	    <seemfa
+	    marker="kernel:pg#monitor/1"><c>pg:monitor()</c></seemfa>,
+	    and <seemfa
+	    marker="kernel:pg#demonitor/1"><c>pg:demonitor()</c></seemfa>.</p>
+          <p>
+	    Own Id: OTP-18163 Aux Id: PR-6058, PR-6275 </p>
+        </item>
+        <item>
+          <p>
+	    A new function <seemfa
+	    marker="kernel:global#disconnect/0"><c>global:disconnect/0</c></seemfa>
+	    has been introduced with which one can cleanly disconnect
+	    a node from all other nodes in a cluster of <c>global</c>
+	    nodes.</p>
+          <p>
+	    Own Id: OTP-18232 Aux Id: OTP-17843, PR-6264 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -71,7 +71,7 @@
     </func>
 
     <func>
-      <name name="configurable" arity="0" since="OTP @OTP-18199@"/>
+      <name name="configurable" arity="0" since="OTP 25.1"/>
       <fsummary>Return all configurable features.</fsummary>
       <desc>
         <p>Return a list of all configurable features, that is, features

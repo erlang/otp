@@ -34,7 +34,30 @@
   </header>
 
 
-  <section><title>SNMP 5.13</title>
+  <section><title>SNMP 5.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved the get-bulk response max size calculation. Its
+	    now possible to configure 'empty pdu size', see appendix
+	    c for more info.</p>
+          <p>
+	    Own Id: OTP-17115 Aux Id: ERIERL-456 </p>
+        </item>
+        <item>
+          <p>
+	    Fix various example dialyzer issues</p>
+          <p>
+	    Own Id: OTP-18180 Aux Id: ERIERL-837 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.13</title>
 
     <section><title>Improvements and New Features</title>
       <list>

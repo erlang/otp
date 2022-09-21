@@ -35,6 +35,34 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Support more Linux distributions in cacerts_load/0.</p>
+          <p>
+	    Own Id: OTP-18154 Aux Id: PR-6002 </p>
+        </item>
+        <item>
+          <p>
+	    Correct asn1 typenames available in type pki_asn1_type()</p>
+          <p>
+	    Own Id: OTP-18189 Aux Id: ERIERL-829 </p>
+        </item>
+        <item>
+          <p>
+	    Sign/verify does now behave as in OTP-24 and earlier for
+	    eddsa.</p>
+          <p>
+	    Own Id: OTP-18205 Aux Id: GH-6219 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.13</title>
 
     <section><title>Improvements and New Features</title>

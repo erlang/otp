@@ -4941,7 +4941,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="nodes" arity="2" since="OTP @OTP-17934@"/>
+      <name name="nodes" arity="2" since="OTP 25.1"/>
       <fsummary>All nodes of a certain type in the system.</fsummary>
       <desc>
         <p>

@@ -31,7 +31,22 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 1.3</title>
+  <section><title>Erl_Docgen 1.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update DTD to allow XML tag <c>em</c> under <c>pre</c>.</p>
+          <p>
+	    Own Id: OTP-18244</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

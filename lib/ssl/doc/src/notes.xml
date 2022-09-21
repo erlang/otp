@@ -27,6 +27,106 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.8.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reject unexpected application data in all relevant places
+	    for all TLS versions. Also, handle TLS-1.3 middlebox
+	    compatibility with more care. This will make malicious
+	    connections fail early and further, mitigate possible DoS
+	    attacks, that would be caught by the handshake timeout.</p>
+          <p>
+	    Thanks to Aina Toky Rasoamanana and Olivier Levillain
+	    from Télécom SudParis for alerting us of the issues in
+	    our implementation.</p>
+          <p>
+	    Own Id: OTP-18044</p>
+        </item>
+        <item>
+          <p>
+	    With this change, value of cacertfile option will be
+	    adjusted before loading certs from the file. Adjustments
+	    include converting relative paths to absolute and
+	    converting symlinks to actual file path.</p>
+          <p>
+	    Thanks to Marcus Johansson</p>
+          <p>
+	    Own Id: OTP-18099 Aux Id: PR-6287 </p>
+        </item>
+        <item>
+          <p>
+	    In TLS-1.3, if chain certs are missing (so server auth
+	    domain adherence can not be determined) send peer cert
+	    and hope the server is able to recreate a chain in its
+	    auth domain.</p>
+          <p>
+	    Own Id: OTP-18191 Aux Id: GH-6105 </p>
+        </item>
+        <item>
+          <p>
+	    Make sure periodical refresh of CA certificate files
+	    repopulates cache properly.</p>
+          <p>
+	    Own Id: OTP-18195</p>
+        </item>
+        <item>
+          <p>
+	    Correct internal CRL cache functions to use internal
+	    format consistently.</p>
+          <p>
+	    Own Id: OTP-18203 Aux Id: PR-5996 </p>
+        </item>
+        <item>
+          <p>
+	    Incorrect handling of client middlebox negotiation for
+	    TLS-1.3 could result in that a TLS-1.3 server would not
+	    use middlebox mode although the client was expecting it
+	    too and failing the negotiation with unexpected message.</p>
+          <p>
+	    Own Id: OTP-18219 Aux Id: GH-6241, PR-6249 </p>
+        </item>
+        <item>
+          <p>
+	    If the "User" process, the process starting the TLS
+	    connection, gets killed in the middle of spawning the
+	    dynamic connection tree make sure we do not leave any
+	    processes behind.</p>
+          <p>
+	    Own Id: OTP-18233 Aux Id: GH-6244, PR-6270 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A vulnerability has been discovered and corrected. It is
+	    registered as CVE-2022-37026 "Client Authentication
+	    Bypass". Corrections have been released on the supported
+	    tracks with patches 23.3.4.15, 24.3.4.2, and 25.0.2. The
+	    vulnerability might also exist in older OTP versions. We
+	    recommend that impacted users upgrade to one of these
+	    versions or later on the respective tracks. OTP 25.1
+	    would be an even better choice. Impacted are those who
+	    are running an ssl/tls/dtls server using the ssl
+	    application either directly or indirectly via other
+	    applications. For example via inets (httpd), cowboy, etc.
+	    Note that the vulnerability only affects servers that
+	    request client certification, that is sets the option
+	    {verify, verify_peer}.</p>
+          <p>
+	    Own Id: OTP-18241</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.8.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

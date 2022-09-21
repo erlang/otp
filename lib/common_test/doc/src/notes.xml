@@ -33,6 +33,35 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.23.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix cth_surefire to handle when a suite is not compiled
+	    with <c>debug_info</c>. This bug has been present since
+	    Erlang/OTP 25.0.</p>
+          <p>
+	    Own Id: OTP-18208 Aux Id: ERIERL-852 PR-6229 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Common Test now preserves stack traces for throws.</p>
+          <p>
+	    Own Id: OTP-18138 Aux Id: GH-5719, PR-6029 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.23</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

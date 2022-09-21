@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2021</year>
+      <year>1999</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,103 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
+
+<section><title>Crypto 5.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix configure with <c>--with-ssl</c> and
+	    <c>--disable-dynamic-ssl-lib</c> on Windows.</p>
+          <p>
+	    Own Id: OTP-18147 Aux Id: GH-6024, PR-6056 </p>
+        </item>
+        <item>
+	    <p> Remove all references correctly in the garbage
+	    collection if an engine handle was not explicit unloaded.
+	    </p>
+          <p>
+	    Own Id: OTP-18152</p>
+        </item>
+        <item>
+	    <p>Changed the behaviour of the engine load/unload
+	    functions</p> <p> The engine load/unload functions have
+	    got changed semantics to get a more consistent behaviour
+	    and work correct when variables are garbage collected.
+	    </p> <p> The load functions now don't register the
+	    methods for the engine to replace. That will now be
+	    handled with the new functions
+	    engine_register/engine_unregister if needed. </p> <p>
+	    Some functions are removed from the documentation and
+	    therefor the API, but they are left in the code for
+	    compatibility. </p> <list> <item>engine_load/4: is now
+	    the same as engine_load/3</item> <item>engine_unload/2:
+	    is now the same as engine_unload/1</item>
+	    <item>ensure_engine_loaded/3: is now the same as
+	    ensure_engine_loaded/2</item>
+	    <item>ensure_engine_unloaded/1, ensure_engine_unloaded/2:
+	    is now the same as engine_unload/1</item> </list>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18172 Aux Id: ERIERL-826 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a naming bug for AES-CFB and Blowfish-CFB/OFB when
+	    linked with OpenSSL 3.0 cryptolib.</p>
+          <p>
+	    Own Id: OTP-18200</p>
+        </item>
+        <item>
+          <p>
+	    Sign/verify does now behave as in OTP-24 and earlier for
+	    eddsa.</p>
+          <p>
+	    Own Id: OTP-18205 Aux Id: GH-6219 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Pass elliptic curve names from crypto.erl to crypto's
+	    nif.</p>
+          <p>
+	    Own Id: OTP-18037</p>
+        </item>
+        <item>
+          <p>
+	    The configure option <c>--disable-deprecated-warnings</c>
+	    is removed. It was used for some releases when the
+	    support for OpenSSL 3.0 was not completed. It is not
+	    needed in OTP 25.</p>
+          <p>
+	    Own Id: OTP-18133</p>
+        </item>
+        <item>
+          <p>
+	    Crypto is now considered to be usable with the OpenSSL
+	    3.0 cryptolib for production code.</p>
+          <p>
+	    ENGINE and FIPS are not yet fully functional.</p>
+          <p>
+	    Own Id: OTP-18153</p>
+        </item>
+        <item>
+          <p>
+	    Do not exit if the legacy provider is missing in
+	    libcrypto 3.0.</p>
+          <p>
+	    Own Id: OTP-18217</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Crypto 5.1.1</title>
 
