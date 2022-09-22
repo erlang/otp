@@ -5,6 +5,7 @@
   <xi:include href="../specs/specs_make.xml"/>
   <xi:include href="../specs/specs_lcnt.xml"/>
   <xi:include href="../specs/specs_eprof.xml"/>
+  <xi:include href="../specs/specs_hprof.xml"/>
   <xi:include href="../specs/specs_tags.xml"/>
   <xi:include href="../specs/specs_cover.xml"/>
   <xi:include href="../specs/specs_xref.xml"/>
