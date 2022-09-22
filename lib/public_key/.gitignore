@@ -7,3 +7,4 @@ src/PKCS-FRAME.erl
 src/PKCS-FRAME.hrl
 include/OTP-PUB-KEY.hrl
 include/PKCS-FRAME.hrl
+priv/lib/
