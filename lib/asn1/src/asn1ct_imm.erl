@@ -381,21 +381,43 @@ per_enc_optional(Val, {call,M,F,A}) ->
       [[{eq,Tmp,true},Zero],['_',One]]}].
 
 per_enc_sof(Val0, Constraint, ElementVar, ElementImm, Aligned) ->
-    {B,[Val,Len]} = mk_vars(Val0, [len]),
-    SzConstraint = effective_constraint(bitstring, Constraint),
-    LenImm = enc_length(Len, SzConstraint, Aligned),
-    Lc0 = [{lc,ElementImm,{var,atom_to_list(ElementVar)},Val}],
-    Lc = opt_lc(Lc0, LenImm),
-    PreBlock = B ++ [{call,erlang,length,[Val],Len}],
-    case LenImm of
-	[{'cond',[[C|Action]]}] ->
-	    PreBlock ++ [{'cond',[[C|Action++Lc]]}];
-	[{sub,_,_,_}=Sub,{'cond',[[C|Action]]}] ->
-	    PreBlock ++
-		[Sub,{'cond',[[C|Action++Lc]]}];
-	EncLen ->
-	    PreBlock ++ EncLen ++ Lc
+    case effective_constraint(bitstring, Constraint) of
+        no ->
+            per_enc_sof_fragmented(Val0, ElementVar, ElementImm, Aligned);
+        SzConstraint ->
+            {B,[Val,Len]} = mk_vars(Val0, [len]),
+            LenImm = enc_sof_length(Len, SzConstraint, Aligned),
+            Lc0 = [{lc,ElementImm,{var,atom_to_list(ElementVar)},Val}],
+            Lc = opt_lc(Lc0, LenImm),
+            PreBlock = B ++ [{call,erlang,length,[Val],Len}],
+            case LenImm of
+                [{'cond',[[C|Action]]}] ->
+                    PreBlock ++ [{'cond',[[C|Action++Lc]]}];
+                [{sub,_,_,_}=Sub,{'cond',[[C|Action]]}] ->
+                    PreBlock ++
+                        [Sub,{'cond',[[C|Action++Lc]]}];
+                EncLen ->
+                    PreBlock ++ EncLen ++ Lc
+            end
     end.
+
+per_enc_sof_fragmented(Val0, ElementVar, ElementImm, Aligned) ->
+    {B,[Val,Len,Fun]} = mk_vars(Val0, [len,fn]),
+    Lc = [{lc,ElementImm,{var,atom_to_list(ElementVar)},Val}],
+    PreBlock = B ++ [{call,erlang,length,[Val],Len}],
+    U = unit(1, Aligned),
+    EncFragmented =
+        [{'fun',
+          [{var,atom_to_list(ElementVar)}],
+          ElementImm,
+          Fun},
+         {call,enc_mod(Aligned),encode_fragmented_sof,[Fun,Val,Len]}],
+    CondImm = build_cond([[{lt,Len,128},
+                           {put_bits,Len,8,U}|Lc],
+                          [{lt,Len,16384},
+                           {put_bits,2,2,U},{put_bits,Len,14,[1]}|Lc],
+                          ['_'|EncFragmented]]),
+    PreBlock ++ CondImm.
 
 enc_absent(Val0, {call,M,F,A}, Body) ->
     {B,[Var,Tmp]} = mk_vars(Val0, [tmp]),
@@ -586,7 +608,10 @@ decode_unconstrained_length(AllowZero, Aligned) ->
 	      {value,{get_bits,7,[1|Zero]}}},
 	     {test,{get_bits,1,[1|Al]},1,
 	      {test,{get_bits,1,[1]},0,
-	       {value,{get_bits,14,[1|Zero]}}}}]}.
+	       {value,{get_bits,14,[1|Zero]}}}},
+	     {test,{get_bits,1,[1|Al]},1,
+	      {test,{get_bits,1,[1]},1,
+	       {value,{mul,{get_bits,6,[1|Zero]},16384}}}}]}.
 
 uper_num_bits(N) ->
     uper_num_bits(N, 1, 0).
@@ -751,6 +776,9 @@ opt_al({value,E0}, A0) ->
 opt_al({add,E0,I}, A0) when is_integer(I) ->
     {E,A} = opt_al(E0, A0),
     {{add,E,I},A};
+opt_al({mul,E0,I}, A0) when is_integer(I) ->
+    {E,A} = opt_al(E0, A0),
+    {{mul,E,I},A};
 opt_al({test,E0,V,B0}, A0) ->
     {E,A1} = opt_al(E0, A0),
     {B,A2} = opt_al(B0, A1),
@@ -838,6 +866,10 @@ flatten({add,E0,I}, Buf0, St0) ->
     {{Src,Buf},Pre,St1} = flatten(E0, Buf0, St0),
     {Dst,St} = new_var("Add", St1),
     {{Dst,Buf},Pre++[{add,Src,I,Dst}],St};
+flatten({mul,E0,I}, Buf0, St0) ->
+    {{Src,Buf},Pre,St1} = flatten(E0, Buf0, St0),
+    {Dst,St} = new_var("Mul", St1),
+    {{Dst,Buf},Pre++[{mul,Src,I,Dst}],St};
 flatten({'case',Cs0}, Buf0, St0) ->
     {Dst,St1} = new_var_pair(St0),
     {Cs1,St} = flatten_cs(Cs0, Buf0, St1),
@@ -951,6 +983,9 @@ dcg_list_outside([{'map',Val,Cs,Dst}|T]) ->
 dcg_list_outside([{add,S1,S2,Dst}|T]) ->
     emit([Dst," = ",S1," + ",S2]),
     iter_dcg_list_outside(T);
+dcg_list_outside([{mul,S1,S2,Dst}|T]) ->
+    emit([Dst," = ",S1," * ",S2]),
+    iter_dcg_list_outside(T);
 dcg_list_outside([{return,{V,Buf}}|T]) ->
     emit(["{",V,",",Buf,"}"]),
     iter_dcg_list_outside(T);
@@ -1055,6 +1090,7 @@ split_off_nonbuilding(Imm) ->
 is_nonbuilding({assign,_,_}) -> true;
 is_nonbuilding({call,_,_,_,_}) -> true;
 is_nonbuilding({comment,_}) -> true;
+is_nonbuilding({'fun',_,_,_}) -> true;
 is_nonbuilding({lc,_,_,_,_}) -> true;
 is_nonbuilding({set,_,_}) -> true;
 is_nonbuilding({list,_,_}) -> true;
@@ -1239,23 +1275,23 @@ per_enc_length(Bin, Unit0, Len, Sv, Aligned, Type) when is_integer(Sv) ->
     Pb = {put_bits,Bin,binary,U},
     [{'cond',[[{eq,Len,Sv},Pb]]}].
 
-enc_length(Len, no, Aligned) ->
+enc_sof_length(Len, no, Aligned) ->
     U = unit(1, Aligned),
     build_cond([[{lt,Len,128},
 		 {put_bits,Len,8,U}],
 		[{lt,Len,16384},
 		 {put_bits,2,2,U},{put_bits,Len,14,[1]}]]);
-enc_length(Len, {{Lb,Ub},[]}, Aligned) ->
+enc_sof_length(Len, {{Lb,Ub},[]}, Aligned) ->
     {Prefix,Check,PutLen} = per_enc_constrained(Len, Lb, Ub, Aligned),
     NoExt = {put_bits,0,1,[1]},
-    [{'cond',ExtConds0}] = enc_length(Len, no, Aligned),
+    [{'cond',ExtConds0}] = enc_sof_length(Len, no, Aligned),
     Ext = {put_bits,1,1,[1]},
     ExtConds = prepend_to_cond(ExtConds0, Ext),
     build_length_cond(Prefix, [[Check,NoExt|PutLen]|ExtConds]);
-enc_length(Len, {Lb,Ub}, Aligned) when is_integer(Lb) ->
+enc_sof_length(Len, {Lb,Ub}, Aligned) when is_integer(Lb) ->
     {Prefix,Check,PutLen} = per_enc_constrained(Len, Lb, Ub, Aligned),
     build_length_cond(Prefix, [[Check|PutLen]]);
-enc_length(Len, Sv, _Aligned) when is_integer(Sv) ->
+enc_sof_length(Len, Sv, _Aligned) when is_integer(Sv) ->
     [{'cond',[[{eq,Len,Sv}]]}].
 
 extensions_bitmap(Vs, Undefined) ->
@@ -1730,6 +1766,9 @@ enc_make_cons({integer,Int}, {cons,{binary,H},T}) ->
 enc_make_cons(H, T) ->
     {cons,H,T}.
 
+enc_pre_cg_nonbuilding({'fun',Args,B0,Dst}, StL) ->
+    B = enc_pre_cg_1(B0, StL, outside_seq),
+    {'fun',Args,B,Dst};
 enc_pre_cg_nonbuilding({lc,B0,Var,List,Dst}, StL) ->
     B = enc_pre_cg_1(B0, StL, outside_seq),
     {lc,B,Var,List,Dst};
@@ -1943,6 +1982,9 @@ enc_opt({cons,H0,T0}, St0) ->
     {{cons,H,T},St#ost{t=t_cons(TypeH, TypeT)}};
 enc_opt({error,_}=Imm, St) ->
     {Imm,St#ost{t=t_any()}};
+enc_opt({'fun',_,_,Dst}=Imm, St0) ->
+    St = set_type(Dst, t_any(), St0),
+    {Imm,St};
 enc_opt({integer,V}, St) ->
     {{integer,subst(V, St)},St#ost{t=t_integer()}};
 enc_opt({lc,E0,B,C}, St) ->
@@ -2365,6 +2407,13 @@ enc_cg({error,Error}) when is_function(Error, 0) ->
 enc_cg({error,{Tag,Var0}}) ->
     Var = mk_val(Var0),
     emit(["exit({error,{asn1,{",Tag,",",Var,"}}})"]);
+enc_cg({'fun',Args,Body,Dst0}) ->
+    Dst = mk_val(Dst0),
+    emit([Dst," = fun("]),
+    _ = [emit(mk_val(A)) || A <- Args],
+    emit(") -> "),
+    enc_cg(Body),
+    emit(" end");
 enc_cg({integer,Int}) ->
     emit(mk_val(Int));
 enc_cg({lc,Body,Var,List}) ->
@@ -2738,6 +2787,8 @@ per_fixup([{call_gen,_,_,_,_,_}=H|T]) ->
     [H|per_fixup(T)];
 per_fixup([{error,_}=H|T]) ->
     [H|per_fixup(T)];
+per_fixup([{'fun',Args,Body,Dst}|T]) ->
+    [{'fun',Args,per_fixup(Body),Dst}|per_fixup(T)];
 per_fixup([{lc,B,V,L}|T]) ->
     [{lc,per_fixup(B),V,L}|per_fixup(T)];
 per_fixup([{lc,B,V,L,Dst}|T]) ->
