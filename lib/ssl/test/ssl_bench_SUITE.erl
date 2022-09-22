@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ end_per_testcase(_Func, _Conf) ->
 
 
 -define(COUNT, 400).
--define(TC(Cmd), tc(fun() -> Cmd end, ?MODULE, ?LINE)).
+%%-define(TC(Cmd), tc(fun() -> Cmd end, ?MODULE, ?LINE)).
 
 -define(FPROF_CLIENT, false).
 -define(FPROF_SERVER, false).
@@ -365,6 +365,7 @@ setup_server_init(Type, Tc, Loop, PC, Certs) ->
     unlink(Pid),
     Res.
 
+-ifdef(TC).
 tc(Fun, Mod, Line) ->
     case timer:tc(Fun) of
 	{_,{'EXIT',Reason}} ->
@@ -377,6 +378,7 @@ tc(Fun, Mod, Line) ->
 	    io:format("~p:~p: Time: ~p\n", [Mod, Line, T]),
 	    R
     end.
+-endif.
 
 start_profile(eprof, Procs) ->
     profiling = eprof:start_profiling(Procs),

@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -166,7 +166,7 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     ServerNode = proplists:get_value(server_node, Config),
-    slave:stop(ServerNode).
+    ssl_bench_test_lib:cleanup(ServerNode).
 
 init_per_group(ssl, Config) ->
     [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
