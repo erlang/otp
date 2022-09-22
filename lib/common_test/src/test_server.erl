@@ -2868,7 +2868,7 @@ peer_compile(Erl, ModPath, OutDir) ->
 cmd(Exec, Args) ->
     %% remove all ERL_AFLAGS to drop "-emu_type debug" and similar
     %% remote ERLC_COMPILE_SERVER because of a bug in pre 25.2 Erlang/OTP
-    Env = [{"ERL_AFLAGS", false},{"ERLC_COMPILE_SERVER",false}],
+    Env = [{"ERL_AFLAGS", false},{"ERLC_USE_SERVER",false}],
     Port = open_port({spawn_executable, Exec}, [{args, Args}, {env, Env},
         stream, binary, exit_status, stderr_to_stdout]),
     read_std(Port, lists:join(" ", [Exec|Args]), <<>>).
