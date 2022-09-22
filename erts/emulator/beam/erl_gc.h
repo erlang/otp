@@ -160,7 +160,7 @@ typedef struct {
   Uint64 garbage_cols;
 } ErtsGCInfo;
 
-#define ERTS_MAX_HEAP_SIZE_MAP_SZ (2*3 + 1 + MAP_HEADER_FLATMAP_SZ)
+#define ERTS_MAX_HEAP_SIZE_MAP_SZ (2*4 + 1 + MAP_HEADER_FLATMAP_SZ)
 
 #define ERTS_PROCESS_GC_INFO_MAX_TERMS (11)  /* number of elements in process_gc_info*/
 #define ERTS_PROCESS_GC_INFO_MAX_SIZE                                   \

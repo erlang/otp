@@ -3093,7 +3093,8 @@ spawn_monitor(M, F, A) ->
         %% TODO change size => to := when -type maps support is finalized
       | #{ size => non_neg_integer(),
            kill => boolean(),
-           error_logger => boolean() }.
+           error_logger => boolean(),
+           include_shared_binaries => boolean() }.
 
 -type spawn_opt_option() ::
 	link

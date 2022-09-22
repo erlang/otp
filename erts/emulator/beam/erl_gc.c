@@ -158,6 +158,7 @@ static void offset_rootset(Process *p, Sint heap_offs, Sint stack_offs,
                            char* area, Uint area_sz, Eterm* objv, int nobj);
 static void offset_off_heap(Process* p, Sint offs, char* area, Uint area_sz);
 static void offset_mqueue(Process *p, Sint offs, char* area, Uint area_sz);
+static int has_reached_max_heap_size(Process *p, Uint total_heap_size);
 static int reached_max_heap_size(Process *p, Uint total_heap_size,
                                  Uint extra_heap_size, Uint extra_old_heap_size);
 static void init_gc_info(ErtsGCInfo *gcip);
@@ -1155,7 +1156,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
         new_heap_size = HEAP_END(p) - HEAP_START(p);
         old_heap_size = erts_next_heap_size(lit_size, 0);
         total_heap_size = new_heap_size + old_heap_size;
-        if (MAX_HEAP_SIZE_GET(p) < total_heap_size &&
+        if (has_reached_max_heap_size(p, total_heap_size) &&
             reached_max_heap_size(p, total_heap_size,
                                   new_heap_size, old_heap_size)) {
             erts_set_self_exiting(p, am_killed);
@@ -1387,7 +1388,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
         extra_heap_size = next_heap_size(p, stack_size + size_before, 0);
         heap_size += extra_heap_size;
 
-        if (heap_size > MAX_HEAP_SIZE_GET(p))
+        if (has_reached_max_heap_size(p, heap_size))
             if (reached_max_heap_size(p, heap_size, extra_heap_size, extra_old_heap_size))
                 return -2;
     }
@@ -1836,7 +1837,7 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
         /* Add size of new young heap */
         heap_size += new_sz;
 
-        if (MAX_HEAP_SIZE_GET(p) < heap_size)
+        if (has_reached_max_heap_size(p, heap_size))
             if (reached_max_heap_size(p, heap_size, new_sz, 0))
                 return -2;
     }
@@ -3679,6 +3680,16 @@ erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp,
     return res;
 }
 
+static int has_reached_max_heap_size(Process *p, Uint total_heap_size)
+{
+    Uint used = total_heap_size;
+
+    if (MAX_HEAP_SIZE_FLAGS_GET(p) & MAX_HEAP_SIZE_INCLUDE_OH_BINS) {
+        used += p->bin_old_vheap + p->off_heap.overhead;
+    }
+    return (used > MAX_HEAP_SIZE_GET(p));
+}
+
 static int
 reached_max_heap_size(Process *p, Uint total_heap_size,
                       Uint extra_heap_size, Uint extra_old_heap_size)
@@ -3743,10 +3754,11 @@ erts_max_heap_size_map(ErtsHeapFactory *factory,
                        Sint max_heap_size, Uint max_heap_flags)
 {
     Eterm keys[] = {
-        am_error_logger, am_kill, am_size
+        am_error_logger, am_include_shared_binaries, am_kill, am_size
     };
     Eterm values[] = {
         max_heap_flags & MAX_HEAP_SIZE_LOG ? am_true : am_false,
+        max_heap_flags & MAX_HEAP_SIZE_INCLUDE_OH_BINS ? am_true : am_false,
         max_heap_flags & MAX_HEAP_SIZE_KILL ? am_true : am_false,
         make_small(max_heap_size)
     };
@@ -3767,6 +3779,7 @@ erts_max_heap_size(Eterm arg, Uint *max_heap_size, Uint *max_heap_flags)
         const Eterm *size = erts_maps_get(am_size, arg);
         const Eterm *kill = erts_maps_get(am_kill, arg);
         const Eterm *log = erts_maps_get(am_error_logger, arg);
+        const Eterm *incl_bins = erts_maps_get(am_include_shared_binaries, arg);
         if (size && is_small(*size)) {
             sz = signed_val(*size);
         } else {
@@ -3786,6 +3799,14 @@ erts_max_heap_size(Eterm arg, Uint *max_heap_size, Uint *max_heap_flags)
                 *max_heap_flags |= MAX_HEAP_SIZE_LOG;
             else if (*log == am_false)
                 *max_heap_flags &= ~MAX_HEAP_SIZE_LOG;
+            else
+                return 0;
+        }
+        if (incl_bins) {
+            if (*incl_bins == am_true)
+                *max_heap_flags |= MAX_HEAP_SIZE_INCLUDE_OH_BINS;
+            else if (*incl_bins == am_false)
+                *max_heap_flags &= ~MAX_HEAP_SIZE_INCLUDE_OH_BINS;
             else
                 return 0;
         }

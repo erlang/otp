@@ -993,14 +993,15 @@ typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 #  define MSO(p)            (p)->off_heap
 #  define MIN_HEAP_SIZE(p)  (p)->min_heap_size
 
-#  define MAX_HEAP_SIZE_GET(p)     ((p)->max_heap_size >> 2)
-#  define MAX_HEAP_SIZE_SET(p, sz) ((p)->max_heap_size = ((sz) << 2) |  \
+#  define MAX_HEAP_SIZE_GET(p)     ((p)->max_heap_size >> 3)
+#  define MAX_HEAP_SIZE_SET(p, sz) ((p)->max_heap_size = ((sz) << 3) |  \
                                     MAX_HEAP_SIZE_FLAGS_GET(p))
-#  define MAX_HEAP_SIZE_FLAGS_GET(p)          ((p)->max_heap_size & 0x3)
+#  define MAX_HEAP_SIZE_FLAGS_GET(p)          ((p)->max_heap_size & 0x7)
 #  define MAX_HEAP_SIZE_FLAGS_SET(p, flags)   ((p)->max_heap_size = flags | \
-                                               ((p)->max_heap_size & ~0x3))
+                                               ((p)->max_heap_size & ~0x7))
 #  define MAX_HEAP_SIZE_KILL 1
 #  define MAX_HEAP_SIZE_LOG  2
+#  define MAX_HEAP_SIZE_INCLUDE_OH_BINS 4
 
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */

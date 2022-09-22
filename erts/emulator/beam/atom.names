@@ -363,6 +363,7 @@ atom ignore
 atom in
 atom in_exiting
 atom inactive
+atom include_shared_binaries
 atom incomplete
 atom inconsistent
 atom index
