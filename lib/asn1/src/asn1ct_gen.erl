@@ -1325,7 +1325,7 @@ gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
          ]),
     case Hrl of
 	0 -> ok;
-	_ -> emit(["-include(\"",Mod,".hrl\").",nl])
+	_ -> emit(["-include(\"",get(outfile),".hrl\").",nl])
     end,
     Deterministic = proplists:get_bool(deterministic, Options),
     Options1 =
