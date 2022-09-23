@@ -11453,11 +11453,25 @@ otp_6865_request_and_reply_plain_extra2(suite) ->
 otp_6865_request_and_reply_plain_extra2(doc) ->
     [];
 otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp6865e2),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6865_request_and_reply_plain_extra2/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp6865e2, Pre, Case, Post).
 
+do_otp_6865_request_and_reply_plain_extra2([MgcNode, MgNode]) ->
     d("start tc controller"),
     ok = megaco_tc_controller:start_link(),
 
@@ -11465,16 +11479,6 @@ otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
     d("instruct transport module to provide extra info: ", []),
     ExtraInfo = otp6865e2_extra_info, 
     ok = megaco_tc_controller:insert(extra_transport_info, ExtraInfo),
-
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    Nodes = [MgcNode, MgNode],
-    ok = ?START_NODES(Nodes, true),
-
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -11520,10 +11524,6 @@ otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
 
     i("stop tc controller"),
     ok = megaco_tc_controller:stop(),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
