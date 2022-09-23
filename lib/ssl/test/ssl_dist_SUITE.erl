@@ -222,14 +222,9 @@ ktls_encrypt_decrypt(Client, Server, Test) ->
                 throw({Done, skip, {os,OS}})
         end,
         %%
+        %% Test and verify setup of Client TX encryption
+        %%
         SOL_TCP = 6, TCP_ULP = 31,
-        _ = inet:setopts(Server, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
-        (GetULP =
-             inet:getopts(Server, [{raw, SOL_TCP, TCP_ULP, 4}]))
-            =:= {ok, [{raw, SOL_TCP, TCP_ULP, <<"tls",0>>}]}
-            orelse
-            throw({Done, skip, {get_ulp, GetULP}}),
-        ok = inet:setopts(Client, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
         TLS_VER    = ((3 bsl 8) bor 4),
         TLS_CIPHER = 52,
         TLS_SALT   = <<1,1,1,1>>,
@@ -242,12 +237,24 @@ ktls_encrypt_decrypt(Client, Server, Test) ->
               TLS_IV/binary, TLS_KEY/binary, TLS_SALT/binary,
               0:64/native>>,
         SOL_TLS = 282, TLS_TX = 1, TLS_RX = 2,
+        %%
+        inet:setopts(Client, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}])
+            =:= ok
+            orelse
+            throw({Done, skip, set_ulp}),
+        (GetULP =
+             inet:getopts(Client, [{raw, SOL_TCP, TCP_ULP, 4}]))
+            =:= {ok, [{raw, SOL_TCP, TCP_ULP, <<"tls",0>>}]}
+            orelse
+            throw({Done, skip, {get_ulp, GetULP}}),
+        %%
         RawOptTX = {raw, SOL_TLS, TLS_TX, TLS_crypto_info},
-        (SetoptsResult = inet:setopts(Server, [RawOptTX])) =:= ok
+        RawOptRX = {raw, SOL_TLS, TLS_RX, TLS_crypto_info},
+        (SetoptsResult = inet:setopts(Client, [RawOptTX])) =:= ok
             orelse throw({Done, skip, {setopts_error,SetoptsResult}}),
         (GetCryptoInfo =
              inet:getopts(
-               Server,
+               Client,
                [{raw, SOL_TLS, TLS_TX, byte_size(TLS_crypto_info)}]))
             =:= {ok, [RawOptTX]}
             orelse throw({Done, skip, {get_crypto_info,GetCryptoInfo}}),
@@ -258,21 +265,30 @@ ktls_encrypt_decrypt(Client, Server, Test) ->
         %%
         %%
         %%
+        %% Test to transfer encrypted data,
+        %% and also to not activate RX encryption and transfer data.
+        %%
         Data = "The quick brown fox jumps over a lazy dog 0123456789",
-        %% Send from Server when Client has no decryption parameters
+        %% Send encrypted from Client before Server has activated decryption
+        ok = gen_tcp:send(Client, Data),
+        receive after 500 -> ok end, % Give time for data to arrive
+        %%
+        %% Activate Server TX encryption
+        ok = inet:setopts(Server, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
+        ok = inet:setopts(Server, [RawOptTX]),
+        %% Send encrypted from Server
         ok = gen_tcp:send(Server, Data),
+        %% Receive encrypted data without decryption
         case gen_tcp:recv(Client, 0, 1000) of
             {ok, Data} ->
                 ct:fail(recv_cleartext_data);
-            {ok, _RandomData} ->
+            {ok, RandomData} when length(Data) < length(RandomData) ->
+                %% A TLS block should be longer than Data
                 ok
         end,
-        %% Configure Client -> Server
-        RawOptRX = {raw, SOL_TLS, TLS_RX, TLS_crypto_info},
-        ok = inet:setopts(Client, [RawOptTX]),
+        %% Finally, activate Server decryption
         ok = inet:setopts(Server, [RawOptRX]),
-        %% Send encrypted Client -> Server
-        ok = gen_tcp:send(Client, Data),
+        %% Receive and decrypt the data that was first sent
         {ok, Data} = gen_tcp:recv(Server, 0, 1000),
         ok
     catch
