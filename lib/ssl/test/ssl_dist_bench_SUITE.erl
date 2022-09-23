@@ -85,7 +85,11 @@ init_per_suite(Config) ->
     Digest = sha1,
     ECCurve = secp521r1,
     TLSVersion = 'tlsv1.2',
-    TLSCipher = {ecdhe_ecdsa,aes_128_cbc,sha256,sha256},
+    TLSCipher =
+        #{key_exchange => ecdhe_ecdsa,
+          cipher       => aes_128_cbc,
+          mac          => sha256,
+          prf          => sha256},
     %%
     Node = node(),
     try
@@ -102,7 +106,12 @@ init_per_suite(Config) ->
             throw(
               {skipped,
                "SSL does not support " ++ term_to_string(ECCurve)}),
-        lists:member(TLSCipher, ssl:cipher_suites(default, TLSVersion)) orelse
+        TLSCipherKeys = maps:keys(TLSCipher),
+        lists:any(
+          fun (Cipher) ->
+                  maps:with(TLSCipherKeys, Cipher) =:= TLSCipher
+          end,
+          ssl:cipher_suites(default, TLSVersion)) orelse
             throw(
               {skipped,
                "SSL does not support " ++ term_to_string(TLSCipher)})
