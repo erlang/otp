@@ -11353,12 +11353,13 @@ otp_6442_resend_reply2_err_desc(T) ->
 otp_6865_request_and_reply_plain_extra1(suite) ->
     [];
 otp_6865_request_and_reply_plain_extra1(Config) when is_list(Config) ->
-    ?ACQUIRE_NODES(1, Config),
+    Pre  = fun() -> undefined end,
+    Case = fun(X) -> do_otp_6865_request_and_reply_plain_extra1(X, Config) end,
+    Post = fun(_) -> ok end,
+    try_tc(otp6865e1, Pre, Case, Post).
 
-    put(sname,     "TEST"),
-    put(verbosity, debug),
-    put(tc,        otp6865e1),
-    i("starting"),
+do_otp_6865_request_and_reply_plain_extra1(_, Config) ->
+    ?ACQUIRE_NODES(1, Config),
 
     d("start test case controller",[]),
     ok = megaco_tc_controller:start_link(),
