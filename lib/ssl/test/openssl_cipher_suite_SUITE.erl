@@ -89,7 +89,7 @@
          ecdhe_ecdsa_with_aes_256_ccm_8/1
         ]).
 
--define(DEFAULT_TIMEOUT, {seconds, 10}).
+-define(DEFAULT_TIMEOUT, {seconds, 15}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

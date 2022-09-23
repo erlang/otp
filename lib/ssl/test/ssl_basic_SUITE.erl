@@ -785,7 +785,8 @@ user_dies(Config) when is_list(Config) ->
                                 {ok, L} = ssl:listen(Port, ServerOpts),
                                 loop(L)
                         end),
-    {ok, _} = ssl:connect(Hostname, Port, ClientOpts),
+    do_wait_tls_server(Hostname, Port),
+    {ok,_}  = ssl:connect(Hostname, Port, ClientOpts),
     check_process_count(2),
     Pid = spawn_link(fun() -> many_client_starter(Hostname, Port, ClientOpts, Server) end),
     receive
@@ -1029,4 +1030,19 @@ check_process_count(Count, Try) ->
             ct:pal("Not expected number of cildren ~p on try ~p", [Other, Try]),
             ct:sleep(500), %% Wait long enough
             check_process_count(Count, Try - 1)
+    end.
+
+do_wait_tls_server(Hostname, Port) ->
+    do_wait_tls_server(Hostname, Port, 5).
+
+do_wait_tls_server(_,_, 0)->
+    ct:fail(to_connect_to_server);
+do_wait_tls_server(Hostname, Port, Try) ->
+    case gen_tcp:connect(Hostname, Port, []) of
+	{ok, S} ->
+	    gen_tcp:close(S),
+            ok;
+	_  ->
+	    ct:sleep(?SLEEP),
+	    do_wait_tls_server(Hostname, Port, Try-1)
     end.
