@@ -22,9 +22,11 @@
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2,
 	 app_test/1, appup_test/1, eunit_test/1, eunit_exact_test/1,
-         surefire_utf8_test/1, surefire_latin_test/1,
-	 surefire_c0_test/1, surefire_ensure_dir_test/1,
+         fixture_test/1, primitive_test/1, surefire_utf8_test/1,
+         surefire_latin_test/1, surefire_c0_test/1, surefire_ensure_dir_test/1,
 	 stacktrace_at_timeout_test/1]).
+
+-export([sample_gen/0]).
 
 -include_lib("common_test/include/ct.hrl").
 -define(TIMEOUT, 1000).
@@ -32,9 +34,9 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [app_test, appup_test, eunit_test, eunit_exact_test, surefire_utf8_test,
-     surefire_latin_test, surefire_c0_test, surefire_ensure_dir_test,
-     stacktrace_at_timeout_test].
+    [app_test, appup_test, eunit_test, eunit_exact_test, primitive_test,
+     fixture_test, surefire_utf8_test, surefire_latin_test, surefire_c0_test,
+     surefire_ensure_dir_test, stacktrace_at_timeout_test].
 
 groups() ->
     [].
@@ -63,24 +65,94 @@ eunit_test(Config) when is_list(Config) ->
 
 eunit_exact_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),
-    ok = eunit:test([eunit, eunit_tests],
-                    [{report, {eunit_test_listener, [self()]}}]),
-    check_test_results(14, 0, 0, 0),
-    ok = eunit:test([eunit, eunit_tests],
-                    [{report, {eunit_test_listener, [self()]}},
-                     {exact_execution, false}]),
-    check_test_results(14, 0, 0, 0),
-    ok = eunit:test([eunit, eunit_tests],
-                    [{report, {eunit_test_listener, [self()]}},
-                     {exact_execution, true}]),
-    check_test_results(7, 0, 0, 0),
+    {ok, fib} = compile:file("./examples/fib.erl", [{outdir,"./examples/"}]),
+    TestPrimitive =
+        fun(Primitive, Expected) ->
+                ok = eunit:test(Primitive,
+                                [{report, {eunit_test_listener, [self()]}},
+                                 {exact_execution, true}]),
+                check_test_results(Primitive, Expected)
+        end,
+    Primitives =
+        [
+         {[eunit, eunit_tests],
+          #{pass => 7, fail => 0, skip => 0, cancel => 0}},
+         {{application, stdlib},
+          #{pass => 0, fail => 0, skip => 0, cancel => 0}},
+         {{file, "./ebin/eunit.beam"},
+          #{pass => 0, fail => 0, skip => 0, cancel => 0}},
+         {{file, "./ebin/eunit_tests.beam"},
+          #{pass => 7, fail => 0, skip => 0, cancel => 0}},
+         {{dir, "./examples/"},
+          #{pass => 8, fail => 0, skip => 0, cancel => 0}},
+         {{generator, fun() -> fun () -> ok end end},
+          #{pass => 1, fail => 0, skip => 0, cancel => 0}},
+         {{generator, ?MODULE, sample_gen},
+          #{pass => 1, fail => 0, skip => 0, cancel => 0}},
+         {{with, value, [fun(_V) -> ok end]},
+          #{pass => 1, fail => 0, skip => 0, cancel => 0}}
+        ],
+    [TestPrimitive(P, E) || {P, E} <- Primitives],
     ok.
 
-check_test_results(Pass, Fail, Skip, Cancel) ->
+
+primitive_test(Config) when is_list(Config) ->
+    ok = file:set_cwd(code:lib_dir(eunit)),
+    {ok, fib} = compile:file("./examples/fib.erl", [{outdir,"./examples/"}]),
+    TestPrimitive =
+        fun(Primitive, Expected) ->
+                ok = eunit:test(Primitive,
+                                [{report, {eunit_test_listener, [self()]}}]),
+                check_test_results(Primitive, Expected),
+                ok = eunit:test(Primitive,
+                                [{report, {eunit_test_listener, [self()]}},
+                                {exact_execution, false}]),
+                check_test_results(Primitive, Expected)
+        end,
+    Primitives =
+        [
+         {[eunit, eunit_tests],
+          #{pass => 14, fail => 0, skip => 0, cancel => 0}},
+         {{application, stdlib},
+          #{pass => 0, fail => 0, skip => 0, cancel => 0}},
+         {{file, "./ebin/eunit.beam"},
+          #{pass => 7, fail => 0, skip => 0, cancel => 0}},
+         {{file, "./ebin/eunit_tests.beam"},
+          #{pass => 7, fail => 0, skip => 0, cancel => 0}},
+         {{dir, "./examples/"},
+          #{pass => 8, fail => 0, skip => 0, cancel => 0}},
+         {{generator, fun() -> fun () -> ok end end},
+          #{pass => 1, fail => 0, skip => 0, cancel => 0}},
+         {{generator, ?MODULE, sample_gen},
+          #{pass => 1, fail => 0, skip => 0, cancel => 0}},
+         {{with, value, [fun(_V) -> ok end]},
+          #{pass => 1, fail => 0, skip => 0, cancel => 0}}
+        ],
+    [TestPrimitive(P, E) || {P, E} <- Primitives],
+    ok.
+
+sample_gen() ->
+    fun () -> ok end.
+
+fixture_test(Config) when is_list(Config) ->
+    eunit:test({setup, fun() -> ok end, fun() -> fun() -> ok end end}),
+    eunit:test({setup, fun() -> ok end, [{module, eunit_tests}]}),
+    eunit:test({foreach, fun() -> ok end, [fun() -> ok end]}),
+    eunit:test({foreachx, fun(_A) -> ok end,
+                [{1, fun(_A, _B) -> fun() -> a_test end end}]}),
+    ok.
+
+check_test_results(Primitive, Expected) ->
     receive
         {test_report, TestReport} ->
-            #{pass := Pass, fail := Fail,
-              skip := Skip, cancel := Cancel} = TestReport
+            case Expected == TestReport of
+                true ->
+                    ok;
+                _ ->
+                    ct:pal("~p Expected: ~w Received: ~w",
+                           [Primitive, Expected, TestReport]),
+                    ct:fail(unexpected_result)
+            end
     after ?TIMEOUT ->
             ct:fail(no_test_report_not_received)
     end.
