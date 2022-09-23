@@ -2873,8 +2873,9 @@ add_filter(Filter, Filters) ->
 maybe_client_warn_no_verify(#{verify := verify_none,
                              warn_verify_none := true,
                              log_level := LogLevel}, client) ->
-            ssl_logger:log(warning, LogLevel, #{description => "Authenticity is not established by certificate path validation",
-                                                reason => "Option {verify, verify_peer} and cacertfile/cacerts is missing"}, ?LOCATION);
+    ssl_logger:log(warning, LogLevel, #{description => "Server authenticity is not verified since certificate path validation is not enabled",
+                                        reason => "The option {verify, verify_peer} and one of the options 'cacertfile' or "
+                                        "'cacerts' are required to enable this."}, ?LOCATION);
 maybe_client_warn_no_verify(_,_) ->
     %% Warning not needed. Note client certificate validation is optional in TLS
     ok.
