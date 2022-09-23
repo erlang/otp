@@ -19,6 +19,7 @@
  */
 
 #include <algorithm>
+#include <numeric>
 #include "beam_asm.hpp"
 
 extern "C"
@@ -207,6 +208,120 @@ void BeamModuleAssembler::emit_bif_is_lt(const ArgSource &LHS,
 
     a.bind(do_jge);
     emit_cond_to_bool(x86::Inst::kIdCmovge, Dst);
+}
+
+/* ================================================================
+ *  bit_size/1
+ * ================================================================
+ */
+
+void BeamModuleAssembler::emit_bif_bit_size(const ArgWord &Bif,
+                                            const ArgLabel &Fail,
+                                            const ArgSource &Src,
+                                            const ArgRegister &Dst) {
+    if (!exact_type(Src, BEAM_TYPE_BITSTRING)) {
+        /* Unknown type. Use the standard BIF instruction. */
+        emit_i_bif1(Src, Fail, Bif, Dst);
+        return;
+    }
+
+    mov_arg(ARG2, Src);
+
+    auto unit = getSizeUnit(Src);
+    bool is_bitstring = unit == 0 || std::gcd(unit, 8) != 8;
+    x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
+
+    if (is_bitstring) {
+        comment("inlined bit_size/1 because "
+                "its argument is a bitstring");
+    } else {
+        comment("inlined and simplified bit_size/1 because "
+                "its argument is a binary");
+    }
+
+    if (is_bitstring) {
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+    }
+
+    a.mov(ARG1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+    a.shl(ARG1, imm(3 + _TAG_IMMED1_SIZE));
+
+    if (is_bitstring) {
+        Label not_sub_bin = a.newLabel();
+        const auto diff_mask = _TAG_HEADER_SUB_BIN - _TAG_HEADER_REFC_BIN;
+        ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & diff_mask) != 0 &&
+                       (_TAG_HEADER_REFC_BIN & diff_mask) == 0 &&
+                       (_TAG_HEADER_HEAP_BIN & diff_mask) == 0);
+        a.test(RETb, imm(diff_mask));
+        a.short_().jz(not_sub_bin);
+
+        a.mov(RETb, emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize), 1));
+        a.shl(RETb, imm(_TAG_IMMED1_SIZE));
+        a.add(ARG1.r8(), RETb);
+
+        a.bind(not_sub_bin);
+    }
+
+    a.or_(ARG1, imm(_TAG_IMMED1_SMALL));
+    mov_arg(Dst, ARG1);
+}
+
+/* ================================================================
+ *  byte_size/1
+ * ================================================================
+ */
+
+void BeamModuleAssembler::emit_bif_byte_size(const ArgWord &Bif,
+                                             const ArgLabel &Fail,
+                                             const ArgSource &Src,
+                                             const ArgRegister &Dst) {
+    if (!exact_type(Src, BEAM_TYPE_BITSTRING)) {
+        /* Unknown type. Use the standard BIF instruction. */
+        emit_i_bif1(Src, Fail, Bif, Dst);
+        return;
+    }
+
+    mov_arg(ARG2, Src);
+
+    auto unit = getSizeUnit(Src);
+    bool is_bitstring = unit == 0 || std::gcd(unit, 8) != 8;
+    x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
+
+    if (is_bitstring) {
+        comment("inlined byte_size/1 because "
+                "its argument is a bitstring");
+    } else {
+        comment("inlined and simplified byte_size/1 because "
+                "its argument is a binary");
+    }
+
+    if (is_bitstring) {
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+    }
+
+    a.mov(ARG1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+
+    if (is_bitstring) {
+        Label not_sub_bin = a.newLabel();
+        const auto diff_mask = _TAG_HEADER_SUB_BIN - _TAG_HEADER_REFC_BIN;
+        ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & diff_mask) != 0 &&
+                       (_TAG_HEADER_REFC_BIN & diff_mask) == 0 &&
+                       (_TAG_HEADER_HEAP_BIN & diff_mask) == 0);
+        a.test(RETb, imm(diff_mask));
+        a.short_().jz(not_sub_bin);
+
+        a.mov(RETb, emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize), 1));
+        a.test(RETb, RETb);
+        a.setne(RETb);
+        a.movzx(RETd, RETb);
+        a.add(ARG1, RET);
+
+        a.bind(not_sub_bin);
+    }
+
+    a.shl(ARG1, imm(_TAG_IMMED1_SIZE));
+    a.or_(ARG1, imm(_TAG_IMMED1_SMALL));
+    mov_arg(Dst, ARG1);
 }
 
 /* ================================================================

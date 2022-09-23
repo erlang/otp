@@ -714,6 +714,14 @@ bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => get(Src, Dst)
 bif2 Fail u$bif:erlang:element/2 S1=ixy S2 Dst => bif_element Fail S1 S2 Dst
 bif_element j s s d
 
+gc_bif1 Fail Live Bif=u$bif:erlang:bit_size/1 Src Dst=d =>
+    bif_bit_size Bif Fail Src Dst
+bif_bit_size b j s d
+
+gc_bif1 Fail Live Bif=u$bif:erlang:byte_size/1 Src Dst=d =>
+    bif_byte_size Bif Fail Src Dst
+bif_byte_size b j s d
+
 bif1 Fail Bif=u$bif:erlang:tuple_size/1 Src=d Dst=d =>
     bif_tuple_size Bif Fail Src Dst
 bif_tuple_size b j S d
