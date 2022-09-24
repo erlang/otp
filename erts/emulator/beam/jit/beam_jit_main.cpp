@@ -42,6 +42,8 @@ ErtsFrameLayout ERTS_WRITE_UNLIKELY(erts_frame_layout);
 #ifdef HAVE_LINUX_PERF_SUPPORT
 int erts_jit_perf_support;
 #endif
+/* Force use of single-mapped RWX memory for JIT code */
+int erts_jit_single_map = 0;
 
 /*
  * Special Beam instructions.
@@ -120,6 +122,13 @@ static JitAllocator *create_allocator(JitAllocator::CreateParams *params) {
     void *test_ro, *test_rw;
     Error err;
 
+#if defined(__APPLE__) && defined(__aarch64__)
+    /* Using a single map will not work on Apple Silicon. */
+    if (params->options == JitAllocatorOptions::kNone) {
+        return nullptr;
+    }
+#endif
+
     auto *allocator = new JitAllocator(params);
 
     err = allocator->alloc(&test_ro, &test_rw, 1);
@@ -140,16 +149,19 @@ static JitAllocator *pick_allocator() {
 #if defined(HAVE_LINUX_PERF_SUPPORT)
     /* `perf` has a hard time showing symbols for dual-mapped memory, so we'll
      * use single-mapped memory when enabled. */
-    if (erts_jit_perf_support & (BEAMASM_PERF_DUMP | BEAMASM_PERF_MAP)) {
+    if (erts_jit_perf_support & (BEAMASM_PERF_DUMP | BEAMASM_PERF_MAP))
+        erts_jit_single_map = 1;
+
+#endif
+    if (erts_jit_single_map) {
         if (auto *alloc = create_allocator(&single_params)) {
             return alloc;
         }
 
         ERTS_INTERNAL_ERROR("jit: Failed to allocate executable+writable "
-                            "memory. Either allow this or disable the "
-                            "'+JPperf' option.");
+                            "memory. Either allow this or disable both the "
+                            "'+JPperf' and '+JMsingle' options.");
     }
-#endif
 
 #if !defined(VALGRIND)
     /* Default to dual-mapped memory with separate executable and writable

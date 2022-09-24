@@ -37,6 +37,7 @@
 #        define BEAMASM_PERF_MAP (1 << 1)
 extern int erts_jit_perf_support;
 #    endif
+extern int erts_jit_single_map;
 
 void beamasm_init(void);
 void *beamasm_new_assembler(Eterm mod,
