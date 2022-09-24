@@ -1121,7 +1121,7 @@ void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
                                       const ArgRegister &Src) {
-    a.cmp(getArgRef(Src), imm(NIL));
+    a.cmp(getArgRef(Src, 1), imm(NIL));
     a.jne(resolve_beam_label(Fail));
 }
 

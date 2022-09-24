@@ -1091,8 +1091,17 @@ void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
                                       const ArgRegister &Src) {
     auto src = load_source(Src, TMP1);
-    a.cmp(src.reg, imm(NIL));
-    a.b_ne(resolve_beam_label(Fail, disp1MB));
+
+    if (always_one_of(Src, (BEAM_TYPE_CONS | BEAM_TYPE_NIL))) {
+        const int bitNumber = 1;
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
+                       (1 << bitNumber));
+        comment("simplified is_nil test because its argument is always a list");
+        a.tbz(src.reg, imm(bitNumber), resolve_beam_label(Fail, disp32K));
+    } else {
+        a.cmp(src.reg, imm(NIL));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
+    }
 }
 
 void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
