@@ -906,50 +906,44 @@ void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
     a.jne(resolve_beam_label(Fail));
 }
 
-x86::Gp BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
-                                            const ArgSource &Src,
-                                            Label next,
-                                            Label subbin) {
+void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
+                                         const ArgSource &Src) {
+    Label is_binary = a.newLabel(), next = a.newLabel();
+
     mov_arg(ARG1, Src);
 
     emit_is_boxed(resolve_beam_label(Fail), Src, ARG1);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-    a.and_(RETb, imm(_TAG_HEADER_MASK));
-    a.cmp(RETb, imm(_TAG_HEADER_SUB_BIN));
-    a.short_().je(subbin);
-
     if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_BITSTRING) {
+        const auto diff_mask = _TAG_HEADER_SUB_BIN - _TAG_HEADER_REFC_BIN;
+        ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & diff_mask) != 0 &&
+                       (_TAG_HEADER_REFC_BIN & diff_mask) == 0 &&
+                       (_TAG_HEADER_HEAP_BIN & diff_mask) == 0);
         comment("simplified binary test since source is always a bitstring "
                 "when boxed");
+        a.test(emit_boxed_val(boxed_ptr, 0, 1), diff_mask);
+        a.short_().je(next);
     } else {
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+        a.and_(RETb, imm(_TAG_HEADER_MASK));
+        a.cmp(RETb, imm(_TAG_HEADER_SUB_BIN));
+        a.short_().jne(is_binary);
+    }
+
+    /* This is a sub binary. */
+    a.cmp(emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize), sizeof(byte)),
+          imm(0));
+    a.jne(resolve_beam_label(Fail));
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) != BEAM_TYPE_BITSTRING) {
+        a.short_().jmp(next);
+    }
+
+    a.bind(is_binary);
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) != BEAM_TYPE_BITSTRING) {
         ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
         a.and_(RETb, imm(~4));
         a.cmp(RETb, imm(_TAG_HEADER_REFC_BIN));
-        a.jne(resolve_beam_label(Fail));
-    }
-
-    a.short_().jmp(next);
-
-    return boxed_ptr;
-}
-
-void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
-                                         const ArgSource &Src) {
-    Label next = a.newLabel(), subbin = a.newLabel();
-    x86::Gp boxed_ptr;
-
-    boxed_ptr = emit_is_binary(Fail, Src, next, subbin);
-
-    a.bind(subbin);
-    {
-        /* emit_is_binary has already removed the literal tag from Src, if
-         * applicable. */
-        a.cmp(emit_boxed_val(boxed_ptr,
-                             offsetof(ErlSubBin, bitsize),
-                             sizeof(byte)),
-              imm(0));
         a.jne(resolve_beam_label(Fail));
     }
 
@@ -958,11 +952,19 @@ void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
                                             const ArgSource &Src) {
-    Label next = a.newLabel();
+    mov_arg(ARG1, Src);
 
-    emit_is_binary(Fail, Src, next, next);
+    emit_is_boxed(resolve_beam_label(Fail), Src, ARG1);
 
-    a.bind(next);
+    x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+
+    const auto mask = _HEADER_SUBTAG_MASK - _BINARY_XXX_MASK;
+    ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+    ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN == (_TAG_HEADER_REFC_BIN & mask));
+    a.and_(RETb, imm(mask));
+    a.cmp(RETb, imm(_TAG_HEADER_REFC_BIN));
+    a.jne(resolve_beam_label(Fail));
 }
 
 void BeamModuleAssembler::emit_is_float(const ArgLabel &Fail,

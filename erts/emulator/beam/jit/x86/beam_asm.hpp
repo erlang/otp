@@ -1339,11 +1339,6 @@ protected:
                           bool skip_fun_test = false,
                           bool skip_arity_test = false);
 
-    x86::Gp emit_is_binary(const ArgLabel &Fail,
-                           const ArgSource &Src,
-                           Label next,
-                           Label subbin);
-
     void emit_is_boxed(Label Fail, x86::Gp Src, Distance dist = dLong) {
         BeamAssembler::emit_is_boxed(Fail, Src, dist);
     }

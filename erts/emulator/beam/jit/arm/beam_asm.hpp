@@ -1263,11 +1263,6 @@ protected:
                           bool skip_fun_test = false,
                           bool skip_arity_test = false);
 
-    arm::Gp emit_is_binary(const ArgLabel &Fail,
-                           const ArgSource &Src,
-                           Label next,
-                           Label subbin);
-
     void emit_is_boxed(Label Fail, arm::Gp Src) {
         BeamAssembler::emit_is_boxed(Fail, Src);
     }

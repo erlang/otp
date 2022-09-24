@@ -859,48 +859,43 @@ void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
     a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
-arm::Gp BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
-                                            const ArgSource &Src,
-                                            Label next,
-                                            Label subbin) {
+void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
+                                         const ArgSource &Src) {
+    Label is_binary = a.newLabel(), next = a.newLabel();
+
     auto src = load_source(Src, ARG1);
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
     arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-    a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
-    a.cmp(TMP1, imm(_TAG_HEADER_SUB_BIN));
-    a.b_eq(subbin);
-
     if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_BITSTRING) {
+        const int bit_number = 3;
+        ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & (1 << bit_number)) != 0 &&
+                       (_TAG_HEADER_REFC_BIN & (1 << bit_number)) == 0 &&
+                       (_TAG_HEADER_HEAP_BIN & (1 << bit_number)) == 0);
         comment("simplified binary test since source is always a bitstring "
                 "when boxed");
+        a.tbz(TMP1, imm(bit_number), next);
     } else {
+        a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
+        a.cmp(TMP1, imm(_TAG_HEADER_SUB_BIN));
+        a.b_ne(is_binary);
+    }
+
+    /* This is a sub binary. */
+    a.ldrb(TMP1.w(), emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
+    a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) != BEAM_TYPE_BITSTRING) {
+        a.b(next);
+    }
+
+    a.bind(is_binary);
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) != BEAM_TYPE_BITSTRING) {
         ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
         a.and_(TMP1, TMP1, imm(~4));
         a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
         a.b_ne(resolve_beam_label(Fail, disp1MB));
-    }
-
-    a.b(next);
-
-    return boxed_ptr;
-}
-
-void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
-                                         const ArgSource &Src) {
-    Label next = a.newLabel(), subbin = a.newLabel();
-
-    arm::Gp boxed_ptr = emit_is_binary(Fail, Src, next, subbin);
-
-    a.bind(subbin);
-    {
-        /* emit_is_binary() has already removed the literal tag (if
-         * applicable) from the copy of Src. */
-        a.ldrb(TMP1.w(),
-               emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
-        a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
     }
 
     a.bind(next);
@@ -908,11 +903,27 @@ void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
                                             const ArgSource &Src) {
-    Label next = a.newLabel();
+    auto src = load_source(Src, ARG1);
 
-    (void)emit_is_binary(Fail, Src, next, next);
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    a.bind(next);
+    arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
+    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+
+    /* The header mask with the binary sub tag bits removed (0b110011)
+     * is not possible to use as an immediate operand for 'and'. (See
+     * the note at the beginning of the file.) Therefore, use a
+     * simpler mask (0b110000) that will also clear the primary tag
+     * bits. That works because we KNOW that a boxed pointer always
+     * points to a header word and that the primary tag for a header
+     * is 0.
+     */
+    const auto mask = _HEADER_SUBTAG_MASK - _BINARY_XXX_MASK;
+    ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+    ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN == (_TAG_HEADER_REFC_BIN & mask));
+    a.and_(TMP1, TMP1, imm(mask));
+    a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 void BeamModuleAssembler::emit_is_float(const ArgLabel &Fail,
