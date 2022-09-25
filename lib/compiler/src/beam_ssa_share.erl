@@ -51,7 +51,7 @@ module(#b_module{body=Fs0}=Module, _Opts) ->
       Blocks0 :: beam_ssa:block_map(),
       Blk :: beam_ssa:b_blk().
 
-block(#b_blk{is=Is0,last=Last0}=Blk, Blocks) ->
+block(#b_blk{is=Is0,last=Last0}=Blk, Blocks) when is_map(Blocks) ->
     case share_terminator(Last0, Blocks) of
         none ->
             Blk;
@@ -75,7 +75,7 @@ block(#b_blk{is=Is0,last=Last0}=Blk, Blocks) ->
 %%% Local functions.
 %%%
 
-function(#b_function{anno=Anno,bs=Blocks0}=F) ->
+function(#b_function{anno=Anno,bs=Blocks0}=F) when is_map(Blocks0) ->
     try
         PO = reverse(beam_ssa:rpo(Blocks0)),
         {Blocks1,Changed} = blocks(PO, Blocks0, false),
