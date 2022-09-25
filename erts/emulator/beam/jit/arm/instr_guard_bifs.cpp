@@ -800,6 +800,109 @@ void BeamModuleAssembler::emit_bif_hd(const ArgSource &Src,
 }
 
 /* ================================================================
+ *  map_get/2
+ * ================================================================
+ */
+
+void BeamGlobalAssembler::emit_handle_map_get_badmap() {
+    static ErtsCodeMFA mfa = {am_erlang, am_map_get, 2};
+    mov_imm(TMP1, BADMAP);
+    a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
+    a.str(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
+    a.mov(XREG0, ARG2);
+    a.mov(XREG1, ARG1);
+    mov_imm(ARG4, &mfa);
+    a.b(labels[raise_exception]);
+}
+
+void BeamGlobalAssembler::emit_handle_map_get_badkey() {
+    static ErtsCodeMFA mfa = {am_erlang, am_map_get, 2};
+    mov_imm(TMP1, BADKEY);
+    a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
+    a.str(ARG2, arm::Mem(c_p, offsetof(Process, fvalue)));
+    a.mov(XREG0, ARG2);
+    a.mov(XREG1, ARG1);
+    mov_imm(ARG4, &mfa);
+    a.b(labels[raise_exception]);
+}
+
+void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
+                                           const ArgSource &Key,
+                                           const ArgSource &Src,
+                                           const ArgRegister &Dst) {
+    Label good_key = a.newLabel();
+
+    mov_arg(ARG1, Src);
+    mov_arg(ARG2, Key);
+
+    if (exact_type(Src, BEAM_TYPE_MAP)) {
+        comment("skipped test for map for known map argument");
+    } else {
+        Label bad_map = a.newLabel();
+        Label good_map = a.newLabel();
+
+        if (Fail.get() == 0) {
+            emit_is_boxed(bad_map, Src, ARG1);
+        } else {
+            emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, ARG1);
+        }
+
+        /* As an optimization for the `error | #{}` case, skip checking the
+         * header word when we know that the only possible boxed type
+         * is a map. */
+        if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_MAP) {
+            comment("skipped header test since we know it's a map when boxed");
+        } else {
+            arm::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
+            a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+            a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
+            a.cmp(TMP1, imm(_TAG_HEADER_MAP));
+            if (Fail.get() == 0) {
+                a.b_eq(good_map);
+            } else {
+                a.b_ne(resolve_beam_label(Fail, disp1MB));
+            }
+        }
+
+        a.bind(bad_map);
+        if (Fail.get() == 0) {
+            fragment_call(ga->get_handle_map_get_badmap());
+        }
+
+        a.bind(good_map);
+    }
+
+    if (masked_types(Key, BEAM_TYPE_MASK_IMMEDIATE) != BEAM_TYPE_NONE) {
+        fragment_call(ga->get_i_get_map_element_shared());
+        if (Fail.get() == 0) {
+            a.b_eq(good_key);
+        } else {
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+        }
+    } else {
+        emit_enter_runtime();
+        runtime_call<2>(get_map_element);
+        emit_leave_runtime();
+
+        if (Fail.get() == 0) {
+            emit_branch_if_value(ARG1, good_key);
+        } else {
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        }
+    }
+
+    if (Fail.get() == 0) {
+        mov_arg(ARG1, Src);
+        mov_arg(ARG2, Key);
+        fragment_call(ga->get_handle_map_get_badkey());
+    }
+
+    a.bind(good_key);
+    mov_arg(Dst, ARG1);
+}
+
+/* ================================================================
  *  map_size/1
  * ================================================================
  */

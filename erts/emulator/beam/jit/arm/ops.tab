@@ -746,6 +746,10 @@ bif1 Fail Bif=u$bif:erlang:tuple_size/1 Src=d Dst=d =>
     bif_tuple_size Fail Src Dst
 bif_tuple_size j S d
 
+bif2 Fail Bif=u$bif:erlang:map_get/2 Src1 Src2=xy Dst=d =>
+    bif_map_get Fail Src1 Src2 Dst
+bif_map_get j s s d
+
 bif1 Fail Bif S1 Dst | never_fails(Bif) => nofail_bif1 S1 Bif Dst
 bif2 Fail Bif S1 S2 Dst | never_fails(Bif) => nofail_bif2 S1 S2 Bif Dst
 
