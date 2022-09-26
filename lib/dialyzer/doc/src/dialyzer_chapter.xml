@@ -288,7 +288,7 @@ some_module.erl:7:2: Invalid type specification for function some_module:foo/1.
 
       <code>
 -spec bar(a | b) -> atom().
-%% Dialyzer will infer: bar(b | c) -> binary().
+%% Dialyzer will infer: bar(a | b) -> binary().
 bar(a) -> &lt;&lt;"a">>;
 bar(b) -> &lt;&lt;"b">>.</code>
 
