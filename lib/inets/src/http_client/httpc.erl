@@ -135,7 +135,7 @@ request(Url, Profile) ->
 %%      Header = {Field, Value}
 %%	Field = [byte()]
 %%	Value = binary() | iolist()
-%%	Body = string() | binary() | {fun(SendAcc) -> SendFunResult, SendAcc} |
+%%	Body = iolist() | binary() | {fun(SendAcc) -> SendFunResult, SendAcc} |
 %%              {chunkify, fun(SendAcc) -> SendFunResult, SendAcc} - HTML-code
 %%      SendFunResult = eof | {ok, iolist(), NewSendAcc}
 %%      SendAcc = NewSendAcc = term()
