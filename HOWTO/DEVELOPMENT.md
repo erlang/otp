@@ -551,7 +551,7 @@ you can do that like this:
 
 ```bash
 docker build -t docker.pkg.github.com/erlang/otp/ubuntu-base \
-  --build-arg BASE=ubuntu --build-arg USER=otptest --build-arg uid=$(id -u) \
+  --build-arg BASE=ubuntu:20.04 --build-arg USER=otptest --build-arg uid=$(id -u) \
   --build-arg GROUP=uucp --build-arg gid=$(id -g) \
   -f .github/dockerfiles/Dockerfile.ubuntu-base .github/
 ```

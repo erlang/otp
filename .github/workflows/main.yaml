@@ -42,15 +42,15 @@ jobs:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache BASE image
+        id: cache-base-image
+        uses: actions/cache@v3
+        with:
+            path: otp_docker_base.tar
+            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Build BASE image
         id: base-build
         run: .github/scripts/build-base-image.sh 64-bit
-      - name: Save BASE image
-        if: steps.base-build.outputs.BASE_BUILD == 're-built'
-        uses: actions/upload-artifact@v2
-        with:
-            name: otp_docker_base
-            path: otp_docker_base.tar
       - name: Build image
         run: |
           mv otp_src.tar.gz .github/otp.tar.gz
@@ -313,11 +313,12 @@ jobs:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Download base build
-        if: needs.pack.outputs.BASE_BUILD == 're-built'
-        uses: actions/download-artifact@v2
+      - name: Cache BASE image
+        id: cache-base-image
+        uses: actions/cache@v3
         with:
-          name: otp_docker_base
+            path: otp_docker_base.tar
+            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Download otp build
         uses: actions/download-artifact@v2
         with:
@@ -386,11 +387,12 @@ jobs:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Download base build
-        if: needs.pack.outputs.BASE_BUILD == 're-built'
-        uses: actions/download-artifact@v2
+      - name: Cache BASE image
+        id: cache-base-image
+        uses: actions/cache@v3
         with:
-          name: otp_docker_base
+            path: otp_docker_base.tar
+            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Download otp build
         uses: actions/download-artifact@v2
         with:
@@ -424,11 +426,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       ## Download docker images
-      - name: Download base build
-        if: needs.pack.outputs.BASE_BUILD == 're-built'
-        uses: actions/download-artifact@v2
+      - name: Cache BASE image
+        id: cache-base-image
+        uses: actions/cache@v3
         with:
-          name: otp_docker_base
+            path: otp_docker_base.tar
+            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Download otp build
         uses: actions/download-artifact@v2
         with:
