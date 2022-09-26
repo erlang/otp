@@ -384,13 +384,17 @@ handshake(Type, Msg, StateData) ->
                 StateData :: term()) ->
                        gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
-death_row(state_timeout, Reason, _State) ->
+death_row(state_timeout, Reason, _StateData) ->
     {stop, {shutdown, Reason}};
-death_row(info = Type, Msg, State) ->
-    handle_common(Type, Msg, State);
-death_row(_Type, _Msg, _State) ->
+death_row(info = Type, Msg, StateData) ->
+    handle_common(Type, Msg, StateData);
+death_row(_Type, _Msg, _StateData) ->
     %% Waste all other events
     keep_state_and_data.
+
+%% State entry function that starts shutdown state_timeout
+death_row_shutdown(Reason, StateData) ->
+    {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]}.
 
 %%--------------------------------------------------------------------
 -spec terminate(Reason :: term(), State :: term(), Data :: term()) ->
@@ -422,14 +426,14 @@ handle_common({call, From}, {set_opts, Opts},
   #data{static = #static{socket_options = SockOpts} = Static} = StateData) ->
     {keep_state, StateData#data{static = Static#static{socket_options = set_opts(SockOpts, Opts)}},
      [{reply, From, ok}]};
-handle_common(info, {'EXIT', _Sup, shutdown},
+handle_common(info, {'EXIT', _Sup, shutdown = Reason},
               #data{static = #static{erl_dist = true}} = StateData) ->
     %% When the connection is on its way down operations
-    %% begin to fail. We wait for 5 seconds to receive
-    %% possible exit signals for one of our links to the other
-    %% involved distribution parties, in which case we want to use
-    %% their exit reason for the connection teardown.
-    {next_state, death_row, StateData, [{state_timeout, 5000, shutdown}]};
+    %% begin to fail. We wait to receive possible exit signals
+    %% for one of our links to the other involved distribution parties,
+    %% in which case we want to use their exit reason
+    %% for the connection teardown.
+    death_row_shutdown(Reason, StateData);
 handle_common(info, {'EXIT', _Dist, Reason},
               #data{static = #static{erl_dist = true}} = StateData) ->
     {stop, {shutdown, Reason}, StateData};
@@ -493,7 +497,7 @@ send_application_data(Data, From, StateName,
                     StateData1 = update_bytes_sent(Version, StateData, Data),
                     {next_state, StateName, StateData1, []};
                 Reason when DistHandle =/= undefined ->
-                    {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]};
+                    death_row_shutdown(Reason, StateData);
                 ok ->
                     ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
                     StateData1 = update_bytes_sent(Version, StateData, Data),
@@ -522,7 +526,7 @@ send_post_handshake_data(Handshake, From, StateName,
             StateData = maybe_update_cipher_key(StateData1, Handshake),
             {next_state, StateName, StateData, []};
         Reason when DistHandle =/= undefined ->
-            {next_state, death_row, StateData1, [{state_timeout, 5000, Reason}]};
+            death_row_shutdown(Reason, StateData1);
         ok ->
             ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
             StateData = maybe_update_cipher_key(StateData1, Handshake),

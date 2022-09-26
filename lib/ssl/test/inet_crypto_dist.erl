@@ -960,8 +960,8 @@ init_msg(
     MsgLen = byte_size(R1A) + TagLen + iolist_size(Plaintext),
     AAD = [<<MsgLen:32>>, R1A],
     {Ciphertext, Tag} =
-        crypto:crypto_one_time(AeadCipher, Key1A, IV1A,
-                               {AAD, Plaintext, TagLen}, true),
+        crypto:crypto_one_time_aead(
+          AeadCipher, Key1A, IV1A, Plaintext, AAD, TagLen, true),
     Msg = [R1A, Tag, Ciphertext],
     {R2A, R3A, Msg}.
 %%
@@ -982,8 +982,8 @@ init_msg(
             MsgLen = byte_size(Msg),
             AAD = [<<MsgLen:32>>, R1B],
             case
-                crypto:crypto_one_time(
-                  AeadCipher, Key1B, IV1B, {AAD, Ciphertext, Tag}, false)
+                crypto:crypto_one_time_aead(
+                  AeadCipher, Key1B, IV1B, Ciphertext, AAD, Tag, false)
             of
                 <<R2B:RLen/binary, R3B:RLen/binary, PubKeyB/binary>> ->
                     SharedSecret = compute_shared_secret(KeyPair, PubKeyB),
@@ -1000,8 +1000,9 @@ init_msg(
                     StartMsgLen = TagLen + iolist_size(StartCleartext),
                     StartAAD = <<StartMsgLen:32>>,
                     {StartCiphertext, StartTag} =
-                        crypto:crypto_one_time(AeadCipher, Key2A, IV2A,
-                                             {StartAAD, StartCleartext, TagLen}, true),
+                        crypto:crypto_one_time_aead(
+                          AeadCipher, Key2A, IV2A,
+                          StartCleartext, StartAAD, TagLen, true),
                     StartMsg = [StartTag, StartCiphertext],
                     %%
                     {Key2B, IV2B} =
@@ -1032,8 +1033,8 @@ start_msg(
             MsgLen = byte_size(Msg),
             AAD = <<MsgLen:32>>,
             case
-                crypto:crypto_one_time(
-                  AeadCipher, Key2B, IV2B, {AAD, Ciphertext, Tag}, false)
+                crypto:crypto_one_time_aead(
+                  AeadCipher, Key2B, IV2B, Ciphertext, AAD, Tag, false)
             of
                 <<R2A:RLen/binary, R3A:RLen/binary, RekeyCountB:32>>
                   when RekeyCountA =< (RekeyCountB bsl 2),
@@ -1044,7 +1045,7 @@ start_msg(
 
 hmac_key_iv(HmacAlgo, MacKey, Data, KeyLen, IVLen) ->
     <<Key:KeyLen/binary, IV:IVLen/binary>> =
-        crypto:macN(HmacAlgo, MacKey, Data, KeyLen + IVLen),
+        crypto:macN(hmac, HmacAlgo, MacKey, Data, KeyLen + IVLen),
     {Key, IV}.
 
 %% -------------------------------------------------------------------------
@@ -1455,8 +1456,8 @@ encrypt_chunk(
     AAD = <<Seq:32, ChunkLen:32>>,
     IVBin = <<IVSalt/binary, (IVNo + Seq):48>>,
     {Ciphertext, CipherTag} =
-        crypto:crypto_one_time(AeadCipher, Key, IVBin,
-                               {AAD, Cleartext, TagLen}, true),
+        crypto:crypto_one_time_aead(
+          AeadCipher, Key, IVBin, Cleartext, AAD, TagLen, true),
     Chunk = [Ciphertext,CipherTag],
     Chunk.
 
@@ -1478,7 +1479,7 @@ decrypt_chunk(
                   CipherTag:TagLen/binary>> ->
                     block_decrypt(
                       Params, Seq, AeadCipher, Key, IVBin,
-                      {AAD, Ciphertext, CipherTag});
+                      Ciphertext, AAD, CipherTag);
                 _ ->
                     error
             end
@@ -1488,8 +1489,11 @@ block_decrypt(
   #params{
      rekey_key = #key_pair{public = PubKeyA} = KeyPair,
      rekey_count = RekeyCount} = Params,
-  Seq, AeadCipher, Key, IV, Data) ->
-    case crypto:crypto_one_time(AeadCipher, Key, IV, Data, false) of
+  Seq, AeadCipher, Key, IV, Ciphertext, AAD, CipherTag) ->
+    case
+        crypto:crypto_one_time_aead(
+          AeadCipher, Key, IV, Ciphertext, AAD, CipherTag, false)
+    of
         <<?REKEY_CHUNK, Rest/binary>> ->
             PubKeyLen = byte_size(PubKeyA),
             case Rest of

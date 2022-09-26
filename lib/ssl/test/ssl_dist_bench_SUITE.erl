@@ -626,6 +626,47 @@ throughput_runner(A, B, Rounds, Size) ->
             client_prof => Prof}.
 
 dig_dist_node_sockets() ->
+    DistCtrl2Node =
+        maps:from_list(
+          [{DistCtrl, Node}
+           || {Node, DistCtrl}
+                  <- erlang:system_info(dist_ctrl), is_pid(DistCtrl)]),
+    TlsDistConnSup = whereis(tls_dist_connection_sup),
+    InetCryptoDist = whereis(inet_crypto_dist),
+    [NodeSocket
+     || {_, Socket} = NodeSocket
+            <- erlang:system_info(dist_ctrl), is_port(Socket)]
+        ++
+        if
+            TlsDistConnSup =/= undefined ->
+                [case ConnSpec of
+                     {undefined, ConnSup, supervisor, _} ->
+                         [{receiver, ReceiverPid, worker, _},
+                          {sender, SenderPid, worker, _}] =
+                             lists:sort(supervisor:which_children(ConnSup)),
+                         {links,ReceiverLinks} =
+                             process_info(ReceiverPid, links),
+                         [Socket] = [S || S <- ReceiverLinks, is_port(S)],
+                         {maps:get(SenderPid, DistCtrl2Node), Socket}
+                 end
+                 || ConnSpec <- supervisor:which_children(TlsDistConnSup)];
+            InetCryptoDist =/= undefined ->
+                [begin
+                     {monitors,[{process,InputHandler}]} =
+                         erlang:process_info(DistCtrl, monitors),
+                     {links,InputHandlerLinks} =
+                         erlang:process_info(InputHandler, links),
+                     [Socket] =
+                         [S || S <- InputHandlerLinks, is_port(S)],
+                     {Node, Socket}
+                 end
+                 || {DistCtrl, Node} <- maps:to_list(DistCtrl2Node)];
+            true ->
+                []
+        end.
+
+-ifdef(undefined).
+dig_dist_node_sockets() ->
     [case DistCtrl of
          {_Node,Socket} = NodeSocket when is_port(Socket) ->
              NodeSocket;
@@ -643,7 +684,7 @@ dig_dist_node_sockets() ->
                      {Node,Socket}
              end
      end || DistCtrl <- erlang:system_info(dist_ctrl)].
-
+-endif.
 
 throughput_server(Pid, N) ->
     GC_Before = get_server_gc_info(),
