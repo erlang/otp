@@ -2994,12 +2994,17 @@ os_prompt%</pre>
       <fsummary>Head of a list.</fsummary>
       <desc>
         <p>Returns the head of <c><anno>List</anno></c>, that is,
-          the first element, for example:</p>
+          the first element.</p>
+        <p>It works with improper lists.</p>
+        <p>Examples:</p>
         <pre>
 > <input>hd([1,2,3,4,5]).</input>
 1</pre>
+        <pre>
+> <input>hd([first, second, third, so_on | improper_end]).</input>
+first</pre>
         <p>Allowed in guard tests.</p>
-        <p>Failure: <c>badarg</c> if <c><anno>List</anno></c> is the empty
+        <p>Failure: <c>badarg</c> if <c><anno>List</anno></c> is an empty
           list <c>[]</c>.</p>
       </desc>
     </func>
@@ -9302,7 +9307,7 @@ ok
         <p>
           Sets the default maximum heap size settings for processes.
           The size is specified in words. The new <c>max_heap_size</c>
-          effects only processes spawned efter the change has been made.
+          effects only processes spawned after the change has been made.
           <c>max_heap_size</c> can be set for individual processes using
           <seemfa marker="#spawn_opt/4"><c>spawn_opt/2,3,4</c></seemfa> or
           <seeerl marker="#process_flag_max_heap_size">
@@ -11853,7 +11858,9 @@ timestamp() ->
       <fsummary>Tail of a list.</fsummary>
       <desc>
         <p>Returns the tail of <c><anno>List</anno></c>, that is,
-          the list minus the first element, for example:</p>
+          the list minus the first element</p>
+        <p>It works with improper lists.</p>
+        <p>Examples:</p>
         <pre>
 > <input>tl([geesties, guilies, beasties]).</input>
 [guilies, beasties]</pre>
@@ -11868,7 +11875,7 @@ timestamp() ->
 improper_end</pre>
         <p>Allowed in guard tests.</p>
         <p>Failure: <c>badarg</c> if <c><anno>List</anno></c>
-          is the empty list <c>[]</c>.</p>
+          is an empty list <c>[]</c>.</p>
       </desc>
     </func>
 

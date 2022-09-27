@@ -655,6 +655,7 @@
 	  encoded using <c>NEW_PORT_EXT</c>, even external ports received as <seeguide
 	  marker="#PORT_EXT"><c>PORT_EXT</c></seeguide> from older nodes.
 	</p>
+
     </section>
 
     <section>
@@ -683,8 +684,10 @@
 	  works just like in <seeguide marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>.
 	  Port operations are not allowed across node boundaries.
 	</p>
-	<p><c>V4_PORT_EXT</c> was introduced in OTP 24, but only to be decoded
-	  and echoed back. Not encoded for local ports.
+        <p>In OTP 26 distribution flag
+	<seeguide marker="erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
+        as well as <c>V4_PORT_EXT</c> became mandatory accepting full
+        64-bit ports to be decoded and echoed back.
 	</p>
     </section>
 
@@ -742,14 +745,10 @@
           <seeguide marker="#utf8_atoms">encoded as an atom</seeguide>.</p>
 	  </item>
 	  <tag><c>ID</c></tag>
-	  <item><p>A 32-bit big endian unsigned integer. If distribution flag
-	  <seeguide marker="erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
-	  is not set, only 15 bits may be used and the rest must be 0.</p>
+	  <item><p>A 32-bit big endian unsigned integer.</p>
 	  </item>
 	  <tag><c>Serial</c></tag>
-	  <item><p>A 32-bit big endian unsigned integer. If distribution flag
-	  <seeguide marker="erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
-	  is not set, only 13 bits may be used and the rest must be 0.</p>
+	  <item><p>A 32-bit big endian unsigned integer.</p>
 	  </item>
 	  <tag><c>Creation</c></tag>
 	  <item><p>A 32-bit big endian unsigned integer. All identifiers
@@ -768,9 +767,10 @@
 	  even external pids received as
 	  <seeguide marker="#PID_EXT"><c>PID_EXT</c></seeguide> from older nodes.
 	</p>
-	<p>In OTP 24 distribution flag
+	<p>In OTP 26 distribution flag
 	  <seeguide marker="erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
-	  was introduced, accepting full 64-bit pids to be decoded and echoed back.
+	  became mandatory accepting full 64-bit pids to be decoded
+          and echoed back.
 	</p>
     </section>
 
@@ -1080,9 +1080,7 @@
           <seeguide marker="#utf8_atoms">encoded as an atom</seeguide>.</p>
 	  </item>
 	  <tag><c>Len</c></tag>
-	  <item><p>A 16-bit big endian unsigned integer not larger than 5 when the
-	  <seeguide marker="erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
-	  has been set; otherwise not larger than 3.</p>
+	  <item><p>A 16-bit big endian unsigned integer not larger than 5.</p>
 	  </item>
 	  <tag><c>ID</c></tag>
 	  <item><p>A sequence of <c>Len</c> big-endian unsigned integers
@@ -1104,6 +1102,9 @@
 	  <seeguide marker="#NEW_REFERENCE_EXT"><c>NEW_REFERENCE_EXT</c></seeguide>
 	  from older nodes.
 	</p>
+        <p>In OTP 26 distribution flag
+	<seeguide marker="erl_dist_protocol#DFLAG_V4_NC"><c>DFLAG_V4_NC</c></seeguide>
+        became mandatory. References now can contain up to 5 <c>ID</c> words.</p>
     </section>
 
     <section>

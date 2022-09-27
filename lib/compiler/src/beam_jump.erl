@@ -599,20 +599,23 @@ find_fixpoint(OptFun, Is0) ->
 opt([{test,is_eq_exact,{f,L},_}|[{jump,{f,L}}|_]=Is], Acc, St) ->
     %% The is_eq_exact test is not needed.
     opt(Is, Acc, St);
-opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
+opt([{test,Test0,{f,L}=Lbl,Ops}=I0|[{jump,To}|Is]=Is0], Acc, St) ->
     case is_label_defined(Is, L) of
 	false ->
+            I = is_lt_to_is_ge(I0),
 	    opt(Is0, [I|Acc], label_used(Lbl, St));
 	true ->
 	    case invert_test(Test0) of
 		not_possible ->
+                    I = is_lt_to_is_ge(I0),
 		    opt(Is0, [I|Acc], label_used(Lbl, St));
 		Test ->
 		    %% Invert the test and remove the jump.
 		    opt([{test,Test,To,Ops}|Is], Acc, St)
 	    end
     end;
-opt([{test,_,{f,_}=Lbl,_}=I|Is], Acc, St) ->
+opt([{test,_,{f,_}=Lbl,_}=I0|Is], Acc, St) ->
+    I = is_lt_to_is_ge(I0),
     opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
@@ -672,6 +675,17 @@ opt([], Acc, #st{replace=Replace0}) when Replace0 =/= #{} ->
     beam_utils:replace_labels(Acc, [], Replace, fun(Old) -> Old end);
 opt([], Acc, #st{replace=Replace}) when Replace =:= #{} ->
     reverse(Acc).
+
+is_lt_to_is_ge({test,is_lt,Lbl,Args}=I) ->
+    case Args of
+        [{integer,N},{tr,_,#t_integer{}}=Src] ->
+            {test,is_ge,Lbl,[Src,{integer,N+1}]};
+        [{tr,_,#t_integer{}}=Src,{integer,N}] ->
+            {test,is_ge,Lbl,[{integer,N-1},Src]};
+        [_,_] ->
+            I
+    end;
+is_lt_to_is_ge(I) -> I.
 
 prune_redundant_values([_Val,F|Vls], F) ->
     prune_redundant_values(Vls, F);
@@ -911,6 +925,8 @@ instr_labels({bs_start_match4,Fail,_,_,_}) ->
         {f,L} -> [L];
         {atom,_} -> []
     end;
+instr_labels({bs_match,{f,Fail},_Ctx,_List}) ->
+    [Fail];
 instr_labels(_) ->
     [].
 

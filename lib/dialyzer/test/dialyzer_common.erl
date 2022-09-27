@@ -89,7 +89,7 @@ explain_fail_with_lock() ->
 
 obtain_plt(PltFilename) ->
     io:format("Obtaining plt:"),
-    InitPlt = dialyzer_plt:get_default_plt(),
+    InitPlt = dialyzer_cplt:get_default_cplt_filename(),
     io:format("Will try to use ~s as a starting point and add otp apps ~w.",
 	      [InitPlt, ?required_modules]),
     try dialyzer:run([{analysis_type, plt_add},
@@ -120,7 +120,7 @@ build_plt(PltFilename) ->
     end.
 
 -spec check(atom(), dialyzer:dial_options(), string(), string()) ->
-		   'same' | {differ, [term()]}.
+		   'same' | {differ, TestCase :: atom(), [term()]}.
 
 check(TestCase, Opts, Dir, OutDir) ->
     PltFilename = plt_file(OutDir),
@@ -161,10 +161,10 @@ check(TestCase, Opts, Dir, OutDir) ->
 	    case file_utils:diff(NewResFile, OldResFile) of
 		'same' -> file:delete(NewResFile),
 			  'same';
-		Any    -> escape_strings(Any)
+        {'differ', List} -> escape_strings({'differ', TestCase, List})
 	    end
     catch
-	Kind:Error -> {'dialyzer crashed', Kind, Error}
+	Kind:Error:Stacktrace -> {'dialyzer crashed', Kind, Error, Stacktrace}
     end.
 
 fix_options(Opts, Dir) ->
@@ -203,9 +203,9 @@ create_all_suites() ->
     Suites = get_suites(Cwd),
     lists:foreach(fun create_suite/1, Suites).
 
-escape_strings({differ,List}) ->
+escape_strings({differ, TestCase, List}) ->
     Map = fun({T,L,S}) -> {T,L,xmerl_lib:export_text(S)} end,
-    {differ, lists:keysort(3, lists:map(Map, List))}.
+    {differ, TestCase, lists:keysort(3, lists:map(Map, List))}.
 
 -spec get_suites(file:filename()) -> [string()].
 
@@ -216,7 +216,8 @@ get_suites(Dir) ->
 	    FullFilenames = [filename:join(Dir, F) || F <-Filenames ],
 	    Dirs = [is_suite_data(filename:basename(F), ?suite_data) ||
 		       F <- FullFilenames,
-		       file_utils:file_type(F) =:= {ok, 'directory'}],
+		       file_utils:file_type(F) =:= {ok, 'directory'},
+			   file_utils:file_type(filename:join(F, ?input_files_directory)) =:= {ok, 'directory'}],
 	    [S || {yes, S} <- Dirs]
     end.
 

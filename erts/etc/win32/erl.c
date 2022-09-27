@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include "init_file.h"
 
-typedef int ErlexecFunction(int, char **, HANDLE, int); 
+typedef int ErlexecFunction(int, char **, HANDLE);
 
 #define INI_FILENAME L"erl.ini"
 #define INI_SECTION "erlang"
@@ -35,18 +35,8 @@ static void error(char* format, ...);
 static wchar_t *erlexec_name;
 static wchar_t *erlexec_dir;
 
-#ifdef WIN32_WERL
-#define WERL 1
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-		    PWSTR szCmdLine, int iCmdShow)
-{
-    int argc = __argc;
-    wchar_t **argv = __wargv;
-#else
-#define WERL 0
 int wmain(int argc, wchar_t **argv)
 {
-#endif
   HANDLE erlexec_handle; /* Instance */
   ErlexecFunction *win_erlexec;
   wchar_t *path = malloc(100*sizeof(wchar_t));
@@ -120,7 +110,7 @@ int wmain(int argc, wchar_t **argv)
 	}
 #endif
 
-  return (*win_erlexec)(argc,utf8argv,erlexec_handle,WERL);
+  return (*win_erlexec)(argc,utf8argv,erlexec_handle);
   
 } 
 
@@ -316,7 +306,6 @@ static void get_parameters(void)
     free(ini_filename);
 }
 
-
 static void error(char* format, ...)
 {
     char sbuf[2048];
@@ -326,11 +315,6 @@ static void error(char* format, ...)
     vsprintf(sbuf, format, ap);
     va_end(ap);
 
-#ifndef WIN32_WERL 
-	fprintf(stderr, "%s\n", sbuf);
-#else
-	MessageBox(NULL, sbuf, "Werl", MB_OK|MB_ICONERROR);
-#endif
+    fprintf(stderr, "%s\n", sbuf);
     exit(1);
 }
-

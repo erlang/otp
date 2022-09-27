@@ -56,7 +56,9 @@ MODULES= \
 	digraph \
 	digraph_utils \
 	edlin \
+	edlin_context \
 	edlin_expand \
+	edlin_type_suggestion \
 	epp \
 	erl_abstract_code \
 	erl_anno \
@@ -196,7 +198,8 @@ primary_bootstrap_compiler: \
   $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_lint.beam \
   $(BOOTSTRAP_COMPILER)/ebin/io.beam \
-  $(BOOTSTRAP_COMPILER)/ebin/otp_internal.beam
+  $(BOOTSTRAP_COMPILER)/ebin/otp_internal.beam \
+  $(BOOTSTRAP_COMPILER)/ebin/erl_internal.beam
 
 
 $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam: erl_parse.yrl

@@ -39,14 +39,12 @@
 #define DIRSEP "\\"
 #define PATHSEP ";"
 #define NULL_DEVICE "nul"
-#define BINARY_EXT ""
 #define DLL_EXT ".dll"
 #define EMULATOR_EXECUTABLE "beam.dll"
 #else
 #define PATHSEP ":"
 #define DIRSEP "/"
 #define NULL_DEVICE "/dev/null"
-#define BINARY_EXT ""
 #define EMULATOR_EXECUTABLE "beam"
 
 #endif
@@ -218,7 +216,6 @@ static char* possibly_quote(char* arg);
 /*
  * Functions from win_erlexec.c
  */
-int start_win_emulator(char* emu, char *startprog,char** argv, int start_detached);
 int start_emulator(char* emu, char*start_prog, char** argv, int start_detached);
 #endif
 
@@ -246,7 +243,7 @@ static const char* emu_flavor = DEFAULT_SUFFIX; /* Flavor of emulator (smp, jit 
 
 #ifdef __WIN32__
 static char *start_emulator_program = NULL; /* For detached mode -
-					       erl.exe/werl.exe */
+					       erl.exe */
 static char* key_val_name = ERLANG_VERSION; /* Used by the registry
 					   * access functions.
 					   */
@@ -256,7 +253,6 @@ static int config_script_cnt = 0;
 static int got_start_erl = 0;
 
 static HANDLE this_module_handle;
-static int run_werl;
 static WCHAR *utf8_to_utf16(unsigned char *bytes);
 static char *utf16_to_utf8(WCHAR *wstr);
 static WCHAR *latin1_to_utf16(char *str);
@@ -414,7 +410,7 @@ static void add_boot_config(void)
 #define NEXT_ARG_CHECK() NEXT_ARG_CHECK_NAMED(argv[i])
 
 #ifdef __WIN32__
-__declspec(dllexport) int win_erlexec(int argc, char **argv, HANDLE module, int windowed)
+__declspec(dllexport) int win_erlexec(int argc, char **argv, HANDLE module)
 #else
 int main(int argc, char **argv)
 #endif
@@ -435,7 +431,6 @@ int main(int argc, char **argv)
 
 #ifdef __WIN32__
     this_module_handle = module;
-    run_werl = windowed;
     /* if we started this erl just to get a detached emulator,
      * the arguments are already prepared for beam, so we skip
      * directly to start_emulator */
@@ -453,6 +448,18 @@ int main(int argc, char **argv)
 	Eargsp[argc] = NULL;
 	emu = argv[0];
 	start_emulator_program = strsave(argv[0]);
+        /* We set the stdandard handles to nul in order for prim_tty_nif
+           and erlang:display_string to work without returning ebadf for
+           detached emulators */
+        SetStdHandle(STD_INPUT_HANDLE,
+                     CreateFile("nul", GENERIC_READ, 0, NULL, OPEN_EXISTING,
+                                FILE_ATTRIBUTE_NORMAL, NULL));
+        SetStdHandle(STD_OUTPUT_HANDLE,
+                     CreateFile("nul", GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                                FILE_ATTRIBUTE_NORMAL, NULL));
+        SetStdHandle(STD_ERROR_HANDLE,
+                     CreateFile("nul", GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                                FILE_ATTRIBUTE_NORMAL, NULL));
 	goto skip_arg_massage;
     }
     free_env_val(s);
@@ -522,7 +529,7 @@ int main(int argc, char **argv)
 
     emu = add_extra_suffixes(emu);
     emu_name = strsave(emu);
-    erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s" BINARY_EXT, bindir, emu);
+    erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s", bindir, emu);
     emu = strsave(tmpStr);
 
     s = get_env("ESCRIPT_NAME");
@@ -650,13 +657,12 @@ int main(int argc, char **argv)
 		    break;
 
 		  case 'd':
-		    if (strcmp(argv[i], "-detached") != 0) {
-			add_arg(argv[i]);
-		    } else {
-			start_detached = 1;
-			add_args("-noshell", "-noinput", NULL);
-		    }
-		    break;
+                    add_arg(argv[i]);
+                    if (strcmp(argv[i], "-detached") == 0) {
+                        start_detached = 1;
+                        add_args("-noshell", "-noinput", NULL);
+                    }
+                    break;
 
 		  case 'e':
 		    if (strcmp(argv[i], "-extra") == 0) {
@@ -1116,24 +1122,7 @@ int main(int argc, char **argv)
  skip_arg_massage:
     /*DebugBreak();*/
 
-    if (run_werl) {
-	if (start_detached) {
-	    char *p;
-	    /* transform werl to erl */
-	    p = start_emulator_program+strlen(start_emulator_program);
-	    while (--p >= start_emulator_program && *p != '/' && *p != '\\' &&
-		   *p != 'W' && *p != 'w')
-		;
-	    if (p >= start_emulator_program && (*p == 'W' || *p == 'w') &&
-		(p[1] == 'E' || p[1] == 'e') && (p[2] == 'R' || p[2] == 'r') &&
-		(p[3] == 'L' || p[3] == 'l')) {
-		memmove(p,p+1,strlen(p));
-	    }
-	}
-      return start_win_emulator(emu, start_emulator_program, Eargsp, start_detached);
-    } else {
-      return start_emulator(emu, start_emulator_program, Eargsp, start_detached);
-    }
+    return start_emulator(emu, start_emulator_program, Eargsp, start_detached);
 
 #else
 
@@ -1598,6 +1587,14 @@ static void get_parameters(int argc, char** argv)
 
     emu = EMULATOR_EXECUTABLE;
     start_emulator_program = strsave(argv[0]);
+
+    /* in wsl argv[0] is given as "erl.exe", but start_emulator_program should be
+       an absolute path, so we prepend BINDIR to it */
+    if (strcmp(start_emulator_program, "erl.exe") == 0) {
+        erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s", bindir,
+                      start_emulator_program);
+        start_emulator_program = strsave(tmpStr);
+    }
 
     free(ini_filename);
 }

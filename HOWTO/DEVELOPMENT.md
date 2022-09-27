@@ -1,7 +1,7 @@
 # Developing Erlang/OTP
 
 The Erlang/OTP development repository is quite large and the make system
-contains a lot of functionality to help when a developing. This howto
+contains a lot of functionality to help when developing. This howto
 will try to showcase the most important features of the make system.
 
 The guide is mostly aimed towards development on a Unix platform, but
@@ -550,8 +550,8 @@ in order to fetch the base image. If you want to build the base image locally
 you can do that like this:
 
 ```bash
-docker built -t docker.pkg.github.com/erlang/otp/ubuntu-base \
-  --build-arg BASE=ubuntu --build-arg USER=otptest --build-arg uid=$(id -u) \
+docker build -t docker.pkg.github.com/erlang/otp/ubuntu-base \
+  --build-arg BASE=ubuntu:20.04 --build-arg USER=otptest --build-arg uid=$(id -u) \
   --build-arg GROUP=uucp --build-arg gid=$(id -g) \
   -f .github/dockerfiles/Dockerfile.ubuntu-base .github/
 ```

@@ -281,6 +281,10 @@ handle_msg({Group, get_unicode_state}, State) ->
     Group ! {self(), get_unicode_state, false},
     {ok, State};
 
+handle_msg({Group, get_terminal_state}, State) ->
+    Group ! {self(), get_terminal_state, true},
+    {ok, State};
+
 handle_msg({Group, tty_geometry}, #state{group = Group,
 					 pty = Pty
 					} = State) ->
@@ -447,7 +451,7 @@ io_request(tty_geometry, Buf, Tty, Group) ->
 io_request({put_chars_sync, Class, Cs, Reply}, Buf, Tty, Group) ->
     %% We handle these asynchronous for now, if we need output guarantees
     %% we have to handle these synchronously
-    Group ! {reply, Reply},
+    Group ! {reply, Reply, ok},
     io_request({put_chars, Class, Cs}, Buf, Tty, Group);
 
 io_request(_R, Buf, _Tty, _Group) ->

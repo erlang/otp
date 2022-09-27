@@ -508,3 +508,40 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 }
 
 #endif  /* OPENSSL_VERSION_NUMBER < 1.0 */
+
+#if defined(HAVE_SHAKE128) || defined(HAVE_SHAKE256)
+ERL_NIF_TERM hash_final_xof_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context) */
+    struct evp_md_ctx   *ctx;
+    EVP_MD_CTX          *new_ctx;
+    ERL_NIF_TERM        ret;
+    unsigned char       *outp;
+    unsigned int        len;
+
+    ASSERT(argc == 2);
+    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
+        return EXCP_BADARG_N(env, 0, "Bad state");
+    if (!enif_get_uint(env, argv[1], &len))
+        return EXCP_BADARG_N(env, 1, "Bad len");
+    ASSERT(0 < len);
+
+    if ((new_ctx = EVP_MD_CTX_new()) == NULL)
+        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_new failed"));
+    if (EVP_MD_CTX_copy(new_ctx, ctx->ctx) != 1)
+        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_MD_CTX_copy failed"));
+    if ((outp = enif_make_new_binary(env, len>>3, &ret)) == NULL)
+        assign_goto(ret, done, EXCP_ERROR(env, "Can't make a new binary"));
+    if (EVP_DigestFinalXOF(new_ctx, outp, len>>3) != 1)
+        assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestFinalXOF failed"));
+
+ done:
+    if (new_ctx)
+        EVP_MD_CTX_free(new_ctx);
+    return ret;
+}
+#else
+ERL_NIF_TERM hash_final_xof_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return EXCP_NOTSUP(env, "Low-level EVP_DigestFinalXOF function is not supported in this cryptolib");
+}
+#endif /* defined(HAVE_SHAKE128) || defined(HAVE_SHAKE256) */

@@ -86,7 +86,7 @@ dialyzer [--add_to_plt] [--apps applications] [--build_plt]
          [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
          [--error_location flag] [files_or_dirs] [--fullpath]
          [--get_warnings] [--gui] [--help] [-I include_dir]*
-         [--no_check_plt] [--no_indentation] [-o outfile]
+         [--incremental] [--no_check_plt] [--no_indentation] [-o outfile]
          [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
          [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
          [--shell] [--src] [--statistics] [--verbose] [--version]
@@ -189,6 +189,15 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
       <item>
         <p>Skip the PLT check when running Dialyzer. This is useful when
           working with installed PLTs that never change.</p>
+      </item>
+      <tag><c>--incremental</c></tag>
+      <item>
+        <p>The analysis starts from an existing incremental PLT, or builds one from
+          scratch if one does not exist, and runs the minimal amount of additional
+          analysis to report all issues in the given set of apps. Notably, incremental
+          PLT files are not compatible with &quot;classic&quot; PLT files, and vice versa.
+          The initial incremental PLT will be updated unless an alternative output
+          incremental PLT is given.</p>
       </item>
       <tag><c>--no_indentation</c></tag>
       <item>

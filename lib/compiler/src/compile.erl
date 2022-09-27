@@ -274,7 +274,10 @@ expand_opt(r23, Os) ->
                               no_recv_opt, no_init_yregs |
                               expand_opt(r24, Os)]);
 expand_opt(r24, Os) ->
-    expand_opt(no_type_opt, [no_bs_create_bin, no_ssa_opt_ranges | Os]);
+    expand_opt(no_type_opt, [no_bs_create_bin, no_ssa_opt_ranges |
+                             expand_opt(r25, Os)]);
+expand_opt(r25, Os) ->
+    [no_ssa_opt_update_tuple, no_bs_match | Os];
 expand_opt(no_make_fun3, Os) ->
     [no_make_fun3, no_fun_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->

@@ -333,6 +333,12 @@ format_type(#t_integer{elements={X,X}}) ->
     io_lib:format("~p", [X]);
 format_type(#t_integer{elements={Low,High}}) ->
     io_lib:format("~p..~p", [Low,High]);
+format_type(#t_number{elements=any}) ->
+    "number()";
+format_type(#t_number{elements={X,X}}) ->
+    io_lib:format("number(~p)", [X]);
+format_type(#t_number{elements={Low,High}}) ->
+    io_lib:format("number(~p, ~p)", [Low,High]);
 format_type(#t_list{type=ET,terminator=nil}) ->
     ["list(", format_type(ET), ")"];
 format_type(#t_list{type=ET,terminator=TT}) ->
@@ -347,6 +353,8 @@ format_type(#t_tuple{elements=Es,exact=Ex,size=S}) ->
     ["{",
      string:join(format_tuple_elems(S, Ex, Es, 1), ", "),
      "}"];
+format_type(other) ->
+    "other()";
 format_type(pid) ->
     "pid()";
 format_type(port) ->

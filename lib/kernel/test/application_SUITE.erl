@@ -35,7 +35,7 @@
 	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1, 
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1, otp_16504/1]).
 
--export([config_change/1, persistent_env/1,
+-export([config_change/1, persistent_env/1, invalid_app_file/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 ensure_started/1, ensure_all_started/1,
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1,
@@ -62,7 +62,7 @@ all() ->
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
      shutdown_deadlock, config_relative_paths, optional_applications,
      persistent_env, handle_many_config_files, format_log_1, format_log_2,
-     configfd_bash, configfd_port_program].
+     configfd_bash, configfd_port_program, invalid_app_file].
 
 groups() -> 
     [{reported_bugs, [],
@@ -2191,17 +2191,16 @@ do_configfd_test_bash() ->
         ok -> case proplists:get_value(system_total_memory,
                                        memsup:get_system_memory_data()) of
                   Memory when is_integer(Memory),
-                              Memory > 16*1024*1024*1024 ->
+                              Memory > 8*1024*1024*1024 ->
                       application:stop(os_mon),
-                      true =
-                          ("magic42" =/=
-                               RunInBash(
-                                 "erl "
-                                 "-noshell "
-                                 "-configfd 3 "
-                                 "-eval "
-                                 "'io:format(\"magic42\"),erlang:halt()' "
-                                 "3< <(erl -noshell -eval '(fun W(D) -> io:put_chars(D), W([D,D]) end)(<<\"00000000000000000\">>)') "));
+                      Res = RunInBash(
+                              "erl "
+                              "-noshell "
+                              "-configfd 3 "
+                              "-eval "
+                              "'io:format(\"magic42\"),erlang:halt()' "
+                              "3< <(erl -noshell -eval '(fun W(D) -> io:put_chars(D), W([D,<<\"00000000000000000\">>]) end)([])') "),
+                      {match, _} = re:run(Res,"Max size 134217728 bytes exceeded");
                   _ ->
                       io:format("Skipped huge file check to avoid flaky test on machine with less than 8GB of memory")
               end;
@@ -2439,6 +2438,19 @@ persistent_env(Conf) when is_list(Conf) ->
     %% Clean up
     ok = application:unload(appinc).
 
+%% Test that application app file error handling works as it should
+invalid_app_file(_Config) ->
+
+    {error,{bad_application,{application,"name",[]}}}
+        = application:load({application, "name",[]}),
+    {error,{invalid_options,#{}}}
+        = application:load({application, name,#{}}),
+    {error, {invalid_options,_}} =
+        application:load({application,name,[{env,[{"key",value}]}]}),
+    {error, {invalid_options,_}} =
+        application:load({application,name,[{env,[key]}]}),
+    {error, {invalid_options,_}} =
+        application:load({application,name,[{env,[{key,value},{key,value}]}]}).
 
 %% Test more than one config file defined by one -config parameter:
 handle_many_config_files(Conf) when is_list(Conf) ->

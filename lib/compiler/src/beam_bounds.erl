@@ -26,45 +26,261 @@
 %%
 %%
 -module(beam_bounds).
--export(['+'/2, '-'/2, '*'/2, 'div'/2, 'rem'/2,
-         'band'/2, 'bor'/2, 'bxor'/2, 'bsr'/2, 'bsl'/2,
-         relop/3]).
+-export([bounds/2, bounds/3, relop/3, infer_relop_types/3,
+         is_masking_redundant/2]).
+-export_type([range/0]).
 
--type range() :: {integer(), integer()} | 'any'.
+-type range() :: {integer(), integer()} |
+                 {'-inf', integer()} |
+                 {integer(), '+inf'} |
+                 'any'.
 -type range_result() :: range() | 'any'.
 -type relop() :: '<' | '=<' | '>' | '>='.
 -type bool_result() :: 'true' | 'false' | 'maybe'.
+-type op() :: atom().
 
--spec '+'(range(), range()) -> range_result().
+%% Maximum size of integers in bits to keep ranges for.
+-define(NUM_BITS, 128).
 
-'+'({A,B}, {C,D}) when abs(A) bsr 256 =:= 0, abs(B) bsr 256 =:= 0,
-                       abs(C) bsr 256 =:= 0, abs(D) bsr 256 =:= 0 ->
-    verify_range({A+C,B+D});
-'+'(_, _) ->
+-spec bounds(op(), range()) -> range_result().
+
+bounds('bnot', R0) ->
+    case R0 of
+        {A,B} ->
+            R = {inf_add(inf_neg(B), -1), inf_add(inf_neg(A), -1)},
+            normalize(R);
+        _ ->
+            any
+    end;
+bounds(abs, R) ->
+    case R of
+        {A,B} when is_integer(A), is_integer(B) ->
+            Min = 0,
+            Max = max(abs(A), abs(B)),
+            {Min,Max};
+        _ ->
+            {0,'+inf'}
+    end.
+
+-spec bounds(op(), range(), range()) -> range_result().
+
+bounds('+', R1, R2) ->
+    case {R1,R2} of
+        {{A,B}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
+                            abs(B) bsr ?NUM_BITS =:= 0,
+                            abs(C) bsr ?NUM_BITS =:= 0,
+                            abs(D) bsr ?NUM_BITS =:= 0 ->
+            normalize({A+C,B+D});
+        {{'-inf',B}, {_C,D}} when abs(B) bsr ?NUM_BITS =:= 0,
+                                  abs(D) bsr ?NUM_BITS =:= 0 ->
+            normalize({'-inf',B+D});
+        {{_A,B}, {'-inf',D}} when abs(B) bsr ?NUM_BITS =:= 0,
+                                  abs(D) bsr ?NUM_BITS =:= 0 ->
+            normalize({'-inf',B+D});
+        {{A,'+inf'}, {C,_D}} when abs(A) bsr ?NUM_BITS =:= 0,
+                                  abs(C) bsr ?NUM_BITS =:= 0 ->
+            normalize({A+C,'+inf'});
+        {{A,_B}, {C,'+inf'}} when abs(A) bsr ?NUM_BITS =:= 0,
+                                  abs(C) bsr ?NUM_BITS =:= 0 ->
+            normalize({A+C,'+inf'});
+        {_, _} ->
+            any
+    end;
+bounds('-', R1, R2) ->
+    case {R1,R2} of
+        {{A,B}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
+                            abs(B) bsr ?NUM_BITS =:= 0,
+                            abs(C) bsr ?NUM_BITS =:= 0,
+                            abs(D) bsr ?NUM_BITS =:= 0 ->
+            normalize({A-D,B-C});
+        {{A,'+inf'}, {_C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
+                                  abs(D) bsr ?NUM_BITS =:= 0 ->
+            normalize({A-D,'+inf'});
+        {{_A,B}, {C,'+inf'}} when abs(B) bsr ?NUM_BITS =:= 0,
+                                  abs(C) bsr ?NUM_BITS =:= 0 ->
+            normalize({'-inf',B-C});
+        {{'-inf',B}, {C,_D}} when abs(B) bsr ?NUM_BITS =:= 0,
+                                  abs(C) bsr ?NUM_BITS =:= 0 ->
+            normalize({'-inf',B-C});
+        {{A,_B}, {'-inf',D}} when abs(A) bsr ?NUM_BITS =:= 0,
+                                  abs(D) bsr ?NUM_BITS =:= 0 ->
+            normalize({A-D,'+inf'});
+        {_, _} ->
+            any
+    end;
+bounds('*', R1, R2) ->
+    case {R1,R2} of
+        {{A,B}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
+                            abs(B) bsr ?NUM_BITS =:= 0,
+                            abs(C) bsr ?NUM_BITS =:= 0,
+                            abs(D) bsr ?NUM_BITS =:= 0 ->
+            All = [X * Y || X <- [A,B], Y <- [C,D]],
+            Min = lists:min(All),
+            Max = lists:max(All),
+            normalize({Min,Max});
+        {{A,'+inf'}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
+                                 abs(C) bsr ?NUM_BITS =:= 0,
+                                 abs(D) bsr ?NUM_BITS =:= 0,
+                                 C >= 0 ->
+            {min(A*C, A*D),'+inf'};
+        {{'-inf',B}, {C,D}} when abs(B) bsr ?NUM_BITS =:= 0,
+                                 abs(C) bsr ?NUM_BITS =:= 0,
+                                 abs(D) bsr ?NUM_BITS =:= 0,
+                                 C >= 0 ->
+            {'-inf',max(B*C, B*D)};
+        {{A,B}, {'-inf',_}} when is_integer(A), is_integer(B) ->
+            bounds('*', R2, R1);
+        {{A,B}, {_,'+inf'}} when is_integer(A), is_integer(B) ->
+            bounds('*', R2, R1);
+        {_, _} ->
+            any
+    end;
+bounds('div', R1, R2) ->
+    div_bounds(R1, R2);
+bounds('rem', R1, R2) ->
+    rem_bounds(R1, R2);
+bounds('band', R1, R2) ->
+    case {R1,R2} of
+        {{A,B}, {C,D}} when A bsr ?NUM_BITS =:= 0, A >= 0,
+                            C bsr ?NUM_BITS =:= 0, C >= 0,
+                            is_integer(B), is_integer(D) ->
+            Min = min_band(A, B, C, D),
+            Max = max_band(A, B, C, D),
+            {Min,Max};
+        {_, {C,D}} when is_integer(C), C >= 0 ->
+            {0,D};
+        {{A,B}, _} when is_integer(A), A >= 0 ->
+            {0,B};
+        {_, _} ->
+            any
+    end;
+bounds('bor', R1, R2) ->
+    case {R1,R2} of
+        {{A,B}, {C,D}} when A bsr ?NUM_BITS =:= 0, A >= 0,
+                            C bsr ?NUM_BITS =:= 0, C >= 0,
+                            is_integer(B), is_integer(D) ->
+            Min = min_bor(A, B, C, D),
+            Max = max_bor(A, B, C, D),
+            {Min,Max};
+        {_, _} ->
+            any
+    end;
+bounds('bxor', R1, R2) ->
+    case {R1,R2} of
+        {{A,B}, {C,D}} when A bsr ?NUM_BITS =:= 0, A >= 0,
+                            C bsr ?NUM_BITS =:= 0, C >= 0,
+                            is_integer(B), is_integer(D) ->
+            Max = max_bxor(A, B, C, D),
+            {0,Max};
+        {_, _} ->
+            any
+    end;
+bounds('bsr', R1, R2) ->
+    case {R1,R2} of
+        {{A,B}, {C,D}} when is_integer(C), C >= 0 ->
+            Min = inf_min(inf_bsr(A, C), inf_bsr(A, D)),
+            Max = inf_max(inf_bsr(B, C), inf_bsr(B, D)),
+            normalize({Min,Max});
+        {_, _} ->
+            any
+    end;
+bounds('bsl', R1, R2) ->
+    case {R1,R2} of
+        {{A,B}, {C,D}} when abs(A) bsr ?NUM_BITS =:= 0,
+                            abs(B) bsr ?NUM_BITS =:= 0 ->
+            Min = inf_min(inf_bsl(A, C), inf_bsl(A, D)),
+            Max = inf_max(inf_bsl(B, C), inf_bsl(B, D)),
+            normalize({Min,Max});
+        {_, _} ->
+            any
+    end;
+bounds(max, R1, R2) ->
+    case {R1,R2} of
+        {{A,B},{C,D}} ->
+            normalize({inf_max(A, C),inf_max(B, D)});
+        {_,_} ->
+            any
+    end;
+bounds(min, R1, R2) ->
+    case {R1,R2} of
+        {{A,B},{C,D}} ->
+            normalize({inf_min(A, C),inf_min(B, D)});
+        {_,_} ->
+            any
+    end.
+
+-spec relop(relop(), range(), range()) -> bool_result().
+
+relop('<', {A,B}, {C,D}) ->
+    case {inf_lt(B, C),inf_lt(A, D)} of
+        {Bool,Bool} -> Bool;
+        {_,_} -> 'maybe'
+    end;
+relop('=<', {A,B}, {C,D}) ->
+    case {inf_le(B, C),inf_le(A, D)} of
+        {Bool,Bool} -> Bool;
+        {_,_} -> 'maybe'
+    end;
+relop('>=', {A,B}, {C,D}) ->
+    case {inf_ge(B, C),inf_ge(A, D)} of
+        {Bool,Bool} -> Bool;
+        {_,_} -> 'maybe'
+    end;
+relop('>', {A,B}, {C,D}) ->
+    case {inf_gt(B, C),inf_gt(A, D)} of
+        {Bool,Bool} -> Bool;
+        {_,_} -> 'maybe'
+    end;
+relop(_, _, _) ->
+    'maybe'.
+
+-spec infer_relop_types(relop(), range(), range()) -> any().
+
+infer_relop_types(Op, {_,_}=Range1, {_,_}=Range2) ->
+    case relop(Op, Range1, Range2) of
+        'maybe' ->
+            infer_relop_types_1(Op, Range1, Range2);
+        _ ->
+            any
+    end;
+infer_relop_types('<', {A,_}=R1, any) ->
+    {R1, normalize({inf_add(A, 1), '+inf'})};
+infer_relop_types('<', any, {_,D}=R2) ->
+    {normalize({'-inf', inf_add(D, -1)}), R2};
+infer_relop_types('=<', {A,_}=R1, any) ->
+    {R1, normalize({A, '+inf'})};
+infer_relop_types('=<', any, {_,D}=R2) ->
+    {normalize({'-inf', D}), R2};
+infer_relop_types('>=', {_,B}=R1, any) ->
+    {R1, normalize({'-inf', B})};
+infer_relop_types('>=', any, {C,_}=R2) ->
+    {normalize({C, '+inf'}), R2};
+infer_relop_types('>', {_,B}=R1, any) ->
+    {R1, normalize({'-inf', inf_add(B, -1)})};
+infer_relop_types('>', any, {C,_}=R2) ->
+    {normalize({inf_add(C, 1), '+inf'}), R2};
+infer_relop_types(_Op, _R1, _R2) ->
     any.
 
--spec '-'(range(), range()) -> range_result().
+-spec is_masking_redundant(range(), integer()) -> boolean().
 
-'-'({A,B}, {C,D}) when abs(A) bsr 256 =:= 0, abs(B) bsr 256 =:= 0,
-                       abs(C) bsr 256 =:= 0, abs(D) bsr 256 =:= 0 ->
-    verify_range({A-D,B-C});
-'-'(_, _) ->
-    any.
+is_masking_redundant(_, -1) ->
+    true;
+is_masking_redundant({A,B}, M)
+  when M band (M + 1) =:= 0,            %Is M + 1 a power of two?
+       M > 0,
+       is_integer(A), A >= 0,
+       B band M =:= B ->
+    true;
+is_masking_redundant(_, _) ->
+    false.
 
--spec '*'(range(), range()) -> range_result().
+%%%
+%%% Internal functions.
+%%%
 
-'*'({A,B}, {C,D}) when abs(A) bsr 256 =:= 0, abs(B) bsr 256 =:= 0,
-                       abs(C) bsr 256 =:= 0, abs(D) bsr 256 =:= 0 ->
-    All = [X * Y || X <- [A,B], Y <- [C,D]],
-    Min = lists:min(All),
-    Max = lists:max(All),
-    verify_range({Min,Max});
-'*'(_, _) ->
-    any.
-
--spec 'div'(range(), range()) -> range_result().
-
-'div'({A,B}, {C,D}) ->
+div_bounds({A,B}, {C,D}) when is_integer(A), is_integer(B),
+                         is_integer(C), is_integer(D) ->
     Denominators = [min(C, D),max(C, D)|
                     %% Handle zero crossing for the denominator.
                     if
@@ -78,89 +294,33 @@
                       Y =/= 0],
     Min = lists:min(All),
     Max = lists:max(All),
-    verify_range({Min,Max});
-'div'(_, _) ->
+    normalize({Min,Max});
+div_bounds({A,'+inf'}, {C,D}) when is_integer(C), C > 0, is_integer(D) ->
+    Min = min(A div C, A div D),
+    Max = '+inf',
+    normalize({Min,Max});
+div_bounds({'-inf',B}, {C,D}) when is_integer(C), C > 0, is_integer(D) ->
+    Min = '-inf',
+    Max = max(B div C, B div D),
+    normalize({Min,Max});
+div_bounds(_, _) ->
     any.
 
--spec 'rem'(range(), range()) -> range_result().
-
-'rem'({A,_}, {C,D}) when C > 0 ->
-    Max = D - 1,
+rem_bounds({A,_}, {C,D}) when is_integer(C), is_integer(D), C > 0 ->
+    Max = inf_add(D, -1),
     Min = if
+              A =:= '-inf' -> -Max;
               A >= 0 -> 0;
               true -> -Max
           end,
-    verify_range({Min,Max});
-'rem'(_, {C,D}) when C =/= 0; D =/= 0 ->
+    normalize({Min,Max});
+rem_bounds(_, {C,D}) when is_integer(C), is_integer(D),
+                     C =/= 0 orelse D =/= 0 ->
     Max = max(abs(C), abs(D)) - 1,
     Min = -Max,
-    verify_range({Min,Max});
-'rem'(_, _) ->
+    normalize({Min,Max});
+rem_bounds(_, _) ->
     any.
-
--spec 'band'(range(), range()) -> range_result().
-
-'band'({A,B}, {C,D}) when A >= 0, A bsr 256 =:= 0, C >= 0, C bsr 256 =:= 0 ->
-    Min = min_band(A, B, C, D),
-    Max = max_band(A, B, C, D),
-    {Min,Max};
-'band'(_, {C,D}) when C >= 0 ->
-    {0,D};
-'band'({A,B}, _) when A >= 0 ->
-    {0,B};
-'band'(_, _) ->
-    any.
-
--spec 'bor'(range(), range()) -> range_result().
-
-'bor'({A,B}, {C,D}) when A >= 0, A bsr 256 =:= 0, C >= 0, C bsr 256 =:= 0 ->
-    Min = min_bor(A, B, C, D),
-    Max = max_bor(A, B, C, D),
-    {Min,Max};
-'bor'(_, _) ->
-    any.
-
--spec 'bxor'(range(), range()) -> range_result().
-
-'bxor'({A,B}, {C,D}) when A >= 0, A bsr 256 =:= 0, C >= 0, C bsr 256 =:= 0 ->
-    Max = max_bxor(A, B, C, D),
-    {0,Max};
-'bxor'(_, _) ->
-    any.
-
--spec 'bsr'(range(), range()) -> range_result().
-
-'bsr'({A,B}, {C,D}) when C >= 0 ->
-    Min = min(A bsr C, A bsr D),
-    Max = max(B bsr C, B bsr D),
-    {Min,Max};
-'bsr'(_, _) ->
-    any.
-
--spec 'bsl'(range(), range()) -> range_result().
-
-'bsl'({A,B}, {C,D}) when abs(B) bsr 128 =:= 0, C >= 0, D < 128 ->
-    Min = min(A bsl C, A bsl D),
-    Max = max(B bsl C, B bsl D),
-    {Min,Max};
-'bsl'(_, _) ->
-    any.
-
--spec relop(relop(), range(), range()) -> bool_result().
-
-relop(Op, {A,B}, {C,D}) ->
-    case {erlang:Op(B, C),erlang:Op(A, D)} of
-        {Bool,Bool} -> Bool;
-        {_,_} -> 'maybe'
-    end;
-relop(_, _, _) ->
-    'maybe'.
-
-%%%
-%%% Internal functions.
-%%%
-
-verify_range({Min,Max}=T) when Min =< Max -> T.
 
 min_band(A, B, C, D) ->
     M = 1 bsl (upper_bit(A bor C) + 1),
@@ -295,3 +455,92 @@ upper_bit_1(Val0, N) ->
         0 -> N;
         Val -> upper_bit_1(Val, N + 1)
     end.
+
+infer_relop_types_1('<', {A,B}, {C,D}) ->
+    Left = normalize({A, clamp(inf_add(D, -1), A, B)}),
+    Right = normalize({clamp(inf_add(A, 1), C, D), D}),
+    {Left,Right};
+infer_relop_types_1('=<', {A,B}, {C,D}) ->
+    Left = normalize({A, clamp(D, A, B)}),
+    Right = normalize({clamp(A, C, D), D}),
+    {Left,Right};
+infer_relop_types_1('>=', {A,B}, {C,D}) ->
+    Left = normalize({clamp(C, A, B), B}),
+    Right = normalize({C, clamp(B, C, D)}),
+    {Left,Right};
+infer_relop_types_1('>', {A,B}, {C,D}) ->
+    Left = normalize({clamp(inf_add(C, 1), A, B), B}),
+    Right = normalize({C,clamp(inf_add(B, -1), C, D)}),
+    {Left,Right}.
+
+%%%
+%%% Handling of ranges.
+%%%
+%%% A range can begin with '-inf' OR end with '+inf'.
+%%%
+%%% Atoms are greater than all integers. Therefore, we don't
+%%% need any special handling of '+inf'.
+%%%
+
+normalize({'-inf','-inf'}) ->
+    {'-inf',-1};
+normalize({'-inf','+inf'}) ->
+    any;
+normalize({'+inf','+inf'}) ->
+    {0,'+inf'};
+normalize({Min,Max}=T) ->
+    true = inf_ge(Max, Min),
+    T.
+
+clamp(V, A, B) ->
+    inf_min(inf_max(V, A), B).
+
+inf_min(A, B) when A =:= '-inf'; B =:= '-inf' -> '-inf';
+inf_min(A, B) when A =< B -> A;
+inf_min(A, B) when A > B -> B.
+
+inf_max('-inf', B) -> B;
+inf_max(A, '-inf') -> A;
+inf_max(A, B) when A >= B -> A;
+inf_max(A, B) when A < B -> B.
+
+inf_neg('-inf') -> '+inf';
+inf_neg('+inf') -> '-inf';
+inf_neg(N) -> -N.
+
+inf_add(Int, N) when is_integer(Int) -> Int + N;
+inf_add(Inf, _N) -> Inf.
+
+inf_bsr('-inf', _S) ->
+    '-inf';
+inf_bsr('+inf', _S) ->
+    '+inf';
+inf_bsr(N, S0) when S0 =:= '-inf'; S0 < 0 ->
+    S = inf_neg(S0),
+    if
+        S >= ?NUM_BITS, N < 0 -> '-inf';
+        S >= ?NUM_BITS, N >= 0 -> '+inf';
+        true -> N bsl S
+    end;
+inf_bsr(N, '+inf') ->
+    if
+        N < 0 -> -1;
+        N >= 0 -> 0
+    end;
+inf_bsr(N, S) when S >= 0 ->
+    N bsr S.
+
+inf_bsl(N, S) ->
+    inf_bsr(N, inf_neg(S)).
+
+inf_lt(_, '-inf') -> false;
+inf_lt('-inf', _) -> true;
+inf_lt(A, B) -> A < B.
+
+inf_ge(_, '-inf') -> true;
+inf_ge('-inf', _) -> false;
+inf_ge(A, B) -> A >= B.
+
+inf_le(A, B) -> inf_ge(B, A).
+
+inf_gt(A, B) -> inf_lt(B, A).

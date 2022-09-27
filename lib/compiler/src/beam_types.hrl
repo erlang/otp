@@ -19,7 +19,7 @@
 %%
 
 %% Type version, must be bumped whenever the external type format changes.
--define(BEAM_TYPES_VERSION, 1).
+-define(BEAM_TYPES_VERSION, 2).
 
 %% Common term types for passes operating on beam SSA and assembly. Helper
 %% functions for wrangling these can be found in beam_types.erl
@@ -29,21 +29,22 @@
 %%  any                      Any Erlang term (top element).
 %%
 %%    - #t_atom{}            Atom, or a set thereof.
-%%    - #t_bs_matchable{}    Binary-matchable types.
-%%        - #t_bitstring{}   Bitstring.
-%%        - #t_bs_context{}  Match context.
-%%    - #t_fun{}             Fun.
-%%    - #t_map{}             Map.
-%%    - number               Any number.
+%%    - #t_number{}          Any number.
 %%       -- #t_float{}       Floating point number.
 %%       -- #t_integer{}     Integer.
 %%    - #t_list{}            Any list.
 %%       -- #t_cons{}        Cons (nonempty list).
 %%       -- nil              The empty list.
-%%    - pid
-%%    - port
-%%    - reference
 %%    - #t_tuple{}           Tuple.
+%%    - other                Other types.
+%%       -- #t_fun{}          Fun.
+%%       -- #t_map{}          Map.
+%%       -- pid
+%%       -- port
+%%       -- reference
+%%       -- #t_bs_matchable{} Binary-matchable types.
+%%         -- #t_bitstring{}    Bitstring.
+%%         -- #t_bs_context{}   Match context.
 %%
 %%  none                     No type (bottom element).
 %%
@@ -81,17 +82,23 @@
 %% [1] https://en.wikipedia.org/wiki/Lattice_(order)#General_lattice
 
 -define(ATOM_SET_SIZE, 5).
+
+%% Documented limits
 -define(MAX_FUNC_ARGS, 255).
+-define(MAX_TUPLE_SIZE, (1 bsl 24) - 1).
+
+-type float_range() :: 'any' | {'-inf',float()} | {float(),'+inf'}.
 
 -record(t_atom, {elements=any :: 'any' | ordsets:ordset(atom())}).
 -record(t_bitstring, {size_unit=1 :: pos_integer()}).
 -record(t_bs_context, {tail_unit=1 :: pos_integer()}).
 -record(t_bs_matchable, {tail_unit=1 :: pos_integer()}).
--record(t_float, {elements=any :: 'any' | {float(),float()}}).
+-record(t_float, {elements=any :: float_range()}).
 -record(t_fun, {arity=any :: arity() | 'any',
                 target=any :: {atom(), non_neg_integer()} | 'any',
                 type=any :: type() }).
--record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
+-record(t_integer, {elements=any :: 'any' | beam_bounds:range()}).
+-record(t_number, {elements=any :: 'any' | beam_bounds:range()}).
 
 %% `super_key` and `super_value` are the join of all key and value types.
 %%
@@ -132,27 +139,35 @@
 -define(TUPLE_ELEMENT_LIMIT, 12).
 -type tuple_elements() :: #{ Key :: pos_integer() => type() }.
 
--type normal_type() :: any | none |
-                       number | #t_float{} | #t_integer{} |
+-type normal_type() :: 'any' | 'none' |
+                       #t_number{} | #t_float{} | #t_integer{} |
                        #t_atom{} |
                        #t_bitstring{} | #t_bs_context{} | #t_bs_matchable{} |
                        #t_fun{} |
-                       #t_list{} | #t_cons{} | nil |
+                       #t_list{} | #t_cons{} | 'nil' |
+                       'other' |
                        #t_map{} |
-                       pid |
-                       port |
-                       reference |
+                       'pid' |
+                       'port' |
+                       'reference' |
                        #t_tuple{}.
+
+-type other_type() :: 'none' | #t_fun{} | #t_map{} |
+                      'pid' | 'port' | 'reference' |
+                      #t_bitstring{} | #t_bs_context{} |
+                      #t_bs_matchable{}.
 
 -type record_key() :: {Arity :: integer(), Tag :: normal_type() }.
 -type record_set() :: ordsets:ordset({record_key(), #t_tuple{}}).
 -type tuple_set() :: #t_tuple{} | record_set().
 
--record(t_union, {atom=none :: none | #t_atom{},
-                  list=none :: none | #t_list{} | #t_cons{} | nil,
-                  number=none :: none | number | #t_float{} | #t_integer{},
-                  tuple_set=none :: none | tuple_set(),
-                  other=none :: normal_type()}).
+%% The fields in the union must not overlap. In particular, that means
+%% that the type `any` is not allowed in any field.
+-record(t_union, {atom=none :: 'none' | #t_atom{},
+                  list=none :: 'none' | #t_list{} | #t_cons{} | nil,
+                  number=none :: 'none' | #t_number{} | #t_float{} | #t_integer{},
+                  tuple_set=none :: 'none' | tuple_set(),
+                  other=none :: 'other' | other_type()}).
 
 -type type() :: #t_union{} | normal_type().
 

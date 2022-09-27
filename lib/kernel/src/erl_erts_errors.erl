@@ -352,8 +352,19 @@ format_erlang_error(demonitor, [_], _) ->
 format_erlang_error(demonitor, [Ref,Options], _) ->
     Arg1 = must_be_ref(Ref),
     [Arg1,maybe_option_list_error(Options, Arg1)];
-format_erlang_error(display_string, [_], _) ->
+format_erlang_error(display_string, [_], none) ->
     [not_string];
+format_erlang_error(display_string, [_], Cause) ->
+    maybe_posix_message(Cause, false);
+format_erlang_error(display_string, [Device, _], none) ->
+    case lists:member(Device,[stdin,stdout,stderr]) of
+        true ->
+            [[],not_string];
+        false ->
+            [not_device,[]]
+    end;
+format_erlang_error(display_string, [_, _], Cause) ->
+    maybe_posix_message(Cause, true);
 format_erlang_error(element, [Index, Tuple], _) ->
     [if
          not is_integer(Index) ->
@@ -1430,8 +1441,23 @@ is_flat_char_list([H|T]) ->
 is_flat_char_list([]) -> true;
 is_flat_char_list(_) -> false.
 
+maybe_posix_message(Cause, HasDevice) ->
+    case erl_posix_msg:message(Cause) of
+        "unknown POSIX error" ->
+            unknown;
+        PosixStr when HasDevice ->
+            [unicode:characters_to_binary(
+               io_lib:format("~ts (~tp)",[PosixStr, Cause]))];
+        PosixStr when not HasDevice ->
+            [{general,
+              unicode:characters_to_binary(
+                io_lib:format("~ts (~tp)",[PosixStr, Cause]))}]
+    end.
+
 format_error_map([""|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map);
+format_error_map([{general, E}|Es], ArgNum, Map) ->
+    format_error_map(Es, ArgNum, Map#{ general => expand_error(E)});
 format_error_map([E|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map#{ArgNum => expand_error(E)});
 format_error_map([], _, Map) ->
@@ -1519,6 +1545,8 @@ expand_error(not_ref) ->
     <<"not a reference">>;
 expand_error(not_string) ->
     <<"not a list of characters">>;
+expand_error(not_device) ->
+    <<"not a valid device type">>;
 expand_error(not_tuple) ->
     <<"not a tuple">>;
 expand_error(range) ->

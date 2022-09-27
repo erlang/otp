@@ -278,6 +278,12 @@ remap([{make_fun3,F,Index,OldUniq,Dst0,{list,Env0}}|Is], Remap) ->
     Dst = remap_arg(Dst0, Remap),
     I = {make_fun3,F,Index,OldUniq,Dst,{list,Env}},
     [I|remap(Is, Remap)];
+remap([{update_record,Hint,Size,Src0,Dst0,{list,Updates0}}|Is], Remap) ->
+    Updates = remap_args(Updates0, Remap),
+    Src = remap_arg(Src0, Remap),
+    Dst = remap_arg(Dst0, Remap),
+    I = {update_record,Hint,Size,Src,Dst,{list,Updates}},
+    [I|remap(Is, Remap)];
 remap([{deallocate,N}|Is], {Trim,_}=Remap) ->
     I = {deallocate,N-Trim},
     [I|remap(Is, Remap)];
@@ -524,6 +530,12 @@ do_usage([{init_yregs,{list,Ds}}|Is], Safe, Regs0, Ns0, Acc) ->
 do_usage([{make_fun3,_,_,_,Dst,{list,Ss}}|Is], Safe, Regs0, Ns0, Acc) ->
     Regs1 = ordsets:del_element(Dst, Regs0),
     Regs = ordsets:union(Regs1, yregs(Ss)),
+    Ns = ordsets:union(yregs([Dst]), Ns0),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{update_record,_,_,Src,Dst,{list,Ss}}|Is], Safe, Regs0, Ns0, Acc) ->
+    Regs1 = ordsets:del_element(Dst, Regs0),
+    Regs = ordsets:union(Regs1, yregs([Src|Ss])),
     Ns = ordsets:union(yregs([Dst]), Ns0),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);

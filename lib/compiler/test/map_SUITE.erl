@@ -87,7 +87,8 @@
 
          %% miscellaneous
          t_conflicting_destinations/1,
-         t_cse_assoc/1
+         t_cse_assoc/1,
+         shared_key_tuples/1
         ]).
 
 -define(badmap(V, F, Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -161,7 +162,8 @@ all() ->
 
      %% miscellaneous
      t_conflicting_destinations,
-     t_cse_assoc
+     t_cse_assoc,
+     shared_key_tuples
     ].
 
 groups() -> [].
@@ -2545,6 +2547,25 @@ do_cse_assoc(M, V) ->
         #{assoc := Assoc} ->
             Assoc
     end.
+
+shared_key_tuples(_Config) ->
+    A = decimal(0),
+    B = decimal(1),
+
+    case ?MODULE of
+        map_inline_SUITE ->
+            %% With inlining, two separate map literals will be created. They
+            %% will not share keys.
+            ok;
+        _ ->
+            %% The two instances should share the key tuple.
+            true = erts_debug:same(erts_internal:map_to_tuple_keys(A),
+                                   erts_internal:map_to_tuple_keys(B))
+    end,
+    ok.
+
+decimal(Int) ->
+    #{type => decimal, int => Int, exp => 0}.
 
 %% aux
 

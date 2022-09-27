@@ -743,6 +743,17 @@ protected:
         }
     }
 
+    void subs(arm::Gp to, arm::Gp src, int64_t val) {
+        if (Support::isUInt12(val)) {
+            a.subs(to, src, imm(val));
+        } else if (Support::isUInt12(-val)) {
+            a.adds(to, src, imm(-val));
+        } else {
+            mov_imm(SUPER_TMP, val);
+            a.subs(to, src, SUPER_TMP);
+        }
+    }
+
     void cmp(arm::Gp src, int64_t val) {
         if (Support::isUInt12(val)) {
             a.cmp(src, imm(val));
@@ -992,6 +1003,12 @@ class BeamModuleAssembler : public BeamAssembler {
      * fragments as if they were local. */
     std::unordered_map<void (*)(), Label> _dispatchTable;
 
+    /* Skip unnecessary moves in load_source(), load_sources(), and
+     * mov_arg(). */
+    size_t last_destination_offset = 0;
+    arm::Gp last_destination_from;
+    arm::Mem last_destination_to;
+
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
                         Eterm mod,
@@ -1057,7 +1074,7 @@ protected:
         return beam->types.entries[typeIndex].type_union;
     }
 
-    auto getIntRange(const ArgSource &arg) const {
+    auto getClampedRange(const ArgSource &arg) const {
         if (arg.isSmall()) {
             Sint value = arg.as<ArgSmall>().getSigned();
             return std::make_pair(value, value);
@@ -1067,9 +1084,40 @@ protected:
 
             ASSERT(typeIndex < beam->types.count);
             const auto &entry = beam->types.entries[typeIndex];
-            ASSERT(entry.type_union & BEAM_TYPE_INTEGER);
-            return std::make_pair(entry.min, entry.max);
+            if (entry.min <= entry.max) {
+                return std::make_pair(entry.min, entry.max);
+            } else if (IS_SSMALL(entry.min) && !IS_SSMALL(entry.max)) {
+                return std::make_pair(entry.min, MAX_SMALL);
+            } else if (!IS_SSMALL(entry.min) && IS_SSMALL(entry.max)) {
+                return std::make_pair(MIN_SMALL, entry.max);
+            } else {
+                return std::make_pair(MIN_SMALL, MAX_SMALL);
+            }
         }
+    }
+
+    int getSizeUnit(const ArgSource &arg) const {
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+
+        ASSERT(typeIndex < beam->types.count);
+        return beam->types.entries[typeIndex].size_unit;
+    }
+
+    bool hasLowerBound(const ArgSource &arg) const {
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+        ASSERT(typeIndex < beam->types.count);
+        const auto &entry = beam->types.entries[typeIndex];
+        return IS_SSMALL(entry.min) && !IS_SSMALL(entry.max);
+    }
+
+    bool hasUpperBound(const ArgSource &arg) const {
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+        ASSERT(typeIndex < beam->types.count);
+        const auto &entry = beam->types.entries[typeIndex];
+        return !IS_SSMALL(entry.min) && IS_SSMALL(entry.max);
     }
 
     bool always_small(const ArgSource &arg) const {
@@ -1077,13 +1125,11 @@ protected:
             return true;
         }
 
-        int type_union = getTypeUnion(arg);
-        if (type_union == BEAM_TYPE_INTEGER) {
-            auto [min, max] = getIntRange(arg);
-            return min <= max;
-        } else {
-            return false;
-        }
+        auto typeIndex =
+                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
+        ASSERT(typeIndex < beam->types.count);
+        const auto &entry = beam->types.entries[typeIndex];
+        return entry.type_union == BEAM_TYPE_INTEGER && entry.min <= entry.max;
     }
 
     bool always_immediate(const ArgSource &arg) const {
@@ -1146,67 +1192,53 @@ protected:
         return always_one_of(arg, type_id);
     }
 
-    bool is_sum_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            Sint min, max;
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            min = min1 + min2;
-            max = max1 + max2;
-            return IS_SSMALL(min) && IS_SSMALL(max);
-        }
+    bool is_sum_small_if_args_are_small(const ArgSource &LHS,
+                                        const ArgSource &RHS) {
+        Sint min, max;
+        auto [min1, max1] = getClampedRange(LHS);
+        auto [min2, max2] = getClampedRange(RHS);
+        min = min1 + min2;
+        max = max1 + max2;
+        return IS_SSMALL(min) && IS_SSMALL(max);
     }
 
-    bool is_difference_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            Sint min, max;
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            min = min1 - max2;
-            max = max1 - min2;
-            return IS_SSMALL(min) && IS_SSMALL(max);
-        }
+    bool is_diff_small_if_args_are_small(const ArgSource &LHS,
+                                         const ArgSource &RHS) {
+        Sint min, max;
+        auto [min1, max1] = getClampedRange(LHS);
+        auto [min2, max2] = getClampedRange(RHS);
+        min = min1 - max2;
+        max = max1 - min2;
+        return IS_SSMALL(min) && IS_SSMALL(max);
     }
 
-    bool is_product_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            auto mag1 = std::max(std::abs(min1), std::abs(max1));
-            auto mag2 = std::max(std::abs(min2), std::abs(max2));
+    bool is_product_small_if_args_are_small(const ArgSource &LHS,
+                                            const ArgSource &RHS) {
+        auto [min1, max1] = getClampedRange(LHS);
+        auto [min2, max2] = getClampedRange(RHS);
+        auto mag1 = std::max(std::abs(min1), std::abs(max1));
+        auto mag2 = std::max(std::abs(min2), std::abs(max2));
 
-            /*
-             * mag1 * mag2 <= MAX_SMALL
-             * mag1 <= MAX_SMALL / mag2   (when mag2 != 0)
-             */
-            ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
-            return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
-        }
+        /*
+         * mag1 * mag2 <= MAX_SMALL
+         * mag1 <= MAX_SMALL / mag2   (when mag2 != 0)
+         */
+        ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
+        return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
     }
 
     bool is_bsl_small(const ArgSource &LHS, const ArgSource &RHS) {
-        /*
-         * In the code compiled by scripts/diffable, there never
-         * seems to be any range information for the RHS. Therefore,
-         * don't bother unless RHS is an immediate small.
-         */
-        if (!(always_small(LHS) && RHS.isSmall())) {
+        if (!(always_small(LHS) && always_small(RHS))) {
             return false;
         } else {
-            auto [min1, max1] = getIntRange(LHS);
-            auto rhs_val = RHS.as<ArgSmall>().getSigned();
+            auto [min1, max1] = getClampedRange(LHS);
+            auto [min2, max2] = getClampedRange(RHS);
 
-            if (min1 < 0 || max1 == 0 || rhs_val < 0) {
+            if (min1 < 0 || max1 == 0 || min2 < 0) {
                 return false;
             }
 
-            return rhs_val < Support::clz(max1) - _TAG_IMMED1_SIZE;
+            return max2 < Support::clz(max1) - _TAG_IMMED1_SIZE;
         }
     }
 
@@ -1216,7 +1248,8 @@ protected:
                       const ArgWord &Live);
     void emit_gc_test_preserve(const ArgWord &Need,
                                const ArgWord &Live,
-                               arm::Gp term);
+                               const ArgSource &Preserve,
+                               arm::Gp preserve_reg);
 
     arm::Mem emit_variable_apply(bool includeI);
     arm::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
@@ -1243,9 +1276,27 @@ protected:
         BeamAssembler::emit_is_boxed(Fail, Src);
     }
 
+    /* Copies `count` words from the address at `from`, to the address at `to`.
+     *
+     * Clobbers v30 and v31. */
+    void emit_copy_words_increment(arm::Gp from, arm::Gp to, size_t count);
+
     void emit_get_list(const arm::Gp boxed_ptr,
                        const ArgRegister &Hd,
                        const ArgRegister &Tl);
+
+    void emit_add_sub_types(bool is_small_result,
+                            const ArgSource &LHS,
+                            const a64::Gp lhs_reg,
+                            const ArgSource &RHS,
+                            const a64::Gp rhs_reg,
+                            const Label next);
+
+    void emit_are_both_small(const ArgSource &LHS,
+                             const a64::Gp lhs_reg,
+                             const ArgSource &RHS,
+                             const a64::Gp rhs_reg,
+                             const Label next);
 
     void emit_div_rem(const ArgLabel &Fail,
                       const ArgSource &LHS,
@@ -1271,6 +1322,26 @@ protected:
     void emit_bs_get_utf16(const ArgRegister &Ctx,
                            const ArgLabel &Fail,
                            const ArgWord &Flags);
+    void update_bin_state(arm::Gp bin_base,
+                          arm::Gp bin_offset,
+                          Sint bit_offset,
+                          Sint size,
+                          arm::Gp size_reg);
+    void set_zero(Sint effectiveSize);
+
+    void emit_read_bits(Uint bits,
+                        const arm::Gp bin_offset,
+                        const arm::Gp bin_base,
+                        const arm::Gp bitdata);
+
+    void emit_extract_integer(const arm::Gp bitdata,
+                              Uint flags,
+                              Uint bits,
+                              const ArgRegister &Dst);
+
+    void emit_extract_binary(const arm::Gp bitdata,
+                             Uint bits,
+                             const ArgRegister &Dst);
 
     void emit_raise_exception();
     void emit_raise_exception(const ErtsCodeMFA *exp);
@@ -1287,6 +1358,8 @@ protected:
                           const ArgFRegister &Dst);
 
     void emit_validate_unicode(Label next, Label fail, arm::Gp value);
+
+    void ubif_comment(const ArgWord &Bif);
 
     void emit_bif_is_eq_ne_exact_immed(const ArgSource &LHS,
                                        const ArgSource &RHS,
@@ -1457,11 +1530,32 @@ protected:
         } else if (arg.isRegister()) {
             if (isRegisterBacked(arg)) {
                 auto index = arg.as<ArgXRegister>().get();
-                return Variable(register_backed_xregs[index]);
+                arm::Gp reg = register_backed_xregs[index];
+                if (reg == last_destination_from) {
+                    last_destination_offset = ~0;
+                }
+                return Variable(reg);
             }
 
             auto ref = getArgRef(arg);
-            a.ldr(tmp, ref);
+
+            if (a.offset() == last_destination_offset &&
+                ref == last_destination_to) {
+                if (last_destination_from != tmp) {
+                    comment("simplified fetching of BEAM register");
+                    a.mov(tmp, last_destination_from);
+                } else {
+                    comment("skipped fetching of BEAM register");
+                }
+                last_destination_offset = ~0;
+            } else if (a.offset() == last_destination_offset) {
+                a.ldr(tmp, ref);
+                if (last_destination_from != tmp) {
+                    last_destination_offset = a.offset();
+                }
+            } else {
+                a.ldr(tmp, ref);
+            }
             return Variable(tmp, ref);
         } else {
             if (arg.isImmed() || arg.isWord()) {
@@ -1483,8 +1577,7 @@ protected:
                       arm::Gp tmp1,
                       const ArgVal &Src2,
                       arm::Gp tmp2) {
-        if (Src1.isRegister() && Src2.isRegister() && !isRegisterBacked(Src1) &&
-            !isRegisterBacked(Src2)) {
+        if (!isRegisterBacked(Src1) && !isRegisterBacked(Src2)) {
             switch (ArgVal::memory_relation(Src1, Src2)) {
             case ArgVal::Relation::consecutive:
                 safe_ldp(tmp1, tmp2, Src1, Src2);
@@ -1531,8 +1624,16 @@ protected:
         }
     }
 
-    template<typename Reg>
-    void flush_var(const Variable<Reg> &to) {
+    void flush_var(const Variable<arm::Gp> &to) {
+        if (to.mem.hasBase()) {
+            a.str(to.reg, to.mem);
+            last_destination_offset = a.offset();
+            last_destination_to = to.mem;
+            last_destination_from = to.reg;
+        }
+    }
+
+    void flush_var(const Variable<arm::VecD> &to) {
         if (to.mem.hasBase()) {
             a.str(to.reg, to.mem);
         }
@@ -1604,18 +1705,12 @@ protected:
         if (arg.isImmed() || arg.isWord()) {
             Sint val = arg.isImmed() ? arg.as<ArgImmed>().get()
                                      : arg.as<ArgWord>().get();
-
-            if (Support::isUInt12(val)) {
-                a.cmp(gp, imm(val));
-                return;
-            } else if (Support::isUInt12(-val)) {
-                a.cmn(gp, imm(-val));
-                return;
-            }
+            cmp(gp, val);
+            return;
         }
 
-        mov_arg(SUPER_TMP, arg);
-        a.cmp(gp, SUPER_TMP);
+        auto tmp = load_source(arg, SUPER_TMP);
+        a.cmp(gp, tmp.reg);
     }
 
     void safe_stp(arm::Gp gp1,

@@ -107,6 +107,7 @@ MODULES= \
 	net_SUITE \
 	os_SUITE \
 	pg_SUITE \
+	rtnode \
 	seq_trace_SUITE \
 	$(SOCKET_MODULES) \
 	wrap_log_reader_SUITE \
@@ -213,6 +214,7 @@ release_tests_spec: make_emakefile
 		$(EMAKEFILE) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)/kernel_SUITE_data"
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/kernel_SUITE_data"
 
 release_docs_spec:

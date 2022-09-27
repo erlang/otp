@@ -43,14 +43,17 @@
          main_test/0,
          main_test/1,
          misc_test/0,
-         misc_test/1]).
+         misc_test/1,
+         valid_ticket_older_than_windowsize_test/0,
+         valid_ticket_older_than_windowsize_test/1]).
 
--define(LIFETIME, 1). % tickets expire after 1s
+-define(LIFETIME, 3). % tickets expire after 3s
 -define(TICKET_STORE_SIZE, 1).
 -define(MASTER_SECRET, "master_secret").
 -define(PRF, sha).
 -define(VERSION, {3,4}).
 -define(PSK, <<15,168,18,43,216,33,227,142,114,190,70,183,137,57,64,64,66,152,115,94>>).
+-define(WINDOW_SIZE, 1).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -61,7 +64,7 @@ all() ->
 groups() ->
     [{stateful, [], [main_test, expired_ticket_test, invalid_ticket_test]},
      {stateless, [], [expired_ticket_test, invalid_ticket_test, main_test]},
-     {stateless_antireplay, [], [main_test, misc_test]}
+     {stateless_antireplay, [], [main_test, misc_test, valid_ticket_older_than_windowsize_test]}
     ].
 
 init_per_suite(Config0) ->
@@ -80,7 +83,7 @@ end_per_suite(_Config) ->
 
 init_per_group(stateless_antireplay, Config) ->
     check_environment([{server_session_tickets, stateless},
-                       {anti_replay, {10, 20, 30}}]
+                       {anti_replay, {?WINDOW_SIZE, 20, 30}}]
                       ++ Config);
 init_per_group(Group = stateless, Config) ->
     check_environment([{server_session_tickets, Group} | Config]);
@@ -164,6 +167,29 @@ expired_ticket_test(Config) when is_list(Config) ->
     ct:sleep({seconds, 2 * ?LIFETIME}),
     {HandshakeHist, OFPSKs} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
     {ok, undefined} = tls_server_session_ticket:use(Pid, OFPSKs, ?PRF,
+                                      [iolist_to_binary(HandshakeHist)]),
+    true = is_process_alive(Pid).
+
+valid_ticket_older_than_windowsize_test() ->
+    [{doc, "Verify valid ticket handling of tickets older than WindowSize"}].
+
+valid_ticket_older_than_windowsize_test(Config) when is_list(Config) ->
+    Pid = ?config(server_pid, Config),
+    % Fill in GB tree store for stateful setup (Stateless tests also fail without this)
+    tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
+    % Reach ticket store size limit - force GB tree pruning
+    SessionTicket = #new_session_ticket{} =
+        tls_server_session_ticket:new(Pid, ?PRF, ?MASTER_SECRET),
+    TicketRecvTime = erlang:system_time(millisecond),
+    %% Sleep more than the window length (which is in seconds)
+    ct:sleep({seconds, 2 * ?WINDOW_SIZE}),
+    {HandshakeHist, OferredPsks} = get_handshake_hist(SessionTicket, TicketRecvTime, ?PSK),
+    AcceptResponse = {ok, {0, ?PSK}},
+    AcceptResponse = tls_server_session_ticket:use(Pid, OferredPsks, ?PRF,
+                                      [iolist_to_binary(HandshakeHist)]),
+    % check replay attempt result
+    ExpReplyResult = get_replay_expected_result(Config, AcceptResponse),
+    ExpReplyResult = tls_server_session_ticket:use(Pid, OferredPsks, ?PRF,
                                       [iolist_to_binary(HandshakeHist)]),
     true = is_process_alive(Pid).
 

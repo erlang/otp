@@ -25,6 +25,7 @@ using namespace asmjit;
 extern "C"
 {
 #include "erl_map.h"
+#include "erl_term_hashing.h"
 #include "beam_common.h"
 }
 
@@ -52,6 +53,11 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
     a.add(lower, lower, constant);
     a.add(upper, upper, constant);
 
+#if defined(ERL_INTERNAL_HASH_CRC32C)
+    a.crc32cw(lower, hash, lower);
+    a.add(hash, hash, lower);
+    a.crc32cw(hash, hash, upper);
+#else
     using rounds =
             std::initializer_list<std::tuple<a64::Gp, a64::Gp, a64::Gp, int>>;
     for (const auto &round : rounds{{lower, upper, hash, 13},
@@ -74,6 +80,7 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
             a.eor(r_a, r_a, r_c, arm::lsl(-shift));
         }
     }
+#endif
 
     a.ret(a64::x30);
 }
@@ -256,22 +263,6 @@ void BeamModuleAssembler::emit_new_map(const ArgRegister &Dst,
     mov_arg(Dst, ARG1);
 }
 
-void BeamGlobalAssembler::emit_i_new_small_map_lit_shared() {
-    emit_enter_runtime_frame();
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
-                       Update::eReductions>();
-
-    a.mov(ARG1, c_p);
-    load_x_reg_array(ARG2);
-    runtime_call<5>(erts_gc_new_small_map_lit);
-
-    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
-                       Update::eReductions>();
-    emit_leave_runtime_frame();
-
-    a.ret(a64::x30);
-}
-
 void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
                                                    const ArgWord &Live,
                                                    const ArgLiteral &Keys,
@@ -279,15 +270,50 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
                                                    const Span<ArgVal> &args) {
     ASSERT(Size.get() == args.size());
 
-    embed_vararg_rodata(args, ARG5);
+    emit_gc_test(ArgWord(0),
+                 ArgWord(args.size() + MAP_HEADER_FLATMAP_SZ + 1),
+                 Live);
 
-    ASSERT(Keys.isLiteral());
-    mov_arg(ARG3, Keys);
-    mov_arg(ARG4, Live);
+    std::vector<ArgVal> data;
+    data.reserve(args.size() + MAP_HEADER_FLATMAP_SZ + 1);
+    data.push_back(ArgWord(MAP_HEADER_FLATMAP));
+    data.push_back(Size);
+    data.push_back(Keys);
 
-    fragment_call(ga->get_i_new_small_map_lit_shared());
+    bool dst_is_src = false;
+    for (auto arg : args) {
+        data.push_back(arg);
+        dst_is_src |= (arg == Dst);
+    }
 
-    mov_arg(Dst, ARG1);
+    if (dst_is_src) {
+        a.add(TMP1, HTOP, TAG_PRIMARY_BOXED);
+    } else {
+        auto ptr = init_destination(Dst, TMP1);
+        a.add(ptr.reg, HTOP, TAG_PRIMARY_BOXED);
+        flush_var(ptr);
+    }
+
+    size_t size = data.size();
+    unsigned i;
+    for (i = 0; i < size - 1; i += 2) {
+        if ((i % 128) == 0) {
+            check_pending_stubs();
+        }
+
+        auto [first, second] = load_sources(data[i], TMP2, data[i + 1], TMP3);
+        a.stp(first.reg, second.reg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+    }
+
+    if (i < size) {
+        mov_arg(arm::Mem(HTOP).post(sizeof(Eterm)), data[i]);
+    }
+
+    if (dst_is_src) {
+        auto ptr = init_destination(Dst, TMP1);
+        mov_var(ptr, TMP1);
+        flush_var(ptr);
+    }
 }
 
 /* ARG1 = map

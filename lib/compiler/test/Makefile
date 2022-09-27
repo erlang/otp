@@ -115,6 +115,12 @@ R24= \
 	bs_utf \
 	bs_bincomp
 
+R25= \
+	bs_construct \
+	bs_match \
+	bs_utf \
+	bs_bincomp
+
 DIALYZER = bs_match
 
 CORE_MODULES = \
@@ -133,12 +139,16 @@ POST_OPT_MODULES= $(NO_OPT:%=%_post_opt_SUITE)
 POST_OPT_ERL_FILES= $(POST_OPT_MODULES:%=%.erl)
 NO_CORE_OPT_MODULES= $(NO_OPT:%=%_no_copt_SUITE)
 NO_CORE_OPT_ERL_FILES= $(NO_CORE_OPT_MODULES:%=%.erl)
+NO_CORE_SSA_OPT_MODULES= $(NO_OPT:%=%_no_copt_ssa_SUITE)
+NO_CORE_SSA_OPT_ERL_FILES= $(NO_CORE_SSA_OPT_MODULES:%=%.erl)
 INLINE_MODULES= $(INLINE:%=%_inline_SUITE)
 INLINE_ERL_FILES= $(INLINE_MODULES:%=%.erl)
 R23_MODULES= $(R23:%=%_r23_SUITE)
 R23_ERL_FILES= $(R23_MODULES:%=%.erl)
 R24_MODULES= $(R24:%=%_r24_SUITE)
 R24_ERL_FILES= $(R24_MODULES:%=%.erl)
+R25_MODULES= $(R25:%=%_r25_SUITE)
+R25_ERL_FILES= $(R25_MODULES:%=%.erl)
 NO_MOD_OPT_MODULES= $(NO_MOD_OPT:%=%_no_module_opt_SUITE)
 NO_MOD_OPT_ERL_FILES= $(NO_MOD_OPT_MODULES:%=%.erl)
 NO_SSA_OPT_MODULES= $(NO_SSA_OPT:%=%_no_ssa_opt_SUITE)
@@ -179,9 +189,10 @@ EBIN = .
 DISABLE_SSA_OPT = +no_bool_opt +no_share_opt +no_bsm_opt +no_fun_opt +no_ssa_opt +no_recv_opt
 
 make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(NO_SSA_OPT_ERL_FILES) \
-  $(NO_CORE_OPT_ERL_FILES) $(INLINE_ERL_FILES) $(R23_ERL_FILES) \
+  $(NO_CORE_OPT_ERL_FILES) $(NO_CORE_SSA_OPT_ERL_FILES) \
+  $(INLINE_ERL_FILES) $(R23_ERL_FILES) \
   $(NO_MOD_OPT_ERL_FILES) $(NO_TYPE_OPT_ERL_FILES) \
-  $(DIALYZER_ERL_FILES) $(R24_ERL_FILES)
+  $(DIALYZER_ERL_FILES) $(R24_ERL_FILES) $(R25_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
 	  > $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt $(DISABLE_SSA_OPT) +no_postopt \
@@ -192,12 +203,16 @@ make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(NO_SSA_OPT_ERL_FILES
 	  -o$(EBIN) $(POST_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt $(ERL_COMPILE_FLAGS) \
 	  -o$(EBIN) $(NO_CORE_OPT_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +no_copt +no_ssa_opt $(ERL_COMPILE_FLAGS) \
+	  -o$(EBIN) $(NO_CORE_SSA_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +inline $(ERL_COMPILE_FLAGS) \
 	  -o$(EBIN) $(INLINE_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +r23 $(ERL_COMPILE_FLAGS) \
 	  -o$(EBIN) $(R23_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +r24 $(ERL_COMPILE_FLAGS) \
 	  -o$(EBIN) $(R24_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +r25 $(ERL_COMPILE_FLAGS) \
+	  -o$(EBIN) $(R25_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_module_opt $(ERL_COMPILE_FLAGS) \
 	  -o$(EBIN) $(NO_MOD_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +from_core $(ERL_COMPILE_FLAGS) \
@@ -233,6 +248,9 @@ docs:
 %_no_copt_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
+%_no_copt_ssa_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
 %_inline_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
@@ -240,6 +258,9 @@ docs:
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
 %_r24_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
+%_r25_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
 %_no_module_opt_SUITE.erl: %_SUITE.erl
@@ -266,7 +287,9 @@ release_tests_spec: make_emakefile
 		$(INLINE_ERL_FILES) \
 	        $(R23_ERL_FILES) \
 	        $(R24_ERL_FILES) \
+	        $(R25_ERL_FILES) \
 		$(NO_CORE_OPT_ERL_FILES) \
+		$(NO_CORE_SSA_OPT_ERL_FILES) \
 		$(NO_MOD_OPT_ERL_FILES) \
 		$(NO_SSA_OPT_ERL_FILES) \
 	        $(NO_TYPE_OPT_ERL_FILES) \

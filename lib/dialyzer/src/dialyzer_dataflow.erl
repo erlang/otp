@@ -1557,8 +1557,9 @@ bind_tuple(Pat, Type, Map, State, Opaques, Rev) ->
           true ->
             Any = t_any(),
             [_Head|AnyTail] = [Any || _ <- Es],
-            UntypedRecord = t_tuple([Tag|AnyTail]),
-            case state__lookup_record(cerl:atom_val(Tag), length(Tags), State) of
+            TagAtomVal = cerl:atom_val(Tag),
+            UntypedRecord = t_tuple([t_atom(TagAtomVal)|AnyTail]),
+            case state__lookup_record(TagAtomVal, length(Tags), State) of
               error ->
                 {false, UntypedRecord};
               {ok, Record, _FieldNames} ->

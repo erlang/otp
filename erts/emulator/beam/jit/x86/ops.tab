@@ -443,6 +443,41 @@ is_eq_exact f s s
 
 is_ne_exact f s s
 
+is_integer NotInt N0 | is_ge Small N1=xy Min=i | is_ge Large Max=i N2=xy |
+  equal(N0, N1) | equal(N1, N2) |
+  equal(NotInt, Small) | equal(Small, Large) =>
+    is_int_in_range NotInt N0 Min Max
+
+is_integer NotInt N0 | is_ge Large Max=i N2=xy | is_ge Small N1=xy Min=i |
+  equal(N0, N1) | equal(N1, N2) |
+  equal(NotInt, Small) | equal(Small, Large) =>
+    is_int_in_range NotInt N0 Min Max
+
+is_integer NotInt N0 | is_ge Fail N1=xy Min=i |
+  equal(N0, N1) | equal(NotInt, Fail) =>
+    is_int_ge NotInt N0 Min
+
+is_int_in_range f S c c
+is_int_ge f S c
+
+is_ge Small N1=xy Min=i | is_ge Large Max=i N2=xy | equal(N1, N2) =>
+    is_in_range Small Large N1 Min Max
+
+is_ge Large Max=i N2=xy | is_ge Small N1=xy Min=i | equal(N1, N2) =>
+    is_in_range Small Large N2 Min Max
+
+is_in_range f f S c c
+
+is_ge Small N1=xy A=i | is_lt Large B=i N2=xy | equal(N1, N2) =>
+    is_ge_lt Small Large N1 A B
+
+is_ge_lt f f S c c
+
+is_ge Fail1 N1=xy A=i | is_ge Fail2 N2=xy B=i | equal(N1, N2) =>
+    is_ge_ge Fail1 Fail2 N1 A B
+
+is_ge_ge f f S c c
+
 is_lt f s s
 is_ge f s s
 
@@ -814,26 +849,30 @@ i_lambda_trampoline F f W W
 i_breakpoint_trampoline
 
 # ================================================================
-# New bit syntax matching (R11B).
+# New bit syntax matching for fixed sizes (from OTP 26).
+# ================================================================
+
+bs_match Fail Ctx Size Rest=* => bs_match(Fail, Ctx, Size, Rest)
+
+i_bs_match Fail Ctx Rest=* | test_heap Need Live =>
+    i_bs_match_test_heap Fail Ctx Need Live Rest
+
+i_bs_match f S *
+i_bs_match_test_heap f S I t *
+
+# ================================================================
+# Bit syntax matching (from R11B).
 # ================================================================
 
 %warm
 
-# Matching integers
+# Matching integers.
 bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
 
 i_bs_match_string S f W M
 
 # Fetching integers from binaries.
-bs_get_integer2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
-    get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
-
-i_bs_get_integer S f t t s d
-
-i_bs_get_integer_8 S t f d
-i_bs_get_integer_16 S t f d
-i_bs_get_integer_32 S t f d
-i_bs_get_integer_64 S t f t d
+bs_get_integer2 f S t s t t d
 
 # Fetching binaries from binaries.
 bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
@@ -1379,3 +1418,9 @@ recv_marker_reserve S
 recv_marker_bind S S
 recv_marker_clear S
 recv_marker_use S
+
+#
+# OTP 26
+#
+
+update_record a I s d I *

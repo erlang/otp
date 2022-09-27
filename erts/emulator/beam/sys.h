@@ -608,7 +608,7 @@ extern erts_tsd_key_t erts_is_crash_dumping_key;
 static unsigned long zero_value = 0, one_value = 1;
 #    define SET_BLOCKING(fd)	{ if (ioctlsocket((fd), FIONBIO, &zero_value) != 0) fprintf(stderr, "Error setting socket to non-blocking: %d\n", WSAGetLastError()); }
 #    define SET_NONBLOCKING(fd)	ioctlsocket((fd), FIONBIO, &one_value)
-
+#    define ERRNO_BLOCK EAGAIN /* We use the posix way for windows */
 #  else
 #    ifdef NB_FIONBIO		/* Old BSD */
 #      include <sys/ioctl.h>

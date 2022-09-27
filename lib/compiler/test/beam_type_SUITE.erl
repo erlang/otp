@@ -27,7 +27,9 @@
          test_size/1,cover_lists_functions/1,list_append/1,bad_binary_unit/1,
          none_argument/1,success_type_oscillation/1,type_subtraction/1,
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
-         switch_fail_inference/1,failures/1]).
+         switch_fail_inference/1,failures/1,
+         cover_maps_functions/1,min_max_mixed_types/1,
+         not_equal/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -63,7 +65,10 @@ groups() ->
        is_list_opt,
        connected_tuple_elements,
        switch_fail_inference,
-       failures
+       failures,
+       cover_maps_functions,
+       min_max_mixed_types,
+       not_equal
       ]}].
 
 init_per_suite(Config) ->
@@ -104,6 +109,15 @@ integers(_Config) ->
     {'EXIT',{badarith,_}} = (catch do_integers_8()),
 
     -693 = do_integers_9(id(7), id(1)),
+
+    3 = do_integers_10(1, 2),
+    10 = do_integers_10(-2, -5),
+
+    {'EXIT',{badarith,_}} = catch do_integers_11(42),
+    {'EXIT',{badarith,_}} = catch do_integers_11({a,b}),
+
+    {'EXIT',{system_limit,_}} = catch do_integers_12(42),
+    {'EXIT',{system_limit,_}} = catch do_integers_12([]),
 
     ok.
 
@@ -176,6 +190,18 @@ do_integers_8() ->
 do_integers_9(X, Y) ->
     X * (-100 bor (Y band 1)).
 
+do_integers_10(A, B) when is_integer(A), is_integer(B), A < 2, B < 5 ->
+    if
+        A < B -> A + B;
+        true -> A * B
+    end.
+
+do_integers_11(V) ->
+    true - V bsl [].
+
+do_integers_12(X) ->
+    (1 bsl (1 bsl 100)) + X.
+
 numbers(_Config) ->
     Int = id(42),
     true = is_integer(Int),
@@ -227,7 +253,15 @@ numbers(_Config) ->
     Meet1 = id(0) + -10.0,                       %Float.
     10.0 = abs(Meet1),                           %Number.
 
+    %% Cover code in beam_call_types:beam_bounds_type/3.
+    ok = fcmp(0.0, 1.0),
+    error = fcmp(1.0, 0.0),
+
     ok.
+
+fcmp(0.0, 0.0) -> ok;
+fcmp(F1, F2) when (F1 - F2) / F2 < 0.0000001 -> ok;
+fcmp(_, _) -> error.
 
 coverage(Config) ->
     {'EXIT',{badarith,_}} = (catch id(1) bsl 0.5),
@@ -276,6 +310,18 @@ coverage(Config) ->
     {'EXIT',{function_clause,_}} = catch coverage_3("a"),
     {'EXIT',{function_clause,_}} = catch coverage_3("b"),
 
+    Number = id(1),
+    if
+        0 =< Number, Number < 10 ->
+            0 = coverage_4(-1, Number),
+            10 = coverage_4(0, Number),
+            20 = coverage_4(1, Number),
+            30 = coverage_4(2, Number)
+    end,
+
+    {'EXIT',{badarg,_}} = catch false ++ true,
+    {'EXIT',{badarg,_}} = catch false -- true,
+
     ok.
 
 coverage_1() ->
@@ -294,6 +340,9 @@ coverage_2() ->
 %% Cover beam_ssa_type:infer_br_value(V, Bool, none).
 coverage_3("a" = V) when is_function(V, false) ->
     0.
+
+coverage_4(X, Y) ->
+    10 * (X + Y).
 
 booleans(_Config) ->
     {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
@@ -354,6 +403,8 @@ do_booleans_3(NewContent, IsAnchor) ->
             error
     end.
 
+-record(update_tuple_a, {a,b}).
+-record(update_tuple_b, {a,b,c}).
 
 setelement(_Config) ->
     T0 = id({a,42}),
@@ -375,7 +426,40 @@ setelement(_Config) ->
              end,
     {'EXIT',{badarg,_}} = catch setelement(Index1, {a,b,c}, y),
 
+    %% Cover some edge cases in beam_call_types:will_succeed/3 and
+    %% beam_call_types:types/3
+    {y} = setelement(1, tuple_or_integer(0), y),
+    {y} = setelement(1, record_or_integer(0), y),
+    {'EXIT',{badarg,_}} = catch setelement(2, tuple_or_integer(id(0)), y),
+    {'EXIT',{badarg,_}} = catch setelement(2, tuple_or_integer(id(1)), y),
+    {'EXIT',{badarg,_}} = catch setelement(2, record_or_integer(id(0)), y),
+    {'EXIT',{badarg,_}} = catch setelement(2, record_or_integer(id(1)), y),
+    {'EXIT',{badarg,_}} = catch setelement(id(2), not_a_tuple, y),
+
+    %% Cover some edge cases in beam_types:update_tuple/2
+    {'EXIT',{badarg,_}} = catch setelement(2, not_a_tuple, y),
+    {'EXIT',{badarg,_}} = catch setelement(not_an_index, {a,b,c}, y),
+    {'EXIT',{badarg,_}} = catch setelement(8, {out_of_range}, y),
+    {y,_,_} = update_tuple_1(#update_tuple_a{}, y),
+    {y,_,_,_} = update_tuple_1(#update_tuple_b{}, y),
+    #update_tuple_a{a=y} = update_tuple_2(#update_tuple_a{}, y),
+    #update_tuple_b{a=y} = update_tuple_2(#update_tuple_b{}, y),
+    {'EXIT',{badarg,_}} = catch update_tuple_3(id(#update_tuple_a{}), y),
+    {'EXIT',{badarg,_}} = catch update_tuple_3(id(#update_tuple_b{}), y),
+    {'EXIT',{badarg,_}} = catch update_tuple_4(id(#update_tuple_a{}), y),
+    #update_tuple_b{c=y} = update_tuple_4(id(#update_tuple_b{}), y),
+
     ok.
+
+record_or_integer(0) ->
+    {tuple};
+record_or_integer(N) when is_integer(N) ->
+    N.
+
+tuple_or_integer(0) ->
+    {id(tuple)};
+tuple_or_integer(N) when is_integer(N) ->
+    N.
 
 do_setelement_1(<<N:32>>, Tuple, NewValue) ->
     _ = element(N, Tuple),
@@ -388,6 +472,36 @@ do_setelement_2(<<N:1>>, Tuple, NewValue) ->
     %% type for the second element will be kept.
     two = element(2, Tuple),
     setelement(N, Tuple, NewValue).
+
+update_tuple_1(Tuple, Value0) ->
+    Value = case Tuple of
+                #update_tuple_a{} -> Value0;
+                #update_tuple_b{} -> Value0
+            end,
+    setelement(1, Tuple, Value).
+
+update_tuple_2(Tuple, Value0) ->
+    Value = case Tuple of
+                #update_tuple_a{} -> Value0;
+                #update_tuple_b{} -> Value0
+            end,
+    setelement(2, Tuple, Value).
+
+update_tuple_3(Tuple, Value0) ->
+    Value = case Tuple of
+                #update_tuple_a{} -> Value0;
+                #update_tuple_b{} -> Value0
+            end,
+    setelement(47, Tuple, Value).
+
+update_tuple_4(Tuple, Value0) ->
+    Value = case Tuple of
+                #update_tuple_a{} -> Value0;
+                #update_tuple_b{} -> Value0
+            end,
+    %% #update_tuple_a{} is three elements long, so this should only work for
+    %% #update_tuple_b{}.
+    setelement(4, Tuple, Value).
 
 cons(_Config) ->
     [did] = cons(assigned, did),
@@ -623,8 +737,21 @@ do_test_size(Term) when is_binary(Term) ->
     size(Term).
 
 cover_lists_functions(Config) ->
-    {data_dir,_DataDir} = lists:keyfind(data_dir, id(1), Config),
+    foo = lists:foldl(id(fun(_, _) -> foo end), foo, Config),
+    foo = lists:foldl(fun(_, _) -> foo end, foo, Config),
+    {'EXIT',_} = catch lists:foldl(not_a_fun, foo, Config),
 
+    foo = lists:foldr(id(fun(_, _) -> foo end), foo, Config),
+    foo = lists:foldr(fun(_, _) -> foo end, foo, Config),
+    {'EXIT',_} = catch lists:foldr(not_a_fun, foo, Config),
+
+    {data_dir,_DataDir} = lists:keyfind(data_dir, id(1), Config),
+    {'EXIT',_} = catch lists:keyfind(data_dir, not_a_position, Config),
+    {'EXIT',_} = catch lists:keyfind(data_dir, 1, not_a_list),
+
+    {'EXIT',_} = catch lists:map(not_a_fun, Config),
+    {'EXIT',_} = catch lists:map(not_a_fun, []),
+    {'EXIT',_} = catch lists:map(fun id/1, not_a_list),
     Config = lists:map(id(fun id/1), Config),
 
     case lists:suffix([no|Config], Config) of
@@ -633,6 +760,9 @@ cover_lists_functions(Config) ->
         false ->
             ok
     end,
+
+    [] = lists:zip([], []),
+    {'EXIT',_} = (catch lists:zip(not_list, [b])),
 
     Zipper = fun(A, B) -> {A,B} end,
 
@@ -648,11 +778,17 @@ cover_lists_functions(Config) ->
                               Zipped),
     [{zip_zip,{zip,_}}|_] = DoubleZip,
 
+    {'EXIT',_} = (catch lists:zipwith(not_a_fun, [a], [b])),
+    {'EXIT',{bad,_}} = (catch lists:zipwith(fun(_A, _B) -> error(bad) end,
+                                            [a], [b])),
+    {'EXIT',_} = (catch lists:zipwith(fun(_A, _B) -> error(bad) end,
+                                      not_list, [b])),
     {'EXIT',{bad,_}} = (catch lists:zipwith(fun(_A, _B) -> error(bad) end,
                                             lists:duplicate(length(Zipped), zip_zip),
                                             Zipped)),
-    [{zip_zip,{zip,_}}|_] = DoubleZip,
 
+    {'EXIT',_} = catch lists:unzip(not_a_list),
+    {'EXIT',_} = catch lists:unzip([not_a_tuple]),
     {[_|_],[_|_]} = lists:unzip(Zipped),
 
     ok.
@@ -926,6 +1062,101 @@ failures_1([] = V1, V2, V3)  ->
     %% generation of incorrect BEAM code that would ultimately cause
     %% beam_clean to crash.
     {V1 - V3, (V1 = V2) - V3}.
+
+%% Covers various edge cases in beam_call_types:types/3 relating to maps
+cover_maps_functions(_Config) ->
+    {'EXIT',_} = catch maps:filter(fun(_, _) -> true end, not_a_map),
+    {'EXIT',_} = catch maps:filter(not_a_predicate, #{}),
+
+    error = maps:find(key_not_present, #{}),
+
+    {'EXIT',_} = catch maps:fold(fun(_, _, _) -> true end, init, not_a_map),
+    {'EXIT',_} = catch maps:fold(not_a_fun, init, #{}),
+
+    #{} = maps:from_keys([], gurka),
+    #{ hello := gurka } = maps:from_keys([hello], gurka),
+    {'EXIT',_} = catch maps:from_keys(not_a_list, gurka),
+
+    #{} = catch maps:from_list([]),
+    {'EXIT',_} = catch maps:from_list([not_a_tuple]),
+
+    default = maps:get(key_not_present, #{}, default),
+    {'EXIT',_} = catch maps:get(key_not_present, #{}),
+
+    [] = maps:keys(#{}),
+    {'EXIT',_} = catch maps:keys(not_a_map),
+
+    #{ a := ok } = catch maps:map(fun(_, _) -> ok end, #{ a => a }),
+    {'EXIT',_} = catch maps:map(fun(_, _) -> error(crash) end, #{ a => a }),
+    {'EXIT',_} = catch maps:map(not_a_fun, #{}),
+    {'EXIT',_} = catch maps:map(fun(_, _) -> ok end, not_a_map),
+
+    {'EXIT',_} = catch maps:merge(not_a_map, #{}),
+
+    #{} = maps:new(),
+
+    {'EXIT',_} = catch maps:put(key, value, not_a_map),
+
+    #{} = maps:remove(a, #{ a => a }),
+    {'EXIT',_} = catch maps:remove(gurka, not_a_map),
+
+    error = maps:take(key_not_present, #{}),
+    {'EXIT',_} = catch maps:take(key, not_a_map),
+
+    {'EXIT',_} = catch maps:to_list(not_a_map),
+
+    #{ a := ok } = maps:update_with(a, fun(_) -> ok end, #{ a => a }),
+    {'EXIT',_} = catch maps:update_with(a, fun(_) -> error(a) end, #{ a => a }),
+    {'EXIT',_} = catch maps:update_with(key_not_present, fun(_) -> ok end, #{}),
+    {'EXIT',_} = catch maps:update_with(key, not_a_fun, not_a_map),
+
+    [] = maps:values(#{}),
+    {'EXIT',_} = catch maps:values(not_a_map),
+
+    #{} = maps:with([key_not_present], #{}),
+    {'EXIT',_} = catch maps:with(not_a_list, #{}),
+    {'EXIT',_} = catch maps:with([], not_a_map),
+    {'EXIT',_} = catch maps:with([foobar], not_a_map),
+
+    {'EXIT',_} = catch maps:without(not_a_list, #{}),
+    {'EXIT',_} = catch maps:without([], not_a_map),
+
+    ok.
+
+%% The types for erlang:min/2 and erlang:max/2 were wrong, assuming that the
+%% result was a float if either argument was a float.
+min_max_mixed_types(_Config) ->
+    NotFloatA = min(id(12), 100.0),
+    id(NotFloatA * 0.5),
+
+    NotFloatB = max(id(12.0), 100),
+    id(NotFloatB * 0.5),
+
+    %% Cover more of the type analysis code.
+    1 = id(min(id(0)+1, 42)),
+    -10 = id(min(id(0)+1, -10)),
+    43 = id(max(3, id(42)+1)),
+    42 = id(max(-99, id(41)+1)),
+
+    ok.
+
+%% GH-6183. beam_validator had a stronger type analysis for '=/=' and
+%% is_ne_exact than the beam_ssa_type pass. It would figure out that
+%% at the time the comparison 'a /= V' was evaluated, V must be equal
+%% to 'true' and the comparison would therefore always return 'false'.
+%% beam_validator would report that as a type conflict.
+
+not_equal(_Config) ->
+    true = do_not_equal(true),
+    {'EXIT',{function_clause,_}} = catch do_not_equal(false),
+    {'EXIT',{function_clause,_}} = catch do_not_equal(0),
+    {'EXIT',{function_clause,_}} = catch do_not_equal(42),
+    {'EXIT',{function_clause,_}} = catch do_not_equal(self()),
+
+    ok.
+
+do_not_equal(V) when (V / V < (V orelse true)); V; V ->
+    (V = (a /= V)) orelse 0.
 
 id(I) ->
     I.

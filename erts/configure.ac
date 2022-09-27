@@ -1710,9 +1710,9 @@ AS_IF([test x"$ac_cv_lib_dlpi_dlpi_open" = x"no"],
    try_dlpi_lib=$erl_xcomp_sysroot/lib
    if test x"$ac_cv_sizeof_void_p" = x"8"; then
       if test -d  $erl_xcomp_sysroot/lib64; then
-	 try_dlpi_lib= $erl_xcomp_sysroot/lib64
+	 try_dlpi_lib=$erl_xcomp_sysroot/lib64
       elif test -d  $erl_xcomp_sysroot/lib/64; then
-	 try_dlpi_lib= $erl_xcomp_sysroot/lib/64
+	 try_dlpi_lib=$erl_xcomp_sysroot/lib/64
       fi
    fi
    if test ! -f "$try_dlpi_lib/libdlpi.so" && \

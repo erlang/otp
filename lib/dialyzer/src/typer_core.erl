@@ -438,7 +438,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records, Analysis) ->
           {{F, A}, {contract, Contract}};
         {error, {overlapping_contract, []}} ->
           {{F, A}, {contract, Contract}};
-        {error, invalid_contract} ->
+        {error, {invalid_contract, _}} ->
           CString = dialyzer_contracts:contract_to_string(Contract),
           SigString = dialyzer_utils:format_sig(Sig, Records),
           Msg = io_lib:format("Error in contract of function ~w:~tw/~w\n"
@@ -960,13 +960,32 @@ get_file([]) -> "no_file". % should not happen
 
 -spec get_dialyzer_plt(analysis()) -> plt().
 
-get_dialyzer_plt(#analysis{plt = PltFile0}) ->
+get_dialyzer_plt(#analysis{plt = PltFile0}=Analysis) ->
   PltFile =
     case PltFile0 =:= none of
-      true -> dialyzer_plt:get_default_plt();
+      true ->
+        case filelib:is_regular(dialyzer_cplt:get_default_cplt_filename()) of
+          true -> dialyzer_cplt:get_default_cplt_filename();
+          false ->
+            case filelib:is_regular(dialyzer_iplt:get_default_iplt_filename()) of
+              true -> dialyzer_iplt:get_default_iplt_filename();
+              false ->
+                fatal_error(
+                  "No PLT file given, and no existing PLT was found at default locations " ++
+                    dialyzer_cplt:get_default_cplt_filename() ++
+                    " and " ++
+                    dialyzer_iplt:get_default_iplt_filename(),
+                  Analysis)
+            end
+        end;
       false -> PltFile0
     end,
-  dialyzer_plt:from_file(PltFile).
+  case dialyzer_plt:plt_kind(PltFile) of
+    cplt -> dialyzer_cplt:from_file(PltFile);
+    iplt -> dialyzer_iplt:from_file(PltFile);
+    bad_file -> fatal_error("Invalid PLT file at path " ++ PltFile, Analysis);
+    no_file -> fatal_error("No PLT file found at path " ++ PltFile, Analysis)
+  end.
 
 %% Exported Types
 

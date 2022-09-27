@@ -255,14 +255,15 @@ render_non_native(_Config) ->
         beam_language = not_erlang,
         format = <<"text/asciidoc">>,
         module_doc = #{<<"en">> => <<"This is\n\npure text">>},
-        docs= []
+        docs = []
     },
 
     <<"\n\tnot_an_erlang_module\n\n"
       "    This is\n"
       "    \n"
       "    pure text\n">> =
-        unicode:characters_to_binary(shell_docs:render(not_an_erlang_module, Docs, #{})),
+        unicode:characters_to_binary(
+          shell_docs:render(not_an_erlang_module, Docs, #{ ansi => false })),
 
     ok.
 

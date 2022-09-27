@@ -51,6 +51,7 @@
 -export([make_crypto_key/2, get_crypto_key/1]).	%Utilities used by compiler
 
 -export_type([attrib_entry/0, compinfo_entry/0, labeled_entry/0, label/0]).
+-export_type([chunkid/0]).
 -export_type([chnk_rsn/0]).
 
 -import(lists, [append/1, delete/2, foreach/2, keysort/2, 

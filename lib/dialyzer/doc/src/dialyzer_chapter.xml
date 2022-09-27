@@ -227,6 +227,139 @@ dialyzer -I my_includes -DDEBUG -Dvsn=42 -I one_more_dir</code>
   </section>
 
   <section>
+    <title>Dialyzer's Model of Analysis</title>
+    <p>Dialyzer operates somewhere between a classical type checker and a more
+      general static-analysis tool: It checks and consumes function specs,
+      yet doesn't require them, and it can find bugs across modules which consider
+      the dataflow of the programs under analysis. This means Dialyzer can find
+      genuine bugs in complex code, and is pragmatic in the face of missing
+      specs or limited information about the codebase, only reporting issues
+      which it can prove have the potential to cause a genuine issue at runtime.
+      This means Dialyzer will sometimes not report every bug, since it cannot
+      always find this proof.
+       </p>
+    <section>
+      <title>How Dialyzer Utilises Function Specifications</title>
+      <p>Dialyzer infers types for all top-level functions in a module. If the module
+        also has a spec given in the source-code, Dialyzer will compare the inferred
+        type to the spec. The comparison checks, for each argument and the return,
+        that the inferred and specified types overlap - which is to say, the types have
+        at least one possible runtime value in common. Notice that Dialyzer does not
+        check that one type contains a subset of values of the other, or that they're
+        precisely equal: This allows Dialyzer to make simplifying assumptions to preserve
+        performance and avoid reporting program flows which could potentially succeed at
+        runtime.
+        </p>
+
+      <p>If the inferred and specified types do not overlap, Dialyzer will warn that
+        the spec is invalid with respect to the implementation. If they do overlap,
+        however, Dialyzer will proceed under the assumption that the correct type for
+        the given function is the intersection of the inferred type and the specified
+        type (the rationale being that the user may know something that Dialyzer itself
+        cannot deduce). One implication of this is that if the user gives a spec for
+        a function which overlaps with Dialyzer's inferred type, but is more restrictive,
+        Dialyzer will trust those restrictions. This may then generate an error elsewhere
+        which follows from the erroneously restricted spec.
+      </p>
+
+      <p><em>Examples:</em></p>
+
+      <p>Non-overlapping argument:</p>
+
+      <code>
+-spec foo(boolean()) -> string().
+%% Dialyzer will infer: foo(integer()) -> string().
+foo(N) ->
+    integer_to_list(N).</code>
+
+      <p>Since the type of the argument in the spec is different from
+        the type that Dialyzer inferred, Dialyzer will generate the
+        following warning:</p>
+
+      <pre>
+some_module.erl:7:2: Invalid type specification for function some_module:foo/1.
+ The success typing is t:foo
+          (integer()) -> string()
+ But the spec is t:foo
+          (boolean()) -> string()
+ They do not overlap in the 1st argument</pre>
+
+      <p>Non-overlapping return:</p>
+
+      <code>
+-spec bar(a | b) -> atom().
+%% Dialyzer will infer: bar(a | b) -> binary().
+bar(a) -> &lt;&lt;"a">>;
+bar(b) -> &lt;&lt;"b">>.</code>
+
+      <p>Since the return value in the spec and the return value inferred
+        by Dialyzer are different, Dialyzer will generate the following
+        warning:</p>
+
+      <pre>
+some_module.erl:11:2: Invalid type specification for function some_module:bar/1.
+ The success typing is t:bar
+          ('a' | 'b') -> &lt;&lt;_:8>>
+ But the spec is t:bar
+          ('a' | 'b') -> atom()
+ The return types do not overlap</pre>
+
+      <p>Overlapping spec and inferred type:</p>
+
+      <code>
+-spec baz(a | b) -> non_neg_integer().
+%% Dialyzer will infer: baz(b | c | d) -> -1 | 0 | 1.
+baz(b) -> -1;
+baz(c) -> 0;
+baz(d) -> 1.</code>
+
+      <p>Dialyzer will "trust" the spec and using the intersection of
+        the spec and inferred type:</p>
+
+<pre>
+baz(b) -> 0 | 1.</pre>
+
+      <p>Notice how the <c>c</c> and <c>d</c> from the argument to <c>baz/1</c>
+        and the <c>-1</c> in the return from the inferred type were
+        dropped once the spec and inferred type were intersected.
+        This could result in warnings being emitted for later functions.</p>
+
+      <p>For example, if <c>baz/1</c> is called like this:</p>
+
+<code>
+call_baz1(A) ->
+    case baz(A) of
+        -1 -> negative;
+        0 -> zero;
+        1 -> positive
+    end.</code>
+
+      <p>Dialyzer will generate the following warning:</p>
+
+      <pre>
+some_module.erl:25:9: The pattern
+          -1 can never match the type
+          0 | 1</pre>
+
+      <p>If <c>baz/1</c> is called like this:</p>
+
+      <code>
+call_baz2() ->
+    baz(a).</code>
+
+      <p>Dialyzer will generate the following warnings:</p>
+
+      <pre>
+some_module.erl:30:1: Function call_baz2/0 has no local return
+some_module.erl:31:9: The call t:baz
+         ('a') will never return since it differs in the 1st argument
+               from the success typing arguments:
+         ('b' | 'c' | 'd')</pre>
+
+    </section>
+  </section>
+
+  <section>
     <title>Feedback and Bug Reports</title>
     <p>We very much welcome user feedback - even wishlists!
       If you notice anything weird, especially if Dialyzer reports

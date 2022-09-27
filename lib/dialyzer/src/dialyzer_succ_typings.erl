@@ -212,17 +212,17 @@ add_to_result(Labels, Result, {_Codeserver, Callgraph, _Plt, _Solver}) ->
 
 get_success_typings(Callgraph, Plt, Codeserver, TimingServer, Solvers) ->
   %% Condense the call graph to its strongly connected components (SCCs).
-  {SCCs, Callgraph1} =
+  {LabelledSCCs, Callgraph1} =
     ?timing(TimingServer, "order", dialyzer_callgraph:finalize(Callgraph)),
   State = #st{callgraph = Callgraph1, plt = Plt,
               codeserver = Codeserver,
               timing_server = TimingServer, solvers = Solvers},
-  get_refined_success_typings(SCCs, State).
+  get_refined_success_typings(LabelledSCCs, State).
 
-get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
+get_refined_success_typings(LabelledSCCs, #st{callgraph = Callgraph,
 				      timing_server = TimingServer} = State) ->
   %% Find the success types for the SCCs.
-  case find_succ_typings(SCCs, State) of
+  case find_succ_typings(LabelledSCCs, State) of
     [] ->
       %% No new type information was discovered. We are done.
       State;
@@ -233,7 +233,6 @@ get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
 	?timing(TimingServer, "order", _C1,
                 dialyzer_callgraph:module_postorder_from_funs(NotFixpoint1,
                                                               Callgraph)),
-      ?debug("Module postorder: ~p\n", [Modules]),
 
       ModState = State#st{callgraph = ModCallgraph},
       case refine_succ_typings(ModulePostorder, ModState) of
@@ -242,20 +241,20 @@ get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
           ModState;
 	NotFixpoint2 ->
 	  %% Need to reset the callgraph before repeating.
-	  {NewSCCs, Callgraph2} =
+	  {NewLabelledSCCs, Callgraph2} =
 	    ?timing(TimingServer, "order", _C2,
 		    dialyzer_callgraph:reset_from_funs(NotFixpoint2,
 						       ModCallgraph)),
 	  NewState = ModState#st{callgraph = Callgraph2},
-	  get_refined_success_typings(NewSCCs, NewState)
+	  get_refined_success_typings(NewLabelledSCCs, NewState)
       end
   end.
 
-find_succ_typings(SCCs, State) ->
+find_succ_typings(LabelledSCCs, State) ->
   {Init, Timing} = init_pass_data(State),
   Updated =
     ?timing(Timing, "typesig",
-	    dialyzer_coordinator:parallel_job(typesig, SCCs, Init, Timing)),
+	    dialyzer_coordinator:parallel_job(typesig, LabelledSCCs, Init, Timing)),
   ?debug("==================== Typesig done ====================\n\n", []),
   Updated.
 

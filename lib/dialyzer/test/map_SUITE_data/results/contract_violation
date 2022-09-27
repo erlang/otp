@@ -1,3 +1,6 @@
 
 contract_violation.erl:12:2: The pattern #{I:=Loc} can never match the type #{}
-contract_violation.erl:16:2: Invalid type specification for function contract_violation:beam_disasm_lines/2. The success typing is ('none' | <<_:32,_:_*8>>,_) -> #{pos_integer()=>{'location',_,_}}
+contract_violation.erl:16:2: Invalid type specification for function contract_violation:beam_disasm_lines/2.
+ The success typing is contract_violation:beam_disasm_lines('none' | <<_:32,_:_*8>>,_) -> #{pos_integer()=>{'location',_,_}}
+ But the spec is contract_violation:beam_disasm_lines(binary() | 'none',module()) -> lines()
+ The return types do not overlap

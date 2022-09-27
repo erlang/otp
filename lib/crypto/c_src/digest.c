@@ -114,6 +114,22 @@ static struct digest_type_t digest_types[] =
 #endif
     },
 
+    {"shake128", "SHAKE-128", 0, 0,
+#ifdef HAVE_SHAKE128
+    {&EVP_shake128, NULL}
+#else
+    {NULL,NULL}
+#endif
+    },
+
+    {"shake256", "SHAKE-256", 0, 0,
+#ifdef HAVE_SHAKE256
+    {&EVP_shake256, NULL}
+#else
+    {NULL,NULL}
+#endif
+    },
+
     {"blake2b", "BLAKE2b512", 0, 0,
 #ifdef HAVE_BLAKE2
      {&EVP_blake2b512,NULL}

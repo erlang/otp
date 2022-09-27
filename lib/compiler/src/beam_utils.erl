@@ -115,6 +115,9 @@ replace_labels_1([{get_map_elements=I,{f,Lbl},Src,List}|Is], Acc, D, Fb) when Lb
 replace_labels_1([{bs_start_match4,{f,Lbl},Live,Src,Dst}|Is], Acc, D, Fb) ->
     I = {bs_start_match4,{f,label(Lbl, D, Fb)},Live,Src,Dst},
     replace_labels_1(Is, [I | Acc], D, Fb);
+replace_labels_1([{bs_match,{f,Lbl},Ctx,List}|Is], Acc, D, Fb) ->
+    I = {bs_match,{f,label(Lbl, D, Fb)},Ctx,List},
+    replace_labels_1(Is, [I | Acc], D, Fb);
 replace_labels_1([I|Is], Acc, D, Fb) ->
     replace_labels_1(Is, [I|Acc], D, Fb);
 replace_labels_1([], Acc, _, _) -> Acc.

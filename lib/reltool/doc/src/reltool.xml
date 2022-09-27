@@ -226,10 +226,10 @@
 
       <tag><c>debug_info</c></tag>
       <item>
-        <p>The <c>debug_info</c> parameter controls whether the debug
-        information in the beam file should be kept (<c>keep</c>) or
-        stripped <c>strip</c> when the file is copied to the target
-        system.</p>
+        <p>The <c>debug_info</c> parameter controls what debug
+        information in the beam file should be kept or stripped.
+        <c>keep</c> keeps all debug info, <c>strip</c> strips all debug
+        info, and a list of chunkids keeps only those chunks.</p>
       </item>
 
       <tag><c>excl_lib</c></tag>
@@ -542,7 +542,7 @@ app_vsn()           = string()
 archive_opt         = zip_create_opt()
 boot_rel()          = rel_name()
 app_file()          = keep | strip | all
-debug_info()        = keep | strip
+debug_info()        = keep | strip | [beam_lib:chunkid()]
 dir()               = string()
 escript()           = {incl_cond, incl_cond()}
 escript_file()      = file()

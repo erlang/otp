@@ -56,7 +56,9 @@
 -define(DFLAG_MAP_TAG,               16#20000).
 -define(DFLAG_BIG_CREATION,          16#40000).
 -define(DFLAG_HANDSHAKE_23,        16#1000000).
+-define(DFLAG_UNLINK_ID,           16#2000000).
 -define(DFLAG_MANDATORY_25_DIGEST, 16#4000000).
+-define(DFLAG_V4_NC,             16#400000000).
 
 %% From OTP R9 extended references are compulsory.
 %% From OTP R10 extended pids and ports are compulsory.
@@ -64,7 +66,8 @@
 %% From OTP 21 NEW_FUN_TAGS is compulsory (no more tuple fallback {fun, ...}).
 %% From OTP 23 BIG_CREATION is compulsory.
 %% From OTP 25 NEW_FLOATS, MAP_TAG, EXPORT_PTR_TAG, and BIT_BINARIES are compulsory.
--define(COMPULSORY_DFLAGS,
+
+-define(DFLAGS_MANDATORY_25, 
         (?DFLAG_EXTENDED_REFERENCES bor
              ?DFLAG_FUN_TAGS bor
              ?DFLAG_EXTENDED_PIDS_PORTS bor
@@ -74,7 +77,18 @@
              ?DFLAG_NEW_FLOATS bor
              ?DFLAG_MAP_TAG bor
              ?DFLAG_EXPORT_PTR_TAG bor
-             ?DFLAG_BIT_BINARIES)).
+             ?DFLAG_BIT_BINARIES bor
+             ?DFLAG_HANDSHAKE_23)).
+
+%% From OTP 26 V4_NC and UNLINK_ID are compulsory.
+
+-define(DFLAGS_MANDATORY_26,
+        (?DFLAG_V4_NC bor
+             ?DFLAG_UNLINK_ID)).
+
+-define(COMPULSORY_DFLAGS,
+        (?DFLAGS_MANDATORY_25 bor
+             ?DFLAGS_MANDATORY_26)).
 
 -define(PASS_THROUGH, $p).
 
@@ -398,7 +412,8 @@ dflag_mandatory_25(_Config) ->
                                     PortNo,
                                     [{active,false},{packet,2}]),
     OtherNode = list_to_atom(?CT_PEER_NAME()++"@"++atom_to_list(NB)),
-    send_name(SocketA, OtherNode, ?DFLAG_MANDATORY_25_DIGEST),
+    send_name(SocketA, OtherNode,
+              ?DFLAG_MANDATORY_25_DIGEST bor ?DFLAGS_MANDATORY_26),
     ok = recv_status(SocketA),
     gen_tcp:close(SocketA),
     peer:stop(Peer),

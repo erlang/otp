@@ -1541,6 +1541,11 @@ make_appl_i({application, Name, Opts}) when is_atom(Name), is_list(Opts) ->
 	end,
     Phases = get_opt(start_phases, Opts, undefined),
     Env = get_opt(env, Opts, []),
+    case check_para(Env, Name) of
+        ok -> ok;
+        {error, Reason} ->
+            throw({error, {invalid_options, Reason}})
+    end,
     MaxP = get_opt(maxP, Opts, infinity),
     MaxT = get_opt(maxT, Opts, infinity),
     IncApps = get_opt(included_applications, Opts, []),

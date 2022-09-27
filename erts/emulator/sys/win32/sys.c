@@ -32,7 +32,6 @@
 #include "erl_sys_driver.h"
 #include "global.h"
 #include "erl_threads.h"
-#include "../../drivers/win32/win_con.h"
 #include "erl_cpu_topology.h"
 #include <malloc.h>
 
@@ -125,8 +124,6 @@ BOOL WINAPI ctrl_handler(DWORD dwCtrlType);
 static int max_files = 1024;
 
 static BOOL use_named_pipes;
-static BOOL win_console = FALSE;
-
 
 static OSVERSIONINFO int_os_version;	/* Version information for Win32. */
 
@@ -205,10 +202,6 @@ erts_sys_misc_mem_sz(void)
  */
 void sys_tty_reset(int exit_code)
 {
-    if (exit_code == ERTS_ERROR_EXIT)
-	ConWaitForExit();
-    else
-	ConNormalExit();
 }
 
 void erl_sys_args(int* argc, char** argv)
@@ -304,25 +297,16 @@ int erts_set_signal(Eterm signal, Eterm type) {
     return 0;
 }
 
+static DWORD dwOriginalOutMode = 0;
+static DWORD dwOriginalInMode = 0;
+
 static void
 init_console(void)
 {
-    char* mode = erts_read_env("ERL_CONSOLE_MODE");
-
-    if (!mode || strcmp(mode, "window") == 0) {
-	win_console = TRUE;
-	ConInit();
-	/*nohup = 0;*/
-    } else if (strncmp(mode, "tty:", 4) == 0) {
-	if (mode[5] == 'c') {
-	    setvbuf(stdout, NULL, _IONBF, 0);
-	}
-	if (mode[6] == 'c') {
-	    setvbuf(stderr, NULL, _IONBF, 0);
-	}
-    }
-
-    erts_free_read_env(mode);
+    GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwOriginalOutMode);
+    GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &dwOriginalInMode);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
 }
 
 int sys_max_files(void) 
@@ -2194,7 +2178,6 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	    return ERL_DRV_ERROR_GENERAL;
 	}
 	
-	fd_driver_input = &(dp->in);
 	dp->in.flags = DF_XLAT_CR;
 	if (is_std_error) {
 	    dp->out.flags |= DF_DROP_IF_INVH; /* Just drop messages if stderror
@@ -2202,6 +2185,7 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	}
 	
 	if ( in == 0 && out == 1) {
+        fd_driver_input = &(dp->in);
 	    save_01_port = dp;
 	} else if (in == 2 && out == 2) {
 	    save_22_port = dp;
@@ -2945,10 +2929,6 @@ sys_get_key(int fd)
 {
     ASSERT(fd == 0);
 
-    if (win_console) {
-        return ConGetKey();
-    }
-
     /*
      * Black magic follows. (Code stolen from get_overlapped_result())
      */
@@ -2972,6 +2952,32 @@ sys_get_key(int fd)
 		}
 		return key;
 	    }
+	}
+    }
+    else {
+	char c[64];
+	DWORD dwBytesRead, dwCurrentOutMode = 0, dwCurrentInMode = 0;
+
+	/* Get current console information */
+	GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwCurrentOutMode);
+	GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &dwCurrentInMode);
+
+	/* Set the a "oldstyle" terminal with line input that we can use ReadFile on */
+	SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), dwOriginalOutMode);
+	SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE),
+		ENABLE_PROCESSED_INPUT |
+		ENABLE_LINE_INPUT |
+		ENABLE_ECHO_INPUT |
+		ENABLE_INSERT_MODE |
+		ENABLE_QUICK_EDIT_MODE |
+		ENABLE_AUTO_POSITION
+		);
+
+	if (ReadFile(GetStdHandle(STD_INPUT_HANDLE), &c, sizeof(c), &dwBytesRead, NULL) && dwBytesRead > 0) {
+	    /* Restore original console information */
+	    SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), dwCurrentOutMode);
+	    SetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), dwCurrentInMode);
+	    return c[0];
 	}
     }
     return '*';		/* Error! */

@@ -32,9 +32,9 @@ callback_init(Parent) -> #state{parent = Parent}. %% Wrong return
 
 callback_cast(#state{parent = Pid} = State, Pid, Message)
   when Message =:= 'open'; Message =:= 'close' ->
-    {noreply, State#state{status = Message}};
+    {reply, State#state{status = Message}}; % Wrong return
 callback_cast(State, _Pid, _Message) ->
-    {noreply, State}.
+    {reply, State}. % Wrong return
 
 -spec callback_call(state(), atom(), call_message()) ->      %% Wrong arg spec
 			   {'reply', state(), call_reply()}.

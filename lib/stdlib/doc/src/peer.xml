@@ -99,60 +99,60 @@
       of the same test suite running in parallel</item>
     </list>
     <code type="erl">
-      -module(my_SUITE).
-      -behaviour(ct_suite).
-      -export([all/0, groups/0]).
-      -export([basic/1, args/1, named/1, restart_node/1, multi_node/1]).
+-module(my_SUITE).
+-behaviour(ct_suite).
+-export([all/0, groups/0]).
+-export([basic/1, args/1, named/1, restart_node/1, multi_node/1]).
 
-      -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-      groups() ->
-          [{quick, [parallel],
-              [basic, args, named, restart_node, multi_node]}].
+groups() ->
+    [{quick, [parallel],
+        [basic, args, named, restart_node, multi_node]}].
 
-      all() ->
-          [{group, quick}].
+all() ->
+    [{group, quick}].
 
-      basic(Config) when is_list(Config) ->
-          {ok, Peer, _Node} = ?CT_PEER(),
-          peer:stop(Peer).
+basic(Config) when is_list(Config) ->
+    {ok, Peer, _Node} = ?CT_PEER(),
+    peer:stop(Peer).
 
-      args(Config) when is_list(Config) ->
-          %% specify additional arguments to the new node
-          {ok, Peer, _Node} = ?CT_PEER(["-emu_flavor", "smp"]),
-          peer:stop(Peer).
+args(Config) when is_list(Config) ->
+    %% specify additional arguments to the new node
+    {ok, Peer, _Node} = ?CT_PEER(["-emu_flavor", "smp"]),
+    peer:stop(Peer).
 
-      named(Config) when is_list(Config) ->
-          %% pass test case name down to function starting nodes
-          Peer = start_node_impl(named_test),
-          peer:stop(Peer).
+named(Config) when is_list(Config) ->
+    %% pass test case name down to function starting nodes
+    Peer = start_node_impl(named_test),
+    peer:stop(Peer).
 
-      start_node_impl(ActualTestCase) ->
-          {ok, Peer, Node} = ?CT_PEER(#{name => ?CT_PEER_NAME(ActualTestCase)}),
-          %% extra setup needed for multiple test cases
-          ok = rpc:call(Node, application, set_env, [kernel, key, value]),
-          Peer.
+start_node_impl(ActualTestCase) ->
+    {ok, Peer, Node} = ?CT_PEER(#{name => ?CT_PEER_NAME(ActualTestCase)}),
+    %% extra setup needed for multiple test cases
+    ok = rpc:call(Node, application, set_env, [kernel, key, value]),
+    Peer.
 
-      restart_node(Config) when is_list(Config) ->
-          Name = ?CT_PEER_NAME(),
-          {ok, Peer, Node} = ?CT_PEER(#{name => Name}),
-          peer:stop(Peer),
-          %% restart the node with the same name as before
-          {ok, Peer2, Node} = ?CT_PEER(#{name => Name, args => ["+fnl"]}),
-          peer:stop(Peer2).
+restart_node(Config) when is_list(Config) ->
+    Name = ?CT_PEER_NAME(),
+    {ok, Peer, Node} = ?CT_PEER(#{name => Name}),
+    peer:stop(Peer),
+    %% restart the node with the same name as before
+    {ok, Peer2, Node} = ?CT_PEER(#{name => Name, args => ["+fnl"]}),
+    peer:stop(Peer2).
     </code>
 
     <p>
       The next example demonstrates how to start multiple nodes concurrently:
     </p>
     <code type="erl">
-      multi_node(Config) when is_list(Config) ->
-          Peers = [?CT_PEER(#{wait_boot => {self(), tag}})
-              || _ &lt;- lists:seq(1, 4)],
-          %% wait for all nodes to complete boot process, get their names:
-          _Nodes = [receive {tag, {started, Node, Peer}} -> Node end
-              || {ok, Peer} &lt;- Peers],
-          [peer:stop(Peer) || {ok, Peer} &lt;- Peers].
+multi_node(Config) when is_list(Config) ->
+    Peers = [?CT_PEER(#{wait_boot => {self(), tag}})
+        || _ &lt;- lists:seq(1, 4)],
+    %% wait for all nodes to complete boot process, get their names:
+    _Nodes = [receive {tag, {started, Node, Peer}} -> Node end
+        || {ok, Peer} &lt;- Peers],
+    [peer:stop(Peer) || {ok, Peer} &lt;- Peers].
     </code>
 
     <p>
@@ -161,9 +161,9 @@
       prompt.
     </p>
     <code type="erl">
-      Ssh = os:find_executable("ssh"),
-      peer:start_link(#{exec => {Ssh, ["another_host", "erl"]},
-          connection => standard_io}),
+Ssh = os:find_executable("ssh"),
+peer:start_link(#{exec => {Ssh, ["another_host", "erl"]},
+    connection => standard_io}),
     </code>
 
     <p>
@@ -172,76 +172,76 @@
       running inside containers form an Erlang cluster.
     </p>
     <code type="erl">
-      docker(Config) when is_list(Config) ->
-          Docker = os:find_executable("docker"),
-          PrivDir = proplists:get_value(priv_dir, Config),
-          build_release(PrivDir),
-          build_image(PrivDir),
+docker(Config) when is_list(Config) ->
+    Docker = os:find_executable("docker"),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    build_release(PrivDir),
+    build_image(PrivDir),
 
-          %% start two Docker containers
-          {ok, Peer, Node} = peer:start_link(#{name => lambda,
-              connection => standard_io,
-              exec => {Docker, ["run", "-h", "one", "-i", "lambda"]}}),
-          {ok, Peer2, Node2} = peer:start_link(#{name => lambda,
-              connection => standard_io,
-              exec => {Docker, ["run", "-h", "two", "-i", "lambda"]}}),
+    %% start two Docker containers
+    {ok, Peer, Node} = peer:start_link(#{name => lambda,
+        connection => standard_io,
+        exec => {Docker, ["run", "-h", "one", "-i", "lambda"]}}),
+    {ok, Peer2, Node2} = peer:start_link(#{name => lambda,
+        connection => standard_io,
+        exec => {Docker, ["run", "-h", "two", "-i", "lambda"]}}),
 
-          %% find IP address of the second node using alternative connection RPC
-          {ok, Ips} = peer:call(Peer2, inet, getifaddrs, []),
-          {"eth0", Eth0} = lists:keyfind("eth0", 1, Ips),
-          {addr, Ip} = lists:keyfind(addr, 1, Eth0),
+    %% find IP address of the second node using alternative connection RPC
+    {ok, Ips} = peer:call(Peer2, inet, getifaddrs, []),
+    {"eth0", Eth0} = lists:keyfind("eth0", 1, Ips),
+    {addr, Ip} = lists:keyfind(addr, 1, Eth0),
 
-          %% make first node to discover second one
-          ok = peer:call(Peer, inet_db, set_lookup, [[file]]),
-          ok = peer:call(Peer, inet_db, add_host, [Ip, ["two"]]),
+    %% make first node to discover second one
+    ok = peer:call(Peer, inet_db, set_lookup, [[file]]),
+    ok = peer:call(Peer, inet_db, add_host, [Ip, ["two"]]),
 
-          %% join a cluster
-          true = peer:call(Peer, net_kernel, connect_node, [Node2]),
-          %% verify that second peer node has only the first node visible
-          [Node] = peer:call(Peer2, erlang, nodes, []),
+    %% join a cluster
+    true = peer:call(Peer, net_kernel, connect_node, [Node2]),
+    %% verify that second peer node has only the first node visible
+    [Node] = peer:call(Peer2, erlang, nodes, []),
 
-          %% stop peers, causing containers to also stop
-          peer:stop(Peer2),
-          peer:stop(Peer).
+    %% stop peers, causing containers to also stop
+    peer:stop(Peer2),
+    peer:stop(Peer).
 
-      build_release(Dir) ->
-          %% load sasl.app file, otherwise application:get_key will fail
-          application:load(sasl),
-          %% create *.rel - release file
-          RelFile = filename:join(Dir, "lambda.rel"),
-          Release = {release, {"lambda", "1.0.0"},
-              {erts, erlang:system_info(version)},
-              [{App, begin {ok, Vsn} = application:get_key(App, vsn), Vsn end}
-                  || App &lt;- [kernel, stdlib, sasl]]},
-          ok = file:write_file(RelFile, list_to_binary(lists:flatten(
-              io_lib:format("~tp.", [Release])))),
-          RelFileNoExt = filename:join(Dir, "lambda"),
+build_release(Dir) ->
+    %% load sasl.app file, otherwise application:get_key will fail
+    application:load(sasl),
+    %% create *.rel - release file
+    RelFile = filename:join(Dir, "lambda.rel"),
+    Release = {release, {"lambda", "1.0.0"},
+        {erts, erlang:system_info(version)},
+        [{App, begin {ok, Vsn} = application:get_key(App, vsn), Vsn end}
+            || App &lt;- [kernel, stdlib, sasl]]},
+    ok = file:write_file(RelFile, list_to_binary(lists:flatten(
+        io_lib:format("~tp.", [Release])))),
+    RelFileNoExt = filename:join(Dir, "lambda"),
 
-          %% create boot script
-          {ok, systools_make, []} = systools:make_script(RelFileNoExt,
-              [silent, {outdir, Dir}]),
-          %% package release into *.tar.gz
-          ok = systools:make_tar(RelFileNoExt, [{erts, code:root_dir()}]).
+    %% create boot script
+    {ok, systools_make, []} = systools:make_script(RelFileNoExt,
+        [silent, {outdir, Dir}]),
+    %% package release into *.tar.gz
+    ok = systools:make_tar(RelFileNoExt, [{erts, code:root_dir()}]).
 
-      build_image(Dir) ->
-          %% Create Dockerfile example, working only for Ubuntu 20.04
-          %% Expose port 4445, and make Erlang distribution to listen
-          %%  on this port, and connect to it without EPMD
-          %% Set cookie on both nodes to be the same.
-          BuildScript = filename:join(Dir, "Dockerfile"),
-          Dockerfile =
-            "FROM ubuntu:20.04 as runner\n"
-            "EXPOSE 4445\n"
-            "WORKDIR /opt/lambda\n"
-            "COPY lambda.tar.gz /tmp\n"
-            "RUN tar -zxvf /tmp/lambda.tar.gz -C /opt/lambda\n"
-            "ENTRYPOINT [\"/opt/lambda/erts-" ++ erlang:system_info(version) ++
-            "/bin/dyn_erl\", \"-boot\", \"/opt/lambda/releases/1.0.0/start\","
-            " \"-kernel\", \"inet_dist_listen_min\", \"4445\","
-            " \"-erl_epmd_port\", \"4445\","
-            " \"-setcookie\", \"secret\"]\n",
-          ok = file:write_file(BuildScript, Dockerfile),
-          os:cmd("docker build -t lambda " ++ Dir).
+build_image(Dir) ->
+    %% Create Dockerfile example, working only for Ubuntu 20.04
+    %% Expose port 4445, and make Erlang distribution to listen
+    %%  on this port, and connect to it without EPMD
+    %% Set cookie on both nodes to be the same.
+    BuildScript = filename:join(Dir, "Dockerfile"),
+    Dockerfile =
+      "FROM ubuntu:20.04 as runner\n"
+      "EXPOSE 4445\n"
+      "WORKDIR /opt/lambda\n"
+      "COPY lambda.tar.gz /tmp\n"
+      "RUN tar -zxvf /tmp/lambda.tar.gz -C /opt/lambda\n"
+      "ENTRYPOINT [\"/opt/lambda/erts-" ++ erlang:system_info(version) ++
+      "/bin/dyn_erl\", \"-boot\", \"/opt/lambda/releases/1.0.0/start\","
+      " \"-kernel\", \"inet_dist_listen_min\", \"4445\","
+      " \"-erl_epmd_port\", \"4445\","
+      " \"-setcookie\", \"secret\"]\n",
+    ok = file:write_file(BuildScript, Dockerfile),
+    os:cmd("docker build -t lambda " ++ Dir).
     </code>
   </section>
 
@@ -270,19 +270,19 @@
               is, <c>peer</c> follows compatibility behaviour and uses the origin node name.
             </p>
           </item>
-          <tag><c>host</c></tag>
-          <item>
-            <p>
-              Enforces a specific host name. Can be used to override the default
-              behaviour and start "node@localhost" instead of "node@realhostname".
-            </p>
-          </item>
           <tag><c>longnames</c></tag>
           <item>
             <p>
               Use long names to start a node. Default is taken from the origin
               using <c>net_kernel:longnames()</c>. If the origin is not distributed,
               short names is the default.
+            </p>
+          </item>
+          <tag><c>host</c></tag>
+          <item>
+            <p>
+              Enforces a specific host name. Can be used to override the default
+              behaviour and start "node@localhost" instead of "node@realhostname".
             </p>
           </item>
           <tag><c>peer_down</c></tag>
@@ -296,6 +296,11 @@
               the controlling process to exit abnormally.
             </p>
           </item>
+          <tag><c>connection</c></tag>
+          <item>
+            <p>Alternative connection specification. See the
+              <seetype marker="#connection"><c>connection</c> datatype</seetype>.</p>
+          </item>
           <tag><c>exec</c></tag>
           <item>
             <p>
@@ -303,15 +308,31 @@
               default bash.
             </p>
           </item>
-          <tag><c>connection</c></tag>
+          <tag><c>detached</c></tag>
           <item>
-            <p>Alternative connection specification. See the
-              <seetype marker="#connection"><c>connection</c> datatype</seetype>.</p>
+            <p>Defines whether to pass the <c>-detached</c> flag to the started peer.
+              This option cannot be set to <c>false</c> using the standard_io alternative
+              connection type. Default is <c>true</c>.
+            </p>
           </item>
           <tag><c>args</c></tag>
           <item>
             <p>Extra command line arguments to append to the "erl" command. Arguments are
               passed as is, no escaping or quoting is needed or accepted.</p>
+          </item>
+          <tag><c>post_process_args</c></tag>
+          <item>
+            <p>Allows the user to change the arguments passed to <c>exec</c> before the
+              peer is started. This can for example be useful when the <c>exec</c> program
+              wants the arguments to "erl" as a single argument. Example:
+            </p>
+            <code type="erl">
+peer:start(#{ name => peer:random_name(),
+  exec => {os:find_executable("bash"),["-c","erl"]},
+  post_process_args =>
+     fun(["-c"|Args]) -> ["-c", lists:flatten(lists:join($\s, Args))] end
+  }).
+            </code>
           </item>
           <tag><c>env</c></tag>
           <item>

@@ -113,10 +113,10 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 verify_highest_opcode(_Config) ->
     case ?MODULE of
-        bs_match_r21_SUITE ->
+        bs_match_r25_SUITE ->
             {ok,Beam} = file:read_file(code:which(?MODULE)),
             case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 163 ->
+                Highest when Highest =< 180 ->
                     ok;
                 TooHigh ->
                     ct:fail({too_high_opcode_for_21,TooHigh})
@@ -1406,6 +1406,10 @@ bad_size(Config) when is_list(Config) ->
     true = bad_size_1(<<0>>),
     error = bad_size_1(<<0,1>>),
 
+    [] = bad_size_2([a]),
+    [] = bad_size_2([<<1,2,3>>]),
+    {'EXIT',{{bad_generator,no_list},_}} = catch bad_size_2(no_list),
+
     ok.
 
 bad_all_size(Bin) ->
@@ -1464,6 +1468,15 @@ bad_all_size_6(Bin) ->
 bad_size_1(<<0>>) -> true;
 bad_size_1(<<0:[]>>) -> false;
 bad_size_1(_) -> error.
+
+-record(rec_bad_size_2, {a}).
+
+bad_size_2(L) ->
+    [
+     ok ||
+        <<_:(bad#rec_bad_size_2.a)/float>> <- L
+    ].
+
 
 haystack(Config) when is_list(Config) ->
     <<0:10/unit:8>> = haystack_1(<<0:10/unit:8>>),
@@ -2486,139 +2499,93 @@ id(I) -> I.
 
 expand_and_squeeze(Config) when is_list(Config) ->
     %% UTF8 literals are expanded and then squeezed into integer16
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,16}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<$á/utf8,_/binary>>"),
-	?Q("<<$é/utf8,_/binary>>")
-    ]),
+    ensure_squeezed(16, [?Q("<<$á/utf8,_/binary>>"),
+                         ?Q("<<$é/utf8,_/binary>>")]),
 
     %% Sized integers are expanded and then squeezed into integer16
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,16}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<0:32,_/binary>>"),
-	?Q("<<\"bbbb\",_/binary>>")
-    ]),
+    ensure_squeezed(16, [?Q("<<0:32,_/binary>>"),
+                         ?Q("<<\"bbbb\",_/binary>>")]),
 
     %% Groups of 8 bits are squeezed into integer16
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,16}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<\"aaaa\",_/binary>>"),
-	?Q("<<\"bbbb\",_/binary>>")
-    ]),
+    ensure_squeezed(16, [?Q("<<\"aaaa\",_/binary>>"),
+                         ?Q("<<\"bbbb\",_/binary>>")]),
 
     %% Groups of 8 bits with empty binary are also squeezed
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,16}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<\"aaaa\",_/binary>>"),
-	?Q("<<\"bbbb\",_/binary>>"),
-	?Q("<<>>")
-    ]),
+    ensure_squeezed(16, [?Q("<<\"aaaa\",_/binary>>"),
+                         ?Q("<<\"bbbb\",_/binary>>"),
+                         ?Q("<<>>")]),
 
     %% Groups of 8 bits with float lookup are not squeezed
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,8}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<\"aaaa\",_/binary>>"),
-	?Q("<<\"bbbb\",_/binary>>"),
-	?Q("<<_/float>>")
-    ]),
+    ensure_squeezed(8, [?Q("<<\"aaaa\",_/binary>>"),
+                        ?Q("<<\"bbbb\",_/binary>>"),
+                        ?Q("<<_/float>>")]),
 
     %% Groups of diverse bits go with minimum possible
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,8}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<\"aa\",_/binary>>"),
-	?Q("<<\"bb\",_/binary>>"),
-	?Q("<<\"c\",_/binary>>")
-    ]),
+    ensure_squeezed(8, [?Q("<<\"aa\",_/binary>>"),
+                        ?Q("<<\"bb\",_/binary>>"),
+                        ?Q("<<\"c\",_/binary>>")]),
 
     %% Groups of diverse bits go with minimum possible but are recursive...
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,8}|_],_}
-	| RestDiverse
-    ] = binary_match_to_asm([
-	?Q("<<\"aaa\",_/binary>>"),
-	?Q("<<\"abb\",_/binary>>"),
-	?Q("<<\"c\",_/binary>>")
-    ]),
+    [{bs_match,{f,_},_Ctx,
+      {commands,[{ensure_at_least,Size,1},
+                 {integer,_Live,_Flags,Size,1,_Dst}]}} | RestDiverse] =
+        binary_match_to_asm([?Q("<<\"aaa\",_/binary>>"),
+                             ?Q("<<\"abb\",_/binary>>"),
+                             ?Q("<<\"c\",_/binary>>")]),
 
-    %% so we still perform a 16 bits lookup for the remaining
-    true = lists:any(fun({test,bs_get_integer2,_,_,[_,{integer,16}|_],_}) -> true;
-			(_) -> false end, RestDiverse),
+    %% ... so we still perform a 16 bits lookup for the remaining
+    F = fun({bs_match,{f,_},_,
+             {commands,[{ensure_at_least,16,1},
+                        {integer,_Live,_Flags,16,1,_Dst}]}}) ->
+                true;
+           (_) -> false
+        end,
+    true = lists:any(F, RestDiverse),
 
     %% Large match is kept as is if there is a sized match later
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,64}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<255,255,255,255,255,255,255,255>>"),
-	?Q("<<_:64>>")
-    ]),
+    ensure_squeezed(64, [?Q("<<255,255,255,255,255,255,255,255>>"),
+                         ?Q("<<_:64>>")]),
 
     %% Large match is kept as is with large matches before and after
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,32}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<A:32,_:A>>"),
-	?Q("<<0:32>>"),
-	?Q("<<_:32>>")
-    ]),
+    ensure_squeezed(32, [?Q("<<A:32,_:A>>"),
+                         ?Q("<<0:32>>"),
+                         ?Q("<<_:32>>")]),
 
     %% Large match is kept as is with large matches before and after
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,32}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<A:32,_:A>>"),
-	?Q("<<0,0,0,0>>"),
-	?Q("<<_:32>>")
-    ]),
+    ensure_squeezed(32, [?Q("<<A:32,_:A>>"),
+                         ?Q("<<0,0,0,0>>"),
+                         ?Q("<<_:32>>")]),
 
     %% Large match is kept as is with smaller but still large matches before and after
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,32}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<A:32, _:A>>"),
-	?Q("<<0:64>>"),
-	?Q("<<_:32>>")
-    ]),
+    ensure_squeezed(32, [?Q("<<A:32, _:A>>"),
+                         ?Q("<<0:64>>"),
+                         ?Q("<<_:32>>")]),
 
     %% There is no squeezing for groups with more than 16 matches
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,8}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<\"aa\", _/binary>>"),
-	?Q("<<\"bb\", _/binary>>"),
-	?Q("<<\"cc\", _/binary>>"),
-	?Q("<<\"dd\", _/binary>>"),
-	?Q("<<\"ee\", _/binary>>"),
-	?Q("<<\"ff\", _/binary>>"),
-	?Q("<<\"gg\", _/binary>>"),
-	?Q("<<\"hh\", _/binary>>"),
-	?Q("<<\"ii\", _/binary>>"),
-	?Q("<<\"jj\", _/binary>>"),
-	?Q("<<\"kk\", _/binary>>"),
-	?Q("<<\"ll\", _/binary>>"),
-	?Q("<<\"mm\", _/binary>>"),
-	?Q("<<\"nn\", _/binary>>"),
-	?Q("<<\"oo\", _/binary>>"),
-	?Q("<<\"pp\", _/binary>>")
-    ]),
+    ensure_squeezed(8, [?Q("<<\"aa\", _/binary>>"),
+                        ?Q("<<\"bb\", _/binary>>"),
+                        ?Q("<<\"cc\", _/binary>>"),
+                        ?Q("<<\"dd\", _/binary>>"),
+                        ?Q("<<\"ee\", _/binary>>"),
+                        ?Q("<<\"ff\", _/binary>>"),
+                        ?Q("<<\"gg\", _/binary>>"),
+                        ?Q("<<\"hh\", _/binary>>"),
+                        ?Q("<<\"ii\", _/binary>>"),
+                        ?Q("<<\"jj\", _/binary>>"),
+                        ?Q("<<\"kk\", _/binary>>"),
+                        ?Q("<<\"ll\", _/binary>>"),
+                        ?Q("<<\"mm\", _/binary>>"),
+                        ?Q("<<\"nn\", _/binary>>"),
+                        ?Q("<<\"oo\", _/binary>>"),
+                        ?Q("<<\"pp\", _/binary>>")]),
 
     ok.
+
+ensure_squeezed(ExpectedSize, Fields) ->
+    [{bs_match,{f,_},_,
+      {commands,[{ensure_at_least,ExpectedSize,1},
+                 {integer,_Live,_Flags,ExpectedSize,1,_Dst}]}} | _] =
+        binary_match_to_asm(Fields).
 
 binary_match_to_asm(Matches) ->
     Clauses = [

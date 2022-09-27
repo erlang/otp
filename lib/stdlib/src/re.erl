@@ -31,6 +31,8 @@
                         | bsr_anycrlf | bsr_unicode
                         | no_start_optimize | ucp | never_utf.
 
+-type replace_fun() :: fun((binary(), [binary()]) -> iodata() | unicode:charlist()).
+
 %%% BIFs
 
 -export([internal_run/4]).
@@ -353,7 +355,7 @@ compile_split(_,_) ->
 -spec replace(Subject, RE, Replacement) -> iodata() | unicode:charlist() when
       Subject :: iodata() | unicode:charlist(),
       RE :: mp() | iodata(),
-      Replacement :: iodata() | unicode:charlist().
+      Replacement :: iodata() | unicode:charlist() | replace_fun().
 
 replace(Subject,RE,Replacement) ->
     try
@@ -366,7 +368,7 @@ replace(Subject,RE,Replacement) ->
 -spec replace(Subject, RE, Replacement, Options) -> iodata() | unicode:charlist() when
       Subject :: iodata() | unicode:charlist(),
       RE :: mp() | iodata() | unicode:charlist(),
-      Replacement :: iodata() | unicode:charlist(),
+      Replacement :: iodata() | unicode:charlist() | replace_fun(),
       Options :: [Option],
       Option :: anchored | global | notbol | noteol | notempty 
 	      | notempty_atstart
@@ -380,11 +382,11 @@ replace(Subject,RE,Replacement) ->
 
 replace(Subject,RE,Replacement,Options) ->
     try
-    {NewOpt,Convert} = process_repl_params(Options,iodata),
-    Unicode = check_for_unicode(RE, Options),
-    FlatSubject = to_binary(Subject, Unicode),
-    FlatReplacement = to_binary(Replacement, Unicode),
-    IoList = do_replace(FlatSubject,Subject,RE,FlatReplacement,NewOpt),
+	{NewOpt,Convert} = process_repl_params(Options,iodata),
+	Unicode = check_for_unicode(RE, Options),
+	FlatSubject = to_binary(Subject, Unicode),
+	Replacement1 = normalize_replacement(Replacement, Unicode),
+	IoList = do_replace(FlatSubject,Subject,RE,Replacement1,NewOpt),
 	case Convert of
 	    iodata ->
 		IoList;
@@ -412,6 +414,10 @@ replace(Subject,RE,Replacement,Options) ->
 	    badarg_with_info([Subject,RE,Replacement,Options])
     end.
 
+normalize_replacement(Replacement, _Unicode) when is_function(Replacement, 2) ->
+    Replacement;
+normalize_replacement(Replacement, Unicode) ->
+    to_binary(Replacement, Unicode).
 
 do_replace(FlatSubject,Subject,RE,Replacement,Options) ->
     case re:run(FlatSubject,RE,Options) of
@@ -512,7 +518,9 @@ precomp_repl(<<X,Rest/binary>>) ->
 	    [<<X,BHead/binary>> | T0];
 	Other ->
 	    [<<X>> | Other]
-    end.
+    end;
+precomp_repl(Repl) when is_function(Repl) ->
+    Repl.
     
 
 
@@ -540,6 +548,16 @@ do_mlist(Whole,Subject,Pos,Repl,[[{MPos,Count} | Sub] | Tail])
     [NewData | do_mlist(Whole,Rest,Pos+EatLength,Repl,Tail)].
 
 
+do_replace(Subject, Repl, SubExprs0) when is_function(Repl) ->
+    All = binary:part(Subject, hd(SubExprs0)),
+    SubExprs1 =
+        [ if
+              Pos >= 0, Len > 0 ->
+                  binary:part(Subject, Pos, Len);
+              true ->
+                  <<>>
+          end || {Pos, Len} <- tl(SubExprs0) ],
+    Repl(All, SubExprs1);
 do_replace(_,[Bin],_) when is_binary(Bin) ->
     Bin;
 do_replace(Subject,Repl,SubExprs0) ->

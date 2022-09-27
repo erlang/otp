@@ -19,47 +19,6 @@
 // %CopyrightEnd%
 //
 
-// Generate the fastest instruction to fetch an integer from a binary.
-gen.get_integer2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
-    BeamOp* op;
-    UWord bits;
-
-    $NewBeamOp(S, op);
-    $NativeEndian(Flags);
-
-    if (Size.type == TAG_i) {
-        if (!beam_load_safe_mul(Size.val, Unit.val, &bits)) {
-            $BeamOpNameArity(op, jump, 1);
-            op->a[0] = Fail;
-
-            return op;
-        } else if (bits <= 1023) {
-            $BeamOpNameArity(op, i_bs_get_fixed_integer, 6);
-            op->a[0] = Ms;
-            op->a[1] = Fail;
-            op->a[2] = Live;
-            op->a[3].type = TAG_u;
-            op->a[3].val = Flags.val;
-            op->a[4].type = TAG_u;
-            op->a[4].val = bits;
-            op->a[5] = Dst;
-
-            return op;
-        }
-    }
-
-    $BeamOpNameArity(op, i_bs_get_integer, 6);
-    op->a[0] = Ms;
-    op->a[1] = Fail;
-    op->a[2] = Live;
-    op->a[3].type = TAG_u;
-    op->a[3].val = (Unit.val << 3) | Flags.val;
-    op->a[4] = Size;
-    op->a[5] = Dst;
-
-    return op;
-}
-
 gen.select_tuple_arity(Src, Fail, Size, Rest) {
     BeamOp* op;
     BeamOpArg *tmp;
@@ -567,6 +526,28 @@ gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
         Flags.val = flags;
         $NativeEndian(Flags);
         op->a[i+fixed_args+3] = Flags;
+
+        /*
+         * Replace short string segments with integer segments.
+         * Integer segments can be combined with adjacent integer
+         * segments for better performance.
+         */
+        if (op->a[i+fixed_args+0].val == am_string) {
+            Sint num_chars = op->a[i+fixed_args+5].val;
+            if (num_chars <= 4) {
+                Sint index = op->a[i+fixed_args+4].val;
+                const byte* s = S->beam.strings.data + index;
+                Uint num = 0;
+                op->a[i+fixed_args+0].val = am_integer;
+                op->a[i+fixed_args+2].val = 8;
+                op->a[i+fixed_args+5].val = num_chars;
+                while (num_chars-- > 0) {
+                    num = num << 8 | *s++;
+                }
+                op->a[i+fixed_args+4].type = TAG_i;
+                op->a[i+fixed_args+4].val = num;
+            }
+        }
     }
 
     if (op->a[4].val == am_private_append && Alloc.val != 0) {
@@ -580,6 +561,62 @@ gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
         op->a[1].val = 0;
 
         op = th;
+    }
+
+    return op;
+}
+
+gen.bs_match(Fail, Ctx, N, List) {
+    BeamOp* op;
+    int fixed_args;
+    int i;
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_bs_match, 2);
+    fixed_args = op->arity;
+    $BeamOpArity(op, (N.val + fixed_args));
+
+    op->a[0] = Fail;
+    op->a[1] = Ctx;
+
+    for (i = 0; i < N.val; i++) {
+        BeamOpArg current;
+        Uint flags = 0;
+
+        current = List[i];
+        if (current.type == TAG_n) {
+            current.type = TAG_u;
+            current.val = 0;
+        } else if (current.type == TAG_q) {
+            Eterm term = beamfile_get_literal(&S->beam, current.val);
+            while (is_list(term)) {
+                Eterm* consp = list_val(term);
+                Eterm elem = CAR(consp);
+                switch (elem) {
+                case am_little:
+                    flags |= BSF_LITTLE;
+                    break;
+                case am_native:
+                    flags |= BSF_NATIVE;
+                    break;
+                case am_signed:
+                    flags |= BSF_SIGNED;
+                    break;
+                }
+                term = CDR(consp);
+            }
+            ASSERT(is_nil(term));
+            current.type = TAG_u;
+            current.val = flags;
+            $NativeEndian(current);
+        } else if (current.type == TAG_o) {
+            /* An overflow tag (in ensure_at_least or ensure_exactly)
+             * means that the match will always fail. */
+            $BeamOpNameArity(op, jump, 1);
+            op->a[0] = Fail;
+            return op;
+        }
+        op->a[i+fixed_args] = current;
     }
 
     return op;

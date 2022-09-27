@@ -36,7 +36,9 @@
 	     digraph,
 	     digraph_utils,
 	     edlin,
+	     edlin_context,
 	     edlin_expand,
+	     edlin_type_suggestion,
 	     epp,
 	     eval_bits,
              erl_abstract_code,
@@ -112,6 +114,6 @@
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-3.0","kernel-@OTP-18249@","erts-13.1","crypto-4.5",
+  {runtime_dependencies, ["sasl-3.0","kernel-@OTP-17932:OTP-18249@","erts-13.1","crypto-4.5",
 			  "compiler-5.0"]}
 ]}.

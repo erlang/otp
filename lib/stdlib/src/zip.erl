@@ -35,7 +35,7 @@
 
 %% zip server
 -export([zip_open/1, zip_open/2,
-	 zip_get/1, zip_get/2,
+	 zip_get/1, zip_get/2, zip_get_crc32/2,
 	 zip_t/1, zip_tt/1,
 	 zip_list_dir/1, zip_list_dir/2,
 	 zip_close/1]).
@@ -266,6 +266,13 @@ do_openzip_get(#openzip{files = Files, in = In0, input = Input,
     {ok, R};
 do_openzip_get(_) ->
     throw(einval).
+
+%% retrieve the crc32 checksum from an open archive
+openzip_get_crc32(FileName, #openzip{files = Files}) ->
+    case file_name_search(FileName, Files) of
+	{_,#zip_file_extra{crc32=CRC}} -> {ok, CRC};
+	_ -> throw(file_not_found)
+    end.
 
 %% retrieve a file from an open archive
 openzip_get(FileName, OpenZip) ->
@@ -1165,6 +1172,9 @@ server_loop(Parent, OpenZip) ->
 	{From, {get, FileName}} ->
 	    From ! {self(), openzip_get(FileName, OpenZip)},
 	    server_loop(Parent, OpenZip);
+	{From, {get_crc32, FileName}} ->
+	    From ! {self(), openzip_get_crc32(FileName, OpenZip)},
+	    server_loop(Parent, OpenZip);
 	{From, list_dir} ->
 	    From ! {self(), openzip_list_dir(OpenZip)},
 	    server_loop(Parent, OpenZip);
@@ -1222,6 +1232,15 @@ zip_close(Pid) when is_pid(Pid) ->
 
 zip_get(FileName, Pid) when is_pid(Pid) ->
     request(self(), Pid, {get, FileName}).
+
+-spec(zip_get_crc32(FileName, ZipHandle) -> {ok, CRC} | {error, Reason} when
+      FileName :: file:name(),
+      ZipHandle :: handle(),
+      CRC :: non_neg_integer(),
+      Reason :: term()).
+
+zip_get_crc32(FileName, Pid) when is_pid(Pid) ->
+    request(self(), Pid, {get_crc32, FileName}).
 
 -spec(zip_list_dir(ZipHandle) -> {ok, Result} | {error, Reason} when
       Result :: [zip_comment() | zip_file()],

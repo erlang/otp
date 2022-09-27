@@ -469,6 +469,7 @@
                                 {honor_ecc_order, honor_ecc_order()} |
                                 {client_renegotiation, client_renegotiation()}|
                                 {session_tickets, server_session_tickets()} |
+                                {stateless_tickets_seed, stateless_tickets_seed()} |
                                 {anti_replay, anti_replay()} |
                                 {cookie, cookie()} |
                                 {early_data, server_early_data()}.
@@ -489,6 +490,7 @@
 -type honor_cipher_order()       :: boolean().
 -type honor_ecc_order()          :: boolean().
 -type client_renegotiation()     :: boolean().
+-type stateless_tickets_seed()   :: binary().
 -type cookie()                   :: boolean().
 %% -------------------------------------------------------------------------------------------------------
 -type prf_random() :: client_random | server_random. % exported
@@ -1819,6 +1821,16 @@ handle_option(session_tickets = Option, Value0, #{versions := Versions} = Option
     assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
     Value = validate_option(Option, Value0, Role),
     OptionsMap#{Option => Value};
+handle_option(stateless_tickets_seed = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(stateless_tickets_seed = Option, Value0,
+              #{session_tickets := SessionTickets, versions := Versions} = OptionsMap, #{role := Role}) ->
+    assert_role(server_only, Role, Option, Value0),
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    assert_option_dependency(Option, session_tickets, [SessionTickets], [stateless]),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(signature_algs = Option, unbound, #{versions := [HighestVersion | _] = Versions} = OptionsMap, #{role := Role}) ->
     Value =
         handle_hashsigns_option(
@@ -2391,6 +2403,13 @@ validate_option(session_tickets, Value, client) ->
            {options, role,
             {session_tickets,
              {Value, {client, [disabled, manual, auto]}}}}});
+validate_option(stateless_tickets_seed, undefined, _) ->
+    undefined;
+validate_option(stateless_tickets_seed, Seed, _)
+  when is_binary(Seed) ->
+    Seed;
+validate_option(stateless_tickets_seed = Option, Value, _) ->
+    throw({error, {options, type, {Option, {Value, not_binary}}}});
 validate_option(sni_fun, undefined, _) ->
     undefined;
 validate_option(sni_fun, Fun, _)

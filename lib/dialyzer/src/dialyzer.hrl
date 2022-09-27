@@ -108,7 +108,7 @@
 %%--------------------------------------------------------------------
 
 -type anal_type()     :: 'succ_typings' | 'plt_build'.
--type anal_type1()    :: anal_type() | 'plt_add' | 'plt_check' | 'plt_remove'.
+-type anal_type1()    :: anal_type() | 'plt_add' | 'plt_check' | 'plt_remove' | 'incremental'.
 -type contr_constr()  :: {'subtype', erl_types:erl_type(), erl_types:erl_type()}.
 -type contract_pair() :: {erl_types:erl_type(), [contr_constr()]}.
 -type dial_define()   :: {atom(), term()}.
@@ -142,13 +142,16 @@
                        | {'plts', [FileName :: file:filename()]}
                        | {'include_dirs', [DirName :: file:filename()]}
                        | {'output_file', FileName :: file:filename()}
+                       | {'metrics_file', FileName :: file:filename()}
+                       | {'module_lookup_file', FileName :: file:filename()}
                        | {'output_plt', FileName :: file:filename()}
                        | {'check_plt', boolean()}
                        | {'analysis_type', 'succ_typings' |
                                            'plt_add' |
                                            'plt_build' |
                                            'plt_check' |
-                                           'plt_remove'}
+                                           'plt_remove' |
+                                           'incremental'}
                        | {'warnings', [warn_option()]}
                        | {'get_warnings', boolean()}
                        | {'error_location', error_location()}.
@@ -172,7 +175,21 @@
 -define(ERROR_LOCATION, column).
 
 -type doc_plt() :: 'undefined' | dialyzer_plt:plt().
--record(plt_info, {files :: [dialyzer_plt:file_md5()], mod_deps :: dict:dict()}).
+-record(plt_info, {files :: [dialyzer_cplt:file_md5()],
+                   mod_deps = dict:new() :: dialyzer_callgraph:mod_deps()}).
+-record(iplt_info, {files :: [dialyzer_iplt:module_md5()],
+                   mod_deps = dict:new() :: dialyzer_callgraph:mod_deps(),
+                   warning_map = none :: 'none' | dialyzer_iplt:warning_map(),
+                   legal_warnings  = none  :: none | dial_warn_tags()}).
+
+-record(plt, {info      :: ets:tid(), %% {mfa() | integer(), ret_args_types()}
+              types     :: ets:tid(), %% {module(), erl_types:type_table()}
+              contracts :: ets:tid(), %% {mfa(), #contract{}}
+              callbacks :: ets:tid(), %% {module(),
+                                      %%  [{mfa(),
+                                      %%  dialyzer_contracts:file_contract()}]
+              exported_types :: ets:tid() %% {module(), sets:set()}
+             }).
 
 -record(analysis, {analysis_pid			   :: pid() | 'undefined',
 		   type		  = succ_typings   :: anal_type(),
@@ -187,15 +204,18 @@
 		   timing         = false          :: boolean() | 'debug',
 		   timing_server  = none           :: dialyzer_timing:timing_server(),
 		   callgraph_file = ""             :: file:filename(),
+		   mod_deps_file  = ""             :: file:filename(),
                    solvers                         :: [solver()]}).
 
 -record(options, {files           = []		   :: [file:filename()],
 		  files_rec       = []		   :: [file:filename()],
+		  warning_files   = []	           :: [file:filename()],
+		  warning_files_rec = []           :: [file:filename()],
 		  analysis_type   = succ_typings   :: anal_type1(),
 		  timing          = false          :: boolean() | 'debug',
 		  defines         = []		   :: [dial_define()],
 		  from            = byte_code	   :: start_from(),
-		  get_warnings    = maybe          :: boolean() | 'maybe',
+		  get_warnings    = 'maybe'        :: boolean() | 'maybe',
 		  init_plts       = []	           :: [file:filename()],
 		  include_dirs    = []		   :: [file:filename()],
 		  output_plt      = none           :: 'none' | file:filename(),
@@ -208,13 +228,17 @@
 		  filename_opt	  = basename       :: filename_opt(),
                   indent_opt      = ?INDENT_OPT    :: iopt(),
 		  callgraph_file  = ""             :: file:filename(),
+		  mod_deps_file  = ""              :: file:filename(),
 		  check_plt       = true           :: boolean(),
                   error_location  = ?ERROR_LOCATION :: error_location(),
+                  metrics_file       = none	   :: none | file:filename(),
+		  module_lookup_file = none	   :: none | file:filename(),
                   solvers         = []             :: [solver()]}).
 
 -record(contract, {contracts	  = []		   :: [contract_pair()],
 		   args		  = []		   :: [erl_types:erl_type()],
 		   forms	  = []		   :: [{_, _}]}).
+
 
 %%--------------------------------------------------------------------
 

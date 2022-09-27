@@ -149,9 +149,20 @@ erl</pre>
           buffer</cell>
       </row>
       <row>
+        <cell align="left" valign="middle">C-o</cell>
+        <cell align="left" valign="middle">Edit the current line using the editor specified in
+          the environment variable <c>VISUAL</c> or <c>EDITOR</c>. The environment variables can
+          contain arguments to the editor if needed, for example <c>VISUAL="emacs -nw"</c>.
+          On Windows the editor cannot be a console based editor.</cell>
+      </row>
+      <row>
         <cell align="left" valign="middle">C-p</cell>
         <cell align="left" valign="middle">Fetch previous line from the history
           buffer</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-r</cell>
+        <cell align="left" valign="middle">Search the shell history</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-t</cell>

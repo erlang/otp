@@ -24,6 +24,7 @@
  */ 
 
 #include <windows.h>
+#include <winerror.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "init_file.h"
@@ -47,11 +48,12 @@ int wmain(int argc, wchar_t **argv)
     InitFile *ini_file;
     InitSection *ini_section;
     HANDLE module = GetModuleHandle(NULL);
-    wchar_t *binaries[] = { L"erl.exe", L"werl.exe", L"erlc.exe", L"erl_call.exe",
+    wchar_t *binaries[] = { L"erl.exe", L"erlc.exe", L"erl_call.exe",
 			    L"dialyzer.exe",
 			    L"typer.exe",
 			    L"escript.exe", L"ct_run.exe", NULL };
     wchar_t *scripts[] = { L"start_clean.boot", L"start_sasl.boot", L"no_dot_erlang.boot", NULL };
+    wchar_t *links[][2] = { { L"erl.exe", L"werl.exe" }, NULL };
     wchar_t fromname[MAX_PATH];
     wchar_t toname[MAX_PATH];
     size_t  converted;
@@ -175,7 +177,32 @@ int wmain(int argc, wchar_t **argv)
 	    fprintf(stderr,"Continuing installation anyway...\n");
 	}
     }
-    
+
+    for (i = 0; links[i][0] != NULL; ++i) {
+        swprintf(toname,MAX_PATH,L"%s\\%s",bin_dir,links[i][1]);
+        if (!CreateSymbolicLinkW(toname,links[i][0],0)) {
+            DWORD err = GetLastError();
+            if (err == ERROR_PRIVILEGE_NOT_HELD) {
+                fprintf(stderr,"Must be administrator to create link, copying %S instead.\n",
+                        links[i][0]);
+                swprintf(fromname,MAX_PATH,L"%s\\%s",bin_dir,links[i][0]);
+                if (!CopyFileW(fromname,toname,FALSE)) {
+                    fprintf(stderr,"Could not copy file %S to %S\n",
+                            fromname,toname);
+                    fprintf(stderr,"Continuing installation anyway...\n");
+                }
+            } else {
+                wchar_t buf[256];
+                FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                               NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
+                               buf, (sizeof(buf) / sizeof(wchar_t)), NULL);
+                fprintf(stderr,"Could not create links from %S to %S %d: %S\n",
+                        fromname, toname, err, buf);
+                fprintf(stderr,"Continuing installation anyway...\n");
+            }
+        }
+    }
+
     for (i = 0; scripts[i] != NULL; ++i) {
 	swprintf(fromname,MAX_PATH,L"%s\\%s",release_dir,scripts[i]);
 	swprintf(toname,MAX_PATH,L"%s\\%s",bin_dir,scripts[i]);

@@ -510,8 +510,8 @@ main(int argc, char** argv)
     PUSH(emulator);
 
     PUSH("+B");
-    PUSH2("-boot", "no_dot_erlang");
     PUSH("-noshell");
+    PUSH2("-boot", "no_dot_erlang");
 
     /*
      * Read options from the %%! row in the script and add them as args

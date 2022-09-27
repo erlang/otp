@@ -17,8 +17,25 @@ main([Repo, HeadSha]) ->
     end.
 
 ghapi(CMD) ->
-    Data = cmd(CMD),
-    try jsx:decode(Data, [{return_maps,true}])
+    decode(cmd(CMD)).
+
+decode(Data) ->
+    try jsx:decode(Data,[{return_maps, true}, return_tail]) of
+        {with_tail, Json, <<>>} ->
+            Json;
+        {with_tail, Json, Tail} ->
+            lists:concat([Json | decodeTail(Tail)])
+    catch E:R:ST ->
+            io:format("Failed to decode: ~ts",[Data]),
+            erlang:raise(E,R,ST)
+    end.
+
+decodeTail(Data) ->
+    try jsx:decode(Data,[{return_maps, true}, return_tail]) of
+        {with_tail, Json, <<>>} ->
+            [Json];
+        {with_tail, Json, Tail} ->
+            [Json | decodeTail(Tail)]
     catch E:R:ST ->
             io:format("Failed to decode: ~ts",[Data]),
             erlang:raise(E,R,ST)

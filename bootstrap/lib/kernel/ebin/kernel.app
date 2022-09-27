@@ -109,6 +109,7 @@
 	     inet_sctp,
              pg,
              pg2,
+             prim_tty,
              raw_file_io,
              raw_file_io_compressed,
              raw_file_io_deflate,
@@ -158,6 +159,6 @@
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-17934@", "stdlib-4.0", "sasl-3.0", "crypto-5.0"]}
+  {runtime_dependencies, ["erts-@OTP-17934@", "stdlib-@OTP-17932@", "sasl-3.0", "crypto-5.0"]}
   ]
 }.

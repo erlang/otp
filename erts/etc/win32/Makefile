@@ -39,7 +39,6 @@ ROOTDIR = $(ERL_TOP)/erts
 INSTALL_PROGS = \
 	$(BINDIR)/inet_gethost.exe \
 	$(BINDIR)/erl.exe \
-	$(BINDIR)/werl.exe \
 	$(BINDIR)/heart.exe \
 	$(BINDIR)/erlc.exe \
 	$(BINDIR)/erlsrv.exe \

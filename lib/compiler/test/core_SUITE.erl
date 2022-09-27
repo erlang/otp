@@ -31,7 +31,7 @@
 	 cover_v3_kernel_4/1,cover_v3_kernel_5/1,
          non_variable_apply/1,name_capture/1,fun_letrec_effect/1,
          get_map_element/1,receive_tests/1,
-         core_lint/1]).
+         core_lint/1,nif/1,no_nif/1,no_load_nif/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -61,7 +61,7 @@ groups() ->
        cover_v3_kernel_4,cover_v3_kernel_5,
        non_variable_apply,name_capture,fun_letrec_effect,
        get_map_element,receive_tests,
-       core_lint
+       core_lint,nif,no_nif,no_load_nif
       ]}].
 
 
@@ -170,3 +170,53 @@ core_lint_function(Exports, Attributes, Body) ->
                          (_) -> true
                       end, Errors),
     error = compile:forms(Mod, [from_core,clint0,report]).
+
+nif(Conf) ->
+    %% Check that only the function in the nif attribute starts with nif_start
+    Funs =
+	nif_compile_to_cerl(Conf, [{d,'WITH_ATTRIBUTE'},{d,'WITH_LOAD_NIF'}]),
+    false = nif_first_instruction_is_nif_start(init, 1, Funs),
+    true = nif_first_instruction_is_nif_start(start, 1, Funs),
+    false = nif_first_instruction_is_nif_start(module_info, 0, Funs),
+    false = nif_first_instruction_is_nif_start(module_info, 1, Funs),
+    ok.
+
+no_nif(Conf) ->
+    %% Check that all functions start with nif_start
+    Funs = nif_compile_to_cerl(Conf, [{d,'WITH_LOAD_NIF'}]),
+    true = nif_first_instruction_is_nif_start(init, 1, Funs),
+    true = nif_first_instruction_is_nif_start(start, 1, Funs),
+    true = nif_first_instruction_is_nif_start(module_info, 0, Funs),
+    true = nif_first_instruction_is_nif_start(module_info, 1, Funs),
+    ok.
+
+no_load_nif(Conf) ->
+    %% Check that no functions start with nif_start
+    Funs = nif_compile_to_cerl(Conf, []),
+    false = nif_first_instruction_is_nif_start(init, 1, Funs),
+    false = nif_first_instruction_is_nif_start(start, 1, Funs),
+    false = nif_first_instruction_is_nif_start(module_info, 0, Funs),
+    false = nif_first_instruction_is_nif_start(module_info, 1, Funs),
+    ok.
+
+nif_compile_to_cerl(Conf, Flags) ->
+    Src = filename:join(proplists:get_value(data_dir, Conf), "nif.erl"),
+    {ok, _, F} = compile:file(Src, [to_core, binary, deterministic]++Flags),
+    Defs = cerl:module_defs(F),
+    [ {cerl:var_name(V),cerl:fun_body(Def)} || {V,Def} <- Defs].
+
+nif_first_instruction_is_nif_start(F, A, [{{F,A},Body}|_]) ->
+    try
+	Primop = cerl:seq_arg(Body),
+	Name = cerl:primop_name(Primop),
+	0 = cerl:primop_arity(Primop),
+	nif_start = cerl:atom_val(Name),
+	true
+    catch
+	error:_ ->
+	    false
+    end;
+nif_first_instruction_is_nif_start(F, A, [_|Rest]) ->
+    nif_first_instruction_is_nif_start(F, A, Rest);
+nif_first_instruction_is_nif_start(_, _, []) ->
+    not_found.

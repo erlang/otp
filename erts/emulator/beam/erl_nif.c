@@ -2274,7 +2274,6 @@ static void close_dynlib(struct erl_module_nif* lib)
 {
     ASSERT(lib != NULL);
     ASSERT(lib->mod == NULL);
-    ASSERT(lib->handle != NULL);
     ASSERT(erts_refc_read(&lib->dynlib_refc,0) == 0);
 
     if (lib->entry.unload != NULL) {

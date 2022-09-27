@@ -25,6 +25,7 @@ using namespace asmjit;
 extern "C"
 {
 #include "erl_map.h"
+#include "erl_term_hashing.h"
 #include "beam_common.h"
 }
 
@@ -46,11 +47,17 @@ static const Uint32 HCONST = 0x9E3779B9;
  *
  * Result is returned in ARG3. */
 void BeamGlobalAssembler::emit_internal_hash_helper() {
-    x86::Gp hash = ARG3d, lower = ARG4d, upper = ARG5d;
+    x86::Gp hash = ARG3d, lower = ARG4d, upper = ARG5d, constant = ARG6d;
 
-    a.add(lower, ARG6d);
-    a.add(upper, ARG6d);
+    a.add(lower, constant);
+    a.add(upper, constant);
 
+#if defined(ERL_INTERNAL_HASH_CRC32C)
+    a.mov(constant, hash);
+    a.crc32(hash, lower);
+    a.add(hash, constant);
+    a.crc32(hash, upper);
+#else
     using rounds =
             std::initializer_list<std::tuple<x86::Gp, x86::Gp, x86::Gp, int>>;
     for (const auto &round : rounds{{lower, upper, hash, 13},
@@ -79,6 +86,7 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
 
         a.xor_(r_a, ARG6d);
     }
+#endif
 
     a.ret();
 }
@@ -140,7 +148,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
         emit_ptr_val(node, node);
 
         /* Have we found our leaf? */
-        a.test(node.r32(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
+        a.test(node.r8(), imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
         a.short_().je(leaf_node);
 
         /* Nope, we have to search another node. */
@@ -252,37 +260,80 @@ void BeamModuleAssembler::emit_new_map(const ArgRegister &Dst,
     mov_arg(Dst, RET);
 }
 
-void BeamGlobalAssembler::emit_i_new_small_map_lit_shared() {
-    emit_enter_frame();
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
-
-    a.mov(ARG1, c_p);
-    load_x_reg_array(ARG2);
-    runtime_call<5>(erts_gc_new_small_map_lit);
-
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
-    emit_leave_frame();
-
-    a.ret();
-}
-
 void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
                                                    const ArgWord &Live,
                                                    const ArgLiteral &Keys,
                                                    const ArgWord &Size,
                                                    const Span<ArgVal> &args) {
-    Label data = embed_vararg_rodata(args, CP_SIZE);
-
     ASSERT(Size.get() == args.size());
 
-    ASSERT(Keys.isLiteral());
-    mov_arg(ARG3, Keys);
-    mov_imm(ARG4, Live.get());
-    a.lea(ARG5, x86::qword_ptr(data));
+    emit_gc_test(ArgWord(0),
+                 ArgWord(args.size() + MAP_HEADER_FLATMAP_SZ + 1),
+                 Live);
 
-    fragment_call(ga->get_i_new_small_map_lit_shared());
+    std::vector<ArgVal> data;
+    data.reserve(args.size() + MAP_HEADER_FLATMAP_SZ + 1);
+    data.push_back(ArgWord(MAP_HEADER_FLATMAP));
+    data.push_back(Size);
+    data.push_back(Keys);
 
-    mov_arg(Dst, RET);
+    for (auto arg : args) {
+        data.push_back(arg);
+    }
+
+    size_t size = data.size();
+    unsigned i;
+
+    mov_arg(x86::qword_ptr(HTOP), data[0]);
+
+    /* Starting from 1 instead of 0 gives more opportunities for
+     * applying the MMX optimizations. */
+    for (i = 1; i < size - 1; i += 2) {
+        x86::Mem dst_ptr0 = x86::qword_ptr(HTOP, i * sizeof(Eterm));
+        x86::Mem dst_ptr1 = x86::qword_ptr(HTOP, (i + 1) * sizeof(Eterm));
+        auto first = data[i];
+        auto second = data[i + 1];
+
+        switch (ArgVal::memory_relation(first, second)) {
+        case ArgVal::consecutive: {
+            x86::Mem src_ptr = getArgRef(first, 16);
+
+            comment("(initializing two elements at once)");
+            dst_ptr0.setSize(16);
+            a.movups(x86::xmm0, src_ptr);
+            a.movups(dst_ptr0, x86::xmm0);
+            break;
+        }
+        case ArgVal::reverse_consecutive: {
+            if (!hasCpuFeature(CpuFeatures::X86::kAVX)) {
+                mov_arg(dst_ptr0, first);
+                mov_arg(dst_ptr1, second);
+            } else {
+                x86::Mem src_ptr = getArgRef(second, 16);
+
+                comment("(initializing with two swapped elements at once)");
+                dst_ptr0.setSize(16);
+                a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+                a.vmovups(dst_ptr0, x86::xmm0);
+            }
+            break;
+        }
+        case ArgVal::none:
+            mov_arg(dst_ptr0, first);
+            mov_arg(dst_ptr1, second);
+            break;
+        }
+    }
+
+    if (i < size) {
+        x86::Mem dst_ptr = x86::qword_ptr(HTOP, i * sizeof(Eterm));
+        mov_arg(dst_ptr, data[i]);
+    }
+
+    a.lea(ARG1, x86::byte_ptr(HTOP, TAG_PRIMARY_BOXED));
+    a.add(HTOP, imm(size * sizeof(Eterm)));
+
+    mov_arg(Dst, ARG1);
 }
 
 /* ARG1 = map, ARG2 = key

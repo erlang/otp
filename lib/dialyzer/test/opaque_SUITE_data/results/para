@@ -12,13 +12,22 @@ para2.erl:31:5: The test 'a' =:= 'b' can never evaluate to 'true'
 para2.erl:61:5: Attempt to test for equality between a term of type para2_adt:c2() and a term of opaque type para2_adt:c1()
 para2.erl:66:5: The test 'a' =:= 'b' can never evaluate to 'true'
 para2.erl:88:5: The test para2:circ(_) =:= para2:circ(_,_) can never evaluate to 'true'
-para3.erl:28:2: Invalid type specification for function para3:ot2/0. The success typing is () -> 'foo'
+para3.erl:28:2: Invalid type specification for function para3:ot2/0.
+ The success typing is para3:ot2() -> 'foo'
+ But the spec is para3:ot2() -> ot1()
+ The return types do not overlap
 para3.erl:36:5: The pattern {{{17}}} can never match the type {{{{{{_,_,_,_,_}}}}}}
-para3.erl:55:2: Invalid type specification for function para3:t2/0. The success typing is () -> 'foo'
+para3.erl:55:2: Invalid type specification for function para3:t2/0.
+ The success typing is para3:t2() -> 'foo'
+ But the spec is para3:t2() -> t1()
+ The return types do not overlap
 para3.erl:65:5: The attempt to match a term of type {{{{{para3_adt:ot1(_,_,_,_,_)}}}}} against the pattern {{{{{17}}}}} breaks the opacity of para3_adt:ot1(_,_,_,_,_)
 para3.erl:68:5: The pattern {{{{17}}}} can never match the type {{{{{para3_adt:ot1(_,_,_,_,_)}}}}}
 para3.erl:74:2: The specification for para3:exp_adt/0 has an opaque subtype para3_adt:exp1(_) which is violated by the success typing () -> 3
-para4.erl:31:2: Invalid type specification for function para4:t/1. The success typing is (para4:d_all() | para4:d_tuple()) -> [{atom() | integer(),atom() | integer()}]
+para4.erl:31:2: Invalid type specification for function para4:t/1.
+ The success typing is para4:t(para4:d_all() | para4:d_tuple()) -> [{atom() | integer(),atom() | integer()}]
+ But the spec is para4:t(d_tuple()) -> [{tuple(),tuple()}]
+ The return types do not overlap
 para4.erl:79:5: The test para4_adt:int(_) =:= para4_adt:int(_) can never evaluate to 'true'
 para5.erl:13:5: Attempt to test for inequality between a term of type para5_adt:dd(_) and a term of opaque type para5_adt:d()
 para5.erl:8:5: The test para5_adt:d() =:= para5_adt:d() can never evaluate to 'true'

@@ -23,6 +23,10 @@
 #endif
 
 #include <stddef.h> /* offsetof() */
+#ifdef HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>
+#endif
+#define WANT_NONBLOCKING
 #include "sys.h"
 #include "erl_vm.h"
 #include "erl_sys_driver.h"
@@ -375,7 +379,6 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
    }
    case ERTS_ML_STATE_ALIAS_ONCE:
    case ERTS_ML_STATE_ALIAS_DEMONITOR:
-       erts_pid_ref_delete(ref);
        /* fall through... */
    default:
        erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
@@ -4181,27 +4184,100 @@ BIF_RETTYPE erts_debug_display_1(BIF_ALIST_1)
     BIF_RET(res);
 }
 
-
-BIF_RETTYPE display_string_1(BIF_ALIST_1)
+BIF_RETTYPE display_string_2(BIF_ALIST_2)
 {
     Process* p = BIF_P;
-    Eterm string = BIF_ARG_1;
-    Sint len = erts_unicode_list_to_buf_len(string);
+    Eterm string = BIF_ARG_2;
+    Sint len;
     Sint written;
     byte *str;
     int res;
+    byte *temp_alloc = NULL;
 
-    if (len < 0) {
-	BIF_ERROR(p, BADARG);
+#ifdef __WIN32__
+    HANDLE fd;
+    if (ERTS_IS_ATOM_STR("stdout", BIF_ARG_1)) {
+        fd = GetStdHandle(STD_OUTPUT_HANDLE);
+    } else if (ERTS_IS_ATOM_STR("stderr", BIF_ARG_1)) {
+        fd = GetStdHandle(STD_ERROR_HANDLE);
     }
-    str = (byte *) erts_alloc(ERTS_ALC_T_TMP, sizeof(char)*(len + 1));
-    res = erts_unicode_list_to_buf(string, str, len, &written);
-    if (res != 0 || written != len)
-	erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error (%d)\n", __FILE__, __LINE__, res);
-    str[len] = '\0';
-    erts_fprintf(stderr, "%s", str);
-    erts_free(ERTS_ALC_T_TMP, (void *) str);
+#else
+    int fd;
+    if (ERTS_IS_ATOM_STR("stdout", BIF_ARG_1)) {
+        fd = fileno(stdout);
+    } else if (ERTS_IS_ATOM_STR("stderr", BIF_ARG_1)) {
+        fd = fileno(stderr);
+    }
+#if defined(HAVE_SYS_IOCTL_H) && defined(TIOCSTI)
+    else if (ERTS_IS_ATOM_STR("stdin", BIF_ARG_1)) {
+        fd = open("/proc/self/fd/0",0);
+    }
+#endif
+#endif
+    else {
+        BIF_ERROR(p, BADARG);
+    }
+    if (is_list(string) || is_nil(string)) {
+        len = erts_unicode_list_to_buf_len(string);
+        if (len < 0) BIF_ERROR(p, BADARG);
+        str = temp_alloc = (byte *) erts_alloc(ERTS_ALC_T_TMP, sizeof(char)*len);
+        res = erts_unicode_list_to_buf(string, str, len, &written);
+        if (res != 0 || written != len)
+            erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error (%d)\n", __FILE__, __LINE__, res);
+    } else if (is_binary(string)) {
+        Uint bitoffs, bitsize;
+        ERTS_GET_BINARY_BYTES(string, str, bitoffs, bitsize);
+        if (bitsize % 8 != 0) BIF_ERROR(p, BADARG);
+        len = binary_size(string);
+        if (bitoffs != 0) {
+            str = erts_get_aligned_binary_bytes(string, &temp_alloc);
+        }
+    } else {
+        BIF_ERROR(p, BADARG);
+    }
+
+#if defined(HAVE_SYS_IOCTL_H) && defined(TIOCSTI)
+    if (ERTS_IS_ATOM_STR("stdin", BIF_ARG_1)) {
+        for (int i = 0; i < len; i++) {
+            if (ioctl(fd, TIOCSTI, str+i) < 0) {
+                fprintf(stderr,"failed to write to %s (%s)\r\n", "/proc/self/fd/0",
+                        strerror(errno));
+                close(fd);
+                goto error;
+            }
+        }
+        close(fd);
+    } else
+#endif
+    {
+#ifdef __WIN32__
+        if (!WriteFile(fd, str, len, &written, NULL)) {
+            goto error;
+        }
+#else
+        written = 0;
+        do {
+            res = write(fd, str+written, len-written);
+            if (res < 0 && errno != ERRNO_BLOCK && errno != EINTR)
+                goto error;
+            written += res;
+        } while (written < len);
+#endif
+    }
+    if (temp_alloc)
+        erts_free(ERTS_ALC_T_TMP, (void *) temp_alloc);
     BIF_RET(am_true);
+
+error: {
+#ifdef __WIN32__
+        char *errnostr = last_error();
+#else
+        char *errnostr = erl_errno_id(errno);
+#endif
+        BIF_P->fvalue = am_atom_put(errnostr, strlen(errnostr));
+        erts_free(ERTS_ALC_T_TMP, (void *) str);
+        BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
+    }
 }
 
 BIF_RETTYPE display_nl_0(BIF_ALIST_0)
@@ -4674,7 +4750,7 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
         ErtsMagicBinary *mb;
         Uint32 sid;
         if (refn[0] >= MAX_REFERENCE) goto bad;
-        if (n != ERTS_REF_NUMBERS) goto bad;
+        if (n != ERTS_REF_NUMBERS && n != ERTS_PID_REF_NUMBERS) goto bad;
         sid = erts_get_ref_numbers_thr_id(refn);
         if (sid > erts_no_schedulers) goto bad;
         if (erts_is_ordinary_ref_numbers(refn)) {
@@ -4685,11 +4761,14 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
         }
         else {
             /* Check if it is a pid reference... */
-            Eterm pid = erts_pid_ref_lookup(refn);
+            Eterm pid = erts_pid_ref_lookup(refn, n);
             if (is_internal_pid(pid)) {
                 hp = HAlloc(BIF_P, ERTS_PID_REF_THING_SIZE);
                 write_pid_ref_thing(hp, refn[0], refn[1], refn[2], pid);
                 res = make_internal_ref(hp);
+            }
+            else if (is_non_value(pid)) {
+                goto bad;
             }
             else {
                 /* Check if it is a magic reference... */
@@ -5812,8 +5891,6 @@ BIF_RETTYPE unalias_1(BIF_ALIST_1)
 
     ASSERT(erts_monitor_is_origin(mon));
     
-    erts_pid_ref_delete(BIF_ARG_1);
-
     mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
     if (mon->type == ERTS_MON_TYPE_ALIAS) {
         erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), mon);

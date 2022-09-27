@@ -86,10 +86,8 @@ local_setup:
 		cp $(ERL_TOP)/bin/$(TARGET)/erlc.exe $(ERL_TOP)/bin/erlc.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/erl.exe $(ERL_TOP)/bin/erl.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/erl_call.exe $(ERL_TOP)/bin/erl_call.exe; \
-		cp $(ERL_TOP)/bin/$(TARGET)/werl.exe $(ERL_TOP)/bin/werl.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/escript.exe $(ERL_TOP)/bin/escript.exe; \
-	 	chmod 755 $(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe \
-			 $(ERL_TOP)/bin/werl.exe; \
+	 	chmod 755 $(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe; \
 		make_local_ini.sh $(ERL_TOP); \
 		cp $(ERL_TOP)/bin/erl.ini $(ERL_TOP)/bin/$(TARGET)/erl.ini; \
 	else \

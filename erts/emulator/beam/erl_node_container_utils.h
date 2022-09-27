@@ -256,7 +256,9 @@ extern ErtsPTab erts_port;
  * Refs                                                                    *
 \*                                                                         */
 
-#define internal_ref_no_numbers(x)	ERTS_REF_NUMBERS
+#define internal_ref_no_numbers(x)      (is_internal_pid_ref((x))       \
+                                         ? ERTS_PID_REF_NUMBERS         \
+                                         : ERTS_REF_NUMBERS)
 #define internal_ref_numbers(x)		(is_internal_magic_ref((x))     \
 					 ? internal_magic_ref_numbers((x)) \
                                          : internal_non_magic_ref_numbers((x)))

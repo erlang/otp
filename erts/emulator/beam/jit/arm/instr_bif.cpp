@@ -30,6 +30,15 @@ extern "C"
 #include "erl_msacc.h"
 }
 
+void BeamModuleAssembler::ubif_comment(const ArgWord &Bif) {
+    if (logger.file()) {
+        ErtsCodeMFA *mfa = ubif2mfa((void *)Bif.get());
+        if (mfa) {
+            comment("UBIF: %T/%d", mfa->function, mfa->arity);
+        }
+    }
+}
+
 /* ARG2 = argument vector, ARG4 (!) = bif function pointer
  *
  * Result is returned in ARG1 (will be THE_NON_VALUE if the BIF call failed). */
@@ -104,6 +113,7 @@ void BeamModuleAssembler::emit_i_bif1(const ArgSource &Src1,
 
     a.str(src1.reg, getXRef(0));
 
+    ubif_comment(Bif);
     emit_i_bif(Fail, Bif, Dst);
 }
 
@@ -116,6 +126,7 @@ void BeamModuleAssembler::emit_i_bif2(const ArgSource &Src1,
 
     a.stp(src1.reg, src2.reg, getXRef(0));
 
+    ubif_comment(Bif);
     emit_i_bif(Fail, Bif, Dst);
 }
 
@@ -131,6 +142,7 @@ void BeamModuleAssembler::emit_i_bif3(const ArgSource &Src1,
     a.stp(src1.reg, src2.reg, getXRef(0));
     a.str(src3.reg, getXRef(2));
 
+    ubif_comment(Bif);
     emit_i_bif(Fail, Bif, Dst);
 }
 
@@ -161,6 +173,7 @@ void BeamModuleAssembler::emit_nofail_bif1(const ArgSource &Src1,
 
     a.str(src1.reg, getXRef(0));
 
+    ubif_comment(Bif);
     mov_arg(ARG4, Bif);
     fragment_call(ga->get_i_bif_guard_shared());
     mov_arg(Dst, ARG1);
@@ -174,6 +187,7 @@ void BeamModuleAssembler::emit_nofail_bif2(const ArgSource &Src1,
 
     a.stp(src1.reg, src2.reg, getXRef(0));
 
+    ubif_comment(Bif);
     mov_arg(ARG4, Bif);
     fragment_call(ga->get_i_bif_guard_shared());
     mov_arg(Dst, ARG1);
@@ -564,6 +578,10 @@ void BeamModuleAssembler::emit_call_light_bif(const ArgWord &Bif,
     mov_arg(ARG8, Bif);
     a.adr(ARG3, entry);
 
+    if (logger.file()) {
+        BeamFile_ImportEntry *e = &beam->imports.entries[Exp.get()];
+        comment("BIF: %T:%T/%d", e->module, e->function, e->arity);
+    }
     fragment_call(ga->get_call_light_bif_shared());
 }
 
@@ -776,6 +794,10 @@ void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
 
     a.adr(ARG3, currLabel);
     a.sub(ARG2, ARG3, imm(sizeof(ErtsCodeMFA)));
+    comment("HBIF: %T:%T/%d",
+            e->info.mfa.module,
+            e->info.mfa.function,
+            A.get());
     a.mov(ARG4, imm(func));
 
     a.b(resolve_fragment(ga->get_call_bif_shared(), disp128MB));

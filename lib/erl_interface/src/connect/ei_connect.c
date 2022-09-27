@@ -2241,21 +2241,9 @@ static DistFlags preferred_flags(void)
 {
     DistFlags flags =
         DFLAG_MANDATORY_25_DIGEST
-        | DFLAG_EXTENDED_REFERENCES
+        | DFLAG_DIST_MANDATORY
         | DFLAG_DIST_MONITOR
-        | DFLAG_EXTENDED_PIDS_PORTS
-        | DFLAG_FUN_TAGS
-        | DFLAG_NEW_FUN_TAGS
-        | DFLAG_NEW_FLOATS
-        | DFLAG_SMALL_ATOM_TAGS
-        | DFLAG_UTF8_ATOMS
-        | DFLAG_MAP_TAG
-        | DFLAG_BIG_CREATION
-        | DFLAG_EXPORT_PTR_TAG
-        | DFLAG_BIT_BINARIES
-        | DFLAG_HANDSHAKE_23
-        | DFLAG_V4_NC
-        | DFLAG_UNLINK_ID;
+        | DFLAG_SMALL_ATOM_TAGS;
     return flags;
 }
 

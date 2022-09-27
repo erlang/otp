@@ -56,6 +56,7 @@ my @beam_global_funcs = qw(
     dispatch_save_calls
     export_trampoline
     fconv_shared
+    get_sint64_shared
     handle_and_error
     handle_call_fun_error
     handle_element_error_shared
@@ -82,12 +83,13 @@ my @beam_global_funcs = qw(
     i_length_guard_shared
     i_length_body_shared
     i_loop_rec_shared
-    i_new_small_map_lit_shared
     i_test_yield_shared
     i_bxor_body_shared
     int_div_rem_body_shared
     int_div_rem_guard_shared
     internal_hash_helper
+    is_in_range_shared
+    is_ge_lt_shared
     minus_body_shared
     new_map_shared
     update_map_assoc_shared

@@ -5312,8 +5312,6 @@ handle_alias_message(Process *c_p, ErtsMessage *sig, ErtsMessage ***next_nm_sig)
 
         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
         
-        erts_pid_ref_delete(alias);
-
         switch (mon->type) {
         case ERTS_MON_TYPE_DIST_PORT:
         case ERTS_MON_TYPE_ALIAS:
@@ -5639,7 +5637,6 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 case ERTS_ML_STATE_ALIAS_ONCE:
                 case ERTS_ML_STATE_ALIAS_DEMONITOR:
                     ASSERT(is_internal_pid_ref(mdp->ref));
-                    erts_pid_ref_delete(mdp->ref);
                     /* fall through... */
                 default:
                     if (type != ERTS_MON_TYPE_NODE)
@@ -5676,7 +5673,6 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 if ((mon->flags & ERTS_ML_STATE_ALIAS_MASK)
                     == ERTS_ML_STATE_ALIAS_ONCE) {
                     mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
-                    erts_pid_ref_delete(key);
                 }
             }
             else {

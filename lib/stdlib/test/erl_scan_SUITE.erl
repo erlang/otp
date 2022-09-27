@@ -676,6 +676,8 @@ illegal() ->
 
 crashes() ->
     {'EXIT',_} = (catch {foo, erl_scan:string([-1])}), % type error
+    {'EXIT',_} = (catch erl_scan:string("'a" ++ [999999999] ++ "c'")),
+
     {'EXIT',_} = (catch {foo, erl_scan:string("$"++[-1])}),
     {'EXIT',_} = (catch {foo, erl_scan:string("$\\"++[-1])}),
     {'EXIT',_} = (catch {foo, erl_scan:string("$\\^"++[-1])}),
@@ -698,6 +700,7 @@ crashes() ->
          (catch {foo, erl_scan:string("% foo"++[a],{1,1})}),
 
     {'EXIT',_} = (catch {foo, erl_scan:string([3.0])}), % type error
+    {'EXIT',_} = (catch {foo, erl_scan:string("A" ++ [999999999])}),
 
     ok.
 
@@ -867,8 +870,8 @@ unicode() ->
         erl_scan:string([1089]),
     {error,{{1,1},erl_scan,{illegal,character}},{1,2}} =
         erl_scan:string([1089], {1,1}),
-    {error,{{1,3},erl_scan,{illegal,character}},{1,4}} =
-        erl_scan:string("'a" ++ [999999999] ++ "c'", {1,1}),
+    {error,{{1,1},erl_scan,{illegal,character}},{1,2}} =
+        erl_scan:string([16#D800], {1,1}),
 
     test("\"a"++[1089]++"b\""),
     {ok,[{char,1,1}],1} =

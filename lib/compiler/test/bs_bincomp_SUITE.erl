@@ -24,6 +24,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
+         verify_highest_opcode/1,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
 	 nomatch/1,sizes/1,general_expressions/1,
@@ -33,13 +34,14 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [byte_aligned, bit_aligned, extended_byte_aligned,
+all() ->
+    [verify_highest_opcode,
+     byte_aligned, bit_aligned, extended_byte_aligned,
      extended_bit_aligned, mixed, filters, trim_coverage,
      nomatch, sizes, general_expressions,
      no_generator, zero_pattern, multiple_segments].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -54,6 +56,28 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
 	Config.
+
+verify_highest_opcode(_Config) ->
+    case ?MODULE of
+        bs_construct_r24_SUITE ->
+            {ok,Beam} = file:read_file(code:which(?MODULE)),
+            case test_lib:highest_opcode(Beam) of
+                Highest when Highest =< 176 ->
+                    ok;
+                TooHigh ->
+                    ct:fail({too_high_opcode,TooHigh})
+            end;
+        bs_construct_r25_SUITE ->
+            {ok,Beam} = file:read_file(code:which(?MODULE)),
+            case test_lib:highest_opcode(Beam) of
+                Highest when Highest =< 180 ->
+                    ok;
+                TooHigh ->
+                    ct:fail({too_high_opcode,TooHigh})
+            end;
+        _ ->
+            ok
+    end.
 
 byte_aligned(Config) when is_list(Config) ->
     cs_init(),
@@ -602,6 +626,8 @@ cs(Bin) ->
         bs_bincomp_no_opt_SUITE ->
             ok;
         bs_bincomp_no_ssa_opt_SUITE ->
+            ok;
+        bs_bincomp_no_copt_ssa_SUITE ->
             ok;
         bs_bincomp_post_opt_SUITE ->
             ok;

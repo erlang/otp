@@ -23,6 +23,7 @@ MODULES= \
 	dummy_h \
 	dummy_via \
 	edlin_expand_SUITE \
+	edlin_context_SUITE \
 	epp_SUITE \
 	erl_anno_SUITE \
 	erl_eval_SUITE \
@@ -49,6 +50,7 @@ MODULES= \
 	io_SUITE \
 	io_proto_SUITE \
 	lists_SUITE \
+	lists_property_test_SUITE \
 	log_mf_h_SUITE \
 	math_SUITE \
 	ms_transform_SUITE \
@@ -104,10 +106,12 @@ MODULES= \
 
 ERTS_MODULES= erts_test_utils
 SASL_MODULES= otp_vsns
+KERNEL_MODULES= rtnode
 
 ERL_FILES=	$(MODULES:%=%.erl) \
 		$(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl) \
-		$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl)
+		$(SASL_MODULES:%=$(ERL_TOP)/lib/sasl/test/%.erl) \
+		$(KERNEL_MODULES:%=$(ERL_TOP)/lib/kernel/test/%.erl)
 
 EXTRA_FILES= $(ERL_TOP)/otp_versions.table
 
@@ -135,7 +139,7 @@ COVERFILE=stdlib.cover
 
 make_emakefile:
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
-		$(MODULES) $(ERTS_MODULES) $(SASL_MODULES) \
+		$(MODULES) $(ERTS_MODULES) $(SASL_MODULES) $(KERNEL_MODULES) \
 	> $(EMAKEFILE)
 
 tests $(TYPES): make_emakefile
@@ -161,6 +165,7 @@ release_tests_spec: make_emakefile
 		$(ERL_FILES) $(COVERFILE) $(EXTRA_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)/stdlib_SUITE_data"
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/stdlib_SUITE_data"
 
 release_docs_spec:

@@ -1449,6 +1449,26 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       </datatype>
 
       <datatype>
+        <name name="stateless_tickets_seed"/>
+        <desc>
+          <p>Configures the seed used for the encryption of stateless session tickets.
+          Allowed values are any randomly generated <c>binary()</c>. If this option is not
+          configured, an encryption seed will be randomly generated.</p>
+
+          <warning><p>Reusing the ticket encryption seed between multiple server
+          instances enables stateless session tickets to work across multiple server
+          instances, but it breaks anti-replay protection across instances.</p>
+
+          <p>Inaccurate time synchronization between server instances can also
+          affect session ticket freshness checks, potentially causing false negatives as
+          well as false positives.</p></warning>
+
+          <note><p>This option is supported by TLS 1.3 and above and only with stateless
+          session tickets.</p></note>
+        </desc>
+      </datatype>
+
+      <datatype>
 	<name name="anti_replay"/>
 	<desc>
 	  <p>Configures the server's built-in anti replay feature based on Bloom filters.</p>
@@ -1456,7 +1476,7 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	  <p>Allowed values are the pre-defined <c>'10k'</c>, <c>'100k'</c> or a custom 3-tuple that
 	  defines the properties of the bloom filters: <c>{WindowSize, HashFunctions, Bits}</c>.
 	  <c>WindowSize</c> is the number of seconds after the current Bloom filter is rotated
-	  and also the window size used for freshness checks. <c>HashFunctions</c> is the number
+	  and also the window size used for freshness checks of ClientHello. <c>HashFunctions</c> is the number
 	  hash functions and <c>Bits</c> is the number of bits in the bit vector.
 	  <c>'10k'</c> and <c>'100k'</c> are simple defaults with the following properties:</p>
 	  <list type="bulleted">

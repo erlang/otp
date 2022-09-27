@@ -199,13 +199,16 @@ release_docs_spec:
 # Dependencies -- alphabetically, please
 # ---------------------------------------------------- 
 
-$(EBIN)/beam_asm.beam: beam_asm.hrl
+$(EBIN)/beam_asm.beam: beam_asm.hrl beam_opcodes.hrl beam_types.hrl
 $(EBIN)/beam_call_types.beam: beam_types.hrl
 $(EBIN)/beam_block.beam: beam_asm.hrl
-$(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl beam_asm.hrl
+$(EBIN)/beam_dict.beam: beam_types.hrl
+$(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl \
+     beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_jump.beam: beam_asm.hrl
 $(EBIN)/beam_kernel_to_ssa.beam: v3_kernel.hrl beam_ssa.hrl
-$(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl beam_asm.hrl
+$(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl \
+     beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_ssa.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_bsm.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_bool.beam: beam_ssa.hrl
@@ -213,11 +216,11 @@ $(EBIN)/beam_ssa_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_dead.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_lint.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_opt.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_pre_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_recv.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_share.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_throw.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_throw.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_type.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_trim.beam: beam_asm.hrl
 $(EBIN)/beam_types.beam: beam_types.hrl

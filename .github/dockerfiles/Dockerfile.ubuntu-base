@@ -13,16 +13,10 @@ USER root
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
+## Install build tools
 RUN apt-get update && apt-get -y upgrade && \
     apt-get install -y build-essential m4 autoconf fop xsltproc \
-    default-jdk libxml2-utils flex pkg-config \
-    unixodbc odbc-postgresql postgresql \
-    tzdata ssh openssh-server groff-base sudo gdb tinyproxy bind9 nsd expect vsftpd python \
-    linux-tools-common linux-tools-generic linux-tools-`uname -r` curl jq \
-    xvfb libgl1-mesa-dri \
-    ${INSTALL_LIBS} && \
-    for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
-    if [ ! -f /etc/apache2/apache2.conf ]; then apt-get install -y apache2; fi && \
+    default-jdk libxml2-utils flex pkg-config locales tzdata ${INSTALL_LIBS} && \
     sed -i 's@# en_US.UTF-8@en_US.UTF-8@g' /etc/locale.gen && locale-gen && \
     update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0
 
@@ -34,8 +28,8 @@ ENV MAKEFLAGS=$MAKEFLAGS \
     ERLC_USE_SERVER=yes
 
 ## We install the latest version of the previous three releases in order to do
-## backwards compatability testing of the Erlang distribution.
-RUN apt-get install -y git && \
+## backwards compatability testing of Erlang.
+RUN apt-get install -y git curl && \
     curl -L https://raw.githubusercontent.com/kerl/kerl/master/kerl > /usr/bin/kerl && \
     chmod +x /usr/bin/kerl && \
     kerl update releases && \
@@ -47,6 +41,22 @@ RUN apt-get install -y git && \
     done && \
     rm -rf ~/.kerl
 
+## Install test tools
+RUN apt-get install -y \
+    unixodbc odbc-postgresql postgresql ssh openssh-server groff-base sudo gdb \
+    tinyproxy bind9 nsd expect vsftpd python emacs nano vim \
+    linux-tools-common linux-tools-generic linux-tools-`uname -r` jq \
+    xvfb libgl1-mesa-dri && \
+    for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
+    if [ ! -f /etc/apache2/apache2.conf ]; then apt-get install -y apache2; fi
+
+## We use tmux to test terminals
+RUN apt-get install -y libevent-dev libutf8proc-dev && \
+    cd /tmp && wget https://github.com/tmux/tmux/releases/download/3.2a/tmux-3.2a.tar.gz && \
+    tar xvzf tmux-3.2a.tar.gz && cd tmux-3.2a && \
+    ./configure --enable-static --enable-utf8proc && \
+    make && make install
+
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
 ARG USER=gitpod
@@ -56,6 +66,7 @@ ARG uid=421
 
 RUN echo "Europe/Stockholm" > /etc/timezone && \
     ln -snf /usr/share/zoneinfo/$(cat /etc/timezone) /etc/localtime && \
+    if ! grep ":${gid}:$" /etc/group; then groupadd -g ${gid} localgroup; fi && \
     if [ ! -d /home/${USER} ]; then useradd -rm -d /home/${USER} -s /bin/sh -g ${gid} -G ${gid},sudo -u ${uid} ${USER}; fi && \
     echo "${USER} ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USER} && \
     echo "/buildroot/** r," >> /etc/apparmor.d/local/usr.sbin.named && \

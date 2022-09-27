@@ -91,8 +91,8 @@ edit([C|Cs], P, Line, {blink,_}, [_|Rs]) ->	%Remove blink here
     edit([C|Cs], P, Line, none, Rs);
 edit([C|Cs], P, {Bef,Aft}, Prefix, Rs0) ->
     case key_map(C, Prefix) of
-	meta ->
-	    edit(Cs, P, {Bef,Aft}, meta, Rs0);
+        meta ->
+            edit(Cs, P, {Bef,Aft}, meta, Rs0);
         meta_o ->
             edit(Cs, P, {Bef,Aft}, meta_o, Rs0);
         meta_csi ->
@@ -101,56 +101,37 @@ edit([C|Cs], P, {Bef,Aft}, Prefix, Rs0) ->
             edit(Cs, P, {Bef,Aft}, meta_meta, Rs0);
         {csi, _} = Csi ->
             edit(Cs, P, {Bef,Aft}, Csi, Rs0);
-	meta_left_sq_bracket ->
-	    edit(Cs, P, {Bef,Aft}, meta_left_sq_bracket, Rs0);
-	search_meta ->
-	    edit(Cs, P, {Bef,Aft}, search_meta, Rs0);
-	search_meta_left_sq_bracket ->
-	    edit(Cs, P, {Bef,Aft}, search_meta_left_sq_bracket, Rs0);
-	ctlx ->
-	    edit(Cs, P, {Bef,Aft}, ctlx, Rs0);
-	new_line ->
-	    {done, get_line(Bef, Aft ++ "\n"), Cs,
-	     reverse(Rs0, [{move_rel,cp_len(Aft)},{put_chars,unicode,"\n"}])};
-	redraw_line ->
-	    Rs1 = erase(P, Bef, Aft, Rs0),
-	    Rs = redraw(P, Bef, Aft, Rs1),
-	    edit(Cs, P, {Bef,Aft}, none, Rs);
-	tab_expand ->
-	    {expand, Bef, Cs,
-	     {line, P, {Bef, Aft}, none},
-	     reverse(Rs0)};
-
-%% 	tab ->
-%% 	    %% Always redraw the line since expand/1 might have printed
-%% 	    %% possible expansions.
-%% 	    case expand(Bef) of
-%% 		{yes,Str} ->
-%% 		    edit([redraw_line|
-%% 			  (Str ++ Cs)], P, {Bef,Aft}, none, Rs0);
-%% 		no ->
-%% 		    %% don't beep if there's only whitespace before
-%% 		    %% us - user may have pasted in a lot of indented stuff.
-%% 		    case whitespace_only(Bef) of
-%% 			false ->
-%% 			    edit([redraw_line|Cs], P, {Bef,Aft}, none,
-%% 				 [beep|Rs0]);
-%% 			true ->
-%% 			    edit([redraw_line|Cs], P, {Bef,Aft}, none, [Rs0])
-%% 		    end
-%% 	    end;
-	{undefined,C} ->
-	    {undefined,{none,Prefix,C},Cs,{line,P,{Bef,Aft},none},
-	     reverse(Rs0)};
-	Op ->
-	    case do_op(Op, Bef, Aft, Rs0) of
-		{blink,N,Line,Rs} ->
-		    edit(Cs, P, Line, {blink,N}, Rs);
-		{Line, Rs, Mode} -> % allow custom modes from do_op
-		    edit(Cs, P, Line, Mode, Rs);
-		{Line,Rs} ->
-		    edit(Cs, P, Line, none, Rs)
-	    end
+        meta_left_sq_bracket ->
+            edit(Cs, P, {Bef,Aft}, meta_left_sq_bracket, Rs0);
+        search_meta ->
+            edit(Cs, P, {Bef,Aft}, search_meta, Rs0);
+        search_meta_left_sq_bracket ->
+            edit(Cs, P, {Bef,Aft}, search_meta_left_sq_bracket, Rs0);
+        ctlx ->
+            edit(Cs, P, {Bef,Aft}, ctlx, Rs0);
+        new_line ->
+            {done, get_line(Bef, Aft ++ "\n"), Cs,
+            reverse(Rs0, [{move_rel,cp_len(Aft)},{put_chars,unicode,"\n"}])};
+        redraw_line ->
+            Rs1 = erase(P, Bef, Aft, Rs0),
+            Rs = redraw(P, Bef, Aft, Rs1),
+            edit(Cs, P, {Bef,Aft}, none, Rs);
+        tab_expand ->
+            {expand, Bef, Cs,
+            {line, P, {Bef, Aft}, none},
+            reverse(Rs0)};
+        {undefined,C} ->
+            {undefined,{none,Prefix,C},Cs,{line,P,{Bef,Aft},none},
+            reverse(Rs0)};
+        Op ->
+            case do_op(Op, Bef, Aft, Rs0) of
+            {blink,N,Line,Rs} ->
+                edit(Cs, P, Line, {blink,N}, Rs);
+            {Line, Rs, Mode} -> % allow custom modes from do_op
+                edit(Cs, P, Line, Mode, Rs);
+            {Line,Rs} ->
+                edit(Cs, P, Line, none, Rs)
+            end
     end;
 edit([], P, L, {blink,N}, Rs) ->
     {blink,{line,P,L,{blink,N}},reverse(Rs)};
@@ -183,7 +164,7 @@ prefix_arg(N) -> N.
 %% key_map(Char, Prefix)
 %%  Map a character and a prefix to an action.
 
-key_map(A, _) when is_atom(A) -> A;		% so we can push keywords
+key_map(A, _) when is_atom(A) -> A;             % so we can push keywords
 key_map($\^A, none) -> beginning_of_line;
 key_map($\^B, none) -> backward_char;
 key_map($\^D, none) -> forward_delete_char;
@@ -191,9 +172,9 @@ key_map($\^E, none) -> end_of_line;
 key_map($\^F, none) -> forward_char;
 key_map($\^H, none) -> backward_delete_char;
 key_map($\t, none) -> tab_expand;
+key_map($\^K, none) -> kill_line;
 key_map($\^L, none) -> redraw_line;
 key_map($\n, none) -> new_line;
-key_map($\^K, none) -> kill_line;
 key_map($\r, none) -> new_line;
 key_map($\^T, none) -> transpose_char;
 key_map($\^U, none) -> ctlu;
@@ -320,9 +301,9 @@ do_op({search, backward_delete_char}, [_|Bef], Aft, Rs) ->
     {{Bef,NAft},
      [{insert_chars, unicode, NAft}, {delete_chars,-Offset}|Rs],
      search};
-do_op({search, backward_delete_char}, [], _Aft, Rs) ->
-    Aft="': ",
-    {{[],Aft}, Rs, search};
+do_op({search, backward_delete_char}, [], Aft, Rs) ->
+    NAft="': ",
+    {{[],NAft}, [{insert_chars, unicode, NAft}, {delete_chars,-cp_len(Aft)}|Rs], search};
 do_op({search, skip_up}, Bef, Aft, Rs) ->
     Offset= cp_len(Aft),
     NAft = "': ",
@@ -621,148 +602,3 @@ cp_len(Str) ->
 cp_len([GC|R], Len) ->
     cp_len(R, Len + gc_len(GC));
 cp_len([], Len) -> Len.
-
-%% %% expand(CurrentBefore) ->
-%% %%	{yes,Expansion} | no
-%% %%  Try to expand the word before as either a module name or a function
-%% %%  name. We can handle white space around the seperating ':' but the
-%% %%  function name must be on the same line. CurrentBefore is reversed
-%% %%  and over_word/3 reverses the characters it finds. In certain cases
-%% %%  possible expansions are printed.
-
-%% expand(Bef0) ->
-%%     {Bef1,Word,_} = over_word(Bef0, [], 0),
-%%     case over_white(Bef1, [], 0) of
-%% 	{[$:|Bef2],_White,_Nwh} ->
-%% 	    {Bef3,_White1,_Nwh1} = over_white(Bef2, [], 0),
-%% 	    {_,Mod,_Nm} = over_word(Bef3, [], 0),
-%% 	    expand_function_name(Mod, Word);
-%% 	{_,_,_} ->
-%% 	    expand_module_name(Word)
-%%     end.
-
-%% expand_module_name(Prefix) ->
-%%     match(Prefix, code:all_loaded(), ":").
-
-%% expand_function_name(ModStr, FuncPrefix) ->
-%%     Mod = list_to_atom(ModStr),
-%%     case erlang:module_loaded(Mod) of
-%% 	true ->
-%% 	    L = apply(Mod, module_info, []),
-%% 	    case lists:keyfind(exports, 1, L) of
-%% 		{_, Exports} ->
-%% 		    match(FuncPrefix, Exports, "(");
-%% 		_ ->
-%% 		    no
-%% 	    end;
-%% 	false ->
-%% 	    no
-%%     end.
-
-%% match(Prefix, Alts, Extra) ->
-%%     Matches = match1(Prefix, Alts),
-%%     case longest_common_head([N || {N,_} <- Matches]) of
-%% 	{partial, []} ->
-%% 	    print_matches(Matches),
-%% 	    no;
-%% 	{partial, Str} ->
-%% 	    case lists:nthtail(length(Prefix), Str) of
-%% 		[] ->
-%% 		    print_matches(Matches),
-%% 		    {yes, []};
-%% 		Remain ->
-%% 		    {yes, Remain}
-%% 	    end;
-%% 	{complete, Str} ->
-%% 	    {yes, lists:nthtail(length(Prefix), Str) ++ Extra};
-%% 	no ->
-%% 	    no
-%%     end.
-
-%% %% Print the list of names L in multiple columns.
-%% print_matches(L) ->
-%%     io:nl(),
-%%     col_print(lists:sort(L)),
-%%     ok.
-
-%% col_print([]) -> ok;
-%% col_print(L)  -> col_print(L, field_width(L), 0).
-
-%% col_print(X, Width, Len) when Width + Len > 79 ->
-%%     io:nl(),
-%%     col_print(X, Width, 0);
-%% col_print([{H0,A}|T], Width, Len) ->
-%%     H = if
-%% 	    %% If the second element is an integer, we assume it's an
-%% 	    %% arity, and meant to be printed.
-%% 	    integer(A) ->
-%% 		H0 ++ "/" ++ integer_to_list(A);
-%% 	    true ->
-%% 		H0
-%% 	end,
-%%     io:format("~-*s",[Width,H]),
-%%     col_print(T, Width, Len+Width);
-%% col_print([], _, _) ->
-%%     io:nl().
-
-%% field_width([{H,_}|T]) -> field_width(T, length(H)).
-
-%% field_width([{H,_}|T], W) ->
-%%     case length(H) of
-%% 	L when L > W -> field_width(T, L);
-%% 	_ -> field_width(T, W)
-%%     end;
-%% field_width([], W) when W < 40 ->
-%%     W + 4;
-%% field_width([], _) ->
-%%     40.
-
-%% match1(Prefix, Alts) ->
-%%     match1(Prefix, Alts, []).
-
-%% match1(Prefix, [{H,A}|T], L) ->
-%%     case prefix(Prefix, Str = atom_to_list(H)) of
-%% 	true ->
-%% 	    match1(Prefix, T, [{Str,A}|L]);
-%% 	false ->
-%% 	    match1(Prefix, T, L)
-%%     end;
-%% match1(_, [], L) ->
-%%     L.
-
-%% longest_common_head([]) ->
-%%     no;
-%% longest_common_head(LL) ->
-%%     longest_common_head(LL, []).
-
-%% longest_common_head([[]|_], L) ->
-%%     {partial, reverse(L)};
-%% longest_common_head(LL, L) ->
-%%     case same_head(LL) of
-%% 	true ->
-%% 	    [[H|_]|_] = LL,
-%% 	    LL1 = all_tails(LL),
-%% 	    case all_nil(LL1) of
-%% 		false ->
-%% 		    longest_common_head(LL1, [H|L]);
-%% 		true ->
-%% 		    {complete, reverse([H|L])}
-%% 	    end;
-%% 	false ->
-%% 	    {partial, reverse(L)}
-%%     end.
-
-%% same_head([[H|_]|T1]) -> same_head(H, T1).
-
-%% same_head(H, [[H|_]|T]) -> same_head(H, T);
-%% same_head(_, [])        -> true;
-%% same_head(_, _)         -> false.
-
-%% all_tails(LL) -> all_tails(LL, []).
-
-%% all_tails([[_|T]|T1], L) -> all_tails(T1, [T|L]);
-%% all_tails([], L)         -> L.
-
-%% all_nil([]) -> true;
-%% all_nil([[] | Rest]) -> all_nil(Rest);
-%% all_nil(_) -> false.

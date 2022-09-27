@@ -10358,31 +10358,35 @@ printf "%s\n" "#define ETHR_WIN32_THREADS 1" >>confdefs.h
 	else
 
     ilckd="_InterlockedDecrement"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "1" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedDecrement+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedDecrement=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10390,43 +10394,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedDecrement=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedDecrement" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedDecrement" >&6; }
+    if [ "${ethr_cv_have__InterlockedDecrement}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDDECREMENT 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedDecrement_rel"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "1" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedDecrement_rel+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedDecrement_rel=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10434,43 +10447,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedDecrement_rel=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedDecrement_rel" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedDecrement_rel" >&6; }
+    if [ "${ethr_cv_have__InterlockedDecrement_rel}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDDECREMENT_REL 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedIncrement"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "1" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedIncrement+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedIncrement=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10478,43 +10500,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedIncrement=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedIncrement" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedIncrement" >&6; }
+    if [ "${ethr_cv_have__InterlockedIncrement}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDINCREMENT 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedIncrement_acq"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "1" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedIncrement_acq+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedIncrement_acq=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10522,43 +10553,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedIncrement_acq=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedIncrement_acq" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedIncrement_acq" >&6; }
+    if [ "${ethr_cv_have__InterlockedIncrement_acq}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDINCREMENT_ACQ 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedExchangeAdd"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedExchangeAdd+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedExchangeAdd=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10566,43 +10606,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedExchangeAdd=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedExchangeAdd" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedExchangeAdd" >&6; }
+    if [ "${ethr_cv_have__InterlockedExchangeAdd}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDEXCHANGEADD 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedExchangeAdd_acq"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedExchangeAdd_acq+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedExchangeAdd_acq=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10610,43 +10659,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedExchangeAdd_acq=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedExchangeAdd_acq" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedExchangeAdd_acq" >&6; }
+    if [ "${ethr_cv_have__InterlockedExchangeAdd_acq}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDEXCHANGEADD_ACQ 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedAnd"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedAnd+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedAnd=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10654,43 +10712,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedAnd=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedAnd" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedAnd" >&6; }
+    if [ "${ethr_cv_have__InterlockedAnd}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDAND 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedOr"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedOr+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedOr=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10698,43 +10765,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedOr=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedOr" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedOr" >&6; }
+    if [ "${ethr_cv_have__InterlockedOr}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDOR 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedExchange"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedExchange+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedExchange=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10742,43 +10818,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedExchange=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedExchange" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedExchange" >&6; }
+    if [ "${ethr_cv_have__InterlockedExchange}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDEXCHANGE 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedCompareExchange"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "3" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedCompareExchange+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedCompareExchange=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10786,44 +10871,53 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedCompareExchange=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedCompareExchange" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedCompareExchange" >&6; }
+    if [ "${ethr_cv_have__InterlockedCompareExchange}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+               ethr_have_native_atomics=yes
+    else
+      :
+    fi
 
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
 
     ilckd="_InterlockedCompareExchange_acq"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "3" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedCompareExchange_acq+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedCompareExchange_acq=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10831,44 +10925,53 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedCompareExchange_acq=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedCompareExchange_acq" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedCompareExchange_acq" >&6; }
+    if [ "${ethr_cv_have__InterlockedCompareExchange_acq}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_ACQ 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+               ethr_have_native_atomics=yes
+    else
+      :
+    fi
 
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
 
     ilckd="_InterlockedCompareExchange_rel"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "3" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (long) 0);";;
 	"3") ilckd_call="${ilckd}(var, (long) 0, (long) 0);";;
 	"4") ilckd_call="${ilckd}(var, (long) 0, (long) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedCompareExchange_rel+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedCompareExchange_rel=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile long *var;
-	    volatile long arr[2];
+	     volatile long *var;
+	     volatile long arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10876,45 +10979,53 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedCompareExchange_rel=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedCompareExchange_rel" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedCompareExchange_rel" >&6; }
+    if [ "${ethr_cv_have__InterlockedCompareExchange_rel}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE_REL 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
-
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
+              ethr_have_native_atomics=yes
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedDecrement64"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "1" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedDecrement64+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedDecrement64=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10922,43 +11033,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedDecrement64=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedDecrement64" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedDecrement64" >&6; }
+    if [ "${ethr_cv_have__InterlockedDecrement64}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDDECREMENT64 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedDecrement64_rel"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "1" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedDecrement64_rel+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedDecrement64_rel=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -10966,43 +11086,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedDecrement64_rel=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedDecrement64_rel" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedDecrement64_rel" >&6; }
+    if [ "${ethr_cv_have__InterlockedDecrement64_rel}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDDECREMENT64_REL 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedIncrement64"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "1" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedIncrement64+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedIncrement64=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11010,43 +11139,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedIncrement64=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedIncrement64" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedIncrement64" >&6; }
+    if [ "${ethr_cv_have__InterlockedIncrement64}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDINCREMENT64 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedIncrement64_acq"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "1" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedIncrement64_acq+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedIncrement64_acq=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11054,43 +11192,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedIncrement64_acq=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedIncrement64_acq" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedIncrement64_acq" >&6; }
+    if [ "${ethr_cv_have__InterlockedIncrement64_acq}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDINCREMENT64_ACQ 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedExchangeAdd64"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedExchangeAdd64+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedExchangeAdd64=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11098,43 +11245,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedExchangeAdd64=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedExchangeAdd64" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedExchangeAdd64" >&6; }
+    if [ "${ethr_cv_have__InterlockedExchangeAdd64}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDEXCHANGEADD64 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedExchangeAdd64_acq"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedExchangeAdd64_acq+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedExchangeAdd64_acq=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11142,43 +11298,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedExchangeAdd64_acq=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedExchangeAdd64_acq" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedExchangeAdd64_acq" >&6; }
+    if [ "${ethr_cv_have__InterlockedExchangeAdd64_acq}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDEXCHANGEADD64_ACQ 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedAnd64"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedAnd64+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedAnd64=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11186,43 +11351,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedAnd64=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedAnd64" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedAnd64" >&6; }
+    if [ "${ethr_cv_have__InterlockedAnd64}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDAND64 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedOr64"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedOr64+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedOr64=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11230,43 +11404,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedOr64=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedOr64" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedOr64" >&6; }
+    if [ "${ethr_cv_have__InterlockedOr64}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDOR64 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedExchange64"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "2" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedExchange64+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedExchange64=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11274,43 +11457,52 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedExchange64=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedExchange64" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedExchange64" >&6; }
+    if [ "${ethr_cv_have__InterlockedExchange64}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDEXCHANGE64 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedCompareExchange64"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "3" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedCompareExchange64+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedCompareExchange64=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11318,44 +11510,53 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedCompareExchange64=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedCompareExchange64" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedCompareExchange64" >&6; }
+    if [ "${ethr_cv_have__InterlockedCompareExchange64}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+               ethr_have_native_atomics=yes
+    else
+      :
+    fi
 
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
 
     ilckd="_InterlockedCompareExchange64_acq"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "3" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedCompareExchange64_acq+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedCompareExchange64_acq=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11363,44 +11564,53 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedCompareExchange64_acq=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedCompareExchange64_acq" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedCompareExchange64_acq" >&6; }
+    if [ "${ethr_cv_have__InterlockedCompareExchange64_acq}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_ACQ 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+               ethr_have_native_atomics=yes
+    else
+      :
+    fi
 
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
 
     ilckd="_InterlockedCompareExchange64_rel"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "3" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedCompareExchange64_rel+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedCompareExchange64_rel=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11408,45 +11618,53 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedCompareExchange64_rel=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedCompareExchange64_rel" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedCompareExchange64_rel" >&6; }
+    if [ "${ethr_cv_have__InterlockedCompareExchange64_rel}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64_REL 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
-
-	    test "$have_interlocked_op" = "yes" && ethr_have_native_atomics=yes
+               ethr_have_native_atomics=yes
+    else
+      :
+    fi
 
 
     ilckd="_InterlockedCompareExchange128"
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
-printf %s "checking for ${ilckd}()... " >&6; }
     case "4" in
 	"1") ilckd_call="${ilckd}(var);";;
 	"2") ilckd_call="${ilckd}(var, (__int64) 0);";;
 	"3") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0);";;
 	"4") ilckd_call="${ilckd}(var, (__int64) 0, (__int64) 0, arr);";;
     esac
-    have_interlocked_op=no
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ${ilckd}()" >&5
+printf %s "checking for ${ilckd}()... " >&6; }
+if test ${ethr_cv_have__InterlockedCompareExchange128+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  ethr_cv_have__InterlockedCompareExchange128=no
+         cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-	#define WIN32_LEAN_AND_MEAN
-	#include <windows.h>
-	#include <intrin.h>
+	     #define WIN32_LEAN_AND_MEAN
+	     #include <windows.h>
+	     #include <intrin.h>
 
 int
 main (void)
 {
 
-	    volatile __int64 *var;
-	    volatile __int64 arr[2];
+	     volatile __int64 *var;
+	     volatile __int64 arr[2];
 
-	    $ilckd_call
-	    return 0;
+	      $ilckd_call
+	      return 0;
 
   ;
   return 0;
@@ -11454,15 +11672,20 @@ main (void)
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  have_interlocked_op=yes
+  ethr_cv_have__InterlockedCompareExchange128=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-    test $have_interlocked_op = yes &&
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_have__InterlockedCompareExchange128" >&5
+printf "%s\n" "$ethr_cv_have__InterlockedCompareExchange128" >&6; }
+    if [ "${ethr_cv_have__InterlockedCompareExchange128}" = "yes" ]; then
+
 printf "%s\n" "#define ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE128 1" >>confdefs.h
 
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $have_interlocked_op" >&5
-printf "%s\n" "$have_interlocked_op" >&6; }
+    else
+      :
+    fi
 
 	fi
 	if test "$ethr_have_native_atomics" = "yes"; then
@@ -16938,9 +17161,9 @@ then :
    try_dlpi_lib=$erl_xcomp_sysroot/lib
    if test x"$ac_cv_sizeof_void_p" = x"8"; then
       if test -d  $erl_xcomp_sysroot/lib64; then
-	 try_dlpi_lib= $erl_xcomp_sysroot/lib64
+	 try_dlpi_lib=$erl_xcomp_sysroot/lib64
       elif test -d  $erl_xcomp_sysroot/lib/64; then
-	 try_dlpi_lib= $erl_xcomp_sysroot/lib/64
+	 try_dlpi_lib=$erl_xcomp_sysroot/lib/64
       fi
    fi
    if test ! -f "$try_dlpi_lib/libdlpi.so" && \

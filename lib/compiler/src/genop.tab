@@ -670,3 +670,30 @@ BEAM_FORMAT_NUMBER=0
 ## @spec badrecord Value
 ## @doc Raises a {badrecord,Value} error exception.
 180: badrecord/1
+
+# OTP 26
+
+## @spec update_record Hint Size Src Dst Updates=[Index, Value]
+## @doc  Sets Dst to a copy of Src with the update list applied. Hint can be
+##       one of:
+##
+##       * {atom,copy}        - The result will always differ from Src, so
+##                              don't bother checking if it can be reused.
+##       * {atom,reuse}       - Reuse Src if a runtime check deduces that it's
+##                              equal to the result.
+##
+##       Note that these are just hints and the implementation is free to
+##       ignore them. More hints may be added in the future.
+181: update_record/5
+
+## @spec bs_match Fail Ctx {commdands,Commands}
+## @doc  Match one or more binary segments of fixed size. Commands
+##       can be one of the following:
+##
+##       * {ensure_at_least,Stride,Unit}
+##       * {ensure_exactly,Stride}
+##       * {binary,Live,Flags,Size,Unit,Dst}
+##       * {integer,Live,Flags,Size,Unit,Dst}
+##       * {skip,Stride}
+##       * {get_tail,Live,Unit,Dst}
+182: bs_match/3

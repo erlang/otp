@@ -4409,7 +4409,7 @@ dec_term_atom_common:
                     }
 		    if (ref_words != ERTS_REF_NUMBERS) {
                         int i;
-                        if (ref_words > ERTS_REF_NUMBERS)
+                        if (ref_words > ERTS_MAX_REF_NUMBERS)
                             goto error; /* Not a ref that we created... */
                         for (i = ref_words; i < ERTS_REF_NUMBERS; i++)
                             ref_num[i] = 0;
@@ -4421,11 +4421,14 @@ dec_term_atom_common:
                     }
                     else {
                         /* Check if it is a pid reference... */
-                        Eterm pid = erts_pid_ref_lookup(ref_num);
+                        Eterm pid = erts_pid_ref_lookup(ref_num, ref_words);
                         if (is_internal_pid(pid)) {
                             write_pid_ref_thing(hp, ref_num[0], ref_num[1],
                                                 ref_num[2], pid);
                             hp += ERTS_PID_REF_THING_SIZE;
+                        }
+                        else if (is_non_value(pid)) {
+                            goto error; /* invalid reference... */
                         }
                         else {
                             /* Check if it is a magic reference... */
@@ -5912,118 +5915,6 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         
         reds -= 4;
         
-        if (reds < 0)
-            return 0;
-        return reds;
-    }
-
-    if ((~dflags & DFLAG_UNLINK_ID)
-        && ep[0] == SMALL_TUPLE_EXT
-        && ep[1] == 4
-        && ep[2] == SMALL_INTEGER_EXT
-        && (ep[3] == DOP_UNLINK_ID_ACK || ep[3] == DOP_UNLINK_ID)) {
-
-        if (ep[3] == DOP_UNLINK_ID_ACK) {
-            /* Drop DOP_UNLINK_ID_ACK signal... */
-            int i;
-            for (i = 1; i < ob->eiov->vsize; i++) {
-                if (ob->eiov->binv[i])
-                    driver_free_binary(ob->eiov->binv[i]);
-            }
-            ob->eiov->vsize = 1;
-            ob->eiov->size = 0;
-        }
-        else {
-            Eterm ctl_msg, remote, local, *tp;
-            ErtsTranscodeDecodeState tds;
-            Uint64 id;
-            byte *ptr;
-            ASSERT(ep[3] == DOP_UNLINK_ID);
-            /*
-             * Rewrite the DOP_UNLINK_ID signal into a
-             * DOP_UNLINK signal and send an unlink ack
-             * to the local sender.
-             */
-
-            /*
-             * decode control message so we get info
-             * needed for unlink ack signal to send...
-             */
-            ASSERT(get_int32(hdr + 4) == 0); /* No payload */
-            ctl_msg = transcode_decode_ctl_msg(&tds, iov, eiov->vsize);
-
-            ASSERT(is_tuple_arity(ctl_msg, 4));
-            
-            tp = tuple_val(ctl_msg);
-            ASSERT(tp[1] == make_small(DOP_UNLINK_ID));
-
-            if (!term_to_Uint64(tp[2], &id))
-                ERTS_INTERNAL_ERROR("Invalid encoding of DOP_UNLINK_ID signal");
-            
-            local = tp[3];
-            remote = tp[4];
-
-            ASSERT(is_internal_pid(local));
-            ASSERT(is_external_pid(remote));
-
-            /*
-             * Rewrite buffer to an unlink signal by removing
-             * second element and change first element to
-             * DOP_UNLINK. That is, to: {DOP_UNLINK, local, remote}
-             */
-
-            ptr = &ep[4];
-            switch (*ptr) {
-            case SMALL_INTEGER_EXT:
-                ptr += 1;
-                break;
-            case INTEGER_EXT:
-                ptr += 4;
-                break;
-            case SMALL_BIG_EXT:
-                ptr += 1;
-                ASSERT(*ptr <= 8);
-                ptr += *ptr + 1;
-                break;
-            default:
-                ERTS_INTERNAL_ERROR("Invalid encoding of DOP_UNLINK_ID signal");
-                break;
-            }
-
-            ASSERT((ptr - ep) <= 16);
-            ASSERT((ptr - ep) <= iov[2].iov_len);
-            
-            *(ptr--) = DOP_UNLINK;
-            *(ptr--) = SMALL_INTEGER_EXT;
-            *(ptr--) = 3;
-            *ptr = SMALL_TUPLE_EXT;
-
-            iov[2].iov_base = ptr;
-            iov[2].iov_len -= (ptr - ep);
-
-#ifdef DEBUG
-            {
-                ErtsTranscodeDecodeState dbg_tds;
-                Eterm new_ctl_msg = transcode_decode_ctl_msg(&dbg_tds,
-                                                             iov,
-                                                             eiov->vsize);
-                ASSERT(is_tuple_arity(new_ctl_msg, 3));
-                tp = tuple_val(new_ctl_msg);
-                ASSERT(tp[1] == make_small(DOP_UNLINK));
-                ASSERT(tp[2] == local);
-                ASSERT(eq(tp[3], remote));
-                transcode_decode_state_destroy(&dbg_tds);
-            }
-#endif
-
-            /* Send unlink ack to local sender... */
-            erts_proc_sig_send_dist_unlink_ack(dep, dep->connection_id,
-                                               remote, local, id);
-
-            transcode_decode_state_destroy(&tds);
-
-            reds -= 5;
-        }
         if (reds < 0)
             return 0;
         return reds;

@@ -256,6 +256,7 @@ atom enable_trace
 atom enabled
 atom endian
 atom env
+atom ensure_at_least ensure_exactly
 atom eof
 atom eol
 atom Eq='=:='
@@ -324,6 +325,7 @@ atom get_all_trap
 atom get_internal_state_blocked
 atom get_seq_token
 atom get_size
+atom get_tail
 atom get_tcw
 atom gather_gc_info_result
 atom gather_io_bytes
@@ -602,6 +604,7 @@ atom return_time_trace
 atom return_to
 atom return_to_trace
 atom return_trace
+atom reuse
 atom run_process
 atom run_queue
 atom run_queue_lengths
@@ -644,6 +647,7 @@ atom set_tcw_fake
 atom short
 atom shutdown
 atom sighup
+atom signed
 atom sigterm
 atom sigusr1
 atom sigusr2
@@ -658,6 +662,7 @@ atom sigtstp
 atom sigquit
 atom silent
 atom size
+atom skip
 atom spawn_executable
 atom spawn_driver
 atom spawn_init

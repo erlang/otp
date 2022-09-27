@@ -29,10 +29,11 @@ the Erlang/OTP installation for discrepancies.
 The complete set of Dialyzer options is:
 
 	dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
-                 [-pa dir]* [--plt plt] [-Ddefine]* [-I include_dir]* 
-                 [--output_plt file] [-Wwarn]* [--src] 
+                 [-pa dir]* [--plt plt] [-Ddefine]* [-I include_dir]*
+                 [--output_plt file] [-Wwarn]* [--src]
                  [-c applications] [-r applications] [-o outfile]
                  [--build_plt] [--add_to_plt] [--remove_from_plt] [--check_plt]
+                 [--incremental]
                  [--plt_info] [--get_warnings]
 
 Use "dialyzer --help" to see an explanation of these options as well as

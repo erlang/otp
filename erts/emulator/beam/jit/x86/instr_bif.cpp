@@ -99,7 +99,7 @@ void BeamGlobalAssembler::emit_i_bif_body_shared() {
 }
 
 void BeamModuleAssembler::emit_setup_guard_bif(const std::vector<ArgVal> &args,
-                                               const ArgWord &bif) {
+                                               const ArgWord &Bif) {
     bool is_contiguous_mem = false;
 
     ASSERT(args.size() > 0 && args.size() <= 3);
@@ -125,7 +125,13 @@ void BeamModuleAssembler::emit_setup_guard_bif(const std::vector<ArgVal> &args,
         }
     }
 
-    mov_arg(ARG4, bif);
+    if (logger.file()) {
+        ErtsCodeMFA *mfa = ubif2mfa((void *)Bif.get());
+        if (mfa) {
+            comment("UBIF: %T/%d", mfa->function, mfa->arity);
+        }
+    }
+    mov_arg(ARG4, Bif);
 }
 
 void BeamModuleAssembler::emit_i_bif1(const ArgSource &Src1,
@@ -626,6 +632,10 @@ void BeamModuleAssembler::emit_call_light_bif(const ArgWord &Bif,
     a.mov(RET, imm(Bif.get()));
     a.lea(ARG3, x86::qword_ptr(entry));
 
+    if (logger.file()) {
+        BeamFile_ImportEntry *e = &beam->imports.entries[Exp.get()];
+        comment("BIF: %T:%T/%d", e->module, e->function, e->arity);
+    }
     fragment_call(ga->get_call_light_bif_shared());
 }
 
@@ -842,6 +852,10 @@ void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
     e = erts_active_export_entry(M.get(), F.get(), A.get());
     ASSERT(e != NULL && e->bif_number != -1);
 
+    comment("HBIF: %T:%T/%d",
+            e->info.mfa.module,
+            e->info.mfa.function,
+            A.get());
     func = (BeamInstr)bif_table[e->bif_number].f;
     emit_call_bif(ArgWord(func));
 }

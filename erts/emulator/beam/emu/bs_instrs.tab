@@ -427,7 +427,6 @@ bs_init.verify(Fail) {
 
 bs_init.execute(Live, Dst) {
     erts_bin_offset = 0;
-    erts_writable_bin = 0;
 
     if (BsOp1 <= ERL_ONHEAP_BIN_LIMIT) {
         ErlHeapBin* hb;
@@ -539,7 +538,6 @@ bs_init_bits.execute(Live, Dst) {
      }
 
      erts_bin_offset = 0;
-     erts_writable_bin = 0;
 
      /* num_bits = Number of bits to build
       * num_bytes = Number of bytes to allocate in the binary
@@ -1113,7 +1111,6 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
          * alloc = Total number of words to allocate on heap
          */
         erts_bin_offset = 0;
-        erts_writable_bin = 0;
         if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
             ErlHeapBin* hb;
 
@@ -1856,3 +1853,274 @@ i_bs_start_match3.execute(Live, Fail, Dst) {
 }
 
 %endif
+
+//
+// New instructions introduced in OTP 26 for matching of integers and
+// binaries of fixed sizes follow.
+//
+
+//
+// i_bs_ensure_bits Ctx Size Fail
+//
+
+i_bs_ensure_bits := i_bs_ensure_bits.fetch.execute;
+
+i_bs_ensure_bits.head() {
+    Eterm context;
+}
+
+i_bs_ensure_bits.fetch(Src) {
+    context = $Src;
+}
+
+i_bs_ensure_bits.execute(NumBits, Fail) {
+    ErlBinMatchBuffer* mb = ms_matchbuffer(context);
+    Uint size = $NumBits;
+    if (mb->size - mb->offset < size) {
+        $FAIL($Fail);
+    }
+}
+
+//
+// i_bs_ensure_bits_unit Ctx Size Unit Fail
+//
+
+i_bs_ensure_bits_unit := i_bs_ensure_bits_unit.fetch.execute;
+
+i_bs_ensure_bits_unit.head() {
+    Eterm context;
+}
+
+i_bs_ensure_bits_unit.fetch(Src) {
+    context = $Src;
+}
+
+i_bs_ensure_bits_unit.execute(NumBits, Unit, Fail) {
+    ErlBinMatchBuffer* mb = ms_matchbuffer(context);
+    Uint size = $NumBits;
+    Uint diff;
+
+    if ((diff = mb->size - mb->offset) < size) {
+        $FAIL($Fail);
+    }
+    if ((diff - size) % $Unit != 0) {
+        $FAIL($Fail);
+    }
+}
+
+//
+// i_bs_read_bits Ctx Size
+// i_bs_ensure_bits_read Ctx Size Fail
+//
+
+i_bs_read_bits := i_bs_read_bits.fetch.execute;
+i_bs_ensure_bits_read := i_bs_read_bits.fetch.ensure_bits.execute;
+
+i_bs_read_bits.head() {
+    ErlBinMatchBuffer* mb;
+    Uint size;
+}
+
+i_bs_read_bits.fetch(Src, NumBits) {
+    mb = ms_matchbuffer($Src);
+    size = $NumBits;
+}
+
+i_bs_read_bits.ensure_bits(Fail) {
+    if (mb->size - mb->offset < size) {
+        $FAIL($Fail);
+    }
+}
+
+i_bs_read_bits.execute() {
+    byte *byte_ptr;
+    Uint bit_offset = mb->offset % 8;
+    Uint num_bytes_to_read = (size + 7) / 8;
+    Uint num_partial = size % 8;
+
+    if ((num_partial == 0 && bit_offset != 0) ||
+        (num_partial != 0 && bit_offset > 8 - num_partial)) {
+        num_bytes_to_read++;
+    }
+
+    bitdata = 0;
+    byte_ptr = mb->base + (mb->offset >> 3);
+    mb->offset += size;
+    switch (num_bytes_to_read) {
+#ifdef ARCH_64
+    case 9:
+    case 8:
+        bitdata = bitdata << 8 | *byte_ptr++;
+    case 7:
+        bitdata = bitdata << 8 | *byte_ptr++;
+    case 6:
+        bitdata = bitdata << 8 | *byte_ptr++;
+    case 5:
+        bitdata = bitdata << 8 | *byte_ptr++;
+#else
+    case 5:
+#endif
+    case 4:
+        bitdata = bitdata << 8 | *byte_ptr++;
+    case 3:
+        bitdata = bitdata << 8 | *byte_ptr++;
+    case 2:
+        bitdata = bitdata << 8 | *byte_ptr++;
+    case 1:
+        bitdata = bitdata << 8 | *byte_ptr++;
+    }
+
+    if (num_bytes_to_read <= sizeof(Uint)) {
+        bitdata <<= 8 * (sizeof(Uint) - num_bytes_to_read) + bit_offset;
+    } else {
+        bitdata <<= bit_offset;
+        bitdata = bitdata | ((*byte_ptr << bit_offset) >> 8);
+    }
+}
+
+// i_bs_extract_integer Size Dst
+i_bs_extract_integer(NumBits, Dst) {
+    Uint size = $NumBits;
+    Eterm result;
+
+    result = bitdata >> (8 * sizeof(Uint) - size);
+    result = make_small(result);
+    bitdata <<= size;
+    $Dst = result;
+}
+
+// i_bs_read_integer_8 Ctx Dst
+i_bs_read_integer_8(Ctx, Dst) {
+    ErlBinMatchBuffer* mb = ms_matchbuffer($Ctx);
+    byte *byte_ptr;
+    Uint bit_offset = mb->offset % 8;
+    Eterm result;
+
+    byte_ptr = mb->base + (mb->offset >> 3);
+    mb->offset += 8;
+    result = byte_ptr[0];
+    if (bit_offset != 0) {
+        result = result << 8 | byte_ptr[1];
+        result = ((result << bit_offset) >> 8) & 0xff;
+    }
+    result = make_small(result);
+    $Dst = result;
+}
+
+//
+// i_bs_get_fixed_integer Ctx Size Flags Dst
+//
+
+i_bs_get_fixed_integer := i_bs_get_fixed_integer.fetch.execute;
+
+i_bs_get_fixed_integer.head() {
+    Eterm context;
+}
+
+i_bs_get_fixed_integer.fetch(Src) {
+    context = $Src;
+}
+
+i_bs_get_fixed_integer.execute(Size, Flags, Dst) {
+    ErlBinMatchBuffer* mb;
+    Uint size = $Size;
+    Eterm result;
+
+    mb = ms_matchbuffer(context);
+    LIGHT_SWAPOUT;
+    result = erts_bs_get_integer_2(c_p, size, $Flags, mb);
+    LIGHT_SWAPIN;
+    HEAP_SPACE_VERIFIED(0);
+    $Dst = result;
+}
+
+//
+// i_get_fixed_binary Ctx Size Dst
+//
+
+i_bs_get_fixed_binary := i_bs_get_fixed_binary.fetch.execute;
+
+i_bs_get_fixed_binary.head() {
+    Eterm context;
+}
+
+i_bs_get_fixed_binary.fetch(Src) {
+    context = $Src;
+}
+
+i_bs_get_fixed_binary.execute(Size, Dst) {
+    ErlBinMatchBuffer* mb;
+    Uint size = $Size;
+    Eterm* htop;
+    Eterm result;
+
+    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
+
+    htop = HTOP;
+    mb = ms_matchbuffer(context);
+    result = erts_extract_sub_binary(&htop, mb->orig, mb->base,
+                                     mb->offset, size);
+    HTOP = htop;
+
+    mb->offset += size;
+
+    $Dst = result;
+}
+
+//
+// i_get_tail Ctx Dst
+//
+
+i_bs_get_tail := i_bs_get_tail.fetch.execute;
+
+i_bs_get_tail.head() {
+    Eterm context;
+}
+
+i_bs_get_tail.fetch(Src) {
+    context = $Src;
+}
+
+i_bs_get_tail.execute(Dst) {
+    ErlBinMatchBuffer* mb;
+    Eterm* htop;
+    Eterm result;
+
+    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
+
+    htop = HTOP;
+    mb = ms_matchbuffer(context);
+    result = erts_extract_sub_binary(&htop, mb->orig, mb->base,
+                                     mb->offset, mb->size - mb->offset);
+    HTOP = htop;
+
+    $Dst = result;
+}
+
+//
+// i_bs_skip Ctx Size
+//
+
+i_bs_skip := i_bs_skip.fetch.execute;
+
+i_bs_skip.head() {
+    Eterm context;
+}
+
+i_bs_skip.fetch(Src) {
+    context = $Src;
+}
+
+i_bs_skip.execute(Size) {
+    ErlBinMatchBuffer* mb;
+    Uint size = $Size;
+
+    ASSERT(header_is_bin_matchstate(*boxed_val(context)));
+    mb = ms_matchbuffer(context);
+    mb->offset += size;
+}
+
+// i_bs_drop Size
+i_bs_drop(Size) {
+    bitdata <<= $Size;
+}

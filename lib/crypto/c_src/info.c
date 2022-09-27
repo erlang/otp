@@ -46,6 +46,11 @@
 #endif
 
 
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
+#define OPENSSL_VERSION	SSLEAY_VERSION
+#define OpenSSL_version	SSLeay_version
+#endif
+
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
 
 char *crypto_callback_name = CB_NAME;
@@ -111,7 +116,7 @@ ERL_NIF_TERM info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     enif_make_map_put(env, ret,
                       enif_make_atom(env, "cryptolib_version_linked"),
-                      enif_make_string(env, SSLeay_version(SSLEAY_VERSION), ERL_NIF_LATIN1),
+                      enif_make_string(env, OpenSSL_version(OPENSSL_VERSION), ERL_NIF_LATIN1),
                       &ret);
 
 #ifdef HAS_3_0_API
@@ -140,7 +145,7 @@ ERL_NIF_TERM info_lib(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     ASSERT(argc == 0);
 
     name_sz = strlen(libname);
-    ver = SSLeay_version(SSLEAY_VERSION);
+    ver = OpenSSL_version(OPENSSL_VERSION);
     ver_sz = strlen(ver);
     ver_num = OPENSSL_VERSION_NUMBER;
 

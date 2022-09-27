@@ -442,7 +442,7 @@ ois_is([#b_set{op={bif,is_list},dst=Dst,args=[Src]} | Is], Ts) ->
 ois_is([#b_set{op={bif,is_map},dst=Dst,args=[Src]} | Is], Ts) ->
     ois_type_test(Src, Dst, #t_map{}, Is, Ts);
 ois_is([#b_set{op={bif,is_number},dst=Dst,args=[Src]} | Is], Ts) ->
-    ois_type_test(Src, Dst, number, Is, Ts);
+    ois_type_test(Src, Dst, #t_number{}, Is, Ts);
 ois_is([#b_set{op={bif,is_tuple},dst=Dst,args=[Src]} | Is], Ts) ->
     ois_type_test(Src, Dst, #t_tuple{}, Is, Ts);
 ois_is([#b_set{op=is_nonempty_list,dst=Dst,args=[Src]} | Is], Ts) ->

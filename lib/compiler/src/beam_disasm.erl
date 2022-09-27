@@ -269,12 +269,17 @@ beam_disasm_types(none) ->
 beam_disasm_types(<<?BEAM_TYPES_VERSION:32,Count:32,Table/binary>>) ->
     Res = gb_trees:from_orddict(disasm_types(Table, 0)),
     Count = gb_trees:size(Res),                 %Assertion.
-    Res.
+    Res;
+beam_disasm_types(<<_/binary>>) ->
+    none.
 
-disasm_types(<<Type:18/binary,Rest/binary>>, Index) ->
-    [{Index,beam_types:decode_ext(Type)}|disasm_types(Rest, Index+1)];
-disasm_types(<<>>, _) ->
-    [].
+disasm_types(Types0, Index) ->
+    case beam_types:decode_ext(Types0) of
+        done ->
+            [];
+        {Types,Rest} ->
+            [{Index,Types}|disasm_types(Rest, Index+1)]
+    end.
 
 %%-----------------------------------------------------------------------
 %% Disassembles the code chunk of a BEAM file:
@@ -412,6 +417,10 @@ disasm_instr(B, Bs, Atoms, Literals, Types) ->
 	    disasm_init_yregs(Bs, Atoms, Literals, Types);
 	bs_create_bin ->
 	    disasm_bs_create_bin(Bs, Atoms, Literals, Types);
+	bs_match ->
+	    disasm_bs_match(Bs, Atoms, Literals, Types);
+	update_record ->
+	    disasm_update_record(Bs, Atoms, Literals, Types);
 	_ ->
 	    try decode_n_args(Arity, Bs, Atoms, Literals, Types) of
 		{Args, RestBs} ->
@@ -487,6 +496,27 @@ disasm_bs_create_bin(Bs0, Atoms, Literals, Types) ->
     {u, Len} = U,
     {List, RestBs} = decode_n_args(Len, Bs7, Atoms, Literals, Types),
     {{bs_create_bin, [{A1,A2,A3,A4,A5,Z,U,List}]}, RestBs}.
+
+disasm_bs_match(Bs0, Atoms, Literals, Types) ->
+    {A1, Bs1} = decode_arg(Bs0, Atoms, Literals, Types),
+    {A2, Bs2} = decode_arg(Bs1, Atoms, Literals, Types),
+    Bs5 = Bs2,
+    {Z, Bs6} = decode_arg(Bs5, Atoms, Literals, Types),
+    {U, Bs7} = decode_arg(Bs6, Atoms, Literals, Types),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs7, Atoms, Literals, Types),
+    {{bs_match, [{A1,A2,Z,U,List}]}, RestBs}.
+
+disasm_update_record(Bs1, Atoms, Literals, Types) ->
+    {Hint, Bs2} = decode_arg(Bs1, Atoms, Literals, Types),
+    {Size, Bs3} = decode_arg(Bs2, Atoms, Literals, Types),
+    {Src, Bs4} = decode_arg(Bs3, Atoms, Literals, Types),
+    {Dst, Bs6} = decode_arg(Bs4, Atoms, Literals, Types),
+    {Z, Bs7} = decode_arg(Bs6, Atoms, Literals, Types),
+    {U, Bs8} = decode_arg(Bs7, Atoms, Literals, Types),
+    {u, Len} = U,
+    {List, RestBs} = decode_n_args(Len, Bs8, Atoms, Literals, Types),
+    {{update_record, [Hint,Size,Src,Dst,{{Z,U,List}}]}, RestBs}.
 
 %%-----------------------------------------------------------------------
 %% decode_arg([Byte]) -> {Arg, [Byte]}
@@ -1239,6 +1269,15 @@ resolve_inst({nif_start,[]},_,_,_) ->
     nif_start;
 resolve_inst({badrecord,[Arg]},_,_,_) ->
     {badrecord,resolve_arg(Arg)};
+
+%%
+%% OTP 26.
+%%
+
+resolve_inst({update_record,[Hint,Size,Src,Dst,List]},_,_,_) ->
+    {update_record,Hint,Size,Src,Dst,List};
+resolve_inst({bs_match,[{Fail,Ctx,{z,1},{u,_},Args}]},_,_,_) ->
+    {bs_match,Fail,Ctx,{list,Args}};
 
 %%
 %% Catches instructions that are not yet handled.

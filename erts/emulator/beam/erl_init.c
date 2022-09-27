@@ -275,7 +275,7 @@ static ERTS_INLINE void
 set_default_time_adj(int *time_correction_p, ErtsTimeWarpMode *time_warp_mode_p)
 {
     *time_correction_p = 1;
-    *time_warp_mode_p = ERTS_NO_TIME_WARP_MODE;
+    *time_warp_mode_p = ERTS_MULTI_TIME_WARP_MODE;
     if (!erts_check_time_adj_support(*time_correction_p,
 				     *time_warp_mode_p)) {
 	*time_correction_p = 0;

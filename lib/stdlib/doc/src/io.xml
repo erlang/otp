@@ -83,6 +83,9 @@
     <datatype>
       <name name="opt_pair"/>
     </datatype>
+        <datatype>
+      <name name="get_opt_pair"/>
+    </datatype>
     <datatype>
       <name name="expand_fun"/>
     </datatype>
@@ -779,9 +782,14 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
 [{expand_fun,#Fun&lt;group.0.120017273&gt;},
  {echo,true},
  {binary,false},
- {encoding,unicode}]</pre>
+ {encoding,unicode},
+ {terminal,true}]</pre>
       <p>This example is, as can be seen, run in an environment where the
         terminal supports Unicode input and output.</p>
+      <p>The <c>terminal</c> option is read only and indicates whether
+        the output stream is a terminal or not.
+        See <seemfa marker="#setopts/1"><c>setopts/1</c></seemfa> for a description
+        of the other options.</p>
       </desc>
     </func>
 
@@ -1135,13 +1143,18 @@ enter><input>1.0er.</input>
               <seemfa marker="#get_line/1"><c>get_line/1,2</c></seemfa>.</p>
             <p>The function is called with the current line, up to
               the cursor, as a reversed string. It is to return a
-              three-tuple: <c>{yes|no, string(), [string(), ...]}</c>. The
+              three-tuple: <c>{yes|no, string(), list()}</c>. The
               first element gives a beep if <c>no</c>, otherwise the
               expansion is silent; the second is a string that will be
               entered at the cursor position; the third is a list of
               possible expansions. If this list is not empty,
-              it is printed and the current input line is written
-              once again.</p>
+              it is printed below the current input line.
+              The list of possible expansions can be formatted in
+              different ways to make more advanced expansion suggestions
+              more readable to the user, see
+              <seemfa marker="edlin_expand#expand/2">
+              <c>edlin_expand:expand/2</c></seemfa> for
+              documentation of that.</p>
             <p>Trivial example (beep on anything except empty line, which
               is expanded to <c>"quit"</c>):</p>
             <code type="none">

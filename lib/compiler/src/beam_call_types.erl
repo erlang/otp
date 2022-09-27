@@ -27,6 +27,17 @@
 -export([will_succeed/3, types/3, arith_type/2]).
 
 %%
+%% Define an upper limit for functions that return sizes of data
+%% structures. The chosen value is about half the maxium size of a
+%% smallnum. That means that adding a small constant to it will result
+%% in a smallnum, but still the value is still sufficiently high to
+%% make it impossible to reach in the foreseeable future.
+%%
+-define(SIZE_UPPER_LIMIT, ((1 bsl 58) - 1)).
+
+-define(UNICODE_TYPE, #t_integer{elements={0,16#10FFFF}}).
+
+%%
 %% Returns whether a call will succeed or not.
 %%
 %% Notes:
@@ -42,23 +53,47 @@
 -spec will_succeed(Mod, Func, ArgTypes) -> Result when
       Mod :: atom(),
       Func :: atom(),
-      ArgTypes :: [normal_type()],
+      ArgTypes :: [type()],
       Result :: 'yes' | 'no' | 'maybe'.
 
-will_succeed(erlang, Op, [LHS, RHS])
-  when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
+will_succeed(erlang, Op, [LHS, RHS]) when Op =:= '+';
+                                          Op =:= '-';
+                                          Op =:= '*' ->
     succeeds_if_smallish(LHS, RHS);
-will_succeed(erlang, Op, [#t_integer{elements={_,_}},
-                          #t_integer{elements={Div,_}}])
-  when (Op =:= 'div' orelse Op =:= 'rem'), Div > 0 ->
-    yes;
-will_succeed(erlang, 'bsr', [#t_integer{elements={_,_}},
-                             #t_integer{elements={S,_}}])
-  when S >= 0 ->
-    yes;
-will_succeed(erlang, 'bsl', [#t_integer{}=LHS,#t_integer{elements={S,_}}])
-  when S < 64 ->
-    succeeds_if_smallish(LHS);
+will_succeed(erlang, Op, [LHS, RHS]) when Op =:= 'div';
+                                          Op =:= 'rem' ->
+    case {meet(LHS, #t_integer{}), meet(RHS, #t_integer{})} of
+        {#t_integer{elements={_,_}}=LHS,
+         #t_integer{elements={Min,Max}}=RHS}
+          when is_integer(Min), Min > 0;
+               is_integer(Max), Max < -1 ->
+            'yes';
+        {#t_integer{}, #t_integer{}} ->
+            'maybe';
+        {_, _} ->
+            no
+    end;
+will_succeed(erlang, 'bsr', [LHS, RHS]) ->
+    case {meet(LHS, #t_integer{}), meet(RHS, #t_integer{})} of
+        {#t_integer{elements={_,_}}=LHS,
+         #t_integer{elements={Shift,_}}=RHS}
+          when is_integer(Shift), Shift >= 0 ->
+            'yes';
+        {#t_integer{}, #t_integer{}} ->
+            'maybe';
+        {_, _} ->
+            no
+    end;
+will_succeed(erlang, 'bsl', [LHS, RHS]) ->
+    case {meet(LHS, #t_integer{}), meet(RHS, #t_integer{})} of
+        {LHS, #t_integer{elements={Shift,_}}=RHS}
+          when is_integer(Shift), Shift < 64 ->
+            succeeds_if_smallish(LHS);
+        {#t_integer{}, #t_integer{}} ->
+            'maybe';
+        {_, _} ->
+            no
+    end;
 will_succeed(erlang, '++', [LHS, _RHS]) ->
     succeeds_if_type(LHS, proper_list());
 will_succeed(erlang, '--', [_, _] = Args) ->
@@ -66,25 +101,38 @@ will_succeed(erlang, '--', [_, _] = Args) ->
 will_succeed(erlang, BoolOp, [_, _] = Args) when BoolOp =:= 'and';
                                                  BoolOp =:= 'or' ->
     succeeds_if_types(Args, beam_types:make_boolean());
-will_succeed(erlang, Op, [_, _] = Args) when Op =:= 'band'; Op =:= 'bor'; Op =:= 'bxor' ->
+will_succeed(erlang, Op, [_, _] = Args) when Op =:= 'band';
+                                             Op =:= 'bor';
+                                             Op =:= 'bxor' ->
     succeeds_if_types(Args, #t_integer{});
 will_succeed(erlang, bit_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
 will_succeed(erlang, byte_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
-will_succeed(erlang, element, [Pos, #t_tuple{size=Sz}] = Args) when Sz > 0 ->
-    SizeType = #t_integer{elements={1,Sz}},
-    case beam_types:meet(Pos, SizeType) of
-        Pos ->
-            yes;
+will_succeed(erlang, element, [Pos, Tuple]=Args) ->
+    case normalize(Tuple) of
+        #t_tuple{exact=Exact,size=Sz} when Sz >= 1 ->
+            case meet(Pos, #t_integer{elements={1,Sz}}) of
+                Pos -> yes;
+                none when Exact -> no;
+                _ -> 'maybe'
+            end;
         _ ->
-            fails_on_conflict(Args, [#t_integer{}, #t_tuple{}])
+            Required = [#t_integer{elements={1,?MAX_TUPLE_SIZE}},
+                        #t_tuple{size=1}],
+            fails_on_conflict(Args, Required)
     end;
 will_succeed(erlang, hd, [Arg]) ->
     succeeds_if_type(Arg, #t_cons{});
-will_succeed(erlang, is_function, [_,#t_integer{elements={Min,_}}])
-  when Min >= 0 ->
-    yes;
+will_succeed(erlang, is_function, [_, Arity]) ->
+    case meet(Arity, #t_integer{}) of
+        #t_integer{elements={Min,_}}=Arity when is_integer(Min), Min >= 0 ->
+            yes;
+        #t_integer{} ->
+            'maybe';
+        _ ->
+            no
+    end;
 will_succeed(erlang, is_map_key, [_Key, Map]) ->
     succeeds_if_type(Map, #t_map{});
 will_succeed(erlang, length, [Arg]) ->
@@ -93,27 +141,40 @@ will_succeed(erlang, map_size, [Arg]) ->
     succeeds_if_type(Arg, #t_map{});
 will_succeed(erlang, 'not', [Arg]) ->
     succeeds_if_type(Arg, beam_types:make_boolean());
-will_succeed(erlang, setelement, [#t_integer{elements={Min,Max}},
-                                  #t_tuple{exact=Exact,size=Size}, _]) ->
-    if
-        1 =< Min, Max =< Size ->
-            %% The index is always in range.
-            yes;
-        Max < 1; Exact, Size < Min ->
-            %% The index is always out of range.
+will_succeed(erlang, setelement, [Pos, Tuple0, _Value]) ->
+    PosRange = #t_integer{elements={1,?MAX_TUPLE_SIZE}},
+    case {meet(Pos, PosRange), meet(Tuple0, #t_tuple{size=1})} of
+        {none, _} ->
             no;
-        true ->
+        {_, none} ->
+            no;
+        {#t_integer{elements={Min,Max}}=Pos, Tuple} ->
+            MaxTupleSize = max_tuple_size(Tuple),
+            if
+                MaxTupleSize < Min ->
+                    %% Index is always out of range.
+                    no;
+                Tuple0 =:= Tuple, Max =< MaxTupleSize ->
+                    %% We always have a tuple, and the index is always in
+                    %% range.
+                    yes;
+                true ->
+                    %% We may or may not have a tuple, and the index may or may
+                    %% not be in range if we do.
+                    'maybe'
+            end;
+        {_, _} ->
             'maybe'
     end;
 will_succeed(erlang, size, [Arg]) ->
-    ArgType = beam_types:join(#t_tuple{}, #t_bitstring{}),
+    ArgType = join(#t_tuple{}, #t_bitstring{}),
     succeeds_if_type(Arg, ArgType);
 will_succeed(erlang, tuple_size, [Arg]) ->
     succeeds_if_type(Arg, #t_tuple{});
 will_succeed(erlang, tl, [Arg]) ->
     succeeds_if_type(Arg, #t_cons{});
 will_succeed(erlang, raise, [Class, _Reason, nil]) ->
-    case beam_types:meet(Class, #t_atom{elements=[error,exit,throw]}) of
+    case meet(Class, #t_atom{elements=[error,exit,throw]}) of
         Class -> no;
         none -> yes;
         _ -> 'maybe'
@@ -139,8 +200,17 @@ will_succeed(Mod, Func, Args) ->
             end
     end.
 
+max_tuple_size(#t_union{tuple_set=[_|_]=Set}=Union) ->
+    Union = meet(Union, #t_tuple{}),            %Assertion.
+    Arities = [Arity || {{Arity, _Tag}, _Record} <- Set],
+    lists:max(Arities);
+max_tuple_size(#t_tuple{exact=true,size=Size}) ->
+    Size;
+max_tuple_size(#t_tuple{exact=false}) ->
+    ?MAX_TUPLE_SIZE.
+
 fails_on_conflict([ArgType | Args], [Required | Types]) ->
-    case beam_types:meet(ArgType, Required) of
+    case meet(ArgType, Required) of
         none -> no;
         _ -> fails_on_conflict(Args, Types)
     end;
@@ -157,7 +227,7 @@ succeeds_if_types([LHS, RHS], Required) ->
     end.
 
 succeeds_if_type(ArgType, Required) ->
-    case beam_types:meet(ArgType, Required) of
+    case meet(ArgType, Required) of
         ArgType -> yes;
         none -> no;
         _ -> 'maybe'
@@ -167,7 +237,7 @@ succeeds_if_smallish(#t_integer{elements={Min,Max}})
   when abs(Min) bsr 128 =:= 0, abs(Max) bsr 128 =:= 0 ->
     yes;
 succeeds_if_smallish(ArgType) ->
-    case succeeds_if_type(ArgType, number) of
+    case succeeds_if_type(ArgType, #t_number{}) of
         yes ->
             %% Could potentially fail with a `system_limit` exception.
             'maybe';
@@ -183,20 +253,6 @@ succeeds_if_smallish(LHS, RHS) ->
         {_, no} -> no;
         {_, _} -> 'maybe'
     end.
-
-%%
-%% Define an upper limit for functions that return sizes of data
-%% structures. The chosen value is about half the maxium size of a
-%% smallnum. That means that adding a small constant to it will result
-%% in a smallnum, but still the value is still sufficiently high to
-%% make it impossible to reach in the foreseeable future.
-%%
--define(SIZE_UPPER_LIMIT, ((1 bsl 58) - 1)).
-
-%%
-%% The document maximum size of a tuple.
-%%
--define(MAX_TUPLE_SIZE, (1 bsl 24) - 1).
 
 %%
 %% Returns the inferred return and argument types for known functions, and
@@ -221,7 +277,7 @@ succeeds_if_smallish(LHS, RHS) ->
 types(erlang, 'map_size', [_]) ->
     sub_safe(#t_integer{elements={0,?SIZE_UPPER_LIMIT}}, [#t_map{}]);
 types(erlang, 'tuple_size', [Src]) ->
-    Min = case Src of
+    Min = case normalize(meet(Src, #t_tuple{})) of
               #t_tuple{size=Sz} -> Sz;
               _ -> 0
           end,
@@ -259,10 +315,10 @@ types(erlang, 'xor', [_,_]) ->
     sub_unsafe(Bool, [Bool, Bool]);
 
 %% Relational operators.
-types(erlang, Op, [#t_integer{elements=Range1},
-                   #t_integer{elements=Range2}])
+types(erlang, Op, [Arg1, Arg2])
   when Op =:= '<'; Op =:= '=<'; Op =:= '>='; Op =:= '>' ->
-    case beam_bounds:relop(Op, Range1, Range2) of
+    {R1,R2} = {get_range(Arg1), get_range(Arg2)},
+    case beam_bounds:relop(Op, R1, R2) of
         'maybe' ->
             sub_unsafe(beam_types:make_boolean(), [any, any]);
         Bool when is_boolean(Bool) ->
@@ -281,7 +337,7 @@ types(erlang, is_boolean, [Type]) ->
         true ->
             sub_unsafe(#t_atom{elements=[true]}, [any]);
         false ->
-            case beam_types:meet(Type, #t_atom{}) of
+            case meet(Type, #t_atom{}) of
                 #t_atom{elements=[_|_]=Es} ->
                     case any(fun is_boolean/1, Es) of
                         true ->
@@ -300,7 +356,7 @@ types(erlang, is_float, [Type]) ->
 types(erlang, is_function, [Type, #t_integer{elements={Arity,Arity}}])
   when Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
     RetType =
-        case beam_types:meet(Type, #t_fun{arity=Arity}) of
+        case meet(Type, #t_fun{arity=Arity}) of
             Type -> #t_atom{elements=[true]};
             none -> #t_atom{elements=[false]};
             _ -> beam_types:make_boolean()
@@ -315,7 +371,7 @@ types(erlang, is_list, [Type]) ->
 types(erlang, is_map, [Type]) ->
     sub_unsafe_type_test(Type, #t_map{});
 types(erlang, is_number, [Type]) ->
-    sub_unsafe_type_test(Type, number);
+    sub_unsafe_type_test(Type, #t_number{});
 types(erlang, is_pid, [Type]) ->
     sub_unsafe_type_test(Type, pid);
 types(erlang, is_port, [Type]) ->
@@ -327,68 +383,110 @@ types(erlang, is_tuple, [Type]) ->
 
 %% Bitwise ops
 types(erlang, 'band', [_,_]=Args) ->
-    sub_unsafe(erlang_band_type(Args), [#t_integer{}, #t_integer{}]);
+    sub_unsafe(beam_bounds_type('band', #t_integer{}, Args),
+               [#t_integer{}, #t_integer{}]);
 types(erlang, 'bor', [_,_]=Args) ->
-    sub_unsafe(erlang_bor_type(Args), [#t_integer{}, #t_integer{}]);
+    sub_unsafe(beam_bounds_type('bor', #t_integer{}, Args),
+               [#t_integer{}, #t_integer{}]);
 types(erlang, 'bxor', [_,_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
 types(erlang, 'bsl', [_,_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
 types(erlang, 'bsr', [_,_]=Args) ->
-    sub_unsafe(erlang_bsr_type(Args), [#t_integer{}, #t_integer{}]);
+    sub_unsafe(beam_bounds_type('bsr', #t_integer{}, Args),
+               [#t_integer{}, #t_integer{}]);
 types(erlang, 'bnot', [_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}]);
 
 %% Fixed-type arithmetic
 types(erlang, 'float', [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(erlang, 'round', [_]) ->
-    sub_unsafe(#t_integer{}, [number]);
+    sub_unsafe(#t_integer{}, [#t_number{}]);
 types(erlang, 'floor', [_]) ->
-    sub_unsafe(#t_integer{}, [number]);
+    sub_unsafe(#t_integer{}, [#t_number{}]);
 types(erlang, 'ceil', [_]) ->
-    sub_unsafe(#t_integer{}, [number]);
+    sub_unsafe(#t_integer{}, [#t_number{}]);
 types(erlang, 'trunc', [_]) ->
-    sub_unsafe(#t_integer{}, [number]);
+    sub_unsafe(#t_integer{}, [#t_number{}]);
 types(erlang, '/', [_,_]) ->
-    sub_unsafe(#t_float{}, [number, number]);
+    sub_unsafe(#t_float{}, [#t_number{}, #t_number{}]);
 types(erlang, 'div', [_,_]=Args) ->
-    ArgTypes = [#t_integer{}, #t_integer{}],
-    sub_unsafe(erlang_div_type(Args), ArgTypes);
+    sub_unsafe(beam_bounds_type('div', #t_integer{}, Args),
+               [#t_integer{}, #t_integer{}]);
 types(erlang, 'rem', Args) ->
-    ArgTypes = [#t_integer{}, #t_integer{}],
-    sub_unsafe(erlang_rem_type(Args), ArgTypes);
+    sub_unsafe(beam_bounds_type('rem', #t_integer{}, Args),
+               [#t_integer{}, #t_integer{}]);
 
-%% Mixed-type arithmetic; '+'/2 and friends are handled in the catch-all
+%% Some mixed-type arithmetic.
+types(erlang, Op, [LHS, RHS]) when Op =:= '+'; Op =:= '-' ->
+    case get_range(LHS, RHS, #t_number{}) of
+        {Type, {A,B}, {C,_D}} when is_integer(C), C >= 0 ->
+            R = beam_bounds:bounds(Op, {A,B}, {C,'+inf'}),
+            RetType = case Type of
+                          integer -> #t_integer{elements=R};
+                          number -> #t_number{elements=R}
+                      end,
+            sub_unsafe(RetType, [#t_number{}, #t_number{}]);
+        {Type, {A,_B}, {C,D}} when Op =:= '+', is_integer(A), A >= 0 ->
+            R = beam_bounds:bounds(Op, {A,'+inf'}, {C,D}),
+            RetType = case Type of
+                          integer -> #t_integer{elements=R};
+                          number -> #t_number{elements=R}
+                      end,
+            sub_unsafe(RetType, [#t_number{}, #t_number{}]);
+        _ ->
+            mixed_arith_types([LHS, RHS])
+    end;
+
+types(erlang, abs, [Type]) ->
+    case meet(Type, #t_number{}) of
+        #t_float{} ->
+            sub_unsafe(#t_float{}, [#t_float{}]);
+        #t_integer{elements=R} ->
+            RetType = #t_integer{elements=beam_bounds:bounds(abs, R)},
+            sub_unsafe(RetType, [#t_integer{}]);
+        #t_number{elements=R} ->
+            RetType = #t_number{elements=beam_bounds:bounds(abs, R)},
+            sub_unsafe(RetType, [#t_number{}]);
+        _ ->
+            sub_unsafe(#t_number{}, [#t_number{}])
+    end;
+
+%% The rest of the mixed-type arithmetic is handled in the catch-all
 %% clause for the 'erlang' module.
-types(erlang, 'abs', [_]=Args) ->
-    mixed_arith_types(Args);
 
 %% List operations
 types(erlang, '++', [LHS, RHS]) ->
     %% `[] ++ RHS` yields RHS, even if RHS is not a list.
     ListType = copy_list(LHS, same_length, proper),
-    RetType = beam_types:join(ListType, RHS),
+    RetType = join(ListType, RHS),
     sub_unsafe(RetType, [proper_list(), any]);
 types(erlang, '--', [LHS, _]) ->
     RetType = copy_list(LHS, new_length, proper),
     sub_unsafe(RetType, [proper_list(), proper_list()]);
 
+types(erlang, atom_to_list, [_]) ->
+    sub_unsafe(proper_list(?UNICODE_TYPE), [#t_atom{}]);
 types(erlang, 'iolist_to_binary', [_]) ->
     %% Arg is an iodata(), despite its name.
-    ArgType = beam_types:join(#t_list{}, #t_bitstring{size_unit=8}),
+    ArgType = join(#t_list{}, #t_bitstring{size_unit=8}),
     sub_unsafe(#t_bitstring{size_unit=8}, [ArgType]);
 types(erlang, 'iolist_size', [_]) ->
     %% Arg is an iodata(), despite its name. The size is NOT limited
     %% by the size of memory.
-    ArgType = beam_types:join(#t_list{}, #t_bitstring{size_unit=8}),
-    sub_unsafe(#t_integer{}, [ArgType]);
+    ArgType = join(#t_list{}, #t_bitstring{size_unit=8}),
+    sub_unsafe(#t_integer{elements={0,'+inf'}}, [ArgType]);
 types(erlang, 'list_to_binary', [_]) ->
     %% Arg is an iolist(), despite its name.
     sub_unsafe(#t_bitstring{size_unit=8}, [#t_list{}]);
 types(erlang, 'list_to_bitstring', [_]) ->
     %% As list_to_binary but with bitstrings rather than binaries.
     sub_unsafe(#t_bitstring{}, [proper_list()]);
+types(erlang, list_to_integer, [_]) ->
+    sub_unsafe(#t_integer{}, [proper_cons()]);
+types(erlang, list_to_integer, [_, _]) ->
+    sub_unsafe(#t_integer{}, [proper_cons(), #t_integer{}]);
 
 %% Process operations
 types(erlang, alias, []) ->
@@ -443,79 +541,71 @@ types(erlang, 'node', [_]) ->
 types(erlang, 'node', []) ->
     sub_unsafe(#t_atom{}, []);
 types(erlang, 'size', [_]) ->
-    ArgType = beam_types:join(#t_tuple{}, #t_bitstring{}),
+    ArgType = join(#t_tuple{}, #t_bitstring{}),
     sub_unsafe(#t_integer{}, [ArgType]);
 
 %% Tuple element ops
-types(erlang, element, [PosType, TupleType]) ->
-    Index = case PosType of
-                #t_integer{elements={Same,Same}} when is_integer(Same) ->
-                    Same;
-                _ ->
-                    0
-            end,
-
-    RetType = case TupleType of
-                  #t_tuple{size=Sz,elements=Es} when Index =< Sz,
-                                                     Index >= 1 ->
-                      beam_types:get_tuple_element(Index, Es);
-                  _ ->
-                      any
-              end,
-
-    ArgTypes = [#t_integer{elements={1,?MAX_TUPLE_SIZE}},
-                #t_tuple{size=Index}],
-
-    sub_unsafe(RetType, ArgTypes);
+types(erlang, element, [Pos, Tuple0]) ->
+    PosRange = #t_integer{elements={1,?MAX_TUPLE_SIZE}},
+    case meet(Pos, PosRange) of
+        #t_integer{elements={Index,Index}} when Index >= 1 ->
+            case normalize(meet(Tuple0, #t_tuple{size=Index})) of
+                #t_tuple{elements=Es}=Tuple ->
+                    RetType = beam_types:get_tuple_element(Index, Es),
+                    sub_unsafe(RetType, [PosRange, Tuple]);
+                none ->
+                    sub_unsafe(none, [PosRange, #t_tuple{}])
+            end;
+        _ ->
+            sub_unsafe(any, [PosRange, #t_tuple{}])
+    end;
 types(erlang, setelement, [PosType, TupleType, ArgType]) ->
-    RetType = case {PosType,TupleType} of
-                  {#t_integer{elements={Index,Index}},
-                   #t_tuple{elements=Es0,size=Size}=T} when Index >= 1 ->
-                      %% This is an exact index, update the type of said
-                      %% element or return 'none' if it's known to be out of
-                      %% bounds.
-                      Es = beam_types:set_tuple_element(Index, ArgType, Es0),
-                      case T#t_tuple.exact of
-                          false ->
-                              T#t_tuple{size=max(Index, Size),elements=Es};
-                          true when Index =< Size ->
-                              T#t_tuple{elements=Es};
-                          true ->
-                              none
+    PosRange = #t_integer{elements={1,?MAX_TUPLE_SIZE}},
+    RetType = case meet(PosType, PosRange) of
+                  #t_integer{elements={Same,Same}} ->
+                      beam_types:update_tuple(TupleType, [{Same, ArgType}]);
+                  #t_integer{} ->
+                      case normalize(meet(TupleType, #t_tuple{size=1})) of
+                          #t_tuple{}=T -> T#t_tuple{elements=#{}};
+                          none -> none
                       end;
-                  {#t_integer{elements={Min,Max}},
-                   #t_tuple{elements=Es0,size=Size}=T} when Min >= 1 ->
-                      %% We know this will land between Min and Max, so kill
-                      %% the types for those indexes.
-                      Es = discard_tuple_element_info(Min, Max, Es0),
-                      case T#t_tuple.exact of
-                          false ->
-                              T#t_tuple{elements=Es,size=max(Min, Size)};
-                          true when Min =< Size ->
-                              T#t_tuple{elements=Es,size=Size};
-                          true ->
-                              none
-                      end;
-                  {_,#t_tuple{}=T} ->
-                      %% Position unknown, so we have to discard all element
-                      %% information.
-                      T#t_tuple{elements=#{}};
-                  {#t_integer{elements={Min,_Max}},_} ->
-                      #t_tuple{size=Min};
-                  {_,_} ->
-                      #t_tuple{}
+                  none ->
+                      none
               end,
-    sub_unsafe(RetType, [#t_integer{}, #t_tuple{}, any]);
+    sub_unsafe(RetType, [PosRange, #t_tuple{size=1}, any]);
 
 types(erlang, make_fun, [_,_,Arity0]) ->
-    Type = case Arity0 of
+    Type = case meet(Arity0, #t_integer{}) of
                #t_integer{elements={Arity,Arity}}
                  when Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
                    #t_fun{arity=Arity};
+               #t_integer{} ->
+                   #t_fun{};
                _ ->
-                   #t_fun{}
+                   none
            end,
     sub_unsafe(Type, [#t_atom{}, #t_atom{}, #t_integer{}]);
+
+types(erlang, Op, [LHS,RHS]) when Op =:= min; Op =:= max ->
+    R1 = get_range(LHS),
+    R2 = get_range(RHS),
+    R = beam_bounds:bounds(Op, R1, R2),
+
+    %% We cannot use mixed_arith_types/1 here as we will return either argument
+    %% unchanged. The result will not be converted to a float if one of the
+    %% arguments is a float.
+    %%
+    %%   1235.0 = 1 + 1234.0
+    %%   1 = erlang:min(1, 1234.0)
+    RetType = case {LHS, RHS} of
+                  {#t_integer{}, #t_integer{}} -> #t_integer{elements=R};
+                  {#t_integer{}, #t_number{}} -> #t_number{elements=R};
+                  {#t_number{}, #t_integer{}} -> #t_number{elements=R};
+                  {#t_number{}, #t_number{}} -> #t_number{elements=R};
+                  {_, _} -> join(LHS, RHS)
+              end,
+
+    sub_unsafe(RetType, [any, any]);
 
 types(erlang, Name, Args) ->
     Arity = length(Args),
@@ -546,53 +636,53 @@ types(erlang, Name, Args) ->
 %%
 
 types(math, cos, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, cosh, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, sin, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, sinh, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, tan, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, tanh, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, acos, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, acosh, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, asin, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, asinh, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, atan, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, atanh, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, erf, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, erfc, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, exp, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, log, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, log2, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, log10, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, sqrt, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, atan2, [_,_]) ->
-    sub_unsafe(#t_float{}, [number, number]);
+    sub_unsafe(#t_float{}, [#t_number{}, #t_number{}]);
 types(math, pow, [_,_]) ->
-    sub_unsafe(#t_float{}, [number, number]);
+    sub_unsafe(#t_float{}, [#t_number{}, #t_number{}]);
 types(math, ceil, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, floor, [_]) ->
-    sub_unsafe(#t_float{}, [number]);
+    sub_unsafe(#t_float{}, [#t_number{}]);
 types(math, fmod, [_,_]) ->
-    sub_unsafe(#t_float{}, [number, number]);
+    sub_unsafe(#t_float{}, [#t_number{}, #t_number{}]);
 types(math, pi, []) ->
     sub_unsafe(#t_float{}, []);
 
@@ -620,11 +710,13 @@ types(lists, subtract, [_,_]=Args) ->
 %% Functions returning booleans.
 types(lists, all, [_,_]) ->
     %% This can succeed on improper lists if the fun returns 'false' for an
-    %% element before reaching the end.
-    sub_unsafe(beam_types:make_boolean(), [#t_fun{arity=1}, #t_list{}]);
+    %% element before reaching the end. It can also return 'true' for the
+    %% empty list, which means we cannot assume the predicate is a fun.
+    sub_unsafe(beam_types:make_boolean(), [any, #t_list{}]);
 types(lists, any, [_,_]) ->
-    %% Doesn't imply that the argument is a proper list; see lists:all/2
-    sub_unsafe(beam_types:make_boolean(), [#t_fun{arity=1}, #t_list{}]);
+    %% Doesn't imply that the argument is a proper list, nor that the fun is
+    %% valid; see lists:all/2
+    sub_unsafe(beam_types:make_boolean(), [any, #t_list{}]);
 types(lists, keymember, [_,_,_]) ->
     %% Doesn't imply that the argument is a proper list; see lists:all/2
     sub_unsafe(beam_types:make_boolean(), [any, #t_integer{}, #t_list{}]);
@@ -643,10 +735,10 @@ types(lists, suffix, [_,_]) ->
 %% Simple folds
 types(lists, foldl, [Fun, Init, List]) ->
     RetType = lists_fold_type(Fun, Init, List),
-    sub_unsafe(RetType, [#t_fun{arity=2}, any, proper_list()]);
+    sub_unsafe(RetType, [any, any, proper_list()]);
 types(lists, foldr, [Fun, Init, List]) ->
     RetType = lists_fold_type(Fun, Init, List),
-    sub_unsafe(RetType, [#t_fun{arity=2}, any, proper_list()]);
+    sub_unsafe(RetType, [any, any, proper_list()]);
 
 %% Functions returning plain lists.
 types(lists, droplast, [List]) ->
@@ -656,17 +748,17 @@ types(lists, dropwhile, [_Fun, List]) ->
     %% If the element is found before the end of the list, we could return an
     %% improper list.
     RetType = copy_list(List, new_length, maybe_improper),
-    sub_unsafe(RetType, [#t_fun{arity=1}, #t_list{}]);
+    sub_unsafe(RetType, [any, #t_list{}]);
 types(lists, duplicate, [_Count, Element]) ->
     sub_unsafe(proper_list(Element), [#t_integer{}, any]);
 types(lists, filter, [_Fun, List]) ->
     RetType = copy_list(List, new_length, proper),
-    sub_unsafe(RetType, [#t_fun{arity=1}, proper_list()]);
+    sub_unsafe(RetType, [any, proper_list()]);
 types(lists, flatten, [_]) ->
     sub_unsafe(proper_list(), [proper_list()]);
 types(lists, map, [Fun, List]) ->
     RetType = lists_map_type(Fun, List),
-    sub_unsafe(RetType, [#t_fun{arity=1}, proper_list()]);
+    sub_unsafe(RetType, [any, proper_list()]);
 types(lists, reverse, [List]) ->
     RetType = copy_list(List, same_length, proper),
     sub_unsafe(RetType, [proper_list()]);
@@ -674,9 +766,10 @@ types(lists, sort, [List]) ->
     RetType = copy_list(List, same_length, proper),
     sub_unsafe(RetType, [proper_list()]);
 types(lists, takewhile, [_Fun, List]) ->
-    %% Doesn't imply that the argument is a proper list; see lists:all/2
+    %% Doesn't imply that the argument is a proper list, nor that the fun is
+    %% valid; see lists:all/2
     RetType = copy_list(List, new_length, proper),
-    sub_unsafe(RetType, [#t_fun{arity=1}, #t_list{}]);
+    sub_unsafe(RetType, [any, #t_list{}]);
 types(lists, usort, [List]) ->
     %% The result is not quite the same length, but a non-empty list will stay
     %% non-empty.
@@ -686,41 +779,51 @@ types(lists, zip, [_,_]=Lists) ->
     {RetType, ArgType} = lists_zip_types(Lists),
     sub_unsafe(RetType, [ArgType, ArgType]);
 types(lists, zipwith, [Fun | [_,_]=Lists]) ->
+    %% Doesn't imply that the argument is a fun, as a possible implementation
+    %% could succeed when both lists are empty.
     {RetType, ArgType} = lists_zipwith_types(Fun, Lists),
-    sub_unsafe(RetType, [#t_fun{arity=2}, ArgType, ArgType]);
+    sub_unsafe(RetType, [any, ArgType, ArgType]);
 
 %% Functions with complex return values.
 types(lists, keyfind, [KeyType,PosType,_]) ->
     %% Doesn't imply that the argument is a proper list; see lists:all/2
-    TupleType = case PosType of
+    TupleType = case meet(PosType, #t_integer{}) of
                     #t_integer{elements={Index,Index}} when is_integer(Index),
                                                             Index >= 1 ->
                         Es = beam_types:set_tuple_element(Index, KeyType, #{}),
                         #t_tuple{size=Index,elements=Es};
-                    _ ->
-                        #t_tuple{}
+                    #t_integer{} ->
+                        #t_tuple{};
+                    none ->
+                        none
                 end,
-    RetType = beam_types:join(TupleType, beam_types:make_atom(false)),
-    sub_unsafe(RetType, [any, #t_integer{}, #t_list{}]);
+    RetType = join(TupleType, beam_types:make_atom(false)),
+    sub_unsafe(RetType, [any, any, #t_list{}]);
 types(lists, MapFold, [Fun, Init, List])
   when MapFold =:= mapfoldl; MapFold =:= mapfoldr ->
     RetType = lists_mapfold_type(Fun, Init, List),
-    sub_unsafe(RetType, [#t_fun{arity=2}, any, proper_list()]);
+    %% Doesn't imply that the argument is a proper list, nor that the fun is
+    %% valid; see lists:all/2
+    sub_unsafe(RetType, [any, any, proper_list()]);
 types(lists, partition, [_Fun, List]) ->
+    %% Doesn't imply that the argument is a proper list, nor that the fun is
+    %% valid; see lists:all/2
     ListType = copy_list(List, new_length, proper),
     RetType = make_two_tuple(ListType, ListType),
-    sub_unsafe(RetType, [#t_fun{arity=1}, proper_list()]);
+    sub_unsafe(RetType, [any, proper_list()]);
 types(lists, search, [_,_]) ->
-    %% Doesn't imply that the argument is a proper list; see lists:all/2
+    %% Doesn't imply that the argument is a proper list, nor that the fun is
+    %% valid; see lists:all/2
     TupleType = make_two_tuple(beam_types:make_atom(value), any),
-    RetType = beam_types:join(TupleType, beam_types:make_atom(false)),
-    sub_unsafe(RetType, [#t_fun{arity=1}, #t_list{}]);
+    RetType = join(TupleType, beam_types:make_atom(false)),
+    sub_unsafe(RetType, [any, #t_list{}]);
 types(lists, splitwith, [_Fun, List]) ->
     %% Only the elements in the left list are guaranteed to be visited, so both
-    %% the argument and the right list may be improper.
+    %% the argument and the right list may be improper. The fun isn't
+    %% guaranteed to be valid either if the list is empty.
     Left = copy_list(List, new_length, proper),
     Right = copy_list(List, new_length, maybe_improper),
-    sub_unsafe(make_two_tuple(Left, Right), [#t_fun{arity=1}, #t_list{}]);
+    sub_unsafe(make_two_tuple(Left, Right), [any, #t_list{}]);
 types(lists, unzip, [List]) ->
     RetType = lists_unzip_type(2, List),
     sub_unsafe(RetType, [proper_list()]);
@@ -730,12 +833,14 @@ types(lists, unzip, [List]) ->
 %%
 
 types(maps, filter, [_Fun, Map]) ->
-    %% Conservatively assume that key/value types are unchanged.
-    RetType = case Map of
+    %% Conservatively assume that key/value types are unchanged. Note that we
+    %% cannot assume that Fun is a function on success, as a potential
+    %% implementation could short-circuit on the empty map.
+    RetType = case meet(Map, #t_map{}) of
                   #t_map{}=T -> T;
-                  _ -> #t_map{}
+                  _ -> none
               end,
-    sub_unsafe(RetType, [#t_fun{arity=2}, #t_map{}]);
+    sub_unsafe(RetType, [any, #t_map{}]);
 types(maps, find, [Key, Map]) ->
     TupleType = case erlang_map_get_type(Key, Map) of
                     none ->
@@ -744,36 +849,39 @@ types(maps, find, [Key, Map]) ->
                         make_two_tuple(beam_types:make_atom(ok), ValueType)
                 end,
     %% error | {ok, Value}
-    RetType = beam_types:join(beam_types:make_atom(error), TupleType),
+    RetType = join(beam_types:make_atom(error), TupleType),
     sub_unsafe(RetType, [any, #t_map{}]);
 types(maps, fold, [Fun, Init, _Map]) ->
-    RetType = case Fun of
+    RetType = case meet(Fun, #t_fun{arity=3}) of
                   #t_fun{type=Type} ->
                       %% The map is potentially empty, so we have to assume it
                       %% can return the initial value.
-                      beam_types:join(Type, Init);
+                      join(Type, Init);
                   _ ->
-                      any
+                      %% A potential implementation could still succeed with a
+                      %% non-fun for empty maps.
+                      Init
               end,
-    sub_unsafe(RetType, [#t_fun{arity=3}, any, #t_map{}]);
+    sub_unsafe(RetType, [any, any, #t_map{}]);
 types(maps, from_keys, [Keys, Value]) ->
     KeyType = erlang_hd_type(Keys),
-    RetType = case KeyType of
-                  none -> #t_map{super_key=none,super_value=none};
-                  _ -> #t_map{super_key=KeyType,super_value=Value}
-              end,
+    ValueType = case KeyType of
+                    none -> none;
+                    _ -> Value
+                end,
+    RetType = #t_map{super_key=KeyType,super_value=ValueType},
     sub_unsafe(RetType, [proper_list(), any]);
 types(maps, from_list, [Pairs]) ->
     PairType = erlang_hd_type(Pairs),
-    RetType = case beam_types:normalize(PairType) of
+    RetType = case normalize(meet(PairType, #t_tuple{exact=true,size=2})) of
                   #t_tuple{elements=Es} ->
                       SKey = beam_types:get_tuple_element(1, Es),
                       SValue = beam_types:get_tuple_element(2, Es),
                       #t_map{super_key=SKey,super_value=SValue};
-                  none ->
+                  none when PairType =:= none ->
                       #t_map{super_key=none,super_value=none};
-                  _ ->
-                      #t_map{}
+                  none when PairType =/= none ->
+                      none
               end,
     sub_unsafe(RetType, [proper_list()]);
 types(maps, get, [_Key, _Map]=Args) ->
@@ -781,47 +889,51 @@ types(maps, get, [_Key, _Map]=Args) ->
 types(maps, get, [Key, Map, Default]) ->
     RetType = case erlang_map_get_type(Key, Map) of
                   none -> Default;
-                  ValueType -> beam_types:join(ValueType, Default)
+                  ValueType -> join(ValueType, Default)
               end,
     sub_unsafe(RetType, [any, #t_map{}, any]);
 types(maps, keys, [Map]) ->
-    RetType = case Map of
+    RetType = case meet(Map, #t_map{}) of
                   #t_map{super_key=none} -> nil;
                   #t_map{super_key=SKey} -> proper_list(SKey);
-                  _ -> proper_list()
+                  _ -> none
               end,
     sub_unsafe(RetType, [#t_map{}]);
-types(maps, map, [Fun, Map]) ->
-    RetType = case {Fun, Map} of
-                  {#t_fun{type=FunRet}, #t_map{super_value=SValue0}} ->
-                      SValue = beam_types:join(FunRet, SValue0),
+types(maps, map, [Fun, Map0]) ->
+    RetType = case {meet(Fun, #t_fun{arity=2}), meet(Map0, #t_map{})} of
+                  {#t_fun{type=FunRet}, #t_map{super_value=SValue0}=Map} ->
+                      SValue = join(FunRet, SValue0),
                       Map#t_map{super_value=SValue};
-                  _ ->
-                      #t_map{}
+                  {none, #t_map{}} ->
+                      %% A potential implementation could still work on empty
+                      %% maps even when the fun is broken.
+                      #t_map{super_key=none,super_value=none};
+                  {_, none} ->
+                      none
               end,
-    sub_unsafe(RetType, [#t_fun{arity=2}, #t_map{}]);
+    sub_unsafe(RetType, [any, #t_map{}]);
 types(maps, merge, [A, B]) ->
-    RetType = case {A, B} of
+    RetType = case {meet(A, #t_map{}), meet(B, #t_map{})} of
                   {#t_map{super_key=SKeyA,super_value=SValueA},
                    #t_map{super_key=SKeyB,super_value=SValueB}} ->
-                      SKey = beam_types:join(SKeyA, SKeyB),
-                      SValue = beam_types:join(SValueA, SValueB),
+                      SKey = join(SKeyA, SKeyB),
+                      SValue = join(SValueA, SValueB),
                       #t_map{super_key=SKey,super_value=SValue};
                   _ ->
-                      #t_map{}
+                      none
               end,
     sub_unsafe(RetType, [#t_map{}, #t_map{}]);
 types(maps, new, []) ->
     RetType = #t_map{super_key=none,super_value=none},
     sub_unsafe(RetType, []);
 types(maps, put, [Key, Value, Map]) ->
-    RetType = case Map of
+    RetType = case meet(Map, #t_map{}) of
                   #t_map{super_key=SKey0,super_value=SValue0} ->
-                      SKey = beam_types:join(Key, SKey0),
-                      SValue = beam_types:join(Value, SValue0),
+                      SKey = join(Key, SKey0),
+                      SValue = join(Value, SValue0),
                       #t_map{super_key=SKey,super_value=SValue};
                   _ ->
-                      #t_map{}
+                      none
               end,
     sub_unsafe(RetType, [any, any, #t_map{}]);
 types(maps, remove, [Key, Map]) ->
@@ -832,48 +944,49 @@ types(maps, take, [Key, Map]) ->
                     none ->
                         none;
                     ValueType ->
-                        MapType = beam_types:meet(Map, #t_map{}),
+                        MapType = meet(Map, #t_map{}),
                         make_two_tuple(ValueType, MapType)
                 end,
     %% error | {Value, Map}
-    RetType = beam_types:join(beam_types:make_atom(error), TupleType),
+    RetType = join(beam_types:make_atom(error), TupleType),
     sub_unsafe(RetType, [any, #t_map{}]);
 types(maps, to_list, [Map]) ->
-    RetType = case Map of
+    RetType = case meet(Map, #t_map{}) of
                   #t_map{super_key=SKey,super_value=SValue} ->
                       proper_list(make_two_tuple(SKey, SValue));
                   _ ->
-                      proper_list()
+                      none
               end,
     sub_unsafe(RetType, [#t_map{}]);
-types(maps, update_with, [_Key, Fun, Map]) ->
-    RetType = case {Fun, Map} of
-                  {#t_fun{type=FunRet}, #t_map{super_value=SValue0}} ->
-                      SValue = beam_types:join(FunRet, SValue0),
+types(maps, update_with, [_Key, Fun, Map0]) ->
+    RetType = case {meet(Fun, #t_fun{arity=1}), meet(Map0, #t_map{})} of
+                  {#t_fun{type=FunRet}, #t_map{super_value=SValue0}=Map}
+                    when FunRet =/= none ->
+                      SValue = join(FunRet, SValue0),
                       Map#t_map{super_value=SValue};
                   _ ->
-                      #t_map{}
+                      none
               end,
     sub_unsafe(RetType, [any, #t_fun{arity=1}, #t_map{}]);
 types(maps, values, [Map]) ->
-    RetType = case Map of
+    RetType = case meet(Map, #t_map{}) of
                   #t_map{super_value=none} -> nil;
                   #t_map{super_value=SValue} -> proper_list(SValue);
-                  _ -> proper_list()
+                  _ -> none
               end,
     sub_unsafe(RetType, [#t_map{}]);
-types(maps, with, [Keys, Map]) ->
-    RetType = case {erlang_hd_type(Keys), Map} of
+types(maps, with, [Keys, Map0]) ->
+    RetType = case {erlang_hd_type(Keys), meet(Map0, #t_map{})} of
                   {none, _} ->
                       #t_map{super_key=none,super_value=none};
-                  {KeysType, #t_map{super_key=SKey0}} ->
+                  {KeysType, #t_map{super_key=SKey0}=Map} ->
                       %% Since we know that the Map will only contain the pairs
                       %% pointed out by Keys, we can restrict the types to
                       %% those in the list.
-                      SKey = beam_types:meet(KeysType, SKey0),
+                      SKey = meet(KeysType, SKey0),
                       Map#t_map{super_key=SKey};
                   {_, _} ->
-                      #t_map{}
+                      none
               end,
     sub_unsafe(RetType, [proper_list(), #t_map{}]);
 types(maps, without, [Keys, Map]) ->
@@ -887,32 +1000,31 @@ types(_, _, Args) ->
 
 -spec arith_type(Op, ArgTypes) -> RetType when
       Op :: beam_ssa:op(),
-      ArgTypes :: [normal_type()],
+      ArgTypes :: [type()],
       RetType :: type().
 
-arith_type({bif,'+'}, [#t_integer{elements=Range1},
-                       #t_integer{elements=Range2}]) ->
-    #t_integer{elements=beam_bounds:'+'(Range1, Range2)};
-arith_type({bif,'-'}, [#t_integer{elements=Range1},
-                       #t_integer{elements=Range2}]) ->
-    #t_integer{elements=beam_bounds:'-'(Range1, Range2)};
-arith_type({bif,'*'}, [#t_integer{elements=Range1},
-                       #t_integer{elements=Range2}]) ->
-    #t_integer{elements=beam_bounds:'*'(Range1, Range2)};
-arith_type({bif,'div'}, ArgTypes) ->
-    erlang_div_type(ArgTypes);
-arith_type({bif,'rem'}, ArgTypes) ->
-    erlang_rem_type(ArgTypes);
-arith_type({bif,'band'}, ArgTypes) ->
-    erlang_band_type(ArgTypes);
-arith_type({bif,'bor'}, Args) ->
-    erlang_bor_type(Args);
-arith_type({bif,'bxor'}, Args) ->
-    erlang_bxor_type(Args);
-arith_type({bif,'bsr'}, Args) ->
-    erlang_bsr_type(Args);
-arith_type({bif,'bsl'}, Args) ->
-    erlang_bsl_type(Args);
+arith_type({bif,'-'}, [Arg]) ->
+    ArgTypes = [#t_integer{elements={0,0}},Arg],
+    beam_bounds_type('-', #t_number{}, ArgTypes);
+arith_type({bif,'bnot'}, [Arg0]) ->
+    case meet(Arg0, #t_integer{}) of
+        none ->
+            none;
+        #t_integer{elements=R} ->
+            #t_integer{elements=beam_bounds:bounds('bnot', R)}
+    end;
+arith_type({bif,Op}, [_,_]=ArgTypes) when Op =:= '+';
+                                          Op =:= '-';
+                                          Op =:= '*' ->
+    beam_bounds_type(Op, #t_number{}, ArgTypes);
+arith_type({bif,Op}, [_,_]=ArgTypes) when Op =:= 'band';
+                                          Op =:= 'bor';
+                                          Op =:= 'bsl';
+                                          Op =:= 'bsr';
+                                          Op =:= 'bxor';
+                                          Op =:= 'div';
+                                          Op =:= 'rem' ->
+    beam_bounds_type(Op, #t_integer{}, ArgTypes);
 arith_type(_Op, _Args) ->
     any.
 
@@ -920,107 +1032,96 @@ arith_type(_Op, _Args) ->
 %% Function-specific helpers.
 %%
 
-mixed_arith_types([FirstType | _]=Args0) ->
+mixed_arith_types(Args0) ->
+    [FirstType|_] = Args = [meet(A, #t_number{}) || A <- Args0],
     RetType = foldl(fun(#t_integer{}, #t_integer{}) -> #t_integer{};
-                       (#t_integer{}, number) -> number;
+                       (#t_integer{}, #t_number{}) -> #t_number{};
                        (#t_integer{}, #t_float{}) -> #t_float{};
                        (#t_float{}, #t_integer{}) -> #t_float{};
-                       (#t_float{}, number) -> #t_float{};
+                       (#t_float{}, #t_number{}) -> #t_float{};
                        (#t_float{}, #t_float{}) -> #t_float{};
-                       (number, #t_integer{}) -> number;
-                       (number, #t_float{}) -> #t_float{};
-                       (number, number) -> number;
-                       (any, _) -> number;
+                       (#t_number{}, #t_integer{}) -> #t_number{};
+                       (#t_number{}, #t_float{}) -> #t_float{};
+                       (#t_number{}, #t_number{}) -> #t_number{};
                        (_, _) -> none
-                    end, FirstType, Args0),
-    sub_unsafe(RetType, [number || _ <- Args0]).
+                    end, FirstType, Args),
+    sub_unsafe(RetType, [#t_number{} || _ <- Args]).
 
 erlang_hd_type(Src) ->
-    case beam_types:meet(Src, #t_cons{}) of
+    case meet(Src, #t_cons{}) of
         #t_cons{type=Type} -> Type;
         none -> none
     end.
 
 erlang_tl_type(Src) ->
-    case beam_types:meet(Src, #t_cons{}) of
-        #t_cons{terminator=Term}=Cons -> beam_types:join(Cons, Term);
+    case meet(Src, #t_cons{}) of
+        #t_cons{terminator=Term}=Cons -> join(Cons, Term);
         none -> none
     end.
 
-erlang_band_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
-    #t_integer{elements=beam_bounds:'band'(Range1, Range2)};
-erlang_band_type([#t_integer{elements=Range}, _RHS]) ->
-    #t_integer{elements=beam_bounds:'band'(Range, any)};
-erlang_band_type([_LHS, #t_integer{elements=Range}]) ->
-    #t_integer{elements=beam_bounds:'band'(any, Range)};
-erlang_band_type([_, _]) ->
-    #t_integer{}.
-
-erlang_bor_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
-    #t_integer{elements=beam_bounds:'bor'(Range1, Range2)};
-erlang_bor_type([_, _]) ->
-    #t_integer{}.
-
-erlang_bxor_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
-    #t_integer{elements=beam_bounds:'bxor'(Range1, Range2)};
-erlang_bxor_type([_, _]) ->
-    #t_integer{}.
-
-erlang_bsr_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
-    #t_integer{elements=beam_bounds:'bsr'(Range1, Range2)};
-erlang_bsr_type([_, _]) ->
-    #t_integer{}.
-
-erlang_bsl_type([#t_integer{elements=Range1}, #t_integer{elements=Range2}]) ->
-    #t_integer{elements=beam_bounds:'bsl'(Range1, Range2)};
-erlang_bsl_type([_, _]) ->
-    #t_integer{}.
-
-erlang_div_type(ArgTypes) ->
-    case ArgTypes of
-        [#t_integer{elements=Range1},#t_integer{elements=Range2}]->
-            #t_integer{elements=beam_bounds:'div'(Range1, Range2)};
-        _ ->
-            #t_integer{}
+beam_bounds_type(Op, Type, [LHS, RHS]) ->
+    case get_range(LHS, RHS, Type) of
+        {_, none, _} ->
+            none;
+        {_, _, none} ->
+            none;
+        {float, _R1, _R2} ->
+            #t_float{};
+        {integer, R1, R2} ->
+            #t_integer{elements=beam_bounds:bounds(Op, R1, R2)};
+        {number, R1, R2} ->
+            #t_number{elements=beam_bounds:bounds(Op, R1, R2)}
     end.
 
-erlang_rem_type([LHS0, #t_integer{elements=Range2}]) ->
-    Range1 = case LHS0 of
-                 #t_integer{elements=R1} -> R1;
-                 _ -> any
-             end,
-    #t_integer{elements=beam_bounds:'rem'(Range1, Range2)};
-erlang_rem_type(_) ->
-    #t_integer{}.
+get_range(LHS, RHS, Type) ->
+    get_range(meet(LHS, Type), meet(RHS, Type)).
+
+get_range(#t_float{}=LHS, #t_float{}=RHS) ->
+    {float, get_range(LHS), get_range(RHS)};
+get_range(#t_integer{}=LHS, #t_integer{}=RHS) ->
+    {integer, get_range(LHS), get_range(RHS)};
+get_range(LHS, RHS) ->
+    {number, get_range(LHS), get_range(RHS)}.
+
+get_range(#t_float{}) -> any;
+get_range(#t_integer{elements=R}) -> R;
+get_range(#t_number{elements=R}) -> R;
+get_range(_) -> none.
 
 erlang_map_get_type(Key, Map) ->
-    case Map of
+    case meet(Map, #t_map{}) of
         #t_map{super_key=SKey,super_value=SValue} ->
-            case beam_types:meet(SKey, Key) of
+            case meet(SKey, Key) of
                 none -> none;
                 _ -> SValue
             end;
-        _ ->
-            any
+        none ->
+            none
     end.
 
-lists_fold_type(_Fun, Init, nil) ->
+lists_fold_type(Fun, Init, List) ->
+    lists_fold_type_1(meet(Fun, #t_fun{arity=2}),
+                      Init,
+                      meet(List, #t_list{})).
+
+lists_fold_type_1(_Fun, Init, nil) ->
     Init;
-lists_fold_type(#t_fun{type=Type}, _Init, #t_cons{}) ->
+lists_fold_type_1(#t_fun{type=Type}, _Init, #t_cons{}) ->
     %% The list is non-empty so it's safe to ignore Init.
     Type;
-lists_fold_type(#t_fun{type=Type}, Init, #t_list{}) ->
+lists_fold_type_1(#t_fun{type=Type}, Init, #t_list{}) ->
     %% The list is possibly empty so we have to assume it can return the
     %% initial value, whose type can differ significantly from the fun's
     %% return value.
-    beam_types:join(Type, Init);
-lists_fold_type(_Fun, _Init, _List) ->
+    join(Type, Init);
+lists_fold_type_1(_Fun, _Init, _List) ->
     any.
 
-lists_map_type(#t_fun{type=Type}, Types) ->
-    lists_map_type_1(Types, Type);
-lists_map_type(_Fun, Types) ->
-    lists_map_type_1(Types, any).
+lists_map_type(Fun, Types) ->
+    case meet(Fun, #t_fun{arity=1}) of
+        #t_fun{type=Type} -> lists_map_type_1(Types, Type);
+        none -> none
+    end.
 
 lists_map_type_1(nil, _ElementType) ->
     nil;
@@ -1036,35 +1137,40 @@ lists_map_type_1(_, none) ->
 lists_map_type_1(_, ElementType) ->
     proper_list(ElementType).
 
-lists_mapfold_type(#t_fun{type=#t_tuple{size=2,elements=Es}}, Init, List) ->
-    ElementType = beam_types:get_tuple_element(1, Es),
-    AccType = beam_types:get_tuple_element(2, Es),
-    lists_mapfold_type_1(List, ElementType, Init, AccType);
-lists_mapfold_type(#t_fun{type=none}, _Init, #t_cons{}) ->
-    %% The list is non-empty and the fun never returns.
-    none;
-lists_mapfold_type(#t_fun{type=none}, Init, _List) ->
-    %% The fun never returns, so the only way we could return normally is
-    %% if the list is empty, in which case we'll return [] and the initial
-    %% value.
-    make_two_tuple(nil, Init);
-lists_mapfold_type(_Fun, Init, List) ->
-    lists_mapfold_type_1(List, any, Init, any).
+lists_mapfold_type(Fun, Init, List) ->
+    case {meet(Fun, #t_fun{type=#t_tuple{size=2}}), meet(List, #t_list{})} of
+        {_, nil} ->
+            make_two_tuple(nil, Init);
+        {#t_fun{type=#t_tuple{elements=Es}}, ListType} ->
+            ElementType = beam_types:get_tuple_element(1, Es),
+            AccType = beam_types:get_tuple_element(2, Es),
+            lists_mapfold_type_1(ListType, ElementType, Init, AccType);
+        {#t_fun{type=none}, #t_list{}} ->
+            %% The fun never returns, so the only way we could return normally
+            %% is if the list is empty, in which case we'll return [] and the
+            %% initial value.
+            make_two_tuple(nil, Init);
+        _ ->
+            none
+    end.
 
-lists_mapfold_type_1(nil, _ElementType, Init, _AccType) ->
-    make_two_tuple(nil, Init);
 lists_mapfold_type_1(#t_cons{}, ElementType, _Init, AccType) ->
     %% The list has at least one element, so it's safe to ignore Init.
     make_two_tuple(proper_cons(ElementType), AccType);
 lists_mapfold_type_1(_, ElementType, Init, AccType0) ->
     %% We can only rely on AccType when we know the list is non-empty, so we
     %% have to join it with the initial value in case the list is empty.
-    AccType = beam_types:join(AccType0, Init),
+    AccType = join(AccType0, Init),
     make_two_tuple(proper_list(ElementType), AccType).
 
 lists_unzip_type(Size, List) ->
-    Es = lut_make_elements(lut_list_types(Size, List), 1, #{}),
-    #t_tuple{size=Size,exact=true,elements=Es}.
+    case meet(List, #t_list{type=#t_tuple{exact=true,size=Size}}) of
+        none ->
+            none;
+        ListType ->
+            Es = lut_make_elements(lut_list_types(Size, ListType), 1, #{}),
+            #t_tuple{size=Size,exact=true,elements=Es}
+    end.
 
 lut_make_elements([Type | Types], Index, Es0) ->
     Es = beam_types:set_tuple_element(Index, Type, Es0),
@@ -1072,16 +1178,16 @@ lut_make_elements([Type | Types], Index, Es0) ->
 lut_make_elements([], _Index, Es) ->
     Es.
 
-lut_list_types(Size, #t_cons{type=#t_tuple{size=Size,elements=Es}}) ->
+lut_list_types(Size, #t_cons{type=Tuple}) ->
+    #t_tuple{size=Size,elements=Es} = normalize(Tuple),
     Types = lut_element_types(1, Size, Es),
     [proper_cons(T) || T <- Types];
-lut_list_types(Size, #t_list{type=#t_tuple{size=Size,elements=Es}}) ->
+lut_list_types(Size, #t_list{type=Tuple}) ->
+    #t_tuple{size=Size,elements=Es} = normalize(Tuple),
     Types = lut_element_types(1, Size, Es),
     [proper_list(T) || T <- Types];
 lut_list_types(Size, nil) ->
-    lists:duplicate(Size, nil);
-lut_list_types(Size, _) ->
-    lists:duplicate(Size, proper_list()).
+    lists:duplicate(Size, nil).
 
 lut_element_types(Index, Max, #{}) when Index > Max ->
     [];
@@ -1093,42 +1199,43 @@ lut_element_types(Index, Max, Es) ->
 %% length, so if one of them is #t_cons{}, we can infer that all of them are
 %% #t_cons{} on success.
 
-lists_zip_types(Types) ->
-    lists_zip_types_1(Types, false, #{}, 1).
+lists_zip_types(Types0) ->
+    Types = [meet(T, #t_list{terminator=nil}) || T <- Types0],
+    lists_zip_types_1(Types, fun proper_list/1, #{}, 1).
 
-lists_zip_types_1([nil | _], _AnyCons, _Es, _N) ->
+lists_zip_types_1([none | _], _ListFun, _Es, _N) ->
+    %% At least one of the lists is not a proper list
+    {none, nil};
+lists_zip_types_1([nil | _], _ListFun, _Es, _N) ->
     %% Early exit; we know the result is [] on success.
     {nil, nil};
-lists_zip_types_1([#t_cons{type=Type,terminator=nil} | Lists],
-                  _AnyCons, Es0, N) ->
+lists_zip_types_1([#t_cons{type=Type} | Lists], _ListFun, Es0, N) ->
     Es = beam_types:set_tuple_element(N, Type, Es0),
-    lists_zip_types_1(Lists, true, Es, N + 1);
-lists_zip_types_1([#t_list{type=Type,terminator=nil} | Lists],
-                  AnyCons, Es0, N) ->
+    %% The result will be cons.
+    lists_zip_types_1(Lists, fun proper_cons/1, Es, N + 1);
+lists_zip_types_1([#t_list{type=Type} | Lists], ListFun, Es0, N) ->
     Es = beam_types:set_tuple_element(N, Type, Es0),
-    lists_zip_types_1(Lists, AnyCons, Es, N + 1);
-lists_zip_types_1([_ | Lists], AnyCons, Es, N) ->
-    lists_zip_types_1(Lists, AnyCons, Es, N + 1);
-lists_zip_types_1([], true, Es, N) ->
-    %% At least one element was cons, so we know it's non-empty on success.
-    ElementType = #t_tuple{exact=true,size=(N - 1),elements=Es},
-    RetType = proper_cons(ElementType),
-    ArgType = proper_cons(),
-    {RetType, ArgType};
-lists_zip_types_1([], false, Es, N) ->
-    ElementType = #t_tuple{exact=true,size=(N - 1),elements=Es},
-    RetType = proper_list(ElementType),
-    ArgType = proper_list(),
+    lists_zip_types_1(Lists, ListFun, Es, N + 1);
+lists_zip_types_1([], ListFun, Es, N) ->
+    ElementType = #t_tuple{exact=true,size=N-1,elements=Es},
+    RetType = ListFun(ElementType),
+    ArgType = ListFun(any),
     {RetType, ArgType}.
 
-lists_zipwith_types(#t_fun{type=Type}, Types) ->
-    lists_zipwith_type_1(Types, Type);
-lists_zipwith_types(_Fun, Types) ->
-    lists_zipwith_type_1(Types, any).
+lists_zipwith_types(Fun, Types0) ->
+    ElementType = case meet(Fun, #t_fun{}) of
+                      #t_fun{type=T} -> T;
+                      none -> none
+                  end,
+    Types = [meet(T, #t_list{terminator=nil}) || T <- Types0],
+    lists_zipwith_type_1(Types, ElementType).
 
 lists_zipwith_type_1([nil | _], _ElementType) ->
     %% Early exit; we know the result is [] on success.
     {nil, nil};
+lists_zipwith_type_1([none | _], _ElementType) ->
+    %% Early exit; at least one argument cannot be a proper list.
+    {none, any};
 lists_zipwith_type_1([#t_cons{} | _Lists], none) ->
     %% Early exit; the list is non-empty and we know the fun never
     %% returns.
@@ -1138,7 +1245,7 @@ lists_zipwith_type_1([#t_cons{} | _Lists], ElementType) ->
     RetType = proper_cons(ElementType),
     ArgType = proper_cons(),
     {RetType, ArgType};
-lists_zipwith_type_1([_ | Lists], ElementType) ->
+lists_zipwith_type_1([#t_list{} | Lists], ElementType) ->
     lists_zipwith_type_1(Lists, ElementType);
 lists_zipwith_type_1([], none) ->
     %% Since we know the fun won't return, the only way we could return
@@ -1149,16 +1256,19 @@ lists_zipwith_type_1([], ElementType) ->
     ArgType = proper_list(),
     {RetType, ArgType}.
 
-maps_remove_type(Key, #t_map{super_key=SKey0}=Map) ->
-    case beam_types:is_singleton_type(Key) of
-        true ->
-            SKey = beam_types:subtract(SKey0, Key),
-            Map#t_map{super_key=SKey};
-        false ->
-            Map
-    end;
-maps_remove_type(_Key, _Map) ->
-    #t_map{}.
+maps_remove_type(Key, Map0) ->
+    case meet(Map0, #t_map{}) of
+        #t_map{super_key=SKey0}=Map ->
+            case beam_types:is_singleton_type(Key) of
+                true ->
+                    SKey = beam_types:subtract(SKey0, Key),
+                    Map#t_map{super_key=SKey};
+                false ->
+                    Map
+            end;
+        none ->
+            none
+    end.
 
 %%%
 %%% Generic helpers
@@ -1166,7 +1276,7 @@ maps_remove_type(_Key, _Map) ->
 
 sub_unsafe_type_test(ArgType, Required) ->
     RetType =
-        case beam_types:meet(ArgType, Required) of
+        case meet(ArgType, Required) of
             ArgType -> #t_atom{elements=[true]};
             none -> #t_atom{elements=[false]};
             _ -> beam_types:make_boolean()
@@ -1178,12 +1288,6 @@ sub_unsafe(RetType, ArgTypes) ->
 
 sub_safe(RetType, ArgTypes) ->
     {RetType, ArgTypes, true}.
-
-discard_tuple_element_info(Min, Max, Es) ->
-    foldl(fun(El, Acc) when Min =< El, El =< Max ->
-                  maps:remove(El, Acc);
-             (_El, Acc) -> Acc
-          end, Es, maps:keys(Es)).
 
 proper_cons() ->
     #t_cons{terminator=nil}.
@@ -1203,27 +1307,27 @@ proper_list(ElementType) ->
       List :: type(),
       Length :: same_length | new_length,
       Proper :: proper | maybe_improper.
-copy_list(#t_cons{terminator=Term}=T, Length, maybe_improper) ->
-    copy_list_1(T, Length, Term);
-copy_list(#t_list{terminator=Term}=T, Length, maybe_improper) ->
-    copy_list_1(T, Length, Term);
-copy_list(T, Length, proper) ->
-    copy_list_1(T, Length, nil);
-copy_list(T, Length, _Proper) ->
-    copy_list_1(T, Length, any).
-
-copy_list_1(#t_cons{}=T, same_length, Terminator) ->
-    T#t_cons{terminator=Terminator};
-copy_list_1(#t_cons{type=Type}, new_length, Terminator) ->
-    #t_list{type=Type,terminator=Terminator};
-copy_list_1(#t_list{}=T, _Length, Terminator) ->
-    T#t_list{terminator=Terminator};
-copy_list_1(nil, _Length, _Terminator) ->
-    nil;
-copy_list_1(_, _Length, Terminator) ->
-    #t_list{terminator=Terminator}.
+copy_list(List0, Length, Proper) ->
+    case {meet(List0, #t_list{}), Length, Proper} of
+        {#t_cons{type=Type,terminator=Term}, new_length, maybe_improper} ->
+            #t_list{type=Type,terminator=Term};
+        {#t_cons{type=Type}, new_length, proper} ->
+            #t_list{type=Type,terminator=nil};
+        {#t_cons{}=T, _, proper} ->
+            T#t_cons{terminator=nil};
+        {#t_list{}=T, _, proper} ->
+            T#t_list{terminator=nil};
+        {none, _, _} ->
+            none;
+        {List, _, _} ->
+            List
+    end.
 
 make_two_tuple(Type1, Type2) ->
     Es0 = beam_types:set_tuple_element(1, Type1, #{}),
     Es = beam_types:set_tuple_element(2, Type2, Es0),
     #t_tuple{size=2,exact=true,elements=Es}.
+
+normalize(T) -> beam_types:normalize(T).
+join(A, B) -> beam_types:join(A, B).
+meet(A, B) -> beam_types:meet(A, B).

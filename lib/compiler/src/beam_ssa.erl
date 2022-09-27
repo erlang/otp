@@ -105,7 +105,8 @@
 %% To avoid the collapsing, change the value of SET_LIMIT to 50 in the
 %% file erl_types.erl in the dialyzer application.
 
--type prim_op() :: 'bs_extract' | 'bs_get_tail' | 'bs_init_writable' |
+-type prim_op() :: 'bs_create_bin' |
+                   'bs_extract' | 'bs_ensure' | 'bs_get_tail' | 'bs_init_writable' |
                    'bs_match' | 'bs_start_match' | 'bs_test_tail' |
                    'build_stacktrace' |
                    'call' | 'catch_end' |
@@ -115,20 +116,28 @@
                    'is_nonempty_list' | 'is_tagged_tuple' |
                    'kill_try_tag' |
                    'landingpad' |
-                   'make_fun' | 'match_fail' | 'new_try_tag' | 'old_make_fun' |
+                   'make_fun' | 'match_fail' | 'new_try_tag' |
+                   'nif_start' |
+                   'old_make_fun' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
-                   'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
+                   'raw_raise' |
+                   'recv_marker_bind' |
+                   'recv_marker_clear' |
+                   'recv_marker_reserve' |
+                   'recv_next' | 'remove_message' | 'resume' |
+                   'update_tuple' | 'update_record' |
                    'wait_timeout'.
 
 -type float_op() :: 'checkerror' | 'clearerror' | 'convert' | 'get' | 'put' |
                     '+' | '-' | '*' | '/'.
 
 %% Primops only used internally during code generation.
--type cg_prim_op() :: 'bs_get' | 'bs_get_position' | 'bs_match_string' |
+-type cg_prim_op() :: 'bs_checked_get' | 'bs_checked_skip' |
+                      'bs_get' | 'bs_get_position' | 'bs_match_string' |
                       'bs_restore' | 'bs_save' | 'bs_set_position' | 'bs_skip' |
                       'copy' | 'match_fail' | 'put_tuple_arity' |
-                      'put_tuple_element' | 'put_tuple_elements' |
-                      'set_tuple_element' | 'succeeded'.
+                      'set_tuple_element' | 'succeeded' |
+                      'update_record'.
 
 -import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
@@ -221,6 +230,8 @@ no_side_effect(#b_set{op=Op}) ->
         put_tuple -> true;
         raw_raise -> true;
         {succeeded,guard} -> true;
+        update_record -> true;
+        update_tuple -> true;
         _ -> false
     end.
 
@@ -374,11 +385,9 @@ successors(#b_blk{last=Terminator}) ->
 
 normalize(#b_set{op={bif,Bif},args=Args}=Set) ->
     case {is_commutative(Bif),Args} of
-        {false,_} ->
-            Set;
-        {true,[#b_literal{}=Lit,#b_var{}=Var]} ->
+        {true, [#b_literal{}=Lit,#b_var{}=Var]} ->
             Set#b_set{args=[Var,Lit]};
-        {true,_} ->
+        {_, _} ->
             Set
     end;
 normalize(#b_set{}=Set) ->

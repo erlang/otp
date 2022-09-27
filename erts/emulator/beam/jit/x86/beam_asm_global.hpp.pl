@@ -31,7 +31,6 @@ my @beam_global_funcs = qw(
     bs_add_shared
     bs_create_bin_error_shared
     bs_size_check_shared
-    bs_fixed_integer_shared
     bs_get_tail_shared
     call_bif_shared
     call_light_bif_shared
@@ -48,6 +47,7 @@ my @beam_global_funcs = qw(
     garbage_collect
     generic_bp_global
     generic_bp_local
+    get_sint64_shared
     debug_bp
     fconv_shared
     handle_call_fun_error
@@ -74,11 +74,12 @@ my @beam_global_funcs = qw(
     i_length_guard_shared
     i_length_body_shared
     i_loop_rec_shared
-    i_new_small_map_lit_shared
     i_test_yield_shared
     increment_body_shared
     int_div_rem_body_shared
     int_div_rem_guard_shared
+    is_in_range_shared
+    is_ge_lt_shared
     internal_hash_helper
     minus_body_shared
     minus_guard_shared

@@ -101,9 +101,11 @@ static int test_init(ENGINE *e) {
         goto err;
 #endif /* if defined(FAKE_RSA_IMPL) */
 
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
     /* Load all digest and cipher algorithms. Needed for password protected private keys */
     OpenSSL_add_all_ciphers();
     OpenSSL_add_all_digests();
+#endif
 
     return 111;
 

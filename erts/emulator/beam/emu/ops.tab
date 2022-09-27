@@ -1106,10 +1106,64 @@ is_function Fail=f c => jump Fail
 func_info M F A => i_func_info u M F A
 
 # ================================================================
-# New bit syntax matching (R11B).
+# New bit syntax matching for fixed sizes (from OTP 26).
 # ================================================================
 
 %warm
+
+bs_match Fail Ctx Size Rest=* => bs_match(Fail, Ctx, Size, Rest)
+
+# The bs_match generator breaks the bs_match instruction into
+# the instructions that follow.
+
+i_bs_ensure_bits xy I f
+i_bs_ensure_bits_unit xy I t f
+
+i_bs_read_bits xy t
+
+i_bs_extract_integer t d
+
+i_bs_read_bits Ctx=x u==8 | i_bs_extract_integer u==8 Dst=x =>
+    i_bs_read_integer_8 Ctx Dst
+
+i_bs_read_integer_8 x x
+
+i_bs_get_fixed_integer xy I t d
+
+i_bs_get_fixed_binary xy I d
+
+i_bs_get_tail xy d
+
+i_bs_skip xy I
+
+i_bs_drop I
+
+i_bs_ensure_bits Ctx1 Size1 Fail | i_bs_read_bits Ctx2 Size2 |
+  equal(Ctx1, Ctx2) | equal(Size1, Size2) =>
+    i_bs_ensure_bits_read Ctx1 Size1 Fail
+
+i_bs_ensure_bits_read xy t f
+
+# Optimize extraction of a single segment for some popular sizes.
+
+i_bs_ensure_bits Ctx1 u==8 Fail | i_bs_read_bits Ctx2 u==8 |
+  i_bs_extract_integer u==8 Dst=x | equal(Ctx1, Ctx2) =>
+    i_bs_get_integer_8 Ctx1 Fail Dst
+
+i_bs_ensure_bits Ctx1 u==16 Fail | i_bs_read_bits Ctx2 u==16 |
+  i_bs_extract_integer u==16 Dst=x | equal(Ctx1, Ctx2) =>
+    i_bs_get_integer_16 Ctx1 Fail Dst
+
+%if ARCH_64
+i_bs_ensure_bits Ctx1 u==32 Fail | i_bs_read_bits Ctx2 u==32 |
+  i_bs_extract_integer u==32 Dst=x | equal(Ctx1, Ctx2) =>
+    i_bs_get_integer_32 Ctx1 Fail Dst
+%endif
+
+
+# ================================================================
+# Bit syntax matching (from R11B).
+# ================================================================
 
 # Matching integers
 bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
@@ -1714,3 +1768,15 @@ recv_marker_reserve S
 recv_marker_bind S S
 recv_marker_clear S
 recv_marker_use S
+
+#
+# OTP 26
+#
+
+update_record Hint=a Size=u Src=s Dst=d N=u Updates=* =>
+    update_record(Size, Src, Dst, N, Updates)
+
+i_update_record Size=u Src=c Dst=xy Offset=u Element=s =>
+    move Src x | i_update_record Size x Dst Offset Element
+i_update_record t xy xy t s
+i_update_record_continue t s

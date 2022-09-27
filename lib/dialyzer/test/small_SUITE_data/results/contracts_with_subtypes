@@ -20,7 +20,10 @@ contracts_with_subtypes.erl:218:2: The pattern 42 can never match the type {'ok'
 contracts_with_subtypes.erl:235:3: The pattern 1 can never match the type string()
 contracts_with_subtypes.erl:238:2: The pattern {'ok', _} can never match the type {'ok',_,string()}
 contracts_with_subtypes.erl:239:2: The pattern 'alpha' can never match the type {'ok',_,string()}
-contracts_with_subtypes.erl:23:2: Invalid type specification for function contracts_with_subtypes:extract2/0. The success typing is () -> 'something'
+contracts_with_subtypes.erl:23:2: Invalid type specification for function contracts_with_subtypes:extract2/0.
+ The success typing is contracts_with_subtypes:extract2() -> 'something'
+ But the spec is contracts_with_subtypes:extract2() -> 'ok'
+ The return types do not overlap
 contracts_with_subtypes.erl:240:2: The pattern {'ok', 42} can never match the type {'ok',_,string()}
 contracts_with_subtypes.erl:241:2: The pattern 42 can never match the type {'ok',_,string()}
 contracts_with_subtypes.erl:267:1: Function flat_ets_new_t/0 has no local return
@@ -30,7 +33,10 @@ contracts_with_subtypes.erl:295:22: The call contracts_with_subtypes:factored_et
 contracts_with_subtypes.erl:77:16: The call contracts_with_subtypes:foo1(5) breaks the contract (Arg1) -> Res when Arg1 :: atom(), Res :: atom()
 contracts_with_subtypes.erl:78:16: The call contracts_with_subtypes:foo2(5) breaks the contract (Arg1) -> Res when Arg1 :: Arg2, Arg2 :: atom(), Res :: atom()
 contracts_with_subtypes.erl:79:16: The call contracts_with_subtypes:foo3(5) breaks the contract (Arg1) -> Res when Arg2 :: atom(), Arg1 :: Arg2, Res :: atom()
-contracts_with_subtypes.erl:7:2: Invalid type specification for function contracts_with_subtypes:extract/0. The success typing is () -> 'something'
+contracts_with_subtypes.erl:7:2: Invalid type specification for function contracts_with_subtypes:extract/0.
+ The success typing is contracts_with_subtypes:extract() -> 'something'
+ But the spec is contracts_with_subtypes:extract() -> 'ok'
+ The return types do not overlap
 contracts_with_subtypes.erl:80:16: The call contracts_with_subtypes:foo4(5) breaks the contract (Type) -> Type when Type :: atom()
 contracts_with_subtypes.erl:81:16: The call contracts_with_subtypes:foo5(5) breaks the contract (Type::atom()) -> Type::atom()
 contracts_with_subtypes.erl:82:16: The call contracts_with_subtypes:foo6(5) breaks the contract (Type) -> Type when Type :: atom()

@@ -116,7 +116,8 @@
 	       create_priv_dir=auto_per_run, finish=false,
 	       target_info, cover=false, wait_for_node=[],
 	       testcase_callback=undefined, idle_notify=[],
-	       get_totals=false, random_seed=undefined}).
+	       get_totals=false, random_seed=undefined,
+               old_releases=#{}}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% OPERATOR INTERFACE
@@ -917,13 +918,19 @@ handle_call({is_release_available, Release}, _From, State) ->
 %%
 %% Find the path of the release's erl file if available
 
-handle_call({find_release, Release}, _From, State) ->
-    R =
-        case test_server_node:is_release_available(Release) of
-            true -> test_server_node:find_release(Release);
-            _ -> not_available
-        end,
-    {reply, R, State}.
+handle_call({find_release, Release}, From, State = #state{ old_releases = OldReleases }) ->
+    case maps:find(Release, OldReleases) of
+        error ->
+            R =
+                case test_server_node:find_release(Release) of
+                    none -> not_available;
+                    PathToRelease -> PathToRelease
+                end,
+            handle_call({find_release, Release}, From,
+                        State#state{ old_releases = OldReleases#{ Release =>  R }});
+        {ok, R} ->
+            {reply, R, State}
+    end.
 
 %%--------------------------------------------------------------------
 set_hosts(Hosts) ->
