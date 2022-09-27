@@ -438,7 +438,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records, Analysis) ->
           {{F, A}, {contract, Contract}};
         {error, {overlapping_contract, []}} ->
           {{F, A}, {contract, Contract}};
-        {error, invalid_contract} ->
+        {error, {invalid_contract, _}} ->
           CString = dialyzer_contracts:contract_to_string(Contract),
           SigString = dialyzer_utils:format_sig(Sig, Records),
           Msg = io_lib:format("Error in contract of function ~w:~tw/~w\n"
