@@ -71,10 +71,10 @@
   <funcs>
     <func>
       <name name="apply_after" arity="4" since=""/>
-      <fsummary>Apply <c>Module:Function(Arguments)</c> after a specified
-        <c>Time</c>.</fsummary>
+      <fsummary>Spawn a process evaluating <c>Module:Function(Arguments)</c>
+        after a specified <c>Time</c>.</fsummary>
       <desc>
-        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+        <p>Evaluates <c>spawn(<anno>Module</anno>, <anno>Function</anno>,
           <anno>Arguments</anno>)</c> after <c><anno>Time</anno></c>
           milliseconds.</p>
         <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
@@ -84,12 +84,53 @@
 
     <func>
       <name name="apply_interval" arity="4" since=""/>
-      <fsummary>Evaluate <c>Module:Function(Arguments)</c> repeatedly at
-        intervals of <c>Time</c>.</fsummary>
+      <fsummary>Spawn a process evaluating <c>Module:Function(Arguments)</c>
+        repeatedly at intervals of <c>Time</c>.</fsummary>
       <desc>
-        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+        <p>Evaluates <c>spawn(<anno>Module</anno>, <anno>Function</anno>,
           <anno>Arguments</anno>)</c> repeatedly at intervals of
-          <c><anno>Time</anno></c>.</p>
+          <c><anno>Time</anno></c>, irrespective of whether a previously
+          spawned process has finished or not.</p>
+        <warning>
+          <p>If the execution time of the spawned process is, on average,
+            greater than the given <c><anno>Time</anno></c>, multiple such
+            processes will run at the same time. With long execution times,
+            short intervals, and many interval timers running, this may even
+            lead to exceeding the number of allowed processes. As an extreme
+            example, consider
+            <c>[timer:apply_interval(1, timer, sleep, [1000]) || _ &lt;- lists:seq(1, 1000)]</c>,
+            that is, 1,000 interval timers executing a process that takes 1s
+            to complete, started in intervals of 1ms, which would result in
+            1,000,000 processes running at the same time, far more than a node
+            started with default settings allows (see the
+            <seeguide marker="system/efficiency_guide:advanced#system-limits">System
+            Limits section in the Effiency Guide</seeguide>).</p>
+        </warning>
+        <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
+          <c>{error, <anno>Reason</anno>}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="apply_repeatedly" arity="4" since="OTP @OTP-18236@"/>
+      <fsummary>Spawn a process evaluating <c>Module:Function(Arguments)</c>
+        repeatedly at intervals of <c>Time</c>.</fsummary>
+      <desc>
+        <p>Evaluates <c>spawn(<anno>Module</anno>, <anno>Function</anno>,
+          <anno>Arguments</anno>)</c> repeatedly at intervals of
+          <c><anno>Time</anno></c>, waiting for the spawned process to
+          finish before starting the next.</p>
+        <p>If the execution time of the spawned process is greater than the
+          given <c><anno>Time</anno></c>, the next process is spawned immediately
+          after the one currently running has finished. Assuming that execution
+          times of the spawned processes performing the applies on average
+          are smaller than <c><anno>Time</anno></c>, the amount of applies
+          made over a large amount of time will be the same even if some
+          individual execution times are larger than
+          <c><anno>Time</anno></c>. The system will try to catch up as soon
+          as possible. For example, if one apply takes
+          <c>2.5*<anno>Time</anno></c>, the following two applies will be
+          made immediately one after the other in sequence.</p>
         <p>Returns <c>{ok, <anno>TRef</anno>}</c> or
           <c>{error, <anno>Reason</anno>}</c>.</p>
       </desc>

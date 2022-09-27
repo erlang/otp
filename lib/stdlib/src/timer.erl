@@ -22,7 +22,8 @@
 -export([apply_after/4,
          send_after/3, send_after/2,
          exit_after/3, exit_after/2, kill_after/2, kill_after/1,
-         apply_interval/4, send_interval/3, send_interval/2,
+         apply_interval/4, apply_repeatedly/4,
+         send_interval/3, send_interval/2,
          cancel/1, sleep/1, tc/1, tc/2, tc/3, now_diff/2,
          seconds/1, minutes/1, hours/1, hms/3]).
 
@@ -61,7 +62,7 @@
                    Reason :: term().
 apply_after(0, M, F, A)
   when ?valid_mfa(M, F, A) ->
-    do_apply({M, F, A}),
+    _ = do_apply({M, F, A}, false),
     {ok, {instant, make_ref()}};
 apply_after(Time, M, F, A)
   when ?valid_time(Time),
@@ -158,6 +159,21 @@ apply_interval(Time, M, F, A)
        ?valid_mfa(M, F, A) ->
     req(apply_interval, {system_time(), Time, self(), {M, F, A}});
 apply_interval(_Time, _M, _F, _A) ->
+    {error, badarg}.
+
+-spec apply_repeatedly(Time, Module, Function, Arguments) ->
+          {'ok', TRef} | {'error', Reason}
+              when Time :: time(),
+                   Module :: module(),
+                   Function :: atom(),
+                   Arguments :: [term()],
+                   TRef :: tref(),
+                   Reason :: term().
+apply_repeatedly(Time, M, F, A)
+  when ?valid_time(Time),
+       ?valid_mfa(M, F, A) ->
+    req(apply_repeatedly, {system_time(), Time, self(), {M, F, A}});
+apply_repeatedly(_Time, _M, _F, _A) ->
     {error, badarg}.
 
 -spec send_interval(Time, Destination, Message) -> {'ok', TRef} | {'error', Reason}
@@ -382,15 +398,11 @@ maybe_req(Req, Arg) ->
 handle_call({apply_once, {Started, Time, MFA}}, _From, Tab) ->
     Timeout = Started + Time,
     Reply = try
-                erlang:start_timer(
-                  Timeout,
-                  self(),
-                  {apply_once, MFA},
-                  [{abs, true}]
-                 )
+                erlang:start_timer(Timeout, self(), {apply_once, MFA},
+				   [{abs, true}])
             of
                 SRef ->
-                    ets:insert(Tab, {SRef, SRef}),
+                    ets:insert(Tab, {SRef}),
                     {ok, {once, SRef}}
             catch
                 error:badarg ->
@@ -399,25 +411,13 @@ handle_call({apply_once, {Started, Time, MFA}}, _From, Tab) ->
     {reply, Reply, Tab};
 %% Start an interval timer.
 handle_call({apply_interval, {Started, Time, Pid, MFA}}, _From, Tab) ->
-    NextTimeout = Started + Time,
-    TRef = monitor(process, Pid),
-    Reply = try
-                erlang:start_timer(
-                  NextTimeout,
-                  self(),
-                  {apply_interval, NextTimeout, Time, TRef, MFA},
-                  [{abs, true}]
-                 )
-            of
-                SRef ->
-                    ets:insert(Tab, {TRef, SRef}),
-                    {ok, {interval, TRef}}
-            catch
-                error:badarg ->
-                    demonitor(TRef, [flush]),
-                    {error, badarg}
-            end,
-    {reply, Reply, Tab};
+    {TRef, TPid, Tag} = start_interval_loop(Started, Time, Pid, MFA, false),
+    ets:insert(Tab, {TRef, TPid, Tag}),
+    {reply, {ok, {interval, TRef}}, Tab};
+handle_call({apply_repeatedly, {Started, Time, Pid, MFA}}, _From, Tab) ->
+    {TRef, TPid, Tag} = start_interval_loop(Started, Time, Pid, MFA, true),
+    ets:insert(Tab, {TRef, TPid, Tag}),
+    {reply, {ok, {interval, TRef}}, Tab};
 %% Cancel a one-shot timer.
 handle_call({cancel, {once, TRef}}, _From, Tab) ->
     _ = remove_timer(TRef, Tab),
@@ -440,31 +440,14 @@ handle_call(_Req, _From, Tab) ->
               when Tab :: ets:tid().
 %% One-shot timer timeout.
 handle_info({timeout, TRef, {apply_once, MFA}}, Tab) ->
-    case ets:take(Tab, TRef) of
-        [{TRef, _SRef}] ->
-            do_apply(MFA);
-        [] ->
-            ok
-    end,
+    _ = case ets:take(Tab, TRef) of
+            [{TRef}] ->
+                do_apply(MFA, false);
+            [] ->
+                ok
+        end,
     {noreply, Tab};
-%% Interval timer timeout.
-handle_info({timeout, _, {apply_interval, CurTimeout, Time, TRef, MFA}}, Tab) ->
-    case ets:member(Tab, TRef) of
-        true ->
-            NextTimeout = CurTimeout + Time,
-            SRef = erlang:start_timer(
-                     NextTimeout,
-                     self(),
-                     {apply_interval, NextTimeout, Time, TRef, MFA},
-                     [{abs, true}]
-                    ),
-            ets:update_element(Tab, TRef, {2, SRef}),
-            do_apply(MFA);
-        false ->
-            ok
-    end,
-    {noreply, Tab};
-%% A process related to an interval timer died.
+%% An interval timer loop process died.
 handle_info({'DOWN', TRef, process, _Pid, _Reason}, Tab) ->
     _ = remove_timer(TRef, Tab),
     {noreply, Tab};
@@ -480,34 +463,121 @@ handle_cast(_Req, Tab) ->
     {noreply, Tab}.
 
 -spec terminate(term(), _Tab) -> 'ok'.
-terminate(_Reason, _Tab) ->
-    ok.
+terminate(_Reason, undefined) ->
+    ok;
+terminate(Reason, Tab) ->
+    _ = ets:foldl(fun
+                      ({TRef}, Acc) ->
+                          _ = cancel_timer(TRef),
+                          Acc;
+                      ({_TRef, TPid, Tag}, Acc) ->
+                          TPid ! {cancel, Tag},
+                          Acc
+                  end,
+                  undefined,
+                  Tab),
+    true = ets:delete(Tab),
+    terminate(Reason, undefined).
 
 -spec code_change(term(), State, term()) -> {'ok', State}.
 code_change(_OldVsn, Tab, _Extra) ->
     %% According to the man for gen server no timer can be set here.
     {ok, Tab}.
 
+start_interval_loop(Started, Time, TargetPid, MFA, WaitComplete) ->
+    Tag = make_ref(),
+    TimeServerPid = self(),
+    {TPid, TRef} = spawn_monitor(fun() ->
+                                     TimeServerRef = monitor(process, TimeServerPid),
+                                     TargetRef = monitor(process, TargetPid),
+                                     TimerRef = schedule_interval_timer(Started, Time,
+                                                                        MFA),
+                                     _ = interval_loop(TimeServerRef, TargetRef, Tag,
+                                                       WaitComplete, TimerRef)
+                                 end),
+    {TRef, TPid, Tag}.
+
+%% Interval timer loop.
+interval_loop(TimerServerMon, TargetMon, Tag, WaitComplete, TimerRef0) ->
+    receive
+        {cancel, Tag} ->
+            ok = cancel_timer(TimerRef0);
+        {'DOWN', TimerServerMon, process, _, _} ->
+            ok = cancel_timer(TimerRef0);
+        {'DOWN', TargetMon, process, _, _} ->
+            ok = cancel_timer(TimerRef0);
+        {timeout, TimerRef0, {apply_interval, CurTimeout, Time, MFA}} ->
+            case do_apply(MFA, WaitComplete) of
+                {ok, {spawn, ActionMon}} ->
+                    receive
+                        {cancel, Tag} ->
+                            ok;
+                        {'DOWN', TimerServerMon, process, _, _} ->
+                            ok;
+                        {'DOWN', TargetMon, process, _, _} ->
+                            ok;
+                        {'DOWN', ActionMon, process, _, _} ->
+                            TimerRef1 = schedule_interval_timer(CurTimeout, Time, MFA),
+                            interval_loop(TimerServerMon, TargetMon, Tag, WaitComplete, TimerRef1)
+                    end;
+                _ ->
+                    TimerRef1 = schedule_interval_timer(CurTimeout, Time, MFA),
+                    interval_loop(TimerServerMon, TargetMon, Tag, WaitComplete, TimerRef1)
+            end
+    end.
+
+schedule_interval_timer(CurTimeout, Time, MFA) ->
+    NextTimeout = CurTimeout + Time,
+    case NextTimeout =< system_time() of
+        true ->
+            TimerRef = make_ref(),
+            self() ! {timeout, TimerRef, {apply_interval, NextTimeout, Time, MFA}},
+            TimerRef;
+        false ->
+            erlang:start_timer(NextTimeout, self(), {apply_interval, NextTimeout, Time, MFA}, [{abs, true}])
+    end.
+
 %% Remove a timer.
 remove_timer(TRef, Tab) ->
     case ets:take(Tab, TRef) of
-        [{TRef, SRef}] ->
-            ok = erlang:cancel_timer(SRef, [{async, true}, {info, false}]),
+        [{TRef}] -> % One-shot timer.
+            ok = cancel_timer(TRef),
+            true;
+        [{TRef, TPid, Tag}] -> % Interval timer.
+            TPid ! {cancel, Tag},
             true;
         [] -> % TimerReference does not exist, do nothing
             false
     end.
 
+%% Cancel a timer.
+cancel_timer(TRef) ->
+    erlang:cancel_timer(TRef, [{async, true}, {info, false}]).
+
 %% Help functions
 
 %% If send op. send directly (faster than spawn)
-do_apply({?MODULE, send, A}) ->
-    catch send(A);
+do_apply({?MODULE, send, A}, _) ->
+    try send(A)
+    of _ -> {ok, send}
+    catch _:_ -> error
+    end;
 %% If exit op. resolve registered name
-do_apply({erlang, exit, [Name, Reason]}) ->
-    catch exit(get_pid(Name), Reason);
-do_apply({M,F,A}) ->
-    catch spawn(M, F, A).
+do_apply({erlang, exit, [Name, Reason]}, _) ->
+    try exit(get_pid(Name), Reason)
+    of _ -> {ok, exit}
+    catch _:_ -> error
+    end;
+do_apply({M,F,A}, false) ->
+    try spawn(M, F, A)
+    of _ -> {ok, spawn}
+    catch _:_ -> error
+    end;
+do_apply({M, F, A}, true) ->
+    try spawn_monitor(M, F, A)
+    of {_, Ref} -> {ok, {spawn, Ref}}
+    catch _:_ -> error
+    end.
 
 %% Get current time in milliseconds,
 %% ceil'ed to the next millisecond.
