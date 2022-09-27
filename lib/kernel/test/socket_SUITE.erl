@@ -673,7 +673,9 @@
          %% Tickets
          otp16359_maccept_tcp4/1,
          otp16359_maccept_tcp6/1,
-         otp16359_maccept_tcpL/1
+         otp16359_maccept_tcpL/1,
+         otp18240_accept_mon_leak_tcp4/1,
+         otp18240_accept_mon_leak_tcp6/1
         ]).
 
 
@@ -856,7 +858,8 @@ groups() ->
 
      %% Ticket groups
      {tickets,                     [], tickets_cases()},
-     {otp16359,                    [], otp16359_cases()}
+     {otp16359,                    [], otp16359_cases()},
+     {otp18240,                    [], otp18240_cases()}
     ].
      
 api_cases() ->
@@ -2033,7 +2036,8 @@ ttest_ssockt_csockt_cases() ->
 
 tickets_cases() ->
     [
-     {group, otp16359}
+     {group, otp16359},
+     {group, otp18240}
     ].
 
 otp16359_cases() ->
@@ -2041,6 +2045,13 @@ otp16359_cases() ->
      otp16359_maccept_tcp4,
      otp16359_maccept_tcp6,
      otp16359_maccept_tcpL
+    ].
+
+
+otp18240_cases() ->
+    [
+     otp18240_accept_mon_leak_tcp4,
+     otp18240_accept_mon_leak_tcp6
     ].
 
 
@@ -47711,6 +47722,167 @@ otp16359_maccept_tcp(InitState) ->
                             Client1, Client2, Client3,
                             Tester]).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is to verify that we do not leak monitors.
+otp18240_accept_mon_leak_tcp4(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv4() end,
+           fun() ->
+                   InitState = #{domain    => inet,
+                                 protocol  => tcp,
+                                 num_socks => 10},
+                   ok = otp18240_accept_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is to verify that we do not leak monitors.
+otp18240_accept_mon_leak_tcp6(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain    => inet6,
+                                 protocol  => tcp,
+                                 num_socks => 10},
+                   ok = otp18240_accept_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+otp18240_accept_tcp(#{domain    := Domain,
+                      protocol  := Proto,
+                      num_socks := NumSocks}) ->
+    Self = self(),
+    {Pid, Mon} = spawn_monitor(fun() ->
+                                       otp18240_acceptor(Self,
+                                                         Domain, Proto,
+                                                         NumSocks)
+                               end),
+    otp18240_await_acceptor(Pid, Mon).
+
+otp18240_await_acceptor(Pid, Mon) ->
+    receive
+	{'DOWN', Mon, process, Pid, Info} ->
+	    i("acceptor terminated: "
+	      "~n   ~p", [Info])
+    after 5000 ->
+	    i("acceptor info"
+	      "~n   Refs: ~p"
+	      "~n   Info: ~p",
+	      [monitored_by(Pid), erlang:process_info(Pid)]),
+	    otp18240_await_acceptor(Pid, Mon)
+    end.
+
+otp18240_acceptor(Parent, Domain, Proto, NumSocks) ->
+    i("[acceptor] begin with: "
+      "~n   Domain:   ~p"
+      "~n   Protocol: ~p", [Domain, Proto]),
+    MonitoredBy0 = monitored_by(),
+    {ok, LSock}  = socket:open(Domain, stream, Proto,
+                               #{use_registry => false}),
+    ok = socket:bind(LSock, #{family => Domain, port => 0, addr => any}),
+    ok = socket:listen(LSock, NumSocks),
+    MonitoredBy1 = monitored_by(),
+    [LSockMon] = MonitoredBy1 -- MonitoredBy0,
+    i("[acceptor]: listen socket created"
+      "~n   Montored By before listen socket: ~p"
+      "~n   Montored By after listen socket:  ~p"
+      "~n   Listen Socket Monitor:            ~p"
+      "~n   Listen Socket info:               ~p",
+      [MonitoredBy0, MonitoredBy1, LSockMon, socket:info(LSock)]),
+
+    {ok, #{port := Port}} = socket:sockname(LSock),
+
+    i("[acceptor] create ~w clients (connectors)", [NumSocks]),
+    _Clients = [spawn_link(fun() ->
+                                   otp18240_client(CID,
+                                                   Domain, Proto,
+                                                   Port)
+                           end) || CID <- lists:seq(1, NumSocks)],
+
+    i("[acceptor] accept ~w connections", [NumSocks]),
+    ServSocks = [otp18240_do_accept(AID, LSock) ||
+                    AID <- lists:seq(1, NumSocks)],
+
+    i("[acceptor] close accepted connections when: "
+      "~n   Listen Socket info: ~p", [socket:info(LSock)]),
+    _ = [otp18240_do_close(S) || S <- ServSocks],
+
+    %% at this point in time there should be no monitors from NIFs,
+    %% because we're not accepting anything
+    i("[acceptor] check monitor status"),
+    MonitoredBy2 = monitored_by(),
+    MonitoredBy3 = MonitoredBy2 -- [Parent, LSockMon],
+    i("[acceptor] monitor status: "
+      "~n   UnRefs:       ~p"
+      "~n   MonitoredBy2: ~p"
+      "~n   MonitoredBy3: ~p",
+      [[Parent, LSockMon], MonitoredBy2, MonitoredBy3]),
+    if
+        ([] =:= MonitoredBy3) ->
+            i("[acceptor] done"),
+            socket:close(LSock),
+            exit(ok);
+        true ->
+            socket:close(LSock),
+            i("[acceptor] Unexpected monitors: "
+              "~n   ~p", [MonitoredBy2]),
+            exit({unexpected_monitors, MonitoredBy2})
+    end.
+
+
+otp18240_client(ID, Domain, Proto, PortNo) ->
+    i("[connector ~w] try create connector socket", [ID]),
+    {ok, Sock} = socket:open(Domain, stream, Proto, #{use_registry => false}),
+    ok = socket:bind(Sock, #{family => Domain, port => 0, addr => any}),
+    %% ok = socket:setopt(Sock, otp, debug, true),
+    i("[connector ~w] try connect", [ID]),
+    ok = socket:connect(Sock, #{family => Domain, addr => any, port => PortNo}),
+    i("[connector ~w] connected - now try recv", [ID]),
+    case socket:recv(Sock) of
+	{ok, Data} ->
+	    i("[connector ~w] received unexpected data: "
+	      "~n   ~p", [ID, Data]),
+	    (catch socket:close(Sock)),
+	    exit('unexpected data');
+	{error, closed} ->
+	    i("[connector ~w] expected socket close", [ID]);
+	{error, Reason} ->
+	    i("[connector ~w] unexpected error when reading: "
+	      "~n   ~p", [ID, Reason]),
+	    (catch socket:close(Sock))
+    end,
+    i("[connector ~w] done", [ID]),
+    ok.
+
+
+otp18240_do_accept(ID, LSock) ->
+    i("[acceptor ~w] try accept", [ID]),
+    {ok, Sock} = socket:accept(LSock),
+    i("[acceptor ~w] accepted: ~p", [ID, Sock]),
+    {ID, Sock}.
+
+
+otp18240_do_close({ID, Sock}) ->
+    i("[acceptor ~w] try close ~p", [ID, Sock]),
+    case socket:close(Sock) of
+	ok ->
+	    i("[acceptor ~w] socket closed", [ID]),
+	    ok;
+	{error, Reason} ->
+	    i("[acceptor ~w] failed close socket: "
+	      "~n   ~p", [ID, Reason]),
+	    error
+    end.
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 sock_open(Domain, Type, Proto) ->
@@ -47851,6 +48023,14 @@ which_local_addr(local = _Domain) ->
 which_local_addr(Domain) ->
     ?LIB:which_local_addr(Domain).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+monitored_by() ->
+    monitored_by(self()).
+monitored_by(Pid) ->	
+    {monitored_by, Refs} = erlang:process_info(Pid, monitored_by),
+    Refs.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
