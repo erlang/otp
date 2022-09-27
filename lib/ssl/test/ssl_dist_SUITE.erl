@@ -40,12 +40,8 @@
          basic/1,
          ktls_encrypt_decrypt/0,
          ktls_encrypt_decrypt/1,
-         ktls_basic/0,
-         ktls_basic/1,
          ktls_verify/0,
          ktls_verify/1,
-         ktls_verify_asymmetric/0,
-         ktls_verify_asymmetric/1,
          monitor_nodes/1,
          payload/0,
          payload/1,
@@ -77,7 +73,6 @@
 
 %% Apply export
 -export([basic_test/3,
-         ktls_basic_test/3,
          monitor_nodes_test/3,
          payload_test/3,
          plain_options_test/3,
@@ -116,9 +111,7 @@ start_ssl_node_name(Name, Args) ->
 all() ->
     [basic,
      ktls_encrypt_decrypt,
-     ktls_basic,
      ktls_verify,
-     ktls_verify_asymmetric,
      monitor_nodes,
      payload,
      dist_port_overload,
@@ -156,9 +149,7 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 init_per_testcase(Case, Config)
-  when Case =:= ktls_basic, is_list(Config);
-       Case =:= ktls_verify, is_list(Config);
-       Case =:= ktls_verify_asymmetric, is_list(Config) ->
+  when Case =:= ktls_verify, is_list(Config) ->
     %% We need a connected socket
     {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port} = inet:port(Listen),
@@ -175,7 +166,7 @@ init_per_testcase(Case, Config)
         _ = gen_tcp:close(Client),
         _ = gen_tcp:close(Listen)
     end;
-
+%%
 init_per_testcase(Case, Config) when is_list(Config) ->
     common_init(Case, Config).
 
@@ -304,12 +295,6 @@ ktls_encrypt_decrypt(Client, Server, Test) ->
 
 
 %%--------------------------------------------------------------------
-ktls_basic() ->
-    [{doc,"Test that two nodes can connect via ssl distribution"}].
-ktls_basic(Config) when is_list(Config) ->
-    gen_dist_test(ktls_basic_test, Config).
-
-%%--------------------------------------------------------------------
 ktls_verify() ->
     [{doc,
       "Test that two nodes can connect via ssl distribution over kTLS"}].
@@ -321,33 +306,11 @@ ktls_verify(Config) ->
         "server_ciphers TLS_AES_256_GCM_SHA384 "
         "client_ktls true "
         "server_ktls true ",
-    gen_dist_test(basic_test, [{tls_verify_opts, KTLSOpts} | Config]).
-
-%%--------------------------------------------------------------------
-ktls_verify_asymmetric() ->
-    [{doc,
-      "Test that two nodes can connect via ssl distribution "
-      "when one uses kTLS and the other our regular TSL"}].
-ktls_verify_asymmetric(Config) ->
-    KTLSOpts = "-ssl_dist_opt "
-        "client_versions tlsv1.3 "
-        "server_versions tlsv1.3 "
-        "client_ciphers TLS_AES_256_GCM_SHA384 "
-        "server_ciphers TLS_AES_256_GCM_SHA384 "
-        "server_ktls true "
-        "client_ktls false ",
     KTLSConfig = [{tls_verify_opts, KTLSOpts} | Config],
     gen_dist_test(
       fun (NH1, NH2) ->
               basic_test(NH1, NH2, KTLSConfig),
-              %%
-              %% NH1 should have connected to NH2 so the connection should
-              %% use the client on NH1 and the server on NH2, therefore
-              %% NH2 should run kTLS but NH1 should run regular TLS
-              %%
-              case ktls_count_tls_dist(NH1) of
-                  N when 0 < N -> ok
-              end,
+              0 = ktls_count_tls_dist(NH1),
               0 = ktls_count_tls_dist(NH2),
               ok
       end, KTLSConfig).
@@ -762,47 +725,6 @@ basic_test(NH1, NH2, _) ->
 			    end
 		    end)
      end.
-
-ktls_basic_test(NH1, NH2, Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    SslOpts = [
-        {
-            server,
-            [
-                {certfile, filename:join([PrivDir, "rsa_server_cert.pem"])},
-                {keyfile, filename:join([PrivDir, "rsa_server_key.pem"])},
-                {cacertfile, filename:join([PrivDir, "rsa_server_cacerts.pem"])},
-                {verify, verify_peer},
-                {fail_if_no_peer_cert, true},
-                {versions, ['tlsv1.3']},
-                {ciphers, [#{cipher => aes_256_gcm, key_exchange => any, mac => aead, prf => sha384}]},
-                {ktls, true}
-            ]
-        },
-        {
-            client,
-            [
-                {certfile, filename:join([PrivDir, "rsa_client_cert.pem"])},
-                {keyfile, filename:join([PrivDir, "rsa_client_key.pem"])},
-                {cacertfile, filename:join([PrivDir, "rsa_client_cacerts.pem"])},
-                {verify, verify_peer},
-                {customize_hostname_check, [{match_fun, fun(_, _) -> true end}]},
-                {versions, ['tlsv1.3']},
-                {ciphers, [#{cipher => aes_256_gcm, key_exchange => any, mac => aead, prf => sha384}]},
-                {ktls, true}
-            ]
-        }
-    ],
-    SetEtsOpts = fun () ->
-        spawn(fun () ->
-            ets:new(ssl_dist_opts, [named_table, public]),
-            ets:insert(ssl_dist_opts, SslOpts),
-            timer:sleep(infinity)
-        end)
-    end,
-    apply_on_ssl_node(NH1, SetEtsOpts),
-    apply_on_ssl_node(NH2, SetEtsOpts),
-    basic_test(NH1, NH2, Config).
 
 monitor_nodes_test(NH1, NH2, _) ->
     Node2 = NH2#node_handle.nodename,
