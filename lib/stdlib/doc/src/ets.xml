@@ -1740,7 +1740,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
 	  <seeerl marker="#concurrency">atomic and isolated</seeerl>. The
 	  <c>select_replace</c> table traversal as a whole, like all other select functions,
 	  does not give such guarantees.</p>
-	<p>The match specifiction must be guaranteed to <em>retain the key</em>
+	<p>The match specification must be guaranteed to <em>retain the key</em>
 	  of any matched object. If not, <c>select_replace</c> will fail with <c>badarg</c>
 	  without updating any objects.</p>
         <p>For the moment, due to performance and semantic constraints,
