@@ -91,8 +91,8 @@ edit([C|Cs], P, Line, {blink,_}, [_|Rs]) ->	%Remove blink here
     edit([C|Cs], P, Line, none, Rs);
 edit([C|Cs], P, {Bef,Aft}, Prefix, Rs0) ->
     case key_map(C, Prefix) of
-	meta ->
-	    edit(Cs, P, {Bef,Aft}, meta, Rs0);
+        meta ->
+            edit(Cs, P, {Bef,Aft}, meta, Rs0);
         meta_o ->
             edit(Cs, P, {Bef,Aft}, meta_o, Rs0);
         meta_csi ->
@@ -101,56 +101,37 @@ edit([C|Cs], P, {Bef,Aft}, Prefix, Rs0) ->
             edit(Cs, P, {Bef,Aft}, meta_meta, Rs0);
         {csi, _} = Csi ->
             edit(Cs, P, {Bef,Aft}, Csi, Rs0);
-	meta_left_sq_bracket ->
-	    edit(Cs, P, {Bef,Aft}, meta_left_sq_bracket, Rs0);
-	search_meta ->
-	    edit(Cs, P, {Bef,Aft}, search_meta, Rs0);
-	search_meta_left_sq_bracket ->
-	    edit(Cs, P, {Bef,Aft}, search_meta_left_sq_bracket, Rs0);
-	ctlx ->
-	    edit(Cs, P, {Bef,Aft}, ctlx, Rs0);
-	new_line ->
-	    {done, get_line(Bef, Aft ++ "\n"), Cs,
-	     reverse(Rs0, [{move_rel,cp_len(Aft)},{put_chars,unicode,"\n"}])};
-	redraw_line ->
-	    Rs1 = erase(P, Bef, Aft, Rs0),
-	    Rs = redraw(P, Bef, Aft, Rs1),
-	    edit(Cs, P, {Bef,Aft}, none, Rs);
-	tab_expand ->
-	    {expand, Bef, Cs,
-	     {line, P, {Bef, Aft}, none},
-	     reverse(Rs0)};
-
-%% 	tab ->
-%% 	    %% Always redraw the line since expand/1 might have printed
-%% 	    %% possible expansions.
-%% 	    case expand(Bef) of
-%% 		{yes,Str} ->
-%% 		    edit([redraw_line|
-%% 			  (Str ++ Cs)], P, {Bef,Aft}, none, Rs0);
-%% 		no ->
-%% 		    %% don't beep if there's only whitespace before
-%% 		    %% us - user may have pasted in a lot of indented stuff.
-%% 		    case whitespace_only(Bef) of
-%% 			false ->
-%% 			    edit([redraw_line|Cs], P, {Bef,Aft}, none,
-%% 				 [beep|Rs0]);
-%% 			true ->
-%% 			    edit([redraw_line|Cs], P, {Bef,Aft}, none, [Rs0])
-%% 		    end
-%% 	    end;
-	{undefined,C} ->
-	    {undefined,{none,Prefix,C},Cs,{line,P,{Bef,Aft},none},
-	     reverse(Rs0)};
-	Op ->
-	    case do_op(Op, Bef, Aft, Rs0) of
-		{blink,N,Line,Rs} ->
-		    edit(Cs, P, Line, {blink,N}, Rs);
-		{Line, Rs, Mode} -> % allow custom modes from do_op
-		    edit(Cs, P, Line, Mode, Rs);
-		{Line,Rs} ->
-		    edit(Cs, P, Line, none, Rs)
-	    end
+        meta_left_sq_bracket ->
+            edit(Cs, P, {Bef,Aft}, meta_left_sq_bracket, Rs0);
+        search_meta ->
+            edit(Cs, P, {Bef,Aft}, search_meta, Rs0);
+        search_meta_left_sq_bracket ->
+            edit(Cs, P, {Bef,Aft}, search_meta_left_sq_bracket, Rs0);
+        ctlx ->
+            edit(Cs, P, {Bef,Aft}, ctlx, Rs0);
+        new_line ->
+            {done, get_line(Bef, Aft ++ "\n"), Cs,
+            reverse(Rs0, [{move_rel,cp_len(Aft)},{put_chars,unicode,"\n"}])};
+        redraw_line ->
+            Rs1 = erase(P, Bef, Aft, Rs0),
+            Rs = redraw(P, Bef, Aft, Rs1),
+            edit(Cs, P, {Bef,Aft}, none, Rs);
+        tab_expand ->
+            {expand, Bef, Cs,
+            {line, P, {Bef, Aft}, none},
+            reverse(Rs0)};
+        {undefined,C} ->
+            {undefined,{none,Prefix,C},Cs,{line,P,{Bef,Aft},none},
+            reverse(Rs0)};
+        Op ->
+            case do_op(Op, Bef, Aft, Rs0) of
+            {blink,N,Line,Rs} ->
+                edit(Cs, P, Line, {blink,N}, Rs);
+            {Line, Rs, Mode} -> % allow custom modes from do_op
+                edit(Cs, P, Line, Mode, Rs);
+            {Line,Rs} ->
+                edit(Cs, P, Line, none, Rs)
+            end
     end;
 edit([], P, L, {blink,N}, Rs) ->
     {blink,{line,P,L,{blink,N}},reverse(Rs)};
@@ -183,7 +164,7 @@ prefix_arg(N) -> N.
 %% key_map(Char, Prefix)
 %%  Map a character and a prefix to an action.
 
-key_map(A, _) when is_atom(A) -> A;		% so we can push keywords
+key_map(A, _) when is_atom(A) -> A;             % so we can push keywords
 key_map($\^A, none) -> beginning_of_line;
 key_map($\^B, none) -> backward_char;
 key_map($\^D, none) -> forward_delete_char;
