@@ -140,10 +140,16 @@ init([]) ->
                   type => supervisor,
                   modules => [logger_sup]},
 
+    Peer = case peer:supervision_child_spec() of
+               {ok, PeerSpec} -> [PeerSpec];
+               none -> []
+           end,
+
     case init:get_argument(mode) of
         {ok, [["minimal"]|_]} ->
             {ok, {SupFlags,
-                  [Code, File, StdError, User, LoggerSup, Config, RefC, SafeSup]}};
+                  [Code, File, StdError] ++ Peer ++
+                      [User, LoggerSup, Config, RefC, SafeSup]}};
         _ ->
             DistChildren =
 		case application:get_env(kernel, start_distribution) of
@@ -170,7 +176,8 @@ init([]) ->
 
             {ok, {SupFlags,
                   [Code, InetDb | DistChildren] ++
-                      [File, SigSrv, StdError, User, Config, RefC, SafeSup, LoggerSup] ++
+                      [File, SigSrv, StdError] ++ Peer ++
+                      [User, Config, RefC, SafeSup, LoggerSup] ++
                       Timer ++ CompileServer}}
     end;
 init(safe) ->

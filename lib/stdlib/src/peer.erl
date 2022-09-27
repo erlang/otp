@@ -80,7 +80,17 @@
 
 %% Internal exports for stdin/stdout, non-distribution RPC, and tests
 -export([
-         start/0 %% this function must be named "start", requirement for user.erl
+         start/0, %% this function must be named "start", requirement for user.erl
+
+         %% Peer supervision...
+         supervision_child_spec/0,
+         start_supervision/0,
+         init_supervision/2,
+         system_continue/3,
+         system_terminate/4,
+         system_code_change/4,
+         system_get_state/1,
+         system_replace_state/2
         ]).
 
 %% Origin node will listen to the specified port (port 0 is auto-select),
@@ -165,6 +175,9 @@
 -define (WAIT_BOOT_TIMEOUT, 15000).
 
 -type disconnect_timeout() :: ?MIN_DISCONNECT_TIMEOUT..?MAX_INT_TIMEOUT | infinity.
+
+%% Peer supervisor channel connect timeout.
+-define(PEER_SUP_CHANNEL_CONNECT_TIMEOUT, 30000).
 
 %% @doc Creates random node name, using "peer" as prefix.
 -spec random_name() -> string().
@@ -926,9 +939,119 @@ notify_started(dist, Process) ->
 notify_started(Kind, Port) ->
     peer_to_origin(Kind, Port, {started, node()}).
 
+%%
+%% Supervision of peer user process (which supervise the control channel) making
+%% sure that the peer node is halted if the peer user process crashes...
+%%
+
+supervision_child_spec() ->
+    case init:get_argument(user) of
+        {ok, [["peer"]]} ->
+            {ok, #{id => peer_supervision,
+                   start => {?MODULE, start_supervision, []},
+                   restart => permanent,
+                   shutdown => 1000,
+                   type => worker,
+                   modules => [?MODULE]}};
+        _ ->
+            none
+    end.
+
+start_supervision() ->
+    proc_lib:start_link(?MODULE, init_supervision, [self(), true]).
+
+start_orphan_supervision() ->
+    proc_lib:start(?MODULE, init_supervision, [self(), false]).
+
+-record(peer_sup_state, {parent, channel, in_sup_tree}).
+
+init_supervision(Parent, InSupTree) ->
+    try
+        process_flag(priority, high),
+        process_flag(trap_exit, true),
+        register(peer_supervision, self()),
+        proc_lib:init_ack(Parent, {ok, self()}),
+        Channel = receive
+                      {channel_connect, Ref, From, ConnectChannel} ->
+                          true = is_pid(ConnectChannel),
+                          From ! Ref,
+                          try
+                              link(ConnectChannel)
+                          catch error:noproc ->
+                                  exit({peer_channel_terminated, noproc})
+                          end,
+                          ConnectChannel
+                  after
+                      ?PEER_SUP_CHANNEL_CONNECT_TIMEOUT ->
+                          exit(peer_channel_connect_timeout)
+                  end,
+        loop_supervision(#peer_sup_state{parent = Parent,
+                                         channel = Channel,
+                                         in_sup_tree = InSupTree})
+    catch
+        _:_ when not InSupTree ->
+            erlang:halt(1)
+    end.
+
+peer_sup_connect_channel(PeerSupervision, PeerChannelHandler) ->
+    Ref = make_ref(),
+    PeerSupervision ! {channel_connect, Ref, self(), PeerChannelHandler},
+    receive
+        Ref -> ok
+    after
+        ?PEER_SUP_CHANNEL_CONNECT_TIMEOUT ->
+            exit(peer_supervision_connect_timeout)
+    end.
+
+loop_supervision(#peer_sup_state{parent = Parent,
+                                 channel = Channel} = State) ->
+    receive
+        {'EXIT', Channel, Reason} ->
+            exit({peer_channel_terminated, Reason});
+        {system, From, Request} ->
+            sys:handle_system_msg(Request, From, Parent, ?MODULE, [], State);
+        _ ->
+            loop_supervision(State)
+    end.
+
+
+system_continue(_Parent, _, #peer_sup_state{} = State) ->
+    loop_supervision(State).
+
+system_terminate(Reason, _Parent, _Debug, _State) ->
+    exit(Reason).
+
+system_code_change(State, _Module, _OldVsn, _Extra) ->
+    {ok, State}.
+
+system_get_state(State) ->
+    {ok, State}.
+
+system_replace_state(StateFun, State) ->
+    NState = StateFun(State),
+    {ok, NState, NState}.
+
+%% End of peer user supervision
+
 %% I/O redirection: peer side
 -spec start() -> pid().
 start() ->
+    try
+        PeerChannelHandler = start_peer_channel_handler(),
+        PeerSup = case whereis(peer_supervision) of
+                      PeerSup0 when is_pid(PeerSup0) ->
+                          PeerSup0;
+                      undefined ->
+                          {ok, PeerSup0} = start_orphan_supervision(),
+                          PeerSup0
+                  end,
+        peer_sup_connect_channel(PeerSup, PeerChannelHandler),
+        PeerChannelHandler
+    catch _:_ ->
+            erlang:halt(1)
+    end.
+
+start_peer_channel_handler() ->
     case init:get_argument(origin) of
         {ok, [[IpStr, PortString]]} ->
             %% enter this clause when -origin IpList Port is specified in the command line.
@@ -936,39 +1059,41 @@ start() ->
             Ips = [begin {ok, Addr} = inet:parse_address(Ip), Addr end ||
                       Ip <- string:lexemes(IpStr, ",")],
             TCPConnection = spawn(fun () -> tcp_init(Ips, Port) end),
-            case init:get_argument(peer_detached) of
-                {ok, _} ->
-                    register(user, TCPConnection),
-                    TCPConnection;
-                error ->
-                    user_sup:init(
-                      [Flag || Flag <- init:get_arguments(), Flag =/= {user,["peer"]}])
-            end;
+            _ = case init:get_argument(peer_detached) of
+                    {ok, _} ->
+                        _ = register(user, TCPConnection);
+                    error ->
+                        _= user_sup:init(
+                             [Flag || Flag <- init:get_arguments(), Flag =/= {user,["peer"]}])
+                end,
+            TCPConnection;
         {ok, [[Base64EncProc]]} ->
             %% No alternative connection, but have "-origin Base64EncProc"
             OriginProcess = binary_to_term(base64:decode(Base64EncProc)),
-            spawn(
-              fun () ->
-                      MRef = monitor(process, OriginProcess),
-                      notify_when_started(dist, OriginProcess),
-                      origin_link(MRef, OriginProcess)
-              end),
+            OriginLink = spawn(
+                           fun () ->
+                                   MRef = monitor(process, OriginProcess),
+                                   notify_when_started(dist, OriginProcess),
+                                   origin_link(MRef, OriginProcess)
+                           end),
             ok = gen_server:call(OriginProcess, {starting, node()}),
-            case init:get_argument(peer_detached) of
-                {ok, _} ->
-                    %% We are detached, so setup 'user' process, I/O redirection:
-                    %%   ask controlling process who is the group leader.
-                    GroupLeader = gen_server:call(OriginProcess, group_leader),
-                    RelayPid = spawn(fun () -> relay(GroupLeader) end),
-                    register(user, RelayPid),
-                    %% return RelayPid for user_sup to link to
-                    RelayPid;
-                error ->
-                    %% We are not detached, so after we spawn the link process we
-                    %% start the terminal as normal but without the -user peer flag.
-                    user_sup:init(
-                      [Flag || Flag <- init:get_arguments(), Flag =/= {user,["peer"]}])
-            end;
+            _ = case init:get_argument(peer_detached) of
+                    {ok, _} ->
+                        %% We are detached, so setup 'user' process, I/O redirection:
+                        %%   ask controlling process who is the group leader.
+                        GroupLeader = gen_server:call(OriginProcess, group_leader),
+                        RelayPid = spawn(fun () ->
+                                                 link(OriginLink),
+                                                 relay(GroupLeader)
+                                         end),
+                        _ = register(user, RelayPid);
+                    error ->
+                        %% We are not detached, so after we spawn the link process we
+                        %% start the terminal as normal but without the -user peer flag.
+                        _ = user_sup:init(
+                              [Flag || Flag <- init:get_arguments(), Flag =/= {user,["peer"]}])
+                end,
+            OriginLink;
         error ->
             %% no -origin specified, meaning that standard I/O is used for alternative
             spawn(fun io_server/0)
@@ -991,12 +1116,17 @@ origin_link(MRef, Origin) ->
     end.
 
 io_server() ->
-    process_flag(trap_exit, true),
-    Port = erlang:open_port({fd, 0, 1}, [eof, binary]),
-    register(user, self()),
-    group_leader(self(), self()),
-    notify_when_started(port, Port),
-    io_server_loop(port, Port, #{}, #{}, <<>>).
+   try
+       process_flag(trap_exit, true),
+       Port = erlang:open_port({fd, 0, 1}, [eof, binary]),
+       register(user, self()),
+       group_leader(self(), self()),
+       notify_when_started(port, Port),
+       io_server_loop(port, Port, #{}, #{}, <<>>)
+    catch
+        _:_ ->
+            erlang:halt(1)
+    end.
 
 tcp_init(IpList, Port) ->
     try
@@ -1005,8 +1135,7 @@ tcp_init(IpList, Port) ->
         notify_when_started(tcp, Sock),
         io_server_loop(tcp, Sock, #{}, #{}, undefined)
     catch
-        Class:Reason:Stack ->
-            io:format(standard_io, "TCP connection failed: ~s:~p~n~120p~n", [Class, Reason, Stack]),
+        _:_ ->
             erlang:halt(1)
     end.
 
