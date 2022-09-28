@@ -289,7 +289,7 @@ parse({setup, P, S, C, I} = T, Options)
 		{spawn, N} when is_atom(N) -> ok;
 		_ -> bad_test(T)
 	    end,
-	    group(#group{tests = I,
+	    group(#group{tests = I, options = Options,
 			 context = #context{setup = S, cleanup = C,
 					    process = P}})
     end;
@@ -395,15 +395,15 @@ parse({with, X, As}=T, _Options) when is_list(As) ->
 	[] ->
 	    {data, []}
     end;
-parse({S, T1} = T, _Options) when is_list(S) ->
+parse({S, T1} = T, Options) when is_list(S) ->
     case eunit_lib:is_string(S) of
 	true ->
-	    group(#group{tests = T1, desc = unicode:characters_to_binary(S)});
+	    group(#group{tests = T1, options = Options, desc = unicode:characters_to_binary(S)});
 	false ->
 	    bad_test(T)
     end;
-parse({S, T1}, _Options) when is_binary(S) ->
-    group(#group{tests = T1, desc = S});
+parse({S, T1}, Options) when is_binary(S) ->
+    group(#group{tests = T1, options = Options, desc = S});
 parse(T, Options) when is_tuple(T), size(T) > 2, is_list(element(1, T)) ->
     [S | Es] = tuple_to_list(T),
     parse({S, list_to_tuple(Es)}, Options);
