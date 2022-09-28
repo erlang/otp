@@ -146,7 +146,7 @@ server_init(Starter, Parent, Transport, Active) ->
 				    {error, SNReason} ->
 					exit({sockname, SNReason})
 				end;
-                            is_list(PortOrPath) ->
+                            is_list(PortOrPath) orelse is_binary(PortOrPath) ->
                                 ?I("listening on:"
                                    "~n   Path: ~s"
                                    "~n", [PortOrPath]),
@@ -248,7 +248,9 @@ format_peername({Addr, Port}) ->
             ?F("~p, ~p", [Addr, Port])
     end;
 format_peername(Path) when is_list(Path) ->
-    Path.
+    Path;
+format_peername(Path) when is_binary(Path) ->
+    binary_to_list(Path).
 
 maybe_start_stats_timer(#{active := Active, stats_interval := Time}, Handler)
   when (Active =/= false) andalso (is_integer(Time) andalso (Time > 0)) ->

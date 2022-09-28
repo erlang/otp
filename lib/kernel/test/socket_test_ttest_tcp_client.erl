@@ -178,7 +178,7 @@ do_start(Quiet,
        is_function(Notify) andalso
        (is_atom(Transport) orelse is_tuple(Transport)) andalso
        (is_boolean(Active) orelse (Active =:= once)) andalso
-       (is_tuple(ServerInfo) orelse is_list(ServerInfo)) andalso 
+       (is_tuple(ServerInfo) orelse is_list(ServerInfo) orelse is_binary(ServerInfo)) andalso 
        (is_integer(MsgID) andalso (MsgID >= 1) andalso (MsgID =< 3)) andalso
        (is_integer(MaxOutstanding) andalso (MaxOutstanding > 0)) andalso
        (is_integer(RunTime) andalso (RunTime > 0)) ->

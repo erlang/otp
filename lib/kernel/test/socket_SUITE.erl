@@ -24,8 +24,12 @@
 %% Variable that controls which 'groups' are to run (with default values)
 %%
 %%         ESOCK_TEST_API:         include
+%%         ESOCK_TEST_REG:         include
+%%         ESOCK_TEST_MON:         include
+%%         ESOCK_TEST_IOCTL:       include
 %%         ESOCK_TEST_SOCK_CLOSE:  include
 %%         ESOCK_TEST_TRAFFIC:     include
+%%         ESOCK_TEST_TICKETS:     include
 %%         ESOCK_TEST_TTEST:       exclude
 %%
 %% Variable that controls "verbosity" of the test case(s):
@@ -43,6 +47,16 @@
 %%                 ms - milli seconds
 %%                 s  - seconds (default)
 %%                 m  - minutes
+%%
+%% The ttest takes a long time to run, even when the runtime is small,
+%% because there are such a large number of test cases.
+%% So, by default only the 'small' test cases are included in a test run.
+%% The following environment variables control which are included and 
+%% excluded.
+%%
+%%          ESOCK_TEST_TTEST_SMALL:  included
+%%          ESOCK_TEST_TTEST_MEDIUM: excluded
+%%          ESOCK_TEST_TTEST_LARGE:  excluded
 %%
 
 %% Run the entire test suite: 
@@ -714,7 +728,7 @@
 -define(TPP_LARGE_NUM,  50).
 -define(TPP_NUM(Config, Base), (Base) div lookup(esock_factor, 1, Config)).
 
--define(TTEST_RUNTIME,  ?SECS(10)).
+-define(TTEST_RUNTIME,  ?SECS(1)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -725,12 +739,12 @@ suite() ->
 
 all() -> 
     Groups = [{api,          "ESOCK_TEST_API",        include},
-              {reg,          undefined,               include},
-              {monitor,      undefined,               include},
-              {ioctl,        undefined,               include},
+              {reg,          "ESOCK_TEST_REG",        include},
+              {monitor,      "ESOCK_TEST_MON",        include},
+              {ioctl,        "ESOCK_TEST_IOCTL",      include},
 	      {socket_close, "ESOCK_TEST_SOCK_CLOSE", include},
 	      {traffic,      "ESOCK_TEST_TRAFFIC",    include},
-	      {ttest,        "ESOCK_TEST_TTEST",      exclude},
+	      {ttest,        "ESOCK_TEST_TTEST",      include},
 	      {tickets,      "ESOCK_TEST_TICKETS",    include}],
     [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
 
@@ -1386,45 +1400,75 @@ ttest_sgenf_cgen_cases() ->
 
 %% Server: transport = gen_tcp, active = false
 %% Client: transport = gen_tcp, active = false
+
+ttest_conditional_cases(Env, Default, Cases) ->
+    case os:getenv(Env) of
+        false ->
+            Default;
+        Val ->
+            case list_to_atom(string:to_lower(Val)) of
+                Use when (Use =:= include) orelse 
+                         (Use =:= enable) orelse 
+                         (Use =:= true) ->
+                    Cases;
+                _ -> % Assumed to be explicitly *disabled*
+                    []
+            end
+    end.
+
+ttest_small_conditional_cases(Cases) ->
+    ttest_conditional_cases("ESOCK_TEST_TTEST_SMALL", Cases, Cases).
+
+ttest_medium_conditional_cases(Cases) ->
+    ttest_conditional_cases("ESOCK_TEST_TTEST_MEDIUM", [], Cases).
+
+ttest_large_conditional_cases(Cases) ->
+    ttest_conditional_cases("ESOCK_TEST_TTEST_LARGE", [], Cases).
+
+ttest_select_conditional_cases(Small, Medium, Large) ->
+    ttest_small_conditional_cases(Small) ++
+        ttest_medium_conditional_cases(Medium) ++
+        ttest_large_conditional_cases(Large).
+
 ttest_sgenf_cgenf_cases() ->
-    [
-     ttest_sgenf_cgenf_small_tcp4,
-     ttest_sgenf_cgenf_small_tcp6,
-
-     ttest_sgenf_cgenf_medium_tcp4,
-     ttest_sgenf_cgenf_medium_tcp6,
-
-     ttest_sgenf_cgenf_large_tcp4,
-     ttest_sgenf_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_cgenf_small_tcp4,
+       ttest_sgenf_cgenf_small_tcp6],
+      %% Medium
+      [ttest_sgenf_cgenf_medium_tcp4,
+       ttest_sgenf_cgenf_medium_tcp6],
+      %% Large
+      [ttest_sgenf_cgenf_large_tcp4,
+       ttest_sgenf_cgenf_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = false
 %% Client: transport = gen_tcp, active = once
 ttest_sgenf_cgeno_cases() ->
-    [
-     ttest_sgenf_cgeno_small_tcp4,
-     ttest_sgenf_cgeno_small_tcp6,
-
-     ttest_sgenf_cgeno_medium_tcp4,
-     ttest_sgenf_cgeno_medium_tcp6,
-
-     ttest_sgenf_cgeno_large_tcp4,
-     ttest_sgenf_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_cgeno_small_tcp4,
+       ttest_sgenf_cgeno_small_tcp6],
+      %% Medium
+      [ttest_sgenf_cgeno_medium_tcp4,
+       ttest_sgenf_cgeno_medium_tcp6],
+      %% Large
+      [ttest_sgenf_cgeno_large_tcp4,
+       ttest_sgenf_cgeno_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = false
 %% Client: transport = gen_tcp, active = true
 ttest_sgenf_cgent_cases() ->
-    [
-     ttest_sgenf_cgent_small_tcp4,
-     ttest_sgenf_cgent_small_tcp6,
-
-     ttest_sgenf_cgent_medium_tcp4,
-     ttest_sgenf_cgent_medium_tcp6,
-
-     ttest_sgenf_cgent_large_tcp4,
-     ttest_sgenf_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_cgent_small_tcp4,
+       ttest_sgenf_cgent_small_tcp6],
+      %% Medium
+      [ttest_sgenf_cgent_medium_tcp4,
+       ttest_sgenf_cgent_medium_tcp6],
+      %% Large
+      [ttest_sgenf_cgent_large_tcp4,
+       ttest_sgenf_cgent_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = false
 %% Client: transport = socket(tcp)
@@ -1436,40 +1480,40 @@ ttest_sgenf_csock_cases() ->
     ].
 
 ttest_sgenf_csockf_cases() ->
-    [
-     ttest_sgenf_csockf_small_tcp4,
-     ttest_sgenf_csockf_small_tcp6,
-
-     ttest_sgenf_csockf_medium_tcp4,
-     ttest_sgenf_csockf_medium_tcp6,
-
-     ttest_sgenf_csockf_large_tcp4,
-     ttest_sgenf_csockf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_csockf_small_tcp4,
+       ttest_sgenf_csockf_small_tcp6],
+      %% Medium
+      [ttest_sgenf_csockf_medium_tcp4,
+       ttest_sgenf_csockf_medium_tcp6],
+      %% Large
+      [ttest_sgenf_csockf_large_tcp4,
+       ttest_sgenf_csockf_large_tcp6]).
 
 ttest_sgenf_csocko_cases() ->
-    [
-     ttest_sgenf_csocko_small_tcp4,
-     ttest_sgenf_csocko_small_tcp6,
-
-     ttest_sgenf_csocko_medium_tcp4,
-     ttest_sgenf_csocko_medium_tcp6,
-
-     ttest_sgenf_csocko_large_tcp4,
-     ttest_sgenf_csocko_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_csocko_small_tcp4,
+       ttest_sgenf_csocko_small_tcp6],
+      %% Medium
+      [ttest_sgenf_csocko_medium_tcp4,
+       ttest_sgenf_csocko_medium_tcp6],
+      %% Large
+      [ttest_sgenf_csocko_large_tcp4,
+       ttest_sgenf_csocko_large_tcp6]).
 
 ttest_sgenf_csockt_cases() ->
-    [
-     ttest_sgenf_csockt_small_tcp4,
-     ttest_sgenf_csockt_small_tcp6,
-
-     ttest_sgenf_csockt_medium_tcp4,
-     ttest_sgenf_csockt_medium_tcp6,
-
-     ttest_sgenf_csockt_large_tcp4,
-     ttest_sgenf_csockt_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_csockt_small_tcp4,
+       ttest_sgenf_csockt_small_tcp6],
+      %% Medium
+      [ttest_sgenf_csockt_medium_tcp4,
+       ttest_sgenf_csockt_medium_tcp6],
+      %% Large
+     [ttest_sgenf_csockt_large_tcp4,
+      ttest_sgenf_csockt_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = once
 ttest_sgeno_cases() ->
@@ -1490,44 +1534,44 @@ ttest_sgeno_cgen_cases() ->
 %% Server: transport = gen_tcp, active = once
 %% Client: transport = gen_tcp, active = false
 ttest_sgeno_cgenf_cases() ->
-    [
-     ttest_sgeno_cgenf_small_tcp4,
-     ttest_sgeno_cgenf_small_tcp6,
-
-     ttest_sgeno_cgenf_medium_tcp4,
-     ttest_sgeno_cgenf_medium_tcp6,
-
-     ttest_sgeno_cgenf_large_tcp4,
-     ttest_sgeno_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_cgenf_small_tcp4,
+       ttest_sgeno_cgenf_small_tcp6],
+      %% Medium
+      [ttest_sgeno_cgenf_medium_tcp4,
+       ttest_sgeno_cgenf_medium_tcp6],
+      %% Large
+      [ttest_sgeno_cgenf_large_tcp4,
+       ttest_sgeno_cgenf_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = once
 %% Client: transport = gen_tcp, active = once
 ttest_sgeno_cgeno_cases() ->
-    [
-     ttest_sgeno_cgeno_small_tcp4,
-     ttest_sgeno_cgeno_small_tcp6,
-
-     ttest_sgeno_cgeno_medium_tcp4,
-     ttest_sgeno_cgeno_medium_tcp6,
-
-     ttest_sgeno_cgeno_large_tcp4,
-     ttest_sgeno_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_cgeno_small_tcp4,
+       ttest_sgeno_cgeno_small_tcp6],
+      %% Medium
+      [ttest_sgeno_cgeno_medium_tcp4,
+       ttest_sgeno_cgeno_medium_tcp6],
+      %% Large
+      [ttest_sgeno_cgeno_large_tcp4,
+       ttest_sgeno_cgeno_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = once
 %% Client: transport = gen_tcp, active = true
 ttest_sgeno_cgent_cases() ->
-    [
-     ttest_sgeno_cgent_small_tcp4,
-     ttest_sgeno_cgent_small_tcp6,
-
-     ttest_sgeno_cgent_medium_tcp4,
-     ttest_sgeno_cgent_medium_tcp6,
-
-     ttest_sgeno_cgent_large_tcp4,
-     ttest_sgeno_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_cgent_small_tcp4,
+       ttest_sgeno_cgent_small_tcp6],
+      %% Medium
+      [ttest_sgeno_cgent_medium_tcp4,
+       ttest_sgeno_cgent_medium_tcp6],
+      %% Large
+      [ttest_sgeno_cgent_large_tcp4,
+       ttest_sgeno_cgent_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = once
 %% Client: transport = socket(tcp)
@@ -1539,40 +1583,40 @@ ttest_sgeno_csock_cases() ->
     ].
 
 ttest_sgeno_csockf_cases() ->
-    [
-     ttest_sgeno_csockf_small_tcp4,
-     ttest_sgeno_csockf_small_tcp6,
-
-     ttest_sgeno_csockf_medium_tcp4,
-     ttest_sgeno_csockf_medium_tcp6,
-
-     ttest_sgeno_csockf_large_tcp4,
-     ttest_sgeno_csockf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_csockf_small_tcp4,
+       ttest_sgeno_csockf_small_tcp6],
+      %% Medium
+      [ttest_sgeno_csockf_medium_tcp4,
+       ttest_sgeno_csockf_medium_tcp6],
+      %% Large
+      [ttest_sgeno_csockf_large_tcp4,
+       ttest_sgeno_csockf_large_tcp6]).
 
 ttest_sgeno_csocko_cases() ->
-    [
-     ttest_sgeno_csocko_small_tcp4,
-     ttest_sgeno_csocko_small_tcp6,
-
-     ttest_sgeno_csocko_medium_tcp4,
-     ttest_sgeno_csocko_medium_tcp6,
-
-     ttest_sgeno_csocko_large_tcp4,
-     ttest_sgeno_csocko_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_csocko_small_tcp4,
+       ttest_sgeno_csocko_small_tcp6],
+      %% Medium
+      [ttest_sgeno_csocko_medium_tcp4,
+       ttest_sgeno_csocko_medium_tcp6],
+      %% Large
+      [ttest_sgeno_csocko_large_tcp4,
+       ttest_sgeno_csocko_large_tcp6]).
 
 ttest_sgeno_csockt_cases() ->
-    [
-     ttest_sgeno_csockt_small_tcp4,
-     ttest_sgeno_csockt_small_tcp6,
-
-     ttest_sgeno_csockt_medium_tcp4,
-     ttest_sgeno_csockt_medium_tcp6,
-
-     ttest_sgeno_csockt_large_tcp4,
-     ttest_sgeno_csockt_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_csockt_small_tcp4,
+       ttest_sgeno_csockt_small_tcp6],
+      %% Medium
+      [ttest_sgeno_csockt_medium_tcp4,
+       ttest_sgeno_csockt_medium_tcp6],
+      %% Large
+      [ttest_sgeno_csockt_large_tcp4,
+       ttest_sgeno_csockt_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = true
 ttest_sgent_cases() ->
@@ -1593,44 +1637,44 @@ ttest_sgent_cgen_cases() ->
 %% Server: transport = gen_tcp, active = true
 %% Client: transport = gen_tcp, active = false
 ttest_sgent_cgenf_cases() ->
-    [
-     ttest_sgent_cgenf_small_tcp4,
-     ttest_sgent_cgenf_small_tcp6,
-
-     ttest_sgent_cgenf_medium_tcp4,
-     ttest_sgent_cgenf_medium_tcp6,
-
-     ttest_sgent_cgenf_large_tcp4,
-     ttest_sgent_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_cgenf_small_tcp4,
+       ttest_sgent_cgenf_small_tcp6],
+      %% Medium
+      [ttest_sgent_cgenf_medium_tcp4,
+       ttest_sgent_cgenf_medium_tcp6],
+      %% Large
+      [ttest_sgent_cgenf_large_tcp4,
+       ttest_sgent_cgenf_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = true
 %% Client: transport = gen_tcp, active = once
 ttest_sgent_cgeno_cases() ->
-    [
-     ttest_sgent_cgeno_small_tcp4,
-     ttest_sgent_cgeno_small_tcp6,
-
-     ttest_sgent_cgeno_medium_tcp4,
-     ttest_sgent_cgeno_medium_tcp6,
-
-     ttest_sgent_cgeno_large_tcp4,
-     ttest_sgent_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_cgeno_small_tcp4,
+       ttest_sgent_cgeno_small_tcp6],
+      %% Medium
+      [ttest_sgent_cgeno_medium_tcp4,
+       ttest_sgent_cgeno_medium_tcp6],
+      %% Large
+      [ttest_sgent_cgeno_large_tcp4,
+       ttest_sgent_cgeno_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = true
 %% Client: transport = gen_tcp, active = true
 ttest_sgent_cgent_cases() ->
-    [
-     ttest_sgent_cgent_small_tcp4,
-     ttest_sgent_cgent_small_tcp6,
-
-     ttest_sgent_cgent_medium_tcp4,
-     ttest_sgent_cgent_medium_tcp6,
-
-     ttest_sgent_cgent_large_tcp4,
-     ttest_sgent_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_cgent_small_tcp4,
+       ttest_sgent_cgent_small_tcp6],
+      %% Medium
+      [ttest_sgent_cgent_medium_tcp4,
+       ttest_sgent_cgent_medium_tcp6],
+      %% Large
+      [ttest_sgent_cgent_large_tcp4,
+       ttest_sgent_cgent_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = true
 %% Client: transport = socket(tcp)
@@ -1642,40 +1686,40 @@ ttest_sgent_csock_cases() ->
     ].
 
 ttest_sgent_csockf_cases() ->
-    [
-     ttest_sgent_csockf_small_tcp4,
-     ttest_sgent_csockf_small_tcp6,
-
-     ttest_sgent_csockf_medium_tcp4,
-     ttest_sgent_csockf_medium_tcp6,
-
-     ttest_sgent_csockf_large_tcp4,
-     ttest_sgent_csockf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_csockf_small_tcp4,
+       ttest_sgent_csockf_small_tcp6],
+      %% Medium
+      [ttest_sgent_csockf_medium_tcp4,
+       ttest_sgent_csockf_medium_tcp6],
+      %% Large
+      [ttest_sgent_csockf_large_tcp4,
+       ttest_sgent_csockf_large_tcp6]).
 
 ttest_sgent_csocko_cases() ->
-    [
-     ttest_sgent_csocko_small_tcp4,
-     ttest_sgent_csocko_small_tcp6,
-
-     ttest_sgent_csocko_medium_tcp4,
-     ttest_sgent_csocko_medium_tcp6,
-
-     ttest_sgent_csocko_large_tcp4,
-     ttest_sgent_csocko_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_csocko_small_tcp4,
+       ttest_sgent_csocko_small_tcp6],
+      %% Medium
+      [ttest_sgent_csocko_medium_tcp4,
+       ttest_sgent_csocko_medium_tcp6],
+      %% Large
+      [ttest_sgent_csocko_large_tcp4,
+       ttest_sgent_csocko_large_tcp6]).
 
 ttest_sgent_csockt_cases() ->
-    [
-     ttest_sgent_csockt_small_tcp4,
-     ttest_sgent_csockt_small_tcp6,
-
-     ttest_sgent_csockt_medium_tcp4,
-     ttest_sgent_csockt_medium_tcp6,
-
-     ttest_sgent_csockt_large_tcp4,
-     ttest_sgent_csockt_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_csockt_small_tcp4,
+       ttest_sgent_csockt_small_tcp6],
+      %% Medium
+      [ttest_sgent_csockt_medium_tcp4,
+       ttest_sgent_csockt_medium_tcp6],
+      %% Large
+      [ttest_sgent_csockt_large_tcp4,
+       ttest_sgent_csockt_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = false
 ttest_ssockf_cases() ->
@@ -1696,44 +1740,44 @@ ttest_ssockf_cgen_cases() ->
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = gen_tcp, active = false
 ttest_ssockf_cgenf_cases() ->
-    [
-     ttest_ssockf_cgenf_small_tcp4,
-     ttest_ssockf_cgenf_small_tcp6,
-
-     ttest_ssockf_cgenf_medium_tcp4,
-     ttest_ssockf_cgenf_medium_tcp6,
-
-     ttest_ssockf_cgenf_large_tcp4,
-     ttest_ssockf_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_cgenf_small_tcp4,
+       ttest_ssockf_cgenf_small_tcp6],
+      %% Medium
+      [ttest_ssockf_cgenf_medium_tcp4,
+       ttest_ssockf_cgenf_medium_tcp6],
+      %% Large
+      [ttest_ssockf_cgenf_large_tcp4,
+       ttest_ssockf_cgenf_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = gen_tcp, active = once
 ttest_ssockf_cgeno_cases() ->
-    [
-     ttest_ssockf_cgeno_small_tcp4,
-     ttest_ssockf_cgeno_small_tcp6,
-
-     ttest_ssockf_cgeno_medium_tcp4,
-     ttest_ssockf_cgeno_medium_tcp6,
-
-     ttest_ssockf_cgeno_large_tcp4,
-     ttest_ssockf_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_cgeno_small_tcp4,
+       ttest_ssockf_cgeno_small_tcp6],
+      %% Medium
+      [ttest_ssockf_cgeno_medium_tcp4,
+       ttest_ssockf_cgeno_medium_tcp6],
+      %% Large
+      [ttest_ssockf_cgeno_large_tcp4,
+       ttest_ssockf_cgeno_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = gen_tcp, active = true
 ttest_ssockf_cgent_cases() ->
-    [
-     ttest_ssockf_cgent_small_tcp4,
-     ttest_ssockf_cgent_small_tcp6,
-
-     ttest_ssockf_cgent_medium_tcp4,
-     ttest_ssockf_cgent_medium_tcp6,
-
-     ttest_ssockf_cgent_large_tcp4,
-     ttest_ssockf_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_cgent_small_tcp4,
+       ttest_ssockf_cgent_small_tcp6],
+      %% Medium
+      [ttest_ssockf_cgent_medium_tcp4,
+       ttest_ssockf_cgent_medium_tcp6],
+      %% Large
+      [ttest_ssockf_cgent_large_tcp4,
+       ttest_ssockf_cgent_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp)
@@ -1747,53 +1791,53 @@ ttest_ssockf_csock_cases() ->
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp), active = false
 ttest_ssockf_csockf_cases() ->
-    [
-     ttest_ssockf_csockf_small_tcp4,
-     ttest_ssockf_csockf_small_tcp6,
-     ttest_ssockf_csockf_small_tcpL,
-
-     ttest_ssockf_csockf_medium_tcp4,
-     ttest_ssockf_csockf_medium_tcp6,
-     ttest_ssockf_csockf_medium_tcpL,
-
-     ttest_ssockf_csockf_large_tcp4,
-     ttest_ssockf_csockf_large_tcp6,
-     ttest_ssockf_csockf_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_csockf_small_tcp4,
+       ttest_ssockf_csockf_small_tcp6,
+       ttest_ssockf_csockf_small_tcpL],
+      %% Medium
+      [ttest_ssockf_csockf_medium_tcp4,
+       ttest_ssockf_csockf_medium_tcp6,
+       ttest_ssockf_csockf_medium_tcpL],
+      %% Large
+      [ttest_ssockf_csockf_large_tcp4,
+       ttest_ssockf_csockf_large_tcp6,
+       ttest_ssockf_csockf_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp), active = once
 ttest_ssockf_csocko_cases() ->
-    [
-     ttest_ssockf_csocko_small_tcp4,
-     ttest_ssockf_csocko_small_tcp6,
-     ttest_ssockf_csocko_small_tcpL,
-
-     ttest_ssockf_csocko_medium_tcp4,
-     ttest_ssockf_csocko_medium_tcp6,
-     ttest_ssockf_csocko_medium_tcpL,
-
-     ttest_ssockf_csocko_large_tcp4,
-     ttest_ssockf_csocko_large_tcp6,
-     ttest_ssockf_csocko_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_csocko_small_tcp4,
+       ttest_ssockf_csocko_small_tcp6,
+       ttest_ssockf_csocko_small_tcpL],
+      %% Medium
+      [ttest_ssockf_csocko_medium_tcp4,
+       ttest_ssockf_csocko_medium_tcp6,
+       ttest_ssockf_csocko_medium_tcpL],
+      %% Large
+      [ttest_ssockf_csocko_large_tcp4,
+       ttest_ssockf_csocko_large_tcp6,
+       ttest_ssockf_csocko_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp), active = true
 ttest_ssockf_csockt_cases() ->
-    [
-     ttest_ssockf_csockt_small_tcp4,
-     ttest_ssockf_csockt_small_tcp6,
-     ttest_ssockf_csockt_small_tcpL,
-
-     ttest_ssockf_csockt_medium_tcp4,
-     ttest_ssockf_csockt_medium_tcp6,
-     ttest_ssockf_csockt_medium_tcpL,
-
-     ttest_ssockf_csockt_large_tcp4,
-     ttest_ssockf_csockt_large_tcp6,
-     ttest_ssockf_csockt_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_csockt_small_tcp4,
+       ttest_ssockf_csockt_small_tcp6,
+       ttest_ssockf_csockt_small_tcpL],
+      %% Medium
+      [ttest_ssockf_csockt_medium_tcp4,
+       ttest_ssockf_csockt_medium_tcp6,
+       ttest_ssockf_csockt_medium_tcpL],
+      %% Large
+      [ttest_ssockf_csockt_large_tcp4,
+       ttest_ssockf_csockt_large_tcp6,
+       ttest_ssockf_csockt_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = once
 ttest_ssocko_cases() ->
@@ -1814,44 +1858,44 @@ ttest_ssocko_cgen_cases() ->
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = gen_tcp, active = false
 ttest_ssocko_cgenf_cases() ->
-    [
-     ttest_ssocko_cgenf_small_tcp4,
-     ttest_ssocko_cgenf_small_tcp6,
-
-     ttest_ssocko_cgenf_medium_tcp4,
-     ttest_ssocko_cgenf_medium_tcp6,
-
-     ttest_ssocko_cgenf_large_tcp4,
-     ttest_ssocko_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_cgenf_small_tcp4,
+       ttest_ssocko_cgenf_small_tcp6],
+      %% Medium
+      [ttest_ssocko_cgenf_medium_tcp4,
+       ttest_ssocko_cgenf_medium_tcp6],
+      %% Large
+      [ttest_ssocko_cgenf_large_tcp4,
+       ttest_ssocko_cgenf_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = gen_tcp, active = once
 ttest_ssocko_cgeno_cases() ->
-    [
-     ttest_ssocko_cgeno_small_tcp4,
-     ttest_ssocko_cgeno_small_tcp6,
-
-     ttest_ssocko_cgeno_medium_tcp4,
-     ttest_ssocko_cgeno_medium_tcp6,
-
-     ttest_ssocko_cgeno_large_tcp4,
-     ttest_ssocko_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_cgeno_small_tcp4,
+       ttest_ssocko_cgeno_small_tcp6],
+      %% Medium
+      [ttest_ssocko_cgeno_medium_tcp4,
+       ttest_ssocko_cgeno_medium_tcp6],
+      %% Large
+      [ttest_ssocko_cgeno_large_tcp4,
+       ttest_ssocko_cgeno_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = gen_tcp, active = true
 ttest_ssocko_cgent_cases() ->
-    [
-     ttest_ssocko_cgent_small_tcp4,
-     ttest_ssocko_cgent_small_tcp6,
-
-     ttest_ssocko_cgent_medium_tcp4,
-     ttest_ssocko_cgent_medium_tcp6,
-
-     ttest_ssocko_cgent_large_tcp4,
-     ttest_ssocko_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_cgent_small_tcp4,
+       ttest_ssocko_cgent_small_tcp6],
+      %% Medium
+      [ttest_ssocko_cgent_medium_tcp4,
+       ttest_ssocko_cgent_medium_tcp6],
+      %% Large
+      [ttest_ssocko_cgent_large_tcp4,
+       ttest_ssocko_cgent_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp)
@@ -1865,53 +1909,53 @@ ttest_ssocko_csock_cases() ->
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp), active = false
 ttest_ssocko_csockf_cases() ->
-    [
-     ttest_ssocko_csockf_small_tcp4,
-     ttest_ssocko_csockf_small_tcp6,
-     ttest_ssocko_csockf_small_tcpL,
-
-     ttest_ssocko_csockf_medium_tcp4,
-     ttest_ssocko_csockf_medium_tcp6,
-     ttest_ssocko_csockf_medium_tcpL,
-
-     ttest_ssocko_csockf_large_tcp4,
-     ttest_ssocko_csockf_large_tcp6,
-     ttest_ssocko_csockf_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_csockf_small_tcp4,
+       ttest_ssocko_csockf_small_tcp6,
+       ttest_ssocko_csockf_small_tcpL],
+     %% Medium
+      [ttest_ssocko_csockf_medium_tcp4,
+       ttest_ssocko_csockf_medium_tcp6,
+       ttest_ssocko_csockf_medium_tcpL],
+      %% Large
+      [ttest_ssocko_csockf_large_tcp4,
+       ttest_ssocko_csockf_large_tcp6,
+       ttest_ssocko_csockf_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp), active = once
 ttest_ssocko_csocko_cases() ->
-    [
-     ttest_ssocko_csocko_small_tcp4,
-     ttest_ssocko_csocko_small_tcp6,
-     ttest_ssocko_csocko_small_tcpL,
-
-     ttest_ssocko_csocko_medium_tcp4,
-     ttest_ssocko_csocko_medium_tcp6,
-     ttest_ssocko_csocko_medium_tcpL,
-
-     ttest_ssocko_csocko_large_tcp4,
-     ttest_ssocko_csocko_large_tcp6,
-     ttest_ssocko_csocko_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_csocko_small_tcp4,
+       ttest_ssocko_csocko_small_tcp6,
+       ttest_ssocko_csocko_small_tcpL],
+      %% Medium
+      [ttest_ssocko_csocko_medium_tcp4,
+       ttest_ssocko_csocko_medium_tcp6,
+       ttest_ssocko_csocko_medium_tcpL],
+      %% Large
+      [ttest_ssocko_csocko_large_tcp4,
+       ttest_ssocko_csocko_large_tcp6,
+       ttest_ssocko_csocko_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp), active = true
 ttest_ssocko_csockt_cases() ->
-    [
-     ttest_ssocko_csockt_small_tcp4,
-     ttest_ssocko_csockt_small_tcp6,
-     ttest_ssocko_csockt_small_tcpL,
-
-     ttest_ssocko_csockt_medium_tcp4,
-     ttest_ssocko_csockt_medium_tcp6,
-     ttest_ssocko_csockt_medium_tcpL,
-
-     ttest_ssocko_csockt_large_tcp4,
-     ttest_ssocko_csockt_large_tcp6,
-     ttest_ssocko_csockt_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_csockt_small_tcp4,
+       ttest_ssocko_csockt_small_tcp6,
+       ttest_ssocko_csockt_small_tcpL],
+      %% Medium
+      [ttest_ssocko_csockt_medium_tcp4,
+       ttest_ssocko_csockt_medium_tcp6,
+       ttest_ssocko_csockt_medium_tcpL],
+      %% Large
+      [ttest_ssocko_csockt_large_tcp4,
+       ttest_ssocko_csockt_large_tcp6,
+       ttest_ssocko_csockt_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = true
 ttest_ssockt_cases() ->
@@ -1932,44 +1976,44 @@ ttest_ssockt_cgen_cases() ->
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = gen_tcp, active = false
 ttest_ssockt_cgenf_cases() ->
-    [
-     ttest_ssockt_cgenf_small_tcp4,
-     ttest_ssockt_cgenf_small_tcp6,
-
-     ttest_ssockt_cgenf_medium_tcp4,
-     ttest_ssockt_cgenf_medium_tcp6,
-
-     ttest_ssockt_cgenf_large_tcp4,
-     ttest_ssockt_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_cgenf_small_tcp4,
+       ttest_ssockt_cgenf_small_tcp6],
+      %% Medium
+      [ttest_ssockt_cgenf_medium_tcp4,
+       ttest_ssockt_cgenf_medium_tcp6],
+      %% Large
+      [ttest_ssockt_cgenf_large_tcp4,
+       ttest_ssockt_cgenf_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = gen_tcp, active = once
 ttest_ssockt_cgeno_cases() ->
-    [
-     ttest_ssockt_cgeno_small_tcp4,
-     ttest_ssockt_cgeno_small_tcp6,
-
-     ttest_ssockt_cgeno_medium_tcp4,
-     ttest_ssockt_cgeno_medium_tcp6,
-
-     ttest_ssockt_cgeno_large_tcp4,
-     ttest_ssockt_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_cgeno_small_tcp4,
+       ttest_ssockt_cgeno_small_tcp6],
+      %% Medium
+      [ttest_ssockt_cgeno_medium_tcp4,
+       ttest_ssockt_cgeno_medium_tcp6],
+      %% Large
+      [ttest_ssockt_cgeno_large_tcp4,
+       ttest_ssockt_cgeno_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = gen_tcp, active = true
 ttest_ssockt_cgent_cases() ->
-    [
-     ttest_ssockt_cgent_small_tcp4,
-     ttest_ssockt_cgent_small_tcp6,
-
-     ttest_ssockt_cgent_medium_tcp4,
-     ttest_ssockt_cgent_medium_tcp6,
-
-     ttest_ssockt_cgent_large_tcp4,
-     ttest_ssockt_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_cgent_small_tcp4,
+       ttest_ssockt_cgent_small_tcp6],
+      %% Medium
+      [ttest_ssockt_cgent_medium_tcp4,
+       ttest_ssockt_cgent_medium_tcp6],
+      %% Large
+      [ttest_ssockt_cgent_large_tcp4,
+       ttest_ssockt_cgent_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp)
@@ -1983,53 +2027,53 @@ ttest_ssockt_csock_cases() ->
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp), active = false
 ttest_ssockt_csockf_cases() ->
-    [
-     ttest_ssockt_csockf_small_tcp4,
-     ttest_ssockt_csockf_small_tcp6,
-     ttest_ssockt_csockf_small_tcpL,
-
-     ttest_ssockt_csockf_medium_tcp4,
-     ttest_ssockt_csockf_medium_tcp6,
-     ttest_ssockt_csockf_medium_tcpL,
-
-     ttest_ssockt_csockf_large_tcp4,
-     ttest_ssockt_csockf_large_tcp6,
-     ttest_ssockt_csockf_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_csockf_small_tcp4,
+       ttest_ssockt_csockf_small_tcp6,
+       ttest_ssockt_csockf_small_tcpL],
+      %% Medium
+      [ttest_ssockt_csockf_medium_tcp4,
+       ttest_ssockt_csockf_medium_tcp6,
+       ttest_ssockt_csockf_medium_tcpL],
+      %% Large
+      [ttest_ssockt_csockf_large_tcp4,
+       ttest_ssockt_csockf_large_tcp6,
+       ttest_ssockt_csockf_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp), active = once
 ttest_ssockt_csocko_cases() ->
-    [
-     ttest_ssockt_csocko_small_tcp4,
-     ttest_ssockt_csocko_small_tcp6,
-     ttest_ssockt_csocko_small_tcpL,
-
-     ttest_ssockt_csocko_medium_tcp4,
-     ttest_ssockt_csocko_medium_tcp6,
-     ttest_ssockt_csocko_medium_tcpL,
-
-     ttest_ssockt_csocko_large_tcp4,
-     ttest_ssockt_csocko_large_tcp6,
-     ttest_ssockt_csocko_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_csocko_small_tcp4,
+       ttest_ssockt_csocko_small_tcp6,
+       ttest_ssockt_csocko_small_tcpL],
+      %% Medium
+      [ttest_ssockt_csocko_medium_tcp4,
+       ttest_ssockt_csocko_medium_tcp6,
+       ttest_ssockt_csocko_medium_tcpL],
+      %% Large
+      [ttest_ssockt_csocko_large_tcp4,
+       ttest_ssockt_csocko_large_tcp6,
+       ttest_ssockt_csocko_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp), active = true
 ttest_ssockt_csockt_cases() ->
-    [
-     ttest_ssockt_csockt_small_tcp4,
-     ttest_ssockt_csockt_small_tcp6,
-     ttest_ssockt_csockt_small_tcpL,
-
-     ttest_ssockt_csockt_medium_tcp4,
-     ttest_ssockt_csockt_medium_tcp6,
-     ttest_ssockt_csockt_medium_tcpL,
-
-     ttest_ssockt_csockt_large_tcp4,
-     ttest_ssockt_csockt_large_tcp6,
-     ttest_ssockt_csockt_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_csockt_small_tcp4,
+       ttest_ssockt_csockt_small_tcp6,
+       ttest_ssockt_csockt_small_tcpL],
+      %% Medium
+      [ttest_ssockt_csockt_medium_tcp4,
+       ttest_ssockt_csockt_medium_tcp6,
+       ttest_ssockt_csockt_medium_tcpL],
+      %% Large
+      [ttest_ssockt_csockt_large_tcp4,
+       ttest_ssockt_csockt_large_tcp6,
+       ttest_ssockt_csockt_large_tcpL]).
 
 tickets_cases() ->
     [
@@ -46345,6 +46389,9 @@ ttest_tcp(InitState) ->
                            case ttest_tcp_server_start(Node,
                                                        Domain, Mod, Active) of
                                {ok, {{Pid, _}, Path}} ->
+                                   ?SEV_IPRINT("server started: "
+                                               "~n   Pid:  ~p"
+                                               "~n   Path: ~p", [Pid, Path]),
                                    {ok, State#{rserver => Pid,
                                                path    => Path}};
                                {error, _} = ERROR ->
@@ -46357,6 +46404,11 @@ ttest_tcp(InitState) ->
                            case ttest_tcp_server_start(Node,
                                                        Domain, Mod, Active) of
                                {ok, {{Pid, _}, {Addr, Port}}} ->
+                                   ?SEV_IPRINT("server started: "
+                                               "~n   Pid:  ~p"
+                                               "~n   Addr: ~p"
+                                               "~n   Port: ~p",
+                                               [Pid, Addr, Port]),
                                    {ok, State#{rserver => Pid,
                                                addr    => Addr,
                                                port    => Port}};
@@ -46450,11 +46502,17 @@ ttest_tcp(InitState) ->
            cmd  => fun(#{domain := local} = State) ->
                            {Tester, ServerPath} = 
                                ?SEV_AWAIT_START(),
+                           ?SEV_IPRINT("started with server info: "
+                                       "~n   Path: ~p", [ServerPath]),
                            {ok, State#{tester      => Tester,
                                        server_path => ServerPath}};
                       (State) ->
                            {Tester, {ServerAddr, ServerPort}} = 
                                ?SEV_AWAIT_START(),
+                           ?SEV_IPRINT("started with server info: "
+                                       "~n   Addr: ~p"
+                                       "~n   Port: ~p",
+                                       [ServerAddr, ServerPort]),
                            {ok, State#{tester      => Tester,
                                        server_addr => ServerAddr,
                                        server_port => ServerPort}}
@@ -46589,7 +46647,7 @@ ttest_tcp(InitState) ->
                            {ok,
                             try peer:stop(Peer) of
                                 ok ->
-                                    State#{node_stop3 => ok};
+                                    State#{node_stop => ok};
                                 {error, Reason} ->
                                     ?SEV_EPRINT("Unexpected node stop result: "
                                                 "~n   ~p", [Reason]),
