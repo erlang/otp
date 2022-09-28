@@ -2905,7 +2905,13 @@ unambiguous_path(Value) ->
     AbsName = filename:absname(Value),
     case file:read_link(AbsName) of
         {ok, PathWithNoLink} ->
-            PathWithNoLink;
+            case filename:pathtype(PathWithNoLink) of
+                relative ->
+                    Dirname = filename:dirname(AbsName),
+                    filename:join([Dirname, PathWithNoLink]);
+                _ ->
+                    PathWithNoLink
+            end;
         _ ->
             AbsName
     end.

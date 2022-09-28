@@ -65,6 +65,8 @@
          alternative_path_symlink/1,
          alternative_path_noabspath/0,
          alternative_path_noabspath/1,
+         alternative_path_symlink_relative/0,
+         alternative_path_symlink_relative/1,
          check_cert/3
         ]).
 
@@ -88,7 +90,8 @@ all() ->
      new_root_pem_no_cleanup_hardlink,
      alternative_path_noabspath,
      alternative_path_hardlink,
-     alternative_path_symlink].
+     alternative_path_symlink,
+     alternative_path_symlink_relative].
 
 groups() -> [].
 
@@ -413,6 +416,19 @@ alternative_path_noabspath(Config) when is_list(Config) ->
                  disconnected => [7, 0, 0, 0]},
     alternative_path_helper(Config, fun strip_path/1, Expected).
 
+alternative_path_symlink_relative() ->
+    [{doc,"Test that internal reference table contains separate instance of data "
+      "for absolute path and relative symbolic ink pointing to a file in subdirectory."
+      "This test verifies handling of different files."
+      "Relative path to a symlink is expected to be converted to absolute file path - "
+      "as a result establishing 2nd connection should add new data to tables."}].
+%% see alternative_path_hardlink for detailed specification
+alternative_path_symlink_relative(Config) when is_list(Config) ->
+    Expected = #{init => [0, 0, 0, 0], connected1 => [6, 6, 2, 2],
+                 connected2 => [7, 9, 3, 3], connected3 => [8, 12, 4, 4],
+                 disconnected => [8, 0, 0, 0]},
+    alternative_path_helper(Config, fun make_symlink_noabspath/1, Expected).
+
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
@@ -631,15 +647,9 @@ alternative_path_helper(Config, GetAlternative,
     R1 = TestAlternative(4, Connected2, CACertFilePath1),
 
     %% check that same filenames in different folders don't collide
-    SubDir = "subdir",
-    SubDirPath = filename:join([Cwd, SubDir]),
+    SubDirPath = make_subdirectory(Cwd, "subdir"),
     CACertFilePath2 = filename:join([SubDirPath, CACertFilename]),
-    case file:read_file_info(SubDirPath) of
-        {error, enoent} ->
-            ok = file:make_dir(SubDirPath);
-        _ ->
-            ok
-    end,
+
     {ok, _} = file:copy(CACertFilePath0, CACertFilePath2),
     ok = c:cd(SubDirPath),
     R2 = TestAlternative(6, Connected3, CACertFilePath2),
@@ -845,5 +855,33 @@ make_symlink(AbsPath) ->
         Reason ->
             {skip, Reason}
     end.
+
+make_symlink_noabspath(CACertFilePath1) ->
+    {ok, Cwd} = file:get_cwd(),
+    {ok, CACertFilename1} = strip_path(CACertFilePath1),
+
+    SubDir = "foo",
+    SubDirPath = make_subdirectory(Cwd, SubDir),
+    CACertFilename2 = CACertFilename1 ++ "_copy",
+    LinkName = CACertFilename2 ++ "_symlink",
+    CACertFilePath2 = filename:join([SubDirPath, CACertFilename2]),
+    {ok, _} = file:copy(CACertFilePath1, CACertFilePath2),
+    case file:make_symlink(CACertFilename2,
+                           filename:join([SubDirPath, LinkName])) of
+        ok ->
+            {ok, filename:join([SubDir, LinkName])};
+        Reason ->
+            {skip, Reason}
+    end.
+
+make_subdirectory(Cwd, SubDir) ->
+    SubDirPath = filename:join([Cwd, SubDir]),
+    case file:read_file_info(SubDirPath) of
+        {error, enoent} ->
+            ok = file:make_dir(SubDirPath);
+        _ ->
+            ok
+    end,
+    SubDirPath.
 
 identity(Path) -> {ok, Path}.
