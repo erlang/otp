@@ -123,7 +123,9 @@
          signature_algorithms_bad_curve_secp384r1/0,
          signature_algorithms_bad_curve_secp384r1/1,
          signature_algorithms_bad_curve_secp521r1/0,
-         signature_algorithms_bad_curve_secp521r1/1
+         signature_algorithms_bad_curve_secp521r1/1,
+         server_certificate_authorities_disabled/0,
+         server_certificate_authorities_disabled/1
          ]).
 
 %%--------------------------------------------------------------------
@@ -191,7 +193,8 @@ tls_1_3_tests() ->
      client_auth_no_suitable_chain,
      hello_retry_client_auth,
      hello_retry_client_auth_empty_cert_accepted,
-     hello_retry_client_auth_empty_cert_rejected
+     hello_retry_client_auth_empty_cert_rejected,
+     server_certificate_authorities_disabled
     ].
 
 pre_tls_1_3_rsa_tests() ->
@@ -1286,6 +1289,42 @@ basic_rsa_1024(Config) ->
     ServerOpts = [{verify, verify_peer},
                   {fail_if_no_peer_cert, true} | ServerOpts1],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+server_certificate_authorities_disabled() ->
+     [{doc,"TLS 1.3: Disabling certificate_authorities extension on the server when verify_peer is set to true"
+       " allows the client to send a chain that could be verifiable by the server but that would not adhere to"
+       " the certificate_authorities extension as it is not part of the regular trusted certificate set"}].
+
+server_certificate_authorities_disabled(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+
+    % Strip out the ClientRoot to simulate cases where the they are manually managed and
+    % not expected to be included in certificate requests during mutual authentication.
+    {ok, CACerts0} = ssl_pkix_db:decode_pem_file(proplists:get_value(cacertfile, ServerOpts0)),
+    [_ClientRoot | ServerCACerts] = [CertDER || {_, CertDER, _} <- CACerts0],
+
+    FunAndState =  {fun(_,{extension, _}, UserState) ->
+                            {unknown, UserState};
+                       (_, valid, UserState) ->
+                            {valid, UserState};
+                       % Because this is a manually managed setup, we also need to manually verify
+                       % an unknown_ca (ClientCert) as expected. Typically you would have custom logic
+                       % here to decide if you know the cert (like looking up pinned values in a DB)
+                       % but for testing purposes, we'll allow everything
+                       (_, {bad_cert, unknown_ca}, UserState) ->
+                            {valid, UserState};
+                       (_, valid_peer, UserState) ->
+                            {valid, UserState}
+                    end, [0]},
+
+    ClientOpts = [{versions, ['tlsv1.3']}, {verify, verify_peer} | ClientOpts0],
+    ServerOpts = [{versions, ['tlsv1.3']}, {verify, verify_peer},
+                  {fail_if_no_peer_cert, true}, {cacerts, ServerCACerts},
+                  {verify_fun, FunAndState} | ServerOpts0],
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required),
+    ssl_test_lib:basic_test(ClientOpts, [{certificate_authorities, false} | ServerOpts], Config).
 
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------

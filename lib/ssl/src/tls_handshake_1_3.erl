@@ -204,18 +204,23 @@ encrypted_extensions(#state{handshake_env = HandshakeEnv}) ->
       }.
 
 
-certificate_request(SignAlgs0, SignAlgsCert0, CertDbHandle, CertDbRef) ->
+certificate_request(SignAlgs0, SignAlgsCert0, CertDbHandle, CertDbRef, CertAuthBool) ->
     %% Input arguments contain TLS 1.2 algorithms due to backward compatibility
     %% reasons. These {Hash, Algo} tuples must be filtered before creating the
     %% the extensions.
     SignAlgs = filter_tls13_algs(SignAlgs0),
     SignAlgsCert = filter_tls13_algs(SignAlgsCert0),
     Extensions0 = add_signature_algorithms(#{}, SignAlgs),
-    Extensions = add_signature_algorithms_cert(Extensions0, SignAlgsCert),
-    Auths = ssl_handshake:certificate_authorities(CertDbHandle, CertDbRef),
+    Extensions1 = add_signature_algorithms_cert(Extensions0, SignAlgsCert),
+    Extensions = if CertAuthBool =:= true ->
+                        Auths = ssl_handshake:certificate_authorities(CertDbHandle, CertDbRef),
+                        Extensions1#{certificate_authorities => #certificate_authorities{authorities = Auths}};
+                    true ->
+                        Extensions1
+                 end,
     #certificate_request_1_3{
       certificate_request_context = <<>>,
-      extensions = Extensions#{certificate_authorities => #certificate_authorities{authorities = Auths}}}.
+      extensions = Extensions}.
 
 
 add_signature_algorithms(Extensions, SignAlgs) ->
@@ -1346,8 +1351,9 @@ maybe_send_certificate_request(#state{static_env = #static_env{protocol_cb = Con
                                                                cert_db_ref = CertDbRef}} = State, 
                                #{verify := verify_peer,
                                  signature_algs := SignAlgs,
-                                 signature_algs_cert := SignAlgsCert}, _) ->
-    CertificateRequest = certificate_request(SignAlgs, SignAlgsCert, CertDbHandle, CertDbRef),
+                                 signature_algs_cert := SignAlgsCert,
+                                 certificate_authorities := CertAuthBool}, _) ->
+    CertificateRequest = certificate_request(SignAlgs, SignAlgsCert, CertDbHandle, CertDbRef, CertAuthBool),
     {Connection:queue_handshake(CertificateRequest, State), wait_cert}.
 
 maybe_send_certificate(State, PSK) when  PSK =/= undefined ->
@@ -3080,4 +3086,3 @@ plausible_missing_chain([_] = EncodedChain, undefined, SignAlg, Key, Session0) -
                     };
 plausible_missing_chain(_,Plausible,_,_,_) ->
     Plausible.
-
