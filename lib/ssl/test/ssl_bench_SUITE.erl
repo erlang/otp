@@ -60,37 +60,63 @@
          test/2
         ]).
 
+
+-define(COUNT, 400).
+-define(REDUCE, 40). % (?COUNT rem ?REDUCE) should be 0
+%% (?COUNT div ?REDUCE) is the count used for a non-benchmark run
+
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
-all() -> [{group, setup}, {group, payload}].
+all() ->
+    %% {repeat,_} here overrides {repeat,_} in groups()
+    [{group, setup, [{repeat,1}]},
+     {group, payload, [{repeat,1}]}].
 
 groups() ->
-    [{setup, [{repeat, 3}], [setup_sequential, setup_sequential_noreuse, setup_sequential_13,
-                             setup_concurrent, setup_concurrent_noreuse, setup_concurrent_13]},
-     {payload, [{repeat, 3}], [payload, payload_13]}
+    [{benchmark, [{group, G} || {group, G, _} <- all()]},
+     %%
+     {setup, [{repeat,3}],
+      [setup_sequential, setup_sequential_noreuse, setup_sequential_13,
+       setup_concurrent, setup_concurrent_noreuse, setup_concurrent_13]},
+     {payload, [{repeat,3}],
+      [payload, payload_13]}
     ].
 
+%%-------
+
+init_per_suite(Config) ->
+    ct:timetrap({minutes, 1}),
+    Skipped = make_ref(),
+    try
+        node() =/= nonode@nohost
+            orelse throw({Skipped, "Node not distributed"}),
+        %%
+        ssl_test_lib:clean_start(),
+        [{server_node, ssl_bench_test_lib:setup(perf_server)}|Config]
+    catch
+        throw : {Skipped, Reason} ->
+            {skipped, Reason};
+        Class : Reason : Stacktrace ->
+            {failed, {Class, Reason, Stacktrace}}
+    end.
+
+end_per_suite(_Config) ->
+    ok.
+
+%%-------
+
+init_per_group(benchmark, Config) ->
+    [{effort,?REDUCE} | Config];
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, _Config) ->
     ok.
 
-init_per_suite(Config) ->
-    ct:timetrap({minutes, 1}),
-    case node() of
-        nonode@nohost ->
-            {skipped, "Node not distributed"};
-        _ ->
-            ssl_test_lib:clean_start(),
-            [{server_node, ssl_bench_test_lib:setup(perf_server)}|Config]
-    end.
-
-end_per_suite(_Config) ->
-    ok.
+%%-------
 
 init_per_testcase(_Func, Conf) ->
     Conf.
@@ -103,8 +129,9 @@ end_per_testcase(_Func, _Conf) ->
 %%--------------------------------------------------------------------
 
 
--define(COUNT, 400).
 %%-define(TC(Cmd), tc(fun() -> Cmd end, ?MODULE, ?LINE)).
+count(Config) ->
+    (proplists:get_value(effort, Config, 1) * ?COUNT) div ?REDUCE.
 
 -define(FPROF_CLIENT, false).
 -define(FPROF_SERVER, false).
@@ -117,7 +144,8 @@ setup_sequential(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
     Cfg = [{version, 'tlsv1.2'}],
-    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT * 20, 1, Server),
+    {ok, Result} =
+        do_test(ssl, {setup_connection,Cfg}, 20*count(Config), 1, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Sequential setup"}]}),
@@ -127,7 +155,8 @@ setup_sequential_noreuse(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
     Cfg = [{version, 'tlsv1.2'}, no_reuse],
-    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT * 20, 1, Server),
+    {ok, Result} =
+        do_test(ssl, {setup_connection,Cfg}, 20*count(Config), 1, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Seq setup 1.2 no session"}]}),
@@ -137,7 +166,8 @@ setup_sequential_13(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
     Cfg = [{version, 'tlsv1.3'}],
-    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT * 20, 1, Server),
+    {ok, Result} =
+        do_test(ssl, {setup_connection,Cfg}, 20*count(Config), 1, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Seq setup 1.3"}]}),
@@ -147,7 +177,8 @@ setup_concurrent(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
     Cfg = [{version, 'tlsv1.2'}],
-    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT, 100, Server),
+    {ok, Result} =
+        do_test(ssl, {setup_connection,Cfg}, count(Config), 100, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Concurrent setup"}]}),
@@ -157,7 +188,8 @@ setup_concurrent_noreuse(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
     Cfg = [{version, 'tlsv1.2'}, no_reuse],
-    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT, 100, Server),
+    {ok, Result} =
+        do_test(ssl, {setup_connection,Cfg}, count(Config), 100, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Conc setup 1.2 no session"}]}),
@@ -167,7 +199,8 @@ setup_concurrent_13(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
     Cfg = [{version, 'tlsv1.3'}],
-    {ok, Result} = do_test(ssl, {setup_connection,Cfg}, ?COUNT, 100, Server),
+    {ok, Result} =
+        do_test(ssl, {setup_connection,Cfg}, count(Config), 100, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Conc setup 1.3"}]}),
@@ -177,7 +210,8 @@ payload(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
     Cfg = [{version, 'tlsv1.2'}],
-    {ok, Result} = do_test(ssl, {payload, Cfg}, ?COUNT*300, 10, Server),
+    {ok, Result} =
+        do_test(ssl, {payload, Cfg}, 300*count(Config), 10, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Payload simple"}]}),
@@ -187,7 +221,8 @@ payload_13(Config) ->
     Server = proplists:get_value(server_node, Config),
     Server =/= undefined orelse error(no_server),
     Cfg = [{version, 'tlsv1.3'}],
-    {ok, Result} = do_test(ssl, {payload, Cfg}, ?COUNT*300, 10, Server),
+    {ok, Result} =
+        do_test(ssl, {payload, Cfg}, 300*count(Config), 10, Server),
     ct_event:notify(#event{name = benchmark_data,
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Payload 1.3"}]}),

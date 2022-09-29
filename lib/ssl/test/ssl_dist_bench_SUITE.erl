@@ -57,7 +57,9 @@ all() ->
      {group, plain}].
 
 groups() ->
-    [{ssl, all_groups()},
+    [{benchmark, all()},
+     %%
+     {ssl, all_groups()},
      {crypto, all_groups()},
      {plain, all_groups()},
      %%
@@ -92,19 +94,20 @@ init_per_suite(Config) ->
           prf          => sha256},
     %%
     Node = node(),
+    Skipped = make_ref(),
     try
         Node =/= nonode@nohost orelse
-            throw({skipped,"Node not distributed"}),
+            throw({Skipped,"Node not distributed"}),
         verify_node_src_addr(),
         {supported, SSLVersions} =
             lists:keyfind(supported, 1, ssl:versions()),
         lists:member(TLSVersion, SSLVersions) orelse
             throw(
-              {skipped,
+              {Skipped,
                "SSL does not support " ++ term_to_string(TLSVersion)}),
         lists:member(ECCurve, ssl:eccs(TLSVersion)) orelse
             throw(
-              {skipped,
+              {Skipped,
                "SSL does not support " ++ term_to_string(ECCurve)}),
         TLSCipherKeys = maps:keys(TLSCipher),
         lists:any(
@@ -113,64 +116,66 @@ init_per_suite(Config) ->
           end,
           ssl:cipher_suites(default, TLSVersion)) orelse
             throw(
-              {skipped,
-               "SSL does not support " ++ term_to_string(TLSCipher)})
-    of
-        _ ->
-            PrivDir = proplists:get_value(priv_dir, Config),
-            %%
-            [_, HostA] = split_node(Node),
-            NodeAName = ?MODULE_STRING ++ "_node_a",
-            NodeAString = NodeAName ++ "@" ++ HostA,
-            NodeAConfFile = filename:join(PrivDir, NodeAString ++ ".conf"),
-            NodeA = list_to_atom(NodeAString),
-            %%
-            ServerNode = ssl_bench_test_lib:setup(dist_server),
-            [_, HostB] = split_node(ServerNode),
-            NodeBName = ?MODULE_STRING ++ "_node_b",
-            NodeBString = NodeBName ++ "@" ++ HostB,
-            NodeBConfFile = filename:join(PrivDir, NodeBString ++ ".conf"),
-            NodeB = list_to_atom(NodeBString),
-            %%
-            CertOptions =
-                [{digest, Digest},
-                 {key, {namedCurve, ECCurve}}],
-            RootCert =
-                public_key:pkix_test_root_cert(
-                  ?MODULE_STRING ++ " ROOT CA", CertOptions),
-            SSLConf =
-                [{verify, verify_peer},
-                 {versions, [TLSVersion]},
-                 {ciphers, [TLSCipher]}],
-            ServerConf =
-                [{fail_if_no_peer_cert, true},
-                 {verify_fun,
-                  {fun inet_tls_dist:verify_client/3,[]}}
-                 | SSLConf],
-            ClientConf = SSLConf,
-            %%
-            write_node_conf(
-              NodeAConfFile, NodeA, ServerConf, ClientConf,
-              CertOptions, RootCert),
-            write_node_conf(
-              NodeBConfFile, NodeB, ServerConf, ClientConf,
-              CertOptions, RootCert),
-            %%
-            [{node_a_name, NodeAName},
-             {node_a, NodeA},
-             {node_a_dist_args,
-              "-proto_dist inet_tls "
-              "-ssl_dist_optfile " ++ NodeAConfFile ++ " "},
-             {node_b_name, NodeBName},
-             {node_b, NodeB},
-             {node_b_dist_args,
-              "-proto_dist inet_tls "
-              "-ssl_dist_optfile " ++ NodeBConfFile ++ " "},
-             {server_node, ServerNode}
-             |Config]
+              {Skipped,
+               "SSL does not support " ++ term_to_string(TLSCipher)}),
+        %%
+        %%
+        %%
+        PrivDir = proplists:get_value(priv_dir, Config),
+        [_, HostA] = split_node(Node),
+        NodeAName = ?MODULE_STRING ++ "_node_a",
+        NodeAString = NodeAName ++ "@" ++ HostA,
+        NodeAConfFile = filename:join(PrivDir, NodeAString ++ ".conf"),
+        NodeA = list_to_atom(NodeAString),
+        %%
+        ServerNode = ssl_bench_test_lib:setup(dist_server),
+        [_, HostB] = split_node(ServerNode),
+        NodeBName = ?MODULE_STRING ++ "_node_b",
+        NodeBString = NodeBName ++ "@" ++ HostB,
+        NodeBConfFile = filename:join(PrivDir, NodeBString ++ ".conf"),
+        NodeB = list_to_atom(NodeBString),
+        %%
+        CertOptions =
+            [{digest, Digest},
+             {key, {namedCurve, ECCurve}}],
+        RootCert =
+            public_key:pkix_test_root_cert(
+              ?MODULE_STRING ++ " ROOT CA", CertOptions),
+        SSLConf =
+            [{verify, verify_peer},
+             {versions, [TLSVersion]},
+             {ciphers, [TLSCipher]}],
+        ServerConf =
+            [{fail_if_no_peer_cert, true},
+             {verify_fun,
+              {fun inet_tls_dist:verify_client/3,[]}}
+            | SSLConf],
+        ClientConf = SSLConf,
+        %%
+        write_node_conf(
+          NodeAConfFile, NodeA, ServerConf, ClientConf,
+          CertOptions, RootCert),
+        write_node_conf(
+          NodeBConfFile, NodeB, ServerConf, ClientConf,
+          CertOptions, RootCert),
+        %%
+        [{node_a_name, NodeAName},
+         {node_a, NodeA},
+         {node_a_dist_args,
+          "-proto_dist inet_tls "
+          "-ssl_dist_optfile " ++ NodeAConfFile ++ " "},
+         {node_b_name, NodeBName},
+         {node_b, NodeB},
+         {node_b_dist_args,
+          "-proto_dist inet_tls "
+          "-ssl_dist_optfile " ++ NodeBConfFile ++ " "},
+         {server_node, ServerNode}
+        |Config]
     catch
-        throw:Result ->
-            Result
+        throw : {Skipped, Reason} ->
+            {skipped, Reason};
+        Class : Reason : Stacktrace ->
+            {failed, {Class, Reason, Stacktrace}}
     end.
 
 end_per_suite(Config) ->
@@ -186,19 +191,32 @@ init_per_group(crypto, Config) ->
      |Config];
 init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
+init_per_group(benchmark, Config) ->
+    [{effort,10}|Config];
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, _Config) ->
     ok.
 
-init_per_testcase(_Func, Conf) ->
-    Conf.
+init_per_testcase(Func, Conf) ->
+    case proplists:is_defined(effort, Conf) of
+        false ->
+            %% Not a benchmark run
+            case atom_to_list(Func) of
+                "throughput_64" ->
+                    Conf;
+                "throughput_"++_ ->
+                    {skipped, "Benchmarks run separately"};
+                _ ->
+                    Conf
+            end;
+        true ->
+            Conf
+    end.
 
 end_per_testcase(_Func, _Conf) ->
     ok.
-
--define(COUNT, 400).
 
 %%%-------------------------------------------------------------------
 %%% CommonTest API helpers
@@ -267,10 +285,10 @@ split_node(Node) ->
 %% Connection setup speed
 
 setup(Config) ->
-    run_nodepair_test(fun setup/5, Config).
+    run_nodepair_test(fun setup/6, Config).
 
-setup(A, B, Prefix, HA, HB) ->
-    Rounds = 50,
+setup(A, B, Prefix, Effort, HA, HB) ->
+    Rounds = 5 * Effort,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     {SetupTime, CycleTime} =
@@ -325,10 +343,10 @@ setup_wait_nodedown(A, Time) ->
 %% Roundtrip speed
 
 roundtrip(Config) ->
-    run_nodepair_test(fun roundtrip/5, Config).
+    run_nodepair_test(fun roundtrip/6, Config).
 
-roundtrip(A, B, Prefix, HA, HB) ->
-    Rounds = 40000,
+roundtrip(A, B, Prefix, Effort, HA, HB) ->
+    Rounds = 4000 * Effort,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     ok = ssl_apply(HA, net_kernel, allow, [[B]]),
@@ -381,15 +399,17 @@ roundtrip_client(Pid, Mon, StartTime, N) ->
 
 sched_utilization(Config) ->
     run_nodepair_test(
-      fun(A, B, Prefix, HA, HB) ->
-              sched_utilization(A, B, Prefix, HA, HB, proplists:get_value(ssl_dist, Config))
+      fun(A, B, Prefix, Effort, HA, HB) ->
+              sched_utilization(
+                A, B, Prefix, Effort, HA, HB,
+                proplists:get_value(ssl_dist, Config))
       end, Config).
 
-sched_utilization(A, B, Prefix, HA, HB, SSL) ->
+sched_utilization(A, B, Prefix, Effort, HA, HB, SSL) ->
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     {ClientMsacc, ServerMsacc, Msgs} =
-        ssl_apply(HA, fun () -> sched_util_runner(A, B, SSL) end),
+        ssl_apply(HA, fun () -> sched_util_runner(A, B, Effort, SSL) end),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
     msacc:print(ClientMsacc),
@@ -423,12 +443,13 @@ sched_utilization(A, B, Prefix, HA, HB, SSL) ->
 %% Runs on node A and spawns a server on node B
 %% We want to avoid getting busy_dist_port as it hides the true SU usage
 %% of the receiver and sender.
-sched_util_runner(A, B, true) ->
-    sched_util_runner(A, B, 250);
-sched_util_runner(A, B, false) ->
-    sched_util_runner(A, B, 250);
-sched_util_runner(A, B, Senders) ->
+sched_util_runner(A, B, Effort, true) ->
+    sched_util_runner(A, B, Effort, 250);
+sched_util_runner(A, B, Effort, false) ->
+    sched_util_runner(A, B, Effort, 250);
+sched_util_runner(A, B, Effort, Senders) ->
     Payload = payload(5),
+    Time = 1000 * Effort,
     [A] = rpc:call(B, erlang, nodes, []),
     ServerPids =
         [erlang:spawn_link(
@@ -440,7 +461,7 @@ sched_util_runner(A, B, Senders) ->
           fun() ->
                   receive
                       {start,Pid} ->
-                          msacc:start(10000),
+                          msacc:start(Time),
                           receive
                               {done,Pid} ->
                                   Pid ! {self(),msacc:stats()}
@@ -457,7 +478,7 @@ sched_util_runner(A, B, Senders) ->
     %%
     receive after 1000 -> ok end,
     ServerMsacc ! {start,self()},
-    msacc:start(10000),
+    msacc:start(Time),
     ClientMsaccStats = msacc:stats(),
     receive after 1000 -> ok end,
     ServerMsacc ! {done,self()},
@@ -495,50 +516,50 @@ throughput_client(Pid, Payload) ->
 
 throughput_0(Config) ->
     run_nodepair_test(
-      fun (A, B, Prefix, HA, HB) ->
-              throughput(A, B, Prefix, HA, HB, 500000, 0)
+      fun (A, B, Prefix, Effort, HA, HB) ->
+              throughput(A, B, Prefix, HA, HB, 50000 * Effort, 0)
       end, Config).
 
 throughput_64(Config) ->
     run_nodepair_test(
-      fun (A, B, Prefix, HA, HB) ->
-              throughput(A, B, Prefix, HA, HB, 500000, 64)
+      fun (A, B, Prefix, Effort, HA, HB) ->
+              throughput(A, B, Prefix, HA, HB, 50000 * Effort, 64)
       end, Config).
 
 throughput_1024(Config) ->
     run_nodepair_test(
-      fun (A, B, Prefix, HA, HB) ->
-              throughput(A, B, Prefix, HA, HB, 100000, 1024)
+      fun (A, B, Prefix, Effort, HA, HB) ->
+              throughput(A, B, Prefix, HA, HB, 10000 * Effort, 1024)
       end, Config).
 
 throughput_4096(Config) ->
     run_nodepair_test(
-      fun (A, B, Prefix, HA, HB) ->
-              throughput(A, B, Prefix, HA, HB, 50000, 4096)
+      fun (A, B, Prefix, Effort, HA, HB) ->
+              throughput(A, B, Prefix, HA, HB, 5000 * Effort, 4096)
       end, Config).
 
 throughput_16384(Config) ->
     run_nodepair_test(
-      fun (A, B, Prefix, HA, HB) ->
-              throughput(A, B, Prefix, HA, HB, 10000, 16384)
+      fun (A, B, Prefix, Effort, HA, HB) ->
+              throughput(A, B, Prefix, HA, HB, 1000 * Effort, 16384)
       end, Config).
 
 throughput_65536(Config) ->
     run_nodepair_test(
-      fun (A, B, Prefix, HA, HB) ->
-              throughput(A, B, Prefix, HA, HB, 2000, 65536)
+      fun (A, B, Prefix, Effort, HA, HB) ->
+              throughput(A, B, Prefix, HA, HB, 200 * Effort, 65536)
       end, Config).
 
 throughput_262144(Config) ->
     run_nodepair_test(
-      fun (A, B, Prefix, HA, HB) ->
-              throughput(A, B, Prefix, HA, HB, 500, 262144)
+      fun (A, B, Prefix, Effort, HA, HB) ->
+              throughput(A, B, Prefix, HA, HB, 50 * Effort, 262144)
       end, Config).
 
 throughput_1048576(Config) ->
     run_nodepair_test(
-      fun (A, B, Prefix, HA, HB) ->
-              throughput(A, B, Prefix, HA, HB, 200, 1048576)
+      fun (A, B, Prefix, Effort, HA, HB) ->
+              throughput(A, B, Prefix, HA, HB, 20 * Effort, 1048576)
       end, Config).
 
 throughput(A, B, Prefix, HA, HB, Packets, Size) ->
@@ -817,9 +838,10 @@ run_nodepair_test(TestFun, Config) ->
     A = proplists:get_value(node_a, Config),
     B = proplists:get_value(node_b, Config),
     Prefix = proplists:get_value(ssl_dist_prefix, Config),
+    Effort = proplists:get_value(effort, Config, 1),
     HA = start_ssl_node_a(Config),
     HB = start_ssl_node_b(Config),
-    try TestFun(A, B, Prefix, HA, HB)
+    try TestFun(A, B, Prefix, Effort, HA, HB)
     after
         stop_ssl_node_a(HA),
         stop_ssl_node_b(HB, Config),
