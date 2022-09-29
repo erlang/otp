@@ -29,8 +29,6 @@
 -export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
 	 gen_setup/6, gen_close/2, gen_select/2, gen_address/1]).
 
--export([nodelay/0]).
-
 -export([verify_client/3, cert_nodes/1]).
 
 -export([dbg/0]). % Debug
@@ -41,7 +39,11 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -include("ssl_api.hrl").
+-include("ssl_cipher.hrl").
+-include("ssl_internal.hrl").
 -include_lib("kernel/include/logger.hrl").
+
+-define(PROTOCOL, tls).
 
 %% -------------------------------------------------------------------------
 
@@ -70,8 +72,27 @@ is_node_name(Node) ->
 
 %% -------------------------------------------------------------------------
 
-hs_data_common(#sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
+hs_data_inet_tcp(Driver, Socket) ->
+    Family = Driver:family(),
+    {ok, Peername} = inet:peername(Socket),
+    (inet_tcp_dist:gen_hs_data(Driver, Socket))
     #hs_data{
+      f_address =
+          fun(_, Node) ->
+                  {node, _, Host} = dist_util:split_node(Node),
+                  #net_address{
+                     address  = Peername,
+                     host     = Host,
+                     protocol = ?PROTOCOL,
+                     family   = Family
+                    }
+          end}.
+
+hs_data_ssl(Driver, #sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
+    Family = Driver:family(),
+    {ok, Peername} = ssl:peername(SslSocket),
+    #hs_data{
+       socket = DistCtrl,
        f_send =
            fun (_Ctrl, Packet) ->
                    f_send(SslSocket, Packet)
@@ -95,7 +116,7 @@ hs_data_common(#sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
            end,
        f_address =
            fun (Ctrl, Node) when Ctrl == DistCtrl ->
-                   f_address(SslSocket, Node)
+                   f_address(Family, Peername, Node)
            end,
        mf_tick =
            fun (Ctrl) when Ctrl == DistCtrl ->
@@ -133,22 +154,19 @@ f_setopts_pre_nodeup(_SslSocket) ->
     ok.
 
 f_setopts_post_nodeup(SslSocket) ->
-    ssl:setopts(SslSocket, [nodelay()]).
+    ssl:setopts(SslSocket, [inet_tcp_dist:nodelay()]).
 
 f_getll(DistCtrl) ->
     {ok, DistCtrl}.
 
-f_address(SslSocket, Node) ->
-    case ssl:peername(SslSocket) of
-        {ok, Address} ->
-            case dist_util:split_node(Node) of
-                {node,_,Host} ->
-                    #net_address{
-                       address=Address, host=Host,
-                       protocol=tls, family=inet};
-                _ ->
-                    {error, no_node}
-            end
+f_address(Family, Address, Node) ->
+    case dist_util:split_node(Node) of
+        {node,_,Host} ->
+            #net_address{
+               address=Address, host=Host,
+               protocol=?PROTOCOL, family=Family};
+        _ ->
+            {error, no_node}
     end.
 
 mf_tick(DistCtrl) ->
@@ -200,7 +218,7 @@ gen_listen(Driver, Name, Host) ->
     case inet_tcp_dist:gen_listen(Driver, Name, Host) of
         {ok, {Socket, Address, Creation}} ->
             inet:setopts(Socket, [{packet, 4}, {nodelay, true}]),
-            {ok, {Socket, Address#net_address{protocol=tls}, Creation}};
+            {ok, {Socket, Address#net_address{protocol=?PROTOCOL}, Creation}};
         Other ->
             Other
     end.
@@ -272,6 +290,7 @@ spawn_accept({Driver, Listen, Kernel}) ->
 
 accept_one(Driver, Kernel, Socket) ->
     Opts = setup_verify_client(Socket, get_ssl_options(server)),
+    KTLS = proplists:get_value(ktls, Opts, false),
     wait_for_code_server(),
     case
         ssl:handshake(
@@ -279,24 +298,27 @@ accept_one(Driver, Kernel, Socket) ->
           trace([{active, false},{packet, 4}|Opts]),
           net_kernel:connecttime())
     of
-        {ok, #sslsocket{pid = [_, DistCtrl| _]} = SslSocket} ->
-            trace(
-              Kernel !
-                  {accept, self(), DistCtrl,
-                   Driver:family(), tls}),
-            receive
-                {Kernel, controller, Pid} ->
-                    case ssl:controlling_process(SslSocket, Pid) of
+        {ok, #sslsocket{pid = [Receiver, Sender| _]} = SslSocket} ->
+            case KTLS of
+                true ->
+                    {ok, KtlsInfo} = ssl_gen_statem:ktls_handover(Receiver),
+                    case set_ktls(KtlsInfo) of
                         ok ->
-                            trace(Pid ! {self(), controller});
-                        Error ->
-                            trace(Pid ! {self(), exit}),
+                            accept_one(
+                              Driver, Kernel, Socket,
+                              fun inet_tcp:controlling_process/2, Socket);
+                        {error, KtlsReason} ->
                             ?LOG_ERROR(
-                                "Cannot control TLS distribution connection: ~p~n",
-                                [Error])
+                               [{slogan, set_ktls_failed},
+                                {reason, KtlsReason},
+                                {pid, self()}]),
+                            gen_tcp:close(Socket),
+                            trace({ktls_error, KtlsReason})
                     end;
-                {Kernel, unsupported_protocol} ->
-                    trace(unsupported_protocol)
+                false ->
+                    accept_one(
+                      Driver, Kernel, Sender,
+                      fun ssl:controlling_process/2, SslSocket)
             end;
         {error, {options, _}} = Error ->
             %% Bad options: that's probably our fault.
@@ -309,6 +331,24 @@ accept_one(Driver, Kernel, Socket) ->
         Other ->
             gen_tcp:close(Socket),
             trace(Other)
+    end.
+%%
+accept_one(Driver, Kernel, DistCtrl, ControllingProcessFun, DistSocket) ->
+    trace(Kernel ! {accept, self(), DistCtrl, Driver:family(), ?PROTOCOL}),
+    receive
+        {Kernel, controller, Pid} ->
+            case ControllingProcessFun(DistSocket, Pid) of
+                ok ->
+                    trace(Pid ! {self(), controller});
+                {error, Reason} ->
+                    trace(Pid ! {self(), exit}),
+                    ?LOG_ERROR(
+                       [{slogan, controlling_process_failed},
+                        {reason, Reason},
+                        {pid, self()}])
+            end;
+        {Kernel, unsupported_protocol} ->
+            trace(unsupported_protocol)
     end.
 
 
@@ -444,24 +484,30 @@ gen_accept_connection(
         dist_util:net_ticker_spawn_options())).
 
 do_accept(
-  _Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime, Kernel) ->
+  Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime, Kernel) ->
     MRef = erlang:monitor(process, AcceptPid),
     receive
 	{AcceptPid, controller} ->
             erlang:demonitor(MRef, [flush]),
-            {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
-	    Timer = dist_util:start_timer(SetupTime),
-            NewAllowed = allowed_nodes(SslSocket, Allowed),
-            HSData0 = hs_data_common(SslSocket),
+            Timer = dist_util:start_timer(SetupTime),
+            {HSData0, NewAllowed} =
+                case is_port(DistCtrl) of
+                    true ->
+                        {hs_data_inet_tcp(Driver, DistCtrl),
+                         Allowed};
+                    false ->
+                        {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
+                        link(DistCtrl),
+                        {hs_data_ssl(Driver, SslSocket),
+                         allowed_nodes(SslSocket, Allowed)}
+                end,
             HSData =
                 HSData0#hs_data{
                   kernel_pid = Kernel,
                   this_node = MyNode,
-                  socket = DistCtrl,
                   timer = Timer,
                   this_flags = 0,
                   allowed = NewAllowed},
-            link(DistCtrl),
             dist_util:handshake_other_started(trace(HSData));
         {AcceptPid, exit} ->
             %% this can happen when connection was initiated, but dropped
@@ -582,35 +628,51 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 
 do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer) ->
     Opts =  trace(connect_options(get_ssl_options(client))),
+    KTLS = proplists:get_value(ktls, Opts, false),
     dist_util:reset_timer(Timer),
     case ssl:connect(
         Ip, TcpPort,
-        [binary, {active, false}, {packet, 4}, {server_name_indication, Address},
+        [binary, {active, false}, {packet, 4},
+         {server_name_indication, Address},
             Driver:family(), {nodelay, true}] ++ Opts,
-        net_kernel:connecttime()) of
-    {ok, #sslsocket{pid = [_, DistCtrl| _]} = SslSocket} ->
-            _ = monitor_pid(DistCtrl),
-            ok = ssl:controlling_process(SslSocket, self()),
-            HSData0 = hs_data_common(SslSocket),
-        HSData =
-                HSData0#hs_data{
-                kernel_pid = Kernel,
-                other_node = Node,
-                this_node = MyNode,
-                socket = DistCtrl,
-                timer = Timer,
-                this_flags = 0,
-                other_version = Version,
-                request_type = Type},
-            link(DistCtrl),
-    dist_util:handshake_we_started(trace(HSData));
-    Other ->
-    %% Other Node may have closed since
-    %% port_please !
-    ?shutdown2(
-            Node,
-            trace(
-                {ssl_connect_failed, Ip, TcpPort, Other}))
+        net_kernel:connecttime()
+    ) of
+        {ok, #sslsocket{pid = [Receiver, Sender| _]} = SslSocket} ->
+            HSData =
+                case KTLS of
+                    true ->
+                        {ok, KtlsInfo} =
+                            ssl_gen_statem:ktls_handover(Receiver),
+                        case set_ktls(KtlsInfo) of
+                            ok ->
+                                #{socket := Socket} = KtlsInfo,
+                                hs_data_inet_tcp(Driver, Socket);
+                            {error, KtlsReason} ->
+                                ?shutdown2(
+                                   Node,
+                                   trace({set_ktls_failed, KtlsReason}))
+                        end;
+                    false ->
+                        _ = monitor_pid(Sender),
+                        ok = ssl:controlling_process(SslSocket, self()),
+                        link(Sender),
+                        hs_data_ssl(Driver, SslSocket)
+                end
+                #hs_data{
+                  kernel_pid = Kernel,
+                  other_node = Node,
+                  this_node = MyNode,
+                  timer = Timer,
+                  this_flags = 0,
+                  other_version = Version,
+                  request_type = Type},
+            dist_util:handshake_we_started(trace(HSData));
+        Other ->
+        %% Other Node may have closed since
+        %% port_please !
+            ?shutdown2(
+                Node,
+                trace({ssl_connect_failed, Ip, TcpPort, Other}))
     end.
 
 close(Socket) ->
@@ -795,21 +857,6 @@ connect_options(Opts) ->
 	    Opts
     end.
 
-%% we may not always want the nodelay behaviour
-%% for performance reasons
-nodelay() ->
-    case application:get_env(kernel, dist_nodelay) of
-	undefined ->
-	    {nodelay, true};
-	{ok, true} ->
-	    {nodelay, true};
-	{ok, false} ->
-	    {nodelay, false};
-	_ ->
-	    {nodelay, true}
-    end.
-
-
 get_ssl_options(Type) ->
     try ets:lookup(ssl_dist_opts, Type) of
         [{Type, Opts0}] ->
@@ -874,7 +921,13 @@ ssl_option(client, Opt) ->
         "secure_renegotiate" -> fun atomize/1;
         "depth" -> fun erlang:list_to_integer/1;
         "hibernate_after" -> fun erlang:list_to_integer/1;
-        "ciphers" -> fun listify/1;
+        "ciphers" ->
+            %% Allows just one cipher, for now (could be , separated)
+            fun (Val) -> [listify(Val)] end;
+        "versions" ->
+            %% Allows just one version, for now (could be , separated)
+            fun (Val) -> [atomize(Val)] end;
+        "ktls" -> fun atomize/1;
         _ -> error
     end.
 
@@ -898,6 +951,124 @@ verify_fun(Value) ->
 	    {Fun, State};
 	_ ->
 	    error(malformed_ssl_dist_opt, [Value])
+    end.
+
+set_ktls(KtlsInfo) ->
+    %%
+    %% Check OS type and version
+    %%
+    case {os:type(), os:version()} of
+        {{unix,linux}, {Major,Minor,_}}
+          when 5 == Major, 2 =< Minor;
+               5 < Major ->
+            set_ktls_1(KtlsInfo);
+        OsTypeVersion ->
+            {error, {ktls_invalid_os, OsTypeVersion}}
+    end.
+
+%% Check TLS version and cipher suite
+%%
+set_ktls_1(
+  #{tls_version := {3,4}, % 'tlsv1.3'
+    cipher_suite := CipherSuite,
+    socket := Socket} = KtlsInfo)
+  when CipherSuite =:= ?TLS_AES_256_GCM_SHA384 ->
+    %%
+    %% See https://www.kernel.org/doc/html/latest/networking/tls.html
+    %% and include/netinet/tcp.h
+    %%
+    SOL_TCP = 6,
+    TCP_ULP = 31,
+    KtlsMod = <<"tls">>, % Linux kernel module name
+    KtlsModSize = byte_size(KtlsMod),
+    _ = inet:setopts(Socket, [{raw, SOL_TCP, TCP_ULP, KtlsMod}]),
+    %%
+    %% Check if kernel module loaded,
+    %% i.e if getopts SOL_TCP,TCP_ULP returns KtlsMod
+    %%
+    case
+        inet:getopts(Socket, [{raw, SOL_TCP, TCP_ULP, KtlsModSize + 1}])
+    of
+        {ok, [{raw, SOL_TCP, TCP_ULP, <<KtlsMod:KtlsModSize/binary,0>>}]} ->
+            set_ktls_2(KtlsInfo, Socket);
+        Other ->
+            {error, {ktls_not_supported, Other}}
+    end;
+set_ktls_1(
+  #{tls_version := TLSVersion,
+    cipher_suite := CipherSuite,
+    socket := _}) ->
+    {error, {ktls_invalid_cipher, TLSVersion, CipherSuite}}.
+
+%% Set kTLS cipher
+%%
+set_ktls_2(
+  #{write_state :=
+        #cipher_state{
+           key = <<WriteKey:32/bytes>>,
+           iv = <<WriteSalt:4/bytes, WriteIV:8/bytes>>
+          },
+    write_seq := WriteSeq,
+    read_state :=
+        #cipher_state{
+           key = <<ReadKey:32/bytes>>,
+           iv = <<ReadSalt:4/bytes, ReadIV:8/bytes>>
+          },
+    read_seq := ReadSeq,
+    socket_options := SocketOptions},
+  Socket) ->
+    %%
+    %% See include/linux/tls.h
+    %%
+    TLS_1_3_VERSION_MAJOR = 3,
+    TLS_1_3_VERSION_MINOR = 4,
+    TLS_1_3_VERSION =
+        (TLS_1_3_VERSION_MAJOR bsl 8) bor TLS_1_3_VERSION_MINOR,
+    TLS_CIPHER_AES_GCM_256 = 52,
+    TLS_crypto_info_TX =
+        <<TLS_1_3_VERSION:16/native,
+          TLS_CIPHER_AES_GCM_256:16/native,
+          WriteIV/bytes, WriteKey/bytes,
+          WriteSalt/bytes, WriteSeq:64/native>>,
+    TLS_crypto_info_RX =
+        <<TLS_1_3_VERSION:16/native,
+          TLS_CIPHER_AES_GCM_256:16/native,
+          ReadIV/bytes, ReadKey/bytes,
+          ReadSalt/bytes, ReadSeq:64/native>>,
+    SOL_TLS = 282,
+    TLS_TX = 1,
+    TLS_RX = 2,
+    RawOptTX = {raw, SOL_TLS, TLS_TX, TLS_crypto_info_TX},
+    RawOptRX = {raw, SOL_TLS, TLS_RX, TLS_crypto_info_RX},
+    _ = inet:setopts(Socket, [RawOptTX]),
+    _ = inet:setopts(Socket, [RawOptRX]),
+    %%
+    %% Check if cipher could be set
+    %%
+    case
+        inet:getopts(
+          Socket, [{raw, SOL_TLS, TLS_TX, byte_size(TLS_crypto_info_TX)}])
+    of
+        {ok, [RawOptTX]} ->
+            #socket_options{
+               mode = _Mode,
+               packet = Packet,
+               packet_size = PacketSize,
+               header = Header,
+               active = Active
+              } = SocketOptions,
+            case
+                inet:setopts(
+                  Socket,
+                  [list, {packet, Packet}, {packet_size, PacketSize},
+                   {header, Header}, {active, Active}])
+            of
+                ok -> ok;
+                {error, SetoptError} ->
+                    {error, {ktls_setopt_failed, SetoptError}}
+            end;
+        Other ->
+            {error, {ktls_set_cipher_failed, Other}}
     end.
 
 %% -------------------------------------------------------------------------

@@ -352,6 +352,11 @@ handle_info({CloseTag, Socket}, StateName,
             %% is called after all data has been deliver.
             {next_state, StateName, State#state{protocol_specific = PS#{active_n_toggle => true}}, []}
     end;
+handle_info({ssl_tls, Port, Type, {Major, Minor}, Data}, StateName,
+            #state{static_env = #static_env{data_tag = Protocol},
+                   ssl_options = #{ktls := true}} = State0) ->
+    Len = size(Data),
+    handle_info({Protocol, Port, <<Type, Major, Minor, Len:16, Data/binary>>}, StateName, State0);
 handle_info(Msg, StateName, State) ->
     ssl_gen_statem:handle_info(Msg, StateName, State).
 
@@ -669,6 +674,8 @@ next_record(_, #state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []
 next_record(_, State) ->
     {no_record, State}.
 
+flow_ctrl(#state{ssl_options = #{ktls := true}} = State) ->
+    {no_record, State};
 %%% bytes_to_read equals the integer Length arg of ssl:recv
 %%% the actual value is only relevant for packet = raw | 0
 %%% bytes_to_read = undefined means no recv call is ongoing

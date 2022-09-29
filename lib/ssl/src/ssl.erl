@@ -2218,6 +2218,9 @@ validate_option(early_data = Option, Value, client) ->
 validate_option(erl_dist, Value, _)
   when is_boolean(Value) ->
     Value;
+validate_option(ktls, Value, _)
+  when is_boolean(Value) ->
+    Value;
 validate_option(fail_if_no_peer_cert, Value, _)
   when is_boolean(Value) ->
     Value;

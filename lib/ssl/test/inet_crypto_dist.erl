@@ -36,8 +36,6 @@
 -export([gen_listen/2, gen_accept/2, gen_accept_connection/6,
 	 gen_setup/6, gen_close/2, gen_select/2]).
 
--export([nodelay/0]).
-
 %% Debug
 %%%-compile(export_all).
 -export([dbg/0, test_server/0, test_client/1]).
@@ -439,7 +437,7 @@ do_accept(
 	{Acceptor, controller, Socket} ->
 	    Timer = dist_util:start_timer(SetupTime),
             HSData =
-                hs_data_common(
+                hs_data(
                   NetKernel, MyNode, DistCtrl, Timer,
                   Socket, Driver:family()),
             HSData_1 =
@@ -529,7 +527,7 @@ do_setup_connect(
                 end,
             %% DistCtrl is a "socket"
             HSData =
-                hs_data_common(
+                hs_data(
                   NetKernel, MyNode, DistCtrl, Timer,
                   Socket, Driver:family()),
             HSData_1 =
@@ -558,7 +556,7 @@ gen_close(Socket, Driver) ->
 %% -------------------------------------------------------------------------
 
 
-hs_data_common(NetKernel, MyNode, DistCtrl, Timer, Socket, Family) ->
+hs_data(NetKernel, MyNode, DistCtrl, Timer, Socket, Family) ->
     %% Field 'socket' below is set to DistCtrl, which makes
     %% the distribution handshake process (ticker) call
     %% the funs below with DistCtrl as the S argument.
@@ -737,20 +735,6 @@ connect_options(Opts) ->
             Opts ++ setopts_filter(ConnectOpts);
 	_ ->
 	    Opts
-    end.
-
-%% we may not always want the nodelay behaviour
-%% for performance reasons
-nodelay() ->
-    case application:get_env(kernel, dist_nodelay) of
-	undefined ->
-	    {nodelay, true};
-	{ok, true} ->
-	    {nodelay, true};
-	{ok, false} ->
-	    {nodelay, false};
-	_ ->
-	    {nodelay, true}
     end.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1072,7 +1056,7 @@ handshake(
                                         inet:setopts(
                                           Socket,
                                           [{active, ?TCP_ACTIVE},
-                                           nodelay()]),
+                                           inet_tcp_dist:nodelay()]),
                                     input_handler(
                                       RecvParams#params{
                                         dist_handle = DistHandle},

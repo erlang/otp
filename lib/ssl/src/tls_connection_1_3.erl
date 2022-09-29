@@ -604,8 +604,7 @@ do_client_start(ServerHello, State0) ->
 
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
-    #{erl_dist := IsErlDist,
-      %% Use highest supported version for client/server random nonce generation
+    #{%% Use highest supported version for client/server random nonce generation
       versions := [Version|_],
       client_renegotiation := ClientRenegotiation} = SSLOptions,
     MaxEarlyDataSize = init_max_early_data_size(Role),
@@ -645,12 +644,15 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        start_or_recv_from = undefined,
        flight_buffer = [],
        protocol_specific = #{sender => Sender,
-                             active_n => internal_active_n(IsErlDist),
+                             active_n => internal_active_n(SSLOptions, Socket),
                              active_n_toggle => true
                             }
       }.
 
-internal_active_n(true) ->
+internal_active_n(#{ktls := true}, Socket) ->
+    inet:setopts(Socket, [{packet, ssl_tls}]),
+    1;
+internal_active_n(#{erl_dist := true}, _) ->
     %% Start with a random number between 1 and ?INTERNAL_ACTIVE_N
     %% In most cases distribution connections are established all at
     %%  the same time, and flow control engages with ?INTERNAL_ACTIVE_N for
@@ -659,7 +661,7 @@ internal_active_n(true) ->
     %%  a random number between 1 and ?INTERNAL_ACTIVE_N helps to spread the
     %%  spike.
     erlang:system_time() rem ?INTERNAL_ACTIVE_N + 1;
-internal_active_n(false) ->
+internal_active_n(#{erl_dist := false}, _) ->
     case application:get_env(ssl, internal_active_n) of
         {ok, N} when is_integer(N) ->
             N;
