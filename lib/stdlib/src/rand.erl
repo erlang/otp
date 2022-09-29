@@ -1502,8 +1502,7 @@ dummy_seed({A1, A2, A3}) ->
 -type mwc59_state() :: 1..?MWC59_P-1.
 
 -spec mwc59(CX0 :: mwc59_state()) -> CX1 :: mwc59_state().
-mwc59(CX0) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
-    CX = ?MASK(59, CX0),
+mwc59(CX) when is_integer(CX), 1 =< CX, CX < ?MWC59_P ->
     C = CX bsr ?MWC59_B,
     X = ?MASK(?MWC59_B, CX),
     ?MWC59_A * X + C.
@@ -1521,18 +1520,17 @@ mwc59(CX0) -> % when is_integer(CX0), 1 =< CX0, CX0 < ?MWC59_P ->
 %%%     mwc59(CX1, N - 1).
 
 -spec mwc59_value32(CX :: mwc59_state()) -> V :: 0..?MASK(32).
-mwc59_value32(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
+mwc59_value32(CX1) when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
     CX = ?MASK(32, CX1),
     CX bxor ?BSL(32, CX, ?MWC59_XS).
 
 -spec mwc59_value(CX :: mwc59_state()) -> V :: 0..?MASK(59).
-mwc59_value(CX1) -> % when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
-    CX = ?MASK(59, CX1),
+mwc59_value(CX) when is_integer(CX), 1 =< CX, CX < ?MWC59_P ->
     CX2 = CX bxor ?BSL(59, CX, ?MWC59_XS1),
     CX2 bxor ?BSL(59, CX2, ?MWC59_XS2).
 
 -spec mwc59_float(CX :: mwc59_state()) -> V :: float().
-mwc59_float(CX1) ->
+mwc59_float(CX1) when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
     CX = ?MASK(53, CX1),
     CX2 = CX bxor ?BSL(53, CX, ?MWC59_XS1),
     CX3 = CX2 bxor ?BSL(53, CX2, ?MWC59_XS2),
