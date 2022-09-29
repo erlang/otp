@@ -747,21 +747,45 @@ get_nodes() ->
     Nodes0 = case erlang:is_alive() of
 		false -> [];
 		true  ->
-		    case net_adm:names() of
-			{error, _} -> nodes();
-			{ok, Names} ->
-			    epmd_nodes(Names) ++ nodes()
-		    end
+                    case net_adm:names() of
+                        {error, _} -> [];
+                        {ok, Names} -> epmd_nodes(Names)
+                    end
+                    ++
+                    [node() | nodes(connected)]
 	     end,
     Nodes = lists:usort(Nodes0),
+    WarningText = "WARNING: connecting to non-erlang nodes may crash them",
     {_, Menues} =
 	lists:foldl(fun(Node, {Id, Acc}) when Id < ?LAST_NODES_MENU_ID ->
 			    {Id + 1, [#create_menu{id=Id + ?FIRST_NODES_MENU_ID,
-						   text=atom_to_list(Node)} | Acc]}
+						   text=atom_to_list(Node),
+						   help=WarningText} | Acc]}
 		    end, {1, []}, Nodes),
     {Nodes, lists:reverse(Menues)}.
 
-epmd_nodes(Names) ->
+%% see erl_epmd:(listen_)port_please/2
+erl_dist_port() ->
+    try
+        erl_epmd = net_kernel:epmd_module(),
+        {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
+        list_to_integer(StringPort)
+    catch
+        _:_ ->
+            undefined
+    end.
+
+%% If the default epmd module erl_epmd is used and erl_epmd_port is
+%% set to `DistPort' then it is only possible to connect to the node
+%% listening on DistPort (if any), so exclude other nodes registered
+%% in EPMD
+epmd_nodes(Names0) ->
+    Names = case erl_dist_port() of
+                undefined ->
+                    Names0;
+                DistPort ->
+                    [NP || NP = {_, Port} <- Names0, Port =:= DistPort]
+            end,
     [_, Host] = string:lexemes(atom_to_list(node()),"@"),
     [list_to_atom(Name ++ [$@|Host]) || {Name, _} <- Names].
 
