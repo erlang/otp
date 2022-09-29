@@ -1484,8 +1484,9 @@ do_warnings_2([], Next, F) ->
 
 message_printing(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-    BadEncFile = filename:join(DataDir, "bad_enc.erl"),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
+    BadEncFile = filename:join(DataDir, "bad_enc.erl"),
     {error,BadEncErrors, []} = compile:file(BadEncFile, [return]),
 
     [":7:15: cannot parse file, giving up\n"
@@ -1510,6 +1511,24 @@ message_printing(Config) ->
      "%    6|     B = <<\"xyzåäö\">>,\t<<\"12345\">>,\n"
      "%     |                      \t^\n\n"
     ] = messages(Latin1Errors),
+
+    LongFile = filename:join(PrivDir, "long.erl"),
+    Long = ["-module(long).\n",
+            "-export([foo/0]).\n",
+            "unused() -> ok.\n",
+            lists:duplicate(10000, $\n),
+            "foo() -> bar().\n"],
+    ok = file:write_file(LongFile, Long),
+    {error,LongErrors,LongWarnings} = compile:file(LongFile, [return]),
+    [":10004:10: function bar/0 undefined\n"
+     "% 10004| foo() -> bar().\n"
+     "%      |          ^\n\n"
+    ] = messages(LongErrors),
+    [":3:1: function unused/0 is unused\n"
+     "%    3| unused() -> ok.\n"
+     "%     | ^\n\n"
+    ] = messages(LongWarnings),
+    ok = file:delete(LongFile),
 
     {ok,OldCwd} = file:get_cwd(),
     try
