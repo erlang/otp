@@ -8802,6 +8802,7 @@ error_info(_Config) ->
                                       end),
                            receive T -> T end
                    end,
+    _ = ets:new(name_already_exists, [named_table]),
 
     L = [{delete, ['$Tab']},
          {delete, ['$Tab', no_key], [no_fail]},
@@ -8886,6 +8887,8 @@ error_info(_Config) ->
          {new, [name, [a|b]], [no_table]},
          {new, [name, [a,b]], [no_table]},
          {new, [{bad,name}, [a,b]], [no_table]},
+         {new, [name_already_exists, [named_table]], [no_table,
+                                                      {error_term,already_exists}]},
 
          %% For a set, ets:next/2 and ets:prev/2 fails if the key does
          %% not exist.
@@ -9058,8 +9061,9 @@ ets_eval_bif_errors_once(F, Args, Opts) ->
     io:format("\n\n*** ets:~p/~p", [F,length(Args)]),
 
     NoFail = lists:member(no_fail, Opts),
+    ErrorTerm = proplists:get_value(error_term, Opts, none),
     case ets_apply(F, Args, Opts) of
-        {error,none} ->
+        {error,ErrorTerm} when not NoFail ->
             ok;
         {error,Info} ->
             store_error(wrong_failure_reason, MFA, Info);

@@ -653,17 +653,19 @@ format_ets_error(match_spec_compile, [_], _Cause) ->
     [bad_matchspec];
 format_ets_error(next, Args, Cause) ->
     format_default(bad_key, Args, Cause);
-format_ets_error(new, [Name,Options], _Cause) ->
+format_ets_error(new, [Name,Options], Cause) ->
     NameError = if
                     is_atom(Name) -> [];
                     true -> not_atom
                 end,
     OptsError = must_be_list(Options),
-    case {NameError,OptsError} of
-        {[],[]} ->
-            [[],bad_options];
-        {_,_} ->
-            [NameError,OptsError]
+    case {NameError, OptsError, Cause} of
+        {[], [], already_exists} ->
+            [name_already_exists, []];
+        {[], [], _} ->
+            [[], bad_options];
+        {_, _, _} ->
+            [NameError, OptsError]
     end;
 format_ets_error(prev, Args, Cause) ->
     format_default(bad_key, Args, Cause);
