@@ -1912,14 +1912,20 @@ do_unlock() ->
       to implicitly postpone any events to the <c>locked</c> state.
     </p>
     <p>
-      A selective receive cannot be used from a <c>gen_statem</c>
+      A catch-all receive should never be used from a <c>gen_statem</c>
       behaviour (or from any <c>gen_*</c> behaviour),
       as the receive statement is within the <c>gen_*</c> engine itself.
-      It must be there because all
       <seeerl marker="stdlib:sys"><c>sys</c></seeerl>
       compatible behaviours must respond to system messages and therefore
       do that in their engine receive loop,
       passing non-system messages to the <em>callback module</em>.
+      Using a catch-all receive may result in system messages
+      being discarded which in turn may lead to unexpected behaviour.
+      If a selective receive must be used then great care should be taken to
+      ensure that only messages pertinent to the operation are received.
+      Likewise, a callback must return in due time to let the engine
+      receive loop handle system messages, or they might time out also
+      leading to unexpected behaviour.
     </p>
     <p>
       The
