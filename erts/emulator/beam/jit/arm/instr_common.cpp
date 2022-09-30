@@ -456,7 +456,10 @@ void BeamModuleAssembler::emit_store_two_xregs(const ArgXRegister &Src1,
                                                const ArgXRegister &Src2,
                                                const ArgYRegister &Dst2) {
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
-    safe_stp(src1.reg, src2.reg, Dst1, Dst2);
+    auto dst1 = init_destination(Dst1, src1.reg);
+    auto dst2 = init_destination(Dst2, src2.reg);
+
+    flush_vars(dst1, dst2);
 }
 
 void BeamModuleAssembler::emit_load_two_xregs(const ArgYRegister &Src1,
@@ -504,22 +507,11 @@ void BeamModuleAssembler::emit_swap(const ArgRegister &R1,
     } else if (isRegisterBacked(R2)) {
         return emit_swap(R2, R1);
     } else {
-        switch (ArgVal::memory_relation(R1, R2)) {
-        case ArgVal::Relation::consecutive:
-            safe_ldp(TMP1, TMP2, R1, R2);
-            safe_stp(TMP2, TMP1, R1, R2);
-            break;
-        case ArgVal::Relation::reverse_consecutive:
-            safe_ldp(TMP1, TMP2, R2, R1);
-            safe_stp(TMP2, TMP1, R2, R1);
-            break;
-        case ArgVal::Relation::none:
-            a.ldr(TMP1, getArgRef(R1));
-            a.ldr(TMP2, getArgRef(R2));
-            a.str(TMP1, getArgRef(R2));
-            a.str(TMP2, getArgRef(R1));
-            break;
-        }
+        /* Both BEAM registers are stored in memory. */
+        auto [r1, r2] = load_sources(R1, TMP1, R2, TMP2);
+        auto dst1 = init_destination(R2, r1.reg);
+        auto dst2 = init_destination(R1, r2.reg);
+        flush_vars(dst1, dst2);
     }
 }
 

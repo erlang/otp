@@ -1009,10 +1009,113 @@ class BeamModuleAssembler : public BeamAssembler {
     std::unordered_map<void (*)(), Label> _dispatchTable;
 
     /* Skip unnecessary moves in load_source(), load_sources(), and
-     * mov_arg(). */
+     * mov_arg(). Don't use these variables directly. */
     size_t last_destination_offset = 0;
-    arm::Gp last_destination_from;
-    arm::Mem last_destination_to;
+    arm::Gp last_destination_from1, last_destination_from2;
+    arm::Mem last_destination_to1, last_destination_to2;
+
+    /* Private helper. */
+    void preserve__cache(arm::Gp dst) {
+        last_destination_offset = a.offset();
+        invalidate_cache(dst);
+    }
+
+    /* Works as the STR instruction, but also updates the cache. */
+    void str_cache(arm::Gp src, arm::Mem dst) {
+        if (a.offset() == last_destination_offset &&
+            dst != last_destination_to1) {
+            /* Something is already cached in the first slot. Use the
+             * second slot. */
+            a.str(src, dst);
+            last_destination_offset = a.offset();
+            last_destination_to2 = dst;
+            last_destination_from2 = src;
+        } else {
+            /* Nothing cached yet, or the first slot has the same
+             * memory address as we will store into. Use the first
+             * slot and invalidate the second slot. */
+            a.str(src, dst);
+            last_destination_offset = a.offset();
+            last_destination_to1 = dst;
+            last_destination_from1 = src;
+            last_destination_to2 = arm::Mem();
+        }
+    }
+
+    /* Works as the STP instruction, but also updates the cache. */
+    void stp_cache(arm::Gp src1, arm::Gp src2, arm::Mem dst) {
+        safe_stp(src1, src2, dst);
+        last_destination_offset = a.offset();
+        last_destination_to1 = dst;
+        last_destination_from1 = src1;
+        last_destination_to2 =
+                arm::Mem(arm::GpX(dst.baseId()), dst.offset() + 8);
+        last_destination_from2 = src2;
+    }
+
+    void invalidate_cache(arm::Gp dst) {
+        if (dst == last_destination_from1) {
+            last_destination_to1 = arm::Mem();
+            last_destination_from1 = arm::Gp();
+        }
+        if (dst == last_destination_from2) {
+            last_destination_to2 = arm::Mem();
+            last_destination_from2 = arm::Gp();
+        }
+    }
+
+    /* Works like LDR, but looks in the cache first. */
+    void ldr_cached(arm::Gp dst, arm::Mem mem) {
+        if (a.offset() == last_destination_offset) {
+            arm::Gp cached_reg;
+            if (mem == last_destination_to1) {
+                cached_reg = last_destination_from1;
+            } else if (mem == last_destination_to2) {
+                cached_reg = last_destination_from2;
+            }
+
+            if (cached_reg.isValid()) {
+                /* This memory location is cached. */
+                if (cached_reg != dst) {
+                    comment("simplified fetching of BEAM register");
+                    a.mov(dst, cached_reg);
+                    preserve__cache(dst);
+                } else {
+                    comment("skipped fetching of BEAM register");
+                    invalidate_cache(dst);
+                }
+            } else {
+                /* Not cached. Load and preserve the cache. */
+                a.ldr(dst, mem);
+                preserve__cache(dst);
+            }
+        } else {
+            /* The cache is invalid. */
+            a.ldr(dst, mem);
+        }
+    }
+
+    void mov_preserve_cache(arm::VecD dst, arm::VecD src) {
+        a.mov(dst, src);
+    }
+
+    void mov_preserve_cache(arm::Gp dst, arm::Gp src) {
+        if (a.offset() == last_destination_offset) {
+            a.mov(dst, src);
+            preserve__cache(dst);
+        } else {
+            a.mov(dst, src);
+        }
+    }
+
+    void mov_imm_preserve_cache(arm::Gp dst, UWord value) {
+        if (a.offset() == last_destination_offset) {
+            mov_imm(dst, value);
+            preserve__cache(dst);
+        } else {
+            mov_imm(dst, value);
+        }
+    }
 
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
@@ -1535,31 +1638,12 @@ protected:
             if (isRegisterBacked(arg)) {
                 auto index = arg.as<ArgXRegister>().get();
                 arm::Gp reg = register_backed_xregs[index];
-                if (reg == last_destination_from) {
-                    last_destination_offset = ~0;
-                }
+                invalidate_cache(reg);
                 return Variable(reg);
             }
 
             auto ref = getArgRef(arg);
-
-            if (a.offset() == last_destination_offset &&
-                ref == last_destination_to) {
-                if (last_destination_from != tmp) {
-                    comment("simplified fetching of BEAM register");
-                    a.mov(tmp, last_destination_from);
-                } else {
-                    comment("skipped fetching of BEAM register");
-                }
-                last_destination_offset = ~0;
-            } else if (a.offset() == last_destination_offset) {
-                a.ldr(tmp, ref);
-                if (last_destination_from != tmp) {
-                    last_destination_offset = a.offset();
-                }
-            } else {
-                a.ldr(tmp, ref);
-            }
+            ldr_cached(tmp, ref);
             return Variable(tmp, ref);
         } else {
             if (arg.isImmed() || arg.isWord()) {
@@ -1567,7 +1651,7 @@ protected:
                                          : arg.as<ArgWord>().get();
 
                 if (Support::isIntOrUInt32(val)) {
-                    mov_imm(tmp, val);
+                    mov_imm_preserve_cache(tmp, val);
                     return Variable(tmp);
                 }
             }
@@ -1617,23 +1701,20 @@ protected:
     template<typename Reg>
     void mov_var(const Variable<Reg> &to, Reg from) {
         if (to.reg != from) {
-            a.mov(to.reg, from);
+            mov_preserve_cache(to.reg, from);
         }
     }
 
     template<typename Reg>
     void mov_var(Reg to, const Variable<Reg> &from) {
         if (to != from.reg) {
-            a.mov(to, from.reg);
+            mov_preserve_cache(to, from.reg);
         }
     }
 
     void flush_var(const Variable<arm::Gp> &to) {
         if (to.mem.hasBase()) {
-            a.str(to.reg, to.mem);
-            last_destination_offset = a.offset();
-            last_destination_to = to.mem;
-            last_destination_from = to.reg;
+            str_cache(to.reg, to.mem);
         }
     }
 
@@ -1651,10 +1732,10 @@ protected:
         if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
             mem1.baseId() == mem2.baseId()) {
             if (mem1.offset() + 8 == mem2.offset()) {
-                safe_stp(to1.reg, to2.reg, mem1);
+                stp_cache(to1.reg, to2.reg, mem1);
                 return;
             } else if (mem1.offset() == mem2.offset() + 8) {
-                safe_stp(to2.reg, to1.reg, mem2);
+                stp_cache(to2.reg, to1.reg, mem2);
                 return;
             }
         }
