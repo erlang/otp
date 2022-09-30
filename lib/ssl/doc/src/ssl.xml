@@ -1252,10 +1252,16 @@ fun(srp, Username :: binary(), UserState :: term()) ->
   <datatype>
     <name since="OTP 25.2" name="server_certificate_authorities"/>
       <desc>
-      <p>When used with <c>{verify, verify_peer}</c> on the server with TLS-1.3, the certificate
-      authorities extension will be included or excluded from the certificate request. The Default
-      is true.</p>
+	<p>Determines if a TLS-1.3 server should include the authorities
+	extension in its certificate request message that will be sent if the
+	option <c>verify</c> is set to <c>verify_peer</c>. Defaults to <c>true</c>.</p>
+
+	<p>A reason to exclude the extension would be if the server wants to communicate with clients
+	incapable of sending complete certificate chains that adhere to the
+	extension, but the server still has the capability to recreate a chain that it can verify.</p>
+
       </desc>
+
   </datatype>
             
       <datatype>
