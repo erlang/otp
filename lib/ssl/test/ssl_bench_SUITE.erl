@@ -118,6 +118,23 @@ end_per_group(_GroupName, _Config) ->
 
 %%-------
 
+init_per_testcase(Func, Conf)
+  when Func =:= setup_sequential_13;
+       Func =:= setup_concurrent_13;
+       Func =:= payload_13 ->
+    try
+        TLSVersion = 'tlsv1.3',
+        {supported, SSLVersions} =
+            lists:keyfind(supported, 1, ssl:versions()),
+        case lists:member(TLSVersion, SSLVersions) of
+            true ->
+                Conf;
+            false ->
+                {skipped, {not_supported,TLSVersion,SSLVersions}}
+        end
+    catch Class : Reason : Stacktrace ->
+            {failed, {Class,Reason,Stacktrace}}
+    end;
 init_per_testcase(_Func, Conf) ->
     Conf.
 
