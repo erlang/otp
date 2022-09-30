@@ -98,7 +98,8 @@
          stop_ssl_node/1]).
 
 start_ssl_node_name(Name, Args) ->
-    ssl_dist_test_lib:start_ssl_node(Name, Args).
+    Pa = filename:dirname(code:which(?MODULE)),
+    ssl_dist_test_lib:start_ssl_node(Name, "-pa " ++ Pa ++ " " ++ Args).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

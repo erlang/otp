@@ -43,11 +43,10 @@ setup(Name) ->
         pong ->
             Node;
         pang ->
-            Pa = filename:dirname(code:which(?MODULE)),
             PeerOptions =
                 #{name => NameStr,
-                  host => Host,
-                  args => ["-pa", Pa]},
+                  host => Host},
+            ct:pal("PeerOptions: ~p~n", [PeerOptions]),
             {ok, _Pid, Node} =
                 peer:start(
                   case Remote of
@@ -125,6 +124,9 @@ cleanup(Node) ->
     try erpc:call(Node, erlang, halt, [], 5000) of
         Result ->
             ct:fail({unexpected_return, Result})
-    catch error : {erpc,noconnection} ->
-            ok
+    catch
+        error : {erpc,noconnection} ->
+            ok;
+        Class : Reason : Stacktrace ->
+            ct:fail({unexpected_exception, {Class,Reason,Stacktrace}})
     end.

@@ -867,14 +867,18 @@ ssl_apply(Handle, Fun) ->
 start_ssl_node_a(Config) ->
     Name = proplists:get_value(node_a_name, Config),
     Args = get_node_args(node_a_dist_args, Config),
-    ssl_dist_test_lib:start_ssl_node(Name, Args).
+    Pa = filename:dirname(code:which(?MODULE)),
+    ssl_dist_test_lib:start_ssl_node(
+      Name, "-pa " ++ Pa ++ " " ++ Args).
 
 start_ssl_node_b(Config) ->
     Name = proplists:get_value(node_b_name, Config),
     Args = get_node_args(node_b_dist_args, Config),
+    Pa = filename:dirname(code:which(?MODULE)),
     ServerNode = proplists:get_value(server_node, Config),
     rpc:call(
-      ServerNode, ssl_dist_test_lib, start_ssl_node, [Name, Args]).
+      ServerNode, ssl_dist_test_lib, start_ssl_node,
+      [Name, "-pa " ++ Pa ++ " " ++ Args]).
 
 stop_ssl_node_a(HA) ->
     ssl_dist_test_lib:stop_ssl_node(HA).
