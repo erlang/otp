@@ -185,6 +185,11 @@ dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam</code>
         <p>When analyzing from source, pass the <c>include_dir</c>
           to Dialyzer. (**)</p>
       </item>
+      <tag><c>--input_list_file file</c></tag>
+      <item>
+        <p>Analyze the file names that are listed in the specified file
+	(one file name per line).</p>
+      </item>
       <tag><c>--no_check_plt</c></tag>
       <item>
         <p>Skip the PLT check when running Dialyzer. This is useful when
