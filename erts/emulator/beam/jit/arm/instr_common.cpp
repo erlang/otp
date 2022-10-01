@@ -1041,12 +1041,17 @@ void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
-        /* The following value (0b111011) is not possible to use as
-         * an immediate operand for 'and'. See the note at the beginning
-         * of the file.
+        /* The header mask with the sign bit removed (0b111011) is not
+         * possible to use as an immediate operand for 'and'. (See the
+         * note at the beginning of the file.) Therefore, use a
+         * simpler mask (0b111000) that will also clear the primary
+         * tag bits. That works because we KNOW that a boxed pointer
+         * always points to a header word and that the primary tag for
+         * a header is 0.
          */
-        mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
-        a.and_(TMP1, TMP1, TMP2);
+        auto mask = _HEADER_SUBTAG_MASK - _BIG_SIGN_BIT;
+        ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+        a.and_(TMP1, TMP1, imm(mask));
         a.cmp(TMP1, imm(_TAG_HEADER_POS_BIG));
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
@@ -1113,12 +1118,17 @@ void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
-        /* The following value (0b111011) is not possible to use as
-         * an immediate operand for 'and'. See the note at the beginning
-         * of the file.
+        /* The header mask with the sign bit removed (0b111011) is not
+         * possible to use as an immediate operand for 'and'. (See the
+         * note at the beginning of the file.) Therefore, use a
+         * simpler mask (0b111000) that will also clear the primary
+         * tag bits. That works because we KNOW that a boxed pointer
+         * always points to a header word and that the primary tag for
+         * a header is 0.
          */
-        mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
-        a.and_(TMP2, TMP1, TMP2);
+        auto mask = _HEADER_SUBTAG_MASK - _BIG_SIGN_BIT;
+        ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+        a.and_(TMP2, TMP1, imm(mask));
         a.cmp(TMP2, imm(_TAG_HEADER_POS_BIG));
 
         a.mov(TMP3, imm(HEADER_FLONUM));
