@@ -24,7 +24,8 @@
  * The first function is called 'nif_<something>', e.g. nif_open.
  * This does the initial validation and argument processing and then 
  * calls the function that does the actual work. This is called
- * 'esock_<something>'.
+ * 'esock_<something>', e.g. esock_open (actually esock_open2 or 
+ * esock_open4).
  * ----------------------------------------------------------------------
  *
  *
@@ -509,6 +510,9 @@ typedef int SOCKET; /* A subset of HANDLE */
     
 #define ESOCK_GET_RESOURCE(ENV, REF, RES) \
     enif_get_resource((ENV), (REF), esocks, (RES))
+
+#define ESOCK_MON2TERM(E, M) \
+    esock_make_monitor_term((E), (M))
 
 #define ESOCK_RECV_BUFFER_COUNT_DEFAULT     0
 #define ESOCK_RECV_BUFFER_SIZE_DEFAULT      8192
@@ -6763,7 +6767,7 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
             ref,
             descP->currentAcceptorP,
             descP->currentAcceptor.pid,
-            esock_make_monitor_term(env, &descP->currentAcceptor.mon),
+            ESOCK_MON2TERM(env, &descP->currentAcceptor.mon),
             descP->currentAcceptor.env,
             descP->currentAcceptor.ref) );
 
@@ -6823,9 +6827,8 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
                                                 accRef, caller, save_errno);
         } else {
             /* We got an incoming connection */
-            return
-                esock_accept_listening_accept(env, descP, sockRef,
-                                              accSock, caller);
+            return esock_accept_listening_accept(env, descP, sockRef,
+                                                 accSock, caller);
         }
     } else {
 
@@ -6836,16 +6839,20 @@ ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
 
         SSDBG( descP, ("SOCKET", "esock_accept_accepting -> check: "
                        "is caller current acceptor:"
-                       "\r\n   Caller:  %T"
-                       "\r\n   Current: %T"
-                       "\r\n", caller, descP->currentAcceptor.pid) );
+                       "\r\n   Caller:      %T"
+                       "\r\n   Current:     %T"
+                       "\r\n   Current Mon: %T"
+                       "\r\n",
+                       caller,
+                       descP->currentAcceptor.pid,
+                       ESOCK_MON2TERM(env, &descP->currentAcceptor.mon)) );
 
         if (COMPARE_PIDS(&descP->currentAcceptor.pid, &caller) == 0) {
 
             SSDBG( descP,
                    ("SOCKET",
-                    "esock_accept_accepting {%d} -> current acceptor\r\n",
-                    descP->sock) );
+                    "esock_accept_accepting {%d} -> current acceptor"
+                    "\r\n", descP->sock) );
 
             return esock_accept_accepting_current(env, descP, sockRef, accRef);
 
@@ -6889,7 +6896,7 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("SOCKET",
-                "esock_accept_listening_error {%d} -> would block\r\n",
+                "esock_accept_listening_error {%d} -> would block - retry\r\n",
                 descP->sock) );
 
 	descP->currentAcceptor.pid = caller;
@@ -6902,8 +6909,20 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
         descP->currentAcceptor.ref =
             CP_TERM(descP->currentAcceptor.env, accRef);
         descP->currentAcceptorP = &descP->currentAcceptor;
+
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_accept_listening_error {%d} -> retry for: "
+                "\r\n   Current Pid: %T"
+                "\r\n   Current Mon: %T"
+                "\r\n",
+                descP->sock,
+                descP->currentAcceptor.pid,
+                ESOCK_MON2TERM(env, &descP->currentAcceptor.mon)) );
+
         res = esock_accept_busy_retry(env, descP, sockRef, accRef, NULL);
     } else {
+
         SSDBG( descP,
                ("SOCKET",
                 "esock_accept_listening {%d} -> errno: %d\r\n",
@@ -6981,6 +7000,7 @@ ERL_NIF_TERM esock_accept_accepting_current(ErlNifEnv*       env,
 
 
 /* *** esock_accept_accepting_current_accept ***
+ *
  * Handles when the current acceptor succeeded in its accept call -
  * handle the new connection.
  */
@@ -7000,6 +7020,12 @@ ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
 
     if (esock_accept_accepted(env, descP, sockRef, accSock,
                               descP->currentAcceptor.pid, &res)) {
+
+        ESOCK_ASSERT( DEMONP("esock_accept_accepting_current_accept -> "
+                             "current acceptor",
+                             env, descP, &descP->currentAcceptor.mon) == 0);
+
+        MON_INIT(&descP->currentAcceptor.mon);
 
         if (!activate_next_acceptor(env, descP, sockRef)) {
 
@@ -7134,9 +7160,13 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
 
         ESOCK_ASSERT( DEMONP("esock_accept_busy_retry - select failed",
                              env, descP, &descP->currentAcceptor.mon) == 0);
+
+        MON_INIT(&descP->currentAcceptor.mon);
+
         /* It is very unlikely that a next acceptor will be able
          * to do anything successful, but we will clean the queue
          */
+        
         if (!activate_next_acceptor(env, descP, sockRef)) {
             SSDBG( descP,
                    ("SOCKET",
@@ -14693,6 +14723,7 @@ ERL_NIF_TERM esock_cancel_accept_current(ErlNifEnv*       env,
 
     ESOCK_ASSERT( DEMONP("esock_cancel_accept_current -> current acceptor",
                          env, descP, &descP->currentAcceptor.mon) == 0);
+    MON_INIT(&descP->currentAcceptor.mon);
     res = esock_cancel_read_select(env, descP, descP->currentAcceptor.ref);
 
     SSDBG( descP,
@@ -19424,7 +19455,7 @@ int esock_monitor(const char*      slogan,
                ("SOCKET",
                 "esock_monitor {%d} [%T] %s: monitor ok: %T\r\n",
                 descP->sock, esock_self(env), slogan,
-                esock_make_monitor_term(env, monP)) );
+                ESOCK_MON2TERM(env, monP)) );
     }
 
     return res;
@@ -19444,7 +19475,7 @@ int esock_demonitor(const char*      slogan,
     SSDBG( descP, ("SOCKET",
                    "esock_demonitor {%d} [%T] %s: try demonitor %T\r\n",
                    descP->sock, esock_self(env), slogan,
-                   esock_make_monitor_term(env, monP)) );
+                   ESOCK_MON2TERM(env, monP)) );
 
     res = enif_demonitor_process(env, descP, &monP->mon);
     esock_monitor_init(monP);
