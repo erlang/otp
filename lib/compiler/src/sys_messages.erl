@@ -125,10 +125,20 @@ line_prefix() ->
     "% ".
 
 fmt_line(L, Text) ->
-    [line_prefix(), io_lib:format("~4.ts| ", [line_to_txt(L)]), Text, "\n"].
+    {LineText, LineTextLength} = line_to_txt(L),
+    [line_prefix(),
+     io_lib:format("~*.ts| ", [LineTextLength, LineText]),
+     Text, "\n"].
 
-line_to_txt(0) -> "";
-line_to_txt(L) -> integer_to_list(L).
+line_to_txt(L) ->
+    LineText = integer_to_list(abs(L)),
+    Length = max(4, length(LineText)),
+    if
+        L < 0 ->
+            {"", Length};
+        true ->
+            {LineText, Length}
+    end.
 
 decorate([{Line, Text} = L | Ls], StartLine, StartCol, EndLine, EndCol) when
   Line =:= StartLine, EndLine =:= StartLine ->
@@ -147,8 +157,8 @@ decorate([], _StartLine, _StartCol, _EndLine, _EndCol) ->
 %% don't produce empty decoration lines
 decorate("", L, Ls, StartLine, StartCol, EndLine, EndCol) ->
     [L | decorate(Ls, StartLine, StartCol, EndLine, EndCol)];
-decorate(Text, L, Ls, StartLine, StartCol, EndLine, EndCol) ->
-    [L, {0, Text} | decorate(Ls, StartLine, StartCol, EndLine, EndCol)].
+decorate(Text, {Line, _} = L, Ls, StartLine, StartCol, EndLine, EndCol) ->
+    [L, {-Line, Text} | decorate(Ls, StartLine, StartCol, EndLine, EndCol)].
 
 %% End typically points to the first position after the actual region.
 %% If End = Start, we adjust it to Start+1 to mark at least one character

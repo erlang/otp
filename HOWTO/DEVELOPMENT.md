@@ -539,7 +539,7 @@ build it locally if you want to.
 Using the pre-built base you build an image like this:
 
 ```bash
-docker login ghcr.io
+docker login docker.pkg.github.com
 git archive --prefix otp/ -o .github/otp.tar.gz HEAD
 docker build -t my_otp_image -f .github/dockerfiles/Dockerfile.64-bit .github/
 ```

@@ -332,8 +332,8 @@ otp_5910(Config) when is_list(Config) ->
 		     0 ->
 			 [{_Id,_Kbyte,Cap}|_] = Data,
 			 io:format("Data ~p Threshold ~p ~n",[Data, Cap-1]),
-			 ok = disksup:set_almost_full_threshold((Cap-1)/100),
-			 Cap-1;
+			 ok = disksup:set_almost_full_threshold((max(0, Cap-1))/100),
+			 max(0, Cap-1);
 		     _N -> Threshold0
 		 end,
     ok = application:set_env(os_mon, disk_almost_full_threshold, Threshold/100),
