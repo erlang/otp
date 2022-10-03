@@ -1067,6 +1067,8 @@ shell_suspend(Config) ->
 %% We test that suspending of `erl` and then resuming restores the shell
 shell_full_queue(Config) ->
 
+    [throw({skip,"Need unbuffered to run"}) || os:find_executable("unbuffered") =:= false],
+
     %% In order to fill the read buffer of the terminal we need to get a
     %% bit creative. We first need to start erl in bash in order to be
     %% able to get access to job control for suspended processes.
