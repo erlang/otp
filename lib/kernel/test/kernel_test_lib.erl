@@ -793,25 +793,50 @@ analyze_and_print_freebsd_host_info(Version) ->
                 if
                     (CPUSpeed =:= -1) ->
                         1;
+                    (CPUSpeed >= 3000) ->
+                        if
+                            (NCPU >= 8) ->
+                                1;
+                            (NCPU >= 6) ->
+                                2;
+                            (NCPU >= 4) ->
+                                3;
+                            (NCPU >= 2) ->
+                                4;
+                            true ->
+                                5
+                        end;
                     (CPUSpeed >= 2000) ->
                         if
-                            (NCPU >= 4) ->
+                            (NCPU >= 12) ->
                                 1;
-                            (NCPU >= 2) ->
+                            (NCPU >= 8) ->
                                 2;
+                            (NCPU >= 6) ->
+                                4;
+                            (NCPU >= 4) ->
+                                6;
+                            (NCPU >= 2) ->
+                                8;
                             true ->
-                                3
+                                10
                         end;
                     true ->
                         if
                             (NCPU =:= -1) ->
-                                1;
-                            (NCPU >= 4) ->
                                 2;
-                            (NCPU >= 2) ->
+                            (NCPU >= 12) ->
+                                2;
+                            (NCPU >= 8) ->
                                 3;
+                            (NCPU >= 6) ->
+                                5;
+                            (NCPU >= 4) ->
+                                7;
+                            (NCPU >= 2) ->
+                                9;
                             true ->
-                                4
+                                12
                         end
                 end,
             MemAddFactor =
