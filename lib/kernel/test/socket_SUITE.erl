@@ -2167,7 +2167,7 @@ end_per_suite(Config0) ->
 
     (catch ?LOGGER:stop()),
 
-    Config1 = ?LIB:end_per_suite(Config0),
+    Config1 = ?KLIB:end_per_suite(Config0),
 
     ?P("end_per_suite -> "
        "~n      Nodes: ~p", [erlang:nodes()]),
