@@ -408,13 +408,16 @@ sched_utilization(Config) ->
 sched_utilization(A, B, Prefix, Effort, HA, HB, SSL) ->
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    ct:log("Starting scheduler utilization run on ~w and ~w", [A, B]),
     {ClientMsacc, ServerMsacc, Msgs} =
         ssl_apply(HA, fun () -> sched_util_runner(A, B, Effort, SSL) end),
+    ct:log("Got ~p busy_dist_port msgs",[length(Msgs)]),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
+    ct:log("Microstate accounting for node ~w:", [A]),
     msacc:print(ClientMsacc),
+    ct:log("Microstate accounting for node ~w:", [B]),
     msacc:print(ServerMsacc),
-    ct:pal("Got ~p busy_dist_port msgs",[length(Msgs)]),
     ct:log("Stats of B from A: ~p",
            [ssl_apply(HA, net_kernel, node_info, [B])]),
     ct:log("Stats of A from B: ~p",
