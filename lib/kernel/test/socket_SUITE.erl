@@ -30,7 +30,7 @@
 %%         ESOCK_TEST_SOCK_CLOSE:  include
 %%         ESOCK_TEST_TRAFFIC:     include
 %%         ESOCK_TEST_TICKETS:     include
-%%         ESOCK_TEST_TTEST:       exclude
+%%         ESOCK_TEST_TTEST:       include
 %%
 %% Variable that controls "verbosity" of the test case(s):
 %%
@@ -41,7 +41,7 @@
 %%  the actual time it takes for the test case to complete
 %%  will be longer; setup, completion, ...)
 %%
-%%          ESOCK_TEST_TTEST_RUNTIME: 10 seconds
+%%          ESOCK_TEST_TTEST_RUNTIME: 1 second
 %%              Format of values: <integer>[<unit>]
 %%              Where unit is: ms | s | m
 %%                 ms - milli seconds
@@ -726,7 +726,7 @@
 -define(TPP_SMALL_NUM,  5000).
 -define(TPP_MEDIUM_NUM, 500).
 -define(TPP_LARGE_NUM,  50).
--define(TPP_NUM(Config, Base), (Base) div lookup(esock_factor, 1, Config)).
+-define(TPP_NUM(Config, Base), (Base) div lookup(kernel_factor, 1, Config)).
 
 -define(TTEST_RUNTIME,  ?SECS(1)).
 
@@ -1358,7 +1358,20 @@ traffic_pp_sendmsg_recvmsg_cases() ->
      traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6,
      traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL
     ].
-    
+
+%% Condition for running the ttest cases.
+%% No point in running these cases unless the machine is
+%% reasonably fast.
+ttest_condition(Config) ->
+    case ?config(kernel_factor, Config) of
+        Factor when is_integer(Factor) andalso (Factor < 5) ->
+            ok;
+        Factor when is_integer(Factor) ->
+            {skip, ?F("Too slow for TTest (~w)", [Factor])};
+        _ ->
+            {skip, "Too slow for TTest (undef)"}
+    end.
+
 ttest_cases() ->
     [
      %% Server: transport = gen_tcp, active = false
@@ -2103,7 +2116,7 @@ init_per_suite(Config) ->
                 default ->
                     case ?LOGGER:start() of
                         ok ->
-                            [{esock_factor, Factor} | Config];
+                            [{kernel_factor, Factor} | Config];
                         {error, Reason} ->
                             io:format("init_per_suite -> Failed starting logger"
                                       "~n   Reason: ~p"
@@ -2113,7 +2126,7 @@ init_per_suite(Config) ->
                 Quiet ->
                     case ?LOGGER:start(Quiet) of
                         ok ->
-                            [{esock_factor,     Factor},
+                            [{kernel_factor,     Factor},
                              {esock_test_quiet, Quiet} | Config];
                         {error, Reason} ->
                             io:format("init_per_suite -> Failed starting logger"
@@ -2182,12 +2195,18 @@ init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
               "~n", [_GroupName, Config]),
-    ttest_manager_start(),
-    case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
-        {value, _} ->
-            Config;
-        false ->
-            [{esock_test_ttest_runtime, which_ttest_runtime_env()} | Config]
+    case ttest_condition(Config) of
+        ok ->
+            ttest_manager_start(),
+            case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
+                {value, _} ->
+                    Config;
+                false ->
+                    [{esock_test_ttest_runtime, which_ttest_runtime_env()} |
+                     Config]
+            end;
+        {skip, _} = SKIP ->
+            SKIP
     end;
 init_per_group(api_async_ref, Config) ->
     [{select_handle, true} | Config];
@@ -38911,7 +38930,7 @@ is_old_fedora16(_) ->
 %% not actually needed.
 %% The host in question is a Ubuntu 20.04...
 is_slow_ubuntu(Config) ->
-    case lookup(esock_factor, 1, Config) of
+    case lookup(kernel_factor, 1, Config) of
 	F when is_integer(F) andalso (F > 1) ->
 	    case os:type() of
 		{unix, linux} ->
