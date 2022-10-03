@@ -157,7 +157,7 @@ filename_completion(Config) ->
     {yes,"/", [{"../",_}]} = do_expand("\".."),
     {yes,"ta/", _} = do_expand("\"../edlin_expand_SUITE_da"),
     {yes,"erl\"",[{"complete_function_parameter.erl",_}]} = do_expand("\"complete_function_parameter."),
-    R = case {os:type(), filename:native_name_encoding()} of
+    R = case {os:type(), file:native_name_encoding()} of
         {{win32,_}, _} -> {skip, "Unicode on filenames in windows are tricky"};
         {_,latin1} -> {skip, "Cannot interpret unicode filenames when native_name_encoding is latin1"};
         _ ->

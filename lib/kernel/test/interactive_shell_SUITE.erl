@@ -54,7 +54,8 @@
          shell_unicode_wrap/1, shell_delete_unicode_wrap/1,
          shell_delete_unicode_not_at_cursor_wrap/1,
          shell_update_window_unicode_wrap/1,
-         remsh_basic/1, remsh_longnames/1, remsh_no_epmd/1,
+         shell_standard_error_nlcr/1,
+         remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
          external_editor_unicode/1, shell_ignore_pager_commands/1]).
@@ -95,6 +96,7 @@ groups() ->
        shell_history_custom_errors]},
      {remsh, [],
       [remsh_basic,
+       remsh_error,
        remsh_longnames,
        remsh_no_epmd,
        remsh_expand_compatibility_25,
@@ -123,7 +125,8 @@ groups() ->
       [shell_navigation, shell_xnfix, shell_delete,
        shell_transpose, shell_search, shell_insert,
        shell_update_window, shell_huge_input,
-       shell_support_ansi_input]}
+       shell_support_ansi_input,
+       shell_standard_error_nlcr]}
     ].
 
 init_per_suite(Config) ->
@@ -836,7 +839,7 @@ shell_invalid_unicode(Config) ->
 %% Test the we can handle ansi insert, navigation and delete
 %%   We currently can not so skip this test
 shell_support_ansi_input(Config) ->
-    
+
     Term = start_tty(Config),
 
     BoldText = "\e[;1m",
@@ -897,7 +900,6 @@ shell_invalid_ansi(_Config) ->
        "-kernel","prevent_overlapping_partitions","false",
        "-eval","shell:prompt_func({interactive_shell_SUITE,prompt})."
       ]).
-
 
 shell_ignore_pager_commands(Config) ->
     Term = start_tty(Config),
@@ -1003,6 +1005,26 @@ external_editor_unicode(Config) ->
                 ok
             end
     end.
+
+%% There used to be a race condition when using shell:start_interactive where
+%% the newline handling of standard_error did not change correctly to compensate
+%% for the tty changing to canonical mode
+shell_standard_error_nlcr(Config) ->
+
+    [
+     begin
+         Term = setup_tty([{env,[{"TERM",TERM}]},{args, ["-noshell"]} | Config]),
+         try
+             rpc(Term, io, format, [standard_error,"test~ntest~ntest", []]),
+             check_content(Term, "test\ntest\ntest$"),
+             rpc(Term, erlang, apply, [fun() -> shell:start_interactive(),
+                                                io:format(standard_error,"test~ntest~ntest", [])
+                                       end, []]),
+             check_content(Term, "test\ntest\ntest(\n|.)*test\ntest\ntest")
+         after
+             stop_tty(Term)
+         end
+     end || TERM <- ["dumb",os:getenv("TERM")]].
 
 %% We test that suspending of `erl` and then resuming restores the shell
 shell_suspend(Config) ->
@@ -1232,20 +1254,16 @@ tmux(Command) ->
 rpc(#tmux{ node = N }, M, F, A) ->
     erpc:call(N, M, F, A).
 
-start_tty(Config) ->
-
-    %% Start an node in an xterm
-    %% {ok, XPeer, _XNode} = ?CT_PEER(#{ exec =>
-    %%                                    {os:find_executable("xterm"),
-    %%                                     ["-hold","-e",os:find_executable("erl")]},
-    %%                                   detached => false }),
-
+%% Setup a TTY, but do not type anything in terminal
+setup_tty(Config) ->
     Name = maps:get(name,proplists:get_value(peer, Config, #{}),
                     peer:random_name(proplists:get_value(tc_path, Config))),
 
     Envs = lists:flatmap(fun({Key,Value}) ->
                                  ["-env",Key,Value]
                          end, proplists:get_value(env,Config,[])),
+
+    Args = proplists:get_value(args, Config, []),
 
     ExecArgs = case os:getenv("TMUX_DEBUG") of
                    "strace" ->
@@ -1270,11 +1288,11 @@ start_tty(Config) ->
 
                          args => ["-pz",filename:dirname(code:which(?MODULE)),
                                   "-connect_all","false",
-                                  "-kernel","logger_level","all",
+%                                  "-kernel","logger_level","all",
                                   "-kernel","shell_history","disabled",
                                   "-kernel","prevent_overlapping_partitions","false",
                                   "-eval","shell:prompt_func({interactive_shell_SUITE,prompt})."
-                                 ] ++ Envs,
+                                 ] ++ Envs ++ Args,
                          detached => false
                        },
 
@@ -1299,19 +1317,7 @@ start_tty(Config) ->
           end),
     unlink(Peer),
 
-    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
-    erpc:call(Node, application, set_env,
-              [stdlib, shell_prompt_func_test,
-               proplists:get_value(shell_prompt_func_test, Config, Prompt)]),
-
     "" = tmux(["set-option -t ",Name," remain-on-exit on"]),
-    Term = #tmux{ peer = Peer, node = Node, name = Name },
-    {Rows, _} = get_window_size(Term),
-
-    %% We send a lot of newlines here in order for the number of rows
-    %% in the window to be max so that we can predict what the cursor
-    %% position is.
-    [send_tty(Term,"\n") || _ <- lists:seq(1, Rows)],
 
     %% We start tracing on the remote node in order to help debugging
     TraceLog = filename:join(proplists:get_value(priv_dir,Config),Name++".trace"),
@@ -1330,6 +1336,25 @@ start_tty(Config) ->
                   monitor(process, Self),
                   receive _ -> ok end
           end),
+
+    #tmux{ peer = Peer, node = Node, name = Name }.
+
+%% Start a tty, setup custom prompt and set cursor at bottom
+start_tty(Config) ->
+
+    Term = setup_tty(Config),
+
+    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
+    erpc:call(Term#tmux.node, application, set_env,
+              [stdlib, shell_prompt_func_test,
+               proplists:get_value(shell_prompt_func_test, Config, Prompt)]),
+
+    {Rows, _} = get_window_size(Term),
+
+    %% We send a lot of newlines here in order for the number of rows
+    %% in the window to be max so that we can predict what the cursor
+    %% position is.
+    [send_tty(Term,"\n") || _ <- lists:seq(1, Rows)],
 
     %% We enter an 'a' here so that we can get the correct orig position
     %% with an alternative prompt.
@@ -2049,9 +2074,19 @@ remsh_basic(Config) when is_list(Config) ->
     %% Test that remsh works without -sname.
     rtnode:run(PreCmds ++ PostCmds, [], " ", "-remsh " ++ TargetNodeStr),
 
+    %% Test that if multiple remsh are given, we select the first
+    rtnode:run([{expect, "Multiple"}] ++ PreCmds ++ PostCmds,
+               [], " ",
+               "-remsh " ++ TargetNodeStr ++ " -remsh invalid_node"),
+
     peer:stop(Peer),
 
     ok.
+
+%% Test that if we cannot connect to a node, we get a correct error
+remsh_error(_Config) ->
+    "Could not connect to \"invalid_node\"\n" =
+        os:cmd(ct:get_progname() ++ " -remsh invalid_node").
 
 quit_hosting_node() ->
     %% Command sequence for entering a shell on the hosting node.
@@ -2104,7 +2139,7 @@ remsh_longnames(Config) when is_list(Config) ->
 
 %% Test that -remsh works without epmd.
 remsh_no_epmd(Config) when is_list(Config) ->
-    EPMD_ARGS = "-start_epmd false -erl_epmd_port 12345 ",
+    EPMD_ARGS = "-start_epmd false -erl_epmd_port 12346 ",
     Name = ?CT_PEER_NAME(),
     case rtnode:start([],"ERL_EPMD_PORT=12345 ",
                       EPMD_ARGS ++ " -sname " ++ Name) of
@@ -2127,10 +2162,10 @@ remsh_no_epmd(Config) when is_list(Config) ->
                             {putline, "node()."},
                             {expect, "\\Q" ++ Name ++ "\\E"} | quit_hosting_node()], 1)
                 after
-                    rtnode:stop(CState)
+                    rtnode:dump_logs(rtnode:stop(CState))
                 end
             after
-                rtnode:stop(SState)
+                rtnode:dump_logs(rtnode:stop(SState))
             end;
         {skip, _} = Else ->
             Else

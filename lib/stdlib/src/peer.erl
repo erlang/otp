@@ -349,17 +349,14 @@ handle_call({starting, Node}, _From, #peer_state{ options = Options } = State) -
     case maps:find(shutdown, Options) of
         {ok, {Timeout, MainCoverNode}} when is_integer(Timeout),
                                             is_atom(MainCoverNode) ->
-
             %% The node was started using test_server:start_peer/2 with cover enabled
             %% so we should start cover on the starting node.
             Modules = erpc:call(MainCoverNode,cover,modules,[]),
-            erpc:call(
-              Node, fun() ->
-                            Sticky = [ begin code:unstick_mod(M), M end
-                                       || M <- Modules, code:is_sticky(M)],
-                            erpc:call(MainCoverNode, cover, start, [Node]),
-                            [code:stick_mod(M) || M <- Sticky]
-                    end);
+            Sticky = [ begin erpc:call(Node, code, unstick_mod, [M]), M end
+                       || M <- Modules, erpc:call(Node, code, is_sticky,[M])],
+            _ = erpc:call(MainCoverNode, cover, start, [Node]),
+            _ = [erpc:call(Node, code,stick_mod,[M]) || M <- Sticky],
+            ok;
         _ ->
             ok
     end,

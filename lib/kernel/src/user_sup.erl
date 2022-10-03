@@ -115,20 +115,22 @@ wait_for_user_p(N) ->
     end.
 
 get_user(Flags) ->
-    check_flags(Flags, {user_drv, start, []}).
+    check_flags(Flags, lists:keymember(detached, 1, Flags), {user_drv, start, []}).
 
 %% These flags depend upon what arguments the erl script passes on
 %% to erl91.
-check_flags([{nouser, []} |T], _) -> check_flags(T, nouser);
-check_flags([{user, [User]} | T], _) ->
-    check_flags(T, {list_to_atom(User), start, []});
-check_flags([{noshell, []} | T], _) ->
-    check_flags(T,{user_drv, start, [#{ initial_shell => noshell }]});
-check_flags([{oldshell, []} | T], _) -> check_flags(T, {user, start, []});
-check_flags([{noinput, []} | T], _) ->
-    check_flags(T, {user_drv, start, [#{ initial_shell => noshell,
-                                         input => false }]});
-check_flags([{master, [Node]} | T], _) ->
-    check_flags(T, {master, list_to_atom(Node)});
-check_flags([_H | T], User) -> check_flags(T, User);
-check_flags([], User) -> User.
+check_flags([{nouser, []} |T], Attached, _) -> check_flags(T, Attached, nouser);
+check_flags([{user, [User]} | T], Attached, _) ->
+    check_flags(T, Attached, {list_to_atom(User), start, []});
+check_flags([{noshell, []} | T], Attached, _) ->
+    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell }]});
+check_flags([{oldshell, []} | T], false, _) ->
+    %% When running in detached mode, we ignore any -oldshell flags as we do not
+    %% want input => true to be set as they may halt the node (on bsd)
+    check_flags(T, false, {user_drv, start, [#{ initial_shell => oldshell }]});
+check_flags([{noinput, []} | T], Attached, _) ->
+    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell, input => false }]});
+check_flags([{master, [Node]} | T], Attached, _) ->
+    check_flags(T, Attached, {master, list_to_atom(Node)});
+check_flags([_H | T], Attached, User) -> check_flags(T, Attached, User);
+check_flags([], _Attached, User) -> User.

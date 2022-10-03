@@ -68,7 +68,6 @@ XML_REF3_FILES = application.xml \
 	seq_trace.xml \
 	socket.xml \
 	wrap_log_reader.xml \
-	user.xml \
 	zlib_stub.xml \
 	$(XML_REF3_ESOCK_EFILES)
 

@@ -35,7 +35,7 @@
 -export([ start_restricted_from_shell/1,
 	  start_restricted_on_command_line/1,restricted_local/1]).
 
--export([ start_interactive/1 ]).
+-export([ start_interactive/1, whereis/1 ]).
 
 %% Internal export.
 -export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1,
@@ -76,7 +76,8 @@ suite() ->
 
 all() ->
     [forget, known_bugs, otp_5226, otp_5327,
-     otp_5435, otp_5195, otp_5915, otp_5916, {group, bits},
+     otp_5435, otp_5195, otp_5915, otp_5916,
+     start_interactive, whereis, {group, bits},
      {group, refman}, {group, progex}, {group, tickets},
      {group, restricted}, {group, records}, {group, definitions}].
 
@@ -3075,24 +3076,33 @@ otp_14296(Config) when is_list(Config) ->
     ok.
 
 start_interactive(_Config) ->
+    start_interactive_shell([]),
+    start_interactive_shell(["-env","TERM","dumb"]).
+
+start_interactive_shell(ExtraArgs) ->
+
+    %% Basic test case
     rtnode:run(
-      [{expect, "test"},
+      [{expect, "eval_test"},
        {putline, "test."},
        {eval, fun() -> shell:start_interactive() end},
        {expect, "1>"},
-       {expect, "2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+       {expect, "2>"},
+       {eval, fun() -> {error,already_started} = shell:start_interactive(), ok end}
+      ],[],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
 
+    %% Test that custom MFA works
     rtnode:run(
-      [{expect, "test"},
+      [{expect, "eval_test"},
        {putline, "test."},
        {eval, fun() -> shell:start_interactive({shell,start,[]}) end},
        {expect, "1>"},
        {expect, "2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+      ],[],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
 
+    %% Test that we can start noshell and then a shell
     rtnode:run(
-      [{expect, "test"},
+      [{expect, "eval_test"},
        {putline, "test."},
        {eval, fun() -> shell:start_interactive(noshell) end},
        {eval, fun() -> io:format(user,"~ts",[io:get_line(user, "")]) end},
@@ -3101,29 +3111,156 @@ start_interactive(_Config) ->
        {eval, fun() -> shell:start_interactive() end},
        {expect, "1>"},
        {expect, "2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+      ],[],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
 
-    {ok, RPeer, RNode} = ?CT_PEER(),
-    unlink(RPeer),
-    SRNode = atom_to_list(RNode),
-    rtnode:run(
-      [{expect, "test"},
-       {putline, "test."},
-       {eval, fun() -> shell:start_interactive({remote, SRNode}) end},
-       {expect, "\\Q("++SRNode++")\\E2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+    %% Test that we can start various remote shell combos
+    [ begin
+          {ok, Peer, Node} = ?CT_PEER(),
+          SNode = atom_to_list(Node),
+          rtnode:run(
+            [{expect, "eval_test"},
+             {putline, "test."},
+             {eval, fun() -> shell:start_interactive(Arg(Node)) end},
+             {expect, "\\Q("++SNode++")\\E2>"}
+            ] ++ quit_hosting_node(),
+            [],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
+          peer:stop(Peer)
+      end || Arg <- [fun(Node) -> {Node, {shell,start,[]}} end,
+                     fun(Node) -> {remote, atom_to_list(Node)} end,
+                     fun(Node) -> {remote, hd(string:split(atom_to_list(Node),"@"))} end,
+                     fun(Node) -> {remote, atom_to_list(Node), {shell,start,[]}} end
+                    ]],
 
+    %% Test that errors work as they should
     {ok, Peer, Node} = ?CT_PEER(),
-    unlink(Peer),
-    SNode = atom_to_list(Node),
     rtnode:run(
-      [{expect, "test"},
-       {putline, "test."},
-       {eval, fun() -> shell:start_interactive({Node, {shell,start,[]}}) end},
-       {expect, "\\Q("++SNode++")\\E2>"}
-      ],[],"",["-noinput","-eval","io:format(\"test~n\")"]),
+      [{expect, "eval_test"},
+       {eval, fun() ->
+                      {error,noconnection} = shell:start_interactive(
+                                               {remote,"invalid_node"}),
+                      {error,noconnection} = shell:start_interactive(
+                                               {remote,"invalid_node",
+                                                {invalid_module, start, []}}),
+                      {error,nofile} = shell:start_interactive(
+                                         {remote,atom_to_list(Node),
+                                          {invalid_module, start, []}}),
+                      shell:start_interactive({remote, atom_to_list(Node)})
+              end},
+       {expect, "1> $"}
+      ] ++ quit_hosting_node(),
+      [],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
+    peer:stop(Peer),
 
     ok.
+
+whereis(_Config) ->
+    Proxy = spawn_link(
+              fun() ->
+                      (fun F(P) ->
+                               receive
+                                   {set,NewPid} ->
+                                       F(NewPid);
+                                   {get,From} ->
+                                       From ! P,
+                                       F(P)
+                               end
+                       end)(undefined)
+              end),
+
+    %% Test that shell:whereis() works with JCL in newshell
+    rtnode:run(
+      [{expect,"1> $"},
+       {putline,"shell:whereis()."},
+       {expect,"2> $"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     Proxy ! {set,shell:whereis()},
+                     ok
+             end},
+       {putline,"\^g"},
+       {expect,  "--> $"},
+       {putline, "s"},
+       {expect,  "--> $"},
+       {putline, "c"},
+       {expect,  "\r\nEshell"},
+       {putline,"shell:whereis()."},
+       {expect,"2> $"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     Proxy ! {get, self()},
+                     receive PrevPid -> PrevPid end,
+                     io:format("~p =:= ~p~n",[PrevPid, shell:whereis()]),
+                     false = PrevPid =:= shell:whereis(),
+                     ok
+             end},
+       {putline,"\^g"},
+       {expect,  "--> $"},
+       {putline, "c 1"},
+       {expect, "\r\n"},
+       {putline, ""},
+       {expect, "2> $"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     Proxy ! {get, self()},
+                     receive PrevPid -> PrevPid end,
+                     true = PrevPid =:= shell:whereis(),
+                     ok
+             end}]),
+
+    %% Test that shell:whereis() works in oldshell
+    rtnode:run(
+      [{expect,"1>"},
+       {eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     true = is_pid(shell:whereis()),
+                     ok
+             end}],
+     [],"",["-env","TERM","dumb"]),
+
+    %% Test that noinput and noshell gives undefined shell process
+    rtnode:run(
+      [{eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     undefined = shell:whereis(),
+                     ok
+             end}],
+      [],"",["-noinput"]),
+    rtnode:run(
+      [{eval,fun() ->
+                     group_leader(erlang:whereis(user),self()),
+                     undefined = shell:whereis(),
+                     ok
+             end}],
+      [],"",["-noshell"]),
+
+    %% Test that remsh gives the correct shell process
+    {ok, Peer, Node} = ?CT_PEER(),
+    NodeStr = lists:flatten(io_lib:format("~w",[Node])),
+    rtnode:run(
+      [{expect, "1>"},
+       {putline,"shell:whereis()."},
+       {expect,"\n<0[.]"},
+       {expect, "2>"},
+       {eval, fun() ->
+                      group_leader(erlang:whereis(user),self()),
+                      true = Node =:= node(shell:whereis()),
+                      ok
+              end}] ++ quit_hosting_node(),
+      peer:random_name(?FUNCTION_NAME), " ", "-remsh " ++ NodeStr  ++
+          " -pa " ++ filename:dirname(code:which(?MODULE))),
+
+    peer:stop(Peer),
+
+    ok.
+
+quit_hosting_node() ->
+    [{putline, "\^g"},
+     {expect, "--> $"},
+     {putline, "s"},
+     {expect, "--> $"},
+     {putline, "c"},
+     {expect, ["Eshell"]},
+     {expect, ["1> $"]}].
 
 term_to_string(T) ->
     lists:flatten(io_lib:format("~w", [T])).

@@ -2789,7 +2789,8 @@ peer_name(Module, TestCase) ->
     peer:random_name(lists:concat([Module, "-", TestCase])).
 
 %% Command line arguments passed
--spec start_peer([string()] | peer:start_options(), atom() | string(), TestCase :: atom() | string()) ->
+-spec start_peer([string()] | peer:start_options() | #{ start_cover => boolean() },
+                 atom() | string(), TestCase :: atom() | string()) ->
     {ok, gen_statem:server_ref(), node()} | {error, term()}.
 start_peer(Args, Module, TestCase) when is_list(Args) ->
     start_peer(#{args => Args, name => peer_name(Module, TestCase)}, Module);
@@ -2801,9 +2802,10 @@ start_peer(Opts, Module, TestCase) ->
     start_peer(Opts#{name => peer_name(Module, TestCase)}, Module).
 
 %% Release compatibility testing
--spec start_peer([string()] | peer:start_options(), atom() | string(), TestCase :: atom() | string(),
-    Release :: string(), OutDir :: file:filename()) ->
-        {ok, gen_statem:server_ref(), node()} | {error, term()} | not_available.
+-spec start_peer([string()] | peer:start_options() | #{ start_cover => boolean() },
+                 atom() | string(), TestCase :: atom() | string(),
+                 Release :: string(), OutDir :: file:filename()) ->
+          {ok, gen_statem:server_ref(), node()} | {error, term()} | not_available.
 start_peer(Args, Module, TestCase, Release, OutDir) when is_list(Args) ->
     start_peer(#{args => Args}, Module, TestCase, Release, OutDir);
 start_peer(Opts, Module, TestCase, Release, OutDir) ->
@@ -2815,8 +2817,8 @@ start_peer(Opts, Module, TestCase, Release, OutDir) ->
             %% for old releases. Keep ERL_FLAGS, and ERL_ZFLAGS for sometimes you might need it...
             Env = maps:get(env, Opts, []) ++ [{"ERL_AFLAGS", false}],
             NewArgs = ["-pa", peer_compile(Erl, code:which(peer), OutDir) | maps:get(args, Opts, [])],
-            start_peer(Opts#{exec => Erl, args => NewArgs,
-                env => Env}, Module, TestCase)
+            start_peer(Opts#{exec => Erl, args => NewArgs, env => Env,
+                             start_cover => false }, Module, TestCase)
     end.
 
 %% Internal implementation

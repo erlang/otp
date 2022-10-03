@@ -21,12 +21,13 @@
 
 -export([start/0, start/1, start/2, server/1, server/2, history/1, results/1]).
 -export([get_state/0, get_function/2]).
--export([whereis_evaluator/0, whereis_evaluator/1]).
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_func/0, local_func/1, local_allowed/3, non_local_allowed/3]).
 -export([catch_exception/1, prompt_func/1, strings/1]).
 -export([start_interactive/0, start_interactive/1]).
 -export([read_and_add_records/5]).
+-export([whereis/0]).
+
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
 -define(DEF_HISTORY, 20).
@@ -54,15 +55,23 @@ non_local_allowed({init,stop},[],State) ->
 non_local_allowed(_,_,State) ->
     {false,State}.
 
--spec start_interactive() -> ok | {error, already_started | enottty}.
+-spec start_interactive() -> ok | {error, already_started}.
 start_interactive() ->
     user_drv:start_shell().
--spec start_interactive(noshell | mfa() | {node(), mfa()} | {remote, string()}) ->
-          ok | {error, already_started | enottty}.
+-spec start_interactive(noshell | mfa()) ->
+          ok | {error, already_started};
+                       ({remote, string()}) ->
+          ok | {error, already_started | noconnection};
+                       ({node(), mfa()} | {remote, string(), mfa()}) ->
+          ok | {error, already_started | noconnection | badfile | nofile | on_load_failure}.
 start_interactive({Node, {M, F, A}}) ->
     user_drv:start_shell(#{ initial_shell => {Node, M, F ,A} });
 start_interactive(InitialShell) ->
     user_drv:start_shell(#{ initial_shell => InitialShell }).
+
+-spec whereis() -> pid() | undefined.
+whereis() ->
+    group:whereis_shell().
 
 -spec start() -> pid().
 
@@ -84,67 +93,6 @@ start(NoCtrlG, StartSync) ->
                   put('$ancestors', Ancestors),
                   server(NoCtrlG, StartSync)
           end).
-
-whereis_shell() ->
-    %% locate top group leader, always registered as user
-    %% can be implemented by group (normally) or user
-    %% (if oldshell or noshell)
-    case whereis(user) of
-        undefined ->
-            undefined;
-        User ->
-            %% get user_drv pid from group, or shell pid from user
-            case group:interfaces(User) of
-                [] ->                           % old- or noshell
-                    case user:interfaces(User) of
-                        [] ->
-                            undefined;
-                        [{shell,Shell}] ->
-                            Shell
-                    end;
-                [{user_drv,UserDrv}] ->
-                    %% get current group pid from user_drv
-                    case user_drv:interfaces(UserDrv) of
-                        [] ->
-                            undefined;
-                        [{current_group,Group}] ->
-                            %% get shell pid from group
-                            GrIfs = group:interfaces(Group),
-                            case lists:keyfind(shell, 1, GrIfs) of
-                                {shell, Shell} -> Shell;
-                                false ->
-                                    undefined
-                            end
-                    end
-            end
-    end.
-
-% %% Find the pid of the current evaluator process.
--spec whereis_evaluator() -> 'undefined' | pid().
-
-whereis_evaluator() ->
-    %% locate top group leader, always registered as user
-    %% can be implemented by group (normally) or user
-    %% (if oldshell or noshell)
-    case whereis_shell() of
-        undefined -> undefined;
-        Shell -> whereis_evaluator(Shell)
-    end.
-
--spec whereis_evaluator(pid()) -> 'undefined' | pid().
-
-whereis_evaluator(Shell) ->
-    case process_info(Shell, dictionary) of
-        {dictionary,Dict} ->
-            case lists:keyfind(evaluator, 1, Dict) of
-                {_, Eval} when is_pid(Eval) ->
-                    Eval;
-                _ ->
-                    undefined
-            end;
-        _ ->
-            undefined
-    end.
 
 %% Call this function to start a user restricted shell
 %% from a normal shell session.
@@ -318,9 +266,11 @@ server_loop(N0, Eval_0, Bs00, RT, FT, Ds00, History0, Results0) ->
     end.
 
 get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
+    Ancestors = [self() | get('$ancestors')],
     ResWordFun = fun erl_scan:reserved_word/1,
     Parse =
         fun() ->
+                put('$ancestors', Ancestors),
                 exit(
                   case
                       io:scan_erl_exprs(group_leader(), Prompt, {1,1},
@@ -640,7 +590,7 @@ has_bin(T, I) ->
     has_bin(T, I - 1).
 
 get_state() ->
-    whereis_shell() ! {shell_state, self()},
+    whereis() ! {shell_state, self()},
     receive
         {shell_state, Bs, RT, FT} ->
             #shell_state{bindings = Bs, records = ets:tab2list(RT), functions = ets:tab2list(FT)}
@@ -739,7 +689,11 @@ report_exception(Class, Severity, {Reason,Stacktrace}, RT) ->
 
 start_eval(Bs, RT, FT, Ds) ->
     Self = self(),
-    Eval = spawn_link(fun() -> evaluator(Self, Bs, RT, FT, Ds) end),
+    Ancestors = [self() | get('$ancestors')],
+    Eval = spawn_link(fun() ->
+                              put('$ancestors', Ancestors),
+                              evaluator(Self, Bs, RT, FT, Ds)
+                      end),
     put(evaluator, Eval),
     Eval.
 

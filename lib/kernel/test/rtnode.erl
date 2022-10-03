@@ -26,7 +26,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-%%-define(debug, true).
+%% -define(debug, true).
 
 -ifdef(debug).
 -define(dbg(Data),io:format(standard_error, "DBG: ~p\r\n",[Data])).
@@ -79,13 +79,13 @@ start(Nodename, ErlPrefix, Args, Options) ->
                 {error, Reason2} ->
                     {skip, Reason2};
                 Tempdir when ErlPrefix =/= [] ->
-                    SPid =
+                    {SPid, Node} =
                         start_runerl_node(RunErl,
                                           ErlPrefix++"\\\""++Erl++"\\\" "++
                                               lists:join($\s, ErlArgs),
 					  Tempdir,Nodename,Args),
 		    CPid = start_toerl_server(ToErl,Tempdir,undefined),
-                    {ok, SPid, CPid, undefined, {CPid, SPid, ToErl, Tempdir}};
+                    {ok, SPid, CPid, Node, {CPid, SPid, ToErl, Tempdir}};
                 Tempdir ->
                     {SPid, Node} = start_peer_runerl_node(RunErl,ErlWArgs,Tempdir,Nodename,Args),
                     CPid = start_toerl_server(ToErl,Tempdir,SPid),
@@ -124,7 +124,7 @@ timeout(long) ->
 timeout(short) ->
     timeout(normal) div 10;
 timeout(normal) ->
-    10000 * test_server:timetrap_scale_factor().
+    1000 * test_server:timetrap_scale_factor().
 
 send_commands(Node, CPid, [{sleep, X}|T], N) ->
     ?dbg({sleep, X}),
@@ -156,10 +156,13 @@ send_commands(Node, CPid, [{putdata, Data}|T], N) ->
             Error
     end;
 send_commands(Node, CPid, [{eval, Fun}|T], N) ->
+    ?dbg({eval, Node, Fun}),
     case erpc:call(Node, Fun) of
         ok ->
+            ?dbg({eval, ok}),
             send_commands(Node, CPid, T, N+1);
          Error ->
+            ?dbg({eval, Error}),
              Error
      end;
 send_commands(_Node, _CPid, [], _) ->
@@ -268,16 +271,21 @@ create_tempdir(Dir0, Ch) ->
     end.
 
 start_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
-    XArg = case Nodename of
-               [] ->
-                   [];
-               _ ->
-                   " -sname "++(if is_atom(Nodename) -> atom_to_list(Nodename);
-                                   true -> Nodename
-                                end)++
-                       " -setcookie "++atom_to_list(erlang:get_cookie())
-           end ++ " " ++ Args,
-    spawn(fun() -> start_runerl_command(RunErl, Tempdir, Erl++XArg) end).
+    {XArg, Node} =
+        case Nodename of
+            [] ->
+                {[], undefined};
+            _ ->
+                NodenameStr = if is_atom(Nodename) -> atom_to_list(Nodename);
+                                 true -> Nodename
+                              end,
+                [_Name,Host] = string:split(atom_to_list(node()), "@"),
+                {" -sname "++ NodenameStr ++
+                     " -setcookie "++atom_to_list(erlang:get_cookie()),
+                 list_to_atom(NodenameStr ++ "@" ++ Host)}
+        end,
+    {spawn(fun() -> start_runerl_command(RunErl, Tempdir, Erl ++ XArg ++ " " ++ Args) end),
+     Node}.
 
 start_runerl_command(RunErl, Tempdir, Cmd) ->
     FullCmd = "\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"",
@@ -441,6 +449,7 @@ handle_expect(#{acc := Acc, expect := Exp} = State) ->
         nomatch ->
             State;
         {matched, Eaten, Result} ->
+            ?dbg({matched, Eaten, Result}),
             Pid ! {Ref, Result},
             finish_expect(Eaten, State)
     end;
