@@ -779,16 +779,6 @@ do_major_collection:
         ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_GC);
     }
 
-    assert_no_active_writers(p);
-
-    /*
-     * Finish.
-     */
-
-    ERTS_CHK_OFFHEAP(p);
-
-    ErtsGcQuickSanityCheck(p);
-
     /* Max heap size has been reached and the process was configured
        to be killed, so we kill it and set it in a delayed garbage
        collecting state. There should be no gc_end trace or
@@ -809,6 +799,13 @@ do_major_collection:
         ERTS_MSACC_POP_STATE();
         return res;
     }
+
+    /*
+     * Finish.
+     */
+    assert_no_active_writers(p);
+    ERTS_CHK_OFFHEAP(p);
+    ErtsGcQuickSanityCheck(p);
 
     erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
