@@ -91,7 +91,12 @@ init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
                     case kernel_test_global_sys_monitor:start() of
                         {ok, _} ->
                             print("(global) system monitor started"),
-                            [{kernel_factor, Factor} | Config];
+                            case lists:keysearch(label, 1, HostInfo) of
+                                {value, Label} ->
+                                    [{kernel_factor, Factor}, Label | Config];
+                                false ->
+                                    [{kernel_factor, Factor} | Config]
+                            end;
                         {error, Reason} ->
                             print("Failed start (global) system monitor:"
                                   "~n      ~p", [Reason]),
@@ -152,26 +157,47 @@ analyze_and_print_host_info() ->
 linux_which_distro(Version) ->
     try do_linux_which_distro(Version)
     catch
-        throw:{distro, Distro} ->
-            Distro
+        throw:{distro, DistroAndLabel} ->
+            DistroAndLabel
     end.
 
+ts_extra_flatform_label() ->
+    case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
+        false -> "-";
+        Val   -> Val
+    end.
+
+simplify_label(Label) ->
+    case string:to_lower(Label) of
+        "docker" ++ _ ->
+            docker;
+        _ ->
+            host
+    end.
+
+label2factor(docker) ->
+    4;
+label2factor(host) ->
+    0.
+
 do_linux_which_distro(Version) ->
+    Label = ts_extra_flatform_label(),
     %% Many (linux) distro's use the /etc/issue file, so try that first.
     %% Then we just keep going until we are "done".
-    DistroStr = do_linux_which_distro_issue(Version),
+    DistroStr = do_linux_which_distro_issue(Version, Label),
     %% Still not sure; try fedora
-    _ = do_linux_which_distro_fedora(Version),
+    _ = do_linux_which_distro_fedora(Version, Label),
     %% Still not sure; try suse
-    _ = do_linux_which_distro_suse(Version),
+    _ = do_linux_which_distro_suse(Version, Label),
     %% And the fallback
     io:format("Linux: ~s"
-              "~n   ~s"
+              "~n   Distro: ~s"
+              "~n   Label:  ~s"
               "~n",
-              [Version, DistroStr]),
+              [Version, DistroStr, Label]),
     other.
 
-do_linux_which_distro_issue(Version) ->
+do_linux_which_distro_issue(Version, Label) ->
     case file:read_file_info("/etc/issue") of
         {ok, _} ->
             case [string:trim(S) ||
@@ -180,34 +206,44 @@ do_linux_which_distro_issue(Version) ->
                     case DistroStr of
                         "Wind River Linux" ++ _ ->
                             io:format("Linux: ~s"
-                                      "~n   ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
                                       "~n",
-                                      [Version, DistroStr]),
-                            throw({distro, wind_river});
+                                      [Version, DistroStr, Label]),
+                            throw({distro,
+                                   {wind_river, simplify_label(Label)}});
                         "MontaVista" ++ _ ->
                             io:format("Linux: ~s"
-                                      "~n   ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
                                       "~n",
-                                      [Version, DistroStr]),
-                            throw({distro, montavista});
+                                      [Version, DistroStr, Label]),
+                            throw({distro,
+                                   {montavista, simplify_label(Label)}});
                         "Yellow Dog" ++ _ ->
                             io:format("Linux: ~s"
-                                      "~n   ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
                                       "~n",
-                                      [Version, DistroStr]),
-                            throw({distro, yellow_dog});
+                                      [Version, DistroStr, Label]),
+                            throw({distro,
+                                   {yellow_dog, simplify_label(Label)}});
                         "Ubuntu" ++ _ ->
                             io:format("Linux: ~s"
-                                      "~n   ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
                                       "~n",
-                                      [Version, DistroStr]),
-                            throw({distro, ubuntu});
+                                      [Version, DistroStr, Label]),
+                            throw({distro,
+                                   {ubuntu, simplify_label(Label)}});
                         "Linux Mint" ++ _ ->
                             io:format("Linux: ~s"
-                                      "~n   ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
                                       "~n",
-                                      [Version, DistroStr]),
-                            throw({distro, linux_mint});
+                                      [Version, DistroStr, Label]),
+                            throw({distro,
+                                   {linux_mint, simplify_label(Label)}});
                         _ ->
                             DistroStr
                     end;
@@ -218,7 +254,7 @@ do_linux_which_distro_issue(Version) ->
             "Unknown"
     end.
                             
-do_linux_which_distro_fedora(Version) ->
+do_linux_which_distro_fedora(Version, Label) ->
     %% Check if fedora
     case file:read_file_info("/etc/fedora-release") of
         {ok, _} ->
@@ -227,21 +263,23 @@ do_linux_which_distro_fedora(Version) ->
                                         [$\n])] of
                 [DistroStr | _] ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro:                  ~s"
+                              "~n   TS Extra Platform Label: ~s"
                               "~n",
-                              [Version, DistroStr]);
+                              [Version, DistroStr, Label]);
                 _ ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro:                  ~s"
+                              "~n   TS Extra Platform Label: ~s"
                               "~n",
-                              [Version, "Fedora"])
+                              [Version, "Fedora", Label])
             end,
-            throw({distro, fedora});
+            throw({distro, {fedora, simplify_label(Label)}});
         _ ->
             ignore
     end.
 
-do_linux_which_distro_suse(Version) ->
+do_linux_which_distro_suse(Version, Label) ->
     %% Check if its a SuSE
     case file:read_file_info("/etc/SuSE-release") of
         {ok, _} ->
@@ -250,22 +288,25 @@ do_linux_which_distro_suse(Version) ->
                                         [$\n])] of
                 ["SUSE Linux Enterprise Server" ++ _ = DistroStr | _] ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro:                  ~s"
+                              "~n   TS Extra Platform Label: ~s"
                               "~n",
-                              [Version, DistroStr]),
-                    throw({distro, sles});
+                              [Version, DistroStr, Label]),
+                    throw({distro, {sles, simplify_label(Label)}});
                 [DistroStr | _] ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro:                  ~s"
+                              "~n   TS Extra Platform Label: ~s"
                               "~n",
-                              [Version, DistroStr]),
-                    throw({distro, suse});
+                              [Version, DistroStr, Label]),
+                    throw({distro, {suse, simplify_label(Label)}});
                 _ ->
                     io:format("Linux: ~s"
-                              "~n   ~s"
+                              "~n   Distro:                  ~s"
+                              "~n   TS Extra Platform Label: ~s"
                               "~n",
-                              [Version, "SuSE"]),
-                    throw({distro, suse})
+                              [Version, "SuSE", Label]),
+                    throw({distro, {suse, simplify_label(Label)}})
             end;
         _ ->
             ignore
@@ -273,14 +314,16 @@ do_linux_which_distro_suse(Version) ->
 
 
 analyze_and_print_linux_host_info(Version) ->
-    Distro =
+    {Distro, Label} =
         case file:read_file_info("/etc/issue") of
             {ok, _} ->
                 linux_which_distro(Version);
             _ ->
+                L = ts_extra_flatform_label(),
                 io:format("Linux: ~s"
-                          "~n", [Version]),
-                other
+                          "~n   TS Extra Platform Label: ~s"
+                          "~n", [Version, L]),
+                {other, simplify_label(L)}
         end,
     Factor =
         case (catch linux_which_cpuinfo(Distro)) of
@@ -333,16 +376,24 @@ analyze_and_print_linux_host_info(Version) ->
             _ ->
                 5
         end,
+    AddLabelFactor = label2factor(Label),
     %% Check if we need to adjust the factor because of the memory
-    try linux_which_meminfo() of
-        AddFactor ->
-            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
-            {Factor + AddFactor, []}
-    catch
-        _:_:_ ->
-            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
-            {Factor, []}
-    end.
+    AddMemFactor = try linux_which_meminfo()
+                   catch _:_:_ -> 0
+                   end,
+    TSScaleFactor = case timetrap_scale_factor() of
+                        N when is_integer(N) andalso (N > 0) ->
+                            N - 1;
+                        _ ->
+                            0
+                    end,
+    io:format("Factor calc:"
+              "~n      Base Factor:     ~w"
+              "~n      Label Factor:    ~w"
+              "~n      Mem Factor:      ~w"
+              "~n      TS Scale Factor: ~w"
+             "~n", [Factor, AddLabelFactor, AddMemFactor, TSScaleFactor]),
+    {Factor + AddLabelFactor + AddMemFactor + TSScaleFactor, [{label, Label}]}.
 
 linux_cpuinfo_clock() ->
     %% This is written as: "3783.000000MHz"
