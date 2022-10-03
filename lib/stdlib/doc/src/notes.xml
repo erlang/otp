@@ -31,6 +31,27 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 4.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <seeerl marker="stdlib:peer"><c>peer</c></seeerl> nodes
+	    failed to halt when the process supervising the control
+	    connection crashed. When an alternative control
+	    connection was used, this supervision process also quite
+	    frequently crashed when the <c>peer</c> node was stopped
+	    by the node that started it which caused the <c>peer</c>
+	    node to linger without ever halting.</p>
+          <p>
+	    Own Id: OTP-18249 Aux Id: PR-6301 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
