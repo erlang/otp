@@ -85,6 +85,16 @@ jobs:
           repository: 'erlang/erlang.github.io'
           path: erlang.github.io
 
+      - name: Publish CT Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        if: steps.extract.outputs.HAS_TEST_ARTIFACTS == 'true'
+        with:
+          commit: ${{ github.event.workflow_run.head_sha }}
+          event_file: artifacts/Event File/event.json
+          event_name: ${{ github.event.workflow_run.event }}
+          check_name: "CT Test Results"
+          files: "artifacts/**/*.xml"
+
       - name: Upload PR to github pages
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -105,19 +115,10 @@ jobs:
           repository-name: erlang/erlang.github.io
           single-commit: true
 
-      - name: Publish CT Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        if: steps.extract.outputs.HAS_TEST_ARTIFACTS == 'true'
-        with:
-          commit: ${{ github.event.workflow_run.head_sha }}
-          event_file: artifacts/Event File/event.json
-          event_name: ${{ github.event.workflow_run.event }}
-          check_name: "CT Test Results"
-          files: "artifacts/**/*.xml"
-
         ## Append some usefull links and tips to the test results posted by
         ## Publish CT Test Results
       - uses: actions/github-script@v5
+        if: always()
         with:
           script: |
             const script = require('./.github/scripts/pr-comment.js');
