@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.18.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>For the <c>per</c> and <c>uper</c> ASN.1 encoding
+	    rules, encoding and decoding the <c>SEQUENCE OF</c> and
+	    <c>SET OF</c> constructs with 16384 items or more is now
+	    supported.</p>
+          <p>
+	    Own Id: OTP-18245 Aux Id: ERIERL-859 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.18</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
