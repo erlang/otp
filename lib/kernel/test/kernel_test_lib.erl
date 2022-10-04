@@ -168,7 +168,7 @@ ts_extra_flatform_label() ->
     end.
 
 simplify_label(Label) ->
-    case string:to_lower(Label) of
+    case string:find(string:to_lower(Label), "docker") of
         "docker" ++ _ ->
             docker;
         _ ->
