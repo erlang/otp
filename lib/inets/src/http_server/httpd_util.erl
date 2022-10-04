@@ -129,6 +129,7 @@ reason_phrase(304) ->   "Not Modified" ;
 reason_phrase(305) ->   "Use Proxy" ;
 reason_phrase(306) ->   "(unused)" ;
 reason_phrase(307) ->   "Temporary Redirect" ;
+reason_phrase(308) ->   "Permanent Redirect" ;
 reason_phrase(400) ->   "Bad Request";
 reason_phrase(401) ->   "Unauthorized";
 reason_phrase(402) ->   "Payment Required";
