@@ -2794,6 +2794,28 @@
 
 </section>
 
+<section><title>Erts 11.2.2.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <seemfa
+	    marker="erts:erlang#dist_ctrl_get_data_notification/1">Notifications
+	    about available distribution data</seemfa> sent to
+	    distribution controller processes could be lost.
+	    Distribution controller processes can be used when
+	    implementing an alternative distribution carrier. The
+	    default distribution over tcp was not effected and the
+	    bug was also not present on x86/x86_64 platforms.</p>
+          <p>
+	    Own Id: OTP-18258 Aux Id: GH-6309, PR-6324 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 11.2.2.16</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

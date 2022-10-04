@@ -1657,6 +1657,25 @@
 
 </section>
 
+<section><title>Kernel 7.3.1.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new function <seemfa
+	    marker="kernel:global#disconnect/0"><c>global:disconnect/0</c></seemfa>
+	    has been introduced with which one can cleanly disconnect
+	    a node from all other nodes in a cluster of <c>global</c>
+	    nodes.</p>
+          <p>
+	    Own Id: OTP-18232 Aux Id: OTP-17843, PR-6264 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 7.3.1.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
