@@ -47,13 +47,8 @@ init_per_testcase(_Case, Config) ->
     end,
     Config.
 
-end_per_testcase(_Case, _Config) ->
-    case nodes(connected) of
-        [] -> ok;
-        Nodes ->
-            [net_kernel:disconnect(N) || N <- Nodes],
-            {fail, {"Leaked connections", Nodes}}
-    end.
+end_per_testcase(_Case, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),

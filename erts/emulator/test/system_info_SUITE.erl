@@ -62,13 +62,8 @@ init_per_testcase(_, Config) ->
 
 end_per_testcase(procs_bug, Config) ->
     procs_bug(end_per_testcase, Config);
-end_per_testcase(_, _) ->
-    case nodes(connected) of
-        [] -> ok;
-        Nodes ->
-            [net_kernel:disconnect(N) || N <- Nodes],
-            {fail, {"Leaked connections", Nodes}}
-    end.
+end_per_testcase(_, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %%%
 %%% The test cases -------------------------------------------------------------

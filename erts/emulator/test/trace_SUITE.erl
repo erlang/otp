@@ -74,12 +74,7 @@ end_per_testcase(_Case, Config) ->
     unlink(Receiver),
     exit(Receiver, die),
 
-    case nodes(connected) of
-        [] -> ok;
-        Nodes ->
-            [net_kernel:disconnect(N) || N <- Nodes],
-            {fail, {"Leaked connections", Nodes}}
-    end.
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %% No longer testing anything, just reporting whether cpu_timestamp
 %% is enabled or not.
