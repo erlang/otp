@@ -640,7 +640,7 @@ get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
                end,
     Cs = case {Cs1, MatchStr} of
              {_, []} -> Cs1;
-             {Cs1, [_SingleMatch]} when Cs1 =/= [] -> Cs1;
+             {Cs1, _} when Cs1 =/= [] -> Cs1;
              _ ->
                  NlMatchStr = unicode:characters_to_binary("\n"++MatchStr),
                  case get(expand_below) of

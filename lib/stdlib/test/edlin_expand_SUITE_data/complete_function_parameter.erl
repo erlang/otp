@@ -49,6 +49,7 @@
     reference_parameter_function/2,
     any_parameter_function/2,
     ann_type_parameter_function/2,
+    ann_type_parameter_function2/2,
     atom_parameter_function/2
     ]).
 -record(a_record, {}).
@@ -156,5 +157,8 @@ any_parameter_function(_,_) -> false.
 -spec atom_parameter_function(atom, any()) -> boolean().
 atom_parameter_function(_,_) -> false.
 
--spec ann_type_parameter_function(V::atom(), any()) -> boolean().
+-spec ann_type_parameter_function(V::atom(), W::any()) -> boolean().
 ann_type_parameter_function(_,_) -> false.
+
+-spec ann_type_parameter_function2(W::any(), V::atom()) -> boolean().
+ann_type_parameter_function2(_,_) -> false.

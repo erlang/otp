@@ -2312,13 +2312,14 @@ remsh_expand_compatibility_25(Config) when is_list(Config) ->
     {ok, _Peer, TargetNode} = ?CT_PEER(#{}), %% Create a vsn 26 node
     NodeName = atom_to_list(TargetNode), %% compatibility
     %% Start a node on vsn 25 but run the shell on vsn 26
-    case rtnode:start(peer:random_name(), "ERL_AFLAGS= ", "-remsh "++NodeName, [{release, "25"}|Config]) of
+    case rtnode:start(peer:random_name(), "stty columns 200; ERL_AFLAGS= ", "-remsh "++NodeName, [{release, "25"}|Config]) of
         {ok, _SRPid, STPid, _, SState} ->
             try
                 ok = rtnode:send_commands(undefined,
                        STPid,
                        [{putdata, "erlang:is_atom\t"},
-                        {expect, "\\Qerlang:is_atom(\\E"}], 1)
+                        {expect, "\\Qerlang:is_atom(\\E"}|
+                        quit_hosting_node()], 1)
             after
                 Logs = rtnode:stop(SState),
                 rtnode:dump_logs(Logs)
@@ -2332,13 +2333,14 @@ remsh_expand_compatibility_later_version(Config) when is_list(Config) ->
         {ok, _Peer, TargetNode}  ->
             NodeName = atom_to_list(TargetNode),
             %% Start a node on later version but run the shell on vsn 25
-            case rtnode:start(peer:random_name(), "", ["-remsh", NodeName], Config) of
+            case rtnode:start(peer:random_name(), "stty columns 200; ERL_AFLAGS= ", "-remsh " ++ NodeName, Config) of
                 {ok, _SRPid, STPid, _, SState} ->
                     try
                         ok = rtnode:send_commands(undefined,
                             STPid,
-                            [{putdata, "  erlang:is_atom\t"},
-                                {expect, "\\Qerlang:is_atom(\\E"}], 1)
+                            [{putdata, "erlang:is_atom\t"},
+                             {expect, "\\Qerlang:is_atom(\\E"}|
+                             quit_hosting_node()], 1)
                     after
                         Logs = rtnode:stop(SState),
                         rtnode:dump_logs(Logs)
