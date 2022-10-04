@@ -3370,7 +3370,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                        (!ctx->no_trap && !ctx->no_suspend));
 
 		erts_mtx_lock(&dep->qlock);
-		qsize = erts_atomic_add_read_nob(&dep->qsize, (erts_aint_t) obsz);
+		qsize = erts_atomic_add_read_mb(&dep->qsize, (erts_aint_t) obsz);
                 ASSERT(qsize >= obsz);
                 qflgs = erts_atomic32_read_nob(&dep->qflgs);
 		if (!(qflgs & ERTS_DE_QFLG_BUSY) && qsize >= erts_dist_buf_busy_limit) {
@@ -3978,17 +3978,18 @@ dist_ctrl_get_data_notification_1(BIF_ALIST_1)
 
     ASSERT(dep->cid == BIF_P->common.id);
 
-    qflgs = erts_atomic32_read_acqb(&dep->qflgs);
+    qflgs = erts_atomic32_read_nob(&dep->qflgs);
 
     if (!(qflgs & ERTS_DE_QFLG_REQ_INFO)) {
-        qsize = erts_atomic_read_acqb(&dep->qsize);
+        ERTS_THR_READ_MEMORY_BARRIER;
+        qsize = erts_atomic_read_nob(&dep->qsize);
         ASSERT(qsize >= 0);
         if (qsize > 0)
             receiver = BIF_P->common.id; /* Notify ourselves... */
         else { /* Empty queue; set req-info flag... */
             qflgs = erts_atomic32_read_bor_mb(&dep->qflgs,
                                                   ERTS_DE_QFLG_REQ_INFO);
-            qsize = erts_atomic_read_acqb(&dep->qsize);
+            qsize = erts_atomic_read_nob(&dep->qsize);
             ASSERT(qsize >= 0);
             if (qsize > 0) {
                 qflgs = erts_atomic32_read_band_mb(&dep->qflgs,
@@ -5067,6 +5068,7 @@ setup_connection_epiloge_rwunlock(Process *c_p, DistEntry *dep,
             erts_schedule_dist_command(NULL, dep);
         }
         else {
+            ERTS_THR_READ_MEMORY_BARRIER;
             qflgs = erts_atomic32_read_nob(&dep->qflgs);
             if (qflgs & ERTS_DE_QFLG_REQ_INFO) {
                 qflgs = erts_atomic32_read_band_mb(&dep->qflgs,
