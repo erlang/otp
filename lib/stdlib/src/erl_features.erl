@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erl_features).
+-feature(maybe_expr, enable).
 
 -export([all/0,
          configurable/0,
@@ -432,25 +433,18 @@ set_keywords(Words) ->
 %%  {not_allowed, <list of not enabled features>}.
 -spec load_allowed(binary()) -> ok | {not_allowed, [feature()]}.
 load_allowed(Binary) ->
-    case erts_internal:beamfile_chunk(Binary, "Meta") of
-        undefined ->
-            ok;
-        Meta ->
-            MetaData = erlang:binary_to_term(Meta),
-            case proplists:get_value(enabled_features, MetaData) of
-                undefined ->
-                    ok;
-                Used ->
-                    Enabled = enabled(),
-                    case lists:filter(fun(UFtr) ->
-                                              not lists:member(UFtr, Enabled)
-                                      end,
-                                      Used) of
-                        [] -> ok;
-                        NotEnabled ->
-                            {not_allowed, NotEnabled}
-                    end
-            end
+    maybe
+        Meta = erts_internal:beamfile_chunk(Binary, "Meta"),
+        true ?= Meta =/= undefined,
+        MetaData = binary_to_term(Meta),
+        Used = proplists:get_value(enabled_features, MetaData, []),
+        Enabled = enabled(),
+        NotEnabled = [UFtr || UFtr <- Used,
+                              not lists:member(UFtr, Enabled)],
+        [_|_] ?= NotEnabled,
+        {not_allowed, NotEnabled}
+    else
+        _ -> ok
     end.
 
 %% Return features used by module or beam file
