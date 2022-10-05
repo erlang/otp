@@ -371,7 +371,7 @@ init_features() ->
         end,
     FOps = lists:filtermap(F, FeatureOps),
     {Features, _, _} = collect_features(FOps),
-    {Enabled, Keywords} =
+    {Enabled0, Keywords} =
         lists:foldl(fun(Ftr, {Ftrs, Keys}) ->
                             case lists:member(Ftr, Ftrs) of
                                 true ->
@@ -385,10 +385,14 @@ init_features() ->
                     Features),
 
     %% Save state
+    Enabled = lists:uniq(Enabled0 ++ permanently_enabled_in_erts()),
     enabled_features(Enabled),
     set_keywords(Keywords),
     persistent_term:put({?MODULE, init_done}, true),
     ok.
+
+permanently_enabled_in_erts() ->
+    [maybe_expr].
 
 init_specs() ->
     Specs = case os:getenv("OTP_TEST_FEATURES") of
