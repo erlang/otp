@@ -409,17 +409,18 @@ roundtrip_client(Pid, Mon, StartTime, N) ->
 sched_utilization(Config) ->
     run_nodepair_test(
       fun(A, B, Prefix, Effort, HA, HB) ->
-              sched_utilization(
-                A, B, Prefix, Effort, HA, HB,
-                proplists:get_value(ssl_dist, Config))
+              sched_utilization(A, B, Prefix, Effort, HA, HB, Config)
       end, Config).
 
-sched_utilization(A, B, Prefix, Effort, HA, HB, SSL) ->
+sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
+    SSL = proplists:get_value(ssl_dist, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     ct:log("Starting scheduler utilization run on ~w and ~w", [A, B]),
     {ClientMsacc, ServerMsacc, Msgs} =
-        ssl_apply(HA, fun () -> sched_util_runner(A, B, Effort, SSL) end),
+        ssl_apply(
+          HA, fun () -> sched_util_runner(A, B, Effort, SSL, PrivDir) end),
     ct:log("Got ~p busy_dist_port msgs",[length(Msgs)]),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
@@ -455,41 +456,52 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, SSL) ->
 %% Runs on node A and spawns a server on node B
 %% We want to avoid getting busy_dist_port as it hides the true SU usage
 %% of the receiver and sender.
-sched_util_runner(A, B, Effort, true) ->
-    sched_util_runner(A, B, Effort, 250);
-sched_util_runner(A, B, Effort, false) ->
-    sched_util_runner(A, B, Effort, 250);
-sched_util_runner(A, B, Effort, Senders) ->
+sched_util_runner(A, B, Effort, true, PrivDir) ->
+    sched_util_runner(A, B, Effort, 250, PrivDir);
+sched_util_runner(A, B, Effort, false, PrivDir) ->
+    sched_util_runner(A, B, Effort, 250, PrivDir);
+sched_util_runner(A, B, Effort, Senders, PrivDir) ->
     Payload = payload(5),
     Time = 1000 * Effort,
     [A] = rpc:call(B, erlang, nodes, []),
+    fs_log(PrivDir, "sched_util_runner.nodes", [A]),
     ServerPids =
         [erlang:spawn_link(
            B, fun () -> throughput_server() end)
          || _ <- lists:seq(1, Senders)],
+    fs_log(PrivDir, "sched_util_runner.ServerPids", ServerPids),
     ServerMsacc =
         erlang:spawn(
           B,
           fun() ->
                   receive
                       {start,Pid} ->
+                          fs_log(PrivDir,
+                                 "sched_util_runner.msacc:start", Pid),
                           msacc:start(Time),
                           receive
                               {done,Pid} ->
+                                  fs_log(PrivDir,
+                                         "sched_util_runner.msacc:stats",
+                                         ok),
                                   Pid ! {self(),msacc:stats()}
                           end
                   end
           end),
+    fs_log(PrivDir, "sched_util_runner.ServerMsacc", ServerMsacc),
     erlang:system_monitor(self(),[busy_dist_port]),
     %% We spawn 250 senders which should mean that we
     %% have a load of 250 msgs/msec
-    [spawn_link(
-       fun() ->
-               throughput_client(Pid, Payload)
-       end) || Pid <- ServerPids],
+    _Clients =
+        [spawn_link(
+           fun() ->
+                   throughput_client(Pid, Payload)
+           end) || Pid <- ServerPids],
     %%
+    fs_log(PrivDir, "sched_util_runner.Clients", _Clients),
     receive after 1000 -> ok end,
     ServerMsacc ! {start,self()},
+    fs_log(PrivDir, "sched_util_runner.self", self()),
     msacc:start(Time),
     ClientMsaccStats = msacc:stats(),
     receive after 1000 -> ok end,
@@ -497,6 +509,12 @@ sched_util_runner(A, B, Effort, Senders) ->
     ServerMsaccStats = receive {ServerMsacc,Stats} -> Stats end,
     %%
     {ClientMsaccStats,ServerMsaccStats, flush()}.
+
+fs_log(PrivDir, Name, Term) ->
+    _ = file:write_file(
+          filename:join(PrivDir, Name),
+          io_lib:format("~p~n", [Term])),
+    ok.
 
 flush() ->
     receive
