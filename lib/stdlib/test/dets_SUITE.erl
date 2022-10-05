@@ -46,7 +46,7 @@
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
          otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
          otp_8923/1, otp_9282/1, otp_11245/1, otp_11709/1, otp_13229/1,
-         otp_13260/1, otp_13830/1]).
+         otp_13260/1, otp_13830/1, receive_optimisation/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -94,7 +94,7 @@ all() ->
 	insert_new, repair_continuation, otp_5487, otp_6206,
 	otp_6359, otp_4738, otp_7146, otp_8070, otp_8856, otp_8898,
 	otp_8899, otp_8903, otp_8923, otp_9282, otp_11245, otp_11709,
-        otp_13229, otp_13260, otp_13830
+        otp_13229, otp_13260, otp_13830, receive_optimisation
     ].
 
 groups() -> 
@@ -3491,6 +3491,34 @@ otp_13830(Config) ->
     ok = dets:close(Tab),
     {ok, Tab} = dets:open_file(Tab, [{file, File}, {version, default}]),
     ok = dets:close(Tab).
+
+receive_optimisation(Config) ->
+    Tab = dets_receive_optimisation_test,
+    FName = filename(Tab, Config),
+
+    % Spam message box
+    lists:foreach(fun(_) -> self() ! {spam, it} end, lists:seq(1, 1_000_000)),
+
+    {ok, _} = dets:open_file(Tab,[{file, FName}]),
+    ok = dets:insert(Tab,{one, record}),
+
+    StartTime = os:system_time(millisecond),
+
+    % We expect one thousand of simple lookups to finish in one second
+    Lookups = 1000,
+    Timeout = 1000,
+    Loop =  fun Loop(N) when N =< 0 -> ok;
+		Loop(N) ->
+		    Now = os:system_time(millisecond),
+		    (Now - StartTime > Timeout) andalso throw({timeout_after, Lookups - N}),
+		    [{one, record}] = dets:lookup(Tab, one),
+		    Loop(N-1)
+	    end,
+
+    ok = Loop(Lookups),
+
+    ok = dets:close(Tab),
+    ok = file:delete(FName).
 
 %%
 %% Parts common to several test cases
