@@ -264,7 +264,7 @@ end_per_testcase(Case, Config) ->
     ok.
 
 ct_os_cmd(Cmd) ->
-    ct:log("~s: ~s",[Cmd,os:cmd(Cmd)]).
+    ct:log("~s: ~ts",[Cmd,os:cmd(Cmd)]).
 
 %% Test sending bad types to port with an outputv-capable driver.
 outputv_errors(Config) when is_list(Config) ->
@@ -2110,7 +2110,6 @@ async_blast(Config) when is_list(Config) ->
     AsyncBlastTime = timer:now_diff(End,Start)/1000000,
     ct:log("AsyncBlastTime=~p~n", [AsyncBlastTime]),
     MemBefore = MemAfter,
-    ct:log({async_blast_time, AsyncBlastTime}),
     ok.
 
 thr_msg_blast_receiver(_Port, N, N) ->
