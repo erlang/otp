@@ -270,6 +270,45 @@ jobs:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
 
+  build-flavors:
+    name: Build Erlang/OTP (Types and Flavors)
+    runs-on: ubuntu-latest
+    needs: [pack, changed-apps]
+    if: contains(needs.changed-apps.outputs.changes, 'emulator')
+
+    steps:
+      - uses: actions/checkout@v2
+      ## Download docker images
+      - name: Cache BASE image
+        id: cache-base-image
+        uses: actions/cache@v3
+        with:
+            path: otp_docker_base.tar
+            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
+      - name: Download otp build
+        uses: actions/download-artifact@v2
+        with:
+          name: otp-ubuntu-20.04
+      - name: Docker login
+        uses: docker/login-action@v1
+        with:
+          registry: docker.pkg.github.com
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Restore docker image
+        run: .github/scripts/restore-otp-image.sh
+      - name: Build Erlang/OTP flavors and types
+        run: |
+            TYPES="opt debug lcnt"
+            FLAVORS="emu jit"
+            for TYPE in ${TYPES}; do
+              for FLAVOR in ${FLAVORS}; do
+                echo "::group::{TYPE=$TYPE FLAVOR=$FLAVOR}"
+                docker run otp "make TYPE=$TYPE FLAVOR=$FLAVOR"
+                echo "::endgroup::"
+              done
+            done
+
   build:
     name: Build Erlang/OTP
     runs-on: ubuntu-latest
