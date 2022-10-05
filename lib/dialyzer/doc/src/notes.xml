@@ -195,6 +195,21 @@
 
 </section>
 
+<section><title>Dialyzer 4.4.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>--input_list_file</c> option has been
+	    added.</p>
+          <p>
+	    Own Id: OTP-18263 Aux Id: ERIERL-821 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 4.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
