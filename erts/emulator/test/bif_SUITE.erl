@@ -72,13 +72,8 @@ init_per_testcase(shadow_comments, Config) when is_list(Config) ->
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
-end_per_testcase(_Func, _Config) ->
-    case nodes(connected) of
-        [] -> ok;
-        Nodes ->
-            [net_kernel:disconnect(N) || N <- Nodes],
-            {fail, {"Leaked connections", Nodes}}
-    end.
+end_per_testcase(_Func, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %% erl_bif_types comes from dialyzer which some test runs skip building, so
 %% we'll skip the tests that use it as the result shouldn't vary based on

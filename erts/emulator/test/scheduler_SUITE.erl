@@ -123,12 +123,7 @@ init_per_tc(Case, Config) ->
     [{testcase, Case}, {ok_res, OkRes} |Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    case nodes(connected) of
-        [] -> ok;
-        Nodes ->
-            [net_kernel:disconnect(N) || N <- Nodes],
-            {fail, {"Leaked connections", Nodes}}
-    end.
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 -define(ERTS_RUNQ_CHECK_BALANCE_REDS_PER_SCHED, (2000*2000)).
 -define(DEFAULT_TEST_REDS_PER_SCHED, 200000000).

@@ -39,12 +39,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{testcase, Func}|Config].
 
 end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    case nodes(connected) of
-        [] -> ok;
-        Nodes ->
-            [net_kernel:disconnect(N) || N <- Nodes],
-            {fail, {"Leaked connections", Nodes}}
-    end.
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 all() -> 
     [wrap_1, compare_list, compare_ets, internal_size, external_size].
