@@ -164,9 +164,7 @@ end_per_testcase(_TestCase, Config) ->
     case wait_until(fun() -> nodes(connected) == [] end, 10_000) of
         ok -> ok;
         timeout ->
-            Nodes = nodes(connected),
-            [net_kernel:disconnect(N) || N <- Nodes],
-            {fail, {"Leaked connections", Nodes}}
+            erts_test_utils:ept_check_leaked_nodes(Config)
     end.
 
 %% Tests pinging a node in different ways.

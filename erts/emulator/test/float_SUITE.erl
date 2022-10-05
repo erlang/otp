@@ -46,13 +46,8 @@ groups() ->
 
 init_per_testcase(_TestCase, Config) ->
     Config.
-end_per_testcase(_TestCase, _Config) ->
-    case nodes(connected) of
-        [] -> ok;
-        Nodes ->
-            [net_kernel:disconnect(N) || N <- Nodes],
-            {fail, {"Leaked connections", Nodes}}
-    end.
+end_per_testcase(_TestCase, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %%
 %% OTP-7178, list_to_float on very small numbers should give 0.0

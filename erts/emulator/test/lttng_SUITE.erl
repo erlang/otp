@@ -71,15 +71,10 @@ init_per_testcase(Case, Config) ->
     ok = ensure_lttng_started(Name, Config),
     [{session, Name}|Config].
 
-end_per_testcase(Case, _Config) ->
+end_per_testcase(Case, Config) ->
     Name = atom_to_list(Case),
     ok = ensure_lttng_stopped(Name),
-    case nodes(connected) of
-        [] -> ok;
-        Nodes ->
-            [net_kernel:disconnect(N) || N <- Nodes],
-            {fail, {"Leaked connections", Nodes}}
-    end.
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 %% Not tested yet
 %%   org_erlang_otp:driver_process_exit

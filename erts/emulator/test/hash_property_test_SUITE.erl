@@ -73,13 +73,8 @@ end_per_group(_, Config) ->
 
 init_per_testcase(_TestCase, Config) ->
     Config.
-end_per_testcase(_TestCase, _Config) ->
-    case nodes(connected) of
-        [] -> ok;
-        Nodes ->
-            [net_kernel:disconnect(N) || N <- Nodes],
-            {fail, {"Leaked connections", Nodes}}
-    end.
+end_per_testcase(_TestCase, Config) ->
+    erts_test_utils:ept_check_leaked_nodes(Config).
 
 test_phash2_no_diff(Config) when is_list(Config) ->
     true = ct_property_test:quickcheck(
