@@ -1390,22 +1390,55 @@ fix_receives(#st{ssa=Blocks0,cnt=Count0}=St) ->
 fix_receives_1([{L,Blk}|Ls], Blocks0, Count0) ->
     case Blk of
         #b_blk{is=[#b_set{op=peek_message}|_]} ->
-            Rm = find_rm_blocks(L, Blocks0),
-            LoopExit = find_loop_exit(Rm, Blocks0),
-            RPO = beam_ssa:rpo([L], Blocks0),
-            Defs0 = beam_ssa:def(RPO, Blocks0),
-            CommonUsed = recv_common(Defs0, LoopExit, Blocks0),
-            {Blocks1,Count1} = recv_crit_edges(Rm, LoopExit, Blocks0, Count0),
-            {Blocks2,Count2} = recv_fix_common(CommonUsed, LoopExit, Rm,
-                                               Blocks1, Count1),
+            Rm0 = find_rm_blocks(L, Blocks0),
+            {Rm,Blocks1,Count1} = split_rm_blocks(Rm0, Blocks0, Count0, []),
+            LoopExit = find_loop_exit(Rm, Blocks1),
+            RPO = beam_ssa:rpo([L], Blocks1),
+            Defs0 = beam_ssa:def(RPO, Blocks1),
+            CommonUsed = recv_common(Defs0, LoopExit, Blocks1),
+            {Blocks2,Count2} = recv_crit_edges(Rm, LoopExit, Blocks1, Count1),
+            {Blocks3,Count3} = recv_fix_common(CommonUsed, LoopExit, Rm,
+                                               Blocks2, Count2),
             Defs = ordsets:subtract(Defs0, CommonUsed),
-            {Blocks,Count} = fix_receive(Rm, Defs, Blocks2, Count2),
+            {Blocks,Count} = fix_receive(Rm, Defs, Blocks3, Count3),
             fix_receives_1(Ls, Blocks, Count);
         #b_blk{} ->
             fix_receives_1(Ls, Blocks0, Count0)
     end;
 fix_receives_1([], Blocks, Count) ->
     {Blocks,Count}.
+
+split_rm_blocks([L|Ls], Blocks0, Count0, Acc) ->
+    #b_blk{is=Is} = map_get(L, Blocks0),
+    case need_split(Is) of
+        false ->
+            %% Don't split because there are no unsafe instructions.
+            split_rm_blocks(Ls, Blocks0, Count0, [L|Acc]);
+        true ->
+            %% An unsafe instruction, such as `bs_get_tail`, was
+            %% found. Split the block before `remove_message`.
+            P = fun(#b_set{op=Op}) ->
+                        Op =:= remove_message
+                end,
+            Next = Count0,
+            {Blocks,Count} = beam_ssa:split_blocks([L], P, Blocks0, Count0),
+            true = Count0 =/= Count,            %Assertion.
+            split_rm_blocks(Ls, Blocks, Count, [Next|Acc])
+    end;
+split_rm_blocks([], Blocks, Count, Acc) ->
+    {reverse(Acc),Blocks,Count}.
+
+need_split([#b_set{op=Op}|T]) ->
+    case Op of
+        %% Unnecessarily splitting the block can introduce extra
+        %% `move` instructions, so we will avoid splitting as long
+        %% there are only known safe instructions before the
+        %% `remove_message` instruction.
+        get_tuple_element -> need_split(T);
+        recv_marker_clear -> need_split(T);
+        remove_message -> false;
+        _ -> true
+    end.
 
 recv_common(_Defs, none, _Blocks) ->
     %% There is no common exit block because receive is used
@@ -1495,7 +1528,7 @@ recv_fix_common_1([V|Vs], [Rm|Rms], Msg, Blocks0) ->
     Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk0 = map_get(Rm, Blocks1),
     Copy = #b_set{op=copy,dst=V,args=[Msg]},
-    Is = insert_after_phis(Is0, [Copy]),
+    Is = [Copy|Is0],
     Blk = Blk0#b_blk{is=Is},
     Blocks = Blocks1#{Rm:=Blk},
     recv_fix_common_1(Vs, Rms, Msg, Blocks);
@@ -1530,8 +1563,8 @@ fix_receive([L|Ls], Defs, Blocks0, Count0) ->
     Ren = zip(Used, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk1 = map_get(L, Blocks1),
-    CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <- Ren],
-    Is = insert_after_phis(Is0, CopyIs),
+    Is = [#b_set{op=copy,dst=New,args=[Old]} ||
+             {Old,New} <- Ren] ++ Is0,
     Blk = Blk1#b_blk{is=Is},
     Blocks = Blocks1#{L:=Blk},
     fix_receive(Ls, Defs, Blocks, Count);

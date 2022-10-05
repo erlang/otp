@@ -644,8 +644,8 @@ rename_vars(Rename, Labels, Blocks) when is_map(Rename)->
         end,
     map_instrs_1(Labels, F, Blocks).
 
-%% split_blocks(Predicate, Blocks0, Count0) -> {Blocks,Count}.
-%%  Call Predicate(Instruction) for each instruction in all
+%% split_blocks(Labels, Predicate, Blocks0, Count0) -> {Blocks,Count}.
+%%  Call Predicate(Instruction) for each instruction in the given
 %%  blocks. If Predicate/1 returns true, split the block
 %%  before this instruction.
 
