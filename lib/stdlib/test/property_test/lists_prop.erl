@@ -1269,7 +1269,7 @@ prop_usort_2() ->
     ).
 
 %% zip/2
-prop_zip() ->
+prop_zip_2() ->
     ?FORALL(
         {ExpList, {InList1, InList2}},
         gen_list_fold(
@@ -1282,8 +1282,44 @@ prop_zip() ->
         lists:zip(InList1, InList2) =:= ExpList
     ).
 
+%% zip/3
+prop_zip_3() ->
+	?FORALL(
+		{{ExpList, {InList1, InList2}}, ExtraList},
+		{
+			gen_list_fold(
+				{gen_any(), gen_any()},
+				fun({T1, T2}, {L1, L2}) ->
+					{L1 ++ [T1], L2 ++ [T2]}
+				end,
+				{[], []}
+			),
+			non_empty(gen_list())
+		},
+		begin
+			Tag = make_ref(),
+
+			Res1 = ExpList =:= lists:zip(InList1, InList2, fail) andalso
+			       ExpList =:= lists:zip(InList1, InList2, trim) andalso
+			       ExpList =:= lists:zip(InList1, InList2, {pad, {Tag, Tag}}),
+
+			Res2 = try lists:zip(InList1, InList2 ++ ExtraList, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zip(InList1 ++ ExtraList, InList2, fail) of _ -> false catch error:_ -> true end,
+
+			Res3 = ExpList =:= lists:zip(InList1, InList2 ++ ExtraList, trim) andalso
+			       ExpList =:= lists:zip(InList1 ++ ExtraList, InList2, trim),
+
+			Padded1 = lists:zip(InList1, InList2 ++ ExtraList, {pad, {Tag, Tag}}),
+			Padded2 = lists:zip(InList1 ++ ExtraList, InList2, {pad, {Tag, Tag}}),
+			Res4 = Padded1 =:= ExpList ++ [{Tag, X} || X <- ExtraList] andalso
+			       Padded2 =:= ExpList ++ [{X, Tag} || X <- ExtraList],
+
+			Res1 andalso Res2 andalso Res3 andalso Res4
+		end
+	).
+
 %% zip3/3
-prop_zip3() ->
+prop_zip3_3() ->
     ?FORALL(
         {ExpList, {InList1, InList2, InList3}},
         gen_list_fold(
@@ -1296,8 +1332,60 @@ prop_zip3() ->
         lists:zip3(InList1, InList2, InList3) =:= ExpList
     ).
 
+%% zip3/4
+prop_zip3_4() ->
+	?FORALL(
+		{{ExpList, {InList1, InList2, InList3}}, ExtraList},
+		{
+			gen_list_fold(
+				{gen_any(), gen_any(), gen_any()},
+				fun({T1, T2, T3}, {L1, L2, L3}) ->
+					{L1 ++ [T1], L2 ++ [T2], L3 ++ [T3]}
+				end,
+				{[], [], []}
+			),
+			non_empty(gen_list())
+		},
+		begin
+			Tag = make_ref(),
+
+			Res1 = ExpList =:= lists:zip3(InList1, InList2, InList3, fail) andalso
+			       ExpList =:= lists:zip3(InList1, InList2, InList3, trim) andalso
+			       ExpList =:= lists:zip3(InList1, InList2, InList3, {pad, {Tag, Tag, Tag}}),
+
+			Res2 = try lists:zip3(InList1, InList2, InList3 ++ ExtraList, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zip3(InList1, InList2 ++ ExtraList, InList3, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zip3(InList1, InList2 ++ ExtraList, InList3 ++ ExtraList, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zip3(InList1 ++ ExtraList, InList2, InList3, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zip3(InList1 ++ ExtraList, InList2, InList3 ++ ExtraList, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zip3(InList1 ++ ExtraList, InList2 ++ ExtraList, InList3, fail) of _ -> false catch error:_ -> true end,
+
+			Res3 = ExpList =:= lists:zip3(InList1, InList2, InList3 ++ ExtraList, trim) andalso
+			       ExpList =:= lists:zip3(InList1, InList2 ++ ExtraList, InList3, trim) andalso
+			       ExpList =:= lists:zip3(InList1, InList2 ++ ExtraList, InList3 ++ ExtraList, trim) andalso
+			       ExpList =:= lists:zip3(InList1 ++ ExtraList, InList2, InList3, trim) andalso
+			       ExpList =:= lists:zip3(InList1 ++ ExtraList, InList2, InList3 ++ ExtraList, trim) andalso
+			       ExpList =:= lists:zip3(InList1 ++ ExtraList, InList2 ++ ExtraList, InList3, trim),
+
+			Padded1 = lists:zip3(InList1, InList2, InList3 ++ ExtraList, {pad, {Tag, Tag, Tag}}),
+			Padded2 = lists:zip3(InList1, InList2 ++ ExtraList, InList3, {pad, {Tag, Tag, Tag}}),
+			Padded3 = lists:zip3(InList1, InList2 ++ ExtraList, InList3 ++ ExtraList, {pad, {Tag, Tag, Tag}}),
+			Padded4 = lists:zip3(InList1 ++ ExtraList, InList2, InList3, {pad, {Tag, Tag, Tag}}),
+			Padded5 = lists:zip3(InList1 ++ ExtraList, InList2, InList3 ++ ExtraList, {pad, {Tag, Tag, Tag}}),
+			Padded6 = lists:zip3(InList1 ++ ExtraList, InList2 ++ ExtraList, InList3, {pad, {Tag, Tag, Tag}}),
+			Res4 = Padded1 =:= ExpList ++ [{Tag, Tag, X} || X <- ExtraList] andalso
+			       Padded2 =:= ExpList ++ [{Tag, X, Tag} || X <- ExtraList] andalso
+			       Padded3 =:= ExpList ++ [{Tag, X, X} || X <- ExtraList] andalso
+			       Padded4 =:= ExpList ++ [{X, Tag, Tag} || X <- ExtraList] andalso
+			       Padded5 =:= ExpList ++ [{X, Tag, X} || X <- ExtraList] andalso
+			       Padded6 =:= ExpList ++ [{X, X, Tag} || X <- ExtraList],
+
+			Res1 andalso Res2 andalso Res3 andalso Res4
+		end
+	).
+
 %% zipwith/3
-prop_zipwith() ->
+prop_zipwith_3() ->
     ?FORALL(
         {ZipFn, InList1, InList2, ExpList},
         ?LET(
@@ -1318,8 +1406,49 @@ prop_zipwith() ->
         lists:zipwith(ZipFn, InList1, InList2) =:= ExpList
     ).
 
+%% zipwith/4
+prop_zipwith_4() ->
+	?FORALL(
+		{ZipFn, InList1, InList2, ExpList, ExtraList},
+		?LET(
+			{Extra, Fn},
+			{non_empty(gen_list()), function2(gen_any())},
+			?LET(
+				{_, {L1, L2, Z}},
+				gen_list_fold(
+					{gen_any(), gen_any()},
+					fun({T1, T2}, {L1, L2, Z}) ->
+						{L1 ++ [T1], L2 ++ [T2], Z ++ [Fn(T1, T2)]}
+					end,
+					{[], [], []}
+				),
+				{Fn, L1, L2, Z, Extra}
+			)
+		),
+		begin
+			Tag = make_ref(),
+
+			Res1 = ExpList =:= lists:zipwith(ZipFn, InList1, InList2, fail) andalso
+			       ExpList =:= lists:zipwith(ZipFn, InList1, InList2, trim) andalso
+			       ExpList =:= lists:zipwith(ZipFn, InList1, InList2, {pad, {Tag, Tag}}),
+
+			Res2 = try lists:zipwith(ZipFn, InList1, InList2 ++ ExtraList, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zipwith(ZipFn, InList1 ++ ExtraList, InList2, fail) of _ -> false catch error:_ -> true end,
+
+			Res3 = ExpList =:= lists:zipwith(ZipFn, InList1, InList2 ++ ExtraList, trim) andalso
+			       ExpList =:= lists:zipwith(ZipFn, InList1 ++ ExtraList, InList2, trim),
+
+			Padded1 = lists:zipwith(ZipFn, InList1, InList2 ++ ExtraList, {pad, {Tag, Tag}}),
+			Padded2 = lists:zipwith(ZipFn, InList1 ++ ExtraList, InList2, {pad, {Tag, Tag}}),
+			Res4 = Padded1 =:= ExpList ++ [ZipFn(Tag, X) || X <- ExtraList] andalso
+			       Padded2 =:= ExpList ++ [ZipFn(X, Tag) || X <- ExtraList],
+
+			Res1 andalso Res2 andalso Res3 andalso Res4
+		end
+	).
+
 %% zipwith3/4
-prop_zipwith3() ->
+prop_zipwith3_4() ->
     ?FORALL(
         {ZipFn, InList1, InList2, InList3, ExpList},
         ?LET(
@@ -1339,6 +1468,63 @@ prop_zipwith3() ->
         ),
         lists:zipwith3(ZipFn, InList1, InList2, InList3) =:= ExpList
     ).
+
+%% zipwith3/5
+prop_zipwith3_5() ->
+	?FORALL(
+		{ZipFn, InList1, InList2, InList3, ExpList, ExtraList},
+		?LET(
+			{Extra, Fn},
+			{non_empty(gen_list()), function3(gen_any())},
+			?LET(
+				{_, {L1, L2, L3, Z}},
+				gen_list_fold(
+					{gen_any(), gen_any(), gen_any()},
+					fun({T1, T2, T3}, {L1, L2, L3, Z}) ->
+						{L1 ++ [T1], L2 ++ [T2], L3 ++ [T3], Z ++ [Fn(T1, T2, T3)]}
+					end,
+					{[], [], [], []}
+				),
+				{Fn, L1, L2, L3, Z, Extra}
+			)
+		),
+		begin
+			Tag = make_ref(),
+
+			Res1 = ExpList =:= lists:zipwith3(ZipFn, InList1, InList2, InList3, fail) andalso
+			       ExpList =:= lists:zipwith3(ZipFn, InList1, InList2, InList3, trim) andalso
+			       ExpList =:= lists:zipwith3(ZipFn, InList1, InList2, InList3, {pad, {Tag, Tag, Tag}}),
+
+			Res2 = try lists:zipwith3(ZipFn, InList1, InList2, InList3 ++ ExtraList, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zipwith3(ZipFn, InList1, InList2 ++ ExtraList, InList3, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zipwith3(ZipFn, InList1, InList2 ++ ExtraList, InList3 ++ ExtraList, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zipwith3(ZipFn, InList1 ++ ExtraList, InList2, InList3, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zipwith3(ZipFn, InList1 ++ ExtraList, InList2, InList3 ++ ExtraList, fail) of _ -> false catch error:_ -> true end andalso
+			       try lists:zipwith3(ZipFn, InList1 ++ ExtraList, InList2 ++ ExtraList, InList3, fail) of _ -> false catch error:_ -> true end,
+
+			Res3 = ExpList =:= lists:zipwith3(ZipFn, InList1, InList2, InList3 ++ ExtraList, trim) andalso
+			       ExpList =:= lists:zipwith3(ZipFn, InList1, InList2 ++ ExtraList, InList3, trim) andalso
+			       ExpList =:= lists:zipwith3(ZipFn, InList1, InList2 ++ ExtraList, InList3 ++ ExtraList, trim) andalso
+			       ExpList =:= lists:zipwith3(ZipFn, InList1 ++ ExtraList, InList2, InList3, trim) andalso
+			       ExpList =:= lists:zipwith3(ZipFn, InList1 ++ ExtraList, InList2, InList3 ++ ExtraList, trim) andalso
+			       ExpList =:= lists:zipwith3(ZipFn, InList1 ++ ExtraList, InList2 ++ ExtraList, InList3, trim),
+
+			Padded1 = lists:zipwith3(ZipFn, InList1, InList2, InList3 ++ ExtraList, {pad, {Tag, Tag, Tag}}),
+			Padded2 = lists:zipwith3(ZipFn, InList1, InList2 ++ ExtraList, InList3, {pad, {Tag, Tag, Tag}}),
+			Padded3 = lists:zipwith3(ZipFn, InList1, InList2 ++ ExtraList, InList3 ++ ExtraList, {pad, {Tag, Tag, Tag}}),
+			Padded4 = lists:zipwith3(ZipFn, InList1 ++ ExtraList, InList2, InList3, {pad, {Tag, Tag, Tag}}),
+			Padded5 = lists:zipwith3(ZipFn, InList1 ++ ExtraList, InList2, InList3 ++ ExtraList, {pad, {Tag, Tag, Tag}}),
+			Padded6 = lists:zipwith3(ZipFn, InList1 ++ ExtraList, InList2 ++ ExtraList, InList3, {pad, {Tag, Tag, Tag}}),
+			Res4 = Padded1 =:= ExpList ++ [ZipFn(Tag, Tag, X) || X <- ExtraList] andalso
+			       Padded2 =:= ExpList ++ [ZipFn(Tag, X, Tag) || X <- ExtraList] andalso
+			       Padded3 =:= ExpList ++ [ZipFn(Tag, X, X) || X <- ExtraList] andalso
+			       Padded4 =:= ExpList ++ [ZipFn(X, Tag, Tag) || X <- ExtraList] andalso
+			       Padded5 =:= ExpList ++ [ZipFn(X, Tag, X) || X <- ExtraList] andalso
+			       Padded6 =:= ExpList ++ [ZipFn(X, X, Tag) || X <- ExtraList],
+
+			Res1 andalso Res2 andalso Res3 andalso Res4
+		end
+	).
 
 %%%%%%%%%%%%%%%%%%
 %%% Generators %%%

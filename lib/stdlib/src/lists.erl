@@ -37,7 +37,7 @@
          split/2, sublist/2, sublist/3,
          subtract/2, suffix/2, sum/1,
          uniq/1, unzip/1, unzip3/1,
-         zip/2, zip3/3]).
+         zip/2, zip/3, zip3/3, zip3/4]).
 
 %% Functions taking a list of tuples and a position within the tuple.
 -export([keydelete/3, keyreplace/4, keymap/3,
@@ -60,7 +60,7 @@
          map/2, mapfoldl/3, mapfoldr/3,
          partition/2, search/2,
          splitwith/2, takewhile/2, uniq/2,
-         zipwith/3, zipwith3/4]).
+         zipwith/3, zipwith/4, zipwith3/4, zipwith3/5]).
 
 %% Undocumented, but used within Erlang/OTP.
 -export([zf/2]).
@@ -416,8 +416,35 @@ delete(_, []) -> [].
       A :: term(),
       B :: term().
 
-zip([X | Xs], [Y | Ys]) -> [{X, Y} | zip(Xs, Ys)];
-zip([], []) -> [].
+zip(Xs, Ys) -> zip(Xs, Ys, fail).
+
+-spec zip(List1, List2, How) -> List3 when
+      List1 :: [A],
+      List2 :: [B],
+      List3 :: [{A | DefaultA, B | DefaultB}],
+      A :: term(),
+      B :: term(),
+      How :: 'fail' | 'trim' | {'pad', {DefaultA, DefaultB}},
+      DefaultA :: term(),
+      DefaultB :: term().
+
+zip([X | Xs], [Y | Ys], How) ->
+    [{X, Y} | zip(Xs, Ys, How)];
+zip([], [], fail) ->
+    [];
+zip([], [], trim) ->
+    [];
+zip([], [], {pad, {_, _}}) ->
+    [];
+zip([_ | _], [], trim) ->
+    [];
+zip([], [_ | _], trim) ->
+    [];
+zip([], [_ | _]=Ys, {pad, {X, _}}) ->
+    [{X, Y} || Y <- Ys];
+zip([_ | _]=Xs, [], {pad, {_, Y}}) ->
+    [{X, Y} || X <- Xs].
+
 
 %% Return {[X0, X1, ..., Xn], [Y0, Y1, ..., Yn]}, for a list [{X0, Y0},
 %% {X1, Y1}, ..., {Xn, Yn}].
@@ -446,8 +473,43 @@ unzip([], Xs, Ys) -> {reverse(Xs), reverse(Ys)}.
       B :: term(),
       C :: term().
 
-zip3([X | Xs], [Y | Ys], [Z | Zs]) -> [{X, Y, Z} | zip3(Xs, Ys, Zs)];
-zip3([], [], []) -> [].
+zip3(Xs, Ys, Zs) -> zip3(Xs, Ys, Zs, fail).
+
+-spec zip3(List1, List2, List3, How) -> List4 when
+      List1 :: [A],
+      List2 :: [B],
+      List3 :: [C],
+      List4 :: [{A | DefaultA, B | DefaultB, C | DefaultC}],
+      A :: term(),
+      B :: term(),
+      C :: term(),
+      How :: 'fail' | 'trim' | {'pad', {DefaultA, DefaultB, DefaultC}},
+      DefaultA :: term(),
+      DefaultB :: term(),
+      DefaultC :: term().
+
+zip3([X | Xs], [Y | Ys], [Z | Zs], How) ->
+    [{X, Y, Z} | zip3(Xs, Ys, Zs, How)];
+zip3([], [], [], fail) ->
+    [];
+zip3([], [], [], trim) ->
+    [];
+zip3(Xs, Ys, Zs, trim) when is_list(Xs), is_list(Ys), is_list(Zs) ->
+    [];
+zip3([], [], [], {pad, {_, _, _}}) ->
+    [];
+zip3([], [], [_ |_]=Zs, {pad, {X, Y, _}}) ->
+    [{X, Y, Z} || Z <- Zs];
+zip3([], [_ | _]=Ys, [], {pad, {X, _, Z}}) ->
+    [{X, Y, Z} || Y <- Ys];
+zip3([_ | _]=Xs, [], [], {pad, {_, Y, Z}}) ->
+    [{X, Y, Z} || X <- Xs];
+zip3([], [Y | Ys], [Z | Zs], {pad, {X, _, _}} = How) ->
+    [{X, Y, Z} | zip3([], Ys, Zs, How)];
+zip3([X | Xs], [], [Z | Zs], {pad, {_, Y, _}} = How) ->
+    [{X, Y, Z} | zip3(Xs, [], Zs, How)];
+zip3([X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
+    [{X, Y, Z} | zip3(Xs, Ys, [], How)].
 
 %% Return {[X0, X1, ..., Xn], [Y0, Y1, ..., Yn], [Z0, Z1, ..., Zn]}, for
 %% a list [{X0, Y0, Z0}, {X1, Y1, Z1}, ..., {Xn, Yn, Zn}].
@@ -480,8 +542,36 @@ unzip3([], Xs, Ys, Zs) ->
       Y :: term(),
       T :: term().
 
-zipwith(F, [X | Xs], [Y | Ys]) -> [F(X, Y) | zipwith(F, Xs, Ys)];
-zipwith(F, [], []) when is_function(F, 2) -> [].
+zipwith(F, Xs, Ys) -> zipwith(F, Xs, Ys, fail).
+
+-spec zipwith(Combine, List1, List2, How) -> List3 when
+      Combine :: fun((X | DefaultX, Y | DefaultY) -> T),
+      List1 :: [X],
+      List2 :: [Y],
+      List3 :: [T],
+      X :: term(),
+      Y :: term(),
+      How :: 'fail' | 'trim' | {'pad', {DefaultX, DefaultY}},
+      DefaultX :: term(),
+      DefaultY :: term(),
+      T :: term().
+
+zipwith(F, [X | Xs], [Y | Ys], How) ->
+    [F(X, Y) | zipwith(F, Xs, Ys, How)];
+zipwith(F, [], [], fail) when is_function(F, 2) ->
+    [];
+zipwith(F, [], [], trim) when is_function(F, 2) ->
+    [];
+zipwith(F, [], [], {pad, {_, _}}) when is_function(F, 2) ->
+    [];
+zipwith(F, [_ | _], [], trim) when is_function(F, 2) ->
+    [];
+zipwith(F, [], [_ | _], trim) when is_function(F, 2) ->
+    [];
+zipwith(F, [], [_ | _]=Ys, {pad, {X, _}}) ->
+    [F(X, Y) || Y <- Ys];
+zipwith(F, [_ | _]=Xs, [], {pad, {_, Y}}) ->
+    [F(X, Y) || X <- Xs].
 
 %% Return [F(X0, Y0, Z0), F(X1, Y1, Z1), ..., F(Xn, Yn, Zn)] for lists
 %% [X0, X1, ..., Xn], [Y0, Y1, ..., Yn] and [Z0, Z1, ..., Zn].
@@ -497,9 +587,45 @@ zipwith(F, [], []) when is_function(F, 2) -> [].
       Z :: term(),
       T :: term().
 
-zipwith3(F, [X | Xs], [Y | Ys], [Z | Zs]) ->
-    [F(X, Y, Z) | zipwith3(F, Xs, Ys, Zs)];
-zipwith3(F, [], [], []) when is_function(F, 3) -> [].
+zipwith3(F, Xs, Ys, Zs) -> zipwith3(F, Xs, Ys, Zs, fail).
+
+-spec zipwith3(Combine, List1, List2, List3, How) -> List4 when
+      Combine :: fun((X | DefaultX, Y | DefaultY, Z | DefaultZ) -> T),
+      List1 :: [X],
+      List2 :: [Y],
+      List3 :: [Z],
+      List4 :: [T],
+      X :: term(),
+      Y :: term(),
+      Z :: term(),
+      How :: 'fail' | 'trim' | {'pad', {DefaultX, DefaultY, DefaultZ}},
+      DefaultX :: term(),
+      DefaultY :: term(),
+      DefaultZ :: term(),
+      T :: term().
+
+zipwith3(F, [X | Xs], [Y | Ys], [Z | Zs], How) ->
+    [F(X, Y, Z) | zipwith3(F, Xs, Ys, Zs, How)];
+zipwith3(F, [], [], [], fail) when is_function(F, 3) ->
+    [];
+zipwith3(F, [], [], [], trim) when is_function(F, 3) ->
+    [];
+zipwith3(F, Xs, Ys, Zs, trim) when is_function(F, 3), is_list(Xs), is_list(Ys), is_list(Zs) ->
+    [];
+zipwith3(F, [], [], [], {pad, {_, _, _}}) when is_function(F, 3) ->
+    [];
+zipwith3(F, [], [], [_ | _]=Zs, {pad, {X, Y, _}}) ->
+    [F(X, Y, Z) || Z <- Zs];
+zipwith3(F, [], [_ | _]=Ys, [], {pad, {X, _, Z}}) ->
+    [F(X, Y, Z) || Y <- Ys];
+zipwith3(F, [_ | _]=Xs, [], [], {pad, {_, Y, Z}}) ->
+    [F(X, Y, Z) || X <- Xs];
+zipwith3(F, [], [Y | Ys], [Z | Zs], {pad, {X, _, _}} = How) ->
+    [F(X, Y, Z) | zipwith3(F, [], Ys, Zs, How)];
+zipwith3(F, [X | Xs], [], [Z | Zs], {pad, {_, Y, _}} = How) ->
+    [F(X, Y, Z) | zipwith3(F, Xs, [], Zs, How)];
+zipwith3(F, [X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
+    [F(X, Y, Z) | zipwith3(F, Xs, Ys, [], How)].
 
 %% sort(List) -> L
 %%  sorts the list L

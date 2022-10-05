@@ -97,10 +97,14 @@ all() ->
         unzip3_case,
         usort_1_case,
         usort_2_case,
-        zip_case,
-        zip3_case,
-        zipwith_case,
-        zipwith3_case
+        zip_2_case,
+        zip_3_case,
+        zip3_3_case,
+        zip3_4_case,
+        zipwith_3_case,
+        zipwith_4_case,
+        zipwith3_4_case,
+        zipwith3_5_case
     ].
 
 init_per_suite(Config) ->
@@ -377,15 +381,27 @@ usort_1_case(Config) ->
 usort_2_case(Config) ->
     do_proptest(prop_usort_2, Config).
 
-zip_case(Config) ->
-    do_proptest(prop_zip, Config).
+zip_2_case(Config) ->
+    do_proptest(prop_zip_2, Config).
 
-zip3_case(Config) ->
-    do_proptest(prop_zip3, Config).
+zip_3_case(Config) ->
+    do_proptest(prop_zip_3, Config).
 
-zipwith_case(Config) ->
-    do_proptest(prop_zipwith, Config).
+zip3_3_case(Config) ->
+    do_proptest(prop_zip3_3, Config).
 
-zipwith3_case(Config) ->
-    do_proptest(prop_zipwith3, Config).
+zip3_4_case(Config) ->
+    do_proptest(prop_zip3_4, Config).
+
+zipwith_3_case(Config) ->
+    do_proptest(prop_zipwith_3, Config).
+
+zipwith_4_case(Config) ->
+    do_proptest(prop_zipwith_4, Config).
+
+zipwith3_4_case(Config) ->
+    do_proptest(prop_zipwith3_4, Config).
+
+zipwith3_5_case(Config) ->
+    do_proptest(prop_zipwith3_5, Config).
 
