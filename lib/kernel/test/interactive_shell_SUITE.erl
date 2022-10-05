@@ -1068,7 +1068,7 @@ external_editor_visual(Config) ->
                 check_content(Term, "4>"),
                 send_tty(Term,"\"hello"),
                 send_tty(Term, "C-O"), %% Open vim
-                check_content(Term, "\"hello"),
+                check_content(Term, "^\"hello"),
                 send_tty(Term, "$"), %% Set cursor at end
                 send_tty(Term, "a"), %% Enter insert mode at end
                 check_content(Term, "-- INSERT --"),
