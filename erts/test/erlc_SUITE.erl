@@ -28,6 +28,7 @@
          compile_yecc/1, compile_script/1,
          compile_mib/1, good_citizen/1, deep_cwd/1, arg_overflow/1,
          make_dep_options/1,
+         unicode_paths/1,
          features_erlc_describe/1,
          features_erlc_unknown/1,
          features_directives/1,
@@ -56,7 +57,8 @@ groups() ->
 
 tests() ->
     [compile_erl, compile_yecc, compile_script, compile_mib,
-     good_citizen, deep_cwd, arg_overflow, make_dep_options].
+     good_citizen, deep_cwd, arg_overflow, make_dep_options,
+     unicode_paths].
 
 feature_tests() ->
     [features_erlc_describe,
@@ -487,6 +489,28 @@ make_dep_options(Config) ->
     false = exists(BeamFileName),
     ok.
 
+unicode_paths(Config) ->
+    case {os:type(), file:native_name_encoding()} of
+        {{win32,_}, _} -> {skip, "Unicode paths not supported on windows"};
+        {_,latin1} -> {skip, "Cannot interpret unicode filenames when native_name_encoding is latin1"};
+        _ ->
+            DepRE = ["_OK_"],
+            {SrcDir,OutDir0,Cmd0} = get_cmd(Config),
+            OutDir = filename:join(OutDir0,"😀"),
+            ok = case file:make_dir(OutDir) of
+                {error, eexist} -> ok;
+                ok -> ok;
+                E -> E
+            end,
+            Cmd = Cmd0 ++ " +brief -o "++OutDir,
+            FileName = filename:join([SrcDir, "😀", "erl_test_unicode.erl"]),
+            BeamFileName = filename:join(OutDir, "erl_test_unicode.beam"),
+            run(Config, Cmd, FileName, "", DepRE),
+            true = exists(BeamFileName),
+            file:delete(BeamFileName),
+            file:delete(OutDir)
+    end,
+    ok.
 
 %%% Tests related to the features mechanism
 %% Support macros and functions

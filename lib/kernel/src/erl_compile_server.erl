@@ -68,7 +68,7 @@ handle_call({compile, Parameters}, From, #st{jobs=Jobs}=St0) ->
     case verify_context(PathArgs, Parameters, St0) of
         {ok, St1} ->
             #{cwd := Cwd, encoding := Enc} = Parameters,
-            PidRef = spawn_monitor(fun() -> exit(do_compile(ErlcArgs, Cwd, Enc)) end),
+            PidRef = spawn_monitor(fun() -> exit(do_compile(ErlcArgs, unicode:characters_to_list(Cwd, Enc), Enc)) end),
             St = St1#st{jobs=Jobs#{PidRef => From}},
             {noreply, St#st{timeout=?IDLE_TIMEOUT}};
         wrong_config ->
@@ -145,8 +145,9 @@ do_compile(ErlcArgs, Cwd, Enc) ->
             {error, StdOutput, StdErrorOutput}
     end.
 
-parse_command_line(#{command_line := CmdLine, cwd := Cwd}) ->
-    parse_command_line_1(CmdLine, Cwd, [], []).
+parse_command_line(#{command_line := CmdLine0, cwd := Cwd, encoding := Enc}) ->
+    CmdLine = lists:map(fun(A) -> unicode:characters_to_list(A, Enc) end, CmdLine0),
+    parse_command_line_1(CmdLine, unicode:characters_to_list(Cwd, Enc), [], []).
 
 parse_command_line_1(["-pa", Pa|T], Cwd, PaAcc, PzAcc) ->
     parse_command_line_1(T, Cwd, [Pa|PaAcc], PzAcc);
