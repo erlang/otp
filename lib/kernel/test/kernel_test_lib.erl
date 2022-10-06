@@ -195,7 +195,7 @@ do_linux_which_distro(Version) ->
               "~n   Label:  ~s"
               "~n",
               [Version, DistroStr, Label]),
-    other.
+    {other, simplify_label(Label)}.
 
 do_linux_which_distro_issue(Version, Label) ->
     case file:read_file_info("/etc/issue") of
