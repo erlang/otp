@@ -91,9 +91,9 @@ characters_to_binary(_, _) ->
 -spec characters_to_list(Data,  InEncoding) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       InEncoding :: encoding(),
-      Result :: list()
-              | {error, list(), RestData}
-              | {incomplete, list(), binary()},
+      Result ::string()
+              | {error, string(), RestData}
+              | {incomplete, string(), binary()},
       RestData :: latin1_chardata() | chardata() | external_chardata().
 
 characters_to_list(_, _) ->
@@ -103,9 +103,9 @@ characters_to_list(_, _) ->
 
 -spec characters_to_list(Data) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
-      Result :: list()
-              | {error, list(), RestData}
-              | {incomplete, list(), binary()},
+      Result :: string()
+              | {error, string(), RestData}
+              | {incomplete, string(), binary()},
       RestData :: latin1_chardata() | chardata() | external_chardata().
 
 characters_to_list(ML) ->
