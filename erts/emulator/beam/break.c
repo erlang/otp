@@ -781,7 +781,7 @@ crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
     }
 
     /* We assume that crash dump was called from erts_exit_vv() */
-    erts_exit_epilogue();
+    erts_exit_epilogue(0);
 }
 
 /* XXX THIS SHOULD BE IN SYSTEM !!!! */
