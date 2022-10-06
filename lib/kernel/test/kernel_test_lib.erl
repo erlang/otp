@@ -281,32 +281,91 @@ do_linux_which_distro_fedora(Version, Label) ->
 
 do_linux_which_distro_suse(Version, Label) ->
     %% Check if its a SuSE
-    case file:read_file_info("/etc/SuSE-release") of
+    case file:read_file_info("/etc/SUSE-brand") of
         {ok, _} ->
-            case [string:trim(S) ||
-                     S <- string:tokens(os:cmd("cat /etc/SuSE-release"),
-                                        [$\n])] of
-                ["SUSE Linux Enterprise Server" ++ _ = DistroStr | _] ->
-                    io:format("Linux: ~s"
-                              "~n   Distro:                  ~s"
-                              "~n   TS Extra Platform Label: ~s"
-                              "~n",
-                              [Version, DistroStr, Label]),
-                    throw({distro, {sles, simplify_label(Label)}});
-                [DistroStr | _] ->
-                    io:format("Linux: ~s"
-                              "~n   Distro:                  ~s"
-                              "~n   TS Extra Platform Label: ~s"
-                              "~n",
-                              [Version, DistroStr, Label]),
-                    throw({distro, {suse, simplify_label(Label)}});
+            case file:read_file_info("/etc/SuSE-release") of
+                {ok, _} ->
+                    case [string:trim(S) ||
+                             S <- string:tokens(os:cmd("cat /etc/SuSE-release"),
+                                                [$\n])] of
+                        ["SUSE Linux Enterprise Server" ++ _ = DistroStr | _] ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label]),
+                            throw({distro, {sles, simplify_label(Label)}});
+                        [DistroStr | _] ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label]),
+                            throw({distro, {suse, simplify_label(Label)}});
+                        _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n",
+                                      [Version, "SuSE", Label]),
+                            throw({distro, {suse, simplify_label(Label)}})
+                    end;
                 _ ->
-                    io:format("Linux: ~s"
-                              "~n   Distro:                  ~s"
-                              "~n   TS Extra Platform Label: ~s"
-                              "~n",
-                              [Version, "SuSE", Label]),
-                    throw({distro, {suse, simplify_label(Label)}})
+                    case string:tokens(os:cmd("cat /etc/SUSE-brand"), [$\n]) of
+                        ["SLE" = DistroStr, VERSION | _] ->
+                            case [string:strip(S) ||
+                                     S <- string:tokens(VERSION, [$=])] of
+                                ["VERSION", VersionNo] ->
+                                    io:format("Linux: ~s"
+                                              "~n   Distro:                  ~s"
+                                              "~n   Distro Version:          ~s"
+                                              "~n   TS Extra Platform Label: ~s"
+                                              "~n",
+                                              [Version,
+                                               DistroStr, VersionNo,
+                                               Label]),
+                                    throw({distro,
+                                           {sles, simplify_label(Label)}});
+                                _ ->
+                                    io:format("Linux: ~s"
+                                              "~n   Distro:                  ~s"
+                                              "~n   TS Extra Platform Label: ~s"
+                                              "~n",
+                                              [Version, DistroStr, Label]),
+                                    throw({distro,
+                                           {sles, simplify_label(Label)}})
+                            end;
+                        ["openSUSE" = DistroStr, VERSION | _] ->
+                            case [string:strip(S) ||
+                                     S <- string:tokens(VERSION, [$=])] of
+                                ["VERSION", VersionNo] ->
+                                    io:format("Linux: ~s"
+                                              "~n   Distro:                  ~s"
+                                              "~n   Distro Version:          ~s"
+                                              "~n   TS Extra Platform Label: ~s"
+                                              "~n",
+                                              [Version,
+                                               DistroStr, VersionNo,
+                                               Label]),
+                                    throw({distro,
+                                           {ssuse, simplify_label(Label)}});
+                                _ ->
+                                    io:format("Linux: ~s"
+                                              "~n   Distro:                  ~s"
+                                              "~n   TS Extra Platform Label: ~s"
+                                              "~n",
+                                              [Version, DistroStr, Label]),
+                                    throw({distro,
+                                           {suse, simplify_label(Label)}})
+                            end;
+                        _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n",
+                                      [Version, "Unknown SUSE", Label]),
+                            throw({distro, {suse, simplify_label(Label)}})
+                    end
             end;
         _ ->
             ignore
