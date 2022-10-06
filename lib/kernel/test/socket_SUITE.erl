@@ -729,7 +729,9 @@
 -define(TPP_LARGE_NUM,  50).
 -define(TPP_NUM(Config, Base), (Base) div lookup(kernel_factor, 1, Config)).
 
--define(TTEST_RUNTIME,  ?SECS(1)).
+-define(TTEST_RUNTIME,    ?SECS(1)).
+-define(TTEST_MIN_FACTOR, 3).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1365,7 +1367,7 @@ traffic_pp_sendmsg_recvmsg_cases() ->
 %% reasonably fast.
 ttest_condition(Config) ->
     case ?config(kernel_factor, Config) of
-        Factor when is_integer(Factor) andalso (Factor < 5) ->
+        Factor when is_integer(Factor) andalso (Factor =< ?TTEST_MIN_FACTOR) ->
             ok;
         Factor when is_integer(Factor) ->
             {skip, ?F("Too slow for TTest (~w)", [Factor])};
