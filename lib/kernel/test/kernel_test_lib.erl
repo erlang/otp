@@ -189,6 +189,8 @@ do_linux_which_distro(Version) ->
     _ = do_linux_which_distro_fedora(Version, Label),
     %% Still not sure; try suse
     _ = do_linux_which_distro_suse(Version, Label),
+    %% Still not sure; try os-release
+    _ = do_linux_which_distro_os_release(Version, Label),
     %% And the fallback
     io:format("Linux: ~s"
               "~n   Distro: ~s"
@@ -348,7 +350,7 @@ do_linux_which_distro_suse(Version, Label) ->
                                                DistroStr, VersionNo,
                                                Label]),
                                     throw({distro,
-                                           {ssuse, simplify_label(Label)}});
+                                           {suse, simplify_label(Label)}});
                                 _ ->
                                     io:format("Linux: ~s"
                                               "~n   Distro:                  ~s"
@@ -370,6 +372,103 @@ do_linux_which_distro_suse(Version, Label) ->
         _ ->
             ignore
     end.
+
+do_linux_which_distro_os_release(Version, Label) ->
+    case file:read_file_info("/etc/os-release") of
+        {ok, _} ->
+            Info = linux_process_os_release(),
+            {value, {_, DistroStr}} = lists:keysearch(name, 1, Info),
+            {value, {_, VersionNo}} = lists:keysearch(version, 1, Info),
+            io:format("Linux: ~s"
+                      "~n   Distro:                  ~s"
+                      "~n   Distro Version:          ~s"
+                      "~n   TS Extra Platform Label: ~s"
+                      "~n",
+                      [Version, DistroStr, VersionNo, Label]),
+            throw({distro,
+                   {linux_distro_str_to_distro_id(DistroStr),
+                    simplify_label(Label)}});
+        _ ->
+            ignore
+    end.
+
+linux_process_os_release() ->
+    %% Read the "raw" file
+    Raw = os:cmd("cat /etc/os-release"),
+    %% Split it into lines
+    Lines1 = string:tokens(Raw, [$\n]),
+    %% Just in case, skip any lines starting with '#'.
+    Lines2 = linux_process_os_release1(Lines1),
+    %% Each (remaining) line *should* be: <TAG>=<VALUE>
+    %% Both sides will be strings, the value side will be a quoted string...
+    %% Convert those into a 2-tuple list: [{Tag, Value}]
+    linux_process_os_release2(Lines2).
+
+linux_process_os_release1(Lines) ->
+    linux_process_os_release1(Lines, []).
+
+linux_process_os_release1([], Acc) ->
+    lists:reverse(Acc);
+linux_process_os_release1([H|T], Acc) ->
+    case H of
+        "#" ++ _ ->
+            linux_process_os_release1(T, Acc);
+        _ ->
+            linux_process_os_release1(T, [H|Acc])
+    end.
+
+linux_process_os_release2(Lines) ->
+    linux_process_os_release2(Lines, []).
+
+linux_process_os_release2([], Acc) ->
+    lists:reverse(Acc);
+linux_process_os_release2([H|T], Acc) ->
+    case linux_process_os_release3(H) of
+        {value, Value} ->
+            linux_process_os_release2(T, [Value|Acc]);
+        false ->
+            linux_process_os_release2(T, Acc)
+    end.
+
+linux_process_os_release3(H) ->
+    case [string:strip(S) || S <- string:tokens(H, [$=])] of
+        [Tag, Value] ->
+            Tag2   = list_to_atom(string:to_lower(Tag)),
+            Value2 = string:strip(Value, both, $"),
+            linux_process_os_release4(Tag2, Value2);
+        _ ->
+            false
+    end.
+
+linux_process_os_release4(name = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(version = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(version_id = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(id = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(pretty_name = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(_Tag, _Value) ->
+    false.
+
+linux_distro_str_to_distro_id("openSUSE" ++ _) ->
+    suse;
+linux_distro_str_to_distro_id("SLES") ->
+    sles;
+linux_distro_str_to_distro_id("Linux Mint") ->
+    linux_mint;
+linux_distro_str_to_distro_id("Fedora") ->
+    fedora;
+linux_distro_str_to_distro_id("Yellow Dog") ->
+    yellow_dog;
+linux_distro_str_to_distro_id("MontaVista") ->
+    montavista;
+linux_distro_str_to_distro_id("Wind River Linux") ->
+    wind_river;
+linux_distro_str_to_distro_id(X) ->
+    X.
 
 
 analyze_and_print_linux_host_info(Version) ->
