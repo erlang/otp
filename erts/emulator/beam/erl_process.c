@@ -2297,17 +2297,18 @@ enqueue_later_op(ErtsSchedulerData *esdp,
 		 ErtsThrPrgrLaterOp *lop)
 {
     ErtsThrPrgrVal later = erts_thr_progress_later(esdp);
+    ErtsAuxWorkData* awdp = &esdp->aux_work_data;
     ASSERT(esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp));
 
     lop->func = later_func;
     lop->data = later_data;
     lop->later = later;
     lop->next = NULL;
-    if (!esdp->aux_work_data.later_op.last)
-	esdp->aux_work_data.later_op.first = lop;
+    if (!awdp->later_op.last)
+        awdp->later_op.first = lop;
     else
-	esdp->aux_work_data.later_op.last->next = lop;
-    esdp->aux_work_data.later_op.last = lop;
+        awdp->later_op.last->next = lop;
+    awdp->later_op.last = lop;
     set_aux_work_flags_wakeup_nob(esdp->ssi,
 				  ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP);
     return later;
