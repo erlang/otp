@@ -1468,10 +1468,8 @@ t_list() ->
 
 -spec t_list(erl_type()) -> erl_type().
 
-t_list(?none) -> ?none;
-t_list(?unit) -> ?none;
 t_list(Contents) ->
-  ?list(Contents, ?nil, ?unknown_qual).
+  t_sup(t_nonempty_list(Contents), t_nil()).
 
 -spec t_list_elements(erl_type()) -> erl_type().
 
