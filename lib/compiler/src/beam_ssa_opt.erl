@@ -64,7 +64,9 @@ module(Module, Opts) ->
     Phases = [{once, Order, prologue_passes(Opts)},
               {module, module_passes(Opts)},
               {fixpoint, Order, repeated_passes(Opts)},
-              {once, Order, epilogue_passes(Opts)}],
+              {once, Order, early_epilogue_passes(Opts)},
+              {module, epilogue_module_passes(Opts)},
+              {once, Order, late_epilogue_passes(Opts)}],
 
     StMap = run_phases(Phases, StMap0, FuncDb),
     {ok, finish(Module, StMap)}.
@@ -276,12 +278,21 @@ repeated_passes(Opts) ->
                                                 %clean up phi nodes.
     passes_1(Ps, Opts).
 
-epilogue_passes(Opts) ->
+epilogue_module_passes(Opts) ->
+    Ps0 = [{ssa_opt_alias,
+            fun({StMap, FuncDb}) ->
+                    beam_ssa_alias:opt(StMap, FuncDb)
+            end}],
+    passes_1(Ps0, Opts).
+
+early_epilogue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_type_finish),
           ?PASS(ssa_opt_float),
-          ?PASS(ssa_opt_sw),
+          ?PASS(ssa_opt_sw)],
+    passes_1(Ps, Opts).
 
-          %% Run live one more time to clean up after the previous
+late_epilogue_passes(Opts) ->
+    Ps = [%% Run live one more time to clean up after the previous
           %% epilogue passes.
           ?PASS(ssa_opt_live),
           ?PASS(ssa_opt_bsm),
