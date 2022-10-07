@@ -19,7 +19,7 @@
 %%
 -module(beam_ssa_pp).
 
--export([format_function/1,format_instr/1,format_var/1]).
+-export([format_function/1,format_instr/1,format_var/1,format_type/1]).
 
 -include("beam_ssa.hrl").
 -include("beam_types.hrl").
@@ -302,6 +302,8 @@ format_live_interval(#b_var{}=Dst, #{live_intervals:=Intervals}) ->
             []
     end;
 format_live_interval(_, _) -> [].
+
+-spec format_type(type()) -> iolist().
 
 format_type(any) ->
     "any()";
