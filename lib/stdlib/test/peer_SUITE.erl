@@ -13,6 +13,8 @@
     suite/0,
     all/0,
     groups/0,
+    init_per_suite/1,
+    end_per_suite/1,
     init_per_group/2,
     end_per_group/2
 ]).
@@ -56,6 +58,16 @@
 suite() ->
     [{timetrap, {minutes, 1}}].
 
+init_per_suite(Config) ->
+    %% Restrict number of schedulers so that we do not run out of
+    %% file descriptors during test
+    os:putenv("ERL_FLAGS","+S1 +SDio 1"),
+    Config.
+
+end_per_suite(_Config) ->
+    os:unsetenv("ERL_FLAGS"),
+    ok.
+
 shutdown_alternatives() ->
     [shutdown_halt, shutdown_halt_timeout, shutdown_stop, shutdown_stop_timeout, shutdown_close].
 
@@ -84,7 +96,7 @@ all() ->
 
 init_per_group(remote, Config) ->
     %% check that SSH can connect to localhost, skip the test if not
-    try os:cmd("ssh localhost echo ok") of
+    try os:cmd("timeout 10s ssh localhost echo ok") of
         "ok\n" -> Config;
         _ -> {skip, "'ssh localhost echo ok' did not return ok"}
     catch

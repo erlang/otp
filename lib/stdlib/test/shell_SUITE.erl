@@ -3107,9 +3107,9 @@ start_interactive_shell(ExtraArgs) ->
        {eval, fun() -> shell:start_interactive(noshell) end},
        {eval, fun() -> io:format(user,"~ts",[io:get_line(user, "")]) end},
        {expect, "test\\."},
-       {putline, "test."},
        {eval, fun() -> shell:start_interactive() end},
        {expect, "1>"},
+       {putline, "test."},
        {expect, "2>"}
       ],[],"",["-noinput","-eval","io:format(\"eval_test~n\")"] ++ ExtraArgs),
 

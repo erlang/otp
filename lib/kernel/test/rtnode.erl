@@ -124,7 +124,7 @@ timeout(long) ->
 timeout(short) ->
     timeout(normal) div 10;
 timeout(normal) ->
-    1000 * test_server:timetrap_scale_factor().
+    10000 * test_server:timetrap_scale_factor().
 
 send_commands(Node, CPid, [{sleep, X}|T], N) ->
     ?dbg({sleep, X}),

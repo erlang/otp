@@ -22,7 +22,7 @@
 %% filepaths, variable binding, record names, function parameter values,
 %% record fields and map keys and record field values.
 -include_lib("kernel/include/eep48.hrl").
--export([expand/1, expand/2, expand/3, format_matches/2, get_exports/1,
+-export([expand/1, expand/2, expand/3, format_matches/2, number_matches/1, get_exports/1,
          shell_default_or_bif/1, bif/1, over_word/1]).
 -export([is_type/3, match_arguments1/3]).
 -record(shell_state,{
@@ -1130,6 +1130,13 @@ field_width([], W, LL) when W < LL ->
     W + 4;
 field_width([], _, LL) ->
     LL.
+
+number_matches([#{ elems := Matches }|T]) ->
+    number_matches(Matches) + number_matches(T);
+number_matches([_|T]) ->
+    1 + number_matches(T);
+number_matches([]) ->
+    0.
 
 %% Strings are handled naively, but it should be OK here.
 longest_common_head([]) ->
