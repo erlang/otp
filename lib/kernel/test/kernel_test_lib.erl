@@ -167,17 +167,21 @@ ts_extra_flatform_label() ->
         Val   -> Val
     end.
 
+simplify_label("Meamax") ->
+    {host, meamax};
 simplify_label(Label) ->
     case string:find(string:to_lower(Label), "docker") of
         "docker" ++ _ ->
             docker;
         _ ->
-            host
+            {host, undefined}
     end.
 
 label2factor(docker) ->
     4;
-label2factor(host) ->
+label2factor({host, meamax}) ->
+    2;
+label2factor({host, _}) ->
     0.
 
 do_linux_which_distro(Version) ->
@@ -608,7 +612,8 @@ linux_cpuinfo_bogomips() ->
 	[] ->
 	    "-";
         BMips when is_list(BMips) ->
-            try lists:sum([bogomips_to_int(BM) || BM <- BMips])
+            BMScale = 1.0,
+            try round(BMScale * lists:sum([bogomips_to_int(BM) || BM <- BMips]))
             catch
                 _:_:_ ->
                     "-"
