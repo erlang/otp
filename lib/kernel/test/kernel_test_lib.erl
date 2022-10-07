@@ -186,15 +186,20 @@ label2factor({host, _}) ->
 
 do_linux_which_distro(Version) ->
     Label = ts_extra_flatform_label(),
+
     %% Many (linux) distro's use the /etc/issue file, so try that first.
     %% Then we just keep going until we are "done".
     DistroStr = do_linux_which_distro_issue(Version, Label),
+
     %% Still not sure; try fedora
     _ = do_linux_which_distro_fedora(Version, Label),
+
     %% Still not sure; try suse
     _ = do_linux_which_distro_suse(Version, Label),
+
     %% Still not sure; try os-release
     _ = do_linux_which_distro_os_release(Version, Label),
+
     %% And the fallback
     io:format("Linux: ~s"
               "~n   Distro: ~s"
@@ -380,18 +385,30 @@ do_linux_which_distro_suse(Version, Label) ->
 do_linux_which_distro_os_release(Version, Label) ->
     case file:read_file_info("/etc/os-release") of
         {ok, _} ->
-            Info = linux_process_os_release(),
-            {value, {_, DistroStr}} = lists:keysearch(name, 1, Info),
-            {value, {_, VersionNo}} = lists:keysearch(version, 1, Info),
-            io:format("Linux: ~s"
-                      "~n   Distro:                  ~s"
-                      "~n   Distro Version:          ~s"
-                      "~n   TS Extra Platform Label: ~s"
-                      "~n",
-                      [Version, DistroStr, VersionNo, Label]),
-            throw({distro,
-                   {linux_distro_str_to_distro_id(DistroStr),
-                    simplify_label(Label)}});
+            %% We want to 'catch' if our processing is wrong,
+            %% that's why we catch and re-throw the distro.
+            %% Actual errors will be returned as 'ignore'.
+            try
+                begin
+                    Info = linux_process_os_release(),
+                    {value, {_, DistroStr}} = lists:keysearch(name, 1, Info),
+                    {value, {_, VersionNo}} = lists:keysearch(version, 1, Info),
+                    io:format("Linux: ~s"
+                              "~n   Distro:                  ~s"
+                              "~n   Distro Version:          ~s"
+                              "~n   TS Extra Platform Label: ~s"
+                              "~n",
+                              [Version, DistroStr, VersionNo, Label]),
+                    throw({distro,
+                           {linux_distro_str_to_distro_id(DistroStr),
+                            simplify_label(Label)}})
+                end
+            catch
+                throw:{distro, _} = DISTRO ->
+                    throw(DISTRO);
+                _:_ ->
+                    ignore
+            end;
         _ ->
             ignore
     end.
@@ -457,20 +474,24 @@ linux_process_os_release4(pretty_name = Tag, Value) ->
 linux_process_os_release4(_Tag, _Value) ->
     false.
 
+linux_distro_str_to_distro_id("Debian" ++ _) ->
+    debian;
+linux_distro_str_to_distro_id("Fedora" ++ _) ->
+    fedora;
+linux_distro_str_to_distro_id("Linux Mint" ++ _) ->
+    linux_mint;
+linux_distro_str_to_distro_id("MontaVista" ++ _) ->
+    montavista;
 linux_distro_str_to_distro_id("openSUSE" ++ _) ->
     suse;
-linux_distro_str_to_distro_id("SLES") ->
+linux_distro_str_to_distro_id("SLES" ++ _) ->
     sles;
-linux_distro_str_to_distro_id("Linux Mint") ->
-    linux_mint;
-linux_distro_str_to_distro_id("Fedora") ->
-    fedora;
-linux_distro_str_to_distro_id("Yellow Dog") ->
-    yellow_dog;
-linux_distro_str_to_distro_id("MontaVista") ->
-    montavista;
-linux_distro_str_to_distro_id("Wind River Linux") ->
+linux_distro_str_to_distro_id("Ubuntu" ++ _) ->
+    ubuntu;
+linux_distro_str_to_distro_id("Wind River Linux" ++ _) ->
     wind_river;
+linux_distro_str_to_distro_id("Yellow Dog" ++ _) ->
+    yellow_dog;
 linux_distro_str_to_distro_id(X) ->
     X.
 
