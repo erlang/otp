@@ -4399,10 +4399,18 @@ exit_many_tables_owner(Config) when is_list(Config) ->
 exit_many_many_tables_owner(Config) when is_list(Config) ->
     Data = [{erlang:phash2(I, 16#ffffff),I} || I <- lists:seq(1, 50)],
     FEData = fun(Do) -> lists:foreach(Do, Data) end,
-    repeat_for_opts(fun(Opts) -> exit_many_many_tables_owner_do(Opts,FEData,Config) end).
+    repeat_for_opts(fun(Opts) -> exit_many_many_tables_owner_do1(Opts,FEData,Config) end).
 
-exit_many_many_tables_owner_do(Opts,FEData,Config) ->
+exit_many_many_tables_owner_do1(Opts,FEData,Config) ->
+    case has_fixed_number_of_locks(Opts) of
+        true ->
+            %% Few memory hogging tables => not enough yielding for the test
+            io:format("Skip option combo ~p\n", [Opts]);
+        false ->
+            exit_many_many_tables_owner_do2(Opts,FEData,Config)
+    end.
 
+exit_many_many_tables_owner_do2(Opts,FEData,Config) ->
     E = ets_new(tmp,Opts),
     FEData(fun(Data) -> ets:insert(E, Data) end),
     Mem = ets:info(E,memory) * erlang:system_info(wordsize),
@@ -9492,19 +9500,20 @@ repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},
 repeat_for_opts_atom2list(read_concurrency) -> [{read_concurrency,false},{read_concurrency,true}];
 repeat_for_opts_atom2list(compressed) -> [void,compressed].
 
+has_fixed_number_of_locks(Opts) ->
+    lists:any(
+      fun({write_concurrency, {debug_hash_fixed_number_of_locks, _}}) ->
+              true;
+         (_) ->
+              false
+      end,
+      Opts).
+
 is_invalid_opts_combo(Opts) ->
-    FixedNumLocksOption =
-        lists:any(
-          fun({write_concurrency, {debug_hash_fixed_number_of_locks, _}}) ->
-                  true;
-             (_) ->
-                  false
-          end,
-          Opts),
     OrderedSet = lists:member(ordered_set, Opts) orelse
                  lists:member(stim_cat_ord_set, Opts) orelse
                  lists:member(cat_ord_set, Opts),
-    OrderedSet andalso FixedNumLocksOption.
+    OrderedSet andalso has_fixed_number_of_locks(Opts).
 
 run_if_valid_opts(Opts, F) ->
     case is_invalid_opts_combo(Opts) of
