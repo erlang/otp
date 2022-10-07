@@ -183,6 +183,7 @@ only_simulated() ->
      redirect_found,
      redirect_see_other,
      redirect_temporary_redirect,
+     redirect_permanent_redirect,
      redirect_relative_uri,
      port_in_host_header,
      redirect_port_in_host_header,
@@ -758,6 +759,26 @@ redirect_temporary_redirect(Config) when is_list(Config) ->
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL307, [],"text/plain", "foobar"},
+			[], []).
+%%-------------------------------------------------------------------------
+redirect_permanent_redirect() ->
+    [{doc, "The server SHOULD generate a Location header field in the response "
+      "containing a preferred URI reference for the new permanent URI. "
+      "The user agent MAY use the Location field value for automatic redirection. "
+      "The server's response content usually contains a short hypertext note with "
+      "a hyperlink to the new URI(s)."}].
+redirect_permanent_redirect(Config) when is_list(Config) ->
+
+    URL308 =  url(group_name(Config), "/308.html", Config),
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, {URL308, []}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], []}}
+	= httpc:request(head, {URL308, []}, [], []),
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(post, {URL308, [],"text/plain", "foobar"},
 			[], []).
 %%-------------------------------------------------------------------------
 redirect_relative_uri() ->
@@ -2604,6 +2625,21 @@ handle_uri(_,"/307.html",Port,_,Socket,_) ->
     Body = "<HTML><BODY><a href=" ++ NewUri ++
 	">New place</a></BODY></HTML>",
     "HTTP/1.1 307 Temporary Rediect \r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:" ++ integer_to_list(length(Body))
+	++ "\r\n\r\n" ++ Body;
+handle_uri("HEAD","/308.html",Port,_,Socket,_) ->
+    NewUri = url_start(Socket) ++
+	integer_to_list(Port) ++ "/dummy.html",
+    "HTTP/1.1 308 Permanent Redirect \r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:0\r\n\r\n";
+handle_uri(_,"/308.html",Port,_,Socket,_) ->
+    NewUri = url_start(Socket) ++
+	integer_to_list(Port) ++ "/dummy.html",
+    Body = "<HTML><BODY><a href=" ++ NewUri ++
+	">New place</a></BODY></HTML>",
+    "HTTP/1.1 308 Permanent Redirect \r\n" ++
 	"Location:" ++ NewUri ++  "\r\n" ++
 	"Content-Length:" ++ integer_to_list(length(Body))
 	++ "\r\n\r\n" ++ Body;

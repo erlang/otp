@@ -122,17 +122,19 @@ result(Response = {{_, Code, _}, _, _},
                            (Code =:= 303) ->
     redirect(Response, Request#request{method = get});
 result(Response = {{_, Code, _}, _, _}, 
-       Request = #request{settings =
-              #http_options{autoredirect = true},
-              method = post}) when (Code =:= 307) ->
+        Request = #request{settings =
+            #http_options{autoredirect = true},
+                method = post}) when (Code =:= 307) orelse
+                    (Code =:= 308) ->
     redirect(Response, Request);
 result(Response = {{_, Code, _}, _, _}, 
-       Request = #request{settings = 
-			  #http_options{autoredirect = true},
-			  method = Method}) when (Code =:= 301) orelse
-					       (Code =:= 302) orelse
-					       (Code =:= 303) orelse
-					       (Code =:= 307) ->
+        Request = #request{settings = 
+			#http_options{autoredirect = true},
+                method = Method}) when (Code =:= 301) orelse
+                    (Code =:= 302) orelse
+                    (Code =:= 303) orelse
+                    (Code =:= 307) orelse
+                    (Code =:= 308) ->
     case lists:member(Method, [get, head, options, trace]) of
     true ->
         redirect(Response, Request);
