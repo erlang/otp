@@ -733,13 +733,15 @@
 -define(TTEST_MIN_FACTOR,                    3).
 -define(TTEST_DEFAULT_SMALL_MAX_OUTSTANDING, 50).
 -define(TTEST_DEFAULT_MEDIUM_MAX_OUTSTANDING,
-        ?TTEST_DEFAULT_SMALL_MAX_OUTSTANDING div 5).
+        ?TTEST_MK_DEFAULT_MAX_OUTSTANDING(
+           ?TTEST_DEFAULT_SMALL_MAX_OUTSTANDING)).
 -define(TTEST_DEFAULT_LARGE_MAX_OUTSTANDING,
-        ?TTEST_DEFAULT_MEDIUM_MAX_OUTSTANDING div 5).
+        ?TTEST_MK_DEFAULT_MAX_OUTSTANDING(
+           ?TTEST_DEFAULT_MEDIUM_MAX_OUTSTANDING)).
 
--define(TTEST_MK_DEFAULT_MAX_OUTSTANDING(__X__, __D__),
-        if ((__X__) >= (__D__)) ->
-                (__X__) div (__D__);
+-define(TTEST_MK_DEFAULT_MAX_OUTSTANDING(__X__),
+        if ((__X__) >= 5) ->
+                (__X__) div 5;
            true ->
                 1
         end).
@@ -1390,9 +1392,26 @@ ttest_small_max_outstanding(Config) ->
     EnvKey                = "ESOCK_TEST_TTEST_SMALL_MAX_OUTSTANDING",
     Default               = ?TTEST_DEFAULT_SMALL_MAX_OUTSTANDING,
     DefaultMaxOutstanding = ttest_max_outstanding(Config, EnvKey, Default),
-    ttest_small_max_outstanding(Config, DefaultMaxOutstanding).
+    ttest_max_outstanding(Config, DefaultMaxOutstanding).
 
-ttest_small_max_outstanding(Config, Default) when (Default > 1) ->
+ttest_medium_max_outstanding(Config) ->
+    SmallMaxOutstanding   = ttest_small_max_outstanding(Config),
+    EnvKey                = "ESOCK_TEST_TTEST_MEDIUM_MAX_OUTSTANDING",
+    Default               = ?TTEST_MK_DEFAULT_MAX_OUTSTANDING(
+                               SmallMaxOutstanding),
+    DefaultMaxOutstanding = ttest_max_outstanding(Config, EnvKey, Default),
+    ttest_max_outstanding(Config, DefaultMaxOutstanding).
+
+ttest_large_max_outstanding(Config) ->
+    MediumMaxOutstanding  = ttest_medium_max_outstanding(Config),
+    EnvKey                = "ESOCK_TEST_TTEST_LARGE_MAX_OUTSTANDING",
+    Default               = ?TTEST_MK_DEFAULT_MAX_OUTSTANDING(
+                               MediumMaxOutstanding),
+    DefaultMaxOutstanding = ttest_max_outstanding(Config, EnvKey, Default),
+    ttest_max_outstanding(Config, DefaultMaxOutstanding).
+
+ttest_max_outstanding(Config, Default)
+  when is_integer(Default) andalso (Default > 1) ->
     %% Note that we should not even get here if factor > 4
     case ?config(kernel_factor, Config) of
         1                     -> Default;
@@ -1401,20 +1420,20 @@ ttest_small_max_outstanding(Config, Default) when (Default > 1) ->
         _ when (Default >= 8) -> Default div 8;
         _                     -> 1
     end;
-ttest_small_max_outstanding(_, _) ->
+ttest_max_outstanding(_, _) ->
     1.
 
 ttest_max_outstanding(Config, EnvKey, Default) ->
     Key = list_to_atom(string:to_lower(EnvKey)),
     case lists:keysearch(Key, 1, Config) of
-        {value, {Key, MO}} ->
+        {value, {Key, MO}} when is_integer(MO) andalso (MO > 0) ->
             MO;
         _ ->
             case os:getenv(EnvKey) of
                 false ->
                     Default;
                 Val ->
-                    try list_to_integer(string:to_lower(Val)) of
+                    try list_to_integer(Val) of
                         MO when (MO > 0) ->
                             MO;
                         _ ->
@@ -41539,7 +41558,7 @@ ttest_sgenf_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41559,7 +41578,7 @@ ttest_sgenf_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41579,7 +41598,7 @@ ttest_sgenf_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41599,7 +41618,7 @@ ttest_sgenf_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41659,7 +41678,7 @@ ttest_sgenf_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41679,7 +41698,7 @@ ttest_sgenf_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41699,7 +41718,7 @@ ttest_sgenf_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41719,7 +41738,7 @@ ttest_sgenf_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41779,7 +41798,7 @@ ttest_sgenf_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41799,7 +41818,7 @@ ttest_sgenf_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41819,7 +41838,7 @@ ttest_sgenf_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41839,7 +41858,7 @@ ttest_sgenf_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41899,7 +41918,7 @@ ttest_sgenf_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41919,7 +41938,7 @@ ttest_sgenf_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41939,7 +41958,7 @@ ttest_sgenf_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41959,7 +41978,7 @@ ttest_sgenf_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42019,7 +42038,7 @@ ttest_sgenf_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42039,7 +42058,7 @@ ttest_sgenf_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42059,7 +42078,7 @@ ttest_sgenf_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42079,7 +42098,7 @@ ttest_sgenf_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42139,7 +42158,7 @@ ttest_sgenf_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42159,7 +42178,7 @@ ttest_sgenf_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42179,7 +42198,7 @@ ttest_sgenf_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42199,7 +42218,7 @@ ttest_sgenf_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42259,7 +42278,7 @@ ttest_sgeno_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42279,7 +42298,7 @@ ttest_sgeno_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42299,7 +42318,7 @@ ttest_sgeno_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42319,7 +42338,7 @@ ttest_sgeno_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42379,7 +42398,7 @@ ttest_sgeno_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42399,7 +42418,7 @@ ttest_sgeno_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42419,7 +42438,7 @@ ttest_sgeno_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42439,7 +42458,7 @@ ttest_sgeno_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42499,7 +42518,7 @@ ttest_sgeno_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42519,7 +42538,7 @@ ttest_sgeno_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42539,7 +42558,7 @@ ttest_sgeno_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42559,7 +42578,7 @@ ttest_sgeno_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42619,7 +42638,7 @@ ttest_sgeno_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42639,7 +42658,7 @@ ttest_sgeno_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42659,7 +42678,7 @@ ttest_sgeno_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42679,7 +42698,7 @@ ttest_sgeno_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42739,7 +42758,7 @@ ttest_sgeno_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42759,7 +42778,7 @@ ttest_sgeno_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42779,7 +42798,7 @@ ttest_sgeno_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42799,7 +42818,7 @@ ttest_sgeno_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42859,7 +42878,7 @@ ttest_sgeno_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42879,7 +42898,7 @@ ttest_sgeno_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42899,7 +42918,7 @@ ttest_sgeno_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42919,7 +42938,7 @@ ttest_sgeno_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42979,7 +42998,7 @@ ttest_sgent_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42999,7 +43018,7 @@ ttest_sgent_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43019,7 +43038,7 @@ ttest_sgent_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43039,7 +43058,7 @@ ttest_sgent_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43099,7 +43118,7 @@ ttest_sgent_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43119,7 +43138,7 @@ ttest_sgent_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43139,7 +43158,7 @@ ttest_sgent_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43159,7 +43178,7 @@ ttest_sgent_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43222,7 +43241,7 @@ ttest_sgent_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43244,7 +43263,7 @@ ttest_sgent_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43267,7 +43286,7 @@ ttest_sgent_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43290,7 +43309,7 @@ ttest_sgent_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43351,7 +43370,7 @@ ttest_sgent_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43371,7 +43390,7 @@ ttest_sgent_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43391,7 +43410,7 @@ ttest_sgent_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43411,7 +43430,7 @@ ttest_sgent_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43471,7 +43490,7 @@ ttest_sgent_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43491,7 +43510,7 @@ ttest_sgent_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43511,7 +43530,7 @@ ttest_sgent_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43531,7 +43550,7 @@ ttest_sgent_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43591,7 +43610,7 @@ ttest_sgent_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43611,7 +43630,7 @@ ttest_sgent_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43631,7 +43650,7 @@ ttest_sgent_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43651,7 +43670,7 @@ ttest_sgent_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43711,7 +43730,7 @@ ttest_ssockf_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43731,7 +43750,7 @@ ttest_ssockf_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43751,7 +43770,7 @@ ttest_ssockf_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43771,7 +43790,7 @@ ttest_ssockf_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43831,7 +43850,7 @@ ttest_ssockf_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43851,7 +43870,7 @@ ttest_ssockf_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43871,7 +43890,7 @@ ttest_ssockf_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43891,7 +43910,7 @@ ttest_ssockf_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43951,7 +43970,7 @@ ttest_ssockf_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43971,7 +43990,7 @@ ttest_ssockf_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43991,7 +44010,7 @@ ttest_ssockf_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44011,7 +44030,7 @@ ttest_ssockf_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44091,7 +44110,7 @@ ttest_ssockf_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44111,7 +44130,7 @@ ttest_ssockf_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44131,7 +44150,7 @@ ttest_ssockf_csockf_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44151,7 +44170,7 @@ ttest_ssockf_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44171,7 +44190,7 @@ ttest_ssockf_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44191,7 +44210,7 @@ ttest_ssockf_csockf_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44271,7 +44290,7 @@ ttest_ssockf_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44291,7 +44310,7 @@ ttest_ssockf_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44311,7 +44330,7 @@ ttest_ssockf_csocko_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44331,7 +44350,7 @@ ttest_ssockf_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44351,7 +44370,7 @@ ttest_ssockf_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44371,7 +44390,7 @@ ttest_ssockf_csocko_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44451,7 +44470,7 @@ ttest_ssockf_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44471,7 +44490,7 @@ ttest_ssockf_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44491,7 +44510,7 @@ ttest_ssockf_csockt_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44511,7 +44530,7 @@ ttest_ssockf_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44531,7 +44550,7 @@ ttest_ssockf_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44551,7 +44570,7 @@ ttest_ssockf_csockt_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44611,7 +44630,7 @@ ttest_ssocko_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44631,7 +44650,7 @@ ttest_ssocko_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44651,7 +44670,7 @@ ttest_ssocko_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44671,7 +44690,7 @@ ttest_ssocko_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44731,7 +44750,7 @@ ttest_ssocko_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44751,7 +44770,7 @@ ttest_ssocko_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44771,7 +44790,7 @@ ttest_ssocko_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44791,7 +44810,7 @@ ttest_ssocko_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44851,7 +44870,7 @@ ttest_ssocko_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44871,7 +44890,7 @@ ttest_ssocko_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44891,7 +44910,7 @@ ttest_ssocko_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44911,7 +44930,7 @@ ttest_ssocko_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44991,7 +45010,7 @@ ttest_ssocko_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45011,7 +45030,7 @@ ttest_ssocko_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45031,7 +45050,7 @@ ttest_ssocko_csockf_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45051,7 +45070,7 @@ ttest_ssocko_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45071,7 +45090,7 @@ ttest_ssocko_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45091,7 +45110,7 @@ ttest_ssocko_csockf_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45171,7 +45190,7 @@ ttest_ssocko_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45191,7 +45210,7 @@ ttest_ssocko_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45211,7 +45230,7 @@ ttest_ssocko_csocko_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45231,7 +45250,7 @@ ttest_ssocko_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45251,7 +45270,7 @@ ttest_ssocko_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45271,7 +45290,7 @@ ttest_ssocko_csocko_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45351,7 +45370,7 @@ ttest_ssocko_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45371,7 +45390,7 @@ ttest_ssocko_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45391,7 +45410,7 @@ ttest_ssocko_csockt_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45411,7 +45430,7 @@ ttest_ssocko_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45431,7 +45450,7 @@ ttest_ssocko_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45451,7 +45470,7 @@ ttest_ssocko_csockt_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45511,7 +45530,7 @@ ttest_ssockt_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45531,7 +45550,7 @@ ttest_ssockt_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45551,7 +45570,7 @@ ttest_ssockt_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45571,7 +45590,7 @@ ttest_ssockt_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45631,7 +45650,7 @@ ttest_ssockt_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45651,7 +45670,7 @@ ttest_ssockt_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45671,7 +45690,7 @@ ttest_ssockt_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45691,7 +45710,7 @@ ttest_ssockt_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45751,7 +45770,7 @@ ttest_ssockt_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45771,7 +45790,7 @@ ttest_ssockt_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45791,7 +45810,7 @@ ttest_ssockt_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45811,7 +45830,7 @@ ttest_ssockt_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45891,7 +45910,7 @@ ttest_ssockt_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45911,7 +45930,7 @@ ttest_ssockt_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45931,7 +45950,7 @@ ttest_ssockt_csockf_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45951,7 +45970,7 @@ ttest_ssockt_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45971,7 +45990,7 @@ ttest_ssockt_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45991,7 +46010,7 @@ ttest_ssockt_csockf_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46071,7 +46090,7 @@ ttest_ssockt_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -46091,7 +46110,7 @@ ttest_ssockt_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -46111,7 +46130,7 @@ ttest_ssockt_csocko_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -46131,7 +46150,7 @@ ttest_ssockt_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46151,7 +46170,7 @@ ttest_ssockt_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46171,7 +46190,7 @@ ttest_ssockt_csocko_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46251,7 +46270,7 @@ ttest_ssockt_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -46271,7 +46290,7 @@ ttest_ssockt_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -46291,7 +46310,7 @@ ttest_ssockt_csockt_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -46311,7 +46330,7 @@ ttest_ssockt_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46331,7 +46350,7 @@ ttest_ssockt_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46351,7 +46370,7 @@ ttest_ssockt_csockt_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
