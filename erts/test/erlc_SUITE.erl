@@ -975,9 +975,10 @@ features_runtime(Config) when is_list(Config) ->
                   experimental_ftr_1,
                   experimental_ftr_2],
     Approved = [approved_ftr_2,
-                approved_ftr_1],
+                approved_ftr_1,
+                maybe_expr],
 
-    {Compile, _SrcDir, _OutDir} = compile_fun(Config),
+    {_Compile, _SrcDir, _OutDir} = compile_fun(Config),
 
     {Peer0, Node0} = peer([]),
 
@@ -1010,14 +1011,14 @@ features_runtime(Config) when is_list(Config) ->
     peer:stop(Peer0),
 
     {Peer1, Node1} = peer(["-enable-feature", "experimental_ftr_2"]),
-    [experimental_ftr_2, approved_ftr_2, approved_ftr_1] =
+    [experimental_ftr_2, approved_ftr_2, approved_ftr_1, maybe_expr] =
         erpc:call(Node1, erl_features, enabled, []),
     [while, until, unless] =  erpc:call(Node1, erl_features, keywords, []),
 
     peer:stop(Peer1),
 
     {Peer2, Node2} = peer(["-disable-feature", "all"]),
-    [] = erpc:call(Node2, erl_features, enabled, []),
+    [maybe_expr] = erpc:call(Node2, erl_features, enabled, []),
     [] =  erpc:call(Node2, erl_features, keywords, []),
 
     peer:stop(Peer2),

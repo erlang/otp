@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erl_features).
+-feature(maybe_expr, enable).
 
 -export([all/0,
          configurable/0,
@@ -371,7 +372,7 @@ init_features() ->
         end,
     FOps = lists:filtermap(F, FeatureOps),
     {Features, _, _} = collect_features(FOps),
-    {Enabled, Keywords} =
+    {Enabled0, Keywords} =
         lists:foldl(fun(Ftr, {Ftrs, Keys}) ->
                             case lists:member(Ftr, Ftrs) of
                                 true ->
@@ -385,10 +386,14 @@ init_features() ->
                     Features),
 
     %% Save state
+    Enabled = lists:uniq(Enabled0 ++ permanently_enabled_in_erts()),
     enabled_features(Enabled),
     set_keywords(Keywords),
     persistent_term:put({?MODULE, init_done}, true),
     ok.
+
+permanently_enabled_in_erts() ->
+    [maybe_expr].
 
 init_specs() ->
     Specs = case os:getenv("OTP_TEST_FEATURES") of
@@ -428,25 +433,18 @@ set_keywords(Words) ->
 %%  {not_allowed, <list of not enabled features>}.
 -spec load_allowed(binary()) -> ok | {not_allowed, [feature()]}.
 load_allowed(Binary) ->
-    case erts_internal:beamfile_chunk(Binary, "Meta") of
-        undefined ->
-            ok;
-        Meta ->
-            MetaData = erlang:binary_to_term(Meta),
-            case proplists:get_value(enabled_features, MetaData) of
-                undefined ->
-                    ok;
-                Used ->
-                    Enabled = enabled(),
-                    case lists:filter(fun(UFtr) ->
-                                              not lists:member(UFtr, Enabled)
-                                      end,
-                                      Used) of
-                        [] -> ok;
-                        NotEnabled ->
-                            {not_allowed, NotEnabled}
-                    end
-            end
+    maybe
+        Meta = erts_internal:beamfile_chunk(Binary, "Meta"),
+        true ?= Meta =/= undefined,
+        MetaData = binary_to_term(Meta),
+        Used = proplists:get_value(enabled_features, MetaData, []),
+        Enabled = enabled(),
+        NotEnabled = [UFtr || UFtr <- Used,
+                              not lists:member(UFtr, Enabled)],
+        [_|_] ?= NotEnabled,
+        {not_allowed, NotEnabled}
+    else
+        _ -> ok
     end.
 
 %% Return features used by module or beam file
