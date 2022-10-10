@@ -1378,7 +1378,8 @@ protected:
 
     /* Returns a vector of the untagged and rebased `args`. The adjusted
      * `comparand` is stored in ARG1. */
-    const std::vector<ArgVal> emit_select_untag(const Span<ArgVal> &args,
+    const std::vector<ArgVal> emit_select_untag(const ArgSource &Src,
+                                                const Span<ArgVal> &args,
                                                 a64::Gp comparand,
                                                 Label fail,
                                                 UWord base,

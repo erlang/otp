@@ -533,7 +533,9 @@ opt_bs([{L, #b_blk{is=Is0,last=Last0}=Blk0} | Bs],
             SuccTypes = update_success_types(Last1, Ts, Ds, Meta, SuccTypes0),
 
             UsedOnce = Meta#metadata.used_once,
-            {Last, Ls1} = update_successors(Last1, Ts, Ds, Ls0, UsedOnce),
+            {Last2, Ls1} = update_successors(Last1, Ts, Ds, Ls0, UsedOnce),
+
+            Last = opt_anno_types(Last2, Ts),
 
             Ls = Ls1#{ L := {outgoing, Ts} },           %Assertion.
 
@@ -598,7 +600,17 @@ opt_anno_types(#b_set{op=Op,args=Args}=I, Ts) ->
     case benefits_from_type_anno(Op, Args) of
         true -> opt_anno_types_1(I, Args, Ts, 0, #{});
         false -> I
-    end.
+    end;
+opt_anno_types(#b_switch{anno=Anno0,arg=Arg}=I, Ts) ->
+    case concrete_type(Arg, Ts) of
+        any ->
+            I;
+        Type ->
+            Anno = Anno0#{arg_types => #{0 => Type}},
+            I#b_switch{anno=Anno}
+    end;
+opt_anno_types(I, _Ts) ->
+    I.
 
 opt_anno_types_1(I, [#b_var{}=Var | Args], Ts, Index, Acc0) ->
     case concrete_type(Var, Ts) of

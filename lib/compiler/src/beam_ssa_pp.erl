@@ -179,10 +179,11 @@ format_terminator(#b_br{anno=A,bool=Bool,succ=Succ,fail=Fail}, FuncAnno) ->
                    format_label(Succ),
                    format_label(Fail)]);
 format_terminator(#b_switch{anno=A,arg=Arg,fail=Fail,list=List}, FuncAnno) ->
+    [format_instr_anno(A, FuncAnno, [Arg]),
     io_lib:format("  ~sswitch ~ts, ~ts, ~ts\n",
                   [format_i_number(A),format_arg(Arg, FuncAnno),
                    format_label(Fail),
-                   format_switch_list(List, FuncAnno)]);
+                   format_switch_list(List, FuncAnno)])];
 format_terminator(#b_ret{anno=A,arg=Arg}, FuncAnno) ->
     io_lib:format("  ~sret ~ts\n", [format_i_number(A),format_arg(Arg, FuncAnno)]).
 

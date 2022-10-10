@@ -78,7 +78,8 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
 -record(cg_ret, {arg :: cg_value(),
                  dealloc=none :: 'none' | pos_integer()
                 }).
--record(cg_switch, {arg :: cg_value(),
+-record(cg_switch, {anno=#{} :: anno(),
+                    arg :: cg_value(),
                     fail :: ssa_label(),
                     list :: [sw_list_item()]
                    }).
@@ -999,8 +1000,8 @@ cg_block(Is0, Last, Next, St0) ->
     end.
 
 cg_switch(Is0, Last, St0) ->
-    #cg_switch{arg=Src0,fail=Fail0,list=List0} = Last,
-    Src = beam_arg(Src0, St0),
+    #cg_switch{anno=Anno,arg=Src0,fail=Fail0,list=List0} = Last,
+    Src1 = beam_arg(Src0, St0),
     {Fail1,St1} = use_block_label(Fail0, St0),
     Fail = ensure_label(Fail1, St1),
     {List1,St2} =
@@ -1010,13 +1011,14 @@ cg_switch(Is0, Last, St0) ->
                      end, St1, List0),
     {Is1,St} = cg_block(Is0, none, St2),
     case reverse(Is1) of
-        [{bif,tuple_size,_,[Tuple],{z,_}=Src}|More] ->
+        [{bif,tuple_size,_,[Tuple],{z,_}=Src1}|More] ->
             List = map(fun({integer,Arity}) -> Arity;
                           ({f,_}=F) -> F
                        end, List1),
             Is = reverse(More, [{select_tuple_arity,Tuple,Fail,{list,List}}]),
             {Is,St};
         _ ->
+            [Src] = typed_args([Src0], Anno, St),
             SelectVal = {select_val,Src,Fail,{list,List1}},
             {Is1 ++ [SelectVal],St}
     end.
@@ -2029,8 +2031,8 @@ translate_terminator(#b_br{bool=#b_literal{val=true},succ=Succ}) ->
     #cg_br{bool=#b_literal{val=true},succ=Succ,fail=Succ};
 translate_terminator(#b_br{bool=Bool,succ=Succ,fail=Fail}) ->
     #cg_br{bool=Bool,succ=Succ,fail=Fail};
-translate_terminator(#b_switch{arg=Bool,fail=Fail,list=List}) ->
-    #cg_switch{arg=Bool,fail=Fail,list=List}.
+translate_terminator(#b_switch{anno=Anno,arg=Bool,fail=Fail,list=List}) ->
+    #cg_switch{anno=Anno,arg=Bool,fail=Fail,list=List}.
 
 translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks) ->
     #b_blk{is=Is} = maps:get(Target, Blocks),
