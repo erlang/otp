@@ -368,7 +368,12 @@ static ERTS_INLINE void async_reply(ErtsAsync *a, ErtsThrQPrepEnQ_t *prep_enq)
 static void
 async_wakeup(void *vtse)
 {
-    erts_tse_set((erts_tse_t *) vtse);
+    /*
+     * 'vtse' might be NULL if we are called after an async thread
+     * has unregistered from thread progress prior to termination.
+     */
+    if (vtse)
+        erts_tse_set((erts_tse_t *) vtse);
 }
 
 static erts_tse_t *async_thread_init(ErtsAsyncQ *aq)
@@ -430,6 +435,7 @@ static void *async_main(void* arg)
 	async_reply(a, prep_enq);
     }
 
+    erts_thr_progress_unregister_unmanaged_thread();
     return NULL;
 }
 
