@@ -464,31 +464,30 @@ sched_util_runner(A, B, Effort, Senders, PrivDir) ->
     Payload = payload(5),
     Time = 1000 * Effort,
     [A] = rpc:call(B, erlang, nodes, []),
-    fs_log(PrivDir, "sched_util_runner.nodes", [A]),
     ServerPids =
         [erlang:spawn_link(
            B, fun () -> throughput_server() end)
          || _ <- lists:seq(1, Senders)],
-    fs_log(PrivDir, "sched_util_runner.ServerPids", ServerPids),
     ServerMsacc =
         erlang:spawn(
           B,
           fun() ->
                   receive
                       {start,Pid} ->
-                          fs_log(PrivDir,
-                                 "sched_util_runner.msacc:start", Pid),
                           msacc:start(Time),
                           receive
                               {done,Pid} ->
                                   fs_log(PrivDir,
                                          "sched_util_runner.msacc:stats",
                                          ok),
-                                  Pid ! {self(),msacc:stats()}
+                                  ServerStats = msacc:stats(),
+                                  fs_log(PrivDir,
+                                         "sched_util_runner.msacc:ServerStats",
+                                         ServerStats),
+                                  Pid ! {self(), ServerStats}
                           end
                   end
           end),
-    fs_log(PrivDir, "sched_util_runner.ServerMsacc", ServerMsacc),
     erlang:system_monitor(self(),[busy_dist_port]),
     %% We spawn 250 senders which should mean that we
     %% have a load of 250 msgs/msec
@@ -498,12 +497,13 @@ sched_util_runner(A, B, Effort, Senders, PrivDir) ->
                    throughput_client(Pid, Payload)
            end) || Pid <- ServerPids],
     %%
-    fs_log(PrivDir, "sched_util_runner.Clients", _Clients),
     receive after 1000 -> ok end,
     ServerMsacc ! {start,self()},
     fs_log(PrivDir, "sched_util_runner.self", self()),
     msacc:start(Time),
+    fs_log(PrivDir, "sched_util_runner.msacc:start.done", ok),
     ClientMsaccStats = msacc:stats(),
+    fs_log(PrivDir, "sched_util_runner.ClientMsaccStats", ClientMsaccStats),
     receive after 1000 -> ok end,
     ServerMsacc ! {done,self()},
     ServerMsaccStats = receive {ServerMsacc,Stats} -> Stats end,
