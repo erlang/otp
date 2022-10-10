@@ -6290,9 +6290,6 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 	erts_atomic32_set_nob(&schdlr_sspnd.changing,
 				  set_schdlr_sspnd_change_flags);
 
-    init_misc_aux_work();
-
-
     /* init port tasks */
     erts_port_task_init();
 
