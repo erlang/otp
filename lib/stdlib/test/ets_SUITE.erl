@@ -42,7 +42,7 @@
 -export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1]).
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1,
          select_bound_chunk/1, t_delete_all_objects/1, t_test_ms/1,
-         t_delete_all_objects_trap_unfix/1,
+         t_delete_all_objects_trap/1,
 	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,
          t_select_pam_stack_overflow_bug/1,
          t_ets_dets/1]).
@@ -150,7 +150,7 @@ all() ->
      match_heavy, {group, fold}, member, t_delete_object,
      select_bound_chunk,
      t_init_table, t_whitebox, t_delete_all_objects,
-     t_delete_all_objects_trap_unfix,
+     t_delete_all_objects_trap,
      t_test_ms, t_select_delete, t_select_replace,
      t_select_replace_next_bug,
      t_select_pam_stack_overflow_bug,
@@ -1041,30 +1041,43 @@ inserter(T, Next, Papa) ->
     end.
 
 
-%% Test unfix during delete_all_objects
-t_delete_all_objects_trap_unfix(Config) when is_list(Config) ->
+%% Poke table during delete_all_objects
+t_delete_all_objects_trap(Config) when is_list(Config) ->
     EtsMem = etsmem(),
     repeat_for_opts_all_set_table_types(
       fun(Opts) ->
-              delete_all_objects_trap_unfix(Opts, unfix),
-              delete_all_objects_trap_unfix(Opts, exit)
+              delete_all_objects_trap(Opts, unfix),
+              delete_all_objects_trap(Opts, exit),
+              delete_all_objects_trap(Opts, rename)
       end),
     verify_etsmem(EtsMem),
     ok.
 
-delete_all_objects_trap_unfix(Opts, Mode) ->
+delete_all_objects_trap(Opts, Mode) ->
     io:format("Opts = ~p\nMode = ~p\n", [Opts, Mode]),
     Tester = self(),
     KeyRange = 50_000,
-    T=ets_new(x, Opts, KeyRange),
+    TableName = delete_all_objects_trap,
+    {Tref,T} =
+        case Mode of
+            rename ->
+                TableName = ets_new(TableName, [named_table,public|Opts], KeyRange),
+                {ets:whereis(TableName), TableName};
+            _ ->
+                Tid = ets_new(x, Opts, KeyRange),
+                {Tid,Tid}
+        end,
     filltabint(T, KeyRange),
     KeyRange = ets:info(T,size),
     FixerFun =
         fun() ->
                 erlang:trace(Tester, true, [running]),
-                ets:safe_fixtable(T, true),
+                case Mode of
+                    rename -> ok;
+                    _ -> ets:safe_fixtable(T, true)
+                end,
                 io:format("Wait for ets:delete_all_objects/1 to yield...\n", []),
-                Tester ! {safe_fixtable, self()},
+                Tester ! {ready, self()},
                 repeat_while(
                   fun() ->
                           case receive_any() of
@@ -1083,18 +1096,21 @@ delete_all_objects_trap_unfix(Opts, Mode) ->
                         ets:safe_fixtable(T, false);
                     exit ->
                         %%io:format("Exit and do auto-unfix...\n",[]),
-                        exit
+                        exit;
+                    rename ->
+                        %%io:format("Rename table...\n",[]),
+                        renamed = ets:rename(T, renamed)
                 end
         end,
     {Fixer, Mon} = spawn_opt(FixerFun, [link, monitor]),
-    {safe_fixtable, Fixer} = receive_any(),
+    {ready, Fixer} = receive_any(),
     true = ets:delete_all_objects(T),
     Fixer ! "delete_all_objects done",
-    0 = ets:info(T,size),
+    0 = ets:info(Tref,size),
     {'DOWN', Mon, process, Fixer, normal} = receive_any(),
-    0 = get_kept_objects(T),
-    false = ets:info(T,safe_fixed),
-    ets:delete(T),
+    0 = get_kept_objects(Tref),
+    false = ets:info(Tref,safe_fixed),
+    ets:delete(Tref),
     ok.
 
 
