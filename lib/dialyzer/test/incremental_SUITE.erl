@@ -731,32 +731,14 @@ default_apps_config_xdg(Config) ->
         case os:type() of
             {win32, _} ->
                 [Drive | Path] = filename:split(TestHome),
-                [{"APPDATA", filename:join(TestHome,"AppData")},
-                 {"HOMEDRIVE", Drive}, {"HOMEPATH", Path}];
+                [{"APPDATA", filename:join(TestHome, "AppData")},
+                 {"HOMEDRIVE", Drive},
+                 {"HOMEPATH", filename:join(Path)}];
             _ ->
                 [{"HOME", TestHome}]
         end,
 
-    %% We add in the default subdirs used for each system
-    %% to store config within the home directory
-    ConfigSubDirs =
-        case os:type() of
-            {unix, darwin} ->
-                ["Library","Application Support"];
-            {win32, _} ->
-                [];
-            _ ->
-                [".config"]
-        end,
-
-    HomeConfigFilename =
-      filename:join([TestHome] ++ ConfigSubDirs ++ ["erlang", "dialyzer.config"]),
-    ok = filelib:ensure_dir(HomeConfigFilename),
-
-    HomeConfig =
-      {incremental, {default_apps, [stdlib, kernel, erts, compiler, mnesia, ftp]}},
-
-    ok = file:write_file(HomeConfigFilename, io_lib:format("~p.~n", [HomeConfig])),
+    io:format("~p\n", [HomeEnv]),
 
     PrivDir = ?config(priv_dir, Config),
     PltFile = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME) ++ ".iplt"),
@@ -766,17 +748,32 @@ default_apps_config_xdg(Config) ->
     erpc:call(
       Node,
       fun() ->
-        _ = dialyzer:run([{analysis_type, incremental},
-                          {init_plt,PltFile},
-                          {output_plt, PltFile}]),
-        {ok, {incremental, [{modules, Modules}]}} = dialyzer:plt_info(PltFile),
+              %% Find out the path of the config file
+              HomeConfigFilename =
+                  filename:join(filename:basedir(user_config, "erlang"),
+                                "dialyzer.config"),
+              io:format("~ts\n", [HomeConfigFilename]),
+              ok = filelib:ensure_dir(HomeConfigFilename),
 
-        ExpectedModules = [gb_sets, erlang, compile, mnesia, ftp],
+              %% Write configuration file
+              HomeConfig =
+                  {incremental, {default_apps, [stdlib, kernel, erts,
+                                                compiler, mnesia, ftp]}},
+              ok = file:write_file(HomeConfigFilename,
+                                   io_lib:format("~p.~n", [HomeConfig])),
 
-        % Assert PLT info contains modules from the apps given in the config
-        ?assertMatch([], sets:to_list(sets:subtract(
-                           sets:from_list(ExpectedModules),
-                           sets:from_list(Modules))))
+              %% Run dialyzer and check result
+              _ = dialyzer:run([{analysis_type, incremental},
+                                {init_plt,PltFile},
+                                {output_plt, PltFile}]),
+              {ok, {incremental, [{modules, Modules}]}} = dialyzer:plt_info(PltFile),
+
+              ExpectedModules = [gb_sets, erlang, compile, mnesia, ftp],
+
+              %% Assert PLT info contains modules from the apps given in the config
+              ?assertMatch([], ordsets:subtract(
+                                 ordsets:from_list(ExpectedModules),
+                                 ordsets:from_list(Modules)))
       end),
 
     peer:stop(Peer).
