@@ -169,6 +169,13 @@ ts_extra_flatform_label() ->
 
 simplify_label("Meamax") ->
     {host, meamax};
+simplify_label("virtual" ++ _ = Label) ->
+    case string:split(Label, $/) of
+        ["virtual", Provider | _] ->
+            {virtual, string:to_lower(Provider)};
+        _ ->
+            {virtual, undefined}
+    end;
 simplify_label(Label) ->
     case string:find(string:to_lower(Label), "docker") of
         "docker" ++ _ ->
@@ -178,6 +185,8 @@ simplify_label(Label) ->
     end.
 
 label2factor(docker) ->
+    4;
+label2factor({virtual, _}) ->
     4;
 label2factor({host, meamax}) ->
     2;
@@ -862,6 +871,8 @@ linux_which_meminfo() ->
 
 %% Just to be clear: This is ***not*** scientific...
 analyze_and_print_openbsd_host_info(Version) ->
+    Label          = ts_extra_flatform_label(),
+    AddLabelFactor = label2factor(simplify_label(Label)),
     io:format("OpenBSD:"
               "~n   Version: ~p"
               "~n", [Version]),
@@ -974,16 +985,22 @@ analyze_and_print_openbsd_host_info(Version) ->
                     true ->
                         10
                 end,
-            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
-            {CPUFactor + MemAddFactor, []}
+            io:format("TS Scale Factor:         ~w~n"
+                      "TS Extra Platform Label: ~s~n",
+                      [timetrap_scale_factor(), Label]),
+            {CPUFactor + MemAddFactor + AddLabelFactor, []}
         end
     catch
         _:_:_ ->
-            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
-            {2, []}
+            io:format("TS Scale Factor:         ~w~n"
+                      "TS Extra Platform Label: ~s~n",
+                      [timetrap_scale_factor(), Label]),
+            {2 + AddLabelFactor, []}
     end.
 
 analyze_and_print_freebsd_host_info(Version) ->
+    Label          = ts_extra_flatform_label(),
+    AddLabelFactor = label2factor(simplify_label(Label)),
     io:format("FreeBSD:"
               "~n   Version: ~p"
               "~n", [Version]),
@@ -1023,7 +1040,9 @@ analyze_and_print_freebsd_host_info(Version) ->
                       "~n   ~w KB"
                       "~n",
                       [CPU, CPUSpeed, NCPU, str_num_schedulers(), Memory]),
-            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+            io:format("TS Scale Factor:         ~w~n"
+                      "TS Extra Platform Label: ~s~n",
+                      [timetrap_scale_factor(), Label]),
             CPUFactor =
                 if
                     (CPUSpeed =:= -1) ->
@@ -1094,8 +1113,10 @@ analyze_and_print_freebsd_host_info(Version) ->
             io:format("CPU:"
                       "~n   Num Online Schedulers: ~s"
                       "~n", [str_num_schedulers()]),
-            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
-            {num_schedulers_to_factor(), []}
+            io:format("TS Scale Factor:         ~w~n"
+                      "TS Extra Platform Label: ~s~n",
+                      [timetrap_scale_factor(), Label]),
+            {num_schedulers_to_factor() ++ AddLabelFactor, []}
     end.
 
 
@@ -1136,6 +1157,8 @@ analyze_freebsd_item(Extract, Key, Process, Default) ->
     end.
 
 analyze_and_print_netbsd_host_info(Version) ->
+    Label          = ts_extra_flatform_label(),
+    AddLabelFactor = label2factor(simplify_label(Label)),
     io:format("NetBSD:"
               "~n   Version: ~p"
               "~n", [Version]),
@@ -1180,6 +1203,9 @@ analyze_and_print_netbsd_host_info(Version) ->
                       "~n",
                       [CPU, Machine, Arch, CPUSpeed, NCPU,
                        erlang:system_info(schedulers), Memory]),
+            io:format("TS Scale Factor:         ~w~n"
+                      "TS Extra Platform Label: ~s~n",
+                      [timetrap_scale_factor(), Label]),
             CPUFactor =
                 if
                     (CPUSpeed =:= -1) ->
@@ -1218,22 +1244,18 @@ analyze_and_print_netbsd_host_info(Version) ->
                     true ->
                         3
                 end,
-            {CPUFactor + MemAddFactor, []}
+            {CPUFactor + MemAddFactor + AddLabelFactor, []}
         end
     catch
         _:_:_ ->
             io:format("CPU:"
                       "~n   Num Schedulers: ~w"
                       "~n", [erlang:system_info(schedulers)]),
-            Factor = case erlang:system_info(schedulers) of
-                         1 ->
-                             10;
-                         2 ->
-                             5;
-                         _ ->
-                             2
-                     end,
-            {Factor, []}
+            io:format("TS Scale Factor:         ~w~n"
+                      "TS Extra Platform Label: ~s~n",
+                      [timetrap_scale_factor(), Label]),
+            Factor = num_schedulers_to_factor(),
+            {Factor + AddLabelFactor, []}
     end.
 
 analyze_netbsd_cpu(Extract) ->
@@ -1298,6 +1320,8 @@ analyze_netbsd_item(Extract, Key, Process, Default) ->
 
 
 analyze_and_print_darwin_host_info(Version) ->
+    Label          = ts_extra_flatform_label(),
+    AddLabelFactor = label2factor(simplify_label(Label)),
     %% This stuff is for macOS.
     %% If we ever tested on a pure darwin machine,
     %% we need to find some other way to find some info...
@@ -1341,6 +1365,9 @@ analyze_and_print_darwin_host_info(Version) ->
                                          Chip, NumCores,
                                          Memory,
                                          str_num_schedulers()]),
+                        io:format("TS Scale Factor:         ~w~n"
+                                  "TS Extra Platform Label: ~s~n",
+                                  [timetrap_scale_factor(), Label]),
                         analyze_darwin_cpu_to_factor(Chip, NumCores);
                     _ ->
                         io:format("Darwin:"
@@ -1355,6 +1382,9 @@ analyze_and_print_darwin_host_info(Version) ->
                                          ProcName, ProcSpeed, NumProc, NumCores,
                                          Memory,
                                          str_num_schedulers()]),
+                        io:format("TS Scale Factor:         ~w~n"
+                                  "TS Extra Platform Label: ~s~n",
+                                  [timetrap_scale_factor(), Label]),
                         analyze_darwin_cpu_to_factor(ProcName,
                                                      ProcSpeed,
                                                      NumProc,
@@ -1362,9 +1392,9 @@ analyze_and_print_darwin_host_info(Version) ->
                 end,
             MemFactor = analyze_darwin_memory_to_factor(Memory),
             if (MemFactor =:= 1) ->
-                    {CPUFactor, []};
+                    {CPUFactor + AddLabelFactor, []};
                true ->
-                    {CPUFactor + MemFactor, []}
+                    {CPUFactor + MemFactor + AddLabelFactor, []}
             end
     end.
 
@@ -1600,6 +1630,9 @@ analyze_darwin_cpu_to_factor(_ProcName,
     end.
 
 analyze_and_print_solaris_host_info(Version) ->
+    Label          = ts_extra_flatform_label(),
+    AddLabelFactor = label2factor(simplify_label(Label)),
+
     Release =
         case file:read_file_info("/etc/release") of
             {ok, _} ->
@@ -1687,7 +1720,9 @@ analyze_and_print_solaris_host_info(Version) ->
                        NumPhysCPU, NumVCPU,
                        SysConf, MemSz,
                        str_num_schedulers()]),
-    io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+    io:format("TS Scale Factor:         ~w~n"
+              "TS Extra Platform Label: ~s~n",
+              [timetrap_scale_factor(), Label]),
     MemFactor =
         try string:tokens(MemSz, [$ ]) of
             [SzStr, "Mega" ++ _] ->
@@ -1736,9 +1771,12 @@ analyze_and_print_solaris_host_info(Version) ->
      catch
          _:_:_ ->
              10
-     end + MemFactor, []}.    
+     end + MemFactor + AddLabelFactor, []}.    
 
 analyze_and_print_win_host_info(Version) ->
+    Label          = ts_extra_flatform_label(),
+    AddLabelFactor = label2factor(simplify_label(Label)),
+
     SysInfo    = which_win_system_info(),
     OsName     = win_sys_info_lookup(os_name,             SysInfo),
     OsVersion  = win_sys_info_lookup(os_version,          SysInfo),
@@ -1756,7 +1794,9 @@ analyze_and_print_win_host_info(Version) ->
               "~n~n", [OsName, OsVersion, Version,
                        SysMan, SysMod, NumProcs, TotPhysMem,
                        str_num_schedulers()]),
-    io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+    io:format("TS Scale Factor:         ~w~n"
+              "TS Extra Platform Label: ~s~n",
+              [timetrap_scale_factor(), Label]),
     MemFactor =
         try
             begin
@@ -1808,7 +1848,7 @@ analyze_and_print_win_host_info(Version) ->
             _ ->
                 2
         end,
-    {CPUFactor + MemFactor, SysInfo}.
+    {CPUFactor + MemFactor + AddLabelFactor, SysInfo}.
 
 win_sys_info_lookup(Key, SysInfo) ->
     win_sys_info_lookup(Key, SysInfo, "-").
