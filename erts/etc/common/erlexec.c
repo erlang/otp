@@ -1220,7 +1220,7 @@ usage_aux(void)
           "[-emu_type TYPE] [-emu_flavor FLAVOR] "
 	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c [BOOLEAN]] "
 	  "[+C MODE] [+dcg DECENTRALIZED_COUNTER_GROUPS_LIMIT] [+h HEAP_SIZE_OPTION] "
-          "[+J[Pperf] JIT_OPTION] "
+          "[+J[Pperf|Msingle] JIT_OPTION] "
 	  "[+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
 	  "[+R COMPAT_REL] "
 	  "[+r] [+rg READER_GROUPS_LIMIT] [+s<SUBSWITCH> SCHEDULER_OPTION] "

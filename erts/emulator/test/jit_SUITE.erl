@@ -24,7 +24,7 @@
          init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2]).
--export([annotate/1, named_labels/1, symbols/1]).
+-export([annotate/1, jmsingle/1, named_labels/1, symbols/1]).
 
 suite() ->
     [{timetrap, {minutes, 4}}].
@@ -33,7 +33,7 @@ groups() ->
     [{perf, [symbols, annotate]}].
 
 all() ->
-    [{group, perf}, named_labels].
+    [{group, perf}, jmsingle, named_labels].
 
 init_per_suite(Config) ->
     case erlang:system_info(emu_flavor) of
@@ -179,6 +179,57 @@ annotate(Config) ->
             ct:fail("Did not find disassembly for ~ts.~n~ts",
                     [Symbol, Anno])
     end.
+
+run_jmsingle_test(Param, ExpectSuccess, ErrorMsg) ->
+    Cmd = "erl +JMsingle " ++ Param ++ " -noshell " ++
+        "-eval \"erlang:display(all_is_well),erlang:halt(0).\"",
+    Result = os:cmd(Cmd),
+    SuccessfulEmulatorStart =
+        case Result of
+            "all_is_well" ++ _ ->
+                true;
+            _ ->
+                Error = "Failed to allocate executable+writable memory",
+                case string:find(Result, Error) of
+                    nomatch -> false;
+                    _ -> internal_error
+                end
+        end,
+    case SuccessfulEmulatorStart of
+        ExpectSuccess ->
+            ok;
+        _ ->
+            ct:fail(ErrorMsg)
+    end.
+
+jmsingle(_Config) ->
+    %% Smoke test to check that the emulator starts with the +JMsingle
+    %% true/false option and fails with a non-boolean, that is, we
+    %% parse the command line correctly.
+    IsAarch64Apple = case erlang:system_info(system_architecture) of
+                         "aarch64-apple" ++ _ -> true;
+                         _ -> false
+                     end,
+    IsNetBSD = case os:type() of
+                   {_,netbsd} -> true;
+                   _ -> false
+               end,
+
+    if
+        IsAarch64Apple or IsNetBSD ->
+            %% +JMsingle true does not work on macOS running
+            %% on Apple Silicon computers nor on NetBSD.
+            run_jmsingle_test("true", internal_error,
+                              "Emulator did not print the correct diagnostic "
+                              "(crashed?) with +JMsingle true");
+        true ->
+            run_jmsingle_test("true", true,
+                              "Emulator did not start with +JMsingle true")
+    end,
+    run_jmsingle_test("false", true,
+                      "Emulator did not start with +JMsingle false"),
+    run_jmsingle_test("broken", false,
+                      "Emulator started with bad +JMsingle parameter").
 
 get_tmp_asm_files() ->
     {ok, Cwd} = file:get_cwd(),

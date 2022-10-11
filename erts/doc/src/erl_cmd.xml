@@ -1025,6 +1025,18 @@ $ <input>erl \
           section in the BeamAsm internal documentation.
         </p>
       </item>
+      <tag><marker id="+JMsingle"/><c>+JMsingle true|false</c></tag>
+      <item>
+        <p>Enables or disables the use of single-mapped RWX memory for JIT
+          code. The default is to map JIT:ed machine code into two
+          regions sharing the same physical pages, where one region is
+          executable but not writable, and the other writable but not
+          executable. As some tools, such as QEMU user mode emulation,
+          cannot deal with the dual mapping, this flags allows it to be
+          disabled. This flag is automatically enabled by the
+          <seecom marker="#+JPperf"><c>+JPperf</c></seecom> flag.
+        </p>
+      </item>
       <tag><c><![CDATA[+L]]></c></tag>
       <item>
         <p>Prevents loading information about source filenames and line

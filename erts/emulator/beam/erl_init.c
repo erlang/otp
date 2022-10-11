@@ -652,6 +652,7 @@ void erts_usage(void)
 #ifdef BEAMASM
     erts_fprintf(stderr, "-JDdump bool   enable or disable dumping of generated assembly code for each module loaded\n");
     erts_fprintf(stderr, "-JPperf bool   enable or disable support for perf on Linux\n");
+    erts_fprintf(stderr, "-JMsingle bool enable the use of single-mapped RWX memory for JIT:ed code\n");
     erts_fprintf(stderr, "\n");
 #endif
 
@@ -1728,6 +1729,23 @@ erl_start(int argc, char **argv)
                 erts_fprintf(stderr, "+JPperf is not supported on this platform\n");
                 erts_usage();
 #endif
+                }
+                break;
+            case 'M':
+                sub_param++;
+                if (has_prefix("single", sub_param)) {
+                    arg = get_arg(sub_param+6, argv[i + 1], &i);
+                    if (sys_strcmp(arg, "true") == 0) {
+                        erts_jit_single_map = 1;
+                    } else if (sys_strcmp(arg, "false") == 0) {
+                        erts_jit_single_map = 0;
+                    } else {
+                        erts_fprintf(stderr, "bad +JMsingle support flag %s\n", arg);
+                        erts_usage();
+                    }
+                } else {
+                    erts_fprintf(stderr, "bad +JM sub-option %s\n", arg);
+                    erts_usage();
                 }
                 break;
             default:
