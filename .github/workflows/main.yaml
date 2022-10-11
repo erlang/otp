@@ -32,16 +32,16 @@ jobs:
     outputs:
         BASE_BUILD: ${{ steps.base-build.outputs.BASE_BUILD }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh
       - name: Upload source tar archive
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: otp_git_archive
           path: otp_src.tar.gz
       - name: Docker login
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
@@ -67,7 +67,7 @@ jobs:
             docker run -v $PWD:/github --entrypoint "" otp \
               tar czf /github/otp-ubuntu-20.04.tar.gz /buildroot/ /otp/
       - name: Upload otp ubuntu image
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: otp-ubuntu-20.04
           path: otp-ubuntu-20.04.tar.gz
@@ -76,7 +76,7 @@ jobs:
           docker run -v $PWD:/github --entrypoint "" otp \
             scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz
       - name: Upload pre-built tar archive
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: otp_prebuilt_no_chunks
           path: otp_src.tar.gz
@@ -88,7 +88,7 @@ jobs:
         changes: ${{ steps.changes.outputs.changes }}
         all: ${{ steps.apps.outputs.all }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Get applications
         id: apps
         run: |
@@ -108,16 +108,16 @@ jobs:
     env:
       WXWIDGETS_VERSION: 3.1.5
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Download source archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp_prebuilt_no_chunks
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-12
@@ -143,7 +143,7 @@ jobs:
           ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
 
       - name: Upload tarball
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: otp_prebuilt_macos_x86-64
           path: otp/otp_macos_*_x86-64.tar.gz
@@ -156,9 +156,9 @@ jobs:
     runs-on: macos-12
     needs: pack
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Download source archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp_prebuilt_no_chunks
 
@@ -177,7 +177,7 @@ jobs:
           xcodebuild -create-xcframework -output ./liberlang.xcframework -library liberlang.a
 
       - name: Upload framework
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ios_framework_${{ env.TARGET_ARCH }}
           path: otp/liberlang.xcframework
@@ -206,7 +206,7 @@ jobs:
           move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64"
 
       - name: Cache wxWidgets
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
@@ -246,7 +246,7 @@ jobs:
           nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
       - name: Download source archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp_prebuilt_no_chunks
 
@@ -269,7 +269,7 @@ jobs:
           ./otp_build installer_win32
 
       - name: Upload installer
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
@@ -281,7 +281,7 @@ jobs:
     if: contains(needs.changed-apps.outputs.changes, 'emulator')
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       ## Download docker images
       - name: Cache BASE image
         id: cache-base-image
@@ -290,11 +290,11 @@ jobs:
             path: otp_docker_base.tar
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Download otp build
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp-ubuntu-20.04
       - name: Docker login
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
@@ -324,13 +324,13 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Download source archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp_prebuilt_no_chunks
       - name: Docker login
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
@@ -348,10 +348,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       ## Download docker images
       - name: Docker login
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
@@ -363,7 +363,7 @@ jobs:
             path: otp_docker_base.tar
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Download otp build
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp-ubuntu-20.04
       - name: Restore docker image
@@ -381,7 +381,7 @@ jobs:
           docker run -v $PWD:/github otp \
           "scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
       - name: Upload pre-built tar archive
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: otp_prebuilt
           path: otp_src.tar.gz
@@ -402,12 +402,12 @@ jobs:
             rm -rf man
             tar czf ../otp_doc_html.tar.gz *
       - name: Upload html documentation archive
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
       - name: Upload man documentation archive
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: otp_doc_man
           path: otp_doc_man.tar.gz
@@ -422,10 +422,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       ## Download docker images
       - name: Docker login
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
@@ -437,7 +437,7 @@ jobs:
             path: otp_docker_base.tar
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Download otp build
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp-ubuntu-20.04
       - name: Restore docker image
@@ -467,7 +467,7 @@ jobs:
         # type: ["os_mon","sasl"]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       ## Download docker images
       - name: Cache BASE image
         id: cache-base-image
@@ -476,11 +476,11 @@ jobs:
             path: otp_docker_base.tar
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Download otp build
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp-ubuntu-20.04
       - name: Docker login
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
@@ -519,7 +519,7 @@ jobs:
           sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
           tar czf ${{ matrix.type }}_test_results.tar.gz make_test_dir
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: always()
         with:
           name: ${{ matrix.type }}_test_results
@@ -531,15 +531,15 @@ jobs:
     if: always() # Run even if the need has failed
     needs: test
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Docker login
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Download test results
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
       - run: mv otp-ubuntu-20.04/otp-ubuntu-20.04.tar.gz .
       - name: Restore docker image
         run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
@@ -572,14 +572,14 @@ jobs:
               -e 's:\(file="erts/\)make_test_dir/[^/]*:\1test:g' \
               make_test_dir/*_junit.xml
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: always()
         with:
           name: test_results
           path: test_results.tar.gz
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Unit Test Results
           path: |
@@ -603,19 +603,19 @@ jobs:
           echo "::set-output name=tag::${TAG}"
           echo "::set-output name=vsn::${VSN}"
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       ## Publish the pre-built archive and docs
       - name: Download source archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp_prebuilt
       - name: Download html docs
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp_doc_html
       - name: Download man docs
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: otp_doc_man
 
@@ -653,7 +653,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Event File
           path: ${{ github.event_path }}
