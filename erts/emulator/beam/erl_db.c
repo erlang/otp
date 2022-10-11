@@ -2670,8 +2670,44 @@ BIF_RETTYPE ets_lookup_element_3(BIF_ALIST_3)
     }
 }
 
-/* 
- * BIF to erase a whole table and release all memory it holds 
+/*
+** Get an element from a term
+** get_element_4(Tab, Key, Index, Default)
+** return the element or a list of elements if bag or Default if the element is not present
+*/
+BIF_RETTYPE ets_lookup_element_4(BIF_ALIST_4)
+{
+    DbTable* tb;
+    Sint index;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_lookup_element_4);
+
+    if (is_not_small(BIF_ARG_3) || ((index = signed_val(BIF_ARG_3)) < 1)) {
+	    db_unlock(tb, LCK_READ);
+	    BIF_ERROR(BIF_P, BADARG);
+    }
+
+    cret = tb->common.meth->db_get_element(BIF_P, tb,
+					   BIF_ARG_2, index, &ret);
+    db_unlock(tb, LCK_READ);
+    switch (cret) {
+        case DB_ERROR_NONE:
+            BIF_RET(ret);
+        case DB_ERROR_BADKEY:
+            BIF_RET(BIF_ARG_4);
+        case DB_ERROR_SYSRES:
+            BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+        default:
+            BIF_ERROR(BIF_P, BADARG);
+    }
+}
+
+/*
+ * BIF to erase a whole table and release all memory it holds
  */
 BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 {
