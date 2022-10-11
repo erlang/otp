@@ -25,8 +25,11 @@
 
 typedef struct fixed_deletion {
     UWord slot : sizeof(UWord)*8 - 2;
-    UWord all : 1;
+
+    /* Used by delete_all_objects: */
+    UWord all : 1;  /* marks [0 -> slot] */
     UWord trap : 1;
+
     struct fixed_deletion *next;
 } FixedDeletion;
 
