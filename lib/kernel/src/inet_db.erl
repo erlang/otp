@@ -579,9 +579,7 @@ res_update(Option, TagTm) ->
     end.
 
 db_get(Name) ->
-    try ets:lookup_element(inet_db, Name, 2)
-    catch error:badarg -> undefined
-    end.
+    ets:lookup_element(inet_db, Name, 2, undefined).
 
 add_rr(RR) ->
     %% Questionable if we need to support this;

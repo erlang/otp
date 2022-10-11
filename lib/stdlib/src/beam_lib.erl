@@ -832,8 +832,7 @@ symbol(_, AT, I1, I2, _I3, _Cnt) ->
     {atm(AT, I1), I2}.
 
 atm(AT, N) ->
-    [{_N, S}] = ets:lookup(AT, N),
-    S.
+    ets:lookup_element(AT, N, 2).
 
 %% AT is updated.
 ensure_atoms({empty, AT}, Cs) ->

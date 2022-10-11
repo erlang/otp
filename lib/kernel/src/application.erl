@@ -397,13 +397,8 @@ get_env(Application, Key) ->
       Def :: term(),
       Val :: term().
 
-get_env(Application, Key, Def) ->
-    case get_env(Application, Key) of
-    {ok, Val} ->
-        Val;
-    undefined ->
-        Def
-    end.
+get_env(Application, Key, Default) ->
+    application_controller:get_env(Application, Key, Default).
 
 -spec get_all_env() -> Env when
       Env :: [{Par :: atom(), Val :: term()}].
