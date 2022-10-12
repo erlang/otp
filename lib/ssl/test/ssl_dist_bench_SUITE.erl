@@ -420,7 +420,14 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
     ct:log("Starting scheduler utilization run on ~w and ~w", [A, B]),
     {ClientMsacc, ServerMsacc, Msgs} =
         ssl_apply(
-          HA, fun () -> sched_util_runner(A, B, Effort, SSL, PrivDir) end),
+          HA,
+          fun () ->
+                  Result = sched_util_runner(A, B, Effort, SSL, PrivDir),
+                  fs_log(
+                    PrivDir,
+                    "sched_utilization.Result", Result),
+                  Result
+          end),
     ct:log("Got ~p busy_dist_port msgs",[length(Msgs)]),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
@@ -461,6 +468,7 @@ sched_util_runner(A, B, Effort, true, PrivDir) ->
 sched_util_runner(A, B, Effort, false, PrivDir) ->
     sched_util_runner(A, B, Effort, 250, PrivDir);
 sched_util_runner(A, B, Effort, Senders, PrivDir) ->
+    process_flag(trap_exit, true),
     Payload = payload(5),
     Time = 1000 * Effort,
     [A] = rpc:call(B, erlang, nodes, []),
@@ -468,15 +476,16 @@ sched_util_runner(A, B, Effort, Senders, PrivDir) ->
         [erlang:spawn_link(
            B, fun () -> throughput_server() end)
          || _ <- lists:seq(1, Senders)],
+    Tag = make_ref(),
     ServerMsacc =
-        erlang:spawn(
+        erlang:spawn_link(
           B,
           fun() ->
                   receive
-                      {start,Pid} ->
+                      {start,Tag,Pid} ->
                           msacc:start(Time),
                           receive
-                              {done,Pid} ->
+                              {done,Tag,Pid} ->
                                   fs_log(PrivDir,
                                          "sched_util_runner.msacc:stats",
                                          ok),
@@ -484,7 +493,7 @@ sched_util_runner(A, B, Effort, Senders, PrivDir) ->
                                   fs_log(PrivDir,
                                          "sched_util_runner.msacc:ServerStats",
                                          ServerStats),
-                                  Pid ! {self(), ServerStats}
+                                  exit({result,Tag,ServerStats})
                           end
                   end
           end),
@@ -498,15 +507,22 @@ sched_util_runner(A, B, Effort, Senders, PrivDir) ->
            end) || Pid <- ServerPids],
     %%
     receive after 1000 -> ok end,
-    ServerMsacc ! {start,self()},
+    ServerMsacc ! {start,Tag,self()},
     fs_log(PrivDir, "sched_util_runner.self", self()),
     msacc:start(Time),
     fs_log(PrivDir, "sched_util_runner.msacc:start.done", ok),
     ClientMsaccStats = msacc:stats(),
     fs_log(PrivDir, "sched_util_runner.ClientMsaccStats", ClientMsaccStats),
     receive after 1000 -> ok end,
-    ServerMsacc ! {done,self()},
-    ServerMsaccStats = receive {ServerMsacc,Stats} -> Stats end,
+    ServerMsacc ! {done,Tag,self()},
+    ServerMsaccStats =
+        receive
+            {'EXIT',ServerMsacc,{result,Tag,Stats}} ->
+                Stats;
+            {'EXIT',ServerMsacc,Other} ->
+                exit({other,ServerMsacc,Other})
+        end,
+    fs_log(PrivDir, "sched_util_runner.ServerMsaccStats", ServerMsaccStats),
     %%
     {ClientMsaccStats,ServerMsaccStats, flush()}.
 
