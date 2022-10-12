@@ -19,7 +19,7 @@
 #
 
 include ../vsn.mk
-ifdef TERTIARY_BOOTSTRAP
+ifdef BOOTSTRAP
  VSN = $(WX_VSN)
  include $(ERL_TOP)/make/target.mk
  include $(ERL_TOP)/make/$(TARGET)/otp.mk

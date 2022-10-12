@@ -56,28 +56,11 @@ ifdef BUILD_STATIC_LIBS
   SUB_DIRECTORIES = asn1 crypto
 else
   ifdef BOOTSTRAP
-    SUB_DIRECTORIES = \
-      kernel stdlib compiler
-  else
-    ifdef SECONDARY_BOOTSTRAP
-      ifdef TINY_BUILD
-        SUB_DIRECTORIES = parsetools sasl
-      else
-        SUB_DIRECTORIES = parsetools asn1/src
-      endif
-    else
-      ifdef TERTIARY_BOOTSTRAP
-        SUB_DIRECTORIES = snmp sasl erl_interface jinterface syntax_tools wx public_key
-      else
-        ifdef DOC_BOOTSTRAP
-          SUB_DIRECTORIES = xmerl edoc erl_docgen public_key
-        else # Not bootstrap build
-          SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
-			    $(ERLANG_APPLICATIONS) \
-			    $(EXTRA_APPLICATIONS)
-        endif
-      endif
-    endif
+    SUB_DIRECTORIES = $(BOOTSTRAP)
+  else # Not bootstrap build
+    SUB_DIRECTORIES = $(ERTS_APPLICATIONS) \
+		      $(ERLANG_APPLICATIONS) \
+		      $(EXTRA_APPLICATIONS)
   endif
 endif
 
