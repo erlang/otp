@@ -46567,8 +46567,11 @@ ttest_tcp(InitState) ->
                            case ?SEV_AWAIT_TERMINATE(Tester, tester,
                                                      [{rserver, RServer}]) of
                                ok ->
+                                   ?SEV_IPRINT("received termination request"),
                                    {ok, maps:remove(tester, State)};
-                               {error, _} = ERROR ->
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("received unexpected error: "
+                                               "~n   ~p", [Reason]),
                                    ERROR
                            end
                    end},

@@ -206,7 +206,13 @@ do_start(Quiet,
 
 %% We should not normally stop this (it terminates when its done).
 stop(Pid) when is_pid(Pid) ->
-    req(Pid, stop).
+    case req(Pid, stop, 2 * ?RECV_TIMEOUT) of
+        {error, timeout} ->
+            exit(Pid, kill),
+            ok;
+        Else ->
+            Else
+    end.
 
 
 %% ==========================================================================
@@ -617,7 +623,11 @@ maybe_activate(_, _, _) ->
 
 %% ==========================================================================
 
-req(Pid, Req) ->
+%% req(Pid, Req) ->
+%%     req(Pid, Req, infinity).
+
+req(Pid, Req, Timeout) when (Timeout =:= infinity) orelse
+                            (is_integer(Timeout) andalso (Timeout >= 0)) ->
     Ref = make_ref(),
     Pid ! {?MODULE, Ref, Pid, Req},
     receive
@@ -625,6 +635,8 @@ req(Pid, Req) ->
             {error, {exit, Reason}};
         {?MODULE, Ref, Reply} ->
             Reply
+    after Timeout ->
+            {error, timeout}
     end.
 
 reply(Pid, Ref, Reply) ->
