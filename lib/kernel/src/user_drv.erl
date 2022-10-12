@@ -73,6 +73,7 @@
 -export([start/0, start/1, start_shell/0, start_shell/1, whereis_group/0]).
 
 %% gen_statem state callbacks
+-behaviour(gen_statem).
 -export([init/3,server/3,switch_loop/3]).
 
 %% gen_statem callbacks
