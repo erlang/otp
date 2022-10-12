@@ -54,6 +54,7 @@
          skip/1
         ]).
 
+-export([analyze_darwin_system_profiler2/1]).
 
 -include("kernel_test_lib.hrl").
 
@@ -874,7 +875,7 @@ analyze_and_print_openbsd_host_info(Version) ->
     Label          = ts_extra_flatform_label(),
     AddLabelFactor = label2factor(simplify_label(Label)),
     io:format("OpenBSD:"
-              "~n   Version: ~p"
+              "~n   Version: ~s"
               "~n", [Version]),
     Extract =
         fun(Key) -> 
@@ -1018,12 +1019,12 @@ analyze_and_print_freebsd_host_info(Version) ->
     case FreeBSDVersion of
         undefined ->
             io:format("FreeBSD:"
-                      "~n   Version: ~p"
+                      "~n   Version: ~s"
                       "~n", [Version]),
             "";
         _ ->
             io:format("FreeBSD:"
-                      "~n   Version: ~p (~s)"
+                      "~n   Version: ~s (~s)"
                       "~n", [Version, FreeBSDVersion])
     end,
     %% This test require that the program 'sysctl' is in the path.
@@ -1182,7 +1183,7 @@ analyze_and_print_netbsd_host_info(Version) ->
     Label          = ts_extra_flatform_label(),
     AddLabelFactor = label2factor(simplify_label(Label)),
     io:format("NetBSD:"
-              "~n   Version: ~p"
+              "~n   Version: ~s"
               "~n", [Version]),
     %% This test require that the program 'sysctl' is in the path.
     %% First test with 'which sysctl', if that does not work
@@ -1355,6 +1356,9 @@ analyze_and_print_darwin_host_info(Version) ->
                       "~n   Version:               ~s"
                       "~n   Num Online Schedulers: ~s"
                       "~n", [Version, str_num_schedulers()]),
+            io:format("TS Scale Factor:         ~w~n"
+                      "TS Extra Platform Label: ~s~n",
+                      [timetrap_scale_factor(), Label]),
             {num_schedulers_to_factor(), []};
         SwInfo when is_list(SwInfo) ->
             SystemVersion = analyze_darwin_sw_system_version(SwInfo),
@@ -1370,7 +1374,7 @@ analyze_and_print_darwin_host_info(Version) ->
             CPUFactor     =
                 case ProcName of
                     "-" ->
-                        %% Processor Name exist up until version
+                        %% Processor Name exist up until 
                         %% darwin version 19 (on intel), but on
                         %% darwin version 21 on M1 it has been
                         %% replaced by 'chip'.
@@ -1461,17 +1465,28 @@ analyze_darwin_hardware_info() ->
 %%    "Something:" (which we ignore)
 %%    "Key: Value1:Value2"
 analyze_darwin_system_profiler(DataType) ->
-    %% First, make sure the program actually exist:
-    case os:cmd("which system_profiler") of
+    %% First, make sure the program actually exist (with the current PATH):
+    Prog0 = "system_profiler",
+    case os:cmd("which " ++ Prog0) of
         [] ->
-            [];
+            %% Ok, as a last resource, check if is /usr/sbin/system_profiler?
+            Prog1 = "/usr/sbin/system_profiler",
+            case os:cmd("which " ++ Prog1) of
+                [] ->
+                    [];
+                _ ->
+                    analyze_darwin_system_profiler(Prog1, DataType)
+            end;
         _ ->
-            D0 = os:cmd("system_profiler " ++ DataType),
-            D1 = string:tokens(D0, [$\n]),
-            D2 = [string:trim(S1) || S1 <- D1],
-            D3 = [string:tokens(S2, [$:]) || S2 <- D2],
-            analyze_darwin_system_profiler2(D3)
+            analyze_darwin_system_profiler(Prog0, DataType)
     end.
+
+analyze_darwin_system_profiler(Prog, DataType) ->
+    D0 = os:cmd(Prog ++ " " ++ DataType),
+    D1 = string:tokens(D0, [$\n]),
+    D2 = [string:trim(S1) || S1 <- D1],
+    D3 = [string:tokens(S2, [$:]) || S2 <- D2],
+    analyze_darwin_system_profiler2(D3).
 
 analyze_darwin_system_profiler2(L) ->
     analyze_darwin_system_profiler2(L, []).
