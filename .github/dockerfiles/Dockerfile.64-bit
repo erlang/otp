@@ -14,9 +14,13 @@ WORKDIR /buildroot/otp/
 
 ENV CFLAGS="-O2 -g -Werror"
 
-## Configure, check that no application are disabled and then make
-RUN  ./configure --prefix="/Erlang ∅⊤℞" && \
-        if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
+## Configure (if not cached), check that no application are disabled and then make
+RUN if [ ! -f Makefile ]; then \
+      touch README.md && \
+      ./configure --prefix="/Erlang ∅⊤℞" && \
+      if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
+      find . -type f -newer README.md | xargs tar --transform 's:^./:otp/:' -cf ../otp_cache.tar; \
+    fi && \
     make && make docs DOC_TARGETS=chunks && \
     sudo make install install-docs DOC_TARGETS=chunks
 

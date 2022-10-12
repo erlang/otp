@@ -31,60 +31,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
         BASE_BUILD: ${{ steps.base-build.outputs.BASE_BUILD }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Create initial pre-release tar
-        run: .github/scripts/init-pre-release.sh
-      - name: Upload source tar archive
-        uses: actions/upload-artifact@v3
-        with:
-          name: otp_git_archive
-          path: otp_src.tar.gz
-      - name: Docker login
-        uses: docker/login-action@v2
-        with:
-          registry: docker.pkg.github.com
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Cache BASE image
-        id: cache-base-image
-        uses: actions/cache@v3
-        with:
-            path: otp_docker_base.tar
-            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
-      - name: Build BASE image
-        id: base-build
-        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
-      - name: Build image
-        run: |
-          mv otp_src.tar.gz .github/otp.tar.gz
-          docker build --tag otp \
-            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
-            --file ".github/dockerfiles/Dockerfile.64-bit" \
-            .github/
-      - name: Save Erlang/OTP image
-        run: |
-            docker run -v $PWD:/github --entrypoint "" otp \
-              tar czf /github/otp-ubuntu-20.04.tar.gz /buildroot/ /otp/
-      - name: Upload otp ubuntu image
-        uses: actions/upload-artifact@v3
-        with:
-          name: otp-ubuntu-20.04
-          path: otp-ubuntu-20.04.tar.gz
-      - name: Build pre-built tar archives
-        run: |
-          docker run -v $PWD:/github --entrypoint "" otp \
-            scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz
-      - name: Upload pre-built tar archive
-        uses: actions/upload-artifact@v3
-        with:
-          name: otp_prebuilt_no_chunks
-          path: otp_src.tar.gz
-
-  changed-apps:
-    name: Calculate changed applications
-    runs-on: ubuntu-latest
-    outputs:
         changes: ${{ steps.changes.outputs.changes }}
         all: ${{ steps.apps.outputs.all }}
     steps:
@@ -100,6 +46,96 @@ jobs:
         id: changes
         with:
           filters: .github/scripts/path-filters.yaml
+      - name: Create initial pre-release tar
+        run: .github/scripts/init-pre-release.sh otp_archive.tar.gz
+      - name: Upload source tar archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: otp_git_archive
+          path: otp_archive.tar.gz
+      - name: Docker login
+        uses: docker/login-action@v2
+        with:
+          registry: docker.pkg.github.com
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache BASE image
+        uses: actions/cache@v3
+        with:
+            path: otp_docker_base.tar
+            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
+      - name: Build BASE image
+        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
+      - name: Cache pre-built tar archives
+        id: pre-built-cache
+        uses: actions/cache@v3
+        with:
+            path: |
+                otp_src.tar.gz
+                otp_cache.tar.gz
+            key: prebuilt-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
+      - uses: dorny/paths-filter@v2
+        id: cache
+        with:
+          filters: |
+              no-cache:
+                  - '.github/**'
+              deleted:
+                  - deleted: '**'
+              bootstrap:
+                  - 'bootstrap/**'
+              configure:
+                  - '**.ac'
+                  - '**.in'
+          list-files: shell
+      - name: Restore from cache
+        env:
+            NO_CACHE: ${{ steps.cache.outputs.no-cache }}
+            BOOTSTRAP: ${{ steps.cache.outputs.bootstrap }}
+            CONFIGURE: ${{ steps.cache.outputs.configure }}
+        run: |
+            .github/scripts/restore-from-prebuilt.sh "`pwd`" \
+              "`pwd`/.github/otp.tar.gz" \
+              "`pwd`/otp_archive.tar.gz" \
+              '${{ github.event_name }}' \
+              '${{ steps.cache.outputs.deleted_files }}' \
+              '${{ steps.changes.outputs.changes }}'
+      - name: Upload restored cache
+        uses: actions/upload-artifact@v3
+        if: runner.debug == 1
+        with:
+          name: restored-cache
+          path: .github/otp.tar.gz
+      - name: Build image
+        run: |
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            .github/
+      - name: Build pre-built tar archives
+        run: |
+          docker run -v $PWD:/github --entrypoint "" otp \
+            scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /github/otp_src.tar.gz
+      - name: Build cache
+        run: |
+          if [ -f otp_cache.tar.gz ]; then
+            gunzip otp_cache.tar.gz
+          else
+            docker run -v $PWD:/github --entrypoint "" otp \
+              bash -c 'cp ../otp_cache.tar /github/'
+          fi
+          docker run -v $PWD:/github --entrypoint "" otp \
+            bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
+          gzip otp_cache.tar
+      - name: Upload pre-built tar archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: otp_prebuilt
+          path: |
+              otp_src.tar.gz
+              otp_cache.tar.gz
 
   build-macos:
     name: Build Erlang/OTP (macOS)
@@ -113,7 +149,7 @@ jobs:
       - name: Download source archive
         uses: actions/download-artifact@v3
         with:
-          name: otp_prebuilt_no_chunks
+          name: otp_prebuilt
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
@@ -160,7 +196,7 @@ jobs:
       - name: Download source archive
         uses: actions/download-artifact@v3
         with:
-          name: otp_prebuilt_no_chunks
+          name: otp_prebuilt
 
       - name: Compile Erlang
         run: |
@@ -248,7 +284,7 @@ jobs:
       - name: Download source archive
         uses: actions/download-artifact@v3
         with:
-          name: otp_prebuilt_no_chunks
+          name: otp_prebuilt
 
       - name: Compile Erlang
         run: |
@@ -277,30 +313,42 @@ jobs:
   build-flavors:
     name: Build Erlang/OTP (Types and Flavors)
     runs-on: ubuntu-latest
-    needs: [pack, changed-apps]
-    if: contains(needs.changed-apps.outputs.changes, 'emulator')
+    needs: pack
+    if: contains(needs.pack.outputs.changes, 'emulator')
 
     steps:
       - uses: actions/checkout@v3
       ## Download docker images
       - name: Cache BASE image
-        id: cache-base-image
         uses: actions/cache@v3
         with:
             path: otp_docker_base.tar
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
-      - name: Download otp build
-        uses: actions/download-artifact@v3
-        with:
-          name: otp-ubuntu-20.04
       - name: Docker login
         uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
+      - name: Build BASE image
+        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
+      - name: Cache pre-built tar archives
+        uses: actions/cache@v3
+        with:
+            path: |
+                otp_src.tar.gz
+                otp_cache.tar.gz
+            key: prebuilt-${{ github.job }}-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-${{ github.ref_name }}-${{ github.sha }}
+      - name: Build image
+        run: |
+          .github/scripts/restore-from-prebuilt.sh `pwd` .github/otp.tar.gz
+          rm -f otp_{src,cache}.tar.gz
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            .github/
       - name: Build Erlang/OTP flavors and types
         run: |
             TYPES="opt debug lcnt"
@@ -328,13 +376,19 @@ jobs:
       - name: Download source archive
         uses: actions/download-artifact@v3
         with:
-          name: otp_prebuilt_no_chunks
+          name: otp_prebuilt
       - name: Docker login
         uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cache BASE image
+        uses: actions/cache@v3
+        if: matrix.type == 'clang'
+        with:
+            path: otp_docker_base.tar
+            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Build base image
         run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" ${{ matrix.type }}
       - name: Build ${{ matrix.type }} image
@@ -357,34 +411,30 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Cache BASE image
-        id: cache-base-image
         uses: actions/cache@v3
         with:
             path: otp_docker_base.tar
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
-      - name: Download otp build
-        uses: actions/download-artifact@v3
+      - name: Build BASE image
+        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
+      - name: Cache pre-built tar archives
+        uses: actions/cache@v3
         with:
-          name: otp-ubuntu-20.04
-      - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
+            path: |
+                otp_src.tar.gz
+                otp_cache.tar.gz
+            key: prebuilt-${{ github.job }}-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-${{ github.ref_name }}-${{ github.sha }}
+      - name: Build image
+        run: |
+          .github/scripts/restore-from-prebuilt.sh `pwd` .github/otp.tar.gz
+          rm -f otp_{src,cache}.tar.gz
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            .github/
 
-      ## Build pre-built tar with chunks
-      - name: Build doc chunks
-        run: |
-          docker build -t otp - <<EOF
-          FROM otp
-          RUN make docs DOC_TARGETS=chunks
-          EOF
-      - name: Build pre-built tar archives
-        run: |
-          docker run -v $PWD:/github otp \
-          "scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
-      - name: Upload pre-built tar archive
-        uses: actions/upload-artifact@v3
-        with:
-          name: otp_prebuilt
-          path: otp_src.tar.gz
       ## Build all the documentation
       - name: Build documentation
         run: |
@@ -415,7 +465,7 @@ jobs:
       - name: Run xmllint
         run: docker run otp "make xmllint"
       - name: Run html link check
-        run: docker run -v $PWD/:/github otp "scripts/otp_html_check /github/docs doc/index.html"
+        run: docker run -v $PWD/:/github otp "/github/scripts/otp_html_check /github/docs doc/index.html"
 
   static:
     name: Run static analysis
@@ -431,17 +481,29 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Cache BASE image
-        id: cache-base-image
         uses: actions/cache@v3
         with:
             path: otp_docker_base.tar
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
-      - name: Download otp build
-        uses: actions/download-artifact@v3
+      - name: Build BASE image
+        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
+      - name: Cache pre-built tar archives
+        uses: actions/cache@v3
         with:
-          name: otp-ubuntu-20.04
-      - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
+            path: |
+                otp_src.tar.gz
+                otp_cache.tar.gz
+            key: prebuilt-${{ github.job }}-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-${{ github.ref_name }}-${{ github.sha }}
+      - name: Build image
+        run: |
+          .github/scripts/restore-from-prebuilt.sh `pwd` .github/otp.tar.gz
+          rm -f otp_{src,cache}.tar.gz
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            .github/
       - name: Install clang-format
         run: |
           docker build -t otp - <<EOF
@@ -453,40 +515,52 @@ jobs:
         run: docker run otp "make format-check"
         ## Run dialyzer
       - name: Run dialyzer
-        run: docker run otp 'scripts/run-dialyzer'
+        run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
 
   test:
     name: Test Erlang/OTP
     runs-on: ubuntu-latest
-    needs: [pack, changed-apps]
-    if: needs.changed-apps.outputs.changes != '[]'
+    needs: pack
+    if: needs.pack.outputs.changes != '[]'
     strategy:
       matrix:
-        # type: ${{ fromJson(needs.changed-apps.outputs.all) }}
-        type: ${{ fromJson(needs.changed-apps.outputs.changes) }}
+        # type: ${{ fromJson(needs.pack.outputs.all) }}
+        type: ${{ fromJson(needs.pack.outputs.changes) }}
         # type: ["os_mon","sasl"]
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
       ## Download docker images
       - name: Cache BASE image
-        id: cache-base-image
         uses: actions/cache@v3
         with:
             path: otp_docker_base.tar
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
-      - name: Download otp build
-        uses: actions/download-artifact@v3
-        with:
-          name: otp-ubuntu-20.04
       - name: Docker login
         uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
+      - name: Build BASE image
+        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
+      - name: Cache pre-built tar archives
+        uses: actions/cache@v3
+        with:
+            path: |
+                otp_src.tar.gz
+                otp_cache.tar.gz
+            key: prebuilt-${{ github.job }}-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-${{ github.ref_name }}-${{ github.sha }}
+      - name: Build image
+        run: |
+          .github/scripts/restore-from-prebuilt.sh `pwd` .github/otp.tar.gz
+          rm -f otp_{src,cache}.tar.gz
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            .github/
       - name: Run tests
         id: run-tests
         run: |
@@ -532,17 +606,38 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v3
+      - name: Cache BASE image
+        uses: actions/cache@v3
+        with:
+            path: otp_docker_base.tar
+            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Docker login
         uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build BASE image
+        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
       - name: Download test results
         uses: actions/download-artifact@v3
-      - run: mv otp-ubuntu-20.04/otp-ubuntu-20.04.tar.gz .
-      - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
+      - name: Cache pre-built tar archives
+        uses: actions/cache@v3
+        with:
+            path: |
+                otp_src.tar.gz
+                otp_cache.tar.gz
+            key: prebuilt-${{ github.job }}-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-${{ github.ref_name }}-${{ github.sha }}
+      - name: Build image
+        run: |
+          .github/scripts/restore-from-prebuilt.sh `pwd` .github/otp.tar.gz
+          rm -f otp_{src,cache}.tar.gz
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            .github/
       - name: Merge test results
         run: |
           shopt -s nullglob

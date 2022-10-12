@@ -4,6 +4,11 @@
 ## to create the pre-built tar ball
 
 AUTOCONF=0
+TARGET=otp_src.tar.gz
+
+if [ -n "$1" ]; then
+    TARGET="$1"
+fi
 
 ## This script is used to create archives for older releases
 ## so if configure does not exist in the git repo we need to
@@ -23,7 +28,7 @@ if [ ! -f configure ]; then
     git commit --no-verify -m 'Add generated configure files'
     AUTOCONF=1
 fi
-git archive --prefix otp/ -o otp_src.tar.gz HEAD
+git archive --prefix otp/ -o "$TARGET" HEAD
 
 if [ "$AUTOCONF" = 1 ]; then
     git reset --hard HEAD~1
