@@ -78,7 +78,8 @@
          underscore_match/1,
          unused_record/1,
          unused_type2/1,
-         eep49/1]).
+         eep49/1,
+         redefined_builtin_type/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -106,7 +107,8 @@ all() ->
      no_load_nif,
      inline_nifs, warn_missing_spec, otp_16824,
      underscore_match, unused_record, unused_type2,
-     eep49].
+     eep49,
+     redefined_builtin_type].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -966,13 +968,13 @@ binary_types(Config) when is_list(Config) ->
     Ts = [{binary1,
            <<"-type nonempty_binary() :: term().">>,
            [nowarn_unused_type],
-           {errors,[{{1,22},erl_lint,
-                     {builtin_type,{nonempty_binary,0}}}],[]}},
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{nonempty_binary,0}}}]}},
           {binary2,
            <<"-type nonempty_bitstring() :: term().">>,
            [nowarn_unused_type],
-           {errors,[{{1,22},erl_lint,
-                     {builtin_type,{nonempty_bitstring,0}}}],[]}}],
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{nonempty_bitstring,0}}}]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -2810,9 +2812,9 @@ otp_11772(Config) when is_list(Config) ->
             t() ->
                 1.
          ">>,
-    {errors,[{{7,14},erl_lint,{builtin_type,{node,0}}},
-             {{8,14},erl_lint,{builtin_type,{mfa,0}}}],
-     []} = run_test2(Config, Ts, []),
+    {warnings,[{{7,14},erl_lint,{redefine_builtin_type,{node,0}}},
+               {{8,14},erl_lint,{redefine_builtin_type,{mfa,0}}}]} =
+        run_test2(Config, Ts, []),
     ok.
 
 %% OTP-11771. Do not allow redefinition of the types arity(_) &c..
@@ -2835,11 +2837,11 @@ otp_11771(Config) when is_list(Config) ->
             t() ->
                 1.
          ">>,
-    {errors,[{{7,14},erl_lint,{builtin_type,{arity,0}}},
-             {{8,14},erl_lint,{builtin_type,{bitstring,0}}},
-             {{9,14},erl_lint,{builtin_type,{iodata,0}}},
-             {{10,14},erl_lint,{builtin_type,{boolean,0}}}],
-     []} = run_test2(Config, Ts, []),
+    {warnings,[{{7,14},erl_lint,{redefine_builtin_type,{arity,0}}},
+               {{8,14},erl_lint,{redefine_builtin_type,{bitstring,0}}},
+               {{9,14},erl_lint,{redefine_builtin_type,{iodata,0}}},
+               {{10,14},erl_lint,{redefine_builtin_type,{boolean,0}}}]} =
+        run_test2(Config, Ts, []),
     ok.
 
 %% OTP-11872. The type map() undefined when exported.
@@ -2851,15 +2853,16 @@ otp_11872(Config) when is_list(Config) ->
 
             -export_type([map/0, product/0]).
 
-            -opaque map() :: dict().
+            -opaque map() :: unknown_type().
 
             -spec t() -> map().
 
             t() ->
                 1.
          ">>,
-    {errors,[{{6,14},erl_lint,{undefined_type,{product,0}}},
-             {{8,14},erl_lint,{builtin_type,{map,0}}}], []} =
+    {error,[{{6,14},erl_lint,{undefined_type,{product,0}}},
+            {{8,30},erl_lint,{undefined_type,{unknown_type,0}}}],
+     [{{8,14},erl_lint,{redefine_builtin_type,{map,0}}}]} =
         run_test2(Config, Ts, []),
     ok.
 
@@ -3869,7 +3872,7 @@ maps_type(Config) when is_list(Config) ->
 	    t(M) -> M.
 	 ">>,
 	 [],
-	 {errors,[{{3,7},erl_lint,{builtin_type,{map,0}}}],[]}}],
+         {warnings,[{{3,7},erl_lint,{redefine_builtin_type,{map,0}}}]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -4834,6 +4837,72 @@ eep49(Config) when is_list(Config) ->
            {errors,[{{2,22},erl_parse,["syntax error before: ","'?='"]}],[]}}
          ],
 
+    [] = run(Config, Ts),
+    ok.
+
+%% GH-6132: Allow local redefinition of types.
+redefined_builtin_type(Config) ->
+    Ts = [{redef1,
+           <<"-type nonempty_binary() :: term().
+              -type map() :: {_,_}.">>,
+           [nowarn_unused_type,
+            nowarn_redefined_builtin_type],
+           []},
+          {redef2,
+           <<"-type nonempty_bitstring() :: term().
+              -type map() :: {_,_}.">>,
+           [nowarn_unused_type,
+            {nowarn_redefined_builtin_type,{map,0}}],
+           {warnings,[{{1,22},erl_lint,
+                       {redefine_builtin_type,{nonempty_bitstring,0}}}]}},
+          {redef3,
+           <<"-compile({nowarn_redefined_builtin_type,{map,0}}).
+              -compile({nowarn_redefined_builtin_type,[{nonempty_bitstring,0}]}).
+              -type nonempty_bitstring() :: term().
+              -type map() :: {_,_}.
+              -type list() :: erlang:map().">>,
+           [nowarn_unused_type,
+            {nowarn_redefined_builtin_type,{map,0}}],
+           {warnings,[{{5,16},erl_lint,
+                       {redefine_builtin_type,{list,0}}}]}},
+          {redef4,
+           <<"-type tuple() :: 'tuple'.
+              -type map() :: 'map'.
+              -type list() :: 'list'.
+              -spec t(tuple() | map()) -> list().
+              t(_) -> ok.
+             ">>,
+           [],
+           {warnings,[{{1,22},erl_lint,{redefine_builtin_type,{tuple,0}}},
+                      {{2,16},erl_lint,{redefine_builtin_type,{map,0}}},
+                      {{3,16},erl_lint,{redefine_builtin_type,{list,0}}}
+                     ]}},
+          {redef5,
+           <<"-type atom() :: 'atom'.
+              -type integer() :: 'integer'.
+              -type reference() :: 'ref'.
+              -type pid() :: 'pid'.
+              -type port() :: 'port'.
+              -type float() :: 'float'.
+              -type iodata() :: 'iodata'.
+              -type ref_set() :: gb_sets:set(reference()).
+              -type pid_map() :: #{pid() => port()}.
+              -type atom_int_fun() :: fun((atom()) -> integer()).
+              -type collection(Type) :: {'collection', Type}.
+              -callback b1(I :: iodata()) -> atom().
+              -spec t(collection(float())) -> {pid_map(), ref_set(), atom_int_fun()}.
+              t(_) -> ok.
+             ">>,
+           [],
+           {warnings,[{{1,22},erl_lint,{redefine_builtin_type,{atom,0}}},
+                      {{2,16},erl_lint,{redefine_builtin_type,{integer,0}}},
+                      {{3,16},erl_lint,{redefine_builtin_type,{reference,0}}},
+                      {{4,16},erl_lint,{redefine_builtin_type,{pid,0}}},
+                      {{5,16},erl_lint,{redefine_builtin_type,{port,0}}},
+                      {{6,16},erl_lint,{redefine_builtin_type,{float,0}}},
+                      {{7,16},erl_lint,{redefine_builtin_type,{iodata,0}}}
+                     ]}}
+         ],
     [] = run(Config, Ts),
     ok.
 
