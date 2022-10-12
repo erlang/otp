@@ -629,5 +629,13 @@
       of the following form:
     </p>
     <pre>  -spec my_error(term()) -> no_return().</pre>
+
+  <note>
+    <p>Erlang uses the shorthand version <c>_</c> as an anonymous type variable
+    equivalent to <c>term()</c> or <c>any()</c>. For example, the following function</p>
+    <pre>  -spec Function(string(), _) -> string().</pre>
+    <p>is equivalent to:</p>
+    <pre>  -spec Function(string(), any()) -> string().</pre>
+  </note>
   </section>
 </chapter>
