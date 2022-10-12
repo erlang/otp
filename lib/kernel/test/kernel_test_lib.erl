@@ -998,12 +998,34 @@ analyze_and_print_openbsd_host_info(Version) ->
             {2 + AddLabelFactor, []}
     end.
 
+which_freebsd_version() ->
+    case string:trim(os:cmd("which freebsd-version")) of
+        [] ->
+            "-";
+        FreeBSDVersion ->
+            case string:trim(os:cmd(FreeBSDVersion)) of
+                [] ->
+                    undefined;
+                V ->
+                    V
+            end
+    end.
+    
 analyze_and_print_freebsd_host_info(Version) ->
     Label          = ts_extra_flatform_label(),
     AddLabelFactor = label2factor(simplify_label(Label)),
-    io:format("FreeBSD:"
-              "~n   Version: ~p"
-              "~n", [Version]),
+    FreeBSDVersion = which_freebsd_version(),
+    case FreeBSDVersion of
+        undefined ->
+            io:format("FreeBSD:"
+                      "~n   Version: ~p"
+                      "~n", [Version]),
+            "";
+        _ ->
+            io:format("FreeBSD:"
+                      "~n   Version: ~p (~s)"
+                      "~n", [Version, FreeBSDVersion])
+    end,
     %% This test require that the program 'sysctl' is in the path.
     %% First test with 'which sysctl', if that does not work
     %% try with 'which /sbin/sysctl'. If that does not work either,
