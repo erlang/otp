@@ -185,10 +185,19 @@ end_per_suite(Config) ->
 init_per_group(ssl, Config) ->
     [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
 init_per_group(crypto, Config) ->
-    [{ssl_dist, false}, {ssl_dist_prefix, "Crypto"},
-     {ssl_dist_args,
-      "-proto_dist inet_crypto"}
-     |Config];
+    try inet_crypto_dist:supported() of
+        ok ->
+            [{ssl_dist, false}, {ssl_dist_prefix, "Crypto"},
+             {ssl_dist_args,
+              "-proto_dist inet_crypto"}
+            |Config];
+        Problem ->
+            {skipped,
+             "Crypto does not support " ++ Problem}
+    catch
+        Class : Reason : Stacktrace ->
+            {failed, {Class, Reason, Stacktrace}}
+    end;
 init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
 init_per_group(benchmark, Config) ->

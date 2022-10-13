@@ -29,7 +29,7 @@
 -define(DRIVER, inet_tcp).
 -define(FAMILY, inet).
 
--export([listen/1, accept/1, accept_connection/5,
+-export([supported/0, listen/1, accept/1, accept_connection/5,
 	 setup/5, close/1, select/1, is_node_name/1]).
 
 %% Generalized dist API, for sibling IPv6 module inet6_crypto_dist
@@ -51,11 +51,23 @@
 
 %% -------------------------------------------------------------------------
 
+%% The curve choice greatly affects setup time,
+%% we really want an Edwards curve but that would
+%% require a very new openssl version.
+%% Twisted brainpool curves (*t1) are faster than
+%% non-twisted (*r1), 256 is much faster than 384,
+%% and so on...
+%%% -define(CURVE, brainpoolP384t1).
+%%% -define(CURVE, brainpoolP256t1).
+-define(CURVE, secp256r1).
+-define(CIPHER, aes_gcm).
+-define(HMAC, sha256).
+
 -record(params,
         {socket,
          dist_handle,
-         hmac_algorithm = sha256,
-         aead_cipher = aes_gcm,
+         hmac_algorithm = ?HMAC,
+         aead_cipher = ?CIPHER,
          rekey_key,
          iv = 12,
          key = 16,
@@ -78,13 +90,30 @@ params(Socket) ->
          %% non-twisted (*r1), 256 is much faster than 384,
          %% and so on...
 %%%         params = brainpoolP384t1,
-         params = brainpoolP256t1,
+%%%         params = brainpoolP256t1,
+         params = ?CURVE,
          public,
          private,
          life_time = 3600000, % 1 hour
          life_count = 256 % Number of connection setups
         }).
 
+supported() ->
+    Curve = lists:member(?CURVE, crypto:supports(curves)),
+    Cipher = lists:member(?CIPHER, crypto:supports(ciphers)),
+    Hmac =
+        lists:member(hmac, crypto:supports(macs)) andalso
+        lists:member(?HMAC, crypto:supports(hashs)),
+    if
+        not Curve ->
+            "curve " ++ atom_to_list(?CURVE);
+        not Cipher ->
+            "cipher " ++ atom_to_list(?CIPHER);
+        not Hmac ->
+            "HMAC " ++ atom_to_list(?HMAC);
+        true ->
+            ok
+    end.
 
 %% -------------------------------------------------------------------------
 %% Keep the node's public/private key pair in the process state
