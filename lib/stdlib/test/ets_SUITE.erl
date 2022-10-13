@@ -36,6 +36,7 @@
 -export([dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
 -export([info_binary_stress/1]).
 -export([info_whereis_busy/1]).
+-export([insert_trap_delete/1, insert_trap_rename/1]).
 -export([tab2file/1, tab2file2/1, tabfile_ext1/1,
 	 tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1, badfile/1]).
 -export([heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
@@ -218,7 +219,9 @@ groups() ->
       [t_insert_list, t_insert_list_set, t_insert_list_bag,
        t_insert_list_duplicate_bag, t_insert_list_delete_set,
        t_insert_list_parallel, t_insert_list_delete_parallel,
-       t_insert_list_kill_process]}].
+       t_insert_list_kill_process,
+       insert_trap_delete,
+       insert_trap_rename]}].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -5316,6 +5319,184 @@ info_whereis_busy(Config) when is_list(Config) ->
     ets:delete(T),
     ok.
 
+%% Delete table during trapping ets:insert
+insert_trap_delete(Config) when is_list(Config) ->
+    repeat_for_opts(fun(Opts) ->
+                            [insert_trap_delete_run1({Opts,InsertFunc,Mode})
+                             || InsertFunc <- [insert,insert_new],
+                                Mode <- [exit, delete]]
+                    end,
+                    [all_non_stim_types, write_concurrency, compressed]),
+    ok.
+
+insert_trap_delete_run1(Params) ->
+    NKeys = 50_000 + rand:uniform(50_000),
+    %% First measure how many traps the insert op will do
+    Traps0 = insert_trap_delete_run3(unlimited, Params, NKeys),
+    %% Then do again and delete table at different moments
+    Decr = (Traps0 div 5) + 1,
+    insert_trap_delete_run2(Traps0-1, Decr, Params, NKeys).
+
+insert_trap_delete_run2(Traps, _Decr, Params, NKeys) when Traps =< 1 ->
+    insert_trap_delete_run3(1, Params, NKeys),
+    ok;
+insert_trap_delete_run2(Traps, Decr, Params, NKeys) ->
+    insert_trap_delete_run3(Traps, Params, NKeys),
+    insert_trap_delete_run2(Traps - Decr, Decr, Params, NKeys).
+
+insert_trap_delete_run3(Traps, {Opts, InsertFunc, Mode}, NKeys) ->
+    io:format("insert_trap_delete_run(~p, ~p, ~p) NKeys=~p\n",
+              [Traps, InsertFunc, Mode, NKeys]),
+    TabName = insert_trap_delete,
+    Tester = self(),
+    Tuples = [{K} || K <- lists:seq(1,NKeys)],
+
+    OwnerFun =
+        fun() ->
+                erlang:trace(Tester, true, [running]),
+                ets_new(TabName, [named_table, public | Opts]),
+                Tester ! {ets_new, ets:whereis(TabName)},
+                io:format("Wait for ets:~p/2 to yield...\n", [InsertFunc]),
+                GotTraps = repeat_while(
+                  fun(N) ->
+                          case receive_any() of
+                              {trace, Tester, out, {ets,InsertFunc,2}} ->
+                                  case N of
+                                      Traps -> {false, Traps};
+                                      _ -> {true, N+1}
+                                  end;
+                              "Insert done" ->
+                                  io:format("Too late! Got ~p traps\n", [N]),
+                                  {false, N};
+                              _M ->
+                                  %%io:format("[~p] Ignored msg: ~p\n", [N,_M]),
+                                  {true, N}
+                          end
+                  end,
+                  0),
+                case Mode of
+                    delete ->
+                        io:format("Delete table and then exit...\n",[]),
+                        ets:delete(TabName);
+                    exit ->
+                        io:format("Exit and let table die...\n",[])
+                end,
+                Tester ! {traps, GotTraps}
+        end,
+    {Owner, Mon} = spawn_opt(OwnerFun, [link, monitor]),
+
+    {ets_new, Tid} = receive_any(),
+    try ets:InsertFunc(TabName, Tuples) of
+        true ->
+            try ets:lookup(Tid, NKeys) of
+                [{NKeys}] -> ok
+            catch
+                error:badarg ->
+                    %% Table must been deleted just after insert finished
+                    undefined = ets:info(Tid, id),
+                    undefined = ets:whereis(TabName)
+            end,
+            Owner ! "Insert done"
+    catch
+        error:badarg ->
+            %% Insert failed, table must have been deleted
+            undefined = ets:info(Tid, id),
+            undefined = ets:whereis(TabName)
+    end,
+    {traps, GotTraps} = receive_any(),
+    {'DOWN', Mon, process, Owner, _} = receive_any(),
+    undefined = ets:whereis(TabName),
+    undefined = ets:info(Tid, id),
+    GotTraps.
+
+%% Rename table during trapping ets:insert
+insert_trap_rename(Config) when is_list(Config) ->
+    repeat_for_opts(fun(Opts) ->
+                            [insert_trap_rename_run1(InsertFunc)
+                             || InsertFunc <- [insert, insert_new]]
+                    end,
+                    [all_non_stim_types, write_concurrency, compressed]),
+    ok.
+
+insert_trap_rename_run1(InsertFunc) ->
+    NKeys = 50_000 + rand:uniform(50_000),
+    %% First measure how many traps the insert op will do
+    Traps0 = insert_trap_rename_run3(unlimited, InsertFunc, NKeys),
+    %% Then do again and rename table at different moments
+    Decr = (Traps0 div 5) + 1,
+    insert_trap_rename_run2(Traps0-1, Decr, InsertFunc, NKeys),
+    ok.
+
+insert_trap_rename_run2(Traps, _Decr, InsertFunc, NKeys) when Traps =< 1 ->
+    insert_trap_rename_run3(1, InsertFunc, NKeys),
+    ok;
+insert_trap_rename_run2(Traps, Decr, InsertFunc, NKeys) ->
+    insert_trap_rename_run3(Traps, InsertFunc, NKeys),
+    insert_trap_rename_run2(Traps - Decr, Decr, InsertFunc, NKeys).
+
+
+insert_trap_rename_run3(Traps, InsertFunc, NKeys) ->
+    io:format("insert_trap_rename_run(~p, ~p)\n", [Traps, InsertFunc]),
+    TabName = insert_trap_rename,
+    TabRenamed = insert_trap_rename_X,
+    Tester = self(),
+    Tuples = [{K} || K <- lists:seq(1,NKeys)],
+
+    OwnerFun =
+        fun() ->
+                erlang:trace(Tester, true, [running]),
+                ets:new(TabName, [named_table, public]),
+                Tester ! {ets_new, ets:whereis(TabName)},
+                io:format("Wait for ets:~p/2 to yield...\n", [InsertFunc]),
+                GotTraps = repeat_while(
+                  fun(N) ->
+                          case receive_any() of
+                              {trace, Tester, out, {ets,InsertFunc,2}} ->
+                                  case N of
+                                      Traps -> {false, ok};
+                                      _ -> {true, N+1}
+                                  end;
+                              "Insert done" ->
+                                  io:format("Too late! Got ~p traps\n", [N]),
+                                  {false, N};
+                              _M ->
+                                  %%io:format("[~p] Ignored msg: ~p\n", [N,_M]),
+                                  {true, N}
+                          end
+                  end,
+                  0),
+                io:format("Rename table and wait...\n",[]),
+                ets:rename(TabName, TabRenamed),
+                ets:delete(TabRenamed, 42),
+                Tester ! {renamed, GotTraps},
+                receive die -> ok end
+        end,
+    {Owner, Mon} = spawn_opt(OwnerFun, [link,monitor]),
+
+    {ets_new, Tid} = receive_any(),
+    try ets:InsertFunc(TabName, Tuples) of
+        true ->
+            io:format("ets:~p succeeded\n", [InsertFunc]),
+            true = ets:member(Tid, 1),
+            true = ets:member(Tid, NKeys)
+    catch
+        error:badarg ->
+            io:format("ets:~p failed\n", [InsertFunc]),
+            false = ets:member(Tid, 1),
+            false = ets:member(Tid, NKeys)
+    end,
+    Owner ! "Insert done",
+    {renamed, GotTraps} = receive_any(),
+    [] = ets:lookup(Tid, 42),
+    undefined = ets:whereis(TabName),
+    Tid = ets:whereis(TabRenamed),
+    Owner ! die,
+    {'DOWN', Mon, process, Owner, _} = receive_any(),
+    undefined = ets:whereis(TabName),
+    undefined = ets:whereis(TabRenamed),
+    GotTraps.
+
+
 test_table_size_concurrency(Config) when is_list(Config) ->
     case erlang:system_info(schedulers) of
         1 -> {skip,"Only valid on smp > 1 systems"};
@@ -8674,7 +8855,7 @@ repeat_for_permutations(Fun, List, N) ->
 
 receive_any() ->
     receive M ->
-	    io:format("Process ~p got msg ~p\n", [self(),M]),
+	    %%io:format("Process ~p got msg ~p\n", [self(),M]),
 	    M
     end.
 
@@ -8913,6 +9094,8 @@ error_info(_Config) ->
          {insert, ['$Tab', [a|b]]},
          {insert, ['$Tab', {a,b,c}], [no_fail]},
          {insert, ['$Tab', [{a,b,c}]], [no_fail]},
+         {insert, ['$Tab', [{a,b,c},{d,e,f}]], [no_fail]},
+         {insert, ['$Tab', [{I,b,c} || I <- lists:seq(1,10_000)]], [no_fail]},
 
          {insert_new, ['$Tab', bad_object]},
          {insert_new, ['$Tab', {a,b,c}], [no_fail]},
@@ -9076,7 +9259,7 @@ error_info(_Config) ->
         [] ->
             ok;
         [_|_]=Errors ->
-            io:format("~p\n", [Errors]),
+            io:format("~P\n", [Errors, 100]),
             ct:fail({length(Errors),errors})
     end.
 
@@ -9302,7 +9485,7 @@ ets_apply(F, Args, Opts) ->
     end.
 
 ets_format_args(Args) ->
-    lists:join(", ", [io_lib:format("~p", [A]) || A <- Args]).
+    lists:join(", ", [io_lib:format("~P", [A,10]) || A <- Args]).
 
 %%%
 %%% Common utility functions.

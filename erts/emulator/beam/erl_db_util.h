@@ -321,11 +321,7 @@ typedef struct db_table_common {
     int compress;
 
     /* For unfinished operations that needs to be helped */
-    void (*continuation)(long *reds_ptr,
-                         void** state,
-                         void* extra_context); /* To help yielded process */
-    erts_atomic_t continuation_state;
-    Binary* continuation_res_bin;
+    struct ets_insert_2_list_info* continuation_ctx;
 #ifdef ETS_DBG_FORCE_TRAP
     int dbg_force_trap;  /* force trap on table lookup */
 #endif
