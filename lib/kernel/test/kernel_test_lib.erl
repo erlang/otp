@@ -175,6 +175,8 @@ ts_extra_flatform_label() ->
 
 simplify_label("Meamax") ->
     {host, meamax};
+simplify_label("Cover") ->
+    {host, cover};
 simplify_label(Label) ->
     case string:find(string:to_lower(Label), "docker") of
         "docker" ++ _ ->
@@ -187,6 +189,8 @@ label2factor(docker) ->
     4;
 label2factor({host, meamax}) ->
     2;
+label2factor({host, cover}) ->
+    4;
 label2factor({host, _}) ->
     0.
 
