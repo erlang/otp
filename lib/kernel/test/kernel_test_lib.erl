@@ -54,7 +54,6 @@
          skip/1
         ]).
 
--export([analyze_darwin_system_profiler2/1]).
 
 -include("kernel_test_lib.hrl").
 
@@ -593,14 +592,18 @@ analyze_and_print_linux_host_info(Version) ->
                 if
                     (BogoMIPS > 50000) ->
                         1;
-                    (BogoMIPS > 30000) ->
+                    (BogoMIPS > 40000) ->
                         2;
-                    (BogoMIPS > 10000) ->
+                    (BogoMIPS > 30000) ->
                         3;
-                    (BogoMIPS > 5000) ->
+                    (BogoMIPS > 20000) ->
+                        4;
+                    (BogoMIPS > 10000) ->
                         5;
-                    (BogoMIPS > 3000) ->
+                    (BogoMIPS > 5000) ->
                         8;
+                    (BogoMIPS > 3000) ->
+                        12;
                     true ->
                         10
                 end;
@@ -2028,8 +2031,12 @@ num_schedulers_to_factor() ->
         1 ->
             10;
         2 ->
-            5;
-        N when (N =< 6) ->
+            8;
+        3 ->
+            6;
+        4 ->
+            4;
+        N when (N =< 5) ->
             2;
         _ ->
             1
