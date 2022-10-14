@@ -546,6 +546,8 @@ analyze_and_print_linux_host_info(Version) ->
                           "~n", [Version, L]),
                 {other, simplify_label(L)}
         end,
+    %% 'VirtFactor' will be 0 unless virtual
+    VirtFactor = linux_virt_factor(),
     Factor =
         case (catch linux_which_cpuinfo(Distro)) of
             {ok, {CPU, BogoMIPS}} ->
@@ -616,9 +618,23 @@ analyze_and_print_linux_host_info(Version) ->
               "~n      Base Factor:     ~w"
               "~n      Label Factor:    ~w"
               "~n      Mem Factor:      ~w"
+              "~n      Virtual Factor:  ~w"
               "~n      TS Scale Factor: ~w"
-             "~n", [Factor, AddLabelFactor, AddMemFactor, TSScaleFactor]),
-    {Factor + AddLabelFactor + AddMemFactor + TSScaleFactor, [{label, Label}]}.
+              "~n", [Factor, AddLabelFactor, AddMemFactor, VirtFactor,
+                     TSScaleFactor]),
+    {Factor + AddLabelFactor + AddMemFactor + VirtFactor + TSScaleFactor,
+     [{label, Label}]}.
+
+linux_virt_factor() ->
+    linux_virt_factor(linux_product_name()).
+
+linux_virt_factor("VMware" ++ _) ->
+    2;
+linux_virt_factor("VirtualBox" ++ _) ->
+    4;
+linux_virt_factor(_) ->
+    0.
+
 
 linux_cpuinfo_clock() ->
     %% This is written as: "3783.000000MHz"
@@ -1863,9 +1879,13 @@ analyze_and_print_win_host_info(Version) ->
               "~n~n", [OsName, OsVersion, Version,
                        SysMan, SysMod, NumProcs, TotPhysMem,
                        str_num_schedulers()]),
-    io:format("TS Scale Factor:         ~w~n"
-              "TS Extra Platform Label: ~s~n",
+    io:format("TS: "
+              "~n   TimeTrap Factor:      ~w"
+              "~n   Extra Platform Label: ~s"
+              "~n~n",
               [timetrap_scale_factor(), Label]),
+    %% 'VirtFactor' will be 0 unless virtual
+    VirtFactor = win_virt_factor(SysMod),
     MemFactor =
         try
             begin
@@ -1917,7 +1937,20 @@ analyze_and_print_win_host_info(Version) ->
             _ ->
                 2
         end,
-    {CPUFactor + MemFactor + AddLabelFactor, SysInfo}.
+    io:format("Factor calc:"
+              "~n      CPU Factor:     ~w"
+              "~n      Mem Factor:     ~w"
+              "~n      Label Factor:   ~w"
+              "~n      Virtual Factor: ~w"
+              "~n~n",
+              [CPUFactor, MemFactor, AddLabelFactor, VirtFactor]),
+    {CPUFactor + MemFactor + AddLabelFactor + VirtFactor, SysInfo}.
+
+win_virt_factor("VMware" ++ _) ->
+    2;
+win_virt_factor(_) ->
+    0.
+
 
 win_sys_info_lookup(Key, SysInfo) ->
     win_sys_info_lookup(Key, SysInfo, "-").
