@@ -1054,8 +1054,15 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <name name="client_cafile"/>
       <desc>
 	<p>Path to a file containing PEM-encoded CA certificates. The CA
-      certificates are used during server authentication and when building the
-      client certificate chain.</p>
+        certificates are used during server authentication and when building the
+        client certificate chain.</p>
+        <note><p>When PEM caching is enabled, files provided with
+        this option will be checked for updates at fixed time intervals specified by the
+        <seeapp marker="ssl:ssl_app#configuration">ssl_pem_cache_clean</seeapp> environment parameter.</p>
+        </note>
+        <note><p>Alternatively, CA certificates can be provided as a DER-encoded
+        binary with <seetype marker="#client_cacerts">client_cacerts</seetype>
+        option.</p></note>
       </desc>
     </datatype>
     
@@ -1273,6 +1280,12 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	client when a certificate is requested. Can be omitted if
 	there is no need to verify the client and if there are no
 	intermediate CAs for the server certificate.</p>
+        <note><p>When PEM caching is enabled, files provided with
+        this option will be checked for updates at fixed time intervals specified by the
+        <seeapp marker="ssl:ssl_app#configuration">ssl_pem_cache_clean</seeapp> environment parameter.</p>
+        </note>
+        <note><p>Alternatively, CA certificates can be provided as a DER-encoded
+        binary with <seetype marker="#server_cacerts">server_cacerts</seetype> option.</p></note>
 	</desc>
       </datatype>
 
@@ -1646,12 +1659,13 @@ fun(srp, Username :: binary(), UserState :: term()) ->
     
     <func>
       <name name="clear_pem_cache" arity="0" since="OTP 17.5"/>
-      <fsummary> Clears the pem cache</fsummary>
-      <desc><p>PEM files, used by ssl API-functions, are cached. The
-      cache is regularly checked to see if any cache entries should be
-      invalidated, however this function provides a way to
-      unconditionally clear the whole cache.
-      </p>
+      <fsummary>Clears the pem cache</fsummary>
+      <desc>
+        <p>PEM files, used by ssl API-functions, are cached for
+          performance reasons. The cache is automatically checked at
+          regular intervals to see if any cache entries should be invalidated.</p>
+        <p>This function provides a way to unconditionally clear the entire
+          cache, thereby forcing a reload of previously cached PEM files.</p>
       </desc>
     </func>
    
