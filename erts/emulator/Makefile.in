@@ -432,6 +432,7 @@ CREATE_DIRS+=$(TTF_DIR)/asmjit $(TTF_DIR)/asmjit/core $(TTF_DIR)/asmjit/$(JIT_AR
 endif
 
 BINDIR = $(ERL_TOP)/bin/$(TARGET)
+CREATE_DIRS += $(BINDIR)
 
 ERLANG_OSTYPE = @ERLANG_OSTYPE@
 

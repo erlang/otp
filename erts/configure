@@ -25601,23 +25601,6 @@ printf "%s\n" "#define ERTS_EMU_CMDLINE_FLAGS \"$STATIC_CFLAGS $CFLAGS $DEBUG_CF
 
 
 
-erts=${erl_top}/erts
-
-erts_dirs="
-  $erts/obj $erts/obj.debug
-
-  $erts/obj/$host
-  $erts/obj.debug/$host
-
-"
-for d in ${erl_top}/bin ${erl_top}/bin/$host $erts_dirs ;
-do
-  if test ! -d $d; then
-    mkdir -p 1>/dev/null 2>&1 $d
-  fi
-done
-
-
 
 
 
