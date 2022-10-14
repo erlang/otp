@@ -62,6 +62,8 @@
         {delete_chars, -32768..32767} |
         %% Trigger a terminal "bell"
         beep |
+        %% Clears the screen
+        clear |
         %% Execute multiple request() actions
         {requests, [request()]} |
         %% Open external editor
@@ -773,6 +775,8 @@ io_request({insert_chars, unicode, Chars}, TTY) ->
     write(prim_tty:handle_request(TTY, {insert, unicode:characters_to_binary(Chars)}));
 io_request({delete_chars, N}, TTY) ->
     write(prim_tty:handle_request(TTY, {delete, N}));
+io_request(clear, TTY) ->
+    write(prim_tty:handle_request(TTY, clear));
 io_request(beep, TTY) ->
     write(prim_tty:handle_request(TTY, beep)).
 

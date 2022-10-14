@@ -432,6 +432,8 @@ io_request({move_rel, N}, Buf, Tty, _Group) ->
     move_rel(N, Buf, Tty);
 io_request({delete_chars,N}, Buf, Tty, _Group) ->
     delete_chars(N, Buf, Tty);
+io_request(clear, Buf, _Tty, _Group) ->
+    {"\e[H\e[2J", Buf};
 io_request(beep, Buf, _Tty, _Group) ->
     {[7], Buf};
 

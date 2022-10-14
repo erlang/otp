@@ -67,7 +67,8 @@ erl</pre>
       <item><c>C-a</c> means pressing the <em>Ctrl</em> key and the letter
         <c>a</c> simultaneously.</item>
       <item><c>M-f</c> means pressing the <em>Esc</em> key and the letter
-        <c>f</c> in sequence.</item>
+        <c>f</c> in sequence or pressing the <em>Alt</em> key and the letter
+        <c>f</c> simultaneously.</item>
       <item><c>Home</c> and <c>End</c> represent the keys with the same
         name on the keyboard.</item>
       <item><c>Left</c> and <c>Right</c> represent the corresponding arrow
@@ -141,6 +142,10 @@ erl</pre>
       </row>
       <row>
         <cell align="left" valign="middle">C-l</cell>
+        <cell align="left" valign="middle">Clears the screen</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">M-l</cell>
         <cell align="left" valign="middle">Redraw line</cell>
       </row>
       <row>

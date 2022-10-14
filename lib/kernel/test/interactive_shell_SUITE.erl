@@ -56,7 +56,7 @@
          shell_expand_location_above/1,
          shell_expand_location_below/1,
          shell_update_window_unicode_wrap/1,
-         shell_standard_error_nlcr/1,
+         shell_standard_error_nlcr/1, shell_clear/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
@@ -130,7 +130,8 @@ groups() ->
        shell_support_ansi_input,
        shell_standard_error_nlcr,
        shell_expand_location_above,
-       shell_expand_location_below]}
+       shell_expand_location_below,
+       shell_clear]}
     ].
 
 init_per_suite(Config) ->
@@ -400,6 +401,25 @@ shell_navigation(Config) ->
              send_tty(Term,"Enter")
          end || U <- hard_unicode()],
         ok
+    after
+        stop_tty(Term)
+    end.
+
+shell_clear(Config) ->
+
+    Term = start_tty(Config),
+    {Rows, _Cols} = get_window_size(Term),
+
+    try
+        send_tty(Term,"foobar."),
+        send_tty(Term,"Enter"),
+        check_content(Term, "foobar"),
+        check_location(Term, {0, 0}),
+        send_tty(Term,"bazbat"),
+        check_location(Term, {0, 6}),
+        send_tty(Term,"C-L"),
+        check_location(Term, {-Rows+1, 6}),
+        check_content(Term, "bazbat")
     after
         stop_tty(Term)
     end.
@@ -1161,7 +1181,7 @@ shell_suspend(Config) ->
         check_content(Term,"\\Q[1]+\\E\\s*Stopped"),
         send_tty(Term, "fg"),
         send_tty(Term, "Enter"),
-        send_tty(Term, "C-L"),
+        send_tty(Term, "M-l"),
         check_content(Term,["2> ",hard_unicode(),"$"]),
         check_location(Term,{0,width(hard_unicode())}),
         ok

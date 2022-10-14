@@ -668,12 +668,12 @@ get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)
                                          %% If there are more results than fit on
                                          %% screen we expand above
                                          send_drv(Drv, {put_chars, unicode, NlMatchStr}),
-                                         [$\^L | Cs1]
+                                         [$\e, $l | Cs1]
                                  end
                          end;
                      false ->
                          send_drv(Drv, {put_chars, unicode, NlMatchStr}),
-                         [$\^L | Cs1]
+                         [$\e, $l | Cs1]
                  end
          end,
     get_line1(edlin:edit_line(Cs, Cont), Drv, Shell, Ls0, Encoding);
