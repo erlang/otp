@@ -161,12 +161,6 @@ linux_which_distro(Version) ->
             DistroAndLabel
     end.
 
-ts_host_type() ->
-    case os:getenv("TS_HOST_TYPE") of
-        false -> "-";
-        Val   -> Val
-    end.
-
 ts_extra_flatform_label() ->
     case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
         false -> "-";
@@ -214,11 +208,10 @@ do_linux_which_distro(Version) ->
     io:format("Linux: ~s"
               "~n   Distro:       ~s"
               "~n   Label:        ~s"
-              "~n   Host Type:    ~s"
               "~n   Product Name: ~s"
               "~n",
               [Version, DistroStr, Label,
-               ts_host_type(), linux_product_name()]),
+               linux_product_name()]),
     {other, simplify_label(Label)}.
 
 do_linux_which_distro_issue(Version, Label) ->
@@ -232,11 +225,9 @@ do_linux_which_distro_issue(Version, Label) ->
                             io:format("Linux: ~s"
                                       "~n   Distro:                  ~s"
                                       "~n   TS Extra Platform Label: ~s"
-                                      "~n   TS Host Type:            ~s"
                                       "~n   Product Name:            ~s"
                                       "~n",
                                       [Version, DistroStr, Label,
-                                       ts_host_type(),
                                        linux_product_name()]),
                             throw({distro,
                                    {wind_river, simplify_label(Label)}});
@@ -244,11 +235,9 @@ do_linux_which_distro_issue(Version, Label) ->
                             io:format("Linux: ~s"
                                       "~n   Distro:                  ~s"
                                       "~n   TS Extra Platform Label: ~s"
-                                      "~n   TS Host Type:            ~s"
                                       "~n   Product Name:            ~s"
                                       "~n",
                                       [Version, DistroStr, Label,
-                                       ts_host_type(),
                                        linux_product_name()]),
                             throw({distro,
                                    {montavista, simplify_label(Label)}});
@@ -256,11 +245,9 @@ do_linux_which_distro_issue(Version, Label) ->
                             io:format("Linux: ~s"
                                       "~n   Distro:                  ~s"
                                       "~n   TS Extra Platform Label: ~s"
-                                      "~n   TS Host Type:            ~s"
                                       "~n   Product Name:            ~s"
                                       "~n",
                                       [Version, DistroStr, Label,
-                                       ts_host_type(),
                                        linux_product_name()]),
                             throw({distro,
                                    {yellow_dog, simplify_label(Label)}});
@@ -268,11 +255,9 @@ do_linux_which_distro_issue(Version, Label) ->
                             io:format("Linux: ~s"
                                       "~n   Distro:                  ~s"
                                       "~n   TS Extra Platform Label: ~s"
-                                      "~n   TS Host Type:            ~s"
                                       "~n   Product Name:            ~s"
                                       "~n",
                                       [Version, DistroStr, Label,
-                                       ts_host_type(),
                                        linux_product_name()]),
                             throw({distro,
                                    {ubuntu, simplify_label(Label)}});
@@ -280,11 +265,9 @@ do_linux_which_distro_issue(Version, Label) ->
                             io:format("Linux: ~s"
                                       "~n   Distro:                  ~s"
                                       "~n   TS Extra Platform Label: ~s"
-                                      "~n   TS Host Type:            ~s"
                                       "~n   Product Name:            ~s"
                                       "~n",
                                       [Version, DistroStr, Label,
-                                       ts_host_type(),
                                        linux_product_name()]),
                             throw({distro,
                                    {linux_mint, simplify_label(Label)}});
@@ -309,21 +292,17 @@ do_linux_which_distro_fedora(Version, Label) ->
                     io:format("Linux: ~s"
                               "~n   Distro:                  ~s"
                               "~n   TS Extra Platform Label: ~s"
-                              "~n   TS Host Type:            ~s"
                               "~n   Product Name:            ~s"
                               "~n",
                               [Version, DistroStr, Label,
-                               ts_host_type(),
                                linux_product_name()]);
                 _ ->
                     io:format("Linux: ~s"
                               "~n   Distro:                  ~s"
                               "~n   TS Extra Platform Label: ~s"
                               "~n   Product Name:            ~s"
-                              "~n   TS Host Type:            ~s"
                               "~n",
                               [Version, "Fedora", Label,
-                               ts_host_type(),
                                linux_product_name()])
             end,
             throw({distro, {fedora, simplify_label(Label)}});
@@ -344,33 +323,27 @@ do_linux_which_distro_suse(Version, Label) ->
                             io:format("Linux: ~s"
                                       "~n   Distro:                  ~s"
                                       "~n   TS Extra Platform Label: ~s"
-                                      "~n   TS Host Type:            ~s"
                                       "~n   Product Name:            ~s"
                                       "~n",
                                       [Version, DistroStr, Label,
-                                       ts_host_type(),
                                        linux_product_name()]),
                             throw({distro, {sles, simplify_label(Label)}});
                         [DistroStr | _] ->
                             io:format("Linux: ~s"
                                       "~n   Distro:                  ~s"
                                       "~n   TS Extra Platform Label: ~s"
-                                      "~n   TS Host Type:            ~s"
                                       "~n   Product Name:            ~s"
                                       "~n",
                                       [Version, DistroStr, Label,
-                                       ts_host_type(),
                                        linux_product_name()]),
                             throw({distro, {suse, simplify_label(Label)}});
                         _ ->
                             io:format("Linux: ~s"
                                       "~n   Distro:                  ~s"
                                       "~n   TS Extra Platform Label: ~s"
-                                      "~n   TS Host Type:            ~s"
                                       "~n   Product Name:            ~s"
                                       "~n",
                                       [Version, "SuSE", Label,
-                                       ts_host_type(),
                                        linux_product_name()]),
                             throw({distro, {suse, simplify_label(Label)}})
                     end;
@@ -384,13 +357,11 @@ do_linux_which_distro_suse(Version, Label) ->
                                               "~n   Distro:                  ~s"
                                               "~n   Distro Version:          ~s"
                                               "~n   TS Extra Platform Label: ~s"
-                                              "~n   TS Host Type:            ~s"
                                               "~n   Product Name:            ~s"
                                               "~n",
                                               [Version,
                                                DistroStr, VersionNo,
                                                Label,
-                                               ts_host_type(),
                                                linux_product_name()]),
                                     throw({distro,
                                            {sles, simplify_label(Label)}});
@@ -398,11 +369,9 @@ do_linux_which_distro_suse(Version, Label) ->
                                     io:format("Linux: ~s"
                                               "~n   Distro:                  ~s"
                                               "~n   TS Extra Platform Label: ~s"
-                                              "~n   TS Host Type:            ~s"
                                               "~n   Product Name:            ~s"
                                               "~n",
                                               [Version, DistroStr, Label,
-                                               ts_host_type(),
                                                linux_product_name()]),
                                     throw({distro,
                                            {sles, simplify_label(Label)}})
@@ -415,13 +384,11 @@ do_linux_which_distro_suse(Version, Label) ->
                                               "~n   Distro:                  ~s"
                                               "~n   Distro Version:          ~s"
                                               "~n   TS Extra Platform Label: ~s"
-                                              "~n   TS Host Type:            ~s"
                                               "~n   Product Name:            ~s"
                                               "~n",
                                               [Version,
                                                DistroStr, VersionNo,
                                                Label,
-                                               ts_host_type(),
                                                linux_product_name()]),
                                     throw({distro,
                                            {suse, simplify_label(Label)}});
@@ -429,11 +396,9 @@ do_linux_which_distro_suse(Version, Label) ->
                                     io:format("Linux: ~s"
                                               "~n   Distro:                  ~s"
                                               "~n   TS Extra Platform Label: ~s"
-                                              "~n   TS Host Type:            ~s"
                                               "~n   Product Name:            ~s"
                                               "~n",
                                               [Version, DistroStr, Label,
-                                               ts_host_type(),
                                                linux_product_name()]),
                                     throw({distro,
                                            {suse, simplify_label(Label)}})
@@ -442,11 +407,9 @@ do_linux_which_distro_suse(Version, Label) ->
                             io:format("Linux: ~s"
                                       "~n   Distro:                  ~s"
                                       "~n   TS Extra Platform Label: ~s"
-                                      "~n   TS Host Type:            ~s"
                                       "~n   Product Name:            ~s"
                                       "~n",
                                       [Version, "Unknown SUSE", Label,
-                                       ts_host_type(),
                                        linux_product_name()]),
                             throw({distro, {suse, simplify_label(Label)}})
                     end
@@ -470,11 +433,9 @@ do_linux_which_distro_os_release(Version, Label) ->
                               "~n   Distro:                  ~s"
                               "~n   Distro Version:          ~s"
                               "~n   TS Extra Platform Label: ~s"
-                              "~n   TS Host Type:            ~s"
                               "~n   Product Name:            ~s"
                               "~n",
                               [Version, DistroStr, VersionNo, Label,
-                               ts_host_type(),
                                linux_product_name()]),
                     throw({distro,
                            {linux_distro_str_to_distro_id(DistroStr),
