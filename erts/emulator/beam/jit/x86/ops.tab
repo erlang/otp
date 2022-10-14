@@ -427,17 +427,9 @@ is_eq_exact Lbl LHS RHS | equal(LHS, RHS) => _
 is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
 
 is_eq_exact Lbl R=xy n => is_nil Lbl R
-is_eq_exact Lbl R=xy C=q => is_eq_exact_literal(Lbl, R, C)
 
 is_ne_exact Lbl LHS RHS | equal(LHS, RHS) => jump Lbl
 is_ne_exact Lbl C=c R=xy => is_ne_exact Lbl R C
-
-is_ne_exact Lbl R=xy C=q => i_is_ne_exact_literal Lbl R C
-
-i_is_eq_exact_literal/4
-i_is_eq_exact_literal f s c I
-
-i_is_ne_exact_literal f s c
 
 is_eq_exact f s s
 

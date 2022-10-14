@@ -1182,6 +1182,26 @@ protected:
         return beam->types.entries[typeIndex].type_union;
     }
 
+    int getExtendedTypeUnion(const ArgSource &arg) const {
+        if (arg.isLiteral()) {
+            Eterm literal =
+                    beamfile_get_literal(beam, arg.as<ArgLiteral>().get());
+            if (is_binary(literal)) {
+                return BEAM_TYPE_BITSTRING;
+            } else if (is_list(literal)) {
+                return BEAM_TYPE_CONS;
+            } else if (is_tuple(literal)) {
+                return BEAM_TYPE_TUPLE;
+            } else if (is_map(literal)) {
+                return BEAM_TYPE_MAP;
+            } else {
+                return BEAM_TYPE_ANY;
+            }
+        } else {
+            return getTypeUnion(arg);
+        }
+    }
+
     auto getClampedRange(const ArgSource &arg) const {
         if (arg.isSmall()) {
             Sint value = arg.as<ArgSmall>().getSigned();
@@ -1250,8 +1270,8 @@ protected:
     }
 
     bool always_same_types(const ArgSource &lhs, const ArgSource &rhs) const {
-        int lhs_types = getTypeUnion(lhs);
-        int rhs_types = getTypeUnion(rhs);
+        int lhs_types = getExtendedTypeUnion(lhs);
+        int rhs_types = getExtendedTypeUnion(rhs);
 
         /* We can only be certain that the types are the same when there's
          * one possible type. For example, if one is a number and the other

@@ -433,27 +433,6 @@ gen.combine_conses(Len, Dst, Hd) {
     return cons;
 }
 
-gen.is_eq_exact_literal(Fail, R, C) {
-    BeamOp* op;
-    Eterm literal;
-    Uint tag_test;
-
-    ASSERT(C.type == TAG_q);
-    literal = beamfile_get_literal(&S->beam, C.val);
-    ASSERT(is_boxed(literal) || is_list(literal));
-    tag_test = _TAG_PRIMARY_MASK - (literal & _TAG_PRIMARY_MASK);
-
-    $NewBeamOp(S, op);
-    $BeamOpNameArity(op, i_is_eq_exact_literal, 4);
-    op->a[0] = Fail;
-    op->a[1] = R;
-    op->a[2] = C;
-    op->a[3].type = TAG_u;
-    op->a[3].val = tag_test;
-
-    return op;
-}
-
 gen.allocate_heap_zero(Ns, Nh, Live) {
     BeamOp* alloc;
     BeamOp* init;
