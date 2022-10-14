@@ -529,7 +529,11 @@ sched_util_runner(A, B, Effort, Senders, PrivDir) ->
 fs_log(PrivDir, Name, Term) ->
     _ = file:write_file(
           filename:join(PrivDir, Name),
-          io_lib:format("~p~n", [Term])),
+          io_lib:format(
+            "~p~n",
+            [{{erlang:unique_integer([positive,monotonic]),
+               os:system_time(1000000)},
+             Term}])),
     ok.
 
 flush() ->
