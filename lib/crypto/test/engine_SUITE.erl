@@ -65,6 +65,7 @@
          sign_verify_rsa_fake/1,
          sign_verify_dsa/1,
          sign_verify_ecdsa/1,
+         sign_verify_eddsa/1,
          sign_verify_rsa_pwd/1,
          sign_verify_rsa_pwd_bad_pwd/1,
          priv_encrypt_pub_decrypt_rsa/1,
@@ -113,6 +114,7 @@ groups() ->
        sign_verify_rsa,
        sign_verify_dsa,
        sign_verify_ecdsa,
+       sign_verify_eddsa,
        sign_verify_rsa_pwd,
        sign_verify_rsa_pwd_bad_pwd,
        priv_encrypt_pub_decrypt_rsa,
@@ -126,9 +128,11 @@ groups() ->
        get_pub_from_priv_key_dsa,
        get_pub_from_priv_key_ecdsa
       ]},
-    {engine_fakes_rsa, [], [sign_verify_rsa_fake
-                     ]}
-     ].
+    {engine_fakes_rsa, [],
+     [
+      sign_verify_rsa_fake
+     ]}
+    ].
 
 
 init_per_suite(Config) ->
@@ -814,6 +818,13 @@ sign_verify_ecdsa(Config) ->
     Pub  = #{engine => engine_ref(Config),
              key_id => key_id(Config, "ecdsa_public_key.pem")},
     sign_verify(ecdsa, sha, Priv, Pub).
+
+sign_verify_eddsa(Config) ->
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "eddsa_private_key.pem")},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "eddsa_public_key.pem")},
+    sign_verify(eddsa, sha, Priv, Pub).
 
 sign_verify_rsa_pwd(Config) ->
     Priv = #{engine => engine_ref(Config),
