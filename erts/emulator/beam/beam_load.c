@@ -47,7 +47,7 @@ Uint erts_total_code_size;
 
 static int load_code(LoaderState *stp);
 
-#define PLEASE_RECOMPILE "please re-compile this module with an Erlang/OTP " ERLANG_OTP_RELEASE " compiler"
+#define PLEASE_RECOMPILE "please re-compile this module with an Erlang/OTP " ERLANG_OTP_RELEASE " compiler or update your Erlang/OTP version"
 
 /**********************************************************************/
 
