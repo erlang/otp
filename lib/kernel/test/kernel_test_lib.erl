@@ -167,6 +167,8 @@ ts_extra_flatform_label() ->
         Val   -> Val
     end.
 
+simplify_label("Systemtap") ->
+    {host, systemtap};
 simplify_label("Meamax") ->
     {host, meamax};
 simplify_label("Cover") ->
