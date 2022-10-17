@@ -414,7 +414,6 @@ sched_utilization(Config) ->
 
 sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
     SSL = proplists:get_value(ssl_dist, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     ct:log("Starting scheduler utilization run on ~w and ~w", [A, B]),
@@ -422,9 +421,9 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
         ssl_apply(
           HA,
           fun () ->
-                  Result = sched_util_runner(A, B, Effort, SSL, PrivDir),
+                  Result = sched_util_runner(A, B, Effort, SSL, Config),
                   fs_log(
-                    PrivDir,
+                    Config,
                     "sched_utilization.Result", Result),
                   Result
           end),
@@ -463,11 +462,11 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
 %% Runs on node A and spawns a server on node B
 %% We want to avoid getting busy_dist_port as it hides the true SU usage
 %% of the receiver and sender.
-sched_util_runner(A, B, Effort, true, PrivDir) ->
-    sched_util_runner(A, B, Effort, 250, PrivDir);
-sched_util_runner(A, B, Effort, false, PrivDir) ->
-    sched_util_runner(A, B, Effort, 250, PrivDir);
-sched_util_runner(A, B, Effort, Senders, PrivDir) ->
+sched_util_runner(A, B, Effort, true, Config) ->
+    sched_util_runner(A, B, Effort, 250, Config);
+sched_util_runner(A, B, Effort, false, Config) ->
+    sched_util_runner(A, B, Effort, 250, Config);
+sched_util_runner(A, B, Effort, Senders, Config) ->
     process_flag(trap_exit, true),
     Payload = payload(5),
     Time = 1000 * Effort,
@@ -486,11 +485,11 @@ sched_util_runner(A, B, Effort, Senders, PrivDir) ->
                           msacc:start(Time),
                           receive
                               {done,Tag,Pid} ->
-                                  fs_log(PrivDir,
+                                  fs_log(Config,
                                          "sched_util_runner.msacc:stats",
                                          ok),
                                   ServerStats = msacc:stats(),
-                                  fs_log(PrivDir,
+                                  fs_log(Config,
                                          "sched_util_runner.msacc:ServerStats",
                                          ServerStats),
                                   exit({result,Tag,ServerStats})
@@ -508,11 +507,11 @@ sched_util_runner(A, B, Effort, Senders, PrivDir) ->
     %%
     receive after 1000 -> ok end,
     ServerMsacc ! {start,Tag,self()},
-    fs_log(PrivDir, "sched_util_runner.self", self()),
+    fs_log(Config, "sched_util_runner.self", self()),
     msacc:start(Time),
-    fs_log(PrivDir, "sched_util_runner.msacc:start.done", ok),
+    fs_log(Config, "sched_util_runner.msacc:start.done", ok),
     ClientMsaccStats = msacc:stats(),
-    fs_log(PrivDir, "sched_util_runner.ClientMsaccStats", ClientMsaccStats),
+    fs_log(Config, "sched_util_runner.ClientMsaccStats", ClientMsaccStats),
     receive after 1000 -> ok end,
     ServerMsacc ! {done,Tag,self()},
     ServerMsaccStats =
@@ -522,13 +521,15 @@ sched_util_runner(A, B, Effort, Senders, PrivDir) ->
             {'EXIT',ServerMsacc,Other} ->
                 exit({other,ServerMsacc,Other})
         end,
-    fs_log(PrivDir, "sched_util_runner.ServerMsaccStats", ServerMsaccStats),
+    fs_log(Config, "sched_util_runner.ServerMsaccStats", ServerMsaccStats),
     %%
     {ClientMsaccStats,ServerMsaccStats, flush()}.
 
-fs_log(PrivDir, Name, Term) ->
+fs_log(Config, Name, Term) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DistPrefix = proplists:get_value(ssl_dist_prefix, Config),
     _ = file:write_file(
-          filename:join(PrivDir, Name),
+          filename:join(PrivDir, DistPrefix ++ "_" ++ Name),
           io_lib:format(
             "~p~n",
             [{{erlang:unique_integer([positive,monotonic]),
