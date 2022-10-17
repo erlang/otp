@@ -54,7 +54,7 @@ jobs:
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}
       - name: Build BASE image
         id: base-build
-        run: .github/scripts/build-base-image.sh 64-bit
+        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
       - name: Build image
         run: |
           mv otp_src.tar.gz .github/otp.tar.gz
