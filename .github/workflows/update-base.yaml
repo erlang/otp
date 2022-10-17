@@ -18,11 +18,14 @@ jobs:
     strategy:
       matrix:
         type: [debian-base,ubuntu-base,i386-debian-base]
+        branch: [master, maint, maint-25]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ matrix.branch }}
       - name: Docker login
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: docker.pkg.github.com
           username: ${{ github.actor }}
@@ -30,8 +33,14 @@ jobs:
       - name: Build base image
         id: base
         run: >-
-            BASE_TAG=docker.pkg.github.com/erlang/otp/${{ matrix.type }}
+            BASE_TAG=docker.pkg.github.com/${{ github.repository_owner }}/otp/${{ matrix.type }}
             BASE_USE_CACHE=false
-            .github/scripts/build-base-image.sh
-      - name: Push base image
-        run: docker push ${{ steps.base.outputs.BASE_TAG }}
+            .github/scripts/build-base-image.sh "${{ matrix.branch }}"
+      - name: Push master image
+        if: matrix.branch == 'master'
+        run: docker push ${{ steps.base.outputs.BASE_TAG }}:latest
+      - name: Tag and push base image
+        run: |
+            docker tag ${{ steps.base.outputs.BASE_TAG }}:latest \
+              ${{ steps.base.outputs.BASE_TAG }}:${{ matrix.branch }}
+            docker push ${{ steps.base.outputs.BASE_TAG }}:${{ matrix.branch }}

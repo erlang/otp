@@ -20,6 +20,10 @@ on:
   push:
   pull_request:
 
+env:
+    ## Equivalent to github.event_name == 'pull_request' ? github.base_ref : github.ref_name
+    BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+
 jobs:
 
   pack:
@@ -296,7 +300,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh
+        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
       - name: Build Erlang/OTP flavors and types
         run: |
             TYPES="opt debug lcnt"
@@ -332,7 +336,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build base image
-        run: .github/scripts/build-base-image.sh ${{ matrix.type }}
+        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" ${{ matrix.type }}
       - name: Build ${{ matrix.type }} image
         run: |
           mv otp_src.tar.gz .github/otp.tar.gz
@@ -363,7 +367,7 @@ jobs:
         with:
           name: otp-ubuntu-20.04
       - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh
+        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
 
       ## Build pre-built tar with chunks
       - name: Build doc chunks
@@ -437,7 +441,7 @@ jobs:
         with:
           name: otp-ubuntu-20.04
       - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh
+        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
       - name: Install clang-format
         run: |
           docker build -t otp - <<EOF
@@ -482,7 +486,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh
+        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
       - name: Run tests
         id: run-tests
         run: |
@@ -538,7 +542,7 @@ jobs:
         uses: actions/download-artifact@v2
       - run: mv otp-ubuntu-20.04/otp-ubuntu-20.04.tar.gz .
       - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh
+        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
       - name: Merge test results
         run: |
           shopt -s nullglob
