@@ -1106,7 +1106,7 @@ handshake(
                                     input_handler(
                                       RecvParams#params{
                                         dist_handle = DistHandle},
-                                      RecvSeq, empty_q(), infinity)
+                                      RecvSeq, empty_q())
                             end
                     end,
                     [link,
@@ -1294,49 +1294,38 @@ output_handler_deq_send(Params, Seq, Q, Size) ->
 %% -------------------------------------------------------------------------
 %% Input handler process
 %%
-%% Here is T = 0|infinity to steer if we should try to receive
-%% more data or not; start with infinity, and when we get some
-%% data try with 0 to see if more is waiting
 
-input_handler(#params{socket = Socket} = Params, Seq, Q, T) ->
+input_handler(#params{socket = Socket} = Params, Seq, Q) ->
     receive
         Msg ->
             case Msg of
                 {tcp_passive, Socket} ->
                     ok = inet:setopts(Socket, [{active, ?TCP_ACTIVE}]),
-                    Q_1 =
-                        case T of
-                            0 ->
-                                deliver_data(Params#params.dist_handle, Q);
-                            infinity ->
-                                Q
-                        end,
-                    input_handler(Params, Seq, Q_1, infinity);
+                    input_handler(Params, Seq, Q);
                 {tcp, Socket, Chunk} ->
-                    input_chunk(Params, Seq, Q, T, Chunk);
+                    input_chunk(Params, Seq, Q, Chunk);
                 {tcp_closed, Socket} ->
                     exit(connection_closed);
                 Other ->
                     %% Ignore...
                     _ = trace(Other),
-                    input_handler(Params, Seq, Q, T)
+                    input_handler(Params, Seq, Q)
             end
-    after T ->
-            Q_1 = deliver_data(Params#params.dist_handle, Q),
-            input_handler(Params, Seq, Q_1, infinity)
     end.
 
-input_chunk(Params, Seq, Q, T, Chunk) ->
+input_chunk(Params, Seq, Q, Chunk) ->
     case decrypt_chunk(Params, Seq, Chunk) of
         <<?DATA_CHUNK, Cleartext/binary>> ->
-            input_handler(Params, Seq + 1, enq_binary(Cleartext, Q), 0);
+            Q_1 = enq_binary(Cleartext, Q),
+            Q_2 = deliver_data(Params#params.dist_handle, Q_1),
+            input_handler(Params, Seq + 1, Q_2);
         <<?TICK_CHUNK, _/binary>> ->
-            input_handler(Params, Seq + 1, Q, T);
+            input_handler(Params, Seq + 1, Q);
         OtherChunk when is_binary(OtherChunk) ->
             _ = trace(invalid_chunk),
             exit(connection_closed);
         #params{} = Params_1 ->
-            input_handler(Params_1, 0, Q, T);
+            input_handler(Params_1, 0, Q);
         error ->
             _ = trace(decrypt_error),
             exit(connection_closed)
