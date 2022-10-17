@@ -1904,6 +1904,12 @@ analyze_and_print_win_host_info(Version) ->
                                 5
                         catch
                             _:_:_ ->
+                                %% For some reason the string contains
+                                %% "unusual" characters...
+                                %% ...so print the string as a list...
+                                io:format("Bad memory string: "
+                                          "~n   (gb) ~w"
+                                          "~n", [MStr]),
                                 10
                         end;
                     "mb" ->
@@ -1918,14 +1924,32 @@ analyze_and_print_win_host_info(Version) ->
                                 5
                         catch
                             _:_:_ ->
+                                %% For some reason the string contains
+                                %% "unusual" characters...
+                                %% ...so print the string as a list...
+                                io:format("Bad memory string: "
+                                          "~n   (mb) ~w"
+                                          "~n", [MStr]),
                                 10
                         end;
                     _ ->
+                        %% For some reason the string contains
+                        %% "unusual" characters...
+                        %% ...so print the string as a list...
+                        io:format("Bad memory string: "
+                                  "~n   (x) ~w"
+                                  "~n", [MStr]),
                         10
                 end
             end
         catch
             _:_:_ ->
+                %% For some reason the string contains
+                %% "unusual" characters...
+                %% ...so print the string as a list...
+                io:format("Bad memory string: "
+                          "~n   (y) ~w"
+                          "~n", [TotPhysMem]),
                 10
         end,
     CPUFactor = 
