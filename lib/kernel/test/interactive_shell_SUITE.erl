@@ -944,6 +944,14 @@ shell_expand_location_below(Config) ->
         send_stdin(Term, "\t"),
         check_location(Term, {-3, width("[escript:s")}),
         check_content(Term, "script_name\\([ ]+start\\($"),
+        send_tty(Term, "C-K"),
+
+        %% Check that completion works when in the middle of a long term
+        send_tty(Term, ", "++ lists:duplicate(80*2, $a)++"]"),
+        [send_tty(Term, "Left") || _ <- ", "++ lists:duplicate(80*2, $a)++"]"],
+        send_stdin(Term, "\t"),
+        check_location(Term, {-4, width("[escript:s")}),
+        check_content(Term, "script_name\\([ ]+start\\($"),
         send_tty(Term, "End"),
         send_stdin(Term, ".\n"),
 

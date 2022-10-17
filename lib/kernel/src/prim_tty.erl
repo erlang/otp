@@ -693,6 +693,8 @@ cols([SkipSeq | T], Unicode) when is_binary(SkipSeq) ->
     %% so we skip that
     cols(T, Unicode).
 
+cols(ColsPerLine, CurrCols, Chars, Unicode) when CurrCols > ColsPerLine ->
+    ColsPerLine + cols(ColsPerLine, CurrCols - ColsPerLine, Chars, Unicode);
 cols(_ColsPerLine, CurrCols, [], _Unicode) ->
     CurrCols;
 cols(ColsPerLine, CurrCols, ["\r\n" | T], Unicode) ->
