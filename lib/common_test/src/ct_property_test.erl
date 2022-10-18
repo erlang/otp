@@ -36,9 +36,6 @@
          print_frequency/0
         ]).
 
-%%% Mandatory include
--include_lib("common_test/include/ct.hrl").
-
 %%%================================================================
 %%%
 %%% API

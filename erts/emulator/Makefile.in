@@ -432,6 +432,7 @@ CREATE_DIRS+=$(TTF_DIR)/asmjit $(TTF_DIR)/asmjit/core $(TTF_DIR)/asmjit/$(JIT_AR
 endif
 
 BINDIR = $(ERL_TOP)/bin/$(TARGET)
+CREATE_DIRS += $(BINDIR)
 
 ERLANG_OSTYPE = @ERLANG_OSTYPE@
 
@@ -1328,9 +1329,9 @@ NIF_COMMON_SRC=$(wildcard nifs/common/*.c)
 endif
 NIF_OSTYPE_SRC=$(wildcard nifs/$(ERLANG_OSTYPE)/*.c)
 ALL_SYS_SRC=$(wildcard sys/$(ERLANG_OSTYPE)/*.c) $(wildcard sys/common/*.c)
-# We use $(shell ls) here instead of wildcard as $(wildcard ) resolved at
+# We use $(shell find) here instead of wildcard as $(wildcard ) resolved at
 # loadtime of the makefile and at that time these files are not generated yet.
-TARGET_SRC=$(shell ls $(TARGET)/*.c) $(shell ls $(TTF_DIR)/*.c)
+TARGET_SRC=$(shell find $(TARGET) $(TTF_DIR) -maxdepth 1 -name "*.c")
 
 # I do not want the -MG flag on windows, it does not work properly for a 
 # windows build.

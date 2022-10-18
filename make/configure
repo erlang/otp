@@ -773,7 +773,6 @@ enable_option_checking
 enable_bootstrap_only
 enable_parallel_configure
 enable_dirty_schedulers
-enable_plain_emulator
 with_termcap
 enable_kernel_poll
 enable_sctp
@@ -1466,9 +1465,6 @@ Optional Features:
                           disable parallel execution of configure scripts
   --enable-dirty-schedulers
                           enable dirty scheduler support
-  --enable-plain-emulator enable threaded non-smp emulator
-  --disable-plain-emulator
-                          disable threaded non-smp emulator
   --enable-kernel-poll    enable kernel poll support
   --disable-kernel-poll   disable kernel poll support
   --enable-sctp           enable sctp support (default) to on demand load the
@@ -5554,13 +5550,6 @@ fi
 if test ${enable_dirty_schedulers+y}
 then :
   enableval=$enable_dirty_schedulers;
-fi
-
-
-# Check whether --enable-plain-emulator was given.
-if test ${enable_plain_emulator+y}
-then :
-  enableval=$enable_plain_emulator;
 fi
 
 

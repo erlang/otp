@@ -21,7 +21,7 @@
 include ./vsn.mk
 include ./config.mk
 
-ifdef TERTIARY_BOOTSTRAP
+ifdef BOOTSTRAP
  SUBDIRS = src
 else # Normal build
  SUBDIRS = src
@@ -29,7 +29,7 @@ else # Normal build
  SUBDIRS += c_src
  endif
  SUBDIRS += examples doc/src
-endif #TERTIARY_BOOTSTRAP
+endif #BOOTSTRAP
 
 CLEANDIRS = $(SUBDIRS) api_gen
 

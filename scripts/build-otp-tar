@@ -657,7 +657,7 @@ done
 
 for kobj in $kobjs; do
     progress "Keeping $kobj in pre-build-directory"
-    copy $build_dir/../$kobj $prebld_root/$kobj
+    copy $build_dir/../$kobj $prebld_root/$(dirname $kobj)
 done
 
 cd $prebld_dir

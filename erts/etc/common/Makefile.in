@@ -215,6 +215,12 @@ INSTALL_PROGS =              \
 	$(INSTALL_EMBEDDED_PROGS)
 endif
 
+CREATE_DIRS=$(OBJDIR) $(BINDIR)
+
+ifneq ($(strip $(CREATE_DIRS)),)
+_create_dirs := $(shell mkdir -p $(CREATE_DIRS))
+endif
+
 .PHONY: etc
 etc:	$(ENTRY_OBJ) $(INSTALL_PROGS) $(EXTRA_LIBS) $(INSTALL_LIBS) $(TEXTFILES) $(INSTALL_TOP_BIN)
 

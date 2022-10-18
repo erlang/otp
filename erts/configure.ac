@@ -3468,26 +3468,6 @@ AC_DEFINE_UNQUOTED(ERTS_EMU_CMDLINE_FLAGS,
 
 AC_SUBST(STATIC_CFLAGS)
 
-dnl ----------------------------------------------------------------------
-dnl Directories needed for the build
-dnl ----------------------------------------------------------------------
-
-erts=${erl_top}/erts
-
-erts_dirs="								
-  $erts/obj $erts/obj.debug
-									
-  $erts/obj/$host
-  $erts/obj.debug/$host
-
-"
-for d in ${erl_top}/bin ${erl_top}/bin/$host $erts_dirs ;
-do
-  if test ! -d $d; then
-    mkdir -p 1>/dev/null 2>&1 $d
-  fi
-done
-
 dnl ---------------------------------------------------------------------
 dnl Autoheader macro for adding code at top and bottom of config.h.in
 dnl ---------------------------------------------------------------------

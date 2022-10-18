@@ -51,7 +51,7 @@
 %%----------------------------------------------------------------------
 -module(cth_conn_log).
 
--include_lib("common_test/include/ct.hrl").
+-include("ct.hrl").
 
 -export([init/2,
 	 pre_init_per_testcase/4,

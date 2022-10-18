@@ -14,32 +14,18 @@ WORKDIR /buildroot/otp/
 
 ENV CFLAGS="-O2 -g -Werror"
 
-## Configure, check that no application are disabled and then make
-RUN  ./configure --prefix="/Erlang ∅⊤℞" && \
-        if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
+## Configure (if not cached), check that no application are disabled and then make
+RUN if [ ! -f Makefile ]; then \
+      touch README.md && \
+      ./configure --prefix="/Erlang ∅⊤℞" && \
+      if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
+      find . -type f -newer README.md | xargs tar --transform 's:^./:otp/:' -cf ../otp_cache.tar; \
+    fi && \
     make && make docs DOC_TARGETS=chunks && \
     sudo make install install-docs DOC_TARGETS=chunks
 
 ## Disable -Werror as testcases do not compile with it on
 ENV CFLAGS="-O2 -g"
-
-WORKDIR /buildroot/
-
-## Install test tools rebar3, proper and jsx
-RUN latest () { \
-    local VSN=$(curl -sL "https://api.github.com/repos/$1/tags" | jq -r ".[] | .name" | grep -E '^v?[0-9]' | sort -V | tail -1); \
-    curl -sL "https://github.com/$1/archive/$VSN.tar.gz" > $(basename $1).tar.gz; \
-    } && \
-    latest erlang/rebar3 && ls -la && \
-    (tar xzf rebar3.tar.gz && cd rebar3-* && ./bootstrap && sudo cp rebar3 /usr/bin) && \
-    latest proper-testing/proper && \
-    (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make) && \
-    latest talentdeficit/jsx && \
-    (tar xzf jsx.tar.gz && mv jsx-* jsx && cd jsx && rebar3 compile)
-
-ENV ERL_LIBS=/buildroot/proper:/buildroot/jsx
-
-WORKDIR /buildroot/otp/
 
 ## Update init.sh with correct env vars
 RUN echo "export MAKEFLAGS=$MAKEFLAGS" > /buildroot/env.sh && \
