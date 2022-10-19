@@ -1291,28 +1291,15 @@ output_handler_rekey(Params, Seq) ->
             death_row({send_rekey, trace(SendError)})
     end.
 
-output_handler_send(Params, Seq, {_, Size, _} = Q) ->
-    if
-        ?CHUNK_SIZE < Size ->
-            output_handler_deq_send(Params, Seq, Q, ?CHUNK_SIZE);
-        true ->
-            case get_data(Params#params.dist_handle, Q) of
-                {_, 0, _} ->
-                    {Params, Seq};
-                {_, Size, _} = Q_1 -> % Got no more
-                    output_handler_deq_send(Params, Seq, Q_1, Size);
-                Q_1 ->
-                    output_handler_send(Params, Seq, Q_1)
-            end
-    end.
-
-output_handler_deq_send(Params, Seq, Q, Size) ->
-    {Cleartext, Q_1} = deq_iovec(Size, Q),
+output_handler_send(Params, Seq, {_Front, 0, _Rear}) ->
+    {Params, Seq};
+output_handler_send(Params, Seq, {Front, _Size, Rear}) ->
+    Cleartext = Front ++ lists:reverse(Rear),
     case
         encrypt_and_send_chunk(Params, Seq, [?DATA_CHUNK, Cleartext])
     of
         {Params_1, Seq_1, ok} ->
-            output_handler_send(Params_1, Seq_1, Q_1);
+            {Params_1, Seq_1};
         {_, _, Error} ->
             death_row({send_chunk, trace(Error)})
     end.
@@ -1365,6 +1352,8 @@ input_chunk(Params, Seq, Q, Chunk) ->
 get_data(DistHandle, {Front, Size, Rear}) ->
     get_data(DistHandle, Front, Size, Rear).
 %%
+get_data(_DistHandle, Front, Size, Rear) when ?CHUNK_SIZE =< Size ->
+    {Front, Size, Rear};
 get_data(DistHandle, Front, Size, Rear) ->
     case erlang:dist_ctrl_get_data(DistHandle) of
         none ->
@@ -1490,7 +1479,7 @@ encrypt_and_send_rekey_chunk(
         SendError ->
             SendError
     end.
-    
+
 encrypt_chunk(
   #params{
      aead_cipher = AeadCipher,
@@ -1575,8 +1564,10 @@ empty_q() ->
 enq_binary(Bin, {Front, Size, Rear}) ->
     {Front, Size + byte_size(Bin), [Bin|Rear]}.
 
+-ifdef(undefined).
 deq_iovec(GetSize, {Front, Size, Rear}) when GetSize =< Size ->
     deq_iovec(GetSize, Front, Size, Rear, []).
+-endif.
 %%
 deq_iovec(GetSize, Front, Size, Rear) ->
     deq_iovec(GetSize, Front, Size, Rear, []).
