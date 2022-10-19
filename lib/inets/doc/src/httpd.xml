@@ -44,12 +44,7 @@
     <title>DATA TYPES</title>
     <p>Type definitions that are used more than once in
       this module:</p>
-    <p><c>boolean() = true | false</c></p>
-    <p><c>string()</c> = list of ASCII characters</p>
-    <p><c>path() = string()</c> representing a file or a directory path</p>
-    <p><c> ip_address() = {N1,N2,N3,N4} % IPv4
-       | {K1,K2,K3,K4,K5,K6,K7,K8}  % IPv6</c></p>
-    <p><c>hostname() = string()</c> representing a host, for example, 
+    <p><c>hostname() = string()</c> representing a host, for example,
     "foo.bar.com"</p>
     <p><c>property() = atom()</c></p>
     
@@ -63,7 +58,7 @@
     <c>inets:start(httpd, ServiceConfig, How)</c>,
     see <seeerl marker="inets">inets(3)</seeerl>.
     The configuration options, also called
-    properties, are as follows:</p>
+    properties, are as follows (see also Data Types):</p>
 
     <marker id="props_file"></marker>
     <p><em>File Properties</em></p>
@@ -75,267 +70,298 @@
     term()</c>, followed by a full stop. If the web server is started
     dynamically at runtime, a file can still be specified but also the
     complete property list.</p>
-    
+
     <taglist>
       <tag><marker id="prop_proplist_file"></marker>{proplist_file, path()}</tag>
       <item>
-	<p>If this property is defined, <c>Inets</c> expects to find
-	all other properties defined in this file. The
-	file must include all properties listed under mandatory
-	properties.</p>
+	      <p>If this property is defined, <c>Inets</c> expects to find all other
+	      properties defined in this file. The file must include all properties
+	      listed under mandatory properties.</p>
       </item>
-
     </taglist>
     <note>
-	<p>Note support for legacy configuration file with Apache syntax is dropped in OTP-23.</p>
+	    <p>Note support for legacy configuration file with Apache syntax is dropped in OTP-23.</p>
     </note>
+  </section>
 
-    <marker id="props_mand"></marker>
-    <p><em>Mandatory Properties</em></p>
-    <taglist>
-      <tag><marker id="prop_port"></marker>{port, integer()} </tag>
-      <item> 
-	<p>The port that the HTTP server listen to.
-	If zero is specified as port, an arbitrary available port
-	is picked and function <c>httpd:info/2</c> can be used to
-	determine which port was picked.</p>
-      </item>
+  <datatypes>
+      <datatype_title>Properties</datatype_title>
+      <datatype>
+        <name name="path"/>
+      </datatype>
+      <datatype>
+        <name name="information_options"/>
+      </datatype>
+      <datatype_title>Mandatory Properties</datatype_title>
+      <datatype>
+        <name name="common_option"/>
+        <desc>
+          <taglist>
+            <tag><marker id="prop_port"></marker>{port, non_neg_integer()} </tag>
+            <item>
+	            <p>The port that the HTTP server listen to. If zero is specified
+	            as port, an arbitrary available port is picked and function
+	            <c>httpd:info/2</c> can be used to determine which port was
+	            picked.</p>
+            </item>
 
-      <tag><marker id="prop_server_name"></marker>{server_name, string()}</tag>
-      <item>
-	<p>The name of your server, normally a fully qualified domain name.</p>
-      </item>
+            <tag><marker id="prop_server_name"></marker>{server_name, string()}</tag>
+            <item>
+	            <p>The name of your server, normally a fully qualified domain name.</p>
+            </item>
 
-      <tag><marker id="prop_server_root"></marker>{server_root, path()}</tag>
-      <item> 
-	<p>Defines the home directory of the server, where log files, and so on, 
-	can be stored. Relative paths specified in other properties refer
-	to this directory.</p>
-      </item>
+            <tag><marker id="prop_server_root"></marker>{server_root, path()}</tag>
+            <item>
+	            <p>Defines the home directory of the server, where log files, and
+	            so on, can be stored. Relative paths specified in other properties
+	            refer to this directory.</p>
+            </item>
 
-      <tag> <marker id="prop_doc_root"></marker>{document_root, path()}</tag>
-      <item>
-	<p>Defines the top directory for the documents that
-	are available on the HTTP server.</p>
-      </item>
-    </taglist>
+            <tag> <marker id="prop_doc_root"></marker>{document_root, path()}</tag>
+            <item>
+	            <p>Defines the top directory for the documents that are available
+	            on the HTTP server.</p>
+            </item>
+          </taglist>
+        </desc>
+      </datatype>
+      <datatype_title>Communication Properties</datatype_title>
+      <datatype>
+        <name name="communication_option"/>
+        <desc>
+          <marker id="props_comm"></marker>
+          <taglist>
+            <tag><marker id="prop_bind_address"></marker>{bind_address, inet:ip_address() | inet:hostname() | any}</tag>
+            <item>
+              <p><c>hostname() = string()</c> representing a host, for example,
+              "foo.bar.com".</p>
+              <p><c>inet:ip_address() = {N1,N2,N3,N4} % IPv4
+       | {K1,K2,K3,K4,K5,K6,K7,K8}  % IPv6</c>.</p>
+	            <p>Default is <c>any</c>.</p>
+            </item>
 
-    <marker id="props_comm"></marker>
-    <p><em>Communication Properties</em></p>
-    <taglist>
-      <tag><marker id="prop_bind_address"></marker>{bind_address, ip_address() | hostname() | any}</tag>
-      <item>
-	<p>Default is <c>any</c></p>
-      </item>
+            <tag><marker id="profile"></marker>{profile, atom()}</tag>
+            <item>
+              <p>Used together with <seeerl
+              marker="#prop_bind_address"><c>bind_address</c></seeerl> and
+              <seeerl marker="#prop_port"><c>port</c></seeerl> to uniquely
+              identify a HTTP server. This can be useful in a virtualized
+              environment, where there can be more that one server that has the
+              same bind_address and port. If this property is not explicitly
+              set, it is assumed that the <seeerl
+              marker="#prop_bind_address"><c>bind_address</c></seeerl> and
+              <seeerl marker="#prop_port"><c>port</c></seeerl> uniquely
+              identifies the HTTP server.
+	            </p>
+            </item>
 
-      <tag><marker id="profile"></marker>{profile, atom()}</tag>
-      <item>
-        <p>Used together with <seeerl marker="#prop_bind_address"><c>bind_address</c></seeerl>
-	and <seeerl marker="#prop_port"><c>port</c></seeerl> to uniquely identify
-	a HTTP server. This can be useful in a virtualized environment,
-	where there can
-	be more that one server that has the same bind_address and port.
-	If this property is not explicitly set, it is assumed that the
-	<seeerl marker="#prop_bind_address"><c>bind_address</c></seeerl> and
-	<seeerl marker="#prop_port"><c>port</c></seeerl> uniquely identifies the HTTP server.
-	</p>
-      </item>
+            <tag><marker id="prop_socket_type"></marker>{socket_type, ip_comm |
+            {ip_comm, Config::proplists:proplist()} | {essl, Config::proplists:proplist()}}</tag>
+            <item>
+	            <p>For <c>ip_comm</c> configuration options, see <seemfa
+	            marker="kernel:gen_tcp#listen/2">gen_tcp:listen/2</seemfa>, some
+	            options that are used internally by httpd cannot be set.</p>
+	            <p>For <c>SSL</c> configuration options, see <seemfa
+	            marker="ssl:ssl#listen/2">ssl:listen/2</seemfa>.</p>
+	            <p>Default is <c>ip_comm</c>.</p>
+            </item>
 
-      <tag><marker id="prop_socket_type"></marker>{socket_type, ip_comm | {ip_comm,  Config::proplist()} | {essl, Config::proplist()}}</tag>
-      <item>
-	<p>For <c>ip_comm</c> configuration options, see 
-	<seemfa marker="kernel:gen_tcp#listen/2">gen_tcp:listen/2</seemfa>, some options
-	that are used internally by httpd cannot be set.</p>
-	<p>For <c>SSL</c> configuration options, see 
-	<seemfa marker="ssl:ssl#listen/2">ssl:listen/2</seemfa>.</p>
-	<p>Default is <c>ip_comm</c>.</p> 
-      </item>
+            <tag><marker id="prop_ipfamily"></marker>{ipfamily, inet | inet6}</tag>
+            <item>
+	            <p>Default is <c>inet</c>, legacy option <c>inet6fb4</c> no longer
+	            makes sense and will be translated to inet.</p>
+            </item>
 
-      <tag><marker id="prop_ipfamily"></marker>{ipfamily, inet | inet6}</tag>
-      <item>
-	<p>Default is <c>inet</c>, legacy option <c>inet6fb4</c> no longer makes sense and will be translated
-	to inet.</p>
-      </item>
-      
-      <tag><marker id="prop_minimum_bytes_per_second"></marker>{minimum_bytes_per_second, integer()}</tag>
-      <item>
-	<p>If given, sets a minimum of bytes per second value for connections.</p>
-	<p>If the value is unreached, the socket closes for that connection.</p>
-	<p>The option is good for reducing the risk of "slow DoS" attacks.</p>
-      </item>
-    </taglist>
+            <tag><marker id="prop_minimum_bytes_per_second"></marker>{minimum_bytes_per_second, integer()}</tag>
+            <item>
+	            <p>If given, sets a minimum of bytes per second value for
+	            connections.</p>
+	            <p>If the value is unreached, the socket closes for that
+	            connection.</p>
+	            <p>The option is good for reducing the risk of "slow DoS"
+	            attacks.</p>
+            </item>
+          </taglist>
+        </desc>
+      </datatype>
+      <datatype_title>Erlang Web Server API Modules</datatype_title>
+      <datatype>
+        <name name="mod_option"/>
+        <desc>
+          <taglist>
+            <tag><marker id="prop_modules"></marker>{modules, [atom()]} </tag>
+            <item>
+	            <p>Defines which modules the HTTP server uses when handling
+	            requests. Default is <c>[mod_alias, mod_auth, mod_esi,
+	            mod_actions, mod_cgi, mod_dir, mod_get, mod_head, mod_log,
+	            mod_disk_log]</c>. Notice that some <c>mod</c>-modules are
+	            dependent on others, so the order cannot be entirely arbitrary.
+	            See the <seeguide marker="http_server">Inets Web Server
+	            Modules</seeguide> in the User's Guide for details.</p>
+            </item>
+          </taglist>
+        </desc>
+      </datatype>
+      <datatype_title>Limit Properties</datatype_title>
+      <datatype>
+        <name name="limit_option"/>
+        <desc>
+          <marker id="props_limit"></marker>
+          <taglist>
 
-    <marker id="props_api_modules"></marker>
-    <p><em>Erlang Web Server API Modules</em> </p>
-    <taglist>
-      <tag><marker id="prop_modules"></marker>{modules, [atom()]} </tag>
-      <item>
-	<p>Defines which modules the HTTP server uses when handling
-	requests. Default is <c>[mod_alias, mod_auth, mod_esi,
-	mod_actions, mod_cgi, mod_dir, mod_get, mod_head, mod_log,
-	mod_disk_log]</c>. 
-	Notice that some <c>mod</c>-modules are dependent on
-	others, so the order cannot be entirely arbitrary. See the
-	<seeguide marker="http_server">Inets Web Server Modules</seeguide> in the
-	User's Guide for details.</p>
-      </item>
-    </taglist>
-    
-    <marker id="props_limit"></marker>
-    <p><em>Limit properties</em> </p>
-    <taglist>
+            <tag><marker id="prop_customize"></marker>{customize, atom()}</tag>
+            <item>
+	            <p>A callback module to customize the inets HTTP servers behaviour
+	            see <seeerl marker="httpd_custom_api"> httpd_custom_api</seeerl>.
+	            </p>
+            </item>
 
-      <tag><marker id="prop_customize"></marker>{customize, atom()}</tag>
-      <item> 
-	<p>A callback module to customize the inets HTTP servers behaviour
-	see <seeerl marker="httpd_custom_api"> httpd_custom_api</seeerl> </p>
-      </item>
-      
-      <tag><marker id="prop_disable_chunked_encoding"></marker>{disable_chunked_transfer_encoding_send, boolean()}</tag>
-      <item> 
-	<p>Allows you to disable chunked
-	transfer-encoding when sending a response to an HTTP/1.1
-	client. Default is <c>false</c>.</p>
-      </item>
-      
-      <tag><marker id="prop_keep_alive"></marker>{keep_alive, boolean()}</tag>
-      <item>
-	<p>Instructs the server whether to use persistent
-	connections when the client claims to be HTTP/1.1
-	compliant. Default is <c>true</c>.</p>
-      </item>
-      
-      <tag><marker id="prop_keep_alive_timeout"></marker>{keep_alive_timeout, integer()}</tag>
-      <item>
-	<p>The number of seconds the server waits for a
-	subsequent request from the client before closing the
-	connection. Default is <c>150</c>.</p>
-      </item>
-      
-      <tag><marker id="prop_max_body_size"></marker>{max_body_size, integer()}</tag>
-      <item>
-	<p>Limits the size of the message body of an HTTP request.
-	Default is no limit.</p>
-      </item>
-      
-      <tag><marker id="prop_max_clients"></marker>{max_clients, integer()}</tag>
-      <item> 
-	<p>Limits the number of simultaneous requests that can be
-	supported. Default is <c>150</c>.</p>
-      </item>
+            <tag><marker id="prop_disable_chunked_encoding"></marker>{disable_chunked_transfer_encoding_send, boolean()}</tag>
+            <item>
+	            <p>Allows you to disable chunked transfer-encoding when sending a
+	            response to an HTTP/1.1 client. Default is <c>false</c>.</p>
+            </item>
 
-      <tag><marker id="prop_max_header_size"></marker>{max_header_size, integer()}</tag>
-      <item>
-	<p>Limits the size of the message header of an HTTP request.
-	Default is <c>10240</c>.</p>
-      </item>
+            <tag><marker id="prop_keep_alive"></marker>{keep_alive, boolean()}</tag>
+            <item>
+	            <p>Instructs the server whether to use persistent connections when
+	            the client claims to be HTTP/1.1 compliant. Default is
+	            <c>true</c>.</p>
+            </item>
 
-      <tag><marker id="prop_max_content_length"></marker>{max_content_length, integer()}</tag>
-      <item>
-	<p>Maximum content-length in an incoming request, in bytes. Requests
-	with content larger than this are answered with status 413.
-	Default is <c>100000000</c> (100 MB).
-	</p>
-      </item>
+            <tag><marker id="prop_keep_alive_timeout"></marker>{keep_alive_timeout, integer()}</tag>
+            <item>
+	            <p>The number of seconds the server waits for a subsequent request
+	            from the client before closing the connection. Default is
+	            <c>150</c>.</p>
+            </item>
 
-      <tag><marker id="prop_max_uri"></marker>{max_uri_size, integer()}</tag>
-      <item>
-	<p>Limits the size of the HTTP request URI.
-	Default is no limit.</p>
-      </item>
-      
-      <tag><marker id="prop_max_keep_alive_req"></marker>{max_keep_alive_request, integer()}</tag>
-      <item>
-	<p>The number of requests that a client can do on one
-	connection. When the server has responded to the number of
-	requests defined by <c>max_keep_alive_requests</c>, the server 
-	closes the connection. The server closes it even if there are 
-	queued request. Default is no limit.</p>
-      </item>
+            <tag><marker id="prop_max_body_size"></marker>{max_body_size, integer()}</tag>
+            <item>
+	            <p>Limits the size of the message body of an HTTP request. Default
+	            is no limit.</p>
+            </item>
 
-      
-      <tag><marker id="max_client_body_chunk"></marker>{max_client_body_chunk, integer()}</tag>
-      <item>
-	<p>Enforces chunking of a HTTP PUT or POST body data to be delivered
-	to the mod_esi callback. Note this is not supported for mod_cgi. 
-	Default is no limit e.i the whole body is delivered as one entity, which could
-	be very memory consuming. <seeerl marker="mod_esi">mod_esi(3)</seeerl>.
-	</p>
-      </item>
-      
-    </taglist>
-    
-    <marker id="props_admin"></marker>
-    <p><em>Administrative Properties</em></p>
-    <taglist> 
-      <tag><marker id="prop_mime_types"></marker>{mime_types, [{MimeType, Extension}] | path()}</tag>
-      <item>
-	<p><c>MimeType = string()</c> and <c>Extension = string()</c>.
-	  Files delivered to the client are MIME typed according to RFC
-          1590. File suffixes are mapped to MIME types before file delivery.
-          The mapping between file suffixes and MIME types can be specified
-	  in the property list.</p>
-	<p>Default is [{"html","text/html"},{"htm","text/html"}].</p>
-      </item>
+            <tag><marker id="prop_max_clients"></marker>{max_clients, integer()}</tag>
+            <item>
+	            <p>Limits the number of simultaneous requests that can be
+	            supported. Default is <c>150</c>.</p>
+            </item>
 
-      <tag><marker id="prop_mime_type"></marker>{mime_type, string()}</tag>
-      <item>
-	<p>When the server is asked to provide a document type that
-	cannot be determined by the MIME Type Settings, the server
-	uses this default type.</p>
-      </item>
-  
-      <tag><marker id="prop_server_admin"></marker>{server_admin, string()}</tag>
-      <item>
-	<p>Defines the email-address of the server
-	administrator to be included in any error messages returned by
-	the server.</p>
-      </item>
+            <tag><marker id="prop_max_header_size"></marker>{max_header_size, integer()}</tag>
+            <item>
+	            <p>Limits the size of the message header of an HTTP request.
+	            Default is <c>10240</c>.</p>
+            </item>
 
-      <tag><marker id="prop_server_tokens"></marker>{server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}</tag>
-      <item>
-	<p>Defines the look of the value of the server header.</p>
-	<p>Example: Assuming the version of <c>Inets</c> is 5.8.1, 
-	the server header string can look as follows for
-	the different values of server-tokens:</p>
-	<taglist>
-       <tag><c>none</c></tag>
-       <item><p>""  % A Server: header will not be generated</p></item>
-       <tag><c>prod</c></tag>
-       <item><p>"inets"</p></item>
-       <tag><c>major</c></tag>
-       <item><p>"inets/5"</p></item>
-       <tag><c>minor</c></tag>
-       <item><p>"inets/5.8"</p></item>
-       <tag><c>minimal</c></tag>
-       <item><p>"inets/5.8.1"</p></item>
-       <tag><c>os</c></tag>
-       <item><p>"inets/5.8.1 (unix)"</p></item>
-       <tag><c>full</c></tag>
-       <item><p>"inets/5.8.1 (unix/linux) OTP/R15B"</p></item>
-       <tag><c>{private, "foo/bar"}</c></tag>
-       <item><p>"foo/bar"</p></item>
-     </taglist>
-	<p>By default, the value is as before, that is, <c>minimal</c>.</p>
-      </item>
+            <tag><marker id="prop_max_content_length"></marker>{max_content_length, integer()}</tag>
+            <item>
+	            <p>Maximum content-length in an incoming request, in bytes.
+	            Requests with content larger than this are answered with status
+	            413. Default is <c>100000000</c> (100 MB).
+	            </p>
+            </item>
 
-      
-      <tag><marker id="prop_logger"></marker>{logger, Options::list()}</tag>
-      <item>
+            <tag><marker id="prop_max_uri"></marker>{max_uri_size, integer()}</tag>
+            <item>
+	            <p>Limits the size of the HTTP request URI. Default is no
+	            limit.</p>
+            </item>
 
-	<p>Currently only one option is supported: </p>
-	
-	<taglist>
-	  <tag><c>{error, ServerID::atom()}</c></tag>
-	  <item>	    <p>Produces  
-	    <seetype marker="kernel:logger#log_event">logger events</seetype>
-	    on logger <seetype marker="kernel:logger#level">level error</seetype>
-	    under the hierarchical logger <seetype marker="kernel:logger#log_event">domain:</seetype> <c>[otp, inets, httpd, ServerID, error]</c>
-	    The built in logger formatting 
-	    function produces log entries from the
-	    error reports:</p>
-	    
-	    <code>
+            <tag><marker id="prop_max_keep_alive_req"></marker>{max_keep_alive_request, integer()}</tag>
+            <item>
+	            <p>The number of requests that a client can do on one connection.
+	            When the server has responded to the number of requests defined by
+	            <c>max_keep_alive_requests</c>, the server closes the connection.
+	            The server closes it even if there are queued request. Default is
+	            no limit.</p>
+            </item>
+
+            <tag><marker id="max_client_body_chunk"></marker>{max_client_body_chunk, integer()}</tag>
+            <item>
+	            <p>Enforces chunking of a HTTP PUT or POST body data to be
+	            delivered to the mod_esi callback. Note this is not supported for
+	            mod_cgi. Default is no limit e.i the whole body is delivered as
+	            one entity, which could be very memory consuming. <seeerl
+	            marker="mod_esi">mod_esi(3)</seeerl>.
+	            </p>
+            </item>
+          </taglist>
+        </desc>
+      </datatype>
+      <datatype_title>Administrative Properties</datatype_title>
+      <datatype>
+        <name name="admin_option"/>
+        <desc>
+          <taglist>
+            <tag><marker id="prop_mime_types"></marker>{mime_types, [{MimeType, Extension}] | path()}</tag>
+            <item>
+	            <p><c>MimeType = string()</c> and <c>Extension = string()</c>.
+	            Files delivered to the client are MIME typed according to RFC
+	            1590. File suffixes are mapped to MIME types before file delivery.
+	            The mapping between file suffixes and MIME types can be specified
+	            in the property list.</p>
+	            <p>Default is <c>[{"html","text/html"},{"htm","text/html"}]</c>.</p>
+            </item>
+
+            <tag><marker id="prop_mime_type"></marker>{mime_type, string()}</tag>
+            <item>
+	            <p>When the server is asked to provide a document type that cannot
+	            be determined by the MIME Type Settings, the server uses this
+	            default type.</p>
+            </item>
+
+            <tag><marker id="prop_server_admin"></marker>{server_admin, string()}</tag>
+            <item>
+	            <p>Defines the email-address of the server administrator to be
+	            included in any error messages returned by the server.</p>
+            </item>
+
+            <tag><marker id="prop_server_tokens"></marker>{server_tokens,
+            none|prod|major|minor|minimal|os|full|{private, string()}}</tag>
+            <item>
+	            <p>Defines the look of the value of the server header.</p>
+	            <p>Example: Assuming the version of <c>Inets</c> is 5.8.1, the
+	            server header string can look as follows for the different values
+	            of server-tokens:</p>
+	            <taglist>
+                <tag><c>none</c></tag>
+                <item><p>""  % A Server: header will not be generated</p></item>
+                <tag><c>prod</c></tag>
+                <item><p>"inets"</p></item>
+                <tag><c>major</c></tag>
+                <item><p>"inets/5"</p></item>
+                <tag><c>minor</c></tag>
+                <item><p>"inets/5.8"</p></item>
+                <tag><c>minimal</c></tag>
+                <item><p>"inets/5.8.1"</p></item>
+                <tag><c>os</c></tag>
+                <item><p>"inets/5.8.1 (unix)"</p></item>
+                <tag><c>full</c></tag>
+                <item><p>"inets/5.8.1 (unix/linux) OTP/R15B"</p></item>
+                <tag><c>{private, "foo/bar"}</c></tag>
+                <item><p>"foo/bar"</p></item>
+              </taglist>
+	            <p>By default, the value is as before, that is, <c>minimal</c>.</p>
+            </item>
+
+
+            <tag><marker id="prop_logger"></marker>{logger, Options::list()}</tag>
+              <item>
+	             <p>Currently only one option is supported: </p>
+
+	             <taglist>
+	               <tag><c>{error, ServerID::atom()}</c></tag>
+	               <item> <p>Produces <seetype
+	               marker="kernel:logger#log_event">logger events</seetype> on
+	               logger <seetype marker="kernel:logger#level">level
+	               error</seetype> under the hierarchical logger <seetype
+	               marker="kernel:logger#log_event">domain:</seetype> <c>[otp,
+	               inets, httpd, ServerID, error]</c> The built in logger
+	               formatting function produces log entries from the error
+	               reports:</p>
+
+	               <code>
 #{server_name => string()
   protocol => internal | 'TCP' | 'TLS' | 'HTTP',
   transport => "TCP "| "TLS", %% Present when protocol = 'HTTP'
@@ -344,11 +370,11 @@
   host => inet:hostname(),
   reason => term()
 }
-</code>
+                 </code>
 
-<p>An example of a log entry with only default settings of logger</p>
+                 <p>An example of a log entry with only default settings of logger</p>
 
-<code>
+                 <code>
 =ERROR REPORT==== 9-Oct-2019::09:33:27.350235 ===
    Server: My Server
  Protocol: HTTP
@@ -357,108 +383,123 @@ Transport: TLS
      Host: 127.0.1.1:80
      Peer: 127.0.0.1:45253
    Reason: [{statuscode,404},{description,"Object Not Found"}]
-</code>
+                 </code>
 
-<p>Using this option makes mod_log and mod_disk_log error logs redundant.</p>
-	
-	<p>Add the filter</p>
-	<code>
+                 <p>Using this option makes mod_log and mod_disk_log error logs redundant.</p>
+
+             	<p>Add the filter</p>
+             	<code>
 {fun logger_filters:domain/2,
-	{log,equal,[otp,inets, httpd, ServerID, error]}</code>
-	
-        to appropriate logger handler to handle the events. For
-        example to write the error log from an httpd server with a
-        <c>ServerID</c> of <c>my_server</c> to a file you can use the following
-        sys.config:
+  {log,equal,[otp,inets, httpd, ServerID, error]}
+                </code>
 
-	<code>[{kernel,
- [{logger,
-  [{handler, http_error_test, logger_std_h,
-    #{config => #{ file => "log/http_error.log" },
-      filters => [{inets_httpd, {fun logger_filters:domain/2,
-                                 {log, equal,
-                                  [otp, inets, httpd, my_server, error]
-                                 }}}],
-      filter_default => stop }}]}]}].
-	</code>
+                to appropriate logger handler to handle the events. For example
+                to write the error log from an httpd server with a
+                <c>ServerID</c> of <c>my_server</c> to a file you can use the
+                following sys.config:
 
-	<p>or if you want to add it to the default logger via an API:</p>
-	
-	<code>logger:add_handler_filter(default,
+             	<code>
+[{kernel,
+  [{logger,
+    [{handler, http_error_test, logger_std_h,
+      #{config => #{ file => "log/http_error.log" },
+        filters => [{inets_httpd, {fun logger_filters:domain/2,
+                                    {log, equal,
+                                      [otp, inets, httpd, my_server, error]
+                                      }}}],
+        filter_default => stop }}]}]}].
+              </code>
+
+              <p>or if you want to add it to the default logger via an API:</p>
+
+              <code>
+logger:add_handler_filter(default,
                           inets_httpd,
                           {fun logger_filters:domain/2,
-                           {log, equal,
-                            [otp, inets, httpd, my_server, error]}}).</code>
-			    
-	  </item>      
-	</taglist> 
-	
-      </item>      
-      
-      <tag><marker id="prop_log_format"></marker>{log_format, common | combined}</tag>
-      <item>
-	<p>Defines if access logs are to be written according to the <c>common</c>
-	log format or the extended common log format.
-	The <c>common</c> format is one line looking like this:
-        <c>remotehost rfc931 authuser [date] "request" status bytes</c>.</p> 
-	<p>Here:</p>
-	<taglist>
-	  <tag><c>remotehost</c></tag>
-	  <item>Remote.</item>
-	  <tag><c>rfc931</c></tag>
-	  <item>The remote username of the client (<url href="http://www.ietf.org/rfc/rfc931.txt">RFC 931</url>).</item>
-	  <tag><c>authuser</c></tag>
-	  <item>The username used for authentication.</item>
-	  <tag><c>[date]</c></tag>
-	  <item>Date and time of the request (<url href="http://www.ietf.org/rfc/rfc1123.txt">RFC 1123</url>).</item>
-	  <tag><c>"request"</c></tag>
-	  <item>The request line as it came from the client  (<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).</item>
-	  <tag><c>status</c></tag>
-	  <item>The HTTP status code returned to the client (<url href="http://www.ietf.org/rfc/rfc1945.txt">RFC 1945</url>).</item>
-	  <tag><c>bytes</c></tag>
-	  <item>The content-length of the document transferred.</item>
-	</taglist>
+                            {log, equal,
+                              [otp, inets, httpd, my_server, error]}}).
+              </code>
 
-	<p>The <c>combined</c> format is one line looking like this:
-	<c>remotehost rfc931 authuser [date] "request" status bytes "referer" "user_agent" </c></p>
-	<p>In addition to the earlier:</p>
-	<taglist>
-	  <tag><c>"referer"</c></tag>
-	  <item>The URL the client was on before
-	requesting the URL (if it could not be determined, 
-	a minus sign is placed in this field).</item>
-	  <tag><c>"user_agent"</c></tag>
-	  <item>The software the client claims to be using (if it
-	could not be determined, a minus sign is placed in
-	this field).</item>
-	</taglist>
-	
-	<p>This affects the access logs written by <c>mod_log</c> and 
-	<c>mod_disk_log</c>.
-	</p>	
-      </item>      
+             </item>
+	           </taglist>
+              </item>
+              <tag><marker id="prop_log_format"></marker>{log_format, common | combined}</tag>
+              <item>
+	              <p>Defines if access logs are to be written according to the
+	              <c>common</c> log format or the extended common log format. The
+	              <c>common</c> format is one line looking like this:
+	              <c>remotehost rfc931 authuser [date] "request" status
+	              bytes</c>.</p>
+	              <p>Here:</p>
+	              <taglist>
+            	    <tag><c>remotehost</c></tag>
+	                <item>Remote.</item>
+	                <tag><c>rfc931</c></tag>
+	                <item>The remote username of the client (<url
+	                href="http://www.ietf.org/rfc/rfc931.txt">RFC
+	                931</url>).</item>
+	                <tag><c>authuser</c></tag>
+	                <item>The username used for authentication.</item>
+	                <tag><c>[date]</c></tag>
+	                <item>Date and time of the request (<url
+	                href="http://www.ietf.org/rfc/rfc1123.txt">RFC
+	                1123</url>).</item>
+	                <tag><c>"request"</c></tag>
+	                <item>The request line as it came from the client (<url
+	                href="http://www.ietf.org/rfc/rfc1945.txt">RFC
+	                1945</url>).</item>
+	                <tag><c>status</c></tag>
+	                <item>The HTTP status code returned to the client (<url
+	                href="http://www.ietf.org/rfc/rfc1945.txt">RFC
+	                1945</url>).</item>
+	                <tag><c>bytes</c></tag>
+	                <item>The content-length of the document transferred.</item>
+	                </taglist>
 
-      <tag><marker id="prop_elog_format"></marker>{error_log_format, pretty | compact}</tag>
-      <item>
-	<p>Default is <c>pretty</c>. If the error log is meant to be read
-	directly by a human, <c>pretty</c> is the best option.</p>
-	<p><c>pretty</c> has a format corresponding to:</p>
-	
-	<code>io:format("[~s] ~s, reason: ~n ~p ~n~n", [Date, Msg, Reason]).</code>
+	                <p>The <c>combined</c> format is one line looking like this:
+	                <c>remotehost rfc931 authuser [date] "request" status bytes
+	                "referer" "user_agent" </c></p>
+	                <p>In addition to the earlier:</p>
+	                <taglist>
+	                  <tag><c>"referer"</c></tag>
+	                  <item>The URL the client was on before requesting the URL
+	                  (if it could not be determined, a minus sign is placed in
+	                  this field).</item>
+	                  <tag><c>"user_agent"</c></tag>
+	                  <item>The software the client claims to be using (if it
+	                  could not be determined, a minus sign is placed in this
+	                  field).</item>
+	                </taglist>
 
-	<p><c>compact</c> has a format corresponding to:</p>
-	
-	<code>io:format("[~s] ~s, reason: ~w ~n", [Date, Msg, Reason]).</code>
+	                <p>This affects the access logs written by <c>mod_log</c> and
+	                <c>mod_disk_log</c>.
+	                </p>
+              </item>
 
-	<p>This affects the error logs written by <c>mod_log</c> and 
-	<c>mod_disk_log</c>.
-	</p>
-      </item>
-      
-    </taglist>
-   
+              <tag><marker id="prop_elog_format"></marker>{error_log_format, pretty | compact}</tag>
+              <item>
+	              <p>Default is <c>pretty</c>. If the error log is meant to be
+	              read directly by a human, <c>pretty</c> is the best option.</p>
+	              <p><c>pretty</c> has a format corresponding to:</p>
+
+	              <code>io:format("[~s] ~s, reason: ~n ~p ~n~n", [Date, Msg, Reason]).</code>
+
+	              <p><c>compact</c> has a format corresponding to:</p>
+
+	              <code>io:format("[~s] ~s, reason: ~w ~n", [Date, Msg, Reason]).</code>
+
+	              <p>This affects the error logs written by <c>mod_log</c> and
+	              <c>mod_disk_log</c>.
+	              </p>
+              </item>
+          </taglist>
+        </desc>
+      </datatype>
+  </datatypes>
+
+  <section>
+    <title>URL Aliasing Properties - Requires mod_alias</title>
     <marker id="props_alias"></marker>
-    <p><em>URL Aliasing Properties - Requires mod_alias</em></p>
     <taglist>
       <tag><marker id="prop_alias"></marker>{alias, {Alias, RealName}}</tag>
       <item>
@@ -881,14 +922,9 @@ Transport: TLS
 
   <funcs>
     <func>
-      <name since="">info(Pid) -></name>
-      <name since="">info(Pid, Properties) -> [{Option, Value}]</name>
+      <name since="" name="info" arity="1" />
+      <name since="" name="info" arity="2" clause_i="1"/>
       <fsummary>Fetches information about the HTTP server.</fsummary>
-      <type>
-        <v>Properties = [property()]</v>
-	<v>Option = property()</v>
-	<v>Value = term()</v>
-      </type>
       <desc>
         <p>Fetches information about the HTTP server. When called
 	with only the pid, all properties are fetched. When called
@@ -906,43 +942,28 @@ Transport: TLS
     </func>
 
     <func>
-      <name since="">info(Address, Port) ->  </name>
-      <name since="">info(Address, Port, Profile) ->  </name>
-      <name since="OTP 18.0">info(Address, Port, Profile, Properties) -> [{Option, Value}] </name>
-      <name since="">info(Address, Port, Properties) -> [{Option, Value}] </name>
+      <name since=""         name="info" arity="2" clause_i="2"/>
+      <name since=""         name="info" arity="3" clause_i="1"/>
+      <name since="OTP 18.0" name="info" arity="3" clause_i="2"/>
+      <name since=""         name="info" arity="4" />
       <fsummary>Fetches information about the HTTP server.</fsummary>
-      <type>
-	<v>Address = ip_address()</v>
-	<v>Port = integer()</v>
-	<v>Profile = atom()</v>
-	<v>Properties = [property()]</v>
-        <v>Option = property()</v>
-	<v>Value = term()</v>
-      </type>
       <desc>
-        <p>Fetches information about the HTTP server. When called with
-        only <c>Address</c> and <c>Port</c>, all properties are
-        fetched.  When called with a list of specific properties, they
-        are fetched.  The available properties are the same as the
-        start options of the server.
-	</p>
+        <p>Fetches information about the HTTP server. When called with only
+        <c><anno>Address</anno></c> and <c><anno>Port</anno></c>, all properties
+        are fetched. When called with a list of specific properties, they are
+        fetched. The available properties are the same as the start options of
+        the server.
+	      </p>
 
-	<note><p>The address must be the IP address and cannot be
-	    the hostname.
-	  </p></note>	
+	      <note><p>The <c>Address</c> must be the IP address and
+	      cannot be the hostname. </p></note>
       </desc>
     </func>
     
     <func>
-      <name since="">reload_config(Config, Mode) -> ok | {error, Reason}</name>
+      <name since="" name="reload_config" arity="2"/>
       <fsummary>Reloads the HTTP server configuration without
 	restarting the server.</fsummary>
-      <type>
-        <v>Config = path() | [{Option, Value}]</v>
-	<v>Option = property()</v>
-	<v>Value = term()</v>
-	<v>Mode = non_disturbing | disturbing</v>
-      </type>
       <desc>
 	<p>Reloads the HTTP server configuration without restarting the
 	  server. Incoming requests are answered with a temporary
@@ -1157,19 +1178,13 @@ Transport: TLS
       <title>ERLANG WEB SERVER API HELP FUNCTIONS</title>
     </fsdescription>
     <func>
-      <name since="">parse_query(QueryString) -> [{Key,Value}]</name>
+      <name since="" name="parse_query" arity="1"/>
       <fsummary>Parses incoming data to <c>erl</c> and <c>eval</c> scripts.</fsummary>
-      <type>
-        <v>QueryString = string()</v>
-	<v>Key = string()</v>
-	<v>Value = string()</v>
-      </type>
       <desc>
         <p><c>parse_query/1</c> parses incoming data to <c>erl</c> and
-          <c>eval</c> scripts (see <seeerl marker="mod_esi">mod_esi(3)</seeerl>) 
-	  as defined in the standard
-          URL format, that is, '+' becomes 'space' and decoding of
-          hexadecimal characters (<c>%xx</c>).</p>
+        <c>eval</c> scripts (see <seeerl marker="mod_esi">mod_esi(3)</seeerl>)
+        as defined in the standard URL format, that is, '+' becomes 'space' and
+        decoding of hexadecimal characters (<c>%xx</c>).</p>
       </desc>
     </func>
   </funcs>

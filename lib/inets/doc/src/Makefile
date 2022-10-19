@@ -62,12 +62,27 @@ XML_FILES = \
 	$(BOOK_FILES)        \
 	$(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES)    \
-	$(XML_REF6_FILES)    \
 	$(XML_REF3_FILES)    \
 	$(XML_APPLICATION_FILES)
 
+SPEC_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+TOP_SPECS_FILE = specs.xml
+
 NO_CHUNKS = httpd_custom_api.xml
+
+# Generate file specs for files with type specs.
+# These are needed because the standard script
+# (otp/make/otp.mk.in) does not traverse folders
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/http_client/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/inets_app/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/http_server/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/http_lib/%.erl $(TOP_SPECS_FILE)
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 
 # ----------------------------------------------------
 
 include $(ERL_TOP)/make/doc.mk
+SPECS_FLAGS += -I../../src/inets_app -I../../include -I../../../kernel/include

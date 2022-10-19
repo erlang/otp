@@ -199,9 +199,22 @@ get_socket_info(Addr, Port, Fd, BaseOpts) ->
 %% Description: Accepts an incoming connection request on a listen socket,
 %% using either gen_tcp or ssl.
 %%-------------------------------------------------------------------------
+-spec accept(SocketType, ListenSocket) -> {ok, Socket} | {error, Reason} when
+      SocketType   :: ip_comm | {ssl, SSLConfig},
+      SSLConfig    :: term(),
+      ListenSocket :: gen_tcp:socket(),
+      Socket       :: gen_tcp:socket(),
+      Reason       :: term().
 accept(SocketType, ListenSocket) ->
     accept(SocketType, ListenSocket, infinity).
 
+-spec accept(SocketType, ListenSocket, Timeout) -> {ok, Socket} | {error, Reason} when
+      SocketType   :: ip_comm | {ssl | essl, SSLConfig},
+      SSLConfig    :: term(),
+      Timeout      :: timeout(),
+      ListenSocket :: gen_tcp:socket(),
+      Socket       :: gen_tcp:socket(),
+      Reason       :: term().
 accept(ip_comm, ListenSocket, Timeout) ->
     gen_tcp:accept(ListenSocket, Timeout);
 accept({ip_comm, _}, ListenSocket, Timeout) ->
@@ -216,13 +229,14 @@ accept({essl, _SSLConfig}, ListenSocket, Timeout) ->
 
 
 %%-------------------------------------------------------------------------
-%% controlling_process(SocketType, Socket, NewOwner) -> ok | {error, Reason}
-%%   SocketType = ip_comm | {ssl, _}  
-%%   Socket = socket()        
-%%   NewOwner = pid()
-%%                                
-%% Description: Assigns a new controlling process to Socket. 
+%% Description: Assigns a new controlling process to Socket.
 %%-------------------------------------------------------------------------
+-spec controlling_process(SocketType, Socket, NewOwner) -> Object when
+      SocketType :: ip_comm | {ip_comm | ssl | essl, _SSLConfig},
+      Socket     :: gen_tcp:socket(),
+      NewOwner   :: pid(),
+      Object     :: ok | {error, Reason},
+      Reason     :: closed | not_owner | badarg | inet:posix().
 controlling_process(ip_comm, Socket, NewOwner) ->
     gen_tcp:controlling_process(Socket, NewOwner);
 controlling_process({ip_comm, _}, Socket, NewOwner) ->
@@ -237,13 +251,13 @@ controlling_process({essl, _}, Socket, NewOwner) ->
 
 
 %%-------------------------------------------------------------------------
-%% setopts(SocketType, Socket, Options) -> ok | {error, Reason}
-%%     SocketType = ip_comm | {ssl, _}
-%%     Socket = socket()
-%%     Options = list()                              
 %% Description: Sets one or more options for a socket, using either
 %% gen_tcp or ssl.
 %%-------------------------------------------------------------------------
+-spec setopts(SocketType, Socket, Options) -> ok | {error, inet:posix()} when
+      SocketType :: ip_comm | {ip_comm | ssl | essl, _SSLConfig},
+      Socket     :: inet:socket() | ssl:sslsocket(),
+      Options    :: [inet:socket_setopt()] |  [gen_tcp:option()].
 setopts(ip_comm, Socket, Options) ->
     inet:setopts(Socket, Options);
 setopts({ip_comm, _}, Socket, Options) ->
@@ -258,16 +272,21 @@ setopts({essl, _}, Socket, Options) ->
 
 
 %%-------------------------------------------------------------------------
-%% getopts(SocketType, Socket [, Opts]) -> ok | {error, Reason}
-%%     SocketType = ip_comm | {ssl, _}
-%%     Socket = socket()
-%%     Opts   = socket_options()
-%% Description: Gets the values for some options. 
+%% Description: Gets the values for some options.
 %%-------------------------------------------------------------------------
+-spec getopts(SocketType, Socket) -> Object when
+      SocketType :: ip_comm | {ip_comm | ssl | essl, _SSLConfig},
+      Socket     :: ssl:sslsocket() | inet:socket(),
+      Object     :: [gen_tcp:option()] | [inet:socket_setopt() | gen_tcp:pktoptions_value()] | [].
 getopts(SocketType, Socket) ->
     Opts = [packet, packet_size, recbuf, sndbuf, priority, tos, send_timeout], 
     getopts(SocketType, Socket, Opts).
 
+-spec getopts(SocketType, Socket, Options) -> Object when
+      SocketType :: ip_comm | {ip_comm | ssl | essl, _SSLConfig},
+      Socket     :: ssl:sslsocket() | inet:socket(),
+      Options    :: [gen_tcp:option_name()],
+      Object     :: [gen_tcp:option()] | [inet:socket_setopt() | gen_tcp:pktoptions_value()] | [].
 getopts({ip_comm, _}, Socket, Options) ->
     getopts(ip_comm, Socket, Options);
 
@@ -286,6 +305,10 @@ getopts({ssl, SSLConfig}, Socket, Options) ->
 getopts({essl, _}, Socket, Options) ->
     getopts_ssl(Socket, Options).
 
+-spec getopts_ssl(SslSocket, Options) ->
+		     [gen_tcp:option()] | [] when
+      SslSocket :: ssl:sslsocket(),
+      Options :: [gen_tcp:option_name()].
 getopts_ssl(Socket, Options) ->
     case ssl:getopts(Socket, Options) of
 	{ok, SocketOpts} ->
