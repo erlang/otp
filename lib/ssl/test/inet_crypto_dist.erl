@@ -1109,10 +1109,21 @@ handshake(
                                           Socket,
                                           [{active, ?TCP_ACTIVE},
                                            nodelay()]),
-                                    input_handler(
-                                      RecvParams#params{
-                                        dist_handle = DistHandle},
-                                      RecvSeq, empty_q())
+                                    try
+                                        input_handler(
+                                          RecvParams#params{
+                                            dist_handle = DistHandle},
+                                          RecvSeq, empty_q())
+                                    catch
+                                        Class : Reason : Stacktrace ->
+                                            error_logger:info_report(
+                                              [input_handler_exception,
+                                               {class, Class},
+                                               {reason, Reason},
+                                               {stacktrace, Stacktrace}]),
+                                            erlang:raise(
+                                              Class, Reason, Stacktrace)
+                                    end
                             end
                     end,
                     [link,
@@ -1127,11 +1138,23 @@ handshake(
             reply(From, ok),
             process_flag(priority, normal),
             erlang:dist_ctrl_get_data_notification(DistHandle),
-            output_handler(
-              SendParams#params{
-                dist_handle = DistHandle,
-                rekey_msg = start_rekey_timer(SendParams#params.rekey_time)},
-              SendSeq);
+            try
+                output_handler(
+                  SendParams#params{
+                    dist_handle = DistHandle,
+                    rekey_msg =
+                        start_rekey_timer(SendParams#params.rekey_time)},
+                  SendSeq)
+            catch
+                Class : Reason : Stacktrace ->
+                    error_logger:info_report(
+                      [output_handler_exception,
+                       {class, Class},
+                       {reason, Reason},
+                       {stacktrace, Stacktrace}]),
+                    erlang:raise(
+                      Class, Reason, Stacktrace)
+            end;
         %%
         {?MODULE, From, {send, Data}} ->
             case
@@ -1256,8 +1279,7 @@ output_handler_tick(Params, Seq) ->
                 {Params_1, Seq_1, ok} ->
                     output_handler(Params_1, Seq_1);
                 {_, _, Error} ->
-                    _ = trace(Error),
-                    death_row()
+                    death_row({send_tick, trace(Error)})
             end
     end.
 
@@ -1266,8 +1288,7 @@ output_handler_rekey(Params, Seq) ->
         #params{} = Params_1 ->
             Params_1;
         SendError ->
-            _ = trace(SendError),
-            death_row()
+            death_row({send_rekey, trace(SendError)})
     end.
 
 output_handler_send(Params, Seq, {_, Size, _} = Q) ->
@@ -1293,8 +1314,7 @@ output_handler_deq_send(Params, Seq, Q, Size) ->
         {Params_1, Seq_1, ok} ->
             output_handler_send(Params_1, Seq_1, Q_1);
         {_, _, Error} ->
-            _ = trace(Error),
-            death_row()
+            death_row({send_chunk, trace(Error)})
     end.
 
 %% -------------------------------------------------------------------------
@@ -1578,10 +1598,12 @@ deq_iovec(GetSize, [Bin|Front], Size, Rear, Acc) ->
 
 %% -------------------------------------------------------------------------
 
-death_row() -> death_row(connection_closed).
-%%
-death_row(normal) -> death_row(connection_closed);
-death_row(Reason) -> receive after 5000 -> exit(Reason) end.
+death_row(Reason) ->
+    error_logger:info_report(
+      [death_row,
+       {reason, Reason},
+       {pid, self()}]),
+    receive after 5000 -> exit(Reason) end.
 
 %% -------------------------------------------------------------------------
 
