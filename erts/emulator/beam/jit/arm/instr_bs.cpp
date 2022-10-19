@@ -3310,16 +3310,17 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             comment("get integer %ld", bits);
             auto ctx = load_source(Ctx, TMP1);
 
+            a.mov(ARG1, c_p);
+            a.mov(ARG2, bits);
+            a.mov(ARG3, flags);
+            lea(ARG4, emit_boxed_val(ctx.reg, offsetof(ErlBinMatchState, mb)));
+
             if (bits >= SMALL_BITS) {
                 emit_enter_runtime<Update::eHeap>(live);
             } else {
                 emit_enter_runtime(live);
             }
 
-            a.mov(ARG1, c_p);
-            a.mov(ARG2, bits);
-            a.mov(ARG3, flags);
-            lea(ARG4, emit_boxed_val(ctx.reg, offsetof(ErlBinMatchState, mb)));
             runtime_call<4>(erts_bs_get_integer_2);
 
             if (bits >= SMALL_BITS) {
@@ -3338,8 +3339,6 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             comment("get binary %ld", seg.size);
             auto ctx = load_source(Ctx, TMP1);
 
-            emit_enter_runtime<Update::eHeap>(Live.as<ArgWord>().get());
-
             lea(ARG1, arm::Mem(c_p, offsetof(Process, htop)));
             a.ldur(ARG2, emit_boxed_val(ctx.reg, orig_offset));
             a.ldur(ARG3, emit_boxed_val(ctx.reg, base_offset));
@@ -3347,6 +3346,9 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             mov_imm(ARG5, seg.size);
             a.add(TMP2, ARG4, ARG5);
             a.stur(TMP2, emit_boxed_val(ctx.reg, position_offset));
+
+            emit_enter_runtime<Update::eHeap>(Live.as<ArgWord>().get());
+
             runtime_call<5>(erts_extract_sub_binary);
 
             emit_leave_runtime<Update::eHeap>(Live.as<ArgWord>().get());
