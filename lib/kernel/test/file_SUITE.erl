@@ -4888,5 +4888,10 @@ disc_free(Path) ->
     end.
 
 memsize() ->
-    {Tot,_Used,_}  = memsup:get_memory_data(),
-    Tot.
+    case proplists:get_value(available_memory, memsup:get_system_memory_data()) of
+        undefined ->
+            {Tot,_Used,_}  = memsup:get_memory_data(),
+            Tot;
+        Available ->
+            Available
+    end.

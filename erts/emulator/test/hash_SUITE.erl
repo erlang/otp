@@ -709,21 +709,20 @@ run_when_enough_resources(Fun) ->
                            [Mem, Bits, Build])}
     end.
 
-%% Total memory in GB
 total_memory() ->
+    %% Total memory in GB.
     try
-        MemoryData = memsup:get_system_memory_data(),
-        case lists:keysearch(total_memory, 1, MemoryData) of
-            {value, {total_memory, TM}} ->
-        	TM div (1024*1024*1024);
-            false ->
-        	{value, {system_total_memory, STM}} =
-        	    lists:keysearch(system_total_memory, 1, MemoryData),
-        	STM div (1024*1024*1024)
-        end
+	SMD = memsup:get_system_memory_data(),
+        TM = proplists:get_value(
+               available_memory, SMD,
+               proplists:get_value(
+                 total_memory, SMD,
+                 proplists:get_value(
+                   system_total_memory, SMD))),
+        TM div (1024*1024*1024)
     catch
-        _ : _ ->
-            undefined
+	_ : _ ->
+	    undefined
     end.
 
 -ifdef(FALSE).

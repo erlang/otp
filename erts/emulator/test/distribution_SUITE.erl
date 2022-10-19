@@ -1773,8 +1773,10 @@ flush() ->
 system_limit(Config) when is_list(Config) ->
     case erlang:system_info(wordsize) of
         8 ->
-            case proplists:get_value(system_total_memory,
-                                     memsup:get_system_memory_data()) of
+            SMD = memsup:get_system_memory_data(),
+            case proplists:get_value(
+                   available_memory, SMD,
+                   proplists:get_value(system_total_memory, SMD)) of
                 Memory when is_integer(Memory),
                             Memory > 6*1024*1024*1024 ->
                     test_system_limit(Config),
