@@ -110,6 +110,20 @@ void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
 
     ASSERT(preserve_reg != ARG3);
 
+#ifdef DEBUG
+    comment("(debug: fill dead X registers with garbage)");
+    const x86::Gp garbage_reg = ARG3;
+    mov_imm(garbage_reg, ERTS_HOLE_MARKER);
+    if (!(Preserve.isXRegister() &&
+          Preserve.as<ArgXRegister>().get() >= Live.get())) {
+        mov_arg(ArgXRegister(Live.get()), garbage_reg);
+        mov_arg(ArgXRegister(Live.get() + 1), garbage_reg);
+    } else {
+        mov_arg(ArgXRegister(Live.get() + 1), garbage_reg);
+        mov_arg(ArgXRegister(Live.get() + 2), garbage_reg);
+    }
+#endif
+
     a.lea(ARG3, x86::qword_ptr(HTOP, bytes_needed));
     a.cmp(ARG3, E);
     a.short_().jbe(after_gc_check);
@@ -137,6 +151,13 @@ void BeamModuleAssembler::emit_gc_test(const ArgWord &Ns,
     const int32_t bytes_needed =
             (Ns.get() + Nh.get() + S_RESERVED) * sizeof(Eterm);
     Label after_gc_check = a.newLabel();
+
+#ifdef DEBUG
+    comment("(debug: fill dead X registers with garbage)");
+    mov_imm(ARG4, ERTS_HOLE_MARKER);
+    mov_arg(ArgXRegister(Live.get()), ARG4);
+    mov_arg(ArgXRegister(Live.get() + 1), ARG4);
+#endif
 
     a.lea(ARG3, x86::qword_ptr(HTOP, bytes_needed));
     a.cmp(ARG3, E);
