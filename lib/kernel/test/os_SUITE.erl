@@ -396,10 +396,48 @@ do_perf_counter_test(CntArgs, Conv, Upper, Lower, Iters) ->
             do_perf_counter_test(CntArgs, Conv, Upper, Lower, Iters-1)
     end.
 
-error_info(_Config) ->
-    L = [{cmd, [{no,string}]},
+error_info(Config) ->
+
+
+    ExhaustFDs =
+        fun(M,F,A) ->
+                case os:type() of
+                    {unix, _} ->
+                        {ok, Peer, Node} = ?CT_PEER(),
+                        FN = filename:join(
+                               proplists:get_value(priv_dir, Config),
+                               "error_info"),
+                        try
+                            erpc:call(
+                              Node,
+                              fun() ->
+                                      io:format("Starting to open files..."),
+                                      (fun FDs(N) ->
+                                               case file:open(FN, [write]) of
+                                                   {ok, _ } -> FDs(N+1);
+                                                   {error, _} ->
+                                                       io:format("Opened ~p files",[N])
+                                               end
+                                       end)(0),
+                                      apply(M,F,A)
+                              end)
+                        catch error:{exception, ErrorReason, StackTrace} ->
+                                erlang:raise(error, ErrorReason, StackTrace)
+                        after
+                            peer:stop(Peer)
+                        end;
+                    _ ->
+                        apply(M,F,A)
+                end
+        end,
+
+    L = [{cmd, [{no, string}]},
+         {cmd, [["echo 1",0,0,0,1]]},
          {cmd, [{no, string}, #{}]},
          {cmd, [{no, string}, no_map]},
+         {cmd, ["echo 1"], [{general, "too many open files \\(emfile\\)"},
+                            {wrapper, ExhaustFDs}] ++
+              [no_fail || win32 =:= element(1, os:type())]},
 
          {find_executable, 1},                  %Not a BIF.
          {find_executable, 2},                  %Not a BIF.
@@ -416,7 +454,7 @@ error_info(_Config) ->
 
          {perf_counter,[bad_time_unit]},
 
-         {putenv, [<<"bad_key">>, <<"bad_value">>]},
+         {putenv, [<<"bad_key">>, <<"bad_value">>],[{1,".*"},{2,".*"}]},
          {putenv, ["key", <<"bad_value">>]},
          {putenv, [<<"bad_key">>, "value"]},
          {putenv, ["abc=", "xyz"]},
@@ -424,7 +462,7 @@ error_info(_Config) ->
          {set_signal, [{bad,signal}, ignore]},
          {set_signal, [{bad,signal}, ignore]},
          {set_signal, [bad_signal, bad_handling]},
-         {set_signal, [{bad,signal}, bad_handling]},
+         {set_signal, [{bad,signal}, bad_handling],[{1,".*"},{2,".*"}]},
 
          {system_time, [bad_time_unit]},
          {unsetenv, [{bad,key}]}
