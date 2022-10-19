@@ -185,11 +185,23 @@ info(Address, Port, Profile, Properties) when is_integer(Port) andalso
 %%% Behavior callbacks
 %%%========================================================================
 
-start_standalone(Config) ->
+start_standalone(Config0) ->
+    Config = httpd_ssl_wrapper(Config0),
     httpd_sup:start_link([{httpd, Config}], stand_alone).
 
-start_service(Conf) ->
-    httpd_sup:start_child(Conf).
+start_service(Config0) ->
+    Config = httpd_ssl_wrapper(Config0),
+    httpd_sup:start_child(Config).
+
+httpd_ssl_wrapper(Config0) ->
+    case proplists:get_value(socket_type, Config0) of
+        {essl, Value} ->
+            lists:keyreplace(socket_type, 1, Config0, {socket_type, {ssl, Value}});
+        {ssl, Value} ->
+            lists:keyreplace(socket_type, 1, Config0, {socket_type, {essl, Value}});
+        _ -> Config0
+    end.
+
 
 stop_service({Address, Port}) ->
     stop_service({Address, Port, ?DEFAULT_PROFILE});
