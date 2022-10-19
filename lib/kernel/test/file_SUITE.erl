@@ -4840,28 +4840,37 @@ do_run_large_file_test(Config, Run, Name0) ->
     Name = filename:join(proplists:get_value(priv_dir, Config),
 			 ?MODULE_STRING ++ Name0),
 
+    %% We run the test in a peer node in case the OOM killer
+    {ok, Peer, Node} = ?CT_PEER(),
+
+    erpc:call(Node, application, ensure_all_started, [os_mon]),
+
     %% Set up a process that will delete this file.
     Tester = self(),
     Deleter = 
-	spawn(
-	  fun() ->
-		  Mref = erlang:monitor(process, Tester),
-		  receive
-		      {'DOWN',Mref,_,_,_} -> ok;
-		      {Tester,done} -> ok
-		  end,
-		  ?FILE_MODULE:delete(Name)
-	  end),
+        spawn(
+          fun() ->
+                  Mref = erlang:monitor(process, Tester),
+                  receive
+                      {'DOWN',Mref,_,_,_} -> ok;
+                      {Tester,done} -> ok
+                  end,
+                  ?FILE_MODULE:delete(Name)
+          end),
 
     %% Run the test case.
-    Res = Run(Name),
+    try
+        Res = erpc:call(Node, fun() -> Run(Name) end),
 
-    %% Delete file and finish deleter process.
-    Mref = erlang:monitor(process, Deleter),
-    Deleter ! {Tester,done},
-    receive {'DOWN',Mref,_,_,_} -> ok end,
+        %% Delete file and finish deleter process.
+        Mref = erlang:monitor(process, Deleter),
+        Deleter ! {Tester,done},
+        receive {'DOWN',Mref,_,_,_} -> ok end,
 
-    Res.
+        Res
+    after
+        peer:stop(Peer)
+    end.
 
 disc_free(Path) ->
     Data = disksup:get_disk_data(),
