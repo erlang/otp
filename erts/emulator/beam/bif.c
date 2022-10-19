@@ -4280,12 +4280,6 @@ error: {
     }
 }
 
-BIF_RETTYPE display_nl_0(BIF_ALIST_0)
-{
-    erts_fprintf(stderr, "\n");
-    BIF_RET(am_true);
-}
-
 /**********************************************************************/
 
 

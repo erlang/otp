@@ -80,6 +80,7 @@ groups() ->
 
 all() -> 
     [start_stop,
+     start_crash,
      replace_default,
      replace_file,
      replace_disk_log
@@ -100,6 +101,21 @@ start_stop(_Config) ->
     ok.
 start_stop(cleanup,_Config) ->
     logger:remove_handler(simple).
+
+%% Test that the simple logger works during startup crash
+start_crash(_Config) ->
+
+    Output = os:cmd(ct:get_progname() ++ " -user baduser"),
+    ErrorOutput = re:replace(unicode:characters_to_binary(Output),"\r\n","\n",[global]),
+    ct:log("~ts",[ErrorOutput]),
+    {match,[_]} = re:run(ErrorOutput,"^(=SUPERVISOR REPORT====| supervisor_report *\n)",[global]),
+    {match,[_, _]} = re:run(ErrorOutput," crash_report *\n",[global]),
+    {match,[_]} = re:run(ErrorOutput," std_info *\n",[global]),
+    {match,[[CD]]} = re:run(ErrorOutput,"\nCrash dump is being written to: (.*)\\.\\.\\.done",
+                            [{capture, all_but_first, binary}, global]),
+    ok = file:delete(CD),
+    ok.
+
 
 %% This testcase just tests that it does not crash, the default handler prints
 %% to stdout which we cannot read from in a detached slave.

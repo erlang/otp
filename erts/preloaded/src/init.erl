@@ -558,7 +558,7 @@ do_handle_msg(Msg,State) ->
                         true -> logger:info("init got unexpected: ~p", [X],
                                             #{ error_logger=>#{tag=>info_msg}});
                         false ->
-                            erlang:display_string("init got unexpected: "),
+                            erlang:display_string(stdout, "init got unexpected: "),
                             erlang:display(X)
                     end
             end
@@ -833,6 +833,7 @@ del(_Item, [])      -> [].
 terminate(Pid,Kernel,Reason) ->
     case kernel_pid(Pid,Kernel) of
 	{ok,Name} ->
+            %% If you change this time, also change the time in logger_simple_h.erl
 	    sleep(500), %% Flush error printouts!
 	    erlang:display({"Kernel pid terminated",Name,Reason}),
 	    crash("Kernel pid terminated", [Name, Reason]);

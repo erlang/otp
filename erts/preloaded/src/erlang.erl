@@ -216,7 +216,7 @@
 -export([crc32/2, crc32_combine/3, date/0, decode_packet/3]).
 -export([delete_element/2]).
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
--export([display_nl/0, display_string/1, display_string/2, erase/0, erase/1]).
+-export([display_string/1, display_string/2, erase/0, erase/1]).
 -export([error/1, error/2, error/3, exit/1, exit/2, exit_signal/2, external_size/1]).
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
 -export([float_to_binary/1, float_to_binary/2,
@@ -841,11 +841,6 @@ unalias(_Alias) ->
 -spec erlang:display(Term) -> true when
       Term :: term().
 display(_Term) ->
-    erlang:nif_error(undefined).
-
-%% display_nl/0
--spec erlang:display_nl() -> true.
-display_nl() ->
     erlang:nif_error(undefined).
 
 %% display_string/1

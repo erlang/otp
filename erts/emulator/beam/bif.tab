@@ -57,7 +57,6 @@ bif erlang:date/0
 bif erlang:delete_module/1
 bif erlang:display/1
 bif erlang:display_string/2
-bif erlang:display_nl/0
 ubif erlang:element/2
 bif erlang:erase/0
 hbif erlang:erase/1
