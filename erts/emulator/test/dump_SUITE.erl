@@ -129,12 +129,13 @@ exiting_dump(Config) when is_list(Config) ->
                                   [ets:insert(T,{I,I}) || I <- lists:seq(1,1000)]
                               end || _ <- lists:seq(1,1000)],
                              Self ! ready,
-                             receive ok -> ok end
+                             receive {terminate, Pid} -> Pid ! ok end
                      end),
 
     true = rpc:call(Node, os, putenv, ["ERL_CRASH_DUMP",Dump]),
 
-    receive ready -> unlink(Pid), Pid ! ok end,
+    receive ready -> unlink(Pid), Pid ! {terminate, self()} end,
+    receive ok -> ok end,
 
     rpc:call(Node, erlang, halt, ["dump"]),
 
