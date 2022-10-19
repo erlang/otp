@@ -2905,7 +2905,7 @@ void BeamModuleAssembler::emit_extract_integer(const arm::Gp bitdata,
 
     /* Sign-extend the number if the segment is signed. */
     if ((flags & BSF_SIGNED) != 0) {
-        if (bits < 64) {
+        if (0 < bits && bits < 64) {
             comment("sign extend extracted value");
             a.lsl(TMP2, data_reg, imm(64 - bits));
             a.asr(TMP2, TMP2, imm(64 - bits));
@@ -2946,7 +2946,7 @@ void BeamModuleAssembler::emit_extract_integer(const arm::Gp bitdata,
                   data_reg,
                   arm::lsl(_TAG_IMMED1_SIZE),
                   imm(SMALL_BITS));
-        } else {
+        } else if (bits != 0) {
             a.bfi(dst.reg, data_reg, arm::lsl(_TAG_IMMED1_SIZE), imm(bits));
         }
     }
