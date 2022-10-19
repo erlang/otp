@@ -1946,8 +1946,8 @@ shell_history_custom_errors(_Config) ->
     %% that crashes in load/0.
     rtnode:run(
       [{putline, "echo."},
-       {expect, "(Disabling shell history logging.|echo)\r\n"},
-       {expect, "(Disabling shell history logging.|echo)\r\n"}
+       {expect, "(Disabling shell history logging.|echo)"},
+       {expect, "(Disabling shell history logging.|echo)"}
       ], [], [], ["-kernel","shell_history",atom_to_list(?MODULE),
                   "-kernel","provider_add","crash",
                   "-pz",filename:dirname(code:which(?MODULE))]),
