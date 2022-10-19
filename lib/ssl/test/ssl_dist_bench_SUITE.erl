@@ -416,8 +416,13 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
     SSL = proplists:get_value(ssl_dist, Config),
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
-    ct:log("Starting scheduler utilization run on ~w and ~w", [A, B]),
-    {ClientMsacc, ServerMsacc, Msgs} =
+    PidA = ssl_apply(HA, os, getpid, []),
+    PidB = ssl_apply(HB, os, getpid, []),
+    ct:pal("Starting scheduler utilization run effort ~w:~n"
+           "    [~s] ~w~n"
+           "    [~s] ~w~n",
+           [Effort, PidA, A, PidB, B]),
+    {ClientMsacc, ServerMsacc, BusyDistPortMsgs} =
         ssl_apply(
           HA,
           fun () ->
@@ -427,7 +432,7 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
                     "sched_utilization.Result", Result),
                   Result
           end),
-    ct:log("Got ~p busy_dist_port msgs",[length(Msgs)]),
+    ct:log("Got ~p busy_dist_port msgs",[tail(BusyDistPortMsgs)]),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
     ct:log("Microstate accounting for node ~w:", [A]),
@@ -445,10 +450,13 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
         round(10000 * msacc:stats(system_runtime,ServerMsacc) /
                   msacc:stats(system_realtime,ServerMsacc)),
     Verdict =
-        case Msgs of
-            [] ->
+        if
+            BusyDistPortMsgs =:= 0 ->
                 "";
-            _ ->
+            is_integer(BusyDistPortMsgs) ->
+                " ?";
+            true ->
+                ct:log("Stray Msgs: ~p", [BusyDistPortMsgs]),
                 " ???"
         end,
     {comment, ClientComment} =
@@ -523,7 +531,7 @@ sched_util_runner(A, B, Effort, Senders, Config) ->
         end,
     fs_log(Config, "sched_util_runner.ServerMsaccStats", ServerMsaccStats),
     %%
-    {ClientMsaccStats,ServerMsaccStats, flush()}.
+    {ClientMsaccStats,ServerMsaccStats, busy_dist_port_msgs()}.
 
 fs_log(Config, Name, Term) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -537,13 +545,27 @@ fs_log(Config, Name, Term) ->
              Term}])),
     ok.
 
-flush() ->
+busy_dist_port_msgs() ->
+    busy_dist_port_msgs(0).
+%%
+busy_dist_port_msgs(N) ->
     receive
         M ->
-            [M | flush()]
+            case M of
+                {monitor, P1, busy_dist_port, P2}
+                  when is_pid(P1), is_pid(P2) ->
+                    busy_dist_port_msgs(N + 1);
+                Stray ->
+                    [Stray | busy_dist_port_msgs(N)]
+            end
     after 0 ->
-            []
+            N
     end.
+
+tail([_|Tail]) ->
+    tail(Tail);
+tail(Tail) ->
+    Tail.
 
 throughput_server() ->
     receive _ -> ok end,

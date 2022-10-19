@@ -124,6 +124,7 @@ supported() ->
 
 start_key_pair_server() ->
     monitor_dist_proc(
+      key_pair_server,
       spawn_link(
         fun () ->
                 register(?MODULE, self()),
@@ -383,6 +384,7 @@ gen_accept(Listen, Driver) ->
     %% Spawn Acceptor process
     %%
     monitor_dist_proc(
+      acceptor,
       spawn_opt(
         fun () ->
                 start_key_pair_server(),
@@ -453,6 +455,7 @@ gen_accept_connection(
     %% Spawn Controller/handshaker/ticker process
     %%
     monitor_dist_proc(
+      accept_controller,
       spawn_opt(
         fun() ->
                 do_accept(
@@ -495,6 +498,7 @@ gen_setup(Node, Type, MyNode, LongOrShortNames, SetupTime, Driver) ->
     %% Spawn Controller/handshaker/ticker process
     %%
     monitor_dist_proc(
+      setup_controller,
       spawn_opt(
         setup_fun(
           Node, Type, MyNode, LongOrShortNames, SetupTime, Driver, NetKernel),
@@ -825,6 +829,7 @@ start_dist_ctrl(Socket, Timeout) ->
     Controller = self(),
     Server =
         monitor_dist_proc(
+          output_handler,
           spawn_opt(
             fun () ->
                     receive
@@ -1093,6 +1098,7 @@ handshake(
         {?MODULE, From, {handshake_complete, DistHandle}} ->
             InputHandler =
                 monitor_dist_proc(
+                  input_handler,
                   spawn_opt(
                     fun () ->
                             link(Controller),
@@ -1583,14 +1589,18 @@ death_row(Reason) -> receive after 5000 -> exit(Reason) end.
 trace(Term) -> Term.
 
 %% Keep an eye on this Pid (debug)
--ifndef(undefined).
-monitor_dist_proc(Pid) ->
+-ifdef(undefined).
+monitor_dist_proc(_Tag, Pid) ->
     Pid.
 -else.
-monitor_dist_proc(Pid) ->
+monitor_dist_proc(Tag, Pid) ->
     spawn(
       fun () ->
               MRef = erlang:monitor(process, Pid),
+              error_logger:info_report(
+                [monitor_dist_proc,
+                 {type, Tag},
+                 {pid, Pid}]),
               receive
                   {'DOWN', MRef, _, _, normal} ->
                       error_logger:error_report(
