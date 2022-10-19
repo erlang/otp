@@ -39,16 +39,6 @@
     Provides web server start options, administrative functions, and 
     an Erlang callback API.</p>
   </description>
-  
-  <section>
-    <title>DATA TYPES</title>
-    <p>Type definitions that are used more than once in
-      this module:</p>
-    <p><c>hostname() = string()</c> representing a host, for example,
-    "foo.bar.com"</p>
-    <p><c>property() = atom()</c></p>
-    
-  </section>
 
   <section>
     <title>ERLANG HTTP SERVER SERVICE START/STOP</title>
@@ -66,8 +56,8 @@
     <p>When the web server is started at application start time, the
     properties are to be fetched from a configuration file that can
     consist of a regular Erlang property list, that is, <c>[{Option,
-    Value}]</c>, where <c> Option = property() </c> and <c>Value =
-    term()</c>, followed by a full stop. If the web server is started
+    Value}]</c>, where <c> Option = property() </c>, <c>Value =
+    term()</c>, and <c>property = atom()</c>, followed by a full stop. If the web server is started
     dynamically at runtime, a file can still be specified but also the
     complete property list.</p>
 
@@ -156,7 +146,7 @@
             </item>
 
             <tag><marker id="prop_socket_type"></marker>{socket_type, ip_comm |
-            {ip_comm, Config::proplists:proplist()} | {essl, Config::proplists:proplist()}}</tag>
+            {ip_comm, Config::proplists:proplist()} | {ssl, Config::proplists:proplist()}}</tag>
             <item>
 	            <p>For <c>ip_comm</c> configuration options, see <seemfa
 	            marker="kernel:gen_tcp#listen/2">gen_tcp:listen/2</seemfa>, some
