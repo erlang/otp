@@ -23,7 +23,6 @@
 
 -behaviour(inets_service).
 
--include("httpd.hrl").
 -include("httpd_internal.hrl").
 
 %% Behavior callbacks
@@ -52,9 +51,18 @@
 %%% API
 %%%========================================================================
 
+-spec parse_query(QueryString) -> QueryList | uri_string:error() when
+      QueryString :: string(),
+      QueryList :: [{unicode:chardata(), unicode:chardata() | true}].
 parse_query(String) ->
     uri_string:dissect_query(String).
 
+-spec reload_config(Config, Mode) -> ok | {error, Reason} | no_return() when
+      Config :: file:name_all() | [{Option, Value}],
+      Mode   :: non_disturbing | disturbing | blocked,
+      Option :: atom(),
+      Value  :: term(),
+      Reason :: term().
 reload_config(Config = [Value| _], Mode) when is_tuple(Value) ->
     do_reload_config(Config, Mode);
 reload_config(ConfigFile, Mode) ->
@@ -67,10 +75,121 @@ reload_config(ConfigFile, Mode) ->
             throw({error, {could_not_consult_proplist_file, ConfigFile}})
     end.
 
-
+-spec info(Pid) -> HttpInformation when
+      Pid :: pid(),
+      Path :: file:name_all(),
+      HttpInformation :: [CommonOption]
+                       | [CommunicationOption]
+                       | [ModOption]
+                       | [LimitOption]
+                       | [AdminOption],
+      CommonOption :: {port, non_neg_integer()}
+                | {server_name, string()}
+                | {server_root, Path}
+                | {document_root, Path},
+      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
+        | {profile, atom()}
+        | { socket_type,
+            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
+        | {ipfamily, inet | inet6}
+        | {minimum_bytes_per_second, integer()},
+      ModOption :: {modules, atom()},
+      LimitOption :: {customize, atom()}
+                   | {disable_chunked_transfer_encoding_send, boolean()}
+                   | {keep_alive, boolean()}
+                   | {keep_alive_timeout, integer()}
+                   | {max_body_size, integer()}
+                   | {max_clients, integer()}
+                   | {max_header_size, integer()}
+                   | {max_content_length, integer()}
+                   | {max_uri_size, integer()}
+                   | {max_keep_alive_request, integer()}
+                   | {max_client_body_chunk, integer()},
+      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
+                   | {mime_type, string()}
+                   | {server_admin, string()}
+                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
+                   | {logger, Options::list()}
+                   | {log_format, common | combined}
+                   | {error_log_format, pretty | compact}.
 info(Pid) when is_pid(Pid) ->
     info(Pid, []).
 
+-spec info(Pid, HttpInformation) -> HttpInformation  when
+      Pid     :: pid(),
+      Path :: file:name_all(),
+      HttpInformation :: [CommonOption]
+                       | [CommunicationOption]
+                       | [ModOption]
+                       | [LimitOption]
+                       | [AdminOption],
+      CommonOption :: {port, non_neg_integer()}
+                | {server_name, string()}
+                | {server_root, Path}
+                | {document_root, Path},
+      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
+        | {profile, atom()}
+        | { socket_type,
+            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
+        | {ipfamily, inet | inet6}
+        | {minimum_bytes_per_second, integer()},
+      ModOption :: {modules, atom()},
+      LimitOption :: {customize, atom()}
+                   | {disable_chunked_transfer_encoding_send, boolean()}
+                   | {keep_alive, boolean()}
+                   | {keep_alive_timeout, integer()}
+                   | {max_body_size, integer()}
+                   | {max_clients, integer()}
+                   | {max_header_size, integer()}
+                   | {max_content_length, integer()}
+                   | {max_uri_size, integer()}
+                   | {max_keep_alive_request, integer()}
+                   | {max_client_body_chunk, integer()},
+      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
+                   | {mime_type, string()}
+                   | {server_admin, string()}
+                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
+                   | {logger, Options::list()}
+                   | {log_format, common | combined}
+                   | {error_log_format, pretty | compact};
+          (Address, Port) -> HttpInformation when
+      Address :: inet:ip_address(),
+      Port    :: integer(),
+      Path :: file:name_all(),
+      HttpInformation :: [CommonOption]
+                       | [CommunicationOption]
+                       | [ModOption]
+                       | [LimitOption]
+                       | [AdminOption],
+      CommonOption :: {port, non_neg_integer()}
+                | {server_name, string()}
+                | {server_root, Path}
+                | {document_root, Path},
+      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
+        | {profile, atom()}
+        | { socket_type,
+            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
+        | {ipfamily, inet | inet6}
+        | {minimum_bytes_per_second, integer()},
+      ModOption :: {modules, atom()},
+      LimitOption :: {customize, atom()}
+                   | {disable_chunked_transfer_encoding_send, boolean()}
+                   | {keep_alive, boolean()}
+                   | {keep_alive_timeout, integer()}
+                   | {max_body_size, integer()}
+                   | {max_clients, integer()}
+                   | {max_header_size, integer()}
+                   | {max_content_length, integer()}
+                   | {max_uri_size, integer()}
+                   | {max_keep_alive_request, integer()}
+                   | {max_client_body_chunk, integer()},
+      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
+                   | {mime_type, string()}
+                   | {server_admin, string()}
+                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
+                   | {logger, Options::list()}
+                   | {log_format, common | combined}
+                   | {error_log_format, pretty | compact}.
 info(Pid, Properties) when is_pid(Pid) andalso is_list(Properties) ->
     {ok, ServiceInfo} = service_info(Pid), 
     Address = proplists:get_value(bind_address, ServiceInfo),
@@ -83,17 +202,135 @@ info(Pid, Properties) when is_pid(Pid) andalso is_list(Properties) ->
 	    info(Address, Port, Profile, Properties)
     end; 
 
-info(Address, Port) when is_integer(Port) ->    
+info(Address, Port) when is_integer(Port) ->
     info(Address, Port, default).
 
-info(Address, Port, Profile) when is_integer(Port), is_atom(Profile) ->    
+-spec info(Address, Port, Profile) -> HttpInformation when
+      Address :: inet:ip_address() | any,
+      Port    :: integer(),
+      Profile :: atom(),
+      Path :: file:name_all(),
+      HttpInformation :: [CommonOption]
+                       | [CommunicationOption]
+                       | [ModOption]
+                       | [LimitOption]
+                       | [AdminOption],
+      CommonOption :: {port, non_neg_integer()}
+                | {server_name, string()}
+                | {server_root, Path}
+                | {document_root, Path},
+      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
+        | {profile, atom()}
+        | { socket_type,
+            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
+        | {ipfamily, inet | inet6}
+        | {minimum_bytes_per_second, integer()},
+      ModOption :: {modules, atom()},
+      LimitOption :: {customize, atom()}
+                   | {disable_chunked_transfer_encoding_send, boolean()}
+                   | {keep_alive, boolean()}
+                   | {keep_alive_timeout, integer()}
+                   | {max_body_size, integer()}
+                   | {max_clients, integer()}
+                   | {max_header_size, integer()}
+                   | {max_content_length, integer()}
+                   | {max_uri_size, integer()}
+                   | {max_keep_alive_request, integer()}
+                   | {max_client_body_chunk, integer()},
+      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
+                   | {mime_type, string()}
+                   | {server_admin, string()}
+                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
+                   | {logger, Options::list()}
+                   | {log_format, common | combined}
+                   | {error_log_format, pretty | compact};
+          (Address, Port, Properties) -> HttpInformation when
+      Address :: inet:ip_address() | any,
+      Port    :: integer(),
+      Properties :: [atom()],
+      Path :: file:name_all(),
+      HttpInformation :: [CommonOption]
+                       | [CommunicationOption]
+                       | [ModOption]
+                       | [LimitOption]
+                       | [AdminOption],
+      CommonOption :: {port, non_neg_integer()}
+                | {server_name, string()}
+                | {server_root, Path}
+                | {document_root, Path},
+      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
+        | {profile, atom()}
+        | { socket_type,
+            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
+        | {ipfamily, inet | inet6}
+        | {minimum_bytes_per_second, integer()},
+      ModOption :: {modules, atom()},
+      LimitOption :: {customize, atom()}
+                   | {disable_chunked_transfer_encoding_send, boolean()}
+                   | {keep_alive, boolean()}
+                   | {keep_alive_timeout, integer()}
+                   | {max_body_size, integer()}
+                   | {max_clients, integer()}
+                   | {max_header_size, integer()}
+                   | {max_content_length, integer()}
+                   | {max_uri_size, integer()}
+                   | {max_keep_alive_request, integer()}
+                   | {max_client_body_chunk, integer()},
+      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
+                   | {mime_type, string()}
+                   | {server_admin, string()}
+                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
+                   | {logger, Options::list()}
+                   | {log_format, common | combined}
+                   | {error_log_format, pretty | compact}.
+info(Address, Port, Profile) when is_integer(Port), is_atom(Profile) ->
     httpd_conf:get_config(Address, Port, Profile);
 
 info(Address, Port, Properties) when is_integer(Port) andalso 
 				     is_list(Properties) ->    
     httpd_conf:get_config(Address, Port, default, Properties).
 
-info(Address, Port, Profile, Properties) when is_integer(Port) andalso 
+-spec info(Address, Port, Profile, Properties) -> HttpInformation when
+      Address :: inet:ip_address() | any,
+      Port    :: integer(),
+      Profile :: atom(),
+      Properties :: [atom()],
+      Path :: file:name_all(),
+      HttpInformation :: [CommonOption]
+                       | [CommunicationOption]
+                       | [ModOption]
+                       | [LimitOption]
+                       | [AdminOption],
+      CommonOption :: {port, non_neg_integer()}
+                | {server_name, string()}
+                | {server_root, Path}
+                | {document_root, Path},
+      CommunicationOption :: {bind_address, inet:ip_address() | inet:hostname() | any}
+        | {profile, atom()}
+        | { socket_type,
+            ip_comm | {ip_comm, ssl:tls_option() | gen_tcp:option()} | {ssl, ssl:tls_option() | gen_tcp:option()}}
+        | {ipfamily, inet | inet6}
+        | {minimum_bytes_per_second, integer()},
+      ModOption :: {modules, atom()},
+      LimitOption :: {customize, atom()}
+                   | {disable_chunked_transfer_encoding_send, boolean()}
+                   | {keep_alive, boolean()}
+                   | {keep_alive_timeout, integer()}
+                   | {max_body_size, integer()}
+                   | {max_clients, integer()}
+                   | {max_header_size, integer()}
+                   | {max_content_length, integer()}
+                   | {max_uri_size, integer()}
+                   | {max_keep_alive_request, integer()}
+                   | {max_client_body_chunk, integer()},
+      AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
+                   | {mime_type, string()}
+                   | {server_admin, string()}
+                   | {server_tokens, none|prod|major|minor|minimal|os|full|{private, string()}}
+                   | {logger, Options::list()}
+                   | {log_format, common | combined}
+                   | {error_log_format, pretty | compact}.
+info(Address, Port, Profile, Properties) when is_integer(Port) andalso
 					      is_atom(Profile) andalso is_list(Properties) ->    
     httpd_conf:get_config(Address, Port, Profile, Properties).
 
@@ -102,11 +339,23 @@ info(Address, Port, Profile, Properties) when is_integer(Port) andalso
 %%% Behavior callbacks
 %%%========================================================================
 
-start_standalone(Config) ->
+start_standalone(Config0) ->
+    Config = httpd_ssl_wrapper(Config0),
     httpd_sup:start_link([{httpd, Config}], stand_alone).
 
-start_service(Conf) ->
-    httpd_sup:start_child(Conf).
+start_service(Config0) ->
+    Config = httpd_ssl_wrapper(Config0),
+    httpd_sup:start_child(Config).
+
+httpd_ssl_wrapper(Config0) ->
+    case proplists:get_value(socket_type, Config0) of
+        {essl, Value} ->
+            lists:keyreplace(socket_type, 1, Config0, {socket_type, {ssl, Value}});
+        {ssl, Value} ->
+            lists:keyreplace(socket_type, 1, Config0, {socket_type, {essl, Value}});
+        _ -> Config0
+    end.
+
 
 stop_service({Address, Port}) ->
     stop_service({Address, Port, ?DEFAULT_PROFILE});
@@ -156,6 +405,13 @@ child_name(Pid, [{Name, Pid} | _]) ->
 child_name(Pid, [_ | Children]) ->
     child_name(Pid, Children).
 
+-spec child_name2info(undefined | HTTPSup) -> Object when
+      HTTPSup :: {httpd_instance_sup, any, Port, Profile}
+               | {httpd_instance_sup, Address, Port, Profile},
+      Port    :: integer(),
+      Address :: inet:ip_address() | any,
+      Profile :: atom(),
+      Object  :: {error, no_such_service} | {ok, [tuple()]}.
 child_name2info(undefined) ->
     {error, no_such_service};
 child_name2info({httpd_instance_sup, any, Port, Profile}) ->
