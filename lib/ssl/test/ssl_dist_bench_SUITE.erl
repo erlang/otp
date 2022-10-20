@@ -515,7 +515,7 @@ sched_util_runner(A, B, Effort, Senders, Config) ->
           end),
     erlang:system_monitor(self(),[busy_dist_port]),
     %% We spawn 250 senders which should mean that we
-    %% have a load of 250 msgs/msec
+    %% have a load of 25 msgs/msec
     _Clients =
         [spawn_link(
            fun() ->
@@ -591,7 +591,7 @@ throughput_server() ->
 
 throughput_client(Pid, Payload) ->
     Pid ! Payload,
-    receive after 1 -> throughput_client(Pid, Payload) end.
+    receive after 10 -> throughput_client(Pid, Payload) end.
 
 %%-----------------
 %% Throughput speed
