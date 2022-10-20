@@ -27,7 +27,7 @@
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, info/0, set_env/2,
-	 get_pid_env/2, get_env/2, get_pid_all_env/1, get_all_env/1,
+	 get_pid_env/2, get_env/2, get_env/3, get_pid_all_env/1, get_all_env/1,
 	 get_pid_key/2, get_key/2, get_pid_all_key/1, get_all_key/1,
 	 get_master/1, get_application/1, get_application_module/1,
 	 start_type/1, permit_application/2, do_config_diff/2,
@@ -343,10 +343,14 @@ get_pid_env(Master, Key) ->
     end.
 
 get_env(AppName, Key) ->
-    case ets:lookup(ac_tab, {env, AppName, Key}) of
-	[{_, Val}] -> {ok, Val};
-	_ -> undefined
+    NotFound = make_ref(),
+    case ets:lookup_element(ac_tab, {env, AppName, Key}, 2, NotFound) of
+        NotFound -> undefined;
+        Val -> {ok, Val}
     end.
+
+get_env(AppName, Key, Default) ->
+    ets:lookup_element(ac_tab, {env, AppName, Key}, 2, Default).
 
 get_pid_all_env(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
@@ -442,10 +446,7 @@ start_type(Master) ->
 
 
 get_master(AppName) ->
-    case ets:lookup(ac_tab, {application_master, AppName}) of
-	[{_, Pid}] -> Pid;
-	_ -> undefined
-    end.
+    ets:lookup_element(ac_tab, {application_master, AppName}, 2, undefined).
 
 get_application(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of

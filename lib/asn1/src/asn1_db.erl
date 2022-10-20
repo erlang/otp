@@ -82,11 +82,11 @@ loop(#state{parent = Parent, monitor = MRef, table = Table,
             includes = Includes} = State) ->
     receive
         {set, Mod, K2, V} ->
-            [{_, Modtab}] = ets:lookup(Table, Mod),
+            Modtab = ets:lookup_element(Table, Mod, 2),
             ets:insert(Modtab, {K2, V}),
             loop(State);
         {set, Mod, Kvs} ->
-            [{_, Modtab}] = ets:lookup(Table, Mod),
+            Modtab = ets:lookup_element(Table, Mod, 2),
             ets:insert(Modtab, Kvs),
             loop(State);
         {From, {get, Mod, K2}} ->
@@ -105,7 +105,7 @@ loop(#state{parent = Parent, monitor = MRef, table = Table,
             end,
             loop(State);
         {save, OutFile, Mod} ->
-            [{_,Mtab}] = ets:lookup(Table, Mod),
+            Mtab = ets:lookup_element(Table, Mod, 2),
 	    TempFile = OutFile ++ ".#temp",
             ok = ets:tab2file(Mtab, TempFile),
 	    ok = file:rename(TempFile, OutFile),
@@ -146,10 +146,7 @@ get_table(Table, Mod, Includes) ->
     end.
 
 lookup(Tab, K) ->
-    case ets:lookup(Tab, K) of
-        []      -> undefined;
-        [{K,V}] -> V
-    end.
+	ets:lookup_element(Tab, K, 2, undefined).
 
 info(EruleMaps) ->
     {asn1ct:vsn(),EruleMaps}.
