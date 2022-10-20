@@ -483,7 +483,7 @@ initial_hello({call, From}, {start, Timeout},
     %% Update UseTicket in case of automatic session resumption. The automatic ticket handling
     %% also takes it into account if the ticket is suitable for sending early data not exceeding
     %% the max_early_data_size or if it can only be used for session resumption.
-    {UseTicket, State1} = tls_handshake_1_3:maybe_automatic_session_resumption(State0),
+    {UseTicket, State1} = tls_connection_1_3:maybe_automatic_session_resumption(State0),
     TicketData = tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
     OcspNonce = tls_handshake:ocsp_nonce(OcspNonceOpt, OcspStaplingOpt),
     Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
@@ -522,7 +522,7 @@ initial_hello({call, From}, {start, Timeout},
     {Ref,Maybe} = tls_handshake_1_3:maybe_do(),
     try
         %% Send Early Data
-        State4 = Maybe(tls_handshake_1_3:maybe_send_early_data(State3)),
+        State4 = Maybe(tls_connection_1_3:maybe_send_early_data(State3)),
 
         {#state{handshake_env = HsEnv1} = State5, _} =
             Connection:send_handshake_flight(State4),
@@ -546,11 +546,11 @@ initial_hello({call, From}, {start, Timeout},
 initial_hello({call, From}, {start, Timeout}, #state{static_env = #static_env{role = Role,
                                                                               protocol_cb = Connection},
                                                      ssl_options = #{versions := Versions}} = State0) ->
-    
-    NextState = next_statem_state(Versions, Role),    
+
+    NextState = next_statem_state(Versions, Role),
     Connection:next_event(NextState, no_record, State0#state{start_or_recv_from = From},
                           [{{timeout, handshake}, Timeout, close}]);
-                
+
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
      #state{static_env = #static_env{role = Role},
             ssl_options = OrigSSLOptions,
