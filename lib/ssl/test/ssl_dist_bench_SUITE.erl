@@ -490,15 +490,24 @@ sched_util_runner(A, B, Effort, Senders, Config) ->
           fun() ->
                   receive
                       {start,Tag,Pid} ->
+                          fs_log(
+                            Config,
+                            "sched_util_runner.Server.msacc.self",
+                            self()),
                           msacc:start(Time),
+                          fs_log(
+                            Config,
+                            "sched_util_runner.Server.msacc:start",
+                            ok),
                           receive
                               {done,Tag,Pid} ->
-                                  fs_log(Config,
-                                         "sched_util_runner.msacc:stats",
-                                         ok),
+                                  fs_log(
+                                    Config,
+                                    "sched_util_runner.Server.msacc:stats",
+                                    ok),
                                   ServerStats = msacc:stats(),
                                   fs_log(Config,
-                                         "sched_util_runner.msacc:ServerStats",
+                                         "sched_util_runner.Server.msacc:stats",
                                          ServerStats),
                                   exit({result,Tag,ServerStats})
                           end
@@ -515,11 +524,11 @@ sched_util_runner(A, B, Effort, Senders, Config) ->
     %%
     receive after 1000 -> ok end,
     ServerMsacc ! {start,Tag,self()},
-    fs_log(Config, "sched_util_runner.self", self()),
+    fs_log(Config, "sched_util_runner.Client.self", self()),
     msacc:start(Time),
-    fs_log(Config, "sched_util_runner.msacc:start.done", ok),
+    fs_log(Config, "sched_util_runner.Client.msacc:start", ok),
     ClientMsaccStats = msacc:stats(),
-    fs_log(Config, "sched_util_runner.ClientMsaccStats", ClientMsaccStats),
+    fs_log(Config, "sched_util_runner.Client.msacc.stats", ClientMsaccStats),
     receive after 1000 -> ok end,
     ServerMsacc ! {done,Tag,self()},
     ServerMsaccStats =
