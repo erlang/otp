@@ -26,7 +26,7 @@
 	 create_long_names/1, bad_tar/1, errors/1, extract_from_binary/1,
 	 extract_from_binary_compressed/1, extract_filtered/1,
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
-	 memory/1,unicode/1,read_other_implementations/1,
+	 memory/1,unicode/1,read_other_implementations/1,bsdtgz/1,
          sparse/1, init/1, leading_slash/1, dotdot/1,
          roundtrip_metadata/1, apply_file_info_opts/1,
          incompatible_options/1]).
@@ -42,7 +42,7 @@ all() ->
      extract_from_binary_compressed, extract_from_open_file,
      extract_filtered,
      symlinks, open_add_close, cooked_compressed, memory, unicode,
-     read_other_implementations,
+     read_other_implementations, bsdtgz,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
      apply_file_info_opts,incompatible_options].
 
@@ -863,6 +863,17 @@ do_read_other_implementations([File|Rest], DataDir) ->
     {ok, _} = erl_tar:extract(Full, [memory]),
     do_read_other_implementations(Rest, DataDir).
 
+%% test block padding with compressed tar from bsdtar or tape
+bsdtgz(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = "example_pad.tgz",
+    Full = filename:join(DataDir, File),
+    io:format("~nTrying ~s", [File]),
+    Table = ["autofs.conf","rpc"],
+    {ok, Table} = erl_tar:table(Full, [compressed]),
+    {ok, Bin} = file:read_file(Full),
+    {ok, Table} = erl_tar:table({binary, Bin}, [compressed]),
+    verify_ports(Config).
 
 %% Test handling of sparse files
 sparse(Config) when is_list(Config) ->
