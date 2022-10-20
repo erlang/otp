@@ -49,6 +49,7 @@ my @beam_global_funcs = qw(
     call_nif_early
     call_nif_shared
     check_float_error
+    construct_utf8_shared
     debug_bp
     dispatch_bif
     dispatch_nif
@@ -101,6 +102,7 @@ my @beam_global_funcs = qw(
     process_main
     raise_exception
     raise_exception_shared
+    store_unaligned
     times_body_shared
     times_guard_shared
     unary_minus_body_shared

@@ -1496,8 +1496,8 @@ protected:
     void emit_bs_get_utf16(const ArgRegister &Ctx,
                            const ArgLabel &Fail,
                            const ArgWord &Flags);
-    void update_bin_state(x86::Gp bin_base,
-                          x86::Gp bin_offset,
+    void update_bin_state(x86::Gp bin_offset,
+                          x86::Gp current_byte,
                           Sint bit_offset,
                           Sint size,
                           x86::Gp size_reg);
@@ -1505,6 +1505,10 @@ protected:
     void set_zero(Sint effectiveSize);
     bool bs_maybe_enter_runtime(bool entered);
     void bs_maybe_leave_runtime(bool entered);
+    void emit_construct_utf8_shared();
+    void emit_construct_utf8(const ArgVal &Src,
+                             Sint bit_offset,
+                             bool is_byte_aligned);
 
     void emit_read_bits(Uint bits,
                         const x86::Gp bin_base,
