@@ -123,7 +123,7 @@
           <taglist>
             <tag><marker id="prop_bind_address"></marker>{bind_address, inet:ip_address() | inet:hostname() | any}</tag>
             <item>
-              <p><c>hostname() = string()</c> representing a host, for example,
+              <p><c>hostname()</c> representing a host, for example,
               "foo.bar.com".</p>
               <p><c>inet:ip_address() = {N1,N2,N3,N4} % IPv4
        | {K1,K2,K3,K4,K5,K6,K7,K8}  % IPv6</c>.</p>

@@ -78,7 +78,7 @@
       <tag>{data_dir, path()}</tag>
       <item>Directory where the profile
 	can save persistent data. If omitted, all cookies are treated
-	as session cookies.</item>
+	as session cookies. <c>path() = string()</c> represents a file path or directory path.</item>
     </taglist>
 
     <p>The client can be stopped using <seemfa marker="inets#stop/2"><c>inets:stop(httpc, Pid)</c></seemfa> or
@@ -330,15 +330,13 @@
             structure:</p>
 
             <pre>
-              {RequestId, saved_to_file}
-              {RequestId, {error, Reason}}
-              {RequestId, Result}
-              {RequestId, stream_start, Headers}
-              {RequestId, stream_start, Headers, HandlerPid}
-              {RequestId, stream, BinBodyPart}
-            {RequestId, stream_end, Headers}
-            </pre>
-
+  {RequestId, saved_to_file}
+  {RequestId, {error, Reason}}
+  {RequestId, Result}
+  {RequestId, stream_start, Headers}
+  {RequestId, stream_start, Headers, HandlerPid}
+  {RequestId, stream, BinBodyPart}
+  {RequestId, stream_end, Headers}</pre>
 	        </item>
           <tag><c>ipv6_host_with_brackets</c></tag>
           <item>
@@ -413,6 +411,9 @@
       <fsummary>Returns the cookie header that would have been sent when making
       a request to <c><anno>URL</anno></c> using the profile
       <c><anno>Profile</anno></c>.</fsummary>
+      <type_desc variable="Profile">
+		    When started <c>stand_alone</c> only the pid can be used.
+      </type_desc>
       <desc>
         <p>Returns the cookie header that would have been sent when making a
         request to <c><anno>Url</anno></c> using profile
@@ -428,6 +429,9 @@
       <name since="OTP R15B01" name="get_options" arity="1"/>
       <name since="OTP R15B01" name="get_options" arity="2"/>
       <fsummary>Gets the currently used options.</fsummary>
+      <type_desc variable="Profile">
+		    When started <c>stand_alone</c> only the pid can be used.
+      </type_desc>
       <desc>
         <p>Retrieves the options currently used by the client.</p>
       </desc>
@@ -437,6 +441,9 @@
       <name since="OTP R15B02" name="info" arity="0"/>
       <name since="OTP R15B02" name="info" arity="1"/>
       <fsummary>Produces a list of miscellaneous information.</fsummary>
+      <type_desc variable="Profile">
+		    When started <c>stand_alone</c> only the pid can be used.
+      </type_desc>
       <desc>
         <p>Produces a list of miscellaneous information. Intended for debugging.
         If no profile is specified, the default profile is used.</p>
@@ -448,6 +455,9 @@
       <name since="OTP R13B04" name="reset_cookies" arity="0"/>
       <name since="OTP R13B04" name="reset_cookies" arity="1"/>
       <fsummary>Resets the cookie database.</fsummary>
+      <type_desc variable="Profile">
+		    When started <c>stand_alone</c> only the pid can be used.
+      </type_desc>
       <desc>
         <p>Resets (clears) the cookie database for the specified
         <c><anno>Profile</anno></c>. If no profile is specified the default
@@ -459,6 +469,9 @@
       <name since="OTP R13B04" name="request" arity="1"/>
       <name since="OTP R13B04" name="request" arity="2"/>
       <fsummary>Sends a get HTTP request.</fsummary>
+      <type_desc variable="Profile">
+		    When started <c>stand_alone</c> only the pid can be used.
+      </type_desc>
       <desc>
         <p>Equivalent to <seemfa marker="httpc#request/4"><c>httpc:request(get, {Url, []}, [], [])</c></seemfa>.</p>
       </desc>
@@ -536,7 +549,7 @@
 	        </item>
         </taglist>
 
-        <p>Request options (<seetype marker="#option_request">option_request()</seetype>) details:</p>
+        <p>Options (type <seetype marker="#option_request">option_request()</seetype>) details:</p>
         <taglist>
           <tag><c>sync</c></tag>
           <item>
@@ -649,15 +662,13 @@
             structure:</p>
 
             <pre>
-              {RequestId, saved_to_file}
-              {RequestId, {error, Reason}}
-              {RequestId, Result}
-              {RequestId, stream_start, Headers}
-              {RequestId, stream_start, Headers, HandlerPid}
-              {RequestId, stream, BinBodyPart}
-            {RequestId, stream_end, Headers}
-            </pre>
-
+ {RequestId, saved_to_file}
+ {RequestId, {error, Reason}}
+ {RequestId, Result}
+ {RequestId, stream_start, Headers}
+ {RequestId, stream_start, Headers, HandlerPid}
+ {RequestId, stream, BinBodyPart}
+ {RequestId, stream_end, Headers}</pre>
             <p>Default is the <c>pid</c> of the process calling the request
 	    function (<c>self()</c>). </p>
 	        <marker id="ipv6_host_with_brackets"></marker>
@@ -684,10 +695,6 @@
         <tag><c>HostName</c></tag>
         <item>
           Example: "localhost" or "foo.bar.se"
-        </item>
-        <tag><c>Port</c></tag>
-        <item>
-          Example: <c>8080</c>
         </item>
         <tag><c>DomainDesc</c></tag>
         <item>
@@ -752,6 +759,7 @@
       </item>
       <tag><c>Port</c></tag>
       <item>
+        Example: <c>8080</c>.
         Local port number to use. See <seeerl
         marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seeerl> for
         details.
@@ -821,18 +829,17 @@
       <name since="OTP R14B02" name="store_cookies" arity="3"/>
       <fsummary>Saves the cookies defined in <c>SetCookieHeaders</c> in the 
       client profile cookie database.</fsummary>
+      <type_desc variable="SetCookieHeaders">
+        Where field = "set-cookie"
+      </type_desc>
+      <type_desc variable="Profile">
+        When started <c>stand_alone</c> only the pid can be used.
+      </type_desc>
       <desc>
         <p>Saves the cookies defined in <c>SetCookieHeaders</c> in the client
         profile cookie database. Call this function if option <c>cookies</c> is
         set to <c>verify</c>. If no profile is specified, the default profile is
         used.</p>
-
-        <taglist>
-          <tag><c>SetCookieHeaders</c></tag>
-          <item>Where field = "set-cookie"</item>
-          <tag><c><anno>Url</anno></c></tag>
-          <item>When started <c>stand_alone</c> only the pid can be used.</item>
-        </taglist>
       </desc>
     </func>
 
@@ -870,6 +877,12 @@
       <name since="OTP R15B02" name="which_sessions" arity="0"/>
       <name since="OTP R15B02" name="which_sessions" arity="1"/>
       <fsummary>Produces a slightly processed dump of the sessions database.</fsummary>
+      <type_desc variable="Profile">
+		    When started <c>stand_alone</c> only the pid can be used.
+      </type_desc>
+      <type_desc variable="Session">
+		    Internal representation of a session.
+      </type_desc>
       <desc>
         <p> This function is intended for debugging only. It produces
         a slightly processed dump of the session database. The first
@@ -878,12 +891,6 @@
         session information tuple should always be empty if the code
         is working as intended. If no profile is specified, the default
         profile is used.</p>
-        <taglist>
-        <tag><c><anno>Profile</anno></c></tag>
-		    <item>When started <c>stand_alone</c> only the pid can be used.</item>
-        <tag><c><anno>Session</anno></c></tag>
-		    <item>Internal representation of a session.</item>
-        </taglist>
       </desc>
     </func>
   </funcs>
