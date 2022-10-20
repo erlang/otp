@@ -1159,7 +1159,8 @@ handshake(
         {?MODULE, From, {send, Data}} ->
             {SendParams_1, SendSeq_1, Result} =
                 encrypt_and_send_chunk(
-                  SendParams, SendSeq, [?HANDSHAKE_CHUNK, Data]),
+                  SendParams, SendSeq,
+                  [?HANDSHAKE_CHUNK, Data], 1 + iolist_size(Data)),
             if
                 Result =:= ok ->
                     reply(From, ok),
@@ -1274,7 +1275,8 @@ output_handler_tick(Params, Seq) ->
             TickSize = 7 + rand:uniform(56),
             TickData = binary:copy(<<0>>, TickSize),
             {Params_1, Seq_1, Result} =
-                encrypt_and_send_chunk(Params, Seq, [?TICK_CHUNK, TickData]),
+                encrypt_and_send_chunk(
+                  Params, Seq, [?TICK_CHUNK, TickData], 1 + TickSize),
             if
                 Result =:= ok ->
                     output_handler(Params_1, Seq_1);
@@ -1303,7 +1305,8 @@ output_handler_xfer(Params, Seq, Front, Size, Rear)
   when ?CHUNK_SIZE =< Size ->
     {Data, Q} = deq_iovec(?CHUNK_SIZE, Front, Size, Rear),
     {Params_1, Seq_1, Result} =
-        encrypt_and_send_chunk(Params, Seq, [?DATA_CHUNK, Data]),
+        encrypt_and_send_chunk(
+          Params, Seq, [?DATA_CHUNK, Data], 1 + ?CHUNK_SIZE),
     if
         Result =:= ok ->
             output_handler_xfer(Params_1, Seq_1, Q);
@@ -1320,7 +1323,7 @@ output_handler_xfer(Params, Seq, Front, Size, Rear) ->
                     Data = Front ++ lists:reverse(Rear),
                     {Params_1, Seq_1, Result} =
                         encrypt_and_send_chunk(
-                          Params, Seq, [?DATA_CHUNK, Data]),
+                          Params, Seq, [?DATA_CHUNK, Data], 1 + Size),
                     if
                         Result =:= ok ->
                             {Params_1, Seq_1};
@@ -1448,19 +1451,22 @@ deliver_data(DistHandle, Front, Size, Rear, Bin) ->
 encrypt_and_send_chunk(
   #params{
      socket = Socket, rekey_count = RekeyCount, rekey_msg = RekeyMsg} = Params,
-  Seq, Cleartext) when Seq =:= RekeyCount ->
+  Seq, Cleartext, Size) when Seq =:= RekeyCount ->
     %%
     cancel_rekey_timer(RekeyMsg),
     case encrypt_and_send_rekey_chunk(Params, Seq) of
         #params{} = Params_1 ->
             Result =
-                gen_tcp:send(Socket, encrypt_chunk(Params, 0, Cleartext)),
+                gen_tcp:send(
+                  Socket, encrypt_chunk(Params, 0, Cleartext, Size)),
             {Params_1, 1, Result};
         SendError ->
             {Params, Seq + 1, SendError}
     end;
-encrypt_and_send_chunk(#params{socket = Socket} = Params, Seq, Cleartext) ->
-    Result = gen_tcp:send(Socket, encrypt_chunk(Params, Seq, Cleartext)),
+encrypt_and_send_chunk(
+  #params{socket = Socket} = Params, Seq, Cleartext, Size) ->
+    Result =
+        gen_tcp:send(Socket, encrypt_chunk(Params, Seq, Cleartext, Size)),
     {Params, Seq + 1, Result}.
 
 encrypt_and_send_rekey_chunk(
@@ -1477,7 +1483,9 @@ encrypt_and_send_rekey_chunk(
     #key_pair{public = PubKeyA} = KeyPair = get_new_key_pair(),
     case
         gen_tcp:send(
-          Socket, encrypt_chunk(Params, Seq, [?REKEY_CHUNK, PubKeyA]))
+          Socket,
+          encrypt_chunk(
+            Params, Seq, [?REKEY_CHUNK, PubKeyA], byte_size(PubKeyA)))
     of
         ok ->
             SharedSecret = compute_shared_secret(KeyPair, PubKeyB),
@@ -1496,9 +1504,10 @@ encrypt_and_send_rekey_chunk(
 encrypt_chunk(
   #params{
      aead_cipher = AeadCipher,
-     iv = {IVSalt, IVNo}, key = Key, tag_len = TagLen}, Seq, Cleartext) ->
+     iv = {IVSalt, IVNo}, key = Key, tag_len = TagLen},
+  Seq, Cleartext, Size) ->
     %%
-    ChunkLen = iolist_size(Cleartext) + TagLen,
+    ChunkLen = Size + TagLen,
     AAD = <<Seq:32, ChunkLen:32>>,
     IVBin = <<IVSalt/binary, (IVNo + Seq):48>>,
     {Ciphertext, CipherTag} =
