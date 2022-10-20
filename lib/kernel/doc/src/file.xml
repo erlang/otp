@@ -867,6 +867,12 @@ f.txt:  {person, "kalle", 25}.
 	      does probably not match the number of bytes that can be
 	      read from a compressed file.</p>
           </item>
+          <tag><c>compressed_one</c></tag>
+          <item>
+            <p>Read one member of a gzip compressed file.
+	      Option <c>compressed_one</c> can only be combined
+	      with <c>read</c>.</p>
+          </item>
           <tag><c>{encoding, Encoding}</c></tag>
           <item>
             <p>Makes the file perform automatic translation of characters to

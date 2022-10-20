@@ -324,10 +324,17 @@ do_open(Name, Mode) when is_list(Mode) ->
 open1({binary,Bin0}=Handle, read, _Raw, Opts) when is_binary(Bin0) ->
     Bin = case lists:member(compressed, Opts) of
         true ->
+            %% emulate file:open with Modes = [compressed_one ...]
+            Z = zlib:open(),
+            zlib:inflateInit(Z, 31, cut),
             try
-                zlib:gunzip(Bin0)
+                IoList = zlib:inflate(Z, Bin0),
+                zlib:inflateEnd(Z),
+                iolist_to_binary(IoList)
             catch
                 _:_ -> Bin0
+            after
+                zlib:close(Z)
             end;
         false ->
             Bin0
@@ -354,7 +361,13 @@ open1({file, Fd}=Handle, read, [raw], Opts) ->
     end;
 open1({file, _Fd}=Handle, read, [], _Opts) ->
     {error, {Handle, {incompatible_option, cooked}}};
-open1(Name, Access, Raw, Opts) when is_list(Name) or is_binary(Name) ->
+open1(Name, Access, Raw, Opts0) when is_list(Name); is_binary(Name) ->
+    Opts = case lists:member(compressed, Opts0) andalso Access == read of
+               true ->
+                   [compressed_one | (Opts0 -- [compressed])];
+               false ->
+                   Opts0
+           end,
     case file:open(Name, Raw ++ [binary, Access|Opts]) of
         {ok, File} ->
             {ok, #reader{handle=File,access=Access,func=fun file_op/2}};
