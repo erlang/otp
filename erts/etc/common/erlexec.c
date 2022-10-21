@@ -75,6 +75,7 @@ static char *plusM_au_alloc_switches[] = {
     "acul",
     "acnl",
     "acfml",
+    "acful",
     "cp",
     "e",
     "t",
