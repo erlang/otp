@@ -2972,7 +2972,7 @@ static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
     if (i < NACTIVE(tb)) {
          /* Yield */
         fixdel->slot = i;
-        fixdel->all = 0;
+        fixdel->all = 1;
         fixdel->trap = 1;
         return -1;
     }
