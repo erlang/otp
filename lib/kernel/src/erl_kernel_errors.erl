@@ -42,6 +42,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
 format_erl_ddll_error(_, _, _) ->
     [].
 
+format_os_error(cmd, _, {open_port, Reason}) ->
+    [{general, maybe_posix_message(Reason)}];
 format_os_error(cmd, [_], _) ->
     [not_charlist];
 format_os_error(cmd, [_, _], Cause) ->
@@ -70,6 +72,14 @@ format_os_error(unsetenv, [Name], _) ->
     [must_be_env_var_name(Name)];
 format_os_error(_, _, _) ->
     [].
+
+maybe_posix_message(Reason) ->
+    case erl_posix_msg:message(Reason) of
+        "unknown POSIX error" ->
+            io_lib:format("open_port failed with reason: ~tp",[Reason]);
+        PosixStr ->
+            io_lib:format("~ts (~tp)",[PosixStr, Reason])
+    end.
 
 must_be_atom(Term, Default) when is_atom(Term) -> Default;
 must_be_atom(_, _) -> not_atom.
@@ -129,6 +139,8 @@ must_be_env_charlist(_) ->
 
 format_error_map([""|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map);
+format_error_map([{general, E}|Es], ArgNum, Map) ->
+    format_error_map(Es, ArgNum, Map#{ general => expand_error(E)});
 format_error_map([E|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map#{ArgNum => expand_error(E)});
 format_error_map([], _, Map) ->
@@ -155,4 +167,6 @@ expand_error(not_list) ->
 expand_error(not_map) ->
     <<"not a map">>;
 expand_error(not_proper_list) ->
-    <<"not a proper list">>.
+    <<"not a proper list">>;
+expand_error(Other) ->
+    Other.
