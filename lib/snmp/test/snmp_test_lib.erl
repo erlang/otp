@@ -1413,11 +1413,11 @@ linux_distro_str_to_distro_id(X) ->
 %%     end.
 
 
-simplify_label("Systemtap") ->
+simplify_label("Systemtap" ++ _) ->
     {host, systemtap};
-simplify_label("Meamax") ->
+simplify_label("Meamax" ++ _) ->
     {host, meamax};
-simplify_label("Cover") ->
+simplify_label("Cover" ++ _) ->
     {host, cover};
 simplify_label(Label) ->
     case string:find(string:to_lower(Label), "docker") of
@@ -1432,7 +1432,7 @@ label2factor(docker) ->
 label2factor({host, meamax}) ->
     2;
 label2factor({host, cover}) ->
-    4;
+    6;
 label2factor({host, _}) ->
     0.
 
