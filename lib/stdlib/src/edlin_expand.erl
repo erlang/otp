@@ -78,7 +78,7 @@ expand(Bef0, Opts) ->
 expand(Bef0, Opts, #shell_state{bindings = Bs, records = RT, functions = FT}) ->
     LegacyOutput = proplists:get_value(legacy_output, Opts, false),
     {_Bef1, Word} = over_word(Bef0),
-    Output = case edlin_context:get_context(Bef0) of
+    {Res, Expansion, Matches} = case edlin_context:get_context(Bef0) of
 
                  {string} -> expand_string(Bef0);
 
@@ -153,10 +153,13 @@ expand(Bef0, Opts, #shell_state{bindings = Bs, records = RT, functions = FT}) ->
                  _ -> {no, [], []}
 
              end,
+    Matches1 = case {Res,number_matches(Matches)} of
+        {yes, 1} -> [];
+        _ -> Matches
+    end,
     case LegacyOutput of
-        true -> {Res, Expansion, Matches} = Output,
-                {Res, Expansion, to_legacy_format(Matches)};
-        false -> Output
+        true -> {Res, Expansion, to_legacy_format(Matches1)};
+        false -> {Res, Expansion, Matches1}
     end.
 expand_map(_, [], _, _) ->
     {no, [], []};
@@ -302,19 +305,36 @@ is_type(Type, Cs, String) ->
     catch
         _:_ ->
             %% Types not possible to deduce with erl_parse
-            case A of
-                [{'#',_},{var,_,'Port'},{'<',_},{float,_,_},{'>',_},{dot,_}] -> find_type(Types, [port]);
-                [{'#',_},{var,_,'Ref'},{'<',_},{float,_,_},{'.',_},{float,_,_},{'>',_},{dot,_}] -> find_type(Types, [reference]);
-                [{'fun',_},{'(',_} | _] -> find_type(Types, [parameters, function, 'fun']);
-                [{'#',_},{var,_,'Fun'},{'<',_},{atom,_,erl_eval},{'.',_},{float,_,_},{'>',_}] -> find_type(Types, [parameters, function, 'fun']);
-                [{'<', _}, {float, _, _}, {'.', _}, {integer, _, _}, {'>', _}, {dot, _}] -> find_type(Types, [pid]);
-                [{'#', _}, {atom, _, RecordName},{'{', _}| _] -> find_type(Types, [{record, RecordName}]);
-                _ -> false
+            % If string contains variables, erl_parse:parse_term will fail, but we
+            % consider them valid sooo.. lets replace them with the atom var
+            B = [(fun({var, Anno, _}) -> {atom, Anno, var}; (Token) -> Token end)(X) || X <- A],
+            try
+                {ok, Term2} = erl_parse:parse_term(B),
+                case Term2 of
+                    Tuple2 when is_tuple(Tuple2) -> find_type(Types, [tuple]);
+                    Map2 when is_map(Map2) -> find_type(Types, [map]);
+                    Binary2 when is_binary(Binary2) -> find_type(Types, [binary]);
+                    List2 when is_list(List2), length(List2) > 0 ->
+                        find_type(Types, [list, string, nonempty_list,maybe_improper_list, nonempty_improper_list]);
+                    List2 when is_list(List2) -> find_type(Types, [list, string, maybe_improper_list])
+                end
+            catch
+                _:_ ->
+                    case A of
+                        [{'#',_},{var,_,'Port'},{'<',_},{float,_,_},{'>',_},{dot,_}] -> find_type(Types, [port]);
+                        [{'#',_},{var,_,'Ref'},{'<',_},{float,_,_},{'.',_},{float,_,_},{'>',_},{dot,_}] -> find_type(Types, [reference]);
+                        [{'fun',_},{'(',_} | _] -> find_type(Types, [parameters, function, 'fun']);
+                        [{'#',_},{var,_,'Fun'},{'<',_},{atom,_,erl_eval},{'.',_},{float,_,_},{'>',_}] -> find_type(Types, [parameters, function, 'fun']);
+                        [{'<', _}, {float, _, _}, {'.', _}, {integer, _, _}, {'>', _}, {dot, _}] -> find_type(Types, [pid]);
+                        [{'#', _}, {atom, _, RecordName},{'{', _}| _] -> find_type(Types, [{record, RecordName}]);
+                        _ -> false
+                    end
             end
     end.
 
 find_type([],_) -> false;
 find_type([any|_], _) -> true; % If we find any then every type is valid
+find_type([{type, any, []}|_], _) -> true;
 find_type([{{parameters, _},_}|Types], ValidTypes) ->
     case lists:member(parameters, ValidTypes) of
         true -> true;
@@ -346,7 +366,7 @@ in_range(_, []) -> false;
 in_range(Integer, [{type, range, [{integer, Start}, {integer, End}]}|_]) when Start =< Integer, Integer =< End -> true;
 in_range(Integer, [_|Types]) -> in_range(Integer, Types).
 
-check_integer_type(Types, Integer) when Integer == 0 -> find_type(Types, [integer, non_neg_integer]) orelse in_range(Integer, Types);
+check_integer_type(Types, Integer) when Integer == 0 -> find_type(Types, [integer, non_neg_integer, arity]) orelse in_range(Integer, Types);
 check_integer_type(Types, Integer) when Integer < 0 -> find_type(Types, [integer, neg_integer]) orelse in_range(Integer, Types);
 check_integer_type(Types, Integer) when Integer > 0 -> find_type(Types, [integer, non_neg_integer, pos_integer]) orelse in_range(Integer, Types).
 
@@ -483,13 +503,6 @@ expand_nesting_content(T, Constraints, Nestings, Section) ->
     %% now when that is fixed, how do we filter {allocator_sizes, ...} and others
     Types = [Ts || Ts <- edlin_type_suggestion:get_types(Constraints, T, lists:droplast(Nestings), [no_print]) ],
     case UnfinishedNestingArg of
-        %[] when is_atom(Types) -> {no, [], []};
-        %[] when is_list(Types) ->
-            %case find_type(T, [NestingType]) of
-                %true ->
-                  %  {no, [], [Section]};
-        %    %    false -> {no, [], []}
-            %end;
         [] ->
             case find_type(Types, [NestingType]) of
                 true -> 
@@ -522,8 +535,12 @@ expand_nesting_content(T, Constraints, Nestings, Section) ->
                                                                                    false -> close_nesting(Nestings)
                                                                                end,
                                                                           {yes, CC, [{CC, []}]};
+                                                                      _ when NestingType =:= list ->
+                                                                        {no, [], [{", ", []}, {"]", []}]};
+                                                                      _ when NestingType =:= map ->
+                                                                        {no, [], [{", ",[]},{"}", []}]};
                                                                       _ -> 
-                                                                        {no, [], [Section]}
+                                                                        {no, [], []}
                                                                   end
                                                               end || NestingArity <- NestingArities]);
                                             [{Word2,_}] ->
@@ -587,7 +604,9 @@ fold_completion_result(A, B) ->
 expand_function_type(ModStr, FunStr, Args, Unfinished, Nestings, FT) ->
     Mod = list_to_atom(ModStr),
     Fun = list_to_atom(FunStr),
-    MinArity = length(Args)+1,
+    MinArity = if Unfinished =:= [], length(Args) =:= 0 -> 0;
+        true -> length(Args)+1
+    end,
     case [A || A <- get_arities(ModStr, FunStr, FT), A >= MinArity] of
         [] -> {no, [], []};
         Arities ->
@@ -996,11 +1015,13 @@ format_matches([#{}|_]=FF, LineWidth) ->
                fun(F) ->
                        format_title(F, LineWidth)
                end, FF),
-    lists:flatten(
+    S = lists:flatten(
       [lists:join("", F)++Matches ||
-          {Matches, F}<-lists:sort(fun({_,A},{_,B}) -> A =< B end, maps:to_list(Groups))]);
+          {Matches, F}<-lists:sort(fun({_,A},{_,B}) -> A =< B end, maps:to_list(Groups))]),
+    lists:flatten(string:trim(S, trailing)++"\n");
 format_matches(Elems, LineWidth) ->
-    format_section_matches1(Elems, LineWidth, 0).
+    S = format_section_matches1(Elems, LineWidth, 0),
+    lists:flatten(string:trim(S, trailing)++"\n").
 format_title(#{title:=MFA, options:=Options}, _LineWidth) ->
     case proplists:get_value(hide, Options) of
         title -> "";

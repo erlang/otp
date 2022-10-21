@@ -81,8 +81,7 @@ normal(Config) when is_list(Config) ->
     {module,expand_test} = compile_and_load(Config,expand_test),
     %% These tests might fail if another module with the prefix
     %% "expand_" happens to also be loaded.
-    {yes,"test:",
-     [#{title:="modules", elems:=[{"expand_test",[{ending,":"}]}]}]} = do_expand("expand_"),
+    {yes,"test:",[]} = do_expand("expand_"),
     {no, [], []} = do_expand("expandXX_"),
     {no,[],[#{
                title:="functions",
@@ -94,7 +93,7 @@ normal(Config) when is_list(Config) ->
               }]} = do_expand("expand_test:"),
     {yes,[],[#{title:="functions",
                       elems:=[{"a_fun_name",_},{"a_less_fun_name",_}]}]} = do_expand("expand_test:a_"),
-    {yes,"arity_entirely()",[#{title:="functions", elems:=[{"expand0arity_entirely",_}]}]} = do_expand("expand_test:expand0"),
+    {yes,"arity_entirely()",[]} = do_expand("expand_test:expand0"),
     ok.
 
 to_atom(Str) ->
@@ -149,22 +148,21 @@ filename_completion(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     {ok, CWD} = file:get_cwd(),
     file:set_cwd(DataDir),
-    {yes,"e\"",[{"visible file",_}]} = do_expand("\"visible\\ fil"),
+    {yes,"e\"",[]} = do_expand("\"visible\\ fil"),
     {no,[],[]} = do_expand("\"visible fil"),
     {no,[],[]} = do_expand("\" "),
     {no,[],[]} = do_expand("\"\""),
-    {yes, "e\"", [{".hidden file",_}]} = do_expand("\".hidden\\ fil"),
-    {yes,"/", [{"../",_}]} = do_expand("\".."),
+    {yes, "e\"", []} = do_expand("\".hidden\\ fil"),
+    {yes,"/", []} = do_expand("\".."),
     {yes,"ta/", _} = do_expand("\"../edlin_expand_SUITE_da"),
-    {yes,"erl\"",[{"complete_function_parameter.erl",_}]} = do_expand("\"complete_function_parameter."),
+    {yes,"erl\"",[]} = do_expand("\"complete_function_parameter."),
     R = case {os:type(), file:native_name_encoding()} of
         {{win32,_}, _} -> {skip, "Unicode on filenames in windows are tricky"};
         {_,latin1} -> {skip, "Cannot interpret unicode filenames when native_name_encoding is latin1"};
         _ ->
             {yes,"isible",
             [{"visible file",_},{"visible_file",_},{"visible😀_file",_}]} = do_expand("\"v"),
-            {yes,"e\"",
-            [{"visible😀_file",_}]} = do_expand("\"visible😀_fil"),
+            {yes,"e\"",[]} = do_expand("\"visible😀_fil"),
             {yes,[],
             [{"../",[]},
             {".hidden file",_},
@@ -179,11 +177,11 @@ record_completion(_Config) ->
     %% test record completion for loaded records
     %% test record field name completion
     %% test record field completion
-    {yes,"ord{", [#{title:="records"}]} = do_expand("#a_rec"),
-    {yes,"uoted_record'{", [#{title:="records"}]} = do_expand("#'Q"),
+    {yes,"ord{", []} = do_expand("#a_rec"),
+    {yes,"uoted_record'{", []} = do_expand("#'Q"),
     {no, [], [#{title:="fields", elems:=[{"a_field",_}, {"b_field",_}, {"c_field",_}, {"d_field",_}]}]} = do_expand("#a_record{"),
     {no, [], [#{title:="fields", elems:=[{"a_field",_}, {"b_field",_}, {"c_field",_}, {"d_field",_}]}]} = do_expand("#a_record."),
-    {yes,"eld=", [#{title:="fields", elems:=[{"a_field",[{ending, "="}]}]}]} = do_expand("#a_record{a_fi"),
+    {yes,"eld=", []} = do_expand("#a_record{a_fi"),
     {no,[],[#{title:="types",elems:=
              [{"atom1",[]},
               {"atom2",[]},
@@ -200,7 +198,7 @@ record_completion(_Config) ->
                {"d_field",[{ending,"="}]}],
               options:=[highlight_all]}]} = do_expand("#a_record{a_field={atom3,b},"),
     %% test match argument and closing parenthesis completion
-    {yes,", ",[#{title:="types",elems:=[#{elems:=[{"atom3",[{ending,", "}]}]}]}]} = do_expand("#a_record{a_field={atom3"),
+    {yes,", ",[]} = do_expand("#a_record{a_field={atom3"),
     {no,[],[#{title:="types",elems:=[{"{atom4, ...}",[]}],options:=[{hide,title}]}]} = do_expand("#a_record{a_field={atom3,"),
     {no,[],[#{title:="types",elems:=[{"integer() >= 0",[]}],options:=[{hide,title}]}]} = do_expand("#a_record{a_field={atom3,{atom4, "),
     {yes,"}",_} = do_expand("#a_record{a_field={atom3,{atom4, 1"),
@@ -208,7 +206,7 @@ record_completion(_Config) ->
     ok.
 
 fun_completion(_Config) ->
-    {yes, "/1", [#{title:="functions", elems:=[{"unzip3",_}]}]} = do_expand("fun lists:unzip3"),
+    {yes, "/1", []} = do_expand("fun lists:unzip3"),
     {no, [], []} = do_expand("fun lists:unzip3/1,"),
     {no, [], []} = do_expand("lists:unzip3/1"),
     {no, [], [{"2",_},{"3",_}]} = do_expand("lists:seq/"),
@@ -218,19 +216,19 @@ fun_completion(_Config) ->
 
 binding_completion(_Config) ->
     %% test that bindings in the shell can be completed
-    {yes,"ding",[#{title:="bindings",elems:=[{"Binding",[]}]}]} = do_expand("Bin"),
-    {yes,"ding",[#{title:="bindings",elems:=[{"Binding",_}]}]} = do_expand("file:open(Bin"),
-    {yes,"ding",[#{title:="bindings",elems:=[{"Binding",_}]}]} = do_expand("fun (X, Y) -> Bin"),
+    {yes,"ding",[]} = do_expand("Bin"),
+    {yes,"ding",[]} = do_expand("file:open(Bin"),
+    {yes,"ding",[]} = do_expand("fun (X, Y) -> Bin"),
     %% test unicode
-    {yes,"öndag", [#{title:="bindings",elems:=[{"Söndag",_}]}]} = do_expand("S"),
-    {yes,"", [#{title:="bindings", elems:=[{"Ö",_}]}]} = do_expand("Ö"),
+    {yes,"öndag", []} = do_expand("S"),
+    {yes,"", []} = do_expand("Ö"),
     ok.
 
 map_completion(_Config) ->
     %% test that key suggestion works for a known map in bindings
     {no,[],[{"a_key",[{ending, "=>"}]},{"b_key",_},{"c_key",_}]} = do_expand("MapBinding#{"),
-    {yes, "_key=>", [{"b_key",_}]} = do_expand("MapBinding#{b"),
-    {yes, "_key=>", [{"b_key",_}]} = do_expand("MapBinding # { b"),
+    {yes, "_key=>", []} = do_expand("MapBinding#{b"),
+    {yes, "_key=>", []} = do_expand("MapBinding # { b"),
     %% test that an already specified key does not get suggested again
     {no, [], [{"a_key",_},{"c_key", _}]} = do_expand("MapBinding#{b_key=>1,"),
     %% test that unicode works
@@ -244,14 +242,11 @@ function_parameter_completion(Config) ->
     %% test that getting type of out of bound parameter does not trigger crash
     compile_and_load2(Config,complete_function_parameter),
     {no, [], [#{elems:=[#{title:="complete_function_parameter:an_untyped_fun/2", elems:=[]}]}]} = do_expand("complete_function_parameter:an_untyped_fun("),
-    {yes,":",
-    [#{elems := [{"complete_function_parameter",[{ending,":"}]}],
-       options := [highlight_all],
-       title := "modules"}]} = do_expand("complete_function_parameter:an_untyped_fun(complete_function_parameter"),
+    {yes,":",[]} = do_expand("complete_function_parameter:an_untyped_fun(complete_function_parameter"),
     {no, [], [#{elems:=[#{elems:=[#{title:="types",elems:=[{"integer()",[]}]}]}]}]} = do_expand("complete_function_parameter:a_fun_name("),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"integer()",[]}]}]}]}]} = do_expand("complete_function_parameter:a_fun_name(1,"),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"integer()",[]}]}]}]}]}  = do_expand("complete_function_parameter : a_fun_name ( 1 , "),
-    {yes, ")", [#{elems:=[#{elems:=[#{elems:=[{")",[]}]}]}]}]} = do_expand("complete_function_parameter:a_fun_name(1,2"),
+    {yes, ")", []} = do_expand("complete_function_parameter:a_fun_name(1,2"),
     {no, [], []} = do_expand("complete_function_parameter:a_fun_name(1,2,"),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"any()",[]},{"[any() | [Deeplist]]",[]}]}]}]}]} = do_expand("complete_function_parameter:a_deeplist_fun("),
     {no,[],[#{title:="typespecs",
@@ -353,12 +348,17 @@ get_coverage(Config) ->
     do_expand("complete_function_parameter:map_parameter_function(#{a=>1,d=>error}"),
     do_expand("complete_function_parameter:map_parameter_function(#{a=>1,b=>2,c=>3,d=>error"),
     do_expand("complete_function_parameter:map_parameter_function(#{}, "),
+    do_expand("complete_function_parameter:map_parameter_function(#{V=>1}, "),
+    do_expand("complete_function_parameter:map_parameter_function(#{a=>V}, "),
     do_expand("complete_function_parameter:tuple_parameter_function({a,b}, "),
+    do_expand("complete_function_parameter:tuple_parameter_function({a,V}, "),
     do_expand("complete_function_parameter:list_parameter_function([], "),
     do_expand("complete_function_parameter:list_parameter_function([atom], "),
+    true = {no, [], []} =/= do_expand("complete_function_parameter:list_parameter_function([V], "),
     do_expand("complete_function_parameter:non_empty_list_parameter_function([atom], "),
     do_expand("complete_function_parameter:non_empty_list_parameter_function([], "),
     do_expand("complete_function_parameter:binary_parameter_function(<<0>>, "),
+    do_expand("complete_function_parameter:binary_parameter_function(<<V>>, "),
     do_expand("complete_function_parameter:integer_parameter_function(0, "),
     do_expand("complete_function_parameter:non_neg_integer_parameter_function(1, "),
     do_expand("complete_function_parameter:neg_integer_parameter_function(-1, "),
@@ -376,6 +376,7 @@ get_coverage(Config) ->
     do_expand("complete_function_parameter:reference_parameter_function(#Ref<1.0.1.0>, "),
     do_expand("complete_function_parameter:any_parameter_function(#Ref<1.0.1.0>, "),
     do_expand("complete_function_parameter:ann_type_parameter_function(atom, "),
+    true = {no, [], []} =/= do_expand("complete_function_parameter:ann_type_parameter_function2(1, "),
     do_expand("complete_function_parameter:atom_parameter_function(atom, "),
     do_expand("complete_function_parameter:ann_type_parameter_function(atom"),
     do_expand("complete_function_parameter:atom_parameter_function(atom"),
@@ -392,10 +393,7 @@ get_coverage(Config) ->
         options := [highlight_all],
         title := "typespecs"}]} =
         do_expand("my_func("),
-    {yes,"=",
-        [#{elems := [{"field",[{ending,"="}]}],
-            options := [highlight_all],
-            title := "fields"}]} =
+    {yes,"=",[]} =
         do_expand("my_func(#my_record{ field"),
     {no,[],
         [#{elems :=
@@ -405,10 +403,7 @@ get_coverage(Config) ->
             options := [{hide,title}],
             title := "types"}]} =
         do_expand("my_func(#my_record{ field=>"),
-    {yes,"ue, ",
-        [#{elems := [{"a_value",[{ending,", "}]}],
-            options := [highlight_all],
-            title := "matches"}]} =
+    {yes,"ue, ",[]} =
         do_expand("my_func(#my_record{field=>a_val"),
     %% bifs()
     {yes, "st(", _} =
@@ -538,16 +533,16 @@ quoted_fun(Config) when is_list(Config) ->
                                        {"'Quoted_fun_too'",_}]}]} = do_expand("expand_test1:'Q"),
     {yes,[],[#{elems:=[{"'Quoted_fun_name'",_},
                              {"'Quoted_fun_too'",_}]}]} = do_expand("expand_test1:'Quoted_fun_"),
-    {yes,"weird-fun-name'(",[#{elems:=[{"'#weird-fun-name'",_}]}]} = do_expand("expand_test1:'#"),
+    {yes,"weird-fun-name'(",[]} = do_expand("expand_test1:'#"),
 
     %% Since there is a module_info/1 as well as a module_info/0
     %% there should not be a closing parenthesis added.
-    {yes,"(",[#{elems:=[{"module_info",_}]}]} = do_expand("expand_test:module_info"),
+    {yes,"(",[]} = do_expand("expand_test:module_info"),
     ok.
 
 quoted_module(Config) when is_list(Config) ->
     {module,'ExpandTestCaps'} = compile_and_load(Config,'ExpandTestCaps'),
-    {yes, "Caps':",[#{elems:=[{"'ExpandTestCaps'",_}]}]} = do_expand("'ExpandTest"),
+    {yes, "Caps':",[]} = do_expand("'ExpandTest"),
     {no,[],[#{elems:=[{"a_fun_name",_},
                             {"a_less_fun_name",_},
                             {"b_comes_after_a",_},
@@ -577,7 +572,7 @@ quoted_both(Config) when is_list(Config) ->
     {yes,"uoted_fun_",[#{elems:=[{"'Quoted_fun_name'",_},{"'Quoted_fun_too'",_}]}]} = do_expand("'ExpandTestCaps1':'Q"),
     {yes,[],[#{elems:=[{"'Quoted_fun_name'",_},
                              {"'Quoted_fun_too'",_}]}]} = do_expand("'ExpandTestCaps1':'Quoted_fun_"),
-    {yes,"weird-fun-name'()",[#{elems:=[{"'#weird-fun-name'",_}]}]} = do_expand("'ExpandTestCaps1':'#"),
+    {yes,"weird-fun-name'()",[]} = do_expand("'ExpandTestCaps1':'#"),
     ok.
 
 %% Note: pull request #1152.
@@ -600,7 +595,7 @@ unicode(Config) when is_list(Config) ->
                                               {"'кlирилли́ческий атомB'",_}]}]} = do_expand("unicode_expand:'кlи"),
     {yes,"еский атом", [#{elems:=[{"'кlирилли́ческий атом'",_},
                                         {"'кlирилли́ческий атомB'",_}]}]} = do_expand("unicode_expand:'кlирилли́ч"),
-    {yes,"(", [#{elems:=[{"'кlирилли́ческий атомB'",_}]}]} = do_expand("unicode_expand:'кlирилли́ческий атомB'"),
+    {yes,"(", []} = do_expand("unicode_expand:'кlирилли́ческий атомB'"),
     "'кlирилли́ческий атом'     'кlирилли́ческий атомB'    module_info\n" =
         do_format([{"'кlирилли́ческий атом'",[]},
                    {"'кlирилли́ческий атомB'",[]},

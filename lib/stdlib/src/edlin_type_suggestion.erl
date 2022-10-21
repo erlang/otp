@@ -305,6 +305,8 @@ get_arity1({map_field_exact, K, _V}, C, Nestings) ->
 get_arity1({union, Types}, Constraints, Nestings) ->
     Arities = [get_arity1(T, Constraints, Nestings) || T <- Types],
     [X || X <- lists:flatten(Arities), X/=none];
+get_arity1({ann_type, _Var, Type}, Constraints, Nestings) ->
+    get_arity1(Type, Constraints, Nestings);
 get_arity1({user_type, _, _, _, Type}, Constraints, Nestings) ->
     get_arity1(Type, Constraints, Nestings);
 get_arity1(_, _, _) ->
@@ -386,6 +388,10 @@ get_types1({user_type, _, _, _, Type}, Cs, Nestings, 0, [no_print]=Options) ->
     get_types1(Type, Cs, Nestings, 0, Options);
 get_types1({ann_type, _Var, T}, Cs, Nestings, MaxUserTypeExpansions, [no_print]) ->
     get_types1(T, Cs, Nestings, MaxUserTypeExpansions, [no_print]);
+get_types1({ann_type, _Var, _T}=Type, Cs, [], _MaxUserTypeExpansions, []) ->
+    {print_type(Type, Cs), ""};
+get_types1({ann_type, _Var, T}, Cs, Nestings, MaxUserTypeExpansions, []) ->
+    get_types1(T, Cs, Nestings, MaxUserTypeExpansions, []);
 get_types1(Type, _Cs, [], _, [no_print]) ->
     Type;
 get_types1({user_type, Mod, Name, Params, Type}, Cs, Nestings, MaxUserTypeExpansions, []) when MaxUserTypeExpansions > 0 ->
