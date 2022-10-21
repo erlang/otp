@@ -1364,120 +1364,127 @@ output_handler_xfer(Params, Seq, Front, Size, Rear) ->
 %%
 
 input_handler(Params, Seq) ->
-    input_handler(Params, Seq, [], 0, []).
+    %% Shortcut into the loop
+    {Params_1, Seq_1, Data} = input_data(Params, Seq),
+    input_handler(Params_1, Seq_1, Data, [], byte_size(Data)).
 %%
-input_handler(#params{socket = Socket} = Params, Seq, Front, Size, Rear) ->
-    receive
-        Msg ->
-            case Msg of
-                {tcp_passive, Socket} ->
-                    ok = inet:setopts(Socket, [{active, ?TCP_ACTIVE}]),
-                    input_handler(Params, Seq, Front, Size, Rear);
-                {tcp, Socket, Chunk} ->
-                    input_chunk(Params, Seq, Front, Size, Rear, Chunk);
-                {tcp_closed, Socket} ->
-                    error_logger:info_report(
-                      [?FUNCTION_NAME,
-                       {reason, tcp_closed}]),
-                    exit(connection_closed);
-                Other ->
-                    %% Ignore...
-                    _ = trace(Other),
-                    input_handler(Params, Seq, Front, Size, Rear)
-            end
-    end.
-
-input_chunk(Params, Seq, Front, Size, Rear, Chunk) ->
-    case decrypt_chunk(Params, Seq, Chunk) of
-        <<?DATA_CHUNK, Cleartext/binary>> ->
-            input_deliver(
-              Params, Seq + 1, Front,
-              Size + byte_size(Cleartext), [Cleartext|Rear]);
-        <<?TICK_CHUNK, _/binary>> ->
-            input_handler(Params, Seq + 1, Front, Size, Rear);
-        UnknownChunk when is_binary(UnknownChunk) ->
-            error_logger:error_report(
-              [?FUNCTION_NAME,
-               {reason, unknown_chunk}]),
-            _ = trace(invalid_chunk),
-            exit(connection_closed);
-        #params{} = Params_1 ->
-            input_handler(Params_1, 0, Front, Size, Rear);
-        error ->
-            _ = trace(decrypt_error),
-            exit(connection_closed)
-    end.
-
-input_deliver(Params, Seq, [], Size, []) ->
-    Size = 0, % Assert
-    input_handler(Params, Seq, [], Size, []);
-input_deliver(Params, Seq, [], Size, Rear) ->
-    [Bin|Front] = lists:reverse(Rear),
-    input_deliver(Params, Seq, Front, Size, [], Bin);
-input_deliver(Params, Seq, [Bin|Front], Size, Rear) ->
-    input_deliver(Params, Seq, Front, Size, Rear, Bin).
-%%
-input_deliver(Params, Seq, Front, Size, Rear, Bin) ->
-    case Bin of
-        <<DataSizeA:32, DataA:DataSizeA/binary,
-          DataSizeB:32, DataB:DataSizeB/binary, Rest/binary>> ->
+input_handler(Params, Seq, First, Buffer, Size) ->
+    %% Size is size of First + Buffer
+    case First of
+        <<Packet1Size:32, Packet1:Packet1Size/binary,
+          Packet2Size:32, Packet2:Packet2Size/binary, Rest/binary>> ->
             DistHandle = Params#params.dist_handle,
-            erlang:dist_ctrl_put_data(DistHandle, DataA),
-            erlang:dist_ctrl_put_data(DistHandle, DataB),
-            input_deliver(
-              Params, Seq,
-              Front, Size - (4 + DataSizeA + 4 + DataSizeB), Rear,
-              Rest);
-        <<DataSize:32, Data:DataSize/binary, Rest/binary>> ->
+            erlang:dist_ctrl_put_data(DistHandle, Packet1),
+            erlang:dist_ctrl_put_data(DistHandle, Packet2),
+            input_handler(
+              Params, Seq, Rest,
+              Buffer, Size - (8 + Packet1Size + Packet2Size));
+        <<PacketSize:32, Packet:PacketSize/binary, Rest/binary>> ->
             DistHandle = Params#params.dist_handle,
-            erlang:dist_ctrl_put_data(DistHandle, Data),
-            input_deliver(
-              Params, Seq,
-              Front, Size - (4 + DataSize), Rear,
-              Rest);
-        <<DataSize:32, FirstData/binary>> ->
-            %% We do not have a complete packet in the first binary
-            TotalSize = 4 + DataSize,
-            if
-                TotalSize =< Size ->
-                    %% We have a complete packet queued
-                    BinSize = byte_size(Bin),
-                    {MoreData, Q} =
-                        deq_iovec(
-                          TotalSize - BinSize,
-                          Front, Size - BinSize, Rear),
-                    DistHandle = Params#params.dist_handle,
-                    erlang:dist_ctrl_put_data(
-                      DistHandle, [FirstData|MoreData]),
-                    input_deliver(Params, Seq, Q);
-                true ->
-                    %% We an incomplete packet
-                    input_handler(Params, Seq, [Bin|Front], Size, Rear)
-            end;
-        <<_/binary>> ->
-            %% We do not have a size header in the first binary
-            BinSize = byte_size(Bin),
+            erlang:dist_ctrl_put_data(DistHandle, Packet),
+            input_handler(
+              Params, Seq, Rest, Buffer, Size - (4 + PacketSize));
+        <<PacketSize:32, PacketStart/binary>> ->
+            %% Partial packet in First
+            input_handler(
+              Params, Seq, PacketStart, Buffer, Size - 4, PacketSize);
+        <<Bin/binary>> ->
+            %% Partial header in First
             if
                 4 =< Size ->
-                    %% We have a size header queued
-                    %%
-                    %% Extract a binary with just the size header
-                    RestSize = 4 - BinSize,
-                    {RestHeader, Q} =
-                        deq_iovec(RestSize, Front, Size + RestSize, Rear),
-                    Header = iolist_to_binary([Bin|RestHeader]),
-                    input_deliver(Params, Seq, Q, Header);
+                    %% Complete header in First + Buffer
+                    {First_1, Buffer_1, PacketSize} =
+                        input_get_packet_size(Bin, lists:reverse(Buffer)),
+                    input_handler(
+                      Params, Seq, First_1, Buffer_1, Size - 4, PacketSize);
                 true ->
-                    %% We an incomplete size header
-                    input_handler(Params, Seq, [Bin|Front], Size, Rear)
+                    %% Incomplete header received so far
+                    {Params_1, Seq_1, More} = input_data(Params, Seq),
+                    input_handler(
+                      Params_1, Seq_1, Bin,
+                      [More|Buffer], Size + byte_size(More))
             end
     end.
 %%
-input_deliver(Params, Seq, {Front, Size, Rear}) ->
-    input_deliver(Params, Seq, Front, Size, Rear).
+input_handler(Params, Seq, PacketStart, Buffer, Size, PacketSize) ->
+    %% Size is size of PacketStart + Buffer
+    RestSize = Size - PacketSize,
+    if
+        RestSize < 0 ->
+            %% Incomplete packet received so far
+            {Params_1, Seq_1, More} = input_data(Params, Seq),
+            input_handler(
+              Params_1, Seq_1, PacketStart,
+              [More|Buffer], Size + byte_size(More), PacketSize);
+        0 < RestSize, Buffer =:= [] ->
+            %% Rest data in PacketStart
+            <<Packet:PacketSize/binary, Rest/binary>> = PacketStart,
+            DistHandle = Params#params.dist_handle,
+            erlang:dist_ctrl_put_data(DistHandle, Packet),
+            input_handler(Params, Seq, Rest, [], RestSize);
+        Buffer =:= [] -> % RestSize == 0
+            %% No rest data
+            DistHandle = Params#params.dist_handle,
+            erlang:dist_ctrl_put_data(DistHandle, PacketStart),
+            input_handler(Params, Seq);
+        true ->
+            %% Split packet from rest data
+            LastBin = hd(Buffer),
+            <<PacketLast:(byte_size(LastBin) - RestSize)/binary,
+              Rest/binary>> = LastBin,
+            Packet = [PacketStart|lists:reverse(tl(Buffer), PacketLast)],
+            DistHandle = Params#params.dist_handle,
+            erlang:dist_ctrl_put_data(DistHandle, Packet),
+            input_handler(Params, Seq, Rest, [], RestSize)
+    end.
+
+input_get_packet_size(First, [Bin|Buffer]) ->
+    MissingSize = 4 - byte_size(First),
+    if
+        MissingSize =< byte_size(Bin) ->
+            <<Last:MissingSize/binary, Rest/binary>> = Bin,
+            <<PacketSize:32>> = <<First/binary, Last/binary>>,
+            {Rest, lists:reverse(Buffer), PacketSize};
+        true ->
+            input_get_packet_size(<<First/binary, Bin/binary>>, Buffer)
+    end.
+
+input_data(Params, Seq) ->
+    receive Msg -> input_data(Params, Seq, Msg) end.
 %%
-input_deliver(Params, Seq, {Front, Size, Rear}, Bin) ->
-    input_deliver(Params, Seq, Front, Size, Rear, Bin).
+input_data(#params{socket = Socket} = Params, Seq, Msg) ->
+    case Msg of
+        {tcp_passive, Socket} ->
+            ok = inet:setopts(Socket, [{active, ?TCP_ACTIVE}]),
+            input_data(Params, Seq);
+        {tcp, Socket, Ciphertext} ->
+            case decrypt_chunk(Params, Seq, Ciphertext) of
+                <<?DATA_CHUNK, Chunk/binary>> ->
+                    {Params, Seq + 1, Chunk};
+                <<?TICK_CHUNK, _Dummy/binary>> ->
+                    input_data(Params, Seq + 1);
+                <<UnknownChunk/binary>> ->
+                    error_logger:error_report(
+                      [?FUNCTION_NAME,
+                       {reason, unknown_chunk}]),
+                    _ = trace(UnknownChunk),
+                    exit(connection_closed);
+                #params{} = Params_1 ->
+                    input_data(Params_1, 0);
+                error ->
+                    _ = trace(decrypt_error),
+                    exit(connection_closed)
+            end;
+        {tcp_closed = Reason, Socket} ->
+            error_logger:info_report(
+              [?FUNCTION_NAME,
+               {reason, Reason}]),
+            exit(connection_closed);
+        Other ->
+            %% Ignore...
+            _ = trace(Other),
+            input_data(Params, Seq)
+    end.
 
 %% -------------------------------------------------------------------------
 %% Encryption and decryption helpers
