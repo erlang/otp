@@ -3052,15 +3052,23 @@ BIF_RETTYPE ets_internal_delete_all_2(BIF_ALIST_2)
              * the table and instead pitch in deleting objects
              * (in delete_all_objects_continue) and then trap to self.
              */
+            Eterm tid;
             ASSERT((tb->common.status & (DB_PRIVATE|DB_PROTECTED|DB_PUBLIC))
                    ==
                    (tb->common.type & (DB_PRIVATE|DB_PROTECTED|DB_PUBLIC)));
             tb->common.status &= ~(DB_PRIVATE|DB_PROTECTED|DB_PUBLIC);
             tb->common.status |= DB_BUSY;
             db_unlock(tb, LCK_WRITE);
+
+            if (is_atom(BIF_ARG_1)) {
+                ASSERT(is_table_named(tb));
+                tid = make_tid(BIF_P, tb);
+            } else {
+                tid = BIF_ARG_1;
+            }
             BUMP_ALL_REDS(BIF_P);
             BIF_TRAP2(BIF_TRAP_EXPORT(BIF_ets_internal_delete_all_2), BIF_P,
-                      BIF_ARG_1, nitems_holder);
+                      tid, nitems_holder);
         }
         else {
             /* Done, no trapping needed */

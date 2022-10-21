@@ -302,7 +302,7 @@ typedef struct db_table_common {
     UWord heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
     Uint64 heir_started_interval;  /* To further identify the heir */
     Eterm the_name;           /* an atom */
-    Binary *btid;
+    Binary *btid;             /* table magic ref, read only after creation */
     DbTableMethod* meth;      /* table methods */
     /* The ErtsFlxCtr below contains:
      * - Total number of items in table
