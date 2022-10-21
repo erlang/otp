@@ -73,6 +73,9 @@ api(Config) when is_list(Config) ->
     %% get_disk_data()
     ok = check_get_disk_data(),
 
+    %% get_disk_info()
+    ok = check_get_disk_info(),
+
     %% get_check_interval()
     1800000 = disksup:get_check_interval(),
 
@@ -402,6 +405,25 @@ check_get_disk_data() ->
     true = KByte>0,
     ok.
 
+check_get_disk_info() ->
+    DiskInfo = disksup:get_disk_info(),
+    [{Id, TotalKiB, AvailableKiB, Capacity}|_] = DiskInfo,
+    true = io_lib:printable_list(Id),
+    true = is_integer(TotalKiB),
+    true = is_integer(AvailableKiB),
+    true = is_integer(Capacity),
+    true = TotalKiB > 0,
+    true = AvailableKiB > 0,
+
+    [DiskInfoRoot|_] = disksup:get_disk_info("/"),
+    {"/", TotalKiBRoot, AvailableKiBRoot, CapacityRoot} = DiskInfoRoot,
+    true = is_integer(TotalKiBRoot),
+    true = is_integer(AvailableKiBRoot),
+    true = is_integer(CapacityRoot),
+    true = TotalKiBRoot > 0,
+    true = AvailableKiBRoot > 0,
+    ok.
+
 % filter get_disk_data and remove entriew with zero capacity
 % "non-normal" filesystems report zero capacity
 % - Perhaps erroneous 'df -k -l'?
@@ -424,11 +446,11 @@ parse_df_output_posix(Config) when is_list(Config) ->
 
     %% Have a simple example with no funny spaces in mount path
     Posix1 = "tmpfs             498048     7288    490760   2% /run\n",
-    {ok, {498048, 2, "/run"}, ""} = disksup:parse_df(Posix1, posix),
+    {ok, {498048, 490760, 2, "/run"}, ""} = disksup:parse_df(Posix1, posix),
 
     %% Have a mount path with some spaces in it
     Posix2 = "tmpfs             498048     7288    490760   2% /spaces 1 2\n",
-    {ok, {498048, 2, "/spaces 1 2"}, ""} = disksup:parse_df(Posix2, posix).
+    {ok, {498048, 490760, 2, "/spaces 1 2"}, ""} = disksup:parse_df(Posix2, posix).
 
 %% @doc Test various expected inputs to 'df' command output (Darwin/SUSv3)
 parse_df_output_susv3(Config) when is_list(Config) ->
@@ -441,9 +463,9 @@ parse_df_output_susv3(Config) when is_list(Config) ->
     %% Have a simple example with no funny spaces in mount path
     Darwin1 = "/dev/disk1   243949060 157002380  86690680    65% 2029724 " ++
               "4292937555    0%   /\n",
-    {ok, {243949060, 65, "/"}, ""} = disksup:parse_df(Darwin1, susv3),
+    {ok, {243949060, 86690680, 65, "/"}, ""} = disksup:parse_df(Darwin1, susv3),
 
     %% Have a mount path with some spaces in it
     Darwin2 = "/dev/disk1   243949060 157002380  86690680    65% 2029724 " ++
               "4292937555    0%   /spaces 1 2\n",
-    {ok, {243949060, 65, "/spaces 1 2"}, ""} = disksup:parse_df(Darwin2, susv3).
+    {ok, {243949060, 86690680, 65, "/spaces 1 2"}, ""} = disksup:parse_df(Darwin2, susv3).
