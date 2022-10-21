@@ -171,7 +171,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = ssl:handle_options(NewOptions, Role, Options0),
+    Options = ssl:update_options(NewOptions, Role, Options0),
     State = ssl_gen_statem:ssl_config(Options, Role, State0),
     {next_state, hello, State#state{start_or_recv_from = From,
                                     handshake_env = HSEnv#handshake_env{continue_status = continue}

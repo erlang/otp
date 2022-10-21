@@ -94,9 +94,9 @@
 	 connection_information/1, 
          connection_information/2]).
 %% Misc
--export([handle_options/2,
-         handle_options/3,
-         tls_version/1, 
+-export([handle_options/3,
+         update_options/3,
+         tls_version/1,
          suite_to_str/1,
          suite_to_openssl_str/1,
          str_to_suite/1]).
@@ -595,11 +595,11 @@ connect(Socket, SslOptions) ->
 connect(Socket, SslOptions0, Timeout) when is_list(SslOptions0) andalso 
                                            (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     
-    CbInfo = handle_option_cb_info(SslOptions0, tls),
-    Transport = element(1, CbInfo),
-    try handle_options(Transport, Socket, SslOptions0, client, undefined) of
-        {ok, Config} ->
-            tls_socket:upgrade(Socket, Config, Timeout)
+    try
+        CbInfo = handle_option_cb_info(SslOptions0, tls),
+        Transport = element(1, CbInfo),
+        {ok, Config} = handle_options(Transport, Socket, SslOptions0, client, undefined),
+        tls_socket:upgrade(Socket, Config, Timeout)
     catch
         _:{error, Reason} ->
             {error, Reason}
@@ -644,7 +644,7 @@ listen(_Port, []) ->
     {error, nooptions};
 listen(Port, Options0) ->
     try
-	{ok, Config} = handle_options(Options0, server),
+	{ok, Config} = handle_options(Options0, server, undefined),
         do_listen(Port, Config, Config#config.connection_cb)
     catch
 	Error = {error, _} ->
@@ -731,7 +731,7 @@ handshake(ListenSocket, SslOptions) ->
       Reason :: closed | timeout | {options, any()} | error_alert().
 
 handshake(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or 
-                                                    (Timeout == infinity)->
+                                                   (Timeout == infinity)->
     handshake(Socket, Timeout);
 handshake(#sslsocket{fd = {_, _, _, Trackers}} = Socket, SslOpts, Timeout) when
       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
@@ -753,19 +753,20 @@ handshake(#sslsocket{pid = [Pid|_], fd = {_, _, _}} = Socket, SslOpts, Timeout) 
 	Error = {error, _Reason} -> Error
     end;
 handshake(Socket, SslOptions, Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
-    CbInfo = handle_option_cb_info(SslOptions, tls),
-    Transport = element(1, CbInfo),
-    ConnetionCb = connection_cb(SslOptions),
-    try handle_options(Transport, Socket, SslOptions, server, undefined) of
-        {ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} ->
-            ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
-            {ok, Port} = tls_socket:port(Transport, Socket),
-            {ok, SessionIdHandle} = tls_socket:session_id_tracker(ssl_unknown_listener, SslOpts),
-            ssl_gen_statem:handshake(ConnetionCb, Port, Socket,
-                                     {SslOpts, 
-                                      tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
-                                      [{session_id_tracker, SessionIdHandle}]},
-                                     self(), CbInfo, Timeout)
+    try
+        CbInfo = handle_option_cb_info(SslOptions, tls),
+        Transport = element(1, CbInfo),
+        ConnetionCb = connection_cb(SslOptions),
+        {ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} =
+            handle_options(Transport, Socket, SslOptions, server, undefined),
+        ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
+        {ok, Port} = tls_socket:port(Transport, Socket),
+        {ok, SessionIdHandle} = tls_socket:session_id_tracker(ssl_unknown_listener, SslOpts),
+        ssl_gen_statem:handshake(ConnetionCb, Port, Socket,
+                                 {SslOpts, 
+                                  tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
+                                  [{session_id_tracker, SessionIdHandle}]},
+                                 self(), CbInfo, Timeout)
     catch
         Error = {error, _Reason} -> Error
     end.   
@@ -1516,37 +1517,112 @@ do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_g
 
 do_listen(Port,  Config, dtls_gen_connection) ->
     dtls_socket:listen(Port, Config).
-	
--spec handle_options([any()], client | server) -> {ok, #config{}};
-                    ([any()], ssl_options()) -> ssl_options().
 
-handle_options(Opts, Role) ->
-    handle_options(undefined, undefined, Opts, Role, undefined).   
+ssl_options() ->
+    [
+     alpn_advertised_protocols, alpn_preferred_protocols,
+     anti_replay,
+     beast_mitigation,
+     cacertfile, cacerts,
+     cert,  certs_keys,certfile,
+     certificate_authorities,
+     ciphers,
+     client_renegotiation,
+     cookie,
+     crl_cache, crl_check,
+     customize_hostname_check,
+     depth,
+     dh, dhfile,
 
-handle_options(Opts, Role, InheritedSslOpts) ->
-    handle_options(undefined, undefined, Opts, Role, InheritedSslOpts).   
+     early_data,
+     eccs,
+     erl_dist,
+     fail_if_no_peer_cert,
+     fallback,
+     handshake,
+     hibernate_after,
+     honor_cipher_order,  honor_ecc_order,
+     keep_secrets,
+     key, keyfile,
+     key_update_at,
+     ktls,
+
+     log_level,
+     max_handshake_size,
+     middlebox_comp_mode,
+     max_fragment_length,
+     next_protocol_selector,  next_protocols_advertised,
+     ocsp_stapling, ocsp_responder_certs, ocsp_nonce,
+     padding_check,
+     partial_chain,
+     password,
+     protocol,
+     psk_identity,
+     receiver_spawn_opts,
+     renegotiate_at,
+     reuse_session, reuse_sessions,
+
+     secure_renegotiate,
+     sender_spawn_opts,
+     server_name_indication,
+     session_tickets,
+     stateless_tickets_seed,
+     signature_algs,  signature_algs_cert,
+     sni_fun,
+     sni_hosts,
+     srp_identity,
+     supported_groups,
+     use_ticket,
+     user_lookup_fun,
+     verify, verify_fun,
+     versions
+    ].
 
 %% Handle ssl options at handshake, handshake_continue
-handle_options(_, _, Opts0, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
-    {SslOpts, _} = expand_options(Opts0, ?RULES),
-    process_options(SslOpts, InheritedSslOpts, #{role => Role,
-                                                 rules => ?RULES});
+-spec update_options([any()], client | server, map()) -> map().
+update_options(Opts, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
+    {UserSslOpts, _} = split_options(Opts, ssl_options()),
+    process_options(UserSslOpts, InheritedSslOpts, #{role => Role}).
+
+process_options(UserSslOpts, SslOpts0, Env) ->
+    %% Reverse option list so we get the last set option if set twice,
+    %% users depend on it.
+    UserSslOptsMap = proplists:to_map(lists:reverse(UserSslOpts)),
+    SslOpts1  = opt_protocol_versions(UserSslOptsMap, SslOpts0, Env),
+    SslOpts2  = opt_verification(UserSslOptsMap, SslOpts1, Env),
+    SslOpts3  = opt_certs(UserSslOptsMap, SslOpts2, Env),
+    SslOpts4  = opt_tickets(UserSslOptsMap, SslOpts3, Env),
+    SslOpts5  = opt_ocsp(UserSslOptsMap, SslOpts4, Env),
+    SslOpts6  = opt_sni(UserSslOptsMap, SslOpts5, Env),
+    SslOpts7  = opt_signature_algs(UserSslOptsMap, SslOpts6, Env),
+    SslOpts8  = opt_alpn(UserSslOptsMap, SslOpts7, Env),
+    SslOpts9  = opt_mitigation(UserSslOptsMap, SslOpts8, Env),
+    SslOpts10 = opt_server(UserSslOptsMap, SslOpts9, Env),
+    SslOpts11 = opt_client(UserSslOptsMap, SslOpts10, Env),
+    SslOpts12 = opt_renegotiate(UserSslOptsMap, SslOpts11, Env),
+    SslOpts13 = opt_reuse_sessions(UserSslOptsMap, SslOpts12, Env),
+    SslOpts14 = opt_identity(UserSslOptsMap, SslOpts13, Env),
+    SslOpts15 = opt_supported_groups(UserSslOptsMap, SslOpts14, Env),
+    SslOpts16 = opt_crl(UserSslOptsMap, SslOpts15, Env),
+    SslOpts17 = opt_handshake(UserSslOptsMap, SslOpts16, Env),
+    SslOpts = opt_process(UserSslOptsMap, SslOpts17, Env),
+    SslOpts.
+
+-spec handle_options([any()], client | server, undefined|host()) -> {ok, #config{}}.
+handle_options(Opts, Role, Host) ->
+    handle_options(undefined, undefined, Opts, Role, Host).
+
 %% Handle all options in listen, connect and handshake
 handle_options(Transport, Socket, Opts0, Role, Host) ->
-    {SslOpts0, SockOpts0} = expand_options(Opts0, ?RULES),
-    
-    %% Ensure all options are evaluated at startup
-    SslOpts1 = add_missing_options(SslOpts0, ?RULES),
-    SslOpts2 = #{protocol := Protocol}
-        = process_options(SslOpts1,
-                          #{},
-                          #{role => Role,
-                            host => Host,
-                            rules => ?RULES}),
-    
-    maybe_client_warn_no_verify(SslOpts2, Role),
-    SslOpts = maps:without([warn_verify_none], SslOpts2),
+    {UserSslOptsList, SockOpts0} = split_options(Opts0, ssl_options()),
+
+    Env = #{role => Role, host => Host},
+    SslOptsPost = process_options(UserSslOptsList, #{}, Env),
+
+    SslOpts = maybe_client_warn_no_verify(SslOptsPost, Role),
+
     %% Handle special options
+    #{protocol := Protocol} = SslOpts,
     {Sock, Emulated} = emulated_options(Transport, Socket, Protocol, SockOpts0),
     ConnetionCb = connection_cb(Protocol),
     CbInfo = handle_option_cb_info(Opts0, Protocol),
@@ -1561,817 +1637,336 @@ handle_options(Transport, Socket, Opts0, Role, Host) ->
            }}.
 
 
-%% process_options(SSLOptions, OptionsMap, Env) where
-%% SSLOptions is the following tuple:
-%%   {InOptions, SkippedOptions, Counter}
-%%
-%% The list of options is processed in multiple passes. When
-%% processing an option all dependencies must already be resolved.
-%% If there are unresolved dependencies the option will be
-%% skipped and processed in a subsequent pass.
-%% Counter is equal to the number of unprocessed options at
-%% the beginning of a pass. Its value must monotonically decrease
-%% after each successful pass.
-%% If the value of the counter is unchanged at the end of a pass,
-%% the processing stops due to faulty input data.
-process_options({[], [], _}, OptionsMap, _Env) ->
-    OptionsMap;
-process_options({[], [_|_] = Skipped, Counter}, OptionsMap, Env)
-  when length(Skipped) < Counter ->
-    %% Continue handling options if current pass was successful
-    process_options({Skipped, [], length(Skipped)}, OptionsMap, Env);
-process_options({[], [_|_], _Counter}, _OptionsMap, _Env) ->
-    throw({error, faulty_configuration});
-process_options({[{K0,V} = E|T], S, Counter}, OptionsMap0, Env) ->
-    K = maybe_map_key_internal(K0),
-    case check_dependencies(K, OptionsMap0, Env) of
-        true ->
-            OptionsMap = handle_option(K, V, OptionsMap0, Env),
-            process_options({T, S, Counter}, OptionsMap, Env);
-        false ->
-            %% Skip option for next pass
-            process_options({T, [E|S], Counter}, OptionsMap0, Env)
-    end.
+opt_protocol_versions(UserOpts, Opts, Env) ->
+    {_, PRC} = get_opt_of(protocol, [tls, dtls], tls, UserOpts, Opts),
 
-handle_option(anti_replay = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(anti_replay = Option, Value0,
-              #{session_tickets := SessionTickets,
-                versions := Versions} = OptionsMap, #{rules := Rules}) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    assert_option_dependency(Option, session_tickets, [SessionTickets], [stateless]),
-    case SessionTickets of
-        stateless ->
-            Value = validate_option(Option, Value0),
-            OptionsMap#{Option => Value};
-        _ ->
-            OptionsMap#{Option => default_value(Option, Rules)}
-    end;
-handle_option(beast_mitigation = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(beast_mitigation = Option, Value0,  #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(cacertfile = Option, unbound, #{cacerts := CaCerts,
-                                              verify := Verify,
-                                              verify_fun := VerifyFun} = OptionsMap, _Env)
-  when Verify =:= verify_none orelse
-       Verify =:= 0 ->
-    Value = validate_option(Option, ca_cert_default(verify_none, VerifyFun, CaCerts)),
-    OptionsMap#{Option => Value};
-handle_option(cacertfile = Option, unbound, #{cacerts := CaCerts,
-                                              verify := Verify,
-                                              verify_fun := VerifyFun} = OptionsMap, _Env)
-  when Verify =:= verify_peer orelse
-       Verify =:= 1 orelse
-       Verify =:= 2 ->
-    Value =  validate_option(Option, ca_cert_default(verify_peer, VerifyFun, CaCerts)),
-    OptionsMap#{Option => Value};
-handle_option(cacertfile = Option, Value0, OptionsMap, _Env) ->
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(ciphers = Option, unbound, #{versions := Versions} = OptionsMap, #{rules := Rules}) ->
-    Value = handle_cipher_option(default_value(Option, Rules), Versions),
-    OptionsMap#{Option => Value};
-handle_option(ciphers = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
-    Value = handle_cipher_option(Value0, Versions),
-    OptionsMap#{Option => Value};
-handle_option(client_renegotiation = Option, unbound, OptionsMap, #{role := Role}) ->
-    Value = default_option_role(server, true, Role),
-    OptionsMap#{Option => Value};
-handle_option(client_renegotiation = Option, Value0,
-              #{versions := Versions} = OptionsMap, #{role := Role}) ->
-    assert_role(server_only, Role, Option, Value0),
-    assert_option_dependency(Option, versions, Versions,
-                             ['tlsv1','tlsv1.1','tlsv1.2']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(early_data = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(early_data = Option, Value0, #{session_tickets := SessionTickets,
-                                             versions := Versions} = OptionsMap,
-              #{role := server = Role}) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    assert_option_dependency(Option, session_tickets, [SessionTickets],
-                             [stateful, stateless]),
-    Value = validate_option(Option, Value0, Role),
-    OptionsMap#{Option => Value};
-handle_option(early_data = Option, Value0, #{session_tickets := SessionTickets,
-                                             use_ticket := UseTicket,
-                                             versions := Versions} = OptionsMap,
-              #{role := client = Role}) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    assert_option_dependency(Option, session_tickets, [SessionTickets],
-                             [manual, auto]),
-    case UseTicket of
-        undefined when SessionTickets =/= auto ->
-            throw({error, {options, dependency, {Option, use_ticket}}});
-        _ ->
-            ok
-    end,
-    Value = validate_option(Option, Value0, Role),
-    OptionsMap#{Option => Value};
-handle_option(eccs = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{rules := _Rules}) ->
-    Value = handle_eccs_option(eccs(), HighestVersion),
-    OptionsMap#{Option => Value};
-handle_option(eccs = Option, Value0, #{versions := [HighestVersion|_]} = OptionsMap, _Env) ->
-    Value = handle_eccs_option(Value0, HighestVersion),
-    OptionsMap#{Option => Value};
-handle_option(fallback = Option, unbound, OptionsMap, #{role := Role}) ->
-    Value = default_option_role(client, false, Role),
-    OptionsMap#{Option => Value};
-handle_option(fallback = Option, Value0, OptionsMap, #{role := Role}) ->
-    assert_role(client_only, Role, Option, Value0),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(certificate_authorities = Option, unbound, OptionsMap, #{role := server}) ->
-    OptionsMap#{Option => true};
-handle_option(certificate_authorities = Option, unbound, OptionsMap, #{role := client}) ->
-    OptionsMap#{Option => false};
-handle_option(certificate_authorities = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(cookie = Option, unbound, OptionsMap, #{role := Role}) ->
-    Value = default_option_role(server, true, Role),
-    OptionsMap#{Option => Value};
-handle_option(cookie = Option, Value0, #{versions := Versions} = OptionsMap, #{role := Role}) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    assert_role(server_only, Role, Option, Value0),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(honor_cipher_order = Option, unbound, OptionsMap, #{role := Role}) ->
-    Value = default_option_role(server, false, Role),
-    OptionsMap#{Option => Value};
-handle_option(honor_cipher_order = Option, Value0, OptionsMap, #{role := Role}) ->
-    assert_role(server_only, Role, Option, Value0),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(honor_ecc_order = Option, unbound, OptionsMap, #{role := Role}) ->
-    Value = default_option_role(server, false, Role),
-    OptionsMap#{Option => Value};
-handle_option(honor_ecc_order = Option, Value0, OptionsMap, #{role := Role}) ->
-    assert_role(server_only, Role, Option, Value0),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(keyfile = Option, unbound, #{certfile := CertFile} = OptionsMap, _Env) ->
-    Value = validate_option(Option, CertFile),
-    OptionsMap#{Option => Value};
-handle_option(key_update_at = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(key_update_at = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(next_protocols_advertised = Option, unbound, OptionsMap,
-              #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(next_protocols_advertised = Option, Value0,
-              #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(next_protocols_advertised, versions, Versions,
-                             ['tlsv1','tlsv1.1','tlsv1.2']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(next_protocol_selector = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = default_value(Option, Rules),
-    OptionsMap#{Option => Value};
-handle_option(next_protocol_selector = Option, Value0,
-              #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(client_preferred_next_protocols, versions, Versions,
-                             ['tlsv1','tlsv1.1','tlsv1.2']),
-    Value = make_next_protocol_selector(
-              validate_option(client_preferred_next_protocols, Value0)),
-    OptionsMap#{Option => Value};
-handle_option(padding_check = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(padding_check = Option, Value0,  #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(password = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{password => Value};
-handle_option(password = Option, Value0, OptionsMap, _Env) ->
-    Value = validate_option(Option, Value0),
-    OptionsMap#{password => Value};
-handle_option(certs_keys, unbound, OptionsMap, _Env) ->
-    OptionsMap;
-handle_option(certs_keys = Option, Value0, OptionsMap, _Env) ->
-    Value = validate_option(Option, Value0),
-    OptionsMap#{certs_keys => Value};
-handle_option(psk_identity = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(psk_identity = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(Option, versions, Versions,
-                             ['tlsv1','tlsv1.1','tlsv1.2']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(secure_renegotiate = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(secure_renegotiate= Option, Value0,
-              #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(secure_renegotiate, versions, Versions,
-                             ['tlsv1','tlsv1.1','tlsv1.2']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(reuse_session = Option, unbound, OptionsMap, #{role := Role}) ->
-    Value =
-        case Role of
-            client ->
-                undefined;
-            server ->
-                fun(_, _, _, _) -> true end
+    LogLevels = [none, all, emergency, alert, critical, error,
+                 warning, notice, info, debug],
+    {_, LL} = get_opt_of(log_level, LogLevels, notice, UserOpts, Opts),
+
+    {_, KS} = get_opt_bool(keep_secrets, false, UserOpts, Opts),
+
+    {_, ED} = get_opt_bool(erl_dist, false, UserOpts, Opts),
+    {_, KTLS} = get_opt_bool(ktls, false, UserOpts, Opts),
+
+    opt_versions(UserOpts,
+                 Opts#{protocol => PRC, log_level => LL, keep_secrets => KS,
+                       erl_dist => ED, ktls => KTLS},
+                 Env).
+
+opt_versions(UserOpts, #{protocol := Protocol} = Opts, _Env) ->
+    Versions = case get_opt(versions, unbound, UserOpts, Opts) of
+                   {default, unbound} -> default_versions(Protocol);
+                   {new, Vs} -> validate_versions(Protocol, Vs);
+                   {old, Vs} -> Vs
+               end,
+
+    {Where, MCM} = get_opt_bool(middlebox_comp_mode, true, UserOpts, Opts),
+    assert_version_dep(Where =:= new, middlebox_comp_mode, Versions, ['tlsv1.3']),
+
+    Opts#{versions => Versions, middlebox_comp_mode => MCM}.
+
+default_versions(tls) ->
+    Vsns0 = tls_record:supported_protocol_versions(),
+    lists:sort(fun tls_record:is_higher/2, Vsns0);
+default_versions(dtls) ->
+    Vsns0 = dtls_record:supported_protocol_versions(),
+    lists:sort(fun dtls_record:is_higher/2, Vsns0).
+
+validate_versions(tls, Vsns0) ->
+    Validate =
+        fun(Version) ->
+                try tls_record:sufficient_crypto_support(Version) of
+                    true -> tls_record:protocol_version(Version);
+                    false -> option_error(insufficient_crypto_support,
+                                          {Version, {versions, Vsns0}})
+                catch error:function_clause ->
+                        option_error(Version, {versions, Vsns0})
+                end
         end,
-    OptionsMap#{Option => Value};
-handle_option(reuse_session = Option, Value0,
-              #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(reuse_session, versions, Versions,
-                             ['tlsv1','tlsv1.1','tlsv1.2']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-%% TODO: validate based on role
-handle_option(reuse_sessions = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(reuse_sessions = Option, Value0,
-              #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(reuse_sessions, versions, Versions,
-                             ['tlsv1','tlsv1.1','tlsv1.2']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(server_name_indication = Option, unbound, OptionsMap, #{host := Host,
-                                                                      role := Role}) ->
-    Value = default_option_role(client, server_name_indication_default(Host), Role),
-    OptionsMap#{Option => Value};
-handle_option(server_name_indication = Option, Value0, OptionsMap, _Env) ->
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(session_tickets = Option, unbound, OptionsMap, #{role := Role,
-                                                               rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules), Role),
-    OptionsMap#{Option => Value};
-handle_option(session_tickets = Option, Value0, #{versions := Versions} = OptionsMap, #{role := Role}) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    Value = validate_option(Option, Value0, Role),
-    OptionsMap#{Option => Value};
-handle_option(stateless_tickets_seed = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(stateless_tickets_seed = Option, Value0,
-              #{session_tickets := SessionTickets, versions := Versions} = OptionsMap, #{role := Role}) ->
-    assert_role(server_only, Role, Option, Value0),
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    assert_option_dependency(Option, session_tickets, [SessionTickets], [stateless]),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(signature_algs = Option, unbound, #{versions := [HighestVersion | _] = Versions} = OptionsMap, #{role := Role}) ->
-    Value =
-        handle_hashsigns_option(
-          default_option_role_sign_algs(
-            server,
-            tls_v1:default_signature_algs(Versions),
-            Role,
-            HighestVersion),
-          tls_version(HighestVersion)),
-    OptionsMap#{Option => Value};
-handle_option(signature_algs = Option, Value0, #{versions := [HighestVersion|_]} = OptionsMap, _Env) ->
-    Value = handle_hashsigns_option(Value0, tls_version(HighestVersion)),
-    OptionsMap#{Option => Value};
-handle_option(signature_algs_cert = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, _Env) ->
-    %% Do not send by default
-    Value = handle_signature_algorithms_option(undefined, tls_version(HighestVersion)),
-    OptionsMap#{Option => Value};
-handle_option(signature_algs_cert = Option, Value0, #{versions := [HighestVersion|_]} = OptionsMap, _Env) ->
-    Value = handle_signature_algorithms_option(Value0, tls_version(HighestVersion)),
-    OptionsMap#{Option => Value};
-handle_option(sni_fun = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = default_value(Option, Rules),
-    OptionsMap#{Option => Value};
-handle_option(sni_fun = Option, Value0, OptionsMap, _Env) ->
-    validate_option(Option, Value0),
-    OptHosts = maps:get(sni_hosts, OptionsMap, undefined),
-    Value =
-        case {Value0, OptHosts} of
-            {undefined, _} ->
-                Value0;
-            {_, []} ->
-                Value0;
-            _ ->
-                throw({error, {conflict_options, [sni_fun, sni_hosts]}})
+    Vsns = [Validate(V) || V <- Vsns0],
+    tls_validate_version_gap(Vsns0),
+    option_error([] =:= Vsns, versions, Vsns0),
+    lists:sort(fun tls_record:is_higher/2, Vsns);
+validate_versions(dtls, Vsns0) ->
+    Validate =
+        fun(Version) ->
+                try tls_record:sufficient_crypto_support(
+                      dtls_v1:corresponding_tls_version(
+                        dtls_record:protocol_version(Version))) of
+                    true -> dtls_record:protocol_version(Version);
+                    false-> option_error(insufficient_crypto_support,
+                                         {Version, {versions, Vsns0}})
+                catch error:function_clause ->
+                        option_error(Version, {versions, Vsns0})
+                end
         end,
-    OptionsMap#{Option => Value};
-handle_option(srp_identity = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(srp_identity = Option, Value0,
-              #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(srp_identity, versions, Versions,
-                             ['tlsv1','tlsv1.1','tlsv1.2']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(supported_groups = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{rules := _Rules}) ->
-    Value = handle_supported_groups_option(groups(default), HighestVersion),
-    OptionsMap#{Option => Value};
-handle_option(supported_groups = Option, Value0,
-              #{versions := [HighestVersion|_] = Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    Value = handle_supported_groups_option(Value0, HighestVersion),
-    OptionsMap#{Option => Value};
-handle_option(use_ticket = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(use_ticket = Option, Value0,
-              #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(user_lookup_fun = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(user_lookup_fun = Option, Value0,
-              #{versions := Versions} = OptionsMap, _Env) ->
-    assert_option_dependency(Option, versions, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(verify = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    handle_verify_option(default_value(Option, Rules), OptionsMap#{warn_verify_none => true});
-handle_option(verify = _Option, Value, OptionsMap, _Env) ->
-    handle_verify_option(Value, OptionsMap);
-handle_option(verify_fun = Option, unbound, #{verify := Verify} = OptionsMap, #{rules := Rules})
-  when Verify =:= verify_none ->
-    OptionsMap#{Option => default_value(Option, Rules)};
-handle_option(verify_fun = Option, unbound, #{verify := Verify} = OptionsMap, _Env)
-  when Verify =:= verify_peer ->
-    OptionsMap#{Option => undefined};
-handle_option(verify_fun = Option, Value0, OptionsMap, _Env) ->
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value};
-handle_option(versions = Option, unbound, #{protocol := Protocol} = OptionsMap, _Env) ->
-    RecordCb = record_cb(Protocol),
-    Vsns0 = RecordCb:supported_protocol_versions(),
-    Value = lists:sort(fun RecordCb:is_higher/2, Vsns0),
-    OptionsMap#{Option => Value};
-handle_option(versions = Option, Vsns0, #{protocol := Protocol} = OptionsMap, _Env) ->
-    validate_option(versions, Vsns0),
-    RecordCb = record_cb(Protocol),
-    Vsns1 = [RecordCb:protocol_version(Vsn) || Vsn <- Vsns0],
-    Value = lists:sort(fun RecordCb:is_higher/2, Vsns1),
-    OptionsMap#{Option => Value};
-%% Special options
-handle_option(cb_info = Option, unbound, #{protocol := Protocol} = OptionsMap, _Env) ->
-    Default = default_cb_info(Protocol),
-    validate_option(Option, Default),
-    Value = handle_cb_info(Default),
-    OptionsMap#{Option => Value};
-handle_option(cb_info = Option, Value0, OptionsMap, _Env) ->
-    validate_option(Option, Value0),
-    Value = handle_cb_info(Value0),
-    OptionsMap#{Option => Value};
-%% Generic case
-handle_option(Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(Option, Value0, OptionsMap, _Env) ->
-    Value = validate_option(Option, Value0),
-    OptionsMap#{Option => Value}.
+    Vsns = [Validate(V) || V <- Vsns0],
+    option_error([] =:= Vsns, versions, Vsns0),
+    lists:sort(fun dtls_record:is_higher/2, Vsns).
 
-handle_option_cb_info(Options, Protocol) ->
-    Value = proplists:get_value(cb_info, Options, default_cb_info(Protocol)),
-    #{cb_info := CbInfo} = handle_option(cb_info, Value, #{protocol => Protocol}, #{}),
-    CbInfo.
+opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
+    {Verify, Opts} =
+        case get_opt_of(verify, [verify_none, verify_peer], verify_none, UserOpts, Opts0) of
+            {default, verify_none} when Role =:= client ->
+                {verify_none, Opts0#{warn_verify_none => true, verify => verify_none}};
+            {_, verify_none} ->
+                {verify_none, Opts0#{verify => verify_none}};
+            {_, verify_peer} ->
+                %% If 'verify' is changed from verify_none to verify_peer, (via update_options/3)
+                %% the 'verify_fun' must also be changed to undefined.
+                %% i.e remove the default verify_none fun
+                {verify_peer, Opts0#{verify => verify_peer, verify_fun => undefined}}
+        end,
+    {_, PartialChain} = get_opt_fun(partial_chain, 1, fun(_) -> unknown_ca end, UserOpts, Opts),
 
+    {_, FailNoPeerCert} = get_opt_bool(fail_if_no_peer_cert, false, UserOpts, Opts),
+    assert_server_only(Role, FailNoPeerCert, fail_if_no_peer_cert),
+    option_incompatible(FailNoPeerCert andalso Verify =:= verify_none,
+                        [{verify, verify_none}, {fail_if_no_peer_cert, true}]),
 
-maybe_map_key_internal(client_preferred_next_protocols) ->
-    next_protocol_selector;
-maybe_map_key_internal(K) ->
-    K.
+    {_, Depth} = get_opt_int(depth, 0, 255, 10, UserOpts, Opts),
 
-maybe_map_key_external(next_protocol_selector) ->
-    client_preferred_next_protocols;
-maybe_map_key_external(K) ->
-    K.
+    opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain,
+                                   fail_if_no_peer_cert => FailNoPeerCert,
+                                   depth => Depth
+                                  },
+                   Env).
 
-check_dependencies(K, OptionsMap, Env) ->
-    Rules =  maps:get(rules, Env),
-    Deps = get_dependencies(K, Rules),
-    case Deps of
-        [] ->
-            true;
-        L ->
-            option_already_defined(K,OptionsMap) orelse
-                dependecies_already_defined(L, OptionsMap)
-    end.
-
-
-%% Handle options that are not present in the map
-get_dependencies(K, _) when K =:= cb_info orelse K =:= log_alert->
-    [];
-get_dependencies(K, Rules) ->
-    {_, Deps} = maps:get(K, Rules),
-    Deps.
-
-
-option_already_defined(K, Map) ->
-    maps:get(K, Map, unbound) =/= unbound.
-
-
-dependecies_already_defined(L, OptionsMap) ->
-    Fun = fun (E) -> option_already_defined(E, OptionsMap) end,
-    lists:all(Fun, L).
-
-
-expand_options(Opts0, Rules) ->
-    Opts1 = proplists:expand([{binary, [{mode, binary}]},
-                      {list, [{mode, list}]}], Opts0),
-    Opts2 = handle_option_format(Opts1, []),
-
-    %% Remove deprecated ssl_imp option
-    Opts = proplists:delete(ssl_imp, Opts2),
-    AllOpts = maps:keys(Rules),
-    SockOpts = lists:foldl(fun(Key, PropList) -> proplists:delete(Key, PropList) end,
-                           Opts,
-                           AllOpts ++
-                               [ssl_imp,                          %% TODO: remove ssl_imp
-                                cb_info,
-                                client_preferred_next_protocols,  %% next_protocol_selector
-                                log_alert]),                      %% obsoleted by log_level
-    
-    SslOpts0 = Opts -- SockOpts,
-    SslOpts = {SslOpts0, [], length(SslOpts0)},
-    {SslOpts, SockOpts}.
-
-
-add_missing_options({L0, S, _C}, Rules) ->
-    Fun = fun(K0, Acc) ->
-                  K = maybe_map_key_external(K0),
-                  case proplists:is_defined(K, Acc) of
-                      true ->
-                          Acc;
-                      false ->
-                          Default = unbound,
-                          [{K, Default}|Acc]
-                  end
-          end,
-    AllOpts = maps:keys(Rules),
-    L = lists:foldl(Fun, L0, AllOpts),
-    {L, S, length(L)}.
-
-default_value(Key, Rules) ->
-    {Default, _} = maps:get(Key, Rules, {undefined, []}),
-    Default.
-
-
-assert_role(client_only, client, _, _) ->
-    ok;
-assert_role(server_only, server, _, _) ->
-    ok;
-assert_role(client_only, _, _, undefined) ->
-    ok;
-assert_role(server_only, _, _, undefined) ->
-    ok;
-assert_role(Type, _, Key, _) ->
-    throw({error, {option, Type, Key}}).
-
-assert_option_dependency(Option, OptionDep, Values0, AllowedValues) ->
-    case is_dtls_configured(Values0) of
-        true ->
-            %% TODO: Check option dependency for DTLS
-            ok;
-        false ->
-            %% special handling for version
-            Values =
-                case OptionDep of
-                    versions ->
-                        lists:map(fun tls_record:protocol_version/1, Values0);
-                    _ ->
-                        Values0
+opt_verify_fun(UserOpts, Opts, _Env) ->
+    DefVerifyNoneFun = {default_verify_fun(), []},
+    VerifyFun = case get_opt(verify_fun, DefVerifyNoneFun, UserOpts, Opts) of
+                    {_, {F,_} = FA} when is_function(F, 3) ->
+                        FA;
+                    {_, UserFun} when is_function(UserFun, 1) ->
+                        {convert_verify_fun(), UserFun};
+                    {_, undefined} ->
+                        undefined;
+                    {_, Value} ->
+                        option_error(verify_fun, Value)
                 end,
-            Set1 = sets:from_list(Values),
-            Set2 = sets:from_list(AllowedValues),
-            case sets:size(sets:intersection(Set1, Set2)) > 0 of
-                true ->
-                    ok;
-                false ->
-                    throw({error, {options, dependency,
-                                   {Option, {OptionDep, AllowedValues}}}})
-            end
+    Opts#{verify_fun => VerifyFun}.
+
+default_verify_fun() ->
+    fun(_, {bad_cert, _}, UserState) ->
+            {valid, UserState};
+       (_, {extension, #'Extension'{critical = true}}, UserState) ->
+            %% This extension is marked as critical, so
+            %% certificate verification should fail if we don't
+            %% understand the extension.  However, this is
+            %% `verify_none', so let's accept it anyway.
+            {valid, UserState};
+       (_, {extension, _}, UserState) ->
+            {unknown, UserState};
+       (_, valid, UserState) ->
+            {valid, UserState};
+       (_, valid_peer, UserState) ->
+            {valid, UserState}
     end.
 
-is_dtls_configured(Versions) ->
-    Fun = fun (Version) when Version =:= {254, 253} orelse
-                             Version =:= {254, 255} ->
-                  true;
-              (_) ->
-                  false
-          end,
-    lists:any(Fun, Versions).
+convert_verify_fun() ->
+    fun(_,{bad_cert, _} = Reason, OldFun) ->
+            case OldFun([Reason]) of
+                true ->  {valid, OldFun};
+                false -> {fail, Reason}
+            end;
+       (_,{extension, _}, UserState) ->
+            {unknown, UserState};
+       (_, valid, UserState) ->
+            {valid, UserState};
+       (_, valid_peer, UserState) ->
+            {valid, UserState}
+    end.
 
-validate_option(Option, Value) ->
-    validate_option(Option, Value, undefined).
-%%
-validate_option(Opt, Value, _)
-  when Opt =:= alpn_advertised_protocols orelse
-       Opt =:= alpn_preferred_protocols,
-       is_list(Value) ->
-    validate_binary_list(Opt, Value),
-    Value;
-validate_option(Opt, Value, _)
-  when Opt =:= alpn_advertised_protocols orelse
-       Opt =:= alpn_preferred_protocols,
-       Value =:= undefined ->
-    undefined;
-validate_option(anti_replay, '10k', _) ->
-    %% n = 10000
-    %% p = 0.030003564 (1 in 33)
-    %% m = 72985 (8.91KiB)
-    %% k = 5
-    {10, 5, 72985};
-validate_option(anti_replay, '100k', _) ->
-    %% n = 100000
-    %% p = 0.03000428 (1 in 33)
-    %% m = 729845 (89.09KiB)
-    %% k = 5
-    {10, 5, 729845};
-validate_option(anti_replay, Value, _)
-  when (is_tuple(Value) andalso
-        tuple_size(Value) =:= 3) ->
-    Value;
-validate_option(beast_mitigation, Value, _)
-  when Value == one_n_minus_one orelse
-       Value == zero_n orelse
-       Value == disabled ->
-  Value;
-%% certfile must be present in some cases otherwise it can be set
-%% to the empty string.
-validate_option(cacertfile, undefined, _) ->
-   <<>>;
-validate_option(cacertfile, Value, _)
-  when is_binary(Value) ->
-    unambiguous_path(Value);
-validate_option(cacertfile, Value, _)
-  when is_list(Value), Value =/= ""->
-    binary_filename(unambiguous_path(Value));
-validate_option(cacerts, Value, _)
-  when Value == undefined;
-       is_list(Value) ->
-    Value;
-validate_option(cb_info, {V1, V2, V3, V4} = Value, _)
-  when is_atom(V1),
-       is_atom(V2),
-       is_atom(V3),
-       is_atom(V4) ->
-    Value;
-validate_option(cb_info, {V1, V2, V3, V4, V5} = Value, _)
-  when is_atom(V1),
-       is_atom(V2),
-       is_atom(V3),
-       is_atom(V4),
-       is_atom(V5) ->
-    Value;
-validate_option(cert, Value, _) when Value == undefined;
-                                     is_list(Value)->
-    Value;
-validate_option(cert, Value, _) when Value == undefined;
-                                     is_binary(Value)->
-    [Value];
-validate_option(certificate_authorities, Value, _) when is_boolean(Value)->
-    Value;
-validate_option(certfile, undefined = Value, _) ->
-    Value;
-validate_option(certfile, Value, _)
-  when is_binary(Value) ->
-    Value;
-validate_option(certfile, Value, _)
-  when is_list(Value) ->
-    binary_filename(Value);
-validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols}, _)
-  when is_list(PreferredProtocols) ->
-    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
-    validate_npn_ordering(Precedence),
-    {Precedence, PreferredProtocols, ?NO_PROTOCOL};
-validate_option(client_preferred_next_protocols,
-                {Precedence, PreferredProtocols, Default} = Value, _)
-  when is_list(PreferredProtocols), is_binary(Default),
-       byte_size(Default) > 0, byte_size(Default) < 256 ->
-    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
-    validate_npn_ordering(Precedence),
-    Value;
-validate_option(client_preferred_next_protocols, undefined, _) ->
-    undefined;
-validate_option(client_renegotiation, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(cookie, Value, _)
-  when is_boolean(Value)  ->
-    Value;
-validate_option(crl_cache, {Cb, {_Handle, Options}} = Value, _)
-  when is_atom(Cb) and is_list(Options) ->
-    Value;
-validate_option(crl_check, Value, _)
-  when is_boolean(Value)  ->
-    Value;
-validate_option(crl_check, Value, _)
-  when (Value == best_effort) or
-       (Value == peer) ->
-    Value;
-validate_option(customize_hostname_check, Value, _)
-  when is_list(Value) ->
-    Value;
-validate_option(depth, Value, _)
-  when is_integer(Value),
-       Value >= 0, Value =< 255->
-    Value;
-validate_option(dh, Value, _)
-  when Value == undefined;
-       is_binary(Value) ->
-    Value;
-validate_option(dhfile, undefined = Value, _)  ->
-    Value;
-validate_option(dhfile, Value, _)
-  when is_binary(Value) ->
-    Value;
-validate_option(dhfile, Value, _)
-  when is_list(Value), Value =/= "" ->
-    binary_filename(Value);
-validate_option(early_data, Value, server)
-  when Value =:= disabled orelse
-       Value =:= enabled ->
-    Value;
-validate_option(early_data = Option, Value, server) ->
-    throw({error,
-           {options, role, {Option, {Value, {server, [disabled, enabled]}}}}});
-validate_option(early_data, Value, client)
-  when is_binary(Value) ->
-    Value;
-validate_option(early_data = Option, Value, client) ->
-    throw({error,
-           {options, type, {Option, {Value, not_binary}}}});
-validate_option(erl_dist, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(ktls, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(fail_if_no_peer_cert, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(fallback, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(handshake, hello = Value, _) ->
-    Value;
-validate_option(handshake, full = Value, _) ->
-    Value;
-validate_option(hibernate_after, undefined, _) -> %% Backwards compatibility
-    infinity;
-validate_option(hibernate_after, infinity, _) ->
-    infinity;
-validate_option(hibernate_after, Value, _)
-  when is_integer(Value), Value >= 0 ->
-    Value;
-validate_option(honor_cipher_order, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(honor_ecc_order, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(keep_secrets, Value, _) when is_boolean(Value) ->
-    Value;
-validate_option(key, undefined, _) ->
-    undefined;
-validate_option(key, {KeyType, Value}, _)
-  when is_binary(Value),
-       KeyType == rsa; %% Backwards compatibility
-       KeyType == dsa; %% Backwards compatibility
-       KeyType == 'RSAPrivateKey';
-       KeyType == 'DSAPrivateKey';
-       KeyType == 'ECPrivateKey';
-       KeyType == 'PrivateKeyInfo' ->
-    {KeyType, Value};
-validate_option(key, #{algorithm := _} = Value, _) ->
-    Value;
-validate_option(keyfile, undefined, _) ->
-   <<>>;
-validate_option(keyfile, Value, _)
-  when is_binary(Value) ->
-    Value;
-validate_option(keyfile, Value, _)
-  when is_list(Value), Value =/= "" ->
-    binary_filename(Value);
-validate_option(key_update_at, Value, _)
-  when is_integer(Value) andalso
-       Value > 0 ->
-    Value;
-validate_option(log_level, Value, _) when
-      is_atom(Value) andalso
-      (Value =:= none orelse
-       Value =:= all orelse
-       Value =:= emergency orelse
-       Value =:= alert orelse
-       Value =:= critical orelse
-       Value =:= error orelse
-       Value =:= warning orelse
-       Value =:= notice orelse
-       Value =:= info orelse
-       Value =:= debug) ->
-    Value;
-%% RFC 6066, Section 4
-validate_option(max_fragment_length, I, _)
-  when I == ?MAX_FRAGMENT_LENGTH_BYTES_1;
-       I == ?MAX_FRAGMENT_LENGTH_BYTES_2;
-       I == ?MAX_FRAGMENT_LENGTH_BYTES_3;
-       I == ?MAX_FRAGMENT_LENGTH_BYTES_4 ->
-    I;
-validate_option(max_fragment_length, undefined, _) ->
-    undefined;
-validate_option(max_handshake_size, Value, _)
-  when is_integer(Value) andalso
-       Value =< ?MAX_UNIT24 ->
-    Value;
-validate_option(middlebox_comp_mode, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(next_protocols_advertised, Value, _) when is_list(Value) ->
-    validate_binary_list(next_protocols_advertised, Value),
-    Value;
-validate_option(next_protocols_advertised, undefined, _) ->
-    undefined;
-validate_option(ocsp_nonce, Value, _)
-  when Value =:= true orelse
-       Value =:= false ->
-    Value;
-%% The OCSP responders' certificates can be given as a suggestion and
-%% will be used to verify the OCSP response.
-validate_option(ocsp_responder_certs, Value, _)
-  when is_list(Value) ->
-    [public_key:pkix_decode_cert(CertDer, plain) || CertDer <- Value,
-                                                    is_binary(CertDer)];
-validate_option(ocsp_stapling, Value, _)
-  when Value =:= true orelse
-       Value =:= false ->
-    Value;
-validate_option(padding_check, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(partial_chain, Value, _)
-  when is_function(Value) ->
-    Value;
-validate_option(password, Value, _)
-  when is_list(Value); is_binary(Value) ->
-    Value;
-validate_option(password, Value, _)
-  when is_function(Value, 0) ->
-    Value;
-validate_option(certs_keys, Value, _) when is_list(Value) ->
-    Value;
-validate_option(protocol, Value = tls, _) ->
-    Value;
-validate_option(protocol, Value = dtls, _) ->
-    Value;
-validate_option(psk_identity, undefined, _) ->
-    undefined;
-validate_option(psk_identity, Identity, _)
-  when is_list(Identity), Identity =/= "", length(Identity) =< 65535 ->
-    binary_filename(Identity);
-validate_option(receiver_spawn_opts, Value, _)
-  when is_list(Value) ->
-    Value;
-validate_option(renegotiate_at, Value, _) when is_integer(Value) ->
-    erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
-validate_option(reuse_session, undefined, _) ->
-    undefined;
-validate_option(reuse_session, Value, _)
-  when is_function(Value) ->
-    Value;
-validate_option(reuse_session, Value, _)
-  when is_binary(Value) ->
-    Value;
-validate_option(reuse_session, {Id, Data} = Value, _)
-  when is_binary(Id) andalso
-       is_binary(Data) ->
-    Value;
-validate_option(reuse_sessions, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(reuse_sessions, save = Value, _) ->
-    Value;
-validate_option(secure_renegotiate, Value, _)
-  when is_boolean(Value) ->
-    Value;
-validate_option(sender_spawn_opts, Value, _)
-  when is_list(Value) ->
-    Value;
-validate_option(server_name_indication, Value, _)
-  when is_list(Value) ->
+opt_certs(UserOpts, #{log_level := LogLevel} = Opts0, Env) ->
+    Opts = case get_opt_list(certs_keys, unbound, UserOpts, Opts0) of
+               {_, unbound} ->
+                   opt_old_certs(UserOpts, Opts0, Env);
+               {Where, CKs} when is_list(CKs) ->
+                   warn_override(Where, UserOpts, certs_keys, [cert,certfile,key,keyfile,password], LogLevel),
+                   Opts0#{certs_keys => CKs}
+           end,
+    opt_cacerts(UserOpts, Opts, Env).
+
+opt_old_certs(UserOpts, #{log_level := LogLevel}=Opts, _Env) ->
+    CertOpts = Opts,  %% #{} FIXME remove and always make a cert_keys list here
+
+    CertKeys0 = case get_opt(cert, undefined, UserOpts, Opts) of
+                    {Where, Cert} when is_binary(Cert) ->
+                        warn_override(Where, UserOpts, cert, [certfile], LogLevel),
+                        CertOpts#{cert => [Cert]};
+                    {Where, [C0|_] = Certs} when is_binary(C0) ->
+                        warn_override(Where, UserOpts, cert, [certfile], LogLevel),
+                        CertOpts#{cert => Certs};
+                    {new, Err0} ->
+                        option_error(cert, Err0);
+                    {_, undefined} ->
+                        case get_opt_file(certfile, unbound, UserOpts, Opts) of
+                            {default, unbound} -> CertOpts#{cert => undefined};
+                            {_, CertFile} -> CertOpts#{certfile => CertFile}
+                        end
+                end,
+
+    CertKeys1 = case get_opt(key, undefined, UserOpts, Opts) of
+                    {_, undefined} ->
+                        case get_opt_file(keyfile, <<>>, UserOpts, Opts) of
+                            {new, KeyFile} ->
+                                CertKeys0#{keyfile => KeyFile};
+                            {_, <<>>} ->
+                                case maps:get(certfile, CertKeys0, unbound) of
+                                    unbound -> CertKeys0#{key => undefined};
+                                    CF -> CertKeys0#{keyfile => CF}
+                                end;
+                            {old, _} ->
+                                CertKeys0
+                        end;
+                    {_, {KF, K0} = Key}
+                      when is_binary(K0), KF =:= rsa; KF =:= dsa;
+                           KF == 'RSAPrivateKey'; KF == 'DSAPrivateKey';
+                           KF == 'ECPrivateKey'; KF == 'PrivateKeyInfo' ->
+                        CertKeys0#{key => Key};
+                    {_, #{engine := _, key_id := _, algorithm := _} = Key} ->
+                        CertKeys0#{key => Key};
+                    {new, Err1} ->
+                        option_error(key, Err1)
+                end,
+
+    CertKeys2 = case get_opt(password, unbound, UserOpts, Opts) of
+                    {default, _} -> CertKeys1;
+                    {_, Pwd} when is_binary(Pwd); is_list(Pwd); is_function(Pwd, 0) ->
+                        CertKeys1#{password => Pwd};
+                    {_, Err2} ->
+                        option_error(password, Err2)
+                end,
+    %% Compatibility FIXME remove these but check usage first
+    CertKeys3 = case maps:is_key(certfile, CertKeys2) of
+                    true  -> CertKeys2;
+                    false -> CertKeys2#{certfile => <<>>}
+                end,
+    CertKeys4 = case maps:is_key(keyfile, CertKeys3) of
+                    true  -> CertKeys3;
+                    false -> CertKeys3#{keyfile => <<>>}
+                end,
+    CertKeys5 = case maps:is_key(password, CertKeys4) of
+                    true  -> CertKeys4;
+                    false -> CertKeys4#{password => ""}
+                end,
+    CertKeys6 = case maps:is_key(cert, CertKeys5) of
+                    true  -> CertKeys5;
+                    false -> CertKeys5#{cert => undefined}
+                end,
+    CertKeys7 = case maps:is_key(key, CertKeys6) of
+                    true  -> CertKeys6;
+                    false -> CertKeys6#{key => undefined}
+                end,
+    CertKeys7.
+
+opt_cacerts(UserOpts, #{verify := Verify, log_level := LogLevel, versions := Versions} = Opts,
+            #{role := Role}) ->
+    {_, CaCerts} = get_opt_list(cacerts, undefined, UserOpts, Opts),
+
+    CaCertFile = case get_opt_file(cacertfile, <<>>, UserOpts, Opts) of
+                     {Where1, _FileName} when CaCerts =/= undefined ->
+                         warn_override(Where1, UserOpts, cacerts, [cacertfile], LogLevel),
+                         <<>>;
+                     {new, FileName} -> unambiguous_path(FileName);
+                     {_, FileName} -> FileName
+                 end,
+    option_incompatible(CaCertFile =:= <<>> andalso CaCerts =:= undefined andalso Verify =:= verify_peer,
+                        [{verify, verify_peer}, {cacerts, undefined}]),
+
+    {Where2, CA} = get_opt_bool(certificate_authorities, Role =:= server, UserOpts, Opts),
+    assert_version_dep(Where2 =:= new, certificate_authorities, Versions, ['tlsv1.3']),
+
+    Opts#{cacerts => CaCerts, cacertfile => CaCertFile, certificate_authorities => CA}.
+
+opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
+    {_, SessionTickets} = get_opt_of(session_tickets, [disabled,manual,auto], disabled, UserOpts, Opts),
+    assert_version_dep(SessionTickets =/= disabled, session_tickets, Versions, ['tlsv1.3']),
+
+    {_, UseTicket} = get_opt_list(use_ticket, undefined, UserOpts, Opts),
+    option_error(UseTicket =:= [], use_ticket, UseTicket),
+    option_incompatible(UseTicket =/= undefined andalso SessionTickets =/= manual,
+                        [{use_ticket, UseTicket}, {session_tickets, SessionTickets}]),
+
+    {_, EarlyData} = get_opt_bin(early_data, undefined, UserOpts, Opts),
+    option_incompatible(is_binary(EarlyData) andalso SessionTickets =:= disabled,
+                        [early_data, {session_tickets, disabled}]),
+    option_incompatible(is_binary(EarlyData) andalso SessionTickets =:= manual andalso UseTicket =:= undefined,
+                        [early_data, {session_tickets, manual}, {use_ticket, undefined}]),
+
+    assert_server_only(anti_replay, UserOpts),
+    assert_server_only(stateless_tickets_seed, UserOpts),
+    Opts#{session_tickets => SessionTickets, use_ticket => UseTicket, early_data => EarlyData};
+opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
+    {_, SessionTickets} = get_opt_of(session_tickets, [disabled, stateful, stateless], disabled, UserOpts, Opts),
+    assert_version_dep(SessionTickets =/= disabled, session_tickets, Versions, ['tlsv1.3']),
+
+    {_, EarlyData} = get_opt_of(early_data, [enabled, disabled], disabled, UserOpts, Opts),
+    option_incompatible(SessionTickets =:= disabled andalso EarlyData =:= enabled,
+                        [early_data, {session_tickets, disabled}]),
+
+    AntiReplay =
+        case get_opt(anti_replay, undefined, UserOpts, Opts) of
+            {_, undefined} -> undefined;
+            {_,AR} when SessionTickets =/= stateless ->
+                option_incompatible([{anti_replay, AR}, {session_tickets, SessionTickets}]);
+            {_,'10k'}  -> {10, 5, 72985};  %% n = 10000 p = 0.030003564 (1 in 33) m = 72985 (8.91KiB) k = 5
+            {_,'100k'} -> {10, 5, 729845}; %% n = 10000 p = 0.03000428 (1 in 33) m = 729845 (89.09KiB) k = 5
+            {_, {_,_,_} = AR} -> AR;
+            {_, AR} -> option_error(anti_replay, AR)
+        end,
+
+    {_, STS} = get_opt_bin(stateless_tickets_seed, undefined, UserOpts, Opts),
+    option_incompatible(STS =/= undefined andalso SessionTickets =/= stateless,
+                        [stateless_tickets_seed, {session_tickets, SessionTickets}]),
+
+    assert_client_only(use_ticket, UserOpts),
+    Opts#{session_tickets => SessionTickets, early_data => EarlyData,
+          anti_replay => AntiReplay, stateless_tickets_seed => STS}.
+
+opt_ocsp(UserOpts, #{versions := _Versions} = Opts, #{role := Role}) ->
+    {_, Stapling} = get_opt_bool(ocsp_stapling, false, UserOpts, Opts),
+    assert_client_only(Role, Stapling, ocsp_stapling),
+
+    {_, Nonce} = get_opt_bool(ocsp_nonce, true, UserOpts, Opts),
+    option_incompatible(Stapling =:= false andalso Nonce =:= false, [{ocsp_nonce, false}, {ocsp_stapling, false}]),
+
+    {_, ORC} = get_opt_list(ocsp_responder_certs, [], UserOpts, Opts),
+    option_incompatible(Stapling =:= false andalso ORC =/= [], [ocsp_responder_certs, {ocsp_stapling, false}]),
+    %% FIXME should not be decoded in users process !!
+    Decode = fun(CertDer) ->
+                     try public_key:pkix_decode_cert(CertDer, plain)
+                     catch _:_ -> option_error(ocsp_responder_certs, ORC)
+                     end
+             end,
+    Certs = [Decode(CertDer) || CertDer <- ORC],
+    %% FIXME make it one option?
+    Opts#{ocsp_stapling => Stapling, ocsp_nonce => Nonce, ocsp_responder_certs => Certs}.
+
+opt_sni(UserOpts, #{versions := _Versions} = Opts, #{role := server}) ->
+    {_, SniHosts} = get_opt_list(sni_hosts, [], UserOpts, Opts),
+    %% Postpone option checking until all other options are checked FIXME
+    Check = fun({[_|_], SO}) when is_list(SO) ->
+                    case proplists:get_value(sni_hosts, SO, undefined) of
+                        undefined -> ok;
+                        Recursive -> option_error(sni_hosts, Recursive)
+                    end;
+               (HostOpts) -> option_error(sni_hosts, HostOpts)
+            end,
+    [Check(E) || E <- SniHosts],
+
+    {_, SniFun} = get_opt_fun(sni_fun, 1, undefined, UserOpts, Opts),
+
+    option_incompatible(is_function(SniFun) andalso SniHosts =/= [],
+                        [sni_fun, sni_hosts]),
+    assert_client_only(server_name_indication, UserOpts),
+    %% FIXME: remove sni_hosts and
+    %%   sni_fun = fun(SNIHostName) -> proplists:get_value(SNIHostname, SNIHosts) end,
+    Opts#{sni_fun => SniFun, sni_hosts => SniHosts,
+          server_name_indication => undefined  %% FIXME
+         };
+opt_sni(UserOpts, #{versions := _Versions} = Opts, #{role := client} = Env) ->
     %% RFC 6066, Section 3: Currently, the only server names supported are
     %% DNS hostnames
     %% case inet_parse:domain(Value) of
@@ -2383,202 +1978,487 @@ validate_option(server_name_indication, Value, _)
     %%
     %% But the definition seems very diffuse, so let all strings through
     %% and leave it up to public_key to decide...
-    Value;
-validate_option(server_name_indication, undefined, _) ->
-    undefined;
-validate_option(server_name_indication, disable, _) ->
-    disable;
-validate_option(session_tickets, Value, server)
-  when Value =:= disabled orelse
-       Value =:= stateful orelse
-       Value =:= stateless ->
-    Value;
-validate_option(session_tickets, Value, server) ->
-    throw({error,
-           {options, role,
-            {session_tickets,
-             {Value, {server, [disabled, stateful, stateless]}}}}});
-validate_option(session_tickets, Value, client)
-  when Value =:= disabled orelse
-       Value =:= manual orelse
-       Value =:= auto ->
-    Value;
-validate_option(session_tickets, Value, client) ->
-    throw({error,
-           {options, role,
-            {session_tickets,
-             {Value, {client, [disabled, manual, auto]}}}}});
-validate_option(stateless_tickets_seed, undefined, _) ->
-    undefined;
-validate_option(stateless_tickets_seed, Seed, _)
-  when is_binary(Seed) ->
-    Seed;
-validate_option(stateless_tickets_seed = Option, Value, _) ->
-    throw({error, {options, type, {Option, {Value, not_binary}}}});
-validate_option(sni_fun, undefined, _) ->
-    undefined;
-validate_option(sni_fun, Fun, _)
-  when is_function(Fun) ->
-    Fun;
-validate_option(sni_hosts, [], _) ->
-    [];
-validate_option(sni_hosts, [{Hostname, SSLOptions} | Tail], _)
-  when is_list(Hostname) ->
-    RecursiveSNIOptions = proplists:get_value(sni_hosts, SSLOptions, undefined),
-    case RecursiveSNIOptions of
-        undefined ->
-            [{Hostname, validate_options(SSLOptions)} |
-             validate_option(sni_hosts, Tail)];
-        _ ->
-            throw({error, {options, {sni_hosts, RecursiveSNIOptions}}})
-    end;
-validate_option(srp_identity, undefined, _) ->
-    undefined;
-validate_option(srp_identity, {Username, Password}, _)
-  when is_list(Username),
-       is_list(Password), Username =/= "",
-       length(Username) =< 255 ->
-    {unicode:characters_to_binary(Username),
-     unicode:characters_to_binary(Password)};
-validate_option(user_lookup_fun, undefined, _) ->
-    undefined;
-validate_option(user_lookup_fun, {Fun, _} = Value, _)
-  when is_function(Fun, 3) ->
-   Value;
-validate_option(use_ticket, Value, _)
-  when is_list(Value) ->
-    Value;
-validate_option(verify, Value, _)
-  when Value == verify_none; Value == verify_peer ->
-    Value;
-validate_option(verify_fun, undefined, _)  ->
-    undefined;
-%% Backwards compatibility
-validate_option(verify_fun, Fun, _) when is_function(Fun) ->
-    {fun(_,{bad_cert, _} = Reason, OldFun) ->
-	     case OldFun([Reason]) of
-		 true ->
-		     {valid, OldFun};
-		 false ->
-		     {fail, Reason}
-	     end;
-	(_,{extension, _}, UserState) ->
-	     {unknown, UserState};
-	(_, valid, UserState) ->
-	     {valid, UserState};
-	(_, valid_peer, UserState) ->
-	     {valid, UserState}
-     end, Fun};
-validate_option(verify_fun, {Fun, _} = Value, _) when is_function(Fun) ->
-   Value;
-validate_option(versions, Versions, _)  ->
-    validate_versions(Versions, Versions);
-validate_option(Opt, undefined = Value, _) ->
-    AllOpts = maps:keys(?RULES),
-    case lists:member(Opt, AllOpts) of
-        true ->
-            Value;
-        false ->
-            throw({error, {options, {Opt, Value}}})
-    end;
-validate_option(Opt, Value, _) ->
-    throw({error, {options, {Opt, Value}}}).
+    SNI = case get_opt(server_name_indication, unbound, UserOpts, Opts) of
+              {_, unbound} -> server_name_indication_default(maps:get(host, Env, undefined));
+              {_, [_|_] = SN} -> SN;
+              {_, disable} -> disable;
+              {_, SN} -> option_error(server_name_indication, SN)
+          end,
+    assert_server_only(sni_fun, UserOpts),
+    assert_server_only(sni_hosts, UserOpts),
+    Opts#{server_name_indication => SNI}.
+
+server_name_indication_default(Host) when is_list(Host) ->
+    %% SNI should not contain a trailing dot that a hostname may
+    string:strip(Host, right, $.);
+server_name_indication_default(_) ->
+    undefined.
+
+opt_signature_algs(UserOpts, #{versions := Versions} = Opts, _Env) ->
+    [TlsVersion|_] = TlsVsns = [tls_version(V) || V <- Versions],
+    SA = case get_opt_list(signature_algs, undefined, UserOpts, Opts) of
+             {default, undefined} when TlsVersion >= {3,3} ->
+                 DefAlgs = tls_v1:default_signature_algs(TlsVsns),
+                 handle_hashsigns_option(DefAlgs, TlsVersion);
+             {new, Algs} ->
+                 assert_version_dep(signature_algs, Versions, ['tlsv1.2', 'tlsv1.3']),
+                 SA0 = handle_hashsigns_option(Algs, TlsVersion),
+                 option_error(SA0 =:= [], no_supported_algorithms, {signature_algs, Algs}),
+                 SA0;
+             {_, Algs} ->
+                 Algs
+         end,
+    SAC = case get_opt_list(signature_algs_cert, undefined, UserOpts, Opts) of
+              {new, Schemes} ->
+                  %% Do not send by default
+                  assert_version_dep(signature_algs_cert, Versions, ['tlsv1.2', 'tlsv1.3']),
+                  SAC0 = handle_signature_algorithms_option(Schemes, TlsVersion),
+                  option_error(SAC0 =:= [], no_supported_signature_schemes, {signature_algs_cert, Schemes}),
+                  SAC0;
+              {_, Schemes} ->
+                  Schemes
+          end,
+    Opts#{signature_algs => SA, signature_algs_cert => SAC}.
+
+opt_alpn(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
+    {_, APP} = get_opt_list(alpn_preferred_protocols, undefined, UserOpts, Opts),
+    validate_protocols(is_list(APP), alpn_preferred_protocols, APP),
+
+    {_, NPA} = get_opt_list(next_protocols_advertised, undefined, UserOpts, Opts),
+    validate_protocols(is_list(NPA), next_protocols_advertised, NPA),
+    assert_version_dep(is_list(NPA), next_protocols_advertised, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+
+    assert_client_only(alpn_advertised_protocols, UserOpts),
+    assert_client_only(client_preferred_next_protocols, UserOpts),
+
+    Opts#{alpn_preferred_protocols => APP, next_protocols_advertised => NPA,
+          alpn_advertised_protocols => undefined, next_protocol_selector => undefined  %% FIXME remove
+         };
+opt_alpn(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
+    {_, AAP} = get_opt_list(alpn_advertised_protocols, undefined, UserOpts, Opts),
+    validate_protocols(is_list(AAP), alpn_advertised_protocols, AAP),
+
+    NPS = case get_opt(client_preferred_next_protocols, undefined, UserOpts, Opts) of
+              {new, CPNP} ->
+                  assert_version_dep(client_preferred_next_protocols,
+                                     Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+                  make_next_protocol_selector(CPNP);
+              {_, CPNP} -> CPNP
+          end,
+
+    validate_protocols(is_list(NPS), client_preferred_next_protocols, NPS),
+
+    assert_server_only(alpn_preferred_protocols, UserOpts),
+    assert_server_only(next_protocols_advertised, UserOpts),
+
+    Opts#{alpn_preferred_protocols => undefined, next_protocols_advertised => undefined, %% FIXME remove
+          alpn_advertised_protocols => AAP, next_protocol_selector => NPS
+         }.
+
+validate_protocols(false, _Opt, _List) -> ok;
+validate_protocols(true, Opt, List) ->
+    Check = fun(Bin) ->
+                    IsOK = is_binary(Bin) andalso byte_size(Bin) > 0 andalso byte_size(Bin) < 256,
+                    option_error(not IsOK, Opt, {invalid_protocol, Bin})
+            end,
+    lists:foreach(Check, List).
+
+opt_mitigation(UserOpts, #{versions := Versions} = Opts, _Env) ->
+    {Where1, BM} = get_opt_of(beast_mitigation, [disabled, one_n_minus_one, zero_n], one_n_minus_one, UserOpts, Opts),
+    assert_version_dep(Where1 =:= new, beast_mitigation, Versions, ['tlsv1']),
+
+    {Where2, PC} = get_opt_bool(padding_check, true, UserOpts, Opts),
+    assert_version_dep(Where2 =:= new, padding_check, Versions, ['tlsv1']),
+
+    Opts#{beast_mitigation => BM, padding_check => PC}.
+
+opt_server(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
+    {_, ECC} = get_opt_bool(honor_ecc_order, false, UserOpts, Opts),
+
+    {_, Cipher} = get_opt_bool(honor_cipher_order, false, UserOpts, Opts),
+
+    {Where1, Cookie} = get_opt_bool(cookie, true, UserOpts, Opts),
+    assert_version_dep(Where1 =:= new, cookie, Versions, ['tlsv1.3']),
+
+    {Where2, ReNeg} = get_opt_bool(client_renegotiation, true, UserOpts, Opts),
+    assert_version_dep(Where2 =:= new, client_renegotiation, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+
+    Opts#{honor_ecc_order => ECC, honor_cipher_order => Cipher,
+          cookie => Cookie, client_renegotiation => ReNeg};
+opt_server(UserOpts, Opts, #{role := client}) ->
+    assert_server_only(honor_ecc_order, UserOpts),
+    assert_server_only(honor_cipher_order, UserOpts),
+    assert_server_only(cookie, UserOpts),
+    assert_server_only(client_renegotiation, UserOpts),
+    Opts.
+
+opt_client(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
+    {Where, FB} = get_opt_bool(fallback, false, UserOpts, Opts),
+    assert_version_dep(Where =:= new, fallback, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+
+    {_, CHC} = get_opt_list(customize_hostname_check, [], UserOpts, Opts),
+
+    ValidMFL = [undefined, ?MAX_FRAGMENT_LENGTH_BYTES_1, ?MAX_FRAGMENT_LENGTH_BYTES_2,  %% RFC 6066, Section 4
+                ?MAX_FRAGMENT_LENGTH_BYTES_3, ?MAX_FRAGMENT_LENGTH_BYTES_4],
+    {_, MFL} = get_opt_of(max_fragment_length, ValidMFL, undefined, UserOpts, Opts),
+
+    Opts#{fallback => FB, customize_hostname_check => CHC, max_fragment_length => MFL};
+opt_client(UserOpts, Opts, #{role := server}) ->
+    assert_client_only(fallback, UserOpts),
+    assert_client_only(customize_hostname_check, UserOpts),
+    assert_client_only(max_fragment_length, UserOpts),
+    Opts#{customize_hostname_check => []}.
+
+opt_renegotiate(UserOpts, #{versions := Versions} = Opts, _Env) ->
+    {Where1, KUA} = get_opt_pos_int(key_update_at, ?KEY_USAGE_LIMIT_AES_GCM, UserOpts, Opts),
+    assert_version_dep(Where1 =:= new, key_update_at, Versions, ['tlsv1.3']),
+
+    %% Undocumented, old ?
+    {_, RA0} = get_opt_pos_int(renegotiate_at, ?DEFAULT_RENEGOTIATE_AT, UserOpts, Opts),
+    RA = min(RA0, ?DEFAULT_RENEGOTIATE_AT),  %% Override users choice without notifying ??
+
+    {Where3, SR} = get_opt_bool(secure_renegotiate, true, UserOpts, Opts),
+    assert_version_dep(Where3 =:= new, secure_renegotiate, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+
+    Opts#{secure_renegotiate => SR, key_update_at => KUA, renegotiate_at => RA}.
+
+opt_reuse_sessions(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
+    {Where1, RUSS} = get_opt_of(reuse_sessions, [true, false, save], true, UserOpts, Opts),
+
+    {Where2, RS} = RST = get_opt(reuse_session, undefined, UserOpts, Opts),
+    case RST of
+        {new, Bin} when is_binary(Bin) -> ok;
+        {new, {B1,B2}} when is_binary(B1), is_binary(B2) -> ok;
+        {new, Bad} -> option_error(reuse_session, Bad);
+        {_, _} -> ok
+    end,
+
+    assert_version_dep(Where1 =:= new, reuse_sessions, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+    assert_version_dep(Where2 =:= new, reuse_session, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+    Opts#{reuse_sessions => RUSS, reuse_session => RS};
+opt_reuse_sessions(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
+    {Where1, RUSS} = get_opt_bool(reuse_sessions, true, UserOpts, Opts),
+
+    DefRS = fun(_, _, _, _) -> true end,
+    {Where2, RS} = get_opt_fun(reuse_session, 4, DefRS, UserOpts, Opts),
+
+    assert_version_dep(Where1 =:= new, reuse_sessions, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+    assert_version_dep(Where2 =:= new, reuse_session, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+    Opts#{reuse_sessions => RUSS, reuse_session => RS}.
+
+opt_identity(UserOpts, #{versions := Versions} = Opts, _Env) ->
+    PSK = case get_opt_list(psk_identity, undefined, UserOpts, Opts) of
+              {new, PSK0} ->
+                  PSK1 = unicode:characters_to_binary(PSK0),
+                  PSKSize = byte_size(PSK1),
+                  assert_version_dep(psk_identity, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+                  option_error(not (0 < PSKSize andalso PSKSize < 65536),
+                                psk_identity, {psk_identity, PSK0}),
+                  PSK1;
+              {_, PSK0} ->
+                  PSK0
+          end,
+
+    SRP = case get_opt(srp_identity, undefined, UserOpts, Opts) of
+              {new, {S1, S2}} when is_list(S1), is_list(S2) ->
+                  User = unicode:characters_to_binary(S1),
+                  UserSize = byte_size(User),
+                  assert_version_dep(srp_identity, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+                  option_error(not (0 < UserSize andalso UserSize < 65536),
+                                srp_identity, {srp_identity, PSK0}),
+                  {User, unicode:characters_to_binary(S2)};
+              {new, Err} ->
+                  option_error(srp_identity, Err);
+              {_, SRP0} ->
+                  SRP0
+          end,
+
+    ULF = case get_opt(user_lookup_fun, undefined, UserOpts, Opts) of
+              {new, {Fun, _} = ULF0} when is_function(Fun, 3) ->
+                  assert_version_dep(user_lookup_fun, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+                  ULF0;
+              {new, ULF0} ->
+                  option_error(user_lookup_fun, ULF0);
+              {_, ULF0} ->
+                  ULF0
+          end,
+
+    Opts#{psk_identity => PSK, srp_identity => SRP, user_lookup_fun => ULF}.
+
+opt_supported_groups(UserOpts, #{versions := Versions, log_level := LogLevel} = Opts0, _Env) ->
+    [TlsVersion|_] = TlsVsns = [tls_version(V) || V <- Versions],
+    SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts0) of
+             {default, undefined} ->
+                 handle_supported_groups_option(groups(default), TlsVersion);
+             {new, SG0} ->
+                 assert_version_dep(supported_groups, TlsVsns, ['tlsv1.3']),
+                 handle_supported_groups_option(SG0, TlsVersion);
+             {old, SG0} ->
+                 SG0
+         end,
+
+    Opts = case get_opt(dh, undefined, UserOpts, Opts0) of
+               {Where, DH} when is_binary(DH) ->
+                   warn_override(Where, UserOpts, dh, [dhfile], LogLevel),
+                   Opts0#{dh => DH, dhfile => undefined};
+               {new, DH} ->
+                   option_error(dh, DH);
+               {_, undefined} ->
+                   case get_opt_file(dhfile, unbound, UserOpts, Opts0) of
+                       {default, unbound} -> Opts0#{dh => undefined, dhfile => undefined};
+                       {_, DHFile} -> Opts0#{dh => undefined, dhfile => DHFile}
+                   end
+           end,
+
+    CPHS = case get_opt_list(ciphers, [], UserOpts, Opts) of
+               {old, CPS0} -> CPS0;
+               {_, CPS0} -> handle_cipher_option(CPS0, Versions)
+           end,
+
+    ECCS = case get_opt_list(eccs, undefined, UserOpts, Opts) of
+               {old, ECCS0} -> ECCS0;
+               {default, _} -> handle_eccs_option(tls_v1:ecc_curves(all), TlsVersion);
+               {new, ECCS0} -> handle_eccs_option(ECCS0, TlsVersion)
+           end,
+
+    Opts#{ciphers => CPHS, eccs => ECCS, supported_groups => SG}.
+
+opt_crl(UserOpts, Opts, _Env) ->
+    {_, Check} = get_opt_of(crl_check, [best_effort, peer, true, false], false, UserOpts, Opts),
+    Cache = case get_opt(crl_cache, {ssl_crl_cache, {internal, []}}, UserOpts, Opts) of
+                {_, {Cb, {_Handle, Options}} = Value} when is_atom(Cb), is_list(Options) ->
+                    Value;
+                {_, Err} ->
+                    option_error(crl_cache, Err)
+            end,
+    Opts#{crl_check => Check, crl_cache => Cache}.
+
+opt_handshake(UserOpts, Opts, _Env) ->
+    {_, HS} = get_opt_of(handshake, [hello, full], full, UserOpts, Opts),
+
+    {_, MHSS} = get_opt_int(max_handshake_size, 1, ?MAX_UNIT24, ?DEFAULT_MAX_HANDSHAKE_SIZE,
+                            UserOpts, Opts),
+
+    Opts#{handshake => HS, max_handshake_size => MHSS}.
+
+opt_process(UserOpts, Opts, _Env) ->
+    {_, RSO} = get_opt_list(receiver_spawn_opts, [], UserOpts, Opts),
+    {_, SSO} = get_opt_list(sender_spawn_opts, [], UserOpts, Opts),
+    {_, HA} = get_opt_int(hibernate_after, 0, infinity, infinity, UserOpts, Opts),
+    Opts#{receiver_spawn_opts => RSO, sender_spawn_opts => SSO, hibernate_after => HA}.
+
+%%%%
+
+get_opt(Opt, Default, UserOpts, Opts) ->
+    case maps:get(Opt, UserOpts, unbound) of
+        unbound ->
+            case maps:get(maybe_map_key_internal(Opt), Opts, unbound) of
+                unbound -> %% Uses default value
+                    {default, Default};
+                Value ->   %% Uses already set value (merge)
+                    {old, Value}
+            end;
+        Value ->           %% Uses new user option
+            {new, Value}
+    end.
+
+get_opt_of(Opt, Valid, Default, UserOpts, Opts) ->
+    case get_opt(Opt, Default, UserOpts, Opts) of
+        {new, Value} = Res ->
+            case lists:member(Value, Valid) of
+                true -> Res;
+                false -> option_error(Opt, Value)
+            end;
+        Res ->
+            Res
+    end.
+
+get_opt_bool(Opt, Default, UserOpts, Opts) ->
+    case get_opt(Opt, Default, UserOpts, Opts) of
+        {_, Value} = Res when is_boolean(Value) -> Res;
+        {_, Value} -> option_error(Opt, Value)
+    end.
+
+get_opt_pos_int(Opt, Default, UserOpts, Opts) ->
+    get_opt_int(Opt, 1, infinity, Default, UserOpts, Opts).
+
+get_opt_int(Opt, Min, Max, Default, UserOpts, Opts) ->
+    case get_opt(Opt, Default, UserOpts, Opts) of
+        {_, Value} = Res when is_integer(Value), Min =< Value, Value =< Max ->
+            Res;
+        {_, Value} = Res when Value =:= infinity, Max =:= infinity ->
+            Res;
+        {_, Value} ->
+            option_error(Opt, Value)
+    end.
+
+get_opt_fun(Opt, Arity, Default, UserOpts, Opts) ->
+    case get_opt(Opt, Default, UserOpts, Opts) of
+        {_, Fun} = Res when is_function(Fun, Arity) -> Res;
+        {new, Err} -> option_error(Opt, Err);
+        Res -> Res
+    end.
+
+get_opt_list(Opt, Default, UserOpts, Opts) ->
+    case get_opt(Opt, Default, UserOpts, Opts) of
+        {new, Err} when not is_list(Err) -> option_error(Opt, Err);
+        Res -> Res
+    end.
+
+get_opt_bin(Opt, Default, UserOpts, Opts) ->
+    case get_opt(Opt, Default, UserOpts, Opts) of
+        {new, Err} when not is_binary(Err) -> option_error(Opt, Err);
+        Res -> Res
+    end.
+
+get_opt_file(Opt, Default, UserOpts, Opts) ->
+    case get_opt(Opt, Default, UserOpts, Opts) of
+        {new, File} -> {new, validate_filename(File, Opt)};
+        Res -> Res
+    end.
+
+
+%%%%
+
+default_cb_info(tls) ->
+    {gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive};
+default_cb_info(dtls) ->
+    {gen_udp, udp, udp_closed, udp_error, udp_passive}.
 
 handle_cb_info({V1, V2, V3, V4}) ->
     {V1,V2,V3,V4, list_to_atom(atom_to_list(V2) ++ "_passive")};
+handle_cb_info(CbInfo) when tuple_size(CbInfo) =:= 5 ->
+    CbInfo;
 handle_cb_info(CbInfo) ->
-    CbInfo.
+    option_error(cb_info, CbInfo).
 
-handle_hashsigns_option(Value, Version) when is_list(Value)
-                                             andalso Version >= {3, 4} ->
-    case tls_v1:signature_schemes(Version, Value) of
-	[] ->
-	    throw({error, {options,
-                           no_supported_signature_schemes,
-                           {signature_algs, Value}}});
-	_ ->
-	    Value
-    end;
-handle_hashsigns_option(Value, Version) when is_list(Value) 
-                                             andalso Version =:= {3, 3} ->
-    case tls_v1:signature_algs(Version, Value) of
-	[] ->
-	    throw({error, {options, no_supported_algorithms, {signature_algs, Value}}});
-	_ ->	
-	    Value
-    end;
-handle_hashsigns_option(_, Version) when Version =:= {3, 3} ->
-    handle_hashsigns_option(tls_v1:default_signature_algs([Version]), Version);
-handle_hashsigns_option(_, _Version) ->
-    undefined.
+handle_option_cb_info(Options, Protocol) ->
+    CbInfo = proplists:get_value(cb_info, Options, default_cb_info(Protocol)),
+    handle_cb_info(CbInfo).
 
-handle_signature_algorithms_option(Value, Version) when is_list(Value)
-                                                        andalso Version >= {3, 3} ->
-    case tls_v1:signature_schemes(Version, Value) of
-	[] ->
-	    throw({error, {options,
-                           no_supported_signature_schemes,
-                           {signature_algs_cert, Value}}});
-	_ ->
-	    Value
-    end;
-handle_signature_algorithms_option(_, _Version) ->
-    undefined.
+maybe_map_key_internal(client_preferred_next_protocols) ->
+    next_protocol_selector;
+maybe_map_key_internal(K) ->
+    K.
 
-validate_options([]) ->
-	[];
-validate_options([{Opt, Value} | Tail]) ->
-	[{Opt, validate_option(Opt, Value)} | validate_options(Tail)].
+split_options(Opts0, AllOptions) ->
+    Opts1 = proplists:expand([{binary, [{mode, binary}]},
+                              {list, [{mode, list}]}], Opts0),
+    Opts2 = handle_option_format(Opts1, []),
+    %% Remove deprecated ssl_imp option
+    Opts = proplists:delete(ssl_imp, Opts2),
 
-validate_npn_ordering(client) ->
+    DeleteUserOpts = fun(Key, PropList) -> proplists:delete(Key, PropList) end,
+    AllOpts = [cb_info, client_preferred_next_protocols] ++ AllOptions,
+    SockOpts = lists:foldl(DeleteUserOpts, Opts, AllOpts),
+    {Opts -- SockOpts, SockOpts}.
+
+assert_server_only(Option, Opts) ->
+    Value = maps:get(Option, Opts, undefined),
+    role_error(Value =/= undefined, server_only, Option).
+assert_client_only(Option, Opts) ->
+    Value = maps:get(Option, Opts, undefined),
+    role_error(Value =/= undefined, client_only, Option).
+
+assert_server_only(client, Bool, Option) ->
+    role_error(Bool, server_only, Option);
+assert_server_only(_, _, _) ->
+    ok.
+assert_client_only(server, Bool, Option) ->
+    role_error(Bool, client_only, Option);
+assert_client_only(_, _, _) ->
+    ok.
+
+role_error(false, _ErrorDesc, _Option) ->
     ok;
-validate_npn_ordering(server) ->
-    ok;
-validate_npn_ordering(Value) ->
-    throw({error, {options, {client_preferred_next_protocols, {invalid_precedence, Value}}}}).
+role_error(true, ErrorDesc, Option)
+  when ErrorDesc =:= client_only; ErrorDesc =:= server_only ->
+    throw_error({option, ErrorDesc, Option}).
 
-validate_binary_list(Opt, List) ->
-    lists:foreach(
-        fun(Bin) when is_binary(Bin),
-                      byte_size(Bin) > 0,
-                      byte_size(Bin) < 256 ->
-            ok;
-           (Bin) ->
-            throw({error, {options, {Opt, {invalid_protocol, Bin}}}})
-        end, List).
-validate_versions([], Versions) ->
-    Versions;
-validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
-                                                   Version == 'tlsv1.2';
-                                                   Version == 'tlsv1.1';
-                                                   Version == tlsv1 ->
-    case tls_record:sufficient_crypto_support(Version) of
-        true ->
-            tls_validate_versions(Rest, Versions);
-        false ->
-            throw({error, {options, {insufficient_crypto_support, {Version, {versions, Versions}}}}})
-    end; 
-validate_versions([Version | Rest], Versions) when Version == 'dtlsv1';
-                                                   Version == 'dtlsv1.2'->
-    DTLSVer = dtls_record:protocol_version(Version),
-    case tls_record:sufficient_crypto_support(dtls_v1:corresponding_tls_version(DTLSVer)) of
-        true ->
-            dtls_validate_versions(Rest, Versions);
-        false ->
-            throw({error, {options, {insufficient_crypto_support, {Version, {versions, Versions}}}}})
-    end;        
-validate_versions([Version| _], Versions) ->
-    throw({error, {options, {Version, {versions, Versions}}}}).
+option_incompatible(false, _Options) -> ok;
+option_incompatible(true, Options) -> option_incompatible(Options).
 
-tls_validate_versions([], Versions) ->
-    tls_validate_version_gap(Versions);
-tls_validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
-                                                       Version == 'tlsv1.2';
-                                                       Version == 'tlsv1.1';
-                                                       Version == tlsv1 ->
-    tls_validate_versions(Rest, Versions);                  
-tls_validate_versions([Version| _], Versions) ->
-    throw({error, {options, {Version, {versions, Versions}}}}).
+-spec option_incompatible(_) -> no_return().
+option_incompatible(Options) ->
+    throw_error({options, incompatible, Options}).
+
+option_error(false, _, _What) -> true;
+option_error(true, Tag, What) -> option_error(Tag,What).
+
+-spec option_error(_,_) -> no_return().
+option_error(Tag, What) ->
+    throw_error({options, {Tag, What}}).
+
+-spec throw_error(_) -> no_return().
+throw_error(Err) ->
+    throw({error, Err}).
+
+assert_version_dep(Option, Vsns, AllowedVsn) ->
+    assert_version_dep(true, Option, Vsns, AllowedVsn).
+
+assert_version_dep(false, _, _, _) -> true;
+assert_version_dep(true, Option, SSLVsns, AllowedVsn) ->
+    case is_dtls_configured(SSLVsns) of
+        true -> %% TODO: Check option dependency for DTLS
+            true;
+        false ->
+            APIVsns = lists:map(fun tls_record:protocol_version/1, SSLVsns),
+            Set1 = sets:from_list(APIVsns),
+            Set2 = sets:from_list(AllowedVsn),
+            case sets:size(sets:intersection(Set1, Set2)) > 0 of
+                true -> ok;
+                false -> option_incompatible([Option, {versions, APIVsns}])
+            end
+    end.
+
+warn_override(new, UserOpts, NewOpt, OldOpts, LogLevel) ->
+    Check = fun(Key) -> maps:is_key(Key,UserOpts) end,
+    case lists:filter(Check, OldOpts) of
+        [] -> ok;
+        Ignored ->
+            Desc = lists:flatten(io_lib:format("Options ~w are ignored", [Ignored])),
+            Reas = lists:flatten(io_lib:format("Option ~w is set", [NewOpt])),
+            ssl_logger:log(notice, LogLevel, #{description => Desc, reason => Reas}, ?LOCATION)
+    end;
+warn_override(_, _UserOpts, _NewOpt, _OldOpts, _LogLevel) ->
+    ok.
+
+is_dtls_configured(Versions) ->
+    Fun = fun (Version) when Version =:= {254, 253} orelse
+                             Version =:= {254, 255} ->
+                  true;
+              (_) ->
+                  false
+          end,
+    lists:any(Fun, Versions).
+
+
+handle_hashsigns_option(Value, Version) ->
+    try
+        if Version >= {3,4} ->
+                tls_v1:signature_schemes(Version, Value);
+           Version =:= {3,3} ->
+                tls_v1:signature_algs(Version, Value);
+           true ->
+                undefined
+        end
+    catch error:function_clause ->
+            option_error(signature_algs, Value)
+    end.
+
+handle_signature_algorithms_option(Value, Version) ->
+    try tls_v1:signature_schemes(Version, Value)
+    catch error:function_clause ->
+            option_error(signature_algs_cert, Value)
+    end.
+
+validate_filename(FN, _Option) when is_binary(FN), FN =/= <<>> ->
+    FN;
+validate_filename([_|_] = FN, _Option) ->
+    Enc = file:native_name_encoding(),
+    unicode:characters_to_binary(FN, unicode, Enc);
+validate_filename(FN, Option) ->
+    option_error(Option, FN).
 
 %% Do not allow configuration of TLS 1.3 with a gap where TLS 1.2 is not supported
 %% as that configuration can trigger the built in version downgrade protection
@@ -2595,25 +2475,7 @@ tls_validate_version_gap(Versions) ->
         _ ->
             Versions
     end.
-dtls_validate_versions([], Versions) ->
-    Versions;
-dtls_validate_versions([Version | Rest], Versions) when  Version == 'dtlsv1';
-                                                         Version == 'dtlsv1.2'->
-    dtls_validate_versions(Rest, Versions);
-dtls_validate_versions([Ver| _], Versions) ->
-    throw({error, {options, {Ver, {versions, Versions}}}}).
 
-%% The option cacerts overrides cacertfile
-ca_cert_default(_,_, [_|_]) ->
-    undefined;
-ca_cert_default(verify_none, _, _) ->
-    undefined;
-ca_cert_default(verify_peer, {Fun,_}, _) when is_function(Fun) ->
-    undefined;
-%% Server that wants to verify_peer and has no verify_fun must have
-%% some trusted certs.
-ca_cert_default(verify_peer, undefined, _) ->
-    "".
 emulated_options(undefined, undefined, Protocol, Opts) ->
     case Protocol of
 	tls ->
@@ -2633,9 +2495,9 @@ handle_cipher_option(Value, Versions)  when is_list(Value) ->
 	    Suites
     catch
 	exit:_ ->
-	    throw({error, {options, {ciphers, Value}}});
+	    option_error(ciphers, Value);
 	error:_->
-	    throw({error, {options, {ciphers, Value}}})
+	    option_error(ciphers, Value)
     end.
 
 binary_cipher_suites([{3,4} = Version], []) -> 
@@ -2708,22 +2570,25 @@ tuple_to_map_mac(chacha20_poly1305, _) ->
 tuple_to_map_mac(_, MAC) ->
     MAC.
 
-handle_eccs_option(Value, Version) when is_list(Value) ->
-    {_Major, Minor} = tls_version(Version),
+handle_eccs_option(Value, {_Major, Minor}) when is_list(Value) ->
     try tls_v1:ecc_curves(Minor, Value) of
-        Curves -> #elliptic_curves{elliptic_curve_list = Curves}
+        Curves ->
+            option_error(Curves =:= [], eccs, none_valid),
+            #elliptic_curves{elliptic_curve_list = Curves}
     catch
-        exit:_ -> throw({error, {options, {eccs, Value}}});
-        error:_ -> throw({error, {options, {eccs, Value}}})
+        exit:_ -> option_error(eccs, Value);
+        error:_ -> option_error(eccs, Value)
     end.
 
 handle_supported_groups_option(Value, Version) when is_list(Value) ->
     {_Major, Minor} = tls_version(Version),
     try tls_v1:groups(Minor, Value) of
-        Groups -> #supported_groups{supported_groups = Groups}
+        Groups ->
+            option_error(Groups =:= [], supported_groups, none_valid),
+            #supported_groups{supported_groups = Groups}
     catch
-        exit:_ -> throw({error, {options, {supported_groups, Value}}});
-        error:_ -> throw({error, {options, {supported_groups, Value}}})
+        exit:_ -> option_error(supported_groups, Value);
+        error:_ -> option_error(supported_groups, Value)
     end.
 
 
@@ -2749,42 +2614,37 @@ file_desc(keyfile) ->
 file_desc(dhfile) ->
     "Invalid DH params file ".
 
-detect(_Pred, []) ->
-    undefined;
-detect(Pred, [H|T]) ->
-    case Pred(H) of
-        true ->
-            H;
-        _ ->
-            detect(Pred, T)
-    end.
-
 make_next_protocol_selector(undefined) ->
     undefined;
-make_next_protocol_selector({client, AllProtocols, DefaultProtocol}) ->
-    fun(AdvertisedProtocols) ->
-        case detect(fun(PreferredProtocol) ->
-			    lists:member(PreferredProtocol, AdvertisedProtocols)
-		    end, AllProtocols) of
-            undefined ->
-		DefaultProtocol;
-            PreferredProtocol ->
-		PreferredProtocol
-        end
+make_next_protocol_selector({Precedence, PrefProtcol} = V) ->
+    option_error(not is_list(PrefProtcol), client_preferred_next_protocols, V),
+    make_next_protocol_selector({Precedence, PrefProtcol, ?NO_PROTOCOL});
+make_next_protocol_selector({Precedence, AllProtocols, DefP} = V) ->
+    option_error(not is_list(AllProtocols), client_preferred_next_protocols, V),
+    option_error(not (is_binary(DefP) andalso byte_size(DefP) < 256), client_preferred_next_protocols, V),
+    validate_protocols(true, client_preferred_next_protocols, AllProtocols),
+    case Precedence of
+        client ->                 
+            fun(Advertised) ->
+                    Search = fun(P) -> lists:member(P, Advertised) end,
+                    case lists:search(Search, AllProtocols) of
+                        false -> DefP;
+                        {value, Preferred} -> Preferred
+                    end
+            end;
+        server ->
+            fun(Advertised) ->
+                    Search = fun(P) -> lists:member(P, AllProtocols) end,
+                    case lists:search(Search, Advertised) of
+                        false -> DefP;
+                        {value, Preferred} -> Preferred
+                    end
+            end;
+        Value ->
+            option_error(client_preferred_next_protocols, {invalid_precedence, Value})
     end;
-
-make_next_protocol_selector({server, AllProtocols, DefaultProtocol}) ->
-    fun(AdvertisedProtocols) ->
-	    case detect(fun(PreferredProtocol) ->
-				lists:member(PreferredProtocol, AllProtocols)
-			end,
-			AdvertisedProtocols) of
-		undefined ->
-		    DefaultProtocol;
-            PreferredProtocol ->
-		    PreferredProtocol
-	    end
-    end.
+make_next_protocol_selector(What) ->
+    option_error(client_preferred_next_protocols, What).
 
 connection_cb(tls) ->
     tls_gen_connection;
@@ -2793,16 +2653,6 @@ connection_cb(dtls) ->
 connection_cb(Opts) ->
    connection_cb(proplists:get_value(protocol, Opts, tls)).
 
-record_cb(tls) ->
-    tls_record;
-record_cb(dtls) ->
-    dtls_record;
-record_cb(Opts) ->
-    record_cb(proplists:get_value(protocol, Opts, tls)).
-
-binary_filename(FileName) ->
-    Enc = file:native_name_encoding(),
-    unicode:characters_to_binary(FileName, unicode, Enc).
 
 %% Assert that basic options are on the format {Key, Value}
 %% with a few exceptions and phase out log_alert 
@@ -2810,12 +2660,12 @@ handle_option_format([], Acc) ->
     lists:reverse(Acc);
 handle_option_format([{log_alert, Bool} | Rest], Acc) when is_boolean(Bool) ->
     case proplists:get_value(log_level, Acc ++ Rest, undefined) of
-        undefined -> 
+        undefined ->
             handle_option_format(Rest, [{log_level, 
                                          map_log_level(Bool)} | Acc]);
-        _ ->                             
+        _ ->
             handle_option_format(Rest, Acc)
-    end;                             
+    end;
 handle_option_format([{Key,_} = Opt | Rest], Acc) when is_atom(Key) ->
     handle_option_format(Rest, [Opt | Acc]);
 %% Handle exceptions 
@@ -2826,52 +2676,13 @@ handle_option_format([inet = Opt | Rest], Acc) ->
 handle_option_format([inet6 = Opt | Rest], Acc) ->
     handle_option_format(Rest,  [Opt | Acc]);
 handle_option_format([Value | _], _) ->
-    throw({option_not_a_key_value_tuple, Value}).
+    option_error(option_not_a_key_value_tuple, Value).
 
 map_log_level(true) ->
     notice;
 map_log_level(false) ->
     none.
 
-handle_verify_option(verify_none, #{fail_if_no_peer_cert := false} = OptionsMap) ->
-    OptionsMap#{verify => verify_none};
-handle_verify_option(verify_none, #{fail_if_no_peer_cert := true}) ->
-    throw({error, {options, incompatible,
-                   {verify, verify_none},
-                   {fail_if_no_peer_cert, true}}});
-%% The option 'verify' is simulated by the configured 'verify_fun' that is mostly
-%% hidden from the end user. When 'verify' is set to verify_none, the option
-%% 'verify_fun' is also set to a default verify-none-verify_fun when processing
-%% the configuration. If 'verify' is later changed from verify_none to verify_peer,
-%% the 'verify_fun' must also be changed to undefined. When 'verify_fun' is set to
-%% undefined, public_key's default verify_fun will be used that performs a full
-%% verification.
-handle_verify_option(verify_peer, #{verify := verify_none} = OptionsMap) ->
-    OptionsMap#{verify => verify_peer,
-                verify_fun => undefined};
-handle_verify_option(verify_peer, OptionsMap) ->
-    OptionsMap#{verify => verify_peer};
-handle_verify_option(Value, _) ->
-    throw({error, {options, {verify, Value}}}).
-
-%% Added to handle default values for signature_algs in TLS 1.3
-default_option_role_sign_algs(_, Value, _, Version) when Version >= {3,4} ->
-    Value;
-default_option_role_sign_algs(Role, Value, Role, _) ->
-    Value;
-default_option_role_sign_algs(_, _, _, _) ->
-    undefined.
-
-default_option_role(Role, Value, Role) ->
-    Value;
-default_option_role(_,_,_) ->
-    undefined.
-
-
-default_cb_info(tls) ->
-    {gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive};
-default_cb_info(dtls) ->
-    {gen_udp, udp, udp_closed, udp_error, udp_passive}.
 
 include_security_info([]) ->
     false;
@@ -2883,11 +2694,6 @@ include_security_info([Item | Items]) ->
             include_security_info(Items)
     end.
 
-server_name_indication_default(Host) when is_list(Host) ->
-    %% SNI should not contain a trailing dot that a hostname may
-    string:strip(Host, right, $.);
-server_name_indication_default(_) ->
-    undefined.
 
 add_filter(undefined, Filters) ->
     Filters;
@@ -2896,25 +2702,27 @@ add_filter(Filter, Filters) ->
 
 maybe_client_warn_no_verify(#{verify := verify_none,
                              warn_verify_none := true,
-                             log_level := LogLevel}, client) ->
+                             log_level := LogLevel} = Opts, client) ->
     ssl_logger:log(warning, LogLevel, #{description => "Server authenticity is not verified since certificate path validation is not enabled",
                                         reason => "The option {verify, verify_peer} and one of the options 'cacertfile' or "
-                                        "'cacerts' are required to enable this."}, ?LOCATION);
-maybe_client_warn_no_verify(_,_) ->
+                                        "'cacerts' are required to enable this."}, ?LOCATION),
+    maps:without([warn_verify_none], Opts);
+maybe_client_warn_no_verify(Opts,_) ->
     %% Warning not needed. Note client certificate validation is optional in TLS
-    ok.
+    Opts.
 
 unambiguous_path(Value) ->
     AbsName = filename:absname(Value),
-    case file:read_link(AbsName) of
-        {ok, PathWithNoLink} ->
-            case filename:pathtype(PathWithNoLink) of
-                relative ->
-                    Dirname = filename:dirname(AbsName),
-                    filename:join([Dirname, PathWithNoLink]);
-                _ ->
-                    PathWithNoLink
-            end;
-        _ ->
-            AbsName
-    end.
+    UP = case file:read_link(AbsName) of
+             {ok, PathWithNoLink} ->
+                 case filename:pathtype(PathWithNoLink) of
+                     relative ->
+                         Dirname = filename:dirname(AbsName),
+                         filename:join([Dirname, PathWithNoLink]);
+                     _ ->
+                         PathWithNoLink
+                 end;
+             _ ->
+                 AbsName
+         end,
+    validate_filename(UP, cacertfile).

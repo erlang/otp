@@ -115,11 +115,10 @@ client_option(Config) when is_list(Config) ->
     ok.
 
 %--------------------------------------------------------------------------------
-%% check max_fragment_length option on the server is ignored
-%% and both sides can successfully send > 512 bytes
+%% check default max_fragment_length both sides can successfully send > 512 bytes
 server_option(Config) when is_list(Config) ->
     Data = "mfl_server_options " ++ lists:duplicate(512, $x),
-    run_mfl_handshake(Config, undefined, Data, [], [{max_fragment_length, 512}]).
+    run_mfl_handshake(Config, undefined, Data, [], []).
 
 %--------------------------------------------------------------------------------
 %% check max_fragment_length option on the client is accepted and reused

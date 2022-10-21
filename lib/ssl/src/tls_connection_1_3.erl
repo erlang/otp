@@ -247,7 +247,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = client = Role},
                   handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = ssl:handle_options(NewOptions, Role, Options0),
+    Options = ssl:update_options(NewOptions, Role, Options0),
     State = ssl_gen_statem:ssl_config(Options, Role, State0),
     {next_state, wait_sh, State#state{start_or_recv_from = From,
                                       handshake_env = HSEnv#handshake_env{continue_status = continue}},
@@ -256,7 +256,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = server = Role},
                   handshake_env = #handshake_env{continue_status = {pause, ClientVersions}} = HSEnv,
                   ssl_options = Options0} = State0) ->
-    Options = #{versions := Versions} = ssl:handle_options(NewOptions, Role, Options0),
+    Options = #{versions := Versions} = ssl:update_options(NewOptions, Role, Options0),
     State = ssl_gen_statem:ssl_config(Options, Role, State0),
     case ssl_handshake:select_supported_version(ClientVersions, Versions) of
         {3,4} ->
@@ -604,9 +604,8 @@ do_client_start(ServerHello, State0) ->
 
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
-    #{%% Use highest supported version for client/server random nonce generation
-      versions := [Version|_],
-      client_renegotiation := ClientRenegotiation} = SSLOptions,
+    %% Use highest supported version for client/server random nonce generation
+    #{versions := [Version|_]} = SSLOptions,
     MaxEarlyDataSize = init_max_early_data_size(Role),
     ConnectionStates = tls_record:init_connection_states(Role,
                                                          Version,
@@ -630,8 +629,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        static_env = InitStatEnv,
        handshake_env = #handshake_env{
                           tls_handshake_history = ssl_handshake:init_handshake_history(),
-                          renegotiation = {false, first},
-                          allow_renegotiate = ClientRenegotiation
+                          renegotiation = {false, first}
                          },
        connection_env = #connection_env{user_application = {UserMonitor, User}},
        socket_options = SocketOptions,

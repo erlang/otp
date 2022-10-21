@@ -129,8 +129,8 @@ decode_hello_handshake(_Config) ->
 		    16#70, 16#64, 16#79, 16#2f, 16#32>>,
 	
     Version = {3, 0},
-    {Records, _Buffer} = tls_handshake:get_tls_handshakes(Version, HelloPacket, <<>>,
-                                                          default_options_map()),
+    DefOpts = ssl:update_options([], client, #{}),
+    {Records, _Buffer} = tls_handshake:get_tls_handshakes(Version, HelloPacket, <<>>, DefOpts),
 
     {Hello, _Data} = hd(Records),
     Extensions = Hello#server_hello.extensions,
@@ -280,7 +280,3 @@ is_supported(Hash) ->
     Algos = crypto:supports(),
     Hashs = proplists:get_value(hashs, Algos), 
     lists:member(Hash, Hashs).
-
-default_options_map() ->
-    Fun = fun (_Key, {Default, _}) -> Default end,
-    maps:map(Fun, ?RULES).
