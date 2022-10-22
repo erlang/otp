@@ -74,9 +74,9 @@ jobs:
            done
 
            if [ -d "Unit Test Results" ]; then
-             echo "::set-output name=HAS_TEST_ARTIFACTS::true"
+             echo "HAS_TEST_ARTIFACTS=true" >> $GITHUB_OUTPUT
            else
-             echo "::set-output name=HAS_TEST_ARTIFACTS::false"
+             echo "HAS_TEST_ARTIFACTS=false" >> $GITHUB_OUTPUT
            fi
 
       - uses: actions/checkout@v2
