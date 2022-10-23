@@ -1893,13 +1893,49 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         if (seg.size.isAtom() && seg.size.as<ArgAtom>().get() == am_all &&
             seg.type == am_binary) {
             comment("size of an entire binary");
-            mov_arg(ARG1, seg.src);
-            a.mov(ARG3, ARG1);
-            fragment_call(ga->get_bs_bit_size_shared());
             if (exact_type(seg.src, BEAM_TYPE_BITSTRING)) {
-                comment("skipped check for success since the source "
-                        "is always a bit string");
+                auto src = load_source(seg.src, ARG1);
+                arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
+                auto unit = getSizeUnit(seg.src);
+                bool is_bitstring = unit == 0 || std::gcd(unit, 8) != 8;
+
+                if (is_bitstring) {
+                    comment("inlined size code because the value is always "
+                            "a bitstring");
+                } else {
+                    comment("inlined size code because the value is always "
+                            "a binary");
+                }
+
+                a.ldur(TMP2, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+
+                if (is_bitstring) {
+                    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+                }
+
+                a.add(sizeReg, sizeReg, TMP2, arm::lsl(3));
+
+                if (is_bitstring) {
+                    Label not_sub_bin = a.newLabel();
+                    const int bit_number = 3;
+                    ERTS_CT_ASSERT(
+                            (_TAG_HEADER_SUB_BIN & (1 << bit_number)) != 0 &&
+                            (_TAG_HEADER_REFC_BIN & (1 << bit_number)) == 0 &&
+                            (_TAG_HEADER_HEAP_BIN & (1 << bit_number)) == 0);
+
+                    a.tbz(TMP1, imm(bit_number), not_sub_bin);
+
+                    a.ldurb(TMP2.w(),
+                            emit_boxed_val(boxed_ptr,
+                                           offsetof(ErlSubBin, bitsize)));
+                    a.add(sizeReg, sizeReg, TMP2);
+
+                    a.bind(not_sub_bin);
+                }
             } else {
+                mov_arg(ARG1, seg.src);
+                a.mov(ARG3, ARG1);
+                fragment_call(ga->get_bs_bit_size_shared());
                 if (Fail.get() == 0) {
                     mov_imm(ARG4,
                             beam_jit_update_bsc_reason_info(seg.error_info,
@@ -1908,8 +1944,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                                             BSC_VALUE_ARG3));
                 }
                 a.b_mi(resolve_label(error, disp1MB));
+                a.add(sizeReg, sizeReg, ARG1);
             }
-            a.add(sizeReg, sizeReg, ARG1);
         } else if (seg.unit != 0) {
             bool can_fail = true;
             comment("size binary/integer/float/string");
