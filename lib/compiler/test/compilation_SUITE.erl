@@ -402,7 +402,7 @@ string_table(Config) when is_list(Config) ->
     File = filename:join(DataDir, "string_table.erl"),
     {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
     {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),
-    {"StrT", <<"stringtable">>} = StringTableChunk,
+    {"StrT", <<"abcdefghiABCDEFGHI">>} = StringTableChunk,
     ok.
 
 otp_8949_a(Config) when is_list(Config) ->

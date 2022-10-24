@@ -590,12 +590,18 @@ bs_instrs_is([#b_set{op={succeeded,_}}=I|Is], CtxChain, Acc) ->
     %% This instruction refers to a specific operation, so we must not
     %% substitute the context argument.
     bs_instrs_is(Is, CtxChain, [I | Acc]);
-bs_instrs_is([#b_set{op=Op,args=Args0}=I0|Is], CtxChain, Acc) ->
+bs_instrs_is([#b_set{anno=Anno0,op=Op,args=Args0}=I0|Is], CtxChain, Acc) ->
     Args = [bs_subst_ctx(A, CtxChain) || A <- Args0],
     I1 = I0#b_set{args=Args},
     I = case {Op,Args} of
             {bs_match,[#b_literal{val=skip},Ctx,Type|As]} ->
-                I1#b_set{op=bs_skip,args=[Type,Ctx|As]};
+                Anno = case Anno0 of
+                           #{arg_types := #{4 := SizeType}} ->
+                               Anno0#{arg_types := #{3 => SizeType}};
+                           #{} ->
+                               Anno0
+                       end,
+                I1#b_set{anno=Anno,op=bs_skip,args=[Type,Ctx|As]};
             {bs_match,[#b_literal{val=string},Ctx|As]} ->
                 I1#b_set{op=bs_match_string,args=[Ctx|As]};
             {_,_} ->

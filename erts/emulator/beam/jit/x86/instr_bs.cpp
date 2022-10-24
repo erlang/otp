@@ -58,12 +58,22 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
         a.jmp(fail);
         return -1;
     } else {
+        bool can_fail = true;
+
         mov_arg(RET, Size);
 
-        a.mov(ARG3d, RETd);
-        a.and_(ARG3d, imm(_TAG_IMMED1_MASK));
-        a.cmp(ARG3d, imm(_TAG_IMMED1_SMALL));
-        a.jne(fail);
+        if (always_small(Size)) {
+            auto [min, max] = getClampedRange(Size);
+            can_fail =
+                    !(0 <= min && (max >> (SMALL_BITS - ERL_UNIT_BITS)) == 0);
+            comment("simplified segment size checks because "
+                    "the types are known");
+        } else {
+            a.mov(ARG3d, RETd);
+            a.and_(ARG3d, imm(_TAG_IMMED1_MASK));
+            a.cmp(ARG3d, imm(_TAG_IMMED1_SMALL));
+            a.jne(fail);
+        }
 
         if (max_size) {
             ASSERT(Support::isInt32((Sint)make_small(max_size)));
@@ -71,19 +81,35 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
             a.ja(fail);
         }
 
-        if (unit == 1) {
+        if (unit == 0) {
+            mov_imm(RET, 0);
+        } else if (unit == 1) {
             a.sar(RET, imm(_TAG_IMMED1_SIZE));
-            a.js(fail);
+            if (can_fail) {
+                a.js(fail);
+            }
+        } else if (!can_fail && Support::isPowerOf2(unit)) {
+            int trailing_bits = Support::ctz<Eterm>(unit);
+            a.and_(RET, imm(~_TAG_IMMED1_MASK));
+            if (trailing_bits < _TAG_IMMED1_SIZE) {
+                a.sar(RET, imm(_TAG_IMMED1_SIZE - trailing_bits));
+            } else if (trailing_bits > _TAG_IMMED1_SIZE) {
+                a.shl(RET, imm(trailing_bits - _TAG_IMMED1_SIZE));
+            }
         } else {
             /* Untag the size but don't shift it just yet, we want to fail on
              * overflow if the final result doesn't fit into a small. */
             a.and_(RET, imm(~_TAG_IMMED1_MASK));
-            a.js(fail);
+            if (can_fail) {
+                a.js(fail);
+            }
 
             /* Size = (Size) * (Unit) */
             mov_imm(ARG3, unit);
             a.mul(ARG3); /* CLOBBERS ARG3! */
-            a.jo(fail);
+            if (can_fail) {
+                a.jo(fail);
+            }
 
             a.sar(RET, imm(_TAG_IMMED1_SIZE));
         }
@@ -689,19 +715,49 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
         /* Clobbers RET + ARG3, returns a negative result if we always
          * fail and further work is redundant. */
         if (emit_bs_get_field_size(Sz, unit, fail, ARG5) >= 0) {
+            /* This operation can be expensive if a bignum can be
+             * created because there can be a garbage collection. */
+            auto max = std::get<1>(getClampedRange(Sz));
+            bool potentially_expensive =
+                    max >= SMALL_BITS || (max * Unit.get()) >= SMALL_BITS;
+
             mov_arg(ARG3, Ctx);
             mov_imm(ARG4, flags);
-            mov_arg(ARG6, Live);
+            if (potentially_expensive) {
+                mov_arg(ARG6, Live);
+            } else {
+#ifdef DEBUG
+                /* Never actually used. */
+                mov_imm(ARG6, 1023);
+#endif
+            }
 
-            emit_enter_runtime<Update::eReductions | Update::eStack |
-                               Update::eHeap>();
+            if (potentially_expensive) {
+                emit_enter_runtime<Update::eReductions | Update::eStack |
+                                   Update::eHeap>();
+            } else {
+                comment("simplified entering runtime because result is always "
+                        "small");
+                emit_enter_runtime();
+            }
 
             a.mov(ARG1, c_p);
-            load_x_reg_array(ARG2);
+            if (potentially_expensive) {
+                load_x_reg_array(ARG2);
+            } else {
+#ifdef DEBUG
+                /* Never actually used. */
+                mov_imm(ARG2, 0);
+#endif
+            }
             runtime_call<6>(beam_jit_bs_get_integer);
 
-            emit_leave_runtime<Update::eReductions | Update::eStack |
-                               Update::eHeap>();
+            if (potentially_expensive) {
+                emit_leave_runtime<Update::eReductions | Update::eStack |
+                                   Update::eHeap>();
+            } else {
+                emit_leave_runtime();
+            }
 
             emit_test_the_non_value(RET);
             a.je(fail);
@@ -2607,7 +2663,8 @@ struct BsmSegment {
         GET_BINARY,
         SKIP,
         DROP,
-        GET_TAIL
+        GET_TAIL,
+        EQ
     } action;
     ArgVal live;
     Uint size;
@@ -3088,6 +3145,7 @@ static std::vector<BsmSegment> opt_bsm_segments(
         if (heap_need != 0 && seg.live.isWord()) {
             BsmSegment s = seg;
 
+            read_action_pos = -1;
             s.action = BsmSegment::action::TEST_HEAP;
             s.size = heap_need;
             segs.push_back(s);
@@ -3152,6 +3210,33 @@ static std::vector<BsmSegment> opt_bsm_segments(
             segs.push_back(seg);
             break;
         }
+        case BsmSegment::action::EQ: {
+            if (read_action_pos < 0 ||
+                seg.size + segs.at(read_action_pos).size > 64) {
+                BsmSegment s;
+
+                /* Create a new READ action. */
+                read_action_pos = seg_index;
+                s.action = BsmSegment::action::READ;
+                s.size = seg.size;
+                segs.push_back(s);
+                seg_index++;
+            } else {
+                /* Reuse previous READ action. */
+                segs.at(read_action_pos).size += seg.size;
+            }
+            auto &prev = segs.back();
+            if (prev.action == BsmSegment::action::EQ &&
+                prev.size + seg.size <= 64) {
+                /* Coalesce with the previous EQ instruction. */
+                prev.size += seg.size;
+                prev.unit = prev.unit << seg.size | seg.unit;
+                seg_index--;
+            } else {
+                segs.push_back(seg);
+            }
+            break;
+        }
         case BsmSegment::action::SKIP:
             if (read_action_pos >= 0 &&
                 seg.size + segs.at(read_action_pos).size <= 64) {
@@ -3181,6 +3266,38 @@ static std::vector<BsmSegment> opt_bsm_segments(
         segs.push_back(seg);
     }
     return segs;
+}
+
+UWord BeamModuleAssembler::bs_get_flags(const ArgVal &val) {
+    if (val.isNil()) {
+        return 0;
+    } else if (val.isLiteral()) {
+        Eterm term = beamfile_get_literal(beam, val.as<ArgLiteral>().get());
+        UWord flags = 0;
+
+        while (is_list(term)) {
+            Eterm *consp = list_val(term);
+            Eterm elem = CAR(consp);
+            switch (elem) {
+            case am_little:
+            case am_native:
+                flags |= BSF_LITTLE;
+                break;
+            case am_signed:
+                flags |= BSF_SIGNED;
+                break;
+            }
+            term = CDR(consp);
+        }
+        ASSERT(is_nil(term));
+        return flags;
+    } else if (val.isWord()) {
+        /* Originates from bs_get_integer2 instruction. */
+        return val.as<ArgWord>().get();
+    } else {
+        ASSERT(0); /* Should not happen. */
+        return 0;
+    }
 }
 
 void BeamModuleAssembler::emit_i_bs_match(ArgLabel const &Fail,
@@ -3239,7 +3356,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             seg.live = current[0];
             seg.size = size * unit;
             seg.unit = unit;
-            seg.flags = current[1].as<ArgWord>().get();
+            seg.flags = bs_get_flags(current[1]);
             seg.dst = current[4].as<ArgRegister>();
             current += 5;
             break;
@@ -3256,6 +3373,14 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             seg.size = current[0].as<ArgWord>().get();
             seg.flags = 0;
             current += 1;
+            break;
+        }
+        case am_Eq: {
+            seg.action = BsmSegment::action::EQ;
+            seg.live = current[0];
+            seg.size = current[1].as<ArgWord>().get();
+            seg.unit = current[2].as<ArgWord>().get();
+            current += 3;
             break;
         }
         default:
@@ -3354,6 +3479,37 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
                 cmp(RET, size, tmp);
             }
             a.jne(resolve_beam_label(Fail));
+            break;
+        }
+        case BsmSegment::action::EQ: {
+            comment("=:= %ld %ld", seg.size, seg.unit);
+            auto bits = seg.size;
+            x86::Gp extract_reg;
+
+            if (is_last) {
+                extract_reg = bitdata;
+            } else {
+                extract_reg = RET;
+                a.mov(extract_reg, bitdata);
+            }
+            if (bits != 0 && bits != 64) {
+                a.shr(extract_reg, imm(64 - bits));
+            }
+
+            if (seg.size <= 32) {
+                cmp(extract_reg.r32(), seg.unit, tmp);
+            } else {
+                cmp(extract_reg, seg.unit, tmp);
+            }
+
+            a.jne(resolve_beam_label(Fail));
+
+            if (!is_last && bits != 0 && bits != 64) {
+                a.shl(bitdata, imm(bits));
+            }
+
+            /* bin_position is clobbered. */
+            is_position_valid = false;
             break;
         }
         case BsmSegment::action::TEST_HEAP: {

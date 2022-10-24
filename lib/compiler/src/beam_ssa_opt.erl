@@ -1847,7 +1847,8 @@ bsm_skip([], _) -> [].
 
 bsm_skip_is([I0|Is], Extracted) ->
     case I0 of
-        #b_set{op=bs_match,
+        #b_set{anno=Anno0,
+               op=bs_match,
                dst=Ctx,
                args=[#b_literal{val=T}=Type,PrevCtx|Args0]}
           when T =/= float, T =/= string, T =/= skip ->
@@ -1859,7 +1860,8 @@ bsm_skip_is([I0|Is], Extracted) ->
                     false ->
                         %% The value is never extracted.
                         Args = [#b_literal{val=skip},PrevCtx,Type|Args0],
-                        I0#b_set{args=Args}
+                        Anno = maps:remove(arg_types, Anno0),
+                        I0#b_set{anno=Anno,args=Args}
                 end,
             [I|Is];
         #b_set{} ->
@@ -3292,16 +3294,21 @@ ssa_opt_bs_ensure([L|Ls], Seen0, Count0, Blocks0) ->
 ssa_opt_bs_ensure([], _Seen, Count, Blocks) ->
     {Blocks,Count}.
 
-ssa_opt_bs_ensure_collect(L, Fail, Blocks0, Seen0, Acc) ->
+ssa_opt_bs_ensure_collect(L, Fail, Blocks0, Seen0, Acc0) ->
     case is_bs_match_blk(L, Blocks0) of
         no ->
-            {Acc,Blocks0,Seen0};
+            {Acc0,Blocks0,Seen0};
         {yes,Size,#b_br{succ=Succ,fail=Fail}} ->
-            Seen = sets:add_element(L, Seen0),
-            Blocks = annotate_match(L, Blocks0),
-            ssa_opt_bs_ensure_collect(Succ, Fail, Blocks, Seen, update_size(Size, Acc));
+            case update_size(Size, Acc0) of
+                no ->
+                    {Acc0,Blocks0,Seen0};
+                Acc ->
+                    Seen = sets:add_element(L, Seen0),
+                    Blocks = annotate_match(L, Blocks0),
+                    ssa_opt_bs_ensure_collect(Succ, Fail, Blocks, Seen, Acc)
+            end;
         {yes,_,_} ->
-            {Acc,Blocks0,Seen0}
+            {Acc0,Blocks0,Seen0}
     end.
 
 annotate_match(L, Blocks) ->
@@ -3315,8 +3322,10 @@ annotate_match(L, Blocks) ->
     Blk = Blk0#b_blk{is=Is},
     Blocks#{L := Blk}.
 
-update_size({Size,Unit}, {Sum,Unit0}) ->
-    {Sum + Size,max(Unit, Unit0)}.
+update_size({{PrevCtx,NewCtx},Size,Unit}, {{_,PrevCtx},Sum,Unit0}) ->
+    {{PrevCtx,NewCtx},Sum + Size,max(Unit, Unit0)};
+update_size(_, _) ->
+    no.
 
 is_bs_match_blk(L, Blocks) ->
     Blk = map_get(L, Blocks),
@@ -3325,8 +3334,8 @@ is_bs_match_blk(L, Blocks) ->
             case is_bs_match_is(Is) of
                 no ->
                     no;
-                {yes,SizeUnit} ->
-                    {yes,SizeUnit,Last}
+                {yes,CtxSizeUnit} ->
+                    {yes,CtxSizeUnit,Last}
             end;
         #b_blk{} ->
             no
@@ -3337,9 +3346,9 @@ is_bs_match_is([#b_set{op=bs_match,dst=Dst}=I,
     case is_viable_match(I) of
         no ->
             no;
-        {yes,{Size,_}=SizeUnit} when Size bsr 24 =:= 0 ->
+        {yes,{Ctx,Size,Unit}} when Size bsr 24 =:= 0 ->
             %% Only include matches of reasonable size.
-            {yes,SizeUnit};
+            {yes,{{Ctx,Dst},Size,Unit}};
         {yes,_} ->
             %% Too large size.
             no
@@ -3350,25 +3359,27 @@ is_bs_match_is([]) -> no.
 
 is_viable_match(#b_set{op=bs_match,args=Args}) ->
     case Args of
-        [#b_literal{val=binary},_,_,#b_literal{val=all},#b_literal{val=U}]
+        [#b_literal{val=binary},Ctx,_,#b_literal{val=all},#b_literal{val=U}]
           when is_integer(U), 1 =< U, U =< 256 ->
-            {yes,{0,U}};
-        [#b_literal{val=binary},_,_,#b_literal{val=Size},#b_literal{val=U}]
+            {yes,{Ctx,0,U}};
+        [#b_literal{val=binary},Ctx,_,#b_literal{val=Size},#b_literal{val=U}]
           when is_integer(Size) ->
-            {yes,{Size*U,1}};
-        [#b_literal{val=integer},_,_,#b_literal{val=Size},#b_literal{val=U}]
+            {yes,{Ctx,Size*U,1}};
+        [#b_literal{val=integer},Ctx,_,#b_literal{val=Size},#b_literal{val=U}]
           when is_integer(Size) ->
-            {yes,{Size*U,1}};
-        [#b_literal{val=skip},_,_,_,#b_literal{val=all},#b_literal{val=U}] ->
-            {yes,{0,U}};
-        [#b_literal{val=skip},_,_,_,#b_literal{val=Size},#b_literal{val=U}]
+            {yes,{Ctx,Size*U,1}};
+        [#b_literal{val=skip},Ctx,_,_,#b_literal{val=all},#b_literal{val=U}] ->
+            {yes,{Ctx,0,U}};
+        [#b_literal{val=skip},Ctx,_,_,#b_literal{val=Size},#b_literal{val=U}]
           when is_integer(Size) ->
-            {yes,{Size*U,1}};
+            {yes,{Ctx,Size*U,1}};
+        [#b_literal{val=string},Ctx,#b_literal{val=Str}] when bit_size(Str) =< 64 ->
+            {yes,{Ctx,bit_size(Str),1}};
         _ ->
             no
     end.
 
-build_bs_ensure_match(L, {Size,Unit}, Count0, Blocks0) ->
+build_bs_ensure_match(L, {_,Size,Unit}, Count0, Blocks0) ->
     BsMatchL = Count0,
     Count1 = Count0 + 1,
     {NewCtx,Count2} = new_var('@context', Count1),

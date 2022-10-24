@@ -1422,6 +1422,8 @@ protected:
                            Uint bits,
                            const ArgRegister &Dst);
 
+    UWord bs_get_flags(const ArgVal &val);
+
     void emit_raise_exception();
     void emit_raise_exception(const ErtsCodeMFA *exp);
     void emit_raise_exception(Label I, const ErtsCodeMFA *exp);
@@ -1538,6 +1540,9 @@ protected:
     void cmp(x86::Gp gp, int64_t val, const x86::Gp &spill) {
         if (Support::isInt32(val)) {
             a.cmp(gp, imm(val));
+        } else if (gp.isGpd()) {
+            mov_imm(spill, val);
+            a.cmp(gp, spill.r32());
         } else {
             mov_imm(spill, val);
             a.cmp(gp, spill);

@@ -951,7 +951,8 @@ vi({test,bs_start_match3,{f,_}=Fail,Live,[Src],Dst}, Vst) ->
 vi({test,bs_match_string,{f,Fail},[Ctx,Stride,{string,String}]}, Vst) ->
     true = is_bitstring(String),                %Assertion.
     validate_bs_skip(Fail, Ctx, Stride, Vst);
-vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size,Unit,_Flags]}, Vst) ->
+vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size0,Unit,_Flags]}, Vst) ->
+    Size = unpack_typed_arg(Size0),
     assert_term(Size, Vst),
 
     Stride = case get_concrete_type(Size, Vst) of
@@ -996,8 +997,16 @@ vi({test,bs_get_integer2=Op,{f,Fail},Live,
     Stride = NumBits,
     Type = bs_integer_type(NumBits, Flags),
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
-vi({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,_Sz,Unit,_Flags],Dst},Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, Unit, #t_integer{}, Dst, Vst);
+vi({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,Sz0,Unit,{field_flags,Flags}],Dst},Vst) ->
+    Sz = unpack_typed_arg(Sz0),
+    Type = case meet(get_term_type(Sz, Vst), #t_integer{}) of
+               #t_integer{elements={_,SizeMax}} when SizeMax * Unit < 64 ->
+                   NumBits = SizeMax * Unit,
+                   bs_integer_type(NumBits, Flags);
+               _ ->
+                   #t_integer{}
+           end,
+    validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 vi({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,Size,Unit,_],Dst},Vst) ->
     Stride = bsm_stride(Size, Unit),
     validate_bs_get(Op, Fail, Ctx, Live, Stride, #t_float{}, Dst, Vst);
@@ -1739,6 +1748,8 @@ validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
         {ensure_exactly,Stride} ->
             Vst = advance_bs_context(Ctx, Stride, Vst0),
             validate_bs_match(Is, Ctx, Unit0, Vst);
+        {'=:=',nil,Bits,Value} when Bits =< 64, is_integer(Value) ->
+            validate_bs_match(Is, Ctx, Unit0, Vst0);
         {Type0,Live,{literal,Flags},Size,Unit,Dst} when Type0 =:= binary;
                                                         Type0 =:= integer ->
             validate_ctx_live(Ctx, Live),
