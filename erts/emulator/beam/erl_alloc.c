@@ -79,6 +79,9 @@
 #define ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC ERTS_ALC_DEFAULT_ENABLED_ACUL_EHEAP_ALLOC
 #define ERTS_ALC_DEFAULT_ACUL_LL_ALLOC ERTS_ALC_DEFAULT_ENABLED_ACUL_LL_ALLOC
 
+#define ERTS_ALC_DEFAULT_ENABLED_ACFUL ERTS_ALC_DEFAULT_ENABLED_ACUL - 20
+#define ERTS_ALC_DEFAULT_ENABLED_ACFUL_EHEAP_ALLOC ERTS_ALC_DEFAULT_ENABLED_ACUL_EHEAP_ALLOC - 20
+#define ERTS_ALC_DEFAULT_ENABLED_ACFUL_LL_ALLOC ERTS_ALC_DEFAULT_ENABLED_ACUL_LL_ALLOC - 20
 
 #ifdef DEBUG
 static Uint install_debug_functions(void);
@@ -310,6 +313,7 @@ set_default_literal_alloc_opts(struct au_init *ip)
     ip->init.util.rsbcmt	= 0;
     ip->init.util.rmbcmt	= 0;
     ip->init.util.acul		= 0;
+    ip->init.util.acful		= 0;
 
 #if defined(ARCH_32)
 # if HAVE_ERTS_MSEG
@@ -592,6 +596,9 @@ adjust_carrier_migration_support(struct au_init *auip)
 	    auip->init.aoff.blk_order = FF_BF;
 	}
     }
+    if (auip->init.util.acful > auip->init.util.acul) {
+        auip->init.util.acful = auip->init.util.acul;
+    }
 }
 
 void
@@ -691,6 +698,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 
     /* Make adjustments for carrier migration support */
     init.temp_alloc.init.util.acul = 0;
+    init.temp_alloc.init.util.acful = 0;
     adjust_carrier_migration_support(&init.sl_alloc);
     adjust_carrier_migration_support(&init.std_alloc);
     adjust_carrier_migration_support(&init.ll_alloc);
@@ -727,6 +735,16 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	init.driver_alloc.init.util.acul = 0;
 	init.fix_alloc.init.util.acul = 0;
         init.literal_alloc.init.util.acul = 0;
+        init.temp_alloc.init.util.acful = 0;
+	init.sl_alloc.init.util.acful = 0;
+	init.std_alloc.init.util.acful = 0;
+	init.ll_alloc.init.util.acful = 0;
+	init.eheap_alloc.init.util.acful = 0;
+	init.binary_alloc.init.util.acful = 0;
+	init.ets_alloc.init.util.acful = 0;
+	init.driver_alloc.init.util.acful = 0;
+	init.fix_alloc.init.util.acful = 0;
+        init.literal_alloc.init.util.acful = 0;
     }
 
     /* Only temp_alloc can use thread specific interface */
@@ -1275,6 +1293,30 @@ get_acul_value(struct au_init *auip, char *param_end, char** argv, int* ip)
     return (Uint) tmp;
 }
 
+static Uint
+get_acful_value(struct au_init *auip, char *param_end, char** argv, int* ip)
+{
+    Sint tmp;
+    char *rest;
+    char *param = argv[*ip]+1;
+    char *value = get_value(param_end, argv, ip);
+    if (sys_strcmp(value, "de") == 0) {
+	switch (auip->init.util.alloc_no) {
+	case ERTS_ALC_A_LONG_LIVED:
+	    return ERTS_ALC_DEFAULT_ENABLED_ACFUL_LL_ALLOC;
+	case ERTS_ALC_A_EHEAP:
+	    return ERTS_ALC_DEFAULT_ENABLED_ACFUL_EHEAP_ALLOC;
+	default:
+	    return ERTS_ALC_DEFAULT_ENABLED_ACFUL;
+	}
+    }
+    errno = 0;
+    tmp = (Sint) ErtsStrToSint(value, &rest, 10);
+    if (errno != 0 || rest == value || tmp < 0 || 100 < tmp)
+	bad_value(param, param_end, value);
+    return (Uint) tmp;
+}
+
 static void
 handle_au_arg(struct au_init *auip,
 	      char* sub_param,
@@ -1303,6 +1345,10 @@ handle_au_arg(struct au_init *auip,
             else if (has_prefix("acfml", sub_param)) {
                 value = get_amount_value(sub_param + 5, argv, ip);
                 wp = &auip->init.util.acfml;
+            }
+            else if (has_prefix("acful", sub_param)) {
+                value = get_acful_value(auip, sub_param + 5, argv, ip);
+                wp = &auip->init.util.acful;
             }
             else
                 goto bad_switch;
@@ -1370,8 +1416,10 @@ handle_au_arg(struct au_init *auip,
                     bad_value(param, sub_param + 1, alg);
                 }
 	    }
-	    if (!strategy_support_carrier_migration(auip))
+	    if (!strategy_support_carrier_migration(auip)) {
 		auip->init.util.acul = 0;
+		auip->init.util.acful = 0;
+            }
 	} else if (has_prefix("atags", sub_param)) {
             auip->init.util.atags = get_bool_value(sub_param + 5, argv, ip);
         }
@@ -1503,6 +1551,7 @@ handle_au_arg(struct au_init *auip,
 	else if (res == 0) {
 	    auip->thr_spec = 0;
 	    auip->init.util.acul = 0;
+	    auip->init.util.acful = 0;
 	    break;
 	}
 	goto bad_switch;
@@ -1714,6 +1763,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			    for (a = 0; a < aui_sz; a++) {
 				aui[a]->thr_spec = 0;
 				aui[a]->init.util.acul = 0;
+				aui[a]->init.util.acful = 0;
 				aui[a]->init.util.ramv = 0;
 				aui[a]->init.util.lmbcs = 5*1024*1024;
 			    }
