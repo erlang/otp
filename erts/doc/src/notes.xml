@@ -31,6 +31,27 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add abandon carrier free utilization limit
+	    (<c>+Muacful</c>) option to erts_alloc. This option
+	    allows the user to mark unused segments in a memory
+	    carrier as re-useable by the OS if needed.</p>
+          <p>
+	    This functionality was a non-configurable default before
+	    Erlang/OTP 25, but removed due to performance issues.</p>
+          <p>
+	    Own Id: OTP-18290 Aux Id: ERIERL-866 PR-6378 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
