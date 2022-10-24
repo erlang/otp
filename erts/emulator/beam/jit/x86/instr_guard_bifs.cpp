@@ -611,6 +611,40 @@ void BeamModuleAssembler::emit_bif_hd(const ArgLabel &Fail,
 }
 
 /* ================================================================
+ *  is_map_key/2
+ * ================================================================
+ */
+
+void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
+                                              const ArgLabel &Fail,
+                                              const ArgSource &Key,
+                                              const ArgSource &Src,
+                                              const ArgRegister &Dst) {
+    if (!exact_type(Src, BEAM_TYPE_MAP)) {
+        emit_i_bif2(Key, Src, Fail, Bif, Dst);
+        return;
+    }
+
+    comment("inlined BIF is_map_key/2");
+
+    mov_arg(ARG1, Src);
+    mov_arg(ARG2, Key);
+
+    if (masked_types(Key, BEAM_TYPE_MASK_IMMEDIATE) != BEAM_TYPE_NONE &&
+        hasCpuFeature(CpuFeatures::X86::kBMI2)) {
+        safe_fragment_call(ga->get_i_get_map_element_shared());
+        emit_cond_to_bool(x86::Inst::kIdCmovne, Dst);
+    } else {
+        emit_enter_runtime();
+        runtime_call<2>(get_map_element);
+        emit_leave_runtime();
+
+        emit_test_the_non_value(RET);
+        emit_cond_to_bool(x86::Inst::kIdCmove, Dst);
+    }
+}
+
+/* ================================================================
  *  map_get/2
  * ================================================================
  */

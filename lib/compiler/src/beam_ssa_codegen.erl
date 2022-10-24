@@ -1322,6 +1322,13 @@ cg_block([#cg_set{op=wait_timeout,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
                  [{wait_timeout,Fail,Timeout},timeout]
          end,
     {Is,St};
+cg_block([#cg_set{op=has_map_field,dst=Dst0,args=Args0,anno=Anno}|T], Context, St0) ->
+    [Map,Key] = typed_args(Args0, Anno, St0),
+    Dst = beam_arg(Dst0, St0),
+    I = {bif,is_map_key,{f,0},[Key,Map],Dst},
+    {Is0,St} = cg_block(T, Context, St0),
+    Is = [I|Is0],
+    {Is,St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=Set], none, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
     Is = cg_instr(Op, Args, Dst, Set),
@@ -1794,8 +1801,6 @@ cg_instr(get_tl=Op, [Src], Dst) ->
     [{Op,Src,Dst}];
 cg_instr(get_tuple_element=Op, [Src,{integer,N}], Dst) ->
     [{Op,Src,N,Dst}];
-cg_instr(has_map_field, [Map,Key], Dst) ->
-    [{bif,is_map_key,{f,0},[Key,Map],Dst}];
 cg_instr(nif_start, [], _Dst) ->
     [nif_start];
 cg_instr(put_list=Op, [Hd,Tl], Dst) ->
