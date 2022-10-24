@@ -63,7 +63,7 @@ groups() ->
        src_tests_script, crazy_script, optional_apps_script,
        included_script, included_override_script,
        included_fail_script, included_bug_script, exref_script,
-       duplicate_modules_script,
+       duplicate_modules_script, duplicate_entries_script,
        otp_3065_circular_dependenies, included_and_used_sort_script]},
      {tar, [],
       [tar_options, relname_tar, normal_tar, no_mod_vsn_tar, system_files_tar,
@@ -465,6 +465,18 @@ variable_script(Config) when is_list(Config) ->
 			       LatestName),
 
     ok = file:set_cwd(OldDir),
+    ok.
+
+%% make_script: Duplicate entries in app file
+duplicate_entries_script(Config) when is_list(Config) ->
+    DataDir = ?datadir,
+    create_apps_duplicate_entry(DataDir),
+    {LatestDir, LatestName} = create_script(latest_t21,Config),
+    error = systools:make_script(LatestName,
+        [{path, [DataDir, LatestDir]}]),
+    {LatestDir2, LatestName2} = create_script(latest_t22,Config),
+    ok = systools:make_script(LatestName2,
+        [{path, [DataDir, LatestDir2]}]),
     ok.
 
 %% make_script: Abnormal cases.
@@ -2575,6 +2587,12 @@ create_script(latest_app_start_type2,Config) ->
 		 {xmerl,current,none}],
     Apps = core_apps(current) ++ OtherApps,
     do_create_script(latest_app_start_type2,Config,current,Apps);
+create_script(latest_t21, Config) ->
+    Apps = core_apps(current) ++ [{t21, "1.0"}],
+    do_create_script(latest_t21, Config, "4.4", Apps);
+create_script(latest_t22, Config) ->
+    Apps = core_apps(current) ++ [{t22, "1.0"}],
+    do_create_script(latest_t22, Config, "4.4", Apps);
 create_script(current_all_no_sasl,Config) ->
     Apps = [{kernel,current},{stdlib,current},{db,"2.1"},{fe,"3.1"}],
     do_create_script(current_all_no_sasl,Config,current,Apps);
@@ -2906,7 +2924,6 @@ create_include_files(sort_apps_rev, Config) ->
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)}.
 
-
 create_apps(Dir) ->
     T1 = "{application, t1,\n"
 	" [{vsn, \"1.0\"},\n"
@@ -3025,8 +3042,6 @@ create_apps2(Dir) ->
 	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't13.app'), list_to_binary(T13)).
 
-
-
 create_apps_3065(Dir) ->
     T11 = "{application, chTraffic,\n"
 	" [{vsn, \"1.0\"},\n"
@@ -3118,6 +3133,24 @@ create_sort_apps(Dir) ->
 	"  {included_applications, []},\n"
 	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 't20.app'), list_to_binary(T20)).
+
+create_apps_duplicate_entry(Dir) ->
+    T21 = "{application, t21,\n"
+    " [{vsn, \"1.0\"},\n"
+    "  {description, \"test\"},\n"
+    "  {modules, []},\n"
+    "  {applications, []},\n"
+    "  {included_applications, []},\n"
+    "  {registered, [test, test]}]}.\n",
+    file:write_file(fname(Dir, 't21.app'), list_to_binary(T21)),
+    T22 = "{application, t22,\n"
+    " [{vsn, \"1.0\"},\n"
+    "  {description, \"test\"},\n"
+    "  {modules, []},\n"
+    "  {applications, []},\n"
+    "  {included_applications, []},\n"
+    "  {registered, [test]}]}.\n",
+    file:write_file(fname(Dir, 't22.app'), list_to_binary(T22)).
 
 fname(N) ->
     filename:join(N).
