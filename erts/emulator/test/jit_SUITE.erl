@@ -202,7 +202,7 @@ run_jmsingle_test(Param, ExpectSuccess, ErrorMsg) ->
             ct:fail(ErrorMsg)
     end.
 
-jmsingle(_Config) ->
+jmsingle(Config) ->
     %% Smoke test to check that the emulator starts with the +JMsingle
     %% true/false option and fails with a non-boolean, that is, we
     %% parse the command line correctly.
@@ -219,9 +219,22 @@ jmsingle(_Config) ->
         IsAarch64Apple or IsNetBSD ->
             %% +JMsingle true does not work on macOS running
             %% on Apple Silicon computers nor on NetBSD.
-            run_jmsingle_test("true", internal_error,
-                              "Emulator did not print the correct diagnostic "
-                              "(crashed?) with +JMsingle true");
+
+            %% The emulator will dump a core here, so we set the cwd
+            %% to a temporary directory that we delete when the test is done.
+            {ok, Cwd} = file:get_cwd(),
+            TestDir = filename:join(proplists:get_value(priv_dir, Config),
+                                    "jmsingle"),
+            ok = file:make_dir(TestDir),
+            try
+                ok = file:set_cwd(TestDir),
+                run_jmsingle_test("true", internal_error,
+                                  "Emulator did not print the correct diagnostic "
+                                  "(crashed?) with +JMsingle true")
+            after
+                file:set_cwd(Cwd),
+                file:del_dir_r(TestDir)
+            end;
         true ->
             run_jmsingle_test("true", true,
                               "Emulator did not start with +JMsingle true")
