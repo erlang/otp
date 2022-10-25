@@ -1542,7 +1542,10 @@ create_child_process
     HANDLE hProcess = GetCurrentProcess();
     STARTUPINFOW siStartInfo = {0};
     wchar_t execPath[MAX_PATH];
-    BOOL requote = FALSE;
+    BOOL requote; // ToDo: REMOVE ME
+    BOOL need_quote;
+    int quotedLen;
+    wchar_t *ptr;
 
     *errno_return = -1;
     siStartInfo.cb = sizeof(STARTUPINFOW);
@@ -1557,7 +1560,6 @@ create_child_process
 	 * contain spaces).
 	 */
 	cmdlength = parse_command(origcmd);
-	newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (MAX_PATH+wcslen(origcmd)-cmdlength)*sizeof(wchar_t));
 	thecommand = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP, (cmdlength+1)*sizeof(wchar_t));
 	wcsncpy(thecommand, origcmd, cmdlength);
 	thecommand[cmdlength] = L'\0';
@@ -1567,12 +1569,16 @@ create_child_process
             application_type(thecommand, execPath, TRUE, TRUE, errno_return, &requote);
 	DEBUGF(("application_type returned for (%S) is %d\n", thecommand, applType));
 	erts_free(ERTS_ALC_T_TMP, (void *) thecommand);
-	if (applType == APPL_NONE) {
-	    erts_free(ERTS_ALC_T_TMP,newcmdline);
+	if (applType == APPL_NONE) { 
 	    return FALSE;
 	}
-	newcmdline[0] = L'\0';
 
+        quotedLen = escape_and_quote(execPath, NULL, &need_quote);
+        newcmdline = (wchar_t *)
+            erts_alloc(ERTS_ALC_T_TMP,
+                       (11+quotedLen+wcslen(origcmd)-cmdlength)*sizeof(wchar_t));
+
+        ptr = newcmdline;
 	if (applType == APPL_DOS) {
 	    /*
 	     * Under NT, 16-bit DOS applications will not run unless they
@@ -1584,7 +1590,8 @@ create_child_process
 	    siStartInfo.wShowWindow = SW_HIDE;
 	    siStartInfo.dwFlags |= STARTF_USESHOWWINDOW;
 	    createFlags = CREATE_NEW_CONSOLE;
-	    wcscat(newcmdline, L"cmd.exe /c ");
+	    wcscpy(newcmdline, L"cmd.exe /c ");
+            ptr += 11;
 	} else if (hide) {
 	    DEBUGF(("hiding window\n"));
 	    siStartInfo.wShowWindow = SW_HIDE;
@@ -1592,14 +1599,9 @@ create_child_process
 	    createFlags = 0;
 	}
 
-        if (requote) {
-            wcscat(newcmdline, L"\"");
-        }
-	wcscat(newcmdline, execPath);
-        if (requote) {
-            wcscat(newcmdline, L"\"");
-        }
-	wcscat(newcmdline, origcmd+cmdlength);
+        ptr += escape_and_quote(execPath, ptr, &need_quote);
+
+	wcscpy(ptr, origcmd+cmdlength);
 	DEBUGF(("Creating child process: %S, createFlags = %d\n", newcmdline, createFlags));
 	ok = CreateProcessW((applType == APPL_DOS) ? appname : execPath,
 			    newcmdline,
