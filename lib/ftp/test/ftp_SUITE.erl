@@ -32,7 +32,6 @@
                          end)(inet:gethostname())
        ).
 
--define(BAD_HOST, "badhostname").
 -define(BAD_USER, "baduser").
 -define(BAD_DIR,  "baddirectory").
 
@@ -1247,11 +1246,11 @@ ftp_start_service(Config, Options) ->
     Host = proplists:get_value(ftpd_host,Config),
     Port = proplists:get_value(ftpd_port,Config),
     ct:log("Host=~p, Port=~p",[Host,Port]),
-    {ok,Pid} = ftp:start_service([{host, Host},{port,Port} | Options]),
+    {ok,Pid} = ftp:open([{host, Host},{port,Port} | Options]),
     [{ftp,Pid}|Config].
 
 ftp_stop_service(Config) ->
-    ok = ftp:stop_service(proplists:get_value(ftp,Config)),
+    ok = ftp:close(proplists:get_value(ftp,Config)),
     Config.
 
 split(Cs) -> string:tokens(Cs, "\r\n").
