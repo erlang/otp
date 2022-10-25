@@ -77,7 +77,7 @@ static BOOL create_child_process(wchar_t *, HANDLE, HANDLE,
 static int create_pipe(LPHANDLE, LPHANDLE, BOOL, BOOL);
 static int application_type(const wchar_t* originalName, wchar_t fullPath[MAX_PATH],
                             BOOL search_in_path, BOOL handle_quotes,
-                            int *error_return, BOOL *requote);
+                            int *error_return);
 static void *build_env_block(const erts_osenv_t *env);
 
 HANDLE erts_service_event;
@@ -1542,7 +1542,6 @@ create_child_process
     HANDLE hProcess = GetCurrentProcess();
     STARTUPINFOW siStartInfo = {0};
     wchar_t execPath[MAX_PATH];
-    BOOL requote; // ToDo: REMOVE ME
     BOOL need_quote;
     int quotedLen;
     wchar_t *ptr;
@@ -1566,7 +1565,7 @@ create_child_process
 	DEBUGF(("spawn command: %S\n", thecommand));
 
 	applType =
-            application_type(thecommand, execPath, TRUE, TRUE, errno_return, &requote);
+            application_type(thecommand, execPath, TRUE, TRUE, errno_return);
 	DEBUGF(("application_type returned for (%S) is %d\n", thecommand, applType));
 	erts_free(ERTS_ALC_T_TMP, (void *) thecommand);
 	if (applType == APPL_NONE) { 
@@ -1619,7 +1618,7 @@ create_child_process
 	int run_cmd = 0;
 
 	applType =
-            application_type(origcmd, execPath, FALSE, FALSE, errno_return, &requote);
+            application_type(origcmd, execPath, FALSE, FALSE, errno_return);
 	if (applType == APPL_NONE) {
 	    return FALSE;
 	} 
@@ -1642,7 +1641,7 @@ create_child_process
 	    wchar_t cmdPath[MAX_PATH];
 	    int cmdType;
 	    cmdType =
-                application_type(L"cmd.exe", cmdPath, TRUE, FALSE, errno_return, &requote);
+                application_type(L"cmd.exe", cmdPath, TRUE, FALSE, errno_return);
 	    if (cmdType == APPL_NONE || cmdType == APPL_DOS) {
 		return FALSE;
 	    }
@@ -1834,8 +1833,7 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
 							  * application. */
 			     BOOL search_in_path,      /* If we should search the system wide path */
 			     BOOL handle_quotes,       /* If we should handle quotes around executable */
-			     int *error_return,        /* A place to put an error code */
-                             BOOL *requote)         /* The path needs requoting */
+			     int *error_return)        /* A place to put an error code */
 {
     int applType, i;
     HANDLE hFile;
@@ -1846,15 +1844,17 @@ static int application_type (const wchar_t *originalName, /* Name of the applica
     static wchar_t extensions[][5] = {L"", L".com", L".exe", L".bat"};
     int len;
     wchar_t xfullpath[MAX_PATH];
+    BOOL is_quoted;
 
     len = wcslen(originalName);
-    *requote = handle_quotes && len > 0 && originalName[0] == L'"' &&
-	originalName[len-1] == L'"';
+    is_quoted = (handle_quotes && len > 0
+                 && originalName[0] == L'"'
+                 && originalName[len-1] == L'"');
 
     applType = APPL_NONE;
     *error_return = ENOENT;
     for (i = 0; i < (int) (sizeof(extensions) / sizeof(extensions[0])); i++) {
-	if(*requote) {
+	if(is_quoted) {
 	   lstrcpynW(xfullpath, originalName+1, MAX_PATH - 7); /* Cannot start using StringCchCopy yet, we support
 							   older platforms */
 	   len = wcslen(xfullpath);
