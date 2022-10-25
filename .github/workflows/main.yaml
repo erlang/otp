@@ -41,7 +41,7 @@ jobs:
           .github/scripts/path-filters.sh > .github/scripts/path-filters.yaml
           ALL_APPS=$(grep '^[a-z_]*:' .github/scripts/path-filters.yaml | sed 's/:.*$//')
           ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
-          echo "::set-output name=all::${ALL_APPS}"
+          echo "all=${ALL_APPS}" >> $GITHUB_OUTPUT
       - uses: dorny/paths-filter@v2
         id: changes
         with:
@@ -250,11 +250,13 @@ jobs:
       # actions/cache on Windows sometimes does not set cache-hit even though there was one. Setting it manually.
       - name: Set wxWidgets cache
         id: wxwidgets-cache
+        env:
+          WSLENV: GITHUB_OUTPUT/p
         run: |
           if [ -d wxWidgets ]; then
-            echo "::set-output name=cache-hit::true"
+            echo "cache-hit=true" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=cache-hit::false"
+            echo "cache-hit=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Download wxWidgets
@@ -695,8 +697,8 @@ jobs:
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           VSN=${TAG#OTP-}
-          echo "::set-output name=tag::${TAG}"
-          echo "::set-output name=vsn::${VSN}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "vsn=${VSN}" >> $GITHUB_OUTPUT
 
       - uses: actions/checkout@v3
 
