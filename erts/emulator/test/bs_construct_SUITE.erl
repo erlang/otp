@@ -1049,8 +1049,13 @@ reds_at_least(N, Fun) ->
     end.
 memsize() ->
     application:ensure_all_started(os_mon),
-    {Tot,_Used,_}  = memsup:get_memory_data(),
-    Tot.
+    case proplists:get_value(available_memory, memsup:get_system_memory_data()) of
+        undefined ->
+            {Tot,_Used,_}  = memsup:get_memory_data(),
+            Tot;
+        Available ->
+            Available
+    end.
 
 -define(FP16(EncodedInt, Float),
         (fun(NlInt, NlFloat) ->

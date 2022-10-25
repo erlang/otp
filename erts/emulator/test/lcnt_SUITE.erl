@@ -194,6 +194,12 @@ remove_untoggleable_locks([{resource_monitors, _, _, _} | T]) ->
     remove_untoggleable_locks(T);
 remove_untoggleable_locks([{nif_load, _, _, _} | T]) ->
     remove_untoggleable_locks(T);
+remove_untoggleable_locks([{'crypto.ensure_engine_loaded', _, _, _} | T]) ->
+    %% Global lock used by crypto NIF
+    remove_untoggleable_locks(T);
+remove_untoggleable_locks([{'init_curve_types', _, _, _} | T]) ->
+    %% Global lock used by crypto NIF
+    remove_untoggleable_locks(T);
 remove_untoggleable_locks([{'esock.gcnt', _, _, _} | T]) ->
     %% Global lock used by socket NIF
     remove_untoggleable_locks(T);

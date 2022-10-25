@@ -163,7 +163,7 @@
 -define (CONNECT_TIMEOUT, 10000).
 
 %% Socket accept timeout, for TCP connection.
--define (ACCEPT_TIMEOUT, 10000).
+-define (ACCEPT_TIMEOUT, 60000).
 
 %% How long to wait for graceful shutdown.
 -define (SHUTDOWN_TIMEOUT, 10000).

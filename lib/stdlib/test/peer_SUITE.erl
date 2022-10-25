@@ -557,8 +557,20 @@ ssh(Config) when is_list(Config) ->
             {skip, "erl not found"};
         {ErlPath, SshPath} ->
             Name = peer:random_name(?FUNCTION_NAME),
-            {ok, Peer, _Node} = peer:start_link(#{exec => {SshPath, ["localhost", ErlPath]},
-                connection => standard_io, name => Name, host => "localhost"}),
+            {OsName, _} = os:type(),
+            Options = #{exec => {SshPath, ["localhost", ErlPath]},
+                        connection => standard_io, name => Name, host => "localhost"},
+            {ok, Peer, _Node} =
+                try peer:start_link(Options) of
+                    Result -> Result
+                catch error:{boot_failed, normal} when OsName =:= win32 ->
+                        %% If the boot fails on windows, ssh may have ended up
+                        %% in wsl, so we try to boot using a wsl path
+                        WslPath = string:trim(os:cmd("wsl wslpath -u " ++ ErlPath)),
+                        peer:start_link(
+                          Options#{ exec => {SshPath, ["localhost", WslPath]}})
+                end,
+
             %% TODO: how to check it really goes over SSH?
             %% ssh-ed node is not distributed
             ?assertEqual(list_to_atom(Name ++ "@localhost"), peer:call(Peer, erlang, node, [])),

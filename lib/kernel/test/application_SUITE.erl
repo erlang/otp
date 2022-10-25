@@ -2188,10 +2188,9 @@ do_configfd_test_bash() ->
                        "3> /dev/null ")),
     %% Check that file descriptor with a huge amount of data fails
     case application:start(os_mon) of
-        ok -> case proplists:get_value(system_total_memory,
-                                       memsup:get_system_memory_data()) of
+        ok -> case total_memory() of
                   Memory when is_integer(Memory),
-                              Memory > 8*1024*1024*1024 ->
+                              Memory > 8 ->
                       application:stop(os_mon),
                       Res = RunInBash(
                               "erl "
@@ -2208,6 +2207,22 @@ do_configfd_test_bash() ->
             io:format("Skipped because we could not start os_mon")
     end,
     ok.
+
+total_memory() ->
+    %% Total memory in GB.
+    try
+	SMD = memsup:get_system_memory_data(),
+        TM = proplists:get_value(
+               available_memory, SMD,
+               proplists:get_value(
+                 total_memory, SMD,
+                 proplists:get_value(
+                   system_total_memory, SMD))),
+        TM div (1024*1024*1024)
+    catch
+	_ : _ ->
+	    undefined
+    end.
 
 %% Test that one can get configuration from file descriptor with the
 %% -configfd option

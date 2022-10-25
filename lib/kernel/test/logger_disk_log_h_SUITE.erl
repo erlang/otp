@@ -646,13 +646,14 @@ sync(Config) ->
                   {disk_log,sync}]),
 
     logger:notice("second", ?domain),
-    timer:sleep(?IDLE_DETECT_TIME*2),
+    timer:sleep(?IDLE_DETECT_TIME*2), %% wait for automatic disk_log_sync
     logger:notice("third", ?domain),
-    %% wait for automatic disk_log_sync
-    check_tracer(?IDLE_DETECT_TIME*2),
+    timer:sleep(?IDLE_DETECT_TIME*2), %% wait for automatic disk_log_sync
+
+    check_tracer(1000),
 
     try_read_file(Log, {ok,<<"first\nsecond\nthird\n">>}, 1000),
-    
+
     %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
     WaitT = 4500,
@@ -664,7 +665,7 @@ sync(Config) ->
 
     HConfig2 = HConfig#{filesync_repeat_interval => SyncInt},
     ok = logger:update_handler_config(?MODULE, config, HConfig2),
-                      
+
     SyncInt = maps:get(filesync_repeat_interval,
                        maps:get(cb_state,logger_olp:info(h_proc_name()))),
     timer:sleep(WaitT),

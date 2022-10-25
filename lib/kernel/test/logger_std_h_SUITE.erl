@@ -812,7 +812,9 @@ sync(Config) ->
     timer:sleep(?IDLE_DETECT_TIME*2),
     logger:notice("fourth", ?domain),
     %% wait for automatic filesync
-    check_tracer(?IDLE_DETECT_TIME*2),
+    timer:sleep(?IDLE_DETECT_TIME*2),
+
+    check_tracer(1000),
 
     %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
