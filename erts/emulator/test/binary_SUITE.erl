@@ -471,10 +471,8 @@ bad_term_to_binary(Config) when is_list(Config) ->
 t2b_system_limit(Config) when is_list(Config) ->
     case erlang:system_info(wordsize) of
         8 ->
-            case proplists:get_value(system_total_memory,
-                                     memsup:get_system_memory_data()) of
-                Memory when is_integer(Memory),
-                            Memory > 6*1024*1024*1024 ->
+            case total_memory() of
+                Memory when is_integer(Memory), Memory > 6 ->
                     do_t2b_system_limit();
                 _ ->
                     {skipped, "Not enough memory on this machine"}
@@ -1039,15 +1037,14 @@ report_throughput(Fun, NrOfItems) ->
 total_memory() ->
     %% Total memory in GB.
     try
-	MemoryData = memsup:get_system_memory_data(),
-	case lists:keysearch(total_memory, 1, MemoryData) of
-	    {value, {total_memory, TM}} ->
-		TM div (1024*1024*1024);
-	    false ->
-		{value, {system_total_memory, STM}} =
-		    lists:keysearch(system_total_memory, 1, MemoryData),
-		STM div (1024*1024*1024)
-	end
+	SMD = memsup:get_system_memory_data(),
+        TM = proplists:get_value(
+               available_memory, SMD,
+               proplists:get_value(
+                 total_memory, SMD,
+                 proplists:get_value(
+                   system_total_memory, SMD))),
+        TM div (1024*1024*1024)
     catch
 	_ : _ ->
 	    undefined
