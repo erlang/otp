@@ -20,13 +20,58 @@
 -module(ssl_bench_test_lib).
 
 %% API
--export([setup/1]).
+-export([setup/1, cleanup/1]).
 
 %% Internal exports
 -export([setup_server/1]).
 
 -define(remote_host, "NETMARKS_REMOTE_HOST").
 
+setup(Name) ->
+    NameStr = atom_to_list(Name),
+    case os:getenv(?remote_host) of
+        false ->
+            {ok, Host} = inet:gethostname(),
+            Remote = false,
+            ok;
+        Host ->
+            Remote = true,
+            ok
+    end,
+    Node = list_to_atom(NameStr ++ "@" ++ Host),
+    case net_adm:ping(Node) of
+        pong ->
+            Node;
+        pang ->
+            PeerOptions =
+                #{name => NameStr,
+                  host => Host},
+            ct:pal("PeerOptions: ~p~n", [PeerOptions]),
+            {ok, _Pid, Node} =
+                peer:start(
+                  case Remote of
+                      true ->
+                          Ssh = find_executable("ssh"),
+                          Erl = find_executable("erl"),
+                          PeerOptions#{exec => {Ssh, [Host, Erl]}};
+                      false ->
+                          PeerOptions
+                  end),
+            Path = code:get_path(),
+            true = erpc:call(Node, code, set_path, [Path]),
+            ok = erpc:call(Node, ?MODULE, setup_server, [node()]),
+            ct:pal("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
+            (Node =:= node()) andalso restrict_schedulers(client),
+            Node
+    end.
+
+find_executable(Prog) ->
+    case os:find_executable(Prog) of
+        false -> Prog;
+        P     -> P
+    end.
+
+-ifdef(undefined).
 setup(Name) ->
     Host = case os:getenv(?remote_host) of
 	       false ->
@@ -61,6 +106,7 @@ setup(Name) ->
     ct:pal("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
     (Node =:= node()) andalso restrict_schedulers(client),
     Node.
+-endif.
 
 setup_server(ClientNode) ->
     (ClientNode =:= node()) andalso restrict_schedulers(server),
@@ -73,3 +119,14 @@ restrict_schedulers(Type) ->
     Extra =  if (Type =:= server) -> -Extra0; true -> Extra0 end,
     Scheds = erlang:system_info(schedulers),
     erlang:system_flag(schedulers_online, (Scheds div 2) + Extra).
+
+cleanup(Node) ->
+    try erpc:call(Node, erlang, halt, [], 5000) of
+        Result ->
+            ct:fail({unexpected_return, Result})
+    catch
+        error : {erpc,noconnection} ->
+            ok;
+        Class : Reason : Stacktrace ->
+            ct:fail({unexpected_exception, {Class,Reason,Stacktrace}})
+    end.
