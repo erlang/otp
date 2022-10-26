@@ -83,14 +83,6 @@ params(Socket) ->
 
 -record(key_pair,
         {type = ecdh,
-         %% The curve choice greatly affects setup time,
-         %% we really want an Edwards curve but that would
-         %% require a very new openssl version.
-         %% Twisted brainpool curves (*t1) are faster than
-         %% non-twisted (*r1), 256 is much faster than 384,
-         %% and so on...
-%%%         params = brainpoolP384t1,
-%%%         params = brainpoolP256t1,
          params = ?CURVE,
          public,
          private,
@@ -1407,7 +1399,9 @@ output_handler_chunk(Params, Seq, Front, Size, Rear, Acc, DataSize) ->
 %% Entry function
 input_handler(#params{socket = Socket} = Params, Seq, DistHandle) ->
     try
-        ok = inet:setopts(Socket, [{active, ?TCP_ACTIVE}, nodelay()]),
+        ok =
+            inet:setopts(
+              Socket, [{active, ?TCP_ACTIVE}, nodelay()]),
         input_handler(
           Params#params{dist_handle = DistHandle},
           Seq)
@@ -1687,12 +1681,25 @@ block_decrypt(
 
 %% -------------------------------------------------------------------------
 
+%% Wait for getting killed by process link,
+%% and if that does not happen - drop dead
+
 death_row(Reason) ->
     error_logger:info_report(
       [?FUNCTION_NAME,
        {reason, Reason},
        {pid, self()}]),
-    receive after 5000 -> exit(Reason) end.
+    receive
+    after 5000 ->
+            death_row_timeout(Reason)
+    end.
+
+death_row_timeout(Reason) ->
+    error_logger:error_report(
+      [?FUNCTION_NAME,
+       {reason, Reason},
+       {pid, self()}]),
+    exit(Reason).
 
 %% -------------------------------------------------------------------------
 
