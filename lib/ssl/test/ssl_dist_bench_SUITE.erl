@@ -94,20 +94,20 @@ init_per_suite(Config) ->
           prf          => sha256},
     %%
     Node = node(),
-    Skipped = make_ref(),
+    Skip = make_ref(),
     try
         Node =/= nonode@nohost orelse
-            throw({Skipped,"Node not distributed"}),
+            throw({Skip,"Node not distributed"}),
         verify_node_src_addr(),
         {supported, SSLVersions} =
             lists:keyfind(supported, 1, ssl:versions()),
         lists:member(TLSVersion, SSLVersions) orelse
             throw(
-              {Skipped,
+              {Skip,
                "SSL does not support " ++ term_to_string(TLSVersion)}),
         lists:member(ECCurve, ssl:eccs(TLSVersion)) orelse
             throw(
-              {Skipped,
+              {Skip,
                "SSL does not support " ++ term_to_string(ECCurve)}),
         TLSCipherKeys = maps:keys(TLSCipher),
         lists:any(
@@ -116,7 +116,7 @@ init_per_suite(Config) ->
           end,
           ssl:cipher_suites(default, TLSVersion)) orelse
             throw(
-              {Skipped,
+              {Skip,
                "SSL does not support " ++ term_to_string(TLSCipher)}),
         %%
         %%
@@ -172,10 +172,10 @@ init_per_suite(Config) ->
          {server_node, ServerNode}
         |Config]
     catch
-        throw : {Skipped, Reason} ->
-            {skipped, Reason};
+        throw : {Skip, Reason} ->
+            {skip, Reason};
         Class : Reason : Stacktrace ->
-            {failed, {Class, Reason, Stacktrace}}
+            {fail, {Class, Reason, Stacktrace}}
     end.
 
 end_per_suite(Config) ->
@@ -192,11 +192,11 @@ init_per_group(crypto, Config) ->
               "-proto_dist inet_crypto"}
             |Config];
         Problem ->
-            {skipped,
+            {skip,
              "Crypto does not support " ++ Problem}
     catch
         Class : Reason : Stacktrace ->
-            {failed, {Class, Reason, Stacktrace}}
+            {fail, {Class, Reason, Stacktrace}}
     end;
 init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
