@@ -728,8 +728,8 @@ recv_name(#hs_data{socket = Socket, f_recv = Recv} = HSData) ->
     case Recv(Socket, 0, infinity) of
         {ok, [$N | _] = Data} ->
             recv_name_new(HSData, Data);
-	_ ->
-	    ?shutdown(no_node)
+	Other ->
+	    ?shutdown({no_node, Other})
     end.
 
 recv_name_new(HSData,

@@ -1158,7 +1158,6 @@ handle_info({'DOWN', ReqId, process, _Pid, Reason},
 %% Handle different types of process terminations.
 %%
 handle_info({'EXIT', From, Reason}, State) ->
-    verbose({'EXIT', From, Reason}, 1, State),
     handle_exit(From, Reason, State);
 
 %%
@@ -1272,30 +1271,33 @@ handle_exit(Pid, Reason, State) ->
     catch do_handle_exit(Pid, Reason, State).
 
 do_handle_exit(Pid, Reason, State) ->
-    listen_exit(Pid, State),
-    accept_exit(Pid, State),
+    listen_exit(Pid, Reason, State),
+    accept_exit(Pid, Reason, State),
     conn_own_exit(Pid, Reason, State),
     dist_ctrlr_exit(Pid, Reason, State),
-    pending_own_exit(Pid, State),
-    ticker_exit(Pid, State),
-    restarter_exit(Pid, State),
+    pending_own_exit(Pid, Reason, State),
+    ticker_exit(Pid, Reason, State),
+    restarter_exit(Pid, Reason, State),
+    verbose({'EXIT', Pid, Reason}, 1, State),
     {noreply,State}.
 
-listen_exit(Pid, State) ->
+listen_exit(Pid, Reason, State) ->
     case lists:keymember(Pid, ?LISTEN_ID, State#state.listen) of
 	true ->
+            verbose({listen_exit, Pid, Reason}, 1, State),
 	    error_msg("** Netkernel terminating ... **\n", []),
 	    throw({stop,no_network,State});
 	false ->
 	    false
     end.
 
-accept_exit(Pid, State) ->
+accept_exit(Pid, Reason, State) ->
     Listen = State#state.listen,
     case lists:keysearch(Pid, ?ACCEPT_ID, Listen) of
 	{value, ListenR} ->
 	    ListenS = ListenR#listen.listen,
 	    Mod = ListenR#listen.module,
+            verbose({accept_exit, Pid, Reason, Mod}, 1, State),
 	    AcceptPid = Mod:accept(ListenS),
 	    L = lists:keyreplace(Pid, ?ACCEPT_ID, Listen,
 				 ListenR#listen{accept = AcceptPid}),
@@ -1307,16 +1309,20 @@ accept_exit(Pid, State) ->
 conn_own_exit(Pid, Reason, #state{conn_owners = Owners} = State) ->
     case maps:get(Pid, Owners, undefined) of
         undefined -> false;
-        Node -> throw({noreply, nodedown(Pid, Node, Reason, State)})
+        Node ->
+            verbose({conn_own_exit, Pid, Reason, Node}, 1, State),
+            throw({noreply, nodedown(Pid, Node, Reason, State)})
     end.
 
 dist_ctrlr_exit(Pid, Reason, #state{dist_ctrlrs = DCs} = State) ->
     case maps:get(Pid, DCs, undefined) of
         undefined -> false;
-        Node -> throw({noreply, nodedown(Pid, Node, Reason, State)})
+        Node ->
+            verbose({dist_ctrlr_exit, Pid, Reason, Node}, 1, State),
+            throw({noreply, nodedown(Pid, Node, Reason, State)})
     end.
 
-pending_own_exit(Pid, #state{pend_owners = Pend} = State) ->
+pending_own_exit(Pid, Reason, #state{pend_owners = Pend} = State) ->
     case maps:get(Pid, Pend, undefined) of
         undefined ->
             false;
@@ -1324,31 +1330,43 @@ pending_own_exit(Pid, #state{pend_owners = Pend} = State) ->
 	    State1 = State#state { pend_owners = maps:remove(Pid, Pend)},
 	    case get_conn(Node) of
 		{ok, Conn} when Conn#connection.state =:= up_pending ->
+                    verbose(
+                      {pending_own_exit, Pid, Reason, Node, up_pending},
+                      1, State),
 		    reply_waiting(Node,Conn#connection.waiting, true),
 		    Conn1 = Conn#connection { state = up,
 					      waiting = [],
 					      pending_owner = undefined },
 		    ets:insert(sys_dist, Conn1);
 		_ ->
+                    verbose({pending_own_exit, Pid, Reason, Node}, 1, State),
 		    ok
 	    end,
 	    throw({noreply, State1})
     end.
 
-ticker_exit(Pid, #state{tick = #tick{ticker = Pid, time = T} = Tck} = State) ->
+ticker_exit(
+  Pid, Reason,
+  #state{tick = #tick{ticker = Pid, time = T} = Tck} = State) ->
+    verbose({ticker_exit, Pid, Reason, Tck}, 1, State),
     Tckr = restart_ticker(T),
     throw({noreply, State#state{tick = Tck#tick{ticker = Tckr}}});
-ticker_exit(Pid, #state{tick = #tick_change{ticker = Pid,
-					    time = T} = TckCng} = State) ->
+ticker_exit(
+  Pid, Reason,
+  #state{tick = #tick_change{ticker = Pid, time = T} = TckCng} = State) ->
+    verbose({ticker_exit, Pid, Reason, TckCng}, 1, State),
     Tckr = restart_ticker(T),
-    throw({noreply, State#state{tick = TckCng#tick_change{ticker = Tckr}}});
-ticker_exit(_, _) ->
+    throw({noreply, Reason, State#state{tick = TckCng#tick_change{ticker = Tckr}}});
+ticker_exit(_, _, _) ->
     false.
 
-restarter_exit(Pid, State) ->
+restarter_exit(Pid, Reason, State) ->
     case State#state.supervisor of
         {restart, Pid} ->
-	    error_msg("** Distribution restart failed, net_kernel terminating... **\n", []),
+            verbose({restarter_exit, Pid, Reason}, 1, State),
+	    error_msg(
+              "** Distribution restart failed, net_kernel terminating... **\n",
+              []),
 	    throw({stop, restarter_exit, State});
         _ ->
             false
