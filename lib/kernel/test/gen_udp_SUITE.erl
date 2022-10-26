@@ -93,6 +93,7 @@ groups() ->
      {inet_backend_inet,      [], inet_backend_inet_cases()},
      {inet_backend_socket,    [], inet_backend_socket_cases()},
 
+     {recv_and_send_opts,     [], recv_and_send_opts_cases()},
      {local,                  [], local_cases()},
      {socket_monitor,         [], socket_monitor_cases()},
 
@@ -122,13 +123,18 @@ all_cases() ->
      reconnect,
      implicit_inet6,
      active_n,
-     recvtos, recvtosttl, recvttl, recvtclass,
-     sendtos, sendtosttl, sendttl, sendtclass,
+     {group, recv_and_send_opts},
      {group, local},
      recv_close,
      {group, socket_monitor},
      otp_17492,
      {group, sockaddr}
+    ].
+
+recv_and_send_opts_cases() ->
+    [
+     recvtos, recvtosttl, recvttl, recvtclass,
+     sendtos, sendtosttl, sendttl, sendtclass
     ].
 
 local_cases() ->
@@ -1133,7 +1139,7 @@ recvtclass(Config) ->
 
 
 sendtos(Config) ->
-    ?TC_TRY(sendtos, fun() -> do_sendtos(Config) end).
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_sendtos(Config) end).
 
 do_sendtos(Config) ->
     test_recv_opts(
@@ -1142,7 +1148,7 @@ do_sendtos(Config) ->
       fun sendtos_ok/2).
 
 sendtosttl(Config) ->
-    ?TC_TRY(sendtosttl, fun() -> do_sendtosttl(Config) end).
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_sendtosttl(Config) end).
 
 do_sendtosttl(Config) ->
     test_recv_opts(
@@ -1162,7 +1168,7 @@ do_sendttl(Config) ->
       fun sendttl_ok/2).
 
 sendtclass(Config) ->
-    ?TC_TRY(sendtclass, fun() -> do_sendtclass(Config) end).
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_sendtclass(Config) end).
 
 do_sendtclass(Config) ->
     {ok,IFs} = inet:getifaddrs(),
