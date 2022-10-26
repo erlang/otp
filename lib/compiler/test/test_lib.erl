@@ -157,7 +157,14 @@ highest_opcode(Beam) ->
 %%  Will fail the test case if there were any errors.
 
 p_run(Test, List) ->
-    S = erlang:system_info(schedulers),
+    %% Limit the number of parallel processes to avoid running out of
+    %% memory.
+    S = case {erlang:system_info(schedulers),erlang:system_info(wordsize)} of
+            {S0,4} ->
+                min(S0, 2);
+            {S0,8} ->
+                min(S0, 8)
+        end,
     N = S + 1,
     io:format("p_run: ~p parallel processes\n", [N]),
     p_run_loop(Test, List, N, [], 0, 0).
