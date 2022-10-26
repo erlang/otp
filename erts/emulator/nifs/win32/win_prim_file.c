@@ -584,7 +584,7 @@ int efile_close(efile_data_t *d, posix_errno_t *error) {
     return 1;
 }
 
-int efile_flock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error) {
+int efile_lock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error) {
     efile_win_t *w = (efile_win_t*)d;
     HANDLE handle;
 
@@ -599,44 +599,60 @@ int efile_flock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error) 
     // do not set hEvent
     OVERLAPPED overlapped = { 0 };
 
-    if (modes & EFILE_LOCK_UN) {
-        // NOTE if the file was locked for shared and exclusive acces
-        // two unlock operations will be needed
+    DWORD flags = 0;
 
-        // using range above file length is allowed
-        // unlock entire file
-        if(!UnlockFileEx(handle,
-            0, // reserved
-            MAXDWORD, // low 32 bits of range to lock
-            MAXDWORD, // high 32 bits of renge to lock
-            &overlapped
+    if (modes & EFILE_LOCK_EX) {
+        flags |= LOCKFILE_EXCLUSIVE_LOCK;
+    }
+
+    if (modes & EFILE_LOCK_NB) {
+        flags |= LOCKFILE_FAIL_IMMEDIATELY;
+    }
+
+    // using range above file length is allowed
+    // lock entire file
+    if(!LockFileEx(handle,
+        flags,
+        0, // reserved
+        MAXDWORD, // low 32 bits of range to lock
+        MAXDWORD, // high 32 bits of renge to lock
+        &overlapped
         )) {
-            *error = windows_to_posix_errno(GetLastError());
-            return 0;
-        }
-    } else if ((modes & EFILE_LOCK_SH) || (modes & EFILE_LOCK_EX)) {
-        DWORD flags = 0;
+        *error = windows_to_posix_errno(GetLastError());
+        return 0;
+    }
 
-        if (modes & EFILE_LOCK_EX) {
-            flags |= LOCKFILE_EXCLUSIVE_LOCK;
-        }
+    return 1;
+}
 
-        if (modes & EFILE_LOCK_NB) {
-            flags |= LOCKFILE_FAIL_IMMEDIATELY;
-        }
+int efile_unlock(efile_data_t *d, posix_errno_t *error) {
+    efile_win_t *w = (efile_win_t*)d;
+    HANDLE handle;
 
-        // using range above file length is allowed
-        // lock entire file
-        if(!LockFileEx(handle,
-            flags,
-            0, // reserved
-            MAXDWORD, // low 32 bits of range to lock
-            MAXDWORD, // high 32 bits of renge to lock
-            &overlapped
-            )) {
-            *error = windows_to_posix_errno(GetLastError());
-            return 0;
-        }
+    ASSERT(enif_thread_type() == ERL_NIF_THR_DIRTY_IO_SCHEDULER);
+    ASSERT(w->handle != INVALID_HANDLE_VALUE);
+
+    handle = w->handle;
+
+    enif_release_resource(d);
+
+    // set offset to 0
+    // do not set hEvent
+    OVERLAPPED overlapped = { 0 };
+
+    // NOTE if the file was locked for shared and exclusive acces
+    // two unlock operations will be needed
+
+    // using range above file length is allowed
+    // unlock entire file
+    if(!UnlockFileEx(handle,
+        0, // reserved
+        MAXDWORD, // low 32 bits of range to lock
+        MAXDWORD, // high 32 bits of renge to lock
+        &overlapped
+    )) {
+        *error = windows_to_posix_errno(GetLastError());
+        return 0;
     }
 
     return 1;

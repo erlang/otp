@@ -235,9 +235,13 @@ file_request({allocate, Offset, Length},
          #state{handle = Handle} = State) ->
     Reply = ?CALL_FD(Handle, allocate, [Offset, Length]),
     {reply, Reply, State};
-file_request({flock, Flags},
+file_request({lock, Flags},
          #state{handle = Handle} = State) ->
-    Reply = ?CALL_FD(Handle, flock, [Flags]),
+    Reply = ?CALL_FD(Handle, lock, [Flags]),
+    {reply, Reply, State};
+file_request(unlock,
+         #state{handle = Handle} = State) ->
+    Reply = ?CALL_FD(Handle, unlock, []),
     {reply, Reply, State};
 file_request({pread,At,Sz}, State)
   when At =:= cur;

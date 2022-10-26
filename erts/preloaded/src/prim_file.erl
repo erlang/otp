@@ -21,7 +21,7 @@
 
 -export([on_load/0]).
 
--export([open/2, close/1, flock/2,
+-export([open/2, close/1, lock/2, unlock/1,
          sync/1, datasync/1, truncate/1, advise/4, allocate/3,
          read_line/1, read/2, write/2, position/2,
          pread/2, pread/3, pwrite/2, pwrite/3]).
@@ -64,7 +64,7 @@
          internal_normalize_utf8/1,
          is_translatable/1]).
 
--nifs([open_nif/2, close_nif/1, flock_nif/2, read_nif/2, write_nif/2, pread_nif/3,
+-nifs([open_nif/2, close_nif/1, lock_nif/2, unlock_nif/1, read_nif/2, write_nif/2, pread_nif/3,
        pwrite_nif/3, seek_nif/3, sync_nif/2, truncate_nif/1, allocate_nif/3,
        advise_nif/4, read_handle_info_nif/1,
        make_hard_link_nif/2, make_soft_link_nif/2, rename_nif/2,
@@ -156,10 +156,18 @@ close(Fd) ->
         error:badarg -> {error, badarg}
     end.
 
-flock(Fd, Flags) ->
+lock(Fd, Flags) ->
     try
         #{ handle := FRef } = get_fd_data(Fd),
-        flock_nif(FRef, Flags)
+        lock_nif(FRef, Flags)
+    catch
+        error:badarg -> {error, badarg}
+    end.
+
+unlock(Fd) ->
+    try
+        #{ handle := FRef } = get_fd_data(Fd),
+        unlock_nif(FRef)
     catch
         error:badarg -> {error, badarg}
     end.
@@ -513,7 +521,9 @@ file_desc_to_ref_nif(_FD) ->
     erlang:nif_error(undef).
 close_nif(_FileRef) ->
     erlang:nif_error(undef).
-flock_nif(_FileRef, _Flags) ->
+lock_nif(_FileRef, _Flags) ->
+    erlang:nif_error(undef).
+unlock_nif(_FileRef) ->
     erlang:nif_error(undef).
 read_nif(_FileRef, _Size) ->
     erlang:nif_error(undef).

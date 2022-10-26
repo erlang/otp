@@ -61,9 +61,9 @@ static ERL_NIF_TERM am_none;
 
 /* Lock modes */
 static ERL_NIF_TERM am_shared;
+// am_exclusive is already defined in File modes section
 // static ERL_NIF_TERM am_exclusive;
 static ERL_NIF_TERM am_non_blocking;
-static ERL_NIF_TERM am_unlock;
 
 /* enum efile_advise_t */
 static ERL_NIF_TERM am_normal;
@@ -108,7 +108,8 @@ static ERL_NIF_TERM read_file_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 static ERL_NIF_TERM open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
-static ERL_NIF_TERM flock_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM lock_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM unlock_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM file_desc_to_ref_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
@@ -166,7 +167,8 @@ static ERL_NIF_TERM file_handle_wrapper(file_op_impl_t operation, ErlNifEnv *env
         return file_handle_wrapper( name ## _impl , env, argc, argv); \
     }
 
-WRAP_FILE_HANDLE_EXPORT(flock_nif)
+WRAP_FILE_HANDLE_EXPORT(lock_nif)
+WRAP_FILE_HANDLE_EXPORT(unlock_nif)
 WRAP_FILE_HANDLE_EXPORT(read_nif)
 WRAP_FILE_HANDLE_EXPORT(write_nif)
 WRAP_FILE_HANDLE_EXPORT(pread_nif)
@@ -184,7 +186,8 @@ static ErlNifFunc nif_funcs[] = {
     /* File handle ops */
     {"open_nif", 2, open_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"close_nif", 1, close_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
-    {"flock_nif", 2, flock_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"lock_nif", 2, lock_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"unlock_nif", 1, unlock_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"read_nif", 2, read_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"write_nif", 2, write_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"pread_nif", 3, pread_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
@@ -260,7 +263,6 @@ static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM prim_file_pid)
 
     am_shared = enif_make_atom(env, "shared");
     am_non_blocking = enif_make_atom(env, "non_blocking");
-    am_unlock = enif_make_atom(env, "unlock");
 
     am_normal = enif_make_atom(env, "normal");
     am_random = enif_make_atom(env, "random");
@@ -562,8 +564,6 @@ static enum efile_lock_t efile_translate_locklist(ErlNifEnv *env, ERL_NIF_TERM l
             modes |= EFILE_LOCK_EX;
         } else if(enif_is_identical(head, am_non_blocking)) {
             modes |= EFILE_LOCK_NB;
-        } else if(enif_is_identical(head, am_unlock)) {
-            modes |= EFILE_LOCK_UN;
         }
 
         list = tail;
@@ -680,7 +680,7 @@ static ERL_NIF_TERM close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
     }
 }
 
-static ERL_NIF_TERM flock_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM lock_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     posix_errno_t error;
     enum efile_lock_t modes;
 
@@ -688,7 +688,19 @@ static ERL_NIF_TERM flock_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, co
 
     modes = efile_translate_locklist(env, argv[0]);
 
-    if(!efile_flock(d, modes, &error)) {
+    if(!efile_lock(d, modes, &error)) {
+        return posix_error_to_tuple(env, error);
+    }
+
+    return am_ok;
+}
+
+static ERL_NIF_TERM unlock_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    posix_errno_t error;
+
+    ASSERT(argc == 0);
+
+    if(!efile_unlock(d, &error)) {
         return posix_error_to_tuple(env, error);
     }
 

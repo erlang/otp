@@ -281,14 +281,10 @@ static int get_flock_flags(enum efile_lock_t modes) {
         flags |= LOCK_NB;
     }
 
-    if(modes & EFILE_LOCK_UN) {
-        flags |= LOCK_UN;
-    }
-
     return flags;
 }
 
-int efile_flock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error) {
+int efile_lock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error) {
     efile_unix_t *u = (efile_unix_t*)d;
     int fd;
     int flags = get_flock_flags(modes);
@@ -300,6 +296,26 @@ int efile_flock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error) 
 
     do {
         if(flock(fd, flags) == 0) {
+            return 1;
+        }
+    } while(errno == EINTR);
+
+    *error = errno;
+
+    return 0;
+}
+
+int efile_unlock(efile_data_t *d, posix_errno_t *error) {
+    efile_unix_t *u = (efile_unix_t*)d;
+    int fd;
+
+    ASSERT(enif_thread_type() == ERL_NIF_THR_DIRTY_IO_SCHEDULER);
+    ASSERT(u->fd != -1);
+
+    fd = u->fd;
+
+    do {
+        if(flock(fd, LOCK_UN) == 0) {
             return 1;
         }
     } while(errno == EINTR);

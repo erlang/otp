@@ -61,8 +61,7 @@ enum efile_filetype_t {
 enum efile_lock_t {
     EFILE_LOCK_SH = (1 << 0),
     EFILE_LOCK_EX = (1 << 1),
-    EFILE_LOCK_NB = (1 << 2),
-    EFILE_LOCK_UN = (1 << 3)
+    EFILE_LOCK_NB = (1 << 2)
 };
 
 enum efile_advise_t {
@@ -187,14 +186,23 @@ posix_errno_t efile_from_fd(int fd,
 int efile_close(efile_data_t *d, posix_errno_t *error);
 
 /** @brief Locks a file for shared or exclusive access. On Unix flock(2)
- * system call is used. On Windows LockFileEx and UnlockFileEx win32 API calls
- * are used respectively over the entire range of file.
+ * system call is used. On Windows LockFileEx win32 API call
+ * is used over the entire range of file.
  * 
  * Note that on Windows it is possible to hold both shared and exclusive locks over
  * the same file region. In such case two unlock operations are necessary.
  * Note that on Unix upgrading a shared to an exclusive lock is not atomic.
  * */
-int efile_flock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error);
+int efile_lock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error);
+
+/** @brief Unlocks a locked file. On Unix flock(2) system call is used. 
+ * On Windows UnlockFileEx win32 API call is used over the entire range of file.
+ * 
+ * Note that on Windows it is possible to hold both shared and exclusive locks over
+ * the same file region. In such case two unlock operations are necessary.
+ * Note that on Unix upgrading a shared to an exclusive lock is not atomic.
+ * */
+int efile_unlock(efile_data_t *d, posix_errno_t *error);
 
 /* **** **** **** **** **** **** **** **** **** **** **** **** **** **** **** */
 
