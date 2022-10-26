@@ -1336,6 +1336,8 @@ test_recv_opts(Config, Family, Spec, TestSend, _OSType, _OSVer) ->
     %%
     ?P("send/3: S2 -> S1"),
     ok = gen_udp:send(S2, {Addr,P1}, <<"abcde">>),
+    ?SLEEP(100),
+
     ?P("send/4: S1 -> S2"),
     ok = gen_udp:send(S1, Addr, P2, <<"fghij">>),
     TestSend andalso
@@ -1344,6 +1346,7 @@ test_recv_opts(Config, Family, Spec, TestSend, _OSType, _OSVer) ->
                "~n   ~p", [OptsVals]),
             case gen_udp:send(S2, Addr, P1, OptsVals, <<"ABCDE">>) of
                 ok ->
+                    ?SLEEP(100),
                     ok;
                 {error, enoprotoopt = Reason1} ->
                     ?SKIPT(?F("send (1) failed: ~p", [Reason1]))
@@ -1352,6 +1355,7 @@ test_recv_opts(Config, Family, Spec, TestSend, _OSType, _OSVer) ->
                "~n   ~p", [OptsVals]),
             case gen_udp:send(S2, {Addr,P1}, OptsVals, <<"12345">>) of
                 ok ->
+                    ?SLEEP(100),
                     ok;
                 {error, enoprotoopt = Reason2} ->
                     ?SKIPT(?F("send (2) failed: ~p", [Reason2]))
@@ -1361,6 +1365,8 @@ test_recv_opts(Config, Family, Spec, TestSend, _OSType, _OSVer) ->
     {ok,{_,P2,OptsVals3, <<"abcde">>}} = gen_udp:recv(S1, 0, Timeout),
     ?P("S1 recv: "
        "~n   OptsVals3: ~p", [OptsVals3]),
+    ?SLEEP(100),
+
     verify_sets_eq(OptsVals3, OptsVals2),
     TestSend andalso
         begin
@@ -1368,10 +1374,13 @@ test_recv_opts(Config, Family, Spec, TestSend, _OSType, _OSVer) ->
             {ok,{_,P2,OptsVals0,<<"ABCDE">>}} = gen_udp:recv(S1, 0, Timeout),
             ?P("S1 recv: "
                "~n   OptsVals0: ~p", [OptsVals0]),
+            ?SLEEP(100),
+
             ?P("try S1 recv"),
             {ok,{_,P2,OptsVals1,<<"12345">>}} = gen_udp:recv(S1, 0, Timeout),
             ?P("S1 recv: "
                "~n   OptsVals1: ~p", [OptsVals1]),
+            ?SLEEP(100),
             verify_sets_eq(OptsVals0, OptsVals),
             verify_sets_eq(OptsVals1, OptsVals)
         end,
@@ -1401,14 +1410,21 @@ test_recv_opts(Config, Family, Spec, TestSend, _OSType, _OSVer) ->
     %%
     ?P("send/4: S2 -> S1"),
     ok = gen_udp:send(S2, {Addr,P1}, [], <<"klmno">>),
+    ?SLEEP(100),
+
     ?P("send/3: S1 -> S2"),
     ok = gen_udp:send(S1, {Family,{loopback,P2}}, <<"pqrst">>),
+    ?SLEEP(100),
+
     TestSend andalso
         begin
             ?P("send/4: S1 -> S2"
                "~n   ~p", [OptsVals]),
-            ok = gen_udp:send(S1, {Family,{loopback,P2}}, OptsVals2, <<"PQRST">>)
+            ok = gen_udp:send(S1,
+                              {Family,{loopback,P2}}, OptsVals2, <<"PQRST">>),
+            ?SLEEP(100)
         end,
+
     ?P("try recv data on S1"),
     {ok,{_,P2,<<"klmno">>}} = gen_udp:recv(S1, 0, Timeout),
     ?P("await message on S2"),
