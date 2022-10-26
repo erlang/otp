@@ -152,7 +152,30 @@ init_per_suite(Config0) ->
 end_per_suite(_Config) ->
     application:stop(crypto).
 
-init_per_testcase(Case, Config)
+
+init_per_testcase(Case, Config) ->
+    try init_per_tc(Case, Config)
+    catch
+        Class : Reason : Stacktrace ->
+            {fail, {Class, Reason, Stacktrace}}
+    end.
+
+init_per_tc(embedded, Config) ->
+    LibDir = code:lib_dir(),
+    case
+        lists:all(
+          fun ({App,_,VSN}) ->
+                  filelib:is_dir(
+                    filename:join(
+                      LibDir, atom_to_list(App)++"-"++VSN))
+          end, application_controller:which_applications())
+    of
+        false ->
+            {skip, "Must be run from a real Erlang installation"};
+        true ->
+            Config
+    end;
+init_per_tc(Case, Config)
   when Case =:= ktls_verify, is_list(Config) ->
     %% We need a connected socket
     {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
@@ -171,7 +194,7 @@ init_per_testcase(Case, Config)
         _ = gen_tcp:close(Listen)
     end;
 %%
-init_per_testcase(Case, Config) when is_list(Config) ->
+init_per_tc(Case, Config) when is_list(Config) ->
     common_init(Case, Config).
 
 common_init(Case, Config) ->
