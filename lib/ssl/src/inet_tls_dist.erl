@@ -828,23 +828,30 @@ connect_options(Opts) ->
     end.
 
 get_ssl_options(Type) ->
-    try ets:lookup(ssl_dist_opts, Type) of
-        [{Type, Opts0}] ->
-            [{erl_dist, true} | dist_defaults(Opts0)];
-        _ ->
-            get_ssl_dist_arguments(Type)
-    catch
-        error:badarg ->
-            get_ssl_dist_arguments(Type)
-    end.
-
-get_ssl_dist_arguments(Type) ->
-    case init:get_argument(ssl_dist_opt) of
-	{ok, Args} ->
-	    [{erl_dist, true} | dist_defaults(ssl_options(Type, lists:append(Args)))];
-	_ ->
-	    [{erl_dist, true}]
-    end.
+    [{erl_dist, true} |
+     case
+         case init:get_argument(ssl_dist_opt) of
+             {ok, Args} ->
+                 ssl_options(Type, lists:append(Args));
+             _ ->
+                 []
+         end
+         ++
+         try ets:lookup(ssl_dist_opts, Type) of
+             [{Type, Opts0}] ->
+                 Opts0;
+             _ ->
+                 []
+         catch
+             error:badarg ->
+                 []
+         end
+     of
+         [] ->
+             [];
+         Opts1 ->
+             dist_defaults(Opts1)
+     end].
 
 dist_defaults(Opts) ->
     case proplists:get_value(versions, Opts, undefined) of

@@ -52,17 +52,21 @@
 suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames, 2}]}]}].
 
 all() ->
-    [{group, ssl},
-     {group, crypto},
-     {group, plain}].
+    [{group, smoketest}].
 
 groups() ->
-    [{benchmark, all()},
+    [{smoketest, protocols()},
+     {benchmark, protocols()},
      %%
-     {ssl, all_groups()},
-     {crypto, all_groups()},
-     {plain, all_groups()},
+     %% protocols()
+     {ssl,    backends()},
+     {crypto, categories()},
+     {plain,  categories()},
      %%
+     %% backends()
+     {crypto_lib,     categories()},
+     {kernel_offload, categories()},
+     %% categories()
      {setup, [{repeat, 1}], [setup]},
      {roundtrip, [{repeat, 1}], [roundtrip]},
      {sched_utilization,[{repeat, 1}], [sched_utilization]},
@@ -76,7 +80,16 @@ groups() ->
        throughput_262144,
        throughput_1048576]}].
 
-all_groups() ->
+protocols() ->
+    [{group, ssl},
+     {group, crypto},
+     {group, plain}].
+
+backends() ->
+    [{group,crypto_lib},
+     {group,kernel_offload}].
+
+categories() ->
     [{group, setup},
      {group, roundtrip},
      {group, throughput},
@@ -86,12 +99,18 @@ all_groups() ->
 init_per_suite(Config) ->
     Digest = sha1,
     ECCurve = secp521r1,
-    TLSVersion = 'tlsv1.2',
+%%%     TLSVersion = 'tlsv1.2',
+%%%     TLSCipher =
+%%%         #{key_exchange => ecdhe_ecdsa,
+%%%           cipher       => aes_128_cbc,
+%%%           mac          => sha256,
+%%%           prf          => sha256},
+    TLSVersion = 'tlsv1.3',
     TLSCipher =
         #{key_exchange => ecdhe_ecdsa,
-          cipher       => aes_128_cbc,
-          mac          => sha256,
-          prf          => sha256},
+          cipher       => aes_256_gcm,
+          mac          => aead,
+          prf          => sha384},
     %%
     Node = node(),
     Skip = make_ref(),
@@ -105,10 +124,10 @@ init_per_suite(Config) ->
             throw(
               {Skip,
                "SSL does not support " ++ term_to_string(TLSVersion)}),
-        lists:member(ECCurve, ssl:eccs(TLSVersion)) orelse
-            throw(
-              {Skip,
-               "SSL does not support " ++ term_to_string(ECCurve)}),
+%%%         lists:member(ECCurve, ssl:eccs(TLSVersion)) orelse
+%%%             throw(
+%%%               {Skip,
+%%%                "SSL does not support " ++ term_to_string(ECCurve)}),
         TLSCipherKeys = maps:keys(TLSCipher),
         lists:any(
           fun (Cipher) ->
@@ -182,6 +201,9 @@ end_per_suite(Config) ->
     ServerNode = proplists:get_value(server_node, Config),
     ssl_bench_test_lib:cleanup(ServerNode).
 
+init_per_group(benchmark, Config) ->
+    [{effort,10}|Config];
+%%
 init_per_group(ssl, Config) ->
     [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
 init_per_group(crypto, Config) ->
@@ -192,16 +214,17 @@ init_per_group(crypto, Config) ->
               "-proto_dist inet_crypto"}
             |Config];
         Problem ->
-            {skip,
-             "Crypto does not support " ++ Problem}
+            {skip, Problem}
     catch
         Class : Reason : Stacktrace ->
             {fail, {Class, Reason, Stacktrace}}
     end;
 init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
-init_per_group(benchmark, Config) ->
-    [{effort,10}|Config];
+%%
+init_per_group(kernel_offload, Config) ->
+    [{ktls, true} | Config];
+%%
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -297,9 +320,14 @@ setup(Config) ->
     run_nodepair_test(fun setup/6, Config).
 
 setup(A, B, Prefix, Effort, HA, HB) ->
-    Rounds = 5 * Effort,
+    Rounds = 100 * Effort,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    pong = ssl_apply(HA, net_adm, ping, [A]),
+    ChildCountResult =
+        ssl_dist_test_lib:apply_on_ssl_node(
+          HA, supervisor, count_children, [tls_dist_connection_sup]),
+    ct:log("TLS Connection Child Count Result: ~p", [ChildCountResult]),
     {SetupTime, CycleTime} =
         ssl_apply(HA, fun () -> setup_runner(A, B, Rounds) end),
     ok = ssl_apply(HB, fun () -> setup_wait_nodedown(A, 10000) end),
@@ -320,7 +348,14 @@ setup_loop(_A, _B, T, 0) ->
     T;
 setup_loop(A, B, T, N) ->
     StartTime = start_time(),
-    [N,A] = [N|rpc:block_call(B, erlang, nodes, [])],
+    try erpc:call(B, erlang, nodes, []) of
+        [A] -> ok;
+        Other ->
+            error({N,Other})
+    catch
+        Class : Reason : Stacktrace ->
+            erlang:raise(Class, {N,Reason}, Stacktrace)
+    end,
     Time = elapsed_time(StartTime),
     [N,B] = [N|erlang:nodes()],
     Mref = erlang:monitor(process, {rex,B}),
@@ -369,7 +404,7 @@ roundtrip(A, B, Prefix, Effort, HA, HB) ->
 %% Runs on node A and spawns a server on node B
 roundtrip_runner(A, B, Rounds) ->
     ClientPid = self(),
-    [A] = rpc:call(B, erlang, nodes, []),
+    [A] = erpc:call(B, erlang, nodes, []),
     ServerPid =
         erlang:spawn(
           B,
@@ -471,14 +506,14 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
 %% We want to avoid getting busy_dist_port as it hides the true SU usage
 %% of the receiver and sender.
 sched_util_runner(A, B, Effort, true, Config) ->
-    sched_util_runner(A, B, Effort, 250, Config);
+    sched_util_runner(A, B, Effort, 100, Config);
 sched_util_runner(A, B, Effort, false, Config) ->
-    sched_util_runner(A, B, Effort, 250, Config);
+    sched_util_runner(A, B, Effort, 100, Config);
 sched_util_runner(A, B, Effort, Senders, Config) ->
     process_flag(trap_exit, true),
-    Payload = payload(5),
+    Payload = payload(100),
     Time = 1000 * Effort,
-    [A] = rpc:call(B, erlang, nodes, []),
+    [A] = erpc:call(B, erlang, nodes, []),
     ServerPids =
         [erlang:spawn_link(
            B, fun () -> throughput_server() end)
@@ -514,8 +549,9 @@ sched_util_runner(A, B, Effort, Senders, Config) ->
                   end
           end),
     erlang:system_monitor(self(),[busy_dist_port]),
-    %% We spawn 250 senders which should mean that we
-    %% have a load of 25 msgs/msec
+    %% We spawn 100 senders that send a message every 10 ms
+    %% which should produce a load of 10000 msgs/s with
+    %% payload 100 bytes each -> 1 MByte/s
     _Clients =
         [spawn_link(
            fun() ->
@@ -545,8 +581,13 @@ sched_util_runner(A, B, Effort, Senders, Config) ->
 fs_log(Config, Name, Term) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     DistPrefix = proplists:get_value(ssl_dist_prefix, Config),
+    KTLSMark =
+        case proplists:get_value(ktls, Config, false) of
+            true  -> "/kTLS";
+            false -> ""
+        end,
     _ = file:write_file(
-          filename:join(PrivDir, DistPrefix ++ "_" ++ Name),
+          filename:join(PrivDir, DistPrefix ++ KTLSMark ++ "_" ++ Name),
           io_lib:format(
             "~p~n",
             [{{erlang:unique_integer([positive,monotonic]),
@@ -692,7 +733,7 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
 %% Runs on node A and spawns a server on node B
 throughput_runner(A, B, Rounds, Size) ->
     Payload = payload(Size),
-    [A] = rpc:call(B, erlang, nodes, []),
+    [A] = erpc:call(B, erlang, nodes, []),
     ClientPid = self(),
     ServerPid =
         erlang:spawn_opt(
@@ -767,27 +808,6 @@ dig_dist_node_sockets() ->
             true ->
                 []
         end.
-
--ifdef(undefined).
-dig_dist_node_sockets() ->
-    [case DistCtrl of
-         {_Node,Socket} = NodeSocket when is_port(Socket) ->
-             NodeSocket;
-         {Node,DistCtrlPid} when is_pid(DistCtrlPid) ->
-             [{links,DistCtrlLinks}] = process_info(DistCtrlPid, [links]),
-             case [S || S <- DistCtrlLinks, is_port(S)] of
-                 [Socket] ->
-                     {Node,Socket};
-                 [] ->
-                     [{monitors,[{process,DistSenderPid}]}] =
-                         process_info(DistCtrlPid, [monitors]),
-                     [{links,DistSenderLinks}] =
-                         process_info(DistSenderPid, [links]),
-                     [Socket] = [S || S <- DistSenderLinks, is_port(S)],
-                     {Node,Socket}
-             end
-     end || DistCtrl <- erlang:system_info(dist_ctrl)].
--endif.
 
 throughput_server(Pid, N) ->
     GC_Before = get_server_gc_info(),
@@ -922,12 +942,14 @@ run_nodepair_test(TestFun, Config) ->
     Prefix = proplists:get_value(ssl_dist_prefix, Config),
     Effort = proplists:get_value(effort, Config, 1),
     HA = start_ssl_node_a(Config),
-    HB = start_ssl_node_b(Config),
-    try TestFun(A, B, Prefix, Effort, HA, HB)
+    try
+        HB = start_ssl_node_b(Config),
+        try TestFun(A, B, Prefix, Effort, HA, HB)
+        after
+            stop_ssl_node_b(HB, Config)
+        end
     after
-        stop_ssl_node_a(HA),
-        stop_ssl_node_b(HB, Config),
-        ok
+        stop_ssl_node_a(HA)
     end.
 
 ssl_apply(Handle, M, F, Args) ->
@@ -951,28 +973,33 @@ start_ssl_node_a(Config) ->
     Args = get_node_args(node_a_dist_args, Config),
     Pa = filename:dirname(code:which(?MODULE)),
     ssl_dist_test_lib:start_ssl_node(
-      Name, "-pa " ++ Pa ++ " " ++ Args).
+      Name, "-pa " ++ Pa ++ " " ++ Args, 0).
 
 start_ssl_node_b(Config) ->
     Name = proplists:get_value(node_b_name, Config),
     Args = get_node_args(node_b_dist_args, Config),
     Pa = filename:dirname(code:which(?MODULE)),
     ServerNode = proplists:get_value(server_node, Config),
-    rpc:call(
+    erpc:call(
       ServerNode, ssl_dist_test_lib, start_ssl_node,
-      [Name, "-pa " ++ Pa ++ " " ++ Args]).
+      [Name, "-pa " ++ Pa ++ " " ++ Args, 0]).
 
 stop_ssl_node_a(HA) ->
     ssl_dist_test_lib:stop_ssl_node(HA).
 
 stop_ssl_node_b(HB, Config) ->
     ServerNode = proplists:get_value(server_node, Config),
-    rpc:call(ServerNode, ssl_dist_test_lib, stop_ssl_node, [HB]).
+    erpc:call(ServerNode, ssl_dist_test_lib, stop_ssl_node, [HB]).
 
 get_node_args(Tag, Config) ->
     case proplists:get_value(ssl_dist, Config) of
         true ->
-            proplists:get_value(Tag, Config);
+            case proplists:get_value(ktls, Config, false) of
+                true ->
+                    "-ssl_dist_opt client_ktls true server_ktls true ";
+                false ->
+                    ""
+            end ++ proplists:get_value(Tag, Config);
         false ->
             proplists:get_value(ssl_dist_args, Config, "")
     end.

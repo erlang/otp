@@ -67,8 +67,8 @@
          hmac_algorithm = ?HMAC,
          aead_cipher = ?CIPHER,
          rekey_key,
-         iv = 12,
-         key = 16,
+         iv,
+         key,
          tag_len = 16,
          rekey_count = 262144,
          rekey_time = 7200000, % 2 hours
@@ -76,7 +76,9 @@
         }).
 
 params(Socket) ->
-    #params{socket = Socket}.
+    #{iv_length := IvLen, key_length := KeyLen} =
+        crypto:cipher_info(?CIPHER),
+    #params{socket = Socket, iv = IvLen, key = KeyLen}.
 
 
 -record(key_pair,
@@ -94,13 +96,14 @@ supported() ->
     Hmac =
         lists:member(hmac, crypto:supports(macs)) andalso
         lists:member(?HMAC, crypto:supports(hashs)),
+    Nosup = "Crypto does not support ",
     if
         not Curve ->
-            "curve " ++ atom_to_list(?CURVE);
+            Nosup ++ "curve " ++ atom_to_list(?CURVE);
         not Cipher ->
-            "cipher " ++ atom_to_list(?CIPHER);
+            Nosup ++ "cipher " ++ atom_to_list(?CIPHER);
         not Hmac ->
-            "HMAC " ++ atom_to_list(?HMAC);
+            Nosup ++ "HMAC " ++ atom_to_list(?HMAC);
         true ->
             ok
     end.
@@ -948,7 +951,7 @@ init_recv(
         end
     catch
         Class : Reason : Stacktrace when Class =:= error ->
-            error_logger:info_report(
+            error_report(
               [init_recv_exception,
                {class, Class},
                {reason, Reason},
@@ -1126,7 +1129,7 @@ handshake(
                     handshake(
                       SendParams, SendSeq, RecvParams_1, RecvSeq_1,
                       Controller);
-                {error, _} ->
+                {error, _} = Result->
                     reply(From, Result),
                     death_row({recv, trace(Result)})
             end;
@@ -1145,19 +1148,14 @@ recv_and_decrypt_chunk(#params{socket = Socket} = RecvParams, RecvSeq) ->
                 <<?HANDSHAKE_CHUNK, Cleartext/binary>> ->
                     {RecvParams, RecvSeq + 1, {ok, Cleartext}};
                 UnknownChunk when is_binary(UnknownChunk) ->
-                    error_logger:error_report(
-                      [?FUNCTION_NAME,
-                       {reason,unknown_chunk}]),
                     {RecvParams, RecvSeq + 1, {error, unknown_chunk}};
                 #params{} = RecvParams_1 ->
                     recv_and_decrypt_chunk(RecvParams_1, 0);
                 error ->
-                    error_logger:error_report(
-                      [?FUNCTION_NAME,
-                       {reason,decrypt_error}]),
                     {RecvParams, RecvSeq, {error, decrypt_error}}
             end;
-        Error ->
+        {error, Reason} = Error ->
+            error_report([?FUNCTION_NAME, {reason,Reason}]),
             {RecvParams, RecvSeq, Error}
     end.
 
@@ -1184,8 +1182,8 @@ output_handler(Params, Seq, DistHandle) ->
             rekey_msg = start_rekey_timer(Params#params.rekey_time)},
           Seq)
     catch
-        Class : Reason : Stacktrace ->
-            error_logger:info_report(
+        Class : Reason : Stacktrace when Class =:= error ->
+            error_report(
               [output_handler_exception,
                {class, Class},
                {reason, Reason},
@@ -1269,8 +1267,8 @@ output_handler_rekey(Params, Seq) ->
     case encrypt_and_send_rekey_chunk(Params, Seq) of
         #params{} = Params_1 ->
             output_handler(Params_1, 0);
-        SendError ->
-            death_row({send_rekey, trace(SendError)})
+        Error ->
+            death_row({send_rekey, trace(Error)})
     end.
 
 
@@ -1390,8 +1388,8 @@ input_handler(#params{socket = Socket} = Params, Seq, DistHandle) ->
           Params#params{dist_handle = DistHandle},
           Seq)
     catch
-        Class : Reason : Stacktrace ->
-            error_logger:info_report(
+        Class : Reason : Stacktrace when Class =:= error ->
+            error_report(
               [input_handler_exception,
                {class, Class},
                {reason, Reason},
@@ -1501,10 +1499,8 @@ input_data(#params{socket = Socket} = Params, Seq, Msg) ->
                 <<?TICK_CHUNK, _Dummy/binary>> ->
                     input_data(Params, Seq + 1);
                 <<UnknownChunk/binary>> ->
-                    error_logger:error_report(
-                      [?FUNCTION_NAME,
-                       {reason, unknown_chunk}]),
                     _ = trace(UnknownChunk),
+                    error_report([?FUNCTION_NAME, {reason, unknown_chunk}]),
                     exit(connection_closed);
                 #params{} = Params_1 ->
                     input_data(Params_1, 0);
@@ -1513,7 +1509,7 @@ input_data(#params{socket = Socket} = Params, Seq, Msg) ->
                     exit(connection_closed)
             end;
         {tcp_closed = Reason, Socket} ->
-            error_logger:info_report(
+            info_report(
               [?FUNCTION_NAME,
                {reason, Reason}]),
             exit(connection_closed);
@@ -1537,6 +1533,10 @@ encrypt_and_send_chunk(
             Result =
                 gen_tcp:send(
                   Socket, encrypt_chunk(Params, 0, Cleartext, Size)),
+            case Result of ok -> ok;
+                {error, Reason} ->
+                    error_report([?FUNCTION_NAME, {reason,Reason}])
+            end,
             {Params_1, 1, Result};
         SendError ->
             {Params, Seq + 1, SendError}
@@ -1575,8 +1575,9 @@ encrypt_and_send_rekey_chunk(
             Params#params{
               key = Key_1, iv = {IVSalt_1, IVNo_1},
               rekey_msg = start_rekey_timer(Params#params.rekey_time)};
-        SendError ->
-            SendError
+        {error,Reason} = Error ->
+            error_report([?FUNCTION_NAME, {reason,Reason}]),
+            Error
     end.
 
 encrypt_chunk(
@@ -1602,7 +1603,7 @@ decrypt_chunk(
     ChunkLen = byte_size(Chunk),
     if
         ChunkLen < TagLen ->
-            error_logger:error_report(
+            error_report(
               [?FUNCTION_NAME,
                {reason,short_chunk}]),
             error;
@@ -1640,7 +1641,7 @@ block_decrypt(
                           SharedSecret, [Key, IV], KeyLen, IVLen),
                     Params#params{iv = {IVSalt, IVNo}, key = Key_1};
                 _ ->
-                    error_logger:error_report(
+                    error_report(
                       [?FUNCTION_NAME,
                        {reason,bad_rekey_chunk}]),
                     error
@@ -1649,7 +1650,7 @@ block_decrypt(
             case Seq of
                 RekeyCount ->
                     %% This was one chunk too many without rekeying
-                    error_logger:error_report(
+                    error_report(
                       [?FUNCTION_NAME,
                        {reason,rekey_overdue}]),
                     error;
@@ -1657,7 +1658,7 @@ block_decrypt(
                     Chunk
             end;
         error ->
-            error_logger:error_report(
+            error_report(
               [?FUNCTION_NAME,
                {reason,decrypt_error}]),
             error
@@ -1669,17 +1670,13 @@ block_decrypt(
 %% and if that does not happen - drop dead
 
 death_row(Reason) ->
-    error_logger:info_report(
-      [?FUNCTION_NAME,
-       {reason, Reason},
-       {pid, self()}]),
     receive
     after 5000 ->
             death_row_timeout(Reason)
     end.
 
 death_row_timeout(Reason) ->
-    error_logger:error_report(
+    error_report(
       [?FUNCTION_NAME,
        {reason, Reason},
        {pid, self()}]),
@@ -1690,33 +1687,46 @@ death_row_timeout(Reason) ->
 %% Trace point
 trace(Term) -> Term.
 
-%% Keep an eye on this Pid (debug)
--ifdef(undefined).
+error_report(Report) ->
+    error_logger:error_report(Report).
+
+-ifndef(undefined).
+
+info_report(_Report) ->
+    ok.
+
 monitor_dist_proc(_Tag, Pid) ->
     Pid.
+
 -else.
+
+info_report(Report) ->
+    error_logger:info_report(Report).
+
+%% Keep an eye on this Pid (debug)
 monitor_dist_proc(Tag, Pid) ->
     spawn(
       fun () ->
               MRef = erlang:monitor(process, Pid),
-              error_logger:info_report(
+              info_report(
                 [?FUNCTION_NAME,
                  {type, Tag},
                  {pid, Pid}]),
               receive
                   {'DOWN', MRef, _, _, normal} ->
-                      error_logger:error_report(
+                      error_report(
                         [?FUNCTION_NAME,
                          {reason, normal},
                          {pid, Pid}]);
                   {'DOWN', MRef, _, _, Reason} ->
-                      error_logger:info_report(
+                      info_report(
                         [?FUNCTION_NAME,
                          {reason, Reason},
                          {pid, Pid}])
               end
       end),
     Pid.
+
 -endif.
 
 dbg() ->
