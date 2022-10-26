@@ -52,7 +52,18 @@
          api_b_getifaddrs/1,
          api_b_name_and_addr_info/1,
          
-         api_b_name_and_index/1
+         api_b_name_and_index/1,
+
+         %% *** API Misc ***
+         api_m_getaddrinfo_v4/0,
+         api_m_getaddrinfo_v4/1,
+         api_m_getaddrinfo_v6/0,
+         api_m_getaddrinfo_v6/1,
+
+         api_m_getnameinfo_v4/0,
+         api_m_getnameinfo_v4/1,
+         api_m_getnameinfo_v6/0,
+         api_m_getnameinfo_v6/1
 
          %% Tickets
         ]).
@@ -94,14 +105,16 @@ use_group(Group, Env, Default) ->
 
 groups() -> 
     [{api,       [], api_cases()},
-     {api_basic, [], api_basic_cases()}
+     {api_basic, [], api_basic_cases()},
+     {api_misc,  [], api_misc_cases()}
 
      %% {tickets, [], ticket_cases()}
     ].
      
 api_cases() ->
     [
-     {group, api_basic}
+     {group, api_basic},
+     {group, api_misc}
     ].
 
 api_basic_cases() ->
@@ -110,6 +123,14 @@ api_basic_cases() ->
      api_b_getifaddrs,
      api_b_name_and_addr_info,
      api_b_name_and_index
+    ].
+
+api_misc_cases() ->
+    [
+     api_m_getaddrinfo_v4,
+     api_m_getaddrinfo_v6,
+     api_m_getnameinfo_v4,
+     api_m_getnameinfo_v6
     ].
 
 %% ticket_cases() ->
@@ -431,6 +452,184 @@ verify_if_names([{Index, Name}|T]) ->
     verify_if_names(T).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_m_getaddrinfo_v4() ->
+    required(v4).
+
+api_m_getaddrinfo_v4(suite) ->
+    [];
+api_m_getaddrinfo_v4(doc) ->
+    [];
+api_m_getaddrinfo_v4(Config) when is_list(Config) ->
+    ?TT(?SECS(5)),
+    Pre  = fun() ->
+                   {Name, FullName, IPStr, IP, Aliases,_,_} =
+                       ct:get_config(test_host_ipv4_only),
+                   #{name      => Name,
+                     full_name => FullName,
+                     ip_string => IPStr,
+                     ip        => IP,
+                     aliases   => Aliases,
+                     family    => inet}
+           end,
+    Case = fun(Info) ->
+                   ok = api_m_getaddrinfo(Info)
+           end,
+    Post = fun(_) -> ok end,
+    tc_try(?FUNCTION_NAME,
+           Pre, Case, Post).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_m_getaddrinfo_v6() ->
+    required(v6).
+
+api_m_getaddrinfo_v6(suite) ->
+    [];
+api_m_getaddrinfo_v6(doc) ->
+    [];
+api_m_getaddrinfo_v6(Config) when is_list(Config) ->
+    ?TT(?SECS(5)),
+    Pre  = fun() ->
+                   {Name, FullName, IPStr, IP, Aliases,_,_} =
+                       ct:get_config(test_host_ipv6_only),
+                   #{name      => Name,
+                     full_name => FullName,
+                     ip_string => IPStr,
+                     ip        => IP,
+                     aliases   => Aliases,
+                     family    => inet6}
+           end,
+    Case = fun(Info) ->
+                   ok = api_m_getaddrinfo(Info)
+           end,
+    Post = fun(_) -> ok end,
+    tc_try(?FUNCTION_NAME,
+           Pre, Case, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_m_getaddrinfo(#{name   := Name,
+                    family := Domain,
+                    ip     := IP}) ->
+    try net:gethaddrinfo(Name) of
+        {ok, AddrInfos} ->
+            %% Check that we can actually find this IP in the list
+            api_m_getaddrinfo_verify(AddrInfos, Name, Domain, IP);
+        {error, enotsup = ReasonAI} ->
+            i("getaddrinfo not supported - skipping"),
+            ?SKIP({getaddrinfo, ReasonAI});
+        {error, Reason} ->
+            ?FAIL({gethaddrinfo, Name, Reason})
+    catch
+        error : notsup = Reason ->
+            i("~w => skipping", [Reason]),
+            skip(Reason)
+    end.
+
+
+api_m_getaddrinfo_verify([], Name, Domain, IP) ->
+    ?FAIL({not_found, Name, Domain, IP});
+api_m_getaddrinfo_verify([#{family := Domain,
+                            addr   := IP}|_],
+                         Name, Domain, IP) ->
+    ok;
+api_m_getaddrinfo_verify([_|AddrInfos], Name, Domain, IP) ->
+    api_m_getaddrinfo_verify(AddrInfos, Name, Domain, IP).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_m_getnameinfo_v4() ->
+    required(v4).
+
+api_m_getnameinfo_v4(suite) ->
+    [];
+api_m_getnameinfo_v4(doc) ->
+    [];
+api_m_getnameinfo_v4(Config) when is_list(Config) ->
+    ?TT(?SECS(5)),
+    Pre  = fun() ->
+                   {Name, FullName, IPStr, IP, Aliases,_,_} =
+                       ct:get_config(test_host_ipv4_only),
+                   #{name      => Name,
+                     full_name => FullName,
+                     ip_string => IPStr,
+                     ip        => IP,
+                     aliases   => Aliases,
+                     family    => inet}
+           end,
+    Case = fun(Info) ->
+                   ok = api_m_getnameinfo(Info)
+           end,
+    Post = fun(_) -> ok end,
+    tc_try(?FUNCTION_NAME,
+           Pre, Case, Post).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_m_getnameinfo_v6() ->
+    required(v6).
+
+api_m_getnameinfo_v6(suite) ->
+    [];
+api_m_getnameinfo_v6(doc) ->
+    [];
+api_m_getnameinfo_v6(Config) when is_list(Config) ->
+    ?TT(?SECS(5)),
+    Pre  = fun() ->
+                   {Name, FullName, IPStr, IP, Aliases} =
+                       ct:get_config(test_host_ipv6_only),
+                   #{name      => Name,
+                     full_name => FullName,
+                     ip_string => IPStr,
+                     ip        => IP,
+                     aliases   => Aliases,
+                     family    => inet6}
+           end,
+    Case = fun(Info) ->
+                   ok = api_m_getnameinfo(Info)
+           end,
+    Post = fun(_) -> ok end,
+    tc_try(?FUNCTION_NAME,
+           Pre, Case, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_m_getnameinfo(#{name   := Name,
+                    family := Domain,
+                    ip     := IP}) ->
+    SA = #{family => Domain,
+           addr   => IP},
+    try net:gethnameinfo(SA) of
+        {ok, NameInfo} ->
+            %% Check that we can actually find this IP in the list
+            api_m_getnameinfo_verify(NameInfo, Name);
+        {error, enotsup = ReasonAI} ->
+            i("getaddrinfo not supported - skipping"),
+            ?SKIP({getnameinfo, ReasonAI});
+        {error, Reason} ->
+            ?FAIL({gethnameinfo, Name, Reason})
+    catch
+        error : notsup = Reason ->
+            i("~w => skipping", [Reason]),
+            skip(Reason)
+    end.
+
+
+api_m_getnameinfo_verify(#{host := Name}, Name) ->
+    ok;
+api_m_getnameinfo_verify(NameInfo, Name) ->
+    ?FAIL({not_found, NameInfo, Name}).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -484,66 +683,81 @@ format_timestamp({_N1, _N2, _N3} = TS) ->
    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-set_tc_name(N) when is_atom(N) ->
-    set_tc_name(atom_to_list(N));
-set_tc_name(N) when is_list(N) ->
-    put(tc_name, N).
+%% set_tc_name(N) when is_atom(N) ->
+%%     set_tc_name(atom_to_list(N));
+%% set_tc_name(N) when is_list(N) ->
+%%     put(tc_name, N).
 
 %% get_tc_name() ->
 %%     get(tc_name).
 
-tc_begin(TC) ->
-    set_tc_name(TC),
-    tc_print("begin ***",
-             "~n----------------------------------------------------~n", "").
+%% tc_begin(TC) ->
+%%     set_tc_name(TC),
+%%     tc_print("begin ***",
+%%              "~n----------------------------------------------------~n", "").
     
-tc_end(Result) when is_list(Result) ->
-    tc_print("done: ~s", [Result], 
-             "", "----------------------------------------------------~n~n"),
-    ok.
+%% tc_end(Result) when is_list(Result) ->
+%%     tc_print("done: ~s", [Result], 
+%%              "", "----------------------------------------------------~n~n"),
+%%     ok.
 
 
-tc_try(Case, Fun) when is_atom(Case) andalso is_function(Fun, 0) ->
-    tc_begin(Case),
-    try 
-        begin
-            Fun(),
-            ?SLEEP(?SECS(1)),
-            tc_end("ok")
-        end
-    catch
-        throw:{skip, _} = SKIP ->
-            tc_end("skipping"),
-            SKIP;
-        Class:Error:Stack ->
-            tc_end("failed"),
-            erlang:raise(Class, Error, Stack)
-    end.
+tc_try(Case, TC) ->
+    ?TC_TRY(Case, TC).
+
+tc_try(Case, Pre, TC, Post) ->
+    ?TC_TRY(Case, Pre, TC, Post).
+
+%% tc_try(Case, Fun) when is_atom(Case) andalso is_function(Fun, 0) ->
+%%     tc_begin(Case),
+%%     try 
+%%         begin
+%%             Fun(),
+%%             ?SLEEP(?SECS(1)),
+%%             tc_end("ok")
+%%         end
+%%     catch
+%%         throw:{skip, _} = SKIP ->
+%%             tc_end("skipping"),
+%%             SKIP;
+%%         Class:Error:Stack ->
+%%             tc_end("failed"),
+%%             erlang:raise(Class, Error, Stack)
+%%     end.
 
 
-tc_print(F, Before, After) ->
-    tc_print(F, [], Before, After).
+%% tc_print(F, Before, After) ->
+%%     tc_print(F, [], Before, After).
 
-tc_print(F, A, Before, After) ->
-    Name = tc_which_name(),
-    FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
-             [formated_timestamp(),Name,self()|A]),
-    io:format(user, Before ++ FStr ++ After, []).
+%% tc_print(F, A, Before, After) ->
+%%     Name = tc_which_name(),
+%%     FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
+%%              [formated_timestamp(),Name,self()|A]),
+%%     io:format(user, Before ++ FStr ++ After, []).
 
-tc_which_name() ->
-    case get(tc_name) of
-        undefined ->
-            case get(sname) of
-                undefined ->
-                    "";
-                SName when is_list(SName) ->
-                    SName
-            end;
-        Name when is_list(Name) ->
-            Name
-    end.
+%% tc_which_name() ->
+%%     case get(tc_name) of
+%%         undefined ->
+%%             case get(sname) of
+%%                 undefined ->
+%%                     "";
+%%                 SName when is_list(SName) ->
+%%                     SName
+%%             end;
+%%         Name when is_list(Name) ->
+%%             Name
+%%     end.
     
    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Required configuration
+required(v4) ->
+    [{require, test_host_ipv4_only}];
+required(v6) ->
+    [{require, test_host_ipv6_only}].
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% l2a(S) when is_list(S) ->
