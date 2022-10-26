@@ -118,7 +118,7 @@ listen(Name) ->
 
 gen_listen(Driver, Name, Host) ->
     ErlEpmd = net_kernel:epmd_module(),
-    case gen_listen(ErlEpmd, Name, Host, Driver, [{active, false}, {packet,2}, {reuseaddr, true}]) of
+    case gen_listen(ErlEpmd, Name, Host, Driver) of
 	{ok, Socket} ->
 	    TcpAddress = get_tcp_address(Driver, Socket),
 	    {_,Port} = TcpAddress#net_address.address,
@@ -132,8 +132,8 @@ gen_listen(Driver, Name, Host) ->
 	    Error
     end.
 
-gen_listen(ErlEpmd, Name, Host, Driver, Options) ->
-    ListenOptions = listen_options(Options),
+gen_listen(ErlEpmd, Name, Host, Driver) ->
+    ListenOptions = listen_options(),
     case call_epmd_function(ErlEpmd, listen_port_please, [Name, Host]) of
         {ok, 0} ->
             {First,Last} = get_port_range(),
@@ -165,25 +165,52 @@ do_listen(Driver, First,Last,Options) ->
 	    Other
     end.
 
-listen_options(Opts0) ->
-    Opts1 =
-	case application:get_env(kernel, inet_dist_use_interface) of
-	    {ok, Ip} ->
-		[{ip, Ip} | Opts0];
-	    _ ->
-		Opts0
-	end,
-    case application:get_env(kernel, inet_dist_listen_options) of
-	{ok,ListenOpts} ->
-	    case proplists:is_defined(backlog, ListenOpts) of
-		true ->
-		    ListenOpts ++ Opts1;
-		false ->
-		    ListenOpts ++ [{backlog, 128} | Opts1]
-	    end;
-	_ ->
-	    [{backlog, 128} | Opts1]
-    end.
+listen_options() ->
+    DefaultOpts = [{reuseaddr, true}, {backlog, 128}],
+    ForcedOpts =
+        [{active, false}, {packet,2} |
+         case application:get_env(kernel, inet_dist_use_interface) of
+             {ok, Ip}  -> [{ip, Ip}];
+             undefined -> []
+         end],
+    Force = maps:from_list(ForcedOpts),
+    InetDistListenOpts =
+        case application:get_env(kernel, inet_dist_listen_options) of
+            {ok, Opts} -> Opts;
+            undefined  -> []
+        end,
+    ListenOpts = listen_options(InetDistListenOpts, ForcedOpts, Force),
+    Seen =
+        maps:from_list(
+          lists:filter(
+            fun ({_,_}) -> true;
+                (_)     -> false
+            end, ListenOpts)),
+    lists:filter(
+      fun ({OptName,_}) when is_map_key(OptName, Seen) ->
+              false;
+          (_) ->
+              true
+      end, DefaultOpts) ++ ListenOpts.
+
+%% Pass through all but forced
+listen_options([Opt | Opts], ForcedOpts, Force) ->
+    case Opt of
+        {OptName,_} ->
+            case is_map_key(OptName, Force) of
+                true ->
+                    listen_options(Opts, ForcedOpts, Force);
+                false ->
+                    [Opt |
+                     listen_options(Opts, ForcedOpts, Force)]
+            end;
+        _ ->
+            [Opt |
+             listen_options(Opts, ForcedOpts, Force)]
+    end;
+listen_options([], ForcedOpts, _Force) ->
+    %% Append forced
+    ForcedOpts.
 
 
 %% ------------------------------------------------------------

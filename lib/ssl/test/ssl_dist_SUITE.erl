@@ -105,7 +105,8 @@
          stop_ssl_node/1]).
 
 start_ssl_node_name(Name, Args) ->
-    ssl_dist_test_lib:start_ssl_node(Name, Args).
+    Pa = filename:dirname(code:which(?MODULE)),
+    ssl_dist_test_lib:start_ssl_node(Name, "-pa " ++ Pa ++ " " ++ Args).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -512,56 +513,45 @@ nodelay_option(Config) ->
 listen_port_options() ->
     [{doc, "Test specifying listening ports"}].
 listen_port_options(Config) when is_list(Config) ->
-    %% Start a node, and get the port number it's listening on.
+    %% Set up the probably most supported scenario
+    %% for {reuseaddr,true}, i.e, the listening socket
+    %% is closed, but an accepted server side socket
+    %% blocks the server port, unless {reuseaddr,true}
+    %% is used.
+    %%
+    %% Set up a server socket and close the listening socket
+    {ok, L}    = gen_tcp:listen(0, [{reuseaddr,true}]),
+    {ok, Port} = inet:port(L),
+    {ok, C}    = gen_tcp:connect({127,0,0,1}, Port, []),
+    {ok, S}    = gen_tcp:accept(L),
+    ok         = gen_tcp:close(L),
+    ct:pal("Port: ~w", [Port]),
+    %%
+    %% Start a node on the server port, {reuseaddr,true}
+    %% is used per default on the listening socket
+    %% since it is a server - see inet_tcp_dist:gen_listen/3
+    PortOpts =
+        "-kernel"
+        " inet_dist_listen_min " ++ integer_to_list(Port) ++
+        " inet_dist_listen_max " ++ integer_to_list(Port),
+    %% basic_test/3 connects NH1 -> NH2 so it is NH2 that should
+    %% act as server to make use of PortOpts
     NH1 = start_ssl_node(Config),
-    Node1 = NH1#node_handle.nodename,
-    Name1 = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node1)),
-    {ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
-    {Name1, Port1} = lists:keyfind(Name1, 1, NodesPorts),
-    
-    %% Now start a second node, configuring it to use the same port
-    %% number.
-    PortOpt1 = "-kernel inet_dist_listen_min " ++ integer_to_list(Port1) ++
-        " inet_dist_listen_max " ++ integer_to_list(Port1),
-    
-    try start_ssl_node([{tls_verify_opts, PortOpt1} | proplists:delete(tls_verify_opts, Config)]) of
-	#node_handle{} ->
-	    %% If the node was able to start, it didn't take the port
-	    %% option into account.
-	    stop_ssl_node(NH1),
-	    exit(unexpected_success)
-    catch
-	exit:{accept_failed, timeout} ->
-	    %% The node failed to start, as expected.
-	    ok
-    end,
-    
-    %% Try again, now specifying a high max port.
-    PortOpt2 = "-kernel inet_dist_listen_min " ++ integer_to_list(Port1) ++
-	" inet_dist_listen_max 65535",
-    NH2 = start_ssl_node([{tls_verify_opts, PortOpt2} |  proplists:delete(tls_verify_opts, Config)]),
-    
-    try 
-	Node2 = NH2#node_handle.nodename,
-	Name2 = lists:takewhile(fun(C) -> C =/= $@ end, atom_to_list(Node2)),
-	{ok, NodesPorts2} = apply_on_ssl_node(NH2, fun net_adm:names/0),
-	{Name2, Port2} = lists:keyfind(Name2, 1, NodesPorts2),
-	
-	%% The new port should be higher:
-	if Port2 > Port1 ->
-		ok;
-	   true ->
-		error({port, Port2, not_higher_than, Port1})
-	end
-    catch
-	_:Reason ->
-	    stop_ssl_node(NH2),
-	    stop_ssl_node(NH1),
-	    ct:fail(Reason)
-    end,
-    stop_ssl_node(NH2),
-    stop_ssl_node(NH1),
-    success(Config).
+    NH2 = start_ssl_node(Config, PortOpts),
+    try
+        basic_test(NH1, NH2, Config),
+        Node2 = NH2#node_handle.nodename,
+        {ok,NodeInfo2} =
+            apply_on_ssl_node(NH1, net_kernel, node_info, [Node2]),
+        {address,#net_address{address = {_,Port}, protocol = tls}} =
+            lists:keyfind(address, 1, NodeInfo2),
+        ok
+    after
+        gen_tcp:close(C),
+        gen_tcp:close(S),
+        stop_ssl_node(NH1),
+        stop_ssl_node(NH2)
+    end.
 
 %%--------------------------------------------------------------------
 listen_options() ->
@@ -579,15 +569,7 @@ connect_options(Config) when is_list(Config) ->
 net_ticker_spawn_options() ->
     [{doc, "Test net_ticker_spawn_options"}].
 net_ticker_spawn_options(Config) when is_list(Config) ->
-    FullsweepString0 = "[{fullsweep_after,0}]",
-    FullsweepString =
-        case os:cmd("echo [{a,1}]") of
-            "[{a,1}]"++_ ->
-                FullsweepString0;
-            _ ->
-                %% Some shells need quoting of [{}]
-                "'"++FullsweepString0++"'"
-        end,
+    FullsweepString = maybe_quote_tuple_list("[{fullsweep_after,0}]"),
     Options = "-kernel net_ticker_spawn_options "++FullsweepString,
     gen_dist_test(net_ticker_spawn_options_test, [{tls_only_basic_opts, Options} | Config]).
 
@@ -893,16 +875,8 @@ plain_verify_options_test(NH1, NH2, _) ->
     [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end).
 
 do_listen_options(Prio, Config) ->
-    PriorityString0 = "[{priority,"++integer_to_list(Prio)++"}]",
     PriorityString =
-	case os:cmd("echo [{a,1}]") of
-	    "[{a,1}]"++_ ->
-		PriorityString0;
-	    _ ->
-		%% Some shells need quoting of [{}]
-		"'"++PriorityString0++"'"
-	end,
-
+        maybe_quote_tuple_list("[{priority,"++integer_to_list(Prio)++"}]"),
     Options = "-kernel inet_dist_listen_options " ++ PriorityString,
     gen_dist_test(listen_options_test, [{prio, Prio}, {tls_only_basic_opts, Options} | Config]).
 
@@ -924,16 +898,8 @@ listen_options_test(NH1, NH2, Config) ->
     [_|_] = Elevated2.
 
 do_connect_options(Prio, Config) ->
-    PriorityString0 = "[{priority,"++integer_to_list(Prio)++"}]",
     PriorityString =
-	case os:cmd("echo [{a,1}]") of
-	    "[{a,1}]"++_ ->
-		PriorityString0;
-	    _ ->
-		%% Some shells need quoting of [{}]
-		"'"++PriorityString0++"'"
-	end,
-
+        maybe_quote_tuple_list("[{priority,"++integer_to_list(Prio)++"}]"),
     Options = "-kernel inet_dist_connect_options " ++ PriorityString,
     gen_dist_test(connect_options_test,
 		  [{prio, Prio}, {tls_only_basic_opts, Options} | Config]).
@@ -1093,11 +1059,12 @@ setup_tls_opts(Config) ->
     case proplists:get_value(tls_only_basic_opts, Config, []) of
         [_|_] = BasicOpts -> %% No verify but server still need to have cert
             "-proto_dist inet_tls " ++ "-ssl_dist_opt server_certfile " ++ SC ++ " "
-                ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " " ++ BasicOpts; 
+                ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " " ++ BasicOpts;
         [] -> %% Verify
-             case proplists:get_value(tls_verify_opts, Config, []) of
+            TlsVerifyOpts = proplists:get_value(tls_verify_opts, Config, []),
+             case TlsVerifyOpts of
                  [_|_] ->
-                     BasicVerifyOpts = "-proto_dist inet_tls "
+                     "-proto_dist inet_tls "
                          ++ "-ssl_dist_opt server_certfile " ++ SC ++ " "
                          ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " "
                          ++ "-ssl_dist_opt server_cacertfile " ++ SCA ++ " "
@@ -1106,8 +1073,8 @@ setup_tls_opts(Config) ->
                          ++ "-ssl_dist_opt client_certfile " ++ CC ++ " "
                          ++ "-ssl_dist_opt client_keyfile " ++ CK ++ " "
                          ++ "-ssl_dist_opt client_cacertfile " ++ CCA ++ " "
-                         ++ "-ssl_dist_opt client_verify verify_peer ",
-                     BasicVerifyOpts ++  proplists:get_value(tls_verify_opts, Config, []);
+                         ++ "-ssl_dist_opt client_verify verify_peer "
+                         ++  TlsVerifyOpts;
                  _ ->  %% No verify, no extra opts
                      "-proto_dist inet_tls " ++ "-ssl_dist_opt server_certfile " ++ SC ++ " "
                          ++ "-ssl_dist_opt server_keyfile " ++ SK ++ " "
@@ -1269,3 +1236,11 @@ rsa_intermediate_conf(N) ->
     [{key, ssl_test_lib:hardcode_rsa_key(N)}].
 
 
+maybe_quote_tuple_list(String) ->
+    case os:cmd("echo [{a,1}]") of
+        "[{a,1}]"++_ ->
+            String;
+        _ ->
+            %% Some shells need quoting of [{}]
+            "'"++String++"'"
+    end.

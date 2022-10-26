@@ -957,9 +957,25 @@ read_application_data(Data,
             try read_application_dist_data(DHandle, Front, BufferSize, Rear) of
                 Buffer ->
                     {no_record, State#state{user_data_buffer = Buffer}}
-            catch error:_ ->
-                    {stop,disconnect,
-                     State#state{user_data_buffer = {Front,BufferSize,Rear}}}
+            catch
+                error:notsup ->
+                    %% Distribution controller has shut down
+                    %% so we are no longer input handler and therefore
+                    %% erlang:dist_ctrl_put_data/2 raises this exception
+                    {stop, {shutdown, dist_closed},
+                     %% This buffers known data, but we might have delivered
+                     %% some of it to the VM, which makes buffering all
+                     %% incorrect, as would be wasting all.
+                     %% But we are stopping the server so
+                     %% user_data_buffer is not important at all...
+                     State#state{
+                       user_data_buffer = {Front,BufferSize,Rear}}};
+                error:Reason:Stacktrace ->
+                    %% Unforeseen exception in parsing application data
+                    {stop,
+                     {disconnect,{error,Reason,Stacktrace}},
+                     State#state{
+                       user_data_buffer = {Front,BufferSize,Rear}}}
             end
     end.
 passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},

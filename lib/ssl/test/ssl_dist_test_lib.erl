@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -136,7 +136,6 @@ host_name() ->
 
 mk_node_cmdline(ListenPort, Name, Args, LogPath, DumpPath) ->
     Static = "-detached -noinput",
-    Pa = filename:dirname(code:which(?MODULE)),
     Prog = case catch init:get_argument(progname) of
 	       {ok,[[P]]} -> P;
 	       _ -> exit(no_progname_argument_found)
@@ -148,7 +147,6 @@ mk_node_cmdline(ListenPort, Name, Args, LogPath, DumpPath) ->
     "\"" ++ Prog ++ "\" "
 	++ Static ++ " "
 	++ NameSw ++ " " ++ Name ++ " "
-	++ "-pa " ++ Pa ++ " "
 	++ "-run application start crypto -run application start public_key "
 	++ "-eval 'net_kernel:verbose(1)' "
 	++ "-run " ++ atom_to_list(?MODULE) ++ " cnct2tstsrvr "
