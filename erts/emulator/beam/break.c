@@ -574,9 +574,9 @@ do_break(void)
 {
     const char *helpstring = "BREAK: (a)bort (A)bort with dump (c)ontinue (p)roc info (i)nfo\n"
         "       (l)oaded (v)ersion (k)ill (D)b-tables (d)istribution\n";
-    char *clearscreen = "\E[J";
     int i;
 #ifdef __WIN32__
+    char *clearscreen = "\033[J";
     char *mode; /* enough for storing "window" */
 
     /* check if we're in console mode and, if so,
@@ -585,7 +585,9 @@ do_break(void)
     if (mode && sys_strcmp(mode, "detached") == 0)
 	erts_exit(0, "");
     erts_free_read_env(mode);
-#endif /* __WIN32__ */
+#else
+    char *clearscreen = "\E[J";
+#endif
 
     ASSERT(erts_thr_progress_is_blocking());
 
