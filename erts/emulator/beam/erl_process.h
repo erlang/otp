@@ -581,6 +581,7 @@ typedef struct ErtsAuxWorkData_ {
 	UWord size;
 	ErtsThrPrgrLaterOp *first;
 	ErtsThrPrgrLaterOp *last;
+        Uint list_len;
     } later_op;
     struct {
 	int need_thr_prgr;

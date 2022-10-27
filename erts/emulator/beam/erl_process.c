@@ -2258,17 +2258,24 @@ handle_canceled_timers_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, i
 /*
  * Handle scheduled thread progress later operations.
  */
-#define ERTS_MAX_THR_PRGR_LATER_OPS 50
+#define ERTS_MIN_THR_PRGR_LATER_OPS 50
 
 static ERTS_INLINE erts_aint32_t
 handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 {
-    int lops;
+    int lops, limit;
     ErtsThrPrgrVal current = haw_thr_prgr_current(awdp);
 
     ASSERT(!awdp->esdp || !ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
 
-    for (lops = 0; lops < ERTS_MAX_THR_PRGR_LATER_OPS; lops++) {
+    /*
+     * Boost loop limit proportional to number of queued later ops
+     * in order to always keep up.
+     */
+    limit = (awdp->later_op.list_len / 8
+             + ERTS_MIN_THR_PRGR_LATER_OPS);
+
+    for (lops = 0; lops < limit; lops++) {
 	ErtsThrPrgrLaterOp *lop = awdp->later_op.first;
 
 	if (!erts_thr_progress_has_reached_this(current, lop->later))
@@ -2277,6 +2284,7 @@ handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int wait
 	if (!awdp->later_op.first) {
 	    awdp->later_op.last = NULL;
 	}
+        awdp->later_op.list_len--;
 	lop->func(lop->data);
 	if (!awdp->later_op.first) {
 	    awdp->later_op.size = thr_prgr_later_cleanup_op_threshold;
@@ -2297,17 +2305,19 @@ enqueue_later_op(ErtsSchedulerData *esdp,
 		 ErtsThrPrgrLaterOp *lop)
 {
     ErtsThrPrgrVal later = erts_thr_progress_later(esdp);
+    ErtsAuxWorkData* awdp = &esdp->aux_work_data;
     ASSERT(esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp));
 
     lop->func = later_func;
     lop->data = later_data;
     lop->later = later;
     lop->next = NULL;
-    if (!esdp->aux_work_data.later_op.last)
-	esdp->aux_work_data.later_op.first = lop;
+    if (!awdp->later_op.last)
+        awdp->later_op.first = lop;
     else
-	esdp->aux_work_data.later_op.last->next = lop;
-    esdp->aux_work_data.later_op.last = lop;
+        awdp->later_op.last->next = lop;
+    awdp->later_op.last = lop;
+    awdp->later_op.list_len++;
     set_aux_work_flags_wakeup_nob(esdp->ssi,
 				  ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP);
     return later;
@@ -5836,6 +5846,8 @@ init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp,
     awdp->later_op.size = 0;
     awdp->later_op.first = NULL;
     awdp->later_op.last = NULL;
+    awdp->later_op.list_len = 0;
+
     awdp->async_ready.need_thr_prgr = 0;
     awdp->async_ready.thr_prgr = ERTS_THR_PRGR_VAL_WAITING;
     awdp->async_ready.queue = NULL;
