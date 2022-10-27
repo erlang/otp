@@ -19,17 +19,35 @@
 
 -module(observer).
 
--export([start/0, start/1, stop/0]).
+-export([start/0, start/1, start_and_wait/1, stop/0]).
 
 
 start() ->
     observer_wx:start().
 
-start(Node) ->
-    net_adm:ping(Node),
+start(Node) when is_atom(Node) ->
+    start([Node]);
+start([Node]) ->
+    Node1 = to_atom(Node),
+    net_adm:ping(Node1),
     Res = observer_wx:start(),
-    observer_wx:set_node(Node),
+    observer_wx:set_node(Node1),
     Res.
+
+start_and_wait(Node) when is_atom(Node) ->
+    start_and_wait([Node]);
+start_and_wait([Node]) ->
+    start(Node),
+    MonitorRef = monitor(process, observer),
+    receive
+        {'DOWN', MonitorRef, process, _, _} ->
+            ok
+    end.
 
 stop() ->
     observer_wx:stop().
+
+to_atom(Node) when is_atom(Node) ->
+    Node;
+to_atom(Node) when is_list(Node) ->
+    list_to_atom(Node).
