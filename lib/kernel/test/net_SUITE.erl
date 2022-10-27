@@ -494,7 +494,7 @@ api_m_getaddrinfo_v6(doc) ->
 api_m_getaddrinfo_v6(Config) when is_list(Config) ->
     ?TT(?SECS(5)),
     Pre  = fun() ->
-                   {Name, FullName, IPStr, IP, Aliases,_,_} =
+                   {Name, FullName, IPStr, IP, Aliases} =
                        ct:get_config(test_host_ipv6_only),
                    #{name      => Name,
                      full_name => FullName,
@@ -516,7 +516,7 @@ api_m_getaddrinfo_v6(Config) when is_list(Config) ->
 api_m_getaddrinfo(#{name   := Name,
                     family := Domain,
                     ip     := IP}) ->
-    try net:gethaddrinfo(Name) of
+    try net:getaddrinfo(Name) of
         {ok, AddrInfos} ->
             %% Check that we can actually find this IP in the list
             api_m_getaddrinfo_verify(AddrInfos, Name, Domain, IP);
@@ -609,7 +609,7 @@ api_m_getnameinfo(#{name   := Name,
                     ip     := IP}) ->
     SA = #{family => Domain,
            addr   => IP},
-    try net:gethnameinfo(SA) of
+    try net:getnameinfo(SA) of
         {ok, NameInfo} ->
             %% Check that we can actually find this IP in the list
             api_m_getnameinfo_verify(NameInfo, Name);
@@ -617,7 +617,7 @@ api_m_getnameinfo(#{name   := Name,
             i("getaddrinfo not supported - skipping"),
             ?SKIP({getnameinfo, ReasonAI});
         {error, Reason} ->
-            ?FAIL({gethnameinfo, Name, Reason})
+            ?FAIL({getnameinfo, Name, Reason})
     catch
         error : notsup = Reason ->
             i("~w => skipping", [Reason]),
