@@ -4008,6 +4008,12 @@ void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
     int ix;
     int len;
     
+    if (tb->nslots < NACTIVE(tb)) {
+        ASSERT(ERTS_IS_CRASH_DUMPING);
+        sys_memzero(stats, sizeof(*stats));
+        return;
+    }
+
     stats->min_chain_len = INT_MAX;
     stats->max_chain_len = 0;
     ix = 0;
