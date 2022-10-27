@@ -463,6 +463,7 @@ handle_info({nodedown, Node},
     State3 = update_node_list(State2),
     Msg = ["Node down: " | atom_to_list(Node)],
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
+    filter_nodedown_messages(Node),
     {noreply, State3};
 
 handle_info({open_link, Id0}, State = #state{panels=Panels,frame=Frame}) ->
@@ -882,6 +883,14 @@ is_rb_server_running(Node, LogState) ->
 	   ok
    end.
 
+filter_nodedown_messages(Node) ->
+    receive
+        {nodedown, Node} ->
+            filter_nodedown_messages(Node)
+    after
+        0 ->
+            ok
+    end.
 
 %% d(F) ->
 %%     d(F, []).
