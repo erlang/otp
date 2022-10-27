@@ -19,11 +19,17 @@
 
 -module(observer).
 
--export([start/0, stop/0]).
+-export([start/0, start/1, stop/0]).
 
 
 start() ->
     observer_wx:start().
+
+start(Node) ->
+    net_adm:ping(Node),
+    Res = observer_wx:start(),
+    observer_wx:set_node(Node),
+    Res.
 
 stop() ->
     observer_wx:stop().
