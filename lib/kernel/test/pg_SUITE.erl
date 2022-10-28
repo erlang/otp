@@ -716,7 +716,9 @@ sync(GS) ->
 %% flushes GS queue from the point of view of a registered process RegName
 %%  running on the Node.
 sync_via({RegName, Node}, GS) ->
-    rpc:call(Node, sys, replace_state, [RegName, fun (S) -> (catch sys:get_state(GS)), S end]).
+    MyNode = node(),
+    rpc:call(Node, sys, replace_state,
+             [RegName, fun (S) -> (catch sys:get_state({GS,MyNode})), S end]).
 
 ensure_peers_info(Scope, Nodes) ->
     %% Ensures that pg server on local node has gotten info from
