@@ -1328,13 +1328,20 @@ resolve_bs_create_bin_list([], _Str) ->
     [].
 
 %%-----------------------------------------------------------------------
-%% The purpose of the following is just to add a hook for future changes.
-%% Currently, field flags are numbers 1-2-4-8 and only two of these
-%% numbers (BSF_LITTLE 2 -- BSF_SIGNED 4) have a semantic significance;
-%% others are just hints for speeding up the execution; see "erl_bits.h".
+%% Decodes field flags within bitstrings such as `Var/signed' or
+%% `Var/little'. This is the opposite of `beam_asm:flag_to_bit/1'.
+%% Also see "erl_bits.h".
 %%-----------------------------------------------------------------------
 
-decode_field_flags(FF) ->
+decode_field_flags(0) ->
+    {field_flags,[]};
+decode_field_flags(FieldFlags) when is_integer(FieldFlags) ->
+    FF = lists:filter(
+           fun
+               (little) -> (FieldFlags band 16#02) == 16#02;
+               (signed) -> (FieldFlags band 16#04) == 16#04;
+               (native) -> (FieldFlags band 16#10) == 16#10
+           end, [little, signed, native]),
     {field_flags,FF}.
 
 %%-----------------------------------------------------------------------
