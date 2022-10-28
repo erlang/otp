@@ -140,19 +140,50 @@ api_misc_cases() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init_per_suite(Config) ->
+init_per_suite(Config0) ->
+
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
     try net:info() of
         #{} ->
-            %% ?LOGGER:start(),
-            Config
+
+            case ?LIB:init_per_suite(Config0) of
+                {skip, _} = SKIP ->
+                    SKIP;
+
+                Config1 when is_list(Config1) ->
+
+                    ?P("init_per_suite -> end when "
+                       "~n      Config: ~p", [Config1]),
+
+                    %% We need a monitor on this node also
+                    kernel_test_sys_monitor:start(),
+
+                    Config1
+            end
+
     catch
         error : notsup ->
             {skip, "net not supported"}
     end.
 
-end_per_suite(_) ->
-    %% ?LOGGER:stop(),
-    ok.
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    %% Stop the local monitor
+    kernel_test_sys_monitor:stop(),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+       "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
 
 init_per_group(_Group, Config) ->
     Config.
@@ -516,6 +547,9 @@ api_m_getaddrinfo_v6(Config) when is_list(Config) ->
 api_m_getaddrinfo(#{name   := Name,
                     family := Domain,
                     ip     := IP}) ->
+    i("Check address info for ~p with"
+      "~n   Domain: ~p"
+      "~n   IP:     ~p", [Name, Domain, IP]),
     try net:getaddrinfo(Name) of
         {ok, AddrInfos} ->
             %% Check that we can actually find this IP in the list
@@ -533,12 +567,23 @@ api_m_getaddrinfo(#{name   := Name,
 
 
 api_m_getaddrinfo_verify([], Name, Domain, IP) ->
+    i("No match found for ~p: "
+      "~n   Domain:   ~p"
+      "~n   IP:       ~p", [Name, Domain, IP]),
     ?FAIL({not_found, Name, Domain, IP});
 api_m_getaddrinfo_verify([#{family := Domain,
-                            addr   := IP}|_],
+                            addr   := IP} = AddrInfo|_],
                          Name, Domain, IP) ->
+    i("Found match for ~p: "
+      "~n   AddrInfo: ~p"
+      "~n   Domain:   ~p"
+      "~n   IP:       ~p", [Name, AddrInfo, Domain, IP]),
     ok;
-api_m_getaddrinfo_verify([_|AddrInfos], Name, Domain, IP) ->
+api_m_getaddrinfo_verify([AddrInfo|AddrInfos], Name, Domain, IP) ->
+    i("AddrInfo: ~p"
+      "~n   does not match: "
+      "~n      Domain: ~p"
+      "~n      IP:     ~p", [AddrInfo, Domain, IP]),
     api_m_getaddrinfo_verify(AddrInfos, Name, Domain, IP).
 
 
@@ -607,6 +652,9 @@ api_m_getnameinfo_v6(Config) when is_list(Config) ->
 api_m_getnameinfo(#{name   := Name,
                     family := Domain,
                     ip     := IP}) ->
+    i("Check name info for ~p with"
+      "~n   Domain: ~p"
+      "~n   IP:     ~p", [Name, Domain, IP]),
     SA = #{family => Domain,
            addr   => IP},
     try net:getnameinfo(SA) of
@@ -625,9 +673,13 @@ api_m_getnameinfo(#{name   := Name,
     end.
 
 
-api_m_getnameinfo_verify(#{host := Name}, Name) ->
+api_m_getnameinfo_verify(#{host := Name} = NameInfo, Name) ->
+    i("Found match for ~p: "
+      "~n   NameInfo: ~p", [Name, NameInfo]),
     ok;
 api_m_getnameinfo_verify(NameInfo, Name) ->
+    i("No match found for ~p: "
+      "~n   NameInfo: ~p", [Name, NameInfo]),
     ?FAIL({not_found, NameInfo, Name}).
 
 
