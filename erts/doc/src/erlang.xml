@@ -790,12 +790,12 @@ client(ServerPid, Request) ->
           <c>utf8</c> or
           <c>unicode</c>, the characters are encoded using UTF-8 where
           characters may require multiple bytes.</p>
-        <note>
+        <change>
           <p>As from Erlang/OTP 20, atoms can contain any Unicode character
             and <c>atom_to_binary(<anno>Atom</anno>, latin1)</c> may fail if the
             text representation for <c><anno>Atom</anno></c> contains a Unicode
             character &gt; 255.</p>
-        </note>
+        </change>
         <p>Example:</p>
         <pre>
 > <input>atom_to_binary('Erlang', latin1).</input>
@@ -874,11 +874,11 @@ client(ServerPid, Request) ->
           <c><anno>Binary</anno></c>. If <c><anno>Encoding</anno></c>
           is <c>utf8</c> or <c>unicode</c>, the binary must contain
           valid UTF-8 sequences.</p>
-        <note>
+        <change>
           <p>As from Erlang/OTP 20, <c>binary_to_atom(<anno>Binary</anno>, utf8)</c>
             is capable of decoding any Unicode character. Earlier versions would
             fail if the binary contained Unicode characters &gt; 255.</p>
-        </note>
+        </change>
         <note>
           <p>The number of characters that are permitted in an atom
           name is limited. The default limits can be found in the
@@ -1392,7 +1392,7 @@ hello
             by passing option <c>{allow_gc, false}</c>.</p>
           </item>
         </taglist>
-	<note>
+	<change>
 	<p>
 	  Up until ERTS version 8.*, the check process code operation
 	  checks for all types of references to the old code. That is,
@@ -1414,7 +1414,7 @@ hello
 	  and will automatically be enabled if dirty scheduler
 	  support is enabled.
 	</p>
-	</note>
+	</change>
         <p>See also <seeerl marker="kernel:code">
           <c>code(3)</c></seeerl>.</p>
         <p>Failures:</p>
@@ -1677,7 +1677,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           <c>demonitor(<anno>MonitorRef</anno>, [flush])</c></seemfa>
           can be used instead of <c>demonitor(<anno>MonitorRef</anno>)</c>
           if this cleanup is wanted.</p>
-        <note>
+        <change>
           <p>Before Erlang/OTP R11B (ERTS 5.5) <c>demonitor/1</c>
             behaved completely asynchronously, that is, the monitor was active
             until the "demonitor signal" reached the monitored entity. This
@@ -1687,7 +1687,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           <p>The current behavior can be viewed as two combined operations:
             asynchronously send a "demonitor signal" to the monitored entity
             and ignore any future results of the monitor.</p>
-        </note>
+        </change>
         <p>Failure: It is an error if <c><anno>MonitorRef</anno></c> refers to a
           monitoring started by another process. Not all such cases are
           cheap to check. If checking is cheap, the call fails with
@@ -1745,9 +1745,9 @@ end</code>
               otherwise <c>true</c>.</p>
           </item>
         </taglist>
-        <note>
+        <change>
           <p>More options can be added in a future release.</p>
-        </note>
+        </change>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -2638,11 +2638,11 @@ of Floating Point Numbers</seeguide>.</p>
         marker="#fun_info/1"><c>erlang:fun_info/1</c></seemfa> for how
         to get the environment of a fun.</p>
         </note>
-        <note>
+        <change>
           <p>The output of <c>fun_to_list/1</c> can differ between
           Erlang implementations and may change in future
           versions.</p>
-        </note>
+        </change>
         <p>Examples:</p>
         <code>
 -module(test).
@@ -3031,18 +3031,13 @@ os_prompt%</pre>
               will terminate immediately without performing any of the above
               listed operations.
             </p>
-            <p>
-              Behavior changes compared to earlier versions:
-            </p>
-            <list>
-              <item>
+            <change>
                 <p>
                   Runtime systems prior to OTP @OTP-17771@ called all installed
                   <c>atexit</c>/<c>on_exit</c> callbacks also when <c>flush</c>
                   was disabled, but as of OTP @OTP-17771@ this is no longer the case.
                 </p>
-              </item>
-            </list>
+            </change>
           </item>
         </taglist>
       </desc>
@@ -4409,11 +4404,11 @@ RealSystem = system + MissedSystem</code>
             larger than the total size of the dynamically allocated
             memory blocks.</p>
         </note>
-        <note>
+        <change>
           <p>As from ERTS 5.6.4, <c>erlang:memory/0</c> requires that
             all <seecref marker="erts:erts_alloc"><c>erts_alloc(3)</c></seecref>
             allocators are enabled (default behavior).</p>
-        </note>
+        </change>
         <p>Failure: <c>notsup</c> if an
           <seecref marker="erts:erts_alloc"><c>erts_alloc(3)</c></seecref>
           allocator has been disabled.</p>
@@ -4430,12 +4425,12 @@ RealSystem = system + MissedSystem</code>
           <c><anno>Type</anno></c>. The argument can also be specified as a list
           of <c>memory_type()</c> atoms, in which case a corresponding list of
           <c>{memory_type(), Size :: integer >= 0}</c> tuples is returned.</p>
-        <note>
+        <change>
           <p>As from ERTS 5.6.4,
             <c>erlang:memory/1</c> requires that
             all <seecref marker="erts_alloc"><c>erts_alloc(3)</c></seecref>
             allocators are enabled (default behavior).</p>
-        </note>
+        </change>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -4579,7 +4574,7 @@ RealSystem = system + MissedSystem</code>
             a tuple <c>{RegisteredName, Node}</c> for a registered process,
           located elsewhere.</p>
 
-        <note><p>Before ERTS 10.0 (OTP 21.0), monitoring a process could fail with
+        <change><p>Before ERTS 10.0 (OTP 21.0), monitoring a process could fail with
 	  <c>badarg</c> if the monitored process resided on a primitive node
 	  (such as erl_interface or jinterface), where remote process monitoring
 	  is not implemented.</p>
@@ -4588,7 +4583,7 @@ RealSystem = system + MissedSystem</code>
 	  connection. That is, a <c>{'DOWN', _, process, _, noconnection}</c> is
 	  the only message that may be received, as the primitive node have no
 	  way of reporting the status of the monitored process.</p>
-	</note>
+	</change>
 
         </item>
 
@@ -5814,9 +5809,9 @@ receive_replies(ReqId, N, Acc) ->
             <c>false</c> is returned.
           </item>
         </taglist>
-        <note>
+        <change>
           <p>More options can be added in a future release.</p>
-        </note>
+        </change>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -7047,12 +7042,12 @@ receive_replies(ReqId, N, Acc) ->
             <seeerl marker="kernel:code"><c>code(3)</c></seeerl>)
             and is not to be used elsewhere.</p>
         </warning>
-        <note>
+        <change>
           <p>As from ERTS 8.0 (Erlang/OTP 19), any lingering processes
             that still execute the old code is killed by this function.
             In earlier versions, such incorrect use could cause much
             more fatal failures, like emulator crash.</p>
-        </note>
+        </change>
         <p>Failure: <c>badarg</c> if there is no old code for
           <c><anno>Module</anno></c>.</p>
       </desc>
@@ -8753,13 +8748,13 @@ lists:map(
         <pre>
 > <input>statistics(reductions).</input>
 {2046,11}</pre>
-        <note><p>As from ERTS 5.5 (Erlang/OTP R11B),
+        <change><p>As from ERTS 5.5 (Erlang/OTP R11B),
           this value does not include reductions performed in current
           time slices of currently scheduled processes. If an
           exact value is wanted, use
           <seeerl marker="#statistics_exact_reductions">
           <c>statistics(exact_reductions)</c></seeerl>.</p>
-        </note>
+        </change>
       </desc>
     </func>
 
@@ -11764,14 +11759,14 @@ hello
               <p>Drops usage of the latin1 atom encoding and unconditionally
 	      use utf8 encoding for all atoms. Erlang/OTP
 	      systems as of R16B can decode this representation.</p>
-              <note>
+              <change>
                 <p>In Erlang/OTP 26, the default <c>minor_version</c> is planned
                 to change from 1 to 2. See
                 <seeguide marker="system/general_info:upcoming_incompatibilities#atoms_be_utf8">
                   Upcoming Potential Incompatibilities
                 </seeguide>.
                 </p>
-              </note>
+              </change>
 	    </item>
 	  </taglist>
           <p>Option <c>deterministic</c> (introduced in OTP 24.1) can
