@@ -53,6 +53,8 @@
 -export([explicit_inet_backend/0, test_inet_backends/0]).
 -export([which_host_ip/2]).
 
+%% Convenient exports...
+-export([analyze_and_print_host_info/0]).
 
 -define(SKIP(R), skip(R, ?MODULE, ?LINE)).
 
@@ -998,11 +1000,11 @@ analyze_and_print_host_info() ->
                       "~n   Num Online Schedulers:   ~s"
                       "~n   TS Extra Platform Label: ~s"
                       "~n", [OsFam, OsName, Version, str_num_schedulers(),
-                             ts_extra_flatform_label()]),
+                             ts_extra_platform_label()]),
             {num_schedulers_to_factor(), []}
     end.
 
-ts_extra_flatform_label() ->
+ts_extra_platform_label() ->
     case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
         false -> "-";
         Val   -> Val
@@ -1010,116 +1012,165 @@ ts_extra_flatform_label() ->
 
 
 linux_which_distro(Version) ->
-    try do_linux_which_distro(Version)
+    Label = ts_extra_platform_label(),
+    Checks =
+        [fun() -> do_linux_which_distro_os_release(Version,     Label) end,
+         fun() -> do_linux_which_distro_suse_release(Version,   Label) end,
+         fun() -> do_linux_which_distro_fedora_release(Version, Label) end,
+         fun() -> do_linux_which_distro_issue(Version,          Label) end],
+    try linux_which_distro("", Version, Label, Checks)
     catch
-        throw:{distro, DistroAndLabel} ->
-            DistroAndLabel
+        throw:{distro, Distro} ->
+            Distro
     end.
 
-do_linux_which_distro(Version) ->
-    Label = ts_extra_flatform_label(),
-
-    %% Many (linux) distro's use the /etc/issue file, so try that first.
-    %% Then we just keep going until we are "done".
-    DistroStr = do_linux_which_distro_issue(Version, Label),
-
-    %% Still not sure; try fedora
-    _ = do_linux_which_distro_fedora(Version, Label),
-
-    %% Still not sure; try suse
-    _ = do_linux_which_distro_suse(Version, Label),
-
-    %% Still not sure; try os-release
-    _ = do_linux_which_distro_os_release(Version, Label),
-
-    %% And the fallback
+linux_which_distro("", Version, Label, []) ->
     io:format("Linux: ~s"
-              "~n   Distro:       ~s"
-              "~n   Label:        ~s"
-              "~n   Product Name: ~s"
-              "~n",
-              [Version, DistroStr, Label,
-               linux_product_name()]),
-    {other, simplify_label(Label)}.
-
-do_linux_which_distro_issue(Version, Label) ->
-    case file:read_file_info("/etc/issue") of
-        {ok, _} ->
-            case [string:trim(S) ||
-                     S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
-                [DistroStr | _] ->
-                    case DistroStr of
-                        "Wind River Linux" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {wind_river, simplify_label(Label)}});
-                        "MontaVista" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {montavista, simplify_label(Label)}});
-                        "Yellow Dog" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {yellow_dog, simplify_label(Label)}});
-                        "Debian" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {debian, simplify_label(Label)}});
-                        "Ubuntu" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {ubuntu, simplify_label(Label)}});
-                        "Linux Mint" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {linux_mint, simplify_label(Label)}});
-                        _ ->
-                            DistroStr
-                    end;
-                X ->
-                    X
+              "~n   TS Extra Platform Label: ~s"
+              "~n   Product Name:            ~s"
+              "~n", [Version, Label,
+                     linux_product_name()]),    
+    {other, simplify_label(Label)};
+linux_which_distro(DestroStr, Version, Label, []) ->
+    io:format("Linux: ~s"
+              "~n   Distro:                  ~s"
+              "~n   TS Extra Platform Label: ~s"
+              "~n   Product Name:            ~s"
+              "~n", [Version, DestroStr, Label,
+                     linux_product_name()]),    
+    {other, simplify_label(Label)};
+linux_which_distro(Default, Version, Label, [Check|Checks]) ->
+    try Check() of
+        DistroStr when is_list(DistroStr) ->
+            linux_which_distro(DistroStr, Version, Label, Checks);
+        retry ->
+            linux_which_distro(Default, Version, Label, Checks);
+        {error, _Reason} ->
+            linux_which_distro(Default, Version, Label, Checks)
+    catch
+        throw:{error, _Reason} ->
+	    linux_which_distro(Default, Version, Label, Checks)
+    end.
+       
+do_linux_which_distro_os_release(Version, Label) ->
+    case file:read_file_info("/etc/os-release") of
+	{ok, _} ->
+            %% We want to 'catch' if our processing is wrong,
+            %% that's why we catch and re-throw the distro.
+            %% Actual errors will be returned as 'ignore'.
+            try
+                begin
+                    Info = linux_process_os_release(),
+                    {value, {_, DistroStr}} = lists:keysearch(name, 1, Info),
+                    {value, {_, VersionNo}} = lists:keysearch(version, 1, Info),
+                    io:format("Linux: ~s"
+                              "~n   Distro:                  ~s"
+                              "~n   Distro Version:          ~s"
+                              "~n   TS Extra Platform Label: ~s"
+                              "~n   Product Name:            ~s"
+                              "~n",
+                              [Version, DistroStr, VersionNo, Label,
+                               linux_product_name()]),
+                    throw({distro,
+                           {linux_distro_str_to_distro_id(DistroStr),
+                            simplify_label(Label)}})
+                end
+            catch
+                throw:{distro, _} = DISTRO ->
+                    throw(DISTRO);
+                _:_ ->
+                    retry
             end;
         _ ->
-            "Unknown"
+            retry
     end.
-                            
-do_linux_which_distro_fedora(Version, Label) ->
+	    
+
+linux_process_os_release() ->
+    %% Read the "raw" file
+    Raw = os:cmd("cat /etc/os-release"),
+    %% Split it into lines
+    Lines1 = string:tokens(Raw, [$\n]),
+    %% Just in case, skip any lines starting with '#'.
+    Lines2 = linux_process_os_release1(Lines1),
+    %% Each (remaining) line *should* be: <TAG>=<VALUE>
+    %% Both sides will be strings, the value side will be a quoted string...
+    %% Convert those into a 2-tuple list: [{Tag, Value}]
+    linux_process_os_release2(Lines2).
+
+linux_process_os_release1(Lines) ->
+    linux_process_os_release1(Lines, []).
+
+linux_process_os_release1([], Acc) ->
+    lists:reverse(Acc);
+linux_process_os_release1([H|T], Acc) ->
+    case H of
+        "#" ++ _ ->
+            linux_process_os_release1(T, Acc);
+        _ ->
+            linux_process_os_release1(T, [H|Acc])
+    end.
+
+linux_process_os_release2(Lines) ->
+    linux_process_os_release2(Lines, []).
+
+linux_process_os_release2([], Acc) ->
+    lists:reverse(Acc);
+linux_process_os_release2([H|T], Acc) ->
+    case linux_process_os_release3(H) of
+        {value, Value} ->
+            linux_process_os_release2(T, [Value|Acc]);
+        false ->
+            linux_process_os_release2(T, Acc)
+    end.
+
+linux_process_os_release3(H) ->
+    case [string:strip(S) || S <- string:tokens(H, [$=])] of
+        [Tag, Value] ->
+            Tag2   = list_to_atom(string:to_lower(Tag)),
+            Value2 = string:strip(Value, both, $"),
+            linux_process_os_release4(Tag2, Value2);
+        _ ->
+            false
+    end.
+
+linux_process_os_release4(name = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(version = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(version_id = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(id = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(pretty_name = Tag, Value) ->
+    {value, {Tag, Value}};
+linux_process_os_release4(_Tag, _Value) ->
+    false.
+
+
+linux_distro_str_to_distro_id("Debian" ++ _) ->
+    debian;
+linux_distro_str_to_distro_id("Fedora" ++ _) ->
+    fedora;
+linux_distro_str_to_distro_id("Linux Mint" ++ _) ->
+    linux_mint;
+linux_distro_str_to_distro_id("MontaVista" ++ _) ->
+    montavista;
+linux_distro_str_to_distro_id("openSUSE" ++ _) ->
+    suse;
+linux_distro_str_to_distro_id("SLES" ++ _) ->
+    sles;
+linux_distro_str_to_distro_id("Ubuntu" ++ _) ->
+    ubuntu;
+linux_distro_str_to_distro_id("Wind River Linux" ++ _) ->
+    wind_river;
+linux_distro_str_to_distro_id("Yellow Dog" ++ _) ->
+    yellow_dog;
+linux_distro_str_to_distro_id(X) ->
+    X.
+
+
+do_linux_which_distro_fedora_release(Version, Label) ->
     %% Check if fedora
     case file:read_file_info("/etc/fedora-release") of
         {ok, _} ->
@@ -1136,7 +1187,7 @@ do_linux_which_distro_fedora(Version, Label) ->
                                linux_product_name()]);
                 _ ->
                     io:format("Linux: ~s"
-                              "~n   Distro:                  ~s"
+                              "~n   Distro: ~s"
                               "~n   TS Extra Platform Label: ~s"
                               "~n   Product Name:            ~s"
                               "~n",
@@ -1145,10 +1196,10 @@ do_linux_which_distro_fedora(Version, Label) ->
             end,
             throw({distro, {fedora, simplify_label(Label)}});
         _ ->
-            ignore
+            throw({error, not_found})
     end.
 
-do_linux_which_distro_suse(Version, Label) ->
+do_linux_which_distro_suse_release(Version, Label) ->
     %% Check if its a SuSE
     case file:read_file_info("/etc/SUSE-brand") of
         {ok, _} ->
@@ -1253,164 +1304,448 @@ do_linux_which_distro_suse(Version, Label) ->
                     end
             end;
         _ ->
-            ignore
+            throw({error, not_found})
     end.
 
-do_linux_which_distro_os_release(Version, Label) ->
-    case file:read_file_info("/etc/os-release") of
+do_linux_which_distro_issue(Version, Label) ->
+    case file:read_file_info("/etc/issue") of
         {ok, _} ->
-            %% We want to 'catch' if our processing is wrong,
-            %% that's why we catch and re-throw the distro.
-            %% Actual errors will be returned as 'ignore'.
-            try
-                begin
-                    Info = linux_process_os_release(),
-                    {value, {_, DistroStr}} = lists:keysearch(name, 1, Info),
-                    {value, {_, VersionNo}} = lists:keysearch(version, 1, Info),
-                    io:format("Linux: ~s"
-                              "~n   Distro:                  ~s"
-                              "~n   Distro Version:          ~s"
-                              "~n   TS Extra Platform Label: ~s"
-                              "~n   Product Name:            ~s"
-                              "~n",
-                              [Version, DistroStr, VersionNo, Label,
-                               linux_product_name()]),
-                    throw({distro,
-                           {linux_distro_str_to_distro_id(DistroStr),
-                            simplify_label(Label)}})
-                end
-            catch
-                throw:{distro, _} = DISTRO ->
-                    throw(DISTRO);
-                _:_ ->
-                    ignore
+            case [string:trim(S) ||
+                     S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
+                [DistroStr | _] ->
+                    case DistroStr of
+                        "Wind River Linux" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro,
+                                   {wind_river, simplify_label(Label)}});
+                        "MontaVista" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro, 
+                                   {montavista, simplify_label(Label)}});
+                        "Yellow Dog" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro,
+                                   {yellow_dog, simplify_label(Label)}});
+                        "Debian" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro,
+                                   {debian, simplify_label(Label)}});
+                        "Ubuntu" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro,
+                                   {ubuntu, simplify_label(Label)}});
+                        "Linux Mint" ++ _ ->
+                            io:format("Linux: ~s"
+                                      "~n   Distro:                  ~s"
+                                      "~n   TS Extra Platform Label: ~s"
+                                      "~n   Product Name:            ~s"
+                                      "~n",
+                                      [Version, DistroStr, Label,
+                                       linux_product_name()]),
+                            throw({distro,
+                                   {linux_mint, simplify_label(Label)}});
+                        _ ->
+                            DistroStr
+                    end;
+                X ->
+                    X
             end;
         _ ->
-            ignore
+            throw({error, not_found})
     end.
-
-linux_process_os_release() ->
-    %% Read the "raw" file
-    Raw = os:cmd("cat /etc/os-release"),
-    %% Split it into lines
-    Lines1 = string:tokens(Raw, [$\n]),
-    %% Just in case, skip any lines starting with '#'.
-    Lines2 = linux_process_os_release1(Lines1),
-    %% Each (remaining) line *should* be: <TAG>=<VALUE>
-    %% Both sides will be strings, the value side will be a quoted string...
-    %% Convert those into a 2-tuple list: [{Tag, Value}]
-    linux_process_os_release2(Lines2).
-
-linux_process_os_release1(Lines) ->
-    linux_process_os_release1(Lines, []).
-
-linux_process_os_release1([], Acc) ->
-    lists:reverse(Acc);
-linux_process_os_release1([H|T], Acc) ->
-    case H of
-        "#" ++ _ ->
-            linux_process_os_release1(T, Acc);
-        _ ->
-            linux_process_os_release1(T, [H|Acc])
-    end.
-
-linux_process_os_release2(Lines) ->
-    linux_process_os_release2(Lines, []).
-
-linux_process_os_release2([], Acc) ->
-    lists:reverse(Acc);
-linux_process_os_release2([H|T], Acc) ->
-    case linux_process_os_release3(H) of
-        {value, Value} ->
-            linux_process_os_release2(T, [Value|Acc]);
-        false ->
-            linux_process_os_release2(T, Acc)
-    end.
-
-linux_process_os_release3(H) ->
-    case [string:strip(S) || S <- string:tokens(H, [$=])] of
-        [Tag, Value] ->
-            Tag2   = list_to_atom(string:to_lower(Tag)),
-            Value2 = string:strip(Value, both, $"),
-            linux_process_os_release4(Tag2, Value2);
-        _ ->
-            false
-    end.
-
-linux_process_os_release4(name = Tag, Value) ->
-    {value, {Tag, Value}};
-linux_process_os_release4(version = Tag, Value) ->
-    {value, {Tag, Value}};
-linux_process_os_release4(version_id = Tag, Value) ->
-    {value, {Tag, Value}};
-linux_process_os_release4(id = Tag, Value) ->
-    {value, {Tag, Value}};
-linux_process_os_release4(pretty_name = Tag, Value) ->
-    {value, {Tag, Value}};
-linux_process_os_release4(_Tag, _Value) ->
-    false.
-
-linux_distro_str_to_distro_id("Debian" ++ _) ->
-    debian;
-linux_distro_str_to_distro_id("Fedora" ++ _) ->
-    fedora;
-linux_distro_str_to_distro_id("Linux Mint" ++ _) ->
-    linux_mint;
-linux_distro_str_to_distro_id("MontaVista" ++ _) ->
-    montavista;
-linux_distro_str_to_distro_id("openSUSE" ++ _) ->
-    suse;
-linux_distro_str_to_distro_id("SLES" ++ _) ->
-    sles;
-linux_distro_str_to_distro_id("Ubuntu" ++ _) ->
-    ubuntu;
-linux_distro_str_to_distro_id("Wind River Linux" ++ _) ->
-    wind_river;
-linux_distro_str_to_distro_id("Yellow Dog" ++ _) ->
-    yellow_dog;
-linux_distro_str_to_distro_id(X) ->
-    X.
 
 
 %% linux_which_distro(Version) ->
-%%     Label = ts_extra_flatform_label(),
+%%     try do_linux_which_distro(Version)
+%%     catch
+%%         throw:{distro, DistroAndLabel} ->
+%%             DistroAndLabel
+%%     end.
+
+%% do_linux_which_distro(Version) ->
+%%     Label = ts_extra_platform_label(),
+
+%%     %% Many (linux) distro's use the /etc/issue file, so try that first.
+%%     %% Then we just keep going until we are "done".
+%%     DistroStr = do_linux_which_distro_issue(Version, Label),
+
+%%     %% Still not sure; try fedora
+%%     _ = do_linux_which_distro_fedora(Version, Label),
+
+%%     %% Still not sure; try suse
+%%     _ = do_linux_which_distro_suse(Version, Label),
+
+%%     %% Still not sure; try os-release
+%%     _ = do_linux_which_distro_os_release(Version, Label),
+
+%%     %% And the fallback
+%%     io:format("Linux: ~s"
+%%               "~n   Distro:       ~s"
+%%               "~n   Label:        ~s"
+%%               "~n   Product Name: ~s"
+%%               "~n",
+%%               [Version, DistroStr, Label,
+%%                linux_product_name()]),
+%%     {other, simplify_label(Label)}.
+
+%% do_linux_which_distro_issue(Version, Label) ->
 %%     case file:read_file_info("/etc/issue") of
 %%         {ok, _} ->
 %%             case [string:trim(S) ||
 %%                      S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
-%%                 [DistroStr|_] ->
+%%                 [DistroStr | _] ->
+%%                     case DistroStr of
+%%                         "Wind River Linux" ++ _ ->
+%%                             io:format("Linux: ~s"
+%%                                       "~n   Distro:                  ~s"
+%%                                       "~n   TS Extra Platform Label: ~s"
+%%                                       "~n   Product Name:            ~s"
+%%                                       "~n",
+%%                                       [Version, DistroStr, Label,
+%%                                        linux_product_name()]),
+%%                             throw({distro,
+%%                                    {wind_river, simplify_label(Label)}});
+%%                         "MontaVista" ++ _ ->
+%%                             io:format("Linux: ~s"
+%%                                       "~n   Distro:                  ~s"
+%%                                       "~n   TS Extra Platform Label: ~s"
+%%                                       "~n   Product Name:            ~s"
+%%                                       "~n",
+%%                                       [Version, DistroStr, Label,
+%%                                        linux_product_name()]),
+%%                             throw({distro,
+%%                                    {montavista, simplify_label(Label)}});
+%%                         "Yellow Dog" ++ _ ->
+%%                             io:format("Linux: ~s"
+%%                                       "~n   Distro:                  ~s"
+%%                                       "~n   TS Extra Platform Label: ~s"
+%%                                       "~n   Product Name:            ~s"
+%%                                       "~n",
+%%                                       [Version, DistroStr, Label,
+%%                                        linux_product_name()]),
+%%                             throw({distro,
+%%                                    {yellow_dog, simplify_label(Label)}});
+%%                         "Debian" ++ _ ->
+%%                             io:format("Linux: ~s"
+%%                                       "~n   Distro:                  ~s"
+%%                                       "~n   TS Extra Platform Label: ~s"
+%%                                       "~n   Product Name:            ~s"
+%%                                       "~n",
+%%                                       [Version, DistroStr, Label,
+%%                                        linux_product_name()]),
+%%                             throw({distro,
+%%                                    {debian, simplify_label(Label)}});
+%%                         "Ubuntu" ++ _ ->
+%%                             io:format("Linux: ~s"
+%%                                       "~n   Distro:                  ~s"
+%%                                       "~n   TS Extra Platform Label: ~s"
+%%                                       "~n   Product Name:            ~s"
+%%                                       "~n",
+%%                                       [Version, DistroStr, Label,
+%%                                        linux_product_name()]),
+%%                             throw({distro,
+%%                                    {ubuntu, simplify_label(Label)}});
+%%                         "Linux Mint" ++ _ ->
+%%                             io:format("Linux: ~s"
+%%                                       "~n   Distro:                  ~s"
+%%                                       "~n   TS Extra Platform Label: ~s"
+%%                                       "~n   Product Name:            ~s"
+%%                                       "~n",
+%%                                       [Version, DistroStr, Label,
+%%                                        linux_product_name()]),
+%%                             throw({distro,
+%%                                    {linux_mint, simplify_label(Label)}});
+%%                         _ ->
+%%                             DistroStr
+%%                     end;
+%%                 X ->
+%%                     X
+%%             end;
+%%         _ ->
+%%             throw({error, not_found})
+%%     end.
+                            
+%% do_linux_which_distro_fedora(Version, Label) ->
+%%     %% Check if fedora
+%%     case file:read_file_info("/etc/fedora-release") of
+%%         {ok, _} ->
+%%             case [string:trim(S) ||
+%%                      S <- string:tokens(os:cmd("cat /etc/fedora-release"),
+%%                                         [$\n])] of
+%%                 [DistroStr | _] ->
 %%                     io:format("Linux: ~s"
 %%                               "~n   Distro:                  ~s"
 %%                               "~n   TS Extra Platform Label: ~s"
+%%                               "~n   Product Name:            ~s"
 %%                               "~n",
-%%                               [Version, DistroStr, Label]),
-%%                     {case DistroStr of
-%%                          "Wind River Linux" ++ _ ->
-%%                              wind_river;
-%%                          "MontaVista" ++ _ ->
-%%                              montavista;
-%%                          "Yellow Dog" ++ _ ->
-%%                              yellow_dog;
-%%                          "Debian" ++ _ ->
-%%                              debian;
-%%                          _ ->
-%%                              other
-%%                      end,
-%%                      simplify_label(Label)};
-%%                 X ->
+%%                               [Version, DistroStr, Label,
+%%                                linux_product_name()]);
+%%                 _ ->
 %%                     io:format("Linux: ~s"
-%%                               "~n   Distro:                  ~p"
+%%                               "~n   Distro:                  ~s"
 %%                               "~n   TS Extra Platform Label: ~s"
+%%                               "~n   Product Name:            ~s"
 %%                               "~n",
-%%                               [Version, X, Label]),
-%%                     {other, simplify_label(Label)}
+%%                               [Version, "Fedora", Label,
+%%                                linux_product_name()])
+%%             end,
+%%             throw({distro, {fedora, simplify_label(Label)}});
+%%         _ ->
+%%             ignore
+%%     end.
+
+%% do_linux_which_distro_suse(Version, Label) ->
+%%     %% Check if its a SuSE
+%%     case file:read_file_info("/etc/SUSE-brand") of
+%%         {ok, _} ->
+%%             case file:read_file_info("/etc/SuSE-release") of
+%%                 {ok, _} ->
+%%                     case [string:trim(S) ||
+%%                              S <- string:tokens(os:cmd("cat /etc/SuSE-release"),
+%%                                                 [$\n])] of
+%%                         ["SUSE Linux Enterprise Server" ++ _ = DistroStr | _] ->
+%%                             io:format("Linux: ~s"
+%%                                       "~n   Distro:                  ~s"
+%%                                       "~n   TS Extra Platform Label: ~s"
+%%                                       "~n   Product Name:            ~s"
+%%                                       "~n",
+%%                                       [Version, DistroStr, Label,
+%%                                        linux_product_name()]),
+%%                             throw({distro, {sles, simplify_label(Label)}});
+%%                         [DistroStr | _] ->
+%%                             io:format("Linux: ~s"
+%%                                       "~n   Distro:                  ~s"
+%%                                       "~n   TS Extra Platform Label: ~s"
+%%                                       "~n   Product Name:            ~s"
+%%                                       "~n",
+%%                                       [Version, DistroStr, Label,
+%%                                        linux_product_name()]),
+%%                             throw({distro, {suse, simplify_label(Label)}});
+%%                         _ ->
+%%                             io:format("Linux: ~s"
+%%                                       "~n   Distro:                  ~s"
+%%                                       "~n   TS Extra Platform Label: ~s"
+%%                                       "~n   Product Name:            ~s"
+%%                                       "~n",
+%%                                       [Version, "SuSE", Label,
+%%                                        linux_product_name()]),
+%%                             throw({distro, {suse, simplify_label(Label)}})
+%%                     end;
+%%                 _ ->
+%%                     case string:tokens(os:cmd("cat /etc/SUSE-brand"), [$\n]) of
+%%                         ["SLE" = DistroStr, VERSION | _] ->
+%%                             case [string:strip(S) ||
+%%                                      S <- string:tokens(VERSION, [$=])] of
+%%                                 ["VERSION", VersionNo] ->
+%%                                     io:format("Linux: ~s"
+%%                                               "~n   Distro:                  ~s"
+%%                                               "~n   Distro Version:          ~s"
+%%                                               "~n   TS Extra Platform Label: ~s"
+%%                                               "~n   Product Name:            ~s"
+%%                                               "~n",
+%%                                               [Version,
+%%                                                DistroStr, VersionNo,
+%%                                                Label,
+%%                                                linux_product_name()]),
+%%                                     throw({distro,
+%%                                            {sles, simplify_label(Label)}});
+%%                                 _ ->
+%%                                     io:format("Linux: ~s"
+%%                                               "~n   Distro:                  ~s"
+%%                                               "~n   TS Extra Platform Label: ~s"
+%%                                               "~n   Product Name:            ~s"
+%%                                               "~n",
+%%                                               [Version, DistroStr, Label,
+%%                                                linux_product_name()]),
+%%                                     throw({distro,
+%%                                            {sles, simplify_label(Label)}})
+%%                             end;
+%%                         ["openSUSE" = DistroStr, VERSION | _] ->
+%%                             case [string:strip(S) ||
+%%                                      S <- string:tokens(VERSION, [$=])] of
+%%                                 ["VERSION", VersionNo] ->
+%%                                     io:format("Linux: ~s"
+%%                                               "~n   Distro:                  ~s"
+%%                                               "~n   Distro Version:          ~s"
+%%                                               "~n   TS Extra Platform Label: ~s"
+%%                                               "~n   Product Name:            ~s"
+%%                                               "~n",
+%%                                               [Version,
+%%                                                DistroStr, VersionNo,
+%%                                                Label,
+%%                                                linux_product_name()]),
+%%                                     throw({distro,
+%%                                            {suse, simplify_label(Label)}});
+%%                                 _ ->
+%%                                     io:format("Linux: ~s"
+%%                                               "~n   Distro:                  ~s"
+%%                                               "~n   TS Extra Platform Label: ~s"
+%%                                               "~n   Product Name:            ~s"
+%%                                               "~n",
+%%                                               [Version, DistroStr, Label,
+%%                                                linux_product_name()]),
+%%                                     throw({distro,
+%%                                            {suse, simplify_label(Label)}})
+%%                             end;
+%%                         _ ->
+%%                             io:format("Linux: ~s"
+%%                                       "~n   Distro:                  ~s"
+%%                                       "~n   TS Extra Platform Label: ~s"
+%%                                       "~n   Product Name:            ~s"
+%%                                       "~n",
+%%                                       [Version, "Unknown SUSE", Label,
+%%                                        linux_product_name()]),
+%%                             throw({distro, {suse, simplify_label(Label)}})
+%%                     end
 %%             end;
 %%         _ ->
-%%             io:format("Linux: ~s"
-%%                       "~n   TS Extra Platform Label: ~s"
-%%                       "~n", [Version, Label]),
-%%             {other, simplify_label(Label)}
+%%             throw({error, not_found})
 %%     end.
+
+%% do_linux_which_distro_os_release(Version, Label) ->
+%%     case file:read_file_info("/etc/os-release") of
+%%         {ok, _} ->
+%%             %% We want to 'catch' if our processing is wrong,
+%%             %% that's why we catch and re-throw the distro.
+%%             %% Actual errors will be returned as 'ignore'.
+%%             try
+%%                 begin
+%%                     Info = linux_process_os_release(),
+%%                     {value, {_, DistroStr}} = lists:keysearch(name, 1, Info),
+%%                     {value, {_, VersionNo}} = lists:keysearch(version, 1, Info),
+%%                     io:format("Linux: ~s"
+%%                               "~n   Distro:                  ~s"
+%%                               "~n   Distro Version:          ~s"
+%%                               "~n   TS Extra Platform Label: ~s"
+%%                               "~n   Product Name:            ~s"
+%%                               "~n",
+%%                               [Version, DistroStr, VersionNo, Label,
+%%                                linux_product_name()]),
+%%                     throw({distro,
+%%                            {linux_distro_str_to_distro_id(DistroStr),
+%%                             simplify_label(Label)}})
+%%                 end
+%%             catch
+%%                 throw:{distro, _} = DISTRO ->
+%%                     throw(DISTRO);
+%%                 _:_ ->
+%%                     retry
+%%             end;
+%%         _ ->
+%%             retry
+%%     end.
+
+%% linux_process_os_release() ->
+%%     %% Read the "raw" file
+%%     Raw = os:cmd("cat /etc/os-release"),
+%%     %% Split it into lines
+%%     Lines1 = string:tokens(Raw, [$\n]),
+%%     %% Just in case, skip any lines starting with '#'.
+%%     Lines2 = linux_process_os_release1(Lines1),
+%%     %% Each (remaining) line *should* be: <TAG>=<VALUE>
+%%     %% Both sides will be strings, the value side will be a quoted string...
+%%     %% Convert those into a 2-tuple list: [{Tag, Value}]
+%%     linux_process_os_release2(Lines2).
+
+%% linux_process_os_release1(Lines) ->
+%%     linux_process_os_release1(Lines, []).
+
+%% linux_process_os_release1([], Acc) ->
+%%     lists:reverse(Acc);
+%% linux_process_os_release1([H|T], Acc) ->
+%%     case H of
+%%         "#" ++ _ ->
+%%             linux_process_os_release1(T, Acc);
+%%         _ ->
+%%             linux_process_os_release1(T, [H|Acc])
+%%     end.
+
+%% linux_process_os_release2(Lines) ->
+%%     linux_process_os_release2(Lines, []).
+
+%% linux_process_os_release2([], Acc) ->
+%%     lists:reverse(Acc);
+%% linux_process_os_release2([H|T], Acc) ->
+%%     case linux_process_os_release3(H) of
+%%         {value, Value} ->
+%%             linux_process_os_release2(T, [Value|Acc]);
+%%         false ->
+%%             linux_process_os_release2(T, Acc)
+%%     end.
+
+%% linux_process_os_release3(H) ->
+%%     case [string:strip(S) || S <- string:tokens(H, [$=])] of
+%%         [Tag, Value] ->
+%%             Tag2   = list_to_atom(string:to_lower(Tag)),
+%%             Value2 = string:strip(Value, both, $"),
+%%             linux_process_os_release4(Tag2, Value2);
+%%         _ ->
+%%             false
+%%     end.
+
+%% linux_process_os_release4(name = Tag, Value) ->
+%%     {value, {Tag, Value}};
+%% linux_process_os_release4(version = Tag, Value) ->
+%%     {value, {Tag, Value}};
+%% linux_process_os_release4(version_id = Tag, Value) ->
+%%     {value, {Tag, Value}};
+%% linux_process_os_release4(id = Tag, Value) ->
+%%     {value, {Tag, Value}};
+%% linux_process_os_release4(pretty_name = Tag, Value) ->
+%%     {value, {Tag, Value}};
+%% linux_process_os_release4(_Tag, _Value) ->
+%%     false.
+
+%% linux_distro_str_to_distro_id("Debian" ++ _) ->
+%%     debian;
+%% linux_distro_str_to_distro_id("Fedora" ++ _) ->
+%%     fedora;
+%% linux_distro_str_to_distro_id("Linux Mint" ++ _) ->
+%%     linux_mint;
+%% linux_distro_str_to_distro_id("MontaVista" ++ _) ->
+%%     montavista;
+%% linux_distro_str_to_distro_id("openSUSE" ++ _) ->
+%%     suse;
+%% linux_distro_str_to_distro_id("SLES" ++ _) ->
+%%     sles;
+%% linux_distro_str_to_distro_id("Ubuntu" ++ _) ->
+%%     ubuntu;
+%% linux_distro_str_to_distro_id("Wind River Linux" ++ _) ->
+%%     wind_river;
+%% linux_distro_str_to_distro_id("Yellow Dog" ++ _) ->
+%%     yellow_dog;
+%% linux_distro_str_to_distro_id(X) ->
+%%     X.
 
 
 simplify_label("Systemtap" ++ _) ->
@@ -1438,17 +1773,18 @@ label2factor({host, _}) ->
 
 
 analyze_and_print_linux_host_info(Version) ->
-    {Distro, Label} =
-        case file:read_file_info("/etc/issue") of
-            {ok, _} ->
-                linux_which_distro(Version);
-            _ ->
-                L = ts_extra_flatform_label(),
-                io:format("Linux: ~s"
-                          "~n   TS Extra Platform Label: ~s"
-                          "~n", [Version, L]),
-                {other, simplify_label(L)}
-        end,
+    %% {Distro, Label} =
+    %%     case file:read_file_info("/etc/issue") of
+    %%         {ok, _} ->
+    %%             linux_which_distro(Version);
+    %%         _ ->
+    %%             L = ts_extra_platform_label(),
+    %%             io:format("Linux: ~s"
+    %%                       "~n   TS Extra Platform Label: ~s"
+    %%                       "~n", [Version, L]),
+    %%             {other, simplify_label(L)}
+    %%     end,
+    {Distro, Label} = linux_which_distro(Version),
     %% 'VirtFactor' will be 0 unless virtual
     VirtFactor = linux_virt_factor(),
     Factor =
@@ -1549,7 +1885,17 @@ linux_cpuinfo_motherboard() ->
     end.
 
 linux_cpuinfo_bogomips() ->
-    case linux_cpuinfo_lookup("bogomips") of
+    case linux_cpuinfo_bogomips("bogomips") of
+        "-" ->
+            linux_cpuinfo_bogomips("BogoMIPS");
+        Res ->
+            Res
+    end.
+
+linux_cpuinfo_bogomips(Key) ->
+    case linux_cpuinfo_lookup(Key) of
+        [] ->
+            "-";
         BMips when is_list(BMips) ->
             try lists:sum([bogomips_to_int(BM) || BM <- BMips])
             catch
@@ -1560,17 +1906,29 @@ linux_cpuinfo_bogomips() ->
             "-"
     end.
 
-linux_cpuinfo_BogoMIPS() ->
-    case linux_cpuinfo_lookup("BogoMIPS") of
-        BMips when is_list(BMips) ->
-            try lists:sum([bogomips_to_int(BM) || BM <- BMips])
-            catch
-                _:_:_ ->
-                    "-"
-            end;
-        _ ->
-            "-"
-    end.
+%% linux_cpuinfo_bogomips() ->
+%%     case linux_cpuinfo_lookup("bogomips") of
+%%         BMips when is_list(BMips) ->
+%%             try lists:sum([bogomips_to_int(BM) || BM <- BMips])
+%%             catch
+%%                 _:_:_ ->
+%%                     "-"
+%%             end;
+%%         _ ->
+%%             "-"
+%%     end.
+
+%% linux_cpuinfo_BogoMIPS() ->
+%%     case linux_cpuinfo_lookup("BogoMIPS") of
+%%         BMips when is_list(BMips) ->
+%%             try lists:sum([bogomips_to_int(BM) || BM <- BMips])
+%%             catch
+%%                 _:_:_ ->
+%%                     "-"
+%%             end;
+%%         _ ->
+%%             "-"
+%%     end.
 
 linux_cpuinfo_total_bogomips() ->
     case linux_cpuinfo_lookup("total bogomips") of
@@ -1690,7 +2048,7 @@ linux_which_cpuinfo(wind_river) ->
         end,
     case linux_cpuinfo_total_bogomips() of
         "-" ->
-            case linux_cpuinfo_BogoMIPS() of
+            case linux_cpuinfo_bogomips() of
                 "-" ->
                     {ok, CPU};
                 BMips ->
@@ -1700,36 +2058,37 @@ linux_which_cpuinfo(wind_river) ->
             {ok, {CPU, BMips}}
     end;
 
-%% Check for x86 (Intel, AMD, Raspberry (ARM))
-linux_which_cpuinfo(debian) ->
-    CPU =
-        case linux_cpuinfo_model() of
-            "-" ->
-                %% ARM (at least some distros...)
-                case linux_cpuinfo_processor() of
-                    "-" ->
-                        %% Ok, we give up
-                        throw(noinfo);
-                    Proc ->
-                        Proc
-                end;
-            ModelName ->
-                ModelName
-        end,
-    case linux_cpuinfo_bogomips() of
-        "-" ->
-            {ok, CPU};
-        BMips ->
-            {ok, {CPU, BMips}}
-    end;
+%% %% Check for x86 (Intel, AMD, Raspberry (ARM))
+%% linux_which_cpuinfo(debian) ->
+%%     CPU =
+%%         case linux_cpuinfo_model() of
+%%             "-" ->
+%%                 %% ARM (at least some distros...)
+%%                 case linux_cpuinfo_processor() of
+%%                     "-" ->
+%%                         %% Ok, we give up
+%%                         throw(noinfo);
+%%                     Proc ->
+%%                         Proc
+%%                 end;
+%%             ModelName ->
+%%                 ModelName
+%%         end,
+%%     case linux_cpuinfo_bogomips() of
+%%         "-" ->
+%%             {ok, CPU};
+%%         BMips ->
+%%             {ok, {CPU, BMips}}
+%%     end;
 
 %% Check for x86 (Intel or AMD)
-linux_which_cpuinfo(Other) when (Other =:= fedora) orelse
-                                (Other =:= ubuntu) orelse
-                                (Other =:= linux_mint) orelse
-                                (Other =:= sles) orelse
-                                (Other =:= suse) orelse
-                                (Other =:= other) ->
+linux_which_cpuinfo(Distro) when (Distro =:= debian) orelse
+                                 (Distro =:= fedora) orelse
+                                 (Distro =:= linux_mint) orelse
+                                 (Distro =:= sles) orelse
+                                 (Distro =:= suse) orelse
+                                 (Distro =:= ubuntu) orelse
+                                 (Distro =:= other) ->
     CPU =
         case linux_cpuinfo_model_name() of
             "-" ->
@@ -1838,6 +2197,87 @@ linux_which_meminfo() ->
                 _X ->
                     0
             end
+    end.
+
+
+linux_product_name() ->
+    ProductNameFile = "/sys/devices/virtual/dmi/id/product_name",
+    case file:read_file_info(ProductNameFile) of
+        {ok, _} ->
+            case os:cmd("cat " ++ ProductNameFile) of
+                false ->
+                    "-";
+                Info ->
+                    string:trim(Info)
+            end;
+        _ ->
+            "-"
+    end.
+
+
+linux_info_lookup(Key, File) ->
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File), [$:,$\n])] of
+        Info ->
+            linux_info_lookup_collect(Key, Info, [])
+    catch
+        _:_:_ ->
+            "-"
+    end.
+
+linux_info_lookup_collect(_Key, [], Values) ->
+    lists:reverse(Values);
+linux_info_lookup_collect(Key, [Key, Value|Rest], Values) ->
+    linux_info_lookup_collect(Key, Rest, [Value|Values]);
+linux_info_lookup_collect(_, _, Values) ->
+    lists:reverse(Values).
+
+
+linux_virt_factor() ->
+    linux_virt_factor(linux_product_name()).
+
+linux_virt_factor("VMware" ++ _) ->
+    2;
+linux_virt_factor("VirtualBox" ++ _) ->
+    4;
+linux_virt_factor(_) ->
+    0.
+
+
+linux_cpuinfo_machine() ->
+    case linux_cpuinfo_lookup("machine") of
+        [M] ->
+            M;
+        _ ->
+            "-"
+    end.
+
+linux_cpuinfo_clock() ->
+    %% This is written as: "3783.000000MHz"
+    %% So, check unit MHz (handle nothing else).
+    %% Also, check for both float and integer
+    %% Also,  the freq is per core, and can vary...
+    case linux_cpuinfo_lookup("clock") of
+        [C|_] when is_list(C) ->
+            case lists:reverse(string:to_lower(C)) of
+                "zhm" ++ CRev ->
+                    try trunc(list_to_float(lists:reverse(CRev))) of
+                        I ->
+                            I
+                    catch
+                        _:_:_ ->
+                            try list_to_integer(lists:reverse(CRev)) of
+                                I ->
+                                    I
+                            catch
+                                _:_:_ ->
+                                    0
+                            end
+                    end;
+                _ ->
+                    0
+            end;
+        _ ->
+            0
     end.
 
 
@@ -2825,101 +3265,6 @@ num_schedulers_to_factor() ->
     catch
         _:_:_ ->
             10
-    end.
-
-
-linux_info_lookup(Key, File) ->
-    %% try
-    %%     begin
-    %%         GREP   = os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File),
-    %%         io:format("linux_info_lookup() -> GREP:   ~p~n", [GREP]),
-    %%         TOKENS = string:tokens(GREP, [$:,$\n]),
-    %%         io:format("linux_info_lookup() -> TOKENS: ~p~n", [TOKENS]),
-    %%         INFO   = [string:trim(S) || S <- TOKENS],
-    %%         io:format("linux_info_lookup() -> INFO:   ~p~n", [INFO]),
-    %%         linux_info_lookup_collect(Key, INFO, [])
-    %%     end
-    %% catch
-    %%     _:_:_ ->
-    %%         "-"
-    %% end.
-    try [string:trim(S) || S <- string:tokens(os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File), [$:,$\n])] of
-        Info ->
-            linux_info_lookup_collect(Key, Info, [])
-    catch
-        _:_:_ ->
-            "-"
-    end.
-
-linux_info_lookup_collect(_Key, [], Values) ->
-    lists:reverse(Values);
-linux_info_lookup_collect(Key, [Key, Value|Rest], Values) ->
-    linux_info_lookup_collect(Key, Rest, [Value|Values]);
-linux_info_lookup_collect(_, _, Values) ->
-    lists:reverse(Values).
-
-
-linux_virt_factor() ->
-    linux_virt_factor(linux_product_name()).
-
-linux_virt_factor("VMware" ++ _) ->
-    2;
-linux_virt_factor("VirtualBox" ++ _) ->
-    4;
-linux_virt_factor(_) ->
-    0.
-
-
-linux_cpuinfo_machine() ->
-    case linux_cpuinfo_lookup("machine") of
-        [M] ->
-            M;
-        _ ->
-            "-"
-    end.
-
-linux_cpuinfo_clock() ->
-    %% This is written as: "3783.000000MHz"
-    %% So, check unit MHz (handle nothing else).
-    %% Also, check for both float and integer
-    %% Also,  the freq is per core, and can vary...
-    case linux_cpuinfo_lookup("clock") of
-        [C|_] when is_list(C) ->
-            case lists:reverse(string:to_lower(C)) of
-                "zhm" ++ CRev ->
-                    try trunc(list_to_float(lists:reverse(CRev))) of
-                        I ->
-                            I
-                    catch
-                        _:_:_ ->
-                            try list_to_integer(lists:reverse(CRev)) of
-                                I ->
-                                    I
-                            catch
-                                _:_:_ ->
-                                    0
-                            end
-                    end;
-                _ ->
-                    0
-            end;
-        _ ->
-            0
-    end.
-
-
-linux_product_name() ->
-    ProductNameFile = "/sys/devices/virtual/dmi/id/product_name",
-    case file:read_file_info(ProductNameFile) of
-        {ok, _} ->
-            case os:cmd("cat " ++ ProductNameFile) of
-                false ->
-                    "-";
-                Info ->
-                    string:trim(Info)
-            end;
-        _ ->
-            "-"
     end.
 
 
