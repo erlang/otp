@@ -94,14 +94,14 @@ init_per_testcase(_Func, Config) ->
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
        "~n   Monitors: ~p",
-       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+       [Config, erlang:nodes(), links(), monitors()]),
 
     kernel_test_global_sys_monitor:reset_events(),
 
     ?P("init_per_testcase -> done when"
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
-       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
+       "~n   Monitors: ~p", [erlang:nodes(), links(), monitors()]),
     Config.
 
 end_per_testcase(_Func, Config) ->
@@ -110,7 +110,7 @@ end_per_testcase(_Func, Config) ->
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
        "~n   Monitors: ~p",
-       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+       [Config, erlang:nodes(), links(), monitors()]),
 
     SysEvs = kernel_test_global_sys_monitor:events(),
 
@@ -3874,14 +3874,14 @@ collect_accepts(N,Tmo) ->
             ?P("accept timeout (~w)", [Tmo]),
 	    []
     end.
-   
+
 -define(EXPECT_ACCEPTS(Pattern,N,Timeout),
 	(fun() ->
                  case collect_accepts((N), (Timeout)) of
 		     Pattern ->
 			 ok;
 		     Other__ ->
-			 {error,{unexpected,{Other__,process_info(self(),messages)}}}
+			 {error, {unexpected, {Other__, messages()}}}
 		 end
 	 end)()).
 	
@@ -3912,7 +3912,13 @@ collect_connects(Tmo) ->
 	 end)()).
 
 mktmofun(Tmo,Parent,LS) ->
-    fun() -> Parent ! {accepted,self(), catch gen_tcp:accept(LS,Tmo)} end.
+    fun() ->
+            ?P("[acceptor] mktmofun:fun -> try accept"),
+            AcceptResult = catch gen_tcp:accept(LS, Tmo),            
+            ?P("[acceptor] mktmofun:fun -> accepted: "
+               "~n   ~p", [AcceptResult]),
+            Parent ! {accepted,self(), AcceptResult}
+    end.
 
 %% Accept tests
 %% Test singular accept.
@@ -4336,7 +4342,7 @@ validate_acceptor_state(LS, ExpStates, ExpNotStates) when is_port(LS) ->
     case inet:info(LS) of
         #{states := States} ->
 
-            ?P("try validate state when: "
+            ?P("try validate (listen socket) state when: "
                "~n   Exp States:     ~p"
                "~n   Exp Not States: ~p"
                "~n   States:         ~p", [ExpStates, ExpNotStates, States]),
@@ -4428,7 +4434,7 @@ validate_acceptor_state(LS, ExpNumAcc, ExpState, ExpNotState) ->
 
 %% Check that multi acceptors behaves as expected when killed.
 killing_multi_acceptors(Config) when is_list(Config) ->
-    ?TC_TRY(killing_multi_acceptors,
+    ?TC_TRY(?FUNCTION_NAME,
             fun() -> do_killing_multi_acceptors(Config) end).
 
 do_killing_multi_acceptors(Config) ->
@@ -4449,32 +4455,32 @@ do_killing_multi_acceptors_inet(LS) ->
     validate_acceptor_state(LS, [listen], []),
 
     Parent = self(),
-    F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
-    F2 = mktmofun(1000,Parent,LS),
+    F1  = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS)} end,
+    Tmo = 1000,
+    F2  = mktmofun(1000,Parent,LS),
     ?P("create first acceptor"),
-    Pid = spawn(F),
+    Pid1 = spawn(F1),
     ?P("create second acceptor - with timeout"),
     Pid2 = spawn(F2),
 
     ?P("sleep some"),
-    receive after 100 -> ok
-    end,
+    receive after 100 -> ok end,
 
     ?P("validate state - accepting"),
     validate_acceptor_state(LS, [accepting], []),
 
     ?P("kill first acceptor"),
-    exit(Pid, kill),
+    exit(Pid1, kill),
 
     ?P("sleep some"),
-    receive after 100 -> ok
-    end,
+    receive after 100 -> ok end,
 
     ?P("validate state - still accepting"),
     validate_acceptor_state(LS, [accepting], []),
 
-    ?P("await second acceptor exit - timeout"),
-    case ?EXPECT_ACCEPTS([{Pid2, {error,timeout}}], 1, 1000) of
+    ?P("await second acceptor exit (timeout)"),
+    %% In order to avoid race condition, double the time
+    case ?EXPECT_ACCEPTS([{Pid2, {error,timeout}}], 1, 2 * Tmo) of
 	ok ->
 	    ?P("second acceptor - expected result"),
 	    ok;
@@ -7817,9 +7823,22 @@ do_otp_17492(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+messages() ->
+    pi(messages).
+
+links() ->
+    pi(links).
+
+monitors() ->
+    pi(monitors).
+
 pi(Item) ->
-    {Item, Val} = process_info(self(), Item),
+    pi(self(), Item).
+
+pi(Pid, Item) ->
+    {Item, Val} = process_info(Pid, Item),
     Val.
+    
     
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
