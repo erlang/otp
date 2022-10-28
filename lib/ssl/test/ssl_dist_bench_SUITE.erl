@@ -35,6 +35,7 @@
    [setup/1,
     roundtrip/1,
     sched_utilization/1,
+    mean_load_cpu_margin/1,
     throughput_0/1,
     throughput_64/1,
     throughput_1024/1,
@@ -69,7 +70,9 @@ groups() ->
      %% categories()
      {setup, [{repeat, 1}], [setup]},
      {roundtrip, [{repeat, 1}], [roundtrip]},
-     {sched_utilization,[{repeat, 1}], [sched_utilization]},
+     {sched_utilization,[{repeat, 1}],
+      [sched_utilization,
+       mean_load_cpu_margin]},
      {throughput, [{repeat, 1}],
       [throughput_0,
        throughput_64,
@@ -323,7 +326,7 @@ setup(A, B, Prefix, Effort, HA, HB) ->
     Rounds = 100 * Effort,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
-    pong = ssl_apply(HA, net_adm, ping, [A]),
+    pong = ssl_apply(HA, net_adm, ping, [B]),
     ChildCountResult =
         ssl_dist_test_lib:apply_on_ssl_node(
           HA, supervisor, count_children, [tls_dist_connection_sup]),
@@ -633,6 +636,139 @@ throughput_server() ->
 throughput_client(Pid, Payload) ->
     Pid ! Payload,
     receive after 10 -> throughput_client(Pid, Payload) end.
+
+%%-----------------
+%% Mean load CPU margin
+%%
+%% Start pairs of processes with the client on node A
+%% and the server on node B.  The clients sends requests
+%% with random interval and payload and the servers reply
+%% immediately.
+%%
+%% Also, besides each server there is a compute process
+%% that does CPU work with low process priority and we measure
+%% how much such work that gets done.
+
+mean_load_cpu_margin(Config) ->
+    run_nodepair_test(fun run_mlcm/6, Config).
+
+-define(MLCM_NO, 100).
+
+run_mlcm(A, B, Prefix, Effort, HA, HB) ->
+    [] = ssl_apply(HA, erlang, nodes, []),
+    [] = ssl_apply(HB, erlang, nodes, []),
+    pong = ssl_apply(HB, net_adm, ping, [A]),
+    Count = ssl_apply(HA, fun () -> mlcm(B, Effort) end),
+    report(Prefix++" CPU margin", round(Count/?MLCM_NO/Effort), "stones").
+
+mlcm(Node, Effort) ->
+    Payloads = mlcm_payloads(),
+    Clients =
+        [mlcm_client_start(Node, Payloads) || _ <- lists:seq(1, ?MLCM_NO)],
+    receive after 1000 * Effort -> ok end,
+    [Alias ! {Alias,stop} || {_Monitor, Alias} <- Clients],
+    Counts =
+        [receive
+             {'DOWN',Monitor,_,_,{Alias, Count}} ->
+                 Count;
+             {'DOWN',Monitor,_,_,Reason} ->
+                 exit(Reason)
+         end || {Monitor, Alias} <- Clients],
+    lists:sum(Counts).
+
+mlcm_payloads() ->
+    Bin = list_to_binary([rand:uniform(256) - 1 || _ <- lists:seq(1, 512)]),
+    lists:foldl(
+      fun (N, Payloads) ->
+              Payloads#{N => binary:copy(Bin, N)}
+      end, #{}, lists:seq(0, 255)).
+
+%%-------
+
+mlcm_client_start(Node, Payloads) ->
+    Parent = self(),
+    StartRef = make_ref(),
+    {_,Monitor} =
+        spawn_monitor(
+          fun () ->
+                  Alias = alias(),
+                  Parent ! {StartRef, Alias},
+                  Server = mlcm_server_start(Node, Alias),
+                  mlcm_client(Alias, Server, Payloads, 0)
+          end),
+    receive
+        {StartRef, Alias} ->
+            {Monitor, Alias};
+        {'DOWN',Monitor,_,_,Reason} ->
+            exit(Reason)
+    end.
+
+mlcm_client(Alias, Server, Payloads, Seq) ->
+    {Time, Index} = mlcm_rand(),
+    Payload = maps:get(Index, Payloads),
+    receive after Time -> ok end,
+    Server ! {Alias, Seq, Payload},
+    receive
+        {Alias, Seq, Pl} when byte_size(Pl) =:= byte_size(Payload) ->
+            mlcm_client(Alias, Server, Payloads, Seq + 1);
+        {Alias, stop} = Msg ->
+            Server ! Msg,
+            receive after infinity -> ok end
+    end.
+
+%% Approximate normal distribution Index with an average of 6 uniform bytes
+%% and use the 7:th byte for uniform Time
+mlcm_rand() ->
+    mlcm_rand(6, rand:uniform(1 bsl (1+6)*8) - 1, 0).
+%%
+mlcm_rand(0, X, I) ->
+    Time = X + 1, % 1..256
+    Index = abs((I - 3*256) div 3), % 0..255 upper half or normal distribution
+    {Time, Index};
+mlcm_rand(N, X, I) ->
+    mlcm_rand(N - 1, X bsr 8, I + (X band 255)).
+
+%%-------
+
+mlcm_server_start(Node, Alias) ->
+    spawn_link(
+      Node,
+      fun () ->
+              Compute = mlcm_compute_start(Alias),
+              mlcm_server(Alias, 0, Compute)
+      end).
+
+mlcm_server(Alias, Seq, Compute) ->
+    receive
+        {Alias, Seq, _Payload} = Msg ->
+            Alias ! Msg,
+      mlcm_server(Alias, Seq + 1, Compute);
+        {Alias, stop} = Msg ->
+            Compute ! Msg,
+            receive after infinity -> om end
+    end.
+
+%%-------
+
+mlcm_compute_start(Alias) ->
+    spawn_opt(
+      fun () ->
+              rand:seed(exro928ss),
+              mlcm_compute(Alias, 0, 0)
+      end,
+      [link, {priority,low}]).
+
+mlcm_compute(Alias, State, Count) ->
+    receive {Alias, stop} -> exit({Alias, Count})
+    after 0 -> ok
+    end,
+    mlcm_compute(
+      Alias,
+      %% CPU payload
+      (State +
+           lists:sum([rand:uniform(1 bsl 48) || _ <- lists:seq(1, 999)]))
+          div 1000,
+      Count + 1).
 
 %%-----------------
 %% Throughput speed
