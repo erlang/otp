@@ -48,24 +48,17 @@ tls_1_3_tests() ->
      openssl_server_explicit_key_update].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
-        ok ->
-            ssl_test_lib:clean_start(),
-            case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of
-                true ->
-                    ssl_test_lib:make_ecdsa_cert(Config0);
-                false ->
-                    {skip, "Missing EC crypto support"}
-            end
-    catch _:_ ->
-            {skip, "Crypto did not start"}
+    Config1 = ssl_test_lib:init_per_suite(Config0, openssl),
+    case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports()))
+    of
+        true ->
+            ssl_test_lib:make_ecdsa_cert(Config1);
+        false ->
+            {skip, "Missing EC crypto support"}
     end.
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:unload(ssl),
-    application:stop(crypto).
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).

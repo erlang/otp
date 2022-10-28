@@ -72,20 +72,12 @@ pre_tls_1_3() ->
     [reuse_session].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
-	ok ->
-            ssl_test_lib:clean_start(),
-            ssl:clear_pem_cache(),
-	    Config = ssl_test_lib:make_rsa_cert(Config0),
-	    ssl_test_lib:cert_options(Config)
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
-    end.
+    Config1 = ssl_test_lib:init_per_suite(Config0, openssl),
+    Config = ssl_test_lib:make_rsa_cert(Config1),
+    ssl_test_lib:cert_options(Config).
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto).
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config).

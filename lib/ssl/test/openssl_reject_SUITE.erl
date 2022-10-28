@@ -74,25 +74,11 @@ all_versions_tests() ->
     ].
 
 init_per_suite(Config0) ->
-    case os:find_executable("openssl") of
-        false ->
-            {skip, "Openssl not found"};
-        _ ->
-            ct:pal("Version: ~p", [os:cmd("openssl version")]),
-            catch crypto:stop(),
-            try crypto:start() of
-                ok ->
-                    ssl_test_lib:clean_start(),
-                    ssl_test_lib:make_rsa_cert(Config0)
-            catch _:_  ->
-                    {skip, "Crypto did not start"}
-            end
-    end.
+    Config = ssl_test_lib:init_per_suite(Config0, openssl),
+    ssl_test_lib:make_rsa_cert(Config).
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto),
-    ssl_test_lib:kill_openssl().
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).
@@ -105,14 +91,14 @@ init_per_testcase(TestCase, Config) ->
     special_init(TestCase, Config).
 
 special_init(erlang_server_reject_sslv2, Config) ->
-    case ssl_test_lib:check_sane_openssl_version(sslv2) of
+    case ssl_test_lib:check_sane_openssl_version(sslv2, Config) of
         true ->
             Config;
         false ->
             {skip, "sslv2 not supported by openssl"}
      end;
 special_init(erlang_server_reject_sslv3, Config) ->
-    case ssl_test_lib:check_sane_openssl_version(sslv3) of
+    case ssl_test_lib:check_sane_openssl_version(sslv3, Config) of
         true ->
             Config;
         false ->
