@@ -93,18 +93,11 @@ session_tests() ->
      openssl_client_early_data_basic].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
-	ok ->
-	    ssl_test_lib:clean_start(),
-            ssl_test_lib:make_rsa_cert(Config0)
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
-    end.
+    Config = ssl_test_lib:init_per_suite(Config0, openssl),
+    ssl_test_lib:make_rsa_cert(Config).
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto).
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(stateful, Config) ->
     [{server_ticket_mode, stateful} | proplists:delete(server_ticket_mode, Config)];

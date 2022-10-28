@@ -148,25 +148,15 @@ all_version_tests() ->
      missing_root_cert_no_auth
     ].
 
-init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
-	ok ->
-            case ssl_test_lib:working_openssl_client() of
-                true ->
-                    ssl_test_lib:clean_start(),
-                    Config;
-                false ->
-                    {skip, "Broken OpenSSL s_client"}
-            end
-    catch _:_ ->
-            {skip, "Crypto did not start"}
+init_per_suite(Config0) ->
+    Config = ssl_test_lib:init_per_suite(Config0, openssl),
+    case ssl_test_lib:working_openssl_client(Config) of
+        true -> Config;
+        false -> throw({skip, "Broken OpenSSL s_client"})
     end.
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:unload(ssl),
-    application:stop(crypto).
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(openssl_client, Config) ->
     [{client_type, openssl}, {server_type, erlang} | Config];
