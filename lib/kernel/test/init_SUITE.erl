@@ -29,7 +29,7 @@
 	 many_restarts/0, many_restarts/1, restart_with_mode/1,
 	 get_plain_arguments/1,
 	 reboot/1, stop_status/1, stop/1, get_status/1, script_id/1,
-         dot_erlang/1,
+         dot_erlang/1, unknown_module/1,
 	 find_system_processes/0]).
 -export([boot1/1, boot2/1]).
 
@@ -48,7 +48,7 @@ all() ->
     [get_arguments, get_argument, boot_var,
      many_restarts, restart_with_mode,
      get_plain_arguments, restart, stop_status, get_status, script_id,
-     dot_erlang, {group, boot}].
+     dot_erlang, unknown_module, {group, boot}].
 
 groups() -> 
     [{boot, [], [boot1, boot2]}].
@@ -688,6 +688,21 @@ dot_erlang(Config) ->
     peer:stop(Peer2),
 
     ok.
+
+unknown_module(Config) when is_list(Config) ->
+    Port = open_port({spawn, "erl -s unknown_module"},
+                     [exit_status, use_stdio, stderr_to_stdout]),
+    Error = "Error! Failed to load module 'unknown_module' because it cannot be found.",
+    [_ | _] = string:find(collect_until_exit_one(Port), Error),
+    ok.
+
+collect_until_exit_one(Port) ->
+    receive
+        {Port, {data, Msg}} -> Msg ++ collect_until_exit_one(Port);
+        {Port, {exit_status, 1}} -> []
+    after
+        30_000 -> ct:fail(erl_timeout)
+    end.
 
 %% ------------------------------------------------
 %% Start the slave system with -boot flag.

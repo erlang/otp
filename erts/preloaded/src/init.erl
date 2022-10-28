@@ -396,8 +396,8 @@ boot_loop(BootPid, State) ->
 	    loop(State#state{status = {started,PS},
 			     subscribed = []});
 	{'EXIT',BootPid,Reason} ->
-	    erlang:display({"init terminating in do_boot",Reason}),
-	    crash("init terminating in do_boot", [Reason]);
+	    % erlang:display({"init terminating in do_boot",Reason}),
+	    crash("Runtime terminating during boot", [Reason]);
 	{'EXIT',Pid,Reason} ->
 	    Kernel = State#state.kernel,
 	    terminate(Pid,Kernel,Reason), %% If Pid is a Kernel pid, halt()!
@@ -462,9 +462,9 @@ new_kernelpid({_Name,ignore},BootPid,State) ->
     BootPid ! {self(),ignore},
     State;
 new_kernelpid({Name,What},BootPid,State) ->
-    erlang:display({"could not start kernel pid",Name,What}),
+    % erlang:display({"could not start kernel pid",Name,What}),
     clear_system(false,BootPid,State),
-    crash("could not start kernel pid", [Name, What]).
+    crash("Could not start kernel pid", [Name, What]).
 
 %% Here is the main loop after the system has booted.
 
@@ -835,7 +835,7 @@ terminate(Pid,Kernel,Reason) ->
 	{ok,Name} ->
             %% If you change this time, also change the time in logger_simple_h.erl
 	    sleep(500), %% Flush error printouts!
-	    erlang:display({"Kernel pid terminated",Name,Reason}),
+	    % erlang:display({"Kernel pid terminated",Name,Reason}),
 	    crash("Kernel pid terminated", [Name, Reason]);
 	_ ->
 	    false
@@ -1236,17 +1236,43 @@ start_it({eval,Bin}) ->
         {value, _Value, _Bs} = erl_eval:exprs(Expr, erl_eval:new_bindings()),
         ok
     catch E:R:ST ->
-            erlang:display_string(
-              binary_to_list(
-                iolist_to_binary(["Failed to eval: ",Bin,"\n"]))),
+            Message = [<<"Error! Failed to eval: ">>, Bin, <<"\r\n\r\n">>],
+            erlang:display_string(binary_to_list(iolist_to_binary(Message))),
             erlang:raise(E,R,ST)
     end;
-start_it([_|_]=MFA) ->
-    case MFA of
-	[M]        -> M:start();
-	[M,F]      -> M:F();
-	[M,F|Args] -> M:F(Args)	% Args is a list
+start_it([M|FA]) ->
+    case code:ensure_loaded(M) of
+        {module, M} ->
+            case FA of
+                []       -> M:start();
+                [F]      -> M:F();
+                [F|Args] -> M:F(Args)	% Args is a list
+            end;
+
+        {error, Reason} ->
+            Message = [explain_ensure_loaded_error(M, Reason), <<"\r\n\r\n">>],
+            erlang:display_string(binary_to_list(iolist_to_binary(Message))),
+            erlang:error(undef)
     end.
+
+explain_ensure_loaded_error(M, badfile) ->
+    S = [<<"it requires a more recent Erlang/OTP version "
+           "or its .beam file was corrupted.\r\n"
+           "(You are running Erlang/OTP ">>,
+         erlang:system_info(otp_release), <<".)">>],
+    explain_add_head(M, S);
+explain_ensure_loaded_error(M, nofile) ->
+    S = <<"it cannot be found. Make sure that the module name is correct and\r\n",
+          "that its .beam file is in the code path.">>,
+    explain_add_head(M, S);
+explain_ensure_loaded_error(M, Other) ->
+    [<<"Error! Failed to load module '", (atom_to_binary(M))/binary,
+       "'. Reason: ">>,
+     atom_to_binary(Other)].
+
+explain_add_head(M, S) ->
+    [<<"Error! Failed to load module '", (atom_to_binary(M))/binary,
+       "' because ">>, S].
 
 %% Load a module.
 
