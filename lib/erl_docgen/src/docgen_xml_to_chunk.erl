@@ -238,7 +238,7 @@ build_dom({ignorableWhitespace, String},
           #state{dom=[{Name,_,_} = _E|_]} = State) ->
     case lists:member(Name,
                       [p,pre,input,code,quote,warning,
-                       note,dont,do,c,b,i,em,strong,
+                       note,change,dont,do,c,b,i,em,strong,
                        seemfa,seeerl,seetype,seeapp,
                        seecom,seecref,seefile,seeguide,
                        tag,item]) of
@@ -387,9 +387,9 @@ transform([{marker,Attrs,Content}|T],Acc) ->
 %% transform <url href="external URL"> Content</url> to <a href....
 transform([{url,Attrs,Content}|T],Acc) ->
     transform(T,[{a,a2b(Attrs),transform(Content,[])}|Acc]);
-%% transform note/warning/do/don't to <p class="thing">
+%% transform note/change/warning/do/don't to <p class="thing">
 transform([{What,[],Content}|T],Acc)
-  when What =:= note; What =:= warning; What =:= do; What =:= dont ->
+  when What =:= note; What =:= change; What =:= warning; What =:= do; What =:= dont ->
     WhatP = {'div',[{class,atom_to_binary(What)}], transform(Content,[])},
     transform(T,[WhatP|Acc]);
 

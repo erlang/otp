@@ -39,7 +39,7 @@
 
 <!ELEMENT pagetext	      (#PCDATA) >
 <!ELEMENT preamble	      (contents?,preface?) >
-<!ELEMENT preface	      (title?,(%block;|quote|br|marker|warning|note|dont|do|table)*) >
+<!ELEMENT preface	      (title?,(%block;|quote|br|marker|warning|note|change|dont|do|table)*) >
 
 <!ELEMENT insidecover         (#PCDATA|br|theheader|vfill|vspace|tt|bold|
 			       include)* >
@@ -69,7 +69,7 @@
 <!ELEMENT onepart             (title?,description?,include+) >
 <!ATTLIST onepart             lift (yes|no) "no" >
 
-<!ELEMENT description	      (%block;|quote|br|marker|warning|note|dont|do)* >
+<!ELEMENT description	      (%block;|quote|br|marker|warning|note|change|dont|do)* >
 
 <!ELEMENT include             EMPTY >
 <!ATTLIST include             file CDATA #REQUIRED>

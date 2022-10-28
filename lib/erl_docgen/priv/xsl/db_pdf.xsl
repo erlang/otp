@@ -980,7 +980,7 @@
 
     </fo:block>
 
-    <xsl:apply-templates select="section|quote|warning|note|br|image|marker|table|p|pre|code|list|taglist|codeinclude">
+    <xsl:apply-templates select="section|quote|warning|note|change|br|image|marker|table|p|pre|code|list|taglist|codeinclude">
       <xsl:with-param name="partnum" select="$partnum"/>
       <xsl:with-param name="chapnum"><xsl:number/></xsl:with-param>
     </xsl:apply-templates>
@@ -1136,6 +1136,21 @@
     <fo:block xsl:use-attribute-sets="note-warning">
       <fo:block xsl:use-attribute-sets="note-title">
 	<xsl:text>Note:</xsl:text>
+      </fo:block>
+      <fo:block xsl:use-attribute-sets="note-warning-content">
+	<xsl:apply-templates>
+          <xsl:with-param name="partnum" select="$partnum"/>
+	</xsl:apply-templates>
+      </fo:block>
+    </fo:block>
+  </xsl:template>
+
+  <!-- Change -->
+  <xsl:template match="change">
+    <xsl:param name="partnum"/>
+    <fo:block xsl:use-attribute-sets="note-warning">
+      <fo:block xsl:use-attribute-sets="note-title">
+	<xsl:text>Change:</xsl:text>
       </fo:block>
       <fo:block xsl:use-attribute-sets="note-warning-content">
 	<xsl:apply-templates>
