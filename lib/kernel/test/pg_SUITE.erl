@@ -239,6 +239,7 @@ two(Config) when is_list(Config) ->
     stop_proc(Pid),
     %% again, must be serialised
     sync(?FUNCTION_NAME),
+    sync({?FUNCTION_NAME, Node}),
     ?assertEqual([], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     ?assertEqual([], rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
 
