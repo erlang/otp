@@ -253,8 +253,8 @@ call(Req, Timeout1, Timeout2) ->
                                 exit({error, timeout})
                         end
                 catch
-                    C:E:_ ->
-                        exit({error, {caught, C, E}})
+                    C:E:S ->
+                        exit({error, {caught, C, E, S}})
                 end
         end,
     {Pid, Mon} = spawn_monitor(F),
