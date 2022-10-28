@@ -31,6 +31,7 @@
  */
 
 #include <algorithm>
+#include <numeric>
 #include "beam_asm.hpp"
 
 extern "C"
@@ -56,6 +57,8 @@ void BeamGlobalAssembler::emit_raise_badarg(const ErtsCodeMFA *mfa) {
 /* ================================================================
  *  '=:='/2
  *  '=/='/2
+ *  '>='/2
+ *  '<'/2
  * ================================================================
  */
 
@@ -125,13 +128,20 @@ void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
     }
 }
 
-void BeamModuleAssembler::emit_bif_is_eq_ne_exact_immed(const ArgSource &LHS,
-                                                        const ArgSource &RHS,
-                                                        const ArgRegister &Dst,
-                                                        Eterm fail_value,
-                                                        Eterm succ_value) {
+void BeamModuleAssembler::emit_cond_to_bool(arm::CondCode cc,
+                                            const ArgRegister &Dst) {
     auto dst = init_destination(Dst, TMP2);
 
+    mov_imm(TMP3, am_true);
+    mov_imm(TMP4, am_false);
+    a.csel(dst.reg, TMP3, TMP4, cc);
+    flush_var(dst);
+}
+
+void BeamModuleAssembler::emit_cmp_immed_to_bool(arm::CondCode cc,
+                                                 const ArgSource &LHS,
+                                                 const ArgSource &RHS,
+                                                 const ArgRegister &Dst) {
     if (RHS.isImmed()) {
         auto lhs = load_source(LHS, TMP1);
         cmp_arg(lhs.reg, RHS);
@@ -139,11 +149,7 @@ void BeamModuleAssembler::emit_bif_is_eq_ne_exact_immed(const ArgSource &LHS,
         auto [lhs, rhs] = load_sources(LHS, TMP1, RHS, TMP2);
         a.cmp(lhs.reg, rhs.reg);
     }
-
-    mov_imm(TMP3, succ_value);
-    mov_imm(TMP4, fail_value);
-    a.csel(dst.reg, TMP3, TMP4, arm::CondCode::kEQ);
-    flush_var(dst);
+    emit_cond_to_bool(cc, Dst);
 }
 
 void BeamModuleAssembler::emit_bif_is_eq_exact(const ArgRegister &LHS,
@@ -153,7 +159,7 @@ void BeamModuleAssembler::emit_bif_is_eq_exact(const ArgRegister &LHS,
         if (!LHS.isImmed() && !RHS.isImmed()) {
             comment("simplified check since one argument is an immediate");
         }
-        emit_bif_is_eq_ne_exact_immed(LHS, RHS, Dst, am_false, am_true);
+        emit_cmp_immed_to_bool(arm::CondCode::kEQ, LHS, RHS, Dst);
     } else {
         auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
         auto dst = init_destination(Dst, ARG1);
@@ -173,7 +179,7 @@ void BeamModuleAssembler::emit_bif_is_ne_exact(const ArgRegister &LHS,
         if (!LHS.isImmed() && !RHS.isImmed()) {
             comment("simplified check since one argument is an immediate");
         }
-        emit_bif_is_eq_ne_exact_immed(LHS, RHS, Dst, am_true, am_false);
+        emit_cmp_immed_to_bool(arm::CondCode::kNE, LHS, RHS, Dst);
     } else {
         auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
         auto dst = init_destination(Dst, ARG1);
@@ -184,6 +190,107 @@ void BeamModuleAssembler::emit_bif_is_ne_exact(const ArgRegister &LHS,
         mov_var(dst, ARG1);
         flush_var(dst);
     }
+}
+
+void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
+                                         const ArgSource &RHS,
+                                         const ArgRegister &Dst) {
+    if (always_small(LHS) && RHS.isSmall() && RHS.isImmed()) {
+        auto lhs = load_source(LHS, ARG1);
+
+        comment("simplified compare because one operand is an immediate small");
+        cmp(lhs.reg, RHS.as<ArgImmed>().get());
+        emit_cond_to_bool(arm::CondCode::kGE, Dst);
+
+        return;
+    } else if (LHS.isSmall() && LHS.isImmed() && always_small(RHS)) {
+        auto rhs = load_source(RHS, ARG1);
+
+        comment("simplified compare because one operand is an immediate small");
+        cmp(rhs.reg, LHS.as<ArgImmed>().get());
+        emit_cond_to_bool(arm::CondCode::kLE, Dst);
+
+        return;
+    }
+
+    auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
+
+    Label generic = a.newLabel(), next = a.newLabel();
+
+    if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
+        always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        /* The only possible kind of immediate is a small and all
+         * other values are boxed, so we can test for smalls by
+         * testing boxed. */
+        comment("simplified small test since all other types are boxed");
+        a.and_(TMP1, lhs.reg, rhs.reg);
+        emit_is_not_boxed(generic, TMP1);
+    } else {
+        /* Relative comparisons are overwhelmingly likely to be used
+         * on smalls, so we'll specialize those and keep the rest in a
+         * shared fragment. */
+        if (RHS.isSmall()) {
+            a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
+        } else if (LHS.isSmall()) {
+            a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
+        } else {
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.and_(TMP1, lhs.reg, rhs.reg);
+            a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
+        }
+
+        a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+        a.b_ne(generic);
+    }
+
+    a.cmp(lhs.reg, rhs.reg);
+    a.b(next);
+
+    a.bind(generic);
+    {
+        a.cmp(lhs.reg, rhs.reg);
+        a.b_eq(next);
+
+        mov_var(ARG1, lhs);
+        mov_var(ARG2, rhs);
+        fragment_call(ga->get_arith_compare_shared());
+    }
+
+    a.bind(next);
+    emit_cond_to_bool(arm::CondCode::kGE, Dst);
+}
+
+void BeamModuleAssembler::emit_bif_is_lt(const ArgSource &LHS,
+                                         const ArgSource &RHS,
+                                         const ArgRegister &Dst) {
+    auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
+    Label generic = a.newLabel(), next = a.newLabel();
+
+    /* Relative comparisons are overwhelmingly likely to be used on smalls,
+     * so we'll specialize those and keep the rest in a shared fragment. */
+    if (RHS.isSmall()) {
+        a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
+    } else if (LHS.isSmall()) {
+        a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
+    } else {
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.and_(TMP1, lhs.reg, rhs.reg);
+        a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
+    }
+
+    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+    a.b_ne(generic);
+
+    a.cmp(lhs.reg, rhs.reg);
+    a.b(next);
+
+    a.bind(generic);
+    mov_var(ARG1, lhs);
+    mov_var(ARG2, rhs);
+    fragment_call(ga->get_arith_compare_shared());
+
+    a.bind(next);
+    emit_cond_to_bool(arm::CondCode::kLT, Dst);
 }
 
 /* ================================================================
@@ -298,16 +405,54 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
     auto src = load_source(Src, ARG1);
     auto dst = init_destination(Dst, ARG1);
 
-    mov_var(ARG1, src);
+    if (exact_type(Src, BEAM_TYPE_BITSTRING)) {
+        Label not_sub_bin = a.newLabel();
+        arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
+        auto unit = getSizeUnit(Src);
+        bool is_bitstring = unit == 0 || std::gcd(unit, 8) != 8;
 
-    if (Fail.get() == 0) {
-        fragment_call(ga->get_bif_bit_size_body());
+        if (is_bitstring) {
+            comment("inlined bit_size/1 because "
+                    "its argument is a bitstring");
+        } else {
+            comment("inlined and simplified bit_size/1 because "
+                    "its argument is a binary");
+        }
+
+        if (is_bitstring) {
+            a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+        }
+
+        a.ldur(TMP2, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+        a.lsl(TMP2, TMP2, imm(_TAG_IMMED1_SIZE + 3));
+
+        if (is_bitstring) {
+            const int bit_number = 3;
+            ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & (1 << bit_number)) != 0 &&
+                           (_TAG_HEADER_REFC_BIN & (1 << bit_number)) == 0 &&
+                           (_TAG_HEADER_HEAP_BIN & (1 << bit_number)) == 0);
+            a.tbz(TMP1, imm(bit_number), not_sub_bin);
+
+            a.ldurb(TMP1.w(),
+                    emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
+            a.add(TMP2, TMP2, TMP1, imm(_TAG_IMMED1_SIZE));
+        }
+
+        a.bind(not_sub_bin);
+        a.orr(dst.reg, TMP2, _TAG_IMMED1_SMALL);
     } else {
-        fragment_call(ga->get_bif_bit_size_guard());
-        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+        mov_var(ARG1, src);
+
+        if (Fail.get() == 0) {
+            fragment_call(ga->get_bif_bit_size_body());
+        } else {
+            fragment_call(ga->get_bif_bit_size_guard());
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        }
+        mov_var(dst, ARG1);
     }
 
-    mov_var(dst, ARG1);
     flush_var(dst);
 }
 
@@ -380,16 +525,55 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
     auto src = load_source(Src, ARG1);
     auto dst = init_destination(Dst, ARG1);
 
-    mov_var(ARG1, src);
+    if (exact_type(Src, BEAM_TYPE_BITSTRING)) {
+        Label not_sub_bin = a.newLabel();
+        arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
+        auto unit = getSizeUnit(Src);
+        bool is_bitstring = unit == 0 || std::gcd(unit, 8) != 8;
 
-    if (Fail.get() == 0) {
-        fragment_call(ga->get_bif_byte_size_body());
+        if (is_bitstring) {
+            comment("inlined byte_size/1 because "
+                    "its argument is a bitstring");
+        } else {
+            comment("inlined and simplified byte_size/1 because "
+                    "its argument is a binary");
+        }
+
+        if (is_bitstring) {
+            a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+        }
+
+        a.ldur(TMP2, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+
+        if (is_bitstring) {
+            const int bit_number = 3;
+            ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & (1 << bit_number)) != 0 &&
+                           (_TAG_HEADER_REFC_BIN & (1 << bit_number)) == 0 &&
+                           (_TAG_HEADER_HEAP_BIN & (1 << bit_number)) == 0);
+            a.tbz(TMP1, imm(bit_number), not_sub_bin);
+
+            a.ldurb(TMP1.w(),
+                    emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
+            a.cmp(TMP1.w(), imm(0));
+            a.cinc(TMP2, TMP2, arm::CondCode::kNE);
+        }
+
+        a.bind(not_sub_bin);
+        mov_imm(dst.reg, _TAG_IMMED1_SMALL);
+        a.bfi(dst.reg, TMP2, imm(_TAG_IMMED1_SIZE), imm(SMALL_BITS));
     } else {
-        fragment_call(ga->get_bif_byte_size_guard());
-        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+        mov_var(ARG1, src);
+
+        if (Fail.get() == 0) {
+            fragment_call(ga->get_bif_byte_size_body());
+        } else {
+            fragment_call(ga->get_bif_byte_size_guard());
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        }
+        mov_var(dst, ARG1);
     }
 
-    mov_var(dst, ARG1);
     flush_var(dst);
 }
 
@@ -537,19 +721,51 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
         }
     }
 
-    mov_arg(ARG1, Pos);
-    mov_arg(ARG2, Tuple);
+    bool const_position;
 
-    if (Fail.get() != 0) {
-        fragment_call(ga->get_bif_element_guard_shared());
-        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    const_position = Pos.isSmall() && Pos.as<ArgSmall>().getSigned() > 0 &&
+                     Pos.as<ArgSmall>().getSigned() <= (Sint)MAX_ARITYVAL;
+
+    if (const_position && exact_type(Tuple, BEAM_TYPE_TUPLE)) {
+        comment("simplified element/2 because arguments are known types");
+        auto tuple = load_source(Tuple, ARG2);
+        auto dst = init_destination(Dst, ARG1);
+        Uint position = Pos.as<ArgSmall>().getUnsigned();
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, tuple.reg);
+
+        a.ldur(TMP2, emit_boxed_val(boxed_ptr));
+        ERTS_CT_ASSERT(make_arityval_zero() == 0);
+        cmp(TMP2, position << _HEADER_ARITY_OFFS);
+        if (Fail.get() != 0) {
+            a.b_lo(resolve_beam_label(Fail, disp1MB));
+        } else {
+            Label good = a.newLabel();
+            a.b_hs(good);
+            mov_arg(ARG1, Pos);
+            mov_var(ARG2, tuple);
+            fragment_call(ga->get_handle_element_error_shared());
+            a.bind(good);
+        }
+
+        safe_ldur(dst.reg, emit_boxed_val(boxed_ptr, position << 3));
+        flush_var(dst);
     } else {
-        fragment_call(ga->get_bif_element_body_shared());
-    }
+        /* Too much code to inline. Call a helper fragment. */
+        mov_arg(ARG1, Pos);
+        mov_arg(ARG2, Tuple);
 
-    auto dst = init_destination(Dst, ARG1);
-    mov_var(dst, ARG1);
-    flush_var(dst);
+        if (Fail.get() != 0) {
+            fragment_call(ga->get_bif_element_guard_shared());
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        } else {
+            fragment_call(ga->get_bif_element_body_shared());
+        }
+
+        auto dst = init_destination(Dst, ARG1);
+        mov_var(dst, ARG1);
+        flush_var(dst);
+    }
 }
 
 /* ================================================================
@@ -584,6 +800,142 @@ void BeamModuleAssembler::emit_bif_hd(const ArgSource &Src,
 }
 
 /* ================================================================
+ *  is_map_key/2
+ * ================================================================
+ */
+
+void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
+                                              const ArgLabel &Fail,
+                                              const ArgSource &Key,
+                                              const ArgSource &Src,
+                                              const ArgRegister &Dst) {
+    if (!exact_type(Src, BEAM_TYPE_MAP)) {
+        emit_i_bif2(Key, Src, Fail, Bif, Dst);
+        return;
+    }
+
+    comment("inlined BIF is_map_key/2");
+
+    mov_arg(ARG1, Src);
+    mov_arg(ARG2, Key);
+
+    if (masked_types(Key, BEAM_TYPE_MASK_IMMEDIATE) != BEAM_TYPE_NONE) {
+        fragment_call(ga->get_i_get_map_element_shared());
+        emit_cond_to_bool(arm::CondCode::kEQ, Dst);
+    } else {
+        emit_enter_runtime();
+        runtime_call<2>(get_map_element);
+        emit_leave_runtime();
+
+        cmp(ARG1, THE_NON_VALUE);
+        emit_cond_to_bool(arm::CondCode::kNE, Dst);
+    }
+}
+
+/* ================================================================
+ *  map_get/2
+ * ================================================================
+ */
+
+void BeamGlobalAssembler::emit_handle_map_get_badmap() {
+    static ErtsCodeMFA mfa = {am_erlang, am_map_get, 2};
+    mov_imm(TMP1, BADMAP);
+    a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
+    a.str(ARG1, arm::Mem(c_p, offsetof(Process, fvalue)));
+    a.mov(XREG0, ARG2);
+    a.mov(XREG1, ARG1);
+    mov_imm(ARG4, &mfa);
+    a.b(labels[raise_exception]);
+}
+
+void BeamGlobalAssembler::emit_handle_map_get_badkey() {
+    static ErtsCodeMFA mfa = {am_erlang, am_map_get, 2};
+    mov_imm(TMP1, BADKEY);
+    a.str(TMP1, arm::Mem(c_p, offsetof(Process, freason)));
+    a.str(ARG2, arm::Mem(c_p, offsetof(Process, fvalue)));
+    a.mov(XREG0, ARG2);
+    a.mov(XREG1, ARG1);
+    mov_imm(ARG4, &mfa);
+    a.b(labels[raise_exception]);
+}
+
+void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
+                                           const ArgSource &Key,
+                                           const ArgSource &Src,
+                                           const ArgRegister &Dst) {
+    Label good_key = a.newLabel();
+
+    mov_arg(ARG1, Src);
+    mov_arg(ARG2, Key);
+
+    if (exact_type(Src, BEAM_TYPE_MAP)) {
+        comment("skipped test for map for known map argument");
+    } else {
+        Label bad_map = a.newLabel();
+        Label good_map = a.newLabel();
+
+        if (Fail.get() == 0) {
+            emit_is_boxed(bad_map, Src, ARG1);
+        } else {
+            emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, ARG1);
+        }
+
+        /* As an optimization for the `error | #{}` case, skip checking the
+         * header word when we know that the only possible boxed type
+         * is a map. */
+        if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_MAP) {
+            comment("skipped header test since we know it's a map when boxed");
+        } else {
+            arm::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
+            a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+            a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
+            a.cmp(TMP1, imm(_TAG_HEADER_MAP));
+            if (Fail.get() == 0) {
+                a.b_eq(good_map);
+            } else {
+                a.b_ne(resolve_beam_label(Fail, disp1MB));
+            }
+        }
+
+        a.bind(bad_map);
+        if (Fail.get() == 0) {
+            fragment_call(ga->get_handle_map_get_badmap());
+        }
+
+        a.bind(good_map);
+    }
+
+    if (masked_types(Key, BEAM_TYPE_MASK_IMMEDIATE) != BEAM_TYPE_NONE) {
+        fragment_call(ga->get_i_get_map_element_shared());
+        if (Fail.get() == 0) {
+            a.b_eq(good_key);
+        } else {
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+        }
+    } else {
+        emit_enter_runtime();
+        runtime_call<2>(get_map_element);
+        emit_leave_runtime();
+
+        if (Fail.get() == 0) {
+            emit_branch_if_value(ARG1, good_key);
+        } else {
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        }
+    }
+
+    if (Fail.get() == 0) {
+        mov_arg(ARG1, Src);
+        mov_arg(ARG2, Key);
+        fragment_call(ga->get_handle_map_get_badkey());
+    }
+
+    a.bind(good_key);
+    mov_arg(Dst, ARG1);
+}
+
+/* ================================================================
  *  map_size/1
  * ================================================================
  */
@@ -611,20 +963,26 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
     }
 
     arm::Gp boxed_ptr = emit_ptr_val(TMP3, src.reg);
-    a.ldur(TMP4, emit_boxed_val(boxed_ptr));
-    a.and_(TMP4, TMP4, imm(_TAG_HEADER_MASK));
-    a.cmp(TMP4, imm(_TAG_HEADER_MAP));
 
-    if (Fail.get() == 0) {
-        a.b_eq(good_map);
-        a.bind(error);
-        {
-            mov_var(XREG0, src);
-            fragment_call(ga->get_handle_map_size_error());
-        }
-    } else {
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
+    if (exact_type(Src, BEAM_TYPE_MAP)) {
+        comment("skipped type check because the argument is always a map");
         a.bind(error); /* Never referenced. */
+    } else {
+        a.ldur(TMP4, emit_boxed_val(boxed_ptr));
+        a.and_(TMP4, TMP4, imm(_TAG_HEADER_MASK));
+        a.cmp(TMP4, imm(_TAG_HEADER_MAP));
+
+        if (Fail.get() == 0) {
+            a.b_eq(good_map);
+            a.bind(error);
+            {
+                mov_var(XREG0, src);
+                fragment_call(ga->get_handle_map_size_error());
+            }
+        } else {
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+            a.bind(error); /* Never referenced. */
+        }
     }
 
     a.bind(good_map);
@@ -804,15 +1162,27 @@ void BeamModuleAssembler::emit_bif_tuple_size(const ArgLabel &Fail,
     auto src = load_source(Src, ARG1);
     auto dst = init_destination(Dst, ARG1);
 
-    mov_var(ARG1, src);
-
-    if (Fail.get() == 0) {
-        fragment_call(ga->get_bif_tuple_size_body());
+    if (exact_type(Src, BEAM_TYPE_TUPLE)) {
+        comment("simplifed tuple_size/1 because the argument is always a "
+                "tuple");
+        arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+        a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+        ERTS_CT_ASSERT(_HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE > 0);
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+        a.lsr(TMP1, TMP1, _HEADER_ARITY_OFFS - _TAG_IMMED1_SIZE);
+        a.orr(dst.reg, TMP1, imm(_TAG_IMMED1_SMALL));
     } else {
-        fragment_call(ga->get_bif_tuple_size_guard());
-        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
-    }
+        mov_var(ARG1, src);
 
-    mov_var(dst, ARG1);
+        if (Fail.get() == 0) {
+            fragment_call(ga->get_bif_tuple_size_body());
+        } else {
+            fragment_call(ga->get_bif_tuple_size_guard());
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        }
+
+        mov_var(dst, ARG1);
+    }
     flush_var(dst);
 }

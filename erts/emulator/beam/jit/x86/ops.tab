@@ -427,17 +427,9 @@ is_eq_exact Lbl LHS RHS | equal(LHS, RHS) => _
 is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
 
 is_eq_exact Lbl R=xy n => is_nil Lbl R
-is_eq_exact Lbl R=xy C=q => is_eq_exact_literal(Lbl, R, C)
 
 is_ne_exact Lbl LHS RHS | equal(LHS, RHS) => jump Lbl
 is_ne_exact Lbl C=c R=xy => is_ne_exact Lbl R C
-
-is_ne_exact Lbl R=xy C=q => i_is_ne_exact_literal Lbl R C
-
-i_is_eq_exact_literal/4
-i_is_eq_exact_literal f s c I
-
-i_is_ne_exact_literal f s c
 
 is_eq_exact f s s
 
@@ -714,6 +706,26 @@ bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => get(Src, Dst)
 bif2 Fail u$bif:erlang:element/2 S1=ixy S2 Dst => bif_element Fail S1 S2 Dst
 bif_element j s s d
 
+gc_bif1 Fail Live Bif=u$bif:erlang:bit_size/1 Src Dst=d =>
+    bif_bit_size Bif Fail Src Dst
+bif_bit_size b j s d
+
+gc_bif1 Fail Live Bif=u$bif:erlang:byte_size/1 Src Dst=d =>
+    bif_byte_size Bif Fail Src Dst
+bif_byte_size b j s d
+
+bif1 Fail Bif=u$bif:erlang:tuple_size/1 Src=d Dst=d =>
+    bif_tuple_size Bif Fail Src Dst
+bif_tuple_size b j S d
+
+bif2 Fail Bif=u$bif:erlang:map_get/2 Src1 Src2=xy Dst=d =>
+    bif_map_get Fail Src1 Src2 Dst
+bif_map_get j s s d
+
+bif2 Fail Bif=u$bif:erlang:is_map_key/2 Key Map=xy Dst=d =>
+    bif_is_map_key Bif Fail Key Map Dst
+bif_is_map_key b j s s d
+
 bif1 Fail Bif S1 Dst | never_fails(Bif) => nofail_bif1 S1 Bif Dst
 bif2 Fail Bif S1 S2 Dst | never_fails(Bif) => nofail_bif2 S1 S2 Bif Dst
 
@@ -722,6 +734,8 @@ bif2 Fail Bif S1 S2 Dst => i_bif2 S1 S2 Fail Bif Dst
 
 nofail_bif2 S1=d S2 Bif Dst | is_eq_exact_bif(Bif) => bif_is_eq_exact S1 S2 Dst
 nofail_bif2 S1=d S2 Bif Dst | is_ne_exact_bif(Bif) => bif_is_ne_exact S1 S2 Dst
+nofail_bif2 S1 S2 Bif Dst | is_ge_bif(Bif) => bif_is_ge S1 S2 Dst
+nofail_bif2 S1 S2 Bif Dst | is_lt_bif(Bif) => bif_is_lt S1 S2 Dst
 
 i_get_hash c I d
 i_get s d
@@ -739,6 +753,8 @@ i_bif3 s s s j b d
 
 bif_is_eq_exact S s d
 bif_is_ne_exact S s d
+bif_is_ge s s d
+bif_is_lt s s d
 
 #
 # Internal calls.
@@ -1360,6 +1376,13 @@ gc_bif1 Fail=j Live u$bif:erlang:length/1 Src Dst =>
 
 i_length_setup j t s
 i_length j t d
+
+#
+# Specialized guard BIFs.
+#
+
+gc_bif1 Fail Live Bif=u$bif:erlang:map_size/1 Src Dst=d => bif_map_size Fail Src Dst
+bif_map_size j s d
 
 #
 # Guard BIFs.

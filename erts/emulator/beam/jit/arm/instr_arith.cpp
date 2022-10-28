@@ -887,6 +887,23 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
                                       const ArgSource &LHS,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
+    if (always_small(LHS) && RHS.isSmall()) {
+        a64::Utils::LogicalImm ignore;
+        if (a64::Utils::encodeLogicalImm(RHS.as<ArgSmall>().get(),
+                                         64,
+                                         &ignore)) {
+            comment("skipped test for small operands since they are always "
+                    "small");
+            auto lhs = load_source(LHS, ARG2);
+            auto dst = init_destination(Dst, ARG1);
+
+            /* TAG & TAG = TAG, so we don't need to tag it again. */
+            a.and_(dst.reg, lhs.reg, RHS.as<ArgSmall>().get());
+            flush_var(dst);
+            return;
+        }
+    }
+
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
     auto dst = init_destination(Dst, ARG1);
 
@@ -958,6 +975,21 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
+    if (always_small(LHS) && RHS.isSmall()) {
+        a64::Utils::LogicalImm ignore;
+        Uint64 rhs = RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_SMALL;
+        if (a64::Utils::encodeLogicalImm(rhs, 64, &ignore)) {
+            comment("skipped test for small operands since they are always "
+                    "small");
+            auto lhs = load_source(LHS, ARG2);
+            auto dst = init_destination(Dst, ARG1);
+
+            a.orr(dst.reg, lhs.reg, rhs);
+            flush_var(dst);
+            return;
+        }
+    }
+
     auto [lhs, rhs] = load_sources(LHS, ARG2, RHS, ARG3);
     auto dst = init_destination(Dst, ARG1);
 

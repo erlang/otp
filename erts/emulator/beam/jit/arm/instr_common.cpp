@@ -52,6 +52,7 @@
  */
 
 #include <algorithm>
+#include <numeric>
 #include "beam_asm.hpp"
 
 extern "C"
@@ -61,6 +62,7 @@ extern "C"
 #include "beam_catches.h"
 #include "beam_common.h"
 #include "code_ix.h"
+#include "erl_binary.h"
 }
 
 using namespace asmjit;
@@ -456,7 +458,10 @@ void BeamModuleAssembler::emit_store_two_xregs(const ArgXRegister &Src1,
                                                const ArgXRegister &Src2,
                                                const ArgYRegister &Dst2) {
     auto [src1, src2] = load_sources(Src1, TMP1, Src2, TMP2);
-    safe_stp(src1.reg, src2.reg, Dst1, Dst2);
+    auto dst1 = init_destination(Dst1, src1.reg);
+    auto dst2 = init_destination(Dst2, src2.reg);
+
+    flush_vars(dst1, dst2);
 }
 
 void BeamModuleAssembler::emit_load_two_xregs(const ArgYRegister &Src1,
@@ -504,22 +509,11 @@ void BeamModuleAssembler::emit_swap(const ArgRegister &R1,
     } else if (isRegisterBacked(R2)) {
         return emit_swap(R2, R1);
     } else {
-        switch (ArgVal::memory_relation(R1, R2)) {
-        case ArgVal::Relation::consecutive:
-            safe_ldp(TMP1, TMP2, R1, R2);
-            safe_stp(TMP2, TMP1, R1, R2);
-            break;
-        case ArgVal::Relation::reverse_consecutive:
-            safe_ldp(TMP1, TMP2, R2, R1);
-            safe_stp(TMP2, TMP1, R2, R1);
-            break;
-        case ArgVal::Relation::none:
-            a.ldr(TMP1, getArgRef(R1));
-            a.ldr(TMP2, getArgRef(R2));
-            a.str(TMP1, getArgRef(R2));
-            a.str(TMP2, getArgRef(R1));
-            break;
-        }
+        /* Both BEAM registers are stored in memory. */
+        auto [r1, r2] = load_sources(R1, TMP1, R2, TMP2);
+        auto dst1 = init_destination(R2, r1.reg);
+        auto dst2 = init_destination(R1, r2.reg);
+        flush_vars(dst1, dst2);
     }
 }
 
@@ -859,48 +853,43 @@ void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
     a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
-arm::Gp BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
-                                            const ArgSource &Src,
-                                            Label next,
-                                            Label subbin) {
+void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
+                                         const ArgSource &Src) {
+    Label is_binary = a.newLabel(), next = a.newLabel();
+
     auto src = load_source(Src, ARG1);
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
     arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-    a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
-    a.cmp(TMP1, imm(_TAG_HEADER_SUB_BIN));
-    a.b_eq(subbin);
-
     if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_BITSTRING) {
+        const int bit_number = 3;
+        ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & (1 << bit_number)) != 0 &&
+                       (_TAG_HEADER_REFC_BIN & (1 << bit_number)) == 0 &&
+                       (_TAG_HEADER_HEAP_BIN & (1 << bit_number)) == 0);
         comment("simplified binary test since source is always a bitstring "
                 "when boxed");
+        a.tbz(TMP1, imm(bit_number), next);
     } else {
+        a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
+        a.cmp(TMP1, imm(_TAG_HEADER_SUB_BIN));
+        a.b_ne(is_binary);
+    }
+
+    /* This is a sub binary. */
+    a.ldrb(TMP1.w(), emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
+    a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) != BEAM_TYPE_BITSTRING) {
+        a.b(next);
+    }
+
+    a.bind(is_binary);
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) != BEAM_TYPE_BITSTRING) {
         ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
         a.and_(TMP1, TMP1, imm(~4));
         a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
         a.b_ne(resolve_beam_label(Fail, disp1MB));
-    }
-
-    a.b(next);
-
-    return boxed_ptr;
-}
-
-void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
-                                         const ArgSource &Src) {
-    Label next = a.newLabel(), subbin = a.newLabel();
-
-    arm::Gp boxed_ptr = emit_is_binary(Fail, Src, next, subbin);
-
-    a.bind(subbin);
-    {
-        /* emit_is_binary() has already removed the literal tag (if
-         * applicable) from the copy of Src. */
-        a.ldrb(TMP1.w(),
-               emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
-        a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
     }
 
     a.bind(next);
@@ -908,11 +897,27 @@ void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
                                             const ArgSource &Src) {
-    Label next = a.newLabel();
+    auto src = load_source(Src, ARG1);
 
-    (void)emit_is_binary(Fail, Src, next, next);
+    emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    a.bind(next);
+    arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
+    a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+
+    /* The header mask with the binary sub tag bits removed (0b110011)
+     * is not possible to use as an immediate operand for 'and'. (See
+     * the note at the beginning of the file.) Therefore, use a
+     * simpler mask (0b110000) that will also clear the primary tag
+     * bits. That works because we KNOW that a boxed pointer always
+     * points to a header word and that the primary tag for a header
+     * is 0.
+     */
+    const auto mask = _HEADER_SUBTAG_MASK - _BINARY_XXX_MASK;
+    ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+    ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN == (_TAG_HEADER_REFC_BIN & mask));
+    a.and_(TMP1, TMP1, imm(mask));
+    a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
+    a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
 
 void BeamModuleAssembler::emit_is_float(const ArgLabel &Fail,
@@ -1030,12 +1035,17 @@ void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
-        /* The following value (0b111011) is not possible to use as
-         * an immediate operand for 'and'. See the note at the beginning
-         * of the file.
+        /* The header mask with the sign bit removed (0b111011) is not
+         * possible to use as an immediate operand for 'and'. (See the
+         * note at the beginning of the file.) Therefore, use a
+         * simpler mask (0b111000) that will also clear the primary
+         * tag bits. That works because we KNOW that a boxed pointer
+         * always points to a header word and that the primary tag for
+         * a header is 0.
          */
-        mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
-        a.and_(TMP1, TMP1, TMP2);
+        auto mask = _HEADER_SUBTAG_MASK - _BIG_SIGN_BIT;
+        ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+        a.and_(TMP1, TMP1, imm(mask));
         a.cmp(TMP1, imm(_TAG_HEADER_POS_BIG));
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     }
@@ -1075,8 +1085,17 @@ void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
                                       const ArgRegister &Src) {
     auto src = load_source(Src, TMP1);
-    a.cmp(src.reg, imm(NIL));
-    a.b_ne(resolve_beam_label(Fail, disp1MB));
+
+    if (always_one_of(Src, (BEAM_TYPE_CONS | BEAM_TYPE_NIL))) {
+        const int bitNumber = 1;
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
+                       (1 << bitNumber));
+        comment("simplified is_nil test because its argument is always a list");
+        a.tbz(src.reg, imm(bitNumber), resolve_beam_label(Fail, disp32K));
+    } else {
+        a.cmp(src.reg, imm(NIL));
+        a.b_ne(resolve_beam_label(Fail, disp1MB));
+    }
 }
 
 void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
@@ -1102,12 +1121,17 @@ void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
         a.ldur(TMP1, emit_boxed_val(boxed_ptr));
 
-        /* The following value (0b111011) is not possible to use as
-         * an immediate operand for 'and'. See the note at the beginning
-         * of the file.
+        /* The header mask with the sign bit removed (0b111011) is not
+         * possible to use as an immediate operand for 'and'. (See the
+         * note at the beginning of the file.) Therefore, use a
+         * simpler mask (0b111000) that will also clear the primary
+         * tag bits. That works because we KNOW that a boxed pointer
+         * always points to a header word and that the primary tag for
+         * a header is 0.
          */
-        mov_imm(TMP2, _TAG_HEADER_MASK - _BIG_SIGN_BIT);
-        a.and_(TMP2, TMP1, TMP2);
+        auto mask = _HEADER_SUBTAG_MASK - _BIG_SIGN_BIT;
+        ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+        a.and_(TMP2, TMP1, imm(mask));
         a.cmp(TMP2, imm(_TAG_HEADER_POS_BIG));
 
         a.mov(TMP3, imm(HEADER_FLONUM));
@@ -1323,6 +1347,43 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
                                            const ArgSource &Y) {
     auto x = load_source(X, ARG1);
 
+    bool is_empty_binary = false;
+    if (exact_type(X, BEAM_TYPE_BITSTRING) && Y.isLiteral()) {
+        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+        is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
+    }
+
+    if (is_empty_binary) {
+        auto unit = getSizeUnit(X);
+
+        comment("simplified equality test with empty binary");
+        if (unit != 0 && std::gcd(unit, 8) == 8) {
+            arm::Gp boxed_ptr = emit_ptr_val(ARG1, x.reg);
+            a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+            a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
+        } else {
+            Label next = a.newLabel();
+
+            emit_untag_ptr(ARG1, x.reg);
+            ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBin, thing_word, size);
+            a.ldp(TMP1, TMP2, arm::Mem(ARG1));
+            a.cbnz(TMP2, resolve_beam_label(Fail, disp1MB));
+
+            const int bit_number = 3;
+            ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & (1 << bit_number)) != 0 &&
+                           (_TAG_HEADER_REFC_BIN & (1 << bit_number)) == 0 &&
+                           (_TAG_HEADER_HEAP_BIN & (1 << bit_number)) == 0);
+            a.tbz(TMP1, imm(bit_number), next);
+
+            a.ldrb(TMP1.w(), arm::Mem(ARG1, offsetof(ErlSubBin, bitsize)));
+            a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
+
+            a.bind(next);
+        }
+
+        return;
+    }
+
     /* If either argument is known to be an immediate, we can fail immediately
      * if they're not equal. */
     if (always_immediate(X) || always_immediate(Y)) {
@@ -1336,7 +1397,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
         return;
     }
 
-    /* Both operands are registers. */
+    /* Both operands are registers or literals. */
     Label next = a.newLabel();
     auto y = load_source(Y, ARG2);
 
@@ -1345,9 +1406,16 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
 
     if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
+    } else if (Y.isLiteral()) {
+        /* Fail immediately unless X is the same type of pointer as
+         * the literal Y.
+         */
+        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+        Uint tag_test = _TAG_PRIMARY_MASK - (literal & _TAG_PRIMARY_MASK);
+        int bitNumber = Support::ctz<Eterm>(tag_test);
+        a.tbnz(x.reg, imm(bitNumber), resolve_beam_label(Fail, disp32K));
     } else {
-        /* The terms could still be equal if both operands are pointers
-         * having the same tag. */
+        /* Fail immediately if the pointer tags are not equal. */
         emit_is_unequal_based_on_tags(x.reg, y.reg);
         a.b_eq(resolve_beam_label(Fail, disp1MB));
     }
@@ -1358,9 +1426,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
     mov_var(ARG2, y);
 
     emit_enter_runtime();
-
     runtime_call<2>(eq);
-
     emit_leave_runtime();
 
     a.cbz(ARG1, resolve_beam_label(Fail, disp1MB));
@@ -1372,6 +1438,26 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
     auto x = load_source(X, ARG1);
+
+    bool is_empty_binary = false;
+    if (exact_type(X, BEAM_TYPE_BITSTRING) && Y.isLiteral()) {
+        auto unit = getSizeUnit(X);
+        if (unit != 0 && std::gcd(unit, 8) == 8) {
+            Eterm literal =
+                    beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+            is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
+        }
+    }
+
+    if (is_empty_binary) {
+        arm::Gp boxed_ptr = emit_ptr_val(ARG1, x.reg);
+
+        comment("simplified non-equality test with empty binary");
+        a.ldur(TMP1, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+        a.cbz(TMP1, resolve_beam_label(Fail, disp1MB));
+
+        return;
+    }
 
     /* If either argument is known to be an immediate, we can fail immediately
      * if they're equal. */
@@ -1386,7 +1472,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
         return;
     }
 
-    /* Both operands are registers. */
+    /* Both operands are registers or literals. */
     Label next = a.newLabel();
     auto y = load_source(Y, ARG2);
 
@@ -1395,6 +1481,14 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
 
     if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
+    } else if (Y.isLiteral()) {
+        /* Succeed immediately if X is not the same type of pointer as
+         * the literal Y.
+         */
+        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+        Uint tag_test = _TAG_PRIMARY_MASK - (literal & _TAG_PRIMARY_MASK);
+        int bitNumber = Support::ctz<Eterm>(tag_test);
+        a.tbnz(x.reg, imm(bitNumber), next);
     } else {
         /* Test whether the terms are definitely unequal based on the tags
          * alone. */

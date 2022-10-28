@@ -746,6 +746,14 @@ bif1 Fail Bif=u$bif:erlang:tuple_size/1 Src=d Dst=d =>
     bif_tuple_size Fail Src Dst
 bif_tuple_size j S d
 
+bif2 Fail Bif=u$bif:erlang:map_get/2 Src1 Src2=xy Dst=d =>
+    bif_map_get Fail Src1 Src2 Dst
+bif_map_get j s s d
+
+bif2 Fail Bif=u$bif:erlang:is_map_key/2 Key Map=xy Dst=d =>
+    bif_is_map_key Bif Fail Key Map Dst
+bif_is_map_key b j s s d
+
 bif1 Fail Bif S1 Dst | never_fails(Bif) => nofail_bif1 S1 Bif Dst
 bif2 Fail Bif S1 S2 Dst | never_fails(Bif) => nofail_bif2 S1 S2 Bif Dst
 
@@ -754,6 +762,8 @@ bif2 Fail Bif S1 S2 Dst => i_bif2 S1 S2 Fail Bif Dst
 
 nofail_bif2 S1=d S2 Bif Dst | is_eq_exact_bif(Bif) => bif_is_eq_exact S1 S2 Dst
 nofail_bif2 S1=d S2 Bif Dst | is_ne_exact_bif(Bif) => bif_is_ne_exact S1 S2 Dst
+nofail_bif2 S1 S2 Bif Dst | is_ge_bif(Bif) => bif_is_ge S1 S2 Dst
+nofail_bif2 S1 S2 Bif Dst | is_lt_bif(Bif) => bif_is_lt S1 S2 Dst
 
 i_get_hash c I d
 i_get s d
@@ -771,6 +781,8 @@ i_bif3 s s s j b d
 
 bif_is_eq_exact S s d
 bif_is_ne_exact S s d
+bif_is_ge s s d
+bif_is_lt s s d
 
 #
 # Internal calls.

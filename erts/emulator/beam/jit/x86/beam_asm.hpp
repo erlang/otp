@@ -1086,10 +1086,98 @@ class BeamModuleAssembler : public BeamAssembler {
     /* Save the last PC for an error. */
     size_t last_error_offset = 0;
 
-    /* Skip unnecessary moves in mov_arg. */
+    /* Skip unnecessary moves in mov_arg() and cmp_arg(). */
     size_t last_movarg_offset = 0;
-    x86::Gp last_movarg_from;
-    x86::Mem last_movarg_to;
+    x86::Gp last_movarg_from1, last_movarg_from2;
+    x86::Mem last_movarg_to1, last_movarg_to2;
+
+    /* Private helper. */
+    void preserve__cache(x86::Gp dst) {
+        last_movarg_offset = a.offset();
+        invalidate_cache(dst);
+    }
+
+    bool is_cache_valid() {
+        return a.offset() == last_movarg_offset;
+    }
+
+    void preserve_cache(x86::Gp dst, bool cache_valid) {
+        if (cache_valid) {
+            preserve__cache(dst);
+        }
+    }
+
+    /* Store CPU register into memory and update the cache. */
+    void store_cache(x86::Gp src, x86::Mem dst) {
+        if (is_cache_valid() && dst != last_movarg_to1) {
+            /* Something is already cached in the first slot. Use the
+             * second slot. */
+            a.mov(dst, src);
+
+            last_movarg_offset = a.offset();
+            last_movarg_to2 = dst;
+            last_movarg_from2 = src;
+        } else {
+            /* Nothing cached yet, or the first slot has the same
+             * memory address as we will store into. Use the first
+             * slot and invalidate the second slot. */
+            a.mov(dst, src);
+
+            last_movarg_offset = a.offset();
+            last_movarg_to1 = dst;
+            last_movarg_from1 = src;
+
+            last_movarg_to2 = x86::Mem();
+        }
+    }
+
+    void invalidate_cache(x86::Gp dst) {
+        if (dst == last_movarg_from1) {
+            last_movarg_to1 = x86::Mem();
+            last_movarg_from1 = x86::Gp();
+        }
+        if (dst == last_movarg_from2) {
+            last_movarg_to2 = x86::Mem();
+            last_movarg_from2 = x86::Gp();
+        }
+    }
+
+    x86::Gp cached_reg(x86::Mem mem) {
+        if (is_cache_valid()) {
+            if (mem == last_movarg_to1) {
+                return last_movarg_from1;
+            }
+            if (mem == last_movarg_to2) {
+                return last_movarg_from2;
+            }
+        }
+        return x86::Gp();
+    }
+
+    void load_cached(x86::Gp dst, x86::Mem mem) {
+        if (a.offset() == last_movarg_offset) {
+            x86::Gp reg = cached_reg(mem);
+
+            if (reg.isValid()) {
+                /* This memory location is cached. */
+                if (reg != dst) {
+                    comment("simplified fetching of BEAM register");
+                    a.mov(dst, reg);
+                    preserve__cache(dst);
+                } else {
+                    comment("skipped fetching of BEAM register");
+                    invalidate_cache(dst);
+                }
+            } else {
+                /* Not cached. Load and preserve the cache. */
+                a.mov(dst, mem);
+                preserve__cache(dst);
+            }
+        } else {
+            /* The cache is invalid. */
+            a.mov(dst, mem);
+        }
+    }
 
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
@@ -1153,6 +1241,26 @@ protected:
 
         ASSERT(typeIndex < beam->types.count);
         return beam->types.entries[typeIndex].type_union;
+    }
+
+    int getExtendedTypeUnion(const ArgSource &arg) const {
+        if (arg.isLiteral()) {
+            Eterm literal =
+                    beamfile_get_literal(beam, arg.as<ArgLiteral>().get());
+            if (is_binary(literal)) {
+                return BEAM_TYPE_BITSTRING;
+            } else if (is_list(literal)) {
+                return BEAM_TYPE_CONS;
+            } else if (is_tuple(literal)) {
+                return BEAM_TYPE_TUPLE;
+            } else if (is_map(literal)) {
+                return BEAM_TYPE_MAP;
+            } else {
+                return BEAM_TYPE_ANY;
+            }
+        } else {
+            return getTypeUnion(arg);
+        }
     }
 
     auto getClampedRange(const ArgSource &arg) const {
@@ -1223,8 +1331,8 @@ protected:
     }
 
     bool always_same_types(const ArgSource &lhs, const ArgSource &rhs) const {
-        int lhs_types = getTypeUnion(lhs);
-        int rhs_types = getTypeUnion(rhs);
+        int lhs_types = getExtendedTypeUnion(lhs);
+        int rhs_types = getExtendedTypeUnion(rhs);
 
         /* We can only be certain that the types are the same when there's
          * one possible type. For example, if one is a number and the other
@@ -1339,11 +1447,6 @@ protected:
                           bool skip_fun_test = false,
                           bool skip_arity_test = false);
 
-    x86::Gp emit_is_binary(const ArgLabel &Fail,
-                           const ArgSource &Src,
-                           Label next,
-                           Label subbin);
-
     void emit_is_boxed(Label Fail, x86::Gp Src, Distance dist = dLong) {
         BeamAssembler::emit_is_boxed(Fail, Src, dist);
     }
@@ -1456,6 +1559,8 @@ protected:
                                  Eterm fail_value,
                                  Eterm succ_value);
 
+    void emit_cond_to_bool(uint32_t instId, const ArgRegister &Dst);
+
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);
 
@@ -1518,13 +1623,33 @@ protected:
     }
 
     void cmp_arg(x86::Mem mem, const ArgVal &val, const x86::Gp &spill) {
-        /* Note that the cast to Sint is necessary to handle negative numbers
-         * such as NIL. */
-        if (val.isImmed() && Support::isInt32((Sint)val.as<ArgImmed>().get())) {
-            a.cmp(mem, imm(val.as<ArgImmed>().get()));
+        x86::Gp reg = cached_reg(mem);
+
+        if (reg.isValid()) {
+            /* Note that the cast to Sint is necessary to handle
+             * negative numbers such as NIL. */
+            if (val.isImmed() &&
+                Support::isInt32((Sint)val.as<ArgImmed>().get())) {
+                comment("simplified compare of BEAM register");
+                a.cmp(reg, imm(val.as<ArgImmed>().get()));
+            } else if (reg != spill) {
+                comment("simplified compare of BEAM register");
+                mov_arg(spill, val);
+                a.cmp(reg, spill);
+            } else {
+                mov_arg(spill, val);
+                a.cmp(mem, spill);
+            }
         } else {
-            mov_arg(spill, val);
-            a.cmp(mem, spill);
+            /* Note that the cast to Sint is necessary to handle
+             * negative numbers such as NIL. */
+            if (val.isImmed() &&
+                Support::isInt32((Sint)val.as<ArgImmed>().get())) {
+                a.cmp(mem, imm(val.as<ArgImmed>().get()));
+            } else {
+                mov_arg(spill, val);
+                a.cmp(mem, spill);
+            }
         }
     }
 
@@ -1560,7 +1685,7 @@ protected:
 
     /* Note: May clear flags. */
     void mov_arg(x86::Gp to, const ArgVal &from, const x86::Gp &spill) {
-        bool is_last_offset_valid = a.offset() == last_movarg_offset;
+        bool valid_cache = is_cache_valid();
 
         if (from.isBytePtr()) {
             make_move_patch(to, strings, from.as<ArgBytePtr>().get());
@@ -1574,27 +1699,14 @@ protected:
             make_move_patch(to, literals[from.as<ArgLiteral>().get()].patches);
         } else if (from.isRegister()) {
             auto mem = getArgRef(from.as<ArgRegister>());
-
-            if (a.offset() == last_movarg_offset && mem == last_movarg_to) {
-                if (last_movarg_from != to) {
-                    comment("simplified fetching of BEAM register");
-                    a.mov(to, last_movarg_from);
-                } else {
-                    comment("skipped fetching of BEAM register");
-                }
-            } else {
-                a.mov(to, mem);
-            }
+            load_cached(to, mem);
         } else if (from.isWord()) {
             mov_imm(to, from.as<ArgWord>().get());
         } else {
             ASSERT(!"mov_arg with incompatible type");
         }
 
-        if (is_last_offset_valid && last_movarg_from != to) {
-            last_movarg_offset = a.offset();
-        }
-
+        preserve_cache(to, valid_cache);
 #ifdef DEBUG
         /* Explicitly clear flags to catch bugs quicker, it may be very rare
          * for a certain instruction to load values that would otherwise cause
@@ -1632,11 +1744,7 @@ protected:
         (void)spill;
 
         auto mem = getArgRef(to);
-        a.mov(mem, from);
-
-        last_movarg_offset = a.offset();
-        last_movarg_to = mem;
-        last_movarg_from = from;
+        store_cache(from, mem);
     }
 
     void mov_arg(const ArgVal &to, x86::Mem from, const x86::Gp &spill) {

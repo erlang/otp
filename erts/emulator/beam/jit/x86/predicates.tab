@@ -35,7 +35,7 @@ pred.is_mfa_bif(M, F, A) {
 pred.never_fails(Bif) {
     static Eterm nofail_bifs[] =
 	{am_Neqeq,
-	 am_Le,
+	 am_Lt,
 	 am_Neq,
 	 am_Eq,
 	 am_Le,
@@ -106,4 +106,26 @@ pred.is_ne_exact_bif(Bif) {
 pred.consecutive_words(S1, D1, S2, D2) {
     return S1.type == S2.type && S1.val + 1 == S2.val &&
 	D1.type == D2.type && D1.val + 1 == D2.val;
+}
+
+pred.is_ge_bif(Bif) {
+    Uint index = Bif.val;
+
+    if (Bif.type == TAG_u && index < S->beam.imports.count) {
+	BeamFile_ImportEntry *entry = &S->beam.imports.entries[index];
+
+	return entry->module == am_erlang && entry->function == am_Ge && entry->arity == 2;
+    }
+    return 0;
+}
+
+pred.is_lt_bif(Bif) {
+    Uint index = Bif.val;
+
+    if (Bif.type == TAG_u && index < S->beam.imports.count) {
+	BeamFile_ImportEntry *entry = &S->beam.imports.entries[index];
+
+	return entry->module == am_erlang && entry->function == am_Lt && entry->arity == 2;
+    }
+    return 0;
 }

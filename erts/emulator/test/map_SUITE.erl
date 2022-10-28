@@ -796,6 +796,9 @@ t_is_map_key(Config) when is_list(Config) ->
     true = is_map_key({1,1.0}, M1),
     true = is_map_key(<<"k2">>, M1),
 
+    true = is_map_key(id(a), M1),
+    true = is_map_key(id("hello"), M1),
+
     %% error cases
     do_badmap(fun(T) ->
 		      {'EXIT',{{badmap,T},[{erlang,is_map_key,_,_}|_]}} =

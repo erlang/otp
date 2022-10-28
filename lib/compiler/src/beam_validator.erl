@@ -427,7 +427,8 @@ vi({jump,{f,Lbl}}, Vst) ->
 
     %% The next instruction is never executed.
     branch(Lbl, Vst, fun kill_state/1);
-vi({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
+vi({select_val,Src0,{f,Fail},{list,Choices}}, Vst) ->
+    Src = unpack_typed_arg(Src0),
     assert_term(Src, Vst),
     assert_choices(Choices),
     validate_select_val(Fail, Choices, Src, Vst);

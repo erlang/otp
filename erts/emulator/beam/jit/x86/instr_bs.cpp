@@ -1926,14 +1926,51 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
 
         if (seg.size.isAtom() && seg.size.as<ArgAtom>().get() == am_all &&
             seg.type == am_binary) {
-            runtime_entered = bs_maybe_enter_runtime(runtime_entered);
             comment("size of an entire binary");
+            runtime_entered = bs_maybe_enter_runtime(runtime_entered);
             mov_arg(ARG1, seg.src);
-            runtime_call<1>(beam_jit_bs_bit_size);
+
             if (exact_type(seg.src, BEAM_TYPE_BITSTRING)) {
-                comment("skipped check for success since the source "
-                        "is always a bit string");
+                auto unit = getSizeUnit(seg.src);
+                bool is_bitstring = unit == 0 || std::gcd(unit, 8) != 8;
+                x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
+
+                if (is_bitstring) {
+                    comment("inlined size code because the value is always "
+                            "a bitstring");
+                } else {
+                    comment("inlined size code because the value is always "
+                            "a binary");
+                }
+
+                a.mov(ARG2, emit_boxed_val(boxed_ptr, sizeof(Eterm)));
+
+                if (is_bitstring) {
+                    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+                }
+
+                a.lea(sizeReg, x86::Mem(sizeReg, ARG2, 3, 0, 1));
+
+                if (is_bitstring) {
+                    Label not_sub_bin = a.newLabel();
+                    const auto diff_mask =
+                            _TAG_HEADER_SUB_BIN - _TAG_HEADER_REFC_BIN;
+                    ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & diff_mask) != 0 &&
+                                   (_TAG_HEADER_REFC_BIN & diff_mask) == 0 &&
+                                   (_TAG_HEADER_HEAP_BIN & diff_mask) == 0);
+                    a.test(RETb, imm(diff_mask));
+                    a.short_().jz(not_sub_bin);
+
+                    a.movzx(RETd,
+                            emit_boxed_val(boxed_ptr,
+                                           offsetof(ErlSubBin, bitsize),
+                                           1));
+                    a.add(sizeReg, RET);
+
+                    a.bind(not_sub_bin);
+                }
             } else {
+                runtime_call<1>(beam_jit_bs_bit_size);
                 if (Fail.get() == 0) {
                     mov_arg(ARG1, seg.src);
                     mov_imm(ARG4,
@@ -1944,8 +1981,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 }
                 a.test(RET, RET);
                 a.js(error);
+                a.add(sizeReg, RET);
             }
-            a.add(sizeReg, RET);
         } else if (seg.unit != 0) {
             bool can_fail = true;
             comment("size binary/integer/float/string");

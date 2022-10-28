@@ -533,7 +533,9 @@ opt_bs([{L, #b_blk{is=Is0,last=Last0}=Blk0} | Bs],
             SuccTypes = update_success_types(Last1, Ts, Ds, Meta, SuccTypes0),
 
             UsedOnce = Meta#metadata.used_once,
-            {Last, Ls1} = update_successors(Last1, Ts, Ds, Ls0, UsedOnce),
+            {Last2, Ls1} = update_successors(Last1, Ts, Ds, Ls0, UsedOnce),
+
+            Last = opt_anno_types(Last2, Ts),
 
             Ls = Ls1#{ L := {outgoing, Ts} },           %Assertion.
 
@@ -598,7 +600,17 @@ opt_anno_types(#b_set{op=Op,args=Args}=I, Ts) ->
     case benefits_from_type_anno(Op, Args) of
         true -> opt_anno_types_1(I, Args, Ts, 0, #{});
         false -> I
-    end.
+    end;
+opt_anno_types(#b_switch{anno=Anno0,arg=Arg}=I, Ts) ->
+    case concrete_type(Arg, Ts) of
+        any ->
+            I;
+        Type ->
+            Anno = Anno0#{arg_types => #{0 => Type}},
+            I#b_switch{anno=Anno}
+    end;
+opt_anno_types(I, _Ts) ->
+    I.
 
 opt_anno_types_1(I, [#b_var{}=Var | Args], Ts, Index, Acc0) ->
     case concrete_type(Var, Ts) of
@@ -1123,18 +1135,26 @@ simplify(#b_set{op={bif,is_map_key},args=[Key,Map]}=I, Ts, _Ds) ->
         _ ->
             I
     end;
-simplify(#b_set{op={bif,Op0},args=Args}=I, Ts, Ds) when Op0 =:= '==';
-                                                        Op0 =:= '/=' ->
-    Types = normalized_types(Args, Ts),
-    EqEq0 = case {beam_types:meet(Types),beam_types:join(Types)} of
-                {none,any} -> true;
-                {#t_integer{},#t_integer{}} -> true;
-                {#t_float{},#t_float{}} -> true;
-                {#t_bitstring{},_} -> true;
-                {#t_atom{},_} -> true;
-                {_,_} -> false
-            end,
-    EqEq = EqEq0 orelse any_non_numeric_argument(Args, Ts),
+simplify(#b_set{op={bif,Op0},args=[A,B]}=I, Ts, Ds) when Op0 =:= '==';
+                                                         Op0 =:= '/=' ->
+    EqEq = case {number_type(A, Ts),number_type(B, Ts)} of
+               {none,_} ->
+                   %% The LHS does not contain any numbers. A strict
+                   %% test is always safe.
+                   true;
+               {_,none} ->
+                   %% The RHS does not contain any numbers. A strict
+                   %% test is always safe.
+                   true;
+               {#t_integer{},#t_integer{}} ->
+                   %% Both side contain integers but no floats.
+                   true;
+               {#t_float{},#t_float{}} ->
+                   %% Both side contain floats but no integers.
+                   true;
+               {_,_} ->
+                   false
+           end,
     case EqEq of
         true ->
             Op = case Op0 of
@@ -1186,6 +1206,12 @@ simplify(#b_set{op={bif,is_list},args=[Src]}=I0, Ts, Ds) ->
             I0#b_set{op={bif,'=:='},args=[Src,#b_literal{val=[]}]};
         _ ->
             eval_bif(I0, Ts, Ds)
+    end;
+simplify(#b_set{op={bif,Op},args=[Term]}=I, Ts, _Ds)
+  when Op =:= trunc; Op =:= round; Op =:= ceil; Op =:= floor ->
+    case normalized_type(Term, Ts) of
+        #t_integer{} -> Term;
+        _ -> I
     end;
 simplify(#b_set{op={bif,Op},args=Args}=I, Ts, Ds) ->
     Types = normalized_types(Args, Ts),
@@ -1615,51 +1641,58 @@ simplify_pure_call(Mod, Name, Args0, I) ->
             end
     end.
 
-any_non_numeric_argument([#b_literal{val=Lit}|_], _Ts) ->
-    is_non_numeric(Lit);
-any_non_numeric_argument([#b_var{}=V|T], Ts) ->
-    is_non_numeric_type(concrete_type(V, Ts)) orelse
-        any_non_numeric_argument(T, Ts);
-any_non_numeric_argument([], _Ts) -> false.
+number_type(V, Ts) ->
+    number_type_1(concrete_type(V, Ts)).
 
-is_non_numeric([H|T]) ->
-    is_non_numeric(H) andalso is_non_numeric(T);
-is_non_numeric(Tuple) when is_tuple(Tuple) ->
-    is_non_numeric_tuple(Tuple, tuple_size(Tuple));
-is_non_numeric(Map) when is_map(Map) ->
-    %% Starting from OTP 18, map keys are compared using `=:=`.
-    %% Therefore, we only need to check that the values in the map are
-    %% non-numeric. (Support for compiling BEAM files for OTP releases
-    %% older than OTP 18 has been dropped.)
-    is_non_numeric(maps:values(Map));
-is_non_numeric(Num) when is_number(Num) ->
-    false;
-is_non_numeric(_) -> true.
+number_type_1(any) ->
+    #t_number{};
+number_type_1(Type) ->
+    N = beam_types:meet(Type, #t_number{}),
 
-is_non_numeric_tuple(Tuple, El) when El >= 1 ->
-    is_non_numeric(element(El, Tuple)) andalso
-        is_non_numeric_tuple(Tuple, El-1);
-is_non_numeric_tuple(_Tuple, 0) -> true.
+    List = case beam_types:meet(Type, #t_list{}) of
+               #t_cons{type=Head,terminator=Tail} ->
+                   beam_types:join(number_type_1(Head), number_type_1(Tail));
+               #t_list{type=Head,terminator=Tail} ->
+                   beam_types:join(number_type_1(Head), number_type_1(Tail));
+               nil ->
+                   none;
+               none ->
+                   none
+           end,
 
-is_non_numeric_type(#t_atom{}) -> true;
-is_non_numeric_type(#t_bitstring{}) -> true;
-is_non_numeric_type(#t_cons{type=Type,terminator=Terminator}) ->
-    is_non_numeric_type(Type) andalso is_non_numeric_type(Terminator);
-is_non_numeric_type(#t_list{type=Type,terminator=Terminator}) ->
-    is_non_numeric_type(Type) andalso is_non_numeric_type(Terminator);
-is_non_numeric_type(#t_map{super_value=Value}) ->
-    is_non_numeric_type(Value);
-is_non_numeric_type(nil) -> true;
-is_non_numeric_type(#t_tuple{size=Size,exact=true,elements=Types})
-  when map_size(Types) =:= Size ->
-    is_non_numeric_tuple_type(Size, Types);
-is_non_numeric_type(_) -> false.
+    Tup = case beam_types:meet(Type, #t_tuple{}) of
+              #t_tuple{size=Size,exact=true,elements=ElemTypes}
+                when map_size(ElemTypes) =:= Size ->
+                  beam_types:join([number_type_1(ET) ||
+                                      ET <- maps:values(ElemTypes)] ++ [none]);
+              #t_tuple{} ->
+                  #t_number{};
+              #t_union{} ->
+                  #t_number{};
+              none ->
+                  none
+          end,
 
-is_non_numeric_tuple_type(0, _Types) ->
-    true;
-is_non_numeric_tuple_type(Pos, Types) ->
-    is_non_numeric_type(map_get(Pos, Types)) andalso
-        is_non_numeric_tuple_type(Pos - 1, Types).
+    Map = case beam_types:meet(Type, #t_map{}) of
+              #t_map{super_value=MapValue} ->
+                  %% Starting from OTP 18, map keys are compared using
+                  %% `=:=`.  Therefore, we only need to use the values
+                  %% in the map.
+                  MapValue;
+              none ->
+                  none
+          end,
+
+    Fun = case beam_types:meet(Type, #t_fun{}) of
+              #t_fun{} ->
+                  %% The environment could contain a number. We don't
+                  %% keep track of the environment in #t_fun{}.
+                  #t_number{};
+              none ->
+                  none
+          end,
+
+    beam_types:join([N,List,Tup,Map,Fun]).
 
 make_literal_list(Args) ->
     make_literal_list(Args, []).

@@ -93,7 +93,7 @@ skip_removed(FuncIds, StMap) ->
 fixpoint(_FuncIds, _Order, _Passes, StMap, FuncDb, 0) ->
     %% Too many repetitions. Give up and return what we have.
     {StMap, FuncDb};
-fixpoint(FuncIds0, Order0, Passes, StMap0, FuncDb0, N) ->
+fixpoint(FuncIds0, Order0, Passes, StMap0, FuncDb0, N) when is_map(StMap0) ->
     {StMap, FuncDb} = phase(FuncIds0, Passes, StMap0, FuncDb0),
     Repeat = changed(FuncIds0, FuncDb0, FuncDb, StMap0, StMap),
     case sets:is_empty(Repeat) of
@@ -397,7 +397,7 @@ fdb_update(Caller, Callee, FuncDb) ->
 %% Functions where module-level optimization is disabled are added last in
 %% arbitrary order.
 
-get_call_order_po(StMap, FuncDb) ->
+get_call_order_po(StMap, FuncDb) when is_map(FuncDb) ->
     Order = gco_po(FuncDb),
     Order ++ sort([K || K <- maps:keys(StMap), not is_map_key(K, FuncDb)]).
 
@@ -495,7 +495,7 @@ ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
 %%% different registers).
 %%%
 
-ssa_opt_coalesce_phis({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
+ssa_opt_coalesce_phis({#opt_st{ssa=Blocks0}=St, FuncDb}) when is_map(Blocks0) ->
     Ls = beam_ssa:rpo(Blocks0),
     Blocks = c_phis_1(Ls, Blocks0),
     {St#opt_st{ssa=Blocks}, FuncDb}.
@@ -2455,7 +2455,7 @@ ssa_opt_sink({#opt_st{ssa=Linear}=St, FuncDb}) ->
             {do_ssa_opt_sink(Defs, St), FuncDb}
     end.
 
-do_ssa_opt_sink(Defs, #opt_st{ssa=Linear}=St) ->
+do_ssa_opt_sink(Defs, #opt_st{ssa=Linear}=St) when is_map(Defs) ->
     %% Find all the blocks that use variables defined by
     %% get_tuple_element instructions.
     Used = used_blocks(Linear, Defs, []),
@@ -2685,7 +2685,7 @@ gc_update_successors(Blk, GC, WillGC) ->
 %%  Return an gbset of block labels for the blocks that are not
 %%  suitable for sinking of get_tuple_element instructions.
 
-unsuitable(Linear, Blocks, Predecessors) ->
+unsuitable(Linear, Blocks, Predecessors) when is_map(Blocks), is_map(Predecessors) ->
     Unsuitable0 = unsuitable_1(Linear),
     Unsuitable1 = unsuitable_recv(Linear, Blocks, Predecessors),
     gb_sets:from_list(Unsuitable0 ++ Unsuitable1).
@@ -2925,6 +2925,7 @@ collect_get_tuple_element(Is, _Src, Acc) ->
 
 ssa_opt_unfold_literals({St,FuncDb}) ->
     #opt_st{ssa=Blocks0,args=Args,anno=Anno} = St,
+    true = is_map(Blocks0),                     %Assertion.
     ParamInfo = maps:get(parameter_info, Anno, #{}),
     LitMap = collect_arg_literals(Args, ParamInfo, 0, #{}),
     case map_size(LitMap) of
@@ -3089,6 +3090,7 @@ unfold_arg(Expr, _LitMap, _X) ->
 
 ssa_opt_tail_literals({St,FuncDb}) ->
     #opt_st{cnt=Count0,ssa=Blocks0} = St,
+    true = is_map(Blocks0),                     %Assertion.
     {Count, Blocks} = opt_tail_literals(beam_ssa:rpo(Blocks0), Count0, Blocks0),
     {St#opt_st{cnt=Count,ssa=Blocks},FuncDb}.
 
@@ -3173,7 +3175,7 @@ is_tail_literal(_Is, _Last, _Blocks) ->
 %%%   ret Var
 %%%
 
-ssa_opt_redundant_br({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
+ssa_opt_redundant_br({#opt_st{ssa=Blocks0}=St, FuncDb}) when is_map(Blocks0) ->
     Blocks = redundant_br(beam_ssa:rpo(Blocks0), Blocks0),
     {St#opt_st{ssa=Blocks}, FuncDb}.
 
@@ -3266,7 +3268,7 @@ redundant_br_safe_bool(Is, Bool) ->
 %%% failure label.
 %%%
 
-ssa_opt_bs_ensure({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
+ssa_opt_bs_ensure({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) when is_map(Blocks0) ->
     RPO = beam_ssa:rpo(Blocks0),
     Seen = sets:new([{version,2}]),
     {Blocks,Count} = ssa_opt_bs_ensure(RPO, Seen, Count0, Blocks0),

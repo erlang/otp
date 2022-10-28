@@ -81,6 +81,7 @@
  */
 
 #include <algorithm>
+#include <numeric>
 #include "beam_asm.hpp"
 
 extern "C"
@@ -90,6 +91,7 @@ extern "C"
 #include "beam_catches.h"
 #include "beam_common.h"
 #include "code_ix.h"
+#include "erl_binary.h"
 }
 
 using namespace asmjit;
@@ -906,50 +908,44 @@ void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
     a.jne(resolve_beam_label(Fail));
 }
 
-x86::Gp BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
-                                            const ArgSource &Src,
-                                            Label next,
-                                            Label subbin) {
+void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
+                                         const ArgSource &Src) {
+    Label is_binary = a.newLabel(), next = a.newLabel();
+
     mov_arg(ARG1, Src);
 
     emit_is_boxed(resolve_beam_label(Fail), Src, ARG1);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
-    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-    a.and_(RETb, imm(_TAG_HEADER_MASK));
-    a.cmp(RETb, imm(_TAG_HEADER_SUB_BIN));
-    a.short_().je(subbin);
-
     if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_BITSTRING) {
+        const auto diff_mask = _TAG_HEADER_SUB_BIN - _TAG_HEADER_REFC_BIN;
+        ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & diff_mask) != 0 &&
+                       (_TAG_HEADER_REFC_BIN & diff_mask) == 0 &&
+                       (_TAG_HEADER_HEAP_BIN & diff_mask) == 0);
         comment("simplified binary test since source is always a bitstring "
                 "when boxed");
+        a.test(emit_boxed_val(boxed_ptr, 0, 1), diff_mask);
+        a.short_().je(next);
     } else {
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+        a.and_(RETb, imm(_TAG_HEADER_MASK));
+        a.cmp(RETb, imm(_TAG_HEADER_SUB_BIN));
+        a.short_().jne(is_binary);
+    }
+
+    /* This is a sub binary. */
+    a.cmp(emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize), sizeof(byte)),
+          imm(0));
+    a.jne(resolve_beam_label(Fail));
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) != BEAM_TYPE_BITSTRING) {
+        a.short_().jmp(next);
+    }
+
+    a.bind(is_binary);
+    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) != BEAM_TYPE_BITSTRING) {
         ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
         a.and_(RETb, imm(~4));
         a.cmp(RETb, imm(_TAG_HEADER_REFC_BIN));
-        a.jne(resolve_beam_label(Fail));
-    }
-
-    a.short_().jmp(next);
-
-    return boxed_ptr;
-}
-
-void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
-                                         const ArgSource &Src) {
-    Label next = a.newLabel(), subbin = a.newLabel();
-    x86::Gp boxed_ptr;
-
-    boxed_ptr = emit_is_binary(Fail, Src, next, subbin);
-
-    a.bind(subbin);
-    {
-        /* emit_is_binary has already removed the literal tag from Src, if
-         * applicable. */
-        a.cmp(emit_boxed_val(boxed_ptr,
-                             offsetof(ErlSubBin, bitsize),
-                             sizeof(byte)),
-              imm(0));
         a.jne(resolve_beam_label(Fail));
     }
 
@@ -958,11 +954,19 @@ void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
                                             const ArgSource &Src) {
-    Label next = a.newLabel();
+    mov_arg(ARG1, Src);
 
-    emit_is_binary(Fail, Src, next, next);
+    emit_is_boxed(resolve_beam_label(Fail), Src, ARG1);
 
-    a.bind(next);
+    x86::Gp boxed_ptr = emit_ptr_val(ARG1, ARG1);
+    a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+
+    const auto mask = _HEADER_SUBTAG_MASK - _BINARY_XXX_MASK;
+    ERTS_CT_ASSERT(TAG_PRIMARY_HEADER == 0);
+    ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN == (_TAG_HEADER_REFC_BIN & mask));
+    a.and_(RETb, imm(mask));
+    a.cmp(RETb, imm(_TAG_HEADER_REFC_BIN));
+    a.jne(resolve_beam_label(Fail));
 }
 
 void BeamModuleAssembler::emit_is_float(const ArgLabel &Fail,
@@ -1119,7 +1123,7 @@ void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
 
 void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
                                       const ArgRegister &Src) {
-    a.cmp(getArgRef(Src), imm(NIL));
+    a.cmp(getArgRef(Src, 1), imm(NIL));
     a.jne(resolve_beam_label(Fail));
 }
 
@@ -1344,6 +1348,28 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
+    bool is_empty_binary = false;
+    if (exact_type(X, BEAM_TYPE_BITSTRING) && Y.isLiteral()) {
+        auto unit = getSizeUnit(X);
+        if (unit != 0 && std::gcd(unit, 8) == 8) {
+            Eterm literal =
+                    beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+            is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
+        }
+    }
+
+    if (is_empty_binary) {
+        mov_arg(RET, X);
+
+        x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
+
+        comment("simplified equality test with empty binary");
+        a.cmp(emit_boxed_val(boxed_ptr, sizeof(Eterm)), 0);
+        a.jne(resolve_beam_label(Fail));
+
+        return;
+    }
+
     /* If either argument is known to be an immediate, we can fail immediately
      * if they're not equal. */
     if (always_immediate(X) || always_immediate(Y)) {
@@ -1370,13 +1396,23 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
 #endif
 
     if (always_same_types(X, Y)) {
-        comment("skipped test of tags since they are always equal");
+        comment("skipped tag test since they are always equal");
+    } else if (Y.isLiteral()) {
+        /* Fail immediately unless X is the same type of pointer as
+         * the literal Y.
+         */
+        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+        Uint tag_test = _TAG_PRIMARY_MASK - (literal & _TAG_PRIMARY_MASK);
+        a.test(ARG1.r8(), imm(tag_test));
+        a.jne(resolve_beam_label(Fail));
     } else {
-        /* The terms could still be equal if both operands are pointers
-         * having the same tag. */
+        /* Fail immediately if the pointer tags are not equal. */
         emit_is_unequal_based_on_tags(ARG1, ARG2);
         a.je(resolve_beam_label(Fail));
     }
+
+    /* Both operands are pointers having the same tag. Must do a
+     * deeper comparison. */
 
     emit_enter_runtime();
 
@@ -1390,31 +1426,31 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
     a.bind(next);
 }
 
-void BeamModuleAssembler::emit_i_is_eq_exact_literal(const ArgLabel &Fail,
-                                                     const ArgSource &Src,
-                                                     const ArgConstant &Literal,
-                                                     const ArgWord &tag_test) {
-    mov_arg(ARG2, Literal); /* May clobber ARG1 */
-    mov_arg(ARG1, Src);
-
-    /* Fail immediately unless Src is the same type of pointer as the literal.
-     */
-    a.test(ARG1.r8(), imm(tag_test.get()));
-    a.jne(resolve_beam_label(Fail));
-
-    emit_enter_runtime();
-
-    runtime_call<2>(eq);
-
-    emit_leave_runtime();
-
-    a.test(RETd, RETd);
-    a.jz(resolve_beam_label(Fail));
-}
-
 void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
+    bool is_empty_binary = false;
+    if (exact_type(X, BEAM_TYPE_BITSTRING) && Y.isLiteral()) {
+        auto unit = getSizeUnit(X);
+        if (unit != 0 && std::gcd(unit, 8) == 8) {
+            Eterm literal =
+                    beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+            is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
+        }
+    }
+
+    if (is_empty_binary) {
+        mov_arg(RET, X);
+
+        x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
+
+        comment("simplified non-equality test with empty binary");
+        a.cmp(emit_boxed_val(boxed_ptr, sizeof(Eterm)), 0);
+        a.je(resolve_beam_label(Fail));
+
+        return;
+    }
+
     /* If either argument is known to be an immediate, we can fail immediately
      * if they're equal. */
     if (always_immediate(X) || always_immediate(Y)) {
@@ -1438,6 +1474,18 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
 
     if (always_same_types(X, Y)) {
         comment("skipped tag test since they are always equal");
+    } else if (Y.isLiteral()) {
+        /* Succeed immediately if X is not the same type of pointer as
+         * the literal Y.
+         */
+        Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
+        Uint tag_test = _TAG_PRIMARY_MASK - (literal & _TAG_PRIMARY_MASK);
+        a.test(ARG1.r8(), imm(tag_test));
+#ifdef JIT_HARD_DEBUG
+        a.jne(next);
+#else
+        a.short_().jne(next);
+#endif
     } else {
         /* Test whether the terms are definitely unequal based on the tags
          * alone. */
@@ -1449,32 +1497,6 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
         a.short_().je(next);
 #endif
     }
-
-    emit_enter_runtime();
-
-    runtime_call<2>(eq);
-
-    emit_leave_runtime();
-
-    a.test(RETd, RETd);
-    a.jnz(resolve_beam_label(Fail));
-
-    a.bind(next);
-}
-
-void BeamModuleAssembler::emit_i_is_ne_exact_literal(
-        const ArgLabel &Fail,
-        const ArgSource &Src,
-        const ArgConstant &Literal) {
-    Label next = a.newLabel();
-
-    mov_arg(ARG2, Literal); /* May clobber ARG1 */
-    mov_arg(ARG1, Src);
-
-    a.mov(RETd, ARG1d);
-    a.and_(RETb, imm(_TAG_IMMED1_MASK));
-    a.cmp(RETb, imm(TAG_PRIMARY_IMMED1));
-    a.short_().je(next);
 
     emit_enter_runtime();
 
@@ -1850,59 +1872,6 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
     a.jl(resolve_beam_label(Fail));
 
     a.bind(next);
-}
-
-void BeamModuleAssembler::emit_bif_is_eq_ne_exact(const ArgSource &LHS,
-                                                  const ArgSource &RHS,
-                                                  const ArgRegister &Dst,
-                                                  Eterm fail_value,
-                                                  Eterm succ_value) {
-    /* `mov_imm` may clobber the flags if either value is zero. */
-    ASSERT(fail_value && succ_value);
-
-    mov_imm(RET, succ_value);
-    cmp_arg(getArgRef(LHS), RHS);
-
-    if (always_immediate(LHS) || always_immediate(RHS)) {
-        if (!LHS.isImmed() && !RHS.isImmed()) {
-            comment("simplified check since one argument is an immediate");
-        }
-        mov_imm(ARG1, fail_value);
-        a.cmovne(RET, ARG1);
-    } else {
-        Label next = a.newLabel();
-
-        a.je(next);
-
-        mov_arg(ARG1, LHS);
-        mov_arg(ARG2, RHS);
-
-        emit_enter_runtime();
-        runtime_call<2>(eq);
-        emit_leave_runtime();
-
-        a.test(RET, RET);
-
-        mov_imm(RET, succ_value);
-        mov_imm(ARG1, fail_value);
-        a.cmove(RET, ARG1);
-
-        a.bind(next);
-    }
-
-    mov_arg(Dst, RET);
-}
-
-void BeamModuleAssembler::emit_bif_is_eq_exact(const ArgRegister &LHS,
-                                               const ArgSource &RHS,
-                                               const ArgRegister &Dst) {
-    emit_bif_is_eq_ne_exact(LHS, RHS, Dst, am_false, am_true);
-}
-
-void BeamModuleAssembler::emit_bif_is_ne_exact(const ArgRegister &LHS,
-                                               const ArgSource &RHS,
-                                               const ArgRegister &Dst) {
-    emit_bif_is_eq_ne_exact(LHS, RHS, Dst, am_true, am_false);
 }
 
 /*

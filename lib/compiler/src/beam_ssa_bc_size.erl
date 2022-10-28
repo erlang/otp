@@ -44,7 +44,7 @@
 
 -spec opt(st_map()) -> st_map().
 
-opt(StMap) ->
+opt(StMap) when is_map(StMap) ->
     opt(maps:keys(StMap), StMap).
 
 opt([Id|Ids], StMap0) ->
@@ -199,7 +199,7 @@ setup_call_bs([], [], #{}, NewBs) -> NewBs.
 
 calc_size([{L,#b_blk{is=Is,last=Last}}|Blks], Map0) ->
     case maps:take(L, Map0) of
-        {Bs0,Map1} ->
+        {Bs0,Map1} when is_map(Bs0) ->
             Bs1 = calc_size_is(Is, Bs0),
             Map2 = update_successors(Last, Bs1, Map1),
             case get_ret(Last, Bs1) of
