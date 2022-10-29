@@ -1115,7 +1115,13 @@ cg_block([#cg_set{anno=Anno,op={bif,Name},dst=Dst0,args=Args0}=I|T],
             Is = Kill++Line++[{gc_bif,Name,{f,0},Live,Args,Dst}|Is0],
             {Is,St};
         false ->
-            Is = [{bif,Name,{f,0},Args,Dst}|Is0],
+            Bif = case {Name,Args} of
+                      {'not',[{tr,_,#t_atom{elements=[false,true]}}=Arg]} ->
+                          {bif,'=:=',{f,0},[Arg,{atom,false}],Dst};
+                      {_,_} ->
+                          {bif,Name,{f,0},Args,Dst}
+                  end,
+            Is = [Bif|Is0],
             {Is,St}
     end;
 cg_block([#cg_set{op=bs_create_bin,dst=Dst0,args=Args0,anno=Anno}=I,
