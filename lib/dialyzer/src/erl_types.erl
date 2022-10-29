@@ -444,7 +444,7 @@ has_opaque_subtype(T) ->
 -spec t_opaque_structure(erl_type()) -> erl_type().
 
 t_opaque_structure(?opaque(Elements)) ->
-  t_sup([Struct || #opaque{struct = Struct} <- ordsets:to_list(Elements)]).
+  t_sup([Struct || #opaque{struct = Struct} <- Elements]).
 
 -spec t_contains_opaque(erl_type()) -> boolean().
 
@@ -646,7 +646,7 @@ decorate(Type, _T, _Opaques) -> Type.
 %% Note: it is important that #opaque.struct is a subtype of the
 %% opaque type.
 decorate_with_opaque(Type, ?opaque(Set2), Opaques) ->
-  case decoration(set_to_list(Set2), Type, Opaques, [], false) of
+  case decoration(Set2, Type, Opaques, [], false) of
     {[], false} -> Type;
     {List, All} when List =/= [] ->
       NewType = sup_opaque(List),
@@ -810,7 +810,7 @@ t_atom_vals(Type, Opaques) ->
   do_opaque(Type, Opaques, fun atom_vals/1).
 
 atom_vals(?atom(?any)) -> unknown;
-atom_vals(?atom(Set)) -> set_to_list(Set);
+atom_vals(?atom(Set)) -> Set;
 atom_vals(?opaque(_)) -> unknown;
 atom_vals(Other) ->
   ?atom(_) = Atm = t_inf(t_atom(), Other),
@@ -862,14 +862,14 @@ t_is_boolean(Type, Opaques) ->
 t_boolean() ->
   ?atom(set_from_list([false, true])).
 
-is_boolean(?atom(?any)) -> false;
 is_boolean(?atom(Set)) ->
-  case set_size(Set) of
-    1 -> set_is_element(true, Set) orelse set_is_element(false, Set);
-    2 -> set_is_element(true, Set) andalso set_is_element(false, Set);
-    N when is_integer(N), N > 2 -> false
+  case Set of
+    [Atom] when erlang:is_boolean(Atom) -> true;
+    [false,true] -> true;
+    _ -> false
   end;
 is_boolean(_) -> false.
+
 
 %%-----------------------------------------------------------------------------
 %% Binaries
@@ -1166,7 +1166,7 @@ t_number_vals(Type) ->
 t_number_vals(Type, Opaques) ->
   do_opaque(Type, Opaques, fun number_vals/1).
 
-number_vals(?int_set(Set)) -> set_to_list(Set);
+number_vals(?int_set(Set)) -> Set;
 number_vals(?number(_, _)) -> unknown;
 number_vals(?opaque(_)) -> unknown;
 number_vals(Other) ->
@@ -1498,7 +1498,7 @@ t_widen_to_number(?nil) -> ?nil;
 t_widen_to_number(?number(_Set, _Tag)) -> t_number();
 t_widen_to_number(?opaque(Set)) ->
   L = [Opaque#opaque{struct = t_widen_to_number(S)} ||
-        #opaque{struct = S} = Opaque <- set_to_list(Set)],
+        #opaque{struct = S} = Opaque <- Set],
   ?opaque(ordsets:from_list(L));
 t_widen_to_number(?product(Types)) ->
   ?product(list_widen_to_number(Types));
@@ -1639,7 +1639,7 @@ normalise_map_optionals([E|T], DefK, DefV, Es, F) ->
 %% `#{0 => t(), pos_integer() => t()}' is to be represented by
 %% `#{non_neg_integer() => t()}'.
 needs_to_be_merged(?int_set(Set), DefK) ->
-  [I] = set_to_list(Set),
+  [I] = Set,
   Iplus = t_integer(I + 1),
   Iminus = t_integer(I - 1),
   InfPlus = t_inf(Iplus, DefK),
@@ -1995,9 +1995,9 @@ get_tuple_tags(_) -> [?any].
 
 tuple_tags(?atom(?any)) -> [?any];
 tuple_tags(?atom(Set)) ->
-  case set_size(Set) > ?TUPLE_TAG_LIMIT of
+  case length(Set) > ?TUPLE_TAG_LIMIT of
     true -> [?any];
-    false -> [t_atom(A) || A <- set_to_list(Set)]
+    false -> [t_atom(A) || A <- Set]
   end;
 tuple_tags(_) -> [?any].
 
@@ -2219,7 +2219,7 @@ t_has_var(?map(_, DefK, _)= Map) ->
   t_has_var_list(map_all_values(Map)) orelse
     t_has_var(DefK);
 t_has_var(?opaque(Set)) ->
-  t_has_var_list([O#opaque.struct || O <- set_to_list(Set)]);
+  t_has_var_list([O#opaque.struct || O <- Set]);
 t_has_var(?union(List)) ->
   t_has_var_list(List);
 t_has_var(_) -> false.
@@ -2258,7 +2258,7 @@ t_collect_var_names(?map(_, DefK, _) = Map, Acc0) ->
   Acc = t_collect_vars_list(map_all_values(Map), Acc0),
   t_collect_var_names(DefK, Acc);
 t_collect_var_names(?opaque(Set), Acc) ->
-  t_collect_vars_list([O#opaque.struct || O <- set_to_list(Set)], Acc);
+  t_collect_vars_list([O#opaque.struct || O <- Set], Acc);
 t_collect_var_names(?union(List), Acc) ->
   t_collect_vars_list(List, Acc);
 t_collect_var_names(_, Acc) ->
@@ -2465,7 +2465,7 @@ t_sup(?function(Domain1, Range1), ?function(Domain2, Range2)) ->
 t_sup(?identifier(Set1), ?identifier(Set2)) ->
   ?identifier(set_union(Set1, Set2));
 t_sup(?opaque(Set1), ?opaque(Set2)) ->
-  sup_opaque(set_to_list(ordsets:union(Set1, Set2)));
+  sup_opaque(ordsets:union(Set1, Set2));
 %%Disallow unions with opaque types
 %%t_sup(T1=?opaque(_,_,_), T2) ->
 %%  io:format("Debug: t_sup executed with args ~w and ~w~n",[T1, T2]), ?none;
@@ -2613,7 +2613,7 @@ sup_tuples_in_set(L1, L2) ->
       %% We will reach the set limit. Widen now.
       [t_tuple(sup_tuple_elements(L1 ++ L2))];
     ?atom(Set) ->
-      case set_size(Set) > ?TUPLE_TAG_LIMIT of
+      case length(Set) > ?TUPLE_TAG_LIMIT of
 	true ->
 	  %% We will reach the set limit. Widen now.
 	  [t_tuple(sup_tuple_elements(L1 ++ L2))];
@@ -2917,8 +2917,7 @@ inf_opaque1(T1, ?opaque(Set2)=T2, Pos, Opaques) ->
   case Opaques =:= 'universe' orelse inf_is_opaque_type(T2, Pos, Opaques) of
     false -> ?none;
     true ->
-      List2 = set_to_list(Set2),
-      case inf_collect(T1, List2, Opaques, []) of
+      case inf_collect(T1, Set2, Opaques, []) of
         [] -> ?none;
         OpL -> ?opaque(ordsets:from_list(OpL))
       end
@@ -2973,7 +2972,7 @@ inf_opaque(Set1, Set2, Opaques) ->
 %% Optimization: do just one lookup.
 inf_look_up(Set, Opaques) ->
   [{Opaques =:= 'universe' orelse inf_is_opaque_type2(T, Opaques), T} ||
-    T <- set_to_list(Set)].
+    T <- Set].
 
 inf_is_opaque_type2(T, {match, Opaques}) ->
   is_opaque_type2(T, Opaques);
@@ -3224,7 +3223,7 @@ t_subst_aux(?map(Pairs, DefK, DefV), Map) ->
 	t_subst_aux(DefK, Map), t_subst_aux(DefV, Map));
 t_subst_aux(?opaque(Es), Map) ->
   List = [Opaque#opaque{struct = t_subst_aux(S, Map)} ||
-           Opaque = #opaque{struct = S} <- set_to_list(Es)],
+           Opaque = #opaque{struct = S} <- Es],
   ?opaque(ordsets:from_list(List));
 t_subst_aux(?union(List), Map) ->
   ?union([t_subst_aux(E, Map) || E <- List]);
@@ -3620,7 +3619,7 @@ t_subtract(T1, T2) ->
 
 opaque_subtract(?opaque(Set1), T2) ->
   List = [T1#opaque{struct = Sub} ||
-           #opaque{struct = S1}=T1 <- set_to_list(Set1),
+           #opaque{struct = S1}=T1 <- Set1,
            not t_is_none(Sub = t_subtract(S1, T2))],
   case List of
     [] -> ?none;
@@ -3822,7 +3821,7 @@ is_limited(?product(Elements), K) ->
 is_limited(?union(Elements), K) ->
   lists:all(fun(X) -> is_limited(X, K) end, Elements);
 is_limited(?opaque(Es), K) ->
-  lists:all(fun(#opaque{struct = S}) -> is_limited(S, K) end, set_to_list(Es));
+  lists:all(fun(#opaque{struct = S}) -> is_limited(S, K) end, Es);
 is_limited(?map(Pairs, DefK, DefV), K) ->
   %% Use the fact that t_sup() does not increase the depth.
   K1 = K - 1,
@@ -3860,7 +3859,7 @@ t_limit_k(?opaque(Es), K) ->
   List = [begin
             NewS = t_limit_k(S, K),
             Opaque#opaque{struct = NewS}
-          end || #opaque{struct = S} = Opaque <- set_to_list(Es)],
+          end || #opaque{struct = S} = Opaque <- Es],
   ?opaque(ordsets:from_list(List));
 t_limit_k(?map(Pairs0, DefK0, DefV0), K) ->
   Fun = fun({EK, MNess, EV}, {Exact, DefK1, DefV1}) ->
@@ -3941,7 +3940,7 @@ t_to_string(?unit, _RecDict) ->
 t_to_string(?atom(?any), _RecDict) ->
   "atom()";
 t_to_string(?atom(Set), _RecDict) ->
-  case set_size(Set) of
+  case length(Set) of
     2 ->
       case set_is_element(true, Set) andalso set_is_element(false, Set) of
 	true -> "boolean()";
@@ -3977,12 +3976,12 @@ t_to_string(?identifier(Set), _RecDict) ->
   case Set of
     ?any -> "identifier()";
     _ ->
-      flat_join([flat_format("~w()", [T]) || T <- set_to_list(Set)], " | ")
+      flat_join([flat_format("~w()", [T]) || T <- Set], " | ")
   end;
 t_to_string(?opaque(Set), RecDict) ->
   flat_join([opaque_type(Mod, Name, Arity, S, RecDict) ||
               #opaque{mod = Mod, name = Name, struct = S, arity = Arity}
-                <- set_to_list(Set)],
+                <- Set],
             " | ");
 t_to_string(?nil, _RecDict) ->
   "[]";
@@ -5276,11 +5275,9 @@ t_is_singleton(Type, Opaques) ->
 %% Used to also recognize maps and tuples.
 is_singleton_type(?nil) -> true;
 is_singleton_type(?atom(?any)) -> false;
-is_singleton_type(?atom(Set)) ->
-  ordsets:size(Set) =:= 1;
+is_singleton_type(?atom([_])) -> true;
 is_singleton_type(?int_range(V, V)) -> true; % cannot happen
-is_singleton_type(?int_set(Set)) ->
-  ordsets:size(Set) =:= 1;
+is_singleton_type(?int_set([_])) -> true;
 is_singleton_type(_) ->
   false.
 
@@ -5289,10 +5286,12 @@ is_singleton_type(_) ->
 %%
 
 set_singleton(Element) ->
-  ordsets:from_list([Element]).
+  [Element].
 
-set_is_singleton(Element, Set) ->
-  set_singleton(Element) =:= Set.
+set_is_singleton(Element, [Element]) ->
+  true;
+set_is_singleton(_, _) ->
+  false.
 
 set_is_element(Element, Set) ->
   ordsets:is_element(Element, Set).
@@ -5331,29 +5330,23 @@ set_from_list(List) ->
     L when L > ?SET_LIMIT -> ?any
   end.
 
-set_to_list(Set) ->
-  ordsets:to_list(Set).
-
-set_filter(Fun, Set) ->
-  case ordsets:filter(Fun, Set) of
+set_filter(Pred, Set) ->
+  case [E || E <- Set, Pred(E)] of
     [] -> ?none;
     NewSet -> NewSet
   end.
-
-set_size(Set) ->
-  ordsets:size(Set).
 
 set_to_string(Set) ->
   L = [case is_atom(X) of
 	 true -> io_lib:write_string(atom_to_list(X), $'); % stupid emacs '
 	 false -> flat_format("~tw", [X])
-       end || X <- set_to_list(Set)],
+       end || X <- Set],
   flat_join(L, " | ").
 
 set_min([H|_]) -> H.
 
 set_max(Set) ->
-  hd(lists:reverse(Set)).
+  lists:last(Set).
 
 flat_format(F, S) ->
   lists:flatten(io_lib:format(F, S)).
