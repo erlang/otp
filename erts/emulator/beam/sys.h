@@ -1200,6 +1200,8 @@ ERTS_GLB_INLINE size_t sys_strlen(const char *s)
                       (((unsigned char*) (s))[2] << 8)  | \
                       (((unsigned char*) (s))[3]))
 
+#define get_uint32(s) ((Uint32)get_int32(s))
+
 #define put_int32(i, s) do {((char*)(s))[0] = (char)((i) >> 24) & 0xff;   \
                             ((char*)(s))[1] = (char)((i) >> 16) & 0xff;   \
                             ((char*)(s))[2] = (char)((i) >> 8)  & 0xff;   \
