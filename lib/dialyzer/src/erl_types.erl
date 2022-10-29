@@ -77,7 +77,6 @@
          t_from_form_check_remote/4,
          t_check_record_fields/6,
 	 t_from_range/2,
-	 t_from_range_unsafe/2,
 	 t_from_term/1,
 	 t_fun/0,
 	 t_fun/1,
@@ -106,13 +105,11 @@
 	 t_is_any_atom/2, t_is_any_atom/3,
 	 t_is_binary/1, t_is_binary/2,
 	 t_is_bitstr/1, t_is_bitstr/2,
-	 t_is_bitwidth/1,
 	 t_is_boolean/1, t_is_boolean/2,
          t_is_byte/1,
          t_is_char/1,
 	 t_is_cons/1, t_is_cons/2,
 	 t_is_equal/2,
-	 t_is_fixnum/1,
 	 t_is_float/1, t_is_float/2,
 	 t_is_fun/1, t_is_fun/2,
          t_is_identifier/1,
@@ -121,7 +118,6 @@
 	 t_is_list/1,
 	 t_is_map/1,
 	 t_is_map/2,
-	 t_is_matchstate/1,
 	 t_is_nil/1, t_is_nil/2,
 	 t_is_non_neg_integer/1,
 	 t_is_none/1,
@@ -156,13 +152,6 @@
 	 t_map_pairwise_merge/4,
 	 t_map_put/2, t_map_put/3,
          t_map_remove/3,
-	 t_matchstate/0,
-	 t_matchstate/2,
-	 t_matchstate_present/1,
-	 t_matchstate_slot/2,
-	 t_matchstate_slots/1,
-	 t_matchstate_update_present/2,
-	 t_matchstate_update_slot/3,
 	 t_mfa/0,
 	 t_module/0,
 	 t_nil/0,
@@ -184,7 +173,6 @@
 	 %% t_maybe_improper_list/2,
 	 t_product/1,
 	 t_reference/0,
-	 t_singleton_to_term/2,
 	 t_string/0,
 	 t_subst/2,
 	 t_subtract/2,
@@ -257,9 +245,6 @@
 
 -define(UNIT_MULTIPLIER, 8).
 
--define(TAG_IMMED1_SIZE, 4).
--define(BITS, (erlang:system_info(wordsize) * 8) - ?TAG_IMMED1_SIZE).
-
 -define(MAX_TUPLE_SIZE, (1 bsl 10)).
 
 %%-----------------------------------------------------------------------------
@@ -272,7 +257,6 @@
 -define(identifier_tag, identifier).
 -define(list_tag,       list).
 -define(map_tag,        map).
--define(matchstate_tag, matchstate).
 -define(nil_tag,        nil).
 -define(number_tag,     number).
 -define(opaque_tag,     opaque).
@@ -283,7 +267,7 @@
 -define(var_tag,        var).
 
 -type tag()  :: ?atom_tag | ?binary_tag | ?function_tag | ?identifier_tag
-              | ?list_tag | ?map_tag | ?matchstate_tag | ?nil_tag | ?number_tag
+              | ?list_tag | ?map_tag | ?nil_tag | ?number_tag
               | ?opaque_tag | ?product_tag
               | ?tuple_tag | ?tuple_set_tag | ?union_tag | ?var_tag.
 
@@ -349,9 +333,6 @@
 -define(tuple_set(Tuples),         #c{tag=?tuple_set_tag, elements=Tuples}).
 -define(var(Id),                   #c{tag=?var_tag, elements=Id}).
 
--define(matchstate(P, Slots),	   #c{tag=?matchstate_tag, elements=[P,Slots]}).
--define(any_matchstate,            ?matchstate(t_bitstr(), ?any)).
-
 -define(byte,                      ?int_range(0, ?MAX_BYTE)).
 -define(char,                      ?int_range(0, ?MAX_CHAR)).
 -define(integer_pos,               ?int_range(1, pos_inf)).
@@ -379,18 +360,18 @@
 %% Unions
 %%
 
--define(union(List), #c{tag=?union_tag, elements=[_,_,_,_,_,_,_,_,_,_]=List}).
+-define(union(List), #c{tag=?union_tag, elements=[_,_,_,_,_,_,_,_,_]=List}).
+-define(untagged_union(A, B, F, I, L, N, T, O, Map), [A,B,F,I,L,N,T,O,Map]).
 
--define(atom_union(T),       ?union([T,?none,?none,?none,?none,?none,?none,?none,?none,?none])).
--define(bitstr_union(T),     ?union([?none,T,?none,?none,?none,?none,?none,?none,?none,?none])).
--define(function_union(T),   ?union([?none,?none,T,?none,?none,?none,?none,?none,?none,?none])).
--define(identifier_union(T), ?union([?none,?none,?none,T,?none,?none,?none,?none,?none,?none])).
--define(list_union(T),       ?union([?none,?none,?none,?none,T,?none,?none,?none,?none,?none])).
--define(number_union(T),     ?union([?none,?none,?none,?none,?none,T,?none,?none,?none,?none])).
--define(tuple_union(T),      ?union([?none,?none,?none,?none,?none,?none,T,?none,?none,?none])).
--define(matchstate_union(T), ?union([?none,?none,?none,?none,?none,?none,?none,T,?none,?none])).
--define(opaque_union(T),     ?union([?none,?none,?none,?none,?none,?none,?none,?none,T,?none])).
--define(map_union(T),        ?union([?none,?none,?none,?none,?none,?none,?none,?none,?none,T])).
+-define(atom_union(T),       ?union([T,?none,?none,?none,?none,?none,?none,?none,?none])).
+-define(bitstr_union(T),     ?union([?none,T,?none,?none,?none,?none,?none,?none,?none])).
+-define(function_union(T),   ?union([?none,?none,T,?none,?none,?none,?none,?none,?none])).
+-define(identifier_union(T), ?union([?none,?none,?none,T,?none,?none,?none,?none,?none])).
+-define(list_union(T),       ?union([?none,?none,?none,?none,T,?none,?none,?none,?none])).
+-define(number_union(T),     ?union([?none,?none,?none,?none,?none,T,?none,?none,?none])).
+-define(tuple_union(T),      ?union([?none,?none,?none,?none,?none,?none,T,?none,?none])).
+-define(opaque_union(T),     ?union([?none,?none,?none,?none,?none,?none,?none,T,?none])).
+-define(map_union(T),        ?union([?none,?none,?none,?none,?none,?none,?none,?none,T])).
 -define(integer_union(T),    ?number_union(T)).
 -define(float_union(T),      ?number_union(T)).
 -define(nil_union(T),        ?list_union(T)).
@@ -492,7 +473,6 @@ t_contains_opaque(?list(Type, Tail, _), Opaques) ->
   t_contains_opaque(Type, Opaques) orelse t_contains_opaque(Tail, Opaques);
 t_contains_opaque(?map(_, _, _) = Map, Opaques) ->
   list_contains_opaque(map_all_types(Map), Opaques);
-t_contains_opaque(?matchstate(_P, _Slots), _Opaques) -> false;
 t_contains_opaque(?nil, _Opaques) -> false;
 t_contains_opaque(?number(_Set, _Tag), _Opaques) -> false;
 t_contains_opaque(?opaque(_)=T, Opaques) ->
@@ -699,9 +679,9 @@ list_decorate(List, L, Opaques) ->
 
 union_decorate(U1, U2, Opaques) ->
   Union = union_decorate(U1, U2, Opaques, 0, []),
-  [A,B,F,I,L,N,T,M,_,Map] = U1,
-  [_,_,_,_,_,_,_,_,Opaque,_] = U2,
-  List = [A,B,F,I,L,N,T,M,Map],
+  ?untagged_union(A,B,F,I,L,N,T,_,Map) = U1,
+  ?untagged_union(_,_,_,_,_,_,_,Opaque,_) = U2,
+  List = [A,B,F,I,L,N,T,Map],
   DecList = [Dec ||
               E <- List,
               not t_is_none(E),
@@ -990,92 +970,6 @@ t_is_bitstr(Type, Opaques) ->
 
 is_bitstr(?bitstr(_, _)) -> true;
 is_bitstr(_) -> false.
-
-%%-----------------------------------------------------------------------------
-%% Matchstates
-%%
-
--spec t_matchstate() -> erl_type().
-
-t_matchstate() ->
-  ?any_matchstate.
-
--spec t_matchstate(erl_type(), non_neg_integer()) -> erl_type().
-
-t_matchstate(Init, 0) ->
-  ?matchstate(Init, Init);
-t_matchstate(Init, Max) when is_integer(Max) ->
-  Slots = [Init|[?none || _ <- lists:seq(1, Max)]],
-  ?matchstate(Init, t_product(Slots)).
-
--spec t_is_matchstate(erl_type()) -> boolean().
-
-t_is_matchstate(?matchstate(_, _)) -> true;
-t_is_matchstate(_) -> false.
-
--spec t_matchstate_present(erl_type()) -> erl_type().
-
-t_matchstate_present(Type) ->
-  case t_inf(t_matchstate(), Type) of
-    ?matchstate(P, _) -> P;
-    _ -> ?none
-  end.
-
--spec t_matchstate_slot(erl_type(), non_neg_integer()) -> erl_type().
-
-t_matchstate_slot(Type, Slot) ->
-  RealSlot = Slot + 1,
-  case t_inf(t_matchstate(), Type) of
-    ?matchstate(_, ?any) -> ?any;
-    ?matchstate(_, ?product(Vals)) when length(Vals) >= RealSlot ->
-      lists:nth(RealSlot, Vals);
-    ?matchstate(_, ?product(_)) ->
-      ?none;
-    ?matchstate(_, SlotType) when RealSlot =:= 1 ->
-      SlotType;
-    _ ->
-      ?none
-  end.
-
--spec t_matchstate_slots(erl_type()) -> erl_type().
-
-t_matchstate_slots(?matchstate(_, Slots)) ->
-  Slots.
-
--spec t_matchstate_update_present(erl_type(), erl_type()) -> erl_type().
-
-t_matchstate_update_present(New, Type) ->
-  case t_inf(t_matchstate(), Type) of
-    ?matchstate(_, Slots) ->
-      ?matchstate(New, Slots);
-    _ -> ?none
-  end.
-
--spec t_matchstate_update_slot(erl_type(), erl_type(), non_neg_integer()) -> erl_type().
-
-t_matchstate_update_slot(New, Type, Slot) ->
-  RealSlot = Slot + 1,
-  case t_inf(t_matchstate(), Type) of
-    ?matchstate(Pres, Slots) ->
-      NewSlots =
-	case Slots of
-	  ?any ->
-	    ?any;
-	  ?product(Vals) when length(Vals) >= RealSlot ->
-	    NewTuple = setelement(RealSlot, list_to_tuple(Vals), New),
-	    NewVals = tuple_to_list(NewTuple),
-	    ?product(NewVals);
-	  ?product(_) ->
-	    ?none;
-	  _ when RealSlot =:= 1 ->
-	    New;
-	  _ ->
-	    ?none
-	end,
-      ?matchstate(Pres, NewSlots);
-    _ ->
-      ?none
-  end.
 
 %%-----------------------------------------------------------------------------
 %% Functions
@@ -1600,7 +1494,6 @@ t_widen_to_number(?map(Pairs, DefK, DefV)) ->
   L = [{t_widen_to_number(K), MNess, t_widen_to_number(V)} ||
         {K, MNess, V} <- Pairs],
   t_map(L, t_widen_to_number(DefK), t_widen_to_number(DefV));
-t_widen_to_number(?matchstate(_P, _Slots) = T) -> T;
 t_widen_to_number(?nil) -> ?nil;
 t_widen_to_number(?number(_Set, _Tag)) -> t_number();
 t_widen_to_number(?opaque(Set)) ->
@@ -2459,52 +2352,6 @@ t_from_range(pos_inf, neg_inf) -> t_none().
 
 -endif.
 
--spec t_from_range_unsafe(rng_elem(), rng_elem()) -> erl_type().
-
-t_from_range_unsafe(pos_inf, pos_inf) -> ?integer_pos;
-t_from_range_unsafe(neg_inf, neg_inf) -> ?integer_neg;
-t_from_range_unsafe(neg_inf, pos_inf) -> t_integer();
-t_from_range_unsafe(neg_inf, Y) -> ?int_range(neg_inf, Y);
-t_from_range_unsafe(X, pos_inf) -> ?int_range(X, pos_inf);
-t_from_range_unsafe(X, Y) when is_integer(X), is_integer(Y), X =< Y ->
-  if (Y - X) < ?SET_LIMIT -> t_integers(lists:seq(X, Y));
-     true -> ?int_range(X, Y)
-  end;
-t_from_range_unsafe(X, Y) when is_integer(X), is_integer(Y) -> t_none();
-t_from_range_unsafe(pos_inf, neg_inf) -> t_none().
-
--spec t_is_fixnum(erl_type()) -> boolean().
-
-t_is_fixnum(?int_range(neg_inf, _)) -> false;
-t_is_fixnum(?int_range(_, pos_inf)) -> false;
-t_is_fixnum(?int_range(From, To)) ->
-  is_fixnum(From) andalso is_fixnum(To);
-t_is_fixnum(?int_set(Set)) ->
-  is_fixnum(set_min(Set)) andalso is_fixnum(set_max(Set));
-t_is_fixnum(_) -> false.
-
--spec is_fixnum(integer()) -> boolean().
-
-is_fixnum(N) when is_integer(N) ->
-  Bits = ?BITS,
-  (N =< ((1 bsl (Bits - 1)) - 1)) andalso (N >= -(1 bsl (Bits - 1))).
-
-infinity_geq(pos_inf, _) -> true;
-infinity_geq(_, pos_inf) -> false;
-infinity_geq(_, neg_inf) -> true;
-infinity_geq(neg_inf, _) -> false;
-infinity_geq(A, B) -> A >= B.
-
--spec t_is_bitwidth(erl_type()) -> boolean().
-
-t_is_bitwidth(?int_range(neg_inf, _)) -> false;
-t_is_bitwidth(?int_range(_, pos_inf)) -> false;
-t_is_bitwidth(?int_range(From, To)) ->
-  infinity_geq(From, 0) andalso infinity_geq(?BITS, To);
-t_is_bitwidth(?int_set(Set)) ->
-  infinity_geq(set_min(Set), 0) andalso infinity_geq(?BITS, set_max(Set));
-t_is_bitwidth(_) -> false.
-
 -spec number_min(erl_type()) -> rng_elem().
 
 number_min(Type) ->
@@ -2624,8 +2471,6 @@ t_sup(?opaque(Set1), ?opaque(Set2)) ->
 %%  io:format("Debug: t_sup executed with args ~w and ~w~n",[T1, T2]), ?none;
 %%t_sup(T1, T2=?opaque(_,_,_)) ->
 %%  io:format("Debug: t_sup executed with args ~w and ~w~n",[T1, T2]), ?none;
-t_sup(?matchstate(Pres1, Slots1), ?matchstate(Pres2, Slots2)) ->
-  ?matchstate(t_sup(Pres1, Pres2), t_sup(Slots1, Slots2));
 t_sup(?nil, ?nil) -> ?nil;
 t_sup(?nil, ?list(Contents, Termination, _)) ->
   ?list(Contents, t_sup(?nil, Termination), ?unknown_qual);
@@ -2822,7 +2667,6 @@ force_union(T = ?opaque(_)) ->        ?opaque_union(T);
 force_union(T = ?map(_,_,_)) ->       ?map_union(T);
 force_union(T = ?tuple(_, _, _)) ->   ?tuple_union(T);
 force_union(T = ?tuple_set(_)) ->     ?tuple_union(T);
-force_union(T = ?matchstate(_, _)) -> ?matchstate_union(T);
 force_union(T = ?union(_)) ->         T.
 
 %%-----------------------------------------------------------------------------
@@ -2960,8 +2804,6 @@ t_inf(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, _Opaques) ->
 	 (K, _, V1, _, V2) -> {K, ?mand, t_inf(V1, V2)}
       end, A, B),
   t_map(Pairs, t_inf(ADefK, BDefK), t_inf(ADefV, BDefV));
-t_inf(?matchstate(Pres1, Slots1), ?matchstate(Pres2, Slots2), _Opaques) ->
-  ?matchstate(t_inf(Pres1, Pres2), t_inf(Slots1, Slots2));
 t_inf(?nil, ?nil, _Opaques) -> ?nil;
 t_inf(?nil, ?nonempty_list(_, _), _Opaques) ->
   ?none;
@@ -3253,9 +3095,9 @@ inf_tuples_in_sets2(_, [], Acc, _Opaques) -> lists:reverse(Acc).
 inf_union(U1, U2, Opaques) ->
   OpaqueFun =
     fun(Union1, Union2, InfFun) ->
-	[_,_,_,_,_,_,_,_,Opaque,_] = Union1,
-        [A,B,F,I,L,N,T,M,_,Map] = Union2,
-        List = [A,B,F,I,L,N,T,M,Map],
+        ?untagged_union(_,_,_,_,_,_,_,Opaque,_) = Union1,
+        ?untagged_union(A,B,F,I,L,N,T,_,Map) = Union2,
+        List = [A,B,F,I,L,N,T,Map],
         inf_union_collect(List, Opaque, InfFun, [], [])
     end,
   {O1, ThrowList1} =
@@ -3518,11 +3360,11 @@ unify_union1(?union(List), T1, T2) ->
   end.
 
 unify_union(List) ->
-  [A,B,F,I,L,N,T,M,O,Map] = List,
+  ?untagged_union(A,B,F,I,L,N,T,O,Map) = List,
   if O =:= ?none -> no;
     true ->
       S = t_opaque_structure(O),
-      {yes, t_sup([A,B,F,I,L,N,T,M,S,Map])}
+      {yes, t_sup([A,B,F,I,L,N,T,S,Map])}
   end.
 
 -spec is_opaque_type(erl_type(), [erl_type()]) -> boolean().
@@ -3692,14 +3534,6 @@ t_subtract(?opaque(_)=T1, T2) ->
   opaque_subtract(T1, T2);
 t_subtract(T1, ?opaque(_)=T2) ->
   t_subtract(T1, t_opaque_structure(T2));
-t_subtract(?matchstate(Pres1, Slots1), ?matchstate(Pres2, _Slots2)) ->
-  Pres = t_subtract(Pres1, Pres2),
-  case t_is_none(Pres) of
-    true -> ?none;
-    false -> ?matchstate(Pres, Slots1)
-  end;
-t_subtract(?matchstate(Present, Slots), _) ->
-  ?matchstate(Present, Slots);
 t_subtract(?nil, ?nil) ->
   ?none;
 t_subtract(?nil, ?nonempty_list(_, _)) ->
@@ -3896,10 +3730,10 @@ t_subtract_lists([], [], Acc) ->
 -spec subtract_union([erl_type(),...], [erl_type(),...]) -> erl_type().
 
 subtract_union(U1, U2) ->
-  [A1,B1,F1,I1,L1,N1,T1,M1,O1,Map1] = U1,
-  [A2,B2,F2,I2,L2,N2,T2,M2,O2,Map2] = U2,
-  List1 = [A1,B1,F1,I1,L1,N1,T1,M1,?none,Map1],
-  List2 = [A2,B2,F2,I2,L2,N2,T2,M2,?none,Map2],
+  ?untagged_union(A1,B1,F1,I1,L1,N1,T1,O1,Map1) = U1,
+  ?untagged_union(A2,B2,F2,I2,L2,N2,T2,O2,Map2) = U2,
+  List1 = ?untagged_union(A1,B1,F1,I1,L1,N1,T1,?none,Map1),
+  List2 = ?untagged_union(A2,B2,F2,I2,L2,N2,T2,?none,Map2),
   Sub1 = subtract_union(List1, List2, 0, []),
   O = if O1 =:= ?none -> O1;
          true -> t_subtract(O1, ?union(U2))
@@ -4020,17 +3854,16 @@ t_unopaque(?product(Types), Opaques) ->
   ?product([t_unopaque(T, Opaques) || T <- Types]);
 t_unopaque(?function(Domain, Range), Opaques) ->
   ?function(t_unopaque(Domain, Opaques), t_unopaque(Range, Opaques));
-t_unopaque(?union([A,B,F,I,L,N,T,M,O,Map]), Opaques) ->
+t_unopaque(?union(?untagged_union(A,B,F,I,L,N,T,O,Map)), Opaques) ->
   UL = t_unopaque(L, Opaques),
   UT = t_unopaque(T, Opaques),
   UF = t_unopaque(F, Opaques),
-  UM = t_unopaque(M, Opaques),
   UMap = t_unopaque(Map, Opaques),
   {OF,UO} = case t_unopaque(O, Opaques) of
               ?opaque(_) = O1 -> {O1, []};
               Type -> {?none, [Type]}
             end,
-  t_sup([?union([A,B,UF,I,UL,N,UT,UM,OF,UMap])|UO]);
+  t_sup([?union([A,B,UF,I,UL,N,UT,OF,UMap])|UO]);
 t_unopaque(?map(Pairs,DefK,DefV), Opaques) ->
   t_map([{K, MNess, t_unopaque(V, Opaques)} || {K, MNess, V} <- Pairs],
 	t_unopaque(DefK, Opaques),
@@ -4239,9 +4072,6 @@ t_to_string(?opaque(Set), RecDict) ->
               #opaque{mod = Mod, name = Name, struct = S, arity = Arity}
                 <- set_to_list(Set)],
             " | ");
-t_to_string(?matchstate(Pres, Slots), RecDict) ->
-  flat_format("ms(~ts,~ts)", [t_to_string(Pres, RecDict),
-                              t_to_string(Slots,RecDict)]);
 t_to_string(?nil, _RecDict) ->
   "[]";
 t_to_string(?nonempty_list(Contents, Termination), RecDict) ->
@@ -5495,13 +5325,13 @@ do_opaque(?opaque(_) = Type, Opaques, Pred) ->
     false -> Pred(Type)
   end;
 do_opaque(?union(List) = Type, Opaques, Pred) ->
-  [A,B,F,I,L,N,T,M,O,Map] = List,
+  ?untagged_union(A,B,F,I,L,N,T,O,Map) = List,
   if O =:= ?none -> Pred(Type);
     true ->
       case Opaques =:= 'universe' orelse is_opaque_type(O, Opaques) of
         true ->
           S = t_opaque_structure(O),
-          do_opaque(t_sup([A,B,F,I,L,N,T,M,S,Map]), Opaques, Pred);
+          do_opaque(t_sup(?untagged_union(A,B,F,I,L,N,T,S,Map)), Opaques, Pred);
         false -> Pred(Type)
       end
   end;
@@ -5539,33 +5369,6 @@ is_singleton_type(?int_set(Set)) ->
   ordsets:size(Set) =:= 1;
 is_singleton_type(_) ->
   false.
-
-%% Returns the only possible value of a singleton type.
--spec t_singleton_to_term(erl_type(), opaques()) -> term().
-
-t_singleton_to_term(Type, Opaques) ->
-  do_opaque(Type, Opaques, fun singleton_type_to_term/1).
-
-singleton_type_to_term(?nil) -> [];
-singleton_type_to_term(?atom(Set)) when Set =/= ?any ->
-  case ordsets:size(Set) of
-    1 -> hd(ordsets:to_list(Set));
-    _ -> error(badarg)
-  end;
-singleton_type_to_term(?int_range(V, V)) -> V;
-singleton_type_to_term(?int_set(Set)) ->
-  case ordsets:size(Set) of
-    1 -> hd(ordsets:to_list(Set));
-    _ -> error(badarg)
-  end;
-singleton_type_to_term(?tuple(Types, Arity, _)) when is_integer(Arity) ->
-  lists:map(fun singleton_type_to_term/1, Types);
-singleton_type_to_term(?tuple_set([{Arity, [OnlyTuple]}]))
-  when is_integer(Arity) ->
-  singleton_type_to_term(OnlyTuple);
-singleton_type_to_term(?map(Pairs, ?none, ?none)) ->
-  maps:from_list([{singleton_type_to_term(K), singleton_type_to_term(V)}
-		  || {K,?mand,V} <- Pairs]).
 
 %% -----------------------------------
 %% Set
