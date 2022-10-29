@@ -360,7 +360,7 @@
 %% Unions
 %%
 
--define(union(List), #c{tag=?union_tag, elements=[_,_,_,_,_,_,_,_,_]=List}).
+-define(union(List), #c{tag=?union_tag, elements=List}).
 -define(untagged_union(A, B, F, I, L, N, T, O, Map), [A,B,F,I,L,N,T,O,Map]).
 
 -define(atom_union(T),       ?union([T,?none,?none,?none,?none,?none,?none,?none,?none])).
