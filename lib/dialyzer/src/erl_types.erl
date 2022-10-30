@@ -4183,12 +4183,12 @@ mod_name(Mod, Name) ->
 -type cache_key() :: {module(), atom(), expand_depth(),
                       [erl_type()], type_names()}.
 -type mod_type_table() :: ets:tid().
--type mod_records() :: dict:dict(module(), type_table()).
+-type mod_records() :: #{module() => type_table()}.
 -type exported_type_table() :: ets:tid().
 -record(cache,
         {
-          types = maps:new() :: #{cache_key() => {erl_type(), expand_limit()}},
-          mod_recs = {mrecs, dict:new()} :: {'mrecs', mod_records()}
+         types = #{} :: #{cache_key() => {erl_type(), expand_limit()}},
+         mod_recs = #{} :: mod_records()
         }).
 
 -opaque cache() :: #cache{}.
@@ -4205,11 +4205,11 @@ t_from_form(Form, ExpTypes, Site, RecDict, VarTab, Cache) ->
 
 t_from_form_without_remote(Form, Site, TypeTable) ->
   Module = site_module(Site),
-  ModRecs = dict:from_list([{Module, TypeTable}]),
+  ModRecs = #{Module => TypeTable},
   ExpTypes = replace_by_none,
   VarTab = var_table__new(),
   Cache0 = cache__new(),
-  Cache = Cache0#cache{mod_recs = {mrecs, ModRecs}},
+  Cache = Cache0#cache{mod_recs = ModRecs},
   {Type, _} = t_from_form1(Form, ExpTypes, Site, undefined, VarTab, Cache),
   Type.
 
@@ -5162,17 +5162,17 @@ is_erl_type(_) -> false.
                              'error' | {type_table(), cache()}.
 
 lookup_module_types(Module, CodeTable, Cache) ->
-  #cache{mod_recs = {mrecs, MRecs}} = Cache,
-  case dict:find(Module, MRecs) of
-    {ok, R} ->
+  #cache{mod_recs = MRecs} = Cache,
+  case MRecs of
+    #{Module := R} ->
       {R, Cache};
-    error ->
-      try ets:lookup_element(CodeTable, Module, 2) of
+    #{} ->
+      case ets:lookup_element(CodeTable, Module, 2, error) of
+        error ->
+          error;
         R ->
-          NewMRecs = dict:store(Module, R, MRecs),
-          {R, Cache#cache{mod_recs = {mrecs, NewMRecs}}}
-      catch
-        _:_ -> error
+          NewMRecs = MRecs#{Module => R},
+          {R, Cache#cache{mod_recs = NewMRecs}}
       end
   end.
 
