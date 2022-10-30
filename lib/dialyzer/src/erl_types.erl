@@ -343,7 +343,7 @@
 
 -type file_line()    :: {file:name(), erl_anno:line()}.
 -type record_key()   :: {'record', atom()}.
--type type_key()     :: {'type' | 'opaque', {atom(), arity()}}.
+-type type_key()     :: {'type' | 'opaque', atom(), arity()}.
 -type field()        :: {atom(), erl_parse:abstract_expr(), erl_type()}.
 -type record_value() :: {file_line(),
                          [{RecordSize :: non_neg_integer(), [field()]}]}.
@@ -3190,9 +3190,9 @@ subst_all_vars_to_any(T) ->
   t_subst(T, #{}).
 
 t_subst_aux(?var(Id), Map) ->
-  case maps:find(Id, Map) of
-    error -> ?any;
-    {ok, Type} -> Type
+  case Map of
+    #{Id := Type} -> Type;
+    #{} -> ?any
   end;
 t_subst_aux(?list(Contents, Termination, Size), Map) ->
   case t_subst_aux(Contents, Map) of
@@ -3257,14 +3257,18 @@ t_unify_table_only(?var(Id1) = LHS, ?var(Id2) = RHS, VarMap) ->
         VarMap#{ Id1 => LHS, Id2 => RHS }
   end;
 t_unify_table_only(?var(Id), Type, VarMap) ->
-  case maps:find(Id, VarMap) of
-    error -> VarMap#{Id => Type};
-    {ok, VarType} -> t_unify_table_only(VarType, Type, VarMap)
+  case VarMap of
+    #{Id := VarType} ->
+      t_unify_table_only(VarType, Type, VarMap);
+    #{} ->
+      VarMap#{Id => Type}
   end;
 t_unify_table_only(Type, ?var(Id), VarMap) ->
-  case maps:find(Id, VarMap) of
-    error -> VarMap#{Id => Type};
-    {ok, VarType} -> t_unify_table_only(VarType, Type, VarMap)
+  case VarMap of
+    #{Id := VarType} ->
+       t_unify_table_only(VarType, Type, VarMap);
+    #{} ->
+      VarMap#{Id => Type}
   end;
 t_unify_table_only(?function(Domain1, Range1), ?function(Domain2, Range2), VarMap) ->
   VarMap1 = t_unify_table_only(Domain1, Domain2, VarMap),
@@ -4315,10 +4319,11 @@ from_form(_, _S, D, L, C) when D =< 0 ; L =< 0 ->
 from_form({var, _Anno, '_'}, _S, _D, L, C) ->
   {t_any(), L, C};
 from_form({var, _Anno, Name}, S, _D, L, C) ->
-  V = S#from_form.vtab,
-  case maps:find(Name, V) of
-    error -> {t_var(Name), L, C};
-    {ok, Val} -> {Val, L, C}
+  case S#from_form.vtab of
+    #{Name := Val} ->
+       {Val, L, C};
+    #{} ->
+      {t_var(Name), L, C}
   end;
 from_form({ann_type, _Anno, [_Var, Type]}, S, D, L, C) ->
   from_form(Type, S, D, L, C);
@@ -4974,11 +4979,9 @@ cache_key(Module, Name, ArgTypes, TypeNames, D) ->
                     {erl_type(), expand_limit()} | 'error'.
 
 cache_find(Key, #cache{types = Types}) ->
-  case maps:find(Key, Types) of
-    {ok, Value} ->
-      Value;
-    error ->
-      error
+  case Types of
+    #{Key := Value} -> Value;
+    #{} -> error
   end.
 
 -spec cache_put(cache_key(), erl_type(), expand_limit(), cache()) -> cache().
@@ -4987,7 +4990,7 @@ cache_put(_Key, _Type, DeltaL, Cache) when DeltaL < 0 ->
   %% The type is truncated; do not reuse it.
   Cache;
 cache_put(Key, Type, DeltaL, #cache{types = Types} = Cache) ->
-  NewTypes = maps:put(Key, {Type, DeltaL}, Types),
+  NewTypes = Types#{Key => {Type, DeltaL}},
   Cache#cache{types = NewTypes}.
 
 -spec t_var_names([parse_form()]) -> [atom()].
@@ -5180,14 +5183,15 @@ lookup_module_types(Module, CodeTable, Cache) ->
         'error' | {'ok', [{atom(), parse_form(), erl_type()}]}.
 
 lookup_record(Tag, Table) when is_atom(Tag) ->
-  case maps:find({record, Tag}, Table) of
-    {ok, {_FileLocation, [{_Arity, Fields}]}} ->
+  Key = {record, Tag},
+  case Table of
+    #{Key := {_FileLocation, [{_Arity, Fields}]}} ->
       {ok, Fields};
-    {ok, {_FileLocation, List}} when is_list(List) ->
+    #{Key := {_FileLocation, List}} when is_list(List) ->
       %% This will have to do, since we do not know which record we
       %% are looking for.
       error;
-    error ->
+    #{} ->
       error
   end.
 
@@ -5195,21 +5199,25 @@ lookup_record(Tag, Table) when is_atom(Tag) ->
         'error' | {'ok', [{atom(), parse_form(), erl_type()}]}.
 
 lookup_record(Tag, Arity, Table) when is_atom(Tag) ->
-  case maps:find({record, Tag}, Table) of
-    {ok, {_FileLocation, [{Arity, Fields}]}} -> {ok, Fields};
-    {ok, {_FileLocation, OrdDict}} -> orddict:find(Arity, OrdDict);
-    error -> error
+  Key = {record, Tag},
+  case Table of
+    #{Key := {_FileLocation, [{Arity, Fields}]}} ->
+      {ok, Fields};
+    #{Key := {_FileLocation, OrdDict}} ->
+      orddict:find(Arity, OrdDict);
+    #{} ->
+      error
   end.
 
 -spec lookup_type(_, _, _) -> {'type' | 'opaque', type_value()} | 'error'.
 lookup_type(Name, Arity, Table) ->
-  case maps:find({type, Name, Arity}, Table) of
-    error ->
-      case maps:find({opaque, Name, Arity}, Table) of
-	error -> error;
-	{ok, Found} -> {opaque, Found}
-      end;
-    {ok, Found} -> {type, Found}
+  case Table of
+    #{{type, Name, Arity} := Found} ->
+      {type, Found};
+    #{{opaque, Name, Arity} := Found} ->
+      {opaque, Found};
+    #{} ->
+      error
   end.
 
 -spec type_is_defined('type' | 'opaque', atom(), arity(), type_table()) ->
