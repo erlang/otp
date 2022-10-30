@@ -363,6 +363,9 @@
 -define(union(List), #c{tag=?union_tag, elements=List}).
 -define(untagged_union(A, B, F, I, L, N, T, O, Map), [A,B,F,I,L,N,T,O,Map]).
 
+-define(num_types_in_union, length(?untagged_union(?any, ?any, ?any, ?any, ?any,
+                                                   ?any, ?any, ?any, ?any))).
+
 -define(atom_union(T),       ?union([T,?none,?none,?none,?none,?none,?none,?none,?none])).
 -define(bitstr_union(T),     ?union([?none,T,?none,?none,?none,?none,?none,?none,?none])).
 -define(function_union(T),   ?union([?none,?none,T,?none,?none,?none,?none,?none,?none])).
@@ -2425,24 +2428,29 @@ expand_range_from_set(Range = ?int_range(From, To), Set) ->
 %%=============================================================================
 
 %%-----------------------------------------------------------------------------
-%% Supremum
+%% Supremum/join.
 %%
 
 -spec t_sup([erl_type()]) -> erl_type().
 
 t_sup([]) -> ?none;
 t_sup(Ts) ->
-  case lists:any(fun is_any/1, Ts) of
-    true -> ?any;
+  case any_any(Ts) of
+    true ->
+      ?any;
     false ->
-      t_sup1(Ts, [])
+      [Type|NewTs] = Ts,
+      t_sup1(NewTs, Type)
   end.
 
-t_sup1([H1, H2|T], L) ->
-  t_sup1(T, [t_sup(H1, H2)|L]);
-t_sup1([T], []) -> do_not_subst_all_vars_to_any(T);
-t_sup1(Ts, L) ->
-  t_sup1(Ts++L, []).
+any_any([?any|_]) -> true;
+any_any([_|T]) ->  any_any(T);
+any_any([]) -> false.
+
+t_sup1([H|T], Type) ->
+  t_sup1(T, t_sup(H, Type));
+t_sup1([], Type) ->
+  do_not_subst_all_vars_to_any(Type).
 
 -spec t_sup(erl_type(), erl_type()) -> erl_type().
 
@@ -2471,7 +2479,6 @@ t_sup(?opaque(Set1), ?opaque(Set2)) ->
 %%  io:format("Debug: t_sup executed with args ~w and ~w~n",[T1, T2]), ?none;
 %%t_sup(T1, T2=?opaque(_,_,_)) ->
 %%  io:format("Debug: t_sup executed with args ~w and ~w~n",[T1, T2]), ?none;
-t_sup(?nil, ?nil) -> ?nil;
 t_sup(?nil, ?list(Contents, Termination, _)) ->
   ?list(Contents, t_sup(?nil, Termination), ?unknown_qual);
 t_sup(?list(Contents, Termination, _), ?nil) ->
@@ -2490,7 +2497,6 @@ t_sup(?list(Contents1, Termination1, Size1),
   ?list(NewContents, NewTermination, NewSize);
 t_sup(?number(_, _), ?number(?any, ?unknown_qual) = T) -> T;
 t_sup(?number(?any, ?unknown_qual) = T, ?number(_, _)) -> T;
-t_sup(?float, ?float) -> ?float;
 t_sup(?float, ?integer(_)) -> t_number();
 t_sup(?integer(_), ?float) -> t_number();
 t_sup(?integer(?any) = T, ?integer(_)) -> T;
@@ -2648,12 +2654,16 @@ sup_union([?none|Left1], [?none|Left2], N, Acc) ->
 sup_union([T1|Left1], [T2|Left2], N, Acc) ->
   sup_union(Left1, Left2, N+1, [t_sup(T1, T2)|Acc]);
 sup_union([], [], N, Acc) ->
-  if N =:= 0 -> ?none;
-     N =:= 1 ->
+  if
+    N =:= 0 ->
+      ?none;
+    N =:= 1 ->
       [Type] = [T || T <- Acc, T =/= ?none],
       Type;
-     N =:= length(Acc) -> ?any;
-     true -> ?union(lists:reverse(Acc))
+    N =:= ?num_types_in_union ->
+      ?any;
+    true ->
+      ?union(lists:reverse(Acc))
   end.
 
 force_union(T = ?atom(_)) ->          ?atom_union(T);
@@ -2728,7 +2738,7 @@ do_elements(Type0, Opaques) ->
   end.
 
 %%-----------------------------------------------------------------------------
-%% Infimum
+%% Infimum/meet.
 %%
 
 -spec t_inf([erl_type()]) -> erl_type().
@@ -3101,9 +3111,9 @@ inf_union(U1, U2, Opaques) ->
     end,
   {O1, ThrowList1} =
     OpaqueFun(U1, U2, fun(E, Opaque) -> t_inf(Opaque, E, Opaques) end),
-  {O2, ThrowList2}
-    = OpaqueFun(U2, U1, fun(E, Opaque) -> t_inf(E, Opaque, Opaques) end),
-  {Union, ThrowList3} = inf_union(U1, U2, 0, [], [], Opaques),
+  {O2, ThrowList2} =
+    OpaqueFun(U2, U1, fun(E, Opaque) -> t_inf(E, Opaque, Opaques) end),
+  {Union, ThrowList3} = inf_union(U1, U2, ?none, [], [], Opaques),
   ThrowList = lists:merge3(ThrowList1, ThrowList2, ThrowList3),
   case t_sup([O1, O2, Union]) of
     ?none when ThrowList =/= [] -> throw({pos, lists:usort(ThrowList)});
@@ -3122,21 +3132,26 @@ inf_union_collect([E|L], Opaque, InfFun, InfList, ThrowList) ->
       inf_union_collect(L, Opaque, InfFun, InfList, Ns ++ ThrowList)
   end.
 
-inf_union([?none|Left1], [?none|Left2], N, Acc, ThrowList, Opaques) ->
-  inf_union(Left1, Left2, N, [?none|Acc], ThrowList, Opaques);
-inf_union([T1|Left1], [T2|Left2], N, Acc, ThrowList, Opaques) ->
+inf_union([?none|Left1], [?none|Left2], Type, Acc, ThrowList, Opaques) ->
+  inf_union(Left1, Left2, Type, [?none|Acc], ThrowList, Opaques);
+inf_union([T1|Left1], [T2|Left2], Type, Acc, ThrowList, Opaques) ->
   try t_inf(T1, T2, Opaques) of
-    ?none -> inf_union(Left1, Left2, N, [?none|Acc], ThrowList, Opaques);
-    T     -> inf_union(Left1, Left2, N+1, [T|Acc], ThrowList, Opaques)
-  catch throw:{pos, Ns} ->
-      inf_union(Left1, Left2, N, [?none|Acc], Ns ++ ThrowList, Opaques)
+    ?none ->
+      inf_union(Left1, Left2, Type, [?none|Acc], ThrowList, Opaques);
+    T when Type =:= ?none ->
+      inf_union(Left1, Left2, T, [T|Acc], ThrowList, Opaques);
+    T ->
+      inf_union(Left1, Left2, ?union_tag, [T|Acc], ThrowList, Opaques)
+  catch
+    throw:{pos, Ns} ->
+      inf_union(Left1, Left2, Type, [?none|Acc], Ns ++ ThrowList, Opaques)
   end;
-inf_union([], [], N, Acc, ThrowList, _Opaques) ->
-  if N =:= 0 -> {?none, ThrowList};
-     N =:= 1 ->
-      [Type] = [T || T <- Acc, T =/= ?none],
-      {Type, ThrowList};
-     N >= 2  -> {?union(lists:reverse(Acc)), ThrowList}
+inf_union([], [], Type, Acc, ThrowList, _Opaques) ->
+  case Type of
+    ?union_tag ->
+      {?union(lists:reverse(Acc)), ThrowList};
+    _ ->
+      {Type, ThrowList}
   end.
 
 inf_bitstr(U1, B1, U2, B2) ->
@@ -3649,7 +3664,7 @@ subtract_union(U1, U2) ->
   ?untagged_union(A2,B2,F2,I2,L2,N2,T2,O2,Map2) = U2,
   List1 = ?untagged_union(A1,B1,F1,I1,L1,N1,T1,?none,Map1),
   List2 = ?untagged_union(A2,B2,F2,I2,L2,N2,T2,?none,Map2),
-  Sub1 = subtract_union(List1, List2, 0, []),
+  Sub1 = subtract_union(List1, List2, ?none, []),
   O = if O1 =:= ?none -> O1;
          true -> t_subtract(O1, ?union(U2))
       end,
@@ -3658,28 +3673,28 @@ subtract_union(U1, U2) ->
          end,
   t_sup(O, Sub2).
 
--spec subtract_union([erl_type()], [erl_type()], non_neg_integer(), [erl_type()]) -> erl_type().
-
-subtract_union([T1|Left1], [T2|Left2], N, Acc) ->
+subtract_union([T1|Left1], [T2|Left2], Type, Acc) ->
   case t_subtract(T1, T2) of
-    ?none -> subtract_union(Left1, Left2, N, [?none|Acc]);
-    T ->     subtract_union(Left1, Left2, N+1, [T|Acc])
+    ?none -> subtract_union(Left1, Left2, Type, [?none|Acc]);
+    T when Type =:= none -> subtract_union(Left1, Left2, T, [T|Acc]);
+    T -> subtract_union(Left1, Left2, ?union_tag, [T|Acc])
   end;
-subtract_union([], [], 0, _Acc) ->
-  ?none;
-subtract_union([], [], 1, Acc) ->
-  [T] = [X || X <- Acc, X =/= ?none],
-  T;
-subtract_union([], [], N, Acc) when is_integer(N), N > 1 ->
-  ?union(lists:reverse(Acc)).
+subtract_union([], [], Type, Acc) ->
+  case Type of
+    ?union_tag ->
+      ?union(lists:reverse(Acc));
+    _ ->
+      Type
+  end.
 
-replace_nontrivial_element(El1, El2) ->
-  replace_nontrivial_element(El1, El2, []).
-
-replace_nontrivial_element([T1|Left1], [?none|Left2], Acc) ->
-  replace_nontrivial_element(Left1, Left2, [T1|Acc]);
-replace_nontrivial_element([_|Left1], [T2|_], Acc) ->
-  lists:reverse(Acc) ++ [T2|Left1].
+%% Helper for tuple and product subtraction. The second list
+%% should contain a single element that is not none. That element
+%% will replace the element in the corresponding position in the
+%% first list.
+replace_nontrivial_element([T1|Left1], [?none|Left2]) ->
+  [T1|replace_nontrivial_element(Left1, Left2)];
+replace_nontrivial_element([_|Left1], [T2|_]) ->
+  [T2|Left1].
 
 subtract_bin(?bitstr(U1, B1), ?bitstr(U1, B1)) ->
   ?none;
