@@ -604,7 +604,7 @@ if_index2name(Idx) when is_integer(Idx) ->
 %%
 %%
 
--spec if_names() -> Names | {error, Reason} when
+-spec if_names() -> {ok, Names} | {error, Reason} when
       Names  :: [{Idx, If}],
       Idx    :: network_interface_index(),
       If     :: network_interface_name(),
