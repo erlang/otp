@@ -285,13 +285,20 @@ embedded(Config) when is_list(Config) ->
 ktls_encrypt_decrypt() ->
     [{doc,"Test that kTLS encryption offloading works"}].
 ktls_encrypt_decrypt(Config) when is_list(Config) ->
+    ktls_encrypt_decrypt(true);
+%%
+%%  ktls_encrypt_decrypt(false) is called from
+%% ssl_dist_bench_SUITE:init_per_group/2 to check if kTLS is supported
+%%
+ktls_encrypt_decrypt(Test) when is_boolean(Test) ->
     %% We need a connected socket
     {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port} = inet:port(Listen),
     {ok, Client} =
         gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
     {ok, Server} = gen_tcp:accept(Listen),
-    try ktls_encrypt_decrypt(Client, Server, true)
+    try
+        ktls_encrypt_decrypt(Client, Server, Test)
     after
         _ = gen_tcp:close(Server),
         _ = gen_tcp:close(Client),

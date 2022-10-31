@@ -226,7 +226,12 @@ init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
 %%
 init_per_group(kernel_offload, Config) ->
-    [{ktls, true} | Config];
+    case ssl_dist_SUITE:ktls_encrypt_decrypt(false) of
+        ok ->
+            [{ktls, true} | Config];
+        Skip ->
+            Skip
+    end;
 %%
 init_per_group(_GroupName, Config) ->
     Config.
