@@ -866,7 +866,8 @@ do_active_n(Config) ->
     ok = gen_tcp:close(LS),
     ok.
 
--define(OTP_3924_MAX_DELAY, 100).
+-define(OTP_3924_MAX_DELAY,  100).
+-define(OTP_3924_MIN_FACTOR, 4).
 %% Taken out of the blue, but on intra host connections
 %% I expect propagation of a close to be quite fast
 %% so 100 ms seems reasonable.
@@ -876,6 +877,20 @@ otp_3924(Config) when is_list(Config) ->
     ?P("~w -> entry with"
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [?FUNCTION_NAME, Config, nodes()]),
+    Cond = fun() ->
+                   case lists:keysearch(kernel_factor, 1, Config) of
+                       %% Only run this on machines that are "fast enough"...
+                       {value, {kernel_factor, Factor}}
+                         when (Factor =< ?OTP_3924_MIN_FACTOR) ->
+                           ?P("~w:condition -> "
+                              "*fast* enough (~w)", [?FUNCTION_NAME, Factor]),
+                           ok;
+                       _ ->
+                           ?P("~w:condition -> "
+                              "*not* fast enough", [?FUNCTION_NAME]),
+                           {skip, "Too slow for this test"}
+                   end
+           end,
     Pre = fun() ->
                   ?P("~w:pre -> calculate max delay", [?FUNCTION_NAME]),
                   MaxDelay = (case has_superfluous_schedulers() of
@@ -905,7 +920,7 @@ otp_3924(Config) when is_list(Config) ->
                    ?P("~w:post -> try stop node ~p", [?FUNCTION_NAME, Node]),
                    ?STOP_NODE(Node)
            end,
-    ?TC_TRY(?FUNCTION_NAME, Pre, TC, Post).
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 do_otp_3924(Config, Node, MaxDelay) ->
     DataLen = 100*1024,
@@ -973,8 +988,8 @@ otp_3924_receive_data(Sock, TimeoutRef, MaxDelay, Len, Acc, AccLen) ->
 	    if
 		NewAccLen == Len ->
 		    {ok, TRef} = timer:exit_after(MaxDelay,
-							self(),
-							TimeoutRef),
+                                                  self(),
+                                                  TimeoutRef),
 		    {error, closed} = gen_tcp:recv(Sock, 0),
 		    timer:cancel(TRef),
 		    lists:flatten([Acc, Data]);

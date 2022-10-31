@@ -120,7 +120,7 @@ close(#{sock := Sock, reader := Pid}) ->
     Res.
 
 %% Create a socket and connect it to a peer
-connect(ServerPath) when is_list(ServerPath) ->
+connect(ServerPath) when is_list(ServerPath) orelse is_binary(ServerPath) ->
     Domain     = local,
     ClientPath = mk_unique_path(),
     LocalSA    = #{family => Domain,
@@ -145,7 +145,7 @@ connect(Addr, Port) when is_tuple(Addr) andalso is_integer(Port) ->
     do_connect(LocalSA, ServerSA, Cleanup, Opts);
 connect(ServerPath,
         #{domain := local = Domain} = Opts)
-  when is_list(ServerPath) ->
+  when is_list(ServerPath) orelse is_binary(ServerPath) ->
     ClientPath = mk_unique_path(),
     LocalSA    = #{family => Domain,
                    path   => ClientPath},
@@ -233,13 +233,14 @@ listen() ->
 
 listen(Port) when is_integer(Port) ->
     listen(Port, #{domain => inet, async => false, method => plain});
-listen(Path) when is_list(Path) ->
+listen(Path) when is_list(Path) orelse is_binary(Path) ->
     listen(Path, #{domain => local, async => false, method => plain}).
 
 listen(0, #{domain := local} = Opts) ->
     listen(mk_unique_path(), Opts);
 listen(Path, #{domain := local = Domain} = Opts)
-  when is_list(Path) andalso (Path =/= []) ->
+  when (is_list(Path) andalso (Path =/= [])) orelse
+       (is_binary(Path) andalso (Path =/= <<"">>)) ->
     SA = #{family => Domain,
            path   => Path},
     Cleanup = fun() -> os:cmd("unlink " ++ Path), ok end,

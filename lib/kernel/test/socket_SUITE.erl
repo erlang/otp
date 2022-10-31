@@ -24,9 +24,13 @@
 %% Variable that controls which 'groups' are to run (with default values)
 %%
 %%         ESOCK_TEST_API:         include
+%%         ESOCK_TEST_REG:         include
+%%         ESOCK_TEST_MON:         include
+%%         ESOCK_TEST_IOCTL:       include
 %%         ESOCK_TEST_SOCK_CLOSE:  include
 %%         ESOCK_TEST_TRAFFIC:     include
-%%         ESOCK_TEST_TTEST:       exclude
+%%         ESOCK_TEST_TICKETS:     include
+%%         ESOCK_TEST_TTEST:       include
 %%
 %% Variable that controls "verbosity" of the test case(s):
 %%
@@ -37,12 +41,22 @@
 %%  the actual time it takes for the test case to complete
 %%  will be longer; setup, completion, ...)
 %%
-%%          ESOCK_TEST_TTEST_RUNTIME: 10 seconds
+%%          ESOCK_TEST_TTEST_RUNTIME: 1 second
 %%              Format of values: <integer>[<unit>]
 %%              Where unit is: ms | s | m
 %%                 ms - milli seconds
 %%                 s  - seconds (default)
 %%                 m  - minutes
+%%
+%% The ttest takes a long time to run, even when the runtime is small,
+%% because there are such a large number of test cases.
+%% So, by default only the 'small' test cases are included in a test run.
+%% The following environment variables control which are included and 
+%% excluded.
+%%
+%%          ESOCK_TEST_TTEST_SMALL:  included
+%%          ESOCK_TEST_TTEST_MEDIUM: excluded
+%%          ESOCK_TEST_TTEST_LARGE:  excluded
 %%
 
 %% Run the entire test suite: 
@@ -686,6 +700,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(LIB,        socket_test_lib).
+-define(KLIB,       kernel_test_lib).
 -define(TTEST_LIB,  socket_test_ttest_lib).
 -define(LOGGER,     socket_test_logger).
 
@@ -714,9 +729,24 @@
 -define(TPP_SMALL_NUM,  5000).
 -define(TPP_MEDIUM_NUM, 500).
 -define(TPP_LARGE_NUM,  50).
--define(TPP_NUM(Config, Base), (Base) div lookup(esock_factor, 1, Config)).
+-define(TPP_NUM(Config, Base), (Base) div lookup(kernel_factor, 1, Config)).
 
--define(TTEST_RUNTIME,  ?SECS(10)).
+-define(TTEST_RUNTIME,                       ?SECS(1)).
+-define(TTEST_MIN_FACTOR,                    3).
+-define(TTEST_DEFAULT_SMALL_MAX_OUTSTANDING, 50).
+-define(TTEST_DEFAULT_MEDIUM_MAX_OUTSTANDING,
+        ?TTEST_MK_DEFAULT_MAX_OUTSTANDING(
+           ?TTEST_DEFAULT_SMALL_MAX_OUTSTANDING)).
+-define(TTEST_DEFAULT_LARGE_MAX_OUTSTANDING,
+        ?TTEST_MK_DEFAULT_MAX_OUTSTANDING(
+           ?TTEST_DEFAULT_MEDIUM_MAX_OUTSTANDING)).
+
+-define(TTEST_MK_DEFAULT_MAX_OUTSTANDING(__X__),
+        if ((__X__) >= 5) ->
+                (__X__) div 5;
+           true ->
+                1
+        end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -727,12 +757,12 @@ suite() ->
 
 all() -> 
     Groups = [{api,          "ESOCK_TEST_API",        include},
-              {reg,          undefined,               include},
-              {monitor,      undefined,               include},
-              {ioctl,        undefined,               include},
+              {reg,          "ESOCK_TEST_REG",        include},
+              {monitor,      "ESOCK_TEST_MON",        include},
+              {ioctl,        "ESOCK_TEST_IOCTL",      include},
 	      {socket_close, "ESOCK_TEST_SOCK_CLOSE", include},
 	      {traffic,      "ESOCK_TEST_TRAFFIC",    include},
-	      {ttest,        "ESOCK_TEST_TTEST",      exclude},
+	      {ttest,        "ESOCK_TEST_TTEST",      include},
 	      {tickets,      "ESOCK_TEST_TICKETS",    include}],
     [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
 
@@ -1347,7 +1377,77 @@ traffic_pp_sendmsg_recvmsg_cases() ->
      traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6,
      traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL
     ].
-    
+
+%% Condition for running the ttest cases.
+%% No point in running these cases unless the machine is
+%% reasonably fast.
+ttest_condition(Config) ->
+    case ?config(kernel_factor, Config) of
+        Factor when is_integer(Factor) andalso (Factor =< ?TTEST_MIN_FACTOR) ->
+            ok;
+        Factor when is_integer(Factor) ->
+            {skip, ?F("Too slow for TTest (~w)", [Factor])};
+        _ ->
+            {skip, "Too slow for TTest (undef)"}
+    end.
+
+ttest_small_max_outstanding(Config) ->
+    EnvKey                = "ESOCK_TEST_TTEST_SMALL_MAX_OUTSTANDING",
+    Default               = ?TTEST_DEFAULT_SMALL_MAX_OUTSTANDING,
+    DefaultMaxOutstanding = ttest_max_outstanding(Config, EnvKey, Default),
+    ttest_max_outstanding(Config, DefaultMaxOutstanding).
+
+ttest_medium_max_outstanding(Config) ->
+    SmallMaxOutstanding   = ttest_small_max_outstanding(Config),
+    EnvKey                = "ESOCK_TEST_TTEST_MEDIUM_MAX_OUTSTANDING",
+    Default               = ?TTEST_MK_DEFAULT_MAX_OUTSTANDING(
+                               SmallMaxOutstanding),
+    DefaultMaxOutstanding = ttest_max_outstanding(Config, EnvKey, Default),
+    ttest_max_outstanding(Config, DefaultMaxOutstanding).
+
+ttest_large_max_outstanding(Config) ->
+    MediumMaxOutstanding  = ttest_medium_max_outstanding(Config),
+    EnvKey                = "ESOCK_TEST_TTEST_LARGE_MAX_OUTSTANDING",
+    Default               = ?TTEST_MK_DEFAULT_MAX_OUTSTANDING(
+                               MediumMaxOutstanding),
+    DefaultMaxOutstanding = ttest_max_outstanding(Config, EnvKey, Default),
+    ttest_max_outstanding(Config, DefaultMaxOutstanding).
+
+ttest_max_outstanding(Config, Default)
+  when is_integer(Default) andalso (Default > 1) ->
+    %% Note that we should not even get here if factor > 4
+    case ?config(kernel_factor, Config) of
+        1                     -> Default;
+        2 when (Default >= 2) -> Default div 2;
+        3 when (Default >= 4) -> Default div 4;
+        _ when (Default >= 8) -> Default div 8;
+        _                     -> 1
+    end;
+ttest_max_outstanding(_, _) ->
+    1.
+
+ttest_max_outstanding(Config, EnvKey, Default) ->
+    Key = list_to_atom(string:to_lower(EnvKey)),
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, MO}} when is_integer(MO) andalso (MO > 0) ->
+            MO;
+        _ ->
+            case os:getenv(EnvKey) of
+                false ->
+                    Default;
+                Val ->
+                    try list_to_integer(Val) of
+                        MO when (MO > 0) ->
+                            MO;
+                        _ ->
+                            1
+                    catch
+                        _:_:_ ->
+                            Default
+                    end
+            end
+    end.
+
 ttest_cases() ->
     [
      %% Server: transport = gen_tcp, active = false
@@ -1389,45 +1489,75 @@ ttest_sgenf_cgen_cases() ->
 
 %% Server: transport = gen_tcp, active = false
 %% Client: transport = gen_tcp, active = false
+
+ttest_conditional_cases(Env, Default, Cases) ->
+    case os:getenv(Env) of
+        false ->
+            Default;
+        Val ->
+            case list_to_atom(string:to_lower(Val)) of
+                Use when (Use =:= include) orelse 
+                         (Use =:= enable) orelse 
+                         (Use =:= true) ->
+                    Cases;
+                _ -> % Assumed to be explicitly *disabled*
+                    []
+            end
+    end.
+
+ttest_small_conditional_cases(Cases) ->
+    ttest_conditional_cases("ESOCK_TEST_TTEST_SMALL", Cases, Cases).
+
+ttest_medium_conditional_cases(Cases) ->
+    ttest_conditional_cases("ESOCK_TEST_TTEST_MEDIUM", [], Cases).
+
+ttest_large_conditional_cases(Cases) ->
+    ttest_conditional_cases("ESOCK_TEST_TTEST_LARGE", [], Cases).
+
+ttest_select_conditional_cases(Small, Medium, Large) ->
+    ttest_small_conditional_cases(Small) ++
+        ttest_medium_conditional_cases(Medium) ++
+        ttest_large_conditional_cases(Large).
+
 ttest_sgenf_cgenf_cases() ->
-    [
-     ttest_sgenf_cgenf_small_tcp4,
-     ttest_sgenf_cgenf_small_tcp6,
-
-     ttest_sgenf_cgenf_medium_tcp4,
-     ttest_sgenf_cgenf_medium_tcp6,
-
-     ttest_sgenf_cgenf_large_tcp4,
-     ttest_sgenf_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_cgenf_small_tcp4,
+       ttest_sgenf_cgenf_small_tcp6],
+      %% Medium
+      [ttest_sgenf_cgenf_medium_tcp4,
+       ttest_sgenf_cgenf_medium_tcp6],
+      %% Large
+      [ttest_sgenf_cgenf_large_tcp4,
+       ttest_sgenf_cgenf_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = false
 %% Client: transport = gen_tcp, active = once
 ttest_sgenf_cgeno_cases() ->
-    [
-     ttest_sgenf_cgeno_small_tcp4,
-     ttest_sgenf_cgeno_small_tcp6,
-
-     ttest_sgenf_cgeno_medium_tcp4,
-     ttest_sgenf_cgeno_medium_tcp6,
-
-     ttest_sgenf_cgeno_large_tcp4,
-     ttest_sgenf_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_cgeno_small_tcp4,
+       ttest_sgenf_cgeno_small_tcp6],
+      %% Medium
+      [ttest_sgenf_cgeno_medium_tcp4,
+       ttest_sgenf_cgeno_medium_tcp6],
+      %% Large
+      [ttest_sgenf_cgeno_large_tcp4,
+       ttest_sgenf_cgeno_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = false
 %% Client: transport = gen_tcp, active = true
 ttest_sgenf_cgent_cases() ->
-    [
-     ttest_sgenf_cgent_small_tcp4,
-     ttest_sgenf_cgent_small_tcp6,
-
-     ttest_sgenf_cgent_medium_tcp4,
-     ttest_sgenf_cgent_medium_tcp6,
-
-     ttest_sgenf_cgent_large_tcp4,
-     ttest_sgenf_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_cgent_small_tcp4,
+       ttest_sgenf_cgent_small_tcp6],
+      %% Medium
+      [ttest_sgenf_cgent_medium_tcp4,
+       ttest_sgenf_cgent_medium_tcp6],
+      %% Large
+      [ttest_sgenf_cgent_large_tcp4,
+       ttest_sgenf_cgent_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = false
 %% Client: transport = socket(tcp)
@@ -1439,40 +1569,40 @@ ttest_sgenf_csock_cases() ->
     ].
 
 ttest_sgenf_csockf_cases() ->
-    [
-     ttest_sgenf_csockf_small_tcp4,
-     ttest_sgenf_csockf_small_tcp6,
-
-     ttest_sgenf_csockf_medium_tcp4,
-     ttest_sgenf_csockf_medium_tcp6,
-
-     ttest_sgenf_csockf_large_tcp4,
-     ttest_sgenf_csockf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_csockf_small_tcp4,
+       ttest_sgenf_csockf_small_tcp6],
+      %% Medium
+      [ttest_sgenf_csockf_medium_tcp4,
+       ttest_sgenf_csockf_medium_tcp6],
+      %% Large
+      [ttest_sgenf_csockf_large_tcp4,
+       ttest_sgenf_csockf_large_tcp6]).
 
 ttest_sgenf_csocko_cases() ->
-    [
-     ttest_sgenf_csocko_small_tcp4,
-     ttest_sgenf_csocko_small_tcp6,
-
-     ttest_sgenf_csocko_medium_tcp4,
-     ttest_sgenf_csocko_medium_tcp6,
-
-     ttest_sgenf_csocko_large_tcp4,
-     ttest_sgenf_csocko_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_csocko_small_tcp4,
+       ttest_sgenf_csocko_small_tcp6],
+      %% Medium
+      [ttest_sgenf_csocko_medium_tcp4,
+       ttest_sgenf_csocko_medium_tcp6],
+      %% Large
+      [ttest_sgenf_csocko_large_tcp4,
+       ttest_sgenf_csocko_large_tcp6]).
 
 ttest_sgenf_csockt_cases() ->
-    [
-     ttest_sgenf_csockt_small_tcp4,
-     ttest_sgenf_csockt_small_tcp6,
-
-     ttest_sgenf_csockt_medium_tcp4,
-     ttest_sgenf_csockt_medium_tcp6,
-
-     ttest_sgenf_csockt_large_tcp4,
-     ttest_sgenf_csockt_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgenf_csockt_small_tcp4,
+       ttest_sgenf_csockt_small_tcp6],
+      %% Medium
+      [ttest_sgenf_csockt_medium_tcp4,
+       ttest_sgenf_csockt_medium_tcp6],
+      %% Large
+     [ttest_sgenf_csockt_large_tcp4,
+      ttest_sgenf_csockt_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = once
 ttest_sgeno_cases() ->
@@ -1493,44 +1623,44 @@ ttest_sgeno_cgen_cases() ->
 %% Server: transport = gen_tcp, active = once
 %% Client: transport = gen_tcp, active = false
 ttest_sgeno_cgenf_cases() ->
-    [
-     ttest_sgeno_cgenf_small_tcp4,
-     ttest_sgeno_cgenf_small_tcp6,
-
-     ttest_sgeno_cgenf_medium_tcp4,
-     ttest_sgeno_cgenf_medium_tcp6,
-
-     ttest_sgeno_cgenf_large_tcp4,
-     ttest_sgeno_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_cgenf_small_tcp4,
+       ttest_sgeno_cgenf_small_tcp6],
+      %% Medium
+      [ttest_sgeno_cgenf_medium_tcp4,
+       ttest_sgeno_cgenf_medium_tcp6],
+      %% Large
+      [ttest_sgeno_cgenf_large_tcp4,
+       ttest_sgeno_cgenf_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = once
 %% Client: transport = gen_tcp, active = once
 ttest_sgeno_cgeno_cases() ->
-    [
-     ttest_sgeno_cgeno_small_tcp4,
-     ttest_sgeno_cgeno_small_tcp6,
-
-     ttest_sgeno_cgeno_medium_tcp4,
-     ttest_sgeno_cgeno_medium_tcp6,
-
-     ttest_sgeno_cgeno_large_tcp4,
-     ttest_sgeno_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_cgeno_small_tcp4,
+       ttest_sgeno_cgeno_small_tcp6],
+      %% Medium
+      [ttest_sgeno_cgeno_medium_tcp4,
+       ttest_sgeno_cgeno_medium_tcp6],
+      %% Large
+      [ttest_sgeno_cgeno_large_tcp4,
+       ttest_sgeno_cgeno_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = once
 %% Client: transport = gen_tcp, active = true
 ttest_sgeno_cgent_cases() ->
-    [
-     ttest_sgeno_cgent_small_tcp4,
-     ttest_sgeno_cgent_small_tcp6,
-
-     ttest_sgeno_cgent_medium_tcp4,
-     ttest_sgeno_cgent_medium_tcp6,
-
-     ttest_sgeno_cgent_large_tcp4,
-     ttest_sgeno_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_cgent_small_tcp4,
+       ttest_sgeno_cgent_small_tcp6],
+      %% Medium
+      [ttest_sgeno_cgent_medium_tcp4,
+       ttest_sgeno_cgent_medium_tcp6],
+      %% Large
+      [ttest_sgeno_cgent_large_tcp4,
+       ttest_sgeno_cgent_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = once
 %% Client: transport = socket(tcp)
@@ -1542,40 +1672,40 @@ ttest_sgeno_csock_cases() ->
     ].
 
 ttest_sgeno_csockf_cases() ->
-    [
-     ttest_sgeno_csockf_small_tcp4,
-     ttest_sgeno_csockf_small_tcp6,
-
-     ttest_sgeno_csockf_medium_tcp4,
-     ttest_sgeno_csockf_medium_tcp6,
-
-     ttest_sgeno_csockf_large_tcp4,
-     ttest_sgeno_csockf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_csockf_small_tcp4,
+       ttest_sgeno_csockf_small_tcp6],
+      %% Medium
+      [ttest_sgeno_csockf_medium_tcp4,
+       ttest_sgeno_csockf_medium_tcp6],
+      %% Large
+      [ttest_sgeno_csockf_large_tcp4,
+       ttest_sgeno_csockf_large_tcp6]).
 
 ttest_sgeno_csocko_cases() ->
-    [
-     ttest_sgeno_csocko_small_tcp4,
-     ttest_sgeno_csocko_small_tcp6,
-
-     ttest_sgeno_csocko_medium_tcp4,
-     ttest_sgeno_csocko_medium_tcp6,
-
-     ttest_sgeno_csocko_large_tcp4,
-     ttest_sgeno_csocko_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_csocko_small_tcp4,
+       ttest_sgeno_csocko_small_tcp6],
+      %% Medium
+      [ttest_sgeno_csocko_medium_tcp4,
+       ttest_sgeno_csocko_medium_tcp6],
+      %% Large
+      [ttest_sgeno_csocko_large_tcp4,
+       ttest_sgeno_csocko_large_tcp6]).
 
 ttest_sgeno_csockt_cases() ->
-    [
-     ttest_sgeno_csockt_small_tcp4,
-     ttest_sgeno_csockt_small_tcp6,
-
-     ttest_sgeno_csockt_medium_tcp4,
-     ttest_sgeno_csockt_medium_tcp6,
-
-     ttest_sgeno_csockt_large_tcp4,
-     ttest_sgeno_csockt_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgeno_csockt_small_tcp4,
+       ttest_sgeno_csockt_small_tcp6],
+      %% Medium
+      [ttest_sgeno_csockt_medium_tcp4,
+       ttest_sgeno_csockt_medium_tcp6],
+      %% Large
+      [ttest_sgeno_csockt_large_tcp4,
+       ttest_sgeno_csockt_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = true
 ttest_sgent_cases() ->
@@ -1596,44 +1726,44 @@ ttest_sgent_cgen_cases() ->
 %% Server: transport = gen_tcp, active = true
 %% Client: transport = gen_tcp, active = false
 ttest_sgent_cgenf_cases() ->
-    [
-     ttest_sgent_cgenf_small_tcp4,
-     ttest_sgent_cgenf_small_tcp6,
-
-     ttest_sgent_cgenf_medium_tcp4,
-     ttest_sgent_cgenf_medium_tcp6,
-
-     ttest_sgent_cgenf_large_tcp4,
-     ttest_sgent_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_cgenf_small_tcp4,
+       ttest_sgent_cgenf_small_tcp6],
+      %% Medium
+      [ttest_sgent_cgenf_medium_tcp4,
+       ttest_sgent_cgenf_medium_tcp6],
+      %% Large
+      [ttest_sgent_cgenf_large_tcp4,
+       ttest_sgent_cgenf_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = true
 %% Client: transport = gen_tcp, active = once
 ttest_sgent_cgeno_cases() ->
-    [
-     ttest_sgent_cgeno_small_tcp4,
-     ttest_sgent_cgeno_small_tcp6,
-
-     ttest_sgent_cgeno_medium_tcp4,
-     ttest_sgent_cgeno_medium_tcp6,
-
-     ttest_sgent_cgeno_large_tcp4,
-     ttest_sgent_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_cgeno_small_tcp4,
+       ttest_sgent_cgeno_small_tcp6],
+      %% Medium
+      [ttest_sgent_cgeno_medium_tcp4,
+       ttest_sgent_cgeno_medium_tcp6],
+      %% Large
+      [ttest_sgent_cgeno_large_tcp4,
+       ttest_sgent_cgeno_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = true
 %% Client: transport = gen_tcp, active = true
 ttest_sgent_cgent_cases() ->
-    [
-     ttest_sgent_cgent_small_tcp4,
-     ttest_sgent_cgent_small_tcp6,
-
-     ttest_sgent_cgent_medium_tcp4,
-     ttest_sgent_cgent_medium_tcp6,
-
-     ttest_sgent_cgent_large_tcp4,
-     ttest_sgent_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_cgent_small_tcp4,
+       ttest_sgent_cgent_small_tcp6],
+      %% Medium
+      [ttest_sgent_cgent_medium_tcp4,
+       ttest_sgent_cgent_medium_tcp6],
+      %% Large
+      [ttest_sgent_cgent_large_tcp4,
+       ttest_sgent_cgent_large_tcp6]).
 
 %% Server: transport = gen_tcp, active = true
 %% Client: transport = socket(tcp)
@@ -1645,40 +1775,40 @@ ttest_sgent_csock_cases() ->
     ].
 
 ttest_sgent_csockf_cases() ->
-    [
-     ttest_sgent_csockf_small_tcp4,
-     ttest_sgent_csockf_small_tcp6,
-
-     ttest_sgent_csockf_medium_tcp4,
-     ttest_sgent_csockf_medium_tcp6,
-
-     ttest_sgent_csockf_large_tcp4,
-     ttest_sgent_csockf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_csockf_small_tcp4,
+       ttest_sgent_csockf_small_tcp6],
+      %% Medium
+      [ttest_sgent_csockf_medium_tcp4,
+       ttest_sgent_csockf_medium_tcp6],
+      %% Large
+      [ttest_sgent_csockf_large_tcp4,
+       ttest_sgent_csockf_large_tcp6]).
 
 ttest_sgent_csocko_cases() ->
-    [
-     ttest_sgent_csocko_small_tcp4,
-     ttest_sgent_csocko_small_tcp6,
-
-     ttest_sgent_csocko_medium_tcp4,
-     ttest_sgent_csocko_medium_tcp6,
-
-     ttest_sgent_csocko_large_tcp4,
-     ttest_sgent_csocko_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_csocko_small_tcp4,
+       ttest_sgent_csocko_small_tcp6],
+      %% Medium
+      [ttest_sgent_csocko_medium_tcp4,
+       ttest_sgent_csocko_medium_tcp6],
+      %% Large
+      [ttest_sgent_csocko_large_tcp4,
+       ttest_sgent_csocko_large_tcp6]).
 
 ttest_sgent_csockt_cases() ->
-    [
-     ttest_sgent_csockt_small_tcp4,
-     ttest_sgent_csockt_small_tcp6,
-
-     ttest_sgent_csockt_medium_tcp4,
-     ttest_sgent_csockt_medium_tcp6,
-
-     ttest_sgent_csockt_large_tcp4,
-     ttest_sgent_csockt_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_sgent_csockt_small_tcp4,
+       ttest_sgent_csockt_small_tcp6],
+      %% Medium
+      [ttest_sgent_csockt_medium_tcp4,
+       ttest_sgent_csockt_medium_tcp6],
+      %% Large
+      [ttest_sgent_csockt_large_tcp4,
+       ttest_sgent_csockt_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = false
 ttest_ssockf_cases() ->
@@ -1699,44 +1829,44 @@ ttest_ssockf_cgen_cases() ->
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = gen_tcp, active = false
 ttest_ssockf_cgenf_cases() ->
-    [
-     ttest_ssockf_cgenf_small_tcp4,
-     ttest_ssockf_cgenf_small_tcp6,
-
-     ttest_ssockf_cgenf_medium_tcp4,
-     ttest_ssockf_cgenf_medium_tcp6,
-
-     ttest_ssockf_cgenf_large_tcp4,
-     ttest_ssockf_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_cgenf_small_tcp4,
+       ttest_ssockf_cgenf_small_tcp6],
+      %% Medium
+      [ttest_ssockf_cgenf_medium_tcp4,
+       ttest_ssockf_cgenf_medium_tcp6],
+      %% Large
+      [ttest_ssockf_cgenf_large_tcp4,
+       ttest_ssockf_cgenf_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = gen_tcp, active = once
 ttest_ssockf_cgeno_cases() ->
-    [
-     ttest_ssockf_cgeno_small_tcp4,
-     ttest_ssockf_cgeno_small_tcp6,
-
-     ttest_ssockf_cgeno_medium_tcp4,
-     ttest_ssockf_cgeno_medium_tcp6,
-
-     ttest_ssockf_cgeno_large_tcp4,
-     ttest_ssockf_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_cgeno_small_tcp4,
+       ttest_ssockf_cgeno_small_tcp6],
+      %% Medium
+      [ttest_ssockf_cgeno_medium_tcp4,
+       ttest_ssockf_cgeno_medium_tcp6],
+      %% Large
+      [ttest_ssockf_cgeno_large_tcp4,
+       ttest_ssockf_cgeno_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = gen_tcp, active = true
 ttest_ssockf_cgent_cases() ->
-    [
-     ttest_ssockf_cgent_small_tcp4,
-     ttest_ssockf_cgent_small_tcp6,
-
-     ttest_ssockf_cgent_medium_tcp4,
-     ttest_ssockf_cgent_medium_tcp6,
-
-     ttest_ssockf_cgent_large_tcp4,
-     ttest_ssockf_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_cgent_small_tcp4,
+       ttest_ssockf_cgent_small_tcp6],
+      %% Medium
+      [ttest_ssockf_cgent_medium_tcp4,
+       ttest_ssockf_cgent_medium_tcp6],
+      %% Large
+      [ttest_ssockf_cgent_large_tcp4,
+       ttest_ssockf_cgent_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp)
@@ -1750,53 +1880,53 @@ ttest_ssockf_csock_cases() ->
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp), active = false
 ttest_ssockf_csockf_cases() ->
-    [
-     ttest_ssockf_csockf_small_tcp4,
-     ttest_ssockf_csockf_small_tcp6,
-     ttest_ssockf_csockf_small_tcpL,
-
-     ttest_ssockf_csockf_medium_tcp4,
-     ttest_ssockf_csockf_medium_tcp6,
-     ttest_ssockf_csockf_medium_tcpL,
-
-     ttest_ssockf_csockf_large_tcp4,
-     ttest_ssockf_csockf_large_tcp6,
-     ttest_ssockf_csockf_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_csockf_small_tcp4,
+       ttest_ssockf_csockf_small_tcp6,
+       ttest_ssockf_csockf_small_tcpL],
+      %% Medium
+      [ttest_ssockf_csockf_medium_tcp4,
+       ttest_ssockf_csockf_medium_tcp6,
+       ttest_ssockf_csockf_medium_tcpL],
+      %% Large
+      [ttest_ssockf_csockf_large_tcp4,
+       ttest_ssockf_csockf_large_tcp6,
+       ttest_ssockf_csockf_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp), active = once
 ttest_ssockf_csocko_cases() ->
-    [
-     ttest_ssockf_csocko_small_tcp4,
-     ttest_ssockf_csocko_small_tcp6,
-     ttest_ssockf_csocko_small_tcpL,
-
-     ttest_ssockf_csocko_medium_tcp4,
-     ttest_ssockf_csocko_medium_tcp6,
-     ttest_ssockf_csocko_medium_tcpL,
-
-     ttest_ssockf_csocko_large_tcp4,
-     ttest_ssockf_csocko_large_tcp6,
-     ttest_ssockf_csocko_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_csocko_small_tcp4,
+       ttest_ssockf_csocko_small_tcp6,
+       ttest_ssockf_csocko_small_tcpL],
+      %% Medium
+      [ttest_ssockf_csocko_medium_tcp4,
+       ttest_ssockf_csocko_medium_tcp6,
+       ttest_ssockf_csocko_medium_tcpL],
+      %% Large
+      [ttest_ssockf_csocko_large_tcp4,
+       ttest_ssockf_csocko_large_tcp6,
+       ttest_ssockf_csocko_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = false
 %% Client: transport = socket(tcp), active = true
 ttest_ssockf_csockt_cases() ->
-    [
-     ttest_ssockf_csockt_small_tcp4,
-     ttest_ssockf_csockt_small_tcp6,
-     ttest_ssockf_csockt_small_tcpL,
-
-     ttest_ssockf_csockt_medium_tcp4,
-     ttest_ssockf_csockt_medium_tcp6,
-     ttest_ssockf_csockt_medium_tcpL,
-
-     ttest_ssockf_csockt_large_tcp4,
-     ttest_ssockf_csockt_large_tcp6,
-     ttest_ssockf_csockt_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockf_csockt_small_tcp4,
+       ttest_ssockf_csockt_small_tcp6,
+       ttest_ssockf_csockt_small_tcpL],
+      %% Medium
+      [ttest_ssockf_csockt_medium_tcp4,
+       ttest_ssockf_csockt_medium_tcp6,
+       ttest_ssockf_csockt_medium_tcpL],
+      %% Large
+      [ttest_ssockf_csockt_large_tcp4,
+       ttest_ssockf_csockt_large_tcp6,
+       ttest_ssockf_csockt_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = once
 ttest_ssocko_cases() ->
@@ -1817,44 +1947,44 @@ ttest_ssocko_cgen_cases() ->
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = gen_tcp, active = false
 ttest_ssocko_cgenf_cases() ->
-    [
-     ttest_ssocko_cgenf_small_tcp4,
-     ttest_ssocko_cgenf_small_tcp6,
-
-     ttest_ssocko_cgenf_medium_tcp4,
-     ttest_ssocko_cgenf_medium_tcp6,
-
-     ttest_ssocko_cgenf_large_tcp4,
-     ttest_ssocko_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_cgenf_small_tcp4,
+       ttest_ssocko_cgenf_small_tcp6],
+      %% Medium
+      [ttest_ssocko_cgenf_medium_tcp4,
+       ttest_ssocko_cgenf_medium_tcp6],
+      %% Large
+      [ttest_ssocko_cgenf_large_tcp4,
+       ttest_ssocko_cgenf_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = gen_tcp, active = once
 ttest_ssocko_cgeno_cases() ->
-    [
-     ttest_ssocko_cgeno_small_tcp4,
-     ttest_ssocko_cgeno_small_tcp6,
-
-     ttest_ssocko_cgeno_medium_tcp4,
-     ttest_ssocko_cgeno_medium_tcp6,
-
-     ttest_ssocko_cgeno_large_tcp4,
-     ttest_ssocko_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_cgeno_small_tcp4,
+       ttest_ssocko_cgeno_small_tcp6],
+      %% Medium
+      [ttest_ssocko_cgeno_medium_tcp4,
+       ttest_ssocko_cgeno_medium_tcp6],
+      %% Large
+      [ttest_ssocko_cgeno_large_tcp4,
+       ttest_ssocko_cgeno_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = gen_tcp, active = true
 ttest_ssocko_cgent_cases() ->
-    [
-     ttest_ssocko_cgent_small_tcp4,
-     ttest_ssocko_cgent_small_tcp6,
-
-     ttest_ssocko_cgent_medium_tcp4,
-     ttest_ssocko_cgent_medium_tcp6,
-
-     ttest_ssocko_cgent_large_tcp4,
-     ttest_ssocko_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_cgent_small_tcp4,
+       ttest_ssocko_cgent_small_tcp6],
+      %% Medium
+      [ttest_ssocko_cgent_medium_tcp4,
+       ttest_ssocko_cgent_medium_tcp6],
+      %% Large
+      [ttest_ssocko_cgent_large_tcp4,
+       ttest_ssocko_cgent_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp)
@@ -1868,53 +1998,53 @@ ttest_ssocko_csock_cases() ->
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp), active = false
 ttest_ssocko_csockf_cases() ->
-    [
-     ttest_ssocko_csockf_small_tcp4,
-     ttest_ssocko_csockf_small_tcp6,
-     ttest_ssocko_csockf_small_tcpL,
-
-     ttest_ssocko_csockf_medium_tcp4,
-     ttest_ssocko_csockf_medium_tcp6,
-     ttest_ssocko_csockf_medium_tcpL,
-
-     ttest_ssocko_csockf_large_tcp4,
-     ttest_ssocko_csockf_large_tcp6,
-     ttest_ssocko_csockf_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_csockf_small_tcp4,
+       ttest_ssocko_csockf_small_tcp6,
+       ttest_ssocko_csockf_small_tcpL],
+     %% Medium
+      [ttest_ssocko_csockf_medium_tcp4,
+       ttest_ssocko_csockf_medium_tcp6,
+       ttest_ssocko_csockf_medium_tcpL],
+      %% Large
+      [ttest_ssocko_csockf_large_tcp4,
+       ttest_ssocko_csockf_large_tcp6,
+       ttest_ssocko_csockf_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp), active = once
 ttest_ssocko_csocko_cases() ->
-    [
-     ttest_ssocko_csocko_small_tcp4,
-     ttest_ssocko_csocko_small_tcp6,
-     ttest_ssocko_csocko_small_tcpL,
-
-     ttest_ssocko_csocko_medium_tcp4,
-     ttest_ssocko_csocko_medium_tcp6,
-     ttest_ssocko_csocko_medium_tcpL,
-
-     ttest_ssocko_csocko_large_tcp4,
-     ttest_ssocko_csocko_large_tcp6,
-     ttest_ssocko_csocko_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_csocko_small_tcp4,
+       ttest_ssocko_csocko_small_tcp6,
+       ttest_ssocko_csocko_small_tcpL],
+      %% Medium
+      [ttest_ssocko_csocko_medium_tcp4,
+       ttest_ssocko_csocko_medium_tcp6,
+       ttest_ssocko_csocko_medium_tcpL],
+      %% Large
+      [ttest_ssocko_csocko_large_tcp4,
+       ttest_ssocko_csocko_large_tcp6,
+       ttest_ssocko_csocko_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = once
 %% Client: transport = socket(tcp), active = true
 ttest_ssocko_csockt_cases() ->
-    [
-     ttest_ssocko_csockt_small_tcp4,
-     ttest_ssocko_csockt_small_tcp6,
-     ttest_ssocko_csockt_small_tcpL,
-
-     ttest_ssocko_csockt_medium_tcp4,
-     ttest_ssocko_csockt_medium_tcp6,
-     ttest_ssocko_csockt_medium_tcpL,
-
-     ttest_ssocko_csockt_large_tcp4,
-     ttest_ssocko_csockt_large_tcp6,
-     ttest_ssocko_csockt_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssocko_csockt_small_tcp4,
+       ttest_ssocko_csockt_small_tcp6,
+       ttest_ssocko_csockt_small_tcpL],
+      %% Medium
+      [ttest_ssocko_csockt_medium_tcp4,
+       ttest_ssocko_csockt_medium_tcp6,
+       ttest_ssocko_csockt_medium_tcpL],
+      %% Large
+      [ttest_ssocko_csockt_large_tcp4,
+       ttest_ssocko_csockt_large_tcp6,
+       ttest_ssocko_csockt_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = true
 ttest_ssockt_cases() ->
@@ -1935,44 +2065,44 @@ ttest_ssockt_cgen_cases() ->
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = gen_tcp, active = false
 ttest_ssockt_cgenf_cases() ->
-    [
-     ttest_ssockt_cgenf_small_tcp4,
-     ttest_ssockt_cgenf_small_tcp6,
-
-     ttest_ssockt_cgenf_medium_tcp4,
-     ttest_ssockt_cgenf_medium_tcp6,
-
-     ttest_ssockt_cgenf_large_tcp4,
-     ttest_ssockt_cgenf_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_cgenf_small_tcp4,
+       ttest_ssockt_cgenf_small_tcp6],
+      %% Medium
+      [ttest_ssockt_cgenf_medium_tcp4,
+       ttest_ssockt_cgenf_medium_tcp6],
+      %% Large
+      [ttest_ssockt_cgenf_large_tcp4,
+       ttest_ssockt_cgenf_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = gen_tcp, active = once
 ttest_ssockt_cgeno_cases() ->
-    [
-     ttest_ssockt_cgeno_small_tcp4,
-     ttest_ssockt_cgeno_small_tcp6,
-
-     ttest_ssockt_cgeno_medium_tcp4,
-     ttest_ssockt_cgeno_medium_tcp6,
-
-     ttest_ssockt_cgeno_large_tcp4,
-     ttest_ssockt_cgeno_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_cgeno_small_tcp4,
+       ttest_ssockt_cgeno_small_tcp6],
+      %% Medium
+      [ttest_ssockt_cgeno_medium_tcp4,
+       ttest_ssockt_cgeno_medium_tcp6],
+      %% Large
+      [ttest_ssockt_cgeno_large_tcp4,
+       ttest_ssockt_cgeno_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = gen_tcp, active = true
 ttest_ssockt_cgent_cases() ->
-    [
-     ttest_ssockt_cgent_small_tcp4,
-     ttest_ssockt_cgent_small_tcp6,
-
-     ttest_ssockt_cgent_medium_tcp4,
-     ttest_ssockt_cgent_medium_tcp6,
-
-     ttest_ssockt_cgent_large_tcp4,
-     ttest_ssockt_cgent_large_tcp6
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_cgent_small_tcp4,
+       ttest_ssockt_cgent_small_tcp6],
+      %% Medium
+      [ttest_ssockt_cgent_medium_tcp4,
+       ttest_ssockt_cgent_medium_tcp6],
+      %% Large
+      [ttest_ssockt_cgent_large_tcp4,
+       ttest_ssockt_cgent_large_tcp6]).
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp)
@@ -1986,53 +2116,53 @@ ttest_ssockt_csock_cases() ->
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp), active = false
 ttest_ssockt_csockf_cases() ->
-    [
-     ttest_ssockt_csockf_small_tcp4,
-     ttest_ssockt_csockf_small_tcp6,
-     ttest_ssockt_csockf_small_tcpL,
-
-     ttest_ssockt_csockf_medium_tcp4,
-     ttest_ssockt_csockf_medium_tcp6,
-     ttest_ssockt_csockf_medium_tcpL,
-
-     ttest_ssockt_csockf_large_tcp4,
-     ttest_ssockt_csockf_large_tcp6,
-     ttest_ssockt_csockf_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_csockf_small_tcp4,
+       ttest_ssockt_csockf_small_tcp6,
+       ttest_ssockt_csockf_small_tcpL],
+      %% Medium
+      [ttest_ssockt_csockf_medium_tcp4,
+       ttest_ssockt_csockf_medium_tcp6,
+       ttest_ssockt_csockf_medium_tcpL],
+      %% Large
+      [ttest_ssockt_csockf_large_tcp4,
+       ttest_ssockt_csockf_large_tcp6,
+       ttest_ssockt_csockf_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp), active = once
 ttest_ssockt_csocko_cases() ->
-    [
-     ttest_ssockt_csocko_small_tcp4,
-     ttest_ssockt_csocko_small_tcp6,
-     ttest_ssockt_csocko_small_tcpL,
-
-     ttest_ssockt_csocko_medium_tcp4,
-     ttest_ssockt_csocko_medium_tcp6,
-     ttest_ssockt_csocko_medium_tcpL,
-
-     ttest_ssockt_csocko_large_tcp4,
-     ttest_ssockt_csocko_large_tcp6,
-     ttest_ssockt_csocko_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_csocko_small_tcp4,
+       ttest_ssockt_csocko_small_tcp6,
+       ttest_ssockt_csocko_small_tcpL],
+      %% Medium
+      [ttest_ssockt_csocko_medium_tcp4,
+       ttest_ssockt_csocko_medium_tcp6,
+       ttest_ssockt_csocko_medium_tcpL],
+      %% Large
+      [ttest_ssockt_csocko_large_tcp4,
+       ttest_ssockt_csocko_large_tcp6,
+       ttest_ssockt_csocko_large_tcpL]).
 
 %% Server: transport = socket(tcp), active = true
 %% Client: transport = socket(tcp), active = true
 ttest_ssockt_csockt_cases() ->
-    [
-     ttest_ssockt_csockt_small_tcp4,
-     ttest_ssockt_csockt_small_tcp6,
-     ttest_ssockt_csockt_small_tcpL,
-
-     ttest_ssockt_csockt_medium_tcp4,
-     ttest_ssockt_csockt_medium_tcp6,
-     ttest_ssockt_csockt_medium_tcpL,
-
-     ttest_ssockt_csockt_large_tcp4,
-     ttest_ssockt_csockt_large_tcp6,
-     ttest_ssockt_csockt_large_tcpL
-    ].
+    ttest_select_conditional_cases(
+      %% Small
+      [ttest_ssockt_csockt_small_tcp4,
+       ttest_ssockt_csockt_small_tcp6,
+       ttest_ssockt_csockt_small_tcpL],
+      %% Medium
+      [ttest_ssockt_csockt_medium_tcp4,
+       ttest_ssockt_csockt_medium_tcp6,
+       ttest_ssockt_csockt_medium_tcpL],
+      %% Large
+      [ttest_ssockt_csockt_large_tcp4,
+       ttest_ssockt_csockt_large_tcp6,
+       ttest_ssockt_csockt_large_tcpL]).
 
 tickets_cases() ->
     [
@@ -2057,36 +2187,49 @@ otp18240_cases() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init_per_suite(Config) ->
-    io:format("init_per_suite -> entry with"
-              "~n   Config: ~p"
-              "~n", [Config]),
-    ct:timetrap(?MINS(2)),
-    Factor = analyze_and_print_host_info(),
+init_per_suite(Config0) ->
+    ?P("init_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+    
     try socket:info() of
         #{} ->
-            socket:use_registry(false),
-            case quiet_mode(Config) of
-                default ->
-                    case ?LOGGER:start() of
-                        ok ->
-                            [{esock_factor, Factor} | Config];
-                        {error, Reason} ->
-                            io:format("init_per_suite -> Failed starting logger"
-                                      "~n   Reason: ~p"
-                                      "~n", [Reason]),
-                            {skip, "Failed starting logger"}
-                    end;
-                Quiet ->
-                    case ?LOGGER:start(Quiet) of
-                        ok ->
-                            [{esock_factor,     Factor},
-                             {esock_test_quiet, Quiet} | Config];
-                        {error, Reason} ->
-                            io:format("init_per_suite -> Failed starting logger"
-                                      "~n   Reason: ~p"
-                                      "~n", [Reason]),
-                            {skip, "Failed starting logger"}
+            case ?KLIB:init_per_suite(Config0) of
+                {skip, _} = SKIP ->
+                    SKIP;
+
+                Config1 when is_list(Config1) ->
+
+                    ?P("init_per_suite -> end when "
+                       "~n      Config: ~p", [Config1]),
+
+                    %% We need a monitor on this node also
+                    kernel_test_sys_monitor:start(),
+
+                    socket:use_registry(false),
+                    case quiet_mode(Config1) of
+                        default ->
+                            case ?LOGGER:start() of
+                                ok ->
+                                    Config1;
+                                {error, Reason} ->
+                                    ?P("init_per_suite -> "
+                                       "Failed starting logger"
+                                       "~n   Reason: ~p"
+                                       "~n", [Reason]),
+                                    {skip, "Failed starting logger"}
+                            end;
+                        Quiet ->
+                            case ?LOGGER:start(Quiet) of
+                                ok ->
+                                    [{esock_test_quiet, Quiet} | Config1];
+                                {error, Reason} ->
+                                    ?P("init_per_suite -> "
+                                       "Failed starting logger"
+                                       "~n   Reason: ~p"
+                                       "~n", [Reason]),
+                                    {skip, "Failed starting logger"}
+                            end
                     end
             end
     catch
@@ -2096,9 +2239,23 @@ init_per_suite(Config) ->
             {skip, "esock not configured"}
     end.
 
-end_per_suite(_) ->
+end_per_suite(Config0) ->
+
+    ?P("end_per_suite -> entry with"
+       "~n      Config: ~p"
+       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    %% Stop the local monitor
+    kernel_test_sys_monitor:stop(),
+
     (catch ?LOGGER:stop()),
-    ok.
+
+    Config1 = ?KLIB:end_per_suite(Config0),
+
+    ?P("end_per_suite -> "
+       "~n      Nodes: ~p", [erlang:nodes()]),
+
+    Config1.
 
 
 init_per_group(api_sendfile = GroupName, Config) ->
@@ -2149,12 +2306,18 @@ init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
               "~n", [_GroupName, Config]),
-    ttest_manager_start(),
-    case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
-        {value, _} ->
-            Config;
-        false ->
-            [{esock_test_ttest_runtime, which_ttest_runtime_env()} | Config]
+    case ttest_condition(Config) of
+        ok ->
+            ttest_manager_start(),
+            case lists:keysearch(esock_test_ttest_runtime, 1, Config) of
+                {value, _} ->
+                    Config;
+                false ->
+                    [{esock_test_ttest_runtime, which_ttest_runtime_env()} |
+                     Config]
+            end;
+        {skip, _} = SKIP ->
+            SKIP
     end;
 init_per_group(api_async_ref, Config) ->
     [{select_handle, true} | Config];
@@ -38878,7 +39041,7 @@ is_old_fedora16(_) ->
 %% not actually needed.
 %% The host in question is a Ubuntu 20.04...
 is_slow_ubuntu(Config) ->
-    case lookup(esock_factor, 1, Config) of
+    case lookup(kernel_factor, 1, Config) of
 	F when is_integer(F) andalso (F > 1) ->
 	    case os:type() of
 		{unix, linux} ->
@@ -41360,13 +41523,13 @@ tpp_udp_sock_close(Sock, Path) ->
 %%
 
 ttest_sgenf_cgenf_small_tcp4(Config) when is_list(Config) ->
-    Runtime = which_ttest_runtime(Config),
+    Runtime        = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgenf_small_tcp4,
               Runtime,
               inet,
               gen, false,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41386,7 +41549,7 @@ ttest_sgenf_cgenf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41406,7 +41569,7 @@ ttest_sgenf_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41426,7 +41589,7 @@ ttest_sgenf_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41446,7 +41609,7 @@ ttest_sgenf_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41466,7 +41629,7 @@ ttest_sgenf_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41486,7 +41649,7 @@ ttest_sgenf_cgeno_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41506,7 +41669,7 @@ ttest_sgenf_cgeno_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41526,7 +41689,7 @@ ttest_sgenf_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41546,7 +41709,7 @@ ttest_sgenf_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41566,7 +41729,7 @@ ttest_sgenf_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41586,7 +41749,7 @@ ttest_sgenf_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41606,7 +41769,7 @@ ttest_sgenf_cgent_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41626,7 +41789,7 @@ ttest_sgenf_cgent_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41646,7 +41809,7 @@ ttest_sgenf_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41666,7 +41829,7 @@ ttest_sgenf_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41686,7 +41849,7 @@ ttest_sgenf_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41706,7 +41869,7 @@ ttest_sgenf_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41726,7 +41889,7 @@ ttest_sgenf_csockf_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41746,7 +41909,7 @@ ttest_sgenf_csockf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41766,7 +41929,7 @@ ttest_sgenf_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41786,7 +41949,7 @@ ttest_sgenf_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41806,7 +41969,7 @@ ttest_sgenf_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41826,7 +41989,7 @@ ttest_sgenf_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41846,7 +42009,7 @@ ttest_sgenf_csocko_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41866,7 +42029,7 @@ ttest_sgenf_csocko_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41886,7 +42049,7 @@ ttest_sgenf_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41906,7 +42069,7 @@ ttest_sgenf_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -41926,7 +42089,7 @@ ttest_sgenf_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41946,7 +42109,7 @@ ttest_sgenf_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -41966,7 +42129,7 @@ ttest_sgenf_csockt_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -41986,7 +42149,7 @@ ttest_sgenf_csockt_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42006,7 +42169,7 @@ ttest_sgenf_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42026,7 +42189,7 @@ ttest_sgenf_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42046,7 +42209,7 @@ ttest_sgenf_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, false,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42066,7 +42229,7 @@ ttest_sgenf_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, false,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42086,7 +42249,7 @@ ttest_sgeno_cgenf_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42106,7 +42269,7 @@ ttest_sgeno_cgenf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42126,7 +42289,7 @@ ttest_sgeno_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42146,7 +42309,7 @@ ttest_sgeno_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42166,7 +42329,7 @@ ttest_sgeno_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42186,7 +42349,7 @@ ttest_sgeno_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42206,7 +42369,7 @@ ttest_sgeno_cgeno_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42226,7 +42389,7 @@ ttest_sgeno_cgeno_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42246,7 +42409,7 @@ ttest_sgeno_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42266,7 +42429,7 @@ ttest_sgeno_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42286,7 +42449,7 @@ ttest_sgeno_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42306,7 +42469,7 @@ ttest_sgeno_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42326,7 +42489,7 @@ ttest_sgeno_cgent_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42346,7 +42509,7 @@ ttest_sgeno_cgent_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42366,7 +42529,7 @@ ttest_sgeno_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42386,7 +42549,7 @@ ttest_sgeno_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42406,7 +42569,7 @@ ttest_sgeno_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42426,7 +42589,7 @@ ttest_sgeno_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42446,7 +42609,7 @@ ttest_sgeno_csockf_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42466,7 +42629,7 @@ ttest_sgeno_csockf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42486,7 +42649,7 @@ ttest_sgeno_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42506,7 +42669,7 @@ ttest_sgeno_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42526,7 +42689,7 @@ ttest_sgeno_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42546,7 +42709,7 @@ ttest_sgeno_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42566,7 +42729,7 @@ ttest_sgeno_csocko_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42586,7 +42749,7 @@ ttest_sgeno_csocko_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42606,7 +42769,7 @@ ttest_sgeno_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42626,7 +42789,7 @@ ttest_sgeno_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42646,7 +42809,7 @@ ttest_sgeno_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42666,7 +42829,7 @@ ttest_sgeno_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42686,7 +42849,7 @@ ttest_sgeno_csockt_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42706,7 +42869,7 @@ ttest_sgeno_csockt_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42726,7 +42889,7 @@ ttest_sgeno_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42746,7 +42909,7 @@ ttest_sgeno_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42766,7 +42929,7 @@ ttest_sgeno_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, once,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42786,7 +42949,7 @@ ttest_sgeno_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, once,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42806,7 +42969,7 @@ ttest_sgent_cgenf_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42826,7 +42989,7 @@ ttest_sgent_cgenf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42846,7 +43009,7 @@ ttest_sgent_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42866,7 +43029,7 @@ ttest_sgent_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42886,7 +43049,7 @@ ttest_sgent_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42906,7 +43069,7 @@ ttest_sgent_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -42926,7 +43089,7 @@ ttest_sgent_cgeno_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42946,7 +43109,7 @@ ttest_sgent_cgeno_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -42966,7 +43129,7 @@ ttest_sgent_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -42986,7 +43149,7 @@ ttest_sgent_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43006,7 +43169,7 @@ ttest_sgent_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43026,7 +43189,7 @@ ttest_sgent_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43046,7 +43209,7 @@ ttest_sgent_cgent_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43066,7 +43229,7 @@ ttest_sgent_cgent_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43089,7 +43252,7 @@ ttest_sgent_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43111,7 +43274,7 @@ ttest_sgent_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43134,7 +43297,7 @@ ttest_sgent_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43157,7 +43320,7 @@ ttest_sgent_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43178,7 +43341,7 @@ ttest_sgent_csockf_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43198,7 +43361,7 @@ ttest_sgent_csockf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43218,7 +43381,7 @@ ttest_sgent_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43238,7 +43401,7 @@ ttest_sgent_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43258,7 +43421,7 @@ ttest_sgent_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43278,7 +43441,7 @@ ttest_sgent_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43298,7 +43461,7 @@ ttest_sgent_csocko_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43318,7 +43481,7 @@ ttest_sgent_csocko_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43338,7 +43501,7 @@ ttest_sgent_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43358,7 +43521,7 @@ ttest_sgent_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43378,7 +43541,7 @@ ttest_sgent_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43398,7 +43561,7 @@ ttest_sgent_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43418,7 +43581,7 @@ ttest_sgent_csockt_small_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43438,7 +43601,7 @@ ttest_sgent_csockt_small_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43458,7 +43621,7 @@ ttest_sgent_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43478,7 +43641,7 @@ ttest_sgent_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43498,7 +43661,7 @@ ttest_sgent_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               gen, true,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43518,7 +43681,7 @@ ttest_sgent_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               gen, true,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43538,7 +43701,7 @@ ttest_ssockf_cgenf_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43558,7 +43721,7 @@ ttest_ssockf_cgenf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43578,7 +43741,7 @@ ttest_ssockf_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43598,7 +43761,7 @@ ttest_ssockf_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43618,7 +43781,7 @@ ttest_ssockf_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43638,7 +43801,7 @@ ttest_ssockf_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43658,7 +43821,7 @@ ttest_ssockf_cgeno_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43678,7 +43841,7 @@ ttest_ssockf_cgeno_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43698,7 +43861,7 @@ ttest_ssockf_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43718,7 +43881,7 @@ ttest_ssockf_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43738,7 +43901,7 @@ ttest_ssockf_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43758,7 +43921,7 @@ ttest_ssockf_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43778,7 +43941,7 @@ ttest_ssockf_cgent_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43798,7 +43961,7 @@ ttest_ssockf_cgent_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43818,7 +43981,7 @@ ttest_ssockf_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43838,7 +44001,7 @@ ttest_ssockf_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43858,7 +44021,7 @@ ttest_ssockf_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43878,7 +44041,7 @@ ttest_ssockf_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -43898,7 +44061,7 @@ ttest_ssockf_csockf_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43918,7 +44081,7 @@ ttest_ssockf_csockf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43938,7 +44101,7 @@ ttest_ssockf_csockf_small_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -43958,7 +44121,7 @@ ttest_ssockf_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43978,7 +44141,7 @@ ttest_ssockf_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -43998,7 +44161,7 @@ ttest_ssockf_csockf_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44018,7 +44181,7 @@ ttest_ssockf_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44038,7 +44201,7 @@ ttest_ssockf_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44058,7 +44221,7 @@ ttest_ssockf_csockf_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44078,7 +44241,7 @@ ttest_ssockf_csocko_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44098,7 +44261,7 @@ ttest_ssockf_csocko_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44118,7 +44281,7 @@ ttest_ssockf_csocko_small_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44138,7 +44301,7 @@ ttest_ssockf_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44158,7 +44321,7 @@ ttest_ssockf_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44178,7 +44341,7 @@ ttest_ssockf_csocko_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44198,7 +44361,7 @@ ttest_ssockf_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44218,7 +44381,7 @@ ttest_ssockf_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44238,7 +44401,7 @@ ttest_ssockf_csocko_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44258,7 +44421,7 @@ ttest_ssockf_csockt_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44278,7 +44441,7 @@ ttest_ssockf_csockt_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44298,7 +44461,7 @@ ttest_ssockf_csockt_small_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44318,7 +44481,7 @@ ttest_ssockf_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44338,7 +44501,7 @@ ttest_ssockf_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44358,7 +44521,7 @@ ttest_ssockf_csockt_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44378,7 +44541,7 @@ ttest_ssockf_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, false,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44398,7 +44561,7 @@ ttest_ssockf_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, false,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44418,7 +44581,7 @@ ttest_ssockf_csockt_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, false,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44438,7 +44601,7 @@ ttest_ssocko_cgenf_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44458,7 +44621,7 @@ ttest_ssocko_cgenf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44478,7 +44641,7 @@ ttest_ssocko_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44498,7 +44661,7 @@ ttest_ssocko_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44518,7 +44681,7 @@ ttest_ssocko_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44538,7 +44701,7 @@ ttest_ssocko_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44558,7 +44721,7 @@ ttest_ssocko_cgeno_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44578,7 +44741,7 @@ ttest_ssocko_cgeno_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44598,7 +44761,7 @@ ttest_ssocko_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44618,7 +44781,7 @@ ttest_ssocko_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44638,7 +44801,7 @@ ttest_ssocko_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44658,7 +44821,7 @@ ttest_ssocko_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44678,7 +44841,7 @@ ttest_ssocko_cgent_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44698,7 +44861,7 @@ ttest_ssocko_cgent_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44718,7 +44881,7 @@ ttest_ssocko_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44738,7 +44901,7 @@ ttest_ssocko_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44758,7 +44921,7 @@ ttest_ssocko_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44778,7 +44941,7 @@ ttest_ssocko_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44798,7 +44961,7 @@ ttest_ssocko_csockf_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44818,7 +44981,7 @@ ttest_ssocko_csockf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44838,7 +45001,7 @@ ttest_ssocko_csockf_small_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44858,7 +45021,7 @@ ttest_ssocko_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44878,7 +45041,7 @@ ttest_ssocko_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44898,7 +45061,7 @@ ttest_ssocko_csockf_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -44918,7 +45081,7 @@ ttest_ssocko_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44938,7 +45101,7 @@ ttest_ssocko_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44958,7 +45121,7 @@ ttest_ssocko_csockf_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -44978,7 +45141,7 @@ ttest_ssocko_csocko_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -44998,7 +45161,7 @@ ttest_ssocko_csocko_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45018,7 +45181,7 @@ ttest_ssocko_csocko_small_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45038,7 +45201,7 @@ ttest_ssocko_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45058,7 +45221,7 @@ ttest_ssocko_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45078,7 +45241,7 @@ ttest_ssocko_csocko_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45098,7 +45261,7 @@ ttest_ssocko_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45118,7 +45281,7 @@ ttest_ssocko_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45138,7 +45301,7 @@ ttest_ssocko_csocko_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45158,7 +45321,7 @@ ttest_ssocko_csockt_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45178,7 +45341,7 @@ ttest_ssocko_csockt_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45198,7 +45361,7 @@ ttest_ssocko_csockt_small_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45218,7 +45381,7 @@ ttest_ssocko_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45238,7 +45401,7 @@ ttest_ssocko_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45258,7 +45421,7 @@ ttest_ssocko_csockt_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45278,7 +45441,7 @@ ttest_ssocko_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, once,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45298,7 +45461,7 @@ ttest_ssocko_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, once,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45318,7 +45481,7 @@ ttest_ssocko_csockt_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, once,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45338,7 +45501,7 @@ ttest_ssockt_cgenf_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45358,7 +45521,7 @@ ttest_ssockt_cgenf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45378,7 +45541,7 @@ ttest_ssockt_cgenf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45398,7 +45561,7 @@ ttest_ssockt_cgenf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45418,7 +45581,7 @@ ttest_ssockt_cgenf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45438,7 +45601,7 @@ ttest_ssockt_cgenf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45458,7 +45621,7 @@ ttest_ssockt_cgeno_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45478,7 +45641,7 @@ ttest_ssockt_cgeno_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45498,7 +45661,7 @@ ttest_ssockt_cgeno_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45518,7 +45681,7 @@ ttest_ssockt_cgeno_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45538,7 +45701,7 @@ ttest_ssockt_cgeno_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45558,7 +45721,7 @@ ttest_ssockt_cgeno_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45578,7 +45741,7 @@ ttest_ssockt_cgent_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45598,7 +45761,7 @@ ttest_ssockt_cgent_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45618,7 +45781,7 @@ ttest_ssockt_cgent_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45638,7 +45801,7 @@ ttest_ssockt_cgent_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45658,7 +45821,7 @@ ttest_ssockt_cgent_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45678,7 +45841,7 @@ ttest_ssockt_cgent_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               gen, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45698,7 +45861,7 @@ ttest_ssockt_csockf_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45718,7 +45881,7 @@ ttest_ssockt_csockf_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45738,7 +45901,7 @@ ttest_ssockt_csockf_small_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, false,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45758,7 +45921,7 @@ ttest_ssockt_csockf_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45778,7 +45941,7 @@ ttest_ssockt_csockf_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45798,7 +45961,7 @@ ttest_ssockt_csockf_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, false,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45818,7 +45981,7 @@ ttest_ssockt_csockf_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45838,7 +46001,7 @@ ttest_ssockt_csockf_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45858,7 +46021,7 @@ ttest_ssockt_csockf_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, false,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -45878,7 +46041,7 @@ ttest_ssockt_csocko_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45898,7 +46061,7 @@ ttest_ssockt_csocko_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45918,7 +46081,7 @@ ttest_ssockt_csocko_small_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, once,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -45938,7 +46101,7 @@ ttest_ssockt_csocko_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45958,7 +46121,7 @@ ttest_ssockt_csocko_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45978,7 +46141,7 @@ ttest_ssockt_csocko_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, once,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -45998,7 +46161,7 @@ ttest_ssockt_csocko_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46018,7 +46181,7 @@ ttest_ssockt_csocko_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46038,7 +46201,7 @@ ttest_ssockt_csocko_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, once,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46058,7 +46221,7 @@ ttest_ssockt_csockt_small_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -46078,7 +46241,7 @@ ttest_ssockt_csockt_small_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -46098,7 +46261,7 @@ ttest_ssockt_csockt_small_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, true,
-              1, 200).
+              1, ttest_small_max_outstanding(Config)).
 
 
 
@@ -46118,7 +46281,7 @@ ttest_ssockt_csockt_medium_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -46138,7 +46301,7 @@ ttest_ssockt_csockt_medium_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -46158,7 +46321,7 @@ ttest_ssockt_csockt_medium_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, true,
-              2, 20).
+              2, ttest_medium_max_outstanding(Config)).
 
 
 
@@ -46178,7 +46341,7 @@ ttest_ssockt_csockt_large_tcp4(Config) when is_list(Config) ->
               inet,
               sock, true,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46198,7 +46361,7 @@ ttest_ssockt_csockt_large_tcp6(Config) when is_list(Config) ->
               inet6,
               sock, true,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46218,7 +46381,7 @@ ttest_ssockt_csockt_large_tcpL(Config) when is_list(Config) ->
               local,
               sock, true,
               sock, true,
-              3, 2).
+              3, ttest_large_max_outstanding(Config)).
 
 
 
@@ -46303,6 +46466,17 @@ ttest_tcp(TC,
                    %% This may be overkill, depending on the runtime,
                    %% but better safe then sorry...
                    ?TT(Runtime + ?SECS(60)),
+                   ?P("Parameters: "
+                      "~n   Domain:          ~p"
+                      "~n   Message ID:      ~p"
+                      "~n   Max Outstanding: ~p"
+                      "~n   Running Time:    ~p"
+                      "~n   Server Module:   ~p"
+                      "~n   Server Active:   ~p"
+                      "~n   Client Module:   ~p"
+                      "~n   Client Active:   ~p",
+                      [Domain, MsgID, MaxOutstanding, Runtime,
+                       ServerMod, ServerActive, ClientMod, ClientActive]),
                    InitState = #{domain          => Domain,
                                  msg_id          => MsgID,
                                  max_outstanding => MaxOutstanding,
@@ -46356,6 +46530,9 @@ ttest_tcp(InitState) ->
                            case ttest_tcp_server_start(Node,
                                                        Domain, Mod, Active) of
                                {ok, {{Pid, _}, Path}} ->
+                                   ?SEV_IPRINT("server started: "
+                                               "~n   Pid:  ~p"
+                                               "~n   Path: ~p", [Pid, Path]),
                                    {ok, State#{rserver => Pid,
                                                path    => Path}};
                                {error, _} = ERROR ->
@@ -46368,6 +46545,11 @@ ttest_tcp(InitState) ->
                            case ttest_tcp_server_start(Node,
                                                        Domain, Mod, Active) of
                                {ok, {{Pid, _}, {Addr, Port}}} ->
+                                   ?SEV_IPRINT("server started: "
+                                               "~n   Pid:  ~p"
+                                               "~n   Addr: ~p"
+                                               "~n   Port: ~p",
+                                               [Pid, Addr, Port]),
                                    {ok, State#{rserver => Pid,
                                                addr    => Addr,
                                                port    => Port}};
@@ -46396,8 +46578,11 @@ ttest_tcp(InitState) ->
                            case ?SEV_AWAIT_TERMINATE(Tester, tester,
                                                      [{rserver, RServer}]) of
                                ok ->
+                                   ?SEV_IPRINT("received termination request"),
                                    {ok, maps:remove(tester, State)};
-                               {error, _} = ERROR ->
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("received unexpected error: "
+                                               "~n   ~p", [Reason]),
                                    ERROR
                            end
                    end},
@@ -46461,11 +46646,17 @@ ttest_tcp(InitState) ->
            cmd  => fun(#{domain := local} = State) ->
                            {Tester, ServerPath} = 
                                ?SEV_AWAIT_START(),
+                           ?SEV_IPRINT("started with server info: "
+                                       "~n   Path: ~p", [ServerPath]),
                            {ok, State#{tester      => Tester,
                                        server_path => ServerPath}};
                       (State) ->
                            {Tester, {ServerAddr, ServerPort}} = 
                                ?SEV_AWAIT_START(),
+                           ?SEV_IPRINT("started with server info: "
+                                       "~n   Addr: ~p"
+                                       "~n   Port: ~p",
+                                       [ServerAddr, ServerPort]),
                            {ok, State#{tester      => Tester,
                                        server_addr => ServerAddr,
                                        server_port => ServerPort}}
@@ -46600,7 +46791,7 @@ ttest_tcp(InitState) ->
                            {ok,
                             try peer:stop(Peer) of
                                 ok ->
-                                    State#{node_stop3 => ok};
+                                    State#{node_stop => ok};
                                 {error, Reason} ->
                                     ?SEV_EPRINT("Unexpected node stop result: "
                                                 "~n   ~p", [Reason]),
@@ -48681,1019 +48872,6 @@ tc_which_name() ->
     end.
     
    
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% This function prints various host info, which might be useful
-%% when analyzing the test suite (results).
-%% It also returns a "factor" that can be used when deciding 
-%% the load for some test cases (traffic). Such as run time or
-%% number of iterations. This only works for some OSes (linux).
-%% Also, mostly it just returns the factor 1.
-%% At this time we just look at BogoMIPS!
-analyze_and_print_host_info() ->
-    {OsFam, OsName} = os:type(),
-    Version         =
-        case os:version() of
-            {Maj, Min, Rel} ->
-                f("~w.~w.~w", [Maj, Min, Rel]);
-            VStr ->
-                VStr
-        end,
-    case {OsFam, OsName} of
-        {unix, linux} ->
-            analyze_and_print_linux_host_info(Version);
-        {unix, openbsd} ->
-            analyze_and_print_openbsd_host_info(Version);
-        {unix, freebsd} ->
-            analyze_and_print_freebsd_host_info(Version);           
-        {unix, netbsd} ->
-            analyze_and_print_netbsd_host_info(Version);           
-        {unix, sunos} ->
-            analyze_and_print_solaris_host_info(Version);
-        {win32, nt} ->
-            analyze_and_print_win_host_info(Version);
-        _ ->
-            io:format("OS Family: ~p"
-                      "~n   OS Type:        ~p"
-                      "~n   Version:        ~p"
-                      "~n   Num Schedulers: ~s"
-                      "~n", [OsFam, OsName, Version, str_num_schedulers()]),
-            num_schedulers_to_factor()
-    end.
-
-str_num_schedulers() ->
-    try erlang:system_info(schedulers) of
-        N -> f("~w", [N])
-    catch
-        _:_:_ -> "-"
-    end.
-
-num_schedulers_to_factor() ->
-    try erlang:system_info(schedulers) of
-        1 ->
-            10;
-        2 ->
-            5;
-        N when (N =< 6) ->
-            2;
-        _ ->
-            1
-    catch
-        _:_:_ ->
-            10
-    end.
-    
-
-    
-%% --- Linux ---
-
-linux_which_distro(Version) ->
-    case file:read_file_info("/etc/issue") of
-        {ok, _} ->
-            case [string:trim(S) ||
-                     S <- string:tokens(os:cmd("cat /etc/issue"), [$\n])] of
-                [DistroStr|_] ->
-                    io:format("Linux: ~s"
-                              "~n   ~s"
-                              "~n",
-                              [Version, DistroStr]),
-                    case DistroStr of
-                        "Wind River Linux" ++ _ ->
-                            wind_river;
-                        "MontaVista" ++ _ ->
-                            montavista;
-                        "Yellow Dog" ++ _ ->
-                            yellow_dog;
-                        _ ->
-                            other
-                    end;
-                X ->
-                    io:format("Linux: ~s"
-                              "~n   ~p"
-                              "~n",
-                              [Version, X]),
-                    other
-            end;
-        _ ->
-            io:format("Linux: ~s"
-                      "~n", [Version]),
-            other
-    end.
-
-    
-analyze_and_print_linux_host_info(Version) ->
-    Distro = linux_which_distro(Version),
-    Factor =
-        case (catch linux_which_cpuinfo(Distro)) of
-            {ok, {CPU, BogoMIPS}} ->
-                io:format("CPU: "
-                          "~n   Model:          ~s"
-                          "~n   BogoMIPS:       ~w"
-                          "~n   Num Schedulers: ~s"
-                          "~n", [CPU, BogoMIPS, str_num_schedulers()]),
-                if
-                    (BogoMIPS > 20000) ->
-                        1;
-                    (BogoMIPS > 10000) ->
-                        2;
-                    (BogoMIPS > 5000) ->
-                        3;
-                    (BogoMIPS > 2000) ->
-                        5;
-                    (BogoMIPS > 1000) ->
-                        8;
-                    true ->
-                        10
-                end;
-            {ok, CPU} ->
-                io:format("CPU: "
-                          "~n   Model:          ~s"
-                          "~n   Num Schedulers: ~s"
-                          "~n", [CPU, str_num_schedulers()]),
-                num_schedulers_to_factor();
-            _ ->
-                5
-        end,
-    %% Check if we need to adjust the factor because of the memory
-    try linux_which_meminfo() of
-        AddFactor ->
-            Factor + AddFactor
-    catch
-        _:_:_ ->
-            Factor
-    end.
-
-
-linux_cpuinfo_lookup(Key) when is_list(Key) ->
-    linux_info_lookup(Key, "/proc/cpuinfo").
-
-linux_cpuinfo_cpu() ->
-    case linux_cpuinfo_lookup("cpu") of
-        [Model] ->
-            Model;
-        _ ->
-            "-"
-    end.
-
-linux_cpuinfo_motherboard() ->
-    case linux_cpuinfo_lookup("motherboard") of
-        [MB] ->
-            MB;
-        _ ->
-            "-"
-    end.
-
-linux_cpuinfo_bogomips() ->
-    case linux_cpuinfo_lookup("bogomips") of
-        BMips when is_list(BMips) ->
-            try lists:sum([bogomips_to_int(BM) || BM <- BMips])
-            catch
-                _:_:_ ->
-                    "-"
-            end;
-        _ ->
-            "-"
-    end.
-
-linux_cpuinfo_total_bogomips() ->
-    case linux_cpuinfo_lookup("total bogomips") of
-        [TBM] ->
-            try bogomips_to_int(TBM)
-            catch
-                _:_:_ ->
-                    "-"
-            end;
-        _ ->
-            "-"
-    end.
-
-bogomips_to_int(BM) ->
-    try list_to_float(BM) of
-        F ->
-            floor(F)
-    catch
-        _:_:_ ->
-            try list_to_integer(BM) of
-                I ->
-                    I
-            catch
-                _:_:_ ->
-                    throw(noinfo)
-            end
-    end.
-
-linux_cpuinfo_model() ->
-    case linux_cpuinfo_lookup("model") of
-        [M] ->
-            M;
-        _ ->
-            "-"
-    end.
-
-linux_cpuinfo_platform() ->
-    case linux_cpuinfo_lookup("platform") of
-        [P] ->
-            P;
-        _ ->
-            "-"
-    end.
-
-linux_cpuinfo_model_name() ->
-    case linux_cpuinfo_lookup("model name") of
-        [P|_] ->
-            P;
-        _X ->
-            "-"
-    end.
-
-linux_cpuinfo_processor() ->
-    case linux_cpuinfo_lookup("Processor") of
-        [P] ->
-            P;
-        _ ->
-            "-"
-    end.
-
-linux_which_cpuinfo(montavista) ->
-    CPU =
-        case linux_cpuinfo_cpu() of
-            "-" ->
-                throw(noinfo);
-            Model ->
-                case linux_cpuinfo_motherboard() of
-                    "-" ->
-                        Model;
-                    MB ->
-                        Model ++ " (" ++ MB ++ ")"
-                end
-        end,
-    case linux_cpuinfo_bogomips() of
-        "-" ->
-            {ok, CPU};
-        BMips ->
-            {ok, {CPU, BMips}}
-    end;
-
-linux_which_cpuinfo(yellow_dog) ->
-    CPU =
-        case linux_cpuinfo_cpu() of
-            "-" ->
-                throw(noinfo);
-            Model ->
-                case linux_cpuinfo_motherboard() of
-                    "-" ->
-                        Model;
-                    MB ->
-                        Model ++ " (" ++ MB ++ ")"
-                end
-        end,
-    {ok, CPU};
-
-linux_which_cpuinfo(wind_river) ->
-    CPU =
-        case linux_cpuinfo_model() of
-            "-" ->
-                throw(noinfo);
-            Model ->
-                case linux_cpuinfo_platform() of
-                    "-" ->
-                        Model;
-                    Platform ->
-                        Model ++ " (" ++ Platform ++ ")"
-                end
-        end,
-    case linux_cpuinfo_total_bogomips() of
-        "-" ->
-            {ok, CPU};
-        BMips ->
-            {ok, {CPU, BMips}}
-    end;
-
-linux_which_cpuinfo(other) ->
-    %% Check for x86 (Intel or AMD)
-    CPU =
-        case linux_cpuinfo_model_name() of
-            "-" ->
-                %% ARM (at least some distros...)
-                case linux_cpuinfo_processor() of
-                    "-" ->
-                        %% Ok, we give up
-                        throw(noinfo);
-                    Proc ->
-                        Proc
-                end;
-            ModelName ->
-                ModelName
-        end,
-    case linux_cpuinfo_bogomips() of
-        "-" ->
-            {ok, CPU};
-        BMips ->
-            {ok, {CPU, BMips}}
-    end.
-
-linux_meminfo_lookup(Key) when is_list(Key) ->
-    linux_info_lookup(Key, "/proc/meminfo").
-
-linux_meminfo_memtotal() ->
-    case linux_meminfo_lookup("MemTotal") of
-        [X] ->
-            X;
-        _ ->
-            "-"
-    end.
-
-%% We *add* the value this return to the Factor.
-linux_which_meminfo() ->
-    case linux_meminfo_memtotal() of
-        "-" ->
-            0;
-        MemTotal ->
-            io:format("Memory:"
-                      "~n   ~s"
-                      "~n", [MemTotal]),
-            case string:tokens(MemTotal, [$ ]) of
-                [MemSzStr, MemUnit] ->
-                    MemSz2 = list_to_integer(MemSzStr),
-                    MemSz3 = 
-                        case string:to_lower(MemUnit) of
-                            "kb" ->
-                                MemSz2;
-                            "mb" ->
-                                MemSz2*1024;
-                            "gb" ->
-                                MemSz2*1024*1024;
-                            _ ->
-                                throw(noinfo)
-                        end,
-                    if
-                        (MemSz3 >= 8388608) ->
-                            0;
-                        (MemSz3 >= 4194304) ->
-                            1;
-                        (MemSz3 >= 2097152) ->
-                            3;
-                        true ->
-                            5
-                    end;
-                _X ->
-                    0
-            end
-    end.
-
-
-linux_info_lookup(Key, File) ->
-    try [string:trim(S) || S <- string:tokens(os:cmd("grep " ++ "\"" ++ Key ++ "\"" ++ " " ++ File), [$:,$\n])] of
-        Info ->
-            linux_info_lookup_collect(Key, Info, [])
-    catch
-        _:_:_ ->
-            "-"
-    end.
-
-linux_info_lookup_collect(_Key, [], Values) ->
-    lists:reverse(Values);
-linux_info_lookup_collect(Key, [Key, Value|Rest], Values) ->
-    linux_info_lookup_collect(Key, Rest, [Value|Values]);
-linux_info_lookup_collect(_, _, Values) ->
-    lists:reverse(Values).
-    
-
-%% --- OpenBSD ---
-
-%% Just to be clear: This is ***not*** scientific...
-analyze_and_print_openbsd_host_info(Version) ->
-    io:format("OpenBSD:"
-              "~n   Version: ~p"
-              "~n", [Version]),
-    Extract =
-        fun(Key) -> 
-                string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$=])
-        end,
-    try
-        begin
-            CPU =
-                case Extract("hw.model") of
-                    ["hw.model", Model] ->
-                        string:trim(Model);
-                    _ ->
-                        "-"
-                end,
-            CPUSpeed =
-                case Extract("hw.cpuspeed") of
-                    ["hw.cpuspeed", Speed] ->
-                        list_to_integer(Speed);
-                    _ ->
-                        -1
-                end,
-            NCPU =
-                case Extract("hw.ncpufound") of
-                    ["hw.ncpufound", N] ->
-                        list_to_integer(N);
-                    _ ->
-                        -1
-                end,
-            Memory =
-                case Extract("hw.physmem") of
-                    ["hw.physmem", PhysMem] ->
-                        list_to_integer(PhysMem) div 1024;
-                    _ ->
-                        -1
-                end,
-            io:format("CPU:"
-                      "~n   Model: ~s"
-                      "~n   Speed: ~w"
-                      "~n   N:     ~w"
-                      "~nMemory:"
-                      "~n   ~w KB"
-                      "~n", [CPU, CPUSpeed, NCPU, Memory]),
-            CPUFactor =
-                if
-                    (CPUSpeed =:= -1) ->
-                        1;
-                    (CPUSpeed >= 2000) ->
-                        if
-                            (NCPU >= 4) ->
-                                1;
-                            (NCPU >= 2) ->
-                                2;
-                            true ->
-                                3
-                        end;
-                    true ->
-                        if
-                            (NCPU >= 4) ->
-                                2;
-                            (NCPU >= 2) ->
-                                3;
-                            true ->
-                                4
-                        end
-                end,
-            MemAddFactor =
-                if
-                    (Memory =:= -1) ->
-                        0;
-                    (Memory >= 8388608) ->
-                        0;
-                    (Memory >= 4194304) ->
-                        1;
-                    (Memory >= 2097152) ->
-                        2;
-                    true ->
-                        3
-                end,
-            CPUFactor + MemAddFactor
-        end
-    catch
-        _:_:_ ->
-            1
-    end.
-
-
-%% --- FreeBSD ---
-
-analyze_and_print_freebsd_host_info(Version) ->
-    io:format("FreeBSD:"
-              "~n   Version: ~p"
-              "~n", [Version]),
-    %% This test require that the program 'sysctl' is in the path.
-    %% First test with 'which sysctl', if that does not work
-    %% try with 'which /sbin/sysctl'. If that does not work either,
-    %% we skip the test...
-    try
-        begin
-            SysCtl =
-                case string:trim(os:cmd("which sysctl")) of
-                    [] ->
-                        case string:trim(os:cmd("which /sbin/sysctl")) of
-                            [] ->
-                                throw(sysctl);
-                            SC2 ->
-                                SC2
-                        end;
-                    SC1 ->
-                        SC1
-                end,
-            Extract =
-                fun(Key) ->
-                        string:tokens(string:trim(os:cmd(SysCtl ++ " " ++ Key)),
-                                      [$:])
-                end,
-            CPU      = analyze_freebsd_cpu(Extract),
-            CPUSpeed = analyze_freebsd_cpu_speed(Extract),
-            NCPU     = analyze_freebsd_ncpu(Extract),
-            Memory   = analyze_freebsd_memory(Extract),
-            io:format("CPU:"
-                      "~n   Model:          ~s"
-                      "~n   Speed:          ~w"
-                      "~n   N:              ~w"
-                      "~n   Num Schedulers: ~w"
-                      "~nMemory:"
-                      "~n   ~w KB"
-                      "~n",
-                      [CPU, CPUSpeed, NCPU,
-                       erlang:system_info(schedulers), Memory]),
-            CPUFactor =
-                if
-                    (CPUSpeed =:= -1) ->
-                        1;
-                    (CPUSpeed >= 2000) ->
-                        if
-                            (NCPU >= 4) ->
-                                1;
-                            (NCPU >= 2) ->
-                                2;
-                            true ->
-                                3
-                        end;
-                    true ->
-                        if
-                            (NCPU =:= -1) ->
-                                1;
-                            (NCPU >= 4) ->
-                                2;
-                            (NCPU >= 2) ->
-                                3;
-                            true ->
-                                4
-                        end
-                end,
-            MemAddFactor =
-                if
-                    (Memory =:= -1) ->
-                        0;
-                    (Memory >= 8388608) ->
-                        0;
-                    (Memory >= 4194304) ->
-                        1;
-                    (Memory >= 2097152) ->
-                        2;
-                    true ->
-                        3
-                end,
-            CPUFactor + MemAddFactor
-        end
-    catch
-        _:_:_ ->
-            io:format("CPU:"
-                      "~n   Num Schedulers: ~w"
-                      "~n", [erlang:system_info(schedulers)]),
-            case erlang:system_info(schedulers) of
-                1 ->
-                    10;
-                2 ->
-                    5;
-                _ ->
-                    2
-            end
-    end.
-
-analyze_freebsd_cpu(Extract) ->
-    analyze_freebsd_item(Extract, "hw.model", fun(X) -> X end, "-").
-
-analyze_freebsd_cpu_speed(Extract) ->
-    analyze_freebsd_item(Extract,
-                         "hw.clockrate",
-                         fun(X) -> list_to_integer(X) end,
-                         -1).
-
-analyze_freebsd_ncpu(Extract) ->
-    analyze_freebsd_item(Extract,
-                         "hw.ncpu",
-                         fun(X) -> list_to_integer(X) end,
-                         -1).
-
-analyze_freebsd_memory(Extract) ->
-    analyze_freebsd_item(Extract,
-                         "hw.physmem",
-                         fun(X) -> list_to_integer(X) div 1024 end,
-                         -1).
-
-analyze_freebsd_item(Extract, Key, Process, Default) ->
-    try
-        begin
-            case Extract(Key) of
-                [Key, Model] ->
-                    Process(string:trim(Model));
-                _ ->
-                    Default
-            end
-        end
-    catch
-        _:_:_ ->
-            Default
-    end.
-
-
-%% --- NetBSD ---
-
-analyze_and_print_netbsd_host_info(Version) ->
-    io:format("NetBSD:"
-              "~n   Version: ~p"
-              "~n", [Version]),
-    %% This test require that the program 'sysctl' is in the path.
-    %% First test with 'which sysctl', if that does not work
-    %% try with 'which /sbin/sysctl'. If that does not work either,
-    %% we skip the test...
-    try
-        begin
-            SysCtl =
-                case string:trim(os:cmd("which sysctl")) of
-                    [] ->
-                        case string:trim(os:cmd("which /sbin/sysctl")) of
-                            [] ->
-                                throw(sysctl);
-                            SC2 ->
-                                SC2
-                        end;
-                    SC1 ->
-                        SC1
-                end,
-            Extract =
-                fun(Key) ->
-                        [string:trim(S) ||
-                            S <-
-                                string:tokens(string:trim(os:cmd(SysCtl ++ " " ++ Key)),
-                                              [$=])]
-                end,
-            CPU      = analyze_netbsd_cpu(Extract),
-            Machine  = analyze_netbsd_machine(Extract),
-            Arch     = analyze_netbsd_machine_arch(Extract),
-            CPUSpeed = analyze_netbsd_cpu_speed(Extract),
-            NCPU     = analyze_netbsd_ncpu(Extract),
-            Memory   = analyze_netbsd_memory(Extract),
-            io:format("CPU:"
-                      "~n   Model:          ~s (~s, ~s)"
-                      "~n   Speed:          ~w MHz"
-                      "~n   N:              ~w"
-                      "~n   Num Schedulers: ~w"
-                      "~nMemory:"
-                      "~n   ~w KB"
-                      "~n",
-                      [CPU, Machine, Arch, CPUSpeed, NCPU,
-                       erlang:system_info(schedulers), Memory]),
-            CPUFactor =
-                if
-                    (CPUSpeed =:= -1) ->
-                        1;
-                    (CPUSpeed >= 2000) ->
-                        if
-                            (NCPU >= 4) ->
-                                1;
-                            (NCPU >= 2) ->
-                                2;
-                            true ->
-                                3
-                        end;
-                    true ->
-                        if
-                            (NCPU =:= -1) ->
-                                1;
-                            (NCPU >= 4) ->
-                                2;
-                            (NCPU >= 2) ->
-                                3;
-                            true ->
-                                4
-                        end
-                end,
-            MemAddFactor =
-                if
-                    (Memory =:= -1) ->
-                        0;
-                    (Memory >= 8388608) ->
-                        0;
-                    (Memory >= 4194304) ->
-                        1;
-                    (Memory >= 2097152) ->
-                        2;
-                    true ->
-                        3
-                end,
-            CPUFactor + MemAddFactor
-        end
-    catch
-        _:_:_ ->
-            io:format("CPU:"
-                      "~n   Num Schedulers: ~w"
-                      "~n", [erlang:system_info(schedulers)]),
-            case erlang:system_info(schedulers) of
-                1 ->
-                    10;
-                2 ->
-                    5;
-                _ ->
-                    2
-            end
-    end.
-
-analyze_netbsd_cpu(Extract) ->
-    analyze_netbsd_item(Extract, "hw.model", fun(X) -> X end, "-").
-
-analyze_netbsd_machine(Extract) ->
-    analyze_netbsd_item(Extract, "hw.machine", fun(X) -> X end, "-").
-
-analyze_netbsd_machine_arch(Extract) ->
-    analyze_netbsd_item(Extract, "hw.machine_arch", fun(X) -> X end, "-").
-
-analyze_netbsd_cpu_speed(Extract) ->
-    analyze_netbsd_item(Extract, "machdep.dmi.processor-frequency", 
-                        fun(X) -> case string:tokens(X, [$\ ]) of
-                                      [MHz, "MHz"] ->
-                                          list_to_integer(MHz);
-                                      _ ->
-                                          -1
-                                  end
-                        end, "-").
-
-analyze_netbsd_ncpu(Extract) ->
-    analyze_netbsd_item(Extract,
-                        "hw.ncpu",
-                        fun(X) -> list_to_integer(X) end,
-                        -1).
-
-analyze_netbsd_memory(Extract) ->
-    analyze_netbsd_item(Extract,
-                        "hw.physmem64",
-                        fun(X) -> list_to_integer(X) div 1024 end,
-                        -1).
-
-analyze_netbsd_item(Extract, Key, Process, Default) ->
-    analyze_freebsd_item(Extract, Key, Process, Default).
-
-
-
-%% --- Solaris ---
-
-analyze_and_print_solaris_host_info(Version) ->
-    Release =
-        case file:read_file_info("/etc/release") of
-            {ok, _} ->
-                case [string:trim(S) || S <- string:tokens(os:cmd("cat /etc/release"), [$\n])] of
-                    [Rel | _] ->
-                        Rel;
-                    _ ->
-                        "-"
-                end;
-            _ ->
-                "-"
-        end,
-    %% Display the firmware device tree root properties (prtconf -b)
-    Props = [list_to_tuple([string:trim(PS) || PS <- Prop]) ||
-                Prop <- [string:tokens(S, [$:]) ||
-                            S <- string:tokens(os:cmd("prtconf -b"), [$\n])]],
-    BannerName = case lists:keysearch("banner-name", 1, Props) of
-                     {value, {_, BN}} ->
-                         string:trim(BN);
-                     _ ->
-                         "-"
-                 end,
-    InstructionSet =
-        case string:trim(os:cmd("isainfo -k")) of
-            "Pseudo-terminal will not" ++ _ ->
-                "-";
-            IS ->
-                IS
-        end,
-    PtrConf = [list_to_tuple([string:trim(S) || S <- Items]) || Items <- [string:tokens(S, [$:]) || S <- string:tokens(os:cmd("prtconf"), [$\n])], length(Items) > 1],
-    SysConf =
-        case lists:keysearch("System Configuration", 1, PtrConf) of
-            {value, {_, SC}} ->
-                SC;
-            _ ->
-                "-"
-        end,
-    NumPhysProc =
-        begin
-            NPPStr = string:trim(os:cmd("psrinfo -p")),
-            try list_to_integer(NPPStr) of
-                _ ->
-                    NPPStr
-            catch
-                _:_:_ ->
-                    "-"
-            end
-        end,
-    NumProc = try integer_to_list(length(string:tokens(os:cmd("psrinfo"), [$\n]))) of
-                  NPStr ->
-                      NPStr
-              catch
-                  _:_:_ ->
-                      "-"
-              end,
-    MemSz =
-        case lists:keysearch("Memory size", 1, PtrConf) of
-            {value, {_, MS}} ->
-                MS;
-            _ ->
-                "-"
-        end,
-    io:format("Solaris: ~s"
-              "~n   Release:         ~s"
-              "~n   Banner Name:     ~s"
-              "~n   Instruction Set: ~s"
-              "~n   CPUs:            ~s (~s)"
-              "~n   System Config:   ~s"
-              "~n   Memory Size:     ~s"
-              "~n   Num Schedulers:  ~s"
-              "~n~n", [Version, Release, BannerName, InstructionSet,
-                       NumPhysProc, NumProc,
-                       SysConf, MemSz,
-                       str_num_schedulers()]),
-    MemFactor =
-        try string:tokens(MemSz, [$ ]) of
-            [SzStr, "Mega" ++ _] ->
-                try list_to_integer(SzStr) of
-                    Sz when Sz > 8192 ->
-                        0;
-                    Sz when Sz > 4096 ->
-                        1;
-                    Sz when Sz > 2048 ->
-                        2;
-                    _ -> 
-                        5
-                catch
-                    _:_:_ ->
-                        10
-                end;
-            [SzStr, "Giga" ++ _] ->
-                try list_to_integer(SzStr) of
-                    Sz when Sz > 8 ->
-                        0;
-                    Sz when Sz > 4 ->
-                        1;
-                    Sz when Sz > 2 ->
-                        2;
-                    _ -> 
-                        5
-                catch
-                    _:_:_ ->
-                        10
-                end;
-            _ ->
-                10
-        catch
-            _:_:_ ->
-                10
-        end,
-    try erlang:system_info(schedulers) of
-        1 ->
-            10;
-        2 ->
-            5;
-        N when (N =< 6) ->
-            2;
-        _ ->
-            1
-    catch
-        _:_:_ ->
-            10
-    end + MemFactor.    
-
-
-%% --- Windows ---
-
-analyze_and_print_win_host_info(Version) ->
-    SysInfo    = which_win_system_info(),
-    OsName     = win_sys_info_lookup(os_name,             SysInfo),
-    OsVersion  = win_sys_info_lookup(os_version,          SysInfo),
-    SysMan     = win_sys_info_lookup(system_manufacturer, SysInfo),
-    SysMod     = win_sys_info_lookup(system_model,        SysInfo),
-    NumProcs   = win_sys_info_lookup(num_processors,      SysInfo),
-    TotPhysMem = win_sys_info_lookup(total_phys_memory,   SysInfo),
-    io:format("Windows: ~s"
-              "~n   OS Version:             ~s (~p)"
-              "~n   System Manufacturer:    ~s"
-              "~n   System Model:           ~s"
-              "~n   Number of Processor(s): ~s"
-              "~n   Total Physical Memory:  ~s"
-              "~n   Num Schedulers:         ~s"
-              "~n", [OsName, OsVersion, Version,
-		     SysMan, SysMod, NumProcs, TotPhysMem,
-		     str_num_schedulers()]),
-    MemFactor =
-        try
-            begin
-                [MStr, MUnit|_] =
-                    string:tokens(lists:delete($,, TotPhysMem), [$\ ]),
-                case string:to_lower(MUnit) of
-                    "gb" ->
-                        try list_to_integer(MStr) of
-                            M when M > 8 ->
-                                0;
-                            M when M > 4 ->
-                                1;
-                            M when M > 2 ->
-                                2;
-                            _ -> 
-                                5
-                        catch
-                            _:_:_ ->
-                                10
-                        end;
-                    "mb" ->
-                        try list_to_integer(MStr) of
-                            M when M > 8192 ->
-                                0;
-                            M when M > 4096 ->
-                                1;
-                            M when M > 2048 ->
-                                2;
-                            _ -> 
-                                5
-                        catch
-                            _:_:_ ->
-                                10
-                        end;
-                    _ ->
-                        10
-                end
-            end
-        catch
-            _:_:_ ->
-                10
-        end,
-    CPUFactor = 
-        case erlang:system_info(schedulers) of
-            1 ->
-                10;
-            2 ->
-                5;
-            _ ->
-                2
-        end,
-    CPUFactor + MemFactor.
-
-win_sys_info_lookup(Key, SysInfo) ->
-    win_sys_info_lookup(Key, SysInfo, "-").
-
-win_sys_info_lookup(Key, SysInfo, Def) ->
-    case lists:keysearch(Key, 1, SysInfo) of
-        {value, {Key, Value}} ->
-            Value;
-        false ->
-            Def
-    end.
-
-%% This function only extracts the prop(s) we actually care about!
-%% On some hosts this (systeminfo) takes a *long time* (several minutes).
-%% And since there is no way to provide a timeout to the os command call,
-%% we have to wrap it in a process.
-which_win_system_info() ->
-    F = fun() ->
-                try
-                    begin
-                        SysInfo = os:cmd("systeminfo"),
-                        process_win_system_info(
-                          string:tokens(SysInfo, [$\r, $\n]), [])
-                    end
-                catch
-                    C:E:S ->
-                        io:format("Failed get or process System info: "
-                                  "   Error Class: ~p"
-                                  "   Error:       ~p"
-                                  "   Stack:       ~p"
-                                  "~n", [C, E, S]),
-                        []
-                end
-        end,
-    ?LIB:pcall(F, ?MINS(1), []).
-
-process_win_system_info([], Acc) ->
-    Acc;
-process_win_system_info([H|T], Acc) ->
-    case string:tokens(H, [$:]) of
-        [Key, Value] ->
-            case string:to_lower(Key) of
-                "os name" ->
-                    process_win_system_info(T,
-                                            [{os_name, string:trim(Value)}|Acc]);
-                "os version" ->
-                    process_win_system_info(T,
-                                            [{os_version, string:trim(Value)}|Acc]);
-                "system manufacturer" ->
-                    process_win_system_info(T,
-                                            [{system_manufacturer, string:trim(Value)}|Acc]);
-                "system model" ->
-                    process_win_system_info(T,
-                                            [{system_model, string:trim(Value)}|Acc]);
-                "processor(s)" ->
-                    [NumProcStr|_] = string:tokens(Value, [$\ ]),
-                    T2 = lists:nthtail(list_to_integer(NumProcStr), T),
-                    process_win_system_info(T2,
-                                            [{num_processors, NumProcStr}|Acc]);
-                "total physical memory" ->
-                    process_win_system_info(T,
-                                            [{total_phys_memory, string:trim(Value)}|Acc]);
-                _ ->
-                    process_win_system_info(T, Acc)
-            end;
-        _ ->
-            process_win_system_info(T, Acc)
-    end.
-                    
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
