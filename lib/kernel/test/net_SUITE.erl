@@ -572,7 +572,9 @@ api_m_getaddrinfo_verify([], Name, Domain, IP) ->
       "~n   IP:       ~p", [Name, Domain, IP]),
     ?FAIL({not_found, Name, Domain, IP});
 api_m_getaddrinfo_verify([#{family := Domain,
-                            addr   := IP} = AddrInfo|_],
+                            addr   := #{addr   := IP, 
+                                        family := Domain} = _SockAddr} = 
+                              AddrInfo|_],
                          Name, Domain, IP) ->
     i("Found match for ~p: "
       "~n   AddrInfo: ~p"
@@ -649,9 +651,10 @@ api_m_getnameinfo_v6(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_m_getnameinfo(#{name   := Name,
-                    family := Domain,
-                    ip     := IP}) ->
+api_m_getnameinfo(#{name      := Name,
+                    full_name := FName,
+                    family    := Domain,
+                    ip        := IP}) ->
     i("Check name info for ~p with"
       "~n   Domain: ~p"
       "~n   IP:     ~p", [Name, Domain, IP]),
@@ -660,7 +663,7 @@ api_m_getnameinfo(#{name   := Name,
     try net:getnameinfo(SA) of
         {ok, NameInfo} ->
             %% Check that we can actually find this IP in the list
-            api_m_getnameinfo_verify(NameInfo, Name);
+            api_m_getnameinfo_verify(NameInfo, Name, FName);
         {error, enotsup = ReasonAI} ->
             i("getaddrinfo not supported - skipping"),
             ?SKIP({getnameinfo, ReasonAI});
@@ -673,14 +676,18 @@ api_m_getnameinfo(#{name   := Name,
     end.
 
 
-api_m_getnameinfo_verify(#{host := Name} = NameInfo, Name) ->
-    i("Found match for ~p: "
+api_m_getnameinfo_verify(#{host := Name} = NameInfo, Name, _FName) ->
+    i("Found (name) match for ~p: "
       "~n   NameInfo: ~p", [Name, NameInfo]),
     ok;
-api_m_getnameinfo_verify(NameInfo, Name) ->
-    i("No match found for ~p: "
-      "~n   NameInfo: ~p", [Name, NameInfo]),
-    ?FAIL({not_found, NameInfo, Name}).
+api_m_getnameinfo_verify(#{host := FName} = NameInfo, _Name, FName) ->
+    i("Found (full name) match for ~p: "
+      "~n   NameInfo: ~p", [FName, NameInfo]),
+    ok;
+api_m_getnameinfo_verify(NameInfo, Name, FName) ->
+    i("No match found for ~p (~p): "
+      "~n   NameInfo: ~p", [Name, FName, NameInfo]),
+    ?FAIL({not_found, NameInfo, Name, FName}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -709,16 +716,6 @@ skip(Reason) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% t() ->
-%%     os:timestamp().
-
-
-%% tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
-%%     T1 = A1*1000000000+B1*1000+(C1 div 1000), 
-%%     T2 = A2*1000000000+B2*1000+(C2 div 1000), 
-%%     T2 - T1.
-
-
 formated_timestamp() ->
     format_timestamp(os:timestamp()).
 
@@ -735,72 +732,13 @@ format_timestamp({_N1, _N2, _N3} = TS) ->
    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% set_tc_name(N) when is_atom(N) ->
-%%     set_tc_name(atom_to_list(N));
-%% set_tc_name(N) when is_list(N) ->
-%%     put(tc_name, N).
-
-%% get_tc_name() ->
-%%     get(tc_name).
-
-%% tc_begin(TC) ->
-%%     set_tc_name(TC),
-%%     tc_print("begin ***",
-%%              "~n----------------------------------------------------~n", "").
-    
-%% tc_end(Result) when is_list(Result) ->
-%%     tc_print("done: ~s", [Result], 
-%%              "", "----------------------------------------------------~n~n"),
-%%     ok.
-
-
 tc_try(Case, TC) ->
     ?TC_TRY(Case, TC).
 
 tc_try(Case, Pre, TC, Post) ->
     ?TC_TRY(Case, Pre, TC, Post).
 
-%% tc_try(Case, Fun) when is_atom(Case) andalso is_function(Fun, 0) ->
-%%     tc_begin(Case),
-%%     try 
-%%         begin
-%%             Fun(),
-%%             ?SLEEP(?SECS(1)),
-%%             tc_end("ok")
-%%         end
-%%     catch
-%%         throw:{skip, _} = SKIP ->
-%%             tc_end("skipping"),
-%%             SKIP;
-%%         Class:Error:Stack ->
-%%             tc_end("failed"),
-%%             erlang:raise(Class, Error, Stack)
-%%     end.
 
-
-%% tc_print(F, Before, After) ->
-%%     tc_print(F, [], Before, After).
-
-%% tc_print(F, A, Before, After) ->
-%%     Name = tc_which_name(),
-%%     FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
-%%              [formated_timestamp(),Name,self()|A]),
-%%     io:format(user, Before ++ FStr ++ After, []).
-
-%% tc_which_name() ->
-%%     case get(tc_name) of
-%%         undefined ->
-%%             case get(sname) of
-%%                 undefined ->
-%%                     "";
-%%                 SName when is_list(SName) ->
-%%                     SName
-%%             end;
-%%         Name when is_list(Name) ->
-%%             Name
-%%     end.
-    
-   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Required configuration
