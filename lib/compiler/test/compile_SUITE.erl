@@ -676,7 +676,7 @@ encrypted_abstr(Config) when is_list(Config) ->
 		  %% Now run the tests that require crypto.
 		  encrypted_abstr_1(Simple, Target),
 		  ok = file:delete(Target),
-		  ok = file:del_dir_r(filename:dirname(Target))
+		  _ = file:del_dir_r(filename:dirname(Target))
 	  end,
     
     %% Cleanup.
