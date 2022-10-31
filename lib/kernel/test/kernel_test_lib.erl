@@ -44,6 +44,7 @@
          proxy_call/3,
 
          %% Generic 'has support' test function(s)
+         has_support_ipv4/0,
          has_support_ipv6/0,
 
          which_local_host_info/1, which_local_host_info/2,
@@ -2623,6 +2624,14 @@ proxy_call(F, Timeout, Default)
 
 
 %% This is an extremely simple check...
+has_support_ipv4() ->
+    case which_local_addr(inet) of
+        {ok, _Addr} ->
+            ok;
+        {error, _R1} ->
+            skip("IPv4 Not Supported")
+    end.
+
 has_support_ipv6() ->
     case which_local_addr(inet6) of
         {ok, _Addr} ->
