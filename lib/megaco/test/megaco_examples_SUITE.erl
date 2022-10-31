@@ -637,8 +637,9 @@ meas(Config) when is_list(Config) ->
                    WorkerNode = ?config(worker_node, Config),
                    {Factor, WorkerNode}
            end,
+    Opts = #{verbose => false},
     Case = fun({Factor, WorkerNode}) ->
-                   do_meas(WorkerNode, megaco_codec_meas, start, [Factor])
+                   do_meas(WorkerNode, megaco_codec_meas, start, [Factor, Opts])
            end,
     Post = fun(_) -> ok end,
     try_tc(?FUNCTION_NAME, Pre, Case, Post).
