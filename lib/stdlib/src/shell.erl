@@ -286,9 +286,8 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                                                         FakeLine = begin
                                                                        case erl_parse:parse_form(Toks) of
                                                                            {ok, Def} -> lists:flatten(erl_pp:form(Def));
-                                                                           {error,{_Location, M, ErrDesc}} ->
-                                                                               ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
-                                                                               exit(lists:flatten(ErrStr))
+                                                                           E ->
+                                                                            exit(E)
                                                                        end
                                                                    end,
                                                         {done, {ok, FakeResult, _}, _} = erl_scan:tokens(
