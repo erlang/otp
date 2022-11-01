@@ -1410,6 +1410,9 @@ bad_size(Config) when is_list(Config) ->
     [] = bad_size_2([<<1,2,3>>]),
     {'EXIT',{{bad_generator,no_list},_}} = catch bad_size_2(no_list),
 
+    error = bad_size_3(<<>>),
+    error = bad_size_3(<<0>>),
+
     ok.
 
 bad_all_size(Bin) ->
@@ -1477,6 +1480,10 @@ bad_size_2(L) ->
         <<_:(bad#rec_bad_size_2.a)/float>> <- L
     ].
 
+bad_size_3(<<0:((bnot (1 div 0)))>>) ->
+    ok;
+bad_size_3(_) ->
+    error.
 
 haystack(Config) when is_list(Config) ->
     <<0:10/unit:8>> = haystack_1(<<0:10/unit:8>>),

@@ -2350,7 +2350,8 @@ bs_match_type(integer, Args, Ts) ->
     [_,#b_literal{val=Flags},Size,#b_literal{val=Unit}] = Args,
     SizeType = beam_types:meet(concrete_type(Size, Ts), #t_integer{}),
     case SizeType of
-        #t_integer{elements={_,SizeMax}} when SizeMax * Unit < 64 ->
+        #t_integer{elements={_,SizeMax}}
+          when is_integer(SizeMax), SizeMax >= 0, SizeMax * Unit < 64 ->
             NumBits = SizeMax * Unit,
             Max = (1 bsl NumBits) - 1,
             case member(unsigned, Flags) of
