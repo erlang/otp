@@ -409,8 +409,9 @@ server({call, From}, {start_shell, _Args}, _State) ->
     keep_state_and_data;
 server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle })
   when State#state.current_group =:= State#state.user ->
+    UTF8Binary1 = remove_terminal_paste_brackets(UTF8Binary),
     State#state.current_group !
-        {self(), {data, unicode:characters_to_list(UTF8Binary, utf8)}},
+        {self(), {data, unicode:characters_to_list(UTF8Binary1, utf8)}},
     keep_state_and_data;
 server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle }) ->
     case contains_ctrl_g_or_ctrl_c(UTF8Binary) of
@@ -422,8 +423,9 @@ server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle }
             end,
             keep_state_and_data;
         none ->
+            UTF8Binary1 = remove_terminal_paste_brackets(UTF8Binary),
             State#state.current_group !
-                {self(), {data, unicode:characters_to_list(UTF8Binary, utf8)}},
+                {self(), {data, unicode:characters_to_list(UTF8Binary1, utf8)}},
             keep_state_and_data
     end;
 server(info, {ReadHandle,eof}, State = #state{ read = ReadHandle }) ->
@@ -556,6 +558,21 @@ contains_ctrl_g_or_ctrl_c(<<_/utf8,T/binary>>) ->
     contains_ctrl_g_or_ctrl_c(T);
 contains_ctrl_g_or_ctrl_c(<<>>) ->
     none.
+
+
+% Some terminals put brackets around paste buffer
+% Brackets have this form 00~Paste_Buffer01~
+% This function removes the outer most brackets that it finds
+% When a paste is done, assume that its the only text
+% received in the driver, meaning that the buffer
+% contains the opening and closing brackets exactly at
+% the ends of the buffer.
+remove_terminal_paste_brackets(<<$0,$0,$~,Cs1/binary>>=Cs) ->
+    case re:replace(Cs1,"01~$","",[bsr_unicode, {return, binary}]) of
+        Cs1 -> Cs;
+        Cs2 -> Cs2
+    end;
+remove_terminal_paste_brackets(Bin) -> Bin.
 
 switch_loop(internal, init, State) ->
     case application:get_env(stdlib, shell_esc, jcl) of
