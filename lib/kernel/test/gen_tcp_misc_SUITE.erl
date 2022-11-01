@@ -3856,16 +3856,16 @@ sets_eq(L1, L2) ->
 millis() ->
     erlang:monotonic_time(millisecond).
 	
-collect_accepts(0,_) -> [];
-collect_accepts(N,Tmo) ->
+collect_accepts(0, _) -> [];
+collect_accepts(N, Tmo) ->
     A = millis(),
     receive
 	{accepted, P, {error, eaddrnotavail = Reason}} ->
             ?P("~p Failed accept: ~p", [P, Reason]),
             ?SKIPT(accept_failed_str(Reason));
 
-        {accepted,P,Msg} ->
-            ?P("received accepted from ~p: "
+        {accepted, P, Msg} ->
+            ?P("received 'accepted' from ~p: "
                "~n      ~p", [P, Msg]),
             NextN = if N =:= infinity -> N; true -> N - 1 end,
 	    [{P,Msg}] ++ collect_accepts(NextN, Tmo - (millis()-A))
@@ -4132,26 +4132,47 @@ do_accept_timeouts_in_order5(Config) ->
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts (even more).
 accept_timeouts_in_order6(Config) when is_list(Config) ->
-    try do_accept_timeouts_in_order6(Config)
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end.
+    ?TC_TRY(?FUNCTION_NAME,
+            fun() ->
+                    ?P("try create listen socket"),
+                    case ?LISTEN(Config, 0,[]) of
+                        {ok, LSocket} ->
+                            #{socket => LSocket};
+                        {error, eaddrnotavail = Reason} ->
+                            ?P("failed creating socket: ~p", [Reason]),
+                            {skip, listen_failed_str(Reason)}
+                    end
+            end,
+            fun(I) -> do_accept_timeouts_in_order6(I) end,
+            fun(#{socket := LSock}) ->
+                    gen_tcp:close(LSock)
+            end).
 
-do_accept_timeouts_in_order6(Config) ->
-    LS = case ?LISTEN(Config, 0,[]) of
-             {ok, LSocket} ->
-                 LSocket;
-             {error, eaddrnotavail = Reason} ->
-                 ?SKIPT(listen_failed_str(Reason))
-         end,
+do_accept_timeouts_in_order6(#{socket := LS}) ->    
     Parent = self(),
+
+    ?P("create acceptor 1 with timeout 1000"),
     P1 = spawn(mktmofun(1000,Parent,LS)),
+
+    ?P("create acceptor 2 with timeout 400"),
     P2 = spawn(mktmofun(400,Parent,LS)),
+
+    ?P("create acceptor 3 with timeout 600"),
     P3 = spawn(mktmofun(600,Parent,LS)),
+
+    ?P("create acceptor 4 with timeout 200"),
     P4 = spawn(mktmofun(200,Parent,LS)),
-    ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P2,{error,timeout}},
-			  {P3,{error,timeout}},{P1,{error,timeout}}],infinity,2000).
+
+    ?P("await accept timeouts from (in order): "
+       "~n   Acceptor 4: ~p"
+       "~n   Acceptor 2: ~p"
+       "~n   Acceptor 3: ~p"
+       "~n   Acceptor 1: ~p", [P4, P2, P3, P1]),
+    ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},
+                          {P2,{error,timeout}},
+			  {P3,{error,timeout}},
+                          {P1,{error,timeout}}],
+                         infinity, 2000).
 
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts (even more++).
