@@ -566,12 +566,28 @@ api_m_getaddrinfo(#{name   := Name,
     end.
 
 
-api_m_getaddrinfo_verify([], Name, Domain, IP) ->
+
+%% First we filter out the address info of the correct domain (family), then:
+%% 1) If there is no address info left: SKIP
+%% 2) If there are address info, check for the selected address
+
+api_m_getaddrinfo_verify(AddrInfos, Name, Domain, IP) ->
+    i("Attempt to verify from ~w address-infos", [length(AddrInfos)]),
+    AddrInfos2 = [AI || #{family := D} = AI <- AddrInfos, D =:= Domain],
+    case AddrInfos2 of
+        [] ->
+            i("No address info of correct domain (~w) available", [Domain]),
+            ?SKIP({no_ai_of_domain, Domain});
+        _ ->
+            api_m_getaddrinfo_verify2(AddrInfos, Name, Domain, IP)
+    end.
+
+api_m_getaddrinfo_verify2([], Name, Domain, IP) ->
     i("No match found for ~p: "
       "~n   Domain:   ~p"
       "~n   IP:       ~p", [Name, Domain, IP]),
     ?FAIL({not_found, Name, Domain, IP});
-api_m_getaddrinfo_verify([#{family := Domain,
+api_m_getaddrinfo_verify2([#{family := Domain,
                             addr   := #{addr   := IP, 
                                         family := Domain} = _SockAddr} = 
                               AddrInfo|_],
@@ -581,12 +597,12 @@ api_m_getaddrinfo_verify([#{family := Domain,
       "~n   Domain:   ~p"
       "~n   IP:       ~p", [Name, AddrInfo, Domain, IP]),
     ok;
-api_m_getaddrinfo_verify([AddrInfo|AddrInfos], Name, Domain, IP) ->
-    i("AddrInfo: ~p"
-      "~n   does not match: "
-      "~n      Domain: ~p"
-      "~n      IP:     ~p", [AddrInfo, Domain, IP]),
-    api_m_getaddrinfo_verify(AddrInfos, Name, Domain, IP).
+api_m_getaddrinfo_verify2([AddrInfo|AddrInfos], Name, Domain, IP) ->
+    i("No match: "
+      "~n   AddrInfo: ~p"
+      "~n   Domain: ~p"
+      "~n   IP:     ~p", [AddrInfo, Domain, IP]),
+    api_m_getaddrinfo_verify2(AddrInfos, Name, Domain, IP).
 
 
 
