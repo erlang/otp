@@ -29,15 +29,20 @@
 	 init_per_group/2,end_per_group/2,
 
          annotation_checks/1,
+         bs_size_unit_checks/1,
          sanity_checks/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [{group,post_ssa_opt_static}].
+    [{group,post_ssa_opt_dynamic},{group,post_ssa_opt_static}].
 
 groups() ->
-    [{post_ssa_opt_static,test_lib:parallel(),[annotation_checks, sanity_checks]}].
+    [{post_ssa_opt_static,test_lib:parallel(),
+      [annotation_checks,
+       sanity_checks]},
+     {post_ssa_opt_dynamic,test_lib:parallel(),
+      [bs_size_unit_checks]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -46,20 +51,45 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(post_ssa_opt_dynamic, Config) ->
+    TargetDir = dynamic_workdir(Config),
+    ct:log("Creating working directory for generated test cases: ~p~n",
+           [TargetDir]),
+    ok = file:make_dir(TargetDir),
+    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
+end_per_group(post_ssa_opt_dynamic, Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    TargetDir = filename:join(PrivDir, "dynamic"),
+    case proplists:get_bool(keep_generated, Config) of
+        false ->
+            ct:log("Removing working directory for generated test cases: ~p~n",
+                   [TargetDir]),
+            file:del_dir_r(TargetDir);
+        true ->
+            Config
+    end;
 end_per_group(_GroupName, Config) ->
     Config.
 
 annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(annotations, Config).
 
+bs_size_unit_checks(Config) when is_list(Config) ->
+    gen_and_run_post_ssa_opt(bs_size_unit_checks, Config).
+
 sanity_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(sanity_checks, Config).
 
+dynamic_workdir(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    filename:join(PrivDir, "dynamic").
+
 run_post_ssa_opt(Module, Config) ->
     File = atom_to_list(Module) ++ ".erl",
+
     DataDir = proplists:get_value(data_dir, Config),
     Source = filename:join(DataDir, File),
     run_checks(Source, post_ssa_opt, Config).
@@ -70,3 +100,17 @@ run_checks(SourceFile, Pass, _Config) ->
         {ok,_,_} -> ok;
         error -> ct:fail({unexpected_error, "SSA check failed"})
     end.
+
+gen_and_run_post_ssa_opt(Base, Config) ->
+    BaseStr = atom_to_list(Base),
+    GenFilenameBase = "gen_" ++ BaseStr,
+    GenModule = list_to_atom(GenFilenameBase),
+    GenFilename = filename:join(proplists:get_value(data_dir, Config),
+                                GenFilenameBase ++ ".erl"),
+    ct:log("Compiling generator ~s~n", [GenFilename]),
+    {ok,GenModule,GenCode} = compile:file(GenFilename, [binary]),
+    {module,GenModule} = code:load_binary(GenModule, GenFilename, GenCode),
+    TargetFileName = filename:join(dynamic_workdir(Config), BaseStr ++ ".erl"),
+    ct:log("Generating ~s~n", [TargetFileName]),
+    ok = GenModule:generate(TargetFileName, Config),
+    run_checks(TargetFileName, post_ssa_opt, Config).
