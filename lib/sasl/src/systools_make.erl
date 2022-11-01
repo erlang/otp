@@ -696,7 +696,15 @@ specified([], _) ->
     [].
 
 get_items([H|T], Dict) ->
-    Item = check_item(keysearch(H, 1, Dict),H),
+    Item = case check_item(keysearch(H, 1, Dict),H) of
+        [Atom|_]=Atoms when is_atom(Atom), is_list(Atoms) ->
+            %% Check for duplicate entries in lists
+            case Atoms =/= lists:uniq(Atoms) of
+                true -> throw({dupl_entry, H, lists:subtract(Atoms, lists:uniq(Atoms))});
+                false -> Atoms
+            end;
+        X -> X
+    end,
     [Item|get_items(T, Dict)];
 get_items([], _Dict) ->
     [].
@@ -2436,6 +2444,8 @@ form_reading({read,File}) ->
     io_lib:format("Cannot read ~tp~n",[File]);
 form_reading({{bad_param, P},_}) ->
     io_lib:format("Bad parameter in .app file: ~tp~n",[P]);
+form_reading({{dupl_entry, P, DE},_}) ->
+    io_lib:format("~tp parameter contains duplicates of: ~tp~n", [P, DE]);
 form_reading({{missing_param,P},_}) ->
     io_lib:format("Missing parameter in .app file: ~p~n",[P]);
 form_reading({badly_formatted_application,_}) ->
