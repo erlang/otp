@@ -70,8 +70,9 @@ ocsp_tests() ->
     ].
 
 %%--------------------------------------------------------------------
-init_per_suite(Config) ->
-    case ssl_test_lib:openssl_ocsp_support() of
+init_per_suite(Config0) ->
+    Config = ssl_test_lib:init_per_suite(Config0, openssl),
+    case ssl_test_lib:openssl_ocsp_support(Config) of
         true ->
             do_init_per_suite(Config);
         false ->
@@ -79,38 +80,28 @@ init_per_suite(Config) ->
     end.
 
 do_init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
-	ok ->
-        ssl_test_lib:clean_start(),
-        DataDir = proplists:get_value(data_dir, Config),
-        PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
 
-        %% Prepare certs
-        {ok, _} = make_certs:all(DataDir, PrivDir),
+    %% Prepare certs
+    {ok, _} = make_certs:all(DataDir, PrivDir),
 
-        ResponderPort = get_free_port(),
-        Pid = start_ocsp_responder(ResponderPort, PrivDir),
+    ResponderPort = get_free_port(),
+    Pid = start_ocsp_responder(ResponderPort, PrivDir),
 
-        NewConfig =
+    NewConfig =
         lists:merge(
-            [{responder_port, ResponderPort},
-             {responder_pid, Pid}
-            ], Config),
+          [{responder_port, ResponderPort},
+           {responder_pid, Pid}
+          ], Config),
 
-	    ssl_test_lib:cert_options(NewConfig)
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
-    end.
+    ssl_test_lib:cert_options(NewConfig).
 
 
 end_per_suite(Config) ->
     ResponderPid = proplists:get_value(responder_pid, Config),
     ssl_test_lib:close(ResponderPid),
-    ok = ssl:stop(),
-    %% terminate OpenSSL processes (OCSP responder in particular)
-    ssl_test_lib:kill_openssl(),
-    application:stop(crypto).
+    ssl_test_lib:end_per_suite(Config).
 
 %%--------------------------------------------------------------------
 init_per_group(GroupName, Config) ->

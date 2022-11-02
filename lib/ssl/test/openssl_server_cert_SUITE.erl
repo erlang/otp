@@ -149,19 +149,10 @@ all_version_tests() ->
     ].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
-	ok ->
-	    ssl_test_lib:clean_start(),
-            Config
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
-    end.
+    ssl_test_lib:init_per_suite(Config, openssl).
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:unload(ssl),
-    application:stop(crypto).
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(openssl_server, Config0) ->
     Config = proplists:delete(server_type, proplists:delete(client_type, Config0)),
@@ -352,7 +343,7 @@ init_per_group(dsa = Group, Config0) ->
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_protocol_version(GroupName) of
         true  ->
-            case ssl_test_lib:check_sane_openssl_version(GroupName) of
+            case ssl_test_lib:check_sane_openssl_version(GroupName, Config) of
                 true ->
                     ssl_test_lib:init_per_group_openssl(GroupName, Config);
                 false  ->

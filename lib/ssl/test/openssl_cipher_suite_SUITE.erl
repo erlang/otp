@@ -95,13 +95,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() ->
-     case ssl_test_lib:working_openssl_client() of
-         true ->
-             [{group,  openssl_server},
-              {group,  openssl_client}];
-         false ->
-             [{group,  openssl_server}]
-     end.
+    [{group,  openssl_server},
+     {group,  openssl_client}].
 
 all_protocol_groups() ->
     [
@@ -260,22 +255,18 @@ anonymous() ->
     ].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
-	ok ->
-	    ssl_test_lib:clean_start(),
-            Config
-    catch _:_ ->
-	    {skip, "Crypto did not start"}
-    end.
+    ssl_test_lib:init_per_suite(Config, openssl).
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto),
-    ssl_test_lib:kill_openssl().
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 %%--------------------------------------------------------------------
 init_per_group(GroupName, Config) ->
+    case ssl_test_lib:working_openssl_client(Config) of
+        false when GroupName =:= openssl_client ->
+            throw({skip, "Ignore non-working openssl_client"});
+        _ -> ok
+    end,
     case ssl_test_lib:is_protocol_version(GroupName) of
         true ->
             ssl_test_lib:init_per_group_openssl(GroupName, Config);
@@ -388,7 +379,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_3des_ede_cbc;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(des_ede3_cbc, SupCiphers) of
         true ->
-            ct:timetrap({seconds, ?DEFAULT_TIMEOUT}),
+            ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
         _ ->
             {skip, "Missing 3DES crypto support"}

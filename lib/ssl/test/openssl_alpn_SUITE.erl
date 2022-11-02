@@ -116,30 +116,16 @@ rengotiation_tests() ->
     ].
 
 init_per_suite(Config0) ->
-    case os:find_executable("openssl") of
+    Config1 = ssl_test_lib:init_per_suite(Config0, openssl),
+    case check_openssl_alpn_support(Config1) of
         false ->
-            {skip, "Openssl not found"};
-        _ ->
-            case check_openssl_alpn_support(Config0) of
-                false ->
-                    {skip, "No ALPN support"};
-                true ->
-                    ct:pal("Version: ~p", [os:cmd("openssl version")]),
-                    catch crypto:stop(),
-                    try crypto:start() of
-                        ok ->
-                            ssl_test_lib:clean_start(),
-                            ssl_test_lib:make_rsa_cert(Config0)
-                    catch _:_  ->
-                            {skip, "Crypto did not start"}
-                    end
-            end
+            {skip, "No ALPN support"};
+        true ->
+            ssl_test_lib:make_rsa_cert(Config1)
     end.
 
-end_per_suite(_Config) ->
-    ssl:stop(),
-    application:stop(crypto),
-    ssl_test_lib:kill_openssl().
+end_per_suite(Config) ->
+    ssl_test_lib:end_per_suite(Config).
 
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).
@@ -163,9 +149,9 @@ special_init(TestCase, Config) when TestCase == erlang_client_alpn_openssl_serve
 special_init(TestCase, Config) when TestCase == erlang_client_alpn_npn_openssl_server_alpn_npn;
                                     TestCase == erlang_server_alpn_npn_openssl_client_alpn_npn ->
     case ssl_test_lib:check_openssl_npn_support(Config) of
-        {skip, _} = Skip ->
-            Skip;
-        Config ->
+        false ->
+            {skip, "npn not supported"};
+        true ->
             Config
     end;
 special_init(_, Config) ->
@@ -427,8 +413,8 @@ erlang_client_alpn_npn_openssl_server_alpn_npn(Config) when is_list(Config) ->
                                            return_socket],
                                   [{client_opts,
                                     [{alpn_advertised_protocols, [AlpnProtocol]},
-                                     {next_protocols_advertised,
-                                      [<<"spdy/3">>, <<"http/1.1">>]}]} | ClientOpts] ++ Config),
+                                     {client_preferred_next_protocols,
+                                      {client, [<<"spdy/3">>, <<"http/1.1">>]}}]} | ClientOpts] ++ Config),
     case ssl:negotiated_protocol(CSocket) of
         {ok, AlpnProtocol} ->
             ok;
@@ -474,8 +460,8 @@ erlang_server_alpn_npn_openssl_client_alpn_npn(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
-check_openssl_alpn_support(_Config) ->
-    case ssl_test_lib:portable_cmd("openssl", ["version"]) of
+check_openssl_alpn_support(Config) ->
+    case proplists:get_value(openssl_version, Config) of
         "OpenSSL 1.0."  ++ _ = Str->
             SubStr = Str -- "OpenSSL 1.0.",
             atleast(SubStr, 2);
