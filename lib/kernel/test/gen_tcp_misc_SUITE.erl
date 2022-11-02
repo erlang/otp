@@ -1071,28 +1071,45 @@ iter_max_socks() ->
 %% Open as many sockets as possible. Do this several times and check
 %% that we get the same number of sockets every time.
 iter_max_socks(Config) when is_list(Config) ->
-    %% This is not *nearly* enough
-    %% We have some crap machines, which we need to "handle with care"...
-    Tries =
-        case os:type() of
-            {win32, _} ->
-                10;
-            {unix, darwin} ->
-                10;
-            _ ->
-                20
-        end,
-    %% Run on a different node in order to limit the effect if this test fails.
-    Dir = filename:dirname(code:which(?MODULE)),
-    {ok, Node} = ?START_NODE(test_iter_max_socks, "+Q 2048 -pa " ++ Dir),
-    %% L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initalize]),
-    L = iter_max_socks_run(Node,
-                           fun() ->
-                                   exit(do_iter_max_socks(Config, Tries, initialize))
-                           end),
-    ?STOP_NODE(Node),
+    Cond = fun() -> ok end,
+    Pre  = fun() ->
+                   %% This is not *nearly* enough
+                   %% We have some crap machines,
+                   %% which we need to "handle with care"...
+                   Tries =
+                       case os:type() of
+                           {win32, _} ->
+                               10;
+                           {unix, darwin} ->
+                               10;
+                           _ ->
+                               20
+                       end,
+                   %% Run on a different node in order to
+                   %% limit the effect if this test fails.
+                   Dir = filename:dirname(code:which(?MODULE)),
+                   {ok, Node} = ?START_NODE(test_iter_max_socks,
+                                            "+Q 2048 -pa " ++ Dir),
+                   #{tries => Tries,
+                     node  => Node}
+           end,
+    Case = fun(#{tries := Tries,
+                 node  := Node}) ->
+                   do_iter_max_socks(Config, Tries, Node)
+           end,
+    Post = fun(#{node := Node}) ->
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
-    io:format("Result: ~p", [L]),
+do_iter_max_socks(Config, Tries, Node) ->
+    L = iter_max_socks_run(
+          Node,
+          fun() ->
+                  exit(iter_max_socks_run2(Config, Tries, initialize))
+          end),
+    ?P("Result: "
+       "~n   ~p", [L]),
     all_equal(L),
     {comment, "Max sockets: " ++ integer_to_list(hd(L))}.
 
@@ -1117,23 +1134,23 @@ iter_max_socks_run(Node, F) ->
     end.
             
              
-do_iter_max_socks(_Config, 0, _) ->
-    ?P("do_iter_max_socks(0,-) -> done"),
+iter_max_socks_run2(_Config, 0, _) ->
+    ?P("iter_max_socks_run2(0,-) -> done"),
     [];
-do_iter_max_socks(Config, N, initialize = First) ->
-    ?P("do_iter_max_socks(~w,~w) -> entry", [N, First]),
+iter_max_socks_run2(Config, N, initialize = First) ->
+    ?P("iter_max_socks_run2(~w,~w) -> entry", [N, First]),
     MS = max_socks(Config),
-    [MS|do_iter_max_socks(Config, N-1, MS)];
-do_iter_max_socks(Config, N, failed = First) ->
-    ?P("do_iter_max_socks(~w,~w) -> entry", [N, First]),
+    [MS|iter_max_socks_run2(Config, N-1, MS)];
+iter_max_socks_run2(Config, N, failed = First) ->
+    ?P("iter_max_socks_run2(~w,~w) -> entry", [N, First]),
     MS = max_socks(Config),
-    [MS|do_iter_max_socks(Config, N-1, failed)];
-do_iter_max_socks(Config, N, First) when is_integer(First) ->
-    ?P("do_iter_max_socks(~w,~w) -> entry", [N, First]),
+    [MS|iter_max_socks_run2(Config, N-1, failed)];
+iter_max_socks_run2(Config, N, First) when is_integer(First) ->
+    ?P("iter_max_socks_run2(~w,~w) -> entry", [N, First]),
     MS = max_socks(Config),
     if
         (MS =:= First) -> 
-	    [MS|do_iter_max_socks(Config, N-1, First)];
+	    [MS|iter_max_socks_run2(Config, N-1, First)];
        true ->
 	    ?P("~w =/= ~w => sleeping for ~p seconds...",
                [MS, First, ?RETRY_SLEEP/1000]), 
@@ -1141,12 +1158,14 @@ do_iter_max_socks(Config, N, First) when is_integer(First) ->
 	    ?P("Trying again...", []),
 	    RetryMS = max_socks(Config),
 	    if RetryMS == First ->
-                    [RetryMS|do_iter_max_socks(Config, N-1, First)];
+                    [RetryMS|iter_max_socks_run2(Config, N-1, First)];
                true ->
-                    [RetryMS|do_iter_max_socks(Config, N-1, failed)]
+                    [RetryMS|iter_max_socks_run2(Config, N-1, failed)]
 		  end
     end.
 
+all_equal({skip, _} = SKIP) ->
+    throw(SKIP);
 all_equal([]) ->
     ok;
 all_equal([Rule | T]) ->
