@@ -1911,11 +1911,12 @@ tc_try(Case, TCCond, Pre, TC, Post)
                     tc_print("pre done: try test case"),
                     try
                         begin
-                            TC(State),
+                            TCRes = TC(State),
                             ?SLEEP(?SECS(1)),
                             tc_print("test case done: try post"),
                             (catch Post(State)),
-                            tc_end("ok")
+                            tc_end("ok"),
+                            TCRes
                         end
                     catch
                         C:{skip, _} = SKIP when (C =:= throw) orelse
