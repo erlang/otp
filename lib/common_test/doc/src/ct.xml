@@ -67,20 +67,20 @@
 
   <datatypes>
     <datatype>
-      <name>handle() = pid()</name>
+      <name name="handle" />
       <desc>
         <p>The identity (handle) of a connection.</p>
       </desc>
     </datatype>
 
     <datatype>
-      <name>config_key() = atom()</name>
+      <name name="config_key" />
       <desc>
 	<p>A configuration key which exists in a configuration file</p>
       </desc>
     </datatype>
     <datatype>
-      <name>target_name() = atom()</name>
+      <name name="target_name" />
       <desc>
         <p>A name and association to configuration data introduced
         through a require statement, or a call to
@@ -90,8 +90,11 @@
       </desc>
     </datatype>
     <datatype>
-      <name>key_or_name() = config_key() | target_name()</name>
-      <name>conn_log_options() = [conn_log_option()]</name>
+      <name name="key_or_name" />
+      <desc></desc>
+    </datatype>
+    <datatype>
+      <name name="conn_log_options" />
       <desc>
 	<p>Options that can be given to the <c>cth_conn_log</c> hook,
 	which is used for logging of NETCONF and Telnet
@@ -103,21 +106,24 @@
     </datatype>
 
     <datatype>
-      <name>conn_log_option() = {log_type,conn_log_type()} | {hosts,[key_or_name()]}</name>
-      <name>conn_log_type() = raw | pretty | html | silent</name>
-      <name>conn_log_mod() = ct_netconfc | ct_telnet</name>
+      <name name="conn_log_option" />
+      <desc></desc>
+    </datatype>
+    <datatype>
+      <name name="conn_log_type" />
+      <desc></desc>
+    </datatype>
+    <datatype>
+      <name name="conn_log_mod" />
+      <desc></desc>
     </datatype>
 
   </datatypes>
 
   <funcs>
     <func>
-      <name since="">abort_current_testcase(Reason) -&gt; ok | {error, ErrorReason}</name>
+      <name since="" name="abort_current_testcase" arity="1" />
       <fsummary>Aborts the currently executing test case.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-        <v>ErrorReason = no_testcase_running | parallel_group</v>
-      </type>
       <desc><marker id="abort_current_testcase-1"/>
         <p>Aborts the currently executing test case. The user must know with
           certainty which test case is currently executing. The function is
@@ -130,14 +136,9 @@
     </func>
 
     <func>
-      <name since="OTP R14B">add_config(Callback, Config) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R14B" name="add_config" arity="2" />
       <fsummary>Loads configuration variables using the specified callback
         module and configuration string.</fsummary>
-      <type>
-        <v>Callback = atom()</v>
-        <v>Config = string()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="add_config-2"/>
         <p>Loads configuration variables using the specified callback module and
           configuration string. The callback module is to be either loaded or
@@ -149,14 +150,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">break(Comment) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B02" name="break" arity="1" />
       <fsummary>Cancels any active timetrap and pause the execution of the
         current test case until the user calls function continue/0.</fsummary>
-      <type>
-        <v>Comment = string()</v>
-        <v>Reason = {multiple_cases_running, TestCases} | 'enable break with release_shell option'</v>
-        <v>TestCases = [atom()]</v>
-      </type>
       <desc><marker id="break-1"/>
         <p>Cancels any active timetrap and pauses the execution of the
           current test case until the user calls function <c>continue/0</c>.
@@ -179,14 +175,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">break(TestCase, Comment) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B02" name="break" arity="2" />
       <fsummary>Works the same way as break/1, only argument TestCase makes it
         possible to pause a test case executing in a parallel group.</fsummary>
-      <type>
-        <v>TestCase = atom()</v>
-        <v>Comment = string()</v>
-        <v>Reason = 'test case not running' | 'enable break with release_shell option'</v>
-      </type>
       <desc><marker id="break-2"/>
         <p>Works the same way as
           <seemfa marker="#break/1"><c>ct:break/1</c></seemfa>, only
@@ -201,11 +192,8 @@
     </func>
 
     <func>
-      <name since="OTP R15B">capture_get() -&gt; ListOfStrings</name>
+      <name since="OTP R15B" name="capture_get" arity="0" />
       <fsummary>Equivalent to capture_get([default]).</fsummary>
-      <type>
-        <v>ListOfStrings = [string()]</v>
-      </type>
       <desc><marker id="capture_get-0"/>
         <p>Equivalent to
           <seemfa marker="#capture_get/1">ct:capture_get([default])</seemfa>.</p>
@@ -213,13 +201,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B">capture_get(ExclCategories) -&gt; ListOfStrings</name>
+      <name since="OTP R15B" name="capture_get" arity="1" />
       <fsummary>Returns and purges the list of text strings buffered during
         the latest session of capturing printouts to stdout.</fsummary>
-      <type>
-        <v>ExclCategories = [atom()]</v>
-        <v>ListOfStrings = [string()]</v>
-      </type>
       <desc><marker id="capture_get-1"/>
         <p>Returns and purges the list of text strings buffered during the
           latest session of capturing printouts to <c>stdout</c>. Log
@@ -235,7 +219,7 @@
     </func>
 
     <func>
-      <name since="OTP R15B">capture_start() -&gt; ok</name>
+      <name since="OTP R15B" name="capture_start" arity="0" />
       <fsummary>Starts capturing all text strings printed to stdout
         during execution of the test case.</fsummary>
         <desc><marker id="capture_start-0"/>
@@ -249,7 +233,7 @@
     </func>
 
     <func>
-      <name since="OTP R15B">capture_stop() -&gt; ok</name>
+      <name since="OTP R15B" name="capture_stop" arity="0" />
       <fsummary>Stops capturing text strings (a session started with
         capture_start/0).</fsummary>
       <desc><marker id="capture_stop-0"/>
@@ -263,12 +247,9 @@
     </func>
 
     <func>
-      <name since="">comment(Comment) -&gt; ok</name>
+      <name since="" name="comment" arity="1" />
       <fsummary>Prints the specified Comment in the comment field in the
         table on the test suite result page.</fsummary>
-      <type>
-        <v>Comment = term()</v>
-      </type>
       <desc><marker id="comment-1"/>
         <p>Prints the specified <c>Comment</c> in the comment field in the
           table on the test suite result page.</p>
@@ -280,13 +261,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B">comment(Format, Args) -&gt; ok</name>
+      <name since="OTP R15B" name="comment" arity="2" />
       <fsummary>Prints the formatted string in the comment field in the
         table on the test suite result page.</fsummary>
-      <type>
-        <v>Format = string()</v>
-        <v>Args = list()</v>
-      </type>
       <desc><marker id="comment-2"/>
         <p>Prints the formatted string in the comment field in the table
           on the test suite result page.</p>
@@ -299,7 +276,7 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">continue() -&gt; ok</name>
+      <name since="OTP R15B02" name="continue" arity="0" />
       <fsummary>This function must be called to continue after a test
         case (not executing in a parallel group) has called break/1.</fsummary>
       <desc><marker id="continue-0"/>
@@ -310,12 +287,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">continue(TestCase) -&gt; ok</name>
+      <name since="OTP R15B02" name="continue" arity="1" />
       <fsummary>This function must be called to continue after a test case
         has called break/2.</fsummary>
-      <type>
-        <v>TestCase = atom()</v>
-      </type>
       <desc><marker id="continue-1"/>
         <p>This function must be called to continue after a test case has
           called <seemfa marker="#break/2"><c>ct:break/2</c></seemfa>.
@@ -326,14 +300,9 @@
     </func>
 
     <func>
-      <name since="">decrypt_config_file(EncryptFileName, TargetFileName) -&gt; ok | {error, Reason}</name>
+      <name since="" name="decrypt_config_file" arity="2" />
       <fsummary>Decrypts EncryptFileName, previously generated with
         encrypt_config_file/2,3.</fsummary>
-      <type>
-        <v>EncryptFileName = string()</v>
-        <v>TargetFileName = string()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="decrypt_config_file-2"/>
         <p>Decrypts <c>EncryptFileName</c>, previously generated with
           <seemfa marker="#encrypt_config_file/2"><c>ct:encrypt_config_file/2,3</c></seemfa>.
@@ -345,15 +314,9 @@
     </func>
 
     <func>
-      <name since="">decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
+      <name since="" name="decrypt_config_file" arity="3" />
       <fsummary>Decrypts EncryptFileName, previously generated with
         encrypt_config_file/2,3.</fsummary>
-      <type>
-        <v>EncryptFileName = string()</v>
-        <v>TargetFileName = string()</v>
-        <v>KeyOrFile = {key, string()} | {file, string()}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="decrypt_config_file-3"/>
         <p>Decrypts <c>EncryptFileName</c>, previously generated with
           <seemfa marker="#encrypt_config_file/2"><c>ct:encrypt_config_file/2,3</c></seemfa>.
@@ -363,14 +326,9 @@
     </func>
 
     <func>
-      <name since="">encrypt_config_file(SrcFileName, EncryptFileName) -&gt; ok | {error, Reason}</name>
+      <name since="" name="encrypt_config_file" arity="2" />
       <fsummary>Encrypts the source configuration file with DES3 and saves the
         result in file EncryptFileName.</fsummary>
-      <type>
-        <v>SrcFileName = string()</v>
-        <v>EncryptFileName = string()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="encrypt_config_file-2"/>
         <p>Encrypts the source configuration file with DES3 and saves the result
           in file <c>EncryptFileName</c>. The key, a string, must be
@@ -389,15 +347,9 @@
     </func>
 
     <func>
-      <name since="">encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
+      <name since="" name="encrypt_config_file" arity="3" />
       <fsummary>Encrypts the source configuration file with DES3 and saves the
        result in the target file EncryptFileName.</fsummary>
-      <type>
-        <v>SrcFileName = string()</v>
-        <v>EncryptFileName = string()</v>
-        <v>KeyOrFile = {key, string()} | {file, string()}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="encrypt_config_file-3"/>
         <p>Encrypts the source configuration file with DES3 and saves the result
           in the target file <c>EncryptFileName</c>. The encryption key
@@ -415,26 +367,19 @@
     </func>
 
     <func>
-      <name since="">fail(Reason) -&gt; ok</name>
+      <name since="" name="fail" arity="1" />
       <fsummary>Terminates a test case with the specified error
         Reason.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="fail-1"/>
         <p>Terminates a test case with the specified error <c>Reason</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R15B">fail(Format, Args) -&gt; ok</name>
+      <name since="OTP R15B" name="fail" arity="2" />
       <fsummary>Terminates a test case with an error message specified by
         a format string and a list of values (used as arguments to
         io_lib:format/2).</fsummary>
-        <type>
-          <v>Format = string()</v>
-          <v>Args = list()</v>
-       </type>
       <desc><marker id="fail-2"/>
         <p>Terminates a test case with an error message specified by a
           format string and a list of values (used as arguments to
@@ -443,7 +388,7 @@
     </func>
 
     <func>
-      <name since="">get_config(Required) -&gt; Value</name>
+      <name since="" name="get_config" arity="1" />
       <fsummary>Equivalent to get_config(Required, undefined, []).</fsummary>
       <desc><marker id="get_config-1"/>
         <p>Equivalent to <seemfa marker="#get_config/3"><c>ct:get_config(Required,
@@ -452,7 +397,7 @@
     </func>
 
     <func>
-      <name since="">get_config(Required, Default) -&gt; Value</name>
+      <name since="" name="get_config" arity="2" />
       <fsummary>Equivalent to get_config(Required, Default, []).</fsummary>
       <desc><marker id="get_config-2"/>
         <p>Equivalent to <seemfa marker="#get_config/3"><c>ct:get_config(Required,
@@ -461,17 +406,8 @@
     </func>
 
     <func>
-      <name since="">get_config(Required, Default, Opts) -&gt; ValueOrElement</name>
+      <name since="" name="get_config" arity="3" />
       <fsummary>Reads configuration data values.</fsummary>
-      <type>
-        <v>Required = KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey}</v>
-        <v>KeyOrName = atom()</v>
-        <v>SubKey = atom()</v>
-        <v>Default = term()</v>
-        <v>Opts = [Opt] | []</v>
-        <v>Opt = element | all</v>
-        <v>ValueOrElement = term() | Default</v>
-      </type>
       <desc><marker id="get_config-3"/>
         <p>Reads configuration data values.</p>
 
@@ -527,11 +463,8 @@
     </func>
 
     <func>
-      <name since="OTP 17.5">get_event_mgr_ref() -&gt; EvMgrRef</name>
+      <name since="OTP 17.5" name="get_event_mgr_ref" arity="0" />
       <fsummary>Gets a reference to the <c>Common Test</c> event manager.</fsummary>
-        <type>
-          <v>EvMgrRef = atom()</v>
-        </type>
         <desc><marker id="get_event_mgr_ref-0"/>
           <p>Gets a reference to the <c>Common Test</c> event manager.
             The reference can be used to, for example, add a user-specific
@@ -545,7 +478,7 @@
     </func>
 
     <func>
-      <name since="OTP 21.0">get_progname() -&gt; string()</name>
+      <name since="OTP 21.0" name="get_progname" arity="0" />
       <fsummary>Returns the command used to start this Erlang instance.</fsummary>
       <desc><marker id="get_progname-0"/>
         <p>Returns the command used to start this Erlang instance.
@@ -555,22 +488,8 @@
     </func>
 
     <func>
-      <name since="">get_status() -&gt; TestStatus | {error, Reason} | no_tests_running</name>
+      <name since="" name="get_status" arity="0" />
       <fsummary>Returns status of ongoing test.</fsummary>
-      <type>
-        <v>TestStatus = [StatusElem]</v>
-        <v>StatusElem = {current, TestCaseInfo} | {successful, Successful} | {failed, Failed} | {skipped, Skipped} | {total, Total}</v>
-        <v>TestCaseInfo = {Suite, TestCase} | [{Suite, TestCase}]</v>
-        <v>Suite = atom()</v>
-        <v>TestCase = atom()</v>
-        <v>Successful = integer()</v>
-        <v>Failed = integer()</v>
-        <v>Skipped = {UserSkipped, AutoSkipped}</v>
-        <v>UserSkipped = integer()</v>
-        <v>AutoSkipped = integer()</v>
-        <v>Total = integer()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="get_status-0"/>
         <p>Returns status of ongoing test. The returned list contains
           information about which test case is executing (a list of cases
@@ -581,13 +500,9 @@
     </func>
 
     <func>
-      <name since="">get_target_name(Handle) -&gt; {ok, TargetName} | {error, Reason}</name>
+      <name since="" name="get_target_name" arity="1" />
       <fsummary>Returns the name of the target that the specified connection
         belongs to.</fsummary>
-      <type>
-        <v>Handle = handle()</v>
-        <v>TargetName = target_name()</v>
-      </type>
       <desc><marker id="get_target_name-1"/>
         <p>Returns the name of the target that the specified connection
           belongs to.</p>
@@ -595,13 +510,9 @@
     </func>
 
     <func>
-      <name since="OTP 18.0">get_testspec_terms() -&gt; TestSpecTerms | undefined</name>
+      <name since="OTP 18.0" name="get_testspec_terms" arity="0" />
       <fsummary>Gets a list of all test specification terms used to
         configure and run this test.</fsummary>
-      <type>
-        <v>TestSpecTerms = [{Tag, Value}]</v>
-        <v>Value = [term()]</v>
-      </type>
       <desc><marker id="get_testspec_terms-0"/>
         <p>Gets a list of all test specification terms used to configure
           and run this test.</p>
@@ -609,16 +520,9 @@
     </func>
 
     <func>
-      <name since="OTP 18.0">get_testspec_terms(Tags) -&gt; TestSpecTerms | undefined</name>
+      <name since="OTP 18.0" name="get_testspec_terms" arity="1" />
       <fsummary>Reads one or more terms from the test specification used to
         configure and run this test.</fsummary>
-      <type>
-        <v>Tags = [Tag] | Tag</v>
-        <v>Tag = atom()</v>
-        <v>TestSpecTerms = [{Tag, Value}] | {Tag, Value}</v>
-        <v>Value = [{Node, term()}] | [term()]</v>
-        <v>Node = atom()</v>
-      </type>
       <desc><marker id="get_testspec_terms-1"/>
         <p>Reads one or more terms from the test specification used to
           configure and run this test. <c>Tag</c> is any valid test
@@ -636,14 +540,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B">get_timetrap_info() -&gt; {Time, {Scaling,ScaleVal}}</name>
+      <name since="OTP R15B" name="get_timetrap_info" arity="0" />
       <fsummary>Reads information about the timetrap set for the current
         test case.</fsummary>
-      <type>
-        <v>Time = integer() | infinity</v>
-        <v>Scaling = true | false</v>
-        <v>ScaleVal = integer()</v>
-      </type>
      <desc><marker id="get_timetrap_info-0"/>
         <p>Reads information about the timetrap set for the current test
           case. <c>Scaling</c> indicates if <c>Common Test</c> will attempt
@@ -655,12 +554,8 @@
     </func>
 
     <func>
-      <name since="OTP 19.1">get_verbosity(Category) -&gt; Level | undefined</name>
+      <name since="OTP 19.1" name="get_verbosity" arity="1" />
       <fsummary>Read the verbosity level for a logging category.</fsummary>
-      <type>
-        <v>Category = default | atom()</v>
-        <v>Level = integer()</v>
-      </type>
       <desc><marker id="get_verbosity-1"/>
         <p>This function returns the verbosity level for the specified logging
 	category. See the <seeguide marker="write_test_chapter#logging">
@@ -670,18 +565,8 @@
     </func>
 
     <func>
-      <name since="">install(Opts) -&gt; ok | {error, Reason}</name>
+      <name since="" name="install" arity="1" />
       <fsummary>Installs configuration files and event handlers.</fsummary>
-      <type>
-        <v>Opts = [Opt]</v>
-        <v>Opt = {config, ConfigFiles} | {event_handler, Modules} | {decrypt, KeyOrFile}</v>
-        <v>ConfigFiles = [ConfigFile]</v>
-        <v>ConfigFile = string()</v>
-        <v>Modules = [atom()]</v>
-        <v>KeyOrFile = {key, Key} | {file, KeyFile}</v>
-        <v>Key = string()</v>
-        <v>KeyFile = string()</v>
-      </type>
       <desc><marker id="install-1"/>
         <p>Installs configuration files and event handlers.</p>
 
@@ -697,15 +582,9 @@
     </func>
 
     <func>
-      <name since="">listenv(Telnet) -&gt; [Env]</name>
+      <name since="" name="listenv" arity="1" />
       <fsummary>Performs command listenv on the specified Telnet connection
         and returns the result as a list of key-value pairs.</fsummary>
-      <type>
-        <v>Telnet = term()</v>
-        <v>Env = {Key, Value}</v>
-        <v>Key = string()</v>
-        <v>Value = string()</v>
-      </type>
       <desc><marker id="listenv-1"/>
         <p>Performs command <c>listenv</c> on the specified Telnet connection
           and returns the result as a list of key-value pairs.</p>
@@ -713,7 +592,7 @@
     </func>
 
     <func>
-      <name since="">log(Format) -&gt; ok</name>
+      <name since="" name="log" arity="1" />
       <fsummary>Equivalent to log(default, 50, Format, [], []).</fsummary>
       <desc><marker id="log-1"/>
         <p>Equivalent to
@@ -722,13 +601,9 @@
     </func>
 
     <func>
-      <name since="">log(X1, X2) -&gt; ok</name>
+      <name since="" name="log" arity="2" />
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, []).</fsummary>
-      <type>
-        <v>X1 = Category | Importance | Format</v>
-        <v>X2 = Format | FormatArgs</v>
-      </type>
       <desc><marker id="log-2"/>
         <p>Equivalent to <seemfa marker="#log/5"><c>ct:log(Category,
           Importance, Format, FormatArgs, [])</c></seemfa>.</p>
@@ -736,14 +611,9 @@
     </func>
 
     <func>
-      <name since="">log(X1, X2, X3) -&gt; ok</name>
+      <name since="" name="log" arity="3" />
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
-      <type>
-        <v>X1 = Category | Importance</v>
-        <v>X2 = Importance | Format</v>
-        <v>X3 = Format | FormatArgs | Opts</v>
-      </type>
       <desc><marker id="log-3"/>
         <p>Equivalent to <seemfa marker="#log/5"><c>ct:log(Category,
           Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
@@ -751,15 +621,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">log(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02" name="log" arity="4" />
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
-      <type>
-        <v>X1 = Category | Importance</v>
-        <v>X2 = Importance | Format</v>
-        <v>X3 = Format | FormatArgs</v>
-	<v>X4 = FormatArgs | Opts</v>
-      </type>
       <desc><marker id="log-4"/>
         <p>Equivalent to <seemfa marker="#log/5"><c>ct:log(Category,
           Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
@@ -767,16 +631,8 @@
     </func>
 
     <func>
-      <name since="OTP 18.3">log(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 18.3" name="log" arity="5" />
       <fsummary>Prints from a test case to the log file.</fsummary>
-      <type>
-        <v>Category = atom()</v>
-        <v>Importance = integer()</v>
-        <v>Format = string()</v>
-        <v>FormatArgs = list()</v>
-        <v>Opts = [Opt]</v>
-	<v>Opt = {heading,string()} | no_css | esc_chars</v>
-      </type>
       <desc><marker id="log-5"/>
         <p>Prints from a test case to the log file.</p>
 
@@ -798,13 +654,10 @@
     </func>
 
     <func>
-      <name since="OTP R15B01">make_priv_dir() -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B01" name="make_priv_dir" arity="0" />
       <fsummary>If the test has been started with option create_priv_dir
         set to manual_per_tc, in order for the test case to use the private
         directory, it must first create it by calling this function.</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="make_priv_dir-0"/>
         <p>If the test is started with option <c>create_priv_dir</c>
           set to <c>manual_per_tc</c>, in order for the test case to use
@@ -814,13 +667,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">notify(Name, Data) -&gt; ok</name>
+      <name since="OTP R15B02" name="notify" arity="2" />
       <fsummary>Sends an asynchronous notification of type Name with Data
         to the <c>Common Test</c> event manager.</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Data = term()</v>
-      </type>
       <desc><marker id="notify-2"/>
         <p>Sends an asynchronous notification of type <c>Name</c> with
           <c>Data</c>to the Common Test event manager. This can later be
@@ -832,7 +681,7 @@
     </func>
 
     <func>
-      <name since="">pal(Format) -&gt; ok</name>
+      <name since="" name="pal" arity="1" />
       <fsummary>Equivalent to pal(default, 50, Format, [], []).</fsummary>
       <desc><marker id="pal-1"/>
         <p>Equivalent to
@@ -842,13 +691,9 @@
     </func>
 
     <func>
-      <name since="">pal(X1, X2) -&gt; ok</name>
+      <name since="" name="pal" arity="2" />
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, []).</fsummary>
-      <type>
-        <v>X1 = Category | Importance | Format</v>
-        <v>X2 = Format | FormatArgs</v>
-      </type>
       <desc><marker id="pal-2"/>
         <p>Equivalent to <seemfa marker="#pal/5"><c>ct:pal(Category,
           Importance, Format, FormatArgs, [])</c></seemfa>.</p>
@@ -856,14 +701,9 @@
     </func>
 
     <func>
-      <name since="">pal(X1, X2, X3) -&gt; ok</name>
+      <name since="" name="pal" arity="3" />
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
-      <type>
-        <v>X1 = Category | Importance</v>
-        <v>X2 = Importance | Format</v>
-        <v>X3 = Format | FormatArgs | Opts</v>
-      </type>
       <desc><marker id="pal-3"/>
         <p>Equivalent to <seemfa marker="#pal/5"><c>ct:pal(Category,
           Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
@@ -871,15 +711,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">pal(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02" name="pal" arity="4" />
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
-      <type>
-        <v>X1 = Category | Importance</v>
-        <v>X2 = Importance | Format</v>
-        <v>X3 = Format | FormatArgs</v>
-	<v>X4 = FormatArgs | Opts</v>
-      </type>
       <desc><marker id="pal-4"/>
         <p>Equivalent to <seemfa marker="#pal/5"><c>ct:pal(Category,
           Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
@@ -887,16 +721,8 @@
     </func>
 
     <func>
-      <name since="OTP 19.2">pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 19.2" name="pal" arity="5" />
       <fsummary>Prints and logs from a test case.</fsummary>
-      <type>
-        <v>Category = atom()</v>
-        <v>Importance = integer()</v>
-        <v>Format = string()</v>
-        <v>FormatArgs = list()</v>
-        <v>Opts = [Opt]</v>
-	<v>Opt = {heading,string()} | no_css</v>
-      </type>
       <desc><marker id="pal-5"/>
         <p>Prints and logs from a test case.</p>
 
@@ -918,14 +744,9 @@
     </func>
 
     <func>
-      <name since="">parse_table(Data) -&gt; {Heading, Table}</name>
+      <name since="" name="parse_table" arity="1" />
       <fsummary>Parses the printout from an SQL table and returns a list of
         tuples.</fsummary>
-      <type>
-        <v>Data = [string()]</v>
-        <v>Heading = tuple()</v>
-        <v>Table = [tuple()]</v>
-      </type>
       <desc><marker id="parse_table-1"/>
         <p>Parses the printout from an SQL table and returns a list of
           tuples.</p>
@@ -940,7 +761,7 @@
     </func>
 
     <func>
-      <name since="">print(Format) -&gt; ok</name>
+      <name since="" name="print" arity="1" />
       <fsummary>Equivalent to print(default, 50, Format, [], []).</fsummary>
       <desc><marker id="print-1"/>
         <p>Equivalent to <seemfa marker="#print/5"><c>ct:print(default,
@@ -949,13 +770,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">print(X1, X2) -&gt; ok</name>
+      <name since="OTP R15B02" name="print" arity="2" />
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, []).</fsummary>
-      <type>
-        <v>X1 = Category | Importance | Format</v>
-        <v>X2 = Format | FormatArgs</v>
-      </type>
       <desc><marker id="print-2"/>
         <p>Equivalent to <seemfa marker="#print/5"><c>ct:print(Category,
           Importance, Format, FormatArgs, [])</c></seemfa>.</p>
@@ -963,14 +780,9 @@
     </func>
 
     <func>
-      <name since="">print(X1, X2, X3) -&gt; ok</name>
+      <name since="" name="print" arity="3" />
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
-      <type>
-        <v>X1 = Category | Importance</v>
-        <v>X2 = Importance | Format</v>
-        <v>X3 = Format | FormatArgs | Opts</v>
-      </type>
       <desc><marker id="print-3"/>
         <p>Equivalent to <seemfa marker="#print/5"><c>ct:print(Category,
           Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
@@ -978,15 +790,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">print(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02" name="print" arity="4" />
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
-      <type>
-        <v>X1 = Category | Importance</v>
-        <v>X2 = Importance | Format</v>
-        <v>X3 = Format | FormatArgs</v>
-	<v>X4 = FormatArgs | Opts</v>
-      </type>
       <desc><marker id="print-4"/>
         <p>Equivalent to <seemfa marker="#print/5"><c>ct:print(Category,
           Importance, Format, FormatArgs, Opts)</c></seemfa>.</p>
@@ -994,16 +800,8 @@
     </func>
 
     <func>
-      <name since="OTP 19.2">print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 19.2" name="print" arity="5" />
       <fsummary>Prints from a test case to the console.</fsummary>
-      <type>
-        <v>Category = atom()</v>
-        <v>Importance = integer()</v>
-        <v>Format = string()</v>
-        <v>FormatArgs = list()</v>
-        <v>Opts = [Opt]</v>
-	<v>Opt = {heading,string()}</v>
-      </type>
       <desc><marker id="print-5"/>
         <p>Prints from a test case to the console.</p>
 
@@ -1021,15 +819,9 @@
     </func>
 
     <func>
-      <name since="OTP R14B">reload_config(Required) -&gt; ValueOrElement | {error, Reason}</name>
+      <name since="OTP R14B" name="reload_config" arity="1" />
       <fsummary>Reloads configuration file containing specified configuration
         key.</fsummary>
-      <type>
-        <v>Required = KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey}</v>
-        <v>KeyOrName = atom()</v>
-        <v>SubKey = atom()</v>
-        <v>ValueOrElement = term()</v>
-      </type>
       <desc><marker id="reload_config-1"/>
         <p>Reloads configuration file containing specified configuration key.</p>
 
@@ -1044,15 +836,9 @@
     </func>
 
      <func>
-      <name since="OTP 20.2">remaining_test_procs() -&gt; {TestProcs,SharedGL,OtherGLs}</name>
+      <name since="OTP 20.2" name="remaining_test_procs" arity="0" />
       <fsummary>>This function will return the identity of test- and group
        leader processes that are still running at the time of this call.</fsummary>
-      <type>
-        <v>TestProcs = [{pid(),GL}]</v>
-	<v>GL = pid()</v>
-        <v>SharedGL = pid()</v>
-        <v>OtherGLs = [pid()]</v>
-      </type>
       <desc><marker id="remaining_test_procs-0"/>
         <p>This function will return the identity of test- and group
 	leader processes that are still running at the time of this call.
@@ -1080,15 +866,10 @@
     </func>   
 
     <func>
-      <name since="OTP R14B">remove_config(Callback, Config) -&gt; ok</name>
+      <name since="OTP R14B" name="remove_config" arity="2" />
       <fsummary>Removes configuration variables (together with
         their aliases) that were loaded with specified callback module and
         configuration string.</fsummary>
-      <type>
-        <v>Callback = atom()</v>
-        <v>Config = string()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="remove_config-2"/>
         <p>Removes configuration variables (together with their aliases)
           that were loaded with specified callback module and configuration
@@ -1097,14 +878,8 @@
     </func>
 
     <func>
-      <name since="">require(Required) -&gt; ok | {error, Reason}</name>
+      <name since="" name="require" arity="1" />
       <fsummary>Checks if the required configuration is available.</fsummary>
-      <type>
-        <v>Required = Key | {Key, SubKeys} | {Key, SubKey, SubKeys}</v>
-        <v>Key = atom()</v>
-        <v>SubKeys = SubKey | [SubKey]</v>
-        <v>SubKey = atom()</v>
-      </type>
       <desc><marker id="require-1"/>
         <p>Checks if the required configuration is available. Arbitrarily
           deep tuples can be specified as <c>Required</c>. Only the last
@@ -1151,15 +926,9 @@
     </func>
 
     <func>
-      <name since="">require(Name, Required) -&gt; ok | {error, Reason}</name>
+      <name since="" name="require" arity="2" />
       <fsummary>Checks if the required configuration is available and gives
         it a name.</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Required = Key | {Key, SubKey} | {Key, SubKey, SubKey}</v>
-        <v>SubKey = Key</v>
-        <v>Key = atom()</v>
-      </type>
       <desc><marker id="require-2"/>
         <p>Checks if the required configuration is available and gives it a
           name. The semantics for <c>Required</c> is the same as in
@@ -1210,12 +979,9 @@
     </func>
 
     <func>
-      <name since="">run(TestDirs) -&gt; Result</name>
+      <name since="" name="run" arity="1" />
       <fsummary>Runs all test cases in all suites in the specified
         directories.</fsummary>
-      <type>
-        <v>TestDirs = TestDir | [TestDir]</v>
-      </type>
       <desc><marker id="run-1"/>
         <p>Runs all test cases in all suites in the specified directories.</p>
 
@@ -1224,7 +990,7 @@
     </func>
 
     <func>
-      <name since="">run(TestDir, Suite) -&gt; Result</name>
+      <name since="" name="run" arity="2" />
       <fsummary>Runs all test cases in the specified suite.</fsummary>
       <desc><marker id="run-2"/>
         <p>Runs all test cases in the specified suite.</p>
@@ -1234,14 +1000,8 @@
     </func>
 
     <func>
-      <name since="">run(TestDir, Suite, Cases) -&gt; Result</name>
+      <name since="" name="run" arity="3" />
       <fsummary>Runs the specified test cases.</fsummary>
-      <type>
-        <v>TestDir = string()</v>
-        <v>Suite = atom()</v>
-        <v>Cases = atom() | [atom()]</v>
-        <v>Result = [TestResult] | {error, Reason}</v>
-      </type>
       <desc><marker id="run-3"/>
         <p>Runs the specified test cases.</p>
 
@@ -1256,59 +1016,9 @@
     </func>
 
     <func>
-      <name since="">run_test(Opts) -&gt; Result</name>
+      <name since="" name="run_test" arity="1" />
       <fsummary>Runs tests as specified by the combination of options in
         Opts.</fsummary>
-      <type>
-        <v>Opts = [OptTuples]</v>
-        <v>OptTuples = {dir, TestDirs} | {suite, Suites} | {group, Groups} | {testcase, Cases} | {spec, TestSpecs} | {join_specs, Bool} | {label, Label} | {config, CfgFiles} | {userconfig, UserConfig} | {allow_user_terms, Bool} | {logdir, LogDir} | {silent_connections, Conns} | {stylesheet, CSSFile} | {cover, CoverSpecFile} | {cover_stop, Bool} | {step, StepOpts} | {event_handler, EventHandlers} | {include, InclDirs} | {auto_compile, Bool} | {abort_if_missing_suites, Bool} | {create_priv_dir, CreatePrivDir} | {multiply_timetraps, M} | {scale_timetraps, Bool} | {repeat, N} | {duration, DurTime} | {until, StopTime} | {force_stop, ForceStop} | {decrypt, DecryptKeyOrFile} | {refresh_logs, LogDir} | {logopts, LogOpts} | {verbosity, VLevels} | {basic_html, Bool} | {esc_chars, Bool} | {keep_logs,KeepSpec} | {ct_hooks, CTHs} | {enable_builtin_hooks, Bool} | {release_shell, Bool}</v>
-        <v>TestDirs = [string()] | string()</v>
-        <v>Suites = [string()] | [atom()] | string() | atom()</v>
-        <v>Cases = [atom()] | atom()</v>
-        <v>Groups = GroupNameOrPath | [GroupNameOrPath]</v>
-        <v>GroupNameOrPath = [atom()] | atom() | all</v>
-        <v>TestSpecs = [string()] | string()</v>
-        <v>Label = string() | atom()</v>
-        <v>CfgFiles = [string()] | string()</v>
-        <v>UserConfig = [{CallbackMod, CfgStrings}] | {CallbackMod, CfgStrings}</v>
-        <v>CallbackMod = atom()</v>
-        <v>CfgStrings = [string()] | string()</v>
-        <v>LogDir = string()</v>
-        <v>Conns = all | [atom()]</v>
-        <v>CSSFile = string()</v>
-        <v>CoverSpecFile = string()</v>
-        <v>StepOpts = [StepOpt] | []</v>
-        <v>StepOpt = config | keep_inactive</v>
-        <v>EventHandlers = EH | [EH]</v>
-        <v>EH = atom() | {atom(), InitArgs} | {[atom()], InitArgs}</v>
-        <v>InitArgs = [term()]</v>
-        <v>InclDirs = [string()] | string()</v>
-        <v>CreatePrivDir = auto_per_run | auto_per_tc | manual_per_tc</v>
-        <v>M = integer()</v>
-        <v>N = integer()</v>
-        <v>DurTime = string(HHMMSS)</v>
-        <v>StopTime = string(YYMoMoDDHHMMSS) | string(HHMMSS)</v>
-        <v>ForceStop = skip_rest | Bool</v>
-        <v>DecryptKeyOrFile = {key, DecryptKey} | {file, DecryptFile}</v>
-        <v>DecryptKey = string()</v>
-        <v>DecryptFile = string()</v>
-        <v>LogOpts = [LogOpt]</v>
-        <v>LogOpt = no_nl | no_src</v>
-        <v>VLevels = VLevel | [{Category, VLevel}]</v>
-        <v>VLevel = integer()</v>
-        <v>Category = atom()</v>
-	<v>KeepSpec = all | pos_integer()</v>
-        <v>CTHs = [CTHModule | {CTHModule, CTHInitArgs}]</v>
-        <v>CTHModule = atom()</v>
-        <v>CTHInitArgs = term()</v>
-        <v>Result = {Ok, Failed, {UserSkipped, AutoSkipped}} | TestRunnerPid | {error, Reason}</v>
-        <v>Ok = integer()</v>
-        <v>Failed = integer()</v>
-        <v>UserSkipped = integer()</v>
-        <v>AutoSkipped = integer()</v>
-        <v>TestRunnerPid = pid()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="run_test-1"/>
         <p>Runs tests as specified by the combination of options in
           <c>Opts</c>. The options are the same as those used with program
@@ -1328,17 +1038,8 @@
     </func>
 
     <func>
-      <name since="">run_testspec(TestSpec) -&gt; Result</name>
+      <name since="" name="run_testspec" arity="1" />
       <fsummary>Runs a test specified by TestSpec.</fsummary>
-      <type>
-        <v>TestSpec = [term()]</v>
-        <v>Result = {Ok, Failed, {UserSkipped, AutoSkipped}} | {error, Reason}</v>
-        <v>Ok = integer()</v>
-        <v>Failed = integer()</v>
-        <v>UserSkipped = integer()</v>
-        <v>AutoSkipped = integer()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="run_testspec-1"/>
         <p>Runs a test specified by <c>TestSpec</c>. The same terms are used
           as in test specification files.</p>
@@ -1348,12 +1049,8 @@
     </func>
 
     <func>
-      <name since="OTP 19.1">set_verbosity(Category, Level) -&gt; ok</name>
+      <name since="OTP 19.1" name="set_verbosity" arity="2" />
       <fsummary>Set the verbosity level for a logging category.</fsummary>
-      <type>
-        <v>Category = default | atom()</v>
-        <v>Level = integer()</v>
-      </type>
       <desc><marker id="set_verbosity-2"/>
         <p>Use this function to set, or modify, the verbosity level for a logging
 	category. See the <seeguide marker="write_test_chapter#logging">
@@ -1363,16 +1060,9 @@
     </func>
 
     <func>
-      <name since="OTP R14B">sleep(Time) -&gt; ok</name>
+      <name since="OTP R14B" name="sleep" arity="1" />
       <fsummary>This function, similar to timer:sleep/1, suspends the
         test case for a specified time.</fsummary>
-      <type>
-        <v>Time = {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity</v>
-        <v>Hours = integer()</v>
-        <v>Mins = integer()</v>
-        <v>Secs = integer()</v>
-        <v>Millisecs = integer() | float()</v>
-      </type>
       <desc><marker id="sleep-1"/>
         <p>This function, similar to <c>timer:sleep/1</c> in STDLIB,
           suspends the test case for a specified time.
@@ -1385,7 +1075,7 @@
     </func>
 
     <func>
-      <name since="">start_interactive() -&gt; ok</name>
+      <name since="" name="start_interactive" arity="0" />
       <fsummary>Starts <c>Common Test</c> in interactive mode.</fsummary>
       <desc><marker id="start_interactive-0"/>
         <p>Starts <c>Common Test</c> in interactive mode.</p>
@@ -1413,11 +1103,8 @@
     </func>
 
     <func>
-      <name since="">step(TestDir, Suite, Case) -&gt; Result</name>
+      <name since="" name="step" arity="3" />
       <fsummary>Steps through a test case with the debugger.</fsummary>
-      <type>
-        <v>Case = atom()</v>
-      </type>
       <desc><marker id="step-3"/>
         <p>Steps through a test case with the debugger.</p>
 
@@ -1426,13 +1113,8 @@
     </func>
 
     <func>
-      <name since="">step(TestDir, Suite, Case, Opts) -&gt; Result</name>
+      <name since="" name="step" arity="4" />
       <fsummary>Steps through a test case with the debugger.</fsummary>
-      <type>
-        <v>Case = atom()</v>
-        <v>Opts = [Opt] | []</v>
-        <v>Opt = config | keep_inactive</v>
-      </type>
       <desc><marker id="step-4"/>
         <p>Steps through a test case with the debugger. If option
           <c>config</c> has been specified, breakpoints are also set on
@@ -1443,7 +1125,7 @@
     </func>
 
     <func>
-      <name since="">stop_interactive() -&gt; ok</name>
+      <name since="" name="stop_interactive" arity="0" />
       <fsummary>Exits the interactive mode.</fsummary>
       <desc><marker id="stop_interactive-0"/>
         <p>Exits the interactive mode.</p>
@@ -1455,13 +1137,9 @@
     </func>
 
     <func>
-      <name since="OTP R15B02">sync_notify(Name, Data) -&gt; ok</name>
+      <name since="OTP R15B02" name="sync_notify" arity="2" />
       <fsummary>Sends a synchronous notification of type Name with Data to
         the <c>Common Test</c> event manager.</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Data = term()</v>
-      </type>
       <desc><marker id="sync_notify-2"/>
         <p>Sends a synchronous notification of type <c>Name</c> with
           <c>Data</c> to the <c>Common Test</c> event manager. This can later be
@@ -1474,33 +1152,16 @@
     </func>
 
     <func>
-      <name since="">testcases(TestDir, Suite) -&gt; Testcases | {error, Reason}</name>
+      <name since="" name="testcases" arity="2" />
       <fsummary>Returns all test cases in the specified suite.</fsummary>
-      <type>
-        <v>TestDir = string()</v>
-        <v>Suite = atom()</v>
-        <v>Testcases = list()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="testcases-2"/>
         <p>Returns all test cases in the specified suite.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R14B">timetrap(Time) -&gt; ok</name>
+      <name since="OTP R14B" name="timetrap" arity="1" />
       <fsummary>Sets a new timetrap for the running test case.</fsummary>
-      <type>
-        <v>Time = {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity | Func</v>
-        <v>Hours = integer()</v>
-        <v>Mins = integer()</v>
-        <v>Secs = integer()</v>
-        <v>Millisecs = integer()</v>
-        <v>Func = {M, F, A} | function()</v>
-        <v>M = atom()</v>
-        <v>F = atom()</v>
-        <v>A = list()</v>
-      </type>
       <desc><marker id="timetrap-1"/>
         <p>Sets a new timetrap for the running test case.</p>
 
@@ -1512,15 +1173,9 @@
     </func>
 
     <func>
-      <name since="">userdata(TestDir, Suite) -&gt; SuiteUserData | {error, Reason}</name>
+      <name since="" name="userdata" arity="2" />
       <fsummary>Returns any data specified with tag userdata in the list of
         tuples returned from Suite:suite/0.</fsummary>
-      <type>
-        <v>TestDir = string()</v>
-        <v>Suite = atom()</v>
-        <v>SuiteUserData = [term()]</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="userdata-2"/>
         <p>Returns any data specified with tag <c>userdata</c> in the list
           of tuples returned from
@@ -1529,17 +1184,9 @@
     </func>
 
     <func>
-      <name since="">userdata(TestDir, Suite, Case::GroupOrCase) -&gt; TCUserData | {error, Reason}</name>
+      <name since="" name="userdata" arity="3" />
       <fsummary>Returns any data specified with tag userdata in the list of
         tuples returned from Suite:group(GroupName) or Suite:Case().</fsummary>
-      <type>
-        <v>TestDir = string()</v>
-        <v>Suite = atom()</v>
-        <v>GroupOrCase = {group, GroupName} | atom()</v>
-        <v>GroupName = atom()</v>
-        <v>TCUserData = [term()]</v>
-        <v>Reason = term()</v>
-      </type>
       <desc><marker id="userdata-3"/>
         <p>Returns any data specified with tag <c>userdata</c> in the list
           of tuples returned from <c>Suite:group(GroupName)</c> or
