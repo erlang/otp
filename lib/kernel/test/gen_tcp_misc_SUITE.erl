@@ -5869,9 +5869,11 @@ setup_active_timeout_sink(Config, RNode, Timeout, AutoClose) ->
 %%     timeout_sink_loop(Action, 1).
 
 timeout_sink_loop(Action, To) ->
-    put(action,  nothing),
-    put(sent,    0),
-    put(elapsed, 0),
+    put(action,   nothing),
+    put(sent,     0),
+    put(elapsed,  0),
+    put(send_max, 0),
+    put(lsendts,  "-"),
     timeout_sink_loop(Action, To, 0).
 
 timeout_sink_loop(Action, To, N) ->
@@ -5879,9 +5881,16 @@ timeout_sink_loop(Action, To, N) ->
     Start   = erlang:monotonic_time(),
     Ret     = Action(),
     Stop    = erlang:monotonic_time(),
+    LSendTS = ?FTS(),
+    SendT   = Stop - Start,
     Elapsed = get(elapsed),
-    put(elapsed, Elapsed + (Stop - Start)),
+    put(elapsed, Elapsed + SendT),
+    SendMax = get(send_max),
+    if (SendT > SendMax) -> put(send_max, SendT);
+       true              -> ok
+    end,
     put(action, sent),
+    put(lsendts, LSendTS),
     N2 = N + 1,
     put(sent,   N2),
     case Ret of
