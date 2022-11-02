@@ -266,14 +266,14 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     RemotePid = erlang:spawn(Node, forever()),
     % remote join
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    sync({?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([RemotePid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     % inspecting internal state is not best practice, but there's no other way to check if the state is correct.
     {_, RemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
     ?assertEqual(#{?FUNCTION_NAME => [RemotePid]}, RemoteMap),
     % remote leave
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    sync({?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
     % empty group should be deleted.
@@ -282,11 +282,11 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     %% another variant of emptying a group remotely: join([Pi1, Pid2]) and leave ([Pid2, Pid1])
     RemotePid2 = erlang:spawn(Node, forever()),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid2]])),
-    sync({?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([RemotePid, RemotePid2], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     %% now leave
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid2, RemotePid]])),
-    sync({?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
     peer:stop(Peer),
