@@ -89,12 +89,12 @@
 %%------------------------------------------------------------------------------
 
 %% new() -> Set
--spec new() -> set().
+-spec new() -> set(none()).
 new() ->
     Empty = mk_seg(?seg_size),
     #set{empty = Empty, segs = {Empty}}.
 
--spec new([{version, 1..2}]) -> set().
+-spec new([{version, 1..2}]) -> set(none()).
 new([{version, 2}]) ->
     #{};
 new(Opts) ->

@@ -59,7 +59,7 @@
 %% Creation, inspection and conversion
 
 %% O(1)
--spec new() -> queue().
+-spec new() -> queue(none()).
 new() -> {[],[]}. %{RearList,FrontList}
 
 %% O(1)

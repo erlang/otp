@@ -205,13 +205,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec empty() -> Set when
-      Set :: set().
+      Set :: set(none()).
 
 empty() ->
     {0, nil}.
 
 -spec new() -> Set when
-      Set :: set().
+      Set :: set(none()).
 
 new() -> empty().
 
