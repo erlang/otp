@@ -35,7 +35,8 @@
 -export([start_node/2, start_node/3,
          stop_node/1]).
 -export([f/2,
-         print/1, print/2]).
+         print/1, print/2,
+         formated_timestamp/0]).
 -export([good_hosts/1,
          lookup/3]).
 -export([os_cmd/1, os_cmd/2]).
