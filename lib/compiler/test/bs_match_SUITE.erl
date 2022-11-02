@@ -49,7 +49,8 @@
          bad_phi_paths/1,many_clauses/1,
          combine_empty_segments/1,hangs_forever/1,
          bs_saved_position_units/1,empty_matches/1,
-         trim_bs_start_match_resume/1]).
+         trim_bs_start_match_resume/1,
+         gh_6410/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -89,7 +90,8 @@ groups() ->
        exceptions_after_match_failure,bad_phi_paths,
        many_clauses,combine_empty_segments,hangs_forever,
        bs_saved_position_units,empty_matches,
-       trim_bs_start_match_resume]}].
+       trim_bs_start_match_resume,
+       gh_6410]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -2502,8 +2504,6 @@ trim_bs_start_match_resume_1(<<Context/binary>>) ->
     _ = id(Context),
     Context.
 
-id(I) -> I.
-
 expand_and_squeeze(Config) when is_list(Config) ->
     %% UTF8 literals are expanded and then squeezed into integer16
     ensure_squeezed(16, [?Q("<<$á/utf8,_/binary>>"),
@@ -2641,3 +2641,26 @@ many_clauses(_Config) ->
 
 one_clause(I) ->
     ?Q(<<"{_@I@,<<L:8,Val:L>>} -> _@I@ + Val">>).
+
+%% GH-6410: Fix crash in beam_ssa_bsm.
+gh_6410(_Config) ->
+    0 = do_gh_6410(<<42>>),
+    {'EXIT',{{case_clause,<<>>},[_|_]}} = catch do_gh_6410(<<>>),
+    {'EXIT',{{case_clause,a},[_|_]}} = catch do_gh_6410(a),
+    {'EXIT',{badarith,[_|_]}} = catch do_gh_6410([]),
+
+    ok.
+
+do_gh_6410(<<_>>) ->
+    0;
+do_gh_6410(X) ->
+    +(case X of
+        <<_>> ->
+            X;
+        [] ->
+            X
+    end).
+
+%%% Utilities.
+id(I) -> I.
+
