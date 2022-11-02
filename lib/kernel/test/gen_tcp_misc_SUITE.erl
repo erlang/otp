@@ -5821,16 +5821,34 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose, BufSz) ->
 		     end),
     ?P("[sink] accept"),
     {ok, A} = gen_tcp:accept(L),
-    ?P("[sink] accepted - send test message"),
+    ?P("[sink] accepted - send 'test' message"),
     gen_tcp:send(A, "Hello"),
-    ?P("[sink] message sent - "
-       "recv 'check' message on remote node (~p)", [RNode]),
+    ?P("[sink] 'test' message sent - "
+       "recv 'test' message on remote node (~p)", [RNode]),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
     ?P("[sink] cleanup - close listen socket"),
     (catch gen_tcp:close(L)),
-    ?P("[sink] done with socket: "
-       "~n   ~p", [A]),
+    ?P("[sink] done when: "
+       "~n   Accepted socket: ~p"
+       "~n      Info:     ~p"
+       "~n      SockName: ~p"
+       "~n      PeerName: ~p"
+       "~n   Connected socket: ~p"
+       "~n      Info:     ~p"
+       "~n      SockName: ~p"
+       "~n      PeerName: ~p",
+       [A,
+        oki(inet:getopts(A, [buffer, recbuf, sndbuf])),
+        oki(inet:sockname(A)),
+        oki(inet:peername(A)),
+        C,
+        oki(Remote(fun() -> inet:getopts(C, [buffer, recbuf, sndbuf]) end)),
+        oki(Remote(fun() -> inet:sockname(C) end)),
+        oki(Remote(fun() -> inet:peername(C) end))]),
     {A, Pid}.
+
+oki({ok, V}) -> V;
+oki(E)       -> E.
 
 setup_active_timeout_sink(Config, RNode, Timeout, AutoClose) ->
     Host = get_hostname(node()),
