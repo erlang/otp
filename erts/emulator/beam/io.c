@@ -3772,7 +3772,7 @@ terminate_port(Port *prt)
     if ((state & ERTS_PORT_SFLG_HALT)
 	&& (erts_atomic32_dec_read_nob(&erts_halt_progress) == 0)) {
 	erts_port_release(prt); /* We will exit and never return */
-	erts_flush_async_exit(erts_halt_code, "");
+	erts_flush_exit(erts_halt_code, "");
     }
     if (is_internal_port(send_closed_port_id))
 	deliver_result(NULL, send_closed_port_id, connected_id, am_closed);

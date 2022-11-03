@@ -71,6 +71,17 @@
 #include <limits.h>
 #include <stddef.h> /* offsetof */
 
+#define ERTS_NIF_HALT_INFO_FLAG_BLOCK               (1 << 0)
+#define ERTS_NIF_HALT_INFO_FLAG_HALTING             (1 << 1)
+#define ERTS_NIF_HALT_INFO_FLAG_WAITING             (1 << 2)
+
+typedef struct ErtsNifOnHaltData_ ErtsNifOnHaltData;
+struct ErtsNifOnHaltData_ {
+    ErtsNifOnHaltData *next;
+    ErtsNifOnHaltData *prev;
+    ErlNifOnHaltCallback *callback;
+};
+
 /* Information about a loaded nif library.
  * Each successful call to erlang:load_nif will allocate an instance of
  * erl_module_nif. Two calls opening the same library will thus have the same
@@ -95,10 +106,20 @@ struct erl_module_nif {
                                  +1 for each owned resource type with callbacks
                                  +1 for each ongoing dirty NIF call
                                */
+    int flags;
+    ErtsNifOnHaltData on_halt;
     Module* mod;    /* Can be NULL if purged and dynlib_refc > 0 */
 
     ErlNifFunc _funcs_copy_[1];  /* only used for old libs */
 };
+
+#define ERTS_MOD_NIF_FLG_LOADING                (1 << 0)
+#define ERTS_MOD_NIF_FLG_DELAY_HALT             (1 << 1)
+#define ERTS_MOD_NIF_FLG_ON_HALT                (1 << 2)
+
+static erts_atomic_t halt_tse;
+static erts_mtx_t on_halt_mtx;
+static ErtsNifOnHaltData *on_halt_requests;
 
 typedef ERL_NIF_TERM (*NativeFunPtr)(ErlNifEnv*, int, const ERL_NIF_TERM[]);
 
@@ -131,6 +152,8 @@ void dtrace_nifenv_str(ErlNifEnv *, char *);
 
 #define MIN_HEAP_FRAG_SZ 200
 static Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp);
+static void install_on_halt_callback(ErtsNifOnHaltData *ohdp);
+static void uninstall_on_halt_callback(ErtsNifOnHaltData *ohdp);
 
 static ERTS_INLINE int
 is_scheduler(void)
@@ -370,6 +393,25 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
     return (ERL_NIF_TERM) THE_NON_VALUE;
 }
 
+static ERTS_NOINLINE void
+eternal_sleep(void)
+{
+    while (!0)
+        erts_milli_sleep(1000*1000);
+}
+
+static ERTS_NOINLINE void
+handle_halting_unblocked_halt(erts_aint32_t info)
+{
+    if (info & ERTS_NIF_HALT_INFO_FLAG_WAITING) {
+        erts_tse_t *tse;
+        ERTS_THR_MEMORY_BARRIER;
+        tse = (erts_tse_t *) erts_atomic_read_nob(&halt_tse);
+        ASSERT(tse);
+        erts_tse_set(tse);
+    }
+    eternal_sleep();
+}
 
 static ERL_NIF_TERM dirty_nif_finalizer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -419,7 +461,34 @@ erts_call_dirty_nif(ErtsSchedulerData *esdp,
 
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 
-    result = (*dirty_nif)(&env, codemfa->arity, argv); /* Call dirty NIF */
+    if (!(env.mod_nif->flags & ERTS_MOD_NIF_FLG_DELAY_HALT)) {
+        result = (*dirty_nif)(&env, codemfa->arity, argv); /* Call dirty NIF */
+    }
+    else {
+        erts_atomic32_t *dirty_nif_halt_info = &esdp->u.dirty_nif_halt_info;
+        erts_aint32_t info;
+        info = erts_atomic32_cmpxchg_nob(dirty_nif_halt_info,
+                                         ERTS_NIF_HALT_INFO_FLAG_BLOCK,
+                                         0);
+        if (info != 0) {
+            ASSERT(info == ERTS_NIF_HALT_INFO_FLAG_HALTING
+                   || info == (ERTS_NIF_HALT_INFO_FLAG_HALTING
+                               | ERTS_NIF_HALT_INFO_FLAG_WAITING));
+            eternal_sleep();
+        }
+        result = (*dirty_nif)(&env, codemfa->arity, argv); /* Call dirty NIF */
+        info = erts_atomic32_read_band_relb(dirty_nif_halt_info,
+                                            ~ERTS_NIF_HALT_INFO_FLAG_BLOCK);
+        if (info & ERTS_NIF_HALT_INFO_FLAG_HALTING) {
+            ASSERT(info == (ERTS_NIF_HALT_INFO_FLAG_BLOCK
+                            | ERTS_NIF_HALT_INFO_FLAG_HALTING)
+                   || info == (ERTS_NIF_HALT_INFO_FLAG_BLOCK
+                               | ERTS_NIF_HALT_INFO_FLAG_HALTING
+                               | ERTS_NIF_HALT_INFO_FLAG_WAITING));
+            handle_halting_unblocked_halt(info);
+        }
+        ASSERT(info == ERTS_NIF_HALT_INFO_FLAG_BLOCK);
+    }
 
     erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
@@ -2275,6 +2344,9 @@ static void close_dynlib(struct erl_module_nif* lib)
     ASSERT(lib != NULL);
     ASSERT(lib->mod == NULL);
     ASSERT(erts_refc_read(&lib->dynlib_refc,0) == 0);
+
+    if (lib->flags & ERTS_MOD_NIF_FLG_ON_HALT)
+        uninstall_on_halt_callback(&lib->on_halt);
 
     if (lib->entry.unload != NULL) {
 	struct enif_msg_environment_t msg_env;
@@ -4523,6 +4595,8 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
         lib->handle = handle;
         erts_refc_init(&lib->refc, 2);  /* Erlang code + NIF code */
         erts_refc_init(&lib->dynlib_refc, 1);
+        lib->flags = 0;
+        lib->on_halt.callback = NULL;
         ASSERT(opened_rt_list == NULL);
         lib->mod = module_p;
 
@@ -4641,7 +4715,7 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     /* Call load or upgrade:
      */
     env.mod_nif = lib;
-
+    lib->flags |= ERTS_MOD_NIF_FLG_LOADING;
     lib->priv_data = NULL;
     if (prev_mi->nif != NULL) { /**************** Upgrade ***************/
         void* prev_old_data = prev_mi->nif->priv_data;
@@ -4675,11 +4749,14 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
             ret = load_nif_error(c_p, "load", "Library load-call unsuccessful (%d).", veto);
         }
     }
+    lib->flags &= ~ERTS_MOD_NIF_FLG_LOADING;
 
     if (ret == am_ok) {
 	/*
          * Everything ok, make NIF code callable.
 	 */
+        if (lib->flags & ERTS_MOD_NIF_FLG_ON_HALT)
+            install_on_halt_callback(&lib->on_halt);
 	this_mi->nif = lib;
         prepare_opened_rt(lib);
         /*
@@ -5045,6 +5122,20 @@ void erl_nif_init()
 
     nif_call_table_init();
     static_nifs_init();
+
+    erts_atomic_init_nob(&halt_tse, (erts_aint_t) NULL);
+    erts_mtx_init(&on_halt_mtx, "on_halt", NIL,
+                  ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+    on_halt_requests = NULL;
+}
+
+void
+erts_nif_sched_init(ErtsSchedulerData *esdp)
+{
+    if (esdp->type == ERTS_SCHED_DIRTY_CPU
+        || esdp->type == ERTS_SCHED_DIRTY_IO) {
+        erts_atomic32_init_nob(&esdp->u.dirty_nif_halt_info, 0);
+    }
 }
 
 int erts_nif_get_funcs(struct erl_module_nif* mod,
@@ -5131,6 +5222,191 @@ Eterm erts_nif_call_function(Process *p, Process *tracee,
 
     return nif_result;
 }
+
+/*
+ * Set options...
+ */
+
+int
+enif_set_option(ErlNifEnv *env, ErlNifOption opt, ...)
+{
+    if (!env)
+        return EINVAL;
+
+    switch (opt) {
+
+    case ERL_NIF_OPT_DELAY_HALT: {
+        struct erl_module_nif *m = env->mod_nif;
+
+        if (!m || !(m->flags & ERTS_MOD_NIF_FLG_LOADING)
+            || (m->flags & ERTS_MOD_NIF_FLG_DELAY_HALT)) {
+            return EINVAL;
+        }
+
+        m->flags |= ERTS_MOD_NIF_FLG_DELAY_HALT;
+
+        return 0;
+    }
+
+    case ERL_NIF_OPT_ON_HALT: {
+        struct erl_module_nif *m = env->mod_nif;
+        ErlNifOnHaltCallback *on_halt;
+        va_list argp;
+
+        if (!m || ((m->flags & (ERTS_MOD_NIF_FLG_LOADING
+                                | ERTS_MOD_NIF_FLG_ON_HALT))
+                   != ERTS_MOD_NIF_FLG_LOADING)) {
+            return EINVAL;
+        }
+
+        ASSERT(!m->on_halt.callback);
+
+        va_start(argp, opt);
+        on_halt = va_arg(argp, ErlNifOnHaltCallback *);
+        va_end(argp);
+        if (!on_halt)
+            return EINVAL;
+
+        m->on_halt.callback = on_halt;
+        m->flags |= ERTS_MOD_NIF_FLG_ON_HALT;
+
+        return 0;
+    }
+
+    default:
+        return EINVAL;
+
+    }
+}
+
+/*
+ * Halt functionality...
+ */
+
+void
+erts_nif_execute_on_halt(void)
+{
+    ErtsNifOnHaltData *ohdp;
+
+    erts_mtx_lock(&on_halt_mtx);
+    for (ohdp = on_halt_requests; ohdp; ohdp = ohdp->next) {
+        struct erl_module_nif *m;
+        m = ErtsContainerStruct(ohdp, struct erl_module_nif, on_halt);
+        ohdp->callback(m->priv_data);
+    }
+    on_halt_requests = NULL;
+    erts_mtx_unlock(&on_halt_mtx);
+}
+
+void
+erts_nif_notify_halt(void)
+{
+    int ix;
+
+    erts_nif_execute_on_halt();
+
+    for (ix = 0; ix < erts_no_dirty_cpu_schedulers; ix++) {
+        ErtsSchedulerData *esdp = ERTS_DIRTY_CPU_SCHEDULER_IX(ix);
+        ASSERT(esdp->type == ERTS_SCHED_DIRTY_CPU);
+        (void) erts_atomic32_read_bor_nob(&esdp->u.dirty_nif_halt_info,
+                                          ERTS_NIF_HALT_INFO_FLAG_HALTING);
+    }
+    for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
+        ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
+        ASSERT(esdp->type == ERTS_SCHED_DIRTY_IO);
+        (void) erts_atomic32_read_bor_nob(&esdp->u.dirty_nif_halt_info,
+                                          ERTS_NIF_HALT_INFO_FLAG_HALTING);
+    }
+}
+
+static ERTS_INLINE void
+wait_dirty_call_blocking_halt(ErtsSchedulerData *esdp, erts_tse_t *tse)
+{
+    erts_atomic32_t *dirty_nif_halt_info = &esdp->u.dirty_nif_halt_info;
+    erts_aint32_t info = erts_atomic32_read_acqb(dirty_nif_halt_info);
+    ASSERT(info & ERTS_NIF_HALT_INFO_FLAG_HALTING);
+    if (!(info & ERTS_NIF_HALT_INFO_FLAG_BLOCK))
+        return;
+    info = erts_atomic32_read_bor_mb(dirty_nif_halt_info,
+                                     ERTS_NIF_HALT_INFO_FLAG_WAITING);
+    if (!(info & ERTS_NIF_HALT_INFO_FLAG_BLOCK))
+        return;
+    while (!0) {
+        erts_tse_reset(tse);
+        info = erts_atomic32_read_acqb(dirty_nif_halt_info);
+        if (!(info & ERTS_NIF_HALT_INFO_FLAG_BLOCK))
+            return;
+        while (!0) {
+            if (erts_tse_wait(tse) != EINTR)
+                break;
+        }
+    }
+}
+
+void
+erts_nif_wait_calls(void)
+{
+    erts_tse_t *tse;
+    int ix;
+
+    tse = erts_tse_fetch();
+    erts_atomic_set_nob(&halt_tse, (erts_aint_t) tse);
+
+    for (ix = 0; ix < erts_no_dirty_cpu_schedulers; ix++) {
+        ErtsSchedulerData *esdp = ERTS_DIRTY_CPU_SCHEDULER_IX(ix);
+        ASSERT(esdp->type == ERTS_SCHED_DIRTY_CPU);
+        wait_dirty_call_blocking_halt(esdp, tse);
+    }
+    for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
+        ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
+        ASSERT(esdp->type == ERTS_SCHED_DIRTY_IO);
+        wait_dirty_call_blocking_halt(esdp, tse);
+    }
+}
+
+static void
+install_on_halt_callback(ErtsNifOnHaltData *ohdp)
+{
+    ASSERT(ohdp->callback);
+
+    erts_mtx_lock(&on_halt_mtx);
+    ohdp->next = on_halt_requests;
+    ohdp->prev = NULL;
+    if (on_halt_requests)
+        on_halt_requests->prev = ohdp;
+    on_halt_requests = ohdp;
+    erts_mtx_unlock(&on_halt_mtx);
+}
+
+static void
+uninstall_on_halt_callback(ErtsNifOnHaltData *ohdp)
+{
+    erts_mtx_lock(&on_halt_mtx);
+    ohdp->callback = NULL;
+    if (ohdp->prev) {
+        ASSERT(on_halt_requests != ohdp);
+        ohdp->prev->next = ohdp->next;
+    }
+    else if (on_halt_requests == ohdp) {
+        ASSERT(erts_halt_code == INT_MIN);
+        on_halt_requests = ohdp->next;
+    }
+    else {
+        /*
+         * Uninstall during halt; and our callback
+         * has already been called...
+         */
+        ASSERT(erts_halt_code != INT_MIN);
+    }
+    if (ohdp->next) {
+        ohdp->next->prev = ohdp->prev;
+    }
+    erts_mtx_unlock(&on_halt_mtx);
+}
+
+/*
+ * End of halt functionality...
+ */
 
 #ifdef USE_VM_PROBES
 void dtrace_nifenv_str(ErlNifEnv *env, char *process_buf)

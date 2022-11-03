@@ -2508,7 +2508,7 @@ notify_reap_ports_relb(void)
 }
 
 erts_atomic32_t erts_halt_progress;
-int erts_halt_code;
+int erts_halt_code = INT_MIN;
 
 static ERTS_INLINE erts_aint32_t
 handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
@@ -2553,7 +2553,7 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 	    erts_port_release(prt);
 	}
 	if (erts_atomic32_dec_read_nob(&erts_halt_progress) == 0) {
-	    erts_flush_async_exit(erts_halt_code, "");
+	    erts_flush_exit(erts_halt_code, "");
 	}
     }
     return aux_work & ~ERTS_SSI_AUX_WORK_REAP_PORTS;
@@ -6307,7 +6307,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 
 
     erts_atomic32_init_relb(&erts_halt_progress, -1);
-    erts_halt_code = 0;
+    erts_halt_code = INT_MIN;
 
 
 }
@@ -8665,6 +8665,7 @@ sched_thread_func(void *vesdp)
 
     erts_ets_sched_spec_data_init(esdp);
     erts_utils_sched_spec_data_init();
+    erts_nif_sched_init(esdp);
 
     process_main(esdp);
 
@@ -8715,6 +8716,8 @@ sched_dirty_cpu_thread_func(void *vesdp)
 
     erts_proc_lock_prepare_proc_lock_waiter();
 
+    erts_nif_sched_init(esdp);
+
     erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
     erts_exit(ERTS_ABORT_EXIT,
@@ -8762,6 +8765,8 @@ sched_dirty_io_thread_func(void *vesdp)
     esdp->aux_work_data.async_ready.queue = NULL;
 
     erts_proc_lock_prepare_proc_lock_waiter();
+
+    erts_nif_sched_init(esdp);
 
     erts_dirty_process_main(esdp);
     /* No schedulers should *ever* terminate */
@@ -14829,6 +14834,7 @@ void erts_halt(int code)
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_CPU_RUNQ, ERTS_RUNQ_FLG_HALTING);
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_IO_RUNQ, ERTS_RUNQ_FLG_HALTING);
 	erts_halt_code = code;
+        erts_nif_notify_halt();
     }
 }
 

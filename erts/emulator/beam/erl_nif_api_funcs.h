@@ -219,6 +219,8 @@ ERL_NIF_API_FUNC_DECL(ErlNifTermType,enif_term_type,(ErlNifEnv* env, ERL_NIF_TER
 ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_init_resource_type,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
 ERL_NIF_API_FUNC_DECL(int,enif_dynamic_resource_call,(ErlNifEnv*, ERL_NIF_TERM mod, ERL_NIF_TERM name, ERL_NIF_TERM rsrc, void* call_data));
 
+ERL_NIF_API_FUNC_DECL(int, enif_set_option, (ErlNifEnv *env, ErlNifOption opt, ...));
+
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
 */
@@ -408,6 +410,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_dynamic_resource_call,(ErlNifEnv*, ERL_NIF_TERM m
 #  define enif_term_type ERL_NIF_API_FUNC_MACRO(enif_term_type)
 #  define enif_init_resource_type ERL_NIF_API_FUNC_MACRO(enif_init_resource_type)
 #  define enif_dynamic_resource_call ERL_NIF_API_FUNC_MACRO(enif_dynamic_resource_call)
+#  define enif_set_option ERL_NIF_API_FUNC_MACRO(enif_set_option)
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
 */

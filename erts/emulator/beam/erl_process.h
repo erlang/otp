@@ -728,7 +728,10 @@ struct ErtsSchedulerData_ {
     ErtsSchedWallTime sched_wall_time;
     ErtsGCInfo gc_info;
     ErtsPortTaskHandle nosuspend_port_task_handle;
-    ErtsEtsTables ets_tables;
+    union {
+        ErtsEtsTables ets_tables;
+        erts_atomic32_t dirty_nif_halt_info;
+    } u;
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_alloc_verify_func_t verify_unused_temp_alloc;
     Allctr_t *verify_unused_temp_alloc_data;

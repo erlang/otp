@@ -2925,7 +2925,7 @@ uncompiled code with the same arity are mapped to the same list by
       <fsummary>Halt the Erlang runtime system and indicate normal exit to
         the calling environment.</fsummary>
       <desc>
-        <p>The same as
+        <p>The same as calling
           <seemfa marker="#halt/2"><c>halt(0, [])</c></seemfa>. Example:</p>
         <pre>
 > <input>halt().</input>
@@ -2934,10 +2934,11 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="halt" arity="1" since=""/>
+      <name name="halt" arity="1" clause_i="1"
+            anchor="halt_status_code_1" since=""/>
       <fsummary>Halt the Erlang runtime system.</fsummary>
       <desc>
-        <p>The same as <seemfa marker="#halt/2">
+        <p>The same as calling <seemfa marker="#halt/2">
           <c>halt(<anno>Status</anno>, [])</c></seemfa>. Example:</p>
         <pre>
 > <input>halt(17).</input>
@@ -2948,44 +2949,161 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="halt" arity="2" since="OTP R15B01"/>
-      <fsummary>Halt the Erlang runtime system.</fsummary>
+      <name name="halt" arity="1" clause_i="2"
+            anchor="halt_abort_1" since="OTP R15B01"/>
+      <fsummary>Halt the Erlang runtime system by aborting.</fsummary>
       <desc>
-        <p><c><anno>Status</anno></c> must be a non-negative integer, a string,
-          or the atom <c>abort</c>.
-          Halts the Erlang runtime system. Has no return value.
-          Depending on <c><anno>Status</anno></c>, the following occurs:</p>
+        <p>
+          The same as calling <seeerl marker="#halt_abort_2">
+          <c>halt(abort, [])</c></seeerl>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="halt" arity="1" clause_i="3"
+            anchor="halt_crash_dump_1" since=""/>
+      <fsummary>
+        Halt the Erlang runtime system and create an Erlang crash dump.
+      </fsummary>
+      <desc>
+        <p>
+          The same as calling <seeerl marker="#halt_crash_dump_2">
+          <c>halt(<anno>CrashDumpSlogan</anno>, [])</c></seeerl>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="halt" arity="2" clause_i="1"
+            anchor="halt_status_code_2" since="OTP R15B01"/>
+      <fsummary>Halt the Erlang runtime system.</fsummary>
+      <type name="halt_options"/>
+      <desc>
+        <p>
+          Halt the runtime system with status code
+          <c><anno>Status</anno></c>.
+        </p>
+	<note>
+	  <p>
+            On many platforms, the OS supports only status codes 0-255. A too
+            large status code is truncated by clearing the high bits.
+          </p>
+	</note>
+        <p>
+          Currently the following options are valid:
+        </p>
         <taglist>
-          <tag>integer()</tag>
-          <item>The runtime system exits with integer value
-            <c><anno>Status</anno></c>
-            as status code to the calling environment (OS).
-	    <note>
-	      <p>On many platforms, the OS supports only status
-	      codes 0-255. A too large status code is truncated by clearing
-	      the high bits.</p>
-	    </note>
-          </item>
-          <tag>string()</tag>
-          <item>An Erlang crash dump is produced with <c><anno>Status</anno></c>
-            as slogan. Then the runtime system exits with status code <c>1</c>.
-	    The string will be truncated if longer than 200 characters.
-	    <note>
-	      <p>Before ERTS 9.1 (OTP-20.1) only code points in the range 0-255
-	         was accepted in the string. Now any unicode string is valid.</p>
-	    </note>
-          </item>
-          <tag><c>abort</c></tag>
-          <item>The runtime system aborts producing a core dump, if that is
-            enabled in the OS.
+          <tag><marker id="halt_flush"/><c>{flush, EnableFlushing}</c></tag>
+          <item>
+            <p>
+              If <c>EnableFlushing</c> equals <c>true</c>, which also is the
+              default behavior, the runtime system will perform the following
+              operations before terminating:
+            </p>
+            <list>
+              <item><p>
+                Flush all outstanding output.
+              </p></item>
+              <item><p>
+                Send all Erlang ports exit signals and wait for them
+                to exit.
+              </p></item>
+              <item><p>
+                Wait for all async threads to complete all outstanding
+                async jobs.
+              </p></item>
+              <item><p>
+                Call all installed <seecref marker="erl_nif#on_halt">NIF
+                <i>on halt</i> callbacks</seecref>.
+              </p></item>
+              <item><p>
+                Wait for all ongoing <seecref marker="erl_nif#delay_halt">NIF
+                calls with the <i>delay halt</i> setting</seecref> enabled to
+                return.
+              </p></item>
+              <item><p>
+                Call all installed <c>atexit</c>/<c>on_exit</c> callbacks.
+              </p></item>
+            </list>
+            <p>
+              If <c>EnableFlushing</c> equals <c>false</c>, the runtime system
+              will terminate immediately without performing any of the above
+              listed operations.
+            </p>
+            <p>
+              Behavior changes compared to earlier versions:
+            </p>
+            <list>
+              <item>
+                <p>
+                  Runtime systems prior to OTP @OTP-17771@ called all installed
+                  <c>atexit</c>/<c>on_exit</c> callbacks also when <c>flush</c>
+                  was disabled, but as of OTP @OTP-17771@ this is no longer the case.
+                </p>
+              </item>
+            </list>
           </item>
         </taglist>
-        <p>For integer <c><anno>Status</anno></c>, the Erlang runtime system
-          closes all ports and allows async threads to finish their
-          operations before exiting. To exit without such flushing, use
-          <c><anno>Option</anno></c> as <c>{flush,false}</c>.</p>
-        <p>For statuses <c>string()</c> and <c>abort</c>, option
-          <c>flush</c> is ignored and flushing is <em>not</em> done.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="halt" arity="2" clause_i="2"
+            anchor="halt_abort_2" since="OTP R15B01"/>
+      <fsummary>Halt the Erlang runtime system by aborting.</fsummary>
+      <type name="halt_options"/>
+      <desc>
+        <p>
+          Halt the Erlang runtime system by aborting and produce a core dump
+          if core dumping has been enabled in the environment that the
+          runtime system is executing in.
+        </p>
+        <note><p>
+          The <seeerl marker="#halt_flush"><c>{flush, boolean()}</c></seeerl>
+          option will be ignored, and flushing will be disabled.
+        </p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="halt" arity="2" clause_i="3"
+            anchor="halt_crash_dump_2" since="OTP R15B01"/>
+      <fsummary>
+        Halt the Erlang runtime system and create an Erlang crash dump.
+      </fsummary>
+      <type name="halt_options"/>
+      <desc>
+        <p>
+          Halt the Erlang runtime system and generate an
+	  <seeguide marker="crash_dump">Erlang crash dump</seeguide>. The
+          string <c><anno>CrashDumpSlogan</anno></c> will be used as slogan
+          in the Erlang crash dump created. The slogan will be trunkated if
+          <c><anno>CrashDumpSlogan</anno></c> is longer than 1023 characters.
+        </p>
+        <note><p>
+          The <seeerl marker="#halt_flush"><c>{flush, boolean()}</c></seeerl>
+          option will be ignored, and flushing will be disabled.
+        </p></note>
+        <p>
+          Behavior changes compared to earlier versions:
+        </p>
+        <list>
+          <item>
+            <p>
+              Before OTP 24.2, the slogan was truncated if
+              <c><anno>CrashDumpSlogan</anno></c> was longer than 200
+              characters. Now it will be truncated if longer than 1023
+              characters.
+            </p>
+          </item>
+          <item>
+            <p>
+              Before OTP 20.1, only code points in the range 0-255 were
+              accepted in the slogan. Now any Unicode string is valid.
+            </p>
+          </item>
+        </list>
       </desc>
     </func>
 

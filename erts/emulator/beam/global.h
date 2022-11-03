@@ -127,6 +127,10 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args);
 
 void erts_unload_nif(struct erl_module_nif* nif);
 extern void erl_nif_init(void);
+extern void erts_nif_sched_init(ErtsSchedulerData *esdp);
+extern void erts_nif_execute_on_halt(void);
+extern void erts_nif_notify_halt(void);
+extern void erts_nif_wait_calls(void);
 extern int erts_nif_get_funcs(struct erl_module_nif*,
                               struct enif_func_t **funcs);
 extern Module *erts_nif_get_module(struct erl_module_nif*);
@@ -1044,9 +1048,9 @@ double erts_get_positive_zero_float(void);
 
 /* config.c */
 
-__decl_noreturn void __noreturn erts_exit_epilogue(void);
+__decl_noreturn void __noreturn erts_exit_epilogue(int flush);
 __decl_noreturn void __noreturn erts_exit(int n, const char*, ...);
-__decl_noreturn void __noreturn erts_flush_async_exit(int n, char*, ...);
+__decl_noreturn void __noreturn erts_flush_exit(int n, char*, ...);
 void erl_error(const char*, va_list);
 
 /* This controls whether sharing-preserving copy is used by Erlang */

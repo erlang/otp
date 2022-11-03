@@ -19,11 +19,14 @@
  */
 #include <erl_nif.h>
 #include <assert.h>
+#include <errno.h>
 #ifdef __WIN32__
 #include <windows.h>
 #else
 #include <unistd.h>
 #endif
+#include <stdio.h>
+#include <string.h>
 
 /*
  * Hack to get around this function missing from the NIF API.
@@ -43,8 +46,128 @@ static ERL_NIF_TERM atom_pid;
 static ERL_NIF_TERM atom_port;
 static ERL_NIF_TERM atom_send;
 
+typedef struct {
+    int halting;
+    int on_halt_wait;
+    ErlNifMutex *mtx;
+    ErlNifCond *cnd;
+    char *filename;
+} PrivData;
+
+static PrivData *make_priv_data(void)
+{
+    PrivData *pdata = enif_alloc(sizeof(PrivData));
+    if (!pdata)
+        return NULL;
+    pdata->halting = 0;
+    pdata->on_halt_wait = 0;
+    pdata->mtx = NULL;
+    pdata->cnd = NULL;
+    pdata->filename = NULL;
+    return pdata;
+}
+
+static void unload(ErlNifEnv *env, void *priv_data)
+{
+    if (priv_data) {
+        PrivData *pdata = priv_data;
+        if (pdata->mtx)
+            enif_mutex_destroy(pdata->mtx);
+        if (pdata->cnd)
+            enif_cond_destroy(pdata->cnd);
+        if (pdata->filename)
+            enif_free(pdata->filename);
+        enif_free(pdata);
+    }
+}
+
+static void on_halt(void *priv_data);
+
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
+    int arity;
+    const ERL_NIF_TERM *array;
+    if (enif_get_tuple(env, load_info, &arity, &array)) {
+        char atom_text[32];
+        int err;
+        unsigned filename_len;
+        PrivData *pdata = NULL;
+
+        if (arity < 1 || 3 < arity)
+            return __LINE__;
+        if (!enif_get_atom(env, array[0], &atom_text[0],
+                           sizeof(atom_text), ERL_NIF_LATIN1)) {
+            return __LINE__;
+        }
+        pdata = make_priv_data();
+        if (!pdata)
+            return __LINE__;
+        if (strcmp(atom_text, "on_halt") == 0) {
+            if (0 != enif_set_option(env, ERL_NIF_OPT_ON_HALT, on_halt)) {
+                unload(env, pdata);
+                return __LINE__;
+            }
+        }
+        else if (strcmp(atom_text, "delay_halt") == 0) {
+            if (0 != enif_set_option(env, ERL_NIF_OPT_DELAY_HALT)) {
+                unload(env, pdata);
+                return __LINE__;
+            }
+        }
+        else if (strcmp(atom_text, "sync_halt") == 0) {
+            if (0 != enif_set_option(env, ERL_NIF_OPT_ON_HALT, on_halt)) {
+                unload(env, pdata);
+                return __LINE__;
+            }
+            if (0 != enif_set_option(env, ERL_NIF_OPT_DELAY_HALT)) {
+                unload(env, pdata);
+                return __LINE__;
+            }
+            pdata->mtx = enif_mutex_create("sync_halt_dirty_nif_SUITE");
+            pdata->cnd = enif_cond_create("sync_halt_dirty_nif_SUITE");
+            if (!pdata->mtx || !pdata->cnd) {
+                unload(env, pdata);
+                return __LINE__;
+            }
+        }
+        else {
+            unload(env, pdata);
+            return __LINE__;
+        }
+
+        if (arity >= 2) {
+            if (!enif_get_list_length(env, array[1], &filename_len)) {
+                unload(env, pdata);
+                return __LINE__;
+            }
+            if (filename_len > 0) {
+                filename_len++;
+                pdata->filename = enif_alloc(filename_len);
+                if (!pdata->filename) {
+                    unload(env, pdata);
+                    return __LINE__;
+                }
+                if (filename_len != enif_get_string(env,
+                                                    array[1],
+                                                    pdata->filename,
+                                                    filename_len,
+                                                    ERL_NIF_LATIN1)) {
+                    unload(env, pdata);
+                    return __LINE__;
+                }
+            }
+        }
+        if (arity == 3) {
+            if (!enif_get_int(env, array[2], &pdata->on_halt_wait)
+                || pdata->on_halt_wait < 0
+                || pdata->on_halt_wait*1000 < 0) {
+                unload(env, pdata);
+                return __LINE__;
+            }
+        }
+        *priv_data = (void *) pdata;
+    }
+
     atom_badarg = enif_make_atom(env, "badarg");
     atom_error = enif_make_atom(env, "error");
     atom_false = enif_make_atom(env,"false");
@@ -55,6 +178,11 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_send = enif_make_atom(env, "send");
 
     return 0;
+}
+
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)
+{
+    return load(env, priv_data, load_info);
 }
 
 static ERL_NIF_TERM lib_loaded(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -468,6 +596,149 @@ static ERL_NIF_TERM dirty_terminating_literal_access(ErlNifEnv* env, int argc, c
     return self_term;
 }
 
+static int fn_write_ok(char *filename)
+{
+    FILE *file = fopen(filename, "w");
+    if (!file)
+        return EINVAL;
+    if (1 != fwrite("ok", 2, 1, file))
+        return EINVAL;
+    fclose(file);
+    return 0;
+}
+
+static int efn_write_ok(ErlNifEnv *env, const ERL_NIF_TERM arg)
+{
+    int res;
+    unsigned filename_len;
+    char *filename;
+
+    if (!enif_get_list_length(env, arg, &filename_len) || filename_len < 2) {
+        res = EINVAL;
+        goto done;
+    }
+    filename_len++;
+    filename = enif_alloc(filename_len);
+    if (!filename) {
+        res = ENOMEM;
+        goto done;
+    }
+    if (filename_len != enif_get_string(env,
+                                        arg,
+                                        filename,
+                                        filename_len,
+                                        ERL_NIF_LATIN1)) {
+        res = EINVAL;
+        goto done;
+    }
+    res = fn_write_ok(filename);
+done:
+    if (filename)
+        enif_free(filename);
+    switch (res) {
+    case 0:
+        return atom_ok;
+    case ENOMEM:
+        return enif_raise_exception(env, enif_make_atom(env, "enomem"));
+    default:
+        return enif_make_badarg(env);
+    }
+}
+
+static ERL_NIF_TERM delay_halt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM msg;
+    ErlNifPid receiver, self;
+    int res, secs;
+
+    if (argc != 3)
+        return enif_make_badarg(env);
+    if (!enif_get_int(env, argv[2], &secs))
+        return enif_make_badarg(env);
+    if (secs < 0 || secs*1000 < 0)
+        return enif_make_badarg(env);
+    if (!enif_self(env, &self))
+	return enif_make_badarg(env);
+    if (!enif_get_local_pid(env, argv[0], &receiver))
+	return enif_make_badarg(env);
+    msg = enif_make_tuple2(env, enif_make_atom(env, "delay_halt"), enif_make_pid(env, &self));
+    res = enif_send(env, &receiver, NULL, msg);
+    if (!res)
+	return enif_make_badarg(env);
+
+#ifdef __WIN32__
+    Sleep(secs*1000);
+#else
+    sleep(secs);
+#endif
+    return efn_write_ok(env, argv[1]);
+}
+
+static ERL_NIF_TERM sync_halt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM msg;
+    ErlNifPid receiver, self;
+    int res;
+    PrivData *pdata = enif_priv_data(env);
+    if (!pdata)
+        return enif_raise_exception(env, enif_make_atom(env, "missing_priv_data"));
+    if (argc != 2)
+        return enif_make_badarg(env);
+    if (!enif_self(env, &self))
+	return enif_make_badarg(env);
+    if (!enif_get_local_pid(env, argv[0], &receiver))
+	return enif_make_badarg(env);
+    msg = enif_make_tuple2(env, enif_make_atom(env, "sync_halt"), enif_make_pid(env, &self));
+    res = enif_send(env, &receiver, NULL, msg);
+    if (!res)
+	return enif_make_badarg(env);
+    enif_mutex_lock(pdata->mtx);
+    while (!pdata->halting)
+        enif_cond_wait(pdata->cnd, pdata->mtx);
+    enif_mutex_unlock(pdata->mtx);
+    return efn_write_ok(env, argv[1]);
+}
+
+static ERL_NIF_TERM set_halt_option_from_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned len;
+    char atom_text[32];
+    if (argc != 1)
+        return enif_make_badarg(env);
+    if (!enif_get_atom(env, argv[0], &atom_text[0], sizeof(atom_text), ERL_NIF_LATIN1))
+        return enif_make_badarg(env);
+    if (strcmp(atom_text, "set_on_halt_handler") == 0) {
+        if (0 == enif_set_option(env, ERL_NIF_OPT_ON_HALT, on_halt))
+            return atom_ok;
+        return atom_error;
+    }
+    else if (strcmp(atom_text, "delay_halt") == 0) {
+        if (0 == enif_set_option(env, ERL_NIF_OPT_DELAY_HALT))
+            return atom_ok;
+        return atom_error;
+    }
+    return enif_make_badarg(env);
+}
+
+static void on_halt(void *priv_data)
+{
+    PrivData *pdata = (PrivData *)priv_data;
+    int res;
+#ifdef __WIN32__
+    Sleep(pdata->on_halt_wait*1000);
+#else
+    sleep(pdata->on_halt_wait);
+#endif
+    if (pdata->mtx) {
+        enif_mutex_lock(pdata->mtx);
+        assert(!pdata->halting);
+        pdata->halting = !0;
+        enif_cond_broadcast(pdata->cnd);
+        enif_mutex_unlock(pdata->mtx);
+    }
+    res = fn_write_ok(pdata->filename);
+    assert(res == 0);
+}
 
 static ErlNifFunc nif_funcs[] =
 {
@@ -484,6 +755,14 @@ static ErlNifFunc nif_funcs[] =
     {"whereis_send", 3, whereis_send, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"whereis_term", 2, whereis_term, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"dirty_terminating_literal_access", 2, dirty_terminating_literal_access, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"delay_halt_normal", 3, delay_halt, 0},
+    {"delay_halt_io_bound", 3, delay_halt, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"delay_halt_cpu_bound", 3, delay_halt, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"sync_halt_io_bound", 2, sync_halt, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"sync_halt_cpu_bound", 2, sync_halt, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"set_halt_option_from_nif_normal", 1, set_halt_option_from_nif, 0},
+    {"set_halt_option_from_nif_io_bound", 1, set_halt_option_from_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"set_halt_option_from_nif_cpu_bound", 1, set_halt_option_from_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}
 };
 
-ERL_NIF_INIT(dirty_nif_SUITE,nif_funcs,load,NULL,NULL,NULL)
+ERL_NIF_INIT(dirty_nif_SUITE,nif_funcs,load,NULL,upgrade,unload)

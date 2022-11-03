@@ -1210,8 +1210,13 @@ halt() ->
 
 %% halt/1
 %% Shadowed by erl_bif_types: erlang:halt/1
--spec halt(Status) -> no_return() when
-      Status :: non_neg_integer() | 'abort' | string().
+-spec halt(Status :: non_neg_integer()) ->
+          no_return();
+          (Abort :: abort) ->
+          no_return();
+          (CrashDumpSlogan :: string()) ->
+          no_return().
+
 -dialyzer({no_return, halt/1}).
 halt(Status) ->
     try
@@ -1222,11 +1227,18 @@ halt(Status) ->
 
 %% halt/2
 %% Shadowed by erl_bif_types: erlang:halt/2
--spec halt(Status, Options) -> no_return() when
-      Status :: non_neg_integer() | 'abort' | string(),
-      Options :: [Option],
-      Option :: {flush, boolean()}.
-halt(_Status, _Options) ->
+-type halt_options() ::
+        [{flush, boolean()}].
+
+-spec halt(Status :: non_neg_integer(), Options :: halt_options()) ->
+          no_return();
+          (Abort :: abort, Options :: halt_options()) ->
+          no_return();
+          (CrashDumpSlogan :: string(), Options :: halt_options()) ->
+          no_return().
+
+-dialyzer({no_return, halt/2}).
+halt(_, _) ->
     erlang:nif_error(undefined).
 
 %% has_prepared_code_on_load/1

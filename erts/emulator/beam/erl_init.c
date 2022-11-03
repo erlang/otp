@@ -2556,7 +2556,7 @@ __decl_noreturn void erts_thr_fatal_error(int err, const char *what)
 
 
 static void
-system_cleanup(int flush_async)
+system_cleanup(int flush)
 {
     /*
      * Make sure only one thread exits the runtime system.
@@ -2586,24 +2586,43 @@ system_cleanup(int flush_async)
      *    (in threaded non smp case).
      */
 
-    if (!flush_async
-	|| !erts_initialized
-	)
+    if (!flush || !erts_initialized)
 	return;
+
+    /*
+     * We only flush as a result of calling erts_halt() (which in turn
+     * is called from the erlang:halt() BIF when flushing is enabled);
+     * otherwise, flushing wont work properly. If erts_halt() has
+     * been called, 'erts_halt_code' won't equal INT_MIN...
+     */
+    ASSERT(erts_halt_code != INT_MIN);
+
+    /*
+     * Nif on-halt handlers may have been added after we initiated
+     * a halt. If so, make sure that these late added handlers are
+     * executed as well..
+     */
+    erts_nif_execute_on_halt();
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0);
 #endif
 
     erts_exit_flush_async();
+
+    /*
+     * Wait for all NIF calls with delayed halt functionality
+     * enabled to complete before we continue...
+     */
+    erts_nif_wait_calls();
 }
 
 static int erts_exit_code;
 
 static __decl_noreturn void __noreturn
-erts_exit_vv(int n, int flush_async, const char *fmt, va_list args1, va_list args2)
+erts_exit_vv(int n, int flush, const char *fmt, va_list args1, va_list args2)
 {
-    system_cleanup(flush_async);
+    system_cleanup(flush);
 
     if (fmt != NULL && *fmt != '\0')
 	erl_error(fmt, args2);	/* Print error message. */
@@ -2616,25 +2635,25 @@ erts_exit_vv(int n, int flush_async, const char *fmt, va_list args1, va_list arg
 	erl_crash_dump_v((char*) NULL, 0, fmt, args1);
     }
 
-    erts_exit_epilogue();
+    erts_exit_epilogue(flush);
 }
 
-__decl_noreturn void __noreturn erts_exit_epilogue(void)
+__decl_noreturn void __noreturn erts_exit_epilogue(int flush)
 {
     int n = erts_exit_code;
 
     sys_tty_reset(n);
 
     if (n == ERTS_INTR_EXIT)
-	exit(0);
+	(void) (flush ? exit(0) : _exit(0));
     else if (n == ERTS_DUMP_EXIT)
 	ERTS_EXIT_AFTER_DUMP(1);
     else if (n == ERTS_ERROR_EXIT || n == ERTS_ABORT_EXIT)
         abort();
-    exit(n);
+    (void) (flush ? exit(n) : _exit(n));
 }
 
-/* Exit without flushing async threads */
+/* Exit without flushing */
 __decl_noreturn void __noreturn erts_exit(int n, const char *fmt, ...)
 {
     va_list args1, args2;
@@ -2645,8 +2664,12 @@ __decl_noreturn void __noreturn erts_exit(int n, const char *fmt, ...)
     va_end(args1);
 }
 
-/* Exit after flushing async threads */
-__decl_noreturn void __noreturn erts_flush_async_exit(int n, char *fmt, ...)
+/*
+ * Exit after flushing. This is a continuation of erts_halt() and wont
+ * work properly if called by its own without proper initialization
+ * as made in erts_halt().
+ */
+__decl_noreturn void __noreturn erts_flush_exit(int n, char *fmt, ...)
 {
     va_list args1, args2;
     va_start(args1, fmt);

@@ -507,13 +507,13 @@ save_sched_table(Process *c_p, DbTable *tb)
     DbTable *first;
 
     ASSERT(esdp);
-    erts_atomic_inc_nob(&esdp->ets_tables.count);
+    erts_atomic_inc_nob(&esdp->u.ets_tables.count);
     erts_refc_inc(&tb->common.refc, 1);
 
-    first = esdp->ets_tables.clist;
+    first = esdp->u.ets_tables.clist;
     if (!first) {
         tb->common.all.next = tb->common.all.prev = tb;
-        esdp->ets_tables.clist = tb;
+        esdp->u.ets_tables.clist = tb;
     }
     else {
         tb->common.all.prev = first->common.all.prev;
@@ -531,14 +531,14 @@ remove_sched_table(ErtsSchedulerData *esdp, DbTable *tb)
     ASSERT(erts_get_ref_numbers_thr_id(ERTS_MAGIC_BIN_REFN(tb->common.btid))
            == (Uint32) esdp->no);
 
-    ASSERT(erts_atomic_read_nob(&esdp->ets_tables.count) > 0);
-    erts_atomic_dec_nob(&esdp->ets_tables.count);
+    ASSERT(erts_atomic_read_nob(&esdp->u.ets_tables.count) > 0);
+    erts_atomic_dec_nob(&esdp->u.ets_tables.count);
 
     eaydp = ERTS_SCHED_AUX_YIELD_DATA(esdp, ets_all);
     if (eaydp->ongoing) {
         /* ets:all() op process list from last to first... */
         if (eaydp->tab == tb) {
-            if (eaydp->tab == esdp->ets_tables.clist)
+            if (eaydp->tab == esdp->u.ets_tables.clist)
                 eaydp->tab = NULL;
             else
                 eaydp->tab = tb->common.all.prev;
@@ -547,23 +547,23 @@ remove_sched_table(ErtsSchedulerData *esdp, DbTable *tb)
 
     if (tb->common.all.next == tb) {
         ASSERT(tb->common.all.prev == tb);
-        ASSERT(esdp->ets_tables.clist == tb);
-        esdp->ets_tables.clist = NULL;
+        ASSERT(esdp->u.ets_tables.clist == tb);
+        esdp->u.ets_tables.clist = NULL;
     }
     else {
 #ifdef DEBUG
-        DbTable *tmp = esdp->ets_tables.clist;
+        DbTable *tmp = esdp->u.ets_tables.clist;
         do {
             if (tmp == tb) break;
             tmp = tmp->common.all.next;
-        } while (tmp != esdp->ets_tables.clist);
+        } while (tmp != esdp->u.ets_tables.clist);
         ASSERT(tmp == tb);
 #endif
         tb->common.all.prev->common.all.next = tb->common.all.next;
         tb->common.all.next->common.all.prev = tb->common.all.prev;
 
-        if (esdp->ets_tables.clist == tb)
-            esdp->ets_tables.clist = tb->common.all.next;
+        if (esdp->u.ets_tables.clist == tb)
+            esdp->u.ets_tables.clist = tb->common.all.next;
 
     }
 
@@ -3346,7 +3346,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
         hp = &hfragp->mem[hfragp->used_size];
         list = *hp;
         hfragp->used_size = hfragp->alloc_size;
-        first = esdp->ets_tables.clist;
+        first = esdp->u.ets_tables.clist;
         tb = *tablepp;
     }
     else {
@@ -3354,7 +3354,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
         ASSERT(!*tablepp);
 
         /* Max heap size needed... */
-        sz = erts_atomic_read_nob(&esdp->ets_tables.count);
+        sz = erts_atomic_read_nob(&esdp->u.ets_tables.count);
         sz *= ERTS_MAGIC_REF_THING_SIZE + 2;
         sz += 3 + ERTS_REF_THING_SIZE;
         hfragp = new_message_buffer(sz);
@@ -3362,7 +3362,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
         hp = &hfragp->mem[0];
         ohp = &hfragp->off_heap;
         list = NIL;
-        first = esdp->ets_tables.clist;
+        first = esdp->u.ets_tables.clist;
         tb = first ? first->common.all.prev : NULL;
     }
 
@@ -3448,7 +3448,7 @@ erts_handle_yielded_ets_all_request(ErtsAuxWorkData *awdp)
                 return 0; /* All work completed! */
 
             if (yc < ERTS_ETS_ALL_TB_YCNT_START &&
-                yc > erts_atomic_read_nob(&esdp->ets_tables.count))
+                yc > erts_atomic_read_nob(&esdp->u.ets_tables.count))
                 return 1; /* Yield! */
 
             eaydp->ongoing = ongoing = eaydp->queue;
@@ -4650,8 +4650,8 @@ erts_ets_sched_spec_data_init(ErtsSchedulerData *esdp)
     eaydp->hfrag = NULL;
     eaydp->tab = NULL;
     eaydp->queue = NULL;
-    esdp->ets_tables.clist = NULL;
-    erts_atomic_init_nob(&esdp->ets_tables.count, 0);
+    esdp->u.ets_tables.clist = NULL;
+    erts_atomic_init_nob(&esdp->u.ets_tables.count, 0);
 }
 
 
@@ -5490,7 +5490,7 @@ erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg, int alive_only
 
     for (ix = 0; ix < erts_no_schedulers; ix++) {
         ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
-        DbTable *first = esdp->ets_tables.clist;
+        DbTable *first = esdp->u.ets_tables.clist;
         if (first) {
             DbTable *tb = first;
             do {
@@ -5534,7 +5534,7 @@ Uint erts_ets_table_count(void)
 
     for (six = 0; six < erts_no_schedulers; six++) {
         ErtsSchedulerData *esdp = &erts_aligned_scheduler_data[six].esd;
-        tb_count += erts_atomic_read_nob(&esdp->ets_tables.count);
+        tb_count += erts_atomic_read_nob(&esdp->u.ets_tables.count);
     }
     return tb_count;
 }
@@ -5601,7 +5601,7 @@ static void lcnt_update_db_locks_per_sched(void *enable) {
     DbTable *head;
 
     esdp = erts_get_scheduler_data();
-    head = esdp->ets_tables.clist;
+    head = esdp->u.ets_tables.clist;
 
     if(head) {
         DbTable *iterator = head;
