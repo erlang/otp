@@ -358,7 +358,8 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
         error:{_,{error, {asn1, Asn1Reason}}} ->
             %% ASN-1 decode of certificate somehow failed
             ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason});
-        error:OtherReason ->
+        error:OtherReason:ST ->
+            ?SSL_LOG(info, internal_error, [{error, OtherReason}, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})
     end.
 %%--------------------------------------------------------------------
@@ -427,7 +428,8 @@ master_secret(Version, #session{master_secret = Mastersecret},
     try master_secret(Version, Mastersecret, SecParams,
 		      ConnectionStates, Role)
     catch
-	exit:_ ->
+	exit:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, key_calculation_failure)
     end;
 
@@ -443,7 +445,8 @@ master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
 					 ClientRandom, ServerRandom),
 		      SecParams, ConnectionStates, Role)
     catch
-	exit:_ ->
+	exit:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, master_secret_calculation_failure)
     end.
 
@@ -1134,26 +1137,27 @@ supported_ecc(_) ->
     #elliptic_curves{elliptic_curve_list = []}.
 
 premaster_secret(OtherPublicDhKey, MyPrivateKey, #'DHParameter'{} = Params) ->
-    try 
-	public_key:compute_key(OtherPublicDhKey, MyPrivateKey, Params)  
-    catch 
-	error:computation_failed -> 
+    try
+	public_key:compute_key(OtherPublicDhKey, MyPrivateKey, Params)
+    catch
+	error:Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{reason, Reason}, {stacktrace, ST}]),
 	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
-    end;	   
+    end;
 premaster_secret(PublicDhKey, PrivateDhKey, #server_dh_params{dh_p = Prime, dh_g = Base}) ->
-    try 
+    try
 	crypto:compute_key(dh, PublicDhKey, PrivateDhKey, [Prime, Base])
-    catch 
-	error:computation_failed -> 
+    catch
+	error:Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{reason, Reason}, {stacktrace, ST}]),
 	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end;
 premaster_secret(#client_srp_public{srp_a = ClientPublicKey}, ServerKey, #srp_user{prime = Prime,
 										   verifier = Verifier}) ->
-    try crypto:compute_key(srp, ClientPublicKey, ServerKey, {host, [Verifier, Prime, '6a']}) of
-	PremasterSecret ->
-	    PremasterSecret
+    try crypto:compute_key(srp, ClientPublicKey, ServerKey, {host, [Verifier, Prime, '6a']})
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{reason, Reason}, {stacktrace, ST}]),
 	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end;
 premaster_secret(#server_srp_params{srp_n = Prime, srp_g = Generator, srp_s = Salt, srp_b = Public},
@@ -1161,14 +1165,13 @@ premaster_secret(#server_srp_params{srp_n = Prime, srp_g = Generator, srp_s = Sa
     case ssl_srp_primes:check_srp_params(Generator, Prime) of
 	ok ->
 	    DerivedKey = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
-	    try crypto:compute_key(srp, Public, ClientKeys, {user, [DerivedKey, Prime, Generator, '6a']}) of
-		PremasterSecret ->
-		    PremasterSecret
+	    try crypto:compute_key(srp, Public, ClientKeys, {user, [DerivedKey, Prime, Generator, '6a']})
             catch
-		error ->
+		error:Reason:ST ->
+                    ?SSL_LOG(debug, crypto_error, [{reason, Reason}, {stacktrace, ST}]),
 		    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
 	    end;
-	_ ->
+	not_accepted ->
 	    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end;
 premaster_secret(#client_rsa_psk_identity{
@@ -1214,14 +1217,16 @@ premaster_secret(EncSecret, #'RSAPrivateKey'{} = RSAPrivateKey) ->
     try public_key:decrypt_private(EncSecret, RSAPrivateKey,
 				   [{rsa_pad, rsa_pkcs1_padding}])
     catch
-	_:_ ->
+	_:Reason:ST ->
+            ?SSL_LOG(debug, decrypt_error, [{reason, Reason}, {stacktrace, ST}]),
 	    throw(?ALERT_REC(?FATAL, ?DECRYPT_ERROR))
     end;
 premaster_secret(EncSecret, #{algorithm := rsa} = Engine) ->
     try crypto:private_decrypt(rsa, EncSecret, maps:remove(algorithm, Engine),
 				   [{rsa_pad, rsa_pkcs1_padding}])
     catch
-	_:_ ->
+	_:Reason:ST ->
+            ?SSL_LOG(debug, decrypt_error, [{reason, Reason}, {stacktrace, ST}]),
 	    throw(?ALERT_REC(?FATAL, ?DECRYPT_ERROR))
     end.
 %%====================================================================
@@ -2101,11 +2106,10 @@ path_validation_alert(Reason) ->
 
 
 digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
-    try do_digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) of
-	Signature ->
-	    Signature
+    try do_digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo)
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(info, sign_error, [{error, Reason}, {stacktrace, ST}]),
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
 
@@ -2288,7 +2292,8 @@ encrypted_premaster_secret(Secret, RSAPublicKey) ->
 						      rsa_pkcs1_padding}]),
 	#encrypted_premaster_secret{premaster_secret = PreMasterSecret}
     catch
-        _:_->
+        _:Reason:ST->
+            ?SSL_LOG(debug, encrypt_error, [{reason, Reason}, {stacktrace, ST}]),
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, premaster_encryption_failed))
     end.
 

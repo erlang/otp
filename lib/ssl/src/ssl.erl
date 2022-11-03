@@ -1726,6 +1726,13 @@ handle_option(key_update_at = Option, Value0, #{versions := Versions} = OptionsM
     assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
+handle_option(log_level = Option, unbound, OptionsMap, _Env) ->
+    DefaultLevel = case logger:get_module_level(?MODULE) of
+                       [] -> notice;
+                       [{ssl,Level}] -> Level
+                   end,
+    Value = validate_option(Option, DefaultLevel),
+    OptionsMap#{Option => Value};
 handle_option(next_protocols_advertised = Option, unbound, OptionsMap,
               #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
@@ -2875,9 +2882,10 @@ add_filter(Filter, Filters) ->
 maybe_client_warn_no_verify(#{verify := verify_none,
                              warn_verify_none := true,
                              log_level := LogLevel}, client) ->
-    ssl_logger:log(warning, LogLevel, #{description => "Server authenticity is not verified since certificate path validation is not enabled",
-                                        reason => "The option {verify, verify_peer} and one of the options 'cacertfile' or "
-                                        "'cacerts' are required to enable this."}, ?LOCATION);
+    ssl_logger:log(warning, LogLevel,
+                   #{description => "Server authenticity is not verified since certificate path validation is not enabled",
+                     reason => "The option {verify, verify_peer} and one of the options 'cacertfile' or "
+                     "'cacerts' are required to enable this."}, ?LOCATION);
 maybe_client_warn_no_verify(_,_) ->
     %% Warning not needed. Note client certificate validation is optional in TLS
     ok.

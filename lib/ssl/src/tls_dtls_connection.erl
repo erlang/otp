@@ -686,7 +686,8 @@ downgrade(Type, Event, State) ->
 gen_handshake(StateName, Type, Event, State) ->
     try
         tls_dtls_connection:StateName(Type, Event, State)
-    catch error:_ ->
+    catch error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data))
     end.
 
@@ -718,8 +719,12 @@ handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
 					  end, [], Seed)),
 		ssl_handshake:prf(ssl:tls_version(Version), PRFAlgorithm, SecretToUse, Label, SeedToUse, WantedLength)
 	    catch
-		exit:_ -> {error, badarg};
-		error:Reason -> {error, Reason}
+		exit:Reason:ST ->
+                    ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
+                    {error, badarg};
+		error:Reason:ST ->
+                    ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
+                    {error, Reason}
 	    end,
     {keep_state_and_data, [{reply, From, Reply}]};
 handle_call(Msg, From, StateName, State) ->
@@ -1484,22 +1489,20 @@ generate_srp_server_keys(_SrpParams, 10) ->
 generate_srp_server_keys(SrpParams =
 			     #srp_user{generator = Generator, prime = Prime,
 				       verifier = Verifier}, N) ->
-    try crypto:generate_key(srp, {host, [Verifier, Generator, Prime, '6a']}) of
-	Keys ->
-	    Keys
+    try crypto:generate_key(srp, {host, [Verifier, Generator, Prime, '6a']})
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{error, Reason}, {stacktrace, ST}]),
 	    generate_srp_server_keys(SrpParams, N+1)
     end.
 
 generate_srp_client_keys(_Generator, _Prime, 10) ->
     throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
 generate_srp_client_keys(Generator, Prime, N) ->
-    try crypto:generate_key(srp, {user, [Generator, Prime, '6a']}) of
-	Keys ->
-	    Keys
+    try crypto:generate_key(srp, {user, [Generator, Prime, '6a']})
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{error, Reason}, {stacktrace, ST}]),
 	    generate_srp_client_keys(Generator, Prime, N+1)
     end.
 
