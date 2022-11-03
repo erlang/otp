@@ -935,9 +935,8 @@ set_ktls(KtlsInfo) ->
     %% Check OS type and version
     %%
     case {os:type(), os:version()} of
-        {{unix,linux}, {Major,Minor,_}}
-          when 5 == Major, 2 =< Minor;
-               5 < Major ->
+        {{unix,linux}, {_,_,_} = OsVersion}
+          when {5,2,0} =< OsVersion ->
             set_ktls_1(KtlsInfo);
         OsTypeVersion ->
             {error, {ktls_invalid_os, OsTypeVersion}}

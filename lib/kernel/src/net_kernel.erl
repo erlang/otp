@@ -985,7 +985,7 @@ handle_info({auto_connect,Node, DHandle}, State) ->
 %%
 %% accept a new connection.
 %%
-handle_info({accept,AcceptPid,Socket,Family,Proto}, State) ->
+handle_info({accept,AcceptPid,Socket,Family,Proto}=Accept, State) ->
     case get_proto_mod(Family,Proto,State#state.listen) of
 	{ok, Mod} ->
 	    Pid = Mod:accept_connection(AcceptPid,
@@ -993,9 +993,11 @@ handle_info({accept,AcceptPid,Socket,Family,Proto}, State) ->
                                         State#state.node,
 					State#state.allowed,
 					State#state.connecttime),
+            verbose({Accept,Pid}, 2, State),
 	    AcceptPid ! {self(), controller, Pid},
 	    {noreply,State};
 	_ ->
+            verbose({Accept,unsupported_protocol}, 2, State),
 	    AcceptPid ! {self(), unsupported_protocol},
 	    {noreply, State}
     end;
@@ -1012,6 +1014,7 @@ handle_info({dist_ctrlr, Ctrlr, Node, SetupPid} = Msg,
                     andalso (is_port(Ctrlr) orelse is_pid(Ctrlr))
                     andalso (node(Ctrlr) == node()) ->
             link(Ctrlr),
+            verbose(Msg, 2, State),
             ets:insert(sys_dist, Conn#connection{ctrlr = Ctrlr}),
             {noreply, State#state{dist_ctrlrs = DistCtrlrs#{Ctrlr => Node}}};
 	_ ->
@@ -1044,6 +1047,7 @@ handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe} = Nodeup},
                          false -> State
                      end,
             verbose(Nodeup, 1, State1),
+            verbose({nodeup,Node,SetupPid,Conn#connection.ctrlr}, 2, State1),
             {noreply, State1};
 	_ ->
 	    SetupPid ! {self(), bad_request},
@@ -1061,6 +1065,7 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
 	    if
 		MyNode > Node ->
 		    AcceptPid ! {self(),{accept_pending,nok_pending}},
+                    verbose({accept_pending_nok, Node, AcceptPid}, 2, State),
 		    {noreply,State};
 		true ->
 		    %%
@@ -1070,13 +1075,18 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
 		    OldOwner = Conn#connection.owner,
                     case maps:is_key(OldOwner, State#state.conn_owners) of
                         true ->
+                            verbose({remark,OldOwner,AcceptPid}, 2, State),
                             ?debug({net_kernel, remark, old, OldOwner, new, AcceptPid}),
                             exit(OldOwner, remarked),
                             receive
-                                {'EXIT', OldOwner, _} ->
+                                {'EXIT', OldOwner, _} = Exit ->
+                                    verbose(Exit, 2, State),
                                     true
                             end;
                         false ->
+                            verbose(
+                              {accept_pending, OldOwner, inconsistency},
+                              2, State),
                             ok % Owner already exited
                     end,
 		    ets:insert(sys_dist, Conn#connection{owner = AcceptPid}),
@@ -1802,6 +1812,9 @@ setup(Node, ConnId, Type, From, State) ->
 				    MyNode,
 				    State#state.type,
 				    State#state.connecttime),
+                    verbose(
+                      {setup,Node,Type,MyNode,State#state.type,Pid},
+                      2, State),
 		    Addr = LAddr#net_address {
 					      address = undefined,
 					      host = undefined },
