@@ -591,13 +591,12 @@ certificate_entry(DER) ->
 %%    0101010101010101010101010101010101010101010101010101010101010101
 sign(THash, Context, HashAlgo, PrivateKey, SignAlgo) ->
     Content = build_content(Context, THash),
-    try ssl_handshake:digitally_signed({3,4}, Content, HashAlgo, PrivateKey, SignAlgo) of
-        Signature ->
-            {ok, Signature}
-    catch
-        error:badarg ->
-            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
+    try
+        {ok, ssl_handshake:digitally_signed({3,4}, Content, HashAlgo, PrivateKey, SignAlgo)}
+    catch throw:Alert ->
+            {error, Alert}
     end.
+
 
 verify(THash, Context, HashAlgo, SignAlgo, Signature, PublicKeyInfo) ->
     Content = build_content(Context, THash),
@@ -605,7 +604,8 @@ verify(THash, Context, HashAlgo, SignAlgo, Signature, PublicKeyInfo) ->
         Result ->
             {ok, Result}
     catch
-        error:badarg ->
+        error:Reason:ST ->
+            ?SSL_LOG(debug, handshake_error, [{reason, Reason}, {stacktrace, ST}]),
             {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
     end.
 
@@ -907,7 +907,8 @@ do_negotiated({start_handshake, PSK0},
     catch
         {Ref, #alert{} = Alert} ->
             Alert;
-        error:badarg ->
+        error:badarg=Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{reason, Reason}, {stacktrace, ST}]),
             ?ALERT_REC(?ILLEGAL_PARAMETER, illegal_parameter_to_compute_key)
     end.
 
