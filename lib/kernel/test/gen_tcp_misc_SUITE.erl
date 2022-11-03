@@ -5116,74 +5116,6 @@ anc_await_closed_and_down(S, Pid, MRef, Size, Closed, Down) ->
             anc_await_closed_and_down(S, Pid, MRef, Size, Closed, Down)
     end.
 
-%% %% Test the send_timeout socket option.
-%% send_timeout(Config) when is_list(Config) ->
-%%     Pre  = fun() ->
-%%                    Dir = filename:dirname(code:which(?MODULE)),
-%%                    ?P("create node"),
-%%                    {ok, RNode} = ?START_NODE(?UNIQ_NODE_NAME, "-pa " ++ Dir),
-%%                    RNode
-%%            end,
-%%     Case = fun(Node) -> do_send_timeout(Config, Node) end,
-%%     Post = fun(Node) ->
-%%                    ?P("stop node ~p", [Node]),
-%%                    ?STOP_NODE(Node)
-%%            end,
-%%     ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
-
-%% do_send_timeout(Config, RNode) ->
-%%     ?P("begin"),
-%%     {TslTimeout, SndTimeout, BinData, SndBuf} =
-%% 	case ?IS_SOCKET_BACKEND(Config) of
-%% 	    true ->
-%% 		{100, 3000, binary:copy(<<$a:8>>, 10*1024), 5*1024};
-%% 	    false ->
-%% 		{1,   1000, binary:copy(<<$a:8>>, 1*1024),  16*1024}
-%% 	end,
-
-%%     %% Basic
-%%     ?P("basic check wo autoclose"),
-%%     send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
-%% 		       false, RNode),
-%%     ?P("basic check w autoclose"),
-%%     send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
-%% 		       true, RNode),
-
-%%     %% Check timeout length.
-%%     ?P("spawn sink process (check timeout length)"),
-%%     Self = self(),
-%%     {Pid, Mon} = spawn_monitor(
-%%                    fun() ->
-%%                            {A, _} = setup_timeout_sink(Config,
-%% 						       RNode, SndTimeout,
-%% 						       true, SndBuf),
-%%                            Send = fun() ->
-%%                                           Res = gen_tcp:send(A, BinData),
-%%                                           Self ! Res,
-%%                                           Res
-%%                                   end,
-%%                            {{error, timeout}, _} =
-%% 			       timeout_sink_loop(Send, TslTimeout)
-%%                    end),
-%%     Diff = get_max_diff(),
-%%     ?P("Max time for send: ~p", [Diff]),
-%%     true = (Diff > (SndTimeout - 500)) and (Diff < (SndTimeout + 500)),
-
-%%     %% Wait for the process to die.
-%%     ?P("await (timeout checker) process death"),
-%%     receive {'DOWN', Mon, process, Pid, _} -> ok end,
-
-%%     %% Check that parallel writers do not hang forever
-%%     ?P("check parallel writers wo autoclose"),
-%%     send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
-%% 		      false, RNode),
-%%     ?P("check parallel writers w autoclose"),
-%%     send_timeout_para(Config, BinData, SndBuf, TslTimeout, SndTimeout,
-%% 		      true, RNode),
-
-%%     ?P("done"),
-%%     ok.
-
 
 send_timeout_cfg(Config) ->
     case ?IS_SOCKET_BACKEND(Config) of
@@ -7260,54 +7192,90 @@ delay_send_error2(Sock, N) ->
 %% ensuring it does not get stuck.
 %% Verifies that erl_check_io properly handles extra EPOLLIN signals.
 bidirectional_traffic(Config) when is_list(Config) ->
-    ?TC_TRY(bidirectional_traffic,
-            fun() -> do_bidirectional_traffic(Config) end).
+    Pre  = fun() ->
+                   NumWorkers = erlang:system_info(schedulers_online) * 2,
+                   ?P("pre -> Use ~w workers", [NumWorkers]),
+                   Payload = crypto:strong_rand_bytes(32),
+                   {ok, LSock} = ?LISTEN(Config,
+                                         0,
+                                         [binary,
+                                          {packet,    0},
+                                          {active,    false},
+                                          {reuseaddr, true}]),
+                   %% get all sockets to know failing ends
+                   ?P("pre -> listen socket created: "
+                      "~n      ~p", [LSock]),
+                   #{lsock       => LSock,
+                     num_workers => NumWorkers,
+                     payload     => Payload,
+                     %% The point of this is to make it "easy" to 
+                     %% "configure" this value...
+                     active_n    => ?ACTIVE_N}
+           end,
+    Case = fun(Info) -> do_bidirectional_traffic(Config, Info) end,
+    Post = fun(#{lsock := LSock}) ->
+                   ?P("post -> close listen socket"),
+                   (catch gen_tcp:close(LSock))
+           end,
+    ?TC_TRY(?FUNCTION_NAME,
+            Pre, Case, Post).
 
-do_bidirectional_traffic(Config) ->
-    ?P("begin"),
-    Workers = erlang:system_info(schedulers_online) * 2,
-    ?P("Use ~w workers", [Workers]),
-    Payload = crypto:strong_rand_bytes(32),
-    {ok, LSock} = ?LISTEN(Config,
-			  0,
-			  [binary,
-			   {packet, 0},
-			   {active, false},
-			   {reuseaddr, true}]),
-    %% get all sockets to know failing ends
-    ?P("listen socket created: "
-       "~n      ~p", [LSock]),
+do_bidirectional_traffic(Config, #{lsock       := LSock,
+                                   num_workers := NumWorkers} = Info) ->
+    ?P("case -> begin"),
     {ok, Port} = inet:port(LSock),
-    ?P("listen socket port number ~w", [Port]),
+    ?P("case -> listen socket port number ~w", [Port]),
     Control = self(),
-    ?P("create ~w receivers", [Workers]),
+    ?P("case -> create ~w receivers", [NumWorkers]),
     Receivers = [spawn_link(fun () -> 
-				    exchange(Config, LSock, Port, Payload, Control)
-			    end) || _ <- lists:seq(1, Workers)],
-    ?P("await the result"),
+				    exchange(Config,
+                                             Info#{port => Port,
+                                                   ctrl => Control})
+			    end) || _ <- lists:seq(1, NumWorkers)],
+    ?P("case -> await the result"),
+    %% Should we not collect as many as possible?
+    %% To see how many as issues?
     Result =
 	%% If any of the receivers report, we have an error
         receive
             {timeout, Socket, Total} ->
-                ?P("timeout msg for ~p: ~w", [Socket, Total]),
+                ?P("case -> timeout msg for ~p: received ~w", [Socket, Total]),
                 {fail, {timeout, Socket, Total}};
 	    {error, Socket, Reason} ->
-                ?P("error msg for ~p: ~p", [Socket, Reason]),
+                ?P("case -> error msg for ~p: ~p", [Socket, Reason]),
                 {fail, {error, Socket, Reason}}
         after 30000 ->
                 %% if it does not fail in 30 seconds, it most likely works
-                ?P("timeout => success"),
+                ?P("case -> timeout => success"),
                 ok
         end,
-    ?P("ensure all receivers terminated"),
-    [begin unlink(Rec), exit(Rec, kill) end || Rec <- Receivers],
-    ?P("close listen socket"),
-    (catch gen_tcp:close(LSock)),
-    ?P("done"),
+    ?P("case -> ensure all receivers terminated"),
+    %% [begin unlink(Rec), exit(Rec, kill) end || Rec <- Receivers],
+    bt_terminate_receivers(Receivers),
+    ?P("case -> done"),
     Result.
 
+%% The point of this (function) is so that the 'receivers' should
+%% get a chance to "tell us" what they are up to...
+bt_terminate_receivers(Recvs) ->
+    bt_terminate_receivers_nice(Recvs),
+    ?SLEEP(?SECS(1)),
+    bt_terminate_receivers_force(Recvs).
+
+bt_terminate_receivers_nice(Recvs) ->
+    [begin
+         unlink(Recv),
+         Recv ! terminate
+     end || Recv <- Recvs].
+
+bt_terminate_receivers_force(Recvs) ->
+    [exit(Recv, kill) || Recv <- Recvs].
     
-exchange(Config, LSock, Port, Payload, Control) ->
+exchange(Config, #{lsock    := LSock,
+                   port     := Port, 
+                   payload  := Payload,
+                   ctrl     := Control,
+                   active_n := ActiveN}) ->
     %% spin up client
     _ClntRcv = spawn_link(
         fun () ->
@@ -7316,21 +7284,21 @@ exchange(Config, LSock, Port, Payload, Control) ->
                     ?CONNECT(Config,
 			     "localhost",
 			     Port,
-			     [binary, {packet, 0}, {active, ?ACTIVE_N}]),
+			     [binary, {packet, 0}, {active, ActiveN}]),
                 ?P("connected: ~p", [Client]),
-                send_recv_loop(Client, Payload, Control)
+                send_recv_loop(Client, Payload, Control, ActiveN)
         end),
     ?P("accept"),
     {ok, Socket} = gen_tcp:accept(LSock),
     ?P("accepted: ~p", [Socket]),
     %% sending process
-    send_recv_loop(Socket, Payload, Control).
+    send_recv_loop(Socket, Payload, Control, ActiveN).
 
-send_recv_loop(Socket, Payload, Control) ->
+send_recv_loop(Socket, Payload, Control, ActiveN) ->
     %% {active, N} must be set to active > 12 to trigger the issue
     %% {active, 30} seems to trigger it quite often & reliably
-    ?P("set (initial) active: ~p", [?ACTIVE_N]),
-    inet:setopts(Socket, [{active, ?ACTIVE_N}]),
+    ?P("set (initial) active: ~p", [ActiveN]),
+    inet:setopts(Socket, [{active, ActiveN}]),
     ?P("spawn sender"),
     _Snd = spawn_link(
         fun Sender() ->
@@ -7344,33 +7312,53 @@ send_recv_loop(Socket, Payload, Control) ->
             end
         end),
     ?P("begin recv"),
-    recv(Socket, 0, Control).
+    recv(Socket, 0, 0, 0, Control, ActiveN).
 
-recv(Socket, Total, Control) ->
+recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
     receive
         {tcp, Socket, Data} ->
-            recv(Socket, Total + byte_size(Data), Control);
+            recv(Socket,
+                 Total + byte_size(Data), TotIter + 1, TotAct,
+                 Control, ActiveN);
         {tcp_passive, Socket} ->
-            inet:setopts(Socket, [{active, ?ACTIVE_N}]),
-            recv(Socket, Total, Control);
+            inet:setopts(Socket, [{active, ActiveN}]),
+            recv(Socket, Total, TotIter, TotAct + 1, Control, ActiveN);
         {tcp_closed, Socket} ->
-            ?P("[recv] closed when total received: ~w"
-               "~n      Socket Info: ~p",
-	       [Total, (catch inet:info(Socket))]),
+            ?P("[recv] closed when"
+               "~n      Total received:    ~w"
+               "~n      Total iterations:  ~w"
+               "~n      Total activations: ~w"
+               "~n      Socket Info:       ~p",
+	       [Total, TotIter, TotAct, (catch inet:info(Socket))]),
 	    ok;
         Other ->
-            ?P("[recv] received unexpected when total received: ~w"
-               "~n      ~p"
-               "~n      Socket:      ~p"
-               "~n      Socket Info: ~p",
-               [Total, Other, Socket, (catch inet:info(Socket))]),
+            ?P("[recv] received unexpected when"
+               "~n      Msg:               ~p"
+               "~n      Total received:    ~w"
+               "~n      Total iterations:  ~w"
+               "~n      Total activations: ~w"
+               "~n      Socket:            ~p"
+               "~n      PeerName:          ~p"
+               "~n      SockName:          ~p"
+               "~n      Socket Info:       ~p",
+               [Other,
+                Total, TotIter, TotAct,
+                Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
+                (catch inet:info(Socket))]),
             Control ! {error, Socket, Other}
     after 2000 ->
             %% no data received in 2 seconds => test failed
-            ?P("[recv] received nothing when total received: ~w"
-               "~n      Socket:      ~p"
-               "~n      Socket Info: ~p",
-               [Total, Socket, (catch inet:info(Socket))]),
+            ?P("[recv timeout] received nothing when:"
+               "~n      Total received:    ~w"
+               "~n      Total iterations:  ~w"
+               "~n      Total activations: ~w"
+               "~n      Socket:            ~p"
+               "~n      PeerName:          ~p"
+               "~n      SockName:          ~p"
+               "~n      Socket Info:       ~p",
+               [Total, TotIter, TotAct,
+                Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
+                (catch inet:info(Socket))]),
             Control ! {timeout, Socket, Total}
     end.
 
