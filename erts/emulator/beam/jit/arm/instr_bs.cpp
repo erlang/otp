@@ -1608,8 +1608,23 @@ static std::vector<BscSegment> bs_combine_segments(
     return segs;
 }
 
-void BeamModuleAssembler::update_bin_state(arm::Gp bin_base,
-                                           arm::Gp bin_offset,
+/*
+ * In:
+ *    bin_offset = register to store the bit offset into the binary
+ *    bit_offset = current bit offset into binary, or -1 if unknown
+ *    size = size of segment to be constructed
+ *           (ignored if size_reg is valid register)
+ *    size_reg = if a valid register, it contains the size of
+ *               the segment to be constructed
+ *
+ * Out:
+ *    bin_offset register = if bit_offset is not byte aligned, the bit
+ *          offset into the binary
+ *    TMP1 = pointer to the current byte in the binary
+ *
+ *    Preserves all other ARG* registers.
+ */
+void BeamModuleAssembler::update_bin_state(arm::Gp bin_offset,
                                            Sint bit_offset,
                                            Sint size,
                                            arm::Gp size_reg) {
@@ -1619,29 +1634,40 @@ void BeamModuleAssembler::update_bin_state(arm::Gp bin_base,
     arm::Mem mem_bin_offset =
             arm::Mem(scheduler_registers, cur_bin_offset + sizeof(Eterm));
 
-    if (bit_offset % 8) {
+    if (bit_offset % 8 != 0) {
         /* The bit offset is unknown or not byte-aligned. */
         ERTS_CT_ASSERT_FIELD_PAIR(struct erl_bits_state,
                                   erts_current_bin_,
                                   erts_bin_offset_);
-        a.ldp(bin_base, bin_offset, mem_bin_base);
+        a.ldp(TMP2, bin_offset, mem_bin_base);
 
         if (size_reg.isValid()) {
             a.add(TMP1, bin_offset, size_reg);
         } else {
-            a.add(TMP1, bin_offset, imm(size));
+            add(TMP1, bin_offset, size);
         }
         a.str(TMP1, mem_bin_offset);
 
-        a.add(TMP1, bin_base, bin_offset, arm::lsr(3));
+        a.add(TMP1, TMP2, bin_offset, arm::lsr(3));
     } else {
         comment("optimized updating of binary construction state");
-        ASSERT(size >= 0);
+        ASSERT(size >= 0 || size_reg.isValid());
         ASSERT(bit_offset % 8 == 0);
         a.ldr(TMP1, mem_bin_base);
-        mov_imm(TMP2, bit_offset + size);
-        a.str(TMP2, mem_bin_offset);
-        add(TMP1, TMP1, bit_offset >> 3);
+        if (size_reg.isValid()) {
+            if (bit_offset == 0) {
+                a.str(size_reg, mem_bin_offset);
+            } else {
+                add(TMP2, size_reg, bit_offset);
+                a.str(TMP2, mem_bin_offset);
+            }
+        } else {
+            mov_imm(TMP2, bit_offset + size);
+            a.str(TMP2, mem_bin_offset);
+        }
+        if (bit_offset != 0) {
+            add(TMP1, TMP1, bit_offset >> 3);
+        }
     }
 }
 
@@ -1653,7 +1679,7 @@ void BeamModuleAssembler::set_zero(Sint effectiveSize) {
     Label less_than_a_store_unit = a.newLabel();
     Sint store_unit = 1;
 
-    update_bin_state(ARG1, ARG2, -1, -1, ARG3);
+    update_bin_state(ARG2, -1, -1, ARG3);
 
     if (effectiveSize >= 256) {
         /* Store four 64-bit words machine words when the size is
@@ -1730,12 +1756,207 @@ void BeamModuleAssembler::set_zero(Sint effectiveSize) {
     }
 }
 
+/*
+ * In:
+ *
+ *   ARG1 = valid unicode code point (=> 0x80) to encode
+ *
+ * Out:
+ *
+ *   ARG1 = the code point encoded in UTF-8.
+ *   ARG4 = number of bits of result (16, 24, or 32)
+ *
+ *   Preserves other ARG* registers, clobbers TMP* registers
+ */
+void BeamGlobalAssembler::emit_construct_utf8_shared() {
+    Label more_than_two_bytes = a.newLabel();
+    Label four_bytes = a.newLabel();
+    const arm::Gp value = ARG1;
+    const arm::Gp num_bits = ARG4;
+
+    a.cmp(value, imm(0x800));
+    a.b_hs(more_than_two_bytes);
+
+    /* Encode Unicode code point in two bytes. */
+    a.ubfiz(TMP1, value, imm(8), imm(6));
+    mov_imm(TMP2, 0x80c0);
+    a.orr(TMP1, TMP1, value, arm::lsr(6));
+    mov_imm(num_bits, 16);
+    a.orr(value, TMP1, TMP2);
+    a.ret(a64::x30);
+
+    /* Test whether the value should be encoded in four bytes. */
+    a.bind(more_than_two_bytes);
+    a.lsr(TMP1, value, imm(16));
+    a.cbnz(TMP1, four_bytes);
+
+    /* Encode Unicode code point in three bytes. */
+    a.lsl(TMP1, value, imm(2));
+    a.ubfiz(TMP2, value, imm(16), imm(6));
+    a.and_(TMP1, TMP1, imm(0x3f00));
+    mov_imm(num_bits, 24);
+    a.orr(TMP1, TMP1, value, arm::lsr(12));
+    a.orr(TMP1, TMP1, TMP2);
+    mov_imm(TMP2, 0x8080e0);
+    a.orr(value, TMP1, TMP2);
+    a.ret(a64::x30);
+
+    /* Encode Unicode code point in four bytes. */
+    a.bind(four_bytes);
+    a.lsl(TMP1, value, imm(10));
+    a.lsr(TMP2, value, imm(4));
+    a.and_(TMP1, TMP1, imm(0x3f0000));
+    a.and_(TMP2, TMP2, imm(0x3f00));
+    a.bfxil(TMP1, value, imm(18), imm(14));
+    mov_imm(num_bits, 32);
+    a.bfi(TMP1, value, imm(24), imm(6));
+    a.orr(TMP1, TMP1, TMP2);
+    mov_imm(TMP2, 0x808080f0);
+    a.orr(value, TMP1, TMP2);
+    a.ret(a64::x30);
+}
+
+void BeamModuleAssembler::emit_construct_utf8(const ArgVal &Src,
+                                              Sint bit_offset,
+                                              bool is_byte_aligned) {
+    Label prepare_store = a.newLabel();
+    Label store = a.newLabel();
+    Label next = a.newLabel();
+
+    comment("construct utf8 segment");
+    auto src = load_source(Src, ARG1);
+
+    a.lsr(ARG1, src.reg, imm(_TAG_IMMED1_SIZE));
+    mov_imm(ARG4, 8);
+    a.cmp(ARG1, imm(0x80));
+    a.b_lo(prepare_store);
+
+    fragment_call(ga->get_construct_utf8_shared());
+
+    a.bind(prepare_store);
+    arm::Gp bin_offset = ARG3;
+    update_bin_state(bin_offset, bit_offset, -1, ARG4);
+
+    if (!is_byte_aligned) {
+        /* Not known to be byte-aligned. Must test alignment. */
+        a.ands(TMP2, bin_offset, imm(7));
+        a.b_eq(store);
+
+        /* We must combine the last partial byte with the UTF-8
+         * encoded code point. */
+        a.ldrb(TMP5.w(), arm::Mem(TMP1));
+
+        a.rev64(TMP4, ARG1);
+        a.lsr(TMP4, TMP4, TMP2);
+        a.rev64(TMP4, TMP4);
+
+        a.lsl(TMP5, TMP5, TMP2);
+        a.and_(TMP5, TMP5, imm(~0xff));
+        a.lsr(TMP5, TMP5, TMP2);
+
+        a.orr(ARG1, TMP4, TMP5);
+
+        a.add(ARG4, ARG4, imm(8));
+    }
+
+    a.bind(store);
+    if (bit_offset % (4 * 8) == 0) {
+        /* This segment is aligned on a 4-byte boundary. This implies
+         * that a 4-byte write will be inside the allocated binary. */
+        a.str(ARG1.w(), arm::Mem(TMP1));
+    } else {
+        Label do_store_1 = a.newLabel();
+        Label do_store_2 = a.newLabel();
+
+        /* Unsuitable or unknown alignment. We must be careful not
+         * to write beyound the allocated end of the binary. */
+        a.cmp(ARG4, imm(8));
+        a.b_ne(do_store_1);
+
+        a.strb(ARG1.w(), arm::Mem(TMP1));
+        a.b(next);
+
+        a.bind(do_store_1);
+        a.cmp(ARG4, imm(24));
+        a.b_hi(do_store_2);
+
+        a.strh(ARG1.w(), arm::Mem(TMP1));
+        a.cmp(ARG4, imm(16));
+        a.b_eq(next);
+
+        a.lsr(ARG1, ARG1, imm(16));
+        a.strb(ARG1.w(), arm::Mem(TMP1, 2));
+        a.b(next);
+
+        a.bind(do_store_2);
+        a.str(ARG1.w(), arm::Mem(TMP1));
+
+        if (!is_byte_aligned) {
+            a.cmp(ARG4, imm(32));
+            a.b_eq(next);
+
+            a.lsr(ARG1, ARG1, imm(32));
+            a.strb(ARG1.w(), arm::Mem(TMP1, 4));
+        }
+    }
+
+    a.bind(next);
+}
+
+/*
+ * In:
+ *   TMP1 = pointer to current byte
+ *   ARG3 = bit offset
+ *   ARG4 = number of bits to write
+ *   ARG8 = data to write
+ */
+void BeamGlobalAssembler::emit_store_unaligned() {
+    Label loop = a.newLabel();
+    Label done = a.newLabel();
+    const arm::Gp left_bit_offset = ARG3;
+    const arm::Gp right_bit_offset = TMP6;
+    const arm::Gp num_bits = ARG4;
+    const arm::Gp bitdata = ARG8;
+
+    a.ldrb(TMP5.w(), arm::Mem(TMP1));
+
+    a.and_(TMP4, bitdata, imm(0xff));
+    a.lsr(TMP4, TMP4, left_bit_offset);
+
+    a.lsl(TMP5, TMP5, left_bit_offset);
+    a.and_(TMP5, TMP5, imm(~0xff));
+    a.lsr(TMP5, TMP5, left_bit_offset);
+
+    a.orr(TMP5, TMP4, TMP5);
+
+    a.strb(TMP5.w(), arm::Mem(TMP1).post(1));
+
+    mov_imm(right_bit_offset, 8);
+    a.sub(right_bit_offset, right_bit_offset, left_bit_offset);
+
+    a.rev64(bitdata, bitdata);
+    a.lsl(bitdata, bitdata, right_bit_offset);
+
+    a.subs(num_bits, num_bits, right_bit_offset);
+    a.b_le(done);
+
+    a.bind(loop);
+    a.ror(bitdata, bitdata, imm(56));
+    a.strb(bitdata.w(), arm::Mem(TMP1).post(1));
+    a.subs(num_bits, num_bits, imm(8));
+    a.b_gt(loop);
+
+    a.bind(done);
+    a.ret(a64::x30);
+}
+
 void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                                const ArgWord &Alloc,
                                                const ArgWord &Live0,
                                                const ArgRegister &Dst,
                                                const Span<ArgVal> &args) {
     Uint num_bits = 0;
+    Uint estimated_num_bits = 0;
     std::size_t n = args.size();
     std::vector<BscSegment> segments;
     Label error; /* Intentionally uninitialized */
@@ -1817,16 +2038,36 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
 
         /*
          * Attempt to calculate the effective size of this segment.
-         * Give up is variable or invalid.
+         * Give up if variable or invalid.
          */
         if (seg.size.isSmall() && seg.unit != 0) {
             Uint unsigned_size = seg.size.as<ArgSmall>().getUnsigned();
 
-            if ((unsigned_size >> (sizeof(Eterm) - 1) * 8) == 0) {
+            if ((unsigned_size >> (sizeof(Eterm) - 1) * 8) != 0) {
+                /* Suppress creation of heap binary. */
+                estimated_num_bits += (ERL_ONHEAP_BIN_LIMIT + 1) * 8;
+            } else {
                 /* This multiplication cannot overflow. */
                 Uint seg_size = seg.unit * unsigned_size;
                 seg.effectiveSize = seg_size;
                 num_bits += seg_size;
+                estimated_num_bits += seg_size;
+            }
+        } else if (seg.unit > 0) {
+            auto max = std::min(std::get<1>(getClampedRange(seg.size)),
+                                Sint((ERL_ONHEAP_BIN_LIMIT + 1) * 8));
+            estimated_num_bits += max * seg.unit;
+        } else {
+            switch (seg.type) {
+            case am_utf8:
+            case am_utf16:
+            case am_utf32:
+                estimated_num_bits += 32;
+                break;
+            default:
+                /* Suppress creation of heap binary. */
+                estimated_num_bits += (ERL_ONHEAP_BIN_LIMIT + 1) * 8;
+                break;
             }
         }
 
@@ -2003,24 +2244,61 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             case am_utf8: {
                 comment("size utf8");
                 Label next = a.newLabel();
-                auto src_reg = load_source(seg.src, TMP1);
 
-                a.lsr(TMP1, src_reg.reg, imm(_TAG_IMMED1_SIZE));
-                mov_imm(TMP2, 1 * 8);
+                mov_arg(ARG3, seg.src);
+
+                if (Fail.get() == 0) {
+                    mov_imm(ARG4,
+                            beam_jit_update_bsc_reason_info(seg.error_info,
+                                                            BSC_REASON_BADARG,
+                                                            BSC_INFO_TYPE,
+                                                            BSC_VALUE_ARG3));
+                }
+
+                if (always_small(seg.src)) {
+                    comment("skipped test for small value since it is always "
+                            "small");
+                } else if (always_one_of(seg.src,
+                                         BEAM_TYPE_INTEGER |
+                                                 BEAM_TYPE_MASK_BOXED)) {
+                    comment("simplified test for small operand since other "
+                            "types are boxed");
+                    emit_is_not_boxed(resolve_label(error, dispUnknown), ARG3);
+                } else {
+                    a.and_(TMP1, ARG3, imm(_TAG_IMMED1_MASK));
+                    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+                    a.b_ne(resolve_label(error, disp1MB));
+                }
+
+                a.asr(TMP1, ARG3, imm(_TAG_IMMED1_SIZE));
+                mov_imm(TMP2, 1);
                 a.cmp(TMP1, imm(0x7F));
                 a.b_ls(next);
 
-                mov_imm(TMP2, 2 * 8);
+                mov_imm(TMP2, 2);
                 a.cmp(TMP1, imm(0x7FFUL));
                 a.b_ls(next);
 
+                /* Ensure that the value is not in the invalid range
+                 * 0xD800 through 0xDFFF. */
+                a.lsr(TMP3, TMP1, imm(11));
+                a.cmp(TMP3, 0x1b);
+                a.b_eq(resolve_label(error, disp1MB));
+
                 a.cmp(TMP1, imm(0x10000UL));
-                mov_imm(TMP2, 3 * 8);
-                mov_imm(TMP3, 4 * 8);
-                a.csel(TMP2, TMP2, TMP3, arm::CondCode::kLO);
+                a.cset(TMP2, arm::CondCode::kHS);
+                a.add(TMP2, TMP2, imm(3));
+
+                auto [min, max] = getClampedRange(seg.src);
+                if (0 <= min && max < 0x110000) {
+                    comment("skipped range check for unicode code point");
+                } else {
+                    a.cmp(TMP1, 0x110000);
+                    a.b_hs(resolve_label(error, disp1MB));
+                }
 
                 a.bind(next);
-                a.add(sizeReg, sizeReg, TMP2);
+                a.add(sizeReg, sizeReg, TMP2, arm::lsl(3));
                 break;
             }
             case am_utf16: {
@@ -2133,10 +2411,9 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         runtime_call<4>(erts_bs_private_append_checked);
         emit_leave_runtime(Live.get());
         /* There is no way the call can fail on a 64-bit architecture. */
-    } else if (!sizeReg.isValid() && num_bits % 8 == 0 &&
-               num_bits / 8 <= ERL_ONHEAP_BIN_LIMIT) {
+    } else if (estimated_num_bits % 8 == 0 &&
+               estimated_num_bits / 8 <= ERL_ONHEAP_BIN_LIMIT) {
         Uint need;
-        Uint num_bytes = num_bits / 8;
         int cur_bin_offset =
                 offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
                 offsetof(struct erl_bits_state, erts_current_bin_);
@@ -2147,24 +2424,70 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                   erts_current_bin_,
                                   erts_bin_offset_);
 
-        comment("allocate heap binary");
-        allocated_size = (num_bytes + 7) & (-8);
+        if (sizeReg.isValid()) {
+            Label after_gc_check = a.newLabel();
 
-        /* Ensure that there is sufficient room on the heap. */
-        need = heap_bin_size(num_bytes) + Alloc.get();
-        emit_gc_test(ArgWord(0), ArgWord(need), Live);
+            comment("allocate heap binary of dynamic size (=< %ld bits)",
+                    estimated_num_bits);
 
-        /* Create the heap binary. */
-        a.add(ARG1, HTOP, imm(TAG_PRIMARY_BOXED));
-        mov_imm(TMP1, header_heap_bin(num_bytes));
-        mov_imm(TMP2, num_bytes);
-        a.stp(TMP1, TMP2, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+            /* Calculate number of bytes to allocate. */
+            need = (heap_bin_size(0) + Alloc.get() + S_RESERVED);
+            a.lsr(sizeReg, sizeReg, imm(3));
+            a.add(TMP3, sizeReg, imm(7));
+            a.and_(TMP3, TMP3, imm(-8));
+            a.add(TMP1, TMP3, imm(need * sizeof(Eterm)));
 
-        /* Initialize the erl_bin_state struct. */
-        a.stp(HTOP, ZERO, mem_bin_base);
+            /* Do a GC test. */
+            a.add(ARG3, HTOP, TMP1);
+            a.cmp(ARG3, E);
+            a.b_ls(after_gc_check);
 
-        /* Update HTOP. */
-        a.add(HTOP, HTOP, imm(allocated_size));
+            a.stp(sizeReg, TMP3, TMP_MEM1q);
+
+            mov_imm(ARG4, Live.get());
+            fragment_call(ga->get_garbage_collect());
+
+            a.ldp(sizeReg, TMP3, TMP_MEM1q);
+
+            a.bind(after_gc_check);
+
+            mov_imm(TMP1, header_heap_bin(0));
+            a.lsr(TMP4, TMP3, imm(3));
+            a.add(TMP1, TMP1, TMP4, arm::lsl(_HEADER_ARITY_OFFS));
+
+            /* Create the heap binary. */
+            a.add(ARG1, HTOP, imm(TAG_PRIMARY_BOXED));
+            a.stp(TMP1, sizeReg, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+
+            /* Initialize the erl_bin_state struct. */
+            a.stp(HTOP, ZERO, mem_bin_base);
+
+            /* Update HTOP. */
+            a.add(HTOP, HTOP, TMP3);
+        } else {
+            Uint num_bytes = num_bits / 8;
+
+            comment("allocate heap binary of static size");
+
+            allocated_size = (num_bytes + 7) & (-8);
+
+            /* Ensure that there is sufficient room on the heap. */
+            need = heap_bin_size(num_bytes) + Alloc.get();
+            emit_gc_test(ArgWord(0), ArgWord(need), Live);
+
+            mov_imm(TMP1, header_heap_bin(num_bytes));
+            mov_imm(TMP2, num_bytes);
+
+            /* Create the heap binary. */
+            a.add(ARG1, HTOP, imm(TAG_PRIMARY_BOXED));
+            a.stp(TMP1, TMP2, arm::Mem(HTOP).post(sizeof(Eterm[2])));
+
+            /* Initialize the erl_bin_state struct. */
+            a.stp(HTOP, ZERO, mem_bin_base);
+
+            /* Update HTOP. */
+            a.add(HTOP, HTOP, imm(allocated_size));
+        }
     } else {
         comment("allocate binary");
         mov_arg(ARG5, Alloc);
@@ -2436,32 +2759,27 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                     }
                 }
 
-                arm::Gp bin_base = ARG2;
                 arm::Gp bin_offset = ARG3;
                 arm::Gp bin_data = ARG8;
 
-                update_bin_state(bin_base,
-                                 bin_offset,
+                update_bin_state(bin_offset,
                                  bit_offset,
                                  seg.effectiveSize,
                                  arm::Gp());
 
-                if (bit_offset < 0 && !is_byte_aligned) {
-                    /* Bit offset is unknown and is not known to be
-                     * byte aligned. Must test alignment. */
-                    a.tst(bin_offset, imm(7));
-                    a.b_eq(store);
-                }
-
                 if (!is_byte_aligned) {
-                    /* Bit offset is tested or known to be unaligned. */
-                    a.str(bin_data, TMP_MEM2q); /* MEM1q is already in use. */
-                    lea(ARG1, TMP_MEM2q);
-                    mov_imm(ARG4, seg.effectiveSize);
+                    if (bit_offset < 0) {
+                        /* Bit offset is unknown. Must test alignment. */
+                        a.ands(bin_offset, bin_offset, imm(7));
+                        a.b_eq(store);
+                    } else if (bit_offset >= 0) {
+                        /* Alignment is known to be unaligned. */
+                        mov_imm(bin_offset, bit_offset & 7);
+                    }
 
-                    emit_enter_runtime(Live.get());
-                    runtime_call<4>(erts_copy_bits_restricted);
-                    emit_leave_runtime(Live.get());
+                    /* Bit offset is tested or known to be unaligned. */
+                    mov_imm(ARG4, seg.effectiveSize);
+                    fragment_call(ga->get_store_unaligned());
 
                     if (bit_offset < 0) {
                         /* The bit offset is unknown, which implies that
@@ -2608,27 +2926,12 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             emit_leave_runtime(Live.get());
             break;
         }
-        case am_utf8:
-            comment("construct utf8 segment");
-            mov_arg(ARG2, seg.src);
-            load_erl_bits_state(ARG1);
-
-            emit_enter_runtime(Live.get());
-            runtime_call<2>(erts_bs_put_utf8);
-
-            emit_leave_runtime(Live.get());
-            if (Fail.get() == 0) {
-                mov_arg(ARG3, seg.src);
-                mov_imm(ARG4,
-                        beam_jit_update_bsc_reason_info(seg.error_info,
-                                                        BSC_REASON_BADARG,
-                                                        BSC_INFO_TYPE,
-                                                        BSC_VALUE_ARG3));
-            }
-            a.cbz(ARG1, resolve_label(error, disp1MB));
+        case am_utf8: {
+            emit_construct_utf8(seg.src, bit_offset, is_byte_aligned);
             break;
+        }
         case am_utf16:
-            comment("construct utf8 segment");
+            comment("construct utf16 segment");
             mov_arg(ARG2, seg.src);
             a.mov(ARG3, seg.flags);
             load_erl_bits_state(ARG1);

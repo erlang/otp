@@ -194,7 +194,6 @@ Eterm erts_bs_init_writable(Process* p, Eterm sz);
  */
 void erts_copy_bits(byte* src, size_t soffs, int sdir,
 		    byte* dst, size_t doffs,int ddir, size_t n);
-void erts_copy_bits_restricted(byte* src, byte* dst, size_t doffs, size_t n);
 int erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t size); 
 
 

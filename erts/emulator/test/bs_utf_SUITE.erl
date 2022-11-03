@@ -20,7 +20,7 @@
 
 -module(bs_utf_SUITE).
 
--export([all/0, suite/0,
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
 	 utf8_roundtrip/1,utf16_roundtrip/1,utf32_roundtrip/1,
 	 utf8_illegal_sequences/1,utf16_illegal_sequences/1,
 	 utf32_illegal_sequences/1,
@@ -34,26 +34,61 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 6}}].
 
-all() -> 
+all() ->
     [utf8_roundtrip, utf16_roundtrip, utf32_roundtrip,
      utf8_illegal_sequences, utf16_illegal_sequences,
      utf32_illegal_sequences, bad_construction].
+
+init_per_suite(Config) ->
+    %% Make sure that calls to id/1 will hide types.
+    id(Config),
+    Config.
+
+end_per_suite(Config) ->
+    Config.
 
 utf8_roundtrip(Config) when is_list(Config) ->
     utf8_roundtrip(0, 16#D7FF),
     utf8_roundtrip(16#E000, 16#10FFFF),
     ok.
 
-utf8_roundtrip(First, Last) when First =< Last ->
-    Bin = int_to_utf8(First),
+utf8_roundtrip(First, Last) ->
+    %% Hide types.
+    do_utf8_roundtrip(id(First), id(Last)).
+
+do_utf8_roundtrip(First, Last) when First =< Last ->
+    Bin = int_to_utf8(id(First)),
     Bin = id(<<First/utf8>>),
     Bin = id(<<(id(<<>>))/binary,First/utf8>>),
-    Unaligned = id(<<3:2,First/utf8>>),
-    <<_:2,Bin/binary>> = Unaligned,
+
+    <<0:7/unit:8,Bin/binary>> = id(<<0:7/unit:8,First/utf8>>),
+
+    %% Here a heap binary and a sub binary will be allocated. If the
+    %% write in the utf8 segment extends beyond the end of heap binary,
+    %% it will will overwrite the header for the sub binary.
+    <<-1:(64-9)/signed,Bin/binary>> = id(<<-1:(64-9),First/utf8>>),
+    <<-1:63/signed,Bin/binary>> = id(<<-1:63,First/utf8>>),
+
+    if
+        is_integer(First) ->
+            Bin = id(<<First/utf8>>)
+    end,
+
+    <<1:1,Bin/binary>> = id(<<1:1,First/utf8>>),
+    <<0:1,Bin/binary>> = id(<<0:1,First/utf8>>),
+    <<3:2,Bin/binary>> = id(<<3:2,First/utf8>>),
+    <<5:3,Bin/binary>> = id(<<5:3,First/utf8>>),
+    <<13:4,Bin/binary>> = id(<<13:4,First/utf8>>),
+    <<21:5,Bin/binary>> = id(<<21:5,First/utf8>>),
+    <<51:6,Bin/binary>> = id(<<51:6,First/utf8>>),
+    <<107:7,Bin/binary>> = id(<<107:7,First/utf8>>),
+
     <<First/utf8>> = Bin,
     <<First/utf8>> = make_unaligned(Bin),
-    utf8_roundtrip(First+1, Last);
-utf8_roundtrip(_, _) -> ok.
+
+    Bin = id(<<First/utf8>>),
+    do_utf8_roundtrip(First+1, Last);
+do_utf8_roundtrip(_, _) -> ok.
 
 utf16_roundtrip(Config) when is_list(Config) ->
     Big = fun utf16_big_roundtrip/1,
@@ -291,6 +326,9 @@ bad_construction(Config) when is_list(Config) ->
     ?FAIL(<<3.14/utf8>>),
     ?FAIL(<<3.1415/utf16>>),
     ?FAIL(<<3.1415/utf32>>),
+    {'EXIT',_} = (catch <<(id(3.14))/utf8>>),
+    {'EXIT',_} = (catch <<(id(3.1415))/utf16>>),
+    {'EXIT',_} = (catch <<(id(3.1415))/utf32>>),
 
     ?FAIL(<<(-1)/utf8>>),
     ?FAIL(<<(-1)/utf16>>),
@@ -301,6 +339,9 @@ bad_construction(Config) when is_list(Config) ->
     ?FAIL(<<16#D800/utf8>>),
     ?FAIL(<<16#D800/utf16>>),
     ?FAIL(<<16#D800/utf32>>),
+    {'EXIT',_} = (catch <<(id(16#D800))/utf8>>),
+    {'EXIT',_} = (catch <<(id(16#D800))/utf16>>),
+    {'EXIT',_} = (catch <<(id(16#D800))/utf32>>),
 
     ok.
 
