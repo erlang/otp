@@ -2391,20 +2391,15 @@ unsafe_lookup_type(Key, Map) ->
 unsafe_lookup_type_list(List, Map) ->
   [unsafe_lookup_type(X, Map) || X <- List].
 
-lookup_type(Key, Map) when is_integer(Key) ->
-  case maps:find(Key, Map) of
-    error -> t_any();
-    {ok, Val} -> Val
-  end;
 lookup_type(#fun_var{'fun' = Fun}, Map) ->
   Fun(Map);
+lookup_type(Key, Map) when is_integer(Key) ->
+  case Map of
+    #{Key := Val} -> Val;
+    #{} -> t_any()
+  end;
 lookup_type(Key, Map) ->
-  %% Seems unused and dialyzer complains about it -- commented out.
-  %% case cerl:is_literal(Key) of
-  %%   true -> t_from_term(cerl:concrete(Key));
-  %%   false ->
   t_subst(Key, Map).
-  %% end.
 
 mk_var(Var) ->
   case cerl:is_literal(Var) of
