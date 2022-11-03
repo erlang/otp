@@ -1814,7 +1814,7 @@ do_implicit_inet6(Config) ->
     end.
 
 implicit_inet6(Config, Host, Addr) ->
-    Active = {active,false},
+    Active   = {active,false},
     Loopback = {0,0,0,0,0,0,0,1},
     ?P("try 1 with explicit inet6 on loopback"),
     S1 = case ?OPEN(Config, 0, [inet6, Active, {ip, Loopback}]) of
@@ -1827,6 +1827,7 @@ implicit_inet6(Config, Host, Addr) ->
          end,
     implicit_inet6(Config, S1, Active, Loopback),
     ok = gen_udp:close(S1),
+
     %%
     Localaddr = ok(get_localaddr()),
     ?P("try 2 on local addr (~p)", [Localaddr]),
@@ -1838,6 +1839,7 @@ implicit_inet6(Config, Host, Addr) ->
          end,
     implicit_inet6(Config, S2, Active, Localaddr),
     ok = gen_udp:close(S2),
+
     %%
     ?P("try 3 on addr ~p (~p)", [Addr, Host]),
     S3 = case ?OPEN(Config, 0, [{ifaddr, Addr}, Active]) of
@@ -1875,16 +1877,43 @@ implicit_inet6(Config, S1, Active, Addr) ->
     ?P("sockname of \"remote\" socket"),
     {Addr,P2} = ok(inet:sockname(S2)),
     ?P("send ping on \"local\" socket (to ~p:~p)", [Addr, P2]),
-    ok = gen_udp:send(S1, Addr, P2, "ping"),
-    ?P("recv ping on \"remote\" socket (from ~p:~p)", [Addr, P1]),
-    {Addr,P1,"ping"} = ok(gen_udp:recv(S2, 1024, 1000)),
-    ?P("send pong on \"remote\" socket (to ~p:~p)", [Addr, P1]),
-    ok = gen_udp:send(S2, Addr, P1, "pong"),
-    ?P("recv ping on \"local\" socket (from ~p:~p)", [Addr, P2]),
-    {Addr,P2,"pong"} = ok(gen_udp:recv(S1, 1024)),
-    ?P("close \"remote\" socket"),
-    ok = gen_udp:close(S2),
-    ok.
+    %% On some platforms its allowed to specify address and port
+    %% (that is; when useing sendto) *even* if the socket is connected
+    %% (assuming the send destination is the same as connected destination).
+    %% But on other platforms, e.g. FreeBSD, this is *not* allowed!
+    %% Linux:
+    %%   EISCONN
+    %%      The connection-mode socket was connected already but a recipient
+    %%      was specified. (Now either this error is returned, or the re-
+    %%      cipient specification is ignored.)
+    %% FreeBSD:
+    %%   [EISCONN]    A destination address was specified and the socket is
+    %%                already connected.
+    case gen_udp:send(S1, Addr, P2, "ping") of
+        ok ->
+            ?P("recv ping on \"remote\" socket (from ~p:~p)", [Addr, P1]),
+            {Addr,P1,"ping"} = ok(gen_udp:recv(S2, 1024, 1000)),
+            ?P("send pong on \"remote\" socket (to ~p:~p)", [Addr, P1]),
+            ok = gen_udp:send(S2, Addr, P1, "pong"),
+            ?P("recv ping on \"local\" socket (from ~p:~p)", [Addr, P2]),
+            {Addr,P2,"pong"} = ok(gen_udp:recv(S1, 1024)),
+            ?P("close \"remote\" socket"),
+            ok = gen_udp:close(S2),
+            ok;
+        {error, eisconn} ->
+            ?P("socket is connect => *not* allowed to use sendto"),
+            ok = gen_udp:send(S1, "ping"),
+            %% Not allowed to specify address *at all* for a connected socket
+            ?P("recv ping on \"remote\" socket (from ~p:~p)", [Addr, P1]),
+            {Addr,P1,"ping"} = ok(gen_udp:recv(S2, 1024, 1000)),
+            ?P("send pong on \"remote\" socket (to ~p:~p)", [Addr, P1]),
+            ok = gen_udp:send(S2, "pong"),
+            ?P("recv ping on \"local\" socket (from ~p:~p)", [Addr, P2]),
+            {Addr,P2,"pong"} = ok(gen_udp:recv(S1, 1024)),
+            ?P("close \"remote\" socket"),
+            ok = gen_udp:close(S2),
+            ok
+    end.
 
 
 
