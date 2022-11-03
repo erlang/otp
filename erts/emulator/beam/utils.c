@@ -2473,14 +2473,16 @@ intlist_to_buf(Eterm list, char *buf, Sint len)
 }
 
 /** @brief Fill buf with the UTF8 contents of the unicode list
- * @param len Max number of characters to write.
- * @param written NULL or bytes written.
+ *         (no terminating NULL character written)
+ * @param capacity Max number of bytes to write.
+ * @param len      Max number of characters to write.
+ * @param written  NULL or bytes written.
  * @return 0 ok,
  *        -1 type error,
- *        -2 list too long, only \c len characters written
+ *        -2 list too long, not all characters written
  */
 int
-erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written)
+erts_unicode_list_to_buf(Eterm list, byte *buf, Sint capacity, Sint len, Sint* written)
 {
     Eterm* listptr;
     Sint sz = 0;
@@ -2509,9 +2511,19 @@ erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written)
 	}
         val = (Uint) signed_val(CAR(listptr));
 	if (val < 0x80) {
+            capacity -= 1;
+            if (capacity < 0) {
+                res = -2;
+                break;
+            }
 	    buf[sz] = val;
 	    sz++;
 	} else if (val < 0x800) {
+            capacity -= 2;
+            if (capacity < 0) {
+                res = -2;
+                break;
+            }
 	    buf[sz+0] = 0xC0 | (val >> 6);
 	    buf[sz+1] = 0x80 | (val & 0x3F);
 	    sz += 2;
@@ -2520,11 +2532,21 @@ erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written)
 		res = -1;
                 break;
 	    }
+            capacity -= 3;
+            if (capacity < 0) {
+                res = -2;
+                break;
+            }
 	    buf[sz+0] = 0xE0 | (val >> 12);
 	    buf[sz+1] = 0x80 | ((val >> 6) & 0x3F);
 	    buf[sz+2] = 0x80 | (val & 0x3F);
 	    sz += 3;
 	} else if (val < 0x110000) {
+            capacity -= 4;
+            if (capacity < 0) {
+                res = -2;
+                break;
+            }
 	    buf[sz+0] = 0xF0 | (val >> 18);
 	    buf[sz+1] = 0x80 | ((val >> 12) & 0x3F);
 	    buf[sz+2] = 0x80 | ((val >> 6) & 0x3F);

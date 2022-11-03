@@ -439,6 +439,7 @@ void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
 
                     res = erts_unicode_list_to_buf(fname,
                                                    (byte *)name_buffer,
+                                                   sizeof(name_buffer),
                                                    sizeof(name_buffer) / 4,
                                                    &n);
 

@@ -904,11 +904,12 @@ typedef void ErlNifResourceDynCall(ErlNifEnv* caller_env, void* obj, void* call_
       <item>
         <code type="none">
 typedef enum {
-    ERL_NIF_LATIN1
+    ERL_NIF_LATIN1,
+    ERL_NIF_UTF8,
 }ErlNifCharEncoding;</code>
         <p>The character encoding used in strings and atoms. The only
-          supported encoding is <c>ERL_NIF_LATIN1</c> for
-          ISO Latin-1 (8-bit ASCII).</p>
+          supported encodings are <c>ERL_NIF_LATIN1</c> for
+          ISO Latin-1 (8-bit ASCII) and <c>ERL_NIF_UTF8</c> for UTF-8.</p>
       </item>
       <tag><marker id="ErlNifSysInfo"/><c>ErlNifSysInfo</c></tag>
       <item>
@@ -1430,32 +1431,32 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_atom(ErlNifEnv* env, ERL_NIF_TERM
-        term, char* buf, unsigned size, ErlNifCharEncoding encode)</nametext>
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_atom(ErlNifEnv *env, ERL_NIF_TERM
+        term, char *buf, unsigned size, ErlNifCharEncoding encoding)</nametext>
       </name>
       <fsummary>Get the text representation of an atom term.</fsummary>
       <desc>
         <p>Writes a <c>NULL</c>-terminated string in the buffer pointed to by
-          <c>buf</c> of size <c>size</c>, consisting of the string
-          representation of the atom <c>term</c> with encoding
-          <seecref marker="#ErlNifCharEncoding">encode</seecref>.</p>
+          <c>buf</c> of size <c>size</c> bytes, consisting of the string
+          representation of the atom <c>term</c> with
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
         <p>Returns the number of bytes written (including terminating
           <c>NULL</c> character) or <c>0</c> if <c>term</c> is not an atom with
-           maximum length of <c>size-1</c>.</p>
+           maximum length of <c>size-1</c> bytes in <c>encoding</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R14B"><ret>int</ret><nametext>enif_get_atom_length(ErlNifEnv* env,
-        ERL_NIF_TERM term, unsigned* len, ErlNifCharEncoding encode)</nametext>
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_get_atom_length(ErlNifEnv *env,
+        ERL_NIF_TERM term, unsigned *len, ErlNifCharEncoding encoding)</nametext>
       </name>
       <fsummary>Get the length of atom <c>term</c>.</fsummary>
       <desc>
         <p>Sets <c>*len</c> to the length (number of bytes excluding
           terminating <c>NULL</c> character) of the atom <c>term</c> with
-          encoding <c>encode</c>.</p>
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
         <p>Returns <c>true</c> on success, or <c>false</c> if <c>term</c> is not
-          an atom.</p>
+          an atom or if the atom cannot be encoded using <c>encoding</c>.</p>
       </desc>
     </func>
 
@@ -1597,13 +1598,13 @@ enif_free_iovec(iovec);]]></code>
     <func>
       <name since="OTP R13B04"><ret>int</ret><nametext>enif_get_string(ErlNifEnv* env,
         ERL_NIF_TERM list, char* buf, unsigned size,
-        ErlNifCharEncoding encode)</nametext></name>
+        ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Get a C-string from a list.</fsummary>
       <desc>
         <p>Writes a <c>NULL</c>-terminated string in the buffer pointed to by
           <c>buf</c> with size <c>size</c>, consisting of the characters
-          in the string <c>list</c>. The characters are written using encoding
-          <seecref marker="#ErlNifCharEncoding">encode</seecref>.</p>
+          in the string <c>list</c>. The characters are written using
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
         <p>Returns one of the following:</p>
         <list type="bulleted">
           <item>The number of bytes written (including terminating <c>NULL</c>
@@ -1611,10 +1612,25 @@ enif_free_iovec(iovec);]]></code>
           <item><c>-size</c> if the string was truncated because of buffer
             space</item>
           <item><c>0</c> if <c>list</c> is not a string that can be encoded
-            with <c>encode</c> or if <c>size</c> was &lt; <c>1</c>.</item>
+            with <c>encoding</c> or if <c>size</c> was &lt; <c>1</c>.</item>
         </list>
         <p>The written string is always <c>NULL</c>-terminated, unless buffer
           <c>size</c> is &lt; <c>1</c>.</p>
+      </desc>
+    </func>
+
+
+    <func>
+      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_get_string_length(ErlNifEnv *env,
+        ERL_NIF_TERM list, unsigned *len, ErlNifCharEncoding encoding)</nametext>
+      </name>
+      <fsummary>Get the length of a C-string <c>list</c>.</fsummary>
+      <desc>
+        <p>Sets <c>*len</c> to the length (number of bytes excluding
+          terminating <c>NULL</c> character) of the string <c>list</c> with
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if <c>list</c> is not
+          a string that can be encoded with <c>encoding</c>.</p>
       </desc>
     </func>
 
@@ -2064,7 +2080,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
 
     <func>
       <name since=""><ret>ERL_NIF_TERM</ret>
-        <nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext>
+        <nametext>enif_make_atom(ErlNifEnv *env, const char *name)</nametext>
       </name>
       <fsummary>Create an atom term.</fsummary>
       <desc>
@@ -2077,16 +2093,16 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv* env,
-        const char* name, size_t len)</nametext></name>
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv *env,
+        const char *name, size_t len)</nametext></name>
       <fsummary>Create an atom term.</fsummary>
       <desc>
         <p>Create an atom term from the string <c>name</c> with length
-          <c>len</c>. <c>NULL</c> characters are treated as any other
-          characters. If <c>len</c> exceeds the maximum length
-          allowed for an atom (255 characters), <c>enif_make_atom</c> invokes
-          <seecref marker="#enif_make_badarg">
-          <c>enif_make_badarg</c></seecref>.</p>
+          <c>len</c> and ISO Latin-1 encoding. <c>NULL</c> characters are
+	  treated as any other characters. If <c>len</c> exceeds the maximum
+	  length allowed for an atom (255 characters), <c>enif_make_atom</c>
+	  invokes <seecref marker="#enif_make_badarg"><c>enif_make_badarg</c>
+	  </seecref>.</p>
       </desc>
     </func>
 
@@ -2155,35 +2171,37 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP R13B04"><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env,
-        const char* name, ERL_NIF_TERM* atom, ErlNifCharEncoding
-        encode)</nametext></name>
+      <name since="OTP R13B04"><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv *env,
+        const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding
+        encoding)</nametext></name>
       <fsummary>Create an existing atom term.</fsummary>
       <desc>
         <p>Tries to create the term of an already existing atom from
-          the <c>NULL</c>-terminated C-string <c>name</c> with encoding
-          <seecref marker="#ErlNifCharEncoding">encode</seecref>.</p>
+          the <c>NULL</c>-terminated C-string <c>name</c> with
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
         <p>If the atom already exists, this function stores the term in
-          <c>*atom</c> and returns <c>true</c>, otherwise <c>false</c>.
-          Also returns <c>false</c> if the length of <c>name</c> exceeds the
-          maximum length allowed for an atom (255 characters).</p>
+          <c>*atom</c> and returns <c>true</c>, otherwise returns <c>false</c>.
+          It also returns <c>false</c> if the string <c>name</c> exceeds the
+          maximum length allowed for an atom (255 characters) or if <c>name</c>
+	  is not correctly encoded.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R14B"><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv* env,
-        const char* name, size_t len, ERL_NIF_TERM* atom, ErlNifCharEncoding
+      <name since="OTP R14B"><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv *env,
+        const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create an existing atom term.</fsummary>
       <desc>
         <p>Tries to create the term of an already existing atom from the
-          string <c>name</c> with length <c>len</c> and encoding
-          <seecref marker="#ErlNifCharEncoding">encode</seecref>. <c>NULL</c>
+          string <c>name</c> with length <c>len</c> bytes and
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>. <c>NULL</c>
           characters are treated as any other characters.</p>
         <p>If the atom already exists, this function stores the term in
-          <c>*atom</c> and returns <c>true</c>, otherwise <c>false</c>.
-          Also returns <c>false</c> if <c>len</c> exceeds the maximum length
-          allowed for an atom (255 characters).</p>
+          <c>*atom</c> and returns <c>true</c>, otherwise returns <c>false</c>.
+          It also returns <c>false</c> if the string <c>name</c> exceeds the
+          maximum length allowed for an atom (255 characters) or if <c>name</c>
+	  is not correctly encoded.</p>
       </desc>
     </func>
 
@@ -2351,6 +2369,40 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
+      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_make_new_atom(ErlNifEnv *env,
+        const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding
+        encoding)</nametext></name>
+      <fsummary>Create a new or existing atom term.</fsummary>
+      <desc>
+        <p>Creates an atom term from the <c>NULL</c>-terminated C-string
+          <c>name</c> with
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
+        <p>If successful, <c>true</c> is returned and the atom term is stored in
+          <c>*atom</c>.</p>
+        <p>Otherwise, <c>false</c> is returned if the length of <c>name</c>
+          exceeds the maximum length allowed for an atom (255 characters)
+	  or if <c>name</c> is not correctly encoded.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_make_new_atom_len(ErlNifEnv *env,
+        const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding
+        encoding)</nametext></name>
+      <fsummary>Create a new or existing atom term.</fsummary>
+      <desc>
+        <p>Create an atom term from string <c>name</c> with
+          length <c>len</c> bytes and
+          <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
+        <p>If successful, <c>true</c> is returned and atom term is stored in
+          <c>*atom</c>.</p>
+        <p>Otherwise, <c>false</c> is returned if the string exceeds the maximum
+	  length allowed for an atom (255 characters) or if the string is not
+	  correctly encoded.</p>
+      </desc>
+    </func>
+
+    <func>
       <name since="OTP R14B"><ret>unsigned char *</ret><nametext>enif_make_new_binary(ErlNifEnv*
         env, size_t size, ERL_NIF_TERM* termp)</nametext></name>
       <fsummary>Allocate and create a new binary term.</fsummary>
@@ -2487,24 +2539,24 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since=""><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env,
-        const char* string, ErlNifCharEncoding encoding)</nametext></name>
+      <name since=""><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv *env,
+        const char *string, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
       <desc>
         <p>Creates a list containing the characters of the
-          <c>NULL</c>-terminated string <c>string</c> with encoding
+          <c>NULL</c>-terminated string <c>string</c> with
           <seecref marker="#ErlNifCharEncoding">encoding</seecref>.</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_string_len(ErlNifEnv*
-        env, const char* string, size_t len, ErlNifCharEncoding
+      <name since="OTP R14B"><ret>ERL_NIF_TERM</ret><nametext>enif_make_string_len(ErlNifEnv
+        *env, const char *string, size_t len, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
       <desc>
         <p>Creates a list containing the characters of the string <c>string</c>
-          with length <c>len</c> and encoding
+          with length <c>len</c> and
           <seecref marker="#ErlNifCharEncoding">encoding</seecref>.
           <c>NULL</c> characters are treated as any other characters.</p>
       </desc>
