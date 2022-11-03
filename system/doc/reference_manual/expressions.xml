@@ -138,18 +138,22 @@ member(_Elem, []) ->
 Name1
 [H|T]
 {error,Reason}</pre>
-    <p>Patterns are allowed in clause heads, <c>case</c> and
-      <c>receive</c> expressions, and match expressions.</p>
+     <p>Patterns are allowed in clause heads,
+     <seeguide marker="#case">case expressions</seeguide>,
+     <seeguide marker="#receive">receive expressions</seeguide>,
+     and
+     <seeguide marker="#match_operator">match expressions</seeguide>.</p>
 
     <section>
-      <title>Match Operator = in Patterns</title>
+      <marker id="compound_pattern_operator"></marker>
+      <title>The Compound Pattern Operator</title>
       <p>If <c>Pattern1</c> and <c>Pattern2</c> are valid patterns,
         the following is also a valid pattern:</p>
       <pre>
 Pattern1 = Pattern2</pre>
       <p>When matched against a term, both <c>Pattern1</c> and
-        <c>Pattern2</c> are  matched against the term. The idea
-        behind this feature is to avoid reconstruction of terms.</p>
+      <c>Pattern2</c> are matched against the term. The idea behind
+      this feature is to avoid reconstruction of terms.</p>
        <p><em>Example:</em></p>
       <pre>
 f({connect,From,To,Number,Options}, To) ->
@@ -163,6 +167,11 @@ f({connect,_,To,_,_} = Signal, To) ->
     ...;
 f(Signal, To) ->
     ignore.</pre>
+
+    <p>The compound pattern operator does not imply that its operands
+    are matched in any particular order. That means that it is not
+    legal to bind a variable in <c>Pattern1</c> and use it in <c>Pattern2</c>,
+    or vice versa.</p>
     </section>
 
     <section>
@@ -192,22 +201,121 @@ case {Value, Result} of
   </section>
 
   <section>
-    <title>Match</title>
-    <p>The following matches <c>Expr1</c>, a pattern, against
-      <c>Expr2</c>:</p>
+    <marker id="match_operator"></marker>
+    <title>The Match Operator</title>
+    <p>The following matches <c>Pattern</c> against
+      <c>Expr</c>:</p>
     <pre>
-Expr1 = Expr2</pre>
+Pattern = Expr</pre>
     <p>If the matching succeeds, any unbound variable in the pattern
-      becomes bound and the value of <c>Expr2</c> is returned.</p>
+    becomes bound and the value of <c>Expr</c> is returned.</p>
+    <p>If multiple match operators are applied in sequence, they will be
+    evaluated from right to left.</p>
     <p>If the matching fails, a <c>badmatch</c> run-time error occurs.</p>
     <p><em>Examples:</em></p>
     <pre>
-1> <input>{A, B} = {answer, 42}.</input>
+1> <input>{A, B} = T = {answer, 42}.</input>
 {answer,42}
 2> <input>A.</input>
 answer
-3> <input>{C, D} = [1, 2].</input>
+3> <input>B.</input>
+42
+4> <input>T.</input>
+{answer,42}
+5> <input>{C, D} = [1, 2].</input>
 ** exception error: no match of right-hand side value [1,2]</pre>
+
+    <p>Because multiple match operators are evaluated from right to left,
+    it means that:</p>
+
+    <pre>
+Pattern1 = Pattern2 = . . . = PatternN = Expression</pre>
+
+    <p>is equivalent to:</p>
+    <pre>
+Temporary = Expression,
+PatternN = Temporary,
+   .
+   .
+   .,
+Pattern2 = Temporary,
+Pattern = Temporary</pre>
+  </section>
+
+  <section>
+    <title>The Match Operator and the Compound Pattern Operator</title>
+    <note><p>This is an advanced section, which references to topics not
+    yet introduced. It can safely be skipped on a first
+    reading.</p></note>
+
+    <p>The <c>=</c> character is used to denote two similar but
+    distinct operators: the match operator and the compound pattern
+    operator. Which one is meant is determined by context.</p>
+
+    <p>The <em>compound pattern operator</em> is used to construct a
+    compound pattern from two patterns. Compound patterns are accepted
+    everywhere a pattern is accepted. A compound pattern matches if
+    all of its constituent patterns match. It is not legal for a
+    pattern that is part of a compound pattern to use variables (as
+    keys in map patterns or sizes in binary patterns) bound in other
+    sub patterns of the same compound pattern.</p>
+    <p><em>Examples:</em></p>
+
+    <pre>
+1> <input>fun(#{Key := Value} = #{key := Key}) -> Value end.</input>
+* 1:7: variable 'Key' is unbound
+2> <input>F = fun({A, B} = E) -> {E, A + B} end, F({1,2}).</input>
+{{1,2},3}
+3> <input>G = fun(&lt;&lt;A:8,B:8>> = &lt;&lt;C:16>>) -> {A, B, C} end, G(&lt;&lt;42,43>>).</input>
+{42,43,10795}</pre>
+
+    <p>The <em>match operator</em> is allowed everywhere an expression
+    is allowed. It is used to match the value of an expression to a pattern.
+    If multiple match operators are applied in sequence, they will be
+    evaluated from right to left.</p>
+
+    <p><em>Examples:</em></p>
+    <pre>
+1> <input>M = #{key => key2, key2 => value}.</input>
+#{key => key2,key2 => value}
+2> <input>f(Key), #{Key := Value} = #{key := Key} = M, Value.</input>
+value
+3> <input>f(Key), #{Key := Value} = (#{key := Key} = M), Value.</input>
+value
+4> <input>f(Key), (#{Key := Value} = #{key := Key}) = M, Value.</input>
+* 1:12: variable 'Key' is unbound
+5> <input>&lt;&lt;X:Y&gt;&gt; = begin Y = 8, &lt;&lt;42:8&gt;&gt; end, X.</input>
+42</pre>
+
+    <p>The expression at prompt <em>2&gt;</em> first matches the value of
+    variable <c>M</c> against pattern <c>#{key := Key}</c>, binding
+    variable <c>Key</c>. It then matches the value of <c>M</c> against
+    pattern <c>#{Key := Value}</c> using variable <c>Key</c> as the
+    key, binding variable <c>Value</c>.</p>
+
+    <p>The expression at prompt <em>3&gt;</em> matches expression
+    <c>(#{key := Key} = M)</c> against pattern <c>#{Key :=
+    Value}</c>. The expression inside the parentheses is evaluated
+    first. That is, <c>M</c> is matched against <c>#{key := Key}</c>,
+    and then the value of <c>M</c> is matched against pattern <c>#{Key
+    := Value}</c>. That is the same evaluation order as in <em>2</em>;
+    therefore, the parentheses are redundant.</p>
+
+    <p>In the expression at prompt <em>4&gt;</em> the expression <c>M</c>
+    is matched against a pattern inside parentheses. Since the
+    construct inside the parentheses is a pattern, the <c>=</c> that
+    separates the two patterns is the compound pattern operator
+    (<em>not</em> the match operator). The match fails because the two
+    sub patterns are matched at the same time, and the variable
+    <c>Key</c> is therefore not bound when matching against pattern
+    <c>#{Key := Value}</c>.</p>
+
+    <p>In the expression at prompt <em>5&gt;</em> the expressions
+    inside the <seeguide marker="#block_expressions">block
+    expression</seeguide> are evaluated first, binding variable
+    <c>Y</c> and creating a binary.  The binary is then matched
+    against pattern <c>&lt;&lt;X:Y&gt;&gt;</c> using the value of
+    <c>Y</c> as the size of the segment.</p>
   </section>
 
   <section>
@@ -1668,6 +1776,7 @@ end</code>
   </section>
 
   <section>
+    <marker id="block_expressions"></marker>
     <title>Block Expressions</title>
     <pre>
 begin
@@ -2003,6 +2112,11 @@ end</pre>
       </row>
       <tcaption>Operator Precedence</tcaption>
     </table>
+    <note><p>The <c>=</c> operator in the table is the
+    <seeguide marker="#match_operator">match operator</seeguide>.
+    The character <c>=</c> can also denote the
+    <seeguide marker="#compound_pattern_operator">compound pattern operator</seeguide>,
+    which can only be used in patterns.</p></note>
     <p>When evaluating an expression, the operator with the highest
       priority is evaluated first. Operators with the same priority
       are evaluated according to their associativity.</p>

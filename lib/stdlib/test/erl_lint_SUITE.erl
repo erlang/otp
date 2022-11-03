@@ -49,7 +49,8 @@
          unsafe_vars_try/1,
          unsized_binary_in_bin_gen_pattern/1,
          guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
-         otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
+         otp_5362/1, otp_5371/1, otp_7227/1, binary_aliases/1,
+         otp_5494/1, otp_5644/1, otp_5878/1,
          otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1, otp_11254/1,
          otp_11772/1, otp_11771/1, otp_11872/1,
          export_all/1,
@@ -91,7 +92,7 @@ all() ->
      unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
      unsized_binary_in_bin_gen_pattern,
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
-     otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
+     otp_5362, otp_5371, otp_7227, binary_aliases, otp_5494, otp_5644,
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,
      otp_11772, otp_11771, otp_11872, export_all,
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
@@ -168,7 +169,13 @@ c(A) ->
               g({M, F}) -> (Z=M):(Z=F)();
               g({M, F, Arg}) -> (Z=M):F(Z=Arg).
               h(X, Y) -> (Z=X) + (Z=Y).">>,
-           [warn_unused_vars], []}],
+           [warn_unused_vars], []},
+          {basic3,
+           <<"f(E) ->
+                  X = Y = E.">>,
+           [warn_unused_vars],
+           {warnings,[{{2,19},erl_lint,{unused_var,'X'}},
+                      {{2,23},erl_lint,{unused_var,'Y'}}]}}],
     [] = run(Config, Ts),
     ok.
 
@@ -299,7 +306,7 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
               j(X) ->
                   [foo || X <- X, % X shadowed.
                         X <-    % X shadowed. X unused.
-                             X = 
+                             X =
                                  Y = [[1,2,3]], % Y unused.
                         X <- [], % X shadowed.
                         X <- X]. % X shadowed. X unused.
@@ -2298,22 +2305,22 @@ otp_15456(Config) when is_list(Config) ->
     ok.
 
 %% OTP-5371. Aliases for bit syntax expressions are no longer allowed.
+%% GH-6348/OTP-18297: Updated for OTP 26 to allow aliases.
 otp_5371(Config) when is_list(Config) ->
     Ts = [{otp_5371_1,
            <<"t(<<A:8>> = <<B:8>>) ->
                   {A,B}.
              ">>,
 	   [],
-	   {errors,[{{1,23},erl_lint,illegal_bin_pattern}],[]}},
+           []},
 	  {otp_5371_2,
            <<"x([<<A:8>>] = [<<B:8>>]) ->
                   {A,B}.
               y({a,<<A:8>>} = {b,<<B:8>>}) ->
                   {A,B}.
              ">>,
-	   [],
-	   {errors,[{{1,24},erl_lint,illegal_bin_pattern},
-		    {{3,20},erl_lint,illegal_bin_pattern}],[]}},
+           [],
+           {warnings,[{{3,15},v3_core,{nomatch,pattern}}]}},
 	  {otp_5371_3,
            <<"-record(foo, {a,b,c}).
               -record(bar, {x,y,z}).
@@ -2330,11 +2337,10 @@ otp_5371(Config) when is_list(Config) ->
                   {X,Y}.
              ">>,
 	   [],
-	   {errors,[{{4,26},erl_lint,illegal_bin_pattern},
-		    {{6,26},erl_lint,illegal_bin_pattern},
-		    {{8,26},erl_lint,illegal_bin_pattern},
-		    {{10,30},erl_lint,illegal_bin_pattern},
-		    {{12,30},erl_lint,illegal_bin_pattern}],[]}},
+           {warnings,[{{4,15},v3_core,{nomatch,pattern}},
+                      {{8,15},v3_core,{nomatch,pattern}},
+                      {{10,15},v3_core,{nomatch,pattern}},
+                      {{12,15},v3_core,{nomatch,pattern}}]}},
 	  {otp_5371_4,
            <<"-record(foo, {a,b,c}).
               -record(bar, {x,y,z}).
@@ -2354,42 +2360,41 @@ otp_5371(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
-%% OTP_7227. Some aliases for bit syntax expressions were still allowed.
+%% OTP-7227. Some aliases for bit syntax expressions were still allowed.
+%% GH-6348/OTP-18297: Updated for OTP 26 to allow aliases.
 otp_7227(Config) when is_list(Config) ->
     Ts = [{otp_7227_1,
            <<"t([<<A:8>> = {C,D} = <<B:8>>]) ->
                   {A,B,C,D}.
              ">>,
 	   [],
-	   {errors,[{{1,42},erl_lint,illegal_bin_pattern}],[]}},
+           {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_2,
            <<"t([(<<A:8>> = {C,D}) = <<B:8>>]) ->
                   {A,B,C,D}.
              ">>,
 	   [],
-	   {errors,[{{1,25},erl_lint,illegal_bin_pattern}],[]}},
+	   {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_3,
            <<"t([(<<A:8>> = {C,D}) = (<<B:8>> = <<C:8>>)]) ->
                   {A,B,C,D}.
              ">>,
 	   [],
-	   {errors,[{{1,45},erl_lint,illegal_bin_pattern},
-		    {{1,45},erl_lint,illegal_bin_pattern},
-		    {{1,55},erl_lint,illegal_bin_pattern}],[]}},
+           {warnings,[{{1,21},v3_core,{nomatch,pattern}}]}},
 	  {otp_7227_4,
            <<"t(Val) ->
                   <<A:8>> = <<B:8>> = Val,
                   {A,B}.
              ">>,
 	   [],
-	   {errors,[{{2,19},erl_lint,illegal_bin_pattern}],[]}},
+	   []},
 	  {otp_7227_5,
            <<"t(Val) ->
                   <<A:8>> = X = <<B:8>> = Val,
                   {A,B,X}.
              ">>,
 	   [],
-	   {errors,[{{2,19},erl_lint,illegal_bin_pattern}],[]}},
+	   []},
 	  {otp_7227_6,
            <<"t(X, Y) ->
                   <<A:8>> = <<X:4,Y:4>>,
@@ -2403,24 +2408,67 @@ otp_7227(Config) when is_list(Config) ->
                   {A,B,X}.
              ">>,
 	   [],
-	   {errors,[{{2,36},erl_lint,illegal_bin_pattern},
-		    {{2,36},erl_lint,illegal_bin_pattern},
-		    {{2,46},erl_lint,illegal_bin_pattern}],[]}},
-	  {otp_7227_8,
+           []},
+          {otp_7227_8,
            <<"t(Val) ->
                   (<<A:8>> = X) = (Y = <<B:8>>) = Val,
                   {A,B,X,Y}.
              ">>,
 	   [],
-	   {errors,[{{2,40},erl_lint,illegal_bin_pattern}],[]}},
+	   []},
 	  {otp_7227_9,
            <<"t(Val) ->
                   (Z = <<A:8>> = X) = (Y = <<B:8>> = W) = Val,
                   {A,B,X,Y,Z,W}.
              ">>,
 	   [],
-	   {errors,[{{2,44},erl_lint,illegal_bin_pattern}],[]}}
+           []}
 	 ],
+    [] = run(Config, Ts),
+    ok.
+
+%% GH-6348/OTP-18297: Allow aliases of binary patterns.
+binary_aliases(Config) when is_list(Config) ->
+    Ts = [{binary_aliases_1,
+           <<"t([<<Size:8,_/bits>> = <<_:8,Data:Size/bits>>]) ->
+                  Data.
+             ">>,
+	   [],
+           {errors,[{{1,55},erl_lint,{unbound_var,'Size'}}],[]}},
+          {binary_aliases_2,
+           <<"t(#{key := <<Size:8,_/bits>>} = #{key := <<_:8,Data:Size/bits>>}) ->
+                  Data.
+             ">>,
+	   [],
+           {errors,[{{1,73},erl_lint,{unbound_var,'Size'}}],[]}},
+          {binary_aliases_3,
+           <<"t(<<_:8,Data:Size/bits>> = <<Size:8,_/bits>>) ->
+                  Data.
+             ">>,
+	   [],
+           {errors,[{{1,34},erl_lint,{unbound_var,'Size'}}],[]}},
+          {binary_aliases_4,
+           <<"t([<<_:8,Data:Size/bits>> = <<Size:8,_/bits>>]) ->
+                  Data.
+             ">>,
+	   [],
+           {errors,[{{1,35},erl_lint,{unbound_var,'Size'}}],[]}},
+          {binary_aliases_5,
+           <<"t(Bin) ->
+                  <<_:8,A:Size>> = <<_:8,B:Size/bits>> = <<Size:8,_/bits>> = Bin,
+                  {A,B,Size}.
+             ">>,
+           [],
+           []},
+          {binary_aliases_6,
+           <<"t(<<_:8,A:Size>> = <<_:8,B:Size/bits>> = <<Size:8,_/bits>>) ->
+                  {A,B,Size}.
+             ">>,
+           [],
+           {errors,[{{1,31},erl_lint,{unbound_var,'Size'}},
+                    {{1,48},erl_lint,{unbound_var,'Size'}}],
+            []}}
+         ],
     [] = run(Config, Ts),
     ok.
 
@@ -3888,31 +3936,57 @@ maps_type(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
+%% GH-6348/OTP-18297: In OTP 26 parallel matching of maps
+%% has been extended.
 maps_parallel_match(Config) when is_list(Config) ->
-    Ts = [{parallel_map_patterns_unbound1,
+    Ts = [{parallel_map_patterns_unbound,
            <<"
            t(#{} = M) ->
-               #{K := V} = #{k := K} = M,
+               #{k := K} = #{K := V} = M,
                V.
            ">>,
            [],
-           {errors,[{{3,18},erl_lint,{unbound_var,'K'}}],[]}},
-          {parallel_map_patterns_unbound2,
+           {errors,[{{3,30},erl_lint,{unbound_var,'K'}}],[]}},
+          {parallel_map_patterns_not_toplevel1,
            <<"
            t(#{} = M) ->
+               [#{K1 := V1} =
+                #{K2 := V2} =
+                #{k1 := K1,k2 := K2}] = [M],
+               [V1,V2].
+           ">>,
+           [],
+           {errors,[{{3,19},erl_lint,{unbound_var,'K1'}},
+                    {{4,19},erl_lint,{unbound_var,'K2'}}],[]}},
+          {parallel_map_patterns_unbound_not_toplevel2,
+           <<"
+           t(#{} = M) ->
+               [#{k := K} = #{K := V}] = [M],
+               V.
+           ">>,
+           [],
+           {errors,[{{3,31},erl_lint,{unbound_var,'K'}}],[]}},
+          {parallel_map_patterns_bound1,
+           <<"
+           t(#{} = M,K1,K2) ->
                #{K1 := V1} =
                #{K2 := V2} =
                #{k1 := K1,k2 := K2} = M,
                [V1,V2].
            ">>,
            [],
-           {errors,[{{3,18},erl_lint,{unbound_var,'K1'}},
-                    {{3,18},erl_lint,{unbound_var,'K1'}},
-                    {{4,18},erl_lint,{unbound_var,'K2'}},
-                    {{4,18},erl_lint,{unbound_var,'K2'}}],[]}},
-          {parallel_map_patterns_bound,
+           []},
+          {parallel_map_patterns_bound2,
            <<"
-           t(#{} = M,K1,K2) ->
+           t(#{} = M) ->
+               #{K := V} = #{k := K} = M,
+               V.
+           ">>,
+           [],
+           []},
+          {parallel_map_patterns_bound3,
+           <<"
+           t(#{} = M) ->
                #{K1 := V1} =
                #{K2 := V2} =
                #{k1 := K1,k2 := K2} = M,

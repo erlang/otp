@@ -2198,7 +2198,8 @@ bs_translate([I|Is0]) ->
             [I|bs_translate(Is0)];
         {Ctx,Fail0,First} ->
             {Instrs0,Fail,Is} = bs_translate_collect(Is0, Ctx, Fail0, [First]),
-            Instrs = bs_eq_fixup(Instrs0),
+            Instrs1 = bs_seq_match_fixup(Instrs0),
+            Instrs = bs_eq_fixup(Instrs1),
             [{bs_match,Fail,Ctx,{commands,Instrs}}|bs_translate(Is)]
     end;
 bs_translate([]) -> [].
@@ -2223,6 +2224,20 @@ bs_translate_fixup([{test_tail,Bits}|Is0]) ->
     bs_translate_fixup_tail(Is, Bits);
 bs_translate_fixup(Is) ->
     reverse(Is).
+
+%% Fix up matching of multiple binaries in parallel. Example:
+%%    f(<<_:8>> = <<X:8>>) -> ...
+bs_seq_match_fixup([{test_tail,Bits},{ensure_exactly,Bits}|Is]) ->
+    [{ensure_exactly,Bits}|bs_seq_match_fixup(Is)];
+bs_seq_match_fixup([{test_tail,Bits0},{ensure_at_least,Bits1,Unit}|Is])
+  when Bits0 >= Bits1, Bits0 rem Unit =:= 0 ->
+    %% The tail test is at least as strict as the ensure_at_least test.
+    [{ensure_exactly,Bits0}|bs_seq_match_fixup(Is)];
+bs_seq_match_fixup([{test_tail,Bits}|Is]) ->
+    [{ensure_exactly,Bits}|bs_seq_match_fixup(Is)];
+bs_seq_match_fixup([I|Is]) ->
+    [I|bs_seq_match_fixup(Is)];
+bs_seq_match_fixup([]) -> [].
 
 bs_eq_fixup([{'=:=',nil,Bits,Value}|Is]) ->
     EqInstrs = bs_eq_fixup_split(Bits, <<Value:Bits>>),

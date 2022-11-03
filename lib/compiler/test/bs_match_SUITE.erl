@@ -50,7 +50,8 @@
          combine_empty_segments/1,hangs_forever/1,
          bs_saved_position_units/1,empty_matches/1,
          trim_bs_start_match_resume/1,
-         gh_6410/1,bs_match/1]).
+         gh_6410/1,bs_match/1,
+         binary_aliases/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -91,7 +92,7 @@ groups() ->
        many_clauses,combine_empty_segments,hangs_forever,
        bs_saved_position_units,empty_matches,
        trim_bs_start_match_resume,
-       gh_6410,bs_match]}].
+       gh_6410,bs_match,binary_aliases]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -2685,6 +2686,359 @@ do_bs_match_1(_, X) ->
     end,
     X.
 
-%%% Utilities.
-id(I) -> I.
+%% GH-6348/OTP-18297: Allow aliases for binaries.
+-record(ba_foo, {a,b,c}).
 
+binary_aliases(_Config) ->
+    F1 = fun(<<A:8>> = <<B:8>>) -> {A,B} end,
+    {42,42} = F1(id(<<42>>)),
+    {99,99} = F1(id(<<99>>)),
+
+    F2 = fun(#ba_foo{a = <<X:8>>} = #ba_foo{a = <<Y:8>>}) -> {X,Y} end,
+    {255,255} = F2(id(#ba_foo{a = <<-1>>})),
+    {107,107} = F2(id(#ba_foo{a = <<107>>})),
+
+    F3 = fun(#ba_foo{a = <<X:8>>} = #ba_foo{a = <<Y:4,Z:4>>}) -> {X,Y,Z} end,
+    {255,15,15} = F3(id(#ba_foo{a = <<-1>>})),
+    {16#5c,16#5,16#c} = F3(id(#ba_foo{a = <<16#5c>>})),
+
+    F4 = fun([<<A:8>> = {C,D} = <<B:8>>]) ->
+                 {A,B,C,D};
+            (L) ->
+                 lists:sum(L)
+         end,
+    6 = F4(id([1,2,3])),
+
+    F5 = fun(Val) ->
+                 <<A:8>> = X = <<B:8>> = Val,
+                 {A,B,X}
+         end,
+    {42,42,<<42>>} = F5(id(<<42>>)),
+
+    F6 = fun(X, Y) ->
+                  <<A:8>> = <<X:4,Y:4>>,
+                 A
+         end,
+    16#7c = F6(16#7, 16#c),
+    16#ed = F6(16#e, 16#d),
+
+    F7 = fun(Val) ->
+                 (<<A:8>> = X) = (<<B:8>> = <<A:4,B:4>>) = Val,
+                 {A,B,X}
+         end,
+    {0,0,<<0>>} = F7(id(<<0>>)),
+    {'EXIT',{{badmatch,<<1>>},_}} = catch F7(<<1>>),
+
+    F8 = fun(Val) ->
+                  (<<A:8>> = X) = (Y = <<B:8>>) = Val,
+                  {A,B,X,Y}
+         end,
+    {253,253,<<253>>,<<253>>} = F8(id(<<253>>)),
+
+    F9 = fun(Val) ->
+                  (Z = <<A:8>> = X) = (Y = <<B:8>> = W) = Val,
+                  {A,B,X,Y,Z,W}
+         end,
+    {201,201,<<201>>,<<201>>,<<201>>,<<201>>} = F9(id(<<201>>)),
+
+    F10 = fun(X) ->
+                  <<>> = (<<>> = X)
+          end,
+    <<>> = F10(id(<<>>)),
+    {'EXIT',{{badmatch,42},_}} = catch F10(id(42)),
+
+    F11 = fun(Bin) ->
+                  <<A:8/bits,B:24/bits>> = <<C:16,D:16>> = <<E:8,F:8,G:8,H:8>> = Bin,
+                  {A,B,C,D,E,F,G,H}
+          end,
+    {<<0>>,<<0,0,0>>, 0,0, 0,0,0,0} = F11(id(<<0:32>>)),
+    {<<16#ab>>,<<16#cdef57:24>>, 16#abcd,16#ef57, 16#ab,16#cd,16#ef,16#57} =
+        F11(id(<<16#abcdef57:32>>)),
+
+    F12 = fun(#{key := <<X:8>>} = #{key := <<Y:8>>}) -> {X,Y} end,
+    {255,255} = F12(id(#{key => <<-1>>})),
+    {209,209} = F12(id(#{key => <<209>>})),
+
+    F13 = fun(Bin) ->
+                  <<_:8,A:Size>> = <<_:8,B:Size/bits>> = <<Size:8,_/bits>> = Bin,
+                  {Size,A,B}
+          end,
+    {0,0,<<>>} = F13(id(<<0>>)),
+    {1,1,<<1:1>>} = F13(id(<<1,1:1>>)),
+    {8,42,<<42>>} = F13(id(<<8,42>>)),
+
+    F14 = fun(Bin) ->
+                  [<<_:Y>> | _] = [_ | Y] = id(Bin),
+                  ok
+          end,
+    ok = F14([<<>>|0]),
+    ok = F14([<<-1:32>>|32]),
+    {'EXIT',{{badmatch,[<<0:16>>|0]},_}} = catch F14([<<0:16>>|0]),
+    {'EXIT',{{badmatch,[<<0:16>>|atom]},_}} = catch F14([<<0:16>>|atom]),
+
+    F15 = fun(Bin) ->
+                  {<<_:Y>>, _} = {_, Y} = id(Bin),
+                  Y
+          end,
+    0 = F15({<<>>, 0}),
+    32 = F15({<<-1:32>>, 32}),
+    {'EXIT',{{badmatch,{<<0:16>>,0}},_}} = catch F15({<<0:16>>, 0}),
+    {'EXIT',{{badmatch,{<<0:16>>,atom}},_}} = catch F15({<<0:16>>, atom}),
+
+    F16 = fun(Bin) ->
+                  [{<<_:Y>>, _}] = [{_, Y}] = id(Bin),
+                  Y
+          end,
+    0 = F16([{<<>>, 0}]),
+    32 = F16([{<<-1:32>>, 32}]),
+    {'EXIT',{{badmatch,[{<<0:16>>,0}]},_}} = catch F16([{<<0:16>>, 0}]),
+    {'EXIT',{{badmatch,[{<<0:16>>,atom}]},_}} = catch F16([{<<0:16>>, atom}]),
+
+    F17 = fun(#{[] := <<_>>, [] := <<_>>}) -> ok end,
+    ok = F17(id(#{[] => <<42>>})),
+    {'EXIT',{function_clause,_}} = catch F17(id(#{[] => <<>>})),
+    {'EXIT',{function_clause,_}} = catch F17(id(atom)),
+
+    F18 = fun(<<_>> = Bin) ->
+                  case Bin of
+                      <<_>> -> ok;
+                      _ -> error
+                  end;
+             (_) -> error
+          end,
+    ok = F18(id(<<42>>)),
+    error = F18(<<>>),
+    error = F18(<<1:1>>),
+    error = F18(atom),
+
+    F19 = fun(B) ->
+                  <<42:Sz>> = Sz = <<_>> = B
+          end,
+    {'EXIT',{{badmatch,<<0>>},_}} = catch F19(<<0>>),
+    {'EXIT',{{badmatch,<<>>},_}} = catch F19(<<>>),
+    {'EXIT',{{badmatch,0},_}} = catch F19(0),
+
+    F20 = fun([<<>>] = [<<>>]) -> ok end,
+    ok = F20([<<>>]),
+
+    a = gh_6467(id(0), id(<<0>>), id(0)),
+    {'EXIT',{{badmatch,0},_}} = catch gh_6467(id(0), id(<<0>>), id([])),
+    {'EXIT',{{badmatch,<<7>>},_}} = catch gh_6467(id(<<7>>), id(<<33>>), id([])),
+
+    F21 = fun(<<_:(true andalso 0)>> = <<>>) -> ok;
+             (_) -> error
+          end,
+    ok = F21(<<>>),
+    error = F21(<<42>>),
+    error = F21(42),
+
+    true = gh6415_a(<<42>>, true),
+    error = gh6415_a(<<42>>, false),
+    error = gh6415_a(<<>>, false),
+    error = gh6415_a(<<>>, not_bool),
+    error = gh6415_a(any, true),
+    error = gh6415_a(any, false),
+
+    ok = gh6415_b(true, <<99>>),
+    ok = gh6415_b(false, <<99>>),
+    error = gh6415_b(true, <<>>),
+    error = gh6415_b(false, <<>>),
+
+    ok = gh6415_c(<<10>>, true),
+    error = gh6415_c(<<10>>, false),
+    error = gh6415_c(<<>>, true),
+    error = gh6415_c(42, true),
+
+    gh6415_case_clause(42),
+    gh6415_case_clause(<<42>>),
+    gh6415_case_clause(a),
+
+    error = gh6415_nomatch(<<>>),
+    error = gh6415_nomatch(<<42>>),
+    error = gh6415_nomatch(<<97,98>>),
+    error = gh6415_nomatch(#{0 => <<>>}),
+    error = gh6415_nomatch(#{0 => <<42>>}),
+    error = gh6415_nomatch(#{0 => 42}),
+    error = gh6415_nomatch(#{}),
+    error = gh6415_nomatch({a,tuple}),
+    error = gh6415_nomatch(an_atom),
+
+    42 = gh6415_match_a(id(<<42>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_a(id(<<>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_a(id(a)),
+
+    {42,<<>>} = gh6415_match_b(id(<<42>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_b(id(<<1,2>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_b(id(<<>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_b(id(a)),
+
+    {'EXIT',{_,_}} = catch gh6415_match_c(),
+
+    ok = gh6415_match_d(id(<<163>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_d(id(<<>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_d(id(a)),
+
+    ok = gh6415_match_e(id(<<163,0>>)),
+    ok = gh6415_match_e(id(<<99,8,42>>)),
+    ok = gh6415_match_e(id(<<99,17,-1:17>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_e(id(<<163>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_e(id(<<>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_e(id(a)),
+
+    7777 = gh6415_match_f(id(<<17,7777:17>>)),
+    1234 = gh6415_match_f(id(<<17,1234:17>>)),
+    error = gh6415_match_f(id(<<0>>)),
+    error = gh6415_match_f(id(<<8,42>>)),
+
+    ok.
+
+%% GH-6467. When a matched out value was never used, the bs_match instruction
+%% was not rewritten to a bs_skip instruction, causing an assertion fail in
+%% beam_ssa_pre_codegen.
+gh_6467(X, _, []) ->
+    [0 || _ <- (<<_:Y>> = (Y = ((_ = X) = X)))];
+gh_6467(_, <<Y>>, _) ->
+    a.
+
+gh6415_a(<<X>>, Y) when (<<X>> == false orelse (Y andalso true)); Y ->
+    Y;
+gh6415_a(_, _) ->
+    error.
+
+gh6415_b(X, <<Y>>) when ((Y > X) xor X); not X; X ->
+    ok;
+gh6415_b(_, _) ->
+    error.
+
+gh6415_c(<<X>>, Y) when {(X / 1), (Y andalso true)}; Y ->
+    ok;
+gh6415_c(_, _) ->
+    error.
+
+gh6415_case_clause(X) ->
+    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_a(X),
+    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_b(X),
+    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_c(X),
+    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_d(X),
+    ok.
+
+gh6415_case_clause_a(X) ->
+    case 0 of
+        <<_:(X bor X)>> ->
+            <<_:Y>> = Y = X
+    end,
+    Y.
+
+gh6415_case_clause_b(X) ->
+    case 0 of
+        <<_:(X bor X)>> ->
+            <<_:Y>> = <<Y>> = X
+    end,
+    Y.
+
+gh6415_case_clause_c(X) ->
+    case 0 of
+        <<_:(X bor X)>> ->
+            <<_:Y>> = <<Y>> = X + 1
+    end,
+    Y.
+
+gh6415_case_clause_d(X) ->
+    case 0 of
+        <<_:(X bor X)>> ->
+            <<_:Y>> = <<Y>> = [X]
+    end,
+    Y.
+
+gh6415_nomatch(E0) ->
+    E = id(E0),
+    Res = gh6415_nomatch_a(E),
+    Res = gh6415_nomatch_b(E),
+    Res = gh6415_nomatch_c(E),
+    Res = gh6415_nomatch_d(E),
+    Res = gh6415_nomatch_e(E),
+    Res = gh6415_nomatch_f(E),
+    Res = gh6415_nomatch_g(E),
+    Res = gh6415_nomatch_h(E),
+    Res = gh6415_nomatch_i(E),
+    Res = gh6415_nomatch_j(E),
+    Res = gh6415_nomatch_k(E),
+    Res = gh6415_nomatch_l(E),
+    Res.
+
+gh6415_nomatch_a(#{0 := <<_:0>>, 0 := <<_:8>>}) -> ok;
+gh6415_nomatch_a(_) -> error.
+
+gh6415_nomatch_b(#{0 := <<_:16>>, 0 := <<_:8>>}) -> ok;
+gh6415_nomatch_b(_) -> error.
+
+gh6415_nomatch_c(#{0 := <<>>, 0 := <<_:8>>}) -> ok;
+gh6415_nomatch_c(_) -> error.
+
+gh6415_nomatch_d(#{0 := <<_:8>>, 0 := <<_:0>>}) -> ok;
+gh6415_nomatch_d(_) -> error.
+
+gh6415_nomatch_e(#{0 := <<_:8>>, 0 := <<>>}) -> ok;
+gh6415_nomatch_e(_) -> error.
+
+gh6415_nomatch_f(#{0 := <<_:8>>, 0 := <<_:16>>}) -> ok;
+gh6415_nomatch_f(_) -> error.
+
+gh6415_nomatch_g(#{0 := <<_>> = <<_, 0>>}) -> ok;
+gh6415_nomatch_g(_) -> error.
+
+gh6415_nomatch_h(#{0 := <<X:0>>, 0 := <<X>>}) -> ok;
+gh6415_nomatch_h(_) -> error.
+
+gh6415_nomatch_i(<<_>> = <<_:16,T/binary>>) ->
+    _ = binary_to_list(T),
+    ok;
+gh6415_nomatch_i(_) ->
+    error.
+
+gh6415_nomatch_j(<<_>> = <<X:16,T/binary>>) ->
+    {X,T};
+gh6415_nomatch_j(_) ->
+    error.
+
+gh6415_nomatch_k(#{0 := <<_>>, 0 := <<_, _:(0 div 0)>>}) ->
+    ok;
+gh6415_nomatch_k(_) ->
+    error.
+
+gh6415_nomatch_l(Bin) ->
+    case Bin of
+        <<X:0, _:X/integer>> = <<_:8>> ->
+            ok;
+        _ ->
+            error
+    end.
+
+gh6415_match_a(<<_>> = <<X>>) ->
+    X.
+
+gh6415_match_b(<<_>> = <<X,T/binary>>) ->
+    {X,T}.
+
+gh6415_match_c() ->
+    case catch <<0 || true>> of
+        #{[] := <<_>>, [] := <<X>>} ->
+            X
+    end.
+
+gh6415_match_d(<<_, _:(true andalso 0)>> = <<_>>) ->
+    ok.
+
+gh6415_match_e(<<_, _:(true andalso 0), Size, _:Size>> = <<_, Size, _:Size>>) ->
+    ok.
+
+gh6415_match_f(<<_:(true andalso 0), Size, Var:Size>> =
+                   <<Size, _:(true andalso 0), Var:Size>> =
+                   <<17,Var:17,_:(true andalso 0)>>) ->
+    Var;
+gh6415_match_f(_) ->
+    error.
+
+%%% Utilities.
+
+id(I) -> I.
