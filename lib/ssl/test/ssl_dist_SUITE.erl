@@ -19,6 +19,7 @@
 %%
 
 -module(ssl_dist_SUITE).
+-feature(maybe_expr, enable).
 
 -behaviour(ct_suite).
 
@@ -177,21 +178,11 @@ init_per_tc(embedded, Config) ->
     end;
 init_per_tc(Case, Config)
   when Case =:= ktls_verify, is_list(Config) ->
-    %% We need a connected socket
-    {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
-    {ok, Port} = inet:port(Listen),
-    {ok, Client} =
-        gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
-    {ok, Server} = gen_tcp:accept(Listen),
-    try ktls_encrypt_decrypt(Client, Server, false) of
+    case ktls_encrypt_decrypt(false) of
         ok ->
             common_init(Case, Config);
-        Other ->
-            Other
-    after
-        _ = gen_tcp:close(Server),
-        _ = gen_tcp:close(Client),
-        _ = gen_tcp:close(Listen)
+        Skip ->
+            Skip
     end;
 %%
 init_per_tc(Case, Config) when is_list(Config) ->
@@ -287,10 +278,10 @@ ktls_encrypt_decrypt() ->
 ktls_encrypt_decrypt(Config) when is_list(Config) ->
     ktls_encrypt_decrypt(true);
 %%
-%%  ktls_encrypt_decrypt(false) is called from
-%% ssl_dist_bench_SUITE:init_per_group/2 to check if kTLS is supported
+%%  ktls_encrypt_decrypt(false) is used by init_per_tc(ktls_verify, _)
 %%
 ktls_encrypt_decrypt(Test) when is_boolean(Test) ->
+    %%
     %% We need a connected socket
     {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port} = inet:port(Listen),
@@ -298,103 +289,55 @@ ktls_encrypt_decrypt(Test) when is_boolean(Test) ->
         gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
     {ok, Server} = gen_tcp:accept(Listen),
     try
-        ktls_encrypt_decrypt(Client, Server, Test)
+        maybe
+            ok ?= ssl_test_lib:ktls_check_os(),
+            ok ?= ssl_test_lib:ktls_set_ulp(Client),
+            ok ?= ssl_test_lib:ktls_set_cipher(Client, tx, 11),
+            case Test of
+                false ->
+                    ok;
+                true ->
+                    ktls_encrypt_decrypt(Client, Server)
+            end
+        else
+            {error, Reason} ->
+                {skip, {ktls, Reason}}
+        end
     after
         _ = gen_tcp:close(Server),
         _ = gen_tcp:close(Client),
         _ = gen_tcp:close(Listen)
     end.
 
-ktls_encrypt_decrypt(Client, Server, Test) ->
-    Done = make_ref(),
-    try
-        case {os:type(), os:version()} of
-            {{unix,linux}, OsVersion} when {5,2,0} =< OsVersion ->
-                ok;
-            OS ->
-                throw({Done, skip, {os,OS}})
-        end,
-        %%
-        %% Test and verify setup of Client TX encryption
-        %%
-        SOL_TCP = 6, TCP_ULP = 31,
-        TLS_VER    = ((3 bsl 8) bor 4),
-        TLS_CIPHER = 52,
-        TLS_SALT   = <<1,1,1,1>>,
-        TLS_IV     = <<2,2,2,2,2,2,2,2>>,
-        TLS_KEY    =
-            <<3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-              3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3>>,
-        TLS_crypto_info =
-            <<TLS_VER:16/native, TLS_CIPHER:16/native,
-              TLS_IV/binary, TLS_KEY/binary, TLS_SALT/binary,
-              0:64/native>>,
-        SOL_TLS = 282, TLS_TX = 1, TLS_RX = 2,
-        %%
-        inet:setopts(Client, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}])
-            =:= ok
-            orelse
-            throw({Done, skip, set_ulp}),
-        (GetULP =
-             inet:getopts(Client, [{raw, SOL_TCP, TCP_ULP, 4}]))
-            =:= {ok, [{raw, SOL_TCP, TCP_ULP, <<"tls",0>>}]}
-            orelse
-            throw({Done, skip, {get_ulp, GetULP}}),
-        %%
-        RawOptTX = {raw, SOL_TLS, TLS_TX, TLS_crypto_info},
-        RawOptRX = {raw, SOL_TLS, TLS_RX, TLS_crypto_info},
-        (SetoptsResult = inet:setopts(Client, [RawOptTX])) =:= ok
-            orelse throw({Done, skip, {setopts_error,SetoptsResult}}),
-        (GetCryptoInfo =
-             inet:getopts(
-               Client,
-               [{raw, SOL_TLS, TLS_TX, byte_size(TLS_crypto_info)}]))
-            =:= {ok, [RawOptTX]}
-            orelse throw({Done, skip, {get_crypto_info,GetCryptoInfo}}),
-        %%
-        %%
-        %%
-        Test orelse throw(Done),
-        %%
-        %%
-        %%
-        %% Test to transfer encrypted data,
-        %% and also to not activate RX encryption and transfer data.
-        %%
-        Data = "The quick brown fox jumps over a lazy dog 0123456789",
-        %% Send encrypted from Client before Server has activated decryption
-        ok = gen_tcp:send(Client, Data),
-        receive after 500 -> ok end, % Give time for data to arrive
-        %%
-        %% Activate Server TX encryption
-        ok = inet:setopts(Server, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]),
-        ok = inet:setopts(Server, [RawOptTX]),
-        %% Send encrypted from Server
-        ok = gen_tcp:send(Server, Data),
-        %% Receive encrypted data without decryption
-        case gen_tcp:recv(Client, 0, 1000) of
-            {ok, Data} ->
-                ct:fail(recv_cleartext_data);
-            {ok, RandomData} when length(Data) < length(RandomData) ->
-                %% A TLS block should be longer than Data
-                ok
-        end,
-        %% Finally, activate Server decryption
-        ok = inet:setopts(Server, [RawOptRX]),
-        %% Receive and decrypt the data that was first sent
-        {ok, Data} = gen_tcp:recv(Server, 0, 1000),
-        ok
-    catch
-        Done ->
-            ok;
-        {Done, skip,SkipReason} ->
-            {skip,
-             lists:flatten(
-               io_lib:format("kTLS not supported: ~p", [SkipReason]))}
-    end.
-
-
-
+ktls_encrypt_decrypt(Client, Server) ->
+    %%
+    %% Test to transfer encrypted data,
+    %% and also to not activate RX encryption and transfer data.
+    %%
+    Data = "The quick brown fox jumps over a lazy dog 0123456789",
+    %%
+    %% Send encrypted from Client before Server has activated decryption
+    ok = gen_tcp:send(Client, Data),
+    receive after 500 -> ok end, % Give time for data to arrive
+    %%
+    %% Activate Server TX encryption
+    ok = ssl_test_lib:ktls_set_ulp(Server),
+    ok = ssl_test_lib:ktls_set_cipher(Server, tx, 17),
+    %% Send encrypted from Server
+    ok = gen_tcp:send(Server, Data),
+    %% Receive encrypted data without decryption
+    case gen_tcp:recv(Client, 0, 1000) of
+        {ok, Data} ->
+            ct:fail(recv_cleartext_data);
+        {ok, RandomData} when length(Data) < length(RandomData) ->
+            %% A TLS block should be longer than Data
+            ok
+    end,
+    %% Finally, activate Server decryption
+    ok = ssl_test_lib:ktls_set_cipher(Server, rx, 11),
+    %% Receive and decrypt the data that was first sent
+    {ok, Data} = gen_tcp:recv(Server, 0, 1000),
+    ok.
 
 %%--------------------------------------------------------------------
 ktls_verify() ->

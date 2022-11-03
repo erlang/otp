@@ -220,6 +220,10 @@
 %% Tracing
 -export([handle_trace/3]).
 
+-export([ktls_check_os/0,
+         ktls_set_ulp/1,
+         ktls_set_cipher/3]).
+
 -record(sslsocket, { fd = nil, pid = nil}).
 -define(SLEEP, 1000).
 -define(DEFAULT_CURVE, secp256r1).
@@ -4139,3 +4143,69 @@ handle_trace(rle,
     {io_lib:format("(*~w) Mode = ~w ResponderPort = ~w",
                    [Role, Mode, ResponderPort]),
      [{role, Role} | Stack0]}.
+
+
+ktls_check_os() ->
+    case {os:type(), os:version()} of
+        {{unix,linux}, OsVersion} when {5,2,0} =< OsVersion ->
+            ok;
+        OS ->
+            {error, {notsup, {os,OS}}}
+    end.
+
+%% Set UserLand Protocol
+ktls_set_ulp(Socket) ->
+    SOL_TCP = 6, TCP_ULP = 31,
+    case inet:setopts(Socket, [{raw, SOL_TCP, TCP_ULP, <<"tls">>}]) of
+        ok ->
+            case inet:getopts(Socket, [{raw, SOL_TCP, TCP_ULP, 4}]) of
+                {ok, [{raw, SOL_TCP, TCP_ULP, <<"tls",0>>}]} ->
+                    ok;
+                GetULP ->
+                    {error, {get_ulp, GetULP}}
+            end;
+        Error ->
+            {error, {set_ulp, Error}}
+    end.
+
+ktls_set_cipher(Socket, TxRx, Seed) ->
+    TLS_IV   = binary:copy(<<(Seed + 0)>>, 8),
+    TLS_KEY  = binary:copy(<<(Seed + 1)>>, 32),
+    TLS_SALT = binary:copy(<<(Seed + 2)>>, 4),
+    ktls_set_cipher(Socket, TxRx, TLS_IV, TLS_KEY, TLS_SALT).
+
+ktls_set_cipher(Socket, TxRx, TLS_IV, TLS_KEY, TLS_SALT) ->
+    TLS_OPT =
+        case TxRx of
+            tx -> 1;
+            rx -> 2
+        end,
+    TLS_VER    = ((3 bsl 8) bor 4),
+    TLS_CIPHER = 52,
+    TLS_SEQ    = 0,
+    TLS_crypto_info =
+        <<TLS_VER:16/native, TLS_CIPHER:16/native,
+          TLS_IV/binary, TLS_KEY/binary, TLS_SALT/binary,
+          TLS_SEQ:64/native>>,
+    SOL_TLS = 282,
+    RawOpt = {raw, SOL_TLS, TLS_OPT, TLS_crypto_info},
+    case inet:setopts(Socket, [RawOpt]) of
+        ok ->
+            case TxRx of
+                tx ->
+                    OptSize = byte_size(TLS_crypto_info),
+                    case
+                        inet:getopts(
+                          Socket, [{raw, SOL_TLS, TLS_OPT, OptSize}])
+                    of
+                        {ok, [RawOpt]} ->
+                            ok;
+                        GetCipher ->
+                            {error, {get_cipher, GetCipher}}
+                    end;
+                rx ->
+                    ok
+            end;
+        SetCipher ->
+            {error, {set_cipher, SetCipher}}
+    end.

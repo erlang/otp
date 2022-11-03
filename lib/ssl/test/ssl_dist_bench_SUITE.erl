@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(ssl_dist_bench_SUITE).
+-feature(maybe_expr, enable).
 
 -behaviour(ct_suite).
 
@@ -226,11 +227,25 @@ init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
 %%
 init_per_group(kernel_offload, Config) ->
-    case ssl_dist_SUITE:ktls_encrypt_decrypt(false) of
-        ok ->
-            [{ktls, true} | Config];
-        Skip ->
-            Skip
+    {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
+    {ok, Port} = inet:port(Listen),
+    {ok, Client} =
+        gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
+    {ok, Server} = gen_tcp:accept(Listen),
+    try
+        maybe
+            ok ?= ssl_test_lib:ktls_check_os(),
+            ok ?= ssl_test_lib:ktls_set_ulp(Client),
+            ok ?= ssl_test_lib:ktls_set_cipher(Client, tx, 1),
+            [{ktls, true} | Config]
+        else
+            {error, Reason} ->
+                {skip, {ktls, Reason}}
+        end
+    after
+        _ = gen_tcp:close(Server),
+        _ = gen_tcp:close(Client),
+        _ = gen_tcp:close(Listen)
     end;
 %%
 init_per_group(_GroupName, Config) ->
