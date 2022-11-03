@@ -465,8 +465,8 @@ double(Config) when is_list(Config) ->
     {Peer, Node} = spawn_node(?FUNCTION_NAME),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [Pid])),
     ?assertEqual([Pid, Pid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    sync(?FUNCTION_NAME),
     sync({?FUNCTION_NAME, Node}),
+    sync_via(?FUNCTION_NAME, {?FUNCTION_NAME, Node}),
     ?assertEqual([Pid, Pid], rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
     peer:stop(Peer),
     ok.
@@ -718,7 +718,16 @@ sync(GS) ->
 sync_via({RegName, Node}, GS) ->
     MyNode = node(),
     rpc:call(Node, sys, replace_state,
-             [RegName, fun (S) -> (catch sys:get_state({GS,MyNode})), S end]).
+             [RegName, fun (S) -> (catch sys:get_state({GS, MyNode})), S end]);
+
+%% flush remote GS queue from local process RegName
+sync_via(RegName, {GS, Node}) ->
+    sys:replace_state(RegName,
+                      fun (S) -> _R = (catch sys:get_state({GS, Node})),
+                                 %%io:format("sync_via: ~p -> R = ~p\n", [{GS, Node},_R]),
+                                 S
+                      end).
+
 
 ensure_peers_info(Scope, Nodes) ->
     %% Ensures that pg server on local node has gotten info from
