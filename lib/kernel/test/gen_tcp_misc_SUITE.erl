@@ -5313,7 +5313,7 @@ send_timeout_para(Config, BinData, BufSz, TslTimeout, SndTimeout,
     {A, Pid} = setup_timeout_sink(Config, RNode, SndTimeout, AutoClose, BufSz),
     Self = self(),
     SenderFun = fun() ->
-                        ?P("[para:sender] start"),
+                        ?P("[para:sender] starting"),
 			Send = fun() -> gen_tcp:send(A, BinData) end,
 			Self ! {self(), timeout_sink_loop(Send, TslTimeout)}
 		end,
@@ -5749,6 +5749,7 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose, BufSz) ->
 			     ?CONNECT(Config, Host,Port,
 				      [{active, false},
 				       {packet, 4},
+				       {recbuf, BufSz div 2},
 				       {sndbuf, BufSz div 2}])
 		     end),
     ?P("[sink] accept"),
@@ -5823,7 +5824,7 @@ timeout_sink_loop(Action, To) ->
     put(sent,     0),
     put(elapsed,  0),
     put(send_max, 0),
-    put(lsendts,  "-"),
+    put(lsendts,  "-"), % Last Send TS (time stamp)
     timeout_sink_loop(Action, To, 0).
 
 timeout_sink_loop(Action, To, N) ->
