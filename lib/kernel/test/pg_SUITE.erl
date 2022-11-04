@@ -57,7 +57,8 @@
     group_leave/1,
     monitor_nonempty_scope/0, monitor_nonempty_scope/1,
     monitor_scope/0, monitor_scope/1,
-    monitor/1
+    monitor/1,
+    protocol_upgrade/1
 ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -79,7 +80,8 @@ all() ->
 
 groups() ->
     [
-        {basic, [parallel], [errors, pg, leave_exit_race, single, overlay_missing]},
+        {basic, [parallel], [errors, pg, leave_exit_race, single, overlay_missing,
+                             protocol_upgrade]},
         {performance, [], [thundering_herd]},
         {cluster, [parallel], [process_owner_check, two, initial, netsplit, trisplit, foursplit,
             exchange, nolocal, double, scope_restart, missing_scope_join, empty_group_by_remote_leave,
@@ -704,8 +706,31 @@ second_monitor(Msgs) ->
             second_monitor([Msg | Msgs])
     end.
 
+protocol_upgrade(Config) when is_list(Config) ->
+    Scope = ?FUNCTION_NAME,
+    Group = ?FUNCTION_NAME,
+    {Peer, Node} = spawn_node(Scope),
+    PgPid = rpc:call(Node, erlang, whereis, [Scope]),
+
+    RemotePid = erlang:spawn(Node, forever()),
+    ok = rpc:call(Node, pg, join, [Scope, Group, RemotePid]),
+
+    %% OTP 26:
+    %% Just do a white-box test and verify that pg accepts
+    %% a "future" discover message and replies with a sync.
+    PgPid ! {discover, self(), "Protocol version (ignore me)"},
+    {'$gen_cast', {sync, PgPid, [{Group, [RemotePid]}]}} = receive_any(),
+
+    %% stop the peer
+    peer:stop(Peer),
+    ok.
+
+
 %%--------------------------------------------------------------------
 %% Test Helpers - start/stop additional Erlang nodes
+
+receive_any() ->
+    receive M -> M end.
 
 %% flushes GS (GenServer) queue, ensuring that all prior
 %%  messages have been processed

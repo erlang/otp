@@ -351,6 +351,7 @@ handle_cast(_, _State) ->
 
 -spec handle_info(
     {discover, Peer :: pid()} |
+    {discover, Peer :: pid(), any()} |
     {join, Peer :: pid(), group(), pid() | [pid()]} |
     {leave, Peer :: pid(), pid() | [pid()], [group()]} |
     {'DOWN', reference(), process, pid(), term()} |
@@ -392,17 +393,13 @@ handle_info({leave, Peer, PidOrPids, Groups}, #state{scope = Scope, remote = Rem
     end;
 
 %% we're being discovered, let's exchange!
-handle_info({discover, Peer}, #state{remote = Remote, local = Local} = State) ->
-    gen_server:cast(Peer, {sync, self(), all_local_pids(Local)}),
-    %% do we know who is looking for us?
-    case maps:is_key(Peer, Remote) of
-        true ->
-            {noreply, State};
-        false ->
-            MRef = erlang:monitor(process, Peer),
-            erlang:send(Peer, {discover, self()}, [noconnect]),
-            {noreply, State#state{remote = Remote#{Peer => {MRef, #{}}}}}
-    end;
+handle_info({discover, Peer}, State) ->
+    handle_discover(Peer, State);
+
+%% New discover message sent by a future pg version.
+%% Accepted first in OTP 26, to be used by OTP 28 or later.
+handle_info({discover, Peer, _ProtocolVersion}, State) ->
+    handle_discover(Peer, State);
 
 %% handle local process exit, or a local monitor exit
 handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, local = Local,
@@ -449,6 +446,21 @@ terminate(_Reason, #state{scope = Scope}) ->
 
 %%--------------------------------------------------------------------
 %% Internal implementation
+
+handle_discover(Peer, #state{remote = Remote, local = Local} = State) ->
+    gen_server:cast(Peer, {sync, self(), all_local_pids(Local)}),
+    %% do we know who is looking for us?
+    case maps:is_key(Peer, Remote) of
+        true ->
+            {noreply, State};
+        false ->
+            MRef = erlang:monitor(process, Peer),
+            erlang:send(Peer, {discover, self()}, [noconnect]),
+            {noreply, State#state{remote = Remote#{Peer => {MRef, #{}}}}}
+    end;
+handle_discover(_, _) ->
+    erlang:error(badarg).
+
 
 %% Ensures argument is either a node-local pid or a list of such, or it throws an error
 ensure_local(Pid) when is_pid(Pid), node(Pid) =:= node() ->
