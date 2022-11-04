@@ -1420,7 +1420,7 @@ decode_fix(#t_integer{}, Range, _Unit) ->
 decode_fix(#t_number{}, Range, _Unit) ->
     #t_number{elements=Range};
 decode_fix(#t_bitstring{}, _Range, Unit) ->
-    #t_bitstring{size_unit=Unit};
+    #t_bitstring{size_unit=Unit+1};
 decode_fix(#t_union{}=Type0, Range, Unit) ->
     Type1 = case meet(Type0, #t_integer{}) of
                 #t_integer{} ->
