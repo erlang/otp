@@ -625,11 +625,22 @@ version.
 	<p>The verification fun is to be defined as follows:</p>
 
 	<code>
-fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() |
-             {revoked, atom()}} |
-	     {extension, #'Extension'{}} | valid | valid_peer, InitialUserState :: term()) ->
+fun(OtpCert :: #'OTPCertificate'{},
+    Event, InitialUserState :: term()) ->
 	{valid, UserState :: term()} |
 	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+
+fun(OtpCert :: #'OTPCertificate'{}, DerCert :: public_key:der_encoded(),
+    Event, InitialUserState :: term()) ->
+	{valid, UserState :: term()} |
+	{fail, Reason :: term()} | {unknown, UserState :: term()}.
+
+Types:
+      Event = {bad_cert, Reason :: atom() |
+              {revoked, atom()}} |
+	      {extension, #'Extension'{}} |
+              valid |
+              valid_peer
 	</code>
 
 	<p>The verification fun is called during the X509-path
@@ -639,8 +650,8 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() |
 	allow access to each certificate in the path to the user
 	application. It differentiates between the peer certificate
 	and the CA certificates by using <c>valid_peer</c> or
-	<c>valid</c> as second argument to the verification fun. See
-	the <seeguide marker="public_key:public_key_records">public_key
+	<c>valid</c> as <c>Event</c> argument to the verification fun.
+        See the <seeguide marker="public_key:public_key_records">public_key
 	User's Guide</seeguide> for definition of
 	<c>#'OTPCertificate'{}</c> and <c>#'Extension'{}</c>.</p>
 

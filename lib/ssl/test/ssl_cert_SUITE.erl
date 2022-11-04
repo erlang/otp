@@ -661,13 +661,17 @@ verify_fun_always_run_client(Config) when is_list(Config) ->
     %% If user verify fun is called correctly we fail the connection.
     %% otherwise we cannot tell this case apart form where we miss
     %% to call users verify fun
-    FunAndState =  {fun(_,{extension, _}, UserState) ->
+    FunAndState =  {fun(_, Der, {extension, _}, UserState) ->
+                            true = is_binary(Der),
 			    {unknown, UserState};
-		       (_, valid, [ChainLen]) ->
+		       (_, Der, valid, [ChainLen]) ->
+                            true = is_binary(Der),
 			    {valid, [ChainLen + 1]};
-		       (_, valid_peer, [1]) ->
+		       (_, Der, valid_peer, [1]) ->
+                            true = is_binary(Der),
 			    {fail, "verify_fun_was_always_run"};
-		       (_, valid_peer, UserState) ->
+		       (_, Der, valid_peer, UserState) ->
+                            true = is_binary(Der),
 			    {valid, UserState}
 		    end, [0]},
 
@@ -695,13 +699,17 @@ verify_fun_always_run_server(Config) when is_list(Config) ->
     %% If user verify fun is called correctly we fail the connection.
     %% otherwise we cannot tell this case apart form where we miss
     %% to call users verify fun
-    FunAndState =  {fun(_,{extension, _}, UserState) ->
+    FunAndState =  {fun(_, Der, {extension, _}, UserState) ->
+                            true = is_binary(Der),
 			    {unknown, UserState};
-		       (_, valid, [ChainLen]) ->
+		       (_, Der, valid, [ChainLen]) ->
+                            true = is_binary(Der),
 			    {valid, [ChainLen + 1]};
-		       (_, valid_peer, [1]) ->
+		       (_, Der, valid_peer, [1]) ->
+                            true = is_binary(Der),
 			    {fail, "verify_fun_was_always_run"};
-		       (_, valid_peer, UserState) ->
+		       (_, Der, valid_peer, UserState) ->
+                            true = is_binary(Der),
 			    {valid, UserState}
 		    end, [0]},
 
