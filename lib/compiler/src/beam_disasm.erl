@@ -1280,7 +1280,9 @@ resolve_inst({badrecord,[Arg]},_,_,_) ->
 resolve_inst({update_record,[Hint,Size,Src,Dst,List]},_,_,_) ->
     {update_record,Hint,Size,Src,Dst,List};
 resolve_inst({bs_match,[{Fail,Ctx,{z,1},{u,_},Args}]},_,_,_) ->
-    {bs_match,Fail,Ctx,{list,Args}};
+    List = resolve_args(Args),
+    Commands = resolve_bs_match_commands(List),
+    {bs_match,Fail,Ctx,{commands,Commands}};
 
 %%
 %% Catches instructions that are not yet handled.
@@ -1326,6 +1328,34 @@ resolve_bs_create_bin_list([Type,Seg0,Unit0,Flags,Val0,Size0|Rest], Strings) ->
      resolve_bs_create_bin_list(Rest, Strings)];
 resolve_bs_create_bin_list([], _Str) ->
     [].
+
+%%-----------------------------------------------------------------------
+%% Resolves the Commands list for the bs_match/3 instruction
+%%-----------------------------------------------------------------------
+
+resolve_bs_match_commands([{atom,ensure_at_least},Size,Unit|Rest]) ->
+    [{ensure_at_least,Size,Unit} | resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,ensure_exactly},Stride|Rest]) ->
+    [{ensure_exactly,Stride} | resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,integer},Live,Flags0,Size,Unit,Dst|Rest]) ->
+    Flags = resolve_bs_match_flags(Flags0),
+    [{integer,Live,Flags,Size,Unit,Dst} |
+     resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,binary},Live,Flags0,Size,Unit,Dst|Rest]) ->
+    Flags = resolve_bs_match_flags(Flags0),
+    [{binary,Live,Flags,Size,Unit,Dst} |
+     resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,'=:='},nil,Bits,Value|Rest]) ->
+    [{'=:=',nil,Bits,Value} | resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,skip},Stride|Rest]) ->
+    [{skip,Stride} | resolve_bs_match_commands(Rest)];
+resolve_bs_match_commands([{atom,get_tail},Live,Src,Dst]) ->
+    [{get_tail,Live,Src,Dst}];
+resolve_bs_match_commands([]) ->
+    [].
+
+resolve_bs_match_flags(nil) -> {literal,[]};
+resolve_bs_match_flags({literal,[_|_]}=Flags) -> Flags.
 
 %%-----------------------------------------------------------------------
 %% The purpose of the following is just to add a hook for future changes.
