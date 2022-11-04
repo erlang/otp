@@ -336,6 +336,9 @@ netsplit(Config) when is_list(Config) ->
     ?assertEqual(Node, peer:call(Peer, erlang, node, [])), %% just to test RPC
     RemoteOldPid = erlang:spawn(Node, forever()),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, '$invisible', RemoteOldPid])),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
+    ?assertEqual([RemoteOldPid], pg:get_members(?FUNCTION_NAME, '$invisible')),
+
     %% hohoho, partition!
     disconnect_nodes([Node]),
     ?assertEqual(Node, peer:call(Peer, erlang, node, [])), %% just to ensure RPC still works
