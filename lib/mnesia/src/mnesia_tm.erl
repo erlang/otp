@@ -32,6 +32,7 @@
 	 do_update_op/3,
 	 get_info/1,
 	 get_transactions/0,
+         get_transactions_count/0,
 	 info/1,
 	 mnesia_down/1,
 	 prepare_checkpoint/2,
@@ -405,6 +406,10 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	{From, info} ->
 	    reply(From, {info, gb_trees:values(Participants),
 			 gb_trees:to_list(Coordinators)}, State);
+
+	{From, transactions_count} ->
+	    reply(From, {transactions_count, gb_trees:size(Participants),
+                         gb_trees:size(Coordinators)}, State);
 
 	{mnesia_down, N} ->
 	    verbose("Got mnesia_down from ~p, reconfiguring...~n", [N]),
@@ -2119,6 +2124,14 @@ tr_status(Tid,Participant) ->
     case lists:keymember(Tid, 1, Participant) of
 	true -> participant;
 	false  -> coordinator
+    end.
+
+get_transactions_count() ->
+    case req(transactions_count) of
+        {transactions_count, ParticipantsCount, CoordinatorsCount} ->
+            {ParticipantsCount, CoordinatorsCount};
+        Error ->
+            Error
     end.
 
 get_info(Timeout) ->
