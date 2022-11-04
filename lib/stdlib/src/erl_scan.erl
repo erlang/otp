@@ -93,7 +93,7 @@
 -type text_fun() :: fun((atom(), string()) -> boolean()).
 -type option() :: 'return' | 'return_white_spaces' | 'return_comments'
                 | 'text' | {'reserved_word_fun', resword_fun()}
-                | {'text_fun', text_fun()}.
+                | {'text_fun', text_fun()} | {'compiler_internal', [term()]}.
 -type options() :: option() | [option()].
 -type symbol() :: atom() | float() | integer() | string().
 -type token() :: {category(), Anno :: erl_anno:anno(), symbol()}
@@ -108,7 +108,11 @@
          text_fun    = fun(_, _) -> false end :: text_fun(),
          ws          = false                  :: boolean(),
          comment     = false                  :: boolean(),
-         has_fun     = false                  :: boolean()}).
+         has_fun     = false                  :: boolean(),
+         %% True if requested to parse %ssa%-check comments
+         checks      = false                  :: boolean(),
+         %% True if we're scanning inside a %ssa%-check comment
+         in_check    = false                  :: boolean()}).
 
 %%----------------------------------------------------------------------------
 
@@ -287,6 +291,8 @@ options(Opts0) when is_list(Opts0) ->
     WS = proplists:get_bool(return_white_spaces, Opts),
     Txt = proplists:get_bool(text, Opts),
     TxtFunOpt = proplists:get_value(text_fun, Opts, none),
+    Internal = proplists:get_value(compiler_internal, Opts, []),
+    Checks = proplists:get_bool(ssa_checks, Internal),
     DefTxtFun = fun(_, _) -> Txt end,
     {HasFun, TxtFun} =
         if
@@ -298,7 +304,8 @@ options(Opts0) when is_list(Opts0) ->
               comment     = Comment,
               ws          = WS,
               text_fun    = TxtFun,
-              has_fun     = HasFun};
+              has_fun     = HasFun,
+              checks      = Checks};
 options(Opt) ->
     options([Opt]).
 
@@ -330,8 +337,8 @@ expand_opt(O, Os) ->
 
 tokens1(Cs, St, Line, Col, Toks, Fun, Any) when ?STRING(Cs); Cs =:= eof ->
     case Fun(Cs, St, Line, Col, Toks, Any) of
-        {more,{Cs0,Ncol,Ntoks,Nline,Nany,Nfun}} ->
-            {more,{erl_scan_continuation,Cs0,Ncol,Ntoks,Nline,St,Nany,Nfun}};
+        {more,{Cs0,Nst,Ncol,Ntoks,Nline,Nany,Nfun}} ->
+            {more,{erl_scan_continuation,Cs0,Ncol,Ntoks,Nline,Nst,Nany,Nfun}};
         {ok,Toks0,eof,Nline,Ncol} ->
             Res = case Toks0 of
                       [] ->
@@ -348,8 +355,8 @@ tokens1(Cs, St, Line, Col, Toks, Fun, Any) when ?STRING(Cs); Cs =:= eof ->
 
 string1(Cs, St, Line, Col, Toks) ->
     case scan1(Cs, St, Line, Col, Toks) of
-        {more,{Cs0,Ncol,Ntoks,Nline,Any,Fun}} ->
-            case Fun(Cs0++eof, St, Nline, Ncol, Ntoks, Any) of
+        {more,{Cs0,Nst,Ncol,Ntoks,Nline,Any,Fun}} ->
+            case Fun(Cs0++eof, Nst, Nline, Ncol, Ntoks, Any) of
                 {ok,Toks1,_Rest,Line2,Col2} ->
                     {ok,lists:reverse(Toks1),location(Line2, Col2)};
                 {{error,_,_}=Error,_Rest} ->
@@ -393,6 +400,8 @@ scan1([$;|Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, ";", ';', 1);
 scan1([$_=C|Cs], St, Line, Col, Toks) ->
     scan_variable(Cs, St, Line, Col, Toks, [C]);
+scan1([$\%=C|Cs], St, Line, Col, Toks) when St#erl_scan.checks ->
+    scan_check(Cs, St, Line, Col, Toks, [C]);
 scan1([$\%|Cs], St, Line, Col, Toks) when not St#erl_scan.comment ->
     skip_comment(Cs, St, Line, Col, Toks, 1);
 scan1([$\%=C|Cs], St, Line, Col, Toks) ->
@@ -408,12 +417,12 @@ scan1([C|Cs], St, Line, Col, Toks) when ?DIGIT(C) ->
     scan_number(Cs, St, Line, Col, Toks, [C], no_underscore);
 scan1("..."++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "...", '...', 3);
-scan1(".."=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1(".."=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1(".."++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "..", '..', 2);
-scan1("."=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1("."=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1([$.=C|Cs], St, Line, Col, Toks) ->
     scan_dot(Cs, St, Line, Col, Toks, [C]);
 scan1([$"|Cs], St, Line, Col, Toks) -> %" Emacs
@@ -445,8 +454,8 @@ scan1([C|Cs], St, Line, Col, Toks) when ?WHITE_SPACE(C) ->
 %% ?= for the maybe ... else ... end construct
 scan1("?="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "?=", '?=', 2);
-scan1("?"=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1("?"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 %% << <- <=
 scan1("<<"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "<<", '<<', 2);
@@ -454,62 +463,62 @@ scan1("<-"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "<-", '<-', 2);
 scan1("<="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "<=", '<=', 2);
-scan1("<"=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1("<"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 %% >> >=
 scan1(">>"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, ">>", '>>', 2);
 scan1(">="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, ">=", '>=', 2);
-scan1(">"=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1(">"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 %% -> --
 scan1("->"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "->", '->', 2);
 scan1("--"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "--", '--', 2);
-scan1("-"=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1("-"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 %% ++
 scan1("++"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "++", '++', 2);
-scan1("+"=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1("+"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 %% =:= =/= =< == =>
 scan1("=:="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "=:=", '=:=', 3);
-scan1("=:"=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1("=:"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1("=/="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "=/=", '=/=', 3);
-scan1("=/"=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1("=/"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1("=<"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "=<", '=<', 2);
 scan1("=>"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "=>", '=>', 2);
 scan1("=="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "==", '==', 2);
-scan1("="=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1("="=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 %% /=
 scan1("/="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "/=", '/=', 2);
-scan1("/"=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1("/"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 %% ||
 scan1("||"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "||", '||', 2);
-scan1("|"=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1("|"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 %% :=
 scan1(":="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, ":=", ':=', 2);
 %% :: for typed records
 scan1("::"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "::", '::', 2);
-scan1(":"=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1(":"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 %% Optimization: punctuation characters less than 127:
 scan1([$=|Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "=", '=', 1);
@@ -554,8 +563,8 @@ scan1([C|Cs], St, Line, Col, Toks) when ?UNI255(C) ->
 scan1([C|Cs], _St, Line, Col, _Toks) when ?CHAR(C) ->
     Ncol = incr_column(Col, 1),
     scan_error({illegal,character}, Line, Col, Line, Ncol, Cs);
-scan1([]=Cs, _St, Line, Col, Toks) ->
-    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1([]=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1(eof=Cs, _St, Line, Col, Toks) ->
     {ok,Toks,Cs,Line,Col}.
 
@@ -565,7 +574,7 @@ scan_atom_fun(Cs, #erl_scan{}=St, Line, Col, Toks, Ncs) ->
 scan_atom(Cs0, St, Line, Col, Toks, Ncs0) ->
     case scan_name(Cs0, Ncs0) of
         {more,Ncs} ->
-            {more,{[],Col,Toks,Line,Ncs,fun scan_atom_fun/6}};
+            {more,{[],St,Col,Toks,Line,Ncs,fun scan_atom_fun/6}};
         {Wcs,Cs} ->
             try list_to_atom(Wcs) of
                 Name ->
@@ -588,7 +597,7 @@ scan_variable_fun(Cs, #erl_scan{}=St, Line, Col, Toks, Ncs) ->
 scan_variable(Cs0, St, Line, Col, Toks, Ncs0) ->
     case scan_name(Cs0, Ncs0) of
         {more,Ncs} ->
-            {more,{[],Col,Toks,Line,Ncs,fun scan_variable_fun/6}};
+            {more,{[],St,Col,Toks,Line,Ncs,fun scan_variable_fun/6}};
         {Wcs,Cs} ->
             try list_to_atom(Wcs) of
                 Name ->
@@ -628,6 +637,9 @@ scan_name(Cs, Ncs) ->
             false -> []
         end).
 
+scan_dot([C|_]=Cs, St, Line, Col, Toks, Ncs)
+  when St#erl_scan.in_check, C =/= $. ->
+    tok2(Cs, St#erl_scan{in_check=false}, Line, Col, Toks, Ncs, '.', 1);
 scan_dot([$%|_]=Cs, St, Line, Col, Toks, Ncs) ->
     Anno = anno(Line, Col, St, ?STR(dot, St, Ncs)),
     {ok,[{dot,Anno}|Toks],Cs,Line,incr_column(Col, 1)};
@@ -670,8 +682,8 @@ scan_newline([$\r|Cs], St, Line, Col, Toks) ->
     newline_end(Cs, St, Line, Col, Toks, 2, "\n\r");
 scan_newline([$\f|Cs], St, Line, Col, Toks) ->
     newline_end(Cs, St, Line, Col, Toks, 2, "\n\f");
-scan_newline([], _St, Line, Col, Toks) ->
-    {more,{[$\n],Col,Toks,Line,[],fun scan/6}};
+scan_newline([], St, Line, Col, Toks) ->
+    {more,{[$\n],St,Col,Toks,Line,[],fun scan/6}};
 scan_newline(Cs, St, Line, Col, Toks) ->
     scan_nl_white_space(Cs, St, Line, Col, Toks, "\n").
 
@@ -681,8 +693,8 @@ scan_nl_spcs_fun(Cs, #erl_scan{}=St, Line, Col, Toks, N)
 
 scan_nl_spcs([$\s|Cs], St, Line, Col, Toks, N) when N < 17 ->
     scan_nl_spcs(Cs, St, Line, Col, Toks, N+1);
-scan_nl_spcs([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun scan_nl_spcs_fun/6}};
+scan_nl_spcs([]=Cs, St, Line, Col, Toks, N) ->
+    {more,{Cs,St,Col,Toks,Line,N,fun scan_nl_spcs_fun/6}};
 scan_nl_spcs(Cs, St, Line, Col, Toks, N) ->
     newline_end(Cs, St, Line, Col, Toks, N, nl_spcs(N)).
 
@@ -692,8 +704,8 @@ scan_nl_tabs_fun(Cs, #erl_scan{}=St, Line, Col, Toks, N)
 
 scan_nl_tabs([$\t|Cs], St, Line, Col, Toks, N) when N < 11 ->
     scan_nl_tabs(Cs, St, Line, Col, Toks, N+1);
-scan_nl_tabs([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun scan_nl_tabs_fun/6}};
+scan_nl_tabs([]=Cs, St, Line, Col, Toks, N) ->
+    {more,{Cs,St,Col,Toks,Line,N,fun scan_nl_tabs_fun/6}};
 scan_nl_tabs(Cs, St, Line, Col, Toks, N) ->
     newline_end(Cs, St, Line, Col, Toks, N, nl_tabs(N)).
 
@@ -715,8 +727,8 @@ scan_nl_white_space([$\n|Cs], St, Line, Col, Toks, Ncs0) ->
 scan_nl_white_space([C|Cs], St, Line, Col, Toks, Ncs)
   when ?WHITE_SPACE(C) ->
     scan_nl_white_space(Cs, St, Line, Col, Toks, [C|Ncs]);
-scan_nl_white_space([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_nl_white_space_fun/6}};
+scan_nl_white_space([]=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_nl_white_space_fun/6}};
 scan_nl_white_space(Cs, #erl_scan{has_fun = false}=St, Line, no_col=Col,
                     Toks, Ncs) ->
     Anno = anno(Line),
@@ -740,8 +752,8 @@ scan_spcs_fun(Cs, #erl_scan{}=St, Line, Col, Toks, N)
 
 scan_spcs([$\s|Cs], St, Line, Col, Toks, N) when N < 16 ->
     scan_spcs(Cs, St, Line, Col, Toks, N+1);
-scan_spcs([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun scan_spcs_fun/6}};
+scan_spcs([]=Cs, St, Line, Col, Toks, N) ->
+    {more,{Cs,St,Col,Toks,Line,N,fun scan_spcs_fun/6}};
 scan_spcs(Cs, St, Line, Col, Toks, N) ->
     white_space_end(Cs, St, Line, Col, Toks, N, spcs(N)).
 
@@ -751,8 +763,8 @@ scan_tabs_fun(Cs, #erl_scan{}=St, Line, Col, Toks, N)
 
 scan_tabs([$\t|Cs], St, Line, Col, Toks, N) when N < 10 ->
     scan_tabs(Cs, St, Line, Col, Toks, N+1);
-scan_tabs([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun scan_tabs_fun/6}};
+scan_tabs([]=Cs, St, Line, Col, Toks, N) ->
+    {more,{Cs,St,Col,Toks,Line,N,fun scan_tabs_fun/6}};
 scan_tabs(Cs, St, Line, Col, Toks, N) ->
     white_space_end(Cs, St, Line, Col, Toks, N, tabs(N)).
 
@@ -763,8 +775,8 @@ skip_white_space([$\n|Cs], St, Line, Col, Toks, _N) ->
     skip_white_space(Cs, St, Line+1, new_column(Col, 1), Toks, 0);
 skip_white_space([C|Cs], St, Line, Col, Toks, N) when ?WHITE_SPACE(C) ->
     skip_white_space(Cs, St, Line, Col, Toks, N+1);
-skip_white_space([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun skip_white_space_fun/6}};
+skip_white_space([]=Cs, St, Line, Col, Toks, N) ->
+    {more,{Cs,St,Col,Toks,Line,N,fun skip_white_space_fun/6}};
 skip_white_space(Cs, St, Line, Col, Toks, N) ->
     scan1(Cs, St, Line, incr_column(Col, N), Toks).
 
@@ -776,8 +788,8 @@ scan_white_space([$\n|_]=Cs, St, Line, Col, Toks, Ncs) ->
     white_space_end(Cs, St, Line, Col, Toks, length(Ncs), lists:reverse(Ncs));
 scan_white_space([C|Cs], St, Line, Col, Toks, Ncs) when ?WHITE_SPACE(C) ->
     scan_white_space(Cs, St, Line, Col, Toks, [C|Ncs]);
-scan_white_space([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_white_space_fun/6}};
+scan_white_space([]=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_white_space_fun/6}};
 scan_white_space(Cs, St, Line, Col, Toks, Ncs) ->
     white_space_end(Cs, St, Line, Col, Toks, length(Ncs), lists:reverse(Ncs)).
 
@@ -789,7 +801,7 @@ white_space_end(Cs, St, Line, Col, Toks, N, Ncs) ->
 scan_char([$\\|Cs]=Cs0, St, Line, Col, Toks) ->
     case scan_escape(Cs, incr_column(Col, 2)) of
         more ->
-            {more,{[$$|Cs0],Col,Toks,Line,[],fun scan/6}};
+            {more,{[$$|Cs0],St,Col,Toks,Line,[],fun scan/6}};
         {error,Ncs,Error,Ncol} ->
             scan_error(Error, Line, Col, Line, Ncol, Ncs);
         {eof,Ncol} ->
@@ -811,8 +823,8 @@ scan_char([C|Cs], St, Line, Col, Toks) when ?UNICODE(C) ->
     scan1(Cs, St, Line, incr_column(Col, 2), [{char,Anno,C}|Toks]);
 scan_char([C|_Cs], _St, Line, Col, _Toks) when ?CHAR(C) ->
     scan_error({illegal,character}, Line, Col, Line, incr_column(Col, 1), eof);
-scan_char([], _St, Line, Col, Toks) ->
-    {more,{[$$],Col,Toks,Line,[],fun scan/6}};
+scan_char([], St, Line, Col, Toks) ->
+    {more,{[$$],St,Col,Toks,Line,[],fun scan/6}};
 scan_char(eof, _St, Line, Col, _Toks) ->
     scan_error(char, Line, Col, Line, incr_column(Col, 1), eof).
 
@@ -820,7 +832,7 @@ scan_string(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
     case scan_string0(Cs, St, Line, Col, $\", Str, Wcs) of %"
         {more,Ncs,Nline,Ncol,Nstr,Nwcs} ->
             State = {Nwcs,Nstr,Line0,Col0},
-            {more,{Ncs,Ncol,Toks,Nline,State,fun scan_string/6}};
+            {more,{Ncs,St,Ncol,Toks,Nline,State,fun scan_string/6}};
         {char_error,Ncs,Error,Nline,Ncol,EndCol} ->
             scan_error(Error, Nline, Ncol, Nline, EndCol, Ncs);
         {error,Nline,Ncol,Nwcs,Ncs} ->
@@ -835,7 +847,7 @@ scan_qatom(Cs, #erl_scan{}=St, Line, Col, Toks, {Wcs,Str,Line0,Col0}) ->
     case scan_string0(Cs, St, Line, Col, $\', Str, Wcs) of %'
         {more,Ncs,Nline,Ncol,Nstr,Nwcs} ->
             State = {Nwcs,Nstr,Line0,Col0},
-            {more,{Ncs,Ncol,Toks,Nline,State,fun scan_qatom/6}};
+            {more,{Ncs,St,Ncol,Toks,Nline,State,fun scan_qatom/6}};
         {char_error,Ncs,Error,Nline,Ncol,EndCol} ->
             scan_error(Error, Nline, Ncol, Nline, EndCol, Ncs);
         {error,Nline,Ncol,Nwcs,Ncs} ->
@@ -1031,12 +1043,12 @@ scan_number([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
 scan_number([$_,Next|Cs], St, Line, Col, Toks, [Prev|_]=Ncs, _Us) when
       ?DIGIT(Next) andalso ?DIGIT(Prev) ->
     scan_number(Cs, St, Line, Col, Toks, [Next,$_|Ncs], with_underscore);
-scan_number([$_]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
-    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
+scan_number([$_]=Cs, St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
 scan_number([$.,C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
     scan_fraction(Cs, St, Line, Col, Toks, [C,$.|Ncs], Us);
-scan_number([$.]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
-    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
+scan_number([$.]=Cs, St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
 scan_number([$#|Cs]=Cs0, St, Line, Col, Toks, Ncs0, Us) ->
     Ncs = lists:reverse(Ncs0),
     try list_to_integer(remove_digit_separators(Ncs, Us)) of
@@ -1051,8 +1063,8 @@ scan_number([$#|Cs]=Cs0, St, Line, Col, Toks, Ncs0, Us) ->
             %% Extremely unlikely to occur in practice.
             scan_error({illegal,base}, Line, Col, Line, Col, Cs0)
     end;
-scan_number([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
-    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
+scan_number([]=Cs, St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
 scan_number(Cs, St, Line, Col, Toks, Ncs0, Us) ->
     Ncs = lists:reverse(Ncs0),
     try list_to_integer(remove_digit_separators(Ncs, Us), 10) of
@@ -1088,10 +1100,10 @@ scan_based_int([$_,Next|Cs], St, Line, Col, Toks, B, [Prev|_]=Ncs, Bcs, _Us)
       when ?BASED_DIGIT(Next, B) andalso ?BASED_DIGIT(Prev, B) ->
     scan_based_int(Cs, St, Line, Col, Toks, B, [Next,$_|Ncs], Bcs,
                    with_underscore);
-scan_based_int([$_]=Cs, _St, Line, Col, Toks, B, NCs, BCs, Us) ->
-    {more,{Cs,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
-scan_based_int([]=Cs, _St, Line, Col, Toks, B, NCs, BCs, Us) ->
-    {more,{Cs,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
+scan_based_int([$_]=Cs, St, Line, Col, Toks, B, NCs, BCs, Us) ->
+    {more,{Cs,St,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
+scan_based_int([]=Cs, St, Line, Col, Toks, B, NCs, BCs, Us) ->
+    {more,{Cs,St,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
 scan_based_int(Cs, _St, Line, Col, _Toks, _B, [], Bcs, _Us) ->
     %% No actual digits following the base.
     Len = length(Bcs),
@@ -1118,12 +1130,12 @@ scan_fraction([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
 scan_fraction([$_,Next|Cs], St, Line, Col, Toks, [Prev|_]=Ncs, _Us) when
       ?DIGIT(Next) andalso ?DIGIT(Prev) ->
     scan_fraction(Cs, St, Line, Col, Toks, [Next,$_|Ncs], with_underscore);
-scan_fraction([$_]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
-    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_fraction/6}};
+scan_fraction([$_]=Cs, St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_fraction/6}};
 scan_fraction([E|Cs], St, Line, Col, Toks, Ncs, Us) when E =:= $e; E =:= $E ->
     scan_exponent_sign(Cs, St, Line, Col, Toks, [E|Ncs], Us);
-scan_fraction([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
-    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_fraction/6}};
+scan_fraction([]=Cs, St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_fraction/6}};
 scan_fraction(Cs, St, Line, Col, Toks, Ncs, Us) ->
     float_end(Cs, St, Line, Col, Toks, Ncs, Us).
 
@@ -1133,8 +1145,8 @@ scan_exponent_sign(Cs, #erl_scan{}=St, Line, Col, Toks, {Ncs, Us}) ->
 scan_exponent_sign([C|Cs], St, Line, Col, Toks, Ncs, Us) when
       C =:= $+; C =:= $- ->
     scan_exponent(Cs, St, Line, Col, Toks, [C|Ncs], Us);
-scan_exponent_sign([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
-    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_exponent_sign/6}};
+scan_exponent_sign([]=Cs, St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_exponent_sign/6}};
 scan_exponent_sign(Cs, St, Line, Col, Toks, Ncs, Us) ->
     scan_exponent(Cs, St, Line, Col, Toks, Ncs, Us).
 
@@ -1146,10 +1158,10 @@ scan_exponent([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
 scan_exponent([$_,Next|Cs], St, Line, Col, Toks, [Prev|_]=Ncs, _) when
       ?DIGIT(Next) andalso ?DIGIT(Prev) ->
     scan_exponent(Cs, St, Line, Col, Toks, [Next,$_|Ncs], with_underscore);
-scan_exponent([$_]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
-    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_exponent/6}};
-scan_exponent([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
-    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_exponent/6}};
+scan_exponent([$_]=Cs, St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_exponent/6}};
+scan_exponent([]=Cs, St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_exponent/6}};
 scan_exponent(Cs, St, Line, Col, Toks, Ncs, Us) ->
     float_end(Cs, St, Line, Col, Toks, Ncs, Us).
 
@@ -1175,8 +1187,8 @@ skip_comment([C|Cs], St, Line, Col, Toks, N) when C =/= $\n, ?CHAR(C) ->
             Ncol = incr_column(Col, N+1),
             scan_error({illegal,character}, Line, Col, Line, Ncol, Cs)
     end;
-skip_comment([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun skip_comment_fun/6}};
+skip_comment([]=Cs, St, Line, Col, Toks, N) ->
+    {more,{Cs,St,Col,Toks,Line,N,fun skip_comment_fun/6}};
 skip_comment(Cs, St, Line, Col, Toks, N) ->
     scan1(Cs, St, Line, incr_column(Col, N), Toks).
 
@@ -1192,11 +1204,53 @@ scan_comment([C|Cs], St, Line, Col, Toks, Ncs)
             Ncol = incr_column(Col, length(Ncs)+1),
             scan_error({illegal,character}, Line, Col, Line, Ncol, Cs)
     end;
-scan_comment([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_comment_fun/6}};
+scan_comment([]=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_comment_fun/6}};
 scan_comment(Cs, St, Line, Col, Toks, Ncs0) ->
     Ncs = lists:reverse(Ncs0),
     tok3(Cs, St, Line, Col, Toks, comment, Ncs, Ncs).
+
+scan_check("%%ssa%" ++ Cs, St, Line, Col, Toks, _Ncs) ->
+    scan_check1(Cs, St, Line, Toks, Col, 7);
+scan_check("%%ssa"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check("%%ss"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check("%%s"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check("%%"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check("%"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check("%ssa%" ++ Cs, St, Line, Col, Toks, _Ncs) ->
+    scan_check1(Cs, St, Line, Toks, Col, 6);
+scan_check("%ssa"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check("%ss"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check("%s"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check("ssa%" ++ Cs, St, Line, Col, Toks, _Ncs) ->
+    scan_check1(Cs, St, Line, Toks, Col, 5);
+scan_check("ssa"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check("ss"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check("s"=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check([]=Cs, St, Line, Col, Toks, Ncs) ->
+    {more,{Cs,St,Col,Toks,Line,Ncs,fun scan_check/6}};
+scan_check(Cs, St=#erl_scan{comment=true}, Line, Col, Toks, Ncs) ->
+    scan_comment(Cs, St, Line, Col, Toks, Ncs);
+scan_check(Cs, St, Line, Col, Toks, _Ncs) ->
+    skip_comment(Cs, St, Line, Col, Toks, 1).
+
+scan_check1(Cs, St=#erl_scan{in_check=true}, Line, Toks, Col, NoofCols) ->
+    %% Skip as we are already in the check mode
+    scan1(Cs, St, Line, incr_column(Col, NoofCols), Toks);
+scan_check1(Cs, St, Line, Toks, Col, NoofCols) ->
+    tok2(Cs, St#erl_scan{in_check=true}, Line,
+         Col, Toks, "%ssa%", '%ssa%', NoofCols).
 
 tok2(Cs, #erl_scan{has_fun = false}=St, Line, no_col=Col, Toks, _Wcs, P) ->
     scan1(Cs, St, Line, Col, [{P,anno(Line)}|Toks]);
