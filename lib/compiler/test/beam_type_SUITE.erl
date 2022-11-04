@@ -119,6 +119,11 @@ integers(_Config) ->
     {'EXIT',{system_limit,_}} = catch do_integers_12(42),
     {'EXIT',{system_limit,_}} = catch do_integers_12([]),
 
+    {'EXIT',{{badmatch,42},_}} = catch do_integers_13(-43),
+    {'EXIT',{{badmatch,0},_}} = catch do_integers_13(-1),
+    {'EXIT',{{badmatch,-1},_}} = catch do_integers_13(0),
+    {'EXIT',{{badmatch,-18},_}} = catch do_integers_13(17),
+
     ok.
 
 do_integers_1(B0) ->
@@ -201,6 +206,35 @@ do_integers_11(V) ->
 
 do_integers_12(X) ->
     (1 bsl (1 bsl 100)) + X.
+
+%% GH-6427.
+do_integers_13(X) ->
+    try do_integers_13_1(<<X>>) of
+        _ -> error(should_fail)
+    catch
+        C:R:_ ->
+            try do_integers_13_2(X) of
+                _ -> error(should_fail)
+            catch
+                C:R:_ ->
+                    try do_integers_13_3(X) of
+                        _ -> error(should_fail)
+                    catch
+                        C:R:Stk ->
+                            erlang:raise(C, R, Stk)
+                    end
+            end
+    end.
+
+do_integers_13_1(<<X>>) ->
+    <<(X = bnot X)>>.
+
+do_integers_13_2(X) when is_integer(X), -64 < X, X < 64 ->
+    (X = bnot X) + 1.
+
+do_integers_13_3(X) when is_integer(X), -64 < X, X < 64 ->
+    X = bnot X,
+    X + 1.
 
 numbers(_Config) ->
     Int = id(42),

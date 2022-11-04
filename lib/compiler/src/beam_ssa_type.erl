@@ -920,8 +920,20 @@ update_anno_types_1([#b_var{}=V|As], Ts, Index, ArgTypes) ->
     case beam_types:meet(T0, T1) of
         any ->
             update_anno_types_1(As, Ts, Index + 1, ArgTypes);
+        none ->
+            %% This instruction will never be reached. This happens when
+            %% compiling code such as the following:
+            %%
+            %%   f(X) when is_integer(X), 0 =< X, X < 64 ->
+            %%        (X = bnot X) + 1.
+            %%
+            %% The main type optimization sub pass will not find out
+            %% that `(X = bnot X)` will never succeed and that the `+`
+            %% operator is never executed, but this sub pass will.
+            %% This happens very rarely; therefore, don't bother removing
+            %% the unreachable instruction.
+            update_anno_types_1(As, Ts, Index + 1, ArgTypes);
         T ->
-            true = T =/= none,                  %Assertion.
             update_anno_types_1(As, Ts, Index + 1, ArgTypes#{Index => T})
     end;
 update_anno_types_1([_|As], Ts, Index, ArgTypes) ->
