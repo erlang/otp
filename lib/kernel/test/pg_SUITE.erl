@@ -575,7 +575,14 @@ group_leave(Config) when is_list(Config) ->
     sync({?FUNCTION_NAME, Node}),
     sync(?FUNCTION_NAME),
     ?assertEqual(Remain, pg:get_members(?FUNCTION_NAME, two)),
+
+    PgPid = whereis(?FUNCTION_NAME),
+    1 = erlang:trace(PgPid, true, ['receive']),
     peer:stop(Peer),
+    receive
+        {trace, PgPid, 'receive', {nodedown, Node}} -> ok
+    end,
+    1 = erlang:trace(PgPid, false, ['receive']),
     sync(?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, two)),
     ok.
