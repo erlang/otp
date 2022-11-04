@@ -437,7 +437,7 @@ handle_info({nodedown, _Node}, State) ->
 handle_info({nodeup, Node}, State) when Node =:= node() ->
     {noreply, State};
 handle_info({nodeup, Node}, #state{scope = Scope} = State) ->
-    {Scope, Node} ! {discover, self()},
+    erlang:send({Scope, Node}, {discover, self()}, [noconnect]),
     {noreply, State};
 
 handle_info(_Info, _State) ->
