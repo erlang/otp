@@ -2583,14 +2583,9 @@ infer_get_range(_) -> unknown.
 infer_subtract_types([{V,T0}|Vs], Ts) ->
     T1 = concrete_type(V, Ts),
     case beam_types:subtract(T1, T0) of
-        T1 ->
-            infer_subtract_types(Vs, Ts);
-        T ->
-            %% We only do this subtraction for type tests whose
-            %% outcome is unknown. The outcome would have been known
-            %% (false) if type subtraction produced 'none'.
-            true = T =/= none,                  %Assertion.
-            infer_subtract_types(Vs, Ts#{V := T})
+        none -> none;
+        T1 -> infer_subtract_types(Vs, Ts);
+        T -> infer_subtract_types(Vs, Ts#{V := T})
     end;
 infer_subtract_types([], Ts) ->
     Ts.

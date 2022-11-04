@@ -375,6 +375,11 @@ booleans(_Config) ->
     end,
     false = is_boolean(NotBool),
 
+    {'EXIT',{{case_clause,false},_}} = catch do_booleans_4(42),
+    {'EXIT',{{case_clause,true},_}} = catch do_booleans_4(a),
+    {'EXIT',{{case_clause,true},_}} = catch do_booleans_4(false),
+    {'EXIT',{{badmatch,true},_}} = catch do_booleans_4(true),
+
     ok.
 
 do_booleans_1(B) ->
@@ -401,6 +406,13 @@ do_booleans_3(NewContent, IsAnchor) ->
             ok;
        true ->
             error
+    end.
+
+do_booleans_4(X) ->
+    case is_atom(X) of
+        Y when X ->
+            false = Y,
+            0
     end.
 
 -record(update_tuple_a, {a,b}).
