@@ -2662,21 +2662,26 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
     ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, []}, partial_chain := _},
         [{partial_chain, fun(_) -> ok end}], client),
 
-    OldF = fun(_) -> ok end,
-    NewF = fun(_,_,_) -> ok end,
-    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, OldF}, partial_chain := _},
-        [{verify_fun, OldF}], client),
-    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {NewF, foo}, partial_chain := _},
-        [{verify_fun, {NewF, foo}}], client),
-    ?OK(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := {NewF, foo}, partial_chain := _},
-        [{verify_fun, {NewF, foo}}, {verify, verify_peer}, {cacerts, [Cert]}],
+    OldF1 = fun(_) -> ok end,
+    NewF3 = fun(_,_,_) -> ok end,
+    NewF4 = fun(_,_,_,_) -> ok end,
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {_, OldF1}, partial_chain := _},
+        [{verify_fun, OldF1}], client),
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {NewF3, foo}, partial_chain := _},
+        [{verify_fun, {NewF3, foo}}], client),
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := {NewF3, foo}, partial_chain := _},
+        [{verify_fun, {NewF3, foo}}, {verify, verify_peer}, {cacerts, [Cert]}],
         server),
+    ?OK(#{fail_if_no_peer_cert := false, verify := verify_peer, verify_fun := {NewF4, foo}, partial_chain := _},
+        [{verify_fun, {NewF4, foo}}, {verify, verify_peer}, {cacerts, [Cert]}],
+        server),
+
 
     %% check verify_fun in update_options case
     #{verify_fun := undefined} = ssl:update_options([{verify, verify_peer}, {cacerts, [Cert]}], client, DefOpts),
-    #{verify_fun := {NewF, bar}} = ssl:update_options([{verify, verify_peer}, {cacerts, [Cert]},
-                                                       {verify_fun, {NewF, bar}}],
-                                                      client, DefOpts),
+    #{verify_fun := {NewF3, bar}} = ssl:update_options([{verify, verify_peer}, {cacerts, [Cert]},
+                                                        {verify_fun, {NewF3, bar}}],
+                                                       client, DefOpts),
 
     %% Errors
     ?ERR({partial_chain, undefined}, [{partial_chain, undefined}], client),
