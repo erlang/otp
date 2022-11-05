@@ -2210,6 +2210,8 @@ t_var_name(?var(Id)) -> Id.
 t_has_var(?var(_)) -> true;
 t_has_var(?function(Domain, Range)) ->
   t_has_var(Domain) orelse t_has_var(Range);
+t_has_var(?list(Contents, ?nil, _)) ->
+  t_has_var(Contents);
 t_has_var(?list(Contents, Termination, _)) ->
   t_has_var(Contents) orelse t_has_var(Termination);
 t_has_var(?product(Types)) -> t_has_var_list(Types);
