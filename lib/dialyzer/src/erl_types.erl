@@ -3822,11 +3822,12 @@ is_limited(?tuple(?any, ?any, ?any), _K) -> true;
 is_limited(?tuple(Elements, _Arity, _), K) ->
   if K =:= 1 -> false;
     true ->
-      K1 = K-1,
-      lists:all(fun(E) -> is_limited(E, K1) end, Elements)
+      are_all_limited(Elements, K - 1)
   end;
 is_limited(?tuple_set(_) = T, K) ->
-  lists:all(fun(Tuple) -> is_limited(Tuple, K) end, t_tuple_subtypes(T));
+  are_all_limited(t_tuple_subtypes(T), K);
+is_limited(?list(Elements, ?nil, _Size), K) ->
+  is_limited(Elements, K - 1);
 is_limited(?list(Elements, Termination, _Size), K) ->
   if K =:= 1 -> is_limited(Termination, K);
     true -> is_limited(Termination, K - 1)
@@ -3835,10 +3836,9 @@ is_limited(?list(Elements, Termination, _Size), K) ->
 is_limited(?function(Domain, Range), K) ->
   is_limited(Domain, K) andalso is_limited(Range, K-1);
 is_limited(?product(Elements), K) ->
-  K1 = K-1,
-  lists:all(fun(X) -> is_limited(X, K1) end, Elements);
+  are_all_limited(Elements, K - 1);
 is_limited(?union(Elements), K) ->
-  lists:all(fun(X) -> is_limited(X, K) end, Elements);
+  are_all_limited(Elements, K);
 is_limited(?opaque(Es), K) ->
   lists:all(fun(#opaque{struct = S}) -> is_limited(S, K) end, Es);
 is_limited(?map(Pairs, DefK, DefV), K) ->
@@ -3850,6 +3850,11 @@ is_limited(?map(Pairs, DefK, DefV), K) ->
     andalso is_limited(DefK, K1) andalso is_limited(DefV, K1);
 is_limited(_, _K) -> true.
 
+are_all_limited([E|Es], K) ->
+  is_limited(E, K) andalso are_all_limited(Es, K);
+are_all_limited([], _) ->
+  true.
+
 t_limit_k(_, K) when K =< 0 -> ?any;
 t_limit_k(?tuple(?any, ?any, ?any) = T, _K) -> T;
 t_limit_k(?tuple(Elements, Arity, _), K) ->
@@ -3858,6 +3863,9 @@ t_limit_k(?tuple(Elements, Arity, _), K) ->
   end;
 t_limit_k(?tuple_set(_) = T, K) ->
   t_sup([t_limit_k(Tuple, K) || Tuple <- t_tuple_subtypes(T)]);
+t_limit_k(?list(Elements, ?nil, Size), K) ->
+  NewElements = t_limit_k(Elements, K - 1),
+  ?list(NewElements, ?nil, Size);
 t_limit_k(?list(Elements, Termination, Size), K) ->
   NewTermination =
     if K =:= 1 ->
