@@ -310,15 +310,15 @@
                   arity = 0 :: arity(), struct :: erl_type()}).
 
 -define(atom(Set),                 #c{tag=?atom_tag, elements=Set}).
--define(bitstr(Unit, Base),        #c{tag=?binary_tag, elements=[Unit,Base]}).
+-define(bitstr(Unit, Base),        #c{tag=?binary_tag, elements={Unit,Base}}).
 -define(float,                     ?number(?any, ?float_qual)).
 -define(function(Domain, Range),   #c{tag=?function_tag,
-				      elements=[Domain, Range]}).
+				      elements={Domain,Range}}).
 -define(identifier(Types),         #c{tag=?identifier_tag, elements=Types}).
 -define(integer(Types),            ?number(Types, ?integer_qual)).
 -define(int_range(From, To),       ?integer(#int_rng{from=From, to=To})).
 -define(int_set(Set),              ?integer(#int_set{set=Set})).
--define(list(Types, Term, Size),   #c{tag=?list_tag, elements=[Types,Term],
+-define(list(Types, Term, Size),   #c{tag=?list_tag, elements={Types,Term},
 				      qualifier=Size}).
 -define(nil,                       #c{tag=?nil_tag}).
 -define(nonempty_list(Types, Term),?list(Types, Term, ?nonempty_qual)).
