@@ -472,6 +472,8 @@ t_contains_opaque(?identifier(_Types), _Opaques) -> false;
 t_contains_opaque(?int_range(_From, _To), _Opaques) -> false;
 t_contains_opaque(?int_set(_Set), _Opaques) -> false;
 t_contains_opaque(?integer(_Types), _Opaques) -> false;
+t_contains_opaque(?list(Type, ?nil, _), Opaques) ->
+  t_contains_opaque(Type, Opaques);
 t_contains_opaque(?list(Type, Tail, _), Opaques) ->
   t_contains_opaque(Type, Opaques) orelse t_contains_opaque(Tail, Opaques);
 t_contains_opaque(?map(_, _, _) = Map, Opaques) ->
@@ -494,8 +496,9 @@ t_contains_opaque(?var(_Id), _Opaques) -> false.
 
 -spec list_contains_opaque([erl_type()], [erl_type()]) -> boolean().
 
-list_contains_opaque(List, Opaques) ->
-  lists:any(fun(E) -> t_contains_opaque(E, Opaques) end, List).
+list_contains_opaque([H|T], Opaques) ->
+  t_contains_opaque(H, Opaques) orelse list_contains_opaque(T, Opaques);
+list_contains_opaque([], _Opaques) -> false.
 
 %% t_find_opaque_mismatch/2 of two types should only be used if their
 %% t_inf is t_none() due to some opaque type violation. However,
