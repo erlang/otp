@@ -316,10 +316,16 @@ void BeamModuleAssembler::emit_bif_and(const ArgLabel &Fail,
     ERTS_CT_ASSERT(am_false == make_atom(0));
     ERTS_CT_ASSERT(am_true == make_atom(1));
 
-    a.and_(TMP3, src1.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
-    a.and_(TMP4, src2.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
-    a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
-    a.ccmp(TMP3, TMP4, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+    if (exact_type(Src1, BEAM_TYPE_ATOM) && exact_type(Src2, BEAM_TYPE_ATOM)) {
+        comment("simplified type check because operands are atoms");
+        a.orr(TMP3, src1.reg, src2.reg);
+        a.tst(TMP3, imm(-1ull << (_TAG_IMMED2_SIZE + 1)));
+    } else {
+        a.and_(TMP3, src1.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
+        a.and_(TMP4, src2.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
+        a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
+        a.ccmp(TMP3, TMP4, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+    }
 
     if (Fail.get()) {
         a.b_ne(resolve_beam_label(Fail, disp1MB));
@@ -1056,10 +1062,16 @@ void BeamModuleAssembler::emit_bif_or(const ArgLabel &Fail,
     ERTS_CT_ASSERT(am_false == make_atom(0));
     ERTS_CT_ASSERT(am_true == make_atom(1));
 
-    a.and_(TMP3, src1.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
-    a.and_(TMP4, src2.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
-    a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
-    a.ccmp(TMP3, TMP4, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+    if (exact_type(Src1, BEAM_TYPE_ATOM) && exact_type(Src2, BEAM_TYPE_ATOM)) {
+        comment("simplified type check because operands are atoms");
+        a.orr(TMP3, src1.reg, src2.reg);
+        a.tst(TMP3, imm(-1ull << (_TAG_IMMED2_SIZE + 1)));
+    } else {
+        a.and_(TMP3, src1.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
+        a.and_(TMP4, src2.reg, imm(_TAG_IMMED2_MASK | ~diff_bit));
+        a.cmp(TMP3, imm(_TAG_IMMED2_ATOM));
+        a.ccmp(TMP3, TMP4, imm(NZCV::kNone), imm(arm::CondCode::kEQ));
+    }
 
     if (Fail.get()) {
         a.b_ne(resolve_beam_label(Fail, disp1MB));
