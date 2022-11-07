@@ -339,10 +339,7 @@ handle_call(_Request, _From, _S) ->
     erlang:error(badarg).
 
 -spec handle_cast(
-    {sync, Peer :: pid(), Groups :: [{group(), [pid()]}]} |
-    {discover, Peer :: pid()} |
-    {join, Peer :: pid(), group(), pid() | [pid()]} |
-    {leave, Peer :: pid(), pid() | [pid()], [group()]},
+    {sync, Peer :: pid(), Groups :: [{group(), [pid()]}]},
     State :: state()) -> {noreply, state()}.
 
 handle_cast({sync, Peer, Groups}, #state{scope = Scope, remote = Remote, scope_monitors = ScopeMon,
