@@ -530,11 +530,6 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       options are also enumerated, see type <seetype marker="#warn_option">
       <c>warn_option()</c></seetype>.</p>
 
-    <note>
-      <p>Warning option <c>-Wrace_conditions</c> has no effect when
-        set in source files.</p>
-    </note>
-
     <p>Attribute <c>-dialyzer()</c> can also be used for turning on
       warnings. For example, if a module has been fixed regarding
       unmatched returns, adding the following line can help in assuring
