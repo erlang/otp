@@ -2210,8 +2210,6 @@ local_func_label(Key, #cg{functable=Map}=St0) ->
 %% is_gc_bif(Name, Args) -> true|false.
 %%  Determines whether the BIF Name/Arity might do a GC.
 
--spec is_gc_bif(atom(), [beam_ssa:value()]) -> boolean().
-
 is_gc_bif(hd, [_]) -> false;
 is_gc_bif(tl, [_]) -> false;
 is_gc_bif(self, []) -> false;
