@@ -2470,6 +2470,11 @@ empty_matches(Config) when is_list(Config) ->
     <<Zero:0/unit:1>> = id(<<>>),
     0 = id(Zero),
 
+    ok = em_4(<<>>, <<>>),
+    {'EXIT',{function_clause,[_|_]}} = catch em_4(<<>>, <<0:1>>),
+    {'EXIT',{function_clause,[_|_]}} = catch em_4(<<0:1>>, <<>>),
+    {'EXIT',{function_clause,[_|_]}} = catch em_4(<<0:1>>, <<0:1>>),
+
     ok.
 
 em_1(Bytes) ->
@@ -2492,6 +2497,10 @@ em_3(<<V:0/binary,Rest/bits>>) ->
     Rest.
 
 em_3_1(I) -> I.
+
+%% GH-6426/OTP-xxxxx
+em_4(<<X:0, _:X>>, <<Y:0, _:Y>>) ->
+    ok.
 
 %% beam_trim would sometimes crash when bs_start_match4 had {atom,resume} as
 %% its fail label.

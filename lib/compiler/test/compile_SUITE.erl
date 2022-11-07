@@ -676,7 +676,7 @@ encrypted_abstr(Config) when is_list(Config) ->
 		  %% Now run the tests that require crypto.
 		  encrypted_abstr_1(Simple, Target),
 		  ok = file:delete(Target),
-		  ok = file:del_dir_r(filename:dirname(Target))
+		  _ = file:del_dir_r(filename:dirname(Target))
 	  end,
     
     %% Cleanup.
@@ -1130,7 +1130,7 @@ do_core_pp_1(M, A, Outdir) ->
     compile_forms(M, Core, [clint,ssalint,from_core,binary]),
 
     %% Don't optimize to test that we are not dependent
-    %% on the Core Erlang optmimization passes.
+    %% on the Core Erlang optimization passes.
     %% (Example of a previous bug: The core_parse pass
     %% would not turn map literals into #c_literal{}
     %% records; if sys_core_fold was run it would fix
@@ -1154,7 +1154,16 @@ core_roundtrip(Config) ->
     ok = file:make_dir(Outdir),
 
     TestBeams = get_unique_beam_files(),
-    test_lib:p_run(fun(F) -> do_core_roundtrip(F, Outdir) end, TestBeams).
+
+    Test = fun(F) -> do_core_roundtrip(F, Outdir) end,
+    case erlang:system_info(wordsize) of
+        4 ->
+            %% This test case is very memory intensive. Only
+            %% use a single process.
+            test_lib:p_run(Test, TestBeams, 1);
+        8 ->
+            test_lib:p_run(Test, TestBeams)
+    end.
 
 do_core_roundtrip(Beam, Outdir) ->
     try

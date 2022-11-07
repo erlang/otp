@@ -256,17 +256,24 @@ traverse(Tree, DefinedVars, State) ->
       {State1, [SizeType, ValType]} =
 	traverse_list([Size, Val], DefinedVars, State),
       {State2, TypeConstr, BinValTypeConstr} =
-	case cerl:bitstr_bitsize(Tree) of
-	  all ->
-            T = t_bitstr(UnitVal, 0),
-            {State1, T, T};
-	  utf ->
-            %% contains an integer number of bytes
-            T = t_binary(),
-            {State1, T, T};
-	  N when is_integer(N) ->
-            {State1, t_bitstr(0, N), t_bitstr(1, N)};
-	  any -> % Size is not a literal
+        case cerl:is_literal(Size) of
+          true ->
+            case cerl:concrete(Size) of
+              all ->
+                T = t_bitstr(UnitVal, 0),
+                {State1, T, T};
+              undefined ->      %utf-8/16/32
+                %% contains an integer number of bytes
+                T = t_binary(),
+                {State1, T, T};
+              N0 when is_integer(N0) ->
+                N = N0 * UnitVal,
+                {State1, t_bitstr(0, N), t_bitstr(1, N)};
+              _ ->
+                {State1, t_none(), t_none()}
+            end;
+          false ->
+            %% Size is not a literal
             T1 = ?mk_fun_var(bitstr_constr(SizeType, UnitVal), [SizeType]),
             T2 =
               ?mk_fun_var(bitstr_constr(SizeType, UnitVal, match), [SizeType]),

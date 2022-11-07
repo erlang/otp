@@ -1600,7 +1600,8 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
   Val = cerl:bitstr_val(Seg),
   SegType = cerl:concrete(cerl:bitstr_type(Seg)),
   UnitVal = cerl:concrete(cerl:bitstr_unit(Seg)),
-  case cerl:bitstr_bitsize(Seg) of
+  Size = cerl:bitstr_size(Seg),
+  case bitstr_bitsize_type(Size) of
     all ->
       binary = SegType, [] = Segs, %% just an assert
       T = t_inf(t_bitstr(UnitVal, 0), BinType),
@@ -1614,8 +1615,7 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
                                      Map, State, false, []),
       Type = t_binary(),
       bind_bin_segs(Segs, BinType, [Type|Acc], Map1, State);
-    BitSz when is_integer(BitSz); BitSz =:= any ->
-      Size = cerl:bitstr_size(Seg),
+    any ->
       {Map1, [SizeType]} = do_bind_pat_vars([Size], [t_non_neg_integer()],
                                             Map, State, false, []),
       Opaques = State#state.opaques,
@@ -1665,6 +1665,18 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
   end;
 bind_bin_segs([], _BinType, Acc, Map, _State) ->
   {Map, lists:reverse(Acc)}.
+
+bitstr_bitsize_type(Size) ->
+  case cerl:is_literal(Size) of
+    true ->
+      case cerl:concrete(Size) of
+        all -> all;
+        undefined -> utf;
+        _ -> any
+      end;
+    false ->
+      any
+  end.
 
 %% Return the infimum (meet) of ExpectedType and Type if is not
 %% t_none(), and raise a bind_error() it is t_none().
