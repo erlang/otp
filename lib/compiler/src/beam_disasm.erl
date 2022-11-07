@@ -1261,8 +1261,11 @@ resolve_inst({recv_marker_use,[Reg]},_,_,_) ->
 %% OTP 25.
 %%
 
-resolve_inst({bs_create_bin,Args},_,_,_) ->
-    {bs_create_bin,Args};
+resolve_inst({bs_create_bin,
+              [{Fail,{u,Heap},{u,Live},{u,Unit},Dst,{z,1},{u,_},List0}]},
+             _, Strings, _) ->
+    List = resolve_bs_create_bin_list(List0, Strings),
+    {bs_create_bin,Fail,Heap,Live,Unit,Dst,{list,List}};
 resolve_inst({call_fun2,[Tag,{u,Arity},Func]},_,_,_) ->
     {call_fun2,Tag,Arity,Func};
 resolve_inst({nif_start,[]},_,_,_) ->
@@ -1305,6 +1308,24 @@ resolve_arg(nil) -> nil.
 resolve_arg_unsigned({u,N}) when is_integer(N), N >= 0 -> N.
 
 resolve_arg_integer({i,N}) when is_integer(N) -> {integer,N}.
+
+%%-----------------------------------------------------------------------
+%% Resolves the OpList for the bs_create_bin/6 instruction
+%%-----------------------------------------------------------------------
+
+resolve_bs_create_bin_list(
+  [{atom,string}=Type,Seg0,Unit0,Flags,Offset0,Size0|Rest], Strings) ->
+    [Seg,Unit,Offset,{integer,Len}=Size] =
+        resolve_args([Seg0,Unit0,Offset0,Size0]),
+    <<_:Offset/binary,Bin:Len/binary,_/binary>> = Strings,
+    [Type,Seg,Unit,Flags,{string,Bin},Size |
+     resolve_bs_create_bin_list(Rest, Strings)];
+resolve_bs_create_bin_list([Type,Seg0,Unit0,Flags,Val0,Size0|Rest], Strings) ->
+    [Seg,Unit,Val,Size] = resolve_args([Seg0,Unit0,Val0,Size0]),
+    [Type,Seg,Unit,Flags,Val,Size |
+     resolve_bs_create_bin_list(Rest, Strings)];
+resolve_bs_create_bin_list([], _Str) ->
+    [].
 
 %%-----------------------------------------------------------------------
 %% The purpose of the following is just to add a hook for future changes.
