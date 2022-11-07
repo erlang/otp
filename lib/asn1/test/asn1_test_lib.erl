@@ -306,7 +306,14 @@ ber_get_len(<<1:1,Octets:7,T0/binary>>) ->
 %%  Will fail the test case if there were any errors.
 
 p_run(Test, List) ->
-    S = erlang:system_info(schedulers),
+    %% Limit the number of parallel processes to avoid running out of
+    %% memory.
+    S = case {erlang:system_info(schedulers),erlang:system_info(wordsize)} of
+            {S0,4} ->
+                min(S0, 2);
+            {S0,_} ->
+                min(S0, 8)
+        end,
     N = case test_server:is_cover() of
 	    false ->
 		S + 1;

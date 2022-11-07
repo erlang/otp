@@ -493,7 +493,16 @@ ensure_path_invalid_path(Config) when is_list(Config) ->
     FileName =  filename:join(BaseDir, "foo"),
     ok = file:write_file(FileName, <<"eh?\n">>),
     Path = filename:join(FileName, "foo/bar/baz"),
-    {error,enotdir} = filelib:ensure_path(Path),
+    case filelib:ensure_path(Path) of
+        {error,enotdir} ->
+            ok;
+        {error,enoent} ->
+            %% The documentation has the following to say about the
+            %% `enotdir` error reason:
+            %%
+            %% "On some platforms, enoent is returned instead."
+            ok
+    end,
     false = filelib:is_dir(Path).
 
 ensure_path_relative_path(Config) when is_list(Config) ->
