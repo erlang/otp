@@ -65,6 +65,7 @@
 	 bad_term_to_binary/1,
 	 bad_binary_to_term_2/1,safe_binary_to_term2/1,
 	 bad_binary_to_term/1, bad_terms/1, more_bad_terms/1,
+         big_binary_to_term/1,
 	 otp_5484/1,otp_5933/1,
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
@@ -93,6 +94,7 @@ all() ->
      b2t_used_big, t2b_deterministic,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
+     big_binary_to_term,
      sub_bin_copy, bad_term_to_binary, t2b_system_limit,
      term_to_iovec, more_bad_terms,
      otp_5484, otp_5933,
@@ -1117,6 +1119,23 @@ safe_binary_to_term2(Config) when is_list(Config) ->
     BadExtFun = <<131,113,100,0,4,98,108,117,101,100,0,4,109,111,111,110,97,3>>,
     bad_bin_to_term(BadExtFun, [safe]),
     ok.
+
+%% OTP-18306 Decode binary/bitstring with size >= 2Gbyte
+big_binary_to_term(Config) ->
+    run_when_enough_resources(
+      fun() ->
+              Bin = binary:copy(<<0>>, 2 * 1024 * 1024 * 1024),
+              big_binary_roundtrip(Bin),
+              erlang:garbage_collect(),
+              <<_:1, BitStr/bits>> = Bin,
+              big_binary_roundtrip(BitStr),
+              ok
+      end).
+
+big_binary_roundtrip(Bin) ->
+    Bin = erlang:binary_to_term(erlang:term_to_binary(Bin)),
+    ok.
+
 
 %% Tests bad input to binary_to_term/1.
 

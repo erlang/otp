@@ -4483,19 +4483,21 @@ dec_term_atom_common:
 	    }
 	case BINARY_EXT:
 	    {
-		n = get_int32(ep);
+		Uint32 nu = get_uint32(ep);
 		ep += 4;
 	    
-		if ((unsigned)n <= ERL_ONHEAP_BIN_LIMIT) {
+                ASSERT(IS_BINARY_SIZE_OK(nu));
+
+		if (nu <= ERL_ONHEAP_BIN_LIMIT) {
 		    ErlHeapBin* hb = (ErlHeapBin *) hp;
 
-		    hb->thing_word = header_heap_bin(n);
-		    hb->size = n;
-		    hp += heap_bin_size(n);
-		    sys_memcpy(hb->data, ep, n);
+		    hb->thing_word = header_heap_bin(nu);
+		    hb->size = nu;
+		    hp += heap_bin_size(nu);
+		    sys_memcpy(hb->data, ep, nu);
 		    *objp = make_binary(hb);
 		} else if (edep && edep->data && edep->data->binp &&
-                           n > (edep->data->binp->orig_size / 4)) {
+                           nu > (edep->data->binp->orig_size / 4)) {
                     /* If we decode a refc binary from a distribution data
                        entry we know that it is a refc binary to begin with
                        so we just increment it and use the reference. This
@@ -4507,37 +4509,39 @@ dec_term_atom_common:
                     Binary* bptr = edep->data->binp;
                     erts_refc_inc(&bptr->intern.refc, 1);
                     pb->thing_word = HEADER_PROC_BIN;
-                    pb->size = n;
+                    pb->size = nu;
                     pb->next = factory->off_heap->first;
                     factory->off_heap->first = (struct erl_off_heap_header*)pb;
                     pb->val = bptr;
                     pb->bytes = (byte*) ep;
                     ERTS_ASSERT((byte*)(bptr->orig_bytes) < ep &&
-                                ep+n <= (byte*)(bptr->orig_bytes+bptr->orig_size));
+                                ep+nu <= (byte*)(bptr->orig_bytes+bptr->orig_size));
                     pb->flags = 0;
                     OH_OVERHEAD(factory->off_heap, pb->size / sizeof(Eterm));
                     hp += PROC_BIN_SIZE;
                     *objp = make_binary(pb);
 		} else {
-		    Binary* dbin = erts_bin_nrml_alloc(n);
+		    Binary* dbin;
+
+                    dbin = erts_bin_nrml_alloc(nu);
 
 		    *objp = erts_build_proc_bin(factory->off_heap, hp, dbin);
 		    hp += PROC_BIN_SIZE;
                     if (ctx) {
-                        int n_limit = reds * B2T_MEMCPY_FACTOR;
-                        if (n > n_limit) {
+                        unsigned int n_limit = reds * B2T_MEMCPY_FACTOR;
+                        if (nu > n_limit) {
                             ctx->state = B2TDecodeBinary;
-                            ctx->u.dc.remaining_n = n - n_limit;
+                            ctx->u.dc.remaining_n = nu - n_limit;
                             ctx->u.dc.remaining_bytes = dbin->orig_bytes + n_limit;
-                            n = n_limit;
+                            nu = n_limit;
                             reds = 0;
                         }
                         else
-                            reds -= n / B2T_MEMCPY_FACTOR;
+                            reds -= nu / B2T_MEMCPY_FACTOR;
                     }
-                    sys_memcpy(dbin->orig_bytes, ep, n);
+                    sys_memcpy(dbin->orig_bytes, ep, nu);
                 }
-		ep += n;
+		ep += nu;
 		break;
 	    }
 	case BIT_BINARY_EXT:
@@ -4545,51 +4549,53 @@ dec_term_atom_common:
 		Eterm bin;
 		ErlSubBin* sb;
 		Uint bitsize;
+                Uint32 nu = get_uint32(ep);
 
-		n = get_int32(ep);
+                ASSERT(IS_BINARY_SIZE_OK(nu));
+
 		bitsize = ep[4];
-                if (((bitsize==0) != (n==0)) || bitsize > 8)
+                if (((bitsize==0) != (nu==0)) || bitsize > 8)
                     goto error;
                 ep += 5;
-		if ((unsigned)n <= ERL_ONHEAP_BIN_LIMIT) {
+		if (nu <= ERL_ONHEAP_BIN_LIMIT) {
 		    ErlHeapBin* hb = (ErlHeapBin *) hp;
 
-		    hb->thing_word = header_heap_bin(n);
-		    hb->size = n;
-		    sys_memcpy(hb->data, ep, n);
+		    hb->thing_word = header_heap_bin(nu);
+		    hb->size = nu;
+		    sys_memcpy(hb->data, ep, nu);
 		    bin = make_binary(hb);
-		    hp += heap_bin_size(n);
-                    ep += n;
+		    hp += heap_bin_size(nu);
+                    ep += nu;
 		} else {
-		    Binary* dbin = erts_bin_nrml_alloc(n);
-		    Uint n_copy = n;
+		    Binary* dbin = erts_bin_nrml_alloc(nu);
+		    Uint n_copy = nu;
 
 		    bin = erts_build_proc_bin(factory->off_heap, hp, dbin);
 		    hp += PROC_BIN_SIZE;
                     if (ctx) {
                         int n_limit = reds * B2T_MEMCPY_FACTOR;
-                        if (n > n_limit) {
+                        if (nu > n_limit) {
                             ctx->state = B2TDecodeBinary;
-                            ctx->u.dc.remaining_n = n - n_limit;
+                            ctx->u.dc.remaining_n = nu - n_limit;
                             ctx->u.dc.remaining_bytes = dbin->orig_bytes + n_limit;
                             n_copy = n_limit;
                             reds = 0;
                         }
                         else {
-                            reds -= n / B2T_MEMCPY_FACTOR;
+                            reds -= nu / B2T_MEMCPY_FACTOR;
 			}
                     }
                     sys_memcpy(dbin->orig_bytes, ep, n_copy);
                     ep += n_copy;
                 }
 
-		if (bitsize == 8 || n == 0) {
+		if (bitsize == 8 || nu == 0) {
 		    *objp = bin;
 		} else {
                     sb = (ErlSubBin *)hp;
 		    sb->thing_word = HEADER_SUB_BIN;
 		    sb->orig = bin;
-		    sb->size = n - 1;
+		    sb->size = nu - 1;
 		    sb->bitsize = bitsize;
 		    sb->bitoffs = 0;
 		    sb->offs = 0;
@@ -5591,6 +5597,10 @@ init_done:
 	case BINARY_EXT:
 	    CHKSIZE(4);
 	    n = get_uint32(ep);
+#if defined(ARCH_32)
+            if (!IS_BINARY_SIZE_OK(n))
+                goto error;
+#endif
 	    SKIP2(n, 4);
 	    if (n <= ERL_ONHEAP_BIN_LIMIT) {
 		heap_size += heap_bin_size(n);
@@ -5602,6 +5612,10 @@ init_done:
 	    {
 		CHKSIZE(5);
 		n = get_uint32(ep);
+#if defined(ARCH_32)
+                if (!IS_BINARY_SIZE_OK(n))
+                    goto error;
+#endif
 		SKIP2(n, 5);
 		if (n <= ERL_ONHEAP_BIN_LIMIT) {
 		    heap_size += heap_bin_size(n) + ERL_SUB_BIN_SIZE;
