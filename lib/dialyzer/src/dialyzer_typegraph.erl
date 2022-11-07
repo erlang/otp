@@ -29,7 +29,7 @@ module_type_deps(UseContracts, CodeServer, Modules) ->
   Contracts =
     case UseContracts of
       true -> maps:from_list(dict:to_list(dialyzer_codeserver:get_contracts(CodeServer)));
-      false -> []
+      false -> #{}
     end,
   Callbacks = maps:from_list(dialyzer_codeserver:get_callbacks(CodeServer)),
   TypeDefinitions =

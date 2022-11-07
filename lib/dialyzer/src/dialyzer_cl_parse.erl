@@ -420,8 +420,8 @@ help_message() ->
                 [--check_plt] [-Ddefine]* [-Dname]* [--dump_callgraph file]
                 [--error_location flag] [files_or_dirs] [--fullpath]
                 [--get_warnings] [--gui] [--help] [-I include_dir]*
-                [--incremental] [--no_check_plt] [--no_indentation] [-o outfile]
-                [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
+                [--incremental] [--no_check_plt] [--no_indentation] [--no_spec]
+                [-o outfile] [--output_plt file] [-pa dir]* [--plt plt] [--plt_info]
                 [--plts plt*] [--quiet] [-r dirs] [--raw] [--remove_from_plt]
                 [--shell] [--src] [--statistics] [--verbose] [--version]
                 [-Wwarn]*
@@ -550,6 +550,9 @@ Options:
   --no_indentation
       Do not indent contracts and success typings. Note that this option has
       no effect when combined with the --raw option.
+  --no_spec
+      Ignore functions specs. This is useful for debugging when one suspects
+      that some specs are incorrect.
   --gui
       Use the GUI.
 
