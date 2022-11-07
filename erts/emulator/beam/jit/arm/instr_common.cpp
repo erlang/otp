@@ -848,7 +848,7 @@ void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
     ERTS_CT_ASSERT(am_true == make_atom(1));
 
     auto src = load_source(Src, TMP1);
-    a.and_(TMP1, src.reg, imm(~(am_true & ~_TAG_IMMED1_MASK)));
+    a.and_(TMP1, src.reg, imm(~(am_true & ~_TAG_IMMED2_MASK)));
     a.cmp(TMP1, imm(am_false));
     a.b_ne(resolve_beam_label(Fail, disp1MB));
 }
