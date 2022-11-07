@@ -43,8 +43,10 @@
 -include_lib("common_test/include/ct.hrl").
 
 suite() ->
+    Onln = erlang:system_info(schedulers_online),
+    Mins = max(4,Onln*2/60),
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {minutes, 4}}].
+     {timetrap, {minutes, Mins}}].
 
 all() -> 
     [{group, wall_clock}, {group, runtime}, reductions,
