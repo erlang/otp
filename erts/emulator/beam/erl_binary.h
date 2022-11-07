@@ -321,6 +321,16 @@ ERTS_GLB_INLINE Binary *erts_create_magic_indirection(int (*destructor)(Binary *
 ERTS_GLB_INLINE erts_atomic_t *erts_binary_to_magic_indirection(Binary *bp);
 ERTS_GLB_INLINE erts_atomic_t *erts_binary_to_magic_indirection(Binary *bp);
 
+/* A binary's size in bits must fit into a word for matching to work. We used
+ * to allow creating larger binaries than this, but they acted really strangely
+ * in Erlang code and were pretty much only usable in drivers and NIFs.
+ *
+ * This check also ensures, indirectly, that there won't be an overflow when
+ * the size is bumped by CHICKEN_PAD and the binary struct itself. */
+#define IS_BINARY_SIZE_OK(BYTE_SIZE) \
+    ERTS_LIKELY(BYTE_SIZE <= ERTS_UWORD_MAX / CHAR_BIT)
+
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 #include <stddef.h> /* offsetof */
@@ -344,15 +354,6 @@ erts_free_aligned_binary_bytes(byte* buf)
 {
     erts_free_aligned_binary_bytes_extra(buf,ERTS_ALC_T_TMP);
 }
-
-/* A binary's size in bits must fit into a word for matching to work. We used
- * to allow creating larger binaries than this, but they acted really strangely
- * in Erlang code and were pretty much only usable in drivers and NIFs.
- *
- * This check also ensures, indirectly, that there won't be an overflow when
- * the size is bumped by CHICKEN_PAD and the binary struct itself. */
-#define IS_BINARY_SIZE_OK(BYTE_SIZE) \
-    ERTS_LIKELY(BYTE_SIZE <= ERTS_UWORD_MAX / CHAR_BIT)
 
 /* Explicit extra bytes allocated to counter buggy drivers.
 ** These extra bytes where earlier (< R13B04) added by an alignment-bug
