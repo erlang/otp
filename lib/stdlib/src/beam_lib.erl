@@ -156,7 +156,7 @@ chunks(File, Chunks, Options) ->
     catch Error -> Error end.
 
 -spec all_chunks(beam()) ->
-           {'ok', 'beam_lib', [{chunkid(), dataB()}]} | {'error', 'beam_lib', info_rsn()}.
+           {'ok', module(), [{chunkid(), dataB()}]} | {'error', 'beam_lib', info_rsn()}.
 
 all_chunks(File) ->
     read_all_chunks(File).
