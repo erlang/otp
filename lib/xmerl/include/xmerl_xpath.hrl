@@ -22,7 +22,7 @@
 %%% #0.    BASIC INFORMATION
 %%%----------------------------------------------------------------------
 %%% File:       xmerl.hrl
-%%% Author       : Ulf Wiger <ulf.wiger@ericsson.com>
+%%% Author       : Ulf Wiger
 %%% Date         : 00-09-22
 %%% Description  : Record and macro definitions for xmerl_xpath
 %%%----------------------------------------------------------------------
