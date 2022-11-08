@@ -4210,9 +4210,14 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
     }
 #if defined(HAVE_SYS_IOCTL_H) && defined(TIOCSTI)
     else if (ERTS_IS_ATOM_STR("stdin", BIF_ARG_1)) {
-        fd = open("/proc/self/fd/0",0);
+#  if defined(__FreeBSD__)
+        const char stdin_fname[] = "/dev/tty";
+#  else
+        const char stdin_fname[] = "/proc/self/fd/0";
+#  endif
+        fd = open(stdin_fname,0);
         if (fd < 0) {
-            fprintf(stderr,"failed to open %s (%s)\r\n", "/proc/self/fd/0",
+            fprintf(stderr,"failed to open %s (%s)\r\n", stdin_fname,
                     strerror(errno));
             goto error;
         }
