@@ -4211,6 +4211,11 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
 #if defined(HAVE_SYS_IOCTL_H) && defined(TIOCSTI)
     else if (ERTS_IS_ATOM_STR("stdin", BIF_ARG_1)) {
         fd = open("/proc/self/fd/0",0);
+        if (fd < 0) {
+            fprintf(stderr,"failed to open %s (%s)\r\n", "/proc/self/fd/0",
+                    strerror(errno));
+            goto error;
+        }
     }
 #endif
 #endif
@@ -4275,7 +4280,8 @@ error: {
         char *errnostr = erl_errno_id(errno);
 #endif
         BIF_P->fvalue = am_atom_put(errnostr, strlen(errnostr));
-        erts_free(ERTS_ALC_T_TMP, (void *) str);
+        if (temp_alloc)
+            erts_free(ERTS_ALC_T_TMP, (void *) temp_alloc);
         BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     }
 }
