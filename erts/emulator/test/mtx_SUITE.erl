@@ -275,7 +275,7 @@ hammer_sched_rwlock_test(FreqRead, LockCheck, Blocking, WaitLocked, WaitUnlocked
                 _ ->
                     {_, RunTime} = statistics(runtime),
                     io:format("RunTime=~p~n", [RunTime]),
-                    true = RunTime < max(700,8*Onln),
+                    true = RunTime < max(700, Onln*12),
                     {comment,
                      "Run-time during test was "
                      ++ integer_to_list(RunTime)
