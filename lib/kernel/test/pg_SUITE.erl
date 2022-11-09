@@ -67,11 +67,12 @@ suite() ->
     [{timetrap, {seconds, 60}}].
 
 init_per_testcase(TestCase, Config) ->
-    {ok, _Pid} = pg:start_link(TestCase),
-    Config.
+    {ok, Pid} = pg:start_link(TestCase),
+    trace_start(TestCase, Config, Pid).
 
-end_per_testcase(TestCase, _Config) ->
+end_per_testcase(TestCase, Config) ->
     gen_server:stop(TestCase),
+    trace_end(Config),
     ok.
 
 all() ->
@@ -751,7 +752,6 @@ sync_via(RegName, {GS, Node}) ->
                                  S
                       end).
 
-
 ensure_peers_info(Scope, Nodes) ->
     %% Ensures that pg server on local node has gotten info from
     %% pg servers on all Peer nodes passed as argument (assuming
@@ -866,3 +866,44 @@ spawn_disconnected_node(Scope, TestCase) ->
         args => ["-connect_all", "false", "-kernel", "dist_auto_connect", "never"]}),
     {ok, _Pid} = peer:call(Peer, pg, start, [Scope]),
     {Peer, Node}.
+
+
+%%--------------------------------------------------------------------
+%% Debug Helpers
+
+%% Add test cases here to enable 'receive' trace of the local pg process
+traced_testcases() -> [].
+
+trace_start(TestCase, Config, Tracee) ->
+    case lists:member(TestCase, traced_testcases()) of
+        true ->
+            Tracer = spawn_link(fun() -> tracer() end),
+            1 = erlang:trace(Tracee, true, ['receive', {tracer, Tracer}, timestamp]),
+            [{tracer, Tracer} | Config];
+        false ->
+            Config
+    end.
+
+trace_end(Config) ->
+    case proplists:get_value(tracer, Config) of
+        undefined -> ok;
+        Tracer ->
+            Mon = erlang:monitor(process, Tracer),
+            Tracer ! flush,
+            normal = receive
+                         {'DOWN', Mon, process, Tracer, R} -> R
+                     end
+    end.
+
+tracer() ->
+    receive flush -> ok end,
+    io:format("Flush trace messages:\n"),
+    tracer_flush().
+
+tracer_flush() ->
+    receive M ->
+            io:format("~p\n", [M]),
+            tracer_flush()
+    after 0 ->
+            io:format("Flush done.\n")
+    end.
