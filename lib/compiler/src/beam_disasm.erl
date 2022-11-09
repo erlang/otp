@@ -973,19 +973,19 @@ resolve_inst({fconv,Args},_,_,_) ->
     {fconv,Reg,FR};
 resolve_inst({fadd=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fsub=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fmul=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fdiv=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fnegate,Args},_,_,_) ->
     [F,Arg,Reg] = resolve_args(Args),
-    {arithfbif,fnegate,F,[Arg],Reg};
+    {bif,fnegate,F,[Arg],Reg};
 
 %%
 %% Instructions for try expressions added in January 2003 (R10).
