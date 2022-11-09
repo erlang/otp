@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -142,6 +142,10 @@
        <p>The option <c>location</c> is forwarded
          to the Erlang token scanner, see
          <seemfa marker="erl_scan#tokens/3"><c>erl_scan:tokens/3,4</c></seemfa>.</p>
+       <p>The <c>{compiler_internal,term()}</c> option is forwarded
+       to the Erlang token scanner, see
+       <seeerl marker="erl_scan#compiler_interal">
+       <c>{compiler_internal,term()}</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -193,6 +197,10 @@
        <p>The option <c>location</c> is forwarded
          to the Erlang token scanner, see
          <seemfa marker="erl_scan#tokens/3"><c>erl_scan:tokens/3,4</c></seemfa>.</p>
+       <p>The <c>{compiler_internal,term()}</c> option is forwarded
+       to the Erlang token scanner, see
+       <seeerl marker="erl_scan#compiler_interal">
+       <c>{compiler_internal,term()}</c></seeerl>.</p>
       </desc>
     </func>
 
