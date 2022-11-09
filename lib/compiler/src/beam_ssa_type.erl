@@ -638,12 +638,8 @@ opt_anno_types_1(#b_set{anno=Anno0}=I, [], _Ts, _Index, Acc) ->
     end.
 
 %% Only add type annotations when we know we'll make good use of them.
-benefits_from_type_anno({bif,'=:='}, _Args) ->
+benefits_from_type_anno({bif,_Op}, _Args) ->
     true;
-benefits_from_type_anno({bif,'=/='}, _Args) ->
-    true;
-benefits_from_type_anno({bif,Op}, Args) ->
-    not erl_internal:bool_op(Op, length(Args));
 benefits_from_type_anno(bs_create_bin, _Args) ->
     true;
 benefits_from_type_anno(bs_match, _Args) ->

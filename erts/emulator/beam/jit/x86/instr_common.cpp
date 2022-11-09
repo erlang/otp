@@ -903,7 +903,7 @@ void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
 
     mov_arg(ARG1, Src);
 
-    a.and_(ARG1, imm(~(am_true & ~_TAG_IMMED1_MASK)));
+    a.and_(ARG1, imm(~(am_true & ~_TAG_IMMED2_MASK)));
     a.cmp(ARG1, imm(am_false));
     a.jne(resolve_beam_label(Fail));
 }
