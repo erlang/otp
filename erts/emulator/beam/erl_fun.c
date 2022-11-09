@@ -300,7 +300,7 @@ ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
          * very unlikely to cause actual issues in the wild, we've decided to
          * postpone the fix until OTP 26. See OTP-18016 for details. */
         const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe);
-        ASSERT(funp->arity == mfa->arity - num_free);
+        ASSERT(!mfa || funp->arity == mfa->arity - num_free);
         ASSERT(arity == fe->arity);
     }
 #endif
