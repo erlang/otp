@@ -356,11 +356,19 @@ netsplit(Config) when is_list(Config) ->
 
     ?assertNot(lists:member(Node, nodes())), %% should be no nodes in the cluster
 
+    PgPid = whereis(?FUNCTION_NAME),
+    1 = erlang:trace(PgPid, true, ['receive']),
     pong = net_adm:ping(Node),
+    receive
+        {trace, PgPid, 'receive', {nodeup, Node}} -> ok
+    end,
+    1 = erlang:trace(PgPid, false, ['receive']),
+
     %% now ensure sync happened
-    Pids = lists:sort([RemotePid, LocalPid]),
-    sync({?FUNCTION_NAME, Node}),
-    ?assertEqual(Pids, lists:sort(rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME]))),
+    sync_via(?FUNCTION_NAME, {?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
+    ?assertEqual(lists:sort([RemotePid, LocalPid]),
+                 lists:sort(rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME]))),
     ?assertEqual([RemoteOldPid], pg:get_members(?FUNCTION_NAME, '$visible')),
     peer:stop(Peer),
     ok.
