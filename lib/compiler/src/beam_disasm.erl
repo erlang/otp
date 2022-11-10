@@ -1014,8 +1014,7 @@ resolve_inst({try_case,[Reg]},_,_,_) ->  % analogous to 'catch_end'
 resolve_inst({try_case_end,[Arg]},_,_,_) ->
     {try_case_end,resolve_arg(Arg)};
 resolve_inst({raise,[_Reg1,_Reg2]=Regs},_,_,_) ->
-    {raise,{f,0},Regs,{x,0}};		 % do NOT wrap this as a 'bif'
-					 % as there is no raise/2 bif!
+    {bif,raise,{f,0},Regs,{x,0}};
 
 %%
 %% New bit syntax instructions added in February 2004 (R10B).
