@@ -1239,9 +1239,9 @@ resolve_inst({put_tuple2,[Dst,{{z,1},{u,_},List0}]},_,_,_) ->
     {put_tuple2,Dst,{list,List}};
 resolve_inst({bs_start_match3=I,[Fail,Bin,{u,Live},Dst]},_,_,_) ->
     {test,I,Fail,Live,[Bin],Dst};
-resolve_inst({bs_get_tail,[Src,Dst,Live]},_,_,_) ->
+resolve_inst({bs_get_tail,[Src,Dst,{u,Live}]},_,_,_) ->
     {bs_get_tail,Src,Dst,Live};
-resolve_inst({bs_get_position,[Src,Dst,Live]},_,_,_) ->
+resolve_inst({bs_get_position,[Src,Dst,{u,Live}]},_,_,_) ->
     {bs_get_position,Src,Dst,Live};
 resolve_inst({bs_set_position,[Src,Dst]},_,_,_) ->
     {bs_set_position,Src,Dst};
@@ -1250,7 +1250,7 @@ resolve_inst({bs_set_position,[Src,Dst]},_,_,_) ->
 %% OTP 23.
 %%
 
-resolve_inst({bs_start_match4,[Fail,Live,Src,Dst]},_,_,_) ->
+resolve_inst({bs_start_match4,[Fail,{u,Live},Src,Dst]},_,_,_) ->
     {bs_start_match4,Fail,Live,Src,Dst};
 resolve_inst({swap,[_,_]=List},_,_,_) ->
     [R1,R2] = resolve_args(List),
