@@ -5207,7 +5207,7 @@ send_timeout_check_length(Config) when is_list(Config) ->
     Cond = fun() ->
                    Key = kernel_factor,
                    case lists:keysearch(Key, 1, Config) of
-                       {value, {Key, Factor}} when (Factor > 5) ->
+                       {value, {Key, Factor}} when (Factor > 6) ->
                            {skip, ?F("Too slow (factor = ~w)", [Factor])};
                        _ ->
                            ok
@@ -5259,6 +5259,15 @@ do_send_timeout_check_length(Config, RNode) ->
 
 %% Test the send_timeout socket option.
 send_timeout_para_wo_autoclose(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   Key = kernel_factor,
+                   case lists:keysearch(Key, 1, Config) of
+                       {value, {Key, Factor}} when (Factor > 6) ->
+                           {skip, ?F("Too slow (factor = ~w)", [Factor])};
+                       _ ->
+                           ok
+                   end
+           end,
     Pre  = fun() ->
                    Dir = filename:dirname(code:which(?MODULE)),
                    ?P("create node"),
@@ -5270,7 +5279,7 @@ send_timeout_para_wo_autoclose(Config) when is_list(Config) ->
                    ?P("stop node ~p", [Node]),
                    ?STOP_NODE(Node)
            end,
-    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
 do_send_timeout_para_wo_autoclose(Config, RNode) ->
     ?P("begin"),
@@ -5286,6 +5295,15 @@ do_send_timeout_para_wo_autoclose(Config, RNode) ->
 
 %% Test the send_timeout socket option.
 send_timeout_para_w_autoclose(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   Key = kernel_factor,
+                   case lists:keysearch(Key, 1, Config) of
+                       {value, {Key, Factor}} when (Factor > 6) ->
+                           {skip, ?F("Too slow (factor = ~w)", [Factor])};
+                       _ ->
+                           ok
+                   end
+           end,
     Pre  = fun() ->
                    Dir = filename:dirname(code:which(?MODULE)),
                    ?P("create node"),
@@ -5297,7 +5315,7 @@ send_timeout_para_w_autoclose(Config) when is_list(Config) ->
                    ?P("stop node ~p", [Node]),
                    ?STOP_NODE(Node)
            end,
-    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
 do_send_timeout_para_w_autoclose(Config, RNode) ->
     ?P("begin"),
