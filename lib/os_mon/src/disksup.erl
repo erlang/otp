@@ -48,12 +48,12 @@ get_disk_data() ->
 
 get_check_interval() ->
     os_mon:call(disksup, get_check_interval, infinity).
-set_check_interval(Minutes) ->
-    case param_type(disk_space_check_interval, Minutes) of
-	true ->
-	    os_mon:call(disksup, {set_check_interval, Minutes}, infinity);
-	false ->
-	    erlang:error(badarg)
+set_check_interval(Value) ->
+    case param_type(disk_space_check_interval, Value) of
+        true ->
+            os_mon:call(disksup, {set_check_interval, Value}, infinity);
+        false ->
+            erlang:error(badarg)
     end.
 
 get_almost_full_threshold() ->
@@ -69,7 +69,12 @@ set_almost_full_threshold(Float) ->
 dummy_reply(get_disk_data) ->
     [{"none", 0, 0}];
 dummy_reply(get_check_interval) ->
-    minutes_to_ms(os_mon:get_env(disksup, disk_space_check_interval));
+    case os_mon:get_env(disksup, disk_space_check_interval) of
+        {TimeUnit, Time} ->
+            erlang:convert_time_unit(Time, TimeUnit, millisecond);
+        Minute ->
+            minutes_to_ms(Minute)
+    end;
 dummy_reply({set_check_interval, _}) ->
     ok;
 dummy_reply(get_almost_full_threshold) ->
@@ -77,6 +82,13 @@ dummy_reply(get_almost_full_threshold) ->
 dummy_reply({set_almost_full_threshold, _}) ->
     ok.
 
+param_type(disk_space_check_interval, {TimeUnit, Time}) ->
+    try erlang:convert_time_unit(Time, TimeUnit, millisecond) of
+        MsTime when MsTime > 0 -> true;
+        _ -> false
+    catch
+        _:_ -> false
+    end;
 param_type(disk_space_check_interval, Val) when is_integer(Val),
 						Val>=1 -> true;
 param_type(disk_almost_full_threshold, Val) when is_number(Val),
@@ -120,20 +132,28 @@ init([]) ->
 
     %% Read the values of some configuration parameters
     Threshold = os_mon:get_env(disksup, disk_almost_full_threshold),
-    Timeout = os_mon:get_env(disksup, disk_space_check_interval),
+    Timeout = case os_mon:get_env(disksup, disk_space_check_interval) of
+                  {TimeUnit, Time} ->
+                      erlang:convert_time_unit(Time, TimeUnit, millisecond);
+                  Minutes ->
+                      minutes_to_ms(Minutes)
+              end,
 
     %% Initiation first disk check
     self() ! timeout,
 
     {ok, #state{port=Port, os=OS,
 		threshold=round(Threshold*100),
-		timeout=minutes_to_ms(Timeout)}}.
+		timeout=Timeout}}.
 
 handle_call(get_disk_data, _From, State) ->
     {reply, State#state.diskdata, State};
 
 handle_call(get_check_interval, _From, State) ->
     {reply, State#state.timeout, State};
+handle_call({set_check_interval, {TimeUnit, Time}}, _From, State) ->
+    Timeout = erlang:convert_time_unit(Time, TimeUnit, millisecond),
+    {reply, ok, State#state{timeout=Timeout}};
 handle_call({set_check_interval, Minutes}, _From, State) ->
     Timeout = minutes_to_ms(Minutes),
     {reply, ok, State#state{timeout=Timeout}};
