@@ -528,6 +528,7 @@ all() ->
     %% test the socket backend without effecting *all*
     %% applications on *all* machines.
     %% This flag is set only for *one* host.
+    %% case ?TEST_INET_BACKENDS() of
     case ?TEST_INET_BACKENDS() of
         true ->
             [
@@ -679,8 +680,8 @@ otp16649_gen_cases() ->
 init_per_suite(Config0) when is_list(Config0) ->
 
     ?IPRINT("init_per_suite -> entry with"
-            "~n   Config: ~p"
-            "~n   Nodes:  ~p"
+            "~n   Config:                ~p"
+            "~n   Nodes:                 ~p"
             "~n   explicit inet backend: ~p"
             "~n   test inet backends:    ~p",
             [Config0, erlang:nodes(),
@@ -709,7 +710,7 @@ init_per_suite(Config0) when is_list(Config0) ->
             ?IPRINT("init_per_suite -> end when"
                     "~n      Config: ~p"
                     "~n      Nodes:  ~p", [Config4, erlang:nodes()]),
-            
+
             Config4
     end.
 
@@ -761,25 +762,56 @@ init_per_group(GroupName, Config0) ->
     Config1.
 
 
-init_per_group2(inet_backend_default = _GroupName, Config) ->
-    snmp_test_lib:init_group_top_dir(default, [{socket_create_opts, []} | Config]);
-init_per_group2(inet_backend_inet = _GroupName, Config) ->
+init_per_group2(inet_backend_default = _GroupName, Config0) ->
+    Config1 = [{socket_create_opts, []} | Config0],
     case ?EXPLICIT_INET_BACKEND() of
         true ->
-            %% The environment trumps us,
-            %% so only the default group should be run!
-            {skip, "explicit inet backend"};
+            ?LIB:init_group_top_dir(default, Config1);
         false ->
-            snmp_test_lib:init_group_top_dir(inet, [{socket_create_opts, [{inet_backend, inet}]} | Config])
+            %% For a "standard" test (that is if we do not run the "extended"
+            %% inet backends test) then we should always run this group!
+            %% So, if we have an extended test, *then* (and only then) 
+            %% check the factor.
+            case ?TEST_INET_BACKENDS() of
+                true ->
+                    case lists:keysearch(snmp_factor, 1, Config0) of
+                        {value, {snmp_factor, Factor}} when (Factor < 3) ->
+                            ?LIB:init_group_top_dir(default, Config1);
+                        _ ->
+                            {skip, "Machine too slow"}
+                    end;
+                _ ->
+                    ?LIB:init_group_top_dir(default, Config1)
+            end                    
     end;
-init_per_group2(inet_backend_socket = _GroupName, Config) ->
+init_per_group2(inet_backend_inet = _GroupName, Config0) ->
     case ?EXPLICIT_INET_BACKEND() of
         true ->
             %% The environment trumps us,
             %% so only the default group should be run!
             {skip, "explicit inet backend"};
         false ->
-            snmp_test_lib:init_group_top_dir(socket, [{socket_create_opts, [{inet_backend, socket}]} | Config])
+            case lists:keysearch(snmp_factor, 1, Config0) of
+                {value, {snmp_factor, Factor}} when (Factor < 5) ->
+                    Config1 = [{socket_create_opts, [{inet_backend, inet}]} |
+                               Config0],
+                    ?LIB:init_group_top_dir(inet, Config1);
+                _ ->
+                    {skip, "Machine too slow"}
+            end
+    end;
+init_per_group2(inet_backend_socket = _GroupName, Config0) ->
+    case ?EXPLICIT_INET_BACKEND() of
+        true ->
+            %% The environment trumps us,
+            %% so only the *default* group should be run!
+            {skip, "explicit inet backend"};
+        false ->
+            %% Always run this unless a backend has been explicitly
+            %% configured (since this is really what we want to test).
+            Config1 = [{socket_create_opts, [{inet_backend, socket}]} |
+                       Config0],
+            ?LIB:init_group_top_dir(socket, Config1)
     end;
 init_per_group2(major_tcs = GroupName, Config) ->
     init_all(snmp_test_lib:init_group_top_dir(GroupName, Config));
@@ -3248,7 +3280,7 @@ inform_i(Config) ->
     load_master("TestTrapv2"),
 
     ?NPRINT("Testing inform sending from master agent...  "
-	"~nNOTE! This test takes a few minutes (10) to complete."),
+            "~n   NOTE! This test takes a few minutes (10) to complete."),
 
     try_test(ma_v2_inform1, [MA]),
     try_test(ma_v2_inform2, [MA]),
@@ -4929,14 +4961,12 @@ ma_v2_trap1(MA) ->
 ma_v2_trap2(MA) ->
     snmpa:send_trap(MA,testTrapv22,"standard trap",[{sysContact,"pelle"}]),
     ?expect2(v2trap, [{[sysUpTime, 0], any},
-			    {[snmpTrapOID, 0], ?system ++ [0,1]},
-			    {[system, [4,0]], "pelle"}]).
+                      {[snmpTrapOID, 0], ?system ++ [0,1]},
+                      {[system, [4,0]], "pelle"}]).
 
 %% Note: This test case takes a while... actually a couple of minutes.
 ma_v2_inform1(MA) ->
-    ?DBG("ma_v2_inform1 -> entry with" 
-	 "~n   MA = ~p => "
-	 "~n   send notification: testTrapv22", [MA]),
+    ?IPRINT("begin ma_v2_inform1 (MA: ~p)", [MA]), 
 
     CmdExpectInform = 
 	fun(_No, Response) ->
@@ -5089,9 +5119,7 @@ ma_v2_inform1(MA) ->
     
 %% Note:  This test case takes a while... actually a couple of minutes.
 ma_v2_inform2(MA) ->
-    ?DBG("ma_v2_inform2 -> entry with" 
-	 "~n   MA = ~p => "
-	 "~n   send notification: testTrapv22", [MA]),
+    ?IPRINT("begin ma_v2_inform2 (MA: ~p)", [MA]), 
 
     CmdExpectInform = 
 	fun(_No, Response) ->
@@ -5188,9 +5216,7 @@ ma_v2_inform2(MA) ->
     
 %% Note:  This test case takes a while... actually a couple of minutes.
 ma_v2_inform3(MA) ->
-    ?DBG("ma_v2_inform3 -> entry with" 
-	 "~n   MA = ~p => "
-	 "~n   send notification: testTrapv22", [MA]),
+    ?IPRINT("begin ma_v2_inform3 (MA: ~p)", [MA]), 
 
     CmdExpectInform = 
 	fun(_No, Response) ->
