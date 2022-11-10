@@ -83,6 +83,15 @@ api(Config) when is_list(Config) ->
     1200000 = disksup:get_check_interval(),
     ok = disksup:set_check_interval(30),
 
+    %% set_check_interval({TimeUnit, Time})
+    ok = disksup:set_check_interval({second, 1}),
+    1000 = disksup:get_check_interval(),
+    {'EXIT',{badarg,_}} = (catch disksup:set_check_interval({second, 0.5})),
+    {'EXIT',{badarg,_}} = (catch disksup:set_check_interval({badarg, 1})),
+    {'EXIT',{badarg,_}} = (catch disksup:set_check_interval({nanosecond, 1})),
+    1000 = disksup:get_check_interval(),
+    ok = disksup:set_check_interval(30),
+
     %% get_almost_full_threshold()
     80 = disksup:get_almost_full_threshold(),
 
@@ -110,6 +119,13 @@ config(Config) when is_list(Config) ->
     1740000 = disksup:get_check_interval(),
     81 = disksup:get_almost_full_threshold(),
 
+    ok = application:set_env(os_mon, disk_space_check_interval, {second, 2}),
+
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child2} = supervisor:restart_child(os_mon_sup, disksup),
+
+    2000 = disksup:get_check_interval(),
+
     %% Also try this with bad parameter values, should be ignored
     ok =
 	application:set_env(os_mon, disk_space_check_interval, 0.5),
@@ -117,10 +133,31 @@ config(Config) when is_list(Config) ->
 	application:set_env(os_mon, disk_almost_full_threshold, -0.81),
 
     ok = supervisor:terminate_child(os_mon_sup, disksup),
-    {ok, _Child2} = supervisor:restart_child(os_mon_sup, disksup),
+    {ok, _Child3} = supervisor:restart_child(os_mon_sup, disksup),
 
     1800000 = disksup:get_check_interval(),
     80 = disksup:get_almost_full_threshold(),
+
+    ok = application:set_env(os_mon, disk_space_check_interval, {second, 0.5}),
+
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child4} = supervisor:restart_child(os_mon_sup, disksup),
+
+    1800000 = disksup:get_check_interval(),
+
+    ok = application:set_env(os_mon, disk_space_check_interval, {badarg, 1}),
+
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child5} = supervisor:restart_child(os_mon_sup, disksup),
+
+    1800000 = disksup:get_check_interval(),
+
+    ok = application:set_env(os_mon, disk_space_check_interval, {nanosecond, 1}),
+
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child6} = supervisor:restart_child(os_mon_sup, disksup),
+
+    1800000 = disksup:get_check_interval(),
 
     %% Reset configuration parameters
     ok = application:set_env(os_mon, disk_space_check_interval, 30),
