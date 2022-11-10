@@ -7307,39 +7307,49 @@ exchange(Config, #{lsock    := LSock,
     %% spin up client
     _ClntRcv = spawn_link(
         fun () ->
-                ?P("connect"),
+                ?P("exchange:client -> connect"),
                 {ok, Client} =
                     ?CONNECT(Config,
 			     "localhost",
 			     Port,
 			     [binary, {packet, 0}, {active, ActiveN}]),
-                ?P("connected: ~p", [Client]),
+                ?P("exchange:client -> connected: ~p"
+                   "~n      PeerName: ~p"
+                   "~n      SockName: ~p",
+                   [Client,
+                    oki(inet:peername(Client)), oki(inet:sockname(Client))]),
+                put(role, connected),
                 send_recv_loop(Client, Payload, Control, ActiveN)
         end),
-    ?P("accept"),
+    ?P("exchange -> accept"),
     {ok, Socket} = gen_tcp:accept(LSock),
-    ?P("accepted: ~p", [Socket]),
+    ?P("exchange -> accepted: ~p"
+       "~n      PeerName: ~p"
+       "~n      SockName: ~p",
+       [Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket))]),
     %% sending process
+    put(role, accepted),
     send_recv_loop(Socket, Payload, Control, ActiveN).
 
 send_recv_loop(Socket, Payload, Control, ActiveN) ->
     %% {active, N} must be set to active > 12 to trigger the issue
     %% {active, 30} seems to trigger it quite often & reliably
-    ?P("set (initial) active: ~p", [ActiveN]),
+    Role = get(role),
+    ?P("[~w] set (initial) active: ~p", [Role, ActiveN]),
     inet:setopts(Socket, [{active, ActiveN}]),
-    ?P("spawn sender"),
+    ?P("[~w] spawn sender", [Role]),
     _Snd = spawn_link(
         fun Sender() ->
             case gen_tcp:send(Socket, Payload) of
                 ok ->
                     Sender();
                 {error, Reason} ->
-                    ?P("Send failed: "
-                       "~n      ~p", [Reason]),
+                    ?P("[~w,sender] Send failed: "
+                       "~n      ~p", [Role, Reason]),
                     exit({send_failed, Reason})
             end
         end),
-    ?P("begin recv"),
+    ?P("[~w] begin recv", [Role]),
     recv(Socket, 0, 0, 0, Control, ActiveN).
 
 recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
@@ -7352,15 +7362,15 @@ recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
             inet:setopts(Socket, [{active, ActiveN}]),
             recv(Socket, Total, TotIter, TotAct + 1, Control, ActiveN);
         {tcp_closed, Socket} ->
-            ?P("[recv] closed when"
+            ?P("[~w,recv] closed when"
                "~n      Total received:    ~w"
                "~n      Total iterations:  ~w"
                "~n      Total activations: ~w"
                "~n      Socket Info:       ~p",
-	       [Total, TotIter, TotAct, (catch inet:info(Socket))]),
+	       [get(role), Total, TotIter, TotAct, (catch inet:info(Socket))]),
 	    ok;
         Other ->
-            ?P("[recv] received unexpected when"
+            ?P("[~w,recv] received unexpected when"
                "~n      Msg:               ~p"
                "~n      Total received:    ~w"
                "~n      Total iterations:  ~w"
@@ -7369,14 +7379,15 @@ recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
                "~n      PeerName:          ~p"
                "~n      SockName:          ~p"
                "~n      Socket Info:       ~p",
-               [Other,
+               [get(role),
+                Other,
                 Total, TotIter, TotAct,
                 Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
                 (catch inet:info(Socket))]),
             Control ! {error, Socket, Other}
     after 2000 ->
             %% no data received in 2 seconds => test failed
-            ?P("[recv timeout] received nothing when:"
+            ?P("[~w,recv timeout] received nothing when:"
                "~n      Total received:    ~w"
                "~n      Total iterations:  ~w"
                "~n      Total activations: ~w"
@@ -7384,7 +7395,8 @@ recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
                "~n      PeerName:          ~p"
                "~n      SockName:          ~p"
                "~n      Socket Info:       ~p",
-               [Total, TotIter, TotAct,
+               [get(role),
+                Total, TotIter, TotAct,
                 Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
                 (catch inet:info(Socket))]),
             Control ! {timeout, Socket, Total}
