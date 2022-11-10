@@ -761,9 +761,13 @@ resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, M) ->
     [resolve_inst(Instr, Imports, Str, Lbls, Lambdas, Literals, M) || Instr <- Fun].
 
 %%
-%% New make_fun2/4 instruction added in August 2001 (R8).
-%% We handle it specially here to avoid adding an argument to
+%% Instructions that need to look up an entry in the Lambda table.
+%% We handle these specially here to avoid adding an argument to
 %% the clause for every instruction.
+%%
+%% - make_fun2/4 (R8, added in August 2001)
+%% - make_fun3/3 (OTP 24)
+%% - call_fun2/3 (OTP 25)
 %%
 
 resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, M) ->
@@ -777,6 +781,17 @@ resolve_inst({make_fun3,[Fun,Dst,{{z,1},{u,_},Env0}]}, _, _, _, Lambdas, _, M) -
     {OldIndex,{F,A,_Lbl,_Index,_NumFree,OldUniq}} =
 	lists:keyfind(OldIndex, 1, Lambdas),
     {make_fun3,{M,F,A},OldIndex,OldUniq,Dst,{list,Env1}};
+resolve_inst({call_fun2,Args}, _, _, _, Lambdas, _, _) ->
+    [Tag0,Arity,Func] = resolve_args(Args),
+    Tag = case Tag0 of
+              Index when is_integer(Index) ->
+                  {Tag0,{_F,_A,Label,_Index,_NumFree,_OldUniq}} =
+                      lists:keyfind(Tag0, 1, Lambdas),
+                  {f,Label};
+              _ ->
+                  Tag0
+          end,
+    {call_fun2,Tag,Arity,Func};
 resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _M) ->
     %% io:format(?MODULE_STRING":resolve_inst ~p.~n", [Instr]),
     resolve_inst(Instr, Imports, Str, Lbls).
@@ -1266,8 +1281,6 @@ resolve_inst({bs_create_bin,
              _, Strings, _) ->
     List = resolve_bs_create_bin_list(List0, Strings),
     {bs_create_bin,Fail,Heap,Live,Unit,Dst,{list,List}};
-resolve_inst({call_fun2,[Tag,{u,Arity},Func]},_,_,_) ->
-    {call_fun2,Tag,Arity,Func};
 resolve_inst({nif_start,[]},_,_,_) ->
     nif_start;
 resolve_inst({badrecord,[Arg]},_,_,_) ->
