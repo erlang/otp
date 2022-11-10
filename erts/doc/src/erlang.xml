@@ -4493,14 +4493,13 @@ RealSystem = system + MissedSystem</code>
       <name name="module_loaded" arity="1" since=""/>
       <fsummary>Check if a module is loaded.</fsummary>
       <desc>
-        <p>Returns <c>true</c> if the module <c><anno>Module</anno></c>
-          is loaded, otherwise <c>false</c>. It does not attempt to load
-          the module.</p>
-        <warning>
-          <p>This BIF is intended for the code server (see
-            <seeerl marker="kernel:code"><c>code(3)</c></seeerl>)
-            and is not to be used elsewhere.</p>
-        </warning>
+        <p>
+          Returns <c>true</c> if the module <c><anno>Module</anno></c> is
+          loaded as
+          <seeguide marker="system/reference_manual:code_loading#code-replacement">
+            <i>current code</i></seeguide>; otherwise, <c>false</c>. It does
+          not attempt to load the module.
+        </p>
       </desc>
     </func>
 
