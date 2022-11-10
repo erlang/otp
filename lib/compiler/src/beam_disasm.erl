@@ -1122,7 +1122,7 @@ resolve_inst({bs_match_string=I,[F,Ms,{u,Bits},{u,Off}]},_,Strings,_) ->
 		     Bin;
 		 true -> <<>>
 	     end,
-    {test,I,F,[Ms,Bits,String]};
+    {test,I,F,[Ms,Bits,{string,String}]};
 resolve_inst({bs_init_writable=I,[]},_,_,_) ->
     I;
 resolve_inst({bs_append=I,[Lbl,Arg2,{u,W},{u,R},{u,U},Arg6,{u,F},Arg8]},_,_,_) ->
