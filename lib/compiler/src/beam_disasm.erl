@@ -1054,15 +1054,15 @@ resolve_inst({is_function2=I,Args0},_,_,_) ->
 %%
 resolve_inst({bs_start_match2=I,[F,Reg,{u,Live},{u,Max},Ms]},_,_,_) ->
     {test,I,F,[Reg,Live,Max,Ms]};
-resolve_inst({bs_get_integer2=I,[Lbl,Ms,{u,Live},Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[Ms, Live,A2,N,decode_field_flags(U),A5]};
-resolve_inst({bs_get_binary2=I,[Lbl,Ms,{u,Live},Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[Ms, Live,A2,N,decode_field_flags(U),A5]};
-resolve_inst({bs_get_float2=I,[Lbl,Ms,{u,Live},Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[Ms, Live,A2,N,decode_field_flags(U),A5]};
+resolve_inst({bs_get_integer2=I,[Fail,Ms,{u,Live},Size0,{u,Unit},{u,Flags},Dst0]},_,_,_) ->
+    [Size,Dst] = resolve_args([Size0,Dst0]),
+    {test,I,Fail,Live,[Ms,Size,Unit,decode_field_flags(Flags)],Dst};
+resolve_inst({bs_get_binary2=I,[Fail,Ms,{u,Live},Size0,{u,Unit},{u,Flags},Dst0]},_,_,_) ->
+    [Size,Dst] = resolve_args([Size0,Dst0]),
+    {test,I,Fail,Live,[Ms,Size,Unit,decode_field_flags(Flags)],Dst};
+resolve_inst({bs_get_float2=I,[Fail,Ms,{u,Live},Size0,{u,Unit},{u,Flags},Dst0]},_,_,_) ->
+    [Size,Dst] = resolve_args([Size0,Dst0]),
+    {test,I,Fail,Live,[Ms,Size,Unit,decode_field_flags(Flags)],Dst};
 resolve_inst({bs_skip_bits2=I,[Lbl,Ms,Arg2,{u,N},{u,U}]},_,_,_) ->
     A2 = resolve_arg(Arg2),
     {test,I,Lbl,[Ms,A2,N,decode_field_flags(U)]};
