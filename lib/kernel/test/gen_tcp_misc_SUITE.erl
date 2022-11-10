@@ -5204,6 +5204,15 @@ send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 
 %% Test the send_timeout socket option.
 send_timeout_check_length(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   Key = kernel_factor,
+                   case lists:keysearch(Key, 1, Config) of
+                       {value, {Key, Factor}} when (Factor > 5) ->
+                           {skip, ?F("Too slow (factor = ~w)", [Factor])};
+                       _ ->
+                           ok
+                   end
+           end,
     Pre  = fun() ->
                    Dir = filename:dirname(code:which(?MODULE)),
                    ?P("create node"),
@@ -5215,7 +5224,7 @@ send_timeout_check_length(Config) when is_list(Config) ->
                    ?P("stop node ~p", [Node]),
                    ?STOP_NODE(Node)
            end,
-    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
 do_send_timeout_check_length(Config, RNode) ->
     ?P("begin"),
@@ -5763,13 +5772,13 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose, BufSz) ->
     (catch gen_tcp:close(L)),
     ?P("[sink] done when: "
        "~n   Accepted socket: ~p"
-       "~n      Info:     ~p"
-       "~n      SockName: ~p"
-       "~n      PeerName: ~p"
+       "~n      Buffer Info: ~p"
+       "~n      SockName:    ~p"
+       "~n      PeerName:    ~p"
        "~n   Connected socket: ~p"
-       "~n      Info:     ~p"
-       "~n      SockName: ~p"
-       "~n      PeerName: ~p",
+       "~n      Buffer Info: ~p"
+       "~n      SockName:    ~p"
+       "~n      PeerName:    ~p",
        [A,
         oki(inet:getopts(A, [buffer, recbuf, sndbuf])),
         oki(inet:sockname(A)),
