@@ -122,19 +122,60 @@
       <name since="">get_disk_data() -> [DiskData]</name>
       <fsummary>Get data for the disks in the system</fsummary>
       <type>
-        <v>DiskData = {Id, KByte, Capacity}</v>
+        <v>DiskData = {Id, TotalKiB, Capacity}</v>
         <v>&nbsp;Id = string()</v>
-        <v>&nbsp;KByte = int()</v>
+        <v>&nbsp;TotalKiB = int()</v>
         <v>&nbsp;Capacity = int()</v>
       </type>
       <desc>
         <p>Returns the result of the latest disk check. <c>Id</c> is a
-          string that identifies the disk or partition. <c>KByte</c> is
-          the total size of the disk or partition in kbytes.
+          string that identifies the disk or partition. <c>TotalKiB</c> is
+          the total size of the disk or partition in kibibytes.
           <c>Capacity</c> is the percentage of disk space used.</p>
         <p>The function is asynchronous in the sense that it does not
           invoke a disk check, but returns the latest available value.</p>
         <p>Returns <c>[{"none",0,0}]</c> if <c>disksup</c> is not
+          available.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP @OTP-18303@">get_disk_info() -> [DiskData]</name>
+      <fsummary>Immediately get information for the disks in the system</fsummary>
+      <type>
+        <v>DiskData = {Id, TotalKiB, AvailableKiB, Capacity}</v>
+        <v>&nbsp;Id = string()</v>
+        <v>&nbsp;TotalKiB = int()</v>
+        <v>&nbsp;AvailableKiB = int()</v>
+        <v>&nbsp;Capacity = int()</v>
+      </type>
+      <desc>
+        <p>Immediately fetches total space, available space and capacity for local disks.
+          <c>Id</c> is a string that identifies the disk or partition.
+          <c>TotalKiB</c> is the total size of the disk or partition in kibibytes.
+          <c>AvailableKiB</c> is the disk space used in kibibytes.
+          <c>Capacity</c> is the percentage of disk space used.</p>
+        <p>Returns <c>[{"none",0,0,0}]</c> if <c>disksup</c> is not
+          available.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP @OTP-18303@">get_disk_info(Path) -> DiskData</name>
+      <fsummary>Immediately get information for a single path</fsummary>
+      <type>
+        <v>DiskData = [{Id, TotalKiB, AvailableKiB, Capacity}]</v>
+        <v>&nbsp;Id = string()</v>
+        <v>&nbsp;TotalKiB = int()</v>
+        <v>&nbsp;AvailableKiB = int()</v>
+        <v>&nbsp;Capacity = int()</v>
+      </type>
+      <desc>
+        <p>Immediately fetches total space, available space and capacity for a path.
+          <c>Id</c> is a string that identifies the disk or partition.
+          <c>TotalKiB</c> is the total size of the disk or partition in kibibytes.
+          <c>AvailableKiB</c> is the disk space used in kibibytes.
+          <c>Capacity</c> is the percentage of disk space used.</p>
+        <p>Returns <c>[{Path,0,0,0}]</c> if the <c>Path</c> is invalid or space
+          can't be determined. Returns <c>[{"none",0,0,0}]</c> if <c>disksup</c> is not
           available.</p>
       </desc>
     </func>
