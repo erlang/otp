@@ -1222,8 +1222,8 @@ resolve_inst({get_tl,[Src,Dst]},_,_,_) ->
 resolve_inst({put_tuple2,[Dst,{{z,1},{u,_},List0}]},_,_,_) ->
     List = resolve_args(List0),
     {put_tuple2,Dst,{list,List}};
-resolve_inst({bs_start_match3,[Fail,Bin,Live,Dst]},_,_,_) ->
-    {bs_start_match3,Fail,Bin,Live,Dst};
+resolve_inst({bs_start_match3=I,[Fail,Bin,{u,Live},Dst]},_,_,_) ->
+    {test,I,Fail,Live,[Bin],Dst};
 resolve_inst({bs_get_tail,[Src,Dst,Live]},_,_,_) ->
     {bs_get_tail,Src,Dst,Live};
 resolve_inst({bs_get_position,[Src,Dst,Live]},_,_,_) ->
