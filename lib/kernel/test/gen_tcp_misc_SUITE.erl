@@ -1540,7 +1540,7 @@ a_server2(L) ->
 %%
 
 show_econnreset_active(Config) when is_list(Config) ->
-    ?TC_TRY(show_econnreset_active,
+    ?TC_TRY(?FUNCTION_NAME,
             fun() -> do_show_econnreset_active(Config) end).
 
 do_show_econnreset_active(Config) ->
@@ -1607,7 +1607,7 @@ do_show_econnreset_active(Config) ->
     end.
 
 show_econnreset_active_once(Config) when is_list(Config) ->
-    ?TC_TRY(show_econnreset_active_once,
+    ?TC_TRY(?FUNCTION_NAME,
             fun() -> do_show_econnreset_active_once(Config) end).
 
 do_show_econnreset_active_once(Config) ->
@@ -1646,7 +1646,7 @@ do_show_econnreset_active_once(Config) ->
     end.
 
 show_econnreset_passive(Config) when is_list(Config) ->
-    ?TC_TRY(show_econnreset_passive,
+    ?TC_TRY(?FUNCTION_NAME,
             fun() -> do_show_econnreset_passive(Config) end).
 
 do_show_econnreset_passive(Config) ->
@@ -1682,10 +1682,12 @@ do_show_econnreset_passive(Config) ->
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
     ok = gen_tcp:close(S1),
     ok = ct:sleep(1),
-    {error, econnreset} = gen_tcp:recv(Client1, 0).
+    {error, econnreset} = gen_tcp:recv(Client1, 0),
+    ?P("done"),
+    ok.
 
 econnreset_after_sync_send(Config) when is_list(Config) ->
-    ?TC_TRY(econnreset_after_sync_send,
+    ?TC_TRY(?FUNCTION_NAME,
             fun() -> do_econnreset_after_sync_send(Config) end).
 
 do_econnreset_after_sync_send(Config) ->
@@ -1723,10 +1725,12 @@ do_econnreset_after_sync_send(Config) ->
     ok = inet:setopts(S1, [{linger, {true, 0}}]),
     ok = gen_tcp:close(S1),
     ok = ct:sleep(20),
-    {error, econnreset} = gen_tcp:send(Client1, "Whatever").
+    {error, econnreset} = gen_tcp:send(Client1, "Whatever"),
+    ?P("done"),
+    ok.
 
 econnreset_after_async_send_active(Config) when is_list(Config) ->
-    ?TC_TRY(econnreset_after_async_send_active,
+    ?TC_TRY(?FUNCTION_NAME,
             fun() -> do_econnreset_after_async_send_active(Config) end).
 
 do_econnreset_after_async_send_active(Config) ->
@@ -5246,7 +5250,7 @@ do_send_timeout_check_length(Config, RNode) ->
                            {{error, timeout}, _} =
 			       timeout_sink_loop(Send, TslTimeout)
                    end),
-    Diff = get_max_diff(),
+    Diff = get_max_diff(Pid),
     ?P("Max time for send: ~p", [Diff]),
     true = (Diff > (SndTimeout - 500)) and (Diff < (SndTimeout + 500)),
 
@@ -5525,15 +5529,18 @@ st_await_sender_termination(Sender1, Sender2) ->
             st_await_sender_termination(Sender1, undefined)
     end.
             
-get_max_diff() ->
+get_max_diff(Pid) when is_pid(Pid) ->
     receive
 	ok ->
-	    get_max_diff(0)
+	    get_max_diff2(0)
     after 10000 ->
+            ?P("timeout awaiting first send result (ok) from sink ~p:"
+               "~n   Sink (process) info: ~p",
+               [Pid, pi(Pid)]),
 	    exit(timeout)
     end.
 
-get_max_diff(Max) ->
+get_max_diff2(Max) ->
     T1 = millis(),
     receive
 	ok ->
@@ -5541,11 +5548,11 @@ get_max_diff(Max) ->
 	    if
 		Diff > Max ->
 		    ?P("new max send time: ~w", [Diff]),
-		    get_max_diff(Diff);
+		    get_max_diff2(Diff);
 		true ->
-		    get_max_diff(Max)
+		    get_max_diff2(Max)
 	    end;
-	{error,timeout} ->
+	{error, timeout} ->
 	    Diff = millis() - T1,
 	    if
 		Diff > Max ->
@@ -5974,7 +5981,7 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
         {N, Timeouts} =
             do_send_timeout_resume_send(C, Server, Tag,
                                         RetryTimeout, BlockSize),
-        ?P("await server reply (DOWN)"),
+        ?P("await server (~p) reply (DOWN)", [Server]),
         receive
             {'DOWN', Mref, _, _, Result} ->
                 ?P("received DOWN message from server:"
@@ -5990,6 +5997,7 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
                            %% send buffer with send_timeout = 0,
                            %% so that did not work
                            1 < Timeouts ->
+                        ?P("count checked out"),
                         ok;
                     {Tag, ok, Count} when Count =:= N * BlockSize ->
                         ?P("Unexpected number of timeouts, ~w, when"
@@ -6011,8 +6019,12 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
                 end
         end
     after
+        ?P("after: kill (failsafe) server"),
         exit(Server, failsafe),
-        gen_tcp:close(C)
+        ?P("after: close socket"),
+        gen_tcp:close(C),
+        ?P("after: done"),
+        ok
     end.
 
 optnames(Opts) ->
@@ -6402,11 +6414,15 @@ do_otp_7816(Config) ->
     [otp_7816_ctrl(Socket, 18, BinSize, Server) ||
 	BinSize <- lists:seq(1000, 2000, 123)],
 
-    ?P("[ctrl] sending complete..."),
+    ?P("[ctrl] sending complete - close socket"),
 
     ok = gen_tcp:close(Socket),
+    ?P("[ctrl] stop server"),
     Server ! {self(), closed},
-    {Server, closed} = receive M -> M end.
+    ?P("[ctrl] await server stopped"),
+    {Server, closed} = receive M -> M end,
+    ?P("[ctrl] done"),
+    ok.
 
 
 otp_7816_ctrl(Socket, BinNr, BinSize, Server) ->
@@ -7927,6 +7943,8 @@ links() ->
 monitors() ->
     pi(monitors).
 
+pi(Pid) when is_pid(Pid) ->
+    process_info(Pid);
 pi(Item) ->
     pi(self(), Item).
 
