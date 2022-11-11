@@ -1159,12 +1159,19 @@ document etp-mfa
 end
 
 define etp-export-get
-  # Args: Eterm Eterm Uint
+  # Args: M F A [code_ix]
 
   set $etp_h = (((Eterm)$arg0 >> 6) * ((Eterm)$arg1 >> 6)) ^ (Uint)$arg2
 
+  if $argc == 3
+    set $etp_code_ix = the_active_code_index.counter
+  end
+  if $argc == 4
+    set $etp_code_ix = $arg3
+  end
+
   #hash_get_slot
-  set $etp_t = &export_tables[the_active_code_index.counter].htable
+  set $etp_t = &export_tables[$etp_code_ix].htable
   set $etp_h ^= $etp_h >> $etp_t->shift
   if $etp_arch64
     set $etp_h = (11400714819323198485UL * $etp_h) >> $etp_t->shift
@@ -1188,9 +1195,10 @@ end
 
 document etp-export-get
 %---------------------------------------------------------
-% etp-export-get module function arity
+% etp-export-get module function arity [code_ix]
 %
 % Lookup and print pointer to Export entry.
+% code_ix is optional, default is the_active_code_index
 % Example:
 % (gdb) etp-string-to-atom "erlang"
 % $1 = 13323
@@ -1207,8 +1215,15 @@ define etp-module-get
   set $etp_ix = ((Eterm)$arg0 >> 6)
   set $etp_h = $etp_ix
 
+  if $argc == 1
+    set $etp_code_ix = the_active_code_index.counter
+  end
+  if $argc == 2
+    set $etp_code_ix = $arg1
+  end
+
   #hash_get_slot
-  set $etp_t = &module_tables[the_active_code_index.counter].htable
+  set $etp_t = &module_tables[$etp_code_ix].htable
   set $etp_h ^= $etp_h >> $etp_t->shift
   if $etp_arch64
     set $etp_h = (11400714819323198485UL * $etp_h) >> $etp_t->shift
@@ -1232,9 +1247,10 @@ end
 
 document etp-module-get
 %---------------------------------------------------------
-% etp-module-get module
+% etp-module-get module [code_ix]
 %
 % Lookup and print pointer to Module entry.
+% code_ix is optional, default is the_active_code_index
 % Example:
 % (gdb) etp-string-to-atom "erlang"
 % $1 = 13323
@@ -1297,7 +1313,7 @@ define etp-cp-func-info-1
 # $etp_cp_line_name and $etp_cp_line_number
 #
   set $etp_cp = (Eterm)($arg0)
-  set $etp_ranges = &r[(int)the_active_code_index]
+  set $etp_ranges = &r[(int)the_active_code_index.counter]
   set $etp_cp_low = $etp_ranges->modules
   set $etp_cp_high = $etp_cp_low + $etp_ranges->n
   set $etp_cp_mid = (Range*)$etp_ranges->mid
