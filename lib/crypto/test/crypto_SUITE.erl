@@ -1446,17 +1446,31 @@ rand_plugin_s(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 info(_Config) ->
     [{_,_,VerBin}] = crypto:info_lib(),
-    Ver = binary:bin_to_list(VerBin),
+    LibVer = binary:bin_to_list(VerBin),
     try
         crypto:info()
     of
-        #{cryptolib_version_compiled := Ver,
-          cryptolib_version_linked := Ver,
+        #{cryptolib_version_compiled := LibVer,
+          cryptolib_version_linked := LibVer,
           compile_type := Tc,
           link_type := Tl} when is_atom(Tc), is_atom(Tl) ->
             ok;
+
+        %% Version strings in header vs lib seen to differ slightly on SUSE
+        %% but OpenSSL version numbers should be the same
+        #{cryptolib_version_compiled := CompVer,
+          cryptolib_version_linked := LibVer,
+          compile_type := Tc,
+          link_type := Tl} when is_atom(Tc), is_atom(Tl) ->
+            RE = "OpenSSL (\\d+\\.\\d+\\.\\d+.)",
+            Opts = [{capture,first,list}],
+            {match,[CompV]} = re:run(CompVer, RE, Opts),
+            {match,[LinkV]} = re:run(LibVer, RE, Opts),
+            {CompV,CompV} = {CompV,LinkV},
+            ok;
+
         Other ->
-            ct:log("Ver = ~p~ncrypto:info() -> ~p", [Ver,Other]),
+            ct:log("LibVer = ~p~ncrypto:info() -> ~p", [LibVer,Other]),
             ct:fail("Version mismatch", [])
     catch
         C:E ->
