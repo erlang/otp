@@ -292,12 +292,17 @@ decode_extensions(asn1_NOVALUE) ->
 decode_extensions(Exts) ->
     lists:map(fun(Ext = #'Extension'{extnID=Id, extnValue=Value0}) ->
 		      case extension_id(Id) of
-			  undefined -> Ext;
+			  undefined ->
+                              Ext;
 			  Type ->
-			      {ok, Value} = 'OTP-PUB-KEY':decode(Type, iolist_to_binary(Value0)),
-			      Ext#'Extension'{extnValue=transform(Value,decode)}
-		      end
-	      end, Exts).
+                              case 'OTP-PUB-KEY':decode(Type, iolist_to_binary(Value0)) of
+                                  {ok, Value} ->
+                                      Ext#'Extension'{extnValue=transform(Value,decode)};
+                                  {error, _} ->
+                                      Ext
+                              end
+                      end
+              end, Exts).
 
 encode_extensions(asn1_NOVALUE) ->
     asn1_NOVALUE;
