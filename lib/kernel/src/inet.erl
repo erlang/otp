@@ -35,8 +35,10 @@
 	 ip/1, is_ipv4_address/1, is_ipv6_address/1, is_ip_address/1,
 	 stats/0, options/0, 
 	 pushf/3, popf/1, close/1, gethostname/0, gethostname/1, 
-	 parse_ipv4_address/1, parse_ipv6_address/1, parse_ipv4strict_address/1,
-	 parse_ipv6strict_address/1, parse_address/1, parse_strict_address/1,
+	 parse_ipv4_address/1, parse_ipv6_address/1,
+         parse_ipv4strict_address/1, parse_ipv6strict_address/1,
+         parse_address/1, parse_strict_address/1,
+         parse_address/2, parse_strict_address/2,
          ntoa/1, ipv4_mapped_ipv6_address/1]).
 
 -export([connect_options/2, listen_options/2, udp_options/2, sctp_options/2]).
@@ -912,12 +914,38 @@ parse_ipv6strict_address(Addr) ->
 parse_address(Addr) ->
     inet_parse:address(Addr).
 
+-spec parse_address(Address, inet) ->
+          {ok, IPAddress} | {error, einval} when
+      Address :: string(),
+      IPAddress :: ip_address();
+                   (Address, inet6) ->
+          {ok, IPv6Address} | {error, einval} when
+      Address :: string(),
+      IPv6Address :: ip6_address().
+parse_address(Addr, inet) ->
+    inet_parse:ipv4_address(Addr);
+parse_address(Addr, inet6) ->
+    inet_parse:ipv6_address(Addr).
+
 -spec parse_strict_address(Address) ->
 	{ok, IPAddress} | {error, einval} when
       Address :: string(),
       IPAddress :: ip_address().
 parse_strict_address(Addr) ->
     inet_parse:strict_address(Addr).
+
+-spec parse_strict_address(Address, inet) ->
+          {ok, IPAddress} | {error, einval} when
+      Address :: string(),
+      IPAddress :: ip_address();
+                   (Address, inet6) ->
+          {ok, IPv6Address} | {error, einval} when
+      Address :: string(),
+      IPv6Address :: ip6_address().
+parse_strict_address(Addr, inet) ->
+    inet_parse:ipv4strict_address(Addr);
+parse_strict_address(Addr, inet6) ->
+    inet_parse:ipv6strict_address(Addr).
 
 -spec ipv4_mapped_ipv6_address(ip_address()) -> ip_address().
 ipv4_mapped_ipv6_address({D1,D2,D3,D4})

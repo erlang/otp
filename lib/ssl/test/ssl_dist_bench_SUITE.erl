@@ -49,6 +49,9 @@
 %% Debug
 -export([payload/1, roundtrip_runner/3, setup_runner/3, throughput_runner/4]).
 
+-define(INET_CRYPT, "inet_cryptcookie").
+-define(INET_CRYPT_DIST, (list_to_atom(?INET_CRYPT ++ "_dist"))).
+
 %%%-------------------------------------------------------------------
 
 suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames, 2}]}]}].
@@ -211,11 +214,11 @@ init_per_group(benchmark, Config) ->
 init_per_group(ssl, Config) ->
     [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
 init_per_group(crypto, Config) ->
-    try inet_crypto_dist:supported() of
+    try ?INET_CRYPT_DIST:supported() of
         ok ->
             [{ssl_dist, false}, {ssl_dist_prefix, "Crypto"},
              {ssl_dist_args,
-              "-proto_dist inet_crypto"}
+              "-proto_dist "?INET_CRYPT}
             |Config];
         Problem ->
             {skip, Problem}
@@ -918,8 +921,13 @@ throughput_runner(A, B, Rounds, Size) ->
                 undefined
         end,
     Prof = prof_end(),
-    [{_Node,Socket}] = dig_dist_node_sockets(),
-    DistStats = inet:getstat(Socket),
+    DistStats =
+        case dig_dist_node_sockets() of
+            [{_Node,Socket}] ->
+                inet:getstat(Socket);
+            [undefined] ->
+                undefined
+        end,
     Result#{time := microseconds(Time),
             client_dist_stats => DistStats,
             client_msacc_stats => MsaccStats,
@@ -932,7 +940,7 @@ dig_dist_node_sockets() ->
            || {Node, DistCtrl}
                   <- erlang:system_info(dist_ctrl), is_pid(DistCtrl)]),
     TlsDistConnSup = whereis(tls_dist_connection_sup),
-    InetCryptoDist = whereis(inet_crypto_dist),
+    InetCryptoDist = whereis(?INET_CRYPT_DIST),
     [NodeSocket
      || {_, Socket} = NodeSocket
             <- erlang:system_info(dist_ctrl), is_port(Socket)]
@@ -946,8 +954,13 @@ dig_dist_node_sockets() ->
                              lists:sort(supervisor:which_children(ConnSup)),
                          {links,ReceiverLinks} =
                              process_info(ReceiverPid, links),
-                         [Socket] = [S || S <- ReceiverLinks, is_port(S)],
-                         {maps:get(SenderPid, DistCtrl2Node), Socket}
+                         case [S || S <- ReceiverLinks, is_port(S)] of
+                             [Socket] ->
+                                 {maps:get(SenderPid, DistCtrl2Node),
+                                  Socket};
+                             [] ->
+                                 undefined
+                         end
                  end
                  || ConnSpec <- supervisor:which_children(TlsDistConnSup)];
             InetCryptoDist =/= undefined ->
@@ -956,9 +969,12 @@ dig_dist_node_sockets() ->
                          erlang:process_info(DistCtrl, monitors),
                      {links,InputHandlerLinks} =
                          erlang:process_info(InputHandler, links),
-                     [Socket] =
-                         [S || S <- InputHandlerLinks, is_port(S)],
-                     {Node, Socket}
+                     case [S || S <- InputHandlerLinks, is_port(S)] of
+                         [Socket] ->
+                             {Node, Socket};
+                         [] ->
+                             undefined
+                     end
                  end
                  || {DistCtrl, Node} <- maps:to_list(DistCtrl2Node)];
             true ->

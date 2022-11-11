@@ -95,6 +95,7 @@ MODULES = \
 	ssl_socket_SUITE\
 	make_certs \
         x509_test \
+	inet_cryptcookie_dist \
 	inet_crypto_dist \
 	openssl_ocsp_SUITE \
 	tls_server_session_ticket_SUITE \

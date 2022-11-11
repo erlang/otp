@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,24 +21,22 @@
 %%
 %% Module for encrypted Erlang protocol - a minimal encrypted
 %% distribution protocol based on only a shared secret
-%% and the crypto application
+%% and the crypto application, over gen_tcp and inet,
+%% enabling the use of inet_backend = socket
 %%
--module(inet_crypto_dist).
--define(DIST_NAME, inet_crypto).
--define(DIST_PROTO, crypto).
--define(DRIVER, inet_tcp).
+-module(inet_cryptcookie_dist).
+-feature(maybe_expr, enable).
+
 -define(FAMILY, inet).
+-define(PROTOCOL, cryptcookie).
 
--export([supported/0, listen/1, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, is_node_name/1]).
+-export([select/1, address/0, is_node_name/1,
+         listen/2, accept/1, accept_connection/5,
+         setup/5, close/1]).
 
-%% Generalized dist API, for sibling IPv6 module inet6_crypto_dist
--export([gen_listen/2, gen_accept/2, gen_accept_connection/6,
-	 gen_setup/6, gen_close/2, gen_select/2]).
-
-%% Debug
-%%%-compile(export_all).
--export([dbg/0, test_server/0, test_client/1]).
+-export([supported/0]).
+-export([test_server/0, test_server/1, test_client/1, test_client/2,
+         test/1, dbg/0]).
 
 -include_lib("kernel/include/net_address.hrl").
 -include_lib("kernel/include/dist.hrl").
@@ -46,6 +44,523 @@
 
 -define(PACKET_SIZE, 65536).
 -define(BUFFER_SIZE, (?PACKET_SIZE bsl 4)).
+
+%% -------------------------------------------------------------------------
+%% Erlang distribution plugin structure explained to myself
+%% -------
+%% These are the processes involved in the distribution:
+%% * net_kernel
+%% * The Acceptor
+%% * The Controller | Handshaker | Ticker
+%% * The DistCtrl process (the "distribution socket),
+%%   that may be split into:
+%%   + The Output controller
+%%   + The Input controller
+%%   For the regular inet_tcp_dist distribution module, DistCtrl
+%%   is not one or two processes, but one port - a gen_tcp socket
+%%
+%% When the VM is started with the argument "-proto_dist inet_crypto"
+%% net_kernel registers the module inet_crypto_dist as a distribution
+%% module DM.  net_kernel calls DM:listen/1 to create a listen socket
+%% {Socket, Address, Creation} and then DM:accept/1 with the listen socket
+%% as argument that spawn_link:s the Acceptor process.  Apparently
+%% the listen socket is owned by net_kernel - I wonder if it could
+%% be owned by the Acceptor process instead...
+%%
+%% The Acceptor process implements a loop that calls blocking accept
+%% on the listen socket and when an incoming socket is returned
+%% it spawn_link:s the DistCtrl process (distribution socket).
+%% The ownership of the incoming (accepted) socket is immediately
+%% transferred to the DistCtrl process so they act as a socket unit.
+%% A message {accept, Acceptor, DistCtrl, Family, ProtocolName}
+%% is sent to net_kernel to inform it that an incoming connection
+%% has appeared.
+%%
+%% net_kernel searches its list of #listen{} records to locate
+%% an active #listen.accept =/= undefined with an #listen.address
+%% with Family and ProtocolName -> #listen.module = DM and calls
+%% DM:accept_connection(Acceptor, DistCtrl, _, _, _) that
+%% spawn_link:s the Controller | Handshaker | Ticker process.
+%% net_kernel sends {NetKernel, controller, Controller} to the Acceptor.
+%% If net_kernel finds no matching distribution module
+%% {NetKernel, unsupported_protocol} is sent instead.
+%%
+%% The Acceptor receives the above message and calls DistCtrl
+%% to change links so DistCtrl gets linked to Controller,
+%% sends {Acceptor, controller, AcceptSocket} to Controller,
+%% and goes back to blocking accept on the listen socket.
+%%
+%% The Controller initiates the distribution handshake by
+%% creating a #hs_data{} record and calling
+%% dist_util:handshake_other_started/1.
+%%
+%% For the regular distribution inet_tcp_dist DistCtrl is a gen_tcp socket
+%% and when it is a process it also acts as a socket.  The #hs_data{}
+%% record used by dist_util presents a set of funs that are used
+%% by dist_util to perform the distribution handshake.  These funs
+%% make sure to transfer the handshake messages through the DistCtrl
+%% "socket".
+%%
+%% When the handshake is finished a fun for this purpose in #hs_data{}
+%% is called, which tells DistCtrl that it does not need to be prepared
+%% for any more #hs_data{} handshake calls.  The DistCtrl process in this
+%% module then spawns the Input controller process that gets ownership
+%% of the connection's gen_tcp socket and changes into {active, N} mode
+%% so now it gets all incoming traffic and delivers that to the VM.
+%% The original DistCtrl process changes role into the Output controller
+%% process and starts asking the VM for outbound messages and transfers
+%% them on the connection socket.
+%%
+%% The Handshaker now changes into the Ticker role, and uses only two
+%% functions in the #hs_data{} record; one to get socket statistics
+%% and one to send a tick.  None of these may block for any reason
+%% in particular not for a congested socket since that would destroy
+%% connection supervision.
+%%
+%%
+%% For an connection net_kernel calls setup/5 which spawn_link:s the
+%% Controller process.  This Controller process connects
+%% to the other node's listen socket and when that is successful
+%% spawn_link:s the DistCtrl process and transfers socket ownership to it.
+%%
+%% Then the Controller creates the #hs_data{} record and calls
+%% dist_util:handshake_we_started/1 to initiate distribution handshake.
+%%
+%% When the distribution handshake is finished the procedure is just
+%% as for an incoming connection above.
+%%
+%%
+%% To sum it up.
+%%
+%% There is an Acceptor process that is linked to net_kernel and
+%% informs it when new connections arrive.
+%%
+%% net_kernel spawns Controllers for incoming and for outgoing connections
+%% with DM:accept_connections/5 and DM:setup/5.  These Controllers
+%% has DistCtrl processes as their "socket" and a DistCtrl
+%% process owns the actual socket.  The Controllers
+%% initiates distribution handshake by creating #hs_data{} records
+%% and calling dist_util:handshake_other_started/1
+%% and dist_util:handshake_we_started/1 and after that becomes Tickers
+%% that supervise the connection.
+%%
+%% The Controller | Handshaker | Ticker is linked to net_kernel.
+%% DistCtrl is linked to Controller.  The actual sockets are owned by
+%% DistCtrl, except for the listen socket that is owned by net_kernel.
+%% If any of these connection processes would die all others
+%% should be killed by the links.  Therefore none of them may
+%% terminate with reason 'normal'.
+%% -------------------------------------------------------------------------
+
+-define(TCP_ACTIVE, 16).
+
+-compile({inline, [socket_options/0]}).
+socket_options() ->
+    [binary, {active, false}, {packet, 2}, {nodelay, true},
+     {sndbuf, ?BUFFER_SIZE}, {recbuf, ?BUFFER_SIZE},
+     {buffer, ?BUFFER_SIZE}].
+
+%% -------------------------------------------------------------------------
+select(Node) ->
+    inet_tcp_dist:fam_select(?FAMILY, Node).
+%% -------------------------------------------------------------------------
+address() ->
+    inet_tcp_dist:fam_address(?FAMILY).
+%% -------------------------------------------------------------------------
+is_node_name(Node) ->
+    dist_util:is_node_name(Node).
+%% -------------------------------------------------------------------------
+
+listen(Name, Host) ->
+    fam_listen(?FAMILY, Name, Host).
+
+fam_listen(Family, Name, Host) ->
+    Listen =
+        fun (Port, Opts) ->
+                SocketOptions =
+                    [Family | Opts] ++ socket_options(),
+                gen_tcp:listen(Port, SocketOptions)
+        end,
+    case inet_tcp_dist:fam_listen(Family, Name, Host, Listen) of
+        {ok, {ListenSocket, NetAddress, Creation}} ->
+            NetAddress_1 =
+                NetAddress#net_address{
+                  protocol = ?PROTOCOL},
+            {ok, {ListenSocket, NetAddress_1, Creation}};
+        {error, _} = Error ->
+            Error
+    end.
+
+%% -------------------------------------------------------------------------
+
+accept(ListenSocket) ->
+    fam_accept(?FAMILY, ListenSocket).
+
+fam_accept(Family, ListenSocket) ->
+    NetKernel = self(),
+    Acceptor =
+        monitor_dist_proc(
+          acceptor,
+          spawn_opt(
+            fun () ->
+                    start_keypair_server(),
+                    acceptor(Family, ListenSocket, NetKernel)
+            end,
+            dist_util:net_ticker_spawn_options())),
+    Acceptor.
+
+acceptor(Family, ListenSocket, NetKernel) ->
+    case gen_tcp:accept(trace(ListenSocket)) of
+        {ok, Socket} ->
+            wait_for_code_server(),
+            Timeout = net_kernel:connecttime(),
+            DistCtrlHandle = start_dist_ctrl(trace(Socket), Timeout),
+            NetKernel !
+                trace({accept, self(), DistCtrlHandle, Family, ?PROTOCOL}),
+            receive
+                {NetKernel, controller, Controller} ->
+                    call(DistCtrlHandle, {controlling_process, Controller}),
+                    Controller ! {self(), DistCtrlHandle, Socket},
+                    acceptor(Family, ListenSocket, NetKernel);
+                {NetKernel, unsupported_protocol = Reason} ->
+                    exit(Reason)
+            end;
+        {error, Reason} ->
+            exit({accept, Reason})
+    end.
+
+wait_for_code_server() ->
+    %% This is an ugly hack.  Starting encryption on a connection
+    %% requires the crypto module to be loaded.  Loading the crypto
+    %% module triggers its on_load function, which calls
+    %% code:priv_dir/1 to find the directory where its NIF library is.
+    %% However, distribution is started earlier than the code server,
+    %% so the code server is not necessarily started yet, and
+    %% code:priv_dir/1 might fail because of that, if we receive
+    %% an incoming connection on the distribution port early enough.
+    %%
+    %% If the on_load function of a module fails, the module is
+    %% unloaded, and the function call that triggered loading it fails
+    %% with 'undef', which is rather confusing.
+    %%
+    %% So let's avoid that by waiting for the code server to start.
+    %%
+    case whereis(code_server) of
+	undefined ->
+	    timer:sleep(10),
+	    wait_for_code_server();
+	Pid when is_pid(Pid) ->
+	    ok
+    end.
+
+%% -------------------------------------------------------------------------
+
+accept_connection(Acceptor, DistCtrlHandle, MyNode, Allowed, SetupTime) ->
+    NetKernel = self(),
+    monitor_dist_proc(
+      ?FUNCTION_NAME,
+      spawn_opt(
+        fun () ->
+                accept_connection(
+                  Acceptor, DistCtrlHandle,
+                  trace(MyNode), Allowed, SetupTime, NetKernel)
+        end, dist_util:net_ticker_spawn_options())).
+
+accept_connection(
+  Acceptor, DistCtrlHandle, MyNode, Allowed, SetupTime,
+  NetKernel) ->
+    receive
+        {Acceptor, DistCtrlHandle, Socket} ->
+            Timer = dist_util:start_timer(SetupTime),
+            HsData =
+                (hs_data(
+                   NetKernel, DistCtrlHandle, MyNode,
+                   Socket, Timer, ?FAMILY))
+                #hs_data{ allowed = Allowed },
+            dist_util:handshake_other_started(trace(HsData))
+    end.
+
+%% -------------------------------------------------------------------------
+
+setup(Node, Type, MyNode, LongOrShortNames, SetupTime) ->
+    NetKernel = self(),
+    monitor_dist_proc(
+      ?FUNCTION_NAME,
+      spawn_opt(
+        fun () ->
+                setup(
+                  trace(Node), Type, MyNode, LongOrShortNames, SetupTime,
+                  NetKernel)
+        end, dist_util:net_ticker_spawn_options())).
+
+setup(Node, Type, MyNode, LongOrShortNames, SetupTime, NetKernel) ->
+    Timer = trace(dist_util:start_timer(SetupTime)),
+    ParseAddress = fun (A) -> inet:parse_strict_address(A, ?FAMILY) end,
+    {#net_address{address = {Ip, PortNum}} = NetAddress,
+     ConnectOptions,
+     Version} =
+        trace(inet_tcp_dist:fam_setup(
+                ?FAMILY, Node, LongOrShortNames, ParseAddress)),
+    dist_util:reset_timer(Timer),
+    maybe
+        {ok, Socket} ?=
+            gen_tcp:connect(
+              Ip, PortNum,
+              [?FAMILY | ConnectOptions] ++ socket_options()),
+        {DistCtrl, _} = DistCtrlHandle =
+            try trace(
+                  start_dist_ctrl(trace(Socket), net_kernel:connecttime()))
+            catch error : {dist_ctrl, _} = DistCtrlError ->
+                    ?shutdown2(Node, DistCtrlError)
+            end,
+        NetAddress_1 = NetAddress#net_address{ protocol = ?PROTOCOL },
+        HsData =
+            (hs_data(
+               NetKernel, DistCtrlHandle, MyNode,
+               Socket, Timer, ?FAMILY))
+            #hs_data{ other_node = Node,
+                      other_version = Version,
+                      request_type = Type,
+                      f_address =
+                          fun (S, N)
+                                when S =:= DistCtrl,
+                                     N =:= Node ->
+                                  NetAddress_1
+                          end },
+        dist_util:handshake_we_started(trace(HsData))
+    else
+        Error ->
+            ?shutdown2(Node, Error)
+    end.
+
+%% -------------------------------------------------------------------------
+
+close(ListenSocket) ->
+    gen_tcp:close(trace(ListenSocket)).
+
+
+%% -------------------------------------------------------------------------
+
+
+hs_data(
+  NetKernel, {DistCtrl, _} = DistCtrlHandle, MyNode,
+  Socket, Timer, Family) ->
+    %% Field 'socket' below is set to DistCtrl, which makes
+    %% the distribution handshake process (ticker) call
+    %% the funs below with DistCtrl as the S argument.
+    %% So, S =:= DistCtrl below...
+    #hs_data{
+       kernel_pid = NetKernel,
+       this_node = MyNode,
+       this_flags = 0,
+       socket = DistCtrl,
+       timer = Timer,
+       %%
+       f_send = % -> ok | {error, closed}=>?shutdown()
+           fun (S, Packet) when S =:= DistCtrl ->
+                   try call(DistCtrlHandle, {send, Packet})
+                   catch error : {dist_ctrl, Reason} ->
+                           _ = trace(Reason),
+                           {error, closed}
+                   end
+           end,
+       f_recv = % -> {ok, List} | Other=>?shutdown()
+           fun (S, 0, infinity) when S =:= DistCtrl ->
+                   try call(DistCtrlHandle, recv) of
+                       {ok, Bin} when is_binary(Bin) ->
+                           {ok, binary_to_list(Bin)};
+                       {error, _} = Error ->
+                           trace(Error)
+                   catch error : {dist_ctrl, Reason} ->
+                           {error, trace(Reason)}
+                   end
+           end,
+       f_setopts_pre_nodeup =
+           fun (S) when S =:= DistCtrl -> ok end,
+       f_setopts_post_nodeup =
+           fun (S) when S =:= DistCtrl -> ok end,
+       f_getll =
+           fun (S) when S =:= DistCtrl ->
+                   {ok, S} %% DistCtrl is the distribution port
+           end,
+       f_address = % -> #net_address{} | ?shutdown()
+           fun (S, Node) when S =:= DistCtrl ->
+                   try call(DistCtrlHandle, peername) of
+                       {ok, Address} ->
+                           case dist_util:split_node(Node) of
+                               {node, _, Host} ->
+                                   #net_address{
+                                      address = Address,
+                                      host = Host,
+                                      protocol = ?PROTOCOL,
+                                      family = Family};
+                               {error, Reason1} ->
+                                   ?shutdown2(
+                                      Node, {split_node, trace(Reason1)})
+                           end;
+                       {error, Reason2} ->
+                           ?shutdown2(Node, {peername, trace(Reason2)})
+                   catch error : {dist_ctrl, _} = DistCtrlError ->
+                           ?shutdown2(Node, trace(DistCtrlError))
+                   end
+           end,
+       f_handshake_complete = % -> ok | ?shutdown()
+           fun (S, Node, DistHandle) when S =:= DistCtrl ->
+                   try call(DistCtrlHandle, {handshake_complete, DistHandle})
+                   catch error : {dist_ctrl, _} = DistCtrlError ->
+                           ?shutdown2(Node, trace(DistCtrlError))
+                   end
+           end,
+       %%
+       %% mf_tick/1, mf_getstat/1, mf_setopts/2 and mf_getopts/2
+       %% are called by the ticker any time after f_handshake_complete/3
+       %% so they may not block the caller even for congested socket
+       mf_tick =
+           fun (S) when S =:= DistCtrl ->
+                   DistCtrl ! dist_tick
+           end,
+       mf_getstat = % -> {ok, RecvCnt, SendCnt, SendPend} | Other=>ignore_it
+           fun (S) when S =:= DistCtrl ->
+                   case
+                       inet:getstat(Socket, [recv_cnt, send_cnt, send_pend])
+                   of
+                       {ok, Stat} ->
+                           split_stat(Stat, 0, 0, 0);
+                       Error ->
+                           trace(Error)
+                   end
+           end,
+       mf_setopts =
+           fun (S, Opts) when S =:= DistCtrl ->
+                   trace(inet:setopts(Socket, setopts_filter(Opts)))
+           end,
+       mf_getopts =
+           fun (S, Opts) when S =:= DistCtrl ->
+                   _ = trace(S),
+                   inet:getopts(Socket, Opts)
+           end}.
+
+setopts_filter(Opts) ->
+    [Opt ||
+        Opt <- Opts,
+        case Opt of
+            {K, _} when K =:= active; K =:= deliver; K =:= packet -> false;
+            K when K =:= list; K =:= binary -> false;
+            K when K =:= inet; K =:= inet6 -> false;
+            _ -> true
+        end].
+
+split_stat([{recv_cnt, R}|Stat], _, W, P) ->
+    split_stat(Stat, R, W, P);
+split_stat([{send_cnt, W}|Stat], R, _, P) ->
+    split_stat(Stat, R, W, P);
+split_stat([{send_pend, P}|Stat], R, W, _) ->
+    split_stat(Stat, R, W, P);
+split_stat([], R, W, P) ->
+    {ok, R, W, P}.
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% The DistCtrl process (+ 1)
+%%
+%% At net_kernel handshake_complete spawns off the input controller that
+%% takes over the socket ownership, and itself becomes the output controller
+%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% XXX Missing to "productified":
+%%% * Cryptoanalysis by experts, this is crypto amateur work.
+%%% * Is it useful over inet_tls_dist; i.e to not have to bother
+%%%   with certificates but instead manage a secret cluster cookie?
+%%% * An application to belong to (kernel)
+%%% * Restart and/or code reload policy (not needed in kernel)
+%%% * Fitting into the epmd/Erlang distro protocol version framework
+%%%   (something needs to be created for multiple protocols, epmd,
+%%%    multiple address families, fallback to previous version, etc)
+
+
+%% For client and server development and debug
+
+test_server() ->
+    test_server(socket_options()).
+%%
+test_server(SocketOptions) ->
+    {ok, ListenSocket} = gen_tcp:listen(0, SocketOptions),
+    {ok, Port} = inet:port(ListenSocket),
+    io:format(
+      ?MODULE_STRING":test_client(~w,~n     ~p).~n", [Port, SocketOptions]),
+    {ok, Socket} = gen_tcp:accept(ListenSocket),
+    test(Socket).
+
+test_client(Port) ->
+    test_client(Port, socket_options()).
+%%
+test_client(Port, SocketOptions) ->
+    {ok, Addr} = inet:getaddr(localhost, ?FAMILY),
+    {ok, Socket} = gen_tcp:connect(Addr, Port, SocketOptions),
+    test(Socket).
+
+test(Socket) ->
+    start_keypair_server(),
+    start_dist_ctrl(Socket).
+
+%% -------------------------------------------------------------------------
+
+start_dist_ctrl(Socket) ->
+    start_dist_ctrl(Socket, 5000).
+
+start_dist_ctrl(Socket, Timeout) ->
+    Secret = atom_to_binary(auth:get_cookie(), latin1),
+    start_dist_ctrl(Socket, Secret, Timeout).
+
+start_dist_ctrl(Socket, Secret, Timeout) ->
+    ControllingProcess = self(),
+    Tag = make_ref(),
+    Pid =
+        monitor_dist_proc(
+          dist_ctrl,
+          spawn_opt(
+            fun () ->
+                    receive
+                        {Tag, From, start} ->
+                            Init = init(Socket, Secret),
+                            reply(From, trace(started)),
+                            handshake(ControllingProcess, Tag, Init)
+                    end
+            end,
+            [link,
+             {priority, max},
+             {message_queue_data, off_heap},
+             {fullsweep_after, 0}])),
+    gen_tcp:controlling_process(Socket, Pid),
+    DistCtrlHandle = {Pid, Tag},
+    started = call(DistCtrlHandle, start, Timeout),
+    DistCtrlHandle.
+
+
+call(Handle, Request) ->
+    call(Handle, Request, infinity).
+%%
+call({Pid, Tag}, Request, Timeout) ->
+    RefAlias = monitor(process, Pid, [{alias, reply_demonitor}]),
+    Pid ! {Tag, RefAlias, Request},
+    receive
+        {RefAlias, Response} ->
+            Response;
+        {'DOWN', RefAlias, process, Pid, Reason} ->
+            error({dist_ctrl, Reason})
+    after Timeout -> % Timeout < infinity is only used by start_dist_ctrl/2
+            true = demonitor(RefAlias, [flush]),
+            %% Flush late reply in case caller catches error
+            receive {RefAlias, _} -> ok after 0 -> ok end,
+            error({dist_ctrl, timeout})
+            %% Pid will be killed by link
+    end.
+
+reply(RefAlias, Response) when is_reference(RefAlias) ->
+    RefAlias ! {RefAlias, Response},
+    ok.
 
 %% -------------------------------------------------------------------------
 
@@ -62,7 +577,7 @@
 -define(HMAC, sha256).
 
 -record(params,
-        {socket,
+        {socket, % Socket
          dist_handle,
          hmac_algorithm = ?HMAC,
          aead_cipher = ?CIPHER,
@@ -78,10 +593,13 @@
 params(Socket) ->
     #{iv_length := IvLen, key_length := KeyLen} =
         crypto:cipher_info(?CIPHER),
-    #params{socket = Socket, iv = IvLen, key = KeyLen}.
+    #params{
+       socket = Socket,
+       iv = IvLen,
+       key = KeyLen}.
 
 
--record(key_pair,
+-record(keypair,
         {type = ecdh,
          params = ?CURVE,
          public,
@@ -115,20 +633,20 @@ supported() ->
 %% so crypto gets time to start first.
 %%
 
-start_key_pair_server() ->
+start_keypair_server() ->
     monitor_dist_proc(
-      key_pair_server,
+      keypair_server,
       spawn_link(
         fun () ->
                 register(?MODULE, self()),
-                key_pair_server()
+                keypair_server()
         end)).
 
-key_pair_server() ->
-    key_pair_server(undefined, undefined, undefined).
+keypair_server() ->
+    keypair_server(undefined, undefined, undefined).
 %%
-key_pair_server(
-  #key_pair{life_time = LifeTime, life_count = LifeCount} = KeyPair) ->
+keypair_server(
+  #keypair{life_time = LifeTime, life_count = LifeCount} = KeyPair) ->
     %% Presuming: 1 < LifeCount
     Timer =
         case LifeCount of
@@ -137,37 +655,48 @@ key_pair_server(
             _ ->
                 erlang:start_timer(LifeTime, self(), discard)
         end,
-    key_pair_server(KeyPair, Timer, LifeCount - 1).
+    keypair_server(KeyPair, Timer, LifeCount - 1).
 %%
-key_pair_server(_KeyPair, Timer, 0) ->
+keypair_server(_KeyPair, Timer, 0) ->
     cancel_timer(Timer),
-    key_pair_server();
-key_pair_server(KeyPair, Timer, Count) ->
+    keypair_server();
+keypair_server(KeyPair, Timer, Count) ->
     receive
-        {Pid, Tag, get_key_pair} ->
+        {RefAlias, get_keypair} when is_reference(RefAlias) ->
             case KeyPair of
                 undefined ->
-                    KeyPair_1 = generate_key_pair(),
-                    Pid ! {Tag, KeyPair_1},
-                    key_pair_server(KeyPair_1);
-                #key_pair{} ->
-                    Pid ! {Tag, KeyPair},
-                    key_pair_server(KeyPair, Timer, Count - 1)
+                    KeyPair_1 = generate_keypair(),
+                    RefAlias ! {RefAlias, KeyPair_1},
+                    keypair_server(KeyPair_1);
+                #keypair{} ->
+                    RefAlias ! {RefAlias, KeyPair},
+                    keypair_server(KeyPair, Timer, Count - 1)
             end;
-        {Pid, Tag, get_new_key_pair} ->
+        {RefAlias, get_new_keypair} ->
             cancel_timer(Timer),
-            KeyPair_1 = generate_key_pair(),
-            Pid ! {Tag, KeyPair_1},
-            key_pair_server(KeyPair_1);
+            KeyPair_1 = generate_keypair(),
+            RefAlias ! {RefAlias, KeyPair_1},
+            keypair_server(KeyPair_1);
         {timeout, Timer, discard} when is_reference(Timer) ->
-            key_pair_server()
+            keypair_server()
     end.
 
-generate_key_pair() ->
-    #key_pair{type = Type, params = Params} = #key_pair{},
+call_keypair_server(Request) ->
+    Pid = whereis(?MODULE),
+    RefAlias = erlang:monitor(process, Pid, [{alias, reply_demonitor}]),
+    Pid ! {RefAlias, Request},
+    receive
+        {RefAlias, Reply} ->
+            Reply;
+        {'DOWN', RefAlias, process, Pid, Reason} ->
+            error({keypair_server, Reason})
+    end.
+
+generate_keypair() ->
+    #keypair{type = Type, params = Params} = #keypair{},
     {Public, Private} =
         crypto:generate_key(Type, Params),
-    #key_pair{public = Public, private = Private}.
+    #keypair{public = Public, private = Private}.
 
 
 cancel_timer(undefined) ->
@@ -192,26 +721,14 @@ erlang_cancel_timer(Timer) ->
             ok
     end.
 
-get_key_pair() ->
-    call_key_pair_server(get_key_pair).
+get_keypair() ->
+    call_keypair_server(?FUNCTION_NAME).
 
-get_new_key_pair() ->
-    call_key_pair_server(get_new_key_pair).
-
-call_key_pair_server(Request) ->
-    Pid = whereis(?MODULE),
-    Ref = erlang:monitor(process, Pid),
-    Pid ! {self(), Ref, Request},
-    receive
-        {Ref, Reply} ->
-            erlang:demonitor(Ref, [flush]),
-            Reply;
-        {'DOWN', Ref, process, Pid, Reason} ->
-            error(Reason)
-    end.
+get_new_keypair() ->
+    call_keypair_server(?FUNCTION_NAME).
 
 compute_shared_secret(
-  #key_pair{
+  #keypair{
      type = PublicKeyType,
      params = PublicKeyParams,
      private = PrivKey}, PubKey) ->
@@ -219,644 +736,10 @@ compute_shared_secret(
     crypto:compute_key(PublicKeyType, PubKey, PrivKey, PublicKeyParams).
 
 %% -------------------------------------------------------------------------
-%% Erlang distribution plugin structure explained to myself
-%% -------
-%% These are the processes involved in the distribution:
-%% * net_kernel
-%% * The Acceptor
-%% * The Controller | Handshaker | Ticker
-%% * The DistCtrl process that may be split into:
-%%   + The Output controller
-%%   + The Input controller
-%%   For the regular inet_tcp_dist distribution module, DistCtrl
-%%   is not one or two processes, but one port - a gen_tcp socket
+
+%% Plenty of room for AEAD tag and chunk type
+-define(CHUNK_SIZE, (?PACKET_SIZE - 256)).
 %%
-%% When the VM is started with the argument "-proto_dist inet_crypto"
-%% net_kernel registers the module inet_crypto_dist acli,oams distribution
-%% module.  net_kernel calls listen/1 to create a listen socket
-%% and then accept/1 with the listen socket as argument to spawn
-%% the Acceptor process, which is linked to net_kernel.  Apparently
-%% the listen socket is owned by net_kernel - I wonder if it could
-%% be owned by the Acceptor process instead...
-%%
-%% The Acceptor process calls blocking accept on the listen socket
-%% and when an incoming socket is returned it spawns the DistCtrl
-%% process a linked to the Acceptor.  The ownership of the accepted
-%% socket is transferred to the DistCtrl process.
-%% A message is sent to net_kernel to inform it that an incoming
-%% connection has appeared and the Acceptor awaits a reply from net_kernel.
-%%
-%% net_kernel then calls accept_connection/5 to spawn the Controller |
-%% Handshaker | Ticker process that is linked to net_kernel.
-%% The Controller then awaits a message from the Acceptor process.
-%%
-%% When net_kernel has spawned the Controller it replies with a message
-%% to the Acceptor that then calls DistCtrl to changes its links
-%% so DistCtrl ends up linked to the Controller and not to the Acceptor.
-%% The Acceptor then sends a message to the Controller.  The Controller
-%% then changes role into the Handshaker creates a #hs_data{} record
-%% and calls dist_util:handshake_other_started/1.  After this
-%% the Acceptor goes back into a blocking accept on the listen socket.
-%%
-%% For the regular distribution inet_tcp_dist DistCtrl is a gen_tcp socket
-%% and when it is a process it also acts as a socket.  The #hs_data{}
-%% record used by dist_util presents a set of funs that are used
-%% by dist_util to perform the distribution handshake.  These funs
-%% make sure to transfer the handshake messages through the DistCtrl
-%% "socket".
-%%
-%% When the handshake is finished a fun for this purpose in #hs_data{}
-%% is called, which tells DistCtrl that it does not need to be prepared
-%% for any more #hs_data{} handshake calls.  The DistCtrl process in this
-%% module then spawns the Input controller process that gets ownership
-%% of the connection's gen_tcp socket and changes into {active, N} mode
-%% so now it gets all incoming traffic and delivers that to the VM.
-%% The original DistCtrl process changes role into the Output controller
-%% process and starts asking the VM for outbound messages and transfers
-%% them on the connection socket.
-%%
-%% The Handshaker now changes into the Ticker role, and uses only two
-%% functions in the #hs_data{} record; one to get socket statistics
-%% and one to send a tick.  None of these may block for any reason
-%% in particular not for a congested socket since that would destroy
-%% connection supervision.
-%%
-%%
-%% For an connection net_kernel calls setup/5 which spawns the
-%% Controller process as linked to net_kernel.  This Controller process
-%% connects to the other node's listen socket and when that is successful
-%% spawns the DistCtrl process as linked to the controller and transfers
-%% socket ownership to it.
-%%
-%% Then the Controller creates the #hs_data{} record and calls
-%% dist_util:handshake_we_started/1 which changes the process role
-%% into Handshaker.
-%%
-%% When the distribution handshake is finished the procedure is just
-%% as for an incoming connection above.
-%%
-%%
-%% To sum it up.
-%%
-%% There is an Acceptor process that is linked to net_kernel and
-%% informs it when new connections arrive.
-%%
-%% net_kernel spawns Controllers for incoming and for outgoing connections.
-%% these Controllers use the DistCtrl processes to do distribution
-%% handshake and after that becomes Tickers that supervise the connection.
-%%
-%% The Controller | Handshaker | Ticker is linked to net_kernel, and to
-%% DistCtrl, one or both.  If any of these connection processes would die
-%% all others should be killed by the links.  Therefore none of them may
-%% terminate with reason 'normal'.
-%% -------------------------------------------------------------------------
-
--compile({inline, [socket_options/0]}).
-socket_options() ->
-    [binary, {active, false}, {packet, 2}, {nodelay, true},
-     {sndbuf, ?BUFFER_SIZE}, {recbuf, ?BUFFER_SIZE},
-     {buffer, ?BUFFER_SIZE}].
-
-%% -------------------------------------------------------------------------
-%% select/1 is called by net_kernel to ask if this distribution protocol
-%% is willing to handle Node
-%%
-
-select(Node) ->
-    gen_select(Node, ?DRIVER).
-
-gen_select(Node, Driver) ->
-    case dist_util:split_node(Node) of
-        {node, _, Host} ->
-	    case Driver:getaddr(Host) of
-		{ok, _} -> true;
-		_ -> false
-	    end;
-        _ ->
-            false
-    end.
-
-%% -------------------------------------------------------------------------
-
-is_node_name(Node) ->
-    dist_util:is_node_name(Node).
-
-%% -------------------------------------------------------------------------
-%% Called by net_kernel to create a listen socket for this
-%% distribution protocol.  This listen socket is used by
-%% the Acceptor process.
-%%
-
-listen(Name) ->
-    gen_listen(Name, ?DRIVER).
-
-gen_listen(Name, Driver) ->
-    {ok, Host} = inet:gethostname(),
-    case inet_tcp_dist:gen_listen(Driver, Name, Host) of
-        {ok, {Socket, Address, Creation}} ->
-            inet:setopts(Socket, socket_options()),
-            {ok,
-             {Socket, Address#net_address{protocol = ?DIST_PROTO}, Creation}};
-        Other ->
-            Other
-    end.
-
-%% -------------------------------------------------------------------------
-%% Called by net_kernel to spawn the Acceptor process that awaits
-%% new connection in a blocking accept and informs net_kernel
-%% when a new connection has appeared, and starts the DistCtrl
-%% "socket" process for the connection.
-%%
-
-accept(Listen) ->
-    gen_accept(Listen, ?DRIVER).
-
-gen_accept(Listen, Driver) ->
-    NetKernel = self(),
-    %%
-    %% Spawn Acceptor process
-    %%
-    monitor_dist_proc(
-      acceptor,
-      spawn_opt(
-        fun () ->
-                start_key_pair_server(),
-                accept_loop(Listen, Driver, NetKernel)
-        end,
-        [link, {priority, max}])).
-
-accept_loop(Listen, Driver, NetKernel) ->
-    case Driver:accept(trace(Listen)) of
-        {ok, Socket} ->
-            wait_for_code_server(),
-            Timeout = net_kernel:connecttime(),
-            DistCtrl = start_dist_ctrl(trace(Socket), Timeout),
-            %% DistCtrl is a "socket"
-            NetKernel !
-                trace({accept,
-                       self(), DistCtrl, Driver:family(), ?DIST_PROTO}),
-            receive
-                {NetKernel, controller, Controller} ->
-                    call_dist_ctrl(DistCtrl, {controller, Controller, self()}),
-                    Controller ! {self(), controller, Socket};
-                {NetKernel, unsupported_protocol} ->
-                    exit(unsupported_protocol)
-            end,
-            accept_loop(Listen, Driver, NetKernel);
-        AcceptError ->
-            exit({accept, AcceptError})
-    end.
-
-wait_for_code_server() ->
-    %% This is an ugly hack.  Starting encryption on a connection
-    %% requires the crypto module to be loaded.  Loading the crypto
-    %% module triggers its on_load function, which calls
-    %% code:priv_dir/1 to find the directory where its NIF library is.
-    %% However, distribution is started earlier than the code server,
-    %% so the code server is not necessarily started yet, and
-    %% code:priv_dir/1 might fail because of that, if we receive
-    %% an incoming connection on the distribution port early enough.
-    %%
-    %% If the on_load function of a module fails, the module is
-    %% unloaded, and the function call that triggered loading it fails
-    %% with 'undef', which is rather confusing.
-    %%
-    %% So let's avoid that by waiting for the code server to start.
-    %%
-    case whereis(code_server) of
-	undefined ->
-	    timer:sleep(10),
-	    wait_for_code_server();
-	Pid when is_pid(Pid) ->
-	    ok
-    end.
-
-%% -------------------------------------------------------------------------
-%% Called by net_kernel when a new connection has appeared, to spawn
-%% a Controller process that performs the handshake with the new node,
-%% and then becomes the Ticker connection supervisor.
-%% -------------------------------------------------------------------------
-
-accept_connection(Acceptor, DistCtrl, MyNode, Allowed, SetupTime) ->
-    gen_accept_connection(
-      Acceptor, DistCtrl, MyNode, Allowed, SetupTime, ?DRIVER).
-
-gen_accept_connection(
-  Acceptor, DistCtrl, MyNode, Allowed, SetupTime, Driver) ->
-    NetKernel = self(),
-    %%
-    %% Spawn Controller/handshaker/ticker process
-    %%
-    monitor_dist_proc(
-      accept_controller,
-      spawn_opt(
-        fun() ->
-                do_accept(
-                  Acceptor, DistCtrl,
-                  trace(MyNode), Allowed, SetupTime, Driver, NetKernel)
-        end,
-        [link, {priority, max}])).
-
-do_accept(
-  Acceptor, DistCtrl, MyNode, Allowed, SetupTime, Driver, NetKernel) ->
-    %%
-    receive
-	{Acceptor, controller, Socket} ->
-	    Timer = dist_util:start_timer(SetupTime),
-            HSData =
-                hs_data(
-                  NetKernel, MyNode, DistCtrl, Timer,
-                  Socket, Driver:family()),
-            HSData_1 =
-                HSData#hs_data{
-                  this_node = MyNode,
-                  this_flags = 0,
-                  allowed = Allowed},
-            dist_util:handshake_other_started(trace(HSData_1))
-    end.
-
-%% -------------------------------------------------------------------------
-%% Called by net_kernel to spawn a Controller process that sets up
-%% a new connection to another Erlang node, performs the handshake
-%% with the other it, and then becomes the Ticker process
-%% that supervises the connection.
-%% -------------------------------------------------------------------------
-
-setup(Node, Type, MyNode, LongOrShortNames, SetupTime) ->
-    gen_setup(Node, Type, MyNode, LongOrShortNames, SetupTime, ?DRIVER).
-
-gen_setup(Node, Type, MyNode, LongOrShortNames, SetupTime, Driver) ->
-    NetKernel = self(),
-    %%
-    %% Spawn Controller/handshaker/ticker process
-    %%
-    monitor_dist_proc(
-      setup_controller,
-      spawn_opt(
-        setup_fun(
-          Node, Type, MyNode, LongOrShortNames, SetupTime, Driver, NetKernel),
-        [link, {priority, max}])).
-
--spec setup_fun(_,_,_,_,_,_,_) -> fun(() -> no_return()).
-setup_fun(
-  Node, Type, MyNode, LongOrShortNames, SetupTime, Driver, NetKernel) ->
-    %%
-    fun() ->
-            do_setup(
-              trace(Node), Type, MyNode, LongOrShortNames, SetupTime,
-              Driver, NetKernel)
-    end.
-
--spec do_setup(_,_,_,_,_,_,_) -> no_return().
-do_setup(
-  Node, Type, MyNode, LongOrShortNames, SetupTime, Driver, NetKernel) ->
-    %%
-    {Name, Address} = split_node(Driver, Node, LongOrShortNames),
-    ErlEpmd = net_kernel:epmd_module(),
-    {ARMod, ARFun} = get_address_resolver(ErlEpmd, Driver),
-    Timer = trace(dist_util:start_timer(SetupTime)),
-    case ARMod:ARFun(Name, Address, Driver:family()) of
-        {ok, Ip, TcpPort, Version} ->
-            do_setup_connect(
-              Node, Type, MyNode, Timer, Driver, NetKernel,
-              Ip, TcpPort, Version);
-	{ok, Ip} ->
-	    case ErlEpmd:port_please(Name, Ip) of
-		{port, TcpPort, Version} ->
-                do_setup_connect(
-                  Node, Type, MyNode, Timer, Driver, NetKernel,
-                  Ip, TcpPort, trace(Version));
-		Other ->
-                    _ = trace(
-                          {ErlEpmd, port_please, [Name, Ip], Other}),
-                    ?shutdown(Node)
-	    end;
-	Other ->
-            _ = trace(
-                  {ARMod, ARFun, [Name, Address, Driver:family()],
-                   Other}),
-            ?shutdown(Node)
-    end.
-
--spec do_setup_connect(_,_,_,_,_,_,_,_,_) -> no_return().
-
-do_setup_connect(
-  Node, Type, MyNode, Timer, Driver, NetKernel,
-  Ip, TcpPort, Version) ->
-    dist_util:reset_timer(Timer),
-    ConnectOpts = trace(connect_options(socket_options())),
-    case Driver:connect(Ip, TcpPort, ConnectOpts) of
-        {ok, Socket} ->
-            DistCtrl =
-                try start_dist_ctrl(Socket, net_kernel:connecttime())
-                catch error : {dist_ctrl, _} = DistCtrlError ->
-                        _ = trace(DistCtrlError),
-                        ?shutdown(Node)
-                end,
-            %% DistCtrl is a "socket"
-            HSData =
-                hs_data(
-                  NetKernel, MyNode, DistCtrl, Timer,
-                  Socket, Driver:family()),
-            HSData_1 =
-                HSData#hs_data{
-                  other_node = Node,
-                  this_flags = 0,
-                  other_version = Version,
-                  request_type = Type},
-            dist_util:handshake_we_started(trace(HSData_1));
-        ConnectError ->
-            _ = trace(
-                  {Driver, connect, [Ip, TcpPort, ConnectOpts],
-                   ConnectError}),
-            ?shutdown(trace(Node))
-    end.
-
-%% -------------------------------------------------------------------------
-%% close/1 is only called by net_kernel on the socket returned by listen/1.
-
-close(Socket) ->
-    gen_close(Socket, ?DRIVER).
-
-gen_close(Socket, Driver) ->
-    Driver:close(trace(Socket)).
-
-%% -------------------------------------------------------------------------
-
-
-hs_data(NetKernel, MyNode, DistCtrl, Timer, Socket, Family) ->
-    %% Field 'socket' below is set to DistCtrl, which makes
-    %% the distribution handshake process (ticker) call
-    %% the funs below with DistCtrl as the S argument.
-    %% So, S =:= DistCtrl below...
-    #hs_data{
-       kernel_pid = NetKernel,
-       this_node = MyNode,
-       socket = DistCtrl,
-       timer = Timer,
-       %%
-       f_send = % -> ok | {error, closed}=>?shutdown()
-           fun (S, Packet) when S =:= DistCtrl ->
-                   try call_dist_ctrl(S, {send, Packet})
-                   catch error : {dist_ctrl, Reason} ->
-                           _ = trace(Reason),
-                           {error, closed}
-                   end
-           end,
-       f_recv = % -> {ok, List} | Other=>?shutdown()
-           fun (S, 0, infinity) when S =:= DistCtrl ->
-                   try call_dist_ctrl(S, recv) of
-                       {ok, Bin} when is_binary(Bin) ->
-                           {ok, binary_to_list(Bin)};
-                       Error ->
-                           Error
-                   catch error : {dist_ctrl, Reason} ->
-                           {error, trace(Reason)}
-                   end
-           end,
-       f_setopts_pre_nodeup =
-           fun (S) when S =:= DistCtrl ->
-                   ok
-           end,
-       f_setopts_post_nodeup =
-           fun (S) when S =:= DistCtrl ->
-                   ok
-           end,
-       f_getll =
-           fun (S) when S =:= DistCtrl ->
-                   {ok, S} %% DistCtrl is the distribution port
-           end,
-       f_address = % -> #net_address{} | ?shutdown()
-           fun (S, Node) when S =:= DistCtrl ->
-                   try call_dist_ctrl(S, peername) of
-                       {ok, Address} ->
-                           case dist_util:split_node(Node) of
-                               {node, _, Host} ->
-                                   #net_address{
-                                      address = Address,
-                                      host = Host,
-                                      protocol = ?DIST_PROTO,
-                                      family = Family};
-                               _ ->
-                                   ?shutdown(Node)
-                           end;
-                       Error ->
-                           _ = trace(Error),
-                           ?shutdown(Node)
-                   catch error : {dist_ctrl, Reason} ->
-                           _ = trace(Reason),
-                           ?shutdown(Node)
-                   end
-           end,
-       f_handshake_complete = % -> ok | ?shutdown()
-           fun (S, Node, DistHandle) when S =:= DistCtrl ->
-                   try call_dist_ctrl(S, {handshake_complete, DistHandle})
-                   catch error : {dist_ctrl, Reason} ->
-                           _ = trace(Reason),
-                           ?shutdown(Node)
-                   end
-           end,
-       %%
-       %% mf_tick/1, mf_getstat/1, mf_setopts/2 and mf_getopts/2
-       %% are called by the ticker any time after f_handshake_complete/3
-       %% so they may not block the caller even for congested socket
-       mf_tick =
-           fun (S) when S =:= DistCtrl ->
-                   S ! dist_tick
-           end,
-       mf_getstat = % -> {ok, RecvCnt, SendCnt, SendPend} | Other=>ignore_it
-           fun (S) when S =:= DistCtrl ->
-                   case
-                       inet:getstat(Socket, [recv_cnt, send_cnt, send_pend])
-                   of
-                       {ok, Stat} ->
-                           split_stat(Stat, 0, 0, 0);
-                       Error ->
-                           trace(Error)
-                   end
-           end,
-       mf_setopts =
-           fun (S, Opts) when S =:= DistCtrl ->
-                   inet:setopts(Socket, setopts_filter(Opts))
-           end,
-       mf_getopts =
-           fun (S, Opts) when S =:= DistCtrl ->
-                   inet:getopts(Socket, Opts)
-           end}.
-
-setopts_filter(Opts) ->
-    [Opt ||
-        Opt <- Opts,
-        case Opt of
-            {K, _} when K =:= active; K =:= deliver; K =:= packet -> false;
-            K when K =:= list; K =:= binary -> false;
-            K when K =:= inet; K =:= inet6 -> false;
-            _ -> true
-        end].
-
-split_stat([{recv_cnt, R}|Stat], _, W, P) ->
-    split_stat(Stat, R, W, P);
-split_stat([{send_cnt, W}|Stat], R, _, P) ->
-    split_stat(Stat, R, W, P);
-split_stat([{send_pend, P}|Stat], R, W, _) ->
-    split_stat(Stat, R, W, P);
-split_stat([], R, W, P) ->
-    {ok, R, W, P}.
-
-%% ------------------------------------------------------------
-%% Determine if EPMD module supports address resolving. Default
-%% is to use inet_tcp:getaddr/2.
-%% ------------------------------------------------------------
-get_address_resolver(EpmdModule, _Driver) ->
-    case erlang:function_exported(EpmdModule, address_please, 3) of
-        true -> {EpmdModule, address_please};
-        _    -> {erl_epmd, address_please}
-    end.
-
-
-%% If Node is illegal terminate the connection setup!!
-split_node(Driver, Node, LongOrShortNames) ->
-    case dist_util:split_node(Node) of
-        {node, Name, Host} ->
-	    check_node(Driver, Node, Name, Host, LongOrShortNames);
-	{host, _} ->
-	    error_logger:error_msg(
-              "** Nodename ~p illegal, no '@' character **~n",
-              [Node]),
-	    ?shutdown2(Node, trace({illegal_node_n@me, Node}));
-	_ ->
-	    error_logger:error_msg(
-              "** Nodename ~p illegal **~n", [Node]),
-	    ?shutdown2(Node, trace({illegal_node_name, Node}))
-    end.
-
-check_node(Driver, Node, Name, Host, LongOrShortNames) ->
-    case string:split(Host, ".", all) of
-	[_] when LongOrShortNames =:= longnames ->
-	    case Driver:parse_address(Host) of
-		{ok, _} ->
-		    {Name, Host};
-		_ ->
-		    error_logger:error_msg(
-                      "** System running to use "
-                      "fully qualified hostnames **~n"
-                      "** Hostname ~s is illegal **~n",
-                      [Host]),
-		    ?shutdown2(Node, trace({not_longnames, Host}))
-	    end;
-	[_, _|_] when LongOrShortNames =:= shortnames ->
-	    error_logger:error_msg(
-              "** System NOT running to use "
-              "fully qualified hostnames **~n"
-              "** Hostname ~s is illegal **~n",
-              [Host]),
-	    ?shutdown2(Node, trace({not_shortnames, Host}));
-	_ ->
-	    {Name, Host}
-    end.
-
-%% -------------------------------------------------------------------------
-
-connect_options(Opts) ->
-    case application:get_env(kernel, inet_dist_connect_options) of
-	{ok, ConnectOpts} ->
-            Opts ++ setopts_filter(ConnectOpts);
-	_ ->
-	    Opts
-    end.
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%
-%% The DistCtrl process(es).
-%%
-%% At net_kernel handshake_complete spawns off the input controller that
-%% takes over the socket ownership, and itself becomes the output controller
-%%
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%% XXX Missing to "productified":
-%%% * Cryptoanalysis by experts, this is crypto amateur work.
-%%% * Is it useful over inet_tls_dist; i.e to not have to bother
-%%%   with certificates but instead manage a secret cluster cookie?
-%%% * An application to belong to (kernel)
-%%% * Restart and/or code reload policy (not needed in kernel)
-%%% * Fitting into the epmd/Erlang distro protocol version framework
-%%%   (something needs to be created for multiple protocols, epmd,
-%%%    multiple address families, fallback to previous version, etc)
-
-
-%% Debug client and server
-
-test_server() ->
-    {ok, Listen} = gen_tcp:listen(0, socket_options()),
-    {ok, Port} = inet:port(Listen),
-    io:format(?MODULE_STRING":test_client(~w).~n", [Port]),
-    {ok, Socket} = gen_tcp:accept(Listen),
-    test(Socket).
-
-test_client(Port) ->
-    {ok, Socket} = gen_tcp:connect(localhost, Port, socket_options()),
-    test(Socket).
-
-test(Socket) ->
-    start_dist_ctrl(Socket, 10000).
-
-%% -------------------------------------------------------------------------
-
-start_dist_ctrl(Socket, Timeout) ->
-    Secret = atom_to_binary(auth:get_cookie(), latin1),
-    Controller = self(),
-    Server =
-        monitor_dist_proc(
-          output_handler,
-          spawn_opt(
-            fun () ->
-                    receive
-                        {?MODULE, From, start} ->
-                            {SendParams, RecvParams} =
-                                init(Socket, Secret),
-                            reply(From, self()),
-                            handshake(SendParams, 1, RecvParams, 1, Controller)
-                    end
-            end,
-            [link,
-             {priority, max},
-             {message_queue_data, off_heap},
-             {fullsweep_after, 0}])),
-    ok = gen_tcp:controlling_process(Socket, Server),
-    call_dist_ctrl(Server, start, Timeout).
-
-
-call_dist_ctrl(Server, Msg) ->
-    call_dist_ctrl(Server, Msg, infinity).
-%%
-call_dist_ctrl(Server, Msg, Timeout) ->
-    Ref = erlang:monitor(process, Server),
-    Server ! {?MODULE, {Ref, self()}, Msg},
-    receive
-        {Ref, Res} ->
-            erlang:demonitor(Ref, [flush]),
-            Res;
-        {'DOWN', Ref, process, Server, Reason} ->
-            error({dist_ctrl, Reason})
-    after Timeout -> % Timeout < infinity is only used by start_dist_ctrl/2
-            receive
-                {'DOWN', Ref, process, Server, _} ->
-                    receive {Ref, _} -> ok after 0 -> ok end,
-                    error({dist_ctrl, timeout})
-                    %% Server will be killed by link
-            end
-    end.
-
-reply({Ref, Pid}, Msg) ->
-    Pid ! {Ref, Msg},
-    ok.
-
-%% -------------------------------------------------------------------------
-
--define(TCP_ACTIVE, 16).
--define(CHUNK_SIZE, (?PACKET_SIZE - 512)).
-
 -define(HANDSHAKE_CHUNK, 1).
 -define(DATA_CHUNK, 2).
 -define(TICK_CHUNK, 3).
@@ -924,24 +807,25 @@ reply({Ref, Pid}, Msg) ->
 %% -------------------------------------------------------------------------
 
 init(Socket, Secret) ->
-    #key_pair{public = PubKey} = KeyPair = get_key_pair(),
+    #keypair{public = PubKey} = KeyPair = get_keypair(),
     Params = params(Socket),
     {R2, R3, Msg} = init_msg(Params, PubKey, Secret),
-    ok = gen_tcp:send(Socket, Msg),
+    ok = trace(gen_tcp:send(Socket, Msg)),
     init_recv(Params, Secret, KeyPair, R2, R3).
 
 init_recv(
-  #params{socket = Socket, iv = IVLen} = Params, Secret, KeyPair, R2, R3) ->
+  #params{socket = Socket, iv = IVLen} = Params,
+  Secret, KeyPair, R2, R3) ->
     %%
-    {ok, InitMsg} = gen_tcp:recv(Socket, 0),
+    {ok, InitMsg} = gen_tcp:recv(trace(Socket), 0),
     IVSaltLen = IVLen - 6,
     try
         case init_msg(Params, Secret, KeyPair, R2, R3, InitMsg) of
             {#params{iv = <<IV2ASalt:IVSaltLen/binary, IV2ANo:48>>} =
                  SendParams,
              RecvParams, SendStartMsg} ->
-                ok = gen_tcp:send(Socket, SendStartMsg),
-                {ok, RecvStartMsg} = gen_tcp:recv(Socket, 0),
+                ok = trace(gen_tcp:send(Socket, SendStartMsg)),
+                {ok, RecvStartMsg} = gen_tcp:recv(trace(Socket), 0),
                 #params{
                    iv = <<IV2BSalt:IVSaltLen/binary, IV2BNo:48>>} =
                     RecvParams_1 =
@@ -959,8 +843,6 @@ init_recv(
             _ = trace({Reason, Stacktrace}),
             exit(connection_closed)
     end.
-
-
 
 init_msg(
   #params{
@@ -1070,24 +952,29 @@ hmac_key_iv(HmacAlgo, MacKey, Data, KeyLen, IVLen) ->
 %% net_kernel distribution handshake in progress
 %%
 
+handshake(ControllingProcess, Tag, {SendParams, RecvParams}) ->
+    handshake(
+      ControllingProcess, Tag, SendParams, 1, RecvParams, 1).
+
 handshake(
-  SendParams, SendSeq,
-  #params{socket = Socket} = RecvParams, RecvSeq, Controller) ->
+  ControllingProcess, Tag, SendParams, SendSeq, RecvParams, RecvSeq) ->
     receive
-        {?MODULE, From, {controller, Controller_1, Parent}} ->
-            Result = link(Controller_1),
-            true = unlink(Parent),
+        {Tag, From, {controlling_process, NewControllingProcess}} ->
+            Result = link(NewControllingProcess),
+            true = unlink(ControllingProcess),
             reply(From, Result),
-            handshake(SendParams, SendSeq, RecvParams, RecvSeq, Controller_1);
-        {?MODULE, From, {handshake_complete, DistHandle}} ->
+            handshake(
+              NewControllingProcess, Tag,
+              SendParams, SendSeq, RecvParams, RecvSeq);
+        {Tag, From, {handshake_complete, DistHandle}} ->
             InputHandler =
                 monitor_dist_proc(
                   input_handler,
                   spawn_opt(
                     fun () ->
-                            link(Controller),
+                            link(ControllingProcess),
                             receive
-                                DistHandle ->
+                                {Tag, dist_handle, DistHandle} ->
                                     input_handler(
                                       RecvParams, RecvSeq, DistHandle)
                             end
@@ -1097,15 +984,17 @@ handshake(
                      {message_queue_data, off_heap},
                      {fullsweep_after, 0}])),
             _ = monitor(process, InputHandler), % For the benchmark test
-            ok = gen_tcp:controlling_process(Socket, InputHandler),
+            ok =
+                gen_tcp:controlling_process(
+                  SendParams#params.socket, InputHandler),
             false = erlang:dist_ctrl_set_opt(DistHandle, get_size, true),
             ok = erlang:dist_ctrl_input_handler(DistHandle, InputHandler),
-            InputHandler ! DistHandle,
+            InputHandler ! {Tag, dist_handle, DistHandle},
             reply(From, ok),
             process_flag(priority, normal),
             output_handler(SendParams, SendSeq, DistHandle);
         %%
-        {?MODULE, From, {send, Data}} ->
+        {Tag, From, {send, Data}} ->
             {SendParams_1, SendSeq_1, Result} =
                 encrypt_and_send_chunk(
                   SendParams, SendSeq,
@@ -1114,31 +1003,36 @@ handshake(
                 Result =:= ok ->
                     reply(From, ok),
                     handshake(
-                      SendParams_1, SendSeq_1, RecvParams, RecvSeq,
-                      Controller);
+                      ControllingProcess, Tag,
+                      SendParams_1, SendSeq_1, RecvParams, RecvSeq);
                 true ->
                     reply(From, {error, closed}),
                     death_row({send, trace(Result)})
             end;
-        {?MODULE, From, recv} ->
+        {Tag, From, recv} ->
             {RecvParams_1, RecvSeq_1, Result} =
                 recv_and_decrypt_chunk(RecvParams, RecvSeq),
             case Result of
                 {ok, _} ->
                     reply(From, Result),
                     handshake(
-                      SendParams, SendSeq, RecvParams_1, RecvSeq_1,
-                      Controller);
+                      ControllingProcess, Tag,
+                      SendParams, SendSeq, RecvParams_1, RecvSeq_1);
                 {error, _} = Result->
                     reply(From, Result),
                     death_row({recv, trace(Result)})
             end;
-        {?MODULE, From, peername} ->
-            reply(From, inet:peername(Socket)),
-            handshake(SendParams, SendSeq, RecvParams, RecvSeq, Controller);
+        {Tag, From, peername} ->
+            reply(From, inet:peername(SendParams#params.socket)),
+            handshake(
+              ControllingProcess, Tag,
+              SendParams, SendSeq, RecvParams, RecvSeq);
         %%
-        _Alien ->
-            handshake(SendParams, SendSeq, RecvParams, RecvSeq, Controller)
+        Alien ->
+            _ = trace(Alien),
+            handshake(
+              ControllingProcess, Tag,
+              SendParams, SendSeq, RecvParams, RecvSeq)
     end.
 
 %% -------------------------------------------------------------------------
@@ -1505,16 +1399,15 @@ input_data(#params{socket = Socket} = Params, Seq, Msg) ->
 %% Encryption and decryption helpers
 
 encrypt_and_send_chunk(
-  #params{
-     socket = Socket, rekey_count = RekeyCount, rekey_msg = RekeyMsg} = Params,
+  #params{rekey_count = RekeyCount, rekey_msg = RekeyMsg} = Params,
   Seq, Cleartext, Size) when Seq =:= RekeyCount ->
     %%
     cancel_rekey_timer(RekeyMsg),
     case encrypt_and_send_rekey_chunk(Params, Seq) of
-        #params{} = Params_1 ->
+        #params{socket = Socket} = Params_1 ->
             Result =
-                gen_tcp:send(
-                  Socket, encrypt_chunk(Params, 0, Cleartext, Size)),
+                Ciphertext = encrypt_chunk(Params, 0, Cleartext, Size),
+                gen_tcp:send(Socket, Ciphertext),
             case Result of ok -> ok;
                 {error, Reason} ->
                     error_report([?FUNCTION_NAME, {reason,Reason}])
@@ -1540,7 +1433,7 @@ encrypt_and_send_rekey_chunk(
     %%
     KeyLen = byte_size(Key),
     IVSaltLen = byte_size(IVSalt),
-    #key_pair{public = PubKeyA} = KeyPair = get_new_key_pair(),
+    #keypair{public = PubKeyA} = KeyPair = get_new_keypair(),
     case
         gen_tcp:send(
           Socket,
@@ -1577,7 +1470,6 @@ encrypt_chunk(
     Chunk = [Ciphertext,CipherTag],
     Chunk.
 
-
 recv_and_decrypt_chunk(RecvParams, RecvSeq) ->
     case gen_tcp:recv(RecvParams#params.socket, 0) of
         {ok, Chunk} ->
@@ -1595,6 +1487,7 @@ recv_and_decrypt_chunk(RecvParams, RecvSeq) ->
             error_report([?FUNCTION_NAME, {reason,Reason}]),
             {RecvParams, RecvSeq, Error}
     end.
+
 
 decrypt_chunk(
   #params{
@@ -1621,7 +1514,7 @@ decrypt_chunk(
 
 block_decrypt(
   #params{
-     rekey_key = #key_pair{public = PubKeyA} = KeyPair,
+     rekey_key = #keypair{public = PubKeyA} = KeyPair,
      rekey_count = RekeyCount} = Params,
   Seq, AeadCipher, Key, IV, Ciphertext, AAD, CipherTag) ->
     case
@@ -1661,7 +1554,7 @@ block_decrypt(
         error ->
             error_report(
               [?FUNCTION_NAME,
-               {reason,decrypt_error}]),
+               {reason,{decrypt_error,Seq}}]),
             error
     end.
 

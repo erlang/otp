@@ -330,6 +330,7 @@ ktls_encrypt_decrypt(Client, Server) ->
         {ok, Data} ->
             ct:fail(recv_cleartext_data);
         {ok, RandomData} when length(Data) < length(RandomData) ->
+            ct:log("Received ~p", [RandomData]),
             %% A TLS block should be longer than Data
             ok
     end,
