@@ -1,6 +1,6 @@
-# CompositionExclusions-14.0.0.txt
-# Date: 2021-03-30, 23:59:00 GMT [KW, LI]
-# © 2021 Unicode®, Inc.
+# CompositionExclusions-15.0.0.txt
+# Date: 2022-05-03, 18:50:00 GMT [KW, LI]
+# © 2022 Unicode®, Inc.
 # For terms of use, see https://www.unicode.org/terms_of_use.html
 #
 # Unicode Character Database
