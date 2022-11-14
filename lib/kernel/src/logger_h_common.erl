@@ -350,7 +350,7 @@ call(_, Name, Op) ->
     {error,{badarg,{Op,[Name]}}}.
 
 notify({mode_change,Mode0,Mode1},#{id:=Name}=State) ->
-    log_handler_info(Name,"Handler ~p switched from  ~p to ~p mode",
+    log_handler_info(Name,"Handler ~p switched from ~p to ~p mode",
                      [Name,Mode0,Mode1], State);
 notify({flushed,Flushed},#{id:=Name}=State) ->
     log_handler_info(Name, "Handler ~p flushed ~w log events",
