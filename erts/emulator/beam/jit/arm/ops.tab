@@ -360,6 +360,10 @@ move S1=y D1=y | move S2=y D2=y |
   consecutive_words(D2, D1) =>
     move_two_yregs S2 D2 S1 D1
 
+move Src Dst | trim N u => move_trim Src Dst N
+
+move_trim s d t
+
 move Src Dst => i_move Src Dst
 
 i_move s d
