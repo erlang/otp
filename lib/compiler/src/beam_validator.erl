@@ -630,33 +630,6 @@ vi({put_tuple2,Dst,{list,Elements}}, Vst0) ->
                    end, {#{}, 1}, Elements),
     Type = #t_tuple{exact=true,size=Size,elements=Es},
     create_term(Type, put_tuple2, [], Dst, Vst);
-vi({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
-    Vst1 = eat_heap(1, Vst0),
-    Vst = create_term(#t_abstract{kind=unfinished_tuple}, put_tuple, [],
-                      Dst, Vst1),
-    #vst{current=St0} = Vst,
-    St = St0#st{puts_left={Sz,{Dst,Sz,#{}}}},
-    Vst#vst{current=St};
-vi({put,Src}, Vst0) ->
-    assert_term(Src, Vst0),
-    Vst = eat_heap(1, Vst0),
-    #vst{current=St0} = Vst,
-    case St0 of
-        #st{puts_left=none} ->
-            error(not_building_a_tuple);
-        #st{puts_left={1,{Dst,Sz,Es0}}} ->
-            ElementType = get_term_type(Src, Vst0),
-            Es = beam_types:set_tuple_element(Sz, ElementType, Es0),
-            St = St0#st{puts_left=none},
-            Type = #t_tuple{exact=true,size=Sz,elements=Es},
-            create_term(Type, put_tuple, [], Dst, Vst#vst{current=St});
-        #st{puts_left={PutsLeft,{Dst,Sz,Es0}}} when is_integer(PutsLeft) ->
-            Index = Sz - PutsLeft + 1,
-            ElementType = get_term_type(Src, Vst0),
-            Es = beam_types:set_tuple_element(Index, ElementType, Es0),
-            St = St0#st{puts_left={PutsLeft-1,{Dst,Sz,Es}}},
-            Vst#vst{current=St}
-    end;
 vi({set_tuple_element,Src,Tuple,N}, Vst) ->
     %% This instruction never fails, though it may be invalid in some contexts;
     %% see validate_mutation/2

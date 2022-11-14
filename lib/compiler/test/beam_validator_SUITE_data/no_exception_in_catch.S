@@ -47,9 +47,7 @@
     {move,{y,12},{x,0}}.
     {call,1,{f,17}}.
     {test_heap,3,1}.
-    {put_tuple,2,{x,1}}.
-    {put,{atom,value1}}.
-    {put,{x,0}}.
+    {put_tuple2,{x,1},{list,[{atom,value1},{x,0}]}}.
     {move,{x,1},{x,0}}.
     {jump,{f,5}}.
   {label,3}.
@@ -69,9 +67,7 @@
     {move,{y,12},{x,0}}.
     {call,1,{f,17}}.
     {test_heap,3,1}.
-    {put_tuple,2,{x,1}}.
-    {put,{atom,caught1}}.
-    {put,{x,0}}.
+    {put_tuple2,{x,1},{list,[{atom,caught1},{x,0}]}}.
     {move,{x,1},{x,0}}.
     {jump,{f,5}}.
   {label,4}.
@@ -142,20 +138,14 @@
   {label,10}.
     {try_end,{y,7}}.
     {test_heap,3,1}.
-    {put_tuple,2,{x,1}}.
-    {put,{atom,value}}.
-    {put,{x,0}}.
+    {put_tuple2,{x,1},{list,[{atom,value},{x,0}]}}.
     {move,{x,1},{x,0}}.
     {jump,{f,12}}.
   {label,11}.
     {try_case,{y,7}}.
     {test_heap,6,3}.
-    {put_tuple,2,{x,3}}.
-    {put,{x,0}}.
-    {put,{x,1}}.
-    {put_tuple,2,{x,0}}.
-    {put,{atom,caught}}.
-    {put,{x,3}}.
+    {put_tuple2,{x,3},{list,[{x,0},{x,1}]}}.
+    {put_tuple2,{x,0},{list,[{atom,caught},{x,3}]}}.
     {'%live',1}.
   {label,12}.
     {try_end,{y,8}}.
@@ -189,11 +179,7 @@
     {move,{atom,nested},{x,0}}.
     {call_ext,1,{extfunc,erlang,erase,1}}.
     {test_heap,5,1}.
-    {put_tuple,4,{x,1}}.
-    {put,{y,14}}.
-    {put,{y,13}}.
-    {put,{y,12}}.
-    {put,{x,0}}.
+    {put_tuple2,{x,1},{list,[{y,14},{y,13},{y,12},{x,0}]}}.
     {move,{x,1},{x,0}}.
     {deallocate,15}.
     return.
