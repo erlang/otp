@@ -3164,9 +3164,11 @@ write_concurrency(Config) when is_list(Config) ->
             true = YesMem > NoTreeMem,
 
             %% The memory of ordered_set with write concurrency is
-            %% smaller than without write concurrency on systems with
+            %% smaller than without write concurrency on 64-bit systems with
             %% few schedulers.
-            if NoSchedulers > 6 ->
+            Bits = 8*erlang:system_info(wordsize),
+            if Bits =:= 32;
+               NoSchedulers > 6 ->
                     true = YesTreeMem >= NoTreeMem;
                true ->
                     true = YesTreeMem < NoTreeMem
