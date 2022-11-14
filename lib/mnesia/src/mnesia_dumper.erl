@@ -86,7 +86,7 @@ adjust_log_writes(DoCast) ->
 		false ->
 		    ignore;
 		true ->
-		    mnesia_controller:async_dump_log(write_threshold)
+		    ?CATCH(mnesia_controller:async_dump_log(write_threshold))
 	    end,
 	    Max = mnesia_monitor:get_env(dump_log_write_threshold),
 	    Left = mnesia_lib:read_counter(trans_log_writes_left),
