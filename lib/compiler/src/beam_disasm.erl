@@ -1289,8 +1289,10 @@ resolve_inst({badrecord,[Arg]},_,_,_) ->
 %% OTP 26.
 %%
 
-resolve_inst({update_record,[Hint,Size,Src,Dst,List]},_,_,_) ->
-    {update_record,Hint,Size,Src,Dst,List};
+resolve_inst({update_record,
+              [Hint,{u,Size},Src,Dst,{{{z,1},{u,_},List0}}]},_,_,_) ->
+    List = resolve_args(List0),
+    {update_record,Hint,Size,Src,Dst,{list,List}};
 resolve_inst({bs_match,[{Fail,Ctx,{z,1},{u,_},Args}]},_,_,_) ->
     List = resolve_args(Args),
     Commands = resolve_bs_match_commands(List),
