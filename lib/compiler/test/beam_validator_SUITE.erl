@@ -321,7 +321,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{try_case_end,{x,0}},180,ambiguous_catch_try_state}}] = Errors,
+      {{try_case_end,{x,0}},166,ambiguous_catch_try_state}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->
@@ -519,13 +519,8 @@ destroy_reg({Tag,N}) ->
 bad_tuples(Config) ->
     Errors = do_val(bad_tuples, Config),
     [{{bad_tuples,heap_overflow,1},
-      {{put,{x,0}},9,{heap_overflow,{left,0},{wanted,1}}}},
-     {{bad_tuples,long,2},
-      {{put,{atom,too_long}},9,not_building_a_tuple}},
-     {{bad_tuples,self_referential,1},
-      {{put,{x,1}},8,{unfinished_tuple,{x,1}}}},
-     {{bad_tuples,short,1},
-      {{move,{x,1},{x,0}},8,{unfinished_tuple,{x,1}}}}] = Errors,
+      {{put_tuple2,{x,0},{list,[{atom,ok},{x,0}]}},6,
+       {heap_overflow,{left,2},{wanted,3}}}}] = Errors,
 
     ok.
 
@@ -552,7 +547,7 @@ receive_stacked(Config) ->
       {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f5,0},
       {{loop_rec_end,{f,23}},
-       24,
+       22,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f6,0},
       {{gc_bif,byte_size,{f,29},0,[{y,_}],{x,0}},
@@ -572,7 +567,7 @@ receive_stacked(Config) ->
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m2,0},
       {{loop_rec_end,{f,48}},
-       34,
+       32,
        {fragile_message_reference,{y,_}}}}] = Errors,
 
     %% Compile the original source code as a smoke test.
