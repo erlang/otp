@@ -622,6 +622,11 @@ tuple(_Config) ->
     {0,0,-1} = decrement_element(3, Counters10),
     {'EXIT',{badarg,_}} = catch decrement_element(4, Counters10),
 
+    [] = gh_6458(id({true})),
+    {'EXIT',{function_clause,_}} = catch gh_6458(id({false})),
+    {'EXIT',{function_clause,_}} = catch gh_6458(id({42})),
+    {'EXIT',{function_clause,_}} = catch gh_6458(id(a)),
+
     ok.
 
 do_tuple() ->
@@ -640,6 +645,18 @@ increment_element(Pos, Cs) ->
 decrement_element(Pos, Cs) ->
     Ns = element(Pos, Cs),
     setelement(Pos, Cs, Ns - 1).
+
+gh_6458({X}) when X; (X orelse false) ->
+    (X orelse {}),
+    [
+     {X}#{
+          gh_6458() orelse X => []
+         }
+     || _ <- []
+    ].
+
+gh_6458() ->
+    true.
 
 -record(x, {a}).
 

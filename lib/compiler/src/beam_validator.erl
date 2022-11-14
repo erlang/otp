@@ -2547,12 +2547,29 @@ update_container_type(Type, Ref, #vst{current=#st{vs=Vs}}=Vst) ->
     case Vs of
         #{ Ref := #value{op={bif,element},
                          args=[{integer,Index},Tuple]} } when Index >= 1 ->
-            Es = beam_types:set_tuple_element(Index, Type, #{}),
-            TupleType = #t_tuple{size=Index,elements=Es},
-            update_type(fun meet/2, TupleType, Tuple, Vst);
+            case {Index,Type} of
+                {1,#t_atom{elements=[_,_|_]}} ->
+                    %% The first element is one atom out of a set of
+                    %% at least two atoms. We must take care to
+                    %% construct an atom set.
+                    update_type(fun meet_tuple_set/2, Type, Tuple, Vst);
+                {_,_} ->
+                    Es = beam_types:set_tuple_element(Index, Type, #{}),
+                    TupleType = #t_tuple{size=Index,elements=Es},
+                    update_type(fun meet/2, TupleType, Tuple, Vst)
+            end;
         #{} ->
             Vst
     end.
+
+meet_tuple_set(Type, #t_atom{elements=Atoms}) ->
+    %% Try to create a tuple set out of the known atoms for the first element.
+    #t_tuple{size=Size,exact=Exact} = normalize(meet(Type, #t_tuple{})),
+    Tuples = [#t_tuple{size=Size,exact=Exact,
+                       elements=#{1 => #t_atom{elements=[A]}}} ||
+                 A <- Atoms],
+    TupleSet = foldl(fun join/2, hd(Tuples), tl(Tuples)),
+    meet(Type, TupleSet).
 
 update_eq_types(LHS, RHS, Vst0) ->
     LType = get_term_type(LHS, Vst0),
