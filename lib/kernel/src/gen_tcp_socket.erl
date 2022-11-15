@@ -1009,6 +1009,7 @@ ignore_optname(Tag) ->
         high_msgq_watermark -> true;
         high_watermark      -> true;
         low_msgq_watermark  -> true;
+        low_watermark       -> true;
         nopush              -> true;
         _ -> false
     end.
@@ -1029,7 +1030,6 @@ socket_opts() ->
       dontroute      => {socket, dontroute},
       keepalive      => {socket, keepalive},
       linger         => {socket, linger},
-      low_watermark  => {socket, rcvlowat},
       priority       => {socket, priority},
       recbuf         => {socket, rcvbuf},
       reuseaddr      => {socket, reuseaddr},
