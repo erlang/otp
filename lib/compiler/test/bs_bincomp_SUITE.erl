@@ -173,6 +173,13 @@ mixed(Config) when is_list(Config) ->
     <<255>> = over_complex_generator(),
     {'EXIT',_} = catch float_segment_size(),
 
+    <<>> = inconsistent_types_1([]),
+    {'EXIT',{{bad_generator,42},_}} = catch inconsistent_types_1(42),
+    Self = self(),
+    {'EXIT',{{bad_generator,Self},_}} = catch inconsistent_types_1(Self),
+
+    {'EXIT',{{bad_filter,<<>>},_}} = catch inconsistent_types_2(),
+
     cs_end().
 
 mixed_nested(L) ->
@@ -243,6 +250,34 @@ float_segment_size() ->
         _:_ ->
             error
     end.
+
+%% GH-6468. Would crash in beam_ssa_bc_size:update_successors/3.
+inconsistent_types_1(X) ->
+    <<
+      X || _ <- X,
+           case is_pid(X) of
+               Y ->
+                   (#{
+                        ((not Y) andalso
+                         <<Y:(Y andalso X)>>) := Y
+                     } = X);
+               _ ->
+                   false
+           end
+    >>.
+
+%% GH-6468. Same type of crash.
+inconsistent_types_2() ->
+    <<
+      0 || case id([]) of
+               Y ->
+                   <<
+                     Y ||
+                       _ <- Y,
+                       (not ((false = Y) = (Y /= []))), (_ = Y)
+                   >>
+           end
+    >>.
 
 filters(Config) when is_list(Config) ->
     cs_init(),
