@@ -154,10 +154,11 @@
 
 -define(TCP_ACTIVE, 16).
 
--compile({inline, [socket_options/0]}).
-socket_options() ->
-    [binary, {active, false}, {packet, 2}, {nodelay, true},
-     {sndbuf, ?BUFFER_SIZE}, {recbuf, ?BUFFER_SIZE},
+-compile({inline, [forced_socket_options/0, default_socket_options/0]}).
+forced_socket_options() ->
+    [?FAMILY, binary, {nodelay, true}].
+default_socket_options() ->
+    [{sndbuf, ?BUFFER_SIZE}, {recbuf, ?BUFFER_SIZE},
      {buffer, ?BUFFER_SIZE}].
 
 %% -------------------------------------------------------------------------
@@ -176,10 +177,18 @@ listen(Name, Host) ->
 
 fam_listen(Family, Name, Host) ->
     Listen =
-        fun (Port, Opts) ->
-                SocketOptions =
-                    [Family | Opts] ++ socket_options(),
-                gen_tcp:listen(Port, SocketOptions)
+        fun (First, Last, ListenOptions) ->
+                Opts =
+                    inet_tcp_dist:merge_options(
+                      ListenOptions,
+                      forced_socket_options(),
+                      default_socket_options()),
+                listen_loop(
+                  First, Last,
+                  inet_tcp_dist:merge_options(
+                    Opts,
+                    forced_socket_options(),
+                    default_socket_options()))
         end,
     case inet_tcp_dist:fam_listen(Family, Name, Host, Listen) of
         {ok, {ListenSocket, NetAddress, Creation}} ->
@@ -190,6 +199,16 @@ fam_listen(Family, Name, Host) ->
         {error, _} = Error ->
             Error
     end.
+
+listen_loop(First, Last, ListenOptions) when First =< Last ->
+    case gen_tcp:listen(First, ListenOptions) of
+        {error, eaddrinuse} ->
+            listen_loop(First + 1, Last, ListenOptions);
+        Result ->
+            Result
+    end;
+listen_loop(_, _, _) ->
+    {error, eaddrinuse}.
 
 %% -------------------------------------------------------------------------
 
@@ -306,7 +325,10 @@ setup(Node, Type, MyNode, LongOrShortNames, SetupTime, NetKernel) ->
         {ok, Socket} ?=
             gen_tcp:connect(
               Ip, PortNum,
-              [?FAMILY | ConnectOptions] ++ socket_options()),
+              inet_tcp_dist:merge_options(
+                ConnectOptions,
+                forced_socket_options(),
+                default_socket_options())),
         {DistCtrl, _} = DistCtrlHandle =
             try trace(
                   start_dist_ctrl(trace(Socket), net_kernel:connecttime()))
@@ -483,7 +505,9 @@ split_stat([], R, W, P) ->
 %% For client and server development and debug
 
 test_server() ->
-    test_server(socket_options()).
+    test_server(
+      inet_tcp_dist:merge_options(
+        [], forced_socket_options(), default_socket_options())).
 %%
 test_server(SocketOptions) ->
     {ok, ListenSocket} = gen_tcp:listen(0, SocketOptions),
@@ -494,7 +518,10 @@ test_server(SocketOptions) ->
     test(Socket).
 
 test_client(Port) ->
-    test_client(Port, socket_options()).
+    test_client(
+      Port,
+      inet_tcp_dist:merge_options(
+        [], forced_socket_options(), default_socket_options())).
 %%
 test_client(Port, SocketOptions) ->
     {ok, Addr} = inet:getaddr(localhost, ?FAMILY),

@@ -35,7 +35,7 @@
 %% OTP internal (e.g ssl)
 -export([gen_hs_data/2, nodelay/0]).
 
--export([listen_options/0]).
+-export([merge_options/3]).
 
 %% internal exports
 
@@ -135,7 +135,11 @@ listen(Name) ->
     listen(Name, Host).
 
 gen_listen(Driver, Name, Host) ->
-    fam_listen(Driver:family(), Name, Host, fun Driver:listen/2).
+    fam_listen(
+      Driver:family(), Name, Host,
+      fun (First, Last, ListenOptions) ->
+              loop_listen(Driver, First, Last, ListenOptions)
+      end).
 
 fam_listen(Family, Name, Host, Listen) ->
     maybe
@@ -161,9 +165,9 @@ do_listen(EpmdMod, Name, Host, Listen) ->
     case call_epmd_function(EpmdMod, listen_port_please, [Name, Host]) of
         {ok, 0} ->
             {First,Last} = get_port_range(),
-            loop_listen(Listen, ListenOptions, First, Last);
-        {ok, Prt} ->
-            loop_listen(Listen, ListenOptions, Prt, Prt)
+            Listen(First, Last, ListenOptions);
+        {ok, PortNum} ->
+            Listen(PortNum, PortNum, ListenOptions)
     end.
 
 get_port_range() ->
@@ -179,12 +183,12 @@ get_port_range() ->
             {0,0}
     end.
 
-loop_listen(_Listen, _ListenOptions, First, Last) when First > Last ->
+loop_listen(_Driver, First, Last, _ListenOptions) when First > Last ->
     {error,eaddrinuse};
-loop_listen(Listen, ListenOptions, First, Last) ->
-    case Listen(First, ListenOptions) of
+loop_listen(Driver, First, Last, ListenOptions) ->
+    case Driver:listen(First, ListenOptions) of
         {error, eaddrinuse} ->
-	    loop_listen(Listen, ListenOptions, First+1, Last);
+	    loop_listen(Driver, First+1, Last, ListenOptions);
         Other ->
             Other
     end.
@@ -192,50 +196,76 @@ loop_listen(Listen, ListenOptions, First, Last) ->
 listen_options() ->
     DefaultOpts = [{reuseaddr, true}, {backlog, 128}],
     ForcedOpts =
-        [{active, false}, {packet,2} |
+        [{active, false}, {packet, 2} |
          case application:get_env(kernel, inet_dist_use_interface) of
              {ok, Ip}  -> [{ip, Ip}];
              undefined -> []
          end],
-    Force = maps:from_list(ForcedOpts),
     InetDistListenOpts =
         case application:get_env(kernel, inet_dist_listen_options) of
             {ok, Opts} -> Opts;
             undefined  -> []
         end,
-    ListenOpts = listen_options(InetDistListenOpts, ForcedOpts, Force),
-    Seen =
-        maps:from_list(
-          lists:filter(
-            fun ({_,_}) -> true;
-                (_)     -> false
-            end, ListenOpts)),
-    lists:filter(
-      fun ({OptName,_}) when is_map_key(OptName, Seen) ->
-              false;
-          (_) ->
-              true
-      end, DefaultOpts) ++ ListenOpts.
+    merge_options(InetDistListenOpts, ForcedOpts, DefaultOpts).
 
-%% Pass through all but forced
-listen_options([Opt | Opts], ForcedOpts, Force) ->
-    case Opt of
-        {OptName,_} ->
-            case is_map_key(OptName, Force) of
+
+merge_options(Opts, ForcedOpts, DefaultOpts) ->
+    Forced = merge_options(ForcedOpts),
+    Default = merge_options(DefaultOpts),
+    ForcedOpts ++ merge_options(Opts, Forced, DefaultOpts, Default).
+
+%% Collect expanded 2-tuple options in a map
+merge_options(Opts) ->
+    lists:foldr(
+      fun (Opt, Acc) ->
+              case expand_option(Opt) of
+                  {OptName, OptVal} ->
+                      maps:put(OptName, OptVal, Acc);
+                  _ ->
+                      Acc
+              end
+      end, #{}, Opts).
+
+%% Pass through all options that are not forced,
+%% which we already have prepended,
+%% and remove options that we see from the Default map
+%%
+merge_options([Opt | Opts], Forced, DefaultOpts, Default) ->
+    case expand_option(Opt) of
+        {OptName, _} ->
+            %% Remove from the Default map
+            Default_1 = maps:remove(OptName, Default),
+            if
+                is_map_key(OptName, Forced) ->
+                    %% Forced option - do not pass through
+                    merge_options(Opts, Forced, DefaultOpts, Default_1);
                 true ->
-                    listen_options(Opts, ForcedOpts, Force);
-                false ->
+                    %% Pass through
                     [Opt |
-                     listen_options(Opts, ForcedOpts, Force)]
+                     merge_options(Opts, Forced, DefaultOpts, Default_1)]
             end;
         _ ->
-            [Opt |
-             listen_options(Opts, ForcedOpts, Force)]
+            %% Unhandled options e.g {raw, ...} - pass through
+            [Opt | merge_options(Opts, Forced, DefaultOpts, Default)]
     end;
-listen_options([], ForcedOpts, _Force) ->
-    %% Append forced
-    ForcedOpts.
+merge_options([], _Forced, DefaultOpts, Default) ->
+    %% Append the needed default options (that we have not seen)
+    [Opt ||
+        Opt <- DefaultOpts,
+        is_map_key(element(1, expand_option(Opt)), Default)].
 
+%% Expand an atom option into its tuple equivalence,
+%% pass through others
+expand_option(Opt) ->
+    if
+        Opt =:= list; Opt =:= binary ->
+            {mode, Opt};
+        Opt =:= inet; Opt =:= inet6; Opt =:= local ->
+            %% 'family' is not quite an option name, but could/should be
+            {family, Opt};
+        true ->
+            Opt
+    end.
 
 %% ------------------------------------------------------------
 %% Accepts new connection attempts from other Erlang nodes.
@@ -377,10 +407,7 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
         fam_setup(
           Family, Node, LongOrShortNames, fun Driver:parse_address/1),
     dist_util:reset_timer(Timer),
-    case
-        Driver:connect(
-          Ip, TcpPort, ConnectOptions ++ [{active, false}, {packet, 2}])
-    of
+    case Driver:connect(Ip, TcpPort, ConnectOptions) of
         {ok, Socket} ->
             HSData =
                 (gen_hs_data(Driver, Socket))
@@ -442,12 +469,13 @@ fam_setup(Family, Host, Ip, TcpPort, Version) ->
     {NetAddress, connect_options(), Version}.
 
 connect_options() ->
-    case application:get_env(kernel, inet_dist_connect_options) of
-	{ok, ConnectOpts} ->
-	    ConnectOpts;
-	_ ->
-	    []
-    end.
+    merge_options(
+      case application:get_env(kernel, inet_dist_connect_options) of
+          {ok, ConnectOpts} ->
+              ConnectOpts;
+          _ ->
+              []
+      end, [{active, false}, {packet, 2}], []).
 
 
 %%
