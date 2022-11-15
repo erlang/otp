@@ -276,8 +276,11 @@
         fun() ->
                 case get(log_level) of
                     undefined ->
-                        %% exit({log_level_not_set, self(), process_info(self(), current_stacktrace)}),
-                        ignore;
+                        %% Use debug here, i.e. log everything and let loggers
+                        %% log_level decide if it should be logged
+                        ssl_logger:log(Level, debug,
+                                       #{description => Descr, reason => Reason},
+                                       ?LOCATION);
                     __LogLevel__ ->
                         ssl_logger:log(Level, __LogLevel__,
                                        #{description => Descr, reason => Reason},

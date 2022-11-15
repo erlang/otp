@@ -74,9 +74,12 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(_TestCase, Config) ->
     ct:timetrap({seconds, 5}),
-    put(log_level, debug),  %% SSL log level
-    [{ssl,Previous}] = logger:get_module_level(ssl),
-    logger:set_application_level(ssl, debug),
+    _ = application:load(ssl),
+    Previous = case logger:get_module_level(ssl) of
+                   [] -> notice;
+                   [{ssl,P}] -> P
+               end,
+    ok = logger:set_application_level(ssl, debug),
     [{app_log_level, Previous}|Config].
 
 end_per_testcase(_TestCase, Config) ->
