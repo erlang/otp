@@ -1103,10 +1103,11 @@ iter_max_socks(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
 do_iter_max_socks(Config, Tries, Node) ->
+    Self = self(),
     L = iter_max_socks_run(
           Node,
           fun() ->
-                  exit(iter_max_socks_run2(Config, Tries, initialize))
+                  exit(iter_max_socks_runner(Config, Self, Tries, initialize))
           end),
     ?P("Result: "
        "~n   ~p", [L]),
@@ -1116,10 +1117,7 @@ do_iter_max_socks(Config, Tries, Node) ->
 iter_max_socks_run(Node, F) ->
     try erlang:spawn_opt(Node, F, [monitor]) of
         {Pid, MRef} when is_pid(Pid) andalso is_reference(MRef) ->
-            receive
-                {'DOWN', MRef, process, Pid, Res} ->
-                    Res
-            end;
+            iter_max_socks_await_runner(Pid, MRef);
         _Any ->
             ?P("Unexpected process start result: "
                "~n   ~p", [_Any]),
@@ -1132,36 +1130,58 @@ iter_max_socks_run(Node, F) ->
                "~n   Stack: ~p", [C, E, S]),
             {skip, "Failed starting iterator (remote) process"}
     end.
-            
+
+iter_max_socks_await_runner(Pid, MRef) ->
+    receive
+        {'DOWN', MRef, process, Pid, Res} ->
+            Res;
+        {status, Action, Info} ->
+            ?P("Received action message from the runner ~p: "
+               "~n   ~p => ~p", [Pid, Action, Info]),
+            iter_max_socks_await_runner(Pid, MRef);
+        Any ->
+            ?P("Received unexpected message while waiting for the runner ~p: "
+               "~n   ~p", [Pid, Any]),
+            iter_max_socks_await_runner(Pid, MRef)
+    after 5000 ->
+            ?P("timeout while waiting for the runner ~p: "
+               "~n   ~p", [Pid, pi(Pid)]),
+            iter_max_socks_await_runner(Pid, MRef)
+    end.
+
              
-iter_max_socks_run2(_Config, 0, _) ->
-    ?P("iter_max_socks_run2(0,-) -> done"),
+iter_max_socks_runner(_Config, _Parent, 0, _) ->
+    ?P("iter_max_socks_runner(0,-) -> done"),
     [];
-iter_max_socks_run2(Config, N, initialize = First) ->
-    ?P("iter_max_socks_run2(~w,~w) -> entry", [N, First]),
+iter_max_socks_runner(Config, Parent, N, initialize = First) ->
+    ?P("iter_max_socks_runner(~w,~w) -> entry", [N, First]),
+    Parent ! {status, start_socks_counting, First},
     MS = max_socks(Config),
-    [MS|iter_max_socks_run2(Config, N-1, MS)];
-iter_max_socks_run2(Config, N, failed = First) ->
-    ?P("iter_max_socks_run2(~w,~w) -> entry", [N, First]),
+    [MS|iter_max_socks_runner(Config, Parent, N-1, MS)];
+iter_max_socks_runner(Config, Parent, N, failed = First) ->
+    ?P("iter_max_socks_runner(~w,~w) -> entry", [N, First]),
+    Parent ! {status, start_socks_counting, First},
     MS = max_socks(Config),
-    [MS|iter_max_socks_run2(Config, N-1, failed)];
-iter_max_socks_run2(Config, N, First) when is_integer(First) ->
-    ?P("iter_max_socks_run2(~w,~w) -> entry", [N, First]),
+    [MS|iter_max_socks_runner(Config, Parent, N-1, First)];
+iter_max_socks_runner(Config, Parent, N, First) when is_integer(First) ->
+    ?P("iter_max_socks_runner(~w,~w) -> entry", [N, First]),
+    Parent ! {status, start_socks_counting, First},
     MS = max_socks(Config),
     if
         (MS =:= First) -> 
-	    [MS|iter_max_socks_run2(Config, N-1, First)];
+	    [MS|iter_max_socks_runner(Config, Parent, N-1, First)];
        true ->
 	    ?P("~w =/= ~w => sleeping for ~p seconds...",
                [MS, First, ?RETRY_SLEEP/1000]), 
 	    ct:sleep(?RETRY_SLEEP),
-	    ?P("Trying again...", []),
+	    ?P("iter_max_socks_runner(~w,~w) -> trying again", [N, First]),
+            Parent ! {status, retry_socks_counting, {First, MS}},
 	    RetryMS = max_socks(Config),
 	    if RetryMS == First ->
-                    [RetryMS|iter_max_socks_run2(Config, N-1, First)];
+                    [RetryMS|iter_max_socks_runner(Config, Parent, N-1, First)];
                true ->
-                    [RetryMS|iter_max_socks_run2(Config, N-1, failed)]
-		  end
+                    [RetryMS|iter_max_socks_runner(Config, Parent, N-1, failed)]
+            end
     end.
 
 all_equal({skip, _} = SKIP) ->
@@ -1182,9 +1202,12 @@ all_equal(_Rule, []) ->
     ok.
 
 max_socks(Config) ->
+    put(state, open),
     Socks = open_socks(Config),
     N = length(Socks),
+    put(state, close),
     lists:foreach(fun(S) -> ok = gen_tcp:close(S) end, Socks),
+    put(state, ready),
     ?P("Got ~p sockets", [N]),
     N.
 
@@ -5183,7 +5206,7 @@ send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 		   AutoClose, RNode) ->
     ?P("[basic] sink"),
     {A, Pid}              = setup_timeout_sink(Config, RNode, SndTimeout,
-					       AutoClose, SndBuf),
+                                               AutoClose, SndBuf),
     Send                  = fun() -> gen_tcp:send(A, BinData) end,
     {{error, timeout}, _} = timeout_sink_loop(Send, TslTimeout),
 
@@ -5240,10 +5263,20 @@ do_send_timeout_check_length(Config, RNode) ->
     {Pid, Mon} = spawn_monitor(
                    fun() ->
                            {A, _} = setup_timeout_sink(Config,
-						       RNode, SndTimeout,
-						       true, SndBuf),
+                                                       RNode, SndTimeout,
+                                                       true, SndBuf),
                            Send = fun() ->
+                                          %% %% <TMP>
+                                          %% snmp:enable_trace(),
+                                          %% snmp:set_trace([{gen_tcp_socket,
+                                          %%                  [{scope, send}]},
+                                          %%                 {socket, [{scope,getopt}]},
+                                          %%                 {socket, [{scope,send}]}],
+                                          %%                [{timestamp, true},
+                                          %%                 {return_trace, true}]),
                                           Res = gen_tcp:send(A, BinData),
+                                          %% snmp:disable_trace(),
+                                          %% </TMP>
                                           Self ! Res,
                                           Res
                                   end,
@@ -5534,8 +5567,8 @@ get_max_diff(Pid) when is_pid(Pid) ->
 	ok ->
 	    get_max_diff2(0)
     after 10000 ->
-            ?P("timeout awaiting first send result (ok) from sink ~p:"
-               "~n   Sink (process) info: ~p",
+            ?P("timeout awaiting first send result (ok) from sender ~p:"
+               "~n   Sender process info: ~p",
                [Pid, pi(Pid)]),
 	    exit(timeout)
     end.
@@ -5756,46 +5789,55 @@ setup_closed_ao(Config) ->
     {Loop,A}.
     
 setup_timeout_sink(Config, RNode, Timeout, AutoClose, BufSz) ->
-    Host    = get_hostname(node()),
-    ?P("[sink] create listen socket"),
-    {ok, L} = ?LISTEN(Config, 0, [{active,             false},
+    ?P("[sink setup] create listen socket"),
+    {ok, Addr} = ?LIB:which_local_addr(inet),
+
+    ?P("[sink setup] create listen socket"),
+    {ok, L} = ?LISTEN(Config, 0, [{ifaddr,             Addr},
+                                  {active,             false},
 				  {packet,             4},
 				  {sndbuf,             BufSz},
 				  {send_timeout,       Timeout},
 				  {send_timeout_close, AutoClose}]),
-    Fun = fun(F) ->
+    Fun = fun(N, F) ->
 		  receive
 		      {From,X} when is_function(X) ->
-			  From ! {self(),X()}, F(F);
-		      die -> ok
+			  From ! {self(),X()}, F(N+1,F);
+                      {From, iterations} ->
+                          From ! {self(), N}, F(N, F);
+		      die ->
+                          ok
 		  end
 	  end,
-    ?P("[sink] start remote runner process (on ~p)", [RNode]),
-    Pid =  rpc:call(RNode, erlang, spawn, [fun() -> Fun(Fun) end]),
+    ?P("[sink setup] start remote runner process (on ~p)", [RNode]),
+    Pid =  rpc:call(RNode, erlang, spawn, [fun() -> Fun(0,Fun) end]),
     {ok, Port} = inet:port(L),
     Remote = fun(Fu) ->
 		     Pid ! {self(), Fu},
-		     receive {Pid,X} -> X
+		     receive
+                         {Pid,X} -> X
 		     end
 	     end,
-    ?P("[sink] connect from remote node (~p)", [RNode]),
+    ?P("[sink setup] connect from remote node (~p)", [RNode]),
     {ok, C} = Remote(fun() ->
-			     ?CONNECT(Config, Host,Port,
-				      [{active, false},
+			     ?CONNECT(Config, Addr, Port,
+				      [{ifaddr, Addr},
+                                       {active, false},
 				       {packet, 4},
 				       {recbuf, BufSz div 2},
 				       {sndbuf, BufSz div 2}])
 		     end),
-    ?P("[sink] accept"),
+    ?P("[sink setup] accept"),
     {ok, A} = gen_tcp:accept(L),
-    ?P("[sink] accepted - send 'test' message"),
+    ?P("[sink setup] accepted - send 'test' message"),
     gen_tcp:send(A, "Hello"),
-    ?P("[sink] 'test' message sent - "
+    ?P("[sink setup] 'test' message sent - "
        "recv 'test' message on remote node (~p)", [RNode]),
     {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
-    ?P("[sink] cleanup - close listen socket"),
+    ?P("[sink setup] cleanup - close listen socket"),
     (catch gen_tcp:close(L)),
-    ?P("[sink] done when: "
+
+    ?P("[sink setup] done when: "
        "~n   Accepted socket: ~p"
        "~n      Buffer Info: ~p"
        "~n      SockName:    ~p"
@@ -5812,6 +5854,9 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose, BufSz) ->
         oki(Remote(fun() -> inet:getopts(C, [buffer, recbuf, sndbuf]) end)),
         oki(Remote(fun() -> inet:sockname(C) end)),
         oki(Remote(fun() -> inet:peername(C) end))]),
+
+    ?P("[sink setup] done"),
+
     {A, Pid}.
 
 oki({ok, V}) -> V;
@@ -5893,7 +5938,7 @@ timeout_sink_loop(Action, To, N) ->
             ?P("[sink-loop] action result: "
                "~n   Number of actions: ~p"
                "~n   Elapsed time:      ~p msec"
-               "~n   Result:            timeout with ~w of rest data",
+               "~n   Result:            timeout with ~w bytes of rest data",
                [N2,
                 erlang:convert_time_unit(get(elapsed), native, millisecond),
                 byte_size(RestData)]),
