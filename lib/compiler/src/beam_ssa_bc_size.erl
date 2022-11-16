@@ -71,7 +71,8 @@ opt_function(Id, StMap) ->
 opt_blks([{L,#b_blk{is=Is}=Blk}|Blks], ParamInfo, StMap, AnyChange, Count0, Acc0) ->
     case Is of
         [#b_set{op=bs_init_writable,dst=Dst}] ->
-            Bs = #{st_map => StMap, Dst => {writable,#b_literal{val=0}}},
+            Bs = #{st_map => StMap, Dst => {writable,#b_literal{val=0}},
+                   seen => sets:new([{version,2}])},
             try opt_writable(Bs, L, Blk, Blks, ParamInfo, Count0, Acc0) of
                 {Acc,Count} ->
                     opt_blks(Blks, ParamInfo, StMap, changed, Count, Acc)
@@ -153,10 +154,32 @@ call_size_func(#b_set{anno=Anno,op=call,args=[Name|Args],dst=Dst}, Bs) ->
                     %% and there is no need to analyze it.
                     Bs#{Dst => any};
                 true ->
-                    NewBs = NewBs0#{Name => self, st_map => StMap},
-                    Map0 = #{0 => NewBs},
-                    Result = calc_size(Linear, Map0),
-                    Bs#{Dst => Result}
+                    Seen0 = map_get(seen, Bs),
+                    case sets:is_element(Name, Seen0) of
+                        true ->
+                            %% This can happen if there is a call such as:
+                            %%
+                            %%     foo(<< 0 || false >>)
+                            %%
+                            %% Essentially, this is reduced to:
+                            %%
+                            %%     foo(<<>>)
+                            %%
+                            %% This sub pass will then try to analyze
+                            %% the code in foo/1 and everything it
+                            %% calls. To prevent an infinite loop in
+                            %% case there is mutual recursion between
+                            %% some of the functions called by foo/1,
+                            %% give up if function that has already
+                            %% been analyzed is called again.
+                            throw(not_possible);
+                        false ->
+                            Seen = sets:add_element(Name, Seen0),
+                            NewBs = NewBs0#{Name => self, st_map => StMap, seen => Seen},
+                            Map0 = #{0 => NewBs},
+                            Result = calc_size(Linear, Map0),
+                            Bs#{Dst => Result}
+                    end
             end;
         #{} ->
             case Name of
