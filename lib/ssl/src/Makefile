@@ -39,6 +39,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssl-$(VSN)
 # ----------------------------------------------------
 
 BEHAVIOUR_MODULES= \
+	ssl_trace \
 	ssl_crl_cache_api \
 	ssl_session_cache_api
 

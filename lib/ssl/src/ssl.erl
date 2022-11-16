@@ -100,6 +100,8 @@
          suite_to_str/1,
          suite_to_openssl_str/1,
          str_to_suite/1]).
+%% Tracing
+-export([handle_trace/3]).
 
 -removed({ssl_accept, '_', 
           "use ssl_handshake/1,2,3 instead"}).
@@ -2726,3 +2728,15 @@ unambiguous_path(Value) ->
                  AbsName
          end,
     validate_filename(UP, cacertfile).
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(rle, {call, {?MODULE, listen, Args}}, Stack0) ->
+    Role = server,
+    {io_lib:format("(*~w) Args = ~W", [Role, Args, 10]), [{role, Role} | Stack0]};
+handle_trace(rle, {call, {?MODULE, connect, Args}}, Stack0) ->
+    Role = client,
+    {io_lib:format("(*~w) Args = ~W", [Role, Args, 10]), [{role, Role} | Stack0]}.
+
