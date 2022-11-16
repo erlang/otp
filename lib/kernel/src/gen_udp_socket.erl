@@ -1888,17 +1888,17 @@ ctrl2ancdata(CTRL) ->
 ctrl2ancdata([], AncData) ->
    lists:reverse(AncData);
 ctrl2ancdata([#{level := ip,
-                type  := tos,
-                value := TOS,
+                type  := TOS,
+                value := Value,
                 data  := _Data}| CTRL],
-             AncData) ->
-    ctrl2ancdata(CTRL, [{tos, TOS}|AncData]);
+             AncData) when (TOS =:= tos) orelse (TOS =:= recvtos) ->
+    ctrl2ancdata(CTRL, [{tos, Value}|AncData]);
 ctrl2ancdata([#{level := ip,
-                type  := ttl,
-                value := TTL,
+                type  := TTL,
+                value := Value,
                 data  := _Data}| CTRL],
-             AncData) ->
-    ctrl2ancdata(CTRL, [{ttl, TTL}|AncData]);
+             AncData) when (TTL =:= ttl) orelse (TTL =:= recvttl) ->
+    ctrl2ancdata(CTRL, [{ttl, Value}|AncData]);
 ctrl2ancdata([#{level := ipv6,
                 type  := tclass,
                 value := TClass,
