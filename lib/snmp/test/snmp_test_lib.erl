@@ -2264,27 +2264,24 @@ analyze_and_print_darwin_host_info(Version) ->
             HwInfo        = analyze_darwin_hardware_info(),
             ModelName     = analyze_darwin_hw_model_name(HwInfo),
             ModelId       = analyze_darwin_hw_model_identifier(HwInfo),
-            ProcName      = analyze_darwin_hw_processor_name(HwInfo),
-            ProcSpeed     = analyze_darwin_hw_processor_speed(HwInfo),
-            NumProc       = analyze_darwin_hw_number_of_processors(HwInfo),
-            NumCores      = analyze_darwin_hw_total_number_of_cores(HwInfo),
+            %% ProcName      = analyze_darwin_hw_processor_name(HwInfo),
+            %% ProcSpeed     = analyze_darwin_hw_processor_speed(HwInfo),
+            %% NumProc       = analyze_darwin_hw_number_of_processors(HwInfo),
+            %% NumCores      = analyze_darwin_hw_total_number_of_cores(HwInfo),
+            {Processor, CPUFactor} = analyze_darwin_hw_processor(HwInfo),
             Memory        = analyze_darwin_hw_memory(HwInfo),
             io:format("Darwin:"
                       "~n   System Version:        ~s"
                       "~n   Kernel Version:        ~s"
                       "~n   Model:                 ~s (~s)"
-                      "~n   Processor:             ~s (~s, ~s, ~s)"
+                      "~n   Processor:             ~s"
                       "~n   Memory:                ~s"
                       "~n   Num Online Schedulers: ~s"
                       "~n", [SystemVersion, KernelVersion,
                              ModelName, ModelId,
-                             ProcName, ProcSpeed, NumProc, NumCores, 
+                             Processor, 
                              Memory,
                              str_num_schedulers()]),
-            CPUFactor = analyze_darwin_cpu_to_factor(ProcName,
-                                                     ProcSpeed,
-                                                     NumProc,
-                                                     NumCores),
             MemFactor = analyze_darwin_memory_to_factor(Memory),
             if (MemFactor =:= 1) ->
                     {CPUFactor, []};
@@ -2307,6 +2304,31 @@ analyze_darwin_hw_model_name(HwInfo) ->
 
 analyze_darwin_hw_model_identifier(HwInfo) ->
     proplists:get_value("model identifier", HwInfo, "-").
+
+analyze_darwin_hw_processor(HwInfo) ->
+    case analyze_darwin_hw_processor_name(HwInfo) of
+        "-" -> % Maybe Apple Chip
+            case analyze_darwin_hw_chip(HwInfo) of
+                "-" ->
+                    "-";
+                Chip ->
+                    NumCores = analyze_darwin_hw_total_number_of_cores(HwInfo),
+                    CPUFactor = analyze_darwin_cpu_to_factor(Chip, NumCores),
+                    {f("~s [~s]", [Chip, NumCores]), CPUFactor}
+            end;
+        ProcName ->
+            ProcSpeed = analyze_darwin_hw_processor_speed(HwInfo),
+            NumProc   = analyze_darwin_hw_number_of_processors(HwInfo),
+            NumCores  = analyze_darwin_hw_total_number_of_cores(HwInfo),
+            CPUFactor = analyze_darwin_cpu_to_factor(ProcName,
+                                                     ProcSpeed,
+                                                     NumProc,
+                                                     NumCores),
+            {f("~s [~s, ~s, ~s]", [ProcName, ProcSpeed, NumProc, NumCores]), CPUFactor}
+    end.
+
+analyze_darwin_hw_chip(HwInfo) ->
+    proplists:get_value("chip", HwInfo, "-").
 
 analyze_darwin_hw_processor_name(HwInfo) ->
     proplists:get_value("processor name", HwInfo, "-").
@@ -2390,6 +2412,12 @@ analyze_darwin_memory_to_factor(Mem) ->
         _ ->
             20
     end.
+
+
+analyze_darwin_cpu_to_factor("Apple" ++ _ = _Chip, _NumCores) ->
+    1;
+analyze_darwin_cpu_to_factor(_Chip, _NumCores) ->
+    8.
 
 
 %% The speed is a string: "<speed> <unit>"
