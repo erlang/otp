@@ -58,9 +58,13 @@
          t_simple_local_sockaddr_in_send_recv/1,
          t_simple_link_local_sockaddr_in_send_recv/1,
          t_simple_local_sockaddr_in6_send_recv/1,
-         t_simple_link_local_sockaddr_in6_send_recv/1
+         t_simple_link_local_sockaddr_in6_send_recv/1,
+
+         otp_18323/1
+
 	]).
 
+-include_lib("kernel/src/inet_int.hrl").
 
 -define(TRY_TC(F), try_tc(F)).
                
@@ -128,7 +132,8 @@ all_cases() ->
      recv_close,
      {group, socket_monitor},
      otp_17492,
-     {group, sockaddr}
+     {group, sockaddr},
+     otp_18323
     ].
 
 local_cases() ->
@@ -2781,6 +2786,48 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
     ok.
 
     
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Verify that the options [add|drop]_membership do not mess up
+%% the "previous" options.
+otp_18323(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_otp_18323(Config) end).
+
+do_otp_18323(_Config) ->
+    ?P("begin"),
+
+    do_otp_18323_verify({add_membership,  {{239,1,2,3},{0,0,0,0}}}),
+    do_otp_18323_verify({drop_membership, {{239,1,2,3},{0,0,0,0}}}),
+
+    ?P("done"),
+    ok.
+
+do_otp_18323_verify(MembershipOpt) ->
+    Port   = 4321,
+    RecBuf = 123456,
+    Active = 10,
+    Opts   = [binary, MembershipOpt, {active, Active}],
+
+    case inet:udp_options([{port, Port}, {recbuf, RecBuf} | Opts], inet_udp) of
+        {ok, #udp_opts{port = Port,
+                       opts = SockOpts}} ->
+            ?P("Processed Socket Options: "
+               "~n   Port:      ~p"
+               "~n   Sock Opts: ~p", [Port, SockOpts]),
+            %% Check that the recbuf and mode options are as expected
+            %% The option 'binary' is shorthand for {mode, binary}
+            {value, {recbuf, RecBuf}} = lists:keysearch(recbuf, 1, SockOpts),
+            {value, {mode,   binary}} = lists:keysearch(mode,   1, SockOpts),
+            {value, {active, Active}} = lists:keysearch(active, 1, SockOpts),
+            ok;
+        {error, Reason} ->
+            exit(?F("Failed processing options: ~p", [Reason]))
+    end.
+    
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
