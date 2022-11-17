@@ -329,10 +329,7 @@ handle_call(_Request, _From, _S) ->
     erlang:error(badarg).
 
 -spec handle_cast(
-    {sync, Peer :: pid(), Groups :: [{group(), [pid()]}]} |
-    {discover, Peer :: pid()} |
-    {join, Peer :: pid(), group(), pid() | [pid()]} |
-    {leave, Peer :: pid(), pid() | [pid()], [group()]},
+    {sync, Peer :: pid(), Groups :: [{group(), [pid()]}]},
     State :: state()) -> {noreply, state()}.
 
 handle_cast({sync, Peer, Groups}, #state{scope = Scope, remote = Remote, scope_monitors = ScopeMon,
@@ -344,6 +341,7 @@ handle_cast(_, _State) ->
 
 -spec handle_info(
     {discover, Peer :: pid()} |
+    {discover, Peer :: pid(), any()} |
     {join, Peer :: pid(), group(), pid() | [pid()]} |
     {leave, Peer :: pid(), pid() | [pid()], [group()]} |
     {'DOWN', reference(), process, pid(), term()} |
@@ -385,17 +383,13 @@ handle_info({leave, Peer, PidOrPids, Groups}, #state{scope = Scope, remote = Rem
     end;
 
 %% we're being discovered, let's exchange!
-handle_info({discover, Peer}, #state{remote = Remote, local = Local} = State) ->
-    gen_server:cast(Peer, {sync, self(), all_local_pids(Local)}),
-    %% do we know who is looking for us?
-    case maps:is_key(Peer, Remote) of
-        true ->
-            {noreply, State};
-        false ->
-            MRef = erlang:monitor(process, Peer),
-            erlang:send(Peer, {discover, self()}, [noconnect]),
-            {noreply, State#state{remote = Remote#{Peer => {MRef, #{}}}}}
-    end;
+handle_info({discover, Peer}, State) ->
+    handle_discover(Peer, State);
+
+%% New discover message sent by a future pg version.
+%% Accepted first in OTP 26, to be used by OTP 28 or later.
+handle_info({discover, Peer, _ProtocolVersion}, State) ->
+    handle_discover(Peer, State);
 
 %% handle local process exit, or a local monitor exit
 handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, local = Local,
@@ -430,7 +424,7 @@ handle_info({nodedown, _Node}, State) ->
 handle_info({nodeup, Node}, State) when Node =:= node() ->
     {noreply, State};
 handle_info({nodeup, Node}, #state{scope = Scope} = State) ->
-    {Scope, Node} ! {discover, self()},
+    erlang:send({Scope, Node}, {discover, self()}, [noconnect]),
     {noreply, State};
 
 handle_info(_Info, _State) ->
@@ -442,6 +436,21 @@ terminate(_Reason, #state{scope = Scope}) ->
 
 %%--------------------------------------------------------------------
 %% Internal implementation
+
+handle_discover(Peer, #state{remote = Remote, local = Local} = State) ->
+    gen_server:cast(Peer, {sync, self(), all_local_pids(Local)}),
+    %% do we know who is looking for us?
+    case maps:is_key(Peer, Remote) of
+        true ->
+            {noreply, State};
+        false ->
+            MRef = erlang:monitor(process, Peer),
+            erlang:send(Peer, {discover, self()}, [noconnect]),
+            {noreply, State#state{remote = Remote#{Peer => {MRef, #{}}}}}
+    end;
+handle_discover(_, _) ->
+    erlang:error(badarg).
+
 
 %% Ensures argument is either a node-local pid or a list of such, or it throws an error
 ensure_local(Pid) when is_pid(Pid), node(Pid) =:= node() ->
