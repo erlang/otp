@@ -6909,13 +6909,37 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    desc->delimiter = (char)ival;
 	    continue;
 
+	case INET_OPT_REUSEADDR:
+#ifdef __WIN32__
             /* The behaviour changed in Windows Server 2003.
              * Now it works as the combo of `SO_REUSEADDR` and 
              * `SO_REUSEPORT` does on *BSD.
-             * This option was "dangerous" only in Windows XP,
-             * which we don't support anymore!
              */
-	case INET_OPT_REUSEADDR: type = SO_REUSEADDR;
+            if (desc->stype != SOCK_DGRAM) {
+                /*
+                 * We refuse usage of SO_REUSEADDR on non-UDP sockets since it
+                 * mostly (perhaps only) opens up for socket collisions and
+                 * probably hasn't got any useful use-cases. There are useful
+                 * use-cases for multicast sockets, though. For more
+                 * information see:
+                 *   https://learn.microsoft.com/en-us/windows/win32/winsock/using-so-reuseaddr-and-so-exclusiveaddruse
+                 *
+                 * Prior to OTP 25 we also refused to use SO_REUSEADDR on any
+                 * sockets on Windows. See
+                 * 2a6ac6f3f027fcab6d607599e82714e930d9fde2
+                 *
+                 * We certainly do not want to use it for the Erlang
+                 * distribution TCP sockets since we can end up reusing our
+                 * own active sockets as demonstrated in the issue:
+                 *   https://github.com/erlang/otp/issues/6461
+                 *
+                 * We probably want to expose the Windows specific
+                 * SO_EXCLUSIVEADDRUSE in the API as well...
+                 */
+                continue;
+            }
+#endif
+            type = SO_REUSEADDR;
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "inet_set_opts(reuseaddr) -> %s\r\n",
