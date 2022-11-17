@@ -1,6 +1,6 @@
 -module(bs_fail_constr).
 
--export([w1/1, w2/1, w3/1, w4/1, bad_size_1/1, bad_size_2/1]).
+-export([w1/1, w2/1, w3/1, w4/1, bad_size_1/1, bad_size_2/1, bad_size_3/1]).
 
 w1(V) when is_float(V) ->
   <<V/integer>>.
@@ -24,3 +24,8 @@ bad_size_2(Bin) ->
         <<X:Size>> ->
             ok
     end.
+
+%% GH-6473
+bad_size_3(X) when X; <<X:X>> ->
+    bad_size_3(X),
+    X.
