@@ -2356,14 +2356,22 @@ analyze_darwin_system_profiler(DataType) ->
     %% First, make sure the program actually exist:
     case os:cmd("which system_profiler") of
         [] ->
-            [];
-        _ ->
-            D0 = os:cmd("system_profiler " ++ DataType),
-            D1 = string:tokens(D0, [$\n]),
-            D2 = [string:trim(S1) || S1 <- D1],
-            D3 = [string:tokens(S2, [$:]) || S2 <- D2],
-            analyze_darwin_system_profiler2(D3)
+            case string:trim(os:cmd("which /usr/sbin/system_profiler")) of
+                [] ->
+                    [];
+                Cmd1 ->
+                    analyze_darwin_system_profiler(Cmd1, DataType)
+            end;
+        Cmd2 ->
+            analyze_darwin_system_profiler(Cmd2, DataType)
     end.
+
+analyze_darwin_system_profiler(Cmd, DataType) ->
+    D0 = os:cmd(Cmd ++ " " ++ DataType),
+    D1 = string:tokens(D0, [$\n]),
+    D2 = [string:trim(S1) || S1 <- D1],
+    D3 = [string:tokens(S2, [$:]) || S2 <- D2],
+    analyze_darwin_system_profiler2(D3).
 
 analyze_darwin_system_profiler2(L) ->
     analyze_darwin_system_profiler2(L, []).
