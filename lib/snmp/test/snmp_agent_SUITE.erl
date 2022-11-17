@@ -7532,103 +7532,79 @@ otp16092_cases() ->
     ].
 
 otp_16092_simple_start_and_stop1(Config) ->
-    ?P(otp_16092_simple_start_and_stop1), 
-    ?DBG("otp_16092_simple_start_and_stop1 -> entry", []),
-
-    TC = fun() ->
-                 otp_16092_simple_start_and_stop(Config, default, success)
-         end,
-
-    Result = otp_16092_try(TC),
-
-    ?DBG("otp_16092_simple_start_and_stop1 -> done: "
-         "~n      ~p", [Result]),
-
-    Result.
+    otp_16092_simple_start_and_stop(?FUNCTION_NAME,
+                                    Config, default, success).
 
 
 otp_16092_simple_start_and_stop2(Config) ->
-    ?P(otp_16092_simple_start_and_stop2), 
-    ?DBG("otp_16092_simple_start_and_stop2 -> entry", []),
-
-    TC = fun() ->
-                 otp_16092_simple_start_and_stop(Config, [], success)
-         end,
-
-    Result = otp_16092_try(TC),
-
-    ?DBG("otp_16092_simple_start_and_stop2 -> done: "
-         "~n      ~p", [Result]),
-
-    Result.
+    otp_16092_simple_start_and_stop(?FUNCTION_NAME,
+                                    Config, [], success).
 
 
 otp_16092_simple_start_and_stop3(Config) ->
-    ?P(otp_16092_simple_start_and_stop3), 
-    ?DBG("otp_16092_simple_start_and_stop3 -> entry", []),
-
-    TC = fun() ->
-                 otp_16092_simple_start_and_stop(Config,
-                                                 'this-should-be-ignored',
-                                                 success)
-         end,
-
-    Result = otp_16092_try(TC),
-
-    ?DBG("otp_16092_simple_start_and_stop3 -> done: "
-         "~n      ~p", [Result]),
-
-    Result.
+    otp_16092_simple_start_and_stop(?FUNCTION_NAME,
+                                    Config,
+                                    'this-should-be-ignored',
+                                    success).
 
 
 otp_16092_simple_start_and_stop4(Config) ->
-    ?P(otp_16092_simple_start_and_stop4), 
-    ?DBG("otp_16092_simple_start_and_stop4 -> entry", []),
+    otp_16092_simple_start_and_stop(?FUNCTION_NAME,
+                                    Config,
+                                    ['this-should-fail'],
+                                    failure).
 
-    TC = fun() ->
-                 otp_16092_simple_start_and_stop(Config,
-                                                 ['this-should-fail'],
-                                                 failure)
-         end,
-    
-    Result = otp_16092_try(TC),
+otp_16092_simple_start_and_stop(CaseName, Config, ESO, Expected)
+  when is_atom(CaseName) ->
+    Pre  = fun() ->
+                   [D|_] = lists:reverse(atom_to_list(CaseName)),
+                   Digit = [D],
+                           
+                   ?NPRINT("try start agent node"),
+                   {ok, Peer, Node} = ?START_PEER(Digit ++ "-agent"),
 
-    ?DBG("otp_16092_simple_start_and_stop4 -> done: "
-         "~n      ", [Result]),
+                   ?NPRINT("try write config to file"),
+                   ConfDir   = ?config(agent_conf_dir, Config),
+                   DbDir     = ?config(agent_db_dir,   Config),
+                   Vsns      = [v1],
+                   IP        = tuple_to_list(?config(ip, Config)),
+                   ManagerIP = IP,
+                   TrapPort  = ?TRAP_UDP,
+                   AgentIP   = IP,
+                   AgentPort = 4000,
+                   SysName   = "test",
+                   ok = snmp_config:write_agent_snmp_files(ConfDir, Vsns,
+                                                           ManagerIP, TrapPort,
+                                                           AgentIP, AgentPort,
+                                                           SysName),
 
-    Result.
+                   #{eso       => ESO,
+                     vsns      => Vsns,
+                     db_dir    => DbDir,
+                     conf_opts => [{dir,        ConfDir},
+                                   {force_load, false}, 
+                                   {verbosity,  trace}],
+                     node      => Node,
+                     peer      => Peer,
+                     expected  => Expected}
+           end,
+    Case = fun(State) ->
+                   do_otp_16092_simple_start_and_stop(State)
+           end,
+    Post = fun(#{node := Node,
+                 peer := Peer}) ->
+                   ?NPRINT("try stop agent node ~p", [Node]),
+                   ?STOP_PEER(Peer)
+           end,
+    ?TC_TRY(CaseName, Pre, Case, Post).
 
-
-otp_16092_try(TC) ->
-    try TC() of
-        Any ->
-            Any
-    catch
-        _:{skip, _} = SKIP ->
-            SKIP
-    end.
-        
-otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
-    ConfDir = ?config(agent_conf_dir, Config),
-    DbDir   = ?config(agent_db_dir,   Config),
-
-    ?NPRINT("try start agent node"),
-    {ok, Peer, Node} = ?START_PEER("-agent"),
-
-    Vsns      = [v1],
-    IP        = tuple_to_list(?config(ip, Config)),
-    ManagerIP = IP,
-    TrapPort  = ?TRAP_UDP,
-    AgentIP   = IP,
-    AgentPort = 4000,
-    SysName   = "test",
-    ok = snmp_config:write_agent_snmp_files(
-           ConfDir, Vsns, ManagerIP, TrapPort, AgentIP, AgentPort, SysName),
-
-    ConfOpts = [{dir,        ConfDir},
-                {force_load, false}, 
-                {verbosity,  trace}],
-    NiOpts   =
+do_otp_16092_simple_start_and_stop(#{eso       := ESO,
+                                     vsns      := Vsns,
+                                     db_dir    := DbDir,
+                                     conf_opts := ConfOpts,
+                                     node      := Node,
+                                     expected  := Expected} = _State) ->
+    NiOpts =
         case ESO of
             default ->
                 [{verbosity, trace}];
@@ -7644,14 +7620,8 @@ otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
 
     otp16092_try_start_and_stop_agent(Node, Opts, Expected),
 
-    ?NPRINT("try stop agent node ~p", [Node]),
-    peer:stop(Peer),
-
-    ?SLEEP(1000),
-
     ?NPRINT("done"),
     ok.
-
 
 otp16092_try_start_and_stop_agent(Node, Opts, Expected) ->
     ?IPRINT("try start snmp (agent) supervisor (on ~p) - expect ~p", 
@@ -7733,7 +7703,7 @@ otp8395({init, Config}) when is_list(Config) ->
     %% --
     %% Start nodes
     %%
-    {ok, AgentPeer, AgentNode} = ?START_PEER("-agent"),
+    {ok, AgentPeer, AgentNode}     = ?START_PEER("-agent"),
     {ok, ManagerPeer, ManagerNode} = ?START_PEER("-manager"),
 
     %% -- 
@@ -7829,14 +7799,14 @@ otp8395({fin, Config}) when is_list(Config) ->
     %% 
 
     ?DBG("otp8395(fin) -> stop agent node", []),
-    peer:stop(?config(agent_peer, Config)),
+    ?STOP_PEER(?config(agent_peer, Config)),
 
     %% - 
     %% Stop the manager node
     %% 
 
     ?DBG("otp8395(fin) -> stop manager node", []),
-    peer:stop(?config(manager_peer, Config)),
+    ?STOP_PEER(?config(manager_peer, Config)),
 
     wd_stop(Config);
 
