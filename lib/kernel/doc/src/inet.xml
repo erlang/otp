@@ -1568,8 +1568,19 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
           </item>
           <tag><c>{reuseaddr, Boolean}</c></tag>
           <item>
-            <p>Allows or disallows local reuse of port numbers. By
-              default, reuse is disallowed.</p>
+            <p>
+              Allows or disallows local reuse of port numbers. By
+              default, reuse is disallowed.
+            </p>
+            <note><p>
+              On Windows this option will be ignored unless
+              <c><anno>Socket</anno></c> is an UDP socket. This since the
+              behavior of <c>reuseaddr</c> is very different on Windows
+              compared to other system. The Windows behavior makes its use
+              dangerous, and there probably are no useful use-cases in the
+              non-UDP cases either. However, in the UDP case on Windows there
+              are useful use-cases.
+            </p></note>
           </item>
           <tag><c>{send_timeout, Integer}</c></tag>
           <item>
