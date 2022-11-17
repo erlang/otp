@@ -1,6 +1,4 @@
 %%
-%% %CopyrightBegin%
-%%
 %% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -102,15 +100,13 @@ all() ->
 groups() ->
     [{'tlsv1.3', [], [{group, stateful},
                       {group, stateless},
+                      {group, stateful_with_cert},
+                      {group, stateless_with_cert},
                       {group, mixed}]},
      {stateful, [], session_tests()},
-     {stateless, [], session_tests() ++
-          [ticketage_smaller_than_windowsize_anti_replay,
-           ticketage_bigger_than_windowsize_anti_replay,
-           ticketage_out_of_lifetime_anti_replay, ticket_reuse_anti_replay,
-           ticket_reuse_anti_replay_server_restart,
-           ticket_reuse_anti_replay_server_restart_reused_seed,
-           stateless_multiple_servers]},
+     {stateless, [], session_tests() ++ anti_replay_tests()},
+     {stateful_with_cert, [], session_tests()},
+     {stateless_with_cert, [], session_tests() ++ anti_replay_tests()},
      {mixed, [], mixed_tests()}].
 
 session_tests() ->
@@ -126,6 +122,16 @@ session_tests() ->
      early_data_enabled_small_limit,
      early_data_basic,
      early_data_basic_auth].
+
+anti_replay_tests() ->
+    [
+     ticketage_smaller_than_windowsize_anti_replay,
+     ticketage_bigger_than_windowsize_anti_replay,
+     ticketage_out_of_lifetime_anti_replay, ticket_reuse_anti_replay,
+     ticket_reuse_anti_replay_server_restart,
+     ticket_reuse_anti_replay_server_restart_reused_seed,
+     stateless_multiple_servers
+    ].
 
 mixed_tests() ->
     [
@@ -151,10 +157,12 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-init_per_group(stateful, Config) ->
-    [{server_ticket_mode, stateful} | proplists:delete(server_ticket_mode, Config)];
-init_per_group(stateless, Config) ->
-    [{server_ticket_mode, stateless} | proplists:delete(server_ticket_mode, Config)];
+init_per_group(GroupName, Config)
+    when GroupName == stateful
+         orelse GroupName == stateless
+         orelse GroupName == stateful_with_cert
+         orelse GroupName == stateless_with_cert ->
+    [{server_ticket_mode, GroupName} | proplists:delete(server_ticket_mode, Config)];
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config).
 
@@ -170,6 +178,7 @@ init_per_testcase(_, Config)  ->
 
 end_per_testcase(_TestCase, Config) ->
     application:unset_env(ssl, server_session_ticket_max_early_data),
+    application:unset_env(ssl, server_session_ticket_lifetime),
     Config.
 
 %%--------------------------------------------------------------------
@@ -208,6 +217,15 @@ basic(Config) when is_list(Config) ->
                                          {from, self()}, {options, ClientOpts}]),
     ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
+    Server0 ! get_socket,
+    SSocket0 =
+        receive
+            {Server0, {socket, Socket0}} ->
+                Socket0
+        end,
+
+    {ok, ClientCert} = ssl:peercert(SSocket0),
+
     Server0 ! {listen, {mfa, {ssl_test_lib,
                               verify_active_session_resumption,
                               [true]}}},
@@ -225,6 +243,21 @@ basic(Config) when is_list(Config) ->
                                                 [true]}},
                                          {from, self()}, {options, ClientOpts}]),
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
+
+    Server0 ! get_socket,
+    SSocket1 =
+        receive
+            {Server0, {socket, Socket1}} ->
+                Socket1
+        end,
+
+    ExpectedPeercert = case ServerTicketMode of
+                           stateful_with_cert -> {ok, ClientCert};
+                           stateless_with_cert -> {ok, ClientCert};
+                           _ -> {error, no_peercert}
+                       end,
+
+    ExpectedPeercert = ssl:peercert(SSocket1),
 
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server0),

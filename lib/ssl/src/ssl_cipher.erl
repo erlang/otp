@@ -1306,10 +1306,22 @@ encrypt_ticket(#stateless_ticket{
                   pre_shared_key = PSK,
                   ticket_age_add = TicketAgeAdd,
                   lifetime = Lifetime,
-                  timestamp = Timestamp
+                  timestamp = Timestamp,
+                  certificate = Certificate
                  }, Shard, IV) ->
-    Plaintext = <<(ssl_cipher:hash_algorithm(Hash)):8,PSK/binary,
+    Plaintext1 = <<(ssl_cipher:hash_algorithm(Hash)):8,PSK/binary,
                    ?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp)>>,
+    CertificateLength = case Certificate of
+                            undefined -> 0;
+                            _ -> byte_size(Certificate)
+    end,
+    Plaintext = case CertificateLength of
+                    0 ->
+                        <<Plaintext1/binary,?UINT16(0)>>;
+                    _ ->
+                        <<Plaintext1/binary,?UINT16(CertificateLength),
+                          Certificate/binary>>
+                end,
     encrypt_ticket_data(Plaintext, Shard, IV).
 
 
@@ -1321,13 +1333,19 @@ decrypt_ticket(CipherFragment, Shard, IV) ->
             <<?BYTE(HKDF),T/binary>> = Plaintext,
             Hash = hash_algorithm(HKDF),
             HashSize = hash_size(Hash),
-            <<PSK:HashSize/binary,?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp),_/binary>> = T,
+            <<PSK:HashSize/binary,?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp),
+                ?UINT16(CertificateLength),Certificate1:CertificateLength/binary,_/binary>> = T,
+            Certificate = case CertificateLength of
+                              0 -> undefined;
+                              _ -> Certificate1
+                          end,
             #stateless_ticket{
                hash = Hash,
                pre_shared_key = PSK,
                ticket_age_add = TicketAgeAdd,
                lifetime = Lifetime,
-               timestamp = Timestamp
+               timestamp = Timestamp,
+               certificate = Certificate
               }
     end.
 

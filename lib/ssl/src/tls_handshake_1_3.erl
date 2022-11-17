@@ -1316,9 +1316,12 @@ session_resumption({#state{ssl_options = #{session_tickets := Tickets}} = State,
     {ok, {State, negotiated}};
 session_resumption({#state{ssl_options = #{session_tickets := Tickets},
                            handshake_env = #handshake_env{
-                                              early_data_accepted = false}} = State0, negotiated}, PSK)
+                                              early_data_accepted = false}} = State0, negotiated}, PSK0)
   when Tickets =/= disabled ->
-    State = handle_resumption(State0, ok),
+    State1 = handle_resumption(State0, ok),
+    {Index, PSK1, PeerCert} = PSK0,
+    PSK = {Index, PSK1},
+    State = maybe_store_peer_cert(State1, PeerCert),
     {ok, {State, negotiated, PSK}};
 session_resumption({#state{ssl_options = #{session_tickets := Tickets},
                            handshake_env = #handshake_env{
@@ -1326,12 +1329,14 @@ session_resumption({#state{ssl_options = #{session_tickets := Tickets},
   when Tickets =/= disabled ->
     State1 = handle_resumption(State0, ok),
     %% TODO Refactor PSK-tuple {Index, PSK}, index might not be needed.
-    {_ , PSK} = PSK0,
-    State2 = calculate_client_early_traffic_secret(State1, PSK),
+    {Index, PSK1, PeerCert} = PSK0,
+    State2 = calculate_client_early_traffic_secret(State1, PSK1),
+    PSK = {Index, PSK1},
     %% Set 0-RTT traffic keys for reading early_data
     State3 = ssl_record:step_encryption_state_read(State2),
-    State = update_current_read(State3, true, true),
-    {ok, {State, negotiated, PSK0}}.
+    State4 = maybe_store_peer_cert(State3, PeerCert),
+    State = update_current_read(State4, true, true),
+    {ok, {State, negotiated, PSK}}.
 
 %% Session resumption with early_data
 maybe_send_certificate_request(#state{
@@ -1410,9 +1415,18 @@ maybe_send_session_ticket(#state{connection_states = ConnectionStates,
         ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDF,
                          resumption_master_secret = RMS} = SecParamsR, 
-    Ticket = tls_server_session_ticket:new(Tracker, HKDF, RMS),
+    Ticket = new_session_ticket(Tracker, HKDF, RMS, State0),
     {State, _} = Connection:send_handshake(Ticket, State0),
     maybe_send_session_ticket(State, N - 1).
+
+new_session_ticket(Tracker, HKDF, RMS, #state{ssl_options = #{session_tickets := stateful_with_cert},
+                                              session = #session{peer_certificate = PeerCert}}) ->
+    tls_server_session_ticket:new(Tracker, HKDF, RMS, PeerCert);
+new_session_ticket(Tracker, HKDF, RMS, #state{ssl_options = #{session_tickets := stateless_with_cert},
+                                              session = #session{peer_certificate = PeerCert}}) ->
+    tls_server_session_ticket:new(Tracker, HKDF, RMS, PeerCert);
+new_session_ticket(Tracker, HKDF, RMS, _) ->
+    tls_server_session_ticket:new(Tracker, HKDF, RMS, undefined).
 
 create_change_cipher_spec(#state{ssl_options = #{log_level := LogLevel}}) ->
     %% Dummy connection_states with NULL cipher
@@ -1514,6 +1528,11 @@ validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                             ocsp_state => OcspState,
                             ocsp_responder_certs => OcspResponderCerts}).
 
+
+maybe_store_peer_cert(State, undefined) ->
+    State;
+maybe_store_peer_cert(#state{session = Session} = State, PeerCert) ->
+    State#state{session = Session#session{peer_certificate = PeerCert}}.
 
 store_peer_cert(#state{session = Session,
                        handshake_env = HsEnv} = State, PeerCert, PublicKeyInfo) ->

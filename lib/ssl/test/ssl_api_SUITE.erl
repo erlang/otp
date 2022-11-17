@@ -2382,6 +2382,12 @@ options_anti_replay(_Config) ->
     ?OK(#{anti_replay := {_,_,_}},
         [{anti_replay, {42,4711,21}}, {session_tickets, stateless}],
         server),
+    ?OK(#{anti_replay := {_,_,_}},
+        [{anti_replay, '10k'}, {session_tickets, stateless_with_cert}],
+        server),
+    ?OK(#{anti_replay := {_,_,_}},
+        [{anti_replay, {42,4711,21}}, {session_tickets, stateless_with_cert}],
+        server),
 
 
     %% Errors
@@ -2399,6 +2405,15 @@ options_anti_replay(_Config) ->
          server),
     ?ERR({anti_replay, _},
          [{anti_replay, {1,1,1,1}}, {session_tickets, stateless}],
+         server),
+    ?ERR({options,incompatible, [session_tickets,{versions,['tlsv1']}]},
+         [{anti_replay, '10k'}, {session_tickets, stateless_with_cert}, {versions, ['tlsv1']}],
+         server),
+    ?ERR({anti_replay, '1k'},
+         [{anti_replay, '1k'}, {session_tickets, stateless_with_cert}],
+         server),
+    ?ERR({anti_replay, _},
+         [{anti_replay, {1,1,1,1}}, {session_tickets, stateless_with_cert}],
          server),
     ok.
 
@@ -2594,6 +2609,8 @@ options_early_data(_Config) -> %% early_data, session_tickets and use_ticket
 
     ?OK(#{early_data := enabled, stateless_tickets_seed := <<"foo">>},
         [{early_data, enabled}, {session_tickets, stateless}, {stateless_tickets_seed, <<"foo">>}], server),
+    ?OK(#{early_data := enabled, stateless_tickets_seed := <<"foo">>},
+        [{early_data, enabled}, {session_tickets, stateless_with_cert}, {stateless_tickets_seed, <<"foo">>}], server),
 
     ?OK(#{early_data := disabled}, [{early_data, disabled}], server),
 
@@ -2606,6 +2623,8 @@ options_early_data(_Config) -> %% early_data, session_tickets and use_ticket
     ?ERR({options, {session_tickets, stateful}}, [{session_tickets, stateful}], client),
     ?ERR({options, incompatible, [session_tickets, {versions, _}]},
          [{session_tickets, stateful}, {versions, ['tlsv1.2']}], server),
+    ?ERR({options, incompatible, [session_tickets, {versions, _}]},
+         [{session_tickets, stateful_with_cert}, {versions, ['tlsv1.2']}], server),
 
     ?ERR({use_ticket, foo},
          [{use_ticket, foo}, {session_tickets, manual}], client),
@@ -2622,12 +2641,20 @@ options_early_data(_Config) -> %% early_data, session_tickets and use_ticket
          [{early_data, enabled}], server),
     ?ERR({options, {early_data, <<>>}},
          [{early_data, <<>>}, {session_tickets, stateless}], server),
+    ?ERR({options, {early_data, <<>>}},
+         [{early_data, <<>>}, {session_tickets, stateless_with_cert}], server),
 
     ?ERR({options, incompatible, [stateless_tickets_seed, {session_tickets, stateful}]},
          [{stateless_tickets_seed, <<"foo">>}, {session_tickets, stateful}],
          server),
+    ?ERR({options, incompatible, [stateless_tickets_seed, {session_tickets, stateful_with_cert}]},
+         [{stateless_tickets_seed, <<"foo">>}, {session_tickets, stateful_with_cert}],
+         server),
     ?ERR({stateless_tickets_seed, foo},
          [{stateless_tickets_seed, foo}, {session_tickets, stateless}],
+         server),
+    ?ERR({stateless_tickets_seed, foo},
+         [{stateless_tickets_seed, foo}, {session_tickets, stateless_with_cert}],
          server),
     ?ERR({option, server_only, stateless_tickets_seed},
          [{stateless_tickets_seed, <<"foo">>}], client),
