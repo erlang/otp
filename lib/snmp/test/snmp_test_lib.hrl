@@ -160,3 +160,4 @@
     name => ?CT_PEER_NAME(atom_to_list(?FUNCTION_NAME) ++ Kind),
     args => ["-s", "snmp_test_sys_monitor", "start", "-s", "global", "sync"]
 })).
+-define(STOP_PEER(__P__), peer:stop(__P__)).
