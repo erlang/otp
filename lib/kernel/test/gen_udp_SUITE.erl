@@ -2790,7 +2790,7 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Verify that the options [add|drop]_membership do not mess up
-%% the "previous" options.
+%% the options (including 'ip' which could not be added *after*).
 otp_18323(Config) when is_list(Config) ->
     ct:timetrap(?MINS(1)),
     ?TC_TRY(?FUNCTION_NAME, fun() -> do_otp_18323(Config) end).
@@ -2808,14 +2808,17 @@ do_otp_18323_verify(MembershipOpt) ->
     Port   = 4321,
     RecBuf = 123456,
     Active = 10,
-    Opts   = [binary, MembershipOpt, {active, Active}],
+    IP     = {1,2,3,4},
+    Opts   = [binary, MembershipOpt, {ip, IP}, {active, Active}],
 
     case inet:udp_options([{port, Port}, {recbuf, RecBuf} | Opts], inet_udp) of
-        {ok, #udp_opts{port = Port,
-                       opts = SockOpts}} ->
+        {ok, #udp_opts{ifaddr = IP,
+                       port   = Port,
+                       opts   = SockOpts}} ->
             ?P("Processed Socket Options: "
+               "~n   IfAddr:    ~p"
                "~n   Port:      ~p"
-               "~n   Sock Opts: ~p", [Port, SockOpts]),
+               "~n   Sock Opts: ~p", [IP, Port, SockOpts]),
             %% Check that the recbuf and mode options are as expected
             %% The option 'binary' is shorthand for {mode, binary}
             {value, {recbuf, RecBuf}} = lists:keysearch(recbuf, 1, SockOpts),
