@@ -4170,37 +4170,39 @@ dec_term_atom_common:
 	    *objp = NIL;
 	    break;
 	case LIST_EXT:
-	    n = get_int32(ep);
+	{
+	    Uint32 nu = get_uint32(ep);
 	    ep += 4;
-	    if (n == 0) {
+	    if (nu == 0) {
 		next = objp;
 		break;
 	    }
 	    *objp = make_list(hp);
-            hp += 2 * n;
+            hp += 2 * (Uint) nu;
 	    objp = hp - 2;
 	    objp[0] = (Eterm) (objp+1);
 	    objp[1] = (Eterm) next;
 	    next = objp;
 	    objp -= 2;
-            n--;
+            nu--;
 	    if (ctx) {
-                if (reds < n) {
+                if ((Uint) reds < nu) {
                     ASSERT(reds > 0);
 		    ctx->state = B2TDecodeList;
-		    ctx->u.dc.remaining_n = n - reds;
-		    n = reds;
+		    ctx->u.dc.remaining_n = nu - reds;
+		    nu = reds;
 		}
-		reds -= n;
+		reds -= nu;
 	    }
-            while (n > 0) {
+            while (nu > 0) {
 		objp[0] = (Eterm) next;
 		objp[1] = make_list(next);
 		next = objp;
 		objp -= 2;
-                n--;
+                nu--;
 	    }
 	    break;
+	}
 	case STRING_EXT:
 	    n = get_int16(ep);
 	    ep += 2;
