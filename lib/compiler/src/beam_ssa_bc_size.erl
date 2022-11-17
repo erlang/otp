@@ -239,6 +239,8 @@ update_successors(#b_br{bool=Bool,succ=Succ,fail=Fail}, Bs0, Map0) ->
     case get_value(Bool, Bs0) of
         #b_literal{val=true} ->
             update_successor(Succ, Bs0, Map0);
+        #b_literal{val=false} ->
+            update_successor(Fail, Bs0, Map0);
         {succeeded,Var} ->
             Map = update_successor(Succ, Bs0, Map0),
             update_successor(Fail, maps:remove(Var, Bs0), Map);
