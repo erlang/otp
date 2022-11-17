@@ -55,6 +55,10 @@
 	 ufunsort_error/1,
 	 uniq_1/1, uniq_2/1,
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
+	 zip_fail/1, zip_trim/1, zip_pad/1,
+	 zip3_fail/1, zip3_trim/1, zip3_pad/1,
+	 zipwith_fail/1, zipwith_trim/1, zipwith_pad/1,
+	 zipwith3_fail/1, zipwith3_trim/1, zipwith3_pad/1,
 	 filter_partition/1, 
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
@@ -121,7 +125,11 @@ groups() ->
      {flatten, [parallel],
       [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
      {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
-     {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
+     {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3,
+			zip_fail, zip_trim, zip_pad,
+		        zip3_fail, zip3_trim, zip3_pad,
+		        zipwith_fail, zipwith_trim, zipwith_pad,
+		        zipwith3_fail, zipwith3_trim, zipwith3_pad]},
      {uniq, [parallel], [uniq_1, uniq_2]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
@@ -2362,6 +2370,41 @@ zip_unzip(Config) when is_list(Config) ->
     {'EXIT',{function_clause,_}} = (catch lists:zip([a], [b,c])),
     ok.
 
+zip_fail(Config) when is_list(Config) ->
+    [] = lists:zip([], [], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zip([a], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip([], [c], fail)),
+
+    [{a, c}] = lists:zip([a], [c], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zip([a, b], [c], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip([a], [c, d], fail)),
+
+    ok.
+
+zip_trim(Config) when is_list(Config) ->
+    [] = lists:zip([], [], trim),
+    [] = lists:zip([a], [], trim),
+    [] = lists:zip([], [c], trim),
+
+    [{a, c}] = lists:zip([a], [c], trim),
+    [{a, c}] = lists:zip([a, b], [c], trim),
+    [{a, c}] = lists:zip([a], [c, d], trim),
+
+    ok.
+
+zip_pad(Config) when is_list(Config) ->
+    How = {pad, {x, y}},
+
+    [] = lists:zip([], [], How),
+    [{a, y}] = lists:zip([a], [], How),
+    [{x, c}] = lists:zip([], [c], How),
+
+    [{a, c}] = lists:zip([a], [c], How),
+    [{a, c}, {b, y}] = lists:zip([a, b], [c], How),
+    [{a, c}, {x, d}] = lists:zip([a], [c, d], How),
+
+    ok.
+
 %% Test lists:zip3/3, lists:unzip3/1.
 zip_unzip3(Config) when is_list(Config) ->
     [] = lists:zip3([], [], []),
@@ -2388,6 +2431,65 @@ zip_unzip3(Config) when is_list(Config) ->
 
     ok.
 
+zip3_fail(Config) when is_list(Config) ->
+    [] = lists:zip3([], [], [], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([], [c], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([], [], [e], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [], [e], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([], [c], [e], fail)),
+
+    [{a, c, e}] = lists:zip3([a], [c], [e], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a, b], [c], [e], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c, d], [e], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a, b], [c, d], [e], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c], [e, f], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a, b], [c], [e, f], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c, d], [e, f], fail)),
+
+    ok.
+
+zip3_trim(Config) when is_list(Config) ->
+    [] = lists:zip3([], [], [], trim),
+    [] = lists:zip3([a], [], [], trim),
+    [] = lists:zip3([], [c], [], trim),
+    [] = lists:zip3([a], [c], [], trim),
+    [] = lists:zip3([], [], [e], trim),
+    [] = lists:zip3([a], [], [e], trim),
+    [] = lists:zip3([], [c], [e], trim),
+
+    [{a, c, e}] = lists:zip3([a], [c], [e], trim),
+    [{a, c, e}] = lists:zip3([a, b], [c], [e], trim),
+    [{a, c, e}] = lists:zip3([a], [c, d], [e], trim),
+    [{a, c, e}] = lists:zip3([a, b], [c, d], [e], trim),
+    [{a, c, e}] = lists:zip3([a], [c], [e, f], trim),
+    [{a, c, e}] = lists:zip3([a, b], [c], [e, f], trim),
+    [{a, c, e}] = lists:zip3([a], [c, d], [e, f], trim),
+
+    ok.
+
+zip3_pad(Config) when is_list(Config) ->
+    How = {pad, {x, y, z}},
+
+    [] = lists:zip3([], [], [], How),
+    [{a, y, z}] = lists:zip3([a], [], [], How),
+    [{x, c, z}] = lists:zip3([], [c], [], How),
+    [{a, c, z}] = lists:zip3([a], [c], [], How),
+    [{x, y, e}] = lists:zip3([], [], [e], How),
+    [{a, y, e}] = lists:zip3([a], [], [e], How),
+    [{x, c, e}] = lists:zip3([], [c], [e], How),
+
+    [{a, c, e}] = lists:zip3([a], [c], [e], How),
+    [{a, c, e}, {b, y, z}] = lists:zip3([a, b], [c], [e], How),
+    [{a, c, e}, {x, d, z}] = lists:zip3([a], [c, d], [e], How),
+    [{a, c, e}, {b, d, z}] = lists:zip3([a, b], [c, d], [e], How),
+    [{a, c, e}, {x, y, f}] = lists:zip3([a], [c], [e, f], How),
+    [{a, c, e}, {b, y, f}] = lists:zip3([a, b], [c], [e, f], How),
+    [{a, c, e}, {x, d, f}] = lists:zip3([a], [c, d], [e, f], How),
+
+    ok.
+
 %% Test lists:zipwith/3.
 zipwith(Config) when is_list(Config) ->
     Zip = fun(A, B) -> [A|B] end,
@@ -2408,6 +2510,47 @@ zipwith(Config) when is_list(Config) ->
     {'EXIT',{function_clause,_}} = (catch lists:zipwith(Zip, [a], [])),
     {'EXIT',{function_clause,_}} = (catch lists:zipwith(Zip, [a], [b,c])),
     {'EXIT',{function_clause,_}} = (catch lists:zipwith(Zip, [a], [b,c])),
+    ok.
+
+zipwith_fail(Config) when is_list(Config) ->
+    Zip = fun(A, B) -> A * B end,
+
+    [] = lists:zipwith(Zip, [], [], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [2], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [], [5], fail)),
+
+    [2 * 5] = lists:zipwith(Zip, [2], [5], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [2, 3], [5], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [2], [5, 7], fail)),
+
+    ok.
+
+zipwith_trim(Config) when is_list(Config) ->
+    Zip = fun(A, B) -> A * B end,
+
+    [] = lists:zipwith(Zip, [], [], trim),
+    [] = lists:zipwith(Zip, [2], [], trim),
+    [] = lists:zipwith(Zip, [], [5], trim),
+
+    [2 * 5] = lists:zipwith(Zip, [2], [5], trim),
+    [2 * 5] = lists:zipwith(Zip, [2, 3], [5], trim),
+    [2 * 5] = lists:zipwith(Zip, [2], [5, 7], trim),
+
+    ok.
+
+zipwith_pad(Config) when is_list(Config) ->
+    How = {pad, {17, 19}},
+
+    Zip = fun(A, B) -> A * B end,
+
+    [] = lists:zipwith(Zip, [], [], How),
+    [ 2 * 19] = lists:zipwith(Zip, [2], [], How),
+    [17 *  5] = lists:zipwith(Zip, [], [5], How),
+
+    [2 * 5] = lists:zipwith(Zip, [2], [5], How),
+    [2 * 5,  3 * 19] = lists:zipwith(Zip, [2, 3], [5], How),
+    [2 * 5, 17 *  7] = lists:zipwith(Zip, [2], [5, 7], How),
+
     ok.
 
 %% Test lists:zipwith3/4.
@@ -2431,6 +2574,69 @@ zipwith3(Config) when is_list(Config) ->
     {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [], [], [c])),
     {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [], [b], [])),
     {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [a], [], [])),
+
+    ok.
+
+zipwith3_fail(Config) when is_list(Config) ->
+    Zip = fun(A, B, C) -> A * B * C end,
+
+    [] = lists:zipwith3(Zip, [], [], [], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [], [5], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [], [], [11], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [], [11], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [], [5], [11], fail)),
+
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5], [11], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2, 3], [5], [11], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5, 7], [11], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2, 3], [5, 7], [11], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5], [11, 13], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2, 3], [5], [11, 13], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5, 7], [11, 13], fail)),
+
+    ok.
+
+zipwith3_trim(Config) when is_list(Config) ->
+    Zip = fun(A, B, C) -> A * B * C end,
+
+    [] = lists:zipwith3(Zip, [], [], [], trim),
+    [] = lists:zipwith3(Zip, [2], [], [], trim),
+    [] = lists:zipwith3(Zip, [], [5], [], trim),
+    [] = lists:zipwith3(Zip, [], [], [11], trim),
+    [] = lists:zipwith3(Zip, [2], [], [11], trim),
+    [] = lists:zipwith3(Zip, [], [5], [11], trim),
+
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5], [11], trim),
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2, 3], [5], [11], trim),
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5, 7], [11], trim),
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5], [11, 13], trim),
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2, 3], [5], [11, 13], trim),
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5, 7], [11, 13], trim),
+
+    ok.
+
+zipwith3_pad(Config) when is_list(Config) ->
+    How = {pad, {17, 19, 23}},
+
+    Zip = fun(A, B, C) -> A * B * C end,
+
+    [] = lists:zipwith3(Zip, [], [], [], How),
+    [ 2 * 19 * 23] = lists:zipwith3(Zip, [2], [], [], How),
+    [17 *  5 * 23] = lists:zipwith3(Zip, [], [5], [], How),
+    [ 2 *  5 * 23] = lists:zipwith3(Zip, [2], [5], [], How),
+    [17 * 19 * 11] = lists:zipwith3(Zip, [], [], [11], How),
+    [ 2 * 19 * 11] = lists:zipwith3(Zip, [2], [], [11], How),
+    [17 *  5 * 11] = lists:zipwith3(Zip, [], [5], [11], How),
+
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5], [11], How),
+    [2 * 5 * 11,  3 * 19 * 23] = lists:zipwith3(Zip, [2, 3], [5], [11], How),
+    [2 * 5 * 11, 17 *  7 * 23] = lists:zipwith3(Zip, [2], [5, 7], [11], How),
+    [2 * 5 * 11,  3 *  7 * 23] = lists:zipwith3(Zip, [2, 3], [5, 7], [11], How),
+    [2 * 5 * 11, 17 * 19 * 13] = lists:zipwith3(Zip, [2], [5], [11, 13], How),
+    [2 * 5 * 11,  3 * 19 * 13] = lists:zipwith3(Zip, [2, 3], [5], [11, 13], How),
+    [2 * 5 * 11, 17 *  7 * 13] = lists:zipwith3(Zip, [2], [5, 7], [11, 13], How),
 
     ok.
 
