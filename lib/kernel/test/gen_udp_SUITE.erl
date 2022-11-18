@@ -60,7 +60,8 @@
          t_simple_local_sockaddr_in6_send_recv/1,
          t_simple_link_local_sockaddr_in6_send_recv/1,
 
-         otp_18323/1
+         otp_18323_opts_processing/1,
+         otp_18323_open/1
 
 	]).
 
@@ -100,7 +101,8 @@ groups() ->
      {local,                  [], local_cases()},
      {socket_monitor,         [], socket_monitor_cases()},
 
-     {sockaddr,               [], sockaddr_cases()}
+     {sockaddr,               [], sockaddr_cases()},
+     {otp18323,               [], otp18323_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -133,7 +135,7 @@ all_cases() ->
      {group, socket_monitor},
      otp_17492,
      {group, sockaddr},
-     otp_18323
+     {group, otp18323}
     ].
 
 local_cases() ->
@@ -162,6 +164,12 @@ sockaddr_cases() ->
      t_simple_link_local_sockaddr_in_send_recv,
      t_simple_local_sockaddr_in6_send_recv,
      t_simple_link_local_sockaddr_in6_send_recv
+    ].
+
+otp18323_cases() ->
+    [
+     otp_18323_opts_processing,
+     otp_18323_open
     ].
 
 
@@ -246,6 +254,14 @@ init_per_group(sockaddr = _GroupName, Config) ->
         error : undef ->
             ?P("init_per_group(sockaddr) -> 'socket' not configured"),
             {skip, "esock not configured"}
+    end;
+init_per_group(otp18323 = _GroupName, Config) ->
+    ?P("init_per_group(otp18323) -> inet-drv specific bug(s)"),
+    case ?IS_SOCKET_BACKEND(Config) of
+        true ->
+            {skip, "Inet Drv specific bugs"};
+        false ->
+            ok
     end;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -2791,20 +2807,24 @@ do_simple_sockaddr_send_recv(#{family := _Fam} = SockAddr, _) ->
 
 %% Verify that the options [add|drop]_membership do not mess up
 %% the options (including 'ip' which could not be added *after*).
-otp_18323(Config) when is_list(Config) ->
+%% This just attempts to very that the option processing is ok.
+otp_18323_opts_processing(Config) when is_list(Config) ->
     ct:timetrap(?MINS(1)),
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_otp_18323(Config) end).
+    ?TC_TRY(?FUNCTION_NAME, fun() -> do_otp_18323_opts_processing(Config) end).
 
-do_otp_18323(_Config) ->
+do_otp_18323_opts_processing(_Config) ->
     ?P("begin"),
 
-    do_otp_18323_verify({add_membership,  {{239,1,2,3},{0,0,0,0}}}),
-    do_otp_18323_verify({drop_membership, {{239,1,2,3},{0,0,0,0}}}),
+    do_otp_18323_opts_processing_verify(
+      {add_membership,  {{239,1,2,3},{0,0,0,0}}}),
+
+    do_otp_18323_opts_processing_verify(
+      {drop_membership, {{239,1,2,3},{0,0,0,0}}}),
 
     ?P("done"),
     ok.
 
-do_otp_18323_verify(MembershipOpt) ->
+do_otp_18323_opts_processing_verify(MembershipOpt) ->
     Port   = 4321,
     RecBuf = 123456,
     Active = 10,
@@ -2828,8 +2848,50 @@ do_otp_18323_verify(MembershipOpt) ->
         {error, Reason} ->
             exit(?F("Failed processing options: ~p", [Reason]))
     end.
-    
 
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Verify that the options [add|drop]_membership do not mess up
+%% the options (including 'ip' which could not be added *after*).
+otp_18323_open(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    Pre  = fun() ->
+                   {ok, Addr} = ?LIB:which_local_addr(inet),
+                   #{local_addr => Addr}
+           end,
+    Case = fun(State) -> do_otp_18323_open(State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+
+do_otp_18323_open(#{local_addr := Addr}) ->
+    ?P("begin"),
+
+    ROpts = [binary,
+             {add_membership, {Addr,{0,0,0,0}}},
+             {ip, Addr},
+             {active,false},
+             {debug, true}],
+    SOpts = [{reuseaddr, true}, binary],
+
+    ?P("create received socket"),
+    {ok, R}     = gen_udp:open(0, ROpts),
+    ?P("extract received socket port"),
+    {ok, RPort} = inet:port(R),
+
+    ?P("create sender socket"),
+    {ok, S} = gen_udp:open(0, SOpts),
+
+    ?P("send to receiver (at port ~w)", [RPort]),
+    ok = gen_udp:send(S, Addr, RPort, <<"aaaaa">>),
+
+    ?P("attempt to receive data on specified format binary)"),
+    {ok, {_,_,<<"aaaaa">>}} = gen_udp:recv(R, 0, 200),
+
+    ?P("done"),
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
