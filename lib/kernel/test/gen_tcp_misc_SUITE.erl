@@ -5283,15 +5283,15 @@ do_send_timeout_check_length(Config, RNode) ->
                                                        true, SndBuf),
                            Send = fun() ->
                                           %% <TMP>
-                                          %% snmp:enable_trace(),
-                                          %% snmp:set_trace([{gen_tcp_socket,
-                                          %%                  [{scope, send}]},
-                                          %%                 {socket, [{scope,getopt}]},
-                                          %%                 {socket, [{scope,send}]}],
-                                          %%                [{timestamp, true},
-                                          %%                 {return_trace, true}]),
+                                          snmp:enable_trace(),
+                                          snmp:set_trace([{gen_tcp_socket,
+                                                           [{scope, send}]},
+                                                          {socket, [{scope,getopt}]},
+                                                          {socket, [{scope,send}]}],
+                                                         [{timestamp, true},
+                                                          {return_trace, true}]),
                                           Res = gen_tcp:send(A, BinData),
-                                          %% snmp:disable_trace(),
+                                          snmp:disable_trace(),
                                           %% </TMP>
                                           Self ! Res,
                                           Res
