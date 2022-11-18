@@ -1010,6 +1010,13 @@ ts_extra_platform_label() ->
         Val   -> Val
     end.
 
+ts_scale_factor() ->
+    case timetrap_scale_factor() of
+        N when is_integer(N) andalso (N > 0) ->
+            N - 1;
+        _ ->
+            0
+    end.
 
 linux_which_distro(Version) ->
     Label = ts_extra_platform_label(),
@@ -2251,44 +2258,58 @@ analyze_and_print_darwin_host_info(Version) ->
     %% we need to find some other way to find some info...
     %% Also, I suppose its possible that we for some other
     %% reason *fail* to get the info...
-    case analyze_darwin_software_info() of
-        [] ->
-            io:format("Darwin:"
-                      "~n   Version:               ~s"
-                      "~n   Num Online Schedulers: ~s"
-                      "~n", [Version, str_num_schedulers()]),
-            {num_schedulers_to_factor(), []};
-        SwInfo when  is_list(SwInfo) ->
-            SystemVersion = analyze_darwin_sw_system_version(SwInfo),
-            KernelVersion = analyze_darwin_sw_kernel_version(SwInfo),
-            HwInfo        = analyze_darwin_hardware_info(),
-            ModelName     = analyze_darwin_hw_model_name(HwInfo),
-            ModelId       = analyze_darwin_hw_model_identifier(HwInfo),
-            %% ProcName      = analyze_darwin_hw_processor_name(HwInfo),
-            %% ProcSpeed     = analyze_darwin_hw_processor_speed(HwInfo),
-            %% NumProc       = analyze_darwin_hw_number_of_processors(HwInfo),
-            %% NumCores      = analyze_darwin_hw_total_number_of_cores(HwInfo),
-            {Processor, CPUFactor} = analyze_darwin_hw_processor(HwInfo),
-            Memory        = analyze_darwin_hw_memory(HwInfo),
-            io:format("Darwin:"
-                      "~n   System Version:        ~s"
-                      "~n   Kernel Version:        ~s"
-                      "~n   Model:                 ~s (~s)"
-                      "~n   Processor:             ~s"
-                      "~n   Memory:                ~s"
-                      "~n   Num Online Schedulers: ~s"
-                      "~n", [SystemVersion, KernelVersion,
-                             ModelName, ModelId,
-                             Processor, 
-                             Memory,
-                             str_num_schedulers()]),
-            MemFactor = analyze_darwin_memory_to_factor(Memory),
-            if (MemFactor =:= 1) ->
-                    {CPUFactor, []};
-               true ->
-                    {CPUFactor + MemFactor, []}
-            end
-    end.
+    Label  = ts_extra_platform_label(),
+    {BaseFactor, MemFactor} =
+        case analyze_darwin_software_info() of
+            [] ->
+                io:format("Darwin:"
+                          "~n   Version:                 ~s"
+                          "~n   Num Online Schedulers:   ~s"
+                          "~n   TS Extra Platform Label: ~s"
+                          "~n", [Version, str_num_schedulers(), Label]),
+                {num_schedulers_to_factor(), 1};
+            SwInfo when  is_list(SwInfo) ->
+                SystemVersion = analyze_darwin_sw_system_version(SwInfo),
+                KernelVersion = analyze_darwin_sw_kernel_version(SwInfo),
+                HwInfo        = analyze_darwin_hardware_info(),
+                ModelName     = analyze_darwin_hw_model_name(HwInfo),
+                ModelId       = analyze_darwin_hw_model_identifier(HwInfo),
+                {Processor, CPUFactor} = analyze_darwin_hw_processor(HwInfo),
+                Memory        = analyze_darwin_hw_memory(HwInfo),
+                io:format("Darwin:"
+                          "~n   System Version:          ~s"
+                          "~n   Kernel Version:          ~s"
+                          "~n   Model:                   ~s (~s)"
+                          "~n   Processor:               ~s"
+                          "~n   Memory:                  ~s"
+                          "~n   Num Online Schedulers:   ~s"
+                          "~n   TS Extra Platform Label: ~s"
+                          "~n~n",
+                          [SystemVersion, KernelVersion,
+                           ModelName, ModelId,
+                           Processor, 
+                           Memory,
+                           str_num_schedulers(), Label]),
+                {CPUFactor, analyze_darwin_memory_to_factor(Memory)}
+        end,
+    AddLabelFactor = label2factor(simplify_label(Label)),
+    AddMemFactor = if
+                       (MemFactor > 0) ->
+                           MemFactor - 1;
+                       true ->
+                           0
+                   end,
+    TSScaleFactor = ts_scale_factor(),
+    io:format("Factor calc:"
+              "~n      Base Factor:     ~w"
+              "~n      Label Factor:    ~w"
+              "~n      Mem Factor:      ~w"
+              "~n      TS Scale Factor: ~w"
+              "~n~n",
+              [BaseFactor, AddLabelFactor, AddMemFactor, TSScaleFactor]),
+    {BaseFactor + AddLabelFactor + AddMemFactor + TSScaleFactor,
+     [{label, Label}]}.
+    
 
 analyze_darwin_sw_system_version(SwInfo) ->
     proplists:get_value("system version", SwInfo, "-").
@@ -2324,7 +2345,8 @@ analyze_darwin_hw_processor(HwInfo) ->
                                                      ProcSpeed,
                                                      NumProc,
                                                      NumCores),
-            {f("~s [~s, ~s, ~s]", [ProcName, ProcSpeed, NumProc, NumCores]), CPUFactor}
+            {f("~s [~s, ~s, ~s]",
+               [ProcName, ProcSpeed, NumProc, NumCores]), CPUFactor}
     end.
 
 analyze_darwin_hw_chip(HwInfo) ->
@@ -2354,7 +2376,7 @@ analyze_darwin_hardware_info() ->
 %%    "Key: Value1:Value2"
 analyze_darwin_system_profiler(DataType) ->
     %% First, make sure the program actually exist:
-    case os:cmd("which system_profiler") of
+    case string:trim(os:cmd("which system_profiler")) of
         [] ->
             case string:trim(os:cmd("which /usr/sbin/system_profiler")) of
                 [] ->
