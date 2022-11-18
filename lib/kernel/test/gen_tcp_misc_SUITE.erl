@@ -5161,11 +5161,16 @@ anc_await_closed_and_down(S, Pid, MRef, Size, Closed, Down) ->
 
 
 send_timeout_cfg(Config) ->
+    send_timeout_cfg(Config, default).
+
+send_timeout_cfg(Config, Case) ->
     case ?IS_SOCKET_BACKEND(Config) of
+        true when (Case =:= send_timeout_check_length) ->
+            {100, 3000, binary:copy(<<$a:8>>, 1*1024),   5*1024};
         true ->
-            {100, 3000, binary:copy(<<$a:8>>, 10*1024), 5*1024};
+            {100, 3000, binary:copy(<<$a:8>>, 10*1024),  5*1024};
         false ->
-            {1,   1000, binary:copy(<<$a:8>>, 1*1024),  16*1024}
+            {1,   1000, binary:copy(<<$a:8>>, 1*1024), 16*1024}
     end.    
 
 %% Test the send_timeout socket option.
@@ -5271,7 +5276,8 @@ send_timeout_check_length(Config) when is_list(Config) ->
 
 do_send_timeout_check_length(Config, RNode) ->
     ?P("begin"),
-    {TslTimeout, SndTimeout, BinData, SndBuf} = send_timeout_cfg(Config),
+    {TslTimeout, SndTimeout, BinData, SndBuf} =
+        send_timeout_cfg(Config, send_timeout_check_length),
 
     %% Check timeout length.
     ?P("spawn sink process (check timeout length)"),
@@ -5283,15 +5289,17 @@ do_send_timeout_check_length(Config, RNode) ->
                                                        true, SndBuf),
                            Send = fun() ->
                                           %% <TMP>
-                                          snmp:enable_trace(),
-                                          snmp:set_trace([{gen_tcp_socket,
-                                                           [{scope, send}]},
-                                                          {socket, [{scope,getopt}]},
-                                                          {socket, [{scope,send}]}],
-                                                         [{timestamp, true},
-                                                          {return_trace, true}]),
+                                          %% snmp:enable_trace(),
+                                          %% snmp:set_trace([{gen_tcp_socket,
+                                          %%                  [{scope, send}]},
+                                          %%                 {socket, [{scope,getopt}]},
+                                          %%                 {socket, [{scope,send}]}],
+                                          %%                [{timestamp, true},
+                                          %%                 {return_trace, true}]),
+                                          %% inet:setopts(A, [{debug, true}]),
                                           Res = gen_tcp:send(A, BinData),
-                                          snmp:disable_trace(),
+                                          %% inet:setopts(A, [{debug, false}]),
+                                          %% snmp:disable_trace(),
                                           %% </TMP>
                                           Self ! Res,
                                           Res
