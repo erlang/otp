@@ -547,6 +547,11 @@ forced_sync(Config) when is_list(Config) ->
     ?assertEqual(true, net_kernel:connect_node(Node)),
     ensure_peers_info(?FUNCTION_NAME, [Node]),
     ?assertEqual(Expected, lists:sort(pg:get_members(?FUNCTION_NAME, one))),
+
+    %% Do extra sync to make sure any redundant sync message has arrived
+    %% before we send our fake sync message below.
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
+
     %% WARNING: this code uses pg as white-box, exploiting internals,
     %%  only to simulate broken 'sync'
     %% Fake Groups: one should disappear, one should be replaced, one stays
