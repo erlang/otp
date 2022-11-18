@@ -1117,7 +1117,7 @@ do_iter_max_socks(Config, Tries, Node) ->
 iter_max_socks_run(Node, F) ->
     try erlang:spawn_opt(Node, F, [monitor]) of
         {Pid, MRef} when is_pid(Pid) andalso is_reference(MRef) ->
-            iter_max_socks_await_runner(Pid, MRef);
+            iter_max_socks_await_runner(Node, Pid, MRef);
         _Any ->
             ?P("Unexpected process start result: "
                "~n   ~p", [_Any]),
@@ -1131,22 +1131,38 @@ iter_max_socks_run(Node, F) ->
             {skip, "Failed starting iterator (remote) process"}
     end.
 
-iter_max_socks_await_runner(Pid, MRef) ->
+iter_max_socks_await_runner(Node, Pid, MRef) ->
+    erlang:monitor_node(Node, true),
+    Start = millis(),
+    iter_max_socks_await_runner2(Node, Pid, MRef, Start, Start).
+
+iter_max_socks_await_runner2(Node, Pid, MRef, Start, Timestamp) ->
     receive
         {'DOWN', MRef, process, Pid, Res} ->
+            T = millis(),
+            ?P("received runner result after ~w ms "
+                 "(~w ms since last status)", [T - Start, T - Timestamp]),
+            erlang:monitor_node(Node, false),
             Res;
+
+        {nodedown, Node} = NODEDOWN ->
+            ?P("Received unexpected ~p 'nodedown'", [Node]),
+            NODEDOWN;
+
         {status, Action, Info} ->
-            ?P("Received action message from the runner ~p: "
-               "~n   ~p => ~p", [Pid, Action, Info]),
-            iter_max_socks_await_runner(Pid, MRef);
+            T = millis(),
+            ?P("Received status message (after ~w ms) from the runner ~p: "
+               "~n   ~p => ~p", [T - Timestamp, Pid, Action, Info]),
+            iter_max_socks_await_runner2(Node, Pid, MRef, Start, T);
+
         Any ->
             ?P("Received unexpected message while waiting for the runner ~p: "
                "~n   ~p", [Pid, Any]),
-            iter_max_socks_await_runner(Pid, MRef)
+            iter_max_socks_await_runner2(Node, Pid, MRef, Start, Timestamp)
+
     after 5000 ->
-            ?P("timeout while waiting for the runner ~p: "
-               "~n   ~p", [Pid, pi(Pid)]),
-            iter_max_socks_await_runner(Pid, MRef)
+            ?P("timeout while waiting for the runner ~p", [Pid]),
+            iter_max_socks_await_runner2(Node, Pid, MRef, Start, Timestamp)
     end.
 
              
@@ -5266,7 +5282,7 @@ do_send_timeout_check_length(Config, RNode) ->
                                                        RNode, SndTimeout,
                                                        true, SndBuf),
                            Send = fun() ->
-                                          %% %% <TMP>
+                                          %% <TMP>
                                           %% snmp:enable_trace(),
                                           %% snmp:set_trace([{gen_tcp_socket,
                                           %%                  [{scope, send}]},
