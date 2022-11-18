@@ -421,7 +421,7 @@ init([Role, Socket, Opts]) when Role==client ; Role==server ->
             end;
 
         {error,Error} ->
-            {stop, {error,Error}}
+            {stop, {shutdown,Error}}
     end.
 
 %%%----------------------------------------------------------------
