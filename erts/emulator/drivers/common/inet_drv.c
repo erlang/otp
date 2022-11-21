@@ -140,9 +140,13 @@
 #define M2S(__M__)   (((__M__) == INET_MODE_LIST) ? "list" :      \
                       (((__M__) == INET_MODE_BINARY) ? "binary" : \
                        "undefined"))
-#define D2S(__D__)   (((__D__) == INET_DELIVER_PORT) ? "port" :  \
-                      (((__D__) == INET_DELIVER_TERM) ? "term" : \
+#define D2S(__D__)   (((__D__) == INET_DELIVER_PORT) ? "port" :         \
+                      (((__D__) == INET_DELIVER_TERM) ? "term" :        \
                        "undefined"))
+#define DOM2S(__D__)   (((__D__) == INET_AF_INET) ? "inet" :         \
+                        (((__D__) == INET_AF_INET6) ? "inet6" :      \
+                         (((__D__) == INET_AF_LOCAL) ? "local" :     \
+                          "undefined")))
 
 #if defined(__WIN32__) && defined(ARCH_64)
 #define SOCKET_FSTR "%lld"
@@ -7212,8 +7216,9 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case UDP_OPT_ADD_MEMBERSHIP:
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
-                  "inet_set_opts(add-membership) -> %d\r\n",
-                  __LINE__, desc->s, driver_caller(desc->port), ival) );
+                  "inet_set_opts(add-membership) -> domain: %d (%s)\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port),
+                  ival, DOM2S(ival)) );
             if (ival == INET_AF_INET) {
                 proto = IPPROTO_IP;
                 type  = IP_ADD_MEMBERSHIP;
@@ -7236,8 +7241,9 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case UDP_OPT_DROP_MEMBERSHIP:
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
-                  "inet_set_opts(drop-membership) -> %d\r\n",
-                  __LINE__, desc->s, driver_caller(desc->port), ival) );
+                  "inet_set_opts(drop-membership) -> %d (%s)\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port),
+                  ival, DOM2S(ival)) );
             if (ival == INET_AF_INET) {
                 proto = IPPROTO_IP;
                 type  = IP_DROP_MEMBERSHIP;
@@ -7264,13 +7270,16 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                 ptr += 4;
                 len -= 4;
 
-                DEBUGF(("inet_set_opts(L_init_mreq) -> "
-                        "\r\n   proto:  %d"
-                        "\r\n   type:   %d"
-                        "\r\n   domain: %d"
-                        "\r\n   if:     %d"
-                        "\r\n",
-                        proto, type, domain, ival));
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "inet_set_opts(L_init_mreq) -> "
+                      "\r\n   proto:  %d"
+                      "\r\n   type:   %d"
+                      "\r\n   domain: %d (%s)"
+                      "\r\n   if:     %d"
+                      "\r\n",
+                      __LINE__, desc->s, driver_caller(desc->port),
+                      proto, type, domain, DOM2S(domain), ival));
 
                 if ((domain == INET_AF_INET) && (desc->sfamily == AF_INET)) {
 
@@ -7283,7 +7292,10 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                 
 #if defined(HAVE_STRUCT_IP_MREQN)
 
-                    DEBUGF(("inet_set_opts(L_init_mreq,inet) -> mreqn\r\n"));
+                    DDBG(desc,
+                         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                          "inet_set_opts(L_init_mreq,inet) -> mreqn\r\n",
+                          __LINE__, desc->s, driver_caller(desc->port)));
 
                     mreq4.imr_ifindex          = sock_htonl(ival);
                     ival = get_int32(ptr);
@@ -7291,40 +7303,53 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                     len -= 4;
                     mreq4.imr_multiaddr.s_addr = sock_htonl(ival);
                     ival = get_int32(ptr);
+                    ptr += 4;
+                    len -= 4;
                     mreq4.imr_address.s_addr   = sock_htonl(ival);
 
-                    DEBUGF(("inet_set_opts(L_init_mreq,inet) -> "
-                            "try setopt: "
-                            "\r\n   maddr: %x"
-                            "\r\n   addr:  %x"
-                            "\r\n   if:    %d"
-                            "\r\n   sz:    %d"
-                            "\r\n",
-                            mreq4.imr_multiaddr.s_addr,
-                            mreq4.imr_address.s_addr,
-                            mreq4.imr_ifindex,
-                            mreqSz));
+                    DDBG(desc,
+                         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                          "inet_set_opts(L_init_mreq,inet) -> "
+                          "try setopt: "
+                          "\r\n   maddr: %x"
+                          "\r\n   addr:  %x"
+                          "\r\n   if:    %d"
+                          "\r\n   sz:    %d"
+                          "\r\n",
+                          __LINE__, desc->s, driver_caller(desc->port),
+                          mreq4.imr_multiaddr.s_addr,
+                          mreq4.imr_address.s_addr,
+                          mreq4.imr_ifindex,
+                          mreqSz));
 
 #else
 
-                    DEBUGF(("inet_set_opts(L_init_mreq,inet) -> mreq\r\n"));
+                    DDBG(desc,
+                         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                          "inet_set_opts(L_init_mreq,inet) -> mreq\r\n",
+                          __LINE__, desc->s, driver_caller(desc->port)));
 
                     ival = get_int32(ptr);
                     ptr += 4;
                     len -= 4;
                     mreq4.imr_multiaddr.s_addr = sock_htonl(ival);
                     ival = get_int32(ptr);
+                    ptr += 4;
+                    len -= 4;
                     mreq4.imr_interface.s_addr = sock_htonl(ival);
 
-                    DEBUGF(("inet_set_opts(L_init_mreq,inet) -> "
-                            "try setopt: "
-                            "\r\n   maddr: %x"
-                            "\r\n   if:    %x"
-                            "\r\n   sz:    %d"
-                            "\r\n",
-                            mreq4.imr_multiaddr.s_addr,
-                            mreq4.imr_interface.s_addr,
-                            mreqSz));
+                    DDBG(desc,
+                         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                          "inet_set_opts(L_init_mreq,inet) -> "
+                          "try setopt: "
+                          "\r\n   maddr: %x"
+                          "\r\n   if:    %x"
+                          "\r\n   sz:    %d"
+                          "\r\n",
+                          __LINE__, desc->s, driver_caller(desc->port),
+                          mreq4.imr_multiaddr.s_addr,
+                          mreq4.imr_interface.s_addr,
+                          mreqSz));
 
 #endif
 
@@ -7338,7 +7363,10 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 
                     mreqSz = sizeof(mreq6);
 
-                    DEBUGF(("inet_set_opts(L_init_mreq,inet6) -> mreq\r\n"));
+                    DDBG(desc,
+                         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                          "inet_set_opts(L_init_mreq,inet6) -> mreq\r\n",
+                          __LINE__, desc->s, driver_caller(desc->port)));
 
                     /* 0) Read out the ifindex
                      * 1) Read out the multiaddr
@@ -7355,13 +7383,16 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                 }
 #endif
                 else {
-                    DEBUGF(("inet_set_opts(L_init_mreq) -> "
-                             "invalid domain: "
-                             "\r\n   domain:  %d (%d, %d)"
-                             "\r\n   sfmaily: %d (%d, %d)"
-                             "\r\n",
-                             domain, INET_AF_INET, INET_AF_INET6,
-                             desc->sfamily, AF_INET, AF_INET6));
+                    DDBG(desc,
+                         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                          "inet_set_opts(L_init_mreq) -> "
+                          "invalid domain: "
+                          "\r\n   domain:  %d (%d, %d)"
+                          "\r\n   sfmaily: %d (%d, %d)"
+                          "\r\n",
+                          __LINE__, desc->s, driver_caller(desc->port),
+                          domain, INET_AF_INET, INET_AF_INET6,
+                          desc->sfamily, AF_INET, AF_INET6));
                     return -1;
                 }
             }
