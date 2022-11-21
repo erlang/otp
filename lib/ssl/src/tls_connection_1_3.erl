@@ -604,6 +604,7 @@ do_client_start(ServerHello, State0) ->
 
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
+    put(log_level, maps:get(log_level, SSLOptions)),
     #{erl_dist := IsErlDist,
       %% Use highest supported version for client/server random nonce generation
       versions := [Version|_],
