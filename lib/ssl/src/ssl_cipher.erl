@@ -260,12 +260,13 @@ decipher(?RC4, HashSz, CipherState = #cipher_state{state = State}, Fragment, _, 
 	    #generic_stream_cipher{content = Content, mac = Mac} = GSC,
 	    {Content, Mac, CipherState}
     catch
-	_:_ ->
+	_:Reason:ST ->
 	    %% This is a DECRYPTION_FAILED but
 	    %% "differentiating between bad_record_mac and decryption_failed
 	    %% alerts may permit certain attacks against CBC mode as used in
 	    %% TLS [CBCATT].  It is preferable to uniformly use the
 	    %% bad_record_mac alert to hide the specific type of the error."
+            ?SSL_LOG(debug, decrypt_error, [{reason,Reason}, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end;
 
@@ -305,12 +306,13 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 		{<<16#F0, Content/binary>>, Mac, CipherState1}
 	end
     catch
-	_:_ ->
+	_:Reason:ST ->
 	    %% This is a DECRYPTION_FAILED but
 	    %% "differentiating between bad_record_mac and decryption_failed
 	    %% alerts may permit certain attacks against CBC mode as used in
 	    %% TLS [CBCATT].  It is preferable to uniformly use the
 	    %% bad_record_mac alert to hide the specific type of the error."
+            ?SSL_LOG(debug, decrypt_error, [{reason,Reason}, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end.
 

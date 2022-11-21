@@ -140,10 +140,9 @@
 %% Internal application API
 %%====================================================================	     
 init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
-    State0 = #state{protocol_specific = Map} = initial_state(Role, Sender,
-                                                             Host, Port, Socket, Options, User, CbInfo),
-    try 
-	State1 = #state{static_env = #static_env{session_cache = Cache,
+    State0 = initial_state(Role, Sender, Host, Port, Socket, Options, User, CbInfo),
+    try
+        State1 = #state{static_env = #static_env{session_cache = Cache,
                                                  session_cache_cb = CacheCb
                                                 },
                         connection_env = #connection_env{cert_key_alts = CertKeyAlts},
@@ -160,6 +159,7 @@ init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
         tls_gen_connection:initialize_tls_sender(State),
         gen_statem:enter_loop(?MODULE, [], initial_hello, State)
     catch throw:Error ->
+            #state{protocol_specific = Map} = State0,
             EState = State0#state{protocol_specific = Map#{error => Error}},
             gen_statem:enter_loop(?MODULE, [], config_error, EState)
     end.
@@ -386,8 +386,9 @@ connection(internal, #hello_request{},
                                                                                   ConnectionStates#{current_write => Write},
                                                                               session = Session}),
             tls_gen_connection:next_event(hello, no_record, State, Actions)
-        catch 
-            _:_ ->
+        catch
+            _:Reason:ST ->
+                ?SSL_LOG(info, internal_error, [{error, Reason}, {stacktrace, ST}]),
                 {stop, {shutdown, sender_blocked}, State0}
         end;
 connection(internal, #hello_request{},
@@ -474,6 +475,7 @@ code_change(_OldVsn, StateName, State, _) ->
 %%--------------------------------------------------------------------
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
+    put(log_level, maps:get(log_level, SSLOptions)),
     %% Use highest supported version for client/server random nonce generation
     #{erl_dist := IsErlDist,  versions := [Version|_]} = SSLOptions,
     BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
@@ -562,7 +564,8 @@ gen_info(Event, connection = StateName, State) ->
     try
         tls_gen_connection:handle_info(Event, StateName, State)
     catch
-        _:_ ->
+        _:Reason:ST ->
+            ?SSL_LOG(info, internal_error, [{error, Reason}, {stacktrace, ST}]),
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR,
 						       malformed_data),
 					    StateName, State)
@@ -572,7 +575,8 @@ gen_info(Event, StateName, State) ->
     try
         tls_gen_connection:handle_info(Event, StateName, State)
     catch
-        _:_ ->
+        _:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
 						       malformed_handshake_data),
 					    StateName, State)
