@@ -1047,7 +1047,8 @@ bitstr_constr(SizeType, UnitVal, ConstructOrMatch) ->
     end,
   fun(Map) ->
       TmpSizeType = lookup_type(SizeType, Map),
-      case t_is_subtype(TmpSizeType, t_non_neg_integer()) of
+      case t_is_integer(TmpSizeType) andalso
+        t_is_subtype(TmpSizeType, t_non_neg_integer()) of
 	true ->
 	  case t_number_vals(TmpSizeType) of
 	    [OneSize] -> t_bitstr(Unit, OneSize * UnitVal);
@@ -1063,7 +1064,8 @@ bitstr_constr(SizeType, UnitVal, ConstructOrMatch) ->
 bitstr_val_constr(SizeType, UnitVal, Flags) ->
   fun(Map) ->
       TmpSizeType = lookup_type(SizeType, Map),
-      case t_is_subtype(TmpSizeType, t_non_neg_integer()) of
+      case t_is_integer(TmpSizeType) andalso
+        t_is_subtype(TmpSizeType, t_non_neg_integer()) of
 	true ->
 	  case erl_types:number_max(TmpSizeType) of
 	    N when is_integer(N), N < 128 -> %% Avoid illegal arithmetic
