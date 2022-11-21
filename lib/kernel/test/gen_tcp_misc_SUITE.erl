@@ -5201,7 +5201,7 @@ send_timeout_cfg(Config, Case) ->
         true ->
             {100, 3000, binary:copy(<<$a:8>>, 10*1024),  5*1024};
         false ->
-            {1,   1000, binary:copy(<<$a:8>>, 1*1024), 16*1024}
+            {1,   1000, binary:copy(<<$a:8>>, 1*1024),   16*1024}
     end.    
 
 %% Test the send_timeout socket option.
@@ -5248,7 +5248,8 @@ send_timeout_basic_w_autoclose(Config) when is_list(Config) ->
 
 do_send_timeout_basic_w_autoclose(Config, RNode) ->
     ?P("begin"),
-    {TslTimeout, SndTimeout, BinData, SndBuf} = send_timeout_cfg(Config),
+    {TslTimeout, SndTimeout, BinData, SndBuf} =
+        send_timeout_cfg(Config, send_timeout_basic_w_autoclose),
     send_timeout_basic(Config, BinData, SndBuf, TslTimeout, SndTimeout,
 		       true, RNode),
     ?P("done"),
@@ -5386,14 +5387,23 @@ do_send_timeout_para_wo_autoclose(Config, RNode) ->
     ok.
 
 %% Test the send_timeout socket option.
+%% send_timeout/send_timeout_close behaves differently on 
+%% inet_backend 'socket' (compared to inet), so we skip
+%% this test case (until we can re-write).
 send_timeout_para_w_autoclose(Config) when is_list(Config) ->
     Cond = fun() ->
-                   Key = kernel_factor,
-                   case lists:keysearch(Key, 1, Config) of
-                       {value, {Key, Factor}} when (Factor > 6) ->
-                           {skip, ?F("Too slow (factor = ~w)", [Factor])};
-                       _ ->
-                           ok
+                   case ?IS_SOCKET_BACKEND(Config) of
+                       true ->
+                           {skip, "Unstable with 'socket' backend"};
+                       false ->
+                           Key = kernel_factor,
+                           case lists:keysearch(Key, 1, Config) of
+                               {value, {Key, Factor}} when (Factor > 6) ->
+                                   {skip,
+                                    ?F("Too slow (factor = ~w)", [Factor])};
+                               _ ->
+                                   ok
+                           end
                    end
            end,
     Pre  = fun() ->
@@ -5411,7 +5421,8 @@ send_timeout_para_w_autoclose(Config) when is_list(Config) ->
 
 do_send_timeout_para_w_autoclose(Config, RNode) ->
     ?P("begin"),
-    {TslTimeout, SndTimeout, BinData, SndBuf} = send_timeout_cfg(Config),
+    {TslTimeout, SndTimeout, BinData, SndBuf} =
+        send_timeout_cfg(Config, send_timeout_para_w_autoclose),
 
     %% Check that parallel writers do not hang forever
     ?P("check parallel writers wo autoclose"),
@@ -5854,6 +5865,10 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose, BufSz) ->
 				  {sndbuf,             BufSz},
 				  {send_timeout,       Timeout},
 				  {send_timeout_close, AutoClose}]),
+
+    ?P("listen socket created with: "
+       "~n   Send Timeout Opts: ~p",
+       [oki(inet:getopts(L, [send_timeout, send_timeout_close]))]),
     Fun = fun(N, F) ->
 		  receive
 		      {From,X} when is_function(X) ->
@@ -5884,7 +5899,10 @@ setup_timeout_sink(Config, RNode, Timeout, AutoClose, BufSz) ->
 		     end),
     ?P("[sink setup] accept"),
     {ok, A} = gen_tcp:accept(L),
-    ?P("[sink setup] accepted - send 'test' message"),
+    ?P("[sink setup] accepted with options: "
+       "~n   Send Timeout Opts: ~p"
+       "~n   => send 'test' message",
+       [oki(inet:getopts(A, [send_timeout, send_timeout_close]))]),
     gen_tcp:send(A, "Hello"),
     ?P("[sink setup] 'test' message sent - "
        "recv 'test' message on remote node (~p)", [RNode]),
