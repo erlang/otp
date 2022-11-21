@@ -674,8 +674,8 @@ scheme_to_components(eddsa_ed448) -> {none, eddsa, ed448};
 scheme_to_components(rsa_pss_pss_sha256) -> {sha256, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
-scheme_to_components(rsa_pkcs1_sha1) -> {sha1, rsa_pkcs1, undefined};
-scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined};
+scheme_to_components(rsa_pkcs1_sha1) -> {sha, rsa_pkcs1, undefined};
+scheme_to_components(ecdsa_sha1) -> {sha, ecdsa, undefined};
 %% Handling legacy signature algorithms
 scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 
