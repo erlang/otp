@@ -1070,8 +1070,10 @@ iter_max_socks() ->
 
 %% Open as many sockets as possible. Do this several times and check
 %% that we get the same number of sockets every time.
+%% Guess: This is "supposed to" test for socket leakage
+%% This works badly with the socket inet_backend, so make some "checks"
 iter_max_socks(Config) when is_list(Config) ->
-    Cond = fun() -> ok end,
+    Cond = fun() -> iter_max_socks_condition(Config) end,
     Pre  = fun() ->
                    %% This is not *nearly* enough
                    %% We have some crap machines,
@@ -1102,6 +1104,35 @@ iter_max_socks(Config) when is_list(Config) ->
            end,
     ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
+-define(IMS_MAX_ULIMIT, 4096).
+
+iter_max_socks_condition(Config) -> 
+    case ?IS_SOCKET_BACKEND(Config) of
+        true ->
+            case os:type() of
+                {unix, _} ->
+                    MaxNumOpenFilesStr =
+                        string:trim(os:cmd("ulimit -n")),
+                    try list_to_integer(MaxNumOpenFilesStr) of
+                        MaxNumOpenFile when
+                              (MaxNumOpenFile =< ?IMS_MAX_ULIMIT) ->
+                            ok;
+                        MaxNumOpenFile ->
+                            {skip, ?F("ulimit -n: ~w (> ~w)",
+                                      [MaxNumOpenFile, ?IMS_MAX_ULIMIT])}
+                    catch
+                        _:_:_ ->
+                            %% Skip just to be on the safe side
+                            {skip, "Works badly with the socket inet_backend"}
+                    end;
+                _ ->
+                    ok
+            end;
+        false ->
+            ok
+    end.
+
+   
 do_iter_max_socks(Config, Tries, Node) ->
     Self = self(),
     L = iter_max_socks_run(
