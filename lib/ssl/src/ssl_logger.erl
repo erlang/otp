@@ -57,10 +57,10 @@ log(Level, LogLevel, ReportMap, Meta) ->
             ok
     end.
 
-debug(Level, Direction, Protocol, Message)
+debug(LogLevel, Direction, Protocol, Message)
   when (Direction =:= inbound orelse Direction =:= outbound) andalso
        (Protocol =:= 'record' orelse Protocol =:= 'handshake') ->
-    case logger:compare_levels(Level, debug) of
+    case logger:compare_levels(LogLevel, debug) of
         lt ->
             ?LOG_DEBUG(#{direction => Direction,
                          protocol => Protocol,

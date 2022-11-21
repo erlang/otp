@@ -473,7 +473,8 @@ handle_protocol_record(#ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
         #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, StateName, State)
     catch
-	_:_ ->
+	_:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
 	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, alert_decode_error),
 					    StateName, State)
 
@@ -530,7 +531,8 @@ send_sync_alert(
   Alert, #state{protocol_specific = #{sender := Sender}} = State) ->
     try tls_sender:send_and_ack_alert(Sender, Alert)
     catch
-        _:_ ->
+        _:Reason:ST ->
+            ?SSL_LOG(info, "Send failed", [{error, Reason}, {stacktrace, ST}]),
             throw({stop, {shutdown, own_alert}, State})
     end.
 

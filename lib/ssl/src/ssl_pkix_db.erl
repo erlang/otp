@@ -117,7 +117,7 @@ lookup_trusted_cert(_DbHandle, {extracted,Certs}, SerialNumber, Issuer) ->
 	    CertSerial =:= SerialNumber, CertIssuer =:= Issuer],
 	undefined
     catch
-	Cert ->
+	throw:Cert ->
 	    {ok, Cert}
     end.
 

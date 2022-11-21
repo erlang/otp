@@ -1642,7 +1642,13 @@ opt_protocol_versions(UserOpts, Opts, Env) ->
 
     LogLevels = [none, all, emergency, alert, critical, error,
                  warning, notice, info, debug],
-    {_, LL} = get_opt_of(log_level, LogLevels, notice, UserOpts, Opts),
+
+    DefaultLevel = case logger:get_module_level(?MODULE) of
+                       [] -> notice;
+                       [{ssl,Level}] -> Level
+                   end,
+
+    {_, LL} = get_opt_of(log_level, LogLevels, DefaultLevel, UserOpts, Opts),
 
     {_, KS} = get_opt_bool(keep_secrets, false, UserOpts, Opts),
 
@@ -2703,9 +2709,10 @@ add_filter(Filter, Filters) ->
 maybe_client_warn_no_verify(#{verify := verify_none,
                              warn_verify_none := true,
                              log_level := LogLevel} = Opts, client) ->
-    ssl_logger:log(warning, LogLevel, #{description => "Server authenticity is not verified since certificate path validation is not enabled",
-                                        reason => "The option {verify, verify_peer} and one of the options 'cacertfile' or "
-                                        "'cacerts' are required to enable this."}, ?LOCATION),
+    ssl_logger:log(warning, LogLevel,
+                   #{description => "Server authenticity is not verified since certificate path validation is not enabled",
+                     reason => "The option {verify, verify_peer} and one of the options 'cacertfile' or "
+                     "'cacerts' are required to enable this."}, ?LOCATION),
     maps:without([warn_verify_none], Opts);
 maybe_client_warn_no_verify(Opts,_) ->
     %% Warning not needed. Note client certificate validation is optional in TLS

@@ -25,8 +25,6 @@
 
 -module(ssl_gen_statem).
 
--include_lib("kernel/include/logger.hrl").
-
 -include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_connection.hrl").
@@ -901,10 +899,9 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{
                                                                           role = Role,
                                                                           socket = Socket,
-                                                                          error_tag = ErrorTag},
-                                                          ssl_options = #{log_level := Level}} = State)  ->
-    ssl_logger:log(info, Level, #{description => "Socket error",
-                                  reason => [{error_tag, ErrorTag}, {description, Reason}]}, ?LOCATION),
+                                                                          error_tag = ErrorTag}
+                                                         } = State)  ->
+    ?SSL_LOG(info, "Socket error", [{error_tag, ErrorTag}, {description, Reason}]),
     Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, {transport_error, Reason}),
     handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
     {stop, {shutdown,normal}, State};
@@ -931,11 +928,9 @@ handle_info({'EXIT', Socket, Reason}, _StateName, #state{static_env = #static_en
     {stop,{shutdown, Reason}, State};
 handle_info(allow_renegotiate, StateName, #state{handshake_env = HsEnv} = State) -> %% PRE TLS-1.3
     {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{allow_renegotiate = true}}};
-handle_info(Msg, StateName, #state{static_env = #static_env{socket = Socket, error_tag = ErrorTag},
-                                   ssl_options = #{log_level := Level}} = State) ->
-    ssl_logger:log(notice, Level, #{description => "Unexpected INFO message",
-                                    reason => [{message, Msg}, {socket, Socket},
-                                               {error_tag, ErrorTag}]}, ?LOCATION),
+handle_info(Msg, StateName, #state{static_env = #static_env{socket = Socket, error_tag = ErrorTag}} = State) ->
+    ?SSL_LOG(notice, "Unexpected INFO message",
+             [{message, Msg}, {socket, Socket}, {error_tag, ErrorTag}]),
     {next_state, StateName, State}.
 
 %%====================================================================
@@ -1231,7 +1226,7 @@ terminate(Reason, connection, #state{static_env = #static_env{
     handle_trusted_certs_db(State),
     Alert = terminate_alert(Reason),
     %% Send the termination ALERT if possible
-    catch (ok = Connection:send_alert_in_connection(Alert, State)),
+    catch Connection:send_alert_in_connection(Alert, State),
     Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates);
 terminate(Reason, _StateName, #state{static_env = #static_env{transport_cb = Transport,
                                                               protocol_cb = Connection,

@@ -163,16 +163,15 @@
 %%====================================================================	     
 init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
-    State0 = #state{protocol_specific = Map} = 
-        initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
+    State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     try
 	State = ssl_gen_statem:ssl_config(State0#state.ssl_options, 
                                           Role, State0),
 	gen_statem:enter_loop(?MODULE, [], initial_hello, State)
     catch
 	throw:Error ->
-            EState = State0#state{protocol_specific = 
-                                      Map#{error => Error}},
+            #state{protocol_specific = Map} = State0,
+            EState = State0#state{protocol_specific = Map#{error => Error}},
 	    gen_statem:enter_loop(?MODULE, [], config_error, EState)
     end.
 %%====================================================================
@@ -644,6 +643,7 @@ format_status(Type, Data) ->
 initial_state(Role, Host, Port, Socket,
               {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
+    put(log_level, maps:get(log_level, SSLOptions)),
     BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
     ConnectionStates = dtls_record:init_connection_states(Role, BeastMitigation),
     #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
@@ -752,20 +752,23 @@ gen_handshake(StateName, Type, Event, State) ->
     catch
         throw:#alert{}=Alert ->
             alert_or_reset_connection(Alert, StateName, State);
-        error:_ ->
+        error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
             Alert = ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data),
             alert_or_reset_connection(Alert, StateName, State)
     end.
 
 gen_info(Event, connection = StateName, State) ->
     try dtls_gen_connection:handle_info(Event, StateName, State)
-    catch error:_ ->
+    catch error:Reason:ST ->
+            ?SSL_LOG(info, internal_error, [{error, Reason}, {stacktrace, ST}]),
             Alert = ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, malformed_data),
             alert_or_reset_connection(Alert, StateName, State)
     end;
 gen_info(Event, StateName, State) ->
     try dtls_gen_connection:handle_info(Event, StateName, State)
-    catch error:_ ->
+    catch error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{error, Reason}, {stacktrace, ST}]),
             Alert = ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,malformed_handshake_data),
             alert_or_reset_connection(Alert, StateName, State)
     end.

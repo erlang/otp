@@ -245,7 +245,8 @@ hello(#client_hello{client_version = _ClientVersion,
         Version = ssl_handshake:select_supported_version(ClientVersions, Versions),
         do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{reason,Reason}, {stacktrace, ST}]),
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data))
     end;
 
@@ -260,7 +261,8 @@ hello(#client_hello{client_version = ClientVersion,
         error:{case_clause,{asn1, Asn1Reason}} ->
             %% ASN-1 decode of certificate somehow failed
             throw(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {failed_to_decode_own_certificate, Asn1Reason}));
-        error:_ ->
+        error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{reason,Reason}, {stacktrace, ST}]),
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data))
     end.
 
@@ -435,7 +437,8 @@ get_tls_handshakes_aux(Version, <<?BYTE(Type), ?UINT24(Length),
             ssl_logger:debug(LogLevel, inbound, 'handshake', Handshake),
 	    get_tls_handshakes_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
     catch
-	error:_ ->
+	error:Reason:ST ->
+            ?SSL_LOG(info, handshake_error, [{reason,Reason}, {stacktrace, ST}]),
 	    throw(?ALERT_REC(?FATAL, ?DECODE_ERROR, handshake_decode_error))
     end;
 get_tls_handshakes_aux(_Version, Data, _, Acc) ->
