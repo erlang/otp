@@ -1203,8 +1203,8 @@ udp_opt([Opt | Opts], #udp_opts{ifaddr = IfAddr} = R, As) ->
 		    {error, badarg}
 	    end;
         {active,N} when is_integer(N), N < 32768, N >= -32768 ->
-            NOpts = lists:keydelete(active, 1, R#udp_opts.opts),
-            udp_opt(Opts, R#udp_opts { opts = [{active,N}|NOpts] }, As);
+            POpts = lists:keydelete(active, 1, R#udp_opts.opts),
+            udp_opt(Opts, R#udp_opts { opts = [{active,N}|POpts] }, As);
 
         {Membership, {MAddr, If}}
           when ((Membership =:= add_membership) orelse
@@ -1212,7 +1212,8 @@ udp_opt([Opt | Opts], #udp_opts{ifaddr = IfAddr} = R, As) ->
                (tuple_size(MAddr) =:= 4) andalso
                ((If =:= any) orelse (tuple_size(If) =:= 4)) ->
             MembershipOpt = {Membership, {MAddr, If, 0}},
-            udp_opt(Opts, R#udp_opts{opts = [MembershipOpt|Opts]}, As);
+            POpts         = R#udp_opts.opts,
+            udp_opt(Opts, R#udp_opts{opts = [MembershipOpt|POpts]}, As);
 
 	{Name,Val} when is_atom(Name) -> udp_add(Name, Val, R, Opts, As);
 
