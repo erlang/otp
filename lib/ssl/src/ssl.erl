@@ -1628,15 +1628,17 @@ opt_protocol_versions(UserOpts, Opts, Env) ->
 
     {_, LL} = get_opt_of(log_level, LogLevels, DefaultLevel, UserOpts, Opts),
 
-    {_, KS} = get_opt_bool(keep_secrets, false, UserOpts, Opts),
+    Opts1 = set_opt_bool(keep_secrets, false, UserOpts, Opts),
 
-    {_, ED} = get_opt_bool(erl_dist, false, UserOpts, Opts),
-    {_, KTLS} = get_opt_bool(ktls, false, UserOpts, Opts),
+    {DistW, Dist} = get_opt_bool(erl_dist, false, UserOpts, Opts1),
+    option_incompatible(PRC =:= dtls andalso Dist, [{protocol, PRC}, {erl_dist, Dist}]),
+    Opts2 = set_opt_new(DistW, erl_dist, false, Dist, Opts1),
 
-    opt_versions(UserOpts,
-                 Opts#{protocol => PRC, log_level => LL, keep_secrets => KS,
-                       erl_dist => ED, ktls => KTLS},
-                 Env).
+    {KtlsW, Ktls} = get_opt_bool(ktls, false, UserOpts, Opts1),
+    option_incompatible(PRC =:= dtls andalso Ktls, [{protocol, PRC}, {ktls, Ktls}]),
+    Opts3 = set_opt_new(KtlsW, ktls, false, Ktls, Opts2),
+
+    opt_versions(UserOpts, Opts3#{protocol => PRC, log_level => LL}, Env).
 
 opt_versions(UserOpts, #{protocol := Protocol} = Opts, _Env) ->
     Versions = case get_opt(versions, unbound, UserOpts, Opts) of
@@ -2306,6 +2308,14 @@ get_opt_file(Opt, Default, UserOpts, Opts) ->
     case get_opt(Opt, Default, UserOpts, Opts) of
         {new, File} -> {new, validate_filename(File, Opt)};
         Res -> Res
+    end.
+
+set_opt_bool(Opt, Default, UserOpts, Opts) ->
+    case maps:get(Opt, UserOpts, unbound) of
+        unbound -> Opts;
+        Default -> Opts;
+        Value when is_boolean(Value) -> Opts#{Opt => Value};
+        Value -> option_error(Opt, Value)
     end.
 
 

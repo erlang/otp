@@ -250,22 +250,11 @@ internal_inet_values() ->
 default_inet_values() ->
     [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}].
 
-inherit_tracker(ListenSocket, EmOpts, #{erl_dist := false} = SslOpts) ->
-    ssl_listen_tracker_sup:start_child([ListenSocket, EmOpts, SslOpts]);
 inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
-    ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]).
+    ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]);
+inherit_tracker(ListenSocket, EmOpts, SslOpts) ->
+    ssl_listen_tracker_sup:start_child([ListenSocket, EmOpts, SslOpts]).
 
-session_tickets_tracker(_,_, _, _, #{erl_dist := false,
-                                   session_tickets := disabled}) ->
-    {ok, disabled};
-session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
-                        #{erl_dist := false,
-                          session_tickets := Mode,
-                          anti_replay := AntiReplay,
-                          stateless_tickets_seed := Seed}) ->
-    tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
-                                               TicketStoreSize, MaxEarlyDataSize,
-                                               AntiReplay, Seed]);
 session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
                         #{erl_dist := true,
                           session_tickets := Mode,
@@ -282,18 +271,28 @@ session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSiz
         1 ->
             [{_,Child,_, _}] = supervisor:which_children(SupName),
             {ok, Child}
-    end.
+    end;
+session_tickets_tracker(_,_, _, _, #{session_tickets := disabled}) ->
+    {ok, disabled};
+session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
+                        #{session_tickets := Mode,
+                          anti_replay := AntiReplay,
+                          stateless_tickets_seed := Seed}) ->
+    tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
+                                               TicketStoreSize, MaxEarlyDataSize,
+                                               AntiReplay, Seed]).
+
 session_id_tracker(_, #{versions := [{3,4}]}) ->
     {ok, not_relevant};
 %% Regardless of the option reuse_sessions we need the session_id_tracker
 %% to generate session ids, but no sessions will be stored unless
 %% reuse_sessions = true.
-session_id_tracker(ssl_unknown_listener, #{erl_dist := false}) ->
-    ssl_upgrade_server_session_cache_sup:start_child(normal);
-session_id_tracker(ListenSocket, #{erl_dist := false}) ->
-    ssl_server_session_cache_sup:start_child(ListenSocket);
 session_id_tracker(_, #{erl_dist := true}) ->
-    ssl_upgrade_server_session_cache_sup:start_child(dist).
+    ssl_upgrade_server_session_cache_sup:start_child(dist);
+session_id_tracker(ssl_unknown_listener, _) ->
+    ssl_upgrade_server_session_cache_sup:start_child(normal);
+session_id_tracker(ListenSocket, _) ->
+    ssl_server_session_cache_sup:start_child(ListenSocket).
        
 get_emulated_opts(TrackerPid) -> 
     call(TrackerPid, get_emulated_opts).

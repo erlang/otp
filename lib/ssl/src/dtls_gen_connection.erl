@@ -82,10 +82,10 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-start_fsm(Role, Host, Port, Socket, {#{erl_dist := false},_, Tracker} = Opts,
+start_fsm(Role, Host, Port, Socket, {_,_, Tracker} = Opts,
 	  User, {CbModule, _, _, _, _} = CbInfo,
-	  Timeout) -> 
-    try 
+	  Timeout) ->
+    try
 	{ok, Pid} = dtls_connection_sup:start_child([Role, Host, Port, Socket, 
 						     Opts, User, CbInfo]), 
 	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid], CbModule, Tracker),

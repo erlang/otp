@@ -132,9 +132,9 @@ start_link(Role, Host, Port, Socket, {#{receiver_spawn_opts := ReceiverOpts}, _,
 -spec init(list()) -> no_return().
 %% Description: Initialization
 %%--------------------------------------------------------------------
-init([Role, _Sender, _Host, _Port, _Socket, {#{erl_dist := ErlDist} = TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
+init([Role, _Sender, _Host, _Port, _Socket, {TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
     process_flag(trap_exit, true),
-    case ErlDist of
+    case maps:get(erl_dist, TLSOpts, false) of
         true ->
             process_flag(priority, max);
         _ ->
@@ -1950,7 +1950,8 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
 
 security_info(#state{connection_states = ConnectionStates,
                      static_env = #static_env{role = Role},
-                     ssl_options = #{keep_secrets := KeepSecrets}}) ->
+                     ssl_options = Opts}) ->
+
     ReadState = ssl_record:current_connection_state(ConnectionStates, read),
     #{security_parameters :=
 	  #security_parameters{client_random = ClientRand,
@@ -1960,6 +1961,8 @@ security_info(#state{connection_states = ConnectionStates,
                                client_early_data_secret = ServerEarlyData
                               }} = ReadState,
     BaseSecurityInfo = [{client_random, ClientRand}, {server_random, ServerRand}, {master_secret, MasterSecret}],
+
+    KeepSecrets = maps:get(keep_secrets, Opts, false),
     if KeepSecrets =/= true ->
             BaseSecurityInfo;
        true ->

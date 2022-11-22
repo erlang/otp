@@ -40,11 +40,8 @@
 %%====================================================================
 %% Internal application API
 %%====================================================================
-init(#{erl_dist := ErlDist,
-       dh := DH,
-       dhfile := DHFile} = SslOpts, Role) ->
-    
-    init_manager_name(ErlDist),
+init(#{dh := DH, dhfile := DHFile} = SslOpts, Role) ->
+    init_manager_name(maps:get(erl_dist, SslOpts, false)),
     #{pem_cache := PemCache} = Config = init_cacerts(SslOpts, Role),
     DHParams = init_diffie_hellman(PemCache, DH, DHFile, Role),
 

@@ -479,7 +479,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     put(log_level, maps:get(log_level, SSLOptions)),
     %% Use highest supported version for client/server random nonce generation
-    #{erl_dist := IsErlDist,  versions := [Version|_]} = SSLOptions,
+    #{versions := [Version|_]} = SSLOptions,
     BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
     ConnectionStates = tls_record:init_connection_states(Role,
                                                          Version,
@@ -517,7 +517,8 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        start_or_recv_from = undefined,
        flight_buffer = [],
        protocol_specific = #{sender => Sender,
-                             active_n => ssl_config:get_internal_active_n(IsErlDist),
+                             active_n => ssl_config:get_internal_active_n(
+                                           maps:get(erl_dist, SSLOptions, false)),
                              active_n_toggle => true
                             }
       }.

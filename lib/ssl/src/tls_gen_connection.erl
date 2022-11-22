@@ -77,9 +77,10 @@
 %% Setup
 %%====================================================================
 start_fsm(Role, Host, Port, Socket,
-          {#{erl_dist := ErlDist, sender_spawn_opts := SenderSpawnOpts}, _, Trackers} = Opts,
+          {#{sender_spawn_opts := SenderSpawnOpts} = SSLOpts, _, Trackers} = Opts,
 	  User, {CbModule, _, _, _, _} = CbInfo,
 	  Timeout) ->
+    ErlDist = maps:get(erl_dist, SSLOpts, false),
     SenderOptions = handle_sender_options(ErlDist, SenderSpawnOpts),
     Starter = start_connection_tree(User, ErlDist, SenderOptions,
                                     Role, [Host, Port, Socket, Opts, User, CbInfo]),
@@ -149,16 +150,16 @@ initialize_tls_sender(#state{static_env = #static_env{
                              socket_options = SockOpts,
                              ssl_options = #{renegotiate_at := RenegotiateAt,
                                              key_update_at := KeyUpdateAt,
-                                             erl_dist := ErlDist,
                                              log_level := LogLevel,
-                                             hibernate_after := HibernateAfter},
+                                             hibernate_after := HibernateAfter
+                                            } = SSLOpts,
                              connection_states = #{current_write := ConnectionWriteState},
                              protocol_specific = #{sender := Sender}}) ->
     Init = #{current_write => ConnectionWriteState,
              role => Role,
              socket => Socket,
              socket_options => SockOpts,
-             erl_dist => ErlDist,
+             erl_dist => maps:get(erl_dist, SSLOpts, false),
              trackers => Trackers,
              transport_cb => Transport,
              negotiated_version => Version,

@@ -2192,12 +2192,14 @@ patch_version(Opts, Role, Host) ->
             {DOpts, Opts}
     end.
 
--define(OK(EXP, Opts, Role),
+-define(OK(EXP, Opts, Role), ?OK(EXP,Opts, Role, [])).
+-define(OK(EXP, Opts, Role, ShouldBeMissing),
         fun() ->
                 Host = "dummy.host.org",
                 {__DefOpts, __Opts} = patch_version(Opts, Role, Host),
                 try ssl:handle_options(__Opts, Role, Host) of
-                    {ok, #config{ssl=EXP}} -> ok;
+                    {ok, #config{ssl=EXP = __ALL}} ->
+                        ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL);
                     Other ->
                         ct:pal("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, Other})
@@ -2208,7 +2210,8 @@ patch_version(Opts, Role, Host) ->
                         error({unexpected, C, Other,ST})
                 end,
                 try ssl:update_options(__Opts, Role, __DefOpts) of
-                    EXP -> ok;
+                    EXP = __ALL2 ->
+                        ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL2);
                     Other2 ->
                         ct:pal("{ok,Cfg} = ssl:handle_options([],~p,~p),"
                                "ssl:update_options(~p,~p, element(2,Cfg)).",
@@ -2306,9 +2309,11 @@ options_protocol(_Config) ->
     ?ERR({protocol, foo}, [{protocol, 'foo'}], client),
 
     begin %% erl_dist
-        ?OK(#{erl_dist := false}, [], client),
+        ?OK(#{}, [], client, [erl_dist]),
+        ?OK(#{}, [{erl_dist, false}], client, [erl_dist]),
         ?OK(#{erl_dist := true}, [{erl_dist, true}], client),
-        ?OK(#{ktls := false}, [], client),
+        ?OK(#{}, [], client, [ktls]),
+        ?OK(#{}, [{ktls, false}], client, [ktls]),
         ?OK(#{ktls := true}, [{ktls, true}], client)
     end,
     ok.
@@ -2784,9 +2789,12 @@ options_honor(_Config) ->  %% honor_cipher_order & honor_ecc_order
     ok.
 
 options_debug(_Config) -> %% debug  log_level keep_secrets
-    ?OK(#{log_level := notice, keep_secrets := false}, [], server),
+    ?OK(#{log_level := notice}, [], server, [keep_secrets]),
     ?OK(#{log_level := debug, keep_secrets := true},
         [{log_level, debug}, {keep_secrets, true}], server),
+    ?OK(#{log_level := info},
+        [{log_level, info}, {keep_secrets, false}], server, [keep_secrets]),
+
     %% Errors
     ?ERR({log_level, foo}, [{log_level, foo}], server),
     ?ERR({keep_secrets, foo}, [{keep_secrets, foo}], server),

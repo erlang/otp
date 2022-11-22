@@ -391,9 +391,8 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
                                 signature_algs := ServerSignAlgs,
                                 supported_groups := ServerGroups0,
                                 alpn_preferred_protocols := ALPNPreferredProtocols,
-                                keep_secrets := KeepSecrets,
                                 honor_cipher_order := HonorCipherOrder,
-                                early_data := EarlyDataEnabled}} = State0) ->
+                                early_data := EarlyDataEnabled} = Opts} = State0) ->
     SNI = maps:get(sni, Extensions, undefined),
     EarlyDataIndication = maps:get(early_data, Extensions, undefined),
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
@@ -467,10 +466,9 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
                          State1#state{session = Session}
                  end,
 
-        State3 = if KeepSecrets =:= true ->
-                         tls_handshake_1_3:set_client_random(State2, Hello#client_hello.random);
-                    true ->
-                         State2
+        State3 = case maps:get(keep_secrets, Opts, false) of
+                     true -> tls_handshake_1_3:set_client_random(State2, Hello#client_hello.random);
+                     false -> State2
                  end,
 
         State4 = tls_handshake_1_3:update_start_state(State3,
