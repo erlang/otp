@@ -2937,29 +2937,39 @@ subagent(Config) when is_list(Config) ->
     ?P(subagent), 
     {SaNode, _MgrNode, MibDir} = init_case(Config),
 
+    ?NPRINT("try start subagent..."),
     {ok, SA} = start_subagent(SaNode, ?klas1, "Klas1"),
+    ?NPRINT("try test case load_test_sa..."),
     try_test(load_test_sa),
     
     ?NPRINT("Testing unregister subagent..."),
     MA = whereis(snmp_master_agent),
     rpc:call(SaNode, snmpa, unregister_subagent, [MA, SA]),
+    ?NPRINT("try test case unreg_test..."),
     try_test(unreg_test),
 
     ?NPRINT("Loading previous subagent mib in master and testing..."),
     ok = snmpa:load_mib(MA, join(MibDir, "Klas1")),
+    ?NPRINT("try test case load_test..."),
     try_test(load_test),
 
     ?NPRINT("Unloading previous subagent mib in master and testing..."),
     ok = snmpa:unload_mib(MA, join(MibDir, "Klas1")),
+    ?NPRINT("try test case unreg_test..."),
     try_test(unreg_test),
 
     ?NPRINT("Testing register subagent..."),
-    rpc:call(SaNode, snmpa, register_subagent,
-	     [MA, ?klas1, SA]),
+    rpc:call(SaNode, snmpa, register_subagent, [MA, ?klas1, SA]),
+    ?NPRINT("try test case load_test_sa..."),
     try_test(load_test_sa),
 
+    ?NPRINT("try stop subagent..."),
     stop_subagent(SA),
-    try_test(unreg_test).
+    ?NPRINT("try test case unreg_test..."),
+    try_test(unreg_test),
+
+    ?NPRINT("done"),
+    ok.
     
 subagent_2(X) -> ?P(subagent_2), subagent(X).
 
