@@ -1461,15 +1461,34 @@ fun(srp, Username :: binary(), UserState :: term()) ->
       <datatype>
 	<name name="server_session_tickets"/>
 	<desc>
-	  <p>Configures the session ticket functionality. Allowed values are <c>disabled</c>,
-	  <c>stateful</c> and <c>stateless</c>.</p>
-	  <p>If it is set to <c>stateful</c> or
-	  <c>stateless</c>, session resumption with pre-shared keys is enabled and the server will
-	  send stateful or stateless session tickets to the client after successful connections.</p>
+          <p>Configures the session ticket functionality. Allowed values are <c>disabled</c>,
+          <c>stateful</c>, <c>stateless</c>, <c>stateful_with_cert</c>, <c>stateless_with_cert</c>.</p>
+          <p>If it is not set to <c>disabled</c>,
+          session resumption with pre-shared keys is enabled and the server will
+          send stateful or stateless session tickets to the client after successful connections.</p>
+          
+          <note><p>
+          Pre-shared key session ticket resumption does not include any certificate exchange, 
+          hence the function <seemfa marker="ssl:ssl#peercert/1">ssl:peercert/1</seemfa> will not 
+          be able to return the peer certificate as it is only communicated in the initial handshake.
+          The server options <c>stateful_with_cert</c> or <c>stateless_with_cert</c> may be used 
+          to make a server associate the client certificate from the original handshake 
+          with the tickets it issues.
+          </p></note>
+
 	  <p>A stateful session ticket is a database reference to internal state information.
 	  A stateless session ticket is a self-encrypted binary that contains both cryptographic keying
 	  material and state data.
 	  </p>
+          
+          <warning><p>
+          If it is set to <c>stateful_with_cert</c> the client certificate
+          is stored with the internal state information, increasing memory consumption.
+          If it is set to <c>stateless_with_cert</c> the client certificate is
+          encoded in the self-encrypted binary that is sent to the client,
+          increasing the payload size.
+          </p></warning>
+
 	  <note><p>This option is supported by TLS 1.3 and above. See also
 	  <seeguide marker="ssl:using_ssl#session-tickets-and-session-resumption-in-tls-1.3">
 	  SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3</seeguide>
