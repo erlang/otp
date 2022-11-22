@@ -726,40 +726,66 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                 switch (MAP_HEADER_TYPE(*head)) {
                 case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
                 case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
-                    PRINT_STRING(res, fn, arg, "#<");
-                    PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
-                    PRINT_STRING(res, fn, arg, ">{");
-                    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
+                    PRINT_STRING(res, fn, arg, "#{");
+                    WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
                     n = hashmap_bitcount(mapval);
                     ASSERT(n < 17);
                     head += 2;
                     if (n > 0) {
+			Eterm* assoc;
+			Eterm key, val;
                         n--;
-                        WSTACK_PUSH(s, head[n]);
-                        WSTACK_PUSH(s, PRT_TERM);
-                        while (n--) {
-                            WSTACK_PUSH(s, PRT_COMMA);
+                        if (is_list(head[n])) {
+                            assoc = list_val(head[n]);
+                            key = CAR(assoc);
+                            val = CDR(assoc);
+                            WSTACK_PUSH5(s, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
+                        } else {
                             WSTACK_PUSH(s, head[n]);
                             WSTACK_PUSH(s, PRT_TERM);
+			}
+                        while (n--) {
+                            if (is_list(head[n])) {
+                                assoc = list_val(head[n]);
+                                key = CAR(assoc);
+                                val = CDR(assoc);
+                                WSTACK_PUSH6(s, PRT_COMMA, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
+                            } else {
+                                WSTACK_PUSH(s, PRT_COMMA);
+                                WSTACK_PUSH(s, head[n]);
+                                WSTACK_PUSH(s, PRT_TERM);
+                            }
                         }
                     }
                     break;
                 case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
                     n = hashmap_bitcount(mapval);
                     head++;
-                    PRINT_CHAR(res, fn, arg, '<');
-                    PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
-                    PRINT_STRING(res, fn, arg, ">{");
-                    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
                     ASSERT(n < 17);
                     if (n > 0) {
+			Eterm* assoc;
+			Eterm key, val;
                         n--;
-                        WSTACK_PUSH(s, head[n]);
-                        WSTACK_PUSH(s, PRT_TERM);
-                        while (n--) {
-                            WSTACK_PUSH(s, PRT_COMMA);
+                        if (is_list(head[n])) {
+                            assoc = list_val(head[n]);
+                            key = CAR(assoc);
+                            val = CDR(assoc);
+                            WSTACK_PUSH5(s, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
+                        } else {
                             WSTACK_PUSH(s, head[n]);
                             WSTACK_PUSH(s, PRT_TERM);
+                        }
+                        while (n--) {
+                            if (is_list(head[n])) {
+                                assoc = list_val(head[n]);
+                                key = CAR(assoc);
+                                val = CDR(assoc);
+                                WSTACK_PUSH6(s, PRT_COMMA, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
+                            } else {
+                                WSTACK_PUSH(s, PRT_COMMA);
+                                WSTACK_PUSH(s, head[n]);
+                                WSTACK_PUSH(s, PRT_TERM);
+                            }
                         }
                     }
                     break;

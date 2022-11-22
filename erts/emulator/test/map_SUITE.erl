@@ -88,8 +88,11 @@
          t_get_map_elements/1,
          y_regs/1,
 
-         %%Bugs
-         t_large_unequal_bins_same_hash_bug/1]).
+         %% Bugs
+         t_large_unequal_bins_same_hash_bug/1,
+
+	 %% Display
+	 t_map_display/1]).
 
 %% Benchmarks
 -export([benchmarks/1]).
@@ -168,7 +171,10 @@ groups() ->
        y_regs,
 
        %% Bugs
-       t_large_unequal_bins_same_hash_bug]},
+       t_large_unequal_bins_same_hash_bug,
+
+       %% Display
+       t_map_display]},
     {benchmarks, [{repeat,10}], [benchmarks]}].
 
 run_once() ->
@@ -3498,6 +3504,8 @@ t_large_unequal_bins_same_hash_bug(Config) when is_list(Config) ->
               io:format("~p ~p~n", [erlang:phash2(Map3), maps:size(Map3)])
       end).
 
+
+
 make_map(0) -> 
     #{};
 make_map(Size) ->
@@ -3540,6 +3548,64 @@ total_memory() ->
     catch
 	_ : _ ->
 	    undefined
+    end.
+
+%% This test case checks that maps larger than 32 elements are readable
+%% when displayed.
+t_map_display(Config) when is_list(Config) ->
+    verify_map_term(make_nontrivial_map(33)),
+    verify_map_term(make_nontrivial_map(253)),
+    verify_map_term({a, make_nontrivial_map(77)}),
+    verify_map_term([make_nontrivial_map(42),
+                     {a,make_nontrivial_map(99)},
+                     make_nontrivial_map(77)]),
+
+    ok.
+
+make_nontrivial_map(N) ->
+    make_nontrivial_map(N, 32).
+
+make_nontrivial_map(N, Effort) ->
+    L = [begin
+             Key = case I rem 64 of
+                       33 when Effort > 16 ->
+                           make_nontrivial_map(I, Effort div 2);
+                       _ ->
+                           I
+                   end,
+             Value = case I rem 5 of
+                         0 ->
+                             I * I;
+                         1 ->
+                             if
+                                 Effort > 16 ->
+                                     make_nontrivial_map(33, Effort div 2);
+                                 true ->
+                                     make_map(Effort)
+                             end;
+                         2 ->
+                             lists:seq(0, I rem 16);
+                         3 ->
+                             list_to_tuple(lists:seq(0, I rem 16));
+                         4 ->
+                             float(I)
+                     end,
+             {Key, Value}
+         end || I <- lists:seq(1, N)],
+    maps:from_list(L).
+
+verify_map_term(Term) ->
+    Printed = string:chomp(erts_debug:display(Term)),
+    {ok,Tokens,1} = erl_scan:string(Printed ++ "."),
+    {ok,ParsedTerm} = erl_parse:parse_term(Tokens),
+
+    case ParsedTerm of
+        Term ->
+            ok;
+        Other ->
+            io:format("Expected:\n~p\n", [Term]),
+            io:format("Got:\n~p", [Other]),
+            ct:fail(failed)
     end.
 
 %%%
