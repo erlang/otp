@@ -27,7 +27,8 @@
 
 %% Miscellaneous list functions that don't take funs as
 %% arguments. Please keep in alphabetical order.
--export([append/1, append/2, concat/1,
+-export([append/1, append/2, combine/5,
+         combine/6, concat/1,
          delete/2, droplast/1, duplicate/2,
          enumerate/1, enumerate/2,
          flatlength/1, flatten/1, flatten/2,
@@ -626,6 +627,73 @@ zipwith3(F, [X | Xs], [], [Z | Zs], {pad, {_, Y, _}} = How) ->
     [F(X, Y, Z) | zipwith3(F, Xs, [], Zs, How)];
 zipwith3(F, [X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
     [F(X, Y, Z) | zipwith3(F, Xs, Ys, [], How)].
+
+-spec combine(Fun, Acc0, List1, List2, Pad) -> Acc1 when
+      Fun :: fun((A | PadA, B | PadB, AccIn) -> AccOut),
+      Pad :: {PadA, PadB},
+      List1 :: list(A),
+      List2 :: list(B),
+      A :: term(),
+      B :: term(),
+      PadA :: term(),
+      PadB :: term(),
+      Acc0 :: term(),
+      AccIn :: term(),
+      AccOut :: term(),
+      Acc1 :: term().
+
+combine(Fun, Acc0, List1, List2, {_, _}=Pad) when is_function(Fun, 3) ->
+    combine_1(Fun, Acc0, List1, List2, Pad).
+
+combine_1(_Fun, Acc, [], [], _Pad) ->
+    Acc;
+combine_1(Fun, Acc, [A|T1], [], {_, PadB}=Pad) ->
+    combine_1(Fun, Fun(A, PadB, Acc), T1, [], Pad);
+combine_1(Fun, Acc, [], [B|T2], {PadA, _}=Pad) ->
+    combine_1(Fun, Fun(PadA, B, Acc), [], T2, Pad);
+combine_1(Fun, Acc, [A|T1], [B|_]=List2, {_, PadB}=Pad) when A < B ->
+    combine_1(Fun, Fun(A, PadB, Acc), T1, List2, Pad);
+combine_1(Fun, Acc, [A|_]=List1, [B|T2], {PadA, _}=Pad) when A > B ->
+    combine_1(Fun, Fun(PadA, B, Acc), List1, T2, Pad);
+combine_1(Fun, Acc, [A|T1], [B|T2], Pad) ->
+    combine_1(Fun, Fun(A, B, Acc), T1, T2, Pad).
+
+-spec combine(Cmp, Fun, Acc0, List1, List2, Pad) -> Acc1 when
+      Cmp :: fun((A, B) -> boolean()),
+      Fun :: fun((A | PadA, B | PadB, AccIn) -> AccOut),
+      Pad :: {PadA, PadB},
+      List1 :: list(A),
+      List2 :: list(B),
+      A :: term(),
+      B :: term(),
+      PadA :: term(),
+      PadB :: term(),
+      Acc0 :: term(),
+      AccIn :: term(),
+      AccOut :: term(),
+      Acc1 :: term().
+
+combine(Cmp, Fun, Acc0, List1, List2, {_, _}=Pad) when is_function(Cmp, 2), is_function(Fun, 3) ->
+    combine_2(Cmp, Fun, Acc0, List1, List2, Pad).
+
+combine_2(_Cmp, _Fun, Acc, [], [], _Pad) ->
+    Acc;
+combine_2(Cmp, Fun, Acc, [A|T1], [], {_, PadB}=Pad) ->
+    combine_2(Cmp, Fun, Fun(A, PadB, Acc), T1, [], Pad);
+combine_2(Cmp, Fun, Acc, [], [B|T2], {PadA, _}=Pad) ->
+    combine_2(Cmp, Fun, Fun(PadA, B, Acc), [], T2, Pad);
+combine_2(Cmp, Fun, Acc, [A|T1]=List1, [B|T2]=List2, {PadA, PadB}=Pad) ->
+    case Cmp(A, B) of
+        true ->
+            case Cmp(B, A) of
+                true ->
+                    combine_2(Cmp, Fun, Fun(A, B, Acc), T1, T2, Pad);
+                false ->
+                    combine_2(Cmp, Fun, Fun(A, PadB, Acc), T1, List2, Pad)
+            end;
+        false ->
+            combine_2(Cmp, Fun, Fun(PadA, B, Acc), List1, T2, Pad)
+    end.
 
 %% sort(List) -> L
 %%  sorts the list L
