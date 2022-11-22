@@ -31,7 +31,7 @@
 %% Generalized dist API
 -export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
 	 gen_setup/6, gen_select/2, gen_address/1]).
--export([fam_select/2, fam_address/1, fam_listen/4, fam_setup/4]).
+-export([fam_select/2, fam_listen/4, fam_setup/4]).
 %% OTP internal (e.g ssl)
 -export([gen_hs_data/2, nodelay/0]).
 
@@ -48,6 +48,7 @@
 -include("dist.hrl").
 -include("dist_util.hrl").
 
+-define(DRIVER, inet_tcp).
 -define(PROTOCOL, tcp).
 
 %% ------------------------------------------------------------
@@ -56,7 +57,7 @@
 %% ------------------------------------------------------------
 
 select(Node) ->
-    gen_select(inet_tcp, Node).
+    gen_select(?DRIVER, Node).
 
 gen_select(Driver, Node) ->
     fam_select(Driver:family(), Node).
@@ -80,13 +81,11 @@ fam_select(Family, Node) ->
 %% Get the address family that this distribution uses
 %% ------------------------------------------------------------
 address() ->
-    gen_address(inet_tcp).
+    gen_address(?DRIVER).
 
 gen_address(Driver) ->
-    fam_address(Driver:family()).
-
-fam_address(Family) ->
     {ok, Host} = inet:gethostname(),
+    Family = Driver:family(),
     #net_address{
        host = Host,
        protocol = ?PROTOCOL,
@@ -97,6 +96,8 @@ fam_address(Family) ->
 %% Set up the general fields in #hs_data{}
 %% ------------------------------------------------------------
 gen_hs_data(Driver, Socket) ->
+    %% The only thing Driver actually is used for is to
+    %% implement non-blocking send of distribution tick
     Nodelay = nodelay(),
     #hs_data{
        socket = Socket,
@@ -127,7 +128,7 @@ gen_hs_data(Driver, Socket) ->
 %% ------------------------------------------------------------
 
 listen(Name, Host) ->
-    gen_listen(inet_tcp, Name, Host).
+    gen_listen(?DRIVER, Name, Host).
 
 %% Keep this clause for third-party dist controllers reusing this API
 listen(Name) ->
@@ -183,6 +184,7 @@ get_port_range() ->
             {0,0}
     end.
 
+
 loop_listen(_Driver, First, Last, _ListenOptions) when First > Last ->
     {error,eaddrinuse};
 loop_listen(Driver, First, Last, ListenOptions) ->
@@ -192,6 +194,7 @@ loop_listen(Driver, First, Last, ListenOptions) ->
         Other ->
             Other
     end.
+
 
 listen_options() ->
     DefaultOpts = [{reuseaddr, true}, {backlog, 128}],
@@ -272,7 +275,7 @@ expand_option(Opt) ->
 %% ------------------------------------------------------------
 
 accept(Listen) ->
-    gen_accept(inet_tcp, Listen).
+    gen_accept(?DRIVER, Listen).
 
 gen_accept(Driver, Listen) ->
     spawn_opt(?MODULE, accept_loop, [Driver, self(), Listen], [link, {priority, max}]).
@@ -316,7 +319,7 @@ flush_controller(Pid, Socket) ->
 %% ------------------------------------------------------------
 
 accept_connection(AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
-    gen_accept_connection(inet_tcp, AcceptPid, Socket, MyNode, Allowed, SetupTime).
+    gen_accept_connection(?DRIVER, AcceptPid, Socket, MyNode, Allowed, SetupTime).
 
 gen_accept_connection(Driver, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     spawn_opt(?MODULE, do_accept,
@@ -390,7 +393,7 @@ get_remote_id(Family, Socket, Node) ->
 %% ------------------------------------------------------------
 
 setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
-    gen_setup(inet_tcp, Node, Type, MyNode, LongOrShortNames, SetupTime).
+    gen_setup(?DRIVER, Node, Type, MyNode, LongOrShortNames, SetupTime).
 
 gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     spawn_opt(?MODULE, do_setup,
@@ -398,7 +401,7 @@ gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 	      dist_util:net_ticker_spawn_options()).
 
 do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
-    ?trace("~p~n",[{inet_tcp_dist,self(),setup,Node}]),
+    ?trace("~p~n",[{?MODULE,self(),setup,Node}]),
     Timer = dist_util:start_timer(SetupTime),
     Family = Driver:family(),
     {#net_address{ address = {Ip, TcpPort} } = NetAddress,
@@ -482,7 +485,7 @@ connect_options() ->
 %% Close a socket.
 %%
 close(Socket) ->
-    inet_tcp:close(Socket).
+    ?DRIVER:close(Socket).
 
 
 %% If Node is illegal terminate the connection setup!!

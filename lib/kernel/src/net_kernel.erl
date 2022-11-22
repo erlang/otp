@@ -2058,7 +2058,7 @@ start_protos(Node, Ps, CleanHalt, Listen) ->
     end.
 
 start_protos_no_listen(Node, [Proto | Ps], Ls, CleanHalt) ->
-    {Name, "@"++_Host}  = split_node(Node),
+    {Name, "@"++Host}  = split_node(Node),
     Ok = case Name of
              "undefined" ->
                  erts_internal:dynamic_node_name(true),
@@ -2070,9 +2070,14 @@ start_protos_no_listen(Node, [Proto | Ps], Ls, CleanHalt) ->
         true ->
             auth:sync_cookie(),
             Mod = list_to_atom(Proto ++ "_dist"),
+            Address =
+                try Mod:address(Host)
+                catch error:undef ->
+                        Mod:address()
+                end,
             L = #listen {
                    listen = undefined,
-                   address = Mod:address(),
+                   address = Address,
                    accept = undefined,
                    module = Mod },
             start_protos_no_listen(Node, Ps, [L|Ls], CleanHalt);

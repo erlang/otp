@@ -43,6 +43,7 @@
 %% Undocumented or unsupported
 -export([unrecv/2]).
 -export([fdopen/2]).
+-export([socket_setopts/2]).
 
 
 %% gen_statem callbacks
@@ -2497,6 +2498,34 @@ tag(Packet) ->
         true ->
             tcp
     end.
+
+
+%% -------
+%% Exported socket option translation
+%%
+socket_setopts(Socket, Opts) ->
+    socket_setopts(
+      Socket,
+      [Opt ||
+          Opt <- internalize_setopts(Opts),
+          element(1, Opt) =/= tcp_module],
+      socket_opts()).
+%%
+socket_setopts(_Socket, [], _SocketOpts) ->
+    ok;
+socket_setopts(Socket, [{Tag,Val} | Opts], SocketOpts) ->
+    case SocketOpts of
+        #{ Tag := Name } ->
+            case socket_setopt(Socket, Name, Val) of
+                ok ->
+                    socket_setopts(Socket, Opts, SocketOpts);
+                {error, _} = Error ->
+                    Error
+            end;
+        #{} ->
+            {error, einval}
+    end.
+
 
 %% -------
 %% setopts in server

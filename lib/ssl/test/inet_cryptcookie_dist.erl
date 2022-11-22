@@ -173,24 +173,11 @@ is_node_name(Node) ->
 %% -------------------------------------------------------------------------
 
 listen(Name, Host) ->
-    fam_listen(?FAMILY, Name, Host).
-
-fam_listen(Family, Name, Host) ->
-    Listen =
-        fun (First, Last, ListenOptions) ->
-                Opts =
-                    inet_tcp_dist:merge_options(
-                      ListenOptions,
-                      forced_socket_options(),
-                      default_socket_options()),
-                listen_loop(
-                  First, Last,
-                  inet_tcp_dist:merge_options(
-                    Opts,
-                    forced_socket_options(),
-                    default_socket_options()))
-        end,
-    case inet_tcp_dist:fam_listen(Family, Name, Host, Listen) of
+    case
+        inet_tls_dist:fam_listen(
+          ?FAMILY, Name, Host,
+          forced_socket_options(), default_socket_options())
+    of
         {ok, {ListenSocket, NetAddress, Creation}} ->
             NetAddress_1 =
                 NetAddress#net_address{
@@ -199,16 +186,6 @@ fam_listen(Family, Name, Host) ->
         {error, _} = Error ->
             Error
     end.
-
-listen_loop(First, Last, ListenOptions) when First =< Last ->
-    case gen_tcp:listen(First, ListenOptions) of
-        {error, eaddrinuse} ->
-            listen_loop(First + 1, Last, ListenOptions);
-        Result ->
-            Result
-    end;
-listen_loop(_, _, _) ->
-    {error, eaddrinuse}.
 
 %% -------------------------------------------------------------------------
 
@@ -231,7 +208,7 @@ fam_accept(Family, ListenSocket) ->
 acceptor(Family, ListenSocket, NetKernel) ->
     case gen_tcp:accept(trace(ListenSocket)) of
         {ok, Socket} ->
-            wait_for_code_server(),
+            inet_tls_dist:wait_for_code_server(),
             Timeout = net_kernel:connecttime(),
             DistCtrlHandle = start_dist_ctrl(trace(Socket), Timeout),
             NetKernel !
@@ -246,30 +223,6 @@ acceptor(Family, ListenSocket, NetKernel) ->
             end;
         {error, Reason} ->
             exit({accept, Reason})
-    end.
-
-wait_for_code_server() ->
-    %% This is an ugly hack.  Starting encryption on a connection
-    %% requires the crypto module to be loaded.  Loading the crypto
-    %% module triggers its on_load function, which calls
-    %% code:priv_dir/1 to find the directory where its NIF library is.
-    %% However, distribution is started earlier than the code server,
-    %% so the code server is not necessarily started yet, and
-    %% code:priv_dir/1 might fail because of that, if we receive
-    %% an incoming connection on the distribution port early enough.
-    %%
-    %% If the on_load function of a module fails, the module is
-    %% unloaded, and the function call that triggered loading it fails
-    %% with 'undef', which is rather confusing.
-    %%
-    %% So let's avoid that by waiting for the code server to start.
-    %%
-    case whereis(code_server) of
-	undefined ->
-	    timer:sleep(10),
-	    wait_for_code_server();
-	Pid when is_pid(Pid) ->
-	    ok
     end.
 
 %% -------------------------------------------------------------------------

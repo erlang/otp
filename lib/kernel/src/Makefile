@@ -100,6 +100,8 @@ MODULES = \
 	inet_config \
 	inet_db \
 	inet_dns \
+	inet_epmd_dist \
+	inet_epmd_socket \
 	inet_gethost_native \
 	inet_hosts \
 	inet_parse \

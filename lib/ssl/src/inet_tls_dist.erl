@@ -20,14 +20,18 @@
 
 %%
 -module(inet_tls_dist).
+-feature(maybe_expr, enable).
 
 -export([childspecs/0]).
--export([listen/2, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, address/0, is_node_name/1]).
+-export([select/1, address/0, is_node_name/1,
+         listen/2, accept/1, accept_connection/5,
+	 setup/5, close/1]).
 
 %% Generalized dist API
--export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
-	 gen_setup/6, gen_close/2, gen_select/2, gen_address/1]).
+-export([fam_select/2, fam_listen/5, fam_accept/2]).
+-export([wait_for_code_server/0]).
+-export([gen_accept_connection/6,
+	 gen_setup/6, gen_close/2]).
 
 -export([verify_client/3, cert_nodes/1]).
 
@@ -43,6 +47,8 @@
 -include("ssl_internal.hrl").
 -include_lib("kernel/include/logger.hrl").
 
+-define(FAMILY, inet).
+-define(DRIVER, inet_tcp). % Implies ?FAMILY = inet through inet_drv.c
 -define(PROTOCOL, tls).
 
 %% -------------------------------------------------------------------------
@@ -51,25 +57,24 @@ childspecs() ->
     {ok, [{ssl_dist_sup,{ssl_dist_sup, start_link, []},
 	   permanent, infinity, supervisor, [ssl_dist_sup]}]}.
 
-select(Node) ->
-    gen_select(inet_tcp, Node).
-
-gen_select(Driver, Node) ->
-    inet_tcp_dist:gen_select(Driver, Node).
-
-%% ------------------------------------------------------------
-%% Get the address family that this distribution uses
-%% ------------------------------------------------------------
-address() ->
-    gen_address(inet_tcp).
-gen_address(Driver) ->
-    inet_tcp_dist:gen_address(Driver).
-
 %% -------------------------------------------------------------------------
-
+%% Select this protocol based on node name
+select(Node) ->
+    fam_select(?FAMILY, Node).
+fam_select(Family, Node) ->
+    inet_tcp_dist:fam_select(Family, Node).
+%% -------------------------------------------------------------------------
+%% Get the #net_address this distribution uses
+address() ->
+    {ok, Host} = inet:gethostname(),
+    #net_address{
+       host = Host,
+       protocol = ?PROTOCOL,
+       family = ?FAMILY}.
+%% -------------------------------------------------------------------------
+%% Is this one really needed??
 is_node_name(Node) ->
     dist_util:is_node_name(Node).
-
 %% -------------------------------------------------------------------------
 
 hs_data_inet_tcp(Driver, Socket) ->
@@ -88,9 +93,8 @@ hs_data_inet_tcp(Driver, Socket) ->
                     }
           end}.
 
-hs_data_ssl(Driver, #sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
-    Family = Driver:family(),
-    {ok, Peername} = ssl:peername(SslSocket),
+hs_data_ssl(Family, #sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
+    {ok, Address} = ssl:peername(SslSocket),
     #hs_data{
        socket = DistCtrl,
        f_send =
@@ -116,7 +120,7 @@ hs_data_ssl(Driver, #sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
            end,
        f_address =
            fun (Ctrl, Node) when Ctrl == DistCtrl ->
-                   f_address(Family, Peername, Node)
+                   f_address(Family, Address, Node)
            end,
        mf_tick =
            fun (Ctrl) when Ctrl == DistCtrl ->
@@ -163,8 +167,10 @@ f_address(Family, Address, Node) ->
     case dist_util:split_node(Node) of
         {node,_,Host} ->
             #net_address{
-               address=Address, host=Host,
-               protocol=?PROTOCOL, family=Family};
+               address = Address,
+               host = Host,
+               protocol = ?PROTOCOL,
+               family = Family};
         _ ->
             {error, no_node}
     end.
@@ -212,52 +218,86 @@ split_stat([], R, W, P) ->
 %% -------------------------------------------------------------------------
 
 listen(Name, Host) ->
-    gen_listen(inet_tcp, Name, Host).
-
-gen_listen(Driver, Name, Host) ->
-    case inet_tcp_dist:gen_listen(Driver, Name, Host) of
-        {ok, {Socket, Address, Creation}} ->
-            inet:setopts(Socket, [{packet, 4}, {nodelay, true}]),
-            {ok, {Socket, Address#net_address{protocol=?PROTOCOL}, Creation}};
-        Other ->
-            Other
+    case
+        fam_listen(
+          ?FAMILY, Name, Host,
+          [{packet, 4}, {nodelay, true}], [])
+    of
+        {ok, {ListenSocket, NetAddress, Creation}} ->
+            NetAddress_1 =
+                NetAddress#net_address{
+                  protocol = ?PROTOCOL},
+            {ok, {ListenSocket, NetAddress_1, Creation}};
+        {error, _} = Error ->
+            Error
     end.
+
+fam_listen(Family, Name, Host, ForcedOptions, DefaultOptions) ->
+    Listen =
+        fun (First, Last, ListenOptions) ->
+                listen_loop(
+                  First, Last,
+                  inet_tcp_dist:merge_options(
+                    ListenOptions, [Family | ForcedOptions], DefaultOptions))
+        end,
+    inet_tcp_dist:fam_listen(Family, Name, Host, Listen).
+
+listen_loop(First, Last, ListenOptions) when First =< Last ->
+    case gen_tcp:listen(First, ListenOptions) of
+        {error, eaddrinuse} ->
+            listen_loop(First + 1, Last, ListenOptions);
+        Result ->
+            Result
+    end;
+listen_loop(_, _, _) ->
+    {error, eaddrinuse}.
 
 %% -------------------------------------------------------------------------
 
-accept(Listen) ->
-    gen_accept(inet_tcp, Listen).
+accept(ListenSocket) ->
+    fam_accept(?FAMILY, ListenSocket).
 
-gen_accept(Driver, Listen) ->
-    Kernel = self(),
+fam_accept(Family, ListenSocket) ->
+    NetKernel = self(),
     monitor_pid(
       spawn_opt(
         fun () ->
-            process_flag(trap_exit, true),
-            LOpts = application:get_env(kernel, inet_dist_listen_options, []),
-            MaxPending =
-                case lists:keyfind(backlog, 1, LOpts) of
-                    {backlog, Backlog} -> Backlog;
-                    false -> 128
-                end,
-            DLK = {Driver, Listen, Kernel},
-            accept_loop(DLK, spawn_accept(DLK), MaxPending, #{})
+                process_flag(trap_exit, true),
+                LOpts =
+                    application:get_env(
+                      kernel, inet_dist_listen_options, []),
+                MaxPending =
+                    case lists:keyfind(backlog, 1, LOpts) of
+                        {backlog, Backlog} -> Backlog;
+                        false -> 128
+                    end,
+                Continue = make_ref(),
+                FLNC = {Family, ListenSocket, NetKernel, Continue},
+                Pending = #{},
+                accept_loop(
+                  FLNC, Continue, spawn_accept(FLNC), MaxPending,
+                  Pending)
         end,
-        [link, {priority, max}])).
+        dist_util:net_ticker_spawn_options())).
 
 %% Concurrent accept loop will spawn a new HandshakePid when
 %%  there is no HandshakePid already running, and Pending map is
 %%  smaller than MaxPending
-accept_loop(DLK, undefined, MaxPending, Pending) when map_size(Pending) < MaxPending ->
-    accept_loop(DLK, spawn_accept(DLK), MaxPending, Pending);
-accept_loop({_, _, NetKernelPid} = DLK, HandshakePid, MaxPending, Pending) ->
+accept_loop(FLNC, Continue, undefined, MaxPending, Pending)
+  when map_size(Pending) < MaxPending ->
+    accept_loop(FLNC, Continue, spawn_accept(FLNC), MaxPending, Pending);
+accept_loop({_, _, NetKernelPid, _} = FLNC, Continue, HandshakePid, MaxPending, Pending) ->
     receive
-        {continue, HandshakePid} when is_pid(HandshakePid) ->
-            accept_loop(DLK, undefined, MaxPending, Pending#{HandshakePid => true});
+        {Continue, HandshakePid} when is_pid(HandshakePid) ->
+            accept_loop(
+              FLNC, Continue, undefined, MaxPending,
+              Pending#{HandshakePid => true});
         {'EXIT', Pid, Reason} when is_map_key(Pid, Pending) ->
             Reason =/= normal andalso
                 ?LOG_ERROR("TLS distribution handshake failed: ~p~n", [Reason]),
-            accept_loop(DLK, HandshakePid, MaxPending, maps:remove(Pid, Pending));
+            accept_loop(
+              FLNC, Continue, HandshakePid, MaxPending,
+              maps:remove(Pid, Pending));
         {'EXIT', HandshakePid, Reason} when is_pid(HandshakePid) ->
             %% HandshakePid crashed before turning into Pending, which means
             %%  error happened in accept. Need to restart the listener.
@@ -266,20 +306,21 @@ accept_loop({_, _, NetKernelPid} = DLK, HandshakePid, MaxPending, Pending) ->
             %% Since we're trapping exits, need to manually propagate this signal
             exit(Reason);
         Unexpected ->
-            ?LOG_WARNING("TLS distribution: unexpected message: ~p~n" ,[Unexpected]),
-            accept_loop(DLK, HandshakePid, MaxPending, Pending)
+            ?LOG_WARNING(
+               "TLS distribution: unexpected message: ~p~n", [Unexpected]),
+            accept_loop(FLNC, Continue, HandshakePid, MaxPending, Pending)
     end.
 
-spawn_accept({Driver, Listen, Kernel}) ->
+spawn_accept({Family, ListenSocket, NetKernel, Continue}) ->
     AcceptLoop = self(),
     spawn_link(
         fun () ->
-            case Driver:accept(Listen) of
+            case gen_tcp:accept(ListenSocket) of
                 {ok, Socket} ->
-                    AcceptLoop ! {continue, self()},
-                    case check_ip(Driver, Socket) of
+                    AcceptLoop ! {Continue, self()},
+                    case check_ip(Socket) of
                         true ->
-                            accept_one(Driver, Kernel, Socket);
+                            accept_one(Family, Socket, NetKernel);
                         {false,IP} ->
                             ?LOG_ERROR(
                                 "** Connection attempt from "
@@ -291,7 +332,7 @@ spawn_accept({Driver, Listen, Kernel}) ->
             end
         end).
 
-accept_one(Driver, Kernel, Socket) ->
+accept_one(Family, Socket, NetKernel) ->
     Opts = setup_verify_client(Socket, get_ssl_options(server)),
     KTLS = proplists:get_value(ktls, Opts, false),
     case
@@ -307,8 +348,8 @@ accept_one(Driver, Kernel, Socket) ->
                     case set_ktls(KtlsInfo) of
                         ok ->
                             accept_one(
-                              Driver, Kernel, Socket,
-                              fun inet_tcp:controlling_process/2, Socket);
+                              Family, Socket, NetKernel,
+                              fun gen_tcp:controlling_process/2, Socket);
                         {error, KtlsReason} ->
                             ?LOG_ERROR(
                                [{slogan, set_ktls_failed},
@@ -319,7 +360,7 @@ accept_one(Driver, Kernel, Socket) ->
                     end;
                 false ->
                     accept_one(
-                      Driver, Kernel, Sender,
+                      Family, Sender, NetKernel,
                       fun ssl:controlling_process/2, SslSocket)
             end;
         {error, {options, _}} = Error ->
@@ -335,10 +376,11 @@ accept_one(Driver, Kernel, Socket) ->
             trace(Other)
     end.
 %%
-accept_one(Driver, Kernel, DistCtrl, ControllingProcessFun, DistSocket) ->
-    trace(Kernel ! {accept, self(), DistCtrl, Driver:family(), ?PROTOCOL}),
+accept_one(
+  Family, DistCtrl, NetKernel, ControllingProcessFun, DistSocket) ->
+    trace(NetKernel ! {accept, self(), DistCtrl, Family, ?PROTOCOL}),
     receive
-        {Kernel, controller, Pid} ->
+        {NetKernel, controller, Pid} ->
             case ControllingProcessFun(DistSocket, Pid) of
                 ok ->
                     trace(Pid ! {self(), controller});
@@ -349,7 +391,7 @@ accept_one(Driver, Kernel, DistCtrl, ControllingProcessFun, DistSocket) ->
                         {reason, Reason},
                         {pid, self()}])
             end;
-        {Kernel, unsupported_protocol} ->
+        {NetKernel, unsupported_protocol} ->
             trace(unsupported_protocol)
     end.
 
@@ -441,7 +483,7 @@ verify_client(PeerCert, valid_peer, {AllowedHosts,PeerIP} = S) ->
 
 accept_connection(AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     gen_accept_connection(
-      inet_tcp, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime).
+      ?DRIVER, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime).
 
 gen_accept_connection(
   Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
@@ -465,12 +507,13 @@ do_accept(
             {HSData0, NewAllowed} =
                 case is_port(DistCtrl) of
                     true ->
+                        %% inet_drv socket
                         {hs_data_inet_tcp(Driver, DistCtrl),
                          Allowed};
                     false ->
                         {ok, SslSocket} = tls_sender:dist_tls_socket(DistCtrl),
                         link(DistCtrl),
-                        {hs_data_ssl(Driver, SslSocket),
+                        {hs_data_ssl(Driver:family(), SslSocket),
                          allowed_nodes(SslSocket, Allowed)}
                 end,
             HSData =
@@ -551,24 +594,95 @@ allowed_nodes(PeerCert, Allowed, PeerIP, Node, Host) ->
             allowed_nodes(PeerCert, Allowed, PeerIP)
     end.
 
+
+%% -------------------------------------------------------------------------
+
 setup(Node, Type, MyNode, LongOrShortNames, SetupTime) ->
-    gen_setup(inet_tcp, Node, Type, MyNode, LongOrShortNames, SetupTime).
+    gen_setup(?DRIVER, Node, Type, MyNode, LongOrShortNames, SetupTime).
 
 gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
-    Kernel = self(),
+    NetKernel = self(),
     monitor_pid(
-      spawn_opt(setup_fun(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime),
-                dist_util:net_ticker_spawn_options())).
+      spawn_opt(
+        setup_fun(
+          Driver, Node, Type, MyNode, LongOrShortNames, SetupTime,
+          NetKernel),
+        dist_util:net_ticker_spawn_options())).
 
 -spec setup_fun(_,_,_,_,_,_,_) -> fun(() -> no_return()).
-setup_fun(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
+setup_fun(
+  Driver, Node, Type, MyNode, LongOrShortNames, SetupTime, NetKernel) ->
     fun() ->
             do_setup(
-              Driver, Kernel, Node, Type,
-              MyNode, LongOrShortNames, SetupTime)
+              Driver, Node, Type, MyNode, LongOrShortNames, SetupTime,
+              NetKernel)
+    end.
+
+-spec do_setup(_,_,_,_,_,_,_) -> no_return().
+do_setup(
+  Driver, Node, Type, MyNode, LongOrShortNames, SetupTime, NetKernel) ->
+    Family = Driver:family(),
+    Timer = trace(dist_util:start_timer(SetupTime)),
+    ParseAddress = fun (A) -> inet:parse_strict_address(A, Family) end,
+    {#net_address{
+        host = Host,
+        address = {Ip, PortNum}},
+     ConnectOptions,
+     Version} =
+        trace(inet_tcp_dist:fam_setup(
+                Family, Node, LongOrShortNames, ParseAddress)),
+    Opts =
+        inet_tcp_dist:merge_options(
+          inet_tcp_dist:merge_options(
+            ConnectOptions,
+            get_ssl_options(client), []),
+          [Family, binary, {active, false}, {packet, 4}, {nodelay, true}],
+          [{server_name_indication, Host}]),
+    KTLS = proplists:get_value(ktls, Opts, false),
+    dist_util:reset_timer(Timer),
+    maybe
+        {ok, #sslsocket{pid = [Receiver, Sender| _]} = SslSocket} ?=
+            ssl:connect(Ip, PortNum, Opts, net_kernel:connecttime()),
+        HSData =
+            case KTLS of
+                true ->
+                    {ok, KtlsInfo} =
+                        ssl_gen_statem:ktls_handover(Receiver),
+                    case set_ktls(KtlsInfo) of
+                        ok ->
+                            #{socket := Socket} = KtlsInfo,
+                            hs_data_inet_tcp(Driver, Socket);
+                        {error, KtlsReason} ->
+                            ?shutdown2(
+                               Node,
+                               trace({set_ktls_failed, KtlsReason}))
+                    end;
+                false ->
+                    _ = monitor_pid(Sender),
+                    ok = ssl:controlling_process(SslSocket, self()),
+                    link(Sender),
+                    hs_data_ssl(Driver, SslSocket)
+            end
+            #hs_data{
+              kernel_pid = NetKernel,
+              other_node = Node,
+              this_node = MyNode,
+              timer = Timer,
+              this_flags = 0,
+              other_version = Version,
+              request_type = Type},
+        dist_util:handshake_we_started(trace(HSData))
+    else
+        Other ->
+            %% Other Node may have closed since
+            %% port_please !
+            ?shutdown2(
+               Node,
+               trace({ssl_connect_failed, Ip, PortNum, Other}))
     end.
 
 
+-ifdef(undefined).
 -spec do_setup(_,_,_,_,_,_,_) -> no_return().
 do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     {Name, Address} = split_node(Driver, Node, LongOrShortNames),
@@ -576,12 +690,16 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     {ARMod, ARFun} = get_address_resolver(ErlEpmd, Driver),
     Timer = trace(dist_util:start_timer(SetupTime)),
     case ARMod:ARFun(Name,Address,Driver:family()) of
-    {ok, Ip, TcpPort, Version} ->
-        do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer);
+        {ok, Ip, TcpPort, Version} ->
+            do_setup_connect(
+              Driver, Kernel, Node, Type, MyNode,
+              Address, Ip, TcpPort, Version, Timer);
 	{ok, Ip} ->
 	    case ErlEpmd:port_please(Name, Ip) of
 		{port, TcpPort, Version} ->
-                do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer);
+                    do_setup_connect(
+                      Driver, Kernel, Node, Type, MyNode,
+                      Address, Ip, TcpPort, Version, Timer);
 		Other ->
 		    ?shutdown2(
                        Node,
@@ -596,17 +714,18 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 
 -spec do_setup_connect(_,_,_,_,_,_,_,_,_,_) -> no_return().
 
-do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNode, Timer) ->
+do_setup_connect(Driver, Kernel, Node, Type, MyNode, Address, Ip, TcpPort, Version, Timer) ->
     Opts =  trace(connect_options(get_ssl_options(client))),
     KTLS = proplists:get_value(ktls, Opts, false),
     dist_util:reset_timer(Timer),
-    case ssl:connect(
-        Ip, TcpPort,
-        [binary, {active, false}, {packet, 4},
-         {server_name_indication, Address},
-            Driver:family(), {nodelay, true}] ++ Opts,
-        net_kernel:connecttime()
-    ) of
+    case
+        ssl:connect(
+          Ip, TcpPort,
+          [binary, {active, false}, {packet, 4},
+           {server_name_indication, Address},
+           Driver:family(), {nodelay, true}] ++ Opts,
+          net_kernel:connecttime())
+    of
         {ok, #sslsocket{pid = [Receiver, Sender| _]} = SslSocket} ->
             HSData =
                 case KTLS of
@@ -644,6 +763,7 @@ do_setup_connect(Driver, Kernel, Node, Address, Ip, TcpPort, Version, Type, MyNo
                 Node,
                 trace({ssl_connect_failed, Ip, TcpPort, Other}))
     end.
+-endif.
 
 close(Socket) ->
     gen_close(inet, Socket).
@@ -652,6 +772,7 @@ gen_close(Driver, Socket) ->
     trace(Driver:close(Socket)).
 
 
+-ifdef(undefined).
 %% ------------------------------------------------------------
 %% Determine if EPMD module supports address resolving. Default
 %% is to use inet_tcp:getaddr/2.
@@ -661,11 +782,58 @@ get_address_resolver(EpmdModule, _Driver) ->
         true -> {EpmdModule, address_please};
         _    -> {erl_epmd, address_please}
     end.
+-endif.
 
 %% ------------------------------------------------------------
 %% Do only accept new connection attempts from nodes at our
 %% own LAN, if the check_ip environment parameter is true.
 %% ------------------------------------------------------------
+check_ip(Socket) ->
+    case application:get_env(check_ip) of
+	{ok, true} ->
+            maybe
+                {ok, {IP, _}} ?= inet:sockname(Socket),
+                ok ?= if is_tuple(IP) -> ok;
+                         true -> {error, {no_ip_address, IP}}
+                      end,
+                {ok, Ifaddrs} ?= inet:getifaddrs(),
+                {ok, Netmask} ?= find_netmask(IP, Ifaddrs),
+                {ok, {PeerIP, _}} ?= inet:sockname(Socket),
+                ok ?= if is_tuple(PeerIP) -> ok;
+                         true -> {error, {no_ip_address, PeerIP}}
+                      end,
+                mask(IP, Netmask) =:= mask(PeerIP, Netmask)
+                    orelse {false, PeerIP}
+            else
+                Other ->
+                    exit({check_ip, Other})
+            end;
+	_ ->
+	    true
+    end.
+
+find_netmask(IP, [{_Name,Items} | Ifaddrs]) ->
+    find_netmask(IP, Ifaddrs, Items);
+find_netmask(_, []) ->
+    {error, no_netmask}.
+%%
+find_netmask(IP, _Ifaddrs, [{addr, IP}, {netmask, Netmask} | _]) ->
+    {ok, Netmask};
+find_netmask(IP, Ifaddrs, [_ | Items]) ->
+    find_netmask(IP, Ifaddrs, Items);
+find_netmask(IP, Ifaddrs, []) ->
+    find_netmask(IP, Ifaddrs).
+
+mask(Addr, Mask) ->
+    list_to_tuple(mask(Addr, Mask, 1)).
+%%
+mask(Addr, Mask, N) when N =< tuple_size(Addr) ->
+    [element(N, Addr) band element(N, Mask) | mask(Addr, Mask, N + 1)];
+mask(_, _, _) ->
+    [].
+
+
+-ifdef(undefined).
 check_ip(Driver, Socket) ->
     case application:get_env(check_ip) of
 	{ok, true} ->
@@ -699,6 +867,7 @@ get_ifs(Socket) ->
 	Error ->
 	    Error
     end.
+-endif.
 
 
 %% Look in Extensions, in all subjectAltName:s
@@ -776,6 +945,7 @@ parse_rdn([_|Rdn]) ->
     parse_rdn(Rdn).
 
 
+-ifdef(undefined).
 %% If Node is illegal terminate the connection setup!!
 split_node(Driver, Node, LongOrShortNames) ->
     case dist_util:split_node(Node) of
@@ -816,9 +986,11 @@ check_node(Driver, Node, Name, Host, LongOrShortNames) ->
 	_ ->
 	    {Name, Host}
     end.
+-endif.
 
 %% -------------------------------------------------------------------------
 
+-ifdef(undefined).
 connect_options(Opts) ->
     case application:get_env(kernel, inet_dist_connect_options) of
 	{ok,ConnectOpts} ->
@@ -826,6 +998,7 @@ connect_options(Opts) ->
 	_ ->
 	    Opts
     end.
+-endif.
 
 get_ssl_options(Type) ->
     [{erl_dist, true} |
