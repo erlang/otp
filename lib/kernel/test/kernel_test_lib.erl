@@ -1526,6 +1526,12 @@ analyze_and_print_win_host_info(Version) ->
                                 10
                         catch
                             _:_:_ ->
+                                %% For some reason the string contains
+                                %% "unusual" characters...
+                                %% ...so print the string as a list...
+                                io:format("Bad memory string: "
+                                          "~n   [gb] ~w (~w)"
+                                          "~n", [MStr0, MStr]),
                                 10
                         end;
                     "mb" ->
@@ -1543,9 +1549,18 @@ analyze_and_print_win_host_info(Version) ->
                                 10
                         catch
                             _:_:_ ->
+                                %% For some reason the string contains
+                                %% "unusual" characters...
+                                %% ...so print the string as a list...
+                                io:format("Bad memory string: "
+                                          "~n   [mb] ~w (~w)"
+                                          "~n", [MStr0, MStr]),
                                 10
                         end;
                     _ ->
+                        io:format("Bad memory string: "
+                                  "~n   ~w"
+                                  "~n", [MStr0]),
                         10
                 end
             end
