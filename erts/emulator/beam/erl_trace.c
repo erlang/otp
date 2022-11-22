@@ -2633,6 +2633,9 @@ lookup_tracer_nif(const ErtsTracer tracer)
 {
     ErtsTracerNif tnif_tmpl;
     ErtsTracerNif *tnif;
+    if (tracer == erts_tracer_nil) {
+        return NULL;
+    }
     tnif_tmpl.module = ERTS_TRACER_MODULE(tracer);
     ERTS_LC_ASSERT(erts_thr_progress_lc_is_delaying() || erts_get_scheduler_id() > 0);
     erts_rwmtx_rlock(&tracer_mtx);
