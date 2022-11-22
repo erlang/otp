@@ -1503,36 +1503,44 @@ analyze_and_print_win_host_info(Version) ->
                        erlang:system_info(wordsize),
                        str_num_schedulers()]),
     io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+    %% On some machines this is a badly formated string
+    %% (contains a char of 255), so we need to do some nasty stuff...
     MemFactor =
         try
             begin
-                [MStr, MUnit|_] =
+                [MStr0, MUnit|_] =
                     string:tokens(lists:delete($,, TotPhysMem), [$\ ]),
                 case string:to_lower(MUnit) of
                     "gb" ->
+                        MStr = [Char || Char <- MStr0, Char =/= 255],
                         try list_to_integer(MStr) of
-                            M when M > 8 ->
+                            M when M >= 16 ->
                                 0;
-                            M when M > 4 ->
+                            M when M >= 8 ->
                                 1;
-                            M when M > 2 ->
-                                2;
+                            M when M >= 4 ->
+                                3;
+                            M when M >= 2 ->
+                                6;
                             _ -> 
-                                5
+                                10
                         catch
                             _:_:_ ->
                                 10
                         end;
                     "mb" ->
+                        MStr = [Char || Char <- MStr0, Char =/= 255],
                         try list_to_integer(MStr) of
-                            M when M > 8192 ->
+                            M when M >= 16384 ->
                                 0;
-                            M when M > 4096 ->
+                            M when M >= 8192 ->
                                 1;
+                            M when M > 4096 ->
+                                3;
                             M when M > 2048 ->
-                                2;
+                                6;
                             _ -> 
-                                5
+                                10
                         catch
                             _:_:_ ->
                                 10
