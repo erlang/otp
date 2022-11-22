@@ -761,9 +761,13 @@ resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, M) ->
     [resolve_inst(Instr, Imports, Str, Lbls, Lambdas, Literals, M) || Instr <- Fun].
 
 %%
-%% New make_fun2/4 instruction added in August 2001 (R8).
-%% We handle it specially here to avoid adding an argument to
+%% Instructions that need to look up an entry in the Lambda table.
+%% We handle these specially here to avoid adding an argument to
 %% the clause for every instruction.
+%%
+%% - make_fun2/4 (R8, added in August 2001)
+%% - make_fun3/3 (OTP 24)
+%% - call_fun2/3 (OTP 25)
 %%
 
 resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, M) ->
@@ -777,6 +781,17 @@ resolve_inst({make_fun3,[Fun,Dst,{{z,1},{u,_},Env0}]}, _, _, _, Lambdas, _, M) -
     {OldIndex,{F,A,_Lbl,_Index,_NumFree,OldUniq}} =
 	lists:keyfind(OldIndex, 1, Lambdas),
     {make_fun3,{M,F,A},OldIndex,OldUniq,Dst,{list,Env1}};
+resolve_inst({call_fun2,Args}, _, _, _, Lambdas, _, _) ->
+    [Tag0,Arity,Func] = resolve_args(Args),
+    Tag = case Tag0 of
+              Index when is_integer(Index) ->
+                  {Tag0,{_F,_A,Label,_Index,_NumFree,_OldUniq}} =
+                      lists:keyfind(Tag0, 1, Lambdas),
+                  {f,Label};
+              _ ->
+                  Tag0
+          end,
+    {call_fun2,Tag,Arity,Func};
 resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _M) ->
     %% io:format(?MODULE_STRING":resolve_inst ~p.~n", [Instr]),
     resolve_inst(Instr, Imports, Str, Lbls).
@@ -973,19 +988,19 @@ resolve_inst({fconv,Args},_,_,_) ->
     {fconv,Reg,FR};
 resolve_inst({fadd=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fsub=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fmul=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fdiv=I,Args},_,_,_) ->
     [F,A1,A2,Reg] = resolve_args(Args),
-    {arithfbif,I,F,[A1,A2],Reg};
+    {bif,I,F,[A1,A2],Reg};
 resolve_inst({fnegate,Args},_,_,_) ->
     [F,Arg,Reg] = resolve_args(Args),
-    {arithfbif,fnegate,F,[Arg],Reg};
+    {bif,fnegate,F,[Arg],Reg};
 
 %%
 %% Instructions for try expressions added in January 2003 (R10).
@@ -999,8 +1014,7 @@ resolve_inst({try_case,[Reg]},_,_,_) ->  % analogous to 'catch_end'
 resolve_inst({try_case_end,[Arg]},_,_,_) ->
     {try_case_end,resolve_arg(Arg)};
 resolve_inst({raise,[_Reg1,_Reg2]=Regs},_,_,_) ->
-    {raise,{f,0},Regs,{x,0}};		 % do NOT wrap this as a 'bif'
-					 % as there is no raise/2 bif!
+    {bif,raise,{f,0},Regs,{x,0}};
 
 %%
 %% New bit syntax instructions added in February 2004 (R10B).
@@ -1039,15 +1053,15 @@ resolve_inst({is_function2=I,Args0},_,_,_) ->
 %%
 resolve_inst({bs_start_match2=I,[F,Reg,{u,Live},{u,Max},Ms]},_,_,_) ->
     {test,I,F,[Reg,Live,Max,Ms]};
-resolve_inst({bs_get_integer2=I,[Lbl,Ms,{u,Live},Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[Ms, Live,A2,N,decode_field_flags(U),A5]};
-resolve_inst({bs_get_binary2=I,[Lbl,Ms,{u,Live},Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[Ms, Live,A2,N,decode_field_flags(U),A5]};
-resolve_inst({bs_get_float2=I,[Lbl,Ms,{u,Live},Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[Ms, Live,A2,N,decode_field_flags(U),A5]};
+resolve_inst({bs_get_integer2=I,[Fail,Ms,{u,Live},Size0,{u,Unit},{u,Flags},Dst0]},_,_,_) ->
+    [Size,Dst] = resolve_args([Size0,Dst0]),
+    {test,I,Fail,Live,[Ms,Size,Unit,decode_field_flags(Flags)],Dst};
+resolve_inst({bs_get_binary2=I,[Fail,Ms,{u,Live},Size0,{u,Unit},{u,Flags},Dst0]},_,_,_) ->
+    [Size,Dst] = resolve_args([Size0,Dst0]),
+    {test,I,Fail,Live,[Ms,Size,Unit,decode_field_flags(Flags)],Dst};
+resolve_inst({bs_get_float2=I,[Fail,Ms,{u,Live},Size0,{u,Unit},{u,Flags},Dst0]},_,_,_) ->
+    [Size,Dst] = resolve_args([Size0,Dst0]),
+    {test,I,Fail,Live,[Ms,Size,Unit,decode_field_flags(Flags)],Dst};
 resolve_inst({bs_skip_bits2=I,[Lbl,Ms,Arg2,{u,N},{u,U}]},_,_,_) ->
     A2 = resolve_arg(Arg2),
     {test,I,Lbl,[Ms,A2,N,decode_field_flags(U)]};
@@ -1107,7 +1121,7 @@ resolve_inst({bs_match_string=I,[F,Ms,{u,Bits},{u,Off}]},_,Strings,_) ->
 		     Bin;
 		 true -> <<>>
 	     end,
-    {test,I,F,[Ms,Bits,String]};
+    {test,I,F,[Ms,Bits,{string,String}]};
 resolve_inst({bs_init_writable=I,[]},_,_,_) ->
     I;
 resolve_inst({bs_append=I,[Lbl,Arg2,{u,W},{u,R},{u,U},Arg6,{u,F},Arg8]},_,_,_) ->
@@ -1222,11 +1236,11 @@ resolve_inst({get_tl,[Src,Dst]},_,_,_) ->
 resolve_inst({put_tuple2,[Dst,{{z,1},{u,_},List0}]},_,_,_) ->
     List = resolve_args(List0),
     {put_tuple2,Dst,{list,List}};
-resolve_inst({bs_start_match3,[Fail,Bin,Live,Dst]},_,_,_) ->
-    {bs_start_match3,Fail,Bin,Live,Dst};
-resolve_inst({bs_get_tail,[Src,Dst,Live]},_,_,_) ->
+resolve_inst({bs_start_match3=I,[Fail,Bin,{u,Live},Dst]},_,_,_) ->
+    {test,I,Fail,Live,[Bin],Dst};
+resolve_inst({bs_get_tail,[Src,Dst,{u,Live}]},_,_,_) ->
     {bs_get_tail,Src,Dst,Live};
-resolve_inst({bs_get_position,[Src,Dst,Live]},_,_,_) ->
+resolve_inst({bs_get_position,[Src,Dst,{u,Live}]},_,_,_) ->
     {bs_get_position,Src,Dst,Live};
 resolve_inst({bs_set_position,[Src,Dst]},_,_,_) ->
     {bs_set_position,Src,Dst};
@@ -1235,7 +1249,7 @@ resolve_inst({bs_set_position,[Src,Dst]},_,_,_) ->
 %% OTP 23.
 %%
 
-resolve_inst({bs_start_match4,[Fail,Live,Src,Dst]},_,_,_) ->
+resolve_inst({bs_start_match4,[Fail,{u,Live},Src,Dst]},_,_,_) ->
     {bs_start_match4,Fail,Live,Src,Dst};
 resolve_inst({swap,[_,_]=List},_,_,_) ->
     [R1,R2] = resolve_args(List),
@@ -1266,8 +1280,6 @@ resolve_inst({bs_create_bin,
              _, Strings, _) ->
     List = resolve_bs_create_bin_list(List0, Strings),
     {bs_create_bin,Fail,Heap,Live,Unit,Dst,{list,List}};
-resolve_inst({call_fun2,[Tag,{u,Arity},Func]},_,_,_) ->
-    {call_fun2,Tag,Arity,Func};
 resolve_inst({nif_start,[]},_,_,_) ->
     nif_start;
 resolve_inst({badrecord,[Arg]},_,_,_) ->
@@ -1277,8 +1289,10 @@ resolve_inst({badrecord,[Arg]},_,_,_) ->
 %% OTP 26.
 %%
 
-resolve_inst({update_record,[Hint,Size,Src,Dst,List]},_,_,_) ->
-    {update_record,Hint,Size,Src,Dst,List};
+resolve_inst({update_record,
+              [Hint,{u,Size},Src,Dst,{{{z,1},{u,_},List0}}]},_,_,_) ->
+    List = resolve_args(List0),
+    {update_record,Hint,Size,Src,Dst,{list,List}};
 resolve_inst({bs_match,[{Fail,Ctx,{z,1},{u,_},Args}]},_,_,_) ->
     List = resolve_args(Args),
     Commands = resolve_bs_match_commands(List),
