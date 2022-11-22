@@ -97,6 +97,9 @@
 %% Log handling
 -export([format_status/2]).
 
+%% Tracing
+-export([handle_trace/3]).
+
 %%--------------------------------------------------------------------
 %%% Initial Erlang process setup
 %%--------------------------------------------------------------------
@@ -2215,3 +2218,11 @@ maybe_generate_client_shares(#{versions := [Version|_],
     ssl_cipher:generate_client_shares([Group]);
 maybe_generate_client_shares(_) ->
     undefined.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(rle,
+                 {call, {?MODULE, init, Args = [[Role | _]]}}, Stack0) ->
+    {io_lib:format("(*~w) Args = ~W", [Role, Args, 3]), [{role, Role} | Stack0]}.

@@ -75,6 +75,7 @@
 	       ssl_crl_hash_dir,
 	       %% Logging
 	       ssl_logger,
+	       ssl_trace,
 	       %% App structure
 	       ssl_app,
 	       ssl_sup,

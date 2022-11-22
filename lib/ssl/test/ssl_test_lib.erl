@@ -213,7 +213,8 @@
          portable_cmd/2,
          portable_open_port/2,
          close_port/1,
-         verify_early_data/1
+         verify_early_data/1,
+         trace/0
         ]).
 
 -record(sslsocket, { fd = nil, pid = nil}).
@@ -4126,3 +4127,7 @@ curve_default(eddsa) ->
     ed25519;
 curve_default(_) ->
     ?DEFAULT_CURVE.
+
+trace() ->
+    ssl_trace:start(fun ct:pal/2, []),
+    ssl_trace:on().
