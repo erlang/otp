@@ -64,13 +64,18 @@ groups() ->
      {benchmark, protocols()},
      %%
      %% protocols()
-     {ssl,    backends()},
-     {crypto, categories()},
-     {plain,  categories()},
+     {ssl,    encryption_backends()},
+     {crypto, inet_backends()},
+     {plain,  inet_backends()},
      %%
-     %% backends()
-     {crypto_lib,     categories()},
+     %% encryption_backends()
+     {crypto_lib,     inet_backends()},
      {kernel_offload, categories()},
+     %%
+     %% inet_backends()
+     {inet,   categories()},
+     {socket, categories()},
+     %%
      %% categories()
      {setup, [{repeat, 1}], [setup]},
      {roundtrip, [{repeat, 1}], [roundtrip]},
@@ -92,7 +97,11 @@ protocols() ->
      {group, crypto},
      {group, plain}].
 
-backends() ->
+inet_backends() ->
+    [{group, inet},
+     {group, socket}].
+
+encryption_backends() ->
     [{group,crypto_lib},
      {group,kernel_offload}].
 
@@ -228,6 +237,14 @@ init_per_group(crypto, Config) ->
     end;
 init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
+%%
+init_per_group(socket, Config) ->
+    SslDistPrefix = proplists:get_value(ssl_dist_prefix, Config),
+    SslDistArgs = proplists:get_value(ssl_dist_args, Config, ""),
+    [{ssl_dist_prefix, SslDistPrefix ++ "-Socket"},
+     {ssl_dist_args, SslDistArgs ++ " -kernel inet_backend socket"} |
+     proplists:delete(
+       ssl_dist_prefix, proplists:delete(ssl_dist_args, Config))];
 %%
 init_per_group(kernel_offload, Config) ->
     {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
