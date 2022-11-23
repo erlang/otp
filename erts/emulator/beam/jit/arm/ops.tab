@@ -271,6 +271,9 @@ i_get_tuple_element Tuple Pos Tuple2 | current_tuple Tuple3 |
 
 current_tuple Tuple => _
 
+i_get_tuple_element Tuple Pos Dst | current_tuple d | swap R1 R2 =>
+    i_get_tuple_element Tuple Pos Dst | swap R1 R2
+
 load_tuple_ptr s
 
 # If positions are in consecutive memory, fetch and store two words at
@@ -293,6 +296,14 @@ current_tuple Tuple Dst => current_tuple Tuple
 # with the source tuple operand.
 i_get_tuple_element s P S
 get_two_tuple_elements s P S S
+
+i_get_tuple_element Tuple Pos Dst | swap Reg1 Reg2 | equal(Dst, Reg1) =>
+    get_tuple_element_swap Tuple Pos Dst Reg2
+
+i_get_tuple_element Tuple Pos Dst | swap Reg2 Reg1 | equal(Dst, Reg1) =>
+    get_tuple_element_swap Tuple Pos Dst Reg2
+
+get_tuple_element_swap s P d d
 
 #
 # Exception raising instructions. Infrequently executed.

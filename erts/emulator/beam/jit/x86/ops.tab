@@ -314,6 +314,14 @@ current_tuple Tuple Dst => current_tuple Tuple
 i_get_tuple_element s P S
 get_two_tuple_elements s P S S
 
+i_get_tuple_element Tuple Pos Dst | swap Reg1 Reg2 | equal(Dst, Reg1) =>
+    get_tuple_element_swap Tuple Pos Dst Reg2
+
+i_get_tuple_element Tuple Pos Dst | swap Reg2 Reg1 | equal(Dst, Reg1) =>
+    get_tuple_element_swap Tuple Pos Dst Reg2
+
+get_tuple_element_swap s P d d
+
 #
 # Exception raising instructions. Infrequently executed.
 #

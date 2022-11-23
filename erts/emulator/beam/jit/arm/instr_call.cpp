@@ -150,7 +150,6 @@ void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
     emit_i_call_ext_only(Exp);
 }
 
-
 static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
 
 arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
