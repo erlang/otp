@@ -64,6 +64,7 @@
 	 processes_this_tab/1, processes_apply_trap/1,
 	 processes_last_call_trap/1, processes_gc_trap/1,
 	 processes_term_proc_list/1,
+         processes_send_infant/1,
 	 otp_7738_waiting/1, otp_7738_suspended/1,
 	 otp_7738_resume/1,
 	 garb_other_running/1,
@@ -150,7 +151,8 @@ groups() ->
       [processes_large_tab, processes_default_tab,
        processes_small_tab, processes_this_tab,
        processes_last_call_trap, processes_apply_trap,
-       processes_gc_trap, processes_term_proc_list]},
+       processes_gc_trap, processes_term_proc_list,
+       processes_send_infant]},
      {process_info_bif, [],
       [t_process_info, process_info_messages,
        process_info_other, process_info_other_msg,
@@ -3821,6 +3823,120 @@ processes_term_proc_list(Config) when is_list(Config) ->
 
     ok.
 
+%% OTP-18322: Send msg to spawning process pid returned from processes/0
+processes_send_infant(_Config) ->
+    case erlang:system_info(schedulers_online) of
+        1 ->
+            {skip, "Only one scheduler online"};
+        NScheds ->
+            processes_send_infant_do(NScheds)
+    end.
+
+processes_send_infant_do(NScheds) ->
+    IgnoreList = erlang:processes(),
+    IgnorePids = maps:from_keys(IgnoreList, ignore),
+    Tester = self(),
+
+    %% To provoke bug we need sender and spawner on different schedulers.
+    %% Let spawners use schedulers nr 2 to NScheds
+    NSpawnerScheds = NScheds - 1,
+    NSpawners = 2 * NSpawnerScheds,
+    [spawn_link(fun() ->
+                        processes_send_infant_spawner((I rem  NSpawnerScheds) + 2,
+                                                      Tester, Tester, 1)
+                end)
+     || I <- lists:seq(0, NSpawners-1)],
+
+    %% and make sure sender use scheduler 1
+    {Sender,SenderMon} =
+        spawn_opt(
+          fun() ->
+                  timeout = processes_send_infant_loop(IgnorePids)
+          end,
+          [link, monitor, {scheduler,1}]),
+
+    %% Run test for a little while and see if VM crashes
+    {ok, _TRef} = timer:send_after(1000, Sender, timeout),
+    {'DOWN', SenderMon, process, Sender, normal} = receive_any(),
+
+    %% Stop spawners and collect stats
+    processes_send_infant_broadcast(erlang:processes(),
+                                    {processes_send_infant, stop},
+                                    IgnorePids),
+    {TotSpawn, TheLastOfUs} =
+        lists:foldl(fun(_, {SpawnCnt, Pids}) ->
+                            {Pid, Generation} = receive_any(),
+                            io:format("Got ~p from ~p\n", [Generation, Pid]),
+                            {SpawnCnt+Generation, [Pid | Pids]}
+                    end,
+                    {0, []},
+                    lists:seq(1, NSpawners)),
+    io:format("Total spawned processes: ~p\n", [TotSpawn]),
+    Aliens = (erlang:processes() -- IgnoreList) -- TheLastOfUs,
+    io:format("Alien processes: ~p\n", [Aliens]),
+    ok.
+
+
+
+processes_send_infant_loop(IgnorePids) ->
+    %% Send message identifying this test case, in case we send
+    %% to alien processes spawned during the test.
+    Msg = processes_send_infant,
+    processes_send_infant_broadcast(erlang:processes(),
+                                    Msg,
+                                    IgnorePids),
+    receive timeout -> timeout
+    after 0 ->
+            processes_send_infant_loop(IgnorePids)
+    end.
+
+processes_send_infant_broadcast([Pid | Tail], Msg, IgnorePids) ->
+    case maps:is_key(Pid, IgnorePids) of
+        false ->
+            Pid ! Msg;
+        true ->
+            ignore
+    end,
+    processes_send_infant_broadcast(Tail, Msg, IgnorePids);
+processes_send_infant_broadcast([], _, _) ->
+    ok.
+
+processes_send_infant_spawner(Sched, Tester, Parent, Generation) ->
+    link(Tester),
+    case receive_any() of
+        processes_send_infant ->
+            case Parent of
+                Tester -> ok;
+                _ -> Parent ! {die, self()}
+            end,
+            Self = self(),
+            Child = spawn_opt(fun() ->
+                                      processes_send_infant_spawner(Sched, Tester,
+                                                                    Self,
+                                                                    Generation+1)
+                              end,
+                             [{message_queue_data, off_heap},
+                              {scheduler, Sched}]),
+            process_send_infant_spawner_epilogue(Child);
+
+        {processes_send_infant, stop} ->
+            Tester ! {self(), Generation}
+    end.
+
+process_send_infant_spawner_epilogue(Child) ->
+    %% Parent stays alive only to ensure child gets stop message
+    case receive_any() of
+        processes_send_infant ->
+            process_send_infant_spawner_epilogue(Child);
+        {die, Child} ->
+            ok;
+        {processes_send_infant, stop}=Stop ->
+            %% We are not sure child was spawned when stop message was sent
+            %% so we relay it.
+            Child ! Stop
+    end.
+
+
 -define(CHK_TERM_PROC_LIST(MC, XB),
 	chk_term_proc_list(?LINE, MC, XB)).
 
@@ -5043,3 +5159,6 @@ get_hostname([$@ | HostName]) ->
     HostName;
 get_hostname([_ | Rest]) ->
     get_hostname(Rest).
+
+receive_any() ->
+    receive M -> M end.
