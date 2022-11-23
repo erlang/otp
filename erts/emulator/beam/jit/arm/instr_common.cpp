@@ -75,6 +75,15 @@ void BeamModuleAssembler::emit_error(int reason) {
     emit_raise_exception();
 }
 
+void BeamModuleAssembler::emit_error(int reason, const ArgSource &Src) {
+    auto src = load_source(Src, TMP2);
+
+    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
+    mov_imm(TMP1, reason);
+    a.stp(TMP1, src.reg, arm::Mem(c_p, offsetof(Process, freason)));
+    emit_raise_exception();
+}
+
 void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
                                                 const ArgWord &Live,
                                                 const ArgSource &Preserve,
@@ -2240,13 +2249,11 @@ void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
 }
 
 void BeamModuleAssembler::emit_badmatch(const ArgSource &Src) {
-    mov_arg(arm::Mem(c_p, offsetof(Process, fvalue)), Src);
-    emit_error(BADMATCH);
+    emit_error(BADMATCH, Src);
 }
 
 void BeamModuleAssembler::emit_case_end(const ArgSource &Src) {
-    mov_arg(arm::Mem(c_p, offsetof(Process, fvalue)), Src);
-    emit_error(EXC_CASE_CLAUSE);
+    emit_error(EXC_CASE_CLAUSE, Src);
 }
 
 void BeamModuleAssembler::emit_system_limit_body() {
@@ -2258,8 +2265,7 @@ void BeamModuleAssembler::emit_if_end() {
 }
 
 void BeamModuleAssembler::emit_badrecord(const ArgSource &Src) {
-    mov_arg(arm::Mem(c_p, offsetof(Process, fvalue)), Src);
-    emit_error(EXC_BADRECORD);
+    emit_error(EXC_BADRECORD, Src);
 }
 
 void BeamModuleAssembler::emit_catch(const ArgYRegister &Y,
@@ -2398,8 +2404,7 @@ void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
 }
 
 void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
-    mov_arg(arm::Mem(c_p, offsetof(Process, fvalue)), Src);
-    emit_error(EXC_TRY_CLAUSE);
+    emit_error(EXC_TRY_CLAUSE, Src);
 }
 
 void BeamModuleAssembler::emit_raise(const ArgSource &Trace,

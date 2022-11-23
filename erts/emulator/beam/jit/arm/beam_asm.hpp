@@ -1488,6 +1488,7 @@ protected:
                     const ArgRegister &Dst);
 
     void emit_error(int code);
+    void emit_error(int reason, const ArgSource &Src);
 
     int emit_bs_get_field_size(const ArgSource &Size,
                                int unit,
