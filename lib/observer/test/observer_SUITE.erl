@@ -80,11 +80,31 @@ init_per_testcase(Case, Config) ->
     Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
+end_per_testcase(basic = Case, Config) ->
+    ?P("end_per_testcase(~w) -> entry with"
+       "~n   Config: ~p", [Case, Config]),
+    case lists:keysearch(tc_status, 1, Config) of
+        {value, {tc_status, ok}} ->
+            ?P("end_per_testcase(~w) -> successful", [Case]),
+            ok;
+        {value, _} ->
+            ?P("end_per_testcase(~w) -> try ensure observer stopped", [Case]),
+            ensure_observer_stopped();
+        _ ->
+            ?P("end_per_testcase(~w) -> nop status", [Case]),
+            ok
+    end,
+    end_per_testcase2(Case, Config);
 end_per_testcase(Case, Config) ->
     ?P("end_per_testcase(~w) -> entry with"
        "~n   Config: ~p", [Case, Config]),
+    end_per_testcase2(Case, Config).
+
+end_per_testcase2(Case, Config) ->
+    ?P("end_per_testcase2(~w) -> entry - try cancel watchdog", [Case]),
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
+    ?P("end_per_testcase2(~w) -> done", [Case]),
     ok.
 
 
@@ -142,11 +162,11 @@ app_file(Config) when is_list(Config) ->
     ok = test_server:app_test(observer),
     ok.
 
+
 %% Testing .appup file
 appup_file(Config) when is_list(Config) ->
     ok = test_server:appup_test(observer).
 
--define(DBG(Foo), io:format("~p: ~p~n",[?LINE, catch Foo])).
 
 basic(suite) -> [];
 basic(doc) -> [""];
