@@ -1145,7 +1145,7 @@ call(Server, Call) ->
     end.
 
 stop_server(Server) ->
-    try gen_statem:stop(Server) of
+    try gen_statem:stop(Server, {shutdown, closed}, infinity) of
         _ -> ok
     catch
         _:_ -> ok
