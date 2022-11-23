@@ -11914,6 +11914,8 @@ static void early_init_process_struct(void *varg, Eterm data)
     erts_atomic32_init_nob(&proc->dirty_state, 0);
     proc->dirty_sys_tasks = NULL;
     erts_init_runq_proc(proc, arg->run_queue, arg->bound);
+    erts_atomic_init_nob(&proc->sig_inq_buffers, (erts_aint_t)NULL);
+
     erts_atomic32_init_relb(&proc->state, arg->state);
 
     erts_proc_lock_init(proc); /* All locks locked */
@@ -12398,7 +12400,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->sig_inq.len = 0;
     p->sig_inq.nmsigs.next = NULL;
     p->sig_inq.nmsigs.last = NULL;
-    erts_atomic_init_nob(&p->sig_inq_buffers, (erts_aint_t)NULL);
+    ASSERT(erts_atomic_read_nob(&p->sig_inq_buffers) == (erts_aint_t)NULL);
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
     p->sig_inq.may_contain_heap_terms = 0;
 #endif
