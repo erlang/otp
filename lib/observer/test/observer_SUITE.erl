@@ -74,27 +74,37 @@ end_per_suite(Config) ->
     ok.
 
 
+%% init_per_testcase(basic = Case, Config) ->
+%%     ?P("init_per_testcase(~w) -> entry with"
+%%        "~n   Config: ~p", [Case, Config]),
+%%     {ok, Host} = inet:gethostname(),
+%%     {ok, IFL}  = inet:getifaddrs(),
+%%     init_per_testcase2(Case, [{host, Host}, {ifl, IFL} | Config]);
 init_per_testcase(Case, Config) ->
     ?P("init_per_testcase(~w) -> entry with"
        "~n   Config: ~p", [Case, Config]),
+    init_per_testcase2(Case, Config).
+
+init_per_testcase2(Case, Config) ->
+    ?P("init_per_testcase(~w) -> entry", [Case]),
     Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
-end_per_testcase(basic = Case, Config) ->
-    ?P("end_per_testcase(~w) -> entry with"
-       "~n   Config: ~p", [Case, Config]),
-    case lists:keysearch(tc_status, 1, Config) of
-        {value, {tc_status, ok}} ->
-            ?P("end_per_testcase(~w) -> successful", [Case]),
-            ok;
-        {value, _} ->
-            ?P("end_per_testcase(~w) -> try ensure observer stopped", [Case]),
-            ensure_observer_stopped();
-        _ ->
-            ?P("end_per_testcase(~w) -> nop status", [Case]),
-            ok
-    end,
-    end_per_testcase2(Case, Config);
+%% end_per_testcase(basic = Case, Config) ->
+%%     ?P("end_per_testcase(~w) -> entry with"
+%%        "~n   Config: ~p", [Case, Config]),
+%%     case lists:keysearch(tc_status, 1, Config) of
+%%         {value, {tc_status, ok}} ->
+%%             ?P("end_per_testcase(~w) -> successful", [Case]),
+%%             ok;
+%%         {value, _} ->
+%%             ?P("end_per_testcase(~w) -> try ensure observer stopped", [Case]),
+%%             ensure_observer_stopped();
+%%         _ ->
+%%             ?P("end_per_testcase(~w) -> nop status", [Case]),
+%%             ok
+%%     end,
+%%     end_per_testcase2(Case, Config);
 end_per_testcase(Case, Config) ->
     ?P("end_per_testcase(~w) -> entry with"
        "~n   Config: ~p", [Case, Config]),
@@ -183,6 +193,15 @@ basic(Config) when is_list(Config) ->
     ?P("basic -> try start distribution"),
     {foo, node@machine} ! dummy_msg,  %% start distribution stuff
     %% Otherwise ever lasting servers gets added to procs
+
+    %% It takes some time for all the procs to start,
+    %% so give it some time.
+    %% Note that this is a problem *only* if this test suite
+    %% is run *on its own*. If all the observer suite(s) are run
+    %% (ex: ts:run(observer, [batch]), then this problem does
+    %% not occcur.
+    timer:sleep(5000),
+
     ?P("basic -> procs before"),
     ProcsBefore = processes(),
     ProcInfoBefore = [{P,process_info(P)} || P <- ProcsBefore],
@@ -199,6 +218,7 @@ basic(Config) when is_list(Config) ->
     ?P("basic -> check selection (=0)"),
     0 = wxNotebook:getSelection(Notebook),
     ?P("basic -> wait some time..."),
+
     timer:sleep(500),
     Check = fun(N, TestMore) ->
 		    TestMore andalso
@@ -226,6 +246,7 @@ basic(Config) when is_list(Config) ->
     NumProcsAfter = length(ProcsAfter),
     if NumProcsAfter =/= NumProcsBefore ->
             BeforeNotAfter = ProcsBefore -- ProcsAfter,
+            AfterNotBefore = ProcsAfter -- ProcsBefore,
             ?P("basic -> *not* fully stopped:"
                "~n   Number of Procs before: ~p"
                "~n   Number of Procs after:  ~p",
@@ -234,7 +255,7 @@ basic(Config) when is_list(Config) ->
 		   [[{P,I} || {P,I} <- ProcInfoBefore,
                               lists:member(P,BeforeNotAfter)]]),
 	    ct:log("After but not before:~n~p~n",
-		   [[{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]]),
+		   [[{P,process_info(P)} || P <- AfterNotBefore]]),
 	    ensure_observer_stopped(),
 	    ct:fail("leaking processes");
        true ->
