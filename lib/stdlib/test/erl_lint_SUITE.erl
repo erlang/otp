@@ -1654,8 +1654,20 @@ guard(Config) when is_list(Config) ->
             [],
             {error,
 	     [{{2,26},erl_lint,{obsolete_guard_overridden,port}}],
-	     [{{2,26},erl_lint,{obsolete_guard,{port,1}}}]}}
-	  ],
+	     [{{2,26},erl_lint,{obsolete_guard,{port,1}}}]}},
+           {guard11,
+            <<"-record(bar, {a = mk_a()}).
+               mk_a() -> 1.
+
+               test_rec(Rec) when Rec =:= #bar{} -> true.
+               map_pattern(#{#bar{} := _}) -> ok.
+              ">>,
+            [],
+            {errors,
+             [{{4,43},erl_lint,{illegal_guard_local_call,{mk_a,0}}},
+              {{5,30},erl_lint,{illegal_guard_local_call,{mk_a,0}}}],
+             []}}
+          ],
     [] = run(Config, Ts1),
     ok.
 

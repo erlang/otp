@@ -2922,9 +2922,8 @@ ginit_fields(Ifs, Anno, Name, Dfs, Vt0, St0) ->
     Defs = init_fields(Ifs, Anno, Dfs),
     St2 = St1#lint{errors = []},
     {_,St3} = check_fields(Defs, Name, Dfs, Vt1, St2, fun gexpr/3),
-    #lint{usage = Usage, errors = Errors} = St3,
-    IllErrs = [E || {_File,{_Anno,erl_lint,illegal_guard_expr}}=E <- Errors],
-    St4 = St1#lint{usage = Usage, errors = IllErrs ++ St1#lint.errors},
+    #lint{usage = Usage, errors = IllErrors} = St3,
+    St4 = St1#lint{usage = Usage, errors = IllErrors ++ St1#lint.errors},
     {Vt1,St4}.
 
 %% Default initializations to be carried out
