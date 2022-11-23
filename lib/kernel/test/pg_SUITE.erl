@@ -488,7 +488,7 @@ scope_restart(Config) when is_list(Config) ->
     {Peer, Node} = spawn_node(?FUNCTION_NAME),
     RemotePid = erlang:spawn(Node, forever()),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    sync({?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual(lists:sort([RemotePid, Pid, Pid]), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     %% stop scope locally, and restart
     gen_server:stop(?FUNCTION_NAME),
