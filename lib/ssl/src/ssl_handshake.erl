@@ -3499,16 +3499,6 @@ is_acceptable_cert_type(Sign, Types) ->
 is_supported_sign(SignAlgo, _, HashSigns, []) ->
     ssl_cipher:is_supported_sign(SignAlgo, HashSigns);
 %% {'SignatureAlgorithm',{1,2,840,113549,1,1,11},'NULL'}
-is_supported_sign({Hash, Sign}, 'NULL', _, SignatureSchemes) ->
-    Fun = fun (Scheme) ->
-                  {H, S0, _} = ssl_cipher:scheme_to_components(Scheme),
-                  S1 = case S0 of
-                           rsa_pkcs1 -> rsa;
-                             S -> S
-                       end,
-                  (Sign =:= S1) andalso (Hash =:= H)
-          end,
-    lists:any(Fun, SignatureSchemes);
 %% TODO: Implement validation for the curve used in the signature
 %% RFC 3279 - 2.2.3 ECDSA Signature Algorithm
 %% When the ecdsa-with-SHA1 algorithm identifier appears as the
