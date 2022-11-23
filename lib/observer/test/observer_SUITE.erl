@@ -198,7 +198,7 @@ basic(Config) when is_list(Config) ->
     ?P("basic -> try verify that we resized"),
     [_|_] = [Check(N, true) || N <- lists:seq(0, Count-1)],
 
-    ?P("basic -> try stop observer (async)"),
+    ?P("basic -> try stop observer"),
     ok = observer:stop(),
     timer:sleep(2000), %% stop is async
     ?P("basic -> try verify observer stopped"),
@@ -209,7 +209,7 @@ basic(Config) when is_list(Config) ->
             ?P("basic -> *not* fully stopped:"
                "~n   Number of Procs before: ~p"
                "~n   Number of Procs after:  ~p",
-               [NumProcsAfter, NumProcsBefore]),
+               [NumProcsBefore, NumProcsAfter]),
 	    ct:log("Before but not after:~n~p~n",
 		   [[{P,I} || {P,I} <- ProcInfoBefore,
                               lists:member(P,BeforeNotAfter)]]),
