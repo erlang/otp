@@ -24,7 +24,7 @@
          exit_after/3, exit_after/2, kill_after/2, kill_after/1,
          apply_interval/4, apply_repeatedly/4,
          send_interval/3, send_interval/2,
-         cancel/1, sleep/1, tc/1, tc/2, tc/3, now_diff/2,
+         cancel/1, sleep/1, tc/1, tc/2, tc/3, tc/4, now_diff/2,
          seconds/1, minutes/1, hours/1, hms/3]).
 
 -export([start_link/0, start/0,
@@ -247,41 +247,71 @@ sleep(T) ->
                    Time :: integer(),
                    Value :: term().
 tc(F) ->
-    T1 = erlang:monotonic_time(),
-    Val = F(),
-    T2 = erlang:monotonic_time(),
-    Time = erlang:convert_time_unit(T2 - T1, native, microsecond),
-    {Time, Val}.
+    tc(F, microsecond).
 
 %%
-%% Measure the execution time (in microseconds) for Fun(Args).
+%% Measure the execution time (in microseconds) for Fun(Args)
+%%      or the execution time (in TimeUnit) for Fun().
 %%
 -spec tc(Fun, Arguments) -> {Time, Value}
               when Fun :: function(),
                    Arguments :: [term()],
                    Time :: integer(),
+                   Value :: term();
+        (Fun, TimeUnit) -> {Time, Value}
+              when Fun :: function(),
+                   TimeUnit :: erlang:time_unit(),
+                   Time :: integer(),
                    Value :: term().
-tc(F, A) ->
+tc(F, A) when is_list(A) ->
+    tc(F, A, microsecond);
+tc(F, TimeUnit) ->
     T1 = erlang:monotonic_time(),
-    Val = apply(F, A),
+    Val = F(),
     T2 = erlang:monotonic_time(),
-    Time = erlang:convert_time_unit(T2 - T1, native, microsecond),
+    Time = erlang:convert_time_unit(T2 - T1, native, TimeUnit),
     {Time, Val}.
 
 %%
-%% Measure the execution time (in microseconds) for an MFA.
+%% Measure the execution time (in microseconds) for an MFA
+%%      or the execution time (in TimeUnit) for Fun(Args).
 %%
 -spec tc(Module, Function, Arguments) -> {Time, Value}
               when Module :: module(),
                    Function :: atom(),
                    Arguments :: [term()],
                    Time :: integer(),
+                   Value :: term();
+        (Fun, Arguments, TimeUnit) -> {Time, Value}
+              when Fun :: function(),
+                   Arguments :: [term()],
+                   TimeUnit :: erlang:time_unit(),
+                   Time :: integer(),
                    Value :: term().
-tc(M, F, A) ->
+tc(M, F, A) when is_list(A) ->
+    tc(M, F, A, microsecond);
+tc(F, A, TimeUnit) ->
+    T1 = erlang:monotonic_time(),
+    Val = apply(F, A),
+    T2 = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(T2 - T1, native, TimeUnit),
+    {Time, Val}.
+
+%%
+%% Measure the execution time (in TimeUnit) for an MFA.
+%%
+-spec tc(Module, Function, Arguments, TimeUnit) -> {Time, Value}
+              when Module :: module(),
+                   Function :: atom(),
+                   Arguments :: [term()],
+                   TimeUnit :: erlang:time_unit(),
+                   Time :: integer(),
+                   Value :: term().
+tc(M, F, A, TimeUnit) ->
     T1 = erlang:monotonic_time(),
     Val = apply(M, F, A),
     T2 = erlang:monotonic_time(),
-    Time = erlang:convert_time_unit(T2 - T1, native, microsecond),
+    Time = erlang:convert_time_unit(T2 - T1, native, TimeUnit),
     {Time, Val}.
 
 %%
