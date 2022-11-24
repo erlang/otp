@@ -1558,36 +1558,104 @@ int enif_get_tuple(ErlNifEnv* env, Eterm tpl, int* arity, const Eterm** array)
     return 1;
 }
 
-int enif_get_string(ErlNifEnv *env, ERL_NIF_TERM list, char* buf, unsigned len,
-		    ErlNifCharEncoding encoding)
+int enif_get_string(ErlNifEnv *env, ERL_NIF_TERM list, char *buf, unsigned len,
+                    ErlNifCharEncoding encoding)
 {
-    Eterm* listptr;
-    int n = 0;
-
-    ASSERT(encoding == ERL_NIF_LATIN1);
+    ASSERT(encoding == ERL_NIF_LATIN1 || encoding == ERL_NIF_UTF8);
     if (len < 1) {
-	return 0;
+        return 0;
     }
-    while (is_not_nil(list)) { 	    
-	if (is_not_list(list)) {
-	    buf[n] = '\0';
-	    return 0;
-	}
-	listptr = list_val(list);
-    
-	if (!is_byte(*listptr)) {
-	    buf[n] = '\0';
-	    return 0;
-	}
-	buf[n++] = unsigned_val(*listptr);
-	if (n >= len) {
-	    buf[n-1] = '\0'; /* truncate */
-	    return -len;
-	}
-	list = CDR(listptr);
+    if (encoding == ERL_NIF_LATIN1) {
+        Eterm *listptr;
+        int n = 0;
+        while (is_not_nil(list)) {
+            if (is_not_list(list)) {
+                buf[n] = '\0';
+                return 0;
+            }
+            listptr = list_val(list);
+
+            if (!is_byte(*listptr)) {
+                buf[n] = '\0';
+                return 0;
+            }
+            buf[n++] = unsigned_val(*listptr);
+            if (n >= len) {
+                buf[n-1] = '\0'; /* truncate */
+                return -len;
+            }
+            list = CDR(listptr);
+        }
+        buf[n] = '\0';
+        return n + 1;
+    } else if (encoding == ERL_NIF_UTF8) {
+        int retval;
+        Sint written = 0;
+        if (is_nil(list)) {
+            buf[0] = '\0';
+            return 1;
+        }
+        if (is_not_list(list)) {
+            buf[0] = '\0';
+            return 0;
+        }
+        retval = erts_unicode_list_to_buf(list, (byte *)buf, (Sint)(len - 1), (Sint)len, &written);
+        if (retval == 0) {
+            if (len > 0 && written == 0) {
+                buf[written] = '\0';
+                return 1;
+            }
+            buf[written] = '\0'; /* success */
+            return (int)(written + 1);
+        }
+        if (retval == -2) {
+            buf[written] = '\0'; /* truncate */
+            return -(int)(written + 1);
+        }
+        buf[0] = '\0'; /* failure */
+        return 0;
     }
-    buf[n] = '\0';
-    return n + 1;
+    return 0;
+}
+
+int enif_get_string_length(ErlNifEnv *env, ERL_NIF_TERM list, unsigned *len,
+                           ErlNifCharEncoding encoding)
+{
+    ASSERT(encoding == ERL_NIF_LATIN1 || encoding == ERL_NIF_UTF8);
+    if (encoding == ERL_NIF_LATIN1) {
+        Eterm *listptr = NULL;
+        unsigned n = 0;
+        while (is_not_nil(list)) {
+            if (is_not_list(list)) {
+                return 0;
+            }
+            listptr = list_val(list);
+
+            if (!is_byte(*listptr)) {
+                return 0;
+            }
+            n++;
+            list = CDR(listptr);
+        }
+        *len = n;
+        return 1;
+    } else if (encoding == ERL_NIF_UTF8) {
+        Sint sz = 0;
+        if (is_nil(list)) {
+            *len = (unsigned)(sz);
+            return 1;
+        }
+        if (is_not_list(list)) {
+            return 0;
+        }
+        sz = erts_unicode_list_to_buf_len(list);
+        if (sz < 0) {
+            return 0;
+        }
+        *len = (unsigned)(sz);
+        return 1;
+    }
+    return 0;
 }
 
 Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
@@ -1687,27 +1755,36 @@ int enif_has_pending_exception(ErlNifEnv* env, ERL_NIF_TERM* reason)
 }
 
 int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
-		  ErlNifCharEncoding encoding)
+                  ErlNifCharEncoding encoding)
 {
     Atom* ap;
-    ASSERT(encoding == ERL_NIF_LATIN1);
-    if (is_not_atom(atom) || len==0) {
-	return 0;
+    ASSERT(encoding == ERL_NIF_LATIN1 || encoding == ERL_NIF_UTF8);
+    if (is_not_atom(atom) || len == 0) {
+        return 0;
     }
     ap = atom_tab(atom_val(atom));
 
-    if (ap->latin1_chars < 0 || ap->latin1_chars >= len) {
-	return 0;
+    if (encoding == ERL_NIF_LATIN1) {
+        if (ap->latin1_chars < 0 || ap->latin1_chars >= len) {
+            return 0;
+        }
+        if (ap->latin1_chars == ap->len) {
+            sys_memcpy(buf, ap->name, ap->len);
+        } else {
+            int dlen = erts_utf8_to_latin1((byte*)buf, ap->name, ap->len);
+            ASSERT(dlen == ap->latin1_chars); (void)dlen;
+        }
+        buf[ap->latin1_chars] = '\0';
+        return ap->latin1_chars + 1;
+    } else if (encoding == ERL_NIF_UTF8) {
+        if (ap->len >= len) {
+            return 0;
+        }
+        sys_memcpy(buf, ap->name, ap->len);
+        buf[ap->len] = '\0';
+        return ap->len + 1;
     }
-    if (ap->latin1_chars == ap->len) {
-	sys_memcpy(buf, ap->name, ap->len);
-    }
-    else {
-	int dlen = erts_utf8_to_latin1((byte*)buf, ap->name, ap->len);
-	ASSERT(dlen == ap->latin1_chars); (void)dlen;
-    }
-    buf[ap->latin1_chars] = '\0';
-    return ap->latin1_chars + 1;
+    return 0;
 }
 
 int enif_get_int(ErlNifEnv* env, Eterm term, int* ip)
@@ -1803,17 +1880,24 @@ int enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)
 }
 
 int enif_get_atom_length(ErlNifEnv* env, Eterm atom, unsigned* len,
-			 ErlNifCharEncoding enc)
+                         ErlNifCharEncoding encoding)
 {
-    Atom* ap;
-    ASSERT(enc == ERL_NIF_LATIN1);
-    if (is_not_atom(atom)) return 0;
+    Atom *ap = NULL;
+    ASSERT(encoding == ERL_NIF_LATIN1 || encoding == ERL_NIF_UTF8);
+    if (is_not_atom(atom))
+        return 0;
     ap = atom_tab(atom_val(atom));
-    if (ap->latin1_chars < 0) {
-	return 0;
+    if (encoding == ERL_NIF_LATIN1) {
+        if (ap->latin1_chars < 0) {
+            return 0;
+        }
+        *len = ap->latin1_chars;
+        return 1;
+    } else if (encoding == ERL_NIF_UTF8) {
+        *len = ap->len;
+        return 1;
     }
-    *len = ap->latin1_chars;
-    return 1;
+    return 0;
 }
 
 int enif_get_list_cell(ErlNifEnv* env, Eterm term, Eterm* head, Eterm* tail)
@@ -1925,31 +2009,62 @@ ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d)
     return make_float(hp);
 }
 
-ERL_NIF_TERM enif_make_atom(ErlNifEnv* env, const char* name)
+ERL_NIF_TERM enif_make_atom(ErlNifEnv *env, const char *name)
 {
     return enif_make_atom_len(env, name, sys_strlen(name));
 }
 
-ERL_NIF_TERM enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)
+ERL_NIF_TERM enif_make_atom_len(ErlNifEnv *env, const char *name, size_t len)
 {
-    if (len > MAX_ATOM_CHARACTERS)
+    ERL_NIF_TERM atom = THE_NON_VALUE;
+    if (!enif_make_new_atom_len(env, name, len, &atom, ERL_NIF_LATIN1)) {
         return enif_make_badarg(env);
-    return erts_atom_put((byte*)name, len, ERTS_ATOM_ENC_LATIN1, 1);
+    }
+    return atom;
 }
 
-int enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom,
-			    ErlNifCharEncoding enc)
+int enif_make_new_atom(ErlNifEnv *env, const char *name, ERL_NIF_TERM *atom,
+                       ErlNifCharEncoding encoding)
 {
-    return enif_make_existing_atom_len(env, name, sys_strlen(name), atom, enc);
+    return enif_make_new_atom_len(env, name, sys_strlen(name), atom, encoding);
 }
 
-int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len,
-				ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)
+int enif_make_new_atom_len(ErlNifEnv *env, const char *name, size_t len,
+                           ERL_NIF_TERM *atom, ErlNifCharEncoding encoding)
 {
-    ASSERT(encoding == ERL_NIF_LATIN1);
-    if (len > MAX_ATOM_CHARACTERS)
+    ERL_NIF_TERM atom_term = THE_NON_VALUE;
+    ASSERT(encoding == ERL_NIF_LATIN1 || encoding == ERL_NIF_UTF8);
+    if (encoding == ERL_NIF_LATIN1) {
+        atom_term = erts_atom_put((byte *)name, len, ERTS_ATOM_ENC_LATIN1, 0);
+    } else if (encoding == ERL_NIF_UTF8) {
+        atom_term = erts_atom_put((byte *)name, len, ERTS_ATOM_ENC_UTF8, 0);
+    }
+    if (atom_term == THE_NON_VALUE)
         return 0;
-    return erts_atom_get(name, len, atom, ERTS_ATOM_ENC_LATIN1);
+    *atom = atom_term;
+    return 1;
+}
+
+int enif_make_existing_atom(ErlNifEnv *env, const char *name, ERL_NIF_TERM *atom,
+                            ErlNifCharEncoding encoding)
+{
+    return enif_make_existing_atom_len(env, name, sys_strlen(name), atom, encoding);
+}
+
+int enif_make_existing_atom_len(ErlNifEnv *env, const char *name, size_t len,
+                                ERL_NIF_TERM *atom, ErlNifCharEncoding encoding)
+{
+    ASSERT(encoding == ERL_NIF_LATIN1 || encoding == ERL_NIF_UTF8);
+    if (encoding == ERL_NIF_LATIN1) {
+        if (len > MAX_ATOM_CHARACTERS)
+            return 0;
+        return erts_atom_get(name, len, atom, ERTS_ATOM_ENC_LATIN1);
+    } else if (encoding == ERL_NIF_UTF8) {
+        if (len > MAX_ATOM_SZ_LIMIT)
+            return 0;
+        return erts_atom_get(name, len, atom, ERTS_ATOM_ENC_UTF8);
+    }
+    return 0;
 }
 
 ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)
@@ -2060,18 +2175,32 @@ ERL_NIF_TERM enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[],
     return ret;
 }
 
-ERL_NIF_TERM enif_make_string(ErlNifEnv* env, const char* string,
-			      ErlNifCharEncoding encoding)
+ERL_NIF_TERM enif_make_string(ErlNifEnv *env, const char *string,
+                              ErlNifCharEncoding encoding)
 {
     return enif_make_string_len(env, string, sys_strlen(string), encoding);
 }
 
-ERL_NIF_TERM enif_make_string_len(ErlNifEnv* env, const char* string,
-				  size_t len, ErlNifCharEncoding encoding)
+ERL_NIF_TERM enif_make_string_len(ErlNifEnv *env, const char *string,
+                                  size_t len, ErlNifCharEncoding encoding)
 {
-    Eterm* hp = alloc_heap(env,len*2);
-    ASSERT(encoding == ERL_NIF_LATIN1);
-    return erts_bld_string_n(&hp,NULL,string,len);
+    Eterm *hp = NULL;
+    ASSERT(encoding == ERL_NIF_LATIN1 || encoding == ERL_NIF_UTF8);
+    if (encoding == ERL_NIF_LATIN1) {
+        hp = alloc_heap(env, len * 2);
+        return erts_bld_string_n(&hp, NULL, string, len);
+    } else if (encoding == ERL_NIF_UTF8) {
+        const byte *err_pos;
+        Uint num_chars;
+        Uint num_built; /* characters */
+        Uint num_eaten; /* bytes */
+        if (erts_analyze_utf8((byte *)string, (Uint)len, &err_pos, &num_chars, NULL) != ERTS_UTF8_OK) {
+            return enif_make_badarg(env);
+        }
+        hp = alloc_heap(env, num_chars * 2);
+        return erts_make_list_from_utf8_buf(&hp, num_chars, (byte *)string, (Uint)len, &num_built, &num_eaten, NIL);
+    }
+    return enif_make_badarg(env);
 }
 
 ERL_NIF_TERM enif_make_ref(ErlNifEnv* env)

@@ -57,7 +57,8 @@
 ** 2.15: 22.0 ERL_NIF_SELECT_CANCEL, enif_select_(read|write)
 **            enif_term_type
 ** 2.16: 24.0 enif_init_resource_type, enif_dynamic_resource_call
-** 2.17  26.0 enif_set_option
+** 2.17: 26.0 enif_set_option, enif_get_string_length, enif_make_new_atom,
+**            enif_make_new_atom_len, ERL_NIF_UTF8
 */
 #define ERL_NIF_MAJOR_VERSION 2
 #define ERL_NIF_MINOR_VERSION 17
@@ -71,7 +72,7 @@
  * If you're not on the OTP team, you should use a placeholder like
  * erts-@MyName@ instead.
  */
-#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-17771@"
+#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-17771:OTP-18334@"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
@@ -187,7 +188,8 @@ typedef enum
 
 typedef enum
 {
-    ERL_NIF_LATIN1 = 1
+    ERL_NIF_LATIN1 = 1,
+    ERL_NIF_UTF8 = 2,
 }ErlNifCharEncoding;
 
 typedef struct
