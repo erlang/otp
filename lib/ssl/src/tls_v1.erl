@@ -920,7 +920,7 @@ signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
     RSAPSSSupported = lists:member(rsa_pkcs1_pss_padding,
                                    proplists:get_value(rsa_opts, CryptoSupports)),
     Fun = fun (Scheme, Acc) when is_atom(Scheme) ->
-                  {Hash0, Sign0, Curve} =
+                  {Hash, Sign0, Curve} =
                       ssl_cipher:scheme_to_components(Scheme),
                   Sign = case Sign0 of
                              rsa_pkcs1 ->
@@ -930,11 +930,6 @@ signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
                              rsa_pss_pss when RSAPSSSupported ->
                                  rsa;
                              S -> S
-                         end,
-                  Hash = case Hash0 of
-                             sha1 ->
-                                 sha;
-                             H -> H
                          end,
                   case proplists:get_bool(Sign, PubKeys)
                       andalso

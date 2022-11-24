@@ -3117,18 +3117,10 @@ decode_sign_alg({3,3}, SignSchemeList) ->
                                   {true, {Hash, Sign}};
                               {Hash, rsa_pss_pss = Sign, _} ->
                                   {true,{Hash, Sign}};
-                              {sha1, rsa_pkcs1, _} ->
-                                  {true,{sha, rsa}};
                               {Hash, rsa_pkcs1, _} ->
                                   {true,{Hash, rsa}};
-                              {sha1, ecdsa, _} ->
-                                  {true,{sha, ecdsa}};
-                              {sha512,ecdsa, _} ->
-                                  {true,{sha512, ecdsa}};
-                              {sha384,ecdsa, _} ->
-                                  {true,{sha384, ecdsa}};
-                              {sha256,ecdsa, _}->
-                                  {true,{sha256, ecdsa}};
+                              {Hash, ecdsa, _} ->
+                                  {true,{Hash, ecdsa}};
                               _ ->
                                   false
                           end;
@@ -3512,21 +3504,6 @@ is_acceptable_cert_type(Sign, Types) ->
 is_supported_sign(SignAlgo, _, HashSigns, []) ->
     ssl_cipher:is_supported_sign(SignAlgo, HashSigns);
 %% {'SignatureAlgorithm',{1,2,840,113549,1,1,11},'NULL'}
-is_supported_sign({Hash, Sign}, 'NULL', _, SignatureSchemes) ->
-    Fun = fun (Scheme, Acc) ->
-                  {H0, S0, _} = ssl_cipher:scheme_to_components(Scheme),
-                  S1 = case S0 of
-                             rsa_pkcs1 -> rsa;
-                             S -> S
-                         end,
-                  H1 = case H0 of
-                             sha1 -> sha;
-                             H -> H
-                         end,
-                  Acc orelse (Sign =:= S1 andalso
-                              Hash =:= H1)
-          end,
-    lists:foldl(Fun, false, SignatureSchemes);
 %% TODO: Implement validation for the curve used in the signature
 %% RFC 3279 - 2.2.3 ECDSA Signature Algorithm
 %% When the ecdsa-with-SHA1 algorithm identifier appears as the
@@ -3538,20 +3515,15 @@ is_supported_sign({Hash, Sign}, 'NULL', _, SignatureSchemes) ->
 %% the certificate of the issuer SHALL apply to the verification of the
 %% signature.
 is_supported_sign({Hash, Sign}, _Param, _, SignatureSchemes) ->
-    Fun = fun (Scheme, Acc) ->
-                  {H0, S0, _} = ssl_cipher:scheme_to_components(Scheme),
+    Fun = fun (Scheme) ->
+                  {H, S0, _} = ssl_cipher:scheme_to_components(Scheme),
                   S1 = case S0 of
                              rsa_pkcs1 -> rsa;
                              S -> S
                          end,
-                  H1 = case H0 of
-                             sha1 -> sha;
-                             H -> H
-                         end,
-                  Acc orelse (Sign  =:= S1 andalso
-                              Hash  =:= H1)
+                  (Sign  =:= S1) andalso (Hash  =:= H)
           end,
-    lists:foldl(Fun, false, SignatureSchemes).
+    lists:any(Fun, SignatureSchemes).
 
 
 %% SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= {
