@@ -1696,6 +1696,11 @@ do_connect(Config) when is_list(Config) ->
     ok = inet:setopts(S2, [{active, false}]),
     ?P("try close first socket"),
     ok = gen_udp:close(S1),
+
+    %% Test if this helps...
+    ?P("sleep some"),
+    ct:sleep({seconds, 5}),
+
     ?P("try connect second socket to: ~p, ~p", [Addr, P1]),
     ok = gen_udp:connect(S2, Addr, P1),
     ?P("try send on second socket"),
