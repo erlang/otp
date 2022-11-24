@@ -3036,10 +3036,13 @@ poll_works=no
 
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <poll.h>
-main()
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
+int main()
 {
 #ifdef _POLL_EMUL_H_
-  exit(1); /* Implemented using select() -- fail */
+  return 1; /* Implemented using select() -- fail */
 #else
   struct pollfd fds[1];
   int fd;
@@ -3048,9 +3051,9 @@ main()
   fds[0].events = POLLIN;
   fds[0].revents = 0;
   if (poll(fds, 1, 0) < 0 || (fds[0].revents & POLLNVAL) != 0) {
-    exit(1);  /* Does not work for devices -- fail */
+    return 1;  /* Does not work for devices -- fail */
   }
-  exit(0);
+  return 0;
 #endif
 }
 ]])],[poll_works=yes],[poll_works=no],[
