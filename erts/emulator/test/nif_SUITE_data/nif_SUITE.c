@@ -932,6 +932,27 @@ static ERL_NIF_TERM get_resource_type(ErlNifEnv* env, int argc, const ERL_NIF_TE
     return make_pointer(env, data->rt_arr[ix].vp);
 }
 
+static ERL_NIF_TERM init_resource_type(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    char name[20];
+    int flags;
+    ErlNifResourceTypeInit init;
+    ErlNifResourceType* ret_ptr;
+    ErlNifResourceFlags tried;
+
+    if (0 >= enif_get_string(env, argv[0], name, sizeof(name), ERL_NIF_UTF8) ||
+        !enif_get_int(env, argv[1], &flags)) {
+        return enif_make_badarg(env);
+    }
+    /* Should fail as we are not in load/upgrade callback */
+    init.members = 0;
+    ret_ptr = enif_init_resource_type(env, name, &init,
+                                      (ErlNifResourceFlags)flags, &tried);
+
+    return enif_make_tuple2(env, enif_make_uint64(env, (ErlNifUInt64)ret_ptr),
+                            enif_make_int(env, (int)tried));
+}
+
 static ERL_NIF_TERM alloc_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary data_bin;
@@ -3798,6 +3819,7 @@ static ErlNifFunc nif_funcs[] =
     {"tuple_2_list_and_tuple",1,tuple_2_list_and_tuple},
     {"iolist_2_bin", 1, iolist_2_bin},
     {"get_resource_type", 1, get_resource_type},
+    {"init_resource_type", 2, init_resource_type},
     {"alloc_resource", 2, alloc_resource},
     {"make_resource", 1, make_resource},
     {"get_resource", 2, get_resource},
@@ -3890,7 +3912,6 @@ static ErlNifFunc nif_funcs[] =
     {"compare_pids_nif", 2, compare_pids_nif},
     {"term_type_nif", 1, term_type_nif},
     {"msa_find_y_nif", 1, msa_find_y_nif}
-
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)

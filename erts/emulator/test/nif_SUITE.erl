@@ -104,6 +104,7 @@
        tuple_2_list_and_tuple/1,
        iolist_2_bin/1,
        get_resource_type/1,
+       init_resource_type/2,
        alloc_resource/2,
        make_resource/1,
        get_resource/2,
@@ -2153,6 +2154,12 @@ resource_neg_do(TypeA) ->
     ResB= make_new_resource(TypeB, <<"Bobo">>),
     {'EXIT',{badarg,_}} = (catch get_resource(TypeA, ResB)),
     {'EXIT',{badarg,_}} = (catch get_resource(TypeB, ResA)),
+
+    %% Test init_resource_type fail outside load/upgrade
+    {0, ?RT_CREATE} = init_resource_type("in_vain", ?RT_CREATE),
+    {0, ?RT_TAKEOVER} = init_resource_type("Gold", ?RT_TAKEOVER),
+    {0, ?RT_CREATE bor ?RT_TAKEOVER} =
+        init_resource_type("Gold", ?RT_CREATE bor ?RT_TAKEOVER),
     ok.
 
 %% Test enif_make_resource_binary
@@ -4281,6 +4288,7 @@ macros(_) -> ?nif_stub.
 tuple_2_list_and_tuple(_) -> ?nif_stub.
 iolist_2_bin(_) -> ?nif_stub.
 get_resource_type(_) -> ?nif_stub.
+init_resource_type(_,_) -> ?nif_stub.
 alloc_resource(_,_) -> ?nif_stub.
 make_resource(_) -> ?nif_stub.
 get_resource(_,_) -> ?nif_stub.
