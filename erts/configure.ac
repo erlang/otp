@@ -2436,6 +2436,9 @@ AC_CACHE_CHECK([if __after_morecore_hook can track malloc()s core memory use],
 #ifdef HAVE_MALLOC_H
 #  include <malloc.h>
 #endif
+#ifdef HAVE_UNISTD_H
+#  include <unistd.h>
+#endif
 #if defined(HAVE_END_SYMBOL)
 extern char end;
 #elif defined(HAVE__END_SYMBOL)
