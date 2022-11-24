@@ -957,12 +957,14 @@ scan_escape([$x,H1], _Col) when ?HEX(H1) ->
     more;
 scan_escape([$x|Cs], Col) ->
     {error,Cs,{illegal,character},incr_column(Col, 1)};
-%% \^X -> CTL-X
-scan_escape([$^=C0,$\n=C|Cs], Col) ->
-    {nl,C,[C0,C],Cs,new_column(Col, 1)};
+%% \^X -> Control-X
 scan_escape([$^=C0,C|Cs], Col) when ?CHAR(C) ->
-    Val = C band 31,
-    {Val,[C0,C],Cs,incr_column(Col, 2)};
+    case caret_char_code(C) of
+        error ->
+            {error,[C|Cs],{illegal,character},incr_column(Col, 1)};
+        Code ->
+            {Code,[C0,C],Cs,incr_column(Col, 2)}
+    end;
 scan_escape([$^], _Col) ->
     more;
 scan_escape([$^|eof], Col) ->
@@ -1016,6 +1018,10 @@ escape_char($e) -> $\e;                         % \e = ESC
 escape_char($s) -> $\s;                         % \s = SPC
 escape_char($d) -> $\d;                         % \d = DEL
 escape_char(C) -> C.
+
+caret_char_code($?) -> 16#7f;
+caret_char_code(C) when $@ =< C, C =< $_; $a =< C, C =< $z -> C band 16#1f;
+caret_char_code(_) -> error.
 
 scan_number(Cs, #erl_scan{}=St, Line, Col, Toks, {Ncs, Us}) ->
     scan_number(Cs, St, Line, Col, Toks, Ncs, Us).
