@@ -7348,15 +7348,33 @@ delay_send_error2(Sock, N) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--define(ACTIVE_N, 20).
+-define(ACTIVE_N,    20).
+-define(MAX_WORKERS, 40).
 
 %% 30-second test for gen_tcp in {active, N} mode,
 %% ensuring it does not get stuck.
 %% Verifies that erl_check_io properly handles extra EPOLLIN signals.
 bidirectional_traffic(Config) when is_list(Config) ->
     Pre  = fun() ->
-                   NumWorkers = erlang:system_info(schedulers_online) * 2,
-                   ?P("pre -> Use ~w workers", [NumWorkers]),
+                   NumOnlineScheds = erlang:system_info(schedulers_online),
+                   NumWorkers0     = NumOnlineScheds * 2,
+                   {NumWorkers, ActiveN} =
+                       if
+                           (NumWorkers0 =< 10) ->
+                               {NumWorkers0, 20};
+                           (NumWorkers0 =< 20) ->
+                               {NumWorkers0, 15};
+                           (NumWorkers0 =< ?MAX_WORKERS) ->
+                               {NumWorkers0, 10};
+                           true ->
+                               {?MAX_WORKERS, 10}
+                       end,
+                   ?P("pre ->"
+                      "~n   Number Of Online Schedulers: ~w"
+                      "~n   =>"
+                      "~n      Use workers: ~w"
+                      "~n      ActiveN:     ~w",
+                      [NumOnlineScheds, NumWorkers, ActiveN]),
                    Payload = crypto:strong_rand_bytes(32),
                    {ok, LSock} = ?LISTEN(Config,
                                          0,
@@ -7372,7 +7390,7 @@ bidirectional_traffic(Config) when is_list(Config) ->
                      payload     => Payload,
                      %% The point of this is to make it "easy" to 
                      %% "configure" this value...
-                     active_n    => ?ACTIVE_N}
+                     active_n    => ActiveN}
            end,
     Case = fun(Info) -> do_bidirectional_traffic(Config, Info) end,
     Post = fun(#{lsock := LSock}) ->
@@ -7488,6 +7506,19 @@ send_recv_loop(Socket, Payload, Control, ActiveN) ->
 
 recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
     receive
+        terminate ->
+            ?P("[~w,recv] received terminate message when"
+               "~n      Total received:    ~w"
+               "~n      Total iterations:  ~w"
+               "~n      Total activations: ~w"
+               "~n      Socket:            ~p"
+               "~n      Socket Info:       ~p",
+               [get(role),
+                Total, TotIter, TotAct,
+                Socket, (catch inet:info(Socket))]),
+            (catch gen_tcp:close(Socket)),
+            exit(normal);
+
         {tcp, Socket, Data} ->
             recv(Socket,
                  Total + byte_size(Data), TotIter + 1, TotAct,
@@ -7503,9 +7534,11 @@ recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
                "~n      Socket Info:       ~p",
 	       [get(role), Total, TotIter, TotAct, (catch inet:info(Socket))]),
 	    ok;
+
         Other ->
-            ?P("[~w,recv] received unexpected when"
+            ?P("[~w,recv] received unexpected message"
                "~n      Msg:               ~p"
+               "~n   when:"
                "~n      Total received:    ~w"
                "~n      Total iterations:  ~w"
                "~n      Total activations: ~w"
@@ -7518,7 +7551,9 @@ recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
                 Total, TotIter, TotAct,
                 Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
                 (catch inet:info(Socket))]),
+            (catch gen_tcp:close(Socket)),
             Control ! {error, Socket, Other}
+
     after 2000 ->
             %% no data received in 2 seconds => test failed
             ?P("[~w,recv timeout] received nothing when:"
@@ -7533,6 +7568,7 @@ recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
                 Total, TotIter, TotAct,
                 Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
                 (catch inet:info(Socket))]),
+            (catch gen_tcp:close(Socket)),
             Control ! {timeout, Socket, Total}
     end.
 
