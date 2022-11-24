@@ -1464,7 +1464,7 @@ process_certificate_request(#certificate_request_1_3{
 
     CertKeyPairs = ssl_certificate:available_cert_key_pairs(CertKeyAlts, Version),
     Session = select_client_cert_key_pair(Session0, CertKeyPairs,
-                                          ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
+                                          ServerSignAlgs, ServerSignAlgsCert, filter_tls13_algs(ClientSignAlgs),
                                           CertDbHandle, CertDbRef, CertAuths, undefined),
     {ok, {State#state{client_certificate_status = requested, session = Session}, wait_cert}}.
 
@@ -2088,7 +2088,7 @@ verify_signature_algorithm(#state{
                               static_env = #static_env{role = Role},
                               ssl_options = #{signature_algs := LocalSignAlgs}} = State0,
                            #certificate_verify_1_3{algorithm = PeerSignAlg}) ->
-    case lists:member(PeerSignAlg, LocalSignAlgs) of
+    case lists:member(PeerSignAlg, filter_tls13_algs(LocalSignAlgs)) of
         true ->
             {ok, maybe_update_selected_sign_alg(State0, PeerSignAlg, Role)};
         false ->
@@ -2443,22 +2443,14 @@ get_certificate_params(Cert) ->
     SubjectPublicKeyAlgo = public_key_algo(SubjectPublicKeyAlgo0),
     {SubjectPublicKeyAlgo, SignAlgo, SignHash, RSAKeySize, Curve}.
 
-oids_to_atoms(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm = 
+oids_to_atoms(?'id-RSASSA-PSS', #'RSASSA-PSS-params'{maskGenAlgorithm =
                                                         #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
                                                                             parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
-    case public_key:pkix_hash_type(HashOid) of
-        sha ->
-            {sha1, rsa_pss_pss};
-         Hash ->
-            {Hash, rsa_pss_pss}
-    end;    
+    Hash = public_key:pkix_hash_type(HashOid),
+    {Hash, rsa_pss_pss};
 oids_to_atoms(SignAlgo, _) ->
-    case public_key:pkix_sign_types(SignAlgo) of
-        {sha, Sign} ->
-            {sha1, Sign};
-        {_,_} = Algs ->
-            Algs
-    end.
+    public_key:pkix_sign_types(SignAlgo).
+
 %% Note: copied from ssl_handshake
 public_key_algo(?'id-RSASSA-PSS') ->
     rsa_pss_pss;
@@ -3029,8 +3021,8 @@ select_server_cert_key_pair(Session, [#{private_key := Key, certs := [Cert| _] =
             %% via the indicated supported algorithms, then it SHOULD continue the
             %% handshake by sending the client a certificate chain of its choice
             case SignHash of
-                sha1 ->
-                    %%  According to "Server Certificate Selection - RFC 8446" 
+                sha ->
+                    %%  According to "Server Certificate Selection - RFC 8446"
                     %%  Never send cert using sha1 unless client allows it
                     select_server_cert_key_pair(Session, Rest, ClientSignAlgs, ClientSignAlgsCert,
                                                 CertAuths, State, Default0);
