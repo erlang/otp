@@ -286,7 +286,7 @@ a:visited      { color: #1b6ec2; text-decoration: none }
     background-color: #f3f3f3;
 }
 
-.note, .warning, .do, .dont {
+.note, .change, .warning, .do, .dont {
     border: 1px solid #495057;
     margin: 1em 0;
 }
@@ -297,6 +297,18 @@ a:visited      { color: #1b6ec2; text-decoration: none }
     padding: 0.5em 1em;
 }
 .note .content {
+    background: #f8f9fa;
+    line-height: 120%;
+    font-size: 0.9em;
+    padding: 0.5em 1em;
+}
+.change .label {
+    background-color: steelblue;
+    color: #fefefe;
+    font-weight: bold;
+    padding: 0.5em 1em;
+}
+.change .content {
     background: #f8f9fa;
     line-height: 120%;
     font-size: 0.9em;

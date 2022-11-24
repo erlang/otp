@@ -1283,6 +1283,21 @@
     </div>
   </xsl:template>
 
+  <!-- Change -->
+  <xsl:template match="change">
+    <xsl:param name="chapnum"/>
+    <div class="change">
+      <div class="label">Change</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
+    </div>
+  </xsl:template>
+
   <!-- Warning -->
   <xsl:template match="warning">
     <xsl:param name="chapnum"/>

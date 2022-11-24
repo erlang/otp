@@ -539,6 +539,17 @@
     <xsl:text>&#10;</xsl:text>
   </xsl:template>
 
+  <!-- Change -->
+  <xsl:template match="change">
+    <xsl:text>&#10;.LP&#10;</xsl:text>
+    <xsl:text>&#10;.RS -4</xsl:text>
+    <xsl:text>&#10;.B&#10;</xsl:text>
+    <xsl:text>Change:</xsl:text>
+    <xsl:text>&#10;.RE</xsl:text>
+    <xsl:apply-templates/>
+    <xsl:text>&#10;</xsl:text>
+  </xsl:template>
+
   <!-- Warning -->
   <xsl:template match="warning">
     <xsl:text>&#10;.LP&#10;</xsl:text>
@@ -572,7 +583,7 @@
     <xsl:text>&#10;</xsl:text>
   </xsl:template>
 
-  <xsl:template match="warning/p | note/p | dont/p | do/p">
+  <xsl:template match="warning/p | note/p | change/p | dont/p | do/p">
     <xsl:variable name="content">
       <xsl:text>&#10;</xsl:text>
       <xsl:apply-templates/>
