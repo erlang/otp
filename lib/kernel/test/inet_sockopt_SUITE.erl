@@ -863,9 +863,14 @@ make_check_fun(Type,Element) ->
 
 %% {OptionName,Value1,Value2,Mandatory,Changeable}
 all_listen_options() ->
+    OsType = os:type(),
+    OsVersion = os:version(),
     [{tos,0,1,false,true}, 
      {priority,0,1,false,true}, 
-     {reuseaddr,false,true,false,true}, 
+     {reuseaddr,false,true,mandatory_reuseaddr(OsType,OsVersion),true},
+     {reuseport,false,true,mandatory_reuseport(OsType,OsVersion),true},
+     {reuseport_lb,false,true,mandatory_reuseport_lb(OsType,OsVersion),true},
+     {exclusiveaddruse,false,true,mandatory_exclusiveaddruse(OsType,OsVersion),true},
      {keepalive,false,true,true,true}, 
      {linger, {false,10}, {true,10},true,true},
      {sndbuf,2048,4096,false,true}, 
@@ -888,9 +893,14 @@ all_listen_options() ->
      {packet_size,0,4,true,true}
     ].
 all_connect_options() ->
+    OsType = os:type(),
+    OsVersion = os:version(),
     [{tos,0,1,false,true}, 
      {priority,0,1,false,true}, 
-     {reuseaddr,false,true,false,true}, 
+     {reuseaddr,false,true,mandatory_reuseaddr(OsType,OsVersion),true},
+     {reuseport,false,true,mandatory_reuseport(OsType,OsVersion),true},
+     {reuseport_lb,false,true,mandatory_reuseport_lb(OsType,OsVersion),true},
+     {exclusiveaddruse,false,true,mandatory_exclusiveaddruse(OsType,OsVersion),true},
      {keepalive,false,true,true,true}, 
      {linger, {false,10}, {true,10},true,true},
      {sndbuf,2048,4096,false,true}, 
@@ -913,6 +923,46 @@ all_connect_options() ->
      {packet_size,0,4,true,true}
     ].
 
+
+%% Mandatory on a lot of system other than those listed below. Please add more...
+mandatory_reuseaddr({unix, linux}, _OsVersion) ->
+    true;
+mandatory_reuseaddr({unix, freebsd}, _OsVersion) ->
+    true;
+mandatory_reuseaddr({unix, darwin}, _OsVersion) ->
+    true;
+mandatory_reuseaddr({win32, _}, _OsVersion) ->
+    true; %% reuseaddr and reuseport are emulated by the inet-driver
+mandatory_reuseaddr(_OsType, _OsVersion) ->
+    false.
+
+%% Mandatory an a lot of system other than those listed below. Please add more...
+mandatory_reuseport({win32, _}, _OsVersion) ->
+    true; %% reuseaddr and reuseport are emulated by the inet-driver
+mandatory_reuseport({unix, linux}, {X,Y,_Z}) when X > 4 orelse X == 4 andalso Y >= 6 ->
+    true;
+mandatory_reuseport({unix, freebsd}, {X,Y,_Z}) when X > 11 orelse X == 11 andalso Y >= 4 ->
+    %% I know that it is available on 11.4, but it may be available earlier...
+    true;
+mandatory_reuseport({unix, darwin}, {X,Y,_Z}) when X > 26 orelse X == 26 andalso Y >= 6 ->
+    %% I know that it is available on 26.6, but it may be available earlier...
+    true;
+mandatory_reuseport(_OsType, _OsVersion) ->
+    false.
+
+%% Perhaps mandatory an system other than those listed below. Please add more...
+mandatory_reuseport_lb({unix, linux}, {X,Y,_Z}) when X > 4 orelse X == 4 andalso Y >= 6 ->
+    true;
+mandatory_reuseport_lb({unix, freebsd}, {X,Y,_Z}) when X > 13 orelse X == 13 andalso Y >= 1 ->
+    %% I know that it is available on 13.1, but it may be available earlier...
+    true;
+mandatory_reuseport_lb(_OsType, _OsVersion) ->
+    false.
+
+mandatory_exclusiveaddruse({win32, _}, {X,Y,_Z}) when X > 5 orelse X == 5 andalso Y >= 2 ->
+    true;
+mandatory_exclusiveaddruse(_OsType, _OsVersion) ->
+    false.
 
 create_socketpair(ListenOptions,ConnectOptions) ->
     {ok,LS}=gen_tcp:listen(0,ListenOptions),

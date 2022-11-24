@@ -862,6 +862,9 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define UDP_OPT_ADD_MEMBERSHIP 14 /* add an IP group membership */
 #define UDP_OPT_DROP_MEMBERSHIP 15 /* drop an IP group membership */
 #define INET_OPT_IPV6_V6ONLY 16 /* IPv6 only socket, no mapped v4 addrs */
+#define INET_OPT_REUSEPORT   17 /* enable/disable local port reuse */
+#define INET_OPT_REUSEPORT_LB 18 /* enable/disable local port reuse */
+#define INET_OPT_EXCLUSIVEADDRUSE 19 /* windows specific exclusive addr */
 /* LOPT is local options */
 #define INET_LOPT_BUFFER      20  /* min buffer size hint */
 #define INET_LOPT_HEADER      21  /* list header size */
@@ -1184,6 +1187,10 @@ typedef struct {
 				   (affect how to interpret hsz) */
     int   exitf;                /* exit port on close or not */
     int   deliver;              /* Delivery mode, TERM or PORT */
+#ifdef __WIN32__
+    /* placed here in order to not consume more memory in 64-bit case... */
+    int bsd_compat;             /* State for Windows compatibility with BSD */
+#endif
 
     ErlDrvTermData caller;      /* recipient of sync reply */
     ErlDrvTermData busy_caller; /* recipient of sync reply when caller busy.
@@ -1536,6 +1543,9 @@ static ErlDrvTermData am_linger;
 static ErlDrvTermData am_recbuf;
 static ErlDrvTermData am_sndbuf;
 static ErlDrvTermData am_reuseaddr;
+static ErlDrvTermData am_reuseport;
+static ErlDrvTermData am_reuseport_lb;
+static ErlDrvTermData am_exclusiveaddruse;
 static ErlDrvTermData am_dontroute;
 static ErlDrvTermData am_priority;
 static ErlDrvTermData am_recvtos;
@@ -4171,6 +4181,9 @@ static void inet_init_sctp(void) {
     INIT_ATOM(recbuf);
     INIT_ATOM(sndbuf);
     INIT_ATOM(reuseaddr);
+    INIT_ATOM(reuseport);
+    INIT_ATOM(reuseport_lb);
+    INIT_ATOM(exclusiveaddruse);
     INIT_ATOM(dontroute);
     INIT_ATOM(priority);
     INIT_ATOM(recvtos);
@@ -6584,8 +6597,6 @@ int inet_setopt(int fd,
     return res;
 }
 
-
-
 /* set socket options:
 ** return -1 on error
 **         0 if ok
@@ -6634,6 +6645,10 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 
     while(len >= 5) {
         int recv_cmsgflags;
+#ifdef __WIN32__
+        int bsd_compat_set = 0;
+        int bsd_compat_unset = 0;
+#endif
 
 	opt = *ptr++;
 	ival = get_int32(ptr);
@@ -6913,41 +6928,82 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    desc->delimiter = (char)ival;
 	    continue;
 
-	case INET_OPT_REUSEADDR:
-#ifdef __WIN32__
-            /* The behaviour changed in Windows Server 2003.
-             * Now it works as the combo of `SO_REUSEADDR` and 
-             * `SO_REUSEPORT` does on *BSD.
-             */
-            if (desc->stype != SOCK_DGRAM) {
-                /*
-                 * We refuse usage of SO_REUSEADDR on non-UDP sockets since it
-                 * mostly (perhaps only) opens up for socket collisions and
-                 * probably hasn't got any useful use-cases. There are useful
-                 * use-cases for multicast sockets, though. For more
-                 * information see:
-                 *   https://learn.microsoft.com/en-us/windows/win32/winsock/using-so-reuseaddr-and-so-exclusiveaddruse
-                 *
-                 * Prior to OTP 25 we also refused to use SO_REUSEADDR on any
-                 * sockets on Windows. See
-                 * 2a6ac6f3f027fcab6d607599e82714e930d9fde2
-                 *
-                 * We certainly do not want to use it for the Erlang
-                 * distribution TCP sockets since we can end up reusing our
-                 * own active sockets as demonstrated in the issue:
-                 *   https://github.com/erlang/otp/issues/6461
-                 *
-                 * We probably want to expose the Windows specific
-                 * SO_EXCLUSIVEADDRUSE in the API as well...
-                 */
-                continue;
-            }
-#endif
-            type = SO_REUSEADDR;
+        case INET_OPT_EXCLUSIVEADDRUSE:
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "inet_set_opts(reuseaddr) -> %s\r\n",
                   __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
+#ifdef __WIN32__
+            type = SO_EXCLUSIVEADDRUSE;
+#else
+            continue;
+#endif
+            break;
+
+        case INET_OPT_REUSEPORT_LB:
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "inet_set_opts(reuseport_lb) -> %s\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
+#if defined(__WIN32__)
+            continue;
+#elif defined(__linux__) && defined(SO_REUSEPORT)
+            /* SO_REUSEPORT is load balancing on linux */
+            type = SO_REUSEPORT;
+            break;
+#elif defined(SO_REUSEPORT_LB)
+            type = SO_REUSEPORT_LB;
+            break;
+#else
+            continue;
+#endif
+
+        case INET_OPT_REUSEPORT:
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "inet_set_opts(reuseport) -> %s\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
+#if defined(__WIN32__)
+            /* fall through to INET_OPT_REUSEADDR */
+#elif defined(SO_REUSEPORT)
+            type = SO_REUSEPORT;
+            break;
+#else
+            continue;
+#endif
+
+	case INET_OPT_REUSEADDR:
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "inet_set_opts(reuseaddr) -> %s\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
+#ifdef __WIN32__
+            {
+                int old_ra, new_ra, compat;
+                /*
+                 * We only set SO_REUSEADDR on Windows if both 'reuseaddr' and
+                 * 'reuseport' has been passed as options, since SO_REUSEADDR
+                 * on Windows behaves like SO_REUSEADDR|SO_REUSEPORT does on BSD.
+                 */
+                compat = desc->bsd_compat;
+                old_ra = ((compat & (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT))
+                          == (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT));
+                if (ival) {
+                    bsd_compat_set = opt;
+                    compat |= opt;
+                }
+                else {
+                    bsd_compat_unset = opt;
+                    compat &= ~opt;
+                }
+                new_ra = ((compat & (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT))
+                          == (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT));
+                desc->bsd_compat = compat;
+                if (old_ra == new_ra)
+                    continue;
+            }
+#endif
+            type = SO_REUSEADDR;
 	    break;
 
 	case INET_OPT_KEEPALIVE: type = SO_KEEPALIVE;
@@ -7493,9 +7549,18 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
               "inet_set_opts -> set opt result: %d\r\n",
 	      __LINE__, desc->s, driver_caller(desc->port), res) );
 
-        if (res == 0) desc->recv_cmsgflags = recv_cmsgflags;
-	if (propagate && res != 0) {
-	    return -1;
+        if (res == 0) {
+            desc->recv_cmsgflags = recv_cmsgflags;
+        }
+        else {
+#ifdef __WIN32__
+            if (bsd_compat_set)
+                desc->bsd_compat &= ~bsd_compat_set;
+            if (bsd_compat_unset)
+                desc->bsd_compat |= bsd_compat_unset;
+#endif
+            if (propagate)
+                return -1;
 	}
     }
 
@@ -7639,6 +7704,10 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
         int recv_cmsgflags;
 	/* Get the Erlang-encoded option type -- always 1 byte: */
 	int eopt;
+#ifdef __WIN32__
+        int bsd_compat_set = 0;
+        int bsd_compat_unset = 0;
+#endif
 
         eopt = *curr;
 	curr++;
@@ -7882,13 +7951,99 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 	    break;
 	}
+
+        case INET_OPT_EXCLUSIVEADDRUSE:
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "sctp_set_opts -> EXCLUSIVEADDRUSE\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port)) );
+#ifdef __WIN32__
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = SOL_SOCKET;
+	    type    = SO_EXCLUSIVEADDRUSE;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+	    break;
+#else
+            continue;
+#endif
+
+	case INET_OPT_REUSEPORT_LB:
+	{
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "sctp_set_opts -> REUSEPORT_LB\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port)) );
+#if defined(__WIN32__)
+            continue;
+#elif defined(SO_REUSEPORT_LB) || (defined(__linux__) && defined(SO_REUSEPORT))
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = SOL_SOCKET;
+#if defined(__linux__)
+            /* SO_REUSEPORT is load balancing on linux */
+	    type    = SO_REUSEPORT;
+#else
+	    type    = SO_REUSEPORT_LB;
+#endif
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+	    break;
+#else
+            continue;
+#endif
+	}
+
+	case INET_OPT_REUSEPORT:
+	{
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "sctp_set_opts -> REUSEPORT\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port)) );
+#if defined(__WIN32__)
+            /* fall through to INET_OPT_REUSEADDR */
+#elif defined(SO_REUSEPORT)
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = SOL_SOCKET;
+	    type    = SO_REUSEPORT;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+	    break;
+#else
+            continue;
+#endif
+	}
 	case INET_OPT_REUSEADDR:
 	{
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "sctp_set_opts -> REUSEADDR\r\n",
                   __LINE__, desc->s, driver_caller(desc->port)) );
-
+#ifdef __WIN32__
+            {
+                int old_ra, new_ra, compat;
+                /*
+                 * We only set SO_REUSEADDR on Windows if both 'reuseaddr' and
+                 * 'reuseport' has been passed as options, since SO_REUSEADDR
+                 * on Windows behaves like SO_REUSEADDR|SO_REUSEPORT does on BSD.
+                 */
+                compat = desc->bsd_compat;
+                old_ra = ((compat & (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT))
+                          == (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT));
+                if (ival) {
+                    bsd_compat_set = opt;
+                    compat |= opt;
+                }
+                else {
+                    bsd_compat_unset = opt;
+                    compat &= ~opt;
+                }
+                new_ra = ((compat & (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT))
+                          == (INET_OPT_REUSEADDR | INET_OPT_REUSEPORT));
+                desc->bsd_compat = compat;
+                if (old_ra == new_ra)
+                    continue;
+            }
+#endif
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_SOCKET;
 	    type    = SO_REUSEADDR;
@@ -8421,7 +8576,17 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 	/* The return values of "sock_setopt" can only be 0 or -1: */
 	ASSERT(res == 0 || res == -1);
-        if (res == 0) desc->recv_cmsgflags = recv_cmsgflags;
+        if (res == 0) {
+            desc->recv_cmsgflags = recv_cmsgflags;
+        }
+#ifdef __WIN32__
+        else {
+            if (bsd_compat_set)
+                desc->bsd_compat &= ~bsd_compat_set;
+            if (bsd_compat_unset)
+                desc->bsd_compat |= bsd_compat_unset;
+        }
+#endif
 	if (res == -1)
 	{  /* Got an error, DO NOT continue with other options. However, on
 	      Solaris 10, we DO allow SO_SNDBUF and SO_RCVBUF to fail, assu-
@@ -8770,9 +8935,55 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    TRUNCATE_TO(0,ptr);
 	    continue;
 #endif
-	case INET_OPT_REUSEADDR: 
-	    type = SO_REUSEADDR; 
+	case INET_OPT_REUSEADDR: {
+#if defined(__WIN32__)
+            int res = !!(desc->bsd_compat & INET_OPT_REUSEADDR);
+	    *ptr++ = opt;
+	    put_int32(res, ptr);
+            continue;
+#else
+	    type = SO_REUSEADDR;
+#endif
 	    break;
+        }
+	case INET_OPT_REUSEPORT_LB: {
+#if defined(__linux__) && defined(SO_REUSEPORT)
+            /* SO_REUSEPORT is load balancing on linux */
+	    type = SO_REUSEPORT;
+	    break;
+#elif defined(SO_REUSEPORT_LB)
+	    type = SO_REUSEPORT_LB;
+	    break;
+#else
+	    *ptr++ = opt;
+	    put_int32(0, ptr);
+	    continue;
+#endif
+        }
+	case INET_OPT_REUSEPORT: {
+#if defined(__WIN32__)
+            int res = !!(desc->bsd_compat & INET_OPT_REUSEPORT);
+	    *ptr++ = opt;
+	    put_int32(res, ptr);
+            continue;
+#elif defined(SO_REUSEPORT)
+	    type = SO_REUSEPORT;
+	    break;
+#else
+	    *ptr++ = opt;
+	    put_int32(0, ptr);
+	    continue;
+#endif
+        }
+        case INET_OPT_EXCLUSIVEADDRUSE:
+#ifdef __WIN32__
+            type = SO_EXCLUSIVEADDRUSE;
+            break;
+#else
+	    *ptr++ = opt;
+	    put_int32(0, ptr);
+	    continue;
+#endif
 	case INET_OPT_KEEPALIVE: 
 	    type = SO_KEEPALIVE; 
 	    break;
@@ -9351,7 +9562,6 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	/* The following options just return an integer value: */
 	case INET_OPT_RCVBUF   :
 	case INET_OPT_SNDBUF   :
-	case INET_OPT_REUSEADDR:
 	case INET_OPT_DONTROUTE:
 	case INET_OPT_PRIORITY :
 	case INET_OPT_TOS      :
@@ -9361,6 +9571,10 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	case SCTP_OPT_AUTOCLOSE:
 	case SCTP_OPT_MAXSEG   :
 	/* The following options return true or false:	       */
+	case INET_OPT_REUSEADDR:
+	case INET_OPT_REUSEPORT:
+	case INET_OPT_REUSEPORT_LB:
+        case INET_OPT_EXCLUSIVEADDRUSE:
 	case SCTP_OPT_NODELAY  :
 	case SCTP_OPT_DISABLE_FRAGMENTS:
 	case SCTP_OPT_I_WANT_MAPPED_V4_ADDR:
@@ -9391,13 +9605,66 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 		tag    = am_sndbuf;
 		break;
 	    }
+	    case INET_OPT_EXCLUSIVEADDRUSE:
+	    {
+#if defined(__WIN32__)
+		proto  = SOL_SOCKET;
+		type   = SO_EXCLUSIVEADDRUSE;
+		is_int = 0;
+		tag    = am_exclusiveaddruse;
+		break;
+#else
+                continue;
+#endif
+	    }
+	    case INET_OPT_REUSEPORT_LB:
+	    {
+#if defined(SO_REUSEPORT_LB) || (defined(__linux__) && defined(SO_REUSEPORT))
+		proto  = SOL_SOCKET;
+#if defined(__linux__)
+                /* SO_REUSEPORT is load balancing on linux */
+		type   = SO_REUSEPORT;
+#else
+                type   = SO_REUSEPORT_LB;
+#endif
+		is_int = 0;
+		tag    = am_reuseport_lb;
+		break;
+#else
+                continue;
+#endif
+	    }
+	    case INET_OPT_REUSEPORT:
+	    {
+#if defined(__WIN32__)
+                res = !!(desc->bsd_compat & INET_OPT_REUSEPORT);
+		is_int = 0;
+		tag    = am_reuseaddr;
+                goto form_result;
+#elif defined(SO_REUSEPORT)
+		proto  = SOL_SOCKET;
+		type   = SO_REUSEPORT;
+		is_int = 0;
+		tag    = am_reuseport;
+		break;
+#else
+                continue;
+#endif
+	    }
 	    case INET_OPT_REUSEADDR:
 	    {
+#if defined(__WIN32__)
+                res = !!(desc->bsd_compat & INET_OPT_REUSEADDR);
+		is_int = 0;
+		tag    = am_reuseaddr;
+                goto form_result;
+#else
 		proto  = SOL_SOCKET;
 		type   = SO_REUSEADDR;
 		is_int = 0;
 		tag    = am_reuseaddr;
 		break;
+#endif
 	    }
 	    case INET_OPT_DONTROUTE:
 	    {
@@ -9556,6 +9823,9 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    }
 	    if (sock_getopt (desc->s, proto, type, &res, &sz) < 0) continue;
 	    /* Form the result: */
+#ifdef __WIN32__
+form_result:
+#endif
 	    PLACE_FOR(spec, i, LOAD_ATOM_CNT + 
 		      (is_int ? LOAD_INT_CNT : LOAD_BOOL_CNT) +
 		      LOAD_TUPLE_CNT);

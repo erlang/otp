@@ -953,9 +953,9 @@ stats() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 connect_options() ->
     [debug,
-     tos, tclass, priority, reuseaddr, keepalive, linger, nodelay,
-     sndbuf, recbuf,
-     recvtos, recvtclass, ttl, recvttl,
+     tos, tclass, priority, reuseaddr, reuseport, reuseport_lb,
+     exclusiveaddruse, keepalive,
+     linger, nodelay, sndbuf, recbuf, recvtos, recvtclass, ttl, recvttl,
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
@@ -1044,8 +1044,8 @@ con_add(Name, Val, #connect_opts{} = R, Opts, AllOpts) ->
 listen_options() ->
     [debug,
      tos, tclass,
-     priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
-     recvtos, recvtclass, ttl, recvttl,
+     priority, reuseaddr, reuseport, reuseport_lb, exclusiveaddruse, keepalive,
+     linger, sndbuf, recbuf, nodelay, recvtos, recvtclass, ttl, recvttl,
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
