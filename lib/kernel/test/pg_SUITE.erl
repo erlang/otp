@@ -67,11 +67,12 @@ suite() ->
     [{timetrap, {seconds, 60}}].
 
 init_per_testcase(TestCase, Config) ->
-    {ok, _Pid} = pg:start_link(TestCase),
-    Config.
+    {ok, Pid} = pg:start_link(TestCase),
+    trace_start(TestCase, Config, Pid).
 
-end_per_testcase(TestCase, _Config) ->
+end_per_testcase(TestCase, Config) ->
     gen_server:stop(TestCase),
+    trace_end(Config),
     ok.
 
 all() ->
@@ -239,6 +240,7 @@ two(Config) when is_list(Config) ->
     stop_proc(Pid),
     %% again, must be serialised
     sync(?FUNCTION_NAME),
+    sync({?FUNCTION_NAME, Node}),
     ?assertEqual([], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     ?assertEqual([], rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
 
@@ -265,14 +267,14 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     RemotePid = erlang:spawn(Node, forever()),
     % remote join
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    sync({?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([RemotePid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     % inspecting internal state is not best practice, but there's no other way to check if the state is correct.
     {_, RemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
     ?assertEqual(#{?FUNCTION_NAME => [RemotePid]}, RemoteMap),
     % remote leave
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    sync({?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
     % empty group should be deleted.
@@ -281,11 +283,11 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     %% another variant of emptying a group remotely: join([Pi1, Pid2]) and leave ([Pid2, Pid1])
     RemotePid2 = erlang:spawn(Node, forever()),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid2]])),
-    sync({?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([RemotePid, RemotePid2], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     %% now leave
     ?assertEqual(ok, rpc:call(Node, pg, leave, [?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid2, RemotePid]])),
-    sync({?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     {_, NewRemoteMap} = maps:get(RemoteNode, element(4, sys:get_state(?FUNCTION_NAME))),
     peer:stop(Peer),
@@ -335,6 +337,9 @@ netsplit(Config) when is_list(Config) ->
     ?assertEqual(Node, peer:call(Peer, erlang, node, [])), %% just to test RPC
     RemoteOldPid = erlang:spawn(Node, forever()),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, '$invisible', RemoteOldPid])),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
+    ?assertEqual([RemoteOldPid], pg:get_members(?FUNCTION_NAME, '$invisible')),
+
     %% hohoho, partition!
     disconnect_nodes([Node]),
     ?assertEqual(Node, peer:call(Peer, erlang, node, [])), %% just to ensure RPC still works
@@ -352,11 +357,19 @@ netsplit(Config) when is_list(Config) ->
 
     ?assertNot(lists:member(Node, nodes())), %% should be no nodes in the cluster
 
+    PgPid = whereis(?FUNCTION_NAME),
+    1 = erlang:trace(PgPid, true, ['receive']),
     pong = net_adm:ping(Node),
+    receive
+        {trace, PgPid, 'receive', {nodeup, Node}} -> ok
+    end,
+    1 = erlang:trace(PgPid, false, ['receive']),
+
     %% now ensure sync happened
-    Pids = lists:sort([RemotePid, LocalPid]),
-    sync({?FUNCTION_NAME, Node}),
-    ?assertEqual(Pids, lists:sort(rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME]))),
+    sync_via(?FUNCTION_NAME, {?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
+    ?assertEqual(lists:sort([RemotePid, LocalPid]),
+                 lists:sort(rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME]))),
     ?assertEqual([RemoteOldPid], pg:get_members(?FUNCTION_NAME, '$visible')),
     peer:stop(Peer),
     ok.
@@ -464,8 +477,8 @@ double(Config) when is_list(Config) ->
     {Peer, Node} = spawn_node(?FUNCTION_NAME),
     ?assertEqual(ok, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [Pid])),
     ?assertEqual([Pid, Pid], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
-    sync(?FUNCTION_NAME),
     sync({?FUNCTION_NAME, Node}),
+    sync_via(?FUNCTION_NAME, {?FUNCTION_NAME, Node}),
     ?assertEqual([Pid, Pid], rpc:call(Node, pg, get_members, [?FUNCTION_NAME, ?FUNCTION_NAME])),
     peer:stop(Peer),
     ok.
@@ -476,7 +489,7 @@ scope_restart(Config) when is_list(Config) ->
     {Peer, Node} = spawn_node(?FUNCTION_NAME),
     RemotePid = erlang:spawn(Node, forever()),
     ?assertEqual(ok, rpc:call(Node, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid])),
-    sync({?FUNCTION_NAME, Node}),
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual(lists:sort([RemotePid, Pid, Pid]), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     %% stop scope locally, and restart
     gen_server:stop(?FUNCTION_NAME),
@@ -535,6 +548,11 @@ forced_sync(Config) when is_list(Config) ->
     ?assertEqual(true, net_kernel:connect_node(Node)),
     ensure_peers_info(?FUNCTION_NAME, [Node]),
     ?assertEqual(Expected, lists:sort(pg:get_members(?FUNCTION_NAME, one))),
+
+    %% Do extra sync to make sure any redundant sync message has arrived
+    %% before we send our fake sync message below.
+    sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
+
     %% WARNING: this code uses pg as white-box, exploiting internals,
     %%  only to simulate broken 'sync'
     %% Fake Groups: one should disappear, one should be replaced, one stays
@@ -571,7 +589,14 @@ group_leave(Config) when is_list(Config) ->
     sync({?FUNCTION_NAME, Node}),
     sync(?FUNCTION_NAME),
     ?assertEqual(Remain, pg:get_members(?FUNCTION_NAME, two)),
+
+    PgPid = whereis(?FUNCTION_NAME),
+    1 = erlang:trace(PgPid, true, ['receive']),
     peer:stop(Peer),
+    receive
+        {trace, PgPid, 'receive', {nodedown, Node}} -> ok
+    end,
+    1 = erlang:trace(PgPid, false, ['receive']),
     sync(?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, two)),
     ok.
@@ -715,7 +740,17 @@ sync(GS) ->
 %% flushes GS queue from the point of view of a registered process RegName
 %%  running on the Node.
 sync_via({RegName, Node}, GS) ->
-    rpc:call(Node, sys, replace_state, [RegName, fun (S) -> (catch sys:get_state(GS)), S end]).
+    MyNode = node(),
+    rpc:call(Node, sys, replace_state,
+             [RegName, fun (S) -> (catch sys:get_state({GS, MyNode})), S end]);
+
+%% flush remote GS queue from local process RegName
+sync_via(RegName, {GS, Node}) ->
+    sys:replace_state(RegName,
+                      fun (S) -> _R = (catch sys:get_state({GS, Node})),
+                                 %%io:format("sync_via: ~p -> R = ~p\n", [{GS, Node},_R]),
+                                 S
+                      end).
 
 ensure_peers_info(Scope, Nodes) ->
     %% Ensures that pg server on local node has gotten info from
@@ -831,3 +866,44 @@ spawn_disconnected_node(Scope, TestCase) ->
         args => ["-connect_all", "false", "-kernel", "dist_auto_connect", "never"]}),
     {ok, _Pid} = peer:call(Peer, pg, start, [Scope]),
     {Peer, Node}.
+
+
+%%--------------------------------------------------------------------
+%% Debug Helpers
+
+%% Add test cases here to enable 'receive' trace of the local pg process
+traced_testcases() -> [].
+
+trace_start(TestCase, Config, Tracee) ->
+    case lists:member(TestCase, traced_testcases()) of
+        true ->
+            Tracer = spawn_link(fun() -> tracer() end),
+            1 = erlang:trace(Tracee, true, ['receive', {tracer, Tracer}, timestamp]),
+            [{tracer, Tracer} | Config];
+        false ->
+            Config
+    end.
+
+trace_end(Config) ->
+    case proplists:get_value(tracer, Config) of
+        undefined -> ok;
+        Tracer ->
+            Mon = erlang:monitor(process, Tracer),
+            Tracer ! flush,
+            normal = receive
+                         {'DOWN', Mon, process, Tracer, R} -> R
+                     end
+    end.
+
+tracer() ->
+    receive flush -> ok end,
+    io:format("Flush trace messages:\n"),
+    tracer_flush().
+
+tracer_flush() ->
+    receive M ->
+            io:format("~p\n", [M]),
+            tracer_flush()
+    after 0 ->
+            io:format("Flush done.\n")
+    end.
