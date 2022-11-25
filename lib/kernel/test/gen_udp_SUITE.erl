@@ -1705,11 +1705,11 @@ do_connect(Config) when is_list(Config) ->
     ok = gen_udp:connect(S2, Addr, P1),
     ?P("try send on second socket"),
     ok = gen_udp:send(S2, <<16#deadbeef:32>>),
-    ?P("try recv on second socket - expect failure: "
-       "~n   ~p", [inet:info(S2)]),
+    ?P("try recv on second socket - expect failure when"
+       "~n   Socket Info: ~p", [inet:info(S2)]),
     ok = case gen_udp:recv(S2, 0, 500) of
-	     {error, econnrefused} -> ok;
-	     {error, econnreset}   -> ok;
+	     {error, econnrefused = R} -> ?P("expected failure: ~w", [R]), ok;
+	     {error, econnreset   = R} -> ?P("expected failure: ~w", [R]), ok;
 	     Other -> 
                  ?P("UNEXPECTED failure: ~p:"
                     "~n   ~p", [Other, inet:info(S2)]),
