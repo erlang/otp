@@ -1215,7 +1215,9 @@ static db_result_msg encode_out_params(db_state *state,
             }
             column = params[i];
             if (column.type.len == 0 ||
-                column.type.strlen_or_indptr == SQL_NULL_DATA) {
+                column.type.strlen_or_indptr == SQL_NULL_DATA ||
+                // DB2 64Bit Driver uses 32Bit null
+                column.type.strlen_or_indptr == 0xffffffff) {
                 ei_x_encode_atom(&dynamic_buffer(state), "null");
             } else {
                 void* values = retrive_param_values(&column);
@@ -1502,7 +1504,9 @@ static void encode_column_dyn(db_column column, int column_nr,
 {
     TIMESTAMP_STRUCT* ts;
     if (column.type.len == 0 ||
-	column.type.strlen_or_indptr == SQL_NULL_DATA) {
+	column.type.strlen_or_indptr == SQL_NULL_DATA ||
+	// DB2 64Bit Driver uses 32Bit null
+	column.type.strlen_or_indptr == 0xffffffff) {
 	ei_x_encode_atom(&dynamic_buffer(state), "null");
     } else {
 	switch(column.type.c) {
