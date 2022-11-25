@@ -1521,11 +1521,15 @@ analyze_and_print_win_host_info(Version) ->
     MemFactor =
         try
             begin
-                [MStr0, MUnit|_] =
-                    string:tokens(lists:delete($,, TotPhysMem), [$\ ]),
+                %% "Normally" this looks like this: "16,123 MB"
+                %% But sometimes the "," is replaced by a 255 char
+                %% which I assume must be some unicode screwup...
+                %% Anyway, filter out both of them!
+                TotPhysMem1 = lists:delete($,, TotPhysMem),
+                TotPhysMem2 = lists:delete(255, TotPhysMem1),
+                [MStr, MUnit|_] = string:tokens(TotPhysMem2, [$\ ]),
                 case string:to_lower(MUnit) of
                     "gb" ->
-                        MStr = [Char || Char <- MStr0, Char =/= 255],
                         try list_to_integer(MStr) of
                             M when M >= 16 ->
                                 0;
@@ -1543,20 +1547,19 @@ analyze_and_print_win_host_info(Version) ->
                                 %% "unusual" characters...
                                 %% ...so print the string as a list...
                                 io:format("Bad memory string: "
-                                          "~n   [gb] ~w (~w)"
-                                          "~n", [MStr0, MStr]),
+                                          "~n   [gb] ~w"
+                                          "~n", [MStr]),
                                 10
                         end;
                     "mb" ->
-                        MStr = [Char || Char <- MStr0, Char =/= 255],
                         try list_to_integer(MStr) of
                             M when M >= 16384 ->
                                 0;
                             M when M >= 8192 ->
                                 1;
-                            M when M > 4096 ->
+                            M when M >= 4096 ->
                                 3;
-                            M when M > 2048 ->
+                            M when M >= 2048 ->
                                 6;
                             _ -> 
                                 10
@@ -1566,14 +1569,14 @@ analyze_and_print_win_host_info(Version) ->
                                 %% "unusual" characters...
                                 %% ...so print the string as a list...
                                 io:format("Bad memory string: "
-                                          "~n   [mb] ~w (~w)"
-                                          "~n", [MStr0, MStr]),
+                                          "~n   [mb] ~w"
+                                          "~n", [MStr]),
                                 10
                         end;
                     _ ->
                         io:format("Bad memory string: "
                                   "~n   ~w"
-                                  "~n", [MStr0]),
+                                  "~n", [MStr]),
                         10
                 end
             end
