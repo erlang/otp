@@ -69,7 +69,7 @@
       <seemfa marker="#find/3"><c>find/3</c></seemfa>,
       <seemfa marker="#replace/3"><c>replace/3</c></seemfa>,
       <seemfa marker="#split/2"><c>split/2</c></seemfa>,
-      <seemfa marker="#lexemes/2"><c>split/2</c></seemfa> and
+      <seemfa marker="#split/3"><c>split/3</c></seemfa> and
       <seemfa marker="#trim/3"><c>trim/3</c></seemfa>.
     </p>
     <p>
