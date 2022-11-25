@@ -48,7 +48,7 @@
 %% This module needs to compile on old nodes...
 -define(CT_PEER(), {ok, undefined, undefined}).
 -define(CT_PEER(Opts), {ok, undefined, undefined}).
--define(CT_PEER(Opts, Release, PrivDir), {ok, undefined, undefined}).
+-define(CT_PEER_REL(Opts, Release, PrivDir), {ok, undefined, undefined}).
 -endif.
 
 suite() ->
@@ -539,9 +539,9 @@ async_call(Config) when is_list(Config) ->
 
 call_against_old_node(Config) ->
     {OldRelName, OldRel} = old_release(),
-    case ?CT_PEER(#{connection => 0},
-                  OldRelName,
-                  proplists:get_value(priv_dir, Config)) of
+    case ?CT_PEER_REL(#{connection => 0},
+                      OldRelName,
+                      proplists:get_value(priv_dir, Config)) of
         not_available ->
 	    {skipped, "No OTP "++OldRel++" available"};
         {ok, PeerOld, NodeOld} ->
@@ -555,9 +555,9 @@ multicall_mix(Config) ->
     {ok, Peer2, Node2} = ?CT_PEER(#{connection => 0}),
     {OldRelName, OldRel} = old_release(),
     {{ok, _Peer3, Node3}, OldNodeTest}
-        = case ?CT_PEER(#{connection => 0},
-                        OldRelName,
-                        proplists:get_value(priv_dir, Config)) of
+        = case ?CT_PEER_REL(#{connection => 0},
+                            OldRelName,
+                            proplists:get_value(priv_dir, Config)) of
               {ok, _, _} = OldNRes ->
                   {OldNRes, true};
               not_available ->
@@ -858,9 +858,9 @@ f2() ->
 test_on_old_node(Config, Test, NoOld, NoCurr) ->
     {OldRelName, OldRel} = old_release(),
     NodesOldRes = lists:map(fun (_) ->
-                                    case ?CT_PEER(#{connection => 0},
-                                                  OldRelName,
-                                                  proplists:get_value(priv_dir, Config)) of
+                                    case ?CT_PEER_REL(#{connection => 0},
+                                                      OldRelName,
+                                                      proplists:get_value(priv_dir, Config)) of
                                         not_available ->
                                             throw({skipped, "No OTP "++OldRel++" available"});
                                         {ok, _, _} = Ok ->
