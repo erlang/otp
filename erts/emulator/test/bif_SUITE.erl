@@ -43,7 +43,8 @@
          verify_middle_queue_save/1,
          test_length/1,
          fixed_apply_badarg/1,
-         external_fun_apply3/1]).
+         external_fun_apply3/1,
+         node_1/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -61,7 +62,7 @@ all() ->
      is_process_alive, is_process_alive_signal_from,
      process_info_blast, os_env_case_sensitivity,
      verify_middle_queue_save, test_length,fixed_apply_badarg,
-     external_fun_apply3].
+     external_fun_apply3, node_1].
 
 init_per_testcase(guard_bifs_in_erl_bif_types, Config) when is_list(Config) ->
     skip_missing_erl_bif_types(Config);
@@ -1444,6 +1445,73 @@ external_fun_apply3(_Config) ->
     {'EXIT',{undef,_}} = (catch Apply(does, 'not', [exist])),
 
     ok.
+
+node_1(_Config) ->
+    {ok, Peer, Node} = ?CT_PEER(),
+
+    local_node(self()),
+    LocalPort = lists:last(erlang:ports()),
+    local_node(LocalPort),
+    local_node(make_ref()),
+
+    external_node(erpc:call(Node, erlang, self, []), Node),
+    ExtPort = hd(erpc:call(Node, erlang, ports, [])),
+    external_node(ExtPort, Node),
+    external_node(erpc:call(Node, erlang, make_ref, []), Node),
+
+    node_error(a),
+    node_error(42),
+    node_error({a,b,c}),
+    node_error({tag,self()}),
+    node_error([self()]),
+    node_error(1 bsl 133),
+    node_error(#{}),
+    node_error(#{id(a) => b}),
+    node_error(<<"binary">>),
+
+    peer:stop(Peer),
+    ok.
+
+local_node(E) ->
+    test_node(E, node()).
+
+external_node(E, Node) ->
+    test_node(E, Node).
+
+test_node(E0, Node) ->
+    true = node(id(E0)) =:= Node,
+    E = id(E0),
+    if
+        node(E) =:= Node ->
+            ok
+    end,
+    test_node_2(id(E), Node).
+
+test_node_2(E, Node) when is_pid(E); is_port(E); is_reference(E) ->
+    true = node(E) =:= Node,
+    if
+        node(E) =:= Node ->
+            ok
+    end,
+    test_node_3(id(E), Node),
+    ok.
+
+test_node_3(E, Node) when is_pid(E) ->
+    true = node(E) =:= Node;
+test_node_3(E, Node) when is_port(E) ->
+    true = node(E) =:= Node;
+test_node_3(E, Node) when is_reference(E) ->
+    true = node(E) =:= Node.
+
+node_error(E0) ->
+    E = id(E0),
+    {'EXIT',{badarg,[{erlang,node,[E],_}|_]}} = catch node(E),
+    if
+        node(E) ->
+            ct:fail(should_fail);
+        true ->
+            ok
+    end.
 
 %% helpers
 

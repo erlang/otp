@@ -66,6 +66,7 @@ my @beam_global_funcs = qw(
     handle_map_get_badkey
     handle_map_get_badmap
     handle_map_size_error
+    handle_node_error
     handle_not_error
     handle_or_error
     handle_tl_error

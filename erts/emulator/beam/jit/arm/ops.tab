@@ -734,6 +734,9 @@ bif_or j s s d
 bif1 Fail Bif=u$bif:erlang:not/1 Src=d Dst=d => bif_not Fail Src Dst
 bif_not j S d
 
+bif1 Fail Bif=u$bif:erlang:node/1 Src=d Dst=d => bif_node Fail Src Dst
+bif_node j S d
+
 gc_bif1 Fail Live Bif=u$bif:erlang:bit_size/1 Src Dst=d =>
     bif_bit_size Fail Src Dst
 bif_bit_size j s d
