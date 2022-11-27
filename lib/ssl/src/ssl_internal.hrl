@@ -26,6 +26,9 @@
 -include_lib("kernel/include/logger.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
+-define(CLIENT_ROLE, client).
+-define(SERVER_ROLE, server).
+
 -define(SECRET_PRINTOUT, "***").
 
 -type reason()            :: any().

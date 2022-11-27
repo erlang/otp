@@ -64,12 +64,6 @@
          replace_ch1_with_message_hash/1,
          select_common_groups/2,
          verify_signature_algorithm/2,
-         validate_client_key_share/2,
-         validate_server_key_share/2,
-         validate_selected_group/2,
-         handle_alpn/2,
-         select_cipher_suite/3,
-         validate_cipher_suite/2,
          forget_master_secret/1,
          set_client_random/2,
          handle_pre_shared_key/3,
@@ -84,6 +78,7 @@
          get_pre_shared_key/2,
          get_pre_shared_key/4,
          get_pre_shared_key_early_data/2,
+         get_supported_groups/1,
          calculate_traffic_secrets/1,
          calculate_client_early_traffic_secret/5,
          calculate_client_early_traffic_secret/2,
@@ -827,12 +822,6 @@ validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                             ocsp_state => OcspState,
                             ocsp_responder_certs => OcspResponderCerts}).
 
-
-maybe_store_peer_cert(State, undefined) ->
-    State;
-maybe_store_peer_cert(#state{session = Session} = State, PeerCert) ->
-    State#state{session = Session#session{peer_certificate = PeerCert}}.
-
 store_peer_cert(#state{session = Session,
                        handshake_env = HsEnv} = State, PeerCert, PublicKeyInfo) ->
     State#state{session = Session#session{peer_certificate = PeerCert},
@@ -990,6 +979,10 @@ maybe_store_early_data_secret(false, _, State) ->
     State.
 
 %% Server
+%% get_pre_shared_key(undefined, HKDFAlgo) ->
+%%     binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo));
+%% get_pre_shared_key(#pre_shared_key_server_hello{selected_identity = PSK}, _) ->
+%%     PSK.
 get_pre_shared_key(undefined, HKDFAlgo) ->
     binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo));
 get_pre_shared_key({_, PSK}, _) ->
@@ -1005,9 +998,9 @@ get_pre_shared_key(undefined, _, HKDFAlgo, _) ->
 get_pre_shared_key(_, undefined, HKDFAlgo, _) ->
     {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
 %% Session resumption
-get_pre_shared_key(manual = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
+get_pre_shared_key(manual = SessionTickets, UseTicket, HKDFAlgo, ServerPSK) ->
     TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
-    case choose_psk(TicketData, SelectedIdentity) of
+    case choose_psk(TicketData, ServerPSK) of
         undefined -> %% full handshake, default PSK
             {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
         illegal_parameter ->
@@ -1015,9 +1008,9 @@ get_pre_shared_key(manual = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentit
         {_, PSK, _, _, _} ->
             {ok, PSK}
     end;
-get_pre_shared_key(auto = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
+get_pre_shared_key(auto = SessionTickets, UseTicket, HKDFAlgo, ServerPSK) ->
     TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
-    case choose_psk(TicketData, SelectedIdentity) of
+    case choose_psk(TicketData, ServerPSK) of
         undefined -> %% full handshake, default PSK
             tls_client_ticket_store:unlock_tickets(self(), UseTicket),
             {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
@@ -1033,7 +1026,7 @@ get_pre_shared_key(auto = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity)
 %% Early Data
 get_pre_shared_key_early_data(SessionTickets, UseTicket) ->
     TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
-    case choose_psk(TicketData, 0) of
+    case choose_psk(TicketData,  #pre_shared_key_server_hello{selected_identity = 0}) of
         undefined -> %% Should not happen
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
         illegal_parameter ->
@@ -1041,6 +1034,11 @@ get_pre_shared_key_early_data(SessionTickets, UseTicket) ->
         {_Key, PSK, Cipher, HKDF, MaxSize} ->
             {ok, {PSK, Cipher, HKDF, MaxSize}}
     end.
+
+get_supported_groups(undefined = Groups) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {supported_groups, Groups})};
+get_supported_groups(#supported_groups{supported_groups = Groups}) ->
+    {ok, Groups}.
 
 choose_psk(undefined, _) ->
     undefined;
@@ -1051,7 +1049,7 @@ choose_psk([#ticket_data{
                pos = SelectedIdentity,
                psk = PSK,
                cipher_suite = {Cipher, HKDF},
-               max_size = MaxSize}|_], SelectedIdentity) ->
+               max_size = MaxSize}|_], #pre_shared_key_server_hello{selected_identity = SelectedIdentity}) ->
     {Key, PSK, Cipher, HKDF, MaxSize};
 choose_psk([_|T], SelectedIdentity) ->
     choose_psk(T, SelectedIdentity).
@@ -1421,111 +1419,6 @@ select_common_groups(ServerGroups, ClientGroups) ->
             {ok, L}
     end.
 
-
-%% RFC 8446 - 4.2.8.  Key Share
-%% This vector MAY be empty if the client is requesting a
-%% HelloRetryRequest.  Each KeyShareEntry value MUST correspond to a
-%% group offered in the "supported_groups" extension and MUST appear in
-%% the same order.  However, the values MAY be a non-contiguous subset
-%% of the "supported_groups" extension and MAY omit the most preferred
-%% groups.
-%%
-%% Clients can offer as many KeyShareEntry values as the number of
-%% supported groups it is offering, each representing a single set of
-%% key exchange parameters.
-%%
-%% Clients MUST NOT offer multiple KeyShareEntry values
-%% for the same group.  Clients MUST NOT offer any KeyShareEntry values
-%% for groups not listed in the client's "supported_groups" extension.
-%% Servers MAY check for violations of these rules and abort the
-%% handshake with an "illegal_parameter" alert if one is violated.
-validate_client_key_share(_ ,[]) ->
-    ok;
-validate_client_key_share([], _) ->
-    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
-validate_client_key_share([G|ClientGroups], [{_, G, _}|ClientShares]) ->
-    validate_client_key_share(ClientGroups, ClientShares);
-validate_client_key_share([_|ClientGroups], [_|_] = ClientShares) ->
-    validate_client_key_share(ClientGroups, ClientShares).
-
-
-%% Verify that selected group is offered by the client.
-validate_server_key_share([], _) ->
-    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
-validate_server_key_share([G|_ClientGroups], {_, G, _}) ->
-    ok;
-validate_server_key_share([_|ClientGroups], {_, _, _} = ServerKeyShare) ->
-    validate_server_key_share(ClientGroups, ServerKeyShare).
-
-
-validate_selected_group(SelectedGroup, [SelectedGroup|_]) ->
-    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
-                       "Selected group sent by the server shall not correspond to a group"
-                       " which was provided in the key_share extension")};
-validate_selected_group(SelectedGroup, ClientGroups) ->
-    case lists:member(SelectedGroup, ClientGroups) of
-        true ->
-            ok;
-        false ->
-            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
-                               "Selected group sent by the server shall correspond to a group"
-                               " which was provided in the supported_groups extension")}
-    end.
-
-
-
-
-%% RFC 7301 - Application-Layer Protocol Negotiation Extension
-%% It is expected that a server will have a list of protocols that it
-%% supports, in preference order, and will only select a protocol if the
-%% client supports it.  In that case, the server SHOULD select the most
-%% highly preferred protocol that it supports and that is also
-%% advertised by the client.  In the event that the server supports no
-%% protocols that the client advertises, then the server SHALL respond
-%% with a fatal "no_application_protocol" alert.
-handle_alpn(undefined, _) ->
-    {ok, undefined};
-handle_alpn([], _) ->
-    {error,  ?ALERT_REC(?FATAL, ?NO_APPLICATION_PROTOCOL)};
-handle_alpn([_|_], undefined) ->
-    {ok, undefined};
-handle_alpn([ServerProtocol|T], ClientProtocols) ->
-    case lists:member(ServerProtocol, ClientProtocols) of
-        true ->
-            {ok, ServerProtocol};
-        false ->
-            handle_alpn(T, ClientProtocols)
-    end.
-
-
-select_cipher_suite(_, [], _) ->
-    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher)};
-%% If honor_cipher_order is set to true, use the server's preference for
-%% cipher suite selection.
-select_cipher_suite(true, ClientCiphers, ServerCiphers) ->
-    select_cipher_suite(false, ServerCiphers, ClientCiphers);
-select_cipher_suite(false, [Cipher|ClientCiphers], ServerCiphers) ->
-    case lists:member(Cipher, tls_v1:exclusive_suites(4)) andalso
-        lists:member(Cipher, ServerCiphers) of
-        true ->
-            {ok, Cipher};
-        false ->
-            select_cipher_suite(false, ClientCiphers, ServerCiphers)
-    end.
-
-
-%% RFC 8446 4.1.3 ServerHello
-%% A client which receives a cipher suite that was not offered MUST abort the
-%% handshake with an "illegal_parameter" alert.
-validate_cipher_suite(Cipher, ClientCiphers) ->
-    case lists:member(Cipher, ClientCiphers) of
-        true ->
-            ok;
-        false ->
-            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)}
-    end.
-
-
 %% RFC 8446 (TLS 1.3)
 %% TLS 1.3 provides two extensions for indicating which signature
 %% algorithms may be used in digital signatures.  The
@@ -1711,8 +1604,9 @@ handle_pre_shared_key(#state{ssl_options = #{session_tickets := disabled}}, _, _
     {ok, undefined};
 handle_pre_shared_key(#state{ssl_options = #{session_tickets := Tickets},
                              handshake_env = #handshake_env{tls_handshake_history =  {HHistory, _}},
-                             static_env = #static_env{trackers = Trackers}}, 
-                      OfferedPreSharedKeys, Cipher) when Tickets =/= disabled ->
+                             static_env = #static_env{trackers = Trackers}},
+                      #pre_shared_key_client_hello{offered_psks =
+                                                       OfferedPreSharedKeys}, Cipher) when Tickets =/= disabled ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     #{prf := CipherHash} = ssl_cipher_format:suite_bin_to_map(Cipher),
     tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory).

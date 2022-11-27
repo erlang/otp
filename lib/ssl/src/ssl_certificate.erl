@@ -623,7 +623,7 @@ is_supported_signature_algorithm_1_2(#'OTPCertificate'{signatureAlgorithm =
 is_supported_signature_algorithm_1_2(#'OTPCertificate'{signatureAlgorithm = SignAlg}, SignAlgs) ->
     Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
     {Hash, Sign, _ } = ssl_cipher:scheme_to_components(Scheme),
-    ssl_cipher:is_supported_sign({pre_1_3_hash(Hash), pre_1_3_sign(Sign)}, ssl_cipher:signature_schemes_1_2(SignAlgs)).
+    ssl_cipher:is_supported_sign({Hash, pre_1_3_sign(Sign)}, ssl_cipher:signature_schemes_1_2(SignAlgs)).
 is_supported_signature_algorithm_1_3(#'OTPCertificate'{signatureAlgorithm = SignAlg}, SignAlgs) ->
     Scheme = ssl_cipher:signature_algorithm_to_scheme(SignAlg),
     ssl_cipher:is_supported_sign(Scheme, SignAlgs).
@@ -632,10 +632,6 @@ pre_1_3_sign(rsa_pkcs1) ->
     rsa;
 pre_1_3_sign(Other) ->
     Other.
-pre_1_3_hash(sha1) ->
-    sha;
-pre_1_3_hash(Hash) ->
-    Hash.
 
 paths(Chain, CertDbHandle) ->
     paths(Chain, Chain, CertDbHandle, []).

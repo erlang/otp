@@ -561,7 +561,7 @@ send_post_handshake_data(Handshake, From, StateName,
 
 maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
                               static = Static0} = StateData, #key_update{}) ->
-    ConnectionStates = tls_connection_1_3:update_cipher_key(current_write, ConnectionStates0),
+    ConnectionStates = tls_gen_connection_1_3:update_cipher_key(current_write, ConnectionStates0),
     Static = Static0#static{bytes_sent = 0},
     StateData#data{connection_states = ConnectionStates,
                    static = Static};

@@ -4,7 +4,9 @@
     {modules, [
 	       %% TLS/SSL
 	       tls_connection,
-	       tls_connection_1_3,
+               tls_client_connection_1_3,
+               tls_server_connection_1_3,
+               tls_gen_connection_1_3,
 	       tls_handshake,
 	       tls_handshake_1_3,
 	       tls_record,
