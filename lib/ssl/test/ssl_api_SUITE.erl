@@ -1231,7 +1231,7 @@ hibernate_server(Config) ->
                            ServerOpts, ClientOpts, infinity, T) ||
         T <- [1000, 0, 1]].
 
-hibernate_helper(_Version, CheckServer, StartServerOpts, StartClientOpts,
+hibernate_helper(Version, CheckServer, StartServerOpts, StartClientOpts,
                  ServerOpts0, ClientOpts0,
                  ClientHibernateAfter, ServerHibernateAfter) ->
     AllServerOpts = StartServerOpts ++
@@ -1248,7 +1248,7 @@ hibernate_helper(_Version, CheckServer, StartServerOpts, StartClientOpts,
     ok = proplists:get_value(Client, Results),
     #sslsocket{pid = [ServerReceiverPid | ServerPotentialSenderPid]} =
         ServerAcceptSocket,
-    {ReceiverPid, _PotentialSenderPid, HibernateAfter} =
+    {ReceiverPid, PotentialSenderPid, HibernateAfter} =
         case CheckServer of
             true -> {ServerReceiverPid, ServerPotentialSenderPid,
                      ServerHibernateAfter};
@@ -1260,6 +1260,15 @@ hibernate_helper(_Version, CheckServer, StartServerOpts, StartClientOpts,
     ct:sleep(SleepAmount), %% Schedule out
     {current_function, {erlang, hibernate, 3}} =
 	process_info(ReceiverPid, current_function),
+    IsTls = ssl_test_lib:is_tls_version(Version),
+    case IsTls of
+        true ->
+            [SenderPid] = PotentialSenderPid,
+            {current_function, {erlang, hibernate, 3}} =
+                process_info(SenderPid, current_function);
+        _ -> %% DTLS (no sender process)
+            ok
+    end,
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
     ok.
