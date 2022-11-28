@@ -7348,8 +7348,7 @@ delay_send_error2(Sock, N) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--define(ACTIVE_N,    20).
--define(MAX_WORKERS, 40).
+-define(MAX_WORKERS, 30).
 
 %% 30-second test for gen_tcp in {active, N} mode,
 %% ensuring it does not get stuck.
@@ -7363,11 +7362,11 @@ bidirectional_traffic(Config) when is_list(Config) ->
                            (NumWorkers0 =< 10) ->
                                {NumWorkers0, 20};
                            (NumWorkers0 =< 20) ->
-                               {NumWorkers0, 15};
+                               {NumWorkers0, 18};
                            (NumWorkers0 =< ?MAX_WORKERS) ->
-                               {NumWorkers0, 10};
+                               {NumWorkers0, 15};
                            true ->
-                               {?MAX_WORKERS, 10}
+                               {?MAX_WORKERS, 15}
                        end,
                    ?P("pre ->"
                       "~n   Number Of Online Schedulers: ~w"
@@ -7495,6 +7494,9 @@ send_recv_loop(Socket, Payload, Control, ActiveN) ->
             case gen_tcp:send(Socket, Payload) of
                 ok ->
                     Sender();
+                {error, closed} ->
+                    ?P("[~w,sender] Socket closed", [Role]),
+                    exit(normal);
                 {error, Reason} ->
                     ?P("[~w,sender] Send failed: "
                        "~n      ~p", [Role, Reason]),
