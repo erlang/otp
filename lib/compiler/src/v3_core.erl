@@ -2448,7 +2448,7 @@ known_bind(#known{}=K, _) -> K.
 %%  Update the known variables to only the set of variables that
 %%  should be known when entering the fun.
 
-known_in_fun(#known{base=[BaseKs|_],ks=Ks0,prev_ks=[PrevKs|_]}=K) ->
+known_in_fun(#known{base=[BaseKs|_],ks=Ks0,prev_ks=[PrevKs|_]}=K, Name) ->
     %% Within a group of bodies that see the same bindings, calculate
     %% the known variables for a fun. Example:
     %%
@@ -2461,9 +2461,20 @@ known_in_fun(#known{base=[BaseKs|_],ks=Ks0,prev_ks=[PrevKs|_]}=K) ->
     %%
     %% Thus, only `A` is known when entering the fun.
 
-    Ks = union(BaseKs, subtract(Ks0, PrevKs)),
+    Ks1 = union(BaseKs, subtract(Ks0, PrevKs)),
+    Ks = case Name of
+             unnamed -> Ks1;
+             {named,FName} -> union(Ks1, [FName])
+         end,
     K#known{base=[],ks=Ks,prev_ks=[]};
-known_in_fun(#known{}=K) -> K.
+known_in_fun(#known{ks=Ks0}=K, Name) ->
+    case Name of
+        unnamed ->
+            K;
+        {named,FName} ->
+            Ks = union(Ks0, [FName]),
+            K#known{ks=Ks}
+    end.
 
 %%%
 %%% End of abstract data type for known variables.
@@ -2735,7 +2746,7 @@ uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}=Fun0, Ks0, St0) 
               {named,FName} -> known_union(Ks0, subtract([FName], Avs))
           end,
     Ks2 = known_union(Ks1, Avs),
-    KnownInFun = known_in_fun(Ks2),
+    KnownInFun = known_in_fun(Ks2, Name),
     {Cs3,St3} = ufun_clauses(Cs2, KnownInFun, St2),
     {Fc1,St4} = ufun_clause(Fc0, KnownInFun, St3),
     Used = subtract(intersection(used_in_any(Cs3), known_get(Ks1)), Avs),
