@@ -50,7 +50,7 @@
          combine_empty_segments/1,hangs_forever/1,
          bs_saved_position_units/1,empty_matches/1,
          trim_bs_start_match_resume/1,
-         gh_6410/1]).
+         gh_6410/1,bs_match/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -91,7 +91,7 @@ groups() ->
        many_clauses,combine_empty_segments,hangs_forever,
        bs_saved_position_units,empty_matches,
        trim_bs_start_match_resume,
-       gh_6410]}].
+       gh_6410,bs_match]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -2669,6 +2669,21 @@ do_gh_6410(X) ->
         [] ->
             X
     end).
+
+bs_match(_Config) ->
+    <<1,0>> = do_bs_match_1(whatever, <<1,0>>),
+    <<1,1>> = do_bs_match_1(whatever, <<1,1>>),
+    {a,b,c} = do_bs_match_1(whatever, {a,b,c}),
+    ok.
+
+do_bs_match_1(_, X) ->
+    case X of
+        <<_, 0>> ->
+            id(42);
+        _ ->
+            true
+    end,
+    X.
 
 %%% Utilities.
 id(I) -> I.

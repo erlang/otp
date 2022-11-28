@@ -2587,6 +2587,7 @@ reserve_zreg([#b_set{op=Op,dst=Dst} | Is], Last, ShortLived, A) ->
 reserve_zreg([], _, _, A) -> A.
 
 use_zreg(bs_checked_skip) -> yes;
+use_zreg(bs_ensure) -> yes;
 use_zreg(bs_match_string) -> yes;
 use_zreg(bs_set_position) -> yes;
 use_zreg(kill_try_tag) -> yes;
