@@ -32,6 +32,8 @@
 	 block/1, block/2, unblock/1, info/1, format_error/1,
 	 accessible_logs/0, all/0]).
 
+-export([inc_rot_file/1]).
+
 %% Internal exports
 -export([init/2, internal_open/2,
 	 system_continue/3, system_terminate/4, system_code_change/4]).
@@ -262,6 +264,11 @@ breopen(Log, NewFile, NewHead) ->
 -spec inc_wrap_file(Log) -> 'ok' | {'error', inc_wrap_error_rsn()} when
       Log :: log().
 inc_wrap_file(Log) -> 
+    req(Log, inc_wrap_file).
+
+-spec inc_rot_file(Log) -> 'ok' | {'error', inc_wrap_error_rsn()} when
+    Log :: log().
+inc_rot_file(Log) ->
     req(Log, inc_wrap_file).
 
 -spec change_size(Log, Size) -> 'ok' | {'error', Reason} when
@@ -592,6 +599,8 @@ check_arg([], Res) ->
 	    {OldSize, Version} = 
 		disk_log_1:read_size_file_version(Res#arg.file),
 	    check_wrap_arg(Ret, OldSize, Version);
+        Res#arg.type =:= rotate ->
+            {ok, Res#arg{format = external}};
 	true ->
 	    Ret
     end;
@@ -620,6 +629,8 @@ check_arg([{size, {MaxB,MaxF}}|Tail], Res) when is_integer(MaxB),
 						MaxB > 0, MaxB =< ?MAX_BYTES,
 						MaxF > 0, MaxF < ?MAX_FILES ->
     check_arg(Tail, Res#arg{size = {MaxB, MaxF}});
+check_arg([{type, rotate}|Tail], Res) ->
+    check_arg(Tail, Res#arg{type = rotate});
 check_arg([{type, wrap}|Tail], Res) ->
     check_arg(Tail, Res#arg{type = wrap});
 check_arg([{type, halt}|Tail], Res) ->
@@ -881,11 +892,20 @@ handle({From, inc_wrap_file}=Message, S) ->
 	    reply(From, {error, {halt_log, L#log.name}}, S);
 	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
+        #log{type = rotate}=L ->
+            case catch do_inc_rot_file(L) of
+                {ok, L2} ->
+                    put(log, L2),
+                    reply(From, ok, S);
+                {error, Error, L2} ->
+                    put(log, L2),
+                    reply(From, Error, state_err(S, Error))
+            end;
 	#log{status = ok}=L ->
 	    case catch do_inc_wrap_file(L) of
 		{ok, L2, Lost} ->
 		    put(log, L2),
-		    notify_owners({wrap, Lost}),
+		    notify_owners({L#log.type, Lost}),
 		    reply(From, ok, S#state{cnt = S#state.cnt-Lost});
 		{error, Error, L2} ->
 		    put(log, L2),		    
@@ -946,6 +966,10 @@ handle({Server, {internal_open, A}}, S) ->
     case get(log) of
 	undefined ->
 	    case do_open(A) of % does the put
+                {ok, Res, L} ->
+                    put(log, opening_pid(A#arg.linkto, A#arg.notify, L)),
+                    S1 = S#state{args=A},
+                    reply(Server, Res, S1);
 		{ok, Res, L, Cnt} ->
 		    put(log, opening_pid(A#arg.linkto, A#arg.notify, L)),
                     #arg{size = Size, old_size = OldSize} = A,
@@ -1299,6 +1323,19 @@ compare_arg(_Attr, _Val, _A) ->
     ok.
 
 %% -> {ok, Res, log(), Cnt} | Error
+do_open(#arg{type = rotate} = A) ->
+    #arg{name = Name, size = Size, mode = Mode,
+         format = Format, type = Type, file = FName} = A,
+    case disk_log_1:open_rot_log_file(FName, Size) of
+        {ok, RotHandle} ->
+            L = #log{name = Name, type = Type, format = Format,
+                     filename = FName, size = Size, mode = Mode,
+                     extra = RotHandle, format_type = rotate_ext},
+                _UpdatedL = disk_log_1:update_rotation(RotHandle),
+            {ok, {ok, Name}, L};
+        Error ->
+            Error
+    end;
 do_open(A) ->
     #arg{type = Type, format = Format, name = Name, head = Head0,
          file = FName, repair = Repair, size = Size, mode = Mode,
@@ -1368,6 +1405,11 @@ do_change_size(#log{type = wrap}=L, NewSize) ->
     {ok, Handle} = disk_log_1:change_size_wrap(Extra, NewSize, Version),
     erase(is_full),
     put(log, L#log{extra = Handle}),
+    ok;
+do_change_size(#log{type =rotate, extra = Extra} = L, NewSize) ->
+    {ok, Handle} = disk_log_1:change_size_rot(Extra, NewSize),
+    erase(is_full),
+    put(log, L#log{extra = Handle}),
     ok.
 
 %% -> {ok, Head} | Error; Head = none | {head, H} | {M,F,A}
@@ -1397,6 +1439,10 @@ check_size(halt, NewSize) when is_integer(NewSize), NewSize > 0 ->
     ok;
 check_size(halt, infinity) ->
     ok;
+check_size(rotate, {NewMaxB,NewMaxF}) when
+    is_integer(NewMaxB), is_integer(NewMaxF),
+    NewMaxB > 0, NewMaxB =< ?MAX_BYTES, NewMaxF > 0, NewMaxF < ?MAX_FILES ->
+    ok;
 check_size(_, _) ->
     not_ok.
 
@@ -1404,7 +1450,7 @@ check_size(_, _) ->
 %% Increment a wrap log.
 %%-----------------------------------------------------------------
 %% -> {ok, log(), Lost} | {error, Error, log()}
-do_inc_wrap_file(L) ->
+do_inc_wrap_file(#log{type = wrap} = L) ->
     #log{format = Format, extra = Handle} = L,
     case Format of
 	internal ->
@@ -1422,6 +1468,18 @@ do_inc_wrap_file(L) ->
 		    {error, Error, L#log{extra = Handle2}}
 	    end
     end.
+
+%% -> {ok, log()} | {error, Error, log()}
+do_inc_rot_file(#log{type = rotate} = L) ->
+    #log{extra = Handle} = L,
+    Handle2 = disk_log_1:force_rotate(Handle),
+    {ok, L#log{extra = Handle2}}.
+%%    case disk_log_1:force_rotate(Handle) of   %% error handling here
+%%        #rotate_handle{} = Handle2 ->
+%%            {ok, L#log{extra = Handle2}};
+%%        {error, Error, Handle2} ->
+%%            {error, Error, L#log{extra = Handle2}}
+%%    end.
 
 
 %%-----------------------------------------------------------------
@@ -1495,7 +1553,9 @@ close_disk_log2(L) ->
 	#log{format_type = halt_ext, extra = Halt} ->
 	    disk_log_1:fclose(Halt#halt.fdc, L#log.filename);
 	#log{format_type = wrap_ext, mode = Mode, extra = Handle} ->
-	    disk_log_1:mf_ext_close(Handle, Mode)
+	    disk_log_1:mf_ext_close(Handle, Mode);
+        #log{type = rotate, extra = Handle} ->
+            disk_log_1:rot_ext_close(Handle)
     end,
     closed.
 
@@ -1591,6 +1651,8 @@ do_info(L, Cnt) ->
     Size = case Type of
 	       wrap ->
 		   disk_log_1:get_wrap_size(Extra);
+               rotate ->
+                   disk_log_1:get_rot_size(Extra);
 	       halt ->
 		   Extra#halt.size
 	   end,
@@ -1608,6 +1670,11 @@ do_info(L, Cnt) ->
 		  {no_written_items, CurCnt + AccCnt},
 		  {current_file, CurF},
 		  {no_overflows, {NewAccFull, NoFull}}
+		 ];
+             rotate when Mode =:= read_write ->
+                 #rotate_handle{curB = CurB} = Extra,
+		 [{no_current_bytes, CurB},
+		  {no_items, Cnt}
 		 ];
 	     halt when Mode =:= read_write ->
 		 IsFull = case get(is_full) of 
@@ -1713,7 +1780,11 @@ do_log(#log{format_type = wrap_ext}=L, B, _BSz) ->
 	{error, Error, Handle, Logged, Lost} ->
 	    put(log, L#log{extra = Handle}),
 	    {error, Error, Logged - Lost}
-    end.
+    end;
+do_log(#log{type = rotate}=L, B, _BSz) ->
+    {ok, Handle, Logged} = disk_log_1:rot_ext_log(L#log.extra, B), %%error case here
+    put(log, L#log{extra = Handle}),
+    Logged.
 
 logl(B, external, undefined) ->
     {B, iolist_size(B)};
@@ -1763,6 +1834,10 @@ do_write_cache(#log{filename = FName, type = halt, extra = Halt} = Log) ->
 do_write_cache(#log{type = wrap, extra = Handle} = Log) ->
     {Reply, NewHandle} = disk_log_1:mf_write_cache(Handle),
     put(log, Log#log{extra = NewHandle}),
+    Reply;
+do_write_cache(#log{type = rotate, extra = Handle} = Log) ->
+    {Reply, NewHandle} = disk_log_1:rot_write_cache(Handle),
+    put(log, Log#log{extra = NewHandle}),
     Reply.
 
 %% -> ok | Error
@@ -1770,7 +1845,7 @@ do_sync(#log{filename = FName, type = halt, extra = Halt} = Log) ->
     {Reply, NewFdC} = disk_log_1:sync(Halt#halt.fdc, FName),
     put(log, Log#log{extra = Halt#halt{fdc = NewFdC}}),
     Reply;
-do_sync(#log{type = wrap, extra = Handle} = Log) ->
+do_sync(#log{type = Type, extra = Handle} = Log) when Type == wrap orelse Type == rotate->
     {Reply, NewHandle} = disk_log_1:mf_sync(Handle),
     put(log, Log#log{extra = NewHandle}),
     Reply.
@@ -1815,7 +1890,12 @@ do_trunc(#log{type = wrap}=L, Head) ->
     NewLog2 = trunc_wrap(NewLog),
     NewHandle = (NewLog2#log.extra)#handle{noFull = 0, accFull = 0},
     do_change_size(NewLog2#log{extra = NewHandle, head = OldHead}, 
-		   {MaxB, MaxF}).
+		   {MaxB, MaxF});
+do_trunc(#log{type = rotate}=L, none) ->
+    Handle1 = disk_log_1:force_rotate(L#log.extra),
+    disk_log_1:remove_files(rotate, Handle1#rotate_handle.file, 0, Handle1#rotate_handle.maxF),
+    put(log, L#log{extra = Handle1}),
+    ok.
 
 trunc_wrap(L) ->
     case do_inc_wrap_file(L) of

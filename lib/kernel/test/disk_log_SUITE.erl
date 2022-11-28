@@ -34,6 +34,8 @@
 -define(datadir(Conf), proplists:get_value(data_dir, Conf)).
 -endif.
 
+-compile(export_all).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 
@@ -51,6 +53,8 @@
 	 halt_ext_sz_1/1, halt_ext_sz_2/1,
 
 	 wrap_ext_1/1, wrap_ext_2/1,
+
+	 rotate_1/1,
 
 	 head_func/1, plain_head/1, one_header/1,
 
@@ -118,7 +122,7 @@
 	 notif, new_idx_vsn, reopen, block, unblock, open, close,
 	 error, chunk, truncate, many_users, info, change_size,
 	 open_change_size, change_attribute, otp_6278, otp_10131,
-         otp_16768, otp_16809]).
+         otp_16768, otp_16809, rotate]).
 
 
 suite() ->
@@ -127,7 +131,7 @@ suite() ->
 
 all() -> 
     [{group, halt_int}, {group, wrap_int},
-     {group, halt_ext}, {group, wrap_ext},
+     {group, halt_ext}, {group, wrap_ext}, {group, rotate},
      {group, read_mode}, {group, head}, {group, notif},
      new_idx_vsn, reopen, {group, block}, unblock,
      {group, open}, {group, close}, {group, error}, chunk,
@@ -146,6 +150,7 @@ groups() ->
      {halt_ext, [], [halt_ext_inf, {group, halt_ext_sz}]},
      {halt_ext_sz, [], [halt_ext_sz_1, halt_ext_sz_2]},
      {wrap_ext, [], [wrap_ext_1, wrap_ext_2]},
+     {rotate, [], [rotate_1]},
      {head, [], [head_func, plain_head, one_header]},
      {notif, [],
       [wrap_notif, full_notif, trunc_notif, blocked_notif]},
@@ -815,6 +820,58 @@ wrap_ext_2(Conf) when is_list(Conf) ->
     del(File3, 3),
     ok.
 
+%% Test rotate disk log, external, size defined.
+rotate_1(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    File = filename:join(Dir, "a.LOG"),
+    Name = a,
+    {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{8000, 3}},
+			     {format,external},
+			     {file, File}]),
+    x2simple_log(File, Name),
+    ok = disk_log:close(Name),
+    del_rot_files(File, 4),
+    {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{8000, 3}},
+			     {format,external},
+			     {file, File}]),
+    {B1, _T1} = x_mk_bytes(10000), % lost due to rotation 
+    {B2, T2} = x_mk_bytes(5000),  % file a.LOG.2.gx 
+    {B3, T3} = x_mk_bytes(4000),  % file a.LOG.1.gz 
+    {B4, T4} = x_mk_bytes(2000),  % file a.LOG.1.gz
+    {B5, T5} = x_mk_bytes(5000),  % file a.LOG.0.gz 
+    {B6, T6} = x_mk_bytes(5000),  % in the active file 
+    ok = disk_log:blog(Name, B1),
+    ok = disk_log:blog(Name, B2),
+    ok = disk_log:blog(Name, B3),
+    ok = disk_log:blog_terms(a, [B4, B5, B6]),
+    case get_list(File ++ ".2.gz", Name, rotate) of
+        T2 ->
+            ok;
+        E2 ->
+            test_server_fail({bad_terms, E2, T2})
+    end,
+    T34 = T3 ++ T4,
+    case get_list(File ++ ".1.gz", Name, rotate) of
+        T34 ->
+            ok;
+        E34 ->
+            test_server_fail({bad_terms, E34, T34})
+    end,
+    case get_list(File ++ ".0.gz", Name, rotate) of
+        T5 ->
+            ok;
+        E5 ->
+            test_server_fail({bad_terms, E5, T5})
+    end,
+    case get_list(File, Name) of
+        T6 ->
+            ok;
+        E6 ->
+            test_server_fail({bad_terms, E6, T6})
+    end,
+    ok = disk_log:close(Name),
+    del_rot_files(File, 3).
+
 simple_log(Log) ->
     T1 = "hej",
     T2 = hopp,
@@ -893,6 +950,37 @@ get_list(File, Log) ->
     {ok, B} = file:read_file(File),
     binary_to_list(B).
 
+get_list(File, Log, rotate) ->
+    ct:pal(?HI_VERBOSITY, "File ~p~n", [File]),
+    ok = disk_log:sync(Log),
+    DFile = filename:rootname(File,".gz"),
+    decompress_file(File, DFile),
+    {ok, B} = file:read_file(DFile),
+    file:delete(DFile),
+    binary_to_list(B).
+
+decompress_file(FileName, DFileName) ->
+    {ok,In} = file:open(FileName,[read,binary]),
+    {ok,Out} = file:open(DFileName,[write]),
+    Z = zlib:open(),
+    zlib:inflateInit(Z, 31),
+    decompress_data(Z,In,Out),
+    zlib:inflateEnd(Z),
+    zlib:close(Z),
+    _ = file:close(In),
+    _ = file:close(Out),
+    ok.
+
+decompress_data(Z,In,Out) ->
+    case file:read(In,1000) of
+        {ok,Data} ->
+            Decompressed = zlib:inflate(Z, Data),
+            _ = file:write(Out,Decompressed),
+            decompress_data(Z,In,Out);
+        eof ->
+            ok
+    end.
+
 
 get_all_terms(Log, File, Type) ->
     {ok, _Log} = disk_log:open([{name,Log}, {type,Type}, {size,infinity},
@@ -968,6 +1056,13 @@ del(File, 0) ->
 del(File, N) ->
     file:delete(File ++ "." ++ integer_to_list(N)),
     del(File, N-1).
+
+del_rot_files(File, 0) ->
+    file:delete(File ++ ".0.gz"),
+    file:delete(File);
+del_rot_files(File, N) ->
+    file:delete(File ++ "." ++ integer_to_list(N) ++ ".gz"),
+    del_rot_files(File, N-1).
 
 test_server_fail(R) ->
     exit({?MODULE, get(line), R}).
