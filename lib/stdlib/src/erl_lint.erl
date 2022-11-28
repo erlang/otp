@@ -2300,17 +2300,24 @@ is_guard_test(Expression, Forms) ->
       IsOverridden :: fun((fa()) -> boolean()).
 
 is_guard_test(Expression, Forms, IsOverridden) ->
-    RecordAttributes = [A || A = {attribute, _, record, _D} <- Forms],
-    is_guard_test1(set_file(Expression, "nofile"), RecordAttributes, IsOverridden).
+    NoFileExpression = set_file(Expression, "nofile"),
 
-is_guard_test1(NoFileExpression, [], IsOverridden) ->
-    is_guard_test2(NoFileExpression, {maps:new(),IsOverridden});
-is_guard_test1(NoFileExpression, RecordAttributes, IsOverridden) ->
-    St0 = foldl(fun(Attr0, St1) ->
-                        Attr = set_file(Attr0, "none"),
-                        attribute_state(Attr, St1)
-                end, start(), RecordAttributes),
-    is_guard_test2(NoFileExpression, {St0#lint.records,IsOverridden}).
+    %% Unless the expression constructs a record, the record
+    %% definitions are not needed. Therefore, because there can be a
+    %% huge number of record definitions in the forms, delay
+    %% processing the forms until we'll know that the record
+    %% definitions are truly needed.
+    F = fun() ->
+                St = foldl(fun({attribute, _, record, _}=Attr0, St0) ->
+                                   Attr = set_file(Attr0, "none"),
+                                   attribute_state(Attr, St0);
+                              (_, St0) ->
+                                   St0
+                           end, start(), Forms),
+                St#lint.records
+        end,
+
+    is_guard_test2(NoFileExpression, {F,IsOverridden}).
 
 %% is_guard_test2(Expression, RecordDefs :: dict:dict()) -> boolean().
 is_guard_test2({call,Anno,{atom,Ar,record},[E,A]}, Info) ->
@@ -2348,7 +2355,13 @@ is_gexpr({record_index,_A,_Name,Field}, Info) ->
     is_gexpr(Field, Info);
 is_gexpr({record_field,_A,Rec,_Name,Field}, Info) ->
     is_gexpr_list([Rec,Field], Info);
-is_gexpr({record,A,Name,Inits}, Info) ->
+is_gexpr({record,A,Name,Inits}, Info0) ->
+    Info = case Info0 of
+               {#{},_} ->
+                   Info0;
+               {F,IsOverridden} when is_function(F, 0) ->
+                   {F(),IsOverridden}
+           end,
     is_gexpr_fields(Inits, A, Name, Info);
 is_gexpr({bin,_A,Fs}, Info) ->
     all(fun ({bin_element,_Anno,E,Sz,_Ts}) ->

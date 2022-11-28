@@ -30,6 +30,7 @@
 		 vcount=0,	% Variable counter
 		 calltype=#{},	% Call types
 		 records=#{},	% Record definitions
+                 raw_records=[],% Raw record forms
 		 strict_ra=[],	% strict record accesses
 		 checked_ra=[], % successfully accessed records
                  dialyzer=false % Cached value of compile flag 'dialyzer'
@@ -70,7 +71,8 @@ init_calltype_imports([], Ctype) -> Ctype.
 
 forms([{attribute,_,record,{Name,Defs}}=Attr | Fs], St0) ->
     NDefs = normalise_fields(Defs),
-    St = St0#exprec{records=maps:put(Name, NDefs, St0#exprec.records)},
+    St = St0#exprec{records=maps:put(Name, NDefs, St0#exprec.records),
+                    raw_records=[Attr | St0#exprec.raw_records]},
     {Fs1, St1} = forms(Fs, St),
     {[Attr | Fs1], St1};
 forms([{function,Anno,N,A,Cs0} | Fs0], St0) ->
@@ -511,7 +513,7 @@ lc_tq(Anno, [{b_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {P1,St2} = pattern(P0, St1),
     {Qs1,St3} = lc_tq(Anno, Qs0, St2),
     {[{b_generate,AnnoG,P1,G1} | Qs1],St3};
-lc_tq(Anno, [F0 | Qs0], #exprec{calltype=Calltype}=St0) ->
+lc_tq(Anno, [F0 | Qs0], #exprec{calltype=Calltype,raw_records=Records}=St0) ->
     %% Allow record/2 and expand out as guard test.
     IsOverriden = fun(FA) ->
 			  case Calltype of
@@ -520,7 +522,7 @@ lc_tq(Anno, [F0 | Qs0], #exprec{calltype=Calltype}=St0) ->
 			      _ -> false
 			  end
 		  end,
-    case erl_lint:is_guard_test(F0, [], IsOverriden) of
+    case erl_lint:is_guard_test(F0, Records, IsOverriden) of
         true ->
             {F1,St1} = guard_test(F0, St0),
             {Qs1,St2} = lc_tq(Anno, Qs0, St1),

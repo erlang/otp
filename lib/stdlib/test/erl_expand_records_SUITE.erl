@@ -148,6 +148,22 @@ expr(Config) when is_list(Config) ->
 
          is_record(_, _, _) ->
              error(wrong_is_record).
+      ">>,
+      <<"
+         -record(foo, {bar = [Bar || Bar <- ?MODULE:id([]), size(Bar) > 0]}).
+
+         t() ->
+             {'EXIT',{{bad_filter,{foo,[]}},[_|_]}} = catch gh6501a(whatever),
+             [whatever] = gh6501b(whatever),
+             ok.
+
+         gh6501a(Bar) ->
+             [Bar || #foo{}].
+
+         gh6501b(Bar) ->
+             [Bar || is_tuple(#foo{})].
+
+         id(I) -> I.
       ">>
       ],
 
