@@ -746,6 +746,9 @@
                 1
         end).
 
+-define(START_NODE(),  ?CT_PEER(#{wait_boot => 5000})).
+-define(START_NODE(O), ?CT_PEER(O#{wait_boot => 5000})).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -23805,13 +23808,21 @@ api_to_connect_tcp(InitState) ->
          #{desc => "create node",
            cmd  => fun(#{host := Host} = State) ->
 			   ?SEV_IPRINT("try create node on ~p", [Host]),
-                           case ?CT_PEER() of
+                           try ?START_NODE() of
                                {ok, Peer, Node} ->
                                    ?SEV_IPRINT("client node ~p started",
                                                [Node]),
                                    {ok, State#{node => Node, peer => Peer}};
                                {error, Reason} ->
                                    {skip, Reason}
+                           catch
+                               Class:Reason:Stack ->
+                                   ?SEV_EPRINT("Failed starting node: "
+                                               "~n   Class:  ~p"
+                                               "~n   Reason: ~p"
+                                               "~n   Stack:  ~p",
+                                               [Class, Reason, Stack]),
+                                   {skip, {node_start, Class, Reason}}
                            end
                    end},
          #{desc => "monitor client node",
@@ -33009,7 +33020,7 @@ sc_rc_receive_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(#{node_id := NodeID} = State) ->
-                           case ?CT_PEER(#{name => ?CT_PEER_NAME(f("client_~w", [NodeID]))}) of
+                           try ?START_NODE(#{name => ?CT_PEER_NAME(f("client_~w", [NodeID]))}) of
                                {ok, Peer, Node} ->
                                    ?SEV_IPRINT("client node ~p started",
                                                [Node]),
@@ -33019,6 +33030,14 @@ sc_rc_receive_response_tcp(InitState) ->
                                                "client node ~p (=> SKIP):"
                                                "~n   ~p", [NodeID, Reason]),
                                    {skip, Reason}
+                           catch
+                               Class:Reason:Stack ->
+                                   ?SEV_EPRINT("Failed starting node: "
+                                               "~n   Class:  ~p"
+                                               "~n   Reason: ~p"
+                                               "~n   Stack:  ~p",
+                                               [Class, Reason, Stack]),
+                                   {skip, {node_start, Class, Reason}}
                            end
                    end},
          #{desc => "monitor client node 1",
@@ -33990,13 +34009,21 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(State) ->
-                           case ?CT_PEER() of
+                           try ?START_NODE() of
                                {ok, Peer, Node} ->
                                    ?SEV_IPRINT("client node ~p started",
                                                [Node]),
                                    {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
+                           catch
+                               Class:Reason:Stack ->
+                                   ?SEV_EPRINT("Failed starting node: "
+                                               "~n   Class:  ~p"
+                                               "~n   Reason: ~p"
+                                               "~n   Stack:  ~p",
+                                               [Class, Reason, Stack]),
+                                   {skip, {node_start, Class, Reason}}
                            end
                    end},
          #{desc => "monitor client node",
@@ -38049,13 +38076,22 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(State) ->
-                           case ?CT_PEER() of
+                           try ?START_NODE() of
                                {ok, Peer, Node} ->
-                                   ?SEV_IPRINT("(remote) client node ~p started",
-                                               [Node]),
+                                   ?SEV_IPRINT(
+                                      "(remote) client node ~p started",
+                                      [Node]),
                                    {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
+                           catch
+                               Class:Reason:Stack ->
+                                   ?SEV_EPRINT("Failed starting node: "
+                                               "~n   Class:  ~p"
+                                               "~n   Reason: ~p"
+                                               "~n   Stack:  ~p",
+                                               [Class, Reason, Stack]),
+                                   {skip, {node_start, Class, Reason}}
                            end
                    end},
          #{desc => "monitor client node",
@@ -39887,13 +39923,22 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(State) ->
-                           case ?CT_PEER() of
+                           try ?START_NODE() of
                                {ok, Peer, Node} ->
-                                   ?SEV_IPRINT("(remote) client node ~p started", 
-                                               [Node]),
+                                   ?SEV_IPRINT(
+                                      "(remote) client node ~p started", 
+                                      [Node]),
                                    {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
+                           catch
+                               Class:Reason:Stack ->
+                                   ?SEV_EPRINT("Failed starting node: "
+                                               "~n   Class:  ~p"
+                                               "~n   Reason: ~p"
+                                               "~n   Stack:  ~p",
+                                               [Class, Reason, Stack]),
+                                   {skip, {node_start, Class, Reason}}
                            end
                    end},
          #{desc => "monitor client node",
@@ -40880,13 +40925,22 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(State) ->
-                           case ?CT_PEER() of
+                           try ?START_NODE() of
                                {ok, Peer, Node} ->
-                                   ?SEV_IPRINT("(remote) client node ~p started", 
-                                               [Node]),
+                                   ?SEV_IPRINT(
+                                      "(remote) client node ~p started", 
+                                      [Node]),
                                    {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
+                           catch
+                               Class:Reason:Stack ->
+                                   ?SEV_EPRINT("Failed starting node: "
+                                               "~n   Class:  ~p"
+                                               "~n   Reason: ~p"
+                                               "~n   Stack:  ~p",
+                                               [Class, Reason, Stack]),
+                                   {skip, {node_start, Class, Reason}}
                            end
                    end},
          #{desc => "monitor client node",
@@ -46499,11 +46553,19 @@ ttest_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "create node",
            cmd  => fun(State) ->
-                           case ?CT_PEER() of
+                           try ?START_NODE() of
                                {ok, Peer, Node} ->
                                    {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
+                           catch
+                               Class:Reason:Stack ->
+                                   ?SEV_EPRINT("Failed starting node: "
+                                               "~n   Class:  ~p"
+                                               "~n   Reason: ~p"
+                                               "~n   Stack:  ~p",
+                                               [Class, Reason, Stack]),
+                                   {skip, {node_start, Class, Reason}}
                            end
                    end},
          #{desc => "monitor server node",
@@ -46664,11 +46726,19 @@ ttest_tcp(InitState) ->
                            %% we can no longer start "remote" nodes...
                            %% Not that we actually did that. We always
                            %% used local-host.
-                           case ?CT_PEER() of
+                           try ?START_NODE() of
                                {ok, Peer, Node} ->
                                    {ok, State#{peer => Peer, node => Node}};
                                {error, Reason} ->
                                    {skip, Reason}
+                           catch
+                               Class:Reason:Stack ->
+                                   ?SEV_EPRINT("Failed starting node: "
+                                               "~n   Class:  ~p"
+                                               "~n   Reason: ~p"
+                                               "~n   Stack:  ~p",
+                                               [Class, Reason, Stack]),
+                                   {skip, {node_start, Class, Reason}}
                            end
                    end},
          #{desc => "monitor client node",
