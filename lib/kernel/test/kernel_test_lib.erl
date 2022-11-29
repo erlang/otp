@@ -827,7 +827,8 @@ linux_which_cpuinfo(wind_river) ->
     end;
 
 %% Check for x86 (Intel or AMD)
-linux_which_cpuinfo(Other) when (Other =:= fedora) orelse
+linux_which_cpuinfo(Other) when (Other =:= debian) orelse
+                                (Other =:= fedora) orelse
                                 (Other =:= ubuntu) orelse
                                 (Other =:= linux_mint) orelse
                                 (Other =:= sles) orelse
