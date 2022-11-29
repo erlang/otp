@@ -857,7 +857,33 @@ opt_allocate_defs([#cg_set{op=copy,dst=Dst}|Is], Regs) ->
         true -> [Dst|opt_allocate_defs(Is, Regs)];
         false -> []
     end;
+opt_allocate_defs([#cg_set{anno=Anno,op={bif,Bif},args=Args,dst=Dst}|Is], Regs) ->
+    case is_gc_bif(Bif, Args) of
+        false ->
+            ArgTypes = maps:get(arg_types, Anno, #{}),
+            case is_yreg(Dst, Regs) andalso will_bif_succeed(Bif, Args, ArgTypes) of
+                true -> [Dst|opt_allocate_defs(Is, Regs)];
+                false -> []
+            end;
+        true ->
+            []
+    end;
 opt_allocate_defs(_, _Regs) -> [].
+
+will_bif_succeed(Bif, Args, ArgTypes) ->
+    Types = will_bif_succeed_types(Args, ArgTypes, 0),
+    case beam_call_types:will_succeed(erlang, Bif, Types) of
+        yes -> true;
+        _ -> false
+    end.
+
+will_bif_succeed_types([#b_literal{val=Val}|Args], ArgTypes, N) ->
+    Type = beam_types:make_type_from_value(Val),
+    [Type|will_bif_succeed_types(Args, ArgTypes, N + 1)];
+will_bif_succeed_types([#b_var{}|Args], ArgTypes, N) ->
+    Type = maps:get(N, ArgTypes, any),
+    [Type|will_bif_succeed_types(Args, ArgTypes, N + 1)];
+will_bif_succeed_types([], _, _) -> [].
 
 opt_alloc_def([{L,#cg_blk{is=Is,last=Last}}|Bs], Ws0, Def0) ->
     case gb_sets:is_member(L, Ws0) of
