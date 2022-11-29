@@ -236,20 +236,11 @@ handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
     observer_lib:set_listctrl_col_size(Grid, W),
     {noreply, State};
 
-%% handle_event(#wx{event = #wxList{type      = command_list_item_activated,
-%% 				 itemIndex = Index}},
-%% 	     State = #state{grid      = Grid,
-%% 			    sockets   = Sockets,
-%% 			    open_wins = Opened})
-%%   when is_list(Sockets) andalso (length(Sockets) >= (Index+1)) ->
-%%     Socket    = lists:nth(Index+1, Sockets),
-%%     NewOpened = display_socket_info(Grid, Socket, Opened),
-%%     {noreply, State#state{open_wins = NewOpened}};
 handle_event(#wx{event = #wxList{type      = command_list_item_activated,
 				 itemIndex = Index}},
 	     State = #state{grid      = Grid,
 			    sockets   = Sockets,
-			    open_wins = Opened}) when is_list(Sockets) ->
+			    open_wins = Opened}) ->
     if
         length(Sockets) >= (Index+1) ->
             Socket    = lists:nth(Index+1, Sockets),
