@@ -2469,9 +2469,10 @@ options_cacerts(Config) ->  %% cacert[s]file
     ?ERR({cacertfile, cert}, [{cacertfile, cert}], client),
 
     begin %% depth
-        ?OK(#{depth := 10}, [], client),
+        ?OK(#{}, [], client, [depth]),
         ?OK(#{depth := 5}, [{depth, 5}], client),
         %% Error
+        ?ERR({depth, 256}, [{depth, 256}], client),
         ?ERR({depth, not_an_int}, [{depth, not_an_int}], client)
     end,
     ok.
@@ -2819,9 +2820,9 @@ options_renegotiate(_Config) -> %% key_update_at   renegotiate_at  secure_renego
     ok.
 
 options_middlebox(_Config) -> %% middlebox_comp_mode
-    ?OK(#{middlebox_comp_mode := true}, [], client),
+    ?OK(#{}, [], client, [middlebox_comp_mode]),
+    ?OK(#{}, [{middlebox_comp_mode, true}], client, [middlebox_comp_mode]),
     ?OK(#{middlebox_comp_mode := false}, [{middlebox_comp_mode, false}], client),
-
 
     %% Errors
     ?ERR({middlebox_comp_mode, foo}, [{middlebox_comp_mode, foo}], server),

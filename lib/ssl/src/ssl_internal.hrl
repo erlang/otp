@@ -200,6 +200,8 @@
          max_size              %% max early data size allowed by this ticket
         }).
 
+-define(DEFAULT_DEPTH, 10).
+
 
 -endif. % -ifdef(ssl_internal).
 

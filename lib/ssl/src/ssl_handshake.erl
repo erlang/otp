@@ -3859,8 +3859,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                 #{verify_fun := VerifyFun,
                   customize_hostname_check := CustomizeHostnameCheck,
                   crl_check := CrlCheck,
-                  log_level := Level,
-                  depth := Depth} = Opts,
+                  log_level := Level} = Opts,
                 #{cert_ext := CertExt,
                   ocsp_responder_certs := OcspResponderCerts,
                   ocsp_state := OcspState}) ->
@@ -3883,7 +3882,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                               ocsp_responder_certs => OcspResponderCerts,
                                               ocsp_state => OcspState},
                                  Path, Level),
-    Options = [{max_path_length, Depth},
+    Options = [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
                {verify_fun, ValidationFunAndState}],
     public_key:pkix_path_validation(TrustedCert, Path, Options).
 

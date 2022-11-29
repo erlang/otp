@@ -1863,8 +1863,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                   crl_check := CrlCheck,
                   log_level := LogLevel,
                   signature_algs := SignAlgos,
-                  signature_algs_cert := SignAlgosCert,
-                  depth := Depth},
+                  signature_algs_cert := SignAlgosCert} = Opts,
                 #{cert_ext := CertExt,
                   ocsp_responder_certs := OcspResponderCerts,
                   ocsp_state := OcspState}) ->
@@ -1887,7 +1886,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                                             ocsp_state => OcspState
                                                            },
                                                Path, LogLevel),
-    Options = [{max_path_length, Depth},
+    Options = [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
                {verify_fun, ValidationFunAndState}],
     public_key:pkix_path_validation(TrustedCert, Path, Options).
 

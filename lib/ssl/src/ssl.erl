@@ -1649,8 +1649,8 @@ opt_versions(UserOpts, #{protocol := Protocol} = Opts, _Env) ->
 
     {Where, MCM} = get_opt_bool(middlebox_comp_mode, true, UserOpts, Opts),
     assert_version_dep(Where =:= new, middlebox_comp_mode, Versions, ['tlsv1.3']),
-
-    Opts#{versions => Versions, middlebox_comp_mode => MCM}.
+    Opts1 = set_opt_new(Where, middlebox_comp_mode, true, MCM, Opts),
+    Opts1#{versions => Versions}.
 
 default_versions(tls) ->
     Vsns0 = tls_record:supported_protocol_versions(),
@@ -1711,12 +1711,10 @@ opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
     option_incompatible(FailNoPeerCert andalso Verify =:= verify_none,
                         [{verify, verify_none}, {fail_if_no_peer_cert, true}]),
 
-    {_, Depth} = get_opt_int(depth, 0, 255, 10, UserOpts, Opts),
+    Opts1 = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts),
 
-    opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain,
-                                   fail_if_no_peer_cert => FailNoPeerCert,
-                                   depth => Depth
-                                  },
+    opt_verify_fun(UserOpts, Opts1#{partial_chain => PartialChain,
+                                    fail_if_no_peer_cert => FailNoPeerCert},
                    Env).
 
 opt_verify_fun(UserOpts, Opts, _Env) ->
@@ -2311,13 +2309,29 @@ get_opt_file(Opt, Default, UserOpts, Opts) ->
     end.
 
 set_opt_bool(Opt, Default, UserOpts, Opts) ->
-    case maps:get(Opt, UserOpts, unbound) of
-        unbound -> Opts;
+    case maps:get(Opt, UserOpts, Default) of
         Default -> Opts;
         Value when is_boolean(Value) -> Opts#{Opt => Value};
         Value -> option_error(Opt, Value)
     end.
 
+set_opt_int(Opt, Min, Max, Default, UserOpts, Opts) ->
+    case maps:get(Opt, UserOpts, Default) of
+        Default ->
+            Opts;
+        Value when is_integer(Value), Min =< Value, Value =< Max ->
+            Opts#{Opt => Value};
+        Value when Value =:= infinity, Max =:= infinity ->
+            Opts#{Opt => Value};
+        Value ->
+            option_error(Opt, Value)
+    end.
+
+set_opt_new(new, Opt, Default, Value, Opts)
+  when Default =/= Value ->
+    Opts#{Opt => Value};
+set_opt_new(_, _, _, _, Opts) ->
+    Opts.
 
 %%%%
 
