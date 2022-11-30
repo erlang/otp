@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -589,7 +589,17 @@ module.beam: module.erl \
               more information.
 	    </p>
           </item>
-        </taglist>
+
+          <tag><c>{check_ssa, Tag :: atom()}</c></tag>
+          <item>
+            <p>Parse and check assertions on the structure and content
+            of the BEAM SSA code produced by the compiler. The
+            <c>Tag</c> indicates the set of assertions to check and
+            after which compiler pass the check is performed. This
+            option is internal to the compiler and can be changed or
+            removed at any time without prior warning.</p>
+          </item>
+	</taglist>
 
         <p>If warnings are turned on (option <c>report_warnings</c>
           described earlier), the following options control what type of
