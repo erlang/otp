@@ -2567,7 +2567,10 @@ expr({op,_Anno,_Op,L,R}, Vt, St) ->
     expr_list([L,R], Vt, St);                   %They see the same variables
 %% The following are not allowed to occur anywhere!
 expr({remote,_Anno,M,_F}, _Vt, St) ->
-    {[],add_error(erl_parse:first_anno(M), illegal_expr, St)}.
+    {[],add_error(erl_parse:first_anno(M), illegal_expr, St)};
+expr({ssa_check_when,_Anno,_WantedResult,_Args,_Tag,_Exprs}, _Vt, St) ->
+    {[], St}.
+
 
 %% expr_list(Expressions, Variables, State) ->
 %%      {UsedVarTable,State}
