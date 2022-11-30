@@ -1591,8 +1591,7 @@ typedef struct {
     ErtsHeapFactory factory;
     int remaining_n;
     char* remaining_bytes;
-    ErtsWStack flat_maps;
-    ErtsPStack hamt_array;
+    ErtsPStack map_array;
 } B2TDecodeContext;
 
 typedef struct {
@@ -1791,9 +1790,9 @@ static void b2t_destroy_context(B2TContext* context)
     case B2TDecodeTuple:
     case B2TDecodeString:
     case B2TDecodeBinary:
-	if (context->u.dc.hamt_array.pstart) {
-	    erts_free(context->u.dc.hamt_array.alloc_type,
-		      context->u.dc.hamt_array.pstart);
+	if (context->u.dc.map_array.pstart) {
+	    erts_free(context->u.dc.map_array.alloc_type,
+		      context->u.dc.map_array.pstart);
 	}
 	break;
     default:;
@@ -1948,8 +1947,7 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
             ctx->u.dc.res = (Eterm) (UWord) NULL;
             ctx->u.dc.next = &ctx->u.dc.res;
 	    erts_factory_proc_prealloc_init(&ctx->u.dc.factory, p, ctx->heap_size);
-	    ctx->u.dc.flat_maps.wstart = NULL;
-	    ctx->u.dc.hamt_array.pstart = NULL;
+	    ctx->u.dc.map_array.pstart = NULL;
             ctx->state = B2TDecode;
             /*fall through*/
 	case B2TDecode:
@@ -3893,11 +3891,14 @@ is_external_string(Eterm list, Uint* lenp)
 }
 
 
-struct dec_term_hamt
+struct dec_term_map
 {
-    Eterm* objp; /* write result here */
-    Uint size;   /* nr of leafs */
-    Eterm* leaf_array;
+    Eterm* objp; /* hashmap: write result here, flatmap: NULL  */
+    Uint size;   /* hashmap: nr of leafs, flatmap: unused */
+    union {
+        Eterm* leaf_array;  /* hashmap */
+        flatmap_t* flatmap;
+    } u;
 };
 
 
@@ -3912,12 +3913,11 @@ dec_term(ErtsDistExternal *edep,
 	 B2TContext* ctx,
          int ets_decode)
 {
-#define PSTACK_TYPE struct dec_term_hamt
-    PSTACK_DECLARE(hamt_array, 5);
+#define PSTACK_TYPE struct dec_term_map
+    PSTACK_DECLARE(map_array, 10);
     int n;
     ErtsAtomEncoding char_enc;
     register Eterm* hp;        /* Please don't take the address of hp */
-    DECLARE_WSTACK(flat_maps); /* for preprocessing of small maps */
     Eterm* next;
     SWord reds;
 #ifdef DEBUG
@@ -4003,13 +4003,9 @@ dec_term(ErtsDistExternal *edep,
                 return NULL;
             }
         }
-	PSTACK_CHANGE_ALLOCATOR(hamt_array, ERTS_ALC_T_SAVED_ESTACK);
-        WSTACK_CHANGE_ALLOCATOR(flat_maps, ERTS_ALC_T_SAVED_ESTACK);
-	if (ctx->u.dc.hamt_array.pstart) {
-	    PSTACK_RESTORE(hamt_array, &ctx->u.dc.hamt_array);
-	}
-	if (ctx->u.dc.flat_maps.wstart) {
-	    WSTACK_RESTORE(flat_maps, &ctx->u.dc.flat_maps);
+	PSTACK_CHANGE_ALLOCATOR(map_array, ERTS_ALC_T_SAVED_ESTACK);
+	if (ctx->u.dc.map_array.pstart) {
+	    PSTACK_RESTORE(map_array, &ctx->u.dc.map_array);
 	}
     }
     else {
@@ -4651,6 +4647,7 @@ dec_term_atom_common:
 		Uint32 size,n;
 		Eterm *kptr,*vptr;
 		Eterm keys;
+                struct dec_term_map* map = PSTACK_PUSH(map_array);
 
 		size = get_int32(ep); ep += 4;
 
@@ -4674,7 +4671,9 @@ dec_term_atom_common:
                      * vptr, last word for values
                      */
 
-                    WSTACK_PUSH(flat_maps, (UWord)mp);
+                    map->objp = NULL;
+                    map->u.flatmap = mp;
+
                     mp->thing_word = MAP_HEADER_FLATMAP;
                     mp->size       = size;
                     mp->keys       = keys;
@@ -4689,11 +4688,10 @@ dec_term_atom_common:
                     }
                 }
                 else {  /* Make hamt */
-                    struct dec_term_hamt* hamt = PSTACK_PUSH(hamt_array);
-
-                    hamt->objp = objp;
-                    hamt->size = size;
-                    hamt->leaf_array = hp;
+                    ASSERT(objp != NULL);
+                    map->objp = objp;
+                    map->size = size;
+                    map->u.leaf_array = hp;
 
                     for (n = size; n; n--) {
                         CDR(hp) = (Eterm) next;
@@ -4855,11 +4853,8 @@ dec_term_atom_common:
                     ctx->u.dc.ep = ep;
                     ctx->u.dc.next = next;
                     ctx->u.dc.factory.hp = hp;
-		    if (!WSTACK_ISEMPTY(flat_maps)) {
-			WSTACK_SAVE(flat_maps, &ctx->u.dc.flat_maps);
-		    }
-		    if (!PSTACK_IS_EMPTY(hamt_array)) {
-			PSTACK_SAVE(hamt_array, &ctx->u.dc.hamt_array);
+		    if (!PSTACK_IS_EMPTY(map_array)) {
+			PSTACK_SAVE(map_array, &ctx->u.dc.map_array);
 		    }
                     ctx->reds = 0;
                     return NULL;
@@ -4876,36 +4871,45 @@ dec_term_atom_common:
     factory->hp = hp;
     /*
      * From here on factory may produce (more) heap fragments
+     * and we don't use local variable 'hp' anymore.
      */
 
-    if (!PSTACK_IS_EMPTY(hamt_array)) {
+    /*
+     * Iterate through all the maps and for
+     *   + hashmaps: hash keys and generate all inner hamt nodes
+     *   + flatmaps: check for duplicate keys and sort keys if needed
+     *
+     * We do this at the end because the size of the preallocated heap is only
+     * guaranteed to include everything except hamt nodes. If unlucky with hash
+     * collisions the factory may need to create new heap fragments.
+     *
+     * As maps may include each other as keys, it's important the iteration
+     * below is done bottom-up. Sub maps are completed before potential
+     * container maps.
+     */
+    if (!PSTACK_IS_EMPTY(map_array)) {
         do {
-            struct dec_term_hamt* hamt = PSTACK_TOP(hamt_array);
+            struct dec_term_map* map = PSTACK_TOP(map_array);
 
-            *hamt->objp = erts_hashmap_from_array(factory,
-                                                  hamt->leaf_array,
-                                                  hamt->size,
-                                                  1);
-            if (is_non_value(*hamt->objp))
-                goto error_hamt;
+            if (map->objp) {
+                *map->objp = erts_hashmap_from_array(factory,
+                                                     map->u.leaf_array,
+                                                     map->size,
+                                                     1);
+                if (is_non_value(*map->objp))
+                    goto error_map_fixup;
+            }
+            else {
+                if (!erts_validate_and_sort_flatmap(map->u.flatmap))
+                    goto error_map_fixup;
+            }
 
-            (void) PSTACK_POP(hamt_array);
-        } while (!PSTACK_IS_EMPTY(hamt_array));
+            (void) PSTACK_POP(map_array);
+        } while (!PSTACK_IS_EMPTY(map_array));
     }
 
-    /* Iterate through all the (flat)maps and check for validity and sort keys
-     * - done here for when we know it is complete.
-     */
-
-    while(!WSTACK_ISEMPTY(flat_maps)) {
-        next = (Eterm *)WSTACK_POP(flat_maps);
-        if (!erts_validate_and_sort_flatmap((flatmap_t*)next))
-            goto error;
-    }
-
-    /* Now that no more errors can occur, the stacks can be destroyed safely. */
-    PSTACK_DESTROY(hamt_array);
-    WSTACK_DESTROY(flat_maps);
+    /* Now that no more errors can occur, the stack can be destroyed safely. */
+    PSTACK_DESTROY(map_array);
 
     ASSERT((Eterm*)*dbg_resultp != NULL);
 
@@ -4929,15 +4933,13 @@ error:
     }
     else ASSERT(!factory->hp || factory->hp == hp);
 
-error_hamt:
+error_map_fixup:
     erts_factory_undo(factory);
-    PSTACK_DESTROY(hamt_array);
+    PSTACK_DESTROY(map_array);
     if (ctx) {
 	ctx->state = B2TDecodeFail;
 	ctx->reds = reds;
     }
-    WSTACK_DESTROY(flat_maps);
-        
     return NULL;
 }
 
