@@ -68,7 +68,8 @@
          key_update_at,  %% TLS 1.3
          bytes_sent,     %% TLS 1.3
          dist_handle,
-         log_level
+         log_level,
+         hibernate_after
         }).
 
 -record(data,
@@ -230,7 +231,8 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            negotiated_version := Version,
                            renegotiate_at := RenegotiateAt,
                            key_update_at := KeyUpdateAt,
-                           log_level := LogLevel}},
+                           log_level := LogLevel,
+                           hibernate_after := HibernateAfter}},
      #data{connection_states = ConnectionStates, static = Static0} = StateData0) ->
     StateData = 
         StateData0#data{connection_states = ConnectionStates#{current_write => WriteState},
@@ -245,10 +247,11 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 renegotiate_at = RenegotiateAt,
                                                 key_update_at = KeyUpdateAt,
                                                 bytes_sent = 0,
-                                                log_level = LogLevel}},
+                                                log_level = LogLevel,
+                                                hibernate_after = HibernateAfter}},
     {next_state, handshake, StateData, [{reply, From, ok}]};
 init(info = Type, Msg, StateData) ->
-    handle_common(Type, Msg, StateData);
+    handle_common(?FUNCTION_NAME, Type, Msg, StateData);
 init(_, _, _) ->
     %% Just in case anything else sneaks through
     {keep_state_and_data, [postpone]}.
@@ -281,14 +284,14 @@ connection({call, From}, downgrade, #data{connection_states =
                                               #{current_write := Write}} = StateData) ->
     {next_state, death_row, StateData, [{reply,From, {ok, Write}}]};
 connection({call, From}, {set_opts, Opts}, StateData) ->
-    handle_set_opts(From, Opts, StateData);
+    handle_set_opts(?FUNCTION_NAME, From, Opts, StateData);
 connection({call, From}, dist_get_tls_socket, 
            #data{static = #static{transport_cb = Transport,
                                   socket = Socket,
                                   connection_pid = Pid,
                                   trackers = Trackers}} = StateData) ->
     TLSSocket = tls_gen_connection:socket([Pid, self()], Transport, Socket, Trackers),
-    {next_state, ?FUNCTION_NAME, StateData, [{reply, From, {ok, TLSSocket}}]};
+    hibernate_after(?FUNCTION_NAME, StateData, [{reply, From, {ok, TLSSocket}}]);
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
            #data{static = #static{connection_pid = Pid} = Static} = StateData) ->
     false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
@@ -296,15 +299,20 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
     ok = ssl_gen_statem:dist_handshake_complete(Pid, DHandle),
     %% From now on we execute on normal priority
     process_flag(priority, normal),
-    {keep_state, StateData#data{static = Static#static{dist_handle = DHandle}},
-     [{reply,From,ok}|
-      case dist_data(DHandle) of
-          [] ->
-              [];
-          Data ->
-              [{next_event, internal,
-               {application_packets,{self(),undefined},Data}}]
-      end]};
+
+    case dist_data(DHandle) of
+        [] ->
+            hibernate_after(?FUNCTION_NAME,
+                            StateData#data{
+                              static = Static#static{dist_handle = DHandle}},
+                            [{reply,From,ok}]);
+        Data ->
+            {keep_state,
+             StateData#data{static = Static#static{dist_handle = DHandle}},
+             [{reply,From,ok},
+              {next_event, internal,
+               {application_packets, {self(),undefined}, Data}}]}
+    end;
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
 connection(internal, {post_handshake_data, From, HSData}, StateData) ->
@@ -314,20 +322,22 @@ connection(cast, #alert{} = Alert, StateData0) ->
     {next_state, ?FUNCTION_NAME, StateData};
 connection(cast, {new_write, WritesState, Version}, 
            #data{connection_states = ConnectionStates, static = Static} = StateData) ->
-    {next_state, connection, 
-     StateData#data{connection_states = 
-                        ConnectionStates#{current_write => WritesState},
-                    static = Static#static{negotiated_version = Version}}};
+    hibernate_after(connection,
+                    StateData#data{connection_states =
+                                       ConnectionStates#{current_write => WritesState},
+                                   static =
+                                       Static#static{negotiated_version = Version}}, []);
 %%
-connection(info, dist_data, #data{static = #static{dist_handle = DHandle}}) ->
-    {keep_state_and_data,
+connection(info, dist_data,
+           #data{static = #static{dist_handle = DHandle}} = StateData) ->
       case dist_data(DHandle) of
           [] ->
-              [];
+              hibernate_after(?FUNCTION_NAME, StateData, []);
           Data ->
-              [{next_event, internal,
-               {application_packets,{self(),undefined},Data}}]
-      end};
+              {keep_state_and_data,
+               [{next_event, internal,
+                 {application_packets, {self(),undefined}, Data}}]}
+      end;
 connection(info, tick, StateData) ->  
     consume_ticks(),
     Data = [<<0:32>>], % encode_packet(4, <<>>)
@@ -342,8 +352,10 @@ connection(info, {send, From, Ref, Data}, _StateData) ->
     {keep_state_and_data,
      [{next_event, {call, {self(), undefined}},
        {application_data, erlang:iolist_to_iovec(Data)}}]};
+connection(timeout, hibernate, _StateData) ->
+    {keep_state_and_data, [hibernate]};
 connection(Type, Msg, StateData) ->
-    handle_common(Type, Msg, StateData).
+    handle_common(?FUNCTION_NAME, Type, Msg, StateData).
 
 %%--------------------------------------------------------------------
 -spec handshake(gen_statem:event_type(),
@@ -352,7 +364,7 @@ connection(Type, Msg, StateData) ->
                          gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
 handshake({call, From}, {set_opts, Opts}, StateData) ->
-    handle_set_opts(From, Opts, StateData);
+    handle_set_opts(?FUNCTION_NAME, From, Opts, StateData);
 handshake({call, _}, _, _) ->
     %% Postpone all calls to the connection state
     {keep_state_and_data, [postpone]};
@@ -376,7 +388,7 @@ handshake(info, {send, _, _, _}, _) ->
     %% Testing only, OTP distribution test suites...
     {keep_state_and_data, [postpone]};
 handshake(Type, Msg, StateData) ->
-    handle_common(Type, Msg, StateData).
+    handle_common(?FUNCTION_NAME, Type, Msg, StateData).
 
 %%--------------------------------------------------------------------
 -spec death_row(gen_statem:event_type(),
@@ -387,7 +399,7 @@ handshake(Type, Msg, StateData) ->
 death_row(state_timeout, Reason, _StateData) ->
     {stop, {shutdown, Reason}};
 death_row(info = Type, Msg, StateData) ->
-    handle_common(Type, Msg, StateData);
+    handle_common(?FUNCTION_NAME, Type, Msg, StateData);
 death_row(_Type, _Msg, _StateData) ->
     %% Waste all other events
     keep_state_and_data.
@@ -417,16 +429,25 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+handle_set_opts(StateName, From, Opts,
+                #data{static = #static{socket_options = SockOpts} = Static}
+                = StateData) ->
+    hibernate_after(StateName,
+                    StateData#data{
+                      static =
+                          Static#static{
+                            socket_options = set_opts(SockOpts, Opts)}},
+                    [{reply, From, ok}]).
 
-handle_set_opts(From, Opts, #data{static = #static{socket_options = SockOpts} = Static} = StateData) ->
-    {keep_state, StateData#data{static = Static#static{socket_options = set_opts(SockOpts, Opts)}},
-     [{reply, From, ok}]}.
-
-handle_common({call, From}, {set_opts, Opts},
+handle_common(StateName, {call, From}, {set_opts, Opts},
   #data{static = #static{socket_options = SockOpts} = Static} = StateData) ->
-    {keep_state, StateData#data{static = Static#static{socket_options = set_opts(SockOpts, Opts)}},
-     [{reply, From, ok}]};
-handle_common(info, {'EXIT', _Sup, shutdown = Reason},
+    hibernate_after(StateName,
+                    StateData#data{
+                      static =
+                          Static#static{
+                            socket_options = set_opts(SockOpts, Opts)}},
+     [{reply, From, ok}]);
+handle_common(_StateName, info, {'EXIT', _Sup, shutdown = Reason},
               #data{static = #static{erl_dist = true}} = StateData) ->
     %% When the connection is on its way down operations
     %% begin to fail. We wait to receive possible exit signals
@@ -434,19 +455,21 @@ handle_common(info, {'EXIT', _Sup, shutdown = Reason},
     %% in which case we want to use their exit reason
     %% for the connection teardown.
     death_row_shutdown(Reason, StateData);
-handle_common(info, {'EXIT', _Dist, Reason},
+handle_common(_StateName, info, {'EXIT', _Dist, Reason},
               #data{static = #static{erl_dist = true}} = StateData) ->
     {stop, {shutdown, Reason}, StateData};
-handle_common(info, {'EXIT', _Sup, shutdown}, StateData) ->
+handle_common(_StateName, info, {'EXIT', _Sup, shutdown}, StateData) ->
     {stop, shutdown, StateData};
-handle_common(info, Msg, #data{static = #static{log_level = Level}}) ->
-    ssl_logger:log(info, Level, #{event => "TLS sender received unexpected info", 
+handle_common(StateName, info, Msg,
+              #data{static = #static{log_level = Level}} = StateData) ->
+    ssl_logger:log(info, Level, #{event => "TLS sender received unexpected info",
                                   reason => [{message, Msg}]}, ?LOCATION),
-    keep_state_and_data;
-handle_common(Type, Msg, #data{static = #static{log_level = Level}}) ->
-    ssl_logger:log(error, Level, #{event => "TLS sender received unexpected event", 
+    hibernate_after(StateName, StateData, []);
+handle_common(StateName, Type, Msg,
+              #data{static = #static{log_level = Level}} = StateData) ->
+    ssl_logger:log(error, Level, #{event => "TLS sender received unexpected event",
                                    reason => [{type, Type}, {message, Msg}]}, ?LOCATION),
-    keep_state_and_data.
+    hibernate_after(StateName, StateData, []).
 
 send_tls_alert(#alert{} = Alert,
                #data{static = #static{negotiated_version = Version,
@@ -495,15 +518,15 @@ send_application_data(Data, From, StateName,
                 ok when DistHandle =/=  undefined ->
                     ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
                     StateData1 = update_bytes_sent(Version, StateData, Data),
-                    {next_state, StateName, StateData1, []};
+                    hibernate_after(StateName, StateData1, []);
                 Reason when DistHandle =/= undefined ->
                     death_row_shutdown(Reason, StateData);
                 ok ->
                     ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
                     StateData1 = update_bytes_sent(Version, StateData, Data),
-                    {next_state, StateName, StateData1,  [{reply, From, ok}]};
+                    hibernate_after(StateName, StateData1, [{reply, From, ok}]);
                 Result ->
-                    {next_state, StateName, StateData,  [{reply, From, Result}]}
+                    hibernate_after(StateName, StateData, [{reply, From, Result}])
             end
     end.
 
@@ -683,3 +706,10 @@ consume_ticks() ->
     after 0 -> 
             ok
     end.
+
+hibernate_after(connection = StateName,
+		#data{static=#static{hibernate_after = HibernateAfter}} = State,
+		Actions) ->
+    {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
+hibernate_after(StateName, State, Actions) ->
+    {next_state, StateName, State, Actions}.
