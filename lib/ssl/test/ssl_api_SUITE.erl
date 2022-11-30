@@ -72,10 +72,10 @@
          dh_params/1,
          prf/0,
          prf/1,
-         hibernate/0,
-         hibernate/1,
-         hibernate_right_away/0,
-         hibernate_right_away/1,
+         hibernate_client/0,
+         hibernate_client/1,
+         hibernate_server/0,
+         hibernate_server/1,
          listen_socket/0,
          listen_socket/1,
          peername/0,
@@ -251,9 +251,9 @@ groups() ->
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ beast_mitigation_test()},
-     {'dtlsv1.2', [], gen_api_tests() -- [new_options_in_handshake] ++
+     {'dtlsv1.2', [], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
-     {'dtlsv1', [],  gen_api_tests() -- [new_options_in_handshake] ++
+     {'dtlsv1', [],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()}
     ].
 
@@ -295,8 +295,8 @@ gen_api_tests() ->
      new_options_in_handshake,
      active_n,
      dh_params,
-     hibernate,
-     hibernate_right_away,
+     hibernate_client,
+     hibernate_server,
      listen_socket,
      peername,
      recv_active,
@@ -1196,92 +1196,89 @@ active_n(Config) when is_list(Config) ->
     ok = ssl:close(LS),
     ok.
 
-hibernate() ->
-    [{doc,"Check that an SSL connection that is started with option "
-      "{hibernate_after, 1000} indeed hibernates after 1000ms of "
-      "inactivity"}].
+hibernate_client() ->
+    [{doc,"Check that an SSL connection on client side that is started with "
+      "option hibernate_after indeed hibernates after inactivity"}].
 
-hibernate(Config) ->
+hibernate_client(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    StartServerOpts = [return_socket, {node, ServerNode},
+                       {port, 0}, {from, self()},
+                       {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                       {options, [{hibernate_after, infinity} | ServerOpts]}],
+    StartClientOpts = [return_socket, {node, ClientNode}, {host, Hostname},
+                       {from, self()},
+                       {mfa, {ssl_test_lib, send_recv_result_active, []}}],
+    [ok = hibernate_helper(?config(version, Config), false,
+                           StartServerOpts, StartClientOpts,
+                           ServerOpts, ClientOpts, T, infinity) ||
+        T <- [1000, 0, 1]].
 
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, ServerOpts}]),
+hibernate_server() ->
+    [{doc,"Check that an SSL connection on server side that is started with "
+      "option hibernate_after indeed hibernates after inactivity."
+      "Note: for DTLS test will not be stable, because cookie secret refresh "
+      "mechanism might disturb hibernation of a server process."}].
+hibernate_server(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    StartServerOpts = [return_socket, {node, ServerNode}, {port, 0},
+                       {from, self()},
+                       {mfa, {ssl_test_lib, send_recv_result_active, []}}],
+    StartClientOpts = [return_socket, {node, ClientNode}, {host, Hostname},
+                       {from, self()},
+                       {mfa, {ssl_test_lib, send_recv_result_active, []}}],
+    [ok = hibernate_helper(?config(version, Config), true,
+                           StartServerOpts, StartClientOpts,
+                           ServerOpts, ClientOpts, infinity, T) ||
+        T <- [1000, 0, 1]].
+
+hibernate_helper(Version, CheckServer, StartServerOpts, StartClientOpts,
+                 ServerOpts0, ClientOpts0,
+                 ClientHibernateAfter, ServerHibernateAfter) ->
+    AllServerOpts = StartServerOpts ++
+        [{options, [{hibernate_after, ServerHibernateAfter} | ServerOpts0]}],
+    Server = ssl_test_lib:start_server(AllServerOpts),
     Port = ssl_test_lib:inet_port(Server),
-    {Client, #sslsocket{pid=[Pid|_]}} = ssl_test_lib:start_client([return_socket,
-                    {node, ClientNode}, {port, Port},
-					{host, Hostname},
-					{from, self()},
-					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, [{hibernate_after, 1000}|ClientOpts]}]),
-    {current_function, _} =
-        process_info(Pid, current_function),
-
-    ssl_test_lib:check_result(Server, ok, Client, ok),
-    
-    ct:sleep(1500),
+    AllClientOpts = StartClientOpts ++
+        [{port, Port},
+         {options, [{hibernate_after, ClientHibernateAfter} | ClientOpts0]}],
+    {Client, #sslsocket{pid = [ClientReceiverPid | ClientPotentialSenderPid]}} =
+        ssl_test_lib:start_client(AllClientOpts),
+    Results = ssl_test_lib:get_result([Client, Server]),
+    {ok, ServerAcceptSocket} = proplists:get_value(Server, Results),
+    ok = proplists:get_value(Client, Results),
+    #sslsocket{pid = [ServerReceiverPid | ServerPotentialSenderPid]} =
+        ServerAcceptSocket,
+    {ReceiverPid, PotentialSenderPid, HibernateAfter} =
+        case CheckServer of
+            true -> {ServerReceiverPid, ServerPotentialSenderPid,
+                     ServerHibernateAfter};
+            false -> {ClientReceiverPid, ClientPotentialSenderPid,
+                      ClientHibernateAfter}
+        end,
+    SleepAmount = max(1.5*HibernateAfter, 500),
+    ct:log("HibernateAfter = ~w SleepAmount = ~w", [HibernateAfter, SleepAmount]),
+    ct:sleep(SleepAmount), %% Schedule out
     {current_function, {erlang, hibernate, 3}} =
-	process_info(Pid, current_function),
-    
+	process_info(ReceiverPid, current_function),
+    IsTls = ssl_test_lib:is_tls_version(Version),
+    case IsTls of
+        true ->
+            [SenderPid] = PotentialSenderPid,
+            {current_function, {erlang, hibernate, 3}} =
+                process_info(SenderPid, current_function);
+        _ -> %% DTLS (no sender process)
+            ok
+    end,
     ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    ssl_test_lib:close(Client),
+    ok.
 
 %%--------------------------------------------------------------------
-
-hibernate_right_away() ->
-    [{doc,"Check that an SSL connection that is configured to hibernate "
-    "after 0 or 1 milliseconds hibernates as soon as possible and not "
-    "crashes"}].
-
-hibernate_right_away(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    StartServerOpts = [{node, ServerNode}, {port, 0},
-                    {from, self()},
-                    {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                    {options, ServerOpts}],
-    StartClientOpts = [return_socket,
-                    {node, ClientNode},
-                    {host, Hostname},
-                    {from, self()},
-                    {mfa, {ssl_test_lib, send_recv_result_active, []}}],
-
-    Server1 = ssl_test_lib:start_server(StartServerOpts),
-    Port1 = ssl_test_lib:inet_port(Server1),
-    {Client1, #sslsocket{pid = [Pid1|_]}} = ssl_test_lib:start_client(StartClientOpts ++
-                    [{port, Port1}, {options, [{hibernate_after, 0}|ClientOpts]}]),
-
-    ssl_test_lib:check_result(Server1, ok, Client1, ok),
-    
-    ct:sleep(1000), %% Schedule out
-  
-     {current_function, {erlang, hibernate, 3}} =
-	process_info(Pid1, current_function),
-    ssl_test_lib:close(Server1),
-    ssl_test_lib:close(Client1),
-    
-    Server2 = ssl_test_lib:start_server(StartServerOpts),
-    Port2 = ssl_test_lib:inet_port(Server2),
-    {Client2, #sslsocket{pid = [Pid2|_]}} = ssl_test_lib:start_client(StartClientOpts ++
-                    [{port, Port2}, {options, [{hibernate_after, 1}|ClientOpts]}]),
-
-    ssl_test_lib:check_result(Server2, ok, Client2, ok),
-
-    ct:sleep(1000), %% Schedule out
-    
-    {current_function, {erlang, hibernate, 3}} =
-	process_info(Pid2, current_function),
-
-    ssl_test_lib:close(Server2),
-    ssl_test_lib:close(Client2).
-
 listen_socket() ->
     [{doc,"Check error handling and inet compliance when calling API functions with listen sockets."}].
 

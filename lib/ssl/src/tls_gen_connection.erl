@@ -146,24 +146,26 @@ initialize_tls_sender(#state{static_env = #static_env{
                                              trackers = Trackers
                                             },
                              connection_env = #connection_env{negotiated_version = Version},
-                             socket_options = SockOpts, 
+                             socket_options = SockOpts,
                              ssl_options = #{renegotiate_at := RenegotiateAt,
                                              key_update_at := KeyUpdateAt,
                                              erl_dist := ErlDist,
-                                             log_level := LogLevel},
+                                             log_level := LogLevel,
+                                             hibernate_after := HibernateAfter},
                              connection_states = #{current_write := ConnectionWriteState},
                              protocol_specific = #{sender := Sender}}) ->
     Init = #{current_write => ConnectionWriteState,
              role => Role,
              socket => Socket,
              socket_options => SockOpts,
-             erl_dist => ErlDist, 
+             erl_dist => ErlDist,
              trackers => Trackers,
              transport_cb => Transport,
              negotiated_version => Version,
              renegotiate_at => RenegotiateAt,
              key_update_at => KeyUpdateAt,
-             log_level => LogLevel},
+             log_level => LogLevel,
+             hibernate_after => HibernateAfter},
     tls_sender:initialize(Sender, Init).
 
 %%====================================================================

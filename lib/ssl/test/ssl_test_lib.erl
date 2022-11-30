@@ -150,6 +150,7 @@
 
 -export([tls_version/1,
          is_protocol_version/1,
+         is_tls_version/1,
          is_dtls_version/1,
          protocol_version/1,
          protocol_version/2,
@@ -503,7 +504,6 @@ run_server(Opts) ->
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
     ?LOG("~nssl:listen(~p, ~p)~n", [Port, format_options(Options)]),
-    %% {ok, ListenSocket} = Transport:listen(Port, Options),
     case Transport:listen(Port, Options) of
         {ok, ListenSocket} ->
             Pid ! {listen, up},
@@ -542,7 +542,10 @@ do_run_server(ListenSocket, AcceptSocket, Opts) ->
 	    ok;
 	Msg ->
 	    ?LOG("~nServer Msg: ~p ~n", [Msg]),
-	    Pid ! {self(), Msg}
+            case lists:member(return_socket, Opts) of
+                true -> Pid ! {self(), {Msg, AcceptSocket}};
+                false -> Pid ! {self(), Msg}
+            end
     end,
     do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid).
 
