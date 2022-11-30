@@ -35,7 +35,8 @@
 -export([start_node/2, start_node/3,
          stop_node/1]).
 -export([f/2,
-         print/1, print/2]).
+         print/1, print/2,
+         formated_timestamp/0]).
 -export([good_hosts/1,
          lookup/3]).
 -export([os_cmd/1, os_cmd/2]).
@@ -55,6 +56,8 @@
          skip/1
         ]).
 
+%% Convenient exports...
+-export([analyze_and_print_host_info/0]).
 
 -include("kernel_test_lib.hrl").
 
@@ -162,37 +165,8 @@ linux_which_distro(Version) ->
             DistroAndLabel
     end.
 
-ts_extra_flatform_label() ->
-    case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
-        false -> "-";
-        Val   -> Val
-    end.
-
-simplify_label("Systemtap" ++ _) ->
-    {host, systemtap};
-simplify_label("Meamax" ++ _) ->
-    {host, meamax};
-simplify_label("Cover" ++ _) ->
-    {host, cover};
-simplify_label(Label) ->
-    case string:find(string:to_lower(Label), "docker") of
-        "docker" ++ _ ->
-            docker;
-        _ ->
-            {host, undefined}
-    end.
-
-label2factor(docker) ->
-    4;
-label2factor({host, meamax}) ->
-    2;
-label2factor({host, cover}) ->
-    6;
-label2factor({host, _}) ->
-    0.
-
 do_linux_which_distro(Version) ->
-    Label = ts_extra_flatform_label(),
+    Label = ts_extra_platform_label(),
 
     %% Many (linux) distro's use the /etc/issue file, so try that first.
     %% Then we just keep going until we are "done".
@@ -543,7 +517,7 @@ analyze_and_print_linux_host_info(Version) ->
             {ok, _} ->
                 linux_which_distro(Version);
             _ ->
-                L = ts_extra_flatform_label(),
+                L = ts_extra_platform_label(),
                 io:format("Linux: ~s"
                           "~n   TS Extra Platform Label: ~s"
                           "~n", [Version, L]),
@@ -924,7 +898,7 @@ linux_which_meminfo() ->
 
 %% Just to be clear: This is ***not*** scientific...
 analyze_and_print_openbsd_host_info(Version) ->
-    Label          = ts_extra_flatform_label(),
+    Label          = ts_extra_platform_label(),
     AddLabelFactor = label2factor(simplify_label(Label)),
     io:format("OpenBSD:"
               "~n   Version: ~s"
@@ -1065,7 +1039,7 @@ which_freebsd_version() ->
     end.
     
 analyze_and_print_freebsd_host_info(Version) ->
-    Label          = ts_extra_flatform_label(),
+    Label          = ts_extra_platform_label(),
     AddLabelFactor = label2factor(simplify_label(Label)),
     FreeBSDVersion = which_freebsd_version(),
     case FreeBSDVersion of
@@ -1232,7 +1206,7 @@ analyze_freebsd_item(Extract, Key, Process, Default) ->
     end.
 
 analyze_and_print_netbsd_host_info(Version) ->
-    Label          = ts_extra_flatform_label(),
+    Label          = ts_extra_platform_label(),
     AddLabelFactor = label2factor(simplify_label(Label)),
     io:format("NetBSD:"
               "~n   Version: ~s"
@@ -1395,86 +1369,65 @@ analyze_netbsd_item(Extract, Key, Process, Default) ->
 
 
 analyze_and_print_darwin_host_info(Version) ->
-    Label          = ts_extra_flatform_label(),
+    Label          = ts_extra_platform_label(),
     AddLabelFactor = label2factor(simplify_label(Label)),
     %% This stuff is for macOS.
     %% If we ever tested on a pure darwin machine,
     %% we need to find some other way to find some info...
     %% Also, I suppose its possible that we for some other
     %% reason *fail* to get the info...
-    case analyze_darwin_software_info() of
-        [] ->
-            io:format("Darwin:"
-                      "~n   Version:               ~s"
-                      "~n   Num Online Schedulers: ~s"
-                      "~n", [Version, str_num_schedulers()]),
-            io:format("TS Scale Factor:         ~w~n"
-                      "TS Extra Platform Label: ~s~n",
-                      [timetrap_scale_factor(), Label]),
-            {num_schedulers_to_factor(), []};
-        SwInfo when is_list(SwInfo) ->
-            SystemVersion = analyze_darwin_sw_system_version(SwInfo),
-            KernelVersion = analyze_darwin_sw_kernel_version(SwInfo),
-            HwInfo        = analyze_darwin_hardware_info(),
-            ModelName     = analyze_darwin_hw_model_name(HwInfo),
-            ModelId       = analyze_darwin_hw_model_identifier(HwInfo),
-            ProcName      = analyze_darwin_hw_processor_name(HwInfo),
-            ProcSpeed     = analyze_darwin_hw_processor_speed(HwInfo),
-            NumProc       = analyze_darwin_hw_number_of_processors(HwInfo),
-            NumCores      = analyze_darwin_hw_total_number_of_cores(HwInfo),
-            Memory        = analyze_darwin_hw_memory(HwInfo),
-            CPUFactor     =
-                case ProcName of
-                    "-" ->
-                        %% Processor Name exist up until 
-                        %% darwin version 19 (on intel), but on
-                        %% darwin version 21 on M1 it has been
-                        %% replaced by 'chip'.
-                        Chip = analyze_darwin_hw_chip(HwInfo),
-                        io:format("Darwin:"
-                                  "~n   System Version:        ~s"
-                                  "~n   Kernel Version:        ~s"
-                                  "~n   Model:                 ~s [~s]"
-                                  "~n   Chip:                  ~s [~s]"
-                                  "~n   Memory:                ~s"
-                                  "~n   Num Online Schedulers: ~s"
-                                  "~n", [SystemVersion, KernelVersion,
-                                         ModelName, ModelId,
-                                         Chip, NumCores,
-                                         Memory,
-                                         str_num_schedulers()]),
-                        io:format("TS Scale Factor:         ~w~n"
-                                  "TS Extra Platform Label: ~s~n",
-                                  [timetrap_scale_factor(), Label]),
-                        analyze_darwin_cpu_to_factor(Chip, NumCores);
-                    _ ->
-                        io:format("Darwin:"
-                                  "~n   System Version:        ~s"
-                                  "~n   Kernel Version:        ~s"
-                                  "~n   Model:                 ~s [~s]"
-                                  "~n   Processor:             ~s [~s, ~s, ~s]"
-                                  "~n   Memory:                ~s"
-                                  "~n   Num Online Schedulers: ~s"
-                                  "~n", [SystemVersion, KernelVersion,
-                                         ModelName, ModelId,
-                                         ProcName, ProcSpeed, NumProc, NumCores,
-                                         Memory,
-                                         str_num_schedulers()]),
-                        io:format("TS Scale Factor:         ~w~n"
-                                  "TS Extra Platform Label: ~s~n",
-                                  [timetrap_scale_factor(), Label]),
-                        analyze_darwin_cpu_to_factor(ProcName,
-                                                     ProcSpeed,
-                                                     NumProc,
-                                                     NumCores)
-                end,
-            MemFactor = analyze_darwin_memory_to_factor(Memory),
-            if (MemFactor =:= 1) ->
-                    {CPUFactor + AddLabelFactor, []};
-               true ->
-                    {CPUFactor + MemFactor + AddLabelFactor, []}
-            end
-    end.
+    Label  = ts_extra_platform_label(),
+    {BaseFactor, MemFactor} =
+        case analyze_darwin_software_info() of
+            [] ->
+                io:format("Darwin:"
+                          "~n   Version:               ~s"
+                          "~n   Num Online Schedulers: ~s"
+                          "~n   TS Extra Platform Label: ~s"
+                          "~n", [Version, str_num_schedulers(), Label]),
+                {num_schedulers_to_factor(), 1};
+            SwInfo when is_list(SwInfo) ->
+                SystemVersion = analyze_darwin_sw_system_version(SwInfo),
+                KernelVersion = analyze_darwin_sw_kernel_version(SwInfo),
+                HwInfo        = analyze_darwin_hardware_info(),
+                ModelName     = analyze_darwin_hw_model_name(HwInfo),
+                ModelId       = analyze_darwin_hw_model_identifier(HwInfo),
+                {Processor, CPUFactor} = analyze_darwin_hw_processor(HwInfo),
+                Memory        = analyze_darwin_hw_memory(HwInfo),
+                Memory        = analyze_darwin_hw_memory(HwInfo),
+                io:format("Darwin:"
+                          "~n   System Version:          ~s"
+                          "~n   Kernel Version:          ~s"
+                          "~n   Model:                   ~s (~s)"
+                          "~n   Processor:               ~s"
+                          "~n   Memory:                  ~s"
+                          "~n   Num Online Schedulers:   ~s"
+                          "~n   TS Extra Platform Label: ~s"
+                          "~n~n",
+                          [SystemVersion, KernelVersion,
+                           ModelName, ModelId,
+                           Processor, 
+                           Memory,
+                           str_num_schedulers(), Label]),
+                {CPUFactor, analyze_darwin_memory_to_factor(Memory)}
+        end,
+    AddLabelFactor = label2factor(simplify_label(Label)),
+    AddMemFactor = if
+                       (MemFactor > 0) ->
+                           MemFactor - 1;
+                       true ->
+                           0
+                   end,
+    TSScaleFactor = ts_scale_factor(),
+    io:format("Factor calc:"
+              "~n      Base Factor:     ~w"
+              "~n      Label Factor:    ~w"
+              "~n      Mem Factor:      ~w"
+              "~n      TS Scale Factor: ~w"
+              "~n~n",
+              [BaseFactor, AddLabelFactor, AddMemFactor, TSScaleFactor]),
+    {BaseFactor + AddLabelFactor + AddMemFactor + TSScaleFactor,
+     [{label, Label}]}.
 
 analyze_darwin_sw_system_version(SwInfo) ->
     proplists:get_value("system version", SwInfo, "-").
@@ -1485,17 +1438,40 @@ analyze_darwin_sw_kernel_version(SwInfo) ->
 analyze_darwin_software_info() ->
     analyze_darwin_system_profiler("SPSoftwareDataType").
 
+analyze_darwin_hw_chip(HwInfo) ->
+    proplists:get_value("chip", HwInfo, "-").
+
 analyze_darwin_hw_model_name(HwInfo) ->
     proplists:get_value("model name", HwInfo, "-").
 
 analyze_darwin_hw_model_identifier(HwInfo) ->
     proplists:get_value("model identifier", HwInfo, "-").
 
+analyze_darwin_hw_processor(HwInfo) ->
+    case analyze_darwin_hw_processor_name(HwInfo) of
+        "-" -> % Maybe Apple Chip
+            case analyze_darwin_hw_chip(HwInfo) of
+                "-" ->
+                    "-";
+                Chip ->
+                    NumCores = analyze_darwin_hw_total_number_of_cores(HwInfo),
+                    CPUFactor = analyze_darwin_cpu_to_factor(Chip, NumCores),
+                    {f("~s [~s]", [Chip, NumCores]), CPUFactor}
+            end;
+        ProcName ->
+            ProcSpeed = analyze_darwin_hw_processor_speed(HwInfo),
+            NumProc   = analyze_darwin_hw_number_of_processors(HwInfo),
+            NumCores  = analyze_darwin_hw_total_number_of_cores(HwInfo),
+            CPUFactor = analyze_darwin_cpu_to_factor(ProcName,
+                                                     ProcSpeed,
+                                                     NumProc,
+                                                     NumCores),
+            {f("~s [~s, ~s, ~s]",
+               [ProcName, ProcSpeed, NumProc, NumCores]), CPUFactor}
+    end.
+
 analyze_darwin_hw_processor_name(HwInfo) ->
     proplists:get_value("processor name", HwInfo, "-").
-
-analyze_darwin_hw_chip(HwInfo) ->
-    proplists:get_value("chip", HwInfo, "-").
 
 analyze_darwin_hw_processor_speed(HwInfo) ->
     proplists:get_value("processor speed", HwInfo, "-").
@@ -1592,7 +1568,7 @@ analyze_darwin_memory_to_factor(Mem) ->
 %% the speed may be a float, which we transforms into an integer of MHz.
 %% To calculate a factor based on processor "class" and number of cores
 %% is ... not an exact ... science ...
-analyze_darwin_cpu_to_factor(_Chip, _NumCoresStr) ->
+analyze_darwin_cpu_to_factor("Apple M" ++ _ = _Chip, _NumCoresStr) ->
     %% We know that pretty much every M processor is *fast*,
     %% so there is no real need to "calculate" anything...
     1.
@@ -1719,7 +1695,7 @@ analyze_darwin_cpu_to_factor(_ProcName,
     end.
 
 analyze_and_print_solaris_host_info(Version) ->
-    Label          = ts_extra_flatform_label(),
+    Label          = ts_extra_platform_label(),
     AddLabelFactor = label2factor(simplify_label(Label)),
 
     Release =
@@ -1863,7 +1839,7 @@ analyze_and_print_solaris_host_info(Version) ->
      end + MemFactor + AddLabelFactor, []}.    
 
 analyze_and_print_win_host_info(Version) ->
-    Label          = ts_extra_flatform_label(),
+    Label          = ts_extra_platform_label(),
     AddLabelFactor = label2factor(simplify_label(Label)),
 
     SysInfo    = which_win_system_info(),
@@ -1895,58 +1871,67 @@ analyze_and_print_win_host_info(Version) ->
               [timetrap_scale_factor(), Label]),
     %% 'VirtFactor' will be 0 unless virtual
     VirtFactor = win_virt_factor(SysMod),
+
+    %% On some machines this is a badly formated string
+    %% (contains a char of 255), so we need to do some nasty stuff...
     MemFactor =
         try
             begin
-                [MStr, MUnit|_] =
-                    string:tokens(lists:delete($,, TotPhysMem), [$\ ]),
+                %% "Normally" this looks like this: "16,123 MB"
+                %% But sometimes the "," is replaced by a 255 char
+                %% which I assume must be some unicode screwup...
+                %% Anyway, filter out both of them!
+                TotPhysMem1 = lists:delete($,, TotPhysMem),
+                TotPhysMem2 = lists:delete(255, TotPhysMem1),
+                [MStr, MUnit|_] = string:tokens(TotPhysMem2, [$\ ]),
                 case string:to_lower(MUnit) of
                     "gb" ->
                         try list_to_integer(MStr) of
-                            M when M > 8 ->
+                            M when M >= 16 ->
                                 0;
-                            M when M > 4 ->
+                            M when M >= 8 ->
                                 1;
-                            M when M > 2 ->
-                                2;
+                            M when M >= 4 ->
+                                3;
+                            M when M >= 2 ->
+                                6;
                             _ -> 
-                                5
+                                10
                         catch
                             _:_:_ ->
                                 %% For some reason the string contains
                                 %% "unusual" characters...
                                 %% ...so print the string as a list...
                                 io:format("Bad memory string: "
-                                          "~n   (gb) ~w"
+                                          "~n   [gb] ~w"
                                           "~n", [MStr]),
                                 10
                         end;
                     "mb" ->
                         try list_to_integer(MStr) of
-                            M when M > 8192 ->
+                            M when M >= 16384 ->
                                 0;
-                            M when M > 4096 ->
+                            M when M >= 8192 ->
                                 1;
-                            M when M > 2048 ->
-                                2;
+                            M when M >= 4096 ->
+                                3;
+                            M when M >= 2048 ->
+                                6;
                             _ -> 
-                                5
+                                10
                         catch
                             _:_:_ ->
                                 %% For some reason the string contains
                                 %% "unusual" characters...
                                 %% ...so print the string as a list...
                                 io:format("Bad memory string: "
-                                          "~n   (mb) ~w"
+                                          "~n   [mb] ~w"
                                           "~n", [MStr]),
                                 10
                         end;
                     _ ->
-                        %% For some reason the string contains
-                        %% "unusual" characters...
-                        %% ...so print the string as a list...
                         io:format("Bad memory string: "
-                                  "~n   (x) ~w"
+                                  "~n   ~w"
                                   "~n", [MStr]),
                         10
                 end
@@ -2079,6 +2064,43 @@ num_schedulers_to_factor() ->
             10
     end.
 
+
+ts_extra_platform_label() ->
+    case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
+        false -> "-";
+        Val   -> Val
+    end.
+
+ts_scale_factor() ->
+    case timetrap_scale_factor() of
+        N when is_integer(N) andalso (N > 0) ->
+            N - 1;
+        _ ->
+            0
+    end.
+
+simplify_label("Systemtap" ++ _) ->
+    {host, systemtap};
+simplify_label("Meamax" ++ _) ->
+    {host, meamax};
+simplify_label("Cover" ++ _) ->
+    {host, cover};
+simplify_label(Label) ->
+    case string:find(string:to_lower(Label), "docker") of
+        "docker" ++ _ ->
+            docker;
+        _ ->
+            {host, undefined}
+    end.
+
+label2factor(docker) ->
+    4;
+label2factor({host, meamax}) ->
+    2;
+label2factor({host, cover}) ->
+    6;
+label2factor({host, _}) ->
+    0.
 
 linux_info_lookup(Key, File) ->
     LKey = string:to_lower(Key),
@@ -2361,11 +2383,12 @@ tc_try(Case, TCCond, Pre, TC, Post)
                     tc_print("pre done: try test case"),
                     try
                         begin
-                            TC(State),
+                            TCRes = TC(State),
                             ?SLEEP(?SECS(1)),
                             tc_print("test case done: try post"),
                             (catch Post(State)),
-                            tc_end("ok")
+                            tc_end("ok"),
+                            TCRes
                         end
                     catch
                         C:{skip, _} = SKIP when (C =:= throw) orelse
