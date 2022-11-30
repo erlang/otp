@@ -27,7 +27,7 @@
          revert_map_type/1,wrapped_subtrees/1,
          t_abstract_type/1,t_erl_parse_type/1,t_type/1,
          t_epp_dodger/1,t_epp_dodger_clever/1,
-         t_comment_scan/1,t_prettypr/1]).
+         t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -36,7 +36,7 @@ all() ->
      wrapped_subtrees,
      t_abstract_type,t_erl_parse_type,t_type,
      t_epp_dodger,t_epp_dodger_clever,
-     t_comment_scan,t_prettypr].
+     t_comment_scan,t_prettypr,test_named_fun_bind_ann].
 
 groups() -> 
     [].
@@ -354,6 +354,33 @@ t_prettypr(Config) when is_list(Config) ->
     Filenames = test_files(),
     ok = test_prettypr(Filenames,DataDir,PrivDir),
     ok.
+
+%% Test bug (#4733) fix for annotating bindings for named fun expressions
+test_named_fun_bind_ann(Config) when is_list(Config) ->
+    Fn = {named_fun,{6,5},
+            'F',
+            [{clause,{6,9},
+                [{var,{6,11},'Test'}],
+                [],
+                [{var,{7,13},'Test'}]}]},
+    AnnT = erl_syntax_lib:annotate_bindings(Fn, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(AnnT),
+    {'env',[]} = Env,
+    {'bound',[]} = Bound,
+    {'free',[]} = Free,
+
+    NameVar = erl_syntax:named_fun_expr_name(AnnT),
+    Name = erl_syntax:variable_name(NameVar),
+    [NEnv, NBound, NFree] = erl_syntax:get_ann(NameVar),
+    {'env',[]} = NEnv,
+    {'bound',[Name]} = NBound,
+    {'free',[]} = NFree,
+
+    [Clause] = erl_syntax:named_fun_expr_clauses(AnnT),
+    [CEnv, CBound, CFree] = erl_syntax:get_ann(Clause),
+    {'env',[Name]} = CEnv,
+    {'bound',['Test']} = CBound,
+    {'free', []} = CFree.
 
 test_files(Config) ->
     DataDir = ?config(data_dir, Config),
