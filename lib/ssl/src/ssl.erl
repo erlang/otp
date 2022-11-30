@@ -1744,7 +1744,7 @@ opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
 opt_verify_fun(UserOpts, Opts, _Env) ->
     DefVerifyNoneFun = {default_verify_fun(), []},
     VerifyFun = case get_opt(verify_fun, DefVerifyNoneFun, UserOpts, Opts) of
-                    {_, {F,_} = FA} when is_function(F, 3) ->
+                    {_, {F,_} = FA} when is_function(F, 3); is_function(F, 4) ->
                         FA;
                     {_, UserFun} when is_function(UserFun, 1) ->
                         {convert_verify_fun(), UserFun};
