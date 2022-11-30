@@ -2452,16 +2452,15 @@ options_cacerts(Config) ->  %% cacert[s]file
                {win32, _} -> <<"c:/tmp/foo">>;
                _ -> <<"/tmp/foo">>
            end,
-    ?OK(#{cacerts := undefined, cacertfile := <<>>},
-        [], client),
+    ?OK(#{cacerts := undefined}, [], client, [cacertfile]),
     ?OK(#{cacerts := undefined, cacertfile := File},
         [{cacertfile, File}], client),
-    ?OK(#{cacerts := [Cert], cacertfile := <<>>},
-        [{cacerts, [Cert]}, {verify, verify_peer}], client),
-    ?OK(#{cacerts := [#cert{}], cacertfile := <<>>},
-        [{cacerts, [#cert{der=Cert, otp=dummy}]}], client),
-    ?OK(#{cacerts := [Cert], cacertfile := _},
-        [{cacerts, [Cert]}, {cacertfile, "/tmp/foo"}], client),
+    ?OK(#{cacerts := [Cert]}, [{cacerts, [Cert]}, {verify, verify_peer}],
+        client, [cacertfile]),
+    ?OK(#{cacerts := [#cert{}]}, [{cacerts, [#cert{der=Cert, otp=dummy}]}],
+        client, [cacertfile]),
+    ?OK(#{cacerts := [Cert]}, [{cacerts, [Cert]}, {cacertfile, "/tmp/foo"}],
+        client, [cacertfile]),
 
     %% Errors
     ?ERR({options, incompatible, _}, [{verify, verify_peer}], server),
@@ -2524,12 +2523,12 @@ options_cert(Config) -> %% cert[file] cert_keys keys password
     ok.
 
 options_certificate_authorities(_Config) ->
-    ?OK(#{certificate_authorities := false}, [], client),
-    ?OK(#{certificate_authorities := true}, [], server),
-    ?OK(#{certificate_authorities := true},
-        [{certificate_authorities, true}], client),
-    ?OK(#{certificate_authorities := false},
-        [{certificate_authorities, false}], server),
+    ?OK(#{}, [], client, [certificate_authorities]),
+    ?OK(#{}, [], server, [certificate_authorities]),
+    ?OK(#{certificate_authorities := true}, [{certificate_authorities, true}], client),
+    ?OK(#{}, [{certificate_authorities, false}], client, [certificate_authorities]),
+    ?OK(#{certificate_authorities := false}, [{certificate_authorities, false}], server),
+    ?OK(#{}, [{certificate_authorities, true}], server, [certificate_authorities]),
 
     %% Errors
     ?ERR({certificate_authorities, []},

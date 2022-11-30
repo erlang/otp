@@ -1301,8 +1301,7 @@ add_common_extensions(Version,
 
 maybe_add_tls13_extensions({3,4},
                            HelloExtensions0,
-                           #{versions := SupportedVersions,
-                             certificate_authorities := Bool},
+                           #{versions := SupportedVersions} = Opts,
                            KeyShare,
                            TicketData, CertDbHandle, CertDbRef) ->
     HelloExtensions1 =
@@ -1310,7 +1309,8 @@ maybe_add_tls13_extensions({3,4},
                               #client_hello_versions{versions = SupportedVersions}},
     HelloExtensions2 = maybe_add_key_share(HelloExtensions1, KeyShare),
     HelloExtensions = maybe_add_pre_shared_key(HelloExtensions2, TicketData),
-    maybe_add_certificate_auths(HelloExtensions, CertDbHandle, CertDbRef, Bool);
+    AddCA = maps:get(certificate_authorities, Opts, false),
+    maybe_add_certificate_auths(HelloExtensions, CertDbHandle, CertDbRef, AddCA);
 
 maybe_add_tls13_extensions(_, HelloExtensions, _, _, _, _,_) ->
     HelloExtensions.

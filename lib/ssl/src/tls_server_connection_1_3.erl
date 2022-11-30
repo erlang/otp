@@ -815,10 +815,10 @@ maybe_send_certificate_request(#state{static_env = #static_env{protocol_cb = Con
                                                                cert_db_ref = CertDbRef}} = State,
                                #{verify := verify_peer,
                                  signature_algs := SignAlgs,
-                                 signature_algs_cert := SignAlgsCert,
-                                 certificate_authorities := CertAuthBool}, _) ->
+                                 signature_algs_cert := SignAlgsCert} = Opts, _) ->
+    AddCertAuth = maps:get(certificate_authorities, Opts, true),
     CertificateRequest = tls_handshake_1_3:certificate_request(SignAlgs, SignAlgsCert, CertDbHandle,
-                                                               CertDbRef, CertAuthBool),
+                                                               CertDbRef, AddCertAuth),
     {Connection:queue_handshake(CertificateRequest, State), wait_cert}.
 
 maybe_send_certificate(State, PSK) when  PSK =/= undefined ->

@@ -1164,13 +1164,14 @@ handle_alert(Alert0, StateName, State) ->
     %% In TLS-1.3 all error alerts are fatal not matter of legacy level
     handle_alert(Alert0#alert{level = ?FATAL}, StateName, State).
 
-handle_trusted_certs_db(#state{ssl_options =
-				   #{cacertfile := <<>>, cacerts := []}}) ->
+handle_trusted_certs_db(#state{ssl_options =#{cacerts := []} = Opts})
+  when not is_map_key(cacertfile, Opts) ->
     %% No trusted certs specified
     ok;
 handle_trusted_certs_db(#state{static_env = #static_env{cert_db_ref = Ref,
                                                         cert_db = CertDb},
-                               ssl_options = #{cacertfile := <<>>}}) when CertDb =/= undefined ->
+                               ssl_options = Opts})
+  when CertDb =/= undefined, not is_map_key(cacertfile, Opts) ->
     %% Certs provided as DER directly can not be shared
     %% with other connections and it is safe to delete them when the connection ends.
     ssl_pkix_db:remove_trusted_certs(Ref, CertDb);

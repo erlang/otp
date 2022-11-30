@@ -1862,7 +1862,9 @@ opt_cacerts(UserOpts, #{verify := Verify, log_level := LogLevel, versions := Ver
     {Where2, CA} = get_opt_bool(certificate_authorities, Role =:= server, UserOpts, Opts),
     assert_version_dep(Where2 =:= new, certificate_authorities, Versions, ['tlsv1.3']),
 
-    Opts#{cacerts => CaCerts, cacertfile => CaCertFile, certificate_authorities => CA}.
+    Opts1 = set_opt_new(new, cacertfile, <<>>, CaCertFile, Opts),
+    Opts2 = set_opt_new(Where2, certificate_authorities, Role =:= server, CA, Opts1),
+    Opts2#{cacerts => CaCerts}.
 
 opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
     {_, SessionTickets} = get_opt_of(session_tickets, [disabled,manual,auto], disabled, UserOpts, Opts),

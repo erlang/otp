@@ -258,17 +258,13 @@ init_manager_name(true) ->
     put(ssl_manager, ssl_manager:name(dist)),
     put(ssl_pem_cache, ssl_pem_cache:name(dist)).
 
-init_cacerts(#{cacerts := CaCerts,
-               cacertfile := CACertFile,
-               crl_cache := CRLCache
-              }, Role) ->
+init_cacerts(#{cacerts := CaCerts, crl_cache := CRLCache} = Opts, Role) ->
+    CACertFile = maps:get(cacertfile, Opts, <<>>),
     {ok, Config} =
-	try 
+	try
 	    Certs = case CaCerts of
-			undefined ->
-			    CACertFile;
-			_ ->
-			    {der, CaCerts}
+			undefined -> CACertFile;
+			_ -> {der, CaCerts}
 		    end,
 	    {ok,_} = ssl_manager:connection_init(Certs, Role, CRLCache)
 	catch
