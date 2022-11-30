@@ -198,7 +198,9 @@ map_1(F, T) ->
 	    update_c_module(T, map(F, module_name(T)),
 			    map_list(F, module_exports(T)),
 			    map_pairs(F, module_attrs(T)),
-			    map_pairs(F, module_defs(T)))
+			    map_pairs(F, module_defs(T)));
+        opaque ->
+            T
     end.
 
 map_list(F, [T | Ts]) ->
@@ -312,7 +314,9 @@ fold_1(F, S, T) ->
 					    fold(F, S, module_name(T)),
 					    module_exports(T)),
 				  module_attrs(T)),
-		       module_defs(T))
+		       module_defs(T));
+        opaque ->
+            S
     end.
 
 fold_list(F, S, [T | Ts]) ->
@@ -483,7 +487,9 @@ mapfold(Pre, Post, S00, T0) ->
 		    {Es, S2} = mapfold_list(Pre, Post, S1, module_exports(T)),
 		    {As, S3} = mapfold_pairs(Pre, Post, S2, module_attrs(T)),
 		    {Ds, S4} = mapfold_pairs(Pre, Post, S3, module_defs(T)),
-		    Post(update_c_module(T, N, Es, As, Ds), S4)
+		    Post(update_c_module(T, N, Es, As, Ds), S4);
+                opaque ->
+                    Post(T, S0)
 	    end;
 	skip ->
 	    {T0, S00}
@@ -657,7 +663,9 @@ variables(T, S) ->
 		    ordsets:subtract(Vs1, Vs2);
 		false ->
 		    ordsets:union(Vs1, Vs2)
-	    end
+	    end;
+        opaque ->
+            []
     end.
 
 vars_in_list(Ts, S) ->
@@ -782,7 +790,9 @@ next_free(T, Max) ->
             Max2 = next_free(letrec_body(T), Max1),
             next_free_in_list(letrec_vars(T), Max2);
         module ->
-            next_free_in_defs(module_defs(T), Max)
+            next_free_in_defs(module_defs(T), Max);
+        opaque ->
+            Max
     end.
 
 next_free_in_list([H | T], Max) ->
@@ -974,7 +984,10 @@ label(T, N, Env) ->
 	    {Ds, N3} = label_defs(module_defs(T), N2, Env1),
 	    {Es, N4} = label_list(module_exports(T), N3, Env1),
 	    {As, N5} = label_ann(T, N4),
-	    {ann_c_module(As, module_name(T), Es, Ts, Ds), N5}
+	    {ann_c_module(As, module_name(T), Es, Ts, Ds), N5};
+        opaque ->
+	    %% Not labeled.
+	    {T, N}
     end.
 
 label_list([T | Ts], N, Env) ->
