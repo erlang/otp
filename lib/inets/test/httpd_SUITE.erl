@@ -2125,7 +2125,7 @@ server_config(http_rel_path_script_alias, Config) ->
 server_config(https, Config) ->
     SSLConf = proplists:get_value(ssl_conf, Config),
     ServerConf = proplists:get_value(server_config, SSLConf),
-    [{socket_type, {essl,
+    [{socket_type, {ssl,
 		    [{nodelay, true} | ServerConf]}}]
         ++ proplists:delete(socket_type, server_config(http, Config)).
 

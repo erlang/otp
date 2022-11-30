@@ -506,25 +506,46 @@ remove(ConfigDB) ->
     ets:delete(ConfigDB),
     ok.
 
-
+-spec get_config(Address, Port, Profile) -> [tuple()] when
+      Address :: inet:ip_address() | any,
+      Port    :: integer(),
+      Profile :: atom().
 get_config(Address, Port, Profile) ->    
     Tab = httpd_util:make_name("httpd_conf", Address, Port, Profile),
     Properties =  ets:tab2list(Tab),
     MimeTab = proplists:get_value(mime_types, Properties),
     NewProperties = proplists:delete(mime_types, Properties),
     [{mime_types, ets:tab2list(MimeTab)} | NewProperties].
-     
+
+-spec get_config(Address, Port, Profile, Properties) -> [tuple()] when
+      Address :: inet:ip_address() | any,
+      Port    :: integer(),
+      Profile :: atom(),
+      Properties :: [tuple() | atom()].
 get_config(Address, Port, Profile, Properties) ->    
     Tab = httpd_util:make_name("httpd_conf", Address, Port, Profile),
     Config = 
 	lists:map(fun(Prop) -> {Prop, httpd_util:lookup(Tab, Prop)} end,
 		  Properties),
-    [{Proporty, Value} || {Proporty, Value} <- Config, Value =/= undefined].  
+    [{Property, Value} || {Property, Value} <- Config, Value =/= undefined].
 	
-		   
+-spec lookup(Tab, Key) -> Result when
+      Tab :: ets:tab(),
+      Key :: term(),
+      Result :: [tuple()] | atom().
 lookup(Tab, Key) ->
     httpd_util:lookup(Tab, Key).
 
+-spec lookup(Tab, Key, Default) -> Object when
+      Tab :: ets:tab(),
+      Key :: atom(),
+      Default :: atom(),
+      Object :: [tuple()] | atom();
+            (Address, Port, Key) -> Object when
+      Address :: inet:ip_address() | any,
+      Port    :: integer(),
+      Key     :: atom(),
+      Object  :: [tuple()] | atom().
 lookup(Tab, Key, Default) when is_atom(Key) ->
     httpd_util:lookup(Tab, Key, Default);
 
@@ -532,6 +553,12 @@ lookup(Address, Port, Key) when is_integer(Port) ->
     Tab = table(Address, Port),
     lookup(Tab, Key).
 
+-spec lookup(Address, Port, Key, Default) -> Object when
+      Address :: inet:ip_address() | any,
+      Port    :: integer(),
+      Key     :: atom(),
+      Default :: atom(),
+      Object  :: [tuple()] | atom().
 lookup(Address, Port, Key, Default) when is_integer(Port) ->
     Tab = table(Address, Port),
     lookup(Tab, Key, Default).
