@@ -421,75 +421,109 @@ true</pre>
         <cell align="left" valign="middle"><em>Description</em></cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\b</cell>
-        <cell align="left" valign="middle">Backspace</cell>
+        <cell align="left" valign="middle"><c>\b</c></cell>
+        <cell align="left" valign="middle">Backspace (ASCII code 8)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\d</cell>
-        <cell align="left" valign="middle">Delete</cell>
+        <cell align="left" valign="middle"><c>\d</c></cell>
+        <cell align="left" valign="middle">Delete (ASCII code 127)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\e</cell>
-        <cell align="left" valign="middle">Escape</cell>
+        <cell align="left" valign="middle"><c>\e</c></cell>
+        <cell align="left" valign="middle">Escape (ASCII code 27)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\f</cell>
-        <cell align="left" valign="middle">Form feed</cell>
+        <cell align="left" valign="middle"><c>\f</c></cell>
+        <cell align="left" valign="middle">Form Feed (ASCII code 12)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\n</cell>
-        <cell align="left" valign="middle">Newline</cell>
+        <cell align="left" valign="middle"><c>\n</c></cell>
+        <cell align="left" valign="middle">Line Feed/Newline (ASCII code 10)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\r</cell>
-        <cell align="left" valign="middle">Carriage return</cell>
+        <cell align="left" valign="middle"><c>\r</c></cell>
+        <cell align="left" valign="middle">Carriage Return (ASCII code 13)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\s</cell>
-        <cell align="left" valign="middle">Space</cell>
+        <cell align="left" valign="middle"><c>\s</c></cell>
+        <cell align="left" valign="middle">Space (ASCII code 32)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\t</cell>
-        <cell align="left" valign="middle">Tab</cell>
+        <cell align="left" valign="middle"><c>\t</c></cell>
+        <cell align="left" valign="middle">(Horizontal) Tab (ASCII code 9)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\v</cell>
-        <cell align="left" valign="middle">Vertical tab</cell>
+        <cell align="left" valign="middle"><c>\v</c></cell>
+        <cell align="left" valign="middle">Vertical Tab (ASCII code 11)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\XYZ, \YZ, \Z</cell>
+        <cell align="left" valign="middle"><c>\</c>XYZ, <c>\</c>YZ, <c>\</c>Z</cell>
         <cell align="left" valign="middle">Character with octal
         representation XYZ, YZ or Z</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\xXY</cell>
+        <cell align="left" valign="middle"><c>\xXY</c></cell>
         <cell align="left" valign="middle">Character with hexadecimal
         representation XY</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\x{X...}</cell>
+        <cell align="left" valign="middle"><c>\x{</c>X...<c>}</c></cell>
         <cell align="left" valign="middle">Character with hexadecimal
         representation; X... is one or more hexadecimal characters</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\^a...\^z        <br></br>
-\^A...\^Z</cell>
+        <cell align="left" valign="middle"><c>\^a</c>...<c>\^z</c>        <br></br>
+<c>\^A</c>...<c>\^Z</c></cell>
         <cell align="left" valign="middle">Control A to control Z</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\'</cell>
+        <cell align="left" valign="middle"><c>\^@</c></cell>
+        <cell align="left" valign="middle">NUL (ASCII code 0)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>\^[</c></cell>
+        <cell align="left" valign="middle">Escape (ASCII code 27)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>\^\</c></cell>
+        <cell align="left" valign="middle">File Separator (ASCII code 28)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>\^]</c></cell>
+        <cell align="left" valign="middle">Group Separator (ASCII code 29)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>\^^</c></cell>
+        <cell align="left" valign="middle">Record Separator (ASCII code 30)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>\^_</c></cell>
+        <cell align="left" valign="middle">Unit Separator (ASCII code 31)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>\^?</c></cell>
+        <cell align="left" valign="middle">Delete (ASCII code 127)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>\'</c></cell>
         <cell align="left" valign="middle">Single quote</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\"</cell>
+        <cell align="left" valign="middle"><c>\"</c></cell>
         <cell align="left" valign="middle">Double quote</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\</cell>
+        <cell align="left" valign="middle"><c>\\</c></cell>
         <cell align="left" valign="middle">Backslash</cell>
       </row>
       <tcaption>Recognized Escape Sequences</tcaption>
     </table>
+
+
+    <note><p>As of Erlang/OTP 26, the value of <c>$\^?</c> has been
+    changed to be 127 (Delete), instead of 31. Previous releases
+    would allow any character following <c>$\^</c>; as of Erlang/OTP
+    26, only the documented characters are allowed.</p></note>
   </section>
 
   <section>

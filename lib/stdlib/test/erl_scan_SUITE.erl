@@ -516,12 +516,17 @@ chars() ->
          test_string(L, Ts)
      end || C <- lists:seq(0, 255)],
 
-    %% $\^\n now increments the line...
+    %% GH-6477. Test legal use of caret notation.
     [begin
          L = "$\\^" ++ [C],
-         Ts = [{char,{1,1},C band 2#11111}],
+         Ts = case C of
+                  $? ->
+                      [{char,{1,1},127}];
+                  _ ->
+                      [{char,{1,1},C band 2#11111}]
+              end,
          test_string(L, Ts)
-     end || C <- lists:seq(0, 255)],
+     end || C <- lists:seq($?, $Z) ++ lists:seq($a, $z)],
 
     [begin
          L = "$\\" ++ [C],
@@ -672,6 +677,12 @@ illegal() ->
         erl_scan:string(String, {1,1}),
     {done,{error,{{1,4},erl_scan,{illegal,character}},{1,14}},"34\". "} =
         erl_scan:tokens([], String++". ", {1,1}),
+
+    %% GH-6477. Test for illegal characters in caret notation.
+    _ = [begin
+             S = [$$,$\\,$^,C],
+             {error,{1,erl_scan,{illegal,character}},1} = erl_scan:string(S)
+         end || C <- lists:seq(0, 16#3e) ++ [16#60] ++ lists:seq($z+1, 16#10ffff)],
     ok.
 
 crashes() ->
@@ -874,7 +885,7 @@ unicode() ->
         erl_scan:string([16#D800], {1,1}),
 
     test("\"a"++[1089]++"b\""),
-    {ok,[{char,1,1}],1} =
+    {error,{1,erl_scan,{illegal,character}},1} =
         erl_scan_string([$$,$\\,$^,1089], 1),
 
     {error,{1,erl_scan,Error},1} =
@@ -911,7 +922,7 @@ unicode() ->
     U3 = "\"a\n\\x{fff}\n\"",
     {ok,[{string,1,[$a,$\n,$\x{fff},$\n]}],3} = erl_scan_string(U3, 1),
 
-    U4 = "\"\\^\n\\x{aaa}\\^\n\"",
+    U4 = "\"\n\\x{aaa}\n\"",
     {ok,[{string,1,[$\n,$\x{aaa},$\n]}],3} = erl_scan_string(U4, 1),
 
     %% Keep these tests:
@@ -1026,7 +1037,7 @@ otp_10302(Config) when is_list(Config) ->
     U3 = "\"a\n\\x{fff}\n\"",
     {ok,[{string,1,[97,10,4095,10]}],3} = erl_scan_string(U3, 1),
 
-    U4 = "\"\\^\n\\x{aaa}\\^\n\"",
+    U4 = "\"\n\\x{aaa}\n\"",
     {ok,[{string,1,[10,2730,10]}],3} = erl_scan_string(U4, 1,[]),
 
     Str1 = "\"ab" ++ [1089] ++ "cd\"",
