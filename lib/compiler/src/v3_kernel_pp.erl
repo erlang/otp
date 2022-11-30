@@ -356,6 +356,8 @@ format_1(#ifun{vars=Vs,body=B}, Ctxt) ->
      nl_indent(Ctxt1)
      | format(B, Ctxt1)
     ];
+format_1(#k_opaque{val=V}, _Ctxt) ->
+    ["** Opaque: ", io_lib:write(V), " **\n"];
 format_1(Type, _Ctxt) ->
     ["** Unsupported type: ",
      io_lib:write(Type)

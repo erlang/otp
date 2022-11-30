@@ -360,7 +360,9 @@ expr(#c_try{anno=A,arg=Ca,vars=Cvs,body=Cb,evars=Evs,handler=Ch}, Sub0, St0) ->
 	    evars=Kevs,handler=pre_seq(Ph, Kh)},[],St5};
 expr(#c_catch{anno=A,body=Cb}, Sub, St0) ->
     {Kb,Pb,St1} = body(Cb, Sub, St0),
-    {#k_catch{anno=A,body=pre_seq(Pb, Kb)},[],St1}.
+    {#k_catch{anno=A,body=pre_seq(Pb, Kb)},[],St1};
+expr(#c_opaque{anno=A,val=V}, _, St) ->
+    {#k_opaque{anno=A,val=V},[],St}.
 
 %% Implement letrec in the traditional way as a local
 %% function for each definition in the letrec.
@@ -2050,6 +2052,8 @@ uexpr(#k_letrec_goto{anno=A,vars=Vs,first=F0,then=T0}=MatchAlt, Br, St0) ->
     {T1,Tu,St2} = ubody(T0, Br, St1),
     Used = subtract(union(Fu, Tu), Ns),
     {MatchAlt#k_letrec_goto{anno=A,first=F1,then=T1,ret=Rs},Used,St2};
+uexpr(#k_opaque{}=O, _, St) ->
+    {O,[],St};
 uexpr(Lit, {break,Rs0}, St0) ->
     %% Transform literals to puts here.
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),
@@ -2192,7 +2196,8 @@ lit_vars(#k_bin_seg{size=Size,seg=S,next=N}) ->
     union(lit_vars(Size), union(lit_vars(S), lit_vars(N)));
 lit_vars(#k_tuple{es=Es}) ->
     lit_list_vars(Es);
-lit_vars(#k_literal{}) -> [].
+lit_vars(#k_literal{}) -> [];
+lit_vars(#k_opaque{}) -> [].
 
 lit_list_vars(Ps) ->
     foldl(fun (P, Vs) -> union(lit_vars(P), Vs) end, [], Ps).
