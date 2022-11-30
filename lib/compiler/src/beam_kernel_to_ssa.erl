@@ -42,7 +42,8 @@
              recv=0 :: label(),     %Receive label
              ultimate_failure=0 :: label(), %Label for ultimate match failure.
              labels=#{} :: #{atom() => label()},
-             no_make_fun3=false :: boolean()
+             no_make_fun3=false :: boolean(),
+             checks=[] :: [term()]
             }).
 
 %% Internal records.
@@ -74,7 +75,12 @@ function(#k_fdef{anno=Anno0,func=Name,arity=Arity,
         {As,St1} = new_ssa_vars(As0, St0),
         {Asm,St} = cg_fun(Kb, St1),
         Anno1 = line_anno(Anno0),
-        Anno = Anno1#{func_info=>{Mod,Name,Arity}},
+        Anno2 = Anno1#{func_info=>{Mod,Name,Arity}},
+        Anno = case St#cg.checks of
+                   [] -> Anno2;
+                   Checks ->
+                       Anno2#{ssa_checks=>Checks}
+               end,
         #b_function{anno=Anno,args=As,bs=Asm,cnt=St#cg.lcount}
     catch
         Class:Error:Stack ->
@@ -157,7 +163,9 @@ cg(#k_goto{label=Label,args=As0}, #cg{labels=Labels}=St) ->
     As = ssa_args(As0, St),
     Branch = map_get(Label, Labels),
     Break = #cg_break{args=As,phi=Branch},
-    {[Break],St}.
+    {[Break],St};
+cg(#k_opaque{val={ssa_check_when,_,_,_,_}=Check},St) -> %% Extract here
+    {[],St#cg{checks=[Check|St#cg.checks]}}.
 
 %% match_cg(Matc, [Ret], State) -> {[Ainstr],State}.
 %%  Generate code for a match.
