@@ -252,11 +252,14 @@ listen_loop() ->
 	{'EXIT', _, _} ->
 	    ok
     end.
-	    
+
 socket_type(Config) ->
     SocketType = proplists:get_value(socket_type, Config, ip_comm), 
     socket_type(SocketType, Config).
 
+-spec socket_type(SocketType | Term) -> SocketType when
+      Term       :: term(),
+      SocketType :: ip_comm | {ip_comm, _Value} | {ssl, _Value}.
 socket_type(ip_comm = SocketType, _) ->
     SocketType;
 socket_type({ip_comm, _} = SocketType, _) ->
@@ -335,6 +338,9 @@ ssl_ca_certificate_file(Config) ->
 	    [{cacertfile, File}]
     end.
 
+-spec get_fd(Port) -> Object when
+      Port :: integer(),
+      Object :: {ok, integer() | undefined} | {error, {bad_descriptor, term()}}.
 get_fd(0) ->
     {ok, undefined};
 get_fd(Port) ->

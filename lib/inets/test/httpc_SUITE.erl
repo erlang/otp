@@ -2103,7 +2103,7 @@ server_config(http_internal, Config) ->
      {erl_script_alias, {"", [httpc_SUITE]}}
     ];
 server_config(https, Config) ->
-    [{socket_type, {essl, ssl_config(Config)}} | server_config(http, Config)];
+    [{socket_type, {ssl, ssl_config(Config)}} | server_config(http, Config)];
 server_config(sim_https, Config) ->
     ssl_config(Config);
 server_config(http_unix_socket, _Config) ->
