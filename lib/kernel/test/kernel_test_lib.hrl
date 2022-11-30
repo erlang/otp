@@ -70,6 +70,7 @@
 -define(F(FORMAT, ARGS),         ?LIB:f(FORMAT, ARGS)).
 -define(P(F),                    ?LIB:print(F)).
 -define(P(F,A),                  ?LIB:print(F, A)).
+-define(FTS(),                   ?LIB:formated_timestamp()).
 
 -define(SECS(I),                 timer:seconds(I)).
 -define(MINS(I),                 timer:minutes(I)).
