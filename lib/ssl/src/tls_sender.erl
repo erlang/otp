@@ -498,7 +498,6 @@ send_application_data(Data, From, StateName,
         key_update ->
             KeyUpdate = tls_handshake_1_3:key_update(update_requested),
             {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
-                                   {next_event, internal, {key_update, From}},
                                    {next_event, internal, {application_packets, From, Data}}]};
 	renegotiate ->
 	    tls_dtls_connection:internal_renegotiation(Pid, ConnectionStates0),
