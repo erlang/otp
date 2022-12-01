@@ -579,7 +579,12 @@ res_update(Option, TagTm) ->
     end.
 
 db_get(Name) ->
-    ets:lookup_element(inet_db, Name, 2, undefined).
+    try
+        ets:lookup_element(inet_db, Name, 2, undefined)
+    catch
+        %% Case where the table does not exist yet.
+        error:badarg -> undefined
+    end.
 
 add_rr(RR) ->
     %% Questionable if we need to support this;

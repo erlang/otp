@@ -203,7 +203,12 @@ get_members(Group) ->
 
 -spec get_members(Scope :: atom(), Group :: group()) -> [pid()].
 get_members(Scope, Group) ->
-    ets:lookup_element(Scope, Group, 2, []).
+    try
+        ets:lookup_element(Scope, Group, 2, [])
+    catch
+        %% Case where the table does not exist yet.
+        error:badarg -> []
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -214,7 +219,12 @@ get_local_members(Group) ->
 
 -spec get_local_members(Scope :: atom(), Group :: group()) -> [pid()].
 get_local_members(Scope, Group) ->
-    ets:lookup_element(Scope, Group, 3, []).
+    try
+        ets:lookup_element(Scope, Group, 3, [])
+    catch
+        %% Case where the table does not exist yet.
+        error:badarg -> []
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
