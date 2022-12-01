@@ -117,7 +117,7 @@ check_exprs(Exprs, Env, #b_function{bs=Blocks}=F) ->
     {File,_} = beam_ssa:get_anno(location, F),
     check_expr_seq(Exprs, Code, Env, never, File).
 
-check_expr_seq([{check_expr,Loc,Args}|Rest]=Checks,
+check_expr_seq([{check_expr,Loc,Args,_}|Rest]=Checks,
                [First|Code], Env0, LastMatchedLoc, File) ->
     Env = try
               ?DP("trying:~n  pat: ~p~n  i: ~p~n", [Args, First]),
@@ -141,7 +141,7 @@ check_expr_seq([{check_expr,Loc,Args}|Rest]=Checks,
 check_expr_seq([], _Blocks, _Env, _LastMatchedLoc, _File) ->
     %% Done and all expressions matched.
     [];
-check_expr_seq([{check_expr,Loc,Args}|_], [], Env, LastMatchedLoc, File) ->
+check_expr_seq([{check_expr,Loc,Args,_}|_], [], Env, LastMatchedLoc, File) ->
     %% We didn't find a match and we have no more code to look at
     [{File,[{Loc,?MODULE,{no_match,Args,LastMatchedLoc,Env}}]}].
 

@@ -51,6 +51,9 @@ map_pair_types map_pair_type
 bin_base_type bin_unit_type
 maybe_expr maybe_match_exprs maybe_match
 clause_body_exprs
+ssa_check_anno
+ssa_check_anno_clause
+ssa_check_anno_clauses
 ssa_check_args
 ssa_check_binary_lit
 ssa_check_binary_lit_bytes_ls
@@ -586,8 +589,20 @@ ssa_check_when_clause -> '%ssa%' ssa_check_clause_args_ls 'when' atom '->'
                              ssa_check_exprs '.' :
    {ssa_check_when, ?anno('$1'), {atom,?anno('$1'),pass}, '$2', '$4', '$6'}.
 
-ssa_check_exprs -> ssa_check_expr : ['$1'].
-ssa_check_exprs -> ssa_check_expr ',' ssa_check_exprs : ['$1'|'$3'].
+ssa_check_exprs -> ssa_check_expr : [add_anno_check('$1', [])].
+ssa_check_exprs -> ssa_check_expr ssa_check_anno : [add_anno_check('$1', '$2')].
+ssa_check_exprs -> ssa_check_expr ',' ssa_check_exprs :
+    [add_anno_check('$1', [])|'$3'].
+ssa_check_exprs -> ssa_check_expr ssa_check_anno ',' ssa_check_exprs :
+    [add_anno_check('$1', '$2')|'$4'].
+
+ssa_check_anno -> '{' ssa_check_anno_clauses '}' : '$2'.
+
+ssa_check_anno_clauses -> ssa_check_anno_clause : ['$1'].
+ssa_check_anno_clauses -> ssa_check_anno_clause ',' ssa_check_anno_clauses :
+    ['$1'|'$3'].
+
+ssa_check_anno_clause -> atom '=>' ssa_check_pat : {term, '$1', '$3'}.
 
 ssa_check_expr -> var '=' atom ssa_check_args :
    {check_expr, ?anno('$1'), [set, '$1', '$3'|'$4']}.
@@ -681,6 +696,8 @@ ssa_check_map_key_elements -> ssa_check_map_key_element ',' ssa_check_map_key_el
 
 ssa_check_map_key_element -> ssa_check_map_key '=>' ssa_check_map_key:
     {'$1', '$3'}.
+%% ssa_check_map_key_element -> ssa_check_map_key '::' top_type:
+%%     {type, '$1', '$3'}.
 
 ssa_check_map_key_tuple_elements -> ssa_check_map_key : ['$1'].
 ssa_check_map_key_tuple_elements -> ssa_check_map_key ',' ssa_check_map_key_tuple_elements:
@@ -1974,5 +1991,8 @@ build_ssa_check_label({atom,_,label}, Lbl) ->
     [label, Lbl];
 build_ssa_check_label({atom,L,_}, _) ->
     return_error(L, "expected 'label'").
+
+add_anno_check({check_expr,Loc,Args}, AnnoCheck) ->
+    {check_expr,Loc,Args,AnnoCheck}.
 
 %% vim: ft=erlang
