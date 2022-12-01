@@ -91,7 +91,7 @@ EVP_PKEY* test_key_load(ENGINE *er, const char *id, UI_METHOD *ui_method, void *
 
 static int test_init(ENGINE *e) {
     printf("OTP Test Engine Initializatzion!\r\n");
-    
+
 #if defined(FAKE_RSA_IMPL)
     if (!RSA_meth_set_finish(test_rsa_method, test_rsa_free))
         goto err;
@@ -255,7 +255,7 @@ static int test_engine_digest_selector(ENGINE *e, const EVP_MD **digest,
     else {
         goto err;
     }
-    
+
     return 1;
 
  err:
@@ -328,6 +328,8 @@ EVP_PKEY* test_key_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void 
     EVP_PKEY *pkey = NULL;
     FILE *f = fopen(id, "r");
 
+    fprintf(stderr, "%s:%d test_key_load(id=%s,priv=%d)\r\n", __FILE__,__LINE__,id, priv);
+
     if (!f) {
         fprintf(stderr, "%s:%d fopen(%s) failed\r\n", __FILE__,__LINE__,id);
         return NULL;
@@ -339,10 +341,10 @@ EVP_PKEY* test_key_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void 
         : PEM_read_PUBKEY(f, NULL, NULL, NULL);
 
     fclose(f);
-    
+
     if (!pkey) {
         fprintf(stderr, "%s:%d Key read from file %s failed.\r\n", __FILE__,__LINE__,id);
-        if (callback_data) 
+        if (callback_data)
             fprintf(stderr, "Pwd = \"%s\".\r\n", (char *)callback_data);
         fprintf(stderr, "Contents of file \"%s\":\r\n",id);
         f = fopen(id, "r");
@@ -360,13 +362,13 @@ EVP_PKEY* test_key_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void 
         fclose(f);
         return NULL;
     }
-    
+
     return pkey;
 }
 
 
-int pem_passwd_cb_fun(char *buf, int size, int rwflag, void *password) 
-{ 
+int pem_passwd_cb_fun(char *buf, int size, int rwflag, void *password)
+{
     size_t i;
 
     if (size < 0)
@@ -398,10 +400,10 @@ int pem_passwd_cb_fun(char *buf, int size, int rwflag, void *password)
 static unsigned char fake_flag[] = {255,3,124,180,35,10,180,151,101,247,62,59,80,122,220,
                              142,24,180,191,34,51,150,112,27,43,142,195,60,245,213,80,179};
 
-int test_rsa_sign(int dtype, 
+int test_rsa_sign(int dtype,
                   /* The digest to sign */
                   const unsigned char *m, unsigned int m_len,
-                  /* The allocated buffer to fill with the signature */ 
+                  /* The allocated buffer to fill with the signature */
                   unsigned char *sigret, unsigned int *siglen,
                   /* The key */
                   const RSA *rsa)
@@ -437,10 +439,10 @@ int test_rsa_sign(int dtype,
     return -1;
 }
 
-int test_rsa_verify(int dtype, 
+int test_rsa_verify(int dtype,
                     /* The digest to verify */
                     const unsigned char *m, unsigned int m_len,
-                    /* The signature */ 
+                    /* The signature */
                     const unsigned char *sigret, unsigned int siglen,
                     /* The key */
                     const RSA *rsa)
