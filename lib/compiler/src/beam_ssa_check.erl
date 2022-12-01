@@ -117,11 +117,11 @@ check_exprs(Exprs, Env, #b_function{bs=Blocks}=F) ->
     {File,_} = beam_ssa:get_anno(location, F),
     check_expr_seq(Exprs, Code, Env, never, File).
 
-check_expr_seq([{check_expr,Loc,Args,_}|Rest]=Checks,
+check_expr_seq([{check_expr,Loc,Args,Anno}|Rest]=Checks,
                [First|Code], Env0, LastMatchedLoc, File) ->
     Env = try
               ?DP("trying:~n  pat: ~p~n  i: ~p~n", [Args, First]),
-              op_check(Args, First, Env0)
+              op_check(Args, Anno, First, Env0)
           catch
               throw:no_match ->
                   ?DP("op_check did not match~n"),
@@ -146,32 +146,38 @@ check_expr_seq([{check_expr,Loc,Args,_}|_], [], Env, LastMatchedLoc, File) ->
     [{File,[{Loc,?MODULE,{no_match,Args,LastMatchedLoc,Env}}]}].
 
 
-op_check([set,Result,{atom,_,Op}|PArgs],
-         #b_set{dst=Dst,args=AArgs,op=Op}=_I, Env) ->
+op_check([set,Result,{atom,_,Op}|PArgs], PAnno,
+         #b_set{dst=Dst,args=AArgs,op=Op,anno=AAnno}=_I, Env0) ->
     ?DP("trying set ~p:~n  res: ~p <-> ~p~n  args: ~p <-> ~p~n  i: ~p~n",
         [Op, Result, Dst, PArgs, AArgs, _I]),
+    Env = check_annos(PAnno, AAnno, Env0),
     op_check_call(Op, Result, Dst, PArgs, AArgs, Env);
-op_check([set,Result,{{atom,_,bif},{atom,_,Op}}|PArgs],
-         #b_set{dst=Dst,args=AArgs,op={bif,Op}}=_I, Env) ->
+op_check([set,Result,{{atom,_,bif},{atom,_,Op}}|PArgs], PAnno,
+         #b_set{dst=Dst,args=AArgs,op={bif,Op},anno=AAnno}=_I, Env0) ->
     ?DP("trying bif ~p:~n  res: ~p <-> ~p~n  args: ~p <-> ~p~n  i: ~p~n",
         [Op, Result, Dst, PArgs, AArgs, _I]),
+    Env = check_annos(PAnno, AAnno, Env0),
     op_check_call(Op, Result, Dst, PArgs, AArgs, Env);
-op_check([none,{atom,_,ret}|PArgs], #b_ret{arg=AArg}=_I, Env) ->
+op_check([none,{atom,_,ret}|PArgs], PAnno,
+         #b_ret{arg=AArg,anno=AAnno}=_I, Env0) ->
     ?DP("trying return:, arg: ~p <-> ~p~n  i: ~p~n",
         [PArgs, [AArg], _I]),
+    Env = check_annos(PAnno, AAnno, Env0),
     post_args(PArgs, [AArg], Env);
-op_check([none,{atom,_,br}|PArgs],
-         #b_br{bool=ABool,succ=ASucc,fail=AFail}=_I, Env) ->
+op_check([none,{atom,_,br}|PArgs], PAnno,
+         #b_br{bool=ABool,succ=ASucc,fail=AFail,anno=AAnno}=_I, Env0) ->
     ?DP("trying br: arg: ~p <-> ~p~n  i: ~p~n",
         [PArgs, [ABool,ASucc,AFail], _I]),
+    Env = check_annos(PAnno, AAnno, Env0),
     post_args(PArgs, [ABool,#b_literal{val=ASucc},#b_literal{val=AFail}], Env);
-op_check([none,{atom,_,switch},PArg,PFail,{list,_,PArgs}],
-         #b_switch{arg=AArg,fail=AFail,list=AList}=_I, Env0) ->
+op_check([none,{atom,_,switch},PArg,PFail,{list,_,PArgs}], PAnno,
+         #b_switch{arg=AArg,fail=AFail,list=AList,anno=AAnno}=_I, Env0) ->
     ?DP("trying switch: arg: ~p <-> ~p~n  i: ~p~n",
         [PArgs, [AArg,AFail,AList], _I]),
-    Env = env_post(PArg, AArg, env_post(PFail, #b_literal{val=AFail}, Env0)),
+    Env1 = env_post(PArg, AArg, env_post(PFail, #b_literal{val=AFail}, Env0)),
+    Env = check_annos(PAnno, AAnno, Env1),
     post_switch_args(PArgs, AList, Env);
-op_check([label,PLbl], {label,ALbl}, Env) when is_integer(ALbl) ->
+op_check([label,PLbl], _Anno, {label,ALbl}, Env) when is_integer(ALbl) ->
     env_post(PLbl, #b_literal{val=ALbl}, Env).
 
 op_check_call(Op, PResult, AResult, PArgs, AArgs, Env0) ->
@@ -344,6 +350,17 @@ build_map_key_list([]) ->
     [];
 build_map_key_list(E) ->
     build_map_key(E).
+
+check_annos([{term,{atom,_,Key},PTerm}|Patterns], Actual, Env0) ->
+    ?DP("Checking term anno ~p: ~p~nkeys: ~p~n",
+        [Key, PTerm, maps:keys(Actual)]),
+    #{ Key := ATerm } = Actual,
+    ?DP("~p <-> ~p~n", [PTerm, ATerm]),
+    Env = env_post(PTerm, #b_literal{val=ATerm}, Env0),
+    ?DP("ok~n"),
+    check_annos(Patterns, Actual, Env);
+check_annos([], _, Env) ->
+    Env.
 
 -spec format_error(term()) -> nonempty_string().
 

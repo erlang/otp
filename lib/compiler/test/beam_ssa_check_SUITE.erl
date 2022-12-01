@@ -28,6 +28,7 @@
          init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 
+         annotation_checks/1,
          sanity_checks/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -36,7 +37,7 @@ all() ->
     [{group,post_ssa_opt_static}].
 
 groups() ->
-    [{post_ssa_opt_static,test_lib:parallel(),[sanity_checks]}].
+    [{post_ssa_opt_static,test_lib:parallel(),[annotation_checks, sanity_checks]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -50,6 +51,9 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+annotation_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(annotations, Config).
 
 sanity_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(sanity_checks, Config).
