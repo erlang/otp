@@ -97,5 +97,5 @@
   %% If the "new" ssl is used then 'crypto' must be started before inets.
   {applications,[kernel,stdlib]},
   {mod,{inets_app,[]}},
-  {runtime_dependencies, ["stdlib-4.0","ssl-9.0","runtime_tools-1.8.14",
-			  "mnesia-4.12","kernel-6.0","erts-6.0", "public_key-1.13"]}]}.
+  {runtime_dependencies, ["stdlib-@OTP-18350@","ssl-9.0","runtime_tools-1.8.14",
+			  "mnesia-4.12","kernel-@OTP-18350@","erts-@OTP-18350@", "public_key-1.13"]}]}.

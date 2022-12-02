@@ -31,4 +31,4 @@
 	   {start_memsup, true},
 	   {start_os_sup, false}]},
     {mod, {os_mon, []}},
-    {runtime_dependencies, ["stdlib-3.4","sasl-2.4","kernel-3.0","erts-6.0"]}]}.
+    {runtime_dependencies, ["stdlib-@OTP-18350@","sasl-@OTP-18350@","kernel-@OTP-18350@","erts-@OTP-18350@"]}]}.
