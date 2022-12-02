@@ -750,8 +750,18 @@ handle_info_down(Info, State) ->
 %% Purpose: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %%--------------------------------------------------------------------
-terminate(Reason, #state{log = Log, irgc = IrGcRef}) ->
+terminate(Reason, #state{log        = Log,
+                         irgc       = IrGcRef,
+                         transports = Transports}) ->
     ?vdebug("terminate: ~p", [Reason]),
+    %% Close all transports:
+    Close =
+        fun(S) ->
+                ?vlog("try close socket ~p", [S]),
+                (catch gen_udp:close(S))
+        end,
+    _ = [Close(Socket) || #transport{socket = Socket} <- Transports],
+    %% Stop IR GC timer
     irgc_stop(IrGcRef),
     %% Close logs
     do_close_log(Log),
