@@ -1763,42 +1763,51 @@ convert_verify_fun() ->
     end.
 
 opt_certs(UserOpts, #{log_level := LogLevel} = Opts0, Env) ->
-    Opts = case get_opt_list(certs_keys, unbound, UserOpts, Opts0) of
-               {_, unbound} ->
-                   opt_old_certs(UserOpts, Opts0, Env);
+    Opts = case get_opt_list(certs_keys, [], UserOpts, Opts0) of
+               {Where, []} when Where =/= new ->
+                   opt_old_certs(UserOpts, #{}, Opts0, Env);
+               {old, [CertKey]} ->
+                   opt_old_certs(UserOpts, CertKey, Opts0, Env);
                {Where, CKs} when is_list(CKs) ->
                    warn_override(Where, UserOpts, certs_keys, [cert,certfile,key,keyfile,password], LogLevel),
-                   Opts0#{certs_keys => CKs}
+                   Opts0#{certs_keys => [check_cert_key(CK, #{}, LogLevel) || CK <- CKs]}
            end,
     opt_cacerts(UserOpts, Opts, Env).
 
-opt_old_certs(UserOpts, #{log_level := LogLevel}=Opts, _Env) ->
-    CertOpts = Opts,  %% #{} FIXME remove and always make a cert_keys list here
+opt_old_certs(UserOpts, CertKeys, #{log_level := LogLevel}=SSLOpts, _Env) ->
+    CK = check_cert_key(UserOpts, CertKeys, LogLevel),
+    case maps:keys(CK) =:= [] of
+        true ->
+            SSLOpts#{certs_keys => []};
+        false ->
+            SSLOpts#{certs_keys => [CK]}
+    end.
 
-    CertKeys0 = case get_opt(cert, undefined, UserOpts, Opts) of
+check_cert_key(UserOpts, CertKeys, LogLevel) ->
+    CertKeys0 = case get_opt(cert, undefined, UserOpts, CertKeys) of
                     {Where, Cert} when is_binary(Cert) ->
                         warn_override(Where, UserOpts, cert, [certfile], LogLevel),
-                        CertOpts#{cert => [Cert]};
+                        CertKeys#{cert => [Cert]};
                     {Where, [C0|_] = Certs} when is_binary(C0) ->
                         warn_override(Where, UserOpts, cert, [certfile], LogLevel),
-                        CertOpts#{cert => Certs};
+                        CertKeys#{cert => Certs};
                     {new, Err0} ->
                         option_error(cert, Err0);
                     {_, undefined} ->
-                        case get_opt_file(certfile, unbound, UserOpts, Opts) of
-                            {default, unbound} -> CertOpts#{cert => undefined};
-                            {_, CertFile} -> CertOpts#{certfile => CertFile}
+                        case get_opt_file(certfile, unbound, UserOpts, CertKeys) of
+                            {default, unbound} -> CertKeys;
+                            {_, CertFile} -> CertKeys#{certfile => CertFile}
                         end
                 end,
 
-    CertKeys1 = case get_opt(key, undefined, UserOpts, Opts) of
+    CertKeys1 = case get_opt(key, undefined, UserOpts, CertKeys) of
                     {_, undefined} ->
-                        case get_opt_file(keyfile, <<>>, UserOpts, Opts) of
+                        case get_opt_file(keyfile, <<>>, UserOpts, CertKeys) of
                             {new, KeyFile} ->
                                 CertKeys0#{keyfile => KeyFile};
                             {_, <<>>} ->
                                 case maps:get(certfile, CertKeys0, unbound) of
-                                    unbound -> CertKeys0#{key => undefined};
+                                    unbound -> CertKeys0;
                                     CF -> CertKeys0#{keyfile => CF}
                                 end;
                             {old, _} ->
@@ -1815,35 +1824,16 @@ opt_old_certs(UserOpts, #{log_level := LogLevel}=Opts, _Env) ->
                         option_error(key, Err1)
                 end,
 
-    CertKeys2 = case get_opt(password, unbound, UserOpts, Opts) of
+    CertKeys2 = case get_opt(password, unbound, UserOpts,CertKeys) of
                     {default, _} -> CertKeys1;
-                    {_, Pwd} when is_binary(Pwd); is_list(Pwd); is_function(Pwd, 0) ->
+                    {_, Pwd} when is_binary(Pwd); is_list(Pwd) ->
+                        CertKeys1#{password => fun() -> Pwd end};
+                    {_, Pwd} when is_function(Pwd, 0) ->
                         CertKeys1#{password => Pwd};
                     {_, Err2} ->
                         option_error(password, Err2)
                 end,
-    %% Compatibility FIXME remove these but check usage first
-    CertKeys3 = case maps:is_key(certfile, CertKeys2) of
-                    true  -> CertKeys2;
-                    false -> CertKeys2#{certfile => <<>>}
-                end,
-    CertKeys4 = case maps:is_key(keyfile, CertKeys3) of
-                    true  -> CertKeys3;
-                    false -> CertKeys3#{keyfile => <<>>}
-                end,
-    CertKeys5 = case maps:is_key(password, CertKeys4) of
-                    true  -> CertKeys4;
-                    false -> CertKeys4#{password => ""}
-                end,
-    CertKeys6 = case maps:is_key(cert, CertKeys5) of
-                    true  -> CertKeys5;
-                    false -> CertKeys5#{cert => undefined}
-                end,
-    CertKeys7 = case maps:is_key(key, CertKeys6) of
-                    true  -> CertKeys6;
-                    false -> CertKeys6#{key => undefined}
-                end,
-    CertKeys7.
+    CertKeys2.
 
 opt_cacerts(UserOpts, #{verify := Verify, log_level := LogLevel, versions := Versions} = Opts,
             #{role := Role}) ->

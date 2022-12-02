@@ -1253,10 +1253,9 @@ format_status(normal, [_, StateName, State]) ->
     [{data, [{"State", {StateName, State}}]}];
 format_status(terminate, [_, StateName, State]) ->
     SslOptions = (State#state.ssl_options),
-    NewOptions = SslOptions#{password => ?SECRET_PRINTOUT,
-                             cert => ?SECRET_PRINTOUT,
+    NewOptions = SslOptions#{
+                             certs_keys => ?SECRET_PRINTOUT,
                              cacerts => ?SECRET_PRINTOUT,
-                             key => ?SECRET_PRINTOUT,
                              dh => ?SECRET_PRINTOUT,
                              psk_identity => ?SECRET_PRINTOUT,
                              srp_identity => ?SECRET_PRINTOUT},

@@ -2214,7 +2214,7 @@ patch_version(Opts, Role, Host) ->
                         ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL2);
                     Other2 ->
                         ct:pal("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                               "ssl:update_options(~p,~p, element(2,Cfg)).",
+                               "ssl:update_options(~w,~w, element(2,Cfg)).",
                                [Role,Host,__Opts,Role]),
                         error({unexpected2, Other2})
                 catch
@@ -2479,39 +2479,32 @@ options_cacerts(Config) ->  %% cacert[s]file
 options_cert(Config) -> %% cert[file] cert_keys keys password
     Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
     {ok, #config{ssl = DefMap}} = ssl:handle_options([], client, "dummy.host.org"),
-    false = maps:is_key(certs_keys, DefMap),  %% ??
 
-    ?OK(#{cert := undefined, certfile := <<>>, key := undefined, keyfile := <<>>, password := ""},
-        [], client),
-    ?OK(#{cert := [Cert], certfile := <<>>, key := undefined, keyfile := <<>>, password := ""},
-        [{cert,Cert}], client),
-    ?OK(#{cert := [Cert], certfile := <<>>, key := undefined, keyfile := <<>>},
-        [{cert,[Cert]}], client),
-    ?OK(#{cert := undefined, certfile := <<"/tmp/foo">>, key := undefined, keyfile := <<"/tmp/foo">>},
-        [{certfile, <<"/tmp/foo">>}], client),
+    Old = [cert, certfile, key, keyfile, password],
+    ?OK(#{certs_keys := []}, [], client, Old),
+    ?OK(#{certs_keys := [#{cert := [Cert]}]}, [{cert,Cert}], client, Old),
+    ?OK(#{certs_keys := [#{cert := [Cert]}]}, [{cert,[Cert]}], client, Old),
+    ?OK(#{certs_keys := [#{certfile := <<"/tmp/foo">>, keyfile := <<"/tmp/foo">>}]},
+        [{certfile, <<"/tmp/foo">>}], client, Old),
 
-    ?OK(#{certs_keys := [#{}]},
-        [{certs_keys, [#{}]}], client),
+    ?OK(#{certs_keys := [#{}]}, [{certs_keys, [#{}]}], client),
 
-    ?OK(#{cert := undefined, certfile := <<>>, key := {rsa, <<>>}, keyfile := <<>>},
-        [{key, {rsa, <<>>}}], client),
-    ?OK(#{cert := undefined, certfile := <<>>, key := #{}, keyfile := <<>>},
-        [{key, #{engine => foo, algorithm => foo, key_id => foo}}], client),
+    ?OK(#{certs_keys := [#{key := {rsa, <<>>}}]},
+        [{key, {rsa, <<>>}}], client, Old),
+    ?OK(#{certs_keys := [#{key := #{}}]},
+        [{key, #{engine => foo, algorithm => foo, key_id => foo}}], client, Old),
 
-    ?OK(#{key := undefined, keyfile := <<>>, password := "foobar"},
-        [{password, "foobar"}], client),
-    ?OK(#{key := undefined, keyfile := <<>>, password := <<"foobar">>},
-        [{password, <<"foobar">>}], client),
+    ?OK(#{certs_keys := [#{password := _}]}, [{password, "foobar"}], client, Old),
+    ?OK(#{certs_keys := [#{password := _}]}, [{password, <<"foobar">>}], client, Old),
     Pwd = fun() -> "foobar" end,
-    ?OK(#{key := undefined, keyfile := <<>>, password := Pwd},
-        [{password, Pwd}], client),
+    ?OK(#{certs_keys := [#{password := Pwd}]}, [{password, Pwd}], client, Old),
 
-    ?OK(#{cert := undefined, certfile := <<"/tmp/foo">>, key := undefined, keyfile := <<"/tmp/baz">>},
-        [{certfile, <<"/tmp/foo">>}, {keyfile, "/tmp/baz"}], client),
+    ?OK(#{certs_keys := [#{certfile := <<"/tmp/foo">>, keyfile := <<"/tmp/baz">>}]},
+        [{certfile, <<"/tmp/foo">>}, {keyfile, "/tmp/baz"}], client, Old),
 
     ?OK(#{certs_keys := [#{}]},
         [{cert, Cert}, {certfile, "/tmp/foo"}, {certs_keys, [#{}]}],
-        client),
+        client, Old),
 
     %% Errors
     ?ERR({cert, #{}}, [{cert, #{}}], client),
