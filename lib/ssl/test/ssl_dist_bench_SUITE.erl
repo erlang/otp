@@ -65,16 +65,13 @@ groups() ->
      %%
      %% protocols()
      {ssl,    encryption_backends()},
-     {crypto, inet_backends()},
-     {plain,  inet_backends()},
+     {crypto, categories()},
+     {plain,  categories()},
+     {socket, categories()},
      %%
      %% encryption_backends()
-     {crypto_lib,     inet_backends()},
+     {crypto_lib,     categories()},
      {kernel_offload, categories()},
-     %%
-     %% inet_backends()
-     {inet,   categories()},
-     {socket, categories()},
      %%
      %% categories()
      {setup, [{repeat, 1}], [setup]},
@@ -95,10 +92,7 @@ groups() ->
 protocols() ->
     [{group, ssl},
      {group, crypto},
-     {group, plain}].
-
-inet_backends() ->
-    [{group, inet},
+     {group, plain},
      {group, socket}].
 
 encryption_backends() ->
@@ -239,10 +233,11 @@ init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
 %%
 init_per_group(socket, Config) ->
-    SslDistPrefix = proplists:get_value(ssl_dist_prefix, Config),
     SslDistArgs = proplists:get_value(ssl_dist_args, Config, ""),
-    [{ssl_dist_prefix, SslDistPrefix ++ "-Socket"},
-     {ssl_dist_args, SslDistArgs ++ " -kernel inet_backend socket"} |
+    [{ssl_dist, false},
+     {ssl_dist_prefix, "Socket"},
+     {ssl_dist_args,
+      SslDistArgs ++ " -proto_dist inet_epmd -inet_epmd socket"} |
      proplists:delete(
        ssl_dist_prefix, proplists:delete(ssl_dist_args, Config))];
 %%
@@ -865,7 +860,6 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     #{time := Time,
-      client_dist_stats := ClientDistStats,
       client_msacc_stats := ClientMsaccStats,
       client_prof := ClientProf,
       server_msacc_stats := ServerMsaccStats,
@@ -877,7 +871,6 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
     [A] = ssl_apply(HB, erlang, nodes, []),
     ClientMsaccStats =:= undefined orelse
         msacc:print(ClientMsaccStats),
-    io:format("ClientDistStats: ~p~n", [ClientDistStats]),
     Overhead =
         50 % Distribution protocol headers (empirical) (TLS+=54)
         + byte_size(erlang:term_to_binary([0|<<>>])), % Benchmark overhead
@@ -938,65 +931,9 @@ throughput_runner(A, B, Rounds, Size) ->
                 undefined
         end,
     Prof = prof_end(),
-    DistStats =
-        case dig_dist_node_sockets() of
-            [{_Node,Socket}] ->
-                inet:getstat(Socket);
-            [undefined] ->
-                undefined
-        end,
     Result#{time := microseconds(Time),
-            client_dist_stats => DistStats,
             client_msacc_stats => MsaccStats,
             client_prof => Prof}.
-
-dig_dist_node_sockets() ->
-    DistCtrl2Node =
-        maps:from_list(
-          [{DistCtrl, Node}
-           || {Node, DistCtrl}
-                  <- erlang:system_info(dist_ctrl), is_pid(DistCtrl)]),
-    TlsDistConnSup = whereis(tls_dist_connection_sup),
-    InetCryptoDist = whereis(?INET_CRYPT_DIST),
-    [NodeSocket
-     || {_, Socket} = NodeSocket
-            <- erlang:system_info(dist_ctrl), is_port(Socket)]
-        ++
-        if
-            TlsDistConnSup =/= undefined ->
-                [case ConnSpec of
-                     {undefined, ConnSup, supervisor, _} ->
-                         [{receiver, ReceiverPid, worker, _},
-                          {sender, SenderPid, worker, _}] =
-                             lists:sort(supervisor:which_children(ConnSup)),
-                         {links,ReceiverLinks} =
-                             process_info(ReceiverPid, links),
-                         case [S || S <- ReceiverLinks, is_port(S)] of
-                             [Socket] ->
-                                 {maps:get(SenderPid, DistCtrl2Node),
-                                  Socket};
-                             [] ->
-                                 undefined
-                         end
-                 end
-                 || ConnSpec <- supervisor:which_children(TlsDistConnSup)];
-            InetCryptoDist =/= undefined ->
-                [begin
-                     {monitors,[{process,InputHandler}]} =
-                         erlang:process_info(DistCtrl, monitors),
-                     {links,InputHandlerLinks} =
-                         erlang:process_info(InputHandler, links),
-                     case [S || S <- InputHandlerLinks, is_port(S)] of
-                         [Socket] ->
-                             {Node, Socket};
-                         [] ->
-                             undefined
-                     end
-                 end
-                 || {DistCtrl, Node} <- maps:to_list(DistCtrl2Node)];
-            true ->
-                []
-        end.
 
 throughput_server(Pid, N) ->
     GC_Before = get_server_gc_info(),

@@ -2522,8 +2522,8 @@ socket_setopts(Socket, [{Tag,Val} | Opts], SocketOpts) ->
                 {error, _} = Error ->
                     Error
             end;
-        #{} ->
-            {error, einval}
+        #{} -> % Ignore
+            socket_setopts(Socket, Opts, SocketOpts)
     end.
 
 
