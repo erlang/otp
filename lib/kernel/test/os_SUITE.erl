@@ -337,7 +337,7 @@ close_stdin(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     Fds = filename:join(DataDir, "my_fds"),
 
-    "-1" = os:cmd(Fds).
+    "0" = os:cmd(Fds).
 
 max_size_command(_Config) ->
     WSL = case os:getenv("WSLENV") of
