@@ -1027,6 +1027,8 @@ is_permitted_ip([CandidatIp | CandidatIpRest],
 mask_cmp(Canditate, Permitted, Mask) ->
     (Canditate band Mask) == Permitted.
 
+is_valid_host_or_domain([], _) ->
+    false; %% Can happen if URI was not a HTTP URI
 is_valid_host_or_domain(Canditate, [$.|_] = Permitted) ->
     is_suffix(Permitted, Canditate);
 is_valid_host_or_domain(Canditate, Permitted) ->
