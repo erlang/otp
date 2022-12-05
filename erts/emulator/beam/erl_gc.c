@@ -3831,11 +3831,12 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
         /* Skip MFA and tracer. */
         ASSERT_MFA((ErtsCodeMFA*)cp_val(scanner[0]));
         ASSERT(IS_TRACER_VALID(scanner[1]));
-        scanner += 2;
+        scanner += BEAM_RETURN_TRACE_FRAME_SZ;
     } else if (BeamIsReturnCallAccTrace(p->i)) {
         /* Skip prev_info. */
-        scanner += 2;
+        scanner += BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
     }
+    ERTS_CT_ASSERT(BEAM_RETURN_TO_TRACE_FRAME_SZ == 0);
 
     while (next_fp) {
         ASSERT(next_fp >= stack_top && next_fp <= stack_bottom);
@@ -3856,10 +3857,10 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
             /* Skip MFA and tracer. */
             ASSERT_MFA((ErtsCodeMFA*)cp_val(scanner[2]));
             ASSERT(IS_TRACER_VALID(scanner[3]));
-            scanner += 2;
+            scanner += BEAM_RETURN_TRACE_FRAME_SZ;
         } else if (BeamIsReturnCallAccTrace((ErtsCodePtr)scanner[1])) {
             /* Skip prev_info. */
-            scanner += 2;
+            scanner += BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
         }
 
         scanner += CP_SIZE;

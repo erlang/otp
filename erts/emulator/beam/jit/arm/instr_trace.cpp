@@ -154,7 +154,7 @@ void BeamModuleAssembler::emit_return_trace() {
 
     emit_leave_runtime<Update::eStack | Update::eHeap>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 2));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_TRACE_FRAME_SZ));
     emit_return();
 }
 
@@ -176,7 +176,7 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
 
     emit_leave_runtime<Update::eStack | Update::eHeap>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 2));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ));
     emit_return();
 }
 
@@ -189,7 +189,7 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
 
     emit_leave_runtime<Update::eStack | Update::eHeap>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 0));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_TO_TRACE_FRAME_SZ));
     emit_return();
 }
 

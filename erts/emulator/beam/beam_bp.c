@@ -719,12 +719,12 @@ static void fixup_cp_before_trace(Process *c_p,
         erts_inspect_frame(cpp, &w);
 
         if (BeamIsReturnTrace(w)) {
-            cpp += CP_SIZE + 2;
+            cpp += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
         } else if (BeamIsReturnCallAccTrace(w)) {
-            cpp += CP_SIZE + 2;
+            cpp += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
         } else if (BeamIsReturnToTrace(w)) {
             *return_to_trace = 1;
-            cpp += CP_SIZE;
+            cpp += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
         } else {
             if (frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
                 ASSERT(is_CP(cpp[1]));
@@ -845,7 +845,7 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
         if (!(BeamIsReturnTrace(w) ||
               BeamIsReturnToTrace(w) ||
               BeamIsReturnCallAccTrace(w))) {
-            int need = CP_SIZE + 2;
+            int need = CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
 
             ASSERT(c_p->htop <= E && E <= c_p->hend);
 
@@ -858,7 +858,7 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
             E = c_p->stop;
 
             ASSERT(c_p->htop <= E && E <= c_p->hend);
-
+            ERTS_CT_ASSERT(BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ == 2);
             E -= 3;
             E[2] = make_small(bp_flags);
             E[1] = prev_info ? make_cp(erts_codeinfo_to_code(prev_info)) : NIL;
