@@ -32,12 +32,16 @@
          end_per_testcase/2]).
 
 %% Testcases
--export([key_update_at/0,
-         key_update_at/1,
+-export([key_update_at_client/0,
+         key_update_at_client/1,
+         key_update_at_server/0,
+         key_update_at_server/1,
          explicit_key_update/0,
          explicit_key_update/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("ssl/src/ssl_api.hrl").
+-include_lib("ssl/src/ssl_connection.hrl").
 
 all() ->
     [{group, 'tlsv1.3'}].
@@ -46,7 +50,8 @@ groups() ->
     [{'tlsv1.3', [], tls_1_3_tests()}].
 
 tls_1_3_tests() ->
-    [key_update_at,
+    [key_update_at_client,
+     key_update_at_server,
      explicit_key_update].
 
 init_per_suite(Config0) ->
@@ -87,29 +92,95 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
+key_update_at_client() ->
+    [{doc,"Test option 'key_update_at' between erlang client and erlang server."
+      "Client initiating the update."}].
+key_update_at_client(Config) ->
+    key_update_at(Config, client).
 
-key_update_at() ->
-    [{doc,"Test option 'key_update_at' between erlang client and erlang server."}].
+key_update_at_server() ->
+    [{doc,"Test option 'key_update_at' between erlang client and erlang server."
+      "Server initiating the update."}].
+key_update_at_server(Config) ->
+    key_update_at(Config, server).
 
-key_update_at(Config) ->
-    %% {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+key_update_at(Config, Role) ->
     Data = "123456789012345",  %% 15 bytes
-
-    Server = ssl_test_lib:start_server(erlang, [{key_update_at, 15}], Config),
+    Server = ssl_test_lib:start_server(erlang,
+                                       [{options, [{key_update_at, 14}]}],
+                                       Config),
     Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client(erlang, [{port, Port},
-                                                {key_update_at, 15}], Config),
+    {Client,
+     #sslsocket{pid =
+                    [ClientReceiverPid, ClientSenderPid]}} =
+        ssl_test_lib:start_client(erlang,
+                                  [return_socket, {port, Port},
+                                   {options, [{key_update_at, 14}]}],
+                                  Config),
+    Server ! get_socket,
+    #sslsocket{pid =
+                   [ServerReceiverPid, ServerSenderPid]} =
+        receive
+            {Server, {socket, S}} -> S
+        end,
+    Keys0 = get_keys(ClientReceiverPid, ClientSenderPid,
+                     ServerReceiverPid, ServerSenderPid),
+    {Sender, Receiver} = case Role of
+                             client -> {Client, Server};
+                             server -> {Server, Client}
+                         end,
     %% Sending bytes over limit triggers key update
-    ssl_test_lib:send(Client, Data),
-    Data = ssl_test_lib:check_active_receive(Server, Data),
+    ssl_test_lib:send(Sender, Data),
+    Data = ssl_test_lib:check_active_receive(Receiver, Data),
     %% TODO check if key has been updated (needs debug logging of secrets)
-
+    ct:sleep(500),
+    Keys1 = get_keys(ClientReceiverPid, ClientSenderPid,
+                     ServerReceiverPid, ServerSenderPid),
+    verify_key_update(Keys0, Keys1),
     %% Test mechanism to prevent infinite loop of key updates
     BigData = binary:copy(<<"1234567890">>, 10),  %% 100 bytes
-    ok = ssl_test_lib:send(Client, BigData),
-
+    ok = ssl_test_lib:send(Sender, BigData),
+    ct:sleep(500),
+    Keys2 = get_keys(ClientReceiverPid, ClientSenderPid,
+                     ServerReceiverPid, ServerSenderPid),
+    verify_key_update(Keys1, Keys2),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+get_keys(ClientReceiverPid, ClientSenderPid,
+         ServerReceiverPid, ServerSenderPid) ->
+    F = fun(Pid) ->
+                {connection, D} = sys:get_state(Pid),
+                M0 = element(3, D),
+                Cr = maps:get(current_write, M0),
+                {Pid, {maps:get(security_parameters, Cr),
+                 maps:get(cipher_state, Cr)}}
+        end,
+    SendersKeys = [F(P) || P <- [ClientSenderPid, ServerSenderPid]],
+
+    G = fun(Pid) ->
+                {connection, D} = sys:get_state(Pid),
+                #state{connection_states = Cs} = D,
+                Cr = maps:get(current_read, Cs),
+                {Pid, {maps:get(security_parameters,Cr),
+                 maps:get(cipher_state, Cr)}}
+        end,
+    ReceiversKeys = [G(P) || P <- [ClientReceiverPid, ServerReceiverPid]],
+    maps:from_list(SendersKeys ++ ReceiversKeys).
+
+verify_key_update(Keys0, Keys1) ->
+    V = fun(Pid, CurrentKeys) ->
+                BaseKeys = maps:get(Pid, Keys0),
+                ct:log("Pid = ~p~nBaseKeys = ~p~nCurrentKeys = ~p",
+                      [Pid, BaseKeys, CurrentKeys], [esc_chars]),
+                case BaseKeys == CurrentKeys of
+                    true ->
+                        ct:fail("Keys don't differ for ~w", [Pid]);
+                    false ->
+                        ok
+                end
+        end,
+    maps:foreach(V, Keys1).
 
 explicit_key_update() ->
     [{doc,"Test ssl:update_key/2 between erlang client and erlang server."}].

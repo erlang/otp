@@ -480,12 +480,13 @@ normalize_loopback(Address, _) ->
 start_server(Args0, Config) ->
     {_, ServerNode, _} = run_where(Config),
     ServerOpts = get_server_opts(Config),
+    TcServerOpts = proplists:get_value(options, Args0, []),
     Node = proplists:get_value(node, Args0, ServerNode),
     Port = proplists:get_value(port, Args0, 0),
     Args = [{from, self()},
             {node, Node},
             {port, Port},
-            {options, ServerOpts} | Args0],
+            {options, ServerOpts++TcServerOpts} | Args0],
     start_server(Args).
 %%
 start_server(Args) ->
