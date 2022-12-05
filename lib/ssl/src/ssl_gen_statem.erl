@@ -519,7 +519,7 @@ initial_hello({call, From}, {start, Timeout},
     %% ServerHello is processed.
     RequestedVersion = tls_record:hello_version(Versions),
 
-    {Ref,Maybe} = tls_handshake_1_3:maybe(),
+    {Ref,Maybe} = tls_handshake_1_3:maybe_do(),
     try
         %% Send Early Data
         State4 = Maybe(tls_handshake_1_3:maybe_send_early_data(State3)),

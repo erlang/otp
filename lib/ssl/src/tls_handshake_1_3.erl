@@ -62,7 +62,7 @@
 
 -export([get_max_early_data/1,
          is_valid_binder/4,
-         maybe/0,
+         maybe_do/0,
          path_validation/10]).
 
 %% crypto:hash(sha256, "HelloRetryRequest").
@@ -632,7 +632,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                                 early_data := EarlyDataEnabled}} = State0) ->
     SNI = maps:get(sni, Extensions, undefined),
     EarlyDataIndication = maps:get(early_data, Extensions, undefined),
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
     try
         ClientGroups0 = Maybe(supported_groups_from_extensions(Extensions)),
         ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
@@ -759,7 +759,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                 session = Session0,
                 connection_states = ConnectionStates0
                } = State0) ->
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
     try
         ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
         CookieExt = maps:get(cookie, Extensions, undefined),
@@ -848,7 +848,7 @@ do_negotiated({start_handshake, PSK0},
         ssl_record:pending_connection_state(ConnectionStates0, read),
     #security_parameters{prf_algorithm = HKDF} = SecParamsR,
 
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
     try
         %% Create server_hello
         ServerHello = server_hello(server_hello, SessionId, KeyShare, PSK0, ConnectionStates0),
@@ -914,7 +914,7 @@ do_negotiated({start_handshake, PSK0},
 
 
 do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
     try
         Maybe(process_certificate(Certificate, State0))
     catch
@@ -926,7 +926,7 @@ do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
 
 
 do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, #state{static_env = #static_env{role = Role}} = State0) ->
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
     try
         State1 = case Role of
                      server ->
@@ -943,7 +943,7 @@ do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, #state{static_env = #s
 %% TLS Server
 do_wait_finished(#finished{verify_data = VerifyData},
                  #state{static_env = #static_env{role = server}} = State0) ->
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
 
     try
         Maybe(validate_finished(State0, VerifyData)),
@@ -967,7 +967,7 @@ do_wait_finished(#finished{verify_data = VerifyData},
                  #state{static_env = #static_env{role = client,
                                                  protocol_cb = Connection}} = State0) ->
     
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
 
     try
         Maybe(validate_finished(State0, VerifyData)),
@@ -1002,7 +1002,7 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
                                   session_tickets := SessionTickets,
                                   use_ticket := UseTicket}} = State0) ->
     
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
     try
         ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
         ServerKeyShare0 = maps:get(key_share, Extensions, undefined),
@@ -1059,7 +1059,7 @@ do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
     ALPNProtocol = get_alpn(ALPNProtocol0),
     EarlyDataIndication = maps:get(early_data, Extensions, undefined),
 
-    {Ref, Maybe} = maybe(),
+    {Ref, Maybe} = maybe_do(),
 
     try
         %% RFC 6066: handle received/expected maximum fragment length
@@ -1085,7 +1085,7 @@ do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
 
 
 do_wait_cert_cr(#certificate_1_3{} = Certificate, State0) ->
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
     try
         Maybe(process_certificate(Certificate, State0))
     catch
@@ -1095,7 +1095,7 @@ do_wait_cert_cr(#certificate_1_3{} = Certificate, State0) ->
             {Alert, State}
     end;
 do_wait_cert_cr(#certificate_request_1_3{} = CertificateRequest, State0) ->
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
     try
         Maybe(process_certificate_request(CertificateRequest, State0))
     catch
@@ -1105,7 +1105,7 @@ do_wait_cert_cr(#certificate_request_1_3{} = CertificateRequest, State0) ->
 
 
 do_wait_eoed(#end_of_early_data{}, State0) ->
-    {Ref,_Maybe} = maybe(),
+    {Ref,_Maybe} = maybe_do(),
     try
         %% Step read state to enable reading handshake messages from the client.
         %% Write state is already stepped in state 'negotiated'.
@@ -1228,7 +1228,7 @@ maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
                                                 socket = _Socket,
                                                 transport_cb = _Transport}
                                } = State0) ->
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
     try
         %% Create Certificate
         Certificate = Maybe(certificate(OwnCerts, CertDbHandle, CertDbRef, <<>>, client)),
@@ -1255,7 +1255,7 @@ maybe_queue_cert_verify(_Certificate,
                                static_env = #static_env{role = client,
                                                         protocol_cb = Connection}
                               } = State) ->
-    {Ref,Maybe} = maybe(),
+    {Ref,Maybe} = maybe_do(),
     try
         CertificateVerify = Maybe(certificate_verify(CertPrivateKey, SignatureScheme, State, client)),
         {ok, Connection:queue_handshake(CertificateVerify, State)}
@@ -2547,7 +2547,7 @@ get_alpn(ALPNProtocol0) ->
             ALPNProtocol
     end.
 
-maybe() ->
+maybe_do() ->
     Ref = erlang:make_ref(),
     Ok = fun(ok) -> ok;
             ({ok,R}) -> R;
