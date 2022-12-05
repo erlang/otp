@@ -1888,9 +1888,18 @@ handle_set_request_limit(State, BadLimit) ->
 system_continue(_Parent, _Dbg, S) ->
     loop(S).
 
-system_terminate(Reason, _Parent, _Dbg, #state{log = Log}) ->
+system_terminate(Reason, _Parent, _Dbg, #state{log        = Log,
+                                               transports = Transports}) ->
     ?vlog("system-terminate -> entry with"
 	  "~n   Reason: ~p", [Reason]),
+    %% Close all transports
+    Close =
+        fun(S) ->
+                ?vlog("try close socket ~p", [S]),
+                (catch gen_udp:close(S))
+        end,
+    _ = [Close(Socket) || #transport{socket = Socket} <- Transports],
+    %% Close logs
     do_close_log(Log),
     exit(Reason).
 
