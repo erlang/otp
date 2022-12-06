@@ -14,7 +14,7 @@ concurrency: pr-comment
 
 jobs:
   pr-number:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: github.repository == 'erlang/otp'
     outputs:
       result: ${{ steps.pr-number.outputs.result }}
@@ -45,7 +45,7 @@ jobs:
                    pr_number: ${{ needs.pr-number.outputs.result }} });
 
   finished-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: pr-number
     ## Limit concurrency so that only one job deploys to erlang.github.io
     concurrency: erlang.github.io-deploy
