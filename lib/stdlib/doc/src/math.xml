@@ -102,9 +102,10 @@ erf(X) = 2/sqrt(pi)*integral from 0 to X of exp(-t*t) dt.</pre>
 
     <func>
       <name name="pi" arity="0" since=""/>
-      <fsummary>A useful number.</fsummary>
+      <fsummary>Ratio of the circumference of a circle to its diameter.</fsummary>
       <desc>
-        <p>A useful number.</p>
+          <p>Ratio of the circumference of a circle to its diameter.</p>
+          <p>Floating point approximation of mathematical constant pi.</p>
       </desc>
     </func>
 
