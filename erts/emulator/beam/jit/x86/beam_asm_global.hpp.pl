@@ -43,7 +43,8 @@ my @beam_global_funcs = qw(
     dispatch_bif
     dispatch_nif
     dispatch_return
-    dispatch_save_calls
+    dispatch_save_calls_export
+    dispatch_save_calls_fun
     export_trampoline
     garbage_collect
     generic_bp_global

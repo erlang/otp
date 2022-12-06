@@ -628,12 +628,12 @@ nif_bif.epilogue() {
 
 i_load_nif() {
     //| -no_next
-    if (erts_try_seize_code_write_permission(c_p)) {
+    if (erts_try_seize_code_mod_permission(c_p)) {
         Eterm result;
 
         PRE_BIF_SWAPOUT(c_p);
         result = erts_load_nif(c_p, I, r(0), r(1));
-        erts_release_code_write_permission();
+        erts_release_code_mod_permission();
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
         SWAPIN;
 

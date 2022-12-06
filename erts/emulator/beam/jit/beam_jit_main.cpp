@@ -55,7 +55,8 @@ ErtsCodePtr beam_exit;
 ErtsCodePtr beam_export_trampoline;
 ErtsCodePtr beam_bif_export_trap;
 ErtsCodePtr beam_continue_exit;
-ErtsCodePtr beam_save_calls;
+ErtsCodePtr beam_save_calls_export;
+ErtsCodePtr beam_save_calls_fun;
 ErtsCodePtr beam_unloaded_fun;
 
 /* NOTE These should be the only variables containing trace instructions.
@@ -87,7 +88,7 @@ static void install_bifs(void) {
     int i;
 
     ASSERT(beam_export_trampoline != NULL);
-    ASSERT(beam_save_calls != NULL);
+    ASSERT(beam_save_calls_export != NULL);
 
     for (i = 0; i < BIF_SIZE; i++) {
         BifEntry *entry;
@@ -336,7 +337,8 @@ void beamasm_init() {
     /* These instructions rely on register contents, and can only be reached
      * from a `call_ext_*`-instruction or trapping from the emulator, hence the
      * lack of wrapper functions. */
-    beam_save_calls = (ErtsCodePtr)bga->get_dispatch_save_calls();
+    beam_save_calls_export = (ErtsCodePtr)bga->get_dispatch_save_calls_export();
+    beam_save_calls_fun = (ErtsCodePtr)bga->get_dispatch_save_calls_fun();
     beam_export_trampoline = (ErtsCodePtr)bga->get_export_trampoline();
 
     /* Used when trappping to Erlang code from the emulator, setting up

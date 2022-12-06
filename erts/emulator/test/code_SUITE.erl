@@ -33,8 +33,9 @@
          false_dependency/1,coverage/1,fun_confusion/1,
          t_copy_literals/1, t_copy_literals_frags/1,
          erl_544/1, max_heap_size/1,
-	 check_process_code_signal_order/1,
-	 check_process_code_dirty_exec_proc/1]).
+         check_process_code_signal_order/1,
+         check_process_code_dirty_exec_proc/1,
+         call_fun_before_load/1]).
 
 -define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
@@ -52,7 +53,7 @@ all() ->
      false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags,
      erl_544, max_heap_size, check_process_code_signal_order,
-     check_process_code_dirty_exec_proc].
+     check_process_code_dirty_exec_proc, call_fun_before_load].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -1182,6 +1183,29 @@ check_process_code_dirty_exec_proc(Config) when is_list(Config) ->
     {status, running} = process_info(Pid, status),
     exit(Pid, kill),
     false = is_process_alive(Pid),
+    ok.
+
+%% OTP-18016: When loading a module over itself, a race in fun loading made it
+%% possible to call a local fun before the module was fully reloaded.
+call_fun_before_load(Config) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    Path = code:get_path(),
+    true = code:add_path(Priv),
+    try
+        SrcFile = filename:join(Data, "call_fun_before_load.erl"),
+        ObjFile = filename:join(Priv, "call_fun_before_load.beam"),
+        {ok,Mod,Code} = compile:file(SrcFile, [binary, report]),
+        {module,Mod} = code:load_binary(Mod, ObjFile, Code),
+
+        ok = call_fun_before_load:run(ObjFile, Code),
+
+        code:purge(call_fun_before_load)
+    after
+        code:set_path(Path),
+        code:delete(call_fun_before_load),
+        code:purge(call_fun_before_load)
+    end,
     ok.
 
 %% Utilities.

@@ -293,7 +293,7 @@ running_trace(Config) when is_list(Config) ->
      {trace,Self,in,{sensitive_SUITE,running_trace,1}} | Extra] = Messages,
     case erlang:system_info(emu_type) of
 	ET when ET =:= debug; ET =:= asan ->
-	    %% F_DBG_FORCED_TRAP in erts_try_size_code_write_permission
+	    %% F_DBG_FORCED_TRAP in erts_try_seize_code_mod_permission
 	    [{trace,Self,out,{erts_internal,trace,3}},
 	     {trace,Self,in,{erts_internal,trace,3}}] = Extra;
 	_ ->

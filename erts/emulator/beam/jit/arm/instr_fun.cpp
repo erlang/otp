@@ -135,6 +135,19 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     }
 }
 
+/* Handles save_calls for local funs, which is a side-effect of our calling
+ * convention. Fun entry is in ARG1.
+ *
+ * When the active code index is ERTS_SAVE_CALLS_CODE_IX, all local fun calls
+ * will land here. */
+void BeamGlobalAssembler::emit_dispatch_save_calls_fun() {
+    /* Keep going with the actual code index. */
+    a.mov(TMP1, imm(&the_active_code_index));
+    a.ldr(TMP1.w(), arm::Mem(TMP1));
+
+    branch(emit_setup_dispatchable_call(ARG1, TMP1));
+}
+
 /* `call_fun` instructions land here to set up their environment before jumping
  * to the actual implementation.
  *

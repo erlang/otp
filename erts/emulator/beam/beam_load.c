@@ -215,8 +215,8 @@ erts_finish_loading(Binary* magic, Process* c_p,
     struct erl_module_instance* inst_p;
     Module* mod_tab_p;
 
-    ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_write_permission() ||
-                       erts_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_load_permission() ||
+                   erts_thr_progress_is_blocking());
 
     /* Make current code for the module old and insert the new code
      * as current. This will fail if there already exists old code

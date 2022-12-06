@@ -29,6 +29,12 @@
 #include "hash.h"
 #include "beam_common.h"
 
+#ifdef DEBUG
+#  define IF_DEBUG(x) x
+#else
+#  define IF_DEBUG(x)
+#endif
+
 /* Container structure for fun entries, allowing us to start `ErlFunEntry` with
  * a field other than its `HashBucket`. */
 typedef struct erl_fun_entry_container {
@@ -78,22 +84,33 @@ void
 erts_fun_info(fmtfn_t to, void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
-    if (lock)
-	erts_fun_read_lock();
+
+    if (lock) {
+        erts_fun_read_lock();
+    }
+
     hash_info(to, to_arg, &erts_fun_table);
-    if (lock)
-	erts_fun_read_unlock();
+
+    if (lock) {
+        erts_fun_read_unlock();
+    }
 }
 
 int erts_fun_table_sz(void)
 {
     int sz;
     int lock = !ERTS_IS_CRASH_DUMPING;
-    if (lock)
-	erts_fun_read_lock();
+
+    if (lock) {
+        erts_fun_read_lock();
+    }
+
     sz = hash_table_sz(&erts_fun_table);
-    if (lock)
-	erts_fun_read_unlock();
+
+    if (lock) {
+        erts_fun_read_unlock();
+    }
+
     return sz;
 }
 
@@ -130,8 +147,8 @@ erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
     return &fc->entry;
 }
 
-const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe) {
-    ErtsCodePtr address = fe->dispatch.addresses[0];
+const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe, ErtsCodeIndex ix) {
+    ErtsCodePtr address = fe->dispatch.addresses[ix];
 
     if (address != beam_unloaded_fun) {
         return erts_find_function_from_pc(address);
@@ -140,16 +157,14 @@ const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe) {
     return NULL;
 }
 
-void erts_set_fun_code(ErlFunEntry *fe, ErtsCodePtr address) {
-    int i;
-
-    for (i = 0; i < ERTS_ADDRESSV_SIZE; i++) {
-        fe->dispatch.addresses[i] = address;
-    }
+void erts_set_fun_code(ErlFunEntry *fe, ErtsCodeIndex ix, ErtsCodePtr address) {
+    /* Fun entries MUST NOT be updated during a purge! */
+    ASSERT(fe->pend_purge_address == NULL);
+    fe->dispatch.addresses[ix] = address;
 }
 
-int erts_is_fun_loaded(const ErlFunEntry* fe) {
-    return fe->dispatch.addresses[0] != beam_unloaded_fun;
+int erts_is_fun_loaded(const ErlFunEntry* fe, ErtsCodeIndex ix) {
+    return fe->dispatch.addresses[ix] != beam_unloaded_fun;
 }
 
 static void
@@ -165,38 +180,49 @@ void
 erts_erase_fun_entry(ErlFunEntry* fe)
 {
     erts_fun_write_lock();
-    /*
-     * We have to check refc again since someone might have looked up
-     * the fun entry and incremented refc after last check.
-     */
-    if (erts_refc_dectest(&fe->refc, -1) <= 0)
-    {
-        if (erts_is_fun_loaded(fe)) {
+
+    /* We have to check refc again since someone might have looked up
+     * the fun entry and incremented refc after last check. */
+    if (erts_refc_dectest(&fe->refc, -1) <= 0) {
+        ErtsCodeIndex code_ix = erts_active_code_ix();
+
+        if (erts_is_fun_loaded(fe, code_ix)) {
             erts_exit(ERTS_ERROR_EXIT,
                 "Internal error: "
                 "Invalid reference count found on #Fun<%T.%d.%d>: "
                 " About to erase fun still referred by code.\n",
                 fe->module, fe->old_index, fe->old_uniq);
         }
+
         erts_erase_fun_entry_unlocked(fe);
     }
+
     erts_fun_write_unlock();
 }
 
-static void fun_purge_foreach(ErlFunEntryContainer *fc,
-                              struct erl_module_instance* modp)
-{
-    const char *fun_addr, *mod_start;
-    ErlFunEntry *fe = &fc->entry;
+struct fun_prepare_purge_args {
+    struct erl_module_instance* modp;
+    ErtsCodeIndex code_ix;
+};
 
-    fun_addr = (const char*)fe->dispatch.addresses[0];
+static void fun_purge_foreach(ErlFunEntryContainer *fc,
+                              struct fun_prepare_purge_args *args)
+{
+    struct erl_module_instance* modp = args->modp;
+    ErlFunEntry *fe = &fc->entry;
+    const char *mod_start;
+    ErtsCodePtr fun_addr;
+
+    fun_addr = fe->dispatch.addresses[args->code_ix];
     mod_start = (const char*)modp->code_hdr;
 
-    if (ErtsInArea(fun_addr, mod_start, modp->code_length)) {
-        fe->pend_purge_address = fe->dispatch.addresses[0];
+    if (ErtsInArea((const char*)fun_addr, mod_start, modp->code_length)) {
+        ASSERT(fe->pend_purge_address == NULL);
+
+        fe->pend_purge_address = fun_addr;
         ERTS_THR_WRITE_MEMORY_BARRIER;
 
-        erts_set_fun_code(fe, beam_unloaded_fun);
+        fe->dispatch.addresses[args->code_ix] = beam_unloaded_fun;
 
         erts_purge_state_add_fun(fe);
     }
@@ -205,46 +231,68 @@ static void fun_purge_foreach(ErlFunEntryContainer *fc,
 void
 erts_fun_purge_prepare(struct erl_module_instance* modp)
 {
-    erts_fun_read_lock();
-    hash_foreach(&erts_fun_table, (HFOREACH_FUN)fun_purge_foreach, modp);
-    erts_fun_read_unlock();
+    struct fun_prepare_purge_args args = {modp, erts_active_code_ix()};
+
+    ERTS_LC_ASSERT(erts_has_code_stage_permission());
+
+    erts_fun_write_lock();
+    hash_foreach(&erts_fun_table, (HFOREACH_FUN)fun_purge_foreach, &args);
+    erts_fun_write_unlock();
 }
 
 void
 erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no)
 {
-    Uint ix;
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    Uint fun_ix;
 
-    for (ix = 0; ix < no; ix++) {
-        ErlFunEntry *fe = funs[ix];
+    ERTS_LC_ASSERT(erts_has_code_stage_permission());
 
-        if (fe->dispatch.addresses[0] == beam_unloaded_fun) {
-            erts_set_fun_code(fe, fe->pend_purge_address);
-        }
+    for (fun_ix = 0; fun_ix < no; fun_ix++) {
+        ErlFunEntry *fe = funs[fun_ix];
+
+        ASSERT(fe->dispatch.addresses[code_ix] == beam_unloaded_fun);
+        fe->dispatch.addresses[code_ix] = fe->pend_purge_address;
     }
 }
 
 void
 erts_fun_purge_abort_finalize(ErlFunEntry **funs, Uint no)
 {
-    Uint ix;
+    IF_DEBUG(ErtsCodeIndex code_ix = erts_active_code_ix();)
+    Uint fun_ix;
 
-    for (ix = 0; ix < no; ix++) {
-        funs[ix]->pend_purge_address = NULL;
+    ERTS_LC_ASSERT(erts_has_code_stage_permission());
+
+    for (fun_ix = 0; fun_ix < no; fun_ix++) {
+        ErlFunEntry *fe = funs[fun_ix];
+
+        /* The abort_prepare step should have set the active address to the
+         * actual one. */
+        ASSERT(fe->dispatch.addresses[code_ix] != beam_unloaded_fun);
+        fe->pend_purge_address = NULL;
     }
 }
 
 void
 erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
 {
+    IF_DEBUG(ErtsCodeIndex code_ix = erts_active_code_ix();)
     Uint ix;
 
+    ERTS_LC_ASSERT(erts_has_code_stage_permission());
+
     for (ix = 0; ix < no; ix++) {
-	ErlFunEntry *fe = funs[ix];
-	fe->pend_purge_address = NULL;
-	if (erts_refc_dectest(&fe->refc, 0) == 0)
-	    erts_erase_fun_entry(fe);
+        ErlFunEntry *fe = funs[ix];
+
+        ASSERT(fe->dispatch.addresses[code_ix] == beam_unloaded_fun);
+        fe->pend_purge_address = NULL;
+
+        if (erts_refc_dectest(&fe->refc, 0) == 0) {
+            erts_erase_fun_entry(fe);
+        }
     }
+
     ERTS_THR_WRITE_MEMORY_BARRIER;
 }
 
@@ -292,14 +340,11 @@ ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
 
 #ifdef DEBUG
     {
-        /* FIXME: This assertion can fail because it may point to new code that
-         * has not been committed yet. This is an actual bug but the fix is too
-         * too involved and risky to release in a patch.
-         *
-         * As this problem has existed since the introduction of funs and is
-         * very unlikely to cause actual issues in the wild, we've decided to
-         * postpone the fix until OTP 26. See OTP-18016 for details. */
-        const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe);
+        /* Note that `mfa` may be NULL if the fun is currently being purged. We
+         * ignore this since it's not an error and we only need `mfa` to
+         * sanity-check the arity at this point. If the fun is called while in
+         * this state, the `error_handler` module will take care of it. */
+        const ErtsCodeMFA *mfa = erts_get_fun_mfa(fe, erts_active_code_ix());
         ASSERT(!mfa || funp->arity == mfa->arity - num_free);
         ASSERT(arity == fe->arity);
     }
@@ -312,6 +357,7 @@ ErlFunThing *erts_new_local_fun_thing(Process *p, ErlFunEntry *fe,
 struct dump_fun_foreach_args {
     fmtfn_t to;
     void *to_arg;
+    ErtsCodeIndex code_ix;
 };
 
 static void
@@ -323,21 +369,27 @@ dump_fun_foreach(ErlFunEntryContainer *fc, struct dump_fun_foreach_args *args)
     erts_print(args->to, args->to_arg, "Module: %T\n", fe->module);
     erts_print(args->to, args->to_arg, "Uniq: %d\n", fe->old_uniq);
     erts_print(args->to, args->to_arg, "Index: %d\n",fe->old_index);
-    erts_print(args->to, args->to_arg, "Address: %p\n", fe->dispatch.addresses[0]);
-    erts_print(args->to, args->to_arg, "Refc: %ld\n", erts_refc_read(&fe->refc, 1));
+    erts_print(args->to, args->to_arg, "Address: %p\n",
+               fe->dispatch.addresses[args->code_ix]);
+    erts_print(args->to, args->to_arg, "Refc: %ld\n",
+               erts_refc_read(&fe->refc, 1));
 }
 
 void
 erts_dump_fun_entries(fmtfn_t to, void *to_arg)
 {
-    struct dump_fun_foreach_args args = {to, to_arg};
+    struct dump_fun_foreach_args args = {to, to_arg, erts_active_code_ix()};
     int lock = !ERTS_IS_CRASH_DUMPING;
 
-    if (lock)
-	erts_fun_read_lock();
+    if (lock) {
+        erts_fun_read_lock();
+    }
+
     hash_foreach(&erts_fun_table, (HFOREACH_FUN)dump_fun_foreach, &args);
-    if (lock)
-	erts_fun_read_unlock();
+
+    if (lock) {
+        erts_fun_read_unlock();
+    }
 }
 
 static HashValue
@@ -365,7 +417,9 @@ fun_cmp(ErlFunEntryContainer* obj1, ErlFunEntryContainer* obj2)
 static ErlFunEntryContainer*
 fun_alloc(ErlFunEntryContainer* template)
 {
-    ErlFunEntryContainer* obj;
+    ErlFunEntryContainer *obj;
+    ErtsDispatchable *disp;
+    ErtsCodeIndex ix;
 
     obj = (ErlFunEntryContainer *) erts_alloc(ERTS_ALC_T_FUN_ENTRY,
                                               sizeof(ErlFunEntryContainer));
@@ -374,7 +428,14 @@ fun_alloc(ErlFunEntryContainer* template)
 
     erts_refc_init(&obj->entry.refc, -1);
 
-    erts_set_fun_code(&obj->entry, beam_unloaded_fun);
+    disp = &obj->entry.dispatch;
+    for (ix = 0; ix < ERTS_NUM_CODE_IX; ix++) {
+        disp->addresses[ix] = beam_unloaded_fun;
+    }
+
+#ifdef BEAMASM
+    disp->addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls_fun;
+#endif
 
     obj->entry.pend_purge_address = NULL;
 
@@ -385,4 +446,47 @@ static void
 fun_free(ErlFunEntryContainer* obj)
 {
     erts_free(ERTS_ALC_T_FUN_ENTRY, (void *) obj);
+}
+
+struct fun_stage_args {
+    ErtsCodeIndex src_ix;
+    ErtsCodeIndex dst_ix;
+};
+
+static void fun_stage_foreach(ErlFunEntryContainer *fc,
+                              struct fun_stage_args *args)
+{
+    ErtsDispatchable *disp = &fc->entry.dispatch;
+
+    /* Fun entries MUST NOT be updated during a purge! */
+    ASSERT(fc->entry.pend_purge_address == NULL);
+
+    disp->addresses[args->dst_ix] = disp->addresses[args->src_ix];
+}
+
+IF_DEBUG(static ErtsCodeIndex debug_fun_load_ix = 0;)
+
+void erts_fun_start_staging(void)
+{
+    ErtsCodeIndex dst_ix = erts_staging_code_ix();
+    ErtsCodeIndex src_ix = erts_active_code_ix();
+    struct fun_stage_args args = {src_ix, dst_ix};
+
+    ERTS_LC_ASSERT(erts_has_code_stage_permission());
+    ASSERT(dst_ix != src_ix);
+    ASSERT(debug_fun_load_ix == ~0);
+
+    erts_fun_write_lock();
+    hash_foreach(&erts_fun_table, (HFOREACH_FUN)fun_stage_foreach, &args);
+    erts_fun_write_unlock();
+
+    IF_DEBUG(debug_fun_load_ix = dst_ix);
+}
+
+void erts_fun_end_staging(int commit)
+{
+    ERTS_LC_ASSERT((erts_active_code_ix() == erts_active_code_ix()) ||
+                   erts_has_code_stage_permission());
+    ASSERT(debug_fun_load_ix == erts_staging_code_ix());
+    IF_DEBUG(debug_fun_load_ix = ~0);
 }

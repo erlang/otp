@@ -64,12 +64,12 @@ void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallTarget) {
     a.b(resolve_beam_label(CallTarget, disp128MB));
 }
 
-/* Handles save_calls. When the active code index is ERTS_SAVE_CALLS_CODE_IX,
- * all remote calls will land here.
+/* Handles save_calls for remote calls. When the active code index is
+ * ERTS_SAVE_CALLS_CODE_IX, all remote calls will land here.
  *
  * Export entry is in ARG1, return address is in LR (x30). Both of these must
  * be preserved since this runs between caller and callee. */
-void BeamGlobalAssembler::emit_dispatch_save_calls() {
+void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
     a.str(ARG1, TMP_MEM1q);
 
     emit_enter_runtime_frame();
