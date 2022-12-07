@@ -956,7 +956,7 @@ Expr1 -- Expr2</pre>
     <p>The list concatenation operator <c>++</c> appends its second
       argument to its first and returns the resulting list.</p>
     <p>The list subtraction operator <c>--</c> produces a list that
-      is a copy of the first argument. The procedure is a follows:
+      is a copy of the first argument. The procedure is as follows:
       for each element in the second argument, the first
       occurrence of this element (if any) is removed.</p>
     <p><em>Example:</em></p>
