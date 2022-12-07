@@ -159,10 +159,15 @@ pattern3(Config) when is_list(Config) ->
             f({A,_}) -> {ok,A};
             f([_|_]=B) -> {ok,B};
             f({urk,nisse}) -> urka_glurka.
+            word(<<\"AND\">>) -> <<\"and\">>;
+            word(<<\"AS\">>) -> <<\"as\">>;
+            word(<<\"A\">>) -> <<\"a\">>;
+            word(<<\"AS\">>) -> <<\"as\">>.
            ">>,
 	   [nowarn_unused_vars],
 	   {warnings,
-            [{{4,13},v3_kernel,{nomatch,{shadow,2}}}]}}],
+            [{{4,13},v3_kernel,{nomatch,{shadow,2}}},
+             {{8,13},v3_kernel,{nomatch,{shadow,6}}}]}}],
     [] = run(Config, Ts),
 
     ok.
