@@ -351,40 +351,91 @@ accept({NetAddress, StateL}) ->
     try
         NetKernel = self(),
         DistMod = pt_get(dist_mod),
-        Acceptor =
-            spawn_opt(
+        AcceptLoop =
+            spawn_link(
               fun () ->
                       _ = process_flag(trap_exit, true),
-                      acceptor(StateL, NetAddress, NetKernel, DistMod)
-              end,
-              dist_util:net_ticker_spawn_options()),
-        Acceptor
+                      accept_loop(
+                        StateL, NetAddress, NetKernel, DistMod,
+                        erlang:system_info(schedulers), #{})
+              end),
+        AcceptLoop
     catch error : Reason : Stacktrace ->
             error_logger:error_msg(
               "error : ~p in ~n    ~p~n", [Reason, Stacktrace]),
             erlang:raise(error, Reason, Stacktrace)
     end.
 
+%% Open parallel acceptors on the listen socket
+%%
+accept_loop(
+  StateL, NetAddress, NetKernel, DistMod, MaxPending, Acceptors)
+  when map_size(Acceptors) =< MaxPending ->
+    AcceptRef = make_ref(),
+    Acceptor =
+        spawn_link(
+          fun () ->
+                  acceptor(
+                    StateL, NetAddress, NetKernel, DistMod, AcceptRef)
+          end),
+    accept_loop(
+      StateL, NetAddress, NetKernel, DistMod, MaxPending,
+      Acceptors#{ Acceptor => AcceptRef });
+accept_loop(
+  StateL, NetAddress, NetKernel, DistMod, MaxPending, Acceptors) ->
+    receive Msg ->
+            case Msg of
+                {'EXIT', Acceptor, Reason}
+                  when is_map_key(Acceptor, Acceptors) ->
+                    AcceptRef = maps:get(Acceptor, Acceptors),
+                    case Reason of
+                        AcceptRef -> % Done ok
+                            accept_loop(
+                              StateL, NetAddress, NetKernel, DistMod,
+                              MaxPending, maps:remove(Acceptor, Acceptors));
+                        {accept, _} ->
+                            %% Should mean that accept failed
+                            %% so we need to restart the listener
+                            exit(Reason);
+                        _ ->
+                            error_logger:warning_msg(
+                              "~w:~w acceptor ~w failed: ~p",
+                              [?MODULE, ?FUNCTION_NAME, Acceptor, Reason]),
+                            accept_loop(
+                              StateL, NetAddress, NetKernel, DistMod,
+                              MaxPending, maps:remove(Acceptor, Acceptors))
+                    end;
+                {'EXIT', NetKernel, Reason} ->
+                    exit(Reason);
+                _ ->
+                    error_logger:warning_msg(
+                      "~w:~w unknown message: ~p",
+                      [?MODULE, ?FUNCTION_NAME, Msg]),
+                    accept_loop(
+                      StateL, NetAddress, NetKernel, DistMod,
+                      MaxPending, Acceptors)
+            end
+    end.
+
 acceptor(
   StateL,
   #net_address{ family = Family, protocol = Protocol } = NetAddress,
-  NetKernel, DistMod) ->
+  NetKernel, DistMod, AcceptRef) ->
     {StateA, PeerAddress} =
         %% *******
         DistMod:accept_open(NetAddress, StateL),
     %%
+    NetAddress_1 = NetAddress#net_address{ address = PeerAddress },
     Acceptor = self(),
-    AcceptTag = make_ref(),
-    NetKernel ! {accept, Acceptor, AcceptTag, Family, Protocol},
+    NetKernel ! {accept, Acceptor, NetAddress_1, Family, Protocol},
     receive
         {NetKernel, controller, Controller} ->
-            NetAddress_1 = NetAddress#net_address{ address = PeerAddress },
             StateD =
                 %% *******
                 DistMod:accept_controller(NetAddress_1, Controller, StateA),
             Controller !
-                {Acceptor, AcceptTag, StateD, NetAddress_1, DistMod},
-            acceptor(StateL, NetAddress, NetKernel, DistMod);
+                {Acceptor, controller, DistMod, StateD},
+            exit(AcceptRef);
         {NetKernel, unsupported_protocol = Reason} ->
             exit(Reason)
     end.
@@ -394,14 +445,14 @@ acceptor(
 %% Performs the handshake with the other side.
 %% ------------------------------------------------------------
 
-accept_connection(Acceptor, AcceptTag, MyNode, Allowed, SetupTime) ->
+accept_connection(Acceptor, NetAddress, MyNode, Allowed, SetupTime) ->
     try
         NetKernel = self(),
         Controller =
             spawn_opt(
               fun () ->
                       accept_controller(
-                        Acceptor, AcceptTag, MyNode, Allowed, SetupTime,
+                        Acceptor, NetAddress, MyNode, Allowed, SetupTime,
                         NetKernel)
               end, dist_util:net_ticker_spawn_options()),
         Controller
@@ -412,10 +463,10 @@ accept_connection(Acceptor, AcceptTag, MyNode, Allowed, SetupTime) ->
     end.
 
 accept_controller(
-  Acceptor, AcceptTag, MyNode, Allowed, SetupTime,
+  Acceptor, NetAddress, MyNode, Allowed, SetupTime,
   NetKernel) ->
     receive
-        {Acceptor, AcceptTag, StateD, NetAddress, DistMod} ->
+        {Acceptor, controller, DistMod, StateD} ->
             Timer = dist_util:start_timer(SetupTime),
             case
                 %% *******

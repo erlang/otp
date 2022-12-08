@@ -142,16 +142,20 @@ connect(
 %% ------------------------------------------------------------
 start_dist_ctrl(NetAddress, Socket) ->
     Controller = self(),
-    DistTag = make_ref(),
+    DistCtrlTag = make_ref(),
     DistCtrl =
         spawn_link(
           fun () ->
                   receive
-                      {DistTag, handshake_complete, From, DistHandle} ->
+                      {DistCtrlTag, handshake_complete, From, DistHandle} ->
+                          Sync = make_ref(),
+                          DistC = self(),
                           InputHandler =
                               spawn_link(
                                 fun () ->
                                         link(Controller),
+                                        DistC ! Sync,
+                                        receive Sync -> ok end,
                                         input_handler_start(
                                           Socket, DistHandle)
                                 end),
@@ -161,7 +165,8 @@ start_dist_ctrl(NetAddress, Socket) ->
                           ok =
                               erlang:dist_ctrl_input_handler(
                                 DistHandle, InputHandler),
-                          From ! {DistTag, handshake_complete},
+                          receive Sync -> InputHandler ! Sync end,
+                          From ! {DistCtrlTag, handshake_complete}, % Reply
                           output_handler_start(Socket, DistHandle)
                   end
           end),
@@ -188,7 +193,7 @@ start_dist_ctrl(NetAddress, Socket) ->
 
        f_handshake_complete =
            fun (S, _Node, DistHandle) when S =:= Socket ->
-                   handshake_complete(DistCtrl, DistTag, DistHandle)
+                   handshake_complete(DistCtrl, DistCtrlTag, DistHandle)
            end,
 
        mf_tick =
@@ -243,10 +248,10 @@ mf_getopts(Socket) ->
     end.
 -endif.
 
-handshake_complete(DistCtrl, DistTag, DistHandle) ->
-    DistCtrl ! {DistTag, handshake_complete, self(), DistHandle},
+handshake_complete(DistCtrl, DistCtrlTag, DistHandle) ->
+    DistCtrl ! {DistCtrlTag, handshake_complete, self(), DistHandle},
     receive
-        {DistTag, handshake_complete} ->
+        {DistCtrlTag, handshake_complete} ->
             ok
     end.
 
