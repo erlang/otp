@@ -303,8 +303,7 @@ handle_new_session_ticket(_, #state{ssl_options = #{session_tickets := disabled}
 handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce}
                           = NewSessionTicket,
                           #state{connection_states = ConnectionStates,
-                                 ssl_options = #{session_tickets := SessionTickets,
-                                                 server_name_indication := SNI},
+                                 ssl_options = #{session_tickets := SessionTickets} = SslOpts,
                                  connection_env = #connection_env{user_application = {_, User}}})
   when SessionTickets =:= manual ->
     #{security_parameters := SecParams} =
@@ -314,13 +313,12 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce}
     HKDF = SecParams#security_parameters.prf_algorithm,
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
+    SNI = maps:get(server_name_indication, SslOpts, undefined),
     send_ticket_data(User, NewSessionTicket, {Cipher, HKDF}, SNI, PSK);
 handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce}
                           = NewSessionTicket,
                           #state{connection_states = ConnectionStates,
-                                 ssl_options =
-                                     #{session_tickets := SessionTickets,
-                                       server_name_indication := SNI}})
+                                 ssl_options = #{session_tickets := SessionTickets} = SslOpts})
   when SessionTickets =:= auto ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
@@ -329,8 +327,8 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce}
     HKDF = SecParams#security_parameters.prf_algorithm,
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
-    tls_client_ticket_store:store_ticket(NewSessionTicket,
-                                         {Cipher, HKDF}, SNI, PSK).
+    SNI = maps:get(server_name_indication, SslOpts, undefined),
+    tls_client_ticket_store:store_ticket(NewSessionTicket, {Cipher, HKDF}, SNI, PSK).
 
 send_ticket_data(User, NewSessionTicket, CipherSuite, SNI, PSK) ->
     Timestamp = erlang:system_time(millisecond),

@@ -1329,11 +1329,8 @@ is_sni_value(Hostname) ->
             true
     end.
 
-is_hostname_recognized(#{sni_fun := undefined,
-                         sni_hosts := SNIHosts}, Hostname) ->
-    proplists:is_defined(Hostname, SNIHosts);
-is_hostname_recognized(_, _) ->
-    true.
+is_hostname_recognized(#{sni_fun := Fun}, Hostname) ->
+    Fun(Hostname) =:= undefined.
 
 handle_sni_hostname(Hostname,
                     #state{static_env = #static_env{role = Role} = InitStatEnv0,
@@ -1343,7 +1340,7 @@ handle_sni_hostname(Hostname,
     NewOptions = update_ssl_options_from_sni(Opts, Hostname),
     case NewOptions of
 	undefined ->
-            case maps:get(server_name_indication, Opts) of
+            case maps:get(server_name_indication, Opts, undefined) of
                 disable when Role == client->
                     State0;
                 _ ->
@@ -1373,20 +1370,11 @@ handle_sni_hostname(Hostname,
               }
     end.
 
-update_ssl_options_from_sni(#{sni_fun := SNIFun,
-                              sni_hosts := SNIHosts} = OrigSSLOptions, SNIHostname) ->
-    SSLOptions =
-	case SNIFun of
-	    undefined ->
-		proplists:get_value(SNIHostname,
-				    SNIHosts);
-	    SNIFun ->
-		SNIFun(SNIHostname)
-	end,
-    case SSLOptions of
+update_ssl_options_from_sni(#{sni_fun := SNIFun} = OrigSSLOptions, SNIHostname) ->
+    case SNIFun(SNIHostname) of
         undefined ->
             undefined;
-        _ ->
+        SSLOptions ->
             VersionsOpt = proplists:get_value(versions, SSLOptions, []),
             FallBackOptions = filter_for_versions(VersionsOpt, OrigSSLOptions),
             ssl:update_options(SSLOptions, server, FallBackOptions)

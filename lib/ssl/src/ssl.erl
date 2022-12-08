@@ -489,7 +489,7 @@
 -type server_reuse_session()     :: fun().
 -type server_reuse_sessions()    :: boolean().
 -type sni_hosts()                :: [{hostname(), [server_option() | common_option()]}].
--type sni_fun()                  :: fun().
+-type sni_fun()                  :: fun((string()) -> [] | undefined).
 -type honor_cipher_order()       :: boolean().
 -type honor_ecc_order()          :: boolean().
 -type client_renegotiation()     :: boolean().
@@ -1939,16 +1939,18 @@ opt_sni(UserOpts, #{versions := _Versions} = Opts, #{role := server}) ->
             end,
     [Check(E) || E <- SniHosts],
 
-    {_, SniFun} = get_opt_fun(sni_fun, 1, undefined, UserOpts, Opts),
+    {Where, SniFun0} = get_opt_fun(sni_fun, 1, undefined, UserOpts, Opts),
 
-    option_incompatible(is_function(SniFun) andalso SniHosts =/= [],
+    option_incompatible(is_function(SniFun0) andalso SniHosts =/= [] andalso Where =:= new,
                         [sni_fun, sni_hosts]),
     assert_client_only(server_name_indication, UserOpts),
-    %% FIXME: remove sni_hosts and
-    %%   sni_fun = fun(SNIHostName) -> proplists:get_value(SNIHostname, SNIHosts) end,
-    Opts#{sni_fun => SniFun, sni_hosts => SniHosts,
-          server_name_indication => undefined  %% FIXME
-         };
+
+    SniFun = case SniFun0 =:= undefined of
+                 true -> fun(Host) -> proplists:get_value(Host, SniHosts) end;
+                 false -> SniFun0
+             end,
+
+    Opts#{sni_fun => SniFun};
 opt_sni(UserOpts, #{versions := _Versions} = Opts, #{role := client} = Env) ->
     %% RFC 6066, Section 3: Currently, the only server names supported are
     %% DNS hostnames

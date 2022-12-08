@@ -2478,8 +2478,6 @@ options_cacerts(Config) ->  %% cacert[s]file
 
 options_cert(Config) -> %% cert[file] cert_keys keys password
     Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
-    {ok, #config{ssl = DefMap}} = ssl:handle_options([], client, "dummy.host.org"),
-
     Old = [cert, certfile, key, keyfile, password],
     ?OK(#{certs_keys := []}, [], client, Old),
     ?OK(#{certs_keys := [#{cert := [Cert]}]}, [{cert,Cert}], client, Old),
@@ -2931,15 +2929,15 @@ options_reuse_session(_Config) ->
 
 options_sni(_Config) -> %% server_name_indication
     ?OK(#{server_name_indication := "dummy.host.org"}, [], client),
+    ?OK(#{}, [], server, [server_name_indication]),
     ?OK(#{server_name_indication := disable}, [{server_name_indication, disable}], client),
     ?OK(#{server_name_indication := "dummy.org"}, [{server_name_indication, "dummy.org"}], client),
 
-    ?OK(#{sni_fun := undefined, sni_hosts := []}, [], server),
+    ?OK(#{sni_fun := _}, [], server, [sni_hosts]),
 
-    ?OK(#{sni_fun := undefined, sni_hosts := [{"a",[]}]},
-        [{sni_hosts, [{"a", []}]}], server),
+    ?OK(#{sni_fun := _}, [{sni_hosts, [{"a", []}]}], server, [sni_hosts]),
     SNI_F = fun(_) -> sni end,
-    ?OK(#{sni_fun := SNI_F, sni_hosts := []}, [{sni_fun, SNI_F}], server),
+    ?OK(#{sni_fun := SNI_F}, [{sni_fun, SNI_F}], server, [sni_hosts]),
 
     %% Errors
     ?ERR({option, client_only, server_name_indication},

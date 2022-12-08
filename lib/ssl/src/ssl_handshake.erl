@@ -339,10 +339,9 @@ next_protocol(SelectedProtocol) ->
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
-        #{server_name_indication := ServerNameIndication,
-          partial_chain := PartialChain} = SSlOptions, 
+        #{partial_chain := PartialChain} = SSlOptions,
         CRLDbHandle, Role, Host, Version, CertExt) ->
-    ServerName = server_name(ServerNameIndication, Host, Role),
+    ServerName = server_name(SSlOptions, Host, Role),
     [PeerCert | _ChainCerts ] = ASN1Certs,
     try
 	PathsAndAnchors  =
@@ -1245,7 +1244,6 @@ client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renego
 add_tls12_extensions(_Version,
                      #{alpn_advertised_protocols := AlpnAdvertisedProtocols,
                       next_protocol_selector := NextProtocolSelector,
-                      server_name_indication := ServerNameIndication,
                       max_fragment_length := MaxFragmentLength} = SslOpts,
                      ConnectionStates,
                      Renegotiation) ->
@@ -1257,7 +1255,7 @@ add_tls12_extensions(_Version,
       next_protocol_negotiation =>
           encode_client_protocol_negotiation(NextProtocolSelector,
                                              Renegotiation),
-      sni => sni(ServerNameIndication),
+      sni => sni(SslOpts),
       max_frag_enum => max_frag_enum(MaxFragmentLength)
      }.
 
@@ -3566,10 +3564,13 @@ sign_type(ecdsa) ->
 
 server_name(_, _, server) ->
     undefined; %% Not interesting to check your own name.
-server_name(undefined, Host, client) ->
-    {fallback, Host}; %% Fallback to Host argument to connect
-server_name(SNI, _, client) ->
-    SNI. %% If Server Name Indication is available
+server_name(SSLOpts, Host, client) ->
+    case maps:get(server_name_indication, SSLOpts, undefined) of
+        undefined ->
+            {fallback, Host}; %% Fallback to Host argument to connect
+        SNI ->
+            SNI  %% If Server Name Indication is available
+    end.
 
 client_ecc_extensions(SupportedECCs) ->
     CryptoSupport = proplists:get_value(public_keys, crypto:supports()),
@@ -3628,12 +3629,12 @@ select_shared_curve([Curve | Rest], Curves) ->
 	    select_shared_curve(Rest, Curves)
     end.
 
-sni(undefined) ->
-    undefined;
-sni(disable) ->
-    undefined;
-sni(Hostname) ->
-    #sni{hostname = Hostname}.
+sni(SslOpts) ->
+    case maps:get(server_name_indication, SslOpts, undefined) of
+        undefined -> undefined;
+        disable -> undefined;
+        Hostname -> #sni{hostname = Hostname}
+    end.
 
 %% convert max_fragment_length (in bytes) to the RFC 6066 ENUM
 max_frag_enum(?MAX_FRAGMENT_LENGTH_BYTES_1) ->
