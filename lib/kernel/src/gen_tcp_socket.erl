@@ -915,6 +915,12 @@ socket_setopt(Socket, DomainProps, Value) when is_list(DomainProps) ->
 
 socket_setopt_value({socket,linger}, {OnOff, Linger}) ->
     #{onoff => OnOff, linger => Linger};
+socket_setopt_value({socket,bindtodevice}, DeviceBin)
+  when is_binary(DeviceBin) ->
+    %% Currently: 
+    %% prim_inet: Require that device is a binary()
+    %% socket:    Require that device is a string()
+    binary_to_list(DeviceBin);
 socket_setopt_value(_Opt, Value) -> Value.
 
 
