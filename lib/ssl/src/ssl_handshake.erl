@@ -1243,11 +1243,11 @@ client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renego
 
 add_tls12_extensions(_Version,
                      #{alpn_advertised_protocols := AlpnAdvertisedProtocols,
-                      next_protocol_selector := NextProtocolSelector,
-                      max_fragment_length := MaxFragmentLength} = SslOpts,
+                       max_fragment_length := MaxFragmentLength} = SslOpts,
                      ConnectionStates,
                      Renegotiation) ->
     SRP = srp_user(SslOpts),
+    NextProtocolSelector = maps:get(next_protocol_selector, SslOpts, undefined),
     #{renegotiation_info => renegotiation_info(tls_record, client,
                                                ConnectionStates, Renegotiation),
       srp => SRP,
@@ -1520,8 +1520,7 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
                                Exts, Version,
 			       #{secure_renegotiate := SecureRenegotation,
-                                 next_protocol_selector := NextProtoSelector,
-                                 ocsp_stapling := Stapling},
+                                 ocsp_stapling := Stapling} = SslOpts,
 			       ConnectionStates0, Renegotiation, IsNew) ->
     ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,  
                                                       maps:get(renegotiation_info, Exts, undefined), Random, 
@@ -1560,7 +1559,8 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
                     {ConnectionStates, alpn, undefined, OcspState};
                 undefined ->
                     NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
-                    Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation),
+                    NextProtocolSelector = maps:get(next_protocol_selector, SslOpts, undefined),
+                    Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtocolSelector, Renegotiation),
                     {ConnectionStates, npn, Protocol, OcspState};
                 {error, Reason} ->
                     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
@@ -3476,10 +3476,9 @@ handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, SslOpts)-
 
 handle_next_protocol_on_server(undefined, _Renegotiation, _SslOpts) ->
     undefined;
-
 handle_next_protocol_on_server(#next_protocol_negotiation{extension_data = <<>>},
-			       false, #{next_protocols_advertised := Protocols}) ->
-    Protocols;
+			       false, SslOpts) ->
+    maps:get(next_protocols_advertised, SslOpts, undefined);
 
 handle_next_protocol_on_server(_Hello, _Renegotiation, _SSLOpts) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_next_protocol_extension).

@@ -2009,36 +2009,35 @@ opt_alpn(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
     {_, APP} = get_opt_list(alpn_preferred_protocols, undefined, UserOpts, Opts),
     validate_protocols(is_list(APP), alpn_preferred_protocols, APP),
 
-    {_, NPA} = get_opt_list(next_protocols_advertised, undefined, UserOpts, Opts),
+    {Where, NPA} = get_opt_list(next_protocols_advertised, undefined, UserOpts, Opts),
     validate_protocols(is_list(NPA), next_protocols_advertised, NPA),
     assert_version_dep(is_list(NPA), next_protocols_advertised, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
 
     assert_client_only(alpn_advertised_protocols, UserOpts),
     assert_client_only(client_preferred_next_protocols, UserOpts),
 
-    Opts#{alpn_preferred_protocols => APP, next_protocols_advertised => NPA,
-          alpn_advertised_protocols => undefined, next_protocol_selector => undefined  %% FIXME remove
-         };
+    Opts1 = set_opt_new(Where, next_protocols_advertised, undefined, NPA, Opts),
+    Opts1#{alpn_preferred_protocols => APP};
 opt_alpn(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
     {_, AAP} = get_opt_list(alpn_advertised_protocols, undefined, UserOpts, Opts),
     validate_protocols(is_list(AAP), alpn_advertised_protocols, AAP),
 
-    NPS = case get_opt(client_preferred_next_protocols, undefined, UserOpts, Opts) of
-              {new, CPNP} ->
-                  assert_version_dep(client_preferred_next_protocols,
-                                     Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
-                  make_next_protocol_selector(CPNP);
-              {_, CPNP} -> CPNP
-          end,
+    {Where, NPS} = case get_opt(client_preferred_next_protocols, undefined, UserOpts, Opts) of
+                       {new, CPNP} ->
+                           assert_version_dep(client_preferred_next_protocols,
+                                              Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+                           {new, make_next_protocol_selector(CPNP)};
+                       CPNP ->
+                           CPNP
+                   end,
 
     validate_protocols(is_list(NPS), client_preferred_next_protocols, NPS),
 
     assert_server_only(alpn_preferred_protocols, UserOpts),
     assert_server_only(next_protocols_advertised, UserOpts),
 
-    Opts#{alpn_preferred_protocols => undefined, next_protocols_advertised => undefined, %% FIXME remove
-          alpn_advertised_protocols => AAP, next_protocol_selector => NPS
-         }.
+    Opts1 = set_opt_new(Where, next_protocol_selector, undefined, NPS, Opts),
+    Opts1#{alpn_advertised_protocols => AAP}.
 
 validate_protocols(false, _Opt, _List) -> ok;
 validate_protocols(true, Opt, List) ->

@@ -2354,29 +2354,23 @@ options_version(_Config) ->
 
 options_alpn(_Config) -> %% alpn & next_protocols 
     Http = <<"HTTP/2">>,
-    ?OK(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
-          next_protocol_selector := undefined, next_protocols_advertised := undefined},
-        [], client),
-    ?OK(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
-          next_protocol_selector := undefined, next_protocols_advertised := undefined},
-        [], server),
+    ?OK(#{alpn_advertised_protocols := undefined}, [], client,
+        [alpn_preferred_protocols, next_protocol_selector, next_protocols_advertised]),
+    ?OK(#{alpn_preferred_protocols := undefined},  [], server,
+        [alpn_advertised_protocols, next_protocol_selector, next_protocols_advertised]),
 
-    ?OK(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := [Http],
-          next_protocol_selector := undefined, next_protocols_advertised := undefined},
-        [{alpn_preferred_protocols, [Http]}], server),
-    ?OK(#{alpn_advertised_protocols := [Http], alpn_preferred_protocols := undefined,
-          next_protocol_selector := undefined, next_protocols_advertised := undefined},
-        [{alpn_advertised_protocols, [Http]}], client),
+    ?OK(#{alpn_preferred_protocols := [Http]}, [{alpn_preferred_protocols, [Http]}],
+        server, [alpn_advertised_protocols, next_protocol_selector, next_protocols_advertised]),
+    ?OK(#{alpn_advertised_protocols := [Http]}, [{alpn_advertised_protocols, [Http]}],
+        client, [alpn_preferred_protocols, next_protocol_selector, next_protocols_advertised]),
 
     %% Note names have been swapped in client/server variants
 
-    ?OK(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
-          next_protocol_selector := undefined, next_protocols_advertised := [Http]},
-        [{next_protocols_advertised, [Http]}], server),
-    ?OK(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
-          next_protocol_selector := _, next_protocols_advertised := undefined},
+    ?OK(#{alpn_preferred_protocols := undefined, next_protocols_advertised := [Http]},
+        [{next_protocols_advertised, [Http]}], server, [alpn_advertised_protocols, next_protocol_selector]),
+    ?OK(#{alpn_advertised_protocols := undefined, next_protocol_selector := _},
         [{client_preferred_next_protocols, {server,[Http], Http}}],
-        client),
+        client, [alpn_preferred_protocols, next_protocols_advertised]),
 
     %% Errors
     ?ERR({alpn_preferred_protocols, {invalid_protocol, <<>>}}, [{alpn_preferred_protocols, [Http, <<>>]}], server),
