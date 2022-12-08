@@ -362,6 +362,7 @@ setup(A, B, Prefix, Effort, HA, HB) ->
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     pong = ssl_apply(HA, net_adm, ping, [B]),
+    MemStart = mem_start(HA, HB),
     ChildCountResult =
         ssl_dist_test_lib:apply_on_ssl_node(
           HA, supervisor, count_children, [tls_dist_connection_sup]),
@@ -369,12 +370,15 @@ setup(A, B, Prefix, Effort, HA, HB) ->
     {SetupTime, CycleTime} =
         ssl_apply(HA, fun () -> setup_runner(A, B, Rounds) end),
     ok = ssl_apply(HB, fun () -> setup_wait_nodedown(A, 10000) end),
+    {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
     %% [] = ssl_apply(HA, erlang, nodes, []),
     %% [] = ssl_apply(HB, erlang, nodes, []),
     SetupSpeed = round((Rounds*1000000*1000) / SetupTime),
     CycleSpeed = round((Rounds*1000000*1000) / CycleTime),
+    _ = report(Prefix++" Setup Mem A", MemA, "KByte"),
+    _ = report(Prefix++" Setup Mem B", MemB, "KByte"),
     _ = report(Prefix++" Setup", SetupSpeed, "setups/1000s"),
-    report(Prefix++" Setup Cycle", CycleSpeed, "cycles/1000s").
+    report(Prefix++" Setup Cycle", CycleSpeed, "cycles/1000s " ++ MemSuffix).
 
 %% Runs on node A against rex in node B
 setup_runner(A, B, Rounds) ->
@@ -431,13 +435,17 @@ roundtrip(A, B, Prefix, Effort, HA, HB) ->
     Rounds = 4000 * Effort,
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    MemStart = mem_start(HA, HB),
     ok = ssl_apply(HA, net_kernel, allow, [[B]]),
     ok = ssl_apply(HB, net_kernel, allow, [[A]]),
     Time = ssl_apply(HA, fun () -> roundtrip_runner(A, B, Rounds) end),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
+    {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
     Speed = round((Rounds*1000000) / Time),
-    report(Prefix++" Roundtrip", Speed, "pings/s").
+    _ = report(Prefix++" Roundtrip Mem A", MemA, "KByte"),
+    _ = report(Prefix++" Roundtrip Mem B", MemB, "KByte"),
+    report(Prefix++" Roundtrip", Speed, "pings/s " ++ MemSuffix).
 
 %% Runs on node A and spawns a server on node B
 roundtrip_runner(A, B, Rounds) ->
@@ -489,6 +497,7 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
     SSL = proplists:get_value(ssl_dist, Config),
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    MemStart = mem_start(HA, HB),
     PidA = ssl_apply(HA, os, getpid, []),
     PidB = ssl_apply(HB, os, getpid, []),
     ct:pal("Starting scheduler utilization run effort ~w:~n"
@@ -508,6 +517,7 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
     ct:log("Got ~p busy_dist_port msgs",[tail(BusyDistPortMsgs)]),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
+    {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
     ct:log("Microstate accounting for node ~w:", [A]),
     msacc:print(ClientMsacc),
     ct:log("Microstate accounting for node ~w:", [B]),
@@ -532,13 +542,17 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
                 ct:log("Stray Msgs: ~p", [BusyDistPortMsgs]),
                 " ???"
         end,
+    _ = report(Prefix++" Sched Utilization Client Mem", MemA, "KByte"),
+    _ = report(Prefix++" Sched Utilization Server Mem", MemB, "KByte"),
     {comment, ClientComment} =
         report(Prefix ++ " Sched Utilization Client" ++ Verdict,
                SchedUtilClient, "/100 %" ++ Verdict),
     {comment, ServerComment} =
         report(Prefix++" Sched Utilization Server" ++ Verdict,
                SchedUtilServer, "/100 %" ++ Verdict),
-    {comment, "Client " ++ ClientComment ++ ", Server " ++ ServerComment}.
+    {comment,
+     "Client " ++ ClientComment ++ ", Server " ++ ServerComment ++
+         " " ++ MemSuffix}.
 
 %% Runs on node A and spawns a server on node B
 %% We want to avoid getting busy_dist_port as it hides the true SU usage
@@ -692,9 +706,16 @@ mean_load_cpu_margin(Config) ->
 run_mlcm(A, B, Prefix, Effort, HA, HB) ->
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    MemStart = mem_start(HA, HB),
     pong = ssl_apply(HB, net_adm, ping, [A]),
     Count = ssl_apply(HA, fun () -> mlcm(B, Effort) end),
-    report(Prefix++" CPU margin", round(Count/?MLCM_NO/Effort), "stones").
+    {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
+    _ = report(Prefix++" CPU Margin Mem A", MemA, "KByte"),
+    _ = report(Prefix++" CPU Margin Mem B", MemB, "KByte"),
+    report(
+      Prefix++" CPU Margin",
+      round(Count/?MLCM_NO/Effort),
+      "stones " ++ MemSuffix).
 
 mlcm(Node, Effort) ->
     Payloads = mlcm_payloads(),
@@ -859,6 +880,7 @@ throughput_1048576(Config) ->
 throughput(A, B, Prefix, HA, HB, Packets, Size) ->
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
+    MemStart = mem_start(HA, HB),
     #{time := Time,
       client_msacc_stats := ClientMsaccStats,
       client_prof := ClientProf,
@@ -869,6 +891,7 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
         ssl_apply(HA, fun () -> throughput_runner(A, B, Packets, Size) end),
     [B] = ssl_apply(HA, erlang, nodes, []),
     [A] = ssl_apply(HB, erlang, nodes, []),
+    {MemA, MemB, MemSuffix} = mem_stop(HA, HB, MemStart),
     ClientMsaccStats =:= undefined orelse
         msacc:print(ClientMsaccStats),
     Overhead =
@@ -877,6 +900,10 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
     Bytes = Packets * (Size + Overhead),
     io:format("~w bytes, ~.4g s~n", [Bytes,Time/1000000]),
     SizeString = integer_to_list(Size),
+    _ = report(
+          Prefix++" Throughput_" ++ SizeString ++ " Mem A", MemA, "KByte"),
+    _ = report(
+          Prefix++" Throughput_" ++ SizeString ++ " Mem B", MemB, "KByte"),
     ClientMsaccStats =:= undefined orelse
         report(
           Prefix ++ " Sender_RelativeCoreLoad_" ++ SizeString,
@@ -897,7 +924,8 @@ throughput(A, B, Prefix, HA, HB, Packets, Size) ->
     io:format("******* Server GC Before:~n~p~n", [Server_GC_Before]),
     io:format("******* Server GC After:~n~p~n", [Server_GC_After]),
     Speed = round((Bytes * 1000000) / (1024 * Time)),
-    report(Prefix ++ " Throughput_" ++ SizeString, Speed, "kB/s").
+    report(
+      Prefix ++ " Throughput_" ++ SizeString, Speed, "kB/s " ++ MemSuffix).
 
 %% Runs on node A and spawns a server on node B
 throughput_runner(A, B, Rounds, Size) ->
@@ -1171,13 +1199,13 @@ elapsed_time(StartTime) ->
 microseconds(Time) ->
     erlang:convert_time_unit(Time, native, microsecond).
 
-report(Name, Value, Unit) ->
-    ct:pal("~s: ~w ~s", [Name, Value, Unit]),
+report(Name, Value, Suffix) ->
+    ct:pal("~s: ~w ~s", [Name, Value, Suffix]),
     ct_event:notify(
       #event{
          name = benchmark_data,
          data = [{value, Value}, {suite, "ssl_dist"}, {name, Name}]}),
-    {comment, term_to_string(Value) ++ " " ++ Unit}.
+    {comment, term_to_string(Value) ++ " " ++ Suffix}.
 
 term_to_string(Term) ->
     unicode:characters_to_list(
@@ -1185,3 +1213,48 @@ term_to_string(Term) ->
 
 msacc_available() ->
     msacc:available().
+
+
+mem_start(HA, HB) ->
+    {_, _, MaxEverA} = ssl_apply(HA, fun mem/0),
+    {_, _, MaxEverB} = ssl_apply(HB, fun mem/0),
+    {MaxEverA, MaxEverB}.
+
+mem_stop(HA, HB, {MaxEverA1, MaxEverB1}) ->
+    {_, _, MaxEverA2} = ssl_apply(HA, fun mem/0),
+    {_, _, MaxEverB2} = ssl_apply(HB, fun mem/0),
+    MemA = MaxEverA2 - MaxEverA1,
+    MemB = MaxEverB2 - MaxEverB1,
+    MemSuffix =
+        io_lib:format(
+          "~.5g|~.5g MByte", [MemA / (1 bsl 20), MemB / (1 bsl 20)]),
+    {round(MemA / (1 bsl 10)), round(MemB / (1 bsl 10)), MemSuffix}.
+
+mem() ->
+    mem(
+      0, 0, 0,
+      [erlang:system_info({allocator_sizes, Alloc})
+       || Alloc <- erlang:system_info(alloc_util_allocators)]).
+
+mem(C, S, E, []) ->
+    {C, S, E};
+mem(C, S, E, [Items | Stack]) ->
+    mem(C, S, E, Stack, Items).
+
+mem(C, S, E, Stack, []) ->
+    mem(C, S, E, Stack);
+mem(C, S, E, Stack, [Item | Items]) ->
+    mem(C, S, E, Stack, Items, Item).
+
+mem(C, S, E, Stack, Items, Item) ->
+    case Item of
+        {size, Current} ->
+            mem(C + Current, S, E, Stack, Items);
+        {size, Current, MaxSize, MaxEver} ->
+            mem(C + Current, S + MaxSize, E + MaxEver, Stack, Items);
+        _ when is_list(element(tuple_size(Item), Item)) ->
+            NewItems = element(tuple_size(Item), Item),
+            mem(C, S, E, [Items | Stack], NewItems);
+        _ ->
+            mem(C, S, E, Stack, Items)
+    end.
