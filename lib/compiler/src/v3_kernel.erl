@@ -1375,8 +1375,9 @@ select_bin_int([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
 	true -> throw(not_possible);
 	false -> ok
     end,
-    Cs = select_bin_int_1(Cs0, Bits, Fl, Val),
-    [{k_bin_int,[C#iclause{pats=[P|Ps]}|Cs]}];
+    Cs1 = [C#iclause{pats=[P|Ps]}|select_bin_int_1(Cs0, Bits, Fl, Val)],
+    Cs = reorder_bin_ints(Cs1),
+    [{k_bin_int,Cs}];
 select_bin_int(_) -> throw(not_possible).
 
 select_bin_int_1([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
@@ -1417,6 +1418,24 @@ select_assert_match_possible(_, _, _) ->
 match_fun(Val) ->
     fun(match, {{integer,_,_},NewV,Bs}) when NewV =:= Val ->
 	    {match,Bs}
+    end.
+
+reorder_bin_ints([_]=Cs) ->
+    Cs;
+reorder_bin_ints(Cs0) ->
+    %% It is safe to reorder clauses that matches binaries if the
+    %% first segments for all of them match the same number of bits.
+    Cs = sort([{reorder_bin_int_sort_key(C),C} || C <- Cs0]),
+    [C || {_,C} <- Cs].
+
+reorder_bin_int_sort_key(#iclause{pats=[Pats|_]}) ->
+    case Pats of
+        #k_bin_int{val=Val,next=#k_bin_end{}} ->
+            %% Sort before clauses with additional segments. This usually results in
+            %% better code.
+            [Val];
+        #k_bin_int{val=Val} ->
+            [Val,more]
     end.
 
 %% match_value([Var], Con, [Clause], Default, State) -> {SelectExpr,State}.
