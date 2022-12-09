@@ -479,6 +479,8 @@ build_warnings([Opt|Opts], Warnings) ->
         ordsets:del_element(?WARN_CONTRACT_MISSING_RETURN, Warnings);
       unknown ->
         ordsets:add_element(?WARN_UNKNOWN, Warnings);
+      overlapping_contract ->
+        ordsets:add_element(?WARN_OVERLAPPING_CONTRACT, Warnings);
       OtherAtom ->
         bad_option("Unknown dialyzer warning option", OtherAtom)
     end,
