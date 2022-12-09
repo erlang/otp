@@ -150,20 +150,6 @@ init_per_suite(Config) ->
         %%
         %%
         %%
-        PrivDir = proplists:get_value(priv_dir, Config),
-        [_, HostA] = split_node(Node),
-        NodeAName = ?MODULE_STRING ++ "_node_a",
-        NodeAString = NodeAName ++ "@" ++ HostA,
-        NodeAConfFile = filename:join(PrivDir, NodeAString ++ ".conf"),
-        NodeA = list_to_atom(NodeAString),
-        %%
-        ServerNode = ssl_bench_test_lib:setup(dist_server),
-        [_, HostB] = split_node(ServerNode),
-        NodeBName = ?MODULE_STRING ++ "_node_b",
-        NodeBString = NodeBName ++ "@" ++ HostB,
-        NodeBConfFile = filename:join(PrivDir, NodeBString ++ ".conf"),
-        NodeB = list_to_atom(NodeBString),
-        %%
         CertOptions =
             [{digest, Digest},
              {key, {namedCurve, ECCurve}}],
@@ -181,31 +167,62 @@ init_per_suite(Config) ->
             | SSLConf],
         ClientConf = SSLConf,
         %%
+        PrivDir = proplists:get_value(priv_dir, Config),
+        %%
+        ServerNode = ssl_bench_test_lib:setup(dist_server),
+        [_, ServerHost] = split_node(ServerNode),
+        ServerName = ?MODULE_STRING ++ "_server",
+        ServerString = ServerName ++ "@" ++ ServerHost,
+        ServerConfFile = filename:join(PrivDir, ServerString ++ ".conf"),
+        Server = list_to_atom(ServerString),
+        %%
         write_node_conf(
-          NodeAConfFile, NodeA, ServerConf, ClientConf,
-          CertOptions, RootCert),
-        write_node_conf(
-          NodeBConfFile, NodeB, ServerConf, ClientConf,
+          ServerConfFile, Server, ServerConf, ClientConf,
           CertOptions, RootCert),
         %%
-        [{node_a_name, NodeAName},
-         {node_a, NodeA},
-         {node_a_dist_args,
+        Schedulers =
+            erpc:call(ServerNode, erlang, system_info, [schedulers]),
+        [_, ClientHost] = split_node(Node),
+        [{server_node, ServerNode},
+         {server_name, ServerName},
+         {server, Server},
+         {server_dist_args,
           "-proto_dist inet_tls "
-          "-ssl_dist_optfile " ++ NodeAConfFile ++ " "},
-         {node_b_name, NodeBName},
-         {node_b, NodeB},
-         {node_b_dist_args,
-          "-proto_dist inet_tls "
-          "-ssl_dist_optfile " ++ NodeBConfFile ++ " "},
-         {server_node, ServerNode}
-        |Config]
+          "-ssl_dist_optfile " ++ ServerConfFile ++ " "},
+         {clients, Schedulers} |
+         init_client_node(
+           ClientHost, Schedulers, PrivDir, ServerConf, ClientConf,
+           CertOptions, RootCert, Config)]
     catch
         throw : {Skip, Reason} ->
             {skip, Reason};
         Class : Reason : Stacktrace ->
             {fail, {Class, Reason, Stacktrace}}
     end.
+
+init_client_node(
+  _ClientHost, 0, _PrivDir, _ServerConf, _ClientConf,
+  _CertOptions, _RootCert, Config) ->
+    Config;
+init_client_node(
+  ClientHost, N, PrivDir, ServerConf, ClientConf,
+  CertOptions, RootCert, Config) ->
+    ClientName = ?MODULE_STRING ++ "_client_" ++ integer_to_list(N),
+    ClientString = ClientName ++ "@" ++ ClientHost,
+    ClientConfFile = filename:join(PrivDir, ClientString ++ ".conf"),
+    Client = list_to_atom(ClientString),
+    %%
+    write_node_conf(
+      ClientConfFile, Client, ServerConf, ClientConf,
+      CertOptions, RootCert),
+    init_client_node(
+      ClientHost, N - 1, PrivDir, ServerConf, ClientConf,
+      CertOptions, RootCert,
+      [{{client_name, N}, ClientName},
+       {{client, N}, Client},
+       {{client_dist_args, N},
+        "-proto_dist inet_tls "
+        "-ssl_dist_optfile " ++ ClientConfFile ++ " "} | Config]).
 
 end_per_suite(Config) ->
     ServerNode = proplists:get_value(server_node, Config),
@@ -1091,19 +1108,19 @@ prof_print([]) ->
 %%% Test cases helpers
 
 run_nodepair_test(TestFun, Config) ->
-    A = proplists:get_value(node_a, Config),
-    B = proplists:get_value(node_b, Config),
+    A = proplists:get_value({client,1}, Config),
+    B = proplists:get_value(server, Config),
     Prefix = proplists:get_value(ssl_dist_prefix, Config),
     Effort = proplists:get_value(effort, Config, 1),
-    HA = start_ssl_node_a(Config),
+    HA = start_ssl_node({client,1}, Config),
     try
-        HB = start_ssl_node_b(Config),
+        HB = start_ssl_node(server, Config),
         try TestFun(A, B, Prefix, Effort, HA, HB)
         after
-            stop_ssl_node_b(HB, Config)
+            stop_ssl_node(server, HB, Config)
         end
     after
-        stop_ssl_node_a(HA)
+        stop_ssl_node({client,1}, HA, Config)
     end.
 
 ssl_apply(Handle, M, F, Args) ->
@@ -1122,26 +1139,24 @@ ssl_apply(Handle, Fun) ->
             Result
     end.
 
-start_ssl_node_a(Config) ->
-    Name = proplists:get_value(node_a_name, Config),
-    Args = get_node_args(node_a_dist_args, Config),
+start_ssl_node({client, N}, Config) ->
+    Name = proplists:get_value({client_name, N}, Config),
+    Args = get_node_args({client_dist_args, N}, Config),
     Pa = filename:dirname(code:which(?MODULE)),
     ssl_dist_test_lib:start_ssl_node(
-      Name, "-pa " ++ Pa ++ " " ++ Args, 0).
-
-start_ssl_node_b(Config) ->
-    Name = proplists:get_value(node_b_name, Config),
-    Args = get_node_args(node_b_dist_args, Config),
+      Name, "-pa " ++ Pa ++ " " ++ Args, 0);
+start_ssl_node(server, Config) ->
+    Name = proplists:get_value(server_name, Config),
+    Args = get_node_args(server_dist_args, Config),
     Pa = filename:dirname(code:which(?MODULE)),
     ServerNode = proplists:get_value(server_node, Config),
     erpc:call(
       ServerNode, ssl_dist_test_lib, start_ssl_node,
       [Name, "-pa " ++ Pa ++ " " ++ Args, 0]).
 
-stop_ssl_node_a(HA) ->
-    ssl_dist_test_lib:stop_ssl_node(HA).
-
-stop_ssl_node_b(HB, Config) ->
+stop_ssl_node({client, _}, HA, _Config) ->
+    ssl_dist_test_lib:stop_ssl_node(HA);
+stop_ssl_node(server, HB, Config) ->
     ServerNode = proplists:get_value(server_node, Config),
     erpc:call(ServerNode, ssl_dist_test_lib, stop_ssl_node, [HB]).
 
