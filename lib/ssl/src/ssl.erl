@@ -2048,13 +2048,19 @@ validate_protocols(true, Opt, List) ->
     lists:foreach(Check, List).
 
 opt_mitigation(UserOpts, #{versions := Versions} = Opts, _Env) ->
-    {Where1, BM} = get_opt_of(beast_mitigation, [disabled, one_n_minus_one, zero_n], one_n_minus_one, UserOpts, Opts),
+    DefBeast = case lists:last(Versions) > {3,1} of
+                   true -> disabled;
+                   false -> one_n_minus_one
+               end,
+    {Where1, BM} = get_opt_of(beast_mitigation, [disabled, one_n_minus_one, zero_n], DefBeast, UserOpts, Opts),
     assert_version_dep(Where1 =:= new, beast_mitigation, Versions, ['tlsv1']),
 
     {Where2, PC} = get_opt_bool(padding_check, true, UserOpts, Opts),
     assert_version_dep(Where2 =:= new, padding_check, Versions, ['tlsv1']),
 
-    Opts#{beast_mitigation => BM, padding_check => PC}.
+    %% Use 'new' we need to check for non default 'one_n_minus_one'
+    Opts1 = set_opt_new(new, beast_mitigation, disabled, BM, Opts),
+    set_opt_new(Where2, padding_check, true, PC, Opts1).
 
 opt_server(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
     {_, ECC} = get_opt_bool(honor_ecc_order, false, UserOpts, Opts),

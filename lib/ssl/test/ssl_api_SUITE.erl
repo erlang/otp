@@ -2427,9 +2427,10 @@ options_anti_replay(_Config) ->
     ok.
 
 options_beast_mitigation(_Config) -> %% Beast mitigation
-    ?OK(#{beast_mitigation := one_n_minus_one}, [], client),
-    ?OK(#{beast_mitigation := disabled},
-        [{beast_mitigation, disabled}, {versions, [tlsv1]}], client),
+    ?OK(#{beast_mitigation := one_n_minus_one}, [{versions, [tlsv1,'tlsv1.1']}], client),
+    ?OK(#{}, [{versions, ['tlsv1.1']}], client, [beast_mitigation]),
+    ?OK(#{}, [{beast_mitigation, disabled}, {versions, [tlsv1]}], client,
+        [beast_mitigation]),
     ?OK(#{beast_mitigation := zero_n},
         [{beast_mitigation, zero_n}, {versions, [tlsv1]}], client),
 
@@ -2847,7 +2848,7 @@ options_oscp(Config) ->
     ok.
 
 options_padding(_Config) ->
-    ?OK(#{padding_check := true}, [], server),
+    ?OK(#{}, [], server, [padding_check]),
     ?OK(#{padding_check := false}, [{padding_check, false}, {versions, [tlsv1]}], server),
     %% Errors
     ?ERR({padding_check, foo}, [{padding_check, foo}, {versions, [tlsv1]}], server),
