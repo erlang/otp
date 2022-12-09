@@ -3414,7 +3414,7 @@ is_module_dialyzer_option(Option) ->
                   error_handling,race_conditions,no_missing_calls,
                   specdiffs,overspecs,underspecs,unknown,
                   no_underspecs,extra_return,no_extra_return,
-                  missing_return,no_missing_return
+                  missing_return,no_missing_return,overlapping_contract
                  ]).
 
 %% try_catch_clauses(Scs, Ccs, In, ImportVarTable, State) ->

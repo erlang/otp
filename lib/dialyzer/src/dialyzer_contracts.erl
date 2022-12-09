@@ -918,7 +918,7 @@ contract_opaque_warning({M, F, A}, WarningInfo, OpType, SuccType, RecDict) ->
    {contract_with_opaque, [M, F, A, OpaqueStr, SuccTypeStr]}}.
 
 overlapping_contract_warning({M, F, A}, WarningInfo) ->
-  {?WARN_CONTRACT_TYPES, WarningInfo, {overlapping_contract, [M, F, A]}}.
+  {?WARN_OVERLAPPING_CONTRACT, WarningInfo, {overlapping_contract, [M, F, A]}}.
 
 extra_range_warning({M, F, A}, WarningInfo, ExtraRanges, STRange) ->
   ERangesStr = erl_types:t_to_string(ExtraRanges),

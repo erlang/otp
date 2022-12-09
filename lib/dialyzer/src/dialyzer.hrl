@@ -33,29 +33,30 @@
 %% Warning classification
 %%--------------------------------------------------------------------
 
+-define(WARN_BEHAVIOUR, warn_behaviour).
+-define(WARN_BIN_CONSTRUCTION, warn_bin_construction).
+-define(WARN_CALLGRAPH, warn_callgraph).
+-define(WARN_CONTRACT_EXTRA_RETURN, warn_contract_extra_return).
+-define(WARN_CONTRACT_MISSING_RETURN, warn_contract_missing_return).
+-define(WARN_CONTRACT_NOT_EQUAL, warn_contract_not_equal).
+-define(WARN_CONTRACT_RANGE, warn_contract_range).
+-define(WARN_CONTRACT_SUBTYPE, warn_contract_subtype).
+-define(WARN_CONTRACT_SUPERTYPE, warn_contract_supertype).
+-define(WARN_CONTRACT_SYNTAX, warn_contract_syntax).
+-define(WARN_CONTRACT_TYPES, warn_contract_types).
+-define(WARN_FAILING_CALL, warn_failing_call).
+-define(WARN_FUN_APP, warn_fun_app).
+-define(WARN_MAP_CONSTRUCTION, warn_map_construction).
+-define(WARN_MATCHING, warn_matching).
+-define(WARN_NON_PROPER_LIST, warn_non_proper_list).
+-define(WARN_NOT_CALLED, warn_not_called).
+-define(WARN_OPAQUE, warn_opaque).
+-define(WARN_OVERLAPPING_CONTRACT, warn_overlapping_contract).
 -define(WARN_RETURN_NO_RETURN, warn_return_no_exit).
 -define(WARN_RETURN_ONLY_EXIT, warn_return_only_exit).
--define(WARN_NOT_CALLED, warn_not_called).
--define(WARN_NON_PROPER_LIST, warn_non_proper_list).
--define(WARN_FUN_APP, warn_fun_app).
--define(WARN_MATCHING, warn_matching).
--define(WARN_OPAQUE, warn_opaque).
--define(WARN_FAILING_CALL, warn_failing_call).
--define(WARN_BIN_CONSTRUCTION, warn_bin_construction).
--define(WARN_CONTRACT_TYPES, warn_contract_types).
--define(WARN_CONTRACT_SYNTAX, warn_contract_syntax).
--define(WARN_CONTRACT_NOT_EQUAL, warn_contract_not_equal).
--define(WARN_CONTRACT_SUBTYPE, warn_contract_subtype).
--define(WARN_CONTRACT_MISSING_RETURN, warn_contract_missing_return).
--define(WARN_CONTRACT_SUPERTYPE, warn_contract_supertype).
--define(WARN_CONTRACT_EXTRA_RETURN, warn_contract_extra_return).
--define(WARN_CONTRACT_RANGE, warn_contract_range).
--define(WARN_CALLGRAPH, warn_callgraph).
--define(WARN_UNMATCHED_RETURN, warn_umatched_return).
--define(WARN_BEHAVIOUR, warn_behaviour).
 -define(WARN_UNDEFINED_CALLBACK, warn_undefined_callbacks).
 -define(WARN_UNKNOWN, warn_unknown).
--define(WARN_MAP_CONSTRUCTION, warn_map_construction).
+-define(WARN_UNMATCHED_RETURN, warn_umatched_return).
 
 %%
 %% The following type has double role:
