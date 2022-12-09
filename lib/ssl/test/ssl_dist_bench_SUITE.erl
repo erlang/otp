@@ -34,6 +34,7 @@
 %% Test cases
 -export(
    [setup/1,
+    parallel_setup/1,
     roundtrip/1,
     sched_utilization/1,
     mean_load_cpu_margin/1,
@@ -74,7 +75,9 @@ groups() ->
      {kernel_offload, categories()},
      %%
      %% categories()
-     {setup, [{repeat, 1}], [setup]},
+     {setup, [{repeat, 1}],
+      [setup,
+       parallel_setup]},
      {roundtrip, [{repeat, 1}], [roundtrip]},
      {sched_utilization,[{repeat, 1}],
       [sched_utilization,
@@ -407,8 +410,8 @@ setup_loop(_A, _B, T, 0) ->
     T;
 setup_loop(A, B, T, N) ->
     StartTime = start_time(),
-    try erpc:call(B, erlang, nodes, []) of
-        [A] -> ok;
+    try erpc:call(B, net_adm, ping, [A]) of
+        pong -> ok;
         Other ->
             error({N,Other})
     catch
@@ -441,6 +444,102 @@ setup_wait_nodedown(A, Time) ->
             end
     end.
 
+
+%%----------------
+%% Parallel setup
+
+parallel_setup(Config) ->
+    Clients = proplists:get_value(clients, Config),
+    parallel_setup(Config, Clients, Clients, []).
+
+parallel_setup(Config, Clients, I, HNs) when 0 < I ->
+    Key = {client, I},
+    Node = proplists:get_value(Key, Config),
+    Handle = start_ssl_node(Key, Config),
+    try
+        parallel_setup(Config, Clients, I - 1, [{Handle, Node} | HNs])
+    after
+        stop_ssl_node(Key, Handle, Config)
+    end;
+parallel_setup(Config, Clients, _0, HNs) ->
+    Key = server,
+    ServerNode = proplists:get_value(Key, Config),
+    ServerHandle = start_ssl_node(Key, Config, 0),
+    Effort = proplists:get_value(effort, Config, 1),
+    TotalRounds = 1000 * Effort,
+    Rounds = round(TotalRounds / Clients),
+    try
+        ServerMemBefore =
+            ssl_dist_test_lib:apply_on_ssl_node(ServerHandle, fun mem/0),
+        parallel_setup_result(
+          Config, TotalRounds, ServerHandle, ServerMemBefore,
+          [parallel_setup_runner(Handle, Node, ServerNode, Rounds)
+           || {Handle, Node} <- HNs])
+    after
+        stop_ssl_node(Key, ServerHandle, Config)
+    end.
+
+parallel_setup_runner(Handle, Node, ServerNode, Rounds) ->
+    Collector = self(),
+    Tag = make_ref(),
+    _ =
+        spawn_link(
+          fun () ->
+                  MemBefore =
+                      ssl_dist_test_lib:apply_on_ssl_node(Handle, fun mem/0),
+                  Result =
+                      ssl_dist_test_lib:apply_on_ssl_node(
+                        Handle, ?MODULE, setup_runner,
+                        [Node, ServerNode, Rounds]),
+                  MemAfter =
+                      ssl_dist_test_lib:apply_on_ssl_node(Handle, fun mem/0),
+                  Collector ! {Tag,{MemBefore, Result, MemAfter}}
+          end),
+    Tag.
+
+parallel_setup_result(
+  Config, TotalRounds, ServerHandle, ServerMemBefore, Tags) ->
+    parallel_setup_result(
+      Config, TotalRounds, ServerHandle, ServerMemBefore, Tags,
+      0, 0, 0).
+%%
+parallel_setup_result(
+  Config, TotalRounds, ServerHandle, ServerMemBefore, [Tag | Tags],
+  SetupTime, CycleTime, Mem) ->
+    receive
+        {Tag, {{_, _, MaxEver1}, {ST, CT}, {_, _, MaxEver2}}}
+          when is_integer(ST), is_integer(CT),
+               is_integer(MaxEver1), is_integer(MaxEver2) ->
+            parallel_setup_result(
+              Config, TotalRounds, ServerHandle, ServerMemBefore, Tags,
+              SetupTime + ST, CycleTime + CT, Mem + MaxEver2 - MaxEver1);
+        {Tag, Error} ->
+            exit(Error)
+    end;
+parallel_setup_result(
+  Config, TotalRounds, ServerHandle, ServerMemBefore, [],
+  SetupTime, CycleTime, Mem) ->
+    ServerMemAfter =
+        ssl_dist_test_lib:apply_on_ssl_node(ServerHandle, fun mem/0),
+    ServerMem =
+        case {ServerMemBefore, ServerMemAfter} of
+            {{_, _, ServerMaxEver1}, {_, _, ServerMaxEver2}}
+              when is_integer(ServerMaxEver1), is_integer(ServerMaxEver2) ->
+                ServerMaxEver2 - ServerMaxEver1;
+            Other ->
+                exit(Other)
+        end,
+    Clients = proplists:get_value(clients, Config),
+    Prefix = proplists:get_value(ssl_dist_prefix, Config),
+    SetupSpeed = 1000 * round(TotalRounds / (SetupTime/1000000)),
+    CycleSpeed = 1000 * round(TotalRounds / (CycleTime/1000000)),
+    {MemC, MemS, MemSuffix} = mem_result(Mem / Clients, ServerMem),
+    _ = report(Prefix++" Parallel Setup Mem Clients", MemC, "KByte"),
+    _ = report(Prefix++" Parallel Setup Mem Server", MemS, "KByte"),
+    _ = report(Prefix++" Parallel Setup", SetupSpeed, "setups/1000s"),
+    report(
+      Prefix++" Parallel Setup Cycle", CycleSpeed, "cycles/1000s "
+      ++ MemSuffix).
 
 %%----------------
 %% Roundtrip speed
@@ -1139,20 +1238,23 @@ ssl_apply(Handle, Fun) ->
             Result
     end.
 
-start_ssl_node({client, N}, Config) ->
+start_ssl_node(Spec, Config) ->
+    start_ssl_node(Spec, Config, 0).
+%%
+start_ssl_node({client, N}, Config, Verbose) ->
     Name = proplists:get_value({client_name, N}, Config),
     Args = get_node_args({client_dist_args, N}, Config),
     Pa = filename:dirname(code:which(?MODULE)),
     ssl_dist_test_lib:start_ssl_node(
-      Name, "-pa " ++ Pa ++ " " ++ Args, 0);
-start_ssl_node(server, Config) ->
+      Name, "-pa " ++ Pa ++ " " ++ Args, Verbose);
+start_ssl_node(server, Config, Verbose) ->
     Name = proplists:get_value(server_name, Config),
     Args = get_node_args(server_dist_args, Config),
     Pa = filename:dirname(code:which(?MODULE)),
     ServerNode = proplists:get_value(server_node, Config),
     erpc:call(
       ServerNode, ssl_dist_test_lib, start_ssl_node,
-      [Name, "-pa " ++ Pa ++ " " ++ Args, 0]).
+      [Name, "-pa " ++ Pa ++ " " ++ Args, Verbose]).
 
 stop_ssl_node({client, _}, HA, _Config) ->
     ssl_dist_test_lib:stop_ssl_node(HA);
@@ -1240,6 +1342,9 @@ mem_stop(HA, HB, {MaxEverA1, MaxEverB1}) ->
     {_, _, MaxEverB2} = ssl_apply(HB, fun mem/0),
     MemA = MaxEverA2 - MaxEverA1,
     MemB = MaxEverB2 - MaxEverB1,
+    mem_result(MemA, MemB).
+
+mem_result(MemA, MemB) ->
     MemSuffix =
         io_lib:format(
           "~.5g|~.5g MByte", [MemA / (1 bsl 20), MemB / (1 bsl 20)]),
