@@ -2062,7 +2062,7 @@ opt_mitigation(UserOpts, #{versions := Versions} = Opts, _Env) ->
     Opts1 = set_opt_new(new, beast_mitigation, disabled, BM, Opts),
     set_opt_new(Where2, padding_check, true, PC, Opts1).
 
-opt_server(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
+opt_server(UserOpts, #{versions := Versions, log_level := LogLevel} = Opts, #{role := server}) ->
     {_, ECC} = get_opt_bool(honor_ecc_order, false, UserOpts, Opts),
 
     {_, Cipher} = get_opt_bool(honor_cipher_order, false, UserOpts, Opts),
@@ -2073,13 +2073,28 @@ opt_server(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
     {Where2, ReNeg} = get_opt_bool(client_renegotiation, true, UserOpts, Opts),
     assert_version_dep(Where2 =:= new, client_renegotiation, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
 
-    Opts#{honor_ecc_order => ECC, honor_cipher_order => Cipher,
-          cookie => Cookie, client_renegotiation => ReNeg};
+    Opts1 = case get_opt(dh, undefined, UserOpts, Opts) of
+                {Where, DH} when is_binary(DH) ->
+                    warn_override(Where, UserOpts, dh, [dhfile], LogLevel),
+                    Opts#{dh => DH};
+                {new, DH} ->
+                    option_error(dh, DH);
+                {_, undefined} ->
+                    case get_opt_file(dhfile, unbound, UserOpts, Opts) of
+                        {default, unbound} -> Opts;
+                        {_, DHFile} -> Opts#{dhfile => DHFile}
+                    end
+            end,
+
+    Opts1#{honor_ecc_order => ECC, honor_cipher_order => Cipher,
+           cookie => Cookie, client_renegotiation => ReNeg};
 opt_server(UserOpts, Opts, #{role := client}) ->
     assert_server_only(honor_ecc_order, UserOpts),
     assert_server_only(honor_cipher_order, UserOpts),
     assert_server_only(cookie, UserOpts),
     assert_server_only(client_renegotiation, UserOpts),
+    assert_server_only(dh, UserOpts),
+    assert_server_only(dhfile, UserOpts),
     Opts.
 
 opt_client(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
@@ -2175,9 +2190,9 @@ opt_identity(UserOpts, #{versions := Versions} = Opts, _Env) ->
 
     Opts#{psk_identity => PSK, srp_identity => SRP, user_lookup_fun => ULF}.
 
-opt_supported_groups(UserOpts, #{versions := Versions, log_level := LogLevel} = Opts0, _Env) ->
+opt_supported_groups(UserOpts, #{versions := Versions} = Opts, _Env) ->
     [TlsVersion|_] = TlsVsns = [tls_version(V) || V <- Versions],
-    SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts0) of
+    SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts) of
              {default, undefined} ->
                  handle_supported_groups_option(groups(default), TlsVersion);
              {new, SG0} ->
@@ -2186,19 +2201,6 @@ opt_supported_groups(UserOpts, #{versions := Versions, log_level := LogLevel} = 
              {old, SG0} ->
                  SG0
          end,
-
-    Opts = case get_opt(dh, undefined, UserOpts, Opts0) of
-               {Where, DH} when is_binary(DH) ->
-                   warn_override(Where, UserOpts, dh, [dhfile], LogLevel),
-                   Opts0#{dh => DH, dhfile => undefined};
-               {new, DH} ->
-                   option_error(dh, DH);
-               {_, undefined} ->
-                   case get_opt_file(dhfile, unbound, UserOpts, Opts0) of
-                       {default, unbound} -> Opts0#{dh => undefined, dhfile => undefined};
-                       {_, DHFile} -> Opts0#{dh => undefined, dhfile => DHFile}
-                   end
-           end,
 
     CPHS = case get_opt_list(ciphers, [], UserOpts, Opts) of
                {old, CPS0} -> CPS0;

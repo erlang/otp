@@ -1889,7 +1889,6 @@ der_input(Config) when is_list(Config) ->
 		  {dh, DHParams},
 		  {cert, ServerCert}, {key, ServerKey}, {cacerts, ServerCaCerts}],
     ClientOpts = [{verify, verify_peer},
-		  {dh, DHParams},
 		  {cert, ClientCert}, {key, ClientKey}, {cacerts, ClientCaCerts}],
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -1915,7 +1914,6 @@ der_input(Config) when is_list(Config) ->
                    {cacerts, [ #cert{der=Der, otp=public_key:pkix_decode_cert(Der, otp)}
                                || Der <- ServerCaCerts]}],
     ClientOpts1 = [{verify, verify_peer},
-                   {dh, DHParams},
                    {cert, ClientCert}, {key, ClientKey},
                    {cacerts, [ #cert{der=Der, otp=public_key:pkix_decode_cert(Der, otp)}
                                || Der <- ClientCaCerts]}],
@@ -2134,7 +2132,6 @@ invalid_options(Config) when is_list(Config) ->
           {keyfile,'key.pem' }, 
           {password, foo},
           {cacertfile, ""}, 
-          {dhfile,'dh.pem' },
           {ciphers, [{foo, bar, sha, ignore}]},
           {reuse_session, foo},
           {reuse_sessions, 0},
@@ -2582,18 +2579,20 @@ options_hostname_check(_Config) ->
     ok.
 
 options_dh(_Config) -> %% dh dhfile
-    ?OK(#{dh := undefined, dhfile := undefined}, [], client),
-    ?OK(#{dh := <<>>, dhfile := undefined}, [{dh, <<>>}], client),
-    ?OK(#{dh := undefined, dhfile := <<"/tmp/foo">>}, [{dhfile, <<"/tmp/foo">>}], client),
-    ?OK(#{dh := <<>>, dhfile := undefined}, [{dh, <<>>}, {dhfile, <<"/tmp/foo">>}], client),
+    ?OK(#{}, [], server, [dh, dhfile]),
+    ?OK(#{dh := <<>>}, [{dh, <<>>}], server, [dhfile]),
+    ?OK(#{dhfile := <<"/tmp/foo">>}, [{dhfile, <<"/tmp/foo">>}], server, [dh]),
+    ?OK(#{dh := <<>>}, [{dh, <<>>}, {dhfile, <<"/tmp/foo">>}], server, [dhfile]),
 
-    %% Should be and error
-    ?OK(#{dh := undefined, dhfile := <<"/tmp/foo">>},  %% Not available in 1.3
-        [{dhfile, <<"/tmp/foo">>}, {versions, ['tlsv1.3']}], client),
+    %% Should be an error
+    ?OK(#{dhfile := <<"/tmp/foo">>},  %% Not available in 1.3
+        [{dhfile, <<"/tmp/foo">>}, {versions, ['tlsv1.3']}], server, [dh]),
 
     %% Error
-    ?ERR({dh, not_a_bin}, [{dh, not_a_bin}], client),
-    ?ERR({dhfile, not_a_filename}, [{dhfile, not_a_filename}], client),
+    ?ERR({dh, not_a_bin}, [{dh, not_a_bin}], server),
+    ?ERR({dhfile, not_a_filename}, [{dhfile, not_a_filename}], server),
+    ?ERR({option, server_only, dhfile}, [{dhfile, "file"}], client),
+    ?ERR({option, server_only, dh}, [{dh, <<"DER">>}], client),
     ok.
 
 options_early_data(_Config) -> %% early_data, session_tickets and use_ticket

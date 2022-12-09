@@ -40,13 +40,11 @@
 %%====================================================================
 %% Internal application API
 %%====================================================================
-init(#{dh := DH, dhfile := DHFile} = SslOpts, Role) ->
+init(SslOpts, Role) ->
     init_manager_name(maps:get(erl_dist, SslOpts, false)),
     #{pem_cache := PemCache} = Config = init_cacerts(SslOpts, Role),
-    DHParams = init_diffie_hellman(PemCache, DH, DHFile, Role),
-
+    DHParams = init_diffie_hellman(PemCache, SslOpts, Role),
     CertKeyAlts = init_certs_keys(SslOpts, Role, PemCache),
-
     {ok, Config#{cert_key_alts => CertKeyAlts, dh_params => DHParams}}.
 
 init_certs_keys(#{certs_keys := CertsKeys}, Role, PemCache) ->
@@ -326,26 +324,34 @@ file_error(File, Throw) ->
 	    throw(Throw)
     end.
 
-init_diffie_hellman(_,Params, _,_) when is_binary(Params)->
-    public_key:der_decode('DHParameter', Params);
-init_diffie_hellman(_,_,_, client) ->
+init_diffie_hellman(_, _, client) ->
     undefined;
-init_diffie_hellman(_,_,undefined, _) ->
-    ?DEFAULT_DIFFIE_HELLMAN_PARAMS;
-init_diffie_hellman(DbHandle,_, DHParamFile, server) ->
-    try
-	{ok, List} = ssl_manager:cache_pem_file(DHParamFile,DbHandle),
-	case [Entry || Entry = {'DHParameter', _ , _} <- List] of
-	    [Entry] ->
-		public_key:pem_entry_decode(Entry);
-	    [] ->
-		?DEFAULT_DIFFIE_HELLMAN_PARAMS
-	end
-    catch
-	_:Reason ->
-	    file_error(DHParamFile, {dhfile, Reason}) 
+init_diffie_hellman(DbHandle, Opts, server) ->
+    case maps:get(dh, Opts, undefined) of
+        Bin when is_binary(Bin) ->
+            public_key:der_decode('DHParameter', Bin);
+        _ ->
+            case maps:get(dh, Opts, undefined) of
+                undefined ->
+                    ?DEFAULT_DIFFIE_HELLMAN_PARAMS;
+                DHParamFile ->
+                    dh_file(DbHandle, DHParamFile)
+            end
     end.
 
+dh_file(DbHandle, DHParamFile) ->
+    try
+        {ok, List} = ssl_manager:cache_pem_file(DHParamFile,DbHandle),
+        case [Entry || Entry = {'DHParameter', _ , _} <- List] of
+            [Entry] ->
+                public_key:pem_entry_decode(Entry);
+            [] ->
+                ?DEFAULT_DIFFIE_HELLMAN_PARAMS
+        end
+    catch
+        _:Reason ->
+            file_error(DHParamFile, {dhfile, Reason}) 
+    end.
 
 session_cb_init_args(client) ->
     case application:get_env(ssl, client_session_cb_init_args) of
