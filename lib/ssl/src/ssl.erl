@@ -2233,11 +2233,12 @@ opt_handshake(UserOpts, Opts, _Env) ->
 
     Opts#{handshake => HS, max_handshake_size => MHSS}.
 
-opt_process(UserOpts, Opts, _Env) ->
-    {_, RSO} = get_opt_list(receiver_spawn_opts, [], UserOpts, Opts),
-    {_, SSO} = get_opt_list(sender_spawn_opts, [], UserOpts, Opts),
-    {_, HA} = get_opt_int(hibernate_after, 0, infinity, infinity, UserOpts, Opts),
-    Opts#{receiver_spawn_opts => RSO, sender_spawn_opts => SSO, hibernate_after => HA}.
+opt_process(UserOpts, Opts0, _Env) ->
+    Opts1 = set_opt_list(receiver_spawn_opts, [], UserOpts, Opts0),
+    Opts2 = set_opt_list(sender_spawn_opts, [], UserOpts, Opts1),
+    %% {_, SSO} = get_opt_list(sender_spawn_opts, [], UserOpts, Opts),
+    %% Opts = Opts1#{receiver_spawn_opts => RSO, sender_spawn_opts => SSO},
+    set_opt_int(hibernate_after, 0, infinity, infinity, UserOpts, Opts2).
 
 %%%%
 
@@ -2324,6 +2325,16 @@ set_opt_int(Opt, Min, Max, Default, UserOpts, Opts) ->
             Opts#{Opt => Value};
         Value when Value =:= infinity, Max =:= infinity ->
             Opts#{Opt => Value};
+        Value ->
+            option_error(Opt, Value)
+    end.
+
+set_opt_list(Opt, Default, UserOpts, Opts) ->
+    case maps:get(Opt, UserOpts, []) of
+        Default ->
+            Opts;
+        List when is_list(List) ->
+            Opts#{Opt => List};
         Value ->
             option_error(Opt, Value)
     end.

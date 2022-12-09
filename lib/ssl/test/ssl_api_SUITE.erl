@@ -2748,8 +2748,7 @@ options_handshake(_Config) -> %% handshake
     ok.
 
 options_process(_Config) -> % hibernate_after, spawn_opts
-    ?OK(#{hibernate_after := infinity, receiver_spawn_opts := [], sender_spawn_opts := []},
-        [], client),
+    ?OK(#{}, [], client, [hibernate_after, receiver_spawn_opts, sender_spawn_opts]),
     ?OK(#{hibernate_after := 10000, receiver_spawn_opts := [foo], sender_spawn_opts := [bar]},
         [{hibernate_after, 10000}, {receiver_spawn_opts, [foo]}, {sender_spawn_opts, [bar]}],
         client),

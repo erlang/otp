@@ -110,7 +110,8 @@
 %% Description: Creates a process which calls Module:init/1 to
 %% choose appropriat gen_statem and initialize.
 %%--------------------------------------------------------------------
-start_link(Role, Sender, Host, Port, Socket, {#{receiver_spawn_opts := ReceiverOpts}, _, _} = Options, User, CbInfo) ->
+start_link(Role, Sender, Host, Port, Socket, {SslOpts, _, _} = Options, User, CbInfo) ->
+    ReceiverOpts = maps:get(receiver_spawn_opts, SslOpts, []),
     Opts = [link | proplists:delete(link, ReceiverOpts)],
     Pid = proc_lib:spawn_opt(?MODULE, init, [[Role, Sender, Host, Port, Socket, Options, User, CbInfo]], Opts),
     {ok, Pid}.
@@ -122,7 +123,8 @@ start_link(Role, Sender, Host, Port, Socket, {#{receiver_spawn_opts := ReceiverO
 %% Description: Creates a gen_statem process which calls Module:init/1 to
 %% initialize.
 %%--------------------------------------------------------------------
-start_link(Role, Host, Port, Socket, {#{receiver_spawn_opts := ReceiverOpts}, _, _} = Options, User, CbInfo) ->
+start_link(Role, Host, Port, Socket, {SslOpts, _, _} = Options, User, CbInfo) ->
+    ReceiverOpts = maps:get(receiver_spawn_opts, SslOpts, []),
     Opts = [link | proplists:delete(link, ReceiverOpts)],
     Pid = proc_lib:spawn_opt(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]], Opts),
     {ok, Pid}.
@@ -1011,8 +1013,9 @@ passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
 %%====================================================================
 
 hibernate_after(connection = StateName,
-		#state{ssl_options= #{hibernate_after := HibernateAfter}} = State,
+		#state{ssl_options= SslOpts} = State,
 		Actions) ->
+    HibernateAfter = maps:get(hibernate_after, SslOpts, infinity),
     {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
 hibernate_after(StateName, State, Actions) ->
     {next_state, StateName, State, Actions}.
