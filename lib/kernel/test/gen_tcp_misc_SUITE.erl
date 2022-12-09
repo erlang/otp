@@ -7570,11 +7570,19 @@ do_otp_18357(#{name := Name, addr := Addr}) ->
     {ok, PortNo} = inet:port(L),
 
     ?P("try connect (with bind-to-device)"),
-    {ok, C}      = gen_tcp:connect(Addr, PortNo,
-                                   [{inet_backend,   socket},
-                                    {bind_to_device, list_to_binary(Name)}]),
+    C = case gen_tcp:connect(Addr, PortNo,
+                             [{inet_backend,   socket},
+                              {bind_to_device, list_to_binary(Name)}]) of
+            {ok, CSock} ->
+                CSock;
+            {error, eperm = Reason} ->
+                ?P("Failed connecting, ~p, skipping", [Reason]),
+                (catch gen_tcp:close(L)),
+                skip(Reason)
+        end,
+
     ?P("try accept"),
-    {ok, A}      = gen_tcp:accept(L),
+    {ok, A} = gen_tcp:accept(L),
 
     ?P("cleanup"),
     (catch gen_tcp:close(C)),
