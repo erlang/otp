@@ -482,7 +482,7 @@ types(erlang, 'list_to_binary', [_]) ->
     sub_unsafe(#t_bitstring{size_unit=8}, [#t_list{}]);
 types(erlang, 'list_to_bitstring', [_]) ->
     %% As list_to_binary but with bitstrings rather than binaries.
-    sub_unsafe(#t_bitstring{}, [proper_list()]);
+    sub_unsafe(#t_bitstring{}, [#t_list{}]);
 types(erlang, list_to_integer, [_]) ->
     sub_unsafe(#t_integer{}, [proper_cons()]);
 types(erlang, list_to_integer, [_, _]) ->
