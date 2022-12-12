@@ -37,7 +37,22 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 4.4.1</title>
+  <section><title>Megaco 4.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A very minor improvement to the measurement tool.</p>
+          <p>
+	    Own Id: OTP-18298</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 4.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

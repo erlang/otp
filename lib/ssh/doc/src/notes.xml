@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    graceful shutdown of ssh_conection_handler when
+	    connection is closed by peer</p>
+          <p>
+	    Own Id: OTP-18326 Aux Id: ERIERL-865 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

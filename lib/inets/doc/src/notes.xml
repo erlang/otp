@@ -33,7 +33,35 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 8.1</title>
+  <section><title>Inets 8.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    This change allows body requests to
+	    <c>httpc:request/5</c> be an <c>iolist()</c></p>
+          <p>
+	    Own Id: OTP-18250</p>
+        </item>
+        <item>
+          <p>
+	    addition of type specs in <c>httpc.erl</c></p>
+          <p>
+	    Own Id: OTP-18251 Aux Id: GH-6245 </p>
+        </item>
+        <item>
+          <p>
+	    httpc: Add support for HTTP 308 status code</p>
+          <p>
+	    Own Id: OTP-18280 Aux Id: GH-6290, PR-6291 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
