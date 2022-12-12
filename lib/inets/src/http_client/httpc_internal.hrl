@@ -127,7 +127,7 @@
 	  %% {{Host, Port}, HandlerPid}
 	  id, 
 
-	  client_close :: 'undefined' | boolean(),
+	  client_close = false :: boolean(),
 
 	  %% http (HTTP/TCP) | https (HTTP/SSL/TCP)
 	  scheme, 
