@@ -614,13 +614,18 @@ supported() ->
 %%
 
 start_keypair_server() ->
-    monitor_dist_proc(
-      keypair_server,
-      spawn_link(
-        fun () ->
-                register(?MODULE, self()),
-                keypair_server()
-        end)).
+    Parent = self(),
+    Ref = make_ref(),
+    _ =
+        monitor_dist_proc(
+          keypair_server,
+          spawn_link(
+            fun () ->
+                    register(?MODULE, self()),
+                    Parent ! Ref,
+                    keypair_server()
+            end)),
+    receive Ref -> ok end.
 
 keypair_server() ->
     keypair_server(undefined, undefined, undefined).
