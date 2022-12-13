@@ -353,11 +353,14 @@ bs_restores_is([#b_set{op=bs_start_match,dst=Start}|Is],
 bs_restores_is([#b_set{op=bs_ensure,dst=NewPos,args=Args}|Is],
                CtxChain, SPos0, _FPos, Rs0) ->
     Start = bs_subst_ctx(NewPos, CtxChain),
-    [FromPos|_] = Args,
+    [FromPos,#b_literal{val=Bits}|_] = Args,
     case SPos0 of
         #{Start := FromPos} ->
             %% Same position, no restore needed.
-            SPos = SPos0#{Start := NewPos},
+            SPos = case Bits of
+                       0 -> SPos0;
+                       _ -> SPos0#{Start := NewPos}
+                   end,
             FPos = SPos0,
             bs_restores_is(Is, CtxChain, SPos, FPos, Rs0);
         #{} ->
@@ -373,10 +376,19 @@ bs_restores_is([#b_set{anno=#{ensured := _},
     %% instruction, so there will never be a restore to this
     %% position.
     Start = bs_subst_ctx(NewPos, CtxChain),
-    [_,FromPos|_] = Args,
-    SPos = SPos0#{Start := NewPos},
-    FPos = SPos0#{Start := FromPos},
-    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
+    case Args of
+        [#b_literal{val=skip},_FromPos,_Type,_Flags,#b_literal{val=all},_] ->
+            %% This instruction will be optimized away. (The unit test
+            %% part of it has been take care of by the preceding
+            %% bs_ensure instruction.) All positions will be
+            %% unchanged.
+            SPos = FPos = SPos0,
+            bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
+        [_,FromPos|_] ->
+            SPos = SPos0#{Start := NewPos},
+            FPos = SPos0#{Start := FromPos},
+            bs_restores_is(Is, CtxChain, SPos, FPos, Rs)
+    end;
 bs_restores_is([#b_set{op=bs_match,dst=NewPos,args=Args}=I|Is],
                CtxChain, SPos0, _FPos, Rs0) ->
     Start = bs_subst_ctx(NewPos, CtxChain),
