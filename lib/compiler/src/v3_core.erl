@@ -81,8 +81,8 @@
 
 -export([module/2,format_error/1]).
 
--import(lists, [reverse/1,reverse/2,map/2,member/2,foldl/3,foldr/3,mapfoldl/3,
-                splitwith/2,keyfind/3,sort/1,droplast/1,last/1,
+-import(lists, [any/2,reverse/1,reverse/2,map/2,member/2,foldl/3,foldr/3,mapfoldl/3,
+                splitwith/2,keydelete/3,keyfind/3,keymember/3,sort/1,droplast/1,last/1,
                 duplicate/2]).
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
@@ -896,85 +896,47 @@ expr({call,L,FunExp,As0}, St0) ->
     Lanno = lineno_anno(L, St2),
     {#iapply{anno=#a{anno=Lanno},op=Fun,args=As1},Fps ++ Aps,St2};
 expr({match,L,P0,E0}, St0) ->
-    %% First fold matches together to create aliases.
-    {P1,E1} = fold_match(E0, P0),
-    St1 = set_wanted(P1, St0),
-    {E2,Eps1,St2} = novars(E1, St1),
-    St3 = St2#core{wanted=St0#core.wanted},
-    {P2,St4} = try
-                   pattern(P1, St3)
-               catch
-                   throw:Thrown ->
-                       {Thrown,St3}
-               end,
-    {Fpat,St5} = new_var(St4),
-    Lanno = lineno_anno(L, St5),
-    Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=badmatch},Fpat])),
-    case P2 of
-	nomatch ->
-	    %% The pattern will not match. We must take care here to
-	    %% bind all variables that the pattern would have bound
-	    %% so that subsequent expressions do not refer to unbound
-	    %% variables.
-	    %%
-	    %% As an example, this code:
-	    %%
-	    %%   [X] = {Y} = E,
-	    %%   X + Y.
-	    %%
-	    %% will be rewritten to:
-	    %%
-	    %%   error({badmatch,E}),
-	    %%   case E of
-	    %%      {[X],{Y}} ->
-	    %%        X + Y;
-	    %%      Other ->
-	    %%        error({badmatch,Other})
-	    %%   end.
-	    %%
-	    St6 = add_warning(L, {nomatch,pattern}, St5),
-	    {Expr,Eps3,St7} = safe(E1, St6),
-	    SanPat0 = sanitize(P1),
-	    {SanPat,St} = pattern(SanPat0, St7),
-	    Badmatch = c_tuple([#c_literal{val=badmatch},Expr]),
-	    Fail = #iprimop{anno=#a{anno=Lanno},
-			    name=#c_literal{val=match_fail},
-			    args=[Badmatch]},
-	    Eps = Eps3 ++ [Fail],
-	    {#imatch{anno=#a{anno=Lanno},pat=SanPat,arg=Expr,fc=Fc},Eps,St};
-	Other when not is_atom(Other) ->
-            %% We must rewrite top-level aliases to lets to avoid unbound
-            %% variables in code such as:
+    St1 = set_wanted(P0, St0),
+    case fold_match(E0, P0) of
+        {{sequential_match,_,_,_}=P1,E1} ->
+            %% Matching of an expression to more than one pattern. Example:
             %%
-            %%     <<42:Sz>> = Sz = B
+            %%    #{Key := Value} = #{key := Key} = Expr
+            {E2,Eps1,St2} = safe(E1, St1),
+            St3 = St2#core{wanted=St0#core.wanted},
+
+            %% If necessary, bind the expression to a variable to ensure it is
+            %% only evaluted once.
+            {Var,Eps2,St4} =
+                case E2 of
+                    #c_var{} ->
+                        {E2,[],St3};
+                    _ ->
+                        {Var0,StInt} = new_var(St3),
+                        {Var0,[#iset{var=Var0,arg=E2}],StInt}
+                end,
+
+            %% Rewrite to a begin/end block matching one pattern at the time
+            %% (using the `single_match` operator). Example:
             %%
-            %% If we would keep the top-level aliases the example would
-            %% be translated like this:
-            %%
-            %% 	   case B of
-            %%         <Sz = #{#<42>(Sz,1,'integer',['unsigned'|['big']])}#>
-            %%            when 'true' ->
-            %%            .
-            %%            .
-            %%            .
-            %%
-            %% Here the variable Sz would be unbound in the binary pattern.
-            %%
-            %% Instead we bind Sz in a let to ensure it is bound when
-            %% used in the binary pattern:
-            %%
-            %%     let <Sz> = B
-            %% 	   in case Sz of
-            %%         <#{#<42>(Sz,1,'integer',['unsigned'|['big']])}#>
-            %%            when 'true' ->
-            %%            .
-            %%            .
-            %%            .
-            %%
-            {P3,E3,Eps2} = letify_aliases(P2, E2),
-            Eps = Eps1 ++ Eps2,
-            {#imatch{anno=#a{anno=Lanno},pat=P3,arg=E3,fc=Fc},Eps,St5}
+            %% begin
+            %%   V = Expr,
+            %%   #{key := Key} = V,
+            %%   #{Key := Value} = V
+            %% end
+            Block = blockify(L, P1, Var),
+            {E3,Eps3,St5} = expr({block,L,Block}, St4),
+            {E3,Eps1 ++ Eps2 ++ Eps3,St5};
+        {P0,E1} ->
+            %% Matching of an expression to a single pattern. Example:
+            %%    {A,B} = Expr
+            {E2,Eps1,St2} = novars(E1, St1),
+            St3 = St2#core{wanted=St0#core.wanted},
+            {E3,Eps2,St4} = single_match(L, P0, E2, St3),
+            {E3,Eps1 ++ Eps2,St4}
     end;
+expr({single_match,L,P,#c_var{}=E}, St0) ->
+    single_match(L, P, E, St0);
 expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     %% Optimise '++' here because of the list comprehension algorithm.
     %%
@@ -1015,6 +977,56 @@ expr({op,L,Op,L0,R0}, St0) ->
 	    module=#c_literal{anno=LineAnno,val=erlang},
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
 
+blockify(L0, {sequential_match,_L1,First,Then}, E) ->
+    [{single_match,L0,First,E}|blockify(L0, Then, E)];
+blockify(L, P, E) ->
+    [{single_match,L,P,E}].
+
+%% single_match(Line, AbstractPattern, CoreExpr, State0) -> {Expr,Pre,State}.
+%%  Generate the code for matching an expression against a single pattern.
+single_match(L, P0, E, St0) ->
+    {Fpat,St1} = new_var(St0),
+    Lanno = lineno_anno(L, St1),
+    Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=badmatch},Fpat])),
+    try pattern(P0, St1) of
+        {P1,St2} ->
+            St3 = set_wanted(P0, St2),
+            St4 = St3#core{wanted=St0#core.wanted},
+            {#imatch{anno=#a{anno=Lanno},pat=P1,arg=E,fc=Fc},[],St4}
+    catch
+        throw:nomatch ->
+            %% The pattern will not match. We must take care here to
+            %% bind all variables that the pattern would have bound
+            %% so that subsequent expressions do not refer to unbound
+            %% variables.
+            %%
+            %% As an example, this code:
+            %%
+            %%   ([X] = {Y}) = E,
+            %%   X + Y.
+            %%
+            %% will be rewritten to:
+            %%
+            %%   error({badmatch,E}),
+            %%   case E of
+            %%      {[X],{Y}} ->
+            %%        X + Y;
+            %%      Other ->
+            %%        error({badmatch,Other})
+            %%   end.
+            %%
+            St2 = add_warning(L, {nomatch,pattern}, St1),
+            {Expr,Eps0,St3} = force_safe(E, St2),
+            SanPat0 = sanitize(P0),
+            {SanPat,St} = pattern(SanPat0, St3),
+            Badmatch = c_tuple([#c_literal{val=badmatch},Expr]),
+            Fail = #iprimop{anno=#a{anno=Lanno},
+                            name=#c_literal{val=match_fail},
+                            args=[Badmatch]},
+            Eps = Eps0 ++ [Fail],
+            {#imatch{anno=#a{anno=Lanno},pat=SanPat,arg=Expr,fc=Fc},Eps,St}
+    end.
+
 %% set_wanted(Pattern, St) -> St'.
 %%  Suppress warnings for expressions that are bound to the '_'
 %%  variable and variables that begin with '_'.
@@ -1028,12 +1040,6 @@ set_wanted({var,_,Var}, St) ->
             St
     end;
 set_wanted(_, St) -> St.
-
-letify_aliases(#c_alias{var=V,pat=P0}, E0) ->
-    {P1,E1,Eps0} = letify_aliases(P0, V),
-    {P1,E1,[#iset{var=V,arg=E0}|Eps0]};
-letify_aliases(P, E) ->
-    {P,E,[]}.
 
 %% sanitize(Pat) -> SanitizedPattern
 %%  Rewrite Pat so that it will be accepted by pattern/2 and will
@@ -2025,10 +2031,10 @@ is_safe(_) -> false.
 %% fold_match(MatchExpr, Pat) -> {MatchPat,Expr}.
 %%  Fold nested matches into one match with aliased patterns.
 
-fold_match({match,L,P0,E0}, P) ->
-    {P1,E1} = fold_match(E0, P),
-    {{match,L,P0,P1},E1};
-fold_match(E, P) -> {P,E}.
+fold_match({match, L, P, E}, E0) ->
+    fold_match(E, {sequential_match, L, P, E0});
+fold_match(E, E0) ->
+    {E0, E}.
 
 %% pattern(Pattern, State) -> {CorePat,[PreExp],State}.
 %%  Transform a pattern by removing line numbers.  We also normalise
@@ -2055,6 +2061,22 @@ pattern({bin,L,Ps}, St0) ->
     {Segments,St} = pat_bin(Ps, St0),
     {#ibinary{anno=#a{anno=lineno_anno(L, St)},segments=Segments},St};
 pattern({match,_,P1,P2}, St) ->
+    %% Handle aliased patterns in a clause. Example:
+    %%
+    %%      f({a,b} = {A,B}) -> . . .
+    %%
+    %% The `=` operator does not have any defined order in which the
+    %% two patterns are matched. Therefore, this example can safely be
+    %% rewritten like so:
+    %%
+    %%      f({a=A,b=B}) -> . . .
+    %%
+    %% Aliased patterns that are illegal, such as:
+    %%
+    %%      f(#{Key := Value} = {key := Key}) -> . . .
+    %%
+    %% have already been rejected by erl_lint.
+    %%
     {Cp1,St1} = pattern(P1, St),
     {Cp2,St2} = pattern(P2, St1),
     {pat_alias(Cp1, Cp2),St2};
@@ -2199,9 +2221,22 @@ pat_alias(P1, #c_var{}=Var) ->
 pat_alias(P1, #c_alias{pat=P2}=Alias) ->
     Alias#c_alias{pat=pat_alias(P1, P2)};
 
+pat_alias(#ibinary{segments=[]}=P, #ibinary{segments=[]}) ->
+    P;
+pat_alias(#ibinary{segments=[_|_]=Segs1}=P, #ibinary{segments=[S0|Segs2]}) ->
+    %% Handle aliases of binary patterns in a clause. Example:
+    %%     f(<<A:8,B:8>> = <<C:16>>) -> . . .
+    #ibitstr{anno=#a{anno=Anno}=A} = S0,
+    S = S0#ibitstr{anno=A#a{anno=[sequential_match|Anno]}},
+    P#ibinary{segments=Segs1++[S|Segs2]};
+pat_alias(#ibinary{segments=[S0|Segs1]}=P, #ibinary{segments=[]}) ->
+    %% Example: f(<<_:0>> == <>>) -> . . .
+    #ibitstr{anno=#a{anno=Anno}=A} = S0,
+    S = S0#ibitstr{anno=A#a{anno=[sequential_match|Anno]}},
+    P#ibinary{segments=[S|Segs1]};
+
 pat_alias(P1, P2) ->
-    %% Aliases between binaries are not allowed, so the only
-    %% legal patterns that remain are data patterns.
+    %% The only legal patterns that remain are data patterns.
     case cerl:is_data(P1) andalso cerl:is_data(P2) of
 	false -> throw(nomatch);
 	true -> ok
@@ -2814,9 +2849,9 @@ uexpr_list(Les0, Ks, St0) ->
 %% upattern(Pat, [KnownVar], State) ->
 %%              {Pat,[GuardTest],[NewVar],[UsedVar],State}.
 
-upattern(#c_var{name='_'}, _, St0) ->
+upattern(#c_var{anno=Anno,name='_'}, _, St0) ->
     {New,St1} = new_var_name(St0),
-    {#c_var{name=New},[],[New],[],St1};
+    {#c_var{anno=Anno,name=New},[],[New],[],St1};
 upattern(#c_var{name=V}=Var, Ks, St0) ->
     case is_element(V, known_get(Ks)) of
 	true ->
@@ -3019,9 +3054,10 @@ ren_pat(#ibinary{segments=Es0}=P, Ks, {Isub,Osub0}, St0) ->
     {Es,_Isub,Osub,St} = ren_pat_bin(Es0, Ks, Isub, Osub0, St0),
     {P#ibinary{segments=Es},{Isub,Osub},St};
 ren_pat(P, Ks0, {_,_}=Subs0, St0) ->
+    Anno = cerl:get_ann(P),
     Es0 = cerl:data_es(P),
     {Es,Subs,St} = ren_pats(Es0, Ks0, Subs0, St0),
-    {cerl:make_data(cerl:data_type(P), Es),Subs,St}.
+    {cerl:ann_make_data(Anno, cerl:data_type(P), Es),Subs,St}.
 
 ren_pat_bin([#ibitstr{val=Val0,size=Sz0}=E|Es0], Ks, Isub0, Osub0, St0) ->
     Sz = ren_get_subst(Sz0, Isub0),
@@ -3641,14 +3677,26 @@ split_pats([P0|Ps0], St0) ->
 split_pats([], _) ->
     none.
 
-split_pat(#c_binary{segments=Segs0}=Bin, St0) ->
+split_pat(#c_binary{anno=Anno0,segments=Segs0}=Bin, St0) ->
     Vars = gb_sets:empty(),
     case split_bin_segments(Segs0, Vars, St0, []) of
         none ->
             none;
-        {TailVar,Wrap,Bef,Aft,St} ->
-            BefBin = Bin#c_binary{segments=Bef},
-            {BefBin,{split,[TailVar],Wrap,Bin#c_binary{segments=Aft},nil},St}
+        {size_var,TailVar,Wrap,Bef,Aft,St1} ->
+            {BefBin,Anno,St} = size_var_before_bin(Bin, Bef, St1),
+            {BefBin,{split,[TailVar],Wrap,Bin#c_binary{anno=Anno,segments=Aft},nil},St};
+        {sequential_match,Bef,Aft,St1} ->
+            Anno = keydelete(binary_var, 1, Anno0),
+            {BefBin,St} =
+                case keyfind(binary_var, 1, Anno0) of
+                    false ->
+                        {BinVar,StInt} = new_var(St1),
+                        {#c_alias{var=BinVar,pat=Bin#c_binary{segments=Bef}},StInt};
+                    {binary_var,BinVar} ->
+                        {Bin#c_binary{anno=Anno,segments=Bef},St1}
+                end,
+            Wrap = fun(Body) -> Body end,
+            {BefBin,{split,[BinVar],Wrap,Bin#c_binary{anno=Anno,segments=Aft},nil},St}
     end;
 split_pat(#c_map{es=Es}=Map, St) ->
     split_map_pat(Es, Map, St, []);
@@ -3667,6 +3715,28 @@ split_pat(Data, St0) ->
     Type = cerl:data_type(Data),
     Es = cerl:data_es(Data),
     split_data(Es, Type, St0, []).
+
+size_var_before_bin(#c_binary{anno=Anno0,segments=Segments}=Bin0, Bef, St0) ->
+    case any(fun(#c_bitstr{anno=Anno}) ->
+                     member(sequential_match, Anno)
+             end, Segments) of
+        true ->
+            case keymember(binary_var, 1, Anno0) of
+                false ->
+                    {BinVar,St1} = new_var(St0),
+                    Bin = Bin0#c_binary{segments=Bef},
+                    P = #c_alias{var=BinVar,pat=Bin},
+                    Anno = [{binary_var,BinVar}|Anno0],
+                    {P,Anno,St1};
+                true ->
+                    Anno = keydelete(binary_var, 1, Anno0),
+                    Bin = Bin0#c_binary{anno=Anno,segments=Bef},
+                    {Bin,Anno0,St0}
+            end;
+        false ->
+            Bin = Bin0#c_binary{segments=Bef},
+            {Bin,Anno0,St0}
+    end.
 
 split_map_pat([#c_map_pair{key=Key,val=Val}=E0|Es], Map0, St0, Acc) ->
     case eval_map_key(Key, E0, Es, Map0, St0) of
@@ -3730,7 +3800,19 @@ split_data([E|Es0], Type, St0, Acc) ->
     end;
 split_data([], _, _, _) -> none.
 
-split_bin_segments([#c_bitstr{val=Val,size=Size}=S0|Segs], Vars0, St0, Acc) ->
+split_bin_segments([#c_bitstr{anno=Anno0}=S0|Segs], Vars, St, Acc) ->
+    case member(sequential_match, Anno0) of
+        true ->
+            Anno = Anno0 -- [sequential_match],
+            S = S0#c_bitstr{anno=Anno},
+            {sequential_match,reverse(Acc),[S|Segs],St};
+        false ->
+            split_bin_segments_1(S0, Segs, Vars, St, Acc)
+    end;
+split_bin_segments(_, _, _, _) ->
+    none.
+
+split_bin_segments_1(#c_bitstr{val=Val,size=Size}=S0, Segs, Vars0, St0, Acc) ->
     Vars = case Val of
                #c_var{name=V} -> gb_sets:add(V, Vars0);
                _ -> Vars0
@@ -3747,7 +3829,7 @@ split_bin_segments([#c_bitstr{val=Val,size=Size}=S0|Segs], Vars0, St0, Acc) ->
                     %% in the same pattern.
                     {TailVar,Tail,St} = split_tail_seg(S0, Segs, St0),
                     Wrap = fun(Body) -> Body end,
-                    {TailVar,Wrap,reverse(Acc, [Tail]),[S0|Segs],St};
+                    {size_var,TailVar,Wrap,reverse(Acc, [Tail]),[S0|Segs],St};
                 false ->
                     split_bin_segments(Segs, Vars, St0, [S0|Acc])
             end;
@@ -3759,10 +3841,8 @@ split_bin_segments([#c_bitstr{val=Val,size=Size}=S0|Segs], Vars0, St0, Acc) ->
             {SizeVar,St2} = new_var(St1),
             S = S0#c_bitstr{size=SizeVar},
             {Wrap,St3} = split_wrap(SizeVar, Size, St2),
-            {TailVar,Wrap,reverse(Acc, [Tail]),[S|Segs],St3}
-    end;
-split_bin_segments(_, _, _, _) ->
-    none.
+            {size_var,TailVar,Wrap,reverse(Acc, [Tail]),[S|Segs],St3}
+    end.
 
 split_tail_seg(#c_bitstr{anno=A}=S, Segs, St0) ->
     {TailVar,St} = new_var(St0),

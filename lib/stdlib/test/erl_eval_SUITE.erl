@@ -55,7 +55,8 @@
          otp_14708/1,
          otp_16545/1,
          otp_16865/1,
-         eep49/1]).
+         eep49/1,
+         binary_and_map_aliases/1]).
 
 %%
 %% Define to run outside of test server
@@ -96,7 +97,7 @@ all() ->
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, custom_stacktrace, try_catch, eval_expr_5, zero_width,
      eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865,
-     eep49].
+     eep49, binary_and_map_aliases].
 
 groups() -> 
     [].
@@ -1969,6 +1970,36 @@ eep49(Config) when is_list(Config) ->
           error),
     error_check("maybe ok ?= simply_wrong else {error,_} -> error end.",
                 {else_clause,simply_wrong}),
+    ok.
+
+%% GH-6348/OTP-18297: Lift restrictions for matching of binaries and maps.
+binary_and_map_aliases(Config) when is_list(Config) ->
+    check(fun() ->
+                  <<A:16>> = <<B:8,C:8>> = <<16#cafe:16>>,
+                  {A,B,C}
+          end,
+          "begin <<A:16>> = <<B:8,C:8>> = <<16#cafe:16>>, {A,B,C} end.",
+          {16#cafe,16#ca,16#fe}),
+    check(fun() ->
+                  <<A:8/bits,B:24/bits>> =
+                      <<C:16,D:16>> =
+                      <<E:8,F:8,G:8,H:8>> =
+                      <<16#abcdef57:32>>,
+                  {A,B,C,D,E,F,G,H}
+          end,
+          "begin <<A:8/bits,B:24/bits>> =
+                 <<C:16,D:16>> =
+                 <<E:8,F:8,G:8,H:8>> =
+                 <<16#abcdef57:32>>,
+                 {A,B,C,D,E,F,G,H}
+           end.",
+          {<<16#ab>>,<<16#cdef57:24>>, 16#abcd,16#ef57, 16#ab,16#cd,16#ef,16#57}),
+    check(fun() ->
+                  #{K := V} = #{k := K} = #{k => my_key, my_key => 42},
+                  V
+          end,
+          "begin #{K := V} = #{k := K} = #{k => my_key, my_key => 42}, V end.",
+          42),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.

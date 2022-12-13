@@ -1834,15 +1834,17 @@ trim_try_is([], _Killed) ->
 %%%   with bs_test_tail.
 %%%
 
-ssa_opt_bsm({#opt_st{ssa=Linear}=St, FuncDb}) ->
-    Extracted0 = bsm_extracted(Linear),
+ssa_opt_bsm({#opt_st{ssa=Linear0}=St, FuncDb}) ->
+    Extracted0 = bsm_extracted(Linear0),
     Extracted = sets:from_list(Extracted0, [{version, 2}]),
-    {St#opt_st{ssa=bsm_skip(Linear, Extracted)}, FuncDb}.
+    Linear1 = bsm_skip(Linear0, Extracted),
+    Linear = bsm_coalesce_skips(Linear1, #{}),
+    {St#opt_st{ssa=Linear}, FuncDb}.
 
 bsm_skip([{L,#b_blk{is=Is0}=Blk}|Bs0], Extracted) ->
     Bs = bsm_skip(Bs0, Extracted),
     Is = bsm_skip_is(Is0, Extracted),
-    coalesce_skips({L,Blk#b_blk{is=Is}}, Bs);
+    [{L,Blk#b_blk{is=Is}}|Bs];
 bsm_skip([], _) -> [].
 
 bsm_skip_is([I0|Is], Extracted) ->
@@ -1878,22 +1880,31 @@ bsm_extracted([{_,#b_blk{is=Is}}|Bs]) ->
     end;
 bsm_extracted([]) -> [].
 
-coalesce_skips({L,#b_blk{is=[#b_set{op=bs_extract}=Extract|Is0],
-                         last=Last0}=Blk0}, Bs0) ->
-    case coalesce_skips_is(Is0, Last0, Bs0) of
+bsm_coalesce_skips([{L,Blk0}|Bs0], Renames0) ->
+    case coalesce_skips({L,Blk0}, Bs0, Renames0) of
         not_possible ->
-            [{L,Blk0}|Bs0];
-        {Is,Last,Bs} ->
-            Blk = Blk0#b_blk{is=[Extract|Is],last=Last},
-            [{L,Blk}|Bs]
+            [{L,Blk0}|bsm_coalesce_skips(Bs0, Renames0)];
+        {Bs,Renames} ->
+            bsm_coalesce_skips(Bs, Renames)
     end;
-coalesce_skips({L,#b_blk{is=Is0,last=Last0}=Blk0}, Bs0) ->
-    case coalesce_skips_is(Is0, Last0, Bs0) of
+bsm_coalesce_skips([], _Renames) -> [].
+
+coalesce_skips({L,#b_blk{is=[#b_set{op=bs_extract}=Extract|Is0],
+                         last=Last0}=Blk0}, Bs0, Renames0) ->
+    case coalesce_skips_is(Is0, Last0, Bs0, Renames0) of
         not_possible ->
-            [{L,Blk0}|Bs0];
-        {Is,Last,Bs} ->
+            not_possible;
+        {Is,Last,Bs,Renames} ->
+            Blk = Blk0#b_blk{is=[Extract|Is],last=Last},
+            {[{L,Blk}|Bs],Renames}
+    end;
+coalesce_skips({L,#b_blk{is=Is0,last=Last0}=Blk0}, Bs0, Renames0) ->
+    case coalesce_skips_is(Is0, Last0, Bs0, Renames0) of
+        not_possible ->
+            not_possible;
+        {Is,Last,Bs,Renames} ->
             Blk = Blk0#b_blk{is=Is,last=Last},
-            [{L,Blk}|Bs]
+            {[{L,Blk}|Bs],Renames}
     end.
 
 coalesce_skips_is([#b_set{op=bs_match,
@@ -1901,53 +1912,59 @@ coalesce_skips_is([#b_set{op=bs_match,
                                 Ctx0,Type,Flags,
                                 #b_literal{val=Size0},
                                 #b_literal{val=Unit0}],
-                          dst=Ctx}=Skip0,
+                          dst=PrevCtx}=Skip0,
                    #b_set{op={succeeded,guard}}],
                   #b_br{succ=L2,fail=Fail}=Br0,
-                  Bs0) when is_integer(Size0) ->
+                  Bs0,
+                  Renames0) when is_integer(Size0) ->
     case Bs0 of
         [{L2,#b_blk{is=[#b_set{op=bs_match,
                                dst=SkipDst,
-                               args=[#b_literal{val=skip},Ctx,_,_,
+                               args=[#b_literal{val=skip},PrevCtx,_,_,
                                      #b_literal{val=Size1},
                                      #b_literal{val=Unit1}]},
                         #b_set{op={succeeded,guard}}=Succeeded],
                     last=#b_br{fail=Fail}=Br}}|Bs] when is_integer(Size1) ->
+            OldCtx = maps:get(Ctx0, Renames0, Ctx0),
             SkipBits = Size0 * Unit0 + Size1 * Unit1,
             Skip = Skip0#b_set{dst=SkipDst,
-                               args=[#b_literal{val=skip},Ctx0,
+                               args=[#b_literal{val=skip},OldCtx,
                                      Type,Flags,
                                      #b_literal{val=SkipBits},
                                      #b_literal{val=1}]},
             Is = [Skip,Succeeded],
-            {Is,Br,Bs};
+            Renames = Renames0#{PrevCtx => Ctx0},
+            {Is,Br,Bs,Renames};
         [{L2,#b_blk{is=[#b_set{op=bs_test_tail,
-                               args=[Ctx,#b_literal{val=TailSkip}]}],
+                               args=[PrevCtx,#b_literal{val=TailSkip}]}],
                     last=#b_br{succ=NextSucc,fail=Fail}}}|Bs] ->
+            OldCtx = maps:get(Ctx0, Renames0, Ctx0),
             SkipBits = Size0 * Unit0,
             TestTail = Skip0#b_set{op=bs_test_tail,
-                                   args=[Ctx0,#b_literal{val=SkipBits+TailSkip}]},
+                                   args=[OldCtx,#b_literal{val=SkipBits+TailSkip}]},
             Br = Br0#b_br{bool=TestTail#b_set.dst,succ=NextSucc},
             Is = [TestTail],
-            {Is,Br,Bs};
+            Renames = Renames0#{PrevCtx => Ctx0},
+            {Is,Br,Bs,Renames};
         _ ->
             not_possible
     end;
-coalesce_skips_is(_, _, _) ->
+coalesce_skips_is(_, _, _, _) ->
     not_possible.
 
 %%%
 %%% Short-cutting binary matching instructions.
 %%%
 
-ssa_opt_bsm_shortcut({#opt_st{ssa=Linear}=St, FuncDb}) ->
-    Positions = bsm_positions(Linear, #{}),
+ssa_opt_bsm_shortcut({#opt_st{ssa=Linear0}=St, FuncDb}) ->
+    Positions = bsm_positions(Linear0, #{}),
     case map_size(Positions) of
         0 ->
             %% No binary matching instructions.
             {St, FuncDb};
         _ ->
-            {St#opt_st{ssa=bsm_shortcut(Linear, Positions)}, FuncDb}
+            Linear = bsm_shortcut(Linear0, Positions),
+            ssa_opt_live({St#opt_st{ssa=Linear}, FuncDb})
     end.
 
 bsm_positions([{L,#b_blk{is=Is,last=Last}}|Bs], PosMap0) ->
@@ -1988,20 +2005,36 @@ bsm_update_bits([_,_,_,#b_literal{val=Sz},#b_literal{val=U}], Bits)
     Bits + Sz*U;
 bsm_update_bits(_, Bits) -> Bits.
 
-bsm_shortcut([{L,#b_blk{is=Is,last=Last0}=Blk}|Bs], PosMap) ->
+bsm_shortcut([{L,#b_blk{is=Is,last=Last0}=Blk}|Bs], PosMap0) ->
     case {Is,Last0} of
         {[#b_set{op=bs_match,dst=New,args=[_,Old|_]},
           #b_set{op={succeeded,guard},dst=Bool,args=[New]}],
          #b_br{bool=Bool,fail=Fail}} ->
-            case PosMap of
-                #{Old:=Bits,Fail:={TailBits,NextFail}} when Bits > TailBits ->
+            case PosMap0 of
+                #{Old := Bits,Fail := {TailBits,NextFail}} when Bits > TailBits ->
                     Last = Last0#b_br{fail=NextFail},
-                    [{L,Blk#b_blk{last=Last}}|bsm_shortcut(Bs, PosMap)];
+                    [{L,Blk#b_blk{last=Last}}|bsm_shortcut(Bs, PosMap0)];
                 #{} ->
+                    [{L,Blk}|bsm_shortcut(Bs, PosMap0)]
+            end;
+        {[#b_set{op=bs_test_tail,dst=Bool,args=[Old,#b_literal{val=TailBits}]}],
+         #b_br{bool=Bool,succ=Succ,fail=Fail}} ->
+            case PosMap0 of
+                #{{bs_test_tail,Old,L} := ActualTailBits} ->
+                    Last1 = if
+                                TailBits =:= ActualTailBits ->
+                                    Last0#b_br{fail=Succ};
+                                true ->
+                                    Last0#b_br{succ=Fail}
+                            end,
+                    Last = beam_ssa:normalize(Last1),
+                    [{L,Blk#b_blk{last=Last}}|bsm_shortcut(Bs, PosMap0)];
+                #{} ->
+                    PosMap = PosMap0#{{bs_test_tail,Old,Succ} => TailBits},
                     [{L,Blk}|bsm_shortcut(Bs, PosMap)]
             end;
         {_,_} ->
-            [{L,Blk}|bsm_shortcut(Bs, PosMap)]
+            [{L,Blk}|bsm_shortcut(Bs, PosMap0)]
     end;
 bsm_shortcut([], _PosMap) -> [].
 

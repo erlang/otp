@@ -401,6 +401,7 @@ nomatch(Config) when is_list(Config) ->
         %% {warnings,[{{3,52},qlc,nomatch_pattern}]}},
         {warnings,[{{3,37},v3_core,{nomatch,pattern}}]}},
 
+       %% No longer illegal in OTP 26.
        {nomatch4,
         <<"nomatch() ->
               etsc(fun(E) ->
@@ -411,7 +412,7 @@ nomatch(Config) when is_list(Config) ->
                     end, [{<<34>>},{<<40>>}]).
         ">>,
         [],
-        {errors,[{{3,48},erl_lint,illegal_bin_pattern}],[]}},
+        []},
 
        {nomatch5,
         <<"nomatch() ->
