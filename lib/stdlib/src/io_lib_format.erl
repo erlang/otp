@@ -106,6 +106,8 @@ scan(Format, Args) ->
 unscan(Cs) ->
     {print(Cs), args(Cs)}.
 
+args([#{args := As, maps_order := O} | Cs]) when is_function(O, 2) ->
+    [O | As] ++ args(Cs);
 args([#{args := As} | Cs]) ->
     As ++ args(Cs);
 args([_C | Cs]) ->
@@ -114,17 +116,19 @@ args([]) ->
     [].
 
 print([#{control_char := C, width := F, adjust := Ad, precision := P,
-         pad_char := Pad, encoding := Encoding, strings := Strings} | Cs]) ->
-    print(C, F, Ad, P, Pad, Encoding, Strings) ++ print(Cs);
+         pad_char := Pad, encoding := Encoding, strings := Strings,
+         maps_order := MapsOrder} | Cs]) ->
+    print(C, F, Ad, P, Pad, Encoding, Strings, MapsOrder) ++ print(Cs);
 print([C | Cs]) ->
     [C | print(Cs)];
 print([]) ->
     [].
 
-print(C, F, Ad, P, Pad, Encoding, Strings) ->
+print(C, F, Ad, P, Pad, Encoding, Strings, MapsOrder) ->
     [$~] ++ print_field_width(F, Ad) ++ print_precision(P, Pad) ++
         print_pad_char(Pad) ++ print_encoding(Encoding) ++
-        print_strings(Strings) ++ [C].
+        print_strings(Strings) ++ print_maps_order(MapsOrder) ++
+        [C].
 
 print_field_width(none, _Ad) -> "";
 print_field_width(F, left) -> integer_to_list(-F);
@@ -143,6 +147,10 @@ print_encoding(latin1) -> "".
 print_strings(false) -> "l";
 print_strings(true) -> "".
 
+print_maps_order(undefined) -> "";
+print_maps_order(ordered) -> "k";
+print_maps_order(CmpFun) when is_function(CmpFun, 2) -> "K".
+
 collect([$~|Fmt0], Args0) ->
     {C,Fmt1,Args1} = collect_cseq(Fmt0, Args0),
     [C|collect(Fmt1, Args1)];
@@ -159,18 +167,23 @@ collect_cseq(Fmt0, Args0) ->
               precision => P,
               pad_char => Pad,
               encoding => latin1,
-              strings => true},
-    {Spec1,Fmt4} = modifiers(Fmt3, Spec0),
-    {C,As,Fmt5,Args4} = collect_cc(Fmt4, Args3),
+              strings => true,
+              maps_order => undefined},
+    {Spec1,Fmt4,Args4} = modifiers(Fmt3, Args3, Spec0),
+    {C,As,Fmt5,Args5} = collect_cc(Fmt4, Args4),
     Spec2 = Spec1#{control_char => C, args => As},
-    {Spec2,Fmt5,Args4}.
+    {Spec2,Fmt5,Args5}.
 
-modifiers([$t|Fmt], Spec) ->
-    modifiers(Fmt, Spec#{encoding => unicode});
-modifiers([$l|Fmt], Spec) ->
-    modifiers(Fmt, Spec#{strings => false});
-modifiers(Fmt, Spec) ->
-    {Spec, Fmt}.
+modifiers([$t|Fmt], Args, Spec) ->
+    modifiers(Fmt, Args, Spec#{encoding => unicode});
+modifiers([$l|Fmt], Args, Spec) ->
+    modifiers(Fmt, Args, Spec#{strings => false});
+modifiers([$k|Fmt], Args, Spec) ->
+    modifiers(Fmt, Args, Spec#{maps_order => ordered});
+modifiers([$K|Fmt], [MapsOrder | Args], Spec) ->
+    modifiers(Fmt, Args, Spec#{maps_order => MapsOrder});
+modifiers(Fmt, Args, Spec) ->
+    {Spec, Fmt, Args}.
 
 field_width([$-|Fmt0], Args0) ->
     {F,Fmt,Args} = field_value(Fmt0, Args0),
@@ -274,12 +287,13 @@ build_small([]) -> [].
 
 build_limited([#{control_char := C, args := As, width := F, adjust := Ad,
                  precision := P, pad_char := Pad, encoding := Enc,
-                 strings := Str} | Cs], NumOfPs0, Count0, MaxLen0, I) ->
+                 strings := Str, maps_order := Ord} | Cs],
+              NumOfPs0, Count0, MaxLen0, I) ->
     MaxChars = if
                    MaxLen0 < 0 -> MaxLen0;
                    true -> MaxLen0 div Count0
                end,
-    S = control_limited(C, As, F, Ad, P, Pad, Enc, Str, MaxChars, I),
+    S = control_limited(C, As, F, Ad, P, Pad, Enc, Str, Ord, MaxChars, I),
     NumOfPs = decr_pc(C, NumOfPs0),
     Count = Count0 - 1,
     MaxLen = if
@@ -371,24 +385,34 @@ control_small($n, [], F, Adj, P, Pad, _Enc) -> newline(F, Adj, P, Pad);
 control_small($i, [_A], _F, _Adj, _P, _Pad, _Enc) -> [];
 control_small(_C, _As, _F, _Adj, _P, _Pad, _Enc) -> not_small.
 
-control_limited($s, [L0], F, Adj, P, Pad, latin1=Enc, _Str, CL, _I) ->
+control_limited($s, [L0], F, Adj, P, Pad, latin1=Enc, _Str, _Ord, CL, _I) ->
     L = iolist_to_chars(L0, F, CL),
     string(L, limit_field(F, CL), Adj, P, Pad, Enc);
-control_limited($s, [L0], F, Adj, P, Pad, unicode=Enc, _Str, CL, _I) ->
+control_limited($s, [L0], F, Adj, P, Pad, unicode=Enc, _Str, _Ord, CL, _I) ->
     L = cdata_to_chars(L0, F, CL),
     uniconv(string(L, limit_field(F, CL), Adj, P, Pad, Enc));
-control_limited($w, [A], F, Adj, P, Pad, Enc, _Str, CL, _I) ->
-    Chars = io_lib:write(A, [{depth, -1}, {encoding, Enc}, {chars_limit, CL}]),
+control_limited($w, [A], F, Adj, P, Pad, Enc, _Str, Ord, CL, _I) ->
+    Chars = io_lib:write(A, [
+        {depth, -1},
+        {encoding, Enc},
+        {chars_limit, CL},
+        {maps_order, Ord}
+    ]),
     term(Chars, F, Adj, P, Pad);
-control_limited($p, [A], F, Adj, P, Pad, Enc, Str, CL, I) ->
-    print(A, -1, F, Adj, P, Pad, Enc, Str, CL, I);
-control_limited($W, [A,Depth], F, Adj, P, Pad, Enc, _Str, CL, _I)
+control_limited($p, [A], F, Adj, P, Pad, Enc, Str, Ord, CL, I) ->
+    print(A, -1, F, Adj, P, Pad, Enc, Str, Ord, CL, I);
+control_limited($W, [A,Depth], F, Adj, P, Pad, Enc, _Str, Ord, CL, _I)
            when is_integer(Depth) ->
-    Chars = io_lib:write(A, [{depth, Depth}, {encoding, Enc}, {chars_limit, CL}]),
+    Chars = io_lib:write(A, [
+        {depth, Depth},
+        {encoding, Enc},
+        {chars_limit, CL},
+        {maps_order, Ord}
+    ]),
     term(Chars, F, Adj, P, Pad);
-control_limited($P, [A,Depth], F, Adj, P, Pad, Enc, Str, CL, I)
+control_limited($P, [A,Depth], F, Adj, P, Pad, Enc, Str, Ord, CL, I)
            when is_integer(Depth) ->
-    print(A, Depth, F, Adj, P, Pad, Enc, Str, CL, I).
+    print(A, Depth, F, Adj, P, Pad, Enc, Str, Ord, CL, I).
 
 -ifdef(UNICODE_AS_BINARIES).
 uniconv(C) ->
@@ -425,17 +449,18 @@ term(T, F, Adj, P0, Pad) ->
 %% Print a term. Field width sets maximum line length, Precision sets
 %% initial indentation.
 
-print(T, D, none, Adj, P, Pad, E, Str, ChLim, I) ->
-    print(T, D, 80, Adj, P, Pad, E, Str, ChLim, I);
-print(T, D, F, Adj, none, Pad, E, Str, ChLim, I) ->
-    print(T, D, F, Adj, I+1, Pad, E, Str, ChLim, I);
-print(T, D, F, right, P, _Pad, Enc, Str, ChLim, _I) ->
+print(T, D, none, Adj, P, Pad, E, Str, Ord, ChLim, I) ->
+    print(T, D, 80, Adj, P, Pad, E, Str, Ord, ChLim, I);
+print(T, D, F, Adj, none, Pad, E, Str, Ord, ChLim, I) ->
+    print(T, D, F, Adj, I+1, Pad, E, Str, Ord, ChLim, I);
+print(T, D, F, right, P, _Pad, Enc, Str, Ord, ChLim, _I) ->
     Options = [{chars_limit, ChLim},
                {column, P},
                {line_length, F},
                {depth, D},
                {encoding, Enc},
-               {strings, Str}],
+               {strings, Str},
+               {maps_order, Ord}],
     io_lib_pretty:print(T, Options).
 
 %% fwrite_e(Float, Field, Adjust, Precision, PadChar)
