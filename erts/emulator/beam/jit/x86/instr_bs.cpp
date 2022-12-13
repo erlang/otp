@@ -3733,12 +3733,19 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
 
     bool is_ctx_valid = false;
     bool is_position_valid = false;
-    bool is_last = false;
+    bool next_instr_clobbers = false;
     int count = segments.size();
 
     for (int i = 0; i < count; i++) {
         auto seg = segments[i];
-        is_last = i == count - 1;
+
+        /* Find out whether the next sub instruction clobbers
+         * registers or is the last. */
+        next_instr_clobbers =
+                i == count - 1 ||
+                (i < count - 1 &&
+                 segments[i + 1].action == BsmSegment::action::TEST_HEAP);
+
         switch (seg.action) {
         case BsmSegment::action::ENSURE_AT_LEAST: {
             auto size = seg.size;
@@ -3750,13 +3757,15 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
                 a.lea(RET, qword_ptr(bin_position, size));
                 a.cmp(RET, emit_boxed_val(ctx, size_offset));
                 a.ja(resolve_beam_label(Fail));
+            } else if (size == 0 && next_instr_clobbers) {
+                a.mov(RET, emit_boxed_val(ctx, size_offset));
+                a.sub(RET, emit_boxed_val(ctx, position_offset));
+                is_ctx_valid = is_position_valid = false;
             } else {
                 a.mov(RET, emit_boxed_val(ctx, size_offset));
                 a.mov(bin_position, emit_boxed_val(ctx, position_offset));
                 a.sub(RET, bin_position);
-                if (size != 0) {
-                    cmp(RET, size, tmp);
-                }
+                cmp(RET, size, tmp);
                 a.jl(resolve_beam_label(Fail));
             }
 
@@ -3787,7 +3796,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
 
             mov_arg(ctx, Ctx);
             a.mov(RET, emit_boxed_val(ctx, size_offset));
-            if (is_last) {
+            if (next_instr_clobbers) {
                 a.sub(RET, emit_boxed_val(ctx, position_offset));
                 is_ctx_valid = is_position_valid = false;
             } else {
@@ -3806,7 +3815,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             auto bits = seg.size;
             x86::Gp extract_reg;
 
-            if (is_last) {
+            if (next_instr_clobbers) {
                 extract_reg = bitdata;
             } else {
                 extract_reg = RET;
@@ -3824,7 +3833,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
 
             a.jne(resolve_beam_label(Fail));
 
-            if (!is_last && bits != 0 && bits != 64) {
+            if (!next_instr_clobbers && bits != 0 && bits != 64) {
                 a.shl(bitdata, imm(bits));
             }
 
@@ -3866,7 +3875,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
 
             comment("extract binary %ld", bits);
             emit_extract_binary(bitdata, bits, Dst);
-            if (!is_last && bits != 0 && bits != 64) {
+            if (!next_instr_clobbers && bits != 0 && bits != 64) {
                 a.shl(bitdata, imm(bits));
             }
             break;
@@ -3877,13 +3886,13 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             auto Dst = seg.dst;
 
             comment("extract integer %ld", bits);
-            if (is_last && flags == 0 && bits < SMALL_BITS) {
+            if (next_instr_clobbers && flags == 0 && bits < SMALL_BITS) {
                 a.shr(bitdata, imm(64 - bits - _TAG_IMMED1_SIZE));
                 a.or_(bitdata, imm(_TAG_IMMED1_SMALL));
                 mov_arg(Dst, bitdata);
             } else {
                 emit_extract_integer(bitdata, tmp, flags, bits, Dst);
-                if (!is_last && bits != 0 && bits != 64) {
+                if (!next_instr_clobbers && bits != 0 && bits != 64) {
                     a.shl(bitdata, imm(bits));
                 }
             }

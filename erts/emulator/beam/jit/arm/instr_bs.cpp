@@ -3694,8 +3694,10 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             a.ldur(bin_position, emit_boxed_val(ctx_reg.reg, position_offset));
             a.ldur(bin_size, emit_boxed_val(ctx_reg.reg, size_offset));
             a.sub(TMP5, bin_size, bin_position);
-            cmp(TMP5, stride);
-            a.b_lo(resolve_beam_label(Fail, disp1MB));
+            if (stride != 0) {
+                cmp(TMP5, stride);
+                a.b_lo(resolve_beam_label(Fail, disp1MB));
+            }
 
             if (unit != 1) {
                 if (stride % unit != 0) {
