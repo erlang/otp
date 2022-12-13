@@ -52,8 +52,41 @@
       <fsummary>Start the Observer GUI.</fsummary>
       <desc>
         <p>Starts the Observer GUI.
-	To stop the tool, close the window.
-	</p>
+          To stop the tool, close the window or call
+          <seemfa marker="#stop/0">stop/0</seemfa>.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP 26">start(Node) -> ok</name>
+      <fsummary>Start the Observer GUI connected against <c>Node</c>.</fsummary>
+      <desc>
+        <p>Starts the Observer GUI and tries to connect it to <c>Node</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP 26">start_and_wait() -> ok</name>
+      <fsummary>Start the Observer GUI blocking.</fsummary>
+      <desc>
+        <p>Starts the Observer GUI and only return when it is either stopped or
+          the window is closed</p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP 26">start_and_wait(Node) -> ok</name>
+      <fsummary>Start the Observer GUI blocking and connect it to <c>Node</c>.</fsummary>
+      <desc>
+        <p>Starts the Observer GUI and only return when it is either stopped or
+          the window is closed, connects it directly to <c>Node</c> like
+          <seemfa marker="#start/1">start/1</seemfa>.
+        </p>
+      </desc>
+    </func>
+    <func>
+      <name since="OTP 26">stop() -> ok</name>
+      <fsummary>Stop the Observer GUI.</fsummary>
+      <desc>
+        <p>Stops the Observer GUI.</p>
       </desc>
     </func>
   </funcs>

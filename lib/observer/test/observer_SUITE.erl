@@ -35,7 +35,8 @@
 %% Test cases
 -export([app_file/1, appup_file/1,
 	 basic/1, process_win/1, table_win/1,
-         port_win_when_tab_not_initiated/1
+         port_win_when_tab_not_initiated/1,
+         blocking_start/1, remote_node/1
 	]).
 
 %% Default timetrap timeout (set in init_per_testcase)
@@ -58,7 +59,9 @@ groups() ->
       [basic,
        process_win,
        table_win,
-       port_win_when_tab_not_initiated
+       port_win_when_tab_not_initiated,
+       remote_node,
+       blocking_start
       ]
      }].
 
@@ -467,6 +470,34 @@ table_win(Config) when is_list(Config) ->
     ensure_observer_stopped(?SECS(3)),
     ?P("table_win -> done"),
     ok.
+
+remote_node(_Config) ->
+    {ok, Peer, _Node} = ?CT_PEER(),
+    ok = observer:start(Peer),
+    Peer = observer:get_active_node(),
+    observer:stop(),
+    ensure_observer_stopped(),
+    peer:stop(Peer).
+
+blocking_start(_Config) ->
+    _Pid = spawn(fun observer:start_and_wait/0),
+    MonitorRef = monitor(process, observer),
+    receive
+        {'DOWN', MonitorRef, _, _, _} ->
+            error(observer_stopped_unexpectedly)
+    after
+        500 ->
+            ok
+    end,
+    observer:stop(),
+    ensure_observer_stopped(),
+    receive
+        {'DOWN', MonitorRef, _, _, _} ->
+            ok
+    after
+        500 ->
+            error(observer_should_have_stopped)
+    end.
 
 %% Test PR-1296/OTP-14151
 %% Clicking a link to a port before the port tab has been activated the
