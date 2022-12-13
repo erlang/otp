@@ -194,12 +194,12 @@ accept(ListenSocket) ->
 
 fam_accept(Family, ListenSocket) ->
     NetKernel = self(),
+    start_keypair_server(),
     Acceptor =
         monitor_dist_proc(
           acceptor,
           spawn_opt(
             fun () ->
-                    start_keypair_server(),
                     acceptor(Family, ListenSocket, NetKernel)
             end,
             dist_util:net_ticker_spawn_options())),
@@ -608,7 +608,7 @@ supported() ->
 
 %% -------------------------------------------------------------------------
 %% Keep the node's public/private key pair in the process state
-%% of a key pair server linked to the acceptor process.
+%% of a key pair server linked to the net_kernel process.
 %% Create the key pair the first time it is needed
 %% so crypto gets time to start first.
 %%
@@ -621,9 +621,16 @@ start_keypair_server() ->
           keypair_server,
           spawn_link(
             fun () ->
-                    register(?MODULE, self()),
-                    Parent ! Ref,
-                    keypair_server()
+                    try register(?MODULE, self()) of
+                        true ->
+                            Parent ! Ref,
+                            keypair_server()
+                    catch error : badarg ->
+                            %% Already started - simply exit
+                            %% and let the other run
+                            Parent ! Ref,
+                            ok
+                    end
             end)),
     receive Ref -> ok end.
 
