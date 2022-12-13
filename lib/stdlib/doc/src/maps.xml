@@ -582,10 +582,12 @@ error</code>
       <fsummary></fsummary>
       <desc>
         <p>Returns a list of pairs representing the key-value associations of
-          <c><anno>Map</anno></c>, where the pairs
+          <c><anno>MapOrIterator</anno></c>, where the pairs
           <c>[{K1,V1}, ..., {Kn,Vn}]</c> are returned in arbitrary order.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
-          <c><anno>Map</anno></c> is not a map.</p>
+        <c><anno>MapOrIterator</anno></c> is not a map or an iterator obtained
+        by a call to <seemfa marker="#iterator/1">iterator/1</seemfa> or
+        <seemfa marker="#iterator/2">iterator/2</seemfa>.</p>
         <p><em>Example:</em></p>
         <code type="none">
 > Map = #{42 => value_three,1337 => "value two","a" => 1},

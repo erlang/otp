@@ -430,7 +430,7 @@ map_hashmap_children(_M) ->
 
 %% return the next assoc in the iterator and a new iterator
 -spec map_next(I, M, A) -> {K,V,NI} | list() when
-      I :: non_neg_integer(),
+      I :: non_neg_integer() | list(),
       M :: map(),
       K :: term(),
       V :: term(),
