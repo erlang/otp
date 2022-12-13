@@ -29,15 +29,15 @@ start(Node) when is_atom(Node) ->
     start([Node]);
 start([Node]) ->
     Node1 = to_atom(Node),
-    net_adm:ping(Node1),
+    true = net_kernel:connect_node(Node1),
     Res = observer_wx:start(),
     observer_wx:set_node(Node1),
     Res.
 
 start_and_wait(Node) when is_atom(Node) ->
     start_and_wait([Node]);
-start_and_wait([Node]) ->
-    start(Node),
+start_and_wait(List) when is_list(List) ->
+    ok = start(List),
     MonitorRef = monitor(process, observer),
     receive
         {'DOWN', MonitorRef, process, _, _} ->
