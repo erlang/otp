@@ -546,6 +546,8 @@ types(erlang, 'node', [_]) ->
     sub_unsafe(#t_atom{}, [any]);
 types(erlang, 'node', []) ->
     sub_unsafe(#t_atom{}, []);
+types(erlang, self, []) ->
+    sub_unsafe(pid, []);
 types(erlang, 'size', [_]) ->
     ArgType = join(#t_tuple{}, #t_bitstring{}),
     sub_unsafe(#t_integer{}, [ArgType]);
