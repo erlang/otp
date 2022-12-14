@@ -32,6 +32,51 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Line number in compiler messages would be truncated to
+	    4 digits for line numbers greater than 9999.</p>
+          <p>
+	    Own Id: OTP-18268 Aux Id: GH-6332 </p>
+        </item>
+        <item>
+	    <p>In rare circumstance, matching a binary as part of a
+	    <c>receive</c> clause could cause the compiler to
+	    terminate because of an internal consistency check
+	    failure.</p>
+          <p>
+	    Own Id: OTP-18273 Aux Id: GH-6341 </p>
+        </item>
+        <item>
+	    <p>Compiling a function with complex bit syntax matching
+	    such as <c>f(&lt;&lt;X:0, _:X&gt;&gt;, &lt;&lt;Y:0,
+	    _:Y&gt;&gt;) -&gt; ok.</c> could crash the compiler.</p>
+          <p>
+	    Own Id: OTP-18308 Aux Id: GH-6426 </p>
+        </item>
+        <item>
+	    <p>It is not allowed to call functions from guards. The
+	    compiler failed to reject a call in a guard when done by
+	    constructing a record with a default initialization
+	    expression that called a function.</p>
+          <p>
+	    Own Id: OTP-18325 Aux Id: GH-6465, GH-6466 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash when using a record with
+	    complex field initialization expression as a filter in a
+	    list comprehension.</p>
+          <p>
+	    Own Id: OTP-18336 Aux Id: GH-6501, PR-6502 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

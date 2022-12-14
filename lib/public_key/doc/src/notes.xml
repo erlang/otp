@@ -35,6 +35,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Disregard LDAP URIs when HTTP URIs are expected.</p>
+          <p>
+	    Own Id: OTP-18333 Aux Id: GH-6363 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.13.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

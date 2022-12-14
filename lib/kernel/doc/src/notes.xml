@@ -31,6 +31,99 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed shutdown crash in gen_tcp socket backend, when the
+	    other end closed the socket.</p>
+          <p>
+	    Own Id: OTP-18270 Aux Id: #6331 </p>
+        </item>
+        <item>
+	    <p><c>erl_tar</c> can now read gzip-compressed tar files
+	    that are padded. There is a new option
+	    <c>compressed_one</c> for <c>file:open/2</c> that will
+	    read a single member from a gzip file,</p>
+          <p>
+	    Own Id: OTP-18289 Aux Id: PR-6343 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>os:cmd</c> to not translate all exceptions thrown
+	    to <c>badarg</c>. For example <c>emfile</c> from
+	    <c>erlang:open_port</c> was translated to <c>badarg</c>.</p>
+          <p>
+	    This bug has existed since Erlang/OTP 24.</p>
+          <p>
+	    Own Id: OTP-18291 Aux Id: PR-6382 </p>
+        </item>
+        <item>
+          <p>
+	    Spec for function net:if_names/0 incorrect</p>
+          <p>
+	    Own Id: OTP-18296 Aux Id: OTP-16464 </p>
+        </item>
+        <item>
+          <p>
+	    Missing ctrl option name transation for TOS and TTL (on
+	    FreeBSD) when using gen_udp with the 'socket'
+	    inet_backend.</p>
+          <p>
+	    Own Id: OTP-18315</p>
+        </item>
+        <item>
+          <p>
+	    gen_udp:open/2 with option(s) add_membership or
+	    drop_membership would drop earlier options.</p>
+          <p>
+	    Own Id: OTP-18323 Aux Id: #6476 </p>
+        </item>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="kernel:inet#setopts/2"><c>inet:setopts/2</c></seemfa>
+	    <c>{reuseaddr, true}</c> option will now be ignored on
+	    Windows unless the socket is an UDP socket. For more
+	    information see the documentation of the <c>reuseaddr</c>
+	    option part of the documentation of
+	    <c>inet:setopts/2</c>.</p>
+          <p>
+	    Prior to OTP 25 the <c>{reuseaddr, true}</c> option was
+	    ignored for all sockets on Windows, but as of OTP 25.0
+	    this was changed so that it was not ignored for any
+	    sockets.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18324 Aux Id: GH-6461, PR-6481 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The distribution socket option handling in
+	    <c>inet_tcp_dist</c> has been cleaned up to clarify which
+	    were mandatory and which just had default values. </p>
+          <p>
+	    Own Id: OTP-18293</p>
+        </item>
+        <item>
+          <p>
+	    Improve warning message format for gen_tcp_socket.</p>
+          <p>
+	    Own Id: OTP-18317</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,34 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A WX event race could causes a crash in when handling
+	    socket or port info.</p>
+          <p>
+	    Own Id: OTP-18339</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve the nodes menu to include more nodes.</p>
+          <p>
+	    Own Id: OTP-18269 Aux Id: PR-6030 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.13</title>
 
     <section><title>Improvements and New Features</title>

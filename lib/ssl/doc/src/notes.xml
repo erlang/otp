@@ -27,6 +27,66 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.8.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, tls_sender process is hibernated after
+	    sufficient inactivity.</p>
+          <p>
+	    Own Id: OTP-18314 Aux Id: GH-6373 </p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of legacy schemes so that ECDSA certs
+	    using sha1 may be used for some TLS-1.3 configurations.</p>
+          <p>
+	    Own Id: OTP-18332 Aux Id: GH-6435, PR-6435, ERL-6435 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, tls_sender does not cause logger crash
+	    upon key update.</p>
+          <p>
+	    Own Id: OTP-18349</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Enhance warning message</p>
+          <p>
+	    Own Id: OTP-18257 Aux Id: GH-6307 </p>
+        </item>
+        <item>
+          <p>
+	    Provide server option to make certificate_authorities
+	    extension in the TLS-1.3 servers certificate request
+	    optional. This will allow clients to send incomplete
+	    chains that may be reconstructable and thereby verifiable
+	    by the server, but that would not adhere to the
+	    certificate_authorities extension.</p>
+          <p>
+	    Own Id: OTP-18267 Aux Id: PR-6228, GH-6106 </p>
+        </item>
+        <item>
+          <p>
+	    If the <c>verify_fun</c> handles four arguments the DER
+	    cert will be supplied as one of the arguments.</p>
+          <p>
+	    Own Id: OTP-18302 Aux Id: ERIERL-867 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.8.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

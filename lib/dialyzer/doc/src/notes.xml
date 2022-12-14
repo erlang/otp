@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2021</year>
+      <year>2006</year><year>2022</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the Dialyzer
     application.</p>
+
+<section><title>Dialyzer 5.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Dialyzer would crash when attempting to analyze a bit
+	    syntax segment size having an literal non-integer size
+	    such as <c>[]</c>.</p>
+          <p>
+	    Own Id: OTP-18307 Aux Id: GH-6419, GH-6473 </p>
+        </item>
+        <item>
+	    <p>Dialyzer could crash when trying to analyze a
+	    convoluted nested expression involving funs,</p>
+          <p>
+	    Own Id: OTP-18347 Aux Id: GH-6518, PR-6525 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Dialyzer 5.0.3</title>
 

@@ -31,6 +31,161 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix perf/gdb JIT symbols to not contain
+	    <c>CodeInfoPrologue</c> for the JIT internal module
+	    erts_beamasm.</p>
+          <p>
+	    Own Id: OTP-18256 Aux Id: PR-6316 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed minor memory leaks.</p>
+          <p>
+	    Own Id: OTP-18281 Aux Id: PR-4840 </p>
+        </item>
+        <item>
+	    <p>Fix bugs in <c>ets:insert</c> and
+	    <c>ets:insert_new</c> when called with a list of tuples
+	    to insert while a concurrent process either deletes or
+	    renames the table. The table deletion could be done with
+	    <c>ets:delete/1</c> or be caused by termination of the
+	    table owning process.</p> <p>Symptoms are either VM crash
+	    or strange incorrect behavior from the insert operation.
+	    The risk of triggering the bugs increases with the length
+	    of the list of tuple to insert. Bugs exist since OTP
+	    23.0.</p>
+          <p>
+	    Own Id: OTP-18284 Aux Id: PR-6305 </p>
+        </item>
+        <item>
+          <p>
+	    Boost execution of scheduled thread progress jobs. This
+	    to prevent memory exhaustion in extremely rapid
+	    allocation/deallocation scenarios, such as repeated ETS
+	    table creations/deletions.</p>
+          <p>
+	    Own Id: OTP-18294 Aux Id: PR-6390 </p>
+        </item>
+        <item>
+          <p>
+	    Fix segv crash during crash dumping an ETS table doing
+	    <c>ets:delete_all_objects</c>.</p>
+          <p>
+	    Own Id: OTP-18295</p>
+        </item>
+        <item>
+          <p>
+	    Spec for function net:if_names/0 incorrect</p>
+          <p>
+	    Own Id: OTP-18296 Aux Id: OTP-16464 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> decoding a binary term
+	    2Gbyte or larger.</p>
+          <p>
+	    Own Id: OTP-18306 Aux Id: GH-6393, PR-6401 </p>
+        </item>
+        <item>
+	    <p>Documentation of <seemfa
+	    marker="erts:erlang#module_loaded/1"><c>erlang:module_loaded/1</c></seemfa>
+	    has been adjusted:</p> <list><item> It did not previously
+	    say that the BIF only returns <c>true</c> for modules
+	    loaded as <i>current code</i>. </item><item> The warning
+	    claiming that the BIF should only be used by the code
+	    server has been removed. </item></list>
+          <p>
+	    Own Id: OTP-18313 Aux Id: PR-6456 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>list_to_atom/1</c> for negative code points. Could
+	    either return with a positive code point or fail with an
+	    incorrect exception.</p>
+          <p>
+	    Own Id: OTP-18321</p>
+        </item>
+        <item>
+	    <p>Fix rare bug causing VM crash when sending to a pid of
+	    a spawning process returned from
+	    <c>erlang:processes/0</c>.</p> <p>Only seen when provoked
+	    by system process literal_area_collector, triggered by a
+	    module purge operation, on a VM started with +Meamin (no
+	    customized allocators).</p>
+          <p>
+	    Own Id: OTP-18322 Aux Id: PR-6479 </p>
+        </item>
+        <item>
+          <p>
+	    gen_udp:open/2 with option(s) add_membership or
+	    drop_membership would drop earlier options.</p>
+          <p>
+	    Own Id: OTP-18323 Aux Id: #6476 </p>
+        </item>
+        <item>
+          <p>
+	    The <seemfa
+	    marker="kernel:inet#setopts/2"><c>inet:setopts/2</c></seemfa>
+	    <c>{reuseaddr, true}</c> option will now be ignored on
+	    Windows unless the socket is an UDP socket. For more
+	    information see the documentation of the <c>reuseaddr</c>
+	    option part of the documentation of
+	    <c>inet:setopts/2</c>.</p>
+          <p>
+	    Prior to OTP 25 the <c>{reuseaddr, true}</c> option was
+	    ignored for all sockets on Windows, but as of OTP 25.0
+	    this was changed so that it was not ignored for any
+	    sockets.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-18324 Aux Id: GH-6461, PR-6481 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> decoding a list of
+	    length 1G or longer.</p>
+          <p>
+	    Own Id: OTP-18328 Aux Id: GH-6439, PR-6440 </p>
+        </item>
+        <item>
+	    <p>Fix bug in <c>binary_to_term</c> (and distributed
+	    receive) when decoding a large map (&gt;32 keys) with
+	    unsorted small maps (&lt;= 32) as keys of the large
+	    map.</p>
+	    <p>This was only a problem if the term was encoded by
+	    <c>erl_interface</c>, <c>jinterface</c> or otherwise, as
+	    the VM itself always encodes small maps with sorted
+	    keys.</p>
+	    <p>The "binary_to_term" would appear as successful but
+	    the created large map was internally inconsistent. The
+	    smaller key-maps could not be found with maps:get and
+	    friends. Other operations such as map compare and merge
+	    could probably also give incorrect results.</p>
+          <p>
+	    Own Id: OTP-18343 Aux Id: GH-6496 </p>
+        </item>
+        <item>
+          <p>
+	    Fix Windows bug in <c>open_port({spawn, Command}, ..)</c>
+	    when <c>Command</c> is found via the OS search PATH and
+	    that directory path contains white spaces. The port
+	    program would start but the command line arguments to it
+	    could be incorrect.</p>
+          <p>
+	    Own Id: OTP-18345 Aux Id: GH-6387, PR-6396 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

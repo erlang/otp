@@ -33,6 +33,23 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.23.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix starting of peer nodes on old releases when the
+	    compile server was active and the current Erlang
+	    installation contained non-latin1 characters in its path.</p>
+          <p>
+	    Own Id: OTP-18255 Aux Id: PR-6314 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.23.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

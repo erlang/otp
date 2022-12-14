@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Ftp 1.1.1</title>
+  <section><title>Ftp 1.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    fix unexpected result <c>ok</c> when calling
+	    <c>ftp:nlist</c> repeatedly</p>
+          <p>
+	    Own Id: OTP-18252 Aux Id: GH-5823 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ftp 1.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
