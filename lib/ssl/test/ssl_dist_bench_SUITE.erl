@@ -382,6 +382,10 @@ setup(A, B, Prefix, Effort, HA, HB) ->
     [] = ssl_apply(HA, erlang, nodes, []),
     [] = ssl_apply(HB, erlang, nodes, []),
     pong = ssl_apply(HA, net_adm, ping, [B]),
+    _ = ssl_apply(HA, fun () -> set_cpu_affinity(client) end),
+    {Log, Before, After} =
+        ssl_apply(HB, fun () -> set_cpu_affinity(server) end),
+    ct:pal("Server CPU affinity: ~w -> ~w~n~s", [Before, After, Log]),
     MemStart = mem_start(HA, HB),
     ChildCountResult =
         ssl_dist_test_lib:apply_on_ssl_node(
@@ -445,6 +449,46 @@ setup_wait_nodedown(A, Time) ->
     end.
 
 
+set_cpu_affinity(client) ->
+    {LogicalProcessors, _} = split_cpus(),
+    update_schedulers(taskset(LogicalProcessors));
+set_cpu_affinity(server) ->
+    {_, LogicalProcessors} = split_cpus(),
+    update_schedulers(taskset(LogicalProcessors)).
+
+taskset(LogicalProcessors) ->
+    os:cmd(
+      "taskset -c -p " ++
+          lists:flatten(
+            lists:join(
+              ",",
+              [integer_to_list(Id) || Id <- LogicalProcessors]),
+            " ") ++ os:getpid()).
+
+split_cpus() ->
+    split_cpus(erlang:system_info(cpu_topology)).
+
+split_cpus([{_Tag, List}]) ->
+    split_cpus(List);
+split_cpus(List = [_ | _]) ->
+    {A, B} = lists:split(length(List) bsr 1, List),
+    {logical_processors(A), logical_processors(B)}.
+
+logical_processors([{_Tag, {logical, Id}} | Items]) ->
+    [Id | logical_processors(Items)];
+logical_processors([{_Tag, List} | Items]) ->
+    logical_processors(List) ++ logical_processors(Items);
+logical_processors([]) ->
+    [].
+
+update_schedulers(CmdResult) ->
+    _ = erlang:system_info(update_cpu_info),
+    Schedulers = erlang:system_info(logical_processors_available),
+    {CmdResult,
+     erlang:system_flag(schedulers_online, Schedulers),
+     Schedulers}.
+
+
 %%----------------
 %% Parallel setup
 
@@ -456,6 +500,7 @@ parallel_setup(Config, Clients, I, HNs) when 0 < I ->
     Key = {client, I},
     Node = proplists:get_value(Key, Config),
     Handle = start_ssl_node(Key, Config),
+    _ = ssl_apply(Handle, fun () -> set_cpu_affinity(client) end),
     try
         parallel_setup(Config, Clients, I - 1, [{Handle, Node} | HNs])
     after
@@ -469,8 +514,11 @@ parallel_setup(Config, Clients, _0, HNs) ->
     TotalRounds = 1000 * Effort,
     Rounds = round(TotalRounds / Clients),
     try
+        {Log, Before, After} =
+            ssl_apply(ServerHandle, fun () -> set_cpu_affinity(server) end),
+        ct:pal("Server CPU affinity: ~w -> ~w~n~s", [Before, After, Log]),
         ServerMemBefore =
-            ssl_dist_test_lib:apply_on_ssl_node(ServerHandle, fun mem/0),
+            ssl_apply(ServerHandle, fun mem/0),
         parallel_setup_result(
           Config, TotalRounds, ServerHandle, ServerMemBefore,
           [parallel_setup_runner(Handle, Node, ServerNode, Rounds)
@@ -486,13 +534,13 @@ parallel_setup_runner(Handle, Node, ServerNode, Rounds) ->
         spawn_link(
           fun () ->
                   MemBefore =
-                      ssl_dist_test_lib:apply_on_ssl_node(Handle, fun mem/0),
+                      ssl_apply(Handle, fun mem/0),
                   Result =
-                      ssl_dist_test_lib:apply_on_ssl_node(
+                      ssl_apply(
                         Handle, ?MODULE, setup_runner,
                         [Node, ServerNode, Rounds]),
                   MemAfter =
-                      ssl_dist_test_lib:apply_on_ssl_node(Handle, fun mem/0),
+                      ssl_apply(Handle, fun mem/0),
                   Collector ! {Tag,{MemBefore, Result, MemAfter}}
           end),
     Tag.
@@ -520,7 +568,7 @@ parallel_setup_result(
   Config, TotalRounds, ServerHandle, ServerMemBefore, [],
   SetupTime, CycleTime, Mem) ->
     ServerMemAfter =
-        ssl_dist_test_lib:apply_on_ssl_node(ServerHandle, fun mem/0),
+        ssl_apply(ServerHandle, fun mem/0),
     ServerMem =
         case {ServerMemBefore, ServerMemAfter} of
             {{_, _, ServerMaxEver1}, {_, _, ServerMaxEver2}}

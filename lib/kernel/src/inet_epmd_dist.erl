@@ -357,7 +357,7 @@ accept({NetAddress, StateL}) ->
                       _ = process_flag(trap_exit, true),
                       accept_loop(
                         StateL, NetAddress, NetKernel, DistMod,
-                        erlang:system_info(schedulers), #{})
+                        erlang:system_info(schedulers_online), #{})
               end),
         AcceptLoop
     catch error : Reason : Stacktrace ->
