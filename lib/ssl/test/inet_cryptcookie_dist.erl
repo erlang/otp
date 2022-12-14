@@ -513,7 +513,12 @@ start_dist_ctrl(Socket, Secret, Timeout) ->
              {priority, max},
              {message_queue_data, off_heap},
              {fullsweep_after, 0}])),
-    gen_tcp:controlling_process(Socket, Pid),
+    case gen_tcp:controlling_process(Socket, Pid) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            error({dist_ctrl, Reason})
+    end,
     DistCtrlHandle = {Pid, Tag},
     started = call(DistCtrlHandle, start, Timeout),
     DistCtrlHandle.
@@ -802,22 +807,24 @@ init(Socket, Secret) ->
     #keypair{public = PubKey} = KeyPair = get_keypair(),
     Params = params(Socket),
     {R2, R3, Msg} = init_msg(Params, PubKey, Secret),
-    ok = trace(gen_tcp:send(Socket, Msg)),
+    ok = closed(trace(gen_tcp:send(Socket, Msg))),
     init_recv(Params, Secret, KeyPair, R2, R3).
 
 init_recv(
   #params{socket = Socket, iv = IVLen} = Params,
   Secret, KeyPair, R2, R3) ->
     %%
-    {ok, InitMsg} = gen_tcp:recv(trace(Socket), 0),
+    {ok, InitMsg} = closed(gen_tcp:recv(trace(Socket), 0)),
     IVSaltLen = IVLen - 6,
     try
         case init_msg(Params, Secret, KeyPair, R2, R3, InitMsg) of
             {#params{iv = <<IV2ASalt:IVSaltLen/binary, IV2ANo:48>>} =
                  SendParams,
              RecvParams, SendStartMsg} ->
-                ok = trace(gen_tcp:send(Socket, SendStartMsg)),
-                {ok, RecvStartMsg} = gen_tcp:recv(trace(Socket), 0),
+                ok =
+                    closed(
+                      trace(gen_tcp:send(Socket, SendStartMsg))),
+                {ok, RecvStartMsg} = closed(gen_tcp:recv(trace(Socket), 0)),
                 #params{
                    iv = <<IV2BSalt:IVSaltLen/binary, IV2BNo:48>>} =
                     RecvParams_1 =
@@ -833,7 +840,7 @@ init_recv(
                {reason, Reason},
                {stacktrace, Stacktrace}]),
             _ = trace({Reason, Stacktrace}),
-            exit(connection_closed)
+                    exit(connection_closed)
     end.
 
 init_msg(
@@ -977,8 +984,12 @@ handshake(
                      {fullsweep_after, 0}])),
             _ = monitor(process, InputHandler), % For the benchmark test
             ok =
-                gen_tcp:controlling_process(
-                  SendParams#params.socket, InputHandler),
+                maybe
+                    {error, closed} ?=
+                        gen_tcp:controlling_process(
+                          SendParams#params.socket, InputHandler),
+                    exit(closed)
+                end,
             false = erlang:dist_ctrl_set_opt(DistHandle, get_size, true),
             ok = erlang:dist_ctrl_input_handler(DistHandle, InputHandler),
             InputHandler ! {Tag, dist_handle, DistHandle},
@@ -1250,8 +1261,9 @@ output_handler_chunk(Params, Seq, Front, Size, Rear, Acc, DataSize) ->
 input_handler(#params{socket = Socket} = Params, Seq, DistHandle) ->
     try
         ok =
-            inet:setopts(
-              Socket, [{active, ?TCP_ACTIVE}, inet_tcp_dist:nodelay()]),
+            closed(
+              inet:setopts(
+                Socket, [{active, ?TCP_ACTIVE}, inet_tcp_dist:nodelay()])),
         input_handler(
           Params#params{dist_handle = DistHandle},
           Seq)
@@ -1358,7 +1370,7 @@ input_data(Params, Seq) ->
 input_data(#params{socket = Socket} = Params, Seq, Msg) ->
     case Msg of
         {tcp_passive, Socket} ->
-            ok = inet:setopts(Socket, [{active, ?TCP_ACTIVE}]),
+            ok = closed(inet:setopts(Socket, [{active, ?TCP_ACTIVE}])),
             input_data(Params, Seq);
         {tcp, Socket, Ciphertext} ->
             case decrypt_chunk(Params, Seq, Ciphertext) of
@@ -1398,8 +1410,10 @@ encrypt_and_send_chunk(
     case encrypt_and_send_rekey_chunk(Params, Seq) of
         #params{socket = Socket} = Params_1 ->
             Result =
-                Ciphertext = encrypt_chunk(Params, 0, Cleartext, Size),
-                gen_tcp:send(Socket, Ciphertext),
+                begin
+                    Ciphertext = encrypt_chunk(Params, 0, Cleartext, Size),
+                    closed(gen_tcp:send(Socket, Ciphertext))
+                end,
             case Result of ok -> ok;
                 {error, Reason} ->
                     error_report([?FUNCTION_NAME, {reason,Reason}])
@@ -1411,7 +1425,8 @@ encrypt_and_send_chunk(
 encrypt_and_send_chunk(
   #params{socket = Socket} = Params, Seq, Cleartext, Size) ->
     Result =
-        gen_tcp:send(Socket, encrypt_chunk(Params, Seq, Cleartext, Size)),
+        closed(
+          gen_tcp:send(Socket, encrypt_chunk(Params, Seq, Cleartext, Size))),
     {Params, Seq + 1, Result}.
 
 encrypt_and_send_rekey_chunk(
@@ -1427,10 +1442,11 @@ encrypt_and_send_rekey_chunk(
     IVSaltLen = byte_size(IVSalt),
     #keypair{public = PubKeyA} = KeyPair = get_new_keypair(),
     case
-        gen_tcp:send(
-          Socket,
-          encrypt_chunk(
-            Params, Seq, [?REKEY_CHUNK, PubKeyA], 1 + byte_size(PubKeyA)))
+        closed(
+          gen_tcp:send(
+            Socket,
+            encrypt_chunk(
+              Params, Seq, [?REKEY_CHUNK, PubKeyA], 1 + byte_size(PubKeyA))))
     of
         ok ->
             SharedSecret = compute_shared_secret(KeyPair, PubKeyB),
@@ -1463,7 +1479,7 @@ encrypt_chunk(
     Chunk.
 
 recv_and_decrypt_chunk(RecvParams, RecvSeq) ->
-    case gen_tcp:recv(RecvParams#params.socket, 0) of
+    case closed(gen_tcp:recv(RecvParams#params.socket, 0)) of
         {ok, Chunk} ->
             case decrypt_chunk(RecvParams, RecvSeq, Chunk) of
                 <<?HANDSHAKE_CHUNK, Cleartext/binary>> ->
@@ -1569,6 +1585,11 @@ death_row_timeout(Reason) ->
     exit(Reason).
 
 %% -------------------------------------------------------------------------
+
+closed({error, closed}) ->
+    exit(closed);
+closed(Result) ->
+    Result.
 
 %% Trace point
 trace(Term) -> Term.
