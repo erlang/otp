@@ -415,6 +415,9 @@ subtract(#t_list{type=TypeA,terminator=TermA}=T,
 subtract(#t_list{type=Type,terminator=Term}, nil) ->
     #t_cons{type=Type,terminator=Term};
 
+subtract(identifier, other) ->
+    identifier;
+
 subtract(#t_union{atom=Atom}=A, #t_atom{}=B)->
     shrink_union(A#t_union{atom=subtract(Atom, B)});
 subtract(#t_union{number=Number}=A, B) when ?IS_NUMBER_TYPE(B) ->
@@ -901,6 +904,18 @@ glb(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKey,super_value=SValue};
 glb(#t_tuple{}=T1, #t_tuple{}=T2) ->
     glb_tuples(T1, T2);
+glb(identifier, T) ->
+    case is_identifier(T) of
+        true ->
+            T;
+        false ->
+            case T of
+                other -> identifier;
+                _ -> none
+            end
+    end;
+glb(T, identifier) ->
+    glb(identifier, T);
 glb(other, T) ->
     case is_other(T) of
         true -> T;
@@ -1079,9 +1094,14 @@ lub(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->
     #t_tuple{size=Sz,elements=Es};
 lub(T1, T2) ->
     %%io:format("~p ~p\n", [T1,T2]),
-    case is_other(T1) andalso is_other(T2) of
-        true -> other;
-        false -> any
+    case is_identifier(T1) andalso is_identifier(T2) of
+        true ->
+            identifier;
+        false ->
+            case is_other(T1) andalso is_other(T2) of
+                true -> other;
+                false -> any
+            end
     end.
 
 is_other(Type) ->
@@ -1091,6 +1111,12 @@ is_other(Type) ->
                              tuple_set=#t_tuple{},
                              other=none},
     meet(AnyMinusOther, Type) =:= none.
+
+is_identifier(identifier) -> true;
+is_identifier(pid) -> true;
+is_identifier(port) -> true;
+is_identifier(reference) -> true;
+is_identifier(_) -> false.
 
 lub_ranges({MinA,MaxA}, {MinB,MaxB}) ->
     {inf_min(MinA, MinB), inf_max(MaxA, MaxB)};
@@ -1327,6 +1353,7 @@ verified_normal_type(other=T) -> T;
 verified_normal_type(pid=T) -> T;
 verified_normal_type(port=T) -> T;
 verified_normal_type(reference=T) -> T;
+verified_normal_type(identifier=T) -> T;
 verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
     %% All known elements must have a valid index and type (which may be a
     %% union). 'any' is prohibited since it's implicit and should never be
