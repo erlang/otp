@@ -28,7 +28,8 @@
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
 	 nomatch/1,sizes/1,general_expressions/1,
-         no_generator/1,zero_pattern/1,multiple_segments/1]).
+         no_generator/1,zero_pattern/1,multiple_segments/1,
+         grab_bag/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -39,7 +40,8 @@ all() ->
      byte_aligned, bit_aligned, extended_byte_aligned,
      extended_bit_aligned, mixed, filters, trim_coverage,
      nomatch, sizes, general_expressions,
-     no_generator, zero_pattern, multiple_segments].
+     no_generator, zero_pattern, multiple_segments,
+     grab_bag].
 
 groups() ->
     [].
@@ -646,6 +648,17 @@ do_multiple_segments_2(Gen) ->
     List = [A+B+C || <<A,B,C>> <= Gen],
     Bin = list_to_binary(List),
     List.
+
+grab_bag(_Config) ->
+    {'EXIT',{function_clause,_}} = catch grab_bag_gh_6553(<<>>),
+    {'EXIT',{function_clause,_}} = catch grab_bag_gh_6553(a),
+    {'EXIT',{{badmatch,<<>>},_}} = catch grab_bag_gh_6553(<<42>>),
+
+    ok.
+
+grab_bag_gh_6553(<<X>>) ->
+    %% Would crash in beam_ssa_pre_codegen.
+    <<X, ((<<_:0>> = <<_>>) = <<>>)>>.
 
 cs_init() ->
     erts_debug:set_internal_state(available_internal_state, true),
