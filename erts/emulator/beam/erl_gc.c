@@ -1472,13 +1472,13 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
          * This improved Estone by more than 1200 estones on my computer
          * (Ultra Sparc 10).
          */
-        Uint new_sz = erts_next_heap_size(size_before, 1);
+        Uint n_old_sz = erts_next_heap_size(size_before, 1);
 
         /* Create new, empty old_heap */
         n_old = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
-					  sizeof(Eterm)*new_sz);
+					  sizeof(Eterm)*n_old_sz);
 
-        OLD_HEND(p) = n_old + new_sz;
+        OLD_HEND(p) = n_old + n_old_sz;
         OLD_HEAP(p) = OLD_HTOP(p) = n_old;
     }
 
