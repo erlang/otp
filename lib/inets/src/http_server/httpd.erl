@@ -115,9 +115,9 @@ reload_config(ConfigFile, Mode) ->
 info(Pid) when is_pid(Pid) ->
     info(Pid, []).
 
--spec info(Pid, HttpInformation) -> HttpInformation  when
+-spec info(Pid, Properties) -> HttpInformation  when
       Pid     :: pid(),
-      Path :: file:name_all(),
+      Properties :: [atom()],
       HttpInformation :: [CommonOption]
                        | [CommunicationOption]
                        | [ModOption]
