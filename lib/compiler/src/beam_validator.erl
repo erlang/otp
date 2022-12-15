@@ -1705,13 +1705,6 @@ validate_bs_start_match({f,Fail}, Live, Src, Dst, Vst) ->
 %% Validate the bs_match instruction.
 %%
 
-validate_bs_match([{get_tail,Live,_,Dst}], Ctx, _, Vst0) ->
-    validate_ctx_live(Ctx, Live),
-    verify_live(Live, Vst0),
-    Vst = prune_x_regs(Live, Vst0),
-    #t_bs_context{tail_unit=Unit} = get_concrete_type(Ctx, Vst0),
-    Type = #t_bitstring{size_unit=Unit},
-    extract_term(Type, get_tail, [Ctx], Dst, Vst, Vst0);
 validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
     case I of
         {ensure_at_least,_Size,Unit} ->
@@ -1739,7 +1732,16 @@ validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
             Vst = extract_term(Type, bs_match, [Ctx], Dst, Vst1, Vst0),
             validate_bs_match(Is, Ctx, Unit0, Vst);
         {skip,_Stride} ->
-            validate_bs_match(Is, Ctx, Unit0, Vst0)
+            validate_bs_match(Is, Ctx, Unit0, Vst0);
+        {get_tail,Live,_,Dst} ->
+            validate_ctx_live(Ctx, Live),
+            verify_live(Live, Vst0),
+            Vst1 = prune_x_regs(Live, Vst0),
+            #t_bs_context{tail_unit=Unit} = get_concrete_type(Ctx, Vst0),
+            Type = #t_bitstring{size_unit=Unit},
+            Vst = extract_term(Type, get_tail, [Ctx], Dst, Vst1, Vst0),
+            %% In rare circumstance, there can be multiple `get_tail` sub commands.
+            validate_bs_match(Is, Ctx, Unit, Vst)
     end;
 validate_bs_match([], _Ctx, _Unit, Vst) ->
     Vst.
