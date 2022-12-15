@@ -543,6 +543,7 @@ int beam_load_finish_emit(LoaderState *stp) {
 
 void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_p)
 {
+    ErtsCodeIndex staging_ix;
     unsigned int i;
     int on_load = stp->on_load;
     unsigned catches;
@@ -554,6 +555,11 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
 
     inst_p->code_hdr = stp->code_hdr;
     inst_p->code_length = size;
+
+    staging_ix = erts_staging_code_ix();
+
+    ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_load_permission() ||
+                   erts_thr_progress_is_blocking());
 
     /* Update ranges (used for finding a function from a PC value). */
     erts_update_ranges(inst_p->code_hdr, size);
@@ -626,7 +632,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                                             lambda->arity - lambda->num_free);
             fun_entries[i] = fun_entry;
 
-            if (erts_is_fun_loaded(fun_entry)) {
+            if (erts_is_fun_loaded(fun_entry, staging_ix)) {
                 /* We've reloaded a module over itself and inherited the old
                  * instance's fun entries, so we need to undo the reference
                  * bump in `erts_put_fun_entry2` to make fun purging work. */
@@ -634,6 +640,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
             }
 
             erts_set_fun_code(fun_entry,
+                              staging_ix,
                               stp->codev + stp->labels[lambda->label].value);
         }
 
@@ -690,7 +697,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
              */
             ep->trampoline.not_loaded.deferred = (BeamInstr) address;
         } else {
-            ep->dispatch.addresses[erts_staging_code_ix()] = address;
+            ep->dispatch.addresses[staging_ix] = address;
         }
     }
 
@@ -704,7 +711,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                                          entry->name,
                                          entry->arity);
             const BeamInstr *addr =
-                ep->dispatch.addresses[erts_staging_code_ix()];
+                ep->dispatch.addresses[staging_ix];
 
             if (!ErtsInArea(addr, stp->codev, stp->ci * sizeof(BeamInstr))) {
                 erts_exit(ERTS_ABORT_EXIT,

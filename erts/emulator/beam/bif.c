@@ -5497,7 +5497,7 @@ void erts_init_trap_export(Export *ep, Eterm m, Eterm f, Uint a,
     }
 
 #ifdef BEAMASM
-    ep->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
+    ep->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls_export;
 #endif
 
     ep->bif_number = -1;

@@ -595,13 +595,13 @@ Eterm beam_jit_call_nif(Process *c_p,
 enum beam_jit_nif_load_ret beam_jit_load_nif(Process *c_p,
                                              ErtsCodePtr I,
                                              Eterm *reg) {
-    if (erts_try_seize_code_write_permission(c_p)) {
+    if (erts_try_seize_code_mod_permission(c_p)) {
         Eterm result;
 
         PROCESS_MAIN_CHK_LOCKS((c_p));
         ERTS_UNREQ_PROC_MAIN_LOCK((c_p));
         result = erts_load_nif(c_p, I, reg[0], reg[1]);
-        erts_release_code_write_permission();
+        erts_release_code_mod_permission();
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
 
         if (ERTS_LIKELY(is_value(result))) {

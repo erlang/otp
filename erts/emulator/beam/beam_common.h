@@ -280,7 +280,8 @@ void check_monitor_long_schedule(Process *c_p, Uint64 start_time,
 extern ErtsCodePtr beam_run_process;
 extern ErtsCodePtr beam_normal_exit;
 extern ErtsCodePtr beam_exit;
-extern ErtsCodePtr beam_save_calls;
+extern ErtsCodePtr beam_save_calls_export;
+extern ErtsCodePtr beam_save_calls_fun;
 extern ErtsCodePtr beam_bif_export_trap;
 extern ErtsCodePtr beam_export_trampoline;
 extern ErtsCodePtr beam_continue_exit;

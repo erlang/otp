@@ -289,7 +289,7 @@ erts_consolidate_bp_data(BpFunctions* f, int local)
     Uint i;
     Uint n = f->matched;
 
-    ERTS_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
 
     for (i = 0; i < n; i++) {
         consolidate_bp_data(fs[i].mod, fs[i].ci_rw, local);
@@ -1397,7 +1397,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
     Uint common;
     ErtsBpIndex ix = erts_staging_bp_ix();
 
-    ERTS_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
     g = ci->u.gen_bp;
     if (g == 0) {
 	int i;
@@ -1530,7 +1530,7 @@ clear_function_break(const ErtsCodeInfo *ci, Uint break_flags)
     Uint common;
     ErtsBpIndex ix = erts_staging_bp_ix();
 
-    ERTS_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
 
     if ((g = ci->u.gen_bp) == NULL) {
 	return 1;

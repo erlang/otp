@@ -2431,7 +2431,7 @@ int enif_vsnprintf(char* buffer, size_t size, const char *format, va_list ap)
 
 /*
  * Sentinel node in circular list of all resource types.
- * List protected by code_write_permission.
+ * List protected by code modification permission.
  */
 struct enif_resource_type_t resource_type_list; 
 
@@ -2579,7 +2579,7 @@ ErlNifResourceType* open_resource_type(ErlNifEnv* env,
     ErlNifResourceFlags op = flags;
     Eterm module_am, name_am;
 
-    ERTS_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
     module_am = make_atom(env->mod_nif->mod->module);
     name_am = enif_make_atom(env, name_str);
 
@@ -4371,7 +4371,7 @@ void erts_add_taint(Eterm mod_atom)
     struct tainted_module_t *first, *t;
 
     ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&erts_driver_list_lock)
-                   || erts_has_code_write_permission());
+                   || erts_has_code_mod_permission());
 
     first = (struct tainted_module_t*) erts_atomic_read_nob(&first_taint);
     for (t=first ; t; t=t->next) {
@@ -4944,7 +4944,7 @@ static void patch_call_nif_early(ErlNifEntry* entry,
 {
     int i;
 
-    ERTS_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
     ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&erts_nif_call_tab_lock));
 
     for (i=0; i < entry->num_of_funcs; i++)
@@ -5074,10 +5074,11 @@ static void load_nif_2nd_finisher(void* vlib)
     int i;
 
     /*
-     * We seize code write permission only to avoid any trace breakpoints
-     * to change while we patch the op_call_nif_WWW instruction.
+     * We seize code modification permission only to avoid any trace
+     * breakpoints to change while we patch the op_call_nif_WWW instruction.
      */
-    if (!erts_try_seize_code_write_permission_aux(load_nif_2nd_finisher, vlib)) {
+    if (!erts_try_seize_code_mod_permission_aux(load_nif_2nd_finisher,
+                                                         vlib)) {
         return;
     }
 
@@ -5120,7 +5121,7 @@ static void load_nif_2nd_finisher(void* vlib)
     }
     erts_mtx_unlock(&lib->load_mtx);
 
-    erts_release_code_write_permission();
+    erts_release_code_mod_permission();
 
     if (fin) {
         UWord bytes = sizeof_ErtsNifFinish(lib->entry.num_of_funcs);
@@ -5204,7 +5205,7 @@ erts_unload_nif(struct erl_module_nif* lib)
 
     ASSERT(lib != NULL);
     ASSERT(lib->mod != NULL);
-    ERTS_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
 
     erts_tracer_nif_clear();
 

@@ -122,7 +122,8 @@ extern void erts_add_taint(Eterm mod_atom);
 extern Eterm erts_nif_taints(Process* p);
 extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 
-/* Loads the specified NIF. The caller must have code write permission. */
+/* Loads the specified NIF. The caller must have code modification
+ * permission. */
 Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args);
 
 void erts_unload_nif(struct erl_module_nif* nif);

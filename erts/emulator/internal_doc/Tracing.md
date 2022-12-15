@@ -127,7 +127,8 @@ aligned write operation on all hardware architectures we use.
 This is a simplified sequence describing what `trace_pattern` goes
 through when adding a new breakpoint.
 
-1. Seize exclusive code write permission (suspend process until we get it).
+1. Seize exclusive code modification permission (suspend process until we get
+   it).
 
 2. Allocate breakpoint structure `GenericBp` including both generations.
    Set the active part as disabled with a zeroed flagfield. Save the original
@@ -154,14 +155,13 @@ through when adding a new breakpoint.
 10. Prepare for next call to `trace_pattern` by updating the new staging part
     (the old active) of the breakpoint to be identic to the the new active part.
 
-11. Release code write permission and return from `trace_pattern`.
+11. Release code modification permission and return from `trace_pattern`.
 
 
-The code write permission "lock" seized in step 1 is the same as used
-by code loading. This will ensure that only one process at a time can
-stage new trace settings but it will also prevent concurrent code
-loading and make sure we see a consistent view of the beam code during
-the entire sequence.
+The code modification permission "lock" seized in step 1 is also taken by code
+loading. This ensures that only one process at a time can stage new trace
+settings, and also prevents concurrent codeloading and make sure we see a
+consistent view of the beam code during the entire sequence.
 
 Between step 6 and 8, runninng processes might execute the written
 `op_i_generic_breakpoint` instruction. They will get the breakpoint
@@ -186,7 +186,8 @@ original beam instruction.
 Here is a more complete sequence that contains both adding, updating
 and removing breakpoints.
 
-1. Seize exclusive code write permission (suspend process until we get it).
+1. Seize exclusive code modification permission (suspend process until we get
+   it).
 
 2. Allocate new breakpoint structures with a disabled active part and
    the original beam instruction. Write a pointer to the breakpoint in
@@ -216,7 +217,7 @@ and removing breakpoints.
 
 12. Deallocate disabled breakpoint structures.
 
-13. Release code write permission and return from `trace_pattern`.
+13. Release code modification permission and return from `trace_pattern`.
 
 ### All that Waiting for Thread Progress
 

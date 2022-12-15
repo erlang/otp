@@ -871,7 +871,11 @@ load_error:
 
 void beam_load_finalize_code(LoaderState *stp,
                              struct erl_module_instance *inst_p) {
-    int staging_ix, code_size, i;
+    ErtsCodeIndex staging_ix;
+    int code_size, i;
+
+    ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_load_permission() ||
+                   erts_thr_progress_is_blocking());
 
     code_size = beamasm_get_header(stp->ba, &stp->code_hdr);
     erts_total_code_size += code_size;
@@ -948,14 +952,16 @@ void beam_load_finalize_code(LoaderState *stp,
                                             lambda->index,
                                             lambda->arity - lambda->num_free);
 
-            if (erts_is_fun_loaded(fun_entry)) {
+            if (erts_is_fun_loaded(fun_entry, staging_ix)) {
                 /* We've reloaded a module over itself and inherited the old
                  * instance's fun entries, so we need to undo the reference
                  * bump in `erts_put_fun_entry2` to make fun purging work. */
                 erts_refc_dectest(&fun_entry->refc, 1);
             }
 
-            erts_set_fun_code(fun_entry, beamasm_get_lambda(stp->ba, i));
+            erts_set_fun_code(fun_entry,
+                              staging_ix,
+                              beamasm_get_lambda(stp->ba, i));
 
             beamasm_patch_lambda(stp->ba,
                                  stp->native_module_rw,

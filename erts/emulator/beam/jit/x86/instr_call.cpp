@@ -90,11 +90,11 @@ void BeamModuleAssembler::emit_i_call_only(const ArgLabel &CallDest) {
     a.jmp(resolve_beam_label(CallDest));
 }
 
-/* Handles save_calls. Export entry is in RET.
+/* Handles save_calls for export entries. Export entry is in RET.
  *
  * When the active code index is ERTS_SAVE_CALLS_CODE_IX, all remote calls will
  * land here. */
-void BeamGlobalAssembler::emit_dispatch_save_calls() {
+void BeamGlobalAssembler::emit_dispatch_save_calls_export() {
     a.mov(TMP_MEM1q, RET);
 
     emit_enter_runtime();

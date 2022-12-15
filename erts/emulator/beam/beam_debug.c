@@ -165,7 +165,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
         mfa.arity = signed_val(tp[3]);
     }
 
-    if (!erts_try_seize_code_write_permission(BIF_P)) {
+    if (!erts_try_seize_code_mod_permission(BIF_P)) {
 	ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_breakpoint_2),
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
@@ -188,7 +188,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
 
     erts_thr_progress_unblock();
     erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-    erts_release_code_write_permission();
+    erts_release_code_mod_permission();
     return res;
 
  error:
@@ -678,7 +678,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'F':		/* Function definition */
 	    {
 		ErlFunEntry* fe = (ErlFunEntry *) *ap;
-		const ErtsCodeMFA *cmfa = erts_get_fun_mfa(fe);
+		const ErtsCodeMFA *cmfa = erts_get_fun_mfa(fe, erts_active_code_ix());
 		erts_print(to, to_arg, "fun(`%T`:`%T`/%bpu)", cmfa->module,
 			   cmfa->function, cmfa->arity);
 		ap++;

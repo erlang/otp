@@ -658,14 +658,14 @@ t_nifs_attrib(Config) when is_list(Config) ->
     ok.
 
 
-%% Test erlang:load_nif/2 waiting for code_write_permission.
+%% Test erlang:load_nif/2 waiting for code_mod_permission.
 t_load_race(Config) ->
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "nif_mod"),
     {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
     {module,nif_mod} = erlang:load_module(nif_mod,Bin),
     try
-        erts_debug:set_internal_state(code_write_permission, true),
+        erts_debug:set_internal_state(code_mod_permission, true),
         Papa = self(),
         spawn_link(fun() ->
                            ok = nif_mod:load_nif_lib(Config, 1),
@@ -674,7 +674,7 @@ t_load_race(Config) ->
         timer:sleep(100),
         timeout = receive_any(0)
     after
-        true = erts_debug:set_internal_state(code_write_permission, false)
+        true = erts_debug:set_internal_state(code_mod_permission, false)
     end,
 
     "NIF loaded" = receive_any(),

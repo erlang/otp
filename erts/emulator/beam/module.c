@@ -162,8 +162,7 @@ static Module* put_module(Eterm mod, IndexTable* mod_tab)
 Module*
 erts_put_module(Eterm mod)
 {
-    ERTS_LC_ASSERT(erts_initialized == 0
-		       || erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_load_permission());
 
     return put_module(mod, &module_tables[erts_staging_code_ix()]);
 }
@@ -206,7 +205,7 @@ void *erts_writable_code_ptr(struct erl_module_instance* modi,
                              const void *ptr) {
     const char *code_start, *code_end, *ptr_raw;
 
-    ERTS_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_mod_permission());
 
     code_start = (char*)modi->code_hdr;
     code_end = code_start + modi->code_length;

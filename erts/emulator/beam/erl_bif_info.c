@@ -3647,7 +3647,7 @@ fun_info_2(BIF_ALIST_2)
 
     if (is_local_fun(funp)) {
         fe = funp->entry.fun;
-        mfa = erts_get_fun_mfa(fe);
+        mfa = erts_get_fun_mfa(fe, erts_active_code_ix());
     } else {
         ASSERT(is_external_fun(funp) && funp->next == NULL);
         mfa = &(funp->entry.exp)->info.mfa;
@@ -3740,7 +3740,7 @@ fun_info_mfa_1(BIF_ALIST_1)
         hp = HAlloc(p, 4);
 
         if (is_local_fun(funp)) {
-            mfa = erts_get_fun_mfa(funp->entry.fun);
+            mfa = erts_get_fun_mfa(funp->entry.fun, erts_active_code_ix());
 
             if (mfa == NULL) {
                 /* Unloaded funs must report their module even though we can't
@@ -5000,20 +5000,20 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 
             BIF_RET(am_ok);
         }
-        else if (ERTS_IS_ATOM_STR("code_write_permission", BIF_ARG_1)) {
+        else if (ERTS_IS_ATOM_STR("code_mod_permission", BIF_ARG_1)) {
             /*
              * Warning: This is a unsafe way of seizing the "lock"
              * as there is no automatic unlock if caller terminates.
              */
             switch(BIF_ARG_2) {
             case am_true:
-                if (!erts_try_seize_code_write_permission(BIF_P)) {
+                if (!erts_try_seize_code_mod_permission(BIF_P)) {
                     ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_set_internal_state_2),
                                     BIF_P, BIF_ARG_1, BIF_ARG_2);
                 }
                 BIF_RET(am_true);
             case am_false:
-                erts_release_code_write_permission();
+                erts_release_code_mod_permission();
                 BIF_RET(am_true);
             }
         }

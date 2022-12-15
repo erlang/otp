@@ -143,6 +143,19 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
     }
 }
 
+/* Handles save_calls for local funs, which is a side-effect of our calling
+ * convention. Fun entry is in RET.
+ *
+ * When the active code index is ERTS_SAVE_CALLS_CODE_IX, all local fun calls
+ * will land here. */
+void BeamGlobalAssembler::emit_dispatch_save_calls_fun() {
+    /* Keep going with the actual code index. */
+    a.mov(ARG1, imm(&the_active_code_index));
+    a.mov(ARG1d, x86::dword_ptr(ARG1));
+
+    a.jmp(emit_setup_dispatchable_call(RET, ARG1));
+}
+
 /* `call_fun` instructions land here to set up their environment before jumping
  * to the actual implementation.
  *

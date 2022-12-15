@@ -686,10 +686,10 @@ def strip_literal_tag(valobj):
     return valobj
 
 def init(target):
-    names = ['beam_run_process', 'beam_normal_exit', 'beam_exit', 'beam_save_calls',
-             'beam_bif_export_trap', 'beam_export_trampoline', 'beam_continue_exit',
-             'beam_return_to_trace', 'beam_return_trace', 'beam_exception_trace',
-             'beam_return_time_trace']
+    names = ['beam_run_process', 'beam_normal_exit', 'beam_exit', 'beam_save_calls_export',
+             'beam_save_calls_fun', 'beam_bif_export_trap', 'beam_export_trampoline',
+             'beam_continue_exit', 'beam_return_to_trace', 'beam_return_trace',
+             'beam_exception_trace', 'beam_return_time_trace']
     for name in names:
         code_pointers[global_var(name, target).unsigned] = name
 

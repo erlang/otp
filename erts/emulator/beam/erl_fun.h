@@ -97,14 +97,14 @@ int erts_fun_table_sz(void);
 ErlFunEntry* erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
                                  const byte* uniq, int index, int arity);
 
-const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe);
+const ErtsCodeMFA *erts_get_fun_mfa(const ErlFunEntry *fe, ErtsCodeIndex ix);
 
-void erts_set_fun_code(ErlFunEntry *fe, ErtsCodePtr address);
+void erts_set_fun_code(ErlFunEntry *fe, ErtsCodeIndex ix, ErtsCodePtr address);
 
 ERTS_GLB_INLINE
 ErtsCodePtr erts_get_fun_code(ErlFunEntry *fe, ErtsCodeIndex ix);
 
-int erts_is_fun_loaded(const ErlFunEntry* fe);
+int erts_is_fun_loaded(const ErlFunEntry* fe, ErtsCodeIndex ix);
 
 void erts_erase_fun_entry(ErlFunEntry* fe);
 void erts_cleanup_funs(ErlFunThing* funp);
@@ -115,6 +115,10 @@ void erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no);
 void erts_fun_purge_abort_finalize(ErlFunEntry **funs, Uint no);
 void erts_fun_purge_complete(ErlFunEntry **funs, Uint no);
 void erts_dump_fun_entries(fmtfn_t, void *);
+
+
+void erts_fun_start_staging(void);
+void erts_fun_end_staging(int commit);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
