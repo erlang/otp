@@ -1599,10 +1599,27 @@ catch Expr</code>
       returns the value <c>Any</c>.</p>
       <p><em>Example:</em></p>
     <pre>
-5> <input>catch throw(hello).</input>
+3> <input>catch throw(hello).</input>
 hello</pre>
     <p>If <c>throw/1</c> is not evaluated within a catch, a
       <c>nocatch</c> run-time error occurs.</p>
+
+      <change><p>Before Erlang/OTP 24, the <c>catch</c> operator had
+      the lowest precedence, making it necessary to add parentheses when
+      combining it with the <c>match</c> operator:</p>
+      <pre>
+1> <input>A = (catch 42).</input>
+42
+2> <input>A.</input>
+42</pre>
+
+      <p>Starting from Erlang/OTP 24, the parentheses can be omitted:</p>
+      <pre>
+1> <input>A = catch 42.</input>
+42
+2> <input>A.</input>
+42</pre>
+      </change>
   </section>
 
   <section>
@@ -2060,7 +2077,7 @@ end</pre>
   <section>
     <marker id="prec"></marker>
     <title>Operator Precedence</title>
-    <p>Operator precedence in falling priority:</p>
+    <p>Operator precedence in descending order:</p>
     <table>
       <row>
         <cell align="left" valign="middle">:</cell>
@@ -2076,58 +2093,69 @@ end</pre>
       </row>
       <row>
         <cell align="left" valign="middle">/ * div rem band and</cell>
-        <cell align="left" valign="middle">Left associative</cell>
+        <cell align="left" valign="middle">Left-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">+ - bor bxor bsl bsr or xor</cell>
-        <cell align="left" valign="middle">Left associative</cell>
+        <cell align="left" valign="middle">Left-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">++ --</cell>
-        <cell align="left" valign="middle">Right associative</cell>
+        <cell align="left" valign="middle">Right-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">== /= =&lt; &lt; >= > =:= =/=</cell>
-        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle">Non-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">andalso</cell>
-        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle">Left-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">orelse</cell>
-        <cell align="left" valign="middle">&nbsp;</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">= !</cell>
-        <cell align="left" valign="middle">Right associative</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">?=</cell>
-        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle">Left-associative</cell>
       </row>
       <row>
         <cell align="left" valign="middle">catch</cell>
         <cell align="left" valign="middle">&nbsp;</cell>
       </row>
+      <row>
+        <cell align="left" valign="middle">= !</cell>
+        <cell align="left" valign="middle">Right-associative</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">?=</cell>
+        <cell align="left" valign="middle">Non-associative</cell>
+      </row>
       <tcaption>Operator Precedence</tcaption>
     </table>
+    <change><p>Before Erlang/OTP 24, the <c>catch</c> operator had the lowest
+    precedence.</p></change>
     <note><p>The <c>=</c> operator in the table is the
     <seeguide marker="#match_operator">match operator</seeguide>.
     The character <c>=</c> can also denote the
     <seeguide marker="#compound_pattern_operator">compound pattern operator</seeguide>,
-    which can only be used in patterns.</p></note>
+    which can only be used in patterns.</p>
+    <p><c>?=</c> is restricted in that it can only be used at
+    the top-level inside a <c>maybe</c> block.</p>
+    </note>
     <p>When evaluating an expression, the operator with the highest
-      priority is evaluated first. Operators with the same priority
-      are evaluated according to their associativity.</p>
-      <p><em>Example:</em></p>
-      <p>The left associative arithmetic operators are evaluated left to
+      precedence is evaluated first. Operators with the same precedence
+      are evaluated according to their associativity. Non-associative
+      operators cannot be combined with operators of the same precedence.</p>
+      <p><em>Examples:</em></p>
+      <p>The left-associative arithmetic operators are evaluated left to
       right:</p>
     <pre>
 <input>6 + 5 * 4 - 3 / 2</input> evaluates to
 <input>6 + 20 - 1.5</input> evaluates to
 <input>26 - 1.5</input> evaluates to
 <input>24.5</input></pre>
+
+<p>The non-associative operators cannot be combined:</p>
+    <pre>
+1> <input>1 &lt; X &lt; 10.</input>
+* 1:7: syntax error before: '&lt;'</pre>
   </section>
 </chapter>
 
