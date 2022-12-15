@@ -2272,6 +2272,35 @@ infer_types(CompareOp, LHS, RHS, #vst{current=#st{vs=Vs}}=Vst0) ->
             Vst0
     end.
 
+infer_types_1(#value{op={bif,'and'},args=[LHS,RHS]}, Val, Op, Vst0) ->
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            Vst = update_eq_types(LHS, {atom,true}, Vst0),
+            update_eq_types(RHS, {atom,true}, Vst);
+        _ ->
+            %% As either of the arguments could be 'false', we can't infer
+            %% anything useful from that result.
+            Vst0
+    end;
+infer_types_1(#value{op={bif,'or'},args=[LHS,RHS]}, Val, Op, Vst0) ->
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, not Bool; Op =:= ne_exact, Bool ->
+            Vst = update_eq_types(LHS, {atom,false}, Vst0),
+            update_eq_types(RHS, {atom,false}, Vst);
+        _ ->
+            %% As either of the arguments could be 'true', we can't infer
+            %% anything useful from that result.
+            Vst0
+    end;
+infer_types_1(#value{op={bif,'not'},args=[Arg]}, Val, Op, Vst0) ->
+    case Val of
+        {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            update_eq_types(Arg, {atom,false}, Vst0);
+        {atom, Bool} when Op =:= eq_exact, not Bool; Op =:= ne_exact, Bool ->
+            update_eq_types(Arg, {atom,true}, Vst0);
+        _ ->
+            Vst0
+    end;
 infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}, Val, Op, Vst) ->
     case Val of
         {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->

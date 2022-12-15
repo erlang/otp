@@ -414,6 +414,9 @@ booleans(_Config) ->
     {'EXIT',{{case_clause,true},_}} = catch do_booleans_4(false),
     {'EXIT',{{badmatch,true},_}} = catch do_booleans_4(true),
 
+    true = do_booleans_5(id(0), id(<<0>>), id(0)),
+    {'EXIT',{function_clause,_}} = catch do_booleans_6(id(0), id(0), id(0)),
+
     ok.
 
 do_booleans_1(B) ->
@@ -448,6 +451,12 @@ do_booleans_4(X) ->
             false = Y,
             0
     end.
+
+do_booleans_5(X, <<X>>, X) when true; (0 rem 0) ->
+    (-2147483648 < X) orelse [0 || _ <- X].
+
+do_booleans_6(X, X, (X = [_ | X])) when true; self() ->
+    [0 || _ <- {X}].
 
 -record(update_tuple_a, {a,b}).
 -record(update_tuple_b, {a,b,c}).
