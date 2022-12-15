@@ -73,6 +73,8 @@ format_binary_error(encode_unsigned, [Subject, Endianness], _) ->
     [must_be_non_neg_integer(Subject), must_be_endianness(Endianness)];
 format_binary_error(encode_hex, [Subject], _) ->
     [must_be_binary(Subject)];
+format_binary_error(encode_hex, [Subject, Case], _) ->
+    [must_be_binary(Subject), must_be_hex_case(Case)];
 format_binary_error(decode_hex, [Subject], _) ->
     if
         is_binary(Subject), byte_size(Subject) rem 2 == 1 ->
@@ -916,6 +918,10 @@ must_be_binary(Bin, Error) when is_binary(Bin) -> Error;
 must_be_binary(Bin, _Error) when is_bitstring(Bin) -> bitstring;
 must_be_binary(_, _) -> not_binary.
 
+must_be_hex_case(uppercase) -> [];
+must_be_hex_case(lowercase) -> [];
+must_be_hex_case(_) -> bad_hex_case.
+
 must_be_endianness(little) -> [];
 must_be_endianness(big) -> [];
 must_be_endianness(_) -> bad_endianness.
@@ -1072,6 +1078,8 @@ expand_error(not_atom) ->
     <<"not an atom">>;
 expand_error(not_binary) ->
     <<"not a binary">>;
+expand_error(bad_hex_case) ->
+    <<"not uppercase or lowercase">>;
 expand_error(not_compiled_regexp) ->
     <<"not a compiled regular expression">>;
 expand_error(not_iodata) ->

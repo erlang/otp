@@ -11,6 +11,7 @@ MODULES= \
 	base64_property_test_SUITE \
 	beam_lib_SUITE \
 	binary_module_SUITE \
+	binary_property_test_SUITE \
 	binref \
 	c_SUITE \
 	calendar_SUITE \
