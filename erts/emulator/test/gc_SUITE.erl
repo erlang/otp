@@ -32,6 +32,7 @@
     grow_stack/1,
     grow_stack_heap/1,
     max_heap_size/1,
+    max_heap_size_large_hfrag/1,
     minor_major_gc_option_async/1,
     minor_major_gc_option_self/1,
     gc_signal_order/1,
@@ -43,6 +44,7 @@ suite() ->
 
 all() -> 
     [grow_heap, grow_stack, grow_stack_heap, max_heap_size,
+     max_heap_size_large_hfrag,
     minor_major_gc_option_self,
     minor_major_gc_option_async, gc_signal_order, gc_dirty_exec_proc].
 
@@ -203,6 +205,23 @@ long_receive() ->
     after 10000 ->
             ok
     end.
+
+%% Trigger gc-after-bif with a large heap fragment, which provoked some bugs.
+max_heap_size_large_hfrag(Config) ->
+    {Pid, Ref} =
+        spawn_opt(
+          fun Fun() ->
+                  erlang:make_tuple(2000, []),
+                  Fun()
+          end,
+          [monitor, {max_heap_size, 1000}]),
+    %% Verify that max heap was triggered
+    {'DOWN', Ref, process, Pid, killed} =
+        receive M -> M
+        after 5000 ->
+                ct:fail({process_did_not_die, Pid, erlang:process_info(Pid)})
+        end,
+    ok.
 
 minor_major_gc_option_self(_Config) ->
     %% Try as major, the test process will self-trigger GC

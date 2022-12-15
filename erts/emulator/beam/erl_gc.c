@@ -1452,7 +1452,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
             heap_size += OLD_HEND(p) - OLD_HEAP(p);
 
         /* Add potential new young heap size */
-        extra_heap_size = next_heap_size(p, stack_size + size_before, 0);
+        extra_heap_size = next_heap_size(p, stack_size + MAX(size_before,need), 0);
         heap_size += extra_heap_size;
 
         if (heap_size > MAX_HEAP_SIZE_GET(p))
@@ -1494,7 +1494,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 	Uint stack_size, size_after, adjust_size, need_after, new_sz, new_mature;
 
 	stack_size = p->hend - p->stop;
-	new_sz = stack_size + size_before;
+	new_sz = stack_size + MAX(size_before, need);
         new_sz = next_heap_size(p, new_sz, 0);
 
 	prev_old_htop = p->old_htop;
