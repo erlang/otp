@@ -79,7 +79,11 @@ is_node_name(Node) ->
 
 hs_data_inet_tcp(Driver, Socket) ->
     Family = Driver:family(),
-    {ok, Peername} = inet:peername(Socket),
+    {ok, Peername} =
+        maybe
+            {error, einval} ?= inet:peername(Socket),
+            ?shutdown({Driver, closed})
+        end,
     (inet_tcp_dist:gen_hs_data(Driver, Socket))
     #hs_data{
       f_address =
@@ -94,7 +98,11 @@ hs_data_inet_tcp(Driver, Socket) ->
           end}.
 
 hs_data_ssl(Family, #sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
-    {ok, Address} = ssl:peername(SslSocket),
+    {ok, Address} =
+        maybe
+            {error, einval} ?= ssl:peername(SslSocket),
+            ?shutdown({sslsocket, closed})
+        end,
     #hs_data{
        socket = DistCtrl,
        f_send =
