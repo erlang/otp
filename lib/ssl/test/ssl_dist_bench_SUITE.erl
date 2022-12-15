@@ -71,8 +71,8 @@ groups() ->
      {socket, categories()},
      %%
      %% encryption_backends()
-     {crypto_lib,     categories()},
-     {kernel_offload, categories()},
+     {tls,     categories()},
+     {ktls, categories()},
      %%
      %% categories()
      {setup, [{repeat, 1}],
@@ -99,8 +99,8 @@ protocols() ->
      {group, socket}].
 
 encryption_backends() ->
-    [{group,crypto_lib},
-     {group,kernel_offload}].
+    [{group,tls},
+     {group,ktls}].
 
 categories() ->
     [{group, setup},
@@ -261,7 +261,7 @@ init_per_group(socket, Config) ->
      proplists:delete(
        ssl_dist_prefix, proplists:delete(ssl_dist_args, Config))];
 %%
-init_per_group(kernel_offload, Config) ->
+init_per_group(ktls, Config) ->
     {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
     {ok, Port} = inet:port(Listen),
     {ok, Client} =
@@ -272,7 +272,10 @@ init_per_group(kernel_offload, Config) ->
             ok ?= ssl_test_lib:ktls_check_os(),
             ok ?= ssl_test_lib:ktls_set_ulp(Client),
             ok ?= ssl_test_lib:ktls_set_cipher(Client, tx, 1),
-            [{ktls, true} | Config]
+            [{ktls, true},
+             {ssl_dist_prefix,
+              proplists:get_value(ssl_dist_prefix, Config) ++ "-kTLS"}
+            | proplists:delete(ssl_dist_prefix, Config)]
         else
             {error, Reason} ->
                 {skip, {ktls, Reason}}
@@ -533,15 +536,21 @@ parallel_setup_runner(Handle, Node, ServerNode, Rounds) ->
     _ =
         spawn_link(
           fun () ->
-                  MemBefore =
-                      ssl_apply(Handle, fun mem/0),
-                  Result =
-                      ssl_apply(
-                        Handle, ?MODULE, setup_runner,
-                        [Node, ServerNode, Rounds]),
-                  MemAfter =
-                      ssl_apply(Handle, fun mem/0),
-                  Collector ! {Tag,{MemBefore, Result, MemAfter}}
+                  Collector !
+                      {Tag,
+                       try
+                           MemBefore =
+                               ssl_apply(Handle, fun mem/0),
+                           Result =
+                               ssl_apply(
+                                 Handle, ?MODULE, setup_runner,
+                                 [Node, ServerNode, Rounds]),
+                           MemAfter =
+                               ssl_apply(Handle, fun mem/0),
+                           {MemBefore, Result, MemAfter}
+                       catch Class : Reason : Stacktrace ->
+                               {Class, Reason, Stacktrace}
+                       end}
           end),
     Tag.
 
@@ -710,10 +719,10 @@ sched_utilization(A, B, Prefix, Effort, HA, HB, Config) ->
     _ = report(Prefix++" Sched Utilization Server Mem", MemB, "KByte"),
     {comment, ClientComment} =
         report(Prefix ++ " Sched Utilization Client" ++ Verdict,
-               SchedUtilClient, "/100 %" ++ Verdict),
+               SchedUtilClient, " %" ++ Verdict),
     {comment, ServerComment} =
         report(Prefix++" Sched Utilization Server" ++ Verdict,
-               SchedUtilServer, "/100 %" ++ Verdict),
+               SchedUtilServer, " %" ++ Verdict),
     {comment,
      "Client " ++ ClientComment ++ ", Server " ++ ServerComment ++
          " " ++ MemSuffix}.
@@ -797,13 +806,8 @@ sched_util_runner(A, B, Effort, Senders, Config) ->
 fs_log(Config, Name, Term) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     DistPrefix = proplists:get_value(ssl_dist_prefix, Config),
-    KTLSMark =
-        case proplists:get_value(ktls, Config, false) of
-            true  -> "/kTLS";
-            false -> ""
-        end,
     _ = file:write_file(
-          filename:join(PrivDir, DistPrefix ++ KTLSMark ++ "_" ++ Name),
+          filename:join(PrivDir, DistPrefix ++ "_" ++ Name),
           io_lib:format(
             "~p~n",
             [{{erlang:unique_integer([positive,monotonic]),
