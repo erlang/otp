@@ -150,7 +150,7 @@ oparg_compare(BeamOpArg* a, BeamOpArg* b)
 static int
 oparg_term_compare(SortBeamOpArg* a, SortBeamOpArg* b)
 {
-    Sint res = CMP_TERM(a->term, b->term);
+    Sint res = erts_cmp_flatmap_keys(a->term, b->term);
 
     if (res < 0) {
         return -1;

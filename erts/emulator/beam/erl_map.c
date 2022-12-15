@@ -438,7 +438,9 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
 
 	idx = size;
 
-	while(idx > 0 && (c = CMP_TERM(key,ks[idx-1])) < 0) { idx--; }
+	while(idx > 0 && (c = erts_cmp_flatmap_keys(key,ks[idx-1])) < 0) {
+            idx--;
+        }
 
 	if (c == 0) {
 	    /* last compare was equal,
@@ -747,21 +749,6 @@ Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Ui
     }
     return res;
 }
-
-Eterm erts_map_from_sorted_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs,
-                                     Uint n, Eterm *key_tuple)
-{
-#ifdef DEBUG
-    Uint i; 
-    /* verify that key array contains unique and sorted keys... */
-    for (i = 1; i < n; i++) {
-        ASSERT(CMP_TERM(ks[i-1], ks[i]) < 0);
-    }
-#endif
-
-    return from_ks_and_vs(factory, ks, vs, n, key_tuple, NULL);
-}
-
 
 Eterm erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
                                         Eterm *ks, Eterm *vs, Uint n,
@@ -1383,7 +1370,7 @@ static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     vs2 = flatmap_get_values(mp2);
 
     while(i1 < n1 && i2 < n2) {
-	c = (ks1[i1] == ks2[i2]) ? 0 : CMP_TERM(ks1[i1],ks2[i2]);
+	c = (ks1[i1] == ks2[i2]) ? 0 : erts_cmp_flatmap_keys(ks1[i1],ks2[i2]);
 	if (c == 0) {
 	    /* use righthand side arguments map value,
 	     * but advance both maps */
@@ -2161,7 +2148,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	ASSERT(n >= 0);
 
 	/* copy map in order */
-	while (n && ((c = CMP_TERM(*ks, key)) < 0)) {
+	while (n && ((c = erts_cmp_flatmap_keys(*ks, key)) < 0)) {
 	    *shp++ = *ks++;
 	    *hp++  = *vs++;
 	    n--;
@@ -3059,7 +3046,7 @@ int erts_validate_and_sort_flatmap(flatmap_t* mp)
 
     for (ix = 1; ix < sz; ix++) {
 	jx = ix;
-	while( jx > 0 && (c = CMP_TERM(ks[jx],ks[jx-1])) <= 0 ) {
+	while( jx > 0 && (c = erts_cmp_flatmap_keys(ks[jx],ks[jx-1])) <= 0 ) {
 	    /* identical key -> error */
 	    if (c == 0) return 0;
 
@@ -3090,7 +3077,7 @@ void erts_usort_flatmap(flatmap_t* mp)
 
     for (ix = 1; ix < sz; ix++) {
 	jx = ix;
-	while( jx > 0 && (c = CMP_TERM(ks[jx],ks[jx-1])) <= 0 ) {
+	while( jx > 0 && (c = erts_cmp_flatmap_keys(ks[jx],ks[jx-1])) <= 0 ) {
 	    /* identical key -> remove it */
 	    if (c == 0) {
                 sys_memmove(ks+jx-1,ks+jx,(sz-ix)*sizeof(Eterm));
