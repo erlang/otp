@@ -97,6 +97,8 @@ MODULES = \
         x509_test \
 	inet_cryptcookie_dist \
 	inet_crypto_dist \
+	dist_cryptcookie \
+	inet_epmd_cryptcookie \
 	openssl_ocsp_SUITE \
 	tls_server_session_ticket_SUITE \
 	tls_client_ticket_store_SUITE

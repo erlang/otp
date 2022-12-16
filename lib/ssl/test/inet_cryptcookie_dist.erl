@@ -42,7 +42,7 @@
 -include_lib("kernel/include/dist.hrl").
 -include_lib("kernel/include/dist_util.hrl").
 
--define(PACKET_SIZE, 65536).
+-define(PACKET_SIZE, (1 bsl 16)).  % 2 byte size header
 -define(BUFFER_SIZE, (?PACKET_SIZE bsl 4)).
 
 %% -------------------------------------------------------------------------

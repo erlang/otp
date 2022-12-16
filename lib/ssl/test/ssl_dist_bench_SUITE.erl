@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,9 +49,6 @@
 
 %% Debug
 -export([payload/1, roundtrip_runner/3, setup_runner/3, throughput_runner/4]).
-
--define(INET_CRYPT, "inet_cryptcookie").
--define(INET_CRYPT_DIST, (list_to_atom(?INET_CRYPT ++ "_dist"))).
 
 %%%-------------------------------------------------------------------
 
@@ -237,12 +234,12 @@ init_per_group(benchmark, Config) ->
 init_per_group(ssl, Config) ->
     [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
 init_per_group(crypto, Config) ->
-    try ?INET_CRYPT_DIST:supported() of
+    try inet_epmd_cryptcookie:supported() of
         ok ->
             [{ssl_dist, false}, {ssl_dist_prefix, "Crypto"},
              {ssl_dist_args,
-              "-proto_dist "?INET_CRYPT}
-            |Config];
+              "-proto_dist inet_epmd -inet_epmd cryptcookie"}
+            | Config];
         Problem ->
             {skip, Problem}
     catch
@@ -253,13 +250,11 @@ init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
 %%
 init_per_group(socket, Config) ->
-    SslDistArgs = proplists:get_value(ssl_dist_args, Config, ""),
     [{ssl_dist, false},
      {ssl_dist_prefix, "Socket"},
      {ssl_dist_args,
-      SslDistArgs ++ " -proto_dist inet_epmd -inet_epmd socket"} |
-     proplists:delete(
-       ssl_dist_prefix, proplists:delete(ssl_dist_args, Config))];
+      "-proto_dist inet_epmd -inet_epmd socket"}
+     | Config];
 %%
 init_per_group(ktls, Config) ->
     {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
@@ -512,7 +507,7 @@ parallel_setup(Config, Clients, I, HNs) when 0 < I ->
 parallel_setup(Config, Clients, _0, HNs) ->
     Key = server,
     ServerNode = proplists:get_value(Key, Config),
-    ServerHandle = start_ssl_node(Key, Config, 0),
+    ServerHandle = start_ssl_node(Key, Config, 1),
     Effort = proplists:get_value(effort, Config, 1),
     TotalRounds = 1000 * Effort,
     Rounds = round(TotalRounds / Clients),
