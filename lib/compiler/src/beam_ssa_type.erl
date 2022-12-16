@@ -2456,7 +2456,7 @@ infer_types_br_1(V, Ts, Ds) ->
             %% Not a relational operator.
             {PosTypes, NegTypes} = infer_type(Op0, Args, Ts, Ds),
             SuccTs = meet_types(PosTypes, Ts),
-            FailTs = infer_subtract_types(NegTypes, Ts),
+            FailTs = subtract_types(NegTypes, Ts),
             {SuccTs, FailTs};
         InvOp ->
             %% This is an relational operator.
@@ -2482,8 +2482,7 @@ infer_relop('=:=', [LHS,RHS], [LType,RType], Ds) ->
     %% can be inferred that L1 is 'cons' (the meet of 'cons' and
     %% 'list').
     Type = beam_types:meet(LType, RType),
-    Types = [{LHS,Type},{RHS,Type}],
-    [{V,T} || {#b_var{}=V,T} <- Types, T =/= any] ++ EqTypes;
+    [{LHS,Type},{RHS,Type}] ++ EqTypes;
 infer_relop(Op, Args, Types, _Ds) ->
     infer_relop(Op, Args, Types).
 
@@ -2500,8 +2499,7 @@ infer_relop('=/=', [LHS,RHS], [LType,RType]) ->
     %% as it may be too specific. See beam_type_SUITE:type_subtraction/1
     %% for details.
     [{V,beam_types:subtract(ThisType, OtherType)} ||
-        {#b_var{}=V, ThisType, OtherType} <-
-            [{RHS, RType, LType}, {LHS, LType, RType}],
+        {V, ThisType, OtherType} <- [{RHS, RType, LType}, {LHS, LType, RType}],
         beam_types:is_singleton_type(OtherType)];
 infer_relop(Op, [Arg1,Arg2], Types0) ->
     case infer_relop(Op, Types0) of
@@ -2509,9 +2507,7 @@ infer_relop(Op, [Arg1,Arg2], Types0) ->
             %% Both operands lacked ranges.
             [];
         {NewType1,NewType2} ->
-            Types = [{Arg1,NewType1},{Arg2,NewType2}],
-            [{V,T} || {#b_var{}=V,T} <- Types,
-                      T =/= any]
+            [{Arg1,NewType1},{Arg2,NewType2}]
     end.
 
 infer_relop(Op, [#t_integer{elements=R1},
@@ -2587,16 +2583,6 @@ inv_relop_1(_) -> none.
 infer_get_range(#t_integer{elements=R}) -> R;
 infer_get_range(#t_number{elements=R}) -> R;
 infer_get_range(_) -> unknown.
-
-infer_subtract_types([{V,T0}|Vs], Ts) ->
-    T1 = concrete_type(V, Ts),
-    case beam_types:subtract(T1, T0) of
-        none -> none;
-        T1 -> infer_subtract_types(Vs, Ts);
-        T -> infer_subtract_types(Vs, Ts#{V := T})
-    end;
-infer_subtract_types([], Ts) ->
-    Ts.
 
 infer_br_value(_V, _Bool, none) ->
     none;
@@ -2699,7 +2685,7 @@ infer_success_type({bif,Op}, Args, Ts, _Ds) ->
     ArgTypes = concrete_types(Args, Ts),
 
     {_, PosTypes0, CanSubtract} = beam_call_types:types(erlang, Op, ArgTypes),
-    PosTypes = [T || {#b_var{},_}=T <- zip(Args, PosTypes0)],
+    PosTypes = zip(Args, PosTypes0),
 
     case CanSubtract of
         true -> {PosTypes, PosTypes};
@@ -2714,7 +2700,7 @@ infer_success_type(call, [#b_remote{mod=#b_literal{val=Mod},
     ArgTypes = concrete_types(Args, Ts),
 
     {_, PosTypes0, _CanSubtract} = beam_call_types:types(Mod, Name, ArgTypes),
-    PosTypes = [T || {#b_var{},_}=T <- zip(Args, PosTypes0)],
+    PosTypes = zip(Args, PosTypes0),
 
     {PosTypes, []};
 infer_success_type(bs_start_match, [_, #b_var{}=Src], _Ts, _Ds) ->
@@ -2782,7 +2768,13 @@ join_types_1([V | Vs], Bigger, Smaller) ->
 join_types_1([], _Bigger, Smaller) ->
     Smaller.
 
-meet_types([{V,T0}|Vs], Ts) ->
+meet_types([{#b_literal{}=Lit, T0} | Vs], Ts) ->
+    T1 = concrete_type(Lit, Ts),
+    case beam_types:meet(T0, T1) of
+        none -> none;
+        _ -> meet_types(Vs, Ts)
+    end;
+meet_types([{#b_var{}=V, T0} | Vs], Ts) ->
     T1 = concrete_type(V, Ts),
     case beam_types:meet(T0, T1) of
         none -> none;
@@ -2790,6 +2782,22 @@ meet_types([{V,T0}|Vs], Ts) ->
         T -> meet_types(Vs, Ts#{ V := T })
     end;
 meet_types([], Ts) ->
+    Ts.
+
+subtract_types([{#b_literal{}=Lit, T0} | Vs], Ts) ->
+    T1 = concrete_type(Lit, Ts),
+    case beam_types:subtract(T0, T1) of
+        none -> none;
+        _ -> subtract_types(Vs, Ts)
+    end;
+subtract_types([{#b_var{}=V, T0}|Vs], Ts) ->
+    T1 = concrete_type(V, Ts),
+    case beam_types:subtract(T1, T0) of
+        none -> none;
+        T1 -> subtract_types(Vs, Ts);
+        T -> subtract_types(Vs, Ts#{V := T})
+    end;
+subtract_types([], Ts) ->
     Ts.
 
 parallel_join([A | As], [B | Bs]) ->
