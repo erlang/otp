@@ -2283,9 +2283,9 @@ infer_types_1(#value{op={bif,'=:='},args=[LHS,RHS]}, Val, Op, Vst) ->
     end;
 infer_types_1(#value{op={bif,'=/='},args=[LHS,RHS]}, Val, Op, Vst) ->
     case Val of
-        {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
-            update_ne_types(LHS, RHS, Vst);
         {atom, Bool} when Op =:= eq_exact, Bool; Op =:= ne_exact, not Bool ->
+            update_ne_types(LHS, RHS, Vst);
+        {atom, Bool} when Op =:= ne_exact, Bool; Op =:= eq_exact, not Bool ->
             update_eq_types(LHS, RHS, Vst);
         _ ->
             Vst

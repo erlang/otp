@@ -41,7 +41,8 @@
          missing_return_type/1,will_succeed/1,
          bs_saved_position_units/1,parent_container/1,
          container_performance/1,
-         infer_relops/1]).
+         infer_relops/1,
+         not_equal_inference/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -76,7 +77,8 @@ groups() ->
        receive_marker,safe_instructions,
        missing_return_type,will_succeed,
        bs_saved_position_units,parent_container,
-       container_performance,infer_relops]}].
+       container_performance,infer_relops,
+       not_equal_inference]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1049,6 +1051,14 @@ infer_relops_1(N) ->
 
 infer_relops_true(_, _) -> lt.
 infer_relops_false(_, _) -> ge.
+
+%% OTP-18365: A brainfart in inference for '=/=' inverted the results.
+not_equal_inference(_Config) ->
+    {'EXIT', {function_clause, _}} = (catch not_equal_inference_1(id([0]))),
+    ok.
+
+not_equal_inference_1(X) when (X /= []) /= is_port(0 div 0) ->
+    [X || _ <- []].
 
 id(I) ->
     I.
