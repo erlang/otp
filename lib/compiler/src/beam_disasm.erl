@@ -1363,8 +1363,8 @@ resolve_bs_match_commands([{atom,'=:='},nil,Bits,Value|Rest]) ->
     [{'=:=',nil,Bits,Value} | resolve_bs_match_commands(Rest)];
 resolve_bs_match_commands([{atom,skip},Stride|Rest]) ->
     [{skip,Stride} | resolve_bs_match_commands(Rest)];
-resolve_bs_match_commands([{atom,get_tail},Live,Src,Dst]) ->
-    [{get_tail,Live,Src,Dst}];
+resolve_bs_match_commands([{atom,get_tail},Live,Src,Dst|Rest]) ->
+    [{get_tail,Live,Src,Dst} | resolve_bs_match_commands(Rest)];
 resolve_bs_match_commands([]) ->
     [].
 
