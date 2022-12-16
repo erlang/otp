@@ -1,0 +1,68 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+-module(beam_ssa_check_SUITE).
+
+%% Runs tests checking the structure of BEAM SSA code.
+
+-include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/erl_compile.hrl").
+
+-export([all/0, suite/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
+
+         sanity_checks/1]).
+
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() ->
+    [{group,post_ssa_opt_static}].
+
+groups() ->
+    [{post_ssa_opt_static,test_lib:parallel(),[sanity_checks]}].
+
+init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+sanity_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(sanity_checks, Config).
+
+run_post_ssa_opt(Module, Config) ->
+    File = atom_to_list(Module) ++ ".erl",
+    DataDir = proplists:get_value(data_dir, Config),
+    Source = filename:join(DataDir, File),
+    run_checks(Source, post_ssa_opt, Config).
+
+run_checks(SourceFile, Pass, _Config) ->
+    Flags = [binary, deterministic, {check_ssa,Pass}, report_errors],
+    case compile:file(SourceFile, Flags) of
+        {ok,_,_} -> ok;
+        error -> ct:fail({unexpected_error, "SSA check failed"})
+    end.
