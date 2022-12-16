@@ -29,6 +29,9 @@
 #include <erl_nif.h>
 #include "prim_socket_int.h"
 
+
+#define ESOCK_IO_OK 0
+
 typedef int (*ESockIOInit)(unsigned int numThreads);
 
 typedef void (*ESockIOFinish)(void);
