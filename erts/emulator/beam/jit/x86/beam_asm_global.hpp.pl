@@ -32,6 +32,8 @@ my @beam_global_funcs = qw(
     bs_create_bin_error_shared
     bs_size_check_shared
     bs_get_tail_shared
+    bs_get_utf8_shared
+    bs_get_utf8_short_shared
     call_bif_shared
     call_light_bif_shared
     call_nif_early
