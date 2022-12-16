@@ -630,6 +630,18 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
+	am_max,
+	&max_2,
+	2,
+	DBIF_ALL
+    },
+    {
+	am_min,
+	&min_2,
+	2,
+	DBIF_ALL
+    },
+    {
 	am_node,
 	&node_1,
 	1,

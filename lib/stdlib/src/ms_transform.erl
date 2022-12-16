@@ -977,6 +977,8 @@ real_guard_function(abs,1) -> true;
 real_guard_function(element,2) -> true;
 real_guard_function(hd,1) -> true;
 real_guard_function(length,1) -> true;
+real_guard_function(max,2) -> true;
+real_guard_function(min,2) -> true;
 real_guard_function(node,0) -> true;
 real_guard_function(node,1) -> true;
 real_guard_function(round,1) -> true;

@@ -4043,6 +4043,8 @@ rvrs([X|Xs],Ys) -> rvrs(Xs, [X|Ys]).
       Term1 :: term(),
       Term2 :: term(),
       Minimum :: term().
+%% In Erlang/OTP 26, min/2 is a guard BIF. This implementation is kept
+%% for backward compatibility with code compiled with an earlier version.
 min(A, B) when A > B -> B;
 min(A, _) -> A.
 
@@ -4051,6 +4053,8 @@ min(A, _) -> A.
       Term1 :: term(),
       Term2 :: term(),
       Maximum :: term().
+%% In Erlang/OTP 26, max/2 is a guard BIF. This implementation is kept
+%% for backward compatibility with code compiled with an earlier version.
 max(A, B) when A < B -> B;
 max(A, _) -> A.
 

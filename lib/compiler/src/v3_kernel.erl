@@ -119,6 +119,7 @@ copy_anno(Kdst, Ksrc) ->
 	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
                no_shared_fun_wrappers=false :: boolean(),
+               no_min_max_bifs=false :: boolean(),
                labels=sets:new([{version, 2}])
               }).
 
@@ -130,7 +131,9 @@ module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, Options) ->
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
     NoSharedFunWrappers = proplists:get_bool(no_shared_fun_wrappers,
                                              Options),
-    St0 = #kern{no_shared_fun_wrappers=NoSharedFunWrappers},
+    NoMinMaxBifs = proplists:get_bool(no_min_max_bifs, Options),
+    St0 = #kern{no_shared_fun_wrappers=NoSharedFunWrappers,
+                no_min_max_bifs=NoMinMaxBifs},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
                 body=Kfs ++ St#kern.funs},sort(St#kern.ws)}.
@@ -323,7 +326,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
     Ar = length(Cargs),
     {[M,F|Kargs],Ap,St1} = atomic_list([M0,F0|Cargs], Sub, St0),
     Remote = #k_remote{mod=M,name=F,arity=Ar},
-    case call_type(M0, F0, Cargs) of
+    case call_type(M0, F0, Cargs, St1) of
         bif ->
             {#k_bif{anno=A,op=Remote,args=Kargs},Ap,St1};
         call ->
@@ -543,15 +546,24 @@ map_key_clean(#k_literal{val=V}) -> {lit,V}.
 
 %% call_type(Module, Function, Arity) -> call | bif | error.
 %%  Classify the call.
-call_type(#c_literal{val=M}, #c_literal{val=F}, As) when is_atom(M), is_atom(F) ->
+call_type(#c_literal{val=M}, #c_literal{val=F}, As, St) when is_atom(M), is_atom(F) ->
     case is_remote_bif(M, F, As) of
-	false -> call;
-	true -> bif
+	false ->
+            call;
+	true ->
+            %% The guard BIFs min/2 and max/2 were introduced in
+            %% Erlang/OTP 26. If we are compiling for an earlier
+            %% version, we must translate them as call instructions.
+            case {M,F,St#kern.no_min_max_bifs} of
+                {erlang,min,true} -> call;
+                {erlang,max,true} -> call;
+                {_,_,_} -> bif
+            end
     end;
-call_type(#c_var{}, #c_literal{val=A}, _) when is_atom(A) -> call;
-call_type(#c_literal{val=A}, #c_var{}, _) when is_atom(A) -> call;
-call_type(#c_var{}, #c_var{}, _) -> call;
-call_type(_, _, _) -> error.
+call_type(#c_var{}, #c_literal{val=A}, _, _) when is_atom(A) -> call;
+call_type(#c_literal{val=A}, #c_var{}, _, _) when is_atom(A) -> call;
+call_type(#c_var{}, #c_var{}, _, _) -> call;
+call_type(_, _, _, _) -> error.
 
 %% match_vars(Kexpr, State) -> {[Kvar],[PreKexpr],State}.
 %%  Force return from body into a list of variables.

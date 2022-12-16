@@ -111,7 +111,9 @@
       <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
         <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> |
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
-        <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
+        <c><![CDATA[map_size]]></c> |
+        <c><![CDATA[max]]></c> | <c><![CDATA[min]]></c> |
+        <c><![CDATA[node]]></c> |
         <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
         <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c> |
         <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
@@ -195,7 +197,9 @@
       <item>GuardFunction ::= BoolFunction | <c><![CDATA[abs]]></c> |
         <c><![CDATA[element]]></c> | <c><![CDATA[hd]]></c> |
         <c><![CDATA[length]]></c> | <c><![CDATA[map_get]]></c> |
-        <c><![CDATA[map_size]]></c> | <c><![CDATA[node]]></c> |
+        <c><![CDATA[map_size]]></c> |
+        <c><![CDATA[max]]></c> | <c><![CDATA[min]]></c> |
+        <c><![CDATA[node]]></c> |
         <c><![CDATA[round]]></c> | <c><![CDATA[size]]></c> |
         <c><![CDATA[bit_size]]></c> | <c><![CDATA[byte_size]]></c> |
         <c><![CDATA[tl]]></c> | <c><![CDATA[trunc]]></c> |
@@ -275,7 +279,9 @@
             <c><![CDATA['xor']]></c> returns false.</p>
         </item>
         <tag><c>abs</c>, <c>element</c>, <c>hd</c>, <c>length</c>,
-          <c>map_get</c>, <c>map_size</c>, <c>node</c>, <c>round</c>,
+          <c>map_get</c>, <c>map_size</c>,
+          <c>max</c>, <c>min</c>,
+          <c>node</c>, <c>round</c>,
           <c>size</c>, <c>bit_size</c>, <c>byte_size</c>, <c>tl</c>,
           <c>trunc</c>, <c>binary_part</c>, <c>'+'</c>,
           <c>'-'</c>, <c>'*'</c>, <c>'div'</c>, <c>'rem'</c>, <c>'band'</c>,

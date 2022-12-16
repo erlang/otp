@@ -2023,6 +2023,12 @@ end</pre>
         <cell align="left" valign="middle"><c>map_size(Map)</c></cell>
       </row>
       <row>
+        <cell align="left" valign="middle"><c>max(A, B)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>min(A, B)</c></cell>
+      </row>
+      <row>
         <cell align="left" valign="middle"><c>node()</c></cell>
       </row>
       <row>
@@ -2048,6 +2054,9 @@ end</pre>
       </row>
       <tcaption>Other BIFs Allowed in Guard Expressions</tcaption>
     </table>
+
+    <change><p>The <c>min/2</c> and <c>max/2</c> BIFs are allowed to be
+    used in guards from Erlang/OTP 26.</p></change>
 
     <p>If an arithmetic expression, a Boolean expression, a
     short-circuit expression, or a call to a guard BIF fails (because

@@ -582,6 +582,8 @@ autoimported(Config) when is_list(Config) ->
 	       {element,2},
 	       {hd,1},
 	       {length,1},
+               {max,2},
+               {min,2},
 	       {node,0},
 	       {node,1},
 	       {round,1},

@@ -2397,6 +2397,8 @@ local_func_label(Key, #cg{functable=Map}=St0) ->
 is_gc_bif(hd, [_]) -> false;
 is_gc_bif(tl, [_]) -> false;
 is_gc_bif(self, []) -> false;
+is_gc_bif(max, [_,_]) -> false;
+is_gc_bif(min, [_,_]) -> false;
 is_gc_bif(node, []) -> false;
 is_gc_bif(node, [_]) -> false;
 is_gc_bif(element, [_,_]) -> false;
