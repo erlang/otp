@@ -30,9 +30,49 @@
 #    include "config.h"
 #endif
 
+#include "sys.h"
+
 #include <erl_nif.h>
 
 #include "socket_int.h"
+
+
+/* ********************************************************************* *
+ *                              SOCKET and HANDLE                        *
+ * ********************************************************************* *
+ */
+
+#if defined(__WIN32__)
+
+#define INVALID_EVENT NULL
+
+#else
+
+#define INVALID_HANDLE (-1)
+typedef int HANDLE;
+#define INVALID_SOCKET (-1)
+typedef int SOCKET; /* A subset of HANDLE */
+#define INVALID_EVENT INVALID_HANDLE
+
+#endif
+
+
+/* ==========================================================================
+ * The ESOCK_IS_ERROR macro below is used for portability reasons.
+ * While POSIX specifies that errors from socket-related system calls
+ * should be indicated with a -1 return value, some users have experienced
+ * non-Windows OS kernels that return negative values other than -1.
+ * While one can argue that such kernels are technically broken, comparing
+ * against values less than 0 covers their out-of-spec return values without
+ * imposing incorrect semantics on systems that manage to correctly return -1
+ * for errors, thus increasing Erlang's portability.
+ */
+#ifdef __WIN32__
+#define ESOCK_IS_ERROR(val) ((val) == INVALID_SOCKET)
+#else
+#define ESOCK_IS_ERROR(val) ((val) < 0)
+#endif
+
 
 
 /* ********************************************************************* *
@@ -86,6 +126,23 @@ typedef Uint64                   ESockCounter;
 
 #endif
 
+
+
+#if defined(HAVE_SENDFILE)
+
+typedef struct {
+    ESockCounter cnt;     // Calls to OS sendfile()
+    ESockCounter byteCnt; // Bytes sent with sendfile
+    ESockCounter fails;   // Failed sendfile operations
+    ESockCounter max;     // Largest sendfile operation
+    ESockCounter maxCnt;  // Counter for ="=
+    ESockCounter pkg;     // Sendfile chunks
+    ESockCounter pkgMax;  // Largest sendfile chunk
+    ESockCounter tries;   // Started sendfile operations
+    ESockCounter waits;   // Select's during sendfile
+} ESockSendfileCounters;
+
+#endif
 
 
 /* ********************************************************************* *
@@ -148,6 +205,17 @@ typedef struct {
     ESockRequestQueueElement* last;
 } ESockRequestQueue;
 
+
+
+/* ********************************************************************* *
+ *           Holding the socket level 'otp' option 'meta' term           *
+ * ********************************************************************* *
+ */
+
+typedef struct{
+    ErlNifEnv*   env;
+    ERL_NIF_TERM ref;
+} ESockMeta;
 
 
 

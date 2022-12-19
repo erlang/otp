@@ -26,11 +26,15 @@
  */
 
 #include "socket_util.h"
+#include "socket_io.h"
 
-extern ESockIOInit   essio_init(unsigned int numThreads);
-extern ESockIOFinish essio_finish(void);
+extern int  essio_init(unsigned int numThreads);
+extern void essio_finish(void);
 
 
+/*
+ * For "standard" (unix) synchronous I/O, this is just a dummy function.
+ */
 extern
 int essio_init(unsigned int numThreads)
 {
@@ -39,6 +43,11 @@ int essio_init(unsigned int numThreads)
     return ESOCK_IO_OK;
 }
 
+
+/*
+ * For "standard" (unix) synchronous I/O, this is just a dummy function.
+ * Also, will we ever call this?
+ */
 extern
 void essio_finish(void)
 {
