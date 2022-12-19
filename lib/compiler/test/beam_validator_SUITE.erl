@@ -40,7 +40,8 @@
          receive_marker/1,safe_instructions/1,
          missing_return_type/1,will_bif_succeed/1,
          bs_saved_position_units/1,parent_container/1,
-         container_performance/1]).
+         container_performance/1,
+         not_equal_inference/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -75,7 +76,8 @@ groups() ->
        receive_marker,safe_instructions,
        missing_return_type,will_bif_succeed,
        bs_saved_position_units,parent_container,
-       container_performance]}].
+       container_performance,
+       not_equal_inference]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1000,6 +1002,14 @@ container_performance(Config) ->
         ({a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,{a,_}}}}}}}}}}}}}}}}}}}}}}}}}}}}}) -> {k30};
         _ -> ok
     end.
+
+%% OTP-18365: A brainfart in inference for '=/=' inverted the results.
+not_equal_inference(_Config) ->
+    {'EXIT', {function_clause, _}} = (catch not_equal_inference_1(id([0]))),
+    ok.
+
+not_equal_inference_1(X) when (X /= []) /= is_port(0 div 0) ->
+    [X || _ <- []].
 
 id(I) ->
     I.
