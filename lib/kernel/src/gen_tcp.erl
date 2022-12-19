@@ -195,8 +195,8 @@ connect(#{family := Fam} = SockAddr, Opts, Timeout)
                 {'EXIT', Reason} -> exit(Reason);
                 Error            -> Error
             end;
-        {GenTcpMod, Opts} ->
-            GenTcpMod:connect(SockAddr2, Opts, Timeout)
+        {GenTcpMod, Opts2} ->
+            GenTcpMod:connect(SockAddr2, Opts2, Timeout)
     end.
 
 
