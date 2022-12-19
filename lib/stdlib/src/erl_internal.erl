@@ -78,6 +78,8 @@ guard_bif(is_map_key, 2) -> true;
 guard_bif(length, 1) -> true;
 guard_bif(map_size, 1) -> true;
 guard_bif(map_get, 2) -> true;
+guard_bif(max, 2) -> true;
+guard_bif(min, 2) -> true;
 guard_bif(node, 0) -> true;
 guard_bif(node, 1) -> true;
 guard_bif(round, 1) -> true;

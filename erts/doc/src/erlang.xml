@@ -4229,6 +4229,8 @@ is_process_alive(P2Pid),
           <pre>
 > <input>max("abc", "b").</input>
 "b"</pre>
+        <p>Allowed in guard tests.</p>
+        <change><p>Allowed in guards tests from Erlang/OTP 26.</p></change>
       </desc>
     </func>
 
@@ -4481,6 +4483,8 @@ RealSystem = system + MissedSystem</code>
           <pre>
 > <input>min("abc", "b").</input>
 "abc"</pre>
+        <p>Allowed in guard tests.</p>
+        <change><p>Allowed in guards tests from Erlang/OTP 26.</p></change>
       </desc>
     </func>
 

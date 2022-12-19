@@ -356,6 +356,11 @@ auto_imports([], Errors) ->
 extract_functions(M, Abstr) ->
     [{{M,F,A},Body} || {function,_,F,A,Body} <- Abstr].
 
+check_stub({_,F,2}, _B) when F =:= min; F =:= max ->
+    %% In Erlang/OTP 26, min/2 and max/2 are guard BIFs. For backward
+    %% compatibility with code compiled with an earlier version, the
+    %% Erlang implementation of them is kept.
+    ok;
 check_stub({_,F,A}, B) ->
     try
 	[{clause,_,Args,[],Body}] = B,
@@ -724,19 +729,7 @@ fail_atom_to_binary(Term) ->
     end.
 
 
-min_max(Config) when is_list(Config) ->	
-    a = erlang:min(id(a), a),
-    a = erlang:min(id(a), b),
-    a = erlang:min(id(b), a),
-    b = erlang:min(id(b), b),
-    a = erlang:max(id(a), a),
-    b = erlang:max(id(a), b),
-    b = erlang:max(id(b), a),
-    b = erlang:max(id(b), b),
-
-    42.0 = erlang:min(42.0, 42),
-    42.0 = erlang:max(42.0, 42),
-    %% And now (R14) they are also autoimported!
+min_max(Config) when is_list(Config) ->
     a = min(id(a), a),
     a = min(id(a), b),
     a = min(id(b), a),
@@ -746,10 +739,17 @@ min_max(Config) when is_list(Config) ->
     b = max(id(b), a),
     b = max(id(b), b),
 
-    42.0 = min(42.0, 42),
-    42.0 = max(42.0, 42),
-    ok.
+    %% Return the first argument when arguments are equal.
+    42.0 = min(id(42.0), 42),
+    42.0 = max(id(42.0), 42),
 
+    Min = id(min),
+    Max = id(max),
+
+    "abc" = erlang:Min("abc", "def"),
+    <<"def">> = erlang:Max(<<"abc">>, <<"def">>),
+
+    ok.
 
 
 erlang_halt(Config) when is_list(Config) ->
