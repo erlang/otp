@@ -766,7 +766,10 @@ limit_depth_map(#t_map{}, Depth) when Depth =< 0 ->
 limit_depth_tuple(#t_tuple{elements=Es0}=T, Depth) ->
     if
         Depth > 0 ->
-            Es = maps:map(fun(_, E) -> limit_depth(E, Depth - 1) end, Es0),
+            Es = foldl(fun({Index, E0}, Es1) ->
+                               E = limit_depth(E0, Depth - 1),
+                               set_tuple_element(Index, E, Es1)
+                       end, Es0, maps:to_list(Es0)),
             T#t_tuple{elements=Es};
         Depth =< 0 ->
             #t_tuple{elements=#{}}
