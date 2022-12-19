@@ -32,7 +32,8 @@ MODULES= \
 	erl_make_certs \
 	public_key_SUITE \
 	pbe_SUITE \
-	pkits_SUITE
+	pkits_SUITE \
+	pubkey_cert_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
