@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -270,7 +270,7 @@ if_index2name(Idx) when is_integer(Idx) ->
 %%
 %%
 
--spec if_names() -> Names | {error, Reason} when
+-spec if_names() -> {ok, Names} | {error, Reason} when
       Names  :: [{Idx, If}],
       Idx    :: network_interface_index(),
       If     :: network_interface_name(),
