@@ -2579,6 +2579,9 @@ ErlNifResourceType* open_resource_type(ErlNifEnv* env,
     ErlNifResourceFlags op = flags;
     Eterm module_am, name_am;
 
+    if (!env->mod_nif || !(env->mod_nif->flags & ERTS_MOD_NIF_FLG_LOADING))
+        goto done;
+
     ERTS_LC_ASSERT(erts_has_code_mod_permission());
     module_am = make_atom(env->mod_nif->mod->module);
     name_am = enif_make_atom(env, name_str);
@@ -2635,6 +2638,7 @@ ErlNifResourceType* open_resource_type(ErlNifEnv* env,
 	ort->next = opened_rt_list;
 	opened_rt_list = ort;
     }
+done:
     if (tried != NULL) {
 	*tried = op;
     }
