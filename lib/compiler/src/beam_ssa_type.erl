@@ -222,10 +222,16 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
     WlChanged = wl_changed(Wl0, State#sig_st.wl),
     #{ Id := #func_info{succ_types=SuccTypes0}=Entry0 } = FuncDb,
 
-    if
-        SuccTypes0 =:= SuccTypes ->
+    case SuccTypes of
+        [] ->
+            %% Can never succeed. (Handling this case explicitly is necessary
+            %% for correctness in rare circumstances to prevent osciallation.)
             {false, WlChanged, State, FuncDb};
-        SuccTypes0 =/= SuccTypes ->
+        SuccTypes0 ->
+            %% No change from last time.
+            {false, WlChanged, State, FuncDb};
+        _ ->
+            %% Success types were refined. Continue iterating.
             Entry = Entry0#func_info{succ_types=SuccTypes},
             {true, WlChanged, State, FuncDb#{ Id := Entry }}
     end.

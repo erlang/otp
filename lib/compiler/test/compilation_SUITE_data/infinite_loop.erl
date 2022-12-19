@@ -30,3 +30,13 @@ mutually_recursive(X) ->
     %% This LC will be implemented as mutually recursive functions.
     %% Analyzing them would cause an infinite loop.
     [0 || _ <- [], <<_>> <= X].
+
+%% GH-6578. The type optimization pass would oscillate between no success
+%% types and [any()] -> bitstring().
+
+gh_6578(X) ->
+    <<
+      0
+      || (+(is_alive())) <
+             [gh_6578(gh_6578(0))|| X] andalso ok
+    >>.
