@@ -5860,7 +5860,8 @@ send_error:
 /* node(Object) -> Node */
 
 BIF_RETTYPE node_1(BIF_ALIST_1)
-{ 
+{
+    /* NOTE: The JIT has its own implementation of this BIF. */
     if (is_not_node_container(BIF_ARG_1))
       BIF_ERROR(BIF_P, BADARG);
     BIF_RET(node_container_node_name(BIF_ARG_1));

@@ -338,6 +338,8 @@ BIF_RETTYPE bit_size_1(BIF_ALIST_1)
     Uint low_bits;
     Uint bytesize;
     Uint high_bits;
+
+    /* NOTE: The JIT has its own implementation of this BIF. */
     if (is_binary(BIF_ARG_1)) {
 	bytesize = binary_size(BIF_ARG_1);
 	high_bits = bytesize >>  ((sizeof(Uint) * 8)-3);
@@ -367,6 +369,7 @@ BIF_RETTYPE bit_size_1(BIF_ALIST_1)
 
 BIF_RETTYPE byte_size_1(BIF_ALIST_1)
 {
+    /* NOTE: The JIT has its own implementation of this BIF. */
     if (is_binary(BIF_ARG_1)) {
 	Uint bytesize = binary_size(BIF_ARG_1);
 	if (binary_bitsize(BIF_ARG_1) > 0) {

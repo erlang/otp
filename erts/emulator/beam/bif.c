@@ -2625,6 +2625,7 @@ done:
    and is only here to keep Robert happy (Even more, since it's OP as well) */
 BIF_RETTYPE hd_1(BIF_ALIST_1)
 {
+    /* NOTE: The JIT has its own implementation of this BIF. */
      if (is_not_list(BIF_ARG_1)) {
 	 BIF_ERROR(BIF_P, BADARG);
      }
@@ -2637,6 +2638,7 @@ BIF_RETTYPE hd_1(BIF_ALIST_1)
 
 BIF_RETTYPE tl_1(BIF_ALIST_1)
 {
+    /* NOTE: The JIT has its own implementation of this BIF. */
     if (is_not_list(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
@@ -2913,6 +2915,7 @@ BIF_RETTYPE element_2(BIF_ALIST_2)
 
 BIF_RETTYPE tuple_size_1(BIF_ALIST_1)
 {
+    /* NOTE: The JIT has its own implementation of this BIF. */
     if (is_tuple(BIF_ARG_1)) {
 	return make_small(arityval(*tuple_val(BIF_ARG_1)));
     }
