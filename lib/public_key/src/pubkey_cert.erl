@@ -154,7 +154,7 @@ validate_time(OtpCert, UserState, VerifyFun) ->
 	    verify_fun(OtpCert, {bad_cert, cert_expired}, UserState, VerifyFun)
     end.
 %%--------------------------------------------------------------------
--spec validate_issuer(#'OTPCertificate'{}, term(), term(), fun()) -> term().
+-spec validate_issuer(#'OTPCertificate'{}, term(), term(), fun()) -> term() | no_return().
 %%
 %% Description: Check that the certificate issuer name is the working_issuer_name
 %% in path_validation_state.
@@ -169,7 +169,7 @@ validate_issuer(OtpCert, Issuer, UserState, VerifyFun) ->
     end. 
 %%--------------------------------------------------------------------
 -spec validate_signature(#'OTPCertificate'{}, DER::binary(),
-			 term(),term(), term(), fun()) -> term().
+			 term(),term(), term(), fun()) -> term() | no_return().
 				
 %%
 %% Description: Check that the signature on the certificate can be verified using
@@ -187,7 +187,7 @@ validate_signature(OtpCert, DerCert, Key, KeyParams,
     end.
 %%--------------------------------------------------------------------
 -spec validate_names(#'OTPCertificate'{}, no_constraints | list(), list(),
-		     term(), term(), fun())-> term().
+		     term(), term(), fun())-> term() | no_return().
 %%
 %% Description: Validate Subject Alternative Name.
 %%--------------------------------------------------------------------	
@@ -333,7 +333,7 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 
 %%--------------------------------------------------------------------
 -spec verify_fun(#'OTPCertificate'{}, {bad_cert, atom()} | {extension, #'Extension'{}}|
-		 valid | valid_peer, term(), fun()) -> term().
+		 valid | valid_peer, term(), fun()) -> term() | no_return().
 %%
 %% Description: Gives the user application the opportunity handle path
 %% validation errors and unknown extensions and optional do other
