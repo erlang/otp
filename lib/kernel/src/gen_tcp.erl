@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -193,8 +193,8 @@ connect(#{family := Fam} = SockAddr, Opts, Timeout)
                 {'EXIT', Reason} -> exit(Reason);
                 Error            -> Error
             end;
-        {GenTcpMod, Opts} ->
-            GenTcpMod:connect(SockAddr2, Opts, Timeout)
+        {GenTcpMod, Opts2} ->
+            GenTcpMod:connect(SockAddr2, Opts2, Timeout)
     end.
 
 
