@@ -180,7 +180,7 @@ add_log_category(#{meta:=Meta}=Log,Category) ->
     Log#{meta=>Meta#{?MODULE=>#{category=>Category}}}.
 
 do_log(Log,Config) ->
-    gen_server:call(?MODULE,{log,Log,Config}).
+    gen_server:call(?MODULE,{log,Log,Config},infinity).
 
 handle_cast(_, State) ->
     {noreply,State}.
@@ -254,13 +254,13 @@ terminate(_Arg, _State) ->
     ok.
 
 set_curr_func(CurrFunc, Config) ->
-    gen_server:call(?MODULE, {set_curr_func, CurrFunc, Config}).
+    gen_server:call(?MODULE, {set_curr_func, CurrFunc, Config}, infinity).
 
 set_log_func(Func) ->
-    gen_server:call(?MODULE, {set_logfunc, Func}).
+    gen_server:call(?MODULE, {set_logfunc, Func}, infinity).
 
 handle_remote_events(Bool) ->
-    gen_server:call(?MODULE, {handle_remote_events, Bool}).
+    gen_server:call(?MODULE, {handle_remote_events, Bool}, infinity).
 
 %%%-----------------------------------------------------------------
 
