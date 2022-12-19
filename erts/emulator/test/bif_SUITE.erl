@@ -390,6 +390,9 @@ list_to_utf8_atom(Config) when is_list(Config) ->
     _ = atom_roundtrip([16#1000]),
     _ = atom_roundtrip([16#10FFFF]),
     atom_badarg([16#110000]),
+
+    atom_badarg([-1]),
+    [atom_badarg([(-1 bsl N) + $A]) || N <- lists:seq(8,16)],
     ok.
 
 atom_roundtrip(String) ->

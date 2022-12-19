@@ -4107,7 +4107,7 @@ erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written)
 {
     Eterm* listptr;
     Sint sz = 0;
-    Sint val;
+    Uint val;
     int res;
 
     while (1) {
@@ -4130,8 +4130,8 @@ erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written)
 	    res = -1;
             break;
 	}
-	val = signed_val(CAR(listptr));
-	if (0 <= val && val < 0x80) {
+        val = (Uint) signed_val(CAR(listptr));
+	if (val < 0x80) {
 	    buf[sz] = val;
 	    sz++;
 	} else if (val < 0x800) {
@@ -4180,13 +4180,13 @@ erts_unicode_list_to_buf_len(Eterm list)
     listptr = list_val(list);
 
     while (1) {
-	Sint val;
+	Uint val;
 
 	if (is_not_small(CAR(listptr))) {
 	    return -1;
 	}
-	val = signed_val(CAR(listptr));
-	if (0 <= val && val < 0x80) {
+	val = (Uint) signed_val(CAR(listptr));
+	if (val < 0x80) {
 	    sz++;
 	} else if (val < 0x800) {
 	    sz += 2;
