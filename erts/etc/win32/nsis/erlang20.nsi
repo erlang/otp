@@ -100,6 +100,17 @@ Var STARTMENU_FOLDER
   	!insertmacro MUI_LANGUAGE "English"
   
 ;--------------------------------
+; Installer file properties
+
+VIProductVersion "${OTP_VERSION}"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "CompanyName" "Ericsson AB"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "FileDescription" "Erlang"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "FileVersion" "${ERTS_VERSION}"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "Copyright Ericsson AB 2010-2023. All Rights Reserved."
+VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "Erlang/OTP"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductVersion" "${OTP_VERSION}"
+
+;--------------------------------
 ;Language Strings
 
 ;Description
