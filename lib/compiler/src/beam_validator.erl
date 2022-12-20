@@ -186,7 +186,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %%
          %% Note that this may be 0 if there's a frame without saved values,
          %% such as on a body-recursive call.
-         numy=none :: none | undecided | index(),
+         numy=none :: none | {undecided,index()} | index(),
          %% Available heap size.
          h=0,
          %% Available heap size for funs (aka lambdas).
@@ -2996,7 +2996,7 @@ merge_states_1(StA, StB, Counter0) ->
     RecvSt = merge_receive_state(RecvStA, RecvStB),
     MsPos = merge_ms_positions(MsPosA, MsPosB, Vs),
     Fragile = merge_fragility(FragA, FragB),
-    NumY = merge_stk(NumYA, NumYB),
+    NumY = merge_stk(YsA, YsB, NumYA, NumYB),
     Ct = merge_ct(CtA, CtB),
 
     St = #st{xs=Xs,ys=Ys,vs=Vs,fragile=Fragile,numy=NumY,
@@ -3134,8 +3134,38 @@ merge_ms_positions_1([], _MsPosA, _MsPosB, _Vs, Acc) ->
 merge_receive_state(Same, Same) -> Same;
 merge_receive_state(_, _) -> undecided.
 
-merge_stk(S, S) -> S;
-merge_stk(_, _) -> undecided.
+merge_stk(_, _, S, S) ->
+    S;
+merge_stk(YsA, YsB, StkA, StkB) ->
+    merge_stk_undecided(YsA, YsB, StkA, StkB).
+
+merge_stk_undecided(YsA, YsB, {undecided, StkA}, {undecided, StkB}) ->
+    %% We're merging two branches with different stack sizes. This is only okay
+    %% if we're about to throw an exception, in which case all Y registers must
+    %% be initialized on both paths.
+    ok = merge_stk_verify_init(StkA - 1, YsA),
+    ok = merge_stk_verify_init(StkB - 1, YsB),
+
+    {undecided, min(StkA, StkB)};
+merge_stk_undecided(YsA, YsB, StkA, StkB) when is_integer(StkA) ->
+    merge_stk_undecided(YsA, YsB, {undecided, StkA}, StkB);
+merge_stk_undecided(YsA, YsB, StkA, StkB) when is_integer(StkB) ->
+    merge_stk_undecided(YsA, YsB, StkA, {undecided, StkB});
+merge_stk_undecided(YsA, YsB, none, StkB) ->
+    merge_stk_undecided(YsA, YsB, {undecided, 0}, StkB);
+merge_stk_undecided(YsA, YsB, StkA, none) ->
+    merge_stk_undecided(YsA, YsB, StkA, {undecided, 0}).
+
+merge_stk_verify_init(-1, _Ys) ->
+    ok;
+merge_stk_verify_init(Y, Ys) ->
+    Reg = {y, Y},
+    case Ys of
+        #{ Reg := TagOrVRef } when TagOrVRef =/= uninitialized ->
+            merge_stk_verify_init(Y - 1, Ys);
+        #{} ->
+            error({unsafe_stack, Reg, Ys})
+    end.
 
 merge_ct(S, S) -> S;
 merge_ct(Ct0, Ct1) -> merge_ct_1(Ct0, Ct1).
@@ -3154,8 +3184,9 @@ verify_y_init(#vst{current=#st{numy=NumY,ys=Ys}}=Vst) when is_integer(NumY) ->
     true = NumY > HighestY,                     %Assertion.
     verify_y_init_1(NumY - 1, Vst),
     ok;
-verify_y_init(#vst{current=#st{numy=undecided,ys=Ys}}=Vst) ->
+verify_y_init(#vst{current=#st{numy={undecided,MinSlots},ys=Ys}}=Vst) ->
     HighestY = maps:fold(fun({y,Y}, _, Acc) -> max(Y, Acc) end, -1, Ys),
+    true = MinSlots > HighestY,                 %Assertion.
     verify_y_init_1(HighestY, Vst);
 verify_y_init(#vst{}) ->
     ok.
@@ -3188,7 +3219,7 @@ verify_live_1(X, Vst) when is_integer(X) ->
 
 verify_no_ct(#vst{current=#st{numy=none}}) ->
     ok;
-verify_no_ct(#vst{current=#st{numy=undecided}}) ->
+verify_no_ct(#vst{current=#st{numy={undecided,_}}}) ->
     error(unknown_size_of_stackframe);
 verify_no_ct(#vst{current=St}=Vst) ->
     case collect_try_catch_tags(St#st.numy - 1, Vst, []) of
