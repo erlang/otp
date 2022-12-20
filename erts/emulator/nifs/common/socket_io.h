@@ -30,7 +30,8 @@
 #include "prim_socket_int.h"
 
 
-#define ESOCK_IO_OK 0
+#define ESOCK_IO_OK               0
+#define ESOCK_IO_ERR_UNSUPPORTED -1
 
 typedef int (*ESockIOInit)(unsigned int numThreads);
 

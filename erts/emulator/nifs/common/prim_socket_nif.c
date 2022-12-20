@@ -385,6 +385,8 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #include "socket_int.h"
 #include "socket_util.h"
 #include "prim_socket_int.h"
+#include "socket_io.h"
+#include "socket_syncio.h"
 #include "prim_file_nif_dyncall.h"
 
 #if defined(ERTS_INLINE)
@@ -1042,6 +1044,7 @@ typedef struct {
     /* XXX Should be locked but too awkward and small gain */
     BOOLEAN_T    dbg;
     BOOLEAN_T    useReg;
+    unsigned int ioNumThreads; // Set once and never changed
 
     /* Registry stuff */
     ErlNifPid    regPid; /* Constant - not locked */
@@ -2114,6 +2117,49 @@ static ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
                                              int              level,
                                              int              opt);
 #endif
+
+
+
+/* =======================================================================
+ * Socket specific backend 'synchronicity' functions.
+ * This type is used to create 'sync' function table.
+ * This table is initiated when the nif is loaded.
+ * Initially, its content will be hardcoded to:
+ *   * Windows:      async (esaio)
+ *   * Other (unix): sync  (essio)
+ * When we introduce async I/O for unix (io_uring or something similar)
+ * we may make it possible to choose (set a flag when the VM is started;
+ * --esock-io=<async|sync>).
+ */
+
+typedef struct {
+    ESockIOInit     init;
+    ESockIOFinish   finish;
+
+    ESockIOOpen2    open2;
+    ESockIOOpen4    open4;
+    ESockIOBind     bind;
+
+    ESockIOConnect  connect;
+    ESockIOListen   listen;
+    ESockIOAccept   accept;
+
+    ESockIOSend     send;
+    ESockIOSendTo   sendto;
+    ESockIOSendMsg  sendmsg;
+    ESockIOSendFile sendfile;
+
+    ESockIORecv     recv;
+    ESockIORecvFrom recvfrom;
+    ESockIORecvMsg  recvmsg;
+
+    ESockIOClose    close;
+    ESockIOFinClose fin_close;
+    ESockIOShutdown shutdown;
+
+    ESockIOSockName sockname;
+    ESockIOPeerName peername;
+} ESockIoBackend;
 
 
 
@@ -4080,6 +4126,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(ioctl_requests);   \
     LOCAL_ATOM_DECL(iov_max);          \
     LOCAL_ATOM_DECL(iow);              \
+    LOCAL_ATOM_DECL(io_num_threads);   \
     LOCAL_ATOM_DECL(irq);              \
     LOCAL_ATOM_DECL(listening);	       \
     LOCAL_ATOM_DECL(local_rwnd);       \
@@ -4223,6 +4270,117 @@ static ErlNifResourceTypeInit esockInit = {
 
 // Initiated when the nif is loaded
 static ESockData data;
+
+/* Jump table for the I/O backend (async or sync) */
+static ESockIoBackend io_backend = {0};
+
+
+/* This, the test for NULL), is a temporary until we have a win stub */
+#define ESOCK_IO_INIT(__NUMT__)                                 \
+    ((io_backend.init != NULL) ?                                \
+     io_backend.init(__NUMT__) : ESOCK_IO_ERR_UNSUPPORTED)
+#define ESOCK_IO_FIN()                                            \
+    ((io_backend.finish != NULL) ?                                \
+     io_backend.finish() : ESOCK_IO_ERR_UNSUPPORTED)
+
+#define ESOCK_IO_OPEN2(__ENV__, __FD__, __EOPTS__)      \
+    ((io_backend.open2 != NULL) ?                       \
+     io_backend.open2(__ENV__, __FD__, __EOPTS__) :     \
+     enif_raise_exception2(env, MKA(env, "notsup")))
+#define ESOCK_IO_OPEN4(__ENV__, __D__, __T__, __P__, __EOPTS__) \
+    ((io_backend.open4 != NULL) ?                               \
+     io_backend.open4(__ENV__, __D__, __T__, __P__, __EOPTS__)  \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_BIND(__ENV__, __D__, __SAP__, __AL__)  \
+    ((io_backend.bind != NULL) ?                        \
+     io_backend.bind(__ENV__, __D__, __SAP__, __AL__)   \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_CONNECT(__ENV__, __D__, __SR__, __CR__, __AP__, __AL__) \
+    ((io_backend.connect != NULL) ?                                      \
+     io_backend.connect(__ENV__, __D__, __SR__, __CR__, __AP__, __AL__)  \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_LISTEN(__ENV__, __D__, __BL__)         \
+    ((io_backend.listen != NULL) ?                      \
+     io_backend.listen(__ENV__, __D__, __BL__)          \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_ACCEPT(__ENV__, __D__, __SR__, __AR__) \
+    ((io_backend.accept != NULL) ?                      \
+     io_backend.accept(__ENV__, __D__, __SR__, __AR__)  \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_SEND(__ENV__, __D__, __SR__, __RF__, __L__, __F__)     \
+    ((io_backend.send != NULL) ?                                        \
+     io_backend.send(__ENV__, __D__, __SR__, __RF__, __L__, __F__)      \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_SENDTO(__ENV__, __D__,                         \
+                        __SOCKR__, __SENDR__,                   \
+                        __DP__, __F__, __TAP__, __TAL__)        \
+    ((io_backend.sendto != NULL) ?                              \
+     io_backend.sendto(__ENV__, __D__,                          \
+                        __SOCKR__, __SENDR__,                   \
+                        __DP__, __F__, __TAP__, __TAL__)        \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_SENMSG(__ENV__, __D__,                                 \
+                        __SOCKR__, __SENDR__, __EM__, __F__, __EIOV__)  \
+    ((io_backend.sendmsg != NULL) ?                                     \
+     io_backend.sendmsg(__ENV__, __D__,                                 \
+                        __SOCKR__, __SENDR__, __EM__, __F__, __EIOV__)  \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_SENDFILE(__ENV__, __D__, __SR__, __O__, __CP__, __EP__) \
+    ((io_backend.sendfile != NULL) ?                                     \
+     io_backend.sendfile(__ENV__, __D__,                                 \
+                          __SR__, __O__, __CP__, __EP__)                 \
+     enif_raise_exception(env, MKA(env, "notsup")))
+/*
+#define ESOCK_IO_SENDFILE1(__ENV__, __D__)              \
+    ((io_backend.sendfile1 != NULL) ?                   \
+     io_backend.sendfile1(__ENV__, __D__)               \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_SENDFILE4(__ENV__, __D__)              \
+    ((io_backend.sendfile4 != NULL) ?                   \
+     io_backend.sendfile4(__ENV__, __D__)               \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_SENDFILE5(__ENV__, __D__)              \
+    ((io_backend.sendfile5 != NULL) ?                   \
+     io_backend.sendfile5(__ENV__, __D__)               \
+     enif_raise_exception(env, MKA(env, "notsup")))
+*/
+#define ESOCK_IO_RECV(__ENV__, __D__,                         \
+                      __SR__, __RR__, __L__, __F__)           \
+    ((io_backend.recv != NULL) ?                              \
+     io_backend.recv(__ENV__, __D__,                          \
+                      __SR__, __RR__, __L__, __F__)           \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_RECVFROM(__ENV__, __D__,                     \
+                          __SR__, __RR__, __L__, __F__)       \
+    ((io_backend.recvfrom != NULL) ?                          \
+     io_backend.recvfrom(__ENV__, __D__)                      \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_recvmsg(__ENV__, __D__,                         \
+                         __SR__, __RR__, __BL__, ___CL__, _F__)  \
+    ((io_backend.recvmsg != NULL) ?                              \
+     io_backend.recvmsg(__ENV__, __D__)                          \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_CLOSE(__ENV__, __D__)                  \
+    ((io_backend.close != NULL) ?                       \
+     io_backend.close(__ENV__, __D__)                   \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_FIN_CLOSE(__ENV__, __D__)                  \
+    ((io_backend.fin_close != NULL) ?                       \
+     io_backend.fin_close(__ENV__, __D__)                   \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_SHUTDOWN(__ENV__, __D__, __H__)        \
+    ((io_backend.shutdown != NULL) ?                    \
+     io_backend.shutdown(__ENV__, __D__, __H__)         \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_SOCKNAME(__ENV__, __D__)               \
+    ((io_backend.sockname != NULL) ?                    \
+     io_backend.sockname(__ENV__, __D__)                \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_PEERNAME(__ENV__, __D__)               \
+    ((io_backend.peername != NULL) ?                    \
+     io_backend.peername(__ENV__, __D__)                \
+     enif_raise_exception(env, MKA(env, "notsup")))
+
 
 
 /* These two (inline) functions are primarily intended for debugging,
@@ -20064,6 +20222,74 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 #undef GLOBAL_ATOM_DECL
 
     esock_atom_socket_tag = MKA(env, "$socket");
+
+    /* This is intended for Windows use */
+    {
+        ErlNifSysInfo sysInfo;
+        unsigned int  ioNumThreadsDef =
+            (unsigned int) (sysInfo.scheduler_threads > 0) ?
+            2*sysInfo.scheduler_threads : 1; // ESOCK_IO_NUM_THREADS);
+
+        enif_system_info(&sysInfo, sizeof(ErlNifSysInfo));
+        data.ioNumThreads =
+            esock_get_bool_from_map(env, load_info,
+                                    atom_io_num_threads,
+                                    ioNumThreadsDef);
+    }
+
+
+#ifdef __WIN32__
+
+    io_backend.init      = NULL;
+    io_backend.finish    = NULL;
+    io_backend.open2     = NULL;
+    io_backend.open4     = NULL;
+    io_backend.bind      = NULL;
+    io_backend.connect   = NULL;
+    io_backend.listen    = NULL;
+    io_backend.accept    = NULL;
+    io_backend.send      = NULL;
+    io_backend.sendto    = NULL;
+    io_backend.sendmsg   = NULL;
+    io_backend.sendfile  = NULL;
+    io_backend.recv      = NULL;
+    io_backend.recvfrom  = NULL;
+    io_backend.recvmsg   = NULL;
+    io_backend.close     = NULL;
+    io_backend.fin_close = NULL;
+    io_backend.shutdown  = NULL;
+    io_backend.sockname  = NULL;
+    io_backend.peername  = NULL;
+
+#else
+
+    io_backend.init      = essio_init;
+    io_backend.finish    = essio_finish;
+    io_backend.open2     = essio_open2;
+    io_backend.open4     = essio_open4;
+    io_backend.bind      = essio_bind;
+    io_backend.connect   = essio_connect;
+    io_backend.listen    = essio_listen;
+    io_backend.accept    = essio_accept;
+    io_backend.send      = essio_send;
+    io_backend.sendto    = essio_sendto;
+    io_backend.sendmsg   = essio_sendmsg;
+    io_backend.sendfile  = essio_sendfile;
+    io_backend.recv      = essio_recv;
+    io_backend.recvfrom  = essio_recvfrom;
+    io_backend.recvmsg   = essio_recvmsg;
+    io_backend.close     = essio_close;
+    io_backend.fin_close = essio_fin_close;
+    io_backend.shutdown  = essio_shutdown;
+    io_backend.sockname  = essio_sockname;
+    io_backend.peername  = essio_peername;
+
+#endif
+
+    if (ESOCK_IO_INIT(data.ioNumThreads) != ESOCK_IO_OK) {
+        esock_error_msg("Failed initiating I/O backend");
+        return 1; // Failure
+    }
 
 #ifndef __WIN32__
 
