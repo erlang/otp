@@ -2484,45 +2484,53 @@ ERL_NIF_TERM esock_self(ErlNifEnv* env)
 
 
 
-/* *** esock_warning_msg ***
+/*
+ * We should really include self in the printout,
+ * so we can se which process are executing the code.
+ * But then I must change the API....something for later.
  *
- * Temporary function for issuing warning messages.
- *
+ * esock_info_msg
+ * esock_warning_msg
+ * esock_error_msg
  */
-extern
-void esock_warning_msg( const char* format, ... )
-{
-  va_list         args;
-  char            f[512 + sizeof(format)]; // This has to suffice...
-  char            stamp[64]; // Just in case...
-  int             res;
 
-  /*
-   * We should really include self in the printout,
-   * so we can se which process are executing the code.
-   * But then I must change the API....something for later.
-   */
+#define MSG_FUNCS                            \
+    MSG_FUNC_DECL(info,    INFO)             \
+    MSG_FUNC_DECL(warning, WARNING)          \
+    MSG_FUNC_DECL(error,   ERROR)
 
-  // 2018-06-29 12:13:21.232089
-  // 29-Jun-2018::13:47:25.097097
+#define MSG_FUNC_DECL(FN, MC)                                  \
+    extern                                                     \
+    void esock_##FN##_msg( const char* format, ... )           \
+    {                                                          \
+       va_list         args;                                   \
+       char            f[512 + sizeof(format)];                \
+       char            stamp[64];                              \
+       int             res;                                    \
+                                                               \
+       if (esock_timestamp_str(stamp, sizeof(stamp))) {        \
+          res = enif_snprintf(f, sizeof(f),                    \
+                              "=" #MC " MSG==== %s ===\r\n%s", \
+                              stamp, format);                  \
+       } else {                                                \
+          res = enif_snprintf(f,                               \
+                              sizeof(f),                       \
+                              "=" #MC " MSG==== %s", format);  \
+       }                                                       \
+                                                               \
+       if (res > 0) {                                          \
+           va_start (args, format);                            \
+           enif_vfprintf (stdout, f, args);                    \
+           va_end (args);                                      \
+           fflush(stdout);                                     \
+       }                                                       \
+                                                               \
+       return;                                                 \
+    }                                                          \
 
-  if (esock_timestamp_str(stamp, sizeof(stamp))) {
-      res = enif_snprintf(f, sizeof(f),
-                          "=WARNING MSG==== %s ===\r\n%s",
-                          stamp, format);
-  } else {
-      res = enif_snprintf(f, sizeof(f), "=WARNING MSG==== %s", format);
-  }
-
-  if (res > 0) {
-      va_start (args, format);
-      enif_vfprintf (stdout, f, args);
-      va_end (args);
-      fflush(stdout);
-  }
-
-  return;
-}
+MSG_FUNCS
+#undef MSG_FUNC_DECL
+#undef MSG_FUNCS
 
 
 /* *** esock_timestamp ***
