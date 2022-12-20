@@ -29,7 +29,7 @@
 	 no_no_file/1,configuration/1,supplies/1,
          redundant_stack_frame/1,export_from_case/1,
          empty_values/1,cover_letrec_effect/1,
-         receive_effect/1]).
+         receive_effect/1,nested_lets/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -50,7 +50,7 @@ groups() ->
        no_no_file,configuration,supplies,
        redundant_stack_frame,export_from_case,
        empty_values,cover_letrec_effect,
-       receive_effect]}].
+       receive_effect,nested_lets]}].
 
 
 init_per_suite(Config) ->
@@ -700,4 +700,43 @@ receive_effect(_Config) ->
 do_receive_effect() ->
     {} = receive _ -> {} = {} end.
 
+nested_lets(_Config) ->
+    {'EXIT',{{case_clause,ok},_}} = catch nested_lets_gh_6572(<<42>>),
+    ok.
+
+nested_lets_gh_6572(<<X>>) ->
+    Y =
+        case ok of
+            X ->
+                true = (ok > ((Y = _) = -1)),
+                <<>> =
+                    {id(
+                        <<
+                            (ok - ok),
+                            (bnot ok),
+                            (nested_lets_gh_6572_f() band ok),
+                            (nested_lets_gh_6572_f()),
+                            (not ok),
+                            (ok or nested_lets_gh_6572_f()),
+                            (id(
+                                id(
+                                    <<
+                                        (id(
+                                            <<
+                                                (id(
+                                                    <<0 || _ <- []>>
+                                                ))
+                                            >>
+                                        ) * ok)
+                                    >>
+                                )
+                            ))
+                        >>
+                    )}
+        end.
+
+nested_lets_gh_6572_f() ->
+    ok.
+
+%%% Common utility functions.
 id(I) -> I.

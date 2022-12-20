@@ -2197,7 +2197,7 @@ simplify_fun_call(V, Values, #c_fun{vars=Vars,body=FunBody}, CallArgs) ->
 simplify_let(#c_let{arg=Arg}=Let, Sub) ->
     move_let_into_expr(Let, Arg, Sub).
 
-move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner,
+move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner0,
 		   #c_let{vars=OuterVs0,arg=Arg0,body=OuterBody0}=Outer, Sub0) ->
     %%
     %% let <InnerVars> = let <OuterVars> = <Arg>
@@ -2218,8 +2218,30 @@ move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner,
 
     {InnerVs,Sub} = var_list(InnerVs0, Sub0),
     InnerBody = body(InnerBody0, Sub),
-    Outer#c_let{vars=OuterVs,arg=Arg,
-		body=Inner#c_let{vars=InnerVs,arg=OuterBody,body=InnerBody}};
+    Inner = case will_fail(OuterBody) of
+                true ->
+                    %%
+                    %% Avoid creating potentially unsafe code that
+                    %% depends on another iteration of the outer
+                    %% fixpoint loop to clean up. If <OuterBody>
+                    %% consists of nested lets, we may run out of
+                    %% iterations before the unsafe code is
+                    %% eliminated.
+                    %%
+                    %% let <InnerVars> = let <OuterVars> = <Arg>
+                    %%                   in <OuterBody>
+                    %% in <InnerBody>
+                    %%
+                    %%       ==>
+                    %%
+                    %% let <OuterVars> = <Arg>
+                    %% in <OuterBody>
+                    %%
+                    OuterBody;
+                false ->
+                    Inner0#c_let{vars=InnerVs,arg=OuterBody,body=InnerBody}
+            end,
+    Outer#c_let{vars=OuterVs,arg=Arg,body=Inner};
 move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 		   #c_case{arg=Cexpr0,clauses=[Ca0|Cs0]}=Case, Sub0) ->
     case not is_failing_clause(Ca0) andalso
