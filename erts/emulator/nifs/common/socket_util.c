@@ -147,6 +147,33 @@ static SOCKLEN_T sa_local_length(int l, struct sockaddr_un* sa);
 #endif
 
 
+/* *** esock_get_uint_from_map ***
+ *
+ * Simple utility function used to extract a unsigned in value from a map.
+ * If it fails to extract the value (for whatever reason) the default
+ * value is returned.
+ */
+
+extern
+unsigned int esock_get_uint_from_map(ErlNifEnv*   env,
+                                     ERL_NIF_TERM map,
+                                     ERL_NIF_TERM key,
+                                     unsigned int def)
+{
+    ERL_NIF_TERM eval;
+    unsigned int val;
+
+    if (!GET_MAP_VAL(env, map, key, &eval)) {
+        return def;
+    } else {
+        if (GET_UINT(env, eval, &val))
+            return val;
+        else
+            return def;
+    }
+}
+
+
 /* *** esock_get_bool_from_map ***
  *
  * Simple utility function used to extract a boolean value from a map.
@@ -160,14 +187,14 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
                                   ERL_NIF_TERM key,
                                   BOOLEAN_T    def)
 {
-    ERL_NIF_TERM val;
+    ERL_NIF_TERM eval;
 
-    if (!GET_MAP_VAL(env, map, key, &val)) {
+    if (!GET_MAP_VAL(env, map, key, &eval)) {
         return def;
     } else {
-        if (COMPARE(val, esock_atom_true) == 0)
+        if (COMPARE(eval, esock_atom_true) == 0)
             return TRUE;
-        else if (COMPARE(val, esock_atom_false) == 0)
+        else if (COMPARE(eval, esock_atom_false) == 0)
             return FALSE;
         else
             return def;

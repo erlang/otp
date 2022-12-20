@@ -47,6 +47,12 @@
 #define ESOCK_ASSERT(e) ((void) ((e) ? 1 : (ESOCK_ABORT(#e), 0)))
 
 extern
+unsigned int esock_get_uint_from_map(ErlNifEnv*   env,
+                                     ERL_NIF_TERM map,
+                                     ERL_NIF_TERM key,
+                                     unsigned int def);
+
+extern
 BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
                                   ERL_NIF_TERM map,
                                   ERL_NIF_TERM key,
