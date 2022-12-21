@@ -28,6 +28,7 @@
 	 huge_float_field/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
 	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
+         bs_append_offheap/1,
          reductions/1, fp16/1, zero_init/1, error_info/1, little/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -41,7 +42,8 @@ all() ->
      in_guard, mem_leak, coerce_to_float, bjorn, append_empty_is_same,
      huge_float_field, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
-     bad_append, bs_append_overflow, reductions, fp16, zero_init,
+     bad_append, bs_append_overflow, bs_append_offheap,
+     reductions, fp16, zero_init,
      error_info, little].
 
 init_per_suite(Config) ->
@@ -1020,6 +1022,29 @@ bs_append_overflow_unsigned() ->
     B = <<2, 3>>,
     C = <<A/binary,1,B/binary>>,
     true = byte_size(B) < byte_size(C).
+
+bs_append_offheap(Config) when is_list(Config) ->
+    %% test that erts_bs_private_append is reflected correctly in
+    %%  process_info(Pid, binary()) report for off-heap binaries.
+    {Pid, MRef} = erlang:spawn_monitor(fun bs_append_offheap_proc/0),
+    receive
+        {'DOWN', MRef, process, Pid, normal} ->
+            ok;
+        {'DOWN', MRef, process, Pid, {{badmatch,[{binary,[]}]}, _}} ->
+            {fail, "missing binary in erts_bs_private_append"}
+    end.
+
+bs_append_offheap_proc() ->
+    Self = self(),
+    Len = 128,
+    OffHeapBin = list_to_binary(lists:duplicate(Len, $b)),
+    erlang:garbage_collect(Self),
+    [{binary, [{_, Len, 1}]}] = erlang:process_info(Self, [binary]),
+    Bin = <<OffHeapBin/binary, "a">>,
+    erlang:garbage_collect(Self),
+    %% expect a single binary (2 bytes longer than the original)
+    [{binary, [{_, _, 1}]}] = erlang:process_info(Self, [binary]),
+    Bin.
 
 reductions(_Config) ->
     TwoMeg = <<0:(2_000*1024)/unit:8>>,

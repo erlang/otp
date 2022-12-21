@@ -1998,12 +1998,15 @@ process_info_aux(Process *c_p,
 
     case ERTS_PI_IX_BINARY: {
         ErlHeapFragment *hfrag;
+        ErlOffHeap wrt_bins;
         Uint sz;
 
         res = NIL;
         sz = 0;
+        wrt_bins.first = rp->wrt_bins;
 
         (void)erts_bld_bin_list(NULL, &sz, &MSO(rp), NIL);
+        (void)erts_bld_bin_list(NULL, &sz, &wrt_bins, NIL);
         for (hfrag = rp->mbuf; hfrag != NULL; hfrag = hfrag->next) {
             (void)erts_bld_bin_list(NULL, &sz, &hfrag->off_heap, NIL);
         }
@@ -2011,6 +2014,7 @@ process_info_aux(Process *c_p,
         hp = erts_produce_heap(hfact, sz, reserve_size);
 
         res = erts_bld_bin_list(&hp, NULL, &MSO(rp), NIL);
+        res = erts_bld_bin_list(&hp, NULL, &wrt_bins, res);
         for (hfrag = rp->mbuf; hfrag != NULL; hfrag = hfrag->next) {
             res = erts_bld_bin_list(&hp, NULL, &hfrag->off_heap, res);
         }
