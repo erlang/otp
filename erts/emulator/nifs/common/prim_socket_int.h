@@ -26,15 +26,10 @@
 #ifndef PRIM_SOCKET_INT_H__
 #define PRIM_SOCKET_INT_H__
 
-#ifdef HAVE_CONFIG_H
-#    include "config.h"
-#endif
-
-#include "sys.h"
-
 #include <erl_nif.h>
 
 #include "socket_int.h"
+#include "socket_dbg.h"
 
 
 /* ********************************************************************* *
@@ -55,6 +50,45 @@ typedef int SOCKET; /* A subset of HANDLE */
 #define INVALID_EVENT INVALID_HANDLE
 
 #endif
+
+
+/* ********************************************************************* *
+ *                   Socket state defs and macros                        *
+ * ********************************************************************* *
+ */
+
+#define ESOCK_STATE_BOUND        0x0001 /* readState */
+#define ESOCK_STATE_LISTENING    0x0002 /* readState */
+#define ESOCK_STATE_ACCEPTING    0x0004 /* readState */
+#define ESOCK_STATE_CONNECTING   0x0010 /* writeState */
+#define ESOCK_STATE_CONNECTED    0x0020 /* writeState */
+
+/* This is set in either readState or writeState
+ * so it has to be read from both.
+ * Means that the socket has been used in select,
+ * so select_stop is required. */
+#define ESOCK_STATE_SELECTED     0x0100 /* readState or writeState */
+
+/* These are set in both readState and writeState
+ * so they can be read from either. */
+#define ESOCK_STATE_CLOSING      0x0200 /* readState and writeState */
+
+#define ESOCK_STATE_CLOSED       0x0400 /* readState and writeState */
+//
+#define ESOCK_STATE_DTOR         0x8000
+
+#define IS_CLOSED(st)                           \
+    (((st) & ESOCK_STATE_CLOSED) != 0)
+
+#define IS_CLOSING(st)                          \
+    (((st) & ESOCK_STATE_CLOSING) != 0)
+
+#define IS_OPEN(st)                                             \
+    (((st) & (ESOCK_STATE_CLOSED | ESOCK_STATE_CLOSING)) == 0)
+
+#define IS_SELECTED(d)                                                  \
+    ((((d)->readState | (d)->writeState) & ESOCK_STATE_SELECTED) != 0)
+
 
 
 /* ==========================================================================
@@ -127,6 +161,19 @@ typedef Uint64                   ESockCounter;
 #endif
 
 
+/* ********************************************************************* *
+ *                         (Socket) Debug macros                         *
+ * ********************************************************************* *
+ */
+
+#define SSDBG( __D__ , proto )    ESOCK_DBG_PRINTF( (__D__)->dbg , proto )
+#define SSDBG2( __DBG__ , proto ) ESOCK_DBG_PRINTF( (__DBG__) , proto )
+
+
+/* ********************************************************************* *
+ *                           Sendfile stuff                              *
+ * ********************************************************************* *
+ */
 
 #if defined(HAVE_SENDFILE)
 
@@ -216,6 +263,56 @@ typedef struct{
     ErlNifEnv*   env;
     ERL_NIF_TERM ref;
 } ESockMeta;
+
+
+
+/* ********************************************************************* *
+ *                     The socket nif global info                        *
+ * ********************************************************************* *
+ */
+
+typedef struct {
+    /* These are for debugging, testing and the like */
+    // ERL_NIF_TERM version;
+    // ERL_NIF_TERM buildDate;
+
+    /* XXX Should be locked but too awkward and small gain */
+    BOOLEAN_T    dbg;
+    BOOLEAN_T    useReg;
+    unsigned int ioNumThreads; // Set once and never changed
+
+    /* Registry stuff */
+    ErlNifPid    regPid; /* Constant - not locked */
+
+    /* IOV_MAX. Constant - not locked */
+    int          iov_max;
+
+    /* XXX
+     * Should be locked but too awkward for no gain since it is not used yet
+     */
+    BOOLEAN_T    iow; // Where do we send this? Subscription?
+
+    ErlNifMutex* protocolsMtx;
+
+    ErlNifMutex* cntMtx; /* Locks the below */
+    /* Its extreme overkill to have these counters be 64-bit,
+     * but since the other counters are, it's much simpler to
+     * let these be 64-bit also.
+     */
+    ESockCounter numSockets;
+    ESockCounter numTypeStreams;
+    ESockCounter numTypeDGrams;
+    ESockCounter numTypeSeqPkgs;
+    ESockCounter numDomainInet;
+    ESockCounter numDomainInet6;
+    ESockCounter numDomainLocal;
+    ESockCounter numProtoIP;
+    ESockCounter numProtoTCP;
+    ESockCounter numProtoUDP;
+    ESockCounter numProtoSCTP;
+    //
+    BOOLEAN_T    sockDbg;
+} ESockData;
 
 
 
@@ -334,6 +431,49 @@ typedef struct {
     /* Lock order: readMtx, writeMtx, cntMtx
      */
 } ESockDescriptor;
+
+
+
+/* ======================================================================== *
+ *                            Functions                                     *
+ * ======================================================================== *
+ */
+
+extern ESockDescriptor* esock_alloc_descriptor(SOCKET sock, ErlNifEvent event);
+
+extern BOOLEAN_T esock_getopt_int(SOCKET sock,
+                                  int    level,
+                                  int    opt,
+                                  int*   valP);
+
+/* ** Socket Registry functions *** */
+extern void esock_send_reg_add_msg(ErlNifEnv*   env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM sockRef);
+extern void esock_send_reg_del_msg(ErlNifEnv*   env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM sockRef);
+
+
+/* ** Monitor functions *** */
+extern int esock_monitor(const char*      slogan,
+                         ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         const ErlNifPid* pid,
+                         ESockMonitor*    mon);
+extern int esock_demonitor(const char*      slogan,
+                           ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ESockMonitor*    monP);
+extern void esock_monitor_init(ESockMonitor* mon);
+extern ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv*          env,
+                                            const ESockMonitor* monP);
+extern BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
+                                  const ErlNifMonitor* mon);
+
+/* *** Counter functions *** */
+extern void esock_inc_socket(int domain, int type, int protocol);
+extern void esock_dec_socket(int domain, int type, int protocol);
 
 
 #endif // PRIM_SOCKET_INT_H__

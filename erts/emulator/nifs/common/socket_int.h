@@ -249,6 +249,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(drop_membership);          \
     GLOBAL_ATOM_DEF(drop_source_membership);   \
     GLOBAL_ATOM_DEF(dstopts);                  \
+    GLOBAL_ATOM_DEF(dup);		       \
     GLOBAL_ATOM_DEF(dying);		       \
     GLOBAL_ATOM_DEF(dynamic);                  \
     GLOBAL_ATOM_DEF(echo);                     \
@@ -465,6 +466,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(user_timeout);             \
     GLOBAL_ATOM_DEF(use_ext_recvinfo);         \
     GLOBAL_ATOM_DEF(use_min_mtu);              \
+    GLOBAL_ATOM_DEF(use_registry);             \
     GLOBAL_ATOM_DEF(void);                     \
     GLOBAL_ATOM_DEF(v6only);
 

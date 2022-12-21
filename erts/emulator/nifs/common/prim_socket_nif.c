@@ -29,7 +29,8 @@
  * ----------------------------------------------------------------------
  *
  *
- * This is just a code snippet in case there is need of extra debugging
+ * This is just a code snippet example in case there is need of
+ * extra debugging:
  *
  * esock_dbg_printf("DEMONP", "[%d] %s: %T\r\n",
  *                  descP->sock, slogan,
@@ -363,11 +364,11 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 #endif /* #if defined(HAVE_SCTP_H) */
 
-
 #ifndef WANT_NONBLOCKING
 #define WANT_NONBLOCKING
 #endif
 #include "sys.h"
+
 
 /* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *
  *                                                                        *
@@ -441,39 +442,6 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 
 
 
-/* *** Socket state defs *** */
-
-#define ESOCK_STATE_BOUND        0x0001 /* readState */
-#define ESOCK_STATE_LISTENING    0x0002 /* readState */
-#define ESOCK_STATE_ACCEPTING    0x0004 /* readState */
-#define ESOCK_STATE_CONNECTING   0x0010 /* writeState */
-#define ESOCK_STATE_CONNECTED    0x0020 /* writeState */
-
-/* This is set in either readState or writeState
- * so it has to be read from both.
- * Means that the socket has been used in select,
- * so select_stop is required. */
-#define ESOCK_STATE_SELECTED     0x0100 /* readState or writeState */
-
-/* These are set in both readState and writeState
- * so they can be read from either. */
-#define ESOCK_STATE_CLOSING      0x0200 /* readState and writeState */
-
-#define ESOCK_STATE_CLOSED       0x0400 /* readState and writeState */
-//
-#define ESOCK_STATE_DTOR         0x8000
-
-#define IS_CLOSED(st)                           \
-    (((st) & ESOCK_STATE_CLOSED) != 0)
-
-#define IS_CLOSING(st)                          \
-    (((st) & ESOCK_STATE_CLOSING) != 0)
-
-#define IS_OPEN(st)                                             \
-    (((st) & (ESOCK_STATE_CLOSED | ESOCK_STATE_CLOSING)) == 0)
-
-#define IS_SELECTED(d)                                                  \
-    ((((d)->readState | (d)->writeState) & ESOCK_STATE_SELECTED) != 0)
 
     
 #define ESOCK_GET_RESOURCE(ENV, REF, RES) \
@@ -905,9 +873,6 @@ static const struct ioctl_flag {
 
 /* Global socket debug */
 #define SGDBG( proto )            ESOCK_DBG_PRINTF( data.dbg , proto )
-/* Socket specific debug */
-#define SSDBG( __D__ , proto )    ESOCK_DBG_PRINTF( (__D__)->dbg , proto )
-#define SSDBG2( __DBG__ , proto ) ESOCK_DBG_PRINTF( (__DBG__) , proto )
 
 #define ESOCK_CNT_INC( __E__, __D__, SF, ACNT, CNT, INC)                \
     do {                                                                \
@@ -1032,53 +997,6 @@ static ESockSendfileCounters initESockSendfileCounters =
   ((((sap)->in4.sin_family == AF_INET) ||  \
     ((sap)->in4.sin_family == AF_INET6)) ? \
    ((sap)->in4.sin_port) : -1)
-
-
-/* Global stuff.
- */
-typedef struct {
-    /* These are for debugging, testing and the like */
-    // ERL_NIF_TERM version;
-    // ERL_NIF_TERM buildDate;
-
-    /* XXX Should be locked but too awkward and small gain */
-    BOOLEAN_T    dbg;
-    BOOLEAN_T    useReg;
-    unsigned int ioNumThreads; // Set once and never changed
-
-    /* Registry stuff */
-    ErlNifPid    regPid; /* Constant - not locked */
-
-    /* IOV_MAX. Constant - not locked */
-    int          iov_max;
-
-    /* XXX
-     * Should be locked but too awkward for no gain since it is not used yet
-     */
-    BOOLEAN_T    iow; // Where do we send this? Subscription?
-
-    ErlNifMutex* protocolsMtx;
-
-    ErlNifMutex* cntMtx; /* Locks the below */
-    /* Its extreme overkill to have these counters be 64-bit,
-     * but since the other counters are, it's much simpler to
-     * let these be 64-bit also.
-     */
-    ESockCounter numSockets;
-    ESockCounter numTypeStreams;
-    ESockCounter numTypeDGrams;
-    ESockCounter numTypeSeqPkgs;
-    ESockCounter numDomainInet;
-    ESockCounter numDomainInet6;
-    ESockCounter numDomainLocal;
-    ESockCounter numProtoIP;
-    ESockCounter numProtoTCP;
-    ESockCounter numProtoUDP;
-    ESockCounter numProtoSCTP;
-    //
-    BOOLEAN_T    sockDbg;
-} ESockData;
-
 
 
 /* ----------------------------------------------------------------------
@@ -1222,17 +1140,6 @@ static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
-static ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
-                                int          fd,
-                                ERL_NIF_TERM eextra);
-static BOOLEAN_T esock_open2_todup(ErlNifEnv*   env,
-                                   ERL_NIF_TERM eextra);
-static BOOLEAN_T esock_open2_get_domain(ErlNifEnv*   env,
-                                        ERL_NIF_TERM eopts,
-                                        int*         domain);
-static BOOLEAN_T esock_open2_get_type(ErlNifEnv*   env,
-                                      ERL_NIF_TERM eopt,
-                                      int*         type);
 static ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
                                 int          domain,
                                 int          type,
@@ -1244,8 +1151,6 @@ static BOOLEAN_T esock_open_is_debug(ErlNifEnv*   env,
 static BOOLEAN_T esock_open_use_registry(ErlNifEnv*   env,
                                          ERL_NIF_TERM eextra,
                                          BOOLEAN_T dflt);
-static BOOLEAN_T esock_open_which_domain(SOCKET sock,   int* domain);
-static BOOLEAN_T esock_open_which_type(SOCKET sock,     int* type);
 static BOOLEAN_T esock_open_which_protocol(SOCKET sock, int* proto);
 
 static ERL_NIF_TERM esock_bind(ErlNifEnv*       env,
@@ -2096,10 +2001,6 @@ static ERL_NIF_TERM esock_getopt_int_opt(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
                                          int              level,
                                          int              opt);
-static BOOLEAN_T esock_getopt_int(SOCKET sock,
-                                  int    level,
-                                  int    opt,
-                                  int*   valP);
 static ERL_NIF_TERM esock_getopt_size_opt(ErlNifEnv*       env,
                                           ESockDescriptor* descP,
                                           int              level,
@@ -3495,8 +3396,6 @@ static int socket_setopt(int             sock,
 
 static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 
-static ESockDescriptor* alloc_descriptor(SOCKET sock, ErlNifEvent event);
-
 
 static BOOLEAN_T ehow2how(ERL_NIF_TERM ehow, int* how);
 #ifdef HAVE_SETNS
@@ -3509,9 +3408,6 @@ static BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err);
 
 static BOOLEAN_T cnt_inc(ESockCounter* cnt, ESockCounter inc);
 static void      cnt_dec(ESockCounter* cnt, ESockCounter dec);
-
-static void inc_socket(int domain, int type, int protocol);
-static void dec_socket(int domain, int type, int protocol);
 
 
 
@@ -3592,23 +3488,6 @@ static BOOLEAN_T qunqueue(ErlNifEnv*         env,
                           ERL_NIF_TERM*      refP,
                           const ErlNifPid*   pidP);
 
-static int esock_monitor(const char*      slogan,
-                         ErlNifEnv*       env,
-                         ESockDescriptor* descP,
-                         const ErlNifPid* pid,
-                         ESockMonitor*    mon);
-static int esock_demonitor(const char*      slogan,
-                           ErlNifEnv*       env,
-                           ESockDescriptor* descP,
-                           ESockMonitor*    monP);
-static void esock_monitor_init(ESockMonitor* mon);
-static ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv*          env,
-                                            const ESockMonitor* monP);
-static BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
-                                  const ErlNifMonitor* mon);
-
-
-
 static void esock_down_ctrl(ErlNifEnv*       env,
                             ESockDescriptor* descP,
                             const ErlNifPid* pidP);
@@ -3627,13 +3506,6 @@ static void esock_down_reader(ErlNifEnv*       env,
                               ERL_NIF_TERM     sockRef,
                               const ErlNifPid* pidP,
                               const ErlNifMonitor* monP);
-
-static void esock_send_reg_add_msg(ErlNifEnv*   env,
-                                   ESockDescriptor* descP,
-                                   ERL_NIF_TERM sockRef);
-static void esock_send_reg_del_msg(ErlNifEnv*   env,
-                                   ESockDescriptor* descP,
-                                   ERL_NIF_TERM sockRef);
 
 static void esock_send_wrap_msg(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
@@ -3828,6 +3700,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(drop_membership);                 \
     GLOBAL_ATOM_DECL(drop_source_membership);          \
     GLOBAL_ATOM_DECL(dstopts);                         \
+    GLOBAL_ATOM_DECL(dup);                             \
     GLOBAL_ATOM_DECL(dying);			       \
     GLOBAL_ATOM_DECL(dynamic);                         \
     GLOBAL_ATOM_DECL(echo);                            \
@@ -4043,6 +3916,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(user_timeout);                    \
     GLOBAL_ATOM_DECL(use_ext_recvinfo);                \
     GLOBAL_ATOM_DECL(use_min_mtu);                     \
+    GLOBAL_ATOM_DECL(use_registry);                    \
     GLOBAL_ATOM_DECL(void);                            \
     GLOBAL_ATOM_DECL(v6only)
 
@@ -4096,7 +3970,6 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(do);               \
     LOCAL_ATOM_DECL(dont);             \
     LOCAL_ATOM_DECL(dtor);             \
-    LOCAL_ATOM_DECL(dup);              \
     LOCAL_ATOM_DECL(efile);            \
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
@@ -4235,7 +4108,6 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(txqlen);	       \
     LOCAL_ATOM_DECL(txstatus);         \
     LOCAL_ATOM_DECL(txtime);           \
-    LOCAL_ATOM_DECL(use_registry);     \
     LOCAL_ATOM_DECL(value);            \
     LOCAL_ATOM_DECL(want);             \
     LOCAL_ATOM_DECL(write);            \
@@ -4275,7 +4147,7 @@ static ESockData data;
 static ESockIoBackend io_backend = {0};
 
 
-/* This, the test for NULL), is a temporary until we have a win stub */
+/* This, the test for NULL), is temporary until we have a win stub */
 #define ESOCK_IO_INIT(__NUMT__)                                 \
     ((io_backend.init != NULL) ?                                \
      io_backend.init(__NUMT__) : ESOCK_IO_ERR_UNSUPPORTED)
@@ -4283,102 +4155,95 @@ static ESockIoBackend io_backend = {0};
     ((io_backend.finish != NULL) ?                                \
      io_backend.finish() : ESOCK_IO_ERR_UNSUPPORTED)
 
-#define ESOCK_IO_OPEN2(__ENV__, __FD__, __EOPTS__)      \
-    ((io_backend.open2 != NULL) ?                       \
-     io_backend.open2(__ENV__, __FD__, __EOPTS__) :     \
-     enif_raise_exception2(env, MKA(env, "notsup")))
-#define ESOCK_IO_OPEN4(__ENV__, __D__, __T__, __P__, __EOPTS__) \
-    ((io_backend.open4 != NULL) ?                               \
-     io_backend.open4(__ENV__, __D__, __T__, __P__, __EOPTS__)  \
+#define ESOCK_IO_OPEN2(__ENV__, __FD__, __EOPTS__)                      \
+    ((io_backend.open2 != NULL) ?                                       \
+     io_backend.open2((__ENV__), (__FD__), (__EOPTS__), &data) :        \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_BIND(__ENV__, __D__, __SAP__, __AL__)  \
-    ((io_backend.bind != NULL) ?                        \
-     io_backend.bind(__ENV__, __D__, __SAP__, __AL__)   \
+#define ESOCK_IO_OPEN4(__ENV__, __D__, __T__, __P__, __EOPTS__)       \
+    ((io_backend.open4 != NULL) ?                                     \
+     io_backend.open4((__ENV__), (__D__),                             \
+                      (__T__), (__P__), (__EOPTS__), &data) :         \
+     enif_raise_exception(env, MKA(env, "notsup")))
+#define ESOCK_IO_BIND(__ENV__, __D__, __SAP__, __AL__)          \
+    ((io_backend.bind != NULL) ?                                \
+     io_backend.bind((__ENV__), (__D__), (__SAP__), (__AL__)) : \
      enif_raise_exception(env, MKA(env, "notsup")))
 #define ESOCK_IO_CONNECT(__ENV__, __D__, __SR__, __CR__, __AP__, __AL__) \
     ((io_backend.connect != NULL) ?                                      \
-     io_backend.connect(__ENV__, __D__, __SR__, __CR__, __AP__, __AL__)  \
+     io_backend.connect((__ENV__), (__D__),                              \
+                        (__SR__), (__CR__), (__AP__), (__AL__)) :        \
      enif_raise_exception(env, MKA(env, "notsup")))
 #define ESOCK_IO_LISTEN(__ENV__, __D__, __BL__)         \
     ((io_backend.listen != NULL) ?                      \
-     io_backend.listen(__ENV__, __D__, __BL__)          \
+     io_backend.listen((__ENV__), (__D__), (__BL__)) :  \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_ACCEPT(__ENV__, __D__, __SR__, __AR__) \
-    ((io_backend.accept != NULL) ?                      \
-     io_backend.accept(__ENV__, __D__, __SR__, __AR__)  \
+#define ESOCK_IO_ACCEPT(__ENV__, __D__, __SR__, __AR__)                 \
+    ((io_backend.accept != NULL) ?                                      \
+     io_backend.accept((__ENV__), (__D__), (__SR__), (__AR__)) :        \
      enif_raise_exception(env, MKA(env, "notsup")))
 #define ESOCK_IO_SEND(__ENV__, __D__, __SR__, __RF__, __L__, __F__)     \
     ((io_backend.send != NULL) ?                                        \
-     io_backend.send(__ENV__, __D__, __SR__, __RF__, __L__, __F__)      \
+     io_backend.send((__ENV__), (__D__),                                \
+                     (__SR__), (__RF__), (__L__), (__F__)) :            \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SENDTO(__ENV__, __D__,                         \
-                        __SOCKR__, __SENDR__,                   \
-                        __DP__, __F__, __TAP__, __TAL__)        \
-    ((io_backend.sendto != NULL) ?                              \
-     io_backend.sendto(__ENV__, __D__,                          \
-                        __SOCKR__, __SENDR__,                   \
-                        __DP__, __F__, __TAP__, __TAL__)        \
+#define ESOCK_IO_SENDTO(__ENV__, __D__,                           \
+                        __SOCKR__, __SENDR__,                     \
+                        __DP__, __F__, __TAP__, __TAL__)          \
+    ((io_backend.sendto != NULL) ?                                \
+     io_backend.sendto((__ENV__), (__D__),                        \
+                       (__SOCKR__), (__SENDR__),                  \
+                       (__DP__), (__F__), (__TAP__), (__TAL__)) : \
      enif_raise_exception(env, MKA(env, "notsup")))
 #define ESOCK_IO_SENMSG(__ENV__, __D__,                                 \
                         __SOCKR__, __SENDR__, __EM__, __F__, __EIOV__)  \
     ((io_backend.sendmsg != NULL) ?                                     \
-     io_backend.sendmsg(__ENV__, __D__,                                 \
-                        __SOCKR__, __SENDR__, __EM__, __F__, __EIOV__)  \
+     io_backend.sendmsg((__ENV__), (__D__),                             \
+                        (__SOCKR__), (__SENDR__),                       \
+                        (__EM__), (__F__), (__EIOV__)) :                \
      enif_raise_exception(env, MKA(env, "notsup")))
 #define ESOCK_IO_SENDFILE(__ENV__, __D__, __SR__, __O__, __CP__, __EP__) \
     ((io_backend.sendfile != NULL) ?                                     \
-     io_backend.sendfile(__ENV__, __D__,                                 \
-                          __SR__, __O__, __CP__, __EP__)                 \
+     io_backend.sendfile((__ENV__), (__D__),                             \
+                         (__SR__), (__O__), (__CP__), (__EP__)) :        \
      enif_raise_exception(env, MKA(env, "notsup")))
-/*
-#define ESOCK_IO_SENDFILE1(__ENV__, __D__)              \
-    ((io_backend.sendfile1 != NULL) ?                   \
-     io_backend.sendfile1(__ENV__, __D__)               \
-     enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SENDFILE4(__ENV__, __D__)              \
-    ((io_backend.sendfile4 != NULL) ?                   \
-     io_backend.sendfile4(__ENV__, __D__)               \
-     enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SENDFILE5(__ENV__, __D__)              \
-    ((io_backend.sendfile5 != NULL) ?                   \
-     io_backend.sendfile5(__ENV__, __D__)               \
-     enif_raise_exception(env, MKA(env, "notsup")))
-*/
 #define ESOCK_IO_RECV(__ENV__, __D__,                         \
                       __SR__, __RR__, __L__, __F__)           \
     ((io_backend.recv != NULL) ?                              \
-     io_backend.recv(__ENV__, __D__,                          \
-                      __SR__, __RR__, __L__, __F__)           \
+     io_backend.recv((__ENV__), (__D__),                      \
+                     (__SR__), (__RR__), (__L__), (__F__)) :  \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_RECVFROM(__ENV__, __D__,                     \
-                          __SR__, __RR__, __L__, __F__)       \
-    ((io_backend.recvfrom != NULL) ?                          \
-     io_backend.recvfrom(__ENV__, __D__)                      \
+#define ESOCK_IO_RECVFROM(__ENV__, __D__,                         \
+                          __SR__, __RR__, __L__, __F__)           \
+    ((io_backend.recvfrom != NULL) ?                              \
+     io_backend.recvfrom((__ENV__), (__D__),                      \
+                         (__SR__), (__RR__), (__BL__), (__F__)) : \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_recvmsg(__ENV__, __D__,                         \
-                         __SR__, __RR__, __BL__, ___CL__, _F__)  \
-    ((io_backend.recvmsg != NULL) ?                              \
-     io_backend.recvmsg(__ENV__, __D__)                          \
+#define ESOCK_IO_recvmsg(__ENV__, __D__,                          \
+                         __SR__, __RR__, __BL__, ___CL__, __F__)  \
+    ((io_backend.recvmsg != NULL) ?                               \
+     io_backend.recvmsg((__ENV__), (__D__),                       \
+                        (__SR__), (__RR__),                       \
+                        (__BL__), (__CL__), (__F__)) :            \
      enif_raise_exception(env, MKA(env, "notsup")))
 #define ESOCK_IO_CLOSE(__ENV__, __D__)                  \
     ((io_backend.close != NULL) ?                       \
-     io_backend.close(__ENV__, __D__)                   \
+     io_backend.close((__ENV__), (__D__)) :             \
      enif_raise_exception(env, MKA(env, "notsup")))
 #define ESOCK_IO_FIN_CLOSE(__ENV__, __D__)                  \
     ((io_backend.fin_close != NULL) ?                       \
-     io_backend.fin_close(__ENV__, __D__)                   \
+     io_backend.fin_close((__ENV__), (__D__)) :             \
      enif_raise_exception(env, MKA(env, "notsup")))
 #define ESOCK_IO_SHUTDOWN(__ENV__, __D__, __H__)        \
     ((io_backend.shutdown != NULL) ?                    \
-     io_backend.shutdown(__ENV__, __D__, __H__)         \
+     io_backend.shutdown((__ENV__), (__D__), (__H__)) : \
      enif_raise_exception(env, MKA(env, "notsup")))
 #define ESOCK_IO_SOCKNAME(__ENV__, __D__)               \
     ((io_backend.sockname != NULL) ?                    \
-     io_backend.sockname(__ENV__, __D__)                \
+     io_backend.sockname((__ENV__), (__D__)) :          \
      enif_raise_exception(env, MKA(env, "notsup")))
 #define ESOCK_IO_PEERNAME(__ENV__, __D__)               \
     ((io_backend.peername != NULL) ?                    \
-     io_backend.peername(__ENV__, __D__)                \
+     io_backend.peername((__ENV__), (__D__)) :          \
      enif_raise_exception(env, MKA(env, "notsup")))
 
 
@@ -4566,7 +4431,7 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
             ERL_NIF_TERM
                 keys[] = {esock_atom_debug,
                           atom_socket_debug,
-                          atom_use_registry,
+                          esock_atom_use_registry,
                           atom_iow,
                           atom_counters,
                           atom_iov_max},
@@ -5008,7 +4873,7 @@ esock_command(ErlNifEnv* env, ERL_NIF_TERM command, ERL_NIF_TERM cdata)
         if (COMPARE(command, esock_atom_debug) == 0)
             return esock_command_debug(env, cdata);
     } else { // 0 < cmp
-        if (COMPARE(command, atom_use_registry) == 0)
+        if (COMPARE(command, esock_atom_use_registry) == 0)
             return esock_command_use_socket_registry(env, cdata);
     }
 
@@ -5617,36 +5482,38 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 		"\r\n", fd, eopts) );
 
 	MLOCK(data.cntMtx);
-	result = esock_open2(env, fd, eopts);
+	result = ESOCK_IO_OPEN2(env, fd, eopts);
 	MUNLOCK(data.cntMtx);
 
     } else {
-        ERL_NIF_TERM edomain, etype, eopts;
+        ERL_NIF_TERM edomain, etype, eproto, eopts;
 	int          domain, type, proto;
 
 	ESOCK_ASSERT( argc == 4 );
 
 	/* Extract arguments and perform preliminary validation */
 
-	if (! GET_INT(env, argv[2], &proto)) {
-            if (IS_INTEGER(env, argv[2]))
-                return esock_make_error_integer_range(env, argv[2]);
+	edomain = argv[0];
+	etype   = argv[1];
+        eproto  = argv[2];
+	eopts   = argv[3];
+
+	SGDBG( ("SOCKET", "nif_open -> "
+		"\r\n   edomain: %T"
+		"\r\n   etype:   %T"
+		"\r\n   eproto:  %T"
+		"\r\n   eopts:   %T"
+		"\r\n", edomain, etype, eproto, eopts) );
+
+	if (! GET_INT(env, eproto, &proto)) {
+            if (IS_INTEGER(env, eproto))
+                return esock_make_error_integer_range(env, eproto);
             else
                 return enif_make_badarg(env);
         }
 	if (! IS_MAP(env,  argv[3])) {
 	    return enif_make_badarg(env);
 	}
-	edomain = argv[0];
-	etype = argv[1];
-	eopts  = argv[3];
-
-	SGDBG( ("SOCKET", "nif_open -> "
-		"\r\n   edomain: %T"
-		"\r\n   etype:   %T"
-		"\r\n   proto:   %T"
-		"\r\n   eopts:   %T"
-		"\r\n", argv[0], argv[1], argv[2], eopts) );
 
 	if (esock_decode_domain(env, edomain, &domain) == 0) {
 	    SGDBG( ("SOCKET",
@@ -5661,6 +5528,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 	}
 
 	MLOCK(data.cntMtx);
+	// result = ESOCK_IO_OPEN4(env, domain, type, proto, eopts);
 	result = esock_open4(env, domain, type, proto, eopts);
 	MUNLOCK(data.cntMtx);
     }
@@ -5683,216 +5551,6 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
  * by the sockets own debug flag. But since we don't even have a socket
  * yet, we must use the global debug flag.
  */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
-                         int          fd,
-                         ERL_NIF_TERM eopts)
-{
-    BOOLEAN_T        dbg    = esock_open_is_debug(env, eopts, data.sockDbg);
-    BOOLEAN_T        useReg = esock_open_use_registry(env, eopts, data.useReg);
-    ESockDescriptor* descP;
-    ERL_NIF_TERM     sockRef;
-    int              domain, type, protocol;
-    int              save_errno = 0;
-    BOOLEAN_T        closeOnClose;
-    SOCKET           sock;
-    ErlNifEvent      event;
-    ErlNifPid        self;
-
-    /* Keep track of the creator
-     * This should not be a problem, but just in case
-     * the *open* function is used with the wrong kind
-     * of environment...
-     */
-    ESOCK_ASSERT( enif_self(env, &self) != NULL );
-
-    SSDBG2( dbg,
-            ("SOCKET", "esock_open2 -> entry with"
-             "\r\n   fd:    %d"
-             "\r\n   eopts: %T"
-             "\r\n", fd, eopts) );
-
-    /*
-     * Before we do anything else, we try to retrieve domain, type and protocol
-     * This information is either present in the eopts map or if not we need
-     * to "get" it from the system (getsockopt).
-     * Note that its not possible to get all of these on all platforms,
-     * and in those cases the user *must* provide us with them (eopts).
-     *
-     * We try the system first (since its more reliable) and if that fails
-     * we check the eopts map. If neither one works, we *give up*!
-     */
-
-    if (! esock_open_which_domain(fd, &domain)) {
-        SSDBG2( dbg,
-                ("SOCKET",
-                 "esock_open2 -> failed get domain from system\r\n") );
-
-        if (! esock_open2_get_domain(env, eopts, &domain)) {
-            return esock_make_invalid(env, esock_atom_domain);
-        }
-    }
-
-    if (! esock_open_which_type(fd, &type)) {
-        SSDBG2( dbg,
-                ("SOCKET", "esock_open2 -> failed get type from system\r\n") );
-
-        if (! esock_open2_get_type(env, eopts, &type))
-            return esock_make_invalid(env, esock_atom_type);
-    }
-
-    if (! esock_open_which_protocol(fd, &protocol)) {
-        SSDBG2( dbg,
-                ("SOCKET",
-                 "esock_open2 -> failed get protocol from system\r\n") );
-
-        if (! esock_extract_int_from_map(env, eopts,
-                                        esock_atom_protocol, &protocol)) {
-            SSDBG2( dbg,
-                    ("SOCKET",
-                     "esock_open2 -> trying protocol 0\r\n") );
-            protocol = 0;
-        }
-    }
-
-
-    SSDBG2( dbg,
-            ("SOCKET", "esock_open2 -> "
-             "\r\n   domain:   %d"
-             "\r\n   type:     %d"
-             "\r\n   protocol: %d"
-             "\r\n", domain, type, protocol) );
-
-
-    if (esock_open2_todup(env, eopts)) {
-        /* We shall dup the socket */
-        if (ESOCK_IS_ERROR(sock = dup(fd))) {
-            save_errno = sock_errno();
-
-            SSDBG2( dbg,
-                    ("SOCKET",
-                     "esock_open2 -> dup failed: %d\r\n",
-                     save_errno) );
-
-            return esock_make_error_errno(env, save_errno);
-        }
-        closeOnClose = TRUE;
-    } else {
-        sock         = fd;
-        closeOnClose = FALSE;
-    }
-
-    event = sock;
-
-    SET_NONBLOCKING(sock);
-
-    /* Create and initiate the socket "descriptor" */
-    descP               = alloc_descriptor(sock, event);
-    descP->ctrlPid      = self;
-    descP->domain       = domain;
-    descP->type         = type;
-    descP->protocol     = protocol;
-    descP->closeOnClose = closeOnClose;
-    descP->origFD       = fd;
-
-    /* Check if we are already connected, if so change state */
-    {
-        ESockAddress remote;
-        SOCKLEN_T    addrLen = sizeof(remote);
-        sys_memzero((char *) &remote, addrLen);
-        if (sock_peer(descP->sock,
-                      (struct sockaddr*) &remote,
-                      &addrLen) == 0) {
-            SSDBG2( dbg, ("SOCKET", "esock_open2 -> connected\r\n") );
-            descP->writeState |= ESOCK_STATE_CONNECTED;
-        } else {
-            SSDBG2( dbg, ("SOCKET", "esock_open2 -> not connected\r\n") );
-        }
-    }
-
-    /* And create the 'socket' resource */
-    sockRef = enif_make_resource(env, descP);
-    enif_release_resource(descP);
-
-    ESOCK_ASSERT( MONP("esock_open2 -> ctrl",
-                       env, descP,
-                       &descP->ctrlPid,
-                       &descP->ctrlMon) == 0 );
-
-    descP->dbg    = dbg;
-    descP->useReg = useReg;
-    inc_socket(domain, type, protocol);
-
-    /* And finally (maybe) update the registry.
-     * Shall we keep track of the fact that this socket is created elsewhere?
-     */
-    if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
-
-    SSDBG2( dbg,
-            ("SOCKET", "esock_open2 -> done: %T\r\n", sockRef) );
-
-    return esock_make_ok2(env, sockRef);
-}
-#endif // #ifndef __WIN32__
-
-
-/* The eextra contains a boolean 'dup' key. Defaults to TRUE.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T esock_open2_todup(ErlNifEnv* env, ERL_NIF_TERM eextra)
-{
-    return esock_get_bool_from_map(env, eextra, atom_dup, TRUE);
-}
-#endif // #ifndef __WIN32__
-
-/* The eextra contains an integer 'domain' key.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T esock_open2_get_domain(ErlNifEnv* env,
-                                 ERL_NIF_TERM eopts, int* domain)
-{
-    ERL_NIF_TERM edomain;
-    
-    SGDBG( ("SOCKET", "esock_open2_get_domain -> entry with"
-	    "\r\n   eopts: %T"
-	    "\r\n", eopts) );
-
-    if (!GET_MAP_VAL(env, eopts,
-		     esock_atom_domain, &edomain))
-      return FALSE;
-
-    if (esock_decode_domain(env, edomain, domain) == 0)
-      return FALSE;
-
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
-
-/* The eextra contains an integer 'type' key.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T esock_open2_get_type(ErlNifEnv* env,
-                               ERL_NIF_TERM eopts, int* type)
-{
-    ERL_NIF_TERM etype;
-
-    SGDBG( ("SOCKET", "esock_open2_get_type -> entry with"
-            "\r\n   eopts: %T"
-            "\r\n", eopts) );
-
-    if (! GET_MAP_VAL(env, eopts, esock_atom_type, &etype))
-        return FALSE;
-
-    if (! esock_decode_type(env, etype, type))
-        return FALSE;
-
-    return TRUE;
-}
-#endif // #ifndef __WIN32__
 
 
 /* esock_open4 - create an endpoint for communication
@@ -5911,7 +5569,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
                          int          protocol,
                          ERL_NIF_TERM eopts)
 {
-    BOOLEAN_T        dbg = esock_open_is_debug(env, eopts, data.sockDbg);
+    BOOLEAN_T        dbg    = esock_open_is_debug(env, eopts, data.sockDbg);
     BOOLEAN_T        useReg = esock_open_use_registry(env, eopts, data.useReg);
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef;
@@ -5993,7 +5651,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
 
 
     /* Create and initiate the socket "descriptor" */
-    descP           = alloc_descriptor(sock, event);
+    descP           = esock_alloc_descriptor(sock, event);
     descP->ctrlPid  = self;
     descP->domain   = domain;
     descP->type     = type;
@@ -6009,7 +5667,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
 
     descP->dbg    = dbg;
     descP->useReg = useReg;
-    inc_socket(domain, type, protocol);
+    esock_inc_socket(domain, type, protocol);
 
     /* And finally (maybe) update the registry */
     if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
@@ -6035,35 +5693,9 @@ static
 BOOLEAN_T esock_open_use_registry(ErlNifEnv* env, ERL_NIF_TERM eextra,
                                   BOOLEAN_T dflt)
 {
-    return esock_get_bool_from_map(env, eextra, atom_use_registry, dflt);
+    return esock_get_bool_from_map(env, eextra, esock_atom_use_registry, dflt);
 }
 #endif
-
-
-#ifndef __WIN32__
-static
-BOOLEAN_T esock_open_which_domain(SOCKET sock, int* domain)
-{
-#if defined(SO_DOMAIN)
-    if (esock_getopt_int(sock, SOL_SOCKET, SO_DOMAIN, domain))
-        return TRUE;
-#endif
-    return FALSE;
-}
-#endif // #ifndef __WIN32__
-
-
-#ifndef __WIN32__
-static
-BOOLEAN_T esock_open_which_type(SOCKET sock, int* type)
-{
-#if defined(SO_TYPE)
-    if (esock_getopt_int(sock, SOL_SOCKET, SO_TYPE, type))
-        return TRUE;
-#endif
-    return FALSE;
-}
-#endif // #ifndef __WIN32__
 
 
 #ifndef __WIN32__
@@ -7112,7 +6744,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
         return FALSE;
     }
 
-    accDescP           = alloc_descriptor(accSock, accEvent);
+    accDescP           = esock_alloc_descriptor(accSock, accEvent);
     accDescP->domain   = descP->domain;
     accDescP->type     = descP->type;
     accDescP->protocol = descP->protocol;
@@ -7127,7 +6759,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
     accDescP->iow      = descP->iow;     // Inherit iow
     accDescP->dbg      = descP->dbg;     // Inherit debug flag
     accDescP->useReg   = descP->useReg;  // Inherit useReg flag
-    inc_socket(accDescP->domain, accDescP->type, accDescP->protocol);
+    esock_inc_socket(accDescP->domain, accDescP->type, accDescP->protocol);
 
     accRef = enif_make_resource(env, accDescP);
     enif_release_resource(accDescP);
@@ -9541,7 +9173,7 @@ static int esock_close_socket(ErlNifEnv*       env,
     descP->event       = INVALID_EVENT;
     descP->readState  |= ESOCK_STATE_CLOSED;
     descP->writeState |= ESOCK_STATE_CLOSED;
-    dec_socket(descP->domain, descP->type, descP->protocol);
+    esock_dec_socket(descP->domain, descP->type, descP->protocol);
 
     /* +++++++ Clear the meta option +++++++ */
     enif_clear_env(descP->meta.env);
@@ -12590,7 +12222,7 @@ ERL_NIF_TERM esock_getopt_int_opt(ErlNifEnv*       env,
 /* esock_getopt_int - get an integer option
  */
 #ifndef __WIN32__
-static
+extern
 BOOLEAN_T esock_getopt_int(SOCKET           sock,
                            int              level,
                            int              opt,
@@ -18094,14 +17726,14 @@ ERL_NIF_TERM encode_sctp_assoc_t(ErlNifEnv* env, sctp_assoc_t val)
 #endif // #ifdef __WIN32__
 
 
-/* *** alloc_descriptor ***
+/* *** esock_alloc_descriptor ***
  *
  * Allocate and perform basic initialization of a socket descriptor.
  *
  */
 #ifndef __WIN32__
-static
-ESockDescriptor* alloc_descriptor(SOCKET sock, ErlNifEvent event)
+extern
+ESockDescriptor* esock_alloc_descriptor(SOCKET sock, ErlNifEvent event)
 {
     ESockDescriptor* descP;
     char buf[64]; /* Buffer used for building the mutex name */
@@ -18177,7 +17809,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, ErlNifEvent event)
     descP->iow              = FALSE;
     descP->dbg              = ESOCK_DEBUG_DEFAULT; // Overwritten by caller
     descP->useReg           = ESOCK_USE_SOCKET_REGISTRY; // Overwritten by caller
-    descP->meta.env         = esock_alloc_env("alloc_descriptor - "
+    descP->meta.env         = esock_alloc_env("esock_alloc_descriptor - "
                                               "meta-env");
     descP->meta.ref         = esock_atom_undefined;
 
@@ -18196,9 +17828,8 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, ErlNifEvent event)
 
 /* Decrement counters for when a socket is closed
  */
-#ifndef __WIN32__
-static
-void dec_socket(int domain, int type, int protocol)
+extern
+void esock_dec_socket(int domain, int type, int protocol)
 {
     MLOCK(data.cntMtx);
 
@@ -18211,7 +17842,7 @@ void dec_socket(int domain, int type, int protocol)
     else if (domain == AF_INET6)
         cnt_dec(&data.numDomainInet6, 1);
 #endif
-#ifdef HAS_AF_LOCAL
+#if defined(HAS_AF_LOCAL)
     else if (domain == AF_LOCAL)
         cnt_dec(&data.numDomainInet6, 1);
 #endif
@@ -18221,7 +17852,7 @@ void dec_socket(int domain, int type, int protocol)
         cnt_dec(&data.numTypeStreams, 1);
     else if (type == SOCK_DGRAM)
         cnt_dec(&data.numTypeDGrams, 1);
-#ifdef SOCK_SEQPACKET
+#if defined(SOCK_SEQPACKET)
     else if (type == SOCK_SEQPACKET)
         cnt_dec(&data.numTypeSeqPkgs, 1);
 #endif
@@ -18240,14 +17871,12 @@ void dec_socket(int domain, int type, int protocol)
 
     MUNLOCK(data.cntMtx);
 }
-#endif // #ifndef __WIN32__
 
 
 /* Increment counters for when a socket is opened
  */
-#ifndef __WIN32__
-static
-void inc_socket(int domain, int type, int protocol)
+extern
+void esock_inc_socket(int domain, int type, int protocol)
 {
     cnt_inc(&data.numSockets, 1);
     
@@ -18258,7 +17887,7 @@ void inc_socket(int domain, int type, int protocol)
     else if (domain == AF_INET6)
         cnt_inc(&data.numDomainInet6, 1);
 #endif
-#ifdef HAS_AF_LOCAL
+#if defined(HAS_AF_LOCAL)
     else if (domain == AF_LOCAL)
         cnt_inc(&data.numDomainInet6, 1);
 #endif
@@ -18268,7 +17897,7 @@ void inc_socket(int domain, int type, int protocol)
         cnt_inc(&data.numTypeStreams, 1);
     else if (type == SOCK_DGRAM)
         cnt_inc(&data.numTypeDGrams, 1);
-#ifdef SOCK_SEQPACKET
+#if defined(SOCK_SEQPACKET)
     else if (type == SOCK_SEQPACKET)
         cnt_inc(&data.numTypeSeqPkgs, 1);
 #endif
@@ -18285,7 +17914,6 @@ void inc_socket(int domain, int type, int protocol)
         cnt_inc(&data.numProtoSCTP, 1);
 #endif
 }
-#endif // #ifndef __WIN32__
 
 
 
@@ -18390,7 +18018,7 @@ size_t my_strnlen(const char *s, size_t maxlen)
  * the sending fails.
  */
 #ifndef __WIN32__
-static
+extern
 void esock_send_reg_add_msg(ErlNifEnv*       env,
                             ESockDescriptor* descP,
                             ERL_NIF_TERM     sockRef)
@@ -18416,7 +18044,7 @@ void esock_send_reg_add_msg(ErlNifEnv*       env,
  * the sending fails.
  */
 #ifndef __WIN32__
-static
+extern
 void esock_send_reg_del_msg(ErlNifEnv*   env,
                             ESockDescriptor* descP,
                             ERL_NIF_TERM sockRef)
@@ -19314,7 +18942,7 @@ void cnt_dec(ESockCounter* cnt, ESockCounter dec)
 
 #ifndef __WIN32__
 
-static
+extern
 int esock_monitor(const char*      slogan,
                   ErlNifEnv*       env,
                   ESockDescriptor* descP,
@@ -19349,7 +18977,7 @@ int esock_monitor(const char*      slogan,
     return res;
 }
 
-static
+extern
 int esock_demonitor(const char*      slogan,
                     ErlNifEnv*       env,
                     ESockDescriptor* descP,
@@ -19378,13 +19006,13 @@ int esock_demonitor(const char*      slogan,
     return res;
 }
 
-static
+extern
 void esock_monitor_init(ESockMonitor* monP)
 {
     monP->isActive = FALSE;
 }
 
-static
+extern
 ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv* env, const ESockMonitor* monP)
 {
     if (monP->isActive)
@@ -19393,8 +19021,9 @@ ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv* env, const ESockMonitor* monP)
         return esock_atom_undefined;
 }
 
-static BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
-                                  const ErlNifMonitor* mon) {
+extern
+BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
+                           const ErlNifMonitor* mon) {
     if (monP->isActive)
         return enif_compare_monitors(&monP->mon, mon) == 0;
     else
@@ -20302,7 +19931,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     data.useReg =
         esock_get_bool_from_map(env, load_info,
-                                atom_use_registry,
+                                esock_atom_use_registry,
                                 ESOCK_USE_SOCKET_REGISTRY);
 
     data.iow =

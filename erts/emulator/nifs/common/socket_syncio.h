@@ -33,14 +33,16 @@
 extern int  essio_init(unsigned int numThreads);
 extern void essio_finish(void);
 
-extern ERL_NIF_TERM essio_open2(ErlNifEnv*   env,
-                                int          fd,
-                                ERL_NIF_TERM eopts);
-extern ERL_NIF_TERM essio_open4(ErlNifEnv*   env,
-                                int          domain,
-                                int          type,
-                                int          protocol,
-                                ERL_NIF_TERM eopts);
+extern ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
+                                int              fd,
+                                ERL_NIF_TERM     eopts,
+                                const ESockData* dataP);
+extern ERL_NIF_TERM essio_open4(ErlNifEnv*       env,
+                                int              domain,
+                                int              type,
+                                int              protocol,
+                                ERL_NIF_TERM     eopts,
+                                const ESockData* dataP);
 extern ERL_NIF_TERM essio_bind(ErlNifEnv*       env,
                                ESockDescriptor* descP,
                                ESockAddress*    sockAddrP,
