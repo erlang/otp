@@ -1413,39 +1413,15 @@ clear_pem_cache() ->
     ssl_pem_cache:clear().
 
 %%---------------------------------------------------------------
--spec format_error({error, Reason}) -> string() when
+-spec format_error(Reason | {error, Reason}) -> string() when
       Reason :: any().
 %%
 %% Description: Creates error string.
 %%--------------------------------------------------------------------
 format_error({error, Reason}) ->
-    format_error(Reason);
-format_error(Reason) when is_list(Reason) ->
-    Reason;
-format_error(closed) ->
-    "TLS connection is closed";
-format_error({tls_alert, {_, Description}}) ->
-    Description;
-format_error({options,{FileType, File, Reason}}) when FileType == cacertfile;
-						      FileType == certfile;
-						      FileType == keyfile;
-						      FileType == dhfile ->
-    Error = file_error_format(Reason),
-    file_desc(FileType) ++ File ++ ": " ++ Error;
-format_error({options, {socket_options, Option, Error}}) ->
-    lists:flatten(io_lib:format("Invalid transport socket option ~p: ~s", [Option, format_error(Error)]));
-format_error({options, {socket_options, Option}}) ->
-    lists:flatten(io_lib:format("Invalid socket option: ~p", [Option]));
-format_error({options, Options}) ->
-    lists:flatten(io_lib:format("Invalid TLS option: ~p", [Options]));
-
-format_error(Error) ->
-    case inet:format_error(Error) of
-        "unknown POSIX" ++ _ ->
-            unexpected_format(Error);
-        Other ->
-            Other
-    end.
+    do_format_error(Reason);
+format_error(Reason) ->
+    do_format_error(Reason).
 
 tls_version({3, _} = Version) ->
     Version;
@@ -2606,6 +2582,47 @@ handle_supported_groups_option(Value, Version) when is_list(Value) ->
         error:_ -> option_error(supported_groups, Value)
     end.
 
+
+-spec do_format_error( string()
+                     | closed
+                     | {tls_alert, {_, Description :: string()}}
+                     | {options, Options :: term()}
+                     | {options, {socket_options, Option :: term()}}
+                     | {options, {socket_options, Option :: term(), Error}}
+                     | {options, {FileType, File :: string(), Error}}
+                     | InetError
+                     | OtherReason) -> string()
+              when
+      FileType   :: cacertfile | certfile | keyfile | dhfile,
+      OtherReason     :: term(),
+      InetError :: inet:posix() | system_limit.
+
+do_format_error(Reason) when is_list(Reason) ->
+    Reason;
+do_format_error(closed) ->
+    "TLS connection is closed";
+do_format_error({tls_alert, {_, Description}}) ->
+    Description;
+do_format_error({options,{FileType, File, Reason}}) when FileType == cacertfile;
+						      FileType == certfile;
+                                                         FileType == keyfile;
+						      FileType == dhfile ->
+    Error = file_error_format(Reason),
+    file_desc(FileType) ++ File ++ ": " ++ Error;
+do_format_error ({options, {socket_options, Option, Error}}) ->
+    lists:flatten(io_lib:format("Invalid transport socket option ~p: ~s", [Option, do_format_error(Error)]));
+do_format_error({options, {socket_options, Option}}) ->
+    lists:flatten(io_lib:format("Invalid socket option: ~p", [Option]));
+do_format_error({options, Options}) ->
+    lists:flatten(io_lib:format("Invalid TLS option: ~p", [Options]));
+
+do_format_error(Error) ->
+    case inet:format_error(Error) of
+        "unknown POSIX" ++ _ ->
+            unexpected_format(Error);
+        Other ->
+            Other
+    end.
 
 unexpected_format(Error) ->
     lists:flatten(io_lib:format("Unexpected error: ~p", [Error])).
