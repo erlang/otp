@@ -91,6 +91,7 @@ local_setup:
 		make_local_ini.sh $(ERL_TOP); \
 		cp $(ERL_TOP)/bin/erl.ini $(ERL_TOP)/bin/$(TARGET)/erl.ini; \
 	else \
+	cd etc/unix && $(MAKE); \
 	sed	-e "s;%FINAL_ROOTDIR%;$(ERL_TOP);"   \
 		-e "s;erts-.*/bin;bin/$(TARGET);"    \
 		-e "s;EMU=.*;EMU=beam$(TYPEMARKER);" \
