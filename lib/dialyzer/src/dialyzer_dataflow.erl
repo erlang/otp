@@ -1677,17 +1677,17 @@ bitstr_bitsize_type(Size) ->
       any
   end.
 
-%% Return the infimum (meet) of ExpectedType and Type if is not
-%% t_none(), and raise a bind_error() it is t_none().
+%% Return the infimum (meet) of ExpectedType and Type if it describes a
+%% possible value (not 'none' or 'unit'), otherwise raise a bind_error().
 bind_checked_inf(Pat, ExpectedType, Type, Opaques) ->
   Inf = t_inf(ExpectedType, Type, Opaques),
-  case t_is_none(Inf) of
+  case t_is_none_or_unit(Inf) of
     true ->
       case t_find_opaque_mismatch(ExpectedType, Type, Opaques) of
-        {ok, T1, T2}  ->
+        {ok, T1, T2} ->
           bind_error([Pat], T1, T2, opaque);
         error ->
-          bind_error([Pat], Type, t_none(), bind)
+          bind_error([Pat], Type, Inf, bind)
       end;
     false ->
       Inf
