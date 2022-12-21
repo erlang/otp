@@ -74,6 +74,16 @@ static BOOLEAN_T open_get_type(ErlNifEnv*   env,
 static BOOLEAN_T open_get_protocol(ErlNifEnv*   env,
                                    ERL_NIF_TERM eopts,
                                    int*         protocol);
+#ifdef HAVE_SETNS
+static BOOLEAN_T open_get_netns(ErlNifEnv*   env,
+                                ERL_NIF_TERM opts,
+                                char**       netns);
+static BOOLEAN_T change_network_namespace(BOOLEAN_T dbg,
+                                          char* netns, int* cns, int* err);
+static BOOLEAN_T restore_network_namespace(BOOLEAN_T dbg,
+                                           int ns, SOCKET sock, int* err);
+#endif
+
 
 /*
  * For "standard" (unix) synchronous I/O, this is just a dummy function.
@@ -132,7 +142,7 @@ ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
     ESOCK_ASSERT( enif_self(env, &self) != NULL );
 
     SSDBG2( dbg,
-            ("UNIX-SOCKET", "essio_open2 -> entry with"
+            ("UNIX-ESSIO", "essio_open2 -> entry with"
              "\r\n   fd:    %d"
              "\r\n   eopts: %T"
              "\r\n", fd, eopts) );
@@ -150,7 +160,7 @@ ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
 
     if (! open_which_domain(fd, &domain)) {
         SSDBG2( dbg,
-                ("UNIX-SOCKET",
+                ("UNIX-ESSIO",
                  "essio_open2 -> failed get domain from system\r\n") );
 
         if (! open_get_domain(env, eopts, &domain)) {
@@ -160,7 +170,7 @@ ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
 
     if (! open_which_type(fd, &type)) {
         SSDBG2( dbg,
-                ("UNIX-SOCKET",
+                ("UNIX-ESSIO",
                  "essio_open2 -> failed get type from system\r\n") );
 
         if (! open_get_type(env, eopts, &type))
@@ -169,12 +179,12 @@ ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
 
     if (! open_which_protocol(fd, &protocol)) {
         SSDBG2( dbg,
-                ("UNIX-SOCKET",
+                ("UNIX-ESSIO",
                  "essio_open2 -> failed get protocol from system\r\n") );
 
         if (! open_get_protocol(env, eopts, &protocol)) {
             SSDBG2( dbg,
-                    ("UNIX-SOCKET",
+                    ("UNIX-ESSIO",
                      "essio_open2 -> "
                      "failed get protocol => try protocol 0\r\n") );
             protocol = 0;
@@ -183,7 +193,7 @@ ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
 
 
     SSDBG2( dbg,
-            ("UNIX-SOCKET", "essio_open2 -> "
+            ("UNIX-ESSIO", "essio_open2 -> "
              "\r\n   domain:   %d"
              "\r\n   type:     %d"
              "\r\n   protocol: %d"
@@ -196,7 +206,7 @@ ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
             save_errno = sock_errno();
 
             SSDBG2( dbg,
-                    ("UNIX-SOCKET",
+                    ("UNIX-ESSIO",
                      "essio_open2 -> dup failed: %d\r\n",
                      save_errno) );
 
@@ -229,10 +239,10 @@ ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
         if (sock_peer(descP->sock,
                       (struct sockaddr*) &remote,
                       &addrLen) == 0) {
-            SSDBG2( dbg, ("UNIX-SOCKET", "essio_open2 -> connected\r\n") );
+            SSDBG2( dbg, ("UNIX-ESSIO", "essio_open2 -> connected\r\n") );
             descP->writeState |= ESOCK_STATE_CONNECTED;
         } else {
-            SSDBG2( dbg, ("UNIX-SOCKET", "essio_open2 -> not connected\r\n") );
+            SSDBG2( dbg, ("UNIX-ESSIO", "essio_open2 -> not connected\r\n") );
         }
     }
 
@@ -255,7 +265,7 @@ ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
     if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
 
     SSDBG2( dbg,
-            ("UNIX-SOCKET", "essio_open2 -> done: %T\r\n", sockRef) );
+            ("UNIX-ESSIO", "essio_open2 -> done: %T\r\n", sockRef) );
 
     return esock_make_ok2(env, sockRef);
 }
@@ -376,8 +386,214 @@ ERL_NIF_TERM essio_open4(ErlNifEnv*       env,
                          ERL_NIF_TERM     eopts,
                          const ESockData* dataP)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    BOOLEAN_T        dbg    = open_is_debug(env, eopts, dataP->sockDbg);
+    BOOLEAN_T        useReg = open_use_registry(env, eopts, dataP->useReg);
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     sockRef;
+    int              proto = protocol, save_errno;
+    SOCKET           sock;
+    char*            netns;
+#ifdef HAVE_SETNS
+    int              current_ns = 0;
+#endif
+    ErlNifPid        self;
+
+    /* Keep track of the creator
+     * This should not be a problem, but just in case
+     * the *open* function is used with the wrong kind
+     * of environment...
+     */
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    SSDBG2( dbg,
+            ("UNIX-ESSIO", "essio_open4 -> entry with"
+             "\r\n   domain:   %d"
+             "\r\n   type:     %d"
+             "\r\n   protocol: %d"
+             "\r\n   eopts:    %T"
+             "\r\n", domain, type, protocol, eopts) );
+
+
+#ifdef HAVE_SETNS
+    if (open_get_netns(env, eopts, &netns)) {
+        SSDBG2( dbg,
+                ("UNIX-ESSIO", "essio_open4 -> namespace: %s\r\n", netns) );
+    }
+#else
+    netns = NULL;
+#endif
+
+
+#ifdef HAVE_SETNS
+    if ((netns != NULL) &&
+        (! change_network_namespace(dbg,
+                                    netns, &current_ns, &save_errno))) {
+        FREE(netns);
+        return esock_make_error_errno(env, save_errno);
+    }
+#endif
+
+    if (ESOCK_IS_ERROR(sock = sock_open(domain, type, proto))) {
+        if (netns != NULL) FREE(netns);
+        return esock_make_error_errno(env, sock_errno());
+    }
+
+    SSDBG2( dbg, ("UNIX-ESSIO", "essio_open4 -> open success: %d\r\n", sock) );
+
+
+    /* NOTE that if the protocol = 0 (default) and the domain is not
+     * local (AF_LOCAL) we need to explicitly get the protocol here!
+     */
+    
+    if (proto == 0)
+        (void) open_which_protocol(sock, &proto);
+
+#ifdef HAVE_SETNS
+    if (netns != NULL) {
+        FREE(netns);
+        if (! restore_network_namespace(dbg,
+                                        current_ns, sock, &save_errno))
+            return esock_make_error_errno(env, save_errno);
+    }
+#endif
+
+    SET_NONBLOCKING(sock);
+
+
+    /* Create and initiate the socket "descriptor" */
+    descP           = esock_alloc_descriptor(sock, sock);
+    descP->ctrlPid  = self;
+    descP->domain   = domain;
+    descP->type     = type;
+    descP->protocol = proto;
+
+    sockRef = enif_make_resource(env, descP);
+    enif_release_resource(descP);
+
+    ESOCK_ASSERT( MONP("esock_open -> ctrl",
+                       env, descP,
+                       &descP->ctrlPid,
+                       &descP->ctrlMon) == 0 );
+
+    descP->dbg    = dbg;
+    descP->useReg = useReg;
+    esock_inc_socket(domain, type, protocol);
+
+    /* And finally (maybe) update the registry */
+    if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
+
+    return esock_make_ok2(env, sockRef);
 }
+
+
+#ifdef HAVE_SETNS
+/* open_get_netns - extract the netns field from the opts map
+ */
+static
+BOOLEAN_T open_get_netns(ErlNifEnv* env, ERL_NIF_TERM opts, char** netns)
+{
+    ERL_NIF_TERM val;
+    ErlNifBinary bin;
+    char*        buf;
+
+    /* The currently only supported extra option is: netns */
+    if (!GET_MAP_VAL(env, opts, esock_atom_netns, &val)) {
+        *netns = NULL; // Just in case...
+        return FALSE;
+    }
+
+    /* The value should be a binary file name */
+    if (! enif_inspect_binary(env, val, &bin)) {
+        *netns = NULL; // Just in case...
+        return FALSE;
+    }
+
+    ESOCK_ASSERT( (buf = MALLOC(bin.size+1)) != NULL );
+
+    sys_memcpy(buf, bin.data, bin.size);
+    buf[bin.size] = '\0';
+    *netns = buf;
+
+    return TRUE;
+}
+
+
+/* We should really have another API, so that we can return errno... */
+
+/* *** change network namespace ***
+ * Retrieve the current namespace and set the new.
+ * Return result and previous namespace if successful.
+ */
+static
+BOOLEAN_T change_network_namespace(BOOLEAN_T dbg,
+                                   char* netns, int* cns, int* err)
+{
+    int save_errno;
+    int current_ns = 0;
+    int new_ns     = 0;
+
+    SSDBG2( dbg,
+            ("UNIX-ESSIO", "change_network_namespace -> entry with"
+             "\r\n   new ns: %s"
+             "\r\n", netns) );
+
+    current_ns = open("/proc/self/ns/net", O_RDONLY);
+    if (ESOCK_IS_ERROR(current_ns)) {
+        *err = sock_errno();
+        return FALSE;
+    }
+    new_ns = open(netns, O_RDONLY);
+    if (ESOCK_IS_ERROR(new_ns)) {
+        save_errno = sock_errno();
+        (void) close(current_ns);
+        *err = save_errno;
+        return FALSE;
+    }
+    if (setns(new_ns, CLONE_NEWNET) != 0) {
+        save_errno = sock_errno();
+        (void) close(new_ns);
+        (void) close(current_ns);
+        *err = save_errno;
+        return FALSE;
+    } else {
+        (void) close(new_ns);
+        *cns = current_ns;
+        return TRUE;
+    }
+}
+
+
+/* *** restore network namespace ***
+ * Restore the previous namespace (see above).
+ */
+static
+BOOLEAN_T restore_network_namespace(BOOLEAN_T dbg,
+                                    int ns, SOCKET sock, int* err)
+{
+    SSDBG2( dbg,
+            ("UNIX-ESSIO", "restore_network_namespace -> entry with"
+             "\r\n   ns: %d"
+             "\r\n", ns) );
+
+    if (setns(ns, CLONE_NEWNET) != 0) {
+        /* XXX Failed to restore network namespace.
+         * What to do? Tidy up and return an error...
+         * Note that the thread now might still be in the namespace.
+         * Can this even happen? Should the emulator be aborted?
+         */
+        int save_errno = sock_errno();
+        (void) close(sock);
+        (void) close(ns);
+        *err = save_errno;
+        return FALSE;
+    } else {
+        (void) close(ns);
+        return TRUE;
+    }
+}
+
+#endif
+
 
 
 /* ========================================================================

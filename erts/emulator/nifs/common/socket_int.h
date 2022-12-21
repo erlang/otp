@@ -342,6 +342,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(multicast_loop);           \
     GLOBAL_ATOM_DEF(multicast_ttl);            \
     GLOBAL_ATOM_DEF(name);                     \
+    GLOBAL_ATOM_DEF(netns);                    \
     GLOBAL_ATOM_DEF(netrom);                   \
     GLOBAL_ATOM_DEF(nlen);                     \
     GLOBAL_ATOM_DEF(noarp);                    \

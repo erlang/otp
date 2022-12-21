@@ -24,8 +24,8 @@
  * The first function is called 'nif_<something>', e.g. nif_open.
  * This does the initial validation and argument processing and then 
  * calls the function that does the actual work. This is called
- * 'esock_<something>', e.g. esock_open (actually esock_open2 or 
- * esock_open4).
+ * '<io-backend>_<something>', e.g. essio_open (actually essio_open2 or 
+ * essio_open4).
  * ----------------------------------------------------------------------
  *
  *
@@ -1139,19 +1139,6 @@ static ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
-
-static ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
-                                int          domain,
-                                int          type,
-                                int          protocol,
-                                ERL_NIF_TERM eopts);
-static BOOLEAN_T esock_open_is_debug(ErlNifEnv*   env,
-                                     ERL_NIF_TERM eextra,
-                                     BOOLEAN_T dflt);
-static BOOLEAN_T esock_open_use_registry(ErlNifEnv*   env,
-                                         ERL_NIF_TERM eextra,
-                                         BOOLEAN_T dflt);
-static BOOLEAN_T esock_open_which_protocol(SOCKET sock, int* proto);
 
 static ERL_NIF_TERM esock_bind(ErlNifEnv*       env,
                                ESockDescriptor* descP,
@@ -3398,13 +3385,6 @@ static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 
 
 static BOOLEAN_T ehow2how(ERL_NIF_TERM ehow, int* how);
-#ifdef HAVE_SETNS
-static BOOLEAN_T esock_open4_get_netns(ErlNifEnv*   env,
-                                       ERL_NIF_TERM opts,
-                                       char**       netns);
-static BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err);
-static BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err);
-#endif
 
 static BOOLEAN_T cnt_inc(ESockCounter* cnt, ESockCounter inc);
 static void      cnt_dec(ESockCounter* cnt, ESockCounter dec);
@@ -3793,6 +3773,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(multicast_loop);                  \
     GLOBAL_ATOM_DECL(multicast_ttl);                   \
     GLOBAL_ATOM_DECL(name);                            \
+    GLOBAL_ATOM_DECL(netns);                           \
     GLOBAL_ATOM_DECL(netrom);                          \
     GLOBAL_ATOM_DECL(nlen);                            \
     GLOBAL_ATOM_DECL(noarp);                           \
@@ -4020,7 +4001,6 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(multiaddr);        \
     LOCAL_ATOM_DECL(net_unknown);      \
     LOCAL_ATOM_DECL(net_unreach);      \
-    LOCAL_ATOM_DECL(netns);            \
     LOCAL_ATOM_DECL(nogroup);	       \
     LOCAL_ATOM_DECL(none);             \
     LOCAL_ATOM_DECL(noroute);          \
@@ -5092,7 +5072,7 @@ ERL_NIF_TERM esock_supports_0(ErlNifEnv* env)
 #else
     is_supported = esock_atom_false;
 #endif
-    TARRAY_ADD(opts, MKT2(env, atom_netns, is_supported));
+    TARRAY_ADD(opts, MKT2(env, esock_atom_netns, is_supported));
 
 #if defined(HAVE_SENDFILE)
     is_supported = esock_atom_true;
@@ -5528,8 +5508,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 	}
 
 	MLOCK(data.cntMtx);
-	// result = ESOCK_IO_OPEN4(env, domain, type, proto, eopts);
-	result = esock_open4(env, domain, type, proto, eopts);
+	result = ESOCK_IO_OPEN4(env, domain, type, proto, eopts);
 	MUNLOCK(data.cntMtx);
     }
 
@@ -5541,257 +5520,6 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 
 #endif // #ifdef __WIN32__  #else
 }
-
-
-/* esock_open - create an endpoint (from an existing fd) for communication
- *
- * Assumes the input has been validated.
- *
- * Normally we want debugging on (individual) sockets to be controlled
- * by the sockets own debug flag. But since we don't even have a socket
- * yet, we must use the global debug flag.
- */
-
-
-/* esock_open4 - create an endpoint for communication
- *
- * Assumes the input has been validated.
- *
- * Normally we want debugging on (individual) sockets to be controlled
- * by the sockets own debug flag. But since we don't even have a socket
- * yet, we must use the global debug flag.
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
-                         int          domain,
-                         int          type,
-                         int          protocol,
-                         ERL_NIF_TERM eopts)
-{
-    BOOLEAN_T        dbg    = esock_open_is_debug(env, eopts, data.sockDbg);
-    BOOLEAN_T        useReg = esock_open_use_registry(env, eopts, data.useReg);
-    ESockDescriptor* descP;
-    ERL_NIF_TERM     sockRef;
-    int              proto = protocol, save_errno;
-    SOCKET           sock;
-    ErlNifEvent      event;
-    char*            netns;
-#ifdef HAVE_SETNS
-    int              current_ns = 0;
-#endif
-    ErlNifPid        self;
-
-    /* Keep track of the creator
-     * This should not be a problem, but just in case
-     * the *open* function is used with the wrong kind
-     * of environment...
-     */
-    ESOCK_ASSERT( enif_self(env, &self) != NULL );
-
-    SSDBG2( dbg,
-            ("SOCKET", "esock_open4 -> entry with"
-             "\r\n   domain:   %d"
-             "\r\n   type:     %d"
-             "\r\n   protocol: %d"
-             "\r\n   eopts:    %T"
-             "\r\n", domain, type, protocol, eopts) );
-
-
-#ifdef HAVE_SETNS
-    if (esock_open4_get_netns(env, eopts, &netns)) {
-        SGDBG( ("SOCKET", "nif_open -> namespace: %s\r\n", netns) );
-    }
-#else
-    netns = NULL;
-#endif
-
-
-#ifdef HAVE_SETNS
-    if ((netns != NULL) &&
-        (! change_network_namespace(netns, &current_ns, &save_errno))) {
-        FREE(netns);
-        return esock_make_error_errno(env, save_errno);
-    }
-#endif
-
-    if (ESOCK_IS_ERROR(sock = sock_open(domain, type, proto))) {
-        if (netns != NULL) FREE(netns);
-        return esock_make_error_errno(env, sock_errno());
-    }
-
-    SSDBG2( dbg, ("SOCKET", "esock_open -> open success: %d\r\n", sock) );
-
-
-    /* NOTE that if the protocol = 0 (default) and the domain is not
-     * local (AF_LOCAL) we need to explicitly get the protocol here!
-     */
-    
-    if (proto == 0)
-        (void) esock_open_which_protocol(sock, &proto);
-
-#ifdef HAVE_SETNS
-    if (netns != NULL) {
-        FREE(netns);
-        if (! restore_network_namespace(current_ns, sock, &save_errno))
-            return esock_make_error_errno(env, save_errno);
-    }
-#endif
-
-
-    if ((event = sock_create_event(sock)) == INVALID_EVENT) {
-        save_errno = sock_errno();
-        (void) sock_close(sock);
-        return esock_make_error_errno(env, save_errno);
-    }
-
-    SSDBG2( dbg, ("SOCKET", "esock_open4 -> event success: %d\r\n", event) );
-
-    SET_NONBLOCKING(sock);
-
-
-    /* Create and initiate the socket "descriptor" */
-    descP           = esock_alloc_descriptor(sock, event);
-    descP->ctrlPid  = self;
-    descP->domain   = domain;
-    descP->type     = type;
-    descP->protocol = proto;
-
-    sockRef = enif_make_resource(env, descP);
-    enif_release_resource(descP);
-
-    ESOCK_ASSERT( MONP("esock_open -> ctrl",
-                       env, descP,
-                       &descP->ctrlPid,
-                       &descP->ctrlMon) == 0 );
-
-    descP->dbg    = dbg;
-    descP->useReg = useReg;
-    esock_inc_socket(domain, type, protocol);
-
-    /* And finally (maybe) update the registry */
-    if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
-
-    return esock_make_ok2(env, sockRef);
-}
-#endif // #ifndef __WIN32__
-
-/* The eextra map "may" contain a boolean 'debug' key.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T esock_open_is_debug(ErlNifEnv* env, ERL_NIF_TERM eextra,
-                              BOOLEAN_T dflt)
-{
-    return esock_get_bool_from_map(env, eextra, esock_atom_debug, dflt);
-}
-#endif // #ifndef __WIN32__
-
-
-#ifndef __WIN32__
-static
-BOOLEAN_T esock_open_use_registry(ErlNifEnv* env, ERL_NIF_TERM eextra,
-                                  BOOLEAN_T dflt)
-{
-    return esock_get_bool_from_map(env, eextra, esock_atom_use_registry, dflt);
-}
-#endif
-
-
-#ifndef __WIN32__
-static
-BOOLEAN_T esock_open_which_protocol(SOCKET sock, int* proto)
-{
-#if defined(SO_PROTOCOL)
-    if (esock_getopt_int(sock, SOL_SOCKET, SO_PROTOCOL, proto))
-        return TRUE;
-#endif
-    return FALSE;
-}
-#endif // #ifndef __WIN32__
-
-
-
-#ifdef HAVE_SETNS
-
-
-/* We should really have another API, so that we can return errno... */
-
-/* *** change network namespace ***
- * Retrieve the current namespace and set the new.
- * Return result and previous namespace if successful.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err)
-{
-    int save_errno;
-    int current_ns = 0;
-    int new_ns     = 0;
-
-    SGDBG( ("SOCKET", "change_network_namespace -> entry with"
-            "\r\n   new ns: %s"
-            "\r\n", netns) );
-
-    current_ns = open("/proc/self/ns/net", O_RDONLY);
-    if (ESOCK_IS_ERROR(current_ns)) {
-        *err = sock_errno();
-        return FALSE;
-    }
-    new_ns = open(netns, O_RDONLY);
-    if (ESOCK_IS_ERROR(new_ns)) {
-        save_errno = sock_errno();
-        (void) close(current_ns);
-        *err = save_errno;
-        return FALSE;
-    }
-    if (setns(new_ns, CLONE_NEWNET) != 0) {
-        save_errno = sock_errno();
-        (void) close(new_ns);
-        (void) close(current_ns);
-        *err = save_errno;
-        return FALSE;
-    } else {
-        (void) close(new_ns);
-        *cns = current_ns;
-        return TRUE;
-    }
-}
-#endif // #ifndef __WIN32__
-
-
-/* *** restore network namespace ***
- * Restore the previous namespace (see above).
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err)
-{
-    SGDBG( ("SOCKET", "restore_network_namespace -> entry with"
-            "\r\n   ns: %d"
-            "\r\n", ns) );
-
-    if (setns(ns, CLONE_NEWNET) != 0) {
-        /* XXX Failed to restore network namespace.
-         * What to do? Tidy up and return an error...
-         * Note that the thread now might still be in the namespace.
-         * Can this even happen? Should the emulator be aborted?
-         */
-        int save_errno = sock_errno();
-        (void) close(sock);
-        (void) close(ns);
-        *err = save_errno;
-        return FALSE;
-    } else {
-        (void) close(ns);
-        return TRUE;
-    }
-}
-#endif // #ifndef __WIN32__
-
-
-#endif // ifdef HAVE_SETNS
-
 
 
 /* ----------------------------------------------------------------------
@@ -17921,39 +17649,6 @@ void esock_inc_socket(int domain, int type, int protocol)
  *  D e c o d e / E n c o d e   F u n c t i o n s
  * ----------------------------------------------------------------------
  */
-
-#ifndef __WIN32__
-#ifdef HAVE_SETNS
-/* esock_open4_get_netns - extract the netns field from the opts map
- */
-static
-BOOLEAN_T esock_open4_get_netns(ErlNifEnv* env, ERL_NIF_TERM opts, char** netns)
-{
-    ERL_NIF_TERM val;
-    ErlNifBinary bin;
-    char*        buf;
-
-    /* The currently only supported extra option is: netns */
-    if (!GET_MAP_VAL(env, opts, atom_netns, &val)) {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
-
-    /* The value should be a binary file name */
-    if (! enif_inspect_binary(env, val, &bin)) {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
-
-    ESOCK_ASSERT( (buf = MALLOC(bin.size+1)) != NULL );
-
-    sys_memcpy(buf, bin.data, bin.size);
-    buf[bin.size] = '\0';
-    *netns = buf;
-    return TRUE;
-}
-#endif
-#endif // #ifndef __WIN32__
 
 
 /* ehow2how - convert internal (erlang) "shutdown how" to
