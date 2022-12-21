@@ -222,6 +222,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(chaos);                    \
     GLOBAL_ATOM_DEF(checksum);                 \
     GLOBAL_ATOM_DEF(close);                    \
+    GLOBAL_ATOM_DEF(closed);                   \
     GLOBAL_ATOM_DEF(cmsg_cloexec);             \
     GLOBAL_ATOM_DEF(command);                  \
     GLOBAL_ATOM_DEF(confirm);                  \

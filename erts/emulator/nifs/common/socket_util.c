@@ -2344,6 +2344,18 @@ ERL_NIF_TERM esock_make_error(ErlNifEnv* env, ERL_NIF_TERM reason)
 
 
 
+/* Create an error two (2) tuple in the form:
+ *
+ *          {error, closed}
+ */
+extern
+ERL_NIF_TERM esock_make_error_closed(ErlNifEnv* env)
+{
+    return esock_make_error(env, esock_atom_closed);
+}
+
+
+
 /* Create an error two (2) tuple in the form: {error, Reason}.
  *
  *          {error, Reason}

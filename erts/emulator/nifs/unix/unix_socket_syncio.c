@@ -45,6 +45,7 @@
  * ======================================================================== *
  */
 
+#define sock_bind(s, addr, len)         bind((s), (addr), (len))
 #define sock_errno()                    errno
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
@@ -604,7 +605,16 @@ ERL_NIF_TERM essio_bind(ErlNifEnv*       env,
                         ESockAddress*    sockAddrP,
                         SOCKLEN_T        addrLen)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+
+    if (sock_bind(descP->sock, &sockAddrP->sa, addrLen) < 0) {
+        return esock_make_error_errno(env, sock_errno());
+    }
+
+    descP->readState |= ESOCK_STATE_BOUND;
+
+    return esock_atom_ok;
 }
 
 
