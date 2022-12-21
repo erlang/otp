@@ -26,7 +26,8 @@
 
 -include_lib("kernel/include/file.hrl").
 	    
--record(core_search_conf, {search_dir,
+-record(core_search_conf, {db_top_dir,
+                           search_dir,
 			   extra_search_dir,
 			   cerl,
 			   file,
@@ -113,7 +114,8 @@ core_search_conf(RunByTS, DBTop, XDir) ->
 			     _ -> XDir
 			 end
 		 end,
-    #core_search_conf{search_dir = SearchDir,
+    #core_search_conf{db_top_dir = DBTop,
+                      search_dir = SearchDir,
 		      extra_search_dir = XSearchDir,
 		      cerl = find_cerl(DBTop),
 		      file = os:find_executable("file"),
@@ -326,10 +328,58 @@ core_file_search(#core_search_conf{search_dir = Base,
 	    case {RunByTS, ICores, FCores} of
 		{true, [], []} -> ok;
 		{true, _, []} -> {comment, Res};
-		{true, _, _} -> ct:fail(Res);
-		_ -> Res
+		{true, _, _} ->
+                    docker_export_otp_src(Conf),
+                    ct:fail(Res);
+		_ ->
+                    Res
 	    end
     end.
+
+docker_export_otp_src(#core_search_conf{db_top_dir = DbTop}) ->
+    %% If this is a docker run, export the otp_src directory
+    %% to not get lost when the docker image is purged.
+    try
+        case {is_dir(DbTop), is_dir("/daily_build/otp_src/erts")}  of
+            {true, true} ->
+                %% Stolen from get_otp_src script.
+                %% Basically it's a recursive copy of otp_src dir
+                %% with preserved permissions, etc.
+                run("cd /daily_build && "
+                    "tar -cf - otp_src | (cd "++DbTop++" && tar -xpf -)"),
+                OtpSrc = DbTop ++ "/otp_src",
+                run("cd " ++ OtpSrc ++ "/erts && "
+                    "ERL_TOP=" ++ OtpSrc ++ " make local_setup"),
+                io:format("otp_src directory exported from docker image");
+            _ ->
+                ok
+        end
+    catch
+        C:E:S ->
+            io:format("Failed to export otp_src directory:"
+                      "Exception: ~p\nReason: ~p\nStack: ~p\n",
+                      [C, E, S])
+    end.
+
+run(Cmd) ->
+    Options = [binary, exit_status,stderr_to_stdout,{line,4096}],
+    Port = open_port({spawn,"sh -c \"" ++ Cmd ++ "\""}, Options),
+    run_loop(Cmd, Port, []).
+
+run_loop(Cmd, Port, Output) ->
+    receive
+        {Port, {exit_status,0}} ->
+            lists:reverse(Output);
+        {Port, {exit_status,Status}} ->
+            io:format("Failed command (~p): ~p\nOutput: ~p\n", [Status, Cmd, Output]),
+            error(bailout);
+        {Port, {data,{eol,Bin}}} ->
+            run_loop(Cmd, Port, [Bin|Output]);
+        Msg ->
+            io:format("Unexpected message: ~p\nCommand was: ~p\n", [Msg, Cmd]),
+            error(bailout)
+    end.
+
 
 win32_search(RunByTS, DBTop) ->
     case os:getenv("WSLENV") of
