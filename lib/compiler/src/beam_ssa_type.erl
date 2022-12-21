@@ -2692,6 +2692,21 @@ infer_type({bif,is_reference}, [#b_var{}=Arg], _Ts, _Ds) ->
 infer_type({bif,is_tuple}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_tuple{}},
     {[T], [T]};
+infer_type({bif,'and'}, [#b_var{}=LHS,#b_var{}=RHS], Ts, Ds) ->
+    %% When this BIF yields true, we know that both `LHS` and `RHS` are 'true'
+    %% and should infer accordingly, lest we break later optimizations that
+    %% rewrite this BIF to plain control flow.
+    %%
+    %% Note that we can't do anything for the 'false' case as either (or both)
+    %% of the arguments could be false.
+    #{ LHS := #b_set{op=LHSOp,args=LHSArgs},
+       RHS := #b_set{op=RHSOp,args=RHSArgs} } = Ds,
+
+    LHSTypes = infer_and_type(LHSOp, LHSArgs, Ts, Ds),
+    RHSTypes = infer_and_type(RHSOp, RHSArgs, Ts, Ds),
+
+    True = beam_types:make_atom(true),
+    {[{LHS, True}, {RHS, True}] ++ LHSTypes ++ RHSTypes, []};
 infer_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
@@ -2748,6 +2763,16 @@ infer_eq_type(#b_set{op=get_tuple_element,
     end;
 infer_eq_type(_, _) ->
     [].
+
+infer_and_type(Op, Args, Ts, Ds) ->
+    case inv_relop(Op) of
+        none ->
+            {LHSTypes0, _} = infer_type(Op, Args, Ts, Ds),
+            LHSTypes0;
+        _InvOp ->
+            {bif,RelOp} = Op,
+            infer_relop(RelOp, Args, concrete_types(Args, Ts), Ds)
+    end.
 
 join_types(Ts, Ts) ->
     Ts;
