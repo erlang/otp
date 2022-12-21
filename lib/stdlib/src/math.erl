@@ -19,7 +19,7 @@
 %%
 -module(math).
 
--export([pi/0]).
+-export([pi/0,tau/0]).
 
 %%% BIFs
 
@@ -154,5 +154,7 @@ tanh(_) ->
 %%% End of BIFs
 
 -spec pi() -> float().
-
 pi() -> 3.1415926535897932.
+
+-spec tau() -> float().
+tau() -> 6.2831853071795864.
