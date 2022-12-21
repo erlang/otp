@@ -80,7 +80,6 @@ my @beam_global_funcs = qw(
     i_length_body_shared
     i_loop_rec_shared
     i_test_yield_shared
-    increment_body_shared
     int_div_rem_body_shared
     int_div_rem_guard_shared
     is_in_range_shared

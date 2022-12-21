@@ -1440,13 +1440,6 @@ recv_marker_use S
 # Mark all intentionally unused macros, predicates, and generators.
 #
 
-%unused pred.negation_is_small
-
-%unused gen_increment
-%unused gen.increment
-%unused gen.increment_from_minus
-%unused gen.plus_from_minus
-
 # Landing pad for fun calls/apply where we set up arguments and check errors
 i_lambda_trampoline F f W W
 

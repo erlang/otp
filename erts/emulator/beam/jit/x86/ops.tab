@@ -1240,27 +1240,8 @@ gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst =>
     gen_minus Fail Live S1 S2 Dst
 
 #
-# Optimize addition and subtraction of small literals using
-# the i_increment/3 instruction (in bodies, not in guards).
-#
-
-gen_plus p Live Int=i Reg=d Dst =>
-    increment(Reg, Int, Dst)
-gen_plus p Live Reg=d Int=i Dst =>
-    increment(Reg, Int, Dst)
-
-gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) =>
-    increment_from_minus(Reg, Int, Dst)
-
-#
 # Arithmetic instructions.
 #
-
-# It is OK to swap arguments for '+' in a guard. It is also
-# OK to turn minus into plus in a guard.
-gen_plus Fail=f Live S1=c S2 Dst => i_plus S2 S1 Fail Dst
-gen_minus Fail=f Live S1 S2=i Dst | negation_is_small(S2) =>
-    plus_from_minus(Fail, Live, S1, S2, Dst)
 
 gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Dst
 
@@ -1331,8 +1312,6 @@ gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst =>
 
 gc_bif1 Fail Live u$bif:erlang:bnot/1 Src Dst =>
     i_bnot Fail Src Dst
-
-i_increment S W d
 
 i_plus s s j d
 i_minus s s j d

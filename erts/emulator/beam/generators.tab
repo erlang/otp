@@ -300,42 +300,6 @@ gen.skip_bits2(Fail, Ms, Size, Unit, Flags) {
     return op;
 }
 
-gen_increment(stp, reg, val, dst) {
-    BeamOp* op;
-    $NewBeamOp($stp, op);
-    $BeamOpNameArity(op, i_increment, 3);
-    op->a[0] = $reg;
-    op->a[1].type = TAG_u;
-    op->a[1].val = $val;
-    op->a[2] = $dst;
-    return op;
-}
-
-gen.increment(Reg, Integer, Dst) {
-    $gen_increment(S, Reg, Integer.val, Dst);
-}
-
-gen.increment_from_minus(Reg, Integer, Dst) {
-    $gen_increment(S, Reg, -Integer.val, Dst);
-}
-
-gen.plus_from_minus(Fail, Live, Src, Integer, Dst) {
-    BeamOp* op;
-
-    ASSERT(Integer.type == TAG_i && IS_SSMALL(-(Sint)Integer.val));
-
-    $NewBeamOp(S, op);
-    $BeamOpNameArity(op, gen_plus, 5);
-    op->a[0] = Fail;
-    op->a[1] = Live;
-    op->a[2] = Src;
-    op->a[3].type = TAG_i;
-    op->a[3].val = -(Sint)Integer.val;
-    op->a[4] = Dst;
-
-    return op;
-}
-
 gen.make_fun2(idx) {
     BeamOp* op;
     BeamOp* th;
