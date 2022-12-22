@@ -407,30 +407,43 @@ share_1([I|Is], Safe, Dict, Lbls, Seq, Acc) ->
 	    share_1(Is, Safe, Dict, Lbls, [I], Acc)
     end.
 
-unambigous_deallocation([{call_ext,_,_}|Is]) ->
+unambigous_deallocation([{bs_init,_,bs_init_writable,_,_,_}|Is]) ->
     %% beam_validator requires that the size of the stack frame is
-    %% unambigously known when a function is called.
+    %% unambigously known when certain instructions are used.
     %%
-    %% That means that we must be careful when sharing function calls.
+    %% That means that we must be careful when sharing them.
     %%
     %% To ensure that the frame size is unambigous, only allow sharing
     %% of calls if the call is followed by instructions that
     %% indicates the size of the stack frame.
     find_deallocation(Is);
+unambigous_deallocation([{call_ext,_,_}|Is]) ->
+    find_deallocation(Is);
 unambigous_deallocation([{call,_,_}|Is]) ->
     find_deallocation(Is);
 unambigous_deallocation([_|Is]) ->
     unambigous_deallocation(Is);
-unambigous_deallocation([]) -> true.
+unambigous_deallocation([]) ->
+    true.
 
-find_deallocation([{line,_}|Is]) -> find_deallocation(Is);
-find_deallocation([{call,_,_}|Is]) -> find_deallocation(Is);
-find_deallocation([{call_ext,_,_}|Is]) -> find_deallocation(Is);
-find_deallocation([{init_yregs,_}|Is]) -> find_deallocation(Is);
-find_deallocation([{block,_}|Is]) -> find_deallocation(Is);
-find_deallocation([{deallocate,_}|_]) -> true;
-find_deallocation([return]) -> true;
-find_deallocation(_) -> false.
+find_deallocation([{block,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{bs_init,_,bs_init_writable,_,_,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{call,_,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{call_ext,_,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{deallocate,_}|_]) ->
+    true;
+find_deallocation([{init_yregs,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{line,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([return]) ->
+    true;
+find_deallocation(_) ->
+    false.
 
 %% If the label has a scope set, assign it to any line instruction
 %% in the sequence.

@@ -329,6 +329,9 @@ undecided_allocation(_Config) ->
     {'EXIT',_} = catch undecided_allocation_2(id(foobar)),
     {'EXIT',_} = catch undecided_allocation_2(id(make_ref())),
 
+    ok = undecided_allocation_3(id(<<0>>), gurka),
+    {'EXIT', {badarith, _}} = catch undecided_allocation_3(id(<<>>), gurka),
+
     ok.
 
 -record(rec, {}).
@@ -381,6 +384,21 @@ undecided_allocation_2(Order) ->
                 error
         end.
 
+%% GH-6571: bs_init_writable can only be shared when the stack frame size is
+%% known.
+undecided_allocation_3(<<_>>, _) ->
+    ok;
+undecided_allocation_3(X, _) ->
+    case 0 + get_keys() of
+        X ->
+            ok;
+        _ ->
+            (node() orelse garbage_collect()) =:=
+                case <<0 || false>> of
+                    #{} ->
+                        ok
+                end
+    end.
 
 id(I) ->
     I.
