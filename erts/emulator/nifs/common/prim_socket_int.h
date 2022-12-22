@@ -108,6 +108,17 @@ typedef int SOCKET; /* A subset of HANDLE */
 #endif
 
 
+/* ********************************************************************* *
+ *                                 Misc                                  *
+ * ********************************************************************* *
+ */
+
+#define ESOCK_GET_RESOURCE(ENV, REF, RES) \
+    enif_get_resource((ENV), (REF), esocks, (RES))
+
+#define ESOCK_MON2TERM(E, M) \
+    esock_make_monitor_term((E), (M))
+
 
 /* ********************************************************************* *
  *                       Counter type and related "things"               *
@@ -159,6 +170,14 @@ typedef Uint64                   ESockCounter;
 #error "Invalid counter size"
 
 #endif
+
+#define ESOCK_CNT_INC( __E__, __D__, SF, ACNT, CNT, INC)                \
+    do {                                                                \
+        if (esock_cnt_inc((CNT), (INC))) {                              \
+	  esock_send_wrap_msg((__E__), (__D__), (SF), (ACNT));		\
+	}								\
+    } while (0)
+
 
 
 /* ********************************************************************* *
@@ -435,6 +454,14 @@ typedef struct {
 
 
 /* ======================================================================== *
+ *                          What to do about this?                          *
+ * ======================================================================== *
+ */
+
+extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
+
+
+/* ======================================================================== *
  *                            Functions                                     *
  * ======================================================================== *
  */
@@ -454,6 +481,19 @@ extern void esock_send_reg_del_msg(ErlNifEnv*   env,
                                    ESockDescriptor* descP,
                                    ERL_NIF_TERM sockRef);
 
+/* *** Message sending functions *** */
+extern void esock_send_abort_msg(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 ESockRequestor*  reqP,
+                                 ERL_NIF_TERM     reason);
+extern void esock_send_close_msg(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ErlNifPid*       pid);
+extern void esock_send_wrap_msg(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                ERL_NIF_TERM     cnt);
 
 /* ** Monitor functions *** */
 extern int esock_monitor(const char*      slogan,
@@ -472,8 +512,10 @@ extern BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
                                   const ErlNifMonitor* mon);
 
 /* *** Counter functions *** */
-extern void esock_inc_socket(int domain, int type, int protocol);
-extern void esock_dec_socket(int domain, int type, int protocol);
+extern BOOLEAN_T esock_cnt_inc(ESockCounter* cnt, ESockCounter inc);
+extern void      esock_cnt_dec(ESockCounter* cnt, ESockCounter dec);
+extern void      esock_inc_socket(int domain, int type, int protocol);
+extern void      esock_dec_socket(int domain, int type, int protocol);
 
 /* *** Select functions *** */
 extern int esock_select_read(ErlNifEnv*       env,
@@ -506,10 +548,66 @@ extern void esock_requestor_release(const char*      slogan,
                                     ESockDescriptor* descP,
                                     ESockRequestor*  reqP);
 
+/* *** esock_activate_next_acceptor ***
+ * *** esock_activate_next_writer   ***
+ * *** esock_activate_next_reader   ***
+ *
+ * All the activate-next functions for acceptor, writer and reader
+ * have exactly the same API, so we apply some macro magic to simplify.
+ * They simply operates on dufferent data structures.
+ *
+ */
+
+#define ACTIVATE_NEXT_FUNCS_DEFS     \
+    ACTIVATE_NEXT_FUNC_DEF(acceptor) \
+    ACTIVATE_NEXT_FUNC_DEF(writer)   \
+    ACTIVATE_NEXT_FUNC_DEF(reader)
+
+#define ACTIVATE_NEXT_FUNC_DEF(F)                                       \
+    extern BOOLEAN_T esock_activate_next_##F(ErlNifEnv*       env,      \
+                                             ESockDescriptor* descP,    \
+                                             ERL_NIF_TERM     sockRef);
+ACTIVATE_NEXT_FUNCS_DEFS
+#undef ACTIVATE_NEXT_FUNC_DEF
+
+/* esock_acceptor_search4pid | esock_writer_search4pid | esock_reader_search4pid
+ * esock_acceptor_push       | esock_writer_push       | esock_reader_push
+ * esock_acceptor_pop        | esock_writer_pop        | esock_reader_pop
+ * esock_acceptor_unqueue    | esock_writer_unqueue    | esock_reader_unqueue
+ *
+ * All the queue operator functions (search4pid, push, pop
+ * and unqueue) for acceptor, writer and reader has exactly
+ * the same API, so we apply some macro magic to simplify.
+ */
+
+#define ESOCK_OPERATOR_FUNCS_DEFS      \
+    ESOCK_OPERATOR_FUNCS_DEF(acceptor) \
+    ESOCK_OPERATOR_FUNCS_DEF(writer)   \
+    ESOCK_OPERATOR_FUNCS_DEF(reader)
+
+#define ESOCK_OPERATOR_FUNCS_DEF(O)                                    \
+    extern BOOLEAN_T esock_##O##_search4pid(ErlNifEnv*       env,      \
+                                            ESockDescriptor* descP,    \
+                                            ErlNifPid*       pid);     \
+    extern void esock_##O##_push(ErlNifEnv*       env,                 \
+                                 ESockDescriptor* descP,               \
+                                 ErlNifPid        pid,                 \
+                                 ERL_NIF_TERM     ref);                \
+    extern BOOLEAN_T esock_##O##_pop(ErlNifEnv*       env,     \
+                                     ESockDescriptor* descP,   \
+                                     ESockRequestor*  reqP);   \
+    extern BOOLEAN_T esock_##O##_unqueue(ErlNifEnv*       env,          \
+                                         ESockDescriptor* descP,        \
+                                         ERL_NIF_TERM*    refP,         \
+                                         const ErlNifPid* pidP);
+ESOCK_OPERATOR_FUNCS_DEFS
+#undef ESOCK_OPERATOR_FUNCS_DEF
+
 /* *** Environment wrapper functions ***
  * These hould really be inline, but for now...
  */
 extern void       esock_free_env(const char* slogan, ErlNifEnv* env);
 extern ErlNifEnv* esock_alloc_env(const char* slogan);
+
 
 #endif // PRIM_SOCKET_INT_H__

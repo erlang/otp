@@ -191,6 +191,10 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(accept);                   \
     GLOBAL_ATOM_DEF(acceptconn);               \
     GLOBAL_ATOM_DEF(acceptfilter);             \
+    GLOBAL_ATOM_DEF(acc_success);              \
+    GLOBAL_ATOM_DEF(acc_fails);                \
+    GLOBAL_ATOM_DEF(acc_tries);                \
+    GLOBAL_ATOM_DEF(acc_waits);                \
     GLOBAL_ATOM_DEF(adaption_layer);           \
     GLOBAL_ATOM_DEF(addr);                     \
     GLOBAL_ATOM_DEF(addrform);                 \

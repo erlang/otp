@@ -45,6 +45,13 @@
  * ======================================================================== *
  */
 
+#ifdef HAS_ACCEPT4
+// We have to figure out what the flags are...
+#define sock_accept(s, addr, len)       \
+    accept4((s), (addr), (len), (SOCK_CLOEXEC))
+#else
+#define sock_accept(s, addr, len)       accept((s), (addr), (len))
+#endif
 #define sock_bind(s, addr, len)         bind((s), (addr), (len))
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_errno()                    errno
@@ -77,6 +84,7 @@ static BOOLEAN_T open_get_type(ErlNifEnv*   env,
 static BOOLEAN_T open_get_protocol(ErlNifEnv*   env,
                                    ERL_NIF_TERM eopts,
                                    int*         protocol);
+
 #ifdef HAVE_SETNS
 static BOOLEAN_T open_get_netns(ErlNifEnv*   env,
                                 ERL_NIF_TERM opts,
@@ -86,8 +94,50 @@ static BOOLEAN_T change_network_namespace(BOOLEAN_T dbg,
 static BOOLEAN_T restore_network_namespace(BOOLEAN_T dbg,
                                            int ns, SOCKET sock, int* err);
 #endif
+
 static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 
+static ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 ERL_NIF_TERM     sockRef,
+                                                 ERL_NIF_TERM     accRef,
+                                                 ErlNifPid        caller,
+                                                 int              save_errno);
+static ERL_NIF_TERM esock_accept_listening_accept(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     sockRef,
+                                                  SOCKET           accSock,
+                                                  ErlNifPid        caller);
+static ERL_NIF_TERM esock_accept_accepting_current(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP,
+                                                   ERL_NIF_TERM     sockRef,
+                                                   ERL_NIF_TERM     ref);
+static
+ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP,
+                                                   ERL_NIF_TERM     sockRef,
+                                                   SOCKET           accSock);
+static
+ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     sockRef,
+                                                  ERL_NIF_TERM     opRef,
+                                                  int              save_errno);
+static ERL_NIF_TERM esock_accept_accepting_other(ErlNifEnv*       env,
+						 ESockDescriptor* descP,
+						 ERL_NIF_TERM     ref,
+						 ErlNifPid        caller);
+static ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     sockRef,
+                                            ERL_NIF_TERM     accRef,
+                                            ErlNifPid*       pidP);
+static BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef,
+                                       SOCKET           accSock,
+                                       ErlNifPid        pid,
+                                       ERL_NIF_TERM*    result);
 
 
 /* ======================================================================== *
@@ -843,8 +893,464 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
                           ERL_NIF_TERM     sockRef,
                           ERL_NIF_TERM     accRef)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    ErlNifPid     caller;
+
+    ESOCK_ASSERT( enif_self(env, &caller) != NULL );
+
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+
+    /* Accept and Read uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->currentReaderP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    if (descP->currentAcceptorP == NULL) {
+        SOCKET        accSock;
+
+        /* We have no active acceptor (and therefore no acceptors in queue)
+         */
+
+        SSDBG( descP, ("SOCKET", "esock_accept {%d} -> try accept\r\n",
+                       descP->sock) );
+
+	ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_acc_tries, &descP->accTries, 1);
+
+        accSock = sock_accept(descP->sock, NULL, NULL);
+
+        if (ESOCK_IS_ERROR(accSock)) {
+            int           save_errno;
+
+            save_errno = sock_errno();
+
+            return esock_accept_listening_error(env, descP, sockRef,
+                                                accRef, caller, save_errno);
+        } else {
+            /* We got an incoming connection */
+            return esock_accept_listening_accept(env, descP, sockRef,
+                                                 accSock, caller);
+        }
+    } else {
+
+        /* We have an active acceptor and possibly acceptors waiting in queue.
+         * If the pid of the calling process is not the pid of the
+	 * "current process", push the requester onto the (acceptor) queue.
+         */
+
+        SSDBG( descP, ("SOCKET", "esock_accept_accepting -> check: "
+                       "is caller current acceptor:"
+                       "\r\n   Caller:      %T"
+                       "\r\n   Current:     %T"
+                       "\r\n   Current Mon: %T"
+                       "\r\n",
+                       caller,
+                       descP->currentAcceptor.pid,
+                       ESOCK_MON2TERM(env, &descP->currentAcceptor.mon)) );
+
+        if (COMPARE_PIDS(&descP->currentAcceptor.pid, &caller) == 0) {
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_accept_accepting {%d} -> current acceptor"
+                    "\r\n", descP->sock) );
+
+            return esock_accept_accepting_current(env, descP, sockRef, accRef);
+
+        } else {
+
+            /* Not the "current acceptor", so (maybe) push onto queue */
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_accept_accepting {%d} -> *not* current acceptor\r\n",
+                    descP->sock) );
+
+            return esock_accept_accepting_other(env, descP, accRef, caller);
+        }
+    }
 }
+
+
+/* *** esock_accept_listening_error ***
+ *
+ * The accept call resultet in an error - handle it.
+ * There are only two cases:
+ * 1) BLOCK => Attempt a "retry"
+ * 2) Other => Return the value (converted to an atom)
+ */
+static
+ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     sockRef,
+                                          ERL_NIF_TERM     accRef,
+                                          ErlNifPid        caller,
+                                          int              save_errno)
+{
+    ERL_NIF_TERM res;
+
+    if (save_errno == ERRNO_BLOCK ||
+        save_errno == EAGAIN) {
+
+        /* *** Try again later *** */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_accept_listening_error {%d} -> would block - retry\r\n",
+                descP->sock) );
+
+	descP->currentAcceptor.pid = caller;
+        ESOCK_ASSERT( MONP("esock_accept_listening -> current acceptor",
+                           env, descP,
+                           &descP->currentAcceptor.pid,
+                           &descP->currentAcceptor.mon) == 0 );
+        ESOCK_ASSERT( descP->currentAcceptor.env == NULL );
+        descP->currentAcceptor.env = esock_alloc_env("current acceptor");
+        descP->currentAcceptor.ref =
+            CP_TERM(descP->currentAcceptor.env, accRef);
+        descP->currentAcceptorP = &descP->currentAcceptor;
+
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_accept_listening_error {%d} -> retry for: "
+                "\r\n   Current Pid: %T"
+                "\r\n   Current Mon: %T"
+                "\r\n",
+                descP->sock,
+                descP->currentAcceptor.pid,
+                ESOCK_MON2TERM(env, &descP->currentAcceptor.mon)) );
+
+        res = esock_accept_busy_retry(env, descP, sockRef, accRef, NULL);
+
+    } else {
+
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_accept_listening {%d} -> errno: %d\r\n",
+                descP->sock, save_errno) );
+
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_acc_fails, &descP->accFails, 1);
+
+        res = esock_make_error_errno(env, save_errno);
+    }
+
+    return res;
+}
+
+
+/* *** esock_accept_listening_accept ***
+ *
+ * The accept call was successful (accepted) - handle the new connection.
+ */
+static
+ERL_NIF_TERM esock_accept_listening_accept(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     sockRef,
+                                           SOCKET           accSock,
+                                           ErlNifPid        caller)
+{
+    ERL_NIF_TERM res;
+
+    esock_accept_accepted(env, descP, sockRef, accSock, caller, &res);
+
+    return res;
+}
+
+
+/* *** esock_accept_accepting_current ***
+ * Handles when the current acceptor makes another attempt.
+ */
+static
+ERL_NIF_TERM esock_accept_accepting_current(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     sockRef,
+                                            ERL_NIF_TERM     accRef)
+{
+    SOCKET        accSock;
+    int           save_errno;
+    ERL_NIF_TERM  res;
+
+    SSDBG( descP,
+           ("SOCKET",
+            "esock_accept_accepting_current {%d} -> try accept\r\n",
+            descP->sock) );
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_acc_tries, &descP->accTries, 1);
+	
+    accSock = sock_accept(descP->sock, NULL, NULL);
+
+    if (ESOCK_IS_ERROR(accSock)) {
+
+        save_errno = sock_errno();
+
+        res = esock_accept_accepting_current_error(env, descP, sockRef,
+                                                   accRef, save_errno);
+    } else {
+
+        res = esock_accept_accepting_current_accept(env, descP, sockRef,
+                                                    accSock);
+    }
+
+    return res;
+}
+
+
+/* *** esock_accept_accepting_current_accept ***
+ *
+ * Handles when the current acceptor succeeded in its accept call -
+ * handle the new connection.
+ */
+static
+ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP,
+                                                   ERL_NIF_TERM     sockRef,
+                                                   SOCKET           accSock)
+{
+    ERL_NIF_TERM res;
+
+    SSDBG( descP,
+           ("SOCKET",
+            "esock_accept_accepting_current_accept {%d}"
+            "\r\n", descP->sock) );
+
+    if (esock_accept_accepted(env, descP, sockRef, accSock,
+                              descP->currentAcceptor.pid, &res)) {
+
+        ESOCK_ASSERT( DEMONP("esock_accept_accepting_current_accept -> "
+                             "current acceptor",
+                             env, descP, &descP->currentAcceptor.mon) == 0);
+
+        MON_INIT(&descP->currentAcceptor.mon);
+
+        if (!esock_activate_next_acceptor(env, descP, sockRef)) {
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_accept_accepting_current_accept {%d} ->"
+                    " no more acceptors"
+                    "\r\n", descP->sock) );
+
+            descP->readState &= ~ESOCK_STATE_ACCEPTING;
+
+            descP->currentAcceptorP = NULL;
+        }
+
+    }
+
+    return res;
+}
+
+
+/* *** esock_accept_accepting_current_error ***
+ * The accept call of current acceptor resultet in an error - handle it.
+ * There are only two cases:
+ * 1) BLOCK => Attempt a "retry"
+ * 2) Other => Return the value (converted to an atom)
+ */
+static
+ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     sockRef,
+                                                  ERL_NIF_TERM     opRef,
+                                                  int              save_errno)
+{
+    ERL_NIF_TERM   res, reason;
+
+    if (save_errno == ERRNO_BLOCK ||
+        save_errno == EAGAIN) {
+
+        /*
+         * Just try again, no real error, just a ghost trigger from poll,
+         */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_accept_accepting_current_error {%d} -> "
+                "would block: try again\r\n", descP->sock) );
+
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_acc_waits, &descP->accWaits, 1);
+
+        res = esock_accept_busy_retry(env, descP, sockRef, opRef,
+                                      &descP->currentAcceptor.pid);
+
+    } else {
+        ESockRequestor req;
+
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_accept_accepting_current_error {%d} -> "
+                "error: %d\r\n", descP->sock, save_errno) );
+
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_acc_fails, &descP->accFails, 1);
+
+        esock_requestor_release("esock_accept_accepting_current_error",
+                                env, descP, &descP->currentAcceptor);
+
+        reason = MKA(env, erl_errno_id(save_errno));
+        res    = esock_make_error(env, reason);
+
+        req.env = NULL;
+        while (esock_acceptor_pop(env, descP, &req)) {
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_accept_accepting_current_error {%d} -> abort %T\r\n",
+                    descP->sock, req.pid) );
+
+            esock_send_abort_msg(env, descP, sockRef, &req, reason);
+
+            (void) DEMONP("esock_accept_accepting_current_error -> "
+                          "pop'ed writer",
+                          env, descP, &req.mon);
+        }
+        descP->currentAcceptorP = NULL;
+    }
+
+    return res;
+}
+
+
+/* *** esock_accept_accepting_other ***
+ * Handles when the another acceptor makes an attempt, which
+ * results (maybe) in the request being pushed onto the
+ * acceptor queue.
+ */
+ERL_NIF_TERM
+esock_accept_accepting_other(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             ERL_NIF_TERM     ref,
+                             ErlNifPid        caller)
+{
+    if (! esock_acceptor_search4pid(env, descP, &caller)) {
+        esock_acceptor_push(env, descP, caller, ref);
+	return esock_atom_select;
+    } else {
+        /* Acceptor already in queue */
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+}
+
+
+/* *** esock_accept_busy_retry ***
+ *
+ * Perform a retry select. If successful, set nextState.
+ */
+static
+ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ERL_NIF_TERM     sockRef,
+                                     ERL_NIF_TERM     accRef,
+                                     ErlNifPid*       pidP)
+{
+    int          sres;
+    ERL_NIF_TERM res;
+
+    if ((sres = esock_select_read(env, descP->sock, descP, pidP,
+                                  sockRef, accRef)) < 0) {
+
+        ESOCK_ASSERT( DEMONP("esock_accept_busy_retry - select failed",
+                             env, descP, &descP->currentAcceptor.mon) == 0);
+
+        MON_INIT(&descP->currentAcceptor.mon);
+
+        /* It is very unlikely that a next acceptor will be able
+         * to do anything successful, but we will clean the queue
+         */
+        
+        if (!esock_activate_next_acceptor(env, descP, sockRef)) {
+            SSDBG( descP,
+                   ("SOCKET",
+                    "esock_accept_busy_retry {%d} -> no more acceptors\r\n",
+                    descP->sock) );
+
+            descP->readState &= ~ESOCK_STATE_ACCEPTING;
+
+            descP->currentAcceptorP = NULL;
+        }
+
+        res =
+            enif_raise_exception(env,
+                                 MKT2(env, esock_atom_select_read,
+                                      MKI(env, sres)));
+    } else {
+        descP->readState |=
+            (ESOCK_STATE_ACCEPTING | ESOCK_STATE_SELECTED);
+        res = esock_atom_select;
+    }
+
+    return res;
+}
+
+
+/* *** esock_accept_accepted ***
+ *
+ * Generic function handling a successful accept.
+ */
+static
+BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                SOCKET           accSock,
+                                ErlNifPid        pid,
+                                ERL_NIF_TERM*    result)
+{
+    ESockDescriptor* accDescP;
+    ERL_NIF_TERM     accRef;
+
+    /*
+     * We got one
+     */
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_acc_success, &descP->accSuccess, 1);
+
+    accDescP           = esock_alloc_descriptor(accSock, accSock);
+    accDescP->domain   = descP->domain;
+    accDescP->type     = descP->type;
+    accDescP->protocol = descP->protocol;
+
+    MLOCK(descP->writeMtx);
+
+    accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+    accDescP->rNum     = descP->rNum;    // Inherit buffer uses
+    accDescP->rNumCnt  = 0;
+    accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
+    accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
+    accDescP->iow      = descP->iow;     // Inherit iow
+    accDescP->dbg      = descP->dbg;     // Inherit debug flag
+    accDescP->useReg   = descP->useReg;  // Inherit useReg flag
+    esock_inc_socket(accDescP->domain, accDescP->type, accDescP->protocol);
+
+    accRef = enif_make_resource(env, accDescP);
+    enif_release_resource(accDescP);
+
+    accDescP->ctrlPid = pid;
+    /* pid has actually been compared equal to self()
+     * in this code path just a little while ago
+     */
+    ESOCK_ASSERT( MONP("esock_accept_accepted -> ctrl",
+                       env, accDescP,
+                       &accDescP->ctrlPid,
+                       &accDescP->ctrlMon) == 0 );
+
+    SET_NONBLOCKING(accDescP->sock);
+
+    descP->writeState |= ESOCK_STATE_CONNECTED;
+
+    MUNLOCK(descP->writeMtx);
+
+    /* And finally (maybe) update the registry */
+    if (descP->useReg) esock_send_reg_add_msg(env, descP, accRef);
+
+    *result = esock_make_ok2(env, accRef);
+
+    return TRUE;
+}
+
 
 
 /* ========================================================================
