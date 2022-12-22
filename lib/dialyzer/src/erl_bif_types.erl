@@ -67,10 +67,10 @@
 		    t_is_cons/2,
 		    t_is_float/2,
 		    t_is_fun/2,
+		    t_is_impossible/1,
 		    t_is_integer/2,
 		    t_is_nil/1, t_is_nil/2,
 		    t_is_none/1,
-		    t_is_none_or_unit/1,
 		    t_is_number/2,
 		    t_is_pid/2,
 		    t_is_port/2,
@@ -1680,7 +1680,7 @@ list_replace(1, E, [_X | Xs]) ->
   [E | Xs].
 
 any_is_none_or_unit(Ts) ->
-  lists:any(fun erl_types:t_is_none_or_unit/1, Ts).
+  lists:any(fun erl_types:t_is_impossible/1, Ts).
 
 check_guard([X], Test, Type, Opaques) ->
   check_guard_single(X, Test, Type, Opaques).
@@ -2565,7 +2565,7 @@ check_fun_application(Fun, Args, Opaques) ->
     true ->
       case t_fun_args(Fun, Opaques) of
 	unknown ->
-	  case t_is_none_or_unit(t_fun_range(Fun, Opaques)) of
+	  case t_is_impossible(t_fun_range(Fun, Opaques)) of
 	    true -> error;
 	    false -> ok
 	  end;
@@ -2573,7 +2573,7 @@ check_fun_application(Fun, Args, Opaques) ->
 	  case any_is_none_or_unit(inf_lists(FunDom, Args, Opaques)) of
 	    true -> error;
 	    false ->
-	      case t_is_none_or_unit(t_fun_range(Fun, Opaques)) of
+	      case t_is_impossible(t_fun_range(Fun, Opaques)) of
 		true -> error;
 		false -> ok
 	      end

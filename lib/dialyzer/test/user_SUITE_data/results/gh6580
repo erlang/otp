@@ -1,0 +1,7 @@
+
+gh6580.erl:11:21: The pattern <[_ | _], _> can never match the type <[],<<>>>
+gh6580.erl:5:1: Function f/0 has no local return
+gh6580.erl:6:5: The created fun has no local return
+gh6580.erl:6:5: The pattern <[], _> can never match the type <<<>>,<<>>>
+gh6580.erl:6:5: The pattern <[_ | _], _> can never match the type <<<>>,<<>>>
+gh6580.erl:9:13: Fun application with arguments (<<>>,<<>>) will never return since it differs in the 1st argument from the success typing arguments: ([],any())
