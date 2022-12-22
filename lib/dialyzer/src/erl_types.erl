@@ -113,6 +113,7 @@
 	 t_is_float/1, t_is_float/2,
 	 t_is_fun/1, t_is_fun/2,
          t_is_identifier/1,
+         t_is_impossible/1,
 	 t_is_instance/2,
 	 t_is_integer/1, t_is_integer/2,
 	 t_is_list/1,
@@ -780,11 +781,15 @@ t_unit() ->
 t_is_unit(?unit) -> true;
 t_is_unit(_) -> false.
 
+-spec t_is_impossible(erl_type()) -> boolean().
+
+t_is_impossible(?none) -> true;
+t_is_impossible(?unit) -> true;
+t_is_impossible(_) -> false.
+
 -spec t_is_none_or_unit(erl_type()) -> boolean().
 
-t_is_none_or_unit(?none) -> true;
-t_is_none_or_unit(?unit) -> true;
-t_is_none_or_unit(_) -> false.
+t_is_none_or_unit(T) -> t_is_impossible(T).
 
 %%-----------------------------------------------------------------------------
 %% Atoms and the derived type boolean
@@ -1576,7 +1581,7 @@ t_map(L) ->
 t_map(Pairs0, DefK0, DefV0) ->
   DefK1 = lists:foldl(fun({K,_,_},Acc)->t_subtract(Acc,K)end, DefK0, Pairs0),
   {DefK2, DefV1} =
-    case t_is_none_or_unit(DefK1) orelse t_is_none_or_unit(DefV0) of
+    case t_is_impossible(DefK1) orelse t_is_impossible(DefV0) of
       true  -> {?none, ?none};
       false -> {DefK1, DefV0}
     end,
@@ -1837,7 +1842,7 @@ t_map_put(KV, Map, Opaques) ->
 map_put(_, ?none, _) -> ?none;
 map_put(_, ?unit, _) -> ?none;
 map_put({Key, Value}, ?map(Pairs,DefK,DefV), Opaques) ->
-  case t_is_none_or_unit(Key) orelse t_is_none_or_unit(Value) of
+  case t_is_impossible(Key) orelse t_is_impossible(Value) of
     true -> ?none;
     false ->
       case is_singleton_type(Key) of
@@ -3761,7 +3766,7 @@ t_is_instance(ConcreteType, Type) ->
 -spec t_do_overlap(erl_type(), erl_type()) -> boolean().
 
 t_do_overlap(TypeA, TypeB) ->
-  not (t_is_none_or_unit(t_inf(TypeA, TypeB))).
+  not (t_is_impossible(t_inf(TypeA, TypeB))).
 
 -spec t_unopaque(erl_type()) -> erl_type().
 

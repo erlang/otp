@@ -965,6 +965,7 @@ start_orphan_supervision() ->
 
 -record(peer_sup_state, {parent, channel, in_sup_tree}).
 
+-spec init_supervision(term(), term()) -> no_return().
 init_supervision(Parent, InSupTree) ->
     try
         process_flag(priority, high),
@@ -1115,6 +1116,7 @@ origin_link(MRef, Origin) ->
             origin_link(MRef, Origin)
     end.
 
+-spec io_server() -> no_return().
 io_server() ->
    try
        process_flag(trap_exit, true),
@@ -1128,6 +1130,7 @@ io_server() ->
             erlang:halt(1)
     end.
 
+-spec tcp_init([term()], term()) -> no_return().
 tcp_init(IpList, Port) ->
     try
         Sock = loop_connect(IpList, Port),

@@ -43,7 +43,7 @@
 	 t_is_float/1, t_is_fun/1,
 	 t_is_integer/1, t_non_neg_integer/0,
 	 t_is_list/1, t_is_nil/1, t_is_none/1, t_is_number/1,
-	 t_is_singleton/1, t_is_none_or_unit/1,
+	 t_is_singleton/1, t_is_impossible/1,
 
          t_limit/2, t_list/0, t_list/1,
 	 t_list_elements/1, t_nonempty_list/1, t_maybe_improper_list/0,
@@ -533,14 +533,14 @@ traverse(Tree, DefinedVars, State) ->
 		    false -> t_any();
 		    true ->
 		      MT = t_inf(lookup_type(MapVar, Map), t_map()),
-		      case t_is_none_or_unit(MT) of
+		      case t_is_impossible(MT) of
 			true -> t_none();
 			false ->
 			  DisjointFromKeyType =
 			    fun(ShadowKey) ->
                                 ST = t_inf(lookup_type(ShadowKey, Map),
                                            KeyType),
-				t_is_none_or_unit(ST)
+				t_is_impossible(ST)
 			    end,
 			  case lists:all(DisjointFromKeyType, ShadowKeys) of
 			    true -> t_map_get(KeyType, MT);
@@ -574,7 +574,7 @@ traverse(Tree, DefinedVars, State) ->
 			    cerl:concrete(OpTree) =:= exact of
 			    true ->
                               ST = t_inf(ShadowedKeys, KeyType),
-                              case t_is_none_or_unit(ST) of
+                              case t_is_impossible(ST) of
 				true ->
 				  t_map_put({KeyType, t_any()}, AccType);
 				false ->

@@ -55,6 +55,7 @@ stop() ->
 %% Main loop and message handling
 %%====================================================================
 
+-spec init(term(), term(), term(), term()) -> no_return().
 init(GS, Env, Mod, Title) ->
     wx:set_env(Env),
     %% Subscribe to messages from the interpreter

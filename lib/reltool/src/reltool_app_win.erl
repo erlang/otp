@@ -98,6 +98,7 @@ open_mod(Pid, ModName) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Server
 
+-spec init(term(), term(), term(), term(), term()) -> no_return().
 init(Parent, WxEnv, Xref, C, AppName) ->
     try
 	do_init(Parent, WxEnv, Xref, C, AppName)

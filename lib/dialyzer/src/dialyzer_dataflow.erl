@@ -43,7 +43,7 @@
 	 t_is_any/1, t_is_atom/1, t_is_atom/2, t_is_any_atom/3,
          t_is_boolean/2,
 	 t_is_integer/2, t_is_list/1,
-	 t_is_nil/2, t_is_none/1, t_is_none_or_unit/1,
+	 t_is_nil/2, t_is_none/1, t_is_impossible/1,
 	 t_is_number/2, t_is_reference/2, t_is_pid/2, t_is_port/2,
          t_is_unit/1,
 	 t_limit/2, t_list/0, t_list_elements/2,
@@ -256,7 +256,7 @@ traverse(Tree, Map, State) ->
       Arg = cerl:seq_arg(Tree),
       Body = cerl:seq_body(Tree),
       {State1, Map1, ArgType} = SMA = traverse(Arg, Map, State),
-      case t_is_none_or_unit(ArgType) of
+      case t_is_impossible(ArgType) of
 	true ->
 	  SMA;
 	false ->
@@ -924,7 +924,7 @@ handle_case(Tree, Map, State) ->
   Arg = cerl:case_arg(Tree),
   Clauses = cerl:case_clauses(Tree),
   {State1, Map1, ArgType} = SMA = traverse(Arg, Map, State),
-  case t_is_none_or_unit(ArgType) of
+  case t_is_impossible(ArgType) of
     true -> SMA;
     false ->
       Map2 = join_maps_begin(Map1),
@@ -974,7 +974,7 @@ handle_let(Tree, Map, State) ->
     end,
   Body = cerl:let_body(Tree),
   {State1, Map1, ArgTypes} = SMA = traverse(Arg, Map0, State0),
-  case t_is_none_or_unit(ArgTypes) of
+  case t_is_impossible(ArgTypes) of
     true -> SMA;
     false ->
       Map2 = enter_type_lists(Vars, t_to_tlist(ArgTypes), Map1),
@@ -1059,7 +1059,7 @@ handle_map(Tree,Map,State) ->
   Arg = cerl:map_arg(Tree),
   {State1, Map1, ArgType} = traverse(Arg, Map, State),
   ArgType1 = t_inf(t_map(), ArgType),
-  case t_is_none_or_unit(ArgType1) of
+  case t_is_impossible(ArgType1) of
     true ->
       {State1, Map1, ArgType1};
     false ->
@@ -1678,17 +1678,17 @@ bitstr_bitsize_type(Size) ->
       any
   end.
 
-%% Return the infimum (meet) of ExpectedType and Type if is not
-%% t_none(), and raise a bind_error() it is t_none().
+%% Return the infimum (meet) of ExpectedType and Type if it describes a
+%% possible value (not 'none' or 'unit'), otherwise raise a bind_error().
 bind_checked_inf(Pat, ExpectedType, Type, Opaques) ->
   Inf = t_inf(ExpectedType, Type, Opaques),
-  case t_is_none(Inf) of
+  case t_is_impossible(Inf) of
     true ->
       case t_find_opaque_mismatch(ExpectedType, Type, Opaques) of
-        {ok, T1, T2}  ->
+        {ok, T1, T2} ->
           bind_error([Pat], T1, T2, opaque);
         error ->
-          bind_error([Pat], Type, t_none(), bind)
+          bind_error([Pat], Type, Inf, bind)
       end;
     false ->
       Inf
@@ -2412,7 +2412,7 @@ handle_guard_map(Guard, Map, Env, State) ->
   Arg = cerl:map_arg(Guard),
   {Map1, ArgType0} = bind_guard(Arg, Map, Env, dont_know, State),
   ArgType1 = t_inf(t_map(), ArgType0),
-  case t_is_none_or_unit(ArgType1) of
+  case t_is_impossible(ArgType1) of
     true -> {Map1, t_none()};
     false ->
       {Map2, TypePairs} = bind_guard_map_pairs(Pairs, Map1, Env, State, []),

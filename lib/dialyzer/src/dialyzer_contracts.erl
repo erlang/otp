@@ -368,11 +368,11 @@ check_contract_inf_list(List, SuccType, Opaques) ->
 
 check_contract_inf_list([{Contract, FunType}|Left], SuccType, Opaques, OM) ->
   FunArgs = erl_types:t_fun_args(FunType),
-  case lists:any(fun erl_types:t_is_none_or_unit/1, FunArgs) of
+  case lists:any(fun erl_types:t_is_impossible/1, FunArgs) of
     true -> check_contract_inf_list(Left, SuccType, Opaques, OM);
     false ->
       STRange = erl_types:t_fun_range(SuccType),
-      case erl_types:t_is_none_or_unit(STRange) of
+      case erl_types:t_is_impossible(STRange) of
 	true -> ok;
 	false ->
 	  Range = erl_types:t_fun_range(FunType),
