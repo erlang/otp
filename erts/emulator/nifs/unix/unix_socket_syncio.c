@@ -48,6 +48,7 @@
 #define sock_bind(s, addr, len)         bind((s), (addr), (len))
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_errno()                    errno
+#define sock_listen(s, b)               listen((s), (b))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
 
@@ -87,8 +88,16 @@ static BOOLEAN_T restore_network_namespace(BOOLEAN_T dbg,
 #endif
 static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 
+
+
+/* ======================================================================== *
+ *                              ESSIO Functions                             *
+ * ======================================================================== *
+ */
+
 /*
- * For "standard" (unix) synchronous I/O, this is just a dummy function.
+ * For "standard" (unix) synchronous I/O, in our case
+ * this is just a dummy function.
  */
 extern
 int essio_init(unsigned int numThreads)
@@ -804,7 +813,25 @@ ERL_NIF_TERM essio_listen(ErlNifEnv*       env,
                           ESockDescriptor* descP,
                           int              backlog)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    
+    /*
+     * Verify that we are in the proper state
+     */
+
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+
+    /*
+     * And attempt to make socket listening
+     */
+    
+    if ((sock_listen(descP->sock, backlog)) < 0)
+        return esock_make_error_errno(env, sock_errno());
+
+    descP->readState |= ESOCK_STATE_LISTENING;
+
+    return esock_atom_ok;
+
 }
 
 

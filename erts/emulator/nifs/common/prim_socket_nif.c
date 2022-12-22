@@ -958,7 +958,7 @@ static unsigned long one_value  = 1;
 #define sock_getopt(s,t,n,v,l)          getsockopt((s),(t),(n),(v),(l))
 #define sock_htons(x)                   htons((x))
 #define sock_htonl(x)                   htonl((x))
-#define sock_listen(s, b)               listen((s), (b))
+// #define sock_listen(s, b)               listen((s), (b))
 #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_ntohs(x)                   ntohs((x))
 // #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
@@ -1140,9 +1140,6 @@ static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
-static ERL_NIF_TERM esock_listen(ErlNifEnv*       env,
-                                 ESockDescriptor* descP,
-                                 int              backlog);
 static ERL_NIF_TERM esock_accept(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     sockRef,
@@ -5704,7 +5701,7 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
             argv[0], descP->sock, descP->readState,
             backlog) );
 
-    ret = esock_listen(env, descP, backlog);
+    ret = ESOCK_IO_LISTEN(env, descP, backlog);
 
     SSDBG( descP, ("SOCKET", "nif_listen(%T) -> done with"
                    "\r\n   ret: %T"
@@ -5716,35 +5713,6 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
 #endif // #ifdef __WIN32__  #else
 }
 
-
-
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_listen(ErlNifEnv*       env,
-                          ESockDescriptor* descP,
-                          int              backlog)
-{
-    
-    /*
-     * Verify that we are in the proper state
-     */
-
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    /*
-     * And attempt to make socket listening
-     */
-    
-    if ((sock_listen(descP->sock, backlog)) < 0)
-        return esock_make_error_errno(env, sock_errno());
-
-    descP->readState |= ESOCK_STATE_LISTENING;
-
-    return esock_atom_ok;
-
-}
-#endif // #ifndef __WIN32__
 
 
 
