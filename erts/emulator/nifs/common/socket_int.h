@@ -198,6 +198,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(add_source_membership);    \
     GLOBAL_ATOM_DEF(alen);                     \
     GLOBAL_ATOM_DEF(allmulti);                 \
+    GLOBAL_ATOM_DEF(already);                  \
     GLOBAL_ATOM_DEF(any);                      \
     GLOBAL_ATOM_DEF(appletlk);                 \
     GLOBAL_ATOM_DEF(arcnet);                   \
@@ -422,6 +423,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(scope_id);                 \
     GLOBAL_ATOM_DEF(sctp);                     \
     GLOBAL_ATOM_DEF(sec);                      \
+    GLOBAL_ATOM_DEF(select);                   \
     GLOBAL_ATOM_DEF(select_failed);            \
     GLOBAL_ATOM_DEF(select_sent);              \
     GLOBAL_ATOM_DEF(send);                     \
@@ -441,6 +443,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(socket);                   \
     GLOBAL_ATOM_DEF(socket_tag);               \
     GLOBAL_ATOM_DEF(spec_dst);                 \
+    GLOBAL_ATOM_DEF(state);                    \
     GLOBAL_ATOM_DEF(status);                   \
     GLOBAL_ATOM_DEF(staticarp);		       \
     GLOBAL_ATOM_DEF(stream);                   \
@@ -470,7 +473,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(use_min_mtu);              \
     GLOBAL_ATOM_DEF(use_registry);             \
     GLOBAL_ATOM_DEF(void);                     \
-    GLOBAL_ATOM_DEF(v6only);
+    GLOBAL_ATOM_DEF(v6only)
 
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -479,12 +482,14 @@ typedef long ssize_t;
 
 #define GLOBAL_ERROR_REASON_ATOM_DEFS \
     GLOBAL_ATOM_DEF(eagain);          \
-    GLOBAL_ATOM_DEF(einval);
+    GLOBAL_ATOM_DEF(einval);          \
+    GLOBAL_ATOM_DEF(select_read);     \
+    GLOBAL_ATOM_DEF(select_write)
 
 
 #define GLOBAL_ATOM_DEF(A) extern ERL_NIF_TERM esock_atom_##A
-GLOBAL_ATOM_DEFS
-GLOBAL_ERROR_REASON_ATOM_DEFS
+GLOBAL_ATOM_DEFS;
+GLOBAL_ERROR_REASON_ATOM_DEFS;
 #undef GLOBAL_ATOM_DEF
 
 

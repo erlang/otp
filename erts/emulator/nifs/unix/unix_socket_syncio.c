@@ -46,6 +46,7 @@
  */
 
 #define sock_bind(s, addr, len)         bind((s), (addr), (len))
+#define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_errno()                    errno
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
@@ -84,7 +85,7 @@ static BOOLEAN_T change_network_namespace(BOOLEAN_T dbg,
 static BOOLEAN_T restore_network_namespace(BOOLEAN_T dbg,
                                            int ns, SOCKET sock, int* err);
 #endif
-
+static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 
 /*
  * For "standard" (unix) synchronous I/O, this is just a dummy function.
@@ -628,8 +629,172 @@ ERL_NIF_TERM essio_connect(ErlNifEnv*       env,
                            ESockAddress*    addrP,
                            SOCKLEN_T        addrLen)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    int       save_errno;
+    ErlNifPid self;
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    /*
+     * Verify that we are in the proper state
+     */
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->currentWriterP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    if (descP->connectorP != NULL) {
+        /* Connect in progress */
+
+        if (COMPARE_PIDS(&self, &descP->connector.pid) != 0) {
+	    /* Other process has connect in progress */
+	    if (addrP != NULL) {
+                return esock_make_error(env, esock_atom_already);
+	    } else {
+	        /* This is a bad call sequence
+		 * - connect without an address is only allowed
+		 *   for the connecting process
+		 */
+	        return esock_raise_invalid(env, esock_atom_state);
+	    }
+        }
+
+        /* Finalize after received select message */
+
+        esock_requestor_release("essio_connect finalize -> connected",
+                                env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~ESOCK_STATE_CONNECTING;
+
+        if (! verify_is_connected(descP, &save_errno)) {
+            return esock_make_error_errno(env, save_errno);
+        }
+
+        descP->writeState |= ESOCK_STATE_CONNECTED;
+
+        return esock_atom_ok;
+    }
+
+    /* No connect in progress */
+
+    if (addrP == NULL)
+        /* This is a bad call sequence
+         * - connect without an address is only allowed when
+         *   a connect is in progress, after getting the select message
+         */
+        return esock_raise_invalid(env, esock_atom_state);
+
+    /* Initial connect call, with address */
+
+    if (sock_connect(descP->sock, (struct sockaddr*) addrP, addrLen) == 0) {
+        /* Success already! */
+        SSDBG( descP, ("UNIX-ESSIO", "essio_connect {%d} -> connected\r\n",
+                       descP->sock) );
+
+        descP->writeState |= ESOCK_STATE_CONNECTED;
+
+        return esock_atom_ok;
+    }
+
+    /* Connect returned error */
+    save_errno = sock_errno();
+
+    switch (save_errno) {
+
+    case EINPROGRESS:   /* Unix & OSE!!        */
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_connect {%d} -> would block => select\r\n",
+                descP->sock) );
+        {
+            int sres;
+
+            if ((sres =
+                 esock_select_write(env, descP->sock, descP, NULL,
+                                    sockRef, connRef)) < 0)
+                return
+                    enif_raise_exception(env,
+                                         MKT2(env, esock_atom_select_write,
+                                              MKI(env, sres)));
+            /* Initiate connector */
+            descP->connector.pid = self;
+            ESOCK_ASSERT( MONP("esock_connect -> conn",
+                               env, descP,
+                               &self, &descP->connector.mon) == 0 );
+            descP->connector.env = esock_alloc_env("connector");
+            descP->connector.ref = CP_TERM(descP->connector.env, connRef);
+            descP->connectorP = &descP->connector;
+            descP->writeState |=
+                (ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+
+            return esock_atom_select;
+        }
+        break;
+
+    default:
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_connect {%d} -> error: %d\r\n",
+                descP->sock, save_errno) );
+
+        return esock_make_error_errno(env, save_errno);
+
+    } // switch(save_errno)
 }
+
+
+/* *** verify_is_connected ***
+ * Check if a connection has been established.
+ */
+static
+BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err)
+{
+    /*
+     * *** This is strange ***
+     *
+     * This *should* work on Windows NT too, but doesn't.
+     * An bug in Winsock 2.0 for Windows NT?
+     *
+     * See "Unix Netwok Programming", "The Sockets Networking API",
+     * W.R.Stevens, Volume 1, third edition, 16.4 Nonblocking 'connect',
+     * before Interrupted 'connect' (p 412) for a discussion about
+     * Unix portability and non blocking connect.
+     */
+
+    int error = 0;
+
+#ifdef SO_ERROR
+    if (! esock_getopt_int(descP->sock, SOL_SOCKET, SO_ERROR, &error)) {
+        // Solaris does it this way according to W.R.Stevens
+        error = sock_errno();
+    }
+#elif 1
+    char buf[0];
+    if (ESOCK_IS_ERROR(read(descP->sock, buf, sizeof(buf)))) {
+        error = sock_errno();
+    }
+#else
+    /* This variant probably returns wrong error value
+     * ENOTCONN instead of the actual connect error
+     */
+    ESockAddress remote;
+    SOCKLEN_T    addrLen = sizeof(remote);
+    sys_memzero((char *) &remote, addrLen);
+    if (sock_peer(descP->sock,
+                  (struct sockaddr*) &remote, &addrLen)) < 0) {
+        error = sock_errno();
+    }
+#endif
+
+    if (error != 0) {
+        *err = error;
+        return FALSE;
+    }
+    return TRUE;
+}
+
 
 
 /* ========================================================================

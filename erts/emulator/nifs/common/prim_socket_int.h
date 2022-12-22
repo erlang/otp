@@ -475,5 +475,41 @@ extern BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
 extern void esock_inc_socket(int domain, int type, int protocol);
 extern void esock_dec_socket(int domain, int type, int protocol);
 
+/* *** Select functions *** */
+extern int esock_select_read(ErlNifEnv*       env,
+                             ErlNifEvent      event,
+                             void*            obj,
+                             const ErlNifPid* pidP,
+                             ERL_NIF_TERM     sockRef,
+                             ERL_NIF_TERM     selectRef);
+extern int esock_select_write(ErlNifEnv*       env,
+                              ErlNifEvent      event,
+                              void*            obj,
+                              const ErlNifPid* pidP,
+                              ERL_NIF_TERM     sockRef,
+                              ERL_NIF_TERM     selectRef);
+extern int esock_select_stop(ErlNifEnv*  env,
+                             ErlNifEvent event,
+                             void*       obj);
+extern int esock_select_cancel(ErlNifEnv*             env,
+                               ErlNifEvent            event,
+                               enum ErlNifSelectFlags mode,
+                               void*                  obj);
+
+/* *** Request queue functions *** */
+extern BOOLEAN_T esock_requestor_pop(ESockRequestQueue* q,
+                                     ESockRequestor*    reqP);
+
+extern void esock_requestor_init(ESockRequestor* reqP);
+extern void esock_requestor_release(const char*      slogan,
+                                    ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ESockRequestor*  reqP);
+
+/* *** Environment wrapper functions ***
+ * These hould really be inline, but for now...
+ */
+extern void       esock_free_env(const char* slogan, ErlNifEnv* env);
+extern ErlNifEnv* esock_alloc_env(const char* slogan);
 
 #endif // PRIM_SOCKET_INT_H__
