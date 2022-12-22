@@ -29,7 +29,7 @@
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
          switch_fail_inference/1,failures/1,
          cover_maps_functions/1,min_max_mixed_types/1,
-         not_equal/1]).
+         not_equal/1,infer_relops/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -68,7 +68,8 @@ groups() ->
        failures,
        cover_maps_functions,
        min_max_mixed_types,
-       not_equal
+       not_equal,
+       infer_relops
       ]}].
 
 init_per_suite(Config) ->
@@ -1229,6 +1230,30 @@ not_equal(_Config) ->
 
 do_not_equal(V) when (V / V < (V orelse true)); V; V ->
     (V = (a /= V)) orelse 0.
+
+
+infer_relops(_Config) ->
+    {'EXIT',{badarith,_}} = catch infer_relops_1(),
+    {'EXIT',{badarith,_}} = catch infer_relops_2(),
+    {'EXIT',{badarith,_}} = catch infer_relops_3(id(0)),
+    ok.
+
+%% GH-6568: Type inference for relational operations returned erroneous results
+%% for singletons.
+infer_relops_1() ->
+    <<0 || ((0 rem 0) > [0 || _ <- catch (node())]), _ <- []>>.
+
+infer_relops_2() ->
+    X = self() + 0,
+    [0 || [0 || _ <- date()] =< X, _ <- []].
+
+infer_relops_3(X) ->
+    <<0 || ((+(is_alive())) <
+            [
+                infer_relops_3(infer_relops_3(0))
+             || X
+            ]) andalso ok
+    >>.
 
 id(I) ->
     I.
