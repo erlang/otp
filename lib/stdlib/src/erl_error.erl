@@ -321,7 +321,7 @@ format_stacktrace2(S, [{M,F,As,_Info}|Fs], N, PF, Enc, CL, Reason, ErrorMap)
                        [sep(N, S), origin(N, M, F, A),
                         mfa_to_string(M, F, A, Enc),
                         CalledAs, C, FormattedError]),
-    CL1 = sub(CL, Enc, Cs),
+    CL1 = sub(CL, Cs, Enc),
     [Cs | format_stacktrace2(S, Fs, N + 1, PF, Enc, CL1, Reason, #{})];
 format_stacktrace2(_S, [], _N, _PF, _Enc, _CL, _Reason, _ErrorMap) ->
     "".
