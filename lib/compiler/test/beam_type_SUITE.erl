@@ -29,7 +29,7 @@
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
          switch_fail_inference/1,failures/1,
          cover_maps_functions/1,min_max_mixed_types/1,
-         not_equal/1,infer_relops/1]).
+         not_equal/1,infer_relops/1,binary_unit/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -69,7 +69,8 @@ groups() ->
        cover_maps_functions,
        min_max_mixed_types,
        not_equal,
-       infer_relops
+       infer_relops,
+       binary_unit
       ]}].
 
 init_per_suite(Config) ->
@@ -1254,6 +1255,23 @@ infer_relops_3(X) ->
              || X
             ]) andalso ok
     >>.
+
+%% GH-6593: the type pass would correctly determine that the tail unit of
+%% <<0:integer/8,I:integer/8>> was 16, but would fail to see that after
+%% optimizing it to <<"\0",I:integer/8>>
+binary_unit(_Config) ->
+    F = id(binary_unit_1()),
+
+    <<0,1>> = F([1]),
+    <<0,0>> = F([0,1]),
+
+    ok.
+
+binary_unit_1() ->
+    fun Foo(X) ->
+        I = hd([Y || Y <- X, _ <- X, (Foo >= ok)]),
+        <<0, I>>
+    end.
 
 id(I) ->
     I.

@@ -2279,8 +2279,14 @@ bs_size_unit([#b_literal{val=Type},#b_literal{val=[U1|_]},Value,SizeTerm|Args],
         {_,_,#b_literal{val=all}} ->
             case concrete_type(Value, Ts) of
                 #t_bitstring{size_unit=U2} ->
+                    Size = case Value of
+                               #b_literal{val=Bin} ->
+                                   safe_add(Size0, bit_size(Bin));
+                               #b_var{} ->
+                                   none
+                           end,
                     U = safe_gcd(U0, max(U1, U2)),
-                    bs_size_unit(Args, Ts, none, U);
+                    bs_size_unit(Args, Ts, Size, U);
                 _ ->
                     U = safe_gcd(U0, U1),
                     bs_size_unit(Args, Ts, none, U)
