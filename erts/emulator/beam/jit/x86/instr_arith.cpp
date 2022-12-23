@@ -119,88 +119,6 @@ void BeamModuleAssembler::emit_are_both_small(Label fail,
     }
 }
 
-void BeamGlobalAssembler::emit_increment_body_shared() {
-    Label error = a.newLabel();
-
-    emit_enter_frame();
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    a.or_(ARG3, imm(_TAG_IMMED1_SMALL));
-    runtime_call<3>(erts_mixed_plus);
-
-    emit_leave_runtime();
-    emit_leave_frame();
-
-    emit_test_the_non_value(RET);
-    a.short_().je(error);
-    a.ret();
-
-    a.bind(error);
-    {
-        mov_imm(ARG4, 0);
-        a.jmp(labels[raise_exception]);
-    }
-}
-
-void BeamModuleAssembler::emit_i_increment(const ArgRegister &Src,
-                                           const ArgWord &Val,
-                                           const ArgRegister &Dst) {
-    ArgVal tagged_val = ArgVal(ArgVal::Immediate, make_small(Val.get()));
-    bool small_result = is_sum_small_if_args_are_small(Src, tagged_val);
-
-    if (always_small(Src) && small_result) {
-        Uint shifted_val = Val.get() << _TAG_IMMED1_SIZE;
-
-        comment("skipped operand and overflow checks");
-        mov_arg(RET, Src);
-        if (Support::isInt32(shifted_val)) {
-            a.add(RET, imm(shifted_val));
-        } else {
-            mov_imm(ARG1, shifted_val);
-            a.add(RET, ARG1);
-        }
-        mov_arg(Dst, RET);
-
-        return;
-    }
-
-    Label mixed = a.newLabel(), next = a.newLabel();
-
-    /* Place the values in ARG2 and ARG3 to prepare for the mixed call. Note
-     * that ARG3 is untagged at this point */
-    mov_arg(ARG2, Src);
-    mov_imm(ARG3, Val.get() << _TAG_IMMED1_SIZE);
-
-    if (always_one_of(Src, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
-        comment("simplified test for small operand since it is a number");
-        a.mov(RET, ARG2);
-        emit_is_not_boxed(mixed, RET, dShort);
-        a.add(RET, ARG3);
-    } else {
-        a.mov(RETd, ARG2d);
-        a.and_(RETb, imm(_TAG_IMMED1_MASK));
-        a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
-        a.short_().jne(mixed);
-        a.mov(RET, ARG2);
-        a.add(RET, ARG3);
-    }
-
-    if (small_result) {
-        comment("skipped overflow test because the result is always small");
-        a.short_().jmp(next);
-    } else {
-        a.short_().jno(next);
-    }
-
-    a.bind(mixed);
-    safe_fragment_call(ga->get_increment_body_shared());
-
-    /* all went well, store result in dst */
-    a.bind(next);
-    mov_arg(Dst, RET);
-}
-
 void BeamGlobalAssembler::emit_plus_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_Plus, 2};
 
@@ -259,13 +177,32 @@ void BeamModuleAssembler::emit_i_plus(const ArgSource &LHS,
     bool small_result = is_sum_small_if_args_are_small(LHS, RHS);
 
     if (always_small(LHS) && always_small(RHS) && small_result) {
-        comment("add without overflow check");
-        mov_arg(RET, LHS);
-        mov_arg(ARG2, RHS);
-        a.and_(RET, imm(~_TAG_IMMED1_MASK));
-        a.add(RET, ARG2);
-        mov_arg(Dst, RET);
+        /* Since we don't need the order on this path (no exceptions), we'll
+         * simplify the code below by shuffling constants to the right-hand
+         * side. */
+        const ArgSource A = LHS.isSmall() ? RHS : LHS,
+                        B = LHS.isSmall() ? LHS : RHS;
 
+        comment("add without overflow check");
+        mov_arg(RET, A);
+
+        if (B.isSmall()) {
+            /* Must be signed for the template magic in isInt32 to work for
+             * negative numbers. */
+            Sint untagged = B.as<ArgSmall>().getSigned() << _TAG_IMMED1_SIZE;
+
+            if (Support::isInt32(untagged)) {
+                a.add(RET, imm(untagged));
+            } else {
+                mov_imm(ARG2, B.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK);
+                a.add(RET, ARG2);
+            }
+        } else {
+            mov_arg(ARG2, B);
+            a.lea(RET, x86::qword_ptr(RET, ARG2, 0, -_TAG_IMMED1_SMALL));
+        }
+
+        mov_arg(Dst, RET);
         return;
     }
 
@@ -360,11 +297,25 @@ void BeamModuleAssembler::emit_i_minus(const ArgSource &LHS,
     if (always_small(LHS) && always_small(RHS) && small_result) {
         comment("subtract without overflow check");
         mov_arg(RET, LHS);
-        mov_arg(ARG2, RHS);
-        a.and_(ARG2, imm(~_TAG_IMMED1_MASK));
-        a.sub(RET, ARG2);
-        mov_arg(Dst, RET);
 
+        if (RHS.isSmall()) {
+            /* Must be signed for the template magic in isInt32 to work for
+             * negative numbers. */
+            Sint untagged = RHS.as<ArgSmall>().getSigned() << _TAG_IMMED1_SIZE;
+
+            if (Support::isInt32(untagged)) {
+                a.sub(RET, imm(untagged));
+            } else {
+                mov_imm(ARG2, RHS.as<ArgSmall>().get() & ~_TAG_IMMED1_MASK);
+                a.sub(RET, ARG2);
+            }
+        } else {
+            mov_arg(ARG2, RHS);
+            a.and_(ARG2, imm(~_TAG_IMMED1_MASK));
+            a.sub(RET, ARG2);
+        }
+
+        mov_arg(Dst, RET);
         return;
     }
 
