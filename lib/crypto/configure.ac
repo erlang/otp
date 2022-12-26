@@ -821,7 +821,7 @@ AS_CASE(["$with_ssl_rpath"],
                       AS_IF([test "$with_ssl_rpath" = yes],
                             [AC_MSG_ERROR([runtime library path requested by user, but cannot be set on this platform])])
                       AC_MSG_RESULT([])
-                  ]
+                  ],
                   [test "$SSL_DYNAMIC_ONLY" != "yes"],
                   [
                       AS_IF([test "$with_ssl_rpath" = yes],
