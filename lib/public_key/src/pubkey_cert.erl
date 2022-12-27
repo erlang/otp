@@ -134,7 +134,7 @@ prepare_for_next_cert(OtpCert, ValidationState = #path_validation_state{
      }.
 
  %%--------------------------------------------------------------------
--spec validate_time(#'OTPCertificate'{}, term(), fun()) -> term().
+-spec validate_time(#'OTPCertificate'{}, term(), fun()) -> term() | no_return().
 %%
 %% Description: Check that the certificate validity period includes the 
 %% current time.
@@ -144,8 +144,8 @@ validate_time(OtpCert, UserState, VerifyFun) ->
     {'Validity', NotBeforeStr, NotAfterStr} 
 	= TBSCert#'OTPTBSCertificate'.validity,
     Now = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
-    NotBefore = time_str_2_gregorian_sec(NotBeforeStr),
-    NotAfter = time_str_2_gregorian_sec(NotAfterStr),
+    NotBefore = time_str_2_gregorian_sec(notBefore, NotBeforeStr),
+    NotAfter = time_str_2_gregorian_sec(notAfter, NotAfterStr),
 
     case ((NotBefore =< Now) and (Now =< NotAfter)) of
 	true ->
@@ -154,7 +154,7 @@ validate_time(OtpCert, UserState, VerifyFun) ->
 	    verify_fun(OtpCert, {bad_cert, cert_expired}, UserState, VerifyFun)
     end.
 %%--------------------------------------------------------------------
--spec validate_issuer(#'OTPCertificate'{}, term(), term(), fun()) -> term().
+-spec validate_issuer(#'OTPCertificate'{}, term(), term(), fun()) -> term() | no_return().
 %%
 %% Description: Check that the certificate issuer name is the working_issuer_name
 %% in path_validation_state.
@@ -169,7 +169,7 @@ validate_issuer(OtpCert, Issuer, UserState, VerifyFun) ->
     end. 
 %%--------------------------------------------------------------------
 -spec validate_signature(#'OTPCertificate'{}, DER::binary(),
-			 term(),term(), term(), fun()) -> term().
+			 term(),term(), term(), fun()) -> term() | no_return().
 				
 %%
 %% Description: Check that the signature on the certificate can be verified using
@@ -187,7 +187,7 @@ validate_signature(OtpCert, DerCert, Key, KeyParams,
     end.
 %%--------------------------------------------------------------------
 -spec validate_names(#'OTPCertificate'{}, no_constraints | list(), list(),
-		     term(), term(), fun())-> term().
+		     term(), term(), fun())-> term() | no_return().
 %%
 %% Description: Validate Subject Alternative Name.
 %%--------------------------------------------------------------------	
@@ -333,7 +333,7 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 
 %%--------------------------------------------------------------------
 -spec verify_fun(#'OTPCertificate'{}, {bad_cert, atom()} | {extension, #'Extension'{}}|
-		 valid | valid_peer, term(), fun()) -> term().
+		 valid | valid_peer, term(), fun()) -> term() | no_return().
 %%
 %% Description: Gives the user application the opportunity handle path
 %% validation errors and unknown extensions and optional do other
@@ -633,19 +633,44 @@ public_key_info(PublicKeyInfo,
 	end,
     {Algorithm, PublicKey, NewPublicKeyParams}.
 
-time_str_2_gregorian_sec({utcTime, [Y1,Y2,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,Z]}) ->
-    case list_to_integer([Y1,Y2]) of
-	N when N >= 50 ->
-	    time_str_2_gregorian_sec({generalTime, 
-				      [$1,$9,Y1,Y2,M1,M2,D1,D2,
-				       H1,H2,M3,M4,S1,S2,Z]});
-	_ ->
-	    time_str_2_gregorian_sec({generalTime, 
-				      [$2,$0,Y1,Y2,M1,M2,D1,D2,
-				       H1,H2,M3,M4,S1,S2,Z]}) 
-    end;
+%% time_str_2_gregorian_sec/2 is a wrapper (decorator pattern) over
+%% time_str_2_gregorian_sec/1. the decorator deals with notBefore and notAfter
+%% property differently when we pass utcTime because the data format is
+%% ambiguous YYMMDD. on generalTime the year ambiguity cannot happen because
+%% years are expressed in a 4-digit format, i.e., YYYYMMDD.
+-spec time_str_2_gregorian_sec(PeriodOfTime, Time) -> Seconds :: non_neg_integer() when
+      PeriodOfTime :: notBefore | notAfter,
+      Time :: {utcTime | generalTime, [non_neg_integer() | char()]}.
+time_str_2_gregorian_sec(notBefore, {utcTime, [FirstDigitYear | _]=UtcTime}) ->
+    %% To be compliant with PKITS Certification Path Validation,
+    %% we must accept certificates with notBefore = 50, meaning 1950.
+    %% Once the PKITS certification path validation is updated,
+    %% we must update this function body and test case
+    %% {"4.2.3", "Valid pre2000 UTC notBefore Date Test3 EE"}
+    %% in pkits_SUITE.erl
+    Y1 = erlang:list_to_integer([FirstDigitYear]),
+    YearPrefix = case (Y1 > 4 andalso Y1 =< 9) of
+                     true -> [$1, $9];
+                     false  ->
+                         {Y, _M, _D} = erlang:date(),
+                         integer_to_list(Y div 100)
+                 end,
+    time_str_2_gregorian_sec({generalTime, YearPrefix ++ UtcTime});
 
-time_str_2_gregorian_sec({_,[Y1,Y2,Y3,Y4,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,$Z]}) ->
+time_str_2_gregorian_sec(notAfter, {utcTime, UtcTime}) ->
+    SlidingDate = sliding_year_window(UtcTime),
+    time_str_2_gregorian_sec({generalTime, SlidingDate});
+
+time_str_2_gregorian_sec(_, {generalTime, _Time}=GeneralTime) ->
+    time_str_2_gregorian_sec(GeneralTime).
+
+%% converts 'Time' as a string into gregorian time in seconds.
+-spec time_str_2_gregorian_sec(Time) -> Seconds :: non_neg_integer() when
+      Time :: {generalTime | utcTime, string()}.
+time_str_2_gregorian_sec({utcTime, UtcTime}) ->
+    time_str_2_gregorian_sec(notAfter, {utcTime, UtcTime});
+
+time_str_2_gregorian_sec({generalTime,[Y1,Y2,Y3,Y4,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,$Z]}) ->
     Year  = list_to_integer([Y1, Y2, Y3, Y4]),
     Month = list_to_integer([M1, M2]),
     Day   = list_to_integer([D1, D2]),
@@ -654,6 +679,28 @@ time_str_2_gregorian_sec({_,[Y1,Y2,Y3,Y4,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,$Z]}) ->
     Sec   = list_to_integer([S1, S2]),
     calendar:datetime_to_gregorian_seconds({{Year, Month, Day},
 					    {Hour, Min, Sec}}).
+
+%% Sliding window algorithm to calculate the time.
+%% The value is set as taking {Y1, Y2} from the first two digits of
+%% current_date - 50 or current_date - 49.
+sliding_year_window([Y1,Y2,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,Z]) ->
+    {{CurrentYear,_, _}, _} = calendar:universal_time(),
+    LastTwoDigitYear = CurrentYear rem 100,
+    MinYear = mod(LastTwoDigitYear - 50, 100),
+    YearWindow = case list_to_integer([Y1,Y2]) of
+                     N when N < MinYear -> CurrentYear + 50;
+                     N when N >= MinYear -> CurrentYear - 49
+                 end,
+    [Year1, Year2] = integer_to_list(YearWindow div 100),
+    [Year1,Year2,Y1,Y2,M1,M2,D1,D2,H1,H2,M3,M4,S1,S2,Z].
+
+
+%% Helper function to perform modulo calculation for integer
+-spec mod(A :: integer(), B :: non_neg_integer()) -> non_neg_integer().
+mod(A, B) when A > 0 -> A rem B;
+mod(A, B) when A < 0 -> mod(A+B, B);
+mod(0, _) -> 0.
+
 
 is_dir_name([], [], _Exact) ->    true;
 is_dir_name([H|R1],[H|R2], Exact) -> is_dir_name(R1,R2, Exact);
