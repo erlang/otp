@@ -498,6 +498,7 @@ atom nodedown
 atom nodedown_reason
 atom nodeup
 atom noeol
+atom nomultisend
 atom noproc
 atom normal
 atom normal_exit

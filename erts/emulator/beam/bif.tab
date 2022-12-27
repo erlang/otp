@@ -323,8 +323,9 @@ ubif erlang:'+'/1			splus_1
 # internal references have been updated to the new ebif_... entries.
 
 bif erlang:'!'/2		ebif_bang_2
-bif erlang:send/2
-bif erlang:send/3
+bif erts_internal:send/2
+bif erts_internal:send/3
+bif erts_internal:multisend/2
 bif erlang:'++'/2		ebif_plusplus_2
 bif erlang:append/2
 bif erlang:'--'/2		ebif_minusminus_2

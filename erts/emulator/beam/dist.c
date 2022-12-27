@@ -2518,6 +2518,24 @@ int erts_net_message(Port *prt,
 #endif
         from = tuple[2];
         to = tuple[3];
+        if (is_list(to)) {
+            Eterm pid;
+            while (is_list(to)) {
+                pid = CAR(list_val(to));
+                if (is_not_pid(pid)) {
+                    goto invalid_message;
+                }
+                rp = erts_proc_lookup(pid);
+                if (rp) {
+                    erts_queue_dist_message(rp, 0, edep, ede_hfrag, token, from);
+                } else if (ede_hfrag != NULL) {
+                    erts_free_dist_ext_copy(erts_get_dist_ext(ede_hfrag));
+                    free_message_buffer(ede_hfrag);
+                }
+                to = CDR(list_val(to));
+            }
+            break;
+        }
         if (is_not_pid(to))
             goto invalid_message;
         rp = erts_proc_lookup(to);
