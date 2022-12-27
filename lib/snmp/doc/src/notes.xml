@@ -97,6 +97,22 @@
 
 </section>
 
+  <section><title>SNMP 5.12.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Explicitly close the socket(s) when terminating
+	    (default-) net-if process.</p>
+          <p>
+	    Own Id: OTP-18352 Aux Id: ERIERL-881 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SNMP 5.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

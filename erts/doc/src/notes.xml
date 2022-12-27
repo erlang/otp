@@ -1159,6 +1159,43 @@
 
 </section>
 
+<section><title>Erts 12.3.2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Spec for function net:if_names/0 incorrect</p>
+          <p>
+	    Own Id: OTP-18296 Aux Id: OTP-16464 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> decoding a binary term
+	    2Gbyte or larger.</p>
+          <p>
+	    Own Id: OTP-18306 Aux Id: GH-6393, PR-6401 </p>
+        </item>
+        <item>
+          <p>
+	    Fix <c>list_to_atom/1</c> for negative code points. Could
+	    either return with a positive code point or fail with an
+	    incorrect exception.</p>
+          <p>
+	    Own Id: OTP-18321</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> decoding a list of
+	    length 1G or longer.</p>
+          <p>
+	    Own Id: OTP-18328 Aux Id: GH-6439, PR-6440 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3.2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

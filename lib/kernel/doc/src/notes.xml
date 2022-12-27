@@ -668,6 +668,57 @@
 
 </section>
 
+<section><title>Kernel 8.3.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Spec for function net:if_names/0 incorrect</p>
+          <p>
+	    Own Id: OTP-18296 Aux Id: OTP-16464 </p>
+        </item>
+        <item>
+          <p>
+	    Missing ctrl option name transation for TOS and TTL (on
+	    FreeBSD) when using gen_udp with the 'socket'
+	    inet_backend.</p>
+          <p>
+	    Own Id: OTP-18315</p>
+        </item>
+        <item>
+          <p>
+	    The tcp connect option 'bind_to_device' could not be used
+	    with inet_backend = 'socket'. 'inet' requires value type
+	    binarry() and 'socket' requires value type 'string()'.</p>
+          <p>
+	    Own Id: OTP-18357 Aux Id: #6509 </p>
+        </item>
+        <item>
+          <p>
+	    Minor issue processing options when calling
+	    gen_tcp:connect with a sockaddr() and inet_backend =
+	    socket.</p>
+          <p>
+	    Own Id: OTP-18358 Aux Id: #6528 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve warning message format for gen_tcp_socket.</p>
+          <p>
+	    Own Id: OTP-18317</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.3.2.2</title>
 
     <section><title>Improvements and New Features</title>

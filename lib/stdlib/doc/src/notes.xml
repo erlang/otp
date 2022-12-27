@@ -655,6 +655,23 @@
 
 </section>
 
+<section><title>STDLIB 3.17.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>It is not allowed to call functions from guards. The
+	    compiler failed to reject a call in a guard when done by
+	    constructing a record with a default initialization
+	    expression that called a function.</p>
+          <p>
+	    Own Id: OTP-18325 Aux Id: GH-6465, GH-6466 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.17.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
