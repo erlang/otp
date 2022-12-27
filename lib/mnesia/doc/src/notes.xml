@@ -103,6 +103,29 @@
 
 </section>
 
+  <section><title>Mnesia 4.20.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Don't fill the logs if mnesia can't connect to all nodes,
+	    due to partitioned network.</p>
+          <p>
+	    Own Id: OTP-18288 Aux Id: ERIERL-868 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed crash which could happen during startup if too many
+	    decisions where sent from remote nodes.</p>
+          <p>
+	    Own Id: OTP-18319 Aux Id: ERIERL-875 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
   <section><title>Mnesia 4.20.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -137,6 +137,22 @@
 
 </section>
 
+<section><title>Common_Test 1.22.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Change timeout to infinity for gen_server calls in
+	    cth_log_redirect</p>
+          <p>
+	    Own Id: OTP-18363 Aux Id: ERIERL-879 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.22.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
