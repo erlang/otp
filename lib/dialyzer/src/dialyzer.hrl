@@ -64,14 +64,15 @@
 %%   2. It is also the set of tags for warnings that will be returned.
 %%
 -type dial_warn_tag() :: ?WARN_BEHAVIOUR | ?WARN_BIN_CONSTRUCTION
-                       | ?WARN_CALLGRAPH | ?WARN_CONTRACT_NOT_EQUAL
+                       | ?WARN_CALLGRAPH | ?WARN_CONTRACT_EXTRA_RETURN
+                       | ?WARN_CONTRACT_MISSING_RETURN | ?WARN_CONTRACT_NOT_EQUAL
                        | ?WARN_CONTRACT_RANGE | ?WARN_CONTRACT_SUBTYPE
                        | ?WARN_CONTRACT_SUPERTYPE | ?WARN_CONTRACT_SYNTAX
                        | ?WARN_CONTRACT_TYPES | ?WARN_FAILING_CALL
                        | ?WARN_FUN_APP | ?WARN_MAP_CONSTRUCTION
                        | ?WARN_MATCHING | ?WARN_NON_PROPER_LIST
                        | ?WARN_NOT_CALLED | ?WARN_OPAQUE
-                       | ?WARN_RETURN_NO_RETURN
+                       | ?WARN_OVERLAPPING_CONTRACT | ?WARN_RETURN_NO_RETURN
                        | ?WARN_RETURN_ONLY_EXIT | ?WARN_UNDEFINED_CALLBACK
                        | ?WARN_UNKNOWN | ?WARN_UNMATCHED_RETURN.
 
