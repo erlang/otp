@@ -218,7 +218,8 @@
                         {valid, UserState}
                 end, []},
                [versions, verify]},
-          versions                   => {[], [protocol]}
+          versions                   => {[], [protocol]},
+          warn_verify_none           => {true, [versions]}
          }).
 
 -define('TLS-1_3_ONLY_OPTIONS', [anti_replay,
