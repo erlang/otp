@@ -405,6 +405,7 @@
 %% -------------------------------------------------------------------------------------------------------
 
 -type client_option()        :: {verify, client_verify_type()} |
+                                {warn_verify_none, boolean()} |
                                 {reuse_session, client_reuse_session()} |
                                 {reuse_sessions, client_reuse_sessions()} |
                                 {cacerts, client_cacerts()} |
