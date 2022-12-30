@@ -1662,6 +1662,12 @@ handle_option(fallback = Option, Value0, OptionsMap, #{role := Role}) ->
     assert_role(client_only, Role, Option, Value0),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
+handle_option(warn_verify_none, _, OptionsMap, #{role := server}) ->
+    OptionsMap;
+handle_option(warn_verify_none = Option, unbound, OptionsMap, #{role := client, rules := Rules}) ->
+    OptionsMap#{Option => default_value(Option, Rules)};
+handle_option(warn_verify_none = Option, Value, OptionsMap, #{role := client}) ->
+    OptionsMap#{Option => Value};
 handle_option(certificate_authorities = Option, unbound, OptionsMap, #{role := server}) ->
     OptionsMap#{Option => true};
 handle_option(certificate_authorities = Option, unbound, OptionsMap, #{role := client}) ->
@@ -1874,7 +1880,7 @@ handle_option(user_lookup_fun = Option, Value0,
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(verify = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    handle_verify_option(default_value(Option, Rules), OptionsMap#{warn_verify_none => true});
+    handle_verify_option(default_value(Option, Rules), OptionsMap);
 handle_option(verify = _Option, Value, OptionsMap, _Env) ->
     handle_verify_option(Value, OptionsMap);
 handle_option(verify_fun = Option, unbound, #{verify := Verify} = OptionsMap, #{rules := Rules})
