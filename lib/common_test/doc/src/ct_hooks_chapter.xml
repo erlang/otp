@@ -99,6 +99,10 @@
     <item><c>{ct_hooks,[{my_cth_module,[{debug,true}],500}]}</c></item>
     </list>
 
+    <p>Note that regardless of how you install a CTH, its BEAM file
+      must be available in the code path when Common Test runs.
+      <c>ct_run</c> accepts the <c>-pa</c> command line option.</p>
+
     <section>
       <title>Overriding CTHs</title>
       <p>By default, each installation of a CTH causes a new instance of it
@@ -373,118 +377,93 @@
 
   <section>
     <marker id="example"/>
-     <title>Example CTH</title>
-     <p>The following CTH logs information about a test run into a format 
-       parseable by <seemfa marker="kernel:file#consult/1">file:consult/1</seemfa> 
-       (in Kernel):
-     </p>
-     <code>
- %%% Common Test Example Common Test Hook module.
- -module(example_cth).
+      <title>Example CTH</title>
+      <p>The following CTH logs information about a test run into a format 
+        parseable by <seemfa marker="kernel:file#consult/1">file:consult/1</seemfa> 
+        (in Kernel):
+      </p>
+      <code>
+%%% Common Test Example Common Test Hook module.
+%%%
+%%% To use this hook, on the command line:
+%%%     ct_run -suite example_SUITE -pa . -ct_hooks example_cth
+%%%
+%%% Note `-pa .`: the hook beam file must be in the code path when installing.
+-module(example_cth).
 
- %% Callbacks
- -export([id/1]).
- -export([init/2]).
+%% Mandatory Callbacks
+-export([init/2]).
 
- -export([pre_init_per_suite/3]).
- -export([post_init_per_suite/4]).
- -export([pre_end_per_suite/3]).
- -export([post_end_per_suite/4]).
+%% Optional Callbacks
+-export([id/1]).
 
- -export([pre_init_per_group/4]).
- -export([post_init_per_group/5]).
- -export([pre_end_per_group/4]).
- -export([post_end_per_group/5]).
+-export([pre_init_per_suite/3]).
+-export([post_end_per_suite/4]).
 
- -export([pre_init_per_testcase/4]).
- -export([post_init_per_testcase/5]).
- -export([pre_end_per_testcase/4]).
- -export([post_end_per_testcase/5]).
+-export([pre_init_per_testcase/4]).
+-export([post_end_per_testcase/5]).
 
- -export([on_tc_fail/4]).
- -export([on_tc_skip/4]).
+-export([on_tc_skip/4]).
 
- -export([terminate/1]).
+-export([terminate/1]).
 
- -record(state, { file_handle, total, suite_total, ts, tcs, data }).
+%% This hook state is threaded through all the callbacks.
+-record(state, {filename, total, suite_total, ts, tcs, data, skipped}).
+%% This example hook prints its results to a file, see terminate/1.
+-record(test_run, {total, skipped, suites}).
 
- %% Return a unique id for this CTH.
- id(Opts) ->
-   proplists:get_value(filename, Opts, "/tmp/file.log").
+%% Return a unique id for this CTH.
+%% Using the filename means the hook can be used with different
+%% log files to separate timing data within the same test run.
+%% See Installing a CTH for more information.
+id(Opts) ->
+    %% the path is relative to the test run directory
+    proplists:get_value(filename, Opts, "example_cth.log").
 
- %% Always called before any other callback function. Use this to initiate
- %% any common state. 
- init(Id, Opts) ->
-     {ok,D} = file:open(Id,[write]),
-     {ok, #state{ file_handle = D, total = 0, data = [] }}.
+%% Always called before any other callback function. Use this to initiate
+%% any common state.
+init(Id, _Opts) ->
+    {ok, #state{filename = Id, total = 0, data = []}}.
 
- %% Called before init_per_suite is called.
- pre_init_per_suite(Suite,Config,State) ->
-     {Config, State#state{ suite_total = 0, tcs = [] }}.
+%% Called before init_per_suite is called.
+pre_init_per_suite(_Suite,Config,State) ->
+    {Config, State#state{suite_total = 0, tcs = []}}.
 
- %% Called after init_per_suite.
- post_init_per_suite(Suite,Config,Return,State) ->
-     {Return, State}.
+%% Called after end_per_suite.
+post_end_per_suite(Suite,_Config,Return,State) ->
+    Data = {suites, Suite, State#state.suite_total,
+            lists:reverse(State#state.tcs)},
+    {Return, State#state{data = [Data | State#state.data],
+                         total = State#state.total + State#state.suite_total}}.
 
- %% Called before end_per_suite.
- pre_end_per_suite(Suite,Config,State) ->
-     {Config, State}.
+%% Called before each init_per_testcase.
+pre_init_per_testcase(_Suite,_TC,Config,State) ->
+    Now = erlang:monotonic_time(microsecond),
+    {Config, State#state{ts = Now, suite_total = State#state.suite_total + 1}}.
 
- %% Called after end_per_suite.
- post_end_per_suite(Suite,Config,Return,State) ->
-     Data = {suites, Suite, State#state.suite_total, lists:reverse(State#state.tcs)},
-     {Return, State#state{ data = [Data | State#state.data] ,
-                           total = State#state.total + State#state.suite_total } }.
+%% Called after each end_per_testcase.
+post_end_per_testcase(Suite,TC,_Config,Return,State) ->
+    Now = erlang:monotonic_time(microsecond),
+    TCInfo = {testcase, Suite, TC, Return, Now - State#state.ts},
+    {Return, State#state{ts = undefined, tcs = [TCInfo | State#state.tcs]}}.
 
- %% Called before each init_per_group.
- pre_init_per_group(Suite,Group,Config,State) ->
-     {Config, State}.
+%% Called when a test case is skipped by either user action
+%% or due to an init function failing.
+on_tc_skip(_Suite, _TC, _Reason, State) ->
+    State#state{skipped = State#state.skipped + 1}.
 
- %% Called after each init_per_group.
- post_init_per_group(Suite,Group,Config,Return,State) ->
-     {Return, State}.
+%% Called when the scope of the CTH is done.
+terminate(State) ->
+    %% use append to avoid data loss if the path is reused
+    {ok, File} = file:open(State#state.filename, [write, append]),
+    io:format(File, "~p.~n", [results(State)]),
+    file:close(File),
+    ok.
 
- %% Called before each end_per_group.
- pre_end_per_group(Suite,Group,Config,State) ->
-     {Config, State}.
-
- %% Called after each end_per_group.
- post_end_per_group(Suite,Group,Config,Return,State) ->
-     {Return, State}.
-
- %% Called before each init_per_testcase.
- pre_init_per_testcase(Suite,TC,Config,State) ->
-     {Config, State#state{ ts = now(), total = State#state.suite_total + 1 } }.
-
- %% Called after each init_per_testcase (immediately before the test case).
- post_init_per_testcase(Suite,TC,Config,Return,State) ->
-     {Return, State}
-
-%% Called before each end_per_testcase (immediately after the test case).
- pre_end_per_testcase(Suite,TC,Config,State) ->
-     {Config, State}.
-
- %% Called after each end_per_testcase.
- post_end_per_testcase(Suite,TC,Config,Return,State) ->
-     TCInfo = {testcase, Suite, TC, Return, timer:now_diff(now(), State#state.ts)},
-     {Return, State#state{ ts = undefined, tcs = [TCInfo | State#state.tcs] } }.
-
- %% Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
- %% post_end_per_group and post_end_per_testcase if the suite, group or test case failed.
- on_tc_fail(Suite, TC, Reason, State) ->
-     State.
-
- %% Called when a test case is skipped by either user action
- %% or due to an init function failing.  
- on_tc_skip(Suite, TC, Reason, State) ->
-     State.
-
- %% Called when the scope of the CTH is done
- terminate(State) ->
-     io:format(State#state.file_handle, "~p.~n",
-                [{test_run, State#state.total, State#state.data}]),
-     file:close(State#state.file_handle),
-     ok.</code>
+results(State) ->
+    #state{skipped = Skipped, data = Data, total = Total} = State,
+    #test_run{total = Total, skipped = Skipped, suites = lists:reverse(Data)}.
+    </code>
   </section>
 
   <section>
