@@ -1903,7 +1903,7 @@ do_log(F, Reason0, #data{ssh_params=S}) ->
 
 assure_string(S) ->
     try io_lib:format("~s",[S])
-    of _ -> S
+    of Formatted -> Formatted
     catch
         _:_ -> io_lib:format("~p",[S])
     end.
