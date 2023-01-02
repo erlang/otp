@@ -186,7 +186,7 @@ void erts_offset_off_heap(struct erl_off_heap*, Sint, Eterm*, Eterm*);
 void erts_offset_heap_ptr(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_free_heap_frags(struct process* p);
-Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
+Eterm erts_max_heap_size_map(ErtsHeapFactory *factory, Sint, Uint);
 int erts_max_heap_size(Eterm, Uint *, Uint *);
 void erts_deallocate_young_generation(Process *c_p);
 void erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,

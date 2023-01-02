@@ -3739,28 +3739,20 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
 }
 
 Eterm
-erts_max_heap_size_map(Sint max_heap_size, Uint max_heap_flags,
-                       Eterm **hpp, Uint *sz)
+erts_max_heap_size_map(ErtsHeapFactory *factory,
+                       Sint max_heap_size, Uint max_heap_flags)
 {
-    if (!hpp) {
-        *sz += ERTS_MAX_HEAP_SIZE_MAP_SZ;
-        return THE_NON_VALUE;
-    } else {
-        Eterm *hp = *hpp;
-        Eterm keys = TUPLE3(hp, am_error_logger, am_kill, am_size);
-        flatmap_t *mp;
-        hp += 4;
-        mp = (flatmap_t*) hp;
-        mp->thing_word = MAP_HEADER_FLATMAP;
-        mp->size = 3;
-        mp->keys = keys;
-        hp += MAP_HEADER_FLATMAP_SZ;
-        *hp++ = max_heap_flags & MAX_HEAP_SIZE_LOG ? am_true : am_false;
-        *hp++ = max_heap_flags & MAX_HEAP_SIZE_KILL ? am_true : am_false;
-        *hp++ = make_small(max_heap_size);
-        *hpp = hp;
-        return make_flatmap(mp);
-    }
+    Eterm keys[] = {
+        am_error_logger, am_kill, am_size
+    };
+    Eterm values[] = {
+        max_heap_flags & MAX_HEAP_SIZE_LOG ? am_true : am_false,
+        max_heap_flags & MAX_HEAP_SIZE_KILL ? am_true : am_false,
+        make_small(max_heap_size)
+    };
+    ERTS_CT_ASSERT(sizeof(keys) == sizeof(values));
+    return erts_map_from_ks_and_vs(factory, keys, values,
+                                   sizeof(keys) / sizeof(keys[0]));
 }
 
 int
