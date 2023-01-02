@@ -1237,6 +1237,10 @@ infer_relops(_Config) ->
     {'EXIT',{badarith,_}} = catch infer_relops_1(),
     {'EXIT',{badarith,_}} = catch infer_relops_2(),
     {'EXIT',{badarith,_}} = catch infer_relops_3(id(0)),
+    {'EXIT',{{try_clause,_},_}} = catch infer_relops_4(id(0), id(#{ 0 => 0 })),
+    {'EXIT',{{try_clause,_},_}} = catch infer_relops_5(id(0), id(1)),
+    {'EXIT',{{badmatch,_},_}} = catch infer_relops_6(id(0)),
+
     ok.
 
 %% GH-6568: Type inference for relational operations returned erroneous results
@@ -1255,6 +1259,54 @@ infer_relops_3(X) ->
              || X
             ]) andalso ok
     >>.
+
+%% GH-6599: We only inferred types from '=:=' at the check itself, ignoring
+%% checks made against other variables that we're known to be equal to.
+%%
+%%    @ssa_bool:1 = bif:'=:=' _1, _0
+%%    @ssa_bool:2 = bif:'=:=' `#{ok => ok}`, _1
+%%    %% _0 is not `#{ok => ok}` here!
+%%    @ssa_bool:3 = bif:'=:=' _0, _1
+%%    %% ... but is here!
+%%
+%% This caused issues when another pass, for example CSE, rightly eliminated
+%% the redundant equality check.
+infer_relops_4(X, #{0 := X, 0 := Y}) ->
+    try #{ok => ok} of
+        Y ->
+            bnot (Y = X)
+    after
+        ok
+    end.
+
+infer_relops_5(X, Y) ->
+    try Y of
+        X ->
+            (?MODULE:non_existent(
+                try ([_ | _] = Y) of
+                    X ->
+                        ok
+                after
+                    ok
+                end
+            ) orelse X) bsl 0
+    after
+        ok
+    end.
+
+infer_relops_6(X) ->
+    {
+        X ++ (X = get()),
+        <<
+            (ok):(catch (0 +
+                try
+                    [ok || _ <- []]
+                catch
+                    _ ->
+                        X
+                end))
+        >>
+    }.
 
 %% GH-6593: the type pass would correctly determine that the tail unit of
 %% <<0:integer/8,I:integer/8>> was 16, but would fail to see that after

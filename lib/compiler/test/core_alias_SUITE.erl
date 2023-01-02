@@ -51,6 +51,7 @@ id(X) -> X.
 
 tuples(Config) when is_list(Config) ->
     Tuple = id({ok,id(value)}),
+    LiteralTuple = {ok,value},
 
     true = erts_debug:same(Tuple, simple_tuple(Tuple)),
     true = erts_debug:same(Tuple, simple_tuple_in_map(#{hello => Tuple})),
@@ -63,20 +64,20 @@ tuples(Config) when is_list(Config) ->
     true = erts_debug:same(Tuple, Tuple2),
 
     Nested = id({nested,Tuple}),
+    LiteralNested = {nested,LiteralTuple},
+
     true = erts_debug:same(Tuple, nested_tuple_part(Nested)),
     true = erts_debug:same(Nested, nested_tuple_whole(Nested)),
     true = erts_debug:same(Nested, nested_tuple_with_alias(Nested)),
 
     true = erts_debug:same(Tuple, tuple_rebinding_after(Tuple)),
 
-    Tuple = id(unaliased_tuple_rebinding_before(Tuple)),
-    false = erts_debug:same(Tuple, unaliased_tuple_rebinding_before(Tuple)),
-    Nested = id(unaliased_literal_tuple_head(Nested)),
-    false = erts_debug:same(Nested, unaliased_literal_tuple_head(Nested)),
-    Nested = id(unaliased_literal_tuple_body(Nested)),
-    false = erts_debug:same(Nested, unaliased_literal_tuple_body(Nested)),
-    Nested = id(unaliased_different_var_tuple(Nested, Tuple)),
-    false = erts_debug:same(Nested, unaliased_different_var_tuple(Nested, Tuple)).
+    true = erts_debug:same(LiteralTuple, unaliased_tuple_rebinding_before(Tuple)),
+    true = erts_debug:same(LiteralNested, unaliased_literal_tuple_head(Nested)),
+    true = erts_debug:same(LiteralNested, unaliased_literal_tuple_body(Nested)),
+    false = erts_debug:same(LiteralNested, unaliased_different_var_tuple(Nested, Tuple)),
+
+    ok.
 
 simple_tuple({ok,X}) ->
     {ok,X}.
@@ -119,6 +120,7 @@ unaliased_different_var_tuple({nested,{ok,value}=X}, Y) ->
 
 cons(Config) when is_list(Config) ->
     Cons = id([ok|id(value)]),
+    LiteralCons = [ok|value],
 
     true = erts_debug:same(Cons, simple_cons(Cons)),
     true = erts_debug:same(Cons, simple_cons_in_map(#{hello => Cons})),
@@ -131,6 +133,8 @@ cons(Config) when is_list(Config) ->
     true = erts_debug:same(Cons, Cons2),
 
     Nested = id([nested,Cons]),
+    LiteralNested = [nested,LiteralCons],
+
     true = erts_debug:same(Cons, nested_cons_part(Nested)),
     true = erts_debug:same(Nested, nested_cons_whole(Nested)),
     true = erts_debug:same(Nested, nested_cons_with_alias(Nested)),
@@ -140,14 +144,12 @@ cons(Config) when is_list(Config) ->
     Stripped = id(cons_with_binary([<<>>|Unstripped])),
     true = erts_debug:same(Unstripped, Stripped),
 
-    Cons = id(unaliased_cons_rebinding_before(Cons)),
-    false = erts_debug:same(Cons, unaliased_cons_rebinding_before(Cons)),
-    Nested = id(unaliased_literal_cons_head(Nested)),
-    false = erts_debug:same(Nested, unaliased_literal_cons_head(Nested)),
-    Nested = id(unaliased_literal_cons_body(Nested)),
-    false = erts_debug:same(Nested, unaliased_literal_cons_body(Nested)),
-    Nested = id(unaliased_different_var_cons(Nested, Cons)),
-    false = erts_debug:same(Nested, unaliased_different_var_cons(Nested, Cons)).
+    true = erts_debug:same(LiteralCons, unaliased_cons_rebinding_before(Cons)),
+    true = erts_debug:same(LiteralNested, unaliased_literal_cons_head(Nested)),
+    true = erts_debug:same(LiteralNested, unaliased_literal_cons_body(Nested)),
+    false = erts_debug:same(LiteralNested, unaliased_different_var_cons(Nested, Cons)),
+
+    ok.
 
 simple_cons([ok|X]) ->
     [ok|X].

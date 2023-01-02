@@ -210,14 +210,14 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
     Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
                             #b_var{}=Var <- Args]),
 
-    Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
-            0 => {incoming, Ts} },
+    Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts, #{}},
+            0 => {incoming, Ts, #{}} },
 
     {Meta, State2} = sig_init_metadata(Id, Linear, Args, State1),
 
     Wl0 = State1#sig_st.wl,
 
-    {State, SuccTypes} = sig_bs(Linear, Ds, Ls, FuncDb, #{}, [], Meta, State2),
+    {State, SuccTypes} = sig_bs(Linear, Ds, Ls, FuncDb, [], Meta, State2),
 
     WlChanged = wl_changed(Wl0, State#sig_st.wl),
     #{ Id := #func_info{succ_types=SuccTypes0}=Entry0 } = FuncDb,
@@ -242,10 +242,10 @@ sig_init_metadata(Id, Linear, Args, #sig_st{meta_cache=MetaCache} = State) ->
     end.
 
 sig_bs([{L, #b_blk{is=Is,last=Last0}} | Bs],
-       Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0) ->
+       Ds0, Ls0, Fdb, SuccTypes0, Meta, State0) ->
     case Ls0 of
         #{ L := Incoming } ->
-            {incoming, Ts0} = Incoming,         %Assertion.
+            {incoming, Ts0, Sub0} = Incoming,         %Assertion.
 
             {Ts, Ds, Sub, State} =
                 sig_is(Is, Ts0, Ds0, Ls0, Fdb, Sub0, State0),
@@ -254,19 +254,19 @@ sig_bs([{L, #b_blk{is=Is,last=Last0}} | Bs],
             SuccTypes = update_success_types(Last, Ts, Ds, Meta, SuccTypes0),
 
             UsedOnce = Meta#metadata.used_once,
-            {_, Ls1} = update_successors(Last, Ts, Ds, Ls0, UsedOnce),
+            {_, Ls1} = update_successors(Last, Ts, Sub, Ds, Ls0, UsedOnce),
 
             %% In the future there may be a point to storing outgoing types on
             %% a per-edge basis as it would give us more precision in phi
             %% nodes, but there's nothing to gain from that at the moment so
             %% we'll store the current Ts to save memory.
-            Ls = Ls1#{ L := {outgoing, Ts} },
-            sig_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
+            Ls = Ls1#{ L := {outgoing, Ts, Sub} },
+            sig_bs(Bs, Ds, Ls, Fdb, SuccTypes, Meta, State);
         #{} ->
             %% This block is never reached. Ignore it.
-            sig_bs(Bs, Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0)
+            sig_bs(Bs, Ds0, Ls0, Fdb, SuccTypes0, Meta, State0)
     end;
-sig_bs([], _Ds, _Ls, _Fdb, _Sub, SuccTypes, _Meta, State) ->
+sig_bs([], _Ds, _Ls, _Fdb, SuccTypes, _Meta, State) ->
     {State, SuccTypes}.
 
 sig_is([#b_set{op=call,
@@ -494,8 +494,8 @@ do_opt_function(Linear0, Args, Id, Ts, FuncDb0, MetaCache) ->
     Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
                             #b_var{}=Var <- Args]),
 
-    Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
-            0 => {incoming, Ts} },
+    Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts, #{}},
+            0 => {incoming, Ts, #{}} },
 
     Meta = case MetaCache of
                #{Id := Meta0} ->
@@ -505,7 +505,7 @@ do_opt_function(Linear0, Args, Id, Ts, FuncDb0, MetaCache) ->
            end,
 
     {Linear, FuncDb, SuccTypes} =
-        opt_bs(Linear0, Ds, Ls, FuncDb0, #{}, [], Meta, []),
+        opt_bs(Linear0, Ds, Ls, FuncDb0, [], Meta, []),
 
     case FuncDb of
         #{ Id := Entry0 } ->
@@ -521,10 +521,10 @@ get_func_id(Anno) ->
     #b_local{name=#b_literal{val=Name}, arity=Arity}.
 
 opt_bs([{L, #b_blk{is=Is0,last=Last0}=Blk0} | Bs],
-       Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc) ->
+       Ds0, Ls0, Fdb0, SuccTypes0, Meta, Acc) ->
     case Ls0 of
         #{ L := Incoming } ->
-            {incoming, Ts0} = Incoming,         %Assertion.
+            {incoming, Ts0, Sub0} = Incoming,         %Assertion.
 
             {Is, Ts, Ds, Fdb, Sub} =
                 opt_is(Is0, Ts0, Ds0, Ls0, Fdb0, Sub0, Meta, []),
@@ -533,19 +533,19 @@ opt_bs([{L, #b_blk{is=Is0,last=Last0}=Blk0} | Bs],
             SuccTypes = update_success_types(Last1, Ts, Ds, Meta, SuccTypes0),
 
             UsedOnce = Meta#metadata.used_once,
-            {Last2, Ls1} = update_successors(Last1, Ts, Ds, Ls0, UsedOnce),
+            {Last2, Ls1} = update_successors(Last1, Ts, Sub, Ds, Ls0, UsedOnce),
 
             Last = opt_anno_types(Last2, Ts),
 
-            Ls = Ls1#{ L := {outgoing, Ts} },           %Assertion.
+            Ls = Ls1#{ L := {outgoing, Ts, Sub} }, %Assertion.
 
             Blk = Blk0#b_blk{is=Is,last=Last},
-            opt_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, [{L,Blk} | Acc]);
+            opt_bs(Bs, Ds, Ls, Fdb, SuccTypes, Meta, [{L,Blk} | Acc]);
         #{} ->
             %% This block is never reached. Discard it.
-            opt_bs(Bs, Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc)
+            opt_bs(Bs, Ds0, Ls0, Fdb0, SuccTypes0, Meta, Acc)
     end;
-opt_bs([], _Ds, _Ls, Fdb, _Sub, SuccTypes, _Meta, Acc) ->
+opt_bs([], _Ds, _Ls, Fdb, SuccTypes, _Meta, Acc) ->
     {reverse(Acc), Fdb, SuccTypes}.
 
 opt_is([#b_set{op=call,
@@ -975,7 +975,7 @@ simplify_terminator(#b_ret{arg=Arg}=Ret, Ts, Ds, Sub) ->
 simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub) ->
     %% Simplify the phi node by removing all predecessor blocks that no
     %% longer exists or no longer branches to this block.
-    {Type, Args} = simplify_phi_args(Args0, Ls, Sub, none, []),
+    {Type, Args} = simplify_phi_args(Args0, Ls, none, []),
     case phi_all_same(Args) of
         true ->
             %% Eliminate the phi node if there is just one source
@@ -1581,20 +1581,20 @@ simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds, Sub) ->
 simplify_not(#b_br{bool=#b_literal{}}=Br, _Sub, _Ts, _Ds) ->
     Br.
 
-simplify_phi_args([{Arg0, From} | Rest], Ls, Sub, Type0, Args) ->
+simplify_phi_args([{Arg0, From} | Rest], Ls, Type0, Args) ->
     case Ls of
         #{ From := Outgoing } ->
-            {outgoing, Ts} = Outgoing,          %Assertion.
+            {outgoing, Ts, Sub} = Outgoing,       %Assertion.
 
             Arg = simplify_arg(Arg0, Ts, Sub),
             Type = beam_types:join(concrete_type(Arg, Ts), Type0),
             Phi = {Arg, From},
 
-            simplify_phi_args(Rest, Ls, Sub, Type, [Phi | Args]);
+            simplify_phi_args(Rest, Ls, Type, [Phi | Args]);
         #{} ->
-            simplify_phi_args(Rest, Ls, Sub, Type0, Args)
+            simplify_phi_args(Rest, Ls, Type0, Args)
     end;
-simplify_phi_args([], _Ls, _Sub, Type, Args) ->
+simplify_phi_args([], _Ls, Type, Args) ->
     %% We return the arguments in their incoming order so that they won't
     %% change back and forth and ruin fixpoint iteration in beam_ssa_opt.
     {Type, reverse(Args)}.
@@ -1938,30 +1938,30 @@ ust_unlimited([], CallArgs, CallRet) ->
     [{CallArgs, CallRet}].
 
 update_successors(#b_br{bool=#b_literal{val=true},succ=Succ}=Last,
-                  Ts, _Ds, Ls, _UsedOnce) ->
-    {Last, update_successor(Succ, Ts, Ls)};
+                  Ts, Sub, _Ds, Ls, _UsedOnce) ->
+    {Last, update_successor(Succ, Ts, Sub, Ls)};
 update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}=Last0,
-                  Ts, Ds, Ls0, UsedOnce) ->
+                  Ts, Sub, Ds, Ls0, UsedOnce) ->
     IsTempVar = is_map_key(Bool, UsedOnce),
-    case infer_types_br(Bool, Ts, IsTempVar, Ds) of
-        {#{}=SuccTs, #{}=FailTs} ->
-            Ls1 = update_successor(Succ, SuccTs, Ls0),
-            Ls = update_successor(Fail, FailTs, Ls1),
+    case infer_types_br(Bool, Ts, Sub, IsTempVar, Ds) of
+        {#{}=SuccTs, SuccSub, #{}=FailTs, FailSub} ->
+            Ls1 = update_successor(Succ, SuccTs, SuccSub, Ls0),
+            Ls = update_successor(Fail, FailTs, FailSub, Ls1),
             {Last0, Ls};
-        {#{}=SuccTs, none} ->
+        {#{}=SuccTs, SuccSub, none, _} ->
             Last = Last0#b_br{bool=#b_literal{val=true},fail=Succ},
-            {Last, update_successor(Succ, SuccTs, Ls0)};
-        {none, #{}=FailTs} ->
+            {Last, update_successor(Succ, SuccTs, SuccSub, Ls0)};
+        {none, _, #{}=FailTs, FailSub} ->
             Last = Last0#b_br{bool=#b_literal{val=true},succ=Fail},
-            {Last, update_successor(Fail, FailTs, Ls0)}
+            {Last, update_successor(Fail, FailTs, FailSub, Ls0)}
     end;
 update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
-                  Ts, Ds, Ls0, UsedOnce) ->
+                  Ts, Sub, Ds, Ls0, UsedOnce) ->
     IsTempVar = is_map_key(V, UsedOnce),
 
     {List1, FailTs, Ls1} =
         update_switch(List0, V, concrete_type(V, Ts),
-                      Ts, Ds, Ls0, IsTempVar, []),
+                      Ts, Sub, Ds, Ls0, IsTempVar, []),
 
     case FailTs of
         none ->
@@ -1981,27 +1981,27 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
                     {Last, Ls1}
             end;
         #{} ->
-            Ls = update_successor(Fail0, FailTs, Ls1),
+            Ls = update_successor(Fail0, FailTs, Sub, Ls1),
             Last = Last0#b_switch{list=List1},
             {Last, Ls}
     end;
-update_successors(#b_ret{}=Last, _Ts, _Ds, Ls, _UsedOnce) ->
+update_successors(#b_ret{}=Last, _Ts, _Sub, _Ds, Ls, _UsedOnce) ->
     {Last, Ls}.
 
 update_switch([{Val, Lbl}=Sw | List],
-              V, FailType0, Ts, Ds, Ls0, IsTempVar, Acc) ->
+              V, FailType0, Ts, Sub, Ds, Ls0, IsTempVar, Acc) ->
     FailType = beam_types:subtract(FailType0, concrete_type(Val, Ts)),
     case infer_types_switch(V, Val, Ts, IsTempVar, Ds) of
         none ->
-            update_switch(List, V, FailType, Ts, Ds, Ls0, IsTempVar, Acc);
+            update_switch(List, V, FailType, Ts, Sub, Ds, Ls0, IsTempVar, Acc);
         SwTs ->
-            Ls = update_successor(Lbl, SwTs, Ls0),
-            update_switch(List, V, FailType, Ts, Ds, Ls, IsTempVar, [Sw | Acc])
+            Ls = update_successor(Lbl, SwTs, Sub, Ls0),
+            update_switch(List, V, FailType, Ts, Sub, Ds, Ls, IsTempVar, [Sw | Acc])
     end;
-update_switch([], _V, none, _Ts, _Ds, Ls, _IsTempVar, Acc) ->
+update_switch([], _V, none, _Ts, _Sub, _Ds, Ls, _IsTempVar, Acc) ->
     %% Fail label is unreachable.
     {reverse(Acc), none, Ls};
-update_switch([], V, FailType, Ts, Ds, Ls, IsTempVar, Acc) ->
+update_switch([], V, FailType, Ts, _Sub, Ds, Ls, IsTempVar, Acc) ->
     %% Fail label is reachable, see if we can narrow the type down further.
     FailTs = case beam_types:get_singleton_value(FailType) of
                  {ok, Value} ->
@@ -2024,22 +2024,23 @@ update_switch([], V, FailType, Ts, Ds, Ls, IsTempVar, Acc) ->
 
     {reverse(Acc), FailTs, Ls}.
 
-update_successor(?EXCEPTION_BLOCK, _Ts, Ls) ->
+update_successor(?EXCEPTION_BLOCK, _Ts, _Sub, Ls) ->
     %% We KNOW that no variables are used in the ?EXCEPTION_BLOCK,
     %% so there is no need to update the type information. That
     %% can be a huge timesaver for huge functions.
     Ls;
-update_successor(S, Ts0, Ls) ->
+update_successor(S, Ts0, Sub0, Ls) ->
     case Ls of
-        #{ S := {outgoing, _} } ->
+        #{ S := {outgoing, _, _} } ->
             %% We're in a receive loop or similar; the target block will not be
             %% revisited.
             Ls;
-        #{ S := {incoming, InTs} } ->
+        #{ S := {incoming, InTs, InSub} } ->
             Ts = join_types(Ts0, InTs),
-            Ls#{ S := {incoming, Ts} };
+            Sub = join_sub(Sub0, InSub),
+            Ls#{ S := {incoming, Ts, Sub} };
         #{} ->
-            Ls#{ S => {incoming, Ts0} }
+            Ls#{ S => {incoming, Ts0, Sub0} }
     end.
 
 update_types(#b_set{op=Op,dst=Dst,anno=Anno,args=Args}, Ts, Ds) ->
@@ -2436,8 +2437,8 @@ concrete_type(#b_var{}=Var, Ts) ->
 %%  'cons' would give 'nil' as the only possible type. The result of the
 %%  subtraction for L will be added to FailTypes.
 
-infer_types_br(#b_var{}=V, Ts, IsTempVar, Ds) ->
-    {SuccTs0, FailTs0} = infer_types_br_1(V, Ts, Ds),
+infer_types_br(#b_var{}=V, Ts, Sub, IsTempVar, Ds) ->
+    {SuccTs0, SuccSub, FailTs0, FailSub} = infer_types_br_1(V, Ts, Sub, Ds),
 
     case IsTempVar of
         true ->
@@ -2447,14 +2448,14 @@ infer_types_br(#b_var{}=V, Ts, IsTempVar, Ds) ->
             %% of this block.
             SuccTs = ts_remove_var(V, SuccTs0),
             FailTs = ts_remove_var(V, FailTs0),
-            {SuccTs, FailTs};
+            {SuccTs, SuccSub, FailTs, FailSub};
         false ->
             SuccTs = infer_br_value(V, true, SuccTs0),
             FailTs = infer_br_value(V, false, FailTs0),
-            {SuccTs, FailTs}
+            {SuccTs, SuccSub, FailTs, FailSub}
     end.
 
-infer_types_br_1(V, Ts, Ds) ->
+infer_types_br_1(V, Ts, Sub, Ds) ->
     #{V:=#b_set{op=Op0,args=Args}} = Ds,
 
     case inv_relop(Op0) of
@@ -2463,24 +2464,24 @@ infer_types_br_1(V, Ts, Ds) ->
             {PosTypes, NegTypes} = infer_type(Op0, Args, Ts, Ds),
             SuccTs = meet_types(PosTypes, Ts),
             FailTs = subtract_types(NegTypes, Ts),
-            {SuccTs, FailTs};
+            {SuccTs, Sub, FailTs, Sub};
         InvOp ->
             %% This is an relational operator.
             {bif,Op} = Op0,
 
             %% Infer the types for both sides of operator succceding.
             Types = concrete_types(Args, Ts),
-            TrueTypes0 = infer_relop(Op, Args, Types, Ds),
+            {TrueTypes0, TrueSub} = infer_relop(Op, Args, Types, Sub, Ds),
             TrueTypes = meet_types(TrueTypes0, Ts),
 
             %% Infer the types for both sides of operator failing.
-            FalseTypes0 = infer_relop(InvOp, Args, Types, Ds),
+            {FalseTypes0, FalseSub} = infer_relop(InvOp, Args, Types, Sub, Ds),
             FalseTypes = meet_types(FalseTypes0, Ts),
 
-            {TrueTypes, FalseTypes}
+            {TrueTypes, TrueSub, FalseTypes, FalseSub}
     end.
 
-infer_relop('=:=', [LHS,RHS], [LType,RType], Ds) ->
+infer_relop('=:=', [LHS,RHS], [LType,RType], Sub, Ds) ->
     EqTypes = infer_eq_type(map_get(LHS, Ds), RType),
 
     %% As an example, assume that L1 is known to be 'list', and L2 is
@@ -2488,9 +2489,9 @@ infer_relop('=:=', [LHS,RHS], [LType,RType], Ds) ->
     %% can be inferred that L1 is 'cons' (the meet of 'cons' and
     %% 'list').
     Type = beam_types:meet(LType, RType),
-    [{LHS,Type},{RHS,Type}] ++ EqTypes;
-infer_relop(Op, Args, Types, _Ds) ->
-    infer_relop(Op, Args, Types).
+    {[{LHS,Type},{RHS,Type}] ++ EqTypes, infer_eq_sub(LHS, RHS, Sub)};
+infer_relop(Op, Args, Types, Sub, _Ds) ->
+    {infer_relop(Op, Args, Types), Sub}.
 
 infer_relop('=/=', [LHS,RHS], [LType,RType]) ->
     %% We must be careful with types inferred from '=/='.
@@ -2604,8 +2605,11 @@ infer_br_value(V, Bool, NewTs) ->
 
 infer_types_switch(V, Lit, Ts0, IsTempVar, Ds) ->
     Args = [V,Lit],
-    Types = concrete_types(Args, Ts0),
-    PosTypes = infer_relop('=:=', Args, Types, Ds),
+    ArgTypes = concrete_types(Args, Ts0),
+
+    %% A switch can't check variables against variables, so there's no need to
+    %% update substitutions here.
+    {PosTypes, _} = infer_relop('=:=', Args, ArgTypes, #{}, Ds),
     Ts = meet_types(PosTypes, Ts0),
     case IsTempVar of
         true -> ts_remove_var(V, Ts);
@@ -2756,15 +2760,45 @@ infer_eq_type(#b_set{op=get_tuple_element,
 infer_eq_type(_, _) ->
     [].
 
+infer_eq_sub(#b_var{}, #b_literal{val=0.0}, Sub) ->
+    %% It's not safe to substitute float zero, since `0.0 =:= -0.0`.
+    Sub;
+infer_eq_sub(#b_var{}=LHS, RHS, Sub) ->
+    Sub#{ RHS => LHS }.
+
 infer_and_type(Op, Args, Ts, Ds) ->
     case inv_relop(Op) of
         none ->
-            {LHSTypes0, _} = infer_type(Op, Args, Ts, Ds),
-            LHSTypes0;
+            {Types, _} = infer_type(Op, Args, Ts, Ds),
+            Types;
         _InvOp ->
             {bif,RelOp} = Op,
-            infer_relop(RelOp, Args, concrete_types(Args, Ts), Ds)
+            ArgTypes = concrete_types(Args, Ts),
+            {Types, _} = infer_relop(RelOp, Args, ArgTypes, #{}, Ds),
+            Types
     end.
+
+join_sub(Sub, Sub) ->
+    Sub;
+join_sub(LHS, RHS) ->
+    if
+        map_size(LHS) < map_size(RHS) ->
+            join_sub_1(maps:keys(LHS), RHS, LHS);
+        true ->
+            join_sub_1(maps:keys(RHS), LHS, RHS)
+    end.
+
+%% Joins two substitution maps, keeping the variables that are common to both
+%% maps.
+join_sub_1([V | Vs], Bigger, Smaller) ->
+    case {Bigger, Smaller} of
+        {#{ V := Same }, #{ V := Same }} ->
+            join_sub_1(Vs, Bigger, Smaller);
+        {#{}, #{ V := _ }} ->
+            join_sub_1(Vs, Bigger, maps:remove(V, Smaller))
+    end;
+join_sub_1([], _Bigger, Smaller) ->
+    Smaller.
 
 join_types(Ts, Ts) ->
     Ts;

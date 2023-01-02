@@ -86,7 +86,7 @@ format_error(Error) ->
 
 %%%
 %%% Local functions follow.
-%%% 
+%%%
 
 %%%
 %%% The validator follows.
@@ -178,6 +178,9 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          xs=#{} :: x_regs(),
          ys=#{} :: y_regs(),
          f=init_fregs(),
+         %% Equality constraints. Maps a value reference to all other value
+         %% references that are strictly equal to it.
+         eqcs=#{} :: #{ #value_ref{} => ordsets:ordset(#value_ref{}) },
          %% A set of all registers containing "fragile" terms. That is, terms
          %% that don't exist on our process heap and would be destroyed by a
          %% GC.
@@ -197,8 +200,6 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          ct=[],
          %% Previous instruction was setelement/3.
          setelem=false,
-         %% put/1 instructions left.
-         puts_left=none,
          %% Current receive state:
          %%
          %%   * 'none'            - Not in a receive loop.
@@ -797,7 +798,7 @@ vi({recv_marker_bind, Marker, Ref}, Vst) ->
     assert_not_literal(Ref),
     Vst;
 vi({recv_marker_clear, Ref}, Vst) ->
-    assert_durable_term(Ref, Vst),
+    assert_term(Ref, Vst),
     assert_not_literal(Ref),
     Vst;
 vi({recv_marker_use, Ref}, Vst) ->
@@ -1386,7 +1387,7 @@ init_try_catch_branch(Kind, Dst, Fail, Vst0) ->
     #vst{current=St0} = Vst,
     #st{ct=Tags}=St0,
     St = St0#st{ct=[Tag|Tags]},
- 
+
     Vst#vst{current=St}.
 
 verify_has_map_fields(Lbl, Src, List, Vst) ->
@@ -2512,9 +2513,30 @@ resolve_args([], _Vst) ->
 override_type(Type, Reg, Vst) ->
     update_type(fun(_, T) -> T end, Type, Reg, Vst).
 
+update_type(Merge, With, #value_ref{}=Ref0, Vst0) ->
+    #vst{current=#st{eqcs=EqCs}} = Vst0,
+    case EqCs of
+        #{ Ref0 := Refs } ->
+            lists:foldl(fun(Ref, Vst) ->
+                                update_type_1(Merge, With, Ref, Vst)
+                        end, Vst0, [Ref0 | Refs]);
+        #{} ->
+            update_type_1(Merge, With, Ref0, Vst0)
+    end;
+update_type(Merge, With, {Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
+    update_type(Merge, With, get_reg_vref(Reg, Vst), Vst);
+update_type(Merge, With, Literal, Vst) ->
+    %% Literals always retain their type, but we still need to bail on type
+    %% conflicts.
+    Type = get_literal_type(Literal),
+    case Merge(Type, With) of
+        none -> throw({type_conflict, Type, With});
+        _Type -> Vst
+    end.
+
 %% This is used when linear code finds out more and more information about a
 %% type, so that the type gets more specialized.
-update_type(Merge, With, #value_ref{}=Ref, Vst0) ->
+update_type_1(Merge, With, #value_ref{}=Ref, Vst0) ->
     %% If the old type can't be merged with the new one, the type information
     %% is inconsistent and we know that some instructions will never be
     %% executed at run-time. For example:
@@ -2540,19 +2562,8 @@ update_type(Merge, With, #value_ref{}=Ref, Vst0) ->
         Type ->
             Vst = update_container_type(Type, Ref, Vst0),
             set_type(Type, Ref, Vst)
-    end;
-update_type(Merge, With, {Kind,_}=Reg, Vst) when Kind =:= x; Kind =:= y ->
-    update_type(Merge, With, get_reg_vref(Reg, Vst), Vst);
-update_type(Merge, With, Literal, Vst) ->
-    %% Literals always retain their type, but we still need to bail on type
-    %% conflicts.
-    Type = get_literal_type(Literal),
-    case Merge(Type, With) of
-        none -> throw({type_conflict, Type, With});
-        _Type -> Vst
     end.
 
-%% Updates the container the given value was extracted from, if any.
 update_container_type(Type, Ref, #vst{current=#st{vs=Vs}}=Vst) ->
     case Vs of
         #{ Ref := #value{op={bif,element},
@@ -2562,11 +2573,11 @@ update_container_type(Type, Ref, #vst{current=#st{vs=Vs}}=Vst) ->
                     %% The first element is one atom out of a set of
                     %% at least two atoms. We must take care to
                     %% construct an atom set.
-                    update_type(fun meet_tuple_set/2, Type, Tuple, Vst);
+                    update_type_1(fun meet_tuple_set/2, Type, Tuple, Vst);
                 {_,_} ->
                     Es = beam_types:set_tuple_element(Index, Type, #{}),
                     TupleType = #t_tuple{size=Index,elements=Es},
-                    update_type(fun meet/2, TupleType, Tuple, Vst)
+                    update_type_1(fun meet/2, TupleType, Tuple, Vst)
             end;
         #{} ->
             Vst
@@ -2581,20 +2592,59 @@ meet_tuple_set(Type, #t_atom{elements=Atoms}) ->
     TupleSet = foldl(fun join/2, hd(Tuples), tl(Tuples)),
     meet(Type, TupleSet).
 
+update_eq_types({Kind,_}=LHS, RHS, Vst) when Kind =:= x; Kind =:= y ->
+    update_eq_types(get_reg_vref(LHS, Vst), RHS, Vst);
+update_eq_types(LHS, {Kind,_}=RHS, Vst) when Kind =:= x; Kind =:= y ->
+    update_eq_types(LHS, get_reg_vref(RHS, Vst), Vst);
 update_eq_types(LHS, RHS, Vst0) ->
     LType = get_term_type(LHS, Vst0),
     RType = get_term_type(RHS, Vst0),
 
-    Vst1 = update_type(fun meet/2, RType, LHS, Vst0),
-    Vst = update_type(fun meet/2, LType, RHS, Vst1),
+    Vst1 = update_eq_constraints(LHS, RHS, Vst0),
+    Vst2 = update_type(fun meet/2, RType, LHS, Vst1),
+    Vst3 = update_type(fun meet/2, LType, RHS, Vst2),
+    infer_types(eq_exact, LHS, RHS, Vst3).
 
-    infer_types(eq_exact, LHS, RHS, Vst).
+update_eq_constraints(#value_ref{}=Same, #value_ref{}=Same, Vst) ->
+    Vst;
+update_eq_constraints(#value_ref{}=LHS, #value_ref{}=RHS, Vst) ->
+    #vst{current=#st{eqcs=EqCs0}=St0} = Vst,
+    EqCs = case EqCs0 of
+               #{ LHS := LHS_Eq0, RHS := RHS_Eq0 } ->
+                   Eq = ordsets:subtract(ordsets:union(LHS_Eq0, RHS_Eq0),
+                                         ordsets:from_list([LHS, RHS])),
+                   EqCs0#{ LHS := ordsets:add_element(RHS, Eq),
+                           RHS := ordsets:add_element(LHS, Eq) };
+               #{ LHS := Eq0 } ->
+                   false = ordsets:is_element(RHS, Eq0), %Assertion.
+                   EqCs0#{ LHS := ordsets:add_element(RHS, Eq0),
+                           RHS => ordsets:add_element(LHS, Eq0) };
+               #{ RHS := Eq0 } ->
+                   false = ordsets:is_element(LHS, Eq0), %Assertion.
+                   EqCs0#{ LHS => ordsets:add_element(RHS, Eq0),
+                           RHS := ordsets:add_element(LHS, Eq0) };
+               #{} ->
+                   EqCs0#{ LHS => [RHS], RHS => [LHS] }
+           end,
+    Vst#vst{current=St0#st{eqcs=EqCs}};
+update_eq_constraints(_LHS, _RHS, Vst) ->
+    Vst.
 
-update_ne_types(LHS, RHS, Vst0) ->
-    Vst1 = update_ne_types_1(LHS, RHS, Vst0),
-    Vst = update_ne_types_1(RHS, LHS, Vst1),
-
-    infer_types(ne_exact, LHS, RHS, Vst).
+update_ne_types(LHS, RHS, #vst{current=#st{eqcs=EqCs0}}=Vst0) ->
+    AlwaysEqual = case EqCs0 of
+                      #{ LHS := LHS_Eq, RHS := RHS_Eq } ->
+                          not ordsets:is_disjoint(LHS_Eq, RHS_Eq);
+                      #{} ->
+                          false
+                  end,
+    case AlwaysEqual of
+        true ->
+            throw({value_conflict, LHS, RHS});
+        false ->
+            Vst1 = update_ne_types_1(LHS, RHS, Vst0),
+            Vst = update_ne_types_1(RHS, LHS, Vst1),
+            infer_types(ne_exact, LHS, RHS, Vst)
+    end.
 
 update_ne_types_1(LHS, RHS, Vst0) ->
     %% While updating types on equality is fairly straightforward, inequality
@@ -2870,22 +2920,20 @@ get_raw_type({y,Y}=Src, #vst{current=#st{ys=Ys}}=Vst) when is_integer(Y) ->
         #{} -> uninitialized
     end;
 get_raw_type(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
-    case Vs of
-        #{ Ref := #value{type=Type} } -> Type;
-        #{} -> none
-    end;
+    #{ Ref := #value{type=Type} } = Vs,         %Assertion.
+    Type;
 get_raw_type(Src, #vst{current=#st{}}) ->
     get_literal_type(Src).
 
-get_literal_type(nil) -> 
+get_literal_type(nil) ->
     beam_types:make_type_from_value([]);
-get_literal_type({atom,A}) when is_atom(A) -> 
+get_literal_type({atom,A}) when is_atom(A) ->
     beam_types:make_type_from_value(A);
-get_literal_type({float,F}) when is_float(F) -> 
+get_literal_type({float,F}) when is_float(F) ->
     beam_types:make_type_from_value(F);
-get_literal_type({integer,I}) when is_integer(I) -> 
+get_literal_type({integer,I}) when is_integer(I) ->
     beam_types:make_type_from_value(I);
-get_literal_type({literal,L}) -> 
+get_literal_type({literal,L}) ->
     beam_types:make_type_from_value(L);
 get_literal_type(T) ->
     error({not_literal,T}).
@@ -2919,6 +2967,8 @@ branch(Lbl, Vst0, FailFun, SuccFun) ->
                 %% The instruction is guaranteed to fail; kill the state.
                 {type_conflict, _, _} ->
                     kill_state(Vst);
+                {value_conflict, _, _} ->
+                    kill_state(Vst);
                 {invalid_argument, _} ->
                     kill_state(Vst)
             end
@@ -2927,6 +2977,8 @@ branch(Lbl, Vst0, FailFun, SuccFun) ->
         %% branch *without* catching further errors to avoid hiding bugs in the
         %% validator itself; one of the branches must succeed.
         {type_conflict, _, _} ->
+            SuccFun(Vst0);
+        {value_conflict, _, _} ->
             SuccFun(Vst0);
         {invalid_argument, _} ->
             SuccFun(Vst0)
@@ -3003,10 +3055,10 @@ merge_states_1(St, none, Counter) ->
 merge_states_1(none, St, Counter) ->
     {St, Counter};
 merge_states_1(StA, StB, Counter0) ->
-    #st{xs=XsA,ys=YsA,vs=VsA,fragile=FragA,numy=NumYA,
+    #st{xs=XsA,ys=YsA,vs=VsA,eqcs=EqCsA,fragile=FragA,numy=NumYA,
         h=HA,ct=CtA,recv_state=RecvStA,
         ms_positions=MsPosA} = StA,
-    #st{xs=XsB,ys=YsB,vs=VsB,fragile=FragB,numy=NumYB,
+    #st{xs=XsB,ys=YsB,vs=VsB,eqcs=EqCsB,fragile=FragB,numy=NumYB,
         h=HB,ct=CtB,recv_state=RecvStB,
         ms_positions=MsPosB} = StB,
 
@@ -3026,9 +3078,10 @@ merge_states_1(StA, StB, Counter0) ->
     MsPos = merge_ms_positions(MsPosA, MsPosB, Vs),
     Fragile = merge_fragility(FragA, FragB),
     NumY = merge_stk(YsA, YsB, NumYA, NumYB),
+    EqCs = merge_eqcs(EqCsA, EqCsB, Vs),
     Ct = merge_ct(CtA, CtB),
 
-    St = #st{xs=Xs,ys=Ys,vs=Vs,fragile=Fragile,numy=NumY,
+    St = #st{xs=Xs,ys=Ys,vs=Vs,eqcs=EqCs,fragile=Fragile,numy=NumY,
              h=min(HA, HB),ct=Ct,recv_state=RecvSt,
              ms_positions=MsPos},
 
@@ -3207,6 +3260,31 @@ merge_ct_1([{catchtag, LblsA} | CtA], [{catchtag, LblsB} | CtB]) ->
     [{catchtag, ordsets:union(LblsA, LblsB)} | merge_ct_1(CtA, CtB)];
 merge_ct_1(_, _) ->
     undecided.
+
+merge_eqcs(LHS, RHS, Vs) ->
+    if
+        map_size(LHS) < map_size(RHS) ->
+            merge_eqcs_1(maps:keys(LHS), RHS, LHS, Vs);
+        true ->
+            merge_eqcs_1(maps:keys(RHS), LHS, RHS, Vs)
+    end.
+
+merge_eqcs_1([Key | Keys], Bigger, Smaller, Vs) ->
+    case {Bigger, Smaller} of
+        {#{ Key := LHS }, #{ Key := RHS }} when is_map_key(Key, Vs) ->
+            Common0 = ordsets:intersection(LHS, RHS),
+            Common = [Ref || Ref <- Common0, is_map_key(Ref, Vs)],
+            case Common of
+                [_|_] ->
+                    merge_eqcs_1(Keys, Bigger, Smaller#{ Key := Common }, Vs);
+                [] ->
+                    merge_eqcs_1(Keys, Bigger, maps:remove(Key, Smaller), Vs)
+            end;
+        {#{}, #{ Key := _ }} ->
+            merge_eqcs_1(Keys, Bigger, maps:remove(Key, Smaller), Vs)
+    end;
+merge_eqcs_1([], _Bigger, Smaller, _Vs) ->
+    Smaller.
 
 verify_y_init(#vst{current=#st{numy=NumY,ys=Ys}}=Vst) when is_integer(NumY) ->
     HighestY = maps:fold(fun({y,Y}, _, Acc) -> max(Y, Acc) end, -1, Ys),

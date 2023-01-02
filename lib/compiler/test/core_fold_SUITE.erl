@@ -493,17 +493,22 @@ mixed_matching_clauses(Config) when is_list(Config) ->
 
 unnecessary_building(Config) when is_list(Config) ->
     Term1 = do_unnecessary_building_1(test_lib:id(a)),
-    [{a,a},{a,a}] = Term1,
+    assert_eq([{a,a},{a,a}], Term1),
     7 = erts_debug:size(Term1),
 
     %% The Input term should not be rebuilt (thus, it should
     %% only be counted once in the size of the combined term).
     Input = test_lib:id({a,b,c}),
     Term2 = test_lib:id(do_unnecessary_building_2(Input)),
-    {b,[{a,b,c},none],x} = Term2,
+    assert_eq({b,[{a,b,c},none],x}, Term2),
     4+4+4+2 = erts_debug:size([Term2|Input]),
 
     ok.
+
+%% The compiler optimizes `=:=` pretty aggressively and may substitute LHS for
+%% RHS and vice versa if they compare equal. Get around it by checking equality
+%% in a different function.
+assert_eq(X, X) -> X.
 
 do_unnecessary_building_1(S) ->
     %% The tuple must only be built once.
