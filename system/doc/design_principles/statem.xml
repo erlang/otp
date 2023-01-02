@@ -2534,7 +2534,7 @@ terminate(_Reason, State, _Data) ->
       the servers can be expected to idle for a while,
       and the amount of heap memory all these servers need
       is a problem, then the memory footprint of a server
-      can be mimimized by hibernating it through
+      can be minimized by hibernating it through
       <seemfa marker="stdlib:proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seemfa>.
     </p>
     <note>
