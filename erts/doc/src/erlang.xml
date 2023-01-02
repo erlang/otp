@@ -3167,6 +3167,21 @@ first</pre>
     </func>
 
     <func>
+      <name name="identity" arity="1" since=""/>
+      <fsummary>Identity function.</fsummary>
+      <desc>
+        <p>Returns its argument.</p>
+        <p>Examples:</p>
+        <pre>
+> <input>identity(abc).</input>
+abc</pre>
+        <pre>
+> <input>identity({1, 2, 3}).</input>
+{1,2,3}</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="insert_element" arity="3" since="OTP R16B"/>
       <fsummary>Insert an element at index in a tuple.</fsummary>
       <type_desc variable="Index">1..tuple_size(<anno>Tuple1</anno>)

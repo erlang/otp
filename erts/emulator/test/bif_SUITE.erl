@@ -31,8 +31,8 @@
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 t_binary_to_atom/1,t_binary_to_existing_atom/1,
-	 t_atom_to_binary/1,min_max/1, erlang_halt/1,
-         erl_crash_dump_bytes/1,
+	 t_atom_to_binary/1,min_max/1, verify_identity/1,
+	 erlang_halt/1, erl_crash_dump_bytes/1,
 	 is_builtin/1, error_stacktrace/1,
 	 error_stacktrace_during_call_trace/1,
          group_leader_prio/1, group_leader_prio_dirty/1,
@@ -55,8 +55,8 @@ all() ->
      t_list_to_existing_atom, os_env, otp_7526,
      display, display_string, list_to_utf8_atom,
      t_atom_to_binary, t_binary_to_atom, t_binary_to_existing_atom,
-     erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
-     error_stacktrace, error_stacktrace_during_call_trace,
+     erl_crash_dump_bytes, min_max, verify_identity, erlang_halt,
+     is_builtin, error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
      is_process_alive, is_process_alive_signal_from,
      process_info_blast, os_env_case_sensitivity,
@@ -749,6 +749,13 @@ min_max(Config) when is_list(Config) ->
     "abc" = erlang:Min("abc", "def"),
     <<"def">> = erlang:Max(<<"abc">>, <<"def">>),
 
+    ok.
+
+
+verify_identity(Config) when is_list(Config) ->
+    lists:foreach(fun(T) -> true = (T =:= identity(T)) end,
+                  [atom, 1, 2.0, {1, 2, x}, [a, b, 3], self(),
+                   make_ref(), #{y => z}, fun() -> ok end]),
     ok.
 
 

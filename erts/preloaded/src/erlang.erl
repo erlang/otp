@@ -247,6 +247,7 @@
 -export([posixtime_to_universaltime/1, pre_loaded/0, prepare_loading/2]).
 -export([monotonic_time/0, monotonic_time/1]).
 -export([system_time/0, system_time/1]).
+-export([identity/1]).
 -export([convert_time_unit/3]).
 -export([unique_integer/0, unique_integer/1]).
 -export([time_offset/0, time_offset/1, timestamp/0]).
@@ -4058,6 +4059,10 @@ min(A, _) -> A.
 max(A, B) when A < B -> B;
 max(A, _) -> A.
 
+%% identity/1
+-spec identity(Term) -> Term when
+    Term :: term().
+identity(X) -> X.
 
 %%
 %% erlang:memory/[0,1]

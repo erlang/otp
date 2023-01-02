@@ -305,6 +305,7 @@ bif(halt, 0) -> true;
 bif(halt, 1) -> true;
 bif(halt, 2) -> true;
 bif(hd, 1) -> true;
+bif(identity, 1) -> true;
 bif(integer_to_binary, 1) -> true;
 bif(integer_to_binary, 2) -> true;
 bif(integer_to_list, 1) -> true;
