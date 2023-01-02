@@ -977,8 +977,8 @@ vi({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,Sz0,Unit,{field_flags,Flags}],Dst
                #t_integer{elements={_,SizeMax}} when SizeMax * Unit < 64 ->
                    NumBits = SizeMax * Unit,
                    bs_integer_type(NumBits, Flags);
-               _ ->
-                   #t_integer{}
+               Other ->
+                   Other
            end,
     validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 vi({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,Size,Unit,_],Dst},Vst) ->
@@ -1785,42 +1785,46 @@ bs_integer_type(NumBits, Flags) ->
 %% Common code for validating bs_get* instructions.
 %%
 
+validate_bs_get(_Op, Fail, Ctx0, Live, _Stride, none, _Dst, Vst) ->
+    Ctx = unpack_typed_arg(Ctx0),
+    validate_bs_get_1(
+      Fail, Ctx, Live, Vst,
+      fun(SuccVst) ->
+              kill_state(SuccVst)
+      end);
 validate_bs_get(Op, Fail, Ctx0, Live, Stride, Type, Dst, Vst) ->
     Ctx = unpack_typed_arg(Ctx0),
-
-    assert_no_exception(Fail),
-
-    assert_type(#t_bs_context{}, Ctx, Vst),
-    verify_live(Live, Vst),
-    verify_y_init(Vst),
-
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst1 = advance_bs_context(Ctx, Stride, SuccVst0),
-                   SuccVst = prune_x_regs(Live, SuccVst1),
-                   extract_term(Type, Op, [Ctx], Dst, SuccVst, SuccVst0)
-           end).
+    validate_bs_get_1(
+      Fail, Ctx, Live, Vst,
+      fun(SuccVst0) ->
+              SuccVst1 = advance_bs_context(Ctx, Stride, SuccVst0),
+              SuccVst = prune_x_regs(Live, SuccVst1),
+              extract_term(Type, Op, [Ctx], Dst, SuccVst, SuccVst0)
+      end).
 
 validate_bs_get_all(Op, Fail, Ctx0, Live, Stride, Type, Dst, Vst) ->
     Ctx = unpack_typed_arg(Ctx0),
+    validate_bs_get_1(
+      Fail, Ctx, Live, Vst,
+      fun(SuccVst0) ->
+              %% This acts as an implicit unit test on the current match
+              %% position, so we'll update the unit in case we rewind here
+              %% later on.
+              SuccVst1 = update_bs_unit(Ctx, Stride, SuccVst0),
 
+              SuccVst2 = advance_bs_context(Ctx, Stride, SuccVst1),
+              SuccVst = prune_x_regs(Live, SuccVst2),
+              extract_term(Type, Op, [Ctx], Dst, SuccVst, SuccVst0)
+      end).
+
+validate_bs_get_1(Fail, Ctx, Live, Vst, SuccFun) ->
     assert_no_exception(Fail),
 
     assert_type(#t_bs_context{}, Ctx, Vst),
     verify_live(Live, Vst),
     verify_y_init(Vst),
 
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   %% This acts as an implicit unit test on the current match
-                   %% position, so we'll update the unit in case we rewind here
-                   %% later on.
-                   SuccVst1 = update_bs_unit(Ctx, Stride, SuccVst0),
-
-                   SuccVst2 = advance_bs_context(Ctx, Stride, SuccVst1),
-                   SuccVst = prune_x_regs(Live, SuccVst2),
-                   extract_term(Type, Op, [Ctx], Dst, SuccVst, SuccVst0)
-           end).
+    branch(Fail, Vst, SuccFun).
 
 %%
 %% Common code for validating bs_skip* instructions.
