@@ -485,6 +485,13 @@ prefer_xregs_is([#cg_set{op=call,dst=Dst}=I0|Is], St, Copies, Acc) ->
 prefer_xregs_is([#cg_set{op=old_make_fun,dst=Dst}=I0|Is], St, Copies, Acc) ->
     I = prefer_xregs_call(I0, Copies, St),
     prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
+prefer_xregs_is([#cg_set{op=Op}=I|Is], St, Copies0, Acc)
+  when Op =:= bs_checked_get;
+       Op =:= bs_checked_skip;
+       Op =:= bs_checked_get_tail;
+       Op =:= bs_ensure ->
+    Copies = prefer_xregs_prune(I, Copies0, St),
+    prefer_xregs_is(Is, St, Copies, [I|Acc]);
 prefer_xregs_is([#cg_set{args=Args0}=I0|Is], St, Copies0, Acc) ->
     Args = [do_prefer_xreg(A, Copies0, St) || A <- Args0],
     I = I0#cg_set{args=Args},

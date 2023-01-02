@@ -2682,6 +2682,9 @@ bs_match(_Config) ->
     {0,0} = do_bs_match_gh_6551b(0),
     {<<42>>,<<42>>} = do_bs_match_gh_6551b(<<42>>),
 
+    ok = do_bs_match_gh_6613(<<0>>),
+    <<0,0>> = do_bs_match_gh_6613(<<0,0>>),
+
     ok.
 
 do_bs_match_1(_, X) ->
@@ -2710,6 +2713,24 @@ do_bs_match_gh_6551b(X) ->
             <<_>> ->
                 X
         end}.
+
+do_bs_match_gh_6613(<<_>>) ->
+    ok;
+do_bs_match_gh_6613(X) ->
+    try
+        try X of
+            #{(not ok) := _} ->
+                ok;
+            <<Z, Z>> ->
+                ok
+        after
+            ok
+        end
+    catch
+        _ ->
+            ok
+    end,
+    X.
 
 %% GH-6348/OTP-18297: Allow aliases for binaries.
 -record(ba_foo, {a,b,c}).
