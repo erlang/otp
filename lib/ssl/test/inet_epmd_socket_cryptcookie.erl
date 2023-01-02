@@ -24,7 +24,7 @@
 %% and the crypto application, over gen_tcp and inet,
 %% enabling the use of inet_backend = socket
 %%
--module(inet_epmd_cryptcookie).
+-module(inet_epmd_socket_cryptcookie).
 -feature(maybe_expr, enable).
 
 %% DistMod API

@@ -234,11 +234,11 @@ init_per_group(benchmark, Config) ->
 init_per_group(ssl, Config) ->
     [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
 init_per_group(crypto, Config) ->
-    try inet_epmd_cryptcookie:supported() of
+    try inet_epmd_socket_cryptcookie:supported() of
         ok ->
             [{ssl_dist, false}, {ssl_dist_prefix, "Crypto"},
              {ssl_dist_args,
-              "-proto_dist inet_epmd -inet_epmd cryptcookie"}
+              "-proto_dist inet_epmd -inet_epmd socket_cryptcookie"}
             | Config];
         Problem ->
             {skip, Problem}
