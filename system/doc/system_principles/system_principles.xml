@@ -107,7 +107,7 @@ init:stop()</pre>
 	the applications Kernel and STDLIB.</item>
 	<item><c>start_sasl.boot</c> - Loads the code for and starts
 	the applications Kernel, STDLIB, and
-	SASL).</item>
+	SASL.</item>
 	<item><c>no_dot_erlang.boot</c> - Loads the code for and
 	starts the applications Kernel and STDLIB.
 	Skips loading the file <c>.erlang</c>. Useful for scripts and
