@@ -42,7 +42,7 @@
          bs_saved_position_units/1,parent_container/1,
          container_performance/1,
          infer_relops/1,
-         not_equal_inference/1]).
+         not_equal_inference/1,bad_bin_unit/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -78,7 +78,7 @@ groups() ->
        missing_return_type,will_succeed,
        bs_saved_position_units,parent_container,
        container_performance,infer_relops,
-       not_equal_inference]}].
+       not_equal_inference,bad_bin_unit]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1061,6 +1061,44 @@ not_equal_inference(_Config) ->
 
 not_equal_inference_1(X) when (X /= []) /= is_port(0 div 0) ->
     [X || _ <- []].
+
+bad_bin_unit(_Config) ->
+    {'EXIT', {function_clause,_}} = catch bad_bin_unit_1(<<1:1>>),
+    [] = bad_bin_unit_2(),
+    ok.
+
+bad_bin_unit_1(<<X:((ok > {<<(true andalso ok)>>}) orelse 1)>>) ->
+    try
+        bad_bin_unit_1_a()
+    after
+        -(X + bad_bin_unit_1_b(not ok)),
+        try
+            ok
+        catch
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok
+        end
+    end.
+
+bad_bin_unit_1_a() -> ok.
+bad_bin_unit_1_b(_) -> ok.
+
+bad_bin_unit_2() ->
+   [
+       ok
+       || <<X:(is_number(<<(<<(0 bxor 0)>>)>>) orelse 1)>> <= <<>>,
+       #{X := _} <- ok
+   ].
 
 id(I) ->
     I.
