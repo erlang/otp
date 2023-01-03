@@ -1124,12 +1124,12 @@ static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
-static ERL_NIF_TERM esock_send(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ERL_NIF_TERM     sockRef,
-                               ERL_NIF_TERM     sendRef,
-                               ErlNifBinary*    dataP,
-                               int              flags);
+/* static ERL_NIF_TERM esock_send(ErlNifEnv*       env, */
+/*                                ESockDescriptor* descP, */
+/*                                ERL_NIF_TERM     sockRef, */
+/*                                ERL_NIF_TERM     sendRef, */
+/*                                ErlNifBinary*    dataP, */
+/*                                int              flags); */
 static ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     sockRef,
@@ -3574,6 +3574,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(ctrl);                            \
     GLOBAL_ATOM_DECL(ctrunc);                          \
     GLOBAL_ATOM_DECL(data);                            \
+    GLOBAL_ATOM_DECL(data_size);                       \
     GLOBAL_ATOM_DECL(debug);                           \
     GLOBAL_ATOM_DECL(default);                         \
     GLOBAL_ATOM_DECL(default_send_params);             \
@@ -3809,7 +3810,12 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(use_min_mtu);                     \
     GLOBAL_ATOM_DECL(use_registry);                    \
     GLOBAL_ATOM_DECL(void);                            \
-    GLOBAL_ATOM_DECL(v6only)
+    GLOBAL_ATOM_DECL(v6only);                          \
+    GLOBAL_ATOM_DECL(write_byte);                      \
+    GLOBAL_ATOM_DECL(write_fails);                     \
+    GLOBAL_ATOM_DECL(write_pkg);                       \
+    GLOBAL_ATOM_DECL(write_tries);                     \
+    GLOBAL_ATOM_DECL(write_waits)
 
 
 /* *** Global error reason atoms *** */
@@ -3849,7 +3855,6 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(counters);         \
     LOCAL_ATOM_DECL(ctype);            \
     LOCAL_ATOM_DECL(data_io);          \
-    LOCAL_ATOM_DECL(data_size);        \
     LOCAL_ATOM_DECL(debug_filename);   \
     LOCAL_ATOM_DECL(del);              \
     LOCAL_ATOM_DECL(dest_unreach);     \
@@ -3995,12 +4000,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(value);            \
     LOCAL_ATOM_DECL(want);             \
     LOCAL_ATOM_DECL(write);            \
-    LOCAL_ATOM_DECL(write_byte);       \
-    LOCAL_ATOM_DECL(write_fails);      \
-    LOCAL_ATOM_DECL(write_pkg);        \
     LOCAL_ATOM_DECL(write_pkg_max);    \
-    LOCAL_ATOM_DECL(write_tries);      \
-    LOCAL_ATOM_DECL(write_waits);      \
     LOCAL_ATOM_DECL(wstates);          \
     LOCAL_ATOM_DECL(zero);             \
     LOCAL_ATOM_DECL(zerocopy)
@@ -4602,12 +4602,12 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                            atom_read_pkg_max,
                            atom_read_tries,
                            atom_read_waits,
-                           atom_write_byte,
-                           atom_write_fails,
-                           atom_write_pkg,
+                           esock_atom_write_byte,
+                           esock_atom_write_fails,
+                           esock_atom_write_pkg,
                            atom_write_pkg_max,
-                           atom_write_tries,
-                           atom_write_waits,
+                           esock_atom_write_tries,
+                           esock_atom_write_waits,
                            esock_atom_acc_success,
                            esock_atom_acc_fails,
                            esock_atom_acc_tries,
@@ -5781,7 +5781,7 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
      * is done!
      */
 
-    res = esock_send(env, descP, sockRef, sendRef, &sndData, flags);
+    res = ESOCK_IO_SEND(env, descP, sockRef, sendRef, &sndData, flags);
 
     SSDBG( descP, ("SOCKET", "nif_send(%T) -> done with"
                    "\r\n   res: %T"
@@ -5796,61 +5796,6 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
 
 #endif // #ifdef __WIN32__  #else
 }
-
-
-
-/* *** esock_send ***
- *
- * Do the actual send.
- * Do some initial writer checks, do the actual send and then
- * analyze the result. If we are done, another writer may be
- * scheduled (if there is one in the writer queue).
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_send(ErlNifEnv*       env,
-                        ESockDescriptor* descP,
-                        ERL_NIF_TERM     sockRef,
-                        ERL_NIF_TERM     sendRef,
-                        ErlNifBinary*    sndDataP,
-                        int              flags)
-{
-    ssize_t      send_result;
-    ERL_NIF_TERM writerCheck;
-
-    if (! IS_OPEN(descP->writeState))
-        return esock_make_error_closed(env);
-
-    /* Connect and Write uses the same select flag
-     * so they can not be simultaneous
-     */
-    if (descP->connectorP != NULL)
-        return esock_make_error_invalid(env, esock_atom_state);
-
-    send_result = (ssize_t) sndDataP->size;
-    if ((size_t) send_result != sndDataP->size)
-        return esock_make_error_invalid(env, atom_data_size);
-
-    /* Ensure that we either have no current writer or we are it,
-     * or enqueue this process if there is a current writer  */
-    if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
-        SSDBG( descP, ("SOCKET", "esock_send {%d} -> writer check failed: "
-                       "\r\n   %T\r\n", descP->sock, writerCheck) );
-        return writerCheck;
-    }
-    
-    ESOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
-
-    send_result =
-        sock_send(descP->sock, sndDataP->data, sndDataP->size, flags);
-
-    return send_check_result(env, descP,
-                             send_result, sndDataP->size, FALSE,
-                             sockRef, sendRef);
-
-}
-#endif // #ifndef __WIN32__
-
 
 
 /* ----------------------------------------------------------------------
@@ -5974,7 +5919,7 @@ ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
 
     sendto_result = (ssize_t) dataP->size;
     if ((size_t) sendto_result != dataP->size)
-        return esock_make_error_invalid(env, atom_data_size);
+        return esock_make_error_invalid(env, esock_atom_data_size);
 
     /* Ensure that we either have no current writer or we are it,
      * or enqueue this process if there is a current writer  */
@@ -5984,7 +5929,8 @@ ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
         return writerCheck;
     }
     
-    ESOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_tries, &descP->writeTries, 1);
 
     if (toAddrP != NULL) {
         sendto_result =
@@ -6282,7 +6228,8 @@ ERL_NIF_TERM esock_sendmsg(ErlNifEnv*       env,
      * but zero it just in case */
     msgHdr.msg_flags      = 0;
 
-    ESOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_tries, &descP->writeTries, 1);
 
     /* And now, try to send the message */
     sendmsg_result = sock_sendmsg(descP->sock, &msgHdr, flags);
@@ -11225,7 +11172,7 @@ ERL_NIF_TERM esock_getopt_bin_opt(ErlNifEnv*       env,
 
     vsz = (SOCKOPTLEN_T) binP->size;
     if (SZT(vsz) != binP->size) {
-        result = esock_make_error_invalid(env, atom_data_size);
+        result = esock_make_error_invalid(env, esock_atom_data_size);
     } else {
         ESOCK_ASSERT( ALLOC_BIN(vsz, &val) );
         sys_memcpy(val.data, binP->data, vsz);
@@ -13675,9 +13622,9 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
                            ERL_NIF_TERM     sockRef)
 {
     ESOCK_CNT_INC(env, descP, sockRef,
-                  atom_write_pkg, &descP->writePkgCnt, 1);
+                  esock_atom_write_pkg, &descP->writePkgCnt, 1);
     ESOCK_CNT_INC(env, descP, sockRef,
-                  atom_write_byte, &descP->writeByteCnt, written);
+                  esock_atom_write_byte, &descP->writeByteCnt, written);
     descP->writePkgMaxCnt += written;
     if (descP->writePkgMaxCnt > descP->writePkgMax)
         descP->writePkgMax = descP->writePkgMaxCnt;
@@ -13709,7 +13656,7 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
 #endif // #ifndef __WIN32__
 
 
-/* *** send_check_failure ***
+/* *** send_check_fail ***
  *
  * Processing done upon failed send.
  * An actual failure - we (and everyone waiting) give up.
@@ -13721,9 +13668,10 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                              int              saveErrno,
                              ERL_NIF_TERM     sockRef)
 {
-  ERL_NIF_TERM reason;
+    ERL_NIF_TERM reason;
 
-    ESOCK_CNT_INC(env, descP, sockRef, atom_write_fails, &descP->writeFails, 1);
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_fails, &descP->writeFails, 1);
 
     SSDBG( descP, ("SOCKET", "send_check_fail(%T) {%d} -> error: %d\r\n",
                    sockRef, descP->sock, saveErrno) );
@@ -13822,9 +13770,9 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
             descP->writePkgMaxCnt = 0;
 
             ESOCK_CNT_INC(env, descP, sockRef,
-                          atom_write_pkg, &descP->writePkgCnt, 1);
+                          esock_atom_write_pkg, &descP->writePkgCnt, 1);
             ESOCK_CNT_INC(env, descP, sockRef,
-                          atom_write_byte, &descP->writeByteCnt, written);
+                          esock_atom_write_byte, &descP->writeByteCnt, written);
 
             if (descP->currentWriterP != NULL) {
                 ESOCK_ASSERT( DEMONP("send_check_retry -> current writer",
@@ -13900,8 +13848,8 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
                                       MKI(env, sres)));
 
     } else {
-        ESOCK_CNT_INC(env, descP, sockRef, atom_write_waits,
-                      &descP->writeWaits, 1);
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_write_waits, &descP->writeWaits, 1);
 
         descP->writeState |= ESOCK_STATE_SELECTED;
 

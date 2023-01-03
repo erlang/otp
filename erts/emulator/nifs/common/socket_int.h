@@ -241,6 +241,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(ctrl);                     \
     GLOBAL_ATOM_DEF(ctrunc);                   \
     GLOBAL_ATOM_DEF(data);                     \
+    GLOBAL_ATOM_DEF(data_size);                \
     GLOBAL_ATOM_DEF(debug);                    \
     GLOBAL_ATOM_DEF(default);                  \
     GLOBAL_ATOM_DEF(default_send_params);      \
@@ -477,7 +478,12 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(use_min_mtu);              \
     GLOBAL_ATOM_DEF(use_registry);             \
     GLOBAL_ATOM_DEF(void);                     \
-    GLOBAL_ATOM_DEF(v6only)
+    GLOBAL_ATOM_DEF(v6only);                   \
+    GLOBAL_ATOM_DEF(write_byte);               \
+    GLOBAL_ATOM_DEF(write_fails);              \
+    GLOBAL_ATOM_DEF(write_pkg);                \
+    GLOBAL_ATOM_DEF(write_tries);              \
+    GLOBAL_ATOM_DEF(write_waits)
 
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

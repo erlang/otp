@@ -74,8 +74,8 @@ typedef ERL_NIF_TERM (*ESockIOAccept)(ErlNifEnv*       env,
 typedef ERL_NIF_TERM (*ESockIOSend)(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
                                     ERL_NIF_TERM     sockRef,
-                                    ERL_NIF_TERM     recvRef,
-                                    ssize_t          len,
+                                    ERL_NIF_TERM     sendRef,
+                                    ErlNifBinary*    sndDataP,
                                     int              flags);
 
 typedef ERL_NIF_TERM (*ESockIOSendTo)(ErlNifEnv*       env,

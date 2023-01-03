@@ -58,6 +58,7 @@
 #define sock_listen(s, b)               listen((s), (b))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
+#define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
 
 
 /* ======================================================================== *
@@ -138,6 +139,35 @@ static BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
                                        SOCKET           accSock,
                                        ErlNifPid        pid,
                                        ERL_NIF_TERM*    result);
+
+static BOOLEAN_T send_check_writer(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     ref,
+                                   ERL_NIF_TERM*    checkResult);
+static ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ssize_t          send_result,
+                                      ssize_t          dataSize,
+                                      BOOLEAN_T        dataInTail,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     sendRef);
+static ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ssize_t          written,
+                                  ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              saveErrno,
+                                    ERL_NIF_TERM     sockRef);
+static void send_error_waiting_writers(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef,
+                                       ERL_NIF_TERM     reason);
+static ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ssize_t          written,
+                                     ERL_NIF_TERM     sockRef,
+                                     ERL_NIF_TERM     sendRef);
 
 
 /* ======================================================================== *
@@ -1354,16 +1384,52 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
 
 
 /* ========================================================================
+ * Do the actual send.
+ * Do some initial writer checks, do the actual send and then
+ * analyze the result. If we are done, another writer may be
+ * scheduled (if there is one in the writer queue).
  */
 extern
 ERL_NIF_TERM essio_send(ErlNifEnv*       env,
                         ESockDescriptor* descP,
                         ERL_NIF_TERM     sockRef,
-                        ERL_NIF_TERM     recvRef,
-                        ssize_t          len,
+                        ERL_NIF_TERM     sendRef,
+                        ErlNifBinary*    sndDataP,
                         int              flags)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    ssize_t      send_result;
+    ERL_NIF_TERM writerCheck;
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->connectorP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    send_result = (ssize_t) sndDataP->size;
+    if ((size_t) send_result != sndDataP->size)
+        return esock_make_error_invalid(env, esock_atom_data_size);
+
+    /* Ensure that we either have no current writer or we are it,
+     * or enqueue this process if there is a current writer  */
+    if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
+        SSDBG( descP, ("SOCKET", "esock_send {%d} -> writer check failed: "
+                       "\r\n   %T\r\n", descP->sock, writerCheck) );
+        return writerCheck;
+    }
+    
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_tries, &descP->writeTries, 1);
+
+    send_result = sock_send(descP->sock, sndDataP->data, sndDataP->size, flags);
+
+    return send_check_result(env, descP,
+                             send_result, sndDataP->size, FALSE,
+                             sockRef, sendRef);
+
 }
 
 
@@ -1504,3 +1570,407 @@ ERL_NIF_TERM essio_peername(ErlNifEnv*       env,
 {
     return enif_raise_exception(env, MKA(env, "notsup"));
 }
+
+
+/* ----------------------------------------------------------------------
+ *  U t i l i t y   F u n c t i o n s
+ * ----------------------------------------------------------------------
+ */
+
+/* *** send_check_writer ***
+ *
+ * Checks if we have a current writer and if that is us.
+ * If not (current writer), then we must be made to wait
+ * for our turn. This is done by pushing us unto the writer queue.
+ */
+static
+BOOLEAN_T send_check_writer(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ERL_NIF_TERM     ref,
+                            ERL_NIF_TERM*    checkResult)
+{
+    if (descP->currentWriterP != NULL) {
+        ErlNifPid caller;
+        
+        ESOCK_ASSERT( enif_self(env, &caller) != NULL );
+
+        if (COMPARE_PIDS(&descP->currentWriter.pid, &caller) != 0) {
+            /* Not the "current writer", so (maybe) push onto queue */
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "send_check_writer {%d} -> not (current) writer"
+                    "\r\n   ref: %T"
+                    "\r\n", descP->sock, ref) );
+
+            if (! esock_writer_search4pid(env, descP, &caller)) {
+                esock_writer_push(env, descP, caller, ref);
+                *checkResult = esock_atom_select;
+            } else {
+                /* Writer already in queue */
+                *checkResult = esock_raise_invalid(env, esock_atom_state);
+            }
+            
+            SSDBG( descP,
+                   ("SOCKET",
+                    "send_check_writer {%d} -> queue (push) result: %T\r\n"
+                    "\r\n   ref: %T"
+                    "\r\n", descP->sock, *checkResult, ref) );
+            
+            return FALSE;
+        }
+    }
+
+    // Does not actually matter in this case, but ...
+    *checkResult = esock_atom_ok;
+
+    return TRUE;
+}
+
+
+/* *** send_check_result ***
+ *
+ * Check the result of a socket send (send, sendto and sendmsg) call.
+ * If a "complete" send has been made, the next (waiting) writer will be 
+ * scheduled (if there is one).
+ * If we did not manage to send the entire package, make another select,
+ * so that we can be informed when we can make another try (to send the rest),
+ * and return with the amount we actually managed to send (its up to the caller
+ * (that is the erlang code) to figure out hust much is left to send).
+ * If the write fail, we give up and return with the appropriate error code.
+ *
+ * What about the remaining writers!!
+ *
+ */
+static
+ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ssize_t          send_result,
+                               ssize_t          dataSize,
+                               BOOLEAN_T        dataInTail,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     sendRef)
+{
+    ERL_NIF_TERM res;
+    BOOLEAN_T    send_error;
+    int          err;
+
+    send_error = ESOCK_IS_ERROR(send_result);
+    err = send_error ? sock_errno() : 0;
+
+    SSDBG( descP,
+           ("SOCKET", "send_check_result(%T) {%d} -> entry with"
+            "\r\n   send_result:  %ld"
+            "\r\n   dataSize:     %ld"
+            "\r\n   err:          %d"
+            "\r\n   sendRef:      %T"
+            "\r\n", sockRef, descP->sock,
+            (long) send_result, (long) dataSize, err, sendRef) );
+
+    if (send_error) {
+        /* Some kind of send failure - check what kind */
+        if ((err != EAGAIN) && (err != EINTR)) {
+            res = send_check_fail(env, descP, err, sockRef);
+        } else {
+            /* Ok, try again later */
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "send_check_result(%T) {%d} -> try again"
+                    "\r\n", sockRef, descP->sock) );
+
+            res = send_check_retry(env, descP, -1, sockRef, sendRef);
+        }
+    } else {
+        ssize_t written = send_result;
+        ESOCK_ASSERT( dataSize >= written );
+
+        if (written < dataSize) {
+            /* Not the entire package */
+            SSDBG( descP,
+                   ("SOCKET",
+                    "send_check_result(%T) {%d} -> "
+                    "not entire package written (%d of %d)"
+                    "\r\n", sockRef, descP->sock,
+                    written, dataSize) );
+
+            res = send_check_retry(env, descP, written, sockRef, sendRef);
+        } else if (dataInTail) {
+            /* Not the entire package */
+            SSDBG( descP,
+                   ("SOCKET",
+                    "send_check_result(%T) {%d} -> "
+                    "not entire package written (%d but data in tail)"
+                    "\r\n", sockRef, descP->sock,
+                    written) );
+
+            res =
+                send_check_retry(env, descP, written, sockRef,
+                                 esock_atom_iov);
+        } else {
+            res = send_check_ok(env, descP, written, sockRef);
+        }
+    }
+
+    SSDBG( descP,
+           ("SOCKET",
+            "send_check_result(%T) {%d} -> done:"
+            "\r\n   res: %T"
+            "\r\n", sockRef, descP->sock,
+            res) );
+
+    return res;
+}
+
+
+/* *** send_check_ok ***
+ *
+ * Processing done upon successful send.
+ */
+static
+ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ssize_t          written,
+                           ERL_NIF_TERM     sockRef)
+{
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_pkg, &descP->writePkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_byte, &descP->writeByteCnt, written);
+    descP->writePkgMaxCnt += written;
+    if (descP->writePkgMaxCnt > descP->writePkgMax)
+        descP->writePkgMax = descP->writePkgMaxCnt;
+    descP->writePkgMaxCnt = 0;
+
+    SSDBG( descP,
+           ("SOCKET", "send_check_ok(%T) {%d} -> "
+            "everything written (%ld) - done\r\n",
+            sockRef, descP->sock, written) );
+
+    if (descP->currentWriterP != NULL) {
+        ESOCK_ASSERT( DEMONP("send_check_ok -> current writer",
+                             env, descP, &descP->currentWriter.mon) == 0);
+    }
+    /*
+     * Ok, this write is done maybe activate the next (if any)
+     */
+    if (!esock_activate_next_writer(env, descP, sockRef)) {
+
+        SSDBG( descP,
+               ("SOCKET", "send_check_ok(%T) {%d} -> no more writers\r\n",
+                sockRef, descP->sock) );
+
+        descP->currentWriterP = NULL;
+    }
+
+    return esock_atom_ok;
+}
+
+
+/* *** send_check_fail ***
+ *
+ * Processing done upon failed send.
+ * An actual failure - we (and everyone waiting) give up.
+ */
+static
+ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             int              saveErrno,
+                             ERL_NIF_TERM     sockRef)
+{
+  ERL_NIF_TERM reason;
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_fails, &descP->writeFails, 1);
+
+    SSDBG( descP, ("SOCKET", "send_check_fail(%T) {%d} -> error: %d\r\n",
+                   sockRef, descP->sock, saveErrno) );
+
+    reason = MKA(env, erl_errno_id(saveErrno));
+
+    if (saveErrno != EINVAL) {
+
+        /*
+         * We assume that anything other then einval (invalid input)
+         * is basically fatal (=> all waiting sends are aborted)
+         */
+
+        if (descP->currentWriterP != NULL) {
+
+            esock_requestor_release("send_check_fail",
+                                    env, descP, &descP->currentWriter);
+
+            send_error_waiting_writers(env, descP, sockRef, reason);
+
+            descP->currentWriterP = NULL;
+        }
+    }
+    return esock_make_error(env, reason);
+}
+
+
+/* *** send_error_waiting_writers ***
+ *
+ * Process all waiting writers when a fatal error has occurred.
+ * All waiting writers will be "aborted", that is a
+ * nif_abort message will be sent (with ref and reason).
+ */
+#ifndef __WIN32__
+static
+void send_error_waiting_writers(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                ERL_NIF_TERM     reason)
+{
+    ESockRequestor req;
+
+    req.env = NULL; /* read by writer_pop before free */
+    while (esock_writer_pop(env, descP, &req)) {
+        SSDBG( descP,
+               ("SOCKET",
+                "send_error_waiting_writers(%T) {%d} -> abort"
+                "\r\n   pid:    %T"
+                "\r\n   reason: %T"
+                "\r\n",
+                sockRef, descP->sock, &req.pid, reason) );
+
+        esock_send_abort_msg(env, descP, sockRef, &req, reason);
+
+        (void) DEMONP("send_error_waiting_writers -> pop'ed writer",
+                      env, descP, &req.mon);
+    }
+}
+#endif // #ifndef __WIN32__
+
+
+/* *** send_check_retry ***
+ *
+ * Processing done upon incomplete or blocked send.
+ *
+ * We failed to write the *entire* packet (anything less
+ * then size of the packet, which is 0 <= written < sizeof
+ * packet, so schedule the rest for later.
+ */
+static
+ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ssize_t          written,
+                              ERL_NIF_TERM     sockRef,
+                              ERL_NIF_TERM     sendRef)
+{
+    int          sres;
+    ERL_NIF_TERM res;
+
+    SSDBG( descP,
+           ("SOCKET",
+            "send_check_retry(%T) {%d} -> %ld"
+            "\r\n", sockRef, descP->sock, (long) written) );
+
+    if (written >= 0) {
+        descP->writePkgMaxCnt += written;
+
+        if (descP->type != SOCK_STREAM) {
+            /* Partial write for packet oriented socket
+             * - done with packet
+             */
+            if (descP->writePkgMaxCnt > descP->writePkgMax)
+                descP->writePkgMax = descP->writePkgMaxCnt;
+            descP->writePkgMaxCnt = 0;
+
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_write_pkg, &descP->writePkgCnt, 1);
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_write_byte, &descP->writeByteCnt, written);
+
+            if (descP->currentWriterP != NULL) {
+                ESOCK_ASSERT( DEMONP("send_check_retry -> current writer",
+                                     env, descP,
+                                     &descP->currentWriter.mon) == 0);
+            }
+            /*
+             * Ok, this write is done maybe activate the next (if any)
+             */
+            if (!esock_activate_next_writer(env, descP, sockRef)) {
+
+                SSDBG( descP,
+                       ("SOCKET",
+                        "send_check_retry(%T) {%d} -> no more writers\r\n",
+                        sockRef, descP->sock) );
+
+                descP->currentWriterP = NULL;
+            }
+
+            return esock_make_ok2(env, MKI64(env, written));
+        } /* else partial write for stream socket */
+    } /* else send would have blocked */
+
+    /* Register this process as current writer */
+
+    if (descP->currentWriterP == NULL) {
+        /* Register writer as current */
+
+        ESOCK_ASSERT( enif_self(env, &descP->currentWriter.pid) != NULL );
+        ESOCK_ASSERT( MONP("send_check_retry -> current writer",
+                           env, descP,
+                           &descP->currentWriter.pid,
+                           &descP->currentWriter.mon) == 0 );
+        ESOCK_ASSERT( descP->currentWriter.env == NULL );
+
+        descP->currentWriter.env = esock_alloc_env("current-writer");
+        descP->currentWriter.ref =
+            CP_TERM(descP->currentWriter.env, sendRef);
+        descP->currentWriterP = &descP->currentWriter;
+    } else {
+        /* Overwrite current writer registration */
+        enif_clear_env(descP->currentWriter.env);
+        descP->currentWriter.ref = CP_TERM(descP->currentWriter.env, sendRef);
+    }
+
+    if (COMPARE(sendRef, esock_atom_iov) == 0) {
+        ESOCK_ASSERT( written >= 0 );
+        /* IOV iteration - do not select */
+        return MKT2(env, esock_atom_iov, MKI64(env, written));
+    }
+
+    /* Select write for this process */
+
+    sres = esock_select_write(env, descP->sock, descP, NULL, sockRef, sendRef);
+
+    if (sres < 0) {
+        ERL_NIF_TERM reason;
+
+        /* Internal select error */
+        ESOCK_ASSERT( DEMONP("send_check_retry - select error",
+                             env, descP, &descP->currentWriter.mon) == 0);
+
+        /* Fail all queued writers */
+        reason = MKT2(env, esock_atom_select_write, MKI(env, sres));
+        esock_requestor_release("send_check_retry - select error",
+                                env, descP, &descP->currentWriter);
+        send_error_waiting_writers(env, descP, sockRef, reason);
+        descP->currentWriterP = NULL;
+
+        res =
+            enif_raise_exception(env,
+                                 MKT2(env, esock_atom_select_write,
+                                      MKI(env, sres)));
+
+    } else {
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_write_waits, &descP->writeWaits, 1);
+
+        descP->writeState |= ESOCK_STATE_SELECTED;
+
+        if (written >= 0) {
+            /* Partial write success */
+            res = MKT2(env, esock_atom_select, MKI64(env, written));
+        } else {
+            /* No write - try again */
+            res = esock_atom_select;
+        }
+    }
+
+    return res;
+}
+
+
