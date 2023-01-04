@@ -703,6 +703,9 @@ do_receive_effect() ->
 nested_lets(_Config) ->
     {'EXIT',{{case_clause,ok},_}} = catch nested_lets_1(<<42>>),
     {'EXIT',{badarith,_}} = catch nested_lets_2(id(0), id(0)),
+    {'EXIT',{badarith,_}} = catch nested_lets_3(),
+    {'EXIT',{undef,_}} = catch nested_lets_4(),
+
     ok.
 
 %% GH-6572: Deeply nested `let` expressions caused `sys_core_fold` to generate
@@ -794,6 +797,29 @@ nested_lets_2(X, 0) ->
 
 nested_lets_2_f(_) ->
     ok.
+
+nested_lets_3() ->
+    try ((true = [X | _]) = (ok * (_ = ok))) of
+        _ ->
+            X
+    after
+        ok
+    end.
+
+nested_lets_4() ->
+    try
+        not (case {(_ = ok), (Y = ?MODULE:undef())} of
+            a ->
+                ok;
+            0 ->
+                ok
+        end)
+    of
+        _ ->
+            Y
+    after
+        ok
+    end.
 
 %%% Common utility functions.
 id(I) -> I.
