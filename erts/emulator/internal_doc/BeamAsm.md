@@ -362,7 +362,7 @@ your needs. For instance, if we run dialyzer with all schedulers:
       syntax_tools asn1 edoc et ftp inets mnesia observer public_key \
       sasl runtime_tools snmp ssl tftp wx xmerl tools --statistics
 
-And then use the scripts found at Brendan Gregg's [CPU Flame Graphs](http://www.brendangregg.com/FlameGraphs/cpuflamegraphs)
+And then use the scripts found at Brendan Gregg's [CPU Flame Graphs](https://www.brendangregg.com/FlameGraphs/cpuflamegraphs.html)
 web page as follows:
 
     ## Collect the results
