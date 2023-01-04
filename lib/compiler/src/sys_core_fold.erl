@@ -2216,32 +2216,24 @@ move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner0,
 
     OuterBody = body(OuterBody0, ScopeSub),
 
-    {InnerVs,Sub} = var_list(InnerVs0, Sub0),
-    InnerBody = body(InnerBody0, Sub),
-    Inner = case will_fail(OuterBody) of
-                true ->
-                    %%
-                    %% Avoid creating potentially unsafe code that
-                    %% depends on another iteration of the outer
-                    %% fixpoint loop to clean up. If <OuterBody>
-                    %% consists of nested lets, we may run out of
-                    %% iterations before the unsafe code is
-                    %% eliminated.
-                    %%
-                    %% let <InnerVars> = let <OuterVars> = <Arg>
-                    %%                   in <OuterBody>
-                    %% in <InnerBody>
-                    %%
-                    %%       ==>
-                    %%
-                    %% let <OuterVars> = <Arg>
-                    %% in <OuterBody>
-                    %%
-                    OuterBody;
-                false ->
-                    Inner0#c_let{vars=InnerVs,arg=OuterBody,body=InnerBody}
-            end,
-    Outer#c_let{vars=OuterVs,arg=Arg,body=Inner};
+    case will_fail(OuterBody) of
+        true ->
+            %%
+            %% Avoid creating potentially unsafe code that
+            %% depends on another iteration of the outer
+            %% fixpoint loop to clean up. If <OuterBody>
+            %% consists of nested lets, we may run out of
+            %% iterations before the unsafe code is
+            %% eliminated.
+            %%
+            Inner0;
+        false ->
+            {InnerVs,Sub} = var_list(InnerVs0, Sub0),
+            InnerBody = body(InnerBody0, Sub),
+        
+            Inner = Inner0#c_let{vars=InnerVs,arg=OuterBody,body=InnerBody},
+            Outer#c_let{vars=OuterVs,arg=Arg,body=Inner}
+    end;
 move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 		   #c_case{arg=Cexpr0,clauses=[Ca0|Cs0]}=Case, Sub0) ->
     case not is_failing_clause(Ca0) andalso
