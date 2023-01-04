@@ -419,6 +419,10 @@ booleans(_Config) ->
     true = do_booleans_5(id(0), id(<<0>>), id(0)),
     {'EXIT',{function_clause,_}} = catch do_booleans_6(id(0), id(0), id(0)),
 
+    {'EXIT',{{bad_filter,_},_}} = catch do_booleans_7(id(0)),
+    {'EXIT',{function_clause,_}} = catch do_booleans_8(id(0)),
+    {'EXIT',{{try_clause,_},_}} = catch do_booleans_9(id(0)),
+
     ok.
 
 do_booleans_1(B) ->
@@ -459,6 +463,43 @@ do_booleans_5(X, <<X>>, X) when true; (0 rem 0) ->
 
 do_booleans_6(X, X, (X = [_ | X])) when true; self() ->
     [0 || _ <- {X}].
+
+%% GH-6603: The boolean optimization pass was clever enough to see that boolean
+%% operations like `xor` never failed when both arguments were booleans, but
+%% neither the type pass nor the validator could see that.
+do_booleans_7(X) ->
+    do_booleans_7_a(
+        try [0 || true xor (ok =/= ((?MODULE:id([]) ++ []) -- []))] of
+            Y ->
+                <<0 || do_booleans_7_a(Y)>>
+        catch
+            [] ->
+                X
+        end
+    ).
+
+do_booleans_7_a(_) ->
+    [].
+
+do_booleans_8([X | Y]) ->
+    try
+        ([ok || _ <- Y] > catch <<ok>>) xor false
+    catch
+        <<Z:X>> ->
+            Z
+    end.
+
+do_booleans_9(X) ->
+    (try
+        (true or garbage_collect()) xor
+            is_tuple(catch (1 / 0))
+    of
+        #{} ->
+            ok
+    catch
+        _ ->
+            ok
+    end) < X.        
 
 -record(update_tuple_a, {a,b}).
 -record(update_tuple_b, {a,b,c}).
