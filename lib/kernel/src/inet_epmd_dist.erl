@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 %% DistMod helper API
 -export([check_ip/2, wait_for_code_server/1,
          f_address/2, tick/1, getstat/1, setopts/2, getopts/2,
-         nodelay/0]).
+         nodelay/0, merge_options/3]).
 
 %% net_kernel and dist_util distribution Module API
 -export([address/1, listen/2,
