@@ -477,6 +477,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(use_ext_recvinfo);         \
     GLOBAL_ATOM_DEF(use_min_mtu);              \
     GLOBAL_ATOM_DEF(use_registry);             \
+    GLOBAL_ATOM_DEF(value);                    \
     GLOBAL_ATOM_DEF(void);                     \
     GLOBAL_ATOM_DEF(v6only);                   \
     GLOBAL_ATOM_DEF(write_byte);               \

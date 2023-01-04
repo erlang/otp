@@ -286,6 +286,31 @@ typedef struct{
 
 
 /* ********************************************************************* *
+ *                     Control Message spec type                         *
+ * ********************************************************************* *
+ */
+
+typedef struct {
+    int type; // Message type
+
+    // Function to encode into erlang term
+    BOOLEAN_T (* encode)(ErlNifEnv*     env,
+                         unsigned char* data,
+                         size_t         dataLen,
+                         ERL_NIF_TERM*  eResult);
+
+    // Function to decode from erlang term
+    BOOLEAN_T (* decode)(ErlNifEnv*      env,
+                         ERL_NIF_TERM    eValue,
+                         struct cmsghdr* cmsgP,
+                         size_t          rem,
+                         size_t*         usedP);
+    
+    ERL_NIF_TERM *nameP; // Pointer to option name atom
+} ESockCmsgSpec;
+    
+
+/* ********************************************************************* *
  *                     The socket nif global info                        *
  * ********************************************************************* *
  */
@@ -473,6 +498,7 @@ extern BOOLEAN_T esock_getopt_int(SOCKET sock,
                                   int    opt,
                                   int*   valP);
 
+
 /* ** Socket Registry functions *** */
 extern void esock_send_reg_add_msg(ErlNifEnv*   env,
                                    ESockDescriptor* descP,
@@ -480,6 +506,7 @@ extern void esock_send_reg_add_msg(ErlNifEnv*   env,
 extern void esock_send_reg_del_msg(ErlNifEnv*   env,
                                    ESockDescriptor* descP,
                                    ERL_NIF_TERM sockRef);
+
 
 /* *** Message sending functions *** */
 extern void esock_send_abort_msg(ErlNifEnv*       env,
@@ -494,6 +521,7 @@ extern void esock_send_wrap_msg(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
                                 ERL_NIF_TERM     sockRef,
                                 ERL_NIF_TERM     cnt);
+
 
 /* ** Monitor functions *** */
 extern int esock_monitor(const char*      slogan,
@@ -511,11 +539,13 @@ extern ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv*          env,
 extern BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
                                   const ErlNifMonitor* mon);
 
+
 /* *** Counter functions *** */
 extern BOOLEAN_T esock_cnt_inc(ESockCounter* cnt, ESockCounter inc);
 extern void      esock_cnt_dec(ESockCounter* cnt, ESockCounter dec);
 extern void      esock_inc_socket(int domain, int type, int protocol);
 extern void      esock_dec_socket(int domain, int type, int protocol);
+
 
 /* *** Select functions *** */
 extern int esock_select_read(ErlNifEnv*       env,
@@ -537,6 +567,7 @@ extern int esock_select_cancel(ErlNifEnv*             env,
                                ErlNifEvent            event,
                                enum ErlNifSelectFlags mode,
                                void*                  obj);
+
 
 /* *** Request queue functions *** */
 extern BOOLEAN_T esock_requestor_pop(ESockRequestQueue* q,
@@ -603,11 +634,39 @@ ACTIVATE_NEXT_FUNCS_DEFS
 ESOCK_OPERATOR_FUNCS_DEFS
 #undef ESOCK_OPERATOR_FUNCS_DEF
 
+
 /* *** Environment wrapper functions ***
  * These hould really be inline, but for now...
  */
 extern void       esock_free_env(const char* slogan, ErlNifEnv* env);
 extern ErlNifEnv* esock_alloc_env(const char* slogan);
 
+
+/* *** Control Message utility functions ***
+ */
+#ifndef __WIN32__
+extern void* esock_init_cmsghdr(struct cmsghdr* cmsgP,
+                                size_t          rem,
+                                size_t          size,
+                                size_t*         usedP);
+#if defined(IP_TTL) || \
+    defined(IPV6_HOPLIMIT) || \
+    defined(IPV6_TCLASS) || defined(IPV6_RECVTCLASS)
+extern BOOLEAN_T esock_cmsg_decode_int(ErlNifEnv*      env,
+                                       ERL_NIF_TERM    eValue,
+                                       struct cmsghdr* cmsgP,
+                                       size_t          rem,
+                                       size_t*         usedP);
+#endif
+extern BOOLEAN_T esock_cmsg_decode_bool(ErlNifEnv*      env,
+                                        ERL_NIF_TERM    eValue,
+                                        struct cmsghdr* cmsgP,
+                                        size_t          rem,
+                                        size_t*         usedP);
+#endif
+extern ESockCmsgSpec* esock_lookup_cmsg_table(int level, size_t *num);
+extern ESockCmsgSpec* esock_lookup_cmsg_spec(ESockCmsgSpec* table,
+                                             size_t         num,
+                                             ERL_NIF_TERM   eType);
 
 #endif // PRIM_SOCKET_INT_H__

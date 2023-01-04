@@ -93,7 +93,8 @@ typedef ERL_NIF_TERM (*ESockIOSendMsg)(ErlNifEnv*       env,
                                        ERL_NIF_TERM     sendRef,
                                        ERL_NIF_TERM     eMsg,
                                        int              flags,
-                                       ERL_NIF_TERM     eIOV);
+                                       ERL_NIF_TERM     eIOV,
+                                       const ESockData* dataP);
 
 typedef ERL_NIF_TERM (*ESockIOSendFile)(ErlNifEnv*       env,
                                         ESockDescriptor* descP,

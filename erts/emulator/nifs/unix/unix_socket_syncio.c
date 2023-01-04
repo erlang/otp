@@ -59,12 +59,13 @@
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
 #define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
+#define sock_sendmsg(s,msghdr,flag)     sendmsg((s),(msghdr),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
     sendto((s),(buf),(blen),(flag),(addr),(alen))
 
 
 /* ======================================================================== *
- *                               Function Forwards                          *
+ *                          Function Forwards                               *
  * ======================================================================== *
  */
 static BOOLEAN_T open_is_debug(ErlNifEnv*   env,
@@ -170,6 +171,35 @@ static ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
                                      ssize_t          written,
                                      ERL_NIF_TERM     sockRef,
                                      ERL_NIF_TERM     sendRef);
+
+static BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     eCMsg,
+                                 char*            cmsgHdrBufP,
+                                 size_t           cmsgHdrBufLen,
+                                 size_t*          cmsgHdrBufUsed);
+static BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     eCMsg,
+                                char*            bufP,
+                                size_t           rem,
+                                size_t*          used);
+static BOOLEAN_T decode_cmsghdr_value(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      int              level,
+                                      ERL_NIF_TERM     eType,
+                                      ERL_NIF_TERM     eValue,
+                                      char*            dataP,
+                                      size_t           dataLen,
+                                      size_t*          dataUsedP);
+static BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              level,
+                                     ERL_NIF_TERM     eType,
+                                     ERL_NIF_TERM     eData,
+                                     char*            dataP,
+                                     size_t           dataLen,
+                                     size_t*          dataUsedP);
 
 
 /* ======================================================================== *
@@ -1500,9 +1530,219 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
                            ERL_NIF_TERM     sendRef,
                            ERL_NIF_TERM     eMsg,
                            int              flags,
-                           ERL_NIF_TERM     eIOV)
+                           ERL_NIF_TERM     eIOV,
+                           const ESockData* dataP)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    ERL_NIF_TERM  res, eAddr, eCtrl;
+    ESockAddress  addr;
+    struct msghdr msgHdr;
+    ErlNifIOVec  *iovec = NULL;
+    char*         ctrlBuf;
+    size_t        ctrlBufLen,  ctrlBufUsed;
+    ssize_t       dataSize,    sendmsg_result;
+    ERL_NIF_TERM  writerCheck, tail;
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->connectorP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    /* Ensure that we either have no current writer or we are it,
+     * or enqueue this process if there is a current writer  */
+    if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_sendmsg {%d} -> writer check failed: "
+                "\r\n   %T\r\n", descP->sock, writerCheck) );
+        return writerCheck;
+    }
+
+    /* Initiate the .name and .namelen fields depending on if
+     * we have an address or not
+     */
+    if (! GET_MAP_VAL(env, eMsg, esock_atom_addr, &eAddr)) {
+
+        SSDBG( descP, ("UNIX-ESSIO",
+                       "essio_sendmsg {%d} -> no address\r\n", descP->sock) );
+
+        msgHdr.msg_name    = NULL;
+        msgHdr.msg_namelen = 0;
+    } else {
+        msgHdr.msg_name    = (void*) &addr;
+        msgHdr.msg_namelen = sizeof(addr);
+        sys_memzero((char *) msgHdr.msg_name, msgHdr.msg_namelen);
+
+        SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg {%d} ->"
+                       "\r\n   address: %T"
+                       "\r\n", descP->sock, eAddr) );
+
+        if (! esock_decode_sockaddr(env, eAddr,
+                                    msgHdr.msg_name,
+                                    &msgHdr.msg_namelen)) {
+            SSDBG( descP, ("UNIX-ESSIO",
+                           "essio_sendmsg {%d} -> invalid address\r\n",
+                           descP->sock) );
+            return esock_make_invalid(env, esock_atom_addr);
+        }
+    }
+
+    /* Extract the *mandatory* 'iov', which must be an erlang:iovec(),
+     * from which we take at most IOV_MAX binaries
+     */
+    if ((! enif_inspect_iovec(NULL, dataP->iov_max, eIOV, &tail, &iovec))) {
+        SSDBG( descP, ("UNIX-ESSIO",
+                       "essio_sendmsg {%d} -> not an iov\r\n",
+                       descP->sock) );
+
+        return esock_make_invalid(env, esock_atom_iov);
+    }
+
+    SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg {%d} ->"
+                   "\r\n   iovcnt: %lu"
+                   "\r\n   tail:   %s"
+                   "\r\n", descP->sock,
+                   (unsigned long) iovec->iovcnt,
+                   B2S(! enif_is_empty_list(env, tail))) );
+
+    /* We now have an allocated iovec */
+
+    eCtrl             = esock_atom_undefined;
+    ctrlBufLen        = 0;
+    ctrlBuf           = NULL;
+
+    if (iovec->iovcnt > dataP->iov_max) {
+        if (descP->type == SOCK_STREAM) {
+            iovec->iovcnt = dataP->iov_max;
+        } else {
+            /* We can not send the whole packet in one sendmsg() call */
+            SSDBG( descP, ("UNIX-ESSIO",
+                           "essio_sendmsg {%d} -> iovcnt > iov_max\r\n",
+                           descP->sock) );
+            res = esock_make_invalid(env, esock_atom_iov);
+            goto done_free_iovec;
+        }
+    }
+
+    dataSize = 0;
+    {
+        ERL_NIF_TERM h,   t;
+        ErlNifBinary bin;
+        size_t       i;
+
+        /* Find out if there is remaining data in the tail.
+         * Skip empty binaries otherwise break.
+         * If 'tail' after loop exit is the empty list
+         * there was no more data.  Otherwise there is more
+         * data or the 'iov' is invalid.
+         */
+        for (;;) {
+            if (enif_get_list_cell(env, tail, &h, &t) &&
+                enif_inspect_binary(env, h, &bin) &&
+                (bin.size == 0)) {
+                tail = t;
+                continue;
+            } else
+                break;
+        }
+
+        if ((! enif_is_empty_list(env, tail)) &&
+            (descP->type != SOCK_STREAM)) {
+            /* We can not send the whole packet in one sendmsg() call */
+            SSDBG( descP, ("UNIX-ESSIO",
+                           "essio_sendmsg {%d} -> invalid tail\r\n",
+                           descP->sock) );
+            res = esock_make_invalid(env, esock_atom_iov);
+            goto done_free_iovec;
+        }
+
+        /* Calculate the data size */
+
+        for (i = 0;  i < iovec->iovcnt;  i++) {
+            size_t len = iovec->iov[i].iov_len;
+            dataSize += len;
+            if (dataSize < len) {
+                /* Overflow */
+                SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg {%d} -> Overflow"
+                               "\r\n   i:         %lu"
+                               "\r\n   len:       %lu"
+                               "\r\n   dataSize:  %ld"
+                               "\r\n", descP->sock, (unsigned long) i,
+                               (unsigned long) len, (long) dataSize) );
+                res = esock_make_invalid(env, esock_atom_iov);
+                goto done_free_iovec;
+            }
+        }
+    }
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_sendmsg {%d} ->"
+            "\r\n   iov length: %lu"
+            "\r\n   data size:  %u"
+            "\r\n",
+            descP->sock,
+            (unsigned long) iovec->iovcnt, (long) dataSize) );
+
+    msgHdr.msg_iovlen = iovec->iovcnt;
+    msgHdr.msg_iov    = iovec->iov;
+
+    /* Extract the *optional* 'ctrl' */
+    if (GET_MAP_VAL(env, eMsg, esock_atom_ctrl, &eCtrl)) {
+        ctrlBufLen = descP->wCtrlSz;
+        ctrlBuf    = (char*) MALLOC(ctrlBufLen);
+        ESOCK_ASSERT( ctrlBuf != NULL );
+    }
+    SSDBG( descP, ("UNIX-ESSIO", "essio_sendmsg {%d} -> optional ctrl: "
+                   "\r\n   ctrlBuf:    %p"
+                   "\r\n   ctrlBufLen: %lu"
+                   "\r\n   eCtrl:      %T"
+                   "\r\n", descP->sock,
+                   ctrlBuf, (unsigned long) ctrlBufLen, eCtrl) );
+
+    /* Decode the ctrl and initiate that part of the msghdr.
+     */
+    if (ctrlBuf != NULL) {
+        if (! decode_cmsghdrs(env, descP,
+                              eCtrl,
+                              ctrlBuf, ctrlBufLen, &ctrlBufUsed)) {
+            SSDBG( descP, ("UNIX-ESSIO",
+                           "essio_sendmsg {%d} -> invalid ctrl\r\n",
+                           descP->sock) );
+            res = esock_make_invalid(env, esock_atom_ctrl);
+            goto done_free_iovec;
+        }
+    } else {
+        ctrlBufUsed = 0;
+    }
+    msgHdr.msg_control    = ctrlBuf;
+    msgHdr.msg_controllen = ctrlBufUsed;
+
+    /* The msg_flags field is not used when sending,
+     * but zero it just in case */
+    msgHdr.msg_flags      = 0;
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_tries, &descP->writeTries, 1);
+
+    /* And now, try to send the message */
+    sendmsg_result = sock_sendmsg(descP->sock, &msgHdr, flags);
+
+    res = send_check_result(env, descP, sendmsg_result, dataSize,
+                            (! enif_is_empty_list(env, tail)),
+                            sockRef, sendRef);
+
+ done_free_iovec:
+    enif_free_iovec(iovec);
+    if (ctrlBuf != NULL) FREE(ctrlBuf);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_sendmsg {%d} ->"
+            "\r\n   %T"
+            "\r\n", descP->sock, res) );
+    return res;
+
 }
 
 
@@ -2015,4 +2255,343 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
     return res;
 }
 
+
+/* +++ decode_cmsghdrs +++
+ *
+ * Decode a list of cmsg(). There can be 0 or more "blocks".
+ *
+ * Each element can either be a (erlang) map that needs to be decoded,
+ * or a (erlang) binary that just needs to be appended to the control
+ * buffer.
+ *
+ * Our "problem" is that we have no idea much memory we actually need.
+ *
+ */
+
+static
+BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     eCMsg,
+                          char*            cmsgHdrBufP,
+                          size_t           cmsgHdrBufLen,
+                          size_t*          cmsgHdrBufUsed)
+{
+    ERL_NIF_TERM elem, tail, list;
+    char*        bufP;
+    size_t       rem, used, totUsed = 0;
+    unsigned int len;
+    int          i;
+
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdrs {%d} -> entry with"
+                   "\r\n   eCMsg:      %T"
+                   "\r\n   cmsgHdrBufP:   0x%lX"
+                   "\r\n   cmsgHdrBufLen: %d"
+                   "\r\n", descP->sock,
+                   eCMsg, cmsgHdrBufP, cmsgHdrBufLen) );
+
+    if (! GET_LIST_LEN(env, eCMsg, &len))
+        return FALSE;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "decode_cmsghdrs {%d} -> list length: %d\r\n",
+            descP->sock, len) );
+
+    for (i = 0, list = eCMsg, rem  = cmsgHdrBufLen, bufP = cmsgHdrBufP;
+         i < len; i++) {
+            
+        SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdrs {%d} -> process elem %d:"
+                       "\r\n   (buffer) rem:     %u"
+                       "\r\n   (buffer) totUsed: %u"
+                       "\r\n", descP->sock, i, rem, totUsed) );
+
+        /* Extract the (current) head of the (cmsg hdr) list */
+        if (! GET_LIST_ELEM(env, list, &elem, &tail))
+            return FALSE;
+            
+        used = 0; // Just in case...
+        if (! decode_cmsghdr(env, descP, elem, bufP, rem, &used))
+            return FALSE;
+
+        bufP     = CHARP( ULONG(bufP) + used );
+        rem      = SZT( rem - used );
+        list     = tail;
+        totUsed += used;
+
+    }
+
+    *cmsgHdrBufUsed = totUsed;
+
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdrs {%d} -> done"
+                   "\r\n   all %u ctrl headers processed"
+                   "\r\n   totUsed = %lu\r\n",
+                   descP->sock, len, (unsigned long) totUsed) );
+
+    return TRUE;
+}
+
+
+/* +++ decode_cmsghdr +++
+ *
+ * Decode one cmsg(). Put the "result" into the buffer and advance the
+ * pointer (of the buffer) afterwards. Also update 'rem' accordingly.
+ * But before the actual decode, make sure that there is enough room in 
+ * the buffer for the cmsg header (sizeof(*hdr) < rem).
+ *
+ * The eCMsg should be a map with three fields:
+ *
+ *     level :: socket | protocol() | integer()
+ *     type  :: atom() | integer()
+ *                                What values are valid depend on the level
+ *     data  :: binary() | integer() | boolean()
+ *                                The type of the data depends on
+ *     or                         level and type, but can be a binary,
+ *                                which means that the data is already coded.
+ *     value :: term()            Which is a term matching the decode function
+ */
+
+static
+BOOLEAN_T decode_cmsghdr(ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         ERL_NIF_TERM     eCMsg,
+                         char*            bufP,
+                         size_t           rem,
+                         size_t*          used)
+{
+    ERL_NIF_TERM eLevel, eType, eData, eValue;
+    int          level;
+
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d} -> entry with"
+                   "\r\n   eCMsg: %T"
+                   "\r\n", descP->sock, eCMsg) );
+
+    // Get 'level' field
+    if (! GET_MAP_VAL(env, eCMsg, esock_atom_level, &eLevel))
+        return FALSE;
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d} -> eLevel: %T"
+                   "\r\n", descP->sock, eLevel) );
+
+    // Get 'type' field
+    if (! GET_MAP_VAL(env, eCMsg, esock_atom_type, &eType))
+        return FALSE;
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d} -> eType:  %T"
+                   "\r\n", descP->sock, eType) );
+
+    // Decode Level
+    if (! esock_decode_level(env, eLevel, &level))
+        return FALSE;
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d}-> level:  %d\r\n",
+                   descP->sock, level) );
+
+    // Get 'data' field
+    if (! GET_MAP_VAL(env, eCMsg, esock_atom_data, &eData)) {
+
+        // Get 'value' field
+        if (! GET_MAP_VAL(env, eCMsg, esock_atom_value, &eValue))
+            return FALSE;
+        SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d} -> eValue:  %T"
+                   "\r\n", descP->sock, eValue) );
+
+        // Decode Value
+        if (! decode_cmsghdr_value(env, descP, level, eType, eValue,
+                                   bufP, rem, used))
+            return FALSE;
+
+    } else {
+
+        // Verify no 'value' field
+        if (GET_MAP_VAL(env, eCMsg, esock_atom_value, &eValue))
+            return FALSE;
+
+        SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d} -> eData:  %T"
+                   "\r\n", descP->sock, eData) );
+
+        // Decode Data
+        if (! decode_cmsghdr_data(env, descP, level, eType, eData,
+                                  bufP, rem, used))
+            return FALSE;
+    }
+
+    SSDBG( descP, ("UNIX-ESSIO", "decode_cmsghdr {%d}-> used:  %lu\r\n",
+                   descP->sock, (unsigned long) *used) );
+
+    return TRUE;
+}
+
+
+static
+BOOLEAN_T decode_cmsghdr_value(ErlNifEnv*   env,
+                               ESockDescriptor* descP,
+                               int          level,
+                               ERL_NIF_TERM eType,
+                               ERL_NIF_TERM eValue,
+                               char*        bufP,
+                               size_t       rem,
+                               size_t*      usedP)
+{
+    int type;
+    struct cmsghdr* cmsgP     = (struct cmsghdr *) bufP;
+    ESockCmsgSpec*  cmsgTable;
+    ESockCmsgSpec*  cmsgSpecP = NULL;
+    size_t          num       = 0;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "decode_cmsghdr_value {%d} -> entry  \r\n"
+            "   eType:  %T\r\n"
+            "   eValue: %T\r\n",
+            descP->sock, eType, eValue) );
+
+    // We have decode functions only for symbolic (atom) types
+    if (! IS_ATOM(env, eType)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "decode_cmsghdr_value {%d} -> FALSE:\r\n"
+                "   eType not an atom\r\n",
+                descP->sock) );
+        return FALSE;
+    }
+
+    /* Try to look up the symbolic type
+     */
+    if (((cmsgTable = esock_lookup_cmsg_table(level, &num)) == NULL) ||
+        ((cmsgSpecP = esock_lookup_cmsg_spec(cmsgTable, num, eType)) == NULL) ||
+        (cmsgSpecP->decode == NULL)) {
+        /* We found no table for this level,
+         * we found no symbolic type in the level table,
+         * or no decode function for this type
+         */
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "decode_cmsghdr_value {%d} -> FALSE:\r\n"
+                "   cmsgTable:  %p\r\n"
+                "   cmsgSpecP:  %p\r\n",
+                descP->sock, cmsgTable, cmsgSpecP) );
+        return FALSE;
+    }
+
+    if (! cmsgSpecP->decode(env, eValue, cmsgP, rem, usedP)) {
+        // Decode function failed
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "decode_cmsghdr_value {%d} -> FALSE:\r\n"
+                "   decode function failed\r\n",
+                descP->sock) );
+        return FALSE;
+    }
+
+    // Successful decode
+
+    type = cmsgSpecP->type;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "decode_cmsghdr_value {%d} -> TRUE:\r\n"
+            "   level:   %d\r\n"
+            "   type:    %d\r\n",
+            "   *usedP:  %lu\r\n",
+            descP->sock, level, type, (unsigned long) *usedP) );
+
+    cmsgP->cmsg_level = level;
+    cmsgP->cmsg_type = type;
+    return TRUE;
+}
+
+
+static
+BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              int              level,
+                              ERL_NIF_TERM     eType,
+                              ERL_NIF_TERM     eData,
+                              char*            bufP,
+                              size_t           rem,
+                              size_t*          usedP)
+{
+    int             type;
+    ErlNifBinary    bin;
+    struct cmsghdr* cmsgP     = (struct cmsghdr *) bufP;
+    ESockCmsgSpec*  cmsgSpecP = NULL;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "decode_cmsghdr_data {%d} -> entry  \r\n"
+            "   eType: %T\r\n"
+            "   eData: %T\r\n",
+            descP->sock, eType, eData) );
+
+    // Decode Type
+    if (! GET_INT(env, eType, &type)) {
+        ESockCmsgSpec* cmsgTable = NULL;
+        size_t         num       = 0;
+
+        /* Try to look up the symbolic (atom) type
+         */
+        if ((! IS_ATOM(env, eType)) ||
+            ((cmsgTable = esock_lookup_cmsg_table(level, &num)) == NULL) ||
+            ((cmsgSpecP = esock_lookup_cmsg_spec(cmsgTable, num, eType)) == NULL)) {
+            /* Type was not an atom,
+             * we found no table for this level,
+             * or we found no symbolic type in the level table
+             */
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "decode_cmsghdr_data {%d} -> FALSE:\r\n"
+                    "   cmsgTable:  %p\r\n"
+                    "   cmsgSpecP:  %p\r\n",
+                    descP->sock, cmsgTable, cmsgSpecP) );
+            return FALSE;
+        }
+
+        type = cmsgSpecP->type;
+    }
+
+    // Decode Data
+    if (GET_BIN(env, eData, &bin)) {
+        void *p;
+
+        p = esock_init_cmsghdr(cmsgP, rem, bin.size, usedP);
+        if (p == NULL) {
+            /* No room for the data
+             */
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "decode_cmsghdr_data {%d} -> FALSE:\r\n"
+                    "   rem:      %lu\r\n"
+                    "   bin.size: %lu\r\n",
+                    descP->sock,
+                    (unsigned long) rem,
+                    (unsigned long) bin.size) );
+            return FALSE;
+        }
+
+        // Copy the binary data
+        sys_memcpy(p, bin.data, bin.size);
+
+    } else if ((! esock_cmsg_decode_int(env, eData, cmsgP, rem, usedP)) &&
+               (! esock_cmsg_decode_bool(env, eData, cmsgP, rem, usedP))) {
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "decode_cmsghdr_data {%d} -> FALSE\r\n",
+                descP->sock) );
+        return FALSE;
+    }
+
+    // Successful decode
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "decode_cmsghdr_data {%d} -> TRUE:\r\n"
+            "   level:   %d\r\n"
+            "   type:    %d\r\n"
+            "   *usedP:  %lu\r\n",
+            descP->sock, level, type, (unsigned long) *usedP) );
+
+    cmsgP->cmsg_level = level;
+    cmsgP->cmsg_type = type;
+    return TRUE;
+}
 
