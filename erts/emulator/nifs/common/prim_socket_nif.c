@@ -952,10 +952,10 @@ static unsigned long one_value  = 1;
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
     recvfrom((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_recvmsg(s,msghdr,flag)     recvmsg((s),(msghdr),(flag))
-#define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
+// #define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
 #define sock_sendmsg(s,msghdr,flag)     sendmsg((s),(msghdr),(flag))
-#define sock_sendto(s,buf,blen,flag,addr,alen) \
-                sendto((s),(buf),(blen),(flag),(addr),(alen))
+// #define sock_sendto(s,buf,blen,flag,addr,alen)                \
+//                sendto((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_setopt(s,l,o,v,ln)         setsockopt((s),(l),(o),(v),(ln))
 #define sock_shutdown(s, how)           shutdown((s), (how))
 
@@ -1124,20 +1124,6 @@ static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
-/* static ERL_NIF_TERM esock_send(ErlNifEnv*       env, */
-/*                                ESockDescriptor* descP, */
-/*                                ERL_NIF_TERM     sockRef, */
-/*                                ERL_NIF_TERM     sendRef, */
-/*                                ErlNifBinary*    dataP, */
-/*                                int              flags); */
-static ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
-                                 ESockDescriptor* descP,
-                                 ERL_NIF_TERM     sockRef,
-                                 ERL_NIF_TERM     sendRef,
-                                 ErlNifBinary*    dataP,
-                                 int              flags,
-                                 ESockAddress*    toAddrP,
-                                 SOCKLEN_T        toAddrLen);
 static ERL_NIF_TERM esock_sendmsg(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
                                   ERL_NIF_TERM     sockRef,
@@ -5879,8 +5865,8 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
             sockRef, descP->sock, descP->readState,
             sendRef, sndData.size, eSockAddr, flags) );
 
-    res = esock_sendto(env, descP, sockRef, sendRef, &sndData, flags,
-                       &remoteAddr, remoteAddrLen);
+    res = ESOCK_IO_SENDTO(env, descP, sockRef, sendRef, &sndData, flags,
+                          &remoteAddr, remoteAddrLen);
 
     SSDBG( descP, ("SOCKET", "nif_sendto(%T) -> done with"
                    "\r\n   res: %T"
@@ -5892,63 +5878,6 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
 
 #endif // if defined(__WIN32__)
 }
-
-
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
-                          ESockDescriptor* descP,
-                          ERL_NIF_TERM     sockRef,
-                          ERL_NIF_TERM     sendRef,
-                          ErlNifBinary*    dataP,
-                          int              flags,
-                          ESockAddress*    toAddrP,
-                          SOCKLEN_T        toAddrLen)
-{
-    ssize_t      sendto_result;
-    ERL_NIF_TERM writerCheck;
-
-    if (! IS_OPEN(descP->writeState))
-        return esock_make_error_closed(env);
-
-    /* Connect and Write uses the same select flag
-     * so they can not be simultaneous
-     */
-    if (descP->connectorP != NULL)
-        return esock_make_error_invalid(env, esock_atom_state);
-
-    sendto_result = (ssize_t) dataP->size;
-    if ((size_t) sendto_result != dataP->size)
-        return esock_make_error_invalid(env, esock_atom_data_size);
-
-    /* Ensure that we either have no current writer or we are it,
-     * or enqueue this process if there is a current writer  */
-    if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
-        SSDBG( descP, ("SOCKET", "esock_sendto {%d} -> writer check failed: "
-                       "\r\n   %T\r\n", descP->sock, writerCheck) );
-        return writerCheck;
-    }
-    
-    ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_write_tries, &descP->writeTries, 1);
-
-    if (toAddrP != NULL) {
-        sendto_result =
-            sock_sendto(descP->sock,
-                        dataP->data, dataP->size, flags,
-                        &toAddrP->sa, toAddrLen);
-    } else {
-        sendto_result =
-            sock_sendto(descP->sock,
-                        dataP->data, dataP->size, flags,
-                        NULL, 0);
-    }
-
-    return send_check_result(env, descP, sendto_result, dataP->size, FALSE,
-                             sockRef, sendRef);
-}
-#endif // #ifndef __WIN32__
-
 
 
 /* ----------------------------------------------------------------------

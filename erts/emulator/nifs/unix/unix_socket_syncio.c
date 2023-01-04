@@ -59,6 +59,8 @@
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
 #define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
+#define sock_sendto(s,buf,blen,flag,addr,alen) \
+    sendto((s),(buf),(blen),(flag),(addr),(alen))
 
 
 /* ======================================================================== *
@@ -284,7 +286,8 @@ ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
 
 
     SSDBG2( dbg,
-            ("UNIX-ESSIO", "essio_open2 -> "
+            ("UNIX-ESSIO",
+             "essio_open2 -> "
              "\r\n   domain:   %d"
              "\r\n   type:     %d"
              "\r\n   protocol: %d"
@@ -942,7 +945,7 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
         /* We have no active acceptor (and therefore no acceptors in queue)
          */
 
-        SSDBG( descP, ("SOCKET", "essio_accept {%d} -> try accept\r\n",
+        SSDBG( descP, ("UNIX-ESSIO", "essio_accept {%d} -> try accept\r\n",
                        descP->sock) );
 
 	ESOCK_CNT_INC(env, descP, sockRef,
@@ -969,7 +972,7 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
 	 * "current process", push the requester onto the (acceptor) queue.
          */
 
-        SSDBG( descP, ("SOCKET", "essio_accept_accepting -> check: "
+        SSDBG( descP, ("UNIX-ESSIO", "essio_accept_accepting -> check: "
                        "is caller current acceptor:"
                        "\r\n   Caller:      %T"
                        "\r\n   Current:     %T"
@@ -982,7 +985,7 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
         if (COMPARE_PIDS(&descP->currentAcceptor.pid, &caller) == 0) {
 
             SSDBG( descP,
-                   ("SOCKET",
+                   ("UNIX-ESSIO",
                     "essio_accept_accepting {%d} -> current acceptor"
                     "\r\n", descP->sock) );
 
@@ -993,7 +996,7 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
             /* Not the "current acceptor", so (maybe) push onto queue */
 
             SSDBG( descP,
-                   ("SOCKET",
+                   ("UNIX-ESSIO",
                     "essio_accept_accepting {%d} -> *not* current acceptor\r\n",
                     descP->sock) );
 
@@ -1026,7 +1029,7 @@ ERL_NIF_TERM essio_accept_listening_error(ErlNifEnv*       env,
         /* *** Try again later *** */
 
         SSDBG( descP,
-               ("SOCKET",
+               ("UNIX-ESSIO",
                 "essio_accept_listening_error {%d} -> would block - retry\r\n",
                 descP->sock) );
 
@@ -1042,7 +1045,7 @@ ERL_NIF_TERM essio_accept_listening_error(ErlNifEnv*       env,
         descP->currentAcceptorP = &descP->currentAcceptor;
 
         SSDBG( descP,
-               ("SOCKET",
+               ("UNIX-ESSIO",
                 "essio_accept_listening_error {%d} -> retry for: "
                 "\r\n   Current Pid: %T"
                 "\r\n   Current Mon: %T"
@@ -1056,7 +1059,7 @@ ERL_NIF_TERM essio_accept_listening_error(ErlNifEnv*       env,
     } else {
 
         SSDBG( descP,
-               ("SOCKET",
+               ("UNIX-ESSIO",
                 "essio_accept_listening {%d} -> errno: %d\r\n",
                 descP->sock, save_errno) );
 
@@ -1103,7 +1106,7 @@ ERL_NIF_TERM essio_accept_accepting_current(ErlNifEnv*       env,
     ERL_NIF_TERM  res;
 
     SSDBG( descP,
-           ("SOCKET",
+           ("UNIX-ESSIO",
             "essio_accept_accepting_current {%d} -> try accept\r\n",
             descP->sock) );
 
@@ -1142,7 +1145,7 @@ ERL_NIF_TERM essio_accept_accepting_current_accept(ErlNifEnv*       env,
     ERL_NIF_TERM res;
 
     SSDBG( descP,
-           ("SOCKET",
+           ("UNIX-ESSIO",
             "essio_accept_accepting_current_accept {%d}"
             "\r\n", descP->sock) );
 
@@ -1158,7 +1161,7 @@ ERL_NIF_TERM essio_accept_accepting_current_accept(ErlNifEnv*       env,
         if (!esock_activate_next_acceptor(env, descP, sockRef)) {
 
             SSDBG( descP,
-                   ("SOCKET",
+                   ("UNIX-ESSIO",
                     "essio_accept_accepting_current_accept {%d} ->"
                     " no more acceptors"
                     "\r\n", descP->sock) );
@@ -1197,7 +1200,7 @@ ERL_NIF_TERM essio_accept_accepting_current_error(ErlNifEnv*       env,
          */
 
         SSDBG( descP,
-               ("SOCKET",
+               ("UNIX-ESSIO",
                 "essio_accept_accepting_current_error {%d} -> "
                 "would block: try again\r\n", descP->sock) );
 
@@ -1211,7 +1214,7 @@ ERL_NIF_TERM essio_accept_accepting_current_error(ErlNifEnv*       env,
         ESockRequestor req;
 
         SSDBG( descP,
-               ("SOCKET",
+               ("UNIX-ESSIO",
                 "essio_accept_accepting_current_error {%d} -> "
                 "error: %d\r\n", descP->sock, save_errno) );
 
@@ -1227,7 +1230,7 @@ ERL_NIF_TERM essio_accept_accepting_current_error(ErlNifEnv*       env,
         req.env = NULL;
         while (esock_acceptor_pop(env, descP, &req)) {
             SSDBG( descP,
-                   ("SOCKET",
+                   ("UNIX-ESSIO",
                     "essio_accept_accepting_current_error {%d} -> abort %T\r\n",
                     descP->sock, req.pid) );
 
@@ -1293,7 +1296,7 @@ ERL_NIF_TERM essio_accept_busy_retry(ErlNifEnv*       env,
         
         if (!esock_activate_next_acceptor(env, descP, sockRef)) {
             SSDBG( descP,
-                   ("SOCKET",
+                   ("UNIX-ESSIO",
                     "essio_accept_busy_retry {%d} -> no more acceptors\r\n",
                     descP->sock) );
 
@@ -1416,7 +1419,7 @@ ERL_NIF_TERM essio_send(ErlNifEnv*       env,
     /* Ensure that we either have no current writer or we are it,
      * or enqueue this process if there is a current writer  */
     if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
-        SSDBG( descP, ("SOCKET", "esock_send {%d} -> writer check failed: "
+        SSDBG( descP, ("UNIX-ESSIO", "esock_send {%d} -> writer check failed: "
                        "\r\n   %T\r\n", descP->sock, writerCheck) );
         return writerCheck;
     }
@@ -1445,7 +1448,46 @@ ERL_NIF_TERM essio_sendto(ErlNifEnv*       env,
                           ESockAddress*    toAddrP,
                           SOCKLEN_T        toAddrLen)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    ssize_t      result;
+    ERL_NIF_TERM writerCheck;
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->connectorP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    result = (ssize_t) dataP->size;
+    if ((size_t) result != dataP->size)
+        return esock_make_error_invalid(env, esock_atom_data_size);
+
+    /* Ensure that we either have no current writer or we are it,
+     * or enqueue this process if there is a current writer  */
+    if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
+        SSDBG( descP, ("UNIX-ESSIO",
+                       "essio_sendto {%d} -> writer check failed: "
+                       "\r\n   %T\r\n", descP->sock, writerCheck) );
+        return writerCheck;
+    }
+    
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_tries, &descP->writeTries, 1);
+
+    if (toAddrP != NULL) {
+        result = sock_sendto(descP->sock,
+                             dataP->data, dataP->size, flags,
+                             &toAddrP->sa, toAddrLen);
+    } else {
+        result = sock_sendto(descP->sock,
+                             dataP->data, dataP->size, flags,
+                             NULL, 0);
+    }
+
+    return send_check_result(env, descP, result, dataP->size, FALSE,
+                             sockRef, sendRef);
 }
 
 
@@ -1598,7 +1640,7 @@ BOOLEAN_T send_check_writer(ErlNifEnv*       env,
             /* Not the "current writer", so (maybe) push onto queue */
 
             SSDBG( descP,
-                   ("SOCKET",
+                   ("UNIX-ESSIO",
                     "send_check_writer {%d} -> not (current) writer"
                     "\r\n   ref: %T"
                     "\r\n", descP->sock, ref) );
@@ -1612,7 +1654,7 @@ BOOLEAN_T send_check_writer(ErlNifEnv*       env,
             }
             
             SSDBG( descP,
-                   ("SOCKET",
+                   ("UNIX-ESSIO",
                     "send_check_writer {%d} -> queue (push) result: %T\r\n"
                     "\r\n   ref: %T"
                     "\r\n", descP->sock, *checkResult, ref) );
@@ -1659,7 +1701,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
     err = send_error ? sock_errno() : 0;
 
     SSDBG( descP,
-           ("SOCKET", "send_check_result(%T) {%d} -> entry with"
+           ("UNIX-ESSIO", "send_check_result(%T) {%d} -> entry with"
             "\r\n   send_result:  %ld"
             "\r\n   dataSize:     %ld"
             "\r\n   err:          %d"
@@ -1675,7 +1717,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
             /* Ok, try again later */
 
             SSDBG( descP,
-                   ("SOCKET",
+                   ("UNIX-ESSIO",
                     "send_check_result(%T) {%d} -> try again"
                     "\r\n", sockRef, descP->sock) );
 
@@ -1688,7 +1730,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
         if (written < dataSize) {
             /* Not the entire package */
             SSDBG( descP,
-                   ("SOCKET",
+                   ("UNIX-ESSIO",
                     "send_check_result(%T) {%d} -> "
                     "not entire package written (%d of %d)"
                     "\r\n", sockRef, descP->sock,
@@ -1698,7 +1740,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
         } else if (dataInTail) {
             /* Not the entire package */
             SSDBG( descP,
-                   ("SOCKET",
+                   ("UNIX-ESSIO",
                     "send_check_result(%T) {%d} -> "
                     "not entire package written (%d but data in tail)"
                     "\r\n", sockRef, descP->sock,
@@ -1713,7 +1755,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
     }
 
     SSDBG( descP,
-           ("SOCKET",
+           ("UNIX-ESSIO",
             "send_check_result(%T) {%d} -> done:"
             "\r\n   res: %T"
             "\r\n", sockRef, descP->sock,
@@ -1743,7 +1785,7 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
     descP->writePkgMaxCnt = 0;
 
     SSDBG( descP,
-           ("SOCKET", "send_check_ok(%T) {%d} -> "
+           ("UNIX-ESSIO", "send_check_ok(%T) {%d} -> "
             "everything written (%ld) - done\r\n",
             sockRef, descP->sock, written) );
 
@@ -1757,7 +1799,7 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
     if (!esock_activate_next_writer(env, descP, sockRef)) {
 
         SSDBG( descP,
-               ("SOCKET", "send_check_ok(%T) {%d} -> no more writers\r\n",
+               ("UNIX-ESSIO", "send_check_ok(%T) {%d} -> no more writers\r\n",
                 sockRef, descP->sock) );
 
         descP->currentWriterP = NULL;
@@ -1783,7 +1825,7 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_fails, &descP->writeFails, 1);
 
-    SSDBG( descP, ("SOCKET", "send_check_fail(%T) {%d} -> error: %d\r\n",
+    SSDBG( descP, ("UNIX-ESSIO", "send_check_fail(%T) {%d} -> error: %d\r\n",
                    sockRef, descP->sock, saveErrno) );
 
     reason = MKA(env, erl_errno_id(saveErrno));
@@ -1827,7 +1869,7 @@ void send_error_waiting_writers(ErlNifEnv*       env,
     req.env = NULL; /* read by writer_pop before free */
     while (esock_writer_pop(env, descP, &req)) {
         SSDBG( descP,
-               ("SOCKET",
+               ("UNIX-ESSIO",
                 "send_error_waiting_writers(%T) {%d} -> abort"
                 "\r\n   pid:    %T"
                 "\r\n   reason: %T"
@@ -1862,7 +1904,7 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
     ERL_NIF_TERM res;
 
     SSDBG( descP,
-           ("SOCKET",
+           ("UNIX-ESSIO",
             "send_check_retry(%T) {%d} -> %ld"
             "\r\n", sockRef, descP->sock, (long) written) );
 
@@ -1893,7 +1935,7 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
             if (!esock_activate_next_writer(env, descP, sockRef)) {
 
                 SSDBG( descP,
-                       ("SOCKET",
+                       ("UNIX-ESSIO",
                         "send_check_retry(%T) {%d} -> no more writers\r\n",
                         sockRef, descP->sock) );
 
