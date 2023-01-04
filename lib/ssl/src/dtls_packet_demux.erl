@@ -55,7 +55,6 @@
 	 dtls_options,
 	 emulated_options,
 	 dtls_msq_queues = kv_new(),
-	 clients = set_new(),
 	 dtls_processes = kv_new(),
 	 accepters  = queue:new(),
 	 first,
@@ -194,10 +193,10 @@ handle_info({ErrorTag, Socket, Error}, #state{listener = Socket, transport = {_,
     ?LOG_NOTICE(Report),
     {noreply, State#state{close=true}};
 
-handle_info({'DOWN', _, process, Pid, _}, #state{clients = Clients,
-						 dtls_processes = Processes0,
-                                                 dtls_msq_queues = MsgQueues0,
-                                                 close = ListenClosed} = State) ->
+handle_info({'DOWN', _, process, Pid, _},
+            #state{dtls_processes = Processes0,
+                   dtls_msq_queues = MsgQueues0,
+                   close = ListenClosed} = State) ->
     Client = kv_get(Pid, Processes0),
     Processes = kv_delete(Pid, Processes0),
     MsgQueues = kv_delete(Client, MsgQueues0),
@@ -205,8 +204,7 @@ handle_info({'DOWN', _, process, Pid, _}, #state{clients = Clients,
         true ->
             {stop, normal, State};
         false ->
-            {noreply, State#state{clients = set_delete(Client, Clients),
-                                  dtls_processes = Processes,
+            {noreply, State#state{dtls_processes = Processes,
                                   dtls_msq_queues = MsgQueues}}
     end.
 
@@ -219,38 +217,35 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-handle_datagram(Client, Msg, #state{clients = Clients,
-				    accepters = AcceptorsQueue0} = State) ->
-    case set_is_member(Client, Clients) of
-	false ->
+handle_datagram(Client, Msg, #state{dtls_msq_queues = MsgQueues, accepters = AcceptorsQueue0} = State) ->
+    case kv_lookup(Client, MsgQueues) of
+	none ->
 	    case queue:out(AcceptorsQueue0) of
-		{{value, {UserPid, From}}, AcceptorsQueue} ->	
-		    setup_new_connection(UserPid, From, Client, Msg, 
+		{{value, {UserPid, From}}, AcceptorsQueue} ->
+		    setup_new_connection(UserPid, From, Client, Msg,
 					 State#state{accepters = AcceptorsQueue});
 		{empty, _} ->
 		    %% Drop packet client will resend
 		    State
 	    end;
-	true -> 
-	    dispatch(Client, Msg, State)
+	{value, Queue} ->
+	    dispatch(Queue, Client, Msg, State)
     end.
 
-dispatch(Client, Msg, #state{dtls_msq_queues = MsgQueues} = State) ->
-    case kv_lookup(Client, MsgQueues) of
-	{value, Queue0} ->
-	    case queue:out(Queue0) of
-		{{value, Pid}, Queue} when is_pid(Pid) ->
-		    Pid ! Msg,
-		    State#state{dtls_msq_queues = 
-				    kv_update(Client, Queue, MsgQueues)};
-		{{value, _UDP}, _Queue} ->
-		    State#state{dtls_msq_queues = 
-				    kv_update(Client, queue:in(Msg, Queue0), MsgQueues)};
-		{empty, Queue} ->
-		    State#state{dtls_msq_queues = 
-				    kv_update(Client, queue:in(Msg, Queue), MsgQueues)}
-	    end
+dispatch(Queue0, Client, Msg, #state{dtls_msq_queues = MsgQueues} = State) ->
+    case queue:out(Queue0) of
+        {{value, Pid}, Queue} when is_pid(Pid) ->
+            Pid ! Msg,
+            State#state{dtls_msq_queues =
+                            kv_update(Client, Queue, MsgQueues)};
+        {{value, _UDP}, _Queue} ->
+            State#state{dtls_msq_queues =
+                            kv_update(Client, queue:in(Msg, Queue0), MsgQueues)};
+        {empty, Queue} ->
+            State#state{dtls_msq_queues =
+                            kv_update(Client, queue:in(Msg, Queue), MsgQueues)}
     end.
+
 next_datagram(Socket, N) ->
     inet:setopts(Socket, [{active, N}]).
 
@@ -259,7 +254,7 @@ handle_active_once(Client, Pid, #state{dtls_msq_queues = MsgQueues} = State0) ->
     case queue:out(Queue0) of
 	{{value, Pid}, _} when is_pid(Pid) ->
 	    State0;
-	{{value, Msg}, Queue} ->	      
+	{{value, Msg}, Queue} ->
 	    Pid ! Msg,
 	    State0#state{dtls_msq_queues = kv_update(Client, Queue, MsgQueues)};
 	{empty, Queue0} ->
@@ -267,7 +262,6 @@ handle_active_once(Client, Pid, #state{dtls_msq_queues = MsgQueues} = State0) ->
     end.
 
 setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
-						     clients = Clients,
 						     dtls_msq_queues = MsgQueues,
 						     dtls_options = DTLSOpts,
 						     port = Port,
@@ -281,8 +275,7 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
 	    erlang:monitor(process, Pid),
 	    gen_server:reply(From, {ok, Pid, {Client, Socket}}),
 	    Pid ! Msg,
-	    State#state{clients = set_insert(Client, Clients), 
-			dtls_msq_queues = kv_insert(Client, queue:new(), MsgQueues),
+	    State#state{dtls_msq_queues = kv_insert(Client, queue:new(), MsgQueues),
 			dtls_processes = kv_insert(Pid, Client, Processes)};
 	{error, Reason} ->
 	    gen_server:reply(From, {error, Reason}),
@@ -295,7 +288,7 @@ kv_lookup(Key, Store) ->
     gb_trees:lookup(Key, Store).
 kv_insert(Key, Value, Store) ->
     gb_trees:insert(Key, Value, Store).
-kv_get(Key, Store) -> 
+kv_get(Key, Store) ->
     gb_trees:get(Key, Store).
 kv_delete(Key, Store) ->
     gb_trees:delete(Key, Store).
@@ -303,15 +296,6 @@ kv_new() ->
     gb_trees:empty().
 kv_empty(Store) ->
     gb_trees:is_empty(Store).
-
-set_new() ->
-    gb_sets:empty().
-set_insert(Item, Set) ->
-    gb_sets:insert(Item, Set).
-set_delete(Item, Set) ->
-    gb_sets:delete(Item, Set).
-set_is_member(Item, Set) ->
-    gb_sets:is_member(Item, Set).
 
 call(Server, Msg) ->
     try
