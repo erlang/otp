@@ -64,7 +64,11 @@
 
 -spec 'div'(range(), range()) -> range_result().
 
-'div'({A,B}, {C,D}) ->
+'div'({_,_}, {0,0}) ->
+    %% Division by zero, don't try to do anything clever.
+    any;
+'div'({A,B}, {C,D}) when is_integer(A), is_integer(B),
+                         is_integer(C), is_integer(D) ->
     Denominators = [min(C, D),max(C, D)|
                     %% Handle zero crossing for the denominator.
                     if
