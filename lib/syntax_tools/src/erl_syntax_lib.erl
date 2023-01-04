@@ -538,6 +538,8 @@ vann(Tree, Env) ->
             vann_function(Tree, Env);
         fun_expr ->
             vann_fun_expr(Tree, Env);
+        named_fun_expr ->
+            vann_named_fun_expr(Tree, Env);
         list_comp ->
             vann_list_comp(Tree, Env);
         binary_comp ->
@@ -580,6 +582,18 @@ vann_fun_expr(Tree, Env) ->
     Cs = erl_syntax:fun_expr_clauses(Tree),
     {Cs1, {_, Free}} = vann_clauses(Cs, Env),
     Tree1 = rewrite(Tree, erl_syntax:fun_expr(Cs1)),
+    Bound = [],
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+vann_named_fun_expr(Tree, Env) ->
+    N = erl_syntax:named_fun_expr_name(Tree),
+    NBound = [erl_syntax:variable_name(N)],
+    NFree = [],
+    N1 = ann_bindings(N, Env, NBound, NFree),
+    Env1 = ordsets:union(Env, NBound),
+    Cs = erl_syntax:named_fun_expr_clauses(Tree),
+    {Cs1, {_, Free}} = vann_clauses(Cs, Env1),
+    Tree1 = rewrite(Tree, erl_syntax:named_fun_expr(N1,Cs1)),
     Bound = [],
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
