@@ -279,8 +279,11 @@ is_masking_redundant(_, _) ->
 %%% Internal functions.
 %%%
 
+div_bounds({_,_}, {0,0}) ->
+    %% Division by zero, don't try to do anything clever.
+    any;
 div_bounds({A,B}, {C,D}) when is_integer(A), is_integer(B),
-                         is_integer(C), is_integer(D) ->
+                              is_integer(C), is_integer(D) ->
     Denominators = [min(C, D),max(C, D)|
                     %% Handle zero crossing for the denominator.
                     if

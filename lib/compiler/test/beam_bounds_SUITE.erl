@@ -126,8 +126,17 @@ division_bounds(_Config) ->
     {-5,'+inf'} = beam_bounds:bounds('div', {-10,'+inf'}, {2,4}),
     {2,'+inf'} = beam_bounds:bounds('div', {10,'+inf'}, {2,4}),
 
+    any = beam_bounds:bounds('div', {10,'+inf'}, {0,0}),
+    {'EXIT', {badarith, _}} = catch division_bounds_1([], ok),
 
     ok.
+
+%% GH-6604: Division by zero could cause type analysis to hang forever as
+%% beam_bounds would return a bogus result.
+division_bounds_1([], X) ->
+    -1 div division_bounds_1(X, ok);
+division_bounds_1(_, _) ->
+    0.
 
 rem_bounds(_Config) ->
     test_noncommutative('rem', {-12,12}),
@@ -386,6 +395,7 @@ test_noncommutative_1(Op, R1, R2) ->
     case beam_bounds:bounds(Op, R1, R2) of
         any ->
             case {Op,R2} of
+                {'div',{0,0}} -> ok;
                 {'rem',{0,0}} -> ok
             end;
         {Min,Max} when Min =< HighestMin, LowestMax =< Max ->
