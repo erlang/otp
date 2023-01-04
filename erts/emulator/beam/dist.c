@@ -2005,10 +2005,14 @@ int erts_net_message(Port *prt,
             seq->ctl_len = ctl_len;
             seq->seq_id = ede.data->seq_id;
             seq->cnt = ede.data->frag_id;
-            if (dist_seq_rbt_lookup_insert(&dep->sequences, seq) != NULL) {
+            erts_de_rlock(dep);
+            if (dep->state != ERTS_DE_STATE_CONNECTED
+                || dep->connection_id != ede.connection_id
+                || dist_seq_rbt_lookup_insert(&dep->sequences, seq) != NULL) {
                 free_message_buffer(&seq->hfrag);
-                goto data_error;
+                goto data_error_runlock;
             }
+            erts_de_runlock(dep);
 
             erts_make_dist_ext_copy(&ede, erts_get_dist_ext(&seq->hfrag));
 
@@ -2020,10 +2024,17 @@ int erts_net_message(Port *prt,
 
         /* fall through, the first fragment in the sequence was the last fragment */
     case ERTS_PREP_DIST_EXT_FRAG_CONT: {
-        DistSeqNode *seq = dist_seq_rbt_lookup(dep->sequences, ede.data->seq_id);
+        DistSeqNode *seq;
+        erts_de_rlock(dep);
+        if (dep->state != ERTS_DE_STATE_CONNECTED
+            || dep->connection_id != ede.connection_id) {
+            goto data_error_runlock;
+        }
+
+        seq = dist_seq_rbt_lookup(dep->sequences, ede.data->seq_id);
 
         if (!seq)
-            goto data_error;
+            goto data_error_runlock;
 
         /* If we did a fall-though we already did this */
         if (res == ERTS_PREP_DIST_EXT_FRAG_CONT)
@@ -2031,16 +2042,20 @@ int erts_net_message(Port *prt,
 
         /* Verify that the fragments have arrived in the correct order */
         if (seq->cnt != ede.data->frag_id)
-            goto data_error;
+            goto data_error_runlock;
 
         seq->cnt--;
 
         /* Check if this was the last fragment */
-        if (ede.data->frag_id > 1)
+        if (ede.data->frag_id > 1) {
+            erts_de_runlock(dep);
             return 0;
+        }
 
         /* Last fragment arrived, time to dispatch the signal */
+
         dist_seq_rbt_delete(&dep->sequences, seq);
+        erts_de_runlock(dep);
         ctl_len = seq->ctl_len;
 
         /* Now that we no longer need the DistSeqNode we re-use the heapfragment
@@ -2405,7 +2420,7 @@ int erts_net_message(Port *prt,
          * the atom '' (empty cookie).
 	 */
         ASSERT((type == DOP_SEND_SENDER || type == DOP_SEND_SENDER_TT)
-               ? (is_pid(tuple[2]) && (dep->dflags & DFLAG_SEND_SENDER))
+               ? is_pid(tuple[2])
                : tuple[2] == am_Empty);
 
 #ifdef ERTS_DIST_MSG_DBG
@@ -2884,7 +2899,7 @@ int erts_net_message(Port *prt,
                  */
                 dist_pend_spawn_exit_save_child_result(result,
                                                        ref,
-                                                       dep->mld);
+                                                       ede.mld);
             }
         } else if (lnk && !link_inserted) {
             erts_proc_sig_send_link_exit_noconnection(&ldp->dist);
@@ -2928,6 +2943,9 @@ data_error:
     erts_kill_dist_connection(dep, conn_id);
     ERTS_CHK_NO_PROC_LOCKS;
     return -1;
+data_error_runlock:
+    erts_de_runlock(dep);
+    goto data_error;
 }
 
 static int dsig_send_exit(ErtsDSigSendContext *ctx, Eterm ctl, Eterm msg)
