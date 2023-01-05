@@ -1621,6 +1621,10 @@ protected:
                            const ArgSource &LHS,
                            const ArgSource &RHS,
                            const ArgRegister &Dst);
+    void emit_bif_min_max(uint32_t instId,
+                          const ArgSource &LHS,
+                          const ArgSource &RHS,
+                          const ArgRegister &Dst);
 
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);

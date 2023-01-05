@@ -784,6 +784,93 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
 }
 
 /* ================================================================
+ *  min/2
+ *  max/2
+ * ================================================================
+ */
+
+void BeamModuleAssembler::emit_bif_min_max(uint32_t instId,
+                                           const ArgSource &LHS,
+                                           const ArgSource &RHS,
+                                           const ArgRegister &Dst) {
+    Label generic = a.newLabel(), do_cmov = a.newLabel();
+    bool both_small = always_small(LHS) && always_small(RHS);
+    bool need_generic = !both_small;
+
+    mov_arg(ARG2, RHS); /* May clobber ARG1 */
+    mov_arg(ARG1, LHS);
+
+    if (both_small) {
+        comment("skipped test for small operands since they are always small");
+    } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS) &&
+               always_small(RHS)) {
+        emit_is_not_boxed(generic, ARG1, dShort);
+    } else if (always_small(LHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       RHS)) {
+        emit_is_not_boxed(generic, ARG2, dShort);
+    } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       RHS)) {
+        comment("simplified small test since all other types are boxed");
+        a.mov(RETd, ARG1d);
+        a.and_(RETd, ARG2d);
+        emit_is_not_boxed(generic, RETb, dShort);
+    } else {
+        /* Relative comparisons are overwhelmingly likely to be used on
+         * smalls, so we'll specialize those and keep the rest in a shared
+         * fragment. */
+        if (RHS.isSmall()) {
+            a.mov(RETd, ARG1d);
+        } else if (LHS.isSmall()) {
+            a.mov(RETd, ARG2d);
+        } else {
+            a.mov(RETd, ARG1d);
+            a.and_(RETd, ARG2d);
+        }
+
+        a.and_(RETb, imm(_TAG_IMMED1_MASK));
+        a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
+        a.short_().jne(generic);
+    }
+
+    /* Both arguments are smalls. */
+    a.cmp(ARG1, ARG2);
+    if (need_generic) {
+        a.short_().jmp(do_cmov);
+    }
+
+    a.bind(generic);
+    if (need_generic) {
+        a.cmp(ARG1, ARG2);
+        a.short_().je(do_cmov);
+        a.push(ARG1);
+        a.push(ARG2);
+        safe_fragment_call(ga->get_arith_compare_shared());
+        a.pop(ARG2);
+        a.pop(ARG1);
+    }
+
+    a.bind(do_cmov);
+    a.emit(instId, ARG1, ARG2);
+    mov_arg(Dst, ARG1);
+}
+
+void BeamModuleAssembler::emit_bif_max(const ArgSource &LHS,
+                                       const ArgSource &RHS,
+                                       const ArgRegister &Dst) {
+    emit_bif_min_max(x86::Inst::kIdCmovl, LHS, RHS, Dst);
+}
+
+void BeamModuleAssembler::emit_bif_min(const ArgSource &LHS,
+                                       const ArgSource &RHS,
+                                       const ArgRegister &Dst) {
+    emit_bif_min_max(x86::Inst::kIdCmovg, LHS, RHS, Dst);
+}
+
+/* ================================================================
  *  node/1
  * ================================================================
  */

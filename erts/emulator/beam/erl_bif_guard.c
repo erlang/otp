@@ -468,10 +468,12 @@ BIF_RETTYPE binary_part_2(BIF_ALIST_2)
 
 BIF_RETTYPE min_2(BIF_ALIST_2)
 {
+    /* NOTE: The JIT has its own implementation of this BIF. */
     return CMP_GT(BIF_ARG_1, BIF_ARG_2) ? BIF_ARG_2 : BIF_ARG_1;
 }
 
 BIF_RETTYPE max_2(BIF_ALIST_2)
 {
+    /* NOTE: The JIT has its own implementation of this BIF. */
     return CMP_LT(BIF_ARG_1, BIF_ARG_2) ? BIF_ARG_2 : BIF_ARG_1;
 }

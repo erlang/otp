@@ -1652,9 +1652,12 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
     a.comisd(x86::xmm0, x86::xmm1);
 
     /* `comisd` doesn't set the flags the same way `test` and friends do, so
-     * they need to be converted for jl/jge to work. */
-    a.setae(x86::al);
-    a.dec(x86::al);
+     * they need to be converted for jl/jge/jg to work.
+     * NOTE: jg is needed for min/2 to work.
+     */
+    a.seta(x86::al);
+    a.setb(x86::ah);
+    a.sub(x86::al, x86::ah);
 
     emit_leave_frame();
     a.ret();
