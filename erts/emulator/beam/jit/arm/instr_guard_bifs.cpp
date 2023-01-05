@@ -1002,6 +1002,96 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
 }
 
 /* ================================================================
+ *  node/1
+ * ================================================================
+ */
+
+void BeamGlobalAssembler::emit_handle_node_error() {
+    static ErtsCodeMFA mfa = {am_erlang, am_node, 1};
+    emit_raise_badarg(&mfa);
+}
+
+void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
+                                        const ArgRegister &Src,
+                                        const ArgRegister &Dst) {
+    bool always_pid_port_ref =
+            always_one_of(Src,
+                          BEAM_TYPE_PID | BEAM_TYPE_PORT | BEAM_TYPE_REFERENCE);
+    Label test_internal = a.newLabel();
+    Label internal = a.newLabel();
+    Label next = a.newLabel();
+    auto src = load_source(Src, ARG2);
+    Label fail;
+
+    if (Fail.get() != 0) {
+        fail = resolve_beam_label(Fail, dispUnknown);
+    } else if (!always_pid_port_ref) {
+        fail = a.newLabel();
+    }
+
+    emit_is_boxed(test_internal, Src, src.reg);
+
+    arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
+
+    if (!always_one_of(Src, BEAM_TYPE_PID | BEAM_TYPE_PORT)) {
+        a.ldur(TMP2, emit_boxed_val(boxed_ptr));
+        a.and_(TMP2, TMP2, imm(_TAG_HEADER_MASK));
+    }
+
+    if (masked_types(Src, BEAM_TYPE_REFERENCE) != 0) {
+        a.cmp(TMP2, imm(_TAG_HEADER_REF));
+        a.b_eq(internal);
+    }
+
+    if (!always_pid_port_ref) {
+        Label external = a.newLabel();
+        ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_PORT - _TAG_HEADER_EXTERNAL_PID) >>
+                               _TAG_PRIMARY_SIZE ==
+                       1);
+        ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_REF - _TAG_HEADER_EXTERNAL_PORT) >>
+                               _TAG_PRIMARY_SIZE ==
+                       1);
+        a.sub(TMP3, TMP2, imm(_TAG_HEADER_EXTERNAL_PID));
+        a.cmp(TMP3, imm(_TAG_HEADER_EXTERNAL_REF - _TAG_HEADER_EXTERNAL_PID));
+
+        if (Fail.get() != 0) {
+            a.b_hi(fail);
+        } else {
+            a.b_ls(external);
+
+            a.bind(fail);
+            {
+                mov_var(XREG0, src);
+                fragment_call(ga->get_handle_node_error());
+            }
+        }
+
+        a.bind(external);
+    }
+
+    a.ldur(TMP1, emit_boxed_val(boxed_ptr, offsetof(ExternalThing, node)));
+    a.b(next);
+
+    a.bind(test_internal);
+    if (!always_pid_port_ref) {
+        a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP1, imm(_TAG_IMMED1_PID));
+        a.ccmp(TMP1,
+               imm(_TAG_IMMED1_PORT),
+               imm(NZCV::kEqual),
+               imm(arm::CondCode::kNE));
+        a.b_ne(fail);
+    }
+
+    a.bind(internal);
+    a.ldr(TMP1, embed_constant(&erts_this_node, disp32K));
+    a.ldr(TMP1, arm::Mem(TMP1));
+
+    a.bind(next);
+    mov_arg(Dst, arm::Mem(TMP1, offsetof(ErlNode, sysname)));
+}
+
+/* ================================================================
  *  not/1
  * ================================================================
  */

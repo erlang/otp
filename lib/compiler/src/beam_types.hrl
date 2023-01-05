@@ -39,9 +39,10 @@
 %%    - other                Other types.
 %%       -- #t_fun{}          Fun.
 %%       -- #t_map{}          Map.
-%%       -- pid
-%%       -- port
-%%       -- reference
+%%       -- identifier
+%%         -- pid
+%%         -- port
+%%         -- reference
 %%       -- #t_bs_matchable{} Binary-matchable types.
 %%         -- #t_bitstring{}    Bitstring.
 %%         -- #t_bs_context{}   Match context.
@@ -147,13 +148,14 @@
                        #t_list{} | #t_cons{} | 'nil' |
                        'other' |
                        #t_map{} |
+                       'identifier' |
                        'pid' |
                        'port' |
                        'reference' |
                        #t_tuple{}.
 
 -type other_type() :: 'none' | #t_fun{} | #t_map{} |
-                      'pid' | 'port' | 'reference' |
+                      'pid' | 'port' | 'reference' | 'identifier' |
                       #t_bitstring{} | #t_bs_context{} |
                       #t_bs_matchable{}.
 

@@ -153,6 +153,9 @@ void erts_init_map(void) {
 
 BIF_RETTYPE map_size_1(BIF_ALIST_1) {
     Sint size = erts_map_size(BIF_ARG_1);
+
+    /* NOTE: The JIT has its own implementation of this BIF. */
+
     if (size < 0) {
         BIF_P->fvalue = BIF_ARG_1;
         BIF_ERROR(BIF_P, BADMAP);
@@ -269,6 +272,7 @@ BIF_RETTYPE maps_get_2(BIF_ALIST_2) {
 }
 
 BIF_RETTYPE map_get_2(BIF_ALIST_2) {
+    /* NOTE: The JIT has its own implementation of this BIF. */
     BIF_RET(maps_get_2(BIF_CALL_ARGS));
 }
 
@@ -1251,6 +1255,7 @@ BIF_RETTYPE maps_is_key_2(BIF_ALIST_2) {
 }
 
 BIF_RETTYPE is_map_key_2(BIF_ALIST_2) {
+    /* NOTE: The JIT has its own implementation of this BIF. */
     BIF_RET(maps_is_key_2(BIF_CALL_ARGS));
 }
 

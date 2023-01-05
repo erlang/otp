@@ -805,6 +805,102 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
 }
 
 /* ================================================================
+ *  node/1
+ * ================================================================
+ */
+
+void BeamGlobalAssembler::emit_handle_node_error() {
+    static ErtsCodeMFA mfa = {am_erlang, am_node, 1};
+    a.mov(getXRef(0), ARG1);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), imm(BADARG));
+    a.mov(ARG4, imm(&mfa));
+
+    a.jmp(labels[raise_exception]);
+}
+
+void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
+                                        const ArgRegister &Src,
+                                        const ArgRegister &Dst) {
+    bool always_pid_port_ref =
+            always_one_of(Src,
+                          BEAM_TYPE_PID | BEAM_TYPE_PORT | BEAM_TYPE_REFERENCE);
+    Label test_internal = a.newLabel();
+    Label internal = a.newLabel();
+    Label next = a.newLabel();
+    Label fail;
+
+    if (Fail.get() == 0 && !always_pid_port_ref) {
+        fail = a.newLabel();
+    }
+
+    mov_arg(ARG1, Src);
+    emit_is_boxed(test_internal, Src, ARG1);
+
+    x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG1);
+
+    if (!always_one_of(Src, BEAM_TYPE_PID | BEAM_TYPE_PORT)) {
+        a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
+        a.and_(RETd, imm(_TAG_HEADER_MASK));
+    }
+
+    if (masked_types(Src, BEAM_TYPE_REFERENCE) != 0) {
+        a.cmp(RETb, imm(_TAG_HEADER_REF));
+        a.short_().je(internal);
+    }
+
+    if (!always_pid_port_ref) {
+        Label external = a.newLabel();
+
+        ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_PORT - _TAG_HEADER_EXTERNAL_PID) >>
+                               _TAG_PRIMARY_SIZE ==
+                       1);
+        ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_REF - _TAG_HEADER_EXTERNAL_PORT) >>
+                               _TAG_PRIMARY_SIZE ==
+                       1);
+        a.sub(RETb, imm(_TAG_HEADER_EXTERNAL_PID));
+        a.cmp(RETb, imm(_TAG_HEADER_EXTERNAL_REF - _TAG_HEADER_EXTERNAL_PID));
+        if (Fail.get() == 0) {
+            a.short_().jbe(external);
+
+            a.bind(fail);
+            fragment_call(ga->get_handle_node_error());
+        } else {
+            a.ja(resolve_beam_label(Fail));
+        }
+
+        a.bind(external);
+    }
+
+    a.mov(ARG1, emit_boxed_val(boxed_ptr, offsetof(ExternalThing, node)));
+    a.short_().jmp(next);
+
+    a.bind(test_internal);
+    if (!always_pid_port_ref) {
+        /* Since pids and ports differ by a single bit, we can
+         * simplify the check by clearing said bit and comparing
+         * against the lesser one. */
+        ERTS_CT_ASSERT(_TAG_IMMED1_PORT - _TAG_IMMED1_PID == 0x4);
+        a.mov(RETd, ARG1d);
+        a.and_(RETb,
+               imm(~(_TAG_IMMED1_PORT - _TAG_IMMED1_PID) & _TAG_IMMED1_MASK));
+        a.cmp(RETb, imm(_TAG_IMMED1_PID));
+        if (Fail.get() == 0) {
+            a.short_().jne(fail);
+        } else {
+            a.jne(resolve_beam_label(Fail));
+        }
+    }
+
+    a.bind(internal);
+    a.mov(ARG1, imm(&erts_this_node));
+    a.mov(ARG1, x86::qword_ptr(ARG1));
+
+    a.bind(next);
+    a.mov(ARG1, x86::qword_ptr(ARG1, offsetof(ErlNode, sysname)));
+    mov_arg(Dst, ARG1);
+}
+
+/* ================================================================
  *  tuple_size/1
  * ================================================================
  */

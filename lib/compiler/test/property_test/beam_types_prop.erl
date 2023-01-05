@@ -185,7 +185,7 @@ term_types(Depth) ->
     nested_generators(Depth) ++
         numerical_generators() ++
         [gen_atom(), gen_bs_matchable(),
-         pid, port, reference, other].
+         pid, port, reference, identifier, other].
 
 numerical_generators() ->
     [gen_integer(), gen_float(), gen_number()].
