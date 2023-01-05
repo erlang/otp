@@ -402,6 +402,10 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(rcvlowat);                 \
     GLOBAL_ATOM_DEF(rcvtimeo);                 \
     GLOBAL_ATOM_DEF(rdm);                      \
+    GLOBAL_ATOM_DEF(read_byte);                \
+    GLOBAL_ATOM_DEF(read_fails);               \
+    GLOBAL_ATOM_DEF(read_pkg);                 \
+    GLOBAL_ATOM_DEF(read_tries);               \
     GLOBAL_ATOM_DEF(recv);                     \
     GLOBAL_ATOM_DEF(recvdstaddr);              \
     GLOBAL_ATOM_DEF(recverr);                  \
@@ -495,7 +499,8 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(write_fails);              \
     GLOBAL_ATOM_DEF(write_pkg);                \
     GLOBAL_ATOM_DEF(write_tries);              \
-    GLOBAL_ATOM_DEF(write_waits)
+    GLOBAL_ATOM_DEF(write_waits);              \
+    GLOBAL_ATOM_DEF(zero)
 
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
