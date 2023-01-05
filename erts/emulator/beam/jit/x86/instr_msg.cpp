@@ -75,12 +75,12 @@ void BeamModuleAssembler::emit_i_recv_set() {
 #endif /* ERTS_SUPPORT_OLD_RECV_MARK_INSTRS */
 
 void BeamModuleAssembler::emit_recv_marker_reserve(const ArgVal &Dst) {
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eHeap>();
 
     a.mov(ARG1, c_p);
     runtime_call<1>(erts_msgq_recv_marker_insert);
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eHeap>();
 
     mov_arg(Dst, RET);
 }
