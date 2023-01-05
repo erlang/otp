@@ -374,10 +374,7 @@ accept_loop(
     AcceptRef = make_ref(),
     Acceptor =
         spawn_link(
-          fun () ->
-                  acceptor(
-                    StateL, NetAddress, NetKernel, DistMod, AcceptRef)
-          end),
+          acceptor_fun(StateL, NetAddress, NetKernel, DistMod, AcceptRef)),
     accept_loop(
       StateL, NetAddress, NetKernel, DistMod, MaxPending,
       Acceptors#{ Acceptor => AcceptRef });
@@ -417,27 +414,32 @@ accept_loop(
             end
     end.
 
-acceptor(
+%% Return value with exit/1
+-spec acceptor_fun(_, _, _, _, _) -> fun(() -> no_return()).
+acceptor_fun(
   StateL,
   #net_address{ family = Family, protocol = Protocol } = NetAddress,
   NetKernel, DistMod, AcceptRef) ->
-    {StateA, PeerAddress} =
-        %% *******
-        DistMod:accept_open(NetAddress, StateL),
-    %%
-    NetAddress_1 = NetAddress#net_address{ address = PeerAddress },
-    Acceptor = self(),
-    NetKernel ! {accept, Acceptor, NetAddress_1, Family, Protocol},
-    receive
-        {NetKernel, controller, Controller} ->
-            StateD =
+    fun () ->
+            {StateA, PeerAddress} =
                 %% *******
-                DistMod:accept_controller(NetAddress_1, Controller, StateA),
-            Controller !
-                {Acceptor, controller, DistMod, StateD},
-            exit(AcceptRef);
-        {NetKernel, unsupported_protocol = Reason} ->
-            exit(Reason)
+                DistMod:accept_open(NetAddress, StateL),
+            %%
+            NetAddress_1 = NetAddress#net_address{ address = PeerAddress },
+            Acceptor = self(),
+            NetKernel ! {accept, Acceptor, NetAddress_1, Family, Protocol},
+            receive
+                {NetKernel, controller, Controller} ->
+                    StateD =
+                        %% *******
+                        DistMod:accept_controller(
+                          NetAddress_1, Controller, StateA),
+                    Controller !
+                        {Acceptor, controller, DistMod, StateD},
+                    exit(AcceptRef);
+                {NetKernel, unsupported_protocol = Reason} ->
+                    exit(Reason)
+            end
     end.
 
 %% ------------------------------------------------------------

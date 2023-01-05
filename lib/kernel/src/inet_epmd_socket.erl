@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -260,6 +260,7 @@ tick(DistCtrl) ->
     ok.
 
 %% ------------------------------------------------------------
+-spec output_handler_start(_, _) -> no_return(). % Server loop
 output_handler_start(Socket, DistHandle) ->
     try
         erlang:dist_ctrl_get_data_notification(DistHandle),
@@ -339,6 +340,7 @@ output_data(Socket, Buffer) ->
     end.
 
 %% ------------------------------------------------------------
+-spec input_handler_start(_, _) -> no_return(). % Server loop
 input_handler_start(Socket, DistHandle) ->
     try input_handler(Socket, DistHandle)
     catch

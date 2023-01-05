@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(inet_tcp_dist).
@@ -31,11 +31,11 @@
 %% Generalized dist API
 -export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
 	 gen_setup/6, gen_select/2, gen_address/1]).
--export([fam_select/2, fam_listen/4, fam_setup/4]).
+-export([fam_select/2, fam_address/1, fam_listen/4, fam_setup/4]).
 %% OTP internal (e.g ssl)
 -export([gen_hs_data/2, nodelay/0]).
 
--export([merge_options/3]).
+-export([merge_options/2, merge_options/3]).
 
 %% internal exports
 
@@ -84,8 +84,10 @@ address() ->
     gen_address(?DRIVER).
 
 gen_address(Driver) ->
+    fam_address(Driver:family()).
+
+fam_address(Family) ->
     {ok, Host} = inet:gethostname(),
-    Family = Driver:family(),
     #net_address{
        host = Host,
        protocol = ?PROTOCOL,
@@ -127,31 +129,27 @@ gen_hs_data(Driver, Socket) ->
 %% node is accessible through.
 %% ------------------------------------------------------------
 
-listen(Name, Host) ->
-    gen_listen(?DRIVER, Name, Host).
-
-%% Keep this clause for third-party dist controllers reusing this API
+%% Keep this function for third-party dist controllers reusing this API
 listen(Name) ->
     {ok, Host} = inet:gethostname(),
     listen(Name, Host).
 
-gen_listen(Driver, Name, Host) ->
-    fam_listen(
-      Driver:family(), Name, Host,
-      fun (First, Last, ListenOptions) ->
-              loop_listen(Driver, First, Last, ListenOptions)
-      end).
+listen(Name, Host) ->
+    gen_listen(?DRIVER, Name, Host).
 
-fam_listen(Family, Name, Host, Listen) ->
+gen_listen(Driver, Name, Host) ->
+    ForcedOptions = [{active, false}, {packet,2}, {nodelay, true}],
+    ListenFun =
+        fun (First, Last, ListenOptions) ->
+                listen_loop(
+                  Driver, First, Last,
+                  merge_options(ListenOptions, ForcedOptions))
+        end,
+    Family = Driver:family(),
     maybe
-        EpmdMod = net_kernel:epmd_module(),
         %%
-        {ok, ListenSocket} ?=
-            do_listen(EpmdMod, Name, Host, Listen),
-        {ok, {_IP,Port} = Address} = inet:sockname(ListenSocket),
-        %%
-        {ok, Creation} ?=
-            EpmdMod:register_node(Name, Port, Family),
+        {ok, {ListenSocket, Address, Creation}} ?=
+            fam_listen(Family, Name, Host, ListenFun),
         NetAddress =
             #net_address{
                host = Host,
@@ -161,14 +159,37 @@ fam_listen(Family, Name, Host, Listen) ->
         {ok, {ListenSocket, NetAddress, Creation}}
     end.
 
-do_listen(EpmdMod, Name, Host, Listen) ->
-    ListenOptions = listen_options(),
-    case call_epmd_function(EpmdMod, listen_port_please, [Name, Host]) of
-        {ok, 0} ->
-            {First,Last} = get_port_range(),
-            Listen(First, Last, ListenOptions);
-        {ok, PortNum} ->
-            Listen(PortNum, PortNum, ListenOptions)
+listen_loop(_Driver, First, Last, _Options) when First > Last ->
+    {error,eaddrinuse};
+listen_loop(Driver, First, Last, Options) ->
+    case Driver:listen(First, Options) of
+        {error, eaddrinuse} ->
+	    listen_loop(Driver, First+1, Last, Options);
+        Other ->
+            Other
+    end.
+
+
+fam_listen(Family, Name, Host, ListenFun) ->
+    maybe
+        EpmdMod = net_kernel:epmd_module(),
+        %%
+        {ok, ListenSocket} ?=
+            case
+                call_epmd_function(
+                  EpmdMod, listen_port_please, [Name, Host])
+            of
+                {ok, 0} ->
+                    {First,Last} = get_port_range(),
+                    ListenFun(First, Last, listen_options());
+                {ok, PortNum} ->
+                    ListenFun(PortNum, PortNum, listen_options())
+            end,
+        {ok, {_IP,Port} = Address} = inet:sockname(ListenSocket),
+        %%
+        {ok, Creation} ?=
+            EpmdMod:register_node(Name, Port, Family),
+        {ok, {ListenSocket, Address, Creation}}
     end.
 
 get_port_range() ->
@@ -185,25 +206,13 @@ get_port_range() ->
     end.
 
 
-loop_listen(_Driver, First, Last, _ListenOptions) when First > Last ->
-    {error,eaddrinuse};
-loop_listen(Driver, First, Last, ListenOptions) ->
-    case Driver:listen(First, ListenOptions) of
-        {error, eaddrinuse} ->
-	    loop_listen(Driver, First+1, Last, ListenOptions);
-        Other ->
-            Other
-    end.
-
-
 listen_options() ->
     DefaultOpts = [{reuseaddr, true}, {backlog, 128}],
     ForcedOpts =
-        [{active, false}, {packet, 2} |
-         case application:get_env(kernel, inet_dist_use_interface) of
-             {ok, Ip}  -> [{ip, Ip}];
-             undefined -> []
-         end],
+        case application:get_env(kernel, inet_dist_use_interface) of
+            {ok, Ip}  -> [{ip, Ip}];
+            undefined -> []
+        end,
     InetDistListenOpts =
         case application:get_env(kernel, inet_dist_listen_options) of
             {ok, Opts} -> Opts;
@@ -212,6 +221,9 @@ listen_options() ->
     merge_options(InetDistListenOpts, ForcedOpts, DefaultOpts).
 
 
+merge_options(Opts, ForcedOpts) ->
+    merge_options(Opts, ForcedOpts, []).
+%%
 merge_options(Opts, ForcedOpts, DefaultOpts) ->
     Forced = merge_options(ForcedOpts),
     Default = merge_options(DefaultOpts),
@@ -478,7 +490,7 @@ connect_options() ->
               ConnectOpts;
           _ ->
               []
-      end, [{active, false}, {packet, 2}], []).
+      end, [{active, false}, {packet, 2}]).
 
 
 %%
