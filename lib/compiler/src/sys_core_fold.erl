@@ -2198,7 +2198,8 @@ simplify_let(#c_let{arg=Arg}=Let, Sub) ->
     move_let_into_expr(Let, Arg, Sub).
 
 move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner0,
-		   #c_let{vars=OuterVs0,arg=Arg0,body=OuterBody0}=Outer, Sub0) ->
+                   #c_let{vars=OuterVs0,arg=OuterArg0,body=OuterBody0}=Outer0,
+                   Sub0) ->
     %%
     %% let <InnerVars> = let <OuterVars> = <Arg>
     %%                   in <OuterBody>
@@ -2210,29 +2211,33 @@ move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner0,
     %% in let <InnerVars> = <OuterBody>
     %%    in <InnerBody>
     %%
-    Arg = body(Arg0, Sub0),
+    OuterArg = body(OuterArg0, Sub0),
     ScopeSub0 = sub_subst_scope(Sub0#sub{t=#{}}),
-    {OuterVs,ScopeSub} = var_list(OuterVs0, ScopeSub0),
 
+    {OuterVs,ScopeSub} = var_list(OuterVs0, ScopeSub0),
     OuterBody = body(OuterBody0, ScopeSub),
+
+    {InnerVs,Sub} = var_list(InnerVs0, Sub0),
+    InnerBody = body(InnerBody0, Sub),
 
     case will_fail(OuterBody) of
         true ->
+            %% If the outer body is known to fail, changing
+            %% the structure may create unsafe code that
+            %% requires another iteration of the outer
+            %% fixpoint loop to clean it up, which is not
+            %% guaranteed since it runs for a limited number
+            %% of iterations.
             %%
-            %% Avoid creating potentially unsafe code that
-            %% depends on another iteration of the outer
-            %% fixpoint loop to clean up. If <OuterBody>
-            %% consists of nested lets, we may run out of
-            %% iterations before the unsafe code is
-            %% eliminated.
-            %%
-            Inner0;
+            %% Note that we still need to update the bodies
+            %% as they might reference variables that no
+            %% longer exist.
+            Outer0 = Inner0#c_let.arg,          %Assertion.
+            Outer = Outer0#c_let{vars=OuterVs,arg=OuterArg,body=OuterBody},
+            Inner0#c_let{vars=InnerVs,arg=Outer,body=InnerBody};
         false ->
-            {InnerVs,Sub} = var_list(InnerVs0, Sub0),
-            InnerBody = body(InnerBody0, Sub),
-        
             Inner = Inner0#c_let{vars=InnerVs,arg=OuterBody,body=InnerBody},
-            Outer#c_let{vars=OuterVs,arg=Arg,body=Inner}
+            Outer0#c_let{vars=OuterVs,arg=OuterArg,body=Inner}
     end;
 move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 		   #c_case{arg=Cexpr0,clauses=[Ca0|Cs0]}=Case, Sub0) ->
