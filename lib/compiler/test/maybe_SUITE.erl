@@ -90,6 +90,8 @@ basic(_Config) ->
                    E2 -> E2
                end,
 
+    <<0>> = basic_4(id({<<0>>})),
+
     ok.
 
 basic_1(V0, M) ->
@@ -206,6 +208,11 @@ basic_3b(V0, M) ->
             {ok,V1,V2,V3}
         end,
     {wrapped,Result}.
+
+basic_4({X}) ->
+    maybe 
+        <<_:(ok)>> ?= X
+    end.
 
 nested(_Config) ->
     {outer_fail,not_ok} = nested_1(0, #{0 => not_ok}),

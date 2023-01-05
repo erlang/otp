@@ -1865,8 +1865,9 @@ ubody(#ivalues{anno=A,args=As}, return, St) ->
 ubody(#ivalues{anno=A,args=As}, {break,_Vbs}, St) ->
     Au = lit_list_vars(As),
     {#k_break{anno=A,args=As},Au,St};
-ubody(#k_goto{}=Goto, _Br, St) ->
-    {Goto,[],St};
+ubody(#k_goto{args=As}=Goto, _Br, St) ->
+    Au = lit_list_vars(As),
+    {Goto,Au,St};
 ubody(E, return, St0) ->
     %% Enterable expressions need no trailing return.
     case is_enter_expr(E) of
