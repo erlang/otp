@@ -261,6 +261,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(dynamic);                  \
     GLOBAL_ATOM_DEF(echo);                     \
     GLOBAL_ATOM_DEF(eether);                   \
+    GLOBAL_ATOM_DEF(efile);                    \
     GLOBAL_ATOM_DEF(egp);                      \
     GLOBAL_ATOM_DEF(enotsup);                  \
     GLOBAL_ATOM_DEF(eor);                      \
@@ -390,6 +391,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(portsel);                  \
     GLOBAL_ATOM_DEF(primary_addr);             \
     GLOBAL_ATOM_DEF(priority);                 \
+    GLOBAL_ATOM_DEF(prim_file);                \
     GLOBAL_ATOM_DEF(promisc);                  \
     GLOBAL_ATOM_DEF(pronet);                   \
     GLOBAL_ATOM_DEF(protocol);                 \
@@ -432,6 +434,15 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(select_failed);            \
     GLOBAL_ATOM_DEF(select_sent);              \
     GLOBAL_ATOM_DEF(send);                     \
+    GLOBAL_ATOM_DEF(sendfile);                 \
+    GLOBAL_ATOM_DEF(sendfile_byte);            \
+    GLOBAL_ATOM_DEF(sendfile_deferred_close);  \
+    GLOBAL_ATOM_DEF(sendfile_fails);           \
+    GLOBAL_ATOM_DEF(sendfile_max);             \
+    GLOBAL_ATOM_DEF(sendfile_pkg);             \
+    GLOBAL_ATOM_DEF(sendfile_pkg_max);         \
+    GLOBAL_ATOM_DEF(sendfile_tries);           \
+    GLOBAL_ATOM_DEF(sendfile_waits);           \
     GLOBAL_ATOM_DEF(sendmsg);                  \
     GLOBAL_ATOM_DEF(sendsrcaddr);              \
     GLOBAL_ATOM_DEF(sendto);                   \

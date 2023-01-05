@@ -29,6 +29,17 @@
 #    include "config.h"
 #endif
 
+#ifdef HAVE_SENDFILE
+#if defined(__linux__) || (defined(__sun) && defined(__SVR4))
+    #include <sys/sendfile.h>
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+    /* Need to define __BSD_VISIBLE in order to expose prototype
+     * of sendfile in sys/socket.h
+     */
+    #define __BSD_VISIBLE 1
+#endif
+#endif
+
 #ifndef WANT_NONBLOCKING
 #define WANT_NONBLOCKING
 #endif
@@ -38,6 +49,7 @@
 #include "socket_util.h"
 #include "socket_io.h"
 #include "socket_syncio.h"
+#include "prim_file_nif_dyncall.h"
 
 
 /* ======================================================================== *
@@ -200,6 +212,32 @@ static BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
                                      char*            dataP,
                                      size_t           dataLen,
                                      size_t*          dataUsedP);
+
+#if defined(HAVE_SENDFILE)
+static int essio_sendfile(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     sockRef,
+                          off_t            offset,
+                          size_t*          countP,
+                          int*             errP);
+static ERL_NIF_TERM essio_sendfile_errno(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     sockRef,
+                                         int              err);
+static ERL_NIF_TERM essio_sendfile_error(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     sockRef,
+                                         ERL_NIF_TERM     reason);
+static ERL_NIF_TERM essio_sendfile_select(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     sockRef,
+                                          ERL_NIF_TERM     sendRef,
+                                          size_t           count);
+static ERL_NIF_TERM essio_sendfile_ok(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      size_t           count);
+#endif
 
 
 /* ======================================================================== *
@@ -1747,16 +1785,263 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
 
 
 /* ========================================================================
+ * Start a sendfile() operation
  */
 extern
-ERL_NIF_TERM essio_sendfile(ErlNifEnv*       env,
-                            ESockDescriptor* descP,
-                            ERL_NIF_TERM     sockRef,
-                            off_t            offset,
-                            size_t*          countP,
-                            int*             errP)
+ERL_NIF_TERM essio_sendfile_start(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     sendRef,
+                                  off_t            offset,
+                                  size_t           count,
+                                  ERL_NIF_TERM     fRef)
 {
+#if defined(HAVE_SENDFILE)
+    ERL_NIF_TERM writerCheck;
+    ssize_t      res;
+    int          err;
+
+    SSDBG( descP, ("UNIX-ESSIO",
+                   "essio_sendfile_start {%d} -> entry with"
+                   "\r\n   sockRef: %T"
+                   "\r\n   sendRef: %T"
+                   "\r\n   fRef:    %T"
+                   "\r\n   offset:  %lu"
+                   "\r\n   count:   %lu"
+                   "\r\n",
+                   descP->sock, sockRef, sendRef,
+                   fRef, (unsigned long) offset, (unsigned long) count) );
+
+    if (! IS_OPEN(descP->writeState)) {
+        return esock_make_error_closed(env);
+    }
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->connectorP != NULL) {
+        return esock_make_error_invalid(env, esock_atom_state);
+    }
+
+    /* Ensure that we either have no current writer or we are it,
+     * or enqueue this process if there is a current writer
+     */
+    if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
+        SSDBG( descP, ("UNIX-ESSIO",
+                       "essio_sendfile_start {%d} -> writer check failed: "
+                       "\r\n   %T\r\n", descP->sock, writerCheck) );
+
+        /* Returns 'select' if current process got enqueued,
+         * or exception invalid state if current process already
+         * was enqueued
+         */
+        return writerCheck;
+    }
+
+    if (descP->sendfileHandle != INVALID_HANDLE)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    /* Get a dup:ed file handle from prim_file_nif
+     * through a NIF dyncall
+     */
+    {
+        struct prim_file_nif_dyncall_dup dc_dup;
+
+        dc_dup.op = prim_file_nif_dyncall_dup;
+        dc_dup.result = EINVAL; // should not be needed
+
+        /* Request the handle */
+        if (enif_dynamic_resource_call(env,
+                                       esock_atom_prim_file,
+                                       esock_atom_efile,
+                                       fRef,
+                                       &dc_dup)
+            != 0) {
+            return
+                essio_sendfile_error(env, descP, sockRef,
+                                     MKT2(env,
+                                          esock_atom_invalid,
+                                          esock_atom_efile));
+        }
+        if (dc_dup.result != 0) {
+            return
+                essio_sendfile_errno(env, descP, sockRef, dc_dup.result);
+        }
+        descP->sendfileHandle = dc_dup.handle;
+    }
+
+    SSDBG( descP, ("UNIX-ESSIO",
+                   "essio_sendfile_start(%T) {%d} -> sendRef: %T"
+                   "\r\n   sendfileHandle: %d"
+                   "\r\n",
+                   sockRef, descP->sock, sendRef,
+                   descP->sendfileHandle) );
+
+    if (descP->sendfileCountersP == NULL) {
+        descP->sendfileCountersP = MALLOC(sizeof(ESockSendfileCounters));
+        *descP->sendfileCountersP = initESockSendfileCounters;
+    }
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_sendfile_tries,
+                  &descP->sendfileCountersP->tries, 1);
+    descP->sendfileCountersP->maxCnt = 0;
+
+    res = essio_sendfile(env, descP, sockRef, offset, &count, &err);
+
+    if (res < 0) { // Terminal error
+
+        (void) close(descP->sendfileHandle);
+        descP->sendfileHandle = INVALID_HANDLE;
+
+        return essio_sendfile_errno(env, descP, sockRef, err);
+
+    } else if (res > 0) { // Retry by select
+
+        if (descP->currentWriterP == NULL) {
+            int mon_res;
+
+            /* Register writer as current */
+            ESOCK_ASSERT( enif_self(env, &descP->currentWriter.pid) != NULL );
+            mon_res =
+                MONP("sendfile-start -> current writer",
+                     env, descP,
+                     &descP->currentWriter.pid,
+                     &descP->currentWriter.mon);
+            ESOCK_ASSERT( mon_res >= 0 );
+
+            if (mon_res > 0) {
+                /* Caller died already, can happen for dirty NIFs */
+
+                (void) close(descP->sendfileHandle);
+                descP->sendfileHandle = INVALID_HANDLE;
+
+                return essio_sendfile_error(env, descP, sockRef,
+                                            MKT2(env,
+                                                 esock_atom_invalid,
+                                                 esock_atom_not_owner));
+            }
+            ESOCK_ASSERT( descP->currentWriter.env == NULL );
+            descP->currentWriter.env = esock_alloc_env("current-writer");
+            descP->currentWriter.ref =
+                CP_TERM(descP->currentWriter.env, sendRef);
+            descP->currentWriterP = &descP->currentWriter;
+        }
+        // else current writer is already registered by esock_requestor_pop()
+
+        return essio_sendfile_select(env, descP, sockRef, sendRef, count);
+
+    } else { // res == 0: Done
+        return essio_sendfile_ok(env, descP, sockRef, count);
+    }
+#else
+    VOID(env);
+    VOID(descP);
+    VOID(sockRef);
+    VOID(sendRef);
+    VOID(offset);
+    VOID(count);
+    VOID(fRef);
     return enif_raise_exception(env, MKA(env, "notsup"));
+#endif
+}
+
+
+/* ========================================================================
+ * Continue an ongoing sendfile operation
+ */
+
+extern
+ERL_NIF_TERM essio_sendfile_cont(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 ERL_NIF_TERM     sendRef,
+                                 off_t            offset,
+                                 size_t           count)
+{
+#if defined(HAVE_SENDFILE)
+    ErlNifPid caller;
+    ssize_t   res;
+    int       err;
+
+    SSDBG( descP, ("SOCKET",
+                   "essio_sendfile_cont {%d} -> entry"
+                   "\r\n   sockRef: %T"
+                   "\r\n   sendRef: %T"
+                   "\r\n", descP->sock, sockRef, sendRef) );
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->connectorP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    /* Verify that this process has a sendfile operation in progress */
+    ESOCK_ASSERT( enif_self(env, &caller) != NULL );
+    if ((descP->currentWriterP == NULL) ||
+        (descP->sendfileHandle == INVALID_HANDLE) ||
+        (COMPARE_PIDS(&descP->currentWriter.pid, &caller) != 0)) {
+        //
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+    res = essio_sendfile(env, descP, sockRef, offset, &count, &err);
+
+    if (res < 0) { // Terminal error
+
+        (void) close(descP->sendfileHandle);
+        descP->sendfileHandle = INVALID_HANDLE;
+
+        return essio_sendfile_errno(env, descP, sockRef, err);
+
+     } else if (res > 0) { // Retry by select
+
+        /* Overwrite current writer registration */
+        enif_clear_env(descP->currentWriter.env);
+        descP->currentWriter.ref =
+            CP_TERM(descP->currentWriter.env, sendRef);
+
+        return essio_sendfile_select(env, descP, sockRef, sendRef, count);
+
+    } else { // res == 0: Done
+        return essio_sendfile_ok(env, descP, sockRef, count);
+    }
+#else
+    VOID(env);
+    VOID(descP);
+    VOID(sockRef);
+    VOID(sendRef);
+    VOID(offset);
+    VOID(count);
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#endif
+}
+
+
+/* ========================================================================
+ * Deferred close of the dup:ed file descriptor
+ */
+
+extern
+ERL_NIF_TERM essio_sendfile_deferred_close(ErlNifEnv*       env,
+                                           ESockDescriptor* descP)
+{
+#if defined(HAVE_SENDFILE)
+    if (descP->sendfileHandle == INVALID_HANDLE)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    (void) close(descP->sendfileHandle);
+    descP->sendfileHandle = INVALID_HANDLE;
+
+    return esock_atom_ok;
+#else
+    VOID(env);
+    VOID(descP);
+    return enif_raise_exception(env, MKA(env, "notsup"));
+#endif
 }
 
 
@@ -2097,7 +2382,6 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
  * All waiting writers will be "aborted", that is a
  * nif_abort message will be sent (with ref and reason).
  */
-#ifndef __WIN32__
 static
 void send_error_waiting_writers(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
@@ -2122,7 +2406,6 @@ void send_error_waiting_writers(ErlNifEnv*       env,
                       env, descP, &req.mon);
     }
 }
-#endif // #ifndef __WIN32__
 
 
 /* *** send_check_retry ***
@@ -2255,6 +2538,8 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
     return res;
 }
 
+
+/* *** Control message utility functions *** */
 
 /* +++ decode_cmsghdrs +++
  *
@@ -2595,3 +2880,358 @@ BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
     return TRUE;
 }
 
+
+/* *** Sendfile utility functions *** */
+
+/* Platform independent sendfile() function
+ *
+ * Return < 0  for terminal error
+ *        0    for done
+ *        > 0  for retry with select
+ */
+#if defined(HAVE_SENDFILE)
+static
+int essio_sendfile(ErlNifEnv*       env,
+                   ESockDescriptor* descP,
+                   ERL_NIF_TERM     sockRef,
+                   off_t            offset,
+                   size_t*          countP,
+                   int*             errP)
+{
+    size_t pkgSize = 0; // Total sent in this call
+
+    SSDBG( descP, ("SOCKET",
+                   "essio_sendfile {%d,%d} -> entry"
+                   "\r\n   sockRef: %T"
+                   "\r\n",
+                   descP->sock, descP->sendfileHandle, sockRef) );
+
+    for (;;) {
+        size_t  chunk_size = (size_t) 0x20000000UL; // 0.5 GB
+        size_t  bytes_sent;
+        ssize_t res;
+        int     error;
+
+        /* *countP == 0 means send the whole file - use chunk size */
+        if ((*countP > 0) && (*countP < chunk_size))
+            chunk_size = *countP;
+
+        {
+            /* Platform dependent code:
+             *   update and check offset, set and check bytes_sent, and
+             *       set res to >= 0 and error to 0, or
+             *       set res to < 0 and error to sock_errno()
+             */
+#if defined (__linux__)
+
+            off_t prev_offset;
+
+            prev_offset = offset;
+            res =
+                sendfile(descP->sock, descP->sendfileHandle,
+                         &offset, chunk_size);
+            error = (res < 0) ? sock_errno() : 0;
+
+            ESOCK_ASSERT( offset >= prev_offset );
+            ESOCK_ASSERT( (off_t) chunk_size >= (offset - prev_offset) );
+            bytes_sent = (size_t) (offset - prev_offset);
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "essio_sendfile(%T) {%d,%d}"
+                    "\r\n   res:         %d"
+                    "\r\n   bytes_sent:  %lu"
+                    "\r\n   error:       %d"
+                    "\r\n",
+                    sockRef, descP->sock, descP->sendfileHandle,
+                    res, (unsigned long) bytes_sent, error) );
+
+#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__DARWIN__)
+
+            off_t sbytes;
+
+#if defined(__DARWIN__)
+            sbytes = (off_t) chunk_size;
+            res = (ssize_t)
+                sendfile(descP->sendfileHandle, descP->sock, offset,
+                         &sbytes, NULL, 0);
+#else
+            sbytes = 0;
+            res = (ssize_t)
+                sendfile(descP->sendfileHandle, descP->sock, offset,
+                         chunk_size, NULL, &sbytes, 0);
+#endif
+            error = (res < 0) ? sock_errno() : 0;
+
+            /* For an error return, we do not dare trust that sbytes is set
+             * unless the error is ERRNO_BLOCK or EINTR
+             * - the man page is to vague
+             */
+            if ((res < 0) && (error != ERRNO_BLOCK) && (error != EINTR)) {
+                sbytes = 0;
+            } else {
+                ESOCK_ASSERT( sbytes >= 0 );
+                ESOCK_ASSERT( (off_t) chunk_size >= sbytes );
+                ESOCK_ASSERT( offset + sbytes >= offset );
+                offset += sbytes;
+            }
+            bytes_sent = (size_t) sbytes;
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "essio_sendfile(%T) {%d,%d}"
+                    "\r\n   res:         %d"
+                    "\r\n   bytes_sent:  %lu"
+                    "\r\n   error:       %d"
+                    "\r\n",
+                    sockRef, descP->sock, descP->sendfileHandle,
+                    res, (unsigned long) bytes_sent, error) );
+
+#elif defined(__sun) && defined(__SVR4) && defined(HAVE_SENDFILEV)
+
+            sendfilevec_t sfvec[1];
+
+            sfvec[0].sfv_fd = descP->sendfileHandle;
+            sfvec[0].sfv_flag = 0;
+            sfvec[0].sfv_off = offset;
+            sfvec[0].sfv_len = chunk_size;
+
+            res = sendfilev(descP->sock, sfvec, NUM(sfvec), &bytes_sent);
+            error = (res < 0) ? sock_errno() : 0;
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "essio_sendfile(%T) {%d,%d}"
+                    "\r\n   res:         %d"
+                    "\r\n   bytes_sent:  %lu"
+                    "\r\n   error:       %d"
+                    "\r\n",
+                    sockRef, descP->sock, descP->sendfileHandle,
+                    res, (unsigned long) bytes_sent, error) );
+
+            if ((res < 0) && (error == EINVAL)) {
+                /* On e.b SunOS 5.10 using sfv_len > file size
+                 * lands here - we regard this as a successful send.
+                 * All other causes for EINVAL are avoided,
+                 * except for .sfv_fd not seekable, which would
+                 * give bytes_sent == 0 that we would interpret
+                 * as end of file, which is kind of true.
+                 */
+                res = 0;
+            }
+            ESOCK_ASSERT( chunk_size >= bytes_sent );
+            ESOCK_ASSERT( offset + bytes_sent >= offset );
+            offset += bytes_sent;
+
+#else
+#error "Unsupported sendfile syscall; update configure test."
+#endif
+
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_sendfile,
+                          &descP->sendfileCountersP->cnt, 1);
+
+            if (bytes_sent != 0) {
+
+                pkgSize += bytes_sent;
+
+                ESOCK_CNT_INC(env, descP, sockRef,
+                              esock_atom_sendfile_pkg,
+                              &descP->sendfileCountersP->pkg,
+                              1);
+                ESOCK_CNT_INC(env, descP, sockRef,
+                              esock_atom_sendfile_byte,
+                              &descP->sendfileCountersP->byteCnt,
+                              bytes_sent);
+
+                if (pkgSize > descP->sendfileCountersP->pkgMax)
+                    descP->sendfileCountersP->pkgMax = pkgSize;
+                if ((descP->sendfileCountersP->maxCnt += bytes_sent)
+                    > descP->sendfileCountersP->max)
+                    descP->sendfileCountersP->max =
+                        descP->sendfileCountersP->maxCnt;
+            }
+
+            /* *countP == 0 means send whole file */
+            if (*countP > 0) {
+
+                *countP -= bytes_sent;
+
+                if (*countP == 0) { // All sent
+                    *countP = pkgSize;
+                    return 0;
+                }
+            }
+
+            if (res < 0) {
+                if (error == ERRNO_BLOCK) {
+                    *countP = pkgSize;
+                    return 1;
+                }
+                if (error == EINTR)
+                    continue;
+                *errP = error;
+                return -1;
+            }
+
+            if (bytes_sent == 0) { // End of input file
+                *countP = pkgSize;
+                return 0;
+            }
+        }
+    } // for (;;)
+}
+
+
+static
+ERL_NIF_TERM essio_sendfile_errno(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     sockRef,
+                                  int              err)
+{
+    ERL_NIF_TERM reason = MKA(env, erl_errno_id(err));
+
+    return essio_sendfile_error(env, descP, sockRef, reason);
+}
+
+
+static
+ERL_NIF_TERM essio_sendfile_error(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     reason)
+{
+    SSDBG( descP, ("SOCKET",
+                   "essio_sendfile_error {%d} -> entry"
+                   "\r\n   sockRef: %T"
+                   "\r\n   reason:  %T"
+                   "\r\n", descP->sock, sockRef, reason) );
+
+    if (descP->sendfileCountersP == NULL) {
+        descP->sendfileCountersP = MALLOC(sizeof(ESockSendfileCounters));
+        *descP->sendfileCountersP = initESockSendfileCounters;
+    }
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_sendfile_fails,
+                  &descP->sendfileCountersP->fails, 1);
+
+    /* XXX Should we have special treatment for EINVAL,
+     * such as to only fail current operation and activate
+     * the next from the queue?
+     */
+
+    if (descP->currentWriterP != NULL) {
+
+        (void) DEMONP("essio_sendfile_error",
+                      env, descP, &descP->currentWriter.mon);
+
+        /* Fail all queued writers */
+        esock_requestor_release("essio_sendfile_error",
+                                env, descP, &descP->currentWriter);
+        send_error_waiting_writers(env, descP, sockRef, reason);
+        descP->currentWriterP = NULL;
+
+    }
+
+    return esock_make_error(env, reason);
+}
+
+static
+ERL_NIF_TERM essio_sendfile_select(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     sockRef,
+                                   ERL_NIF_TERM     sendRef,
+                                   size_t           count)
+{
+    int sres;
+
+    /* Select write for this process */
+    sres = esock_select_write(env, descP->sock, descP, NULL, sockRef, sendRef);
+    if (sres < 0) {
+        ERL_NIF_TERM reason;
+
+        /* Internal select error */
+        (void) DEMONP("essio_sendfile_select - failed",
+                      env, descP, &descP->currentWriter.mon);
+
+        /* Fail all queued writers */
+        reason = MKT2(env, esock_atom_select_write, MKI(env, sres));
+        esock_requestor_release("essio_sendfile_select - failed",
+                                env, descP, &descP->currentWriter);
+        send_error_waiting_writers(env, descP, sockRef, reason);
+        descP->currentWriterP = NULL;
+
+        (void) close(descP->sendfileHandle);
+        descP->sendfileHandle = INVALID_HANDLE;
+
+        return enif_raise_exception(env, reason);
+
+    } else {
+        ErlNifUInt64 bytes_sent;
+
+        SSDBG( descP,
+               ("SOCKET", "essio_sendfile_select {%d} -> selected"
+                "\r\n   sockRef: %T"
+                "\r\n   sendRef: %T"
+                "\r\n   count:  %lu"
+                "\r\n", descP->sock, sockRef, sendRef, (unsigned long) count) );
+
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_sendfile_waits,
+                      &descP->sendfileCountersP->waits,
+                      1);
+
+        descP->writeState |= ESOCK_STATE_SELECTED;
+        bytes_sent = (ErlNifUInt64) count;
+
+        return MKT2(env, esock_atom_select, MKUI64(env, bytes_sent));
+    }
+}
+
+
+static
+ERL_NIF_TERM essio_sendfile_ok(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               size_t           count)
+{
+    ErlNifUInt64 bytes_sent64u;
+
+    SSDBG( descP,
+           ("SOCKET", "essio_sendfile_ok {%d} -> entry when done"
+            "\r\n   sockRef: %T"
+            "\r\n   written: %lu"
+            "\r\n", descP->sock, sockRef, (unsigned long) count) );
+
+    if (descP->currentWriterP != NULL) {
+
+        (void) DEMONP("essio_sendfile_ok -> current writer",
+                      env, descP, &descP->currentWriter.mon);
+
+        /*
+         * Ok, this write is done maybe activate the next (if any)
+         */
+        if (! esock_activate_next_writer(env, descP, sockRef)) {
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "essio_sendfile_ok {%d} -> no more writers"
+                    "\r\n   sockRef: %T"
+                    "\r\n",
+                    descP->sock, sockRef) );
+
+            descP->currentWriterP = NULL;
+        }
+    }
+
+    descP->writePkgMaxCnt = 0;
+    bytes_sent64u = (ErlNifUInt64) count;
+
+    (void) close(descP->sendfileHandle);
+    descP->sendfileHandle = INVALID_HANDLE;
+
+    return esock_make_ok2(env, MKUI64(env, bytes_sent64u));
+}
+
+#endif // #ifdef HAVE_SENDFILE

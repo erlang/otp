@@ -96,12 +96,21 @@ typedef ERL_NIF_TERM (*ESockIOSendMsg)(ErlNifEnv*       env,
                                        ERL_NIF_TERM     eIOV,
                                        const ESockData* dataP);
 
-typedef ERL_NIF_TERM (*ESockIOSendFile)(ErlNifEnv*       env,
-                                        ESockDescriptor* descP,
-                                        ERL_NIF_TERM     sockRef,
-                                        off_t            offset,
-                                        size_t*          countP,
-                                        int*             errP);
+typedef ERL_NIF_TERM (*ESockIOSendFileStart)(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     sockRef,
+                                             ERL_NIF_TERM     sendRef,
+                                             off_t            offset,
+                                             size_t           count,
+                                             ERL_NIF_TERM     fRef);
+typedef ERL_NIF_TERM (*ESockIOSendFileContinue)(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     sockRef,
+                                                ERL_NIF_TERM     sendRef,
+                                                off_t            offset,
+                                                size_t           count);
+typedef ERL_NIF_TERM (*ESockIOSendFileDeferredClose)(ErlNifEnv*       env,
+                                                     ESockDescriptor* descP);
 
 typedef ERL_NIF_TERM (*ESockIORecv)(ErlNifEnv*       env,
                                     ESockDescriptor* descP,

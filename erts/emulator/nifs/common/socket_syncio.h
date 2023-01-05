@@ -82,12 +82,25 @@ extern ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
                                   int              flags,
                                   ERL_NIF_TERM     eIOV,
                                   const ESockData* dataP);
-extern ERL_NIF_TERM essio_sendfile(ErlNifEnv*       env,
-                                   ESockDescriptor* descP,
-                                   ERL_NIF_TERM     sockRef,
-                                   off_t            offset,
-                                   size_t*          countP,
-                                   int*             errP);
+extern
+ERL_NIF_TERM essio_sendfile_start(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     sendRef,
+                                  off_t            offset,
+                                  size_t           count,
+                                  ERL_NIF_TERM     fRef);
+extern
+ERL_NIF_TERM essio_sendfile_cont(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 ERL_NIF_TERM     sendRef,
+                                 off_t            offset,
+                                 size_t           count);
+extern
+ERL_NIF_TERM essio_sendfile_deferred_close(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
+
 extern ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
                                ESockDescriptor* descP,
                                ERL_NIF_TERM     sockRef,
