@@ -110,7 +110,7 @@
 
     <section>
       <title>The SSH app's mechanism</title>
-      <p>The set of algorithms that the SSH app uses by default depends on the algoritms supported by the:</p>
+      <p>The set of algorithms that the SSH app uses by default depends on the algorithms supported by the:</p>
       <list>
 	<item><p><seeerl marker="crypto:crypto">crypto</seeerl> app,</p>
 	</item>
@@ -322,7 +322,7 @@
     <section>
       <title>Example 5</title>
       <p>As an example let's add the Diffie-Hellman Group1 first in the kex list. It is supported according to 
-      <seeapp marker="SSH_app#supported_algos">Supported algoritms</seeapp>.</p>
+      <seeapp marker="SSH_app#supported_algos">Supported algorithms</seeapp>.</p>
       <code type="erl">
 5> ssh:chk_algos_opts(
          [{modify_algorithms,

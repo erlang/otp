@@ -847,7 +847,7 @@ new_dir(Config) ->
 
 %%--------------------------------------------------------------------
 %%
-%% Find the intersection of algoritms for otp ssh and the docker ssh.
+%% Find the intersection of algorithms for otp ssh and the docker ssh.
 %% Returns {ok, ServerHello, Server, ClientHello, Client} where Server are the algorithms common
 %% with the docker server and analogous for Client.
 %%
