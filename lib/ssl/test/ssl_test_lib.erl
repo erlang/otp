@@ -217,6 +217,8 @@
          verify_early_data/1,
          trace/0
         ]).
+%% Tracing
+-export([handle_trace/3]).
 
 -record(sslsocket, { fd = nil, pid = nil}).
 -define(SLEEP, 1000).
@@ -4135,3 +4137,10 @@ curve_default(_) ->
 trace() ->
     ssl_trace:start(fun ct:pal/2, []),
     ssl_trace:on().
+
+handle_trace(rle,
+                 {call, {?MODULE, init_openssl_server, [Mode, ResponderPort | _]}}, Stack0) ->
+    Role = server,
+    {io_lib:format("(*~w) Mode = ~w ResponderPort = ~w",
+                   [Role, Mode, ResponderPort]),
+     [{role, Role} | Stack0]}.

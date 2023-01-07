@@ -2225,4 +2225,19 @@ maybe_generate_client_shares(_) ->
 %%%#
 handle_trace(rle,
                  {call, {?MODULE, init, Args = [[Role | _]]}}, Stack0) ->
-    {io_lib:format("(*~w) Args = ~W", [Role, Args, 3]), [{role, Role} | Stack0]}.
+    {io_lib:format("(*~w) Args = ~W", [Role, Args, 3]), [{role, Role} | Stack0]};
+handle_trace(hbn,
+             {call, {?MODULE, hibernate_after,
+                     [_StateName = connection, State, Actions]}},
+             Stack) ->
+    #state{ssl_options= #{hibernate_after := HibernateAfter}} = State,
+    {io_lib:format("* * * maybe hibernating in ~w ms * * * Actions = ~W ",
+                   [HibernateAfter, Actions, 10]), Stack};
+handle_trace(hbn,
+             {return_from, {?MODULE, hibernate_after, 3},
+              {Cmd, Arg,_State, Actions}},
+             Stack) ->
+    {io_lib:format("Cmd = ~w Arg = ~w Actions = ~W", [Cmd, Arg, Actions, 10]), Stack};
+handle_trace(hbn,
+             {call, {?MODULE, handle_common_event, [timeout, hibernate, connection | _]}}, Stack) ->
+    {io_lib:format("* * * hibernating * * *", []), Stack}.

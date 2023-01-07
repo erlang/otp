@@ -135,7 +135,9 @@
          terminate/3,
          code_change/4,
          format_status/2]).
- 
+
+%% Tracing
+-export([handle_trace/3]).
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
@@ -596,3 +598,12 @@ choose_tls_fsm(#{versions := Versions},
     end;
 choose_tls_fsm(_, _) ->
     tls_1_0_to_1_2_fsm.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, wait_ocsp_stapling,
+                     [Type, Event|_]}}, Stack) ->
+    {io_lib:format("Type = ~w Event = ~W", [Type, Event, 10]), Stack}.

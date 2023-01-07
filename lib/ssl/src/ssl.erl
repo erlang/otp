@@ -2764,6 +2764,11 @@ unambiguous_path(Value) ->
 %%%#
 %%%# Tracing
 %%%#
+handle_trace(csp, {return_from, {?MODULE, opt_ocsp, 3}, Return}, Stack) ->
+    #{ocsp_stapling := Stapling, ocsp_nonce := Nonce,
+      ocsp_responder_certs := Certs} = Return,
+    {io_lib:format("Stapling = ~w Nonce = ~W Certs = ~W",
+                   [Stapling, Nonce, 5, Certs, 5]), Stack};
 handle_trace(rle, {call, {?MODULE, listen, Args}}, Stack0) ->
     Role = server,
     {io_lib:format("(*~w) Args = ~W", [Role, Args, 10]), [{role, Role} | Stack0]};

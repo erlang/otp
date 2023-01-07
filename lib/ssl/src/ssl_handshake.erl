@@ -89,6 +89,8 @@
          validation_fun_and_state/4,
          path_validation_alert/1]).
 
+%% Tracing
+-export([handle_trace/3]).
 %%====================================================================
 %% Create handshake messages 
 %%====================================================================
@@ -3894,3 +3896,15 @@ path_validation_cb({3,4}) ->
     tls_handshake_1_3;
 path_validation_cb(_) ->
     ?MODULE.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, maybe_add_certificate_status_request,
+                     [_Version, #{ocsp_stapling := true},
+                      _OcspNonce, _HelloExtensions]}},
+             Stack) ->
+    {io_lib:format("#1 ADDING certificate status request",
+                   []), Stack}.

@@ -90,6 +90,9 @@
          finished_verify_data/3, 
          pre_shared_key/3]).
 
+%% Tracing
+-export([handle_trace/3]).
+
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
                        sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
                        sect283k1 | sect283r1 | brainpoolP256r1 | secp256k1 | secp256r1 |
@@ -1273,3 +1276,23 @@ enum_to_oid(29) -> ?'id-X25519';
 enum_to_oid(30) -> ?'id-X448';
 enum_to_oid(_) ->
     undefined.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(kdt,
+             {call, {?MODULE, update_traffic_secret,
+                     [_HKDF, ApplicationTrafficSecret0]}},
+             Stack) ->
+    ATS0 = string:sub_string(
+          binary:bin_to_list(
+            binary:encode_hex(ApplicationTrafficSecret0)), 1, 5) ++ "...",
+    {io_lib:format("ApplicationTrafficSecret0 = \"~s\"", [ATS0]), Stack};
+handle_trace(kdt,
+             {return_from, {?MODULE, update_traffic_secret, 2},
+              Return}, Stack) ->
+    ATS = string:sub_string(
+          binary:bin_to_list(
+            binary:encode_hex(Return)), 1, 5) ++ "...",
+    {io_lib:format("ApplicationTrafficSecret = \"~s\"", [ATS]), Stack}.
