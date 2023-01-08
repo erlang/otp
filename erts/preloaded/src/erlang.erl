@@ -8062,11 +8062,11 @@ send([Dest], Msg) ->
 send(Dest, Msg) when erlang:is_list(Dest) ->
     Groups = maps:groups_from_list(fun erlang:node/1, Dest),
     maps:foreach(fun(N, Ps) when N =:= erlang:node() -> lists:foreach(fun(P) -> P ! Msg end, Ps);
-                    (N, Ps) -> case erts_internal:multisend(Ps, Msg) of
+                    (_N, Ps) -> case erts_internal:multisend(Ps, Msg) of
                                     nomultisend ->
-                                        erpc:cast(N, lists, foreach, [fun(P) -> P ! Msg end, Ps]);
+                                        lists:foreach(fun(P) -> P ! Msg end, Ps);
                                     _ -> nil
-                               end
+                                end
                  end,
                  Groups),
     Msg;
