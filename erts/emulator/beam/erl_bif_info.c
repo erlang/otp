@@ -5064,6 +5064,13 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
             }
             BIF_RET(am_notsup);
         }
+        else if (ERTS_IS_ATOM_STR("process_uniq_counter", BIF_ARG_1)) {
+            Sint64 counter;
+            if (term_to_Sint64(BIF_ARG_2, &counter)) {
+                BIF_P->uniq = counter;
+                BIF_RET(am_ok);
+            }
+        }
     }
 
     BIF_ERROR(BIF_P, BADARG);
