@@ -510,8 +510,7 @@ is_valid_signal(Signal) ->
     introduced in OTP 25. By default, it is disabled. To enable
     <c>maybe</c>, either use the <c>-feature(maybe_expr,enable)</c>
     directive (from within source code), or the compiler option
-    <c>{feature,maybe_expr,enable}</c>. The feature must also be enabled
-    in runtime using the <c>-enable-feature</c> option to <c>erl</c>.</p>
+    <c>{feature,maybe_expr,enable}</c>.</p>
     </note>
 
     <code type="erl"><![CDATA[
