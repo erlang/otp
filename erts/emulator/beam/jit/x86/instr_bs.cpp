@@ -1116,14 +1116,25 @@ void BeamModuleAssembler::emit_i_bs_get_float2(const ArgRegister &Ctx,
     emit_gc_test_preserve(ArgWord(FLOAT_SIZE_OBJECT), Live, ARG4);
 
     if (emit_bs_get_field_size(Sz, unit, fail, ARG2, 64) >= 0) {
+        /* erts_bs_get_float_2 uses HeapOnlyAlloc which usually requires just
+         * an updated heap pointer, but in debug mode it needs the stack
+         * pointer too for an assertion. */
+#ifdef DEBUG
+        emit_enter_runtime<Update::eStack | Update::eHeap>();
+#else
         emit_enter_runtime<Update::eHeap>();
+#endif
 
         a.mov(ARG1, c_p);
         mov_imm(ARG3, Flags.get());
         a.lea(ARG4, emit_boxed_val(ARG4, offsetof(ErlBinMatchState, mb)));
         runtime_call<4>(erts_bs_get_float_2);
 
+#ifdef DEBUG
+        emit_leave_runtime<Update::eStack | Update::eHeap>();
+#else
         emit_leave_runtime<Update::eHeap>();
+#endif
 
         emit_test_the_non_value(RET);
         a.je(fail);
