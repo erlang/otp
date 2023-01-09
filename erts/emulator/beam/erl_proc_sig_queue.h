@@ -1162,6 +1162,26 @@ int
 erts_proc_sig_decode_dist(Process *proc, ErtsProcLocks proc_locks,
                           ErtsMessage *msgp, int force_off_heap);
 
+/**
+ *
+ * @brief Check if a newly scheduled process needs to wait for
+ *        ongoing dirty handling of signals to complete.
+ *
+ * @param[in]   c_p             Pointer to executing process.
+ *
+ * @param[in]   state_in        State of process.
+ *
+ * @return                      Updated state of process if
+ *                              we had to wait; otherwise,
+ *                              state_in.
+ */
+ERTS_GLB_INLINE erts_aint32_t
+erts_proc_sig_check_wait_dirty_handle_signals(Process *c_p,
+                                              erts_aint32_t state_in);
+
+void erts_proc_sig_do_wait_dirty_handle_signals__(Process *c_p);
+
+
 ErtsDistExternal *
 erts_proc_sig_get_external(ErtsMessage *msgp);
 
@@ -1212,6 +1232,8 @@ erts_proc_sig_fetch(Process *proc)
                            | ERTS_PROC_LOCK_MSGQ))
                        == (ERTS_PROC_LOCK_MAIN
                            | ERTS_PROC_LOCK_MSGQ)));
+
+    ASSERT(!(proc->sig_qs.flags & FS_HANDLING_SIGS));
 
     ERTS_HDBG_CHECK_SIGNAL_IN_QUEUE(proc);
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(proc, !0);
@@ -1264,6 +1286,23 @@ erts_proc_notify_new_sig(Process* rp, erts_aint32_t state,
          */
         erts_make_dirty_proc_handled(rp->common.id, state, -1);
     }
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_proc_sig_check_wait_dirty_handle_signals(Process *c_p,
+                                              erts_aint32_t state_in)
+{
+    erts_aint32_t state = state_in;
+    ASSERT(erts_get_scheduler_data()->type == ERTS_SCHED_NORMAL);
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
+
+    if (c_p->sig_qs.flags & FS_HANDLING_SIGS) {
+        erts_proc_sig_do_wait_dirty_handle_signals__(c_p);
+        state = erts_atomic32_read_mb(&c_p->state);
+    }
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
+    ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
+    return state;
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

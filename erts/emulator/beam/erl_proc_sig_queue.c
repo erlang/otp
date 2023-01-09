@@ -230,7 +230,6 @@ typedef struct {
     ErtsORefThing oref_thing;
 } ErtsProcSigRPC;
 
-static void wait_handle_signals(Process *c_p);
 static void wake_handle_signals(Process *proc);
 
 static int handle_msg_tracing(Process *c_p,
@@ -3757,11 +3756,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
     ErtsMessage *sig, ***next_nm_sig;
     ErtsSigRecvTracing tracing;
 
-    ASSERT(!(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS));
-    if (c_p->sig_qs.flags & FS_HANDLING_SIGS)
-        wait_handle_signals(c_p);
-    else
-        c_p->sig_qs.flags |= FS_HANDLING_SIGS;
+    ASSERT(!(c_p->sig_qs.flags & (FS_WAIT_HANDLE_SIGS|FS_HANDLING_SIGS)));
 
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
@@ -3779,6 +3774,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             }
         }
     }
+
+    c_p->sig_qs.flags |= FS_HANDLING_SIGS;
 
     limit = *redsp;
     *redsp = 0;
@@ -5331,12 +5328,16 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
     }
 }
 
-static void
-wait_handle_signals(Process *c_p)
+void
+erts_proc_sig_do_wait_dirty_handle_signals__(Process *c_p)
 {
     /*
-     * Process needs to wait on a dirty process signal
-     * handler before it can handle signals by itself...
+     * A dirty process signal handler is currently handling
+     * signals for this process, so it is not safe for this
+     * process to continue to execute. This process needs to
+     * wait for the dirty signal handling to complete before
+     * it can continue executing. This since otherwise the
+     * signal queue can be seen in an inconsistent state.
      *
      * This should be a quite rare event. This only occurs
      * when all of the following occurs:
@@ -5351,8 +5352,8 @@ wait_handle_signals(Process *c_p)
      *   dirty, gets scheduled on a normal scheduler, and
      *   then tries to handle signals itself.
      *
-     * If the above happens, the normal sceduler executing
-     * the process will wait here until the dirty process
+     * If the above happens, the normal scheduler scheduling
+     * in the process will wait here until the dirty process
      * signal handler is done with the process...
      */
     erts_tse_t *event;
@@ -5380,18 +5381,17 @@ wait_handle_signals(Process *c_p)
     erts_tse_return(event);
 
     c_p->sig_qs.flags &= ~FS_WAIT_HANDLE_SIGS;
-    c_p->sig_qs.flags |= FS_HANDLING_SIGS;
 }
 
 static void
 wake_handle_signals(Process *proc)
 {
     /*
-     * Wake scheduler sleeping in wait_handle_signals()
+     * Wake scheduler waiting in erts_proc_sig_check_wait_dirty_handle_signals()
      * (above)...
      *
-     * This function should only be called by a dirty process
-     * signal handler process...
+     * This function should only be called by a dirty process signal handler
+     * process...
      */
 #ifdef DEBUG
     Process *c_p = erts_get_current_process();

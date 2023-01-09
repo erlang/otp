@@ -9876,6 +9876,13 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         }
         else {
             /* On normal scheduler */
+
+            /*
+             * Check if a dirty signal handler is handling signals for
+             * us and if so, wait for it to complete before continuing...
+             */
+            state = erts_proc_sig_check_wait_dirty_handle_signals(p, state);
+
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
                     int local_only = (!!(p->sig_qs.flags & FS_LOCAL_SIGS_ONLY)

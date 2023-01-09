@@ -321,6 +321,7 @@ typedef struct erl_trace_message_queue__ {
 
 #define ERTS_RECV_MARK_SAVE(P)                                          \
     do {                                                                \
+        ASSERT(!((P)->sig_qs.flags & FS_HANDLING_SIGS));                \
         erts_proc_lock((P), ERTS_PROC_LOCK_MSGQ);                       \
         erts_proc_sig_fetch((P));                                       \
         erts_proc_unlock((P), ERTS_PROC_LOCK_MSGQ);                     \
@@ -336,6 +337,7 @@ typedef struct erl_trace_message_queue__ {
 
 #define ERTS_RECV_MARK_SET(P)                                           \
     do {                                                                \
+        ASSERT(!((P)->sig_qs.flags & FS_HANDLING_SIGS));                \
         if ((P)->sig_qs.saved_last) {                                   \
             if ((P)->sig_qs.flags & FS_DEFERRED_SAVED_LAST) {           \
                 (P)->sig_qs.flags |= FS_DEFERRED_SAVE;                  \
@@ -357,6 +359,7 @@ typedef struct erl_trace_message_queue__ {
 
 #define ERTS_RECV_MARK_CLEAR(P)                                         \
     do {                                                                \
+        ASSERT(!((P)->sig_qs.flags & FS_HANDLING_SIGS));                \
         (P)->sig_qs.saved_last = NULL;                                  \
         (P)->sig_qs.flags &= ~(FS_DEFERRED_SAVED_LAST|FS_DEFERRED_SAVE); \
     } while (0)
