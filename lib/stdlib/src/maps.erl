@@ -500,12 +500,13 @@ with_1([], _Map) -> [].
 
 %% groups_from_list/2 & groups_from_list/3
 
--spec groups_from_list(Fun, List) -> MapOut when
-    Fun :: fun((Elem :: T) -> Selected),
-    MapOut :: #{Selected => List},
-    Selected :: term(),
-    List :: [T],
-    T :: term().
+-spec groups_from_list(KeyFun, List) -> GroupsMap when
+    KeyFun :: fun((Elem) -> Key),
+    GroupsMap :: #{Key => Group},
+    Key :: term(),
+    List :: [Elem],
+    Group :: [Elem],
+    Elem :: term().
 
 groups_from_list(Fun, List0) when is_function(Fun, 1) ->
     try lists:reverse(List0) of
@@ -528,15 +529,15 @@ groups_from_list_1(Fun, [H | Tail], Acc) ->
 groups_from_list_1(_Fun, [], Acc) ->
     Acc.
 
--spec groups_from_list(Fun, ValueFun, List) -> MapOut when
-    Fun :: fun((Elem :: T) -> Key),
-    ValueFun :: fun((Elem :: T) -> ValOut),
-    MapOut :: #{Key := ListOut},
+-spec groups_from_list(KeyFun, ValueFun, List) -> GroupsMap when
+    KeyFun :: fun((Elem) -> Key),
+    ValueFun :: fun((Elem) -> Value),
+    GroupsMap :: #{Key := Group},
     Key :: term(),
-    ValOut :: term(),
-    List :: [T],
-    ListOut :: [ValOut],
-    T :: term().
+    Value :: term(),
+    List :: [Elem],
+    Group :: [Value],
+    Elem :: term().
 
 groups_from_list(Fun, ValueFun, List0) when is_function(Fun, 1),
                                             is_function(ValueFun, 1) ->

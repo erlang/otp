@@ -232,15 +232,19 @@ val1
 
     <func>
       <name name="groups_from_list" arity="2" since="OTP 25.0"/>
-      <fsummary>Splits the list into groups using a function as discriminator.</fsummary>
+      <fsummary>Partitions a list into groups using a function as discriminator.</fsummary>
       <desc>
-        <p>The result is a map where each key is given by <anno>Fun</anno>
-        and each value is a list of elements. The order of elements within
-        each list is preserved from the list.</p>
+        <p>Partitions the given <c><anno>List</anno></c> into a map of groups.</p>
+        <p>The result is a map where each key is given by <c><anno>KeyFun</anno></c>
+          and each value is a list of elements from the given <c><anno>List</anno></c>
+          for which <c><anno>KeyFun</anno></c> returned the same key.</p>
+        <p>The order of elements within each group list is preserved from the original
+          list.</p>
         <p><em>Examples:</em></p>
         <pre>
-> <input>maps:groups_from_list(fun(X) -> X rem 2 end, [1,2,3]).</input>
-#{0 => [2], 1 => [1, 3]}
+> <input>EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,</input>
+<input>maps:groups_from_list(EvenOdd, [1, 2, 3]).</input>
+#{even => [2], odd => [1, 3]}
 > <input>maps:groups_from_list(fun erlang:length/1, ["ant", "buffalo", "cat", "dingo"]).</input>
 #{3 => ["ant", "cat"], 5 => ["dingo"], 7 => ["buffalo"]}</pre>
       </desc>
@@ -248,18 +252,26 @@ val1
 
     <func>
       <name name="groups_from_list" arity="3" since="OTP 25.0"/>
-      <fsummary>Splits the list into groups using a function as discriminator.</fsummary>
+      <fsummary>Partitions a list into groups using a function as discriminator.</fsummary>
       <desc>
-        <p>The result is a map where each key is given by
-        <anno>Fun</anno> and each value is a list of elements given by
-        the <anno>ValueFun</anno>. The order of elements within each
-        list is preserved from the list.</p>
+        <p>Partitions the given <c><anno>List</anno></c> into a map of groups.</p>
+        <p>The result is a map where each key is given by <c><anno>KeyFun</anno></c>
+          and each value is a list of elements from the given <c><anno>List</anno></c>,
+          mapped via <c><anno>ValueFun</anno></c>, for which <c><anno>KeyFun</anno></c>
+          returned the same key.</p>
+        <p>The order of elements within each group list is preserved from the
+          original list.</p>
         <p><em>Examples:</em></p>
         <pre>
-> <input>maps:groups_from_list(fun(X) -> X rem 2 end, fun(X) -> X*X end, [1,2,3]).</input>
-#{0 => [4], 1 => [1, 9]}
-> <input>maps:groups_from_list(fun erlang:length/1, fun lists:reverse/1, ["ant", "buffalo", "cat", "dingo"]).</input>
-#{3 => ["tna","tac"],5 => ["ognid"],7 => ["olaffub"]}</pre>
+> <input>EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,</input>
+> <input>Square = fun(X) -> X * X end,</input>
+> <input>maps:groups_from_list(EvenOdd, Square, [1, 2, 3]).</input>
+#{even => [4], odd => [1, 9]}
+> <input>maps:groups_from_list(</input>
+<input>    fun erlang:length/1,</input>
+<input>    fun lists:reverse/1,</input>
+<input>    ["ant", "buffalo", "cat", "dingo"]).</input>
+#{3 => ["tna", "tac"],5 => ["ognid"],7 => ["olaffub"]}</pre>
       </desc>
     </func>
 
