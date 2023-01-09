@@ -291,6 +291,7 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_redundant_br),
           ?PASS(ssa_opt_bs_ensure),
           ?PASS(ssa_opt_merge_blocks),
+          ?PASS(ssa_opt_try),
           ?PASS(ssa_opt_get_tuple_element),
           ?PASS(ssa_opt_tail_literals),
           ?PASS(ssa_opt_trim_unreachable),
@@ -1566,7 +1567,14 @@ live_opt_is([], Live, Acc) ->
 %%% never throw.
 %%%
 
-ssa_opt_try({#opt_st{ssa=Linear,cnt=Count0}=St, FuncDb}) ->
+ssa_opt_try({#opt_st{ssa=SSA0,cnt=Count0}=St, FuncDb}) ->
+    {Count, SSA} = opt_try(SSA0, Count0),
+    {St#opt_st{ssa=SSA,cnt=Count}, FuncDb}.
+
+opt_try(Blocks, Count0) when is_map(Blocks) ->
+    {Count, Linear} = opt_try(beam_ssa:linearize(Blocks), Count0),
+    {Count, maps:from_list(Linear)};
+opt_try(Linear, Count0) when is_list(Linear) ->
     {Count, Shrunk} = shrink_try(Linear, Count0, []),
 
     Reduced = reduce_try(Shrunk, []),
@@ -1574,7 +1582,7 @@ ssa_opt_try({#opt_st{ssa=Linear,cnt=Count0}=St, FuncDb}) ->
     EmptySet = sets:new([{version, 2}]),
     Trimmed = trim_try(Reduced, EmptySet, EmptySet, []),
 
-    {St#opt_st{ssa=Trimmed,cnt=Count}, FuncDb}.
+    {Count, Trimmed}.
 
 %% Moves all leading/trailing instructions that cannot fail out of try/catch
 %% expressions. For example, we can move the tuple constructions `{defg,Arg}`
