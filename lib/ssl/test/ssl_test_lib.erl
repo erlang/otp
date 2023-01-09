@@ -1107,13 +1107,17 @@ client_loop_core(Socket, Pid, Transport) ->
         {gen_tcp, closed} ->
             ok;
         {apply, From, Fun} ->
-            try
-                Res = Fun(Socket, Transport),
-                From ! {apply_res, Res}
+            try Fun(Socket, Transport) of
+                {replace, NewSocket} = Res ->
+                    From ! {apply_res, Res},
+                    client_loop_core(NewSocket, Pid, Transport);
+                Res ->
+                    From ! {apply_res, Res},
+                    client_loop_core(Socket, Pid, Transport)
             catch E:R:ST ->
-                    From ! {apply_res, {E,R,ST}}
-            end,
-            client_loop_core(Socket, Pid, Transport)
+                    From ! {apply_res, {E,R,ST}},
+                    client_loop_core(Socket, Pid, Transport)
+            end
     end.
 
 client_cont_loop(_Node, Host, Port, Pid, Transport, Options, cancel, _Opts) ->

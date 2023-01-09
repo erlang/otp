@@ -572,6 +572,12 @@ handle_info(new_cookie_secret, StateName,
     {next_state, StateName, State#state{protocol_specific = 
                                             CookieInfo#{current_cookie_secret => dtls_v1:cookie_secret(),
                                                         previous_cookie_secret => Secret}}};
+handle_info({socket_reused, Client}, StateName,
+            #state{static_env = #static_env{socket = {_, {Client, _}}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, transport_closed),
+    ssl_gen_statem:handle_normal_shutdown(Alert#alert{role = server}, StateName, State),
+    {stop, {shutdown, transport_closed}, State};
+
 handle_info(Msg, StateName, State) ->
     ssl_gen_statem:handle_info(Msg, StateName, State).
 
