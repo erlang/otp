@@ -6,6 +6,7 @@
     1. [Fixing a bug](#fixing-a-bug)
     2. [Adding a new feature](#adding-a-new-feature)
     3. [Before you submit your pull request](#before-you-submit-your-pull-request)
+    4. [After you have submitted your pull request](#after-you-have-submitted-your-pull-request)
 
 ## License
 
@@ -149,3 +150,16 @@ If you want to change the setting only for the Erlang mode, you can use a hook l
 (defun my-erlang-hook ()
   (setq indent-tabs-mode nil))
 ```
+
+### After you have submitted your pull request
+
+* Follow the discussion following your pull request, answer questions, discuss and implement
+changes requested by reviewers.
+
+* If your pull requests introduces new public functions, they need to be tagged with the
+OTP release in which they _will_ appear in the `since` tag in the functions' documentation.
+As this is generally not yet certain at the time when your PR gets merged, the person assigned
+to your pull request should give you an internal ticket number (for example `OTP-12345`) to use
+as a placeholder in the respective `since` tags, like `since="OTP @OTP-12345@`. When your new
+functions are released with an OTP release, this placeholder will get replaced with the actual
+OTP version, leading to something like "OTP 26.0".
