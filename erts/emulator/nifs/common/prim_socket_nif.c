@@ -458,10 +458,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
  * msg_flag() in socket.erl.
  */
 
-static const struct msg_flag {
-    int flag;
-    ERL_NIF_TERM *name;
-} msg_flags[] = {
+const ESockMsgFlag msg_flags[] = {
 
     {
 #ifdef MSG_CMSG_CLOEXEC
@@ -951,7 +948,7 @@ static unsigned long one_value  = 1;
 // #define sock_recv(s,buf,len,flag)       recv((s),(buf),(len),(flag))
 /* #define sock_recvfrom(s,buf,blen,flag,addr,alen) \ */
 /*     recvfrom((s),(buf),(blen),(flag),(addr),(alen)) */
-#define sock_recvmsg(s,msghdr,flag)     recvmsg((s),(msghdr),(flag))
+// #define sock_recvmsg(s,msghdr,flag)     recvmsg((s),(msghdr),(flag))
 // #define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
 // #define sock_sendmsg(s,msghdr,flag)     sendmsg((s),(msghdr),(flag))
 /* #define sock_sendto(s,buf,blen,flag,addr,alen)                \ */
@@ -1124,19 +1121,6 @@ static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
-/* static ERL_NIF_TERM esock_recvfrom(ErlNifEnv*       env, */
-/*                                    ESockDescriptor* descP, */
-/*                                    ERL_NIF_TERM     sockRef, */
-/*                                    ERL_NIF_TERM     recvRef, */
-/*                                    ssize_t          bufSz, */
-/*                                    int              flags); */
-static ERL_NIF_TERM esock_recvmsg(ErlNifEnv*       env,
-                                  ESockDescriptor* descP,
-                                  ERL_NIF_TERM     sockRef,
-                                  ERL_NIF_TERM     recvRef,
-                                  ssize_t          bufLen,
-                                  ssize_t          ctrlLen,
-                                  int              flags);
 static ERL_NIF_TERM esock_close(ErlNifEnv*       env,
                                 ESockDescriptor* descP);
 static BOOLEAN_T esock_do_stop(ErlNifEnv* env,
@@ -2977,85 +2961,12 @@ static struct ESockOpt *lookupOpt(int level, int opt) {
 
 
 
-static BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
-                                   ESockDescriptor* descP,
-                                   ERL_NIF_TERM     ref,
-                                   ERL_NIF_TERM*    checkResult);
-static void recv_init_current_reader(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     ERL_NIF_TERM     ref);
-static void recv_update_current_reader(ErlNifEnv*       env,
-                                       ESockDescriptor* descP,
-                                       ERL_NIF_TERM     sockRef);
-static void recv_error_current_reader(ErlNifEnv*       env,
-                                      ESockDescriptor* descP,
-                                      ERL_NIF_TERM     sockRef,
-                                      ERL_NIF_TERM     reason);
-static ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
-                                    ESockDescriptor* descP,
-                                    int              saveErrno,
-                                    ErlNifBinary*    buf1P,
-                                    ErlNifBinary*    buf2P,
-                                    ERL_NIF_TERM     sockRef,
-                                    ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
-                                               ESockDescriptor* descP,
-                                               ERL_NIF_TERM     sockRef,
-                                               ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     ERL_NIF_TERM     sockRef,
-                                     ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
-                                        ESockDescriptor* descP,
-                                        int              saveErrno,
-                                        ERL_NIF_TERM     sockRef);
-static ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
-                                         ESockDescriptor* descP,
-                                         ssize_t          read,
-                                         int              saveErrno,
-                                         struct msghdr*   msgHdrP,
-                                         ErlNifBinary*    dataBufP,
-                                         ErlNifBinary*    ctrlBufP,
-                                         ERL_NIF_TERM     sockRef,
-                                         ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
-                                      ESockDescriptor* descP,
-                                      ssize_t          read,
-                                      struct msghdr*   msgHdrP,
-                                      ErlNifBinary*    dataBufP,
-                                      ErlNifBinary*    ctrlBufP,
-                                      ERL_NIF_TERM     sockRef);
-
 static ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
                                          ESockDescriptor* descP);
 static int esock_close_socket(ErlNifEnv*       env,
                               ESockDescriptor* descP,
                               BOOLEAN_T        unlock);
 
-static void encode_msg(ErlNifEnv*       env,
-                       ESockDescriptor* descP,
-                       ssize_t          read,
-                       struct msghdr*   msgHdrP,
-                       ErlNifBinary*    dataBufP,
-                       ErlNifBinary*    ctrlBufP,
-                       ERL_NIF_TERM*    eSockAddr);
-static void encode_cmsgs(ErlNifEnv*       env,
-                         ESockDescriptor* descP,
-                         ErlNifBinary*    cmsgBinP,
-                         struct msghdr*   msgHdrP,
-                         ERL_NIF_TERM*    eCMsg);
-static BOOLEAN_T encode_cmsg(ErlNifEnv*     env,
-                             int            level,
-                             int            type,
-                             unsigned char* dataP,
-                             size_t         dataLen,
-                             ERL_NIF_TERM*  eType,
-                             ERL_NIF_TERM*  eData);
-static void encode_msg_flags(ErlNifEnv*       env,
-                             ESockDescriptor* descP,
-                             int              msgFlags,
-                             ERL_NIF_TERM*    flags);
 #if defined(IP_TOS)
 static BOOLEAN_T decode_ip_tos(ErlNifEnv*   env,
                                ERL_NIF_TERM eVal,
@@ -3932,8 +3843,8 @@ static ESockIoBackend io_backend = {0};
      io_backend.recvfrom((__ENV__), (__D__),                      \
                          (__SR__), (__RR__), (__L__), (__F__)) :  \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_recvmsg(__ENV__, __D__,                          \
-                         __SR__, __RR__, __BL__, ___CL__, __F__)  \
+#define ESOCK_IO_RECVMSG(__ENV__, __D__,                          \
+                         __SR__, __RR__, __BL__, __CL__, __F__)  \
     ((io_backend.recvmsg != NULL) ?                               \
      io_backend.recvmsg((__ENV__), (__D__),                       \
                         (__SR__), (__RR__),                       \
@@ -6334,7 +6245,7 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
      * </KOLLA>
      */
 
-    res = esock_recvmsg(env, descP, sockRef, recvRef, bufSz, ctrlSz, flags);
+    res = ESOCK_IO_RECVMSG(env, descP, sockRef, recvRef, bufSz, ctrlSz, flags);
 
     SSDBG( descP, ("SOCKET", "nif_recvmsg(%T) -> done"
                    "\r\n", sockRef) );
@@ -6344,107 +6255,6 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     return res;
 #endif // #ifdef __WIN32__  #else
 }
-
-
-/* The (read) buffer handling *must* be optimized!
- * But for now we make it easy for ourselves by
- * allocating a binary (of the specified or default
- * size) and then throwing it away...
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_recvmsg(ErlNifEnv*       env,
-                           ESockDescriptor* descP,
-                           ERL_NIF_TERM     sockRef,
-                           ERL_NIF_TERM     recvRef,
-                           ssize_t          bufLen,
-                           ssize_t          ctrlLen,
-                           int              flags)
-{
-    SOCKLEN_T     addrLen;
-    ssize_t       read;
-    int           save_errno;
-    size_t        bufSz  = (bufLen  != 0 ? bufLen  : descP->rBufSz);
-    size_t        ctrlSz = (ctrlLen != 0 ? ctrlLen : descP->rCtrlSz);
-    struct msghdr msgHdr;
-    SysIOVec      iov[1];  // Shall we always use 1?
-    ErlNifBinary  data[1]; // Shall we always use 1?
-    ErlNifBinary  ctrl;
-    ERL_NIF_TERM  readerCheck;
-    ESockAddress  addr;
-
-    SSDBG( descP, ("SOCKET", "esock_recvmsg {%d} -> entry with"
-                   "\r\n   bufSz:  %lu (%ld)"
-                   "\r\n   ctrlSz: %ld (%ld)"
-                   "\r\n", descP->sock,
-                   (unsigned long) bufSz, (long) bufLen,
-                   (unsigned long) ctrlSz, (long) ctrlLen) );
-
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    /* Accept and Read uses the same select flag
-     * so they can not be simultaneous
-     */
-    if (descP->currentAcceptorP != NULL)
-        return esock_make_error_invalid(env, esock_atom_state);
-
-    /* Ensure that we either have no current reader or that we are it,
-     * or enqueue this process if there is a current reader */
-    if (! recv_check_reader(env, descP, recvRef, &readerCheck)) {
-        SSDBG( descP,
-               ("SOCKET", "esock_recv {%d} -> reader check failed: "
-                "\r\n   %T\r\n", descP->sock, readerCheck) );
-        return readerCheck;
-    }
-
-    /*
-    for (i = 0; i < sizeof(buf); i++) {
-        ESOCK_ASSERT( ALLOC_BIN(bifSz, &buf[i]) );
-        iov[i].iov_base = buf[i].data;
-        iov[i].iov_len  = buf[i].size;
-    }
-    */
-
-    /* Allocate the (msg) data buffer:
-     */
-    ESOCK_ASSERT( ALLOC_BIN(bufSz, &data[0]) );
-
-    /* Allocate the ctrl (buffer):
-     */
-    ESOCK_ASSERT( ALLOC_BIN(ctrlSz, &ctrl) );
-
-    ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_read_tries, &descP->readTries, 1);
-
-    addrLen = sizeof(addr);
-    sys_memzero((char*) &addr,   addrLen);
-    sys_memzero((char*) &msgHdr, sizeof(msgHdr));
-
-    iov[0].iov_base = data[0].data;
-    iov[0].iov_len  = data[0].size;
-
-    msgHdr.msg_name       = &addr;
-    msgHdr.msg_namelen    = addrLen;
-    msgHdr.msg_iov        = iov;
-    msgHdr.msg_iovlen     = 1; // Should use a constant or calculate...
-    msgHdr.msg_control    = ctrl.data;
-    msgHdr.msg_controllen = ctrl.size;
-
-    read = sock_recvmsg(descP->sock, &msgHdr, flags);
-    if (ESOCK_IS_ERROR(read))
-        save_errno = sock_errno();
-    else
-        save_errno = 0; // The value does not actually matter in this case
-
-    return recvmsg_check_result(env, descP, read, save_errno,
-                                &msgHdr,
-                                data,  // Needed for iov encode
-                                &ctrl, // Needed for ctrl header encode
-                                sockRef, recvRef);
-}
-#endif // #ifndef __WIN32__
-
 
 
 /* ----------------------------------------------------------------------
@@ -10185,10 +9995,10 @@ ERL_NIF_TERM esock_getopt_pktoptions(ErlNifEnv*       env,
 	vals[0] = esock_encode_level(env, currentP->cmsg_level);
 	vals[2] = MKSBIN(env, ctrlBuf, dataPos, dataLen);
 
-	haveValue = encode_cmsg(env,
-				currentP->cmsg_level,
-				currentP->cmsg_type,
-				dataP, dataLen, &vals[1], &vals[3]);
+	haveValue = esock_encode_cmsg(env,
+                                      currentP->cmsg_level,
+                                      currentP->cmsg_type,
+                                      dataP, dataLen, &vals[1], &vals[3]);
 
 	SSDBG( descP,
 	       ("SOCKET", "esock_getopt_pktoptions {%d} -> "
@@ -12312,719 +12122,94 @@ ERL_NIF_TERM esock_cancel_mode_select(ErlNifEnv*       env,
  * ----------------------------------------------------------------------
  */
 
-/* *** recv_check_reader ***
- *
- * Checks if we have a current reader and if that is us. If not,
- * then we must be made to wait for our turn. This is done by pushing
- * us unto the reader queue.
- * Note that we do *not* actually initiate the currentReader structure
- * here, since we do not actually know yet if we need to! We do that in
- * the [recv|recvfrom|recvmsg]_check_result function.
- */
-#ifndef __WIN32__
-static
-BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
-                            ESockDescriptor* descP,
-                            ERL_NIF_TERM     ref,
-                            ERL_NIF_TERM*    checkResult)
+extern
+BOOLEAN_T esock_encode_cmsg(ErlNifEnv*     env,
+                            int            level,
+                            int            type,
+                            unsigned char* dataP,
+                            size_t         dataLen,
+                            ERL_NIF_TERM*  eType,
+                            ERL_NIF_TERM*  eData)
 {
-    if (descP->currentReaderP != NULL) {
-        ErlNifPid caller;
-        
-        ESOCK_ASSERT( enif_self(env, &caller) != NULL );
+    const ESockCmsgSpec *cmsgTable;
+    size_t num;
 
-        if (COMPARE_PIDS(&descP->currentReader.pid, &caller) != 0) {
-            /* Not the "current reader", so (maybe) push onto queue */
+    if ((cmsgTable = esock_lookup_cmsg_table(level, &num)) != NULL) {
+        size_t n;
 
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recv_check_reader {%d} -> not (current) reader"
-                    "\r\n   ref: %T"
-                    "\r\n", descP->sock, ref) );
+        /* Linear search for type number in level table
+         */
+        for (n = 0;  n < num;  n++) {
+            if (cmsgTable[n].type == type) {
+                /* Found the type number in the level table;
+                 * return the symbolic type (atom)
+                 * and try to encode the data
+                 */
 
-            if (! esock_reader_search4pid(env, descP, &caller)) {
-                if (COMPARE(ref, esock_atom_zero) == 0)
-                    goto done_ok;
-                esock_reader_push(env, descP, caller, ref);
-                *checkResult = esock_atom_select;
-            } else {
-                /* Reader already in queue */
-                *checkResult = esock_raise_invalid(env, esock_atom_state);
+                *eType = *cmsgTable[n].nameP;
+
+                if (cmsgTable[n].encode != NULL)
+                    return cmsgTable[n].encode(env, dataP, dataLen, eData);
+                else
+                    return FALSE;
             }
-            
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recv_check_reader {%d} -> queue (push) result: %T\r\n",
-                    descP->sock, *checkResult) );
-
-            return FALSE;
         }
     }
+    /* No level table, or unknown type number in the table;
+     * just return the type number as an erlang integer
+     */
 
- done_ok:
-    // Does not actually matter in this case, but ...
-    *checkResult = esock_atom_ok;
-    return TRUE;
+
+    *eType = MKI(env, type);
+    return FALSE;
 }
-#endif // #ifndef __WIN32__
 
 
-/* *** recv_init_current_reader ***
+
+/* +++ esock_encode_msg_flags +++
  *
- * Initiate (maybe) the currentReader structure of the descriptor.
- * Including monitoring the calling process.
+ * Encode a list of msg_flag().
+ *
  */
-#ifndef __WIN32__
-static
-void recv_init_current_reader(ErlNifEnv*       env,
-                              ESockDescriptor* descP,
-                              ERL_NIF_TERM     recvRef)
+
+extern
+void esock_encode_msg_flags(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            int              msgFlags,
+                            ERL_NIF_TERM*    flags)
 {
-    if (descP->currentReaderP == NULL) {
+    SSDBG( descP,
+           ("SOCKET", "encode_msg_flags {%d} -> entry with"
+            "\r\n   msgFlags: %d (0x%lX)"
+            "\r\n", descP->sock, msgFlags, msgFlags) );
 
-        ESOCK_ASSERT( enif_self(env, &descP->currentReader.pid) != NULL );
-
-        ESOCK_ASSERT( MONP("recv_init_current_reader -> current reader",
-                           env, descP,
-                           &descP->currentReader.pid,
-                           &descP->currentReader.mon) == 0);
-        ESOCK_ASSERT(!descP->currentReader.env);
-
-        descP->currentReader.env = esock_alloc_env("current-reader");
-        descP->currentReader.ref =
-            CP_TERM(descP->currentReader.env, recvRef);
-        descP->currentReaderP = &descP->currentReader;
+    if (msgFlags == 0) {
+        *flags = MKEL(env);
     } else {
+        size_t       n;
+        SocketTArray ta = TARRAY_CREATE(10); // Just to be on the safe side
 
-        /*
-         * This is a retry:
-         * We have done, for instance, recv(Sock, X), but only received Y < X.
-         * We then call recv again with size = X-Y. So, we then get a new ref.
-         * 
-         * Make use of the existing environment
-         */
-
-        enif_clear_env(descP->currentReader.env);
-        descP->currentReader.ref = CP_TERM(descP->currentReader.env, recvRef);
-    }
-}
-#endif // #ifndef __WIN32__
-
-
-/* *** recv_update_current_reader ***
- *
- * Demonitors the current reader process and pop's the reader queue.
- * If there is a waiting (reader) process, then it will be assigned
- * as the new current reader and a new (read) select will be done.
- */
-#ifndef __WIN32__
-static void
-recv_update_current_reader(ErlNifEnv*       env,
-                           ESockDescriptor* descP,
-                           ERL_NIF_TERM     sockRef)
-{
-    if (descP->currentReaderP != NULL) {
-        
-        ESOCK_ASSERT( DEMONP("recv_update_current_reader",
-                             env, descP, &descP->currentReader.mon) == 0);
-
-        if (! esock_activate_next_reader(env, descP, sockRef)) {
-
-            SSDBG( descP,
-                   ("SOCKET",
-                    "recv_update_current_reader(%T) {%d} -> no more readers\r\n",
-                    sockRef, descP->sock) );
-
-            descP->currentReaderP = NULL;
+        for (n = 0;  n < NUM(msg_flags);  n++) {
+            int f = msg_flags[n].flag;
+            if ((f != 0) && ((msgFlags & f) == f)) {
+                msgFlags &= ~f;
+                TARRAY_ADD(ta, *(msg_flags[n].name));
+            }
+            if (msgFlags == 0) goto done;
         }
-    }
-}
-#endif // #ifndef __WIN32__
+        /* Append remaining flags as an integer */
+        if (msgFlags != 0)
+            TARRAY_ADD(ta, MKI(env, msgFlags));
 
-
-/* *** recv_error_current_reader ***
- *
- * Process the current reader and any waiting readers
- * when a read (fatal) error has occurred.
- * All waiting readers will be "aborted", that is a 
- * nif_abort message will be sent (with ref and reason).
- */
-#ifndef __WIN32__
-static
-void recv_error_current_reader(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ERL_NIF_TERM     sockRef,
-                               ERL_NIF_TERM     reason)
-{
-    if (descP->currentReaderP != NULL) {
-        ESockRequestor req;
-
-        esock_requestor_release("recv_error_current_reader",
-                                env, descP, &descP->currentReader);
-
-        req.env = NULL; /* read by reader_pop before free */
-        while (esock_reader_pop(env, descP, &req)) {
-
-            SSDBG( descP,
-                   ("SOCKET", "recv_error_current_reader(%T) {%d} -> abort"
-                    "\r\n   pid:   %T"
-                    "\r\n   reason %T"
-                    "\r\n", sockRef, descP->sock,
-                    req.pid, reason) );
-
-            esock_send_abort_msg(env, descP, sockRef, &req, reason);
-
-            ESOCK_ASSERT( DEMONP("recv_error_current_reader -> pop'ed reader",
-                                 env, descP, &req.mon) == 0);
-        }
-
-        descP->currentReaderP = NULL;
-    }
-}
-#endif // #ifndef __WIN32__
-
-
-/* *** recv_check_fail ***
- *
- * Handle recv failure.
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
-                             ESockDescriptor* descP,
-                             int              saveErrno,
-                             ErlNifBinary*    buf1P,
-                             ErlNifBinary*    buf2P,
-                             ERL_NIF_TERM     sockRef,
-                             ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM res;
-
-    FREE_BIN(buf1P);
-    if (buf2P != NULL) FREE_BIN(buf2P);
-
-    if (saveErrno == ECONNRESET)  {
-
-        /* +++ Oops - closed +++ */
-
+    done:
         SSDBG( descP,
-               ("SOCKET",
-                "recv_check_fail(%T) {%d} -> econnreset: closed"
-                "\r\n   recvRef: %T"
-                "\r\n", sockRef, descP->sock, recvRef) );
+               ("SOCKET", "encode_msg_flags {%d} -> flags processed when"
+                "\r\n   TArray size: %d"
+                "\r\n", descP->sock, TARRAY_SZ(ta)) );
 
-        // This is a bit overkill (to count here), but just in case...
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_fails, &descP->readFails, 1);
-
-        res = recv_check_fail_econnreset(env, descP, sockRef, recvRef);
-
-    } else if ((saveErrno == ERRNO_BLOCK) ||
-               (saveErrno == EAGAIN)) {
-
-        SSDBG( descP,
-               ("SOCKET",
-                "recv_check_fail(%T) {%d} -> eagain"
-                "\r\n   recvRef: %T"
-                "\r\n", sockRef, descP->sock, recvRef) );
-
-        if (COMPARE(recvRef, esock_atom_zero) == 0)
-            res = esock_atom_ok;
-        else
-            res = recv_check_retry(env, descP, sockRef, recvRef);
-
-    } else {
-
-        SSDBG( descP,
-               ("SOCKET",
-                "recv_check_fail(%T) {%d} -> errno: %d\r\n"
-                "\r\n   recvRef: %T"
-                "\r\n", sockRef, descP->sock, saveErrno, recvRef) );
-
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_fails, &descP->readFails, 1);
-
-        res = recv_check_fail_gen(env, descP, saveErrno, sockRef);
+        TARRAY_TOLIST(ta, env, flags);
     }
-
-    return res;
 }
-#endif // #ifndef __WIN32__
-
-
-/* *** recv_check_fail_econnreset ***
- *
- * We detected that the socket was closed while reading.
- * Inform current and waiting readers.
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
-                                        ESockDescriptor* descP,
-                                        ERL_NIF_TERM     sockRef,
-                                        ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM reason = MKA(env, erl_errno_id(ECONNRESET));
-    ERL_NIF_TERM res = esock_make_error(env, reason);
-
-    /* <KOLLA>
-     *
-     * IF THE CURRENT PROCESS IS *NOT* THE CONTROLLING
-     * PROCESS, WE NEED TO INFORM IT!!!
-     *
-     * ALL WAITING PROCESSES MUST ALSO GET THE ERROR!!
-     * HANDLED BY THE STOP (CALLBACK) FUNCTION?
-     *
-     * SINCE THIS IS A REMOTE CLOSE, WE DON'T NEED TO WAIT
-     * FOR OUTPUT TO BE WRITTEN (NO ONE WILL READ), JUST
-     * ABORT THE SOCKET REGARDLESS OF LINGER???
-     *
-     * </KOLLA>
-     */
-
-    recv_error_current_reader(env, descP, sockRef, reason);
-
-    return res;
-}
-#endif // #ifndef __WIN32__
-
-
-/* *** recv_check_retry ***
- *
- * The recv call would have blocked, so retry.
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
-                              ESockDescriptor* descP,
-                              ERL_NIF_TERM     sockRef,
-                              ERL_NIF_TERM     recvRef)
-{
-    int          sres;
-    ERL_NIF_TERM res;
-
-    descP->rNumCnt = 0;
-    recv_init_current_reader(env, descP, recvRef);
-
-    SSDBG( descP,
-           ("SOCKET",
-            "recv_check_retry(%T) {%d} -> SELECT for more"
-            "\r\n   recvRef: %T"
-            "\r\n", sockRef, descP->sock, recvRef) );
-
-    if ((sres = esock_select_read(env, descP->sock, descP, NULL,
-                                  sockRef, recvRef)) < 0) {
-        /* Unlikely that any next reader will have better luck,
-         * but why not give them a shot - the queue will be cleared
-         */
-        recv_update_current_reader(env, descP, sockRef);
-
-        res = enif_raise_exception(env,
-                                   MKT2(env, esock_atom_select_read,
-                                        MKI(env, sres)));
-    } else {
-        descP->readState |= ESOCK_STATE_SELECTED;
-        res = esock_atom_select;
-    }
-
-    return res;
-}
-#endif // #ifndef __WIN32__
-
-
-/* *** recv_check_fail_gen ***
- *
- * The recv call had a "general" failure.
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
-                                 ESockDescriptor* descP,
-                                 int              saveErrno,
-                                 ERL_NIF_TERM     sockRef)
-{
-    ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
-
-    recv_error_current_reader(env, descP, sockRef, reason);
-
-    return esock_make_error(env, reason);
-}
-#endif // #ifndef __WIN32__
-
-
-
-/* *** recvmsg_check_result ***
- *
- * The recvmsg function delivers one (1) message. If our buffer
- * is to small, the message will be truncated. So, regardless
- * if we filled the buffer or not, we have got what we are going
- * to get regarding this message.
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
-                                  ESockDescriptor* descP,
-                                  ssize_t          read,
-                                  int              saveErrno,
-                                  struct msghdr*   msgHdrP,
-                                  ErlNifBinary*    dataBufP,
-                                  ErlNifBinary*    ctrlBufP,
-                                  ERL_NIF_TERM     sockRef,
-                                  ERL_NIF_TERM     recvRef)
-{
-    ERL_NIF_TERM res;
-
-    SSDBG( descP,
-           ("SOCKET", "recvmsg_check_result(%T) {%d} -> entry with"
-            "\r\n   read:      %ld"
-            "\r\n   saveErrno: %d"
-            "\r\n   recvRef:   %T"
-            "\r\n", sockRef, descP->sock,
-            (long) read, saveErrno, recvRef) );
-
-
-    /* <KOLLA>
-     *
-     * We need to handle read = 0 for non_stream socket type(s) when
-     * its actually valid to read 0 bytes.
-     *
-     * </KOLLA>
-     */
-
-    if ((read == 0) && (descP->type == SOCK_STREAM)) {
-        
-        /*
-         * When a stream socket peer has performed an orderly shutdown,
-         * the return value will be 0 (the traditional "end-of-file" return).
-         *
-         * *We* do never actually try to read 0 bytes!
-         */
-
-        ESOCK_CNT_INC(env, descP, sockRef,
-                      esock_atom_read_fails, &descP->readFails, 1);
-
-        FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
-
-        return esock_make_error_closed(env);
-    }
-
-
-    if (read < 0) {
-
-        /* +++ Error handling +++ */
-
-        res = recv_check_fail(env, descP, saveErrno, dataBufP, ctrlBufP,
-                              sockRef, recvRef);
-
-    } else {
-
-        /* +++ We successfully got a message - time to encode it +++ */
-
-        res = recvmsg_check_msg(env, descP, read, msgHdrP,
-                                dataBufP, ctrlBufP, sockRef);
-
-    }
-
-    return res;
-
-}
-#endif // #ifndef __WIN32__
-
-
-/* *** recvmsg_check_msg ***
- *
- * We successfully read one message. Time to process.
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ssize_t          read,
-                               struct msghdr*   msgHdrP,
-                               ErlNifBinary*    dataBufP,
-                               ErlNifBinary*    ctrlBufP,
-                               ERL_NIF_TERM     sockRef)
-{
-    ERL_NIF_TERM eMsg;
-
-    /*
-     * <KOLLA>
-     *
-     * The return value of recvmsg is the *total* number of bytes
-     * that where successfully read. This data has been put into
-     * the *IO vector*.
-     *
-     * </KOLLA>
-     */
-
-    encode_msg(env, descP,
-               read, msgHdrP, dataBufP, ctrlBufP,
-               &eMsg);
-
-    SSDBG( descP,
-           ("SOCKET", "recvmsg_check_result(%T) {%d} -> ok\r\n",
-            sockRef, descP->sock) );
-
-    ESOCK_CNT_INC(env, descP, sockRef,
-                  esock_atom_read_pkg, &descP->readPkgCnt, 1);
-    ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_byte,
-                  &descP->readByteCnt, read);
-
-    recv_update_current_reader(env, descP, sockRef);
-
-    return esock_make_ok2(env, eMsg);
-}
-#endif // #ifndef __WIN32__
-
-
-/* +++ encode_msg +++
- *
- * Encode a msg() (recvmsg). In erlang its represented as
- * a map, which has a specific set of attributes:
- *
- *     addr (source address) - sockaddr()
- *     iov                   - [binary()]
- *     ctrl                  - [cmsg()]
- *     flags                 - msg_flags()
- */
-#ifndef __WIN32__
-static
-void encode_msg(ErlNifEnv*       env,
-                ESockDescriptor* descP,
-                ssize_t          read,
-                struct msghdr*   msgHdrP,
-                ErlNifBinary*    dataBufP,
-                ErlNifBinary*    ctrlBufP,
-                ERL_NIF_TERM*    eSockAddr)
-{
-    ERL_NIF_TERM addr, iov, ctrl, flags;
-
-    SSDBG( descP,
-           ("SOCKET", "encode_msg {%d} -> entry with"
-            "\r\n   read: %ld"
-            "\r\n", descP->sock, (long) read) );
-
-    /* The address is not used if we are connected (unless, maybe,
-     * family is 'local'), so check (length = 0) before we try to encodel
-     */
-    if (msgHdrP->msg_namelen != 0) {
-        esock_encode_sockaddr(env,
-                              (ESockAddress*) msgHdrP->msg_name,
-                              msgHdrP->msg_namelen,
-                              &addr);
-    } else {
-        addr = esock_atom_undefined;
-    }
-
-    SSDBG( descP,
-           ("SOCKET", "encode_msg {%d} -> encode iov"
-            "\r\n   msg_iovlen: %lu"
-            "\r\n",
-            descP->sock,
-            (unsigned long) msgHdrP->msg_iovlen) );
-
-    esock_encode_iov(env, read,
-                     msgHdrP->msg_iov, msgHdrP->msg_iovlen, dataBufP,
-                     &iov);
-
-    SSDBG( descP,
-           ("SOCKET",
-            "encode_msg {%d} -> try encode cmsgs\r\n",
-            descP->sock) );
-
-    encode_cmsgs(env, descP, ctrlBufP, msgHdrP, &ctrl);
-
-    SSDBG( descP,
-           ("SOCKET",
-            "encode_msg {%d} -> try encode flags\r\n",
-            descP->sock) );
-
-    encode_msg_flags(env, descP, msgHdrP->msg_flags, &flags);
-
-    SSDBG( descP,
-           ("SOCKET", "encode_msg {%d} -> components encoded:"
-            "\r\n   addr:  %T"
-            "\r\n   ctrl:  %T"
-            "\r\n   flags: %T"
-            "\r\n", descP->sock, addr, ctrl, flags) );
-
-    {
-        ERL_NIF_TERM keys[]  = {esock_atom_iov,
-                                esock_atom_ctrl,
-                                esock_atom_flags,
-                                esock_atom_addr};
-        ERL_NIF_TERM vals[]  = {iov, ctrl, flags, addr};
-        size_t       numKeys = NUM(keys);
-        
-        ESOCK_ASSERT( numKeys == NUM(vals) );
-        
-        SSDBG( descP,
-               ("SOCKET",
-                "encode_msg {%d} -> create map\r\n",
-                descP->sock) );
-
-        if (msgHdrP->msg_namelen == 0)
-            numKeys--; // No addr
-        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eSockAddr) );
-
-        SSDBG( descP,
-               ("SOCKET",
-                "encode_msg {%d}-> map encoded\r\n",
-                descP->sock) );
-    }
-
-    SSDBG( descP,
-           ("SOCKET", "encode_msg {%d} -> done\r\n", descP->sock) );
-}
-#endif // #ifndef __WIN32__
-
-
-
-/* +++ encode_cmsgs +++
- *
- * Encode a list of cmsg(). There can be 0 or more cmsghdr "blocks".
- *
- * Our "problem" is that we have no idea how many control messages
- * we have.
- *
- * The cmsgHdrP arguments points to the start of the control data buffer,
- * an actual binary. Its the only way to create sub-binaries. So, what we
- * need to continue processing this is to turn that into an binary erlang 
- * term (which can then in turn be turned into sub-binaries).
- *
- * We need the cmsgBufP (even though cmsgHdrP points to it) to be able
- * to create sub-binaries (one for each cmsg hdr).
- *
- * The TArray (term array) is created with the size of 128, which should
- * be enough. But if its not, then it will be automatically realloc'ed during
- * add. Once we are done adding hdr's to it, we convert the tarray to a list.
- */
-#ifndef __WIN32__
-static
-void encode_cmsgs(ErlNifEnv*       env,
-                  ESockDescriptor* descP,
-                  ErlNifBinary*    cmsgBinP,
-                  struct msghdr*   msgHdrP,
-                  ERL_NIF_TERM*    eCMsg)
-{
-    ERL_NIF_TERM    ctrlBuf  = MKBIN(env, cmsgBinP); // The *entire* binary
-    SocketTArray    cmsghdrs = TARRAY_CREATE(128);
-    struct cmsghdr* firstP   = CMSG_FIRSTHDR(msgHdrP);
-    struct cmsghdr* currentP;
-    
-    SSDBG( descP, ("SOCKET", "encode_cmsgs {%d} -> entry when"
-                   "\r\n   msg ctrl len:  %d"
-                   "\r\n   (ctrl) firstP: 0x%lX"
-                   "\r\n", descP->sock,
-                   msgHdrP->msg_controllen, firstP) );
-
-    for (currentP = firstP;
-         /*
-          * In *old* versions of darwin, the CMSG_FIRSTHDR does not
-          * check the msg_controllen, so we do it here.
-          * We should really test this stuff during configure,
-          * but for now, this will have to do.
-          */
-#if defined(__DARWIN__)
-         (msgHdrP->msg_controllen >= sizeof(struct cmsghdr)) &&
-             (currentP != NULL);
-#else
-         (currentP != NULL);
-#endif
-         currentP = CMSG_NXTHDR(msgHdrP, currentP)) {
-
-        SSDBG( descP,
-               ("SOCKET", "encode_cmsgs {%d} -> process cmsg header when"
-                "\r\n   TArray Size: %d"
-                "\r\n", descP->sock, TARRAY_SZ(cmsghdrs)) );
-
-        /* MUST check this since on Linux the returned "cmsg" may actually
-         * go too far!
-         */
-        if (((CHARP(currentP) + currentP->cmsg_len) - CHARP(firstP)) >
-            msgHdrP->msg_controllen) {
-
-            /* Ouch, fatal error - give up 
-             * We assume we cannot trust any data if this is wrong.
-             */
-
-            SSDBG( descP,
-                   ("SOCKET", "encode_cmsgs {%d} -> check failed when: "
-                    "\r\n   currentP:           0x%lX"
-                    "\r\n   (current) cmsg_len: %d"
-                    "\r\n   firstP:             0x%lX"
-                    "\r\n   =>                  %d"
-                    "\r\n   msg ctrl len:       %d"
-                    "\r\n", descP->sock,
-                    CHARP(currentP), currentP->cmsg_len, CHARP(firstP),
-                    (CHARP(currentP) + currentP->cmsg_len) - CHARP(firstP),
-                    msgHdrP->msg_controllen) );
-
-            TARRAY_ADD(cmsghdrs, esock_atom_bad_data);
-            break;
-            
-        } else {
-            unsigned char* dataP   = UCHARP(CMSG_DATA(currentP));
-            size_t         dataPos = dataP - cmsgBinP->data;
-            size_t         dataLen =
-                (UCHARP(currentP) + currentP->cmsg_len) - dataP;
-            ERL_NIF_TERM
-                cmsgHdr,
-                keys[]  =
-                {esock_atom_level,
-                 esock_atom_type,
-                 esock_atom_data,
-                 esock_atom_value},
-                vals[NUM(keys)];
-            size_t numKeys = NUM(keys);
-            BOOLEAN_T have_value;
-
-            SSDBG( descP,
-                   ("SOCKET", "encode_cmsgs {%d} -> cmsg header data: "
-                    "\r\n   dataPos: %d"
-                    "\r\n   dataLen: %d"
-                    "\r\n", descP->sock, dataPos, dataLen) );
-
-            vals[0] = esock_encode_level(env, currentP->cmsg_level);
-            vals[2] = MKSBIN(env, ctrlBuf, dataPos, dataLen);
-            have_value =
-                encode_cmsg(env,
-                            currentP->cmsg_level,
-                            currentP->cmsg_type,
-                            dataP, dataLen, &vals[1], &vals[3]);
-
-            SSDBG( descP,
-                   ("SOCKET", "encode_cmsgs {%d} -> "
-                    "\r\n   %T: %T"
-                    "\r\n   %T: %T"
-                    "\r\n   %T: %T"
-                    "\r\n", descP->sock,
-                    keys[0], vals[0], keys[1], vals[1], keys[2], vals[2]) );
-            if (have_value)
-                SSDBG( descP,
-                       ("SOCKET", "encode_cmsgs {%d} -> "
-                        "\r\n   %T: %T"
-                        "\r\n", descP->sock, keys[3], vals[3]) );
-
-            /* Guard against cut-and-paste errors */
-            ESOCK_ASSERT( numKeys == NUM(vals) );
-            ESOCK_ASSERT( MKMA(env, keys, vals,
-                               numKeys - (have_value ? 0 : 1), &cmsgHdr) );
-
-            /* And finally add it to the list... */
-            TARRAY_ADD(cmsghdrs, cmsgHdr);
-        }
-    }
-
-    SSDBG( descP,
-           ("SOCKET", "encode_cmsgs {%d} -> cmsg headers processed when"
-            "\r\n   TArray Size: %d"
-            "\r\n", descP->sock, TARRAY_SZ(cmsghdrs)) );
-
-    /* The tarray is populated - convert it to a list */
-    TARRAY_TOLIST(cmsghdrs, env, eCMsg);
-}
-#endif // #ifndef __WIN32__
 
 
 
@@ -13705,50 +12890,6 @@ ESockCmsgSpec* esock_lookup_cmsg_spec(ESockCmsgSpec* table,
 
 
 
-#ifndef __WIN32__
-static
-BOOLEAN_T encode_cmsg(ErlNifEnv*     env,
-                      int            level,
-                      int            type,
-                      unsigned char* dataP,
-                      size_t         dataLen,
-                      ERL_NIF_TERM*  eType,
-                      ERL_NIF_TERM*  eData) {
-    const ESockCmsgSpec *cmsgTable;
-    size_t num;
-
-    if ((cmsgTable = esock_lookup_cmsg_table(level, &num)) != NULL) {
-        size_t n;
-
-        /* Linear search for type number in level table
-         */
-        for (n = 0;  n < num;  n++) {
-            if (cmsgTable[n].type == type) {
-                /* Found the type number in the level table;
-                 * return the symbolic type (atom)
-                 * and try to encode the data
-                 */
-
-                *eType = *cmsgTable[n].nameP;
-
-                if (cmsgTable[n].encode != NULL)
-                    return cmsgTable[n].encode(env, dataP, dataLen, eData);
-                else
-                    return FALSE;
-            }
-        }
-    }
-    /* No level table, or unknown type number in the table;
-     * just return the type number as an erlang integer
-     */
-
-
-    *eType = MKI(env, type);
-    return FALSE;
-}
-#endif
-
-
 /* Clear the CMSG space and init the ->cmsg_len member,
  * return the position for the data, and the total used space
  */
@@ -13771,53 +12912,6 @@ void* esock_init_cmsghdr(struct cmsghdr* cmsgP,
     return CMSG_DATA(cmsgP);
 }
 #endif
-
-
-/* +++ encode_msg_flags +++
- *
- * Encode a list of msg_flag().
- *
- */
-#ifndef __WIN32__
-static
-void encode_msg_flags(ErlNifEnv*       env,
-                      ESockDescriptor* descP,
-                      int              msgFlags,
-                      ERL_NIF_TERM*    flags)
-{
-    SSDBG( descP,
-           ("SOCKET", "encode_msg_flags {%d} -> entry with"
-            "\r\n   msgFlags: %d (0x%lX)"
-            "\r\n", descP->sock, msgFlags, msgFlags) );
-
-    if (msgFlags == 0) {
-        *flags = MKEL(env);
-    } else {
-        size_t       n;
-        SocketTArray ta = TARRAY_CREATE(10); // Just to be on the safe side
-
-        for (n = 0;  n < NUM(msg_flags);  n++) {
-            int f = msg_flags[n].flag;
-            if ((f != 0) && ((msgFlags & f) == f)) {
-                msgFlags &= ~f;
-                TARRAY_ADD(ta, *(msg_flags[n].name));
-            }
-            if (msgFlags == 0) goto done;
-        }
-        /* Append remaining flags as an integer */
-        if (msgFlags != 0)
-            TARRAY_ADD(ta, MKI(env, msgFlags));
-
-    done:
-        SSDBG( descP,
-               ("SOCKET", "encode_msg_flags {%d} -> flags processed when"
-                "\r\n   TArray size: %d"
-                "\r\n", descP->sock, TARRAY_SZ(ta)) );
-
-        TARRAY_TOLIST(ta, env, flags);
-    }
-}
-#endif // #ifndef __WIN32__
 
 
 /* +++ decode the ip socket option TOS +++

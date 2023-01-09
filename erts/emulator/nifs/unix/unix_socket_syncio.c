@@ -49,6 +49,7 @@
 #include "socket_util.h"
 #include "socket_io.h"
 #include "socket_syncio.h"
+#include "socket_tarray.h"
 #include "prim_file_nif_dyncall.h"
 
 
@@ -73,6 +74,7 @@
 #define sock_recv(s,buf,len,flag)       recv((s),(buf),(len),(flag))
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
     recvfrom((s),(buf),(blen),(flag),(addr),(alen))
+#define sock_recvmsg(s,msghdr,flag)     recvmsg((s),(msghdr),(flag))
 #define sock_send(s,buf,len,flag)       send((s), (buf), (len), (flag))
 #define sock_sendmsg(s,msghdr,flag)     sendmsg((s),(msghdr),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
@@ -216,6 +218,19 @@ static BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
                                      size_t           dataLen,
                                      size_t*          dataUsedP);
 
+static void encode_msg(ErlNifEnv*       env,
+                       ESockDescriptor* descP,
+                       ssize_t          read,
+                       struct msghdr*   msgHdrP,
+                       ErlNifBinary*    dataBufP,
+                       ErlNifBinary*    ctrlBufP,
+                       ERL_NIF_TERM*    eSockAddr);
+static void encode_cmsgs(ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         ErlNifBinary*    cmsgBinP,
+                         struct msghdr*   msgHdrP,
+                         ERL_NIF_TERM*    eCMsg);
+
 #if defined(HAVE_SENDFILE)
 static int essio_sendfile(ErlNifEnv*       env,
                           ESockDescriptor* descP,
@@ -328,6 +343,23 @@ static void recv_error_current_reader(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     reason);
+
+static ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ssize_t          read,
+                                         int              saveErrno,
+                                         struct msghdr*   msgHdrP,
+                                         ErlNifBinary*    dataBufP,
+                                         ErlNifBinary*    ctrlBufP,
+                                         ERL_NIF_TERM     sockRef,
+                                         ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ssize_t          read,
+                                      struct msghdr*   msgHdrP,
+                                      ErlNifBinary*    dataBufP,
+                                      ErlNifBinary*    ctrlBufP,
+                                      ERL_NIF_TERM     sockRef);
 
 
 /* ======================================================================== *
@@ -2054,7 +2086,7 @@ ERL_NIF_TERM essio_sendfile_cont(ErlNifEnv*       env,
     ssize_t   res;
     int       err;
 
-    SSDBG( descP, ("SOCKET",
+    SSDBG( descP, ("UNIX-ESSIO",
                    "essio_sendfile_cont {%d} -> entry"
                    "\r\n   sockRef: %T"
                    "\r\n   sendRef: %T"
@@ -2483,6 +2515,10 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
 
 
 /* ========================================================================
+ * The (read) buffer handling *must* be optimized!
+ * But for now we make it easy for ourselves by
+ * allocating a binary (of the specified or default
+ * size) and then throwing it away...
  */
 extern
 ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
@@ -2493,8 +2529,201 @@ ERL_NIF_TERM essio_recvmsg(ErlNifEnv*       env,
                            ssize_t          ctrlLen,
                            int              flags)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    SOCKLEN_T     addrLen;
+    ssize_t       read;
+    int           save_errno;
+    size_t        bufSz  = (bufLen  != 0 ? bufLen  : descP->rBufSz);
+    size_t        ctrlSz = (ctrlLen != 0 ? ctrlLen : descP->rCtrlSz);
+    struct msghdr msgHdr;
+    SysIOVec      iov[1];  // Shall we always use 1?
+    ErlNifBinary  data[1]; // Shall we always use 1?
+    ErlNifBinary  ctrl;
+    ERL_NIF_TERM  readerCheck;
+    ESockAddress  addr;
+
+    SSDBG( descP, ("UNIX-ESSIO", "essio_recvmsg {%d} -> entry with"
+                   "\r\n   bufSz:  %lu (%ld)"
+                   "\r\n   ctrlSz: %ld (%ld)"
+                   "\r\n", descP->sock,
+                   (unsigned long) bufSz, (long) bufLen,
+                   (unsigned long) ctrlSz, (long) ctrlLen) );
+
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+
+    /* Accept and Read uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->currentAcceptorP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    /* Ensure that we either have no current reader or that we are it,
+     * or enqueue this process if there is a current reader */
+    if (! recv_check_reader(env, descP, recvRef, &readerCheck)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_recvmsg {%d} -> reader check failed: "
+                "\r\n   %T\r\n", descP->sock, readerCheck) );
+        return readerCheck;
+    }
+
+    /* Allocate the (msg) data buffer:
+     */
+    ESOCK_ASSERT( ALLOC_BIN(bufSz, &data[0]) );
+
+    /* Allocate the ctrl (buffer):
+     */
+    ESOCK_ASSERT( ALLOC_BIN(ctrlSz, &ctrl) );
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_tries, &descP->readTries, 1);
+
+    addrLen = sizeof(addr);
+    sys_memzero((char*) &addr,   addrLen);
+    sys_memzero((char*) &msgHdr, sizeof(msgHdr));
+
+    iov[0].iov_base = data[0].data;
+    iov[0].iov_len  = data[0].size;
+
+    msgHdr.msg_name       = &addr;
+    msgHdr.msg_namelen    = addrLen;
+    msgHdr.msg_iov        = iov;
+    msgHdr.msg_iovlen     = 1; // Should use a constant or calculate...
+    msgHdr.msg_control    = ctrl.data;
+    msgHdr.msg_controllen = ctrl.size;
+
+    read = sock_recvmsg(descP->sock, &msgHdr, flags);
+    if (ESOCK_IS_ERROR(read))
+        save_errno = sock_errno();
+    else
+        save_errno = 0; // The value does not actually matter in this case
+
+    return recvmsg_check_result(env, descP, read, save_errno,
+                                &msgHdr,
+                                data,  // Needed for iov encode
+                                &ctrl, // Needed for ctrl header encode
+                                sockRef, recvRef);
 }
+
+
+/* *** recvmsg_check_result ***
+ *
+ * The recvmsg function delivers one (1) message. If our buffer
+ * is to small, the message will be truncated. So, regardless
+ * if we filled the buffer or not, we have got what we are going
+ * to get regarding this message.
+ */
+static
+ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ssize_t          read,
+                                  int              saveErrno,
+                                  struct msghdr*   msgHdrP,
+                                  ErlNifBinary*    dataBufP,
+                                  ErlNifBinary*    ctrlBufP,
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     recvRef)
+{
+    ERL_NIF_TERM res;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "recvmsg_check_result(%T) {%d} -> entry with"
+            "\r\n   read:      %ld"
+            "\r\n   saveErrno: %d"
+            "\r\n   recvRef:   %T"
+            "\r\n", sockRef, descP->sock,
+            (long) read, saveErrno, recvRef) );
+
+
+    /* <KOLLA>
+     *
+     * We need to handle read = 0 for non_stream socket type(s) when
+     * its actually valid to read 0 bytes.
+     *
+     * </KOLLA>
+     */
+
+    if ((read == 0) && (descP->type == SOCK_STREAM)) {
+        
+        /*
+         * When a stream socket peer has performed an orderly shutdown,
+         * the return value will be 0 (the traditional "end-of-file" return).
+         *
+         * *We* do never actually try to read 0 bytes!
+         */
+
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_read_fails, &descP->readFails, 1);
+
+        FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
+
+        return esock_make_error_closed(env);
+    }
+
+
+    if (read < 0) {
+
+        /* +++ Error handling +++ */
+
+        res = recv_check_fail(env, descP, saveErrno, dataBufP, ctrlBufP,
+                              sockRef, recvRef);
+
+    } else {
+
+        /* +++ We successfully got a message - time to encode it +++ */
+
+        res = recvmsg_check_msg(env, descP, read, msgHdrP,
+                                dataBufP, ctrlBufP, sockRef);
+
+    }
+
+    return res;
+
+}
+
+
+/* *** recvmsg_check_msg ***
+ *
+ * We successfully read one message. Time to process.
+ */
+static
+ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ssize_t          read,
+                               struct msghdr*   msgHdrP,
+                               ErlNifBinary*    dataBufP,
+                               ErlNifBinary*    ctrlBufP,
+                               ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM eMsg;
+
+    /*
+     * <KOLLA>
+     *
+     * The return value of recvmsg is the *total* number of bytes
+     * that where successfully read. This data has been put into
+     * the *IO vector*.
+     *
+     * </KOLLA>
+     */
+
+    encode_msg(env, descP,
+               read, msgHdrP, dataBufP, ctrlBufP,
+               &eMsg);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "recvmsg_check_result(%T) {%d} -> ok\r\n",
+            sockRef, descP->sock) );
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_pkg, &descP->readPkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, esock_atom_read_byte,
+                  &descP->readByteCnt, read);
+
+    recv_update_current_reader(env, descP, sockRef);
+
+    return esock_make_ok2(env, eMsg);
+}
+
 
 
 /* ========================================================================
@@ -3290,6 +3519,254 @@ BOOLEAN_T decode_cmsghdr_data(ErlNifEnv*       env,
 }
 
 
+/* +++ encode_msg +++
+ *
+ * Encode a msg() (recvmsg). In erlang its represented as
+ * a map, which has a specific set of attributes:
+ *
+ *     addr (source address) - sockaddr()
+ *     iov                   - [binary()]
+ *     ctrl                  - [cmsg()]
+ *     flags                 - msg_flags()
+ */
+
+static
+void encode_msg(ErlNifEnv*       env,
+                ESockDescriptor* descP,
+                ssize_t          read,
+                struct msghdr*   msgHdrP,
+                ErlNifBinary*    dataBufP,
+                ErlNifBinary*    ctrlBufP,
+                ERL_NIF_TERM*    eSockAddr)
+{
+    ERL_NIF_TERM addr, iov, ctrl, flags;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "encode_msg {%d} -> entry with"
+            "\r\n   read: %ld"
+            "\r\n", descP->sock, (long) read) );
+
+    /* The address is not used if we are connected (unless, maybe,
+     * family is 'local'), so check (length = 0) before we try to encodel
+     */
+    if (msgHdrP->msg_namelen != 0) {
+        esock_encode_sockaddr(env,
+                              (ESockAddress*) msgHdrP->msg_name,
+                              msgHdrP->msg_namelen,
+                              &addr);
+    } else {
+        addr = esock_atom_undefined;
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "encode_msg {%d} -> encode iov"
+            "\r\n   msg_iovlen: %lu"
+            "\r\n",
+            descP->sock,
+            (unsigned long) msgHdrP->msg_iovlen) );
+
+    esock_encode_iov(env, read,
+                     msgHdrP->msg_iov, msgHdrP->msg_iovlen, dataBufP,
+                     &iov);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "encode_msg {%d} -> try encode cmsgs\r\n",
+            descP->sock) );
+
+    encode_cmsgs(env, descP, ctrlBufP, msgHdrP, &ctrl);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "encode_msg {%d} -> try encode flags\r\n",
+            descP->sock) );
+
+    esock_encode_msg_flags(env, descP, msgHdrP->msg_flags, &flags);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "encode_msg {%d} -> components encoded:"
+            "\r\n   addr:  %T"
+            "\r\n   ctrl:  %T"
+            "\r\n   flags: %T"
+            "\r\n", descP->sock, addr, ctrl, flags) );
+
+    {
+        ERL_NIF_TERM keys[]  = {esock_atom_iov,
+                                esock_atom_ctrl,
+                                esock_atom_flags,
+                                esock_atom_addr};
+        ERL_NIF_TERM vals[]  = {iov, ctrl, flags, addr};
+        size_t       numKeys = NUM(keys);
+        
+        ESOCK_ASSERT( numKeys == NUM(vals) );
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "encode_msg {%d} -> create map\r\n",
+                descP->sock) );
+
+        if (msgHdrP->msg_namelen == 0)
+            numKeys--; // No addr
+        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, eSockAddr) );
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "encode_msg {%d}-> map encoded\r\n",
+                descP->sock) );
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "encode_msg {%d} -> done\r\n", descP->sock) );
+}
+
+
+
+/* +++ encode_cmsgs +++
+ *
+ * Encode a list of cmsg(). There can be 0 or more cmsghdr "blocks".
+ *
+ * Our "problem" is that we have no idea how many control messages
+ * we have.
+ *
+ * The cmsgHdrP arguments points to the start of the control data buffer,
+ * an actual binary. Its the only way to create sub-binaries. So, what we
+ * need to continue processing this is to turn that into an binary erlang 
+ * term (which can then in turn be turned into sub-binaries).
+ *
+ * We need the cmsgBufP (even though cmsgHdrP points to it) to be able
+ * to create sub-binaries (one for each cmsg hdr).
+ *
+ * The TArray (term array) is created with the size of 128, which should
+ * be enough. But if its not, then it will be automatically realloc'ed during
+ * add. Once we are done adding hdr's to it, we convert the tarray to a list.
+ */
+
+static
+void encode_cmsgs(ErlNifEnv*       env,
+                  ESockDescriptor* descP,
+                  ErlNifBinary*    cmsgBinP,
+                  struct msghdr*   msgHdrP,
+                  ERL_NIF_TERM*    eCMsg)
+{
+    ERL_NIF_TERM    ctrlBuf  = MKBIN(env, cmsgBinP); // The *entire* binary
+    SocketTArray    cmsghdrs = TARRAY_CREATE(128);
+    struct cmsghdr* firstP   = CMSG_FIRSTHDR(msgHdrP);
+    struct cmsghdr* currentP;
+    
+    SSDBG( descP, ("UNIX-ESSIO", "encode_cmsgs {%d} -> entry when"
+                   "\r\n   msg ctrl len:  %d"
+                   "\r\n   (ctrl) firstP: 0x%lX"
+                   "\r\n", descP->sock,
+                   msgHdrP->msg_controllen, firstP) );
+
+    for (currentP = firstP;
+         /*
+          * In *old* versions of darwin, the CMSG_FIRSTHDR does not
+          * check the msg_controllen, so we do it here.
+          * We should really test this stuff during configure,
+          * but for now, this will have to do.
+          */
+#if defined(__DARWIN__)
+         (msgHdrP->msg_controllen >= sizeof(struct cmsghdr)) &&
+             (currentP != NULL);
+#else
+         (currentP != NULL);
+#endif
+         currentP = CMSG_NXTHDR(msgHdrP, currentP)) {
+
+        SSDBG( descP,
+               ("UNIX-ESSIO", "encode_cmsgs {%d} -> process cmsg header when"
+                "\r\n   TArray Size: %d"
+                "\r\n", descP->sock, TARRAY_SZ(cmsghdrs)) );
+
+        /* MUST check this since on Linux the returned "cmsg" may actually
+         * go too far!
+         */
+        if (((CHARP(currentP) + currentP->cmsg_len) - CHARP(firstP)) >
+            msgHdrP->msg_controllen) {
+
+            /* Ouch, fatal error - give up 
+             * We assume we cannot trust any data if this is wrong.
+             */
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO", "encode_cmsgs {%d} -> check failed when: "
+                    "\r\n   currentP:           0x%lX"
+                    "\r\n   (current) cmsg_len: %d"
+                    "\r\n   firstP:             0x%lX"
+                    "\r\n   =>                  %d"
+                    "\r\n   msg ctrl len:       %d"
+                    "\r\n", descP->sock,
+                    CHARP(currentP), currentP->cmsg_len, CHARP(firstP),
+                    (CHARP(currentP) + currentP->cmsg_len) - CHARP(firstP),
+                    msgHdrP->msg_controllen) );
+
+            TARRAY_ADD(cmsghdrs, esock_atom_bad_data);
+            break;
+            
+        } else {
+            unsigned char* dataP   = UCHARP(CMSG_DATA(currentP));
+            size_t         dataPos = dataP - cmsgBinP->data;
+            size_t         dataLen =
+                (UCHARP(currentP) + currentP->cmsg_len) - dataP;
+            ERL_NIF_TERM
+                cmsgHdr,
+                keys[]  =
+                {esock_atom_level,
+                 esock_atom_type,
+                 esock_atom_data,
+                 esock_atom_value},
+                vals[NUM(keys)];
+            size_t numKeys = NUM(keys);
+            BOOLEAN_T have_value;
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO", "encode_cmsgs {%d} -> cmsg header data: "
+                    "\r\n   dataPos: %d"
+                    "\r\n   dataLen: %d"
+                    "\r\n", descP->sock, dataPos, dataLen) );
+
+            vals[0] = esock_encode_level(env, currentP->cmsg_level);
+            vals[2] = MKSBIN(env, ctrlBuf, dataPos, dataLen);
+            have_value = esock_encode_cmsg(env,
+                                           currentP->cmsg_level,
+                                           currentP->cmsg_type,
+                                           dataP, dataLen, &vals[1], &vals[3]);
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO", "encode_cmsgs {%d} -> "
+                    "\r\n   %T: %T"
+                    "\r\n   %T: %T"
+                    "\r\n   %T: %T"
+                    "\r\n", descP->sock,
+                    keys[0], vals[0], keys[1], vals[1], keys[2], vals[2]) );
+            if (have_value)
+                SSDBG( descP,
+                       ("UNIX-ESSIO", "encode_cmsgs {%d} -> "
+                        "\r\n   %T: %T"
+                        "\r\n", descP->sock, keys[3], vals[3]) );
+
+            /* Guard against cut-and-paste errors */
+            ESOCK_ASSERT( numKeys == NUM(vals) );
+            ESOCK_ASSERT( MKMA(env, keys, vals,
+                               numKeys - (have_value ? 0 : 1), &cmsgHdr) );
+
+            /* And finally add it to the list... */
+            TARRAY_ADD(cmsghdrs, cmsgHdr);
+        }
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "encode_cmsgs {%d} -> cmsg headers processed when"
+            "\r\n   TArray Size: %d"
+            "\r\n", descP->sock, TARRAY_SZ(cmsghdrs)) );
+
+    /* The tarray is populated - convert it to a list */
+    TARRAY_TOLIST(cmsghdrs, env, eCMsg);
+}
+
+
+
 /* *** Sendfile utility functions *** */
 
 /* Platform independent sendfile() function
@@ -3923,7 +4400,7 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
     } else {
 
         SSDBG( descP,
-               ("SOCKET",
+               ("UNIX-ESSIO",
                 "recv_check_fail(%T) {%d} -> errno: %d\r\n"
                 "\r\n   recvRef: %T"
                 "\r\n", sockRef, descP->sock, saveErrno, recvRef) );

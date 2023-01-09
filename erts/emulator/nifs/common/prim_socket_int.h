@@ -310,6 +310,18 @@ typedef struct {
 } ESockCmsgSpec;
     
 
+/*----------------------------------------------------------------------------
+ * Interface types and constants.
+ *
+ * The set of elements should be the same as for the type
+ * msg_flag() in socket.erl.
+ */
+typedef struct {
+    int           flag;
+    ERL_NIF_TERM* name;
+} ESockMsgFlag;
+
+
 /* ********************************************************************* *
  *                     The socket nif global info                        *
  * ********************************************************************* *
@@ -669,13 +681,26 @@ extern ESockCmsgSpec* esock_lookup_cmsg_spec(ESockCmsgSpec* table,
                                              size_t         num,
                                              ERL_NIF_TERM   eType);
 
+extern BOOLEAN_T esock_encode_cmsg(ErlNifEnv*     env,
+                                   int            level,
+                                   int            type,
+                                   unsigned char* dataP,
+                                   size_t         dataLen,
+                                   ERL_NIF_TERM*  eType,
+                                   ERL_NIF_TERM*  eData);
+extern void esock_encode_msg_flags(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              msgFlags,
+                                   ERL_NIF_TERM*    flags);
 
-/* *** Sendfile 'stuff'
+
+/* *** Sendfile 'stuff' ***
  */
 #ifdef HAVE_SENDFILE
 
 extern ESockSendfileCounters initESockSendfileCounters;
 
 #endif
+
 
 #endif // PRIM_SOCKET_INT_H__
