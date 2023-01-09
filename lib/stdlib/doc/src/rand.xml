@@ -668,7 +668,7 @@ end.</pre>
 	    <seemfa marker="#uniform/0"><c>uniform/0</c></seemfa>
 	    because all bits in the mantissa are random.
 	    This property, in combination with the fact that exactly zero
-	    is never returned is useful for algoritms doing for example
+	    is never returned is useful for algorithms doing for example
 	    <c>1.0 / <anno>X</anno></c> or <c>math:log(<anno>X</anno>)</c>.
 	  </p>
 	</note>
@@ -751,7 +751,7 @@ end.</pre>
 	    <seemfa marker="#uniform_s/1"><c>uniform_s/1</c></seemfa>
 	    because all bits in the mantissa are random.
 	    This property, in combination with the fact that exactly zero
-	    is never returned is useful for algoritms doing for example
+	    is never returned is useful for algorithms doing for example
 	    <c>1.0 / <anno>X</anno></c> or <c>math:log(<anno>X</anno>)</c>.
 	  </p>
 	</note>

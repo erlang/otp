@@ -534,7 +534,7 @@ Slogan: &lt;reason&gt;</pre>
       <tag><em>Type</em></tag>
       <item>
         <p>The table type, that is, <c>set</c>, <c>bag</c>,
-          <c>dublicate_bag</c>, or <c>ordered_set</c>.</p>
+          <c>duplicate_bag</c>, or <c>ordered_set</c>.</p>
       </item>
       <tag><em>Compressed</em></tag>
       <item>
