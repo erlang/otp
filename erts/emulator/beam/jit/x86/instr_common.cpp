@@ -1370,12 +1370,10 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
         return;
     }
 
-    /* If either argument is known to be an immediate, we can fail immediately
-     * if they're not equal. */
-    if (always_immediate(X) || always_immediate(Y)) {
-        if (!X.isImmed() && !Y.isImmed()) {
-            comment("simplified check since one argument is an immediate");
-        }
+    /* If one argument is known to be an immediate, we can fail
+     * immediately if they're not equal. */
+    if (X.isRegister() && always_immediate(Y)) {
+        comment("simplified check since one argument is an immediate");
 
         cmp_arg(getArgRef(X), Y);
         a.jne(resolve_beam_label(Fail));
@@ -1451,12 +1449,10 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
         return;
     }
 
-    /* If either argument is known to be an immediate, we can fail immediately
-     * if they're equal. */
-    if (always_immediate(X) || always_immediate(Y)) {
-        if (!X.isImmed() && !Y.isImmed()) {
-            comment("simplified check since one argument is an immediate");
-        }
+    /* If one argument is known to be an immediate, we can fail
+     * immediately if they're equal. */
+    if (X.isRegister() && always_immediate(Y)) {
+        comment("simplified check since one argument is an immediate");
 
         cmp_arg(getArgRef(X), Y);
         a.je(resolve_beam_label(Fail));

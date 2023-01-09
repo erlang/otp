@@ -391,6 +391,18 @@ guard_bifs(Config) when is_list(Config) ->
     try_fail_gbif('node/0', 0, xxxx),
     try_fail_gbif('node/1', self(), xxx),
     try_fail_gbif('node/1', yyy, xxx),
+
+    {'EXIT', {function_clause, _}} = catch gh_6634({a,b}),
+    {'EXIT', {function_clause, _}} = catch gh_6634(42),
+
+    ok.
+
+gh_6634(X) when is_tuple(X) andalso not ok ->
+    %% `not ok` would be translated to an is_eq_exact instruction,
+    %% which the JIT would not handle correctly because it had two
+    %% immediate operands. In a release build incorrect code would be
+    %% generated, which might crash the runtime system; in a debug
+    %% build an assertion would fire at load time.
     ok.
 
 try_gbif(Id, X, Y) ->
