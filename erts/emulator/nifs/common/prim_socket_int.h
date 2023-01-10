@@ -703,4 +703,9 @@ extern ESockSendfileCounters initESockSendfileCounters;
 #endif
 
 
+/* *** 'close' functions ***
+ */
+extern BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
+                               ESockDescriptor* descP);
+
 #endif // PRIM_SOCKET_INT_H__

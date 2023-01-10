@@ -1121,10 +1121,6 @@ static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
-static ERL_NIF_TERM esock_close(ErlNifEnv*       env,
-                                ESockDescriptor* descP);
-static BOOLEAN_T esock_do_stop(ErlNifEnv* env,
-                               ESockDescriptor* descP);
 static ERL_NIF_TERM esock_shutdown(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
                                    int              how);
@@ -6301,7 +6297,7 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
             descP->readState, descP->writeState,
             esock_self(env)) );
 
-    res = esock_close(env, descP);
+    res = ESOCK_IO_CLOSE(env, descP);
 
     MUNLOCK(descP->writeMtx);
     MUNLOCK(descP->readMtx);
@@ -6315,68 +6311,12 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
 }
 
 
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_close(ErlNifEnv*       env,
-                         ESockDescriptor* descP)
-{
-    if (! IS_OPEN(descP->readState)) {
-        /* A bit of cheeting; maybe not closed yet - do we need a queue? */
-        return esock_make_error_closed(env);
-    }
-
-    /* Store the PID of the caller,
-     * since we need to inform it when we
-     * (that is, the stop callback function)
-     * completes.
-     */
-    ESOCK_ASSERT( enif_self(env, &descP->closerPid) != NULL );
-
-    /* If the caller is not the owner; monitor the caller,
-     * since we should complete this operation even if the caller dies
-     * (for whatever reason).
-     */
-    if (COMPARE_PIDS(&descP->closerPid, &descP->ctrlPid) != 0) {
-
-        ESOCK_ASSERT( MONP("esock_close_check -> closer",
-                           env, descP,
-                           &descP->closerPid,
-                           &descP->closerMon) == 0 );
-    }
-
-    /* Prepare for closing the socket */
-    descP->readState  |= ESOCK_STATE_CLOSING;
-    descP->writeState |= ESOCK_STATE_CLOSING;
-    if (esock_do_stop(env, descP)) {
-        // esock_stop() has been scheduled - wait for it
-        SSDBG( descP,
-               ("SOCKET", "esock_close {%d} -> stop was scheduled\r\n",
-                descP->sock) );
-
-        // Create closeRef for the close msg that esock_stop() will send
-        descP->closeEnv = esock_alloc_env("esock_close_do - close-env");
-        descP->closeRef = MKREF(descP->closeEnv);
-
-        return esock_make_ok2(env, CP_TERM(env, descP->closeRef));
-    } else {
-        // The socket may be closed - tell caller to finalize
-        SSDBG( descP,
-               ("SOCKET",
-                "esock_close {%d} -> stop was called\r\n",
-                descP->sock) );
-
-        return esock_atom_ok;
-    }
-}
-#endif // #ifndef __WIN32__
-
-
-#ifndef __WIN32__
 /* Prepare for close - return whether stop is scheduled
  */
-static
-BOOLEAN_T esock_do_stop(ErlNifEnv* env,
-                        ESockDescriptor* descP) {
+extern
+BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
+                        ESockDescriptor* descP)
+{
     BOOLEAN_T    ret;
     int          sres;
     ERL_NIF_TERM sockRef;
@@ -6533,7 +6473,6 @@ BOOLEAN_T esock_do_stop(ErlNifEnv* env,
 
     return ret;
 }
-#endif // #ifndef __WIN32__
 
 
 

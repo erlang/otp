@@ -2732,7 +2732,53 @@ extern
 ERL_NIF_TERM essio_close(ErlNifEnv*       env,
                          ESockDescriptor* descP)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    if (! IS_OPEN(descP->readState)) {
+        /* A bit of cheeting; maybe not closed yet - do we need a queue? */
+        return esock_make_error_closed(env);
+    }
+
+    /* Store the PID of the caller,
+     * since we need to inform it when we
+     * (that is, the stop callback function)
+     * completes.
+     */
+    ESOCK_ASSERT( enif_self(env, &descP->closerPid) != NULL );
+
+    /* If the caller is not the owner; monitor the caller,
+     * since we should complete this operation even if the caller dies
+     * (for whatever reason).
+     */
+    if (COMPARE_PIDS(&descP->closerPid, &descP->ctrlPid) != 0) {
+
+        ESOCK_ASSERT( MONP("essio_close-check -> closer",
+                           env, descP,
+                           &descP->closerPid,
+                           &descP->closerMon) == 0 );
+    }
+
+    /* Prepare for closing the socket */
+    descP->readState  |= ESOCK_STATE_CLOSING;
+    descP->writeState |= ESOCK_STATE_CLOSING;
+    if (esock_do_stop(env, descP)) {
+        // stop() has been scheduled - wait for it
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_close {%d} -> stop was scheduled\r\n",
+                descP->sock) );
+
+        // Create closeRef for the close msg that esock_stop() will send
+        descP->closeEnv = esock_alloc_env("esock_close_do - close-env");
+        descP->closeRef = MKREF(descP->closeEnv);
+
+        return esock_make_ok2(env, CP_TERM(env, descP->closeRef));
+    } else {
+        // The socket may be closed - tell caller to finalize
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_close {%d} -> stop was called\r\n",
+                descP->sock) );
+
+        return esock_atom_ok;
+    }
 }
 
 
