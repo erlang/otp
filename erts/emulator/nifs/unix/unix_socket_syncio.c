@@ -81,6 +81,7 @@
 #define sock_sendmsg(s,msghdr,flag)     sendmsg((s),(msghdr),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
     sendto((s),(buf),(blen),(flag),(addr),(alen))
+#define sock_shutdown(s, how)           shutdown((s), (how))
 
 
 /* ======================================================================== *
@@ -2879,7 +2880,13 @@ ERL_NIF_TERM essio_shutdown(ErlNifEnv*       env,
                             ESockDescriptor* descP,
                             int              how)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+
+    if (sock_shutdown(descP->sock, how) == 0)
+        return esock_atom_ok;
+    else
+        return esock_make_error_errno(env, sock_errno());
 }
 
 

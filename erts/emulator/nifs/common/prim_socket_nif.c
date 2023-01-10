@@ -954,7 +954,7 @@ static unsigned long one_value  = 1;
 /* #define sock_sendto(s,buf,blen,flag,addr,alen)                \ */
 /*     sendto((s),(buf),(blen),(flag),(addr),(alen)) */
 #define sock_setopt(s,l,o,v,ln)         setsockopt((s),(l),(o),(v),(ln))
-#define sock_shutdown(s, how)           shutdown((s), (how))
+// #define sock_shutdown(s, how)           shutdown((s), (how))
 
 
 /* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *
@@ -1120,11 +1120,6 @@ static ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
-
-static ERL_NIF_TERM esock_shutdown(ErlNifEnv*       env,
-                                   ESockDescriptor* descP,
-                                   int              how);
-
 
 /* Set OTP level options */
 static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
@@ -6626,7 +6621,7 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
             argv[0], descP->sock, descP->readState | descP->writeState,
             how) );
 
-    res = esock_shutdown(env, descP, how);
+    res = ESOCK_IO_SHUTDOWN(env, descP, how);
 
     MUNLOCK(descP->writeMtx);
     MUNLOCK(descP->readMtx);
@@ -6638,24 +6633,6 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
     return res;
 #endif // #ifdef __WIN32__  #else
 }
-
-
-
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_shutdown(ErlNifEnv*       env,
-                            ESockDescriptor* descP,
-                            int              how)
-{
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    if (sock_shutdown(descP->sock, how) == 0)
-        return esock_atom_ok;
-    else
-        return esock_make_error_errno(env, sock_errno());
-}
-#endif // #ifndef __WIN32__
 
 
 
