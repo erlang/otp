@@ -272,17 +272,8 @@ expr(#c_seq{arg=Arg0,body=B0}=Seq0, Ctxt, Sub) ->
     end;
 expr(#c_let{}=Let0, Ctxt, Sub) ->
     Let = opt_case_in_let(Let0),
-    case simplify_let(Let, Sub) of
-	impossible ->
-	    %% The argument for the let is "simple", i.e. has no
-	    %% complex structures such as let or seq that can be entered.
-	    ?ASSERT(verify_scope(Let, Sub)),
-	    opt_fun_call(opt_simple_let(Let, Ctxt, Sub));
-	Expr ->
-	    %% The let body was successfully moved into the let argument.
-	    %% Now recursively re-process the new expression.
-	    Expr
-    end;
+    ?ASSERT(verify_scope(Let, Sub)),
+    opt_fun_call(opt_let(Let, Ctxt, Sub));
 expr(#c_letrec{body=#c_var{}}=Letrec, effect, _Sub) ->
     %% This is named fun in an 'effect' context. Warn and ignore.
     add_warning(Letrec, {ignored,useless_building}),
@@ -2189,131 +2180,6 @@ simplify_fun_call(V, Values, #c_fun{vars=Vars,body=FunBody}, CallArgs) ->
             throw(impossible)
     end.
 
-%% simplify_let(Let, Sub) -> Expr | impossible
-%%  If the argument part of an let contains a complex expression, such
-%%  as a let or a sequence, move the original let body into the complex
-%%  expression.
-
-simplify_let(#c_let{arg=Arg}=Let, Sub) ->
-    move_let_into_expr(Let, Arg, Sub).
-
-move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner0,
-                   #c_let{vars=OuterVs0,arg=OuterArg0,body=OuterBody0}=Outer0,
-                   Sub0) ->
-    %%
-    %% let <InnerVars> = let <OuterVars> = <Arg>
-    %%                   in <OuterBody>
-    %% in <InnerBody>
-    %%
-    %%       ==>
-    %%
-    %% let <OuterVars> = <Arg>
-    %% in let <InnerVars> = <OuterBody>
-    %%    in <InnerBody>
-    %%
-    OuterArg = body(OuterArg0, Sub0),
-    ScopeSub0 = sub_subst_scope(Sub0#sub{t=#{}}),
-
-    {OuterVs,ScopeSub} = var_list(OuterVs0, ScopeSub0),
-    OuterBody = body(OuterBody0, ScopeSub),
-
-    {InnerVs,Sub} = var_list(InnerVs0, Sub0),
-    InnerBody = body(InnerBody0, Sub),
-
-    case will_fail(OuterBody) of
-        true ->
-            %% If the outer body is known to fail, changing
-            %% the structure may create unsafe code that
-            %% requires another iteration of the outer
-            %% fixpoint loop to clean it up, which is not
-            %% guaranteed since it runs for a limited number
-            %% of iterations.
-            %%
-            %% Note that we still need to update the bodies
-            %% as they might reference variables that no
-            %% longer exist.
-            Outer0 = Inner0#c_let.arg,          %Assertion.
-            Outer = Outer0#c_let{vars=OuterVs,arg=OuterArg,body=OuterBody},
-            Inner0#c_let{vars=InnerVs,arg=Outer,body=InnerBody};
-        false ->
-            Inner = Inner0#c_let{vars=InnerVs,arg=OuterBody,body=InnerBody},
-            Outer0#c_let{vars=OuterVs,arg=OuterArg,body=Inner}
-    end;
-move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
-		   #c_case{arg=Cexpr0,clauses=[Ca0|Cs0]}=Case, Sub0) ->
-    case not is_failing_clause(Ca0) andalso
-        are_all_failing_clauses(Cs0) of
-	true ->
-	    %% let <Lvars> = case <Case-expr> of
-	    %%                  <Cpats> -> <Clause-body>;
-	    %%                  <OtherCpats> -> erlang:error(...)
-	    %%               end
-	    %% in <Let-body>
-	    %%
-	    %%     ==>
-	    %%
-	    %% case <Case-expr> of
-	    %%   <Cpats> ->
-	    %%       let <Lvars> = <Clause-body>
-	    %%       in <Let-body>;
-	    %%   <OtherCpats> -> erlang:error(...)
-	    %% end
-
-	    Cexpr = body(Cexpr0, Sub0),
-	    CaPats0 = Ca0#c_clause.pats,
-	    G0 = Ca0#c_clause.guard,
-	    B0 = Ca0#c_clause.body,
-	    ScopeSub0 = sub_subst_scope(Sub0#sub{t=#{}}),
-	    try pattern_list(CaPats0, ScopeSub0) of
-		{CaPats,ScopeSub} ->
-		    G = guard(G0, ScopeSub),
-
-		    B1 = body(B0, ScopeSub),
-
-		    {Lvs,B2,Sub1} = let_substs(Lvs0, B1, Sub0),
-		    Sub2 = Sub1#sub{s=sets:union(ScopeSub#sub.s,
-						      Sub1#sub.s)},
-		    Lbody = body(Lbody0, Sub2),
-		    B = Let#c_let{vars=Lvs,
-				  arg=core_lib:make_values(B2),
-				  body=Lbody},
-
-		    Ca = Ca0#c_clause{pats=CaPats,guard=G,body=B},
-		    Cs = [clause(C, Cexpr, value, Sub0) || C <- Cs0],
-		    Case#c_case{arg=Cexpr,clauses=[Ca|Cs]}
-	    catch
-		nomatch ->
-		    %% This is not a defeat. The code will eventually
-		    %% be optimized to erlang:error(...) by the other
-		    %% optimizations done in this module.
-		    impossible
-	    end;
-	false -> impossible
-    end;
-move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
-		   #c_seq{arg=Sarg0,body=Sbody0}=Seq, Sub0) ->
-    %%
-    %% let <Lvars> = do <Seq-arg>
-    %%                  <Seq-body>
-    %% in <Let-body>
-    %%
-    %%       ==>
-    %%
-    %% do <Seq-arg>
-    %%    let <Lvars> = <Seq-body>
-    %%    in <Let-body>
-    %%
-    Sarg = body(Sarg0, Sub0),
-    Sbody1 = body(Sbody0, Sub0),
-    {Lvs,Sbody,Sub} = let_substs(Lvs0, Sbody1, Sub0),
-    Lbody = body(Lbody0, Sub),
-    Seq#c_seq{arg=Sarg,body=Let#c_let{vars=Lvs,arg=core_lib:make_values(Sbody),
-				      body=Lbody}};
-move_let_into_expr(_Let, _Expr, _Sub) -> impossible.
-
-are_all_failing_clauses(Cs) ->
-    all(fun is_failing_clause/1, Cs).
-
 is_failing_clause(#c_clause{body=B}) ->
     will_fail(B).
 
@@ -2509,42 +2375,41 @@ delay_build_expr_1(Core, _TypeSig) ->
 	false -> throw(impossible)
     end.
 
-%% opt_simple_let(#c_let{}, Context, Sub) -> CoreTerm
-%%  Optimize a let construct that does not contain any lets in
-%%  in its argument.
+%% opt_let(#c_let{}, Context, Sub) -> CoreTerm
+%%  Optimize a let construct.
 
-opt_simple_let(Let0, Ctxt, Sub) ->
+opt_let(Let0, Ctxt, Sub) ->
     case opt_not_in_let(Let0) of
 	#c_let{}=Let ->
-	    opt_simple_let_0(Let, Ctxt, Sub);
+	    opt_let_0(Let, Ctxt, Sub);
 	Expr ->
 	    expr(Expr, Ctxt, Sub)
     end.
 
-opt_simple_let_0(#c_let{arg=Arg0}=Let, Ctxt, Sub) ->
+opt_let_0(#c_let{arg=Arg0}=Let, Ctxt, Sub) ->
     Arg = body(Arg0, value, Sub),		%This is a body
     case will_fail(Arg) of
 	true -> Arg;
-	false -> opt_simple_let_1(Let, Arg, Ctxt, Sub)
+	false -> opt_let_1(Let, Arg, Ctxt, Sub)
     end.
 
-opt_simple_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
+opt_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     %% Optimise let and add new substitutions.
     {Vs,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
     BodySub = update_let_types(Vs, Args, Sub1),
     Sub = Sub1#sub{v=[],s=sets:new([{version, 2}])},
     B = body(B0, Ctxt, BodySub),
     Arg = core_lib:make_values(Args),
-    opt_simple_let_2(Let, Vs, Arg, B, B0, Sub).
+    opt_let_2(Let, Vs, Arg, B, B0, Sub).
 
 
-%% opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) -> Core.
+%% opt_let_2(Let0, Vs0, Arg0, Body, PrevBody, Ctxt, Sub) -> Core.
 %%  Do final simplifications of the let.
 %%
 %%  Note that the substitutions and scope in Sub have been cleared
 %%  and should not be used.
 
-opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
+opt_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
     case {Vs0,Arg0,Body} of
 	{[#c_var{name=V}],Arg1,#c_var{name=V}} ->
             %% let <Var> = Arg in <Var>  ==>  Arg

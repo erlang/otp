@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(core_fold_SUITE).
+-feature(maybe_expr, enable).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -705,6 +706,8 @@ nested_lets(_Config) ->
     {'EXIT',{badarith,_}} = catch nested_lets_2(id(0), id(0)),
     {'EXIT',{badarith,_}} = catch nested_lets_3(),
     {'EXIT',{undef,_}} = catch nested_lets_4(),
+    {'EXIT',{{case_clause,_},_}} = catch nested_lets_5(),
+    {'EXIT',{badarith,_}} = catch nested_lets_6(),
 
     ok.
 
@@ -817,6 +820,31 @@ nested_lets_4() ->
     of
         _ ->
             Y
+    after
+        ok
+    end.
+
+%% GH-6633.
+nested_lets_5() ->
+    case self() of
+        [_ | X] ->
+            ok;
+        false ->
+            {ok#{
+                (X = ok) :=
+                    ((ok /=
+                        maybe
+                            ok
+                        end) =/= ok)
+            }}
+    end,
+    X.
+
+%% GH-6635.
+nested_lets_6() ->
+    try {not (false orelse (ok#{(1 / 0) := ok})), X = ok} of
+        X ->
+            ok
     after
         ok
     end.
