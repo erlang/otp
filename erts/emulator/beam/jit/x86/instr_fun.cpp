@@ -169,26 +169,17 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgLambda &Lambda,
                                                    const ArgWord &NumFree) {
     const ssize_t effective_arity = Arity.get() - NumFree.get();
     const ssize_t num_free = NumFree.get();
-    ssize_t i;
 
     const auto &lambda = lambdas[Lambda.get()];
     a.bind(lambda.trampoline);
 
     emit_ptr_val(ARG4, ARG4);
 
-    for (i = 0; i < num_free - 1; i += 2) {
-        size_t offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
-
-        a.movups(x86::xmm0, emit_boxed_val(ARG4, offset, sizeof(Eterm[2])));
-        a.movups(getXRef(i + effective_arity, sizeof(Eterm[2])), x86::xmm0);
-    }
-
-    if (i < num_free) {
-        size_t offset = offsetof(ErlFunThing, env) + i * sizeof(Eterm);
-
-        a.mov(RET, emit_boxed_val(ARG4, offset));
-        a.mov(getXRef(i + effective_arity), RET);
-    }
+    ASSERT(num_free > 0);
+    emit_copy_words(emit_boxed_val(ARG4, offsetof(ErlFunThing, env)),
+                    getXRef(effective_arity),
+                    num_free,
+                    RET);
 
     a.jmp(resolve_beam_label(Lbl));
 }
