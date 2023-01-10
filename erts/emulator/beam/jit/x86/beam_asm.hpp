@@ -577,11 +577,27 @@ protected:
 #endif
     }
 
+    /* Prefer `eHeapAlloc` over `eStack | eHeap` when calling
+     * functions in the runtime system that allocate heap
+     * memory (`HAlloc`, heap factories, etc).
+     *
+     * Prefer `eHeapOnlyAlloc` over `eHeapAlloc` for functions
+     * that assume there's already a certain amount of free
+     * space on the heap, such as those using `HeapOnlyAlloc`
+     * or similar. It's slightly cheaper in release builds,
+     * and in debug builds it updates `eStack` to ensure that
+     * we can make heap size assertions. */
     enum Update : int {
         eStack = (1 << 0),
         eHeap = (1 << 1),
         eReductions = (1 << 2),
-        eCodeIndex = (1 << 3)
+        eCodeIndex = (1 << 3),
+        eHeapAlloc = Update::eHeap | Update::eStack,
+#ifndef DEBUG
+        eHeapOnlyAlloc = Update::eHeap,
+#else
+        eHeapOnlyAlloc = Update::eHeapAlloc
+#endif
     };
 
     void emit_enter_frame() {
