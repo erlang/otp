@@ -19,7 +19,7 @@
 
 -module(observer).
 
--export([start/0, start/1, start_and_wait/1, stop/0]).
+-export([start/0, start/1, start_and_wait/0, start_and_wait/1, stop/0]).
 
 
 start() ->
@@ -33,6 +33,14 @@ start([Node]) ->
     Res = observer_wx:start(),
     observer_wx:set_node(Node1),
     Res.
+
+start_and_wait() ->
+    ok = start(),
+    MonitorRef = monitor(process, observer),
+    receive
+        {'DOWN', MonitorRef, process, _, _} ->
+            ok
+    end.
 
 start_and_wait(Node) when is_atom(Node) ->
     start_and_wait([Node]);
