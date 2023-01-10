@@ -34,7 +34,7 @@
                  {'-inf', integer()} |
                  {integer(), '+inf'} |
                  'any'.
--type range_result() :: range() | 'any'.
+-type range_result() :: range() | 'any' | 'none'.
 -type relop() :: '<' | '=<' | '>' | '>='.
 -type bool_result() :: 'true' | 'false' | 'maybe'.
 -type op() :: atom().
@@ -238,10 +238,9 @@ relop(_, _, _) ->
 
 infer_relop_types(Op, {_,_}=Range1, {_,_}=Range2) ->
     case relop(Op, Range1, Range2) of
-        'maybe' ->
-            infer_relop_types_1(Op, Range1, Range2);
-        _ ->
-            any
+        'maybe' -> infer_relop_types_1(Op, Range1, Range2);
+        true -> any;
+        false -> none
     end;
 infer_relop_types('<', {A,_}=R1, any) ->
     {R1, normalize({inf_add(A, 1), '+inf'})};

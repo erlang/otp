@@ -1237,12 +1237,14 @@ infer_relop_types(Op, Args, Types, Vst) ->
 infer_relop_types(Op, [#t_integer{elements=R1},
                        #t_integer{elements=R2}]) ->
     case beam_bounds:infer_relop_types(Op, R1, R2) of
-        any ->
-            [];
         {NewR1,NewR2} ->
             NewType1 = #t_integer{elements=NewR1},
             NewType2 = #t_integer{elements=NewR2},
-            [NewType1,NewType2]
+            [NewType1,NewType2];
+        none ->
+            [none, none];
+        any ->
+            []
     end;
 infer_relop_types(Op0, [Type1,Type2]) ->
     Op = case Op0 of
@@ -1257,12 +1259,14 @@ infer_relop_types(Op0, [Type1,Type2]) ->
             [Type1,infer_relop_any(Op, R, Type2)];
         {R1,R2} ->
             case beam_bounds:infer_relop_types(Op, R1, R2) of
-                any ->
-                    [];
                 {NewR1,NewR2} ->
                     NewType1 = meet(#t_number{elements=NewR1}, Type1),
                     NewType2 = meet(#t_number{elements=NewR2}, Type2),
-                    [NewType1,NewType2]
+                    [NewType1,NewType2];
+                none ->
+                    [none, none];
+                any ->
+                    []
             end
     end;
 infer_relop_types(_, _) ->

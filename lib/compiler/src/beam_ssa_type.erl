@@ -2519,11 +2519,13 @@ infer_relop(Op, [Arg1,Arg2], Types0) ->
 infer_relop(Op, [#t_integer{elements=R1},
                  #t_integer{elements=R2}]) ->
     case beam_bounds:infer_relop_types(Op, R1, R2) of
-        any ->
-            any;
         {NewR1,NewR2} ->
             {#t_integer{elements=NewR1},
-             #t_integer{elements=NewR2}}
+             #t_integer{elements=NewR2}};
+        none ->
+            {none, none};
+        any ->
+            any
     end;
 infer_relop(Op0, [Type1,Type2]) ->
     Op = case Op0 of
@@ -2541,11 +2543,13 @@ infer_relop(Op0, [Type1,Type2]) ->
         {R1,R2} ->
             %% Both operands are numeric types.
             case beam_bounds:infer_relop_types(Op, R1, R2) of
-                any ->
-                    any;
                 {NewR1,NewR2} ->
                     {#t_number{elements=NewR1},
-                     #t_number{elements=NewR2}}
+                     #t_number{elements=NewR2}};
+                none ->
+                    {none, none};
+                any ->
+                    any
             end
     end.
 
