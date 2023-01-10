@@ -2955,14 +2955,6 @@ static struct ESockOpt *lookupOpt(int level, int opt) {
 
 /* --------------------------------------------------------------------- */
 
-
-
-static ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
-                                         ESockDescriptor* descP);
-static int esock_close_socket(ErlNifEnv*       env,
-                              ESockDescriptor* descP,
-                              BOOLEAN_T        unlock);
-
 #if defined(IP_TOS)
 static BOOLEAN_T decode_ip_tos(ErlNifEnv*   env,
                                ERL_NIF_TERM eVal,
@@ -3525,6 +3517,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(timestamp);                       \
     GLOBAL_ATOM_DECL(tos);                             \
     GLOBAL_ATOM_DECL(transparent);                     \
+    GLOBAL_ATOM_DECL(timeout);                         \
     GLOBAL_ATOM_DECL(true);                            \
     GLOBAL_ATOM_DECL(trunc);                           \
     GLOBAL_ATOM_DECL(ttl);                             \
@@ -3714,7 +3707,6 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(socket_option);    \
     LOCAL_ATOM_DECL(sourceaddr);       \
     LOCAL_ATOM_DECL(time_exceeded);    \
-    LOCAL_ATOM_DECL(timeout);          \
     LOCAL_ATOM_DECL(true);             \
     LOCAL_ATOM_DECL(txqlen);	       \
     LOCAL_ATOM_DECL(txstatus);         \
@@ -6512,7 +6504,7 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
            ("SOCKET", "nif_finalize_close(%T), {%d,0x%X}\r\n",
             argv[0], descP->sock, descP->readState) );
 
-    result = esock_finalize_close(env, descP);
+    result = ESOCK_IO_FIN_CLOSE(env, descP);
 
     SSDBG( descP, ("SOCKET", "nif_finalize_close(%T) -> done with"
                    "\r\n   result: %T"
@@ -6526,100 +6518,12 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
 }
 
 
-/* *** esock_finalize_close ***
- * Perform the final step in the socket close.
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
-                                  ESockDescriptor* descP)
+
+extern
+int esock_close_socket(ErlNifEnv*       env,
+                       ESockDescriptor* descP,
+                       BOOLEAN_T        unlock)
 {
-    int err;
-    ErlNifPid self;
-#ifdef HAVE_SENDFILE
-    HANDLE sendfileHandle;
-#endif
-
-    ESOCK_ASSERT( enif_self(env, &self) != NULL );
-
-    if (IS_CLOSED(descP->readState))
-        return esock_make_error_closed(env);
-
-    if (! IS_CLOSING(descP->readState)) {
-        // esock_close() has not been called
-        return esock_raise_invalid(env, esock_atom_state);
-    }
-
-    if (IS_SELECTED(descP) && (descP->closeEnv != NULL)) {
-        // esock_stop() is scheduled but has not been called
-        return esock_raise_invalid(env, esock_atom_state);
-    }
-
-    if (COMPARE_PIDS(&descP->closerPid, &self) != 0) {
-        // This process is not the closer
-        return esock_raise_invalid(env, esock_atom_state);
-    }
-
-    // Close the socket
-
-    /* Stop monitoring the closer.
-     * Demonitoring may fail since this is a dirty NIF
-     * - the caller may have died already.
-     */
-    enif_set_pid_undefined(&descP->closerPid);
-    if (descP->closerMon.isActive) {
-        (void) DEMONP("esock_finalize_close -> closer",
-                      env, descP, &descP->closerMon);
-    }
-
-    /* Stop monitoring the owner */
-    enif_set_pid_undefined(&descP->ctrlPid);
-    (void) DEMONP("esock_finalize_close -> ctrl",
-                  env, descP, &descP->ctrlMon);
-    /* Not impossible to still get a esock_down() call from a
-     * just triggered owner monitor down
-     */
-
-#ifdef HAVE_SENDFILE
-    sendfileHandle = descP->sendfileHandle;
-    descP->sendfileHandle = INVALID_HANDLE;
-#endif
-
-    /* This nif is executed in a dirty scheduler just so that
-     * it can "hang" (with minimum effect on the VM) while the
-     * kernel writes our buffers. IF we have set the linger option
-     * for this ({true, integer() > 0}). For this to work we must
-     * be blocking...
-     */
-    SET_BLOCKING(descP->sock);
-    err = esock_close_socket(env, descP, TRUE);
-
-#ifdef HAVE_SENDFILE
-    if (sendfileHandle != INVALID_HANDLE) {
-        (void) close(descP->sendfileHandle);
-    }
-#endif
-
-    if (err != 0) {
-        if (err == ERRNO_BLOCK) {
-            /* Not all data in the buffers where sent,
-             * make sure the caller gets this.
-             */
-            return esock_make_error(env, atom_timeout);
-        } else {
-            return esock_make_error_errno(env, err);
-        }
-    }
-
-    return esock_atom_ok;
-}
-#endif // #ifndef __WIN32__
-
-
-#ifndef __WIN32__
-static int esock_close_socket(ErlNifEnv*       env,
-                              ESockDescriptor* descP,
-                              BOOLEAN_T        unlock) {
     int          err      = 0;
     SOCKET       sock     = descP->sock;
     ERL_NIF_TERM sockRef;
@@ -6674,7 +6578,8 @@ static int esock_close_socket(ErlNifEnv*       env,
 
     return err;
 }
-#endif // #ifndef __WIN32__
+
+
 
 
 /* ----------------------------------------------------------------------

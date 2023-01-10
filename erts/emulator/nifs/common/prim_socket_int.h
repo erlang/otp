@@ -707,5 +707,9 @@ extern ESockSendfileCounters initESockSendfileCounters;
  */
 extern BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
                                ESockDescriptor* descP);
+extern int esock_close_socket(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              BOOLEAN_T        unlock);
+
 
 #endif // PRIM_SOCKET_INT_H__

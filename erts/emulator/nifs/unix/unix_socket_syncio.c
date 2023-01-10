@@ -66,6 +66,8 @@
 #define sock_accept(s, addr, len)       accept((s), (addr), (len))
 #endif
 #define sock_bind(s, addr, len)         bind((s), (addr), (len))
+// #define sock_close(s)                   close((s))
+// #define sock_close_event(e)             /* do nothing */
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_errno()                    errno
 #define sock_listen(s, b)               listen((s), (b))
@@ -2783,12 +2785,90 @@ ERL_NIF_TERM essio_close(ErlNifEnv*       env,
 
 
 /* ========================================================================
+ * Perform the final step in the socket close.
  */
 extern
 ERL_NIF_TERM essio_fin_close(ErlNifEnv*       env,
                              ESockDescriptor* descP)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    int       err;
+    ErlNifPid self;
+#ifdef HAVE_SENDFILE
+    HANDLE    sendfileHandle;
+#endif
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    if (IS_CLOSED(descP->readState))
+        return esock_make_error_closed(env);
+
+    if (! IS_CLOSING(descP->readState)) {
+        // esock_close() has not been called
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+    if (IS_SELECTED(descP) && (descP->closeEnv != NULL)) {
+        // esock_stop() is scheduled but has not been called
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+    if (COMPARE_PIDS(&descP->closerPid, &self) != 0) {
+        // This process is not the closer
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+    // Close the socket
+
+    /* Stop monitoring the closer.
+     * Demonitoring may fail since this is a dirty NIF
+     * - the caller may have died already.
+     */
+    enif_set_pid_undefined(&descP->closerPid);
+    if (descP->closerMon.isActive) {
+        (void) DEMONP("essio_fin_close -> closer",
+                      env, descP, &descP->closerMon);
+    }
+
+    /* Stop monitoring the owner */
+    enif_set_pid_undefined(&descP->ctrlPid);
+    (void) DEMONP("essio_fin_close -> ctrl",
+                  env, descP, &descP->ctrlMon);
+    /* Not impossible to still get a esock_down() call from a
+     * just triggered owner monitor down
+     */
+
+#ifdef HAVE_SENDFILE
+    sendfileHandle = descP->sendfileHandle;
+    descP->sendfileHandle = INVALID_HANDLE;
+#endif
+
+    /* This nif-function is executed in a dirty scheduler just so
+     * that it can "hang" (with minimum effect on the VM) while the
+     * kernel writes our buffers. IF we have set the linger option
+     * for this ({true, integer() > 0}). For this to work we must
+     * be blocking...
+     */
+    SET_BLOCKING(descP->sock);
+    err = esock_close_socket(env, descP, TRUE);
+
+#ifdef HAVE_SENDFILE
+    if (sendfileHandle != INVALID_HANDLE) {
+        (void) close(descP->sendfileHandle);
+    }
+#endif
+
+    if (err != 0) {
+        if (err == ERRNO_BLOCK) {
+            /* Not all data in the buffers where sent,
+             * make sure the caller gets this.
+             */
+            return esock_make_error(env, esock_atom_timeout);
+        } else {
+            return esock_make_error_errno(env, err);
+        }
+    }
+
+    return esock_atom_ok;
 }
 
 

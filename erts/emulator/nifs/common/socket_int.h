@@ -474,6 +474,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(timestamp);                \
     GLOBAL_ATOM_DEF(tos);                      \
     GLOBAL_ATOM_DEF(transparent);              \
+    GLOBAL_ATOM_DEF(timeout);                  \
     GLOBAL_ATOM_DEF(true);                     \
     GLOBAL_ATOM_DEF(trunc);                    \
     GLOBAL_ATOM_DEF(ttl);                      \
