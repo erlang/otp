@@ -2100,18 +2100,20 @@ opt_create_bin_arg(Type, Unit, Flags, #b_literal{val=Val}, #b_literal{val=Size})
   when is_integer(Size), is_integer(Unit) ->
     EffectiveSize = Size * Unit,
     if
-        EffectiveSize > 0 ->
+        EffectiveSize > (1 bsl 24) ->
+            %% Don't bother converting really huge segments as they might fail
+            %% with a `system_limit` exception in runtime. Keeping them as-is
+            %% ensures that the extended error information will be accurate.
+            %%
+            %% We'll also reduce the risk of crashing with an unhelpful "out of
+            %% memory" error message during compilation.
+            not_possible;
+        EffectiveSize > 0, EffectiveSize =< (1 bsl 24) ->
             case {Type,opt_create_bin_endian(Flags)} of
                 {integer,big} when is_integer(Val) ->
                     if
                         EffectiveSize < 64 ->
                             [<<Val:EffectiveSize>>];
-                        EffectiveSize > 1 bsl 24 ->
-                            %% The binary construction could fail with a
-                            %% system_limit. Don't optimize to ensure that
-                            %% the extended error information will be
-                            %% accurate.
-                            not_possible;
                         true ->
                             opt_bs_put_split_int(Val, EffectiveSize)
                     end;

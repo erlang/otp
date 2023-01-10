@@ -522,6 +522,11 @@ nasty_literals(Config) when is_list(Config) ->
     I = 16#7777FFFF7777FFFF7777FFFF7777FFFF7777FFFF7777FFFF,
     id(<<I:260>>),
 
+    %% GH-6643: Excessively large literals could cause the compiler to run out
+    %% of memory.
+    catch id(<<0:16777216/big-integer-unit:1>>),
+    catch id(<<0:(16777216*2)/big-integer-unit:1>>),
+
     ok.
 
 -define(COF(Int0),
