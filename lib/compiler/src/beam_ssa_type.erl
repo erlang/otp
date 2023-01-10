@@ -2064,8 +2064,9 @@ type(bs_create_bin, Args, _Anno, Ts, _Ds) ->
     SizeUnit = bs_size_unit(Args, Ts),
     #t_bitstring{size_unit=SizeUnit};
 type(bs_extract, [Ctx], _Anno, Ts, Ds) ->
-    #b_set{op=bs_match,args=Args} = map_get(Ctx, Ds),
-    bs_match_type(Args, Ts);
+    #b_set{op=bs_match,
+           args=[#b_literal{val=Type}, _OrigCtx | Args]} = map_get(Ctx, Ds),
+    bs_match_type(Type, Args, Ts);
 type(bs_start_match, [_, Src], _Anno, Ts, _Ds) ->
     case beam_types:meet(#t_bs_matchable{}, concrete_type(Src, Ts)) of
         none ->
@@ -2084,16 +2085,21 @@ type(bs_match, [#b_literal{val=binary}, Ctx, _Flags,
     OpType = #t_bs_context{tail_unit=OpUnit},
 
     beam_types:meet(CtxType, OpType);
-type(bs_match, Args, _Anno, Ts, _Ds) ->
-    [_, Ctx | _] = Args,
+type(bs_match, Args0, _Anno, Ts, _Ds) ->
+    [#b_literal{val=Type}, Ctx | Args] = Args0, %Assertion.
+    case bs_match_type(Type, Args, Ts) of
+        none ->
+            none;
+        _ ->
+            %% Matches advance the current position without testing the tail
+            %% unit. We try to retain unit information by taking the GCD of our
+            %% current unit and the increments we know the match will advance
+            %% by.
+            #t_bs_context{tail_unit=CtxUnit} = concrete_type(Ctx, Ts),
+            OpUnit = bs_match_stride(Args, Ts),
 
-    %% Matches advance the current position without testing the tail unit. We
-    %% try to retain unit information by taking the GCD of our current unit and
-    %% the increments we know the match will advance by.
-    #t_bs_context{tail_unit=CtxUnit} = concrete_type(Ctx, Ts),
-    OpUnit = bs_match_stride(Args, Ts),
-
-    #t_bs_context{tail_unit=gcd(OpUnit, CtxUnit)};
+            #t_bs_context{tail_unit=gcd(OpUnit, CtxUnit)}
+    end;
 type(bs_get_tail, [Ctx], _Anno, Ts, _Ds) ->
     #t_bs_context{tail_unit=Unit} = concrete_type(Ctx, Ts),
     #t_bitstring{size_unit=Unit};
@@ -2352,38 +2358,50 @@ bs_match_stride(_, _, _) ->
 
 -define(UNICODE_MAX, (16#10FFFF)).
 
-bs_match_type([#b_literal{val=Type}|Args], Ts) ->
-    bs_match_type(Type, Args, Ts).
-
 bs_match_type(binary, Args, _Ts) ->
-    [_,_,_,#b_literal{val=U}] = Args,
+    [_,_,#b_literal{val=U}] = Args,
     #t_bitstring{size_unit=U};
-bs_match_type(float, _, _Ts) ->
+bs_match_type(float, _Args, _Ts) ->
     #t_float{};
 bs_match_type(integer, Args, Ts) ->
-    [_,#b_literal{val=Flags},Size,#b_literal{val=Unit}] = Args,
-    SizeType = beam_types:meet(concrete_type(Size, Ts), #t_integer{}),
-    case SizeType of
-        #t_integer{elements={_,SizeMax}}
-          when is_integer(SizeMax), SizeMax >= 0, SizeMax * Unit < 64 ->
-            NumBits = SizeMax * Unit,
-            Max = (1 bsl NumBits) - 1,
-            case member(unsigned, Flags) of
-                true ->
-                    beam_types:make_integer(0, Max);
-                false ->
-                    Min = -(Max + 1),
-                    beam_types:make_integer(Min, Max)
+    [#b_literal{val=Flags},Size,#b_literal{val=Unit}] = Args,
+    case beam_types:meet(concrete_type(Size, Ts), #t_integer{}) of
+        #t_integer{elements=Bounds} ->
+            case beam_bounds:bounds('*', Bounds, {Unit, Unit}) of
+                {_, MaxBits} when is_integer(MaxBits),
+                                  MaxBits >= 1,
+                                  MaxBits =< 64 ->
+                    case member(unsigned, Flags) of
+                        true ->
+                            Max = (1 bsl MaxBits) - 1,
+                            beam_types:make_integer(0, Max);
+                        false ->
+                            Max = (1 bsl (MaxBits - 1)) - 1,
+                            Min = -(Max + 1),
+                            beam_types:make_integer(Min, Max)
+                    end;
+                {_, 0} ->
+                    beam_types:make_integer(0);
+                _ ->
+                    case member(unsigned, Flags) of
+                        true -> #t_integer{elements={0,'+inf'}};
+                        false -> #t_integer{}
+                    end
             end;
-        _ ->
-            #t_integer{}
+        none ->
+            none
     end;
-bs_match_type(utf8, _, _) ->
+
+bs_match_type(utf8, _Args, _Ts) ->
     beam_types:make_integer(0, ?UNICODE_MAX);
-bs_match_type(utf16, _, _) ->
+bs_match_type(utf16, _Args, _Ts) ->
     beam_types:make_integer(0, ?UNICODE_MAX);
-bs_match_type(utf32, _, _) ->
-    beam_types:make_integer(0, ?UNICODE_MAX).
+bs_match_type(utf32, _Args, _Ts) ->
+    beam_types:make_integer(0, ?UNICODE_MAX);
+bs_match_type(string, _Args, _Ts) ->
+    %% Cannot actually be extracted, but we'll return 'any' to signal that the
+    %% associated `bs_match` may succeed.
+    any.
 
 normalized_types(Values, Ts) ->
     [normalized_type(Val, Ts) || Val <- Values].

@@ -966,19 +966,17 @@ vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,Size,Unit,_],Dst}, Vst) ->
     Stride = bsm_stride(Size, Unit),
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,
-    [Ctx,{integer,Sz},Unit,{field_flags,Flags}],Dst},Vst) ->
-    NumBits = Unit * Sz,
-    Stride = NumBits,
-    Type = bs_integer_type(NumBits, Flags),
+    [Ctx,{integer,Size},Unit,{field_flags,Flags}],Dst},Vst) ->
+    Type = bs_integer_type({Size, Size}, Unit, Flags),
+    Stride = Unit * Size,
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,Sz0,Unit,{field_flags,Flags}],Dst},Vst) ->
     Sz = unpack_typed_arg(Sz0),
     Type = case meet(get_term_type(Sz, Vst), #t_integer{}) of
-               #t_integer{elements={_,SizeMax}} when SizeMax * Unit < 64 ->
-                   NumBits = SizeMax * Unit,
-                   bs_integer_type(NumBits, Flags);
-               Other ->
-                   Other
+               #t_integer{elements=Bounds} ->
+                   bs_integer_type(Bounds, Unit, Flags);
+               none ->
+                   none
            end,
     validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 vi({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,Size,Unit,_],Dst},Vst) ->
@@ -1732,12 +1730,13 @@ validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
             validate_ctx_live(Ctx, Live),
             verify_live(Live, Vst0),
             Vst1 = prune_x_regs(Live, Vst0),
-            Stride = Size * Unit,
             Type = case Type0 of
                        integer ->
-                           bs_integer_type(Stride, Flags);
+                           true = is_integer(Size), %Assertion.
+                           bs_integer_type({Size, Size}, Unit, Flags);
                        binary ->
-                           #t_bitstring{size_unit=bsm_size_unit({integer,Size}, Unit)}
+                           SizeUnit = bsm_size_unit({integer,Size}, Unit),
+                           #t_bitstring{size_unit=SizeUnit}
                    end,
             Vst = extract_term(Type, bs_match, [Ctx], Dst, Vst1, Vst0),
             validate_bs_match(Is, Ctx, Unit0, Vst);
@@ -1769,20 +1768,25 @@ validate_failed_bs_match([_|Is], Ctx, Vst) ->
 validate_failed_bs_match([], _Ctx, Vst) ->
     Vst.
 
-bs_integer_type(NumBits, Flags) ->
-    if
-        0 =< NumBits, NumBits =< 64 ->
-            Max = (1 bsl NumBits) - 1,
+bs_integer_type(Bounds, Unit, Flags) ->
+    case beam_bounds:bounds('*', Bounds, {Unit, Unit}) of
+        {_, MaxBits} when is_integer(MaxBits), MaxBits >= 1, MaxBits =< 64 ->
             case member(signed, Flags) of
-                false ->
-                    beam_types:make_integer(0, Max);
                 true ->
+                    Max = (1 bsl (MaxBits - 1)) - 1,
                     Min = -(Max + 1),
-                    beam_types:make_integer(Min, Max)
+                    beam_types:make_integer(Min, Max);
+                false ->
+                    Max = (1 bsl MaxBits) - 1,
+                    beam_types:make_integer(0, Max)
             end;
-        true ->
-            %% Way too large or negative size.
-            #t_integer{}
+        {_, 0} ->
+            beam_types:make_integer(0);
+        _ ->
+            case member(signed, Flags) of
+                true -> #t_integer{};
+                false -> #t_integer{elements={0,'+inf'}}
+            end
     end.
 
 %%
