@@ -71,6 +71,7 @@
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_errno()                    errno
 #define sock_listen(s, b)               listen((s), (b))
+#define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
 #define sock_recv(s,buf,len,flag)       recv((s),(buf),(len),(flag))
@@ -677,10 +678,11 @@ ERL_NIF_TERM essio_open4(ErlNifEnv*       env,
     BOOLEAN_T        useReg = open_use_registry(env, eopts, dataP->useReg);
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef;
-    int              proto = protocol, save_errno;
+    int              proto = protocol;
     SOCKET           sock;
     char*            netns;
 #ifdef HAVE_SETNS
+    int              save_errno;
     int              current_ns = 0;
 #endif
     ErlNifPid        self;
@@ -2896,7 +2898,37 @@ extern
 ERL_NIF_TERM essio_sockname(ErlNifEnv*       env,
                             ESockDescriptor* descP)
 {
-    return enif_raise_exception(env, MKA(env, "notsup"));
+    ESockAddress  sa;
+    ESockAddress* saP = &sa;
+    SOCKLEN_T     sz  = sizeof(ESockAddress);
+
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+    
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_sockname {%d} -> open - try get sockname\r\n",
+            descP->sock) );
+
+    sys_memzero((char*) saP, sz);
+    if (sock_name(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
+        return esock_make_error_errno(env, sock_errno());
+    } else {
+        ERL_NIF_TERM esa;
+
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_sockname {%d} -> "
+                "got sockname - try decode\r\n",
+                descP->sock) );
+
+        esock_encode_sockaddr(env, saP, sz, &esa);
+
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_sockname {%d} -> decoded: "
+                "\r\n   %T\r\n",
+                descP->sock, esa) );
+
+        return esock_make_ok2(env, esa);
+    }
 }
 
 
