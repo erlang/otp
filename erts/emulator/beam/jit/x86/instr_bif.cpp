@@ -1027,14 +1027,14 @@ void BeamGlobalAssembler::emit_i_load_nif_shared() {
 
     a.mov(TMP_MEM1q, ARG2);
 
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     /* ARG2 has already been set by caller */
     load_x_reg_array(ARG3);
     runtime_call<3>(beam_jit_load_nif);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     a.cmp(RET, RET_NIF_yield);
     a.short_().je(yield);
@@ -1134,14 +1134,14 @@ void BeamModuleAssembler::emit_i_load_nif() {
     align_erlang_cp();
     a.bind(entry);
 
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     a.lea(ARG2, x86::qword_ptr(currLabel));
     load_x_reg_array(ARG3);
     runtime_call<3>(beam_jit_load_nif);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     a.cmp(RET, imm(RET_NIF_yield));
     a.je(schedule);

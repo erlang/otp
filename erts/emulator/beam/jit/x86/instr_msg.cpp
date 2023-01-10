@@ -75,12 +75,12 @@ void BeamModuleAssembler::emit_i_recv_set() {
 #endif /* ERTS_SUPPORT_OLD_RECV_MARK_INSTRS */
 
 void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     runtime_call<1>(erts_msgq_recv_marker_insert);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     mov_arg(Dst, RET);
 }
@@ -183,8 +183,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 
         comment("Inner queue empty, fetch more from outer/middle queues");
 
-        emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
         a.mov(message_ptr, imm(0));
         a.mov(ARG1, c_p);
@@ -204,8 +203,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
          * Also note that another process may have loaded new code and sent us
          * a message to notify us about it, so we must update the active code
          * index. */
-        emit_leave_runtime<Update::eStack | Update::eHeap |
-                           Update::eCodeIndex>();
+        emit_leave_runtime<Update::eHeapAlloc | Update::eCodeIndex>();
 
         a.sub(FCALLS, RET);
 

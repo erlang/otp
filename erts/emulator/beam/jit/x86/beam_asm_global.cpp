@@ -195,8 +195,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
     a.bind(error_handler);
     {
         emit_enter_frame();
-        emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
         a.mov(ARG1, c_p);
         a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info.mfa)));
@@ -204,8 +203,7 @@ void BeamGlobalAssembler::emit_export_trampoline() {
         mov_imm(ARG4, am_undefined_function);
         runtime_call<4>(call_error_handler);
 
-        emit_leave_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
         a.test(RET, RET);
         a.je(labels[process_exit]);
@@ -309,7 +307,7 @@ void BeamGlobalAssembler::emit_raise_exception() {
 void BeamGlobalAssembler::emit_raise_exception_shared() {
     Label crash = a.newLabel();
 
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     /* The error address must be a valid CP or NULL. */
     a.test(ARG2d, imm(_CPMASK));
@@ -320,7 +318,7 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
     load_x_reg_array(ARG3);
     runtime_call<4>(handle_error);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     a.test(RET, RET);
     a.je(labels[do_schedule]);

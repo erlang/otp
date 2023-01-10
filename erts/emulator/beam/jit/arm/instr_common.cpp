@@ -225,7 +225,7 @@ void BeamModuleAssembler::emit_normal_exit() {
     /* This is implicitly global; it does not normally appear in modules and
      * doesn't require size optimization. */
 
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
     emit_proc_lc_unrequire();
 
@@ -237,7 +237,7 @@ void BeamModuleAssembler::emit_normal_exit() {
     runtime_call<2>(erts_do_exit_process);
 
     emit_proc_lc_require();
-    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
 
     a.b(resolve_fragment(ga->get_do_schedule(), disp128MB));
@@ -247,14 +247,14 @@ void BeamModuleAssembler::emit_continue_exit() {
     /* This is implicitly global; it does not normally appear in modules and
      * doesn't require size optimization. */
 
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>(0);
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>(0);
     emit_proc_lc_unrequire();
 
     a.mov(ARG1, c_p);
     runtime_call<1>(erts_continue_exit_process);
 
     emit_proc_lc_require();
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>(0);
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>(0);
 
     a.b(resolve_fragment(ga->get_do_schedule(), disp128MB));
 }
@@ -2248,12 +2248,12 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
 
         /* This is an error, attach a stacktrace to the reason. */
         ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 2);
-        emit_enter_runtime<Update::eStack | Update::eHeap>(2);
+        emit_enter_runtime<Update::eHeapAlloc>(2);
 
         a.mov(ARG1, c_p);
         runtime_call<3>(add_stacktrace);
 
-        emit_leave_runtime<Update::eStack | Update::eHeap>(2);
+        emit_leave_runtime<Update::eHeapAlloc>(2);
 
         /* Fall through! */
     }
@@ -2369,12 +2369,12 @@ void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
 void BeamModuleAssembler::emit_build_stacktrace() {
     a.mov(ARG2, XREG0);
 
-    emit_enter_runtime<Update::eStack | Update::eHeap>(0);
+    emit_enter_runtime<Update::eHeapAlloc>(0);
 
     a.mov(ARG1, c_p);
     runtime_call<2>(build_stacktrace);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>(0);
+    emit_leave_runtime<Update::eHeapAlloc>(0);
 
     a.mov(XREG0, ARG1);
 }
