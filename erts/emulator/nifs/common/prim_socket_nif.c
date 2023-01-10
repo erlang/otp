@@ -944,7 +944,7 @@ static unsigned long one_value  = 1;
 // #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_ntohs(x)                   ntohs((x))
 // #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
-#define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
+// #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
 // #define sock_recv(s,buf,len,flag)       recv((s),(buf),(len),(flag))
 /* #define sock_recvfrom(s,buf,blen,flag,addr,alen) \ */
 /*     recvfrom((s),(buf),(blen),(flag),(addr),(alen)) */
@@ -1469,9 +1469,6 @@ static ERL_NIF_TERM esock_getopt_sctp_rtoinfo(ErlNifEnv*       env,
 
 #endif // defined(HAVE_SCTP)
 
-
-static ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
-                                   ESockDescriptor* descP);
 
 static ERL_NIF_TERM esock_ioctl1(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
@@ -10006,7 +10003,7 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
 	 ("SOCKET", "nif_peername(%T) {%d}"
 	  "\r\n", argv[0], descP->sock) );
 
-  res = esock_peername(env, descP);
+  res = ESOCK_IO_PEERNAME(env, descP);
 
   SSDBG( descP,
 	 ("SOCKET", "nif_peername(%T) {%d} -> done with res = %T\r\n",
@@ -10017,47 +10014,6 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
   return res;
 #endif // #ifdef __WIN32__  #else
 }
-
-
-
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
-                            ESockDescriptor* descP)
-{
-  ESockAddress  sa;
-  ESockAddress* saP = &sa;
-  SOCKLEN_T     sz  = sizeof(ESockAddress);
-
-  if (! IS_OPEN(descP->readState))
-    return esock_make_error_closed(env);
-
-  SSDBG( descP,
-         ("SOCKET", "esock_peername {%d} -> open - try get peername\r\n",
-          descP->sock) );
-
-  sys_memzero((char*) saP, sz);
-  if (sock_peer(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
-      return esock_make_error_errno(env, sock_errno());
-  } else {
-      ERL_NIF_TERM esa;
-
-      SSDBG( descP,
-             ("SOCKET", "esock_peername {%d} -> "
-              "got peername - try decode\r\n",
-              descP->sock) );
-
-      esock_encode_sockaddr(env, saP, sz, &esa);
-
-      SSDBG( descP,
-             ("SOCKET", "esock_peername {%d} -> decoded: "
-              "\r\n   %T\r\n",
-              descP->sock, esa) );
-
-      return esock_make_ok2(env, esa);
-  }
-}
-#endif // #ifndef __WIN32__
 
 
 
