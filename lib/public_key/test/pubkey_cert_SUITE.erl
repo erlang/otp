@@ -38,10 +38,12 @@ groups() ->
 
 time_str_two_gregorian() ->
     [ time_str_2_gregorian_utc_post2000
-    , time_str_2_gregorian_utc_limit_pre2000
-    , time_str_2_gregorian_utc_limit_post2000
-    , time_str_2_gregorian_generaltime_pre2000
-    , time_str_2_gregorian_generaltime_post2000
+    , time_str_2_gregorian_utc_limit_50_years_before_current_time
+    , time_str_2_gregorian_utc_limit_51_years_before_current_time
+    , time_str_2_gregorian_utc_limit_50_years_from_current_time
+    , time_str_2_gregorian_utc_limit_49_years_from_current_time
+    , time_str_2_gregorian_generaltime_50_years_before_current_time
+    , time_str_2_gregorian_generaltime_50_years_from_current_time
     ].
 
 %%--------------------------------------------------------------------
@@ -60,69 +62,117 @@ time_str_2_gregorian_utc_post2000(_) ->
     {ExpectedDate, _} = calendar:gregorian_seconds_to_datetime(Result).
 
 
-time_str_2_gregorian_utc_limit_pre2000() ->
-    [{doc, "Tests a valid gregorian Utc time"}].
-time_str_2_gregorian_utc_limit_pre2000(_) ->
-    YYMMDD = "720101",
-    HHMMSSZ = "000000Z",
-    ExpectedYear = 1972,
-    UtcTime = {utcTime, YYMMDD ++ HHMMSSZ},
-    {ExpectedDate, _} = convert_to_datetime_format(UtcTime, ExpectedYear),
+time_str_2_gregorian_utc_limit_50_years_before_current_time() ->
+    [{doc, "Tests limit of gregorian Utc time 50 years before current time"}].
+time_str_2_gregorian_utc_limit_50_years_before_current_time(_) ->
+    {ExpectedDate, UtcTime} = get_date(utcTime, -50),
+    Result = pubkey_cert:time_str_2_gregorian_sec(UtcTime),
+    {ExpectedDate, _} = calendar:gregorian_seconds_to_datetime(Result).
 
+time_str_2_gregorian_utc_limit_51_years_before_current_time() ->
+    [{doc, "Tests limit of gregorian Utc time 51 years before current time"}].
+time_str_2_gregorian_utc_limit_51_years_before_current_time(_) ->
+    {{Y, M, D}, UtcTime} = get_date(utcTime, -51),
+    Result = pubkey_cert:time_str_2_gregorian_sec(UtcTime),
+    %% the sliding window method from pubkey_cert reaches its limit and
+    %% reverses the year from 19XX to 20XX. Because of this, the expected
+    %% year is current_year + 50, or ExpectedYear + 100 (they are equivalent)
+    ExpectedYear = Y + 100,
+    {{ExpectedYear, M, D}, _} = calendar:gregorian_seconds_to_datetime(Result).
+
+time_str_2_gregorian_utc_limit_50_years_from_current_time() ->
+    [{doc, "Tests a valid gregorian Utc time 50 years from now"}].
+time_str_2_gregorian_utc_limit_50_years_from_current_time(_) ->
+    {{Y, M, D}, UtcTime} = get_date(utcTime, 50),
+    Result = pubkey_cert:time_str_2_gregorian_sec(UtcTime),
+    %% the sliding window method from pubkey_cert reaches its limit and
+    %% reverses the year from 20XX to 19XX. Because of this, the expected
+    %% year is current_year - 50, or ExpectedYear - 100 (they are equivalent)
+    ExpectedYear = Y - 100,
+    {{ExpectedYear, M, D}, _} = calendar:gregorian_seconds_to_datetime(Result).
+
+time_str_2_gregorian_utc_limit_49_years_from_current_time() ->
+    [{doc, "Tests a valid gregorian Utc time 49 years from now"}].
+time_str_2_gregorian_utc_limit_49_years_from_current_time(_) ->
+    {ExpectedDate, UtcTime} = get_date(utcTime, 49),
     Result = pubkey_cert:time_str_2_gregorian_sec(UtcTime),
     {ExpectedDate, _} = calendar:gregorian_seconds_to_datetime(Result).
 
 
-time_str_2_gregorian_utc_limit_post2000() ->
-    [{doc, "Tests a valid gregorian Utc time"}].
-time_str_2_gregorian_utc_limit_post2000(_) ->
-    YYMMDD = "710101",
-    HHMMSSZ = "000000Z",
-    ExpectedYear = 2071,
-    UtcTime = {utcTime, YYMMDD ++ HHMMSSZ},
-    {ExpectedDate, _} = convert_to_datetime_format(UtcTime, ExpectedYear),
-
+time_str_2_gregorian_generaltime_50_years_before_current_time() ->
+    [{doc, "Tests a valid general time 50 years before current time"}].
+time_str_2_gregorian_generaltime_50_years_before_current_time(_) ->
+    {ExpectedDate, UtcTime} = get_date(generalTime, -50),
     Result = pubkey_cert:time_str_2_gregorian_sec(UtcTime),
     {ExpectedDate, _} = calendar:gregorian_seconds_to_datetime(Result).
 
 
-time_str_2_gregorian_generaltime_pre2000() ->
-    [{doc, "Tests a valid gregorian Utc time"}].
-time_str_2_gregorian_generaltime_pre2000(_) ->
-    [Year | _]=YYMMDD = ["1972", "01", "01"],
-    HHMMSSZ = "000000Z",
-    GeneralTime = {generalTime, lists:flatten(YYMMDD) ++ HHMMSSZ},
-    {ExpectedYear, _} = convert_to_datetime_format(GeneralTime
-                                                  , erlang:list_to_integer(Year)),
+time_str_2_gregorian_generaltime_50_years_from_current_time() ->
+    [{doc, "Tests a valid general time 50 years from now"}].
+time_str_2_gregorian_generaltime_50_years_from_current_time(_) ->
+    {ExpectedDate, UtcTime} = get_date(generalTime, 50),
+    Result = pubkey_cert:time_str_2_gregorian_sec(UtcTime),
+    {ExpectedDate, _} = calendar:gregorian_seconds_to_datetime(Result).
 
-    Result = pubkey_cert:time_str_2_gregorian_sec(GeneralTime),
-    {ExpectedYear, _} = calendar:gregorian_seconds_to_datetime(Result).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Helper functions
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-time_str_2_gregorian_generaltime_post2000() ->
-    [{doc, "Tests a valid gregorian Utc time"}].
-time_str_2_gregorian_generaltime_post2000(_) ->
-    [Year | _]=YYMMDD = ["2045", "01", "01"],
-    HHMMSSZ = "000000Z",
-    GeneralTime = {generalTime, lists:flatten(YYMMDD) ++ HHMMSSZ},
-    {ExpectedYear, _} = convert_to_datetime_format(GeneralTime
-                                                  , erlang:list_to_integer(Year)),
-
-    Result = pubkey_cert:time_str_2_gregorian_sec(GeneralTime),
-    {ExpectedYear, _} = calendar:gregorian_seconds_to_datetime(Result).
-
-
-convert_to_datetime_format({utcTime, [Y1, Y2, M1, M2, D1, D2 | _]}, ExpectedYear) ->
-    YYMMDD = [[Y1, Y2], [M1, M2], [D1, D2]],
-    [Y, M, D] = lists:map(fun (Str) -> erlang:list_to_integer(Str) end
-                         , YYMMDD),
-    case (ExpectedYear rem 100) =:= Y of
-        true -> {{ExpectedYear, M, D}, {0, 0, 0}};
-        false -> error
-    end;
-
-convert_to_datetime_format({generalTime, [Y1, Y2, Y3, Y4, M1, M2, D1, D2 | _]}, ExpectedYear) ->
-    YYMMDD = [[Y1, Y2, Y3, Y4], [M1, M2], [D1, D2]],
-    [ExpectedYear, M, D] = lists:map(fun (Str) -> erlang:list_to_integer(Str) end
-                                    , YYMMDD),
+-spec convert_to_datetime_format({Format, Date}, ExpectedYear) -> Result when
+      Format :: generalTime | utcTime,
+      Date :: YYMMDDHHMMSS | YYYYMMDDHHMMSS,
+      YYMMDDHHMMSS :: string(),
+      YYYYMMDDHHMMSS :: string(),
+      ExpectedYear :: non_neg_integer(),
+      Result :: {{non_neg_integer(), 1..12, 1..31}, {0, 0, 0}}.
+convert_to_datetime_format({Format, Date}, ExpectedYear) ->
+    YYMMDD = group_year(Format, Date),
+    [Y, M, D] = lists:map(fun (Str) -> erlang:list_to_integer(Str) end, YYMMDD),
+    %% assertions to test that the result is the expected one
+    case Format of
+        utcTime -> (ExpectedYear rem 100) =:= Y;
+        generalTime -> ExpectedYear =:= Y
+    end,
     {{ExpectedYear, M, D}, {0, 0, 0}}.
+
+-spec get_date(Format, YearsFromNow) -> {{Year, Month, Day}, UtcDate} when
+      Format :: utcTime | generalTime,
+      YearsFromNow :: integer(),
+      Year :: non_neg_integer(),
+      Month :: 1..12,
+      Day :: 1..31,
+      UtcDate :: string().
+get_date(Format, Years) ->
+    {YYYY, MM0, DD0} = date(),
+    MM = io_lib:format("~2..0w", [MM0]),
+    DD = io_lib:format("~2..0w", [DD0]),
+    ExpectedYear = YYYY + Years,
+    YYMMDD = format_year(Format, ExpectedYear, {MM, DD}),
+    HHMMSSZ = "000000Z",
+    FormattedTime = {Format, YYMMDD ++ HHMMSSZ},
+    {ExpectedDate, _} = convert_to_datetime_format(FormattedTime, ExpectedYear),
+    {ExpectedDate, FormattedTime}.
+
+-spec format_year(Format, ExpectedYear, {Month, Day}) -> YYMMDD | YYYYMMDD when
+      Format :: utcTime | generalTime,
+      ExpectedYear :: non_neg_integer(),
+      Month :: string(),
+      Day :: string(),
+      YYMMDD :: string(),
+      YYYYMMDD :: string().
+format_year(utcTime, ExpectedYear, {MM, DD}) ->
+    YY = erlang:integer_to_list((ExpectedYear) rem 100),
+    lists:flatten(YY++MM++DD);
+format_year(generalTime, ExpectedYear, {MM, DD}) ->
+    YY = erlang:integer_to_list(ExpectedYear),
+    lists:flatten(YY++MM++DD).
+
+-spec group_year(Format, Date) -> [list()] when
+      Format :: utcTime | generalTime,
+      Date :: [non_neg_integer()].
+group_year(utcTime, [Y1, Y2, M1, M2, D1, D2 | _]) ->
+    [[Y1, Y2], [M1, M2], [D1, D2]];
+group_year(generalTime, [Y1, Y2, Y3, Y4, M1, M2, D1, D2 | _]) ->
+    [[Y1, Y2, Y3, Y4], [M1, M2], [D1, D2]].
