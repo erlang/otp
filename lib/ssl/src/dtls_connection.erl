@@ -155,6 +155,9 @@
          code_change/4,
          format_status/2]).
 
+%% Tracing
+-export([handle_trace/3]).
+
 %%====================================================================
 %% Internal application API
 %%====================================================================	
@@ -862,3 +865,12 @@ is_time_to_renegotiate(N, M) when N < M->
 is_time_to_renegotiate(_,_) ->
     true.
 
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(hbn,
+             {call, {?MODULE, connection,
+                     [_Type = info, Event, _State]}},
+             Stack) ->
+    {io_lib:format("Type = info Event = ~W ", [Event, 10]), Stack}.

@@ -44,7 +44,12 @@
          tc_budget_option/0,
          tc_budget_option/1,
          tc_file_option/0,
-         tc_file_option/1]).
+         tc_file_option/1,
+         tc_write/0,
+         tc_write/1,
+         tc_check_profiles/0,
+         tc_check_profiles/1]).
+-define(TRACE_FILE, "ssl_trace.txt").
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -53,7 +58,7 @@ suite() -> [{ct_hooks,[ts_install_cth]},
             {timetrap,{seconds,60}}].
 
 all() -> [tc_basic, tc_no_trace, tc_api_profile, tc_rle_profile,
-         tc_budget_option, tc_file_option].
+         tc_budget_option, tc_write, tc_file_option, tc_check_profiles].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -82,7 +87,7 @@ end_per_testcase(_TC, Config) ->
 tc_basic() ->
     [{doc, "Basic test of ssl_trace API"}].
 tc_basic(_Config) ->
-    L0 = ssl_trace:start(),
+    {ok, L0} = ssl_trace:start(),
     true = is_pid(whereis(ssl_trace)),
     true = is_list(L0),
     {ok,L0} = ssl_trace:on(),
@@ -105,7 +110,7 @@ tc_basic(_Config) ->
     ok = ssl_trace:stop(),
     undefined = whereis(ssl_trace),
 
-    [api, rle] = ssl_trace:start(),
+    {ok, [api, crt, csp, hbn, kdt, rle, ssn]} = ssl_trace:start(),
     {ok, [api]} = ssl_trace:on(api),
     {ok, []} = ssl_trace:off(api),
     ok = ssl_trace:stop(),
@@ -113,7 +118,6 @@ tc_basic(_Config) ->
 
 tc_no_trace() ->
     [{doc, "Verify there are no traces if not enabled"}].
-
 tc_no_trace(Config) ->
     Ref = ssl_trace_start(),
     [Server, Client] = ssl_connect(Config),
@@ -127,7 +131,6 @@ tc_no_trace(Config) ->
 
 tc_api_profile() ->
     [{doc, "Verify traces for 'api' trace profile"}].
-
 tc_api_profile(Config) ->
     On = [api, rle],
     Off = [],
@@ -149,13 +152,16 @@ tc_api_profile(Config) ->
                {"    (client) <- ssl_gen_statem:connect/8 returned",
                 ssl_gen_statem, connect},
                {"    (client) <- ssl:connect/3 returned", ssl, connect},
-               {"    (server) <- ssl:handshake/2 returned", ssl, handshake}
-              ],
+               {"    (server) <- ssl:handshake/2 returned", ssl, handshake},
+               {"    (client) <- tls_sender:init/3 returned", tls_sender, init},
+               {"    (server) <- tls_sender:init/3 returned", tls_sender, init}],
           processed =>
               ["rle ('?') -> ssl_gen_statem:init/1 (*client)",
                "rle ('?') -> ssl_gen_statem:init/1 (*server)",
                "rle ('?') -> ssl:listen/2 (*server) Args",
-               "rle ('?') -> ssl:connect/3 (*client) Args"]},
+               "rle ('?') -> ssl:connect/3 (*client) Args",
+               "rle ('?') -> tls_sender:init/3 (*server)",
+               "rle ('?') -> tls_sender:init/3 (*client)"]},
     TracesAfterDisconnect =
         #{
           call =>
@@ -205,7 +211,6 @@ tc_api_profile(Config) ->
 
 tc_rle_profile() ->
     [{doc, "Verify traces for 'rle' trace profile"}].
-
 tc_rle_profile(Config) ->
     On = [rle],
     ExpectedTraces =
@@ -214,12 +219,16 @@ tc_rle_profile(Config) ->
               [],
          return_from =>
               [{"    (client) <- ssl:connect/3 returned", ssl, connect},
-               {"    (server) <- ssl:listen/2 returned", ssl, listen}],
+               {"    (server) <- ssl:listen/2 returned", ssl, listen},
+               {"    (client) <- tls_sender:init/3 returned", tls_sender, init},
+               {"    (server) <- tls_sender:init/3 returned", tls_sender, init}],
           processed =>
               ["rle ('?') -> ssl:listen/2 (*server) Args =",
                "rle ('?') -> ssl:connect/3 (*client) Args",
                "rle ('?') -> ssl_gen_statem:init/1 (*server) Args = [[server",
-               "rle ('?') -> ssl_gen_statem:init/1 (*client) Args = [[client"]},
+               "rle ('?') -> ssl_gen_statem:init/1 (*client) Args = [[client",
+               "rle ('?') -> tls_sender:init/3 (*server)",
+               "rle ('?') -> tls_sender:init/3 (*client)"]},
     Ref = ssl_trace_start(),
     {ok, On} = ssl_trace:on(On),
     [Server, Client] = ssl_connect(Config),
@@ -234,10 +243,10 @@ tc_rle_profile(Config) ->
 
 tc_budget_option() ->
     [{doc, "Verify that budget option limits amount of traces"}].
-
 tc_budget_option(Config) ->
     Ref = ssl_trace_start(make_ref(), [{budget, 10}]),
     {ok, [api,rle]} = ssl_trace:on([api,rle]),
+    ssl_trace:write("Not a trace from dbg - not included in budget", []),
     [Server, Client] = ssl_connect(Config),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
@@ -261,15 +270,14 @@ tc_budget_option(Config) ->
 
 tc_file_option() ->
     [{doc, "Verify that file option redirects traces to file"}].
-
 tc_file_option(Config) ->
     _Ref = ssl_trace_start(make_ref(), [{budget, 10}, file]),
     {ok, [api,rle]} = ssl_trace:on([api,rle]),
     [Server, Client] = ssl_connect(Config),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
-    ActualTraceCnt = count_line("ssl_trace.txt"),
-    ExpectedTraceCnt = 10,
+    ActualTraceCnt = count_line(?TRACE_FILE),
+    ExpectedTraceCnt = 11, %% budget + 1 message about end of budget
     ssl_trace:stop(),
     case ExpectedTraceCnt == ActualTraceCnt of
         true ->
@@ -279,17 +287,61 @@ tc_file_option(Config) ->
                   [ExpectedTraceCnt, ActualTraceCnt])
     end.
 
+tc_write() ->
+    [{doc, "Verify that custom messages can be written"}].
+tc_write(_Config) ->
+    _Ref = ssl_trace_start(make_ref(), [{budget, 10}, file]),
+    {ok, [api,rle]} = ssl_trace:on([api,rle]),
+    ssl_trace:write("Custom trace message ~w", [msg]),
+    ActualTraceCnt = count_line(?TRACE_FILE),
+    ExpectedTraceCnt = 1,
+    ssl_trace:stop(),
+    case ExpectedTraceCnt == ActualTraceCnt of
+        true ->
+            ok;
+        _ ->
+            ?FAIL("Expected ~w traces, but found ~w",
+                  [ExpectedTraceCnt, ActualTraceCnt])
+    end.
+
+tc_check_profiles() ->
+    [{doc, "Verify that trace profile contain valid functions"}].
+tc_check_profiles(_Config) ->
+    CheckFun =
+        fun(Profile, Module, Fun, DefinedFunctions) ->
+                case lists:member(Fun, DefinedFunctions) of
+                    true -> ok;
+                    _ ->
+                        {F, A} = Fun,
+                        ct:fail("~w:~w/~w from '~w' trace profile not found",
+                                [Module, F, A, Profile])
+                end
+        end,
+    CheckModule =
+        fun(Profile, {Module, Funs}) ->
+                DefinedFunctions = Module:module_info(functions),
+                [CheckFun(Profile, Module, F, DefinedFunctions) ||
+                    F <- Funs]
+        end,
+    CheckTProfile =
+        fun({Profile, _, _, ModFunsTuples}) ->
+                [CheckModule(Profile, MFTuple) ||
+                    MFTuple <- ModFunsTuples]
+        end,
+    [CheckTProfile(P) || P <- ssl_trace:trace_profiles()],
+    ok.
+
 %%%----------------------------------------------------------------
 ssl_trace_start() ->
     ssl_trace_start(make_ref(), []).
 
 ssl_trace_start(Ref, TraceOpts) ->
     TestProcess = self(),
-    [_|_] = ssl_trace:start(fun(Format,Args) ->
-                                    ct:log(Format, Args),
-                                    TestProcess ! {Ref, Args}
-                            end,
-                            TraceOpts),
+    {ok, [_|_]} = ssl_trace:start(fun(Format,Args) ->
+                                          ct:log(Format, Args),
+                                          TestProcess ! {Ref, Args}
+                                  end,
+                                  TraceOpts),
     Ref.
 
 receive_map(Ref) ->
@@ -409,7 +461,7 @@ count_line(Filename) ->
             Count;
         {error, Reason} ->
             ?PAL("~s open error  reason:~s~n", [Filename, Reason]),
-            ng
+            ct:fail(Reason)
     end.
 
 count_line(IoDevice, Count) ->

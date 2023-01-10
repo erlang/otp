@@ -63,6 +63,9 @@
          downgrade/3,
          gen_handshake/4]).
 
+%% Tracing
+-export([handle_trace/3]).
+
 %%--------------------------------------------------------------------
 -spec internal_renegotiation(pid(), ssl_record:connection_states()) ->
                                     ok.
@@ -1724,3 +1727,11 @@ default_cert_key_pair_return(undefined, Session) ->
     Session;
 default_cert_key_pair_return(Default, _) ->
     Default.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(csp,
+             {call, {?MODULE, wait_ocsp_stapling, [Type, Msg | _]}}, Stack) ->
+    {io_lib:format("Type = ~w Msg = ~W", [Type, Msg, 10]), Stack}.

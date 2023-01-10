@@ -145,6 +145,8 @@
          send_key_update/2,
          update_cipher_key/2]).
 
+%% Tracing
+-export([handle_trace/3]).
 %%====================================================================
 %% Internal API
 %%====================================================================
@@ -745,3 +747,18 @@ handle_change_cipher_spec(Type, Msg, StateName, #state{protocol_specific = PS0} 
         fail ->
             ssl_gen_statem:handle_common_event(Type, Msg, StateName, State)
     end.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(kdt,
+             {call, {?MODULE, handle_key_update,
+                     [#key_update{request_update = update_requested}, _State]}},
+             Stack) ->
+    {io_lib:format("KeyUpdate procedure 2/4 - ~w received", [update_requested]), Stack};
+handle_trace(kdt,
+             {call, {?MODULE, handle_key_update,
+                     [#key_update{request_update = update_not_requested}, _State]}},
+             Stack) ->
+    {io_lib:format("KeyUpdate procedure 4/4 - ~w received", [update_not_requested]), Stack}.

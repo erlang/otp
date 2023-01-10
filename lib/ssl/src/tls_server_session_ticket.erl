@@ -40,6 +40,9 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3, format_status/2]).
 
+%% Tracing
+-export([handle_trace/3]).
+
 -define(SERVER, ?MODULE).
 
 -record(state, {
@@ -85,7 +88,7 @@ use(Pid, Identifiers, Prf, HandshakeHist) ->
 init([Listener | Args]) ->
     process_flag(trap_exit, true),
     Monitor = inet:monitor(Listener),
-    State = inital_state(Args),
+    State = initial_state(Args),
     {ok, State#state{listen_monitor = Monitor}}.
 
 -spec handle_call(Request :: term(), From :: {pid(), term()}, State :: term()) ->
@@ -156,18 +159,18 @@ code_change(_OldVsn, State, _Extra) ->
                     Status :: list()) -> Status :: term().
 format_status(_Opt, Status) ->
     Status.
+
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-inital_state([stateless, Lifetime, _, MaxEarlyDataSize, undefined, Seed]) ->
+initial_state([stateless, Lifetime, _, MaxEarlyDataSize, undefined, Seed]) ->
     #state{nonce = 0,
            stateless = #{seed => stateless_seed(Seed),
                          window => undefined},
            lifetime = Lifetime,
            max_early_data_size = MaxEarlyDataSize
           };
-inital_state([stateless, Lifetime, _, MaxEarlyDataSize, {Window, K, M}, Seed]) ->
+initial_state([stateless, Lifetime, _, MaxEarlyDataSize, {Window, K, M}, Seed]) ->
     erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
     #state{nonce = 0,
            stateless = #{bloom_filter => tls_bloom_filter:new(K, M),
@@ -177,7 +180,7 @@ inital_state([stateless, Lifetime, _, MaxEarlyDataSize, {Window, K, M}, Seed]) -
            lifetime = Lifetime,
            max_early_data_size = MaxEarlyDataSize
           };
-inital_state([stateful, Lifetime, TicketStoreSize, MaxEarlyDataSize|_]) ->
+initial_state([stateful, Lifetime, TicketStoreSize, MaxEarlyDataSize|_]) ->
     %% statfeful servers replay
     %% protection is that it saves
     %% all valid tickets
@@ -481,3 +484,88 @@ warm_up_windows(_) ->
     %% 2*WindowSize to ensure tickets from a previous instance of the server
     %% (before a restart) cannot be reused, if the ticket encryption seed is reused.
     2.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+handle_trace(rle, {call, {?MODULE, init, [[ListenSocket, Mode, Lifetime,
+                                           StoreSize | _T]]}}, Stack) ->
+    {io_lib:format("(*server) ([ListenSocket = ~w Mode = ~w Lifetime = ~w "
+                   "StoreSize = ~w, ...])",
+                   [ListenSocket, Mode, Lifetime, StoreSize]),
+     [{role, server} | Stack]};
+handle_trace(ssn,
+             {call, {?MODULE, terminate, [Reason, _State]}}, Stack) ->
+    {io_lib:format("(Reason ~w)", [Reason]), Stack};
+handle_trace(ssn,
+             {call, {?MODULE, handle_call,
+                     [CallTuple, _From, _State]}}, Stack) ->
+    {io_lib:format("(Call = ~w)", [element(1, CallTuple)]), Stack};
+handle_trace(ssn,
+             {call, {?MODULE,handle_call,
+                     [{Call = use_ticket,
+                       {offered_psks,
+                        [{psk_identity, PskIdentity, _ObfAge}],
+                        [Binder]},
+                       _Prf,
+                       _HandshakeHist}, _From, _State]}}, Stack) ->
+    {io_lib:format("(Call = ~w PskIdentity = ~W Binder = ~W)",
+                  [Call, PskIdentity, 5, Binder, 5]), Stack};
+handle_trace(ssn,
+             {call, {?MODULE, validate_binder,
+                     [Binder, _HandshakeHist, PSK, _Prf, _AlertDetail]}}, Stack) ->
+    {io_lib:format("(Binder = ~W PSK = ~W)", [Binder, 5, PSK, 5]), Stack};
+handle_trace(ssn,
+             {call, {?MODULE, initial_state,
+                     [[Mode, _Lifetime, _StoreSize,_MaxEarlyDataSize,
+                       Window, Seed]]}}, Stack) ->
+    {io_lib:format("(Mode = ~w Window = ~w Seed = ~W)", [Mode, Window, Seed, 5]), Stack};
+handle_trace(ssn,
+             {call, {?MODULE, generate_stateless_ticket,
+                     [_BaseTicket, _Prf, MasterSecret, _State]}}, Stack) ->
+    {io_lib:format("(MasterSecret = ~W)", [MasterSecret, 5]), Stack};
+handle_trace(ssn,
+             {call, {?MODULE, stateless_use,
+                     [[{psk_identity, Encrypted, _ObfAge} | _],
+                      [Binder | _],
+                      _Prf, _HandshakeHist, _Index, _State]}}, Stack) ->
+    {io_lib:format("(Encrypted = ~W Binder = ~W)", [Encrypted, 5, Binder, 5]), Stack};
+handle_trace(ssn,
+             {call, {?MODULE, in_window, [RealAge, Window]}}, Stack) ->
+    {io_lib:format("(RealAge = ~w Window = ~w)",
+                   [RealAge, Window]), Stack};
+handle_trace(ssn,
+             {call, {?MODULE, stateless_usable_ticket,
+                     [{stateless_ticket, _Prf, _PreSharedKey, _TicketAgeAdd,
+                       _Lifetime, _Timestamp}, _ObfAge, Binder,
+                      _HandshakeHist, Window]}}, Stack) ->
+    {io_lib:format("(Binder = ~W Window = ~w)", [Binder, 5, Window]), Stack};
+handle_trace(ssn,
+             {call, {?MODULE, stateless_anti_replay,
+                     [_Index, PSK, _Binder, _State]}}, Stack) ->
+    {io_lib:format("(PSK = ~W)", [PSK, 5]), Stack};
+handle_trace(ssn,
+             {return_from, {?MODULE, stateless_use, 6},
+              {{ok, {_Index, PSK}}, _State}}, Stack) ->
+    {io_lib:format("PSK = ~W", [PSK, 5]), Stack};
+handle_trace(ssn,
+             {return_from, {?MODULE, generate_stateless_ticket, 4},
+              {new_session_ticket, _LifeTime, _AgeAdd, _Nonce, Ticket,
+               _Extensions}}, Stack) ->
+    {io_lib:format("Ticket = ~W", [Ticket, 5]), Stack};
+handle_trace(ssn,
+             {return_from, {?MODULE, initial_state, 1},
+              {state, _Stateless = #{seed := {IV, Shard}, window := Window},
+               _Stateful = undefined, _Nonce, _Lifetime ,
+               _MaxEarlyDataSize, ListenMonitor}}, Stack) ->
+    {io_lib:format("IV = ~W Shard = ~W Window = ~w ListenMonitor = ~w",
+                   [IV, 5, Shard, 5, Window, ListenMonitor]), Stack};
+handle_trace(ssn,
+             {return_from, {?MODULE, stateless_anti_replay, 4},
+              {{ok, {_Index, PSK}}, _State}}, Stack) ->
+    {io_lib:format("ticket OK ~W", [PSK, 5]), Stack};
+handle_trace(ssn,
+             {return_from, {?MODULE, stateless_anti_replay, 4},
+              Return}, Stack) ->
+    {io_lib:format("ticket REJECTED ~W", [Return, 5]), Stack}.
