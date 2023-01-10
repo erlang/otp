@@ -569,13 +569,13 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgRegister &Src,
                               Src,
                               ARG2);
 
-        emit_enter_runtime<Update::eStack | Update::eHeap>(Live.get());
+        emit_enter_runtime<Update::eHeapOnlyAlloc>(Live.get());
 
         a.mov(ARG1, c_p);
         /* ARG2 was set above */
         runtime_call<2>(erts_bs_start_match_3);
 
-        emit_leave_runtime<Update::eStack | Update::eHeap>(Live.get());
+        emit_leave_runtime<Update::eHeapOnlyAlloc>(Live.get());
 
         a.add(ARG2, ARG1, imm(TAG_PRIMARY_BOXED));
     }
@@ -800,13 +800,13 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgRegister &Ctx,
         }
     }
 
-    emit_enter_runtime<Update::eHeap>(Live.get());
+    emit_enter_runtime<Update::eHeapOnlyAlloc>(Live.get());
 
     a.mov(ARG1, c_p);
     /* ARG2 was set above. */
     runtime_call<2>(erts_bs_get_binary_all_2);
 
-    emit_leave_runtime<Update::eHeap>(Live.get());
+    emit_leave_runtime<Update::eHeapOnlyAlloc>(Live.get());
 
     mov_arg(Dst, ARG1);
 }
@@ -826,11 +826,11 @@ void BeamGlobalAssembler::emit_bs_get_tail_shared() {
     a.sub(ARG5, TMP1, ARG4);
 
     emit_enter_runtime_frame();
-    emit_enter_runtime<Update::eHeap>();
+    emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
     runtime_call<5>(erts_extract_sub_binary);
 
-    emit_leave_runtime<Update::eHeap>();
+    emit_leave_runtime<Update::eHeapOnlyAlloc>();
     emit_leave_runtime_frame();
 
     a.ret(a64::x30);
@@ -930,14 +930,14 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
 
         lea(ARG4, emit_boxed_val(ARG4, offsetof(ErlBinMatchState, mb)));
 
-        emit_enter_runtime<Update::eHeap>(Live.get());
+        emit_enter_runtime<Update::eHeapOnlyAlloc>(Live.get());
 
         a.mov(ARG1, c_p);
         a.ldr(ARG2, TMP_MEM1q);
         mov_imm(ARG3, Flags.get());
         runtime_call<4>(erts_bs_get_binary_2);
 
-        emit_leave_runtime<Update::eHeap>(Live.get());
+        emit_leave_runtime<Update::eHeapOnlyAlloc>(Live.get());
 
         emit_branch_if_not_value(ARG1, fail);
 
@@ -964,24 +964,13 @@ void BeamModuleAssembler::emit_i_bs_get_float2(const ArgRegister &Ctx,
     if (emit_bs_get_field_size(Sz, unit, fail, ARG2) >= 0) {
         lea(ARG4, emit_boxed_val(ARG4, offsetof(ErlBinMatchState, mb)));
 
-        /* erts_bs_get_float_2 uses HeapOnlyAlloc which usually requires just
-         * an updated heap pointer, but in debug mode it needs the stack
-         * pointer too for an assertion. */
-#ifdef DEBUG
-        emit_enter_runtime<Update::eStack | Update::eHeap>(Live.get());
-#else
-        emit_enter_runtime<Update::eHeap>(Live.get());
-#endif
+        emit_enter_runtime<Update::eHeapOnlyAlloc>(Live.get());
 
         a.mov(ARG1, c_p);
         mov_imm(ARG3, Flags.get());
         runtime_call<4>(erts_bs_get_float_2);
 
-#ifdef DEBUG
-        emit_leave_runtime<Update::eStack | Update::eHeap>(Live.get());
-#else
-        emit_leave_runtime<Update::eHeap>(Live.get());
-#endif
+        emit_leave_runtime<Update::eHeapOnlyAlloc>(Live.get());
 
         emit_branch_if_not_value(ARG1, fail);
 
@@ -4096,7 +4085,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             lea(ARG4, emit_boxed_val(ctx.reg, offsetof(ErlBinMatchState, mb)));
 
             if (bits >= SMALL_BITS) {
-                emit_enter_runtime<Update::eHeap>(live);
+                emit_enter_runtime<Update::eHeapOnlyAlloc>(live);
             } else {
                 emit_enter_runtime(live);
             }
@@ -4104,7 +4093,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             runtime_call<4>(erts_bs_get_integer_2);
 
             if (bits >= SMALL_BITS) {
-                emit_leave_runtime<Update::eHeap>(live);
+                emit_leave_runtime<Update::eHeapOnlyAlloc>(live);
             } else {
                 emit_leave_runtime(live);
             }
@@ -4127,11 +4116,13 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             a.add(TMP2, ARG4, ARG5);
             a.stur(TMP2, emit_boxed_val(ctx.reg, position_offset));
 
-            emit_enter_runtime<Update::eHeap>(Live.as<ArgWord>().get());
+            emit_enter_runtime<Update::eHeapOnlyAlloc>(
+                    Live.as<ArgWord>().get());
 
             runtime_call<5>(erts_extract_sub_binary);
 
-            emit_leave_runtime<Update::eHeap>(Live.as<ArgWord>().get());
+            emit_leave_runtime<Update::eHeapOnlyAlloc>(
+                    Live.as<ArgWord>().get());
 
             mov_arg(seg.dst, ARG1);
             position_is_valid = false;

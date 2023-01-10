@@ -213,11 +213,11 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
     mov_arg(ARG3, Arity);
     mov_arg(ARG4, NumFree);
 
-    emit_enter_runtime<Update::eHeap>();
+    emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
     runtime_call<4>(erts_new_local_fun_thing);
 
-    emit_leave_runtime<Update::eHeap>();
+    emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
     if (num_free) {
         comment("Move fun environment");
