@@ -2076,6 +2076,8 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
     Eterm new_key;
     Eterm* kp;
     Eterm map;
+    int changed_values = 0;
+    int changed_keys = 0;
 
     num_updates = n / 2;
     map = reg[live];
@@ -2127,35 +2129,46 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
      * Build the skeleton for the map, ready to be filled in.
      *
      * +-----------------------------------+
-     * | (Space for aritvyal for keys)     | <-----------+
-     * +-----------------------------------+		 |
-     * | (Space for key 1)		   |		 |    <-- kp
-     * +-----------------------------------+		 |
-     *        .				    		 |
-     *        .				    		 |
-     *        .				    		 |
-     * +-----------------------------------+		 |
-     * | (Space for last key)		   |		 |
-     * +-----------------------------------+		 |
-     * | MAP_HEADER			   |		 |
-     * +-----------------------------------+		 |
-     * | (Space for number of keys/values) |		 |
-     * +-----------------------------------+		 |
-     * | Boxed tuple pointer            >----------------+
+     * | MAP_HEADER_FLATMAP                |
      * +-----------------------------------+
-     * | (Space for value 1)		   |                  <-- hp
+     * | (Space for number of keys/values) |
+     * +-----------------------------------+
+     * | Boxed tuple pointer            >----------------+
+     * +-----------------------------------+             |
+     * | (Space for value 1)               |             |    <-- hp
+     * +-----------------------------------+             |
+     *        .                                          |
+     *        .                                          |
+     *        .                                          |
+     * +-----------------------------------+             |
+     * | (Space for last value)	           |             |
+     * +-----------------------------------+             |
+     * +-----------------------------------+             |
+     * | (Space for aritvyal for keys)     | <-----------+
+     * +-----------------------------------+
+     * | (Space for key 1)                 |                  <-- kp
+     * +-----------------------------------+
+     *        .
+     *        .
+     *        .
+     * +-----------------------------------+
+     * | (Space for last key)              |
      * +-----------------------------------+
      */
 
+    hp = p->htop;
     E = p->stop;
-    kp = p->htop + 1;		/* Point to first key */
-    hp = kp + num_old + num_updates;
 
     res = make_flatmap(hp);
     mp = (flatmap_t *)hp;
     hp += MAP_HEADER_FLATMAP_SZ;
     mp->thing_word = MAP_HEADER_FLATMAP;
-    mp->keys = make_tuple(kp-1);
+
+    kp = hp + num_old + num_updates; /* Point to key tuple. */
+
+    mp->keys = make_tuple(kp);
+
+    kp = kp + 1;                /* Point to first key. */
 
     old_vals = flatmap_get_values(old_mp);
     old_keys = flatmap_get_keys(old_mp);
@@ -2172,7 +2185,6 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 	Eterm key;
 	Sint c;
 
-	ASSERT(kp < (Eterm *)mp);
 	key = *old_keys;
 	if ((c = (key == new_key) ? 0 : CMP_TERM(key, new_key)) < 0) {
 	    /* Copy old key and value */
@@ -2180,13 +2192,18 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 	    *hp++ = *old_vals;
 	    old_keys++, old_vals++, num_old--;
 	} else {		/* Replace or insert new */
-	    GET_TERM(new_p[1], *hp++);
+	    GET_TERM(new_p[1], *hp);
 	    if (c > 0) {	/* If new key */
 		*kp++ = new_key;
+                changed_keys = 1;
 	    } else {		/* If replacement */
+                if (*old_vals != *hp) {
+                    changed_values = 1;
+                }
 		*kp++ = key;
 		old_keys++, old_vals++, num_old--;
 	    }
+            hp++;
 	    n--;
 	    if (n == 0) {
 		break;
@@ -2218,6 +2235,28 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 	    GET_TERM(new_p[1], *hp++);
 	    new_p += 2;
 	}
+    } else if (!changed_keys && !changed_values) {
+        /*
+         * All updates are now done, no new keys were introduced, and
+         * all new values were the same as old ones. We can just
+         * return the old map and skip committing the new allocation,
+         * effectively releasing it.
+         */
+        ASSERT(n == 0);
+        return map;
+    } else if (!changed_keys) {
+        /*
+         * All updates are now done, no new keys were introduced, but
+         * some values were changed. We can retain the old key tuple.
+         */
+        ASSERT(n == 0);
+        mp->size = old_mp->size;
+        mp->keys = old_mp->keys;
+        while (num_old-- > 0) {
+            *hp++ = *old_vals++;
+        }
+        p->htop = hp;
+        return res;
     } else {
 	/*
 	 * All updates are now done. We may still have old
@@ -2225,7 +2264,6 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 	 */
 	ASSERT(n == 0);
 	while (num_old-- > 0) {
-	    ASSERT(kp < (Eterm *)mp);
 	    *kp++ = *old_keys++;
 	    *hp++ = *old_vals++;
 	}
@@ -2233,20 +2271,22 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 
     /*
      * Calculate how many values that are unused at the end of the
-     * key tuple and fill it out with a bignum header.
+     * value array and fill it out with a bignum header.
      */
-    if ((n = (Eterm *)mp - kp) > 0) {
-	*kp = make_pos_bignum_header(n-1);
+    if ((n = boxed_val(mp->keys) - hp) > 0) {
+        ASSERT(n <= num_updates);
+	*hp = make_pos_bignum_header(n-1);
     }
 
     /*
      * Fill in the size of the map in both the key tuple and in the map.
      */
 
-    n = kp - p->htop - 1;	/* Actual number of keys/values */
-    *p->htop = make_arityval(n);
-    p->htop  = hp;
+    n = hp - (Eterm *)mp - MAP_HEADER_FLATMAP_SZ;	/* Actual number of keys/values */
+    ASSERT(n <= old_mp->size + num_updates);
     mp->size = n;
+    *(boxed_val(mp->keys)) = make_arityval(n);
+    p->htop  = kp;
 
     /* The expensive case, need to build a hashmap */
     if (n > MAP_SMALL_MAP_LIMIT) {
