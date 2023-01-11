@@ -512,12 +512,14 @@ extern BOOLEAN_T esock_getopt_int(SOCKET sock,
 
 
 /* ** Socket Registry functions *** */
+#ifndef __WIN32__
 extern void esock_send_reg_add_msg(ErlNifEnv*   env,
                                    ESockDescriptor* descP,
                                    ERL_NIF_TERM sockRef);
 extern void esock_send_reg_del_msg(ErlNifEnv*   env,
                                    ESockDescriptor* descP,
                                    ERL_NIF_TERM sockRef);
+#endif // #ifndef __WIN32__
 
 
 /* *** Message sending functions *** */
@@ -675,7 +677,6 @@ extern BOOLEAN_T esock_cmsg_decode_bool(ErlNifEnv*      env,
                                         struct cmsghdr* cmsgP,
                                         size_t          rem,
                                         size_t*         usedP);
-#endif
 extern ESockCmsgSpec* esock_lookup_cmsg_table(int level, size_t *num);
 extern ESockCmsgSpec* esock_lookup_cmsg_spec(ESockCmsgSpec* table,
                                              size_t         num,
@@ -692,6 +693,7 @@ extern void esock_encode_msg_flags(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
                                    int              msgFlags,
                                    ERL_NIF_TERM*    flags);
+#endif
 
 
 /* *** Sendfile 'stuff' ***
@@ -705,11 +707,13 @@ extern ESockSendfileCounters initESockSendfileCounters;
 
 /* *** 'close' functions ***
  */
+#ifndef __WIN32__
 extern BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
                                ESockDescriptor* descP);
 extern int esock_close_socket(ErlNifEnv*       env,
                               ESockDescriptor* descP,
                               BOOLEAN_T        unlock);
+#endif
 
 
 #endif // PRIM_SOCKET_INT_H__

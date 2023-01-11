@@ -1062,6 +1062,51 @@ ESOCK_NIF_FUNCS
 #undef ESOCK_NIF_FUNC_DEF
 
 
+/* =======================================================================
+ * Socket specific backend 'synchronicity' functions.
+ * This type is used to create 'sync' function table.
+ * This table is initiated when the nif is loaded.
+ * Initially, its content will be hardcoded to:
+ *   * Windows:      async (esaio)
+ *   * Other (unix): sync  (essio)
+ * When we introduce async I/O for unix (io_uring or something similar)
+ * we may make it possible to choose (set a flag when the VM is started;
+ * --esock-io=<async|sync>).
+ */
+
+typedef struct {
+    ESockIOInit                  init;
+    ESockIOFinish                finish;
+
+    ESockIOOpen2                 open2;
+    ESockIOOpen4                 open4;
+    ESockIOBind                  bind;
+
+    ESockIOConnect               connect;
+    ESockIOListen                listen;
+    ESockIOAccept                accept;
+
+    ESockIOSend                  send;
+    ESockIOSendTo                sendto;
+    ESockIOSendMsg               sendmsg;
+    ESockIOSendFileStart         sendfile_start;
+    ESockIOSendFileContinue      sendfile_cont;
+    ESockIOSendFileDeferredClose sendfile_dc;
+
+    ESockIORecv                  recv;
+    ESockIORecvFrom              recvfrom;
+    ESockIORecvMsg               recvmsg;
+
+    ESockIOClose                 close;
+    ESockIOFinClose              fin_close;
+    ESockIOShutdown              shutdown;
+
+    ESockIOSockName              sockname;
+    ESockIOPeerName              peername;
+} ESockIoBackend;
+
+
+
 #ifndef __WIN32__
 /* ---------------------------------------------------------------------- *
  *                                                                        *
@@ -1825,51 +1870,6 @@ static ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
                                              int              level,
                                              int              opt);
 #endif
-
-
-
-/* =======================================================================
- * Socket specific backend 'synchronicity' functions.
- * This type is used to create 'sync' function table.
- * This table is initiated when the nif is loaded.
- * Initially, its content will be hardcoded to:
- *   * Windows:      async (esaio)
- *   * Other (unix): sync  (essio)
- * When we introduce async I/O for unix (io_uring or something similar)
- * we may make it possible to choose (set a flag when the VM is started;
- * --esock-io=<async|sync>).
- */
-
-typedef struct {
-    ESockIOInit                  init;
-    ESockIOFinish                finish;
-
-    ESockIOOpen2                 open2;
-    ESockIOOpen4                 open4;
-    ESockIOBind                  bind;
-
-    ESockIOConnect               connect;
-    ESockIOListen                listen;
-    ESockIOAccept                accept;
-
-    ESockIOSend                  send;
-    ESockIOSendTo                sendto;
-    ESockIOSendMsg               sendmsg;
-    ESockIOSendFileStart         sendfile_start;
-    ESockIOSendFileContinue      sendfile_cont;
-    ESockIOSendFileDeferredClose sendfile_dc;
-
-    ESockIORecv                  recv;
-    ESockIORecvFrom              recvfrom;
-    ESockIORecvMsg               recvmsg;
-
-    ESockIOClose                 close;
-    ESockIOFinClose              fin_close;
-    ESockIOShutdown              shutdown;
-
-    ESockIOSockName              sockname;
-    ESockIOPeerName              peername;
-} ESockIoBackend;
 
 
 
@@ -6295,6 +6295,7 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
 
 /* Prepare for close - return whether stop is scheduled
  */
+#ifndef __WIN32__ // TEMPORARY - check the prim_socket_int.h file!
 extern
 BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
                         ESockDescriptor* descP)
@@ -6306,7 +6307,9 @@ BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
     sockRef = enif_make_resource(env, descP);
 
     if (IS_SELECTED(descP)) {
-        ESOCK_ASSERT( (sres = esock_select_stop(env, descP->sock, descP))
+        ESOCK_ASSERT( (sres = esock_select_stop(env,
+                                                (ErlNifEvent) descP->sock,
+                                                descP))
                       >= 0 );
         if ((sres & ERL_NIF_SELECT_STOP_CALLED) != 0) {
             /* The socket is no longer known by the select machinery
@@ -6455,7 +6458,7 @@ BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
 
     return ret;
 }
-
+#endif // #ifndef __WIN32__
 
 
 /* ----------------------------------------------------------------------
@@ -6508,7 +6511,7 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
 }
 
 
-
+#ifndef __WIN32__  // TEMPORARY - check the prim_socket_int.h file!
 extern
 int esock_close_socket(ErlNifEnv*       env,
                        ESockDescriptor* descP,
@@ -6568,6 +6571,7 @@ int esock_close_socket(ErlNifEnv*       env,
 
     return err;
 }
+#endif // #ifndef __WIN32__
 
 
 
@@ -11855,6 +11859,7 @@ ERL_NIF_TERM esock_cancel_mode_select(ErlNifEnv*       env,
  * ----------------------------------------------------------------------
  */
 
+#ifndef __WIN32__
 extern
 BOOLEAN_T esock_encode_cmsg(ErlNifEnv*     env,
                             int            level,
@@ -11896,7 +11901,7 @@ BOOLEAN_T esock_encode_cmsg(ErlNifEnv*     env,
     *eType = MKI(env, type);
     return FALSE;
 }
-
+#endif
 
 
 /* +++ esock_encode_msg_flags +++
@@ -11905,6 +11910,7 @@ BOOLEAN_T esock_encode_cmsg(ErlNifEnv*     env,
  *
  */
 
+#ifndef __WIN32__
 extern
 void esock_encode_msg_flags(ErlNifEnv*       env,
                             ESockDescriptor* descP,
@@ -11943,7 +11949,7 @@ void esock_encode_msg_flags(ErlNifEnv*       env,
         TARRAY_TOLIST(ta, env, flags);
     }
 }
-
+#endif
 
 
 #ifndef __WIN32__
@@ -13292,8 +13298,6 @@ void esock_send_reg_del_msg(ErlNifEnv*   env,
 #endif // #ifndef __WIN32__
 
 
-
-
 /* ===========================================================================
  *
  *                   Socket user message functions
@@ -13684,7 +13688,6 @@ int esock_select_write(ErlNifEnv*       env,
  * So readMtx and writeMtx are supposed to be locked
  * when this function is called.
  */
-#ifndef __WIN32__
 extern
 int esock_select_stop(ErlNifEnv*  env,
                       ErlNifEvent event,
@@ -13693,9 +13696,7 @@ int esock_select_stop(ErlNifEnv*  env,
     return enif_select(env, event, (ERL_NIF_SELECT_STOP), obj, NULL,
                        esock_atom_undefined);
 }
-#endif // #ifndef __WIN32__
 
-#ifndef __WIN32__
 extern
 int esock_select_cancel(ErlNifEnv*             env,
                         ErlNifEvent            event,
@@ -13705,7 +13706,7 @@ int esock_select_cancel(ErlNifEnv*             env,
     return enif_select(env, event, (ERL_NIF_SELECT_CANCEL | mode), obj, NULL,
                        esock_atom_undefined);
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* ----------------------------------------------------------------------
@@ -14520,7 +14521,6 @@ void esock_stop(ErlNifEnv* env, void* obj, ErlNifEvent fd, int is_direct_call)
  * Handle current requestor (reader, writer or acceptor) during
  * socket stop.
  */
-#ifndef __WIN32__
 static
 void esock_stop_handle_current(ErlNifEnv*       env,
                                const char*      role,
@@ -14540,7 +14540,6 @@ void esock_stop_handle_current(ErlNifEnv*       env,
     enif_set_pid_undefined(&reqP->pid);
     reqP->ref = esock_atom_undefined;
 }
-#endif // #ifndef __WIN32__
 
 
 
@@ -15083,13 +15082,16 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     /* This is (currently) intended for Windows use */
     {
         ErlNifSysInfo sysInfo;
-        unsigned int  ioNumThreadsDef =
+        unsigned int  ioNumThreadsDef; // Used as "default" value
+
+        enif_system_info(&sysInfo, sizeof(ErlNifSysInfo));
+
+        ioNumThreadsDef =
             (unsigned int) (sysInfo.scheduler_threads > 0) ?
             2*sysInfo.scheduler_threads : 1; // ESOCK_IO_NUM_THREADS);
 
-        enif_system_info(&sysInfo, sizeof(ErlNifSysInfo));
         data.ioNumThreads =
-            esock_get_bool_from_map(env, load_info,
+            esock_get_uint_from_map(env, load_info,
                                     atom_io_num_threads,
                                     ioNumThreadsDef);
     }
@@ -15147,10 +15149,13 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
 #endif
 
+#ifndef __WIN32__
+    // This ifndef is only temporary!!
     if (ESOCK_IO_INIT(data.ioNumThreads) != ESOCK_IO_OK) {
         esock_error_msg("Failed initiating I/O backend");
         return 1; // Failure
     }
+#endif
 
 #ifndef __WIN32__
 

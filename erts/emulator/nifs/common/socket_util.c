@@ -149,9 +149,9 @@ static SOCKLEN_T sa_local_length(int l, struct sockaddr_un* sa);
 
 /* *** esock_get_uint_from_map ***
  *
- * Simple utility function used to extract a unsigned in value from a map.
+ * Simple utility function used to extract a unsigned int value from a map.
  * If it fails to extract the value (for whatever reason) the default
- * value is returned.
+ * value is used.
  */
 
 extern
@@ -178,7 +178,7 @@ unsigned int esock_get_uint_from_map(ErlNifEnv*   env,
  *
  * Simple utility function used to extract a boolean value from a map.
  * If it fails to extract the value (for whatever reason) the default
- * value is returned.
+ * value is used.
  */
 
 extern
