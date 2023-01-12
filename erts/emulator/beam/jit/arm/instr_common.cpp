@@ -1740,8 +1740,14 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         /* The only possible kind of immediate is a small and all other values
          * are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        emit_is_boxed(branch_compare, TMP1);
+        if (always_small(LHS)) {
+            emit_is_boxed(branch_compare, rhs.reg);
+        } else if (always_small(RHS)) {
+            emit_is_boxed(branch_compare, lhs.reg);
+        } else {
+            a.and_(TMP1, lhs.reg, rhs.reg);
+            emit_is_boxed(branch_compare, TMP1);
+        }
 
         mov_var(ARG1, lhs);
         mov_var(ARG2, rhs);
@@ -1756,9 +1762,9 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
 
         /* Relative comparisons are overwhelmingly likely to be used on smalls,
          * so we'll specialize those and keep the rest in a shared fragment. */
-        if (RHS.isSmall()) {
+        if (always_small(RHS)) {
             a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-        } else if (LHS.isSmall()) {
+        } else if (always_small(LHS)) {
             a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
         } else {
             /* Avoid the expensive generic comparison for equal terms. */
@@ -1850,8 +1856,14 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         /* The only possible kind of immediate is a small and all other values
          * are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        emit_is_boxed(branch_compare, TMP1);
+        if (always_small(LHS)) {
+            emit_is_boxed(branch_compare, rhs.reg);
+        } else if (always_small(RHS)) {
+            emit_is_boxed(branch_compare, lhs.reg);
+        } else {
+            a.and_(TMP1, lhs.reg, rhs.reg);
+            emit_is_boxed(branch_compare, TMP1);
+        }
 
         mov_var(ARG1, lhs);
         mov_var(ARG2, rhs);
@@ -1866,9 +1878,9 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
 
         /* Relative comparisons are overwhelmingly likely to be used on smalls,
          * so we'll specialize those and keep the rest in a shared fragment. */
-        if (RHS.isSmall()) {
+        if (always_small(RHS)) {
             a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-        } else if (LHS.isSmall()) {
+        } else if (always_small(LHS)) {
             a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
         } else {
             /* Avoid the expensive generic comparison for equal terms. */

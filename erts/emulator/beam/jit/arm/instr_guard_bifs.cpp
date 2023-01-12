@@ -192,27 +192,10 @@ void BeamModuleAssembler::emit_bif_is_ne_exact(const ArgRegister &LHS,
     }
 }
 
-void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
-                                         const ArgSource &RHS,
-                                         const ArgRegister &Dst) {
-    if (always_small(LHS) && RHS.isSmall() && RHS.isImmed()) {
-        auto lhs = load_source(LHS, ARG1);
-
-        comment("simplified compare because one operand is an immediate small");
-        cmp(lhs.reg, RHS.as<ArgImmed>().get());
-        emit_cond_to_bool(arm::CondCode::kGE, Dst);
-
-        return;
-    } else if (LHS.isSmall() && LHS.isImmed() && always_small(RHS)) {
-        auto rhs = load_source(RHS, ARG1);
-
-        comment("simplified compare because one operand is an immediate small");
-        cmp(rhs.reg, LHS.as<ArgImmed>().get());
-        emit_cond_to_bool(arm::CondCode::kLE, Dst);
-
-        return;
-    }
-
+void BeamModuleAssembler::emit_bif_is_ge_lt(arm::CondCode cc,
+                                            const ArgSource &LHS,
+                                            const ArgSource &RHS,
+                                            const ArgRegister &Dst) {
     auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
 
     Label generic = a.newLabel(), next = a.newLabel();
@@ -223,15 +206,21 @@ void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
          * other values are boxed, so we can test for smalls by
          * testing boxed. */
         comment("simplified small test since all other types are boxed");
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        emit_is_not_boxed(generic, TMP1);
+        if (always_small(LHS)) {
+            emit_is_not_boxed(generic, rhs.reg);
+        } else if (always_small(RHS)) {
+            emit_is_not_boxed(generic, lhs.reg);
+        } else {
+            a.and_(TMP1, lhs.reg, rhs.reg);
+            emit_is_not_boxed(generic, TMP1);
+        }
     } else {
         /* Relative comparisons are overwhelmingly likely to be used
          * on smalls, so we'll specialize those and keep the rest in a
          * shared fragment. */
-        if (RHS.isSmall()) {
+        if (always_small(RHS)) {
             a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-        } else if (LHS.isSmall()) {
+        } else if (always_small(LHS)) {
             a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
         } else {
             ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
@@ -257,40 +246,37 @@ void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
     }
 
     a.bind(next);
-    emit_cond_to_bool(arm::CondCode::kGE, Dst);
+    emit_cond_to_bool(cc, Dst);
+}
+
+void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
+                                         const ArgSource &RHS,
+                                         const ArgRegister &Dst) {
+    if (always_small(LHS) && RHS.isSmall() && RHS.isImmed()) {
+        auto lhs = load_source(LHS, ARG1);
+
+        comment("simplified compare because one operand is an immediate small");
+        cmp(lhs.reg, RHS.as<ArgImmed>().get());
+        emit_cond_to_bool(arm::CondCode::kGE, Dst);
+
+        return;
+    } else if (LHS.isSmall() && LHS.isImmed() && always_small(RHS)) {
+        auto rhs = load_source(RHS, ARG1);
+
+        comment("simplified compare because one operand is an immediate small");
+        cmp(rhs.reg, LHS.as<ArgImmed>().get());
+        emit_cond_to_bool(arm::CondCode::kLE, Dst);
+
+        return;
+    }
+
+    emit_bif_is_ge_lt(arm::CondCode::kGE, LHS, RHS, Dst);
 }
 
 void BeamModuleAssembler::emit_bif_is_lt(const ArgSource &LHS,
                                          const ArgSource &RHS,
                                          const ArgRegister &Dst) {
-    auto [lhs, rhs] = load_sources(LHS, ARG1, RHS, ARG2);
-    Label generic = a.newLabel(), next = a.newLabel();
-
-    /* Relative comparisons are overwhelmingly likely to be used on smalls,
-     * so we'll specialize those and keep the rest in a shared fragment. */
-    if (RHS.isSmall()) {
-        a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-    } else if (LHS.isSmall()) {
-        a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
-    } else {
-        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-    }
-
-    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-    a.b_ne(generic);
-
-    a.cmp(lhs.reg, rhs.reg);
-    a.b(next);
-
-    a.bind(generic);
-    mov_var(ARG1, lhs);
-    mov_var(ARG2, rhs);
-    fragment_call(ga->get_arith_compare_shared());
-
-    a.bind(next);
-    emit_cond_to_bool(arm::CondCode::kLT, Dst);
+    emit_bif_is_ge_lt(arm::CondCode::kLT, LHS, RHS, Dst);
 }
 
 /* ================================================================

@@ -1548,6 +1548,10 @@ protected:
                                 const ArgRegister &Dst);
 
     void emit_cond_to_bool(arm::CondCode cc, const ArgRegister &Dst);
+    void emit_bif_is_ge_lt(arm::CondCode cc,
+                           const ArgSource &LHS,
+                           const ArgSource &RHS,
+                           const ArgRegister &Dst);
 
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);

@@ -1742,17 +1742,22 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         /* The only possible kind of immediate is a small and all other
          * values are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
-        a.mov(RETd, ARG1d);
-        a.and_(RETd, ARG2d);
-        a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
-        a.short_().je(generic);
+        if (always_small(LHS)) {
+            emit_is_not_boxed(generic, ARG2, dShort);
+        } else if (always_small(RHS)) {
+            emit_is_not_boxed(generic, ARG1, dShort);
+        } else {
+            a.mov(RETd, ARG1d);
+            a.and_(RETd, ARG2d);
+            emit_is_not_boxed(generic, RET, dShort);
+        }
     } else {
         /* Relative comparisons are overwhelmingly likely to be used on
          * smalls, so we'll specialize those and keep the rest in a shared
          * fragment. */
-        if (RHS.isSmall()) {
+        if (always_small(RHS)) {
             a.mov(RETd, ARG1d);
-        } else if (LHS.isSmall()) {
+        } else if (always_small(LHS)) {
             a.mov(RETd, ARG2d);
         } else {
             /* Avoid the expensive generic comparison for equal terms. */
@@ -1843,17 +1848,22 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         /* The only possible kind of immediate is a small and all other
          * values are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
-        a.mov(RETd, ARG1d);
-        a.and_(RETd, ARG2d);
-        a.test(RETb, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED));
-        a.short_().je(generic);
+        if (always_small(LHS)) {
+            emit_is_not_boxed(generic, ARG2, dShort);
+        } else if (always_small(RHS)) {
+            emit_is_not_boxed(generic, ARG1, dShort);
+        } else {
+            a.mov(RETd, ARG1d);
+            a.and_(RETd, ARG2d);
+            emit_is_not_boxed(generic, RET, dShort);
+        }
     } else {
         /* Relative comparisons are overwhelmingly likely to be used on
          * smalls, so we'll specialize those and keep the rest in a shared
          * fragment. */
-        if (RHS.isSmall()) {
+        if (always_small(RHS)) {
             a.mov(RETd, ARG1d);
-        } else if (LHS.isSmall()) {
+        } else if (always_small(LHS)) {
             a.mov(RETd, ARG2d);
         } else {
             /* Avoid the expensive generic comparison for equal terms. */
