@@ -8065,7 +8065,10 @@ erts_proc_sig_do_wait_dirty_handle_signals__(Process *c_p)
      * * A dirty process signal handler starts handling
      *   signals for the process and unlocks the main
      *   lock while doing so. This can currently only
-     *   occur if handling an 'unlink' signal from a port.
+     *   occur if handling an 'unlink' signal from a port, or
+     *   when handling an alias message where the alias
+     *   has been created when monitoring a port using
+     *   '{alias, reply_demonitor}' option.
      * * While the dirty process signal handler is handling
      *   signals for the process, the process stops executing
      *   dirty, gets scheduled on a normal scheduler, and
