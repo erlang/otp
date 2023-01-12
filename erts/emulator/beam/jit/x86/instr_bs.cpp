@@ -130,7 +130,7 @@ void BeamModuleAssembler::emit_i_bs_init_heap(const ArgWord &Size,
     mov_arg(ARG5, Heap);
     mov_arg(ARG6, Live);
 
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     /* Must be last since mov_arg() may clobber ARG1 */
     a.mov(ARG1, c_p);
@@ -138,7 +138,7 @@ void BeamModuleAssembler::emit_i_bs_init_heap(const ArgWord &Size,
     load_erl_bits_state(ARG3);
     runtime_call<6>(beam_jit_bs_init);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     mov_arg(Dst, RET);
 }
@@ -170,16 +170,14 @@ void BeamModuleAssembler::emit_i_bs_init_fail_heap(const ArgSource &Size,
         mov_arg(ARG5, Heap);
         mov_arg(ARG6, Live);
 
-        emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         load_erl_bits_state(ARG3);
         runtime_call<6>(beam_jit_bs_init);
 
-        emit_leave_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
         mov_arg(Dst, RET);
     }
@@ -231,7 +229,7 @@ void BeamModuleAssembler::emit_i_bs_init_bits_heap(const ArgWord &NumBits,
     mov_arg(ARG5, Alloc);
     mov_arg(ARG6, Live);
 
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     /* Must be last since mov_arg() may clobber ARG1 */
     a.mov(ARG1, c_p);
@@ -239,7 +237,7 @@ void BeamModuleAssembler::emit_i_bs_init_bits_heap(const ArgWord &NumBits,
     load_erl_bits_state(ARG3);
     runtime_call<6>(beam_jit_bs_init_bits);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     mov_arg(Dst, RET);
 }
@@ -272,8 +270,7 @@ void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(
         mov_arg(ARG5, Alloc);
         mov_arg(ARG6, Live);
 
-        emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
         /* Must be last since mov_arg() may clobber ARG1 */
         a.mov(ARG1, c_p);
@@ -281,8 +278,7 @@ void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(
         load_erl_bits_state(ARG3);
         runtime_call<6>(beam_jit_bs_init_bits);
 
-        emit_leave_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
         mov_arg(Dst, RET);
     }
@@ -608,13 +604,13 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgRegister &Src,
                               Src,
                               ARG2);
 
-        emit_enter_runtime<Update::eStack | Update::eHeap>();
+        emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
         a.mov(ARG1, c_p);
         /* ARG2 was set above */
         runtime_call<2>(erts_bs_start_match_3);
 
-        emit_leave_runtime<Update::eStack | Update::eHeap>();
+        emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
         a.lea(ARG2, x86::qword_ptr(RET, TAG_PRIMARY_BOXED));
     }
@@ -733,8 +729,7 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
             }
 
             if (potentially_expensive) {
-                emit_enter_runtime<Update::eReductions | Update::eStack |
-                                   Update::eHeap>();
+                emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
             } else {
                 comment("simplified entering runtime because result is always "
                         "small");
@@ -753,8 +748,7 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
             runtime_call<6>(beam_jit_bs_get_integer);
 
             if (potentially_expensive) {
-                emit_leave_runtime<Update::eReductions | Update::eStack |
-                                   Update::eHeap>();
+                emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
             } else {
                 emit_leave_runtime();
             }
@@ -822,19 +816,19 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgRegister &Ctx,
 
     a.jne(resolve_beam_label(Fail));
 
-    emit_enter_runtime<Update::eHeap>();
+    emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
     a.lea(ARG2, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb)));
     a.mov(ARG1, c_p);
     runtime_call<2>(erts_bs_get_binary_all_2);
 
-    emit_leave_runtime<Update::eHeap>();
+    emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
     mov_arg(Dst, RET);
 }
 
 void BeamGlobalAssembler::emit_bs_get_tail_shared() {
-    emit_enter_runtime<Update::eHeap>();
+    emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
     a.mov(ARG2, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.orig)));
     a.mov(ARG3, emit_boxed_val(ARG1, offsetof(ErlBinMatchState, mb.base)));
@@ -847,7 +841,7 @@ void BeamGlobalAssembler::emit_bs_get_tail_shared() {
     a.lea(ARG1, x86::qword_ptr(c_p, offsetof(Process, htop)));
     runtime_call<5>(erts_extract_sub_binary);
 
-    emit_leave_runtime<Update::eHeap>();
+    emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
     a.ret();
 }
@@ -919,7 +913,7 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
                               Ctx,
                               ARG4);
 
-        emit_enter_runtime<Update::eHeap>();
+        emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
         a.mov(ARG1, c_p);
         a.mov(ARG2, TMP_MEM1q);
@@ -927,7 +921,7 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
         a.lea(ARG4, emit_boxed_val(ARG4, offsetof(ErlBinMatchState, mb)));
         runtime_call<4>(erts_bs_get_binary_2);
 
-        emit_leave_runtime<Update::eHeap>();
+        emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
         emit_test_the_non_value(RET);
         a.je(fail);
@@ -953,25 +947,14 @@ void BeamModuleAssembler::emit_i_bs_get_float2(const ArgRegister &Ctx,
     emit_gc_test_preserve(ArgWord(FLOAT_SIZE_OBJECT), Live, Ctx, ARG4);
 
     if (emit_bs_get_field_size(Sz, unit, fail, ARG2, 64) >= 0) {
-        /* erts_bs_get_float_2 uses HeapOnlyAlloc which usually requires just
-         * an updated heap pointer, but in debug mode it needs the stack
-         * pointer too for an assertion. */
-#ifdef DEBUG
-        emit_enter_runtime<Update::eStack | Update::eHeap>();
-#else
-        emit_enter_runtime<Update::eHeap>();
-#endif
+        emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
         a.mov(ARG1, c_p);
         mov_imm(ARG3, Flags.get());
         a.lea(ARG4, emit_boxed_val(ARG4, offsetof(ErlBinMatchState, mb)));
         runtime_call<4>(erts_bs_get_float_2);
 
-#ifdef DEBUG
-        emit_leave_runtime<Update::eStack | Update::eHeap>();
-#else
-        emit_leave_runtime<Update::eHeap>();
-#endif
+        emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
         emit_test_the_non_value(RET);
         a.je(fail);
@@ -1697,13 +1680,13 @@ void BeamModuleAssembler::emit_i_bs_append(const ArgLabel &Fail,
 
     mov_arg(ArgXRegister(Live.get()), Bin);
 
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     runtime_call<6>(erts_bs_append);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     emit_test_the_non_value(RET);
 
@@ -1756,18 +1739,18 @@ void BeamModuleAssembler::emit_i_bs_private_append(const ArgLabel &Fail,
 }
 
 void BeamModuleAssembler::emit_bs_init_writable() {
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, getXRef(0));
     runtime_call<2>(erts_bs_init_writable);
     a.mov(getXRef(0), RET);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 }
 
 void BeamGlobalAssembler::emit_bs_create_bin_error_shared() {
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     /* ARG3 is already set by the caller */
     a.mov(ARG2, ARG4);
@@ -1775,7 +1758,7 @@ void BeamGlobalAssembler::emit_bs_create_bin_error_shared() {
     a.mov(ARG1, c_p);
     runtime_call<4>(beam_jit_bs_construct_fail_info);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     /* We must align the return address to make it a proper tagged CP, in case
      * we were called with `safe_fragment_call`. This is safe because we will
@@ -2319,8 +2302,7 @@ void BeamGlobalAssembler::emit_store_unaligned() {
 bool BeamModuleAssembler::bs_maybe_enter_runtime(bool entered) {
     if (!entered) {
         comment("enter runtime");
-        emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
     }
     return true;
 }
@@ -2328,8 +2310,7 @@ bool BeamModuleAssembler::bs_maybe_enter_runtime(bool entered) {
 void BeamModuleAssembler::bs_maybe_leave_runtime(bool entered) {
     if (entered) {
         comment("leave runtime");
-        emit_leave_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
     }
 }
 
@@ -4311,8 +4292,8 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             a.lea(ARG4, emit_boxed_val(ctx, offsetof(ErlBinMatchState, mb)));
 
             if (bits >= SMALL_BITS) {
-                emit_enter_runtime<Update::eReductions | Update::eStack |
-                                   Update::eHeap>();
+                emit_enter_runtime<Update::eReductions |
+                                   Update::eHeapOnlyAlloc>();
             } else {
                 emit_enter_runtime();
             }
@@ -4324,8 +4305,8 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             runtime_call<4>(erts_bs_get_integer_2);
 
             if (bits >= SMALL_BITS) {
-                emit_leave_runtime<Update::eReductions | Update::eStack |
-                                   Update::eHeap>();
+                emit_leave_runtime<Update::eReductions |
+                                   Update::eHeapOnlyAlloc>();
             } else {
                 emit_leave_runtime();
             }
@@ -4342,7 +4323,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             } else {
                 mov_arg(RET, Ctx);
             }
-            emit_enter_runtime<Update::eHeap>();
+            emit_enter_runtime<Update::eHeapOnlyAlloc>();
             a.lea(ARG1, x86::qword_ptr(c_p, offsetof(Process, htop)));
             a.mov(ARG2, emit_boxed_val(RET, orig_offset));
             a.mov(ARG3, emit_boxed_val(RET, base_offset));
@@ -4352,7 +4333,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
 
             runtime_call<5>(erts_extract_sub_binary);
 
-            emit_leave_runtime<Update::eHeap>();
+            emit_leave_runtime<Update::eHeapOnlyAlloc>();
             mov_arg(seg.dst, RET);
 
             is_ctx_valid = is_position_valid = false;

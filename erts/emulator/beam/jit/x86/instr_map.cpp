@@ -232,13 +232,13 @@ void BeamGlobalAssembler::emit_flatmap_get_element() {
 
 void BeamGlobalAssembler::emit_new_map_shared() {
     emit_enter_frame();
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     runtime_call<5>(erts_gc_new_map);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
     emit_leave_frame();
 
     a.ret();
@@ -562,13 +562,13 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgLabel &Fail,
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector. */
 void BeamGlobalAssembler::emit_update_map_assoc_shared() {
     emit_enter_frame();
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     runtime_call<5>(erts_gc_update_map_assoc);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
     emit_leave_frame();
 
     a.ret();
@@ -598,13 +598,13 @@ void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
  * Result is returned in RET, error is indicated by ZF. */
 void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
     emit_enter_frame();
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     runtime_call<5>(erts_gc_update_map_exact);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);
@@ -618,13 +618,13 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
     Label error = a.newLabel();
 
     emit_enter_frame();
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     runtime_call<5>(erts_gc_update_map_exact);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
     emit_leave_frame();
 
     emit_test_the_non_value(RET);

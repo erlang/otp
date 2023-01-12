@@ -32,14 +32,14 @@ extern "C"
  * RET = export entry */
 void BeamGlobalAssembler::emit_generic_bp_global() {
     emit_enter_frame();
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     a.lea(ARG2, x86::qword_ptr(RET, offsetof(Export, info)));
     load_x_reg_array(ARG3);
     runtime_call<3>(erts_generic_breakpoint);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     /* This is technically a tail call so we must leave the current frame
      * before jumping. Note that we might not leave the frame we entered
@@ -93,14 +93,14 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
 #endif
 
     emit_enter_frame();
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     /* ARG2 is already set above */
     load_x_reg_array(ARG3);
     runtime_call<3>(erts_generic_breakpoint);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     /* This doesn't necessarily leave the frame entered above: see the
      * corresponding comment in `generic_bp_global` */
@@ -130,7 +130,7 @@ void BeamGlobalAssembler::emit_debug_bp() {
     emit_assert_erlang_stack();
 
     emit_enter_frame();
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     /* Read and adjust the return address we saved in generic_bp_local. */
     a.mov(ARG2, TMP_MEM1q);
@@ -142,7 +142,7 @@ void BeamGlobalAssembler::emit_debug_bp() {
     a.mov(ARG4, imm(am_breakpoint));
     runtime_call<4>(call_error_handler);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
     emit_leave_frame();
 
     a.test(RET, RET);
@@ -171,12 +171,12 @@ void BeamModuleAssembler::emit_return_trace() {
     a.mov(ARG3, getXRef(0));
     a.lea(ARG4, getYRef(1));
 
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     runtime_call<4>(return_trace);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     emit_deallocate(ArgWord(2));
     emit_return();
@@ -191,24 +191,24 @@ void BeamModuleAssembler::emit_i_return_time_trace() {
     a.lea(ARG2, x86::qword_ptr(ARG2, -(Sint)sizeof(ErtsCodeInfo)));
     a.cmovnz(ARG2, ARG3);
 
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     runtime_call<2>(erts_trace_time_return);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     emit_deallocate(ArgWord(1));
     emit_return();
 }
 
 void BeamModuleAssembler::emit_i_return_to_trace() {
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     runtime_call<1>(beam_jit_return_to_trace);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     /* Remove the zero-sized stack frame. (Will actually do nothing if
      * the native stack is used.) */
@@ -219,13 +219,13 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
 void BeamModuleAssembler::emit_i_hibernate() {
     Label error = a.newLabel();
 
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     runtime_call<2>(erts_hibernate);
 
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.test(RET, RET);
     a.je(error);

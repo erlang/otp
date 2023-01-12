@@ -32,14 +32,14 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
 
     a.mov(TMP_MEM1q, ARG5);
 
-    emit_enter_runtime<Update::eHeap | Update::eStack | Update::eReductions>();
+    emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     /* ARG3 and ARG4 have already been set. */
     runtime_call<4>(beam_jit_handle_unloaded_fun);
 
-    emit_leave_runtime<Update::eHeap | Update::eStack | Update::eReductions |
+    emit_leave_runtime<Update::eHeapAlloc | Update::eReductions |
                        Update::eCodeIndex>();
 
     a.test(RET, RET);
@@ -93,14 +93,14 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
         a.mov(TMP_MEM1q, ARG4);
         a.mov(TMP_MEM2q, ARG5);
 
-        emit_enter_runtime<Update::eHeap | Update::eStack>();
+        emit_enter_runtime<Update::eHeapAlloc>();
 
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         /* ARG3 is already set. */
         runtime_call<3>(beam_jit_build_argument_list);
 
-        emit_leave_runtime<Update::eHeap | Update::eStack>();
+        emit_leave_runtime<Update::eHeapAlloc>();
 
         a.mov(ARG1, TMP_MEM1q);
         a.mov(getXRef(0), ARG1);
@@ -206,12 +206,12 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
     mov_arg(ARG3, Arity);
     mov_arg(ARG4, NumFree);
 
-    emit_enter_runtime<Update::eHeap>();
+    emit_enter_runtime<Update::eHeapOnlyAlloc>();
 
     a.mov(ARG1, c_p);
     runtime_call<4>(erts_new_local_fun_thing);
 
-    emit_leave_runtime<Update::eHeap>();
+    emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
     comment("Move fun environment");
     for (unsigned i = 0; i < num_free; i++) {

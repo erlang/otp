@@ -119,7 +119,7 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
 
     a.bind(entry);
 
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc |
                        Update::eXRegs>(3);
 
     a.mov(ARG1, c_p);
@@ -137,7 +137,7 @@ arm::Mem BeamModuleAssembler::emit_variable_apply(bool includeI) {
     runtime_call<4>(apply);
 
     /* Any number of X registers can be live at this point. */
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc |
                        Update::eXRegs>();
 
     a.cbnz(ARG1, dispatch);
@@ -172,7 +172,7 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
 
     mov_arg(ARG3, Arity);
 
-    emit_enter_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc |
                        Update::eXRegs>(Arity.get() + 2);
 
     a.mov(ARG1, c_p);
@@ -190,7 +190,7 @@ arm::Mem BeamModuleAssembler::emit_fixed_apply(const ArgWord &Arity,
 
     /* We will need to reload all X registers in case there has been
      * an error. */
-    emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap |
+    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc |
                        Update::eXRegs>();
 
     a.cbnz(ARG1, dispatch);
