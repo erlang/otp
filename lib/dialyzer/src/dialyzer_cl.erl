@@ -420,15 +420,10 @@ do_analysis(Files, Options, Plt, PltInfo) ->
   report_elapsed_time(T1, T2, Options),
   {RetAndWarns, lists:usort([path_to_mod(F) || F <- Files])}.
 
-convert_analysis_type(plt_check, true)   -> succ_typings;
-convert_analysis_type(plt_check, false)  -> plt_build;
-convert_analysis_type(plt_add, true)     -> succ_typings;
-convert_analysis_type(plt_add, false)    -> plt_build;
-convert_analysis_type(plt_build, true)   -> succ_typings;
-convert_analysis_type(plt_build, false)  -> plt_build;
-convert_analysis_type(plt_remove, true)  -> succ_typings;
-convert_analysis_type(plt_remove, false) -> plt_build;
-convert_analysis_type(succ_typings, _)   -> succ_typings.
+-spec convert_analysis_type(anal_type1(), boolean()) -> succ_typings | plt_build.
+convert_analysis_type(succ_typings, _) -> succ_typings;
+convert_analysis_type(_, true) -> succ_typings;
+convert_analysis_type(_, false) -> plt_build.
 
 %%--------------------------------------------------------------------
 

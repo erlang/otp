@@ -608,6 +608,8 @@ warning_options_msg() ->
   -Wmissing_return ***
      Warn about functions that return values that are not part
      of the specification.
+  -Woverlapping_contract ***
+     Warn about overloaded functions whose specification include types that overlap.
   -Wunknown ***
      Let warnings about unknown functions and types affect the
      exit status of the command line version. The default is to ignore

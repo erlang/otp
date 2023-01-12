@@ -542,7 +542,7 @@ message_to_string({missing_range, [M, F, A, ExtraRanges, ContrRange]}, I, _E) ->
 		[M, F, A, t(ExtraRanges, I), t(ContrRange, I)]);
 message_to_string({overlapping_contract, [M, F, A]}, _I, _E) ->
   io_lib:format("Overloaded contract for ~w:~tw/~w has overlapping domains;"
-		" such contracts are currently unsupported and are simply ignored\n",
+		" such contracts cannot establish a dependency between the overloaded input and output types\n",
 		[M, F, A]);
 message_to_string({spec_missing_fun, [M, F, A]}, _I, _E) ->
   io_lib:format("Contract for function that does not exist: ~w:~tw/~w\n",
