@@ -2289,12 +2289,14 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
          */
         switch (seg.type) {
         case am_append:
-            if (std::gcd(seg.unit, getSizeUnit(seg.src)) != seg.unit) {
+            if (!(exact_type(seg.src, BEAM_TYPE_BITSTRING) &&
+                  std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit)) {
                 need_error_handler = true;
             }
             break;
         case am_binary:
             if (!(seg.size.isAtom() && seg.size.as<ArgAtom>().get() == am_all &&
+                  exact_type(seg.src, BEAM_TYPE_BITSTRING) &&
                   std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit)) {
                 need_error_handler = true;
             }
@@ -2656,7 +2658,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
                            Update::eReductions>(Live.get() + 1);
 
-        if (std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
+        if (exact_type(seg.src, BEAM_TYPE_BITSTRING) &&
+            std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
             /* There is no way the call can fail with a system_limit
              * exception on a 64-bit architecture. */
             comment("skipped test for success because units are compatible");
@@ -2842,7 +2845,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_UNIT,
                                                              BSC_VALUE_FVALUE);
-                if (std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
+                if (exact_type(seg.src, BEAM_TYPE_BITSTRING) &&
+                    std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
                     comment("skipped test for success because units are "
                             "compatible");
                     can_fail = false;
@@ -3264,7 +3268,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         /* Try to keep track whether the next segment is byte
          * aligned. */
         if (seg.type == am_append || seg.type == am_private_append) {
-            if (std::gcd(getSizeUnit(seg.src), 8) != 8) {
+            if (!exact_type(seg.src, BEAM_TYPE_BITSTRING) ||
+                std::gcd(getSizeUnit(seg.src), 8) != 8) {
                 is_byte_aligned = false;
             }
         } else if (bit_offset % 8 == 0) {
