@@ -4567,6 +4567,44 @@ test_multizero_timeout_in_timeout(void *vproc)
     erts_start_timer_callback(0, test_multizero_timeout_in_timeout2, vproc);
 }
 
+static Eterm
+proc_sig_block(Process *c_p, void *arg, int *redsp, ErlHeapFragment **bpp)
+{
+    ErtsMonotonicTime time, timeout_time, ms = (ErtsMonotonicTime) (Sint) arg;
+
+    if (redsp)
+        *redsp = 1;
+
+    time = erts_get_monotonic_time(NULL);
+
+    if (ms < 0)
+	timeout_time = time;
+    else
+	timeout_time = time + ERTS_MSEC_TO_MONOTONIC(ms);
+
+    while (time < timeout_time) {
+        ErtsMonotonicTime timeout = timeout_time - time;
+
+#ifdef __WIN32__
+        Sleep((DWORD) ERTS_MONOTONIC_TO_MSEC(timeout));
+#else
+        {
+            ErtsMonotonicTime to = ERTS_MONOTONIC_TO_USEC(timeout);
+            struct timeval tv;
+
+            tv.tv_sec = (long) to / (1000*1000);
+            tv.tv_usec = (long) to % (1000*1000);
+
+            select(0, NULL, NULL, NULL, &tv);
+        }
+#endif
+
+	time = erts_get_monotonic_time(NULL);
+    }
+
+    return am_ok;
+}
+
 BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 {
     /*
@@ -4938,6 +4976,25 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
             if (term_to_Sint64(BIF_ARG_2, &counter)) {
                 BIF_P->uniq = counter;
                 BIF_RET(am_ok);
+            }
+        }
+        else if (ERTS_IS_ATOM_STR("proc_sig_block", BIF_ARG_1)) {
+            if (is_tuple_arity(BIF_ARG_2, 2)) {
+                Eterm *tp = tuple_val(BIF_ARG_2);
+                Sint64 time;
+                if (is_internal_pid(tp[1]) && term_to_Sint64(tp[2], &time)) {
+                    ErtsMonotonicTime wait_time = time;
+                    Eterm res;
+
+                    res = erts_proc_sig_send_rpc_request(BIF_P,
+                                                         tp[1],
+                                                         0,
+                                                         proc_sig_block,
+                                                         (void *) (Sint) wait_time);
+                    if (is_non_value(res))
+                        BIF_RET(am_false);
+                    BIF_RET(am_true);
+                }
             }
         }
     }
