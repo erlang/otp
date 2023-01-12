@@ -433,7 +433,12 @@ kexinit_error(Class, Error, Role, Own, CounterPart) ->
             _ ->
                 {"Kexinit failed in ~p: ~p:~p", [Role,Class,Error]}
         end,
-    io_lib:format(Fmt, Args).
+    try io_lib:format(Fmt, Args) of
+        R -> R
+    catch
+        _:_ ->
+            io_lib:format("Kexinit failed in ~p: ~p:~p", [Role, Class, Error])
+    end.
 
 alg_info(client, Alg) ->
     alg_info(Alg);
