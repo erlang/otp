@@ -3189,6 +3189,8 @@ static void esock_down(ErlNifEnv*           env,
                        const ErlNifPid*     pidP,
                        const ErlNifMonitor* monP);
 
+static void esock_on_halt(void* priv_data);
+
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
 
@@ -5876,7 +5878,7 @@ nif_sendfile(ErlNifEnv*         env,
                    ("SOCKET", "nif_sendfile(%T), {%d,0x%X} ->"
                     "\r\n   sendRef: %T"
                     "\r\n   offset:  %ld"
-                "\r\n   count:   %ld"
+                    "\r\n   count:   %ld"
                     "\r\n   fRef:    %T"
                     "\r\n",
                     sockRef, descP->sock, descP->readState,
@@ -14977,6 +14979,20 @@ void esock_down_reader(ErlNifEnv*           env,
 #endif // #ifndef __WIN32__
 
 
+/*
+ * The idea with this function is that it should call esock_io_finish
+ * and release anything allocated by the I/O backend (just to be a
+ * nice citizen).
+ * On Unix this currently a void operation, but on Windows it will be
+ * more substantial...
+ * So, this is currently just a placeholder.
+ */
+static
+void esock_on_halt(void* priv_data)
+{
+    VOID(priv_data);
+}
+
 
 /* ----------------------------------------------------------------------
  *  L o a d / u n l o a d / u p g r a d e   F u n c t i o n s
@@ -15237,9 +15253,15 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                        &esockInit,
                                        ERL_NIF_RT_CREATE,
                                        NULL);
-    return esocks != NULL ?
-        0: // Success
-        1; // Failure
+
+    if (esocks != NULL) {
+        if (enif_set_option(env, ERL_NIF_OPT_ON_HALT, esock_on_halt) == 0)
+            return 0; // Success
+        else
+            return 1; // Failure
+    } else {
+        return 1; // Failure
+    }
 }
 
 /*
