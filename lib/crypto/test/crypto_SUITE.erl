@@ -248,6 +248,7 @@ groups() ->
                      {group, shake128},
                      {group, shake256},
                      {group, sha},
+                     {group, sm3},
 
                      {group, dh},
                      {group, ecdh},
@@ -313,6 +314,7 @@ groups() ->
                  {group, sha256},
                  {group, sha384},
                  {group, sha512},
+                 {group, sm3},
 
                  {group, dh},
                  {group, ecdh},
@@ -374,6 +376,7 @@ groups() ->
      {sha3_512,             [], [hash, hmac, hmac_update]},
      {shake128,             [], [hash_xof]},
      {shake256,             [], [hash_xof]},
+     {sm3,                  [], [hash, hmac]},
      {blake2b,              [], [hash, hmac, hmac_update]},
      {blake2s,              [], [hash, hmac, hmac_update]},
      {no_blake2b,           [], [no_hash, no_hmac]},
@@ -1217,7 +1220,7 @@ use_all_ec_sign_verify(_Config) ->
     Msg = <<"hello world!">>,
     Sups = crypto:supports(),
     Curves = proplists:get_value(curves, Sups),
-    Hashs = proplists:get_value(hashs, Sups) -- [shake128, shake256],
+    Hashs = proplists:get_value(hashs, Sups) -- [shake128, shake256, sm3],
     ct:log("Lib: ~p~nFIPS: ~p~nCurves:~n~p~nHashs: ~p", [crypto:info_lib(),
                                                          crypto:info_fips(),
                                                          Curves,
@@ -2182,6 +2185,9 @@ group_config(sha3_384 = Type, Config) ->
 group_config(sha3_512 = Type, Config) ->
     {Msgs,Digests} = sha3_test_vectors(Type),
     [{hash, {Type, Msgs, Digests}} | Config];
+group_config(sm3 = Type, Config) ->
+    {Msgs,Digests} = sm3_test_vectors(),
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(shake128 = Type, Config) ->
     {Msgs,Digests,Lengths} = sha3_shake128_test_vectors(Type),
     [{hash_xof, {Type, Msgs, Digests, Lengths}} | Config];
@@ -2342,6 +2348,11 @@ do_configure_mac(hmac, Type, _Config) ->
             Keys = rfc_4231_keys() ++ [long_hmac_key(sha512)],
             Data = rfc_4231_msgs() ++ [long_msg()],
             Hmac = rfc4231_hmac_sha512() ++ [long_hmac(sha512)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sm3 ->
+            Keys = sm3_keys(),
+            Data = sm3_msgs(),
+            Hmac = sm3_hmac(),
             zip3_special(hmac, Type, Keys, Data, Hmac);
         sha3_224 ->
             hmac_sha3(Type);
@@ -2695,6 +2706,13 @@ sha3_shake256_test_vectors(shake256) ->
     2000
    ]
   }.
+
+sm3_test_vectors() ->
+    %% test vectors comes from Examples (A.1 A.2) of GM/T 0004-2012
+    {[<<"abc">>, binary:copy(<<"abcd">>, 16)],
+     [hexstr2bin("66c7f0f462eeedd9d1f2d46bdc10e4e24167c4875cf2f7a2297da02b8f4ba8e0"),
+      hexstr2bin("debe9ff92275b8a138604889c18e5a4d6fdb70e5387e5765293dcba39c0c5732")
+     ]}.
 
 %%% http://www.wolfgang-ehrhardt.de/hmac-sha3-testvectors.html
 
@@ -3081,6 +3099,29 @@ rfc4231_hmac_sha512() ->
 		"debd71f8867289865df5a32d20cdc944"
 		"b6022cac3c4982b10d5eeb55c3e4de15"
 		"134676fb6de0446065c97440fa8c6a58")].
+
+%% HMAC-SM3 from GM/T 0042-2015 Appendix D.3
+%% https://github.com/openssl/openssl/pull/18714
+sm3_keys() ->
+    [hexstr2bin("0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"),
+     hexstr2bin("0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425"),
+     binary:copy(<<16#0b>>, 32),
+     <<"Jefe">>
+    ].
+    
+sm3_msgs() ->
+    [<<"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopqabcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq">>,
+     binary:copy(<<16#cd>>, 50),
+     <<"Hi There">>,
+     <<"what do ya want for nothing?">>
+    ].
+    
+sm3_hmac() ->
+    [hexstr2bin("ca05e144ed05d1857840d1f318a4a8669e559fc8391f414485bfdf7bb408963a"),
+     hexstr2bin("220bf579ded555393f0159f66c99877822a3ecf610d1552154b41d44b94db3ae"),
+     hexstr2bin("c0ba18c68b90c88bc07de794bfc7d2c8d19ec31ed8773bc2b390c9604e0be11e"),
+     hexstr2bin("2e87f1d16862e6d964b50a5200bf2b10b764faa9680a296a2405f24bec39f882")
+    ].
 des_cbc(_) ->
     [{des_cbc, 
      hexstr2bin("0123456789abcdef"), 

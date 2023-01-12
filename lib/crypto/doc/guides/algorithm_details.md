@@ -204,6 +204,7 @@ column is present in the list returned by
 | SHA1     | sha                                                        |                                     |
 | SHA2     | sha224, sha256, sha384, sha512                             |                                     |
 | SHA3     | sha3_224, sha3_256, sha3_384, sha3_512, shake128, shake256 | ≥1.1.1                              |
+| SM3      | sm3                                                        | ≥1.1.1                              |
 | MD4      | md4                                                        |                                     |
 | MD5      | md5                                                        |                                     |
 | RIPEMD   | ripemd160                                                  |                                     |
