@@ -32,6 +32,27 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that could cause legal code to fail
+	    validation.</p>
+          <p>
+	    Own Id: OTP-18365</p>
+        </item>
+        <item>
+	    <p>Eliminated a rare crash in the <c>beam_types</c>
+	    module.</p>
+          <p>
+	    Own Id: OTP-18368</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
