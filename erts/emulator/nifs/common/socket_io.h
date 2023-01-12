@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2022-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,17 +38,17 @@ typedef int (*ESockIOInit)(unsigned int numThreads);
 typedef void (*ESockIOFinish)(void);
 
 
-typedef ERL_NIF_TERM (*ESockIOOpen2)(ErlNifEnv*       env,
-                                     int              fd,
-                                     ERL_NIF_TERM     eopts,
-                                     const ESockData* dataP);
+typedef ERL_NIF_TERM (*ESockIOOpenWithFd)(ErlNifEnv*       env,
+                                          int              fd,
+                                          ERL_NIF_TERM     eopts,
+                                          const ESockData* dataP);
 
-typedef ERL_NIF_TERM (*ESockIOOpen4)(ErlNifEnv*       env,
-                                     int              domain,
-                                     int              type,
-                                     int              protocol,
-                                     ERL_NIF_TERM     eopts,
-                                     const ESockData* dataP);
+typedef ERL_NIF_TERM (*ESockIOOpenPlain)(ErlNifEnv*       env,
+                                         int              domain,
+                                         int              type,
+                                         int              protocol,
+                                         ERL_NIF_TERM     eopts,
+                                         const ESockData* dataP);
 
 typedef ERL_NIF_TERM (*ESockIOBind)(ErlNifEnv*       env,
                                     ESockDescriptor* descP,

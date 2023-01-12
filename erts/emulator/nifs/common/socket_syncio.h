@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2022-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,16 +33,16 @@
 extern int  essio_init(unsigned int numThreads);
 extern void essio_finish(void);
 
-extern ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
-                                int              fd,
-                                ERL_NIF_TERM     eopts,
-                                const ESockData* dataP);
-extern ERL_NIF_TERM essio_open4(ErlNifEnv*       env,
-                                int              domain,
-                                int              type,
-                                int              protocol,
-                                ERL_NIF_TERM     eopts,
-                                const ESockData* dataP);
+extern ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
+                                       int              fd,
+                                       ERL_NIF_TERM     eopts,
+                                       const ESockData* dataP);
+extern ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
+                                     int              domain,
+                                     int              type,
+                                     int              protocol,
+                                     ERL_NIF_TERM     eopts,
+                                     const ESockData* dataP);
 extern ERL_NIF_TERM essio_bind(ErlNifEnv*       env,
                                ESockDescriptor* descP,
                                ESockAddress*    sockAddrP,

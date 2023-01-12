@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@
  * The first function is called 'nif_<something>', e.g. nif_open.
  * This does the initial validation and argument processing and then 
  * calls the function that does the actual work. This is called
- * '<io-backend>_<something>', e.g. essio_open (actually essio_open2 or 
- * essio_open4).
+ * '<io-backend>_<something>', e.g. essio_open (actually
+ * essio_open_with_fd or essio_open_plain).
  * ----------------------------------------------------------------------
  *
  *
@@ -1078,8 +1078,8 @@ typedef struct {
     ESockIOInit                  init;
     ESockIOFinish                finish;
 
-    ESockIOOpen2                 open2;
-    ESockIOOpen4                 open4;
+    ESockIOOpenWithFd            open_with_fd;
+    ESockIOOpenPlain             open_plain;
     ESockIOBind                  bind;
 
     ESockIOConnect               connect;
@@ -3736,117 +3736,117 @@ static ESockIoBackend io_backend = {0};
 
 
 /* This, the test for NULL), is temporary until we have a win stub */
-#define ESOCK_IO_INIT(__NUMT__)                                 \
+#define ESOCK_IO_INIT(NUMT)                                     \
     ((io_backend.init != NULL) ?                                \
-     io_backend.init(__NUMT__) : ESOCK_IO_ERR_UNSUPPORTED)
-#define ESOCK_IO_FIN()                                            \
-    ((io_backend.finish != NULL) ?                                \
+     io_backend.init((NUMT)) : ESOCK_IO_ERR_UNSUPPORTED)
+#define ESOCK_IO_FIN()                                          \
+    ((io_backend.finish != NULL) ?                              \
      io_backend.finish() : ESOCK_IO_ERR_UNSUPPORTED)
 
-#define ESOCK_IO_OPEN2(__ENV__, __FD__, __EOPTS__)                      \
-    ((io_backend.open2 != NULL) ?                                       \
-     io_backend.open2((__ENV__), (__FD__), (__EOPTS__), &data) :        \
+#define ESOCK_IO_OPEN_WITH_FD(ENV, FD, EOPTS)                   \
+    ((io_backend.open_with_fd != NULL) ?                        \
+     io_backend.open_with_fd((ENV), (FD), (EOPTS), &data) :     \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_OPEN4(__ENV__, __D__, __T__, __P__, __EOPTS__)       \
-    ((io_backend.open4 != NULL) ?                                     \
-     io_backend.open4((__ENV__), (__D__),                             \
-                      (__T__), (__P__), (__EOPTS__), &data) :         \
+#define ESOCK_IO_OPEN_PLAIN(ENV, D, T, P, EOPTS)              \
+    ((io_backend.open_plain != NULL) ?                        \
+     io_backend.open_plain((ENV), (D),                        \
+                           (T), (P), (EOPTS), &data) :        \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_BIND(__ENV__, __D__, __SAP__, __AL__)          \
-    ((io_backend.bind != NULL) ?                                \
-     io_backend.bind((__ENV__), (__D__), (__SAP__), (__AL__)) : \
+#define ESOCK_IO_BIND(ENV, D, SAP, AL)                  \
+    ((io_backend.bind != NULL) ?                        \
+     io_backend.bind((ENV), (D), (SAP), (AL)) :         \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_CONNECT(__ENV__, __D__, __SR__, __CR__, __AP__, __AL__) \
-    ((io_backend.connect != NULL) ?                                      \
-     io_backend.connect((__ENV__), (__D__),                              \
-                        (__SR__), (__CR__), (__AP__), (__AL__)) :        \
+#define ESOCK_IO_CONNECT(ENV, D, SR, CR, AP, AL)                 \
+    ((io_backend.connect != NULL) ?                              \
+     io_backend.connect((ENV), (D),                              \
+                        (SR), (CR), (AP), (AL)) :                \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_LISTEN(__ENV__, __D__, __BL__)         \
-    ((io_backend.listen != NULL) ?                      \
-     io_backend.listen((__ENV__), (__D__), (__BL__)) :  \
+#define ESOCK_IO_LISTEN(ENV, D, BL)         \
+    ((io_backend.listen != NULL) ?          \
+     io_backend.listen((ENV), (D), (BL)) :  \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_ACCEPT(__ENV__, __D__, __SR__, __AR__)                 \
-    ((io_backend.accept != NULL) ?                                      \
-     io_backend.accept((__ENV__), (__D__), (__SR__), (__AR__)) :        \
+#define ESOCK_IO_ACCEPT(ENV, D, SR, AR)                 \
+    ((io_backend.accept != NULL) ?                      \
+     io_backend.accept((ENV), (D), (SR), (AR)) :        \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SEND(__ENV__, __D__, __SR__, __RF__, __L__, __F__)     \
+#define ESOCK_IO_SEND(ENV, D, SR, RF, L, F)                             \
     ((io_backend.send != NULL) ?                                        \
-     io_backend.send((__ENV__), (__D__),                                \
-                     (__SR__), (__RF__), (__L__), (__F__)) :            \
+     io_backend.send((ENV), (D),                                        \
+                     (SR), (RF), (L), (F)) :                            \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SENDTO(__ENV__, __D__,                           \
-                        __SOCKR__, __SENDR__,                     \
-                        __DP__, __F__, __TAP__, __TAL__)          \
-    ((io_backend.sendto != NULL) ?                                \
-     io_backend.sendto((__ENV__), (__D__),                        \
-                       (__SOCKR__), (__SENDR__),                  \
-                       (__DP__), (__F__), (__TAP__), (__TAL__)) : \
+#define ESOCK_IO_SENDTO(ENV, D,                           \
+                        SOCKR, SENDR,                     \
+                        DP, F, TAP, TAL)                  \
+    ((io_backend.sendto != NULL) ?                        \
+     io_backend.sendto((ENV), (D),                        \
+                       (SOCKR), (SENDR),                  \
+                       (DP), (F), (TAP), (TAL)) :         \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SENDMSG(__ENV__, __D__,                                \
-                         __SOCKR__, __SENDR__, __EM__, __F__, __EIOV__) \
-    ((io_backend.sendmsg != NULL) ?                                     \
-     io_backend.sendmsg((__ENV__), (__D__),                             \
-                        (__SOCKR__), (__SENDR__),                       \
-                        (__EM__), (__F__), (__EIOV__), &data) :         \
+#define ESOCK_IO_SENDMSG(ENV, D,                                \
+                         SOCKR, SENDR, EM, F, EIOV)             \
+    ((io_backend.sendmsg != NULL) ?                             \
+     io_backend.sendmsg((ENV), (D),                             \
+                        (SOCKR), (SENDR),                       \
+                        (EM), (F), (EIOV), &data) :             \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SENDFILE_START(__ENV__, __D__,                         \
-                                __SOR__, __SNR__,                       \
-                                __O__, __CN__, __FR__)                  \
-    ((io_backend.sendfile_start != NULL) ?                              \
-     io_backend.sendfile_start((__ENV__), (__D__),                      \
-                               (__SOR__), (__SNR__),                    \
-                               (__O__), (__CN__), (__FR__)) :           \
+#define ESOCK_IO_SENDFILE_START(ENV, D,                         \
+                                SOR, SNR,                       \
+                                O, CN, FR)                      \
+    ((io_backend.sendfile_start != NULL) ?                      \
+     io_backend.sendfile_start((ENV), (D),                      \
+                               (SOR), (SNR),                    \
+                               (O), (CN), (FR)) :               \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SENDFILE_CONT(__ENV__, __D__,                          \
-                               __SOR__, __SNR__,                        \
-                               __O__, __CP__)                           \
-    ((io_backend.sendfile_cont != NULL) ?                              \
-     io_backend.sendfile_cont((__ENV__), (__D__),                      \
-                              (__SOR__), (__SNR__),                    \
-                              (__O__), (__CP__)) :                     \
+#define ESOCK_IO_SENDFILE_CONT(ENV, D,                          \
+                               SOR, SNR,                        \
+                               O, CP)                           \
+    ((io_backend.sendfile_cont != NULL) ?                       \
+     io_backend.sendfile_cont((ENV), (D),                       \
+                              (SOR), (SNR),                     \
+                              (O), (CP)) :                      \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SENDFILE_DC(__ENV__, __D__)                            \
-    ((io_backend.sendfile_dc != NULL) ?                                 \
-     io_backend.sendfile_dc((__ENV__), (__D__)) :                       \
+#define ESOCK_IO_SENDFILE_DC(ENV, D)                            \
+    ((io_backend.sendfile_dc != NULL) ?                         \
+     io_backend.sendfile_dc((ENV), (D)) :                       \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_RECV(__ENV__, __D__,                         \
-                      __SR__, __RR__, __L__, __F__)           \
-    ((io_backend.recv != NULL) ?                              \
-     io_backend.recv((__ENV__), (__D__),                      \
-                     (__SR__), (__RR__), (__L__), (__F__)) :  \
+#define ESOCK_IO_RECV(ENV, D,                         \
+                      SR, RR, L, F)                   \
+    ((io_backend.recv != NULL) ?                      \
+     io_backend.recv((ENV), (D),                      \
+                     (SR), (RR), (L), (F)) :          \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_RECVFROM(__ENV__, __D__,                         \
-                          __SR__, __RR__, __L__, __F__)           \
-    ((io_backend.recvfrom != NULL) ?                              \
-     io_backend.recvfrom((__ENV__), (__D__),                      \
-                         (__SR__), (__RR__), (__L__), (__F__)) :  \
+#define ESOCK_IO_RECVFROM(ENV, D,                         \
+                          SR, RR, L, F)                   \
+    ((io_backend.recvfrom != NULL) ?                      \
+     io_backend.recvfrom((ENV), (D),                      \
+                         (SR), (RR), (L), (F)) :          \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_RECVMSG(__ENV__, __D__,                          \
-                         __SR__, __RR__, __BL__, __CL__, __F__)  \
-    ((io_backend.recvmsg != NULL) ?                               \
-     io_backend.recvmsg((__ENV__), (__D__),                       \
-                        (__SR__), (__RR__),                       \
-                        (__BL__), (__CL__), (__F__)) :            \
+#define ESOCK_IO_RECVMSG(ENV, D,                          \
+                         SR, RR, BL, CL, F)               \
+    ((io_backend.recvmsg != NULL) ?                       \
+     io_backend.recvmsg((ENV), (D),                       \
+                        (SR), (RR),                       \
+                        (BL), (CL), (F)) :                \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_CLOSE(__ENV__, __D__)                  \
-    ((io_backend.close != NULL) ?                       \
-     io_backend.close((__ENV__), (__D__)) :             \
+#define ESOCK_IO_CLOSE(ENV, D)                  \
+    ((io_backend.close != NULL) ?               \
+     io_backend.close((ENV), (D)) :             \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_FIN_CLOSE(__ENV__, __D__)                  \
-    ((io_backend.fin_close != NULL) ?                       \
-     io_backend.fin_close((__ENV__), (__D__)) :             \
+#define ESOCK_IO_FIN_CLOSE(ENV, D)                  \
+    ((io_backend.fin_close != NULL) ?               \
+     io_backend.fin_close((ENV), (D)) :             \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SHUTDOWN(__ENV__, __D__, __H__)        \
-    ((io_backend.shutdown != NULL) ?                    \
-     io_backend.shutdown((__ENV__), (__D__), (__H__)) : \
+#define ESOCK_IO_SHUTDOWN(ENV, D, H)        \
+    ((io_backend.shutdown != NULL) ?        \
+     io_backend.shutdown((ENV), (D), (H)) : \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_SOCKNAME(__ENV__, __D__)               \
-    ((io_backend.sockname != NULL) ?                    \
-     io_backend.sockname((__ENV__), (__D__)) :          \
+#define ESOCK_IO_SOCKNAME(ENV, D)               \
+    ((io_backend.sockname != NULL) ?            \
+     io_backend.sockname((ENV), (D)) :          \
      enif_raise_exception(env, MKA(env, "notsup")))
-#define ESOCK_IO_PEERNAME(__ENV__, __D__)               \
-    ((io_backend.peername != NULL) ?                    \
-     io_backend.peername((__ENV__), (__D__)) :          \
+#define ESOCK_IO_PEERNAME(ENV, D)               \
+    ((io_backend.peername != NULL) ?            \
+     io_backend.peername((ENV), (D)) :          \
      enif_raise_exception(env, MKA(env, "notsup")))
 
 
@@ -5087,7 +5087,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 		"\r\n", fd, eopts) );
 
 	MLOCK(data.cntMtx);
-	result = ESOCK_IO_OPEN2(env, fd, eopts);
+	result = ESOCK_IO_OPEN_WITH_FD(env, fd, eopts);
 	MUNLOCK(data.cntMtx);
 
     } else {
@@ -5133,7 +5133,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 	}
 
 	MLOCK(data.cntMtx);
-	result = ESOCK_IO_OPEN4(env, domain, type, proto, eopts);
+	result = ESOCK_IO_OPEN_PLAIN(env, domain, type, proto, eopts);
 	MUNLOCK(data.cntMtx);
     }
 
@@ -15101,8 +15101,8 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     io_backend.init           = NULL;
     io_backend.finish         = NULL;
-    io_backend.open2          = NULL;
-    io_backend.open4          = NULL;
+    io_backend.open_with_fd   = NULL;
+    io_backend.open_plain     = NULL;
     io_backend.bind           = NULL;
     io_backend.connect        = NULL;
     io_backend.listen         = NULL;
@@ -15126,8 +15126,8 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     io_backend.init           = essio_init;
     io_backend.finish         = essio_finish;
-    io_backend.open2          = essio_open2;
-    io_backend.open4          = essio_open4;
+    io_backend.open_with_fd   = essio_open_with_fd;
+    io_backend.open_plain     = essio_open_plain;
     io_backend.bind           = essio_bind;
     io_backend.connect        = essio_connect;
     io_backend.listen         = essio_listen;

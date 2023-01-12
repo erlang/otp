@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2022-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -405,10 +405,10 @@ void essio_finish(void)
  * yet, we must use the global debug flag.
  */
 extern
-ERL_NIF_TERM essio_open2(ErlNifEnv*       env,
-                         int              fd,
-                         ERL_NIF_TERM     eopts,
-                         const ESockData* dataP)
+ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
+                                int              fd,
+                                ERL_NIF_TERM     eopts,
+                                const ESockData* dataP)
 {
     BOOLEAN_T        dbg    = open_is_debug(env, eopts, dataP->sockDbg);
     BOOLEAN_T        useReg = open_use_registry(env, eopts, dataP->useReg);
@@ -667,12 +667,12 @@ BOOLEAN_T open_todup(ErlNifEnv* env, ERL_NIF_TERM eopts)
 /* ========================================================================
  */
 extern
-ERL_NIF_TERM essio_open4(ErlNifEnv*       env,
-                         int              domain,
-                         int              type,
-                         int              protocol,
-                         ERL_NIF_TERM     eopts,
-                         const ESockData* dataP)
+ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
+                              int              domain,
+                              int              type,
+                              int              protocol,
+                              ERL_NIF_TERM     eopts,
+                              const ESockData* dataP)
 {
     BOOLEAN_T        dbg    = open_is_debug(env, eopts, dataP->sockDbg);
     BOOLEAN_T        useReg = open_use_registry(env, eopts, dataP->useReg);
