@@ -14990,7 +14990,11 @@ void esock_down_reader(ErlNifEnv*           env,
 static
 void esock_on_halt(void* priv_data)
 {
+#ifndef __WIN32__
     VOID(priv_data);
+#else
+    VOIDP(priv_data);
+#endif
 }
 
 
