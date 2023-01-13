@@ -2685,6 +2685,9 @@ bs_match(_Config) ->
     ok = do_bs_match_gh_6613(<<0>>),
     <<0,0>> = do_bs_match_gh_6613(<<0,0>>),
 
+    <<"abc">> = do_bs_match_gh_6660(id(<<"abc">>)),
+    {'EXIT', {{try_clause,abc},_}} = catch do_bs_match_gh_6660(id(abc)),
+
     ok.
 
 do_bs_match_1(_, X) ->
@@ -2731,6 +2734,18 @@ do_bs_match_gh_6613(X) ->
             ok
     end,
     X.
+
+do_bs_match_gh_6660(X) ->
+    try X of
+        <<Y/bytes>> ->
+            %% The `bs_extract` instruction was sunk to after the
+            %% `kill_try_tag` instruction, preventing
+            %% beam_ssa_pre_codegen from combining it with the
+            %% preceding bs_match instruction.
+            Y
+    after
+        ok
+    end.
 
 %% GH-6348/OTP-18297: Allow aliases for binaries.
 -record(ba_foo, {a,b,c}).
