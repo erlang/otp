@@ -387,6 +387,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #include "socket_util.h"
 #include "prim_socket_int.h"
 #include "socket_io.h"
+#include "socket_asyncio.h"
 #include "socket_syncio.h"
 #include "prim_file_nif_dyncall.h"
 
@@ -3159,9 +3160,6 @@ static int esock_select_cancel(ErlNifEnv*             env,
                                void*                  obj);
 */
 
-static char* extract_debug_filename(ErlNifEnv*   env,
-                                    ERL_NIF_TERM map);
-
 
 /* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *
  *                                                                        *
@@ -3171,6 +3169,9 @@ static char* extract_debug_filename(ErlNifEnv*   env,
  *                                                                        *
  * ---------------------------------------------------------------------- */
 #endif // #ifndef __WIN32__
+
+static char* extract_debug_filename(ErlNifEnv*   env,
+                                    ERL_NIF_TERM map);
 
 
 /*
@@ -14990,11 +14991,14 @@ void esock_down_reader(ErlNifEnv*           env,
 static
 void esock_on_halt(void* priv_data)
 {
+    // We do not *currently* use this (priv_data), so ignore
 #ifndef __WIN32__
     VOID(priv_data);
 #else
     VOIDP(priv_data);
 #endif
+
+    ESOCK_IO_FIN();
 }
 
 
@@ -15052,7 +15056,6 @@ ErlNifFunc esock_funcs[] =
 };
 
 
-#ifndef __WIN32__
 static
 char* extract_debug_filename(ErlNifEnv*   env,
 			     ERL_NIF_TERM map)
@@ -15074,7 +15077,6 @@ char* extract_debug_filename(ErlNifEnv*   env,
     filename[bin.size] = '\0';
     return filename;
 }
-#endif // #ifndef __WIN32__
 
 
 
@@ -15098,86 +15100,6 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 #undef GLOBAL_ATOM_DECL
 
     esock_atom_socket_tag = MKA(env, "$socket");
-
-    /* This is (currently) intended for Windows use */
-    {
-        ErlNifSysInfo sysInfo;
-        unsigned int  ioNumThreadsDef; // Used as "default" value
-
-        enif_system_info(&sysInfo, sizeof(ErlNifSysInfo));
-
-        ioNumThreadsDef =
-            (unsigned int) (sysInfo.scheduler_threads > 0) ?
-            2*sysInfo.scheduler_threads : 1; // ESOCK_IO_NUM_THREADS);
-
-        data.ioNumThreads =
-            esock_get_uint_from_map(env, load_info,
-                                    atom_io_num_threads,
-                                    ioNumThreadsDef);
-    }
-
-
-#ifdef __WIN32__
-
-    io_backend.init           = NULL;
-    io_backend.finish         = NULL;
-    io_backend.open_with_fd   = NULL;
-    io_backend.open_plain     = NULL;
-    io_backend.bind           = NULL;
-    io_backend.connect        = NULL;
-    io_backend.listen         = NULL;
-    io_backend.accept         = NULL;
-    io_backend.send           = NULL;
-    io_backend.sendto         = NULL;
-    io_backend.sendmsg        = NULL;
-    io_backend.sendfile_start = NULL;
-    io_backend.sendfile_cont  = NULL;
-    io_backend.sendfile_dc    = NULL;
-    io_backend.recv           = NULL;
-    io_backend.recvfrom       = NULL;
-    io_backend.recvmsg        = NULL;
-    io_backend.close          = NULL;
-    io_backend.fin_close      = NULL;
-    io_backend.shutdown       = NULL;
-    io_backend.sockname       = NULL;
-    io_backend.peername       = NULL;
-
-#else
-
-    io_backend.init           = essio_init;
-    io_backend.finish         = essio_finish;
-    io_backend.open_with_fd   = essio_open_with_fd;
-    io_backend.open_plain     = essio_open_plain;
-    io_backend.bind           = essio_bind;
-    io_backend.connect        = essio_connect;
-    io_backend.listen         = essio_listen;
-    io_backend.accept         = essio_accept;
-    io_backend.send           = essio_send;
-    io_backend.sendto         = essio_sendto;
-    io_backend.sendmsg        = essio_sendmsg;
-    io_backend.sendfile_start = essio_sendfile_start;
-    io_backend.sendfile_cont  = essio_sendfile_cont;
-    io_backend.sendfile_dc    = essio_sendfile_deferred_close;
-    io_backend.recv           = essio_recv;
-    io_backend.recvfrom       = essio_recvfrom;
-    io_backend.recvmsg        = essio_recvmsg;
-    io_backend.close          = essio_close;
-    io_backend.fin_close      = essio_fin_close;
-    io_backend.shutdown       = essio_shutdown;
-    io_backend.sockname       = essio_sockname;
-    io_backend.peername       = essio_peername;
-
-#endif
-
-#ifndef __WIN32__
-    // This ifndef is only temporary!!
-    if (ESOCK_IO_INIT(data.ioNumThreads) != ESOCK_IO_OK) {
-        esock_error_msg("Failed initiating I/O backend");
-        return 1; // Failure
-    }
-#endif
-
-#ifndef __WIN32__
 
     if (! esock_extract_pid_from_map(env, load_info,
                                      atom_registry,
@@ -15234,6 +15156,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data.numProtoUDP    = 0;
     data.numProtoSCTP   = 0;
 
+#ifndef __WIN32__
     initOpts();
     initCmsgTables();
 
@@ -15249,8 +15172,83 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 #endif
         ;
     ESOCK_ASSERT( data.iov_max > 0 );
+#endif
 
-#endif // #ifndef __WIN32__
+
+    /* This is (currently) intended for Windows use */
+    {
+        ErlNifSysInfo sysInfo;
+        unsigned int  ioNumThreadsDef; // Used as "default" value
+
+        enif_system_info(&sysInfo, sizeof(ErlNifSysInfo));
+
+        ioNumThreadsDef =
+            (unsigned int) (sysInfo.scheduler_threads > 0) ?
+            2*sysInfo.scheduler_threads : 1; // ESOCK_IO_NUM_THREADS);
+
+        data.ioNumThreads =
+            esock_get_uint_from_map(env, load_info,
+                                    atom_io_num_threads,
+                                    ioNumThreadsDef);
+    }
+
+
+#ifdef __WIN32__
+
+    io_backend.init           = esaio_init;
+    io_backend.finish         = esaio_finish;
+    io_backend.open_with_fd   = NULL;
+    io_backend.open_plain     = NULL;
+    io_backend.bind           = NULL;
+    io_backend.connect        = NULL;
+    io_backend.listen         = NULL;
+    io_backend.accept         = NULL;
+    io_backend.send           = NULL;
+    io_backend.sendto         = NULL;
+    io_backend.sendmsg        = NULL;
+    io_backend.sendfile_start = NULL;
+    io_backend.sendfile_cont  = NULL;
+    io_backend.sendfile_dc    = NULL;
+    io_backend.recv           = NULL;
+    io_backend.recvfrom       = NULL;
+    io_backend.recvmsg        = NULL;
+    io_backend.close          = NULL;
+    io_backend.fin_close      = NULL;
+    io_backend.shutdown       = NULL;
+    io_backend.sockname       = NULL;
+    io_backend.peername       = NULL;
+
+#else
+
+    io_backend.init           = essio_init;
+    io_backend.finish         = essio_finish;
+    io_backend.open_with_fd   = essio_open_with_fd;
+    io_backend.open_plain     = essio_open_plain;
+    io_backend.bind           = essio_bind;
+    io_backend.connect        = essio_connect;
+    io_backend.listen         = essio_listen;
+    io_backend.accept         = essio_accept;
+    io_backend.send           = essio_send;
+    io_backend.sendto         = essio_sendto;
+    io_backend.sendmsg        = essio_sendmsg;
+    io_backend.sendfile_start = essio_sendfile_start;
+    io_backend.sendfile_cont  = essio_sendfile_cont;
+    io_backend.sendfile_dc    = essio_sendfile_deferred_close;
+    io_backend.recv           = essio_recv;
+    io_backend.recvfrom       = essio_recvfrom;
+    io_backend.recvmsg        = essio_recvmsg;
+    io_backend.close          = essio_close;
+    io_backend.fin_close      = essio_fin_close;
+    io_backend.shutdown       = essio_shutdown;
+    io_backend.sockname       = essio_sockname;
+    io_backend.peername       = essio_peername;
+
+#endif
+
+    if (ESOCK_IO_INIT(data.ioNumThreads) != ESOCK_IO_OK) {
+        esock_error_msg("Failed initiating I/O backend");
+        return 1; // Failure
+    }
 
     esocks = enif_open_resource_type_x(env,
                                        "sockets",

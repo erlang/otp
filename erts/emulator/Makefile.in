@@ -1150,7 +1150,8 @@ OS_OBJS = \
 	$(OBJDIR)/sys_interrupt.o \
 	$(OBJDIR)/sys_env.o \
 	$(OBJDIR)/dosmap.o \
-	$(OBJDIR)/win_prim_file.o
+	$(OBJDIR)/win_prim_file.o \
+	$(OBJDIR)/win_socket_asyncio.o
 
 else
 OS_OBJS = \
