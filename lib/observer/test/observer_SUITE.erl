@@ -474,7 +474,7 @@ table_win(Config) when is_list(Config) ->
 remote_node(_Config) ->
     {ok, Peer, Node} = ?CT_PEER(),
     ok = observer:start(Node),
-    Node = observer:get_active_node(),
+    Node = observer_wx:get_active_node(),
     observer:stop(),
     ensure_observer_stopped(),
     peer:stop(Peer).
