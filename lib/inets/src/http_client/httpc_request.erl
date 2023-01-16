@@ -241,7 +241,7 @@ handle_transfer_encoding(Headers) ->
     Headers#http_request_h{'content-length' = undefined}.
 
 body_length(Body) when is_binary(Body) ->
-   integer_to_list(size(Body));
+   integer_to_list(byte_size(Body));
 
 body_length(Body) when is_list(Body) ->
   integer_to_list(iolist_size(Body)).

@@ -403,11 +403,11 @@ peername({essl, _}, Socket) ->
     do_peername(ssl:peername(Socket)).
 
 do_peername({ok, {Addr, Port}}) 
-  when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
+  when tuple_size(Addr) =:= 4 ->
     PeerName = ipv4_name(Addr), 
     {Port, PeerName};
 do_peername({ok, {Addr, Port}}) 
-  when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
+  when tuple_size(Addr) =:= 8 ->
     PeerName = ipv6_name(Addr), 
     {Port, PeerName};
 do_peername({error, _}) ->
@@ -436,11 +436,11 @@ sockname({essl, _}, Socket) ->
     do_sockname(ssl:sockname(Socket)).
 
 do_sockname({ok, {Addr, Port}}) 
-  when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
+  when tuple_size(Addr) =:= 4 ->
     SockName = ipv4_name(Addr), 
     {Port, SockName};
 do_sockname({ok, {Addr, Port}}) 
-  when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
+  when tuple_size(Addr) =:= 8 ->
     SockName = ipv6_name(Addr), 
     {Port, SockName};
 do_sockname({error, _}) ->

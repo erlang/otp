@@ -71,9 +71,9 @@ whole_body([Bin, Body, Length])  ->
 
 %% Separate the body for this request from a possible piplined new 
 %% request and convert the body data to "string" format.
-body_data(Headers, Body) ->    
+body_data(Headers, Body) when is_binary(Body)->
     ContentLength = list_to_integer(Headers#http_request_h.'content-length'),
-    case size(Body) - ContentLength of
+    case byte_size(Body) - ContentLength of
  	0 ->
  	    {Body, <<>>};
  	_ ->
@@ -305,24 +305,24 @@ body_chunk(Body, Length, nolimit) ->
 body_chunk(<<>> = Body, Length, MaxChunk) ->
     {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}};
 
-body_chunk(Body, Length, MaxChunk) when Length > MaxChunk ->
-    case size(Body) >= MaxChunk of 
+body_chunk(Body, Length, MaxChunk) when Length > MaxChunk, is_binary(Body) ->
+    case byte_size(Body) >= MaxChunk of
         true ->
             <<Chunk:MaxChunk/binary, Rest/binary>> = Body,
             {ok, {{continue, Chunk}, ?MODULE, add_chunk, [Rest, Length - MaxChunk, MaxChunk]}};
         false ->
             {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}}
     end;
-body_chunk(Body, Length, MaxChunk) ->
-    case size(Body) of
+body_chunk(Body, Length, MaxChunk) when is_binary(Body)->
+    case byte_size(Body) of
         Length ->
             {ok, {last, Body}};
         _ ->
             {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}}
     end.
 
-whole_body(Body, Length) ->
-    case size(Body) of
+whole_body(Body, Length) when is_binary(Body)->
+    case byte_size(Body) of
 	N when N < Length, Length > 0 ->
 	  {?MODULE, add_chunk, [Body, Length, nolimit]};
 	N when N >= Length, Length >= 0 ->  
