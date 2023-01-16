@@ -95,8 +95,10 @@ MODULES= \
 	tls_dtls_connection \
 	tls_connection \
 	tls_connection_sup \
-	tls_connection_1_3 \
-	tls_gen_connection \
+	tls_server_connection_1_3 \
+	tls_client_connection_1_3 \
+	tls_gen_connection_1_3 \
+        tls_gen_connection \
 	tls_handshake \
 	tls_handshake_1_3 \
 	tls_record \

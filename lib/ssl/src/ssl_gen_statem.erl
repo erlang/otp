@@ -132,7 +132,7 @@ start_link(Role, Host, Port, Socket, {#{receiver_spawn_opts := ReceiverOpts}, _,
 -spec init(list()) -> no_return().
 %% Description: Initialization
 %%--------------------------------------------------------------------
-init([_Role, _Sender, _Host, _Port, _Socket, {#{erl_dist := ErlDist} = TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
+init([Role, _Sender, _Host, _Port, _Socket, {#{erl_dist := ErlDist} = TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
     process_flag(trap_exit, true),
     case ErlDist of
         true ->
@@ -140,12 +140,17 @@ init([_Role, _Sender, _Host, _Port, _Socket, {#{erl_dist := ErlDist} = TLSOpts, 
         _ ->
             ok
     end,
-    ConnectionFsm = tls_connection_fsm(TLSOpts),
-    ConnectionFsm:init(InitArgs);
-init([_Role, _Host, _Port, _Socket, {TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
+    case {Role, TLSOpts} of
+        {?CLIENT_ROLE, #{versions := [{3,4}]}} ->
+            tls_client_connection_1_3:init(InitArgs);
+        {?SERVER_ROLE, #{versions := [{3,4}]}} ->
+            tls_server_connection_1_3:init(InitArgs);
+        {_,_} ->
+            tls_connection:init(InitArgs)
+    end;
+init([_Role, _Host, _Port, _Socket, _TLSOpts, _User, _CbInfo] = InitArgs) ->
     process_flag(trap_exit, true),
-    ConnectionFsm = dtls_connection_fsm(TLSOpts),
-    ConnectionFsm:init(InitArgs).
+    dtls_connection:init(InitArgs).
 
 %%====================================================================
 %% TLS connection setup
@@ -296,21 +301,23 @@ socket_control(Connection, Socket, Pid, Transport) ->
 -spec socket_control(tls_gen_connection | dtls_gen_connection, port(), [pid()], atom(), [pid()] | atom()) ->
     {ok, #sslsocket{}} | {error, reason()}.
 %%--------------------------------------------------------------------
-socket_control(dtls_gen_connection = Connection, Socket, Pids, Transport, udp_listener) ->
+socket_control(dtls_gen_connection, Socket, Pids, Transport, udp_listener) ->
     %% dtls listener process must have the socket control
-    {ok, Connection:socket(Pids, Transport, Socket, undefined)};
+    {ok, dtls_gen_connection:socket(Pids, Transport, Socket, undefined)};
 
-socket_control(tls_gen_connection = Connection, Socket, [Pid|_] = Pids, Transport, Trackers) ->
+socket_control(tls_gen_connection, Socket, [Pid|_] = Pids, Transport, Trackers) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, Connection:socket(Pids, Transport, Socket, Trackers)};
+	    {ok, tls_gen_connection:socket(Pids, Transport, Socket, Trackers)};
 	{error, Reason}	->
 	    {error, Reason}
     end;
-socket_control(dtls_gen_connection = Connection, {PeerAddrPort, Socket}, [Pid|_] = Pids, Transport, Trackers) ->
+socket_control(dtls_gen_connection, {PeerAddrPort, Socket},
+               [Pid|_] = Pids, Transport, Trackers) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, Connection:socket(Pids, Transport, {PeerAddrPort, Socket}, Trackers)};
+	    {ok, dtls_gen_connection:socket(Pids, Transport, {PeerAddrPort, Socket},
+                                            Trackers)};
 	{error, Reason}	->
 	    {error, Reason}
     end.
@@ -483,7 +490,7 @@ initial_hello({call, From}, {start, Timeout},
     %% Update UseTicket in case of automatic session resumption. The automatic ticket handling
     %% also takes it into account if the ticket is suitable for sending early data not exceeding
     %% the max_early_data_size or if it can only be used for session resumption.
-    {UseTicket, State1} = tls_handshake_1_3:maybe_automatic_session_resumption(State0),
+    {UseTicket, State1} = tls_client_connection_1_3:maybe_automatic_session_resumption(State0),
     TicketData = tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
     OcspNonce = tls_handshake:ocsp_nonce(OcspNonceOpt, OcspStaplingOpt),
     Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
@@ -519,10 +526,10 @@ initial_hello({call, From}, {start, Timeout},
     %% ServerHello is processed.
     RequestedVersion = tls_record:hello_version(Versions),
 
-    {Ref,Maybe} = tls_handshake_1_3:maybe_do(),
+    {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         %% Send Early Data
-        State4 = Maybe(tls_handshake_1_3:maybe_send_early_data(State3)),
+        State4 = Maybe(tls_client_connection_1_3:maybe_send_early_data(State3)),
 
         {#state{handshake_env = HsEnv1} = State5, _} =
             Connection:send_handshake_flight(State4),
@@ -546,11 +553,11 @@ initial_hello({call, From}, {start, Timeout},
 initial_hello({call, From}, {start, Timeout}, #state{static_env = #static_env{role = Role,
                                                                               protocol_cb = Connection},
                                                      ssl_options = #{versions := Versions}} = State0) ->
-    
-    NextState = next_statem_state(Versions, Role),    
+
+    NextState = next_statem_state(Versions, Role),
     Connection:next_event(NextState, no_record, State0#state{start_or_recv_from = From},
                           [{{timeout, handshake}, Timeout, close}]);
-                
+
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
      #state{static_env = #static_env{role = Role},
             ssl_options = OrigSSLOptions,
@@ -1264,14 +1271,6 @@ format_status(terminate, [_, StateName, State]) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-tls_connection_fsm(#{versions := [{3,4}]}) ->
-    tls_connection_1_3;
-tls_connection_fsm(_) ->
-    tls_connection.
-
-dtls_connection_fsm(_) ->
-    dtls_connection.
-
 next_statem_state([Version], client) ->
     case ssl:tls_version(Version) of
         {3,4} ->

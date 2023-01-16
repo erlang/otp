@@ -74,5 +74,10 @@ receiver(Args) ->
       type        => worker,
       significant => true,
       start       => {ssl_gen_statem, start_link, Args},
-      modules     => [ssl_gen_statem, tls_connection, tls_connection_1_3]
+      modules     => [ssl_gen_statem,
+                      tls_connection,
+                      tls_gen_connection,
+                      tls_client_connection_1_3,
+                      tls_server_connection_1_3,
+                      tls_gen_connection_1_3]
      }.

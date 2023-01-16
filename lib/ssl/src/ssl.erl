@@ -1383,7 +1383,7 @@ update_keys(#sslsocket{pid = [Pid, Sender |_]}, Type0) when is_pid(Pid) andalso
                read_write ->
                    update_requested
            end,
-    tls_connection_1_3:send_key_update(Sender, Type);
+    tls_gen_connection_1_3:send_key_update(Sender, Type);
 update_keys(_, Type) ->
     {error, {illegal_parameter, Type}}.
 
