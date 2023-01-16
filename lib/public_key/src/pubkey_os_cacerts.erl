@@ -133,9 +133,12 @@ load_win32() ->
 load_darwin() ->
     %% Could/should probably be re-written to use Keychain Access API
     KeyChainFile = "/System/Library/Keychains/SystemRootCertificates.keychain",
-    case run_cmd("/usr/bin/security", ["export", "-t",  "certs", "-f", "pemseq", "-k", KeyChainFile]) of
+    Args = ["export", "-t",  "certs", "-f", "pemseq", "-k", KeyChainFile],
+    try run_cmd("/usr/bin/security", Args) of
         {ok, Bin} -> decode_result(Bin);
         Err -> Err
+    catch error:Reason ->
+            {error, {eopnotsupp, Reason}}
     end.
 
 store([]) ->
@@ -162,7 +165,9 @@ sunos_path() ->
     "/etc/certs/CA/".
 
 run_cmd(Cmd, Args) ->
-    Port = open_port({spawn_executable, Cmd}, [{args, Args}, binary, exit_status]),
+    Opts = [binary, exit_status, stderr_to_stdout],
+    Port = open_port({spawn_executable, Cmd}, [{args, Args}|Opts]),
+    unlink(Port),
     cmd_data(Port, <<>>).
 
 cmd_data(Port, Acc) ->

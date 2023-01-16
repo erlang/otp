@@ -1349,7 +1349,10 @@ cacerts_load(Config) ->
 
     %% Re-Load default OS certs
     try
+        process_flag(trap_exit, true),
+        flush(),
         ok = public_key:cacerts_load(),
+        [] = flush(),
         ct:log("~p: ~p~n", [os:type(), length(OsCerts)]),
         OsCerts = public_key:cacerts_get(),
         Ids = cert_info(OsCerts),
@@ -1365,6 +1368,11 @@ cacerts_load(Config) ->
         ok
     catch _:{badmatch, {error, enoent}} when IsNetBsd ->
             ok
+    end.
+
+flush() ->
+    receive Msg -> [Msg|flush()]
+    after 500 -> []
     end.
 
 cert_info([#cert{der=Der, otp=#'OTPCertificate'{tbsCertificate = C0}=Cert}|Rest]) when is_binary(Der) ->
