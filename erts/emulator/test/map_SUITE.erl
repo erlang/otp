@@ -25,7 +25,7 @@
          t_update_literals/1, t_update_literals_large/1,
          t_match_and_update_literals/1, t_match_and_update_literals_large/1,
          t_update_map_expressions/1,
-         t_update_assoc/1, t_update_assoc_large/1,
+         t_update_assoc/1, t_update_assoc_large/1, t_update_assoc_sharing/1,
          t_update_exact/1, t_update_exact_large/1,
          t_guard_bifs/1,
          t_guard_sequence/1, t_guard_sequence_large/1,
@@ -120,7 +120,7 @@ groups() ->
        t_update_literals, t_update_literals_large,
        t_match_and_update_literals, t_match_and_update_literals_large,
        t_update_map_expressions,
-       t_update_assoc, t_update_assoc_large,
+       t_update_assoc, t_update_assoc_large, t_update_assoc_sharing,
        t_update_exact, t_update_exact_large,
        t_guard_bifs,
        t_guard_sequence, t_guard_sequence_large,
@@ -1112,6 +1112,51 @@ t_update_assoc_large(Config) when is_list(Config) ->
     M2 = M0#{13.0:=wrong,13.0=>new},
 
     ok.
+
+t_update_assoc_sharing(Config) when is_list(Config) ->
+    Complex = id(#{nested=>map}),
+
+    case erlang:system_info(debug_compiled) of
+        true ->
+            %% the maximum size of a flatmap in a debug-compiled
+            %% system is three
+            M0 = id(#{1=>a,2=>b,complex=>Complex}),
+
+            %% all keys & values are the same
+            M1 = M0#{1=>a,complex=>Complex},
+            true = erts_debug:same(M1, M0),
+            M1 = M0,
+
+            %% only keys are the same
+            M2 = M0#{1=>new_value,complex=>Complex#{extra=>key}},
+            true = same_keys(M0, M2);
+        false ->
+            M0 = id(#{1=>a,2=>b,3.0=>c,4=>d,5=>e,complex=>Complex}),
+
+            %% all keys & values are the same
+            M1 = M0#{1=>a,complex=>Complex},
+            true = erts_debug:same(M1, M0),
+            M1 = M0,
+
+            %% only keys are the same
+            M2 = M0#{1=>new_value,complex=>Complex#{extra=>key}},
+            true = same_keys(M0, M2),
+
+            M3 = M0#{2=>new_value},
+            true = same_keys(M0, M3),
+            #{2:=new_value} = M3,
+
+            M4 = M0#{1=>1,2=>2,3.0=>3,4=>4,5=>5,complex=>6},
+            true = same_keys(M0, M4),
+            #{1:=1,2:=2,3.0:=3,4:=4,5:=5,complex:=6} = M4
+    end,
+
+    ok.
+
+same_keys(M0, M1) ->
+    Keys0 = erts_internal:map_to_tuple_keys(M0),
+    Keys1 = erts_internal:map_to_tuple_keys(M1),
+    erts_debug:same(Keys0, Keys1).
 
 t_update_exact(Config) when is_list(Config) ->
     M0 = id(#{1=>a,2=>b,3.0=>c,4=>d,5=>e}),
