@@ -417,7 +417,7 @@ validate(ExpStatusCode, _SocketType, _Socket, Response) ->
 sz(L) when is_list(L) ->
     length(lists:flatten(L));
 sz(B) when is_binary(B) ->
-    size(B);
+    byte_size(B);
 sz(O) ->
     {unknown_size,O}.
 

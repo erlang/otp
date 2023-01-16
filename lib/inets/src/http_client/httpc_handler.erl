@@ -50,12 +50,12 @@
 
 -record(state, 
         {
-          request                   :: request() | 'undefined',
-          session                   :: session() | 'undefined',
-          status_line,               % {Version, StatusCode, ReasonPharse}
-          headers                   :: http_response_h() | 'undefined',
-          body                      :: binary() | 'undefined',
-          mfa,                       % {Module, Function, Args}
+          request                   :: request() | undefined,
+          session                   :: session() | undefined,
+          status_line               :: tuple()   | undefined,     % {Version, StatusCode, ReasonPharse}
+          headers                   :: http_response_h() | undefined,
+          body                      :: binary() | undefined,
+          mfa                       :: {atom(), atom(), term()} | undefined, % {Module, Function, Args}
           pipeline = queue:new()    :: queue:queue(),
           keep_alive = queue:new()  :: queue:queue(),
           status                    :: undefined | new | pipeline | keep_alive | close | {ssl_tunnel, request()},
@@ -65,7 +65,7 @@
           options                   :: options(),
           timers = #timers{}        :: #timers{},
           profile_name              :: atom(), % id of httpc_manager process.
-          once = inactive           :: 'inactive' | 'once'
+          once = inactive           :: inactive | once
          }).
 
 
@@ -515,7 +515,7 @@ do_handle_info({Proto, _Socket, Data},
 	    handle_http_msg(Result, State); 
 	{_, whole_body, _} when Method =:= head ->
 	    handle_response(State#state{body = <<>>}); 
-	{Module, whole_body, [Body, Length]} ->
+	{Module, whole_body, [Body, Length]} when is_binary(Body)->
 	    {_, Code, _} = StatusLine,
 	    {Streamed, NewBody, NewRequest} = stream(Body, Request, Code),
 	    %% When we stream we will not keep the already
@@ -525,7 +525,7 @@ do_handle_info({Proto, _Socket, Data},
 		    false ->
 			Length;
 		    true ->
-			Length - size(Body)                     
+			Length - byte_size(Body)
 		end,
 	    
 	    NewState = next_body_chunk(State, Code),

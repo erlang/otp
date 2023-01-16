@@ -407,7 +407,7 @@ check_body("GET /cgi-bin/erl/httpd_example:get_bin HTTP/1.1\r\n\r\n", 200, "text
     ct:fail({content_length_error, Length});
 check_body("GET /cgi-bin/cgi_echo HTTP/1.0\r\n\r\n", 200, "text/plain", 
 	   _, Body) ->
-    case size(Body) of
+    case byte_size(Body) of
 	100 ->
 	    ok;
 	_ ->
