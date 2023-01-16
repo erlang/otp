@@ -233,7 +233,8 @@ zip:create("mnesia-4.4.7.ez",
      script</c> can be <c>strict</c> or <c>relaxed</c>. It is
      particularly useful to set the flag to <c>relaxed</c> when
      elaborating with code loading from archives without editing the
-     <c>boot script</c>. The default is <c>relaxed</c>. See <seeerl
+     <c>boot script</c>. The default has changed to <c>strict</c>
+     in OTP 27 and the option is scheduled for removal in OTP 28. See <seeerl
      marker="erts:init"><c>erts:init(3)</c></seeerl>.</p></section>
 
   <section>
