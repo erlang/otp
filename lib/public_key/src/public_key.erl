@@ -1934,7 +1934,7 @@ verify_hostname_match_default0({ip,R}, {iPAddress,P}) when length(P) == 4 ->
     %% IPv4
     try
         list_to_tuple(P)
-            == if is_tuple(R), size(R)==4 -> R;
+            == if tuple_size(R)==4 -> R;
                   is_list(R) -> ok(inet:parse_ipv4strict_address(R))
                end
     catch
@@ -1946,7 +1946,7 @@ verify_hostname_match_default0({ip,R}, {iPAddress,P}) when length(P) == 16 ->
     %% IPv6. The length 16 is due to the certificate specification.
     try
         l16_to_tup(P)
-            == if is_tuple(R), size(R)==8 -> R;
+            == if tuple_size(R)==8 -> R;
                   is_list(R) -> ok(inet:parse_ipv6strict_address(R))
                end
     catch
