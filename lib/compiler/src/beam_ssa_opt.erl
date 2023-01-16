@@ -1654,12 +1654,18 @@ sink_try_is(Is) ->
 sink_try_is_1([#b_set{op=kill_try_tag}=Kill | Is], Acc) ->
     [Kill | reverse(Acc, Is)];
 sink_try_is_1([I | Is], Acc) ->
-    case beam_ssa:no_side_effect(I) of
+    case is_safe_sink_try(I) of
         true -> sink_try_is_1(Is, [I | Acc]);
         false -> reverse(Acc, [I | Is])
     end;
 sink_try_is_1([], Acc) ->
     reverse(Acc).
+
+is_safe_sink_try(#b_set{op=Op}=I) ->
+    case Op of
+        bs_extract -> false;
+        _ -> beam_ssa:no_side_effect(I)
+    end.
 
 %% Does a strength reduction of try/catch and catch.
 %%
