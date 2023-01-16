@@ -1427,7 +1427,12 @@ mem() ->
 mem(C, S, E, []) ->
     {C, S, E};
 mem(C, S, E, [Items | Stack]) ->
-    mem(C, S, E, Stack, Items).
+    if
+        is_list(Items) ->
+            mem(C, S, E, Stack, Items);
+        true ->
+            mem(C, S, E, Stack)
+    end.
 
 mem(C, S, E, Stack, []) ->
     mem(C, S, E, Stack);
@@ -1440,9 +1445,14 @@ mem(C, S, E, Stack, Items, Item) ->
             mem(C + Current, S, E, Stack, Items);
         {size, Current, MaxSize, MaxEver} ->
             mem(C + Current, S + MaxSize, E + MaxEver, Stack, Items);
-        _ when is_list(element(tuple_size(Item), Item)) ->
+        _ when 2 =< tuple_size(Item) ->
             NewItems = element(tuple_size(Item), Item),
-            mem(C, S, E, [Items | Stack], NewItems);
+            if
+                is_list(NewItems) ->
+                    mem(C, S, E, [Items | Stack], NewItems);
+                true ->
+                    mem(C, S, E, Stack, Items)
+            end;
         _ ->
             mem(C, S, E, Stack, Items)
     end.
