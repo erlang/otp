@@ -2358,7 +2358,7 @@ handle_http_msg({Method, RelUri, _, {_, Headers}, Body}, Socket, _) ->
 		stop;
 	    _ ->
 		ContentLength = content_length(Headers),    
-		case size(Body) - ContentLength of
+		case byte_size(Body) - ContentLength of
 		    0 ->
 			<<>>;
 		    _ ->

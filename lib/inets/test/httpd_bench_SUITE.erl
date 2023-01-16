@@ -634,7 +634,7 @@ do_handle_request(CB, S, Name, Opts, KeepAlive) when is_list(Name) ->
     send_file(CB, S, Fdesc);
 do_handle_request(CB, S, {gen, Data}, Opts, KeepAlive) ->
     Version = proplists:get_value(http_version, Opts),
-    Length = size(Data),
+    Length = byte_size(Data),
     Response = response_status_line_and_headers(Version, "Content-Length:" 
 						++ integer_to_list(Length) ++ ?CRLF, keep_alive(KeepAlive)), 
     CB:send(S, Response),
@@ -643,7 +643,7 @@ do_handle_request(CB, S, {gen, Data}, Opts, KeepAlive) ->
 send_file(CB, S, {gen, Data})  ->
     CB:send(S, Data);
     %% ChunkSize = 64*1024,
-    %% case size(Data) of
+    %% case byte_size(Data) of
     %% 	N when N > ChunkSize ->
     %% 	    <<Chunk:N/binary, Rest/binary>> = Data,
     %% 	    %%{Chunk, Rest} = lists:split(N, Data),

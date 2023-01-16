@@ -1340,7 +1340,7 @@ validate_ipfamily(BadValue) ->
     bad_option(ipfamily, BadValue).
 
 validate_ip(Value) 
-  when is_tuple(Value) andalso ((size(Value) =:= 4) orelse (size(Value) =:= 8)) ->
+  when tuple_size(Value) =:= 4; tuple_size(Value) =:= 8 ->
     Value;
 validate_ip(BadValue) ->
     bad_option(ip, BadValue).

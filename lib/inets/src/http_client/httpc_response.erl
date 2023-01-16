@@ -60,8 +60,8 @@ parse_headers([Bin, Rest,Header, Headers, MaxHeaderSize, Result, Relaxed]) ->
     parse_headers(<<Rest/binary, Bin/binary>>, Header, Headers, 
 		  MaxHeaderSize, Result, Relaxed).
     
-whole_body(Body, Length) ->
-    case size(Body) of
+whole_body(Body, Length) when is_binary(Body)->
+    case byte_size(Body) of
 	N when (N < Length) andalso (N > 0)  ->
 	    {?MODULE, whole_body, [Body, Length]};
 	%% OBS!  The Server may close the connection to indicate that the
@@ -592,13 +592,13 @@ is_server_closing(Headers) when is_record(Headers, http_response_h) ->
 format_response({StatusLine, Headers, Body = <<>>}) ->
     {{StatusLine, http_response:header_list(Headers), Body}, <<>>};
 
-format_response({StatusLine, Headers, Body}) ->
+format_response({StatusLine, Headers, Body}) when is_binary(Body) ->
     Length = list_to_integer(Headers#http_response_h.'content-length'),
     {NewBody, Data} = 
 	case Length of
 	    -1 -> % When no length indicator is provided
 		{Body, <<>>};
-	    Length when (Length =< size(Body)) ->
+	    Length when (Length =< byte_size(Body)) ->
 		<<BodyThisReq:Length/binary, Next/binary>> = Body,
 		{BodyThisReq, Next};
 	    _ -> %% Connection prematurely ended. 

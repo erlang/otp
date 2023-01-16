@@ -208,7 +208,7 @@ deliver_webpage(#mod{config_db = Db} = ModData, Port) ->
 		    {proceed, [{real_name, 
 				httpd_util:split_path(AbsPath)} | 
 			       ModData#mod.data]};
-		{ok, HTTPHeaders, Status} ->
+		{ok, HTTPHeaders, Status} when is_binary(Body)->
 		    IsDisableChunkedSend = 
 			httpd_response:is_disable_chunked_send(Db),
 		    case (ModData#mod.http_version =/= "HTTP/1.1") or 
@@ -222,7 +222,7 @@ deliver_webpage(#mod{config_db = Db} = ModData, Port) ->
 					 [{"transfer-encoding",
 					   "chunked"} | HTTPHeaders])
 		    end,
-		    handle_body(Port, ModData, Body, Timeout, size(Body),
+		    handle_body(Port, ModData, Body, Timeout, byte_size(Body),
 				IsDisableChunkedSend)
 	    end;
 	{'EXIT', Port, Reason} ->
@@ -268,8 +268,8 @@ handle_body(Port, #mod{method = "HEAD"} = ModData, _, _, Size, _) ->
 handle_body(Port, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
     httpd_response:send_chunk(ModData, Body, IsDisableChunkedSend),
     receive 
-	{Port, {data, Data}} when is_port(Port) ->
-	    handle_body(Port, ModData, Data, Timeout, Size + size(Data),
+	{Port, {data, Data}} when is_port(Port), is_binary(Data) ->
+	    handle_body(Port, ModData, Data, Timeout, Size + byte_size(Data),
 			IsDisableChunkedSend);
 	{'EXIT', Port, normal} when is_port(Port) ->
 	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
