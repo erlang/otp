@@ -283,7 +283,7 @@ get_latest_run_dir(Dir) ->
 	    Dir
     end.
 
-l(X) when is_binary(X) -> size(X);
+l(X) when is_binary(X) -> byte_size(X);
 l(X) when is_list(X) -> length(X).
 
 get_latest_dir([H|T],Latest) when H>Latest ->

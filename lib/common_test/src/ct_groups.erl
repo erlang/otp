@@ -191,8 +191,8 @@ find(Mod, GrNames, all, [{testcase,TC,[Prop]} | Gs], Known,
 %% Check if test case should be saved
 find(Mod, GrNames, TCs, [TC | Gs], Known, Defs, FindAll)
   when is_atom(TC) orelse
-       ((size(TC) == 3) andalso (element(1,TC) == testcase)) orelse
-       ((size(TC) == 2) and (element(1,TC) /= group)) ->
+       ((tuple_size(TC) == 3) andalso (element(1,TC) == testcase)) orelse
+       ((tuple_size(TC) == 2) andalso (element(1,TC) /= group)) ->
     Case =
         case TC of
             _ when is_atom(TC) ->
@@ -333,8 +333,7 @@ modify_tc_list1(GrSpecTs, TSCs) ->
 					  false -> []
 				      end
 			      end;
-                         (Test) when is_tuple(Test),
-				     (size(Test) > 2) ->
+                         (Test) when tuple_size(Test) > 2 ->
 			      [Test];
 			 (Test={group,_}) ->
 			      [Test];
