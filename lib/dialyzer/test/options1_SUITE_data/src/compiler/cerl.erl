@@ -1503,7 +1503,7 @@ tuple_es(#literal{val = V}) ->
 tuple_arity(#tuple{es = Es}) ->
     length(Es);
 tuple_arity(#literal{val = V}) when tuple(V) ->
-    size(V).
+    tuple_size(V).
 
 
 %% ---------------------------------------------------------------------
@@ -3597,7 +3597,7 @@ data_arity(#literal{val = V}) ->
 	[_ | _] ->
 	    2;
 	_ when tuple(V) ->
-	    size(V);
+	    tuple_size(V);
 	_ ->
 	    0
     end;

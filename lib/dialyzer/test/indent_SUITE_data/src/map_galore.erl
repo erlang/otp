@@ -1649,9 +1649,9 @@ cmp_others(T1, T2, _) ->
 
 map_gen(Pairs, Size) ->
     {_,L} = lists:foldl(fun(_, {Keys, Acc}) ->
-				KI = random:uniform(size(Keys)),
+				KI = random:uniform(tuple_size(Keys)),
 				K = element(KI,Keys),
-				KV = element(random:uniform(size(K)), K),
+				KV = element(random:uniform(tuple_size(K)), K),
 				{erlang:delete_element(KI,Keys), [KV | Acc]}
 			end,
 			{Pairs, []},

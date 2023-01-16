@@ -106,9 +106,9 @@ encode1(Pdu, Version) ->
 			    headers=Headers} ->
 	    EncServerSessionId = e_uintvar(ServerSessionId),
 	    EncCapabilities = encode_capabilities(Capabilities),
-	    EncCapabilitiesLength = e_uintvar(size(EncCapabilities)),
+	    EncCapabilitiesLength = e_uintvar(byte_size(EncCapabilities)),
 	    EncHeaders = encode_headers(Headers,Version),
-	    EncHeadersLength = e_uintvar(size(EncHeaders)),
+	    EncHeadersLength = e_uintvar(byte_size(EncHeaders)),
 	    <<?WSP_ConnectReply,
 	     EncServerSessionId/binary,
 	     EncCapabilitiesLength/binary, EncHeadersLength/binary,
@@ -121,8 +121,8 @@ encode1(Pdu, Version) ->
 	    EncStatus = encode_status_code(Status),
 	    EncContentType = encode_content_type(ContentType,Version),
 	    EncHeaders = encode_headers(Headers,Version),
-	    EncHeadersLength = e_uintvar(size(EncContentType)+
-					 size(EncHeaders)),
+	    EncHeadersLength = e_uintvar(byte_size(EncContentType)+
+					 byte_size(EncHeaders)),
 	    <<?WSP_Reply,
 	     EncStatus:8,
 	     EncHeadersLength/binary,
@@ -137,8 +137,8 @@ encode1(Pdu, Version) ->
 	    UriLength = e_uintvar(length(URI)),
 	    EncContentType = encode_content_type(ContentType,Version),
 	    EncHeaders = encode_headers(Headers,Version),
-	    EncHeadersLength = e_uintvar(size(EncContentType)+
-					 size(EncHeaders)),
+	    EncHeadersLength = e_uintvar(byte_size(EncContentType)+
+					 byte_size(EncHeaders)),
 	    %% FIXME
 	    <<PDUType:8,
 	     UriLength/binary,
@@ -156,8 +156,8 @@ encode1(Pdu, Version) ->
 	    EncHeaders = encode_headers(Headers,Version),
 	    ?dbg("Version ~p Headers ~p", [Version, Headers]),
 	    ?dbg("EncHeaders ~p", [EncHeaders]),
-	    EncHeadersLength = e_uintvar(size(EncContentType)+
-					 size(EncHeaders)),
+	    EncHeadersLength = e_uintvar(byte_size(EncContentType)+
+					 byte_size(EncHeaders)),
 	    ?dbg("EncCT = ~w ~w", [ContentType, EncContentType]),
 	    ?dbg("EncHL = ~w", [EncHeadersLength]),
 	    <<PDUType:8,
@@ -278,7 +278,7 @@ decode(Data0, Version) ->
 	    {HL0, D2} = d_uintvar(D1),
 	    <<UriData:URILen/binary,D3/binary>> = D2,
 	    {FieldData,D4} = scan_header_data(D3),
-	    HL1 = (HL0-(size(D3)-size(D4))),
+	    HL1 = (HL0-(byte_size(D3)-byte_size(D4))),
 	    <<D5:HL1/binary,Data/binary>> = D4,
 	    ContentType = decode_content_type(FieldData, Version),
 	    Headers = decode_headers(D5, Version),
@@ -290,7 +290,7 @@ decode(Data0, Version) ->
 	    {HL0, D2} = d_uintvar(D1),
 	    <<UriData:URILen/binary,D3/binary>> = D2,
 	    {FieldData,D4} = scan_header_data(D3),
-	    HL1 = (HL0-(size(D3)-size(D4))),
+	    HL1 = (HL0-(byte_size(D3)-byte_size(D4))),
 	    <<D5:HL1/binary,Data/binary>> = D4,
 	    ContentType = decode_content_type(FieldData, Version),
 	    Headers = decode_headers(D5, Version),
@@ -304,7 +304,7 @@ decode(Data0, Version) ->
 	    {FieldData, D2} = scan_header_data(D1),
 	    ContentType = decode_content_type(FieldData, Version),
 	    %% Headers are headersLength - binary size of content type
-	    HL1 = (HL0-(size(D1)-size(D2))),
+	    HL1 = (HL0-(byte_size(D1)-byte_size(D2))),
 	    <<D3:HL1/binary,Data/binary>> = D2,
 	    Hs = decode_headers(D3, Version),
 	    #wsp_reply{status=Status, content_type=ContentType,
@@ -322,7 +322,7 @@ decode(Data0, Version) ->
 	    {HeadersLength, T200} = d_uintvar(D0),
 	    {FieldData, T300} = scan_header_data(T200),
 	    ContentType = decode_content_type(FieldData, Version),
-	    RealHeadersLength = (HeadersLength-(size(T200)-size(T300))),
+	    RealHeadersLength = (HeadersLength-(byte_size(T200)-byte_size(T300))),
 	    <<T400:RealHeadersLength/binary,Data/binary>> = T300,
 	    Headers = decode_headers(T400, Version),
 	    #wsp_push{type=push,content_type=ContentType,
@@ -332,7 +332,7 @@ decode(Data0, Version) ->
 	    {HeadersLength, T200} = d_uintvar(D0),
 	    {FieldData, T300} = scan_header_data(T200),
 	    ContentType = decode_content_type(FieldData, Version),
-	    RealHeadersLength = (HeadersLength-(size(T200)-size(T300))),
+	    RealHeadersLength = (HeadersLength-(byte_size(T200)-byte_size(T300))),
 	    <<T400:RealHeadersLength/binary,Data/binary>> = T300,
 	    Headers = decode_headers(T400, Version),
 	    #wsp_push{type=confirmed_push,
@@ -443,7 +443,7 @@ encode_capabilities(Cap,Def) ->
     list_to_binary(
       lists:map(fun(<<>>) -> [];
 		   (Bin) ->
-			[e_uintvar(size(Bin)), Bin]
+			[e_uintvar(byte_size(Bin)), Bin]
 		end, Known ++ Unknown)).
 
 
@@ -3135,7 +3135,7 @@ encode_cookies([{Name,Value,Ps} | Cs], Acc) ->
 	     [] ->
 		 []
 	 end],
-    Sz = lists:sum(lists:map(fun(B) -> size(B) end, List)),
+    Sz = lists:sum(lists:map(fun(B) -> byte_size(B) end, List)),
     encode_cookies(Cs, [[e_uintvar(Sz) | List] | Acc]);
 encode_cookies([], Acc) ->
     list_to_binary(lists:reverse(Acc)).
@@ -4430,8 +4430,8 @@ encode_multipart_entry(Entry, Version) ->
 			   data = Data } = Entry,
     EncContentType = encode_content_type(ContentType,Version),
     EncHeaders = encode_headers(Headers, Version),
-    EncHeadersLength = e_uintvar(size(EncContentType)+size(EncHeaders)),
-    DataLen = e_uintvar(size(Data)),
+    EncHeadersLength = e_uintvar(byte_size(EncContentType)+byte_size(EncHeaders)),
+    DataLen = e_uintvar(byte_size(Data)),
     <<EncHeadersLength/binary,
      DataLen/binary,
      EncContentType/binary,
@@ -4462,7 +4462,7 @@ decode_multipart_entry(Data, Version) ->
     {DataLen, Data2} = d_uintvar(Data1),
     {FieldData,Data3} = scan_header_data(Data2),
     ContentType = decode_content_type(FieldData, Version),
-    BinHeadersLen = (HeadersLen-(size(Data2)-size(Data3))),
+    BinHeadersLen = (HeadersLen-(byte_size(Data2)-byte_size(Data3))),
     <<BinHeaders:BinHeadersLen/binary,Data4/binary>> = Data3,
     Headers = decode_headers(BinHeaders, Version),
     <<ValueData:DataLen/binary, Data5/binary>> = Data4,
@@ -5014,7 +5014,7 @@ encode_integer(List) when list(List) ->
 decode_integer(Value) when integer(Value) ->
     Value;
 decode_integer({short,Data}) ->
-    Sz = size(Data)*8,
+    Sz = byte_size(Data)*8,
     <<Value:Sz>> = Data,
     Value.
 
@@ -5051,7 +5051,7 @@ decode_long_integer(<<0:3,Len:5,Data/binary>>) when Len =/= 31 ->
     <<Val:Sz, Tail/binary>> = Data,
     {Val, Tail}.
 
-d_long(Data) ->
+d_long(Data) when is_binary(Data) ->
     Sz = size(Data)*8,
     <<Value:Sz>> = Data,
     Value.
@@ -5176,7 +5176,7 @@ e_uintvar(I,Acc) ->
 
 
 e_value(B) ->
-    Sz = size(B),
+    Sz = byte_size(B),
     if Sz =< 30 ->
 	    <<Sz:8, B/binary>>;
        true ->
@@ -5184,7 +5184,7 @@ e_value(B) ->
     end.
 
 e_value(B1,B2) ->
-    Sz = size(B1)+size(B2),
+    Sz = byte_size(B1)+byte_size(B2),
     if Sz =< 30 ->
 	    <<Sz:8, B1/binary, B2/binary>>;
        true ->
@@ -5192,7 +5192,7 @@ e_value(B1,B2) ->
     end.
 
 e_value(B1,B2,B3) ->
-    Sz = size(B1)+size(B2)+size(B3),
+    Sz = byte_size(B1)+byte_size(B2)+byte_size(B3),
     if Sz =< 30 ->
 	    <<Sz:8, B1/binary,B2/binary,B3/binary>>;
        true ->
@@ -5200,7 +5200,7 @@ e_value(B1,B2,B3) ->
     end.
 
 e_value(B1,B2,B3,B4) ->
-    Sz = size(B1)+size(B2)+size(B3)+size(B4),
+    Sz = byte_size(B1)+byte_size(B2)+byte_size(B3)+byte_size(B4),
     if Sz =< 30 ->
 	    <<Sz:8, B1/binary,B2/binary,B3/binary,B4/binary>>;
        true ->
@@ -5266,7 +5266,7 @@ encode_address(#wdp_address { bearer = B, address = Addr, portnum = P }) ->
 	       binary(Addr) ->
 		    Addr
 	    end,
-    Len = size(BAddr),
+    Len = byte_size(BAddr),
     if B == undefined, P == undefined ->
 	    <<0:1, 0:1, Len:6, BAddr/binary>>;
        B == undefined ->
@@ -5284,8 +5284,8 @@ encode_address(#wdp_address { bearer = B, address = Addr, portnum = P }) ->
 
 d_date(Val) when integer(Val) ->
     calendar:gregorian_seconds_to_datetime(Val+?UNIX_TIME_OFFSET);
-d_date({short,Data}) ->
-    Sz = size(Data)*8,
+d_date({short,Data}) when is_binary(Data) ->
+    Sz = byte_size(Data)*8,
     <<Sec:Sz>> = Data,
     calendar:gregorian_seconds_to_datetime(Sec+?UNIX_TIME_OFFSET).
 
