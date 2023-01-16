@@ -15259,11 +15259,25 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                        NULL);
 
     if (esocks != NULL) {
-        if (enif_set_option(env, ERL_NIF_OPT_ON_HALT, esock_on_halt) == 0)
-            return 0; // Success
-        else
+        int ores;
+
+        // *Try* install on-halt (callback) function
+        if ((ores = enif_set_option(env,
+                                    ERL_NIF_OPT_ON_HALT,
+                                    esock_on_halt)) != 0) {
+            esock_error_msg("Failed installing 'on-halt' "
+                            "callback function (%d)\r\n", ores);
             return 1; // Failure
+        }
+
+        // *Try* enable 'delay on halt' (none-fatal)
+        if ((ores = enif_set_option(env, ERL_NIF_OPT_DELAY_HALT)) != 0) {
+            esock_error_msg("Failed enable 'on-halt' delay (%d)\r\n", ores);
+        }
+
+        return 0; // Success
     } else {
+        esock_error_msg("Failed open esock resource type\r\n");
         return 1; // Failure
     }
 }
