@@ -578,11 +578,9 @@ limit_term(Term) ->
 -spec get_format_depth() -> 'unlimited' | pos_integer().
 
 get_format_depth() ->
-    case application:get_env(kernel, error_logger_format_depth) of
-	{ok, Depth} when is_integer(Depth) ->
+    case application:get_env(kernel, error_logger_format_depth, unlimited) of
+	Depth when is_integer(Depth) ->
 	    max(10, Depth);
-        {ok, unlimited} ->
-            unlimited;
-	undefined ->
-	    unlimited
+        unlimited ->
+            unlimited
     end.
