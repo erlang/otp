@@ -40,12 +40,8 @@ server(Ancestors, Drv, Shell, Options) ->
     put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
     put(user_drv, Drv),
-    ExpandFun = case proplists:get_value(expand_fun, Options,
-        fun edlin_expand:expand/2) of
-            Fun when is_function(Fun, 1) -> fun(X,_) -> Fun(X) end;
-            Fun -> Fun
-        end,
-    put(expand_fun,ExpandFun),
+    ExpandFun = normalize_expand_fun(Options, fun edlin_expand:expand/2),
+    put(expand_fun, ExpandFun),
     put(echo, proplists:get_value(echo, Options, true)),
     put(expand_below, proplists:get_value(expand_below, Options, true)),
 
@@ -396,7 +392,7 @@ check_valid_opts(_) ->
     false.
 
 do_setopts(Opts, Drv, Buf) ->
-    put(expand_fun, proplists:get_value(expand_fun, Opts, get(expand_fun))),
+    put(expand_fun, normalize_expand_fun(Opts, get(expand_fun))),
     put(echo, proplists:get_value(echo, Opts, get(echo))),
     case proplists:get_value(encoding,Opts) of
 	Valid when Valid =:= unicode; Valid =:= utf8 ->
@@ -418,6 +414,12 @@ do_setopts(Opts, Drv, Buf) ->
 	    {ok,ok,Buf};
 	_ ->
 	    {ok,ok,Buf}
+    end.
+
+normalize_expand_fun(Options, Default) ->
+    case proplists:get_value(expand_fun, Options, Default) of
+	Fun when is_function(Fun, 1) -> fun(X,_) -> Fun(X) end;
+	Fun -> Fun
     end.
 
 getopts(Drv,Buf) ->
