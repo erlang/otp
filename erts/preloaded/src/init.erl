@@ -292,7 +292,7 @@ code_path_choice() ->
 	{ok,[["relaxed"]]} ->
 	    relaxed;
 	_Else ->
-	    relaxed
+	    strict
     end.
 
 boot(Start,Flags,Args) ->
