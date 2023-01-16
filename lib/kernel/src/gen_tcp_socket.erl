@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2516,12 +2516,10 @@ socket_setopts(_Socket, [], _SocketOpts) ->
 socket_setopts(Socket, [{Tag,Val} | Opts], SocketOpts) ->
     case SocketOpts of
         #{ Tag := Name } ->
-            case socket_setopt(Socket, Name, Val) of
-                ok ->
-                    socket_setopts(Socket, Opts, SocketOpts);
-                {error, _} = Error ->
-                    Error
-            end;
+            %% Ignore all errors as an approximation for
+            %% inet_drv ignoring most errors
+            _ = socket_setopt(Socket, Name, Val),
+            socket_setopts(Socket, Opts, SocketOpts);
         #{} -> % Ignore
             socket_setopts(Socket, Opts, SocketOpts)
     end.
