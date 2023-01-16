@@ -472,6 +472,20 @@ testf(Config) when is_list(Config) ->
     ?FAIL(<<<<7,8,9,3:7>>/binary-unit:16>>),
     ?FAIL(<<<<7,8,9,3:7>>/binary-unit:17>>),
 
+    %% Failures not deteced by v3_core. Those must be detected at
+    %% runtime.
+    Atom = id(ok),
+    Float = id(2.71),
+    List = id([-1,0,1]),
+    NonBinaries = [{'Atom',Atom}, {'Float',Float}, {'List',List}],
+    ?FAIL_VARS(<<Atom/bits>>, NonBinaries),
+    ?FAIL_VARS(<<Atom/bits,0>>, NonBinaries),
+    ?FAIL_VARS(<<0,Atom/bits>>, NonBinaries),
+    ?FAIL_VARS(<<Float/bits>>, NonBinaries),
+    ?FAIL_VARS(<<Float/bits,0>>, NonBinaries),
+    ?FAIL_VARS(<<List/bits>>, NonBinaries),
+    ?FAIL_VARS(<<List/bits,0>>, NonBinaries),
+
     ok.
 
 testf_1(W, B) ->

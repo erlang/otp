@@ -1245,6 +1245,8 @@ protected:
                 arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
 
         ASSERT(typeIndex < beam->types.count);
+        ASSERT(beam->types.entries[typeIndex].type_union ==
+               BEAM_TYPE_BITSTRING);
         return beam->types.entries[typeIndex].size_unit;
     }
 
