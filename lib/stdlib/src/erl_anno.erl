@@ -361,7 +361,7 @@ anno_info(Anno, Item, Default) ->
             Value
     catch
         _:_ ->
-            erlang:error(badarg, [Anno])
+            erlang:error(badarg, [Anno, Item, Default])
     end.
 
 anno_info(Anno, Item) ->
@@ -372,7 +372,7 @@ anno_info(Anno, Item) ->
             undefined
     catch
         _:_ ->
-            erlang:error(badarg, [Anno])
+            erlang:error(badarg, [Anno, Item])
     end.
 
 end_location("", Line, Column) ->
