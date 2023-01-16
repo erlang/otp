@@ -134,14 +134,14 @@ col(Data, Attrs, [{row,_}, {table,_} | _], E) ->
     ["<td>", nbsp_if_empty(Data), "</td>\n"].
 
 
-tuple_list(List, Attrs, Parents, E) ->
+tuple_list(List, Attrs, _Parents, _E) ->
     Elems = case find_attribute(elements, Attrs) of
 		{value, Es} -> 
 		    Es;
 		false ->
 		    case List of
 			[H|_] ->
-			    lists:seq(1,size(H));
+			    lists:seq(1,tuple_size(H));
 			[] ->
 			    []
 		    end
