@@ -175,9 +175,9 @@ current_connection_state_epoch(#{current_write := #{epoch := Epoch}},
 %% and returns it as a list of tls_compressed binaries also returns leftover
 %% data
 %%--------------------------------------------------------------------
-get_dtls_records(Data, Vinfo, Buffer, SslOpts) ->
+get_dtls_records(Data, Vinfo, Buffer, #{log_level := LogLevel}) ->
     BinData = list_to_binary([Buffer, Data]),
-    get_dtls_records_aux(Vinfo, BinData, [], SslOpts).
+    get_dtls_records_aux(Vinfo, BinData, [], LogLevel).
 
 %%====================================================================
 %% Encoding DTLS records
@@ -423,40 +423,48 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       max_fragment_length => undefined
      }.
 
-get_dtls_records_aux({DataTag, StateName, _, Versions} = Vinfo, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
-                                                         ?UINT16(Epoch), ?UINT48(SequenceNumber),
-                                                         ?UINT16(Length), Data:Length/binary, Rest/binary>> = RawDTLSRecord,
-		     Acc, #{log_level := LogLevel} = SslOpts)
+get_dtls_records_aux({DataTag, StateName, _, Versions} = Vinfo,
+                     <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
+                       ?UINT16(Epoch), ?UINT48(SequenceNumber),
+                       ?UINT16(Length), Data:Length/binary, Rest/binary>> = RawDTLSRecord,
+		     Acc0, LogLevel)
   when ((StateName == hello)
         orelse ((StateName == certify) andalso (DataTag == udp))
-        orelse ((StateName == abbreviated) andalso (DataTag == udp))) andalso ((Type == ?HANDSHAKE)
-                                                                               orelse
-                                                                                 (Type == ?ALERT)) ->
+        orelse ((StateName == abbreviated) andalso (DataTag == udp)))
+       andalso ((Type == ?HANDSHAKE) orelse (Type == ?ALERT)) ->
     ssl_logger:debug(LogLevel, inbound, 'record', [RawDTLSRecord]),
+    Acc = [#ssl_tls{type = Type, version = {MajVer, MinVer},
+                    epoch = Epoch, sequence_number = SequenceNumber,
+                    fragment = Data} | Acc0],
     case is_acceptable_version({MajVer, MinVer}, Versions) of
         true ->
-            get_dtls_records_aux(Vinfo, Rest, [#ssl_tls{type = Type,
-                                                 version = {MajVer, MinVer},
-                                                 epoch = Epoch, sequence_number = SequenceNumber,
-                                                 fragment = Data} | Acc], SslOpts);
+            get_dtls_records_aux(Vinfo, Rest, Acc, LogLevel);
         false ->
-              ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
-        end;
-get_dtls_records_aux({_, _, Version, _} = Vinfo, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
-		       ?UINT16(Epoch), ?UINT48(SequenceNumber),
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+    end;
+get_dtls_records_aux({_, _, Version, Versions} = Vinfo,
+                     <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
+                       ?UINT16(Epoch), ?UINT48(SequenceNumber),
 		       ?UINT16(Length), Data:Length/binary, Rest/binary>> = RawDTLSRecord,
-		     Acc, #{log_level := LogLevel} = SslOpts) when (Type == ?APPLICATION_DATA) orelse
-                                        (Type == ?HANDSHAKE) orelse
-                                        (Type == ?ALERT) orelse
-                                        (Type == ?CHANGE_CIPHER_SPEC) ->
+		     Acc0, LogLevel)
+  when (Type == ?APPLICATION_DATA) orelse
+       (Type == ?HANDSHAKE) orelse
+       (Type == ?ALERT) orelse
+       (Type == ?CHANGE_CIPHER_SPEC) ->
     ssl_logger:debug(LogLevel, inbound, 'record', [RawDTLSRecord]),
-    case {MajVer, MinVer} of
-        Version ->
-            get_dtls_records_aux(Vinfo, Rest, [#ssl_tls{type = Type,
-                                                 version = {MajVer, MinVer},
-                                                 epoch = Epoch, sequence_number = SequenceNumber,
-                                                 fragment = Data} | Acc], SslOpts);
-        _ ->
+    Acc = [#ssl_tls{type = Type, version = {MajVer,MinVer},
+                    epoch = Epoch, sequence_number = SequenceNumber,
+                    fragment = Data} | Acc0],
+    if {MajVer, MinVer} =:= Version ->
+            get_dtls_records_aux(Vinfo, Rest, Acc, LogLevel);
+       Type == ?HANDSHAKE ->
+            case is_acceptable_version({MajVer, MinVer}, Versions) of
+                true ->
+                    get_dtls_records_aux(Vinfo, Rest, Acc, LogLevel);
+                false ->
+                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+            end;
+       true ->
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end;
 get_dtls_records_aux(_, <<?BYTE(_), ?BYTE(_MajVer), ?BYTE(_MinVer),

@@ -515,13 +515,20 @@ cipher(Type, Event, State) ->
 		 #hello_request{} | #client_hello{}| term(), #state{}) ->
 			gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-connection(enter, _, #state{connection_states = Cs0} = State0) ->
-    State = case maps:is_key(previous_cs, Cs0) of
-                false ->
-                    State0;
-                true ->
-                    Cs = maps:remove(previous_cs, Cs0),
-                    State0#state{connection_states = Cs}
+connection(enter, _, #state{connection_states = Cs0,
+                            static_env = Env} = State0) ->
+    State = case Env of
+                #static_env{socket = {Listener, {Client, _}}} ->
+                    dtls_packet_demux:connection_setup(Listener, Client),
+                    case maps:is_key(previous_cs, Cs0) of
+                        false ->
+                            State0;
+                        true ->
+                            Cs = maps:remove(previous_cs, Cs0),
+                            State0#state{connection_states = Cs}
+                    end;
+                _ -> %% client
+                    State0
             end,
     {keep_state, State};
 connection(info, Event, State) ->
@@ -575,14 +582,20 @@ connection(internal, #client_hello{}, #state{static_env = #static_env{role = ser
     dtls_gen_connection:next_event(?FUNCTION_NAME, Record, State);
 connection(internal, new_connection, #state{ssl_options=SSLOptions,
                                             handshake_env=HsEnv,
+                                            static_env = #static_env{socket = {Listener, {Client, _}}},
                                             connection_states = OldCs} = State) ->
     case maps:get(previous_cs, OldCs, undefined) of
         undefined ->
-            BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
-            ConnectionStates0 = dtls_record:init_connection_states(server, BeastMitigation),
-            ConnectionStates = ConnectionStates0#{previous_cs => OldCs},
-            {next_state, hello, State#state{handshake_env = HsEnv#handshake_env{renegotiation = {false, first}},
-                                            connection_states = ConnectionStates}};
+            case dtls_packet_demux:new_connection(Listener, Client) of
+                true ->
+                    {keep_state, State};
+                false ->
+                    BeastMitigation = maps:get(beast_mitigation, SSLOptions, disabled),
+                    ConnectionStates0 = dtls_record:init_connection_states(server, BeastMitigation),
+                    ConnectionStates = ConnectionStates0#{previous_cs => OldCs},
+                    {next_state, hello, State#state{handshake_env = HsEnv#handshake_env{renegotiation = {false, first}},
+                                                    connection_states = ConnectionStates}}
+            end;
         _ ->
             %% Someone spamming new_connection, just drop them
             {keep_state, State}
