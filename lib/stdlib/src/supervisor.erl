@@ -132,16 +132,16 @@
 -type child_rec() :: #child{}.
 
 -record(state, {name,
-		strategy               :: strategy() | 'undefined',
+		strategy = one_for_one:: strategy(),
 		children = {[],#{}}    :: children(), % Ids in start order
                 dynamics               :: {'maps', #{pid() => list()}}
                                         | {'mapsets', #{pid() => []}}
                                         | 'undefined',
-		intensity              :: non_neg_integer() | 'undefined',
-		period                 :: pos_integer() | 'undefined',
+		intensity = 1          :: non_neg_integer(),
+		period    = 5          :: pos_integer(),
 		restarts = [],
 		dynamic_restarts = 0   :: non_neg_integer(),
-		auto_shutdown          :: auto_shutdown(),
+		auto_shutdown = never  :: auto_shutdown(),
 	        module,
 	        args}).
 -type state() :: #state{}.
