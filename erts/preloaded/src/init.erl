@@ -1024,10 +1024,13 @@ eval_script([{preLoaded,_}|T], #es{}=Es) ->
     eval_script(T, Es);
 eval_script([{path,Path}|T], #es{path=false,pa=Pa,pz=Pz,
 				 path_choice=PathChoice,
-				 vars=Vars}=Es) ->
-    RealPath0 = make_path(Pa, Pz, Path, Vars),
-    RealPath = patch_path(RealPath0, PathChoice),
-    erl_prim_loader:set_path(RealPath),
+				 vars=Vars,debug=Deb}=Es) ->
+    debug(Deb, {path,Path},
+          fun() ->
+                  RealPath0 = make_path(Pa, Pz, Path, Vars),
+                  RealPath = patch_path(RealPath0, PathChoice),
+                  erl_prim_loader:set_path(RealPath)
+          end),
     eval_script(T, Es);
 eval_script([{path,_}|T], #es{}=Es) ->
     %% Ignore, use the command line -path flag.
