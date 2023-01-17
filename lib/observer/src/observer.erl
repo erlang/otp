@@ -29,10 +29,18 @@ start(Node) when is_atom(Node) ->
     start([Node]);
 start([Node]) ->
     Node1 = to_atom(Node),
-    true = net_kernel:connect_node(Node1),
-    Res = observer_wx:start(),
-    observer_wx:set_node(Node1),
-    Res.
+    case net_kernel:connect_node(Node1) of
+        true ->
+            case observer_wx:start() of
+                ok ->
+                    observer_wx:set_node(Node1),
+                    ok;
+                Err ->
+                    Err
+            end;
+        _ ->
+            {error, failed_to_connect}
+    end.
 
 start_and_wait() ->
     ok = start(),
