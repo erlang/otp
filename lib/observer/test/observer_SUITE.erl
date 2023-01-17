@@ -60,8 +60,8 @@ groups() ->
        process_win,
        table_win,
        port_win_when_tab_not_initiated,
-       remote_node,
-       blocking_start
+       blocking_start,
+       remote_node
       ]
      }].
 
@@ -480,11 +480,14 @@ remote_node(_Config) ->
     peer:stop(Peer).
 
 blocking_start(_Config) ->
-    _Pid = spawn(fun observer:start_and_wait/0),
-    MonitorRef = monitor(process, observer),
+    Pid = spawn(fun observer:start_and_wait/0),
+    SpawnerRef = monitor(process, Pid),
+    ObserverRef = monitor(process, observer),
     receive
-        {'DOWN', MonitorRef, _, _, _} ->
-            error(observer_stopped_unexpectedly)
+        {'DOWN', ObserverRef, _, _, _} ->
+            error(observer_stopped_unexpectedly);
+        {'DOWN', SpawnerRef, _, _, _} ->
+            error(spawner_stopped_unexpectedly)
     after
         500 ->
             ok
@@ -492,12 +495,14 @@ blocking_start(_Config) ->
     observer:stop(),
     ensure_observer_stopped(),
     receive
-        {'DOWN', MonitorRef, _, _, _} ->
+        {'DOWN', ObserverRef, _, _, _} ->
             ok
     after
         500 ->
             error(observer_should_have_stopped)
-    end.
+    end,
+    false = erlang:is_process_alive(Pid),
+    ok.
 
 %% Test PR-1296/OTP-14151
 %% Clicking a link to a port before the port tab has been activated the
