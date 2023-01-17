@@ -124,6 +124,11 @@ basic(Config) when is_list(Config) ->
                        [{file,"bad_lc.erl"},{line,7}]}|_]}} =
                 (catch id(bad_generator_bc(a))),
 
+            {'EXIT',{{bad_generator,a},
+                     [{?MODULE,_,_,
+                       [{file,"bad_lc.erl"},{line,10}]}|_]}} =
+                (catch id(bad_generator_mc(a))),
+
             %% List comprehensions with improper lists.
             {'EXIT',{{bad_generator,d},
                      [{?MODULE,_,_,
@@ -273,3 +278,6 @@ bad_generator(List) ->                          %Line 2
 bad_generator_bc(List) ->                       %Line 5
     << <<I:4>> ||                               %Line 6
         I <- List>>.                            %Line 7
+bad_generator_mc(List) ->                       %Line 8
+    #{I => ok ||                                %Line 9
+        I <- List}.                             %Line 10

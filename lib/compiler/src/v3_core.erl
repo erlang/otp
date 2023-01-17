@@ -120,7 +120,8 @@
 -record(itry,      {anno=#a{},args,vars,body,evars,handler}).
 -record(ifilter,   {anno=#a{},arg}).
 -record(igen,      {anno=#a{},acc_pat,acc_guard,
-		    skip_pat,tail,tail_pat,arg}).
+                    skip_pat,tail,tail_pat,arg,
+                    refill={nomatch,ignore}}).
 -record(isimple,   {anno=#a{},term :: cerl:cerl()}).
 
 -type iapply()    :: #iapply{}.
@@ -691,6 +692,9 @@ expr({lc,L,E,Qs0}, St0) ->
     lc_tq(L, E, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
 expr({bc,L,E,Qs}, St) ->
     bc_tq(L, E, Qs, St);
+expr({mc,L,E,Qs0}, St0) ->
+    {Qs1,St1} = preprocess_quals(L, Qs0, St0),
+    mc_tq(L, E, Qs1, #c_literal{anno=lineno_anno(L, St1),val=[]}, St1);
 expr({tuple,L,Es0}, St0) ->
     {Es1,Eps,St1} = safe_list(Es0, St0),
     A = record_anno(L, St1),
@@ -1594,37 +1598,31 @@ fun_tq(Cs0, L, St0, NameInfo) ->
     {Fun,[],St4}.
 
 %% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
-%%  This TQ from Simon PJ pp 127-138.  
+%%  This TQ from Simon PJ pp 127-138.
 
 lc_tq(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
 		      acc_pat=AccPat,acc_guard=AccGuard,
                       skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
+                      refill={RefillPat,RefillAction},
                       arg={Pre,Arg}}|Qs], Mc, St0) ->
     {Name,St1} = new_fun_name("lc", St0),
     LA = lineno_anno(Line, St1),
-    LAnno = #a{anno=LA},
     F = #c_var{anno=LA,name={Name,1}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail]},
     {[FcVar,Var],St2} = new_vars(2, St1),
     Fc = bad_generator([FcVar], FcVar, Arg),
-    SkipClause = #iclause{anno=#a{anno=[skip_clause,compiler_generated|LA]},
-                          pats=[SkipPat],guard=[],body=[Nc]},
-    TailClause = #iclause{anno=LAnno,pats=[TailPat],guard=[],body=[Mc]},
-    {Cs,St4} = case {AccPat,SkipPat} of
-                   {nomatch,nomatch} ->
-                       {[TailClause],St2};
-                   {nomatch,_} ->
-                       {[SkipClause,TailClause],St2};
-                   _ ->
-                       {Lc,Lps,St3} = lc_tq(Line, E, Qs, Nc, St2),
-                       AccClause = #iclause{anno=LAnno,pats=[AccPat],guard=AccGuard,
-                                            body=Lps ++ [Lc]},
-                       {[AccClause,SkipClause,TailClause],St3}
-               end,
+    SkipClause = make_clause([skip_clause,compiler_generated|LA],
+                             SkipPat, [], [], [Nc]),
+    TailClause = make_clause(LA, TailPat, [], [], [Mc]),
+    {Lc,Lps,St3} = lc_tq(Line, E, Qs, Nc, St2),
+    AccClause = make_clause(LA, AccPat, [], AccGuard, Lps ++ [Lc]),
+    RefillClause = make_clause(LA, RefillPat, [], [], [RefillAction,Nc]),
+    Cs0 = [AccClause,SkipClause,TailClause,RefillClause],
+    Cs = [C || C <- Cs0, C =/= nomatch],
     Fun = #ifun{anno=GAnno,id=[],vars=[Var],clauses=Cs,fc=Fc},
     {#iletrec{anno=GAnno#a{anno=[list_comprehension|GA]},defs=[{{Name,1},Fun}],
               body=Pre ++ [#iapply{anno=GAnno,op=F,args=[Arg]}]},
-     [],St4};
+     [],St3};
 lc_tq(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun lc_tq/5);
 lc_tq(Line, E0, [], Mc0, St0) ->
@@ -1659,6 +1657,7 @@ bc_tq(Line, Exp, Qs0, St0) ->
 bc_tq1(Line, E, [#igen{anno=GAnno,
 		       acc_pat=AccPat,acc_guard=AccGuard,
                        skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
+                       refill={RefillPat,RefillAction},
                        arg={Pre,Arg}}|Qs], Mc, St0) ->
     {Name,St1} = new_fun_name("lbc", St0),
     LA = lineno_anno(Line, St1),
@@ -1669,30 +1668,23 @@ bc_tq1(Line, E, [#igen{anno=GAnno,
     F = #c_var{anno=LA,name={Name,2}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail,AccVar]},
     Fc = bad_generator(FcVars, hd(FcVars), Arg),
-    SkipClause = #iclause{anno=#a{anno=[compiler_generated,skip_clause|LA]},
-                          pats=[SkipPat,IgnoreVar],guard=[],body=[Nc]},
-    TailClause = #iclause{anno=LAnno,pats=[TailPat,IgnoreVar],guard=[],
-                          body=[AccVar]},
-    {Cs,St} = case {AccPat,SkipPat} of
-                  {nomatch,nomatch} ->
-                      {[TailClause],St4};
-                  {nomatch,_} ->
-                      {[SkipClause,TailClause],St4};
-                  {_,_} ->
-                      {Bc,Bps,St5} = bc_tq1(Line, E, Qs, AccVar, St4),
-                      Body = Bps ++ [#iset{var=AccVar,arg=Bc},Nc],
-                      AccClause = #iclause{anno=LAnno,pats=[AccPat,IgnoreVar],
-                                           guard=AccGuard,body=Body},
-                      {[AccClause,SkipClause,TailClause],St5}
-              end,
-    Fun = #ifun{anno=LAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
+    SkipClause = make_clause([compiler_generated,skip_clause|LA],
+                             SkipPat, [IgnoreVar], [], [Nc]),
+    TailClause = make_clause(LA, TailPat, [IgnoreVar], [], [AccVar]),
+    {Bc,Bps,St5} = bc_tq1(Line, E, Qs, AccVar, St4),
+    Body = Bps ++ [#iset{var=AccVar,arg=Bc},Nc],
+    AccClause = make_clause(LA, AccPat, [IgnoreVar], AccGuard, Body),
+    RefillClause = make_clause(LA, RefillPat, [AccVar], [], [RefillAction,Nc]),
+    Cs0 = [AccClause,SkipClause,TailClause,RefillClause],
+    Cs = [C || C <- Cs0, C =/= nomatch],
+    Fun = #ifun{anno=GAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
 
     %% Inlining would disable the size calculation optimization for
     %% bs_init_writable.
     {#iletrec{anno=LAnno#a{anno=[list_comprehension,no_inline|LA]},
               defs=[{{Name,2},Fun}],
               body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg,Mc]}]},
-     [],St};
+     [],St5};
 bc_tq1(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun bc_tq1/5);
 bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
@@ -1729,6 +1721,20 @@ bc_tq_build(Line, Pre0, #c_var{name=AccVar}, Elements0, St0) ->
     Anno = Anno0#a{anno=[compiler_generated,single_use|A]},
     {set_anno(E, Anno),Pre0++Pre,St}.
 
+mc_tq(Line, {map_field_assoc,Lf,K,V}, Qs, Mc, St0) ->
+    E = {tuple,Lf,[K,V]},
+    {Lc,Pre0,St1} = lc_tq(Line, E, Qs, Mc, St0),
+    {LcVar,St2} = new_var(St1),
+    Pre = Pre0 ++ [#iset{var=LcVar,arg=Lc}],
+    Call = #icall{module=#c_literal{val=maps},
+                  name=#c_literal{val=from_list},
+                  args=[LcVar]},
+    {Call,Pre,St2}.
+
+make_clause(_Anno, nomatch, _PatExtra, _Guard, _Body) ->
+    nomatch;
+make_clause(Anno, Pat, PatExtra, Guard, Body) ->
+    #iclause{anno=#a{anno=Anno},pats=[Pat|PatExtra],guard=Guard,body=Body}.
 
 %% filter_tq(Line, Expr, Filter, Mc, State, [Qualifier], TqFun) ->
 %%     {Case,[PreExpr],State}.
@@ -1805,6 +1811,7 @@ preprocess_quals(_, [], St, Acc) ->
 
 is_generator({generate,_,_,_}) -> true;
 is_generator({b_generate,_,_,_}) -> true;
+is_generator({m_generate,_,_,_}) -> true;
 is_generator(_) -> false.
 
 %% Retrieve the annotation from an Erlang AST form.
@@ -1813,7 +1820,7 @@ is_generator(_) -> false.
 get_qual_anno(Abstract) -> element(2, Abstract).
 
 %%
-%% Generators are abstracted as sextuplets:
+%% Generators are abstracted as a record #igen{}:
 %%  - acc_pat is the accumulator pattern, e.g. [Pat|Tail] for Pat <- Expr.
 %%  - acc_guard is the list of guards immediately following the current
 %%    generator in the qualifier list input.
@@ -1823,6 +1830,8 @@ get_qual_anno(Abstract) -> element(2, Abstract).
 %%    generator input.
 %%  - tail_pat is the tail pattern, respectively [] and <<_/bitstring>> for list
 %%    and bit string generators.
+%%  - refill is a pair {RefillPat,RefillAction}, used to refill the iterator
+%%    argument (used by map generators).
 %%  - arg is a pair {Pre,Arg} where Pre is the list of expressions to be
 %%    inserted before the comprehension function and Arg is the expression
 %%    that it should be passed.
@@ -1837,22 +1846,13 @@ generator(Line, {generate,Lg,P0,E}, Gs, St0) ->
     {Head,St1} = list_gen_pattern(P0, Line, St0),
     {[Tail,Skip],St2} = new_vars(2, St1),
     {Cg,St3} = lc_guard_tests(Gs, St2),
-    {AccPat,SkipPat} = case Head of
-                           #c_var{} ->
-                               %% If the generator pattern is a variable, the
-                               %% pattern from the accumulator clause can be
-                               %% reused in the skip one. lc_tq and bc_tq1 takes
-                               %% care of dismissing the latter in that case.
-                               Cons = ann_c_cons(LA, Head, Tail),
-                               {Cons,Cons};
-                           nomatch ->
-                               %% If it never matches, there is no need for
-                               %% an accumulator clause.
-                               {nomatch,ann_c_cons(LA, Skip, Tail)};
-                           _ ->
-                               {ann_c_cons(LA, Head, Tail),
-                                ann_c_cons(LA, Skip, Tail)}
-                       end,
+    AccPat = case Head of
+                 nomatch ->
+                     nomatch;
+                 _ ->
+                     ann_c_cons(LA, Head, Tail)
+             end,
+    SkipPat = ann_c_cons(LA, Skip, Tail),
     {Ce,Pre,St4} = safe(E, St3),
     Gen = #igen{anno=#a{anno=GA},
 		acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
@@ -1885,7 +1885,90 @@ generator(Line, {b_generate,Lg,P,E}, Gs, St0) ->
                         tail_pat=#c_var{name='_'},
                         arg={Pre,Ce}},
             {Gen,St1}
-    end.
+    end;
+generator(Line, {m_generate,Lg,{map_field_exact,_,K0,V0},E}, Gs, St0) ->
+    %% Consider this example:
+    %%
+    %%   [{K,V} || K := V <- L].
+    %%
+    %% The following Core Erlang code will be generated:
+    %%
+    %% letrec
+    %%     'lc$^0'/1 =
+    %%         fun (Iter0) ->
+    %%             case Iter0 of
+    %%               <{K,V,NextIter}> when 'true' ->
+    %%                   let <Tail> =
+    %%                       apply 'lc$^0'/1(NextIter)
+    %%                   in [{K,V}|Tail]
+    %%               <{_K,_V,NextIter}> when 'true' ->
+    %%                   %% Skip clause; will be optimized away later
+    %%                   %% since there are no filters.
+    %%                   apply 'lc$^0'/1(NextIter)
+    %%               <'none'> when 'true' ->
+    %%                   []
+    %%               <Iter> when 'true' ->
+    %%                   let NextIter =
+    %%                       call 'erts_internal':'mc_refill'(Iter)
+    %%                   in apply 'lc$^0'/1(NextIter)
+    %%               <Bad> when 'true' ->
+    %%                     %% Generated by lc_tq/5. Never reached;
+    %%                     %% will be optimized away.
+    %%                     call 'erlang':'error'({'bad_generator',Bad})
+    %%             end
+    %% in let <Iter> =
+    %%         case call 'erts_internal':'mc_iterator'(L) of
+    %%           <[]> when 'true' ->
+    %%                 call 'erlang':'error'
+    %%                     ({'bad_generator',L})
+    %%           <Iter0> when 'true' ->
+    %%               Iter0
+    %%         end
+    %%     in apply 'lc$^0'/1(Iter0)
+    LA = lineno_anno(Line, St0),
+    GA = lineno_anno(Lg, St0),
+    {Pat,St1} = list_gen_pattern({cons,Lg,K0,V0}, Line, St0),
+    {[SkipK,SkipV,IterVar,OuterIterVar,_BadGenVar],St2} = new_vars(5, St1),
+    {Cg,St3} = lc_guard_tests(Gs, St2),
+    {Ce,Pre0,St4} = safe(E, St3),
+    AccPat = case Pat of
+                 #c_cons{hd=K,tl=V} ->
+                     #c_tuple{es=[K,V,IterVar]};
+                 nomatch ->
+                     nomatch
+             end,
+    SkipPat = #c_tuple{es=[SkipK,SkipV,IterVar]},
+
+    Refill = {SkipK,
+              #iset{var=IterVar,
+                    arg=#icall{anno=#a{anno=GA},
+                               module=#c_literal{val=erts_internal},
+                               name=#c_literal{val=mc_refill},
+                               args=[SkipK]}}},
+
+    InitIter = #icall{anno=#a{anno=GA},
+                      module=#c_literal{val=erts_internal},
+                      name=#c_literal{val=mc_iterator},
+                      args=[Ce]},
+
+    BadGenerator = bad_generator([#c_literal{val=[]}], Ce,
+                                 #c_literal{val=[],anno=GA}),
+    BeforeFc = #iclause{anno=#a{anno=GA},
+                        pats=[IterVar],
+                        guard=[],
+                        body=[IterVar]},
+    Before = #iset{var=OuterIterVar,
+                   arg=#icase{args=[InitIter],
+                              clauses=[BadGenerator],
+                              fc=BeforeFc}},
+
+    Pre = Pre0 ++ [Before],
+    Gen = #igen{anno=#a{anno=GA},
+		acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
+                tail=IterVar,tail_pat=#c_literal{anno=LA,val=none},
+                refill=Refill,
+                arg={Pre,OuterIterVar}},
+    {Gen,St4}.
 
 append_tail_segment(Segs, St0) ->
     {Var,St} = new_var(St0),

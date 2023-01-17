@@ -675,6 +675,8 @@ cs(Bin) ->
             ok;
         bs_bincomp_no_ssa_opt_SUITE ->
             ok;
+        bs_bincomp_no_copt_SUITE ->
+            ok;
         bs_bincomp_no_copt_ssa_SUITE ->
             ok;
         bs_bincomp_post_opt_SUITE ->
