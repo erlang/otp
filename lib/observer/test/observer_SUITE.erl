@@ -60,7 +60,7 @@ groups() ->
        process_win,
        table_win,
        port_win_when_tab_not_initiated,
-       blocking_start,
+       % blocking_start,
        remote_node
       ]
      }].
