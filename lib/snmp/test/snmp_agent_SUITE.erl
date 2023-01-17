@@ -2898,7 +2898,7 @@ dummy_manager_loop(P,S,MA) ->
 
 %% -ifdef(snmp_log).
 dummy_manager_message_sz(B) when is_binary(B) ->
-    size(B);
+    byte_size(B);
 dummy_manager_message_sz(L) when is_list(L) ->
     length(L);
 dummy_manager_message_sz(_) ->
