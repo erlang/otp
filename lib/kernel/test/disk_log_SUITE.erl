@@ -844,6 +844,7 @@ rotate_1(Conf) when is_list(Conf) ->
     ok = disk_log:blog(Name, B2),
     ok = disk_log:blog(Name, B3),
     ok = disk_log:blog_terms(a, [B4, B5, B6]),
+    timer:sleep(10000),
     case get_list(File ++ ".2.gz", Name, rotate) of
         T2 ->
             ok;

@@ -27,8 +27,8 @@
 	 mf_ext_inc/2, mf_int_chunk/4, mf_int_chunk_step/3,
 	 mf_sync/1, mf_write_cache/1]).
 -export([mf_ext_open/7, mf_ext_log/3, mf_ext_close/2]).
--export([open_rot_log_file/2, update_rotation/1,
-         force_rotate/1, rot_ext_log/2, rot_write_cache/1, rot_ext_close/1,
+-export([open_rot_log_file/2, rotate_file/1,
+         rot_ext_log/2, rot_write_cache/1, rot_ext_close/1,
          change_size_rot/2, get_rot_size/1]).
 
 -export([print_index_file/1]).
@@ -905,9 +905,6 @@ mf_ext_inc(Handle, Head) ->
             {error, Error, Handle}
     end.
 
-force_rotate(Handle) ->
-    rotate_file(Handle).
-
 %% -> {ok, handle(), Logged, Lost, NoWraps} | {ok, handle(), Logged} 
 %%    | {error, Error, handle(), Logged, Lost}
 
@@ -1013,12 +1010,14 @@ open_rot_log_file(FileName, Size) ->
                             file:read_file_info(FileName,[raw]),
                         {MaxB, MaxF} = Size,
                         CurSize = filelib:file_size(FileName),
-                        {ok, #rotate_handle{file = FileName,
-                                            cur_fdc = #cache{fd = Fd},
-                                            maxB = MaxB,
-                                            maxF = MaxF,
-                                            curB = CurSize,
-                                            inode = INode}};
+			RotHandle = #rotate_handle{file = FileName,
+						   cur_fdc = #cache{fd = Fd},
+						   maxB = MaxB,
+						   maxF = MaxF,
+						   curB = CurSize,
+						   inode = INode},
+			update_rotation(RotHandle),
+			{ok, RotHandle};
                     Error ->
                         Error
                 end;
@@ -1029,12 +1028,9 @@ open_rot_log_file(FileName, Size) ->
         _:Reason -> {error,Reason}
     end.
 
-update_rotation(#rotate_handle{file = FName, maxF = MaxF} = RotHandle) ->
+update_rotation(#rotate_handle{file = FName, maxF = MaxF}) ->
     maybe_remove_archives(MaxF, FName),
-    {ok,#file_info{size=CurrSize}} = file:read_file_info(FName, [raw]),
-    RotHandle1 = RotHandle#rotate_handle{curB = CurrSize},
-    maybe_update_compress(0, MaxF,FName),
-    maybe_rotate_file(0, RotHandle1).
+    maybe_update_compress(0, MaxF,FName).
 
 maybe_remove_archives(Count, FName) ->
     Archive = rot_file_name(FName, Count),
@@ -1056,25 +1052,11 @@ maybe_update_compress(N, MaxF, FName) ->
         _ ->
             ok
     end,
-    maybe_update_compress(N+1, MaxF, FName).
-
-maybe_rotate_file(Bin, #rotate_handle{} = RotHandle) when is_binary(Bin) ->
-    maybe_rotate_file(byte_size(Bin), RotHandle);
-maybe_rotate_file(AddSize, #rotate_handle{maxB = MaxB,
-                                          curB = CurrSize} = RotHandle) ->
-    NewSize = CurrSize + AddSize,
-    if NewSize > MaxB ->
-        rotate_file(RotHandle#rotate_handle{curB = NewSize});
-        true ->
-            RotHandle#rotate_handle{curB = NewSize}
-    end;
-maybe_rotate_file(_Bin, RotHandle) ->   %% Ask: is this case required?
-    RotHandle.
+    maybe_update_compress(N+1, MaxF, FName).    
 
 rotate_file(#rotate_handle{file = FName, maxF = MaxF, cur_fdc = FdC} = RotHandle) ->
-    %State1 = sync_dev(State),
     #cache{fd = Fd, c = C} = FdC,
-    {ok, C1} = write_cache(Fd, FName, C),
+    {_, C1} = write_cache(Fd, FName, C),
     _ = delayed_write_close(Fd),
     rotate_files(FName, MaxF),
     {ok, NewFd} = ensure_open(FName),
@@ -1094,11 +1076,11 @@ rotate_files(FileName, 1) ->
     end,
     ok;
 rotate_files(FileName, Count) ->
-    file:rename(rot_file_name(FileName, Count-2), rot_file_name(FileName, Count-1)),
+    _ = file:rename(rot_file_name(FileName, Count-2), rot_file_name(FileName, Count-1)),
     rotate_files(FileName, Count-1).
 
 rot_file_name(FileName, Count) ->
-    FileName ++ "." ++ integer_to_list(Count) ++ ".gz".
+    concat([FileName, ".", Count, ".gz"]).
 
 compress_file(FileName) ->
     {ok,In} = file:open(FileName,[read,binary]),
@@ -1146,7 +1128,7 @@ rot_ext_log(Handle, Bins, N0) ->
                                             curB = CurB + NoBytes},
 		    rot_ext_log(Handle1, LastBins, N0 + N);
 		{Error, NewCurFdC} ->
-		    Handle1 = Handle#handle{cur_fdc = NewCurFdC},
+		    Handle1 = Handle#rotate_handle{cur_fdc = NewCurFdC},
 		    {error, Error, Handle1}
 	    end
     end.
@@ -1603,7 +1585,7 @@ remove_files(Type, FName, N, Max, Reply) ->
     FileName =
         case Type of
             wrap -> add_ext(FName, N);
-            rotate -> add_ext_gz(FName, N)
+            rotate -> rot_file_name(FName, N)
         end,
     NewReply = case file:delete(FileName) of
 		   ok -> Reply;
@@ -1627,9 +1609,6 @@ get_size(MaxB, MaxF) ->
 
 add_ext(Name, Ext) ->
     concat([Name, ".", Ext]).
-
-add_ext_gz(Name, Ext) ->
-    concat([Name, ".", Ext, ".gz"]).
 
 open_read(FileName) ->
     file:open(FileName, [raw, binary, read]).
@@ -1801,6 +1780,7 @@ write_cache_close(Fd, FileName, C) ->
     end.
 
 -spec file_error(file:filename(), {'error', file:posix()}) -> no_return().
+
 
 file_error(FileName, {error, Error}) ->
     throw({error, {file_error, FileName, Error}}).

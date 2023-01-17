@@ -153,7 +153,7 @@
          inode,
          file_check,
          maxB :: pos_integer(),
-         maxF :: pos_integer(),
+         maxF :: pos_integer() | {pos_integer(),pos_integer()},
 	 curB = 0 :: non_neg_integer(),
          compress_on_rotate = true}
         ).

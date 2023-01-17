@@ -30,9 +30,7 @@
 	 change_notify/3, change_header/2, 
 	 chunk/2, chunk/3, bchunk/2, bchunk/3, chunk_step/3, chunk_info/1,
 	 block/1, block/2, unblock/1, info/1, format_error/1,
-	 accessible_logs/0, all/0]).
-
--export([inc_rot_file/1]).
+	 accessible_logs/0, all/0, inc_rot_file/1]).
 
 %% Internal exports
 -export([init/2, internal_open/2,
@@ -893,14 +891,9 @@ handle({From, inc_wrap_file}=Message, S) ->
 	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
         #log{type = rotate}=L ->
-            case catch do_inc_rot_file(L) of
-                {ok, L2} ->
-                    put(log, L2),
-                    reply(From, ok, S);
-                {error, Error, L2} ->
-                    put(log, L2),
-                    reply(From, Error, state_err(S, Error))
-            end;
+            {ok, L2} = do_inc_rot_file(L),
+	    put(log, L2),
+	    reply(From, ok, S);
 	#log{status = ok}=L ->
 	    case catch do_inc_wrap_file(L) of
 		{ok, L2, Lost} ->
@@ -930,7 +923,7 @@ handle({From, {reopen, NewFile, Head, F, A}}, S) ->
 	    case catch close_disk_log2(L) of
 		closed ->
 		    File = L#log.filename,
-		    case catch rename_file(File, NewFile, L#log.type) of
+		    case catch rename_file(File, NewFile, L#log.type, L#log.extra) of
 			ok ->
 			    H = merge_head(Head, L#log.head),
 			    case do_open((S#state.args)#arg{name = L#log.name,
@@ -966,10 +959,6 @@ handle({Server, {internal_open, A}}, S) ->
     case get(log) of
 	undefined ->
 	    case do_open(A) of % does the put
-                {ok, Res, L} ->
-                    put(log, opening_pid(A#arg.linkto, A#arg.notify, L)),
-                    S1 = S#state{args=A},
-                    reply(Server, Res, S1);
 		{ok, Res, L, Cnt} ->
 		    put(log, opening_pid(A#arg.linkto, A#arg.notify, L)),
                     #arg{size = Size, old_size = OldSize} = A,
@@ -1257,17 +1246,25 @@ is_owner(Pid, L) ->
     end.
 
 %% ok | throw(Error)
-rename_file(File, NewFile, halt) ->
+rename_file(File, NewFile, halt, _Extra) ->
     case file:rename(File, NewFile) of
         ok ->
             ok;
         Else ->
             file_error(NewFile, Else)
     end;
-rename_file(File, NewFile, wrap) ->
-    rename_file(wrap_file_extensions(File), File, NewFile, ok).
+rename_file(File, NewFile, wrap, _Extra) ->
+    rename_file_1(wrap_file_extensions(File), File, NewFile, ok);
+rename_file(File, NewFile, rotate, Handle) ->
+    {_MaxB, MaxF} = disk_log_1:get_rot_size(Handle),
+    case file:rename(File, NewFile) of
+        ok ->
+            rename_file_1(rot_file_extensions(File, MaxF - 1), File, NewFile, ok);
+        Else ->
+            file_error(NewFile, Else)
+    end.
 
-rename_file([Ext|Exts], File, NewFile0, Res) ->
+rename_file_1([Ext|Exts], File, NewFile0, Res) ->
     NewFile = add_ext(NewFile0, Ext),
     NRes = case file:rename(add_ext(File, Ext), NewFile) of
 	       ok ->
@@ -1275,8 +1272,8 @@ rename_file([Ext|Exts], File, NewFile0, Res) ->
 	       Else ->
 		   file_error(NewFile, Else)
 	   end,
-    rename_file(Exts, File, NewFile0, NRes);
-rename_file([], _File, _NewFiles, Res) -> Res.
+    rename_file_1(Exts, File, NewFile0, NRes);
+rename_file_1([], _File, _NewFiles, Res) -> Res.
 
 file_error(FileName, {error, Error}) ->
     {error, {file_error, FileName, Error}}.
@@ -1331,8 +1328,7 @@ do_open(#arg{type = rotate} = A) ->
             L = #log{name = Name, type = Type, format = Format,
                      filename = FName, size = Size, mode = Mode,
                      extra = RotHandle, format_type = rotate_ext},
-                _UpdatedL = disk_log_1:update_rotation(RotHandle),
-            {ok, {ok, Name}, L};
+            {ok, {ok, Name}, L, 0};
         Error ->
             Error
     end;
@@ -1431,15 +1427,12 @@ check_head({head, Term}, internal) ->
 check_head(_Head, _Format) ->
     {error, {badarg, head}}.
 
-check_size(wrap, {NewMaxB,NewMaxF}) when
-  is_integer(NewMaxB), is_integer(NewMaxF),
-  NewMaxB > 0, NewMaxB =< ?MAX_BYTES, NewMaxF > 0, NewMaxF < ?MAX_FILES ->
-    ok;
 check_size(halt, NewSize) when is_integer(NewSize), NewSize > 0 ->
     ok;
 check_size(halt, infinity) ->
     ok;
-check_size(rotate, {NewMaxB,NewMaxF}) when
+check_size(Type, {NewMaxB,NewMaxF}) when
+    (Type =:= wrap orelse Type =:= rotate) andalso
     is_integer(NewMaxB), is_integer(NewMaxF),
     NewMaxB > 0, NewMaxB =< ?MAX_BYTES, NewMaxF > 0, NewMaxF < ?MAX_FILES ->
     ok;
@@ -1450,7 +1443,7 @@ check_size(_, _) ->
 %% Increment a wrap log.
 %%-----------------------------------------------------------------
 %% -> {ok, log(), Lost} | {error, Error, log()}
-do_inc_wrap_file(#log{type = wrap} = L) ->
+do_inc_wrap_file(L) ->
     #log{format = Format, extra = Handle} = L,
     case Format of
 	internal ->
@@ -1469,18 +1462,10 @@ do_inc_wrap_file(#log{type = wrap} = L) ->
 	    end
     end.
 
-%% -> {ok, log()} | {error, Error, log()}
-do_inc_rot_file(#log{type = rotate} = L) ->
-    #log{extra = Handle} = L,
-    Handle2 = disk_log_1:force_rotate(Handle),
+%% -> {ok, log()}
+do_inc_rot_file(#log{extra = Handle} = L) ->
+    Handle2 = disk_log_1:rotate_file(Handle),
     {ok, L#log{extra = Handle2}}.
-%%    case disk_log_1:force_rotate(Handle) of   %% error handling here
-%%        #rotate_handle{} = Handle2 ->
-%%            {ok, L#log{extra = Handle2}};
-%%        {error, Error, Handle2} ->
-%%            {error, Error, L#log{extra = Handle2}}
-%%    end.
-
 
 %%-----------------------------------------------------------------
 %% Open a log file.
@@ -1980,7 +1965,7 @@ merge_head(Head, _) ->
     Head.
 
 %% -> List of extensions of existing files (no dot included) | throw(FileError)
-wrap_file_extensions(File) -> 
+wrap_file_extensions(File) ->
     {_CurF, _CurFSz, _TotSz, NoOfFiles} =
 	disk_log_1:read_index_file(File),
     Fs = if 
@@ -1998,6 +1983,18 @@ wrap_file_extensions(File) ->
 		  end
 	  end,
     lists:filter(Fun, ["idx", "siz" | Fs]).
+
+rot_file_extensions(File, MaxF) ->
+    rot_file_extensions(File, MaxF, 0, []).
+
+rot_file_extensions(_File, MaxF, MaxF, Res) ->
+    Res;
+rot_file_extensions(File, MaxF, N, Res) ->
+    Ext = integer_to_list(N) ++ ".gz", 
+    case file:read_file_info(add_ext(File, Ext)) of
+        {ok, _} -> rot_file_extensions(File, MaxF, N+1, [Ext|Res]);
+	_ -> rot_file_extensions(File, MaxF, N+1, Res)
+    end.
 
 add_ext(File, Ext) ->
     lists:concat([File, ".", Ext]).
