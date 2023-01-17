@@ -113,6 +113,22 @@
 
 </section>
 
+  <section><title>SNMP 5.12.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Single threaded agent crash when vacm table not properly
+	    initiated.</p>
+          <p>
+	    Own Id: OTP-18379 Aux Id: ERIERL-904 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
   <section><title>SNMP 5.12.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
