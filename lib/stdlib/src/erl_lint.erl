@@ -2348,6 +2348,8 @@ expr({lc,_Anno,E,Qs}, Vt, St) ->
     handle_comprehension(E, Qs, Vt, St);
 expr({bc,_Anno,E,Qs}, Vt, St) ->
     handle_comprehension(E, Qs, Vt, St);
+expr({mc,_Anno,E,Qs}, Vt, St) ->
+    handle_comprehension(E, Qs, Vt, St);
 expr({tuple,_Anno,Es}, Vt, St) ->
     expr_list(Es, Vt, St);
 expr({map,_Anno,Es}, Vt, St) ->
@@ -3544,7 +3546,7 @@ icrt_export([], _, _, _, Acc) ->
 
 handle_comprehension(E, Qs, Vt0, St0) ->
     {Vt1, Uvt, St1} = lc_quals(Qs, Vt0, St0),
-    {Evt,St2} = expr(E, Vt1, St1),
+    {Evt,St2} = comprehension_expr(E, Vt1, St1),
     Vt2 = vtupdate(Evt, Vt1),
     %% Shadowed global variables.
     {_,St3} = check_old_unused_vars(Vt2, Uvt, St2),
@@ -3560,6 +3562,11 @@ handle_comprehension(E, Qs, Vt0, St0) ->
     %% icrt_export/4.
     Vt = vt_no_unsafe(vt_no_unused(Vt4)),
     {Vt, St}.
+
+comprehension_expr({map_field_assoc,_,K,V}, Vt0, St0) ->
+    expr_list([K,V], Vt0, St0);
+comprehension_expr(E, Vt, St) ->
+    expr(E, Vt, St).
 
 %% lc_quals(Qualifiers, ImportVarTable, State) ->
 %%      {VarTable,ShadowedVarTable,State}
@@ -3584,6 +3591,9 @@ lc_quals([{b_generate,_Anno,P,E} | Qs], Vt0, Uvt0, St0) ->
     St1 = handle_bitstring_gen_pat(P,St0),
     {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St1),
     lc_quals(Qs, Vt, Uvt, St);
+lc_quals([{m_generate,_Anno,P,E} | Qs], Vt0, Uvt0, St0) ->
+    {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St0),
+    lc_quals(Qs, Vt, Uvt, St);
 lc_quals([F|Qs], Vt, Uvt, St0) ->
     Info = is_guard_test2_info(St0),
     {Fvt,St1} = case is_guard_test2(F, Info) of
@@ -3605,7 +3615,7 @@ handle_generator(P,E,Vt,Uvt,St0) ->
     %% Forget variables local to E immediately.
     Vt1 = vtupdate(vtold(Evt, Vt), Vt),
     {_, St2} = check_unused_vars(Evt, Vt, St1),
-    {Pvt,Pnew,St3} = pattern(P, Vt1, [], St2),
+    {Pvt,Pnew,St3} = comprehension_pattern(P, Vt1, St2),
     %% Have to keep fresh variables separated from used variables somehow
     %% in order to handle for example X = foo(), [X || <<X:X>> <- bar()].
     %%                                1           2      2 1
@@ -3616,6 +3626,11 @@ handle_generator(P,E,Vt,Uvt,St0) ->
     NUvt = vtupdate(vtnew(Svt, Uvt), Uvt),
     Vt3 = vtupdate(vtsubtract(Vt2, Pnew), Pnew),
     {Vt3,NUvt,St5}.
+
+comprehension_pattern({map_field_exact,_,K,V}, Vt, St) ->
+    pattern_list([K,V], Vt, [], St);
+comprehension_pattern(P, Vt, St) ->
+    pattern(P, Vt, [], St).
 
 handle_bitstring_gen_pat({bin,_,Segments=[_|_]},St) ->
     case lists:last(Segments) of
