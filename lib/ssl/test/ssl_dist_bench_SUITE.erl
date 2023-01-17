@@ -48,7 +48,8 @@
     throughput_1048576/1]).
 
 %% Debug
--export([payload/1, roundtrip_runner/3, setup_runner/3, throughput_runner/4]).
+-export([payload/1, roundtrip_runner/3, setup_runner/3, throughput_runner/4,
+        mem/0]).
 
 %%%-------------------------------------------------------------------
 
@@ -580,12 +581,11 @@ parallel_setup_result(
   Config, TotalRounds, ServerHandle, ServerMemBefore, [Tag | Tags],
   SetupTime, CycleTime, Mem) ->
     receive
-        {Tag, {{_, _, MaxEver1}, {ST, CT}, {_, _, MaxEver2}}}
-          when is_integer(ST), is_integer(CT),
-               is_integer(MaxEver1), is_integer(MaxEver2) ->
+        {Tag, {Mem1, {ST, CT}, Mem2}}
+          when is_integer(ST), is_integer(CT) ->
             parallel_setup_result(
               Config, TotalRounds, ServerHandle, ServerMemBefore, Tags,
-              SetupTime + ST, CycleTime + CT, Mem + MaxEver2 - MaxEver1);
+              SetupTime + ST, CycleTime + CT, Mem + mem_diff(Mem1, Mem2));
         {Tag, Error} ->
             exit(Error)
     end;
@@ -594,14 +594,7 @@ parallel_setup_result(
   SetupTime, CycleTime, Mem) ->
     ServerMemAfter =
         ssl_apply(ServerHandle, fun mem/0),
-    ServerMem =
-        case {ServerMemBefore, ServerMemAfter} of
-            {{_, _, ServerMaxEver1}, {_, _, ServerMaxEver2}}
-              when is_integer(ServerMaxEver1), is_integer(ServerMaxEver2) ->
-                ServerMaxEver2 - ServerMaxEver1;
-            Other ->
-                exit(Other)
-        end,
+    ServerMem = mem_diff(ServerMemBefore, ServerMemAfter),
     Clients = proplists:get_value(clients, Config),
     Prefix = proplists:get_value(ssl_dist_prefix, Config),
     SetupSpeed = 1000 * round(TotalRounds / (SetupTime/1000000)),
@@ -1401,58 +1394,96 @@ msacc_available() ->
 
 
 mem_start(HA, HB) ->
-    {_, _, MaxEverA} = ssl_apply(HA, fun mem/0),
-    {_, _, MaxEverB} = ssl_apply(HB, fun mem/0),
-    {MaxEverA, MaxEverB}.
+    MemA = ssl_apply(HA, fun mem/0),
+    MemB = ssl_apply(HB, fun mem/0),
+    {MemA, MemB}.
 
-mem_stop(HA, HB, {MaxEverA1, MaxEverB1}) ->
-    {_, _, MaxEverA2} = ssl_apply(HA, fun mem/0),
-    {_, _, MaxEverB2} = ssl_apply(HB, fun mem/0),
-    MemA = MaxEverA2 - MaxEverA1,
-    MemB = MaxEverB2 - MaxEverB1,
+mem_stop(HA, HB, {MemA1, MemB1}) ->
+    MemA2 = ssl_apply(HA, fun mem/0),
+    MemB2 = ssl_apply(HB, fun mem/0),
+    MemA = mem_diff(MemA1, MemA2),
+    MemB = mem_diff(MemB1, MemB2),
     mem_result(MemA, MemB).
 
-mem_result(MemA, MemB) ->
+mem_diff(
+  {_Current1, _MaxSince1, MaxEver1},
+  {_Current2, _MaxSince2, MaxEver2}) ->
+    MaxEver2 - MaxEver1.
+
+mem_result(MemDiffA, MemDiffB) ->
     MemSuffix =
         io_lib:format(
-          "~.5g|~.5g MByte", [MemA / (1 bsl 20), MemB / (1 bsl 20)]),
-    {round(MemA / (1 bsl 10)), round(MemB / (1 bsl 10)), MemSuffix}.
+          "~.5g|~.5g MByte", [MemDiffA / (1 bsl 20), MemDiffB / (1 bsl 20)]),
+    {round(MemDiffA / (1 bsl 10)), round(MemDiffB / (1 bsl 10)), MemSuffix}.
 
 mem() ->
-    mem(
-      0, 0, 0,
-      [erlang:system_info({allocator_sizes, Alloc})
-       || Alloc <- erlang:system_info(alloc_util_allocators)]).
+    Code = erlang:memory(code),  % Kind of assuming code stays allocated
+    {Current, MaxSince, MaxEver} =
+        traverse(
+          fun mem/3,
+          [erlang:system_info({allocator_sizes, Alloc})
+           || Alloc <- erlang:system_info(alloc_util_allocators)],
+          {0, 0, 0}),
+    {Current - Code, MaxSince - Code, MaxEver - Code}.
 
-mem(C, S, E, []) ->
-    {C, S, E};
-mem(C, S, E, [Items | Stack]) ->
+%% allocator_sizes traversal fun
+mem(
+  T = {instance, _, L}, [], Acc)
+  when is_list(L) ->
+    {tuple_size(T), Acc};
+mem(
+  T = {_, L}, [{instance, _, _}], Acc)
+  when is_list(L) ->
+    {tuple_size(T), Acc};
+mem(
+  T = {blocks, L}, [{_, _}, {instance, _, _}], Acc)
+  when is_list(L) ->
+    {tuple_size(T), Acc};
+mem(
+  T = {_, L}, [{blocks, _}, {_, _}, {instance, _, _}], Acc)
+  when is_list(L) ->
+    {tuple_size(T), Acc};
+mem(
+  {size, Current, MaxSince, MaxEver},
+  [{_, _}, {blocks, _}, {_, _}, {instance, _, _}],
+  {C, S, E}) ->
+    {0, {C + Current, S + MaxSince, E + MaxEver}};
+mem(
+  {size, Current},
+  [{_, _}, {blocks, _}, {_, _}, {instance, _, _}],
+  {C, S, E}) ->
+    %% Use Current as Max since we do not have any Max values
+    %% XXX future improvement when that gets added to
+    %% erlang:system_info(allocator_sizes, _)
+    {0, {C + Current, S + Current, E + Current}};
+mem(_, _, Acc) ->
+    {0, Acc}.
+
+%% Traverse (Fold) over all lists in a deep term;
+%% descend into the selected element of a tuple;
+%% record the descent Path and supply it to Fun
+%%
+%% Acc cannot be an integer
+traverse(Fun, Term, Acc) ->
+    traverse(Fun, Term, [], Acc).
+%%
+traverse(Fun, Term, Path, Acc) ->
     if
-        is_list(Items) ->
-            mem(C, S, E, Stack, Items);
-        true ->
-            mem(C, S, E, Stack)
-    end.
-
-mem(C, S, E, Stack, []) ->
-    mem(C, S, E, Stack);
-mem(C, S, E, Stack, [Item | Items]) ->
-    mem(C, S, E, Stack, Items, Item).
-
-mem(C, S, E, Stack, Items, Item) ->
-    case Item of
-        {size, Current} ->
-            mem(C + Current, S, E, Stack, Items);
-        {size, Current, MaxSize, MaxEver} ->
-            mem(C + Current, S + MaxSize, E + MaxEver, Stack, Items);
-        _ when 2 =< tuple_size(Item) ->
-            NewItems = element(tuple_size(Item), Item),
-            if
-                is_list(NewItems) ->
-                    mem(C, S, E, [Items | Stack], NewItems);
-                true ->
-                    mem(C, S, E, Stack, Items)
+        is_list(Term) ->
+            traverse_list(Fun, Term, Path, Acc);
+        is_tuple(Term) ->
+            case Fun(Term, Path, Acc) of
+                {0, NewAcc} ->
+                    NewAcc;
+                {N, NewAcc} when is_integer(N) ->
+                    traverse(Fun, element(N, Term), [Term | Path], NewAcc)
             end;
-        _ ->
-            mem(C, S, E, Stack, Items)
+        true ->
+            Acc
     end.
+
+traverse_list(Fun, [Term | Terms], Path, Acc) ->
+    NewAcc = traverse(Fun, Term, Path, Acc),
+    traverse_list(Fun, Terms, Path, NewAcc);
+traverse_list(_Fun, [], _Path, Acc) ->
+    Acc.
