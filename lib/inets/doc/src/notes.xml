@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 8.2</title>
+  <section><title>Inets 8.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    fixes a missing case of the type specification for
+	    httpd:info/2/3/4</p>
+          <p>
+	    Own Id: OTP-18362 Aux Id: GH-6558, ERIERL-895 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.2</title>
 
     <section><title>Improvements and New Features</title>
       <list>

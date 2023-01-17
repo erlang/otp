@@ -31,6 +31,31 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 8.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The tcp connect option 'bind_to_device' could not be used
+	    with inet_backend = 'socket'. 'inet' requires value type
+	    binarry() and 'socket' requires value type 'string()'.</p>
+          <p>
+	    Own Id: OTP-18357 Aux Id: #6509 </p>
+        </item>
+        <item>
+          <p>
+	    Minor issue processing options when calling
+	    gen_tcp:connect with a sockaddr() and inet_backend =
+	    socket.</p>
+          <p>
+	    Own Id: OTP-18358 Aux Id: #6528 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
