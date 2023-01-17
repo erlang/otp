@@ -3741,7 +3741,7 @@ static ESockIoBackend io_backend = {0};
 /* This, the test for NULL), is temporary until we have a win stub */
 #define ESOCK_IO_INIT(NUMT)                                     \
     ((io_backend.init != NULL) ?                                \
-     io_backend.init((NUMT)) : ESOCK_IO_ERR_UNSUPPORTED)
+     io_backend.init((NUMT), &data) : ESOCK_IO_ERR_UNSUPPORTED)
 #define ESOCK_IO_FIN()                                          \
     ((io_backend.finish != NULL) ?                              \
      io_backend.finish() : ESOCK_IO_ERR_UNSUPPORTED)

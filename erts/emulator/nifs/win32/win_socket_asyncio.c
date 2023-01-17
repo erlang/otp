@@ -101,6 +101,7 @@ typedef struct {
 
     /* Misc stuff */
     BOOLEAN_T dbg;
+    BOOLEAN_T sockDbg;
 
 } ESAIOControl;
 
@@ -132,12 +133,17 @@ static ESAIOControl ctrl = {0};
  *                                                                     *
  * =================================================================== */
 
-/* This function is called during (esock) nif loading */
+/* This function is called during (esock) nif loading
+ * The only argument that we actually *need* is the 'numThreads'.
+ * 'dataP' is just for convenience (dbg and stuff).
+ */
 extern
-int esaio_init(unsigned int numThreads)
+int esaio_init(unsigned int     numThreads,
+               const ESockData* dataP)
 {
     ctrl.numThreads = (DWORD) numThreads;
-    ctrl.dbg        = TRUE;
+    ctrl.dbg        = dataP->dbg;
+    ctrl.sockDbg    = dataP->sockDbg;
 
     SGDBG( ("UNIX-ESAIO", "esaio_init -> entry\r\n") );
 

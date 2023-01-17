@@ -376,9 +376,11 @@ static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
  * this is just a dummy function.
  */
 extern
-int essio_init(unsigned int numThreads)
+int essio_init(unsigned int     numThreads,
+               const ESockData* dataP)
 {
     VOID(numThreads);
+    VOIDP(dataP);
 
     return ESOCK_IO_OK;
 }

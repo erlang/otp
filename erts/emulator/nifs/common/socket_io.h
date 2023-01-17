@@ -33,7 +33,8 @@
 #define ESOCK_IO_OK               0
 #define ESOCK_IO_ERR_UNSUPPORTED -1
 
-typedef int (*ESockIOInit)(unsigned int numThreads);
+typedef int (*ESockIOInit)(unsigned int     numThreads,
+                           const ESockData* dataP);
 
 typedef void (*ESockIOFinish)(void);
 

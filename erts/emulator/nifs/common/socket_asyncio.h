@@ -30,7 +30,8 @@
 
 #include "socket_io.h"
 
-extern int  esaio_init(unsigned int numThreads);
+extern int  esaio_init(unsigned int     numThreads,
+                       const ESockData* dataP);
 extern void esaio_finish(void);
 
 /*
