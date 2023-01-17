@@ -98,6 +98,17 @@
 debug(false, _) -> ok;
 debug(_, T)     -> erlang:display(T).
 
+debug(false, _, Fun) ->
+    Fun();
+debug(_, T, Fun) ->
+    erlang:display(T),
+    T1 = erlang:monotonic_time(),
+    Val = Fun(),
+    T2 = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(T2 - T1, native, microsecond),
+    erlang:display({'done_in_μs', Time}),
+    Val.
+
 -spec get_configfd(integer()) -> none | term().
 get_configfd(ConfigFdId) ->
     request({get_configfd, ConfigFdId}).
@@ -1013,10 +1024,13 @@ eval_script([{preLoaded,_}|T], #es{}=Es) ->
     eval_script(T, Es);
 eval_script([{path,Path}|T], #es{path=false,pa=Pa,pz=Pz,
 				 path_choice=PathChoice,
-				 vars=Vars}=Es) ->
-    RealPath0 = make_path(Pa, Pz, Path, Vars),
-    RealPath = patch_path(RealPath0, PathChoice),
-    erl_prim_loader:set_path(RealPath),
+				 vars=Vars,debug=Deb}=Es) ->
+    debug(Deb, {path,Path},
+          fun() ->
+                  RealPath0 = make_path(Pa, Pz, Path, Vars),
+                  RealPath = patch_path(RealPath0, PathChoice),
+                  erl_prim_loader:set_path(RealPath)
+          end),
     eval_script(T, Es);
 eval_script([{path,_}|T], #es{}=Es) ->
     %% Ignore, use the command line -path flag.
@@ -1039,12 +1053,10 @@ eval_script([{primLoad,Mods}|T], #es{init=Init,prim_load=PrimLoad}=Es)
     eval_script(T, Es);
 eval_script([{kernelProcess,Server,{Mod,Fun,Args}}|T],
 	    #es{init=Init,debug=Deb}=Es) ->
-    debug(Deb, {start,Server}),
-    start_in_kernel(Server, Mod, Fun, Args, Init),
+    debug(Deb, {start,Server}, fun() -> start_in_kernel(Server, Mod, Fun, Args, Init) end),
     eval_script(T, Es);
 eval_script([{apply,{Mod,Fun,Args}}=Apply|T], #es{debug=Deb}=Es) ->
-    debug(Deb, Apply),
-    apply(Mod, Fun, Args),
+    debug(Deb, Apply, fun() -> apply(Mod, Fun, Args) end),
     eval_script(T, Es);
 eval_script([], #es{}) ->
     ok;
@@ -1536,28 +1548,31 @@ on_load_loop(Mods, Debug0) ->
     end.
 
 run_on_load_handlers([M|Ms], Debug) ->
-    debug(Debug, {running_on_load_handler,M}),
-    Fun = fun() ->
-		  Res = erlang:call_on_load_function(M),
-		  exit(Res)
-	  end,
-    {Pid,Ref} = spawn_monitor(Fun),
-    receive
-	{'DOWN',Ref,process,Pid,OnLoadRes} ->
-	    Keep = OnLoadRes =:= ok,
-	    erlang:finish_after_on_load(M, Keep),
-	    case Keep of
-		false ->
-		    Error = {on_load_function_failed,M,OnLoadRes},
-		    debug(Debug, Error),
-		    exit(Error);
-		true ->
-		    debug(Debug, {on_load_handler_returned_ok,M}),
-		    run_on_load_handlers(Ms, Debug)
-	    end
-    end;
+    debug(Debug,
+          {running_on_load_handler,M},
+          fun() -> run_on_load_handler(M, Debug) end),
+    run_on_load_handlers(Ms, Debug);
 run_on_load_handlers([], _) -> ok.
 
+run_on_load_handler(M, Debug) ->
+    Fun = fun() ->
+                  Res = erlang:call_on_load_function(M),
+                  exit(Res)
+          end,
+    {Pid,Ref} = spawn_monitor(Fun),
+    receive
+        {'DOWN',Ref,process,Pid,OnLoadRes} ->
+            Keep = OnLoadRes =:= ok,
+            erlang:finish_after_on_load(M, Keep),
+            case Keep of
+                false ->
+                    Error = {on_load_function_failed,M,OnLoadRes},
+                    debug(Debug, Error),
+                    exit(Error);
+                true ->
+                    debug(Debug, {on_load_handler_returned_ok,M})
+            end
+    end.
 
 %% debug profile (light variant of eprof)
 debug_profile_start() ->
