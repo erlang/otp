@@ -1015,6 +1015,7 @@ public abstract class AbstractConnection extends Thread {
             sendStatus("ok");
             final int our_challenge = genChallenge();
             sendChallenge(peer.flags, localNode.flags, our_challenge);
+            recvComplement(send_name_tag);
             final int her_challenge = recvChallengeReply(our_challenge);
             final byte[] our_digest = genDigest(her_challenge,
                     localNode.cookie());
@@ -1227,11 +1228,26 @@ public abstract class AbstractConnection extends Thread {
             final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
             byte[] tmpname;
             final int len = tmpbuf.length;
+            long flag_mask;
+
             send_name_tag = ibuf.read1();
             switch (send_name_tag) {
+            case 'n':
+                if (ibuf.read2BE() != 5)
+                    throw new IOException("Invalid handshake version");
+                apeer.flags = ibuf.read4BE();
+                flag_mask = (1L << 32) - 1;
+                if ((apeer.flags & AbstractNode.dFlagHandshake23) == 0)
+                    throw new IOException("Missing DFLAG_HANDSHAKE_23");
+                apeer.distLow = apeer.distHigh = 6;
+                tmpname = new byte[len - 7];
+                ibuf.readN(tmpname);
+                hisname = OtpErlangString.newString(tmpname);
+                break;
             case 'N':
                 apeer.distLow = apeer.distHigh = 6;
                 apeer.flags = ibuf.read8BE();
+                flag_mask = ~0L;
                 if ((apeer.flags & AbstractNode.dFlagMandatory25Digest) != 0) {
                     apeer.flags |= AbstractNode.mandatoryFlags25;
                 }
@@ -1247,7 +1263,7 @@ public abstract class AbstractConnection extends Thread {
                 throw new IOException("Unknown remote node type");
             }
 
-            if ((apeer.flags & AbstractNode.mandatoryFlags) != AbstractNode.mandatoryFlags) {
+            if ((~apeer.flags & flag_mask & AbstractNode.mandatoryFlags) != 0) {
                 throw new IOException(
                         "Handshake failed - peer cannot handle all mandatory capabilities");
             }
@@ -1316,6 +1332,29 @@ public abstract class AbstractConnection extends Thread {
         }
 
         return challenge;
+    }
+
+    protected void recvComplement(int send_name_tag) throws IOException {
+
+        if (send_name_tag == 'n') {
+            try {
+                final byte[] tmpbuf = read2BytePackage();
+                @SuppressWarnings("resource")
+                final OtpInputStream ibuf = new OtpInputStream(tmpbuf, 0);
+                if (ibuf.read1() != 'c')
+                    throw new IOException("Not a complement tag");
+
+                final long flagsHigh = ibuf.read4BE();
+                peer.flags |= flagsHigh << 32;
+                if ((~peer.flags & AbstractNode.mandatoryFlags) != 0) {
+                    throw new IOException("Handshake failed - peer missing" +
+                                          " mandatory capabilities");
+                }
+                peer.setCreation(ibuf.read4BE());
+            } catch (final OtpErlangDecodeException e) {
+                throw new IOException("Handshake failed - not enough data");
+            }
+        }
     }
 
     protected void sendChallengeReply(final int challenge, final byte[] digest)

@@ -71,8 +71,6 @@
 -define(u32(X3,X2,X1,X0),
         (((X3) bsl 24) bor ((X2) bsl 16) bor ((X1) bsl 8) bor (X0))).
 
--define(CREATION_UNKNOWN,0).
-
 -record(tick, {read = 0,
 	       write = 0,
 	       tick = 0,
@@ -226,7 +224,7 @@ handshake_other_started(#hs_data{request_type=ReqType,
     ChallengeA = gen_challenge(),
     send_challenge(HSData2, ChallengeA),
     reset_timer(HSData2#hs_data.timer),
-    HSData3 = HSData2,
+    HSData3 = recv_complement(HSData2),
     check_dflags(HSData3, EDF),
     ChosenFlags = adjust_flags(HSData3#hs_data.this_flags,
                                HSData3#hs_data.other_flags),
@@ -260,10 +258,19 @@ expand_mandatory_25_flag(Flags) ->
 check_dflags(#hs_data{other_node = Node,
                       other_flags = OtherFlags,
                       other_started = OtherStarted,
-                      require_flags = RequiredFlags} = HSData,
+                      require_flags = RequiredFlags,
+                      other_creation = OtherCreation} = HSData,
              #erts_dflags{}=EDF) ->
 
-    Mandatory = (EDF#erts_dflags.mandatory bor RequiredFlags),
+    Mask = case OtherCreation of
+               undefined ->
+                   %% Old 'send_name' without creation and high flag bits
+                   %% Only check low 32 flag bits for now
+                   (1 bsl 32) - 1;
+               _ ->
+                   bnot 0
+           end,
+    Mandatory = Mask band (EDF#erts_dflags.mandatory bor RequiredFlags),
     Missing = check_mandatory(Mandatory, OtherFlags, []),
     case Missing of
         [] ->
@@ -726,10 +733,34 @@ send_challenge_ack(#hs_data{socket = Socket, f_send = FSend},
 %%
 recv_name(#hs_data{socket = Socket, f_recv = Recv} = HSData) ->
     case Recv(Socket, 0, infinity) of
+        {ok, [$n | _] = Data} ->
+            recv_name_old(HSData, Data);
         {ok, [$N | _] = Data} ->
             recv_name_new(HSData, Data);
 	Other ->
 	    ?shutdown({no_node, Other})
+    end.
+
+%% OTP 25.3:
+%% We accept old 'send_name' messages ($n) used by OTP-22 and older.
+%% OTP-23 or OTP-24 nodes, not using epmd, may send the old message
+%% to us if they do not know our OTP version.
+%% Hence, we accept the old 'send_name' and the accompanying
+%% 'send_complement', but we do not send them ourself.
+%% This was removed prematurely in OTP-25.0,
+%% therefore versions 25.0 to 25.2.* are broken in this regard.
+%% Can be safely removed in OTP-27.0.
+recv_name_old(HSData,
+             [$n, V1, V0, F3, F2, F1, F0 | Node] = Data) ->
+    <<_Version:16>> = <<V1,V0>>,
+    <<Flags:32>> = <<F3,F2,F1,F0>>,
+    ?trace("recv_name: 'n' node=~p version=~w\n", [Node, _Version]),
+    case is_node_name(Node) of
+        true ->
+            check_allowed(HSData, Node),
+            {Flags, list_to_atom(Node), undefined};
+        false ->
+            ?shutdown(Data)
     end.
 
 recv_name_new(HSData,
@@ -922,6 +953,25 @@ recv_challenge_new(#hs_data{other_node=Node},
     end;
 recv_challenge_new(_, Other) ->
     ?shutdown2(no_node, {recv_challenge_failed, Other}).
+
+
+%% See comment for recv_name_old
+recv_complement(#hs_data{socket = Socket,
+                         f_recv = Recv,
+                         other_flags = Flags,
+                         other_creation = undefined} = HSData) ->
+    case Recv(Socket, 0, infinity) of
+        {ok, [$c, F7,F6,F5,F4, Cr3,Cr2,Cr1,Cr0]} ->
+            <<FlagsHigh:32>> = <<F7,F6,F5,F4>>,
+            <<Creation:32>> = <<Cr3,Cr2,Cr1,Cr0>>,
+            ?trace("recv_complement: creation=~w\n", [Creation]),
+            HSData#hs_data{other_creation = Creation,
+                           other_flags = Flags bor (FlagsHigh bsl 32)};
+        Other ->
+            ?shutdown2(no_node, {recv_complement_failed, Other})
+    end;
+recv_complement(HSData) ->
+    HSData.
 
 
 %%

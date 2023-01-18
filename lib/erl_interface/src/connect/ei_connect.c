@@ -103,6 +103,8 @@ static int recv_challenge(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
 static int send_challenge_reply(ei_socket_callbacks *cbs, void *ctx,
                                 int pkt_sz, unsigned char digest[16], 
 				unsigned challenge, unsigned ms);
+static int recv_complement(ei_socket_callbacks *cbs, void *ctx,
+                           int pkt_sz, DistFlags *flags, unsigned ms);
 static int recv_challenge_reply(ei_socket_callbacks *cbs, void *ctx,
                                 int pkt_sz, unsigned our_challenge,
 				char cookie[], 
@@ -115,7 +117,7 @@ static int recv_challenge_ack(ei_socket_callbacks *cbs, void *ctx,
 			      char cookie[], unsigned ms);
 static int send_name(ei_cnode *ec, void *ctx, int pkt_sz, unsigned ms);
 static int recv_name(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
-                     DistFlags *flags,
+                     char* send_name_tag, DistFlags *flags,
                      char *namebuf, unsigned ms);
 static int ei_connect_helper(ei_cnode* ec,
                              Erl_IpAddr ip_addr,
@@ -1531,6 +1533,7 @@ int ei_accept_tmo(ei_cnode* ec, int lfd, ErlConnect *conp, unsigned ms)
     int fd;
     DistFlags her_flags;
     char tmp_nodename[MAXNODELEN+1];
+    char send_name_tag;
     char *her_name;
     int pkt_sz, err;
     struct sockaddr_in addr;
@@ -1605,7 +1608,8 @@ int ei_accept_tmo(ei_cnode* ec, int lfd, ErlConnect *conp, unsigned ms)
     
     EI_TRACE_CONN0("ei_accept","<- ACCEPT connected to remote");
     
-    if (recv_name(cbs, ctx, pkt_sz, &her_flags, her_name, tmo)) {
+    if (recv_name(cbs, ctx, pkt_sz, &send_name_tag, &her_flags,
+                  her_name, tmo)) {
 	EI_TRACE_ERR0("ei_accept","<- ACCEPT initial ident failed");
 	goto error;
     }
@@ -1620,6 +1624,10 @@ int ei_accept_tmo(ei_cnode* ec, int lfd, ErlConnect *conp, unsigned ms)
 	our_challenge = gen_challenge();
 	if (send_challenge(ec, ctx, pkt_sz, our_challenge, her_flags, tmo))
 	    goto error;
+        if (send_name_tag == 'n') {
+            if (recv_complement(cbs, ctx, pkt_sz, &her_flags, tmo))
+                goto error;
+        }
 	if (recv_challenge_reply(cbs, ctx, pkt_sz, our_challenge, 
                                  ec->ei_connect_cookie, &her_challenge, tmo))
 	    goto error;
@@ -2505,6 +2513,63 @@ static int send_challenge_reply(ei_socket_callbacks *cbs, void *ctx,
     return 0;
 }
 
+static int recv_complement(ei_socket_callbacks *cbs,
+                           void *ctx,
+                           int pkt_sz,
+                           DistFlags *flags,
+                           unsigned ms)
+{
+    char dbuf[DEFBUF_SIZ];
+    char *buf = dbuf;
+    int is_static = 1;
+    int buflen = DEFBUF_SIZ;
+    int rlen;
+    char *s;
+    char tag;
+    unsigned int creation;
+
+    erl_errno = EIO;		/* Default */
+
+    if ((rlen = read_hs_package(cbs, ctx, pkt_sz, &buf, &buflen, &is_static, ms)) != 21) {
+	EI_TRACE_ERR1("recv_complement",
+		      "<- RECV_COMPLEMENT socket read failed (%d)",rlen);
+	goto error;
+    }
+
+    s = buf;
+    if ((tag = get8(s)) != 'c') {
+	EI_TRACE_ERR2("recv_complement",
+		      "<- RECV_COMPLEMENT incorrect tag, "
+		      "expected 'c' got '%c' (%u)",tag,tag);
+	goto error;
+    }
+    *flags |= (DistFlags)get32be(s) << 32;
+
+    if ((~*flags) & (DFLAG_DIST_MANDATORY | DFLAG_HANDSHAKE_23)) {
+	EI_TRACE_ERR0("recv_complement","<- RECV_COMPLEMENT peer cannot "
+		      "handle all mandatory capabilities");
+	goto error;
+    }
+
+    creation = get32be(s);
+    if (!is_static)
+	free(buf);
+
+    if (ei_tracelevel >= 3) {
+        EI_TRACE_CONN1("recv_complement",
+                       "<- RECV_COMPLEMENT (ok) creation = %u",
+                       creation);
+    }
+    /* We don't have any use for 'creation' of other node, so we drop it */
+    erl_errno = 0;
+    return 0;
+
+error:
+    if (!is_static)
+	free(buf);
+    return -1;
+}
+
 static int recv_challenge_reply(ei_socket_callbacks *cbs,
                                 void *ctx,
                                 int pkt_sz,
@@ -2661,7 +2726,7 @@ error:
 }
 
 static int recv_name(ei_socket_callbacks *cbs, void *ctx,
-                     int pkt_sz,
+                     int pkt_sz, char *send_name_tag,
                      DistFlags *flags, char *namebuf, unsigned ms)
 {
     char dbuf[DEFBUF_SIZ];
@@ -2673,6 +2738,7 @@ static int recv_name(ei_socket_callbacks *cbs, void *ctx,
     char *s;
     char tmp_nodename[MAXNODELEN+1];
     char tag;
+    DistFlags flag_mask;
     
     erl_errno = EIO;		/* Default */
 
@@ -2683,25 +2749,46 @@ static int recv_name(ei_socket_callbacks *cbs, void *ctx,
     }
     s = buf;
     tag = get8(s);
-    if (tag != 'N') {
+    *send_name_tag = tag;
+    if (tag != 'n' && tag != 'N') {
 	EI_TRACE_ERR2("recv_name","<- RECV_NAME incorrect tag, "
-		      "expected 'N', got '%c' (%u)",tag,tag);
+		      "expected 'n' or 'N', got '%c' (%u)",tag,tag);
 	goto error;
     }
-    if (rlen < 1+8+4+2) {
-        EI_TRACE_ERR1("recv_name","<- RECV_NAME 'N' packet too short (%d)",
-                      rlen)
-        goto error;
+    if (tag == 'n') {
+        unsigned int version;
+        if (rlen < 1+2+4) {
+            EI_TRACE_ERR1("recv_name","<- RECV_NAME 'n' packet too short (%d)",
+                          rlen)
+            goto error;
+        }
+        version = get16be(s);
+        if (version < EI_DIST_5) {
+            EI_TRACE_ERR1("recv_name","<- RECV_NAME 'n' invalid version=%d",
+                          version)
+            goto error;
+        }
+        *flags = get32be(s);
+        flag_mask = ((DistFlags)1 << 32) - 1;
+        namelen = rlen - (1+2+4);
     }
-    *flags = get64be(s);
-    s += 4; /* ignore peer 'creation' */
-    namelen = get16be(s);
+    else { /* tag == 'N' */
+        if (rlen < 1+8+4+2) {
+            EI_TRACE_ERR1("recv_name","<- RECV_NAME 'N' packet too short (%d)",
+                          rlen)
+            goto error;
+        }
+        *flags = get64be(s);
+        flag_mask = ~(DistFlags)0;
+        s += 4; /* ignore peer 'creation' */
+        namelen = get16be(s);
+    }
 
     if (*flags & DFLAG_MANDATORY_25_DIGEST) {
         *flags |= DFLAG_DIST_MANDATORY_25;
     }
 
-    if ((*flags & DFLAG_DIST_MANDATORY) != DFLAG_DIST_MANDATORY) {
+    if ((~*flags) & flag_mask & (DFLAG_DIST_MANDATORY | DFLAG_HANDSHAKE_23)) {
 	EI_TRACE_ERR0("recv_name","<- RECV_NAME peer cannot "
 		      "handle all mandatory capabilities");
 	erl_errno = EIO;
@@ -2712,8 +2799,8 @@ static int recv_name(ei_socket_callbacks *cbs, void *ctx,
         namebuf = &tmp_nodename[0];
     
     if (namelen > MAXNODELEN || s+namelen > buf+rlen) {
-        EI_TRACE_ERR1("recv_name","<- RECV_NAME nodename too long (%d)",
-                      namelen);
+        EI_TRACE_ERR2("recv_name","<- RECV_NAME '%c' nodename too long (%d)",
+                      tag, namelen);
         goto error;
     }
 
@@ -2722,9 +2809,9 @@ static int recv_name(ei_socket_callbacks *cbs, void *ctx,
 
     if (!is_static)
 	free(buf);
-    EI_TRACE_CONN2("recv_name",
-		   "<- RECV_NAME (ok) node = %s, flags = %u",
-		   namebuf, *flags);
+    EI_TRACE_CONN3("recv_name",
+		   "<- RECV_NAME (ok) node = %s, tag = %c, flags = %u",
+		   namebuf,tag,*flags);
     erl_errno = 0;
     return 0;
     

@@ -159,6 +159,10 @@ do_one_recv_failure(Config,CNode) ->
 -define(EI_DIST_LOW, 6).
 -define(EI_DIST_HIGH, 6).
 
+%% An OTP-23 or 24 node may connect assuming 5 or higher.
+-define(EI_DIST_LOWEST_ASSUMED, 5).
+
+
 %% Check send with timeouts.
 ei_send_tmo(Config) when is_list(Config) ->
     register(ei_send_tmo_1,self()),
@@ -316,6 +320,15 @@ ei_connect_tmo(Config) when is_list(Config) ->
 
 %% Check accept with timeouts.
 ei_accept_tmo(Config) when is_list(Config) ->
+    [begin
+         io:format("Test assumed ver=~p\n",
+                   [AssumedVer]),
+         do_ei_accept_tmo(Config, AssumedVer)
+     end
+     || AssumedVer <- lists:seq(?EI_DIST_LOWEST_ASSUMED, ?EI_DIST_HIGH)],
+    ok.
+
+do_ei_accept_tmo(Config, AssumedVer) ->
     Flags = ?COMPULSORY_DFLAGS bor ?DFLAG_MANDATORY_25_DIGEST,
 
     P = runner:start(Config, ?accept_tmo),
@@ -336,11 +349,11 @@ ei_accept_tmo(Config) when is_list(Config) ->
     runner:recv_eot(P2),
     true = is_integer(X),
 
-    normal_accept(Config, Flags),
+    normal_accept(Config, AssumedVer, Flags),
 
     ok.
 
-normal_accept(Config, Flags) ->
+normal_accept(Config, AssumedVer, Flags) ->
     P = runner:start(Config, ?accept_tmo),
     runner:send_term(P,{c_nod_som_vi_kontaktar_2,
                          erlang:get_cookie(),
@@ -354,7 +367,7 @@ normal_accept(Config, Flags) ->
     {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
                                     [{active,false},
                                      {packet,2}]),
-    send_name(SocketA, OurName, Flags),
+    send_name(SocketA, OurName, AssumedVer, Flags),
     ok = recv_status(SocketA),
     {hidden,_Node,HisChallengeA} = recv_challenge(SocketA), % See 1)
     _OurChallengeA = gen_challenge(),
@@ -414,13 +427,18 @@ make_and_check_dummy() ->
 
 %% Test that erl_interface sets the appropriate distributions flags.
 ei_dflags(Config) ->
+    AssumedVer = 5,
+    OurVer = 6,
+
     %% Test compatibility with OTP 24 and earlier.
     normal_connect(Config, ?COMPULSORY_DFLAGS),
-    normal_accept(Config, ?COMPULSORY_DFLAGS),
+    normal_accept(Config, AssumedVer, ?COMPULSORY_DFLAGS),
+    normal_accept(Config, OurVer, ?COMPULSORY_DFLAGS),
 
     %% Test compatibility with future versions.
     normal_connect(Config, ?DFLAG_MANDATORY_25_DIGEST bor ?DFLAGS_MANDATORY_26),
-    normal_accept(Config, ?DFLAG_MANDATORY_25_DIGEST bor ?DFLAGS_MANDATORY_26),
+    normal_accept(Config, AssumedVer, ?DFLAG_MANDATORY_25_DIGEST bor ?DFLAGS_MANDATORY_26),
+    normal_accept(Config, OurVer, ?DFLAG_MANDATORY_25_DIGEST bor ?DFLAGS_MANDATORY_26),
 
     ok.
 
@@ -571,14 +589,19 @@ send_challenge_ack(Socket, Digest) ->
 %            ?shutdown(bad_challenge_ack)
 %    end.
 
-send_name(Socket, MyNode, Flags) ->
+send_name(Socket, MyNode, AssumedVer, Flags0) ->
+    Flags = Flags0 bor?DFLAG_HANDSHAKE_23,
     NodeName = atom_to_binary(MyNode, latin1),
-    Creation = erts_internal:get_creation(),
-    ?to_port(Socket, [$N,
-                      <<Flags:64,
-                        Creation:32,
-                        (byte_size(NodeName)):16>>,
-                      NodeName]).
+    if AssumedVer =:= 5 ->
+            ?to_port(Socket, [$n,?int16(?EI_DIST_HIGH),?int32(Flags),NodeName]);
+       AssumedVer >= 6 ->
+            Creation = erts_internal:get_creation(),
+            ?to_port(Socket, [$N,
+                              <<Flags:64,
+                                Creation:32,
+                                (byte_size(NodeName)):16>>,
+                              NodeName])
+    end.
 
 recv_name(Socket) ->
     case gen_tcp:recv(Socket, 0) of
