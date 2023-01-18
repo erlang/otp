@@ -69,7 +69,11 @@ i_recv_set() {
 }
 
 recv_marker_reserve(Dst) {
+    SWAPOUT;
+
     $Dst = erts_msgq_recv_marker_insert(c_p);
+
+    SWAPIN;
 }
 
 recv_marker_bind(Marker, Reference) {
