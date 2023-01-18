@@ -1722,7 +1722,7 @@ handle_pdu(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra, Dict) ->
 handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra) ->
     %% OTP-3324
     AuthMod = get(auth_module),
-    case AuthMod:init_check_access(Pdu, ACMData) of
+    try AuthMod:init_check_access(Pdu, ACMData) of
 	{ok, MibView, ContextName} ->
 	    ?vlog("handle_pdu -> ok:"
 		  "~n   MibView:     ~p"
@@ -1740,6 +1740,13 @@ handle_pdu2(Vsn, Pdu, PduMS, ACMData, Address, GbMaxVBs, Extra) ->
 		  "~n   Reason:   ~p", [Variable, Reason]),
 	    get(net_if) ! {discarded_pdu, Vsn, Pdu#pdu.request_id,
 			   ACMData, Variable, Extra}
+    catch
+        Class:Error:Stack ->
+	    ?vinfo("handle_pdu -> crash:"
+                   "~n      Class: ~p"
+                   "~n      Error: ~p"
+                   "~n      Stack: ~p", [Class, Error, Stack]),
+	    handle_acm_error(Vsn, Error, Pdu, ACMData, Address, Extra)
     end.
 
 do_handle_pdu(MibView, Vsn, Pdu, PduMS, 
