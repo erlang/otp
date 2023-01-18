@@ -456,8 +456,8 @@ const_cond(Config) when is_list(Config) ->
 const_cond(T, Sz) ->
     case T of
 	_X when false -> never;
-	_X when tuple(T), eq == eq, size(T) == Sz -> ok;
-	_X when tuple(T), eq == leq, size(T) =< Sz -> ok;
+	_X when tuple(T), eq == eq, tuple_size(T) == Sz -> ok;
+	_X when tuple(T), eq == leq, tuple_size(T) =< Sz -> ok;
 	_X -> error
     end.
 
@@ -632,7 +632,7 @@ csemi1(Type, Val) when is_list(Val), Type == float;
 		       Type == int; Type == string -> ok;
 csemi1(_, _) -> error.
 
-csemi2(A, B) when size(A) > 1; size(B) > 2 -> ok;
+csemi2(A, B) when tuple_size(A) > 1; tuple_size(B) > 2 -> ok;
 csemi2(_, _) -> error.
 
 csemi3(Csemi3) ->
@@ -663,13 +663,13 @@ csemi3(Csemi3) ->
     error = Csemi3([], [], 0, 0),
     ok.
 
-csemi3a(A, B, X, Y) when X > Y; size(A) > 1; size(B) > 2 -> ok;
+csemi3a(A, B, X, Y) when X > Y; tuple_size(A) > 1; tuple_size(B) > 2 -> ok;
 csemi3a(_, _, _, _) -> error.
 
-csemi3b(A, B, X, Y) when size(A) > 1; X > Y; size(B) > 2 -> ok;
+csemi3b(A, B, X, Y) when tuple_size(A) > 1; X > Y; tuple_size(B) > 2 -> ok;
 csemi3b(_, _, _, _) -> error.
 
-csemi3c(A, B, X, Y) when size(A) > 1; size(B) > 2; X > Y -> ok;
+csemi3c(A, B, X, Y) when tuple_size(A) > 1; tuple_size(B) > 2; X > Y -> ok;
 csemi3c(_, _, _, _) -> error.
 
 
@@ -687,20 +687,20 @@ csemi4(Test) ->
 
     ok.
 
-csemi4a(A, X, B, Y) when (size(A) > 1) or (X > 1);
-			 (size(B) > 1) or (Y > 1) -> ok;
+csemi4a(A, X, B, Y) when (tuple_size(A) > 1) or (X > 1);
+			 (tuple_size(B) > 1) or (Y > 1) -> ok;
 csemi4a(_, _, _, _) -> error.
 
-csemi4b(A, X, B, Y) when (X > 1) or (size(A) > 1);
-			 (size(B) > 1) or (Y > 1) -> ok;
+csemi4b(A, X, B, Y) when (X > 1) or (tuple_size(A) > 1);
+			 (tuple_size(B) > 1) or (Y > 1) -> ok;
 csemi4b(_, _, _, _) -> error.
 
-csemi4c(A, X, B, Y) when (size(A) > 1) or (X > 1);
-			 (Y > 1) or (size(B) > 1) -> ok;
+csemi4c(A, X, B, Y) when (tuple_size(A) > 1) or (X > 1);
+			 (Y > 1) or (tuple_size(B) > 1) -> ok;
 csemi4c(_, _, _, _) -> error.
 
-csemi4d(A, X, B, Y) when (X > 1) or (size(A) > 1);
-			 (Y > 1) or (size(B) > 1) -> ok;
+csemi4d(A, X, B, Y) when (X > 1) or (tuple_size(A) > 1);
+			 (Y > 1) or (tuple_size(B) > 1) -> ok;
 csemi4d(_, _, _, _) -> error.
 
 
@@ -714,20 +714,20 @@ csemi4_orelse(Test) ->
 
     ok.
 
-csemi4_orelse_a(A, X, B, Y) when (size(A) > 1) orelse (X > 1);
-				 (size(B) > 1) orelse (Y > 1) -> ok;
+csemi4_orelse_a(A, X, B, Y) when (tuple_size(A) > 1) orelse (X > 1);
+				 (tuple_size(B) > 1) orelse (Y > 1) -> ok;
 csemi4_orelse_a(_, _, _, _) -> error.
 
-csemi4_orelse_b(A, X, B, Y) when (X > 1) orelse (size(A) > 1);
-				 (size(B) > 1) orelse (Y > 1) -> ok;
+csemi4_orelse_b(A, X, B, Y) when (X > 1) orelse (tuple_size(A) > 1);
+				 (tuple_size(B) > 1) orelse (Y > 1) -> ok;
 csemi4_orelse_b(_, _, _, _) -> error.
 
-csemi4_orelse_c(A, X, B, Y) when (size(A) > 1) orelse (X > 1);
-				 (Y > 1) orelse (size(B) > 1) -> ok;
+csemi4_orelse_c(A, X, B, Y) when (tuple_size(A) > 1) orelse (X > 1);
+				 (Y > 1) orelse (tuple_size(B) > 1) -> ok;
 csemi4_orelse_c(_, _, _, _) -> error.
 
-csemi4_orelse_d(A, X, B, Y) when (X > 1) or (size(A) > 1);
-				 (Y > 1) or (size(B) > 1) -> ok;
+csemi4_orelse_d(A, X, B, Y) when (X > 1) or (tuple_size(A) > 1);
+				 (Y > 1) or (tuple_size(B) > 1) -> ok;
 csemi4_orelse_d(_, _, _, _) -> error.
 
 
@@ -988,14 +988,14 @@ complex_or_guards(Config) when is_list(Config) ->
 
 complex_or_1(A, B) ->
     if
-	((3 < size(A)) and (size(A) < 9)) or
-	((2 < size(B)) and (size(B) < 7)) -> ok;
+	((3 < tuple_size(A)) and (tuple_size(A) < 9)) or
+	((2 < tuple_size(B)) and (tuple_size(B) < 7)) -> ok;
 	true -> error
     end.
 
 complex_or_2(Tuple) ->
     if
-	element(1, Tuple) or not (size(element(2, Tuple)) > 3) -> ok;
+	element(1, Tuple) or not (tuple_size(element(2, Tuple)) > 3) -> ok;
 	true -> error
     end.
 
@@ -1007,7 +1007,7 @@ complex_or_3(A, B) ->
 
 complex_or_4(A, B) ->
     if
-	not (is_tuple(A) and (size(A) > 3)) or element(1, B) -> ok;
+	not (is_tuple(A) and (tuple_size(A) > 3)) or element(1, B) -> ok;
 	true -> error
     end.
 
@@ -1104,7 +1104,7 @@ and_guard(Config) when is_list(Config) ->
 
     ok.
 
-relprod(R1, R2) when (erlang:size(R1) =:= 3) and (erlang:element(1,R1) =:= 'Set'), (erlang:size(R2) =:= 3) and (erlang:element(1,R2) =:= 'Set') ->
+relprod(R1, R2) when (erlang:tuple_size(R1) =:= 3) and (erlang:element(1,R1) =:= 'Set'), (erlang:tuple_size(R2) =:= 3) and (erlang:element(1,R2) =:= 'Set') ->
     ok.
 
 
@@ -1366,13 +1366,13 @@ rel_ops(Config) when is_list(Config) ->
 basic_andalso_orelse(Config) when is_list(Config) ->
     T = id({type,integers,23,42}),
     65 = if
-	     ((element(1, T) =:= type) andalso (size(T) =:= 4) andalso
+	     ((element(1, T) =:= type) andalso (tuple_size(T) =:= 4) andalso
 	      element(2, T) == integers) ->
 		 element(3, T) + element(4, T);
 	     true -> error
 	 end,
     65 = case [] of
-	     [] when ((element(1, T) =:= type) andalso (size(T) =:= 4) andalso
+	     [] when ((element(1, T) =:= type) andalso (tuple_size(T) =:= 4) andalso
 		      element(2, T) == integers) ->
 		 element(3, T) + element(4, T)
 	 end,
@@ -1392,8 +1392,8 @@ basic_andalso_orelse(Config) when is_list(Config) ->
     RelProdBody =
 	fun(R1, R2) ->
 		if
-		    (erlang:size(R1) =:= 3) andalso (erlang:element(1,R1) =:= 'Set'),
-		    (erlang:size(R2) =:= 3) andalso (erlang:element(1,R2) =:= 'Set') ->
+		    (erlang:tuple_size(R1) =:= 3) andalso (erlang:element(1,R1) =:= 'Set'),
+		    (erlang:tuple_size(R2) =:= 3) andalso (erlang:element(1,R2) =:= 'Set') ->
 			ok
 		end
 	end,
@@ -1401,10 +1401,10 @@ basic_andalso_orelse(Config) when is_list(Config) ->
     ok = RelProdBody({'Set',a,b}, {'Set',a,b}),
     ok.
 
-basic_rt(T) when is_tuple(T) andalso size(T) =:= 4 andalso element(1, T) =:= type andalso
+basic_rt(T) when is_tuple(T) andalso tuple_size(T) =:= 4 andalso element(1, T) =:= type andalso
 		 element(2, T) == integers ->
     element(3, T) + element(4, T);
-basic_rt(T) when is_tuple(T) andalso size(T) =:= 2 andalso element(1, T) =:= vector ->
+basic_rt(T) when is_tuple(T) andalso tuple_size(T) =:= 2 andalso element(1, T) =:= vector ->
     {X,Y} = element(2, T),
     if
 	is_float(X), is_float(Y) ->
@@ -1412,12 +1412,12 @@ basic_rt(T) when is_tuple(T) andalso size(T) =:= 2 andalso element(1, T) =:= vec
     end;
 basic_rt(['+',A,B]) ->
     2*id(A+B);
-basic_rt({R1,R2}) when erlang:size(R1) =:= 3 andalso erlang:element(1,R1) =:= 'Set',
-		       erlang:size(R2) =:= 3 andalso erlang:element(1,R2) =:= 'Set' ->
+basic_rt({R1,R2}) when erlang:tuple_size(R1) =:= 3 andalso erlang:element(1,R1) =:= 'Set',
+		       erlang:tuple_size(R2) =:= 3 andalso erlang:element(1,R2) =:= 'Set' ->
     R1 = id(R1),
     R2 = id(R2),
     R1;
-basic_rt(T) when is_tuple(T) andalso size(T) =:= 2 andalso element(1, T) =:= klurf ->
+basic_rt(T) when is_tuple(T) andalso tuple_size(T) =:= 2 andalso element(1, T) =:= klurf ->
     3*id(element(2, T));
 basic_rt(_) ->
     error.
@@ -1441,9 +1441,9 @@ traverse_dcd(Config) when is_list(Config) ->
 %% (From mnesia_checkpoint.erl, modified.)
 
 traverse_dcd({Cont,[LogH|Rest]},Log,Fun)
-  when is_tuple(LogH) andalso size(LogH) =:= 6 andalso element(1, LogH) =:= log_header
+  when is_tuple(LogH) andalso tuple_size(LogH) =:= 6 andalso element(1, LogH) =:= log_header
        andalso erlang:element(2,LogH) == dcd_log,
-       is_tuple(LogH) andalso size(LogH) =:= 6 andalso element(1, LogH) =:= log_header
+       is_tuple(LogH) andalso tuple_size(LogH) =:= 6 andalso element(1, LogH) =:= log_header
        andalso erlang:element(3,LogH) >= "1.0" ->
     traverse_dcd({Cont,Rest},Log,Fun);
 traverse_dcd({Cont,Recs},Log,Fun) ->
@@ -1468,7 +1468,7 @@ cqlc(M, F, As, St) ->
     case As of
         [{lc,_L,_E,_Qs}|_] when M =:= qlc, F =:= q,
                                 Arity < 3,
-                                not (((element(1, St) =:= r1) orelse fail) and (size(St) =:= 3) and element(2, St)) ->
+                                not (((element(1, St) =:= r1) orelse fail) and (tuple_size(St) =:= 3) and element(2, St)) ->
             foo;
         _ ->
             St

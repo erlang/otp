@@ -64,13 +64,13 @@ end_per_suite(Config) when is_list(Config) ->
 byte_split_binary(Config) when is_list(Config) ->
     L = lists:seq(0, 57),
     B = mkbin(L),
-    byte_split(L, B, size(B)),
+    byte_split(L, B, byte_size(B)),
     Unaligned = make_unaligned_sub_binary(B),
-    byte_split(L, Unaligned, size(Unaligned)).
+    byte_split(L, Unaligned, byte_size(Unaligned)).
 
 byte_split(L, B, Pos) when Pos >= 0 ->
     Sz1 = Pos,
-    Sz2 = size(B) - Pos,
+    Sz2 = byte_size(B) - Pos,
     <<B1:Sz1/binary,B2:Sz2/binary>> = B,
     B1 = list_to_binary(lists:sublist(L, 1, Pos)),
     B2 = list_to_binary(lists:nthtail(Pos, L)),
@@ -80,7 +80,7 @@ byte_split(_, _, _) -> ok.
 %% Tries to split a binary at all positions.
 bit_split_binary(Config) when is_list(Config) ->
     Fun = fun(Bin, List, SkipBef, N) ->
-		  SkipAft = 8*size(Bin) - N - SkipBef,
+		  SkipAft = 8*byte_size(Bin) - N - SkipBef,
 		  %%io:format("~p, ~p, ~p", [SkipBef,N,SkipAft]),
 		  <<_:SkipBef,OutBin:N/binary-unit:1,_:SkipAft>> = Bin,
 		  OutBin = make_bin_from_list(List, N)
@@ -95,7 +95,7 @@ bit_split_binary1(Action, Bin) ->
     bit_split_binary2(Action, Bin, BitList, 0).
 
 bit_split_binary2(Action, Bin, [_|T]=List, Bef) ->
-    bit_split_binary3(Action, Bin, List, Bef, size(Bin)*8),
+    bit_split_binary3(Action, Bin, List, Bef, byte_size(Bin)*8),
     bit_split_binary2(Action, Bin, T, Bef+1);
 bit_split_binary2(_, _, [], _) -> ok.
 
@@ -125,7 +125,7 @@ mkbin(L) when is_list(L) -> list_to_binary(L).
 
 make_unaligned_sub_binary(Bin0) ->
     Bin1 = <<0:3,Bin0/binary,31:5>>,
-    Sz = size(Bin0),
+    Sz = byte_size(Bin0),
     <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
     Bin.
 
@@ -156,7 +156,7 @@ overflow_huge_bin(Bin, [Sz0|Sizes]) ->
 	_ ->
 	    case Bin of
 		<<NewBin:Sz/binary-unit:8,0,_/binary>> ->
-		    {error,Sz,size(NewBin)};
+		    {error,Sz,byte_size(NewBin)};
 		_ ->
 		    overflow_huge_bin(Bin, Sizes)
 	    end
@@ -171,7 +171,7 @@ overflow_huge_bin_unit128(Bin, [Sz0|Sizes]) ->
 	_ ->
 	    case Bin of
 		<<NewBin:Sz/binary-unit:128,0,_/binary>> ->
-		    {error,Sz,size(NewBin)};
+		    {error,Sz,byte_size(NewBin)};
 		_ ->
 		    overflow_huge_bin_unit128(Bin, Sizes)
 	    end
@@ -184,7 +184,7 @@ skip_huge_bin_1(I, Bin) ->
 
 match_huge_bin_1(I, Bin) ->
     case Bin of
-	<<Val:I/binary-unit:1,13>> -> size(Val);
+	<<Val:I/binary-unit:1,13>> -> byte_size(Val);
 	_ -> nomatch
     end.
 
