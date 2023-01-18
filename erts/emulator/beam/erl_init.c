@@ -664,6 +664,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "\n");
 
     erts_fprintf(stderr, "-pc <set>      control what characters are considered printable (default latin1)\n");
+    erts_fprintf(stderr, "-pad bool      set default process async data (default false)\n");
     erts_fprintf(stderr, "-P number      set maximum number of processes on this node;\n");
     erts_fprintf(stderr, "               valid range is [%d-%d]\n",
 		 ERTS_MIN_PROCESSES, ERTS_MAX_PROCESSES);
@@ -1418,11 +1419,28 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 		erts_set_printable_characters(printable_chars);
-		break;
-	    } else {
-		erts_fprintf(stderr, "%s unknown flag %s\n", argv[0], argv[i]);
-		erts_usage();
 	    }
+            else {
+                char *sub_param = argv[i]+2;
+                if (has_prefix("ad", sub_param)) {
+                    arg = get_arg(sub_param+2, argv[i+1], &i);
+                    if (sys_strcmp("true", arg) == 0) {
+                        erts_default_spo_flags |= SPO_ASYNC_DIST;
+                    }
+                    else if (sys_strcmp("false", arg) == 0) {
+                        erts_default_spo_flags &= ~SPO_ASYNC_DIST;
+                    }
+                    else {
+                        erts_fprintf(stderr, "bad async dist value %s\n", arg);
+                        erts_usage();
+                    }
+                }
+                else {
+                    erts_fprintf(stderr, "%s unknown flag %s\n", argv[0], argv[i]);
+                    erts_usage();
+                }
+            }
+            break;
 	case 'f':
 	    if (!sys_strncmp(argv[i],"-fn",3)) {
 		int warning_type =  ERL_FILENAME_WARNING_WARNING;

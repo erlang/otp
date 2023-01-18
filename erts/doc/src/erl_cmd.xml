@@ -1048,6 +1048,23 @@ $ <input>erl \
         <p>Memory allocator-specific flags. For more information, see
           <seecref marker="erts_alloc"><c>erts_alloc(3)</c></seecref>.</p>
       </item>
+      <tag><marker id="+pad"/><c>+pad true|false</c></tag>
+      <item>
+        <p>Since: OTP @OTP-18374@</p>
+        <p>
+          The boolean value used with the <c>+pad</c> parameter determines
+          the default value of the
+          <seeerl marker="erlang#process_flag_async_dist">
+            <c>async_dist</c></seeerl> process flag of newly spawned processes.
+          By default, if no <c>+pad</c> command line option is passed,
+          the <c>async_dist</c> flag will be set to <c>false</c>.
+        </p>
+        <p>
+          The value used in runtime can be inspected by calling
+          <seeerl marker="erlang#system_info_async_dist">
+            <c>erlang:system_info(async_dist)</c></seeerl>.
+        </p>
+      </item>
       <tag><marker id="+pc"/><marker id="printable_character_range"/>
         <c><![CDATA[+pc Range]]></c></tag>
       <item>
@@ -1793,6 +1810,11 @@ $ <input>erl \
               limit is per distribution channel. A higher limit
               gives lower latency and higher throughput at the expense
               of higher memory use.</p>
+            <p>
+              This limit only affects processes that have disabled
+              <seeerl marker="erlang#process_flag_async_dist"><i>fully
+              asynchronous distributed signaling</i></seeerl>.
+            </p>
           </item>
           <tag><marker id="+zdntgc"/><c>+zdntgc time</c></tag>
           <item>

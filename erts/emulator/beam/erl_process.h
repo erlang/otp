@@ -1413,8 +1413,9 @@ void erts_check_for_holes(Process* p);
 #define SPO_IX_ASYNC            11
 #define SPO_IX_NO_SMSG          12
 #define SPO_IX_NO_EMSG          13
+#define SPO_IX_ASYNC_DIST       14
 
-#define SPO_NO_INDICES          (SPO_IX_ASYNC+1)
+#define SPO_NO_INDICES          (SPO_IX_ASYNC_DIST+1)
 
 #define SPO_LINK                (1 << SPO_IX_LINK)
 #define SPO_MONITOR             (1 << SPO_IX_MONITOR)
@@ -1430,8 +1431,9 @@ void erts_check_for_holes(Process* p);
 #define SPO_ASYNC               (1 << SPO_IX_ASYNC)
 #define SPO_NO_SMSG             (1 << SPO_IX_NO_SMSG)
 #define SPO_NO_EMSG             (1 << SPO_IX_NO_EMSG)
+#define SPO_ASYNC_DIST          (1 << SPO_IX_ASYNC_DIST)
 
-#define SPO_MAX_FLAG            SPO_NO_EMSG
+#define SPO_MAX_FLAG            SPO_ASYNC_DIST
 
 #define SPO_USE_ARGS                 \
     (SPO_MIN_HEAP_SIZE               \
@@ -1573,6 +1575,7 @@ extern int erts_system_profile_ts_type;
 #define F_FRAGMENTED_SEND    (1 << 23) /* Process is doing a distributed fragmented send */
 #define F_DBG_FORCED_TRAP    (1 << 24) /* DEBUG: Last BIF call was a forced trap */
 #define F_DIRTY_CHECK_CLA    (1 << 25) /* Check if copy literal area GC scheduled */
+#define F_ASYNC_DIST         (1 << 26) /* Truly asynchronous distribution */
 
 /* Signal queue flags */
 #define FS_OFF_HEAP_MSGQ       (1 << 0) /* Off heap msg queue */

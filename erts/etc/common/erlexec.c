@@ -1006,8 +1006,10 @@ int main(int argc, char **argv)
 		      }
 		      break;
 		  case 'p':
-		      if (argv[i][2] != 'c' || argv[i][3] != '\0')
+		      if (!(argv[i][2] == 'c' && argv[i][3] == '\0')
+                          && !(argv[i][2] == 'a' && argv[i][3] == 'd' && argv[i][4] == '\0')) {
 			  goto the_default;
+                      }
                       NEXT_ARG_CHECK();
 		      argv[i][0] = '-';
 		      add_Eargs(argv[i]);

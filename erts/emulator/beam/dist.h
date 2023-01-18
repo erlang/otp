@@ -344,6 +344,7 @@ typedef struct erts_dsig_send_context {
     int connect;
     int no_suspend;
     int no_trap;
+    int ignore_busy;
 
     Eterm ctl;
     Eterm msg;

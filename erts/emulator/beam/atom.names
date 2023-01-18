@@ -110,6 +110,7 @@ atom arg0
 atom arity
 atom asn1
 atom async
+atom async_dist
 atom asynchronous
 atom atom
 atom atom_used

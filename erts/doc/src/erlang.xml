@@ -6276,6 +6276,68 @@ receive_replies(ReqId, N, Acc) ->
 
     <func>
       <name name="process_flag" arity="2" clause_i="1"
+	    anchor="process_flag_async_dist" since="OTP @OTP-18374@"/>
+      <fsummary>
+        Enable or disable fully asynchronous distributed signaling
+        for the calling process.
+      </fsummary>
+      <desc>
+        <p>
+          Enable or disable <i>fully asynchronous distributed signaling</i>
+          for the calling process. When disabled, which is the default, the
+          process sending a distributed signal will block in the send
+          operation if the buffer for the distribution channel reach the
+          <seecom marker="erts:erl#+zdbbl">distribution buffer busy
+          limit</seecom>. The process will remain blocked until the buffer
+          shrinks enough. This might in some cases take a substantial amount
+          of time. When <c>async_dist</c> is enabled, send operations of
+          distributed signals will always buffer the signal on the outgoing
+          distribution channel and then immediately return. That is, these
+          send operations will <em>never</em> block the sending process.
+        </p>
+        <note><p>
+          Since no flow control is enforced by the runtime system when
+          <c>async_dist</c> process flag is enabled, you need to make sure
+          that flow control for such data is implemented, or that the amount
+          of such data is known to always be limited. Unlimited signaling with
+          <c>async_dist</c> enabled in the absence of flow control will
+          typically cause the sending runtime system to crash on an out of
+          memory condition.
+        </p></note>
+        <p>
+          Blocking due to disabled <c>async_dist</c> can be monitored by
+          <seemfa marker="#system_monitor/2"><c>erlang:system_montor()</c></seemfa>
+          using the
+          <seeerl marker="#busy_dist_port"><c>busy_dist_port</c></seeerl>
+          option. Only data buffered by processes which (at the time of sending
+          a signal) have disabled <c>async_dist</c> will be counted when
+          determining whether or not an operation should block the caller.
+        </p>
+        <p>
+          The <c>async_dist</c> flag can also be set on a new process when
+          spawning it using the
+          <seemfa marker="#spawn_opt/4"><c>spawn_opt()</c></seemfa> BIF with the
+          option <seeerl marker="#spawn_opt_async_dist"><c>{async_dist,
+          Enable}</c></seeerl>. The default <c>async_dist</c> flag to use on
+          newly spawned processes can be set by passing the command line
+          argument <seecom marker="erl#+pad"><c>+pad
+          &lt;boolean&gt;</c></seecom> when starting the runtime system. If the
+          <c>+pad &lt;boolean&gt;</c> command line argument is not passed, the
+          default value of the <c>async_dist</c> flag will be <c>false</c>.
+        </p>
+        <p>
+          You can inspect the state of the <c>async_dist</c> process flag of a
+          process by calling <seeerl marker="#process_info_async_dist">
+          <c>process_info(Pid, async_dist)</c></seeerl>.
+        </p>
+        <p>
+          Returns the old value of the <c>async_dist</c> flag.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="process_flag" arity="2" clause_i="2"
 	    anchor="process_flag_trap_exit" since=""/>
       <fsummary>Set process flag trap_exit for the calling process.</fsummary>
       <desc>
@@ -6293,7 +6355,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="2" since=""/>
+      <name name="process_flag" arity="2" clause_i="3" since=""/>
       <fsummary>Set process flag error_handler for the calling process.
       </fsummary>
       <desc>
@@ -6307,7 +6369,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="3" since="OTP 24.0"/>
+      <name name="process_flag" arity="2" clause_i="4" since="OTP 24.0"/>
       <fsummary>Set process flag fullsweep_after for the calling process.
       </fsummary>
       <desc>
@@ -6318,7 +6380,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="4"
+      <name name="process_flag" arity="2" clause_i="5"
 	    anchor="process_flag_min_heap_size" since=""/>
       <fsummary>Set process flag min_heap_size for the calling process.
       </fsummary>
@@ -6329,7 +6391,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="5" since="OTP R13B04"/>
+      <name name="process_flag" arity="2" clause_i="6" since="OTP R13B04"/>
       <fsummary>Set process flag min_bin_vheap_size for the calling process.
       </fsummary>
       <desc>
@@ -6340,7 +6402,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="6"
+      <name name="process_flag" arity="2" clause_i="7"
 	    anchor="process_flag_max_heap_size" since="OTP 19.0"/>
       <fsummary>Set process flag max_heap_size for the calling process.
       </fsummary>
@@ -6419,7 +6481,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="7"
+      <name name="process_flag" arity="2" clause_i="8"
 	    anchor="process_flag_message_queue_data" since="OTP 19.0"/>
       <fsummary>Set process flag message_queue_data for the calling process.
       </fsummary>
@@ -6461,7 +6523,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="8"
+      <name name="process_flag" arity="2" clause_i="9"
 	    anchor="process_flag_priority" since=""/>
       <fsummary>Set process flag priority for the calling process.</fsummary>
       <type name="priority_level"/>
@@ -6534,7 +6596,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="9" since=""/>
+      <name name="process_flag" arity="2" clause_i="10" since=""/>
       <fsummary>Set process flag save_calls for the calling process.</fsummary>
       <desc>
         <p><c><anno>N</anno></c> must be an integer in the interval 0..10000.
@@ -6565,7 +6627,7 @@ receive_replies(ReqId, N, Acc) ->
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="10" since=""/>
+      <name name="process_flag" arity="2" clause_i="11" since=""/>
       <fsummary>Set process flag sensitive for the calling process.</fsummary>
       <desc>
         <p>Sets or clears flag <c>sensitive</c> for the current process.
@@ -6710,6 +6772,18 @@ receive_replies(ReqId, N, Acc) ->
         <p>Valid <c><anno>InfoTuple</anno></c>s with corresponding
           <c><anno>Item</anno></c>s:</p>
         <taglist>
+          <tag>
+            <marker id="process_info_async_dist"/>
+            <c>{async_dist, Enabled}</c>
+          </tag>
+          <item>
+            <p>Since: OTP @OTP-18374@</p>
+            <p>
+              Current value of the
+              <seeerl marker="erlang#process_flag_async_dist">
+                <c>async_dist</c></seeerl> process flag.
+            </p>
+          </item>
           <tag><c>{backtrace, <anno>Bin</anno>}</c></tag>
           <item>
             <p>Binary <c><anno>Bin</anno></c> contains the same information
@@ -7952,6 +8026,21 @@ true</pre>
               <seeerl marker="#process_flag_message_queue_data">
               <c>process_flag(message_queue_data,
               <anno>MQD</anno>)</c></seeerl>.</p>
+          </item>
+          <tag>
+            <marker id="spawn_opt_async_dist"/>
+            <c>{async_dist, Enabled}</c>
+          </tag>
+          <item>
+            <p>Since: OTP @OTP-18374@</p>
+            <p>
+              Set the
+              <seeerl marker="erlang#process_flag_async_dist">
+                <c>async_dist</c></seeerl> process flag of the spawned process.
+              This option will override the default value set by the command
+              line argument
+              <seecom marker="erl#+pad"><c>+pad &lt;boolean&gt;</c></seecom>.
+            </p>
           </item>
         </taglist>
       </desc>
@@ -10983,6 +11072,8 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
+      <name name="system_info" arity="1" clause_i="79"
+	    anchor="system_info_async_dist" since="OTP @OTP-18374@"/>  <!-- async_dist -->
       <name name="system_info" arity="1" clause_i="14"
 	    anchor="system_info_dist" since=""/>  <!-- creation -->
       <name name="system_info" arity="1" clause_i="16" since="OTP 18.0"/>  <!-- delayed_node_table_gc -->
@@ -10995,6 +11086,17 @@ Metadata = #{ pid => pid(),
         <p>Returns information about Erlang Distribution in the
         current system as specified by <c><anno>Item</anno></c>:</p>
         <taglist>
+          <tag><marker id="system_info_async_dist"/><c>async_dist</c></tag>
+          <item>
+            <p>Since: OTP @OTP-18374@</p>
+            <p>
+              Returns the value of the command line argument
+              <seecom marker="erl#+pad">+pad &lt;boolean&gt;</seecom>
+              which the runtime system use. This value determines the default
+              <seeerl marker="erlang#process_flag_async_dist">
+                <c>async_dist</c></seeerl> value for newly spawned processes.
+            </p>
+          </item>
           <tag><marker id="system_info_creation"/>
             <c>creation</c></tag>
           <item>
@@ -11133,7 +11235,7 @@ Metadata = #{ pid => pid(),
       <!-- <name name="system_info" arity="1" clause_i="76"/>  update_cpu_info -->
       <name name="system_info" arity="1" clause_i="77" since=""/>  <!-- version -->
       <name name="system_info" arity="1" clause_i="78" since=""/>  <!-- wordsize -->
-      <!-- <name name="system_info" arity="1" clause_i="79"/>  overview -->
+      <!-- <name name="system_info" arity="1" clause_i="80"/>  overview -->
       <!--    When adding any entry, make sure to update the overview clause_i -->
       <fsummary>Information about the system.</fsummary>
       <desc>
@@ -11501,7 +11603,7 @@ Metadata = #{ pid => pid(),
               <c><anno>MonitorPid</anno></c>. <c>SusPid</c> is the pid
               that got suspended when sending to <c>Port</c>.</p>
           </item>
-          <tag><c>busy_dist_port</c></tag>
+          <tag><c>busy_dist_port</c><marker id="busy_dist_port"/></tag>
           <item>
             <p>If a process in the system gets suspended because it
               sends to a process on a remote node whose inter-node
