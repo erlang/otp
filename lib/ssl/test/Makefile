@@ -98,6 +98,7 @@ MODULES = \
 	inet_cryptcookie_dist \
 	inet_crypto_dist \
 	dist_cryptcookie \
+	cryptcookie \
 	inet_epmd_inet_cryptcookie \
 	inet_epmd_socket_cryptcookie \
 	openssl_ocsp_SUITE \
