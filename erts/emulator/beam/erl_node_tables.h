@@ -77,15 +77,9 @@ enum dist_entry_state {
 
 #define ERTS_DE_QFLG_BUSY			(((erts_aint32_t) 1) <<  0)
 #define ERTS_DE_QFLG_EXIT			(((erts_aint32_t) 1) <<  1)
-#define ERTS_DE_QFLG_REQ_INFO			(((erts_aint32_t) 1) <<  2)
-#define ERTS_DE_QFLG_PORT_CTRL                  (((erts_aint32_t) 1) <<  3)
-#define ERTS_DE_QFLG_PROC_CTRL                  (((erts_aint32_t) 1) <<  4)
 
 #define ERTS_DE_QFLGS_ALL			(ERTS_DE_QFLG_BUSY \
-						 | ERTS_DE_QFLG_EXIT \
-                                                 | ERTS_DE_QFLG_REQ_INFO \
-                                                 | ERTS_DE_QFLG_PORT_CTRL \
-                                                 | ERTS_DE_QFLG_PROC_CTRL)
+						 | ERTS_DE_QFLG_EXIT)
 
 #if defined(ARCH_64)
 #define ERTS_DIST_OUTPUT_BUF_DBG_PATTERN ((Uint) 0xf713f713f713f713UL)
@@ -105,6 +99,7 @@ struct ErtsDistOutputBuf_ {
      * iov[2 ... vsize-1] data
      */
     ErlIOVec *eiov;
+    int ignore_busy;
 };
 
 struct ErtsDistOutputBufsContainer_ {
@@ -153,7 +148,9 @@ struct dist_entry_ {
 
     erts_mtx_t qlock;           /* Protects qflgs and out_queue */
     erts_atomic32_t qflgs;
-    erts_atomic_t qsize;
+    erts_atomic32_t notify;     /* User wants queue notification? */
+    erts_atomic_t qsize;        /* Size of data in queue respecting busy dist */
+    erts_atomic_t total_qsize;  /* Total size of data in queue */
     erts_atomic64_t in;
     erts_atomic64_t out;
     ErtsDistOutputQueue out_queue;

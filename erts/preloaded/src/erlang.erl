@@ -2425,7 +2425,10 @@ open_port(PortName, PortSettings) ->
 -type message_queue_data() ::
 	off_heap | on_heap.
 
--spec process_flag(trap_exit, Boolean) -> OldBoolean when
+-spec process_flag(async_dist, Boolean) -> OldBoolean when
+      Boolean :: boolean(),
+      OldBoolean :: boolean();
+                  (trap_exit, Boolean) -> OldBoolean when
       Boolean :: boolean(),
       OldBoolean :: boolean();
                   (error_handler, Module) -> OldModule when
@@ -2463,6 +2466,7 @@ process_flag(_Flag, _Value) ->
     erlang:nif_error(undefined).
 
 -type process_info_item() ::
+      async_dist |
       backtrace |
       binary |
       catchlevel |
@@ -2499,6 +2503,7 @@ process_flag(_Flag, _Value) ->
       trap_exit.
 
 -type process_info_result_item() ::
+      {async_dist, Enabled :: boolean()} |
       {backtrace, Bin :: binary()} |
       {binary, BinInfo :: [{non_neg_integer(),
                             non_neg_integer(),
@@ -2949,6 +2954,7 @@ tuple_to_list(_Tuple) ->
          (update_cpu_info) -> changed | unchanged;
          (version) -> string();
          (wordsize | {wordsize, internal} | {wordsize, external}) -> 4 | 8;
+         (async_dist) -> boolean();
          (overview) -> boolean();
          %% Deliberately left undocumented
          (sequential_tracer) -> {sequential_tracer, pid() | port() | {module(),term()} | false}.
@@ -3078,7 +3084,8 @@ spawn_monitor(M, F, A) ->
       | {min_heap_size, Size :: non_neg_integer()}
       | {min_bin_vheap_size, VSize :: non_neg_integer()}
       | {max_heap_size, Size :: max_heap_size()}
-      | {message_queue_data, MQD :: message_queue_data()}.
+      | {message_queue_data, MQD :: message_queue_data()}
+      | {async_dist, Enabled :: boolean()}.
 
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
       Fun :: function(),
