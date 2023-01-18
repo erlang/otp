@@ -426,7 +426,7 @@ translate_dependent_instrs(Mode, Before, After, Appls) ->
     {Before ++ NBefore, NAfter}.
 
 translate_dep_loop(G, WCs, [I| Is], Appls, Before, After, Mode) 
-  when is_tuple(I), size(I) > 1 ->
+  when tuple_size(I) > 1 ->
     IName = element(1, I),
     case lists:member(IName, ?DEP_INSTRS) of 
 	true ->
@@ -465,7 +465,7 @@ make_dependency_graph(Instructions) ->
     {VDs, _} = lists:mapfoldl(
 			     fun(I, N) ->
 				     Mod = element(2, I),
-				     Mods = element(size(I), I),
+				     Mods = element(tuple_size(I), I),
 				     {{Mod, Mods, {N, I}}, N+1}
 			     end, 1, DepIs),
     G = digraph:new(),
