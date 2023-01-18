@@ -51,8 +51,7 @@ start_link() ->
 init([]) ->
     %% We don't want the current directory in the code path.
     %% Remove it.
-    Path = [D || D <- code:get_path(), D =/= "."],
-    true = code:set_path(Path),
+    _ = code:del_path("."),
     Config = init_config(),
     {ok, #st{config=Config}, ?IDLE_TIMEOUT}.
 
