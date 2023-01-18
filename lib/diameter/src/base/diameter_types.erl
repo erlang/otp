@@ -243,8 +243,8 @@
     <<0:48>>;
 
 'Address'(decode, <<A:16, B/binary>>, _)
-  when 1 == A,  4 == size(B);
-       2 == A, 16 == size(B) ->
+  when 1 == A,  4 == byte_size(B);
+       2 == A, 16 == byte_size(B) ->
     list_to_tuple([N || <<N:A/unit:8>> <= B]);
 
 %% Bytes for non-IP address types are left for the user to interpret.

@@ -688,10 +688,10 @@ f(SFun, Width, [HF | _] = Fields, Values) ->
     end.
 
 values(Fields, Rec)
-  when length(Fields) == size(Rec) - 1 ->
+  when length(Fields) == tuple_size(Rec) - 1 ->
     ?VALUES(Rec);
 values(Fields, T)
-  when length(Fields) == size(T) ->
+  when length(Fields) == tuple_size(T) ->
     tuple_to_list(T).
 
 %% format_local/2

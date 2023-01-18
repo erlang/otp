@@ -294,7 +294,7 @@ d(F, Eq, V) ->
         end.
 
 z(B) ->
-    Sz = size(B),
+    Sz = byte_size(B),
     <<0:Sz/unit:8>>.
 
 %% values/1

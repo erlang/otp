@@ -271,9 +271,9 @@ ipaddr(Addr) ->
 
 %% Already a tuple: ensure non-negative integers of the right size.
 ip(T)
-  when size(T) == 4;
-       size(T) == 8 ->
-    Bs = 2*size(T),
+  when tuple_size(T) == 4;
+       tuple_size(T) == 8 ->
+    Bs = 2*tuple_size(T),
     [] = lists:filter(fun(N) when 0 =< N -> 0 < N bsr Bs end,
                       tuple_to_list(T)),
     T;
