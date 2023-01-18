@@ -70,8 +70,8 @@ prop_encode_2() ->
         {Str, Mode},
         {oneof([list(byte()), binary()]), mode()},
         begin
-            Enc = base64:encode(Str, Mode),
-            Dec = base64:decode(Enc, Mode),
+            Enc = base64:encode(Str, #{mode => Mode}),
+            Dec = base64:decode(Enc, #{mode => Mode}),
             is_b64_binary(Mode, Enc) andalso str_equals(Str, Dec)
         end
     ).
@@ -92,8 +92,8 @@ prop_encode_to_string_2() ->
         {Str, Mode},
         {oneof([list(byte()), binary()]), mode()},
         begin
-            Enc = base64:encode_to_string(Str, Mode),
-            Dec = base64:decode_to_string(Enc, Mode),
+            Enc = base64:encode_to_string(Str, #{mode => Mode}),
+            Dec = base64:decode_to_string(Enc, #{mode => Mode}),
             is_b64_string(Mode, Enc) andalso str_equals(Str, Dec)
         end
     ).
@@ -118,8 +118,8 @@ prop_decode_2() ->
             {wsped_b64(Mode), Mode}
         ),
         begin
-            Dec = base64:decode(WspedB64, Mode),
-            Enc = base64:encode(Dec, Mode),
+            Dec = base64:decode(WspedB64, #{mode => Mode}),
+            Enc = base64:encode(Dec, #{mode => Mode}),
             is_binary(Dec) andalso b64_equals(Mode, NormalizedB64, Enc)
         end
     ).
@@ -156,8 +156,8 @@ prop_decode_to_string_2() ->
             {wsped_b64(Mode), Mode}
         ),
         begin
-            Dec = base64:decode_to_string(WspedB64, Mode),
-            Enc = base64:encode(Dec, Mode),
+            Dec = base64:decode_to_string(WspedB64, #{mode => Mode}),
+            Enc = base64:encode(Dec, #{mode => Mode}),
             is_bytelist(Dec) andalso b64_equals(Mode, NormalizedB64, Enc)
         end
     ).
@@ -194,8 +194,8 @@ prop_mime_decode_2() ->
             {wsped_b64(Mode), Mode}
         ),
         begin
-            Dec = base64:mime_decode(NoisyB64, Mode),
-            Enc = base64:encode(Dec, Mode),
+            Dec = base64:mime_decode(NoisyB64, #{mode => Mode}),
+            Enc = base64:encode(Dec, #{mode => Mode}),
             is_binary(Dec) andalso b64_equals(Mode, NormalizedB64, Enc)
         end
     ).
@@ -226,8 +226,8 @@ prop_mime_decode_to_string_2() ->
             {wsped_b64(Mode), Mode}
         ),
         begin
-            Dec = base64:mime_decode_to_string(NoisyB64, Mode),
-            Enc = base64:encode(Dec, Mode),
+            Dec = base64:mime_decode_to_string(NoisyB64, #{mode => Mode}),
+            Enc = base64:encode(Dec, #{mode => Mode}),
             is_bytelist(Dec) andalso b64_equals(Mode, NormalizedB64, Enc)
         end
     ).
@@ -247,7 +247,7 @@ common_decode_noisy(ModeGen, Fn) ->
             {?SUCHTHAT({NormalizedB64, NoisyB64}, noisy_b64(Mode), NormalizedB64 =/= NoisyB64), Mode}
         ),
         try
-            Fn(NoisyB64, Mode)
+            Fn(NoisyB64, #{mode => Mode})
         of
             _ ->
                 false
@@ -280,7 +280,7 @@ common_decode_malformed(DataGen, ModeGen, Fn) ->
             )
         ),
         try
-            Fn(MalformedB64, Mode)
+            Fn(MalformedB64, #{mode => Mode})
         of
             _ ->
                 false
