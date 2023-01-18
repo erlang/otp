@@ -585,8 +585,8 @@ consistency_after_transform_table(Type, Config) ->
 	[k,a,n]) || Tab <- Tabs]),
     [?match([k,a,n], mnesia:table_info(Tab, attributes)) || Tab <- Tabs],
 
-    Filter = fun(Tab) -> mnesia:foldl(fun(A, Acc) when size(A) == 3 -> [A|Acc];
-					 (A, Acc) when size(A) == 4 -> Acc
+    Filter = fun(Tab) -> mnesia:foldl(fun(A, Acc) when tuple_size(A) == 3 -> [A|Acc];
+					 (A, Acc) when tuple_size(A) == 4 -> Acc
 				      end, [], Tab)
 	     end,    
 	
