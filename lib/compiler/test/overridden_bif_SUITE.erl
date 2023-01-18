@@ -89,7 +89,7 @@ do_overridden_bif_4(L) ->
     [E || E <- L, (port(E) andalso E > 0)].
 
 do_overridden_bif_5(L) ->
-    [E || E <- L, size(E) > 1].
+    [E || E <- L, tuple_size(E) > 1].
 
 do_overridden_bif_6(L) ->
     [E || E <- L, binary(E)].
