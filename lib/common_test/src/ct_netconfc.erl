@@ -1023,8 +1023,8 @@ handle_msg({get_event_streams=Op,Streams,Timeout}, From, State) ->
     SimpleXml = encode_rpc_operation(get,[Filter]),
     do_send_rpc(Op, SimpleXml, Timeout, From, State).
 
-handle_msg({ssh_cm, CM, {data, Ch, _Type, Data}}, State) ->
-    ssh_connection:adjust_window(CM,Ch,size(Data)),
+handle_msg({ssh_cm, CM, {data, Ch, _Type, Data}}, State) when is_binary(Data) ->
+    ssh_connection:adjust_window(CM,Ch,byte_size(Data)),
     log(State#state.connection, recv, Data),
     handle_data(Data, State);
 
@@ -1395,8 +1395,8 @@ frame(Bin) ->
 chunk(<<>>) ->
     [];
 
-chunk(Bin) ->
-    Sz = min(rand:uniform(1024), size(Bin)),
+chunk(Bin) when is_binary(Bin) ->
+    Sz = min(rand:uniform(1024), byte_size(Bin)),
     <<B:Sz/binary, Rest/binary>> = Bin,
     ["\n#", integer_to_list(Sz), $\n, B | chunk(Rest)].
 
@@ -2081,7 +2081,7 @@ recv(Bin, [Head, Len | Chunks]) ->       %% 1.1 chunking
 %% 5 characters from the end of the buffered head, since this binary
 %% has already been scanned.
 recv(Bin, Head) when is_binary(Head) ->  %% 1.0 framing
-    frame(<<Head/binary, Bin/binary>>, max(0, size(Head) - 5)).
+    frame(<<Head/binary, Bin/binary>>, max(0, byte_size(Head) - 5)).
 
 %% frame/2
 %%
@@ -2090,8 +2090,8 @@ recv(Bin, Head) when is_binary(Head) ->  %% 1.0 framing
 %% is unambiguous: the high-order bit of every byte of a multi-byte
 %% UTF character is 1, while the end-of-message sequence is ASCII.
 
-frame(Bin, Start) ->
-    Sz = size(Bin),
+frame(Bin, Start) when is_binary(Bin) ->
+    Sz = byte_size(Bin),
     Scope = {Start, Sz - Start},
     case binary:match(Bin, pattern(), [{scope, Scope}]) of
         {Len, 6} ->
@@ -2150,7 +2150,7 @@ chunk(Bin, [Sz | Chunks] = L, 0) ->
 %% ... or a header.
 
 chunk(Bin, Chunks, Len)
-  when size(Bin) < 4 ->
+  when byte_size(Bin) < 4 ->
     [Bin, 3 = Len | Chunks];
 
 %% End of chunks.
@@ -2189,7 +2189,7 @@ chunk(<<"\n#", Bin:11/binary, _/binary>>, _, _) ->
     {error, {"chunk-size too long", Bin}}; %% 32-bits = max 10 digits
 
 chunk(<<"\n#", _/binary>> = Bin, Chunks, _) ->
-    [Bin, size(Bin) | Chunks];
+    [Bin, byte_size(Bin) | Chunks];
 
 chunk(Bin, Chunks, 3 = Len) ->
     case drop(Bin) of

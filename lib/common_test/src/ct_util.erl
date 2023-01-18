@@ -786,7 +786,7 @@ listenv(Telnet) ->
 %%% Equivalent to ct:parse_table/1
 parse_table(Data) ->
     {Heading, Rest} = get_headings(Data),
-    Lines = parse_row(Rest,[],size(Heading)),
+    Lines = parse_row(Rest,[],tuple_size(Heading)),
     {Heading,Lines}.
 
 get_headings(["|" ++ Headings | Rest]) ->

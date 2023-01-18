@@ -443,7 +443,7 @@ get_suite_name(Mod, _) ->
 %% Check that alias names are not already in use
 check_for_clashes(TCInfo, [CurrGrInfo|Path], SuiteInfo) ->
     ReqNames = fun(Info) -> [element(2,R) || R <- Info,
-					     size(R) == 3,
+                                             tuple_size(R) == 3,
 					     require == element(1,R)]
 	       end,
     ExistingNames = lists:flatten([ReqNames(L)  || L <- [SuiteInfo|Path]]),

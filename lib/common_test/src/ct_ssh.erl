@@ -738,8 +738,8 @@ do_recv_response(SSH, Chn, Data, End, Timeout) ->
 	    debug("CLSD~n~p ~p", [SSH,Chn]),
 	    {ok,Data};
 
-	{ssh_cm, SSH, {data,Chn,_,NewData}} ->
-	    ssh_connection:adjust_window(SSH, Chn, size(NewData)),
+	{ssh_cm, SSH, {data,Chn,_,NewData}} when is_binary(NewData) ->
+	    ssh_connection:adjust_window(SSH, Chn, byte_size(NewData)),
 	    debug("RECVD~n~tp", [binary_to_list(NewData)]),
 	    DataAcc = Data ++ binary_to_list(NewData),
 	    if is_function(End) ->
