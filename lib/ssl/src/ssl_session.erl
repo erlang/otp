@@ -39,17 +39,19 @@
 -type seconds()   :: integer().
 
 %%--------------------------------------------------------------------
--spec legacy_session_id() -> ssl:session_id().
+-spec legacy_session_id(map()) -> ssl:session_id().
 %%
 %% Description: TLS-1.3 deprecates the session id but has a dummy
 %% value for it for protocol backwards-compatibility reasons.
 %% If now lower versions are configured this function can be called
 %% for a dummy value.
 %%--------------------------------------------------------------------
-legacy_session_id(#{middlebox_comp_mode := true}) ->
-    legacy_session_id();
-legacy_session_id(_) ->
-    ?EMPTY_ID.
+legacy_session_id(Opts) ->
+    case maps:get(middlebox_comp_mode, Opts, true) of
+        true  -> legacy_session_id();
+        false -> ?EMPTY_ID
+    end.
+
 %%--------------------------------------------------------------------
 -spec is_new(ssl:session_id() | #session{}, ssl:session_id()) -> boolean().
  %%
@@ -239,7 +241,12 @@ record_cb(dtls) ->
 legacy_session_id() ->
     crypto:strong_rand_bytes(32).
 
-maybe_handle_middlebox({3, 4}, #session{session_id = ?EMPTY_ID} = Session, #{middlebox_comp_mode := true})->
-    Session#session{session_id = legacy_session_id()};
+maybe_handle_middlebox({3, 4}, #session{session_id = ?EMPTY_ID} = Session, Options)->
+    case maps:get(middlebox_comp_mode, Options,true) of
+        true ->
+            Session#session{session_id = legacy_session_id()};
+        false ->
+            Session
+    end;
 maybe_handle_middlebox(_, Session, _) ->
     Session.

@@ -54,9 +54,8 @@
 initial_state(Role, Sender, Host, Port, Socket,
               {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
-    #{erl_dist := IsErlDist,
-      %% Use highest supported version for client/server random nonce generation
-      versions := [Version|_]} = SSLOptions,
+    %% Use highest supported version for client/server random nonce generation
+    #{versions := [Version|_]} = SSLOptions,
     MaxEarlyDataSize = init_max_early_data_size(Role),
     ConnectionStates = tls_record:init_connection_states(Role,
                                                          Version,
@@ -95,7 +94,7 @@ initial_state(Role, Sender, Host, Port, Socket,
        start_or_recv_from = undefined,
        flight_buffer = [],
        protocol_specific = #{sender => Sender,
-                             active_n => internal_active_n(IsErlDist),
+                             active_n => internal_active_n(SSLOptions),
                              active_n_toggle => true
                             }
       }.
@@ -304,8 +303,7 @@ handle_new_session_ticket(_, #state{ssl_options = #{session_tickets := disabled}
 handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce}
                           = NewSessionTicket,
                           #state{connection_states = ConnectionStates,
-                                 ssl_options = #{session_tickets := SessionTickets,
-                                                 server_name_indication := SNI},
+                                 ssl_options = #{session_tickets := SessionTickets} = SslOpts,
                                  connection_env = #connection_env{user_application = {_, User}}})
   when SessionTickets =:= manual ->
     #{security_parameters := SecParams} =
@@ -315,13 +313,12 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce}
     HKDF = SecParams#security_parameters.prf_algorithm,
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
+    SNI = maps:get(server_name_indication, SslOpts, undefined),
     send_ticket_data(User, NewSessionTicket, {Cipher, HKDF}, SNI, PSK);
 handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce}
                           = NewSessionTicket,
                           #state{connection_states = ConnectionStates,
-                                 ssl_options =
-                                     #{session_tickets := SessionTickets,
-                                       server_name_indication := SNI}})
+                                 ssl_options = #{session_tickets := SessionTickets} = SslOpts})
   when SessionTickets =:= auto ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
@@ -330,8 +327,8 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce}
     HKDF = SecParams#security_parameters.prf_algorithm,
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
-    tls_client_ticket_store:store_ticket(NewSessionTicket,
-                                         {Cipher, HKDF}, SNI, PSK).
+    SNI = maps:get(server_name_indication, SslOpts, undefined),
+    tls_client_ticket_store:store_ticket(NewSessionTicket, {Cipher, HKDF}, SNI, PSK).
 
 send_ticket_data(User, NewSessionTicket, CipherSuite, SNI, PSK) ->
     Timestamp = erlang:system_time(millisecond),
@@ -365,7 +362,7 @@ init_max_early_data_size(client) ->
 init_max_early_data_size(server) ->
     ssl_config:get_max_early_data_size().
 
-internal_active_n(true) ->
+internal_active_n(#{erl_dist := true}) ->
     %% Start with a random number between 1 and ?INTERNAL_ACTIVE_N
     %% In most cases distribution connections are established all at
     %%  the same time, and flow control engages with ?INTERNAL_ACTIVE_N for
@@ -374,7 +371,7 @@ internal_active_n(true) ->
     %%  a random number between 1 and ?INTERNAL_ACTIVE_N helps to spread the
     %%  spike.
     erlang:system_time() rem ?INTERNAL_ACTIVE_N + 1;
-internal_active_n(false) ->
+internal_active_n(_) ->
     case application:get_env(ssl, internal_active_n) of
         {ok, N} when is_integer(N) ->
             N;

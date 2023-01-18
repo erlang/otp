@@ -1186,73 +1186,48 @@ close(Pid, Timeout) ->
 	{'DOWN', Monitor, process, Pid, Reason} ->
 	    erlang:demonitor(Monitor),
 	    ?LOG("~nPid: ~p down due to:~p ~n", [Pid, Reason])
-    after 
-	Timeout ->
-	    exit(Pid, kill)
+    after Timeout -> exit(Pid, kill)
     end.
 
 get_result(Pids) ->
     get_result(Pids, []).
 
-get_result([], Acc) ->
-    Acc;
+get_result([], Acc) -> Acc;
 get_result([Pid | Tail], Acc) ->
-    receive
-	{Pid, Msg} ->
-	    get_result(Tail, [{Pid, Msg} | Acc])
-    end.
-
-check_result(Server, ServerMsg, Client, ClientMsg) ->
-    {ClientIP, ClientPort} = get_ip_port(ServerMsg),
-    receive
-	{Server, ServerMsg} ->
-	    check_result(Client, ClientMsg);
-        %% Workaround to accept local addresses (127.0.0.0/24)
-        {Server, {ok, {{127,_,_,_}, ClientPort}}} when ClientIP =:= localhost  ->
-            check_result(Client, ClientMsg);
-	{Client, ClientMsg} ->
-	    check_result(Server, ServerMsg);
-	{Port, {data,Debug}} when is_port(Port) ->
-	    ?LOG("~n Openssl ~s~n",[Debug]),
-	    check_result(Server, ServerMsg, Client, ClientMsg);
-        {Port,closed} when is_port(Port) ->
-            ?LOG("~n Openssl port closed ~n",[]),
-            check_result(Server, ServerMsg, Client, ClientMsg);
-        {'EXIT', epipe} ->
-            ?LOG("~n Openssl port died ~n",[]),
-            check_result(Server, ServerMsg, Client, ClientMsg);
-	Unexpected ->
-	    Reason = {{expected, {Client, ClientMsg}},
-		      {expected, {Server, ServerMsg}}, {got, Unexpected}},
-	    ct:fail(Reason)
+    receive {Pid, Msg} -> get_result(Tail, [{Pid, Msg} | Acc])
     end.
 
 check_result(Pid, Msg) ->
-    {ClientIP, ClientPort} = get_ip_port(Msg),
-    receive 
-	{Pid, Msg} -> 
-	    ok;
-        %% Workaround to accept local addresses (127.0.0.0/24)
-        {Pid, {ok, {{127,_,_,_}, ClientPort}}} when ClientIP =:= localhost ->
-            ok;
-	{Port, {data,Debug}} when is_port(Port) ->
-	    ?LOG("~n Openssl ~s~n",[Debug]),
-	    check_result(Pid,Msg);
-        {Port,closed} when is_port(Port)->
-            ?LOG(" Openssl port closed ~n",[]),
-            check_result(Pid, Msg);
-	Unexpected ->
-	    Reason = {{expected, {Pid, Msg}}, 
-		      {got, Unexpected}},
-	    ct:fail(Reason)
+    check_result([{Pid, Msg}]).
+check_result(Server, ServerMsg, Client, ClientMsg) ->
+    check_result([{Server, ServerMsg}, {Client, ClientMsg}]).
+
+check_result([]) -> ok;
+check_result(Msgs) ->
+    receive
+        Msg -> match_result_msg(Msg, Msgs)
     end.
 
+match_result_msg(Msg, Msgs) ->
+    case lists:member(Msg, Msgs) of
+        true  -> check_result(lists:delete(Msg, Msgs));
+        false -> match_result_msg2(Msg, Msgs)
+    end.
 
-get_ip_port({ok,{ClientIP, ClientPort}}) ->
-    {ClientIP, ClientPort};
-get_ip_port(_) ->
-    {undefined, undefined}.
-
+match_result_msg2({Pid, {ok, {{127,_,_,_}, Port}}} = Msg, Msgs) ->
+    Match = {Pid, {ok, {localhost, Port}}},
+    case lists:member(Match, Msgs) of
+        true -> check_result(lists:delete(Match, Msgs));
+        false -> ct:fail({{expected, Msgs}, {got, Msg}})
+    end;
+match_result_msg2({Port, {data,Debug}}, Msgs) when is_port(Port) ->
+    ?LOG(" Openssl (~p) ~s~n",[Port, Debug]),
+    check_result(Msgs);
+match_result_msg2({Port, closed}, Msgs) when is_port(Port) ->
+    ?LOG(" Openssl port (~p) closed ~n",[Port]),
+    check_result(Msgs);
+match_result_msg2(Msg, Msgs) ->
+    ct:fail({{expected, Msgs}, {got, Msg}}).
 
 check_server_alert(Pid, Alert) ->
     receive

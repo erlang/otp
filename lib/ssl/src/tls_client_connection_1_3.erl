@@ -285,7 +285,8 @@ wait_sh(internal, #server_hello{session_id = ?EMPTY_ID} = Hello,
     end;
 wait_sh(internal, #server_hello{} = Hello,
         #state{protocol_specific = PS,
-               ssl_options = #{middlebox_comp_mode := true}} = State0) ->
+               ssl_options = SSLOpts} = State0)
+  when not is_map_key(middlebox_comp_mode, SSLOpts) ->
     IsRetry = maps:get(hello_retry, PS, false),
     case handle_server_hello(Hello, State0) of
         #alert{} = Alert ->

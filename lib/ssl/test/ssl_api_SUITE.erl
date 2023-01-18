@@ -1889,7 +1889,6 @@ der_input(Config) when is_list(Config) ->
 		  {dh, DHParams},
 		  {cert, ServerCert}, {key, ServerKey}, {cacerts, ServerCaCerts}],
     ClientOpts = [{verify, verify_peer},
-		  {dh, DHParams},
 		  {cert, ClientCert}, {key, ClientKey}, {cacerts, ClientCaCerts}],
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -1915,7 +1914,6 @@ der_input(Config) when is_list(Config) ->
                    {cacerts, [ #cert{der=Der, otp=public_key:pkix_decode_cert(Der, otp)}
                                || Der <- ServerCaCerts]}],
     ClientOpts1 = [{verify, verify_peer},
-                   {dh, DHParams},
                    {cert, ClientCert}, {key, ClientKey},
                    {cacerts, [ #cert{der=Der, otp=public_key:pkix_decode_cert(Der, otp)}
                                || Der <- ClientCaCerts]}],
@@ -2134,7 +2132,6 @@ invalid_options(Config) when is_list(Config) ->
           {keyfile,'key.pem' }, 
           {password, foo},
           {cacertfile, ""}, 
-          {dhfile,'dh.pem' },
           {ciphers, [{foo, bar, sha, ignore}]},
           {reuse_session, foo},
           {reuse_sessions, 0},
@@ -2192,12 +2189,14 @@ patch_version(Opts, Role, Host) ->
             {DOpts, Opts}
     end.
 
--define(OK(EXP, Opts, Role),
+-define(OK(EXP, Opts, Role), ?OK(EXP,Opts, Role, [])).
+-define(OK(EXP, Opts, Role, ShouldBeMissing),
         fun() ->
                 Host = "dummy.host.org",
                 {__DefOpts, __Opts} = patch_version(Opts, Role, Host),
                 try ssl:handle_options(__Opts, Role, Host) of
-                    {ok, #config{ssl=EXP}} -> ok;
+                    {ok, #config{ssl=EXP = __ALL}} ->
+                        ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL);
                     Other ->
                         ct:pal("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, Other})
@@ -2208,10 +2207,11 @@ patch_version(Opts, Role, Host) ->
                         error({unexpected, C, Other,ST})
                 end,
                 try ssl:update_options(__Opts, Role, __DefOpts) of
-                    EXP -> ok;
+                    EXP = __ALL2 ->
+                        ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL2);
                     Other2 ->
                         ct:pal("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                               "ssl:update_options(~p,~p, element(2,Cfg)).",
+                               "ssl:update_options(~w,~w, element(2,Cfg)).",
                                [Role,Host,__Opts,Role]),
                         error({unexpected2, Other2})
                 catch
@@ -2306,9 +2306,11 @@ options_protocol(_Config) ->
     ?ERR({protocol, foo}, [{protocol, 'foo'}], client),
 
     begin %% erl_dist
-        ?OK(#{erl_dist := false}, [], client),
+        ?OK(#{}, [], client, [erl_dist]),
+        ?OK(#{}, [{erl_dist, false}], client, [erl_dist]),
         ?OK(#{erl_dist := true}, [{erl_dist, true}], client),
-        ?OK(#{ktls := false}, [], client),
+        ?OK(#{}, [], client, [ktls]),
+        ?OK(#{}, [{ktls, false}], client, [ktls]),
         ?OK(#{ktls := true}, [{ktls, true}], client)
     end,
     ok.
@@ -2349,29 +2351,23 @@ options_version(_Config) ->
 
 options_alpn(_Config) -> %% alpn & next_protocols 
     Http = <<"HTTP/2">>,
-    ?OK(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
-          next_protocol_selector := undefined, next_protocols_advertised := undefined},
-        [], client),
-    ?OK(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
-          next_protocol_selector := undefined, next_protocols_advertised := undefined},
-        [], server),
+    ?OK(#{alpn_advertised_protocols := undefined}, [], client,
+        [alpn_preferred_protocols, next_protocol_selector, next_protocols_advertised]),
+    ?OK(#{alpn_preferred_protocols := undefined},  [], server,
+        [alpn_advertised_protocols, next_protocol_selector, next_protocols_advertised]),
 
-    ?OK(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := [Http],
-          next_protocol_selector := undefined, next_protocols_advertised := undefined},
-        [{alpn_preferred_protocols, [Http]}], server),
-    ?OK(#{alpn_advertised_protocols := [Http], alpn_preferred_protocols := undefined,
-          next_protocol_selector := undefined, next_protocols_advertised := undefined},
-        [{alpn_advertised_protocols, [Http]}], client),
+    ?OK(#{alpn_preferred_protocols := [Http]}, [{alpn_preferred_protocols, [Http]}],
+        server, [alpn_advertised_protocols, next_protocol_selector, next_protocols_advertised]),
+    ?OK(#{alpn_advertised_protocols := [Http]}, [{alpn_advertised_protocols, [Http]}],
+        client, [alpn_preferred_protocols, next_protocol_selector, next_protocols_advertised]),
 
     %% Note names have been swapped in client/server variants
 
-    ?OK(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
-          next_protocol_selector := undefined, next_protocols_advertised := [Http]},
-        [{next_protocols_advertised, [Http]}], server),
-    ?OK(#{alpn_advertised_protocols := undefined, alpn_preferred_protocols := undefined,
-          next_protocol_selector := _, next_protocols_advertised := undefined},
+    ?OK(#{alpn_preferred_protocols := undefined, next_protocols_advertised := [Http]},
+        [{next_protocols_advertised, [Http]}], server, [alpn_advertised_protocols, next_protocol_selector]),
+    ?OK(#{alpn_advertised_protocols := undefined, next_protocol_selector := _},
         [{client_preferred_next_protocols, {server,[Http], Http}}],
-        client),
+        client, [alpn_preferred_protocols, next_protocols_advertised]),
 
     %% Errors
     ?ERR({alpn_preferred_protocols, {invalid_protocol, <<>>}}, [{alpn_preferred_protocols, [Http, <<>>]}], server),
@@ -2428,9 +2424,10 @@ options_anti_replay(_Config) ->
     ok.
 
 options_beast_mitigation(_Config) -> %% Beast mitigation
-    ?OK(#{beast_mitigation := one_n_minus_one}, [], client),
-    ?OK(#{beast_mitigation := disabled},
-        [{beast_mitigation, disabled}, {versions, [tlsv1]}], client),
+    ?OK(#{beast_mitigation := one_n_minus_one}, [{versions, [tlsv1,'tlsv1.1']}], client),
+    ?OK(#{}, [{versions, ['tlsv1.1']}], client, [beast_mitigation]),
+    ?OK(#{}, [{beast_mitigation, disabled}, {versions, [tlsv1]}], client,
+        [beast_mitigation]),
     ?OK(#{beast_mitigation := zero_n},
         [{beast_mitigation, zero_n}, {versions, [tlsv1]}], client),
 
@@ -2447,16 +2444,15 @@ options_cacerts(Config) ->  %% cacert[s]file
                {win32, _} -> <<"c:/tmp/foo">>;
                _ -> <<"/tmp/foo">>
            end,
-    ?OK(#{cacerts := undefined, cacertfile := <<>>},
-        [], client),
+    ?OK(#{cacerts := undefined}, [], client, [cacertfile]),
     ?OK(#{cacerts := undefined, cacertfile := File},
         [{cacertfile, File}], client),
-    ?OK(#{cacerts := [Cert], cacertfile := <<>>},
-        [{cacerts, [Cert]}, {verify, verify_peer}], client),
-    ?OK(#{cacerts := [#cert{}], cacertfile := <<>>},
-        [{cacerts, [#cert{der=Cert, otp=dummy}]}], client),
-    ?OK(#{cacerts := [Cert], cacertfile := _},
-        [{cacerts, [Cert]}, {cacertfile, "/tmp/foo"}], client),
+    ?OK(#{cacerts := [Cert]}, [{cacerts, [Cert]}, {verify, verify_peer}],
+        client, [cacertfile]),
+    ?OK(#{cacerts := [#cert{}]}, [{cacerts, [#cert{der=Cert, otp=dummy}]}],
+        client, [cacertfile]),
+    ?OK(#{cacerts := [Cert]}, [{cacerts, [Cert]}, {cacertfile, "/tmp/foo"}],
+        client, [cacertfile]),
 
     %% Errors
     ?ERR({options, incompatible, _}, [{verify, verify_peer}], server),
@@ -2464,49 +2460,41 @@ options_cacerts(Config) ->  %% cacert[s]file
     ?ERR({cacertfile, cert}, [{cacertfile, cert}], client),
 
     begin %% depth
-        ?OK(#{depth := 10}, [], client),
+        ?OK(#{}, [], client, [depth]),
         ?OK(#{depth := 5}, [{depth, 5}], client),
         %% Error
+        ?ERR({depth, 256}, [{depth, 256}], client),
         ?ERR({depth, not_an_int}, [{depth, not_an_int}], client)
     end,
     ok.
 
 options_cert(Config) -> %% cert[file] cert_keys keys password
     Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
-    {ok, #config{ssl = DefMap}} = ssl:handle_options([], client, "dummy.host.org"),
-    false = maps:is_key(certs_keys, DefMap),  %% ??
+    Old = [cert, certfile, key, keyfile, password],
+    ?OK(#{certs_keys := []}, [], client, Old),
+    ?OK(#{certs_keys := [#{cert := [Cert]}]}, [{cert,Cert}], client, Old),
+    ?OK(#{certs_keys := [#{cert := [Cert]}]}, [{cert,[Cert]}], client, Old),
+    ?OK(#{certs_keys := [#{certfile := <<"/tmp/foo">>, keyfile := <<"/tmp/foo">>}]},
+        [{certfile, <<"/tmp/foo">>}], client, Old),
 
-    ?OK(#{cert := undefined, certfile := <<>>, key := undefined, keyfile := <<>>, password := ""},
-        [], client),
-    ?OK(#{cert := [Cert], certfile := <<>>, key := undefined, keyfile := <<>>, password := ""},
-        [{cert,Cert}], client),
-    ?OK(#{cert := [Cert], certfile := <<>>, key := undefined, keyfile := <<>>},
-        [{cert,[Cert]}], client),
-    ?OK(#{cert := undefined, certfile := <<"/tmp/foo">>, key := undefined, keyfile := <<"/tmp/foo">>},
-        [{certfile, <<"/tmp/foo">>}], client),
+    ?OK(#{certs_keys := [#{}]}, [{certs_keys, [#{}]}], client),
 
-    ?OK(#{certs_keys := [#{}]},
-        [{certs_keys, [#{}]}], client),
+    ?OK(#{certs_keys := [#{key := {rsa, <<>>}}]},
+        [{key, {rsa, <<>>}}], client, Old),
+    ?OK(#{certs_keys := [#{key := #{}}]},
+        [{key, #{engine => foo, algorithm => foo, key_id => foo}}], client, Old),
 
-    ?OK(#{cert := undefined, certfile := <<>>, key := {rsa, <<>>}, keyfile := <<>>},
-        [{key, {rsa, <<>>}}], client),
-    ?OK(#{cert := undefined, certfile := <<>>, key := #{}, keyfile := <<>>},
-        [{key, #{engine => foo, algorithm => foo, key_id => foo}}], client),
-
-    ?OK(#{key := undefined, keyfile := <<>>, password := "foobar"},
-        [{password, "foobar"}], client),
-    ?OK(#{key := undefined, keyfile := <<>>, password := <<"foobar">>},
-        [{password, <<"foobar">>}], client),
+    ?OK(#{certs_keys := [#{password := _}]}, [{password, "foobar"}], client, Old),
+    ?OK(#{certs_keys := [#{password := _}]}, [{password, <<"foobar">>}], client, Old),
     Pwd = fun() -> "foobar" end,
-    ?OK(#{key := undefined, keyfile := <<>>, password := Pwd},
-        [{password, Pwd}], client),
+    ?OK(#{certs_keys := [#{password := Pwd}]}, [{password, Pwd}], client, Old),
 
-    ?OK(#{cert := undefined, certfile := <<"/tmp/foo">>, key := undefined, keyfile := <<"/tmp/baz">>},
-        [{certfile, <<"/tmp/foo">>}, {keyfile, "/tmp/baz"}], client),
+    ?OK(#{certs_keys := [#{certfile := <<"/tmp/foo">>, keyfile := <<"/tmp/baz">>}]},
+        [{certfile, <<"/tmp/foo">>}, {keyfile, "/tmp/baz"}], client, Old),
 
     ?OK(#{certs_keys := [#{}]},
         [{cert, Cert}, {certfile, "/tmp/foo"}, {certs_keys, [#{}]}],
-        client),
+        client, Old),
 
     %% Errors
     ?ERR({cert, #{}}, [{cert, #{}}], client),
@@ -2518,12 +2506,12 @@ options_cert(Config) -> %% cert[file] cert_keys keys password
     ok.
 
 options_certificate_authorities(_Config) ->
-    ?OK(#{certificate_authorities := false}, [], client),
-    ?OK(#{certificate_authorities := true}, [], server),
-    ?OK(#{certificate_authorities := true},
-        [{certificate_authorities, true}], client),
-    ?OK(#{certificate_authorities := false},
-        [{certificate_authorities, false}], server),
+    ?OK(#{}, [], client, [certificate_authorities]),
+    ?OK(#{}, [], server, [certificate_authorities]),
+    ?OK(#{certificate_authorities := true}, [{certificate_authorities, true}], client),
+    ?OK(#{}, [{certificate_authorities, false}], client, [certificate_authorities]),
+    ?OK(#{certificate_authorities := false}, [{certificate_authorities, false}], server),
+    ?OK(#{}, [{certificate_authorities, true}], server, [certificate_authorities]),
 
     %% Errors
     ?ERR({certificate_authorities, []},
@@ -2591,18 +2579,20 @@ options_hostname_check(_Config) ->
     ok.
 
 options_dh(_Config) -> %% dh dhfile
-    ?OK(#{dh := undefined, dhfile := undefined}, [], client),
-    ?OK(#{dh := <<>>, dhfile := undefined}, [{dh, <<>>}], client),
-    ?OK(#{dh := undefined, dhfile := <<"/tmp/foo">>}, [{dhfile, <<"/tmp/foo">>}], client),
-    ?OK(#{dh := <<>>, dhfile := undefined}, [{dh, <<>>}, {dhfile, <<"/tmp/foo">>}], client),
+    ?OK(#{}, [], server, [dh, dhfile]),
+    ?OK(#{dh := <<>>}, [{dh, <<>>}], server, [dhfile]),
+    ?OK(#{dhfile := <<"/tmp/foo">>}, [{dhfile, <<"/tmp/foo">>}], server, [dh]),
+    ?OK(#{dh := <<>>}, [{dh, <<>>}, {dhfile, <<"/tmp/foo">>}], server, [dhfile]),
 
-    %% Should be and error
-    ?OK(#{dh := undefined, dhfile := <<"/tmp/foo">>},  %% Not available in 1.3
-        [{dhfile, <<"/tmp/foo">>}, {versions, ['tlsv1.3']}], client),
+    %% Should be an error
+    ?OK(#{dhfile := <<"/tmp/foo">>},  %% Not available in 1.3
+        [{dhfile, <<"/tmp/foo">>}, {versions, ['tlsv1.3']}], server, [dh]),
 
     %% Error
-    ?ERR({dh, not_a_bin}, [{dh, not_a_bin}], client),
-    ?ERR({dhfile, not_a_filename}, [{dhfile, not_a_filename}], client),
+    ?ERR({dh, not_a_bin}, [{dh, not_a_bin}], server),
+    ?ERR({dhfile, not_a_filename}, [{dhfile, not_a_filename}], server),
+    ?ERR({option, server_only, dhfile}, [{dhfile, "file"}], client),
+    ?ERR({option, server_only, dh}, [{dh, <<"DER">>}], client),
     ok.
 
 options_early_data(_Config) -> %% early_data, session_tickets and use_ticket
@@ -2758,8 +2748,7 @@ options_handshake(_Config) -> %% handshake
     ok.
 
 options_process(_Config) -> % hibernate_after, spawn_opts
-    ?OK(#{hibernate_after := infinity, receiver_spawn_opts := [], sender_spawn_opts := []},
-        [], client),
+    ?OK(#{}, [], client, [hibernate_after, receiver_spawn_opts, sender_spawn_opts]),
     ?OK(#{hibernate_after := 10000, receiver_spawn_opts := [foo], sender_spawn_opts := [bar]},
         [{hibernate_after, 10000}, {receiver_spawn_opts, [foo]}, {sender_spawn_opts, [bar]}],
         client),
@@ -2784,9 +2773,12 @@ options_honor(_Config) ->  %% honor_cipher_order & honor_ecc_order
     ok.
 
 options_debug(_Config) -> %% debug  log_level keep_secrets
-    ?OK(#{log_level := notice, keep_secrets := false}, [], server),
+    ?OK(#{log_level := notice}, [], server, [keep_secrets]),
     ?OK(#{log_level := debug, keep_secrets := true},
         [{log_level, debug}, {keep_secrets, true}], server),
+    ?OK(#{log_level := info},
+        [{log_level, info}, {keep_secrets, false}], server, [keep_secrets]),
+
     %% Errors
     ?ERR({log_level, foo}, [{log_level, foo}], server),
     ?ERR({keep_secrets, foo}, [{keep_secrets, foo}], server),
@@ -2811,9 +2803,9 @@ options_renegotiate(_Config) -> %% key_update_at   renegotiate_at  secure_renego
     ok.
 
 options_middlebox(_Config) -> %% middlebox_comp_mode
-    ?OK(#{middlebox_comp_mode := true}, [], client),
+    ?OK(#{}, [], client, [middlebox_comp_mode]),
+    ?OK(#{}, [{middlebox_comp_mode, true}], client, [middlebox_comp_mode]),
     ?OK(#{middlebox_comp_mode := false}, [{middlebox_comp_mode, false}], client),
-
 
     %% Errors
     ?ERR({middlebox_comp_mode, foo}, [{middlebox_comp_mode, foo}], server),
@@ -2854,7 +2846,7 @@ options_oscp(Config) ->
     ok.
 
 options_padding(_Config) ->
-    ?OK(#{padding_check := true}, [], server),
+    ?OK(#{}, [], server, [padding_check]),
     ?OK(#{padding_check := false}, [{padding_check, false}, {versions, [tlsv1]}], server),
     %% Errors
     ?ERR({padding_check, foo}, [{padding_check, foo}, {versions, [tlsv1]}], server),
@@ -2930,15 +2922,15 @@ options_reuse_session(_Config) ->
 
 options_sni(_Config) -> %% server_name_indication
     ?OK(#{server_name_indication := "dummy.host.org"}, [], client),
+    ?OK(#{}, [], server, [server_name_indication]),
     ?OK(#{server_name_indication := disable}, [{server_name_indication, disable}], client),
     ?OK(#{server_name_indication := "dummy.org"}, [{server_name_indication, "dummy.org"}], client),
 
-    ?OK(#{sni_fun := undefined, sni_hosts := []}, [], server),
+    ?OK(#{sni_fun := _}, [], server, [sni_hosts]),
 
-    ?OK(#{sni_fun := undefined, sni_hosts := [{"a",[]}]},
-        [{sni_hosts, [{"a", []}]}], server),
+    ?OK(#{sni_fun := _}, [{sni_hosts, [{"a", []}]}], server, [sni_hosts]),
     SNI_F = fun(_) -> sni end,
-    ?OK(#{sni_fun := SNI_F, sni_hosts := []}, [{sni_fun, SNI_F}], server),
+    ?OK(#{sni_fun := SNI_F}, [{sni_fun, SNI_F}], server, [sni_hosts]),
 
     %% Errors
     ?ERR({option, client_only, server_name_indication},

@@ -489,7 +489,7 @@
 -type server_reuse_session()     :: fun().
 -type server_reuse_sessions()    :: boolean().
 -type sni_hosts()                :: [{hostname(), [server_option() | common_option()]}].
--type sni_fun()                  :: fun().
+-type sni_fun()                  :: fun((string()) -> [] | undefined).
 -type honor_cipher_order()       :: boolean().
 -type honor_ecc_order()          :: boolean().
 -type client_renegotiation()     :: boolean().
@@ -1628,15 +1628,17 @@ opt_protocol_versions(UserOpts, Opts, Env) ->
 
     {_, LL} = get_opt_of(log_level, LogLevels, DefaultLevel, UserOpts, Opts),
 
-    {_, KS} = get_opt_bool(keep_secrets, false, UserOpts, Opts),
+    Opts1 = set_opt_bool(keep_secrets, false, UserOpts, Opts),
 
-    {_, ED} = get_opt_bool(erl_dist, false, UserOpts, Opts),
-    {_, KTLS} = get_opt_bool(ktls, false, UserOpts, Opts),
+    {DistW, Dist} = get_opt_bool(erl_dist, false, UserOpts, Opts1),
+    option_incompatible(PRC =:= dtls andalso Dist, [{protocol, PRC}, {erl_dist, Dist}]),
+    Opts2 = set_opt_new(DistW, erl_dist, false, Dist, Opts1),
 
-    opt_versions(UserOpts,
-                 Opts#{protocol => PRC, log_level => LL, keep_secrets => KS,
-                       erl_dist => ED, ktls => KTLS},
-                 Env).
+    {KtlsW, Ktls} = get_opt_bool(ktls, false, UserOpts, Opts1),
+    option_incompatible(PRC =:= dtls andalso Ktls, [{protocol, PRC}, {ktls, Ktls}]),
+    Opts3 = set_opt_new(KtlsW, ktls, false, Ktls, Opts2),
+
+    opt_versions(UserOpts, Opts3#{protocol => PRC, log_level => LL}, Env).
 
 opt_versions(UserOpts, #{protocol := Protocol} = Opts, _Env) ->
     Versions = case get_opt(versions, unbound, UserOpts, Opts) of
@@ -1647,8 +1649,8 @@ opt_versions(UserOpts, #{protocol := Protocol} = Opts, _Env) ->
 
     {Where, MCM} = get_opt_bool(middlebox_comp_mode, true, UserOpts, Opts),
     assert_version_dep(Where =:= new, middlebox_comp_mode, Versions, ['tlsv1.3']),
-
-    Opts#{versions => Versions, middlebox_comp_mode => MCM}.
+    Opts1 = set_opt_new(Where, middlebox_comp_mode, true, MCM, Opts),
+    Opts1#{versions => Versions}.
 
 default_versions(tls) ->
     Vsns0 = tls_record:supported_protocol_versions(),
@@ -1709,12 +1711,10 @@ opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
     option_incompatible(FailNoPeerCert andalso Verify =:= verify_none,
                         [{verify, verify_none}, {fail_if_no_peer_cert, true}]),
 
-    {_, Depth} = get_opt_int(depth, 0, 255, 10, UserOpts, Opts),
+    Opts1 = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts),
 
-    opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain,
-                                   fail_if_no_peer_cert => FailNoPeerCert,
-                                   depth => Depth
-                                  },
+    opt_verify_fun(UserOpts, Opts1#{partial_chain => PartialChain,
+                                    fail_if_no_peer_cert => FailNoPeerCert},
                    Env).
 
 opt_verify_fun(UserOpts, Opts, _Env) ->
@@ -1763,42 +1763,51 @@ convert_verify_fun() ->
     end.
 
 opt_certs(UserOpts, #{log_level := LogLevel} = Opts0, Env) ->
-    Opts = case get_opt_list(certs_keys, unbound, UserOpts, Opts0) of
-               {_, unbound} ->
-                   opt_old_certs(UserOpts, Opts0, Env);
+    Opts = case get_opt_list(certs_keys, [], UserOpts, Opts0) of
+               {Where, []} when Where =/= new ->
+                   opt_old_certs(UserOpts, #{}, Opts0, Env);
+               {old, [CertKey]} ->
+                   opt_old_certs(UserOpts, CertKey, Opts0, Env);
                {Where, CKs} when is_list(CKs) ->
                    warn_override(Where, UserOpts, certs_keys, [cert,certfile,key,keyfile,password], LogLevel),
-                   Opts0#{certs_keys => CKs}
+                   Opts0#{certs_keys => [check_cert_key(CK, #{}, LogLevel) || CK <- CKs]}
            end,
     opt_cacerts(UserOpts, Opts, Env).
 
-opt_old_certs(UserOpts, #{log_level := LogLevel}=Opts, _Env) ->
-    CertOpts = Opts,  %% #{} FIXME remove and always make a cert_keys list here
+opt_old_certs(UserOpts, CertKeys, #{log_level := LogLevel}=SSLOpts, _Env) ->
+    CK = check_cert_key(UserOpts, CertKeys, LogLevel),
+    case maps:keys(CK) =:= [] of
+        true ->
+            SSLOpts#{certs_keys => []};
+        false ->
+            SSLOpts#{certs_keys => [CK]}
+    end.
 
-    CertKeys0 = case get_opt(cert, undefined, UserOpts, Opts) of
+check_cert_key(UserOpts, CertKeys, LogLevel) ->
+    CertKeys0 = case get_opt(cert, undefined, UserOpts, CertKeys) of
                     {Where, Cert} when is_binary(Cert) ->
                         warn_override(Where, UserOpts, cert, [certfile], LogLevel),
-                        CertOpts#{cert => [Cert]};
+                        CertKeys#{cert => [Cert]};
                     {Where, [C0|_] = Certs} when is_binary(C0) ->
                         warn_override(Where, UserOpts, cert, [certfile], LogLevel),
-                        CertOpts#{cert => Certs};
+                        CertKeys#{cert => Certs};
                     {new, Err0} ->
                         option_error(cert, Err0);
                     {_, undefined} ->
-                        case get_opt_file(certfile, unbound, UserOpts, Opts) of
-                            {default, unbound} -> CertOpts#{cert => undefined};
-                            {_, CertFile} -> CertOpts#{certfile => CertFile}
+                        case get_opt_file(certfile, unbound, UserOpts, CertKeys) of
+                            {default, unbound} -> CertKeys;
+                            {_, CertFile} -> CertKeys#{certfile => CertFile}
                         end
                 end,
 
-    CertKeys1 = case get_opt(key, undefined, UserOpts, Opts) of
+    CertKeys1 = case get_opt(key, undefined, UserOpts, CertKeys) of
                     {_, undefined} ->
-                        case get_opt_file(keyfile, <<>>, UserOpts, Opts) of
+                        case get_opt_file(keyfile, <<>>, UserOpts, CertKeys) of
                             {new, KeyFile} ->
                                 CertKeys0#{keyfile => KeyFile};
                             {_, <<>>} ->
                                 case maps:get(certfile, CertKeys0, unbound) of
-                                    unbound -> CertKeys0#{key => undefined};
+                                    unbound -> CertKeys0;
                                     CF -> CertKeys0#{keyfile => CF}
                                 end;
                             {old, _} ->
@@ -1815,35 +1824,16 @@ opt_old_certs(UserOpts, #{log_level := LogLevel}=Opts, _Env) ->
                         option_error(key, Err1)
                 end,
 
-    CertKeys2 = case get_opt(password, unbound, UserOpts, Opts) of
+    CertKeys2 = case get_opt(password, unbound, UserOpts,CertKeys) of
                     {default, _} -> CertKeys1;
-                    {_, Pwd} when is_binary(Pwd); is_list(Pwd); is_function(Pwd, 0) ->
+                    {_, Pwd} when is_binary(Pwd); is_list(Pwd) ->
+                        CertKeys1#{password => fun() -> Pwd end};
+                    {_, Pwd} when is_function(Pwd, 0) ->
                         CertKeys1#{password => Pwd};
                     {_, Err2} ->
                         option_error(password, Err2)
                 end,
-    %% Compatibility FIXME remove these but check usage first
-    CertKeys3 = case maps:is_key(certfile, CertKeys2) of
-                    true  -> CertKeys2;
-                    false -> CertKeys2#{certfile => <<>>}
-                end,
-    CertKeys4 = case maps:is_key(keyfile, CertKeys3) of
-                    true  -> CertKeys3;
-                    false -> CertKeys3#{keyfile => <<>>}
-                end,
-    CertKeys5 = case maps:is_key(password, CertKeys4) of
-                    true  -> CertKeys4;
-                    false -> CertKeys4#{password => ""}
-                end,
-    CertKeys6 = case maps:is_key(cert, CertKeys5) of
-                    true  -> CertKeys5;
-                    false -> CertKeys5#{cert => undefined}
-                end,
-    CertKeys7 = case maps:is_key(key, CertKeys6) of
-                    true  -> CertKeys6;
-                    false -> CertKeys6#{key => undefined}
-                end,
-    CertKeys7.
+    CertKeys2.
 
 opt_cacerts(UserOpts, #{verify := Verify, log_level := LogLevel, versions := Versions} = Opts,
             #{role := Role}) ->
@@ -1862,7 +1852,9 @@ opt_cacerts(UserOpts, #{verify := Verify, log_level := LogLevel, versions := Ver
     {Where2, CA} = get_opt_bool(certificate_authorities, Role =:= server, UserOpts, Opts),
     assert_version_dep(Where2 =:= new, certificate_authorities, Versions, ['tlsv1.3']),
 
-    Opts#{cacerts => CaCerts, cacertfile => CaCertFile, certificate_authorities => CA}.
+    Opts1 = set_opt_new(new, cacertfile, <<>>, CaCertFile, Opts),
+    Opts2 = set_opt_new(Where2, certificate_authorities, Role =:= server, CA, Opts1),
+    Opts2#{cacerts => CaCerts}.
 
 opt_tickets(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
     {_, SessionTickets} = get_opt_of(session_tickets, [disabled,manual,auto], disabled, UserOpts, Opts),
@@ -1947,16 +1939,18 @@ opt_sni(UserOpts, #{versions := _Versions} = Opts, #{role := server}) ->
             end,
     [Check(E) || E <- SniHosts],
 
-    {_, SniFun} = get_opt_fun(sni_fun, 1, undefined, UserOpts, Opts),
+    {Where, SniFun0} = get_opt_fun(sni_fun, 1, undefined, UserOpts, Opts),
 
-    option_incompatible(is_function(SniFun) andalso SniHosts =/= [],
+    option_incompatible(is_function(SniFun0) andalso SniHosts =/= [] andalso Where =:= new,
                         [sni_fun, sni_hosts]),
     assert_client_only(server_name_indication, UserOpts),
-    %% FIXME: remove sni_hosts and
-    %%   sni_fun = fun(SNIHostName) -> proplists:get_value(SNIHostname, SNIHosts) end,
-    Opts#{sni_fun => SniFun, sni_hosts => SniHosts,
-          server_name_indication => undefined  %% FIXME
-         };
+
+    SniFun = case SniFun0 =:= undefined of
+                 true -> fun(Host) -> proplists:get_value(Host, SniHosts) end;
+                 false -> SniFun0
+             end,
+
+    Opts#{sni_fun => SniFun};
 opt_sni(UserOpts, #{versions := _Versions} = Opts, #{role := client} = Env) ->
     %% RFC 6066, Section 3: Currently, the only server names supported are
     %% DNS hostnames
@@ -2015,36 +2009,35 @@ opt_alpn(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
     {_, APP} = get_opt_list(alpn_preferred_protocols, undefined, UserOpts, Opts),
     validate_protocols(is_list(APP), alpn_preferred_protocols, APP),
 
-    {_, NPA} = get_opt_list(next_protocols_advertised, undefined, UserOpts, Opts),
+    {Where, NPA} = get_opt_list(next_protocols_advertised, undefined, UserOpts, Opts),
     validate_protocols(is_list(NPA), next_protocols_advertised, NPA),
     assert_version_dep(is_list(NPA), next_protocols_advertised, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
 
     assert_client_only(alpn_advertised_protocols, UserOpts),
     assert_client_only(client_preferred_next_protocols, UserOpts),
 
-    Opts#{alpn_preferred_protocols => APP, next_protocols_advertised => NPA,
-          alpn_advertised_protocols => undefined, next_protocol_selector => undefined  %% FIXME remove
-         };
+    Opts1 = set_opt_new(Where, next_protocols_advertised, undefined, NPA, Opts),
+    Opts1#{alpn_preferred_protocols => APP};
 opt_alpn(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
     {_, AAP} = get_opt_list(alpn_advertised_protocols, undefined, UserOpts, Opts),
     validate_protocols(is_list(AAP), alpn_advertised_protocols, AAP),
 
-    NPS = case get_opt(client_preferred_next_protocols, undefined, UserOpts, Opts) of
-              {new, CPNP} ->
-                  assert_version_dep(client_preferred_next_protocols,
-                                     Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
-                  make_next_protocol_selector(CPNP);
-              {_, CPNP} -> CPNP
-          end,
+    {Where, NPS} = case get_opt(client_preferred_next_protocols, undefined, UserOpts, Opts) of
+                       {new, CPNP} ->
+                           assert_version_dep(client_preferred_next_protocols,
+                                              Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
+                           {new, make_next_protocol_selector(CPNP)};
+                       CPNP ->
+                           CPNP
+                   end,
 
     validate_protocols(is_list(NPS), client_preferred_next_protocols, NPS),
 
     assert_server_only(alpn_preferred_protocols, UserOpts),
     assert_server_only(next_protocols_advertised, UserOpts),
 
-    Opts#{alpn_preferred_protocols => undefined, next_protocols_advertised => undefined, %% FIXME remove
-          alpn_advertised_protocols => AAP, next_protocol_selector => NPS
-         }.
+    Opts1 = set_opt_new(Where, next_protocol_selector, undefined, NPS, Opts),
+    Opts1#{alpn_advertised_protocols => AAP}.
 
 validate_protocols(false, _Opt, _List) -> ok;
 validate_protocols(true, Opt, List) ->
@@ -2055,15 +2048,21 @@ validate_protocols(true, Opt, List) ->
     lists:foreach(Check, List).
 
 opt_mitigation(UserOpts, #{versions := Versions} = Opts, _Env) ->
-    {Where1, BM} = get_opt_of(beast_mitigation, [disabled, one_n_minus_one, zero_n], one_n_minus_one, UserOpts, Opts),
+    DefBeast = case lists:last(Versions) > {3,1} of
+                   true -> disabled;
+                   false -> one_n_minus_one
+               end,
+    {Where1, BM} = get_opt_of(beast_mitigation, [disabled, one_n_minus_one, zero_n], DefBeast, UserOpts, Opts),
     assert_version_dep(Where1 =:= new, beast_mitigation, Versions, ['tlsv1']),
 
     {Where2, PC} = get_opt_bool(padding_check, true, UserOpts, Opts),
     assert_version_dep(Where2 =:= new, padding_check, Versions, ['tlsv1']),
 
-    Opts#{beast_mitigation => BM, padding_check => PC}.
+    %% Use 'new' we need to check for non default 'one_n_minus_one'
+    Opts1 = set_opt_new(new, beast_mitigation, disabled, BM, Opts),
+    set_opt_new(Where2, padding_check, true, PC, Opts1).
 
-opt_server(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
+opt_server(UserOpts, #{versions := Versions, log_level := LogLevel} = Opts, #{role := server}) ->
     {_, ECC} = get_opt_bool(honor_ecc_order, false, UserOpts, Opts),
 
     {_, Cipher} = get_opt_bool(honor_cipher_order, false, UserOpts, Opts),
@@ -2074,13 +2073,28 @@ opt_server(UserOpts, #{versions := Versions} = Opts, #{role := server}) ->
     {Where2, ReNeg} = get_opt_bool(client_renegotiation, true, UserOpts, Opts),
     assert_version_dep(Where2 =:= new, client_renegotiation, Versions, ['tlsv1','tlsv1.1','tlsv1.2']),
 
-    Opts#{honor_ecc_order => ECC, honor_cipher_order => Cipher,
-          cookie => Cookie, client_renegotiation => ReNeg};
+    Opts1 = case get_opt(dh, undefined, UserOpts, Opts) of
+                {Where, DH} when is_binary(DH) ->
+                    warn_override(Where, UserOpts, dh, [dhfile], LogLevel),
+                    Opts#{dh => DH};
+                {new, DH} ->
+                    option_error(dh, DH);
+                {_, undefined} ->
+                    case get_opt_file(dhfile, unbound, UserOpts, Opts) of
+                        {default, unbound} -> Opts;
+                        {_, DHFile} -> Opts#{dhfile => DHFile}
+                    end
+            end,
+
+    Opts1#{honor_ecc_order => ECC, honor_cipher_order => Cipher,
+           cookie => Cookie, client_renegotiation => ReNeg};
 opt_server(UserOpts, Opts, #{role := client}) ->
     assert_server_only(honor_ecc_order, UserOpts),
     assert_server_only(honor_cipher_order, UserOpts),
     assert_server_only(cookie, UserOpts),
     assert_server_only(client_renegotiation, UserOpts),
+    assert_server_only(dh, UserOpts),
+    assert_server_only(dhfile, UserOpts),
     Opts.
 
 opt_client(UserOpts, #{versions := Versions} = Opts, #{role := client}) ->
@@ -2176,9 +2190,9 @@ opt_identity(UserOpts, #{versions := Versions} = Opts, _Env) ->
 
     Opts#{psk_identity => PSK, srp_identity => SRP, user_lookup_fun => ULF}.
 
-opt_supported_groups(UserOpts, #{versions := Versions, log_level := LogLevel} = Opts0, _Env) ->
+opt_supported_groups(UserOpts, #{versions := Versions} = Opts, _Env) ->
     [TlsVersion|_] = TlsVsns = [tls_version(V) || V <- Versions],
-    SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts0) of
+    SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts) of
              {default, undefined} ->
                  handle_supported_groups_option(groups(default), TlsVersion);
              {new, SG0} ->
@@ -2187,19 +2201,6 @@ opt_supported_groups(UserOpts, #{versions := Versions, log_level := LogLevel} = 
              {old, SG0} ->
                  SG0
          end,
-
-    Opts = case get_opt(dh, undefined, UserOpts, Opts0) of
-               {Where, DH} when is_binary(DH) ->
-                   warn_override(Where, UserOpts, dh, [dhfile], LogLevel),
-                   Opts0#{dh => DH, dhfile => undefined};
-               {new, DH} ->
-                   option_error(dh, DH);
-               {_, undefined} ->
-                   case get_opt_file(dhfile, unbound, UserOpts, Opts0) of
-                       {default, unbound} -> Opts0#{dh => undefined, dhfile => undefined};
-                       {_, DHFile} -> Opts0#{dh => undefined, dhfile => DHFile}
-                   end
-           end,
 
     CPHS = case get_opt_list(ciphers, [], UserOpts, Opts) of
                {old, CPS0} -> CPS0;
@@ -2232,11 +2233,12 @@ opt_handshake(UserOpts, Opts, _Env) ->
 
     Opts#{handshake => HS, max_handshake_size => MHSS}.
 
-opt_process(UserOpts, Opts, _Env) ->
-    {_, RSO} = get_opt_list(receiver_spawn_opts, [], UserOpts, Opts),
-    {_, SSO} = get_opt_list(sender_spawn_opts, [], UserOpts, Opts),
-    {_, HA} = get_opt_int(hibernate_after, 0, infinity, infinity, UserOpts, Opts),
-    Opts#{receiver_spawn_opts => RSO, sender_spawn_opts => SSO, hibernate_after => HA}.
+opt_process(UserOpts, Opts0, _Env) ->
+    Opts1 = set_opt_list(receiver_spawn_opts, [], UserOpts, Opts0),
+    Opts2 = set_opt_list(sender_spawn_opts, [], UserOpts, Opts1),
+    %% {_, SSO} = get_opt_list(sender_spawn_opts, [], UserOpts, Opts),
+    %% Opts = Opts1#{receiver_spawn_opts => RSO, sender_spawn_opts => SSO},
+    set_opt_int(hibernate_after, 0, infinity, infinity, UserOpts, Opts2).
 
 %%%%
 
@@ -2308,6 +2310,40 @@ get_opt_file(Opt, Default, UserOpts, Opts) ->
         Res -> Res
     end.
 
+set_opt_bool(Opt, Default, UserOpts, Opts) ->
+    case maps:get(Opt, UserOpts, Default) of
+        Default -> Opts;
+        Value when is_boolean(Value) -> Opts#{Opt => Value};
+        Value -> option_error(Opt, Value)
+    end.
+
+set_opt_int(Opt, Min, Max, Default, UserOpts, Opts) ->
+    case maps:get(Opt, UserOpts, Default) of
+        Default ->
+            Opts;
+        Value when is_integer(Value), Min =< Value, Value =< Max ->
+            Opts#{Opt => Value};
+        Value when Value =:= infinity, Max =:= infinity ->
+            Opts#{Opt => Value};
+        Value ->
+            option_error(Opt, Value)
+    end.
+
+set_opt_list(Opt, Default, UserOpts, Opts) ->
+    case maps:get(Opt, UserOpts, []) of
+        Default ->
+            Opts;
+        List when is_list(List) ->
+            Opts#{Opt => List};
+        Value ->
+            option_error(Opt, Value)
+    end.
+
+set_opt_new(new, Opt, Default, Value, Opts)
+  when Default =/= Value ->
+    Opts#{Opt => Value};
+set_opt_new(_, _, _, _, Opts) ->
+    Opts.
 
 %%%%
 

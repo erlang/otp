@@ -339,10 +339,9 @@ next_protocol(SelectedProtocol) ->
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
-        #{server_name_indication := ServerNameIndication,
-          partial_chain := PartialChain} = SSlOptions, 
+        #{partial_chain := PartialChain} = SSlOptions,
         CRLDbHandle, Role, Host, Version, CertExt) ->
-    ServerName = server_name(ServerNameIndication, Host, Role),
+    ServerName = server_name(SSlOptions, Host, Role),
     [PeerCert | _ChainCerts ] = ASN1Certs,
     try
 	PathsAndAnchors  =
@@ -1244,12 +1243,11 @@ client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renego
 
 add_tls12_extensions(_Version,
                      #{alpn_advertised_protocols := AlpnAdvertisedProtocols,
-                      next_protocol_selector := NextProtocolSelector,
-                      server_name_indication := ServerNameIndication,
-                      max_fragment_length := MaxFragmentLength} = SslOpts,
+                       max_fragment_length := MaxFragmentLength} = SslOpts,
                      ConnectionStates,
                      Renegotiation) ->
     SRP = srp_user(SslOpts),
+    NextProtocolSelector = maps:get(next_protocol_selector, SslOpts, undefined),
     #{renegotiation_info => renegotiation_info(tls_record, client,
                                                ConnectionStates, Renegotiation),
       srp => SRP,
@@ -1257,7 +1255,7 @@ add_tls12_extensions(_Version,
       next_protocol_negotiation =>
           encode_client_protocol_negotiation(NextProtocolSelector,
                                              Renegotiation),
-      sni => sni(ServerNameIndication),
+      sni => sni(SslOpts),
       max_frag_enum => max_frag_enum(MaxFragmentLength)
      }.
 
@@ -1301,8 +1299,7 @@ add_common_extensions(Version,
 
 maybe_add_tls13_extensions({3,4},
                            HelloExtensions0,
-                           #{versions := SupportedVersions,
-                             certificate_authorities := Bool},
+                           #{versions := SupportedVersions} = Opts,
                            KeyShare,
                            TicketData, CertDbHandle, CertDbRef) ->
     HelloExtensions1 =
@@ -1310,7 +1307,8 @@ maybe_add_tls13_extensions({3,4},
                               #client_hello_versions{versions = SupportedVersions}},
     HelloExtensions2 = maybe_add_key_share(HelloExtensions1, KeyShare),
     HelloExtensions = maybe_add_pre_shared_key(HelloExtensions2, TicketData),
-    maybe_add_certificate_auths(HelloExtensions, CertDbHandle, CertDbRef, Bool);
+    AddCA = maps:get(certificate_authorities, Opts, false),
+    maybe_add_certificate_auths(HelloExtensions, CertDbHandle, CertDbRef, AddCA);
 
 maybe_add_tls13_extensions(_, HelloExtensions, _, _, _, _,_) ->
     HelloExtensions.
@@ -1522,8 +1520,7 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
                                Exts, Version,
 			       #{secure_renegotiate := SecureRenegotation,
-                                 next_protocol_selector := NextProtoSelector,
-                                 ocsp_stapling := Stapling},
+                                 ocsp_stapling := Stapling} = SslOpts,
 			       ConnectionStates0, Renegotiation, IsNew) ->
     ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,  
                                                       maps:get(renegotiation_info, Exts, undefined), Random, 
@@ -1562,7 +1559,8 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
                     {ConnectionStates, alpn, undefined, OcspState};
                 undefined ->
                     NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
-                    Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtoSelector, Renegotiation),
+                    NextProtocolSelector = maps:get(next_protocol_selector, SslOpts, undefined),
+                    Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtocolSelector, Renegotiation),
                     {ConnectionStates, npn, Protocol, OcspState};
                 {error, Reason} ->
                     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
@@ -3478,10 +3476,9 @@ handle_next_protocol_extension(NextProtocolNegotiation, Renegotiation, SslOpts)-
 
 handle_next_protocol_on_server(undefined, _Renegotiation, _SslOpts) ->
     undefined;
-
 handle_next_protocol_on_server(#next_protocol_negotiation{extension_data = <<>>},
-			       false, #{next_protocols_advertised := Protocols}) ->
-    Protocols;
+			       false, SslOpts) ->
+    maps:get(next_protocols_advertised, SslOpts, undefined);
 
 handle_next_protocol_on_server(_Hello, _Renegotiation, _SSLOpts) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_next_protocol_extension).
@@ -3566,10 +3563,13 @@ sign_type(ecdsa) ->
 
 server_name(_, _, server) ->
     undefined; %% Not interesting to check your own name.
-server_name(undefined, Host, client) ->
-    {fallback, Host}; %% Fallback to Host argument to connect
-server_name(SNI, _, client) ->
-    SNI. %% If Server Name Indication is available
+server_name(SSLOpts, Host, client) ->
+    case maps:get(server_name_indication, SSLOpts, undefined) of
+        undefined ->
+            {fallback, Host}; %% Fallback to Host argument to connect
+        SNI ->
+            SNI  %% If Server Name Indication is available
+    end.
 
 client_ecc_extensions(SupportedECCs) ->
     CryptoSupport = proplists:get_value(public_keys, crypto:supports()),
@@ -3628,12 +3628,12 @@ select_shared_curve([Curve | Rest], Curves) ->
 	    select_shared_curve(Rest, Curves)
     end.
 
-sni(undefined) ->
-    undefined;
-sni(disable) ->
-    undefined;
-sni(Hostname) ->
-    #sni{hostname = Hostname}.
+sni(SslOpts) ->
+    case maps:get(server_name_indication, SslOpts, undefined) of
+        undefined -> undefined;
+        disable -> undefined;
+        Hostname -> #sni{hostname = Hostname}
+    end.
 
 %% convert max_fragment_length (in bytes) to the RFC 6066 ENUM
 max_frag_enum(?MAX_FRAGMENT_LENGTH_BYTES_1) ->
@@ -3859,8 +3859,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                 #{verify_fun := VerifyFun,
                   customize_hostname_check := CustomizeHostnameCheck,
                   crl_check := CrlCheck,
-                  log_level := Level,
-                  depth := Depth} = Opts,
+                  log_level := Level} = Opts,
                 #{cert_ext := CertExt,
                   ocsp_responder_certs := OcspResponderCerts,
                   ocsp_state := OcspState}) ->
@@ -3883,7 +3882,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                               ocsp_responder_certs => OcspResponderCerts,
                                               ocsp_state => OcspState},
                                  Path, Level),
-    Options = [{max_path_length, Depth},
+    Options = [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
                {verify_fun, ValidationFunAndState}],
     public_key:pkix_path_validation(TrustedCert, Path, Options).
 

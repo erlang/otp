@@ -778,13 +778,12 @@ certificate_entry(DER) ->
 %%    0101010101010101010101010101010101010101010101010101010101010101
 sign(THash, Context, HashAlgo, PrivateKey, SignAlgo) ->
     Content = build_content(Context, THash),
-    try ssl_handshake:digitally_signed({3,4}, Content, HashAlgo, PrivateKey, SignAlgo) of
-        Signature ->
-            {ok, Signature}
-    catch
-        error:badarg ->
-            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
+    try
+        {ok, ssl_handshake:digitally_signed({3,4}, Content, HashAlgo, PrivateKey, SignAlgo)}
+    catch throw:Alert ->
+            {error, Alert}
     end.
+
 
 verify(THash, Context, HashAlgo, SignAlgo, Signature, PublicKeyInfo) ->
     Content = build_content(Context, THash),
@@ -792,13 +791,15 @@ verify(THash, Context, HashAlgo, SignAlgo, Signature, PublicKeyInfo) ->
         Result ->
             {ok, Result}
     catch
-        error:badarg ->
+        error:Reason:ST ->
+            ?SSL_LOG(debug, handshake_error, [{reason, Reason}, {stacktrace, ST}]),
             {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
     end.
 
 build_content(Context, THash) ->
     Prefix = binary:copy(<<32>>, 64),
     <<Prefix/binary,Context/binary,?BYTE(0),THash/binary>>.
+
 
 %% Sets correct encryption state when sending Alerts in shared states that use different secrets.
 %% - If client: use handshake secrets.
@@ -940,7 +941,7 @@ calculate_client_early_traffic_secret(#state{connection_states = ConnectionState
 calculate_client_early_traffic_secret(
   ClientHello, PSK, Cipher, HKDFAlgo,
   #state{connection_states = ConnectionStates,
-         ssl_options = #{keep_secrets := KeepSecrets},
+         ssl_options = Opts,
          static_env = #static_env{role = Role}} = State0) ->
     EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, PSK}),
     ClientEarlyTrafficSecret =
@@ -953,7 +954,7 @@ calculate_client_early_traffic_secret(
     case Role of
         client ->
             PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
-            PendingWrite1 = maybe_store_early_data_secret(KeepSecrets, ClientEarlyTrafficSecret,
+            PendingWrite1 = maybe_store_early_data_secret(Opts, ClientEarlyTrafficSecret,
                                                           PendingWrite0),
             PendingWrite = update_connection_state(PendingWrite1, undefined, undefined,
                                                    undefined,
@@ -961,7 +962,7 @@ calculate_client_early_traffic_secret(
             State0#state{connection_states = ConnectionStates#{pending_write => PendingWrite}};
         server ->
             PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
-            PendingRead1 = maybe_store_early_data_secret(KeepSecrets, ClientEarlyTrafficSecret,
+            PendingRead1 = maybe_store_early_data_secret(Opts, ClientEarlyTrafficSecret,
                                                          PendingRead0),
             PendingRead = update_connection_state(PendingRead1, undefined, undefined,
                                                    undefined,
@@ -971,11 +972,11 @@ calculate_client_early_traffic_secret(
 
 
 
-maybe_store_early_data_secret(true, EarlySecret, State) ->
+maybe_store_early_data_secret(#{keep_secrets := true}, EarlySecret, State) ->
     #{security_parameters := SecParams0} = State,
     SecParams = SecParams0#security_parameters{client_early_data_secret = EarlySecret},
     State#{security_parameters := SecParams};
-maybe_store_early_data_secret(false, _, State) ->
+maybe_store_early_data_secret(_, _, State) ->
     State.
 
 %% Server
@@ -1862,8 +1863,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                   crl_check := CrlCheck,
                   log_level := LogLevel,
                   signature_algs := SignAlgos,
-                  signature_algs_cert := SignAlgosCert,
-                  depth := Depth},
+                  signature_algs_cert := SignAlgosCert} = Opts,
                 #{cert_ext := CertExt,
                   ocsp_responder_certs := OcspResponderCerts,
                   ocsp_state := OcspState}) ->
@@ -1886,7 +1886,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                                             ocsp_state => OcspState
                                                            },
                                                Path, LogLevel),
-    Options = [{max_path_length, Depth},
+    Options = [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
                {verify_fun, ValidationFunAndState}],
     public_key:pkix_path_validation(TrustedCert, Path, Options).
 
