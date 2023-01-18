@@ -36,7 +36,7 @@ EDOC_REF3_FILES =  cerl.xml cerl_trees.xml cerl_clauses.xml
 
 XML_PART_FILES = internal.xml
 XML_NOTES_FILES = notes.xml
-XML_INTERNAL_FILES = beam_ssa.xml
+XML_INTERNAL_FILES = beam_ssa.xml ssa_checks.xml
 
 XML_GEN_FILES = $(XML_INTERNAL_FILES:%=$(XMLDIR)/%)
 
