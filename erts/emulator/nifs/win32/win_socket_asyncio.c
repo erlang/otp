@@ -105,11 +105,12 @@
  *                                                                     *
  * =================================================================== */
 
-#define ESAIO_OK                   ESOCK_IO_OK
-#define ESAIO_ERR_WINSOCK_INIT     0x0001
-#define ESAIO_ERR_IOCPORT_CREATE   0x0002
-#define ESAIO_ERR_FSOCK_CREATE     0x0003
-#define ESAIO_ERR_IOCTL_ACCEPT_GET 0x0004
+#define ESAIO_OK                    ESOCK_IO_OK
+#define ESAIO_ERR_WINSOCK_INIT      0x0001
+#define ESAIO_ERR_IOCPORT_CREATE    0x0002
+#define ESAIO_ERR_FSOCK_CREATE      0x0003
+#define ESAIO_ERR_IOCTL_ACCEPT_GET  0x0004
+#define ESAIO_ERR_IOCTL_CONNECT_GET 0x0005
 
 
 /* ======================================================================== *
@@ -305,6 +306,29 @@ int esaio_init(unsigned int     numThreads,
         return ESAIO_ERR_IOCTL_ACCEPT_GET;
     }
 
+
+    /* Basically the same as for AcceptEx above */
+    SGDBG( ("UNIX-ESAIO", "esaio_init -> try extract 'connect' function\r\n") );
+    ires = WSAIoctl(ctrl.dummy, SIO_GET_EXTENSION_FUNCTION_POINTER,
+                    &guidConnectEx, sizeof (guidConnectEx), 
+                    &ctrl.connect, sizeof (ctrl.connect), 
+                    &dummy, NULL, NULL);
+    if (ires == SOCKET_ERROR) {
+        save_errno = sock_errno();
+
+        esock_error_msg("Failed extracting 'connect' function: %d"
+                        "\r\n   %s (%d)"
+                        "\r\n",
+                        ires, erl_errno_id(save_errno), save_errno);
+
+        (void) sock_close(ctrl.dummy);
+        ctrl.dummy  = INVALID_SOCKET;
+        ctrl.accept = NULL;
+
+        WSACleanup();
+        return ESAIO_ERR_IOCTL_CONNECT_GET;
+    }
+    
 
     SGDBG( ("UNIX-ESAIO", "esaio_init -> done\r\n") );
 
