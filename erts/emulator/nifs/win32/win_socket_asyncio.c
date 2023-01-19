@@ -108,6 +108,16 @@
 #define ESAIO_OK                 ESOCK_IO_OK
 #define ESAIO_ERR_WINSOCK_INIT   0x0001
 #define ESAIO_ERR_IOCPORT_CREATE 0x0002
+#define ESAIO_ERR_FSOCK_CREATE   0x0003
+
+
+/* ======================================================================== *
+ *                               Socket wrappers                            *
+ * ======================================================================== *
+ */
+
+#define sock_close(s)                   closesocket((s))
+#define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 
 
 /* =================================================================== *
@@ -227,14 +237,31 @@ int esaio_init(unsigned int     numThreads,
     ctrl.cport = CreateIoCompletionPort(INVALID_HANDLE_VALUE,
                                         NULL, (u_long) 0, ctrl.numThreads);
     if (ctrl.cport == NULL) {
-        DWORD cres = GetLastError();
+        ires = WSAGetLastError();
         
-        esock_error_msg("Failed create I/O Completion Port: %d", cres);
+        esock_error_msg("Failed create I/O Completion Port: %d", ires);
 
         WSACleanup();
 
         return ESAIO_ERR_IOCPORT_CREATE;
     }
+
+
+    /* Create the "dummy" socket and then
+     * extract the AcceptEx and ConnectEx functions.
+     */
+    SGDBG( ("UNIX-ESAIO", "esaio_init -> try create 'dummy' socket\r\n") );
+    ctrl.dummy = sock_open(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (ctrl.dummy == INVALID_SOCKET) {
+        ires = WSAGetLastError(); // Printout or what?
+
+        esock_error_msg("Failed create 'dummy' socket: %d", ires);
+
+        WSACleanup();
+
+        return ESAIO_ERR_FSOCK_CREATE;
+    }
+
 
     SGDBG( ("UNIX-ESAIO", "esaio_init -> done\r\n") );
 
@@ -250,6 +277,14 @@ extern
 void esaio_finish()
 {
     SGDBG( ("UNIX-ESAIO", "esaio_finish -> entry\r\n") );
+
+    if (ctrl.dummy != INVALID_SOCKET) {
+        SGDBG( ("UNIX-ESAIO", "esaio_finish -> close 'dummy' socket\r\n") );
+        sock_close(ctrl.dummy);
+        ctrl.dummy = INVALID_SOCKET;
+    }
+    
+    SGDBG( ("UNIX-ESAIO", "esaio_finish -> done\r\n") );
 
     return;
 }
