@@ -585,7 +585,7 @@ parallel_setup_result(
           when is_integer(ST), is_integer(CT) ->
             parallel_setup_result(
               Config, TotalRounds, ServerHandle, ServerMemBefore, Tags,
-              SetupTime + ST, CycleTime + CT, Mem + mem_diff(Mem1, Mem2));
+              SetupTime + ST, CycleTime + CT, Mem + Mem2 - Mem1);
         {Tag, Error} ->
             exit(Error)
     end;
@@ -594,12 +594,12 @@ parallel_setup_result(
   SetupTime, CycleTime, Mem) ->
     ServerMemAfter =
         ssl_apply(ServerHandle, fun mem/0),
-    ServerMem = mem_diff(ServerMemBefore, ServerMemAfter),
+    ServerMem = ServerMemAfter - ServerMemBefore,
     Clients = proplists:get_value(clients, Config),
     Prefix = proplists:get_value(ssl_dist_prefix, Config),
     SetupSpeed = 1000 * round(TotalRounds / (SetupTime/1000000)),
     CycleSpeed = 1000 * round(TotalRounds / (CycleTime/1000000)),
-    {MemC, MemS, MemSuffix} = mem_result(Mem / Clients, ServerMem),
+    {MemC, MemS, MemSuffix} = mem_result({Mem / Clients, ServerMem}),
     _ = report(Prefix++" Parallel Setup Mem Clients", MemC, "KByte"),
     _ = report(Prefix++" Parallel Setup Mem Server", MemS, "KByte"),
     _ = report(Prefix++" Parallel Setup", SetupSpeed, "setups/1000s"),
@@ -636,13 +636,14 @@ roundtrip_runner(A, B, Rounds) ->
     ServerPid =
         erlang:spawn(
           B,
-          fun () -> roundtrip_server(ClientPid, Rounds) end),
+          fun () ->
+                  roundtrip_server(ClientPid, Rounds)
+          end),
     ServerMon = erlang:monitor(process, ServerPid),
-    microseconds(
-      roundtrip_client(ServerPid, ServerMon, start_time(), Rounds)).
+    roundtrip_client(ServerPid, ServerMon, start_time(), Rounds).
 
 roundtrip_server(_Pid, 0) ->
-    ok;
+    exit(ok);
 roundtrip_server(Pid, N) ->
     receive
         N ->
@@ -653,7 +654,7 @@ roundtrip_server(Pid, N) ->
 roundtrip_client(_Pid, Mon, StartTime, 0) ->
     Time = elapsed_time(StartTime),
     receive
-        {'DOWN', Mon, _, _, normal} ->
+        {'DOWN', Mon, _, _, ok} ->
             Time;
         {'DOWN', Mon, _, _, Other} ->
             exit(Other)
@@ -1307,7 +1308,7 @@ start_ssl_node({client, N}, Config, Verbose) ->
     Args = get_node_args({client_dist_args, N}, Config),
     Pa = filename:dirname(code:which(?MODULE)),
     ssl_dist_test_lib:start_ssl_node(
-      Name, "-pa " ++ Pa ++ " " ++ Args, Verbose);
+      Name, "-pa " ++ Pa ++ " +Muacul 0 " ++ Args, Verbose);
 start_ssl_node(server, Config, Verbose) ->
     Name = proplists:get_value(server_name, Config),
     Args = get_node_args(server_dist_args, Config),
@@ -1315,7 +1316,7 @@ start_ssl_node(server, Config, Verbose) ->
     ServerNode = proplists:get_value(server_node, Config),
     erpc:call(
       ServerNode, ssl_dist_test_lib, start_ssl_node,
-      [Name, "-pa " ++ Pa ++ " " ++ Args, Verbose]).
+      [Name, "-pa " ++ Pa ++ " +Muacul 0 " ++ Args, Verbose]).
 
 stop_ssl_node({client, _}, HA, _Config) ->
     ssl_dist_test_lib:stop_ssl_node(HA);
@@ -1398,33 +1399,46 @@ mem_start(HA, HB) ->
     MemB = ssl_apply(HB, fun mem/0),
     {MemA, MemB}.
 
-mem_stop(HA, HB, {MemA1, MemB1}) ->
+mem_stop(HA, HB, Mem1) ->
     MemA2 = ssl_apply(HA, fun mem/0),
     MemB2 = ssl_apply(HB, fun mem/0),
-    MemA = mem_diff(MemA1, MemA2),
-    MemB = mem_diff(MemB1, MemB2),
-    mem_result(MemA, MemB).
+    mem_result(mem_diff(Mem1, {MemA2, MemB2})).
 
-mem_diff(
-  {_Current1, _MaxSince1, MaxEver1},
-  {_Current2, _MaxSince2, MaxEver2}) ->
-    MaxEver2 - MaxEver1.
+mem_diff({MemA1, MemB1}, {MemA2, MemB2}) ->
+    {MemA2 - MemA1, MemB2 - MemB1}.
 
-mem_result(MemDiffA, MemDiffB) ->
+mem_result({MemDiffA, MemDiffB}) ->
     MemSuffix =
         io_lib:format(
           "~.5g|~.5g MByte", [MemDiffA / (1 bsl 20), MemDiffB / (1 bsl 20)]),
     {round(MemDiffA / (1 bsl 10)), round(MemDiffB / (1 bsl 10)), MemSuffix}.
 
+memory(Type) ->
+    try erlang:memory(Type)
+    catch error : notsup ->
+            0
+    end.
+
+-ifdef(undefined).
+
 mem() ->
-    Code = erlang:memory(code),  % Kind of assuming code stays allocated
-    {Current, MaxSince, MaxEver} =
+    lists:foldl(
+      fun ({Type, F}, Acc) ->
+              F*memory(Type) + Acc
+      end, 0,
+      [{total, 1}, {processes, -1}, {atom, -1}, {code, -1},
+       {processes_used, 1}, {atom_used, 1}]).
+
+-else.
+
+mem() ->
+    {_Current, _MaxSince, MaxEver} =
         traverse(
           fun mem/3,
           [erlang:system_info({allocator_sizes, Alloc})
            || Alloc <- erlang:system_info(alloc_util_allocators)],
           {0, 0, 0}),
-    {Current - Code, MaxSince - Code, MaxEver - Code}.
+    MaxEver - memory(code). % Kind of assuming code stays allocated
 
 %% allocator_sizes traversal fun
 mem(
@@ -1487,3 +1501,5 @@ traverse_list(Fun, [Term | Terms], Path, Acc) ->
     traverse_list(Fun, Terms, Path, NewAcc);
 traverse_list(_Fun, [], _Path, Acc) ->
     Acc.
+
+-endif.
