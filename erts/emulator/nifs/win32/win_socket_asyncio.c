@@ -105,8 +105,9 @@
  *                                                                     *
  * =================================================================== */
 
-#define ESAIO_OK               ESOCK_IO_OK
-#define ESAIO_ERR_WINSOCK_INIT 0x0001
+#define ESAIO_OK                 ESOCK_IO_OK
+#define ESAIO_ERR_WINSOCK_INIT   0x0001
+#define ESAIO_ERR_IOCPORT_CREATE 0x0002
 
 
 /* =================================================================== *
@@ -200,7 +201,7 @@ int esaio_init(unsigned int     numThreads,
     GUID         guidAcceptEx  = WSAID_ACCEPTEX;
     GUID         guidConnectEx = WSAID_CONNECTEX;
 
-    ctrl.dbg        = dataP->dbg;
+    ctrl.dbg        = TRUE; // dataP->dbg;
     ctrl.sockDbg    = dataP->sockDbg;
 
     SGDBG( ("UNIX-ESAIO", "esaio_init -> entry\r\n") );
@@ -214,12 +215,28 @@ int esaio_init(unsigned int     numThreads,
     ctrl.numThreads = (DWORD) numThreads;
 
     // Initialize Winsock
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> initialize winsock\r\n") );
+    SGDBG( ("UNIX-ESAIO", "esaio_init -> try initialize winsock\r\n") );
     ires = WSAStartup(MAKEWORD(2, 2), &ctrl.wsaData);
     if (ires != NO_ERROR) {
         esock_error_msg("Failed initialize winsock: %d", ires);
         return ESAIO_ERR_WINSOCK_INIT;
     }    
+
+    // Create a handle for the completion port
+    SGDBG( ("UNIX-ESAIO", "esaio_init -> try create I/O completion port\r\n") );
+    ctrl.cport = CreateIoCompletionPort(INVALID_HANDLE_VALUE,
+                                        NULL, (u_long) 0, ctrl.numThreads);
+    if (ctrl.cport == NULL) {
+        DWORD cres = GetLastError();
+        
+        esock_error_msg("Failed create I/O Completion Port: %d", cres);
+
+        WSACleanup();
+
+        return ESAIO_ERR_IOCPORT_CREATE;
+    }
+
+    SGDBG( ("UNIX-ESAIO", "esaio_init -> done\r\n") );
 
     return ESOCK_IO_OK;
 }
