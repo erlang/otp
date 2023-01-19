@@ -605,4 +605,10 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 /* Copy term T into environment E */
 #define CP_TERM(E, T) enif_make_copy((E), (T))
 
+#define TCREATE(NAME, TID, FUNC, ARGS, OPTS) \
+    enif_thread_create((NAME), (TID), (FUNC), (ARGS), (OPTS))
+#define TEXIT(EVAL)     enif_thread_exit((EVAL))
+#define TOCREATE(NAME)  enif_thread_opts_create((NAME))
+#define TODESTROY(OPTS) enif_thread_opts_destroy((OPTS))
+
 #endif // SOCKET_INT_H__
