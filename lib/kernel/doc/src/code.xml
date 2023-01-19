@@ -847,9 +847,9 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
         <p>Returns the path to a subdirectory directly under the top
          directory of an application. Normally the subdirectories
          reside under the top directory for the application, but when
-         applications at least partly resides in an archive, the
+         applications at least partly reside in an archive, the
          situation is different. Some of the subdirectories can reside
-         as regular directories while other reside in an archive
+         as regular directories while others reside in an archive
          file. It is not checked whether this directory exists.</p>
 	 <p><em>Example:</em></p>
         <pre>
