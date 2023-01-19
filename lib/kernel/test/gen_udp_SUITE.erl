@@ -410,7 +410,7 @@ buffer_size_client(Server, IP, Port,
 		   Socket, Cnt, [{B,Replies}|T]=Opts) when is_binary(B) ->
     ?P("buffer_size_client -> Cnt=~w send size ~w expecting ~p when"
        "~n   Info: ~p",
-       [Cnt, size(B), Replies, inet:info(Socket)]),
+       [Cnt, byte_size(B), Replies, inet:info(Socket)]),
     case gen_udp:send(Socket, IP, Port, <<Cnt,B/binary>>) of
 	ok ->
 	    receive
@@ -446,7 +446,7 @@ buffer_size_client(Server, IP, Port,
 	    ?P("<ERROR> Client failed sending ~w bytes of data: "
 	       "~n   SndBuf: ~p"
 	       "~n   Reason: ~p",
-	       [size(B), inet:getopts(Socket, [sndbuf]), Reason]),
+	       [byte_size(B), inet:getopts(Socket, [sndbuf]), Reason]),
 	    ct:fail(Reason)
     end.
 
@@ -465,7 +465,7 @@ buffer_size_server(Client, IP, Port,
 buffer_size_server(Client, IP, Port, 
 		   Socket, Cnt, [{B,_}|T]) when is_binary(B) ->
     ?P("buffer_size_server -> try receive: Cnt=~w and ~w bytes of data",
-       [Cnt, size(B)]),
+       [Cnt, byte_size(B)]),
     Reply = case buffer_size_server_recv(Socket, IP, Port, Cnt) of
                 D when is_binary(D) ->
                     SizeD = byte_size(D),
@@ -496,11 +496,11 @@ buffer_size_server_recv(Socket, IP, Port, Cnt) ->
        "~n   Cnt:    ~p", [Socket, IP, Port, Cnt]),
     receive
 	{udp, Socket, IP, Port, <<Cnt, B/binary>>} ->
-            ?P("buffer_size_server -> received (~w) ~w bytes", [Cnt, size(B)]),
+            ?P("buffer_size_server -> received (~w) ~w bytes", [Cnt, byte_size(B)]),
 	    B;
 	{udp, Socket, IP, Port, <<_B/binary>>} ->
             ?P("buffer_size_server -> received unexpected ~w bytes",
-               [size(_B)]),
+               [byte_size(_B)]),
 	    buffer_size_server_recv(Socket, IP, Port, Cnt);
 
 	{udp, Socket, IP, Port, _CRAP} ->
