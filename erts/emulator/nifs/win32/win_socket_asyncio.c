@@ -105,10 +105,11 @@
  *                                                                     *
  * =================================================================== */
 
-#define ESAIO_OK                 ESOCK_IO_OK
-#define ESAIO_ERR_WINSOCK_INIT   0x0001
-#define ESAIO_ERR_IOCPORT_CREATE 0x0002
-#define ESAIO_ERR_FSOCK_CREATE   0x0003
+#define ESAIO_OK                   ESOCK_IO_OK
+#define ESAIO_ERR_WINSOCK_INIT     0x0001
+#define ESAIO_ERR_IOCPORT_CREATE   0x0002
+#define ESAIO_ERR_FSOCK_CREATE     0x0003
+#define ESAIO_ERR_IOCTL_ACCEPT_GET 0x0004
 
 
 /* ======================================================================== *
@@ -117,6 +118,7 @@
  */
 
 #define sock_close(s)                   closesocket((s))
+#define sock_errno()                    WSAGetLastError()
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 
 
@@ -205,7 +207,7 @@ extern
 int esaio_init(unsigned int     numThreads,
                const ESockData* dataP)
 {
-    int          ires, saveErrno;
+    int          ires, save_errno;
     unsigned int i;
     DWORD        dummy;
     GUID         guidAcceptEx  = WSAID_ACCEPTEX;
@@ -228,7 +230,13 @@ int esaio_init(unsigned int     numThreads,
     SGDBG( ("UNIX-ESAIO", "esaio_init -> try initialize winsock\r\n") );
     ires = WSAStartup(MAKEWORD(2, 2), &ctrl.wsaData);
     if (ires != NO_ERROR) {
-        esock_error_msg("Failed initialize winsock: %d", ires);
+        save_errno = sock_errno();
+
+        esock_error_msg("Failed initialize winsock: %d"
+                        "\r\n   %s (%d)"
+                        "\r\n",
+                        ires, erl_errno_id(save_errno), save_errno);
+
         return ESAIO_ERR_WINSOCK_INIT;
     }    
 
@@ -237,9 +245,11 @@ int esaio_init(unsigned int     numThreads,
     ctrl.cport = CreateIoCompletionPort(INVALID_HANDLE_VALUE,
                                         NULL, (u_long) 0, ctrl.numThreads);
     if (ctrl.cport == NULL) {
-        ires = WSAGetLastError();
+        save_errno = sock_errno();
         
-        esock_error_msg("Failed create I/O Completion Port: %d", ires);
+        esock_error_msg("Failed create I/O Completion Port:"
+                        "\r\n   %s (%d)"
+                        "\r\n", erl_errno_id(save_errno), save_errno);
 
         WSACleanup();
 
@@ -253,9 +263,12 @@ int esaio_init(unsigned int     numThreads,
     SGDBG( ("UNIX-ESAIO", "esaio_init -> try create 'dummy' socket\r\n") );
     ctrl.dummy = sock_open(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (ctrl.dummy == INVALID_SOCKET) {
-        ires = WSAGetLastError(); // Printout or what?
+        save_errno = sock_errno();
 
-        esock_error_msg("Failed create 'dummy' socket: %d", ires);
+        esock_error_msg("Failed create 'dummy' socket: "
+                        "\r\n   %s (%d)"
+                        "\r\n",
+                        erl_errno_id(save_errno), save_errno);
 
         WSACleanup();
 
@@ -263,9 +276,39 @@ int esaio_init(unsigned int     numThreads,
     }
 
 
+    /* Load the AcceptEx function into memory using WSAIoctl.
+     * The WSAIoctl function is an extension of the ioctlsocket()
+     * function that can use overlapped I/O.
+     * The function's 3rd through 6th parameters are input and output
+     * buffers where we pass the pointer to our AcceptEx function.
+     * This is used so that we can call the AcceptEx function directly,
+     * rather than refer to the Mswsock.lib library.
+     */
+    SGDBG( ("UNIX-ESAIO", "esaio_init -> try extract 'accept' function\r\n") );
+    ires = WSAIoctl(ctrl.dummy, SIO_GET_EXTENSION_FUNCTION_POINTER,
+                    &guidAcceptEx, sizeof (guidAcceptEx), 
+                    &ctrl.accept, sizeof (ctrl.accept), 
+                    &dummy, NULL, NULL);
+    if (ires == SOCKET_ERROR) {
+        save_errno = sock_errno();
+
+        esock_error_msg("Failed extracting 'accept' function: %d"
+                        "\r\n   %s (%d)"
+                        "\r\n",
+                        ires, erl_errno_id(save_errno), save_errno);
+
+        (void) sock_close(ctrl.dummy);
+        ctrl.dummy = INVALID_SOCKET;
+
+        WSACleanup();
+
+        return ESAIO_ERR_IOCTL_ACCEPT_GET;
+    }
+
+
     SGDBG( ("UNIX-ESAIO", "esaio_init -> done\r\n") );
 
-    return ESOCK_IO_OK;
+    return ESAIO_OK;
 }
 
 
@@ -280,9 +323,13 @@ void esaio_finish()
 
     if (ctrl.dummy != INVALID_SOCKET) {
         SGDBG( ("UNIX-ESAIO", "esaio_finish -> close 'dummy' socket\r\n") );
-        sock_close(ctrl.dummy);
+        (void) sock_close(ctrl.dummy);
         ctrl.dummy = INVALID_SOCKET;
     }
+
+    SGDBG( ("UNIX-ESAIO", "esaio_finish -> invalidate functions\r\n") );
+    ctrl.accept  = NULL;
+    ctrl.connect = NULL;
     
     SGDBG( ("UNIX-ESAIO", "esaio_finish -> done\r\n") );
 
