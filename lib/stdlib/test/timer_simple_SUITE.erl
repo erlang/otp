@@ -731,7 +731,19 @@ tc(Config) when is_list(Config) ->
              true -> ok
          end,
 
+    %% tc/4
+    {Res4, ok} = timer:tc(timer, sleep, [500], millisecond),
+    ok = if
+             Res4 < 500 -> {too_early, Res4};
+             Res4 > 800 -> {too_late, Res4};
+             true -> ok
+         end,
+
     %% Check that timer:tc don't catch errors
+    ok = try timer:tc(erlang, exit, [foo], second)
+         catch exit:foo -> ok
+         end,
+
     ok = try timer:tc(erlang, exit, [foo])
          catch exit:foo -> ok
          end,
@@ -746,6 +758,7 @@ tc(Config) when is_list(Config) ->
 
     %% Check that return values are propageted
     Self = self(),
+    {_, Self} = timer:tc(erlang, self, [], second),
     {_, Self} = timer:tc(erlang, self, []),
     {_, Self} = timer:tc(fun(P) -> P end, [self()]),
     {_, Self} = timer:tc(fun() -> self() end),

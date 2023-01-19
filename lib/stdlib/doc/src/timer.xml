@@ -319,14 +319,37 @@
 
     <func>
       <name name="tc" arity="1" since="OTP R14B03"/>
-      <name name="tc" arity="2" since="OTP R14B"/>
-      <name name="tc" arity="3" since=""/>
-      <fsummary>Measure the real time it takes to evaluate <c>apply(Module,
-        Function, Arguments)</c> or <c>apply(Fun, Arguments)</c>.</fsummary>
-      <type_desc variable="Time">In microseconds</type_desc>
+      <name name="tc" arity="2" clause_i="1" since="OTP R14B"/>
+      <name name="tc" arity="3" clause_i="1" since=""/>
+      <fsummary>Measure the real time it takes to evaluate <c>Fun</c>.</fsummary>
       <desc>
         <taglist>
           <tag><c>tc/3</c></tag>
+          <item>
+            <p>Calls function <c>timer:tc(Module, Function, Arguments, microsecond)</c>.</p>
+          </item>
+          <tag><c>tc/2</c></tag>
+          <item>
+            <p>Calls function <c>timer:tc(Fun, Arguments, microsecond)</c>.</p>
+          </item>
+          <tag><c>tc/1</c></tag>
+          <item>
+            <p>Calls function <c>timer:tc(Fun, microsecond)</c>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name name="tc" arity="2" clause_i="2" since="OTP @OTP-18355@"/>
+      <name name="tc" arity="3" clause_i="2" since="OTP @OTP-18355@"/>
+      <name name="tc" arity="4" since="OTP @OTP-18355@"/>
+      <fsummary>Measure the real time it takes to evaluate <c>apply(Module,
+        Function, Arguments)</c> or <c>apply(Fun, Arguments)</c>.</fsummary>
+      <type_desc variable="Time">In the specified <c>TimeUnit</c></type_desc>
+      <desc>
+        <taglist>
+          <tag><c>tc/4</c></tag>
           <item>
             <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
               <anno>Arguments</anno>)</c> and measures the elapsed real time as 
@@ -334,18 +357,18 @@
               <c>erlang:monotonic_time/0</c></seemfa>.</p>
             <p>Returns <c>{<anno>Time</anno>, <anno>Value</anno>}</c>, where
               <c><anno>Time</anno></c> is the elapsed real time in
-              <em>microseconds</em>, and <c><anno>Value</anno></c> is what is
+              the specified <c>TimeUnit</c>, and <c><anno>Value</anno></c> is what is
               returned from the apply.</p>
+          </item>
+          <tag><c>tc/3</c></tag>
+          <item>
+            <p>Evaluates <c>apply(<anno>Fun</anno>, <anno>Arguments</anno>)</c>.
+              Otherwise the same as <c>tc/4</c>.</p>
           </item>
           <tag><c>tc/2</c></tag>
           <item>
-            <p>Evaluates <c>apply(<anno>Fun</anno>, <anno>Arguments</anno>)</c>.
-              Otherwise the same as <c>tc/3</c>.</p>
-          </item>
-          <tag><c>tc/1</c></tag>
-          <item>
             <p>Evaluates <c><anno>Fun</anno>()</c>. Otherwise the same as
-              <c>tc/2</c>.</p>
+              <c>tc/3</c>.</p>
           </item>
         </taglist>
       </desc>
