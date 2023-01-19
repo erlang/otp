@@ -60,7 +60,7 @@ groups() ->
        process_win,
        table_win,
        port_win_when_tab_not_initiated,
-       % blocking_start,
+       blocking_start,
        remote_node
       ]
      }].
@@ -474,20 +474,21 @@ table_win(Config) when is_list(Config) ->
 remote_node(_Config) ->
     {ok, Peer, Node} = ?CT_PEER(),
     ok = observer:start(Node),
+    timer:sleep(1000),
     Node = observer_wx:get_active_node(),
     observer:stop(),
     ensure_observer_stopped(),
     peer:stop(Peer).
 
 blocking_start(_Config) ->
-    Pid = spawn(fun observer:start_and_wait/0),
-    SpawnerRef = monitor(process, Pid),
+    {Pid, SpawnerRef} = spawn_monitor(fun observer:start_and_wait/0),
+    timer:sleep(1000),
     ObserverRef = monitor(process, observer),
     receive
-        {'DOWN', ObserverRef, _, _, _} ->
-            error(observer_stopped_unexpectedly);
-        {'DOWN', SpawnerRef, _, _, _} ->
-            error(spawner_stopped_unexpectedly)
+        {'DOWN', ObserverRef, _, _, Reason} ->
+            error({observer_stopped_unexpectedly, Reason});
+        {'DOWN', SpawnerRef, _, _, Reason} ->
+            error({spawner_stopped_unexpectedly, Reason})
     after
         500 ->
             ok
