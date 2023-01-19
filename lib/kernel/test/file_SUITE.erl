@@ -3451,9 +3451,9 @@ pid2name(Config) when is_list(Config) ->
     %%
     {ok, Pid} = file:open(Name1, [write]),
     {ok, Name2} = file:pid2name(Pid),
-    undefined = file:pid2name(self()),
+    Dead = spawn(fun() -> ok end),
+    undefined = file:pid2name(Dead),
     ok = file:close(Pid),
-    ct:sleep(1000),
     false = is_process_alive(Pid),
     undefined = file:pid2name(Pid),
     ok.

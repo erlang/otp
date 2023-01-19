@@ -37,8 +37,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
 	 terminate/2, code_change/3]).
 
--define(FILE_IO_SERVER_TABLE, file_io_servers).
-
 -define(FILE_SERVER, file_server_2).      % Registered name
 -define(FILE_IO_SERVER, file_io_server).  % Module
 -define(PRIM_FILE, prim_file).            % Module
@@ -56,7 +54,7 @@ format_error(ErrorId) ->
 start() -> do_start(start).
 start_link() -> do_start(start_link).
 
-stop() -> 
+stop() ->
     gen_server:call(?FILE_SERVER, stop, infinity).
 
 %%%----------------------------------------------------------------------
@@ -77,7 +75,6 @@ stop() ->
 
 init([]) ->
     process_flag(trap_exit, true),
-    ?FILE_IO_SERVER_TABLE =  ets:new(?FILE_IO_SERVER_TABLE, [named_table]),
     {ok, undefined}.
 
 %%----------------------------------------------------------------------
@@ -97,14 +94,7 @@ init([]) ->
 
 handle_call({open, Name, ModeList}, {Pid, _Tag} = _From, State)
   when is_list(ModeList) ->
-    Child = ?FILE_IO_SERVER:start_link(Pid, Name, ModeList),
-    case Child of
-	{ok, P} when is_pid(P) ->
-	    ets:insert(?FILE_IO_SERVER_TABLE, {P, Name});
-	_ ->
-	    ok
-    end,
-    {reply, Child, State};
+    {reply, ?FILE_IO_SERVER:start_link(Pid, Name, ModeList), State};
 
 handle_call({open, _Name, _Mode}, _From, State) ->
     {reply, {error, einval}, State};
@@ -228,7 +218,6 @@ handle_cast(Msg, State) ->
         {'noreply', state()}.
 
 handle_info({'EXIT', Pid, _Reason}, State) when is_pid(Pid) ->
-    ets:delete(?FILE_IO_SERVER_TABLE, Pid),
     {noreply, State};
 
 handle_info(Info, State) ->

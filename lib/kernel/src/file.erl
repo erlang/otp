@@ -173,16 +173,9 @@ format_error(ErrorId) ->
       Pid :: pid().
 
 pid2name(Pid) when is_pid(Pid) ->
-    case whereis(?FILE_SERVER) of
-	undefined ->
-	    undefined;
-	_ ->
-	    case ets:lookup(?FILE_IO_SERVER_TABLE, Pid) of
-		[{_, Name} | _] ->
-		    {ok, Name};
-		_ ->
-		    undefined
-	    end
+    case file_request(Pid, pid2name) of
+        {ok, _} = Ok -> Ok;
+        _ -> undefined
     end.
 
 %%%-----------------------------------------------------------------
