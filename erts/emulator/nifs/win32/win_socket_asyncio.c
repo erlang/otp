@@ -79,7 +79,19 @@
  */
 
 
+#ifdef HAVE_CONFIG_H
+#    include "config.h"
+#endif
+
 // #include <Ws2def.h>
+// #include <winsock2.h>
+// #include <windows.h>
+#include <ws2tcpip.h>
+#include <mswsock.h>
+#include <stdio.h>
+
+#include <sys.h>
+
 #include "socket_int.h"
 #include "socket_io.h"
 #include "socket_asyncio.h"
@@ -89,11 +101,52 @@
 
 /* =================================================================== *
  *                                                                     *
+ *                          Local Constants                            *
+ *                                                                     *
+ * =================================================================== */
+
+#define ESAIO_OK               ESOCK_IO_OK
+#define ESAIO_ERR_WINSOCK_INIT 0x0001
+
+
+/* =================================================================== *
+ *                                                                     *
  *                            Local types                              *
  *                                                                     *
  * =================================================================== */
 
 typedef struct {
+    Uint16     id;    /* Thread id: mainly used for debugging,
+                         * and name creation */
+    Uint16     st;    /* State of the thread:
+                         * undefined, initiating, operational, terminating */
+
+    /* Do we need this?
+     * "The environment of the calling thread (process bound or
+     *  callback environment) or NULL if calling from a custom
+     *  thread not spawned by ERTS."
+     */
+    ErlNifEnv*   env;   /* Used when sending messages */
+    Uint32       cnt;   /* Run-counter: mainly used for debugging */
+    Uint32       error; /* In case the thread exits, 
+                         * this is where the reason is stored 
+                         */
+    unsigned int latest; /* Latest request (tag) */
+} ESAIOThreadData;
+
+typedef struct {
+    ErlNifThreadOpts* optsP;
+    ErlNifTid         tid;
+    ESAIOThreadData   data;
+} ESAIOThread;
+
+typedef struct {
+    WSADATA        wsaData;
+    HANDLE         cport;
+
+    SOCKET         dummy; // Used for extracting AcceptEx and ConnectEx
+    LPFN_ACCEPTEX  accept;
+    LPFN_CONNECTEX connect;
 
     /* Thread pool stuff.
      * The size of the pool is configurable. */
@@ -119,7 +172,7 @@ static ESAIOControl ctrl = {0};
 
 /* =================================================================== *
  *                                                                     *
- *                        Various esockmacros                          *
+ *                        Various esock macros                         *
  *                                                                     *
  * =================================================================== */
 
@@ -141,11 +194,32 @@ extern
 int esaio_init(unsigned int     numThreads,
                const ESockData* dataP)
 {
-    ctrl.numThreads = (DWORD) numThreads;
+    int          ires, saveErrno;
+    unsigned int i;
+    DWORD        dummy;
+    GUID         guidAcceptEx  = WSAID_ACCEPTEX;
+    GUID         guidConnectEx = WSAID_CONNECTEX;
+
     ctrl.dbg        = dataP->dbg;
     ctrl.sockDbg    = dataP->sockDbg;
 
     SGDBG( ("UNIX-ESAIO", "esaio_init -> entry\r\n") );
+
+    /* We should actually check the value of 'numThreads'
+     * Since if its zero (the default), we should instead
+     * assign: 2 * 'number of schedulers'
+     * Or shall we trust the 'prim_socket' preloaded to 
+     * select the proper value?
+     */
+    ctrl.numThreads = (DWORD) numThreads;
+
+    // Initialize Winsock
+    SGDBG( ("UNIX-ESAIO", "esaio_init -> initialize winsock\r\n") );
+    ires = WSAStartup(MAKEWORD(2, 2), &ctrl.wsaData);
+    if (ires != NO_ERROR) {
+        esock_error_msg("Failed initialize winsock: %d", ires);
+        return ESAIO_ERR_WINSOCK_INIT;
+    }    
 
     return ESOCK_IO_OK;
 }

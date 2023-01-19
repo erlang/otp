@@ -33,7 +33,9 @@
 #ifdef __WIN32__
 
 /* All this just to replace sys/socket.h, netinet/in.h and sys/un.h??? */
+#if !defined(INCL_WINSOCK_API_TYPEDEFS)
 #define INCL_WINSOCK_API_TYPEDEFS 1
+#endif
 #ifndef WINDOWS_H_INCLUDES_WINSOCK2_H
 #include <winsock2.h>
 #endif
