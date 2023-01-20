@@ -90,25 +90,27 @@
 
 %%----------------------------------------------------------------
 %% Types
--export_type([public_key/0,
-              private_key/0,
-              pem_entry/0,
-	      pki_asn1_type/0,
-              asn1_type/0,
-              der_encoded/0,
-              key_params/0,
-              digest_type/0,
-              issuer_name/0,
+-export_type([asn1_type/0,
+              bad_cert_reason/0,
               cert/0,
-              combined_cert/0,
               cert_id/0,
-              oid/0,
               cert_opt/0,
               chain_opts/0,
+              combined_cert/0,
               conf_opt/0,
+              der_encoded/0,
+              digest_type/0,
+              issuer_name/0,
+              key_params/0,
+              oid/0,
+              pem_entry/0,
+              pki_asn1_type/0,
+              policy_node/0,
+              private_key/0,
+              public_key/0,
               test_config/0,
-              test_root_cert/0]).
-
+              test_root_cert/0
+             ]).
 
 -type public_key()           ::  rsa_public_key() | rsa_pss_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
 -type private_key()          ::  rsa_private_key() | rsa_pss_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
@@ -160,11 +162,16 @@
 -type oid()                  :: tuple().
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
 -type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
--type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | duplicate_cert_in_path | {revoked, crl_reason()} | atom().
+-type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | duplicate_cert_in_path |
+                                {'policy_requirement_not_met', term()} | {'invalid_policy_mapping', term()} | {revoked, crl_reason()} | atom().
 
 -type combined_cert()        :: #cert{}.
 -type cert()                 :: der_cert() | otp_cert().
 -type der_cert()             :: der_encoded().
+-type policy_node() ::
+        #{valid_policy := public_key:oid(),
+          qualifier_set := [#'UserNotice'{}| {uri, string()}],
+          expected_policy_set := [public_key:oid()]}.
 -type otp_cert()             :: #'OTPCertificate'{}.
 -type public_key_info()      :: {key_oid_name(),  rsa_public_key() | #'ECPoint'{} | dss_public_key(),  public_key_params()}.
 -type key_oid_name()              :: 'rsaEncryption' | 'id-RSASSA-PSS' | 'id-ecPublicKey' | 'id-Ed25519' | 'id-Ed448' | 'id-dsa'.
@@ -1134,14 +1141,14 @@ pkix_normalize_name(Issuer) ->
 
 %%-------------------------------------------------------------------- 
 -spec pkix_path_validation(Cert, CertChain, Options) ->
-          {ok, {PublicKeyInfo, PolicyTree}} |
+          {ok, {PublicKeyInfo, ConstrainedPolicyNodes}} |
           {error, {bad_cert, Reason :: bad_cert_reason()}}
               when
       Cert :: cert() | atom(),
       CertChain :: [cert() | combined_cert()],
       Options  :: [{max_path_length, integer()} | {verify_fun, {fun(), term()}}],
       PublicKeyInfo :: public_key_info(),
-      PolicyTree :: list().
+      ConstrainedPolicyNodes :: [policy_node()].
 
 %% Description: Performs a basic path validation according to RFC 5280.
 %%--------------------------------------------------------------------
@@ -1580,7 +1587,16 @@ path_validation([], #path_validation_state{working_public_key_algorithm
 					   = PublicKeyParams,
 					   valid_policy_tree = Tree
 					  }) ->
-    {ok, {{Algorithm, PublicKey, PublicKeyParams}, Tree}};
+    ValidPolicyNodeSet0 = pubkey_policy_tree:constrained_policy_node_set(Tree),
+    CollectQualifiers = fun(#{expected_policy_set := PolicySet} = Node) ->
+                                QF = fun(Policy) ->
+                                             pubkey_policy_tree:collect_qualifiers(Tree, Policy)
+                                     end,
+                                Qualifiers = lists:flatmap(QF, PolicySet),
+                                Node#{qualifier_set => Qualifiers}
+                        end,
+    ValidPolicyNodeSet =  lists:map(CollectQualifiers, ValidPolicyNodeSet0),
+    {ok, {{Algorithm, PublicKey, PublicKeyParams}, ValidPolicyNodeSet}};
 
 path_validation([DerCert | Rest], ValidationState = #path_validation_state{
 				    max_path_length = Len}) when Len >= 0 ->
