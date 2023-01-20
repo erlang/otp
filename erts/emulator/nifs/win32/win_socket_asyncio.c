@@ -244,12 +244,18 @@ static ESAIOControl ctrl = {0};
 
 /* =================================================================== *
  *                                                                     *
- *                        Various esock macros                         *
+ *                        Various esaio macros                         *
  *                                                                     *
  * =================================================================== */
 
 /* Global socket debug */
 #define SGDBG( proto )            ESOCK_DBG_PRINTF( ctrl.dbg , proto )
+
+/* These are just wrapper macros for the I/O Completion Port */
+#define ESAIO_IOCQ_POP(NB, DP, OLP)                                     \
+    GetQueuedCompletionStatus(ctrl.cport, (DP), (DP), (OLP), INFINITE)
+#define ESAIO_IOCQ_PUSH(OP)                                             \
+    PostQueuedCompletionStatus(ctrl.cport, 0, 0, (OVERLAPPED*) (OP))
 
 
 /* =================================================================== *
@@ -467,7 +473,7 @@ int esaio_init(unsigned int     numThreads,
 extern
 void esaio_finish()
 {
-    unsigned int t;
+    int t, lastThread;
 
     SGDBG( ("UNIX-ESAIO", "esaio_finish -> entry\r\n") );
 
@@ -477,12 +483,20 @@ void esaio_finish()
         ctrl.dummy = INVALID_SOCKET;
     }
 
-    for (t = 0; t < ctrl.numThreads; t++) {
+    SGDBG( ("UNIX-ESAIO",
+            "esaio_finish -> try terminate %d worker threads\r\n",
+            ctrl.numThreads) );
+    for (t = 0, lastThread = -1, lastThread; t < ctrl.numThreads; t++) {
         ESAIOOperation* opP;
+        BOOL            qres;
 
         SGDBG( ("UNIX-ESAIO",
                 "esaio_finish -> "
                 "[%d] try allocate (terminate-) operation\r\n", t) );
+
+        /* Where is this FREE'ed??
+         * By the thread after it has been received?
+         */
 
         opP = MALLOC( sizeof(ESAIOOperation) );
 
@@ -506,18 +520,51 @@ void esaio_finish()
 
             SGDBG( ("UNIX-ESAIO",
                     "esaio_finish -> "
-                    "[%d] try post (terminate-) operation\r\n", t) );
+                    "try post (terminate-) package %d\r\n", t) );
 
-            PostQueuedCompletionStatus(ctrl.cport, 0, 0, (OVERLAPPED*) opP);
+            qres = PostQueuedCompletionStatus(ctrl.cport,
+                                              0, 0, (OVERLAPPED*) opP);
+
+            if (!qres) {
+                int save_errno = sock_errno();
+                esock_error_msg("Failed posting 'terminate' command: "
+                                "\r\n   %s (%d)"
+                                "\r\n", erl_errno_id(save_errno), save_errno);
+                break;
+            } else {
+                lastThread = t;
+            }
 
         } else {
 
             SGDBG( ("UNIX-ESAIO",
                     "esaio_finish -> "
-                    "[%d] failed allocate (terminate-) operation\r\n", t) );
+                    "failed allocate (terminate-) operation %d\r\n", t) );
 
         }
     }
+
+    if (lastThread >= 0) {
+        SGDBG( ("UNIX-ESAIO",
+                "esaio_finish -> await (worker) thread(s) termination\r\n") );
+        for (t = 0; t < (lastThread+1); t++) {
+
+            SGDBG( ("UNIX-ESAIO",
+                    "esaio_finish -> try join with thread %d\r\n", t) );
+
+            (void) TJOIN(ctrl.threads[t].tid, NULL);
+
+            SGDBG( ("UNIX-ESAIO", "esaio_finish -> joined with %d\r\n", t) );
+
+        }
+    }
+
+    /* This is overkill,
+     * since this function, esaio_finish, is called when the VM is halt'ing...
+     * ...but just to be a nice citizen...
+     */
+    SGDBG( ("UNIX-ESAIO", "esaio_finish -> free the thread pool data\r\n") );
+    FREE( ctrl.threads );
 
     SGDBG( ("UNIX-ESAIO", "esaio_finish -> invalidate functions\r\n") );
     ctrl.accept  = NULL;
@@ -550,8 +597,7 @@ void* esaio_completion_main(void* threadDataP)
     DWORD            numBytes, flags = 0;
     int              save_errno;
  
-    SGDBG( ("UNIX-ESAIO",
-            "[%d] esaio_completion_main -> entry\r\n", dataP->id) );
+    SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> entry\r\n") );
 
     dataP->state = ESAIO_THREAD_STATE_INITIATING;
 
@@ -560,8 +606,7 @@ void* esaio_completion_main(void* threadDataP)
 
     dataP->state = ESAIO_THREAD_STATE_OPERATIONAL;
 
-    SGDBG( ("UNIX-ESAIO",
-            "[%d] esaio_completion_main -> initiated\r\n", dataP->id) );
+    SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> initiated\r\n") );
 
     while (!done) {
         /*
@@ -587,8 +632,8 @@ void* esaio_completion_main(void* threadDataP)
          */
 
         SGDBG( ("UNIX-ESAIO",
-                "[%d] esaio_completion_main -> [%d] try dequeue packet\r\n",
-                dataP->id, dataP->cnt) );
+                "esaio_completion_main -> [%d] try dequeue packet\r\n",
+                dataP->cnt) );
 
         res = GetQueuedCompletionStatus(ctrl.cport,
                                         &numBytes,
@@ -605,8 +650,7 @@ void* esaio_completion_main(void* threadDataP)
                  */
                    
                 SGDBG( ("UNIX-ESAIO",
-                        "[%d] esaio_completion_main -> [failure 1]\r\n",
-                        dataP->id) );
+                        "esaio_completion_main -> [failure 1]\r\n") );
 
                 dataP->state = ESAIO_THREAD_STATE_TERMINATING;
                 dataP->error = ESAIO_THREAD_ERROR_GET;
@@ -623,10 +667,10 @@ void* esaio_completion_main(void* threadDataP)
                 save_errno = WSAGetLastError(); // Details
 
                 SGDBG( ("UNIX-ESAIO",
-                        "[%d] esaio_completion_main -> [failure 2] "
+                        "esaio_completion_main -> [failure 2] "
                         "\r\n   %s (%d)"
                         "\r\n",
-                        dataP->id, erl_errno_id(save_errno), save_errno) );
+                        erl_errno_id(save_errno), save_errno) );
 
                 opP = CONTAINING_RECORD(olP, ESAIOOperation, ol);
                 esaio_completion_inc(dataP);
@@ -636,46 +680,44 @@ void* esaio_completion_main(void* threadDataP)
             opP = CONTAINING_RECORD(olP, ESAIOOperation, ol);
             esaio_completion_inc(dataP);
 
-            SGDBG( ("UNIX-ESAIO",
-                    "[%d] esaio_completion_main -> success\r\n", dataP->id) );
+            SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> success\r\n") );
 
-        }
+        } /* if (!res) */
 
         dataP->latest = opP->tag;
 
         switch (opP->tag) {
         case ESAIO_OP_TERMINATE:
             SGDBG( ("UNIX-ESAIO",
-                    "[%d] esaio_completion_main -> received terminate cmd\r\n",
-                    dataP->id) );
+                    "esaio_completion_main -> received terminate cmd\r\n") );
             done = esaio_completion_terminate(dataP, opP);
             break;
 
         default:
             SGDBG( ("UNIX-ESAIO",
-                    "[%d] esaio_completion_main -> received unknown cmd: "
+                    "esaio_completion_main -> received unknown cmd: "
                     "\r\n   %d"
                     "\r\n",
-                    dataP->id, opP->tag) );
+                    opP->tag) );
             done = esaio_completion_unknown(dataP, descP, opP, numBytes,
                                             save_errno);
             break;
 
         }
-    }
 
-    SGDBG( ("UNIX-ESAIO",
-            "[%d] esaio_completion_main -> terminating\r\n", dataP->id) );
+        FREE(opP);
+
+    } /* while (!done) */
+
+    SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> terminating\r\n") );
 
     TEXIT(threadDataP); // What to do here?
 
-    SGDBG( ("UNIX-ESAIO",
-            "[%d] esaio_completion_main -> terminated\r\n", dataP->id) );
+    SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> terminated\r\n") );
 
     dataP->state = ESAIO_THREAD_STATE_TERMINATED;
 
-    SGDBG( ("UNIX-ESAIO",
-            "[%d] esaio_completion_main -> done\r\n", dataP->id) );
+    SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> done\r\n") );
 
     return threadDataP;
 }

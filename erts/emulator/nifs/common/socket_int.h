@@ -608,6 +608,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define TCREATE(NAME, TID, FUNC, ARGS, OPTS) \
     enif_thread_create((NAME), (TID), (FUNC), (ARGS), (OPTS))
 #define TEXIT(EVAL)     enif_thread_exit((EVAL))
+#define TJOIN(TID, EV)  enif_thread_join((TID), (EV))
 #define TOCREATE(NAME)  enif_thread_opts_create((NAME))
 #define TODESTROY(OPTS) enif_thread_opts_destroy((OPTS))
 
