@@ -25,8 +25,9 @@
 -module(cryptcookie).
 -feature(maybe_expr, enable).
 
--export([supported/0, start_keypair_server/0, init/1, init/2]).
--export([encrypt_and_send_chunk/4, recv_and_decrypt_chunk/2]).
+-export([supported/0, start_keypair_server/0, init/1, init/2,
+         encrypt_and_send_chunk/4, recv_and_decrypt_chunk/2,
+         record_to_map/2]).
 
 %% -------------------------------------------------------------------------
 %% The curve choice greatly affects setup time,
@@ -648,6 +649,21 @@ decrypt_rekey(
 
 
 %% -------------------------------------------------------------------------
+
+-define(RECORD_TO_MAP(Name, Record),
+        record_to_map(Name, Record = #Name{}) ->
+               record_to_map(record_info(fields, Name), Record, 2, #{})).
+
+%%%record_to_map(params, Record = #params{}) ->
+%%%    record_to_map(record_info(fields, params), Record, 2, #{}).
+?RECORD_TO_MAP(params, Record).
+%%
+record_to_map([Field | Fields], Record, Index, Map) ->
+    record_to_map(
+      Fields, Record, Index + 1,
+      Map#{ Field => element(Index, Record) });
+record_to_map([], _Record, _Index, Map) ->
+    Map.
 
 timestamp() ->
     erlang:monotonic_time(second).

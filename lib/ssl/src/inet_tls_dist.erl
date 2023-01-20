@@ -34,6 +34,11 @@
 
 -export([verify_client/3, cert_nodes/1]).
 
+%% kTLS helpers
+-export([inet_ktls_setopt/3, inet_ktls_getopt/3,
+         set_ktls/1, set_ktls_ulp/2, set_ktls_cipher/5,
+         ktls_os/0, ktls_opt_ulp/1, ktls_opt_cipher/6]).
+
 -export([dbg/0]). % Debug
 
 -include_lib("kernel/include/net_address.hrl").
@@ -345,7 +350,7 @@ accept_one(Family, Socket, NetKernel) ->
             case KTLS of
                 true ->
                     {ok, KtlsInfo} = ssl_gen_statem:ktls_handover(Receiver),
-                    case set_ktls(KtlsInfo) of
+                    case inet_set_ktls(KtlsInfo) of
                         ok ->
                             accept_one(
                               Family, maps:get(socket, KtlsInfo), NetKernel,
@@ -648,7 +653,7 @@ do_setup(
                     {ok, KtlsInfo} =
                         ssl_gen_statem:ktls_handover(Receiver),
                     Socket = maps:get(socket, KtlsInfo),
-                    case set_ktls(KtlsInfo) of
+                    case inet_set_ktls(KtlsInfo) of
                         ok when is_port(Socket) ->
                             %% XXX Breaking abstraction barrier
                             Driver = erlang:port_get_data(Socket),
@@ -916,69 +921,142 @@ verify_fun(Value) ->
 	    error(malformed_ssl_dist_opt, [Value])
     end.
 
-set_ktls(KtlsInfo) ->
+
+inet_set_ktls(
+  #{ socket := Socket, socket_options := SocketOptions } = KtlsInfo) ->
     %%
-    %% Check OS type and version
-    %%
-    case {os:type(), os:version()} of
-        {{unix,linux}, {_,_,_} = OsVersion}
-          when {5,2,0} =< OsVersion ->
-            set_ktls_1(KtlsInfo);
-        OsTypeVersion ->
-            {error, {ktls_invalid_os, OsTypeVersion}}
+    maybe
+        ok ?=
+            set_ktls(
+              KtlsInfo
+              #{ setopt_fun => fun ?MODULE:inet_ktls_setopt/3,
+                 getopt_fun => fun ?MODULE:inet_ktls_getopt/3 }),
+        %%
+        #socket_options{
+           mode = _Mode,
+           packet = Packet,
+           packet_size = PacketSize,
+           header = Header,
+           active = Active
+          } = SocketOptions,
+        case
+            inet:setopts(
+              Socket,
+              [list, {packet, Packet}, {packet_size, PacketSize},
+               {header, Header}, {active, Active}])
+        of
+            ok ->
+                ok;
+            {error, SetoptError} ->
+                {error, {ktls_setopt_failed, SetoptError}}
+        end
     end.
 
-%% Check TLS version and cipher suite
+inet_ktls_setopt(Socket, {Level, Opt}, Value)
+  when is_integer(Level), is_integer(Opt), is_binary(Value) ->
+    inet:setopts(Socket, [{raw, Level, Opt, Value}]).
+
+inet_ktls_getopt(Socket, {Level, Opt}, Size)
+  when is_integer(Level), is_integer(Opt), is_integer(Size) ->
+    case inet:getopts(Socket, [{raw, Level, Opt, Size}]) of
+        {ok, [{raw, Level, Opt, Value}]} ->
+            {ok, Value};
+        {ok, _} = Error ->
+            {error, Error};
+        {error, _} = Error ->
+            Error
+    end.
+
+
+set_ktls(KtlsInfo) ->
+    maybe
+        {ok, OS} ?= ktls_os(),
+        ok ?= set_ktls_ulp(KtlsInfo, OS),
+        #{ write_state := WriteState,
+           write_seq := WriteSeq,
+           read_state := ReadState,
+           read_seq := ReadSeq } = KtlsInfo,
+        ok ?= set_ktls_cipher(KtlsInfo, OS, WriteState, WriteSeq, tx),
+        set_ktls_cipher(KtlsInfo, OS, ReadState, ReadSeq, rx)
+    end.
+
+set_ktls_ulp(
+  #{ socket := Socket,
+     setopt_fun := SetoptFun,
+     getopt_fun := GetoptFun },
+  OS) ->
+    %%
+    {Option, Value} = ktls_opt_ulp(OS),
+    Size = byte_size(Value),
+    _ = SetoptFun(Socket, Option, Value),
+    %%
+    %% Check if kernel module loaded,
+    %% i.e if getopts Level, Opt returns Value
+    %%
+    case GetoptFun(Socket, Option, Size + 1) of
+        {ok, <<Value:Size/binary, 0>>} ->
+            ok;
+        Other ->
+            {error, {ktls_set_ulp_failed, Option, Value, Other}}
+    end.
+
+%% Set kTLS cipher
 %%
-set_ktls_1(
-  #{tls_version := {3,4}, % 'tlsv1.3'
-    cipher_suite := CipherSuite,
-    socket := Socket} = KtlsInfo)
-  when CipherSuite =:= ?TLS_AES_256_GCM_SHA384 ->
+set_ktls_cipher(
+  _KtlsInfo =
+      #{ tls_version := TLS_version,
+         cipher_suite := CipherSuite,
+         %%
+         socket := Socket,
+         setopt_fun := SetoptFun,
+         getopt_fun := GetoptFun },
+  OS, CipherState, CipherSeq, TxRx) ->
+    maybe
+        {ok, {Option, Value}} ?=
+            ktls_opt_cipher(
+              OS, TLS_version, CipherSuite, CipherState, CipherSeq, TxRx),
+        _ = SetoptFun(Socket, Option, Value),
+        case TxRx of
+            tx ->
+                Size = byte_size(Value),
+                case GetoptFun(Socket, Option, Size) of
+                    {ok, Value} ->
+                        ok;
+                    Other ->
+                        {error, {ktls_set_cipher_failed, Other}}
+                end;
+            rx ->
+                ok
+        end
+    end.
+
+ktls_os() ->
+    OS = {os:type(), os:version()},
+    case OS of
+        {{unix,linux}, OsVersion} when {5,2,0} =< OsVersion ->
+            {ok, OS};
+        _  ->
+            {error, {ktls_notsup, {os,OS}}}
+    end.
+
+ktls_opt_ulp(_OS) ->
     %%
     %% See https://www.kernel.org/doc/html/latest/networking/tls.html
     %% and include/netinet/tcp.h
     %%
-    SOL_TCP = 6,
-    TCP_ULP = 31,
-    KtlsMod = <<"tls">>, % Linux kernel module name
-    KtlsModSize = byte_size(KtlsMod),
-    _ = inet:setopts(Socket, [{raw, SOL_TCP, TCP_ULP, KtlsMod}]),
-    %%
-    %% Check if kernel module loaded,
-    %% i.e if getopts SOL_TCP,TCP_ULP returns KtlsMod
-    %%
-    case
-        inet:getopts(Socket, [{raw, SOL_TCP, TCP_ULP, KtlsModSize + 1}])
-    of
-        {ok, [{raw, SOL_TCP, TCP_ULP, <<KtlsMod:KtlsModSize/binary,0>>}]} ->
-            set_ktls_2(KtlsInfo, Socket);
-        Other ->
-            {error, {ktls_not_supported, Other}}
-    end;
-set_ktls_1(
-  #{tls_version := TLSVersion,
-    cipher_suite := CipherSuite,
-    socket := _}) ->
-    {error, {ktls_invalid_cipher, TLSVersion, CipherSuite}}.
+    SOL_TCP = 6, TCP_ULP = 31,
+    KtlsMod = <<"tls">>,
+    {{SOL_TCP,TCP_ULP}, KtlsMod}.
 
-%% Set kTLS cipher
-%%
-set_ktls_2(
-  #{write_state :=
-        #cipher_state{
-           key = <<WriteKey:32/bytes>>,
-           iv = <<WriteSalt:4/bytes, WriteIV:8/bytes>>
-          },
-    write_seq := WriteSeq,
-    read_state :=
-        #cipher_state{
-           key = <<ReadKey:32/bytes>>,
-           iv = <<ReadSalt:4/bytes, ReadIV:8/bytes>>
-          },
-    read_seq := ReadSeq,
-    socket_options := SocketOptions},
-  Socket) ->
+ktls_opt_cipher(
+  _OS,
+  _TLS_version = {3,4}, % 'tlsv1.3'
+  _CipherSpec = ?TLS_AES_256_GCM_SHA384,
+  #cipher_state{
+     key = <<Key:32/bytes>>,
+     iv = <<Salt:4/bytes, IV:8/bytes>> },
+  CipherSeq,
+  TxRx) when is_integer(CipherSeq) ->
     %%
     %% See include/linux/tls.h
     %%
@@ -987,51 +1065,29 @@ set_ktls_2(
     TLS_1_3_VERSION =
         (TLS_1_3_VERSION_MAJOR bsl 8) bor TLS_1_3_VERSION_MINOR,
     TLS_CIPHER_AES_GCM_256 = 52,
-    TLS_crypto_info_TX =
-        <<TLS_1_3_VERSION:16/native,
-          TLS_CIPHER_AES_GCM_256:16/native,
-          WriteIV/bytes, WriteKey/bytes,
-          WriteSalt/bytes, WriteSeq:64/native>>,
-    TLS_crypto_info_RX =
-        <<TLS_1_3_VERSION:16/native,
-          TLS_CIPHER_AES_GCM_256:16/native,
-          ReadIV/bytes, ReadKey/bytes,
-          ReadSalt/bytes, ReadSeq:64/native>>,
     SOL_TLS = 282,
     TLS_TX = 1,
     TLS_RX = 2,
-    RawOptTX = {raw, SOL_TLS, TLS_TX, TLS_crypto_info_TX},
-    RawOptRX = {raw, SOL_TLS, TLS_RX, TLS_crypto_info_RX},
-    _ = inet:setopts(Socket, [RawOptTX]),
-    _ = inet:setopts(Socket, [RawOptRX]),
+    Value =
+        <<TLS_1_3_VERSION:16/native,
+          TLS_CIPHER_AES_GCM_256:16/native,
+          IV/bytes, Key/bytes,
+          Salt/bytes, CipherSeq:64/native>>,
     %%
-    %% Check if cipher could be set
-    %%
-    case
-        inet:getopts(
-          Socket, [{raw, SOL_TLS, TLS_TX, byte_size(TLS_crypto_info_TX)}])
-    of
-        {ok, [RawOptTX]} ->
-            #socket_options{
-               mode = _Mode,
-               packet = Packet,
-               packet_size = PacketSize,
-               header = Header,
-               active = Active
-              } = SocketOptions,
-            case
-                inet:setopts(
-                  Socket,
-                  [list, {packet, Packet}, {packet_size, PacketSize},
-                   {header, Header}, {active, Active}])
-            of
-                ok -> ok;
-                {error, SetoptError} ->
-                    {error, {ktls_setopt_failed, SetoptError}}
-            end;
-        Other ->
-            {error, {ktls_set_cipher_failed, Other}}
-    end.
+    SOL_TLS = 282,
+    TLS_TX = 1,
+    TLS_RX = 2,
+    TLS_TxRx =
+        case TxRx of
+            tx -> TLS_TX;
+            rx -> TLS_RX
+        end,
+    {ok, {{SOL_TLS,TLS_TxRx}, Value}};
+ktls_opt_cipher(
+  _OS, TLS_version, CipherSpec, _CipherState, _CipherSeq, _TxRx) ->
+    {error,
+     {ktls_notsup, {cipher, TLS_version, CipherSpec, _CipherState}}}.
+
 
 %% -------------------------------------------------------------------------
 

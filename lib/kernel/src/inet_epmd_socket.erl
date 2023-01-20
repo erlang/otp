@@ -26,6 +26,8 @@
          accept_open/2, accept_controller/3, accepted/3,
          connect/3]).
 
+-export([supported/0]).
+
 -include("net_address.hrl").
 -include("dist.hrl").
 -include("dist_util.hrl").
@@ -455,3 +457,12 @@ input_data(Socket) ->
 put_data(DistHandle, _PacketSize, Packet) ->
     %% erlang:display({'<<==', _PacketSize}),
     erlang:dist_ctrl_put_data(DistHandle, Packet).
+
+%% ------------------------------------------------------------
+supported() ->
+    try socket:is_supported(ipv6) of
+        _ ->
+            ok
+    catch error : notsup ->
+            "Module 'socket' not supported"
+    end.

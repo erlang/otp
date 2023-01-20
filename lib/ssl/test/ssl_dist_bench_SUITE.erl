@@ -256,7 +256,7 @@ init_per_group(crypto_socket, Config) ->
             {fail, {Class, Reason, Stacktrace}}
     end;
 init_per_group(crypto_inet, Config) ->
-    try inet_epmd_socket_cryptcookie:supported() of
+    try inet_epmd_inet_cryptcookie:supported() of
         ok ->
             [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Inet"},
              {ssl_dist_args,
@@ -272,11 +272,19 @@ init_per_group(plain, Config) ->
     [{ssl_dist, false}, {ssl_dist_prefix, "Plain"}|Config];
 %%
 init_per_group(socket, Config) ->
-    [{ssl_dist, false},
-     {ssl_dist_prefix, "Socket"},
-     {ssl_dist_args,
-      "-proto_dist inet_epmd -inet_epmd socket"}
-     | Config];
+    try inet_epmd_socket:supported() of
+        ok ->
+            [{ssl_dist, false},
+             {ssl_dist_prefix, "Socket"},
+             {ssl_dist_args,
+              "-proto_dist inet_epmd -inet_epmd socket"}
+            | Config];
+        Problem ->
+            {skip, Problem}
+    catch
+        Class : Reason : Stacktrace ->
+            {fail, {Class, Reason, Stacktrace}}
+    end;
 %%
 init_per_group(ktls, Config) ->
     {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
@@ -286,16 +294,16 @@ init_per_group(ktls, Config) ->
     {ok, Server} = gen_tcp:accept(Listen),
     try
         maybe
-            ok ?= ssl_test_lib:ktls_check_os(),
-            ok ?= ssl_test_lib:ktls_set_ulp(Client),
-            ok ?= ssl_test_lib:ktls_set_cipher(Client, tx, 1),
+            {ok, OS} ?= ssl_test_lib:ktls_os(),
+            ok ?= ssl_test_lib:ktls_set_ulp(Client, OS),
+            ok ?= ssl_test_lib:ktls_set_cipher(Client, OS, tx, 1),
             [{ktls, true},
              {ssl_dist_prefix,
               proplists:get_value(ssl_dist_prefix, Config) ++ "-kTLS"}
             | proplists:delete(ssl_dist_prefix, Config)]
         else
             {error, Reason} ->
-                {skip, {ktls, Reason}}
+                {skip, Reason}
         end
     after
         _ = gen_tcp:close(Server),

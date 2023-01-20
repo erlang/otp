@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -290,9 +290,9 @@ ktls_encrypt_decrypt(Test) when is_boolean(Test) ->
     {ok, Server} = gen_tcp:accept(Listen),
     try
         maybe
-            ok ?= ssl_test_lib:ktls_check_os(),
-            ok ?= ssl_test_lib:ktls_set_ulp(Client),
-            ok ?= ssl_test_lib:ktls_set_cipher(Client, tx, 11),
+            {ok, OS} ?= ssl_test_lib:ktls_os(),
+            ok ?= ssl_test_lib:ktls_set_ulp(Client, OS),
+            ok ?= ssl_test_lib:ktls_set_cipher(Client, OS, tx, 11),
             case Test of
                 false ->
                     ok;
@@ -301,7 +301,7 @@ ktls_encrypt_decrypt(Test) when is_boolean(Test) ->
             end
         else
             {error, Reason} ->
-                {skip, {ktls, Reason}}
+                {skip, Reason}
         end
     after
         _ = gen_tcp:close(Server),
@@ -321,8 +321,9 @@ ktls_encrypt_decrypt(Client, Server) ->
     receive after 500 -> ok end, % Give time for data to arrive
     %%
     %% Activate Server TX encryption
-    ok = ssl_test_lib:ktls_set_ulp(Server),
-    ok = ssl_test_lib:ktls_set_cipher(Server, tx, 17),
+    {ok, OS} = ssl_test_lib:ktls_os(),
+    ok = ssl_test_lib:ktls_set_ulp(Server, OS),
+    ok = ssl_test_lib:ktls_set_cipher(Server, OS, tx, 17),
     %% Send encrypted from Server
     ok = gen_tcp:send(Server, Data),
     %% Receive encrypted data without decryption
@@ -335,7 +336,7 @@ ktls_encrypt_decrypt(Client, Server) ->
             ok
     end,
     %% Finally, activate Server decryption
-    ok = ssl_test_lib:ktls_set_cipher(Server, rx, 11),
+    ok = ssl_test_lib:ktls_set_cipher(Server, OS, rx, 11),
     %% Receive and decrypt the data that was first sent
     {ok, Data} = gen_tcp:recv(Server, 0, 1000),
     ok.

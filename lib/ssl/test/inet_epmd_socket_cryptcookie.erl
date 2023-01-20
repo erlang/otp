@@ -230,4 +230,7 @@ stream_controlling_process(Stream = {_, [_ | Socket], _}, Pid) ->
 
 %% ------------------------------------------------------------
 supported() ->
-    dist_cryptcookie:supported().
+    maybe
+        ok ?= inet_epmd_socket:supported(),
+        dist_cryptcookie:supported()
+    end.

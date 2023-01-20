@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -264,7 +264,7 @@ tc_budget_option(Config) ->
         true ->
             ok;
         _ ->
-            ?FAIL("Expected ~w traces, but found ~w",
+            ?CT_FAIL("Expected ~w traces, but found ~w",
                   [ExpectedTraceCnt, ActualTraceCnt])
     end.
 
@@ -283,7 +283,7 @@ tc_file_option(Config) ->
         true ->
             ok;
         _ ->
-            ?FAIL("Expected ~w traces, but found ~w",
+            ?CT_FAIL("Expected ~w traces, but found ~w",
                   [ExpectedTraceCnt, ActualTraceCnt])
     end.
 
@@ -300,7 +300,7 @@ tc_write(_Config) ->
         true ->
             ok;
         _ ->
-            ?FAIL("Expected ~w traces, but found ~w",
+            ?CT_FAIL("Expected ~w traces, but found ~w",
                   [ExpectedTraceCnt, ActualTraceCnt])
     end.
 
@@ -379,14 +379,14 @@ check_trace_map(Ref, ExpectedTraces, ExpectedRemainders) ->
         true ->
             ok;
         _ ->
-            ?FAIL("Expected trace remainders = ~w ~n"
+            ?CT_FAIL("Expected trace remainders = ~w ~n"
                  "Actual trace remainders = ~w",
                  [ExpectedRemainders, ActualRemainders])
     end.
 
 check_key(Type, ExpectedTraces, ReceivedPerType) ->
     ReceivedPerTypeCnt = length(ReceivedPerType),
-    ?LOG("Received Type = ~w Messages# = ~w", [Type, ReceivedPerTypeCnt]),
+    ?CT_LOG("Received Type = ~w Messages# = ~w", [Type, ReceivedPerTypeCnt]),
     case ReceivedPerTypeCnt > 0 of
         true ->
             ExpectedPerType = maps:get(Type, ExpectedTraces, []),
@@ -413,7 +413,7 @@ check_key(Type, ExpectedTraces, ReceivedPerType) ->
                 case Result of
                     false ->
                         F = "Trace not found: {~s, ~w, ~w}",
-                        ?FAIL(F, [ExpectedString, Module, Function]);
+                        ?CT_FAIL(F, [ExpectedString, Module, Function]);
                     _ -> ok
                 end,
                 Result
@@ -431,7 +431,7 @@ check_key(Type, ExpectedTraces, ReceivedPerType) ->
                 case Result of
                     false ->
                         F = "Processed trace not found: ~s",
-                        ?FAIL(F, [ExpectedString]);
+                        ?CT_FAIL(F, [ExpectedString]);
                     _ -> ok
                 end,
                 Result
@@ -450,7 +450,7 @@ check_trace(processed, ExpectedPerType, ReceivedPerType) ->
     P1 = ?CHECK_PROCESSED_TRACE([_Timestamp, _Pid, Txt], Expected),
     true = lists:all(P1, ExpectedPerType);
 check_trace(Type, _ExpectedPerType, _ReceivedPerType) ->
-    ?FAIL("Type = ~w not checked", [Type]),
+    ?CT_FAIL("Type = ~w not checked", [Type]),
     ok.
 
 count_line(Filename) ->
@@ -460,7 +460,7 @@ count_line(Filename) ->
             file:close(IoDevice),
             Count;
         {error, Reason} ->
-            ?PAL("~s open error  reason:~s~n", [Filename, Reason]),
+            ?CT_PAL("~s open error  reason:~s~n", [Filename, Reason]),
             ct:fail(Reason)
     end.
 
@@ -471,7 +471,7 @@ count_line(IoDevice, Count) ->
     end.
 
 ssl_connect(Config) when is_list(Config) ->
-    ?LOG("Establishing connection for producing traces", []),
+    ?CT_LOG("Establishing connection for producing traces", []),
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -489,5 +489,5 @@ ssl_connect(Config) when is_list(Config) ->
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
 				   {options, [{keepalive, true},{active, false}
 					      | ClientOpts]}]),
-    ?LOG("Testcase ~p, Client ~p  Server ~p ~n", [self(), Client, Server]),
+    ?CT_LOG("Testcase ~p, Client ~p  Server ~p ~n", [self(), Client, Server]),
     [Server, Client].
