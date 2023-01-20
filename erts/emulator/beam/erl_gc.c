@@ -123,13 +123,13 @@ static Eterm *full_sweep_heaps(Process *p,
 			       char *oh, Uint oh_size,
 			       Eterm *objv, int nobj);
 static int garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
-			   int need, Eterm* objv, int nobj, int fcalls,
+			   Uint need, Eterm* objv, int nobj, int fcalls,
 			   Uint max_young_gen_usage);
 static int major_collection(Process* p, ErlHeapFragment *live_hf_end,
-			    int need, Eterm* objv, int nobj,
+			    Uint need, Eterm* objv, int nobj,
 			    Uint ygen_usage, Uint *recl);
 static int minor_collection(Process* p, ErlHeapFragment *live_hf_end,
-			    int need, Eterm* objv, int nobj,
+			    Uint need, Eterm* objv, int nobj,
 			    Uint ygen_usage, Uint *recl);
 static void do_minor(Process *p, ErlHeapFragment *live_hf_end,
 		     char *mature, Uint mature_size,
@@ -674,7 +674,7 @@ check_for_possibly_long_gc(Process *p, Uint ygen_usage)
  */
 static int
 garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
-		int need, Eterm* objv, int nobj, int fcalls,
+		Uint need, Eterm* objv, int nobj, int fcalls,
 		Uint max_young_gen_usage)
 {
     Uint reclaimed_now = 0;
@@ -876,7 +876,7 @@ do_major_collection:
 }
 
 int
-erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj, int fcalls)
+erts_garbage_collect_nobump(Process* p, Uint need, Eterm* objv, int nobj, int fcalls)
 {
     int reds, reds_left;
     if (p->sig_qs.flags & (FS_ON_HEAP_MSGQ|FS_OFF_HEAP_MSGQ_CHNG)) {
@@ -893,7 +893,7 @@ erts_garbage_collect_nobump(Process* p, int need, Eterm* objv, int nobj, int fca
 }
 
 void
-erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
+erts_garbage_collect(Process* p, Uint need, Eterm* objv, int nobj)
 {
     int reds;
     if (p->sig_qs.flags & (FS_ON_HEAP_MSGQ|FS_OFF_HEAP_MSGQ_CHNG)) {
@@ -1354,7 +1354,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 
 static int
 minor_collection(Process* p, ErlHeapFragment *live_hf_end,
-		 int need, Eterm* objv, int nobj,
+		 Uint need, Eterm* objv, int nobj,
 		 Uint ygen_usage, Uint *recl)
 {
     Eterm *mature = p->abandoned_heap ? p->abandoned_heap : p->heap;
@@ -1789,7 +1789,7 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
 
 static int
 major_collection(Process* p, ErlHeapFragment *live_hf_end,
-		 int need, Eterm* objv, int nobj,
+		 Uint need, Eterm* objv, int nobj,
 		 Uint ygen_usage, Uint *recl)
 {
     Uint size_before, size_after, stack_size;
