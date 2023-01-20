@@ -470,11 +470,22 @@ setup_wait_nodedown(A, Time) ->
 
 
 set_cpu_affinity(client) ->
-    {LogicalProcessors, _} = split_cpus(),
-    update_schedulers(taskset(LogicalProcessors));
+    set_cpu_affinity(1);
 set_cpu_affinity(server) ->
-    {_, LogicalProcessors} = split_cpus(),
-    update_schedulers(taskset(LogicalProcessors)).
+    set_cpu_affinity(2);
+set_cpu_affinity(Index) when is_integer(Index) ->
+    case erlang:system_info(cpu_topology) of
+        undefined ->
+            {"", undefined, undefined};
+        CpuTopology ->
+            Log = taskset(element(Index, split_cpus(CpuTopology))),
+            %% Update Schedulers
+            _ = erlang:system_info(update_cpu_info),
+            Schedulers = erlang:system_info(logical_processors_available),
+            {Log,
+             erlang:system_flag(schedulers_online, Schedulers),
+             Schedulers}
+    end.
 
 taskset(LogicalProcessors) ->
     os:cmd(
@@ -484,9 +495,6 @@ taskset(LogicalProcessors) ->
               ",",
               [integer_to_list(Id) || Id <- LogicalProcessors]),
             " ") ++ os:getpid()).
-
-split_cpus() ->
-    split_cpus(erlang:system_info(cpu_topology)).
 
 split_cpus([{_Tag, List}]) ->
     split_cpus(List);
@@ -500,13 +508,6 @@ logical_processors([{_Tag, List} | Items]) ->
     logical_processors(List) ++ logical_processors(Items);
 logical_processors([]) ->
     [].
-
-update_schedulers(CmdResult) ->
-    _ = erlang:system_info(update_cpu_info),
-    Schedulers = erlang:system_info(logical_processors_available),
-    {CmdResult,
-     erlang:system_flag(schedulers_online, Schedulers),
-     Schedulers}.
 
 
 %%----------------
