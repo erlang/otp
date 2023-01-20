@@ -876,7 +876,13 @@ do_match_huge_int() ->
                 4 -> lists:seq(25, 32);
                 8 -> []
             end ++ lists:seq(50, 64),
-    ok = overflow_huge_int_unit128(Bin, Sizes).
+    ok = overflow_huge_int_unit128(Bin, Sizes),
+
+    %% GH-6701: [vm] crash with -emu_flavor emu:
+    %% "no next heap size found: 18446744072702918678, offset 0"
+    {'EXIT',{function_clause,_}} =
+        (catch fun(<<X:2147483647/unit:98>>) -> X end(<<>>)),
+    ok.
 
 overflow_huge_int_unit128(Bin, [Sz0|Sizes]) ->
     Sz = id(1 bsl Sz0),

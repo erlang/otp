@@ -624,7 +624,11 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                 }
                 break;
 	    default:
+#ifdef ARCH_64
+		erts_print(to, to_arg, "%ld", *ap);
+#else
 		erts_print(to, to_arg, "%d", *ap);
+#endif
 	    }
 	    ap++;
 	    break;

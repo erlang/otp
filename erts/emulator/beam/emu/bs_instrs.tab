@@ -1401,10 +1401,19 @@ bs_get_integer.head() {
 
 bs_get_integer.fetch(Ctx, Size, Live) {
     Uint wordsneeded;
+    ErlBinMatchBuffer* mb;
     Ms = $Ctx;
     Sz = $Size;
     wordsneeded = 1+WSIZE(NBYTES(Sz));
-    $GC_TEST_PRESERVE(wordsneeded, $Live, Ms);
+
+    /* Check bits size before potential GC. We do not want a GC
+     * and then realize we don't need the allocated space (if the
+     * op fails).
+     */
+    mb = ms_matchbuffer(Ms);
+    if (mb->size - mb->offset >= Sz) {
+        $GC_TEST_PRESERVE(wordsneeded, $Live, Ms);
+    }
 }
 
 bs_get_integer.fetch_small(Ctx, Size) {

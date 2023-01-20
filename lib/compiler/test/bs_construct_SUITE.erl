@@ -721,6 +721,7 @@ bad_size(_Config) ->
     {'EXIT',{badarg,_}} = (catch bad_binary_size()),
     {'EXIT',{badarg,_}} = (catch bad_binary_size(<<"xyz">>)),
     {'EXIT',{badarg,_}} = (catch bad_binary_size2()),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size3(id(<<"abc">>))),
     ok.
 
 bad_float_size() ->
@@ -750,3 +751,6 @@ bad_binary_size2() ->
     <<
       <<(id(42))>>:[ <<>> || <<123:true>> <= <<>> ]/binary,
       <<(id(100))>>:7>>.
+
+bad_binary_size3(Bin) ->
+    <<Bin:all/binary>>.

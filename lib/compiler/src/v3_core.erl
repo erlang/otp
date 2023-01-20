@@ -1438,29 +1438,35 @@ bitstr({bin_element,{sl,Seg,Line},E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
      Eps,St2}.
 
 bin_elements([{bin_element,Line,Expr,Size0,Type0}|Es], Seg) ->
-    {Size,Type} = make_bit_type(Line, Size0, Type0),
+    {Size,Type} = make_bit_type(Line, Size0, Type0, construction),
     [{bin_element,{sl,Seg,Line},Expr,Size,Type}|bin_elements(Es, Seg+1)];
 bin_elements([], _) -> [].
 
-make_bit_type(Line, default, Type0) ->
+make_bit_type(Line, default, Type0, _Context) ->
     case erl_bits:set_bit_type(default, Type0) of
         {ok,all,Bt} -> {make_all_size(Line),erl_bits:as_list(Bt)};
 	{ok,undefined,Bt} -> {{atom,Line,undefined},erl_bits:as_list(Bt)};
         {ok,Size,Bt} -> {{integer,Line,Size},erl_bits:as_list(Bt)}
     end;
-make_bit_type(_Line, {atom,Anno,all}=Size, Type0) ->
+make_bit_type(_Line, {atom,Anno,all}=Size, Type0, Context) ->
+    {ok,Size,Bt} = erl_bits:set_bit_type(Size, Type0),
+    Type = erl_bits:as_list(Bt),
     case erl_anno:generated(Anno) of
         true ->
             %% This `all` was created by the compiler from a binary
             %% segment without a size.
-            {ok,Size,Bt} = erl_bits:set_bit_type(Size, Type0),
-            {Size,erl_bits:as_list(Bt)};
+            {Size,Type};
         false ->
             %% This `all` was present in the source code. It is not
             %% a valid size.
-            throw(nomatch)
+            case Context of
+                matching ->
+                    throw(nomatch);
+                construction ->
+                    {{atom,Anno,bad_size},Type}
+            end
     end;
-make_bit_type(_Line, Size0, Type0) ->            %Integer or 'all'
+make_bit_type(_Line, Size0, Type0, _Context) ->
     {ok,Size1,Bt} = erl_bits:set_bit_type(Size0, Type0),
     Size = case Size1 of
                {char,Anno,CharVal} -> {integer,Anno,CharVal};
@@ -2164,7 +2170,7 @@ pat_segments([P0|Ps0], St0) ->
 pat_segments([], St) -> {[],St}.
 
 pat_segment({bin_element,L,Val,Size0,Type0}, St) ->
-    {Size1,Type1} = make_bit_type(L, Size0, Type0),
+    {Size1,Type1} = make_bit_type(L, Size0, Type0, matching),
     [Type,{unit,Unit}|Flags] = Type1,
     Anno = lineno_anno(L, St),
     {Pval0,St1} = pattern(Val, St),
