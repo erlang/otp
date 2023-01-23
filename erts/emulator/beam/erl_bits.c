@@ -1381,7 +1381,7 @@ void increase_proc_bin_sz(Process* p, ProcBin* pb, Uint new_size)
 {
     if (new_size > pb->size) {
         if (ErtsInBetween(pb, OLD_HEAP(p), OLD_HTOP(p))) {
-            BIN_OLD_VHEAP(p) += (new_size / sizeof(Eterm) -
+            p->bin_old_vheap += (new_size / sizeof(Eterm) -
                                  pb->size / sizeof(Eterm));
         }
         pb->size = new_size;

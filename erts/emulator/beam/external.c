@@ -1339,7 +1339,7 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
                                         0, 0,bin, 0, ~((Uint) 0));
     if (is_non_value(res)) {
         if (erts_set_gc_state(BIF_P, 1)
-            || MSO(BIF_P).overhead > BIN_VHEAP_SZ(BIF_P)) {
+            || MSO(BIF_P).overhead > BIF_P->bin_vheap_sz) {
             ERTS_VBUMP_ALL_REDS(BIF_P);
         }
         if (Opts == am_undefined)
@@ -1354,7 +1354,7 @@ static BIF_RETTYPE term_to_binary_trap_1(BIF_ALIST_1)
 	BIF_TRAP1(&term_to_binary_trap_export,BIF_P,res);
     } else {
         if (erts_set_gc_state(BIF_P, 1)
-            || MSO(BIF_P).overhead > BIN_VHEAP_SZ(BIF_P))
+            || MSO(BIF_P).overhead > BIF_P->bin_vheap_sz)
             ERTS_BIF_YIELD_RETURN(BIF_P, res);
         else
             BIF_RET(res);

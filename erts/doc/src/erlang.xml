@@ -6468,6 +6468,26 @@ receive_replies(ReqId, N, Acc) ->
               or <seeerl marker="#system_flag_max_heap_size">
               <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
           </item>
+          <tag><c>include_shared_binaries</c></tag>
+          <item>
+            <p>
+	      When set to <c>true</c>, off-heap binaries are included in the
+	      total sum compared against the <c>size</c> limit. Off-heap binaries
+	      are typically larger binaries that may be shared between
+	      processes. The size of a shared binary is included by all
+	      processes that are referring it. Also, the entire size of a large
+	      binary may be included even if only a smaller part of it is
+	      referred by the process.
+            </p>
+	    <p>
+	      If <c>include_shared_binaries</c> is not defined in the map, the
+	      system default is used. The default system default is <c>false</c>.
+              It can be changed by either the option
+              <seecom marker="erl#+hmaxib">+hmaxib</seecom> in <c>erl(1)</c>,
+              or <seeerl marker="#system_flag_max_heap_size">
+              <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seeerl>.
+            </p>
+          </item>
         </taglist>
         <p>The heap size of a process is quite hard to predict, especially the
           amount of memory that is used during the garbage collection. When
@@ -10415,8 +10435,10 @@ Metadata = #{ pid => pid(),
               system-wide maximum heap size settings for spawned processes.
               This setting can be set using the command-line flags
               <seecom marker="erl#+hmax"><c>+hmax</c></seecom>,
-              <seecom marker="erl#+hmaxk"><c>+hmaxk</c></seecom> and
-              <seecom marker="erl#+hmaxel"><c>+hmaxel</c></seecom> in
+              <seecom marker="erl#+hmaxk"><c>+hmaxk</c></seecom>,
+              <seecom marker="erl#+hmaxel"><c>+hmaxel</c></seecom> and
+	      <seecom marker="erl#+hmaxib"><c>+hmaxibl</c></seecom> in
+
               <c>erl(1)</c>. It can also be changed at runtime using
               <seeerl marker="#system_flag_max_heap_size">
               <c>erlang:system_flag(max_heap_size, MaxHeapSize)</c></seeerl>.

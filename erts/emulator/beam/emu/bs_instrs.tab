@@ -125,7 +125,7 @@ BS_GET_UNCHECKED_FIELD_SIZE(Bits, Unit, Fail, Dst) {
 TEST_BIN_VHEAP(VNh, Nh, Live) {
     Uint need = $Nh;
     if ((E - HTOP < (need + S_RESERVED)) ||
-         (MSO(c_p).overhead + $VNh >= BIN_VHEAP_SZ(c_p))) {
+        (MSO(c_p).overhead + $VNh >= c_p->bin_vheap_sz)) {
         $GC_SWAPOUT();
         PROCESS_MAIN_CHK_LOCKS(c_p);
         FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, $Live, FCALLS);

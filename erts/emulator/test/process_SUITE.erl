@@ -222,6 +222,7 @@ end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     erlang:system_flag(max_heap_size,
                        #{size => 0,
                          kill => true,
+                         include_shared_binaries => false,
                          error_logger => true}),
     erts_test_utils:ept_check_leaked_nodes(Config).
 
@@ -527,7 +528,8 @@ t_process_info(Config) when is_list(Config) ->
     {status, running} = process_info(self(), status),
     {min_heap_size, 233} = process_info(self(), min_heap_size),
     {min_bin_vheap_size,46422} = process_info(self(), min_bin_vheap_size),
-    {max_heap_size, #{ size := 0, kill := true, error_logger := true}} =
+    {max_heap_size, #{ size := 0, kill := true, error_logger := true,
+                       include_shared_binaries := false}} =
         process_info(self(), max_heap_size),
     {current_function,{?MODULE,t_process_info,1}} =
 	process_info(self(), current_function),
@@ -685,8 +687,9 @@ process_info_other_msg(Config) when is_list(Config) ->
 
     {min_heap_size, 233} = process_info(Pid, min_heap_size),
     {min_bin_vheap_size, 46422} = process_info(Pid, min_bin_vheap_size),
-    {max_heap_size, #{ size := 0, kill := true, error_logger := true}} =
-        process_info(self(), max_heap_size),
+    {max_heap_size, #{ size := 0, kill := true, error_logger := true,
+                       include_shared_binaries := false}} =
+        process_info(Pid, max_heap_size),
 
     Pid ! stop,
     ok.
@@ -1944,6 +1947,8 @@ process_flag_badarg(Config) when is_list(Config) ->
     chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
                                                         error_logger => gurka }) end),
     chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
+                                                        include_shared_binaries => gurka}) end),
+    chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
                                                         kill => true,
                                                         error_logger => gurka }) end),
     chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 1 bsl 64 }) end),
@@ -2593,63 +2598,72 @@ spawn_opt_max_heap_size(_Config) ->
             flush()
     end,
 
+    spawn_opt_max_heap_size_do(fun oom_fun/1),
+
+    io:format("Repeat tests with refc binaries\n",[]),
+
+    spawn_opt_max_heap_size_do(fun oom_bin_fun/1),
+
+    error_logger:delete_report_handler(?MODULE),
+    ok.
+
+spawn_opt_max_heap_size_do(OomFun) ->
+    Max = 2024,
     %% Test that numerical limit works
-    max_heap_size_test(1024, 1024, true, true),
+    max_heap_size_test(Max, Max, true, true, OomFun),
 
     %% Test that map limit works
-    max_heap_size_test(#{ size => 1024 }, 1024, true, true),
+    max_heap_size_test(#{ size => Max }, Max, true, true, OomFun),
 
     %% Test that no kill is sent
-    max_heap_size_test(#{ size => 1024, kill => false }, 1024, false, true),
+    max_heap_size_test(#{ size => Max, kill => false }, Max, false, true, OomFun),
 
     %% Test that no error_logger report is sent
-    max_heap_size_test(#{ size => 1024, error_logger => false }, 1024, true, false),
+    max_heap_size_test(#{ size => Max, error_logger => false }, Max, true, false, OomFun),
 
     %% Test that system_flag works
-    erlang:system_flag(max_heap_size, #{ size => 0, kill => false,
-                                         error_logger => true}),
-    max_heap_size_test(#{ size => 1024 }, 1024, false, true),
-    max_heap_size_test(#{ size => 1024, kill => true }, 1024, true, true),
+    erlang:system_flag(max_heap_size, OomFun(#{ size => 0, kill => false,
+                                                error_logger => true})),
+    max_heap_size_test(#{ size => Max }, Max, false, true, OomFun),
+    max_heap_size_test(#{ size => Max, kill => true }, Max, true, true, OomFun),
 
-    erlang:system_flag(max_heap_size, #{ size => 0, kill => true,
-                                         error_logger => false}),
-    max_heap_size_test(#{ size => 1024 }, 1024, true, false),
-    max_heap_size_test(#{ size => 1024, error_logger => true }, 1024, true, true),
+    erlang:system_flag(max_heap_size, OomFun(#{ size => 0, kill => true,
+                                                error_logger => false})),
+    max_heap_size_test(#{ size => Max }, Max, true, false, OomFun),
+    max_heap_size_test(#{ size => Max, error_logger => true }, Max, true, true, OomFun),
 
-    erlang:system_flag(max_heap_size, #{ size => 1 bsl 20, kill => true,
-                                         error_logger => true}),
-    max_heap_size_test(#{ }, 1 bsl 20, true, true),
+    erlang:system_flag(max_heap_size, OomFun(#{ size => 1 bsl 16, kill => true,
+                                                error_logger => true})),
+    max_heap_size_test(#{ }, 1 bsl 16, true, true, OomFun),
 
     erlang:system_flag(max_heap_size, #{ size => 0, kill => true,
                                          error_logger => true}),
 
     %% Test that ordinary case works as expected again
-    max_heap_size_test(1024, 1024, true, true),
-
-    error_logger:delete_report_handler(?MODULE),
-
+    max_heap_size_test(Max, Max, true, true, OomFun),
     ok.
 
-max_heap_size_test(Option, Size, Kill, ErrorLogger)
-  when map_size(Option) == 0 ->
-    max_heap_size_test([], Size, Kill, ErrorLogger);
-max_heap_size_test(Option, Size, Kill, ErrorLogger)
-  when is_map(Option); is_integer(Option) ->
-    max_heap_size_test([{max_heap_size, Option}], Size, Kill, ErrorLogger);
-max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
-    OomFun = fun () -> oom_fun([]) end,
-    Pid = spawn_opt(OomFun, Option),
+
+mhs_spawn_opt(Option) when map_get(size, Option) > 0;
+                           is_integer(Option) ->
+    [{max_heap_size, Option}];
+mhs_spawn_opt(_) ->
+    [].
+
+max_heap_size_test(Option, Size, Kill, ErrorLogger, OomFun) ->
+    SpOpt = mhs_spawn_opt(OomFun(Option)),
+    Pid = spawn_opt(fun()-> OomFun(run) end, SpOpt),
     {max_heap_size, MHSz} = erlang:process_info(Pid, max_heap_size),
-    ct:log("Default: ~p~nOption: ~p~nProc: ~p~n",
-           [erlang:system_info(max_heap_size), Option, MHSz]),
+    ct:log("Default: ~p~nOption: ~p~nProc: ~p~nSize = ~p~nSpOpt = ~p~n",
+           [erlang:system_info(max_heap_size), Option, MHSz, Size, SpOpt]),
 
     #{ size := Size} = MHSz,
 
     Ref = erlang:monitor(process, Pid),
     if Kill ->
             receive
-                {'DOWN', Ref, process, Pid, killed} ->
-                    ok
+                {'DOWN', Ref, process, Pid, Reason} ->
+                    killed = Reason
             end;
        true ->
             ok
@@ -2680,12 +2694,37 @@ max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
     %% Make sure that there are no unexpected messages.
     receive_unexpected().
 
-oom_fun(Acc0) ->
+oom_fun(Max) when is_integer(Max) -> Max;
+oom_fun(Map) when is_map(Map)-> Map;
+oom_fun(run) ->
+    io:format("oom_fun() started\n",[]),
+    oom_run_fun([], 100).
+
+oom_run_fun(Acc0, 0) ->
+    done;
+oom_run_fun(Acc0, N) ->
     %% This is tail-recursive since the compiler is smart enough to figure
     %% out that a body-recursive variant never returns, and loops forever
     %% without keeping the list alive.
     timer:sleep(5),
-    oom_fun([lists:seq(1, 1000) | Acc0]).
+    oom_run_fun([lists:seq(1, 1000) | Acc0], N-1).
+
+oom_bin_fun(Max) when is_integer(Max) -> oom_bin_fun(#{size => Max});
+oom_bin_fun(Map) when is_map(Map) -> Map#{include_shared_binaries => true};
+oom_bin_fun(run) ->
+    oom_bin_run_fun([], 10).
+
+oom_bin_run_fun(Acc0, 0) ->
+    done;
+oom_bin_run_fun(Acc0, N) ->
+    timer:sleep(5),
+    oom_bin_run_fun([build_refc_bin(160, <<>>) | Acc0], N-1).
+
+build_refc_bin(0, Acc) ->
+    Acc;
+build_refc_bin(N, Acc) ->
+    build_refc_bin(N-1, <<Acc/binary, 0:(1000*8)>>).
+
 
 receive_error_messages(Pid) ->
     receive

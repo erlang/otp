@@ -949,6 +949,14 @@ $ <input>erl \
           <seeerl marker="erlang#process_flag_max_heap_size">
           <c>process_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
       </item>
+      <tag><marker id="+hmaxib"/><c><![CDATA[+hmaxib true|false]]></c></tag>
+      <item>
+        <p>Sets whether to include the size of shared off-heap binaries
+          in the sum compared against the maximum heap size. Defaults to
+	  <c>false</c>. For more information, see
+          <seeerl marker="erlang#process_flag_max_heap_size">
+          <c>process_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
+      </item>
       <tag><marker id="+hmaxk"/><c><![CDATA[+hmaxk true|false]]></c></tag>
       <item>
         <p>Sets whether to kill processes reaching the maximum heap size or not.

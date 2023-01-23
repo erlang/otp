@@ -690,7 +690,7 @@ static void test_bin_vheap(Process *c_p,
     int need = Nh;
 
     if (c_p->stop - c_p->htop < (need + S_RESERVED) ||
-        MSO(c_p).overhead + VNh >= BIN_VHEAP_SZ(c_p)) {
+        MSO(c_p).overhead + VNh >= c_p->bin_vheap_sz) {
         c_p->fcalls -=
                 erts_garbage_collect_nobump(c_p, need, reg, Live, c_p->fcalls);
     }

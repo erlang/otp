@@ -631,6 +631,7 @@ void erts_usage(void)
 	       H_DEFAULT_MAX_SIZE);
     erts_fprintf(stderr, "-hmaxk bool    enable or disable kill at max heap size (default true)\n");
     erts_fprintf(stderr, "-hmaxel bool   enable or disable error_logger report at max heap size (default true)\n");
+    erts_fprintf(stderr, "-hmaxib bool   enable or disable including off-heap binaries into max heap size (default false)\n");
     erts_fprintf(stderr, "-hpds size     set initial process dictionary size (default %d)\n",
 	       erts_pd_initial_size);
     erts_fprintf(stderr, "-hmqd  val     set default message queue data flag for processes;\n");
@@ -1580,6 +1581,8 @@ erl_start(int argc, char **argv)
              * h|max   - max_heap_size
              * h|maxk  - max_heap_kill
              * h|maxel - max_heap_error_logger
+             * h|maxib - map_heap_include_shared_binaries
+             *
 	     *
 	     */
 	    if (has_prefix("mbs", sub_param)) {
@@ -1642,6 +1645,17 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 		VERBOSE(DEBUG_SYSTEM, ("using max heap log %d\n", H_MAX_FLAGS));
+            } else if (has_prefix("maxib", sub_param)) {
+                arg = get_arg(sub_param+5, argv[i+1], &i);
+                if (sys_strcmp(arg,"true") == 0) {
+                    H_MAX_FLAGS |= MAX_HEAP_SIZE_INCLUDE_OH_BINS;
+                } else if (sys_strcmp(arg,"false") == 0) {
+                    H_MAX_FLAGS &= ~MAX_HEAP_SIZE_INCLUDE_OH_BINS;
+                } else {
+                    erts_fprintf(stderr, "bad max heap include bins %s\n", arg);
+                    erts_usage();
+                }
+                VERBOSE(DEBUG_SYSTEM, ("using max heap log %d\n", H_MAX_FLAGS));
 	    } else if (has_prefix("max", sub_param)) {
                 Sint hMaxSize;
                 char *rest;

@@ -1898,8 +1898,8 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_max_heap_size) {
-       Eterm *hp;
-       Uint sz = 0, max_heap_size, max_heap_flags;
+       ErtsHeapFactory factory;
+       Uint max_heap_size, max_heap_flags;
 
        if (!erts_max_heap_size(BIF_ARG_2, &max_heap_size, &max_heap_flags))
            goto error;
@@ -1907,9 +1907,11 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        if ((max_heap_size < MIN_HEAP_SIZE(BIF_P) && max_heap_size != 0))
 	   goto error;
 
-       erts_max_heap_size_map(MAX_HEAP_SIZE_GET(BIF_P), MAX_HEAP_SIZE_FLAGS_GET(BIF_P), NULL, &sz);
-       hp = HAlloc(BIF_P, sz);
-       old_value = erts_max_heap_size_map(MAX_HEAP_SIZE_GET(BIF_P), MAX_HEAP_SIZE_FLAGS_GET(BIF_P), &hp, NULL);
+       erts_factory_proc_init(&factory, BIF_P);
+       old_value = erts_max_heap_size_map(&factory,
+                                          MAX_HEAP_SIZE_GET(BIF_P),
+                                          MAX_HEAP_SIZE_FLAGS_GET(BIF_P));
+       erts_factory_close(&factory);
        MAX_HEAP_SIZE_SET(BIF_P, max_heap_size);
        MAX_HEAP_SIZE_FLAGS_SET(BIF_P, max_heap_flags);
        BIF_RET(old_value);
@@ -5080,9 +5082,9 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 
 	BIF_RET(make_small(oval));
     } else if (BIF_ARG_1 == am_max_heap_size) {
-
-        Eterm *hp, old_value;
-        Uint sz = 0, max_heap_size, max_heap_flags;
+        ErtsHeapFactory factory;
+        Eterm old_value;
+        Uint max_heap_size, max_heap_flags;
 
         if (!erts_max_heap_size(BIF_ARG_2, &max_heap_size, &max_heap_flags))
             goto error;
@@ -5090,9 +5092,9 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
         if (max_heap_size < H_MIN_SIZE && max_heap_size != 0)
             goto error;
 
-        erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, NULL, &sz);
-        hp = HAlloc(BIF_P, sz);
-        old_value = erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, &hp, NULL);
+        erts_factory_proc_init(&factory, BIF_P);
+        old_value = erts_max_heap_size_map(&factory, H_MAX_SIZE, H_MAX_FLAGS);
+        erts_factory_close(&factory);
 
         erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
         erts_thr_progress_block();

@@ -158,6 +158,7 @@ static void offset_rootset(Process *p, Sint heap_offs, Sint stack_offs,
                            char* area, Uint area_sz, Eterm* objv, int nobj);
 static void offset_off_heap(Process* p, Sint offs, char* area, Uint area_sz);
 static void offset_mqueue(Process *p, Sint offs, char* area, Uint area_sz);
+static int has_reached_max_heap_size(Process *p, Uint total_heap_size);
 static int reached_max_heap_size(Process *p, Uint total_heap_size,
                                  Uint extra_heap_size, Uint extra_old_heap_size);
 static void init_gc_info(ErtsGCInfo *gcip);
@@ -1155,7 +1156,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
         new_heap_size = HEAP_END(p) - HEAP_START(p);
         old_heap_size = erts_next_heap_size(lit_size, 0);
         total_heap_size = new_heap_size + old_heap_size;
-        if (MAX_HEAP_SIZE_GET(p) < total_heap_size &&
+        if (has_reached_max_heap_size(p, total_heap_size) &&
             reached_max_heap_size(p, total_heap_size,
                                   new_heap_size, old_heap_size)) {
             erts_set_self_exiting(p, am_killed);
@@ -1387,7 +1388,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
         extra_heap_size = next_heap_size(p, stack_size + size_before, 0);
         heap_size += extra_heap_size;
 
-        if (heap_size > MAX_HEAP_SIZE_GET(p))
+        if (has_reached_max_heap_size(p, heap_size))
             if (reached_max_heap_size(p, heap_size, extra_heap_size, extra_old_heap_size))
                 return -2;
     }
@@ -1421,7 +1422,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 
     if (OLD_HEAP(p) &&
 	((mature_size <= OLD_HEND(p) - OLD_HTOP(p)) &&
-	 ((BIN_OLD_VHEAP_SZ(p) > BIN_OLD_VHEAP(p))) ) ) {
+	 ((p->bin_old_vheap_sz > p->bin_old_vheap)) ) ) {
 	Eterm *prev_old_htop;
 	Uint stack_size, size_after, adjust_size, need_after, new_sz, new_mature;
 
@@ -1836,7 +1837,7 @@ major_collection(Process* p, ErlHeapFragment *live_hf_end,
         /* Add size of new young heap */
         heap_size += new_sz;
 
-        if (MAX_HEAP_SIZE_GET(p) < heap_size)
+        if (has_reached_max_heap_size(p, heap_size))
             if (reached_max_heap_size(p, heap_size, new_sz, 0))
                 return -2;
     }
@@ -2940,7 +2941,7 @@ sweep_off_heap(Process *p, int fullsweep)
     Uint oheap_sz = 0;
     Uint64 bin_vheap = 0;
 #ifdef DEBUG
-    Uint64 orig_bin_old_vheap = BIN_OLD_VHEAP(p);
+    Uint64 orig_bin_old_vheap = p->bin_old_vheap;
     int seen_mature = 0;
 #endif
     Uint shrink_ncandidates;
@@ -2976,7 +2977,7 @@ sweep_off_heap(Process *p, int fullsweep)
 		if (to_new_heap) {
 		    bin_vheap += ptr->size / sizeof(Eterm);
 		} else {
-		    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm);
+		    p->bin_old_vheap += ptr->size / sizeof(Eterm);
 		}
                 ASSERT(!(((ProcBin*)ptr)->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE)));
                 break;
@@ -2990,7 +2991,7 @@ sweep_off_heap(Process *p, int fullsweep)
 		if (to_new_heap)
 		    bin_vheap += size / sizeof(Eterm);
                 else
-		    BIN_OLD_VHEAP(p) += size / sizeof(Eterm); /* for binary gc (words)*/
+		    p->bin_old_vheap += size / sizeof(Eterm); /* for binary gc (words)*/
                 /* fall through... */
             }
             default:
@@ -3056,7 +3057,7 @@ sweep_off_heap(Process *p, int fullsweep)
 #ifdef DEBUG
     if (fullsweep) {
         ASSERT(ptr == NULL);
-        ASSERT(BIN_OLD_VHEAP(p) == orig_bin_old_vheap);
+        ASSERT(p->bin_old_vheap == orig_bin_old_vheap);
     }
     else {
         /* The rest of the list resides on the old heap and needs no
@@ -3104,7 +3105,7 @@ sweep_off_heap(Process *p, int fullsweep)
             if (!on_old_heap) {
                 bin_vheap += pb->size / sizeof(Eterm);
             } else {
-                BIN_OLD_VHEAP(p) += pb->size / sizeof(Eterm);
+                p->bin_old_vheap += pb->size / sizeof(Eterm);
             }
         }
         else {
@@ -3202,11 +3203,12 @@ sweep_off_heap(Process *p, int fullsweep)
     }
 
     if (fullsweep) {
-        ASSERT(BIN_OLD_VHEAP(p) == orig_bin_old_vheap);
-        BIN_OLD_VHEAP(p) = 0;
-        BIN_OLD_VHEAP_SZ(p) = next_vheap_size(p, MSO(p).overhead, BIN_OLD_VHEAP_SZ(p));
+        ASSERT(p->bin_old_vheap == orig_bin_old_vheap);
+        p->bin_old_vheap = 0;
+        p->bin_old_vheap_sz = next_vheap_size(p, MSO(p).overhead,
+                                              p->bin_old_vheap_sz);
     }
-    BIN_VHEAP_SZ(p)     = next_vheap_size(p, bin_vheap, BIN_VHEAP_SZ(p));
+    p->bin_vheap_sz     = next_vheap_size(p, bin_vheap, p->bin_vheap_sz);
     MSO(p).overhead     = bin_vheap;
 }
 
@@ -3634,9 +3636,9 @@ erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp,
         OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) : 0,
         HEAP_TOP(p) - HEAP_START(p),
         MSO(p).overhead,
-        BIN_VHEAP_SZ(p),
-        BIN_OLD_VHEAP(p),
-        BIN_OLD_VHEAP_SZ(p)
+        p->bin_vheap_sz,
+        p->bin_old_vheap,
+        p->bin_old_vheap_sz
     };
 
     Eterm res = THE_NON_VALUE;
@@ -3676,6 +3678,16 @@ erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp,
                                         values);
 
     return res;
+}
+
+static int has_reached_max_heap_size(Process *p, Uint total_heap_size)
+{
+    Uint used = total_heap_size;
+
+    if (MAX_HEAP_SIZE_FLAGS_GET(p) & MAX_HEAP_SIZE_INCLUDE_OH_BINS) {
+        used += p->bin_old_vheap + p->off_heap.overhead;
+    }
+    return (used > MAX_HEAP_SIZE_GET(p));
 }
 
 static int
@@ -3738,28 +3750,21 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
 }
 
 Eterm
-erts_max_heap_size_map(Sint max_heap_size, Uint max_heap_flags,
-                       Eterm **hpp, Uint *sz)
+erts_max_heap_size_map(ErtsHeapFactory *factory,
+                       Sint max_heap_size, Uint max_heap_flags)
 {
-    if (!hpp) {
-        *sz += ERTS_MAX_HEAP_SIZE_MAP_SZ;
-        return THE_NON_VALUE;
-    } else {
-        Eterm *hp = *hpp;
-        Eterm keys = TUPLE3(hp, am_error_logger, am_kill, am_size);
-        flatmap_t *mp;
-        hp += 4;
-        mp = (flatmap_t*) hp;
-        mp->thing_word = MAP_HEADER_FLATMAP;
-        mp->size = 3;
-        mp->keys = keys;
-        hp += MAP_HEADER_FLATMAP_SZ;
-        *hp++ = max_heap_flags & MAX_HEAP_SIZE_LOG ? am_true : am_false;
-        *hp++ = max_heap_flags & MAX_HEAP_SIZE_KILL ? am_true : am_false;
-        *hp++ = make_small(max_heap_size);
-        *hpp = hp;
-        return make_flatmap(mp);
-    }
+    Eterm keys[] = {
+        am_error_logger, am_include_shared_binaries, am_kill, am_size
+    };
+    Eterm values[] = {
+        max_heap_flags & MAX_HEAP_SIZE_LOG ? am_true : am_false,
+        max_heap_flags & MAX_HEAP_SIZE_INCLUDE_OH_BINS ? am_true : am_false,
+        max_heap_flags & MAX_HEAP_SIZE_KILL ? am_true : am_false,
+        make_small(max_heap_size)
+    };
+    ERTS_CT_ASSERT(sizeof(keys) == sizeof(values));
+    return erts_map_from_ks_and_vs(factory, keys, values,
+                                   sizeof(keys) / sizeof(keys[0]));
 }
 
 int
@@ -3774,6 +3779,7 @@ erts_max_heap_size(Eterm arg, Uint *max_heap_size, Uint *max_heap_flags)
         const Eterm *size = erts_maps_get(am_size, arg);
         const Eterm *kill = erts_maps_get(am_kill, arg);
         const Eterm *log = erts_maps_get(am_error_logger, arg);
+        const Eterm *incl_bins = erts_maps_get(am_include_shared_binaries, arg);
         if (size && is_small(*size)) {
             sz = signed_val(*size);
         } else {
@@ -3793,6 +3799,14 @@ erts_max_heap_size(Eterm arg, Uint *max_heap_size, Uint *max_heap_flags)
                 *max_heap_flags |= MAX_HEAP_SIZE_LOG;
             else if (*log == am_false)
                 *max_heap_flags &= ~MAX_HEAP_SIZE_LOG;
+            else
+                return 0;
+        }
+        if (incl_bins) {
+            if (*incl_bins == am_true)
+                *max_heap_flags |= MAX_HEAP_SIZE_INCLUDE_OH_BINS;
+            else if (*incl_bins == am_false)
+                *max_heap_flags &= ~MAX_HEAP_SIZE_INCLUDE_OH_BINS;
             else
                 return 0;
         }
