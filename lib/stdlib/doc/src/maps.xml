@@ -42,16 +42,36 @@
       <desc>
         <p>An iterator representing the associations in a map with keys of type
           <c><anno>Key</anno></c> and values of type <c><anno>Value</anno></c>.</p>
-        <p>Created using <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa>.</p>
+        <p>Created using <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa> or
+          <seemfa marker="#iterator/2"><c>maps:iterator/2</c></seemfa>.</p>
         <p>Consumed by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>,
           <seemfa marker="#filter/2"><c>maps:filter/2</c></seemfa>,
-          <seemfa marker="#fold/3"><c>maps:fold/3</c></seemfa> and
-          <seemfa marker="#map/2"><c>maps:map/2</c></seemfa>.</p>
+          <seemfa marker="#fold/3"><c>maps:fold/3</c></seemfa>,
+          <seemfa marker="#map/2"><c>maps:map/2</c></seemfa>, and
+          <seemfa marker="#to_list/1"><c>maps:to_list/1</c></seemfa>.</p>
       </desc>
     </datatype>
 
     <datatype>
       <name name="iterator" n_vars="0"/>
+    </datatype>
+
+    <datatype>
+      <name name="iterator_order" n_vars="1"/>
+      <desc>
+        <p>Key-based iterator order option that can be one of <c>undefined</c>
+          (default for <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa>),
+          <c>ordered</c> (sorted in map-key order), or a custom sorting function.</p>
+        <p>Used by <seemfa marker="#iterator/2"><c>maps:iterator/2</c></seemfa>.</p>
+        <p>The
+        <seeguide
+            marker="system/reference_manual:expressions#term-comparisons">
+          Expressions section</seeguide> contains descriptions of how terms are ordered.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="iterator_order" n_vars="0"/>
     </datatype>
   </datatypes>
 
@@ -369,6 +389,45 @@ none</code>
     </func>
 
     <func>
+      <name name="iterator" arity="2" since="OTP 26.0"/>
+      <fsummary>Create a map iterator.</fsummary>
+      <desc>
+        <p>Returns a map iterator <c><anno>Iterator</anno></c> that can
+          be used by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>
+          to traverse the key-value associations in a map sorted by key using
+          the given <c><anno>Order</anno></c>.</p>
+        <p>The call fails with a <c>{badmap,Map}</c> exception if
+          <c><anno>Map</anno></c> is not a map or if <c><anno>Order</anno></c>
+          is invalid.</p>
+        <p><em>Example (when </em><c><anno>Order</anno></c><em> is </em><c>ordered</c><em>):</em></p>
+        <code type="none">
+> M = #{ a => 1, b => 2 }.
+#{a => 1,b => 2}
+> OrdI = maps:iterator(M, ordered), ok.
+ok
+> {K1, V1, OrdI2} = maps:next(OrdI), {K1, V1}.
+{a,1}
+> {K2, V2, OrdI3} = maps:next(OrdI2),{K2, V2}.
+{b,2}
+> maps:next(OrdI3).
+none</code>
+        <p><em>Example (when </em><c><anno>Order</anno></c><em> is a custom sorting function):</em></p>
+        <code type="none"><![CDATA[
+> M = #{ a => 1, b => 2 }.
+#{a => 1,b => 2}
+> RevI = maps:iterator(M, fun(A, B) -> B =< A end), ok.
+ok
+> {K2, V2, RevI2} = maps:next(RevI), {K2, V2}.
+{b,2}
+> {K1, V1, RevI3} = maps:next(RevI2),{K1, V1}.
+{a,1}
+> maps:next(RevI3).
+none
+     ]]></code>
+      </desc>
+    </func>
+
+    <func>
       <name name="keys" arity="1" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
@@ -593,6 +652,13 @@ error</code>
 > Map = #{42 => value_three,1337 => "value two","a" => 1},
   maps:to_list(Map).
 [{42,value_three},{1337,"value two"},{"a",1}]</code>
+        <p><em>Example (using </em><seemfa marker="#iterator/2">iterator/2</seemfa><em>):</em></p>
+<code type="none"><![CDATA[
+> Map = #{ z => 1, y => 2, x => 3 }.
+#{x => 3,y => 2,z => 1}
+> maps:to_list(maps:iterator(Map, ordered)).
+[{x,3},{y,2},{z,1}]
+     ]]></code>
       </desc>
     </func>
 
