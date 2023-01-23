@@ -2012,7 +2012,7 @@ cmp_old_impl(Config) when is_list(Config) ->
     %% old nodes (< 19). The test case it kept but compares with previous major
     %% version for semantic regression test.
     Rel = integer_to_list(list_to_integer(erlang:system_info(otp_release)) - 1),
-    case ?CT_PEER([], Rel, proplists:get_value(priv_dir, Config)) of
+    case ?CT_PEER_REL([], Rel, proplists:get_value(priv_dir, Config)) of
 	not_available ->
 	    {skipped, "No OTP "++Rel++" available"};
         {ok, Peer, Node}  ->

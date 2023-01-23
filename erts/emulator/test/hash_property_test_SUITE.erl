@@ -88,7 +88,7 @@ test_phash2_no_diff_long(Config) when is_list(Config) ->
 
 test_phash2_no_diff_between_versions(Config) when is_list(Config) ->
     R = integer_to_list(list_to_integer(erlang:system_info(otp_release))-2) ++ "_latest",
-    case ?CT_PEER([], R, proplists:get_value(priv_dir, Config)) of
+    case ?CT_PEER_REL([], R, proplists:get_value(priv_dir, Config)) of
         {ok, Peer, Node} ->
             true = ct_property_test:quickcheck(
                      phash2_properties:prop_phash2_same_in_different_versions(Node),
