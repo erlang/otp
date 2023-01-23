@@ -45,7 +45,7 @@
 %% Start a peer with name prefix of current ?MODULE and ?FUNCTION_NAME
 -define(CT_PEER(), ?CT_PEER([])).
 %% Start a compatibility node - for OTP test suites only
--define(CT_PEER(Opts, Release, PrivDir), test_server:start_peer(Opts, ?MODULE, ?FUNCTION_NAME, Release, PrivDir)).
+-define(CT_PEER_REL(Opts, Release, PrivDir), test_server:start_peer(Opts, ?MODULE, ?FUNCTION_NAME, Release, PrivDir)).
 
 %% Backward compatibility for test_server test suites.
 %% DO NOT USE IN NEW TEST SUITES.

@@ -52,7 +52,7 @@
 %% This module needs to compile on old nodes...
 -define(CT_PEER(), {ok, undefined, undefined}).
 -define(CT_PEER(Opts), {ok, undefined, undefined}).
--define(CT_PEER(Opts, Release, PrivDir), {ok, undefined, undefined}).
+-define(CT_PEER_REL(Opts, Release, PrivDir), {ok, undefined, undefined}).
 -endif.
 
 suite() ->
@@ -110,9 +110,9 @@ call(Config) when is_list(Config) ->
 
 call_against_old_node(Config) when is_list(Config) ->
     {OldRelName, OldRel} = old_release(),
-    case ?CT_PEER(#{connection => 0},
-                  OldRelName,
-                  proplists:get_value(priv_dir, Config)) of
+    case ?CT_PEER_REL(#{connection => 0},
+                      OldRelName,
+                      proplists:get_value(priv_dir, Config)) of
         not_available ->
             {skipped, "Not able to start an OTP "++OldRel++" node"};
         {ok, Peer, Node} ->
@@ -123,9 +123,9 @@ call_against_old_node(Config) when is_list(Config) ->
 
 call_from_old_node(Config) when is_list(Config) ->
     {OldRelName, OldRel} = old_release(),
-    case ?CT_PEER(#{connection => 0},
-                  OldRelName,
-                  proplists:get_value(priv_dir, Config)) of
+    case ?CT_PEER_REL(#{connection => 0},
+                      OldRelName,
+                      proplists:get_value(priv_dir, Config)) of
         not_available ->
             {skipped, "Not able to start an OTP "++OldRel++" node"};
         {ok, Peer, Node} ->
@@ -550,9 +550,9 @@ cast(Config) when is_list(Config) ->
     ok = stop_ei_node(EiNode),
 
     {OldRelName, OldRel} = old_release(),
-    case ?CT_PEER(#{connection => 0},
-                  OldRelName,
-                  proplists:get_value(priv_dir, Config)) of
+    case ?CT_PEER_REL(#{connection => 0},
+                      OldRelName,
+                      proplists:get_value(priv_dir, Config)) of
         not_available ->
             {comment, "Not tested against OTP "++OldRel++" node"};
         {ok, _OldPeer, OldNode} ->
@@ -679,9 +679,9 @@ send_request(Config) when is_list(Config) ->
     [] = flush([]),
 
     {OldRelName, OldRel} = old_release(),
-    case ?CT_PEER(#{connection => 0},
-                  OldRelName,
-                  proplists:get_value(priv_dir, Config)) of
+    case ?CT_PEER_REL(#{connection => 0},
+                      OldRelName,
+                      proplists:get_value(priv_dir, Config)) of
         not_available ->
             {comment, "Not tested against OTP "++OldRel++" node"};
         {ok, _OldPeer, OldNode} ->
@@ -1275,9 +1275,9 @@ multicall(Config) ->
     {ok, _Peer5, Node5} = ?CT_PEER(#{connection => 0}),
     {OldRelName, OldRel} = old_release(),
     {OldTested, {ok, _Peer6, Node6}}
-        = case ?CT_PEER(#{connection => 0},
-                        OldRelName,
-                        proplists:get_value(priv_dir, Config)) of
+        = case ?CT_PEER_REL(#{connection => 0},
+                            OldRelName,
+                            proplists:get_value(priv_dir, Config)) of
               not_available ->
                   {false, ?CT_PEER(#{connection => 0})};
               {ok, _OldPeer, OldNode} = OldNodeRes ->
@@ -1736,9 +1736,9 @@ multicast(Config) when is_list(Config) ->
     {ok, _Peer, Node} = ?CT_PEER(),
     {OldRelName, OldRel} = old_release(),
     {OldTested, {ok, _OldPeer, OldNode}}
-        = case ?CT_PEER(#{connection => 0},
-                        OldRelName,
-                        proplists:get_value(priv_dir, Config)) of
+        = case ?CT_PEER_REL(#{connection => 0},
+                            OldRelName,
+                            proplists:get_value(priv_dir, Config)) of
               not_available ->
                   {false, ?CT_PEER()};
               {ok, _, _} = OldNodeRes ->

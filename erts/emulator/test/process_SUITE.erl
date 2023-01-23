@@ -3580,9 +3580,9 @@ spawn_against_old_node(Config) when is_list(Config) ->
                                  Acc
                          end
                  end, [], os:env()),
-    case ?CT_PEER(#{connection => 0, env => ClearEnv },
-                  OldRelName,
-                  proplists:get_value(priv_dir, Config)) of
+    case ?CT_PEER_REL(#{connection => 0, env => ClearEnv },
+                      OldRelName,
+                      proplists:get_value(priv_dir, Config)) of
 	not_available ->
             {skipped, "No OTP "++OldRel++" available"};
         {ok, Peer, OldNode} ->
