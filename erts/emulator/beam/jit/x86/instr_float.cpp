@@ -213,11 +213,12 @@ void BeamModuleAssembler::emit_i_fdiv(const ArgFRegister &LHS,
 
 void BeamModuleAssembler::emit_i_fnegate(const ArgFRegister &Src,
                                          const ArgFRegister &Dst) {
-
+    /* Note that there is no need to check for errors since flipping the sign
+     * of a finite float is guaranteed to produce a finite float. */
     if (Src != Dst) {
-        mov_arg(RET, getArgRef(Src));
+        mov_arg(RET, Src);
         a.btc(RET, imm(63));
-        a.mov(getArgRef(Dst), RET);
+        mov_arg(Dst, RET);
     } else {
         a.btc(getArgRef(Dst), 63);
     }
