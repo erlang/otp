@@ -272,11 +272,10 @@
       <desc>
         <p>Locks the file referenced by <c><anno>IoDevice</anno></c>. Returns <c>ok</c>
           if the operation succeeds or <c>{error, atom()}</c> otherwise.</p>
-        <p>On Unix shared locks can be upgraded to exclusive and vice versa.
+        <p>Shared locks can be upgraded to exclusive and vice versa.
           Note however, that it is not atomic.</p>
+        <p>If the file is already locked with the same lock type this is a "noop".</p>
         <p>On Unix this function uses <c>flock(2)</c> syscall.</p>
-        <p>On Windows one process can hold both shared and exclusive locks
-          over the same file range. This situation needs two unlock operations.</p>
         <p>On Windows this function uses <c>LockFileEx</c> win32 API call</p>
         <p>Notice that unless option <c>non_blocking</c> was
           set, <c>lock/2</c> may block if the file is already locked by
@@ -287,6 +286,9 @@
       <name name="unlock" arity="1" since="OTP 26"/>
       <fsummary>Unlocks a locked file.</fsummary>
       <desc>
+        <p>Unlocks the file referenced by <c><anno>IoDevice</anno></c> locked
+          with <c>lock/2</c>.
+        <p>If the file is not locked this is a "noop".</p>
         <p>On Unix this function uses <c>flock(2)</c> syscall.</p>
         <p>On Windows this function uses <c>UnlockFileEx</c> win32 API call</p>
       </desc>

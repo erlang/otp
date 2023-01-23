@@ -189,18 +189,12 @@ int efile_close(efile_data_t *d, posix_errno_t *error);
  * system call is used. On Windows LockFileEx win32 API call
  * is used over the entire range of file.
  * 
- * Note that on Windows it is possible to hold both shared and exclusive locks over
- * the same file region. In such case two unlock operations are necessary.
- * Note that on Unix upgrading a shared to an exclusive lock is not atomic.
+ * Note that upgrading a shared to an exclusive lock is not atomic.
  * */
 int efile_lock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error);
 
 /** @brief Unlocks a locked file. On Unix flock(2) system call is used. 
  * On Windows UnlockFileEx win32 API call is used over the entire range of file.
- * 
- * Note that on Windows it is possible to hold both shared and exclusive locks over
- * the same file region. In such case two unlock operations are necessary.
- * Note that on Unix upgrading a shared to an exclusive lock is not atomic.
  * */
 int efile_unlock(efile_data_t *d, posix_errno_t *error);
 

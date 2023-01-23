@@ -668,9 +668,6 @@ int efile_unlock(efile_data_t *d, posix_errno_t *error) {
     if (w->lock == 0)
         return 1;
 
-    // NOTE if the file was locked for shared and exclusive acces
-    // two unlock operations will be needed
-
     // using range above file length is allowed
     // unlock entire file
     if(!UnlockFileEx(handle,
