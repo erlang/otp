@@ -975,7 +975,9 @@ expr({op,L,Op,L0,R0}, St0) ->
     LineAnno = full_anno(L, St1),
     {#icall{anno=#a{anno=LineAnno},		%Must have an #a{}
 	    module=#c_literal{anno=LineAnno,val=erlang},
-	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
+	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1};
+expr({ssa_check_when,L,WantedResult,Args,Tag,Clauses}, St) ->
+    {#c_opaque{anno=full_anno(L, St),val={ssa_check_when,WantedResult,Tag,Args,Clauses}}, [], St}.
 
 blockify(L0, {sequential_match,_L1,First,Then}, E) ->
     [{single_match,L0,First,E}|blockify(L0, Then, E)];
@@ -2843,6 +2845,8 @@ uexpr(#ibinary{anno=A,segments=Ss}, _, St) ->
 uexpr(#c_literal{}=Lit, _, St) ->
     Anno = get_anno(Lit),
     {set_anno(Lit, #a{us=[],anno=Anno}),St};
+uexpr(#c_opaque{}=Opaque, _, St) ->
+    {set_anno(Opaque, #a{us=[],anno=get_anno(Opaque)}),St};
 uexpr(Simple, _, St) ->
     true = is_simple(Simple),			%Sanity check!
     Vs = lit_vars(Simple),
@@ -3323,6 +3327,8 @@ cexpr(#icall{anno=A,module=Mod,name=Name,args=Args}, _As, St0) ->
 	false ->
 	    {#c_call{anno=Anno,module=Mod,name=Name,args=Args},[],A#a.us,St0}
     end;
+cexpr(O=#c_opaque{}, _As, St) ->
+    {O,[],[],St};
 cexpr(#iprimop{anno=A,name=Name,args=Args}, _As, St) ->
     {#c_primop{anno=A#a.anno,name=Name,args=Args},[],A#a.us,St};
 cexpr(#iprotect{anno=A,body=Es}, _As, St0) ->
@@ -3424,6 +3430,7 @@ skip_lowering(#c_call{}, _A) -> skip;
 skip_lowering(#c_cons{}, _A) -> skip;
 skip_lowering(#c_literal{}, _A) -> skip;
 skip_lowering(#c_map{}, _A) -> skip;
+skip_lowering(#c_opaque{}, _A) -> skip;
 skip_lowering(#c_primop{}, _A) -> skip;
 skip_lowering(#c_tuple{}, _A) -> skip;
 skip_lowering(T, A) -> {T, A}.

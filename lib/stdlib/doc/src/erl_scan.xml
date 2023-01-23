@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -236,6 +236,22 @@
           <seeerl marker="#text"><c>text</c></seeerl> is not present.
           If neither are present the text will not be saved in the
           token annotation.</p>
+          </item>
+          <tag><marker id="compiler_interal"/>
+	  <c>{compiler_internal, term()}</c>
+	  </tag>
+          <item><p>Pass compiler-internal options to the scanner. The
+          set of internal options understood by the scanner should
+          be considered experimental and can thus be changed at any time
+          without prior warning.</p>
+	  <p>The following options are currently understood:</p>
+	  <taglist>
+            <tag><c>ssa_checks</c></tag>
+            <item>
+              <p>Tokenizes source code annotations used for encoding
+              tests on the BEAM SSA code produced by the compiler.</p>
+            </item>
+          </taglist>
           </item>
         </taglist>
       </desc>

@@ -442,7 +442,9 @@ expr({op,Anno,Op,L0,R0}, St0) when Op =:= 'andalso';
 expr({op,Anno,Op,L0,R0}, St0) ->
     {L,St1} = expr(L0, St0),
     {R,St2} = expr(R0, St1),
-    {{op,Anno,Op,L,R},St2}.
+    {{op,Anno,Op,L,R},St2};
+expr(E={ssa_check_when,_,_,_,_,_}, St) ->
+    {E, St}.
 
 expr_list([E0 | Es0], St0) ->
     {E,St1} = expr(E0, St0),

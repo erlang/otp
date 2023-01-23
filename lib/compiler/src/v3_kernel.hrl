@@ -70,5 +70,7 @@
 -record(k_break, {anno=[],args=[]}).
 -record(k_return, {anno=[],args=[]}).
 
+-record(k_opaque, {anno=[],val}).
+
 %%k_get_anno(Thing) -> element(2, Thing).
 %%k_set_anno(Thing, Anno) -> setelement(2, Thing, Anno).

@@ -403,7 +403,9 @@ expr(#c_try{anno=A,arg=E0,vars=Vs0,body=B0,evars=Evs0,handler=H0}=Try, _, Sub0) 
 	    {Evs1,Sub2} = var_list(Evs0, Sub0),
 	    H1 = body(H0, value, Sub2),
 	    Try#c_try{arg=E1,vars=Vs1,body=B1,evars=Evs1,handler=H1}
-    end.
+    end;
+expr(#c_opaque{}=O, effect, _Sub) ->
+    O.
 
 %% If a fun or its application is used as an argument, then it's unsafe to
 %% handle it in effect context as the side-effects may rely on its return

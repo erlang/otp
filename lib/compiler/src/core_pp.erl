@@ -359,7 +359,9 @@ format_1(#c_module{name=N,exports=Es,attrs=As,defs=Ds}, Ctxt) ->
      format_funcs(Ds, Ctxt),
      nl_indent(Ctxt)
      | "end"
-    ].
+    ];
+format_1(#c_opaque{val=V}, Ctxt) ->
+    ["%% Opaque: ", format_1(#c_literal{val=V}, Ctxt)].
 
 format_funcs(Fs, Ctxt) ->
     format_vseq(Fs,

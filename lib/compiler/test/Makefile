@@ -16,6 +16,7 @@ MODULES= \
 	beam_jump_SUITE \
 	beam_reorder_SUITE \
 	beam_ssa_SUITE \
+	beam_ssa_check_SUITE \
 	beam_type_SUITE \
 	beam_types_SUITE \
 	beam_utils_SUITE \

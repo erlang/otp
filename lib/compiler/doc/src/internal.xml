@@ -4,7 +4,7 @@
 <internal xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2018</year><year>2021</year>
+      <year>2018</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,5 +35,6 @@
   <xi:include href="cerl_trees.xml"/>
   <xi:include href="cerl_clauses.xml"/>
   <xi:include href="beam_ssa.xml"/>
+  <xi:include href="ssa_checks.xml"/>
 </internal>
 

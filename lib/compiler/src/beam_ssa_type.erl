@@ -2269,63 +2269,52 @@ pmt_1([], _Ts, Acc) ->
     Acc.
 
 bs_size_unit(Args, Ts) ->
-    #t_bitstring{size_unit=Unit0} = beam_types:make_type_from_value(<<>>),
-    Unit = bs_size_unit(Args, Ts, 0, Unit0),
-    safe_gcd(Unit0, Unit).
+    bs_size_unit(Args, Ts, 0, 256).
 
 bs_size_unit([#b_literal{val=Type},#b_literal{val=[U1|_]},Value,SizeTerm|Args],
-             Ts, Size0, U0) ->
+             Ts, FixedSize, Unit) ->
     case {Type,Value,SizeTerm} of
+        {_,#b_literal{val=Bs},#b_literal{val=all}} when is_bitstring(Bs) ->
+            %% Add element of known size.
+            Size = bit_size(Bs) + FixedSize,
+            bs_size_unit(Args, Ts, Size, Unit);
         {_,_,#b_literal{val=all}} ->
             case concrete_type(Value, Ts) of
                 #t_bitstring{size_unit=U2} ->
-                    Size = case Value of
-                               #b_literal{val=Bin} ->
-                                   safe_add(Size0, bit_size(Bin));
-                               #b_var{} ->
-                                   none
-                           end,
-                    U = safe_gcd(U0, max(U1, U2)),
-                    bs_size_unit(Args, Ts, Size, U);
+                    %% Adding a bitstring.
+                    %% TODO: Can U1 be anything but 1?
+                    U = max(U1, U2),
+                    bs_size_unit(Args, Ts, FixedSize, gcd(U, Unit));
                 _ ->
-                    U = safe_gcd(U0, U1),
-                    bs_size_unit(Args, Ts, none, U)
+                    %% Adding something which isn't a bitstring
+                    bs_size_unit(Args, Ts, FixedSize, gcd(U1, Unit))
             end;
         {utf8,_,_} ->
-            U = gcd(U0, 8),
-            bs_size_unit(Args, Ts, none, U);
+            %% Add at least 8 bits, maybe more.
+            bs_size_unit(Args, Ts, 8 + FixedSize, gcd(8, Unit));
         {utf16,_,_} ->
-            U = gcd(U0, 16),
-            bs_size_unit(Args, Ts, none, U);
+            %% Add at least 16 bits, maybe more.
+            bs_size_unit(Args, Ts, 16 + FixedSize, gcd(16, Unit));
         {utf32,_,_} ->
-            U = gcd(U0, 32),
-            bs_size_unit(Args, Ts, none, U);
+            %% Compared to utf8 and utf16 this is a fixed size.
+            bs_size_unit(Args, Ts, 32 + FixedSize, Unit);
         {_,_,_} ->
             case concrete_type(SizeTerm, Ts) of
                 #t_integer{elements={Size1, Size1}}
                   when is_integer(Size1), is_integer(U1), Size1 >= 0 ->
                     EffectiveSize = Size1 * U1,
-                    U = safe_gcd(U0, EffectiveSize),
-                    Size = safe_add(Size0, EffectiveSize),
-                    bs_size_unit(Args, Ts, Size, U);
+                    %% Adding a fixed size element
+                    bs_size_unit(Args, Ts, EffectiveSize + FixedSize, Unit);
                 _ when is_integer(U1) ->
-                    U = safe_gcd(U0, U1),
-                    bs_size_unit(Args, Ts, none, U);
+                    %% Add element with known unit.
+                    bs_size_unit(Args, Ts, FixedSize, gcd(U1, Unit));
                 _ ->
-                    bs_size_unit(Args, Ts, none, 1)
+                    %% Add element without known size or unit.
+                    bs_size_unit(Args, Ts, FixedSize, gcd(1, Unit))
             end
     end;
-bs_size_unit([], _Ts, none, Unit) ->
-    Unit;
-bs_size_unit([], _Ts, Size, _Unit) when is_integer(Size) ->
-    Size.
-
-safe_gcd(0, Other) -> Other;
-safe_gcd(Other, 0) -> Other;
-safe_gcd(A, B) -> gcd(A, B).
-
-safe_add(none, _) -> none;
-safe_add(A, B) -> A + B.
+bs_size_unit([], _Ts, FixedSize, Unit) ->
+    gcd(FixedSize, Unit).
 
 %% We seldom know how far a match operation may advance, but we can often tell
 %% which increment it will advance by.

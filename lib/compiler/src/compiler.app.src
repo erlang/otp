@@ -39,6 +39,7 @@
              beam_ssa_bc_size,
              beam_ssa_bool,
              beam_ssa_bsm,
+             beam_ssa_check,
              beam_ssa_codegen,
              beam_ssa_dead,
              beam_ssa_lint,

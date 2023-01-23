@@ -87,6 +87,8 @@
 		   attrs :: [{cerl:cerl(), cerl:cerl()}],
 		   defs :: [{cerl:cerl(), cerl:cerl()}]}).
 
+-record(c_opaque, {anno=[] :: list(), val :: any()}).
+
 -record(c_primop, {anno=[] :: list(), name :: cerl:cerl(),
 		   args :: [cerl:cerl()]}).
 

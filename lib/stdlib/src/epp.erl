@@ -125,7 +125,8 @@ open(Name, Path, Pdm) ->
 		  {'name',FileName :: file:name()} |
 		  {'location',StartLocation :: erl_anno:location()} |
 		  {'fd',FileDescriptor :: file:io_device()} |
-		  'extra'],
+		  'extra' |
+                  {'compiler_internal', [term()]}],
       Epp :: epp_handle(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
       ErrorDescriptor :: term().
@@ -309,7 +310,8 @@ parse_file(Ifile, Path, Predefs) ->
 		  {'location',StartLocation :: erl_anno:location()} |
                   {'reserved_word_fun', Fun :: fun((atom()) -> boolean())} |
                   {'features', [Feature :: atom()]} |
-		  'extra'],
+		  'extra' |
+                  {'compiler_internal', [term()]}],
       Form :: erl_parse:abstract_form()
             | {'error', ErrorInfo}
             | {'eof',Location},
@@ -608,6 +610,8 @@ init_server(Pid, FileName, Options, St0) ->
     SourceName = proplists:get_value(source_name, Options, FileName),
     Pdm = proplists:get_value(macros, Options, []),
     Features = proplists:get_value(features, Options, []),
+    Internal = proplists:get_value(compiler_internal, Options, []),
+    ParseChecks = proplists:get_bool(ssa_checks, Internal),
     Ms0 = predef_macros(SourceName, Features),
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
@@ -631,7 +635,11 @@ init_server(Pid, FileName, Options, St0) ->
 			 default_encoding=DefEncoding,
                          erl_scan_opts =
                              [{text_fun, keep_ftr_keywords()},
-                              {reserved_word_fun, ResWordFun}],
+                              {reserved_word_fun, ResWordFun}]
+                         ++ if ParseChecks ->
+                                    [{compiler_internal,[ssa_checks]}];
+                               true -> []
+                            end,
                          features = Features,
                          else_reserved = ResWordFun('else'),
                          deterministic = Deterministic},
