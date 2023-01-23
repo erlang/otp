@@ -1804,19 +1804,22 @@ handle_ctrl_result({pos_compl, _}, #state{caller = {handle_dir_result, Dir,
             %% %% overhead to be able to give a good return value. Alas not
             %% %% all ftp implementations behave the same and returning
             %% %% an error string is allowed by the FTP RFC.
-            case lists:dropwhile(fun(?CR) -> false;(_) -> true end,
-                                     binary_to_list(Data)) of
-                    L when (L =:= [?CR, ?LF]) orelse (L =:= []) ->
-                        _ = send_ctrl_message(State, mk_cmd("PWD", [])),
-                        activate_ctrl_connection(State),
-                        {noreply,
-                         State#state{caller = {handle_dir_data, Dir, Data}}};
-                    _ ->
-                        gen_server:reply(From, {ok, Data}),
-                        {noreply, State#state{client = undefined,
-                                              caller = undefined}}
-            end
+            %% case lists:dropwhile(fun(?CR) -> false;(_) -> true end,
+            %%                          binary_to_list(Data)) of
+            %%         L when (L =:= [?CR, ?LF]) orelse (L =:= []) ->
+            %%             _ = send_ctrl_message(State, mk_cmd("PWD", [])),
+            %%             activate_ctrl_connection(State),
+            %%             {noreply,
+            %%              State#state{caller = {handle_dir_data, Dir, Data}}};
+            %%         _ ->
+            %%             gen_server:reply(From, {ok, Data}),
+            %%             {noreply, State#state{client = undefined,
+            %%                                   caller = undefined}}
+            %% end
             %% </WTF>
+            gen_server:reply(From, {ok, Data}),
+            {noreply, State#state{client = undefined,
+                                  caller = undefined}}
     end;
 
 handle_ctrl_result({pos_compl, _}=Operation, #state{caller = {handle_dir_result, Dir},
