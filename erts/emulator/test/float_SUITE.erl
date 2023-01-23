@@ -71,10 +71,22 @@ negative_zero(Config) when is_list(Config) ->
 
 do_negative_zero(Op, Ops) ->
     Res = <<(my_apply(erlang, Op, Ops))/float>>,
+
+    %% Test the canonical op against its mixed-type instruction
     Res = <<(case {Op, Ops} of
                  {'-', [A]} -> -A;
                  {'*', [A, B]} -> A * B
              end)/float>>,
+
+    %% Test the canonical op against its type-specific instructions, if
+    %% applicable
+    Res = <<(case {Op, Ops} of
+                {'-', [C]} when is_float(C) -> -C;
+                {'-', [C]} -> -C;
+                {'*', [C, D]} when is_float(C), is_float(D) -> C * D;
+                {'*', [C, D]} -> C * D
+            end)/float>>,
+
     Res.
 
 %% Forces floating point exceptions and tests that subsequent, legal,
