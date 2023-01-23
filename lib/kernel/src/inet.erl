@@ -43,7 +43,7 @@
 -export([udp_module/1, tcp_module/1, tcp_module/2, sctp_module/1]).
 -export([gen_tcp_module/1, gen_udp_module/1]).
 
--export([i/0, i/1, i/2]).
+-export([i/0, i/1, i/2, i/3]).
 
 -export([getll/1, getfd/1, open/8, open_bind/8, fdopen/6]).
 
@@ -1911,24 +1911,67 @@ fdopen(Fd, Opts, Protocol, Family, Type, Module)
 %%  socket stat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-define(FIELDS, [port, module, recv, sent, owner,
+                 local_address, foreign_address, state, type]).
+
+get_proto(Options) ->
+    lists:foldl(
+        fun
+            (Proto, undefined) ->
+                case proplists:get_bool(Proto, Options) of
+                    true -> Proto;
+                    false -> undefined
+                end;
+
+            (_Proto, Option) -> Option
+        end, 
+        proplists:get_value(proto, Options),
+        [tcp, udp, sctp]
+    ).
+
 -spec i() -> ok.
 i() -> i(tcp), i(udp), i(sctp).
 
--spec i(socket_protocol()) -> ok.
-i(Proto) -> i(Proto, [port, module, recv, sent, owner,
-		      local_address, foreign_address, state, type]).
+-spec i(socket_protocol() | options()) -> ok.
+i(Options) when is_list(Options) ->
+    Fields = proplists:get_value(fields, Options, ?FIELDS),
+    case get_proto(Options) of
+        undefined ->
+            i(tcp, Fields, Options),
+            i(udp, Fields, Options),
+            i(sctp, Fields, Options);
+        Proto ->
+            i(Proto, Fields, Options)
+    end;
+
+i(Proto) -> i(Proto, ?FIELDS, []).
 
 -spec i(socket_protocol(), [atom()]) -> ok.
-i(tcp, Fs) ->
-    ii(tcp_sockets(), Fs, tcp);
-i(udp, Fs) ->
-    ii(udp_sockets(), Fs, udp);
-i(sctp, Fs) ->
-    ii(sctp_sockets(), Fs, sctp).
+i(Proto, Fields) ->
+    i(Proto, Fields, []).
 
-ii(Ss, Fs, Proto) ->
+-type i_field() ::
+    port | module | recv | sent | owner |
+    local_address | foreign_address | state | type.
+
+-type options() :: [
+    {show_numbers, boolean()} | show_numbers |
+    tcp | udp | sctp |
+    {proto, tcp | udp | sctp} |
+    {fields, [i_field()]}
+].
+
+-spec i(socket_protocol(), [atom()], options()) -> ok.
+i(tcp, Fs, Options) ->
+    ii(tcp_sockets(), Fs, tcp, Options);
+i(udp, Fs, Options) ->
+    ii(udp_sockets(), Fs, udp, Options);
+i(sctp, Fs, Options) ->
+    ii(sctp_sockets(), Fs, sctp, Options).
+
+ii(Ss, Fs, Proto, Options) ->
     LLs =
-	case info_lines(Ss, Fs, Proto) of
+	case info_lines(Ss, Fs, Proto, Options) of
 	    [] -> [];
 	    InfoLines -> [h_line(Fs) | InfoLines]
 	end,
@@ -1943,8 +1986,8 @@ smax([Max|Ms], [Str|Strs]) ->
     [if N > Max -> N; true -> Max end | smax(Ms, Strs)];
 smax([], []) -> [].
 
-info_lines(Ss, Fs, Proto) -> [i_line(S, Fs,Proto) || S <- Ss].
-i_line(S, Fs, Proto)      -> [info(S, F, Proto) || F <- Fs].
+info_lines(Ss, Fs, Proto, Options) -> [i_line(S, Fs,Proto, Options) || S <- Ss].
+i_line(S, Fs, Proto, Options)      -> [info(S, F, Proto, Options) || F <- Fs].
 
 h_line(Fs) -> [h_field(atom_to_list(F)) || F <- Fs].
 
@@ -1957,8 +2000,7 @@ hh_field([]) -> [].
 upper(C) when C >= $a, C =< $z -> (C-$a) + $A;
 upper(C) -> C.
 
-    
-info({'$inet', GenSocketMod, _} = S, F, Proto) when is_atom(GenSocketMod) ->
+info({'$inet', GenSocketMod, _} = S, F, Proto, Opts) when is_atom(GenSocketMod) ->
     case F of
 	owner ->
 	    case GenSocketMod:info(S) of
@@ -1983,9 +2025,9 @@ info({'$inet', GenSocketMod, _} = S, F, Proto) when is_atom(GenSocketMod) ->
 		_ -> " "
 	    end;
 	local_address ->
-	    fmt_addr(GenSocketMod:sockname(S), Proto);
+	    fmt_addr(GenSocketMod:sockname(S), Proto, Opts);
 	foreign_address ->
-	    fmt_addr(GenSocketMod:peername(S), Proto);
+	    fmt_addr(GenSocketMod:peername(S), Proto, Opts);
 	state ->
 	    case GenSocketMod:info(S) of
 		#{rstates := RStates,
@@ -2011,7 +2053,7 @@ info({'$inet', GenSocketMod, _} = S, F, Proto) when is_atom(GenSocketMod) ->
 	module ->
 	    atom_to_list(GenSocketMod)
     end;
-info(S, F, Proto) ->
+info(S, F, Proto, Opts) ->
     case F of
 	owner ->
 	    case erlang:port_info(S, connected) of
@@ -2034,9 +2076,9 @@ info(S, F, Proto) ->
 		_ -> " "
 	    end;
 	local_address ->
-	    fmt_addr(prim_inet:sockname(S), Proto);
+	    fmt_addr(prim_inet:sockname(S), Proto, Opts);
 	foreign_address ->
-	    fmt_addr(prim_inet:peername(S), Proto);
+	    fmt_addr(prim_inet:peername(S), Proto, Opts);
 	state ->
 	    case prim_inet:getstatus(S) of
 		{ok,Status} -> fmt_status(Status);
@@ -2126,23 +2168,42 @@ fmt_status3(X) when is_atom(X) ->
     string:uppercase(atom_to_list(X)).
 
 
-fmt_addr({error,enotconn}, _) -> "*:*";
-fmt_addr({error,_}, _)        -> " ";
-fmt_addr({ok,Addr}, Proto) ->
-    case Addr of
-	%%Dialyzer {0,0}            -> "*:*";
-	{{0,0,0,0},Port} -> "*:" ++ fmt_port(Port, Proto);
-	{{0,0,0,0,0,0,0,0},Port} -> "*:" ++ fmt_port(Port, Proto);
-	{{127,0,0,1},Port} -> "localhost:" ++ fmt_port(Port, Proto);
-	{{0,0,0,0,0,0,0,1},Port} -> "localhost:" ++ fmt_port(Port, Proto);
-	{local, Path} -> "local:" ++ binary_to_list(Path);
-	{IP,Port} -> inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto)
+fmt_addr({error,enotconn}, _, Opts) ->
+    case proplists:get_value(show_numbers, Opts, false) of
+        false -> "*:*";
+        true -> "0.0.0.0:*"
+    end;
+
+fmt_addr({error,_}, _, _)        -> " ";
+
+fmt_addr({ok,Addr}, Proto, Opts) ->
+    case {Addr, proplists:get_value(show_numbers, Opts, false)} of
+        %%Dialyzer {0,0}            -> "*:*";
+        {{{0,0,0,0},Port},false} -> "*:" ++ fmt_port(Port, Proto, Opts);
+        {{{0,0,0,0},Port},true} -> "0.0.0.0:" ++ fmt_port(Port, Proto, Opts);
+        {{{0,0,0,0,0,0,0,0},Port},false} -> "*:" ++ fmt_port(Port, Proto, Opts);
+        {{{0,0,0,0,0,0,0,0},Port},true} -> ":::" ++ fmt_port(Port, Proto, Opts);
+        {{{127,0,0,1},Port},false} -> "localhost:" ++ fmt_port(Port, Proto, Opts);
+        {{{127,0,0,1},Port},true} -> "127.0.0.1:" ++ fmt_port(Port, Proto, Opts);
+        {{{0,0,0,0,0,0,0,1},Port},false} -> "localhost:" ++ fmt_port(Port, Proto, Opts);
+        {{{0,0,0,0,0,0,0,1},Port},true} -> "::1:" ++ fmt_port(Port, Proto, Opts);
+        {{local, Path},_} -> "local:" ++ binary_to_list(Path);
+        {{IP,Port},false} -> inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto, Opts);
+        {{IP,Port},true} when tuple_size(IP) == 4 ->
+            inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto, Opts);
+        {{IP,Port},true} when tuple_size(IP) == 6 ->
+            "[" ++ inet_parse:ntoa(IP) ++ "]:" ++ fmt_port(Port, Proto, Opts)
     end.
 
-fmt_port(N, Proto) ->
-    case inet:getservbyport(N, Proto) of
-	{ok, Name} -> Name;
-	_ -> integer_to_list(N)
+fmt_port(N, Proto, Opts) ->
+    case proplists:get_value(show_numbers, Opts, false) of
+        true ->
+            integer_to_list(N);
+        false ->
+            case inet:getservbyport(N, Proto) of
+                {ok, Name} -> Name;
+                _ -> integer_to_list(N)
+            end
     end.
 
 %% Return a list of all tcp sockets
