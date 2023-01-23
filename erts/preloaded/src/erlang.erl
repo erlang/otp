@@ -252,6 +252,7 @@
 -export([time_offset/0, time_offset/1, timestamp/0]).
 -export([process_display/2]).
 -export([process_flag/3, process_info/1, processes/0, purge_module/1]).
+-export([info_timer/0]).
 -export([put/2, raise/3, read_timer/1, read_timer/2, ref_to_list/1, register/2]).
 -export([send_after/3, send_after/4, start_timer/3, start_timer/4]).
 -export([registered/0, resume_process/1, round/1, self/0]).
@@ -1823,6 +1824,17 @@ put(_Key, _Val) ->
       Reason :: term(),
       Stacktrace :: raise_stacktrace() | stacktrace().
 raise(_Class, _Reason, _Stacktrace) ->
+    erlang:nif_error(undefined).
+
+%% info_timer/0
+-spec erlang:info_timer() ->
+      [
+        {receiver, atom() | pid()} |
+        {message, term()} |
+        {time_left, non_neg_integer()}
+      ].
+
+info_timer() ->
     erlang:nif_error(undefined).
 
 %% read_timer/1

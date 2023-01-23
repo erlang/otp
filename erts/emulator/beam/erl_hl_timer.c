@@ -2869,6 +2869,104 @@ erts_print_bif_timer_info(fmtfn_t to, void *to_arg)
 }
 
 typedef struct {
+    Process *process;
+    Eterm ret;
+    ErtsMonotonicTime now;
+} ErtsBTMInfo;
+
+static void
+btm_info(ErtsBifTimer *tmr, void *vbtmi, ErtsMonotonicTime tpos, int is_hlt)
+{
+    ErtsBTMInfo *btmi = (ErtsBTMInfo *) vbtmi;
+    ErtsMonotonicTime left;
+    Eterm receiver, tup, *hp, time_left, entry, ref;
+
+    if (is_hlt) {
+        ERTS_HLT_ASSERT(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT);
+        if (tmr->type.hlt.timeout <= btmi->now)
+            left = 0;
+        else
+            left = ERTS_CLKTCKS_TO_MSEC(tmr->type.hlt.timeout - btmi->now);
+    }
+    else {
+        ERTS_HLT_ASSERT(!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT));
+        if (tpos <= btmi->now)
+            left = 0;
+        else
+            left = ERTS_CLKTCKS_TO_MSEC(tpos - btmi->now);
+    }
+
+    receiver = ((tmr->type.head.roflgs & ERTS_TMR_ROFLG_REG_NAME)
+                ? tmr->type.head.receiver.name
+                : tmr->type.head.receiver.proc->common.id);
+
+    hp = HAlloc(btmi->process, 2*(3+2 + 3+2 + 3+2 + ERTS_REF_THING_SIZE+3+2));
+
+    tup = TUPLE2(hp, am_receiver, receiver); hp += 3;
+    entry = CONS(hp, tup, NIL); hp += 2;
+
+    tup = TUPLE2(hp, am_message, tmr->btm.message); hp += 3;
+    entry = CONS(hp, tup, entry); hp += 2;
+
+    time_left = return_info(btmi->process, (Sint64) left);
+    tup = TUPLE2(hp, am_time_left, time_left); hp += 3;
+    entry = CONS(hp, tup, entry); hp += 2;
+
+    write_ref_thing(hp, tmr->btm.refn[0], tmr->btm.refn[1], tmr->btm.refn[2]);
+    ref = make_internal_ref(hp);
+    hp += ERTS_REF_THING_SIZE;
+    tup = TUPLE2(hp, am_id, ref); hp += 3;
+    entry = CONS(hp, tup, entry); hp += 2;
+
+    if (btmi->ret == NIL)
+        btmi->ret = CONS(hp, entry, NIL);
+    else
+        btmi->ret = CONS(hp, entry, btmi->ret);
+}
+
+static int
+btm_tree_info(ErtsBifTimer *tmr, void *vbtmi, Sint reds)
+{
+    int is_hlt = !!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT);
+    ErtsMonotonicTime tpos;
+
+    if (erts_atomic32_read_nob(&tmr->btm.state) != ERTS_TMR_STATE_ACTIVE)
+        return 1;
+
+    if (is_hlt)
+        tpos = 0;
+    else
+        tpos = erts_tweel_read_timeout(&tmr->type.twt.u.tw_tmr);
+    btm_info(tmr, vbtmi, tpos, is_hlt);
+    return 1;
+}
+
+static BIF_RETTYPE
+info_bif_timer(Process *c_p)
+{
+    int six;
+    ErtsBTMInfo btmi;
+
+    btmi.process = c_p;
+    btmi.ret = NIL;
+    btmi.now = erts_get_monotonic_time(NULL);
+    btmi.now = ERTS_MONOTONIC_TO_CLKTCKS(btmi.now);
+
+    for (six = 0; six < erts_no_schedulers; six++) {
+        ErtsHLTimerService *srv =
+            erts_aligned_scheduler_data[six].esd.timer_service;
+        btm_rbt_foreach(srv->btm_tree, btm_tree_info, (void *) &btmi);
+    }
+
+    BIF_RET(btmi.ret);
+}
+
+BIF_RETTYPE info_timer_0(BIF_ALIST_0)
+{
+    return info_bif_timer(BIF_P);
+}
+
+typedef struct {
     void (*func)(Eterm,
 		 Eterm,
 		 ErlHeapFragment *,

@@ -254,6 +254,7 @@ bif erlang:send_after/3
 bif erlang:send_after/4
 bif erlang:cancel_timer/1
 bif erlang:cancel_timer/2
+bif erlang:info_timer/0
 bif erlang:read_timer/1
 bif erlang:read_timer/2
 

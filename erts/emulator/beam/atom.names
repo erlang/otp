@@ -591,6 +591,7 @@ atom ready_input
 atom ready_output
 atom reason
 atom receive
+atom receiver
 atom recent_size
 atom reductions
 atom refc
@@ -704,9 +705,11 @@ atom term_to_binary_trap
 atom this
 atom thread_pool_size
 atom threads
+atom time_left
 atom time_offset
 atom timeout
 atom timeout_value
+atom timer
 atom Times='*'
 atom timestamp
 atom total
