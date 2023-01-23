@@ -56,7 +56,8 @@
          otp_16545/1,
          otp_16865/1,
          eep49/1,
-         binary_and_map_aliases/1]).
+         binary_and_map_aliases/1,
+         eep58/1]).
 
 %%
 %% Define to run outside of test server
@@ -97,7 +98,7 @@ all() ->
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, custom_stacktrace, try_catch, eval_expr_5, zero_width,
      eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865,
-     eep49, binary_and_map_aliases].
+     eep49, binary_and_map_aliases, eep58].
 
 groups() -> 
     [].
@@ -2000,6 +2001,34 @@ binary_and_map_aliases(Config) when is_list(Config) ->
           end,
           "begin #{K := V} = #{k := K} = #{k => my_key, my_key => 42}, V end.",
           42),
+    ok.
+
+%% EEP 58: Map comprehensions.
+eep58(Config) when is_list(Config) ->
+    check(fun() -> X = 32, #{X => X*X || X <- [1,2,3]} end,
+	  "begin X = 32, #{X => X*X || X <- [1,2,3]} end.",
+	  #{1 => 1, 2 => 4, 3 => 9}),
+    check(fun() ->
+                  K = V = none,
+                  #{K => V*V || K := V <- #{1 => 1, 2 => 2, 3 => 3}}
+          end,
+          "begin K = V = none, #{K => V*V || K := V <- #{1 => 1, 2 => 2, 3 => 3}} end.",
+	  #{1 => 1, 2 => 4, 3 => 9}),
+    check(fun() ->
+                  #{K => V*V || K := V <- maps:iterator(#{1 => 1, 2 => 2, 3 => 3})}
+          end,
+          "#{K => V*V || K := V <- maps:iterator(#{1 => 1, 2 => 2, 3 => 3})}.",
+	  #{1 => 1, 2 => 4, 3 => 9}),
+    check(fun() -> << <<K:8,V:24>> || K := V <- #{42 => 7777} >> end,
+          "<< <<K:8,V:24>> || K := V <- #{42 => 7777} >>.",
+	  <<42:8,7777:24>>),
+    check(fun() -> [X || X := X <- #{a => 1, b => b}] end,
+          "[X || X := X <- #{a => 1, b => b}].",
+	  [b]),
+
+    error_check("[K+V || K := V <- a].", {bad_generator,a}),
+    error_check("[K+V || K := V <- [-1|#{}]].", {bad_generator,[-1|#{}]}),
+
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.
