@@ -34,6 +34,7 @@
 #include "bif.h"
 #include "erl_bif_unique.h"
 #define ERTS_WANT_TIMER_WHEEL_API
+#include "erl_map.h"
 #include "erl_time.h"
 #include "erl_hl_timer.h"
 #include "erl_proc_sig_queue.h"
@@ -2879,7 +2880,7 @@ btm_info(ErtsBifTimer *tmr, void *vbtmi, ErtsMonotonicTime tpos, int is_hlt)
 {
     ErtsBTMInfo *btmi = (ErtsBTMInfo *) vbtmi;
     ErtsMonotonicTime left;
-    Eterm receiver, tup, *hp, time_left, entry, ref;
+    Eterm receiver, *hp, time_left, ref, map_out;
 
     if (is_hlt) {
         ERTS_HLT_ASSERT(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT);
@@ -2900,28 +2901,16 @@ btm_info(ErtsBifTimer *tmr, void *vbtmi, ErtsMonotonicTime tpos, int is_hlt)
                 ? tmr->type.head.receiver.name
                 : tmr->type.head.receiver.proc->common.id);
 
-    hp = HAlloc(btmi->process, 2*(3+2 + 3+2 + 3+2 + ERTS_REF_THING_SIZE+3+2));
-
-    tup = TUPLE2(hp, am_receiver, receiver); hp += 3;
-    entry = CONS(hp, tup, NIL); hp += 2;
-
-    tup = TUPLE2(hp, am_message, tmr->btm.message); hp += 3;
-    entry = CONS(hp, tup, entry); hp += 2;
-
     time_left = return_info(btmi->process, (Sint64) left);
-    tup = TUPLE2(hp, am_time_left, time_left); hp += 3;
-    entry = CONS(hp, tup, entry); hp += 2;
 
+    hp = HAlloc(btmi->process, MAP3_SZ);
+    map_out = MAP3(hp, am_receiver, receiver, am_message, tmr->btm.message, am_time_left, time_left);
+
+    hp = HAlloc(btmi->process, ERTS_REF_THING_SIZE);
     write_ref_thing(hp, tmr->btm.refn[0], tmr->btm.refn[1], tmr->btm.refn[2]);
     ref = make_internal_ref(hp);
-    hp += ERTS_REF_THING_SIZE;
-    tup = TUPLE2(hp, am_id, ref); hp += 3;
-    entry = CONS(hp, tup, entry); hp += 2;
 
-    if (btmi->ret == NIL)
-        btmi->ret = CONS(hp, entry, NIL);
-    else
-        btmi->ret = CONS(hp, entry, btmi->ret);
+    btmi->ret = erts_maps_put(btmi->process, ref, map_out, btmi->ret);
 }
 
 static int
@@ -2946,9 +2935,11 @@ info_bif_timer(Process *c_p)
 {
     int six;
     ErtsBTMInfo btmi;
+    Eterm *hp;
 
     btmi.process = c_p;
-    btmi.ret = NIL;
+    hp = HAlloc(c_p, MAP0_SZ);
+    btmi.ret = MAP0(hp);
     btmi.now = erts_get_monotonic_time(NULL);
     btmi.now = ERTS_MONOTONIC_TO_CLKTCKS(btmi.now);
 
