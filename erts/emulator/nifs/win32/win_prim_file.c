@@ -613,6 +613,19 @@ int efile_lock(efile_data_t *d, enum efile_lock_t modes, posix_errno_t *error) {
         flags |= LOCKFILE_EXCLUSIVE_LOCK;
     }
 
+    if (modes & EFILE_LOCK_SH && w->lock == EFILE_LOCK_EX ||
+        modes & EFILE_LOCK_EX && w->lock == EFILE_LOCK_SH) {
+        if(!UnlockFileEx(handle,
+            0, // reserved
+            MAXDWORD, // low 32 bits of range to lock
+            MAXDWORD, // high 32 bits of renge to lock
+            &overlapped
+        )) {
+            *error = windows_to_posix_errno(GetLastError());
+            return 0;
+        }
+    }
+
     if (modes & EFILE_LOCK_NB) {
         flags |= LOCKFILE_FAIL_IMMEDIATELY;
     }
