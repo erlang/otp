@@ -277,6 +277,8 @@
         <p>If the file is already locked with the same lock type this is a "noop".</p>
         <p>On Unix this function uses <c>flock(2)</c> syscall.</p>
         <p>On Windows this function uses <c>LockFileEx</c> win32 API call</p>
+        <p>Notice that on Unix the lock is advisory only. On Windows it not
+          advisory and will block non compatible IO operations.</p>
         <p>Notice that unless option <c>non_blocking</c> was
           set, <c>lock/2</c> may block if the file is already locked by
           some other operating system process with an incompatible lock type.</p>
