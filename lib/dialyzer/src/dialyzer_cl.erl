@@ -105,7 +105,16 @@ init_opts_for_build(Opts) ->
 add_to_plt(Opts) ->
   Opts1 = init_opts_for_add(Opts),
   AddFiles = get_files_from_opts(Opts1),
-  plt_common(Opts1, [], AddFiles).
+  case Opts1#options.init_plts of
+    [] -> plt_common(Opts1, [], AddFiles);
+    [_] -> plt_common(Opts1, [], AddFiles);
+    PltFiles ->
+      Plts = [dialyzer_cplt:from_file(F) || F <- PltFiles],
+      % Check merge safety
+      _ = dialyzer_cplt:merge_plts_or_report_conflicts(PltFiles, Plts),
+      _ = [plt_common(Opts#options{init_plts=[Plt]}, [], AddFiles) || Plt <- PltFiles],
+      {{?RET_NOTHING_SUSPICIOUS, []}, [], []}
+  end.
 
 init_opts_for_add(Opts) ->
   case Opts#options.output_plt =:= none of
@@ -229,19 +238,19 @@ plt_common(#options{init_plts = [InitPlt]} = Opts, RemoveFiles, AddFiles) ->
 	  enrich_with_modules_changed(do_analysis(AnalFiles, Opts, Plt, #plt_info{files=Md5, mod_deps=ModDeps1}), ChangedOrRemovedMods)
       end;
     {error, no_such_file} ->
-      Msg = io_lib:format("Could not find the PLT: ~ts\n~s",
+      Msg = io_lib:format("Could not find the PLT: ~ts~n~s",
 			  [InitPlt, default_plt_error_msg()]),
       cl_error(Msg);
     {error, not_valid} ->
-      Msg = io_lib:format("The file: ~ts is not a valid PLT file\n~s",
+      Msg = io_lib:format("The file: ~ts is not a valid PLT file~n~s",
 			  [InitPlt, default_plt_error_msg()]),
       cl_error(Msg);
     {error, read_error} ->
-      Msg = io_lib:format("Could not read the PLT: ~ts\n~s",
+      Msg = io_lib:format("Could not read the PLT: ~ts~n~s",
 			  [InitPlt, default_plt_error_msg()]),
       cl_error(Msg);
     {error, {no_file_to_remove, F}} ->
-      Msg = io_lib:format("Could not remove the file ~ts from the PLT: ~ts\n",
+      Msg = io_lib:format("Could not remove the file ~ts from the PLT: ~ts~n",
 			  [F, InitPlt]),
       cl_error(Msg)
   end.
