@@ -47,6 +47,12 @@
 #define ESOCK_ASSERT(e) ((void) ((e) ? 1 : (ESOCK_ABORT(#e), 0)))
 
 extern
+unsigned int esock_get_uint_from_map(ErlNifEnv*   env,
+                                     ERL_NIF_TERM map,
+                                     ERL_NIF_TERM key,
+                                     unsigned int def);
+
+extern
 BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
                                   ERL_NIF_TERM map,
                                   ERL_NIF_TERM key,
@@ -243,6 +249,8 @@ ERL_NIF_TERM esock_make_ok2(ErlNifEnv* env, ERL_NIF_TERM any);
 extern
 ERL_NIF_TERM esock_make_error(ErlNifEnv* env, ERL_NIF_TERM reason);
 extern
+ERL_NIF_TERM esock_make_error_closed(ErlNifEnv* env);
+extern
 ERL_NIF_TERM esock_make_error_str(ErlNifEnv* env, char* reason);
 extern
 ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err);
@@ -267,8 +275,18 @@ BOOLEAN_T esock_timestamp_str(char *buf, unsigned int len);
 extern
 BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int len);
 
-extern
-void esock_warning_msg(const char* format, ... );
+#define MSG_FUNCS                               \
+    MSG_FUNC_DEF(info)                          \
+    MSG_FUNC_DEF(warning)                       \
+    MSG_FUNC_DEF(error)
+
+#define MSG_FUNC_DEF(FN)                                \
+    extern                                              \
+    void esock_##FN##_msg(const char* format, ... );
+
+MSG_FUNCS
+#undef MSG_FUNC_DEF
+#undef MSG_FUNCS
 
 extern
 BOOLEAN_T esock_is_integer(ErlNifEnv *env, ERL_NIF_TERM term);

@@ -1162,7 +1162,8 @@ OS_OBJS = \
 	$(OBJDIR)/unix_prim_file.o \
 	$(OBJDIR)/sys_float.o \
 	$(OBJDIR)/sys_time.o \
-	$(OBJDIR)/sys_signal_stack.o
+	$(OBJDIR)/sys_signal_stack.o \
+	$(OBJDIR)/unix_socket_syncio.o
 
 DRV_OBJS = \
 	$(OBJDIR)/inet_drv.o \

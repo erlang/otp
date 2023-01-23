@@ -191,6 +191,10 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(accept);                   \
     GLOBAL_ATOM_DEF(acceptconn);               \
     GLOBAL_ATOM_DEF(acceptfilter);             \
+    GLOBAL_ATOM_DEF(acc_success);              \
+    GLOBAL_ATOM_DEF(acc_fails);                \
+    GLOBAL_ATOM_DEF(acc_tries);                \
+    GLOBAL_ATOM_DEF(acc_waits);                \
     GLOBAL_ATOM_DEF(adaption_layer);           \
     GLOBAL_ATOM_DEF(addr);                     \
     GLOBAL_ATOM_DEF(addrform);                 \
@@ -198,6 +202,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(add_source_membership);    \
     GLOBAL_ATOM_DEF(alen);                     \
     GLOBAL_ATOM_DEF(allmulti);                 \
+    GLOBAL_ATOM_DEF(already);                  \
     GLOBAL_ATOM_DEF(any);                      \
     GLOBAL_ATOM_DEF(appletlk);                 \
     GLOBAL_ATOM_DEF(arcnet);                   \
@@ -222,6 +227,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(chaos);                    \
     GLOBAL_ATOM_DEF(checksum);                 \
     GLOBAL_ATOM_DEF(close);                    \
+    GLOBAL_ATOM_DEF(closed);                   \
     GLOBAL_ATOM_DEF(cmsg_cloexec);             \
     GLOBAL_ATOM_DEF(command);                  \
     GLOBAL_ATOM_DEF(confirm);                  \
@@ -235,6 +241,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(ctrl);                     \
     GLOBAL_ATOM_DEF(ctrunc);                   \
     GLOBAL_ATOM_DEF(data);                     \
+    GLOBAL_ATOM_DEF(data_size);                \
     GLOBAL_ATOM_DEF(debug);                    \
     GLOBAL_ATOM_DEF(default);                  \
     GLOBAL_ATOM_DEF(default_send_params);      \
@@ -249,10 +256,12 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(drop_membership);          \
     GLOBAL_ATOM_DEF(drop_source_membership);   \
     GLOBAL_ATOM_DEF(dstopts);                  \
+    GLOBAL_ATOM_DEF(dup);		       \
     GLOBAL_ATOM_DEF(dying);		       \
     GLOBAL_ATOM_DEF(dynamic);                  \
     GLOBAL_ATOM_DEF(echo);                     \
     GLOBAL_ATOM_DEF(eether);                   \
+    GLOBAL_ATOM_DEF(efile);                    \
     GLOBAL_ATOM_DEF(egp);                      \
     GLOBAL_ATOM_DEF(enotsup);                  \
     GLOBAL_ATOM_DEF(eor);                      \
@@ -341,6 +350,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(multicast_loop);           \
     GLOBAL_ATOM_DEF(multicast_ttl);            \
     GLOBAL_ATOM_DEF(name);                     \
+    GLOBAL_ATOM_DEF(netns);                    \
     GLOBAL_ATOM_DEF(netrom);                   \
     GLOBAL_ATOM_DEF(nlen);                     \
     GLOBAL_ATOM_DEF(noarp);                    \
@@ -381,6 +391,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(portsel);                  \
     GLOBAL_ATOM_DEF(primary_addr);             \
     GLOBAL_ATOM_DEF(priority);                 \
+    GLOBAL_ATOM_DEF(prim_file);                \
     GLOBAL_ATOM_DEF(promisc);                  \
     GLOBAL_ATOM_DEF(pronet);                   \
     GLOBAL_ATOM_DEF(protocol);                 \
@@ -391,6 +402,10 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(rcvlowat);                 \
     GLOBAL_ATOM_DEF(rcvtimeo);                 \
     GLOBAL_ATOM_DEF(rdm);                      \
+    GLOBAL_ATOM_DEF(read_byte);                \
+    GLOBAL_ATOM_DEF(read_fails);               \
+    GLOBAL_ATOM_DEF(read_pkg);                 \
+    GLOBAL_ATOM_DEF(read_tries);               \
     GLOBAL_ATOM_DEF(recv);                     \
     GLOBAL_ATOM_DEF(recvdstaddr);              \
     GLOBAL_ATOM_DEF(recverr);                  \
@@ -419,9 +434,19 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(scope_id);                 \
     GLOBAL_ATOM_DEF(sctp);                     \
     GLOBAL_ATOM_DEF(sec);                      \
+    GLOBAL_ATOM_DEF(select);                   \
     GLOBAL_ATOM_DEF(select_failed);            \
     GLOBAL_ATOM_DEF(select_sent);              \
     GLOBAL_ATOM_DEF(send);                     \
+    GLOBAL_ATOM_DEF(sendfile);                 \
+    GLOBAL_ATOM_DEF(sendfile_byte);            \
+    GLOBAL_ATOM_DEF(sendfile_deferred_close);  \
+    GLOBAL_ATOM_DEF(sendfile_fails);           \
+    GLOBAL_ATOM_DEF(sendfile_max);             \
+    GLOBAL_ATOM_DEF(sendfile_pkg);             \
+    GLOBAL_ATOM_DEF(sendfile_pkg_max);         \
+    GLOBAL_ATOM_DEF(sendfile_tries);           \
+    GLOBAL_ATOM_DEF(sendfile_waits);           \
     GLOBAL_ATOM_DEF(sendmsg);                  \
     GLOBAL_ATOM_DEF(sendsrcaddr);              \
     GLOBAL_ATOM_DEF(sendto);                   \
@@ -438,6 +463,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(socket);                   \
     GLOBAL_ATOM_DEF(socket_tag);               \
     GLOBAL_ATOM_DEF(spec_dst);                 \
+    GLOBAL_ATOM_DEF(state);                    \
     GLOBAL_ATOM_DEF(status);                   \
     GLOBAL_ATOM_DEF(staticarp);		       \
     GLOBAL_ATOM_DEF(stream);                   \
@@ -448,6 +474,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(timestamp);                \
     GLOBAL_ATOM_DEF(tos);                      \
     GLOBAL_ATOM_DEF(transparent);              \
+    GLOBAL_ATOM_DEF(timeout);                  \
     GLOBAL_ATOM_DEF(true);                     \
     GLOBAL_ATOM_DEF(trunc);                    \
     GLOBAL_ATOM_DEF(ttl);                      \
@@ -465,8 +492,16 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(user_timeout);             \
     GLOBAL_ATOM_DEF(use_ext_recvinfo);         \
     GLOBAL_ATOM_DEF(use_min_mtu);              \
+    GLOBAL_ATOM_DEF(use_registry);             \
+    GLOBAL_ATOM_DEF(value);                    \
     GLOBAL_ATOM_DEF(void);                     \
-    GLOBAL_ATOM_DEF(v6only);
+    GLOBAL_ATOM_DEF(v6only);                   \
+    GLOBAL_ATOM_DEF(write_byte);               \
+    GLOBAL_ATOM_DEF(write_fails);              \
+    GLOBAL_ATOM_DEF(write_pkg);                \
+    GLOBAL_ATOM_DEF(write_tries);              \
+    GLOBAL_ATOM_DEF(write_waits);              \
+    GLOBAL_ATOM_DEF(zero)
 
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -475,12 +510,14 @@ typedef long ssize_t;
 
 #define GLOBAL_ERROR_REASON_ATOM_DEFS \
     GLOBAL_ATOM_DEF(eagain);          \
-    GLOBAL_ATOM_DEF(einval);
+    GLOBAL_ATOM_DEF(einval);          \
+    GLOBAL_ATOM_DEF(select_read);     \
+    GLOBAL_ATOM_DEF(select_write)
 
 
 #define GLOBAL_ATOM_DEF(A) extern ERL_NIF_TERM esock_atom_##A
-GLOBAL_ATOM_DEFS
-GLOBAL_ERROR_REASON_ATOM_DEFS
+GLOBAL_ATOM_DEFS;
+GLOBAL_ERROR_REASON_ATOM_DEFS;
 #undef GLOBAL_ATOM_DEF
 
 
