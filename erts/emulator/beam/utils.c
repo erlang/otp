@@ -108,9 +108,11 @@ void *ycf_debug_get_stack_start(void) {
 #endif
 
 #if defined(DEBUG)
+# define IF_DEBUG(X) X
 # define DBG_RANDOM_REDS(REDS, SEED) \
          ((REDS) * 0.01 * erts_sched_local_random_float(SEED))
 #else
+# define IF_DEBUG(X)
 # define DBG_RANDOM_REDS(REDS, SEED) (REDS)
 #endif
 
@@ -1500,6 +1502,88 @@ not_equal:
     return 0;
 }
 
+static
+Sint compare_flatmap_atom_keys(const Eterm* a_keys,
+                               const Eterm* b_keys,
+                               int nkeys)
+{
+    Eterm min_key = THE_NON_VALUE;
+    Eterm a, b;
+    int ai, bi;
+    Sint res;
+
+    ASSERT(nkeys > 0);
+    ai = nkeys;
+    while (*a_keys == *b_keys) {
+        ASSERT(is_atom(*a_keys));
+        a_keys++;
+        b_keys++;
+        if (--ai == 0)
+            return 0;
+    }
+
+    /* Found atom key diff. Find the smallest atom. */
+    bi = ai;
+    a = *a_keys;
+    b = *b_keys;
+    IF_DEBUG(res = 0);
+    do {
+	ASSERT((ai && is_atom(a)) || (!ai && a == ERTS_UINT_MAX));
+	ASSERT((bi && is_atom(b)) || (!bi && b == ERTS_UINT_MAX));
+
+        if (a < b) {
+            ASSERT(ai && is_atom(a));
+            if (is_non_value(min_key) || erts_cmp_atoms(a, min_key) < 0) {
+                min_key = a;
+                res = -1;
+            }
+            a = --ai ? *(++a_keys) : ERTS_UINT_MAX;
+        }
+        else if (a > b) {
+            ASSERT(bi && is_atom(b));
+            if (is_non_value(min_key) || erts_cmp_atoms(b, min_key) < 0) {
+                min_key = b;
+                res = 1;
+            }
+            b = --bi ? *(++b_keys) : ERTS_UINT_MAX;
+        }
+        else {
+            ASSERT(ai && bi && is_atom(a) && is_atom(b));
+            a = --ai ? *(++a_keys) : ERTS_UINT_MAX;
+            b = --bi ? *(++b_keys) : ERTS_UINT_MAX;
+        }
+    } while (ai|bi);
+    ASSERT(is_atom(min_key));
+    ASSERT(res != 0);
+    return res;
+}
+
+static
+Sint compare_flatmap_atom_key_values(const Eterm* keys,
+				     const Eterm* a_vals,
+				     const Eterm* b_vals,
+				     int nkeys,
+				     int exact)
+{
+    Eterm min_key = THE_NON_VALUE;
+    Sint res = 0;
+
+    ASSERT(nkeys > 0);
+    do {
+        ASSERT(is_atom(*keys));
+        if (is_non_value(min_key) || erts_cmp_atoms(*keys, min_key) < 0) {
+            Sint valcmp = erts_cmp(*a_vals, *b_vals, exact, 0);
+            if (valcmp) {
+                min_key = *keys;
+                res = valcmp;
+            }
+        }
+        keys++;
+        a_vals++;
+        b_vals++;
+    } while (--nkeys);
+    return res;
+}
 
 
 /*
@@ -1556,10 +1640,13 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #define HASHMAP_PHASE2_ARE_KEYS_EQUAL 5
 #define HASHMAP_PHASE2_IS_MIN_KEY_A   6
 #define HASHMAP_PHASE2_IS_MIN_KEY_B   7
-
+#define FLATMAP_ATOM_KEYS_OP          8
+#define FLATMAP_ATOM_VALUES_OP        9
 
 #define OP_WORD(OP)  (((OP)  << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
-#define TERM_ARRAY_OP_WORD(SZ) OP_WORD(((SZ) << OP_BITS) | TERM_ARRAY_OP)
+#define TERM_ARRAY_OP_WORD(SZ)    OP_WORD(((SZ) << OP_BITS) | TERM_ARRAY_OP)
+#define FLATMAP_ATOM_KEYS_OP_WORD(SZ) OP_WORD(((SZ) << OP_BITS) | FLATMAP_ATOM_KEYS_OP)
+#define FLATMAP_ATOM_VALUES_OP_WORD(SZ) OP_WORD(((SZ) << OP_BITS) | FLATMAP_ATOM_VALUES_OP)
 
 #define GET_OP(WORD) (ASSERT(is_header(WORD)), ((WORD) >> _TAG_PRIMARY_SIZE) & OP_MASK)
 #define GET_OP_ARG(WORD) (ASSERT(is_header(WORD)), ((WORD) >> (OP_BITS + _TAG_PRIMARY_SIZE)))
@@ -1735,50 +1822,99 @@ tailrecur_ne:
 		{
                     struct erts_cmp_hashmap_state* sp;
                     if (is_flatmap_header(ahdr)) {
+                        flatmap_t* afm = (flatmap_t*)flatmap_val(a);
+                        flatmap_t* bfm;
                         if (!is_flatmap(b)) {
                             if (is_hashmap(b)) {
-                                aa = (Eterm *)flatmap_val(a);
-                                i = flatmap_get_size((flatmap_t*)aa) - hashmap_size(b);
-                                ASSERT(i != 0);
-                                RETURN_NEQ(i);
+                                ASSERT(flatmap_get_size(afm) < hashmap_size(b));
+                                RETURN_NEQ(-1);
                             }
                             a_tag = MAP_DEF;
                             goto mixed_types;
                         }
-                        aa = (Eterm *)flatmap_val(a);
-                        bb = (Eterm *)flatmap_val(b);
-
-                        i = flatmap_get_size((flatmap_t*)aa);
-                        if (i != flatmap_get_size((flatmap_t*)bb)) {
-                            RETURN_NEQ((int)(i - flatmap_get_size((flatmap_t*)bb)));
+                        bfm = (flatmap_t*)flatmap_val(b);
+                        i = flatmap_get_size(afm);
+                        if (i != flatmap_get_size(bfm)) {
+                            RETURN_NEQ((int)(i - flatmap_get_size(bfm)));
                         }
                         if (i == 0) {
                             goto pop_next;
                         }
-                        aa += 2;
-                        bb += 2;
                         if (exact) {
+                            aa = &afm->keys;
+                            bb = &bfm->keys;
                             i  += 1; /* increment for tuple-keys */
                             goto term_array;
                         }
                         else {
-                            /* Value array */
-                            WSTACK_PUSH3(stack,(UWord)(bb+1),(UWord)(aa+1),TERM_ARRAY_OP_WORD(i));
-                            /* Switch back from 'exact' key compare */
-                            WSTACK_PUSH(stack,OP_WORD(SWITCH_EXACT_OFF_OP));
-                            /* Now do 'exact' compare of key tuples */
-                            a = *aa;
-                            b = *bb;
-                            exact = 1;
-                            goto bodyrecur;
+                            Eterm* a_keys = flatmap_get_keys(afm);
+                            Eterm* b_keys = flatmap_get_keys(bfm);
+                            Eterm* a_vals = flatmap_get_values(afm);
+                            Eterm* b_vals = flatmap_get_values(bfm);
+                            int n_numbers;  /* sorted before atoms */
+                            int n_atoms;
+                            int n_rest;     /* sorted after atoms */
+                            int n = 0;
+
+                            while (n < i && !(is_atom(a_keys[n]) &&
+                                              is_atom(b_keys[n]))) {
+                                ++n;
+                            }
+                            n_numbers = n;
+                            while (n < i && (is_atom(a_keys[n]) &&
+                                             is_atom(b_keys[n]))) {
+                                ++n;
+                            }
+                            n_atoms = n - n_numbers;
+                            n_rest = i - n;
+
+                            ASSERT(n_numbers + n_atoms + n_rest == i);
+                            ASSERT(n_atoms || !n_rest);
+
+                            if (n_rest) {
+                                WSTACK_PUSH3(stack,
+                                             (UWord)&b_vals[n_numbers+n_atoms],
+                                             (UWord)&a_vals[n_numbers+n_atoms],
+                                             TERM_ARRAY_OP_WORD(n_rest));
+                            }
+                            if (n_atoms) {
+                                WSTACK_PUSH4(stack,
+                                             (UWord)&b_vals[n_numbers],
+                                             (UWord)&a_vals[n_numbers],
+                                             (UWord)&a_keys[n_numbers],
+                                             FLATMAP_ATOM_VALUES_OP_WORD(n_atoms));
+                            }
+                            if (n_numbers) {
+                                WSTACK_PUSH3(stack, (UWord)b_vals, (UWord)a_vals,
+                                             TERM_ARRAY_OP_WORD(n_numbers));
+                            }
+                            if (!exact) {
+                                WSTACK_PUSH(stack, OP_WORD(SWITCH_EXACT_OFF_OP));
+                                exact = 1;
+                            }
+                            if (n_rest) {
+                                WSTACK_PUSH3(stack,
+                                             (UWord)&b_keys[n_numbers+n_atoms],
+                                             (UWord)&a_keys[n_numbers+n_atoms],
+                                             TERM_ARRAY_OP_WORD(n_rest));
+                            }
+                            if (n_atoms) {
+                                WSTACK_PUSH3(stack,
+                                             (UWord)&b_keys[n_numbers],
+                                             (UWord)&a_keys[n_numbers],
+                                             FLATMAP_ATOM_KEYS_OP_WORD(n_atoms));
+                            }
+                            if (n_numbers) {
+                                WSTACK_PUSH3(stack, (UWord)b_keys, (UWord)a_keys,
+                                             TERM_ARRAY_OP_WORD(n_numbers));
+                            }
                         }
+                        goto pop_next;
                     }
 		    if (!is_hashmap(b)) {
                         if (is_flatmap(b)) {
-                            bb = (Eterm *)flatmap_val(b);
-                            i = hashmap_size(a) - flatmap_get_size((flatmap_t*)bb);
-                            ASSERT(i != 0);
-                            RETURN_NEQ(i);
+                            ASSERT(hashmap_size(a) > flatmap_get_size(flatmap_val(b)));
+                            RETURN_NEQ(1);
                         }
 			a_tag = MAP_DEF;
 			goto mixed_types;
@@ -2342,6 +2478,29 @@ pop_next:
                 }
                 sp->bp = hashmap_iterator_next(&b_stack);
                 goto case_HASHMAP_PHASE2_LOOP;
+
+            case FLATMAP_ATOM_KEYS_OP:
+                i = GET_OP_ARG(something);
+                aa = (Eterm*) WSTACK_POP(stack);
+                bb = (Eterm*) WSTACK_POP(stack);
+                j = compare_flatmap_atom_keys(aa, bb, i);
+                if (j)
+                    goto not_equal;
+                else
+                    goto pop_next;
+
+            case FLATMAP_ATOM_VALUES_OP: {
+                const Eterm* keys;
+                i = GET_OP_ARG(something);
+                keys = (const Eterm*) WSTACK_POP(stack);
+                aa = (Eterm*) WSTACK_POP(stack);
+                bb = (Eterm*) WSTACK_POP(stack);
+                j = compare_flatmap_atom_key_values(keys, aa, bb, i, exact);
+                if (j)
+                    goto not_equal;
+                else
+                    goto pop_next;
+            }
 
             default:
                 ASSERT(!"Invalid cmp op");

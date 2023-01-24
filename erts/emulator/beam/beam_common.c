@@ -2186,7 +2186,7 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 	Sint c;
 
 	key = *old_keys;
-	if ((c = (key == new_key) ? 0 : CMP_TERM(key, new_key)) < 0) {
+	if ((c = (key == new_key) ? 0 : erts_cmp_flatmap_keys(key, new_key)) < 0) {
 	    /* Copy old key and value */
 	    *kp++ = key;
 	    *hp++ = *old_vals;

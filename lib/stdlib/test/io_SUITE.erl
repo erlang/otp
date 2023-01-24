@@ -2271,20 +2271,15 @@ format_string(_Config) ->
     ok.
 
 maps(_Config) ->
-    %% Note that order in which a map is printed is arbitrary.  In
-    %% practice, small maps (non-HAMT) are printed in key order, but
-    %% the breakpoint for creating big maps (HAMT) is lower in the
-    %% debug-compiled run-time system than in the optimized run-time
-    %% system.
-    %%
+    %% Note that order in which a map is printed is arbitrary.
     %% Therefore, play it completely safe by not assuming any order
     %% in a map with more than one element.
 
     "#{}" = fmt("~w", [#{}]),
     "#{a => b}" = fmt("~w", [#{a=>b}]),
-    re_fmt(<<"#\\{(a => b),[.][.][.]\\}">>,
+    re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
 	     "~W", [#{a => b,c => d},2]),
-    re_fmt(<<"#\\{(a => b),[.][.][.]\\}">>,
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
 	   "~W", [#{a => b,c => d,e => f},2]),
 
     "#{}" = fmt("~p", [#{}]),

@@ -2968,6 +2968,10 @@ t_erts_internal_order(_Config) when is_list(_Config) ->
     0  = erts_internal:cmp_term(2147483648,2147483648),
     1  = erts_internal:cmp_term(2147483648,0),
 
+    %% Make sure it's not the internal flatmap order
+    %% where low indexed 'true' < 'a'.
+    -1  = erts_internal:cmp_term(a,true),
+
     M = #{0 => 0,2147483648 => 0},
     true = M =:= binary_to_term(term_to_binary(M)),
     true = M =:= binary_to_term(term_to_binary(M, [deterministic])),

@@ -183,7 +183,7 @@ single_line(_Config) ->
     ct:log(String3),
     match = re:run(String3,"\\[1,2,3,4,5,6,7,8,9,10\\]",[{capture,none}]),
     match = re:run(String3,
-                   "#{a => map,few => accociations,with => a}",
+                   "#{((a => map|with => a|few => accociations)[,}]){3}",
                    [{capture,none}]),
 
     %% This part is added to make sure that the previous test made

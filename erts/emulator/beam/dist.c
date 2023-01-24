@@ -6227,7 +6227,7 @@ nodes(Process *c_p, Eterm node_types, Eterm options)
         }
     }
     else {
-        Eterm ks[2], *hp, keys_tuple = THE_NON_VALUE;
+        Eterm ks[2], *hp;
         Uint map_size = 0, el_xtra, xtra;
         ErtsHeapFactory hfact;
 
@@ -6262,8 +6262,8 @@ nodes(Process *c_p, Eterm node_types, Eterm options)
                 vs[map_size++] = eni->type;
             }
 
-            info_map = erts_map_from_sorted_ks_and_vs(&hfact, ks, vs,
-                                                      map_size, &keys_tuple);
+            info_map = erts_map_from_ks_and_vs(&hfact, ks, vs, map_size);
+            ASSERT(is_value(info_map));
 
             hp = erts_produce_heap(&hfact, 3+2, xtra);
 
@@ -6849,8 +6849,7 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node,
                     map_size++;
                 }
 
-                info = erts_map_from_sorted_ks_and_vs(&hfact, ks, vs,
-                                                      map_size, NULL);
+                info = erts_map_from_ks_and_vs(&hfact, ks, vs, map_size);
                 ASSERT(is_value(info));
             }
             else { /* Info list */

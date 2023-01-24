@@ -112,6 +112,7 @@ int eq(Eterm, Eterm);
 
 ERTS_GLB_INLINE Sint erts_cmp(Eterm, Eterm, int, int);
 ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b);
+ERTS_GLB_INLINE Sint erts_cmp_flatmap_keys(Eterm, Eterm);
 
 Sint erts_cmp_compound(Eterm, Eterm, int, int);
 
@@ -230,6 +231,17 @@ ERTS_GLB_INLINE Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only) {
 
     return erts_cmp_compound(a,b,exact,eq_only);
 }
+
+/*
+ * Only to be used for the *internal* sort order of flatmap keys.
+ */
+ERTS_GLB_INLINE Sint erts_cmp_flatmap_keys(Eterm key_a, Eterm key_b) {
+    if (is_atom(key_a) && is_atom(key_b)) {
+        return key_a - key_b;
+    }
+    return erts_cmp(key_a, key_b, 1, 0);
+}
+
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
