@@ -2472,6 +2472,7 @@ prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}, _WaitFor) ->
 		{loaded, ok} ->
                     %% Tables are created by mnesia_loader get_network code
                     insert_cstruct(Tid, Cs, true),
+                    mnesia_controller:i_have_tab(Tab, Cs),
 		    {true, optional};
 		{not_loaded, ErrReason} ->
 		    Reason = {system_limit, Tab, {Node, ErrReason}},
