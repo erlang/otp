@@ -114,6 +114,8 @@
 #define ESAIO_ERR_THREAD_OPTS_CREATE 0x0006
 #define ESAIO_ERR_THREAD_CREATE      0x0007
 
+#define ERRNO_BLOCK                  WSAEWOULDBLOCK
+
 
 /* ======================================================================== *
  *                               Socket wrappers                            *
@@ -123,6 +125,8 @@
 #define sock_close(s)                   closesocket((s))
 #define sock_errno()                    WSAGetLastError()
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
+#define sock_open_O(domain, type, proto) \
+    WSASocket((domain), (type), (proto), NULL, 0, WSA_FLAG_OVERLAPPED)
 
 
 /* =================================================================== *
@@ -231,6 +235,11 @@ static BOOLEAN_T esaio_completion_unknown(ESAIOThreadData* dataP,
                                           int              error);
 static void esaio_completion_inc(ESAIOThreadData* dataP);
 
+static int esaio_add_socket(ESockDescriptor* descP);
+
+static BOOLEAN_T do_stop(ErlNifEnv*       env,
+                         ESockDescriptor* descP);
+
 
 /* =================================================================== *
  *                                                                     *
@@ -252,6 +261,12 @@ static ESAIOControl ctrl = {0};
 #define SGDBG( proto )            ESOCK_DBG_PRINTF( ctrl.dbg , proto )
 
 /* These are just wrapper macros for the I/O Completion Port */
+#define ESAIO_IOCP_CREATE(NT)                           \
+    CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, (u_long) 0, (NT))
+#define ESAIO_IOCP_ADD(SOCK, DP)                                \
+    CreateIoCompletionPort((SOCK), ctrl.cport, (ULONG*) (DP), 0)
+
+/* These are just wrapper macros for the I/O Completion Port queue */
 #define ESAIO_IOCQ_POP(NB, DP, OLP)                                     \
     GetQueuedCompletionStatus(ctrl.cport, (DP), (DP), (OLP), INFINITE)
 #define ESAIO_IOCQ_PUSH(OP)                                             \
@@ -264,7 +279,9 @@ static ESAIOControl ctrl = {0};
  *                                                                     *
  * =================================================================== */
 
-/* This function is called during (esock) nif loading
+
+/* *******************************************************************
+ * This function is called during (esock) nif loading
  * The only argument that we actually *need* is the 'numThreads'.
  * 'dataP' is just for convenience (dbg and stuff).
  */
@@ -278,10 +295,10 @@ int esaio_init(unsigned int     numThreads,
     GUID         guidAcceptEx  = WSAID_ACCEPTEX;
     GUID         guidConnectEx = WSAID_CONNECTEX;
 
-    ctrl.dbg        = TRUE; // dataP->dbg;
+    ctrl.dbg        = dataP->dbg;
     ctrl.sockDbg    = dataP->sockDbg;
 
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> entry\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_init -> entry\r\n") );
 
     /* We should actually check the value of 'numThreads'
      * Since if its zero (the default), we should instead
@@ -292,7 +309,7 @@ int esaio_init(unsigned int     numThreads,
     ctrl.numThreads = (DWORD) numThreads;
 
     // Initialize Winsock
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> try initialize winsock\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_init -> try initialize winsock\r\n") );
     ires = WSAStartup(MAKEWORD(2, 2), &ctrl.wsaData);
     if (ires != NO_ERROR) {
         save_errno = sock_errno();
@@ -306,7 +323,7 @@ int esaio_init(unsigned int     numThreads,
     }    
 
     // Create a handle for the completion port
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> try create I/O completion port\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_init -> try create I/O completion port\r\n") );
     ctrl.cport = CreateIoCompletionPort(INVALID_HANDLE_VALUE,
                                         NULL, (u_long) 0, ctrl.numThreads);
     if (ctrl.cport == NULL) {
@@ -325,7 +342,7 @@ int esaio_init(unsigned int     numThreads,
     /* Create the "dummy" socket and then
      * extract the AcceptEx and ConnectEx functions.
      */
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> try create 'dummy' socket\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_init -> try create 'dummy' socket\r\n") );
     ctrl.dummy = sock_open(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (ctrl.dummy == INVALID_SOCKET) {
         save_errno = sock_errno();
@@ -349,7 +366,7 @@ int esaio_init(unsigned int     numThreads,
      * This is used so that we can call the AcceptEx function directly,
      * rather than refer to the Mswsock.lib library.
      */
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> try extract 'accept' function\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_init -> try extract 'accept' function\r\n") );
     ires = WSAIoctl(ctrl.dummy, SIO_GET_EXTENSION_FUNCTION_POINTER,
                     &guidAcceptEx, sizeof (guidAcceptEx), 
                     &ctrl.accept, sizeof (ctrl.accept), 
@@ -372,7 +389,7 @@ int esaio_init(unsigned int     numThreads,
 
 
     /* Basically the same as for AcceptEx above */
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> try extract 'connect' function\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_init -> try extract 'connect' function\r\n") );
     ires = WSAIoctl(ctrl.dummy, SIO_GET_EXTENSION_FUNCTION_POINTER,
                     &guidConnectEx, sizeof (guidConnectEx), 
                     &ctrl.connect, sizeof (ctrl.connect), 
@@ -397,11 +414,11 @@ int esaio_init(unsigned int     numThreads,
     /*
      * Create the completion port thread pool.
      */
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> try alloc thread pool memory\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_init -> try alloc thread pool memory\r\n") );
     ctrl.threads = MALLOC(numThreads * sizeof(ESAIOThread));
     ESOCK_ASSERT( ctrl.threads != NULL );
 
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> basic init of thread data\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_init -> basic init of thread data\r\n") );
     for (i = 0; i < numThreads; i++) {
         ctrl.threads[i].data.id    = i;
         ctrl.threads[i].data.state = ESAIO_THREAD_STATE_UNDEF;
@@ -410,7 +427,7 @@ int esaio_init(unsigned int     numThreads,
         ctrl.threads[i].data.cnt   = 0;
     }
 
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> try create thread(s)\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_init -> try create thread(s)\r\n") );
     for (i = 0; i < numThreads; i++) {
         char buf[64]; /* Buffer used for building the names */
         int  j;
@@ -421,7 +438,7 @@ int esaio_init(unsigned int     numThreads,
         ctrl.threads[i].data.state = ESAIO_THREAD_STATE_INITIATING;
         ctrl.threads[i].data.error = ESAIO_THREAD_ERROR_OK;
 
-        SGDBG( ("UNIX-ESAIO",
+        SGDBG( ("WIN-ESAIO",
                 "esaio_init -> try create %d thread opts\r\n", i) );
         sprintf(buf, "esaio-opts[%d]", i);
         ctrl.threads[i].optsP      = TOCREATE(buf);
@@ -431,14 +448,14 @@ int esaio_init(unsigned int     numThreads,
             ctrl.threads[i].data.error = ESAIO_THREAD_ERROR_TOCREATE;
 
             for (j = 0; j < i; j++) {
-                SGDBG( ("UNIX-ESAIO",
+                SGDBG( ("WIN-ESAIO",
                         "esaio_init -> destroy thread opts %d\r\n", j) );
                 TODESTROY(ctrl.threads[j].optsP);
             }
             return ESAIO_ERR_THREAD_OPTS_CREATE;
         }
 
-        SGDBG( ("UNIX-ESAIO",
+        SGDBG( ("WIN-ESAIO",
                 "esaio_init -> try create thread %d\r\n", i) );
         sprintf(buf, "esaio[%d]", i);
         if (0 != TCREATE(buf, 
@@ -450,7 +467,7 @@ int esaio_init(unsigned int     numThreads,
             ctrl.threads[i].data.error = ESAIO_THREAD_ERROR_TCREATE;
 
             for (j = 0; j <= i; j++) {
-                SGDBG( ("UNIX-ESAIO",
+                SGDBG( ("WIN-ESAIO",
                         "esaio_init -> destroy thread opts %d\r\n", j) );
                 TODESTROY(ctrl.threads[j].optsP);
             }
@@ -460,14 +477,17 @@ int esaio_init(unsigned int     numThreads,
     }
 
 
-    SGDBG( ("UNIX-ESAIO", "esaio_init -> done\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_init -> done\r\n") );
 
     return ESAIO_OK;
 }
 
 
 
-/* Issue a "message" via PostQueuedCompletionStatus
+/* *******************************************************************
+ * Finish, terminate, the ESock Async I/O backend.
+ * This means principally to terminate (threads of) the thread pool.
+ * Issue a "message" via PostQueuedCompletionStatus
  * instructing all (completion) threads to terminate.
  */
 extern
@@ -475,22 +495,22 @@ void esaio_finish()
 {
     int t, lastThread;
 
-    SGDBG( ("UNIX-ESAIO", "esaio_finish -> entry\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_finish -> entry\r\n") );
 
     if (ctrl.dummy != INVALID_SOCKET) {
-        SGDBG( ("UNIX-ESAIO", "esaio_finish -> close 'dummy' socket\r\n") );
+        SGDBG( ("WIN-ESAIO", "esaio_finish -> close 'dummy' socket\r\n") );
         (void) sock_close(ctrl.dummy);
         ctrl.dummy = INVALID_SOCKET;
     }
 
-    SGDBG( ("UNIX-ESAIO",
+    SGDBG( ("WIN-ESAIO",
             "esaio_finish -> try terminate %d worker threads\r\n",
             ctrl.numThreads) );
     for (t = 0, lastThread = -1, lastThread; t < ctrl.numThreads; t++) {
         ESAIOOperation* opP;
         BOOL            qres;
 
-        SGDBG( ("UNIX-ESAIO",
+        SGDBG( ("WIN-ESAIO",
                 "esaio_finish -> "
                 "[%d] try allocate (terminate-) operation\r\n", t) );
 
@@ -518,7 +538,7 @@ void esaio_finish()
 
             opP->tag = ESAIO_OP_TERMINATE;
 
-            SGDBG( ("UNIX-ESAIO",
+            SGDBG( ("WIN-ESAIO",
                     "esaio_finish -> "
                     "try post (terminate-) package %d\r\n", t) );
 
@@ -537,7 +557,7 @@ void esaio_finish()
 
         } else {
 
-            SGDBG( ("UNIX-ESAIO",
+            SGDBG( ("WIN-ESAIO",
                     "esaio_finish -> "
                     "failed allocate (terminate-) operation %d\r\n", t) );
 
@@ -545,16 +565,16 @@ void esaio_finish()
     }
 
     if (lastThread >= 0) {
-        SGDBG( ("UNIX-ESAIO",
+        SGDBG( ("WIN-ESAIO",
                 "esaio_finish -> await (worker) thread(s) termination\r\n") );
         for (t = 0; t < (lastThread+1); t++) {
 
-            SGDBG( ("UNIX-ESAIO",
+            SGDBG( ("WIN-ESAIO",
                     "esaio_finish -> try join with thread %d\r\n", t) );
 
             (void) TJOIN(ctrl.threads[t].tid, NULL);
 
-            SGDBG( ("UNIX-ESAIO", "esaio_finish -> joined with %d\r\n", t) );
+            SGDBG( ("WIN-ESAIO", "esaio_finish -> joined with %d\r\n", t) );
 
         }
     }
@@ -563,17 +583,434 @@ void esaio_finish()
      * since this function, esaio_finish, is called when the VM is halt'ing...
      * ...but just to be a nice citizen...
      */
-    SGDBG( ("UNIX-ESAIO", "esaio_finish -> free the thread pool data\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_finish -> free the thread pool data\r\n") );
     FREE( ctrl.threads );
 
-    SGDBG( ("UNIX-ESAIO", "esaio_finish -> invalidate functions\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_finish -> invalidate functions\r\n") );
     ctrl.accept  = NULL;
     ctrl.connect = NULL;
     
-    SGDBG( ("UNIX-ESAIO", "esaio_finish -> done\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_finish -> done\r\n") );
 
     return;
 }
+
+
+
+/* *******************************************************************
+ * esaio_open_plain - create an endpoint (from an existing fd) for
+ *                    communication.
+ *
+ * Create an *overlapped* socket, then add it to the I/O
+ * completion port.
+ */
+
+extern
+ERL_NIF_TERM esaio_open_plain(ErlNifEnv*       env,
+                              int              domain,
+                              int              type,
+                              int              protocol,
+                              ERL_NIF_TERM     eopts,
+                              const ESockData* dataP)
+{
+    /* We do not actually need the dataP since we already have the dbg... */
+    BOOLEAN_T        dbg    = esock_open_is_debug(env, eopts, dataP->sockDbg);
+    BOOLEAN_T        useReg = esock_open_use_registry(env, eopts, dataP->useReg);
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     sockRef;
+    int              proto   = protocol;
+    DWORD            dwFlags = WSA_FLAG_OVERLAPPED;
+    SOCKET           sock    = INVALID_SOCKET;
+    ErlNifPid        self;
+    int              res, save_errno;
+
+    /* Keep track of the creator
+     * This should not be a problem, but just in case
+     * the *open* function is used with the wrong kind
+     * of environment...
+     */
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    SSDBG2( dbg,
+            ("WIN-ESAIO", "esaio_open_plain -> entry with"
+             "\r\n   domain:   %d"
+             "\r\n   type:     %d"
+             "\r\n   protocol: %d"
+             "\r\n   eopts:    %T"
+             "\r\n", domain, type, protocol, eopts) );
+
+    sock = sock_open_O(domain, type, proto);
+
+    if (sock == INVALID_SOCKET) {
+        save_errno = sock_errno();
+        return esock_make_error_errno(env, save_errno);
+    }
+
+    SSDBG2( dbg, ("WIN-ESAIO",
+                  "esaio_open_plain -> open success: %d\r\n", sock) );
+
+    /* NOTE that if the protocol = 0 (default) and the domain is not
+     * local (AF_LOCAL) we need to explicitly get the protocol here!
+     */
+    
+    if (proto == 0)
+        (void) esock_open_which_protocol(sock, &proto);
+
+    /* Create and initiate the socket "descriptor" */
+    descP           = esock_alloc_descriptor(sock);
+    descP->ctrlPid  = self;
+    descP->domain   = domain;
+    descP->type     = type;
+    descP->protocol = proto;
+
+    SSDBG2( dbg, ("WIN-ESAIO",
+                  "esaio_open_plain -> add to completion port\r\n") );
+
+    if (ESAIO_OK != (save_errno = esaio_add_socket(descP))) {
+        // See esock_dtor for what needs done!
+        esock_dealloc_descriptor(env, descP);
+        return esock_make_error_errno(env, save_errno);
+    }
+
+    SSDBG2( dbg, ("WIN-ESAIO",
+                  "esaio_open_plain -> create socket ref\r\n") );
+
+    sockRef = enif_make_resource(env, descP);
+    enif_release_resource(descP);
+
+    SSDBG2( dbg, ("WIN-ESAIO",
+                  "esaio_open_plain -> monitor owner %T\r\n", descP->ctrlPid) );
+
+    ESOCK_ASSERT( MONP("esaio_open -> ctrl",
+                       env, descP,
+                       &descP->ctrlPid,
+                       &descP->ctrlMon) == 0 );
+
+    descP->dbg    = dbg;
+    descP->useReg = useReg;
+    esock_inc_socket(domain, type, proto);
+
+    SSDBG2( dbg, ("WIN-ESAIO",
+                  "esaio_open_plain -> maybe update registry\r\n") );
+
+    /* And finally (maybe) update the registry */
+    if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
+
+    SSDBG2( dbg, ("WIN-ESAIO",
+                  "esaio_open_plain -> done\r\n") );
+
+    return esock_make_ok2(env, sockRef);
+}
+
+
+
+/* *******************************************************************
+ * Clsoe a socket
+ */
+
+extern
+ERL_NIF_TERM esaio_close(ErlNifEnv*       env,
+                         ESockDescriptor* descP)
+{
+    if (! IS_OPEN(descP->readState)) {
+        /* A bit of cheeting; maybe not closed yet - do we need a queue? */
+        return esock_make_error_closed(env);
+    }
+
+    /* Store the PID of the caller,
+     * since we need to inform it when we
+     * (that is, the stop callback function)
+     * completes.
+     */
+    ESOCK_ASSERT( enif_self(env, &descP->closerPid) != NULL );
+
+    /* If the caller is not the owner; monitor the caller,
+     * since we should complete this operation even if the caller dies
+     * (for whatever reason).
+     */
+    if (COMPARE_PIDS(&descP->closerPid, &descP->ctrlPid) != 0) {
+
+        ESOCK_ASSERT( MONP("esaio_close-check -> closer",
+                           env, descP,
+                           &descP->closerPid,
+                           &descP->closerMon) == 0 );
+    }
+
+    /* Prepare for closing the socket */
+    descP->readState  |= ESOCK_STATE_CLOSING;
+    descP->writeState |= ESOCK_STATE_CLOSING;
+    if (do_stop(env, descP)) {
+        // stop() has been scheduled - wait for it
+        SSDBG( descP,
+               ("WIN-ESAIO", "esaio_close {%d} -> stop was scheduled\r\n",
+                descP->sock) );
+
+        // Create closeRef for the close msg that esock_stop() will send
+        descP->closeEnv = esock_alloc_env("esock_close_do - close-env");
+        descP->closeRef = MKREF(descP->closeEnv);
+
+        return esock_make_ok2(env, CP_TERM(env, descP->closeRef));
+    } else {
+        // The socket may be closed - tell caller to finalize
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_close {%d} -> stop was called\r\n",
+                descP->sock) );
+
+        return esock_atom_ok;
+    }
+}
+
+
+
+static
+BOOLEAN_T do_stop(ErlNifEnv*       env,
+                  ESockDescriptor* descP)
+{
+    BOOLEAN_T    ret;
+    ERL_NIF_TERM sockRef;
+
+    sockRef = enif_make_resource(env, descP);
+
+    if (IS_SELECTED(descP)) {
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "do_stop {%d} -> cancel outstanding I/O operations\r\n",
+                descP->sock) );
+        if (! CancelIoEx((HANDLE) descP->sock, NULL) ) {
+            int save_errno = sock_errno();
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "do_stop {%d} -> cancel failed: %s (%d)\r\n",
+                    descP->sock, erl_errno_id(save_errno), save_errno) );
+
+            /* <CHECK>
+             * We may need to check what kind of error
+             * before we issue this message.
+             * </CHECK>
+             */
+
+            if (save_errno != ERROR_NOT_FOUND)
+                esock_error_msg("Failed cancel outstanding I/O operations:"
+                                "\r\n   Socket: " SOCKET_FORMAT_STR
+                                "\r\n   Reason: %s (%d)"
+                                "\r\n",
+                                descP->sock,
+                                erl_errno_id(save_errno), save_errno);
+            
+            ret = FALSE;
+
+        }
+
+    } else {
+
+        ret = FALSE;
+    }
+
+    /* +++++++ Current and waiting Writers +++++++ */
+
+    if (descP->currentWriterP != NULL) {
+
+        /* We have a current Writer;
+         *
+         * The current Writer will not get a select message
+         * - send it an abort message
+         */
+
+        esock_stop_handle_current(env,
+                                  "writer",
+                                  descP, sockRef, &descP->currentWriter);
+
+        /* Inform the waiting Writers (in the same way) */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_do_stop {%d} -> handle waiting writer(s)\r\n",
+                descP->sock) );
+
+        esock_inform_waiting_procs(env, "writer",
+                                   descP, sockRef, &descP->writersQ,
+                                   esock_atom_closed);
+
+        descP->currentWriterP = NULL;
+    }
+
+    /* +++++++ Connector +++++++
+     * Note that there should not be Writers and a Connector
+     * at the same time so the check for if the
+     * current Writer/Connecter was deselected is only correct
+     * under that assumption
+     */
+
+    if (descP->connectorP != NULL) {
+
+        /* We have a Connector;
+         *
+         * The Connector will not get a select message
+         * - send it an abort message
+         */
+
+        esock_stop_handle_current(env,
+                                  "connector",
+                                  descP, sockRef, &descP->connector);
+
+        descP->connectorP = NULL;
+    }
+
+    /* +++++++ Current and waiting Readers +++++++ */
+
+    if (descP->currentReaderP != NULL) {
+
+        /* We have a current Reader; was it deselected?
+         *
+         * The current Reader will not get a select message
+         * - send it an abort message
+         */
+
+        esock_stop_handle_current(env,
+                                  "reader",
+                                  descP, sockRef, &descP->currentReader);
+
+        /* Inform the Readers (in the same way) */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_do_stop {%d} -> handle waiting reader(s)\r\n",
+                descP->sock) );
+
+        esock_inform_waiting_procs(env, "writer",
+                                   descP, sockRef, &descP->readersQ,
+                                   esock_atom_closed);
+
+        descP->currentReaderP = NULL;
+    }
+
+    /* +++++++ Current and waiting Acceptors +++++++
+     *
+     * Note that there should not be Readers and Acceptors
+     * at the same time so the check for if the
+     * current Reader/Acceptor was deselected is only correct
+     * under that assumption
+     */
+
+    if (descP->currentAcceptorP != NULL) {
+
+        /* We have a current Acceptor;
+         *
+         * The current Acceptor will not get a select message
+         * - send it an abort message
+         */
+
+        esock_stop_handle_current(env,
+                                  "acceptor",
+                                  descP, sockRef, &descP->currentAcceptor);
+
+        /* Inform the waiting Acceptor (in the same way) */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "esock_do_stop {%d} -> handle waiting acceptors(s)\r\n",
+                descP->sock) );
+
+        esock_inform_waiting_procs(env, "acceptor",
+                                   descP, sockRef, &descP->acceptorsQ,
+                                   esock_atom_closed);
+
+        descP->currentAcceptorP = NULL;
+    }
+
+    return ret;
+}
+
+
+
+/* ========================================================================
+ * Perform the final step in the socket close.
+ */
+extern
+ERL_NIF_TERM esaio_fin_close(ErlNifEnv*       env,
+                             ESockDescriptor* descP)
+{
+    int       err;
+    ErlNifPid self;
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    if (IS_CLOSED(descP->readState))
+        return esock_make_error_closed(env);
+
+    if (! IS_CLOSING(descP->readState)) {
+        // esock_close() has not been called
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+    if (IS_SELECTED(descP) && (descP->closeEnv != NULL)) {
+        // esock_stop() is scheduled but has not been called
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+    if (COMPARE_PIDS(&descP->closerPid, &self) != 0) {
+        // This process is not the closer
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+    // Close the socket
+
+    /* Stop monitoring the closer.
+     * Demonitoring may fail since this is a dirty NIF
+     * - the caller may have died already.
+     */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_fin_close {%d} -> demonitor closer process %T\r\n",
+            descP->sock, descP->closerPid) );
+    enif_set_pid_undefined(&descP->closerPid);
+    if (descP->closerMon.isActive) {
+        (void) DEMONP("esaio_fin_close -> closer",
+                      env, descP, &descP->closerMon);
+    }
+
+    /* Stop monitoring the owner */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_fin_close {%d} -> demonitor owner process %T\r\n",
+            descP->sock, descP->ctrlPid) );
+    enif_set_pid_undefined(&descP->ctrlPid);
+    (void) DEMONP("esaio_fin_close -> ctrl",
+                  env, descP, &descP->ctrlMon);
+    /* Not impossible to still get a esock_down() call from a
+     * just triggered owner monitor down
+     */
+
+    /* This nif-function is executed in a dirty scheduler just so
+     * that it can "hang" (with minimum effect on the VM) while the
+     * kernel writes our buffers. IF we have set the linger option
+     * for this ({true, integer() > 0}).
+     */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_fin_close {%d} -> (try) close the socket\r\n",
+            descP->sock, descP->ctrlPid) );
+    err = esock_close_socket(env, descP, TRUE);
+
+    if (err != 0) {
+        if (err == ERRNO_BLOCK) {
+            /* Not all data in the buffers where sent,
+             * make sure the caller gets this.
+             */
+            return esock_make_error(env, esock_atom_timeout);
+        } else {
+            return esock_make_error_errno(env, err);
+        }
+    }
+
+    SSDBG( descP, ("WIN-ESAIO", "esaio_fin_close -> done\r\n") );
+
+    return esock_atom_ok;
+}
+
 
 
 /* ====================================================================
@@ -597,7 +1034,7 @@ void* esaio_completion_main(void* threadDataP)
     DWORD            numBytes, flags = 0;
     int              save_errno;
  
-    SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> entry\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_completion_main -> entry\r\n") );
 
     dataP->state = ESAIO_THREAD_STATE_INITIATING;
 
@@ -606,7 +1043,7 @@ void* esaio_completion_main(void* threadDataP)
 
     dataP->state = ESAIO_THREAD_STATE_OPERATIONAL;
 
-    SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> initiated\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_completion_main -> initiated\r\n") );
 
     while (!done) {
         /*
@@ -631,7 +1068,7 @@ void* esaio_completion_main(void* threadDataP)
          *
          */
 
-        SGDBG( ("UNIX-ESAIO",
+        SGDBG( ("WIN-ESAIO",
                 "esaio_completion_main -> [%d] try dequeue packet\r\n",
                 dataP->cnt) );
 
@@ -649,7 +1086,7 @@ void* esaio_completion_main(void* threadDataP)
                  * What shall we do here? Quit? Try again?
                  */
                    
-                SGDBG( ("UNIX-ESAIO",
+                SGDBG( ("WIN-ESAIO",
                         "esaio_completion_main -> [failure 1]\r\n") );
 
                 dataP->state = ESAIO_THREAD_STATE_TERMINATING;
@@ -666,7 +1103,7 @@ void* esaio_completion_main(void* threadDataP)
 
                 save_errno = WSAGetLastError(); // Details
 
-                SGDBG( ("UNIX-ESAIO",
+                SGDBG( ("WIN-ESAIO",
                         "esaio_completion_main -> [failure 2] "
                         "\r\n   %s (%d)"
                         "\r\n",
@@ -680,7 +1117,7 @@ void* esaio_completion_main(void* threadDataP)
             opP = CONTAINING_RECORD(olP, ESAIOOperation, ol);
             esaio_completion_inc(dataP);
 
-            SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> success\r\n") );
+            SGDBG( ("WIN-ESAIO", "esaio_completion_main -> success\r\n") );
 
         } /* if (!res) */
 
@@ -688,13 +1125,13 @@ void* esaio_completion_main(void* threadDataP)
 
         switch (opP->tag) {
         case ESAIO_OP_TERMINATE:
-            SGDBG( ("UNIX-ESAIO",
+            SGDBG( ("WIN-ESAIO",
                     "esaio_completion_main -> received terminate cmd\r\n") );
             done = esaio_completion_terminate(dataP, opP);
             break;
 
         default:
-            SGDBG( ("UNIX-ESAIO",
+            SGDBG( ("WIN-ESAIO",
                     "esaio_completion_main -> received unknown cmd: "
                     "\r\n   %d"
                     "\r\n",
@@ -709,15 +1146,15 @@ void* esaio_completion_main(void* threadDataP)
 
     } /* while (!done) */
 
-    SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> terminating\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_completion_main -> terminating\r\n") );
 
-    TEXIT(threadDataP); // What to do here?
+    TEXIT(threadDataP);
 
-    SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> terminated\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_completion_main -> terminated\r\n") );
 
     dataP->state = ESAIO_THREAD_STATE_TERMINATED;
 
-    SGDBG( ("UNIX-ESAIO", "esaio_completion_main -> done\r\n") );
+    SGDBG( ("WIN-ESAIO", "esaio_completion_main -> done\r\n") );
 
     return threadDataP;
 }
@@ -762,3 +1199,27 @@ void esaio_completion_inc(ESAIOThreadData* dataP)
     }
 }
 
+
+
+/* ==================================================================== *
+ *                                                                      *
+ *                          Utility functions                           *
+ *                                                                      *
+ * ==================================================================== *
+ */
+
+static
+int esaio_add_socket(ESockDescriptor* descP)
+{
+    int    res;
+    HANDLE tmp = CreateIoCompletionPort((HANDLE) descP->sock, ctrl.cport,
+                                        (ULONG_PTR) descP, 0);
+
+    if (tmp != NULL) {
+        res = ESAIO_OK;
+    } else {
+        res = sock_errno();
+    }
+
+    return res;
+}

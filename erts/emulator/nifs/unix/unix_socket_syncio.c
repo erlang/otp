@@ -85,21 +85,29 @@
 #define sock_shutdown(s, how)           shutdown((s), (how))
 
 
+/* =================================================================== *
+ *                                                                     *
+ *                            Local types                              *
+ *                                                                     *
+ * =================================================================== */
+
+typedef struct {
+    /* Misc stuff */
+    BOOLEAN_T      dbg;
+    BOOLEAN_T      sockDbg;
+
+} ESSIOControl;
+
+
+
 /* ======================================================================== *
  *                          Function Forwards                               *
  * ======================================================================== *
  */
-static BOOLEAN_T open_is_debug(ErlNifEnv*   env,
-                               ERL_NIF_TERM eopts,
-                               BOOLEAN_T    def);
-static BOOLEAN_T open_use_registry(ErlNifEnv*   env,
-                                   ERL_NIF_TERM eopts,
-                                   BOOLEAN_T    def);
 static BOOLEAN_T open_todup(ErlNifEnv*   env,
                             ERL_NIF_TERM eopts);
 static BOOLEAN_T open_which_domain(SOCKET sock,   int* domain);
 static BOOLEAN_T open_which_type(SOCKET sock,     int* type);
-static BOOLEAN_T open_which_protocol(SOCKET sock, int* proto);
 static BOOLEAN_T open_get_domain(ErlNifEnv*   env,
                                  ERL_NIF_TERM eopts,
                                  int*         domain);
@@ -366,6 +374,16 @@ static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
                                       ERL_NIF_TERM     sockRef);
 
 
+/* =================================================================== *
+ *                                                                     *
+ *                      Local (global) variables                       *
+ *                                                                     *
+ * =================================================================== */
+
+static ESSIOControl ctrl = {0};
+
+
+
 /* ======================================================================== *
  *                              ESSIO Functions                             *
  * ======================================================================== *
@@ -380,7 +398,9 @@ int essio_init(unsigned int     numThreads,
                const ESockData* dataP)
 {
     VOID(numThreads);
-    VOIDP(dataP);
+
+    ctrl.dbg        = dataP->dbg;
+    ctrl.sockDbg    = dataP->sockDbg;
 
     return ESOCK_IO_OK;
 }
@@ -412,15 +432,14 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
                                 ERL_NIF_TERM     eopts,
                                 const ESockData* dataP)
 {
-    BOOLEAN_T        dbg    = open_is_debug(env, eopts, dataP->sockDbg);
-    BOOLEAN_T        useReg = open_use_registry(env, eopts, dataP->useReg);
+    BOOLEAN_T        dbg    = esock_open_is_debug(env, eopts, dataP->sockDbg);
+    BOOLEAN_T        useReg = esock_open_use_registry(env, eopts, dataP->useReg);
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef;
     int              domain, type, protocol;
     int              save_errno = 0;
     BOOLEAN_T        closeOnClose;
     SOCKET           sock;
-    ErlNifEvent      event;
     ErlNifPid        self;
 
     /* Keep track of the creator
@@ -466,7 +485,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
             return esock_make_invalid(env, esock_atom_type);
     }
 
-    if (! open_which_protocol(fd, &protocol)) {
+    if (! esock_open_which_protocol(fd, &protocol)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
                  "essio_open2 -> failed get protocol from system\r\n") );
@@ -508,12 +527,11 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
         closeOnClose = FALSE;
     }
 
-    event = sock;
 
     SET_NONBLOCKING(sock);
 
     /* Create and initiate the socket "descriptor" */
-    descP               = esock_alloc_descriptor(sock, event);
+    descP               = esock_alloc_descriptor(sock);
     descP->ctrlPid      = self;
     descP->domain       = domain;
     descP->type         = type;
@@ -558,23 +576,6 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
             ("UNIX-ESSIO", "essio_open2 -> done: %T\r\n", sockRef) );
 
     return esock_make_ok2(env, sockRef);
-}
-
-
-static
-BOOLEAN_T open_is_debug(ErlNifEnv*   env,
-                        ERL_NIF_TERM eopts,
-                        BOOLEAN_T    def)
-{
-    return esock_get_bool_from_map(env, eopts, esock_atom_debug, def);
-}
-
-static
-BOOLEAN_T open_use_registry(ErlNifEnv*   env,
-                            ERL_NIF_TERM eopts,
-                            BOOLEAN_T    def)
-{
-    return esock_get_bool_from_map(env, eopts, esock_atom_use_registry, def);
 }
 
 
@@ -635,16 +636,6 @@ BOOLEAN_T open_get_type(ErlNifEnv*   env,
     return TRUE;
 }
 
-static
-BOOLEAN_T open_which_protocol(SOCKET sock, int* proto)
-{
-#if defined(SO_PROTOCOL)
-    if (esock_getopt_int(sock, SOL_SOCKET, SO_PROTOCOL, proto))
-        return TRUE;
-#endif
-    return FALSE;
-}
-
 /* The eopts contains an integer 'type' key.
  */
 static
@@ -676,8 +667,8 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
                               ERL_NIF_TERM     eopts,
                               const ESockData* dataP)
 {
-    BOOLEAN_T        dbg    = open_is_debug(env, eopts, dataP->sockDbg);
-    BOOLEAN_T        useReg = open_use_registry(env, eopts, dataP->useReg);
+    BOOLEAN_T        dbg    = esock_open_is_debug(env, eopts, dataP->sockDbg);
+    BOOLEAN_T        useReg = esock_open_use_registry(env, eopts, dataP->useReg);
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef;
     int              proto = protocol;
@@ -737,7 +728,7 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
      */
     
     if (proto == 0)
-        (void) open_which_protocol(sock, &proto);
+        (void) esock_open_which_protocol(sock, &proto);
 
 #ifdef HAVE_SETNS
     if (netns != NULL) {
@@ -752,7 +743,7 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
 
 
     /* Create and initiate the socket "descriptor" */
-    descP           = esock_alloc_descriptor(sock, sock);
+    descP           = esock_alloc_descriptor(sock);
     descP->ctrlPid  = self;
     descP->domain   = domain;
     descP->type     = type;
@@ -768,7 +759,7 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
 
     descP->dbg    = dbg;
     descP->useReg = useReg;
-    esock_inc_socket(domain, type, protocol);
+    esock_inc_socket(domain, type, proto);
 
     /* And finally (maybe) update the registry */
     if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
@@ -1538,7 +1529,7 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_acc_success, &descP->accSuccess, 1);
 
-    accDescP           = esock_alloc_descriptor(accSock, accSock);
+    accDescP           = esock_alloc_descriptor(accSock);
     accDescP->domain   = descP->domain;
     accDescP->type     = descP->type;
     accDescP->protocol = descP->protocol;
@@ -2787,6 +2778,7 @@ ERL_NIF_TERM essio_close(ErlNifEnv*       env,
         return esock_atom_ok;
     }
 }
+
 
 
 /* ========================================================================

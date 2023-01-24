@@ -41,6 +41,7 @@
 #if defined(__WIN32__)
 
 #define INVALID_EVENT NULL
+#define SOCKET_FORMAT_STR "%lld"
 
 #else
 
@@ -49,6 +50,7 @@ typedef int HANDLE;
 #define INVALID_SOCKET (-1)
 typedef int SOCKET; /* A subset of HANDLE */
 #define INVALID_EVENT INVALID_HANDLE
+#define SOCKET_FORMAT_STR "%d"
 
 #endif
 
@@ -478,7 +480,6 @@ typedef struct {
     ESockMonitor       ctrlMon;
     /* +++ The actual socket +++ */
     SOCKET             sock;
-    ErlNifEvent        event;
     SOCKET             origFD; // A 'socket' created from this FD
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
     /* +++ The dbg flag for SSDBG +++ */
@@ -504,7 +505,17 @@ extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
  * ======================================================================== *
  */
 
-extern ESockDescriptor* esock_alloc_descriptor(SOCKET sock, ErlNifEvent event);
+extern ESockDescriptor* esock_alloc_descriptor(SOCKET sock);
+extern void esock_dealloc_descriptor(ErlNifEnv*       env,
+                                     ESockDescriptor* descP);
+
+extern BOOLEAN_T esock_open_is_debug(ErlNifEnv*   env,
+                                     ERL_NIF_TERM eopts,
+                                     BOOLEAN_T    def);
+extern BOOLEAN_T esock_open_use_registry(ErlNifEnv*   env,
+                                         ERL_NIF_TERM eopts,
+                                         BOOLEAN_T    def);
+extern BOOLEAN_T esock_open_which_protocol(SOCKET sock, int* proto);
 
 extern BOOLEAN_T esock_getopt_int(SOCKET sock,
                                   int    level,
@@ -513,14 +524,12 @@ extern BOOLEAN_T esock_getopt_int(SOCKET sock,
 
 
 /* ** Socket Registry functions *** */
-#ifndef __WIN32__
 extern void esock_send_reg_add_msg(ErlNifEnv*   env,
                                    ESockDescriptor* descP,
                                    ERL_NIF_TERM sockRef);
 extern void esock_send_reg_del_msg(ErlNifEnv*   env,
                                    ESockDescriptor* descP,
                                    ERL_NIF_TERM sockRef);
-#endif // #ifndef __WIN32__
 
 
 /* *** Message sending functions *** */
@@ -697,6 +706,18 @@ extern void esock_encode_msg_flags(ErlNifEnv*       env,
 #endif
 
 
+extern void esock_stop_handle_current(ErlNifEnv*       env,
+                                      const char*      role,
+                                      ESockDescriptor* descP,
+                                      ERL_NIF_TERM     sockRef,
+                                      ESockRequestor*  reqP);
+extern void esock_inform_waiting_procs(ErlNifEnv*         env,
+                                       const char*        role,
+                                       ESockDescriptor*   descP,
+                                       ERL_NIF_TERM       sockRef,
+                                       ESockRequestQueue* q,
+                                       ERL_NIF_TERM       reason);
+
 /* *** Sendfile 'stuff' ***
  */
 #ifdef HAVE_SENDFILE
@@ -708,12 +729,12 @@ extern ESockSendfileCounters initESockSendfileCounters;
 
 /* *** 'close' functions ***
  */
-#ifndef __WIN32__
-extern BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
-                               ESockDescriptor* descP);
 extern int esock_close_socket(ErlNifEnv*       env,
                               ESockDescriptor* descP,
                               BOOLEAN_T        unlock);
+#ifndef __WIN32__
+extern BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
+                               ESockDescriptor* descP);
 #endif
 
 
