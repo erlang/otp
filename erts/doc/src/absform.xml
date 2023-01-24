@@ -412,6 +412,13 @@
           For Rep(Q), see below.</p>
       </item>
       <item>
+        <p>If E is a map comprehension <c>#{E_0 || Q_1, ..., Q_k}</c>,
+          where <c>E_0</c> is an association <c>K => V</c>
+          and each <c>Q_i</c> is a qualifier, then Rep(E) =
+          <c>{mc,ANNO,Rep(E_0),[Rep(Q_1), ..., Rep(Q_k)]}</c>.
+          For Rep(E_0) and Rep(Q), see below.</p>
+      </item>
+      <item>
         <p>If E is a map creation <c>#{A_1, ..., A_k}</c>,
           where each <c>A_i</c> is an association <c>E_i_1 => E_i_2</c>,
 	  then Rep(E) = <c>{map,ANNO,[Rep(A_1), ..., Rep(A_k)]}</c>.
@@ -564,7 +571,7 @@
             Rep(Q) = <c>Rep(E)</c>.</p>
         </item>
         <item>
-          <p>If Q is a generator <c>P &lt;- E</c>, where <c>P</c> is
+          <p>If Q is a list generator <c>P &lt;- E</c>, where <c>P</c> is
             a pattern and <c>E</c> is an expression, then Rep(Q) =
             <c>{generate,ANNO,Rep(P),Rep(E)}</c>.</p>
         </item>
@@ -572,6 +579,12 @@
           <p>If Q is a bitstring generator <c>P &lt;= E</c>, where <c>P</c> is
             a pattern and <c>E</c> is an expression, then Rep(Q) =
             <c>{b_generate,ANNO,Rep(P),Rep(E)}</c>.</p>
+        </item>
+        <item>
+          <p>If Q is a map generator <c>P &lt;- E</c>, where <c>P</c> is
+            an association pattern <c>P_1 := P_2</c> and <c>E</c> is an expression, then Rep(Q) =
+            <c>{m_generate,ANNO,Rep(P),Rep(E)}</c>.
+            For Rep(P), see below.</p>
         </item>
       </list>
     </section>
