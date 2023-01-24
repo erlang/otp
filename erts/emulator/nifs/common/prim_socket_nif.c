@@ -1129,35 +1129,6 @@ static ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv*   env,
 static ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv*   env,
                                                       ERL_NIF_TERM cdata);
 
-static ERL_NIF_TERM esock_global_info(ErlNifEnv* env);
-static ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
-                                      ESockDescriptor* descP);
-static ERL_NIF_TERM esock_socket_info_domain(ErlNifEnv*       env,
-                                             ESockDescriptor* descP);
-static ERL_NIF_TERM esock_socket_info_type(ErlNifEnv*       env,
-                                           ESockDescriptor* descP);
-static ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
-                                               ESockDescriptor* descP);
-static ERL_NIF_TERM esock_socket_info_ctype(ErlNifEnv*       env,
-                                            ESockDescriptor* descP);
-static ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
-					    unsigned int state);
-#define ESOCK_SOCKET_INFO_REQ_FUNCS              \
-    ESOCK_SOCKET_INFO_REQ_FUNC_DEF(readers);     \
-    ESOCK_SOCKET_INFO_REQ_FUNC_DEF(writers);     \
-    ESOCK_SOCKET_INFO_REQ_FUNC_DEF(acceptors);
-
-#define ESOCK_SOCKET_INFO_REQ_FUNC_DEF(F)                               \
-    static ERL_NIF_TERM esock_socket_info_##F(ErlNifEnv*         env,   \
-                                              ESockDescriptor*   descP);
-ESOCK_SOCKET_INFO_REQ_FUNCS
-#undef ESOCK_SOCKET_INFO_REQ_FUNC_DEF
-
-static ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
-                                     ESockDescriptor*   descP,
-                                     ESockRequestor*    currentRequestorP,
-                                     ESockRequestQueue* q);
-
 static ERL_NIF_TERM esock_supports_0(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key);
 
@@ -3128,6 +3099,36 @@ static int esock_select_cancel(ErlNifEnv*             env,
  * ---------------------------------------------------------------------- */
 #endif // #ifndef __WIN32__
 
+#define ESOCK_SOCKET_INFO_REQ_FUNCS             \
+    ESOCK_SOCKET_INFO_REQ_FUNC_DEF(readers);    \
+    ESOCK_SOCKET_INFO_REQ_FUNC_DEF(writers);    \
+    ESOCK_SOCKET_INFO_REQ_FUNC_DEF(acceptors);
+
+#define ESOCK_SOCKET_INFO_REQ_FUNC_DEF(F)                               \
+    static ERL_NIF_TERM esock_socket_info_##F(ErlNifEnv*         env,   \
+                                              ESockDescriptor*   descP);
+ESOCK_SOCKET_INFO_REQ_FUNCS
+#undef ESOCK_SOCKET_INFO_REQ_FUNC_DEF
+
+static ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
+                                     ESockDescriptor*   descP,
+                                     ESockRequestor*    currentRequestorP,
+                                     ESockRequestQueue* q);
+
+static ERL_NIF_TERM esock_global_info(ErlNifEnv* env);
+static ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
+                                      ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_domain(ErlNifEnv*       env,
+                                             ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_type(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_ctype(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
+					    unsigned int state);
+static ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
+
 static ERL_NIF_TERM mk_reg_msg(ErlNifEnv*   env,
                                ERL_NIF_TERM tag,
                                ERL_NIF_TERM sockRef);
@@ -3929,9 +3930,6 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ERL_NIF_TERM info;
     ESockDescriptor* descP;
 
@@ -3963,7 +3961,6 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return info;
-#endif
 }
 
 
@@ -3974,7 +3971,6 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
  * actually a counter, the num_cnt_bits. This is the "size" of each counter,
  * in number of bits: 16 | 24 | 32 | 48 | 64.
  */
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
 {
@@ -4051,7 +4047,6 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
         }
     }
 }
-#endif // #ifndef __WIN32__
 
 
 /*
@@ -4067,7 +4062,6 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
  *    writers:   The number of current and waiting writers
  *    acceptors: The number of current and waiting acceptors
  */
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                                ESockDescriptor* descP)
@@ -4124,13 +4118,11 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
         return info;
     }
 }
-#endif // #ifndef __WIN32__
 
 
 /*
  * Encode the socket domain
  */
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_socket_info_domain(ErlNifEnv*       env,
                                       ESockDescriptor* descP)
@@ -4141,13 +4133,11 @@ ERL_NIF_TERM esock_socket_info_domain(ErlNifEnv*       env,
     esock_encode_domain(env, domain, &edomain);
     return edomain;
 }
-#endif // #ifndef __WIN32__
 
 
 /*
  * Encode the socket type
  */
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_socket_info_type(ErlNifEnv*       env,
                                     ESockDescriptor* descP)
@@ -4159,16 +4149,14 @@ ERL_NIF_TERM esock_socket_info_type(ErlNifEnv*       env,
 
     return etype;
 }
-#endif // #ifndef __WIN32__
 
 
 /*
  * Encode the socket "create type"
- * That is "show" how this socket was created:
+ * That is; "show" how this socket was created:
  *
  *           normal | fromfd | {fromfd, integer()}
  */
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_socket_info_ctype(ErlNifEnv*       env,
                                      ESockDescriptor* descP)
@@ -4181,7 +4169,7 @@ ERL_NIF_TERM esock_socket_info_ctype(ErlNifEnv*       env,
                    "\r\n", descP->sock,
                    descP->origFD, B2S(descP->closeOnClose)) );
 
-    if (descP->origFD > 0) {
+    if (descP->origFD != INVALID_SOCKET) {
         /* Created from other FD */
         if (descP->closeOnClose) {
             /* We *have* dup'ed: {fromfd, integer()} */
@@ -4201,16 +4189,12 @@ ERL_NIF_TERM esock_socket_info_ctype(ErlNifEnv*       env,
 
     return ctype;
 }
-#endif // #ifndef __WIN32__
 
 
 /*
  * Encode the socket "state"
- * That is "show" how this socket was created:
- *
- *           normal | fromfd | {fromfd, integer()}
+ * This is a list of atoms, one for each valid 'state' value.
  */
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
                                      unsigned int state)
@@ -4285,7 +4269,7 @@ ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
 
     if ((state & ESOCK_STATE_DTOR) != 0) {
       /*
-      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> dror"
+      SSDBG( descP, ("SOCKET", "esock_socket_info_state {%d} -> dtor"
 		     "\r\n", descP->sock) );
       */
       TARRAY_ADD(estate, atom_dtor);
@@ -4295,13 +4279,11 @@ ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
 
     return estateList;
 }
-#endif // #ifndef __WIN32__
 
 
 /*
  * Collect all counters for a socket.
  */
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                                         ESockDescriptor* descP)
@@ -4390,7 +4372,6 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
 
     return cnts;
 }
-#endif // #ifndef __WIN32__
 
 
 
@@ -4553,11 +4534,9 @@ ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv*   env,
  *
  */
 
-#ifndef __WIN32__
-
 #define ESOCK_INFO_REQ_FUNCS                                            \
     ESOCK_INFO_REQ_FUNC_DECL(readers,   currentReaderP,   readersQ)     \
-    ESOCK_INFO_REQ_FUNC_DECL(writers,   currentWriterP,  writersQ)     \
+    ESOCK_INFO_REQ_FUNC_DECL(writers,   currentWriterP,   writersQ)     \
     ESOCK_INFO_REQ_FUNC_DECL(acceptors, currentAcceptorP, acceptorsQ)
 
 #define ESOCK_INFO_REQ_FUNC_DECL(F, CRP, Q)                             \
@@ -4600,8 +4579,6 @@ ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
 
     return info;
 }
-
-#endif // #ifndef __WIN32__
 
 
 /* ----------------------------------------------------------------------
