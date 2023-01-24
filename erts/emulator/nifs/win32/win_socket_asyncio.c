@@ -38,7 +38,7 @@
  *      To get the local and remote addresses, the GetAcceptExSockaddrs
  *      must be called. This function is *also* a function pointer
  *      obtained at run time by making a call to the WSAIoctl function.
- *   * Connectex:
+ *   * ConnectIoEx:
  *     (this is actually a function pointer, obtained at run time by
  *      The function pointer for the ConnectEx function must be
  *      making a call to the WSAIoctl function with the
@@ -122,6 +122,7 @@
  * ======================================================================== *
  */
 
+#define sock_bind(s, addr, len)         bind((s), (addr), (len))
 #define sock_close(s)                   closesocket((s))
 #define sock_errno()                    WSAGetLastError()
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
@@ -702,6 +703,27 @@ ERL_NIF_TERM esaio_open_plain(ErlNifEnv*       env,
     return esock_make_ok2(env, sockRef);
 }
 
+
+
+/* ========================================================================
+ */
+extern
+ERL_NIF_TERM esaio_bind(ErlNifEnv*       env,
+                        ESockDescriptor* descP,
+                        ESockAddress*    sockAddrP,
+                        SOCKLEN_T        addrLen)
+{
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+
+    if (sock_bind(descP->sock, &sockAddrP->sa, addrLen) < 0) {
+        return esock_make_error_errno(env, sock_errno());
+    }
+
+    descP->readState |= ESOCK_STATE_BOUND;
+
+    return esock_atom_ok;
+}
 
 
 /* *******************************************************************

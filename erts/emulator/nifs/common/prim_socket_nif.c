@@ -882,7 +882,7 @@ static const struct ioctl_flag {
 
 #define sock_accept(s, addr, len) \
     make_noninheritable_handle(accept((s), (addr), (len)))
-#define sock_bind(s, addr, len)        bind((s), (addr), (len))
+// #define sock_bind(s, addr, len)        bind((s), (addr), (len))
 #define sock_close(s)                  closesocket((s))
 // #define sock_close_event(e)            WSACloseEvent(e)
 #define sock_connect(s, addr, len)     connect((s), (addr), (len))
@@ -5157,9 +5157,6 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ESockDescriptor* descP;
     ERL_NIF_TERM     eSockAddr, ret;
     ESockAddress     sockAddr;
@@ -5197,7 +5194,6 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return ret;
-#endif // #ifdef __WIN32__  #else
 }
 
 
@@ -15176,7 +15172,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.finish         = esaio_finish;
     io_backend.open_with_fd   = NULL;
     io_backend.open_plain     = esaio_open_plain;
-    io_backend.bind           = NULL;
+    io_backend.bind           = esaio_bind;
     io_backend.connect        = NULL;
     io_backend.listen         = NULL;
     io_backend.accept         = NULL;
