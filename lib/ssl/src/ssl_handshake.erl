@@ -1483,8 +1483,7 @@ signature_algs_cert(SignatureSchemes) ->
     #signature_algorithms_cert{signature_scheme_list = SignatureSchemes}.
 
 
-use_srtp_ext(#{use_srtp_protection_profiles := [_|_] = Profiles} = Opts) ->
-    MKI = maps:get(use_srtp_mki, Opts, <<>>),
+use_srtp_ext(#{use_srtp := #{protection_profiles := Profiles, mki := MKI}}) ->
     #use_srtp{protection_profiles = Profiles, mki = MKI};
 use_srtp_ext(#{}) ->
     undefined.
@@ -2947,7 +2946,7 @@ decode_extensions(<<?UINT16(?USE_SRTP_EXT), ?UINT16(Len),
                       Acc#{use_srtp =>
                               #use_srtp{
                                  protection_profiles = Profiles,
-                                 mki=MKI}});
+                                 mki = MKI}});
 
 decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)

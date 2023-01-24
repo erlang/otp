@@ -402,8 +402,7 @@
 -type middlebox_comp_mode()      :: boolean().
 -type client_early_data()        :: binary().
 -type server_early_data()        :: disabled | enabled.
--type use_srtp_protection_profiles() :: [binary()].
--type use_srtp_mki()             :: binary().
+-type use_srtp()                 :: #{protection_profiles := [binary()], mki => binary()}.
 -type spawn_opts()               :: [erlang:spawn_opt_option()].
 
 %% -------------------------------------------------------------------------------------------------------
@@ -426,8 +425,7 @@
                                 {session_tickets, client_session_tickets()} |
                                 {use_ticket, use_ticket()} |
                                 {early_data, client_early_data()} |
-                                {use_srtp_protection_profiles, use_srtp_protection_profiles()} |
-                                {use_srtp_mki, use_srtp_mki()}.
+                                {use_srtp, use_srtp()}.
                                 %% {ocsp_stapling, ocsp_stapling()} |
                                 %% {ocsp_responder_certs, ocsp_responder_certs()} |
                                 %% {ocsp_nonce, ocsp_nonce()}.
@@ -480,8 +478,7 @@
                                 {anti_replay, anti_replay()} |
                                 {cookie, cookie()} |
                                 {early_data, server_early_data()} |
-                                {use_srtp_protection_profiles, use_srtp_protection_profiles()} |
-                                {use_srtp_mki, use_srtp_mki()}.
+                                {use_srtp, use_srtp()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()] | [public_key:combined_cert()].
 -type server_cafile()            :: file:filename().
@@ -1557,8 +1554,7 @@ ssl_options() ->
      srp_identity,
      supported_groups,
      use_ticket,
-     use_srtp_protection_profiles,
-     use_srtp_mki,
+     use_srtp,
      user_lookup_fun,
      verify, verify_fun,
      versions
@@ -2243,24 +2239,41 @@ opt_handshake(UserOpts, Opts, _Env) ->
     Opts#{handshake => HS, max_handshake_size => MHSS}.
 
 opt_use_srtp(UserOpts, #{protocol := Protocol} = Opts, _Env) ->
-    PPs = case get_opt_list(use_srtp_protection_profiles, undefined, UserOpts, Opts) of
-              {old, PPs0} ->
-                  PPs0;
-              {default, undefined} ->
-                  undefined;
-              {new, PPs0} ->
-                  assert_protocol_dep(use_srtp_protection_profiles, Protocol, [dtls]),
-                  validate_use_srtp_protection_profiles(PPs0)
-          end,
-    {_, MKI} = get_opt_bin(use_srtp_mki, <<>>, UserOpts, Opts),
-    Opts#{use_srtp_protection_profiles => PPs, use_srtp_mki => MKI}.
+    UseSRTP = case get_opt_map(use_srtp, undefined, UserOpts, Opts) of
+                  {old, UseSRTP0} ->
+                      UseSRTP0;
+                  {default, undefined} ->
+                      undefined;
+                  {new, UseSRTP1} ->
+                      assert_protocol_dep(use_srtp, Protocol, [dtls]),
+                      validate_use_srtp(UseSRTP1)
+              end,
+    case UseSRTP of
+        #{} -> Opts#{use_srtp => UseSRTP};
+        _ -> Opts
+    end.
 
-validate_use_srtp_protection_profiles(PPs) ->
+validate_use_srtp(#{protection_profiles := [_|_] = PPs} = UseSRTP) ->
+    case maps:keys(UseSRTP) -- [protection_profiles, mki] of
+        [] -> ok;
+        Extra -> option_error(use_srtp, {unknown_parameters, Extra})
+    end,
     IsValidProfile = fun(<<_, _>>) -> true; (_) -> false end,
     case lists:all(IsValidProfile, PPs) of
-        true -> PPs;
-        false -> option_error(use_srtp_protection_profiles, PPs)
-    end.
+        true -> ok;
+        false -> option_error(use_srtp, {invalid_protection_profiles, PPs})
+    end,
+    case UseSRTP of
+        #{mki := MKI} when not is_binary(MKI) ->
+            option_error(use_srtp, {invalid_mki, MKI});
+        #{mki := _} ->
+            UseSRTP;
+        #{} ->
+            UseSRTP#{mki => <<>>}
+    end;
+
+validate_use_srtp(#{} = UseSRTP) ->
+    option_error(use_srtp, {no_protection_profiles, UseSRTP}).
 
 
 opt_process(UserOpts, Opts0, _Env) ->
@@ -2345,6 +2358,12 @@ set_opt_bool(Opt, Default, UserOpts, Opts) ->
         Default -> Opts;
         Value when is_boolean(Value) -> Opts#{Opt => Value};
         Value -> option_error(Opt, Value)
+    end.
+
+get_opt_map(Opt, Default, UserOpts, Opts) ->
+    case get_opt(Opt, Default, UserOpts, Opts) of
+        {new, Err} when not is_map(Err) -> option_error(Opt, Err);
+        Res -> Res
     end.
 
 set_opt_int(Opt, Min, Max, Default, UserOpts, Opts) ->

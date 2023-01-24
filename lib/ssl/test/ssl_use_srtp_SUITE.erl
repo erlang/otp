@@ -107,13 +107,13 @@ end_per_testcase(_TestCase, Config) ->
 srtp_profiles(Config) ->
     % Client sends a list of SRTP profiles it supports in client_hello
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ClentSrtpOpts = [{use_srtp_protection_profiles, [<<0,1>>,<<0,2>>,<<0,5>>]}],
+    ClentSrtpOpts = [{use_srtp, #{protection_profiles => [<<0,1>>,<<0,2>>,<<0,5>>]}}],
     ClientOpts = ClentSrtpOpts ++ [{handshake, hello}] ++ ClientOpts0,
     ClientContOpts = [{continue_options, [{want_ext, self()}]}],
     % Server responds with a single chosen profile in server_hello
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = [{handshake, hello}] ++ ServerOpts0,
-    ServerSrtpOts = [{use_srtp_protection_profiles, [<<0,2>>]}],
+    ServerSrtpOts = [{use_srtp, #{protection_profiles => [<<0,2>>]}}],
     ServerContOpts = [{continue_options, [{want_ext, self()}|ServerSrtpOts]}],
 
     Server = ssl_test_lib:start_server(ServerContOpts,
@@ -143,15 +143,15 @@ srtp_profiles(Config) ->
 srtp_mki(Config) ->
     % Client sends some MKI in a client_hello
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ClientSrtpOpts = [{use_srtp_protection_profiles, [<<0,1>>,<<0,2>>,<<0,5>>]},
-                      {use_srtp_mki, <<"client_mki">>}],
+    ClientSrtpOpts = [{use_srtp, #{protection_profiles => [<<0,1>>,<<0,2>>,<<0,5>>],
+                                   mki => <<"client_mki">>}}],
     ClientOpts = ClientSrtpOpts ++ [{handshake, hello}] ++ ClientOpts0,
     ClientContOpts = [{continue_options, [{want_ext, self()}]}],
     % Server responds with its own MKI just to ensure it is delivered to the client
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = [{handshake, hello}] ++ ServerOpts0,
-    ServerSrtpOpts = [{use_srtp_protection_profiles, [<<0,2>>]},
-                      {use_srtp_mki, <<"server_mki">>}],
+    ServerSrtpOpts = [{use_srtp, #{protection_profiles => [<<0,2>>],
+                                   mki => <<"server_mki">>}}],
     ServerContOpts = [{continue_options, [{want_ext, self()}|ServerSrtpOpts]}],
 
     Server = ssl_test_lib:start_server(ServerContOpts,
