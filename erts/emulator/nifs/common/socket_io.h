@@ -38,6 +38,8 @@ typedef int (*ESockIOInit)(unsigned int     numThreads,
 
 typedef void (*ESockIOFinish)(void);
 
+typedef ERL_NIF_TERM (*ESockIOInfo)(ErlNifEnv* env);
+
 
 typedef ERL_NIF_TERM (*ESockIOOpenWithFd)(ErlNifEnv*       env,
                                           int              fd,

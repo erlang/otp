@@ -539,6 +539,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define MKL1(E,T)           enif_make_list1((E), (T))
 #define MKEL(E)             enif_make_list((E), 0)
 #define MKC(E,H,T)          enif_make_list_cell((E), (H), (T))
+#define MKEMA(E)            enif_make_new_map((E))
 #define MKMA(E,KA,VA,L,M)   enif_make_map_from_arrays((E), (KA), (VA), (L), (M))
 #define MKPID(E, P)         enif_make_pid((E), (P))
 #define MKREF(E)            enif_make_ref((E))

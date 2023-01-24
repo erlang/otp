@@ -417,6 +417,28 @@ void essio_finish(void)
 }
 
 
+
+/* *******************************************************************
+ * essio_info - Return info "about" this I/O backend.
+ */
+
+extern
+ERL_NIF_TERM essio_info(ErlNifEnv* env)
+{
+    ERL_NIF_TERM info;
+    ERL_NIF_TERM keys[]  = {esock_atom_name};
+    ERL_NIF_TERM vals[]  = {MKA(env, "unix_essio")};
+    unsigned int numKeys = NUM(keys);
+    unsigned int numVals = NUM(vals);
+
+    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &info) );
+
+    return info;
+}
+
+
+
 /* ========================================================================
  * essio_open - create an endpoint (from an existing fd) for communication
  *

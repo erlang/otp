@@ -1078,6 +1078,7 @@ ESOCK_NIF_FUNCS
 typedef struct {
     ESockIOInit                  init;
     ESockIOFinish                finish;
+    ESockIOInfo                  info;
 
     ESockIOOpenWithFd            open_with_fd;
     ESockIOOpenPlain             open_plain;
@@ -3604,6 +3605,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(ioctl_requests);   \
     LOCAL_ATOM_DECL(iov_max);          \
     LOCAL_ATOM_DECL(iow);              \
+    LOCAL_ATOM_DECL(io_backend);       \
     LOCAL_ATOM_DECL(io_num_threads);   \
     LOCAL_ATOM_DECL(irq);              \
     LOCAL_ATOM_DECL(listening);	       \
@@ -3733,9 +3735,12 @@ static ESockIoBackend io_backend = {0};
 #define ESOCK_IO_INIT(NUMT)                                     \
     ((io_backend.init != NULL) ?                                \
      io_backend.init((NUMT), &data) : ESOCK_IO_ERR_UNSUPPORTED)
-#define ESOCK_IO_FIN()                                          \
-    ((io_backend.finish != NULL) ?                              \
+#define ESOCK_IO_FIN()                                  \
+    ((io_backend.finish != NULL) ?                      \
      io_backend.finish() : ESOCK_IO_ERR_UNSUPPORTED)
+#define ESOCK_IO_INFO(ENV)                                  \
+    ((io_backend.info != NULL) ?                            \
+     io_backend.info(env) : MKEMA((ENV)))
 
 #define ESOCK_IO_OPEN_WITH_FD(ENV, FD, EOPTS)                   \
     ((io_backend.open_with_fd != NULL) ?                        \
@@ -4028,13 +4033,28 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
                           esock_atom_use_registry,
                           atom_iow,
                           atom_counters,
-                          atom_iov_max},
+                          atom_iov_max,
+                          atom_io_backend},
                 vals[] = {dbg,
                           sockDbg,
                           useReg,
                           iow,
                           gcnt,
-                          iovMax},
+                          iovMax,
+                          ESOCK_IO_INFO(env)
+                          /* This mess is just a temporary hack
+                           * and shall be replaced by a callback
+                           * function (eventually).
+                           * That function should return a 'term' (a map).
+                           */
+                          /*
+#ifdef __WIN32__
+                          MKA(env, "win_esaio")
+#else
+                          MKA(env, "unix_essio")
+#endif
+                          */
+                },
                 info;
             unsigned int
                 numKeys = NUM(keys),
@@ -15170,6 +15190,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     io_backend.init           = esaio_init;
     io_backend.finish         = esaio_finish;
+    io_backend.info           = esaio_info;
     io_backend.open_with_fd   = NULL;
     io_backend.open_plain     = esaio_open_plain;
     io_backend.bind           = esaio_bind;
@@ -15195,6 +15216,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     io_backend.init           = essio_init;
     io_backend.finish         = essio_finish;
+    io_backend.info           = essio_info;
     io_backend.open_with_fd   = essio_open_with_fd;
     io_backend.open_plain     = essio_open_plain;
     io_backend.bind           = essio_bind;

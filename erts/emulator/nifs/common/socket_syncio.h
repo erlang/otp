@@ -33,6 +33,7 @@
 extern int  essio_init(unsigned int     numThreads,
                        const ESockData* dataP);
 extern void essio_finish(void);
+extern ERL_NIF_TERM essio_info(ErlNifEnv* env);
 
 extern ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
                                        int              fd,

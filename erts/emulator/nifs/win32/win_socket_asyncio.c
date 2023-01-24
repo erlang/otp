@@ -38,7 +38,7 @@
  *      To get the local and remote addresses, the GetAcceptExSockaddrs
  *      must be called. This function is *also* a function pointer
  *      obtained at run time by making a call to the WSAIoctl function.
- *   * ConnectIoEx:
+ *   * ConnectEx:
  *     (this is actually a function pointer, obtained at run time by
  *      The function pointer for the ConnectEx function must be
  *      making a call to the WSAIoctl function with the
@@ -594,6 +594,27 @@ void esaio_finish()
     SGDBG( ("WIN-ESAIO", "esaio_finish -> done\r\n") );
 
     return;
+}
+
+
+
+/* *******************************************************************
+ * esaio_info - Return info "about" this I/O backend.
+ */
+
+extern
+ERL_NIF_TERM esaio_info(ErlNifEnv* env)
+{
+    ERL_NIF_TERM info;
+    ERL_NIF_TERM keys[]  = {esock_atom_name};
+    ERL_NIF_TERM vals[]  = {MKA(env, "win_esaio")};
+    unsigned int numKeys = NUM(keys);
+    unsigned int numVals = NUM(vals);
+
+    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &info) );
+
+    return info;
 }
 
 

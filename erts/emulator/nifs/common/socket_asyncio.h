@@ -33,6 +33,7 @@
 extern int  esaio_init(unsigned int     numThreads,
                        const ESockData* dataP);
 extern void esaio_finish(void);
+extern ERL_NIF_TERM esaio_info(ErlNifEnv* env);
 
 /*
 extern ERL_NIF_TERM esaio_open_with_fd(ErlNifEnv*       env,
