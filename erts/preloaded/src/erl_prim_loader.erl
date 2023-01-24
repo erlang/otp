@@ -53,10 +53,10 @@
 -export([set_primary_archive/4]).
 
 %% Used by test suites
--export([purge_archive_cache/0]).
+-export([purge_archive_cache/0, get_modules/3]).
 
-%% Used by init and the code server.
--export([get_modules/2,get_modules/3, is_basename/1]).
+%% Used by init and the code server
+-export([get_modules/2, is_basename/1]).
 
 -include_lib("kernel/include/file.hrl").
 

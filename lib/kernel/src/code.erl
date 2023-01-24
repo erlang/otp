@@ -635,34 +635,29 @@ finish_loading(Prepared0, EnsureLoaded) ->
 load_mods([]) ->
     {[],[]};
 load_mods(Mods) ->
-    Path = get_path(),
-    F = prepare_loading_fun(),
-    {ok,{Succ,Error0}} = erl_prim_loader:get_modules(Mods, F, Path),
-    Error = [case E of
-		 badfile -> {M,E};
-		 _ -> {M,nofile}
-	     end || {M,E} <- Error0],
-    {Succ,Error}.
+    F = fun(Mod) ->
+        case get_object_code(Mod) of
+            {Mod, Code, Path} -> prepare_loading(Mod, Path, Code);
+            error -> {error, nofile}
+        end
+    end,
+    do_par(F, Mods).
 
 load_bins([]) ->
     {[],[]};
 load_bins(BinItems) ->
-    F = prepare_loading_fun(),
+    F = fun({Mod, File, Beam}) -> prepare_loading(Mod, File, Beam) end,
     do_par(F, BinItems).
 
--type prep_fun_type() :: fun((module(), file:filename(), binary()) ->
-				    {ok,_} | {error,_}).
+-spec prepare_loading(module(), file:filename(), binary()) ->
+                     {ok,_} | {error,_}.
 
--spec prepare_loading_fun() -> prep_fun_type().
-
-prepare_loading_fun() ->
-    fun(Mod, FullName, Beam) ->
-	    case erlang:prepare_loading(Mod, Beam) of
-		{error,_}=Error ->
-		    Error;
-		Prepared ->
-		    {ok,{Prepared,FullName,undefined}}
-	    end
+prepare_loading(Mod, FullName, Beam) ->
+    case erlang:prepare_loading(Mod, Beam) of
+	{error,_}=Error ->
+	    Error;
+	Prepared ->
+	    {ok,{Prepared,FullName,undefined}}
     end.
 
 do_par(Fun, L) ->
@@ -672,31 +667,36 @@ do_par(Fun, L) ->
 	    Res
     end.
 
--spec do_par_fun(prep_fun_type(), list()) -> fun(() -> no_return()).
+-type par_fun_type() :: fun((module() | {module(), file:filename(), binary()}) ->
+                            {ok,_} | {error,_}).
+
+-spec do_par_fun(par_fun_type(), list()) -> fun(() -> no_return()).
 
 do_par_fun(Fun, L) ->
     fun() ->
-	    _ = [spawn_monitor(do_par_fun_2(Fun, Item)) ||
-		    Item <- L],
-	    exit(do_par_recv(length(L), [], []))
+	_ = [spawn_monitor(do_par_fun_each(Fun, Item)) || Item <- L],
+	exit(do_par_recv(length(L), [], []))
     end.
 
--spec do_par_fun_2(prep_fun_type(),
-		   {module(),file:filename(),binary()}) ->
+-spec do_par_fun_each(par_fun_type(), term()) ->
 			  fun(() -> no_return()).
 
-do_par_fun_2(Fun, Item) ->
+do_par_fun_each(Fun, Mod) when is_atom(Mod) ->
+    do_par_fun_each(Fun, Mod, Mod);
+do_par_fun_each(Fun, {Mod, _, _} = Item) ->
+    do_par_fun_each(Fun, Mod, Item).
+
+do_par_fun_each(Fun, Mod, Item) ->
     fun() ->
-	    {Mod,Filename,Bin} = Item,
-	    try Fun(Mod, Filename, Bin) of
-		{ok,Res} ->
-		    exit({good,{Mod,Res}});
-		{error,Error} ->
-		    exit({bad,{Mod,Error}})
-	    catch
-		_:Error ->
-		    exit({bad,{Mod,Error}})
-	    end
+        try Fun(Item) of
+            {ok,Res} ->
+                exit({good,{Mod,Res}});
+            {error,Error} ->
+                exit({bad,{Mod,Error}})
+        catch
+            _:Error ->
+                exit({bad,{Mod,Error}})
+        end
     end.
 
 do_par_recv(0, Good, Bad) ->
