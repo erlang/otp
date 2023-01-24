@@ -2328,7 +2328,7 @@ remsh_expand_compatibility_25(Config) when is_list(Config) ->
     end.
 remsh_expand_compatibility_later_version(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    case ?CT_PEER([], "25", PrivDir) of
+    case ?CT_PEER_REL([], "25", PrivDir) of
         not_available -> {skip, "25 not available"};
         {ok, _Peer, TargetNode}  ->
             NodeName = atom_to_list(TargetNode),
