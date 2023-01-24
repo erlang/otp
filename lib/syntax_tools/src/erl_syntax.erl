@@ -246,6 +246,9 @@
 	 macro/2,
 	 macro_arguments/1,
 	 macro_name/1,
+         map_comp/2,
+         map_comp_template/1,
+         map_comp_body/1,
          map_expr/1,
          map_expr/2,
          map_expr_argument/1,
@@ -256,6 +259,9 @@
          map_field_exact/2,
          map_field_exact_name/1,
          map_field_exact_value/1,
+         map_generator/2,
+         map_generator_body/1,
+         map_generator_pattern/1,
          map_type/0,
          map_type/1,
          map_type_fields/1,
@@ -715,8 +721,10 @@ type(Node) ->
 	{function, _, _, _, _} -> function;
 	{b_generate, _, _, _} -> binary_generator;
 	{generate, _, _, _} -> generator;
+	{m_generate, _, _, _} -> map_generator;
 	{lc, _, _, _} -> list_comp;
-	{bc, _, _, _} -> binary_comp;		
+	{bc, _, _, _} -> binary_comp;
+	{mc, _, _, _} -> map_comp;
 	{match, _, _, _} -> match_expr;
         {map, _, _, _} -> map_expr;
         {map, _, _} -> map_expr;
@@ -6138,6 +6146,72 @@ binary_comp_body(Node) ->
 	    (data(Node1))#binary_comp.body
     end.
 
+%% =====================================================================
+%% @doc Creates an abstract map comprehension. If `Body' is
+%% `[E1, ..., En]', the result represents
+%% "<code>#{<em>Template</em> || <em>E1</em>, ..., <em>En</em>}</code>".
+%%
+%% @see map_comp_template/1
+%% @see map_comp_body/1
+%% @see generator/2
+
+-record(map_comp, {template :: syntaxTree(), body :: [syntaxTree()]}).
+
+%% type(Node) = map_comp
+%% data(Node) = #map_comp{template :: Template, body :: Body}
+%%
+%%	Template = Node = syntaxTree()
+%%	Body = [syntaxTree()]
+%%
+%% `erl_parse' representation:
+%%
+%% {mc, Pos, Template, Body}
+%%
+%%	Template = erl_parse()
+%%	Body = [erl_parse()] \ []
+
+-spec map_comp(syntaxTree(), [syntaxTree()]) -> syntaxTree().
+
+map_comp(Template, Body) ->
+    tree(map_comp, #map_comp{template = Template, body = Body}).
+
+revert_map_comp(Node) ->
+    Pos = get_pos(Node),
+    Template = map_comp_template(Node),
+    Body = map_comp_body(Node),
+    {mc, Pos, Template, Body}.
+
+
+%% =====================================================================
+%% @doc Returns the template subtree of a `map_comp' node.
+%%
+%% @see map_comp/2
+
+-spec map_comp_template(syntaxTree()) -> syntaxTree().
+
+map_comp_template(Node) ->
+    case unwrap(Node) of
+	{mc, _, Template, _} ->
+	    Template;
+	Node1 ->
+	    (data(Node1))#map_comp.template
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the list of body subtrees of a `map_comp' node.
+%%
+%% @see map_comp/2
+
+-spec map_comp_body(syntaxTree()) -> [syntaxTree()].
+
+map_comp_body(Node) ->
+    case unwrap(Node) of
+	{mc, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#map_comp.body
+    end.
 
 %% =====================================================================
 %% @doc Creates an abstract generator. The result represents
@@ -6268,6 +6342,72 @@ binary_generator_body(Node) ->
 	    Body;
 	Node1 ->
 	    (data(Node1))#binary_generator.body
+    end.
+
+
+%% =====================================================================
+%% @doc Creates an abstract map_generator. The result represents
+%% "<code><em>Pattern</em> &lt;- <em>Body</em></code>".
+%%
+%% @see map_generator_pattern/1
+%% @see map_generator_body/1
+%% @see list_comp/2
+%% @see map_comp/2
+
+-record(map_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+%% type(Node) = map_generator
+%% data(Node) = #map_generator{pattern :: Pattern, body :: Body}
+%%
+%%	Pattern = Argument = syntaxTree()
+%%
+%% `erl_parse' representation:
+%%
+%% {m_generate, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+-spec map_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+map_generator(Pattern, Body) ->
+    tree(map_generator, #map_generator{pattern = Pattern, body = Body}).
+
+revert_map_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = map_generator_pattern(Node),
+    Body = map_generator_body(Node),
+    {m_generate, Pos, Pattern, Body}.
+
+
+%% =====================================================================
+%% @doc Returns the pattern subtree of a `generator' node.
+%%
+%% @see map_generator/2
+
+-spec map_generator_pattern(syntaxTree()) -> syntaxTree().
+
+map_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{m_generate, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#map_generator.pattern
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the body subtree of a `generator' node.
+%%
+%% @see map_generator/2
+
+-spec map_generator_body(syntaxTree()) -> syntaxTree().
+
+map_generator_body(Node) ->
+    case unwrap(Node) of
+	{m_generate, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#map_generator.body
     end.
 
 
@@ -7724,12 +7864,16 @@ revert_root(Node) ->
 	    revert_list(Node);
 	list_comp ->
 	    revert_list_comp(Node);
+        map_comp ->
+	    revert_map_comp(Node);
         map_expr ->
             revert_map_expr(Node);
         map_field_assoc ->
             revert_map_field_assoc(Node);
         map_field_exact ->
             revert_map_field_exact(Node);
+        map_generator ->
+            revert_map_generator(Node);
         map_type ->
             revert_map_type(Node);
         map_type_assoc ->
@@ -8017,6 +8161,8 @@ subtrees(T) ->
 			As ->
 			    [[macro_name(T)], As]
 		    end;
+                map_comp ->
+                    [[map_comp_template(T)], map_comp_body(T)];
                 map_expr ->
                     case map_expr_argument(T) of
                         none ->
@@ -8030,6 +8176,9 @@ subtrees(T) ->
                 map_field_exact ->
                     [[map_field_exact_name(T)],
                      [map_field_exact_value(T)]];
+	        map_generator ->
+                    [[map_generator_pattern(T)],
+                     [map_generator_body(T)]];
                 map_type ->
                     [map_type_fields(T)];
                 map_type_assoc ->
@@ -8207,10 +8356,12 @@ make_tree(list, [P, [S]]) -> list(P, S);
 make_tree(list_comp, [[T], B]) -> list_comp(T, B);
 make_tree(macro, [[N]]) -> macro(N);
 make_tree(macro, [[N], A]) -> macro(N, A);
+make_tree(map_comp, [[T], B]) -> map_comp(T, B);
 make_tree(map_expr, [Fs]) -> map_expr(Fs);
 make_tree(map_expr, [[E], Fs]) -> map_expr(E, Fs);
 make_tree(map_field_assoc, [[K], [V]]) -> map_field_assoc(K, V);
 make_tree(map_field_exact, [[K], [V]]) -> map_field_exact(K, V);
+make_tree(map_generator, [[P], [E]]) -> map_generator(P, E);
 make_tree(map_type, [Fs]) -> map_type(Fs);
 make_tree(map_type_assoc, [[N],[V]]) -> map_type_assoc(N, V);
 make_tree(map_type_exact, [[N],[V]]) -> map_type_exact(N, V);
