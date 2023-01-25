@@ -35,8 +35,6 @@
 	 load_abs/1,
 	 load_abs/2,
 	 load_binary/3,
-	 load_native_partial/2,
-	 load_native_sticky/3,
 	 atomic_load/1,
 	 prepare_loading/1,
 	 finish_loading/1,
@@ -217,16 +215,6 @@ load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
 load_binary(Mod, File, Bin)
   when is_atom(Mod), (is_list(File) orelse is_atom(File)), is_binary(Bin) ->
     call({load_binary,Mod,File,Bin}).
-
--spec load_native_partial(Module :: module(), Binary :: binary()) -> load_ret().
-load_native_partial(Mod, Bin) when is_atom(Mod), is_binary(Bin) ->
-    call({load_native_partial,Mod,Bin}).
-
--spec load_native_sticky(Module :: module(), Binary :: binary(), WholeModule :: 'false' | binary()) -> load_ret().
-load_native_sticky(Mod, Bin, WholeModule)
-  when is_atom(Mod), is_binary(Bin),
-       (is_binary(WholeModule) orelse WholeModule =:= false) ->
-    call({load_native_sticky,Mod,Bin,WholeModule}).
 
 -spec delete(Module) -> boolean() when
       Module :: module().
@@ -602,28 +590,7 @@ verify_prepared(_) ->
 
 finish_loading(Prepared0, EnsureLoaded) ->
     Prepared = [{M,{Bin,File}} || {M,{Bin,File,_}} <- Prepared0],
-    Native0 = [{M,Code} || {M,{_,_,Code}} <- Prepared0,
-			   Code =/= undefined],
-    case call({finish_loading,Prepared,EnsureLoaded}) of
-	ok ->
-	    finish_loading_native(Native0);
-	{error,Errors}=E when EnsureLoaded ->
-	    S0 = sofs:relation(Errors),
-	    S1 = sofs:domain(S0),
-	    R0 = sofs:relation(Native0),
-	    R1 = sofs:drestriction(R0, S1),
-	    Native = sofs:to_external(R1),
-	    finish_loading_native(Native),
-	    E;
-	{error,_}=E ->
-	    E
-    end.
-
-finish_loading_native([{Mod,Code}|Ms]) ->
-    _ = load_native_partial(Mod, Code),
-    finish_loading_native(Ms);
-finish_loading_native([]) ->
-    ok.
+    call({finish_loading,Prepared,EnsureLoaded}).
 
 load_mods([]) ->
     {[],[]};
