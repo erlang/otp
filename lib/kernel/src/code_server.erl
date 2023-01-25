@@ -22,7 +22,8 @@
 %% This file holds the server part of the code_server.
 
 -export([start_link/1,
-	 call/1,
+	 call/1, absname/1,
+	 is_loaded/1, is_sticky/1,
 	 system_code_change/4,
 	 error_msg/2, info_msg/2
 	]).
@@ -31,6 +32,7 @@
 -include_lib("stdlib/include/ms_transform.hrl").
 
 -import(lists, [foreach/2]).
+-define(moddb, code_server).
 
 -type on_load_action() ::
 	fun((term(), state()) -> {'reply',term(),state()} |
@@ -58,6 +60,14 @@ start_link(Args) ->
 	{Ref,Res} -> Res
     end.
 
+is_loaded(Mod) ->
+    case ets:lookup(?moddb, Mod) of
+        [{Mod,File}] -> {file,File};
+        [] -> false
+    end.
+
+is_sticky(Mod) ->
+    is_sticky(Mod, ?moddb).
 
 %% -----------------------------------------------------------
 %% Init the code_server process.
@@ -67,7 +77,7 @@ init(Ref, Parent, [Root,Mode]) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
 
-    Db = ets:new(code, [private]),
+    Db = ets:new(?moddb, [named_table, protected]),
     foreach(fun (M) ->
 		    %% Pre-loaded modules are always sticky.
 		    ets:insert(Db, [{M,preloaded},{{sticky,M},true}])
@@ -251,9 +261,6 @@ handle_call({dir,Dir}, _From, S) ->
     Resp = do_dir(Root,Dir,S#state.namedb),
     {reply,Resp,S};
 
-handle_call({load_file,Mod}, From, St) when is_atom(Mod) ->
-    load_file(Mod, From, St);
-
 handle_call({add_path,Where,Dir0}, _From,
 	    #state{namedb=Namedb,path=Path0}=S) ->
     {Resp,Path} = add_path(Where, Dir0, Path0, Namedb),
@@ -282,17 +289,12 @@ handle_call({replace_path,Name,Dir}, _From,
 handle_call(get_path, _From, S) ->
     {reply,S#state.path,S};
 
-%% Messages to load, delete and purge modules/files.
-handle_call({load_abs,File,Mod}, From, S) when is_atom(Mod) ->
-    case modp(File) of
-	false ->
-	    {reply,{error,badarg},S};
-	true ->
-	    load_abs(File, Mod, From, S)
-    end;
-
-handle_call({load_binary,Mod,File,Bin}, From, S) when is_atom(Mod) ->
-    do_load_binary(Mod, File, Bin, From, S);
+handle_call({load_module,PC,Mod,File,Purge}, From, S) when is_atom(Mod) ->
+    case Purge andalso erlang:module_loaded(Mod) of
+	true -> do_purge(Mod);
+	false -> ok
+    end,
+    try_finish_module(File, Mod, PC, From, S);
 
 handle_call({ensure_loaded,Mod}, From, St) when is_atom(Mod) ->
     case erlang:module_loaded(Mod) of
@@ -319,9 +321,6 @@ handle_call({purge,Mod}, _From, St) when is_atom(Mod) ->
 handle_call({soft_purge,Mod}, _From, St) when is_atom(Mod) ->
     {reply,do_soft_purge(Mod),St};
 
-handle_call({is_loaded,Mod}, _From, St) when is_atom(Mod) ->
-    {reply,is_loaded(Mod, St#state.moddb),St};
-
 handle_call(all_loaded, _From, S) ->
     Db = S#state.moddb,
     {reply,all_loaded(Db),S};
@@ -331,10 +330,6 @@ handle_call({get_object_code,Mod}, _From, St) when is_atom(Mod) ->
 	{_,Bin,FName} -> {reply,{Mod,Bin,FName},St};
 	Error -> {reply,Error,St}
     end;
-
-handle_call({is_sticky, Mod}, _From, S) ->
-    Db = S#state.moddb,
-    {reply, is_sticky(Mod,Db), S};
 
 handle_call(stop,_From, S) ->
     {stop,normal,stopped,S};
@@ -1082,49 +1077,22 @@ add_paths(Where,[Dir|Tail],Path,NameDb) ->
 add_paths(_,_,Path,_) ->
     {ok,Path}.
 
-do_load_binary(Module, File, Binary, From, St) ->
-    case modp(File) andalso is_binary(Binary) of
-	true ->
-	    case erlang:module_loaded(Module) of
-		true -> do_purge(Module);
-		false -> ok
-	    end,
-	    try_load_module(File, Module, Binary, From, St);
-	false ->
-	    {reply,{error,badarg},St}
-    end.
-
-modp(Atom) when is_atom(Atom) -> true;
-modp(List) when is_list(List) -> int_list(List);
-modp(_)                       -> false.
-
-load_abs(File, Mod, From, St) ->
-    Ext = objfile_extension(),
-    FileName0 = lists:concat([File, Ext]),
-    FileName = absname(FileName0),
-    case erl_prim_loader:get_file(FileName) of
-	{ok,Bin,_} ->
-	    try_load_module(FileName, Mod, Bin, From, St);
-	error ->
-	    {reply,{error,nofile},St}
-    end.
-
-try_load_module(File, Mod, Bin, From, St) ->
+try_finish_module(File, Mod, PC, From, St) ->
     Action = fun(_, S) ->
-		     try_load_module_1(File, Mod, Bin, From, S)
+		     try_finish_module_1(File, Mod, PC, From, S)
 	     end,
     handle_pending_on_load(Action, Mod, From, St).
 
-try_load_module_1(File, Mod, Bin, From, #state{moddb=Db}=St) ->
+try_finish_module_1(File, Mod, PC, From, #state{moddb=Db}=St) ->
     case is_sticky(Mod, Db) of
 	true ->                         %% Sticky file reject the load
 	    error_msg("Can't load module '~w' that resides in sticky dir\n",[Mod]),
 	    {reply,{error,sticky_directory},St};
 	false ->
-            try_load_module_2(File, Mod, Bin, From, undefined, St)
+	    try_finish_module_2(File, Mod, PC, From, St)
     end.
 
-try_load_module_2(File, Mod, Bin, From, _Architecture, St0) ->
+try_finish_module_2(File, Mod, PC, From, St0) ->
     Action = fun({module,_}=Module, #state{moddb=Db}=S) ->
 		     ets:insert(Db, {Mod,File}),
 		     {reply,Module,S};
@@ -1134,7 +1102,12 @@ try_load_module_2(File, Mod, Bin, From, _Architecture, St0) ->
 		     error_msg("Loading of ~ts failed: ~p\n", [File, What]),
 		     {reply,Error,S}
 	     end,
-    Res = erlang:load_module(Mod, Bin),
+    Res = case erlang:finish_loading([PC]) of
+        ok ->
+            {module,Mod};
+        {Error,[Mod]} ->
+            {error,Error}
+    end,
     handle_on_load(Res, Action, Mod, From, St0).
 
 int_list([H|T]) when is_integer(H) -> int_list(T);
@@ -1147,23 +1120,22 @@ ensure_loaded(Mod, From, St0) ->
 			 true ->
 			     {reply,{module,Mod},S};
 			 false ->
-			     load_file_1(Mod, From, S)
+			     ensure_loaded_1(Mod, From, S)
 		     end
 	     end,
     handle_pending_on_load(Action, Mod, From, St0).
 
-load_file(Mod, From, St0) ->
-    Action = fun(_, S) ->
-		     load_file_1(Mod, From, S)
-	     end,
-    handle_pending_on_load(Action, Mod, From, St0).
-
-load_file_1(Mod, From, St) ->
+ensure_loaded_1(Mod, From, St) ->
     case get_object_code(St, Mod) of
 	error ->
 	    {reply,{error,nofile},St};
 	{Mod,Binary,File} ->
-	    try_load_module_1(File, Mod, Binary, From, St)
+            case erlang:prepare_loading(Mod, Binary) of
+                {error, _} = Error ->
+                    {reply, Error, St};
+                PC ->
+	          try_finish_module_1(File, Mod, PC, From, St)
+            end
     end.
 
 get_object_code(#state{path=Path}, Mod) when is_atom(Mod) ->
@@ -1231,13 +1203,6 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
 	    error -> [X, $:, $/]
     end,
     absname(filename:join(Name), Dcwd).
-
-
-is_loaded(M, Db) ->
-    case ets:lookup(Db, M) of
-	[{M,File}] -> {file,File};
-	[] -> false
-    end.
 
 do_purge(Mod) ->
     {_WasOld, DidKill} = erts_code_purger:purge(Mod),

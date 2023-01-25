@@ -184,7 +184,10 @@ objfile_extension() ->
 -spec load_file(Module) -> load_ret() when
       Module :: module().
 load_file(Mod) when is_atom(Mod) ->
-    call({load_file,Mod}).
+    case get_object_code(Mod) of
+        error -> {error,nofile};
+        {Mod,Binary,File} -> load_module(Mod, File, Binary, false)
+    end.
 
 -spec ensure_loaded(Module) -> {module, Module} | {error, What} when
       Module :: module(),
@@ -199,13 +202,24 @@ ensure_loaded(Mod) when is_atom(Mod) ->
 -spec load_abs(Filename) -> load_ret() when
       Filename :: file:filename().
 load_abs(File) when is_list(File); is_atom(File) ->
-    Mod = list_to_atom(filename:basename(File)),
-    call({load_abs,File,Mod}).
+    load_abs(File, list_to_atom(filename:basename(File))).
 
 %% XXX Filename is also an atom(), e.g. 'cover_compiled'
 -spec load_abs(Filename :: loaded_filename(), Module :: module()) -> load_ret().
 load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
-    call({load_abs,File,M}).
+    case modp(File) of
+        true ->
+            FileName0 = lists:concat([File, objfile_extension()]),
+            FileName = code_server:absname(FileName0),
+            case erl_prim_loader:get_file(FileName) of
+                {ok,Bin,_} ->
+                    load_module(M, FileName, Bin, false);
+                error ->
+                    {error, nofile}
+            end;
+        false ->
+            {error,badarg}
+    end.
 
 %% XXX Filename is also an atom(), e.g. 'cover_compiled'
 -spec load_binary(Module, Filename, Binary) ->
@@ -216,7 +230,26 @@ load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
       What :: badarg | load_error_rsn().
 load_binary(Mod, File, Bin)
   when is_atom(Mod), (is_list(File) orelse is_atom(File)), is_binary(Bin) ->
-    call({load_binary,Mod,File,Bin}).
+    case modp(File) of
+        true -> load_module(Mod, File, Bin, true);
+        false -> {error,badarg}
+    end.
+
+load_module(Mod, File, Bin, Purge) ->
+    case erlang:prepare_loading(Mod, Bin) of
+        {error,_}=Error ->
+            Error;
+        Prepared ->
+            call({load_module, Prepared, Mod, File, Purge})
+    end.
+
+modp(Atom) when is_atom(Atom) -> true;
+modp(List) when is_list(List) -> int_list(List);
+modp(_)                       -> false.
+
+int_list([H|T]) when is_integer(H) -> int_list(T);
+int_list([_|_])                    -> false;
+int_list([])                       -> true.
 
 -spec load_native_partial(Module :: module(), Binary :: binary()) -> load_ret().
 load_native_partial(Mod, Bin) when is_atom(Mod), is_binary(Bin) ->
@@ -243,7 +276,8 @@ soft_purge(Mod) when is_atom(Mod) -> call({soft_purge,Mod}).
 -spec is_loaded(Module) -> {'file', Loaded} | false when
       Module :: module(),
       Loaded :: loaded_filename().
-is_loaded(Mod) when is_atom(Mod) -> call({is_loaded,Mod}).
+is_loaded(Mod) when is_atom(Mod) ->
+    code_server:is_loaded(Mod).
 
 -spec get_object_code(Module) -> {Module, Binary, Filename} | error when
       Module :: module(),
@@ -346,7 +380,8 @@ unstick_mod(Mod) when is_atom(Mod) -> call({unstick_mod,Mod}).
 
 -spec is_sticky(Module) -> boolean() when
       Module :: module().
-is_sticky(Mod) when is_atom(Mod) -> call({is_sticky,Mod}).
+is_sticky(Mod) when is_atom(Mod) ->
+    code_server:is_sticky(Mod).
 
 -spec set_path(Path) -> 'true' | {'error', What} when
       Path :: [Dir :: file:filename()],
