@@ -1784,77 +1784,26 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {dir, Dir}} = State0) ->
             ctrl_result_response(error, State0, Error)
     end;
 
-handle_ctrl_result({pos_compl, _}, #state{caller = {handle_dir_result, Dir,
-                                                    Data}, client = From}
-                   = State) ->
-    case Dir of
-        "" -> % Current directory
-            gen_server:reply(From, {ok, Data}),
-            {noreply, State#state{client = undefined,
-                                  caller = undefined}};
-        _ ->
-            %% <WTF>
-            %% Dir cannot be assumed to be a dir. It is a string that
-            %% could be a dir, but could also be a file or even a string
-            %% containing wildcards (*).
-            %%
-            %% %% If there is only one line it might be a directory with one
-            %% %% file but it might be an error message that the directory
-            %% %% was not found. So in this case we have to endure a little
-            %% %% overhead to be able to give a good return value. Alas not
-            %% %% all ftp implementations behave the same and returning
-            %% %% an error string is allowed by the FTP RFC.
-            case lists:dropwhile(fun(?CR) -> false;(_) -> true end,
-                                     binary_to_list(Data)) of
-                    L when (L =:= [?CR, ?LF]) orelse (L =:= []) ->
-                        _ = send_ctrl_message(State, mk_cmd("PWD", [])),
-                        activate_ctrl_connection(State),
-                        {noreply,
-                         State#state{caller = {handle_dir_data, Dir, Data}}};
-                    _ ->
-                        gen_server:reply(From, {ok, Data}),
-                        {noreply, State#state{client = undefined,
-                                              caller = undefined}}
-            end
-            %% </WTF>
-    end;
+handle_ctrl_result({pos_compl, _}, #state{caller = {handle_dir_result, ""=_CurrentDir,
+                                                    Data}, client = From}= State) ->
+    gen_server:reply(From, {ok, Data}),
+    {noreply, State#state{client = undefined,
+                          caller = undefined}};
+
+handle_ctrl_result({pos_compl, _}, #state{caller = {handle_dir_result, _Dir,
+                                                    Data}, client = From}= State) ->
+    gen_server:reply(From, {ok, Data}),
+    {noreply, State#state{client = undefined,
+                          caller = undefined}};
 
 handle_ctrl_result({pos_compl, _}=Operation, #state{caller = {handle_dir_result, Dir},
                                                     data   = Data}= State) ->
-    %% operation completed. handle
     handle_ctrl_result(Operation, State#state{caller = {handle_dir_result, Dir, Data}});
-
-handle_ctrl_result({pos_compl, Lines},
-                   #state{caller = {handle_dir_data, Dir, DirData}} =
-                   State0) ->
-    OldDir = pwd_result(Lines),
-    _ = send_ctrl_message(State0, mk_cmd("CWD ~s", [Dir])),
-    State = activate_ctrl_connection(State0),
-    {noreply, State#state{caller = {handle_dir_data_second_phase, OldDir,
-                                    DirData}}};
-handle_ctrl_result({Status, _},
-                   #state{caller = {handle_dir_data, _, _}} = State) ->
-    ctrl_result_response(Status, State, {error, epath});
 
 handle_ctrl_result(S={_Status, _},
                    #state{caller = {handle_dir_result, _, _}} = State) ->
     %% OTP-5731, macosx
     ctrl_result_response(S, State, {error, epath});
-
-handle_ctrl_result({pos_compl, _},
-                   #state{caller = {handle_dir_data_second_phase, OldDir,
-                                    DirData}} = State0) ->
-    _ = send_ctrl_message(State0, mk_cmd("CWD ~s", [OldDir])),
-    State = activate_ctrl_connection(State0),
-    {noreply, State#state{caller = {handle_dir_data_third_phase, DirData}}};
-handle_ctrl_result({Status, _},
-                   #state{caller = {handle_dir_data_second_phase, _, _}}
-                   = State) ->
-    ctrl_result_response(Status, State, {error, epath});
-handle_ctrl_result(_, #state{caller = {handle_dir_data_third_phase, DirData},
-                             client = From} = State) ->
-    gen_server:reply(From, {ok, DirData}),
-    {noreply, State#state{client = undefined, caller = undefined}};
 
 handle_ctrl_result({Status, _}, #state{caller = cd} = State) ->
     ctrl_result_response(Status, State, {error, Status});
