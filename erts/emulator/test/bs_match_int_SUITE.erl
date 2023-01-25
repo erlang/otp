@@ -22,7 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 integer/1,mixed_sizes/1,signed_integer/1,dynamic/1,more_dynamic/1,
-         mml/1,match_huge_int/1,bignum/1,unaligned_32_bit/1]).
+         mml/1,match_huge_int/1,bignum/1,unaligned_32_bit/1,unit/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -32,7 +32,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [integer, mixed_sizes, signed_integer, dynamic, more_dynamic, mml,
-     match_huge_int, bignum, unaligned_32_bit].
+     match_huge_int, bignum, unaligned_32_bit, unit].
 
 groups() ->
     [].
@@ -981,6 +981,15 @@ unaligned_32_bit_1(_) ->
 unaligned_32_bit_verify([], 0) -> ok;
 unaligned_32_bit_verify([4294967295|T], N) when N > 0 ->
     unaligned_32_bit_verify(T, N-1).
+
+unit(_Config) ->
+    %% GH-6732. Would fail to match with no_ssa_opt or r25.
+    <<V1:5/integer-unit:8>> = id(<<16#cafebeef:5/integer-unit:8>>),
+    16#cafebeef = id(V1),
+    <<V2:8/integer-unit:5>> = id(<<16#cafebeef:8/integer-unit:5>>),
+    16#cafebeef = id(V2),
+
+    ok.
 
 %%%
 %%% Common utilities.
