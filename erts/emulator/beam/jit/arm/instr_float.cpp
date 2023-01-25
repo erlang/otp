@@ -159,12 +159,12 @@ void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
 
     a.bind(not_small);
     {
-        if (masked_types(Src, BEAM_TYPE_FLOAT) == BEAM_TYPE_NONE) {
+        if (never_one_of<BeamTypeId::Float>(Src)) {
             comment("skipped float path since source cannot be a float");
         } else {
             /* If the source is always a number, we can skip the box test when
              * it's not a small. */
-            if (always_one_of(Src, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+            if (always_one_of<BeamTypeId::Number>(Src)) {
                 comment("skipped box test since source is always a number");
             } else {
                 emit_is_boxed(fallback, Src, src.reg);

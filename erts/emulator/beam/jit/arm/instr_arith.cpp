@@ -32,8 +32,8 @@ void BeamModuleAssembler::emit_add_sub_types(bool is_small_result,
                                              const ArgSource &RHS,
                                              const a64::Gp rhs_reg,
                                              const Label next) {
-    if (always_one_of(LHS, BEAM_TYPE_INTEGER) &&
-        always_one_of(RHS, BEAM_TYPE_INTEGER) && is_small_result) {
+    if (exact_type<BeamTypeId::Integer>(LHS) &&
+        exact_type<BeamTypeId::Integer>(RHS) && is_small_result) {
         comment("skipped overflow test because the result is always small");
         emit_are_both_small(LHS, lhs_reg, RHS, rhs_reg, next);
     } else {
@@ -62,17 +62,20 @@ void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
                                               const a64::Gp rhs_reg,
                                               const Label next) {
     if (always_small(RHS) &&
-        always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(LHS)) {
         comment("simplified test for small operand since other types are "
                 "boxed");
         emit_is_boxed(next, lhs_reg);
     } else if (always_small(LHS) &&
-               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       RHS)) {
         comment("simplified test for small operand since other types are "
                 "boxed");
         emit_is_boxed(next, rhs_reg);
-    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       RHS)) {
         comment("simplified test for small operands since other types are "
                 "boxed");
         ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
@@ -919,8 +922,8 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
         a.and_(ARG1, lhs.reg, rhs.reg);
 
         ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-        if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-            always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+        if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(LHS) &&
+            always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(RHS)) {
             comment("simplified test for small operands since other types are "
                     "boxed");
             emit_is_boxed(next, ARG1);
@@ -1165,7 +1168,7 @@ void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
     /* Invert everything except the tag so we don't have to tag it again. */
     a.eor(ARG1, src.reg, imm(~_TAG_IMMED1_MASK));
 
-    if (always_one_of(Src, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+    if (always_one_of<BeamTypeId::Number>(Src)) {
         comment("simplified test for small operand since it is a number");
         emit_is_boxed(next, Src, ARG1);
     } else {
@@ -1222,8 +1225,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
                 comment("skipped test for small left operand because it is "
                         "always small");
                 need_generic = false;
-            } else if (always_one_of(LHS,
-                                     BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+            } else if (always_one_of<BeamTypeId::Number>(LHS)) {
                 comment("simplified test for small operand since it is a "
                         "number");
                 emit_is_not_boxed(generic, lhs.reg);
@@ -1365,8 +1367,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
             if (always_small(LHS)) {
                 comment("skipped test for small operand since it is always "
                         "small");
-            } else if (always_one_of(LHS,
-                                     BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+            } else if (always_one_of<BeamTypeId::Number>(LHS)) {
                 comment("simplified test for small operand since it is a "
                         "number");
                 emit_is_not_boxed(generic, TMP1);

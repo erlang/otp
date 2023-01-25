@@ -37,7 +37,99 @@ extern "C"
 #include "erl_vm.h"
 #include "global.h"
 #include "beam_file.h"
+#include "beam_types.h"
 }
+
+/* Type-safe wrapper around the definitions in beam_types.h. We've redefined it
+ * as an `enum class` to force the usage of our helpers, which lets us check
+ * for common usage errors at compile time. */
+enum class BeamTypeId : int {
+    None = BEAM_TYPE_NONE,
+
+    Atom = BEAM_TYPE_ATOM,
+    Bitstring = BEAM_TYPE_BITSTRING,
+    BsMatchState = BEAM_TYPE_BS_MATCHSTATE,
+    Cons = BEAM_TYPE_CONS,
+    Float = BEAM_TYPE_FLOAT,
+    Fun = BEAM_TYPE_FUN,
+    Integer = BEAM_TYPE_INTEGER,
+    Map = BEAM_TYPE_MAP,
+    Nil = BEAM_TYPE_NIL,
+    Pid = BEAM_TYPE_PID,
+    Port = BEAM_TYPE_PORT,
+    Reference = BEAM_TYPE_REFERENCE,
+    Tuple = BEAM_TYPE_TUPLE,
+
+    Any = BEAM_TYPE_ANY,
+
+    Identifier = Pid | Port | Reference,
+    List = Cons | Nil,
+    Number = Float | Integer,
+
+    /** @brief Types that can be boxed, including those that may also be
+     * immediates (e.g. pids, integers). */
+    MaybeBoxed = Bitstring | BsMatchState | Float | Fun | Integer | Map | Pid |
+                 Port | Reference | Tuple,
+    /** @brief Types that can be immediates, including those that may also be
+     * boxed (e.g. pids, integers). */
+    MaybeImmediate = Atom | Integer | Nil | Pid | Port,
+
+    /** @brief Types that are _always_ boxed. */
+    AlwaysBoxed = MaybeBoxed & ~(Cons | MaybeImmediate),
+    /** @brief Types that are _always_ immediates. */
+    AlwaysImmediate = MaybeImmediate & ~(Cons | MaybeBoxed),
+};
+
+template<BeamTypeId... T>
+struct BeamTypeIdUnion;
+
+template<>
+struct BeamTypeIdUnion<> {
+    static constexpr BeamTypeId value() {
+        return BeamTypeId::None;
+    }
+};
+
+template<BeamTypeId T, BeamTypeId... Rest>
+struct BeamTypeIdUnion<T, Rest...> : BeamTypeIdUnion<Rest...> {
+    using integral = std::underlying_type_t<BeamTypeId>;
+    using super = BeamTypeIdUnion<Rest...>;
+
+    /* Overlapping type specifications are redundant at best and a subtle error
+     * at worst. We've had several bugs where `Integer | MaybeBoxed` was used
+     * instead of `Integer | AlwaysBoxed` or similar, and erroneously drew the
+     * conclusion that the value is always an integer when not boxed, when it
+     * could also be a pid or port. */
+    static constexpr bool no_overlap =
+            (static_cast<integral>(super::value()) &
+             static_cast<integral>(T)) == BEAM_TYPE_NONE;
+    static constexpr bool no_boxed_overlap =
+            no_overlap || (super::value() != BeamTypeId::MaybeBoxed &&
+                           T != BeamTypeId::MaybeBoxed);
+    static constexpr bool no_immed_overlap =
+            no_overlap || (super::value() != BeamTypeId::MaybeImmediate &&
+                           T != BeamTypeId::MaybeImmediate);
+
+    static_assert(no_boxed_overlap,
+                  "types must not overlap, did you mean to use "
+                  "BeamTypeId::AlwaysBoxed here?");
+    static_assert(no_immed_overlap,
+                  "types must not overlap, did you mean to use "
+                  "BeamTypeId::AlwaysImmediate here?");
+    static_assert(no_overlap || no_boxed_overlap || no_immed_overlap,
+                  "types must not overlap");
+
+    static constexpr bool is_single_typed() {
+        constexpr auto V = static_cast<integral>(value());
+        return (static_cast<integral>(V) & (static_cast<integral>(V) - 1)) ==
+               BEAM_TYPE_NONE;
+    }
+
+    static constexpr BeamTypeId value() {
+        return static_cast<BeamTypeId>(static_cast<integral>(super::value()) |
+                                       static_cast<integral>(T));
+    }
+};
 
 #include "beam_jit_args.hpp"
 

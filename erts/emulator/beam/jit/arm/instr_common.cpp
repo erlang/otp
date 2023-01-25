@@ -863,7 +863,7 @@ void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
 
     arm::Gp boxed_ptr = emit_ptr_val(ARG1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr));
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_BITSTRING) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Bitstring) {
         const int bit_number = 3;
         ERTS_CT_ASSERT((_TAG_HEADER_SUB_BIN & (1 << bit_number)) != 0 &&
                        (_TAG_HEADER_REFC_BIN & (1 << bit_number)) == 0 &&
@@ -880,12 +880,12 @@ void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
     /* This is a sub binary. */
     a.ldrb(TMP1.w(), emit_boxed_val(boxed_ptr, offsetof(ErlSubBin, bitsize)));
     a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) != BEAM_TYPE_BITSTRING) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) != BeamTypeId::Bitstring) {
         a.b(next);
     }
 
     a.bind(is_binary);
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) != BEAM_TYPE_BITSTRING) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) != BeamTypeId::Bitstring) {
         ERTS_CT_ASSERT(_TAG_HEADER_REFC_BIN + 4 == _TAG_HEADER_HEAP_BIN);
         a.and_(TMP1, TMP1, imm(~4));
         a.cmp(TMP1, imm(_TAG_HEADER_REFC_BIN));
@@ -926,7 +926,7 @@ void BeamModuleAssembler::emit_is_float(const ArgLabel &Fail,
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FLOAT) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Float) {
         comment("skipped header test since we know it's a float when boxed");
     } else {
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
@@ -943,7 +943,7 @@ void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Fun) {
         comment("skipped header test since we know it's a fun when boxed");
     } else {
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
@@ -990,7 +990,7 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
 
     arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Fun) {
         comment("skipped header test since we know it's a fun when boxed");
     } else {
         a.ldur(TMP2, emit_boxed_val(boxed_ptr));
@@ -1017,7 +1017,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
 
     Label next = a.newLabel();
 
-    if (always_one_of(Src, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(Src)) {
         comment("simplified small test since all other types are boxed");
         emit_is_boxed(next, Src, src.reg);
     } else {
@@ -1028,7 +1028,7 @@ void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
     }
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_INTEGER) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Integer) {
         comment("skipped header test since we know it's a bignum when "
                 "boxed");
     } else {
@@ -1071,7 +1071,7 @@ void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
 
     /* As an optimization for the `error | #{}` case, skip checking the header
      * word when we know that the only possible boxed type is a map. */
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_MAP) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Map) {
         comment("skipped header test since we know it's a map when boxed");
     } else {
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
@@ -1086,7 +1086,7 @@ void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
                                       const ArgRegister &Src) {
     auto src = load_source(Src, TMP1);
 
-    if (always_one_of(Src, (BEAM_TYPE_CONS | BEAM_TYPE_NIL))) {
+    if (always_one_of<BeamTypeId::List>(Src)) {
         const int bitNumber = 1;
         ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
                        (1 << bitNumber));
@@ -1103,7 +1103,7 @@ void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
     auto src = load_source(Src, TMP1);
     Label next = a.newLabel();
 
-    if (always_one_of(Src, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(Src)) {
         comment("simplified small test since all other types are boxed");
         emit_is_boxed(next, Src, src.reg);
     } else {
@@ -1114,8 +1114,7 @@ void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
     }
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) ==
-        (BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Number) {
         comment("skipped header test since we know it's a number when boxed");
     } else {
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
@@ -1147,7 +1146,7 @@ void BeamModuleAssembler::emit_is_pid(const ArgLabel &Fail,
     auto src = load_source(Src, TMP1);
     Label next = a.newLabel();
 
-    if (always_one_of(Src, BEAM_TYPE_PID | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+    if (always_one_of<BeamTypeId::Pid, BeamTypeId::AlwaysBoxed>(Src)) {
         comment("simplified local pid test since all other types are boxed");
         emit_is_boxed(next, Src, src.reg);
     } else {
@@ -1159,7 +1158,7 @@ void BeamModuleAssembler::emit_is_pid(const ArgLabel &Fail,
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
     }
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_PID) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Pid) {
         comment("skipped header test since we know it's a pid when boxed");
     } else {
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
@@ -1177,7 +1176,7 @@ void BeamModuleAssembler::emit_is_port(const ArgLabel &Fail,
     auto src = load_source(Src, TMP1);
     Label next = a.newLabel();
 
-    if (always_one_of(Src, BEAM_TYPE_PORT | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+    if (always_one_of<BeamTypeId::Port, BeamTypeId::AlwaysBoxed>(Src)) {
         comment("simplified local port test since all other types are boxed");
         emit_is_boxed(next, Src, src.reg);
     } else {
@@ -1189,7 +1188,7 @@ void BeamModuleAssembler::emit_is_port(const ArgLabel &Fail,
         emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, TMP2);
     }
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_PORT) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Port) {
         comment("skipped header test since we know it's a port when boxed");
     } else {
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
@@ -1208,7 +1207,7 @@ void BeamModuleAssembler::emit_is_reference(const ArgLabel &Fail,
 
     emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_REFERENCE) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Reference) {
         comment("skipped header test since we know it's a ref when boxed");
     } else {
         arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
@@ -1303,7 +1302,7 @@ void BeamModuleAssembler::emit_i_is_tuple(const ArgLabel &Fail,
 
     /* As an optimization for the `error | {ok, Value}` case, skip checking the
      * header word when we know that the only possible boxed type is a tuple. */
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_TUPLE) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
         comment("skipped header test since we know it's a tuple when boxed");
     } else {
         a.ldr(TMP1, arm::Mem(ARG1));
@@ -1348,7 +1347,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
     auto x = load_source(X, ARG1);
 
     bool is_empty_binary = false;
-    if (exact_type(X, BEAM_TYPE_BITSTRING) && Y.isLiteral()) {
+    if (exact_type<BeamTypeId::Bitstring>(X) && Y.isLiteral()) {
         Eterm literal = beamfile_get_literal(beam, Y.as<ArgLiteral>().get());
         is_empty_binary = is_binary(literal) && binary_size(literal) == 0;
     }
@@ -1440,7 +1439,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
     auto x = load_source(X, ARG1);
 
     bool is_empty_binary = false;
-    if (exact_type(X, BEAM_TYPE_BITSTRING) && Y.isLiteral()) {
+    if (exact_type<BeamTypeId::Bitstring>(X) && Y.isLiteral()) {
         auto unit = getSizeUnit(X);
         if (unit != 0 && std::gcd(unit, 8) == 8) {
             Eterm literal =
@@ -1639,7 +1638,7 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         comment("skipped test for small operands since they are always small");
         a.cmp(lhs.reg, rhs.reg);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
-    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+    } else if (always_small(LHS) && exact_type<BeamTypeId::Integer>(RHS) &&
                hasLowerBound(RHS)) {
         Label next = a.newLabel();
         comment("simplified test because it always succeeds when RHS is a "
@@ -1648,19 +1647,19 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         a.cmp(lhs.reg, rhs.reg);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
         a.bind(next);
-    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+    } else if (always_small(LHS) && exact_type<BeamTypeId::Integer>(RHS) &&
                hasUpperBound(RHS)) {
         comment("simplified test because it always fails when RHS is a bignum");
         emit_is_not_boxed(resolve_beam_label(Fail, dispUnknown), rhs.reg);
         a.cmp(lhs.reg, rhs.reg);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
-    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasLowerBound(LHS) &&
+    } else if (exact_type<BeamTypeId::Integer>(LHS) && hasLowerBound(LHS) &&
                always_small(RHS)) {
         comment("simplified test because it always fails when LHS is a bignum");
         emit_is_not_boxed(resolve_beam_label(Fail, dispUnknown), lhs.reg);
         a.cmp(lhs.reg, rhs.reg);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
-    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasUpperBound(LHS) &&
+    } else if (exact_type<BeamTypeId::Integer>(LHS) && hasUpperBound(LHS) &&
                always_small(RHS)) {
         Label next = a.newLabel();
         comment("simplified test because it always succeeds when LHS is a "
@@ -1669,8 +1668,10 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         a.cmp(lhs.reg, rhs.reg);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
         a.bind(next);
-    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       RHS)) {
         Label branch_compare = a.newLabel();
 
         a.cmp(lhs.reg, rhs.reg);
@@ -1747,13 +1748,13 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         comment("skipped test for small operands since they are always small");
         a.cmp(lhs.reg, rhs.reg);
         a.b_lt(resolve_beam_label(Fail, disp1MB));
-    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+    } else if (always_small(LHS) && exact_type<BeamTypeId::Integer>(RHS) &&
                hasLowerBound(RHS)) {
         comment("simplified test because it always fails when RHS is a bignum");
         emit_is_not_boxed(resolve_beam_label(Fail, dispUnknown), rhs.reg);
         a.cmp(lhs.reg, rhs.reg);
         a.b_lt(resolve_beam_label(Fail, disp1MB));
-    } else if (always_small(LHS) && exact_type(RHS, BEAM_TYPE_INTEGER) &&
+    } else if (always_small(LHS) && exact_type<BeamTypeId::Integer>(RHS) &&
                hasUpperBound(RHS)) {
         Label next = a.newLabel();
         comment("simplified test because it always succeeds when RHS is a "
@@ -1762,13 +1763,13 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         a.cmp(lhs.reg, rhs.reg);
         a.b_lt(resolve_beam_label(Fail, disp1MB));
         a.bind(next);
-    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasUpperBound(LHS) &&
+    } else if (exact_type<BeamTypeId::Integer>(LHS) && hasUpperBound(LHS) &&
                always_small(RHS)) {
         comment("simplified test because it always fails when LHS is a bignum");
         emit_is_not_boxed(resolve_beam_label(Fail, dispUnknown), lhs.reg);
         a.cmp(lhs.reg, rhs.reg);
         a.b_lt(resolve_beam_label(Fail, disp1MB));
-    } else if (exact_type(LHS, BEAM_TYPE_INTEGER) && hasLowerBound(LHS) &&
+    } else if (exact_type<BeamTypeId::Integer>(LHS) && hasLowerBound(LHS) &&
                always_small(RHS)) {
         Label next = a.newLabel();
         comment("simplified test because it always succeeds when LHS is a "
@@ -1777,8 +1778,10 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         a.cmp(lhs.reg, rhs.reg);
         a.b_lt(resolve_beam_label(Fail, disp1MB));
         a.bind(next);
-    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       LHS) &&
+               always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       RHS)) {
         Label branch_compare = a.newLabel();
 
         a.cmp(lhs.reg, rhs.reg);
@@ -1926,14 +1929,14 @@ void BeamModuleAssembler::emit_is_in_range(ArgLabel const &Small,
     if (always_small(Src)) {
         need_generic = false;
         comment("skipped test for small operand since it always small");
-    } else if (always_one_of(Src, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    } else if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                       Src)) {
         /* The only possible kind of immediate is a small and all
          * other values are boxed, so we can test for smalls by
          * testing boxed. */
         comment("simplified small test since all other types are boxed");
         ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED == (1 << 0));
-        if (Small == Large &&
-            always_one_of(Src, BEAM_TYPE_MASK_BOXED - BEAM_TYPE_FLOAT)) {
+        if (Small == Large && never_one_of<BeamTypeId::Float>(Src)) {
             /* Src is never a float and the failure labels are
              * equal. Therefore, since a bignum will never be within
              * the range, we can fail immediately if Src is not a
@@ -2159,7 +2162,7 @@ void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
     auto src = load_source(Src, ARG1);
     Label small = a.newLabel(), next = a.newLabel();
 
-    if (always_one_of(Src, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(Src)) {
         comment("simplified small test since all other types are boxed");
         emit_is_boxed(small, Src, src.reg);
     } else {

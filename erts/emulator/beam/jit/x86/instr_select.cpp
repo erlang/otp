@@ -55,7 +55,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
     ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
     a.mov(ARG2d, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_TUPLE) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
         comment("simplified tuple test since the source is always a tuple "
                 "when boxed");
     } else {

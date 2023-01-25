@@ -381,7 +381,7 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
 
-    if (masked_types(Key, BEAM_TYPE_MASK_IMMEDIATE) != BEAM_TYPE_NONE) {
+    if (maybe_one_of<BeamTypeId::MaybeImmediate>(Key)) {
         fragment_call(ga->get_i_get_map_element_shared());
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {

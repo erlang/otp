@@ -57,38 +57,11 @@
 
 #define BEAM_TYPE_ANY                ((1 << 13) - 1)
 
+/* This is not a part of the type union proper, but is present in the format
+ * to signal the presence of metadata. */
 #define BEAM_TYPE_HAS_LOWER_BOUND    (1 << 13)
 #define BEAM_TYPE_HAS_UPPER_BOUND    (1 << 14)
 #define BEAM_TYPE_HAS_UNIT           (1 << 15)
-
-#define BEAM_TYPE_MASK_BOXED        \
-    (BEAM_TYPE_BITSTRING |          \
-     BEAM_TYPE_BS_MATCHSTATE |      \
-     BEAM_TYPE_FLOAT |              \
-     BEAM_TYPE_FUN |                \
-     BEAM_TYPE_INTEGER |            \
-     BEAM_TYPE_MAP |                \
-     BEAM_TYPE_PID |                \
-     BEAM_TYPE_PORT |               \
-     BEAM_TYPE_REFERENCE |          \
-     BEAM_TYPE_TUPLE)
-
-#define BEAM_TYPE_MASK_IMMEDIATE    \
-    (BEAM_TYPE_ATOM |               \
-     BEAM_TYPE_INTEGER |            \
-     BEAM_TYPE_NIL |                \
-     BEAM_TYPE_PID |                \
-     BEAM_TYPE_PORT)
-
-#define BEAM_TYPE_MASK_CELL         \
-    (BEAM_TYPE_CONS)
-
-#define BEAM_TYPE_MASK_ALWAYS_IMMEDIATE  \
-    (BEAM_TYPE_MASK_IMMEDIATE & ~(BEAM_TYPE_MASK_BOXED | BEAM_TYPE_MASK_CELL))
-#define BEAM_TYPE_MASK_ALWAYS_BOXED      \
-    (BEAM_TYPE_MASK_BOXED & ~(BEAM_TYPE_MASK_CELL | BEAM_TYPE_MASK_IMMEDIATE))
-#define BEAM_TYPE_MASK_ALWAYS_CELL       \
-    (BEAM_TYPE_MASK_CELL & ~(BEAM_TYPE_MASK_BOXED | BEAM_TYPE_MASK_IMMEDIATE))
 
 typedef struct {
     /** @brief A set of the possible types (atom, tuple, etc) this term may
