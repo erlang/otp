@@ -92,6 +92,10 @@
         <item><p><c>strings</c> is set to <c>false</c> if modifier
           <c>l</c> is present.</p>
         </item>
+        <item><p><c>maps_order</c> is set to <c>undefined</c> by default,
+          <c>ordered</c> if modifier <c>k</c> is present, or <c>CmpFun</c>
+          if modifier <c>K</c> is present.</p>
+        </item>
       </list>
       </desc>
     </datatype>
