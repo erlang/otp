@@ -1413,6 +1413,7 @@ ext_type_mapping() ->
 
 -spec decode_ext(binary()) -> {type(),binary()} | 'done'.
 decode_ext(<<TypeBits:16/big,More/binary>>) ->
+    true = TypeBits =/= 0,                      %Assertion.
     Res = foldl(fun({Id, Type}, Acc) ->
                         decode_ext_bits(TypeBits, Id, Type, Acc)
                 end, none, ext_type_mapping()),
@@ -1474,6 +1475,7 @@ encode_ext(Input) ->
                       end, 0, ext_type_mapping()),
     {TypeBits1,Extra} = encode_extra(Input),
     TypeBits = TypeBits0 bor TypeBits1,
+    true = TypeBits =/= 0,                      %Assertion.
     <<TypeBits:16,Extra/binary>>.
 
 encode_ext_bits(Input, TypeBit, Type, Acc) ->

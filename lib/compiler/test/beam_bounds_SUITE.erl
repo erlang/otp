@@ -463,8 +463,10 @@ test_relop_1(Op, R1, R2) ->
             ct:fail(bad_bool_result)
     end.
 
-test_infer_relop(Bool, Op, R1, R2) when is_boolean(Bool) ->
+test_infer_relop(true, Op, R1, R2) ->
     any = beam_bounds:infer_relop_types(Op, R1, R2);
+test_infer_relop(false, Op, R1, R2) ->
+    none = beam_bounds:infer_relop_types(Op, R1, R2);
 test_infer_relop('maybe', Op, {A0,B0}=R1, {C0,D0}=R2) ->
     {{A,B},{C,D}} = beam_bounds:infer_relop_types(Op, R1, R2),
     if

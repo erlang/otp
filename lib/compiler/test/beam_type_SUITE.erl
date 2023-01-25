@@ -1278,6 +1278,8 @@ infer_relops(_Config) ->
     {'EXIT',{badarith,_}} = catch infer_relops_1(),
     {'EXIT',{badarith,_}} = catch infer_relops_2(),
     {'EXIT',{badarith,_}} = catch infer_relops_3(id(0)),
+    infer_relops_4(),
+
     ok.
 
 %% GH-6568: Type inference for relational operations returned erroneous results
@@ -1296,6 +1298,18 @@ infer_relops_3(X) ->
              || X
             ]) andalso ok
     >>.
+
+infer_relops_4() ->
+    [
+     ok
+     || <<X>> <= <<>>,
+        <<Y:X>> <= <<>>,
+        0 > Y,
+        [
+         Y
+         || _ <- []
+        ]
+    ].
 
 %% GH-6593: the type pass would correctly determine that the tail unit of
 %% <<0:integer/8,I:integer/8>> was 16, but would fail to see that after

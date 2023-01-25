@@ -428,12 +428,12 @@ vi({jump,{f,Lbl}}, Vst) ->
     %% The next instruction is never executed.
     branch(Lbl, Vst, fun kill_state/1);
 vi({select_val,Src0,{f,Fail},{list,Choices}}, Vst) ->
-    Src = unpack_typed_arg(Src0),
+    Src = unpack_typed_arg(Src0, Vst),
     assert_term(Src, Vst),
     assert_choices(Choices),
     validate_select_val(Fail, Choices, Src, Vst);
 vi({select_tuple_arity,Tuple0,{f,Fail},{list,Choices}}, Vst) ->
-    Tuple = unpack_typed_arg(Tuple0),
+    Tuple = unpack_typed_arg(Tuple0, Vst),
 
     assert_type(#t_tuple{}, Tuple, Vst),
     assert_arities(Choices),
@@ -456,7 +456,7 @@ vi({test,is_function2,{f,Lbl},[Src,{integer,Arity}]}, Vst)
   when Arity >= 0, Arity =< ?MAX_FUNC_ARGS ->
     type_test(Lbl, #t_fun{arity=Arity}, Src, Vst);
 vi({test,is_function2,{f,Lbl},[Src0,_Arity]}, Vst) ->
-    Src = unpack_typed_arg(Src0),
+    Src = unpack_typed_arg(Src0, Vst),
     assert_term(Src, Vst),
     branch(Lbl, Vst,
            fun(FailVst) ->
@@ -483,7 +483,7 @@ vi({test,is_map,{f,Lbl},[Src]}, Vst) ->
 vi({test,is_nil,{f,Lbl},[Src0]}, Vst) ->
     %% is_nil is an exact check against the 'nil' value, and should not be
     %% treated as a simple type test.
-    Src = unpack_typed_arg(Src0),
+    Src = unpack_typed_arg(Src0, Vst),
     assert_term(Src, Vst),
     branch(Lbl, Vst,
            fun(FailVst) ->
@@ -503,16 +503,16 @@ vi({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     Type =  #t_tuple{exact=true,size=Sz},
     type_test(Lbl, Type, Tuple, Vst);
 vi({test,is_tagged_tuple,{f,Lbl},[Src0,Sz,Atom]}, Vst) ->
-    Src = unpack_typed_arg(Src0),
+    Src = unpack_typed_arg(Src0, Vst),
     assert_term(Src, Vst),
     Es = #{ 1 => get_literal_type(Atom) },
     Type = #t_tuple{exact=true,size=Sz,elements=Es},
     type_test(Lbl, Type, Src, Vst);
 vi({test,is_eq_exact,{f,Lbl},[Src0,Val0]}, Vst) ->
     assert_no_exception(Lbl),
-    Src = unpack_typed_arg(Src0),
+    Src = unpack_typed_arg(Src0, Vst),
     assert_term(Src, Vst),
-    Val = unpack_typed_arg(Val0),
+    Val = unpack_typed_arg(Val0, Vst),
     assert_term(Val, Vst),
     branch(Lbl, Vst,
            fun(FailVst) ->
@@ -523,9 +523,9 @@ vi({test,is_eq_exact,{f,Lbl},[Src0,Val0]}, Vst) ->
            end);
 vi({test,is_ne_exact,{f,Lbl},[Src0,Val0]}, Vst) ->
     assert_no_exception(Lbl),
-    Src = unpack_typed_arg(Src0),
+    Src = unpack_typed_arg(Src0, Vst),
     assert_term(Src, Vst),
-    Val = unpack_typed_arg(Val0),
+    Val = unpack_typed_arg(Val0, Vst),
     assert_term(Val, Vst),
     branch(Lbl, Vst,
            fun(FailVst) ->
@@ -679,7 +679,7 @@ vi({call_fun2,{f,Lbl},Live,Fun0}, #vst{ft=Ft}=Vst) ->
     assert_term(Fun, Vst),
     validate_body_call('fun', Live, Vst);
 vi({call_fun2,Tag,Live,Fun0}, Vst) ->
-    Fun = unpack_typed_arg(Fun0),
+    Fun = unpack_typed_arg(Fun0, Vst),
     assert_term(Fun, Vst),
 
     case Tag of
@@ -739,8 +739,8 @@ vi(return, Vst) ->
 %%
 
 vi({bif,Op,{f,Fail},Ss0,Dst0}, Vst0) ->
-    Ss = [unpack_typed_arg(Arg) || Arg <- Ss0],
-    Dst = unpack_typed_arg(Dst0),
+    Ss = [unpack_typed_arg(Arg, Vst0) || Arg <- Ss0],
+    Dst = unpack_typed_arg(Dst0, Vst0),
 
     case is_float_arith_bif(Op, Ss) of
         true ->
@@ -751,8 +751,8 @@ vi({bif,Op,{f,Fail},Ss0,Dst0}, Vst0) ->
             validate_bif(bif, Op, Fail, Ss, Dst, Vst0, Vst0)
     end;
 vi({gc_bif,Op,{f,Fail},Live,Ss0,Dst0}, Vst0) ->
-    Ss = [unpack_typed_arg(Arg) || Arg <- Ss0],
-    Dst = unpack_typed_arg(Dst0),
+    Ss = [unpack_typed_arg(Arg, Vst0) || Arg <- Ss0],
+    Dst = unpack_typed_arg(Dst0, Vst0),
 
     validate_src(Ss, Vst0),
     verify_live(Live, Vst0),
@@ -883,7 +883,7 @@ vi(build_stacktrace, Vst0) ->
 %%
 
 vi({get_map_elements,{f,Fail},Src0,{list,List}}, Vst) ->
-    Src = unpack_typed_arg(Src0),
+    Src = unpack_typed_arg(Src0, Vst),
     verify_get_map(Fail, Src, List, Vst);
 vi({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
@@ -895,7 +895,7 @@ vi({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
 %%
 
 vi({bs_match,{f,Fail},Ctx0,{commands,List}}, Vst) ->
-    Ctx = unpack_typed_arg(Ctx0),
+    Ctx = unpack_typed_arg(Ctx0, Vst),
 
     assert_no_exception(Fail),
     assert_type(#t_bs_context{}, Ctx, Vst),
@@ -926,7 +926,7 @@ vi({test,bs_match_string,{f,Fail},[Ctx,Stride,{string,String}]}, Vst) ->
     true = is_bitstring(String),                %Assertion.
     validate_bs_skip(Fail, Ctx, Stride, Vst);
 vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size0,Unit,_Flags]}, Vst) ->
-    Size = unpack_typed_arg(Size0),
+    Size = unpack_typed_arg(Size0, Vst),
     assert_term(Size, Vst),
 
     Stride = case get_concrete_type(Size, Vst) of
@@ -966,19 +966,17 @@ vi({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,Size,Unit,_],Dst}, Vst) ->
     Stride = bsm_stride(Size, Unit),
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,
-    [Ctx,{integer,Sz},Unit,{field_flags,Flags}],Dst},Vst) ->
-    NumBits = Unit * Sz,
-    Stride = NumBits,
-    Type = bs_integer_type(NumBits, Flags),
+    [Ctx,{integer,Size},Unit,{field_flags,Flags}],Dst},Vst) ->
+    Type = bs_integer_type({Size, Size}, Unit, Flags),
+    Stride = Unit * Size,
     validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst);
 vi({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,Sz0,Unit,{field_flags,Flags}],Dst},Vst) ->
-    Sz = unpack_typed_arg(Sz0),
+    Sz = unpack_typed_arg(Sz0, Vst),
     Type = case meet(get_term_type(Sz, Vst), #t_integer{}) of
-               #t_integer{elements={_,SizeMax}} when SizeMax * Unit < 64 ->
-                   NumBits = SizeMax * Unit,
-                   bs_integer_type(NumBits, Flags);
-               Other ->
-                   Other
+               #t_integer{elements=Bounds} ->
+                   bs_integer_type(Bounds, Unit, Flags);
+               none ->
+                   none
            end,
     validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 vi({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,Size,Unit,_],Dst},Vst) ->
@@ -994,7 +992,7 @@ vi({test,bs_get_utf32=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
     Type = beam_types:make_integer(0, ?UNICODE_MAX),
     validate_bs_get(Op, Fail, Ctx, Live, 32, Type, Dst, Vst);
 vi({test,is_lt,{f,Fail},Args0}, Vst) ->
-    Args = [unpack_typed_arg(Arg) || Arg <- Args0],
+    Args = [unpack_typed_arg(Arg, Vst) || Arg <- Args0],
     validate_src(Args, Vst),
     Types = [get_term_type(Arg, Vst) || Arg <- Args],
     branch(Fail, Vst,
@@ -1005,7 +1003,7 @@ vi({test,is_lt,{f,Fail},Args0}, Vst) ->
                    infer_relop_types('<', Args, Types, SuccVst)
            end);
 vi({test,is_ge,{f,Fail},Args0}, Vst) ->
-    Args = [unpack_typed_arg(Arg) || Arg <- Args0],
+    Args = [unpack_typed_arg(Arg, Vst) || Arg <- Args0],
     validate_src(Args, Vst),
     Types = [get_term_type(Arg, Vst) || Arg <- Args],
     branch(Fail, Vst,
@@ -1016,7 +1014,7 @@ vi({test,is_ge,{f,Fail},Args0}, Vst) ->
                    infer_relop_types('>=', Args, Types, SuccVst)
            end);
 vi({test,_Op,{f,Lbl},Ss}, Vst) ->
-    validate_src([unpack_typed_arg(Arg) || Arg <- Ss], Vst),
+    validate_src([unpack_typed_arg(Arg, Vst) || Arg <- Ss], Vst),
     branch(Lbl, Vst);
 
 %%
@@ -1049,7 +1047,7 @@ vi({bs_set_position, Ctx, Pos}, Vst0) ->
 %% Floating-point instructions (excluding BIFs)
 %%
 vi({fconv,Src0,{fr,_}=Dst}, Vst) ->
-    Src = unpack_typed_arg(Src0),
+    Src = unpack_typed_arg(Src0, Vst),
 
     assert_term(Src, Vst),
     branch(?EXCEPTION_LABEL, Vst,
@@ -1099,7 +1097,7 @@ vi(bs_init_writable=I, Vst) ->
 vi({bs_create_bin,{f,Fail},Heap,Live,Unit,Dst,{list,List0}}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
-    List = [unpack_typed_arg(Arg) || Arg <- List0],
+    List = [unpack_typed_arg(Arg, Vst0) || Arg <- List0],
     verify_create_bin_list(List, Vst0),
     Vst = prune_x_regs(Live, Vst0),
     branch(Fail, Vst,
@@ -1237,12 +1235,14 @@ infer_relop_types(Op, Args, Types, Vst) ->
 infer_relop_types(Op, [#t_integer{elements=R1},
                        #t_integer{elements=R2}]) ->
     case beam_bounds:infer_relop_types(Op, R1, R2) of
-        any ->
-            [];
         {NewR1,NewR2} ->
             NewType1 = #t_integer{elements=NewR1},
             NewType2 = #t_integer{elements=NewR2},
-            [NewType1,NewType2]
+            [NewType1,NewType2];
+        none ->
+            [none, none];
+        any ->
+            []
     end;
 infer_relop_types(Op0, [Type1,Type2]) ->
     Op = case Op0 of
@@ -1257,12 +1257,14 @@ infer_relop_types(Op0, [Type1,Type2]) ->
             [Type1,infer_relop_any(Op, R, Type2)];
         {R1,R2} ->
             case beam_bounds:infer_relop_types(Op, R1, R2) of
-                any ->
-                    [];
                 {NewR1,NewR2} ->
                     NewType1 = meet(#t_number{elements=NewR1}, Type1),
                     NewType2 = meet(#t_number{elements=NewR2}, Type2),
-                    [NewType1,NewType2]
+                    [NewType1,NewType2];
+                none ->
+                    [none, none];
+                any ->
+                    []
             end
     end;
 infer_relop_types(_, _) ->
@@ -1413,7 +1415,7 @@ verify_get_map(Fail, Src, List, Vst0) ->
                    clobber_map_vals(List, Src, FailVst)
            end,
            fun(SuccVst) ->
-                   Keys = extract_map_keys(List),
+                   Keys = extract_map_keys(List, SuccVst),
                    assert_unique_map_keys(Keys),
                    extract_map_vals(List, Src, SuccVst)
            end).
@@ -1428,7 +1430,7 @@ verify_get_map(Fail, Src, List, Vst0) ->
 %% We must be careful to preserve the uninitialized status for Y registers
 %% that have been allocated but not yet defined.
 clobber_map_vals([Key0, Dst | T], Map, Vst0) ->
-    Key = unpack_typed_arg(Key0),
+    Key = unpack_typed_arg(Key0, Vst0),
     case is_reg_initialized(Dst, Vst0) of
         true ->
             Vst = extract_term(any, {bif,map_get}, [Key, Map], Dst, Vst0),
@@ -1450,9 +1452,9 @@ is_reg_initialized({y,_}=Reg, #vst{current=#st{ys=Ys}}) ->
     end;
 is_reg_initialized(V, #vst{}) -> error({not_a_register, V}).
 
-extract_map_keys([Key,_Val | T]) ->
-    [unpack_typed_arg(Key) | extract_map_keys(T)];
-extract_map_keys([]) ->
+extract_map_keys([Key,_Val | T], Vst) ->
+    [unpack_typed_arg(Key, Vst) | extract_map_keys(T, Vst)];
+extract_map_keys([], _Vst) ->
     [].
 
 
@@ -1466,7 +1468,7 @@ extract_map_vals([Key0, Dst | Vs], Map, Seen0, Vst0, Vsti0) ->
             %% The destinations must not overwrite each other.
             error(conflicting_destinations);
         false ->
-            Key = unpack_typed_arg(Key0),
+            Key = unpack_typed_arg(Key0, Vsti0),
             assert_term(Key, Vst0),
             case bif_types(map_get, [Key, Map], Vst0) of
                 {none, _, _} ->
@@ -1491,7 +1493,7 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
 
     SuccFun = fun(SuccVst0) ->
                       SuccVst = prune_x_regs(Live, SuccVst0),
-                      Keys = extract_map_keys(List),
+                      Keys = extract_map_keys(List, SuccVst),
                       assert_unique_map_keys(Keys),
 
                       Type = put_map_type(Src, List, Vst),
@@ -1728,12 +1730,13 @@ validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
             validate_ctx_live(Ctx, Live),
             verify_live(Live, Vst0),
             Vst1 = prune_x_regs(Live, Vst0),
-            Stride = Size * Unit,
             Type = case Type0 of
                        integer ->
-                           bs_integer_type(Stride, Flags);
+                           true = is_integer(Size), %Assertion.
+                           bs_integer_type({Size, Size}, Unit, Flags);
                        binary ->
-                           #t_bitstring{size_unit=bsm_size_unit({integer,Size}, Unit)}
+                           SizeUnit = bsm_size_unit({integer,Size}, Unit),
+                           #t_bitstring{size_unit=SizeUnit}
                    end,
             Vst = extract_term(Type, bs_match, [Ctx], Dst, Vst1, Vst0),
             validate_bs_match(Is, Ctx, Unit0, Vst);
@@ -1765,20 +1768,25 @@ validate_failed_bs_match([_|Is], Ctx, Vst) ->
 validate_failed_bs_match([], _Ctx, Vst) ->
     Vst.
 
-bs_integer_type(NumBits, Flags) ->
-    if
-        0 =< NumBits, NumBits =< 64 ->
-            Max = (1 bsl NumBits) - 1,
+bs_integer_type(Bounds, Unit, Flags) ->
+    case beam_bounds:bounds('*', Bounds, {Unit, Unit}) of
+        {_, MaxBits} when is_integer(MaxBits), MaxBits >= 1, MaxBits =< 64 ->
             case member(signed, Flags) of
-                false ->
-                    beam_types:make_integer(0, Max);
                 true ->
+                    Max = (1 bsl (MaxBits - 1)) - 1,
                     Min = -(Max + 1),
-                    beam_types:make_integer(Min, Max)
+                    beam_types:make_integer(Min, Max);
+                false ->
+                    Max = (1 bsl MaxBits) - 1,
+                    beam_types:make_integer(0, Max)
             end;
-        true ->
-            %% Way too large or negative size.
-            #t_integer{}
+        {_, 0} ->
+            beam_types:make_integer(0);
+        _ ->
+            case member(signed, Flags) of
+                true -> #t_integer{};
+                false -> #t_integer{elements={0,'+inf'}}
+            end
     end.
 
 %%
@@ -1786,14 +1794,14 @@ bs_integer_type(NumBits, Flags) ->
 %%
 
 validate_bs_get(_Op, Fail, Ctx0, Live, _Stride, none, _Dst, Vst) ->
-    Ctx = unpack_typed_arg(Ctx0),
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     validate_bs_get_1(
       Fail, Ctx, Live, Vst,
       fun(SuccVst) ->
               kill_state(SuccVst)
       end);
 validate_bs_get(Op, Fail, Ctx0, Live, Stride, Type, Dst, Vst) ->
-    Ctx = unpack_typed_arg(Ctx0),
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     validate_bs_get_1(
       Fail, Ctx, Live, Vst,
       fun(SuccVst0) ->
@@ -1803,7 +1811,7 @@ validate_bs_get(Op, Fail, Ctx0, Live, Stride, Type, Dst, Vst) ->
       end).
 
 validate_bs_get_all(Op, Fail, Ctx0, Live, Stride, Type, Dst, Vst) ->
-    Ctx = unpack_typed_arg(Ctx0),
+    Ctx = unpack_typed_arg(Ctx0, Vst),
     validate_bs_get_1(
       Fail, Ctx, Live, Vst,
       fun(SuccVst0) ->
@@ -1907,7 +1915,7 @@ invalidate_current_ms_position(Ctx, #vst{current=St0}=Vst) ->
 %% Common code for is_$type instructions.
 %%
 type_test(Fail, Type, Reg0, Vst) ->
-    Reg = unpack_typed_arg(Reg0),
+    Reg = unpack_typed_arg(Reg0, Vst),
 
     assert_term(Reg, Vst),
     assert_no_exception(Fail),
@@ -2807,9 +2815,13 @@ validate_src(Ss, Vst) when is_list(Ss) ->
     _ = [assert_term(S, Vst) || S <- Ss],
     ok.
 
-unpack_typed_arg(#tr{r=Reg}) ->
+unpack_typed_arg(#tr{r=Reg,t=Type}, Vst) ->
+    %% The validator is not yet clever enough to do proper range analysis like
+    %% the main type pass, so our types will be a bit cruder here, but they
+    %% should at the very least not be in direct conflict.
+    true = none =/= beam_types:meet(get_movable_term_type(Reg, Vst), Type),
     Reg;
-unpack_typed_arg(Arg) ->
+unpack_typed_arg(Arg, _Vst) ->
     Arg.
 
 %% get_term_type(Src, ValidatorState) -> Type

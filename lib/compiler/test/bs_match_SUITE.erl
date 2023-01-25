@@ -1416,6 +1416,8 @@ bad_size(Config) when is_list(Config) ->
     error = bad_size_3(<<>>),
     error = bad_size_3(<<0>>),
 
+    <<>> = id(<<_V1 || <<_V0/float, _V1:_V0>> <= <<>>>>),
+
     ok.
 
 bad_all_size(Bin) ->
