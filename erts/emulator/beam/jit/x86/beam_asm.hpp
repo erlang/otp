@@ -960,7 +960,7 @@ class BeamModuleAssembler : public BeamAssembler {
     Label codeHeader;
 
     /* Used by emit to populate the labelToMFA map */
-    Label currLabel;
+    Label current_label;
 
     /* Special shared fragments that must reside in each module. */
     Label funcInfo;

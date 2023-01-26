@@ -375,7 +375,7 @@ void BeamModuleAssembler::emit_wait_timeout_locked(const ArgSource &Src,
     a.short_().jl(next);
 #endif
 
-    emit_raise_exception(currLabel, (ErtsCodeMFA *)nullptr);
+    emit_raise_exception(current_label, (ErtsCodeMFA *)nullptr);
 
     a.bind(wait);
     emit_wait_locked(Dest);

@@ -825,7 +825,7 @@ void BeamModuleAssembler::emit_call_bif(const ArgWord &Func) {
     /* Yield entry point; must be after entering frame. */
     a.bind(entry);
     {
-        a.lea(ARG2, x86::qword_ptr(currLabel, mfa_offset));
+        a.lea(ARG2, x86::qword_ptr(current_label, mfa_offset));
         a.lea(ARG3, x86::qword_ptr(entry));
         mov_arg(ARG4, Func);
 
@@ -974,7 +974,7 @@ void BeamModuleAssembler::emit_call_nif(const ArgWord &Func,
 #endif
 
     ASSERT(BEAM_ASM_FUNC_PROLOGUE_SIZE ==
-           (a.offset() - code.labelOffsetFromBase(currLabel)));
+           (a.offset() - code.labelOffsetFromBase(current_label)));
 
     /* The start of this function must mimic the layout of ErtsNativeFunc.
      *
@@ -1000,7 +1000,7 @@ void BeamModuleAssembler::emit_call_nif(const ArgWord &Func,
 
     a.bind(dispatch);
     {
-        a.lea(ARG3, x86::qword_ptr(currLabel));
+        a.lea(ARG3, x86::qword_ptr(current_label));
         pic_jmp(ga->get_call_nif_yield_helper());
     }
 }
@@ -1123,7 +1123,7 @@ void BeamModuleAssembler::emit_i_load_nif() {
     emit_enter_runtime<Update::eStack | Update::eHeap>();
 
     a.mov(ARG1, c_p);
-    a.lea(ARG2, x86::qword_ptr(currLabel));
+    a.lea(ARG2, x86::qword_ptr(current_label));
     load_x_reg_array(ARG3);
     runtime_call<3>(beam_jit_load_nif);
 
@@ -1134,7 +1134,7 @@ void BeamModuleAssembler::emit_i_load_nif() {
     a.cmp(RET, imm(RET_NIF_success));
     a.je(next);
 
-    emit_raise_exception(currLabel, &mfa);
+    emit_raise_exception(current_label, &mfa);
 
     a.bind(schedule);
     {

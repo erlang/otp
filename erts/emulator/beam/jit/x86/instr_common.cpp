@@ -1961,7 +1961,7 @@ void BeamModuleAssembler::emit_raw_raise() {
     (BEAM_ASM_FUNC_PROLOGUE_SIZE + 16 +                                        \
      (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA ? 4 : 0))
 
-/* ARG3 = return address, currLabel + TEST_YIELD_RETURN_OFFSET */
+/* ARG3 = return address, current_label + TEST_YIELD_RETURN_OFFSET */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
     int mfa_offset = -TEST_YIELD_RETURN_OFFSET - (int)sizeof(ErtsCodeMFA);
 
@@ -1976,16 +1976,16 @@ void BeamGlobalAssembler::emit_i_test_yield_shared() {
 void BeamModuleAssembler::emit_i_test_yield() {
     /* When present, this is guaranteed to be the first instruction after the
      * breakpoint trampoline. */
-    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 
     emit_enter_frame();
 
-    a.lea(ARG3, x86::qword_ptr(currLabel, TEST_YIELD_RETURN_OFFSET));
+    a.lea(ARG3, x86::qword_ptr(current_label, TEST_YIELD_RETURN_OFFSET));
     a.dec(FCALLS);
     a.jle(yieldEnter);
 
-    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            TEST_YIELD_RETURN_OFFSET);
 
 #if defined(JIT_HARD_DEBUG) && defined(ERLANG_FRAME_POINTERS)

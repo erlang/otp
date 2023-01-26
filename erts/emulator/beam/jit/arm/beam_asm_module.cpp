@@ -242,7 +242,7 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
 
     a.bind(next);
 
-    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 }
 
@@ -348,8 +348,8 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
 void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
     ASSERT(Label.isLabel());
 
-    currLabel = rawLabels[Label.get()];
-    bind_veneer_target(currLabel);
+    current_label = rawLabels[Label.get()];
+    bind_veneer_target(current_label);
 }
 
 void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
@@ -359,7 +359,7 @@ void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
 }
 
 void BeamModuleAssembler::emit_on_load() {
-    on_load = currLabel;
+    on_load = current_label;
 }
 
 void BeamModuleAssembler::bind_veneer_target(const Label &target) {
