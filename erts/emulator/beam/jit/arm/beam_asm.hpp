@@ -1883,14 +1883,14 @@ protected:
     }
 
     void safe_stp(arm::Gp gp1, arm::Gp gp2, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
         auto offset = mem.offset();
 
         ASSERT(gp1.isGpX() && gp2.isGpX());
 
-        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
+        if (abs_offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
             a.stp(gp1, gp2, mem);
-        } else if (std::abs(offset) <
-                   sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+        } else if (abs_offset < sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             /* Note that we used `<` instead of `<=`, as we're loading two
              * elements rather than one. */
             a.str(gp1, mem);
@@ -1902,12 +1902,13 @@ protected:
     }
 
     void safe_ldr(arm::Gp gp, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
         auto offset = mem.offset();
 
         ASSERT(mem.hasBaseReg() && !mem.hasIndex());
         ASSERT(gp.isGpX());
 
-        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+        if (abs_offset <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             a.ldr(gp, mem);
         } else {
             add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
@@ -1916,12 +1917,13 @@ protected:
     }
 
     void safe_ldur(arm::Gp gp, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
         auto offset = mem.offset();
 
         ASSERT(mem.hasBaseReg() && !mem.hasIndex());
         ASSERT(gp.isGpX());
 
-        if (std::abs(offset) <= MAX_LDUR_STUR_DISPLACEMENT) {
+        if (abs_offset <= MAX_LDUR_STUR_DISPLACEMENT) {
             a.ldur(gp, mem);
         } else {
             add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
@@ -1940,15 +1942,15 @@ protected:
     }
 
     void safe_ldp(arm::Gp gp1, arm::Gp gp2, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
         auto offset = mem.offset();
 
         ASSERT(gp1.isGpX() && gp2.isGpX());
         ASSERT(gp1 != gp2);
 
-        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
+        if (abs_offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
             a.ldp(gp1, gp2, mem);
-        } else if (std::abs(offset) <
-                   sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+        } else if (abs_offset < sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             /* Note that we used `<` instead of `<=`, as we're loading two
              * elements rather than one. */
             a.ldr(gp1, mem);

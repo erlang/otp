@@ -2677,16 +2677,12 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         /* There is no way the call can fail on a 64-bit architecture. */
     } else if (estimated_num_bits % 8 == 0 &&
                estimated_num_bits / 8 <= ERL_ONHEAP_BIN_LIMIT) {
-        Uint need;
-        int cur_bin_offset =
+        static constexpr auto cur_bin_offset =
                 offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
                 offsetof(struct erl_bits_state, erts_current_bin_);
+        Uint need;
+
         arm::Mem mem_bin_base = arm::Mem(scheduler_registers, cur_bin_offset);
-        arm::Mem mem_bin_offset =
-                arm::Mem(scheduler_registers, cur_bin_offset + sizeof(Eterm));
-        ERTS_CT_ASSERT_FIELD_PAIR(struct erl_bits_state,
-                                  erts_current_bin_,
-                                  erts_bin_offset_);
 
         if (sizeReg.isValid()) {
             Label after_gc_check = a.newLabel();
@@ -2747,6 +2743,9 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             a.stp(TMP1, TMP2, arm::Mem(HTOP).post(sizeof(Eterm[2])));
 
             /* Initialize the erl_bin_state struct. */
+            ERTS_CT_ASSERT_FIELD_PAIR(struct erl_bits_state,
+                                      erts_current_bin_,
+                                      erts_bin_offset_);
             a.stp(HTOP, ZERO, mem_bin_base);
 
             /* Update HTOP. */
