@@ -957,16 +957,10 @@ class BeamModuleAssembler : public BeamAssembler {
 
     BeamGlobalAssembler *ga;
 
-    Label codeHeader;
+    Label code_header;
 
     /* Used by emit to populate the labelToMFA map */
     Label current_label;
-
-    /* Special shared fragments that must reside in each module. */
-    Label funcInfo;
-    Label genericBPTramp;
-    Label yieldReturn;
-    Label yieldEnter;
 
     /* The module's on_load function, if any. */
     Label on_load;
@@ -978,6 +972,10 @@ class BeamModuleAssembler : public BeamAssembler {
 
     /* Save the last PC for an error. */
     size_t last_error_offset = 0;
+
+    /* Maps code pointers to thunks that jump to them, letting us treat global
+     * fragments as if they were local. */
+    std::unordered_map<void (*)(), Label> _dispatchTable;
 
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
@@ -1318,6 +1316,24 @@ protected:
 
     const Label &resolve_beam_label(const ArgLabel &Lbl) const {
         return rawLabels.at(Lbl.get());
+    }
+
+    /* Resolves a shared fragment, creating a trampoline that loads the
+     * appropriate address before jumping there. */
+    const Label &resolve_fragment(void (*fragment)());
+
+    void safe_fragment_call(void (*fragment)()) {
+        emit_assert_redzone_unused();
+        a.call(resolve_fragment(fragment));
+    }
+
+    template<typename FuncPtr>
+    void aligned_call(FuncPtr(*target)) {
+        BeamAssembler::aligned_call(resolve_fragment(target));
+    }
+
+    void aligned_call(Label target) {
+        BeamAssembler::aligned_call(target);
     }
 
     void make_move_patch(x86::Gp to,

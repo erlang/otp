@@ -98,10 +98,23 @@ typedef struct ErtsCodeMFA_ {
 /* If you change the size of this, you also have to update the code
    in ops.tab to reflect the new func_info size */
 typedef struct ErtsCodeInfo_ {
-    BeamInstr op;           /* OpCode(i_func_info) */
-    union {
-        struct generic_bp* gen_bp;     /* Trace breakpoint */
+    /* In both the JIT and interpreter, we may jump here to raise a
+     * function_clause error.
+     *
+     * In addition, the JIT also stores the current breakpoint flags here. */
+    struct {
+#ifndef BEAMASM
+        BeamInstr op;
+#else
+        struct {
+            char raise_function_clause[sizeof(BeamInstr) - 1];
+            char breakpoint_flag;
+        } metadata;
+#endif
     } u;
+
+    /* Trace breakpoint */
+    struct generic_bp *gen_bp;
     ErtsCodeMFA mfa;
 } ErtsCodeInfo;
 
@@ -240,7 +253,7 @@ ERTS_GLB_INLINE
 ErtsCodePtr erts_codeinfo_to_code(const ErtsCodeInfo *ci)
 {
 #ifndef BEAMASM
-    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+    ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI) || !ci->u.op);
 #endif
     ASSERT_MFA(&ci->mfa);
     return (ErtsCodePtr)&ci[1];
@@ -252,7 +265,7 @@ const ErtsCodeInfo *erts_code_to_codeinfo(ErtsCodePtr I)
     const ErtsCodeInfo *ci = &((const ErtsCodeInfo *)I)[-1];
 
 #ifndef BEAMASM
-    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+    ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI) || !ci->u.op);
 #endif
     ASSERT_MFA(&ci->mfa);
 

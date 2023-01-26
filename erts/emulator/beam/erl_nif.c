@@ -354,11 +354,7 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
     ep = erts_nfunc_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
                                   caller,
-                             #ifdef BEAMASM
-				  op_call_nif_WWW,
-                             #else
                                   BeamOpCodeAddr(op_call_nif_WWW),
-                             #endif
 				  direct_fp, indirect_fp,
 				  mod, func_name,
 				  argc, (const Eterm *) argv);
@@ -4139,7 +4135,7 @@ static int get_func_ix(const BeamCodeHeader* mod_code,
         const ErtsCodeInfo* ci = mod_code->functions[j];
 
 #ifndef BEAMASM
-        ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+        ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI));
 #endif
 
         if (f_atom == ci->mfa.function && arity == ci->mfa.arity) {
@@ -4328,8 +4324,7 @@ typedef struct {
     {
         /* data */
 #ifdef BEAMASM
-        BeamInstr prologue[BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(UWord)];
-        BeamInstr call_nif[7];
+        char call_nif[64];
 #else
         BeamInstr call_nif[4];
 #endif
@@ -4764,12 +4759,12 @@ static void patch_call_nif_early(ErlNifEntry* entry,
             /* `ci` is writable. */
             code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
 
-            if (ci_rw->u.gen_bp) {
+            if (ci_rw->gen_bp) {
                 /*
                  * Function traced, patch the original instruction word
                  * Code write permission protects against racing breakpoint writes.
                  */
-                GenericBp* g = ci_rw->u.gen_bp;
+                GenericBp* g = ci_rw->gen_bp;
                 g->orig_instr = BeamSetCodeAddr(g->orig_instr, call_nif_early);
                 if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint))
                     continue;
@@ -4818,11 +4813,12 @@ static void load_nif_1st_finisher(void* vlib)
 #ifdef BEAMASM
             const char *code_exec = (char*)erts_codeinfo_to_code(ci_exec);
             char *code_rw = (char*)erts_codeinfo_to_code(ci_rw);
+            const char *src = fin->beam_stubv[i].code.call_nif;
 
             size_t cpy_sz = sizeof(fin->beam_stubv[0].code.call_nif);
 
             sys_memcpy(&code_rw[BEAM_ASM_FUNC_PROLOGUE_SIZE],
-                       fin->beam_stubv[i].code.call_nif,
+                       &src[BEAM_ASM_FUNC_PROLOGUE_SIZE],
                        cpy_sz);
 
             beamasm_flush_icache(&code_exec[BEAM_ASM_FUNC_PROLOGUE_SIZE],
@@ -4886,11 +4882,11 @@ static void load_nif_2nd_finisher(void* vlib)
 
             code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
 
-            if (ci_rw->u.gen_bp) {
+            if (ci_rw->gen_bp) {
                 /*
                  * Function traced, patch the original instruction word
                  */
-                GenericBp* g = ci_rw->u.gen_bp;
+                GenericBp* g = ci_rw->gen_bp;
                 ASSERT(BeamIsOpCode(g->orig_instr, op_call_nif_early));
                 g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
 

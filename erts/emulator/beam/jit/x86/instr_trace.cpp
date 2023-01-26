@@ -233,7 +233,7 @@ void BeamModuleAssembler::emit_i_hibernate() {
     a.mov(ARG1, x86::qword_ptr(c_p, offsetof(Process, flags)));
     a.and_(ARG1, imm(~F_HIBERNATE_SCHED));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, flags)), ARG1);
-    abs_jmp(ga->get_do_schedule());
+    a.jmp(resolve_fragment(ga->get_do_schedule()));
 
     a.bind(error);
     emit_raise_exception(&BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);

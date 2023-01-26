@@ -899,7 +899,7 @@ class BeamModuleAssembler : public BeamAssembler {
     Label current_label;
 
     /* The offset of our BeamCodeHeader, if any. */
-    Label codeHeader;
+    Label code_header;
 
     /* The module's on_load function, if any. */
     Label on_load;

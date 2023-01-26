@@ -798,15 +798,15 @@ void BeamGlobalAssembler::emit_dispatch_bif(void) {
      * `info` structure. */
     a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, i)));
 
-    ERTS_CT_ASSERT(offsetof(ErtsNativeFunc, trampoline.trace) ==
+    ERTS_CT_ASSERT(offsetof(ErtsNativeFunc, trampoline.call_bif_nif) ==
                    sizeof(ErtsCodeInfo));
 
     ssize_t mfa_offset = offsetof(ErtsNativeFunc, trampoline.info.mfa) -
-                         offsetof(ErtsNativeFunc, trampoline.trace);
+                         offsetof(ErtsNativeFunc, trampoline.call_bif_nif);
     a.lea(ARG2, x86::qword_ptr(ARG3, mfa_offset));
 
     ssize_t dfunc_offset = offsetof(ErtsNativeFunc, trampoline.dfunc) -
-                           offsetof(ErtsNativeFunc, trampoline.trace);
+                           offsetof(ErtsNativeFunc, trampoline.call_bif_nif);
     a.mov(ARG4, x86::qword_ptr(ARG3, dfunc_offset));
 
     a.jmp(labels[call_bif_shared]);
@@ -829,7 +829,7 @@ void BeamModuleAssembler::emit_call_bif(const ArgWord &Func) {
         a.lea(ARG3, x86::qword_ptr(entry));
         mov_arg(ARG4, Func);
 
-        abs_jmp(ga->get_call_bif_shared());
+        a.jmp(resolve_fragment(ga->get_call_bif_shared()));
     }
 }
 
@@ -931,7 +931,7 @@ void BeamGlobalAssembler::emit_dispatch_nif(void) {
      *
      * ErtsNativeFunc already follows the NIF call layout, so we don't need to
      * do anything beyond loading the address. */
-    ERTS_CT_ASSERT(offsetof(ErtsNativeFunc, trampoline.trace) ==
+    ERTS_CT_ASSERT(offsetof(ErtsNativeFunc, trampoline.call_bif_nif) ==
                    sizeof(ErtsCodeInfo));
     a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, i)));
     a.jmp(labels[call_nif_shared]);
@@ -957,7 +957,7 @@ void BeamGlobalAssembler::emit_call_nif_yield_helper() {
 
         /* Yield to `dispatch` rather than `entry` to avoid pushing too many
          * frames to the stack. See `emit_call_nif` for details. */
-        a.add(ARG3, imm(BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(UWord[4])));
+        a.add(ARG3, imm(BEAM_ASM_NFUNC_SIZE + sizeof(UWord[3])));
         a.jmp(labels[context_switch_simplified]);
     }
 }
@@ -968,13 +968,6 @@ void BeamModuleAssembler::emit_call_nif(const ArgWord &Func,
                                         const ArgWord &NifMod,
                                         const ArgWord &DirtyFunc) {
     Label entry = a.newLabel(), dispatch = a.newLabel();
-
-#ifdef DEBUG
-    size_t entry_offset = a.offset();
-#endif
-
-    ASSERT(BEAM_ASM_FUNC_PROLOGUE_SIZE ==
-           (a.offset() - code.labelOffsetFromBase(current_label)));
 
     /* The start of this function must mimic the layout of ErtsNativeFunc.
      *
@@ -996,7 +989,8 @@ void BeamModuleAssembler::emit_call_nif(const ArgWord &Func,
 
     /* `emit_call_nif_yield_helper` relies on this to compute the address of
      * `dispatch` */
-    ASSERT(a.offset() == entry_offset + sizeof(UWord[4]));
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
+           BEAM_ASM_NFUNC_SIZE + sizeof(UWord[3]));
 
     a.bind(dispatch);
     {
@@ -1103,7 +1097,7 @@ void BeamModuleAssembler::emit_i_load_nif() {
         a.bind(yield);
         {
             a.lea(ARG2, x86::qword_ptr(yield));
-            abs_jmp(ga->get_i_load_nif_shared());
+            a.jmp(resolve_fragment(ga->get_i_load_nif_shared()));
         }
     }
 
@@ -1139,7 +1133,7 @@ void BeamModuleAssembler::emit_i_load_nif() {
     a.bind(schedule);
     {
         a.lea(ARG3, x86::qword_ptr(entry));
-        abs_jmp(ga->get_context_switch_simplified());
+        a.jmp(resolve_fragment(ga->get_context_switch_simplified()));
     }
 
     a.bind(next);

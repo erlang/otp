@@ -1455,8 +1455,8 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
             /* Turn on global call tracing */
             if (!erts_is_export_trampoline_active(ep, code_ix)) {
                 fp[i].mod->curr.num_traced_exports++;
-#ifdef DEBUG
-                ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+#if defined(DEBUG) && !defined(BEAMASM)
+                ep->info.u.op = BeamOpCodeAddr(op_i_func_info_IaaI);
 #endif
                 ep->trampoline.common.op = BeamOpCodeAddr(op_trace_jump_W);
                 ep->trampoline.trace.address =

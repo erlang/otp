@@ -325,7 +325,7 @@ void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
 
     emit_leave_runtime();
 
-    abs_jmp(ga->get_do_schedule());
+    a.jmp(resolve_fragment(ga->get_do_schedule()));
 }
 
 void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
@@ -337,7 +337,7 @@ void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
 
     emit_leave_runtime();
 
-    abs_jmp(ga->get_do_schedule());
+    a.jmp(resolve_fragment(ga->get_do_schedule()));
 }
 
 void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,
