@@ -449,7 +449,7 @@ ok
         <c>columns</c>.</item>
     </list>
 
-      <p>The I/O server is to send the <c>Reply</c> (successful dimension integer value <pre>N</pre>) as:</p>
+      <p>The I/O server is to send as the <c>Reply</c> one of:</p>
 
     <pre>
 N
