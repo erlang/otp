@@ -222,8 +222,9 @@ void BeamModuleAssembler::emit_i_fnegate(const ArgFRegister &Src,
     auto src = load_source(Src, a64::d0);
     auto dst = init_destination(Dst, a64::d1);
 
+    /* Note that there is no need to check for errors since flipping the sign
+     * of a finite float is guaranteed to produce a finite float. */
     a.fneg(a64::d0, src.reg);
-    fragment_call(ga->get_check_float_error());
     a.mov(dst.reg, a64::d0);
     flush_var(dst);
 }
