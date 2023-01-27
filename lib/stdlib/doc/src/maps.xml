@@ -61,7 +61,8 @@
       <desc>
         <p>Key-based iterator order option that can be one of <c>undefined</c>
           (default for <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa>),
-          <c>ordered</c> (sorted in map-key order), or a custom sorting function.</p>
+          <c>ordered</c> (sorted in map-key order), <c>reversed</c>,
+          or a custom sorting function.</p>
         <p>Used by <seemfa marker="#iterator/2"><c>maps:iterator/2</c></seemfa>.</p>
         <p>The
         <seeguide
@@ -400,7 +401,7 @@ none</code>
           <c><anno>Map</anno></c> is not a map or if <c><anno>Order</anno></c>
           is invalid.</p>
         <p><em>Example (when </em><c><anno>Order</anno></c><em> is </em><c>ordered</c><em>):</em></p>
-        <code type="none">
+        <code type="none"><![CDATA[
 > M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
 > OrdI = maps:iterator(M, ordered), ok.
@@ -410,12 +411,13 @@ ok
 > {K2, V2, OrdI3} = maps:next(OrdI2),{K2, V2}.
 {b,2}
 > maps:next(OrdI3).
-none</code>
-        <p><em>Example (when </em><c><anno>Order</anno></c><em> is a custom sorting function):</em></p>
+none
+     ]]></code>
+        <p><em>Example (when </em><c><anno>Order</anno></c><em> is </em><c>reversed</c><em>):</em></p>
         <code type="none"><![CDATA[
 > M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
-> RevI = maps:iterator(M, fun(A, B) -> B =< A end), ok.
+> RevI = maps:iterator(M, reversed), ok.
 ok
 > {K2, V2, RevI2} = maps:next(RevI), {K2, V2}.
 {b,2}
@@ -423,6 +425,19 @@ ok
 {a,1}
 > maps:next(RevI3).
 none
+     ]]></code>
+        <p><em>Example (when </em><c><anno>Order</anno></c><em> is an arithmetic sorting function):</em></p>
+        <code type="none"><![CDATA[
+> M = #{ -1 => a, -1.0 => b, 0 => c, 0.0 => d }.
+#{-1 => a,0 => c,-1.0 => b,0.0 => d}
+> ArithOrdI = maps:iterator(M, fun(A, B) -> A =< B end), ok.
+ok
+> maps:to_list(ArithOrdI).
+[{-1,a},{-1.0,b},{0,c},{0.0,d}]
+> ArithRevI = maps:iterator(M, fun(A, B) -> B < A end), ok.
+ok
+> maps:to_list(ArithRevI).
+[{0.0,d},{0,c},{-1.0,b},{-1,a}]
      ]]></code>
       </desc>
     </func>

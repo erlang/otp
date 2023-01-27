@@ -204,16 +204,11 @@ ok</pre>
                 <pre>
 > <input>M = #{ a => 1, b => 2 }.</input>
 #{a => 1,b => 2}
-> <input><![CDATA[io:format("~Kp~n", [fun(A, B) -> B =< A end, M]).]]></input>
+> <input><![CDATA[io:format("~Kp~n", [reversed, M]).]]></input>
 #{b => 2,a => 1}
 ok</pre>
               </item>
             </taglist>
-            <!-- <list type="bulleted">
-              <item><p><c>t</c>, for Unicode translation.</p></item>
-              <item><p><c>l</c>, for stopping <c>p</c> and <c>P</c>
-                from detecting printable characters.</p></item>
-            </list> -->
         </item>
       </list>
         <p>If <c>F</c>, <c>P</c>, or <c>Pad</c> is a <c>*</c> character,

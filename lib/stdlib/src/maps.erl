@@ -42,7 +42,8 @@
 
 -type iterator() :: iterator(term(), term()).
 
--type iterator_order(Key) :: undefined | ordered | fun((A :: Key, B :: Key) -> boolean()).
+-type iterator_order(Key) :: undefined | ordered | reversed
+                           | fun((A :: Key, B :: Key) -> boolean()).
 -type iterator_order() :: iterator_order(term()).
 
 -export_type([iterator/2, iterator/0, iterator_order/1, iterator_order/0]).
@@ -495,6 +496,10 @@ iterator(M, undefined) when is_map(M) ->
     [0 | M];
 iterator(M, ordered) when is_map(M) ->
     CmpFun = fun(A, B) -> erts_internal:cmp_term(A, B) =< 0 end,
+    Keys = lists:sort(CmpFun, maps:keys(M)),
+    [Keys | M];
+iterator(M, reversed) when is_map(M) ->
+    CmpFun = fun(A, B) -> erts_internal:cmp_term(B, A) =< 0 end,
     Keys = lists:sort(CmpFun, maps:keys(M)),
     [Keys | M];
 iterator(M, CmpFun) when is_map(M), is_function(CmpFun, 2) ->

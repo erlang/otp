@@ -2275,7 +2275,8 @@ maps(_Config) ->
     %% Therefore, play it completely safe by not assuming any order
     %% in a map with more than one element.
 
-    RevCmpFun = fun(A, B) -> B =< A end,
+    AOrdCmpFun = fun(A, B) -> A =< B end,
+    ARevCmpFun = fun(A, B) -> B < A end,
 
     AtomMap1 = #{a => b},
     AtomMap2 = #{a => b, c => d},
@@ -2291,7 +2292,9 @@ maps(_Config) ->
     re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
            "~KW", [undefined, AtomMap3, 2]),
     "#{a => b,c => d,e => f}" = fmt("~Kw", [ordered, AtomMap3]),
-    "#{e => f,c => d,a => b}" = fmt("~Kw", [RevCmpFun, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kw", [reversed, AtomMap3]),
+    "#{a => b,c => d,e => f}" = fmt("~Kw", [AOrdCmpFun, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kw", [ARevCmpFun, AtomMap3]),
 
     "#{}" = fmt("~p", [#{}]),
     "#{a => b}" = fmt("~p", [AtomMap1]),
@@ -2304,7 +2307,9 @@ maps(_Config) ->
     re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
            "~KP", [undefined, AtomMap3, 2]),
     "#{a => b,c => d,e => f}" = fmt("~Kp", [ordered, AtomMap3]),
-    "#{e => f,c => d,a => b}" = fmt("~Kp", [RevCmpFun, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kp", [reversed, AtomMap3]),
+    "#{a => b,c => d,e => f}" = fmt("~Kp", [AOrdCmpFun, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kp", [ARevCmpFun, AtomMap3]),
 
     List = [{I, I * I} || I <- lists:seq(1, 64)],
     Map = maps:from_list(List),
@@ -2312,7 +2317,20 @@ maps(_Config) ->
     "#{...}" = fmt("~P", [Map, 1]),
     "#{1 => 1,...}" = fmt("~kP", [Map, 2]),
     "#{1 => 1,...}" = fmt("~KP", [ordered, Map, 2]),
-    "#{64 => 4096,...}" = fmt("~KP", [RevCmpFun, Map, 2]),
+    "#{64 => 4096,...}" = fmt("~KP", [reversed, Map, 2]),
+    "#{1 => 1,...}" = fmt("~KP", [AOrdCmpFun, Map, 2]),
+    "#{64 => 4096,...}" = fmt("~KP", [ARevCmpFun, Map, 2]),
+
+    FloatIntegerMap = #{-1.0 => a, 0.0 => b, -1 => c, 0 => d},
+    re_fmt(<<"#\\{(-1.0 => a|0.0 => b|-1 => c|0 => d),[.][.][.]\\}">>,
+           "~P", [FloatIntegerMap, 2]),
+    "#{-1 => c,0 => d,-1.0 => a,0.0 => b}" = fmt("~kp", [FloatIntegerMap]),
+    re_fmt(<<"#\\{(-1.0 => a|0.0 => b|-1 => c|0 => d),[.][.][.]\\}">>,
+           "~KP", [undefined, FloatIntegerMap, 2]),
+    "#{-1 => c,0 => d,-1.0 => a,0.0 => b}" = fmt("~Kp", [ordered, FloatIntegerMap]),
+    "#{0.0 => b,-1.0 => a,0 => d,-1 => c}" = fmt("~Kp", [reversed, FloatIntegerMap]),
+    "#{-1 => c,-1.0 => a,0 => d,0.0 => b}" = fmt("~Kp", [AOrdCmpFun, FloatIntegerMap]),
+    "#{0.0 => b,0 => d,-1.0 => a,-1 => c}" = fmt("~Kp", [ARevCmpFun, FloatIntegerMap]),
 
     %% Print a map and parse it back to a map.
     S = fmt("~p\n", [Map]),

@@ -495,63 +495,93 @@ t_iterator_1(Config) when is_list(Config) ->
 
 t_iterator_2(Config) when is_list(Config) ->
 
-    RevCmpFun = fun(A, B) -> B =< A end,
+    AOrdCmpFun = fun(A, B) -> A =< B end,
+    ARevCmpFun = fun(A, B) -> B < A end,
 
     %% Small map test
     M0 = #{ a => 1, b => 2 },
-    OrdI0 = maps:iterator(M0, ordered),
-    {K1 = a, V1 = 1, OrdI1} = maps:next(OrdI0),
-    {K2 = b, V2 = 2, OrdI2} = maps:next(OrdI1),
-    none = maps:next(OrdI2),
+    TOrdI0 = maps:iterator(M0, ordered),
+    {K1 = a, V1 = 1, TOrdI1} = maps:next(TOrdI0),
+    {K2 = b, V2 = 2, TOrdI2} = maps:next(TOrdI1),
+    none = maps:next(TOrdI2),
 
-    RevI0 = maps:iterator(M0, RevCmpFun),
-    {K2 = b, V2 = 2, RevI1} = maps:next(RevI0),
-    {K1 = a, V1 = 1, RevI2} = maps:next(RevI1),
-    none = maps:next(RevI2),
+    TRevI0 = maps:iterator(M0, reversed),
+    {K2 = b, V2 = 2, TRevI1} = maps:next(TRevI0),
+    {K1 = a, V1 = 1, TRevI2} = maps:next(TRevI1),
+    none = maps:next(TRevI2),
+
+    AOrdI0 = maps:iterator(M0, AOrdCmpFun),
+    {K1 = a, V1 = 1, AOrdI1} = maps:next(AOrdI0),
+    {K2 = b, V2 = 2, AOrdI2} = maps:next(AOrdI1),
+    none = maps:next(AOrdI2),
+
+    ARevI0 = maps:iterator(M0, ARevCmpFun),
+    {K2 = b, V2 = 2, ARevI1} = maps:next(ARevI0),
+    {K1 = a, V1 = 1, ARevI2} = maps:next(ARevI1),
+    none = maps:next(ARevI2),
 
     OrdKVList = [{K1, V1}, {K2, V2}],
-    OrdKVList = maps:to_list(OrdI0),
+    OrdKVList = maps:to_list(TOrdI0),
+    OrdKVList = maps:to_list(AOrdI0),
 
     RevKVList = [{K2, V2}, {K1, V1}],
-    RevKVList = maps:to_list(RevI0),
+    RevKVList = maps:to_list(TRevI0),
+    RevKVList = maps:to_list(ARevI0),
 
     %% Large map test
 
     Vs2 = lists:seq(1, 200),
     OrdKVList2 = [{{k, I}, I} || I <- Vs2],
-    RevKVList2 = lists:reverse(OrdKVList2),
     M2 = maps:from_list(OrdKVList2),
-    Iter2 = maps:iterator(M2, undefined),
-    OrdIter2 = maps:iterator(M2, ordered),
-    RevIter2 = maps:iterator(M2, RevCmpFun),
-    OrdKVList2 = lists:sort(iter_kv(Iter2)),
-    OrdKVList2 = lists:sort(maps:to_list(Iter2)),
-    OrdKVList2 = iter_kv(OrdIter2),
-    OrdKVList2 = maps:to_list(OrdIter2),
-    RevKVList2 = iter_kv(RevIter2),
-    RevKVList2 = maps:to_list(RevIter2),
+    ok = iterator_2_check_order(M2, ordered, reversed),
+    ok = iterator_2_check_order(M2, AOrdCmpFun, ARevCmpFun),
 
     %% Larger map test
 
     Vs3 = lists:seq(1, 10000),
     OrdKVList3 = [{{k, I}, I} || I <- Vs3],
-    RevKVList3 = lists:reverse(OrdKVList3),
     M3 = maps:from_list(OrdKVList3),
-    Iter3 = maps:iterator(M3, undefined),
-    OrdIter3 = maps:iterator(M3, ordered),
-    RevIter3 = maps:iterator(M3, RevCmpFun),
-    OrdKVList3 = lists:sort(iter_kv(Iter3)),
-    OrdKVList3 = lists:sort(maps:to_list(Iter3)),
-    OrdKVList3 = iter_kv(OrdIter3),
-    OrdKVList3 = maps:to_list(OrdIter3),
-    RevKVList3 = iter_kv(RevIter3),
-    RevKVList3 = maps:to_list(RevIter3),
+    ok = iterator_2_check_order(M3, ordered, reversed),
+    ok = iterator_2_check_order(M3, AOrdCmpFun, ARevCmpFun),
 
     %% Float and integer keys
 
     M4 = #{-1.0 => a, 0.0 => b, -1 => c, 0 => d},
     OrdIter4 = maps:iterator(M4, ordered),
     [{-1, c}, {0, d}, {-1.0, a}, {0.0, b}] = maps:to_list(OrdIter4),
+    ok = iterator_2_check_order(M4, ordered, reversed),
+    ok = iterator_2_check_order(M4, AOrdCmpFun, ARevCmpFun),
+
+    ok.
+
+iterator_2_option_to_fun(ordered) ->
+    fun(A, B) -> erts_internal:cmp_term(A, B) =< 0 end;
+iterator_2_option_to_fun(reversed) ->
+    fun(A, B) -> erts_internal:cmp_term(B, A) =< 0 end;
+iterator_2_option_to_fun(F) when is_function(F, 2) ->
+    F.
+
+iterator_2_check_order(M, OrdOption, RevOption) ->
+    OrdCmpFun = iterator_2_option_to_fun(OrdOption),
+    RevCmpFun = iterator_2_option_to_fun(RevOption),
+    OrdKVCmpFun = fun({A, _}, {B, _}) -> OrdCmpFun(A, B) end,
+    RevKVCmpFun = fun({A, _}, {B, _}) -> RevCmpFun(A, B) end,
+
+    OrdKVList = lists:sort(OrdKVCmpFun, maps:to_list(M)),
+    RevKVList = lists:sort(RevKVCmpFun, maps:to_list(M)),
+    RevKVList = lists:reverse(OrdKVList),
+
+    Iter = maps:iterator(M, undefined),
+    OrdIter = maps:iterator(M, OrdOption),
+    RevIter = maps:iterator(M, RevOption),
+
+    OrdKVList = lists:sort(OrdKVCmpFun, iter_kv(Iter)),
+    OrdKVList = lists:sort(OrdKVCmpFun, maps:to_list(Iter)),
+    OrdKVList = iter_kv(OrdIter),
+    OrdKVList = maps:to_list(OrdIter),
+
+    RevKVList = iter_kv(RevIter),
+    RevKVList = maps:to_list(RevIter),
 
     ok.
 
@@ -911,6 +941,7 @@ error_info(_Config) ->
 
          {iterator, [{no,map}, undefined], [{1, ".*"}]},
          {iterator, [{no,map}, ordered], [{1, ".*"}]},
+         {iterator, [{no,map}, reversed], [{1, ".*"}]},
          {iterator, [{no,map}, GoodOrder], [{1, ".*"}]},
          {iterator, [#{a => b}, BadOrder], [{2, ".*"}]},
          {iterator, [{no,map}, BadOrder], [{1, ".*"}, {2, ".*"}]},
