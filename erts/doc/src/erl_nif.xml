@@ -3227,8 +3227,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     <func>
       <name since="OTP 17.3"><ret>ERL_NIF_TERM</ret><nametext>enif_schedule_nif(
         ErlNifEnv* caller_env, const char* fun_name, int flags,
-	ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]),
-	int argc, const ERL_NIF_TERM argv[])</nametext>
+	ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+    </nametext>
       </name>
       <fsummary>Schedule a NIF for execution.</fsummary>
       <desc>
