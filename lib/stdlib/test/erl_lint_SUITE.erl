@@ -4325,8 +4325,8 @@ otp_14323(Config) ->
 
               -dialyzer(nowarn_function). % unknown option
               -dialyzer(1). % badly formed
-              -dialyzer(malformed). % unkonwn option
-              -dialyzer({malformed,f/0}). % unkonwn option
+              -dialyzer(malformed). % unknown option
+              -dialyzer({malformed,f/0}). % unknown option
               -dialyzer({nowarn_function,a/1}). % undefined function
               -dialyzer({nowarn_function,{a,-1}}). % badly formed
 
