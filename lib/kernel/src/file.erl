@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(file).
+-deprecated([{pid2name,1,"this functionality is no longer supported"}]).
 
 %% Interface module for the file server and the file io servers.
 

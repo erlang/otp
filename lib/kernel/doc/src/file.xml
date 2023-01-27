@@ -1214,6 +1214,9 @@ f.txt:  {person, "kalle", 25}.
       <name name="pid2name" arity="1" since=""/>
       <fsummary>Return the name of the file handled by a pid.</fsummary>
       <desc>
+        <change>
+          <p>This function is deprecated and will be removed in Erlang/OTP 27.</p>
+        </change>
         <p>If <c><anno>Pid</anno></c> is an I/O device, that is, a pid returned from
           <c>open/2</c>, this function returns the filename, or rather:</p>
         <taglist>
