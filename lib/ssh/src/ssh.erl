@@ -944,9 +944,9 @@ is_host(X, Opts) ->
 
 is_host1(L) when is_list(L) -> true; %% "string()"
 is_host1(T) when tuple_size(T)==4 -> lists:all(fun(I) -> 0=<I andalso I=<255 end,
-                                                      tuple_to_list(T));
+                                               tuple_to_list(T));
 is_host1(T) when tuple_size(T)==16 -> lists:all(fun(I) -> 0=<I andalso I=<65535 end,
-                                                       tuple_to_list(T));
+                                                tuple_to_list(T));
 is_host1(loopback) -> true.
 
 %%%----------------------------------------------------------------

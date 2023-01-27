@@ -176,7 +176,7 @@ handle_options(Role, PropList0) ->
 handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                          is_list(OptsList0) ->
     OptsList1 = proplists:unfold(
-                  lists:foldr(fun(T,Acc) when tuple_size(T) =/= 2-> [{special_trpt_args,T} | Acc];
+                  lists:foldr(fun(T,Acc) when tuple_size(T) =/= 2 -> [{special_trpt_args,T} | Acc];
                                  (X,Acc) -> [X|Acc]
                               end,
                               [], OptsList0)),

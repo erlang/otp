@@ -157,11 +157,11 @@ go_on() ->
 
 %%%----------------------------------------------------------------
 shrink_bin(B) when is_binary(B), byte_size(B)>256 -> {'*** SHRUNK BIN',
-						 byte_size(B),
-						 element(1,split_binary(B,64)),
-						 '...',
-						 element(2,split_binary(B,byte_size(B)-64))
-						};
+                                              byte_size(B),
+                                              element(1,split_binary(B,64)),
+                                              '...',
+                                              element(2,split_binary(B,byte_size(B)-64))
+                                             };
 shrink_bin(L) when is_list(L) -> lists:map(fun shrink_bin/1, L);
 shrink_bin(T) when is_tuple(T) -> list_to_tuple(shrink_bin(tuple_to_list(T)));
 shrink_bin(X) -> X.
