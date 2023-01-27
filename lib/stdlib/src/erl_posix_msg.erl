@@ -172,4 +172,4 @@ message_1(exfull) -> <<"message tables full">>;
 message_1(nxdomain) -> <<"non-existing domain">>;
 message_1(exbadport) -> <<"inet_drv bad port state">>;
 message_1(exbadseq) -> <<"inet_drv bad request sequence">>;
-message_1(_) -> <<"unknown POSIX error">>.
+message_1(Other) -> <<"unknown POSIX error: ", (atom_to_binary(Other))/binary>>.

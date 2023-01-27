@@ -1443,7 +1443,7 @@ is_flat_char_list(_) -> false.
 
 maybe_posix_message(Cause, HasDevice) ->
     case erl_posix_msg:message(Cause) of
-        "unknown POSIX error" ->
+        "unknown POSIX error" ++ _ ->
             unknown;
         PosixStr when HasDevice ->
             [unicode:characters_to_binary(
