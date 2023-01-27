@@ -25,7 +25,7 @@
 -export([all/0, suite/0,
          bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,
          complex_relop/1,unsafe_fusing/1,
-         range_tests/1, combined_relops/1]).
+         range_tests/1,combined_relops/1,typed_relop/1]).
 
 -import(lists, [foldl/3,flatmap/2]).
 
@@ -36,7 +36,7 @@ suite() ->
 all() ->
     [bsl_bsr, logical, t_not, relop_simple, relop,
      complex_relop, unsafe_fusing, range_tests,
-     combined_relops].
+     combined_relops, typed_relop].
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
@@ -931,6 +931,19 @@ ge_ge_int_range_4((-1 bsl 59) + 10) ->
     a;
 ge_ge_int_range_4(_) ->
     b.
+
+%% Tests operators where type hints are significant.
+typed_relop(Config) when is_list(Config) ->
+    _ = [compare_integer_pid(1 bsl N) || N <- lists:seq(1, 64)],
+    ok.
+
+compare_integer_pid(N) when is_integer(N) ->
+    Immed = self(),
+    true = is_pid(Immed),
+    if
+        N >= Immed -> ct:fail("integer compared greater than pid");
+        N < Immed -> ok
+    end.
 
 %%%
 %%% Utilities.
