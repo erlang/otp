@@ -2,7 +2,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2009-2021. All Rights Reserved.
+Copyright Ericsson AB 2009-2023. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ limitations under the License.
     Welcome to Erlang/OTP, a complete development environment for concurrent programming.
     </p>
 
-    <h2>Some hints that may get you started faster</h2>
+<h3>Tutorials and books</h3>
 
 <ul>
   <li class="mobile-only">
@@ -136,7 +136,7 @@ An Erlang tutorial can be found in
 <a href="getting_started/users_guide.html">
 Getting Started With Erlang</a>.
 <p>
-In addition to the documentation here Erlang is described in several recent books like:
+In addition to the documentation here Erlang is described in several books like:
 </p>
 <ul>
 <li>
@@ -186,8 +186,7 @@ Tools</a> application for details.
 <p>
 There are also Erlang plugins for other code editors
 <a href="http://github.com/vim-erlang">Vim (vim-erlang)</a> ,
-<a href="http://atom.io/packages/language-erlang"> Atom </a> ,
-<a href="http://erlide.org/index.html">Eclipse (ErlIDE)</a> and
+<a href="http://atom.io/packages/language-erlang"> Atom </a> and
 <a href="http://ignatov.github.io/intellij-erlang/">IntelliJ IDEA</a>.
 <li>When developing with Erlang/OTP you usually test your programs
 from the interactive shell (see <a href="getting_started/users_guide.html">
@@ -200,14 +199,12 @@ module and function name completion (tab) if the module is loaded.
 <p>
 
 <li>OpenSource users can ask questions
-and share experiences on the <a href="http://www.erlang.org/static/doc/mailinglist.html">
-Erlang questions mailing list</a>.
+and share experiences on <a href="http://erlangforums.com">
+ErlangForums</a>.
 <p></p>
 </li>
 
 <li>Before asking a question you can browse the <a
-href="http://www.erlang.org/pipermail/erlang-questions/">
-mailing list archive</a> and read the <a
 href="http://www.erlang.org/faq/faq.html" >Frequently
 Asked Questions</a>.
 <p></p>
