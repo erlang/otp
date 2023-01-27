@@ -26,6 +26,7 @@ extern "C"
 #include "beam_common.h"
 #include "code_ix.h"
 #include "export.h"
+#include "erl_threads.h"
 
 #if defined(__APPLE__)
 #    include <libkern/OSCacheControl.h>
@@ -365,12 +366,25 @@ extern "C"
     }
 
     void beamasm_flush_icache(const void *address, size_t size) {
+#ifdef DEBUG
+        erts_debug_require_code_barrier();
+#endif
+
 #if defined(__aarch64__)
 #    if defined(WIN32)
+        /* Issues full memory/instruction barriers on all threads for us. */
         FlushInstructionCache(GetCurrentProcess(), address, size);
 #    elif defined(__APPLE__)
+        /* Issues full memory/instruction barriers on all threads for us. */
         sys_icache_invalidate((char *)address, size);
-#    elif defined(__GNUC__)
+#    elif defined(__GNUC__) && defined(ERTS_THR_INSTRUCTION_BARRIER)
+        /* Note that we have to issue an instruction synchronization barrier on
+         * all schedulers after loading code when using this method, hence the
+         * check for ERTS_THR_INSTRUCTION_BARRIER.
+         *
+         * Breakpoints are fine since the architecture guarantees that branch
+         * instructions can be safely modified without instruction barriers. We
+         * still need to clear the cache however. */
         __builtin___clear_cache(&((char *)address)[0],
                                 &((char *)address)[size]);
 #    else

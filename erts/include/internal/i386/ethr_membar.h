@@ -31,6 +31,27 @@
 #define ETHR_StoreLoad	(1 << 2)
 #define ETHR_StoreStore	(1 << 3)
 
+#ifdef ETHR_X86_RUNTIME_CONF__
+#define ETHR_INSTRUCTION_BARRIER ethr_instruction_fence__()
+
+static __inline__ __attribute__((__always_inline__)) void
+ethr_instruction_fence__(void)
+{
+    ETHR_ASSERT(ETHR_X86_RUNTIME_CONF_HAVE_CPUID__);
+
+#if ETHR_SIZEOF_PTR == 4
+__asm__ __volatile__("cpuid\n\t" :: "a"(0) : "ebx", "ecx", "edx", "memory");
+#else
+__asm__ __volatile__("cpuid\n\t" :: "a"(0) : "rbx", "rcx", "rdx", "memory");
+#endif
+}
+#else
+/* !! Note that we DO NOT define a fallback !!
+ *
+ * See the definition of ERTS_THR_INSTRUCTION_BARRIER in erl_threads.h for
+ * details. */
+#endif
+
 #define ETHR_NO_SSE2_MEMORY_BARRIER__			\
 do {							\
     volatile ethr_sint32_t x__ = 0;			\

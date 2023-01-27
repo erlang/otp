@@ -126,8 +126,6 @@ void BeamAssembler::_codegen(JitAllocator *allocator,
                            code.codeSize(),
                            CopySectionFlags::kPadSectionBuffer);
 
-    beamasm_flush_icache(*executable_ptr, code.codeSize());
-
 #ifdef DEBUG
     if (FileLogger *l = dynamic_cast<FileLogger *>(code.logger()))
         if (FILE *f = l->file())

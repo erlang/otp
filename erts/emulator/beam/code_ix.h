@@ -59,6 +59,11 @@
 
 #include "beam_opcodes.h"
 
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#define ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#include "erl_thr_progress.h"
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+
 struct process;
 
 
@@ -99,6 +104,16 @@ typedef struct ErtsCodeInfo_ {
     } u;
     ErtsCodeMFA mfa;
 } ErtsCodeInfo;
+
+typedef struct {
+    erts_refc_t pending_schedulers;
+    ErtsThrPrgrLaterOp later_op;
+    void *esdp;
+    UWord size;
+
+    void (*later_function)(void *);
+    void *later_data;
+} ErtsCodeBarrier;
 
 /* Get the code associated with a ErtsCodeInfo ptr. */
 ERTS_GLB_INLINE
@@ -178,6 +193,32 @@ void erts_commit_staging_code_ix(void);
  * Preceded by "start".
  */
 void erts_abort_staging_code_ix(void);
+
+#ifdef DEBUG
+void erts_debug_require_code_barrier(void);
+void erts_debug_check_code_barrier(void);
+#endif
+
+/* Schedules an operation to run after thread progress _and_ all schedulers
+ * have issued an instruction barrier. */
+void erts_schedule_code_barrier(ErtsCodeBarrier *barrier,
+                                void (*later_function)(void *),
+                                void *later_data);
+
+void erts_schedule_code_barrier_cleanup(ErtsCodeBarrier *barrier,
+                                        void (*later_function)(void *),
+                                        void *later_data,
+                                        UWord size);
+
+/* Issues a code barrier on the current thread, as well as all managed threads
+ * when they wake up after thread progress is unblocked.
+ *
+ * Requires that thread progress is blocked. */
+void erts_blocking_code_barrier(void);
+
+/* Helper function for the above: all managed threads should call this as soon
+ * as thread progress is unblocked, _BEFORE_ updating thread progress. */
+void erts_code_ix_finalize_wait(void);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 int erts_has_code_write_permission(void);

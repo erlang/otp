@@ -85,7 +85,7 @@ struct erl_module_nif {
                           */
     erts_mtx_t load_mtx; /* protects load finish from unload */
     struct ErtsNifFinish_* finish;
-    ErtsThrPrgrLaterOp lop;
+    ErtsCodeBarrier barrier;
 
     void* priv_data;
     void* handle;             /* "dlopen", NULL for static linked */
@@ -4695,13 +4695,12 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
         cleanup_opened_rt();
 
         /*
-         * Now we wait thread progress, to make sure no process is still
-         * executing the beam code of the NIFs, before we can patch in the
-         * final fast multi word call_nif_WWW instructions.
+         * Schedule a code barrier to make sure that no process is executing
+         * the to-be-patched functions, and that the `erts_call_nif_early`
+         * breakpoints are in effect before we try to patch module code.
          */
         erts_refc_inc(&lib->refc, 2);
-        erts_schedule_thr_prgr_later_op(load_nif_1st_finisher, lib,
-                                        &lib->lop);
+        erts_schedule_code_barrier(&lib->barrier, load_nif_1st_finisher, lib);
     }
     else {
     error:
@@ -4849,13 +4848,9 @@ static void load_nif_1st_finisher(void* vlib)
     erts_mtx_unlock(&lib->load_mtx);
 
     if (fin) {
-        /*
-         * A second thread progress to get a memory barrier between the
-         * arguments of call_nif_WWW (written above) and the instruction word
-         * itself.
-         */
-        erts_schedule_thr_prgr_later_op(load_nif_2nd_finisher, lib,
-                                        &lib->lop);
+        /* Schedule a code barrier to ensure that the `call_nif_WWW` sequence
+         * is visible before we start disabling the breakpoints. */
+        erts_schedule_code_barrier(&lib->barrier, load_nif_2nd_finisher, lib);
     }
     else { /* Unloaded */
         deref_nifmod(lib);
@@ -4920,13 +4915,13 @@ static void load_nif_2nd_finisher(void* vlib)
     if (fin) {
         UWord bytes = sizeof_ErtsNifFinish(lib->entry.num_of_funcs);
         /*
-         * A third and final thread progress, to make sure no one is executing
-         * the call_nif_early instructions anymore, before we can deallocate
-         * the beam stubs.
+         * A third and final code barrier to make that the removal of the
+         * breakpoints is visible and that no one is executing them while we
+         * remove them.
          */
-        erts_schedule_thr_prgr_later_cleanup_op(load_nif_3rd_finisher, lib,
-                                                &lib->lop,
-                                                bytes);
+        erts_schedule_code_barrier_cleanup(&lib->barrier,
+                                            load_nif_3rd_finisher, lib,
+                                            bytes);
     }
     else { /* Unloaded */
         deref_nifmod(lib);

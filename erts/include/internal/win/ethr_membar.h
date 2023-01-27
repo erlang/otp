@@ -54,8 +54,27 @@ do {							\
 
 #elif defined(_M_AMD64) || defined(_M_IX86)
 
+#include <immintrin.h>
 #include <emmintrin.h>
 #include <mmintrin.h>
+
+#ifdef ETHR_X86_RUNTIME_CONF__
+#define ETHR_INSTRUCTION_BARRIER ethr_instruction_fence__()
+#pragma intrinsic(__cpuid)
+
+static ETHR_FORCE_INLINE void
+ethr_instruction_fence__(void)
+{
+    int ignored[4];
+    ETHR_ASSERT(ETHR_X86_RUNTIME_CONF_HAVE_CPUID__);
+    __cpuid(ignored, 0);
+}
+#else
+/* !! Note that we DO NOT define a fallback !!
+ *
+ * See the definition of ERTS_THR_INSTRUCTION_BARRIER in erl_threads.h for
+ * details. */
+#endif
 
 #if ETHR_SIZEOF_PTR == 4
 #  define ETHR_NO_SSE2_MB__ ETHR_MB_USING_INTERLOCKED__
