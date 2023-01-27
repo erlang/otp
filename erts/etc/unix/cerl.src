@@ -472,18 +472,15 @@ elif [ "x$GDB" = "xegdb" ]; then
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
-	    beam_args=`$EXEC -emu_args_exit $xargs ${1+"$@"} | tr '\n' ' '`
-	    gdbcmd="(insert-string \"set args $beam_args\") \
-                    (comint-send-input)"
+	    beam_args=`$EXEC -emu_args_exit $xargs ${1+"$@"} | sed 's/"/\\\\"/g' | tr '\n' ' '`
+	    gdbcmd="set args $beam_args"
 	    ;;
 	x/*)
-	    gdbcmd="(insert-string \"core ${core}\") (comint-send-input)"
+	    gdbcmd="core $core"
 	    GDBBP=
 	    ;;
 	*)
-	    dir=`pwd`
-	    gdbcmd="(insert-string \"core ${dir}/${core}\") \
-                    (comint-send-input)"
+	    gdbcmd="core `pwd`/$core"
 	    GDBBP=
 	    ;;
     esac
@@ -502,11 +499,13 @@ elif [ "x$GDB" = "xegdb" ]; then
 	    GDBARGS="--annotate=1 "
 	fi
     fi
-    gdbcmd="$gdbcmd $GDBBP \
-            (insert-string \"source $ROOTDIR/erts/etc/unix/etp-commands\") \
-            (comint-send-input)"
     # Fire up gdb in emacs...
-    exec $EMACS --eval "(progn (gdb \"gdb $GDBARGS$EMU_NAME\") $gdbcmd)"
+    cmdfile="/tmp/.cerlgdb.$$"
+    echo "file $BINDIR/$EMU_NAME" > $cmdfile
+    echo "$gdbcmd" >> $cmdfile
+    echo "source $ROOTDIR/erts/etc/unix/etp-commands" >> $cmdfile
+    EVAL="(progn (gdb \"gdb $GDBARGS -x $cmdfile\"))"
+    exec $EMACS --eval "$EVAL"
 elif [ "x$GDB" = "xdump" ]; then
     cmdfile="/tmp/.cerlgdb.$$"
     ## Examine the result of "file $core" in case it is not the emulator
