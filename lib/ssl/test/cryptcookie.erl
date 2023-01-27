@@ -26,8 +26,15 @@
 -feature(maybe_expr, enable).
 
 -export([supported/0, start_keypair_server/0, init/1, init/2,
-         encrypt_and_send_chunk/4, recv_and_decrypt_chunk/2,
-         record_to_map/2]).
+         encrypt_and_send_chunk/4, recv_and_decrypt_chunk/2]).
+
+%% For kTLS integration
+-export([ktls_info/2]).
+-include_lib("ssl/src/ssl_cipher.hrl").
+-include_lib("ssl/src/ssl_internal.hrl").
+
+
+-define(PROTOCOL, (?MODULE)).
 
 %% -------------------------------------------------------------------------
 %% The curve choice greatly affects setup time,
@@ -40,9 +47,14 @@
 %%
 %%% -define(CURVE, brainpoolP384t1).
 %%% -define(CURVE, brainpoolP256t1).
--define(CURVE, secp256r1). % Portability
--define(CIPHER, aes_gcm).  % kTLS
--define(HMAC, sha256).     % kTLS
+-define(CURVE, secp256r1).     % Portability
+-define(CIPHER, aes_256_gcm).  % kTLS compatible
+-define(HMAC, sha384).
+
+%% kTLS integration
+-define(TLS_VERSION, {3,4}).
+-define(CIPHER_SUITE, (?TLS_AES_256_GCM_SHA384)).
+
 
 supported() ->
     maybe
@@ -116,7 +128,9 @@ start_keypair_server() ->
                           ok
                   end
           end),
-    receive Ref -> ok end.
+    receive Ref ->
+            ?PROTOCOL
+    end.
 
 keypair_server() ->
     keypair_server(undefined, 1).
@@ -248,6 +262,8 @@ compute_shared_secret(
 %% -------------------------------------------------------------------------
 %% Initialize encryption on Stream; initial handshake
 %%
+%% init(Stream, Secret) ->
+%%     {NewStream, ChunkSize, [RecvSeq|RecvParams], [SendSeq|SendParams]}.
 
 init(Stream) ->
     Secret = atom_to_binary(auth:get_cookie(), latin1),
@@ -649,14 +665,40 @@ decrypt_rekey(
 
 
 %% -------------------------------------------------------------------------
+ktls_info(
+  [RecvSeq |
+   #params{
+      iv = {RecvSalt, RecvIV},
+      key = RecvKey,
+      aead_cipher = ?CIPHER } = _RecvParams],
+  [SendSeq |
+   #params{
+      iv = {SendSalt, SendIV},
+      key = SendKey,
+      aead_cipher = ?CIPHER } = _SendParams]) ->
+    %%
+    RecvState =
+        #cipher_state{
+           key = <<RecvKey/bytes>>,
+           iv = <<RecvSalt/bytes, (RecvIV + RecvSeq):48>> },
+    SendState =
+        #cipher_state{
+           key = <<SendKey/bytes>>,
+           iv = <<SendSalt/bytes, (SendIV + SendSeq):48>> },
+    #{ tls_version => ?TLS_VERSION,
+       cipher_suite => ?CIPHER_SUITE,
+       read_state => RecvState,
+       read_seq => RecvSeq,
+       write_state => SendState,
+       write_seq => SendSeq }.
 
--define(RECORD_TO_MAP(Name, Record),
-        record_to_map(Name, Record = #Name{}) ->
+
+%% -------------------------------------------------------------------------
+-ifdef(undefined).
+-define(RECORD_TO_MAP(Name),
+        record_to_map(Record) when element(1, (Record)) =:= (Name) ->
                record_to_map(record_info(fields, Name), Record, 2, #{})).
-
-%%%record_to_map(params, Record = #params{}) ->
-%%%    record_to_map(record_info(fields, params), Record, 2, #{}).
-?RECORD_TO_MAP(params, Record).
+?RECORD_TO_MAP(params).
 %%
 record_to_map([Field | Fields], Record, Index, Map) ->
     record_to_map(
@@ -664,6 +706,7 @@ record_to_map([Field | Fields], Record, Index, Map) ->
       Map#{ Field => element(Index, Record) });
 record_to_map([], _Record, _Index, Map) ->
     Map.
+-endif.
 
 timestamp() ->
     erlang:monotonic_time(second).

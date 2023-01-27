@@ -187,7 +187,10 @@ start_dist_ctrl(NetAddress, Socket) ->
 %%%                    socket:setopt(S, {otp,debug}, true)
 %%%            end,
        f_setopts_post_nodeup = f_ok(Socket),
-       f_address = inet_epmd_dist:f_address(Socket, NetAddress),
+       f_address =
+           fun (S, Node) when S =:= Socket ->
+                   inet_epmd_dist:f_address(NetAddress, Node)
+           end,
        f_getll =
            fun (S) when S =:= Socket ->
                    {ok, DistCtrl}

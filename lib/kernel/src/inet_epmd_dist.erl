@@ -27,7 +27,7 @@
          connect/3]).
 %% DistMod helper API
 -export([check_ip/2, wait_for_code_server/1,
-         f_address/2, tick/1, getstat/1, setopts/2, getopts/2,
+         hs_data/2, f_address/2, tick/1, getstat/1, setopts/2, getopts/2,
          nodelay/0, merge_options/3]).
 
 %% net_kernel and dist_util distribution Module API
@@ -156,7 +156,7 @@ flush_to(Socket, Pid) ->
 
 %% ------------------------------------------------------------
 accepted(NetAddress, _Timer, Socket) ->
-    hs_data(Socket, NetAddress).
+    hs_data(NetAddress, Socket).
 
 %% ------------------------------------------------------------
 connect(NetAddress, _Timer, Options) ->
@@ -166,14 +166,14 @@ connect(NetAddress, _Timer, Options) ->
     maybe
         {ok, Socket} ?=
             ?DRIVER:connect(Ip, Port, ConnectOptions),
-        hs_data(Socket, NetAddress)
+        hs_data(NetAddress, Socket)
     else
         {error, _} = Error ->
             Error
     end.
 
 %% -------
-hs_data(Socket, NetAddress) ->
+hs_data(NetAddress, Socket) ->
     Nodelay = nodelay(),
     #hs_data{
        socket = Socket,
@@ -181,33 +181,37 @@ hs_data(Socket, NetAddress) ->
        f_recv = fun ?DRIVER:recv/3,
        f_setopts_pre_nodeup =
            fun (S) when S =:= Socket ->
-                   inet:setopts(
-                     S,
-                     [{active, false}, {packet, 4}, Nodelay])
+                   f_setopts_pre_nodeup(S, Nodelay)
            end,
        f_setopts_post_nodeup =
            fun (S) when S =:= Socket ->
-                   inet:setopts(
-                     S,
-                     [{active, true}, {packet,4},
-                      {deliver, port}, binary, Nodelay])
+                   f_setopts_post_nodeup(S, Nodelay)
            end,
-       f_address  = f_address(Socket, NetAddress),
+       f_address =
+           fun (S, Node) when S =:= Socket ->
+                   f_address(NetAddress, Node)
+           end,
        f_getll    = fun inet:getll/1,
        mf_tick    = fun ?MODULE:tick/1,
        mf_getstat = fun ?MODULE:getstat/1,
        mf_setopts = fun ?MODULE:setopts/2,
        mf_getopts = fun ?MODULE:getopts/2 }.
 
-f_address(Socket, NetAddress) ->
-    fun (S, Node) when S =:= Socket ->
-            case dist_util:split_node(Node) of
-                {node, _Name, Host} ->
-                    NetAddress#net_address{
-                      host = Host };
-                Other ->
-                    ?shutdown2(Node, {split_node, Other})
-            end
+f_setopts_pre_nodeup(Socket, Nodelay) ->
+    inet:setopts(Socket, [{active, false}, {packet, 4}, Nodelay]).
+
+f_setopts_post_nodeup(Socket, Nodelay) ->
+    inet:setopts(
+      Socket,
+      [{active, true}, {packet,4}, {deliver, port}, binary, Nodelay]).
+
+f_address(NetAddress, Node) ->
+    case dist_util:split_node(Node) of
+        {node, _Name, Host} ->
+            NetAddress#net_address{
+              host = Host };
+        Other ->
+            ?shutdown2(Node, {split_node, Other})
     end.
 
 tick(Socket) when is_port(Socket) ->

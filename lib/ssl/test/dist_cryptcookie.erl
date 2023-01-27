@@ -36,15 +36,12 @@
 
 -include_lib("kernel/include/dist_util.hrl").
 
--define(PROTOCOL, cryptcookie).
-
 supported() ->
     cryptcookie:supported().
 
 %% ------------------------------------------------------------
 protocol() ->
-    cryptcookie:start_keypair_server(),
-    ?PROTOCOL.
+    cryptcookie:start_keypair_server().
 
 %% ------------------------------------------------------------
 start_dist_ctrl(Stream) ->
