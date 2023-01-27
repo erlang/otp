@@ -848,7 +848,7 @@ fp_fmt(b64, Bin) ->
     %%    [C || C<-base64:encode_to_string(Bin), C =/= $=]
     %% but I am not sure. Must be checked.
     B64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
-    BitsInLast = 8*size(Bin) rem 6,
+    BitsInLast = 8*byte_size(Bin) rem 6,
     Padding = (6-BitsInLast) rem 6, % Want BitsInLast = [1:5] to map to padding [5:1] and 0 -> 0
     [lists:nth(C+1,B64Chars) || <<C:6>> <= <<Bin/binary,0:Padding>> ].
 
@@ -943,10 +943,10 @@ is_host(X, Opts) ->
             
 
 is_host1(L) when is_list(L) -> true; %% "string()"
-is_host1(T) when is_tuple(T), size(T)==4 -> lists:all(fun(I) -> 0=<I andalso I=<255 end,
-                                                      tuple_to_list(T));
-is_host1(T) when is_tuple(T), size(T)==16 -> lists:all(fun(I) -> 0=<I andalso I=<65535 end,
-                                                       tuple_to_list(T));
+is_host1(T) when tuple_size(T)==4 -> lists:all(fun(I) -> 0=<I andalso I=<255 end,
+                                               tuple_to_list(T));
+is_host1(T) when tuple_size(T)==16 -> lists:all(fun(I) -> 0=<I andalso I=<65535 end,
+                                                tuple_to_list(T));
 is_host1(loopback) -> true.
 
 %%%----------------------------------------------------------------
