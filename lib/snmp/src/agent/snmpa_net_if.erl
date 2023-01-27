@@ -1656,7 +1656,7 @@ udp_send(Socket, To, B) ->
             ok;
 	ok ->
             %% For future use! Ephemeral ports!
-	    {ok, size(B)}
+	    {ok, byte_size(B)}
     catch
 	error:ExitReason:StackTrace ->
 	    error_msg("[exit] cannot send message "
@@ -1665,7 +1665,7 @@ udp_send(Socket, To, B) ->
     end.
 
 sz(L) when is_list(L) -> length(L);
-sz(B) when is_binary(B) -> size(B);
+sz(B) when is_binary(B) -> byte_size(B);
 sz(_) -> undefined.
 
 

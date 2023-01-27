@@ -961,7 +961,7 @@ display_prop_hdr(S) ->
 sz(L) when is_list(L) ->
     iolist_size(L);
 sz(B) when is_binary(B) ->
-    size(B);
+    byte_size(B);
 sz(O) ->
     {unknown_size, O}.
 
