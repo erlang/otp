@@ -689,17 +689,18 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
         flags |= BSF_LITTLE;
     }
 
-    if (Sz.isSmall() &&
-        (size = Sz.as<ArgSmall>().getUnsigned()) < 8 * sizeof(Uint)) {
+    if (Sz.isSmall() && Sz.as<ArgSmall>().getUnsigned() < 8 * sizeof(Uint) &&
+        (size = Sz.as<ArgSmall>().getUnsigned() * Unit.get()) <
+                8 * sizeof(Uint)) {
         /* Segment of a fixed size supported by bs_match. */
         const ArgVal match[] = {ArgAtom(am_ensure_at_least),
                                 ArgWord(size),
-                                Unit,
+                                ArgWord(1),
                                 ArgAtom(am_integer),
                                 Live,
                                 ArgWord(flags),
                                 ArgWord(size),
-                                Unit,
+                                ArgWord(1),
                                 Dst};
 
         const Span<ArgVal> args(match, sizeof(match) / sizeof(match[0]));
