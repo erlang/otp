@@ -1362,8 +1362,10 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         comment("skipped test for small operands since they are always small");
         a.cmp(ARG1, ARG2);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
-    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    } else if (always_one_of(LHS,
+                             BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED) &&
+               always_one_of(RHS,
+                             BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
         Label branch_compare = a.newLabel();
 
         a.cmp(ARG1, ARG2);
@@ -1419,8 +1421,10 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         comment("skipped test for small operands since they are always small");
         a.cmp(ARG1, ARG2);
         a.b_lt(resolve_beam_label(Fail, disp1MB));
-    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    } else if (always_one_of(LHS,
+                             BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED) &&
+               always_one_of(RHS,
+                             BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
         Label branch_compare = a.newLabel();
 
         a.cmp(ARG1, ARG2);
