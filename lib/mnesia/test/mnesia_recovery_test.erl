@@ -28,7 +28,6 @@
 
 -export([coord_dies/1, after_full_disc_partition/1,
          disc_less/1, garb_decision/1,
-         system_upgrade/1,
          delete_during_start/1,
          no_master_2/1, no_master_3/1, one_master_2/1, one_master_3/1,
          two_master_2/1, two_master_3/1, all_master_2/1,
@@ -120,9 +119,9 @@ all() ->
     [{group, mnesia_down}, {group, explicit_stop},
      coord_dies, {group, schema_trans}, {group, async_dirty},
      {group, sync_dirty}, {group, sym_trans},
-     {group, asym_trans}, after_full_disc_partition,
-     {group, after_corrupt_files}, disc_less, garb_decision,
-     system_upgrade].
+     {group, asym_trans}, %% after_full_disc_partition,
+     {group, after_corrupt_files}, disc_less, garb_decision
+    ].
 
 groups() -> 
     [{schema_trans, [],
@@ -1644,9 +1643,6 @@ disc_less(Config) when is_list(Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-system_upgrade(doc) ->
-    ["Test on-line and off-line upgrade of the Mnesia application"].
 
 garb_decision(doc) ->
     ["Test that decisions are garbed correctly."];

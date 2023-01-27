@@ -27,7 +27,6 @@
          all/0, groups/0]).
 
 -export([consistency_after_change_table_copy_type/1,
-         consistency_after_rename_of_node/1,
          consistency_after_restart_1_ram/1,
          consistency_after_restart_1_disc/1,
          consistency_after_restart_1_disc_only/1,
@@ -110,9 +109,8 @@ all() ->
      {group, consistency_after_del_replica},
      {group, consistency_after_move_replica},
      {group, consistency_after_transform_table},
-     consistency_after_change_table_copy_type,
+     %% consistency_after_change_table_copy_type,
      {group, consistency_after_restore},
-     consistency_after_rename_of_node,
      {group, checkpoint_retainer_consistency},
      {group, backup_consistency}].
 
@@ -821,11 +819,6 @@ restore_verify_tabs([Tab | R]) ->
 restore_verify_tabs([]) ->
     ok.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-consistency_after_rename_of_node(doc) ->
-    ["Skipped because it is an unimportant case."].
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

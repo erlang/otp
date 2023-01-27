@@ -235,7 +235,7 @@ ping() ->
     Nodes = mnesia_test_lib:select_nodes(all, Config, ?FILE, ?LINE),
     [{N, net_adm:ping(N)} || N <- Nodes].
 
-%% Slave start all nodes in config spec
+%% Start all nodes in config spec
 start_nodes() ->
     Config = read_config(),
     Nodes = mnesia_test_lib:select_nodes(all, Config, ?FILE, ?LINE),
