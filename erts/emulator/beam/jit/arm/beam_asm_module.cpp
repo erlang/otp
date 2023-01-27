@@ -674,10 +674,8 @@ void BeamModuleAssembler::check_pending_stubs() {
 }
 
 void BeamModuleAssembler::flush_pending_stubs(size_t range) {
-    size_t effective_offset;
+    ssize_t effective_offset = a.offset() + range;
     Label next;
-
-    effective_offset = a.offset() + range;
 
     while (!_pending_veneers.empty()) {
         const Veneer &veneer = _pending_veneers.top();

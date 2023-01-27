@@ -41,7 +41,7 @@ void BeamModuleAssembler::emit_is_small(Label fail,
 
     if (always_small(Arg)) {
         comment("skipped test for small operand since it is always small");
-    } else if (always_one_of(Arg, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+    } else if (always_one_of<BeamTypeId::Number>(Arg)) {
         comment("simplified test for small operand since it is a number");
         a.test(Reg.r8(), imm(TAG_PRIMARY_LIST));
         a.short_().je(fail);
@@ -65,8 +65,8 @@ void BeamModuleAssembler::emit_are_both_small(Label fail,
     ASSERT(ARG1 != A && ARG1 != B);
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
-    } else if (always_one_of(LHS, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER) &&
-               always_one_of(RHS, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+    } else if (always_one_of<BeamTypeId::Number>(LHS) &&
+               always_one_of<BeamTypeId::Number>(RHS)) {
         comment("simplified test for small operands since both are numbers");
         if (always_small(RHS)) {
             a.test(A.r8(), imm(TAG_PRIMARY_LIST));
@@ -659,7 +659,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
         if (always_small(LHS)) {
             comment("skipped test for small dividend since it is always small");
             need_generic = false;
-        } else if (always_one_of(LHS, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+        } else if (always_one_of<BeamTypeId::Number>(LHS)) {
             comment("simplified test for small dividend since it is an "
                     "integer");
             a.test(x86::al, imm(TAG_PRIMARY_LIST));
@@ -1262,7 +1262,7 @@ void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
 
     /* Fall through to the generic path if the result is not a small, where the
      * above operation will be reverted. */
-    if (always_one_of(Src, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+    if (always_one_of<BeamTypeId::Number>(Src)) {
         comment("simplified test for small operand since it is a number");
         a.test(RETb, imm(TAG_PRIMARY_LIST));
         a.short_().jne(next);

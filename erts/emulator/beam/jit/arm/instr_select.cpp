@@ -114,7 +114,7 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
      * untag it. */
     comment("(comparing untagged+rebased values)");
     if ((args.front().isSmall() && always_small(Src)) ||
-        (args.front().isAtom() && exact_type(Src, BEAM_TYPE_ATOM))) {
+        (args.front().isAtom() && exact_type<BeamTypeId::Atom>(Src))) {
         comment("(skipped type test)");
     } else {
         if (args.front().isSmall()) {
@@ -228,7 +228,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
     arm::Gp boxed_ptr = emit_ptr_val(TMP1, src.reg);
     a.ldur(TMP1, emit_boxed_val(boxed_ptr, 0));
 
-    if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_TUPLE) {
+    if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
         comment("simplified tuple test since the source is always a tuple "
                 "when boxed");
     } else {

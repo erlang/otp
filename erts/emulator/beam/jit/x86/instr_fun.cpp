@@ -389,8 +389,8 @@ void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Tag,
         mov_imm(ARG3, Arity.get());
 
         auto target = emit_call_fun(
-                always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
-                masked_types(Func, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN,
+                always_one_of<BeamTypeId::AlwaysBoxed>(Func),
+                masked_types<BeamTypeId::MaybeBoxed>(Func) == BeamTypeId::Fun,
                 Tag.as<ArgImmed>().get() == am_safe);
 
         erlang_call(target, ARG6);
@@ -410,8 +410,8 @@ void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
         mov_imm(ARG3, Arity.get());
 
         auto target = emit_call_fun(
-                always_one_of(Func, BEAM_TYPE_MASK_ALWAYS_BOXED),
-                masked_types(Func, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_FUN,
+                always_one_of<BeamTypeId::AlwaysBoxed>(Func),
+                masked_types<BeamTypeId::MaybeBoxed>(Func) == BeamTypeId::Fun,
                 Tag.as<ArgImmed>().get() == am_safe);
 
         emit_deallocate(Deallocate);

@@ -95,7 +95,7 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
     Label node_loop = a.newLabel();
 
     arm::Gp node = ARG1, key = ARG2, key_hash = ARG3, header_val = ARG4,
-            depth = TMP4, index = TMP5, one = TMP6;
+            depth = TMP4, index = TMP5;
 
     const int header_shift =
             (_HEADER_ARITY_OFFS + MAP_HEADER_TAG_SZ + MAP_HEADER_ARITY_SZ);
@@ -381,7 +381,7 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
 
-    if (masked_types(Key, BEAM_TYPE_MASK_IMMEDIATE) != BEAM_TYPE_NONE) {
+    if (maybe_one_of<BeamTypeId::MaybeImmediate>(Key)) {
         fragment_call(ga->get_i_get_map_element_shared());
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {

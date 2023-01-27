@@ -129,8 +129,8 @@ void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
     mov_arg(ARG2, RHS); /* May clobber ARG1 */
     mov_arg(ARG1, LHS);
 
-    if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-        always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(LHS) &&
+        always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(RHS)) {
         /* The only possible kind of immediate is a small and all other
          * values are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
@@ -219,7 +219,7 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgWord &Bif,
                                             const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgRegister &Dst) {
-    if (!exact_type(Src, BEAM_TYPE_BITSTRING)) {
+    if (!exact_type<BeamTypeId::Bitstring>(Src)) {
         /* Unknown type. Use the standard BIF instruction. */
         emit_i_bif1(Src, Fail, Bif, Dst);
         return;
@@ -275,7 +275,7 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgWord &Bif,
                                              const ArgLabel &Fail,
                                              const ArgSource &Src,
                                              const ArgRegister &Dst) {
-    if (!exact_type(Src, BEAM_TYPE_BITSTRING)) {
+    if (!exact_type<BeamTypeId::Bitstring>(Src)) {
         /* Unknown type. Use the standard BIF instruction. */
         emit_i_bif1(Src, Fail, Bif, Dst);
         return;
@@ -412,7 +412,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
     /*
      * Try to optimize the use of a tuple as a lookup table.
      */
-    if (exact_type(Pos, BEAM_TYPE_INTEGER) && Tuple.isLiteral()) {
+    if (exact_type<BeamTypeId::Integer>(Pos) && Tuple.isLiteral()) {
         Eterm tuple = beamfile_get_literal(beam, Tuple.as<ArgLiteral>().get());
 
         if (is_tuple(tuple)) {
@@ -486,7 +486,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
 
         x86::Gp boxed_ptr = emit_ptr_val(ARG3, ARG2);
 
-        if (exact_type(Tuple, BEAM_TYPE_TUPLE)) {
+        if (exact_type<BeamTypeId::Tuple>(Tuple)) {
             comment("skipped tuple test since source is always a tuple");
             ERTS_CT_ASSERT(Support::isInt32(make_arityval(MAX_ARITYVAL)));
             a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)),
@@ -620,7 +620,7 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
                                               const ArgSource &Key,
                                               const ArgSource &Src,
                                               const ArgRegister &Dst) {
-    if (!exact_type(Src, BEAM_TYPE_MAP)) {
+    if (!exact_type<BeamTypeId::Map>(Src)) {
         emit_i_bif2(Key, Src, Fail, Bif, Dst);
         return;
     }
@@ -630,7 +630,7 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
 
-    if (masked_types(Key, BEAM_TYPE_MASK_IMMEDIATE) != BEAM_TYPE_NONE &&
+    if (maybe_one_of<BeamTypeId::MaybeImmediate>(Key) &&
         hasCpuFeature(CpuFeatures::X86::kBMI2)) {
         safe_fragment_call(ga->get_i_get_map_element_shared());
         emit_cond_to_bool(x86::Inst::kIdCmovne, Dst);
@@ -678,7 +678,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
 
-    if (exact_type(Src, BEAM_TYPE_MAP)) {
+    if (exact_type<BeamTypeId::Map>(Src)) {
         comment("skipped test for map for known map argument");
     } else {
         Label bad_map = a.newLabel();
@@ -693,7 +693,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
         /* As an optimization for the `error | #{}` case, skip checking the
          * header word when we know that the only possible boxed type
          * is a map. */
-        if (masked_types(Src, BEAM_TYPE_MASK_BOXED) == BEAM_TYPE_MAP) {
+        if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Map) {
             comment("skipped header test since we know it's a map when boxed");
         } else {
             x86::Gp boxed_ptr = emit_ptr_val(RET, ARG1);
@@ -715,7 +715,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
         a.bind(good_map);
     }
 
-    if (masked_types(Key, BEAM_TYPE_MASK_IMMEDIATE) != BEAM_TYPE_NONE &&
+    if (maybe_one_of<BeamTypeId::MaybeImmediate>(Key) &&
         hasCpuFeature(CpuFeatures::X86::kBMI2)) {
         safe_fragment_call(ga->get_i_get_map_element_shared());
         if (Fail.get() == 0) {
@@ -776,7 +776,7 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
 
     x86::Gp boxed_ptr = emit_ptr_val(x86::rdx, RET);
 
-    if (exact_type(Src, BEAM_TYPE_MAP)) {
+    if (exact_type<BeamTypeId::Map>(Src)) {
         comment("skipped type check because the argument is always a map");
         a.bind(error); /* Never referenced. */
     } else {
@@ -821,15 +821,13 @@ void BeamGlobalAssembler::emit_handle_node_error() {
 void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
                                         const ArgRegister &Src,
                                         const ArgRegister &Dst) {
-    bool always_pid_port_ref =
-            always_one_of(Src,
-                          BEAM_TYPE_PID | BEAM_TYPE_PORT | BEAM_TYPE_REFERENCE);
+    bool always_identifier = always_one_of<BeamTypeId::Identifier>(Src);
     Label test_internal = a.newLabel();
     Label internal = a.newLabel();
     Label next = a.newLabel();
     Label fail;
 
-    if (Fail.get() == 0 && !always_pid_port_ref) {
+    if (Fail.get() == 0 && !always_identifier) {
         fail = a.newLabel();
     }
 
@@ -838,17 +836,17 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG1);
 
-    if (!always_one_of(Src, BEAM_TYPE_PID | BEAM_TYPE_PORT)) {
+    if (!always_one_of<BeamTypeId::Pid, BeamTypeId::Port>(Src)) {
         a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
         a.and_(RETd, imm(_TAG_HEADER_MASK));
     }
 
-    if (masked_types(Src, BEAM_TYPE_REFERENCE) != 0) {
+    if (maybe_one_of<BeamTypeId::Reference>(Src)) {
         a.cmp(RETb, imm(_TAG_HEADER_REF));
         a.short_().je(internal);
     }
 
-    if (!always_pid_port_ref) {
+    if (!always_identifier) {
         Label external = a.newLabel();
 
         ERTS_CT_ASSERT((_TAG_HEADER_EXTERNAL_PORT - _TAG_HEADER_EXTERNAL_PID) >>
@@ -875,7 +873,7 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
     a.short_().jmp(next);
 
     a.bind(test_internal);
-    if (!always_pid_port_ref) {
+    if (!always_identifier) {
         /* Since pids and ports differ by a single bit, we can
          * simplify the check by clearing said bit and comparing
          * against the lesser one. */
@@ -909,7 +907,7 @@ void BeamModuleAssembler::emit_bif_tuple_size(const ArgWord &Bif,
                                               const ArgLabel &Fail,
                                               const ArgRegister &Src,
                                               const ArgRegister &Dst) {
-    if (exact_type(Src, BEAM_TYPE_TUPLE)) {
+    if (exact_type<BeamTypeId::Tuple>(Src)) {
         comment("inlined tuple_size/1 because the argument is always a tuple");
         mov_arg(RET, Src);
 
