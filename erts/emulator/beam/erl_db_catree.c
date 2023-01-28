@@ -220,7 +220,7 @@ DbTableMethod db_catree =
     db_lookup_dbterm_catree,
     db_finalize_dbterm_catree,
     db_eterm_to_dbterm_tree_common,
-    db_dbterm_list_prepend_tree_common,
+    db_dbterm_list_append_tree_common,
     db_dbterm_list_remove_first_tree_common,
     db_put_dbterm_catree,
     db_free_dbterm_tree_common,

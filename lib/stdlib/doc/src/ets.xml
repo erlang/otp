@@ -825,6 +825,27 @@ Error: fun containing local Erlang function calls
         <p>The entire operation is guaranteed to be
           <seeerl marker="#concurrency">atomic and isolated</seeerl>,
           even when a list of objects is inserted.</p>
+        <marker id="insert_list_order"></marker>
+        <p>
+	  For <c>bag</c> and <c>duplicate_bag</c>, objects in the list with
+	  identical keys will be inserted in list order (from head to tail). That
+	  is, a subsequent call to <seemfa marker="#lookup/2"><c>lookup(T,Key)</c></seemfa>
+	  will return them in that inserted order.
+        </p>
+	<note>
+	  <p>
+	    For <c>bag</c> the insertion order of indentical keys described above was
+	    accidentally reverted in OTP 23.0 and later fixed in OTP 25.3. That
+	    is, from OTP 23.0 up until OTP 25.3 the objects in a list are
+	    inserted in reverse order (from tail to head).
+          </p>
+	  <p>
+	    For <c>duplicate_bag</c> the same faulty reverse insertion exist
+	    from OTP 23.0 until OTP 25.3. However, it is unpredictable and may
+	    or may not happen. A longer list will increase the probabiliy of the
+	    insertion being done in reverse.
+          </p>
+        </note>
       </desc>
     </func>
 

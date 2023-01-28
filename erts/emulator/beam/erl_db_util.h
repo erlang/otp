@@ -237,7 +237,7 @@ typedef struct db_table_method
     ** not DB_ERROR_NONE, the object is removed from the table. */
     void (*db_finalize_dbterm)(int cret, DbUpdateHandle* handle);
     void* (*db_eterm_to_dbterm)(int compress, int keypos, Eterm obj);
-    void* (*db_dbterm_list_prepend)(void* list, void* db_term);
+    void* (*db_dbterm_list_append)(void* last_term, void* db_term);
     void* (*db_dbterm_list_remove_first)(void** list);
     int (*db_put_dbterm)(DbTable* tb, /* [in out] */
                          void* obj,
