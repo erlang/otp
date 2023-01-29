@@ -75,6 +75,15 @@ void BeamModuleAssembler::emit_error(int reason) {
     emit_raise_exception();
 }
 
+void BeamModuleAssembler::emit_error(int reason, const ArgSource &Src) {
+    auto src = load_source(Src, TMP2);
+
+    ERTS_CT_ASSERT_FIELD_PAIR(Process, freason, fvalue);
+    mov_imm(TMP1, reason);
+    a.stp(TMP1, src.reg, arm::Mem(c_p, offsetof(Process, freason)));
+    emit_raise_exception();
+}
+
 void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
                                                 const ArgWord &Live,
                                                 const ArgSource &Preserve,
@@ -371,6 +380,15 @@ void BeamModuleAssembler::emit_i_get_tuple_element(const ArgSource &Src,
     flush_var(dst);
 }
 
+void BeamModuleAssembler::emit_get_tuple_element_swap(
+        const ArgSource &Src,
+        const ArgWord &Element,
+        const ArgRegister &Dst,
+        const ArgRegister &OtherDst) {
+    mov_arg(Dst, OtherDst);
+    emit_i_get_tuple_element(Src, Element, OtherDst);
+}
+
 /* Fetch two consecutive tuple elements from the tuple pointed to by
  * the boxed pointer in ARG1. */
 void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
@@ -451,6 +469,49 @@ void BeamModuleAssembler::emit_trim(const ArgWord &Words,
 void BeamModuleAssembler::emit_i_move(const ArgSource &Src,
                                       const ArgRegister &Dst) {
     mov_arg(Dst, Src);
+}
+
+void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
+                                         const ArgRegister &Dst,
+                                         const ArgWord &Words) {
+    Sint trim = Words.get() * sizeof(Eterm);
+    ASSERT(Words.get() <= 1023);
+
+    if (Src.isYRegister()) {
+        auto src_index = Src.as<ArgYRegister>().get();
+        if (src_index == 0 && Support::isInt9(trim)) {
+            const arm::Mem src_ref = arm::Mem(E).post(trim);
+            if (Dst.isXRegister()) {
+                auto dst = init_destination(Dst, TMP1);
+                a.ldr(dst.reg, src_ref);
+                flush_var(dst);
+            } else {
+                auto dst_index = Dst.as<ArgYRegister>().get() - Words.get();
+                auto dst = init_destination(ArgYRegister(dst_index), TMP1);
+                a.ldr(dst.reg, src_ref);
+                flush_var(dst);
+            }
+
+            return;
+        }
+    }
+
+    if (Dst.isYRegister()) {
+        auto dst_index = Dst.as<ArgYRegister>().get();
+        if (dst_index == Words.get() && Support::isInt9(trim)) {
+            auto src = load_source(Src, TMP1);
+            const arm::Mem dst_ref = arm::Mem(E, trim).pre();
+            a.str(src.reg, dst_ref);
+
+            return;
+        }
+    }
+
+    /* Fallback. */
+    mov_arg(Dst, Src);
+    if (Words.get() > 0) {
+        add(E, E, trim);
+    }
 }
 
 void BeamModuleAssembler::emit_store_two_xregs(const ArgXRegister &Src1,
@@ -1679,8 +1740,14 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         /* The only possible kind of immediate is a small and all other values
          * are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        emit_is_boxed(branch_compare, TMP1);
+        if (always_small(LHS)) {
+            emit_is_boxed(branch_compare, rhs.reg);
+        } else if (always_small(RHS)) {
+            emit_is_boxed(branch_compare, lhs.reg);
+        } else {
+            a.and_(TMP1, lhs.reg, rhs.reg);
+            emit_is_boxed(branch_compare, TMP1);
+        }
 
         mov_var(ARG1, lhs);
         mov_var(ARG2, rhs);
@@ -1695,9 +1762,9 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
 
         /* Relative comparisons are overwhelmingly likely to be used on smalls,
          * so we'll specialize those and keep the rest in a shared fragment. */
-        if (RHS.isSmall()) {
+        if (always_small(RHS)) {
             a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-        } else if (LHS.isSmall()) {
+        } else if (always_small(LHS)) {
             a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
         } else {
             /* Avoid the expensive generic comparison for equal terms. */
@@ -1789,8 +1856,14 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         /* The only possible kind of immediate is a small and all other values
          * are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
-        a.and_(TMP1, lhs.reg, rhs.reg);
-        emit_is_boxed(branch_compare, TMP1);
+        if (always_small(LHS)) {
+            emit_is_boxed(branch_compare, rhs.reg);
+        } else if (always_small(RHS)) {
+            emit_is_boxed(branch_compare, lhs.reg);
+        } else {
+            a.and_(TMP1, lhs.reg, rhs.reg);
+            emit_is_boxed(branch_compare, TMP1);
+        }
 
         mov_var(ARG1, lhs);
         mov_var(ARG2, rhs);
@@ -1805,9 +1878,9 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
 
         /* Relative comparisons are overwhelmingly likely to be used on smalls,
          * so we'll specialize those and keep the rest in a shared fragment. */
-        if (RHS.isSmall()) {
+        if (always_small(RHS)) {
             a.and_(TMP1, lhs.reg, imm(_TAG_IMMED1_MASK));
-        } else if (LHS.isSmall()) {
+        } else if (always_small(LHS)) {
             a.and_(TMP1, rhs.reg, imm(_TAG_IMMED1_MASK));
         } else {
             /* Avoid the expensive generic comparison for equal terms. */
@@ -2188,13 +2261,11 @@ void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
 }
 
 void BeamModuleAssembler::emit_badmatch(const ArgSource &Src) {
-    mov_arg(arm::Mem(c_p, offsetof(Process, fvalue)), Src);
-    emit_error(BADMATCH);
+    emit_error(BADMATCH, Src);
 }
 
 void BeamModuleAssembler::emit_case_end(const ArgSource &Src) {
-    mov_arg(arm::Mem(c_p, offsetof(Process, fvalue)), Src);
-    emit_error(EXC_CASE_CLAUSE);
+    emit_error(EXC_CASE_CLAUSE, Src);
 }
 
 void BeamModuleAssembler::emit_system_limit_body() {
@@ -2206,8 +2277,7 @@ void BeamModuleAssembler::emit_if_end() {
 }
 
 void BeamModuleAssembler::emit_badrecord(const ArgSource &Src) {
-    mov_arg(arm::Mem(c_p, offsetof(Process, fvalue)), Src);
-    emit_error(EXC_BADRECORD);
+    emit_error(EXC_BADRECORD, Src);
 }
 
 void BeamModuleAssembler::emit_catch(const ArgYRegister &Y,
@@ -2346,8 +2416,7 @@ void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
 }
 
 void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
-    mov_arg(arm::Mem(c_p, offsetof(Process, fvalue)), Src);
-    emit_error(EXC_TRY_CLAUSE);
+    emit_error(EXC_TRY_CLAUSE, Src);
 }
 
 void BeamModuleAssembler::emit_raise(const ArgSource &Trace,

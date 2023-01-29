@@ -731,14 +731,32 @@ fail_atom_to_binary(Term) ->
 
 
 min_max(Config) when is_list(Config) ->
+    Self = self(),
+    Port = hd(erlang:ports()),
+    Ref = make_ref(),
     a = min(id(a), a),
     a = min(id(a), b),
     a = min(id(b), a),
     b = min(id(b), b),
+    Ref = min(id(Self), id(Ref)),
+
+    -3 = min(id(5), -3),
+    -3 = min(-3, id(5)),
+    -3 = min(0, id(-3)),
+    -3 = min(id(-3), 0),
+    0 = min(0, id(17)),
+
     a = max(id(a), a),
     b = max(id(a), b),
     b = max(id(b), a),
     b = max(id(b), b),
+    Self = max(id(Self), id(Ref)),
+
+    5 = max(id(5), -3),
+    5 = max(-3, id(5)),
+    0 = max(0, id(-3)),
+    0 = max(id(-3), 0),
+    17 = max(0, id(17)),
 
     %% Return the first argument when arguments are equal.
     42.0 = min(id(42.0), 42),
@@ -750,8 +768,109 @@ min_max(Config) when is_list(Config) ->
     "abc" = erlang:Min("abc", "def"),
     <<"def">> = erlang:Max(<<"abc">>, <<"def">>),
 
+    %% Make sure that the JIT doesn't do any unsafe optimizations.
+    {0, 0} = min_max_zero(0),
+    {-7, 0} = min_max_zero(-7),
+    {0, 555} = min_max_zero(555),
+    {0, 1 bsl 64} = min_max_zero(1 bsl 64),
+    {-1 bsl 64, 0} = min_max_zero(-1 bsl 64),
+
+    {-99, 23} = do_min_max(-99, 23),
+    {-10, 0} = do_min_max(0, -10),
+    {0, 77} = do_min_max(77, 0),
+    {1, 2} = do_min_max(1, 2),
+    {42, 99} = do_min_max(99, 42),
+    {100, 1 bsl 64} = do_min_max(100, 1 bsl 64),
+    {-1 bsl 64, 77} = do_min_max(77, -1 bsl 64),
+    {-1 bsl 64, 1 bsl 64} = do_min_max(1 bsl 64, -1 bsl 64),
+    {42.0, 43} = do_min_max(42.0, 43),
+    {42.0, 50.0} = do_min_max(42.0, 50.0),
+    {42.0, 42.0} = do_min_max(42.0, id(40.0 + 2.0)),
+    {{1,2}, {a,b}} = do_min_max({id(a), id(b)}, {id(1), id(2)}),
+    {{a,b}, [a,b]} = do_min_max({a,id(b)}, [a,id(b)]),
+    {{1.0,b}, {1.0,b}} = do_min_max({id(1.0), id(b)}, {id(1), id(b)}),
+    {{7,b}, {7,b}} = do_min_max({id(7), id(b)}, {id(7.0), id(b)}),
+
+    {42,Self} = do_min_max(42, Self),
+    {42,Self} = do_min_max(Self, 42),
+    {42,Port} = do_min_max(42, Port),
+    {42,Port} = do_min_max(Port, 42),
+
     ok.
 
+min_max_zero(A0) ->
+    Result = {min(A0, 0), max(A0, 0)},
+    Result = {min(0, A0), max(0, A0)},
+    A = id(A0),
+    Result = {min(A, 0), max(A, 0)},
+    Result = {min(0, A), max(0, A)}.
+
+do_min_max(A0, B0) ->
+    Result = {min(A0, B0), max(A0, B0)},
+
+    A0 = min(id(A0), A0),
+    A0 = max(id(A0), A0),
+    B0 = min(id(B0), B0),
+    B0 = max(id(B0), B0),
+
+    A = id(A0),
+    B = id(B0),
+    Result = {min(A, B), max(A, B)},
+
+    if
+        is_integer(A), is_atom(node(B)) orelse is_integer(B) ->
+            _ = id(0),
+            Result = {min(A, B),max(A, B)};
+        is_atom(node(A)) orelse is_integer(A), is_integer(B) ->
+            _ = id(0),
+            Result = {min(A, B),max(A, B)};
+        true ->
+            ok
+    end,
+
+    if
+        is_integer(A), 0 =< A, A =< 1000, is_atom(node(B)) orelse is_integer(B) ->
+            _ = id(0),
+            Result = {min(A, B),max(A, B)};
+        is_atom(node(A)) orelse is_integer(A), is_integer(B), 0 =< B, B =< 1000 ->
+            _ = id(0),
+            Result = {min(A, B),max(A, B)};
+        true ->
+            ok
+    end,
+
+    Result = do_min_max_1(1, 2, 3, 4, 5, A, B).
+
+do_min_max_1(_, _, _, _, _, A, B) ->
+    if
+        is_integer(A), 0 =< A, A < 16#1_0000,
+        is_integer(B), 0 =< B, B < 16#1_0000 ->
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)},
+            _ = id(0),
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)};
+        is_integer(A), is_integer(B) ->
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)},
+            _ = id(0),
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)};
+        is_float(A), is_float(B) ->
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)},
+            _ = id(0),
+            Result = {min(A, B),max(A, B)},
+            Result = {min(B, A),max(B, A)};
+        is_number(A), is_number(B) ->
+            Result = {min(A, B),max(A, B)},
+            _ = id(0),
+            Result = {min(A, B),max(A, B)};
+        true ->
+            Result = {min(A, B),max(A, B)},
+            _ = id(0),
+            Result = {min(A, B),max(A, B)}
+    end.
 
 erlang_halt(Config) when is_list(Config) ->
     try erlang:halt(undefined) of

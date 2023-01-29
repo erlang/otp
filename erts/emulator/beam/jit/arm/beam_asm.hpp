@@ -1488,6 +1488,7 @@ protected:
                     const ArgRegister &Dst);
 
     void emit_error(int code);
+    void emit_error(int reason, const ArgSource &Src);
 
     int emit_bs_get_field_size(const ArgSource &Size,
                                int unit,
@@ -1547,6 +1548,14 @@ protected:
                                 const ArgRegister &Dst);
 
     void emit_cond_to_bool(arm::CondCode cc, const ArgRegister &Dst);
+    void emit_bif_is_ge_lt(arm::CondCode cc,
+                           const ArgSource &LHS,
+                           const ArgSource &RHS,
+                           const ArgRegister &Dst);
+    void emit_bif_min_max(arm::CondCode cc,
+                          const ArgSource &LHS,
+                          const ArgSource &RHS,
+                          const ArgRegister &Dst);
 
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);

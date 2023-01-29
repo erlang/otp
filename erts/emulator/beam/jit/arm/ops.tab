@@ -271,6 +271,9 @@ i_get_tuple_element Tuple Pos Tuple2 | current_tuple Tuple3 |
 
 current_tuple Tuple => _
 
+i_get_tuple_element Tuple Pos Dst | current_tuple d | swap R1 R2 =>
+    i_get_tuple_element Tuple Pos Dst | swap R1 R2
+
 load_tuple_ptr s
 
 # If positions are in consecutive memory, fetch and store two words at
@@ -293,6 +296,14 @@ current_tuple Tuple Dst => current_tuple Tuple
 # with the source tuple operand.
 i_get_tuple_element s P S
 get_two_tuple_elements s P S S
+
+i_get_tuple_element Tuple Pos Dst | swap Reg1 Reg2 | equal(Dst, Reg1) =>
+    get_tuple_element_swap Tuple Pos Dst Reg2
+
+i_get_tuple_element Tuple Pos Dst | swap Reg2 Reg1 | equal(Dst, Reg1) =>
+    get_tuple_element_swap Tuple Pos Dst Reg2
+
+get_tuple_element_swap s P d d
 
 #
 # Exception raising instructions. Infrequently executed.
@@ -359,6 +370,10 @@ move S1=y D1=y | move S2=y D2=y |
 move S1=y D1=y | move S2=y D2=y |
   consecutive_words(D2, D1) =>
     move_two_yregs S2 D2 S1 D1
+
+move Src Dst | trim N u => move_trim Src Dst N
+
+move_trim s d t
 
 move Src Dst => i_move Src Dst
 
@@ -757,6 +772,13 @@ bif2 Fail Bif=u$bif:erlang:is_map_key/2 Key Map=xy Dst=d =>
     bif_is_map_key Bif Fail Key Map Dst
 bif_is_map_key b j s s d
 
+bif2 Fail Bif=u$bif:erlang:max/2 Src1 Src2 Dst =>
+    bif_max Src1 Src2 Dst
+bif2 Fail Bif=u$bif:erlang:min/2 Src1 Src2 Dst =>
+    bif_min Src1 Src2 Dst
+bif_max s s d
+bif_min s s d
+
 bif1 Fail Bif S1 Dst | never_fails(Bif) => nofail_bif1 S1 Bif Dst
 bif2 Fail Bif S1 S2 Dst | never_fails(Bif) => nofail_bif2 S1 S2 Bif Dst
 
@@ -790,6 +812,12 @@ bif_is_lt s s d
 #
 # Internal calls.
 #
+
+i_move S=y==0 Dst | call_last Ar P D => move_call_last S Dst P D
+i_move S=y==0 Dst | call_ext_last Ar P=u$is_not_bif D => move_call_ext_last S Dst P D
+
+move_call_last y d f t
+move_call_ext_last y d e t
 
 call Ar Func        => i_call Func
 call_last Ar Func D => i_call_last Func D
