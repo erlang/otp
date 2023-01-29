@@ -370,30 +370,43 @@ extern "C"
         erts_debug_require_code_barrier();
 #endif
 
-#if defined(__aarch64__)
-#    if defined(WIN32)
+#if defined(__aarch64__) && defined(WIN32)
         /* Issues full memory/instruction barriers on all threads for us. */
         FlushInstructionCache(GetCurrentProcess(), address, size);
-#    elif defined(__APPLE__)
+#elif defined(__aarch64__) && defined(__APPLE__)
         /* Issues full memory/instruction barriers on all threads for us. */
         sys_icache_invalidate((char *)address, size);
-#    elif defined(__GNUC__) && defined(ERTS_THR_INSTRUCTION_BARRIER)
-        /* Note that we have to issue an instruction synchronization barrier on
-         * all schedulers after loading code when using this method, hence the
-         * check for ERTS_THR_INSTRUCTION_BARRIER.
-         *
-         * Breakpoints are fine since the architecture guarantees that branch
-         * instructions can be safely modified without instruction barriers. We
-         * still need to clear the cache however. */
-        __builtin___clear_cache(&((char *)address)[0],
-                                &((char *)address)[size]);
-#    else
-#        error "Platform lacks implementation for clearing instruction cache." \
-                "Please report this bug."
-#    endif
-#else
+#elif defined(__aarch64__) && defined(__GNUC__) &&                             \
+        defined(ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION) &&                  \
+        defined(ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION) &&                  \
+        defined(ERTS_THR_INSTRUCTION_BARRIER)
+        /* Note that we do not issue any barriers here, whether instruction or
+         * memory. This is on purpose as we must issue those on all schedulers
+         * and not just the calling thread, and the chances of us forgetting to
+         * do that is much higher if we issue them here. */
+        UWord start = reinterpret_cast<UWord>(address);
+        UWord end = start + size;
+
+        ETHR_COMPILER_BARRIER;
+
+        for (size_t i = start & ~ERTS_CACHE_LINE_MASK; i < end;
+             i += ERTS_CACHE_LINE_SIZE) {
+            __asm__ __volatile__("dc cvau, %0\n"
+                                 "ic ivau, %0\n" ::"r"(i)
+                                 :);
+        }
+#elif (defined(__x86_64__) || defined(_M_X64)) &&                              \
+        defined(ERTS_THR_INSTRUCTION_BARRIER)
+        /* We don't need to invalidate cache on this platform, but since we
+         * might be modifying code with a different linear address than the one
+         * we execute from (dual-mapped memory), we still need to issue an
+         * instruction barrier on all schedulers to ensure that the change is
+         * visible. */
         (void)address;
         (void)size;
+#else
+#    error "Platform lacks implementation for clearing instruction cache." \
+                "Please report this bug."
 #endif
     }
 
