@@ -30,7 +30,8 @@
 -export([t_update_with_3/1, t_update_with_4/1,
          t_get_3/1, t_filter_2/1, t_filtermap_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1, t_foreach_2/1,
-         t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
+         t_iterator_1/1, t_iterator_2/1,
+         t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
          t_merge_with/1, t_from_keys/1,
@@ -57,7 +58,8 @@ all() ->
     [t_update_with_3,t_update_with_4,
      t_get_3,t_filter_2,t_filtermap_2,
      t_fold_3,t_map_2,t_size_1,t_foreach_2,
-     t_iterator_1,t_put_opt,t_merge_opt,
+     t_iterator_1,t_iterator_2,
+     t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
      t_merge_with, t_from_keys,
@@ -471,12 +473,15 @@ t_iterator_1(Config) when is_list(Config) ->
 
     KVList = lists:sort([{K1,V1},{K2,V2}]),
     KVList = lists:sort(maps:to_list(M0)),
+    KList = lists:sort([K1,K2]),
+    KList = lists:sort(maps:keys(M0)),
 
     %% Large map test
 
     Vs2 = lists:seq(1,200),
     M2 = maps:from_list([{{k,I},I}||I<-Vs2]),
     KVList2 = lists:sort(iter_kv(maps:iterator(M2))),
+    KVList2 = lists:sort(maps:to_list(maps:iterator(M2))),
     KVList2 = lists:sort(maps:to_list(M2)),
 
     %% Larger map test
@@ -484,7 +489,70 @@ t_iterator_1(Config) when is_list(Config) ->
     Vs3 = lists:seq(1,10000),
     M3 = maps:from_list([{{k,I},I}||I<-Vs3]),
     KVList3 = lists:sort(iter_kv(maps:iterator(M3))),
+    KVList3 = lists:sort(maps:to_list(maps:iterator(M3))),
     KVList3 = lists:sort(maps:to_list(M3)),
+    ok.
+
+t_iterator_2(Config) when is_list(Config) ->
+
+    RevCmpFun = fun(A, B) -> B =< A end,
+
+    %% Small map test
+    M0 = #{ a => 1, b => 2 },
+    OrdI0 = maps:iterator(M0, ordered),
+    {K1 = a, V1 = 1, OrdI1} = maps:next(OrdI0),
+    {K2 = b, V2 = 2, OrdI2} = maps:next(OrdI1),
+    none = maps:next(OrdI2),
+
+    RevI0 = maps:iterator(M0, RevCmpFun),
+    {K2 = b, V2 = 2, RevI1} = maps:next(RevI0),
+    {K1 = a, V1 = 1, RevI2} = maps:next(RevI1),
+    none = maps:next(RevI2),
+
+    OrdKVList = [{K1, V1}, {K2, V2}],
+    OrdKVList = maps:to_list(OrdI0),
+
+    RevKVList = [{K2, V2}, {K1, V1}],
+    RevKVList = maps:to_list(RevI0),
+
+    %% Large map test
+
+    Vs2 = lists:seq(1, 200),
+    OrdKVList2 = [{{k, I}, I} || I <- Vs2],
+    RevKVList2 = lists:reverse(OrdKVList2),
+    M2 = maps:from_list(OrdKVList2),
+    Iter2 = maps:iterator(M2, undefined),
+    OrdIter2 = maps:iterator(M2, ordered),
+    RevIter2 = maps:iterator(M2, RevCmpFun),
+    OrdKVList2 = lists:sort(iter_kv(Iter2)),
+    OrdKVList2 = lists:sort(maps:to_list(Iter2)),
+    OrdKVList2 = iter_kv(OrdIter2),
+    OrdKVList2 = maps:to_list(OrdIter2),
+    RevKVList2 = iter_kv(RevIter2),
+    RevKVList2 = maps:to_list(RevIter2),
+
+    %% Larger map test
+
+    Vs3 = lists:seq(1, 10000),
+    OrdKVList3 = [{{k, I}, I} || I <- Vs3],
+    RevKVList3 = lists:reverse(OrdKVList3),
+    M3 = maps:from_list(OrdKVList3),
+    Iter3 = maps:iterator(M3, undefined),
+    OrdIter3 = maps:iterator(M3, ordered),
+    RevIter3 = maps:iterator(M3, RevCmpFun),
+    OrdKVList3 = lists:sort(iter_kv(Iter3)),
+    OrdKVList3 = lists:sort(maps:to_list(Iter3)),
+    OrdKVList3 = iter_kv(OrdIter3),
+    OrdKVList3 = maps:to_list(OrdIter3),
+    RevKVList3 = iter_kv(RevIter3),
+    RevKVList3 = maps:to_list(RevIter3),
+
+    %% Float and integer keys
+
+    M4 = #{-1.0 => a, 0.0 => b, -1 => c, 0 => d},
+    OrdIter4 = maps:iterator(M4, ordered),
+    [{-1, c}, {0, d}, {-1.0, a}, {0.0, b}] = maps:to_list(OrdIter4),
+
     ok.
 
 iter_kv(I) ->
@@ -785,8 +853,11 @@ t_groups_from_list(_Config) ->
 error_info(_Config) ->
     BadIterator = [-1|#{}],
     GoodIterator = maps:iterator(#{}),
+    BadOrder = fun(_) -> true end,
+    GoodOrder = fun(A, B) -> A =< B end,
 
-    L = [{filter, [fun(_, _) -> true end, abc]},
+    L = [
+         {filter, [fun(_, _) -> true end, abc]},
          {filter, [fun(_, _) -> true end, BadIterator]},
          {filter, [bad_fun, BadIterator],[{1,".*"},{2,".*"}]},
          {filter, [bad_fun, GoodIterator]},
@@ -838,6 +909,12 @@ error_info(_Config) ->
 
          {iterator,[{no,map}]},
 
+         {iterator, [{no,map}, undefined], [{1, ".*"}]},
+         {iterator, [{no,map}, ordered], [{1, ".*"}]},
+         {iterator, [{no,map}, GoodOrder], [{1, ".*"}]},
+         {iterator, [#{a => b}, BadOrder], [{2, ".*"}]},
+         {iterator, [{no,map}, BadOrder], [{1, ".*"}, {2, ".*"}]},
+
          {keys, [{no,map}]},
 
          {map, [fun(_, _) -> true end, abc]},
@@ -853,6 +930,7 @@ error_info(_Config) ->
          {merge_with, [a, b, c],[{1,".*"},{2,".*"},{3,".*"}]},
 
          {next,[no_iterator]},
+         {next,[BadIterator]},
 
          {put, [key, value, {no,map}]},
 
@@ -863,6 +941,7 @@ error_info(_Config) ->
          {take, [key, no_map]},
 
          {to_list,[xyz]},
+         {to_list,[BadIterator]},
 
          {update,[key, value, no_map]},
 

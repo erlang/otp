@@ -2275,25 +2275,44 @@ maps(_Config) ->
     %% Therefore, play it completely safe by not assuming any order
     %% in a map with more than one element.
 
+    RevCmpFun = fun(A, B) -> B =< A end,
+
+    AtomMap1 = #{a => b},
+    AtomMap2 = #{a => b, c => d},
+    AtomMap3 = #{a => b, c => d, e => f},
+
     "#{}" = fmt("~w", [#{}]),
-    "#{a => b}" = fmt("~w", [#{a=>b}]),
+    "#{a => b}" = fmt("~w", [AtomMap1]),
     re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
-	     "~W", [#{a => b,c => d},2]),
+	     "~W", [AtomMap2, 2]),
     re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
-	   "~W", [#{a => b,c => d,e => f},2]),
+	   "~W", [AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~kw", [AtomMap3]),
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
+           "~KW", [undefined, AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~Kw", [ordered, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kw", [RevCmpFun, AtomMap3]),
 
     "#{}" = fmt("~p", [#{}]),
-    "#{a => b}" = fmt("~p", [#{a => b}]),
-    "#{...}" = fmt("~P", [#{a => b},1]),
+    "#{a => b}" = fmt("~p", [AtomMap1]),
+    "#{...}" = fmt("~P", [AtomMap1, 1]),
     re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
-	   "~P", [#{a => b,c => d},2]),
+	   "~P", [AtomMap2, 2]),
     re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
-	   "~P", [#{a => b,c => d,e => f},2]),
+	   "~P", [AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~kp", [AtomMap3]),
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
+           "~KP", [undefined, AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~Kp", [ordered, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kp", [RevCmpFun, AtomMap3]),
 
-    List = [{I,I*I} || I <- lists:seq(1, 20)],
+    List = [{I, I * I} || I <- lists:seq(1, 64)],
     Map = maps:from_list(List),
 
-    "#{...}" = fmt("~P", [Map,1]),
+    "#{...}" = fmt("~P", [Map, 1]),
+    "#{1 => 1,...}" = fmt("~kP", [Map, 2]),
+    "#{1 => 1,...}" = fmt("~KP", [ordered, Map, 2]),
+    "#{64 => 4096,...}" = fmt("~KP", [RevCmpFun, Map, 2]),
 
     %% Print a map and parse it back to a map.
     S = fmt("~p\n", [Map]),

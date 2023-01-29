@@ -3488,6 +3488,60 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
+    /* Handle an ordered iterator. */
+    if (type == iterator && (is_list(path) || is_nil(path))) {
+#ifdef DEBUG
+#define ORDERED_ITER_FACTOR 200
+#else
+#define ORDERED_ITER_FACTOR 32
+#endif
+        int orig_elems = MAX(1, ERTS_BIF_REDS_LEFT(BIF_P) / ORDERED_ITER_FACTOR);
+        int elems = orig_elems;
+        Uint needed = 4 * elems + 2;
+        Eterm *hp = HAlloc(BIF_P, needed);
+        Eterm *hp_end = hp + needed;
+        Eterm result = am_none;
+        Eterm *patch_ptr = &result;
+
+        while (is_list(path) && elems > 0) {
+            Eterm *lst = list_val(path);
+            Eterm key = CAR(lst);
+            Eterm res = make_tuple(hp);
+            const Eterm *value = erts_maps_get(key, map);
+            if (!value) {
+            ordered_badarg:
+                HRelease(BIF_P, hp_end, hp);
+                BIF_ERROR(BIF_P, BADARG);
+            }
+            hp[0] = make_arityval(3);
+            hp[1] = key;
+            hp[2] = *value;
+            *patch_ptr = res;
+            patch_ptr = &hp[3];
+            hp += 4;
+            path = CDR(lst);
+            elems--;
+        }
+
+        if (is_list(path)) {
+            Eterm next = CONS(hp, path, map);
+            hp += 2;
+            ASSERT(hp == hp_end);
+            *patch_ptr = next;
+            BUMP_ALL_REDS(BIF_P);
+            ASSERT(is_tuple(result));
+            BIF_RET(result);
+        } else if (is_nil(path)) {
+            HRelease(BIF_P, hp_end, hp);
+            *patch_ptr = am_none;
+            BUMP_REDS(BIF_P, ORDERED_ITER_FACTOR * (orig_elems - elems));
+            ASSERT(result == am_none || is_tuple(result));
+            BIF_RET(result);
+        } else {
+            goto ordered_badarg;
+        }
+    }
+
     if (is_flatmap(map)) {
         Uint n;
 	Eterm *ks,*vs, res, *hp;

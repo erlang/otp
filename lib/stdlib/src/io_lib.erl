@@ -124,7 +124,8 @@
            precision    := 'none' | integer(),
            pad_char     := char(),
            encoding     := 'unicode' | 'latin1',
-           strings      := boolean()
+           strings      := boolean(),
+           maps_order   := maps:iterator_order()
          }.
 
 %%----------------------------------------------------------------------
@@ -322,7 +323,7 @@ add_modifier(_, C) ->
       Term :: term().
 
 write(Term) ->
-    write1(Term, -1, latin1).
+    write1(Term, -1, latin1, undefined).
 
 -spec write(term(), depth(), boolean()) -> chars().
 
@@ -347,64 +348,65 @@ write(Term, Options) when is_list(Options) ->
     Depth = get_option(depth, Options, -1),
     Encoding = get_option(encoding, Options, epp:default_encoding()),
     CharsLimit = get_option(chars_limit, Options, -1),
+    MapsOrder = get_option(maps_order, Options, undefined),
     if
         Depth =:= 0; CharsLimit =:= 0 ->
             "...";
         is_integer(CharsLimit), CharsLimit < 0, is_integer(Depth) ->
-            write1(Term, Depth, Encoding);
+            write1(Term, Depth, Encoding, MapsOrder);
         is_integer(CharsLimit), CharsLimit > 0 ->
             RecDefFun = fun(_, _) -> no end,
             If = io_lib_pretty:intermediate
-                 (Term, Depth, CharsLimit, RecDefFun, Encoding, _Str=false),
+                 (Term, Depth, CharsLimit, RecDefFun, Encoding, _Str=false, MapsOrder),
             io_lib_pretty:write(If)
     end;
 write(Term, Depth) ->
     write(Term, [{depth, Depth}, {encoding, latin1}]).
 
-write1(_Term, 0, _E) -> "...";
-write1(Term, _D, _E) when is_integer(Term) -> integer_to_list(Term);
-write1(Term, _D, _E) when is_float(Term) -> io_lib_format:fwrite_g(Term);
-write1(Atom, _D, latin1) when is_atom(Atom) -> write_atom_as_latin1(Atom);
-write1(Atom, _D, _E) when is_atom(Atom) -> write_atom(Atom);
-write1(Term, _D, _E) when is_port(Term) -> write_port(Term);
-write1(Term, _D, _E) when is_pid(Term) -> pid_to_list(Term);
-write1(Term, _D, _E) when is_reference(Term) -> write_ref(Term);
-write1(<<_/bitstring>>=Term, D, _E) -> write_binary(Term, D);
-write1([], _D, _E) -> "[]";
-write1({}, _D, _E) -> "{}";
-write1([H|T], D, E) ->
+write1(_Term, 0, _E, _O) -> "...";
+write1(Term, _D, _E, _O) when is_integer(Term) -> integer_to_list(Term);
+write1(Term, _D, _E, _O) when is_float(Term) -> io_lib_format:fwrite_g(Term);
+write1(Atom, _D, latin1, _O) when is_atom(Atom) -> write_atom_as_latin1(Atom);
+write1(Atom, _D, _E, _O) when is_atom(Atom) -> write_atom(Atom);
+write1(Term, _D, _E, _O) when is_port(Term) -> write_port(Term);
+write1(Term, _D, _E, _O) when is_pid(Term) -> pid_to_list(Term);
+write1(Term, _D, _E, _O) when is_reference(Term) -> write_ref(Term);
+write1(<<_/bitstring>>=Term, D, _E, _O) -> write_binary(Term, D);
+write1([], _D, _E, _O) -> "[]";
+write1({}, _D, _E, _O) -> "{}";
+write1([H|T], D, E, O) ->
     if
 	D =:= 1 -> "[...]";
 	true ->
-	    [$[,[write1(H, D-1, E)|write_tail(T, D-1, E)],$]]
+	    [$[,[write1(H, D-1, E, O)|write_tail(T, D-1, E, O)],$]]
     end;
-write1(F, _D, _E) when is_function(F) ->
+write1(F, _D, _E, _O) when is_function(F) ->
     erlang:fun_to_list(F);
-write1(Term, D, E) when is_map(Term) ->
-    write_map(Term, D, E);
-write1(T, D, E) when is_tuple(T) ->
+write1(Term, D, E, O) when is_map(Term) ->
+    write_map(Term, D, E, O);
+write1(T, D, E, O) when is_tuple(T) ->
     if
 	D =:= 1 -> "{...}";
 	true ->
 	    [${,
-	     [write1(element(1, T), D-1, E)|write_tuple(T, 2, D-1, E)],
+	     [write1(element(1, T), D-1, E, O)|write_tuple(T, 2, D-1, E, O)],
 	     $}]
     end.
 
 %% write_tail(List, Depth, Encoding)
 %%  Test the terminating case first as this looks better with depth.
 
-write_tail([], _D, _E) -> "";
-write_tail(_, 1, _E) -> [$| | "..."];
-write_tail([H|T], D, E) ->
-    [$,,write1(H, D-1, E)|write_tail(T, D-1, E)];
-write_tail(Other, D, E) ->
-    [$|,write1(Other, D-1, E)].
+write_tail([], _D, _E, _O) -> "";
+write_tail(_, 1, _E, _O) -> [$| | "..."];
+write_tail([H|T], D, E, O) ->
+    [$,,write1(H, D-1, E, O)|write_tail(T, D-1, E, O)];
+write_tail(Other, D, E, O) ->
+    [$|,write1(Other, D-1, E, O)].
 
-write_tuple(T, I, _D, _E) when I > tuple_size(T) -> "";
-write_tuple(_, _I, 1, _E) -> [$, | "..."];
-write_tuple(T, I, D, E) ->
-    [$,,write1(element(I, T), D-1, E)|write_tuple(T, I+1, D-1, E)].
+write_tuple(T, I, _D, _E, _O) when I > tuple_size(T) -> "";
+write_tuple(_, _I, 1, _E, _O) -> [$, | "..."];
+write_tuple(T, I, D, E, O) ->
+    [$,,write1(element(I, T), D-1, E, O)|write_tuple(T, I+1, D-1, E, O)].
 
 write_port(Port) ->
     erlang:port_to_list(Port).
@@ -412,28 +414,28 @@ write_port(Port) ->
 write_ref(Ref) ->
     erlang:ref_to_list(Ref).
 
-write_map(_, 1, _E) -> "#{}";
-write_map(Map, D, E) when is_integer(D) ->
-    I = maps:iterator(Map),
+write_map(_, 1, _E, _O) -> "#{}";
+write_map(Map, D, E, O) when is_integer(D) ->
+    I = maps:iterator(Map, O),
     case maps:next(I) of
         {K, V, NextI} ->
             D0 = D - 1,
-            W = write_map_assoc(K, V, D0, E),
-            [$#,${,[W | write_map_body(NextI, D0, D0, E)],$}];
+            W = write_map_assoc(K, V, D0, E, O),
+            [$#,${,[W | write_map_body(NextI, D0, D0, E, O)],$}];
         none -> "#{}"
     end.
 
-write_map_body(_, 1, _D0, _E) -> ",...";
-write_map_body(I, D, D0, E) ->
+write_map_body(_, 1, _D0, _E, _O) -> ",...";
+write_map_body(I, D, D0, E, O) ->
     case maps:next(I) of
         {K, V, NextI} ->
-            W = write_map_assoc(K, V, D0, E),
-            [$,,W|write_map_body(NextI, D - 1, D0, E)];
+            W = write_map_assoc(K, V, D0, E, O),
+            [$,,W|write_map_body(NextI, D - 1, D0, E, O)];
         none -> ""
     end.
 
-write_map_assoc(K, V, D, E) ->
-    [write1(K, D, E)," => ",write1(V, D, E)].
+write_map_assoc(K, V, D, E, O) ->
+    [write1(K, D, E, O)," => ",write1(V, D, E, O)].
 
 write_binary(B, D) when is_integer(D) ->
     {S, _} = write_binary(B, D, -1),
