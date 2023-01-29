@@ -2184,14 +2184,16 @@ otp_10755(Suite) when is_list(Suite) ->
         "    io:format(\"~ltw\", [S]),\n"
         "    io:format(\"~tlw\", [S]),\n"
         "    io:format(\"~ltW\", [S, 1]),\n"
-        "    io:format(\"~tlW\", [S, 1]).\n",
+        "    io:format(\"~tlW\", [S, 1]),\n"
+        "    io:format(\"~ltp\", [S, 1]).\n",
     {ok,l_mod,[{_File,Ws}]} = compile_file("l_mod.erl", Text, Suite),
-    ["format string invalid (invalid control ~lw)",
-     "format string invalid (invalid control ~lW)",
-     "format string invalid (invalid control ~ltw)",
-     "format string invalid (invalid control ~ltw)",
-     "format string invalid (invalid control ~ltW)",
-     "format string invalid (invalid control ~ltW)"] =
+    ["format string invalid (invalid modifier/control combination ~lw)",
+     "format string invalid (invalid modifier/control combination ~lW)",
+     "format string invalid (invalid modifier/control combination ~lw)",
+     "format string invalid (invalid modifier/control combination ~lw)",
+     "format string invalid (invalid modifier/control combination ~lW)",
+     "format string invalid (invalid modifier/control combination ~lW)",
+     "format string invalid (conflicting modifiers ~ltp)"] =
         [lists:flatten(M:format_error(E)) || {_L,M,E} <- Ws],
     ok.
 
