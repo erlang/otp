@@ -161,7 +161,7 @@ connect(SockAddr, Opts) ->
     connect(SockAddr, Opts, infinity).
 
 -spec connect(Address, Port, Opts) -> {ok, Socket} | {error, Reason} when
-      Address  :: inet:socket_address() | inet:hostname(),
+      Address  :: inet:socket_address() | nonempty_string() | atom(),
       Port     :: inet:port_number(),
       Opts     :: [inet:inet_backend() | connect_option()],
       Socket   :: socket(),
@@ -202,7 +202,7 @@ connect(#{family := Fam} = SockAddr, Opts, Timeout)
 
 -spec connect(Address, Port, Opts, Timeout) ->
                      {ok, Socket} | {error, Reason} when
-      Address :: inet:socket_address() | inet:hostname(),
+      Address :: inet:socket_address() | nonempty_string() | atom(),
       Port    :: inet:port_number(),
       Opts    :: [inet:inet_backend() | connect_option()],
       Timeout :: timeout(),

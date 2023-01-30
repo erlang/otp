@@ -362,6 +362,9 @@ t_connect_bad(Config) when is_list(Config) ->
                                        ?INET_BACKEND_OPTS(Config)),
     io:format("Error for connection attempt to non-existing host: ~p",
 	      [Reason2]),
+
+    {'EXIT', badarg} = catch gen_tcp:connect("", 80,
+                                             ?INET_BACKEND_OPTS(Config)),
     ok.
 
 
