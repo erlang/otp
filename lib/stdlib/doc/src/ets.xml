@@ -1222,8 +1222,8 @@ ets:select(Table, MatchSpec),</code>
               means that to an <c>ordered_set</c> table, <c>integer()</c>
               <c>1</c> and <c>float()</c> <c>1.0</c> are regarded as equal.
               This also means that the
-              key used to lookup an element not necessarily
-              <em>matches</em> the key in the returned elements, if
+              key used to lookup an element does not necessarily
+              <em>match</em> the key in the returned elements, if
               <c>float()</c>'s and <c>integer()</c>'s are mixed in
               keys of a table.</p>
           </item>
