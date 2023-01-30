@@ -74,8 +74,8 @@ release_spec:
 	v2.* | v3.0 | v3.01) \
 	  echo "Unsupported NSIS version: $$NSIS_VER";;\
 	v3.*) \
-	  echo '!define OTP_VERSION "$(SYSTEM_VSN)"' > $(VERSION_HEADER);\
-	  echo '!define OTP_RELEASE_VERSION "$(OTP_VERSION)"' >> $(VERSION_HEADER);\
+	  echo '!define OTP_RELEASE "$(SYSTEM_VSN)"' > $(VERSION_HEADER);\
+	  echo '!define OTP_VERSION "$(OTP_VERSION)"' >> $(VERSION_HEADER);\
 	  echo '!define ERTS_VERSION "$(VSN)"' >> $(VERSION_HEADER);\
 	  echo '!define TESTROOT "$(WTESTROOT)"' >> $(VERSION_HEADER);\
 	  echo '!define OUTFILEDIR "$(WTARGET_DIR)"' >> $(VERSION_HEADER);\
