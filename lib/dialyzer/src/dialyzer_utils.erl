@@ -989,9 +989,15 @@ pp_map(Node, Ctxt, Cont) ->
 	       prettypr:beside(Cont(Arg,Ctxt),
 			       prettypr:floating(prettypr:text("#{")))
 	   end,
+  MapEs = case cerl:is_literal(Node) of
+            true ->
+              lists:sort(cerl:map_es(Node));
+            false ->
+              cerl:map_es(Node)
+          end,
   prettypr:beside(
     Before, prettypr:beside(
-	      prettypr:par(seq(cerl:map_es(Node),
+	      prettypr:par(seq(MapEs,
 			       prettypr:floating(prettypr:text(",")),
 			       Ctxt, Cont)),
 	      prettypr:floating(prettypr:text("}")))).
