@@ -449,10 +449,10 @@ ok
         <c>columns</c>.</item>
     </list>
 
-    <p>The I/O server is to send the <c>Reply</c> as:</p>
+    <p>The I/O server is to send one of the following as <c>Reply</c>:</p>
 
     <pre>
-{ok, N}
+N
 {error, Error}</pre>
 
    <list type="bulleted">
