@@ -33,7 +33,23 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Ftp 1.1.2</title>
+  <section><title>Ftp 1.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixes calls to <c>ftp:nlist/2</c> returning <c>{error,
+	    epath}</c> when the file / folder exists</p>
+          <p>
+	    Own Id: OTP-18409 Aux Id: PR-6721,ERIERL-908 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ftp 1.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
