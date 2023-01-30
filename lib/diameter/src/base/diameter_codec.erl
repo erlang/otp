@@ -113,7 +113,7 @@ enc(_, Opts, #diameter_packet{msg = [#diameter_header{} = Hdr | As]}
     try encode_avps(As, Opts) of
         Avps ->
             Bin = list_to_binary(Avps),
-            Len = 20 + size(Bin),
+            Len = 20 + byte_size(Bin),
 
             #diameter_header{version = Vsn,
                              is_request = R,
@@ -161,7 +161,7 @@ enc(Mod, Opts, #diameter_packet{header = Hdr0, msg = Msg} = Pkt) ->
     try encode_avps(Mod, MsgName, Values, Opts) of
         Avps ->
             Bin = list_to_binary(Avps),
-            Len = 20 + size(Bin),
+            Len = 20 + byte_size(Bin),
 
             Hdr = Hdr0#diameter_header{length = Len,
                                        cmd_code = Code,
@@ -628,7 +628,7 @@ pack_avp(#diameter_avp{code = undefined, data = B}, _)
     %% from the length header for this reason, to avoid creating a sub
     %% binary for no useful reason.
     Len = header_length(B),
-    Sz = min(5, size(B)),
+    Sz = min(5, byte_size(B)),
     <<B:Sz/binary, 0:(5-Sz)/unit:8, Len:24, 0:(Len-8)/unit:8>>;
 
 %% Ignoring errors in Failed-AVP or during a relay encode.

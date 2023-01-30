@@ -75,14 +75,14 @@ send_long() ->
     {Sock, SendF} = connection(),
     B = binary:copy(<<$X>>, 1 bsl 20),
     ok = SendF(B),
-    B = recv(Sock, size(B), []).
+    B = recv(Sock, byte_size(B), []).
 
 recv(_, 0, Acc) ->
     list_to_binary(lists:reverse(Acc));
 recv(Sock, N, Acc) ->
     receive
         {tcp, Sock, Bin} ->
-            recv(Sock, N - size(Bin), [Bin | Acc]);
+            recv(Sock, N - byte_size(Bin), [Bin | Acc]);
         T ->
             {T, Acc}
     end.
