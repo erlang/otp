@@ -95,13 +95,11 @@ MODULES = \
 	ssl_socket_SUITE\
 	make_certs \
         x509_test \
-	inet_cryptcookie_dist \
-	inet_crypto_dist \
-	dist_cryptcookie \
 	cryptcookie \
-	inet_epmd_inet_cryptcookie \
-	inet_epmd_inet_ktls_cryptcookie \
-	inet_epmd_socket_cryptcookie \
+	dist_cryptcookie \
+	inet_epmd_cryptcookie_inet_ktls \
+	inet_epmd_dist_cryptcookie_inet \
+	inet_epmd_dist_cryptcookie_socket \
 	openssl_ocsp_SUITE \
 	tls_server_session_ticket_SUITE \
 	tls_client_ticket_store_SUITE

@@ -63,19 +63,19 @@ groups() ->
      {benchmark, protocols()},
      %%
      %% protocols()
-     {ssl,    encryption_backends()},
-     {crypto, crypto_streams()},
-     {plain,  categories()},
-     {socket, categories()},
+     {ssl,         ssl_backends()},
+     {cryptcookie, cryptcookie_backends()},
+     {plain,       categories()},
+     {socket,      categories()},
      %%
-     %% encryption_backends()
-     {tls,    categories()},
-     {ktls,   categories()},
+     %% ssl_backends()
+     {tls,  categories()},
+     {ktls, categories()},
      %%
-     %% crypto_streams()
-     {crypto_socket,    categories()},
-     {crypto_inet,      categories()},
-     {crypto_inet_ktls, categories()},
+     %% cryptcookie_backends()
+     {dist_cryptcookie_socket, categories()},
+     {dist_cryptcookie_inet,   categories()},
+     {cryptcookie_inet_ktls,   categories()},
      %%
      %% categories()
      {setup, [{repeat, 1}],
@@ -97,18 +97,18 @@ groups() ->
 
 protocols() ->
     [{group, ssl},
-     {group, crypto},
+     {group, cryptcookie},
      {group, plain},
      {group, socket}].
 
-encryption_backends() ->
+ssl_backends() ->
     [{group, tls},
      {group, ktls}].
 
-crypto_streams() ->
-    [{group, crypto_socket},
-     {group, crypto_inet},
-     {group, crypto_inet_ktls}].
+cryptcookie_backends() ->
+    [{group, dist_cryptcookie_socket},
+     {group, dist_cryptcookie_inet},
+     {group, cryptcookie_inet_ktls}].
 
 categories() ->
     [{group, setup},
@@ -244,12 +244,12 @@ init_per_group(benchmark, Config) ->
 %%
 init_per_group(ssl, Config) ->
     [{ssl_dist, true}, {ssl_dist_prefix, "SSL"}|Config];
-init_per_group(crypto_socket, Config) ->
-    try inet_epmd_socket_cryptcookie:supported() of
+init_per_group(dist_cryptcookie_socket, Config) ->
+    try inet_epmd_dist_cryptcookie_socket:supported() of
         ok ->
             [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Socket"},
              {ssl_dist_args,
-              "-proto_dist inet_epmd -inet_epmd socket_cryptcookie"}
+              "-proto_dist inet_epmd -inet_epmd dist_cryptcookie_socket"}
             | Config];
         Problem ->
             {skip, Problem}
@@ -257,12 +257,12 @@ init_per_group(crypto_socket, Config) ->
         Class : Reason : Stacktrace ->
             {fail, {Class, Reason, Stacktrace}}
     end;
-init_per_group(crypto_inet, Config) ->
-    try inet_epmd_inet_cryptcookie:supported() of
+init_per_group(dist_cryptcookie_inet, Config) ->
+    try inet_epmd_dist_cryptcookie_inet:supported() of
         ok ->
             [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Inet"},
              {ssl_dist_args,
-              "-proto_dist inet_epmd -inet_epmd inet_cryptcookie"}
+              "-proto_dist inet_epmd -inet_epmd dist_cryptcookie_inet"}
             | Config];
         Problem ->
             {skip, Problem}
@@ -270,12 +270,12 @@ init_per_group(crypto_inet, Config) ->
         Class : Reason : Stacktrace ->
             {fail, {Class, Reason, Stacktrace}}
     end;
-init_per_group(crypto_inet_ktls, Config) ->
-    try inet_epmd_inet_cryptcookie:supported() of
+init_per_group(cryptcookie_inet_ktls, Config) ->
+    try inet_epmd_cryptcookie_inet_ktls:supported() of
         ok ->
             [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Inet-kTLS"},
              {ssl_dist_args,
-              "-proto_dist inet_epmd -inet_epmd inet_ktls_cryptcookie"}
+              "-proto_dist inet_epmd -inet_epmd cryptcookie_inet_ktls"}
             | Config];
         Problem ->
             {skip, Problem}

@@ -22,7 +22,7 @@
 %% Plug-in module for inet_epmd distribution
 %% with cryptcookie over inet_tcp with kTLS offloading
 %%
--module(inet_epmd_inet_ktls_cryptcookie).
+-module(inet_epmd_cryptcookie_inet_ktls).
 -feature(maybe_expr, enable).
 
 %% DistMod API

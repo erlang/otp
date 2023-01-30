@@ -19,9 +19,9 @@
 %%
 %% -------------------------------------------------------------------------
 %%
-%% Module for dist_cryptcookie over inet_tcp
+%% Module for dist_cryptcookie over socket
 %%
--module(inet_epmd_inet_cryptcookie).
+-module(inet_epmd_dist_cryptcookie_socket).
 -feature(maybe_expr, enable).
 
 %% DistMod API
@@ -40,54 +40,76 @@
 -include_lib("kernel/include/dist_util.hrl").
 
 -define(FAMILY, inet).
--define(DRIVER, inet_tcp).
 
 %% ------------------------------------------------------------
 net_address() ->
-    Family = ?DRIVER:family(),
     #net_address{
        protocol = dist_cryptcookie:protocol(),
-       family = Family }.
+       family = ?FAMILY }.
 
 %% ------------------------------------------------------------
-listen_open(_NetAddress, Options) ->
-    {ok,
-     inet_epmd_dist:merge_options(
-       Options,
-       [{active, false}, {mode, binary}, {packet, 0},
-        inet_epmd_dist:nodelay()],
-       [])}.
-
-%% ------------------------------------------------------------
-listen_port(_NetAddress, Port, ListenOptions) ->
+listen_open(#net_address{ family = Family}, ListenOptions) ->
     maybe
+        Key = backlog,
+        Default = 128,
+        Backlog = proplists:get_value(Key, ListenOptions, Default),
         {ok, ListenSocket} ?=
-            ?DRIVER:listen(Port, ListenOptions),
-        {ok, Address} ?=
-            inet:sockname(ListenSocket),
-        {ok, {ListenSocket, Address}}
+            socket:open(Family, stream),
+        ok ?=
+            setopts(
+              ListenSocket,
+              inet_epmd_dist:merge_options(
+                ListenOptions, [inet_epmd_dist:nodelay()], [])),
+        {ok, {ListenSocket, Backlog}}
+    else
+        {error, _} = Error ->
+            Error
+    end.
+
+setopts(Socket, Options) ->
+    gen_tcp_socket:socket_setopts(Socket, Options).
+
+%% ------------------------------------------------------------
+listen_port(
+  #net_address{ family = Family }, Port, {ListenSocket, Backlog}) ->
+    maybe
+        Sockaddr =
+            #{family => Family,
+              addr => any,
+              port => Port},
+        ok ?=
+            socket:bind(ListenSocket, Sockaddr),
+        ok ?=
+            socket:listen(ListenSocket, Backlog),
+        {ok, #{ addr := Ip, port := ListenPort}} ?=
+            socket:sockname(ListenSocket),
+        {ok, {ListenSocket, {Ip, ListenPort}}}
+    else
+        {error, _} = Error ->
+            Error
     end.
 
 %% ------------------------------------------------------------
 listen_close(ListenSocket) ->
-    ?DRIVER:close(ListenSocket).
+    socket:close(ListenSocket).
 
 %% ------------------------------------------------------------
 accept_open(_NetAddress, ListenSocket) ->
     maybe
         {ok, Socket} ?=
-            ?DRIVER:accept(ListenSocket),
-        {ok, {Ip, _}} ?=
-            inet:sockname(Socket),
-        {ok, {PeerIp, _} = PeerAddress} ?=
-            inet:peername(Socket),
+            socket:accept(ListenSocket),
+        {ok, #{ addr := Ip }} ?=
+            socket:sockname(Socket),
+        {ok, #{ addr := PeerIp, port := PeerPort }} ?=
+            socket:peername(Socket),
         inet_epmd_dist:check_ip(Ip, PeerIp),
+        inet_epmd_dist:wait_for_code_server([crypto]),
         Stream = stream(Socket),
         DistCtrlHandle = dist_cryptcookie:start_dist_ctrl(Stream),
-        {DistCtrlHandle, PeerAddress}
+        {DistCtrlHandle, {PeerIp, PeerPort}}
     else
         {error, Reason} ->
-            exit({accept, Reason})
+            exit({?FUNCTION_NAME, Reason})
     end.
 
 %% ------------------------------------------------------------
@@ -99,17 +121,23 @@ accepted(NetAddress, _Timer, DistCtrlHandle) ->
     dist_cryptcookie:hs_data(NetAddress, DistCtrlHandle).
 
 %% ------------------------------------------------------------
-connect(NetAddress, _Timer, Options) ->
-    ConnectOptions =
-        inet_epmd_dist:merge_options(
-          Options,
-          [{active, false}, {mode, binary}, {packet, 0},
-           inet_epmd_dist:nodelay()],
-          []),
-    #net_address{ address = {Ip, Port} } = NetAddress,
+connect(
+  #net_address{ address = {Ip, Port}, family = Family } = NetAddress,
+  _Timer, ConnectOptions) ->
     maybe
         {ok, Socket} ?=
-            ?DRIVER:connect(Ip, Port, ConnectOptions),
+            socket:open(Family, stream),
+        ok ?=
+            setopts(
+              Socket,
+              inet_epmd_dist:merge_options(
+                ConnectOptions, [inet_epmd_dist:nodelay()], [])),
+        ConnectAddress =
+            #{ family => Family,
+               addr => Ip,
+               port => Port },
+        ok ?=
+            socket:connect(Socket, ConnectAddress),
         Stream = stream(Socket),
         DistCtrlHandle = dist_cryptcookie:start_dist_ctrl(Stream),
         dist_cryptcookie:hs_data(NetAddress, DistCtrlHandle)
@@ -156,26 +184,37 @@ stream_recv(InStream = [_ | Socket], Size) ->
     case
         if
             Size =:= 0 ->
-                ?DRIVER:recv(Socket, 0, 0);
+                socket:recv(Socket, 0, 0);
             true ->
-                ?DRIVER:recv(Socket, Size, infinity)
+                socket:recv(Socket, Size, infinity)
         end
     of
         {ok, Data} ->
             [Data | InStream];
+        {error, {Reason, _Data}} ->
+            stream_recv_error(InStream, Reason);
         {error, timeout} ->
             [<<>> | InStream];
-        {error, closed} ->
-            [closed | InStream];
         {error, Reason} ->
+            stream_recv_error(InStream, Reason)
+    end.
+
+stream_recv_error(InStream, Reason) ->
+    if
+        Reason =:= closed;
+        Reason =:= econnreset ->
+            [closed | InStream];
+        true ->
             erlang:error({?MODULE, ?FUNCTION_NAME, Reason})
     end.
 
 stream_out(Socket) ->
     [fun ?MODULE:stream_send/2 | Socket].
 
+stream_send(OutStream, Bin) when is_binary(Bin) ->
+    stream_send(OutStream, [Bin]);
 stream_send(OutStream = [_ | Socket], Data) ->
-    case ?DRIVER:send(Socket, Data) of
+    case socket:sendmsg(Socket, #{ iov => Data }) of
         ok ->
             OutStream;
         {error, closed} ->
@@ -186,7 +225,7 @@ stream_send(OutStream = [_ | Socket], Data) ->
 
 stream_controlling_process(Stream = {_, [_ | Socket], _}, Pid) ->
     %%
-    case ?DRIVER:controlling_process(Socket, Pid) of
+    case socket:setopt(Socket, {otp,controlling_process}, Pid) of
         ok ->
             Stream;
         {error, Reason} ->
@@ -195,4 +234,7 @@ stream_controlling_process(Stream = {_, [_ | Socket], _}, Pid) ->
 
 %% ------------------------------------------------------------
 supported() ->
-    dist_cryptcookie:supported().
+    maybe
+        ok ?= inet_epmd_socket:supported(),
+        dist_cryptcookie:supported()
+    end.
