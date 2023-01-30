@@ -71,9 +71,9 @@ REDIST_DLL_NAME=$(shell (sh ./dll_version_helper.sh -n "$(NICEREDISTFILE)" || ec
 release_spec:
 	@NSIS_VER=`makensis.exe -version`; \
 	case $$NSIS_VER in \
-	v2.0b*) \
+	v2.* | v3.0 | v3.01) \
 	  echo "Unsupported NSIS version: $$NSIS_VER";;\
-	v2.* | v3.*) \
+	v3.*) \
 	  echo '!define OTP_VERSION "$(SYSTEM_VSN)"' > $(VERSION_HEADER);\
 	  echo '!define OTP_RELEASE_VERSION "$(OTP_VERSION)"' >> $(VERSION_HEADER);\
 	  echo '!define ERTS_VERSION "$(VSN)"' >> $(VERSION_HEADER);\
