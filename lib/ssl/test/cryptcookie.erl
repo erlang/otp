@@ -29,7 +29,7 @@
          encrypt_and_send_chunk/4, recv_and_decrypt_chunk/2]).
 
 %% For kTLS integration
--export([ktls_info/2]).
+-export([ktls_info/1]).
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 
@@ -270,6 +270,7 @@ init(Stream) ->
     init(Stream, Secret).
 
 init(Stream = {_, OutStream, _}, Secret) ->
+    _ = crypto:rand_seed_alg(crypto_cache),
     #keypair{ public = PubKey } = KeyPair = get_keypair(),
     Params = params(),
     {R2, R3, Msg} = init_msg(Params, Secret, PubKey),
@@ -298,10 +299,13 @@ init_recv(
                     #params{
                        iv = <<IV2BSalt:IVSaltLen/binary, IV2BNo:48>> } =
                     start_msg(RecvParams, R2, R3, RecvStartMsg),
-                {{InStream_2, OutStream_1, ControllingProcessFun},
-                 ?CHUNK_SIZE,
-                 [0 | RecvParams_1#params{ iv = {IV2BSalt, IV2BNo} }],
-                 [0 | SendParams#params{ iv = {IV2ASalt, IV2ANo} }]}
+                Stream_2 = {InStream_2, OutStream_1, ControllingProcessFun},
+                RecvSeqParams =
+                    [0 | RecvParams_1#params{ iv = {IV2BSalt, IV2BNo} }],
+                SendSeqParams =
+                    [0 | SendParams#params{ iv = {IV2ASalt, IV2ANo} }],
+                CipherState = {RecvSeqParams, SendSeqParams},
+                {Stream_2, ?CHUNK_SIZE, CipherState}
         end
     catch
         Class : Reason : Stacktrace when Class =:= error ->
@@ -666,16 +670,16 @@ decrypt_rekey(
 
 %% -------------------------------------------------------------------------
 ktls_info(
-  [RecvSeq |
-   #params{
-      iv = {RecvSalt, RecvIV},
-      key = RecvKey,
-      aead_cipher = ?CIPHER } = _RecvParams],
-  [SendSeq |
-   #params{
-      iv = {SendSalt, SendIV},
-      key = SendKey,
-      aead_cipher = ?CIPHER } = _SendParams]) ->
+  {[RecvSeq |
+    #params{
+       iv = {RecvSalt, RecvIV},
+       key = RecvKey,
+       aead_cipher = ?CIPHER } = _RecvParams],
+   [SendSeq |
+    #params{
+       iv = {SendSalt, SendIV},
+       key = SendKey,
+       aead_cipher = ?CIPHER } = _SendParams]}) ->
     %%
     RecvState =
         #cipher_state{

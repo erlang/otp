@@ -32,20 +32,14 @@
          controlling_process/2,
          hs_data/2]).
 
--export([supported/0]).
-
 -include_lib("kernel/include/dist_util.hrl").
-
-supported() ->
-    cryptcookie:supported().
 
 %% ------------------------------------------------------------
 protocol() ->
     cryptcookie:start_keypair_server().
 
 %% ------------------------------------------------------------
-start_dist_ctrl(Stream) ->
-    %%
+start_dist_ctrl({Stream, ChunkSize, CipherState}) ->
     ControllingProcess = self(),
     Tag = make_ref(),
     Pid =
@@ -53,17 +47,18 @@ start_dist_ctrl(Stream) ->
           fun () ->
                   receive
                       {Tag, Alias, {start, Stream_2}} ->
-                          _ = crypto:rand_seed_alg(crypto_cache),
-                          CCInit = cryptcookie:init(Stream_2),
                           reply(Alias, trace(started)),
-                          handshake(CCInit, Tag, ControllingProcess)
+                          handshake(
+                            Stream_2, Tag, ControllingProcess, ChunkSize,
+                            CipherState)
                   end
           end,
           [link,
            {priority, max},
            {message_queue_data, off_heap},
            {fullsweep_after, 0}]),
-    Stream_1 = (element(3, Stream))(Stream, Pid),
+    ControllingProcessFun = element(3, Stream),
+    Stream_1 = ControllingProcessFun(Stream, Pid),
     DistCtrlHandle = {Pid, Tag},
     started = call(DistCtrlHandle, {start, Stream_1}),
     DistCtrlHandle.
@@ -130,8 +125,8 @@ f_ok(DistCtrlHandle) ->
 %%
 
 handshake(
-  {Stream, ChunkSize, DecryptState, EncryptState},
-  Tag, ControllingProcess) ->
+  Stream, Tag, ControllingProcess, ChunkSize,
+  {DecryptState, EncryptState} = _CipherState) ->
     handshake(
       Stream, Tag, ControllingProcess,
       ChunkSize, DecryptState, EncryptState).

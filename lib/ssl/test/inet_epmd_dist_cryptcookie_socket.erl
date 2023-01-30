@@ -103,9 +103,9 @@ accept_open(_NetAddress, ListenSocket) ->
         {ok, #{ addr := PeerIp, port := PeerPort }} ?=
             socket:peername(Socket),
         inet_epmd_dist:check_ip(Ip, PeerIp),
-        inet_epmd_dist:wait_for_code_server([crypto]),
         Stream = stream(Socket),
-        DistCtrlHandle = dist_cryptcookie:start_dist_ctrl(Stream),
+        CryptcookieInit = cryptcookie:init(Stream),
+        DistCtrlHandle = dist_cryptcookie:start_dist_ctrl(CryptcookieInit),
         {DistCtrlHandle, {PeerIp, PeerPort}}
     else
         {error, Reason} ->
@@ -139,7 +139,8 @@ connect(
         ok ?=
             socket:connect(Socket, ConnectAddress),
         Stream = stream(Socket),
-        DistCtrlHandle = dist_cryptcookie:start_dist_ctrl(Stream),
+        CryptcookieInit = cryptcookie:init(Stream),
+        DistCtrlHandle = dist_cryptcookie:start_dist_ctrl(CryptcookieInit),
         dist_cryptcookie:hs_data(NetAddress, DistCtrlHandle)
     else
         {error, _} = Error ->
@@ -236,5 +237,5 @@ stream_controlling_process(Stream = {_, [_ | Socket], _}, Pid) ->
 supported() ->
     maybe
         ok ?= inet_epmd_socket:supported(),
-        dist_cryptcookie:supported()
+        cryptcookie:supported()
     end.

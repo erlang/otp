@@ -83,7 +83,8 @@ accept_open(_NetAddress, ListenSocket) ->
             inet:peername(Socket),
         inet_epmd_dist:check_ip(Ip, PeerIp),
         Stream = stream(Socket),
-        DistCtrlHandle = dist_cryptcookie:start_dist_ctrl(Stream),
+        CryptcookieInit = cryptcookie:init(Stream),
+        DistCtrlHandle = dist_cryptcookie:start_dist_ctrl(CryptcookieInit),
         {DistCtrlHandle, PeerAddress}
     else
         {error, Reason} ->
@@ -111,7 +112,8 @@ connect(NetAddress, _Timer, Options) ->
         {ok, Socket} ?=
             ?DRIVER:connect(Ip, Port, ConnectOptions),
         Stream = stream(Socket),
-        DistCtrlHandle = dist_cryptcookie:start_dist_ctrl(Stream),
+        CryptcookieInit = cryptcookie:init(Stream),
+        DistCtrlHandle = dist_cryptcookie:start_dist_ctrl(CryptcookieInit),
         dist_cryptcookie:hs_data(NetAddress, DistCtrlHandle)
     else
         {error, _} = Error ->
@@ -195,4 +197,4 @@ stream_controlling_process(Stream = {_, [_ | Socket], _}, Pid) ->
 
 %% ------------------------------------------------------------
 supported() ->
-    dist_cryptcookie:supported().
+    cryptcookie:supported().

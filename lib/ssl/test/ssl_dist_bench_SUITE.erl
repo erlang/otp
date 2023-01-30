@@ -74,6 +74,7 @@ groups() ->
      %%
      %% cryptcookie_backends()
      {dist_cryptcookie_socket, categories()},
+     {cryptcookie_socket_ktls, categories()},
      {dist_cryptcookie_inet,   categories()},
      {cryptcookie_inet_ktls,   categories()},
      %%
@@ -107,6 +108,7 @@ ssl_backends() ->
 
 cryptcookie_backends() ->
     [{group, dist_cryptcookie_socket},
+     {group, cryptcookie_socket_ktls},
      {group, dist_cryptcookie_inet},
      {group, cryptcookie_inet_ktls}].
 
@@ -250,6 +252,19 @@ init_per_group(dist_cryptcookie_socket, Config) ->
             [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Socket"},
              {ssl_dist_args,
               "-proto_dist inet_epmd -inet_epmd dist_cryptcookie_socket"}
+            | Config];
+        Problem ->
+            {skip, Problem}
+    catch
+        Class : Reason : Stacktrace ->
+            {fail, {Class, Reason, Stacktrace}}
+    end;
+init_per_group(cryptcookie_socket_ktls, Config) ->
+    try inet_epmd_cryptcookie_socket_ktls:supported() of
+        ok ->
+            [{ssl_dist, false}, {ssl_dist_prefix, "Crypto-Socket-kTLS"},
+             {ssl_dist_args,
+              "-proto_dist inet_epmd -inet_epmd cryptcookie_socket_ktls"}
             | Config];
         Problem ->
             {skip, Problem}
@@ -553,7 +568,7 @@ parallel_setup(Config, Clients, I, HNs) when 0 < I ->
 parallel_setup(Config, Clients, _0, HNs) ->
     Key = server,
     ServerNode = proplists:get_value(Key, Config),
-    ServerHandle = start_ssl_node(Key, Config, 1),
+    ServerHandle = start_ssl_node(Key, Config, 0),
     Effort = proplists:get_value(effort, Config, 1),
     TotalRounds = 1000 * Effort,
     Rounds = round(TotalRounds / Clients),

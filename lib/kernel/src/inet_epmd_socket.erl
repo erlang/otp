@@ -28,6 +28,8 @@
 
 -export([supported/0]).
 
+-export([start_dist_ctrl/2]).
+
 -include("net_address.hrl").
 -include("dist.hrl").
 -include("dist_util.hrl").

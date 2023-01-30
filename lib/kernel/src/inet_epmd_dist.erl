@@ -26,7 +26,7 @@
          accept_open/2, accept_controller/3, accepted/3,
          connect/3]).
 %% DistMod helper API
--export([check_ip/2, wait_for_code_server/1,
+-export([check_ip/2,
          hs_data/2, f_address/2, tick/1, getstat/1, setopts/2, getopts/2,
          nodelay/0, merge_options/3]).
 
@@ -641,38 +641,6 @@ mask(Addr, Mask, N) when N =< tuple_size(Addr) ->
 mask(_, _, _) ->
     [].
 
-
-%% ------------------------------------------------------------
-
-wait_for_code_server(OnLoadModules) ->
-    %% This is an ugly hack.  Upgrading a socket to TLS requires the
-    %% crypto module to be loaded.  Loading the crypto module triggers
-    %% its on_load function, which calls code:priv_dir/1 to find the
-    %% directory where its NIF library is.  However, distribution is
-    %% started earlier than the code server, so the code server is not
-    %% necessarily started yet, and code:priv_dir/1 might fail because
-    %% of that, if we receive an incoming connection on the
-    %% distribution port early enough.
-    %%
-    %% If the on_load function of a module fails, the module is
-    %% unloaded, and the function call that triggered loading it fails
-    %% with 'undef', which is rather confusing.
-    %%
-    %% Thus, the accept process will terminate, and be
-    %% restarted by ssl_dist_sup.  However, it won't have any memory
-    %% of being asked by net_kernel to listen for incoming
-    %% connections.  Hence, the node will believe that it's open for
-    %% distribution, but it actually isn't.
-    %%
-    %% So let's avoid that by waiting for the code server to start.
-    case whereis(code_server) of
-	undefined ->
-	    timer:sleep(10),
-	    wait_for_code_server(OnLoadModules);
-	Pid when is_pid(Pid) ->
-            init:run_on_load_handlers(OnLoadModules),
-	    ok
-    end.
 
 %% ------------------------------------------------------------
 %% Split and validate node name

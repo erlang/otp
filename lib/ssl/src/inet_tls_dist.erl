@@ -30,7 +30,6 @@
 %% Generalized dist API
 -export([fam_select/2, fam_address/1, fam_listen/3, fam_accept/2,
          fam_accept_connection/6, fam_setup/6]).
--export([wait_for_code_server/0]).
 
 -export([verify_client/3, cert_nodes/1]).
 

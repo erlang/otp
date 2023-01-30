@@ -22,7 +22,7 @@
 %% Plug-in module for inet_epmd distribution
 %% with cryptcookie over inet_tcp with kTLS offloading
 %%
--module(inet_epmd_cryptcookie_inet_ktls).
+-module(inet_epmd_cryptcookie_socket_ktls).
 -feature(maybe_expr, enable).
 
 %% DistMod API
@@ -41,87 +41,119 @@
 -include_lib("kernel/include/dist_util.hrl").
 
 -define(FAMILY, inet).
--define(DRIVER, inet_tcp).
 
 %% ------------------------------------------------------------
 net_address() ->
-    Family = ?DRIVER:family(),
-    Protocol = cryptcookie:start_keypair_server(),
     #net_address{
-       protocol = Protocol,
-       family = Family }.
+       protocol = dist_cryptcookie:protocol(),
+       family = ?FAMILY }.
 
 %% ------------------------------------------------------------
-listen_open(_NetAddress, Options) ->
-    {ok,
-     inet_epmd_dist:merge_options(
-       Options,
-       [{active, false}, {mode, binary}, {packet, 0},
-        inet_epmd_dist:nodelay()],
-       [])}.
-
-%% ------------------------------------------------------------
-listen_port(_NetAddress, Port, ListenOptions) ->
+listen_open(#net_address{ family = Family}, ListenOptions) ->
     maybe
+        Key = backlog,
+        Default = 128,
+        Backlog = proplists:get_value(Key, ListenOptions, Default),
         {ok, ListenSocket} ?=
-            ?DRIVER:listen(Port, ListenOptions),
-        {ok, Address} ?=
-            inet:sockname(ListenSocket),
-        {ok, {ListenSocket, Address}}
+            socket:open(Family, stream),
+        ok ?=
+            setopts(
+              ListenSocket,
+              inet_epmd_dist:merge_options(
+                ListenOptions, [inet_epmd_dist:nodelay()], [])),
+        {ok, {ListenSocket, Backlog}}
+    else
+        {error, _} = Error ->
+            Error
+    end.
+
+setopts(Socket, Options) ->
+    gen_tcp_socket:socket_setopts(Socket, Options).
+
+%% ------------------------------------------------------------
+listen_port(
+  #net_address{ family = Family }, Port, {ListenSocket, Backlog}) ->
+    maybe
+        Sockaddr =
+            #{family => Family,
+              addr => any,
+              port => Port},
+        ok ?=
+            socket:bind(ListenSocket, Sockaddr),
+        ok ?=
+            socket:listen(ListenSocket, Backlog),
+        {ok, #{ addr := Ip, port := ListenPort}} ?=
+            socket:sockname(ListenSocket),
+        {ok, {ListenSocket, {Ip, ListenPort}}}
+    else
+        {error, _} = Error ->
+            Error
     end.
 
 %% ------------------------------------------------------------
 listen_close(ListenSocket) ->
-    ?DRIVER:close(ListenSocket).
+    socket:close(ListenSocket).
 
 %% ------------------------------------------------------------
 accept_open(_NetAddress, ListenSocket) ->
     maybe
         {ok, Socket} ?=
-            ?DRIVER:accept(ListenSocket),
-        {ok, {Ip, _}} ?=
-            inet:sockname(Socket),
-        {ok, {PeerIp, _} = PeerAddress} ?=
-            inet:peername(Socket),
+            socket:accept(ListenSocket),
+        {ok, #{ addr := Ip }} ?=
+            socket:sockname(Socket),
+        {ok, #{ addr := PeerIp, port := PeerPort }} ?=
+            socket:peername(Socket),
         inet_epmd_dist:check_ip(Ip, PeerIp),
         Stream = stream(Socket),
         {_Stream_1, _, CipherState} = cryptcookie:init(Stream),
-        KtlsInfo = inet_ktls_info(Socket, CipherState),
-        ok ?= inet_tls_dist:set_ktls(KtlsInfo),
-        ok ?= inet:setopts(Socket, [{packet, 2}, {mode, list}]),
-        {Socket, PeerAddress}
+        KtlsInfo = socket_ktls_info(Socket, CipherState),
+        ok ?=
+            inet_tls_dist:set_ktls(KtlsInfo),
+        {Socket, {PeerIp, PeerPort}}
     else
         {error, Reason} ->
-            exit({accept, Reason})
+            exit({?FUNCTION_NAME, Reason})
     end.
 
 %% ------------------------------------------------------------
 accept_controller(_NetAddress, Controller, Socket) ->
-    ok = ?DRIVER:controlling_process(Socket, Controller),
-    Socket.
+    maybe
+        ok ?=
+            socket:setopt(Socket, {otp,controlling_process}, Controller),
+        Socket
+    else
+        {error, Reason} ->
+            exit({?FUNCTION_NAME, Reason})
+    end.
 
 %% ------------------------------------------------------------
 accepted(NetAddress, _Timer, Socket) ->
-    inet_epmd_dist:hs_data(NetAddress, Socket).
+    inet_epmd_socket:start_dist_ctrl(NetAddress, Socket).
 
 %% ------------------------------------------------------------
-connect(NetAddress, _Timer, Options) ->
-    ConnectOptions =
-        inet_epmd_dist:merge_options(
-          Options,
-          [{active, false}, {mode, binary}, {packet, 0},
-           inet_epmd_dist:nodelay()],
-          []),
-    #net_address{ address = {Ip, Port} } = NetAddress,
+connect(
+  #net_address{ address = {Ip, Port}, family = Family } = NetAddress,
+  _Timer, ConnectOptions) ->
     maybe
         {ok, Socket} ?=
-            ?DRIVER:connect(Ip, Port, ConnectOptions),
+            socket:open(Family, stream),
+        ok ?=
+            setopts(
+              Socket,
+              inet_epmd_dist:merge_options(
+                ConnectOptions, [inet_epmd_dist:nodelay()], [])),
+        ConnectAddress =
+            #{ family => Family,
+               addr => Ip,
+               port => Port },
+        ok ?=
+            socket:connect(Socket, ConnectAddress),
         Stream = stream(Socket),
         {_Stream_1, _, CipherState} = cryptcookie:init(Stream),
-        KtlsInfo = inet_ktls_info(Socket, CipherState),
-        ok ?= inet_tls_dist:set_ktls(KtlsInfo),
-        ok ?= inet:setopts(Socket, [{packet, 2}, {mode, list}]),
-        inet_epmd_dist:hs_data(NetAddress, Socket)
+        KtlsInfo = socket_ktls_info(Socket, CipherState),
+        ok ?=
+            inet_tls_dist:set_ktls(KtlsInfo),
+        inet_epmd_socket:start_dist_ctrl(NetAddress, Socket)
     else
         {error, _} = Error ->
             Error
@@ -165,26 +197,37 @@ stream_recv(InStream = [_ | Socket], Size) ->
     case
         if
             Size =:= 0 ->
-                ?DRIVER:recv(Socket, 0, 0);
+                socket:recv(Socket, 0, 0);
             true ->
-                ?DRIVER:recv(Socket, Size, infinity)
+                socket:recv(Socket, Size, infinity)
         end
     of
         {ok, Data} ->
             [Data | InStream];
+        {error, {Reason, _Data}} ->
+            stream_recv_error(InStream, Reason);
         {error, timeout} ->
             [<<>> | InStream];
-        {error, closed} ->
-            [closed | InStream];
         {error, Reason} ->
+            stream_recv_error(InStream, Reason)
+    end.
+
+stream_recv_error(InStream, Reason) ->
+    if
+        Reason =:= closed;
+        Reason =:= econnreset ->
+            [closed | InStream];
+        true ->
             erlang:error({?MODULE, ?FUNCTION_NAME, Reason})
     end.
 
 stream_out(Socket) ->
     [fun ?MODULE:stream_send/2 | Socket].
 
+stream_send(OutStream, Bin) when is_binary(Bin) ->
+    stream_send(OutStream, [Bin]);
 stream_send(OutStream = [_ | Socket], Data) ->
-    case ?DRIVER:send(Socket, Data) of
+    case socket:sendmsg(Socket, #{ iov => Data }) of
         ok ->
             OutStream;
         {error, closed} ->
@@ -195,7 +238,7 @@ stream_send(OutStream = [_ | Socket], Data) ->
 
 stream_controlling_process(Stream = {_, [_ | Socket], _}, Pid) ->
     %%
-    case ?DRIVER:controlling_process(Socket, Pid) of
+    case socket:setopt(Socket, {otp,controlling_process}, Pid) of
         ok ->
             Stream;
         {error, Reason} ->
@@ -204,11 +247,14 @@ stream_controlling_process(Stream = {_, [_ | Socket], _}, Pid) ->
 
 %% ------------------------------------------------------------
 supported() ->
-    cryptcookie:supported().
+    maybe
+        ok ?= inet_epmd_socket:supported(),
+        cryptcookie:supported()
+    end.
 
 
-inet_ktls_info(Socket, CipherState) ->
+socket_ktls_info(Socket, CipherState) ->
     (cryptcookie:ktls_info(CipherState))
         #{ socket => Socket,
-           setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3,
-           getopt_fun => fun inet_tls_dist:inet_ktls_getopt/3 }.
+           setopt_fun => fun socket:setopt_native/3,
+           getopt_fun => fun socket:getopt_native/3 }.
