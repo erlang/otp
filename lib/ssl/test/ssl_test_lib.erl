@@ -2735,8 +2735,7 @@ is_dtls_version('dtlsv1') ->
 is_dtls_version(_) ->
     false.
 
-openssl_tls_version_support(Version, Config0) ->    
-    %% Check if version is supported
+openssl_tls_version_support(Version, Config0) ->
     Config = make_rsa_cert(Config0),
     ServerOpts = proplists:get_value(server_rsa_opts, Config),
     Port = inet_port(node()),
@@ -2745,20 +2744,37 @@ openssl_tls_version_support(Version, Config0) ->
     KeyFile = proplists:get_value(keyfile, ServerOpts),
     Exe = "openssl",
     Opts0 = [{versions, [Version]}, {verify, verify_none}],
-    {Proto, Opts} = case is_tls_version(Version) of
-                        true  -> {tls, [{protocol,tls}|Opts0]};
-                        false -> {dtls, patch_dtls_options([{protocol, dtls}|Opts0])}
-                    end,
-    Args0 = case Proto of
-                tls ->
-                    ["s_server", "-accept",
-                     integer_to_list(Port), "-CAfile", CaCertFile,
-                     "-cert", CertFile,"-key", KeyFile];
-                dtls ->
-                    ["s_server", "-accept",
-                     integer_to_list(Port), "-dtls", "-CAfile", CaCertFile,
-                     "-cert", CertFile,"-key", KeyFile]
-            end,
+    TLSOpts = [{protocol,tls}|Opts0],
+    DTLSOpts = patch_dtls_options([{protocol, dtls}|Opts0]),
+
+    TLSArgs = ["s_server", "-accept",
+               integer_to_list(Port), "-CAfile", CaCertFile,
+               "-cert", CertFile,"-key", KeyFile],
+    DTLSArgs = ["s_server", "-accept",
+                integer_to_list(Port), "-dtls", "-CAfile", CaCertFile,
+                "-cert", CertFile,"-key", KeyFile],
+
+    case is_tls_version(Version) of
+        true ->
+            openssl_tls_version_support(tls, TLSOpts, Port, Exe, TLSArgs);
+        false ->
+            DTLSTupleVersion = dtls_record:protocol_version(Version),
+            CorrespondingTLSVersion = dtls_v1:corresponding_tls_version(DTLSTupleVersion),
+            AtomTLSVersion = tls_record:protocol_version(CorrespondingTLSVersion),
+            CorrTLSOpts = [{protocol,tls}, {versions, [AtomTLSVersion]},
+                           {verify, verify_none}],
+            case openssl_tls_version_support(tls, CorrTLSOpts, Port, Exe, TLSArgs) of
+                true ->
+                    %% If corresponding TLS version is not supported DTLS
+                    %% will not be supported and test for it will be inconclusive
+                    %% due to UDP not being a reliable transport
+                    openssl_tls_version_support(dtls, DTLSOpts, Port, Exe, DTLSArgs);
+                false ->
+                    false
+            end
+    end.
+
+openssl_tls_version_support(Proto, Opts, Port, Exe, Args0) ->
     Args = maybe_force_ipv4(Args0),
     OpensslPort = portable_open_port(Exe, Args),
     try wait_for_openssl_server(Port, Proto) of
@@ -2769,7 +2785,7 @@ openssl_tls_version_support(Version, Config0) ->
                     close_port(OpensslPort),
                     true;
                 {error, {tls_alert, {protocol_version, _}}} ->
-                    ?PAL("OpenSSL does not support ~p", [Version]),
+                    ?PAL("OpenSSL does not support ~p", [proplists:get_value(versions, Opts)]),
                     close_port(OpensslPort),
                     false;
                 {error, {tls_alert, Alert}} ->
@@ -2783,7 +2799,7 @@ openssl_tls_version_support(Version, Config0) ->
             end
     catch
         _:_ ->
-            ?PAL("OpenSSL does not support ~p", [Version]),
+            ?PAL("OpenSSL does not support ~p", [proplists:get_value(versions, Opts)]),
             close_port(OpensslPort),
             false
     end.
