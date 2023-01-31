@@ -362,6 +362,8 @@ format_type(port) ->
     "pid()";
 format_type(reference) ->
     "reference()";
+format_type(identifier) ->
+    "identifier()";
 format_type(none) ->
     "none()";
 format_type(#t_union{atom=A,list=L,number=N,tuple_set=Ts,other=O}) ->
