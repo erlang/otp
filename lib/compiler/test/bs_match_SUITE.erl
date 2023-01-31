@@ -2690,6 +2690,8 @@ bs_match(_Config) ->
     <<"abc">> = do_bs_match_gh_6660(id(<<"abc">>)),
     {'EXIT', {{try_clause,abc},_}} = catch do_bs_match_gh_6660(id(abc)),
 
+    {'EXIT',{{case_clause,_},_}} = catch do_bs_match_gh_6755(id(<<"1000">>)),
+
     ok.
 
 do_bs_match_1(_, X) ->
@@ -2747,6 +2749,18 @@ do_bs_match_gh_6660(X) ->
             Y
     after
         ok
+    end.
+
+do_bs_match_gh_6755(B) ->
+    C = case B of
+            <<"1000">> -> test;
+            <<"1001">> -> test2
+        end,
+
+    _ = atom_to_list(C),
+
+    case B of
+        <<"b">> -> b
     end.
 
 %% GH-6348/OTP-18297: Allow aliases for binaries.
