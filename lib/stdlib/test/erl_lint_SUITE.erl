@@ -80,7 +80,8 @@
          unused_record/1,
          unused_type2/1,
          eep49/1,
-         redefined_builtin_type/1]).
+         redefined_builtin_type/1,
+         tilde_k/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -109,7 +110,8 @@ all() ->
      inline_nifs, warn_missing_spec, otp_16824,
      underscore_match, unused_record, unused_type2,
      eep49,
-     redefined_builtin_type].
+     redefined_builtin_type,
+     tilde_k].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4991,6 +4993,53 @@ redefined_builtin_type(Config) ->
          ],
     [] = run(Config, Ts),
     ok.
+
+tilde_k(Config) ->
+    Ts = [{tilde_k_1,
+           <<"t(Map) ->
+                  io:format(\"~kp\n\", [Map]),
+                  io:format(\"~kP\n\", [Map,10]),
+                  io:format(\"~kw\n\", [Map]),
+                  io:format(\"~kW\n\", [Map,5]),
+                  io:format(\"~tkp\n\", [Map]),
+                  io:format(\"~klp\n\", [Map]),
+                  RevCmpFun = fun erlang:'>='/2,
+                  io:format(\"~Kp\n\", [RevCmpFun,Map]),
+                  io:format(\"~KP\n\", [RevCmpFun,Map,10]),
+                  io:format(\"~Kw\n\", [RevCmpFun,Map]),
+                  io:format(\"~KW\n\", [RevCmpFun,Map,5]),
+                  ok.">>,
+           [],
+           []},
+          {tilde_k_2,
+           <<"t(Map) ->
+                  io:format(\"~kkp\n\", [Map]),
+                  io:format(\"~kKp\n\", [Map]),
+                  io:format(\"~ks\n\", [Map]),
+                  ok.">>,
+           [],
+           {warnings,
+            [{{2,29},
+              erl_lint,
+              {format_error,{"format string invalid (~ts)",
+                             ["repeated modifier k"]}}},
+             {{4,29},
+              erl_lint,
+              {format_error,{"format string invalid (~ts)",
+                             ["conflicting modifiers ~Kkp"]}}},
+             {{6,29},
+              erl_lint,
+              {format_error,{"format string invalid (~ts)",
+                             ["invalid modifier/control combination ~ks"]}}}]}
+          }
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+%%%
+%%% Common utilities.
+%%%
 
 format_error(E) ->
     lists:flatten(erl_lint:format_error(E)).

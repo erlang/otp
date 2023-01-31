@@ -4336,36 +4336,23 @@ extract_sequence(3, [$.,_|Fmt], Need) ->
 extract_sequence(3, Fmt, Need) ->
     extract_sequence(4, Fmt, Need);
 
-extract_sequence(4, [$t, $l | Fmt], Need) ->
-    extract_sequence(4, [$l, $t | Fmt], Need);
-extract_sequence(4, [$t, $c | Fmt], Need) ->
-    extract_sequence(5, [$c|Fmt], Need);
-extract_sequence(4, [$t, $s | Fmt], Need) ->
-    extract_sequence(5, [$s|Fmt], Need);
-extract_sequence(4, [$t, $p | Fmt], Need) ->
-    extract_sequence(5, [$p|Fmt], Need);
-extract_sequence(4, [$t, $P | Fmt], Need) ->
-    extract_sequence(5, [$P|Fmt], Need);
-extract_sequence(4, [$t, $w | Fmt], Need) ->
-    extract_sequence(5, [$w|Fmt], Need);
-extract_sequence(4, [$t, $W | Fmt], Need) ->
-    extract_sequence(5, [$W|Fmt], Need);
-extract_sequence(4, [$t, C | _Fmt], _Need) ->
-    {error,"invalid control ~t" ++ [C]};
-extract_sequence(4, [$l, $p | Fmt], Need) ->
-    extract_sequence(5, [$p|Fmt], Need);
-extract_sequence(4, [$l, $t, $p | Fmt], Need) ->
-    extract_sequence(5, [$p|Fmt], Need);
-extract_sequence(4, [$l, $P | Fmt], Need) ->
-    extract_sequence(5, [$P|Fmt], Need);
-extract_sequence(4, [$l, $t, $P | Fmt], Need) ->
-    extract_sequence(5, [$P|Fmt], Need);
-extract_sequence(4, [$l, $t, C | _Fmt], _Need) ->
-    {error,"invalid control ~lt" ++ [C]};
-extract_sequence(4, [$l, C | _Fmt], _Need) ->
-    {error,"invalid control ~l" ++ [C]};
-extract_sequence(4, Fmt, Need) ->
-    extract_sequence(5, Fmt, Need);
+extract_sequence(4, Fmt0, Need) ->
+    case extract_modifiers(Fmt0, []) of
+        {error, _} = Error ->
+            Error;
+        {[C|Fmt], Modifiers} ->
+            maybe
+                ok ?= check_modifiers(C, Modifiers),
+                case ordsets:is_element($K, Modifiers) of
+                    true ->
+                        extract_sequence(5, [C|Fmt], ['fun'|Need]);
+                    false ->
+                        extract_sequence(5, [C|Fmt], Need)
+                end
+            end;
+        {[], _} ->
+            extract_sequence(5, [], Need)
+    end;
 
 extract_sequence(5, [C|Fmt], Need0) ->
     case control_type(C, Need0) of
@@ -4379,6 +4366,50 @@ extract_sequence_digits(Fld, [C|Fmt], Need)
     extract_sequence_digits(Fld, Fmt, Need);
 extract_sequence_digits(Fld, Fmt, Need) ->
     extract_sequence(Fld+1, Fmt, Need).
+
+extract_modifiers([C|Fmt], Modifiers0) ->
+    case is_modifier(C) of
+        true ->
+            case ordsets:add_element(C, Modifiers0) of
+                Modifiers0 ->
+                    {error, "repeated modifier " ++ [C]};
+                Modifiers ->
+                    extract_modifiers(Fmt, Modifiers)
+            end;
+        false ->
+            {[C|Fmt], Modifiers0}
+    end;
+extract_modifiers([], Modifiers) ->
+    {[], Modifiers}.
+
+check_modifiers(C, Modifiers) ->
+    maybe
+        ok ?= check_modifiers_1("l", Modifiers, C, "Pp"),
+        ok ?= check_modifiers_1("lt", Modifiers, C, "cPpsWw"),
+        ok ?= check_modifiers_1("Kk", Modifiers, C, "PpWw")
+    end.
+
+check_modifiers_1(M, Modifiers, C, Cs) ->
+    case ordsets:intersection(ordsets:from_list(M), Modifiers) of
+        [_]=Mod ->
+            case lists:member(C, Cs) of
+                true ->
+                    ok;
+                false ->
+                    {error, "invalid modifier/control combination ~" ++
+                         Mod ++ [C]}
+            end;
+        [] ->
+            ok;
+        [_,_]=M ->
+            {error, "conflicting modifiers ~" ++ M ++ [C]}
+    end.
+
+is_modifier($k) -> true;
+is_modifier($K) -> true;
+is_modifier($l) -> true;
+is_modifier($t) -> true;
+is_modifier(_) -> false.
 
 control_type($~, Need) -> Need;
 control_type($c, Need) -> [int|Need];
