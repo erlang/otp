@@ -34,7 +34,7 @@ VS_VERSION_INFO VERSIONINFO
             VALUE "CompanyName",        "Ericsson AB\0"
             VALUE "FileDescription",    "Erlang\0"
             VALUE "FileVersion",        ERTS_VERSION_STR
-            VALUE "LegalCopyright",     "Copyright Ericsson AB 2010-2023. All Rights Reserved.\0"
+            VALUE "LegalCopyright",     OTP_LEGAL_STR
             VALUE "ProductName",        "Erlang/OTP\0"
             VALUE "ProductVersion",     OTP_VERSION_STR
         }

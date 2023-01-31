@@ -106,7 +106,7 @@ VIProductVersion "${OTP_VERSION_LONG}"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "CompanyName" "Ericsson AB"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "FileVersion" "${OTP_VERSION}"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "FileDescription" "Erlang/OTP installer"
-VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "Copyright Ericsson AB 2010-2023. All Rights Reserved."
+VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "Copyright Ericsson AB 2010-${YEAR}. All Rights Reserved."
 VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "Erlang/OTP"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductVersion" "${OTP_VERSION}"
 
