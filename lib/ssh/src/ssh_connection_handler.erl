@@ -1091,8 +1091,10 @@ handle_event(info, {Proto, Sock, Info}, {hello,_}, #data{socket = Sock,
     end;
 
 
-handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
-								 transport_protocol = Proto}) ->
+handle_event(info, {Proto, Sock, NewData}, StateName,
+             D0 = #data{socket = Sock,
+                        transport_protocol = Proto,
+                        ssh_params = SshParams}) ->
     try ssh_transport:handle_packet_part(
 	  D0#data.decrypted_data_buffer,
 	  <<(D0#data.encrypted_data_buffer)/binary, NewData/binary>>,
@@ -1139,10 +1141,11 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
 				    ]}
 	    catch
 		C:E:ST  ->
-                    {Shutdown, D} =  
+                    MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
+                    {Shutdown, D} =
                         ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
-                                                       [C,E,ST]),
+                                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~P",
+                                                       [C,E,ST,MaxLogItemLen]),
                                          StateName, D1),
                     {stop, Shutdown, D}
 	    end;
@@ -1173,9 +1176,11 @@ handle_event(info, {Proto, Sock, NewData}, StateName, D0 = #data{socket = Sock,
             {stop, Shutdown, D}
     catch
 	C:E:ST ->
-            {Shutdown, D} =  
+            MaxLogItemLen = ?GET_OPT(max_log_item_len,SshParams#ssh.opts),
+            {Shutdown, D} =
                 ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
-                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~p",[C,E,ST]),
+                                 io_lib:format("Bad packet: Couldn't decrypt~n~p:~p~n~P",
+                                               [C,E,ST,MaxLogItemLen]),
                                  StateName, D0),
             {stop, Shutdown, D}
     end;
