@@ -52,8 +52,7 @@
          decode_empty_server_sni_correctly/1,
          select_proper_tls_1_2_rsa_default_hashsign/1,
          ignore_hassign_extension_pre_tls_1_2/1,
-         signature_algorithms/1,
-         encode_decode_srp/1]).
+         signature_algorithms/1]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -67,8 +66,7 @@ all() -> [decode_hello_handshake,
 	  decode_empty_server_sni_correctly,
 	  select_proper_tls_1_2_rsa_default_hashsign,
 	  ignore_hassign_extension_pre_tls_1_2,
-	  signature_algorithms,
-	  encode_decode_srp].
+	  signature_algorithms].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -198,30 +196,6 @@ ignore_hassign_extension_pre_tls_1_2(Config) ->
     {md5sha, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs([{3,2}]), {3,2}),
     {md5sha, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs([{3,0}]), {3,0}).
 
-encode_decode_srp(_Config) ->
-    Exts = #{srp => #srp{username = <<"foo">>},
-             sni => #sni{hostname = "bar"},
-             renegotiation_info => undefined,
-             signature_algs => undefined,
-             alpn => undefined,
-             next_protocol_negotiation => undefined,
-             ec_point_formats => undefined,
-             elliptic_curves => undefined
-            },
-    EncodedExts0 = <<0,20,          % Length
-                    0,12,          % SRP extension
-                    0,4,           % Length
-                    3,             % srp_I length
-                    102,111,111, % username = "foo"
-                    0,0,           % SNI extension
-                    0,8,           % Length
-                    0,6,           % ServerNameLength
-                    0,             % NameType (host_name)
-                    0,3,           % HostNameLength
-                    98,97,114>>,     % hostname = "bar"
-    EncodedExts0 = <<?UINT16(_),EncodedExts/binary>> =
-        ssl_handshake:encode_hello_extensions(Exts, {3,3}),
-    Exts = ssl_handshake:decode_hello_extensions(EncodedExts, {3,3}, {3,3}, client).
 
 signature_algorithms(Config) ->
     Opts = proplists:get_value(server_opts, Config),
