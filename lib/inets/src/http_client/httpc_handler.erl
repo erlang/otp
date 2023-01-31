@@ -50,23 +50,23 @@
 
 -record(state, 
         {
-          request                   :: request() | undefined,
-          session                   :: session() | undefined,
-          status_line               :: tuple()   | undefined,     % {Version, StatusCode, ReasonPharse}
-          headers                   :: http_response_h() | undefined,
-          body                      :: binary() | undefined,
-          mfa                       :: {atom(), atom(), term()} | undefined, % {Module, Function, Args}
-          pipeline = queue:new()    :: queue:queue(),
-          keep_alive = queue:new()  :: queue:queue(),
-          status                    :: undefined | new | pipeline | keep_alive | close | {ssl_tunnel, request()},
-          canceled = [],             % [RequestId]
-          max_header_size = nolimit :: nolimit | integer(),
-          max_body_size = nolimit   :: nolimit | integer(),
-          options                   :: options(),
-          timers = #timers{}        :: #timers{},
-          profile_name              :: atom(), % id of httpc_manager process.
-          once = inactive           :: inactive | once
-         }).
+         request                   :: request() | undefined,
+         session                   :: session() | undefined,
+         status_line               :: tuple()   | undefined,     % {Version, StatusCode, ReasonPharse}
+         headers                   :: http_response_h() | undefined,
+         body                      :: binary() | undefined,
+         mfa                       :: {atom(), atom(), term()} | undefined, % {Module, Function, Args}
+         pipeline = queue:new()    :: queue:queue(),
+         keep_alive = queue:new()  :: queue:queue(),
+         status                    :: undefined | new | pipeline | keep_alive | close | {ssl_tunnel, request()},
+         canceled = []             :: [RequestId::reference()],
+         max_header_size = nolimit :: nolimit | integer(),
+         max_body_size = nolimit   :: nolimit | integer(),
+         options                   :: options(),
+         timers = #timers{}        :: #timers{},
+         profile_name              :: atom(), % id of httpc_manager process.
+         once = inactive           :: inactive | once
+        }).
 
 
 %%====================================================================
@@ -321,8 +321,7 @@ terminate(normal,
     %% Cancel timers
     cancel_timers(Timers),
 
-    %% Maybe deliver answers to requests
-    deliver_answer(Request),
+    maybe_deliver_answer(Request, State),
 
     %% And, just in case, close our side (**really** overkill)
     http_transport:close(SocketType, Socket);
@@ -711,24 +710,26 @@ call(Msg, Pid) ->
 cast(Msg, Pid) ->
     gen_server:cast(Pid, Msg).
 
-maybe_retry_queue(Q, State) ->
-    case queue:is_empty(Q) of 
-        false ->
+maybe_retry_queue(Q, #state{status = new} = State) ->
+    retry_pipeline(queue:to_list(Q), State);
+maybe_retry_queue(Q, #state{request = Request} = State) ->
+    case Request of
+        undefined ->
             retry_pipeline(queue:to_list(Q), State);
-        true ->
-            ok
+        _ ->
+            retry_pipeline(queue:to_list(queue:cons(Request, Q)), State)
     end.
-    
+
 maybe_send_answer(#request{from = answer_sent}, _Reason, State) ->
     State;
 maybe_send_answer(Request, Answer, State) ->
     answer_request(Request, Answer, State).
 
-deliver_answer(#request{from = From} = Request) 
+maybe_deliver_answer(#request{from = From} = Request, #state{status = new})
   when From =/= answer_sent ->
     Response = httpc_response:error(Request, socket_closed_remotely),
     httpc_response:send(From, Response);
-deliver_answer(_Request) ->
+maybe_deliver_answer(_,_) ->
     ok.
 
 %%%--------------------------------------------------------------------

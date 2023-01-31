@@ -249,6 +249,8 @@ init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https;
     try crypto:start() of
         ok ->
             start_apps(Group),
+             httpc:set_options([{keep_alive_timeout, 50000},
+                                {max_keep_alive_length, 5}]),
             do_init_per_group(Group, Config0)
     catch
         _:_ ->
