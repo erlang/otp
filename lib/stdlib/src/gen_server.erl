@@ -851,6 +851,19 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    gen:unregister_name(Name0),
 	    proc_lib:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
+	{ok, {shutdown, Reason} = SHUTDOWN} ->
+            %% The point of this clause is that we shall have a *silent*
+            %% termination. The error reason will be returned to the
+            %% 'Starter' ({error, Reason}), but *no* crash report.
+	    %% For consistency, we must make sure that the
+	    %% registered name (if any) is unregistered before
+	    %% the parent process is notified about the failure.
+	    %% (Otherwise, the parent process could get
+	    %% an 'already_started' error if it immediately
+	    %% tried starting the process again.)
+	    gen:unregister_name(Name0),
+	    proc_lib:init_ack(Starter, {error, Reason}),
+	    exit(SHUTDOWN);
 	{ok, ignore} ->
 	    gen:unregister_name(Name0),
 	    proc_lib:init_ack(Starter, ignore),
