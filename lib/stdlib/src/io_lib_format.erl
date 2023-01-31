@@ -106,7 +106,7 @@ scan(Format, Args) ->
 unscan(Cs) ->
     {print(Cs), args(Cs)}.
 
-args([#{args := As, maps_order := O} | Cs]) when is_function(O, 2) ->
+args([#{args := As, maps_order := O} | Cs]) when is_function(O, 2); O =:= reversed ->
     [O | As] ++ args(Cs);
 args([#{args := As} | Cs]) ->
     As ++ args(Cs);
@@ -149,6 +149,7 @@ print_strings(true) -> "".
 
 print_maps_order(undefined) -> "";
 print_maps_order(ordered) -> "k";
+print_maps_order(reversed) -> "K";
 print_maps_order(CmpFun) when is_function(CmpFun, 2) -> "K".
 
 collect([$~|Fmt0], Args0) ->
