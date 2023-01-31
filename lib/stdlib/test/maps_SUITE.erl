@@ -882,6 +882,7 @@ t_groups_from_list(_Config) ->
 
 error_info(_Config) ->
     BadIterator = [-1|#{}],
+    BadIterator2 = {x, y, z},
     GoodIterator = maps:iterator(#{}),
     BadOrder = fun(_) -> true end,
     GoodOrder = fun(A, B) -> A =< B end,
@@ -973,6 +974,7 @@ error_info(_Config) ->
 
          {to_list,[xyz]},
          {to_list,[BadIterator]},
+         {to_list,[BadIterator2]},
 
          {update,[key, value, no_map]},
 

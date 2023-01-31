@@ -231,31 +231,17 @@ take(_,_) -> erlang:nif_error(undef).
 
 to_list(Map) when is_map(Map) ->
     to_list_internal(erts_internal:map_next(0, Map, []));
-to_list({_K, _V, _NextIterator} = Iterator) ->
-    try to_list_from_iterator(Iterator) of
-        Result -> Result
+to_list(Iter) ->
+    try to_list_from_iterator(next(Iter))
     catch
-        error:badarg ->
-            error_with_info({badmap, Iterator}, [Iterator])
-    end;
-to_list([PathOrKeys | Map] = Iterator)
-  when (is_integer(PathOrKeys) orelse is_list(PathOrKeys)), is_map(Map) ->
-    try to_list_from_iterator(Iterator) of
-        Result -> Result
-    catch
-        error:badarg ->
-            error_with_info({badmap, Iterator}, [Iterator])
-    end;
-to_list(Map) ->
-    error_with_info({badmap, Map}, [Map]).
-
-to_list_from_iterator(Iterator) ->
-    case maps:next(Iterator) of
-        {Key, Value, NextIterator} ->
-            [{Key, Value} | to_list_from_iterator(NextIterator)];
-        none ->
-            []
+        error:_ ->
+            error_with_info({badmap, Iter}, [Iter])
     end.
+
+to_list_from_iterator({Key, Value, NextIter}) ->
+    [{Key, Value} | to_list_from_iterator(next(NextIter))];
+to_list_from_iterator(none) ->
+    [].
 
 to_list_internal([Iter, Map | Acc]) when is_integer(Iter) ->
     to_list_internal(erts_internal:map_next(Iter, Map, Acc));
