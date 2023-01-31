@@ -86,7 +86,8 @@ accept_open(_NetAddress, ListenSocket) ->
         inet_epmd_dist:check_ip(Ip, PeerIp),
         Stream = stream(Socket),
         {_Stream_1, _, CipherState} = cryptcookie:init(Stream),
-        KtlsInfo = inet_ktls_info(Socket, CipherState),
+        KtlsInfo =
+            inet_ktls_info(Socket, cryptcookie:ktls_info(CipherState)),
         ok ?= inet_tls_dist:set_ktls(KtlsInfo),
         ok ?= inet:setopts(Socket, [{packet, 2}, {mode, list}]),
         {Socket, PeerAddress}
@@ -118,7 +119,8 @@ connect(NetAddress, _Timer, Options) ->
             ?DRIVER:connect(Ip, Port, ConnectOptions),
         Stream = stream(Socket),
         {_Stream_1, _, CipherState} = cryptcookie:init(Stream),
-        KtlsInfo = inet_ktls_info(Socket, CipherState),
+        KtlsInfo =
+            inet_ktls_info(Socket, cryptcookie:ktls_info(CipherState)),
         ok ?= inet_tls_dist:set_ktls(KtlsInfo),
         ok ?= inet:setopts(Socket, [{packet, 2}, {mode, list}]),
         inet_epmd_dist:hs_data(NetAddress, Socket)
@@ -204,11 +206,25 @@ stream_controlling_process(Stream = {_, [_ | Socket], _}, Pid) ->
 
 %% ------------------------------------------------------------
 supported() ->
-    cryptcookie:supported().
+    maybe
+        ok ?= cryptcookie:supported(),
+        %%
+        {ok, Listen} = ?DRIVER:listen(0, [{active, false}]),
+        {ok, Port} = inet:port(Listen),
+        {ok, Client} =
+            ?DRIVER:connect({127,0,0,1}, Port, [{active, false}]),
+        try
+            inet_tls_dist:set_ktls(
+              inet_ktls_info(Client, cryptcookie:ktls_info()))
+        after
+            _ = ?DRIVER:close(Client),
+            _ = ?DRIVER:close(Listen)
+        end
+    end.
 
 
-inet_ktls_info(Socket, CipherState) ->
-    (cryptcookie:ktls_info(CipherState))
+inet_ktls_info(Socket, KtlsInfo) ->
+    KtlsInfo
         #{ socket => Socket,
            setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3,
            getopt_fun => fun inet_tls_dist:inet_ktls_getopt/3 }.

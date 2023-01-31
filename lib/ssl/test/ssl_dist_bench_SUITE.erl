@@ -317,28 +317,14 @@ init_per_group(socket, Config) ->
     end;
 %%
 init_per_group(ktls, Config) ->
-    {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
-    {ok, Port} = inet:port(Listen),
-    {ok, Client} =
-        gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
-    {ok, Server} = gen_tcp:accept(Listen),
-    try
-        maybe
-            {ok, OS} ?= ssl_test_lib:ktls_os(),
-            ok ?= ssl_test_lib:ktls_set_ulp(Client, OS),
-            ok ?= ssl_test_lib:ktls_set_cipher(Client, OS, tx, 1),
+    case ktls_supported() of
+        ok ->
             [{ktls, true},
              {ssl_dist_prefix,
               proplists:get_value(ssl_dist_prefix, Config) ++ "-kTLS"}
-            | proplists:delete(ssl_dist_prefix, Config)]
-        else
-            {error, Reason} ->
-                {skip, Reason}
-        end
-    after
-        _ = gen_tcp:close(Server),
-        _ = gen_tcp:close(Client),
-        _ = gen_tcp:close(Listen)
+            | proplists:delete(ssl_dist_prefix, Config)];
+        {error, Reason} ->
+            {skip, Reason}
     end;
 %%
 init_per_group(_GroupName, Config) ->
@@ -365,6 +351,24 @@ init_per_testcase(Func, Conf) ->
 
 end_per_testcase(_Func, _Conf) ->
     ok.
+
+
+ktls_supported() ->
+    {ok, Listen} = gen_tcp:listen(0, [{active, false}]),
+    {ok, Port} = inet:port(Listen),
+    {ok, Client} =
+        gen_tcp:connect({127,0,0,1}, Port, [{active, false}]),
+    try
+        maybe
+            {ok, OS} ?= ssl_test_lib:ktls_os(),
+            ok ?= ssl_test_lib:ktls_set_ulp(Client, OS),
+            ssl_test_lib:ktls_set_cipher(Client, OS, tx, 1)
+        end
+    after
+        _ = gen_tcp:close(Client),
+        _ = gen_tcp:close(Listen)
+    end.
+
 
 %%%-------------------------------------------------------------------
 %%% CommonTest API helpers

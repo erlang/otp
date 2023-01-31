@@ -106,7 +106,8 @@ accept_open(_NetAddress, ListenSocket) ->
         inet_epmd_dist:check_ip(Ip, PeerIp),
         Stream = stream(Socket),
         {_Stream_1, _, CipherState} = cryptcookie:init(Stream),
-        KtlsInfo = socket_ktls_info(Socket, CipherState),
+        KtlsInfo =
+            socket_ktls_info(Socket, cryptcookie:ktls_info(CipherState)),
         ok ?=
             inet_tls_dist:set_ktls(KtlsInfo),
         {Socket, {PeerIp, PeerPort}}
@@ -150,7 +151,8 @@ connect(
             socket:connect(Socket, ConnectAddress),
         Stream = stream(Socket),
         {_Stream_1, _, CipherState} = cryptcookie:init(Stream),
-        KtlsInfo = socket_ktls_info(Socket, CipherState),
+        KtlsInfo =
+            socket_ktls_info(Socket, cryptcookie:ktls_info(CipherState)),
         ok ?=
             inet_tls_dist:set_ktls(KtlsInfo),
         inet_epmd_socket:start_dist_ctrl(NetAddress, Socket)
@@ -249,12 +251,26 @@ stream_controlling_process(Stream = {_, [_ | Socket], _}, Pid) ->
 supported() ->
     maybe
         ok ?= inet_epmd_socket:supported(),
-        cryptcookie:supported()
+        ok ?= cryptcookie:supported(),
+        %%
+        {ok, Listen} = socket:open(?FAMILY, stream),
+        ok = socket:bind(Listen, loopback),
+        ok = socket:listen(Listen),
+        {ok, Addr} = socket:sockname(Listen),
+        {ok, Client} = socket:open(?FAMILY, stream),
+        ok = socket:connect(Client, Addr),
+        try
+            inet_tls_dist:set_ktls(
+              socket_ktls_info(Client, cryptcookie:ktls_info()))
+        after
+            _ = socket:close(Client),
+            _ = socket:close(Listen)
+        end
     end.
 
 
-socket_ktls_info(Socket, CipherState) ->
-    (cryptcookie:ktls_info(CipherState))
+socket_ktls_info(Socket, KtlsInfo) ->
+    KtlsInfo
         #{ socket => Socket,
            setopt_fun => fun socket:setopt_native/3,
            getopt_fun => fun socket:getopt_native/3 }.

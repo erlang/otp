@@ -29,7 +29,7 @@
          encrypt_and_send_chunk/4, recv_and_decrypt_chunk/2]).
 
 %% For kTLS integration
--export([ktls_info/1]).
+-export([ktls_info/1, ktls_info/0]).
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 
@@ -89,9 +89,9 @@ crypto_supports(Tag, Item) ->
         }).
 
 params() ->
-    #{ iv_length := IvLen, key_length := KeyLen } =
+    #{ iv_length := IVLen, key_length := KeyLen } =
         crypto:cipher_info(?CIPHER),
-    #params{ iv = IvLen, key = KeyLen, rekey_timestamp = timestamp() }.
+    #params{ iv = IVLen, key = KeyLen, rekey_timestamp = timestamp() }.
 
 
 -record(keypair,
@@ -270,7 +270,6 @@ init(Stream) ->
     init(Stream, Secret).
 
 init(Stream = {_, OutStream, _}, Secret) ->
-    _ = crypto:rand_seed_alg(crypto_cache),
     #keypair{ public = PubKey } = KeyPair = get_keypair(),
     Params = params(),
     {R2, R3, Msg} = init_msg(Params, Secret, PubKey),
@@ -482,10 +481,11 @@ encrypt_and_send_chunk(
 
 encrypt_and_send_chunk(OutStream, Seq, Params, Chunk, 0) -> % Tick
     <<>> = Chunk, % ASSERT
-    %% Ticks are sent as a somewhat random size block to make
-    %% it less obvious to spot
-    TickSize = 7 + rand:uniform(56),
-    TickData = binary:copy(<<0>>, TickSize),
+    %% A ticks are sent as a somewhat random size block
+    %% to make it less obvious to spot
+    <<S:8>> = crypto:strong_rand_bytes(1),
+    TickSize = 8 + (S band 63),
+    TickData = crypto:strong_rand_bytes(TickSize),
     encrypt_and_send_block(
       OutStream, Seq, Params, [?TICK_CHUNK, TickData], 1 + TickSize);
 encrypt_and_send_chunk(OutStream, Seq, Params, Chunk, Size) ->
@@ -689,6 +689,24 @@ ktls_info(
         #cipher_state{
            key = <<SendKey/bytes>>,
            iv = <<SendSalt/bytes, (SendIV + SendSeq):48>> },
+    #{ tls_version => ?TLS_VERSION,
+       cipher_suite => ?CIPHER_SUITE,
+       read_state => RecvState,
+       read_seq => RecvSeq,
+       write_state => SendState,
+       write_seq => SendSeq }.
+
+%% Dummy cipher parameters to use when checking if kTLS is supported.
+%% Completely random to avoid accidentally creating an unsafe connection.
+%%
+ktls_info() ->
+    #params{ iv = IVLen, key = KeyLen } = params(),
+    <<RecvSeq:48, RecvKey:KeyLen/bytes, RecvIV:IVLen/bytes>> =
+        crypto:strong_rand_bytes(6 + KeyLen + IVLen),
+    <<SendSeq:48, SendKey:KeyLen/bytes, SendIV:IVLen/bytes>> =
+        crypto:strong_rand_bytes(6 + KeyLen + IVLen),
+    RecvState = #cipher_state{ key = RecvKey, iv = RecvIV },
+    SendState = #cipher_state{ key = SendKey, iv = SendIV },
     #{ tls_version => ?TLS_VERSION,
        cipher_suite => ?CIPHER_SUITE,
        read_state => RecvState,
