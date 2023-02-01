@@ -158,6 +158,13 @@ typedef int BOOLEAN_T;
 
 #define B2S(__B__) ((__B__) ? "true" : "false")
 
+#define TYPE2STR(T) (((T) == SOCK_STREAM) ? "stream" :                  \
+                     (((T) == SOCK_DGRAM) ? "dgram"  :                  \
+                      (((T) == SOCK_RAW)  ? "raw"    :                  \
+                       (((T) == SOCK_RDM)  ? "rdm"   :                  \
+                        (((T) == SOCK_SEQPACKET) ? "seqpacket" :        \
+                         "undefined")))))
+
 #define NUM(Array) (sizeof(Array) / sizeof(*(Array)))
 
 
@@ -232,6 +239,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(closed);                   \
     GLOBAL_ATOM_DEF(cmsg_cloexec);             \
     GLOBAL_ATOM_DEF(command);                  \
+    GLOBAL_ATOM_DEF(completion);               \
     GLOBAL_ATOM_DEF(confirm);                  \
     GLOBAL_ATOM_DEF(congestion);               \
     GLOBAL_ATOM_DEF(connect);                  \
@@ -364,6 +372,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(nopush);                   \
     GLOBAL_ATOM_DEF(nosignal);                 \
     GLOBAL_ATOM_DEF(notrailers);               \
+    GLOBAL_ATOM_DEF(not_bound);                \
     GLOBAL_ATOM_DEF(not_found);                \
     GLOBAL_ATOM_DEF(not_owner);                \
     GLOBAL_ATOM_DEF(oactive);		       \

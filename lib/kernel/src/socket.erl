@@ -87,6 +87,10 @@
               select_handle/0,
               select_info/0,
 
+              completion_tag/0,
+              completion_handle/0,
+              completion_info/0,
+
               invalid/0,
 
               socket_counters/0,
@@ -771,17 +775,26 @@
 %% Interface term formats
 %%
 
--opaque select_tag() :: atom() | {atom(), ContData :: term()}.
+-opaque select_tag()     :: atom() | {atom(), ContData :: term()}.
+-opaque completion_tag() :: atom(). % | {atom(), ContData :: term()}.
 
 -type select_handle() :: reference().
+-type completion_handle() :: reference().
 
 -type select_info() ::
         {select_info,
          SelectTag :: select_tag(),
          SelectHandle :: select_handle()}.
+-type completion_info() ::
+        {completion_info,
+         CompletionTag :: completion_tag(),
+         CompletionHandle :: completion_handle()}.
 
 -define(SELECT_INFO(Tag, SelectHandle),
         {select_info, Tag, SelectHandle}).
+
+-define(COMPLETION_INFO(Tag, CompletionHandle),
+        {completion_info, Tag, CompletionHandle}).
 
 
 %% ===========================================================================
@@ -1552,20 +1565,25 @@ connect(Socket, SockAddr) ->
 -spec connect(Socket, SockAddr, Timeout :: 'nowait') ->
                      'ok' |
                      {'select', SelectInfo} |
+                     {'completion', CompletionInfo} |
                      {'error', Reason} when
-      Socket     :: socket(),
-      SockAddr   :: sockaddr(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid() | 'already';
+      Socket         :: socket(),
+      SockAddr       :: sockaddr(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid() | 'already';
 
-             (Socket, SockAddr, SelectHandle :: select_handle()) ->
+             (Socket, SockAddr, Handle) ->
                      'ok' |
                      {'select', SelectInfo} |
+                     {'completion', CompletionInfo} |
                      {'error', Reason} when
-      Socket       :: socket(),
-      SockAddr     :: sockaddr(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid() | 'already';
+      Socket         :: socket(),
+      SockAddr       :: sockaddr(),
+      Handle         :: select_handle() | completion_handle(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid() | 'already';
 
              (Socket, SockAddr, Timeout :: 'infinity') ->
                      'ok' |
@@ -1584,27 +1602,29 @@ connect(Socket, SockAddr) ->
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
 %% </KOLLA>
-connect(?socket(SockRef), SockAddr, Timeout)
+connect(?socket(SockRef), SockAddr, TimeoutOrHandle)
   when is_reference(SockRef) ->
-    case deadline(Timeout) of
+    case deadline(TimeoutOrHandle) of
         invalid ->
-            erlang:error({invalid, {timeout, Timeout}});
+            erlang:error({invalid, {timeout, TimeoutOrHandle}});
         nowait ->
-            SelectHandle = make_ref(),
-            connect_nowait(SockRef, SockAddr, SelectHandle);
-        select_handle ->
-            SelectHandle = Timeout,
-            connect_nowait(SockRef, SockAddr, SelectHandle);
+            Handle = make_ref(),
+            connect_nowait(SockRef, SockAddr, Handle);
+        handle ->
+            Handle = TimeoutOrHandle,
+            connect_nowait(SockRef, SockAddr, Handle);
         Deadline ->
             connect_deadline(SockRef, SockAddr, Deadline)
     end;
 connect(Socket, SockAddr, Timeout) ->
     erlang:error(badarg, [Socket, SockAddr, Timeout]).
 
-connect_nowait(SockRef, SockAddr, SelectHandle) ->
-    case prim_socket:connect(SockRef, SelectHandle, SockAddr) of
+connect_nowait(SockRef, SockAddr, Handle) ->
+    case prim_socket:connect(SockRef, Handle, SockAddr) of
         select ->
-            {select, ?SELECT_INFO(connect, SelectHandle)};
+            {select, ?SELECT_INFO(connect, Handle)};
+        completion ->
+            {completion, ?COMPLETION_INFO(connect, Handle)};
         Result ->
             Result
     end.
@@ -1618,6 +1638,18 @@ connect_deadline(SockRef, SockAddr, Deadline) ->
             receive
                 ?socket_msg(_Socket, select, Ref) ->
                     prim_socket:connect(SockRef);
+                ?socket_msg(_Socket, abort, {Ref, Reason}) ->
+                    {error, Reason}
+            after Timeout ->
+                    _ = cancel(SockRef, connect, Ref),
+                    {error, timeout}
+            end;
+        completion ->
+            %% Connecting...
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(_Socket, completion, {Ref, CompletionStatus}) ->
+                    CompletionStatus;
                 ?socket_msg(_Socket, abort, {Ref, Reason}) ->
                     {error, Reason}
             after Timeout ->
@@ -1720,7 +1752,7 @@ accept(?socket(LSockRef), Timeout)
         nowait ->
             SelectHandle = make_ref(),
             accept_nowait(LSockRef, SelectHandle);
-        select_handle ->
+        handle ->
             SelectHandle = Timeout,
             accept_nowait(LSockRef, SelectHandle);
         Deadline ->
@@ -1984,7 +2016,7 @@ send(?socket(SockRef), Data, ?SELECT_INFO(SelectTag, _) = Cont, Timeout)
                 nowait ->
                     SelectHandle = make_ref(),
                     send_nowait_cont(SockRef, Data, ContData, SelectHandle);
-                select_handle ->
+                handle ->
                     SelectHandle = Timeout,
                     send_nowait_cont(SockRef, Data, ContData, SelectHandle);
                 Deadline ->
@@ -2003,7 +2035,7 @@ send(?socket(SockRef), Data, Flags, Timeout)
         nowait ->
             SelectHandle = make_ref(),
             send_nowait(SockRef, Data, Flags, SelectHandle);
-        select_handle ->
+        handle ->
             SelectHandle = Timeout,
             send_nowait(SockRef, Data, Flags, SelectHandle);
         Deadline ->
@@ -2366,7 +2398,7 @@ sendto(?socket(SockRef), Data, Dest, Flags, Timeout)
         nowait ->
             SelectHandle = make_ref(),
             sendto_nowait(SockRef, Data, Dest, Flags, SelectHandle);
-        select_handle ->
+        handle ->
             SelectHandle = Timeout,
             sendto_nowait(SockRef, Data, Dest, Flags, SelectHandle);
         Deadline ->
@@ -2395,7 +2427,7 @@ sendto_timeout_cont(SockRef, Bin, Cont, Timeout) ->
         nowait ->
             SelectHandle = make_ref(),
             sendto_nowait_cont(SockRef, Bin, Cont, SelectHandle);
-        select_handle ->
+        handle ->
             SelectHandle = Timeout,
             sendto_nowait_cont(SockRef, Bin, Cont, SelectHandle);
         Deadline ->
@@ -2666,7 +2698,7 @@ sendmsg(?socket(SockRef), #{iov := IOV} = Msg, Flags, Timeout)
         nowait ->
             SelectHandle = make_ref(),
             sendmsg_nowait(SockRef, Msg, Flags, SelectHandle, IOV);
-        select_handle ->
+        handle ->
             SelectHandle = Timeout,
             sendmsg_nowait(SockRef, Msg, Flags, SelectHandle, IOV);
         Deadline ->
@@ -2683,7 +2715,7 @@ sendmsg_timeout_cont(SockRef, RestData, Cont, Timeout) ->
         nowait ->
             SelectHandle = make_ref(),
             sendmsg_nowait_cont(SockRef, RestData, Cont, SelectHandle);
-        select_handle ->
+        handle ->
             SelectHandle = Timeout,
             sendmsg_nowait_cont(SockRef, RestData, Cont, SelectHandle);
         Deadline ->
@@ -2901,7 +2933,7 @@ sendfile_int(SockRef, State, Timeout) ->
         nowait ->
             SelectHandle = make_ref(),
             sendfile_nowait(SockRef, State, SelectHandle);
-        select_handle ->
+        handle ->
             SelectHandle = Timeout,
             sendfile_nowait(SockRef, State, SelectHandle);
         Deadline ->
@@ -3205,7 +3237,7 @@ recv(?socket(SockRef), Length, Flags, Timeout)
         nowait ->
             SelectHandle = make_ref(),
             recv_nowait(SockRef, Length, Flags, SelectHandle, <<>>);
-        select_handle ->
+        handle ->
             SelectHandle = Timeout,
             recv_nowait(SockRef, Length, Flags, SelectHandle, <<>>);
         zero ->
@@ -3533,7 +3565,7 @@ recvfrom(?socket(SockRef), BufSz, Flags, Timeout)
         nowait ->
             SelectHandle = make_ref(),
             recvfrom_nowait(SockRef, BufSz, SelectHandle, Flags);
-        select_handle ->
+        handle ->
             SelectHandle = Timeout,
             recvfrom_nowait(SockRef, BufSz, SelectHandle, Flags);
         zero ->
@@ -3798,7 +3830,7 @@ recvmsg(?socket(SockRef), BufSz, CtrlSz, Flags, Timeout)
         nowait ->
             SelectHandle = make_ref(),
             recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, SelectHandle);
-        select_handle ->
+        handle ->
             SelectHandle = Timeout,
             recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, SelectHandle);
         zero ->
@@ -4258,9 +4290,13 @@ ioctl(Socket, SetRequest, Arg1, Arg2) ->
 %%
 
 -spec cancel(Socket, SelectInfo) -> 'ok' | {'error', Reason} when
-      Socket     :: socket(),
-      SelectInfo :: select_info(),
-      Reason     :: 'closed' | invalid().
+      Socket         :: socket(),
+      SelectInfo     :: select_info(),
+      Reason         :: 'closed' | invalid();
+            (Socket, CompletionInfo) -> 'ok' | {'error', Reason} when
+      Socket         :: socket(),
+      CompletionInfo :: completion_info(),
+      Reason         :: 'closed' | invalid().
 
 cancel(?socket(SockRef), ?SELECT_INFO(SelectTag, SelectHandle) = SelectInfo)
   when is_reference(SockRef) ->
@@ -4278,21 +4314,44 @@ cancel(?socket(SockRef), ?SELECT_INFO(SelectTag, SelectHandle) = SelectInfo)
         Result ->
             Result
     end;
-cancel(Socket, SelectInfo) ->
-    erlang:error(badarg, [Socket, SelectInfo]).
+cancel(?socket(SockRef),
+       ?COMPLETION_INFO(CompletionTag, CompletionHandle) = CompletionInfo)
+  when is_reference(SockRef) ->
+    case CompletionTag of
+        {Op, _} when is_atom(Op) ->
+            ok;
+        Op when is_atom(Op) ->
+            ok
+    end,
+    case cancel(SockRef, Op, CompletionHandle) of
+        ok ->
+            ok;
+        invalid ->
+            {error, {invalid, CompletionInfo}};
+        Result ->
+            Result
+    end;
+cancel(Socket, Info) ->
+    erlang:error(badarg, [Socket, Info]).
 
 
-cancel(SockRef, Op, SelectHandle) ->
-    case prim_socket:cancel(SockRef, Op, SelectHandle) of
+%% What about completion? There is no way to cancel a 
+%% I/O completion "request" once it has been issued.
+%% But we may still have "stuff" in our own queues,
+%% which needs to be cleared out.
+cancel(SockRef, Op, Handle) ->
+    case prim_socket:cancel(SockRef, Op, Handle) of
         select_sent ->
-            flush_select_msg(SockRef, SelectHandle),
-            _ = flush_abort_msg(SockRef, SelectHandle),
+            flush_select_msg(SockRef, Handle),
+            _ = flush_abort_msg(SockRef, Handle),
             ok;
         not_found ->
-            _ = flush_abort_msg(SockRef, SelectHandle),
+            _ = flush_completion_msg(SockRef, Handle),
+            _ = flush_abort_msg(SockRef, Handle),
             invalid;
         Result ->
-            _ = flush_abort_msg(SockRef, SelectHandle),
+            _ = flush_completion_msg(SockRef, Handle),
+            _ = flush_abort_msg(SockRef, Handle),
             Result
     end.
 
@@ -4300,6 +4359,14 @@ flush_select_msg(SockRef, Ref) ->
     receive
         ?socket_msg(?socket(SockRef), select, Ref) ->
             ok
+    after 0 ->
+            ok
+    end.
+
+flush_completion_msg(SockRef, Ref) ->
+    receive
+        ?socket_msg(?socket(SockRef), completion, {Ref, Result}) ->
+            Result
     after 0 ->
             ok
     end.
@@ -4329,7 +4396,7 @@ flush_abort_msg(SockRef, Ref) ->
 %% format_timestamp({_N1, _N2, N3} = N, N2T, true) ->
 %%     FormatExtra = ".~.2.0w",
 %%     ArgsExtra   = [N3 div 10000],
-%%     format_timestamp(N, N2T, FormatExtra, ArgsExtra);
+%%    format_timestamp(N, N2T, FormatExtra, ArgsExtra);
 %% format_timestamp({_N1, _N2, _N3} = N, N2T, false) ->
 %%     FormatExtra = "",
 %%     ArgsExtra   = [],
@@ -4350,8 +4417,8 @@ deadline(Timeout) ->
             Timeout;
         infinity ->
             Timeout;
-        SelectHandle when is_reference(SelectHandle) ->
-            select_handle;
+        Handle when is_reference(Handle) ->
+            handle;
         0 ->
             zero;
         _ when is_integer(Timeout), 0 < Timeout ->
@@ -4362,7 +4429,7 @@ deadline(Timeout) ->
 
 timeout(Deadline) ->
     case Deadline of
-        %% nowait | select_handle shall not be passed here
+        %% nowait | handle shall not be passed here
         %%
         infinity ->
             Deadline;

@@ -2387,6 +2387,23 @@ ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err)
 
 /* Create an error two (2) tuple in the form:
  *
+ *          {error, {Tag, Reason}}
+ *
+ * Both 'Tag' and 'Reason' are already in the form of an
+ * ERL_NIF_TERM so all we have to do is create "the" tuple.
+ */
+extern
+ERL_NIF_TERM esock_make_error_t2r(ErlNifEnv*   env,
+                                  ERL_NIF_TERM tag,
+                                  ERL_NIF_TERM reason)
+{
+    return MKT2(env, esock_atom_error, MKT2(env, tag, reason));
+}
+
+
+
+/* Create an error two (2) tuple in the form:
+ *
  *          {error, {invalid, What}}}
  */
 extern

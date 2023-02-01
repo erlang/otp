@@ -79,6 +79,12 @@
  */
 
 
+/*
+ * {ok, S1} = socket:open(inet, stream, #{debug => true}).
+ * socket:bind(S1, #{family => inet, port => 0, addr => {10,67,16,208}}).
+ * socket:connect(S1, #{family => inet, port => NNN, addr => {10,67,16,247}}).
+ */
+
 #ifdef HAVE_CONFIG_H
 #    include "config.h"
 #endif
@@ -124,10 +130,14 @@
 
 #define sock_bind(s, addr, len)         bind((s), (addr), (len))
 #define sock_close(s)                   closesocket((s))
+#define sock_connect(s, a, al)          connect((s), (a), (al))
+#define sock_connect_O(s, a, al, sent, o) \
+    ctrl.connect((s), (struct sockaddr*) (a), (al), NULL, 0, (sent), (o))
 #define sock_errno()                    WSAGetLastError()
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_open_O(domain, type, proto) \
     WSASocket((domain), (type), (proto), NULL, 0, WSA_FLAG_OVERLAPPED)
+#define sock_setopt(s,l,o,v,ln)        setsockopt((s),(l),(o),(v),(ln))
 
 
 /* =================================================================== *
@@ -212,12 +222,37 @@ typedef struct __ESAIOOperation {
     /* Has to be first and is *only* used by I/O Completion Port framework */
     WSAOVERLAPPED        ol;
 
+    /* *** Commands *** */
 #define ESAIO_OP_NONE         0x0000  // None
+    /* "system" commands */
 #define ESAIO_OP_TERMINATE    0x0001  // Terminate
+#define ESAIO_OP_DEBUG        0x0002  // Change debug level for thread(s)
+    /* Commands for establishing connections; connect and accept */
+#define ESAIO_OP_CONNECT      0x0011  // ConnectEx (function pointer)
 
     unsigned int          tag;     // The 'tag' of the operation
 
+    /* Generic "data" field.
+     * This is different for each 'operation'!
+     * Also, not all opererations have this!
+     */
+
+    union {
+        /* +++ connect +++ */
+        struct {
+            /* When ConnectEx has completed successfully, 
+             * the socket is usable.
+             * *But*, in order for the functions sockname and peername to work,
+             * the SO_UPDATE_CONNECT_CONTEXT option must be set on the socket.
+             */
+
+            ErlNifEnv*   env;
+            ERL_NIF_TERM sockRef; // The socket
+        } connect;
+    } data;
+
 } ESAIOOperation;
+
 
 
 /* =================================================================== *
@@ -226,17 +261,44 @@ typedef struct __ESAIOOperation {
  *                                                                     *
  * =================================================================== */
 
+static ERL_NIF_TERM esaio_connect_stream(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     sockRef,
+                                         ERL_NIF_TERM     connRef,
+                                         ESockAddress*    addrP,
+                                         SOCKLEN_T        addrLen);
+static ERL_NIF_TERM esaio_connect_dgram(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     sockRef,
+                                        ERL_NIF_TERM     connRef,
+                                        ESockAddress*    addrP,
+                                        SOCKLEN_T        addrLen);
+
 static void* esaio_completion_main(void* threadDataP);
-static BOOLEAN_T  esaio_completion_terminate(ESAIOThreadData* dataP,
-                                             ESAIOOperation*  opP);
+static BOOLEAN_T esaio_completion_terminate(ESAIOThreadData* dataP,
+                                            ESAIOOperation*  opP);
 static BOOLEAN_T esaio_completion_unknown(ESAIOThreadData* dataP,
                                           ESockDescriptor* descP,
                                           ESAIOOperation*  opP,
                                           DWORD            numBytes,
                                           int              error);
+static BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
+                                          ESockDescriptor* descP,
+                                          ESAIOOperation*  opP,
+                                          int              error);
 static void esaio_completion_inc(ESAIOThreadData* dataP);
 
 static int esaio_add_socket(ESockDescriptor* descP);
+
+static void esaio_send_completion_msg(ErlNifEnv*       sendEnv,
+                                      ESockDescriptor* descP,
+                                      ErlNifPid*       pid,
+                                      ErlNifEnv*       msgEnv,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     connRef);
+static ERL_NIF_TERM mk_completion_msg(ErlNifEnv*   env,
+                                      ERL_NIF_TERM sockRef,
+                                      ERL_NIF_TERM completionRef);
 
 static BOOLEAN_T do_stop(ErlNifEnv*       env,
                          ESockDescriptor* descP);
@@ -272,6 +334,8 @@ static ESAIOControl ctrl = {0};
     GetQueuedCompletionStatus(ctrl.cport, (DP), (DP), (OLP), INFINITE)
 #define ESAIO_IOCQ_PUSH(OP)                                             \
     PostQueuedCompletionStatus(ctrl.cport, 0, 0, (OVERLAPPED*) (OP))
+#define ESAIO_IOCQ_CANCEL(H, OP)                                        \
+    CancelIoEx((H), (OVERLAPPED*) (OP))
 
 
 /* =================================================================== *
@@ -726,7 +790,9 @@ ERL_NIF_TERM esaio_open_plain(ErlNifEnv*       env,
 
 
 
-/* ========================================================================
+/* *******************************************************************
+ * esaio_bind - Bind a name to a socket.
+ *
  */
 extern
 ERL_NIF_TERM esaio_bind(ErlNifEnv*       env,
@@ -741,14 +807,353 @@ ERL_NIF_TERM esaio_bind(ErlNifEnv*       env,
         return esock_make_error_errno(env, sock_errno());
     }
 
-    descP->readState |= ESOCK_STATE_BOUND;
+    descP->writeState |= ESOCK_STATE_BOUND;
 
     return esock_atom_ok;
 }
 
 
+
 /* *******************************************************************
- * Clsoe a socket
+ * esaio_connect - Connect the socket to a specified address
+ *
+ * The function we use here, ConnectEx, is intended for STREAM/TCP.
+ * But (traditional) connect can be used with DGRAM/UDP.
+ * So, does ConnectEx work with DGRAM/UDP sockets? I think not.
+ * So we may need to test what kind of socket we have, and for
+ * DGRAM/UDP use the "old" connect:
+ *
+ *    if (type == DGRAM) && (protocol == UDP)
+ *       connect(...);
+ *    else
+ *       ConnectEx(...);
+ *
+ * Quote from the Microsoft documentation:
+ * "The ConnectEx function can only be used with connection-oriented sockets.
+ *  The socket passed in the s parameter must be created with a socket type
+ *  of SOCK_STREAM, SOCK_RDM, or SOCK_SEQPACKET."
+ *
+ * Quote from the Microsoft documentation:
+ * When the ConnectEx function successfully completes, the "connected socket"
+ * can be passed to only the following functions:
+ *
+ *   * ReadFile         (not provided by our API)
+ *   * WriteFile        (not provided by our API)
+ *   * send or WSASend  (send not used by us)
+ *   * recv or WSARecv  (recv not used by us)
+ *   * TransmitFile     (not provided by our API)
+ *   * closesocket
+ *
+ * Socket used *must* be *bound* before calling ConnectEx!
+ */
+
+extern
+ERL_NIF_TERM esaio_connect(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ERL_NIF_TERM     sockRef,
+                           ERL_NIF_TERM     connRef,
+                           ESockAddress*    addrP,
+                           SOCKLEN_T        addrLen)
+{
+    /*
+     * Verify that we are in the proper state
+     */
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_connect(%T) -> verify open\r\n", sockRef) );
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error(env, esock_atom_closed);
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_connect(%T) -> verify type: %s\r\n",
+            sockRef, TYPE2STR(descP->type)) );
+    switch (descP->type) {
+    case SOCK_STREAM:
+        return esaio_connect_stream(env,
+                                    descP, sockRef, connRef,
+                                    addrP, addrLen);
+        break;
+
+    case SOCK_DGRAM:
+        return esaio_connect_dgram(env,
+                                   descP, sockRef, connRef,
+                                   addrP, addrLen);
+        break;
+
+    default:
+        return enif_make_badarg(env);
+    }
+    
+}
+
+
+
+/* *******************************************************************
+ * esaio_connect_stream - Connect the (stream) socket
+ */
+static
+ERL_NIF_TERM esaio_connect_stream(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     sockRef,
+                                  ERL_NIF_TERM     connRef,
+                                  ESockAddress*    addrP,
+                                  SOCKLEN_T        addrLen)
+{
+    int             save_errno;
+    BOOL            cret;
+    // ErlNifPid       proxy;
+    ESAIOOperation* opP;
+    ERL_NIF_TERM    eres;
+    ErlNifPid       self;
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+    
+
+    /* ConnectEx *requires* the socket to be bound */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_connect_stream(%T) -> verify bound\r\n", sockRef) );
+    if (! IS_BOUND(descP->writeState))
+        return esock_make_error(env, esock_atom_not_bound);
+
+    /* This is either a pid or the atom 'undefined' */
+    /*
+    if (IS_PID(env, eproxy)) {
+        if (!GET_LPID(env, eproxy, &proxy)) {
+        return enif_make_badarg(env);
+        }
+    }
+    */
+    
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_connect_stream(%T) -> check if ongoing\r\n",
+            sockRef) );
+    if (descP->connectorP != NULL) {
+
+        /* Connect already in progress, check if its us */
+
+        if (COMPARE_PIDS(&self, &descP->connector.pid) != 0) {
+            /* *Other* process has connect in progress */
+            if (addrP != NULL) {
+                return esock_make_error(env, esock_atom_already);
+            } else {
+                /* This is a bad call sequence
+                 * - connect without an address is only allowed
+                 *   for the connecting process
+                 */
+                return esock_raise_invalid(env, esock_atom_state);
+            }
+        }
+
+        /* Finalize after received 'completion' message */
+
+        esock_requestor_release("esaio_connect_stream finalize -> connected",
+                                env, descP, &descP->connector);
+        descP->connectorP  = NULL;
+        descP->writeState &= ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+        descP->writeState |= ESOCK_STATE_CONNECTED;
+
+        /* Here we should send a 'completion' message indicating
+         * success, that is 'ok'.
+         */
+        
+        return esock_atom_ok;
+
+    } else {
+
+        DWORD sentDummy = 0;
+
+        /* No connect already in progress */
+
+        if (addrP == NULL)
+            /* This is a bad call sequence
+             * - connect without an address is only allowed when
+             *   a connect is in progress,
+             *   after getting the 'completion' message
+             */
+            return esock_raise_invalid(env, esock_atom_state);
+
+        /* Initial connect call, with address */
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_connect_stream(%T) -> allocate operation\r\n",
+                sockRef) );
+        opP = MALLOC( sizeof(ESAIOOperation) );
+        ESOCK_ASSERT( opP != NULL);
+        sys_memzero((char*) opP, sizeof(ESAIOOperation));
+
+        opP->tag = ESAIO_OP_CONNECT;
+
+        /* Its a bit annoying that we have to alloc an env and then
+         * copy the ref *before* we know that we actually need it.
+         * How much does this cost?
+         */
+        
+        /* Initiate connector */
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_connect_stream(%T) -> initiate connector\r\n",
+                sockRef) );
+        descP->connector.pid = self;
+        ESOCK_ASSERT( MONP("esaio_connect_stream -> conn",
+                           env, descP,
+                           &self, &descP->connector.mon) == 0 );
+        descP->connector.env = esock_alloc_env("connector");
+        descP->connector.ref = CP_TERM(descP->connector.env, connRef);
+        descP->connectorP    = &descP->connector;
+        descP->writeState |=
+            (ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+
+        opP->data.connect.env     = esock_alloc_env("esaio-connect-stream");
+        opP->data.connect.sockRef = CP_TERM(opP->data.connect.env, sockRef);
+
+        SSDBG( descP,
+               ("WIN-ESAIO", "esaio_connect_stream {%d} -> try connect\r\n",
+                descP->sock) );
+
+        /*
+         * BOOL LpfnConnectex(
+         *      [in]           SOCKET s,
+         *      [in]           const sockaddr *name,
+         *      [in]           int namelen,
+         *      [in, optional] PVOID lpSendBuffer,
+         *      [in]           DWORD dwSendDataLength,
+         *      [out]          LPDWORD lpdwBytesSent,
+         *      [in]           LPOVERLAPPED lpOverlapped
+         * )
+         */
+
+        cret = sock_connect_O(descP->sock,
+                              addrP, addrLen,
+                              &sentDummy, (OVERLAPPED*) opP);
+
+        /* 
+         * We need to keep using the requestor "queues"!
+         * That is the "only" way to handle the mon itoring of
+         * the requestor.
+         * That is if the request (for instance a connect) is
+         * is scheduled, WSA_IO_PENDING, then we need to store
+         * the info about the requestor somewhere we can access it,
+         * in case the requestor for example dies (and we need to
+         * clean up).
+         */
+
+        if (cret) {
+
+            /* Success already! */
+
+            int err;
+
+            SSDBG( descP,
+                   ("WIN-ESAIO", "esaio_connect_stream {%d} -> connected\r\n",
+                    descP->sock) );
+
+            /* No need for this "stuff" anymore */
+            esock_clear_env("esaio-connect-stream", opP->data.connect.env);
+            esock_free_env("esaio-connect-stream", opP->data.connect.env);
+            FREE( opP );
+
+            /* We need to make sure peername and sockname works! */
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "esaio_connect_stream {%d} -> update connect context\r\n",
+                    descP->sock) );
+
+            err = sock_setopt( descP->sock,
+                               SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, 
+                               NULL, 0 );
+
+            if (err == 0) {
+                descP->writeState &=
+                    ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+                descP->writeState |= ESOCK_STATE_CONNECTED;
+                eres = esock_atom_ok;
+            } else {
+
+                save_errno = sock_errno();
+
+                SSDBG( descP, ("WIN-ESAIO",
+                               "esaio_connect_stream {%d} -> "
+                               "connect context update failed: %d\r\n",
+                               descP->sock, save_errno) );
+
+                sock_close(descP->sock);
+                descP->writeState = ESOCK_STATE_CLOSED;
+
+                WSACleanup();
+
+                eres = esock_make_error_t2r(env,
+                                            MKA(env, "update_connect_context"),
+                                            MKA(env, erl_errno_id(save_errno)));
+            }
+
+        } else {
+
+            /* Connect returned error, check which */
+
+            save_errno = sock_errno();
+
+            if (save_errno == WSA_IO_PENDING) {
+                SSDBG( descP, ("WIN-ESAIO",
+                               "esaio_connect {%d} -> connect scheduled\r\n",
+                               descP->sock) );
+                // eres = esock_make_error(env, esock_atom_completion);
+                eres = esock_atom_completion;
+
+            } else {
+                ERL_NIF_TERM ereason = MKA(env, erl_errno_id(save_errno));
+
+                SSDBG( descP, ("WIN-ESAIO",
+                               "esaio_connect {%d} -> "
+                               "connect attempt failed: %T (%d)\r\n",
+                               descP->sock, ereason, save_errno) );
+
+                esock_clear_env("esaio-connect", opP->data.connect.env);
+                esock_free_env("esaio-connect", opP->data.connect.env);
+                FREE( opP );
+
+                sock_close(descP->sock);
+                descP->writeState = ESOCK_STATE_CLOSED;
+                WSACleanup();
+
+                eres = esock_make_error(env, ereason);
+            }
+        }
+    }
+
+    SSDBG( descP, ("WIN-ESAIO", "esaio_connect {%d} -> done with"
+                   "\r\n   eres: %T"
+                   "\r\n",
+                   descP->sock, eres) );
+
+    return eres;
+}
+
+
+/* *** esaio_connect_dgram ***
+ * Handle the "fake" connect of a DGRAM socket ("bind" to 
+ * a remote address, so user can use send/recv instead of
+ * sendto/recvfrom). Should use sock_connect(...)
+ * This is corrently just a placeholder!
+ */
+static
+ERL_NIF_TERM esaio_connect_dgram(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 ERL_NIF_TERM     connRef,
+                                 ESockAddress*    addrP,
+                                 SOCKLEN_T        addrLen)
+{
+    return enif_make_badarg(env);
+}
+
+
+/* *******************************************************************
+ * esaio_close - Close a socket
+ *
+ * Stage 1 of the socket close
  */
 
 extern
@@ -869,7 +1274,7 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
         /* Inform the waiting Writers (in the same way) */
 
         SSDBG( descP,
-               ("SOCKET",
+               ("WIN-ESAIO",
                 "esock_do_stop {%d} -> handle waiting writer(s)\r\n",
                 descP->sock) );
 
@@ -919,7 +1324,7 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
         /* Inform the Readers (in the same way) */
 
         SSDBG( descP,
-               ("SOCKET",
+               ("WIN-ESAIO",
                 "esock_do_stop {%d} -> handle waiting reader(s)\r\n",
                 descP->sock) );
 
@@ -953,7 +1358,7 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
         /* Inform the waiting Acceptor (in the same way) */
 
         SSDBG( descP,
-               ("SOCKET",
+               ("WIN-ESAIO",
                 "esock_do_stop {%d} -> handle waiting acceptors(s)\r\n",
                 descP->sock) );
 
@@ -1056,6 +1461,72 @@ ERL_NIF_TERM esaio_fin_close(ErlNifEnv*       env,
 
 
 
+/* ========================================================================
+ * Cancel a connect request.
+ */
+extern
+ERL_NIF_TERM esaio_cancel_connect(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     opRef)
+{
+    ERL_NIF_TERM res;
+    ErlNifPid    self;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_cancel_connect {%d} -> entry with"
+            "\r\n   writeState: 0x%X"
+            "\r\n   opRef:      %T"
+            "\r\n",
+            descP->sock, descP->writeState, opRef) );
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    if (! IS_OPEN(descP->writeState)) {
+
+        res = esock_make_error_closed(env);
+
+    } else if ((descP->connectorP == NULL) ||
+               (COMPARE_PIDS(&self, &descP->connector.pid) != 0) ||
+               (COMPARE(opRef, descP->connector.ref) != 0)) {
+
+        res = esock_make_error(env, esock_atom_not_found);
+
+    } else {
+
+        if (! CancelIoEx((HANDLE) descP->sock,
+                         (OVERLAPPED*) descP->connector.dataP)) {
+            /* What does this mean?
+             * One of the possible reasons is that the connect succeeded.
+             * In which case, one of the threads in the thread-pool will
+             * be triggered (eventually).
+             * Then we have to deal with a connected socket that no one wants...
+             */
+            int save_errno = sock_errno();
+            res = esock_make_error_errno(env, save_errno);
+        } else {
+            res = esock_atom_ok;
+        }
+
+        esock_requestor_release("esock_cancel_connect",
+                                env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~ESOCK_STATE_CONNECTING;
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_cancel_connect {%d} -> done when"
+            "\r\n   res: %T"
+            "\r\n",
+            descP->sock, descP->writeState,
+            opRef, res) );
+
+    return res;
+}
+
+
+
 /* ====================================================================
  *
  * The "worker" thread of the I/O Completion Port thread pool.
@@ -1144,7 +1615,7 @@ void* esaio_completion_main(void* threadDataP)
                  * Dequeued a complete packet for a *failed* I/O operation.
                  */
 
-                save_errno = WSAGetLastError(); // Details
+                save_errno = sock_errno(); // Details
 
                 SGDBG( ("WIN-ESAIO",
                         "esaio_completion_main -> [failure 2] "
@@ -1173,6 +1644,12 @@ void* esaio_completion_main(void* threadDataP)
             done = esaio_completion_terminate(dataP, opP);
             break;
 
+        case ESAIO_OP_CONNECT:
+            SGDBG( ("WIN-ESAIO",
+                    "esaio_completion_main -> received connect cmd\r\n") );
+            done = esaio_completion_connect(dataP, descP, opP, save_errno);
+            break;
+
         default:
             SGDBG( ("WIN-ESAIO",
                     "esaio_completion_main -> received unknown cmd: "
@@ -1180,7 +1657,7 @@ void* esaio_completion_main(void* threadDataP)
                     "\r\n",
                     opP->tag) );
             done = esaio_completion_unknown(dataP, descP, opP, numBytes,
-                                            save_errno);
+                                            (int) save_errno);
             break;
 
         }
@@ -1203,6 +1680,11 @@ void* esaio_completion_main(void* threadDataP)
 }
 
 
+/* *** esaio_completion_terminate ***
+ *
+ * We are done
+ *
+ */
 static
 BOOLEAN_T  esaio_completion_terminate(ESAIOThreadData* dataP,
                                       ESAIOOperation*  opP)
@@ -1215,6 +1697,177 @@ BOOLEAN_T  esaio_completion_terminate(ESAIOThreadData* dataP,
     return TRUE;
 }
 
+
+
+/* *** esaio_completion_connect ***
+ *
+ * Handle a completed 'connect' (completion) request.
+ * Send a 'completion' message (to requestor) with the request status.
+ *
+ * Completion message: 
+ *     {'socket tag', socket(), completion, CompletionInfo}
+ *
+ *     CompletionInfo:   {CompletionHandle, CompletionStatus}
+ *     CompletionHandle: reference()
+ *     Result:           ok | {error, Reason}
+ *
+ *
+ * There is a possibillity of a race here. That is, if the user
+ * calls socket:connect(Socket, ..., nowait), the connect is
+ * scheduled, and then just as it has completed, but before this
+ * thread has been activated to handle the 'connect completed'
+ * the user calls socket:close(Socket) (or exits).
+ * Then when this function is called, the socket is closed.
+ * What to do?
+ */
+static
+BOOLEAN_T esaio_completion_connect(ESAIOThreadData* dataP,
+                                   ESockDescriptor* descP,
+                                   ESAIOOperation*  opP,
+                                   int              error)
+{
+    ErlNifEnv*   env = dataP->env;
+    ERL_NIF_TERM result, completionInfo;
+
+    MLOCK(descP->writeMtx);
+
+    /* Check if the socket is open.
+     * If not we do not "need to" process this.
+     * Either the connector has already closed the socket
+     * or the connector has exited (and the socket has been
+     * closed as a result of that.
+     * Possibly the *bad user* sent the socket to some other
+     * process before it was connected and that process closed
+     * the socket...
+     * Either way, there is nothing to do here.
+     */
+
+    SGDBG( ("WIN-ESAIO", "esaio_completion_connect -> verify open\r\n") );
+
+    if (IS_OPEN(descP->writeState)) {
+
+        /* WE SHOULD TEST THAT WE ARE CONNECTING,
+         * SINCE IF WE ARE NOT THAT MEANS THAT THE OPERATION WAS
+         * 'cancelled'!
+         * But if the connect has been cancelled, what do do here?
+         * shutdown?
+         * So, if the connect was successful, we need to terminate
+         * connection: shutdown
+         * But if the if it was unsuccessful, we can assume that
+         * the connection may have already been cancelled...
+         *
+         * When cancel:
+         *      State == connected => shutdown + set state open
+         *      State == connecting => se state cancel
+         *
+         * Here:
+         *     State == cancel => shutdown + set state open
+         *     State == open => do nothing
+         *     State == connecting => normal processing + set state connected
+         */
+
+        /* Still connecting? */
+
+        if (descP->connectorP != NULL) {
+
+            /* So, did the connect attempt succeed or not? */
+            if (error == NO_ERROR) {
+
+                /* *** Success! *** 
+                 * CompletionInfo = {ConnRef, ok}
+                 */
+
+                SGDBG( ("WIN-ESAIO",
+                        "esaio_completion_connect -> success\r\n") );
+
+                result = esock_atom_ok;
+
+            } else {
+
+                /* *** Failure! *** */
+
+                ERL_NIF_TERM reason = MKA(env, erl_errno_id(error));
+
+                SGDBG( ("WIN-ESAIO",
+                        "esaio_completion_connect -> failure: %T\r\n",
+                        reason) );
+
+                result = esock_make_error(env, reason);
+
+            }
+
+            completionInfo = MKT2(env,
+                                  CP_TERM(env, descP->connector.ref),
+                                  result);
+
+            /* Send a 'connect' completion message */
+            esaio_send_completion_msg(env,
+                                      descP,
+                                      &descP->connector.pid,
+                                      descP->connector.env,
+                                      CP_TERM(descP->connector.env,
+                                              opP->data.connect.sockRef),
+                                      completionInfo);
+
+            /* Finalize */
+
+            ESOCK_ASSERT( (descP->connectorP != NULL) );
+
+            esock_requestor_release("esaio_completion_connect finalize -> "
+                                    "connected",
+                                    env, descP, &descP->connector);
+            descP->connectorP  = NULL;
+            descP->writeState &=
+                ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
+            descP->writeState |= ESOCK_STATE_CONNECTED;
+
+        } else {
+
+            /* *Not* connecting! Connect has been cancelled => cleanup
+             * If the op failed, its safe to assume that the error is
+             * the result of the cancellation, and we do not actually
+             * need to do anything here.
+             * If however, the connect succeeded, we need to do "some 
+             * cleanup".
+             * But what can we do here? We have a connected socket,
+             * that the owner actually do not want...
+             * Send an abort message to the owner?
+             */
+
+            if (error == NO_ERROR) {
+                ERL_NIF_TERM sockRef = enif_make_resource(env, descP);
+
+                (void) sock_close(descP->sock);
+
+                esock_send_simple_abort_msg(env, descP, &descP->ctrlPid,
+                                            sockRef, esock_atom_closed);
+
+            }
+        }
+    }
+    
+    MUNLOCK(descP->writeMtx);
+
+    SGDBG( ("WIN-ESAIO",
+            "esaio_completion_connect -> clean and delete op env\r\n") );
+
+    /* No need for this "stuff" anymore */
+    esock_clear_env("esaiocompletion--connect", opP->data.connect.env);
+    esock_free_env("esaio-completion-connect", opP->data.connect.env);
+    FREE( opP );    
+    
+    SGDBG( ("WIN-ESAIO", "esaio_completion_connect -> done\r\n") );
+
+    return FALSE;
+}
+
+
+/* *** esaio_completion_unknown ***
+ * What shall we actually do here?
+ * Increment counters (bytes, number of unknown packages)?
+ * Send a messge with this info to "someone"?
+ * Write a (error) message to stdout/stderr?
+ */
 static
 BOOLEAN_T esaio_completion_unknown(ESAIOThreadData* dataP,
                                    ESockDescriptor* descP,
@@ -1265,4 +1918,49 @@ int esaio_add_socket(ESockDescriptor* descP)
     }
 
     return res;
+}
+
+
+static
+void esaio_send_completion_msg(ErlNifEnv*       sendEnv,
+                               ESockDescriptor* descP,
+                               ErlNifPid*       pid,
+                               ErlNifEnv*       msgEnv,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     connRef)
+{
+    ERL_NIF_TERM msg = mk_completion_msg(msgEnv, sockRef, connRef);
+
+    /* This can only fail if:
+     *   - The recipient is dead.
+     *     Our monitor should clear this up ... eventually.
+     *     Possible race?
+     *   - We (the sender) are "dead" (which we are clearly not)
+     */
+    if (! esock_send_msg(sendEnv, pid, msg, NULL)) {
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_send_completion_msg(%T) {%d} failed ->"
+                "\r\n   pid: %T"
+                "\r\n",
+                sockRef, descP->sock, MKPID(sendEnv, pid)) );
+    }
+}
+
+
+/* *** mk_completion_msg ***
+ *
+ * Construct a completion (socket) message. It has the form: 
+ *
+ *         {'$socket', Socket, completion, CompletionInfo}
+ *
+ */
+
+static
+ERL_NIF_TERM mk_completion_msg(ErlNifEnv*   env,
+                               ERL_NIF_TERM sockRef,
+                               ERL_NIF_TERM info)
+{
+    return esock_mk_socket_msg(env, sockRef,
+                               esock_atom_completion, info);
 }

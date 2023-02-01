@@ -40,12 +40,118 @@
     the functions,
     e.g. <seemfa marker="#recv/3"><c>recv/3</c></seemfa>, 
     have a time-out argument. </p>
+
     <marker id="asynchronous-call"/>
     <note>
       <p>
-        Some functions allow for an <i>asynchronous</i> call.
-        This is achieved by setting the <c>Timeout</c> argument to
-        <c>nowait</c>. For instance, if calling the
+	Some functions allow for an <i>asynchronous</i> call.
+	This is achieved by setting the <c>Timeout</c> argument to
+	<c>nowait</c>.
+      </p>
+      <p>
+	For instance, if calling the
+        <seeerl marker="#recv-nowait"><c>recv/3</c></seeerl>
+        function with Timeout set to <c>nowait</c>
+        (<c>recv(Sock, 0, nowait)</c>)
+	when there is actually nothing to read, it will return with either
+	one of:
+      </p>
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{completion, </c>
+	<seetype marker="#completion_info"><c>CompletionInfo</c></seetype><c>}</c></item>
+	<tag></tag>
+	<item><c>{select, </c>
+	<seetype marker="#select_info"><c>SelectInfo</c></seetype><c>}</c></item>
+      </taglist>
+      <p>
+	<c>CompletionInfo</c> contains the
+	<seetype marker="socket#select_handle">CompletionHandle</seetype> and
+	<c>SelectInfo</c> contains the
+	<seetype marker="socket#select_handle">SelectHandle</seetype>.
+      </p>
+      <p>
+	We have two different implementations.
+	One on <i>Unix</i> (<c>select</c>, based directly on the synchronous
+	standard socket interface)
+	and one on <i>Windows</i> (<c>completion</c>, based on the
+	asynchronous I/O Completion Ports).
+      </p>
+      <p>
+	These two implementations have a slightly different behaviour
+	and message interface.
+      </p>
+      <p>
+	The difference will only manifest for the user, if calls are made
+	with the timeout argument set to 'nowait' (see above).
+      </p>
+
+      <p>
+	When an completion message is received (<em>with</em> the result of the
+	operation), that means that the operation (connect, send, recv, ...)
+	has been <em>completed</em> (successfully or otherwise).
+	When a select message is received, that only means that the operation
+	<em>can now be completed</em>, via a call to, for instance,
+	<seemfa marker="#connect/1"><c>connect/1</c></seemfa>.
+      </p>
+
+      <p>The completion message has the format:</p>
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{'$socket', socket(), completion, {CompletionHandle, CompletionStatus}}</c></item>
+      </taglist>
+      <p>The select message has the format: </p>
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{'$socket', socket(), select, SelectHandle}</c></item>
+      </taglist>
+      <p>
+	Note that, on select "system", all other users are <em>locked out</em>
+	until the 'current user' has called the function (<c>recv</c>
+	for instance) and its return value shows that the operation has
+	completed.
+        Such an operation can also be cancelled with
+	<seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>.
+      </p>
+      <p>
+	Instead of <c>Timeout = nowait</c> it is equivalent to create a
+	<seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>
+	or
+	<seetype marker="socket#completion_handle"><c>CompletionHandle</c></seetype>
+	with
+	<seemfa marker="erts:erlang#make_ref/0"><c>make_ref()</c></seemfa>
+	and give as <c>Timeout</c>.
+	This will then be the <c>Handle</c> in the 'completion' or 'select'
+	message, which enables a compiler optimization for receiving
+	a message containing a newly created <c>reference()</c>
+	(ignore the part of the message queue that had arrived
+	before the the <c>reference()</c> was created).
+      </p>
+      <p>Another message the user must be prepared for (when making asynchronous
+      calls) is the <c>abort</c> message:</p>
+      <taglist>
+	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
+	<tag></tag>
+	<item><c>{'$socket', socket(), abort, Info}</c></item>
+      </taglist>
+      <p>This message indicates
+      that the (asynchronous) operation has been aborted.
+      If, for instance, the socket has been closed (by another process),
+      <c>Info</c> will be <c>{SelectHandle, closed}</c>. </p>
+    </note>
+
+    <marker id="asynchronous-call"/>
+    <note>
+      <p>OLD NOTE</p>
+      <p>Select-based <i>asynchronous</i> message interface. </p>
+      <p>
+	Some functions allow for an <i>asynchronous</i> call.
+	This is achieved by setting the <c>Timeout</c> argument to
+        <c>nowait</c>.
+	For instance, if calling the
         <seeerl marker="#recv-nowait"><c>recv/3</c></seeerl>
         function with Timeout set to <c>nowait</c>
         (<c>recv(Sock, 0, nowait)</c>)
@@ -75,7 +181,7 @@
 	<seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>.
       </p>
       <p>
-	Instead of <c>Timeout = nowait</c> it is equivalent to	create a
+	Instead of <c>Timeout = nowait</c> it is equivalent to create a
 	<seetype marker="socket#select_handle"><c>SelectHandle</c></seetype>)
 	with
 	<seemfa marker="erts:erlang#make_ref/0"><c>make_ref()</c></seemfa>
@@ -100,7 +206,8 @@
     </note>
     <note>
       <p>There is currently <em>no</em> support for Windows. </p>
-      <p>Support for IPv6 has been implemented but <em>not</em> tested. </p>
+      <p>Support for IPv6 has been implemented but not <em>fully</em>
+      tested. </p>
       <p>SCTP has only been partly implemented (and not tested). </p>
     </note>
   </description>
@@ -206,6 +313,41 @@
         </p>
       </desc>
     </datatype>
+
+    <datatype>
+      <name name="completion_tag"/>
+      <desc>
+	<p>
+          A tag that describes the ongoing (completion) operation,
+          contained in the returned
+          <seetype marker="#completion_info"><c>completion_info()</c></seetype>.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="completion_handle"/>
+      <desc>
+	<p>
+	  A <c>reference()</c> that uniquely identifies
+	  the (completion) operation, contained in the returned
+          <seetype marker="#completion_info"><c>completion_info()</c></seetype>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="completion_info"/>
+      <desc>
+        <p>
+          Returned by an operation that requires the caller to wait
+          for a
+          <seeerl marker="#asynchronous-call">completion message</seeerl>
+          containing the
+	  <seetype marker="#completion_handle"><c>CompletionHandle</c></seetype>
+	  <em>and</em> the result of the operation; the <c>CompletionStatus</c>.
+        </p>
+      </desc>
+    </datatype>
+
     <datatype>
       <name name="info"/>
       <desc>
@@ -1467,7 +1609,8 @@
     </func>
 
     <func>
-      <name name="cancel" arity="2" since="OTP 22.1"/>
+      <name name="cancel" arity="2" clause_i="1" since="OTP 22.1"/>
+      <name name="cancel" arity="2" clause_i="2" since="OTP-18029"/>
       <fsummary>Cancel an asynchronous request.</fsummary>
       <desc>
 	<p>Cancel an asynchronous request.</p>

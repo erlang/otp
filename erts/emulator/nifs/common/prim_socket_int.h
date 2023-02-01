@@ -80,6 +80,9 @@ typedef int SOCKET; /* A subset of HANDLE */
 //
 #define ESOCK_STATE_DTOR         0x8000
 
+#define IS_BOUND(st)                           \
+    (((st) & ESOCK_STATE_BOUND) != 0)
+
 #define IS_CLOSED(st)                           \
     (((st) & ESOCK_STATE_CLOSED) != 0)
 
@@ -533,6 +536,11 @@ extern void esock_send_reg_del_msg(ErlNifEnv*   env,
 
 
 /* *** Message sending functions *** */
+extern void esock_send_simple_abort_msg(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ErlNifPid*       pid,
+                                        ERL_NIF_TERM     sockRef,
+                                        ERL_NIF_TERM     reason);
 extern void esock_send_abort_msg(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     sockRef,
@@ -591,6 +599,9 @@ extern int esock_select_cancel(ErlNifEnv*             env,
                                ErlNifEvent            event,
                                enum ErlNifSelectFlags mode,
                                void*                  obj);
+extern ERL_NIF_TERM esock_cancel_write_select(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     opRef);
 
 
 /* *** Request queue functions *** */
@@ -662,6 +673,7 @@ ESOCK_OPERATOR_FUNCS_DEFS
 /* *** Environment wrapper functions ***
  * These hould really be inline, but for now...
  */
+extern void       esock_clear_env(const char* slogan, ErlNifEnv* env);
 extern void       esock_free_env(const char* slogan, ErlNifEnv* env);
 extern ErlNifEnv* esock_alloc_env(const char* slogan);
 
@@ -726,6 +738,16 @@ extern ESockSendfileCounters initESockSendfileCounters;
 
 #endif
 
+/* *** message functions ****
+ */
+extern BOOLEAN_T esock_send_msg(ErlNifEnv*   env,
+                                ErlNifPid*   pid,
+                                ERL_NIF_TERM msg,
+                                ErlNifEnv*   msgEnv);
+extern ERL_NIF_TERM esock_mk_socket_msg(ErlNifEnv*   env,
+                                        ERL_NIF_TERM sockRef,
+                                        ERL_NIF_TERM tag,
+                                        ERL_NIF_TERM info);
 
 /* *** 'close' functions ***
  */

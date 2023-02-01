@@ -137,5 +137,8 @@ extern ERL_NIF_TERM esaio_sockname(ErlNifEnv*       env,
                                    ESockDescriptor* descP);
 extern ERL_NIF_TERM esaio_peername(ErlNifEnv*       env,
                                    ESockDescriptor* descP);
+extern ERL_NIF_TERM esaio_cancel_connect(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     opRef);
 
 #endif // SOCKET_ASYNCIO_H__

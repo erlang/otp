@@ -1023,7 +1023,7 @@ ERL_NIF_TERM essio_connect(ErlNifEnv*       env,
                                               MKI(env, sres)));
             /* Initiate connector */
             descP->connector.pid = self;
-            ESOCK_ASSERT( MONP("esock_connect -> conn",
+            ESOCK_ASSERT( MONP("essio_connect -> conn",
                                env, descP,
                                &self, &descP->connector.mon) == 0 );
             descP->connector.env = esock_alloc_env("connector");
@@ -2986,6 +2986,60 @@ ERL_NIF_TERM essio_peername(ErlNifEnv*       env,
       return esock_make_ok2(env, esa);
   }
 }
+
+
+/* ========================================================================
+ * Cancel a connect request.
+ */
+
+extern
+ERL_NIF_TERM essio_cancel_connect(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     opRef)
+{
+    ERL_NIF_TERM res;
+    ErlNifPid    self;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_connect {%d} -> entry with"
+            "\r\n   writeState: 0x%X"
+            "\r\n   opRef:      %T"
+            "\r\n",
+            descP->sock, descP->writeState, opRef) );
+
+    ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+    if (! IS_OPEN(descP->writeState)) {
+
+        res = esock_make_error_closed(env);
+
+    } else if ((descP->connectorP == NULL) ||
+               (COMPARE_PIDS(&self, &descP->connector.pid) != 0) ||
+               (COMPARE(opRef, descP->connector.ref) != 0)) {
+
+        res = esock_make_error(env, esock_atom_not_found);
+
+    } else {
+
+        res = esock_cancel_write_select(env, descP, opRef);
+        esock_requestor_release("esock_cancel_connect",
+                                env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~ESOCK_STATE_CONNECTING;
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_connect {%d} -> done when"
+            "\r\n   res: %T"
+            "\r\n",
+            descP->sock, descP->writeState,
+            opRef, res) );
+
+    return res;
+}
+
 
 
 /* ----------------------------------------------------------------------
