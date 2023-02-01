@@ -121,7 +121,6 @@ typedef struct ErtsCodeInfo_ {
 typedef struct {
     erts_refc_t pending_schedulers;
     ErtsThrPrgrLaterOp later_op;
-    void *esdp;
     UWord size;
 
     void (*later_function)(void *);

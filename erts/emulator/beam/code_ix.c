@@ -398,29 +398,7 @@ static void issue_instruction_barrier(void *barrier_) {
     ERTS_THR_INSTRUCTION_BARRIER;
 
     if (erts_refc_dectest(&barrier->pending_schedulers, 0) == 0) {
-#    ifdef ERTS_ENABLE_LOCK_CHECK
-        ErtsSchedulerData *initial_esdp = (ErtsSchedulerData*)barrier->esdp;
-
-        /* HACK: Dodges a broken lock-checking assertion, which requires that
-         * the _thread_ that takes a code permission is also the one that
-         * releases it.
-         *
-         * This has never held since processes can migrate between schedulers,
-         * but we have to roll with the punches. Commit the code on the
-         * scheduler that called `erts_schedule_code_barrier` in the hopes that
-         * it's the right one.
-         *
-         * This has been fixed in `master`. */
-        if (initial_esdp && initial_esdp != erts_get_scheduler_data()) {
-            erts_schedule_misc_aux_work(initial_esdp->no,
-                                        schedule_code_barrier_later_op,
-                                        barrier);
-        } else {
-            schedule_code_barrier_later_op(barrier);
-        }
-#    else
         schedule_code_barrier_later_op(barrier);
-#    endif
     }
 }
 #endif
@@ -440,7 +418,6 @@ void erts_schedule_code_barrier_cleanup(ErtsCodeBarrier *barrier,
     erts_debug_unrequire_code_barrier();
 #endif
 
-    barrier->esdp = erts_get_scheduler_data();
     barrier->later_function = later_function;
     barrier->later_data = later_data;
     barrier->size = size;
