@@ -653,6 +653,8 @@ read_handle_info_1(Fd, TimeType) ->
         error:_ -> {error, badarg}
     end.
 
+adjust_times(FileInfo, posix) ->
+    FileInfo;
 adjust_times(FileInfo, TimeType) ->
     CTime = from_posix_seconds(FileInfo#file_info.ctime, TimeType),
     MTime = from_posix_seconds(FileInfo#file_info.mtime, TimeType),
@@ -877,8 +879,6 @@ is_path_translatable(Path) ->
 %% We want to use posix time in all prim but erl_prim_loader makes that tricky
 %% It is probably needed to redo the whole erl_prim_loader
 
-from_posix_seconds(Seconds, posix) when is_integer(Seconds) ->
-    Seconds;
 from_posix_seconds(Seconds, universal) when is_integer(Seconds) ->
     erlang:posixtime_to_universaltime(Seconds);
 from_posix_seconds(Seconds, local) when is_integer(Seconds) ->
