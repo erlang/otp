@@ -54,18 +54,7 @@ void BeamModuleAssembler::emit_return() {
     /* The reduction test is kept in module code because moving it to a shared
      * fragment caused major performance regressions in dialyzer. */
     a.dec(FCALLS);
-
-    if (yieldReturn.isValid()) {
-        /* We're in an ordinary module. Reduce the code size by branching to
-         * the yield trampoline in the module header. */
-        a.jl(yieldReturn);
-    } else {
-        Label next = a.newLabel();
-
-        a.short_().jge(next);
-        abs_jmp(ga->get_dispatch_return());
-        a.bind(next);
-    }
+    a.jl(resolve_fragment(ga->get_dispatch_return()));
 
 #ifdef NATIVE_ERLANG_STACK
     a.ret();

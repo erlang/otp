@@ -2476,7 +2476,7 @@ void BeamModuleAssembler::emit_raw_raise() {
 #define TEST_YIELD_RETURN_OFFSET                                               \
     (BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(Uint32[3]))
 
-/* ARG3 = currLabel */
+/* ARG3 = current_label */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
     a.sub(ARG2, ARG3, imm(sizeof(ErtsCodeMFA)));
     a.add(ARG3, ARG3, imm(TEST_YIELD_RETURN_OFFSET));
@@ -2491,14 +2491,14 @@ void BeamGlobalAssembler::emit_i_test_yield_shared() {
 void BeamModuleAssembler::emit_i_test_yield() {
     /* When present, this is guaranteed to be the first instruction after the
      * breakpoint trampoline. */
-    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 
-    a.adr(ARG3, currLabel);
+    a.adr(ARG3, current_label);
     a.subs(FCALLS, FCALLS, imm(1));
     a.b_le(resolve_fragment(ga->get_i_test_yield_shared(), disp1MB));
 
-    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            TEST_YIELD_RETURN_OFFSET);
 }
 

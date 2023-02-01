@@ -258,7 +258,7 @@ void BeamModuleAssembler::emit_raise_exception(x86::Gp I,
     }
 #endif
 
-    abs_jmp(ga->get_raise_exception_shared());
+    a.jmp(resolve_fragment(ga->get_raise_exception_shared()));
 }
 
 void BeamGlobalAssembler::emit_process_exit() {

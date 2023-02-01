@@ -44,6 +44,10 @@
  * - ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER
  *      Data dependency read barrier. Orders *only* loads
  *      according to data dependency across the barrier.
+ * - ERTS_THR_INSTRUCTION_BARRIER
+ *      Instruction synchronization barrier. Orders *only*
+ *      instruction fetches. These are not allowed to be
+ *      reordered over the barrier.
  *
  * --- Atomic operations ---
  *
@@ -265,6 +269,23 @@
 #define ERTS_THR_WRITE_MEMORY_BARRIER ETHR_WRITE_MEMORY_BARRIER
 #define ERTS_THR_READ_MEMORY_BARRIER ETHR_READ_MEMORY_BARRIER
 #define ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER ETHR_READ_DEPEND_MEMORY_BARRIER
+
+#ifdef ETHR_INSTRUCTION_BARRIER
+#  define ERTS_THR_INSTRUCTION_BARRIER ETHR_INSTRUCTION_BARRIER
+#else
+/* !! Note that we DO NOT define a fallback !!
+ *
+ * If we cannot issue an instruction barrier ourselves, we are most likely
+ * running on an operating system that disallows this operation from user-space
+ * (e.g. MacOS). In that case, we either:
+ *
+ * 1. Rely on a system call to do everything for us, including core
+ *    synchronization.
+ * 2. Lack a way to control instruction cache, and therefore can't use the JIT
+ *    begin with.
+ *
+ * In either case we want a compile-time error when this barrier is used. */
+#endif
 
 #ifdef ERTS_ENABLE_LOCK_POSITION
 #define erts_mtx_lock(L) erts_mtx_lock_x(L, __FILE__, __LINE__)

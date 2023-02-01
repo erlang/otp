@@ -141,6 +141,21 @@
 
 #define ETHR_COMPILER_BARRIER __asm__ __volatile__("" : : : "memory")
 
+#if ETHR_HAVE_GCC_ASM_ARM_ISB_SY_INSTRUCTION
+#define ETHR_INSTRUCTION_BARRIER ethr_instruction_fence__()
+
+static __inline__ __attribute__((__always_inline__)) void
+ethr_instruction_fence__(void)
+{
+    __asm__ __volatile__("isb sy" : : : "memory");
+}
+#else
+/* !! Note that we DO NOT define a fallback !!
+ *
+ * See the definition of ERTS_THR_INSTRUCTION_BARRIER in erl_threads.h for
+ * details. */
+#endif
+
 #if ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION
 
 static __inline__ __attribute__((__always_inline__)) void

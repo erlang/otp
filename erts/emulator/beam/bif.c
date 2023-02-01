@@ -5520,7 +5520,6 @@ void erts_init_trap_export(Export *ep, Eterm m, Eterm f, Uint a,
 #endif
 
     ep->bif_number = -1;
-    ep->info.op = op_i_func_info_IaaI;
     ep->info.mfa.module = m;
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
@@ -5599,11 +5598,7 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
     (void) erts_nfunc_schedule(c_p, dirty_shadow_proc,
 				    mfa, pc,
-#ifdef BEAMASM
-                                    op_call_bif_W,
-#else
                                     BeamOpCodeAddr(op_call_bif_W),
-#endif
 				    dfunc, ifunc,
 				    module, function,
 				    argc, argv);

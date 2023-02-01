@@ -126,8 +126,6 @@ void BeamAssembler::_codegen(JitAllocator *allocator,
                            code.codeSize(),
                            CopySectionFlags::kPadSectionBuffer);
 
-    beamasm_flush_icache(*executable_ptr, code.codeSize());
-
 #ifdef DEBUG
     if (FileLogger *l = dynamic_cast<FileLogger *>(code.logger()))
         if (FILE *f = l->file())
@@ -218,7 +216,7 @@ void BeamModuleAssembler::codegen(JitAllocator *allocator,
     codegen(allocator, executable_ptr, writable_ptr);
 
     {
-        auto offset = code.labelOffsetFromBase(codeHeader);
+        auto offset = code.labelOffsetFromBase(code_header);
 
         auto base_exec = (const char *)(*executable_ptr);
         code_hdr_exec = (const BeamCodeHeader *)&base_exec[offset];
@@ -474,7 +472,7 @@ void BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
 }
 
 BeamCodeHeader *BeamModuleAssembler::getCodeHeader() {
-    return (BeamCodeHeader *)getCode(codeHeader);
+    return (BeamCodeHeader *)getCode(code_header);
 }
 
 const ErtsCodeInfo *BeamModuleAssembler::getOnLoad() {

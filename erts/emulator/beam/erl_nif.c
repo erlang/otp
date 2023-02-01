@@ -96,7 +96,7 @@ struct erl_module_nif {
                           */
     erts_mtx_t load_mtx; /* protects load finish from unload */
     struct ErtsNifFinish_* finish;
-    ErtsThrPrgrLaterOp lop;
+    ErtsCodeBarrier barrier;
 
     void* priv_data;
     void* handle;             /* "dlopen", NULL for static linked */
@@ -377,11 +377,7 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
     ep = erts_nfunc_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
                                   caller,
-                             #ifdef BEAMASM
-				  op_call_nif_WWW,
-                             #else
                                   BeamOpCodeAddr(op_call_nif_WWW),
-                             #endif
 				  direct_fp, indirect_fp,
 				  mod, func_name,
 				  argc, (const Eterm *) argv);
@@ -4343,7 +4339,7 @@ static int get_func_ix(const BeamCodeHeader* mod_code,
         const ErtsCodeInfo* ci = mod_code->functions[j];
 
 #ifndef BEAMASM
-        ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+        ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI));
 #endif
 
         if (f_atom == ci->mfa.function && arity == ci->mfa.arity) {
@@ -4532,8 +4528,7 @@ typedef struct {
     {
         /* data */
 #ifdef BEAMASM
-        BeamInstr prologue[BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(UWord)];
-        BeamInstr call_nif[7];
+        char call_nif[64];
 #else
         BeamInstr call_nif[4];
 #endif
@@ -4904,13 +4899,12 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
         cleanup_opened_rt();
 
         /*
-         * Now we wait thread progress, to make sure no process is still
-         * executing the beam code of the NIFs, before we can patch in the
-         * final fast multi word call_nif_WWW instructions.
+         * Schedule a code barrier to make sure that no process is executing
+         * the to-be-patched functions, and that the `erts_call_nif_early`
+         * breakpoints are in effect before we try to patch module code.
          */
         erts_refc_inc(&lib->refc, 2);
-        erts_schedule_thr_prgr_later_op(load_nif_1st_finisher, lib,
-                                        &lib->lop);
+        erts_schedule_code_barrier(&lib->barrier, load_nif_1st_finisher, lib);
     }
     else {
     error:
@@ -4974,12 +4968,12 @@ static void patch_call_nif_early(ErlNifEntry* entry,
             /* `ci` is writable. */
             code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
 
-            if (ci_rw->u.gen_bp) {
+            if (ci_rw->gen_bp) {
                 /*
                  * Function traced, patch the original instruction word
                  * Code write permission protects against racing breakpoint writes.
                  */
-                GenericBp* g = ci_rw->u.gen_bp;
+                GenericBp* g = ci_rw->gen_bp;
                 g->orig_instr = BeamSetCodeAddr(g->orig_instr, call_nif_early);
                 if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint))
                     continue;
@@ -5028,11 +5022,12 @@ static void load_nif_1st_finisher(void* vlib)
 #ifdef BEAMASM
             const char *code_exec = (char*)erts_codeinfo_to_code(ci_exec);
             char *code_rw = (char*)erts_codeinfo_to_code(ci_rw);
+            const char *src = fin->beam_stubv[i].code.call_nif;
 
             size_t cpy_sz = sizeof(fin->beam_stubv[0].code.call_nif);
 
             sys_memcpy(&code_rw[BEAM_ASM_FUNC_PROLOGUE_SIZE],
-                       fin->beam_stubv[i].code.call_nif,
+                       &src[BEAM_ASM_FUNC_PROLOGUE_SIZE],
                        cpy_sz);
 
             beamasm_flush_icache(&code_exec[BEAM_ASM_FUNC_PROLOGUE_SIZE],
@@ -5058,13 +5053,9 @@ static void load_nif_1st_finisher(void* vlib)
     erts_mtx_unlock(&lib->load_mtx);
 
     if (fin) {
-        /*
-         * A second thread progress to get a memory barrier between the
-         * arguments of call_nif_WWW (written above) and the instruction word
-         * itself.
-         */
-        erts_schedule_thr_prgr_later_op(load_nif_2nd_finisher, lib,
-                                        &lib->lop);
+        /* Schedule a code barrier to ensure that the `call_nif_WWW` sequence
+         * is visible before we start disabling the breakpoints. */
+        erts_schedule_code_barrier(&lib->barrier, load_nif_2nd_finisher, lib);
     }
     else { /* Unloaded */
         deref_nifmod(lib);
@@ -5101,11 +5092,11 @@ static void load_nif_2nd_finisher(void* vlib)
 
             code_ptr = (BeamInstr*)erts_codeinfo_to_code(ci_rw);
 
-            if (ci_rw->u.gen_bp) {
+            if (ci_rw->gen_bp) {
                 /*
                  * Function traced, patch the original instruction word
                  */
-                GenericBp* g = ci_rw->u.gen_bp;
+                GenericBp* g = ci_rw->gen_bp;
                 ASSERT(BeamIsOpCode(g->orig_instr, op_call_nif_early));
                 g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
 
@@ -5130,13 +5121,13 @@ static void load_nif_2nd_finisher(void* vlib)
     if (fin) {
         UWord bytes = sizeof_ErtsNifFinish(lib->entry.num_of_funcs);
         /*
-         * A third and final thread progress, to make sure no one is executing
-         * the call_nif_early instructions anymore, before we can deallocate
-         * the beam stubs.
+         * A third and final code barrier to make that the removal of the
+         * breakpoints is visible and that no one is executing them while we
+         * remove them.
          */
-        erts_schedule_thr_prgr_later_cleanup_op(load_nif_3rd_finisher, lib,
-                                                &lib->lop,
-                                                bytes);
+        erts_schedule_code_barrier_cleanup(&lib->barrier,
+                                            load_nif_3rd_finisher, lib,
+                                            bytes);
     }
     else { /* Unloaded */
         deref_nifmod(lib);

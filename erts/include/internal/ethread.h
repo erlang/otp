@@ -95,10 +95,12 @@
 #endif
 
 ETHR_PROTO_NORETURN__
-ethr_assert_failed(const char *file, int line, const char *func, char *a);
+ethr_assert_failed(const char *file, int line, const char *func, const char *a);
 #ifdef ETHR_DEBUG
-#define ETHR_ASSERT(A) \
-  ((void) ((A) ? 1 : ethr_assert_failed(__FILE__, __LINE__, __func__, #A)))
+#define ETHR_ASSERT(A)                                                        \
+  ((void) ((A) ?                                                              \
+           ((void) 1) :                                                       \
+           ethr_assert_failed(__FILE__, __LINE__, __func__, #A)))
 #else
 #define ETHR_ASSERT(A) ((void) 1)
 #endif
@@ -312,6 +314,10 @@ ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
     ETHR_X86_RUNTIME_CONF_HAVE_META(nonstop_tsc_s3)
 #  define ETHR_X86_RUNTIME_CONF_HAVE_NO_NONSTOP_TSC_S3__        \
     ETHR_X86_RUNTIME_CONF_HAVE_NO_META(nonstop_tsc_s3)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_CPUID__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(cpuid)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_CPUID__        \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(cpuid)
 
 #endif
 
@@ -336,6 +342,7 @@ typedef struct {
     int have_tsc_reliable;
     int have_nonstop_tsc;
     int have_nonstop_tsc_s3;
+    int have_cpuid;
 #endif
 #if defined(ETHR_PPC_RUNTIME_CONF__)
     int have_lwsync;
