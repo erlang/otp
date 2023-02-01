@@ -142,7 +142,7 @@
         <c><![CDATA[process_dump]]></c> | <c><![CDATA[enable_trace]]></c> |
         <c><![CDATA[disable_trace]]></c> | <c><![CDATA[trace]]></c> |
         <c><![CDATA[display]]></c> | <c><![CDATA[caller]]></c> |
-        <c><![CDATA[caller_line]]></c> |
+        <c><![CDATA[caller_line]]></c> | <c><![CDATA[current_stacktrace]]></c> |
         <c><![CDATA[set_tcw]]></c> | <c><![CDATA[silent]]></c>
       </item>
     </list>
@@ -462,6 +462,19 @@
              <c><![CDATA[caller_line]]></c> function sometimes returns the atom
              <c><![CDATA[undefined]]></c>. The calling
              Erlang function is not available during such calls.</p>
+        </item>
+        <tag><c>current_stacktrace</c></tag>
+        <item>
+          <p>Returns the current call stack back-trace
+            (<seetype marker="erts:erlang#stacktrace">stacktrace</seetype>)
+            of the calling function. The stack has the same format as in the
+            <c>catch</c> part of a <c>try</c>. See <seeguide
+            marker="system/reference_manual:errors#stacktrace">The call-stack back trace (stacktrace)</seeguide>.
+            The depth of the stacktrace is truncated according to the
+            <c>backtrace_depth</c> system flag setting.</p>
+
+          <p>Accepts a depth parameter. The depth value will be
+            <c>backtrace_depth</c> if the argument is greater.</p>
         </item>
         <tag><c>display</c></tag>
           <item>

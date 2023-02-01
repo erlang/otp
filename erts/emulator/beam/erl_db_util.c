@@ -295,6 +295,7 @@ typedef enum {
     matchTrace2,
     matchTrace3,
     matchCallerLine,
+    matchCurrentStacktrace
 } MatchOps;
 
 /*
@@ -2804,6 +2805,64 @@ restart:
                }
             }
             break;
+        case matchCurrentStacktrace: {
+            Uint sz;
+            Uint heap_size;
+            Eterm mfa;
+            Eterm res;
+            struct StackTrace *s;
+            int depth;
+            FunctionInfo* stk;
+            FunctionInfo* stkp;
+
+            ASSERT(c_p == self);
+
+            depth = unsigned_val(esp[-1]);
+            esp--;
+
+            sz = offsetof(struct StackTrace, trace) + sizeof(ErtsCodePtr) * depth;
+            s = (struct StackTrace *) erts_alloc(ERTS_ALC_T_TMP, sz);
+            s->depth = 0;
+            s->pc = NULL;
+
+            erts_save_stacktrace(c_p, s, depth);
+
+            depth = s->depth;
+            stk = stkp = (FunctionInfo *) erts_alloc(ERTS_ALC_T_TMP,
+                                                     depth*sizeof(FunctionInfo));
+
+            heap_size = 0;
+            for (i = 0; i < depth; i++) {
+                erts_lookup_function_info(stkp, s->trace[i], 1);
+                if (stkp->mfa) {
+                    heap_size += stkp->needed + 2;
+                    stkp++;
+                }
+            }
+
+            res = NIL;
+
+            if (heap_size > 0) {
+                int count = stkp - stk;
+
+                ASSERT(count > 0 && count <= MAX_BACKTRACE_SIZE);
+
+                ehp = HAllocX(build_proc, heap_size, HEAP_XTRA);
+
+                for (i = count - 1; i >= 0; i--) {
+                    ehp = erts_build_mfa_item(&stk[i], ehp, am_true, &mfa, NIL);
+                    res = CONS(ehp, mfa, res);
+                    ehp += 2;
+                }
+            }
+
+            *esp++ = res;
+
+            erts_free(ERTS_ALC_T_TMP, stk);
+            erts_free(ERTS_ALC_T_TMP, s);
+
+            break;
+        }
         case matchSilent:
             ASSERT(c_p == self);
 	    --esp;
@@ -4970,6 +5029,57 @@ static DMCRet dmc_caller_line(DMCContext *context,
     return retOk;
 }
 
+static DMCRet dmc_current_stacktrace(DMCContext *context,
+                                    DMCHeap *heap,
+                                    DMC_STACK_TYPE(UWord) *text,
+                                    Eterm t,
+                                    int *constant)
+{
+    Eterm *p = tuple_val(t);
+    Uint a = arityval(*p);
+    DMCRet ret;
+    int depth;
+
+    if (!check_trace("current_stacktrace", context, constant,
+                    (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), 0, &ret))
+        return ret;
+
+    switch (a) {
+    case 1:
+        *constant = 0;
+        do_emit_constant(context, text, make_small(erts_backtrace_depth));
+        DMC_PUSH(*text, matchCurrentStacktrace);
+        break;
+    case 2:
+        *constant = 0;
+
+        if (!is_small(p[2])) {
+            RETURN_ERROR("Special form 'current_stacktrace' called with non "
+                         "small argument.", context, *constant);
+        }
+
+        depth = signed_val(p[2]);
+
+        if (depth < 0) {
+            RETURN_ERROR("Special form 'current_stacktrace' called with "
+                         "negative integer argument.", context, *constant);
+        }
+
+        if (depth > erts_backtrace_depth) {
+            p[2] = make_small(erts_backtrace_depth);
+        }
+
+        do_emit_constant(context, text, p[2]);
+        DMC_PUSH(*text, matchCurrentStacktrace);
+        break;
+    default:
+        RETURN_TERM_ERROR("Special form 'current_stacktrace' called with wrong "
+                          "number of arguments in %T.", t, context,
+                          *constant);
+    }
+    return retOk;
+}
+
 static DMCRet dmc_silent(DMCContext *context,
  			 DMCHeap *heap,
 			 DMC_STACK_TYPE(UWord) *text,
@@ -5058,6 +5168,8 @@ static DMCRet dmc_fun(DMCContext *context,
 	return dmc_caller(context, heap, text, t, constant);
     case am_caller_line:
 	return dmc_caller_line(context, heap, text, t, constant);
+    case am_current_stacktrace:
+	return dmc_current_stacktrace(context, heap, text, t, constant);
     case am_silent:
  	return dmc_silent(context, heap, text, t, constant);
     case am_set_tcw:
@@ -6125,6 +6237,10 @@ void db_match_dis(Binary *bp)
 	case matchCallerLine:
 	    ++t;
 	    erts_printf("CallerLine\n");
+	    break;
+	case matchCurrentStacktrace:
+	    ++t;
+	    erts_printf("CurrentStacktrace\n");
 	    break;
 	default:
 	    erts_printf("??? (0x%bpx)\n", *t);
