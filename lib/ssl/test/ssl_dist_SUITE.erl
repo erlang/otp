@@ -396,16 +396,20 @@ payload(Config) when is_list(Config) ->
 dist_port_overload() ->
     [{doc, "Test that TLS distribution connections can be accepted concurrently"}].
 dist_port_overload(Config) when is_list(Config) ->
+    (RequiredConcurrency = 2) =< erlang:system_info(schedulers_online)
+        orelse
+        throw({skip, "Not enough schedulers online"}),
+    %%
     %% Start a node, and get the port number it's listening on.
     #node_handle{nodename = NodeName} = NH1 = start_ssl_node(Config),
     [Name, Host] = string:lexemes(atom_to_list(NodeName), "@"),
     {ok, NodesPorts} = apply_on_ssl_node(NH1, fun net_adm:names/0),
     {Name, Port} = lists:keyfind(Name, 1, NodesPorts),
-    %% Run 4 connections concurrently. When TLS handshake is not concurrent,
-    %%  and with default net_setuptime of 7 seconds, only one connection per 7
-    %%  seconds is closed from server side. With concurrent accept, all 7 will
-    %%  be dropped in 7 seconds
-    RequiredConcurrency = 4,
+    %% Run RequiredConcurrency connections concurrently.
+    %% When TLS handshake is not concurrent,
+    %% and with default net_setuptime of 7 seconds,
+    %% only one connection per 7 seconds is closed from server side.
+    %% With concurrent accept they will be closed in parallel.
     Started = [connect(self(), Host, Port) || _ <- lists:seq(1, RequiredConcurrency)],
     %% give 10 seconds (more than 7, less than 2x7 seconds)
     Responded = barrier(RequiredConcurrency, [], erlang:system_time(millisecond) + 10000),
