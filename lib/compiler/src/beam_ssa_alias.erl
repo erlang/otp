@@ -38,6 +38,16 @@
 -define(DP(FMT), skip).
 -endif.
 
+%% A code location refering to either the #b_set{} defining a variable
+%% or the terminator of a block.
+-type kill_loc() :: #b_var{} | {terminator, beam_ssa:label()}.
+
+%% Map a code location to the set of variables which die at that
+%% location.
+-type kill_set() :: #{ kill_loc() => sets:set(#b_var{}) }.
+
+-type kills_map() :: #{ func_id() => kill_set() }.
+
 %% Record holding the liveness information for a code location.
 -record(liveness_st, {
                       in = sets:new([{version,2}]) :: sets:set(#b_var{}),
@@ -55,7 +65,8 @@ opt(StMap0, FuncDb0) ->
     %% called) or are stubs for nifs.
     Funs = [ F || F <- maps:keys(StMap0),
                   is_map_key(F, FuncDb0), not is_nif(F, StMap0)],
-    _Liveness = liveness(Funs, StMap0),
+    Liveness = liveness(Funs, StMap0),
+    _KillsMap = killsets(Liveness, StMap0),
     {StMap0, FuncDb0}.
 
 %%%
@@ -147,3 +158,45 @@ is_nif(F, StMap) ->
         _ -> false
     end.
 
+%%%
+%%% Calculate the killset for all functions in the liveness
+%%% information.
+%%%
+-spec killsets([{func_id(),
+                 #{func_id() => {beam_ssa:label(), #liveness_st{}}}}],
+               st_map()) -> kills_map().
+
+killsets(Liveness, StMap) ->
+    maps:from_list([{F, kills_fun(F, StMap, Live)} || {F, Live} <- Liveness]).
+
+%%%
+%%% Calculate the killset for a function. The killset allows us to
+%%% look up the variables that die at a code location.
+%%%
+kills_fun(Fun, StMap, Liveness) ->
+    #opt_st{ssa=SSA} = map_get(Fun, StMap),
+    kills_fun1(SSA, #{}, Liveness).
+
+kills_fun1([{Lbl,Blk}|Blocks], KillsMap0, Liveness) ->
+    KillsMap = kills_block(Lbl, Blk, map_get(Lbl, Liveness), KillsMap0),
+    kills_fun1(Blocks, KillsMap, Liveness);
+kills_fun1([], KillsMap, _) ->
+    KillsMap.
+
+kills_block(Lbl, #b_blk{is=Is,last=Last}, #liveness_st{out=Out}, KillsMap0) ->
+    kills_is([Last|reverse(Is)], Out, KillsMap0, Lbl).
+
+kills_is([I|Is], Live0, KillsMap0, Blk) ->
+    {Live, Key} = case I of
+                      #b_set{dst=Dst} ->
+                          {sets:del_element(Dst, Live0), Dst};
+                      _ ->
+                          {Live0, {terminator, Blk}}
+                  end,
+    Uses = sets:from_list(beam_ssa:used(I), [{version,2}]),
+    RemainingUses = sets:union(Live0, Uses),
+    Killed = sets:subtract(RemainingUses, Live0),
+    KillsMap = KillsMap0#{Key => Killed},
+    kills_is(Is, sets:union(Live, Killed), KillsMap, Blk);
+kills_is([], _, KillsMap, _) ->
+    KillsMap.
