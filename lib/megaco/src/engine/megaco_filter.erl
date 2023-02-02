@@ -300,10 +300,10 @@ do_filter_contents([H | T], E, ConnData, Contents) ->
             E2 = 
 		case E#event.label of
 		    [$s, $e, $n, $d, $ , $b, $y, $t, $e, $s | Tail] ->
-			L = lists:concat(["send ", size(Bin), " bytes", Tail]),
+			L = lists:concat(["send ", byte_size(Bin), " bytes", Tail]),
 			E#event{label = L};
 		    [$r, $e, $c, $e, $i, $v, $e, $ , $b, $y, $t, $e, $s | Tail] ->
-			L = lists:concat(["receive ", size(Bin), " bytes", Tail]),
+			L = lists:concat(["receive ", byte_size(Bin), " bytes", Tail]),
 			E#event{label = L};
 		    _ ->
 			E

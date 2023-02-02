@@ -223,7 +223,7 @@ send_message(SH, Data) when is_record(SH, send_handle) ->
     _ = case Res of
             ok ->
                 incNumOutMessages(SH),
-                incNumOutOctets(SH, size(Data));
+                incNumOutOctets(SH, byte_size(Data));
             _ ->
                 ok
         end,
