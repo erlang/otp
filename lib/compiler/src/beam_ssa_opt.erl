@@ -282,6 +282,10 @@ epilogue_module_passes(Opts) ->
     Ps0 = [{ssa_opt_alias,
             fun({StMap, FuncDb}) ->
                     beam_ssa_alias:opt(StMap, FuncDb)
+            end},
+           {ssa_opt_private_append,
+            fun({StMap, FuncDb}) ->
+                    beam_ssa_private_append:opt(StMap, FuncDb)
             end}],
     passes_1(Ps0, Opts).
 

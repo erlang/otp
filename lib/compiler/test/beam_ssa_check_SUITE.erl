@@ -32,6 +32,7 @@
          annotation_checks/1,
          appendable_checks/1,
          bs_size_unit_checks/1,
+         private_append_checks/1,
          ret_annotation_checks/1,
          sanity_checks/1]).
 
@@ -45,6 +46,7 @@ groups() ->
       [alias_checks,
        annotation_checks,
        appendable_checks,
+       private_append_checks,
        ret_annotation_checks,
        sanity_checks]},
      {post_ssa_opt_dynamic,test_lib:parallel(),
@@ -91,6 +93,9 @@ appendable_checks(Config) when is_list(Config) ->
 
 bs_size_unit_checks(Config) when is_list(Config) ->
     gen_and_run_post_ssa_opt(bs_size_unit_checks, Config).
+
+private_append_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(private_append, Config).
 
 ret_annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(ret_annotation, Config).

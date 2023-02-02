@@ -2109,6 +2109,7 @@ pre_load() ->
 	 beam_ssa_dead,
 	 beam_ssa_opt,
 	 beam_ssa_pre_codegen,
+	 beam_ssa_private_append,
 	 beam_ssa_recv,
 	 beam_ssa_share,
 	 beam_ssa_throw,
