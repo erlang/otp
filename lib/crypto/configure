@@ -7381,35 +7381,20 @@ then :
 elif test "$CRYPTO_APP" = ""
 then :
 
-                      if test "$with_ssl_rpath" = yes
-then :
-  as_fn_error $? "runtime library path requested by user, but could not be set since no crypto library was found" "$LINENO" 5
-fi
-                      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: " >&5
-printf "%s\n" "" >&6; }
+                      as_fn_error $? "runtime library path requested by user, but could not be set since no crypto library was found" "$LINENO" 5
 
 elif test "$ded_ld_rflg" = ""
 then :
 
-                      if test "$with_ssl_rpath" = yes
-then :
-  as_fn_error $? "runtime library path requested by user, but cannot be set on this platform" "$LINENO" 5
-fi
-                      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: " >&5
-printf "%s\n" "" >&6; }
+                      as_fn_error $? "runtime library path requested by user, but cannot be set on this platform" "$LINENO" 5
 
-                  test "$SSL_DYNAMIC_ONLY" != "yes"
-elif
-                      if test "$with_ssl_rpath" = yes
+elif test "$SSL_DYNAMIC_ONLY" != "yes"
 then :
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: runtime library path requested by user, but dynamic linking will not be used" >&5
+
+                      { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: runtime library path requested by user, but dynamic linking will not be used" >&5
 printf "%s\n" "$as_me: WARNING: runtime library path requested by user, but dynamic linking will not be used" >&2;}
-else $as_nop
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: " >&5
-printf "%s\n" "" >&6; }
-fi
 
-then :
+else $as_nop
 
                       # Check that it links...
                       ded_ld_rpath=
