@@ -399,15 +399,13 @@ prompt(N, Eval0, Bs0, RT, FT, Ds0) ->
     end.
 
 get_prompt_func() ->
-    case application:get_env(stdlib, shell_prompt_func) of
-        {ok,{M,F}=PromptFunc} when is_atom(M), is_atom(F) ->
+    case application:get_env(stdlib, shell_prompt_func, default) of
+        {M,F}=PromptFunc when is_atom(M), is_atom(F) ->
             PromptFunc;
-        {ok,default=Default} ->
+        default=Default ->
             Default;
-        {ok,Term} ->
+        Term ->
             bad_prompt_func(Term),
-            default;
-        undefined ->
             default
     end.
 
@@ -763,8 +761,8 @@ do_catch(exit, restricted_shell_stopped) ->
 do_catch(exit, restricted_shell_started) ->
     false;
 do_catch(_Class, _Reason) ->
-    case application:get_env(stdlib, shell_catch_exception) of
-        {ok, true} ->
+    case application:get_env(stdlib, shell_catch_exception, false) of
+        true ->
             true;
         _ ->
             false
@@ -1609,13 +1607,7 @@ pp(V, I, RT) ->
     pp(V, I, _Depth=?LINEMAX, RT).
 
 pp(V, I, D, RT) ->
-    Strings =
-        case application:get_env(stdlib, shell_strings) of
-            {ok, false} ->
-                false;
-            _ ->
-                true
-        end,
+    Strings = application:get_env(stdlib, shell_strings, true) =/= false,
     io_lib_pretty:print(V, ([{column, I}, {line_length, columns()},
                              {depth, D}, {line_max_chars, ?CHAR_MAX},
                              {strings, Strings},
@@ -1645,20 +1637,18 @@ garb(Shell) ->
     erlang:garbage_collect().
 
 get_env(V, Def) ->
-    case application:get_env(stdlib, V) of
-        {ok, Val} when is_integer(Val), Val >= 0 ->
+    case application:get_env(stdlib, V, Def) of
+        Val when is_integer(Val), Val >= 0 ->
             Val;
         _ ->
             Def
     end.
 
 check_env(V) ->
-    case application:get_env(stdlib, V) of
-        undefined ->
+    case application:get_env(stdlib, V, 0) of
+        Val when is_integer(Val), Val >= 0 ->
             ok;
-        {ok, Val} when is_integer(Val), Val >= 0 ->
-            ok;
-        {ok, Val} ->
+        Val ->
             Txt = io_lib:fwrite
                     ("Invalid value of STDLIB configuration parameter"
                      "~tw: ~tp\n", [V, Val]),
