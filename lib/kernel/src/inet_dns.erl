@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 %%
 %% RFC 1035: Domain Names - Implementation and Specification
 %% RFC 2181: Clarifications to the DNS Specification
-%% RFC 2671: Extension Mechanisms for DNS (EDNS0)
+%% RFC 6891: Extension Mechanisms for DNS (EDNS0)
 %% RFC 2782: A DNS RR for specifying the location of services (DNS SRV)
 %% RFC 2915: The Naming Authority Pointer (NAPTR) DNS Resource Rec
 %% RFC 6488: DNS Certification Authority Authorization (CAA) Resource Record
@@ -230,7 +230,8 @@ decode_rr_section(Bin, N, Buffer, RRs) ->
            RR =
                case Type of
                    ?S_OPT ->
-                       <<ExtRcode,Version,Z:16>> = TTL,
+                       <<ExtRcode,Version,DO:1,Z:15>> = TTL,
+                       DnssecOk = (DO =/= 0),
                        #dns_rr_opt{
                           domain           = Name,
                           type             = Type,
@@ -238,7 +239,8 @@ decode_rr_section(Bin, N, Buffer, RRs) ->
                           ext_rcode        = ExtRcode,
                           version          = Version,
                           z                = Z,
-                          data             = D};
+                          data             = D,
+                          do               = DnssecOk};
                    _ ->
                        {Class,CacheFlush} = decode_class(C),
                        Data = decode_data(D, Class, Type, Buffer),
@@ -297,8 +299,8 @@ encode_query_section(Bin0, Comp0, [#dns_query{domain=DName}=Q | Qs]) ->
     {Bin,Comp} = encode_name(Bin0, Comp0, byte_size(Bin0), DName),
     encode_query_section(<<Bin/binary,T:16,C:16>>, Comp, Qs).
 
-%% RFC 1035: 4.1.3. Resource record format
-%% RFC 2671: 4.3, 4.4, 4.6 OPT RR format
+%% RFC 1035:  4.1.3.               Resource record format
+%% RFC 6891:  6.1.2, 6.1.3, 6.2.3  Opt RR format
 %%
 encode_res_section(Bin, Comp, []) -> {Bin,Comp};
 encode_res_section(
@@ -321,10 +323,12 @@ encode_res_section(
       ext_rcode        = ExtRCode,
       version          = Version,
       z                = Z,
-      data             = Data} | Rs]) ->
+      data             = Data,
+      do               = DnssecOk} | Rs]) ->
+    DO = case DnssecOk of true -> 1; false -> 0 end,
     encode_res_section_rr(
       Bin, Comp, Rs, DName, ?S_OPT, UdpPayloadSize, false,
-      <<ExtRCode,Version,Z:16>>, Data).
+      <<ExtRCode,Version,DO:1,Z:15>>, Data).
 
 encode_res_section_rr(
   Bin0, Comp0, Rs, DName, Type, Class, CacheFlush, TTL, Data) ->
