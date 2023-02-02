@@ -185,8 +185,8 @@ make_row2(RowList, 1) -> RowList;
 make_row2([_OtherIndex | RowList], N) ->
     make_row2(RowList, N-1).
 
-make_row_list(Row) ->
-    make_row_list(size(Row), Row, []).
+make_row_list(Row) when is_tuple(Row) ->
+    make_row_list(tuple_size(Row), Row, []).
 make_row_list(N, Row, Acc) when N > 2 ->
     make_row_list(N-1, Row, [element(N, Row) | Acc]);
 make_row_list(2, Row, Acc) ->

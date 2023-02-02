@@ -814,7 +814,7 @@ maybe_handle_recv_msg_mt(
     
 
 handle_recv_msg(Domain, Addr, Bytes, #state{server = Pid})
-  when is_binary(Bytes) andalso (size(Bytes) =:= 0) ->
+  when is_binary(Bytes) andalso (byte_size(Bytes) =:= 0) ->
     Pid ! {snmp_error, {empty_message, Domain, Addr}, Domain, Addr};
 %%
 handle_recv_msg(
