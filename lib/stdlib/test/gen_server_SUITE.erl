@@ -30,8 +30,12 @@
          send_request_receive_reqid_collection/1,
          send_request_wait_reqid_collection/1,
          send_request_check_reqid_collection/1,
-         cast/1, cast_fast/1,
-	 continue/1, info/1, abcast/1, multicall/1, multicall_down/1,
+         cast/1, cast_fast/1, continue/1, info/1, abcast/1,
+         multicall/1, multicall_down/1, multicall_remote/1,
+         multicall_remote_old1/1, multicall_remote_old2/1,
+         multicall_recv_opt_success/1,
+         multicall_recv_opt_timeout/1,
+         multicall_recv_opt_noconnection/1,
 	 call_remote1/1, call_remote2/1, call_remote3/1, calling_self/1,
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
 	 spec_init_local_registered_parent/1, 
@@ -59,10 +63,21 @@
 	 spec_init_anonymous_default_timeout/1,
 	 spec_init_not_proc_lib/1, cast_fast_messup/0]).
 
+%% Internal test specific exports
+-export([multicall_srv_ctrlr/2, multicall_suspender/2]).
 
 %% The gen_server behaviour
 -export([init/1, handle_call/3, handle_cast/2, handle_continue/2,
 	 handle_info/2, code_change/3, terminate/2, format_status/2]).
+
+%% This module needs to compile on old nodes...
+-ifndef(CT_PEER).
+-define(CT_PEER(), {ok, undefined, undefined}).
+-define(CT_PEER(Opts), {ok, undefined, undefined}).
+-endif.
+-ifndef(CT_PEER_REL).
+-define(CT_PEER_REL(Opts, Release, PrivDir), {ok, undefined, undefined}).
+-endif.
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -72,7 +87,9 @@ all() ->
     [start, {group,stop}, crash, call, send_request,
      send_request_receive_reqid_collection, send_request_wait_reqid_collection,
      send_request_check_reqid_collection, cast, cast_fast, info, abcast,
-     continue, multicall, multicall_down, call_remote1, call_remote2, calling_self,
+     continue,
+     {group, multi_call},
+     call_remote1, call_remote2, calling_self,
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, spec_init,
      spec_init_local_registered_parent,
@@ -87,6 +104,13 @@ all() ->
 groups() -> 
     [{stop, [],
       [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
+     {multi_call, [], [{group, multi_call_parallel}, {group, multi_call_sequence}]},
+     {multi_call_parallel, [parallel],
+      [multicall, multicall_down, multicall_remote, multicall_remote_old1,
+       multicall_remote_old2]},
+     {multi_call_sequence, [],
+      [multicall_recv_opt_success, multicall_recv_opt_timeout,
+       multicall_recv_opt_noconnection]},
      {format_status, [],
       [call_format_status, error_format_status, terminate_crash_format,
        crash_in_format_status, throw_in_format_status, format_all_status]},
@@ -1434,6 +1458,251 @@ busy_wait_for_process(Pid,N) ->
 	_ ->
 	    ok
     end.
+
+multicall_remote(Config) when is_list(Config) ->
+    PNs = lists:map(fun (_) ->
+                            {ok, P, N} = ?CT_PEER(),
+                            {P, N}
+                    end, lists:seq(1, 4)),
+    multicall_remote_test(PNs, ?FUNCTION_NAME),
+    ok.
+
+multicall_remote_old1(Config) when is_list(Config) ->
+    multicall_remote_old_test(Config, 1, ?FUNCTION_NAME).
+
+multicall_remote_old2(Config) when is_list(Config) ->
+    multicall_remote_old_test(Config, 2, ?FUNCTION_NAME).
+
+
+multicall_remote_old_test(Config, OldN, Name) ->
+    try
+        {OldRelName, OldRel} = old_release(OldN),
+        PD = proplists:get_value(priv_dir, Config),
+        PNs = lists:map(fun (I) ->
+                                Dir = atom_to_list(Name)++"-"++integer_to_list(I),
+                                AbsDir = filename:join([PD, Dir]),
+                                ok = file:make_dir(AbsDir),
+                                case ?CT_PEER_REL(#{connection => 0}, OldRelName, AbsDir) of
+                                    not_available ->
+                                        throw({skipped, "No OTP "++OldRel++" available"});
+                                    {ok, P, N} ->
+                                        {P, N}
+                                end
+                        end, lists:seq(1, 4)),
+        OldNodes = lists:map(fun ({_, N}) -> N end, PNs),
+        %% Recompile on one old node and load this on all old nodes...
+        SrcFile = filename:rootname(code:which(?MODULE)) ++ ".erl",
+        {ok, ?MODULE, BeamCode} = erpc:call(hd(OldNodes), compile, file, [SrcFile, [binary]]),
+        LoadResult = lists:duplicate(length(OldNodes), {ok, {module, ?MODULE}}),
+        LoadResult = erpc:multicall(OldNodes, code, load_binary, [?MODULE, SrcFile, BeamCode]),
+        multicall_remote_test(PNs, Name)
+    catch
+        throw:Res ->
+            Res
+    end.
+
+multicall_remote_test([{Peer1, Node1},
+                       {Peer2, Node2},
+                       {Peer3, Node3},
+                       {Peer4, Node4}],
+                      Name) ->
+    Tester = self(),
+    ThisNode = node(),
+
+    Nodes = [Node1, Node2, Node3, Node4, ThisNode],
+
+    SrvList =
+        lists:map(fun (Node) ->
+                          Ctrl = spawn_link(Node, ?MODULE,
+                                            multicall_srv_ctrlr,
+                                            [Tester, Name]),
+                          receive
+                              {Ctrl, _Srv} = Procs ->
+                                  {Node, Procs}
+                          end
+                  end, Nodes),
+    SrvMap = maps:from_list(SrvList),
+
+    Res0 = {lists:map(fun (Node) ->
+                              {Node,ok}
+                      end, Nodes), []},
+
+    Res0 = gen_server:multi_call(Nodes, Name, started_p),
+
+    true = try
+               _ = gen_server:multi_call([Node1, Node2, Node3, node(), {Node4}],
+                                         Name, {delayed_answer,1}),
+               false
+           catch
+               _:_ ->
+                   true
+           end,
+
+    Res1 = {lists:map(fun (Node) ->
+                              {Node,delayed}
+                      end, Nodes), []},
+
+    Res1 = gen_server:multi_call(Nodes, Name, {delayed_answer,1}),
+
+    Res2 = {[], Nodes},
+
+    Start = erlang:monotonic_time(millisecond),
+    Res2 = gen_server:multi_call(Nodes, Name, {delayed_answer,1000}, 100),
+    End = erlang:monotonic_time(millisecond),
+    Time = End-Start,
+    ct:log("Time: ~p ms~n", [Time]),
+    true = 200 >= Time,
+
+    {Ctrl2, Srv2} = maps:get(Node2, SrvMap),
+    unlink(Ctrl2),
+    exit(Ctrl2, kill),
+    wait_until(fun () ->
+                       false == erpc:call(Node2, erlang,
+                                          is_process_alive, [Srv2])
+               end),
+
+    {Ctrl3, _Srv3} = maps:get(Node3, SrvMap),
+    unlink(Ctrl3),
+    peer:stop(Peer3),
+
+    {Ctrl4, Srv4} = maps:get(Node4, SrvMap),
+    Spndr = spawn_link(Node4, ?MODULE, multicall_suspender, [Tester, Srv4]),
+
+    Res3 = {[{Node1, delayed}, {ThisNode, delayed}],
+            [Node2, Node3, Node4]},
+
+    Res3 = gen_server:multi_call(Nodes, Name, {delayed_answer,1}, 1000),
+
+    Spndr ! {Tester, resume_it},
+
+    receive Msg -> ct:fail({unexpected_msg, Msg})
+    after 1000 -> ok
+    end,
+
+    unlink(Ctrl4),
+
+    {Ctrl1, _Srv1} = maps:get(Node1, SrvMap),
+
+    unlink(Ctrl1),
+
+    peer:stop(Peer1),
+    peer:stop(Peer2),
+    peer:stop(Peer4),
+
+    ok.
+
+multicall_srv_ctrlr(Tester, Name) ->
+    {ok, Srv} = gen_server:start_link({local, Name},
+                                      gen_server_SUITE, [], []),
+    Tester ! {self(), Srv},
+    receive after infinity -> ok end.
+
+multicall_suspender(Tester, Suspendee) ->
+    true = erlang:suspend_process(Suspendee),
+    receive
+        {Tester, resume_it} ->
+            erlang:resume_process(Suspendee)
+    end.
+
+multicall_recv_opt_success(Config) when is_list(Config) ->
+    multicall_recv_opt_test(success).
+
+multicall_recv_opt_timeout(Config) when is_list(Config) ->
+    multicall_recv_opt_test(timeout).
+
+multicall_recv_opt_noconnection(Config) when is_list(Config) ->
+    multicall_recv_opt_test(noconnection).
+
+multicall_recv_opt_test(Type) ->
+    Tester = self(),
+    Name = ?FUNCTION_NAME,
+    Loops = 1000,
+    HugeMsgQ = 500000,
+    process_flag(message_queue_data, off_heap),
+
+    {ok, Peer1, Node1} = ?CT_PEER(),
+    {ok, Peer2, Node2} = ?CT_PEER(),
+
+    if Type == noconnection -> peer:stop(Peer2);
+       true -> ok
+    end,
+
+    Nodes = [Node1, Node2],
+
+    SrvList =
+        lists:map(fun (Node) ->
+                          Ctrl = spawn_link(Node, ?MODULE,
+                                            multicall_srv_ctrlr,
+                                            [Tester, Name]),
+                          receive
+                              {Ctrl, _Srv} = Procs ->
+                                  {Node, Procs}
+                          end
+                  end,
+                  if Type == noconnection -> [Node1];
+                     true -> Nodes
+                  end),
+
+    {Req, ExpRes, Tmo} = case Type of
+                             success ->
+                                 {ping,
+                                  {[{Node1, pong}, {Node2, pong}], []},
+                                  infinity};
+                             timeout ->
+                                 {{delayed_answer,100},
+                                  {[], Nodes},
+                                  1};
+                             noconnection ->
+                                 {ping,
+                                  {[{Node1, pong}], [Node2]},
+                                  infinity}
+                         end,
+
+    _Warmup = time_multicall(ExpRes, Nodes, Name, Req, Tmo, Loops div 10),
+
+    Empty = time_multicall(ExpRes, Nodes, Name, Req, Tmo, Loops),
+    ct:pal("Time with empty message queue: ~p microsecond~n",
+           [erlang:convert_time_unit(Empty, native, microsecond)]),
+
+    make_msgq(HugeMsgQ),
+
+    Huge = time_multicall(ExpRes, Nodes, Name, Req, Tmo, Loops),
+    ct:pal("Time with huge message queue: ~p microsecond~n",
+           [erlang:convert_time_unit(Huge, native, microsecond)]),
+
+    lists:foreach(fun ({_Node, {Ctrl, _Srv}}) -> unlink(Ctrl) end, SrvList),
+
+    peer:stop(Peer1),
+    if Type == noconnection -> ok;
+       true -> peer:stop(Peer2)
+    end,
+
+    Q = Huge / Empty,
+    HugeMsgQ = flush_msgq(),
+    case Q > 10 of
+	true ->
+	    ct:fail({ratio, Q});
+	false ->
+	    {comment, "Ratio: "++erlang:float_to_list(Q)}
+    end.
+
+time_multicall(Expect, Nodes, Name, Req, Tmo, Times) ->
+    Start = erlang:monotonic_time(),
+    ok = do_time_multicall(Expect, Nodes, Name, Req, Tmo, Times),
+    erlang:monotonic_time() - Start.
+
+do_time_multicall(_Expect, _Nodes, _Name, _Req, _Tmo, 0) ->
+    ok;
+do_time_multicall(Expect, Nodes, Name, Req, Tmo, N) ->
+    Expect = gen_server:multi_call(Nodes, Name, Req, Tmo),
+    do_time_multicall(Expect, Nodes, Name, Req, Tmo, N-1).
+
+make_msgq(0) ->
+    ok;
+make_msgq(N) ->
+    self() ! {a, msg},
+    make_msgq(N-1).
+
 %%--------------------------------------------------------------
 %% Test gen_server:enter_loop/[3,4,5]. Used when you want to write
 %% your own special init-phase.
@@ -2500,6 +2769,8 @@ init({state,State}) ->
 handle_call(started_p, _From, State) ->
     io:format("FROZ"),
     {reply,ok,State};
+handle_call(ping, _From, State) ->
+    {reply,pong,State};
 handle_call({delayed_answer, T}, From, State) ->
     {noreply,{reply_to,From,State},T};
 handle_call({call_within, T}, _From, _) ->
@@ -2645,3 +2916,28 @@ format_status(terminate, [_PDict, State]) ->
     {formatted, State};
 format_status(normal, [_PDict, _State]) ->
     format_status_called.
+
+%% Utils...
+
+wait_until(Fun) ->
+    case catch Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    end.
+
+old_release(N) ->
+    OldRel = integer_to_list(list_to_integer(erlang:system_info(otp_release))-N),
+    {OldRel++"_latest", OldRel}.
+
+flush_msgq() ->
+    flush_msgq(0).
+flush_msgq(N) ->
+    receive
+	_ ->
+	    flush_msgq(N+1)
+    after 0 ->
+	    N
+    end.

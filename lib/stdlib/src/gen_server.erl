@@ -665,7 +665,7 @@ do_abcast([], _,_) -> abcast.
 %%
 multi_call(Name, Request)
   when is_atom(Name) ->
-    do_multi_call([node() | nodes()], Name, Request, infinity).
+    multi_call([node() | nodes()], Name, Request, infinity).
 
 -spec multi_call(
         Nodes   :: [node()],
@@ -679,7 +679,7 @@ multi_call(Name, Request)
 %%
 multi_call(Nodes, Name, Request)
   when is_list(Nodes), is_atom(Name) ->
-    do_multi_call(Nodes, Name, Request, infinity).
+    multi_call(Nodes, Name, Request, infinity).
 
 -spec multi_call(
         Nodes   :: [node()],
@@ -694,8 +694,93 @@ multi_call(Nodes, Name, Request)
 %%
 multi_call(Nodes, Name, Request, Timeout)
   when is_list(Nodes), is_atom(Name), ?is_timeout(Timeout) ->
-    do_multi_call(Nodes, Name, Request, Timeout).
+    Alias = alias(),
+    try
+        Timer = if Timeout == infinity -> undefined;
+                   true -> erlang:start_timer(Timeout, self(), Alias)
+                end,
+        Reqs = mc_send(Nodes, Name, Alias, Request, Timer, []),
+        mc_recv(Reqs, Alias, Timer, [], [])
+    after
+        _ = unalias(Alias)
+    end.
 
+-dialyzer({no_improper_lists, mc_send/6}).
+
+mc_send([], _Name, _Alias, _Request, _Timer, Reqs) ->
+    Reqs;
+mc_send([Node|Nodes], Name, Alias, Request, Timer, Reqs) when is_atom(Node) ->
+    NN = {Name, Node},
+    Mon = try
+              erlang:monitor(process, NN, [{tag, Alias}])
+          catch
+              error:badarg ->
+                  %% Node not alive...
+                  M = make_ref(),
+                  Alias ! {Alias, M, process, NN, noconnection},
+                  M
+          end,
+    try
+        %% We use 'noconnect' since it is no point in bringing up a new
+        %% connection if it was not brought up by the monitor signal...
+        _ = erlang:send(NN,
+                        {'$gen_call', {self(), [[alias|Alias]|Mon]}, Request},
+                        [noconnect]),
+        ok
+    catch
+        _:_ ->
+            ok
+    end,
+    mc_send(Nodes, Name, Alias, Request, Timer, [[Node|Mon]|Reqs]);
+mc_send(_BadNodes, _Name, Alias, _Request, Timer, Reqs) ->
+    %% Cleanup then fail...
+    unalias(Alias),
+    mc_cancel_timer(Timer, Alias),
+    _ = mc_recv_tmo(Reqs, Alias, [], []),
+    error(badarg).
+
+mc_recv([], Alias, Timer, Replies, BadNodes) ->
+    mc_cancel_timer(Timer, Alias),
+    unalias(Alias),
+    {Replies, BadNodes};
+mc_recv([[Node|Mon] | RestReqs] = Reqs, Alias, Timer, Replies, BadNodes) ->
+    receive
+        {[[alias|Alias]|Mon], Reply} ->
+            erlang:demonitor(Mon, [flush]),
+            mc_recv(RestReqs, Alias, Timer, [{Node,Reply}|Replies], BadNodes);
+        {Alias, Mon, process, _, _} ->
+            mc_recv(RestReqs, Alias, Timer, Replies, [Node|BadNodes]);
+        {timeout, Timer, Alias} ->
+            unalias(Alias),
+            mc_recv_tmo(Reqs, Alias, Replies, BadNodes)
+    end.
+
+mc_recv_tmo([], _Alias, Replies, BadNodes) ->
+    {Replies, BadNodes};
+mc_recv_tmo([[Node|Mon] | RestReqs], Alias, Replies, BadNodes) ->
+    erlang:demonitor(Mon),
+    receive
+        {[[alias|Alias]|Mon], Reply} ->
+            mc_recv_tmo(RestReqs, Alias, [{Node,Reply}|Replies], BadNodes);
+        {Alias, Mon, process, _, _} ->
+            mc_recv_tmo(RestReqs, Alias, Replies, [Node|BadNodes])
+    after
+        0 ->
+            mc_recv_tmo(RestReqs, Alias, Replies, [Node|BadNodes])
+    end.
+
+mc_cancel_timer(undefined, _Alias) ->
+    ok;
+mc_cancel_timer(Timer, Alias) ->
+    case erlang:cancel_timer(Timer) of
+        false ->
+            receive
+                {timeout, Timer, Alias} ->
+                    ok
+            end;
+        _ ->
+            ok
+    end.
 
 %%-----------------------------------------------------------------
 %% enter_loop(Mod, Options, State, <ServerName>, <TimeOut>) ->_ 
@@ -952,184 +1037,6 @@ do_send(Dest, Msg) ->
         error:_ -> ok
     end,
     ok.
-
-do_multi_call([Node], Name, Req, infinity) when Node =:= node() ->
-    % Special case when multi_call is used with local node only.
-    % In that case we can leverage the benefit of recv_mark optimisation
-    % existing in simple gen:call.
-    try gen:call(Name, '$gen_call', Req, infinity) of
-        {ok, Res} -> {[{Node, Res}],[]}
-    catch exit:_ ->
-        {[], [Node]}
-    end;
-do_multi_call(Nodes, Name, Req, infinity) ->
-    Tag = make_ref(),
-    Monitors = send_nodes(Nodes, Name, Tag, Req),
-    rec_nodes(Tag, Monitors, Name, undefined);
-do_multi_call(Nodes, Name, Req, Timeout) ->
-    Tag = make_ref(),
-    Caller = self(),
-    Receiver =
-	spawn(
-	  fun() ->
-		  %% Middleman process. Should be unsensitive to regular
-		  %% exit signals. The sychronization is needed in case
-		  %% the receiver would exit before the caller started
-		  %% the monitor.
-		  process_flag(trap_exit, true),
-		  Mref = erlang:monitor(process, Caller),
-		  receive
-		      {Caller,Tag} ->
-			  Monitors = send_nodes(Nodes, Name, Tag, Req),
-			  TimerId = erlang:start_timer(Timeout, self(), ok),
-			  Result = rec_nodes(Tag, Monitors, Name, TimerId),
-			  exit({self(),Tag,Result});
-		      {'DOWN',Mref,_,_,_} ->
-			  %% Caller died before sending us the go-ahead.
-			  %% Give up silently.
-			  exit(normal)
-		  end
-	  end),
-    Mref = erlang:monitor(process, Receiver),
-    Receiver ! {self(),Tag},
-    receive
-	{'DOWN',Mref,_,_,{Receiver,Tag,Result}} ->
-	    Result;
-	{'DOWN',Mref,_,_,Reason} ->
-	    %% The middleman code failed. Or someone did 
-	    %% exit(_, kill) on the middleman process => Reason==killed
-	    exit(Reason)
-    end.
-
-send_nodes(Nodes, Name, Tag, Req) ->
-    send_nodes(Nodes, Name, Tag, Req, []).
-
-send_nodes([Node|Tail], Name, Tag, Req, Monitors)
-  when is_atom(Node) ->
-    Monitor = start_monitor(Node, Name),
-    %% Handle non-existing names in rec_nodes.
-    catch {Name, Node} ! {'$gen_call', {self(), {Tag, Node}}, Req},
-    send_nodes(Tail, Name, Tag, Req, [Monitor | Monitors]);
-send_nodes([_Node|Tail], Name, Tag, Req, Monitors) ->
-    %% Skip non-atom Node
-    send_nodes(Tail, Name, Tag, Req, Monitors);
-send_nodes([], _Name, _Tag, _Req, Monitors) -> 
-    Monitors.
-
-%% Against old nodes:
-%% If no reply has been delivered within 2 secs. (per node) check that
-%% the server really exists and wait for ever for the answer.
-%%
-%% Against contemporary nodes:
-%% Wait for reply, server 'DOWN', or timeout from TimerId.
-
-rec_nodes(Tag, Nodes, Name, TimerId) -> 
-    rec_nodes(Tag, Nodes, Name, [], [], 2000, TimerId).
-
-rec_nodes(Tag, [{N,R}|Tail], Name, Badnodes, Replies, Time, TimerId ) ->
-    receive
-	{'DOWN', R, _, _, _} ->
-	    rec_nodes(Tag, Tail, Name, [N|Badnodes], Replies, Time, TimerId);
-	{{Tag, N}, Reply} ->  %% Tag is bound !!!
-	    erlang:demonitor(R, [flush]),
-	    rec_nodes(Tag, Tail, Name, Badnodes, 
-		      [{N,Reply}|Replies], Time, TimerId);
-	{timeout, TimerId, _} ->	
-	    erlang:demonitor(R, [flush]),
-	    %% Collect all replies that already have arrived
-	    rec_nodes_rest(Tag, Tail, Name, [N|Badnodes], Replies)
-    end;
-rec_nodes(Tag, [N|Tail], Name, Badnodes, Replies, Time, TimerId) ->
-    %% R6 node
-    receive
-	{nodedown, N} ->
-	    monitor_node(N, false),
-	    rec_nodes(Tag, Tail, Name, [N|Badnodes], Replies, 2000, TimerId);
-	{{Tag, N}, Reply} ->  %% Tag is bound !!!
-	    receive {nodedown, N} -> ok after 0 -> ok end,
-	    monitor_node(N, false),
-	    rec_nodes(Tag, Tail, Name, Badnodes,
-		      [{N,Reply}|Replies], 2000, TimerId);
-	{timeout, TimerId, _} ->	
-	    receive {nodedown, N} -> ok after 0 -> ok end,
-	    monitor_node(N, false),
-	    %% Collect all replies that already have arrived
-	    rec_nodes_rest(Tag, Tail, Name, [N | Badnodes], Replies)
-    after Time ->
-	    case rpc:call(N, erlang, whereis, [Name]) of
-		Pid when is_pid(Pid) -> % It exists try again.
-		    rec_nodes(Tag, [N|Tail], Name, Badnodes,
-			      Replies, infinity, TimerId);
-		_ -> % badnode
-		    receive {nodedown, N} -> ok after 0 -> ok end,
-		    monitor_node(N, false),
-		    rec_nodes(Tag, Tail, Name, [N|Badnodes],
-			      Replies, 2000, TimerId)
-	    end
-    end;
-rec_nodes(_, [], _, Badnodes, Replies, _, TimerId) ->
-    case catch erlang:cancel_timer(TimerId) of
-	false ->  % It has already sent it's message
-	    receive
-		{timeout, TimerId, _} -> ok
-	    after 0 ->
-		    ok
-	    end;
-	_ -> % Timer was cancelled, or TimerId was 'undefined'
-	    ok
-    end,
-    {Replies, Badnodes}.
-
-%% Collect all replies that already have arrived
-rec_nodes_rest(Tag, [{N,R}|Tail], Name, Badnodes, Replies) ->
-    receive
-	{'DOWN', R, _, _, _} ->
-	    rec_nodes_rest(Tag, Tail, Name, [N|Badnodes], Replies);
-	{{Tag, N}, Reply} -> %% Tag is bound !!!
-	    erlang:demonitor(R, [flush]),
-	    rec_nodes_rest(Tag, Tail, Name, Badnodes, [{N,Reply}|Replies])
-    after 0 ->
-	    erlang:demonitor(R, [flush]),
-	    rec_nodes_rest(Tag, Tail, Name, [N|Badnodes], Replies)
-    end;
-rec_nodes_rest(Tag, [N|Tail], Name, Badnodes, Replies) ->
-    %% R6 node
-    receive
-	{nodedown, N} ->
-	    monitor_node(N, false),
-	    rec_nodes_rest(Tag, Tail, Name, [N|Badnodes], Replies);
-	{{Tag, N}, Reply} ->  %% Tag is bound !!!
-	    receive {nodedown, N} -> ok after 0 -> ok end,
-	    monitor_node(N, false),
-	    rec_nodes_rest(Tag, Tail, Name, Badnodes, [{N,Reply}|Replies])
-    after 0 ->
-	    receive {nodedown, N} -> ok after 0 -> ok end,
-	    monitor_node(N, false),
-	    rec_nodes_rest(Tag, Tail, Name, [N|Badnodes], Replies)
-    end;
-rec_nodes_rest(_Tag, [], _Name, Badnodes, Replies) ->
-    {Replies, Badnodes}.
-
-
-%%% ---------------------------------------------------
-%%% Monitor functions
-%%% ---------------------------------------------------
-
-start_monitor(Node, Name) when is_atom(Node), is_atom(Name) ->
-    if node() =:= nonode@nohost, Node =/= nonode@nohost ->
-	    Ref = make_ref(),
-	    self() ! {'DOWN', Ref, process, {Name, Node}, noconnection},
-	    {Node, Ref};
-       true ->
-	    case catch erlang:monitor(process, {Name, Node}) of
-		{'EXIT', _} ->
-		    %% Remote node is R6
-		    monitor_node(Node, true),
-		    Node;
-		Ref when is_reference(Ref) ->
-		    {Node, Ref}
-	    end
-    end.
 
 %% ---------------------------------------------------
 %% Helper functions for try-catch of callbacks.
