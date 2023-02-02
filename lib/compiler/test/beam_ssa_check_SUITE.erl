@@ -28,6 +28,7 @@
          init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2,
 
+         alias_checks/1,
          annotation_checks/1,
          appendable_checks/1,
          bs_size_unit_checks/1,
@@ -41,7 +42,8 @@ all() ->
 
 groups() ->
     [{post_ssa_opt_static,test_lib:parallel(),
-      [annotation_checks,
+      [alias_checks,
+       annotation_checks,
        appendable_checks,
        ret_annotation_checks,
        sanity_checks]},
@@ -77,6 +79,9 @@ end_per_group(post_ssa_opt_dynamic, Config) ->
     end;
 end_per_group(_GroupName, Config) ->
     Config.
+
+alias_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(alias, Config).
 
 annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(annotations, Config).
