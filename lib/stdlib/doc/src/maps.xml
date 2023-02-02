@@ -43,10 +43,15 @@
         <p>An iterator representing the associations in a map with keys of type
           <c><anno>Key</anno></c> and values of type <c><anno>Value</anno></c>.</p>
         <p>Created using <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa>.</p>
-        <p>Consumed by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>,
-          <seemfa marker="#filter/2"><c>maps:filter/2</c></seemfa>,
-          <seemfa marker="#fold/3"><c>maps:fold/3</c></seemfa> and
-          <seemfa marker="#map/2"><c>maps:map/2</c></seemfa>.</p>
+        <p>Consumed by:</p>
+        <list type="bulleted">
+          <item><seemfa marker="#next/1"><c>maps:next/1</c></seemfa></item>
+          <item><seemfa marker="#filter/2"><c>maps:filter/2</c></seemfa></item>
+          <item><seemfa marker="#filtermap/2"><c>maps:filtermap/2</c></seemfa></item>
+          <item><seemfa marker="#fold/3"><c>maps:fold/3</c></seemfa></item>
+          <item><seemfa marker="#foreach/2"><c>maps:foreach/2</c></seemfa></item>
+          <item><seemfa marker="#map/2"><c>maps:map/2</c></seemfa></item>
+        </list>
       </desc>
     </datatype>
 
