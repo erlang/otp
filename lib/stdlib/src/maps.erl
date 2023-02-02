@@ -30,6 +30,9 @@
          merge_with/3,
          groups_from_list/2, groups_from_list/3]).
 
+%% Internal
+-export([is_iterator_valid/1]).
+
 %% BIFs
 -export([get/2, find/2, from_list/1, from_keys/2,
          is_key/2, keys/1, merge/2,
@@ -313,31 +316,28 @@ get(Key,Map,Default) ->
       MapOrIter :: #{Key => Value} | iterator(Key, Value),
       Map :: #{Key => Value}.
 
-filter(Pred, MapOrIter) when is_function(Pred, 2) ->
-    Iter = if
-               is_map(MapOrIter) ->
-                   iterator(MapOrIter);
-               true ->
-                   MapOrIter
-           end,
-    try next(Iter) of
-        Next ->
-            maps:from_list(filter_1(Pred, Next))
+filter(Pred, Map) when is_map(Map), is_function(Pred, 2) ->
+    maps:from_list(filter_1(Pred, next(iterator(Map)), undefined));
+filter(Pred, Iter) when is_function(Pred, 2) ->
+    ErrorTag = make_ref(),
+    try filter_1(Pred, try_next(Iter, ErrorTag), ErrorTag) of
+        Result ->
+            maps:from_list(Result)
     catch
-        error:_ ->
-            error_with_info({badmap,MapOrIter}, [Pred, MapOrIter])
+        error:ErrorTag ->
+            error_with_info({badmap, Iter}, [Pred, Iter])
     end;
 filter(Pred, Map) ->
     badarg_with_info([Pred, Map]).
 
-filter_1(Pred, {K, V, Iter}) ->
+filter_1(Pred, {K, V, Iter}, ErrorTag) ->
     case Pred(K, V) of
         true ->
-            [{K,V} | filter_1(Pred, next(Iter))];
+            [{K,V} | filter_1(Pred, try_next(Iter, ErrorTag), ErrorTag)];
         false ->
-            filter_1(Pred, next(Iter))
+            filter_1(Pred, try_next(Iter, ErrorTag), ErrorTag)
     end;
-filter_1(_Pred, none) ->
+filter_1(_Pred, none, _ErrorTag) ->
     [].
 
 -spec filtermap(Fun, MapOrIter) -> Map when
@@ -345,57 +345,52 @@ filter_1(_Pred, none) ->
       MapOrIter :: #{Key => Value1} | iterator(Key, Value1),
       Map :: #{Key => Value1 | Value2}.
 
-filtermap(Fun, MapOrIter) when is_function(Fun, 2) ->
-    Iter = if
-               is_map(MapOrIter) ->
-                   iterator(MapOrIter);
-               true ->
-                   MapOrIter
-           end,
-    try next(Iter) of
-        Next ->
-            maps:from_list(filtermap_1(Fun, Next))
+filtermap(Fun, Map) when is_map(Map), is_function(Fun, 2) ->
+    maps:from_list(filtermap_1(Fun, next(iterator(Map)), undefined));
+filtermap(Fun, Iter) when is_function(Fun, 2) ->
+    ErrorTag = make_ref(),
+    try filtermap_1(Fun, try_next(Iter, ErrorTag), ErrorTag) of
+        Result ->
+            maps:from_list(Result)
     catch
-        error:_ ->
-            error_with_info({badmap,MapOrIter}, [Fun, MapOrIter])
+        error:ErrorTag ->
+            error_with_info({badmap, Iter}, [Fun, Iter])
     end;
 filtermap(Fun, Map) ->
     badarg_with_info([Fun, Map]).
 
-filtermap_1(Pred, {K, V, Iter}) ->
-    case Pred(K, V) of
+filtermap_1(Fun, {K, V, Iter}, ErrorTag) ->
+    case Fun(K, V) of
         true ->
-            [{K, V} | filtermap_1(Pred, next(Iter))];
+            [{K, V} | filtermap_1(Fun, try_next(Iter, ErrorTag), ErrorTag)];
         {true, NewV} ->
-            [{K, NewV} | filtermap_1(Pred, next(Iter))];
+            [{K, NewV} | filtermap_1(Fun, try_next(Iter, ErrorTag), ErrorTag)];
         false ->
-            filtermap_1(Pred, next(Iter))
+            filtermap_1(Fun, try_next(Iter, ErrorTag), ErrorTag)
     end;
-filtermap_1(_Pred, none) ->
+filtermap_1(_Fun, none, _ErrorTag) ->
     [].
 
 -spec foreach(Fun,MapOrIter) -> ok when
       Fun :: fun((Key, Value) -> term()),
       MapOrIter :: #{Key => Value} | iterator(Key, Value).
 
-foreach(Fun, MapOrIter) when is_function(Fun, 2) ->
-    Iter = if is_map(MapOrIter) -> iterator(MapOrIter);
-              true -> MapOrIter
-           end,
-    try next(Iter) of
-        Next ->
-            foreach_1(Fun, Next)
+foreach(Fun, Map) when is_map(Map), is_function(Fun, 2) ->
+    foreach_1(Fun, next(iterator(Map)), undefined);
+foreach(Fun, Iter) when is_function(Fun, 2) ->
+    ErrorTag = make_ref(),
+    try foreach_1(Fun, try_next(Iter, ErrorTag), ErrorTag)
     catch
-        error:_ ->
-            error_with_info({badmap, MapOrIter}, [Fun, MapOrIter])
+        error:ErrorTag ->
+            error_with_info({badmap, Iter}, [Fun, Iter])
     end;
-foreach(Pred, Map) ->
-    badarg_with_info([Pred, Map]).
+foreach(Fun, Map) ->
+    badarg_with_info([Fun, Map]).
 
-foreach_1(Fun, {K, V, Iter}) ->
+foreach_1(Fun, {K, V, Iter}, ErrorTag) ->
     Fun(K,V),
-    foreach_1(Fun, next(Iter));
-foreach_1(_Fun, none) ->
+    foreach_1(Fun, try_next(Iter, ErrorTag), ErrorTag);
+foreach_1(_Fun, none, _ErrorTag) ->
     ok.
 
 -spec fold(Fun,Init,MapOrIter) -> Acc when
@@ -405,26 +400,21 @@ foreach_1(_Fun, none) ->
     AccIn :: Init | AccOut,
     MapOrIter :: #{Key => Value} | iterator(Key, Value).
 
-fold(Fun, Init, MapOrIter) when is_function(Fun, 3) ->
-    Iter = if
-               is_map(MapOrIter) ->
-                   iterator(MapOrIter);
-               true ->
-                   MapOrIter
-           end,
-    try next(Iter) of
-        Next ->
-            fold_1(Fun, Init, Next)
+fold(Fun, Init, Map) when is_map(Map), is_function(Fun, 3) ->
+    fold_1(Fun, Init, next(iterator(Map)), undefined);
+fold(Fun, Init, Iter) when is_function(Fun, 3) ->
+    ErrorTag = make_ref(),
+    try fold_1(Fun, Init, try_next(Iter, ErrorTag), ErrorTag)
     catch
-        error:_ ->
-            error_with_info({badmap,MapOrIter}, [Fun, Init, MapOrIter])
+        error:ErrorTag ->
+            error_with_info({badmap, Iter}, [Fun, Init, Iter])
     end;
 fold(Fun, Init, Map) ->
     badarg_with_info([Fun, Init, Map]).
 
-fold_1(Fun, Acc, {K, V, Iter}) ->
-    fold_1(Fun, Fun(K,V,Acc), next(Iter));
-fold_1(_Fun, Acc, none) ->
+fold_1(Fun, Acc, {K, V, Iter}, ErrorTag) ->
+    fold_1(Fun, Fun(K,V,Acc), try_next(Iter, ErrorTag), ErrorTag);
+fold_1(_Fun, Acc, none, _ErrorTag) ->
     Acc.
 
 -spec map(Fun,MapOrIter) -> Map when
@@ -432,27 +422,24 @@ fold_1(_Fun, Acc, none) ->
     MapOrIter :: #{Key => Value1} | iterator(Key, Value1),
     Map :: #{Key => Value2}.
 
-map(Fun, MapOrIter) when is_function(Fun, 2) ->
-    Iter = if
-               is_map(MapOrIter) ->
-                   iterator(MapOrIter);
-               true ->
-                   MapOrIter
-           end,
-    try next(Iter) of
-        Next ->
-            maps:from_list(map_1(Fun, Next))
+map(Fun, Map) when is_map(Map), is_function(Fun, 2) ->
+    maps:from_list(map_1(Fun, next(iterator(Map)), undefined));
+map(Fun, Iter) when is_function(Fun, 2) ->
+    ErrorTag = make_ref(),
+    try map_1(Fun, try_next(Iter, ErrorTag), ErrorTag) of
+        Result ->
+            maps:from_list(Result)
     catch
-        error:_ ->
-            error_with_info({badmap,MapOrIter}, [Fun, MapOrIter])
+        error:ErrorTag ->
+            error_with_info({badmap, Iter}, [Fun, Iter])
     end;
 map(Fun, Map) ->
     badarg_with_info([Fun, Map]).
 
 
-map_1(Fun, {K, V, Iter}) ->
-    [{K, Fun(K, V)} | map_1(Fun, next(Iter))];
-map_1(_Fun, none) ->
+map_1(Fun, {K, V, Iter}, ErrorTag) ->
+    [{K, Fun(K, V)} | map_1(Fun, try_next(Iter, ErrorTag), ErrorTag)];
+map_1(_Fun, none, _ErrorTag) ->
     [].
 
 -spec size(Map) -> non_neg_integer() when
@@ -622,3 +609,34 @@ badarg_with_info(Args) ->
 
 error_with_info(Reason, Args) ->
     erlang:error(Reason, Args, [{error_info, #{module => erl_stdlib_errors}}]).
+
+-spec is_iterator_valid(MaybeIter) -> boolean() when
+    MaybeIter :: iterator() | term().
+
+is_iterator_valid(Iter) ->
+    try is_iterator_valid_1(Iter)
+    catch
+        error:badarg ->
+            false
+    end.
+
+is_iterator_valid_1(none) ->
+    true;
+is_iterator_valid_1({_, _, Next}) ->
+    is_iterator_valid_1(next(Next));
+is_iterator_valid_1(Iter) ->
+    _ = next(Iter),
+    true.
+
+try_next({_, _, _} = KVI, _ErrorTag) ->
+    KVI;
+try_next(none, _ErrorTag) ->
+    none;
+try_next(Iter, undefined) ->
+    next(Iter);
+try_next(Iter, ErrorTag) ->
+    try next(Iter)
+    catch
+        error:badarg ->
+            error(ErrorTag)
+    end.
