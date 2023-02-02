@@ -96,11 +96,11 @@
 
 %%--------------------------------------------------------------------
 
+%% We KNOW that `error` is not a valid value in the table.
 ets_dict_find(Key, Table) ->
-  try ets:lookup_element(Table, Key, 2) of
-      Val -> {ok, Val}
-  catch
-    _:_ -> error
+  case ets:lookup_element(Table, Key, 2, error) of
+    error -> error;
+    Val -> {ok, Val}
   end.
 
 ets_map_store(Key, Element, Table) ->
@@ -112,7 +112,7 @@ ets_dict_to_dict(Table) ->
   ets:foldl(Fold, dict:new(), Table).
 
 ets_set_is_element(Key, Table) ->
-  ets:lookup(Table, Key) =/= [].
+  ets:member(Table, Key).
 
 ets_set_insert_set(Set, Table) ->
   ets_set_insert_list(sets:to_list(Set), Table).
@@ -266,10 +266,7 @@ set_next_core_label(NCL, CS) ->
 -spec lookup_mod_records(atom(), codeserver()) -> types().
 
 lookup_mod_records(Mod, #codeserver{records = RecDict}) when is_atom(Mod) ->
-  case ets_dict_find(Mod, RecDict) of
-    error -> maps:new();
-    {ok, Map} -> Map
-  end.
+  ets:lookup_element(RecDict, Mod, 2, #{}).
 
 -spec get_records_table(codeserver()) -> map_ets().
 
@@ -298,10 +295,7 @@ get_temp_records_table(#codeserver{temp_records = TempRecDict}) ->
 -spec lookup_temp_mod_records(module(), codeserver()) -> types().
 
 lookup_temp_mod_records(Mod, #codeserver{temp_records = TempRecDict}) ->
-  case ets_dict_find(Mod, TempRecDict) of
-    error -> maps:new();
-    {ok, Map} -> Map
-  end.
+  ets:lookup_element(TempRecDict, Mod, 2, #{}).
 
 -spec finalize_records(codeserver()) -> codeserver().
 
@@ -320,11 +314,8 @@ finalize_records(#codeserver{temp_records = TmpRecords,
 
 lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   when is_atom(Mod) ->
-  case ets_dict_find(Mod, ContDict) of
-    error -> maps:new();
-    {ok, Keys} ->
-      maps:from_list([get_file_contract(Key, ContDict)|| Key <- Keys])
-  end.
+  Keys = ets:lookup_element(ContDict, Mod, 2, []),
+  maps:from_list([get_file_contract(Key, ContDict) || Key <- Keys]).
 
 get_file_contract(Key, ContDict) ->
   {Key, ets:lookup_element(ContDict, Key, 2)}.

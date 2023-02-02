@@ -337,15 +337,15 @@ module_postorder_from_funs(Funs, #callgraph{digraph = DG,
   digraph_delete(SubGraph),
   {PO, CG#callgraph{active_digraph = Active}}.
 
+%% We KNOW that `error` is not a valid value in the table.
 ets_lookup_dict(Key, Table) ->
-  try ets:lookup_element(Table, Key, 2) of
-      Val -> {ok, Val}
-  catch
-    _:_ -> error
+  case ets:lookup_element(Table, Key, 2, error) of
+    error -> error;
+    Val -> {ok, Val}
   end.
 
 ets_lookup_set(Key, Table) ->
-  ets:lookup(Table, Key) =/= [].
+  ets:member(Table, Key).
 
 %%----------------------------------------------------------------------
 %% Core code
