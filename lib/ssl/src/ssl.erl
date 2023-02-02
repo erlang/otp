@@ -2665,7 +2665,7 @@ unexpected_format(Error) ->
 
 file_error_format({error, Error})->
     case file:format_error(Error) of
-	"unknown POSIX error" ->
+	"unknown POSIX error" ++ _ ->
 	    "decoding error";
 	Str ->
 	    Str

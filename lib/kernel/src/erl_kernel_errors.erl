@@ -75,7 +75,7 @@ format_os_error(_, _, _) ->
 
 maybe_posix_message(Reason) ->
     case erl_posix_msg:message(Reason) of
-        "unknown POSIX error" ->
+        "unknown POSIX error" ++ _ ->
             io_lib:format("open_port failed with reason: ~tp",[Reason]);
         PosixStr ->
             io_lib:format("~ts (~tp)",[PosixStr, Reason])

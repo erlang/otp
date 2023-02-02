@@ -510,7 +510,7 @@ format_io_error_cause(_, _, _, _HasDevice) ->
 
 maybe_posix_message(Cause, HasDevice) ->
     case erl_posix_msg:message(Cause) of
-        "unknown POSIX error" ->
+        "unknown POSIX error" ++ _ ->
             unknown;
         PosixStr when HasDevice ->
             [io_lib:format("~ts (~tp)",[PosixStr, Cause])];
