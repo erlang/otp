@@ -332,7 +332,7 @@ init_disc_index(Tab, disc_only_copies, [{Pos,_Pref} | Tail]) ->
     Storage = disc_only_copies,
     Key = mnesia_lib:db_first(Storage, Tab),
     Recs = mnesia_lib:db_get(Storage, Tab, Key),
-    BinSize = size(term_to_binary(Recs)),
+    BinSize = byte_size(term_to_binary(Recs)),
     KeysPerChunk = (4000 div BinSize) + 1,
     Init = {start, KeysPerChunk},
     mnesia_lib:db_fixtable(Storage, Tab, true),

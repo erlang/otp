@@ -760,7 +760,7 @@ calc_nokeys(Storage, Tab) ->
     %% Calculate #keys per transfer
     Key = mnesia_lib:db_first(Storage, Tab),
     Recs = mnesia_lib:db_get(Storage, Tab, Key),
-    BinSize = size(term_to_binary(Recs)),
+    BinSize = byte_size(term_to_binary(Recs)),
     (max_transfer_size() div BinSize) + 1.
 
 send_table(Pid, Tab, RemoteS, Reason) ->
