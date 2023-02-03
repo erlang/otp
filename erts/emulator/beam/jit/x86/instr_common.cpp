@@ -245,7 +245,7 @@ void BeamModuleAssembler::emit_normal_exit() {
     emit_proc_lc_require();
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    abs_jmp(ga->get_do_schedule());
+    a.jmp(resolve_fragment(ga->get_do_schedule()));
 }
 
 void BeamModuleAssembler::emit_continue_exit() {
@@ -261,7 +261,7 @@ void BeamModuleAssembler::emit_continue_exit() {
     emit_proc_lc_require();
     emit_leave_runtime<Update::eReductions | Update::eStack | Update::eHeap>();
 
-    abs_jmp(ga->get_do_schedule());
+    a.jmp(resolve_fragment(ga->get_do_schedule()));
 }
 
 void BeamModuleAssembler::emit_get_list(const x86::Gp src,
@@ -1961,7 +1961,7 @@ void BeamModuleAssembler::emit_raw_raise() {
     (BEAM_ASM_FUNC_PROLOGUE_SIZE + 16 +                                        \
      (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA ? 4 : 0))
 
-/* ARG3 = return address, currLabel + TEST_YIELD_RETURN_OFFSET */
+/* ARG3 = return address, current_label + TEST_YIELD_RETURN_OFFSET */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
     int mfa_offset = -TEST_YIELD_RETURN_OFFSET - (int)sizeof(ErtsCodeMFA);
 
@@ -1976,16 +1976,16 @@ void BeamGlobalAssembler::emit_i_test_yield_shared() {
 void BeamModuleAssembler::emit_i_test_yield() {
     /* When present, this is guaranteed to be the first instruction after the
      * breakpoint trampoline. */
-    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 
     emit_enter_frame();
 
-    a.lea(ARG3, x86::qword_ptr(currLabel, TEST_YIELD_RETURN_OFFSET));
+    a.lea(ARG3, x86::qword_ptr(current_label, TEST_YIELD_RETURN_OFFSET));
     a.dec(FCALLS);
-    a.jle(yieldEnter);
+    a.long_().jle(resolve_fragment(ga->get_i_test_yield_shared()));
 
-    ASSERT((a.offset() - code.labelOffsetFromBase(currLabel)) ==
+    ASSERT((a.offset() - code.labelOffsetFromBase(current_label)) ==
            TEST_YIELD_RETURN_OFFSET);
 
 #if defined(JIT_HARD_DEBUG) && defined(ERLANG_FRAME_POINTERS)
@@ -2002,12 +2002,12 @@ void BeamModuleAssembler::emit_i_test_yield() {
 void BeamModuleAssembler::emit_i_yield() {
     a.mov(getXRef(0), imm(am_true));
 #ifdef NATIVE_ERLANG_STACK
-    fragment_call(yieldReturn);
+    fragment_call(resolve_fragment(ga->get_dispatch_return()));
 #else
     Label next = a.newLabel();
 
     a.lea(ARG3, x86::qword_ptr(next));
-    a.jmp(yieldReturn);
+    a.jmp(resolve_fragment(ga->get_dispatch_return()));
 
     a.align(AlignMode::kCode, 8);
     a.bind(next);

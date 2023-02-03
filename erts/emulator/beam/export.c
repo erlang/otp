@@ -123,15 +123,15 @@ export_alloc(struct export_entry* tmpl_e)
 	blob = (struct export_blob*) erts_alloc(ERTS_ALC_T_EXPORT, sizeof(*blob));
 	erts_atomic_add_nob(&total_entries_bytes, sizeof(*blob));
 	obj = &blob->exp;
-	obj->info.op = 0;
-	obj->info.u.gen_bp = NULL;
+        sys_memset(&obj->info.u, 0, sizeof(obj->info.u));
+	obj->info.gen_bp = NULL;
 	obj->info.mfa.module = tmpl->info.mfa.module;
 	obj->info.mfa.function = tmpl->info.mfa.function;
 	obj->info.mfa.arity = tmpl->info.mfa.arity;
         obj->bif_number = -1;
         obj->is_bif_traced = 0;
 
-        memset(&obj->trampoline, 0, sizeof(obj->trampoline));
+        sys_memset(&obj->trampoline, 0, sizeof(obj->trampoline));
 
         if (BeamOpsAreInitialized()) {
             obj->trampoline.common.op = BeamOpCodeAddr(op_call_error_handler);

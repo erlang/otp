@@ -896,10 +896,10 @@ class BeamModuleAssembler : public BeamAssembler {
     BeamGlobalAssembler *ga;
 
     /* Used by emit to populate the labelToMFA map */
-    Label currLabel;
+    Label current_label;
 
     /* The offset of our BeamCodeHeader, if any. */
-    Label codeHeader;
+    Label code_header;
 
     /* The module's on_load function, if any. */
     Label on_load;
