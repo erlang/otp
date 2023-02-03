@@ -53,7 +53,7 @@ prepare(_Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(I
 				blksize  	 = lookup_blksize(AcceptedOptions),
 				bin      	 = Filename,
 				is_network_ascii = IsNetworkAscii,
-			        count            = size(Filename),
+			        count            = byte_size(Filename),
 				is_native_ascii  = IsNativeAscii},
 	    {ok, AcceptedOptions, State};
 	{ok, IsNetworkAscii, AcceptedOptions} when Access =:= write, Filename =:= binary ->
@@ -115,11 +115,11 @@ open(Peer, Access, Filename, Mode, NegotiatedOptions, State) ->
 read(#read_state{bin = Bin} = State) when is_binary(Bin) ->
     BlkSize = State#read_state.blksize,
     if
-	size(Bin) >= BlkSize ->
+	byte_size(Bin) >= BlkSize ->
 	    <<Block:BlkSize/binary, Bin2/binary>> = Bin,
 	    State2 = State#read_state{bin = Bin2},
 	    {more, Block, State2};
-	size(Bin) < BlkSize ->
+	byte_size(Bin) < BlkSize ->
 	    {last, Bin, State#read_state.count}
     end;
 read(State) ->
@@ -132,7 +132,7 @@ read(State) ->
 %%-------------------------------------------------------------------
 
 write(Bin, #write_state{list = List} = State) when is_binary(Bin), is_list(List) ->
-    Size = size(Bin),
+    Size = byte_size(Bin),
     BlkSize = State#write_state.blksize,
     if
 	Size =:= BlkSize ->
@@ -182,7 +182,7 @@ do_handle_options(Access, Bin, [{Key, Val} | T]) ->
 	"tsize" ->
 	    case Access of
 		read when Val =:= "0", is_binary(Bin) ->
-		    Tsize = integer_to_list(size(Bin)),
+		    Tsize = integer_to_list(byte_size(Bin)),
 		    [{Key, Tsize} | do_handle_options(Access, Bin, T)];
 		_ ->
 		    handle_integer(Access, Bin, Key, Val, T, 0, infinity)
