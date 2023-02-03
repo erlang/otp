@@ -570,7 +570,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 	memcpy((void *) (cmd_line + CMD_LINE_PREFIX_STR_SZ), (void *) name, len);
 	cmd_line[CMD_LINE_PREFIX_STR_SZ + len] = '\0';
 	len = CMD_LINE_PREFIX_STR_SZ + len + 1;
-}
+    }
 
     if ((cwd = getcwd(wd_buff, MAXPATHLEN+1)) == NULL) {
         /* on some OSs this call opens a fd in the
