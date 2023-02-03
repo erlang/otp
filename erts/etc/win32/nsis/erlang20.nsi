@@ -32,7 +32,7 @@
 
 	!include "erlang.nsh" ; All release specific parameters come from this
 
-	Name "${OTP_PRODUCT} ${OTP_VERSION}"
+	Name "${OTP_PRODUCT} ${OTP_RELEASE}"
 
 	!include "MUI.nsh"
 	!include "WordFunc.nsh"
@@ -52,7 +52,7 @@ Var STARTMENU_FOLDER
 !define MY_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
 
 ;General
-	OutFile "${OUTFILEDIR}\otp_${WINTYPE}_${OTP_RELEASE_VERSION}.exe"
+	OutFile "${OUTFILEDIR}\otp_${WINTYPE}_${OTP_VERSION}.exe"
 
 ;Folder selection page
 !if ${WINTYPE} == "win64"
@@ -66,9 +66,9 @@ Var STARTMENU_FOLDER
 ; Set the default start menu folder
 
 !if ${WINTYPE} == "win64"
-	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION} (x64)"
+	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (x64)"
 !else
-	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_VERSION} (i386)"
+	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (i386)"
 !endif  
 
 ;--------------------------------
@@ -99,6 +99,17 @@ Var STARTMENU_FOLDER
  
   	!insertmacro MUI_LANGUAGE "English"
   
+;--------------------------------
+; Installer file properties
+
+VIProductVersion "${OTP_VERSION_LONG}"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "CompanyName" "Ericsson AB"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "FileVersion" "${OTP_VERSION}"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "FileDescription" "Erlang/OTP installer"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "Copyright Ericsson AB 2010-${YEAR}. All Rights Reserved."
+VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "Erlang/OTP"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductVersion" "${OTP_VERSION}"
+
 ;--------------------------------
 ;Language Strings
 
@@ -150,7 +161,6 @@ SectionIn 1 RO
 ; Don't let Users nor Authenticated Users group create new files
 ; Avoid dll injection when installing to non /Program Files/ dirs
 
-        StrCmp $INSTDIR $InstallDir cp_files
         ; Remove ANY inherited access control
         ExecShellWait "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /inheritance:r' SW_HIDE
         ; Grant Admin full control
@@ -158,7 +168,6 @@ SectionIn 1 RO
         ; Grant Normal Users read+execute control
         ExecShellWait "open" "$SYSDIR\icacls.exe" '"$INSTDIR" /grant:r *S-1-1-0:(OI)(CI)RX' SW_HIDE
 
-cp_files:
   	File "${TESTROOT}\Install.ini"
   	File "${TESTROOT}\Install.exe"
 	SetOutPath "$INSTDIR\releases"
@@ -215,10 +224,10 @@ done_startmenu:
 
   	WriteRegStr HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
-		"DisplayName" "Erlang OTP ${OTP_RELEASE_VERSION} (${ERTS_VERSION})"
+		"DisplayName" "Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
 	WriteRegStr HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
-		"DisplayVersion" "${OTP_RELEASE_VERSION}"
+		"DisplayVersion" "${OTP_VERSION}"
 	WriteRegStr HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"Publisher" "Ericsson AB"
@@ -245,10 +254,10 @@ done_startmenu:
 
   	WriteRegStr HKCU \
 		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
-		"DisplayName" "Erlang OTP ${OTP_RELEASE_VERSION} (${ERTS_VERSION})"
+		"DisplayName" "Erlang OTP ${OTP_VERSION} (${ERTS_VERSION})"
 	WriteRegStr HKCU \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
-		"DisplayVersion" "${OTP_RELEASE_VERSION}"
+		"DisplayVersion" "${OTP_VERSION}"
 	WriteRegStr HKCU \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"Publisher" "Ericsson AB"

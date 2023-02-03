@@ -68,18 +68,24 @@ REDIST_DLL_NAME=$(shell (sh ./dll_version_helper.sh -n "$(NICEREDISTFILE)" || ec
 # $(info $$REDIST_DLL_NAME = [${REDIST_DLL_NAME}])
 # $(info $$REDIST_FILE = [${REDIST_FILE}])
 
+# NSIS really want the product version number to be at least 4 digits long
+OTP_VERSION_LONG=$(shell $(ERL_TOP)/bootstrap/bin/escript.exe vsn_number.escript $(OTP_VERSION))
+YEAR=$(shell date +%Y)
+
 release_spec:
 	@NSIS_VER=`makensis.exe -version`; \
 	case $$NSIS_VER in \
-	v2.0b*) \
+	v2.* | v3.0 | v3.01) \
 	  echo "Unsupported NSIS version: $$NSIS_VER";;\
-	v2.* | v3.*) \
-	  echo '!define OTP_VERSION "$(SYSTEM_VSN)"' > $(VERSION_HEADER);\
-	  echo '!define OTP_RELEASE_VERSION "$(OTP_VERSION)"' >> $(VERSION_HEADER);\
+	v3.*) \
+	  echo '!define OTP_RELEASE "$(SYSTEM_VSN)"' > $(VERSION_HEADER);\
+	  echo '!define OTP_VERSION "$(OTP_VERSION)"' >> $(VERSION_HEADER);\
+	  echo '!define OTP_VERSION_LONG "$(OTP_VERSION_LONG)"' >> $(VERSION_HEADER);\
 	  echo '!define ERTS_VERSION "$(VSN)"' >> $(VERSION_HEADER);\
 	  echo '!define TESTROOT "$(WTESTROOT)"' >> $(VERSION_HEADER);\
 	  echo '!define OUTFILEDIR "$(WTARGET_DIR)"' >> $(VERSION_HEADER);\
 	  echo '!define WINTYPE "$(WINTYPE)"' >> $(VERSION_HEADER);\
+	  echo '!define YEAR "$(YEAR)"' >> $(VERSION_HEADER);\
 	  if [ -f $(CUSTOM_MODERN) ];\
 	  then \
 		echo '!define HAVE_CUSTOM_MODERN 1' >> $(VERSION_HEADER); \

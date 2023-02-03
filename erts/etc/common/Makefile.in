@@ -337,11 +337,14 @@ OTP_VSN_COMMA_SEP  := $(wordlist 1,4, $(OTP_VSN_COMMA_SEP))
 ERTS_VSN_COMMA_SEP := $(subst $(SPACE_CHAR),$(COMMA_CHAR),$(ERTS_VSN_COMMA_SEP))
 OTP_VSN_COMMA_SEP  := $(subst $(SPACE_CHAR),$(COMMA_CHAR),$(OTP_VSN_COMMA_SEP))
 
+YEAR := $(shell date +%Y)
+
 $(WINETC)/version.h:   $(WINETC)/version.h.src
 	$(vsn_verbose)sed -e 's;%ERTS_VERSION%;$(VSN);' \
 	    -e 's;%ERTS_VERSION_INTS%;$(ERTS_VSN_COMMA_SEP);' \
 	    -e 's;%OTP_VERSION%;$(OTP_VERSION);' \
 	    -e 's;%OTP_VERSION_INTS%;$(OTP_VSN_COMMA_SEP);' \
+	    -e 's;%YEAR%;$(YEAR);' \
                   $(WINETC)/version.h.src > $(WINETC)/version.h
 
 $(OBJDIR)/$(ERLRES_OBJ): $(WINETC)/erl.rc $(WINETC)/erlang.ico \
