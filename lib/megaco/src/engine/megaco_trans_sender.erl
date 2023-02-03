@@ -165,14 +165,14 @@ loop(#state{reqs = [], acks = [], timeout = Timeout} = S, _) ->
 	    _ = send_msg(S#state.conn_handle, [], [Serial]),
 	    loop(S, Timeout);
 
-	{send_req, Tid, Req} when size(Req) >= S#state.req_maxsize ->
+	{send_req, Tid, Req} when is_binary(Req), byte_size(Req) >= S#state.req_maxsize ->
 	    ?d("loop(empty) -> received (big) send_req request ~w", [Tid]),
 	    _ = send_msg(S#state.conn_handle, [{Tid, Req}], []),
 	    loop(S, Timeout);
 
-	{send_req, Tid, Req} ->
+	{send_req, Tid, Req} when is_binary(Req) ->
 	    ?d("loop(empty) -> received send_req request ~w", [Tid]),
-	    loop(S#state{req_sz = size(Req), reqs = [{Tid,Req}]}, Timeout);
+	    loop(S#state{req_sz = byte_size(Req), reqs = [{Tid,Req}]}, Timeout);
 
 	{send_reqs, Tids, Reqs} ->
 	    ?d("loop(empty) -> received send_reqs request: ~w", [Tids]),
@@ -381,7 +381,7 @@ loop(#state{reqs = Reqs, acks = Acks, timeout = Timeout} = S, _To) ->
 handle_send_req(Tid, Req, 
 		#state{conn_handle = CH, 
 		       req_maxsize = MaxSz, reqs = Reqs, acks = Acks} = S) 
-  when size(Req) >= MaxSz ->
+  when is_binary(Req), byte_size(Req) >= MaxSz ->
     ?d("handle_send_req -> request bigger then maxsize ~w", [MaxSz]),
     handle_send_result( send_msg(CH, Reqs, Acks) ),
     handle_send_result( send_msg(CH, [{Tid, Req}], []) ),
@@ -407,7 +407,7 @@ handle_send_req(Tid, Req,
 	     ),
 	    {S#state{req_sz = 0, reqs = [], acks = []}, true};
 
-	false when size(Req) + ReqSz >= MaxSz ->
+	false when is_binary(Req), byte_size(Req) + ReqSz >= MaxSz ->
 	    %% We finally passed the req-maxsize limit
 	    ?d("handle_send_req -> maxsize ~w passed", [MaxSz]),
 	    handle_send_result( 
@@ -415,10 +415,10 @@ handle_send_req(Tid, Req,
 	     ),
 	    {S#state{req_sz = 0, reqs = [], acks = []}, true};
 
-	false ->
+	false when is_binary(Req) ->
 	    %% Still not time to send
 	    ?d("handle_send_req -> nothing to be sent",[]),
-	    {S#state{req_sz = ReqSz + size(Req), reqs = [{Tid, Req}|Reqs]}, 
+	    {S#state{req_sz = ReqSz + byte_size(Req), reqs = [{Tid, Req}|Reqs]},
 	     false}
     end.
 	    
@@ -494,33 +494,33 @@ maybe_send_reqs(_CH, [], _Acks, Acc, AccSz, _MaxSz, Sent) ->
 	"~n   length(Acc): ~w", [Sent, AccSz, length(Acc)]),
     {Acc, AccSz, Sent};
 maybe_send_reqs(CH, [{Tid, Req}|Reqs], Acks, Acc, _AccSz, MaxSz, _Sent) 
-  when size(Req) >= MaxSz ->
+  when is_binary(Req), byte_size(Req) >= MaxSz ->
     %% The request was above the maxsize limit, so first send 
     %% what's in store and the the big request.
     ?d("maybe_send_reqs -> entry when request [~w] size (~w) > max size"
 	"~n   Acks:        ~w"
-	"~n   length(Acc): ~w", [Tid, size(Req), Acks, length(Acc)]),
+	"~n   length(Acc): ~w", [Tid, byte_size(Req), Acks, length(Acc)]),
     handle_send_result( send_msg(CH, Acc, Acks) ),
     handle_send_result( send_msg(CH, [{Tid, Req}], []) ),
     maybe_send_reqs(CH, Reqs, [], [], 0, MaxSz, true);
 maybe_send_reqs(CH, [{Tid, Req}|Reqs], Acks, Acc, AccSz, MaxSz, _Sent) 
-  when AccSz + size(Req) >= MaxSz ->
+  when is_binary(Req), AccSz + byte_size(Req) >= MaxSz ->
     %% We _did_ pass the maxsize limit with this request, so send 
     ?d("maybe_send_reqs -> entry when sum of requests (~w) > max size"
 	"~n   Tid:         ~w"
 	"~n   Acks:        ~w"
-	"~n   length(Acc): ~w", [Tid, size(Req) + AccSz, Acks, length(Acc)]),
+	"~n   length(Acc): ~w", [Tid, byte_size(Req) + AccSz, Acks, length(Acc)]),
     handle_send_result( send_msg(CH, [{Tid, Req}|Acc], Acks) ),
     maybe_send_reqs(CH, Reqs, [], [], 0, MaxSz, true);
-maybe_send_reqs(CH, [{Tid, Req}|Reqs], Acks, Acc, AccSz, MaxSz, Sent) ->
+maybe_send_reqs(CH, [{Tid, Req}|Reqs], Acks, Acc, AccSz, MaxSz, Sent) when is_binary(Req) ->
     ?d("maybe_send_reqs -> entry when"
 	"~n   Tid:         ~w"
 	"~n   size(Req):   ~w"
 	"~n   Acks:        ~w"
 	"~n   length(Acc): ~w"
-	"~n   AccSz:       ~w", [Tid, size(Req), Acks, length(Acc), AccSz]),
+	"~n   AccSz:       ~w", [Tid, byte_size(Req), Acks, length(Acc), AccSz]),
     NewAcc   = [{Tid,Req}|Acc], 
-    NewAccSz = AccSz + size(Req), 
+    NewAccSz = AccSz + byte_size(Req),
     maybe_send_reqs(CH, Reqs, Acks, NewAcc, NewAccSz, MaxSz, Sent).
 
     
@@ -548,7 +548,7 @@ send_reply(CH, Reply, MaxSz, _ReqSz, Reqs, Acks) ->
 	"~n   length(Reqs): ~w"
 	"~n   length(Acks): ~w", [length(Reqs), length(Acks)]),
     case megaco_config:lookup_local_conn(CH) of
-	[CD] when size(Reply) > MaxSz ->
+	[CD] when is_binary(Reply), byte_size(Reply) > MaxSz ->
 	    handle_send_result( send_msg(CD, lists:reverse(Reqs), Acks) ),
 	    Rep = {transactionReply, Reply},
 	    do_send_msg(CD, Rep, [], []);

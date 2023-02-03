@@ -48,8 +48,8 @@ is_scanner_port(Port, Ports) when is_tuple(Ports) ->
 is_scanner_port(_, _) ->
     false.
 
-is_own_port(Port, Ports) ->
-    is_own_port(Port, size(Ports), Ports).
+is_own_port(Port, Ports) when is_tuple(Ports)->
+    is_own_port(Port, tuple_size(Ports), Ports).
 
 is_own_port(_Port, 0, _Ports) ->
     false;

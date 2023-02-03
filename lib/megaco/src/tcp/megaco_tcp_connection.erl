@@ -141,26 +141,26 @@ handle_info({tcp_error, _Socket}, TcpRec) ->
     {stop, shutdown, TcpRec};
 handle_info({tcp, Socket, <<3:8, _X:8, Length:16, Msg/binary>>}, 
 	    #megaco_tcp{socket = Socket, serialize = false} = TcpRec) 
-  when Length < ?GC_MSG_LIMIT ->
+  when is_binary(Msg), Length < ?GC_MSG_LIMIT ->
     #megaco_tcp{module = Mod, receive_handle = RH} = TcpRec,
     incNumInMessages(Socket),
-    incNumInOctets(Socket, 4+size(Msg)),
+    incNumInOctets(Socket, 4+byte_size(Msg)),
     apply(Mod, receive_message, [RH, self(), Socket, Msg]),
     _ = inet:setopts(Socket, [{active, once}]),
     {noreply, TcpRec};
 handle_info({tcp, Socket, <<3:8, _X:8, Length:16, Msg/binary>>}, 
-	    #megaco_tcp{socket = Socket, serialize = false} = TcpRec) ->
+	    #megaco_tcp{socket = Socket, serialize = false} = TcpRec) when is_binary(Msg)->
     #megaco_tcp{module = Mod, receive_handle = RH} = TcpRec,
     incNumInMessages(Socket),
-    incNumInOctets(Socket, 4+size(Msg)),
+    incNumInOctets(Socket, 4+byte_size(Msg)),
     receive_message(Mod, RH, Socket, Length, Msg),
     _ = inet:setopts(Socket, [{active, once}]),
     {noreply, TcpRec};
 handle_info({tcp, Socket, <<3:8, _X:8, _Length:16, Msg/binary>>},
-            #megaco_tcp{socket = Socket, serialize = true} = TcpRec) ->
+            #megaco_tcp{socket = Socket, serialize = true} = TcpRec) when is_binary(Msg) ->
     #megaco_tcp{module = Mod, receive_handle = RH} = TcpRec,
     incNumInMessages(Socket),
-    incNumInOctets(Socket, 4+size(Msg)),
+    incNumInOctets(Socket, 4+byte_size(Msg)),
     process_received_message(Mod, RH, Socket, Msg),
     _ = inet:setopts(Socket, [{active, once}]),
     {noreply, TcpRec};

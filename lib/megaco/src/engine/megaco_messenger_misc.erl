@@ -217,7 +217,7 @@ encode_action_replies(#conn_data{protocol_version = V,
 		      [AR|ARs], Size, Acc) ->
     case (catch Mod:encode_action_reply(Conf, V, AR)) of
 	{ok, Bin} when is_binary(Bin) ->
-	    encode_action_replies(CD, ARs, Size + size(Bin), [Bin|Acc]);
+	    encode_action_replies(CD, ARs, Size + byte_size(Bin), [Bin|Acc]);
         {'EXIT', {undef, _}} ->
             throw({error, not_implemented});
 	{error, not_implemented} = Error1 ->
