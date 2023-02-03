@@ -35,7 +35,8 @@
 %% Test cases
 -export([app_file/1, appup_file/1,
 	 basic/1, process_win/1, table_win/1,
-         port_win_when_tab_not_initiated/1
+         port_win_when_tab_not_initiated/1,
+         blocking_start/1, remote_node/1
 	]).
 
 %% Default timetrap timeout (set in init_per_testcase)
@@ -58,7 +59,9 @@ groups() ->
       [basic,
        process_win,
        table_win,
-       port_win_when_tab_not_initiated
+       port_win_when_tab_not_initiated,
+       blocking_start,
+       remote_node
       ]
      }].
 
@@ -466,6 +469,40 @@ table_win(Config) when is_list(Config) ->
     ?P("ensure observer stopped"),
     ensure_observer_stopped(?SECS(3)),
     ?P("table_win -> done"),
+    ok.
+
+remote_node(_Config) ->
+    {ok, Peer, Node} = ?CT_PEER(),
+    ok = observer:start(Node),
+    timer:sleep(1000),
+    Node = observer_wx:get_active_node(),
+    observer:stop(),
+    ensure_observer_stopped(),
+    peer:stop(Peer).
+
+blocking_start(_Config) ->
+    {Pid, SpawnerRef} = spawn_monitor(fun observer:start_and_wait/0),
+    timer:sleep(1000),
+    ObserverRef = monitor(process, observer),
+    receive
+        {'DOWN', ObserverRef, _, _, Reason} ->
+            error({observer_stopped_unexpectedly, Reason});
+        {'DOWN', SpawnerRef, _, _, Reason} ->
+            error({spawner_stopped_unexpectedly, Reason})
+    after
+        500 ->
+            ok
+    end,
+    observer:stop(),
+    ensure_observer_stopped(),
+    receive
+        {'DOWN', ObserverRef, _, _, _} ->
+            ok
+    after
+        500 ->
+            error(observer_should_have_stopped)
+    end,
+    false = erlang:is_process_alive(Pid),
     ok.
 
 %% Test PR-1296/OTP-14151
