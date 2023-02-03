@@ -369,8 +369,8 @@ handle_msg({{continue, Chunk}, Module, Function, Args}, #state{chunk = {_, CbSta
 handle_msg({continue, Module, Function, Args}, 	#state{mod = ModData} = State) ->
     setopts(ModData#mod.socket, ModData#mod.socket_type, [{active, once}]),
     {noreply, State#state{mfa = {Module, Function, Args}}};
-handle_msg({last, Body}, #state{headers = Headers, chunk = {_, CbState}} = State) -> 
-    NewHeaders = Headers#http_request_h{'content-length' = integer_to_list(size(Body))},
+handle_msg({last, Body}, #state{headers = Headers, chunk = {_, CbState}} = State) when is_binary(Body) ->
+    NewHeaders = Headers#http_request_h{'content-length' = integer_to_list(byte_size(Body))},
     handle_response(State#state{chunk = {last, CbState},
                                 headers = NewHeaders,
                                 body = Body});
