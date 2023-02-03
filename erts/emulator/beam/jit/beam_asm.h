@@ -18,7 +18,8 @@
  * %CopyrightEnd%
  */
 
-#ifdef BEAMASM
+#if defined(BEAMASM) && !defined(__BEAM_ASM_H__)
+#    define __BEAM_ASM_H__
 
 #    include "sys.h"
 #    include "bif.h"
@@ -90,15 +91,21 @@ void beamasm_flush_icache(const void *address, size_t size);
 /* Number of bytes emitted at first label in order to support trace and nif
  * load. */
 #    if defined(__aarch64__)
-#        define BEAM_ASM_BP_RETURN_OFFSET 16
-#        define BEAM_ASM_FUNC_PROLOGUE_SIZE 16
+#        define BEAM_ASM_FUNC_PROLOGUE_SIZE 12
 #    else
 #        define BEAM_ASM_FUNC_PROLOGUE_SIZE 8
 #    endif
 
+/* Size (in bytes) of a ErtsNativeFunc/call_nif prologue. */
+#    if defined(__aarch64__)
+#        define BEAM_ASM_NFUNC_SIZE (BEAM_ASM_FUNC_PROLOGUE_SIZE + 4)
+#    else
+#        define BEAM_ASM_NFUNC_SIZE (BEAM_ASM_FUNC_PROLOGUE_SIZE + 8)
+#    endif
+
 /*
- * The code below is used to deal with intercepting the execution of
- * a process at the start of a function. It is used by tracing and nif loading.
+ * The code below is used to deal with intercepting the execution of a process
+ * at the start of a function. It is used by tracing and nif loading.
  *
  * In the interpreter this is solved by simply writing a new instruction as
  * the first instruction in a function. In asm mode it is not as simple as
@@ -107,39 +114,27 @@ void beamasm_flush_icache(const void *address, size_t size);
  * On x86, the solution is as follows:
  *
  *   When emitting a function the first word (or function prologue) is:
- *      0x0: jmp 6
- *      0x2: ERTS_ASM_BP_FLAG_NONE
- *      0x3: relative near call
- *      0x4: &genericBPTramp
+ *      0x0: short jmp 6
+ *      0x2: nop
+ *      0x3: relative near call to shared breakpoint fragment
  *      0x8: actual code for function
  *
- *   When code starts to execute it will simply see the "jmp 6" instruction
- *   which skips the prologue and starts to execute the code directly.
+ *   When code starts to execute it will simply see the `short jmp 6`
+ *   instruction which skips the prologue and starts to execute the code
+ *   directly.
  *
- *   When we want to enable a certain breakpoint we set the jmp target to
- *   be 1 (which means it will land on the call instruction) and will call
- *   genericBPTramp. genericBPTramp is a label at the top of each module
- *   that contains trampolines for all flag combinations.
+ *   When we want to enable a certain breakpoint we set the jmp target to be 1,
+ *   which means it will land on the call to the shared breakpoint fragment.
+ *   This fragment checks the current `breakpoint_flag` stored in the
+ *   ErtsCodeInfo of this function, and then calls `erts_call_nif_early` and
+ *   `erts_generic_breakpoint` accordingly.
  *
- *   genericBPTramp:
- *      0x0: ret
- *      0x10: jmp call_nif_early
- *      0x20: call generic_bp_local
- *      0x30: call generic_bp_local
- *      0x35: jmp call_nif_early
+ *   Note that the update of the branch and `breakpoint_flag` does not need to
+ *   be atomic: it's fine if a process only sees one of these being updated, as
+ *   the code that sets breakpoints/loads NIFs doesn't rely on the trampoline
+ *   being active until thread progress has been made.
  *
- *   Note that each target is 16 byte aligned. This is because the call target
- *   in the function prologue is updated to target the correct place when a flag
- *   is updated. So if CALL_NIF_EARLY is set, then it is updated to be
- *   genericBPTramp + 0x10. If BP is set, it is updated to genericBPTramp + 0x20
- *   and the combination makes it be genericBPTramp + 0x30.
- *
- * The solution for AArch64 is similar but we move the flag to a register
- * before jumping to `genericBPTramp`, where we branch on said flag value. This
- * is necessary because the maximum jump distance is limited to 128MB and we
- * need veneers to jump further than that, which are very annoying to deal with
- * here.
- */
+ * The solution for AArch64 is similar. */
 
 enum erts_asm_bp_flag {
     ERTS_ASM_BP_FLAG_NONE = 0,
@@ -151,126 +146,79 @@ enum erts_asm_bp_flag {
 
 static inline enum erts_asm_bp_flag erts_asm_bp_get_flags(
         const ErtsCodeInfo *ci_exec) {
-    enum erts_asm_bp_flag flag;
-
-#    if defined(__aarch64__)
-    Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
-
-    /* MOVZ instruction, flag lives in bits 5..21 */
-    const Uint32 flag_immed_shift = 5;
-    const Uint32 flag_immed_mask = ((1 << 16) - 1) << flag_immed_shift;
-
-    Uint32 set_flag = exec_code[2]; /* MOVZ x0, flag */
-
-    ASSERT((set_flag & ~flag_immed_mask) == 0xd2800000);
-    flag = (enum erts_asm_bp_flag)((set_flag & flag_immed_mask) >>
-                                   flag_immed_shift);
-
-#    else /* x86_64 */
-    byte *codebytes = (byte *)erts_codeinfo_to_code(ci_exec);
-    /* 0xEB = relative jmp, 0xE8 = relative call */
-    flag = (enum erts_asm_bp_flag)codebytes[2];
-#    endif
-
-    return flag;
+    return (enum erts_asm_bp_flag)ci_exec->u.metadata.breakpoint_flag;
 }
 
 static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
                                         const ErtsCodeInfo *ci_exec,
                                         enum erts_asm_bp_flag flag) {
+    ASSERT(flag != ERTS_ASM_BP_FLAG_NONE);
+
+    if (ci_rw->u.metadata.breakpoint_flag == ERTS_ASM_BP_FLAG_NONE) {
 #    if defined(__aarch64__)
-    const Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
-    Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
+        const Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
+        Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
 
-    const Uint32 branch_target_shift = 0;
-    const Uint32 branch_target_mask = ((1 << 26) - 1) << branch_target_shift;
-    const Uint32 flag_immed_shift = 5;
-    const Uint32 flag_immed_mask = ((1 << 16) - 1) << flag_immed_shift;
+        /* B .next, .enabled: BL breakpoint_handler, .next: */
+        ASSERT(rw_code[1] == 0x14000002);
 
-    Uint32 old_guard_branch = rw_code[1]; /* B next */
-    Uint32 old_set_flag = rw_code[2];     /* MOVZ x0, flag */
+        /* Reroute the initial jump instruction to `.enabled`. */
+        rw_code[1] = 0x14000001;
 
-    ASSERT((old_guard_branch & ~branch_target_mask) == 0x14000000);
-    ASSERT((old_set_flag & ~flag_immed_mask) == 0xd2800000);
-    (void)flag_immed_mask;
-
-    /* MOVZ instruction, flag lives in bits 5..21 */
-    rw_code[2] = old_set_flag | (flag << flag_immed_shift);
-
-    /* Reroute the initial branch instruction to the flag instruction. */
-    rw_code[1] = (old_guard_branch & ~branch_target_mask) |
-                 (1 << branch_target_shift);
-
-    beamasm_flush_icache(&exec_code[1], sizeof(Uint32[2]));
+        beamasm_flush_icache(&exec_code[1], sizeof(Uint32));
 #    else /* x86_64 */
-    BeamInstr volatile *code_ptr = (BeamInstr *)erts_codeinfo_to_code(ci_rw);
-    BeamInstr code = *code_ptr;
-    byte *codebytes = (byte *)&code;
-    Uint32 *code32 = (Uint32 *)(codebytes + 4);
-    /* 0xEB = relative jmp, 0xE8 = relative call */
-    ASSERT(codebytes[0] == 0xEB && codebytes[3] == 0xE8);
-    codebytes[1] = 1;
-    codebytes[2] |= flag;
-    *code32 += flag * 16;
-    code_ptr[0] = code;
+        byte volatile *rw_code = (byte *)erts_codeinfo_to_code(ci_rw);
 
-    (void)ci_exec;
+        /* SHORT JMP .next, NOP, .enabled: CALL breakpoint_handler, .next: */
+        ASSERT(rw_code[0] == 0xEB && rw_code[1] == 0x06 && rw_code[2] == 0x90 &&
+               rw_code[3] == 0xE8);
+
+        /* Reroute the initial jump instruction to `.enabled`. */
+        rw_code[1] = 1;
+
+        (void)ci_exec;
 #    endif
+    }
+
+    ci_rw->u.metadata.breakpoint_flag |= flag;
 }
 
 static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
                                           const ErtsCodeInfo *ci_exec,
                                           enum erts_asm_bp_flag flag) {
-#    if defined(__aarch64__)
-    const Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
-    Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
+    ASSERT(flag != ERTS_ASM_BP_FLAG_NONE);
 
-    const Uint32 flag_immed_shift = 5;
-    const Uint32 flag_immed_mask = ((1 << 16) - 1) << flag_immed_shift;
-    const Uint32 branch_target_shift = 0;
-    const Uint32 branch_target_mask = ((1 << 26) - 1) << branch_target_shift;
+    ci_rw->u.metadata.breakpoint_flag &= ~flag;
 
-    Uint32 old_guard_branch = rw_code[1]; /* B next */
-    Uint32 old_set_flag = rw_code[2];     /* MOVZ x0, flag */
-    Uint32 new_set_flag;
-
-    ASSERT((old_guard_branch & ~branch_target_mask) == 0x14000000);
-    ASSERT((old_set_flag & ~flag_immed_mask) == 0xd2800000);
-
-    new_set_flag = old_set_flag & ~(flag << flag_immed_shift);
-    rw_code[2] = new_set_flag;
-
-    ERTS_CT_ASSERT(ERTS_ASM_BP_FLAG_NONE == 0);
-    if ((new_set_flag & flag_immed_mask) == 0) {
-        Uint32 new_guard_branch, new_target;
-
+    if (ci_rw->u.metadata.breakpoint_flag == ERTS_ASM_BP_FLAG_NONE) {
         /* We've removed the last flag, route the branch instruction back
          * past the prologue. */
-        new_target = (BEAM_ASM_FUNC_PROLOGUE_SIZE / sizeof(Uint32) - 1);
 
-        new_guard_branch = (old_guard_branch & ~branch_target_mask) |
-                           (new_target << branch_target_shift);
-        rw_code[1] = new_guard_branch;
-    }
+#    if defined(__aarch64__)
+        const Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
+        Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
 
-    beamasm_flush_icache(&exec_code[1], sizeof(Uint32[2]));
+        /* B .enabled, .enabled: BL breakpoint_handler, .next: */
+        ASSERT(rw_code[1] == 0x14000001);
 
+        /* Reroute the initial jump instruction back to `.next`. */
+        ERTS_CT_ASSERT(BEAM_ASM_FUNC_PROLOGUE_SIZE == sizeof(Uint32[3]));
+        rw_code[1] = 0x14000002;
+
+        beamasm_flush_icache(&exec_code[1], sizeof(Uint32));
 #    else /* x86_64 */
-    BeamInstr volatile *code_ptr = (BeamInstr *)erts_codeinfo_to_code(ci_rw);
-    BeamInstr code = *code_ptr;
-    byte *codebytes = (byte *)&code;
-    Uint32 *code32 = (Uint32 *)(codebytes + 4);
-    /* 0xEB = relative jmp, 0xE8 = relative call */
-    ASSERT(codebytes[0] == 0xEB && codebytes[3] == 0xE8);
-    codebytes[2] &= ~flag;
-    *code32 -= flag * 16;
-    if (codebytes[2] == ERTS_ASM_BP_FLAG_NONE) {
-        codebytes[1] = 6;
-    }
-    code_ptr[0] = code;
+        byte volatile *rw_code = (byte *)erts_codeinfo_to_code(ci_rw);
 
-    (void)ci_exec;
+        /* SHORT JMP .enabled, NOP, .enabled: CALL breakpoint_handler, .next: */
+        ASSERT(rw_code[0] == 0xEB && rw_code[1] == 0x01 && rw_code[2] == 0x90 &&
+               rw_code[3] == 0xE8);
+
+        /* Reroute the initial jump instruction back to `.next`. */
+        rw_code[1] = BEAM_ASM_FUNC_PROLOGUE_SIZE - 2;
+
+        (void)ci_exec;
 #    endif
+    }
 }
 
 #endif

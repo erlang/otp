@@ -34,6 +34,15 @@
 # define CIX_TRACE(text)
 #endif
 
+#if defined(BEAMASM) && defined(ERTS_THR_INSTRUCTION_BARRIER)
+#    define CODE_IX_ISSUE_INSTRUCTION_BARRIERS
+#endif
+
+/* If we need to issue a code barrier when thread progress is blocked, we use
+ * this counter to signal all managed threads to execute an instruction barrier
+ * when thread progress is unblocked. */
+erts_atomic32_t outstanding_blocking_code_barriers;
+
 erts_atomic32_t the_active_code_index;
 erts_atomic32_t the_staging_code_index;
 
@@ -56,12 +65,17 @@ struct code_permission {
 static struct code_permission code_mod_permission = {0};
 static struct code_permission code_stage_permission = {0};
 
+#ifdef DEBUG
+static erts_tsd_key_t needs_code_barrier;
+#endif
+
 void erts_code_ix_init(void)
 {
     /* We start emulator by initializing preloaded modules
      * single threaded with active and staging set both to zero.
      * Preloading is finished by a commit that will set things straight.
      */
+    erts_atomic32_init_nob(&outstanding_blocking_code_barriers, 0);
     erts_atomic32_init_nob(&the_active_code_index, 0);
     erts_atomic32_init_nob(&the_staging_code_index, 0);
 
@@ -72,6 +86,10 @@ void erts_code_ix_init(void)
         "code_stage_permission", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
+#ifdef DEBUG
+    erts_tsd_key_create(&needs_code_barrier,
+                        "erts_needs_code_barrier");
+#endif
     CIX_TRACE("init");
 }
 
@@ -343,3 +361,125 @@ int erts_has_code_mod_permission() {
     return has_code_permission(&code_mod_permission);
 }
 #endif
+
+#ifdef DEBUG
+void erts_debug_require_code_barrier(void) {
+    erts_tsd_set(needs_code_barrier, (void*)(1));
+}
+
+void erts_debug_check_code_barrier(void) {
+    ASSERT(erts_tsd_get(needs_code_barrier) == (void*)0);
+}
+
+static void erts_debug_unrequire_code_barrier(void) {
+    erts_tsd_set(needs_code_barrier, (void*)(0));
+}
+#endif
+
+static void schedule_code_barrier_later_op(void *barrier_) {
+    ErtsCodeBarrier *barrier = (ErtsCodeBarrier*)barrier_;
+
+    if (barrier->size == 0) {
+        erts_schedule_thr_prgr_later_op(barrier->later_function,
+                                        barrier->later_data,
+                                        &barrier->later_op);
+    } else {
+        erts_schedule_thr_prgr_later_cleanup_op(barrier->later_function,
+                                                barrier->later_data,
+                                                &barrier->later_op,
+                                                barrier->size);
+    }
+}
+
+#ifdef CODE_IX_ISSUE_INSTRUCTION_BARRIERS
+static void issue_instruction_barrier(void *barrier_) {
+    ErtsCodeBarrier *barrier = (ErtsCodeBarrier*)barrier_;
+
+    ERTS_THR_INSTRUCTION_BARRIER;
+
+    if (erts_refc_dectest(&barrier->pending_schedulers, 0) == 0) {
+        schedule_code_barrier_later_op(barrier);
+    }
+}
+#endif
+
+void erts_schedule_code_barrier(ErtsCodeBarrier *barrier,
+                                void (*later_function)(void *),
+                                void *later_data) {
+    erts_schedule_code_barrier_cleanup(barrier, later_function, later_data, 0);
+}
+
+void erts_schedule_code_barrier_cleanup(ErtsCodeBarrier *barrier,
+                                        void (*later_function)(void *),
+                                        void *later_data,
+                                        UWord size)
+{
+#ifdef DEBUG
+    erts_debug_unrequire_code_barrier();
+#endif
+
+    barrier->later_function = later_function;
+    barrier->later_data = later_data;
+    barrier->size = size;
+
+#ifdef CODE_IX_ISSUE_INSTRUCTION_BARRIERS
+    /* Issue instruction barriers on all normal schedulers, ensuring that they
+     * won't execute old code.
+     *
+     * The last scheduler to run the barrier gets the honor of scheduling a
+     * thread progress op to run the `later_function`. */
+    erts_refc_init(&barrier->pending_schedulers,
+                   (erts_aint_t)erts_no_schedulers);
+    erts_schedule_multi_misc_aux_work(1, 1, erts_no_schedulers,
+                                      issue_instruction_barrier,
+                                      barrier);
+    issue_instruction_barrier(barrier);
+#else
+    schedule_code_barrier_later_op(barrier);
+#endif
+}
+
+#ifdef CODE_IX_ISSUE_INSTRUCTION_BARRIERS
+static ErtsThrPrgrLaterOp global_code_barrier_lop;
+
+static void decrement_blocking_code_barriers(void *ignored) {
+    (void)ignored;
+    erts_atomic32_dec_nob(&outstanding_blocking_code_barriers);
+}
+
+static void schedule_blocking_code_barriers(void *ignored) {
+    ERTS_THR_INSTRUCTION_BARRIER;
+
+    /* Tell all managed threads to execute an instruction barrier as soon as we
+     * unblock thread progress, and schedule a thread progress job to clear the
+     * counter.
+     *
+     * Note that we increment and decrement instead of setting and clearing
+     * since we might execute several blocking barriers in the same tick. */
+    erts_atomic32_inc_nob(&outstanding_blocking_code_barriers);
+    erts_schedule_thr_prgr_later_op(decrement_blocking_code_barriers,
+                                    NULL,
+                                    &global_code_barrier_lop);
+}
+#endif
+
+void erts_blocking_code_barrier()
+{
+#ifdef DEBUG
+    erts_debug_unrequire_code_barrier();
+#endif
+
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
+
+#ifdef CODE_IX_ISSUE_INSTRUCTION_BARRIERS
+    schedule_blocking_code_barriers(NULL);
+#endif
+}
+
+void erts_code_ix_finalize_wait() {
+#ifdef CODE_IX_ISSUE_INSTRUCTION_BARRIERS
+    if (erts_atomic32_read_nob(&outstanding_blocking_code_barriers) != 0) {
+        ERTS_THR_INSTRUCTION_BARRIER;
+    }
+#endif
+}

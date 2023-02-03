@@ -633,7 +633,7 @@ static void install_bifs(void) {
 
         ep = erts_export_put(entry->module, entry->name, entry->arity);
 
-        ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+        ep->info.u.op = BeamOpCodeAddr(op_i_func_info_IaaI);
         ep->info.mfa.module = entry->module;
         ep->info.mfa.function = entry->name;
         ep->info.mfa.arity = entry->arity;

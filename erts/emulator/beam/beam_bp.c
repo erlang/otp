@@ -198,7 +198,7 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
             ci_rw = (ErtsCodeInfo*)w_ptr;
 
 #ifndef BEAMASM
-	    ASSERT(BeamIsOpCode(ci_rw->op, op_i_func_info_IaaI));
+            ASSERT(BeamIsOpCode(ci_rw->u.op, op_i_func_info_IaaI));
 #endif
             switch (specified) {
             case 3:
@@ -299,7 +299,7 @@ erts_consolidate_bp_data(BpFunctions* f, int local)
 static void
 consolidate_bp_data(Module* modp, ErtsCodeInfo *ci_rw, int local)
 {
-    GenericBp* g = ci_rw->u.gen_bp;
+    GenericBp* g = ci_rw->gen_bp;
     GenericBpData* src;
     GenericBpData* dst;
     Uint flags;
@@ -353,7 +353,7 @@ consolidate_bp_data(Module* modp, ErtsCodeInfo *ci_rw, int local)
 #endif
         }
 
-        ci_rw->u.gen_bp = NULL;
+        ci_rw->gen_bp = NULL;
         Free(g);
         return;
     }
@@ -403,7 +403,7 @@ erts_install_breakpoints(BpFunctions* f)
     for (i = 0; i < n; i++) {
         const ErtsCodeInfo *ci_exec = f->matching[i].ci_exec;
         ErtsCodeInfo *ci_rw = f->matching[i].ci_rw;
-        GenericBp *g = ci_rw->u.gen_bp;
+        GenericBp *g = ci_rw->gen_bp;
         Module *modp = f->matching[i].mod;
 #ifdef BEAMASM
         if ((erts_asm_bp_get_flags(ci_exec) & ERTS_ASM_BP_FLAG_BP) == 0 && g) {
@@ -471,7 +471,7 @@ static void
 uninstall_breakpoint(ErtsCodeInfo *ci_rw, const ErtsCodeInfo *ci_exec)
 {
     if (erts_asm_bp_get_flags(ci_rw) & ERTS_ASM_BP_FLAG_BP) {
-        GenericBp* g = ci_rw->u.gen_bp;
+        GenericBp* g = ci_rw->gen_bp;
 
         if (g->data[erts_active_bp_ix()].flags == 0) {
             erts_asm_bp_unset_flag(ci_rw, ci_exec, ERTS_ASM_BP_FLAG_BP);
@@ -488,7 +488,7 @@ uninstall_breakpoint(ErtsCodeInfo *ci_rw, const ErtsCodeInfo *ci_exec)
     (void)ci_exec;
 
     if (BeamIsOpCode(*pc, op_i_generic_breakpoint)) {
-        GenericBp* g = ci_rw->u.gen_bp;
+        GenericBp* g = ci_rw->gen_bp;
 
         if (g->data[erts_active_bp_ix()].flags == 0) {
             /*
@@ -552,7 +552,7 @@ erts_clear_trace_break(BpFunctions* f)
 void
 erts_clear_export_trace(ErtsCodeInfo *ci, int local)
 {
-    GenericBp* g = ci->u.gen_bp;
+    GenericBp* g = ci->gen_bp;
 
     if (g) {
         Uint flags = local ? ERTS_BPF_LOCAL_TRACE : ERTS_BPF_GLOBAL_TRACE;
@@ -629,7 +629,7 @@ erts_clear_module_break(Module *modp) {
         uninstall_breakpoint(ci_rw, ci_exec);
         consolidate_bp_data(modp, ci_rw, 1);
 
-        ASSERT(ci_rw->u.gen_bp == NULL);
+        ASSERT(ci_rw->gen_bp == NULL);
     }
 
     return n;
@@ -654,7 +654,7 @@ erts_clear_export_break(Module* modp, Export *ep)
     erts_commit_staged_bp();
 
     consolidate_bp_data(modp, ci, 0);
-    ASSERT(ci->u.gen_bp == NULL);
+    ASSERT(ci->gen_bp == NULL);
 }
 
 /*
@@ -726,10 +726,10 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
     ErtsBpIndex ix = erts_active_bp_ix();
 
 #ifndef BEAMASM
-    ASSERT(BeamIsOpCode(info->op, op_i_func_info_IaaI));
+    ASSERT(BeamIsOpCode(info->u.op, op_i_func_info_IaaI));
 #endif
 
-    g = info->u.gen_bp;
+    g = info->gen_bp;
     bp = &g->data[ix];
     bp_flags = bp->flags;
     ASSERT((bp_flags & ~ERTS_BPF_ALL) == 0);
@@ -1192,7 +1192,7 @@ erts_find_local_func(const ErtsCodeMFA *mfa) {
     for (i = 0; i < n; ++i) {
 	ci = code_hdr->functions[i];
 #ifndef BEAMASM
-	ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+	ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI));
 #endif
 	ASSERT(mfa->module == ci->mfa.module || is_nil(ci->mfa.module));
 	if (mfa->function == ci->mfa.function &&
@@ -1398,7 +1398,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
     ErtsBpIndex ix = erts_staging_bp_ix();
 
     ERTS_LC_ASSERT(erts_has_code_mod_permission());
-    g = ci->u.gen_bp;
+    g = ci->gen_bp;
     if (g == 0) {
 	int i;
 	if (count_op == ERTS_BREAK_RESTART || count_op == ERTS_BREAK_PAUSE) {
@@ -1426,7 +1426,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	for (i = 0; i < ERTS_NUM_BP_IX; i++) {
 	    g->data[i].flags = 0;
 	}
-	ci->u.gen_bp = g;
+	ci->gen_bp = g;
     }
     bp = &g->data[ix];
 
@@ -1532,7 +1532,7 @@ clear_function_break(const ErtsCodeInfo *ci, Uint break_flags)
 
     ERTS_LC_ASSERT(erts_has_code_mod_permission());
 
-    if ((g = ci->u.gen_bp) == NULL) {
+    if ((g = ci->gen_bp) == NULL) {
 	return 1;
     }
 
@@ -1602,10 +1602,10 @@ get_time_break(const ErtsCodeInfo *ci)
 static GenericBpData*
 check_break(const ErtsCodeInfo *ci, Uint break_flags)
 {
-    GenericBp* g = ci->u.gen_bp;
+    GenericBp* g = ci->gen_bp;
 
 #ifndef BEAMASM
-    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+    ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI));
 #endif
 
     if (g) {

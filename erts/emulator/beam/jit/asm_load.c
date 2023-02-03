@@ -973,6 +973,8 @@ void beam_load_finalize_code(LoaderState *stp,
     /* Register debug / profiling info with external tools. */
     beamasm_register_metadata(stp->ba, stp->code_hdr);
 
+    beamasm_flush_icache(inst_p->code_hdr, inst_p->code_length);
+
     /* Prevent literals and code from being freed. */
     (stp->load_hdr)->literal_area = NULL;
     stp->load_hdr->are_nifs = NULL;

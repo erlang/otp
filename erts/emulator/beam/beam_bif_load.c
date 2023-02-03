@@ -302,14 +302,35 @@ struct m {
     Eterm exception;
 };
 
-static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int, int);
-static void smp_code_ix_commiter(void*);
 
 static struct /* Protected by code loading permission */
 {
     Process* stager;
-    ErtsThrPrgrLaterOp lop;
+    ErtsCodeBarrier barrier;
 } committer_state;
+
+static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int, int);
+
+static void commit_code_ix(void *null)
+{
+    Process* p = committer_state.stager;
+
+    erts_commit_staging_code_ix();
+
+#ifdef DEBUG
+    committer_state.stager = NULL;
+#endif
+
+    erts_release_code_load_permission();
+
+    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    if (!ERTS_PROC_IS_EXITING(p)) {
+        erts_resume(p, ERTS_PROC_LOCK_STATUS);
+    }
+    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+
+    erts_proc_dec_refc(p);
+}
 
 static Eterm
 exception_list(Process* p, Eterm tag, struct m* mp, Sint exceptions)
@@ -504,17 +525,19 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 {    
     if (is_blocking || !commit)
     {
-	if (commit) {
-	    int i;
-	    erts_end_staging_code_ix();
-	    erts_commit_staging_code_ix();
+        if (commit) {
+            int i;
+            erts_end_staging_code_ix();
+            erts_commit_staging_code_ix();
 
-	    for (i=0; i < nmods; i++) {
-		if (mods[i].modp->curr.code_hdr
-                    && mods[i].exception != am_on_load) {
-		    set_default_trace_pattern(mods[i].module);
-		}
-	    }
+            for (i=0; i < nmods; i++) {
+                if (mods[i].modp->curr.code_hdr
+                     && mods[i].exception != am_on_load) {
+                    set_default_trace_pattern(mods[i].module);
+                }
+            }
+
+            erts_blocking_code_barrier();
 	}
 	else {
 	    erts_abort_staging_code_ix();
@@ -543,36 +566,18 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	 */
 	ASSERT(committer_state.stager == NULL);
 	committer_state.stager = c_p;
-	erts_schedule_thr_prgr_later_op(smp_code_ix_commiter, NULL, &committer_state.lop);
-	erts_proc_inc_refc(c_p);
-	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
-	/*
-	 * smp_code_ix_commiter() will do the rest "later"
-	 * and resume this process to return 'res'.  
-	 */
-	ERTS_BIF_YIELD_RETURN(c_p, res);
+
+        erts_schedule_code_barrier(&committer_state.barrier,
+                                   commit_code_ix, NULL);
+
+        erts_proc_inc_refc(c_p);
+        erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+
+        /* commit_code_ix(NULL) will resume us when everything is finished, at
+         * which point we'll return `res`. */
+        ERTS_BIF_YIELD_RETURN(c_p, res);
     }
 }
-
-
-static void smp_code_ix_commiter(void* null)
-{
-    Process* p = committer_state.stager;
-
-    erts_commit_staging_code_ix();
-#ifdef DEBUG
-    committer_state.stager = NULL;
-#endif
-    erts_release_code_load_permission();
-    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    if (!ERTS_PROC_IS_EXITING(p)) {
-	erts_resume(p, ERTS_PROC_LOCK_STATUS);
-    }
-    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-    erts_proc_dec_refc(p);
-}
-
-
 
 BIF_RETTYPE
 check_old_code_1(BIF_ALIST_1)

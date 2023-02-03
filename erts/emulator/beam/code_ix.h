@@ -59,6 +59,11 @@
 
 #include "beam_opcodes.h"
 
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#define ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#include "erl_thr_progress.h"
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+
 struct process;
 
 
@@ -93,12 +98,34 @@ typedef struct ErtsCodeMFA_ {
 /* If you change the size of this, you also have to update the code
    in ops.tab to reflect the new func_info size */
 typedef struct ErtsCodeInfo_ {
-    BeamInstr op;           /* OpCode(i_func_info) */
-    union {
-        struct generic_bp* gen_bp;     /* Trace breakpoint */
+    /* In both the JIT and interpreter, we may jump here to raise a
+     * function_clause error.
+     *
+     * In addition, the JIT also stores the current breakpoint flags here. */
+    struct {
+#ifndef BEAMASM
+        BeamInstr op;
+#else
+        struct {
+            char raise_function_clause[sizeof(BeamInstr) - 1];
+            char breakpoint_flag;
+        } metadata;
+#endif
     } u;
+
+    /* Trace breakpoint */
+    struct generic_bp *gen_bp;
     ErtsCodeMFA mfa;
 } ErtsCodeInfo;
+
+typedef struct {
+    erts_refc_t pending_schedulers;
+    ErtsThrPrgrLaterOp later_op;
+    UWord size;
+
+    void (*later_function)(void *);
+    void *later_data;
+} ErtsCodeBarrier;
 
 /* Get the code associated with a ErtsCodeInfo ptr. */
 ERTS_GLB_INLINE
@@ -218,6 +245,32 @@ void erts_commit_staging_code_ix(void);
  */
 void erts_abort_staging_code_ix(void);
 
+#ifdef DEBUG
+void erts_debug_require_code_barrier(void);
+void erts_debug_check_code_barrier(void);
+#endif
+
+/* Schedules an operation to run after thread progress _and_ all schedulers
+ * have issued an instruction barrier. */
+void erts_schedule_code_barrier(ErtsCodeBarrier *barrier,
+                                void (*later_function)(void *),
+                                void *later_data);
+
+void erts_schedule_code_barrier_cleanup(ErtsCodeBarrier *barrier,
+                                        void (*later_function)(void *),
+                                        void *later_data,
+                                        UWord size);
+
+/* Issues a code barrier on the current thread, as well as all managed threads
+ * when they wake up after thread progress is unblocked.
+ *
+ * Requires that thread progress is blocked. */
+void erts_blocking_code_barrier(void);
+
+/* Helper function for the above: all managed threads should call this as soon
+ * as thread progress is unblocked, _BEFORE_ updating thread progress. */
+void erts_code_ix_finalize_wait(void);
+
 #ifdef ERTS_ENABLE_LOCK_CHECK
 int erts_has_code_load_permission(void);
 int erts_has_code_stage_permission(void);
@@ -240,7 +293,7 @@ ERTS_GLB_INLINE
 ErtsCodePtr erts_codeinfo_to_code(const ErtsCodeInfo *ci)
 {
 #ifndef BEAMASM
-    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+    ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI) || !ci->u.op);
 #endif
     ASSERT_MFA(&ci->mfa);
     return (ErtsCodePtr)&ci[1];
@@ -252,7 +305,7 @@ const ErtsCodeInfo *erts_code_to_codeinfo(ErtsCodePtr I)
     const ErtsCodeInfo *ci = &((const ErtsCodeInfo *)I)[-1];
 
 #ifndef BEAMASM
-    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+    ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI) || !ci->u.op);
 #endif
     ASSERT_MFA(&ci->mfa);
 

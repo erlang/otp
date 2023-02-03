@@ -62,7 +62,7 @@ static struct {			/* Protected by code modification permission */
     BpFunctions f;		/* Local functions */
     BpFunctions e;		/* Export entries */
     Process* stager;
-    ErtsThrPrgrLaterOp lop;
+    ErtsCodeBarrier barrier;
 } finish_bp;
 
 static Eterm
@@ -350,7 +350,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	ASSERT(matches >= 0);
 	ASSERT(finish_bp.stager == NULL);
 	finish_bp.stager = p;
-	erts_schedule_thr_prgr_later_op(smp_bp_finisher, NULL, &finish_bp.lop);
+	erts_schedule_code_barrier(&finish_bp.barrier, smp_bp_finisher, NULL);
 	erts_proc_inc_refc(p);
 	erts_suspend(p, ERTS_PROC_LOCK_MAIN, NULL);
 	ERTS_BIF_YIELD_RETURN(p, make_small(matches));
@@ -369,8 +369,8 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 static void smp_bp_finisher(void* null)
 {
     if (erts_finish_breakpointing()) { /* Not done */
-	/* Arrange for being called again */
-	erts_schedule_thr_prgr_later_op(smp_bp_finisher, NULL, &finish_bp.lop);
+        /* Arrange for being called again */
+        erts_schedule_code_barrier(&finish_bp.barrier, smp_bp_finisher, NULL);
     }
     else {			/* Done */
 	Process* p = finish_bp.stager;
@@ -1455,8 +1455,8 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
             /* Turn on global call tracing */
             if (!erts_is_export_trampoline_active(ep, code_ix)) {
                 fp[i].mod->curr.num_traced_exports++;
-#ifdef DEBUG
-                ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+#if defined(DEBUG) && !defined(BEAMASM)
+                ep->info.u.op = BeamOpCodeAddr(op_i_func_info_IaaI);
 #endif
                 ep->trampoline.common.op = BeamOpCodeAddr(op_trace_jump_W);
                 ep->trampoline.trace.address =
@@ -1586,10 +1586,10 @@ erts_finish_breakpointing(void)
     ERTS_LC_ASSERT(erts_has_code_mod_permission());
 
     /*
-     * Memory barriers will be issued for all schedulers *before*
-     * each of the stages below. (Unless the other schedulers
-     * are blocked, in which case memory barriers will be issued
-     * when they are awaken.)
+     * Memory and instruction barriers will be issued for all schedulers
+     * *before* each of the stages below. (Unless the other schedulers
+     * are blocked, in which case memory barriers will be issued when
+     * they are awakened.)
      */
     switch (finish_bp.current++) {
     case 0:

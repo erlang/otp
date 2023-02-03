@@ -69,6 +69,7 @@ my @beam_global_funcs = qw(
     i_bor_guard_shared
     i_bnot_body_shared
     i_bnot_guard_shared
+    i_breakpoint_trampoline_shared
     i_bsl_guard_shared
     i_bsl_body_shared
     i_bsr_guard_shared
