@@ -1282,7 +1282,7 @@ rand_plugin_aes_next(Key, GenWords, F, Count) ->
     {V,Cache}.
 
 block_encrypt(Key, Data) ->
-    Cipher = case size(Key) of
+    Cipher = case byte_size(Key) of
                  16 -> aes_128_ecb;
                  24 -> aes_192_ecb;
                  32 -> aes_256_ecb;
@@ -2276,9 +2276,9 @@ srp_pad_length(Width, Length) ->
     (Width - Length rem Width) rem Width.
 
 srp_pad_to(Width, Binary) ->
-    case srp_pad_length(Width, size(Binary)) of
+    case srp_pad_length(Width, bit_size(Binary)) of
         0 -> Binary;
-        N -> << 0:(N*8), Binary/binary>>
+        N -> << 0:N, Binary/binary>>
     end.
 
 srp_host_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
