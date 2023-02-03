@@ -385,8 +385,15 @@ void BeamModuleAssembler::emit_get_tuple_element_swap(
         const ArgWord &Element,
         const ArgRegister &Dst,
         const ArgRegister &OtherDst) {
+#ifdef DEBUG
+    emit_tuple_assertion(Src, ARG1);
+#endif
+
     mov_arg(Dst, OtherDst);
-    emit_i_get_tuple_element(Src, Element, OtherDst);
+
+    auto dst = init_destination(OtherDst, TMP1);
+    safe_ldr(dst.reg, arm::Mem(ARG1, Element.get()));
+    flush_var(dst);
 }
 
 /* Fetch two consecutive tuple elements from the tuple pointed to by
