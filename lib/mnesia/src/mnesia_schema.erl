@@ -1186,7 +1186,7 @@ assert_correct_cstruct(Cs) when is_record(Cs, cstruct) ->
     verify(true, mnesia_snmp_hook:check_ustruct(Snmp),
 	   {badarg, Tab, {snmp, Snmp}}),
 
-    CheckProp = fun(Prop) when is_tuple(Prop), size(Prop) >= 1 -> ok;
+    CheckProp = fun(Prop) when tuple_size(Prop) >= 1 -> ok;
 		   (Prop) ->
 			mnesia:abort({bad_type, Tab,
 				      {user_properties, [Prop]}})
@@ -2126,7 +2126,7 @@ make_change_table_majority(Tab, Majority) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-write_table_property(Tab, Prop) when is_tuple(Prop), size(Prop) >= 1 ->
+write_table_property(Tab, Prop) when tuple_size(Prop) >= 1 ->
     schema_transaction(fun() -> do_write_table_property(Tab, Prop) end);
 write_table_property(Tab, Prop) ->
     {aborted, {bad_type, Tab, Prop}}.
@@ -2809,7 +2809,7 @@ transform_objs(Fun, Tab, RecName, Key, A, Storage, Type, Acc) ->
 transform_obj(Tab, RecName, Key, Fun, [Obj|Rest], NewArity, Type, Ws, Ds) ->
     NewObj = Fun(Obj),
     if
-        size(NewObj) /= NewArity ->
+        tuple_size(NewObj) /= NewArity ->
             exit({"Bad arity", Obj, NewObj});
 	NewObj == Obj ->
 	    transform_obj(Tab, RecName, Key, Fun, Rest, NewArity, Type, Ws, Ds);
