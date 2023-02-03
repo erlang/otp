@@ -2338,7 +2338,7 @@ file_close(Fd) ->
 
 file_read(Fd) ->
     case file:read(Fd, ?FILE_BUFSIZE) of
-        {ok, Bytes} when is_binary(Bytes) ->
+        {ok, Bytes} ->
             {ok, byte_size(Bytes), Bytes};
         eof ->
             {ok, 0, []};
@@ -2518,8 +2518,7 @@ open_options(Options) ->
     ValidateHost =
         fun(Host) when is_list(Host) ->
                 true;
-           (Host) when is_tuple(Host) andalso
-                       ((tuple_size(Host) =:= 4) orelse (tuple_size(Host) =:= 8)) ->
+           (Host) when tuple_size(Host) =:= 4; tuple_size(Host) =:= 8 ->
                 true;
            (_) ->
                 false
