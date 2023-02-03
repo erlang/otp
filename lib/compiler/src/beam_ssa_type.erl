@@ -958,12 +958,27 @@ simplify_terminator(#b_switch{arg=Arg0,fail=Fail,list=List0}=Sw0,
         #b_br{}=Br ->
             simplify_terminator(Br, Ts, Ds, Sub)
     end;
-simplify_terminator(#b_ret{arg=Arg}=Ret, Ts, Ds, Sub) ->
+simplify_terminator(#b_ret{arg=Arg,anno=Anno0}=Ret0, Ts, Ds, Sub) ->
     %% Reducing the result of a call to a literal (fairly common for 'ok')
     %% breaks tail call optimization.
-    case Ds of
-        #{ Arg := #b_set{op=call}} -> Ret;
-        #{} -> Ret#b_ret{arg=simplify_arg(Arg, Ts, Sub)}
+    Ret = case Ds of
+              #{ Arg := #b_set{op=call}} -> Ret0;
+              #{} -> Ret0#b_ret{arg=simplify_arg(Arg, Ts, Sub)}
+          end,
+    %% Annotate the terminator with the type it returns, skip the
+    %% annotation if nothing is yet known about the variable. The
+    %% annotation is used by the alias analysis pass.
+    Type = case {Arg, Ts} of
+               {#b_literal{},_} -> concrete_type(Arg, Ts);
+               {_,#{Arg:=_}} -> concrete_type(Arg, Ts);
+               _ -> any
+           end,
+    case Type of
+        any ->
+            Ret;
+        _ ->
+            Anno = Anno0#{ result_type => Type },
+            Ret#b_ret{anno=Anno}
     end.
 
 %%
