@@ -203,7 +203,7 @@ pp(<<Version:8, MsgLength:24,
          "Application id",
          "Hop by hop id",
          "End to end id"],
-        [Version, MsgLength, size(AVPs) + 20,
+        [Version, MsgLength, byte_size(AVPs) + 20,
          Rbit, Pbit, Ebit, Tbit, Reserved,
          CmdCode,
          ApplId,
@@ -273,7 +273,7 @@ avp(0, Data, Length, Size) ->
     data(Data, Length, Size).
 
 data(Bin, Length, Size)
-  when size(Bin) >= Length ->
+  when is_binary(Bin), byte_size(Bin) >= Length ->
     <<AVP:Length/binary, Rest/binary>> = Bin,
     ppp({"Data", AVP}),
     unpad(Rest, Size - Length, Length rem 4);
@@ -288,7 +288,7 @@ unpad(Bin, Size, N) ->
     un(Bin, Size, 4 - N).
 
 un(Bin, Size, N)
-  when size(Bin) >= N ->
+  when is_binary(Bin), byte_size(Bin) >= N ->
     ppp({"Padding bytes", N}),
     <<Pad:N/binary, Rest/binary>> = Bin,
     Bits = N*8,
