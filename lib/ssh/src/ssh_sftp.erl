@@ -58,9 +58,9 @@
 -record(state,
 	{
 	  xf,
-	  rep_buf = <<>>,
+	  rep_buf = <<>> :: binary(),
 	  req_id,
-	  req_list = [],  %% {ReqId, Fun}
+	  req_list = [], %% {ReqId, Fun}
 	  inf,   %% list of fileinf,
 	  opts
 	 }).
@@ -75,14 +75,14 @@
 
 -record(bufinf,
 	{
-	  mode,			 % read | write  (=from or to buffer by user)
-	  crypto_state,
+	  mode                  :: read | write, % read | write  (=from or to buffer by user)
+	  crypto_state          :: term() | undefined,
 	  crypto_fun,            % For encode or decode depending on the mode field
-	  size = 0,		 % # bytes "before" the current buffer for the position call
+	  size = 0              :: non_neg_integer() | undefined, % # bytes "before" the current buffer for the position call
 
-	  chunksize,		 % The size of the chunks to be sent or received
-	  enc_text_buf = <<>>,	 % Encrypted text
-	  plain_text_buf = <<>>	 % Decrypted text
+	  chunksize             :: non_neg_integer() | undefined, % The size of the chunks to be sent or received
+	  enc_text_buf = <<>>   :: binary() | undefined,          % Encrypted text
+	  plain_text_buf = <<>> :: binary() | undefined           % Decrypted text
 	}).
 
 -define(FILEOP_TIMEOUT, infinity).
@@ -816,7 +816,7 @@ write_file(Pid, Name, Bin, FileOpTimeout) ->
     case open(Pid, Name, [write, binary], FileOpTimeout) of
 	{ok, Handle} ->
 	    {ok,{_Window,Packet}} = send_window(Pid, FileOpTimeout),
-	    Res = write_file_loop(Pid, Handle, 0, Bin, size(Bin), Packet,
+	    Res = write_file_loop(Pid, Handle, 0, Bin, byte_size(Bin), Packet,
 				  FileOpTimeout),
 	    close(Pid, Handle, FileOpTimeout),
 	    Res;
@@ -1017,7 +1017,7 @@ do_handle_call({pwrite,Async,Handle,At,Data0}, From, State) ->
 	{ok,Offset} ->
 	    Data = to_bin(Data0),
 	    ReqID = State#state.req_id,
-	    Size = size(Data),
+	    Size = byte_size(Data),
 	    ssh_xfer:write(?XF(State),ReqID,Handle,Offset,Data),
 	    State1 = update_size(Handle, Offset+Size, State),
 	    make_reply(ReqID, Async, From, State1);
@@ -1030,7 +1030,7 @@ do_handle_call({write,Async,Handle,Data0}, From, State) ->
 	{ok,Offset} ->
 	    Data = to_bin(Data0),
 	    ReqID = State#state.req_id,
-	    Size = size(Data),
+	    Size = byte_size(Data),
 	    ssh_xfer:write(?XF(State),ReqID,Handle,Offset,Data),
 	    State1 = update_offset(Handle, Offset+Size, State),
 	    make_reply(ReqID, Async, From, State1);
@@ -1640,7 +1640,7 @@ read_repeat(Pid, Handle, Len, FileOpTimeout) ->
 read_rpt(Pid, Handle, WantedLen, PacketSz, FileOpTimeout, Acc) when WantedLen > 0 ->
     case read(Pid, Handle, min(WantedLen,PacketSz), FileOpTimeout) of
 	{ok, Data}  ->
-	    read_rpt(Pid, Handle, WantedLen-size(Data), PacketSz, FileOpTimeout, <<Acc/binary, Data/binary>>);
+	    read_rpt(Pid, Handle, WantedLen-byte_size(Data), PacketSz, FileOpTimeout, <<Acc/binary, Data/binary>>);
 	eof ->
 	    {ok, Acc};
 	Error ->
@@ -1654,7 +1654,7 @@ write_to_remote_tar(_Pid, _SftpHandle, <<>>, _FileOpTimeout) ->
     ok;
 write_to_remote_tar(Pid, SftpHandle, Bin, FileOpTimeout) ->
     {ok,{_Window,Packet}} = send_window(Pid, FileOpTimeout),
-    write_file_loop(Pid, SftpHandle, 0, Bin, size(Bin), Packet, FileOpTimeout).
+    write_file_loop(Pid, SftpHandle, 0, Bin, byte_size(Bin), Packet, FileOpTimeout).
 
 position_buf(Pid, SftpHandle, BufHandle, Pos, FileOpTimeout) ->
     {ok,#bufinf{mode = Mode,
@@ -1662,7 +1662,7 @@ position_buf(Pid, SftpHandle, BufHandle, Pos, FileOpTimeout) ->
 		size = Size}} = call(Pid, {get_bufinf,BufHandle}, FileOpTimeout),
     case Pos of
 	{cur,0} when Mode==write ->
-	    {ok,Size+size(Buf0)};
+	    {ok,Size+byte_size(Buf0)};
 
 	{cur,0} when Mode==read ->
 	    {ok,Size};
@@ -1707,7 +1707,7 @@ read_buf(Pid, SftpHandle, BufHandle, WantedLen, FileOpTimeout) ->
 do_the_read_buf(_Pid, _SftpHandle, WantedLen, _Packet, _FileOpTimeout,
 		B=#bufinf{plain_text_buf=PlainBuf0,
 			  size = Size})
-    when size(PlainBuf0) >= WantedLen ->
+    when byte_size(PlainBuf0) >= WantedLen ->
     %% We already have the wanted number of bytes decoded and ready!
     <<ResultBin:WantedLen/binary, PlainBuf/binary>> = PlainBuf0,
     {ok,ResultBin,B#bufinf{plain_text_buf=PlainBuf,
@@ -1718,7 +1718,7 @@ do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
 			   enc_text_buf = EncBuf0,
 			   chunksize = undefined
 			  })
-  when size(EncBuf0) > 0 ->
+  when byte_size(EncBuf0) > 0 ->
     %% We have (at least) one decodable byte waiting for decoding.
     {ok,DecodedBin,B} = apply_crypto(EncBuf0, B0),
     do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
@@ -1731,7 +1731,7 @@ do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
 			   enc_text_buf = EncBuf0,
 			   chunksize = ChunkSize0
 			  })
-  when size(EncBuf0) >= ChunkSize0 ->
+  when byte_size(EncBuf0) >= ChunkSize0 ->
     %% We have (at least) one chunk of decodable bytes waiting for decoding.
     <<ToDecode:ChunkSize0/binary, EncBuf/binary>> = EncBuf0,
     {ok,DecodedBin,B} = apply_crypto(ToDecode, B0),
@@ -1768,7 +1768,7 @@ write_buf(Pid, SftpHandle, BufHandle, PlainBin, FileOpTimeout) ->
 do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
 		 B=#bufinf{enc_text_buf = EncBuf0,
 			   size = Size})
-  when size(EncBuf0) >= Packet ->
+  when byte_size(EncBuf0) >= Packet ->
     <<BinToWrite:Packet/binary, EncBuf/binary>> = EncBuf0,
     case write(Pid, SftpHandle, BinToWrite, FileOpTimeout) of
 	ok ->
@@ -1783,7 +1783,7 @@ do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
 		 B0=#bufinf{plain_text_buf = PlainBuf0,
 			    enc_text_buf = EncBuf0,
 			    chunksize = undefined})
-  when size(PlainBuf0) > 0 ->
+  when byte_size(PlainBuf0) > 0 ->
      {ok,EncodedBin,B} = apply_crypto(PlainBuf0, B0),
      do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
 		     B#bufinf{plain_text_buf = <<>>,
@@ -1794,7 +1794,7 @@ do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
 			    enc_text_buf = EncBuf0,
 			    chunksize = ChunkSize0
 			   })
-  when size(PlainBuf0) >= ChunkSize0 ->
+  when byte_size(PlainBuf0) >= ChunkSize0 ->
     <<ToEncode:ChunkSize0/binary, PlainBuf/binary>> = PlainBuf0,
     {ok,EncodedBin,B} = apply_crypto(ToEncode, B0),
     do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,

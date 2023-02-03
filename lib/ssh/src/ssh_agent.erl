@@ -173,7 +173,7 @@ send(Request, Opts) ->
 %% Message packing
 
 pack(Data) ->
-    <<(size(Data)):32/unsigned-big-integer, Data/binary>>.
+    <<(byte_size(Data)):32/unsigned-big-integer, Data/binary>>.
 
 %% SSH Agent message encoding
 
