@@ -196,7 +196,7 @@ post_args([PA|PArgs], [AA|AArgs], Env) ->
 post_args([], [], Env) ->
     Env;
 post_args(Pattern, Args, _Env) ->
-    io:format("Failed to match ~p <-> ~p~n", [Pattern, Args]),
+    io:format("Failed to match ~kp <-> ~kp~n", [Pattern, Args]),
     error({internal_pattern_match_error,post_args}).
 
 post_phi_args([{'...',_}], _, Env) ->

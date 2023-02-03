@@ -99,17 +99,17 @@ format_anno(parameter_info, Map) when is_map(Map) ->
                  {V,I} <- Params]]
     end;
 format_anno(Key, Map) when is_map(Map) ->
-    Sorted = lists:sort(maps:to_list(Map)),
+    Sorted = maps:to_list(maps:iterator(Map, ordered)),
     [io_lib:format("%% ~s:\n", [Key]),
-     [io_lib:format("%%    ~w => ~w\n", [K,V]) || {K,V} <- Sorted]];
+     [io_lib:format("%%    ~kw => ~kw\n", [K,V]) || {K,V} <- Sorted]];
 format_anno(Key, Value) ->
-    io_lib:format("%% ~s: ~p\n", [Key,Value]).
+    io_lib:format("%% ~s: ~kp\n", [Key,Value]).
 
 format_param_info([{type, T} | Infos], Break) ->
     [format_type(T, Break) |
      format_param_info(Infos, Break)];
 format_param_info([Info | Infos], Break) ->
-    [io_lib:format("~s~p", [Break, Info]) |
+    [io_lib:format("~s~kp", [Break, Info]) |
      format_param_info(Infos, Break)];
 format_param_info([], _Break) ->
     [].
@@ -127,9 +127,9 @@ format_block(L, Blocks, FuncAnno) ->
     #b_blk{anno=Anno,is=Is,last=Last} = maps:get(L, Blocks),
     [case map_size(Anno) of
          0 -> [];
-         _ -> io_lib:format("%% ~p\n", [Anno])
+         _ -> io_lib:format("%% ~kp\n", [Anno])
      end,
-     io_lib:format("~p:", [L]),
+     io_lib:format("~kp:", [L]),
      format_instrs(Is, FuncAnno, true),
      $\n,
      format_terminator(Last, FuncAnno)].
@@ -223,7 +223,7 @@ format_args(Args, FuncAnno) ->
 format_arg(#b_var{}=Arg, FuncAnno) ->
     format_var(Arg, FuncAnno);
 format_arg(#b_literal{val=Val}, _FuncAnno) ->
-    io_lib:format("`~p`", [Val]);
+    io_lib:format("`~kp`", [Val]);
 format_arg(#b_remote{mod=Mod,name=Name,arity=Arity}, FuncAnno) ->
     io_lib:format("(~ts:~ts/~p)",
                   [format_arg(Mod, FuncAnno),format_arg(Name, FuncAnno),Arity]);
@@ -233,7 +233,7 @@ format_arg({Value,Label}, FuncAnno) when is_integer(Label) ->
     io_lib:format("{ ~ts, ~ts }", [format_arg(Value, FuncAnno),
                                    format_label(Label)]);
 format_arg(Other, _) ->
-    io_lib:format("*** ~p ***", [Other]).
+    io_lib:format("*** ~kp ***", [Other]).
 
 format_switch_list(List, FuncAnno) ->
     Ss = [io_lib:format("{ ~ts, ~ts }", [format_arg(Val, FuncAnno),
@@ -278,7 +278,7 @@ format_instr_anno_1(Anno) ->
         0 ->
             [];
         _ ->
-            [io_lib:format("  %% Anno: ~p\n", [Anno])]
+            [io_lib:format("  %% Anno: ~kp\n", [Anno])]
     end.
 
 format_live_interval(#b_var{}=Dst, #{live_intervals:=Intervals}) ->
@@ -362,6 +362,8 @@ format_type(port) ->
     "pid()";
 format_type(reference) ->
     "reference()";
+format_type(identifier) ->
+    "identifier()";
 format_type(none) ->
     "none()";
 format_type(#t_union{atom=A,list=L,number=N,tuple_set=Ts,other=O}) ->
