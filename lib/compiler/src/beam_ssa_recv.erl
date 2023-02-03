@@ -104,7 +104,7 @@
 
 -include("beam_ssa.hrl").
 
--import(lists, [foldl/3, search/2]).
+-import(lists, [foldl/3, member/2, search/2]).
 
 %% Psuedo-block for representing function returns in the block graph. Body
 %% calls add an edge returning _from_ this block.
@@ -118,6 +118,7 @@ format_error(OptInfo) ->
 
 -record(scan, { graph=beam_digraph:new(),
                 module :: #{ beam_ssa:b_local() => {beam_ssa:block_map(),
+                                                    [beam_ssa:b_var()],
                                                     [beam_ssa:b_var()]} },
                 recv_candidates=#{},
                 ref_candidates=#{} }).
@@ -133,6 +134,11 @@ module(#b_module{}=Mod0, Opts) ->
             %% Figure out where to place marker creation, usage, and clearing
             %% by walking through the module-wide graph.
             {Markers, Uses, Clears} = plan(Scan),
+
+            %% If we have any markers we must have uses and vice versa. If
+            %% there any any clears, we must have markers.
+            true = (Markers =/= #{}) =:= (Uses =/= #{}), %Assertion.
+            true = (Clears =:= #{}) orelse (Markers =/= #{}), %Assertion.
 
             Mod = optimize(Mod0, Markers, Uses, Clears),
 
@@ -156,7 +162,8 @@ scan(#b_module{body=Fs}) ->
             Rs = maps:from_list(Rs0),
             ModMap = foldl(fun(#b_function{bs=Blocks,args=Args}=F, Acc) ->
                                    FuncId = get_func_id(F),
-                                   Acc#{ FuncId => {Blocks, Args} }
+                                   Rets = scan_rets(Blocks),
+                                   Acc#{ FuncId => {Blocks, Args, Rets} }
                            end, #{}, Fs),
             foldl(fun(F, Scan0) ->
                           FuncId = get_func_id(F),
@@ -179,6 +186,14 @@ scan_peek_message([#b_function{bs=Bs}=F | Fs]) ->
     end;
 scan_peek_message([]) ->
     [].
+
+scan_rets(Blocks) ->
+    Rets = maps:fold(fun(_K, #b_blk{last=#b_ret{arg=#b_var{}=RetVal}}, Acc) ->
+                             gb_sets:add_element(RetVal, Acc);
+                        (_K, _V, Acc) ->
+                             Acc
+                     end, gb_sets:new(), Blocks),
+    gb_sets:to_list(Rets).
 
 scan_peek_message_bs([{Lbl, Blk} | Bs]) ->
     case Blk of
@@ -222,8 +237,9 @@ scan_is([#b_set{op=call,dst=Dst,args=[#b_remote{} | _]}=Call,
         #b_blk{last=#b_br{succ=Succ}}, Lbl, Blocks, FuncId, State0) ->
     case Blocks of
         #{ Succ := #b_blk{is=[],last=#b_ret{arg=Dst}}} ->
-            %% External tail call, ignore it altogether.
-            State0;
+            %% Tail call, skip adding a successor edge to prevent
+            %% clearing the marker needlessly.
+            si_remote_call(Call, Lbl, Succ, Blocks, FuncId, State0);
         #{} ->
             State = si_remote_call(Call, Lbl, Succ, Blocks, FuncId, State0),
             scan_add_edge({FuncId, Lbl}, {FuncId, Succ}, State)
@@ -233,23 +249,19 @@ scan_is([#b_set{op=call,args=[#b_remote{} | _]}=Call | Is],
     %% Remote call that always succeeds.
     State = si_remote_call(Call, Lbl, Lbl, Blocks, FuncId, State0),
     scan_is(Is, Blk, Lbl, Blocks, FuncId, State);
-scan_is([#b_set{op=call,dst=Dst,args=[#b_local{}=Callee | Args]},
+scan_is([#b_set{op=call,dst=Dst,args=[#b_local{} | _]}=Call,
          #b_set{op={succeeded,body},args=[Dst]}],
         #b_blk{last=#b_br{succ=Succ}},
         Lbl, Blocks, FuncId, State0) ->
     case Blocks of
         #{ Succ := #b_blk{is=[],last=#b_ret{arg=Dst}}} ->
-            %% Local tail call, don't add any edges.
-            scan_add_call(tail, Args, Callee, Lbl, FuncId, State0);
+            %% Tail call, skip adding a successor edge to prevent
+            %% clearing the marker needlessly.
+            scan_add_call(Call, Lbl, Succ, FuncId, State0);
         #{} ->
-            State = scan_add_call(body, Args, Callee, Lbl, FuncId, State0),
+            State = scan_add_call(Call, Lbl, Succ, FuncId, State0),
             scan_add_edge({FuncId, Lbl}, {FuncId, Succ}, State)
     end;
-scan_is([#b_set{op=call,args=[#b_local{}=Callee | Args]} | Is],
-        Blk, Lbl, Blocks, FuncId, State0) ->
-    %% Local call that always succeeds.
-    State = scan_add_call(body, Args, Callee, Lbl, FuncId, State0),
-    scan_is(Is, Blk, Lbl, Blocks, FuncId, State);
 scan_is([_I | Is], Blk, Lbl, Blocks, FuncId, State) ->
     scan_is(Is, Blk, Lbl, Blocks, FuncId, State);
 scan_is([], #b_blk{last=#b_ret{}}, Lbl, _Blocks, FuncId, State) ->
@@ -261,25 +273,22 @@ scan_is([], Blk, Lbl, _Blocks, FuncId, State) ->
 
 %% Adds an edge to the callee, with argument/parameter translation to let us
 %% follow specific references.
-scan_add_call(Kind, Args, Callee, Lbl, Caller, #scan{module=ModMap}=State0) ->
-    #{ Callee := {_Blocks, Params} } = ModMap,
+scan_add_call(Call, CallLbl, SuccLbl, Caller, #scan{module=ModMap}=State0) ->
+    #b_set{dst=Dst,args=[#b_local{}=Callee | Args]} = Call,
+    #{ Callee := {_Blocks, Params, Rets} } = ModMap,
 
-    {Translation, Inverse} = scan_translate_call(Args, Params, #{}, #{}),
-
-    State = scan_add_edge({Caller, Lbl},
+    {CallTranslation, CallInverse} =
+        scan_translate_call(Args, Params, #{}, #{}),
+    State = scan_add_edge({Caller, CallLbl},
                           {Callee, ?ENTRY_BLOCK},
-                          {Translation, Inverse},
+                          {CallTranslation, CallInverse, Args},
                           State0),
 
-    case Kind of
-        body ->
-            scan_add_edge({Callee, ?RETURN_BLOCK},
-                          {Caller, Lbl},
-                          {Inverse, Translation},
-                          State);
-        tail ->
-            State
-    end.
+    {RetTranslation, RetInverse} = scan_translate_return(Rets, Dst),
+    scan_add_edge({Callee, ?RETURN_BLOCK},
+                  {Caller, SuccLbl},
+                  {RetTranslation, RetInverse, Params},
+                  State).
 
 scan_translate_call([Arg | Args], [Param | Params], ArgToParams, ParamToArgs) ->
     scan_translate_call(Args, Params,
@@ -287,6 +296,15 @@ scan_translate_call([Arg | Args], [Param | Params], ArgToParams, ParamToArgs) ->
                         ParamToArgs#{ Param => Arg });
 scan_translate_call([], [], ArgToParams, ParamToArgs) ->
     {ArgToParams, ParamToArgs}.
+
+scan_translate_return(Rets, Dst) ->
+    CalleeToCaller = scan_translate_return_1(Rets, Dst, #{}),
+    {CalleeToCaller, #{ Dst => Rets }}.
+
+scan_translate_return_1([Ret | Rets], Dst, CalleeToCaller) ->
+    scan_translate_return_1(Rets, Dst, CalleeToCaller#{ Ret => Dst });
+scan_translate_return_1([], _Dst, CalleeToCaller) ->
+    CalleeToCaller.
 
 scan_add_edge(From, To, State) ->
     scan_add_edge(From, To, branch, State).
@@ -410,7 +428,7 @@ plan(Scan) ->
     Uses = plan_uses(ReceiveCandidates, RefMap0, ModMap),
 
     %% Limit the reference map to the references that are actually used.
-    RefMap = intersect_uses(Uses, Graph, RefMap0),
+    RefMap = intersect_uses(Uses, RefMap0, Graph),
 
     %% Reserve and bind markers when we create a reference that we know will be
     %% used.
@@ -449,14 +467,19 @@ propagate_references_1([], _G, Acc) ->
 
 pr_successors([{_From, To, branch} | Edges], Ref) ->
     [{To, Ref} | pr_successors(Edges, Ref)];
-pr_successors([{{_, FromLbl}, To, {Translation, _Inverse}} | Edges], Ref) ->
+pr_successors([{{_, FromLbl}, To, {Translation, _Inverse, Args}} | Edges],
+              Ref) ->
     case Translation of
-        #{ Ref := Param } when FromLbl =/= ?RETURN_BLOCK ->
-            %% We ignore return edges to avoid leaking markers to functions
-            %% that lack them. Consider the following:
+        #{ Ref := #b_var{}=Param } ->
+            %% If we return a function parameter, we must ignore the return
+            %% edge to avoid leaking markers to functions that lack them.
+            %% Consider the following:
             %%
-            %%    t(NotMarker) -> id(NotMarker), receive NotMarker -> ok end.
-            %%    g() -> id(make_ref()).
+            %%    t(NotMarker) ->
+            %%        id(NotMarker),
+            %%        receive NotMarker -> ok end.
+            %%    g() ->
+            %%        id(make_ref()).
             %%    id(I) -> I.
             %%
             %% Since id/1 receives a potential marker from at least one source,
@@ -465,7 +488,13 @@ pr_successors([{{_, FromLbl}, To, {Translation, _Inverse}} | Edges], Ref) ->
             %% marker after the call to id/1, enabling the optimization in the
             %% following receive. This would not be dangerous but it's a
             %% pessimization we'd rather avoid.
-            [{To, Param} | pr_successors(Edges, Ref)];
+            case (FromLbl =/= ?RETURN_BLOCK orelse
+                  not member(Ref, Args)) of
+                true ->
+                    [{To, Param} | pr_successors(Edges, Ref)];
+                false ->
+                    pr_successors(Edges, Ref)
+            end;
         #{} ->
             pr_successors(Edges, Ref)
     end;
@@ -476,7 +505,7 @@ pr_successors([], _Ref) ->
 %% references we can use to jumpstart them.
 plan_uses(Candidates, RefMap, ModMap) ->
     maps:fold(fun(FuncId, Receives, Acc) ->
-                      #{ FuncId := {Blocks, _Params} } = ModMap,
+                      #{ FuncId := {Blocks, _Params, _Rets} } = ModMap,
                       case plan_uses_1(Receives, FuncId, Blocks, RefMap) of
                           [_|_]=Uses -> Acc#{ FuncId => Uses };
                           [] -> Acc
@@ -630,16 +659,16 @@ pu_is_ref_msg_comparison(_, _) ->
 
 %% Takes the map of all references available at a given block, and limits it to
 %% those that are actually used in (all clauses of) a succeeding receive.
-intersect_uses(UsageMap, G, RefMap) ->
+intersect_uses(UsageMap, RefMap, Graph) ->
     Roots = maps:fold(fun(FuncId, Uses, Acc) ->
                               [begin
                                    Vertex = {FuncId, Lbl},
                                    {Vertex, Ref}
                                end || {Lbl, _I, Ref} <- Uses] ++ Acc
                       end, [], UsageMap),
-    intersect_uses_1(Roots, G, RefMap, #{}).
+    intersect_uses_1(Roots, RefMap, Graph, #{}).
 
-intersect_uses_1([{Vertex, Ref} | Vs], G, RefMap, Acc0) ->
+intersect_uses_1([{Vertex, Ref} | Vs], RefMap, Graph, Acc0) ->
     PossibleRefs = maps:get(Vertex, RefMap, sets:new([{version, 2}])),
     ActiveRefs0 = maps:get(Vertex, Acc0, sets:new([{version, 2}])),
     Acc = case {sets:is_element(Ref, PossibleRefs),
@@ -647,9 +676,10 @@ intersect_uses_1([{Vertex, Ref} | Vs], G, RefMap, Acc0) ->
               {true, false} ->
                   %% This block lies between reference creation and the receive
                   %% block, add it to the intersection.
-                  Next = iu_predecessors(beam_digraph:in_edges(G, Vertex), Ref),
+                  Edges = beam_digraph:in_edges(Graph, Vertex),
+                  Next = iu_predecessors(Edges, Ref),
                   ActiveRefs = sets:add_element(Ref, ActiveRefs0),
-                  intersect_uses_1(Next, G, RefMap,
+                  intersect_uses_1(Next, RefMap, Graph,
                                    Acc0#{ Vertex => ActiveRefs });
               {false, _} ->
                   %% This block does not succeed the creation of the
@@ -659,19 +689,22 @@ intersect_uses_1([{Vertex, Ref} | Vs], G, RefMap, Acc0) ->
                   %% We've already handled this block, move on.
                   Acc0
           end,
-    intersect_uses_1(Vs, G, RefMap, Acc);
-intersect_uses_1([], _G, _RefMap, Acc) ->
+    intersect_uses_1(Vs, RefMap, Graph, Acc);
+intersect_uses_1([], _RefMap, _Graph, Acc) ->
     Acc.
 
 iu_predecessors([{From, _To, branch} | Edges], Ref) ->
     [{From, Ref} | iu_predecessors(Edges, Ref)];
-iu_predecessors([{From, _To, {_Translation, Inverse}} | Edges], Ref) ->
+iu_predecessors([{From, _To, {_Translation, Inverse, _Args}} | Edges], Ref) ->
     case Inverse of
         #{ Ref := #b_var{}=Arg } ->
             [{From, Arg} | iu_predecessors(Edges, Ref)];
+        #{ Ref := [_|_]=Rets } ->
+            [{From, Ret} || Ret <- Rets] ++ iu_predecessors(Edges, Ref);
         #{} ->
-            %% `Ref` is not a function argument (created in first block) or was
-            %% passed as a literal on this call, ignore it.
+            %% `Ref` is not a function argument (created in first block), is
+            %% not a return value, or it was passed as a literal on this call.
+            %% Either way we'll ignore it.
             iu_predecessors(Edges, Ref)
     end;
 iu_predecessors([], _Ref) ->
@@ -715,12 +748,13 @@ plan_clears_1([{From, To, branch} | Edges], ActiveRefs, UsageMap) ->
     {FuncId, FromLbl} = From,
     {FuncId, ToLbl} = To,
 
-    [{FromLbl, ToLbl, Ref} || Ref <- sets:to_list(Refs)]
-        ++ plan_clears_1(Edges, ActiveRefs, UsageMap);
-plan_clears_1([{_From, _To, {_, _}} | Edges], ActiveRefs, UsageMap) ->
-    %% We don't need to clear references on calls: those we haven't passed will
-    %% remain valid after we return, and those we do pass will be cleared by
-    %% the callee when necessary.
+    Clears = [{FromLbl, ToLbl, Ref} || Ref <- sets:to_list(Refs)],
+    Clears ++ plan_clears_1(Edges, ActiveRefs, UsageMap);
+plan_clears_1([{_From, _To, {_, _, _}} | Edges],
+              ActiveRefs, UsageMap) ->
+    %% We don't need to clear references on calls and returns: those we haven't
+    %% passed will remain valid after we return, and those we do pass will be
+    %% cleared by the caller/callee when necessary.
     plan_clears_1(Edges, ActiveRefs, UsageMap);
 plan_clears_1([], _ActiveRefs, _UsageMap) ->
     [].
