@@ -172,7 +172,7 @@ then
     echo "The tests will start in a few seconds..."
     sleep 45
     cd "$ERL_TOP/release/tests/test_server"
-    erl -eval "ts:install(),erlang:halt()"
+    erl -noinput -eval "ts:install(),erlang:halt()"
     erl -noinput -eval "ts:run([all_tests,batch]),erlang:halt()"
     exit $?
 fi
