@@ -72,6 +72,9 @@ REDIST_DLL_NAME=$(shell (sh ./dll_version_helper.sh -n "$(NICEREDISTFILE)" || ec
 OTP_VERSION_LONG=$(shell $(ERL_TOP)/bootstrap/bin/escript.exe vsn_number.escript $(OTP_VERSION))
 YEAR=$(shell date +%Y)
 
+$(info $$OTP_VERSION = [${OTP_VERSION}])
+$(info $$OTP_VERSION_LONG = [${OTP_VERSION_LONG}])
+
 release_spec:
 	@NSIS_VER=`makensis.exe -version`; \
 	case $$NSIS_VER in \
@@ -102,6 +105,8 @@ release_spec:
 	  then \
 		echo '!define HAVE_DOCS 1' >> $(VERSION_HEADER); \
 	  fi;\
+	  echo "OTP_VERSION = [${OTP_VERSION}]" \
+	  echo "OTP_VERSION_LONG = [${OTP_VERSION_LONG}]" \
 	  echo "Running $(MAKENSIS) $(MAKENSISFLAGS) erlang20.nsi";\
 	  $(MAKENSIS) $(MAKENSISFLAGS) erlang20.nsi;;\
 	*) \
