@@ -27,7 +27,7 @@
 	 port_info1/1, port_info2/1,
 	 port_info_os_pid/1, port_info_race/1,
 	 connect/1, control/1, echo_to_busy/1, busy_options/1,
-     control_eof/1]).
+	 control_eof/1]).
 
 -export([do_command_e_1/1, do_command_e_2/1, do_command_e_4/1]).
 
@@ -400,15 +400,23 @@ control_eof(Config) when is_list(Config) ->
 do_control_eof() ->
     InputText = "5\n3\n1\n4\n2\n",
     ExpectedText = "1\n2\n3\n4\n5\n",
+    Command = "sort",
 
-    P = open_port({spawn, "sort"}, [stream, use_stdio]),
+    P = open_port({spawn, Command}, [stream, use_stdio]),
 
     register(myport, P),
 
     P ! {self(), {command, InputText}},
     erlang:port_control(P, 16#0112c000, []), %% Magic number to close fildes.
 
-    receive {P, X} -> {data, ExpectedText} = X end,
+    {name, Command} = erlang:port_info(P, name),
+
+    receive
+        {P, X} ->
+            {data, ExpectedText} = X
+    after 1000 ->
+            ct:fail(timeout)
+    end,
 
     P ! {self(), {command, "To the bit bucket!"}}, %% Further writes are ignored.
 
