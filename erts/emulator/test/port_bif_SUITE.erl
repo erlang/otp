@@ -26,7 +26,8 @@
 	 command_e_1/1, command_e_2/1, command_e_3/1, command_e_4/1,
 	 port_info1/1, port_info2/1,
 	 port_info_os_pid/1, port_info_race/1,
-	 connect/1, control/1, echo_to_busy/1, busy_options/1]).
+	 connect/1, control/1, echo_to_busy/1, busy_options/1,
+     control_eof/1]).
 
 -export([do_command_e_1/1, do_command_e_2/1, do_command_e_4/1]).
 
@@ -38,7 +39,7 @@ suite() ->
 
 all() -> 
     [command, {group, port_info}, connect, control,
-     echo_to_busy, busy_options].
+     echo_to_busy, busy_options, control_eof].
 
 groups() -> 
     [{command_e, [],
@@ -386,6 +387,23 @@ control(Config) when is_list(Config) ->
 test_op(P, Op) ->
     R = port_control(P, Op, []),
     <<Op:32>> = list_to_binary(R).
+
+%% Test closing write file descriptor (EOF) with port_control/3
+control_eof(Config) when is_list(Config) ->
+    InputText = "5\n3\n1\n4\n2\n",
+    ExpectedText = "1\n2\n3\n4\n5\n",
+
+    P = open_port({spawn, "sort"}, [stream, use_stdio]),
+
+    register(myport, P),
+
+    P ! {self(), {command, InputText}},
+    erlang:port_control(P, 16#0112c000, []), %% Magic number to close fildes.
+
+    receive {P, X} -> {data, ExpectedText} = X end,
+
+    true = erlang:port_close(myport),
+    ok.
 
 echo_to_busy(Config) when is_list(Config) ->
     ct:timetrap({seconds, 10}),
