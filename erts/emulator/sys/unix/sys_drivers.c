@@ -757,11 +757,32 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 #undef CMD_LINE_PREFIX_STR_SZ
 }
 
+/* Control op */
+#define SPAWN_CTRL_OP_EOF 0x0112c000U
+
 static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
                                   ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen)
 {
     ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
     ErtsSysForkerProto *proto = (ErtsSysForkerProto *)buf;
+
+    if (cmd == SPAWN_CTRL_OP_EOF) {
+        /* Close the output file descriptor (implying EOF)
+           and replace with /dev/null */
+        int fd_null = open("/dev/null", O_WRONLY);
+
+        if (fd_null == -1)
+            return -1;
+
+        if (close(dd->ofd->fd) == -1) {
+            close(fd_null);
+            return -1;
+        }
+
+        dd->ofd->fd = fd_null;
+
+        return 0;
+    }
 
     if (cmd != ERTS_SPAWN_DRV_CONTROL_MAGIC_NUMBER)
         return -1;
