@@ -38,7 +38,6 @@
          application/1, application/2,
          environment/0, environment/1,
          module/1, module/2,
-         modules/1,
          sanity_check/0]).
 
 %% gen_server callbacks
@@ -124,10 +123,6 @@ module(M) when is_atom(M) -> module(M, []).
 module(M, Opts) when is_atom(M), is_list(Opts) ->
     gen_server:call(?SERVER, {module, M, Opts}, infinity).
 
-modules(Opt) when is_atom(Opt) ->
-    gen_server:call(?SERVER, {modules, Opt}, infinity).
-
-
 -spec sanity_check() -> ok | {failed, Failures} when
       Application :: atom(),
       ApplicationVersion :: string(),
@@ -190,12 +185,6 @@ handle_call({module, M, Opts}, _From, #state{ report = Report } = S) ->
     print_modules_from_code(M, Mods, Opts),
     {reply, ok, S};
 
-handle_call({modules, native}, _From, #state{ report = Report } = S) ->
-    Codes = get_native_modules_from_code(get_value([code],Report)),
-    io:format("~p~n", [Codes]),
-    {reply, ok, S};
-
-
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
@@ -249,31 +238,6 @@ find_modules(M, [{M, _}=Info|Ms]) -> [Info|find_modules(M,Ms)];
 find_modules(M, [_|Ms]) -> find_modules(M, Ms);
 find_modules(_, []) -> [].
 
-get_native_modules_from_code([{application, {App, Info}}|Cs]) ->
-    case get_native_modules(get_value([modules], Info)) of
-	[] -> get_native_modules_from_code(Cs);
-	Mods ->
-	    Path = get_value([path], Info),
-	    Vsn  = get_value([vsn], Info),
-	    [{App, Vsn, Path, Mods}|get_native_modules_from_code(Cs)]
-    end;
-get_native_modules_from_code([{code, Info}|Cs]) ->
-    case get_native_modules(get_value([modules], Info)) of
-	[] -> get_native_modules_from_code(Cs);
-	Mods ->
-	    Path = get_value([path], Info),
-	    [{Path, Mods}|get_native_modules_from_code(Cs)]
-    end;
-get_native_modules_from_code([]) -> [].
-
-get_native_modules([]) -> [];
-get_native_modules([{Mod, Info}|Ms]) ->
-    case proplists:get_value(native, Info) of
-	false -> get_native_modules(Ms);
-	_     -> [Mod|get_native_modules(Ms)]
-    end.
-
-
 %% print information
 
 print_applications([{application, App}|Apps], Opts) ->
@@ -320,14 +284,12 @@ print_module_from_code(M, {Path, [{M,ModInfo}]}) ->
     io:format(" from path \"~ts\" (no application):~n", [Path]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
-    io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
     io:format("     -   loaded: ~w~n", [get_value([loaded], ModInfo)]),
     ok;
 print_module_from_code(M, {App,Vsn,Path,[{M,ModInfo}]}) ->
     io:format(" from path \"~ts\" (~w-~s):~n", [Path,App,Vsn]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
-    io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
     io:format("     -   loaded: ~w~n", [get_value([loaded], ModInfo)]),
     ok.
 
@@ -335,7 +297,6 @@ print_module({Mod, ModInfo}) ->
     io:format("   - ~w:~n", [Mod]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
-    io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
     io:format("     -   loaded: ~w~n", [get_value([loaded], ModInfo)]),
     ok.
 
@@ -571,7 +532,6 @@ emit_module_info(EmitChunk, Beam) ->
 
     EmitChunk("{~w,["
                   "{loaded,~w},"
-                  "{native,false},"
                   "{compiler,~w},"
                   "{md5,~w}"
               "]}",
