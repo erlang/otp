@@ -390,6 +390,14 @@ test_op(P, Op) ->
 
 %% Test closing write file descriptor (EOF) with port_control/3
 control_eof(Config) when is_list(Config) ->
+    case os:type() of
+	{unix,_} ->
+	    do_control_eof();
+	_ ->
+	    {skip,"Only on Unix."}
+    end.
+
+do_control_eof() ->
     InputText = "5\n3\n1\n4\n2\n",
     ExpectedText = "1\n2\n3\n4\n5\n",
 
@@ -401,6 +409,8 @@ control_eof(Config) when is_list(Config) ->
     erlang:port_control(P, 16#0112c000, []), %% Magic number to close fildes.
 
     receive {P, X} -> {data, ExpectedText} = X end,
+
+    P ! {self(), {command, "To the bit bucket!"}}, %% Further writes are ignored.
 
     true = erlang:port_close(myport),
     ok.
