@@ -539,7 +539,7 @@ build it locally if you want to.
 Using the pre-built base you build an image like this:
 
 ```bash
-docker login docker.pkg.github.com
+docker login ghcr.io
 git archive --prefix otp/ -o .github/otp.tar.gz HEAD
 docker build -t my_otp_image -f .github/dockerfiles/Dockerfile.64-bit .github/
 ```
@@ -550,7 +550,7 @@ in order to fetch the base image. If you want to build the base image locally
 you can do that like this:
 
 ```bash
-docker build -t docker.pkg.github.com/erlang/otp/ubuntu-base \
+docker build -t ghcr.io/erlang/otp/ubuntu-base \
   --build-arg BASE=ubuntu:20.04 --build-arg USER=otptest --build-arg uid=$(id -u) \
   --build-arg GROUP=uucp --build-arg gid=$(id -g) \
   -f .github/dockerfiles/Dockerfile.ubuntu-base .github/
