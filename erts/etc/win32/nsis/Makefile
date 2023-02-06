@@ -105,8 +105,8 @@ release_spec:
 	  then \
 		echo '!define HAVE_DOCS 1' >> $(VERSION_HEADER); \
 	  fi;\
-	  echo "OTP_VERSION = [${OTP_VERSION}]" \
-	  echo "OTP_VERSION_LONG = [${OTP_VERSION_LONG}]" \
+	  echo "OTP_VERSION = [${OTP_VERSION}]"; \
+	  echo "OTP_VERSION_LONG = [${OTP_VERSION_LONG}]"; \
 	  echo "Running $(MAKENSIS) $(MAKENSISFLAGS) erlang20.nsi";\
 	  $(MAKENSIS) $(MAKENSISFLAGS) erlang20.nsi;;\
 	*) \
