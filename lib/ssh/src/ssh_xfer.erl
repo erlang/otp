@@ -242,7 +242,7 @@ xf_request(XF, Op, Arg) ->
 	       is_list(Arg) ->
 		   ?to_binary(Arg)
 	   end,
-    Size = 1+size(Data),
+    Size = 1+byte_size(Data),
     ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
 
 xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->    
@@ -252,7 +252,7 @@ xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->
 	       is_list(Arg) ->
 		   ?to_binary(Arg)
 	   end,
-    Size = 1 + size(Data),
+    Size = 1 + byte_size(Data),
     ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
 
 xf_send_name(XF, ReqId, Name, Attr) ->
@@ -290,7 +290,7 @@ xf_send_status(#ssh_xfer{cm = CM, channel = Channel},
     LangTag = "en",
     ELen = length(ErrorMsg),
     TLen = 2, %% length(LangTag),
-    Size = 1 + 4 + 4 + 4+ELen + 4+TLen + size(Data),
+    Size = 1 + 4 + 4 + 4+ELen + 4+TLen + byte_size(Data),
     ToSend = [<<?UINT32(Size), ?SSH_FXP_STATUS, ?UINT32(ReqId),
 	       ?UINT32(ErrorCode)>>,
 	      <<?UINT32(ELen)>>, ErrorMsg,
@@ -300,13 +300,13 @@ xf_send_status(#ssh_xfer{cm = CM, channel = Channel},
 
 xf_send_attr(#ssh_xfer{cm = CM, channel = Channel, vsn = Vsn}, ReqId, Attr) ->
     EncAttr = encode_ATTR(Vsn, Attr),
-    ALen = size(EncAttr),
+    ALen = byte_size(EncAttr),
     Size = 1 + 4 + ALen,
     ToSend = [<<?UINT32(Size), ?SSH_FXP_ATTRS, ?UINT32(ReqId)>>, EncAttr],
     ssh_connection:send(CM, Channel, ToSend).
 
 xf_send_data(#ssh_xfer{cm = CM, channel = Channel}, ReqId, Data) ->
-    DLen = size(Data),
+    DLen = byte_size(Data),
     Size = 1 + 4 + 4+DLen,
     ToSend = [<<?UINT32(Size), ?SSH_FXP_DATA, ?UINT32(ReqId), ?UINT32(DLen)>>,
 	      Data],
@@ -815,21 +815,21 @@ encode_name(Vsn, {{NameUC,LongNameUC},Attr}, Len) when Vsn =< 3 ->
 	LongName = binary_to_list(unicode:characters_to_binary(LongNameUC)),
     LNLen = length(LongName),
 	EncAttr = encode_ATTR(Vsn, Attr),
-    ALen = size(EncAttr),
+    ALen = byte_size(EncAttr),
     NewLen = Len + NLen + LNLen + 4 + 4 + ALen,
     {[<<?UINT32(NLen)>>, Name, <<?UINT32(LNLen)>>, LongName, EncAttr], NewLen};
 encode_name(Vsn, {NameUC,Attr}, Len) when Vsn =< 3 ->
     Name = binary_to_list(unicode:characters_to_binary(NameUC)),
     NLen = length(Name),
     EncAttr = encode_ATTR(Vsn, Attr),
-    ALen = size(EncAttr),
+    ALen = byte_size(EncAttr),
     NewLen = Len + NLen*2 + 4 + 4 + ALen,
     {[<<?UINT32(NLen)>>, Name, <<?UINT32(NLen)>>, Name, EncAttr], NewLen};
 encode_name(Vsn, {NameUC,Attr}, Len) when Vsn >= 4 ->
     Name = binary_to_list(unicode:characters_to_binary(NameUC)),
     NLen = length(Name),
     EncAttr = encode_ATTR(Vsn, Attr),
-    ALen = size(EncAttr),
+    ALen = byte_size(EncAttr),
     {[<<?UINT32(NLen)>>, Name, EncAttr],
      Len + 4 + NLen + ALen}.
 

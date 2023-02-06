@@ -1200,7 +1200,7 @@ get_window(#channel{send_buf = Buffer,
 		   } = Channel, Acc0) ->
     case queue:out(Buffer) of
 	{{value, {_, Data} = Msg}, NewBuffer} ->
-	    case handle_send_window(Msg, size(Data), PacketSize, WindowSize0, Acc0) of		
+	    case handle_send_window(Msg, byte_size(Data), PacketSize, WindowSize0, Acc0) of
 		{WindowSize, Acc, {_, <<>>}} ->
 		    {lists:reverse(Acc), Channel#channel{send_window_size = WindowSize,
 							 send_buf = NewBuffer}};
@@ -1520,7 +1520,7 @@ handle_cli_msg(C0, ChId, Reply0) ->
 channel_data_reply_msg(ChannelId, Connection, DataType, Data) ->
     case ssh_client_channel:cache_lookup(Connection#connection.channel_cache, ChannelId) of
 	#channel{recv_window_size = Size} = Channel ->
-	    WantedSize = Size - size(Data),
+	    WantedSize = Size - byte_size(Data),
 	    ssh_client_channel:cache_update(Connection#connection.channel_cache, 
                                      Channel#channel{recv_window_size = WantedSize}),
             reply_msg(Channel, Connection, {data, ChannelId, DataType, Data});

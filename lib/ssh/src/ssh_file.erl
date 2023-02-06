@@ -289,7 +289,7 @@ decode(Bin, auth_keys) when is_binary(Bin) ->
                     [ [[] | binary:split(L,<<" ">>,[global,trim_all])] ];
                 {Pos,Len} when is_integer(Pos), is_integer(Len) ->
                     [ [binary:split(binary:part(L,0,Pos-1), <<",">>,[global,trim_all]) |
-                       binary:split(binary:part(L,Pos,size(L)-Pos), <<" ">>, [global,trim_all])]
+                       binary:split(binary:part(L,Pos,byte_size(L)-Pos), <<" ">>, [global,trim_all])]
                     ]
             end
     ];
@@ -730,12 +730,12 @@ pos_match(H, P) ->
 
         {[Hh], [Ph,<<"*">>]} ->
             %% host [host]:*
-            Sz = size(Hh),
+            Sz = byte_size(Hh),
             Ph == <<"[", Hh:Sz/binary, "]">>;
 
         {[Hh], [Ph,<<"22">>]} ->
             %% host [host]:22
-            Sz = size(Hh),
+            Sz = byte_size(Hh),
             Ph == <<"[", Hh:Sz/binary, "]">>;
 
         _ ->
@@ -1145,7 +1145,7 @@ openssh_key_v1_encode(KeyPairs) ->
                      CheckInt/binary,
                      (openssh_key_v1_encode_priv_keys_cmnts(KeyPairs))/binary>>,
     UnEncrypted = <<UnEncrypted0/binary,
-                    (pad(size(UnEncrypted0), BlockSize))/binary>>,
+                    (pad(byte_size(UnEncrypted0), BlockSize))/binary>>,
     Encrypted = encrypt_openssh_key_v1(UnEncrypted,  KdfName, KdfOptions, CipherName, ignore),
     <<"openssh-key-v1",0,
       ?STRING(CipherName),
