@@ -2339,7 +2339,7 @@ file_close(Fd) ->
 file_read(Fd) ->
     case file:read(Fd, ?FILE_BUFSIZE) of
         {ok, Bytes} ->
-            {ok, size(Bytes), Bytes};
+            {ok, byte_size(Bytes), Bytes};
         eof ->
             {ok, 0, []};
         Other ->
@@ -2426,8 +2426,8 @@ progress_report(_, #state{progress = ignore}) ->
     ok;
 progress_report(stop, #state{progress = ProgressPid}) ->
     ftp_progress:stop(ProgressPid);
-progress_report({binary, Data}, #state{progress = ProgressPid}) ->
-    ftp_progress:report(ProgressPid, {transfer_size, size(Data)});
+progress_report({binary, Data}, #state{progress = ProgressPid}) when is_binary(Data) ->
+    ftp_progress:report(ProgressPid, {transfer_size, byte_size(Data)});
 progress_report(Report, #state{progress = ProgressPid}) ->
     ftp_progress:report(ProgressPid, Report).
 
@@ -2518,8 +2518,7 @@ open_options(Options) ->
     ValidateHost =
         fun(Host) when is_list(Host) ->
                 true;
-           (Host) when is_tuple(Host) andalso
-                       ((size(Host) =:= 4) orelse (size(Host) =:= 8)) ->
+           (Host) when tuple_size(Host) =:= 4; tuple_size(Host) =:= 8 ->
                 true;
            (_) ->
                 false
