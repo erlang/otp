@@ -97,6 +97,15 @@ basic(_Config) ->
     [1] = [H || {_,_} := [H|_] <- Map],
     [c, {b,42}] = lists:sort([K || K := [_|_] <- Map]),
 
+    %% Filtering using literal patterns.
+    [] = [0 || a := b <- #{}],
+    [] = [0 || a := b <- #{x => y}],
+    [0] = [0 || a := b <- #{a => b}],
+
+    <<>> = << <<0>> || a := b <- #{} >>,
+    <<>> = << <<0>> || a := b <- #{x => y} >>,
+    <<0>> = << <<0>> || a := b <- #{a => b} >>,
+
     ok.
 
 mc_double(Size) ->

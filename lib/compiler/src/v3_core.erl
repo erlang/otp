@@ -87,7 +87,7 @@
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
 -import(cerl, [ann_c_cons/3,ann_c_tuple/2,c_tuple/1,
-	       ann_c_map/3]).
+	       ann_c_map/3,cons_hd/1,cons_tl/1]).
 
 -include("core_parse.hrl").
 
@@ -1932,10 +1932,12 @@ generator(Line, {m_generate,Lg,{map_field_exact,_,K0,V0},E}, Gs, St0) ->
     {Cg,St3} = lc_guard_tests(Gs, St2),
     {Ce,Pre0,St4} = safe(E, St3),
     AccPat = case Pat of
-                 #c_cons{hd=K,tl=V} ->
-                     #c_tuple{es=[K,V,IterVar]};
                  nomatch ->
-                     nomatch
+                     nomatch;
+                 _ ->
+                     K = cons_hd(Pat),
+                     V = cons_tl(Pat),
+                     #c_tuple{es=[K,V,IterVar]}
              end,
     SkipPat = #c_tuple{es=[SkipK,SkipV,IterVar]},
 
