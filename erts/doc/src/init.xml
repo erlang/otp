@@ -243,8 +243,7 @@
       <p>The support for loading of code from archive files is
         experimental. The only purpose of releasing it before it is ready
 	is to obtain early feedback. The file format, semantics,
-	interfaces, and so on, can  be changed in a future release. The
-        <c>-code_path_choice</c> flag is also experimental.</p>
+	interfaces, and so on, can  be changed in a future release.</p>
     </warning>
 
     <p>The <c>init</c> module interprets the following command-line flags:</p>
@@ -271,13 +270,8 @@
               and an <c>ebin</c> directory in an archive file.</p>
           </item>
         </list>
-        <p>This flag is particular
-          useful when you want to elaborate with code loading from
-          archives without editing the <c>boot script</c>. For more
-          information about interpretation of boot scripts, see
-          <seefile marker="sasl:script"><c>script(4)</c></seefile>.
-          The flag has also a similar effect on how the code server works; see
-          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
+        <p>It defaults to <c>strict</c> from OTP 26 and this option
+          is scheduled for removal in OTP 27.</p>
       </item>
       <tag><c>-epmd_module Module</c></tag>
       <item>
