@@ -652,7 +652,7 @@ void erts_usage(void)
 
 #ifdef BEAMASM
     erts_fprintf(stderr, "-JDdump bool   enable or disable dumping of generated assembly code for each module loaded\n");
-    erts_fprintf(stderr, "-JPperf bool   enable or disable support for perf on Linux\n");
+    erts_fprintf(stderr, "-JPperf true|false|dump|map|fp|no_fp   enable or disable support for perf on Linux\n");
     erts_fprintf(stderr, "-JMsingle bool enable the use of single-mapped RWX memory for JIT:ed code\n");
     erts_fprintf(stderr, "\n");
 #endif
@@ -1746,13 +1746,18 @@ erl_start(int argc, char **argv)
 
 #ifdef HAVE_LINUX_PERF_SUPPORT
                     if (sys_strcmp(arg, "true") == 0) {
-                        erts_jit_perf_support = BEAMASM_PERF_DUMP|BEAMASM_PERF_MAP;
+                        erts_jit_perf_support |= BEAMASM_PERF_ENABLED;
                     } else if (sys_strcmp(arg, "false") == 0) {
-                        erts_jit_perf_support = 0;
+                        erts_jit_perf_support &= ~BEAMASM_PERF_ENABLED;
                     } else if (sys_strcmp(arg, "dump") == 0) {
-                        erts_jit_perf_support = BEAMASM_PERF_DUMP;
+                        erts_jit_perf_support |= BEAMASM_PERF_DUMP;
                     } else if (sys_strcmp(arg, "map") == 0) {
-                        erts_jit_perf_support = BEAMASM_PERF_MAP;
+                        erts_jit_perf_support |= BEAMASM_PERF_MAP |
+                                                 BEAMASM_PERF_FP;
+                    } else if (sys_strcmp(arg, "fp") == 0) {
+                        erts_jit_perf_support |= BEAMASM_PERF_FP;
+                    } else if (sys_strcmp(arg, "no_fp") == 0) {
+                        erts_jit_perf_support &= ~BEAMASM_PERF_FP;
                     } else {
                         erts_fprintf(stderr, "bad +JPperf support flag %s\n", arg);
                         erts_usage();

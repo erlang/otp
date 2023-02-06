@@ -1024,10 +1024,33 @@ $ <input>erl \
           descriptor input events.
         </p>
       </item>
-      <tag><marker id="+JPperf"/><c>+JPperf true|false</c></tag>
+      <tag><marker id="+JPperf"/><c>+JPperf true|false|dump|map|fp|no_fp</c></tag>
       <item>
-        <p>Enables or disables support for the `perf` profiler when running
-          with the JIT on Linux. Defaults to false.</p>
+        <p>Enables or disables support for the <c>perf</c> profiler when
+          running with the JIT on Linux. Defaults to false.</p>
+        <p>This option can be combined multiple times to enable several
+          options:</p>
+        <taglist>
+          <tag><c>dump</c></tag>
+          <item>Gives <c>perf</c> detailed line information, so that the
+            <c>perf annotate</c> feature works.</item>
+          <tag><c>map</c></tag>
+          <item>Gives <c>perf</c> a map over all module code, letting it
+            translate machine code addresses to Erlang source code
+            locations. This also enables frame pointers for Erlang code so that
+            <c>perf</c> can walk the call stacks of Erlang processes, which
+            costs one extra word per stack frame.</item>
+          <tag><c>fp</c></tag>
+          <item>Enables frame pointers independently of the <c>map</c>
+            option.</item>
+          <tag><c>no_fp</c></tag>
+          <item>Disables the frame pointers added by the <c>map</c>
+            option.</item>
+          <tag><c>true</c></tag>
+          <item>Enables <c>map</c> and <c>dump</c>.</item>
+          <tag><c>false</c></tag>
+          <item>Disables all other options.</item>
+        </taglist>
         <p>For more details about how to run perf see the
           <seeguide marker="erts:BeamAsm#linux-perf-support">perf support</seeguide>
           section in the BeamAsm internal documentation.

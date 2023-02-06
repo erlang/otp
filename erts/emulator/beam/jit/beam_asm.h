@@ -34,9 +34,16 @@
 
 /* Global configuration variables */
 #    ifdef HAVE_LINUX_PERF_SUPPORT
-#        define BEAMASM_PERF_DUMP (1 << 0)
-#        define BEAMASM_PERF_MAP (1 << 1)
-extern int erts_jit_perf_support;
+enum beamasm_perf_flags {
+    BEAMASM_PERF_DUMP = (1 << 0),
+    BEAMASM_PERF_MAP = (1 << 1),
+    BEAMASM_PERF_FP = (1 << 2),
+
+    BEAMASM_PERF_ENABLED =
+            BEAMASM_PERF_DUMP | BEAMASM_PERF_MAP | BEAMASM_PERF_FP,
+    BEAMASM_PERF_DISABLED = 0,
+};
+extern enum beamasm_perf_flags erts_jit_perf_support;
 #    endif
 extern int erts_jit_single_map;
 
