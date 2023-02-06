@@ -1,17 +1,19 @@
 #!/bin/bash
 
-BASE_BRANCH="$1"
+readonly arg_base_branch="$1"
+readonly arg_dockerfile_suffix="$2"
 
-case "${BASE_BRANCH}" in
+case "${arg_base_branch}" in
     master|maint|maint-*)
-    ;;
+        readonly BASE_BRANCH="$arg_base_branch"
+        ;;
     *)
-        BASE_BRANCH="master"
+        readonly BASE_BRANCH="master"
         ;;
 esac
 
 if [ -z "${BASE_TAG}" ]; then
-    BASE_TAG=$(grep "ARG BASE=" ".github/dockerfiles/Dockerfile.${2}" | head -1 | tr '=' ' ' | awk '{print $3}')
+    BASE_TAG="$(awk -F= '/^ARG BASE=/ { print $2; exit }' ".github/dockerfiles/Dockerfile.${arg_dockerfile_suffix}")"
 fi
 
 case "${BASE_TAG}" in
@@ -25,6 +27,10 @@ case "${BASE_TAG}" in
         ;;
     *ubuntu-base)
         BASE="ubuntu:20.04"
+        BASE_TYPE=ubuntu-base
+        ;;
+    *ubuntu-latest-base)
+        BASE="ubuntu:22.04"
         BASE_TYPE=ubuntu-base
         ;;
 esac

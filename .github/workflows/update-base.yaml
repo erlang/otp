@@ -17,7 +17,7 @@ jobs:
 
     strategy:
       matrix:
-        type: [debian-base,ubuntu-base,i386-debian-base]
+        type: [debian-base,ubuntu-base,i386-debian-base,ubuntu-latest-base]
         branch: [master, maint, maint-25]
 
     steps:
