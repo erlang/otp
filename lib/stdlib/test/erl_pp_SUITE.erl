@@ -56,7 +56,7 @@
           otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1,
           otp_13662/1, otp_14285/1, otp_15592/1, otp_15751/1, otp_15755/1,
           otp_16435/1, gh_5093/1,
-          eep49/1]).
+          eep49/1, eep58/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -88,7 +88,7 @@ groups() ->
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
        otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662,
        otp_14285, otp_15592, otp_15751, otp_15755, otp_16435,
-       gh_5093, eep49]}].
+       gh_5093, eep49, eep58]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1391,6 +1391,27 @@ eep49(_Config) ->
                 "        {error, _} ->\n"
                 "            error\n"
                 "    end.\n"),
+    ok.
+
+eep58(_Config) ->
+    assert_same("lc_map(Map) ->\n"
+                "    [ \n"
+                "     {K, V} ||\n"
+                "         K := V <- Map\n"
+                "    ].\n"),
+
+    assert_same("bc_map(Map) ->\n"
+                "    << \n"
+                "      <<K:32,V:32>> ||\n"
+                "          K := V <- Map\n"
+                "    >>.\n"),
+
+    assert_same("mc(Map) ->\n"
+                "    #{ \n"
+                "      K => V + 1 ||\n"
+                "          K := V <- Map\n"
+                "    }.\n"),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

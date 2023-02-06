@@ -1808,106 +1808,157 @@ end</pre>
 
   <section>
     <marker id="lcs"></marker>
-    <title>List Comprehensions</title>
-    <p>List comprehensions is a feature of many modern functional
-      programming languages. Subject to certain rules, they provide a
-      succinct notation for generating elements in a list.</p>
-    <p>List comprehensions are analogous to set comprehensions in
-      Zermelo-Frankel set theory and are called ZF expressions in
-      Miranda. They are analogous to the <c>setof</c> and
-      <c>findall</c> predicates in Prolog.</p>
-    <p>List comprehensions are written with the following syntax:</p>
+    <title>Comprehensions</title>
+    <p>Comprehensions provide a succinct notation for iterating over
+    one or more terms and constructing a new term. Comprehensions come
+    in three different flavors, depending on the type of term they
+    build.</p>
+    <p>List comprehensions construct lists. They have the following syntax:</p>
     <pre>
-[Expr || Qualifier1,...,QualifierN]</pre>
+[Expr || Qualifier1, . . ., QualifierN]</pre>
     <p>Here, <c>Expr</c> is an arbitrary expression, and each
-      <c>Qualifier</c> is either a generator or a filter.</p>
-    <list type="bulleted">
-      <item>A <em>generator</em> is written as:      <br></br>
+    <c>Qualifier</c> is either a <strong>generator</strong> or a
+    <strong>filter</strong>.</p>
 
-       &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
-<c>ListExpr</c> must be an expression, which evaluates to a
-       list of terms.</item>
-<item>A <em>bit string generator</em> is written as:      <br></br>
+    <p>Bit string comprehensions construct bit strings or binaries.
+    They have the following syntax:</p>
+    <pre>
+&lt;&lt; BitStringExpr || Qualifier1, . . ., QualifierN &gt;&gt;</pre>
 
-       &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
-<c>BitStringExpr</c> must be an expression, which evaluates to a
-       bitstring.</item>
-      <item>A <em>filter</em> is an expression, which evaluates to
-      <c>true</c> or <c>false</c>, or a
-      <seeguide marker="#guard_expressions">guard expression</seeguide>.
-      If the filter is not a guard expression and evaluates
-      to a non-Boolean value <c>Val</c>, an exception
-      <c>{bad_filter, Val}</c> is triggered at runtime.</item>
-    </list>
+    <p><c>BitStringExpr</c> is an expression that evaluates to a bit string.
+    If <c>BitStringExpr</c> is a function call, it must be
+    enclosed in parentheses.  Each <c>Qualifier</c> is either a
+    <strong>generator</strong> or a <strong>filter</strong>.</p>
+
+    <p>Map comprehensions construct maps. They have the following syntax:</p>
+    <pre>
+#{KeyExpr => ValueExpr || Qualifier1, . . ., QualifierN}</pre>
+    <p>Here, <c>KeyExpr</c> and <c>ValueExpr</c> are arbitrary
+    expressions, and each <c>Qualifier</c> is either a
+    <strong>generator</strong> or a <strong>filter</strong>.</p>
+
+    <change><p>Map comprehensions and map generators were introduced
+    in Erlang/OTP 26.</p></change>
+
+    <p>There are three kinds of generators.</p>
+
+    <p>A <em>list generator</em> has the following syntax:</p>
+
+<pre>
+Pattern &lt;- ListExpr</pre>
+
+    <p>where <c>ListExpr</c> is an expression that evaluates to a
+    list of terms.</p>
+
+    <p>A <em>bit string generator</em> has the following syntax:</p>
+
+    <pre>
+BitstringPattern &lt;= BitStringExpr</pre>
+
+    <p>where <c>BitStringExpr</c> is an expression that evaluates to a
+    bit string.</p>
+
+    <p>A <em>map generator</em> has the following syntax:</p>
+
+    <pre>
+KeyPattern := ValuePattern &lt;- MapExpression</pre>
+
+    <p>where <c>MapExpr</c> is an expression that evaluates to a map,
+    or a map iterator obtained by calling <seemfa
+    marker="stdlib:maps#iterator/1">maps:iterator/1</seemfa> or
+    <seemfa
+    marker="stdlib:maps#iterator/2">maps:iterator/2</seemfa>.</p>
+
+    <p>A <em>filter</em> is an expression that evaluates to
+    <c>true</c> or <c>false</c>, or a
+    <seeguide marker="#guard_expressions">guard expression</seeguide>.
+    If the filter is not a guard expression and evaluates
+    to a non-Boolean value <c>Val</c>, an exception
+    <c>{bad_filter, Val}</c> is triggered at runtime.</p>
+
     <p>The variables in the generator patterns shadow previously bound variables,
     including variables bound in a previous generator pattern.</p>
-    <p>A list comprehension returns a list, where the elements are the
+
+    <p>A list comprehension returns a list, where the lists elements are the
     result of evaluating <c>Expr</c> for each combination of generator
-    list elements and bit string generator elements, for which all
+    elements for which all filters are true.</p>
+
+    <p>A bit string comprehension returns a bit string, which is
+    created by concatenating the results of evaluating <c>BitStringExpr</c> for
+    each combination of bit string generator elements for which all
     filters are true.</p>
-    <p><em>Example:</em></p>
+
+    <p>A map comprehension returns a map, where the map elements are
+    the result of evaluating <c>KeyExpr</c> and <c>ValueExpr</c> for
+    each combination of generator elements for which all filters are
+    true. If the key expressions are not unique, the last occurrence
+    is stored in the map.</p>
+
+    <p><strong>Examples:</strong></p>
+
+    <p>Multiplying each element in a list by two:</p>
     <pre>
 1> <input>[X*2 || X &lt;- [1,2,3]].</input>
 [2,4,6]</pre>
-    <p>When there are no generators or bit string generators, a list comprehension
-    returns either a list with one element (the result of evaluating <c>Expr</c>)
-    if all filters are true or an empty list otherwise.</p>
+
+    <p>Multiplying each byte in a binary by two, returning a list:</p>
+    <pre>
+1> <input>[X*2 || &lt;&lt;X&gt;&gt; &lt;= &lt;&lt;1,2,3&gt;&gt; &gt;&gt;.</input>
+[2,4,6]</pre>
+
+    <p>Multiplying each byte in a binary by two:</p>
+
+    <pre>
+1> <input>&lt;&lt; &lt;&lt;(X*2)&gt;&gt; || &lt;&lt;X&gt;&gt; &lt;= &lt;&lt;1,2,3&gt;&gt; &gt;&gt;.</input>
+&lt;&lt;2,4,6&gt;&gt;</pre>
+
+    <p>Multiplying each element in a list by two, returning a binary:</p>
+
+    <pre>
+1> <input>&lt;&lt; &lt;&lt;(X*2)&gt;&gt; || X &lt;- [1,2,3]].</input>
+&lt;&lt;2,4,6&gt;&gt;</pre>
+
+    <p>Creating a mapping from an integer to its square:</p>
+    <pre>
+1> <input>#{X => X*X || X &lt;- [1,2,3]}.</input>
+#{1 => 1,2 => 4,3 => 9}</pre>
+
+    <p>Multiplying the value of each element in a map by two:</p>
+    <pre>
+1> <input>#{K => 2*V || K := V &lt;- #{a => 1,b => 2,c => 3}}.</input>
+#{a => 2,b => 4,c => 6}</pre>
+
+    <p>Filtering a list, keeping odd numbers:</p>
+    <pre>
+1> <input>[X || X &lt;- [1,2,3,4,5], X rem 2 =:= 1].</input>
+[1,3,5]</pre>
+
+    <p>Filtering a list, keeping only elements that match:</p>
+    <pre>
+1> <input>[X || {_,_}=X &lt;- [{a,b}, [a], {x,y,z}, {1,2}]].</input>
+[{a,b},{1,2}]</pre>
+
+    <p>Combining elements from two list generators:</p>
+    <pre>
+1> <input>[{P,Q} || P &lt;- [a,b,c], Q &lt;- [1,2]].</input>
+[{a,1},{a,2},{b,1},{b,2},{c,1},{c,2}]
+</pre>
+
+    <p>When there are no generators, a comprehension returns either a
+    term constructed from a single element (the result of evaluating
+    <c>Expr</c>) if all filters are true, or a term constructed from
+    no elements (that is, <c>[]</c> for list comprehension,
+    <c>&lt;&lt;&gt;&gt;</c> for a bit string comprehension, and
+    <c>#{}</c> for a map comprehension).</p>
     <p><em>Example:</em></p>
     <pre>
 1> <input>[2 || is_integer(2)].</input>
 [2]
 2> <input>[x || is_integer(x)].</input>
 []</pre>
+
     <p>More examples are provided in
     <seeguide marker="system/programming_examples:list_comprehensions">
-    Programming Examples.</seeguide></p>
-
-  </section>
-
-<section>
-    <title>Bit String Comprehensions</title> 
-   
-    <p>Bit string comprehensions are
-    analogous to List Comprehensions. They are used to generate bit strings
-    efficiently and succinctly.</p> 
-    <p>Bit string comprehensions are written with
-    the following syntax:</p>
-    <pre>
-&lt;&lt; BitStringExpr || Qualifier1,...,QualifierN &gt;&gt;</pre>
-    <p><c>BitStringExpr</c> is an expression that evaluates to a bit
-    string. If <c>BitStringExpr</c> is a function call, it must be
-    enclosed in parentheses.  Each <c>Qualifier</c> is either a
-    generator, a bit string generator or a filter.</p>
-    <list type="bulleted">
- <item>A <em>generator</em> is written as:      <br></br>
-      &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
-       <c>ListExpr</c> must be an expression that evaluates to a
-       list of terms.</item>
-      <item>A <em>bit string generator</em> is written as:      <br></br>
-
-       &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
-<c>BitStringExpr</c> must be an expression that evaluates to a
-       bitstring.</item>
-      <item>A <em>filter</em> is an expression, which evaluates to
-      <c>true</c> or <c>false</c>, or a
-      <seeguide marker="#guard_expressions">guard expression</seeguide>.
-      If the filter is not a guard expression and evaluates
-      to a non-Boolean value <c>Val</c>, an exception
-      <c>{bad_filter, Val}</c> is triggered at runtime.</item>
-    </list>
-    <p>The variables in the generator patterns shadow previously bound variables,
-    including variables bound in a previous generator pattern.</p>
-    <p>A bit string comprehension returns a bit string, which is 
-      created by concatenating the results of evaluating <c>BitString</c> 
-      for each combination of bit string generator elements, for which all
-      filters are true.</p>
-    <p><em>Example:</em></p>
-    <pre>
-1> <input>&lt;&lt; &lt;&lt; (X*2) &gt;&gt; ||
-&lt;&lt;X&gt;&gt; &lt;= &lt;&lt; 1,2,3 &gt;&gt; &gt;&gt;.</input>
-&lt;&lt;2,4,6&gt;&gt;</pre>
-    <p>More examples are provided in
-    <seeguide marker="system/programming_examples:bit_syntax">
     Programming Examples.</seeguide></p>
   </section>
 

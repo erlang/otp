@@ -580,12 +580,13 @@ lexpr({cons,_,H,T}, _, Opts) ->
 lexpr({lc,_,E,Qs}, _Prec, Opts) ->
     Lcl = {list,[{step,[lexpr(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
     {list,[{seq,$[,[],[[]],[{force_nl,leaf(" "),[Lcl]}]},$]]};
-    %% {list,[{step,$[,Lcl},$]]};
 lexpr({bc,_,E,Qs}, _Prec, Opts) ->
     P = max_prec(),
     Lcl = {list,[{step,[lexpr(E, P, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
     {list,[{seq,'<<',[],[[]],[{force_nl,leaf(" "),[Lcl]}]},'>>']};
-    %% {list,[{step,'<<',Lcl},'>>']};
+lexpr({mc,_,E,Qs}, _Prec, Opts) ->
+    Lcl = {list,[{step,[map_field(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
+    {list,[{seq,'#{',[],[[]],[{force_nl,leaf(" "),[Lcl]}]},$}]};
 lexpr({tuple,_,Elts}, _, Opts) ->
     tuple(Elts, Opts);
 lexpr({record_index, _, Name, F}, Prec, Opts) ->
@@ -956,6 +957,9 @@ clauses(Type, Opts, Cs) ->
 lc_quals(Qs, Opts) ->
     {prefer_nl,[$,],lexprs(Qs, fun lc_qual/2, Opts)}.
 
+lc_qual({m_generate,_,Pat,E}, Opts) ->
+    Pl = map_field(Pat, Opts),
+    {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
 lc_qual({b_generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <=")],lexpr(E, 0, Opts)}]};
@@ -1367,7 +1371,7 @@ wordtable() ->
     L = [begin {leaf,Sz,S} = leaf(W), {S,Sz} end ||
             W <- [" ->"," =","<<",">>","[]","after","begin","case","catch",
                   "end","fun","if","of","receive","try","when"," ::","..",
-                  " |","maybe","else"]],
+                  " |","maybe","else","#{"]],
     list_to_tuple(L).
 
 word(' ->', WT) -> element(1, WT);
@@ -1390,7 +1394,8 @@ word(' ::', WT) -> element(17, WT);
 word('..', WT) -> element(18, WT);
 word(' |', WT) -> element(19, WT);
 word('maybe', WT) -> element(20, WT);
-word('else', WT) -> element(21, WT).
+word('else', WT) -> element(21, WT);
+word('#{', WT) -> element(22, WT).
 
 %% Make up an unique variable name for Name that won't clash with any
 %% name in Used. We first try by converting the name to uppercase and

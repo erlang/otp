@@ -409,13 +409,17 @@ expr({cons,Anno,H0,T0}) ->
     T1 = expr(T0),				%They see the same variables
     {cons,Anno,H1,T1};
 expr({lc,Anno,E0,Qs0}) ->
-    Qs1 = lc_bc_quals(Qs0),
+    Qs1 = comprehension_quals(Qs0),
     E1 = expr(E0),
     {lc,Anno,E1,Qs1};
 expr({bc,Anno,E0,Qs0}) ->
-    Qs1 = lc_bc_quals(Qs0),
+    Qs1 = comprehension_quals(Qs0),
     E1 = expr(E0),
     {bc,Anno,E1,Qs1};
+expr({mc,Anno,E0,Qs0}) ->
+    Qs1 = comprehension_quals(Qs0),
+    E1 = expr(E0),
+    {mc,Anno,E1,Qs1};
 expr({tuple,Anno,Es0}) ->
     Es1 = expr_list(Es0),
     {tuple,Anno,Es1};
@@ -570,21 +574,25 @@ icr_clauses([C0|Cs]) ->
     [C1|icr_clauses(Cs)];
 icr_clauses([]) -> [].
 
-%% -type lc_bc_quals([Qualifier]) -> [Qualifier].
+%% -type comprehension_quals([Qualifier]) -> [Qualifier].
 %%  Allow filters to be both guard tests and general expressions.
 
-lc_bc_quals([{generate,Anno,P0,E0}|Qs]) ->
+comprehension_quals([{generate,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
     P1 = pattern(P0),
-    [{generate,Anno,P1,E1}|lc_bc_quals(Qs)];
-lc_bc_quals([{b_generate,Anno,P0,E0}|Qs]) ->
+    [{generate,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([{b_generate,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
     P1 = pattern(P0),
-    [{b_generate,Anno,P1,E1}|lc_bc_quals(Qs)];
-lc_bc_quals([E0|Qs]) ->
+    [{b_generate,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([{m_generate,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
-    [E1|lc_bc_quals(Qs)];
-lc_bc_quals([]) -> [].
+    P1 = pattern(P0),
+    [{m_generate,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([E0|Qs]) ->
+    E1 = expr(E0),
+    [E1|comprehension_quals(Qs)];
+comprehension_quals([]) -> [].
 
 %% -type fun_clauses([Clause]) -> [Clause].
 
