@@ -1001,7 +1001,7 @@ do_callback(read = Fun, Config, Callback, Req)
     NextBlockNo = Callback#callback.block_no + 1,
     case catch safe_apply(Callback#callback.module, Fun, Args) of
         {more, Bin, NewState} when is_binary(Bin) ->
-            Count = Callback#callback.count + size(Bin),
+            Count = Callback#callback.count + byte_size(Bin),
             Callback2 = Callback#callback{state    = NewState, 
                                           block_no = NextBlockNo,
                                           count    = Count},
@@ -1035,7 +1035,7 @@ do_callback({write = Fun, Bin}, Config, Callback, Req)
     NextBlockNo = Callback#callback.block_no + 1,
     case catch safe_apply(Callback#callback.module, Fun, Args) of
         {more, NewState} ->
-            Count = Callback#callback.count + size(Bin),
+            Count = Callback#callback.count + byte_size(Bin),
             Callback2 = Callback#callback{state    = NewState, 
                                           block_no = NextBlockNo,
                                           count    = Count},
@@ -1112,9 +1112,9 @@ do_callback({abort, Error}, _Config, undefined, _Req) when is_record(Error, tftp
 
 peer_info(#config{udp_host = Host, udp_port = Port}) ->
     if
-        is_tuple(Host), size(Host) =:= 4 ->
+        tuple_size(Host) =:= 4 ->
             {inet, tftp_lib:host_to_string(Host), Port};
-        is_tuple(Host), size(Host) =:= 8 ->
+        tuple_size(Host) =:= 8 ->
             {inet6, tftp_lib:host_to_string(Host), Port};
         true ->
             {undefined, Host, Port}
@@ -1336,7 +1336,7 @@ print_debug_info(#config{debug_level = Level} = Config, Who, Where, Data) ->
     end.
 
 do_print_debug_info(Config, Who, Where, #tftp_msg_data{data = Bin} = Msg) when is_binary(Bin) ->
-    Msg2 = Msg#tftp_msg_data{data = {bytes, size(Bin)}},
+    Msg2 = Msg#tftp_msg_data{data = {bytes, byte_size(Bin)}},
     do_print_debug_info(Config, Who, Where, Msg2);
 do_print_debug_info(Config, Who, Where, #tftp_msg_req{local_filename = Filename} = Msg) when is_binary(Filename) ->
     Msg2 = Msg#tftp_msg_req{local_filename = binary},

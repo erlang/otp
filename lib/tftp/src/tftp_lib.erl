@@ -94,9 +94,9 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
             if
                 is_list(Val) ->
                     do_parse_config(Tail, Config#config{udp_host = Val});
-                is_tuple(Val), size(Val) =:= 4 ->
+                tuple_size(Val) =:= 4 ->
                     do_parse_config(Tail, Config#config{udp_host = Val});
-                is_tuple(Val), size(Val) =:= 8 ->
+                tuple_size(Val) =:= 8 ->
                     do_parse_config(Tail, Config#config{udp_host = Val});
                 true ->
                     exit({badarg, {Key, Val}})
