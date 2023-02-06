@@ -68,12 +68,10 @@ REDIST_DLL_NAME=$(shell (sh ./dll_version_helper.sh -n "$(NICEREDISTFILE)" || ec
 # $(info $$REDIST_DLL_NAME = [${REDIST_DLL_NAME}])
 # $(info $$REDIST_FILE = [${REDIST_FILE}])
 
+VERSION_TICKETS_FILE=$(shell (w32_path.sh -m "$(ERL_TOP)/make/otp_version_tickets" 2>/dev/null || echo "NOTFOUND"))
 # NSIS really want the product version number to be at least 4 digits long
-OTP_VERSION_LONG=$(shell $(ERL_TOP)/bootstrap/bin/escript.exe vsn_number.escript $(OTP_VERSION))
+OTP_VERSION_LONG=$(shell $(ERL_TOP)/bootstrap/bin/escript.exe vsn_number.escript $(OTP_VERSION) $(VERSION_TICKETS_FILE))
 YEAR=$(shell date +%Y)
-
-$(info $$OTP_VERSION = [${OTP_VERSION}])
-$(info $$OTP_VERSION_LONG = [${OTP_VERSION_LONG}])
 
 release_spec:
 	@NSIS_VER=`makensis.exe -version`; \
