@@ -804,10 +804,10 @@ next_node(_D, undefined_node, _Oid, _RevOidSoFar, _MibView) ->
 
 next_node(_D, {tree, Tree, {table_entry, _Id}}, [Int | _Oid], 
 	  _RevOidSoFar, _MibView)
-  when Int+1 > size(Tree) ->
+  when Int+1 > tuple_size(Tree) ->
     ?vtrace("next_node(tree,table_entry) -> entry when not found within"
 	"~n   Int:        ~p"
-	"~n   size(Tree): ~p", [Int, size(Tree)]),
+	"~n   size(Tree): ~p", [Int, tuple_size(Tree)]),
     false;
 next_node(D, {tree, Tree, {table_entry, _MibName}},
 	  Oid, RevOidSoFar, MibView) ->
@@ -815,7 +815,7 @@ next_node(D, {tree, Tree, {table_entry, _MibName}},
 	"~n   size(Tree):  ~p"
 	"~n   Oid:         ~p"
 	"~n   RevOidSoFar: ~p"
-	"~n   MibView:     ~p", [size(Tree), Oid, RevOidSoFar, MibView]),
+	"~n   MibView:     ~p", [tuple_size(Tree), Oid, RevOidSoFar, MibView]),
     OidSoFar = lists:reverse(RevOidSoFar),
     case snmpa_acm:is_definitely_not_in_mib_view(OidSoFar, MibView) of
 	true -> 
@@ -836,14 +836,14 @@ next_node(D, {tree, Tree, {table_entry, _MibName}},
     end;
 
 next_node(D, {tree, Tree, _Info}, [Int | RestOfOid], RevOidSoFar, MibView) 
-  when (Int < size(Tree)) andalso (Int >= 0) ->
+  when (Int < tuple_size(Tree)) andalso (Int >= 0) ->
     ?vtrace("next_node(tree) -> entry when"
 	"~n   size(Tree):  ~p"
 	"~n   Int:         ~p"
 	"~n   RestOfOid:   ~p"
 	"~n   RevOidSoFar: ~p"
 	"~n   MibView:     ~p", 
-	[size(Tree), Int, RestOfOid, RevOidSoFar, MibView]),
+	[tuple_size(Tree), Int, RestOfOid, RevOidSoFar, MibView]),
     case next_node(D, element(Int+1,Tree), 
 		   RestOfOid, [Int|RevOidSoFar], MibView) of
 	false -> 
@@ -857,11 +857,11 @@ next_node(D, {tree, Tree, _Info}, [], RevOidSoFar, MibView) ->
 	"~n   size(Tree):  ~p"
 	"~n   RevOidSoFar: ~p"
 	"~n   MibView:     ~p", 
-	[size(Tree), RevOidSoFar, MibView]),
+	[tuple_size(Tree), RevOidSoFar, MibView]),
     find_next(D, {tree, Tree, _Info}, 0, RevOidSoFar, MibView);
 next_node(_D, {tree, Tree, _Info}, _RestOfOid, _RevOidSoFar, _MibView) ->
     ?vtrace("next_node(tree) -> entry when"
-	"~n   size(Tree):  ~p", [size(Tree)]),
+	"~n   size(Tree):  ~p", [tuple_size(Tree)]),
     false;
 
 next_node(D, {node, subagent}, Oid, RevOidSoFar, MibView) ->
@@ -924,7 +924,7 @@ next_node(_D, {node, {variable, _MibName}}, _Oid, _RevOidSoFar, _MibView) ->
 %%      node.
 %%-----------------------------------------------------------------
 find_next(D, {tree, Tree, internal}, Idx, RevOidSoFar, MibView) 
-  when Idx < size(Tree) ->
+  when Idx < tuple_size(Tree) ->
     case find_next(D, element(Idx+1, Tree), 0, [Idx| RevOidSoFar], MibView) of
 	false -> 
 	    find_next(D, {tree, Tree, internal}, Idx+1, RevOidSoFar, MibView);

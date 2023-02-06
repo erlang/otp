@@ -1031,7 +1031,7 @@ table_get_elements(NameDb, RowIndex, Cols, _FirstOwnIndex) ->
 
 get_elements(_Cols, undefined) -> 
     undefined;
-get_elements([Col | Cols], Row) when is_tuple(Row) and (size(Row) >= Col) ->
+get_elements([Col | Cols], Row) when tuple_size(Row) >= Col ->
     [element(Col, Row) | get_elements(Cols, Row)];
 get_elements([], _Row) -> 
     [];

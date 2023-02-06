@@ -673,7 +673,7 @@ generate_response_msg(Vsn, RePdu, Type,
 			{discarded, Reason};
 		    Packet ->
 			MMS = get_engine_max_message_size(LocalEngineID),
-			case size(Packet) of
+			case byte_size(Packet) of
 			    Len when Len =< MMS ->
 				Log(Type, Packet),
 				inc_snmp_cnt_vars(Type, RePdu),
@@ -742,7 +742,7 @@ generate_response_msg(Vsn, RePdu, Type,
 		    %% because of the calculation we do when we
 		    %% receive the bulk-request.
 		    Packet = list_to_binary(OutMsg),
-		    case size(Packet) of
+		    case byte_size(Packet) of
 			Len when Len =< AgentMS ->
 			    if
 				SecLevel =:= 3 -> 
@@ -932,7 +932,7 @@ generate_msg(Vsn, _NoteStore, Pdu, {community, Community}, LocalEngineID, To) ->
 	    {discarded, Reason};
 	Packet ->
 	    AgentMax = get_engine_max_message_size(LocalEngineID),
-	    case size(Packet) of
+	    case byte_size(Packet) of
 		Len when Len =< AgentMax ->
 		    {ok, mk_v1_v2_packet_list(To, Packet, Len, Pdu)};
 		Len ->
@@ -1321,7 +1321,7 @@ mk_v3_packet_entry(NoteStore, Domain, Addr,
 	    %% Store in cache for 150 sec.
 	    Packet = list_to_binary(OutMsg),
 	    ?vdebug("mk_v3_packet_entry -> generated: ~w bytes", 
-		    [size(Packet)]),
+		    [byte_size(Packet)]),
 	    Data = 
 		if
 		    SecLevel =:= 3 -> 
@@ -1560,3 +1560,4 @@ user_err(F, A) ->
 
 config_err(F, A) ->
     snmpa_error:config_err(F, A).
+
