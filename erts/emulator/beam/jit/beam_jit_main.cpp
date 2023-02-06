@@ -41,7 +41,7 @@ ErtsFrameLayout ERTS_WRITE_UNLIKELY(erts_frame_layout);
 
 /* Global configuration variables (under the `+J` prefix) */
 #ifdef HAVE_LINUX_PERF_SUPPORT
-int erts_jit_perf_support;
+enum beamasm_perf_flags erts_jit_perf_support;
 #endif
 
 /*
@@ -141,7 +141,7 @@ static JitAllocator *pick_allocator() {
 #if defined(HAVE_LINUX_PERF_SUPPORT)
     /* `perf` has a hard time showing symbols for dual-mapped memory, so we'll
      * use single-mapped memory when enabled. */
-    if (erts_jit_perf_support & (BEAMASM_PERF_DUMP | BEAMASM_PERF_MAP)) {
+    if (erts_jit_perf_support & BEAMASM_PERF_ENABLED) {
         if (auto *alloc = create_allocator(&single_params)) {
             return alloc;
         }
@@ -221,7 +221,7 @@ void beamasm_init() {
      * frame pointers are disabled or unsupported. */
 #if defined(ERLANG_FRAME_POINTERS)
 #    ifdef HAVE_LINUX_PERF_SUPPORT
-    if (erts_jit_perf_support & BEAMASM_PERF_MAP) {
+    if (erts_jit_perf_support & BEAMASM_PERF_FP) {
         erts_frame_layout = ERTS_FRAME_LAYOUT_FP_RA;
     } else {
         erts_frame_layout = ERTS_FRAME_LAYOUT_RA;
