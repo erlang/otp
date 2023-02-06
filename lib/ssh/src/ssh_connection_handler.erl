@@ -1189,7 +1189,7 @@ handle_event(info, {Proto, Sock, NewData}, StateName,
 %%%==== 
 handle_event(internal, prepare_next_packet, _StateName, D) ->
     Enough =  erlang:max(8, D#data.ssh_params#ssh.decrypt_block_size),
-    case size(D#data.encrypted_data_buffer) of
+    case byte_size(D#data.encrypted_data_buffer) of
 	Sz when Sz >= Enough ->
 	    self() ! {D#data.transport_protocol, D#data.socket, <<>>};
 	_ ->

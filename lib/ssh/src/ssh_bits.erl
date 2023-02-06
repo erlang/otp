@@ -40,20 +40,20 @@ mpint(I) when I>0 ->
     <<B1,V/binary>> = binary:encode_unsigned(I),
     case B1 band 16#80 of
 	16#80 ->
-	    <<(size(V)+2):32/unsigned-big-integer, 0,B1,V/binary >>;
+	    <<(byte_size(V)+2):32/unsigned-big-integer, 0,B1,V/binary >>;
 	_ ->
-	    <<(size(V)+1):32/unsigned-big-integer, B1,V/binary >>
+	    <<(byte_size(V)+1):32/unsigned-big-integer, B1,V/binary >>
     end;
 mpint(N) when N<0 -> 
-    Sxn =  8*size(binary:encode_unsigned(-N)),
+    Sxn =  bit_size(binary:encode_unsigned(-N)),
     Sxn1 = Sxn+8,
     <<W:Sxn1>> = <<1, 0:Sxn>>,
     <<B1,V/binary>> = binary:encode_unsigned(W+N),
     case B1 band 16#80 of
 	16#80 ->
-	    <<(size(V)+1):32/unsigned-big-integer, B1,V/binary >>;
+	    <<(byte_size(V)+1):32/unsigned-big-integer, B1,V/binary >>;
 	_ ->
-	    <<(size(V)+2):32/unsigned-big-integer, 255,B1,V/binary >>
+	    <<(byte_size(V)+2):32/unsigned-big-integer, 255,B1,V/binary >>
     end.
 
 %%%----------------------------------------------------------------
