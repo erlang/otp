@@ -211,12 +211,12 @@ file_error(Reason) when is_atom(Reason) ->
 read(#state{access = read} = State) ->
     BlkSize = State#state.blksize,
     case file:read(State#state.fd, BlkSize) of
-	{ok, Bin} when is_binary(Bin), size(Bin) =:= BlkSize ->
-	    Count = State#state.count + size(Bin),
+	{ok, Bin} when is_binary(Bin), byte_size(Bin) =:= BlkSize ->
+	    Count = State#state.count + byte_size(Bin),
 	    {more, Bin, State#state{count = Count}};
-	{ok, Bin} when is_binary(Bin), size(Bin) < BlkSize ->
+	{ok, Bin} when is_binary(Bin), byte_size(Bin) < BlkSize ->
 	    _ = file:close(State#state.fd),
-	    Count = State#state.count + size(Bin),
+	    Count = State#state.count + byte_size(Bin),
 	    {last, Bin, Count};
 	eof ->
 	    {last, <<>>, State#state.count};
@@ -248,7 +248,7 @@ read(State) ->
 %%-------------------------------------------------------------------
 
 write(Bin, #state{access = write} = State) when is_binary(Bin) ->
-    Size = size(Bin),
+    Size = byte_size(Bin),
     BlkSize = State#state.blksize,
     case file:write(State#state.fd, Bin) of
 	ok when Size =:= BlkSize->
