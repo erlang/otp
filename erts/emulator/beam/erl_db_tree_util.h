@@ -172,7 +172,7 @@ void db_finalize_dbterm_tree_common(int cret,
                                     TreeDbTerm **root,
                                     DbTableTree *stack_container);
 void* db_eterm_to_dbterm_tree_common(int compress, int keypos, Eterm obj);
-void* db_dbterm_list_prepend_tree_common(void* list, void* db_term);
+void* db_dbterm_list_append_tree_common(void* last_term, void* db_term);
 void* db_dbterm_list_remove_first_tree_common(void **list);
 int db_put_dbterm_tree_common(DbTableCommon *tb, TreeDbTerm **root, TreeDbTerm *value_to_insert,
                               int key_clash_fail, DbTableTree *stack_container);
