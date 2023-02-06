@@ -2276,9 +2276,9 @@ srp_pad_length(Width, Length) ->
     (Width - Length rem Width) rem Width.
 
 srp_pad_to(Width, Binary) ->
-    case srp_pad_length(Width, bit_size(Binary)) of
+    case srp_pad_length(Width, byte_size(Binary)) of
         0 -> Binary;
-        N -> << 0:N, Binary/binary>>
+        N -> << 0:N/unit:8, Binary/binary>>
     end.
 
 srp_host_secret_nif(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
