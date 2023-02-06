@@ -207,8 +207,8 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
 
-    Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
-                            #b_var{}=Var <- Args]),
+    Ds = #{Var => FakeCall#b_set{dst=Var} ||
+             #b_var{}=Var <- Args},
 
     Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
             0 => {incoming, Ts} },
@@ -438,14 +438,14 @@ opt_continue(Linear0, Args, Anno, FuncDb) when FuncDb =/= #{} ->
         #{ Id := #func_info{exported=true} } ->
             %% We can't infer the parameter types of exported functions, but
             %% running the pass again could still help other functions.
-            Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
+            Ts = #{V => any || #b_var{}=V <- Args},
             opt_function(Linear0, Args, Id, Ts, FuncDb)
     end;
 opt_continue(Linear0, Args, Anno, _FuncDb) ->
     %% Module-level optimization is disabled, pass an empty function database
     %% so we only perform local optimizations.
     Id = get_func_id(Anno),
-    Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
+    Ts = #{V => any || #b_var{}=V <- Args},
     {Linear, _} = opt_function(Linear0, Args, Id, Ts, #{}),
     {Linear, #{}}.
 
@@ -491,8 +491,8 @@ do_opt_function(Linear0, Args, Id, Ts, FuncDb0, MetaCache) ->
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
 
-    Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
-                            #b_var{}=Var <- Args]),
+    Ds = #{Var => FakeCall#b_set{dst=Var} ||
+             #b_var{}=Var <- Args},
 
     Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
             0 => {incoming, Ts} },

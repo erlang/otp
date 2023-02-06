@@ -28,7 +28,7 @@
 
 module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Order = [Lbl || {function,_,_,Lbl,_} <- Fs0],
-    All = maps:from_list([{Lbl,Func} || {function,_,_,Lbl,_}=Func <- Fs0]),
+    All = #{Lbl => Func || {function,_,_,Lbl,_}=Func <- Fs0},
     WorkList = rootset(Fs0, Exp, Attr),
     Used = find_all_used(WorkList, All, sets:from_list(WorkList, [{version, 2}])),
     Fs1 = remove_unused(Order, Used, All),
@@ -53,12 +53,8 @@ rootset(Fs, Root0, Attr) ->
 
 %% Remove the unused functions.
 
-remove_unused([F|Fs], Used, All) ->
-    case sets:is_element(F, Used) of
-	false -> remove_unused(Fs, Used, All);
-	true -> [map_get(F, All)|remove_unused(Fs, Used, All)]
-    end;
-remove_unused([], _, _) -> [].
+remove_unused(Fs, Used, All) ->
+    [map_get(F, All) || F <- Fs, sets:is_element(F, Used)].
 
 %% Find all used functions.
 

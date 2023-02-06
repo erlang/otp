@@ -108,7 +108,7 @@ validate_variables(#b_function{ args = Args, bs = Blocks }) ->
       Blocks :: #{ beam_ssa:label() => beam_ssa:b_blk() }.
 vvars_assert_unique(Blocks, Args) ->
     BlockIs = [Is || #b_blk{is=Is} <- maps:values(Blocks)],
-    Defined0 = maps:from_list([{V,argument} || V <- Args]),
+    Defined0 = #{V => argument || V <- Args},
     _ = foldl(fun(Is, Defined) ->
                       vvars_assert_unique_1(Is, Defined)
               end, Defined0, BlockIs),
@@ -128,7 +128,7 @@ vvars_assert_unique_1([], Defined) ->
 -spec vvars_phi_nodes(State :: #vvars{}) -> ok.
 vvars_phi_nodes(#vvars{ blocks = Blocks }=State) ->
     _ = [vvars_phi_nodes_1(Is, Id, State) ||
-            {Id, #b_blk{ is = Is }} <- maps:to_list(Blocks)],
+            Id := #b_blk{ is = Is } <- Blocks],
     ok.
 
 -spec vvars_phi_nodes_1(Is, Id, State) -> ok when

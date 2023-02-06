@@ -1484,9 +1484,9 @@ live_opt_phis(Is, L, Live0, LiveMap0) ->
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
-                    PhiLive = [{{L,P},list_set_union(Vs, Live0)} ||
-                                  {P,Vs} <- PhiLive0],
-                    maps:merge(LiveMap, maps:from_list(PhiLive));
+                    PhiLive = #{{L,P} => list_set_union(Vs, Live0) ||
+                                  {P,Vs} <- PhiLive0},
+                    maps:merge(LiveMap, PhiLive);
                 [] ->
                     %% There were only literals in the phi node(s).
                     LiveMap
@@ -2598,9 +2598,8 @@ filter_deflocs([{Tuple,DefLoc0}|DLs], Preds, Blocks) ->
     [{_,{_,First}}|_] = DefLoc0,
     Paths = find_paths_to_check(DefLoc0, First),
     WillGC0 = ordsets:from_list([FromTo || {{_,_}=FromTo,_} <- Paths]),
-    WillGC1 = [{{From,To},will_gc(From, To, Preds, Blocks, true)} ||
-                  {From,To} <- WillGC0],
-    WillGC = maps:from_list(WillGC1),
+    WillGC = #{{From,To} => will_gc(From, To, Preds, Blocks, true) ||
+                 {From,To} <- WillGC0},
 
     %% Separate sinks that will force the reference to the tuple to be
     %% saved on the stack from sinks that don't force.

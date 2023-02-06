@@ -212,8 +212,7 @@ is_recipe_viable({_,Trim,Moves}, UsedRegs) ->
 
 expand_recipe({Layout,Trim,Moves}, FrameSize) ->
     Is = reverse(Moves, [{trim,Trim,FrameSize-Trim}]),
-    Map0 = [{Src,Dst-Trim} || {move,{y,Src},{y,Dst}} <- Moves],
-    Map = maps:from_list(Map0),
+    Map = #{Src => Dst - Trim || {move,{y,Src},{y,Dst}} <- Moves},
     Remap = {Trim,Map},
     case [Y || {kill,Y} <- Layout] of
         [] ->

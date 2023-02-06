@@ -95,7 +95,7 @@ opt_writable(Bs0, L, Blk, Blks, ParamInfo, Count0, Acc0) ->
                        last=CallLast}}|_]} ->
             ensure_not_match_context(Call, ParamInfo),
 
-            ArgTypes = maps:from_list([{Arg,{arg,Arg}} || Arg <- Args]),
+            ArgTypes = #{Arg => {arg,Arg} || Arg <- Args},
             Bs = maps:merge(ArgTypes, Bs0),
             Result = map_get(Dst, call_size_func(Call, Bs)),
             {Expr,Annos} = make_expr_tree(Result),

@@ -340,7 +340,7 @@ is_loop_header(#b_set{op=Op}) ->
       Result :: predecessor_map().
 
 predecessors(Blocks) ->
-    P0 = [{S,L} || {L,Blk} <- maps:to_list(Blocks),
+    P0 = [{S,L} || L := Blk <- Blocks,
                    S <- successors(Blk)],
     P1 = sofs:relation(P0),
     P2 = sofs:rel2fam(P1),
