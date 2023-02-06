@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -139,9 +139,6 @@ callback_mode() -> state_functions.
 -spec init(arguments()) -> gen_statem:init_result(init).
 init(Args) ->
     process_flag(trap_exit, true),
-    %% When running in embedded mode we need to call prim_tty:on_load manually here
-    %% as the automatic call happens after user is started.
-    ok = init:run_on_load_handlers([prim_tty]),
 
     IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
     StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
