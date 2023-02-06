@@ -566,52 +566,65 @@ select_sha1_cert() ->
 
 select_sha1_cert(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    TestConfRSA = public_key:pkix_test_data(#{server_chain => #{root => [{digest, sha},{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                             intermediates => [[{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                             peer =>  [{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
-                                                            },
-                                           client_chain => #{root => [{digest, sha},{key, ssl_test_lib:hardcode_rsa_key(3)}],
-                                                             intermediates => [[{digest, sha},{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                             peer => [{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
+    TestConfRSA =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => [{digest, sha},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{digest, sha},
+                                                             {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer =>  [{digest, sha}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
+                                         },
+                                    client_chain =>
+                                        #{root => [{digest, sha},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(3)}],
+                                          intermediates => [[{digest, sha},
+                                                             {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{digest, sha},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
 
-    TestConfECDSA = public_key:pkix_test_data(#{server_chain => #{root => [{digest, sha},{key, {namedCurve, secp256r1}}],
-                                                             intermediates => [[{digest, sha}, {key,{namedCurve, secp256r1} }]],
-                                                             peer =>  [{digest, sha}, {key,{namedCurve, secp256r1}}]
-                                                            },
-                                           client_chain => #{root => [{digest, sha},{key, {namedCurve, secp256r1}}],
-                                                             intermediates => [[{digest, sha},{key, {namedCurve, secp256r1}}]],
-                                                             peer => [{digest, sha}, {key, {namedCurve, secp256r1}}]}}),
-    case (Version == 'tlsv1.3') orelse (Version == 'tlsv1.2') of
-        true ->
-            test_sha1_cert_conf(Version, TestConfRSA, TestConfECDSA, Config);
-        false  ->
-            test_sha1_cert_conf(Version, TestConfRSA, undefined, Config)
-    end.
+    TestConfECDSA =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => [{digest, sha},
+                                                   {key, {namedCurve, secp256r1}}],
+                                          intermediates =>
+                                              [[{digest, sha},
+                                                {key,{namedCurve, secp256r1}}]],
+                                          peer =>  [{digest, sha},
+                                                    {key,{namedCurve, secp256r1}}]
+                                         },
+                                    client_chain =>
+                                        #{root => [{digest, sha},
+                                                   {key, {namedCurve, secp256r1}}],
+                                          intermediates => [[{digest, sha},
+                                                             {key, {namedCurve, secp256r1}}]],
+                                          peer => [{digest, sha},
+                                                   {key, {namedCurve, secp256r1}}]}}),
+    test_sha1_cert_conf(Version, TestConfRSA, TestConfECDSA, Config).
 
 %%--------------------------------------------------------------------
 connection_information() ->
     [{doc,"Test the API function ssl:connection_information/1"}].
-connection_information(Config) when is_list(Config) -> 
+connection_information(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-					{from, self()}, 
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
 					{mfa, {?MODULE, connection_information_result, []}},
 					{options, ServerOpts}]),
-    
+
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
-			   {from, self()}, 
+			   {from, self()},
 			   {mfa, {?MODULE, connection_information_result, []}},
 			   {options, ClientOpts}]),
-    
+
     ct:log("Testcase ~p, Client ~p  Server ~p ~n",
 		       [self(), Client, Server]),
-    			   
+
     ssl_test_lib:check_result(Server, ok, Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -4144,21 +4157,36 @@ test_config('tlsv1.2', _) ->
     {SDSACert, SDSAKey, SDSACACerts} = get_single_options(cert, key, cacerts, SDSAOpts),
     {CDSACert, CDSAKey, CDSACACerts} = get_single_options(cert, key, cacerts,  CDSAOpts),
 
+    AllSigAlgs1_2 = ssl_test_lib:all_1_2_sig_algs(),
 
-    [{#{server_config => [{certs_keys, [#{cert => SDSACert, key => SDSAKey}, #{cert => SRSACert, key => SRSAKey}]},
-                          {verify, verify_peer},  {versions, ['tlsv1.3', 'tlsv1.2']},
+    [{#{server_config => [{certs_keys,
+                           [#{cert => SDSACert, key => SDSAKey},
+                            #{cert => SRSACert, key => SRSAKey}]},
+                          {verify, verify_peer},
+                          {versions, ['tlsv1.3', 'tlsv1.2']},
                           {cacerts, SRSACACerts ++ SDSACACerts}],
-        client_config => [{certs_keys, [#{cert => CDSACert, key => CDSAKey}, #{cert => CRSACert, key => CRSAKey}]},
-                          {verify, verify_peer}, {versions, ['tlsv1.3', 'tlsv1.2']},
+        client_config => [{certs_keys,
+                           [#{cert => CDSACert, key => CDSAKey},
+                            #{cert => CRSACert, key => CRSAKey}]},
+                          {verify, verify_peer},
+                          {versions, ['tlsv1.3', 'tlsv1.2']},
                           {cacerts, CRSACACerts ++ CDSACACerts}]
-       }, {client_peer, SRSACert}, {server_peer, CRSACert}},
-     {#{server_config => [{certs_keys, [#{cert => SDSACert, key => SDSAKey}, #{cert => SRSACert, key => SRSAKey}]},
-                          {verify, verify_peer}, {versions, ['tlsv1.2']},
+       },
+      {client_peer, SRSACert}, {server_peer, CRSACert}},
+     {#{server_config => [{certs_keys, [#{cert => SDSACert, key => SDSAKey},
+                                        #{cert => SRSACert, key => SRSAKey}]},
+                          {verify, verify_peer},
+                          AllSigAlgs1_2,
+                          {versions, ['tlsv1.2']},
                           {cacerts, SRSACACerts ++ SDSACACerts}],
-        client_config => [{certs_keys, [#{cert => CDSACert, key => CDSAKey}, #{cert => CRSACert, key => CRSAKey}]},
-                          {verify, verify_peer},  {versions, ['tlsv1.2']},
+        client_config => [{certs_keys, [#{cert => CDSACert, key => CDSAKey},
+                                        #{cert => CRSACert, key => CRSAKey}]},
+                          {verify, verify_peer},
+                          {versions, ['tlsv1.2']},
+                          AllSigAlgs1_2,
                           {cacerts, CRSACACerts ++ CDSACACerts}]
-       }, {client_peer, SDSACert}, {server_peer, CDSACert}}];
+       },
+      {client_peer, SDSACert}, {server_peer, CDSACert}}];
 test_config('dtlsv1.2', Config) ->
     #{server_config := SRSAPSSOpts,
       client_config := CRSAPSSOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_pss_pss, [], Config, "dtls_pss_pss_conf"),
@@ -4178,6 +4206,7 @@ test_config('dtlsv1.2', Config) ->
         client_config => [{certs_keys, [#{certfile => CRSAPSSRSAECert, keyfile => CRSAPSSRSAEKey},
                                         #{certfile => CRSAPSSCert, keyfile => CRSAPSSKey}]},
                           {verify, verify_peer},
+                          {signature_algs, [rsa_pss_pss_sha256]},
                           {cacertfile, CRSAPSSCACerts}]
        },
       {client_peer, pem_to_der_cert(SRSAPSSCert)}, {server_peer, pem_to_der_cert(CRSAPSSCert)}},
@@ -4262,7 +4291,8 @@ pem_to_der_cert(Pem) ->
 test_sha1_cert_conf('tlsv1.3'= Version, RSA, ECDSA, Config) ->
     run_sha1_cert_conf(Version, ECDSA, Config, ecdsa_sha1),
     run_sha1_cert_conf(Version, RSA, Config, rsa_pkcs1_sha1);
-test_sha1_cert_conf('tlsv1.2'= Version, RSA, ECDSA, Config) ->
+test_sha1_cert_conf(Version, RSA, ECDSA, Config) when Version == 'tlsv1.2';
+                                                      Version == 'dtlsv1.2' ->
     run_sha1_cert_conf(Version, RSA, Config, {sha, rsa}),
     run_sha1_cert_conf(Version, ECDSA, Config, {sha, ecdsa});
 test_sha1_cert_conf(Version,RSA,_,Config) ->
@@ -4290,7 +4320,8 @@ run_sha1_cert_conf('tlsv1.3', #{client_config := ClientOpts, server_config := Se
     ssl_test_lib:basic_test([{verify, verify_peer}, {signature_algs,  IncludeLegacyAlg} | ClientOpts],
                                     [{signature_algs,  IncludeLegacyAlg} | ServerOpts], Config);
 
-run_sha1_cert_conf('tlsv1.2', #{client_config := ClientOpts, server_config := ServerOpts}, Config, LegacyAlg) ->
+run_sha1_cert_conf(Version, #{client_config := ClientOpts, server_config := ServerOpts}, Config, LegacyAlg) when Version == 'tlsv1.2';
+                                                                                                                 Version == 'dtlsv1.2' ->
     SigAlgs =  [%% SHA2
                 {sha512, ecdsa},
                 {sha512, rsa},
@@ -4303,5 +4334,9 @@ run_sha1_cert_conf('tlsv1.2', #{client_config := ClientOpts, server_config := Se
     IncludeLegacyAlg = SigAlgs ++ [LegacyAlg],
     ssl_test_lib:basic_test( [{verify, verify_peer}, {signature_algs,  IncludeLegacyAlg} | ClientOpts],
                              [{signature_algs,  IncludeLegacyAlg} | ServerOpts], Config);
-run_sha1_cert_conf(_, #{client_config := ClientOpts, server_config := ServerOpts}, Config, _) ->
-    ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts], ServerOpts, Config).
+run_sha1_cert_conf(_, #{client_config := ClientOpts, server_config := ServerOpts}, Config, LegacyAlg) ->
+    NVersion = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    SigOpts = ssl_test_lib:sig_algs(LegacyAlg, NVersion),
+    ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts] ++ SigOpts, ServerOpts, Config).
+
+

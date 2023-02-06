@@ -475,14 +475,10 @@
 {sha256, ecdsa},
 {sha256, rsa},
 {sha224, ecdsa},
-{sha224, rsa},
-%% SHA
-{sha, ecdsa},
-{sha, rsa},
-{sha, dsa}
+{sha224, rsa}
 ]</code>
 
-<p>Support for {md5, rsa} was removed from the the TLS-1.2 default in ssl-8.0 (OTP-22) </p>
+<p>Support for {md5, rsa} was removed from the the TLS-1.2 default in ssl-8.0 (OTP-22) and support for SHA1 {sha, _} was removed in ssl-11.0 (OTP-26) </p>
 
  <p><c> rsa_pss_schemes =</c></p>
  <code>
@@ -500,8 +496,6 @@ rsa_pss_rsae_sha256]
 rsa_pkcs1_sha512, %% Corresponds to {sha512, rsa}
 rsa_pkcs1_sha384, %% Corresponds to {sha384, rsa}
 rsa_pkcs1_sha256, %% Corresponds to {sha256, rsa}
-ecdsa_sha1,       %% Corresponds to {sha, ecdsa}
-rsa_pkcs1_sha1    %% Corresponds to {sha, rsa}
 ]
 </code>
 
@@ -520,7 +514,7 @@ ecdsa_secp256r1_sha256] ++
 rsa_pss_schemes()
  </code>
 
- <p>EDDSA was made highest priority in ssl-11.0 (OTP-25) </p>
+ <p>EDDSA was made highest priority in ssl-10.8 (OTP-25) </p>
 
 <p>TLS-1.3 default is</p>
 <code>Default_TLS_13_Schemes ++ Legacy_TLS_13_Schemes </code>

@@ -84,7 +84,7 @@ all_groups() ->
     ].
 
 init_per_suite(Config) ->
-    Digest = sha1,
+    Digest = sha256,
     ECCurve = secp521r1,
     TLSVersion = 'tlsv1.2',
     TLSCipher =
