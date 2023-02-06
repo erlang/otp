@@ -7,6 +7,11 @@
 #undef EI_HIDE_REAL_ERRNO
 
 /* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'dc cvau' instruction, and are compiling for
+   an ARM processor with ARM DC instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
    capable of generating the ARM 'dmb sy' instruction, and are compiling for
    an ARM processor with ARM DMB instruction support, or not */
 #undef ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION
@@ -20,6 +25,16 @@
    capable of generating the ARM 'dmb st' instruction, and are compiling for
    an ARM processor with ARM DMB instruction support, or not */
 #undef ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'ic ivau' instruction, and are compiling for
+   an ARM processor with ARM IC instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION
+
+/* Define as a boolean indicating whether you have a gcc compatible compiler
+   capable of generating the ARM 'isb sy' instruction, and are compiling for
+   an ARM processor with ARM ISB instruction support, or not */
+#undef ETHR_HAVE_GCC_ASM_ARM_ISB_SY_INSTRUCTION
 
 /* Define as a boolean indicating whether you have a gcc __atomic builtins or
    not */
