@@ -31,6 +31,7 @@
          t_get_3/1, t_filter_2/1, t_filtermap_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1, t_foreach_2/1,
          t_iterator_1/1, t_iterator_2/1,
+         t_iterator_valid/1,
          t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1,
          t_intersect/1, t_intersect_with/1,
@@ -59,6 +60,7 @@ all() ->
      t_get_3,t_filter_2,t_filtermap_2,
      t_fold_3,t_map_2,t_size_1,t_foreach_2,
      t_iterator_1,t_iterator_2,
+     t_iterator_valid,
      t_put_opt,t_merge_opt,
      t_with_2,t_without_2,
      t_intersect, t_intersect_with,
@@ -396,7 +398,8 @@ t_filter_2(Config) when is_list(Config) ->
     #{a := 2,c := 4} = maps:filter(Pred1,maps:iterator(M)),
     #{"b" := 2,"c" := 4} = maps:filter(Pred2,maps:iterator(M)),
     %% error case
-    ?badmap(a,filter,[_,a]) = (catch maps:filter(fun(_,_) -> ok end,id(a))),
+    ?badmap(a,filter,[_,a]) = (catch maps:filter(fun(_,_) -> true end,id(a))),
+    ?badmap({a,b,c},filter,[_,{a,b,c}]) = (catch maps:filter(fun(_,_) -> true end,id({a,b,c}))),
     ?badarg(filter,[<<>>,#{}]) = (catch maps:filter(id(<<>>),#{})),
     ok.
 
@@ -410,7 +413,8 @@ t_filtermap_2(Config) when is_list(Config) ->
     false = maps:is_key(20, M1),
     true = M1 =:= M2,
     %% error case
-    ?badmap(a,filtermap,[_,a]) = (catch maps:filtermap(fun(_,_) -> ok end,id(a))),
+    ?badmap(a,filtermap,[_,a]) = (catch maps:filtermap(fun(_,_) -> true end,id(a))),
+    ?badmap({a,b,c},filtermap,[_,{a,b,c}]) = (catch maps:filtermap(fun(_,_) -> true end,id({a,b,c}))),
     ?badarg(filtermap,[<<>>,#{}]) = (catch maps:filtermap(id(<<>>),#{})),
     ok.
 
@@ -426,6 +430,7 @@ t_fold_3(Config) when is_list(Config) ->
 
     %% error case
     ?badmap(a,fold,[_,0,a]) = (catch maps:fold(fun(_,_,_) -> ok end,0,id(a))),
+    ?badmap({a,b,c},fold,[_,0,{a,b,c}]) = (catch maps:fold(fun(_,_,_) -> ok end,0,id({a,b,c}))),
     ?badarg(fold,[<<>>,0,#{}]) = (catch maps:fold(id(<<>>),0,#{})),
     ok.
 
@@ -440,6 +445,7 @@ t_map_2(Config) when is_list(Config) ->
 
     %% error case
     ?badmap(a,map,[_,a]) = (catch maps:map(fun(_,_) -> ok end, id(a))),
+    ?badmap({a,b,c},map,[_,{a,b,c}]) = (catch maps:map(fun(_,_) -> ok end, id({a,b,c}))),
     ?badarg(map,[<<>>,#{}]) = (catch maps:map(id(<<>>),#{})),
     ok.
 
@@ -450,6 +456,7 @@ t_foreach_2(Config) when is_list(Config) ->
     ?badmap({},foreach,[_,{}]) = (catch maps:foreach(fun(_,_) -> ok end, id({}))),
     ?badmap(42,foreach,[_,42]) = (catch maps:foreach(fun(_,_) -> ok end, id(42))),
     ?badmap(<<>>,foreach,[_,<<>>]) = (catch maps:foreach(fun(_,_) -> ok end, id(<<>>))),
+    ?badmap({a,b,c},foreach,[_,{a,b,c}]) = (catch maps:foreach(fun(_,_) -> ok end, id({a,b,c}))),
 
     ?badarg(foreach,[<<>>,#{}]) = (catch maps:foreach(id(<<>>),#{})),
     F0 = fun() -> ok end,
@@ -592,6 +599,59 @@ iter_kv(I) ->
         {K,V,NI} ->
             [{K,V} | iter_kv(NI)]
     end.
+
+t_iterator_valid(Config) when is_list(Config) ->
+    %% good iterators created via maps:iterator
+    true = maps:is_iterator_valid(maps:iterator(#{})),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b})),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b, c => d})),
+    true = maps:is_iterator_valid(maps:iterator(#{}, undefined)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b}, undefined)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b, c => d}, undefined)),
+    true = maps:is_iterator_valid(maps:iterator(#{}, ordered)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b}, ordered)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b, c => d}, ordered)),
+    true = maps:is_iterator_valid(maps:iterator(#{}, reversed)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b}, reversed)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b, c => d}, reversed)),
+    true = maps:is_iterator_valid(maps:iterator(#{}, fun erlang:'=<'/2)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b}, fun erlang:'=<'/2)),
+    true = maps:is_iterator_valid(maps:iterator(#{a => b, c => d}, fun erlang:'=<'/2)),
+
+    %% good makeshift iterators
+    true = maps:is_iterator_valid(none),
+    true = maps:is_iterator_valid({a, b, none}),
+    true = maps:is_iterator_valid({a, b, {c, d, none}}),
+    true = maps:is_iterator_valid({a, b, {c, d, {e, f, none}}}),
+    true = maps:is_iterator_valid({a, b, maps:iterator(#{})}),
+    true = maps:is_iterator_valid({a, b, maps:iterator(#{c => d})}),
+
+    %% not iterators
+    false = maps:is_iterator_valid(no_iter),
+    false = maps:is_iterator_valid(1),
+    false = maps:is_iterator_valid(1.0),
+    false = maps:is_iterator_valid([]),
+    false = maps:is_iterator_valid("foo"),
+    false = maps:is_iterator_valid(<<"foo">>),
+    false = maps:is_iterator_valid(fun() -> ok end),
+    false = maps:is_iterator_valid(self()),
+    false = maps:is_iterator_valid(make_ref()),
+    false = maps:is_iterator_valid(#{}),
+    false = maps:is_iterator_valid({}),
+    false = maps:is_iterator_valid({a}),
+    false = maps:is_iterator_valid({a, b}),
+    false = maps:is_iterator_valid({a, b, c, d}),
+
+    %% bad makeshift iterators that only fail on later (ie, subsequent) calls to maps:next/1
+    %%    maps:next({a, b, c}) -> {a, b, c}
+    %%    maps:next(c) -> badarg
+    false = maps:is_iterator_valid({a, b, c}),
+    %%    maps:next({a, b, {c, d, e}}) -> {a, b, {c, d, e}}
+    %%    maps:next({c, d, e}) -> {c, d, e}
+    %%    maps:next(e) -> badarg
+    false = maps:is_iterator_valid({a, b, {c, d, e}}),
+
+    ok.
 
 t_put_opt(Config) when is_list(Config) ->
     Value = id(#{complex => map}),
@@ -890,11 +950,14 @@ error_info(_Config) ->
     L = [
          {filter, [fun(_, _) -> true end, abc]},
          {filter, [fun(_, _) -> true end, BadIterator]},
+         {filter, [fun(_, _) -> true end, BadIterator2]},
          {filter, [bad_fun, BadIterator],[{1,".*"},{2,".*"}]},
+         {filter, [bad_fun, BadIterator2],[{1,".*"},{2,".*"}]},
          {filter, [bad_fun, GoodIterator]},
 
          {filtermap, [fun(_, _) -> true end, abc]},
          {filtermap, [fun(_, _) -> true end, BadIterator]},
+         {filtermap, [fun(_, _) -> true end, BadIterator2]},
          {filtermap, [fun(_) -> true end, GoodIterator]},
          {filtermap, [fun(_) -> ok end, #{}]},
 
@@ -902,11 +965,13 @@ error_info(_Config) ->
 
          {fold, [fun(_, _, _) -> true end, init, abc]},
          {fold, [fun(_, _, _) -> true end, init, BadIterator]},
+         {fold, [fun(_, _, _) -> true end, init, BadIterator2]},
          {fold, [fun(_) -> true end, init, GoodIterator]},
          {fold, [fun(_) -> ok end, init, #{}]},
 
          {foreach, [fun(_, _) -> ok end, no_map]},
          {foreach, [fun(_, _) -> ok end, BadIterator]},
+         {foreach, [fun(_, _) -> ok end, BadIterator2]},
          {foreach, [fun(_) -> ok end, GoodIterator]},
          {foreach, [fun(_) -> ok end, #{}]},
 
@@ -936,6 +1001,10 @@ error_info(_Config) ->
          {intersect_with, [fun(_, _, _) -> ok end, x, y],[{2,".*"},{3,".*"}]},
          {intersect_with, [fun(_, _) -> ok end, #{}, #{}]},
 
+         {is_iterator_valid, [GoodIterator], [no_fail]},
+         {is_iterator_valid, [BadIterator], [no_fail]},
+         {is_iterator_valid, [BadIterator2], [no_fail]},
+
          {is_key,[key, no_map]},
 
          {iterator,[{no,map}]},
@@ -951,6 +1020,7 @@ error_info(_Config) ->
 
          {map, [fun(_, _) -> true end, abc]},
          {map, [fun(_, _) -> true end, BadIterator]},
+         {map, [fun(_, _) -> true end, BadIterator2]},
          {map, [fun(_) -> true end, GoodIterator]},
          {map, [fun(_) -> ok end, #{}]},
 

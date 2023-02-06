@@ -982,11 +982,9 @@ must_be_map_iterator_order(_) ->
 must_be_map_or_iter(Map) when is_map(Map) ->
     [];
 must_be_map_or_iter(Iter) ->
-    try maps:next(Iter) of
-        _ -> []
-    catch
-        error:_ ->
-            not_map_or_iterator
+    case maps:is_iterator_valid(Iter) of
+        true -> [];
+        false -> not_map_or_iterator
     end.
 
 must_be_number(N) ->
