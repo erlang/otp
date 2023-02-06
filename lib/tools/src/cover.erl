@@ -1865,6 +1865,10 @@ expand({bc,Anno,Expr,Qs}, Vs, N) ->
     {ExpandedExpr,N2} = expand(Expr, Vs, N),
     {ExpandedQs,N3} = expand_qualifiers(Qs, Vs, N2),
     {{bc,Anno,ExpandedExpr,ExpandedQs},N3};
+expand({mc,Anno,Expr,Qs}, Vs, N) ->
+    {ExpandedExpr,N2} = expand(Expr, Vs, N),
+    {ExpandedQs,N3} = expand_qualifiers(Qs, Vs, N2),
+    {{mc,Anno,ExpandedExpr,ExpandedQs},N3};
 expand({op,_Anno,'andalso',ExprL,ExprR}, Vs, N) ->
     {ExpandedExprL,N2} = expand(ExprL, Vs, N),
     {ExpandedExprR,N3} = expand(ExprR, Vs, N2),
@@ -2239,6 +2243,11 @@ munge_expr({bc,Anno,Expr,Qs}, Vars) ->
     {MungedExpr,Vars2} = munge_expr(?BLOCK1(Expr), Vars),
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
     {{bc,Anno,MungedExpr,MungedQs}, Vars3};
+munge_expr({mc,Anno,{map_field_assoc,FAnno,K,V},Qs}, Vars) ->
+    Expr = {map_field_assoc,FAnno,?BLOCK1(K),?BLOCK1(V)},
+    {MungedExpr,Vars2} = munge_expr(Expr, Vars),
+    {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
+    {{mc,Anno,MungedExpr,MungedQs}, Vars3};
 munge_expr({block,Anno,Body}, Vars) ->
     {MungedBody, Vars2} = munge_body(Body, Vars),
     {{block,Anno,MungedBody}, Vars2};
@@ -2311,6 +2320,10 @@ munge_qs([{b_generate,Anno,Pattern,Expr}|Qs], Vars, MQs) ->
     A = element(2, Expr),
     {MExpr, Vars2} = munge_expr(Expr, Vars),
     munge_qs1(Qs, A, {b_generate,Anno,Pattern,MExpr}, Vars, Vars2, MQs);
+munge_qs([{m_generate,Anno,Pattern,Expr}|Qs], Vars, MQs) ->
+    A = element(2, Expr),
+    {MExpr, Vars2} = munge_expr(Expr, Vars),
+    munge_qs1(Qs, A, {m_generate,Anno,Pattern,MExpr}, Vars, Vars2, MQs);
 munge_qs([Expr|Qs], Vars, MQs) ->
     A = element(2, Expr),
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
