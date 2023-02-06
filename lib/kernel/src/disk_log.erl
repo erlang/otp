@@ -256,6 +256,7 @@ breopen(Log, NewFile, NewHead) ->
 -type inc_wrap_error_rsn() :: 'no_such_log' | 'nonode'
                             | {'read_only_mode', log()}
                             | {'blocked_log', log()} | {'halt_log', log()}
+                            | {'rotate_log', log()}
                             | {'invalid_header', invalid_header()}
                             | {'file_error', file:filename(), file_error()}.
 
@@ -264,10 +265,17 @@ breopen(Log, NewFile, NewHead) ->
 inc_wrap_file(Log) -> 
     req(Log, inc_wrap_file).
 
--spec inc_rot_file(Log) -> 'ok' | {'error', inc_wrap_error_rsn()} when
+-type inc_rot_error_rsn() :: 'no_such_log' | 'nonode'
+                            | {'read_only_mode', log()}
+                            | {'blocked_log', log()} | {'halt_log', log()}
+                            | {'wrap_log', log()}
+                            | {'invalid_header', invalid_header()}
+                            | {'file_error', file:filename(), file_error()}.
+
+-spec inc_rot_file(Log) -> 'ok' | {'error', inc_rot_error_rsn()} when
     Log :: log().
 inc_rot_file(Log) ->
-    req(Log, inc_wrap_file).
+    req(Log, inc_rot_file).
 
 -spec change_size(Log, Size) -> 'ok' | {'error', Reason} when
       Log :: log(),
@@ -888,12 +896,10 @@ handle({From, inc_wrap_file}=Message, S) ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
 	#log{type = halt}=L ->
 	    reply(From, {error, {halt_log, L#log.name}}, S);
+	#log{type = rotate}=L ->
+	    reply(From, {error, {rotate_log, L#log.name}}, S);
 	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
-        #log{type = rotate}=L ->
-            {ok, L2} = do_inc_rot_file(L),
-	    put(log, L2),
-	    reply(From, ok, S);
 	#log{status = ok}=L ->
 	    case catch do_inc_wrap_file(L) of
 		{ok, L2, Lost} ->
@@ -904,6 +910,27 @@ handle({From, inc_wrap_file}=Message, S) ->
 		    put(log, L2),		    
 		    reply(From, Error, state_err(S, Error))
 	    end;
+	#log{status = {blocked, false}}=L ->
+	    reply(From, {error, {blocked_log, L#log.name}}, S);
+	#log{blocked_by = From}=L ->
+	    reply(From, {error, {blocked_log, L#log.name}}, S);
+	_ ->
+	    enqueue(Message, S)
+    end;
+handle({From, inc_rot_file}=Message, S) ->
+    case get(log) of
+	#log{mode = read_only}=L ->
+	    reply(From, {error, {read_only_mode, L#log.name}}, S);
+	#log{type = halt}=L ->
+	    reply(From, {error, {halt_log, L#log.name}}, S);
+	#log{type = wrap}=L ->
+	    reply(From, {error, {wrap_log, L#log.name}}, S);
+	#log{status = ok} when S#state.cache_error =/= ok ->
+	    loop(cache_error(S, [From]));
+        #log{type = rotate}=L ->
+            {ok, L2} = do_inc_rot_file(L),
+	    put(log, L2),
+	    reply(From, ok, S);
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	#log{blocked_by = From}=L ->
@@ -923,7 +950,7 @@ handle({From, {reopen, NewFile, Head, F, A}}, S) ->
 	    case catch close_disk_log2(L) of
 		closed ->
 		    File = L#log.filename,
-		    case catch rename_file(File, NewFile, L#log.type, L#log.extra) of
+		    case catch rename_file(File, NewFile, L) of
 			ok ->
 			    H = merge_head(Head, L#log.head),
 			    case do_open((S#state.args)#arg{name = L#log.name,
@@ -1246,25 +1273,22 @@ is_owner(Pid, L) ->
     end.
 
 %% ok | throw(Error)
-rename_file(File, NewFile, halt, _Extra) ->
+rename_file(File, NewFile, #log{type = halt}) ->
     case file:rename(File, NewFile) of
         ok ->
             ok;
         Else ->
             file_error(NewFile, Else)
     end;
-rename_file(File, NewFile, wrap, _Extra) ->
-    rename_file_1(wrap_file_extensions(File), File, NewFile, ok);
-rename_file(File, NewFile, rotate, Handle) ->
+rename_file(File, NewFile, #log{type = wrap}) ->
+    rename_file(wrap_file_extensions(File), File, NewFile, ok);
+rename_file(File, NewFile, #log{type = rotate, head = Head, extra = Handle}) ->
     {_MaxB, MaxF} = disk_log_1:get_rot_size(Handle),
-    case file:rename(File, NewFile) of
-        ok ->
-            rename_file_1(rot_file_extensions(File, MaxF - 1), File, NewFile, ok);
-        Else ->
-            file_error(NewFile, Else)
-    end.
+    _Handle1 = disk_log_1:rotate_file(Handle, Head),
+    _ = file:delete(File),
+    rename_file(rot_file_extensions(File, MaxF), File, NewFile, ok).
 
-rename_file_1([Ext|Exts], File, NewFile0, Res) ->
+rename_file([Ext|Exts], File, NewFile0, Res) ->
     NewFile = add_ext(NewFile0, Ext),
     NRes = case file:rename(add_ext(File, Ext), NewFile) of
 	       ok ->
@@ -1272,8 +1296,8 @@ rename_file_1([Ext|Exts], File, NewFile0, Res) ->
 	       Else ->
 		   file_error(NewFile, Else)
 	   end,
-    rename_file_1(Exts, File, NewFile0, NRes);
-rename_file_1([], _File, _NewFiles, Res) -> Res.
+    rename_file(Exts, File, NewFile0, NRes);
+rename_file([], _File, _NewFiles, Res) -> Res.
 
 file_error(FileName, {error, Error}) ->
     {error, {file_error, FileName, Error}}.
@@ -1321,13 +1345,15 @@ compare_arg(_Attr, _Val, _A) ->
 
 %% -> {ok, Res, log(), Cnt} | Error
 do_open(#arg{type = rotate} = A) ->
-    #arg{name = Name, size = Size, mode = Mode,
+    #arg{name = Name, size = Size, mode = Mode, head = Head0,
          format = Format, type = Type, file = FName} = A,
-    case disk_log_1:open_rot_log_file(FName, Size) of
+    Head = mk_head(Head0, Format),
+    case disk_log_1:open_rot_log_file(FName, Size, Head) of
         {ok, RotHandle} ->
             L = #log{name = Name, type = Type, format = Format,
                      filename = FName, size = Size, mode = Mode,
-                     extra = RotHandle, format_type = rotate_ext},
+                     extra = RotHandle, format_type = rotate_ext,
+                     head = Head},
             {ok, {ok, Name}, L, 0};
         Error ->
             Error
@@ -1463,8 +1489,8 @@ do_inc_wrap_file(L) ->
     end.
 
 %% -> {ok, log()}
-do_inc_rot_file(#log{extra = Handle} = L) ->
-    Handle2 = disk_log_1:rotate_file(Handle),
+do_inc_rot_file(#log{extra = Handle, head = Head} = L) ->
+    Handle2 = disk_log_1:rotate_file(Handle, Head),
     {ok, L#log{extra = Handle2}}.
 
 %%-----------------------------------------------------------------
@@ -1767,7 +1793,7 @@ do_log(#log{format_type = wrap_ext}=L, B, _BSz) ->
 	    {error, Error, Logged - Lost}
     end;
 do_log(#log{type = rotate}=L, B, _BSz) ->
-    {ok, Handle, Logged} = disk_log_1:rot_ext_log(L#log.extra, B), %%error case here
+    {ok, Handle, Logged} = disk_log_1:rot_ext_log(L#log.extra, B, L#log.head), %%error case here
     put(log, L#log{extra = Handle}),
     Logged.
 
@@ -1876,8 +1902,8 @@ do_trunc(#log{type = wrap}=L, Head) ->
     NewHandle = (NewLog2#log.extra)#handle{noFull = 0, accFull = 0},
     do_change_size(NewLog2#log{extra = NewHandle, head = OldHead}, 
 		   {MaxB, MaxF});
-do_trunc(#log{type = rotate}=L, none) ->
-    Handle1 = disk_log_1:force_rotate(L#log.extra),
+do_trunc(#log{type = rotate, head = Head, extra = Handle}=L, none) ->
+    Handle1 = disk_log_1:rotate_file(Handle, Head),
     disk_log_1:remove_files(rotate, Handle1#rotate_handle.file, 0, Handle1#rotate_handle.maxF),
     put(log, L#log{extra = Handle1}),
     ok.

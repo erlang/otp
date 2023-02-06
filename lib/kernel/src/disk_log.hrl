@@ -155,6 +155,7 @@
          maxB :: pos_integer(),
          maxF :: pos_integer() | {pos_integer(),pos_integer()},
 	 curB = 0 :: non_neg_integer(),
+         firstPos :: non_neg_integer(),
          compress_on_rotate = true}
         ).
 
@@ -173,7 +174,7 @@
 	 mode		   :: dlog_mode(),
 	 size,                %% value of open/1 option 'size' (never changed)
 	 extra             :: #halt{} | #handle{} | #rotate_handle{}, %% type of the log
-	 version           :: integer()}	   %% if wrap log file
+	 version           :: integer() | undefined}	   %% if wrap log file, undefined for halt and rotate
 	).
 
 -record(continuation,         %% Chunk continuation.

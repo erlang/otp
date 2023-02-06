@@ -54,7 +54,8 @@
 
 	 wrap_ext_1/1, wrap_ext_2/1,
 
-	 rotate_1/1,
+	 rotate_1/1, rotate_truncate/1, rotate_reopen/1,
+         rotate_breopen/1, inc_rot_file/1,
 
 	 head_func/1, plain_head/1, one_header/1,
 
@@ -150,7 +151,9 @@ groups() ->
      {halt_ext, [], [halt_ext_inf, {group, halt_ext_sz}]},
      {halt_ext_sz, [], [halt_ext_sz_1, halt_ext_sz_2]},
      {wrap_ext, [], [wrap_ext_1, wrap_ext_2]},
-     {rotate, [], [rotate_1]},
+     {rotate, [],
+      [rotate_1, rotate_truncate, rotate_reopen,
+       rotate_breopen, inc_rot_file]},
      {head, [], [head_func, plain_head, one_header]},
      {notif, [],
       [wrap_notif, full_notif, trunc_notif, blocked_notif]},
@@ -844,7 +847,6 @@ rotate_1(Conf) when is_list(Conf) ->
     ok = disk_log:blog(Name, B2),
     ok = disk_log:blog(Name, B3),
     ok = disk_log:blog_terms(a, [B4, B5, B6]),
-    timer:sleep(10000),
     case get_list(File ++ ".2.gz", Name, rotate) of
         T2 ->
             ok;
@@ -872,6 +874,123 @@ rotate_1(Conf) when is_list(Conf) ->
     end,
     ok = disk_log:close(Name),
     del_rot_files(File, 3).
+
+%% test truncate/1 for rotate logs
+rotate_truncate(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    File = filename:join(Dir, "a.LOG"),
+    Name = a,
+    {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{100, 3}},
+			     {format,external},
+			     {file, File}]),
+    B = mk_bytes(60),
+    ok = disk_log:blog_terms(Name, [B, B, B]),
+    B = get_list(File, Name),
+    B = get_list(File ++ ".0.gz", Name, rotate),
+    B = get_list(File ++ ".1.gz", Name, rotate),
+    ok = disk_log:truncate(Name),
+    [] = get_list(File, Name),
+    {error, enoent} = file:read_file_info(File ++ ".0.gz"),
+    {error, enoent} = file:read_file_info(File ++ ".1.gz"),
+    ok = disk_log:close(Name),
+    file:delete(File).
+
+%% test reopen/2 for rotate logs
+rotate_reopen(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    File = filename:join(Dir, "a.LOG"),
+    Name = a,
+    {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{100, 3}},
+			     {format,external},
+			     {file, File}]),
+    B = mk_bytes(60),
+    ok = disk_log:blog_terms(Name, [B, B, B]),
+    B = get_list(File, Name),
+    B = get_list(File ++ ".0.gz", Name, rotate),
+    B = get_list(File ++ ".1.gz", Name, rotate),
+    File1 = filename:join(Dir, "b.LOG"),
+    ok = disk_log:reopen(Name, File1),
+    [] = get_list(File, Name),
+    {error, enoent} = file:read_file_info(File ++ ".0.gz"),
+    {error, enoent} = file:read_file_info(File ++ ".1.gz"),
+    B = get_list(File1 ++ ".0.gz", Name, rotate),
+    B = get_list(File1 ++ ".1.gz", Name, rotate),
+    B = get_list(File1 ++ ".2.gz", Name, rotate),
+    ok = disk_log:close(Name),
+    file:delete(File),
+    del_rot_files(File1, 3).
+
+%% test breopen/3 for rotate logs
+rotate_breopen(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    File1 = filename:join(Dir, "a.LOG"),
+    Name = a,
+    Head1 = "thisishead1",
+    {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{100, 3}},
+			     {format,external},
+                             {head, Head1},
+			     {file, File1}]),
+    B = mk_bytes(60),
+    ok = disk_log:blog_terms(Name, [B, B, B]),
+    FileCont = Head1 ++ B,
+    FileCont = get_list(File1, Name),
+    FileCont = get_list(File1 ++ ".0.gz", Name, rotate),
+    FileCont = get_list(File1 ++ ".1.gz", Name, rotate),
+    File2 = filename:join(Dir, "b.LOG"),
+    Head2 = "thisishead2",
+    ok = disk_log:breopen(Name, File2, Head2),
+    Head2 = get_list(File1, Name),
+    {error, enoent} = file:read_file_info(File1 ++ ".0.gz"),
+    {error, enoent} = file:read_file_info(File1 ++ ".1.gz"),
+    FileCont = get_list(File2 ++ ".0.gz", Name, rotate),
+    FileCont = get_list(File2 ++ ".1.gz", Name, rotate),
+    FileCont = get_list(File2 ++ ".2.gz", Name, rotate),
+    ok = disk_log:close(Name),
+    file:delete(File1),
+    del_rot_files(File2, 3).
+
+%% Test rotate log, force a change to next file.
+inc_rot_file(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    File1 = filename:join(Dir, "a.LOG"),
+    File2 = filename:join(Dir, "b.LOG"),
+    File3 = filename:join(Dir, "c.LOG"),
+
+    %% Test that halt and wrap logs get error messages
+    {ok, a} = disk_log:open([{name, a}, {type, halt},
+			     {format, internal},
+			     {file, File1}]),
+    ok = disk_log:log(a, "message one"),
+    {error, {halt_log, a}} = disk_log:inc_rot_file(a),
+
+    {ok, b} = disk_log:open([{name, b}, {type, wrap}, {size, {100,3}},
+			     {format, internal}, {head, 'thisisahead'},
+			     {file, File2}]),
+    ok = disk_log:log(b, "message one"),
+    {error, {wrap_log, b}} = disk_log:inc_rot_file(b),
+
+    %% test a rotate log file
+    {ok, c} = disk_log:open([{name, c}, {type, rotate}, {size, {100,3}},
+			     {format,external},
+			     {file, File3}]),
+    ok = disk_log:blog(c, "message one"),
+    ok = disk_log:inc_rot_file(c),
+    ok = disk_log:blog(c, "message two"),
+    ok = disk_log:inc_rot_file(c),
+    ok = disk_log:blog(c, "message three"),
+    ok = disk_log:inc_rot_file(c),
+    ok = disk_log:blog(c, "message four"),
+    ok = disk_log:sync(c),
+    "message one" = get_list(File3 ++ ".2.gz", c, rotate),
+    "message two" = get_list(File3 ++ ".1.gz", c, rotate),
+    "message three" = get_list(File3 ++ ".0.gz", c, rotate),
+    "message four" = get_list(File3, c),
+    ok = disk_log:close(a),
+    ok = disk_log:close(b),
+    ok = disk_log:close(c),
+    ok = file:delete(File1),
+    del(File2, 2),
+    del_rot_files(File3, 3).
 
 simple_log(Log) ->
     T1 = "hej",

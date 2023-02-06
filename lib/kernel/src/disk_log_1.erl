@@ -27,8 +27,8 @@
 	 mf_ext_inc/2, mf_int_chunk/4, mf_int_chunk_step/3,
 	 mf_sync/1, mf_write_cache/1]).
 -export([mf_ext_open/7, mf_ext_log/3, mf_ext_close/2]).
--export([open_rot_log_file/2, rotate_file/1,
-         rot_ext_log/2, rot_write_cache/1, rot_ext_close/1,
+-export([open_rot_log_file/3, rotate_file/2,
+         rot_ext_log/3, rot_write_cache/1, rot_ext_close/1,
          change_size_rot/2, get_rot_size/1]).
 
 -export([print_index_file/1]).
@@ -459,7 +459,7 @@ new_ext_file(FName, Head) ->
 %% -> {FdC, {NoItemsWritten, NoBytesWritten}} | throw(Error)
 ext_log_head(Fd, Head) ->
     case lh(Head, external) of
-	{ok, BinHead} -> 
+	{ok, BinHead} ->
             Size = byte_size(BinHead),
             {ok, FdC} = fwrite_header(Fd, BinHead, Size),
             {FdC, {1, Size}};
@@ -1000,21 +1000,24 @@ change_size_rot(#rotate_handle{maxB = MaxB, maxF = MaxF, file = FName} = Handle,
             {ok, Handle#rotate_handle{maxB = NewMaxB, maxF = NewMaxF}}
     end.
 
-open_rot_log_file(FileName, Size) ->
+open_rot_log_file(FileName, Size, Head) ->
     try
         case filelib:ensure_dir(FileName) of
             ok ->
                 case file:open(FileName, [raw, binary, read, append]) of
                     {ok, Fd} ->
+                        {FdC1, _HeadSize} = ext_log_head(Fd, Head),
+                        {FdC, FileSize} = position_close(FdC1, FileName, cur),       
                         {ok,#file_info{inode=INode}} =
                             file:read_file_info(FileName,[raw]),
                         {MaxB, MaxF} = Size,
-                        CurSize = filelib:file_size(FileName),
 			RotHandle = #rotate_handle{file = FileName,
-						   cur_fdc = #cache{fd = Fd},
+						   cur_fdc = FdC,
 						   maxB = MaxB,
 						   maxF = MaxF,
-						   curB = CurSize,
+						   %curB = CurSize,
+						   curB = FileSize,
+                                                   firstPos = FileSize,
 						   inode = INode},
 			update_rotation(RotHandle),
 			{ok, RotHandle};
@@ -1054,14 +1057,14 @@ maybe_update_compress(N, MaxF, FName) ->
     end,
     maybe_update_compress(N+1, MaxF, FName).    
 
-rotate_file(#rotate_handle{file = FName, maxF = MaxF, cur_fdc = FdC} = RotHandle) ->
+rotate_file(#rotate_handle{file = FName, maxF = MaxF, cur_fdc = FdC} = RotHandle, Head) ->
     #cache{fd = Fd, c = C} = FdC,
-    {_, C1} = write_cache(Fd, FName, C),
+    {_, _C1} = write_cache(Fd, FName, C),
     _ = delayed_write_close(Fd),
     rotate_files(FName, MaxF),
-    {ok, NewFd} = ensure_open(FName),
+    {ok, NewFdC, FileSize} = ensure_open(FName, Head),
     {ok,#file_info{inode=INode}} = file:read_file_info(FName,[raw]),
-    RotHandle#rotate_handle{cur_fdc = C1#cache{fd = NewFd}, inode = INode, curB = 0}.
+    RotHandle#rotate_handle{cur_fdc = NewFdC, inode = INode, curB = FileSize, firstPos = FileSize}.
 
 rotate_files(FileName,0) ->
     _ = file:delete(FileName),
@@ -1107,26 +1110,26 @@ compress_data(Z,In,Out) ->
             ok
     end.
 
-rot_ext_log(Handle, Bin) ->
-    rot_ext_log(Handle, Bin, 0).
+rot_ext_log(Handle, Bin, Head) ->
+    rot_ext_log(Handle, Bin, Head, 0).
 
-rot_ext_log(Handle, [], N) ->
+rot_ext_log(Handle, [], _Head, N) ->
     {ok, Handle, N};
-rot_ext_log(Handle, Bins, N0) ->
+rot_ext_log(Handle, Bins, Head, N0) ->
     #rotate_handle{file = FileName, maxB = MaxB, cur_fdc = CurFdC, 
-            curB = CurB} = Handle,
+            curB = CurB, firstPos = FirstPos} = Handle,
     {FirstBins, LastBins, NoBytes, N} = 
-	ext_split_bins(CurB, MaxB, 0, Bins),
+	ext_split_bins(CurB, MaxB, FirstPos, Bins),
     case FirstBins of
 	[] ->
-            Handle1 = rotate_file(Handle),
-	    rot_ext_log(Handle1, Bins, N0);
+            Handle1 = rotate_file(Handle, Head),
+	    rot_ext_log(Handle1, Bins, Head, N0);
 	_ ->
 	    case fwrite(CurFdC, FileName, FirstBins, NoBytes) of
                 {ok, NewCurFdC} ->
 		    Handle1 = Handle#rotate_handle{cur_fdc = NewCurFdC, 
                                             curB = CurB + NoBytes},
-		    rot_ext_log(Handle1, LastBins, N0 + N);
+		    rot_ext_log(Handle1, LastBins, Head, N0 + N);
 		{Error, NewCurFdC} ->
 		    Handle1 = Handle#rotate_handle{cur_fdc = NewCurFdC},
 		    {error, Error, Handle1}
@@ -1143,12 +1146,14 @@ rot_write_cache(#rotate_handle{file = FName, cur_fdc = FdC} = Handle) ->
 rot_ext_close(#rotate_handle{file = FName, cur_fdc = CurFdC}) ->
     (catch fclose(CurFdC, FName)).
 
-ensure_open(Filename) ->
+ensure_open(Filename, Head) ->
     case filelib:ensure_dir(Filename) of
         ok ->
             case open_update(Filename) of
                 {ok, Fd} ->
-                    {ok, Fd};
+                    {FdC1, _HeadSize} = ext_log_head(Fd, Head),
+                    {FdC, FileSize} = position_close(FdC1, Filename, cur),
+                    {ok, FdC, FileSize};
                 Error ->
                     exit({could_not_reopen_file,Error})
             end;
