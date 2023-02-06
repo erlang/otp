@@ -1682,17 +1682,18 @@ static void* ets_insert_2_list_copy_term_list(DbTableMethod* meth,
 {
     void* db_term_list = NULL;
     void *term;
+    void *last_term;
     Eterm lst;
     for (lst = list; is_list(lst); lst = CDR(list_val(lst))) {
         term = meth->db_eterm_to_dbterm(compress,
                                         keypos,
                                         CAR(list_val(lst)));
         if (db_term_list != NULL) {
-            db_term_list =
-                meth->db_dbterm_list_prepend(db_term_list,
-                                             term);
+            last_term =
+                meth->db_dbterm_list_append(last_term, term);
         } else {
             db_term_list = term;
+            last_term = term;
         }
     }
 

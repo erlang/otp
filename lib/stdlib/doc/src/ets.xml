@@ -48,7 +48,26 @@
       A <c>set</c> or <c>ordered_set</c> table can only have one object
       associated with each key. A <c>bag</c> or <c>duplicate_bag</c> table can
       have many objects associated with each key.</p>
-
+    <p>
+      Insert and lookup times in tables of type <c>set</c> are constant,
+      regardless of the table size. For table types <c>bag</c> and
+      <c>duplicate_bag</c> time is proportional to the number of objects with the
+      same key. Even seemingly unrelated keys may inflict linear search to be
+      skipped past while looking for the key of interest (due to hash collision).
+    </p>
+    <warning>
+      <p>
+	For tables of type <c>bag</c> and <c>duplicate_bag</c>, avoid inserting
+	an extensive amount of objects with the same key. It will hurt insert and
+	lookup performance as well as real time characteristics of the runtime
+	environment (hash bucket linear search do not yield).
+      </p>
+    </warning>
+    <p>
+      The <c>ordered_set</c> table type uses a binary search tree. Insert and
+      lookup times are proportional to the logarithm of the number of objects in
+      the table.
+    </p>
    <marker id="max_ets_tables"></marker>
    <note>
      <p>
@@ -815,6 +834,12 @@ Error: fun containing local Erlang function calls
               in the table, the old object is replaced.</p>
           </item>
           <item>
+            <p>
+	      If the table type is <c>bag</c> and the object <em>matches</em>
+	      any whole object in the table, the object is not inserted.
+            </p>
+          </item>
+          <item>
             <p>If the list contains more than one object with
               <em>matching</em> keys and the table type is <c>set</c>, one is
               inserted, which one is not defined.
@@ -825,6 +850,27 @@ Error: fun containing local Erlang function calls
         <p>The entire operation is guaranteed to be
           <seeerl marker="#concurrency">atomic and isolated</seeerl>,
           even when a list of objects is inserted.</p>
+        <marker id="insert_list_order"></marker>
+        <p>
+	  For <c>bag</c> and <c>duplicate_bag</c>, objects in the list with
+	  identical keys will be inserted in list order (from head to tail). That
+	  is, a subsequent call to <seemfa marker="#lookup/2"><c>lookup(T,Key)</c></seemfa>
+	  will return them in that inserted order.
+        </p>
+	<note>
+	  <p>
+	    For <c>bag</c> the insertion order of indentical keys described above was
+	    accidentally reverted in OTP 23.0 and later fixed in OTP 25.3. That
+	    is, from OTP 23.0 up until OTP 25.3 the objects in a list are
+	    inserted in reverse order (from tail to head).
+          </p>
+	  <p>
+	    For <c>duplicate_bag</c> the same faulty reverse insertion exist
+	    from OTP 23.0 until OTP 25.3. However, it is unpredictable and may
+	    or may not happen. A longer list will increase the probabiliy of the
+	    insertion being done in reverse.
+          </p>
+        </note>
       </desc>
     </func>
 
@@ -919,14 +965,11 @@ Error: fun containing local Erlang function calls
           element, as there cannot be more than one object with the same
           key. For tables of type <c>bag</c> or <c>duplicate_bag</c>, the
           function returns a list of arbitrary length.</p>
-        <p>Notice that the time order of object insertions is preserved;
+        <p>Notice that the sequential order of object insertions is preserved;
           the first object inserted with the specified key is the first
-          in the resulting list, and so on.</p>
-        <p>Insert and lookup times in tables of type <c>set</c>,
-          <c>bag</c>, and <c>duplicate_bag</c> are constant, regardless
-          of the table size. For the <c>ordered_set</c>
-          datatype, time is proportional to the (binary) logarithm of
-          the number of objects.</p>
+          in the resulting list, and so on. See also the note about
+          <seeerl marker="#insert_list_order">list insertion order</seeerl>.
+        </p>
       </desc>
     </func>
 
