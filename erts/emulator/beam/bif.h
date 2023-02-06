@@ -532,13 +532,13 @@ extern Export erts_bif_handle_signals_return_export;
 #define ERTS_BIF_PREP_EXITED(RET, PROC)	                                \
 do {                                                                    \
     KILL_CATCHES((PROC));                                               \
-    ERTS_BIF_PREP_ERROR((RET), (PROC), EXTAG_EXIT);                     \
+    ERTS_BIF_PREP_ERROR((RET), (PROC), EXTAG_EXIT | EXF_PANIC);         \
 } while (0)
 
-#define ERTS_BIF_EXITED(PROC)		\
-do {					\
-    KILL_CATCHES((PROC));		\
-    BIF_ERROR((PROC), EXTAG_EXIT);	\
+#define ERTS_BIF_EXITED(PROC)		        \
+do {					        \
+    KILL_CATCHES((PROC));		        \
+    BIF_ERROR((PROC), EXTAG_EXIT | EXF_PANIC);	\
 } while (0)
 
 #define ERTS_BIF_CHK_EXITED(PROC)	\
