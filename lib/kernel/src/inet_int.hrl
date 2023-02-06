@@ -135,6 +135,9 @@
 -define(UDP_OPT_ADD_MEMBERSHIP,  14).
 -define(UDP_OPT_DROP_MEMBERSHIP, 15).
 -define(INET_OPT_IPV6_V6ONLY,    16).
+-define(INET_OPT_REUSEPORT,      17).
+-define(INET_OPT_REUSEPORT_LB,   18).
+-define(INET_OPT_EXCLUSIVEADDRUSE, 19).
 % "Local" options: codes start from 20:
 -define(INET_LOPT_BUFFER,        20).
 -define(INET_LOPT_HEADER,        21).

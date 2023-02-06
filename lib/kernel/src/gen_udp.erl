@@ -38,6 +38,7 @@
         {deliver,         port | term} |
         {dontroute,       boolean()} |
         {drop_membership, membership()} |
+        {exclusiveaddruse, boolean()} |
         {header,          non_neg_integer()} |
         {high_msgq_watermark, pos_integer()} |
         {low_msgq_watermark, pos_integer()} |
@@ -53,6 +54,8 @@
         {read_packets,    non_neg_integer()} |
         {recbuf,          non_neg_integer()} |
         {reuseaddr,       boolean()} |
+        {reuseport,       boolean()} |
+        {reuseport_lb,    boolean()} |
         {sndbuf,          non_neg_integer()} |
         {tos,             non_neg_integer()} |
         {tclass,          non_neg_integer()} |
@@ -68,6 +71,7 @@
         debug |
         deliver |
         dontroute |
+        exclusiveaddruse |
         header |
         high_msgq_watermark |
         low_msgq_watermark |
@@ -84,6 +88,8 @@
         read_packets |
         recbuf |
         reuseaddr |
+        reuseport |
+        reuseport_lb |
         sndbuf |
         tos |
         tclass |

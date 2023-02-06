@@ -158,7 +158,7 @@
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-18248@", "stdlib-@OTP-17932@",
+  {runtime_dependencies, ["erts-@OTP-18248:OTP-18344@", "stdlib-@OTP-17932@",
                           "sasl-3.0", "crypto-5.0"]}
   ]
 }.

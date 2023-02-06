@@ -43,6 +43,7 @@
         {deliver,         port | term} |
         {dontroute,       boolean()} |
         {exit_on_close,   boolean()} |
+        {exclusiveaddruse, boolean()} |
         {header,          non_neg_integer()} |
         {high_msgq_watermark, pos_integer()} |
         {high_watermark,  non_neg_integer()} |
@@ -63,6 +64,8 @@
          ValueBin :: binary()} |
         {recbuf,          non_neg_integer()} |
         {reuseaddr,       boolean()} |
+        {reuseport,       boolean()} |
+        {reuseport_lb,    boolean()} |
         {send_timeout,    non_neg_integer() | infinity} |
         {send_timeout_close, boolean()} |
         {show_econnreset, boolean()} |
@@ -84,6 +87,7 @@
         deliver |
         dontroute |
         exit_on_close |
+        exclusiveaddruse |
         header |
         high_msgq_watermark |
         high_watermark |
@@ -103,6 +107,8 @@
                       (ValueBin :: binary())} |
         recbuf |
         reuseaddr |
+        reuseport |
+        reuseport_lb |
         send_timeout |
         send_timeout_close |
         show_econnreset |

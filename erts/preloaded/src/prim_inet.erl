@@ -1513,6 +1513,9 @@ is_sockopt_val(Opt, Val) ->
 %% Socket options processing: Encoding option NAMES:
 %%
 enc_opt(reuseaddr)       -> ?INET_OPT_REUSEADDR;
+enc_opt(reuseport)       -> ?INET_OPT_REUSEPORT;
+enc_opt(reuseport_lb)    -> ?INET_OPT_REUSEPORT_LB;
+enc_opt(exclusiveaddruse) -> ?INET_OPT_EXCLUSIVEADDRUSE;
 enc_opt(keepalive)       -> ?INET_OPT_KEEPALIVE;
 enc_opt(dontroute)       -> ?INET_OPT_DONTROUTE;
 enc_opt(linger)          -> ?INET_OPT_LINGER;
@@ -1581,6 +1584,9 @@ enc_opt(sctp_get_peer_addr_info)   -> ?SCTP_OPT_GET_PEER_ADDR_INFO.
 %% Decoding option NAMES:
 %%
 dec_opt(?INET_OPT_REUSEADDR)      -> reuseaddr;
+dec_opt(?INET_OPT_REUSEPORT)      -> reuseport;
+dec_opt(?INET_OPT_REUSEPORT_LB)   -> reuseport_lb;
+dec_opt(?INET_OPT_EXCLUSIVEADDRUSE) -> exclusiveaddruse;
 dec_opt(?INET_OPT_KEEPALIVE)      -> keepalive;
 dec_opt(?INET_OPT_DONTROUTE)      -> dontroute;
 dec_opt(?INET_OPT_LINGER)         -> linger;
@@ -1664,6 +1670,9 @@ type_opt(_,   Opt) ->
 %% Types of option values, by option name:
 %%
 type_opt_1(reuseaddr)       -> bool;
+type_opt_1(reuseport)       -> bool;
+type_opt_1(reuseport_lb)    -> bool;
+type_opt_1(exclusiveaddruse) -> bool;
 type_opt_1(keepalive)       -> bool;
 type_opt_1(dontroute)       -> bool;
 type_opt_1(linger)          -> {bool,int};
