@@ -170,13 +170,6 @@ modules.
 <p></p>
 </li>
 
-<li>On a Unix system you can view the manual pages from the command
-line using
-<pre>
-    % erl -man &lt;module&gt;
-</pre>
-</li>
-
 <li> You can of course use any editor you like to write Erlang
 programs, but if you use Emacs there exists editing support such as
 indentation, syntax highlighting, electric commands, module name
@@ -193,10 +186,7 @@ from the interactive shell (see <a href="getting_started/users_guide.html">
 Getting Started With Erlang</a>) where you can call individual
 functions. There is also a number of tools available, such as the graphical <a
 href="#debugger#/index.html" >Debugger</a> and the <a href="#observer#/index.html" >Observer tool</a> for inspection of system information, ets and mnesia tables  etc.
-<p> Also note that there are some shell features like history list
-(control-p and control-n), in line editing (Emacs key bindings) and
-module and function name completion (tab) if the module is loaded.
-<p>
+</p>
 
 <li>OpenSource users can ask questions
 and share experiences on <a href="http://erlangforums.com">
@@ -204,8 +194,7 @@ ErlangForums</a>.
 <p></p>
 </li>
 
-<li>Before asking a question you can browse the <a
-href="http://www.erlang.org/faq/faq.html" >Frequently
+<li>Before asking a question you can browse the <a href="http://www.erlang.org/faq/faq.html" >Frequently
 Asked Questions</a>.
 <p></p>
 </li>
