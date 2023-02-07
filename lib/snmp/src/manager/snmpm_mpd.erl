@@ -324,7 +324,7 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Address, Log) ->
 			     CtxEngineID, CtxName, PDU#pdu.request_id}, 
 		    Err   = sec_error(Note, Recv), 
  		    ACM   = {invalid_sec_info, Err}, 
-		    ReqId = element(size(Note), Note), 
+		    ReqId = element(tuple_size(Note), Note),
  		    {ok, 'version-3', PDU, PduMMS, {error, ReqId, ACM}};
 		_NoFound ->
 		    ?vtrace("process_v3_msg -> _NoFound: "
@@ -412,10 +412,10 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Address, Log) ->
 
 
 sec_error(T1, T2) 
-  when is_tuple(T1) andalso is_tuple(T2) andalso (size(T1) =:= size(T2)) ->
+  when tuple_size(T1) =:= tuple_size(T2) ->
     Tags = {sec_engine_id, msg_sec_model, sec_name, sec_level, 
 	    ctx_engine_id, ctx_name, request_id}, 
-    sec_error(size(T1), T1, T2, Tags, []);
+    sec_error(tuple_size(T1), T1, T2, Tags, []);
 sec_error(T1, T2) ->
     [{internal_error, T1, T2}].
 
@@ -622,7 +622,7 @@ generate_v1_v2c_msg(Vsn, Pdu, Community, Log) ->
 			     "(pdu: ~w, community: ~w): ~n~w",
 			     [Pdu, Community, Reason]),
 		    {discarded, Reason};
-		{ok, Packet} when size(Packet) =< MMS ->
+		{ok, Packet} when byte_size(Packet) =< MMS ->
 		    Log(Packet),
 		    inc_snmp_out(Pdu),
 		    {ok, Packet};
@@ -630,7 +630,7 @@ generate_v1_v2c_msg(Vsn, Pdu, Community, Log) ->
 		    ?vlog("packet max size exceeded: "
 			  "~n   MMS: ~p"
 			  "~n   Len: ~p",
-			  [MMS, size(Packet)]),
+			  [MMS, byte_size(Packet)]),
 		    {discarded, tooBig}
 	    end
     end.
@@ -683,7 +683,7 @@ generate_v3_response_msg(#pdu{type = Type} = Pdu, MsgID,
 		%% if it's larger than the agent can handle - 
 		%% it will be dropped. Just check against the
 		%% internal size.  
-		{ok, Packet} when size(Packet) =< MMS ->
+		{ok, Packet} when byte_size(Packet) =< MMS ->
 		    if
 			SecLevel == 3 -> 
 			    %% encrypted - log decrypted pdu
@@ -760,13 +760,13 @@ generate_v1_v2c_response_msg(Vsn, Pdu, Comm, Log) ->
 			     [Pdu, Comm, Reason]),
 		    {discarded, Reason};
 		
-		{ok, Packet} when size(Packet) =< MMS ->
+		{ok, Packet} when byte_size(Packet) =< MMS ->
 		    Log(Packet),
 		    inc_snmp_out(Pdu),
 		    {ok, Packet};
 
 		{ok, Packet} ->  %% Too big
-		    too_big(Vsn, Pdu, Comm, MMS, size(Packet), Log)
+		    too_big(Vsn, Pdu, Comm, MMS, byte_size(Packet), Log)
 	    end
     end.
 		    
