@@ -5024,7 +5024,8 @@ static void load_nif_1st_finisher(void* vlib)
             char *code_rw = (char*)erts_codeinfo_to_code(ci_rw);
             const char *src = fin->beam_stubv[i].code.call_nif;
 
-            size_t cpy_sz = sizeof(fin->beam_stubv[0].code.call_nif);
+            size_t cpy_sz = sizeof(fin->beam_stubv[0].code.call_nif) -
+                BEAM_ASM_FUNC_PROLOGUE_SIZE;
 
             sys_memcpy(&code_rw[BEAM_ASM_FUNC_PROLOGUE_SIZE],
                        &src[BEAM_ASM_FUNC_PROLOGUE_SIZE],

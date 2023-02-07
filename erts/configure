@@ -14072,6 +14072,8 @@ printf "%s\n" "#define ETHR_HAVE___atomic_compare_exchange_n $have_atomic_ops" >
     ethr_arm_dbm_st_instr_val=0
     ethr_arm_dbm_ld_instr_val=0
     ethr_arm_isb_sy_instr_val=0
+    ethr_arm_dc_cvau_instr_val=0
+    ethr_arm_ic_ivau_instr_val=0
     case "$GCC-$host_cpu" in #(
   yes-arm*|yes-aarch*) :
 
@@ -14213,7 +14215,6 @@ printf "%s\n" "$ethr_cv_arm_isb_sy_instr" >&6; }
 	    if test $ethr_cv_arm_isb_sy_instr = yes; then
 		ethr_arm_isb_sy_instr_val=1
 	    fi
-
 	    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ARM 'dc cvau' instruction" >&5
 printf %s "checking for ARM 'dc cvau' instruction... " >&6; }
 if test ${ethr_cv_arm_dc_cvau_instr+y}
@@ -14228,8 +14229,8 @@ else $as_nop
 int
 main (void)
 {
-  char data[512];
-						__asm__ __volatile__("dc cvau, %0" : "r" (data) : : "memory");
+
+						char data[512]; __asm__ __volatile__("dc cvau, %0" : "r" (data) : : "memory");
 
   ;
   return 0;
@@ -14248,7 +14249,6 @@ printf "%s\n" "$ethr_cv_arm_dc_cvau_instr" >&6; }
 	    if test $ethr_cv_arm_dc_cvau_instr = yes; then
 		ethr_arm_dc_cvau_instr_val=1
 	    fi
-
 	    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ARM 'ic ivau' instruction" >&5
 printf %s "checking for ARM 'ic ivau' instruction... " >&6; }
 if test ${ethr_cv_arm_ic_ivau_instr+y}
@@ -14263,8 +14263,8 @@ else $as_nop
 int
 main (void)
 {
-  char data[512];
-						__asm__ __volatile__("ic ivau, %0" : "r" (data) : : "memory");
+
+						char data[512]; __asm__ __volatile__("ic ivau, %0" : "r" (data) : : "memory");
 
   ;
   return 0;
@@ -14281,9 +14281,8 @@ fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ethr_cv_arm_ic_ivau_instr" >&5
 printf "%s\n" "$ethr_cv_arm_ic_ivau_instr" >&6; }
 	    if test $ethr_cv_arm_ic_ivau_instr = yes; then
-		ethr_arm_dc_cvau_instr_val=1
+		ethr_arm_ic_ivau_instr_val=1
 	    fi
-
        ;; #(
   *) :
      ;;
@@ -14306,7 +14305,6 @@ printf "%s\n" "#define ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION $ethr_arm_dc_cv
 
 
 printf "%s\n" "#define ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION $ethr_arm_ic_ivau_instr_val" >>confdefs.h
-
 
 
     test $ethr_cv_32bit___sync_val_compare_and_swap = yes &&

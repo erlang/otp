@@ -1415,6 +1415,9 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
     ethr_arm_dbm_sy_instr_val=0
     ethr_arm_dbm_st_instr_val=0
     ethr_arm_dbm_ld_instr_val=0
+    ethr_arm_isb_sy_instr_val=0
+    ethr_arm_dc_cvau_instr_val=0
+    ethr_arm_ic_ivau_instr_val=0
     AS_CASE(
       ["$GCC-$host_cpu"],
       [yes-arm*|yes-aarch*],
@@ -1451,11 +1454,45 @@ AC_DEFUN(ETHR_CHK_GCC_ATOMIC_OPS,
 	    if test $ethr_cv_arm_dbm_ld_instr = yes; then
 		ethr_arm_dbm_ld_instr_val=1
 	    fi
+	    AC_CACHE_CHECK([for ARM 'isb sy' instruction], ethr_cv_arm_isb_sy_instr,
+			   [
+				ethr_cv_arm_isb_sy_instr=no
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
+						__asm__ __volatile__("isb sy" : : : "memory");
+					    ]])],[ethr_cv_arm_isb_sy_instr=yes],[])
+			   ])
+	    if test $ethr_cv_arm_isb_sy_instr = yes; then
+		ethr_arm_isb_sy_instr_val=1
+	    fi
+	    AC_CACHE_CHECK([for ARM 'dc cvau' instruction], ethr_cv_arm_dc_cvau_instr,
+			   [
+				ethr_cv_arm_dc_cvau_instr=no
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
+						char data[512]; __asm__ __volatile__("dc cvau, %0" : "r" (data) : : "memory");
+					    ]])],[ethr_cv_arm_dc_cvau_instr=yes],[])
+			   ])
+	    if test $ethr_cv_arm_dc_cvau_instr = yes; then
+		ethr_arm_dc_cvau_instr_val=1
+	    fi
+	    AC_CACHE_CHECK([for ARM 'ic ivau' instruction], ethr_cv_arm_ic_ivau_instr,
+			   [
+				ethr_cv_arm_ic_ivau_instr=no
+				AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
+						char data[512]; __asm__ __volatile__("ic ivau, %0" : "r" (data) : : "memory");
+					    ]])],[ethr_cv_arm_ic_ivau_instr=yes],[])
+			   ])
+	    if test $ethr_cv_arm_ic_ivau_instr = yes; then
+		ethr_arm_ic_ivau_instr_val=1
+	    fi
       ])
 
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_INSTRUCTION], [$ethr_arm_dbm_sy_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb sy' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_ST_INSTRUCTION], [$ethr_arm_dbm_st_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb st' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
     AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DMB_LD_INSTRUCTION], [$ethr_arm_dbm_ld_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dmb ld' instruction, and are compiling for an ARM processor with ARM DMB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_ISB_SY_INSTRUCTION], [$ethr_arm_isb_sy_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'isb sy' instruction, and are compiling for an ARM processor with ARM ISB instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_DC_CVAU_INSTRUCTION], [$ethr_arm_dc_cvau_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'dc cvau' instruction, and are compiling for an ARM processor with ARM DC instruction support, or not])
+    AC_DEFINE_UNQUOTED([ETHR_HAVE_GCC_ASM_ARM_IC_IVAU_INSTRUCTION], [$ethr_arm_ic_ivau_instr_val], [Define as a boolean indicating whether you have a gcc compatible compiler capable of generating the ARM 'ic ivau' instruction, and are compiling for an ARM processor with ARM IC instruction support, or not])
+
     test $ethr_cv_32bit___sync_val_compare_and_swap = yes &&
     	ethr_have_gcc_native_atomics=yes
     test $ethr_cv_64bit___sync_val_compare_and_swap = yes &&
