@@ -88,7 +88,7 @@
 %%                                             | Abbrev Flight 1 to Abbrev Flight 2 part 1  
 %%                                             |
 %%                                New session  | Resumed session
-%%  WAIT_OCSP_STAPELING   CERTIFY  <----------------------------------> ABBRIVIATED
+%%  WAIT_OCSP_STAPLING   CERTIFY  <----------------------------------> ABBREVIATED
 %%     
 %%  <- Possibly Receive  --  |                                              |
 %%     OCSP Stapel ------>   | Send/ Recv Flight 5                          |
@@ -307,13 +307,12 @@ hello(internal, #hello_verify_request{cookie = Cookie},
              handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
                                             ocsp_stapling_state = OcspState0} = HsEnv,
              connection_env = CEnv,
-             ssl_options = #{ocsp_stapling := OcspStaplingOpt,
-                             ocsp_nonce := OcspNonceOpt} = SslOpts,
+             ssl_options = SslOpts,
              session = #session{session_id = Id},
              connection_states = ConnectionStates0,
 	     protocol_specific = PS
             } = State0) ->
-    OcspNonce = tls_handshake:ocsp_nonce(OcspNonceOpt, OcspStaplingOpt),
+    OcspNonce = tls_handshake:ocsp_nonce(SslOpts),
     Hello = dtls_handshake:client_hello(Host, Port, Cookie, ConnectionStates0,
 					SslOpts, Id, Renegotiation, OcspNonce),
     Version = Hello#client_hello.client_version,

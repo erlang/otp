@@ -45,7 +45,7 @@
 -export([get_tls_handshakes/4, decode_handshake/3]).
 
 %% Handshake helper
--export([ocsp_nonce/2]).
+-export([ocsp_nonce/1]).
 
 -type tls_handshake() :: #client_hello{} | ssl_handshake:ssl_handshake().
 
@@ -159,9 +159,9 @@ hello(#server_hello{server_version = LegacyVersion,
 		    session_id = SessionId,
                     extensions = #{server_hello_selected_version :=
                                        #server_hello_selected_version{selected_version = Version}} = HelloExt},
-      #{versions := SupportedVersions,
-        ocsp_stapling := Stapling} = SslOpt,
+      #{versions := SupportedVersions} = SslOpt,
       ConnectionStates0, Renegotiation, OldId) ->
+    Stapling = maps:get(ocsp_stapling, SslOpt, false),
     %% In TLS 1.3, the TLS server indicates its version using the "supported_versions" extension
     %% (Section 4.2.1), and the legacy_version field MUST be set to 0x0303, which is the version
     %% number for TLS 1.2.
@@ -305,15 +305,24 @@ get_tls_handshakes(Version, Data, Buffer, Options) ->
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec ocsp_nonce(boolean(), boolean()) -> binary() | undefined.
+-spec ocsp_nonce(map()) -> binary() | undefined.
 %%
 %% Description: Get an OCSP nonce
 %%--------------------------------------------------------------------
-ocsp_nonce(true, true) ->
-    public_key:der_encode('Nonce', crypto:strong_rand_bytes(8));
-ocsp_nonce(_OcspNonceOpt, _OcspStaplingOpt) ->
-    undefined.
-
+ocsp_nonce(SslOpts) ->
+    %% FIXME what should be the default for ocsp_nonce?
+    OcspNonceOpt = case maps:get(ocsp_stapling, SslOpts, false) of
+                       false ->
+                           false;
+                       OcspStaplingOpt ->
+                           maps:get(ocsp_nonce, OcspStaplingOpt, false)
+                   end,
+    case OcspNonceOpt of
+        true ->
+            public_key:der_encode('Nonce', crypto:strong_rand_bytes(8));
+        _ ->
+            undefined
+    end.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------

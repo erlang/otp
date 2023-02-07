@@ -813,10 +813,10 @@ update_encryption_state(client, State) ->
 
 
 validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
-                           #{ocsp_responder_certs := OcspResponderCerts
-                            } = SslOptions, CRLDbHandle, Role, Host, OcspState0) ->
+                           SslOptions, CRLDbHandle, Role, Host, OcspState0) ->
     {Certs, CertExt, OcspState} = split_cert_entries(CertEntries, OcspState0),
-
+    OcspResponderCerts =
+        tls_dtls_connection:get_ocsp_responder_certs(SslOptions),
     ssl_handshake:certify(#certificate{asn1_certificates = Certs}, CertDbHandle, CertDbRef,
                           SslOptions, CRLDbHandle, Role, Host, {3,4},
                           #{cert_ext => CertExt,

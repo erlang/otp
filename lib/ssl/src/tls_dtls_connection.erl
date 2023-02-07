@@ -61,7 +61,8 @@
          cipher/3,
          connection/3,
          downgrade/3,
-         gen_handshake/4]).
+         gen_handshake/4,
+         get_ocsp_responder_certs/1]).
 
 %% Tracing
 -export([handle_trace/3]).
@@ -1671,9 +1672,10 @@ ensure_tls({254, _} = Version) ->
 ensure_tls(Version) -> 
     Version.
 
-ocsp_info(#{ocsp_expect := stapled, 
+ocsp_info(#{ocsp_expect := stapled,
             ocsp_response := CertStatus} = OcspState,
-            #{ocsp_responder_certs := OcspResponderCerts}, PeerCert) ->
+          SslOpts, PeerCert) ->
+    OcspResponderCerts = get_ocsp_responder_certs(SslOpts),
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => [CertStatus]},
       ocsp_responder_certs => OcspResponderCerts,
       ocsp_state => OcspState
@@ -1683,6 +1685,14 @@ ocsp_info(#{ocsp_expect := no_staple} = OcspState, _, PeerCert) ->
       ocsp_responder_certs => [],
       ocsp_state => OcspState
      }.
+
+get_ocsp_responder_certs(SslOpts) ->
+    case maps:get(ocsp_stapling, SslOpts, []) of
+        [] ->
+            [];
+        OcspStapling ->
+            maps:get(ocsp_responder_certs, OcspStapling, [])
+    end.
 
 select_client_cert_key_pair(Session0,_,
                             [#{private_key := NoKey, certs := [[]] = NoCerts}],

@@ -138,7 +138,6 @@ tc_api_profile(Config) ->
         #{
           call =>
               [{"    (server) -> ssl:handshake/2", ssl, handshake},
-               {"    (client) -> ssl_gen_statem:connect/8", ssl_gen_statem, connect},
                {"    (server) -> ssl_gen_statem:initial_hello/3",
                 ssl_gen_statem, initial_hello},
                {"    (client) -> ssl_gen_statem:initial_hello/3",
@@ -161,7 +160,8 @@ tc_api_profile(Config) ->
                "rle ('?') -> ssl:listen/2 (*server) Args",
                "rle ('?') -> ssl:connect/3 (*client) Args",
                "rle ('?') -> tls_sender:init/3 (*server)",
-               "rle ('?') -> tls_sender:init/3 (*client)"]},
+               "rle ('?') -> tls_sender:init/3 (*client)",
+               "api (client) -> ssl_gen_statem:connect/8"]},
     TracesAfterDisconnect =
         #{
           call =>
@@ -197,8 +197,8 @@ tc_api_profile(Config) ->
     {ok, Delta} = ssl_trace:off(Off),
     [Server, Client] = ssl_connect(Config),
     UnhandledTraceCnt1 =
-        #{call => 0, processed => 0, exception_from => no_trace_received,
-          return_from => 0},
+        #{call => 2, processed => 0, exception_from => no_trace_received,
+          return_from => 2},
     check_trace_map(Ref, TracesAfterConnect, UnhandledTraceCnt1),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
@@ -370,7 +370,7 @@ receive_map(Ref,
 check_trace_map(Ref, ExpectedTraces) ->
     Received = receive_map(Ref),
     L = [check_key(Type, ExpectedTraces, maps:get(Type, Received)) ||
-                  Type <- maps:keys(Received)],
+            Type <- maps:keys(Received)],
     maps:from_list(L).
 
 check_trace_map(Ref, ExpectedTraces, ExpectedRemainders) ->

@@ -421,7 +421,9 @@ trace_profiles() ->
       [{ssl,
         [{listen,2}, {connect,3}, {handshake,2}, {close, 1}]},
        {ssl_gen_statem,
-        [{initial_hello,3}, {connect, 8}, {close, 2}, {terminate_alert, 1}]}
+        [{initial_hello,3}, {connect, 8}, {close, 2}, {terminate_alert, 1}]},
+       {tls_gen_connection,
+        [{start_connection_tree, 5}, {socket_control, 6}]}
       ]},
      {csp, %% OCSP
       fun(M, F, A) -> dbg:tpl(M, F, A, x) end,
@@ -440,7 +442,7 @@ trace_profiles() ->
        {tls_connection, [{wait_ocsp_stapling, 3}]},
        {dtls_connection, [{initial_hello, 3}, {hello, 3}, {connection, 3}]},
        {tls_dtls_connection, [{wait_ocsp_stapling, 3}, {certify, 3}]},
-       {tls_handshake, [{ocsp_expect, 1}, {client_hello, 11}]},
+       {tls_handshake, [{ocsp_nonce, 1}, {ocsp_expect, 1}, {client_hello, 11}]},
        {dtls_handshake, [{client_hello, 8}]}]},
      {crt, %% certificates
       fun(M, F, A) -> dbg:tpl(M, F, A, x) end,

@@ -2838,14 +2838,19 @@ options_frag_len(_Config) -> %% max_fragment_length
     ok.
 
 options_oscp(Config) ->
-    Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
-    ?OK(#{ocsp_stapling := false, ocsp_nonce := true, ocsp_responder_certs := []},
-        [], client),
-    ?OK(#{ocsp_stapling := true},
-        [{ocsp_stapling, true}], client),
-    ?OK(#{ocsp_stapling := true, ocsp_nonce := false, ocsp_responder_certs := [_,_]},
-        [{ocsp_stapling, true}, {ocsp_nonce, false}, {ocsp_responder_certs, [Cert,Cert]}],
-        client),
+    Cert = proplists:get_value(
+             cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
+    NoOcspOption = [ocsp_stapling, ocsp_nonce, ocsp_responder_certs],
+
+    ?OK(#{}, [], client, NoOcspOption),
+    ?OK(#{}, [{ocsp_stapling, false}], client, NoOcspOption),
+    ?OK(#{ocsp_stapling := #{ocsp_nonce := true, ocsp_responder_certs := []}},
+        [{ocsp_stapling, true}], client, [ocsp_nonce, ocsp_responder_certs]),
+    ?OK(#{ocsp_stapling :=
+              #{ocsp_nonce := false, ocsp_responder_certs := [_, _]}},
+        [{ocsp_stapling, true}, {ocsp_nonce, false},
+         {ocsp_responder_certs, [Cert,Cert]}],
+        client, [ocsp_nonce, ocsp_responder_certs]),
     %% Errors
     ?ERR({ocsp_stapling, foo}, [{ocsp_stapling, 'foo'}], client),
     ?ERR({ocsp_nonce, foo}, [{ocsp_nonce, 'foo'}], client),
