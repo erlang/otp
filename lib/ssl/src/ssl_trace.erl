@@ -358,7 +358,7 @@ trace_pid(T) when element(1,T)==trace
 
 %% Pick last element, the Time Stamp, and format it
 trace_ts(T) when  element(1,T)==trace_ts ->
-    ts( element(size(T), T) ).
+    ts( element(tuple_size(T), T) ).
 
 ts({_,_,Usec}=Now) when is_integer(Usec) ->
     {_Date,{HH,MM,SS}} = calendar:now_to_local_time(Now),
