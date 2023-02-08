@@ -87,7 +87,38 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%% The test cases -------------------------------------------------------------
 %%%
 
--define(MAX_PIDS_PORTS, ((1 bsl 28) - 1)).
+max_internal_pids_ports() ->
+    case erlang:system_info(wordsize) of
+        8 -> (1 bsl 60) - 1;
+        4 -> (1 bsl 28) - 1
+    end.
+
+max_pids_ports() ->
+    (1 bsl 64) - 1.
+
+max_old_pids_ports() ->
+    (1 bsl 28) - 1.
+
+max_internal_pid_num() ->
+    (1 bsl 28) - 1.
+
+max_internal_pid_ser() ->
+    case erlang:system_info(wordsize) of
+        8 -> (1 bsl 32) - 1;
+        4 -> 0
+    end.
+
+max_pid_num() ->
+    (1 bsl 32) - 1.
+
+max_pid_ser() ->
+    (1 bsl 32) - 1.
+
+max_old_pid_num() ->
+    (1 bsl 15) - 1.
+
+max_old_pid_ser() ->
+    (1 bsl 13) - 1.
 
 %%
 %% Test case: term_to_binary_to_term_eq
@@ -98,17 +129,21 @@ term_to_binary_to_term_eq(Config) when is_list(Config) ->
     ThisNode = {node(), erlang:system_info(creation)},
     % Get local node containers
     LPid = self(),
-    LXPid = mk_pid(ThisNode, 32767, 8191),
+    LXPid = mk_pid(ThisNode, 0, max_internal_pid_ser()),
+    LX2Pid = mk_pid(ThisNode, max_internal_pid_num() - 4711, max_internal_pid_ser()),
     LPort = hd(erlang:ports()),
     LXPort = mk_port(ThisNode, 268435455),
+    LX2Port = mk_port(ThisNode, max_internal_pids_ports() - 4711),
     LLRef = make_ref(),
     LHLRef = mk_ref(ThisNode, [47, 11]),
     LSRef = mk_ref(ThisNode, [4711]),
     % Test local nc:s
     LPid = binary_to_term(term_to_binary(LPid)),
     LXPid = binary_to_term(term_to_binary(LXPid)),
+    LX2Pid = binary_to_term(term_to_binary(LX2Pid)),
     LPort = binary_to_term(term_to_binary(LPort)),
     LXPort = binary_to_term(term_to_binary(LXPort)),
+    LX2Port = binary_to_term(term_to_binary(LX2Port)),
     LLRef = binary_to_term(term_to_binary(LLRef)),
     LHLRef = binary_to_term(term_to_binary(LHLRef)),
     LSRef = binary_to_term(term_to_binary(LSRef)),
@@ -122,6 +157,7 @@ term_to_binary_to_term_eq(Config) when is_list(Config) ->
 ttbtteq_do_remote(RNode) ->
     RPid = mk_pid(RNode, 4711, 1),
     RXPid = mk_pid(RNode, 32767, 8191),
+    RXPid2 = mk_pid(RNode, max_pid_num(), max_pid_ser()),
     RPort = mk_port(RNode, 4711),
     RXPort = mk_port(RNode, 268435455),
     RXPort2 = case RNode of
@@ -130,15 +166,18 @@ ttbtteq_do_remote(RNode) ->
 		  _ ->
 		      mk_port(RNode, (1 bsl 51) + 4711)
 	      end,
+    RXPort3 = mk_port(RNode, max_pids_ports()),
     RLRef = mk_ref(RNode, [4711, 4711, 4711]),
     RHLRef = mk_ref(RNode, [4711, 4711]),
     RSRef = mk_ref(RNode, [4711]),
     % Test remote nc:s
     RPid = binary_to_term(term_to_binary(RPid)),
     RXPid = binary_to_term(term_to_binary(RXPid)),
+    RXPid2 = binary_to_term(term_to_binary(RXPid2)),
     RPort = binary_to_term(term_to_binary(RPort)),
     RXPort = binary_to_term(term_to_binary(RXPort)),
     RXPort2 = binary_to_term(term_to_binary(RXPort2)),
+    RXPort3 = binary_to_term(term_to_binary(RXPort3)),
     RLRef = binary_to_term(term_to_binary(RLRef)),
     RHLRef = binary_to_term(term_to_binary(RHLRef)),
     RSRef = binary_to_term(term_to_binary(RSRef)),
@@ -161,36 +200,57 @@ round_trip_eq(Config) when is_list(Config) ->
                               end
                       end),
     SentPid = self(),
-    SentXPid = mk_pid(ThisNode, 17471, 8190),
+    SentXPid = mk_pid(ThisNode, 17471, max_internal_pid_ser()),
+    SentXPid2 = mk_pid(ThisNode, max_internal_pid_num(), max_internal_pid_ser()),
+    SentXPid3 = mk_pid({Node, 4711}, 4711, 17),
+    SentXPid4 = mk_pid({Node, 4711}, max_pid_num(), max_pid_ser()),
     SentPort = hd(erlang:ports()),
     SentXPort = mk_port(ThisNode, 268435451),
     SentXPort2 = mk_port({Node, 4711}, (1 bsl 49) + 4711),
+    SentXPort2 = mk_port({Node, 4711}, (1 bsl 49) + 4711),
+    SentXPort3 = mk_port(ThisNode, max_internal_pids_ports()),
+    SentXPort4 = mk_port({Node, 4711}, max_pids_ports()),
     SentLRef = make_ref(),
     SentHLRef = mk_ref(ThisNode, [4711, 17]),
     SentSRef = mk_ref(ThisNode, [4711]),
     RPid ! {Self, {SentPid,
                    SentXPid,
+                   SentXPid2,
+                   SentXPid3,
+                   SentXPid4,
                    SentPort,
                    SentXPort,
                    SentXPort2,
+                   SentXPort3,
+                   SentXPort4,
                    SentLRef,
                    SentHLRef,
                    SentSRef}},
     receive
         {RPid, {RecPid,
                 RecXPid,
+                RecXPid2,
+                RecXPid3,
+                RecXPid4,
                 RecPort,
                 RecXPort,
                 RecXPort2,
+                RecXPort3,
+                RecXPort4,
                 RecLRef,
                 RecHLRef,
                 RecSRef}} ->
             stop_node(Peer, Node),
             SentPid = RecPid,
             SentXPid = RecXPid,
+            SentXPid2 = RecXPid2,
+            SentXPid3 = RecXPid3,
+            SentXPid4 = RecXPid4,
             SentPort = RecPort,
             SentXPort = RecXPort,
             SentXPort2 = RecXPort2,
+            SentXPort3 = RecXPort3,
+            SentXPort4 = RecXPort4,
             SentLRef = RecLRef,
             SentHLRef = RecHLRef,
             SentSRef = RecSRef,
@@ -327,8 +387,8 @@ cmp(Config) when is_list(Config) ->
     true = mk_pid({b@b, 2}, 4711, 1) =:= Pid,
 
     %% Test big external pids (> OTP-24)
-    MaxPidNum = (1 bsl 15) - 1,
-    MaxPidSer = ?MAX_PIDS_PORTS bsr 15,
+    MaxPidNum = max_old_pid_num(),
+    MaxPidSer = max_old_pid_ser(),
     true = mk_pid({b@b, 2}, 4711, MaxPidSer) < mk_pid({a@b, 1}, 4710, MaxPidSer+1),
     true = mk_pid({b@b, 2}, 4711, MaxPidSer) < mk_pid({a@b, 1}, 4710, (1 bsl 31)),
     true = mk_pid({b@b, 2}, 4711, MaxPidSer) < mk_pid({a@b, 1}, 4710, (1 bsl 32)-1),
@@ -738,20 +798,20 @@ pp_wrap(What) ->
     io:format("post creations = ~p~n", [PostCre]),
     true = is_integer(PostCre),
     true = PreCre > PostCre,
-    Now = set_next_id(What, ?MAX_PIDS_PORTS div 2),
+    Now = set_next_id(What, max_internal_pids_ports() div 2),
     io:format("reset to = ~p~n", [Now]),
     true = is_integer(Now),
     ok.
 
 set_high_pp_next(What) ->
-    set_high_pp_next(What, ?MAX_PIDS_PORTS-1).
+    set_high_pp_next(What, max_internal_pids_ports()-1).
 
 set_high_pp_next(What, N) ->
     M = set_next_id(What, N),
     true = is_integer(M),
-    case {M >= N, M =< ?MAX_PIDS_PORTS} of
+    case {M >= N, M =< max_internal_pids_ports()} of
         {true, true} ->
-            ?MAX_PIDS_PORTS - M + 1;
+            max_internal_pids_ports() - M + 1;
         _ ->
             set_high_pp_next(What, N - 100)
     end.
@@ -780,22 +840,24 @@ do_pp_creations(port, N) when is_integer(N) ->
 
 bad_nc(Config) when is_list(Config) ->
     % Make sure emulator don't crash on bad node containers...
-    MaxPidNum = (1 bsl 15) - 1,
-    MaxPidSer = ?MAX_PIDS_PORTS bsr 15,
     ThisNode = {node(), erlang:system_info(creation)},
     {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(ThisNode, MaxPidNum + 1, 17)),
+    = (catch mk_pid(ThisNode, max_internal_pid_num() + 1, 17)),
     {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(ThisNode, 4711, MaxPidSer + 1)),
+    = (catch mk_pid(ThisNode, 4711, max_internal_pid_ser() + 1)),
     {'EXIT', {badarg, mk_port, _}}
-    = (catch mk_port(ThisNode, ?MAX_PIDS_PORTS + 1)),
+    = (catch mk_port(ThisNode, max_internal_pids_ports() + 1)),
     {'EXIT', {badarg, mk_ref, _}}
     = (catch mk_ref(ThisNode,[(1 bsl 18), 4711, 4711])),
     {'EXIT', {badarg, mk_ref, _}}
     = (catch mk_ref(ThisNode, [4711, 4711, 4711, 4711, 4711, 4711, 4711])),
     RemNode = {x@y, 2},
+    {'EXIT', {badarg, mk_pid, _}}
+    = (catch mk_pid(RemNode, max_pid_num() + 1, 17)),
+    {'EXIT', {badarg, mk_pid, _}}
+    = (catch mk_pid(RemNode, 4711, max_pid_ser() + 1)),
     {'EXIT', {badarg, mk_port, _}}
-    = (catch mk_port(RemNode, ?MAX_PIDS_PORTS + 1)),
+    = (catch mk_port(RemNode, max_pids_ports() + 1)),
     {'EXIT', {badarg, mk_ref, _}}
     = (catch mk_ref(RemNode, [(1 bsl 18), 4711, 4711])),
     {'EXIT', {badarg, mk_ref, _}}
@@ -808,14 +870,17 @@ bad_nc(Config) when is_list(Config) ->
     {'EXIT', {badarg, mk_ref, _}}
     = (catch mk_ref(BadNode, [4711, 4711, 17])),
 
+
     %% OTP 24:
-    mk_port({x@y, 4}, ?MAX_PIDS_PORTS + 1),
+    mk_port({x@y, 4}, max_old_pids_ports() + 1),
+    mk_port({x@y, 4}, max_pids_ports()),
 
     %% OTP 24: External pids can use 32+32 bits
-    mk_pid(RemNode, MaxPidNum + 1, MaxPidSer),
-    mk_pid(RemNode, (1 bsl 32)-1, MaxPidSer),
-    mk_pid(RemNode, MaxPidNum, MaxPidSer + 1),
-    mk_pid(RemNode, MaxPidNum, (1 bsl 32)-1),
+    mk_pid(RemNode, max_old_pid_num() + 1, max_old_pid_ser()),
+    mk_pid(RemNode, (1 bsl 32)-1, max_old_pid_ser()),
+    mk_pid(RemNode, max_old_pid_num(), max_old_pid_ser() + 1),
+    mk_pid(RemNode, max_old_pid_num(), (1 bsl 32)-1),
+    mk_pid(RemNode, max_pid_num(), max_pid_ser()),
     ok.
 
 
