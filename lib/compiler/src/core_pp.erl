@@ -134,11 +134,10 @@ format_1(#c_literal{anno=A,val=Bitstring}, Ctxt) when is_bitstring(Bitstring) ->
     Segs = segs_from_bitstring(Bitstring),
     format_1(#c_binary{anno=A,segments=Segs}, Ctxt);
 format_1(#c_literal{anno=A,val=M},Ctxt) when is_map(M) ->
-    Pairs = maps:to_list(M),
     Op = #c_literal{val=assoc},
     Cpairs = [#c_map_pair{op=Op,
 			  key=#c_literal{val=K},
-			  val=#c_literal{val=V}} || {K,V} <- Pairs],
+			  val=#c_literal{val=V}} || K := V <- M],
     format_1(#c_map{anno=A,arg=#c_literal{val=#{}},es=Cpairs},Ctxt);
 format_1(#c_literal{val=F},_Ctxt) when is_function(F) ->
     {module,M} = erlang:fun_info(F, module),

@@ -1198,9 +1198,7 @@ redirect_phi_1(_PhiVtx, _Args, _SuccFail, _G, _St) ->
 
 digraph_bool_def(G) ->
     Vs = beam_digraph:vertices(G),
-    Ds = [{Dst,Vtx} || {Vtx,#b_set{dst=Dst}} <- Vs],
-    maps:from_list(Ds).
-
+    #{Dst => Vtx || {Vtx,#b_set{dst=Dst}} <- Vs}.
 
 %% ensure_disjoint_paths(G, Vertex1, Vertex2) -> ok.
 %%  Ensure that there is no path from Vertex1 to Vertex2 in
@@ -1378,8 +1376,7 @@ ensure_init(Root, G, G0) ->
     %% Build a map of all variables that are set by instructions in
     %% the digraph. Variables not included in this map have been
     %% defined by code before the code in the digraph.
-    Vars = maps:from_list([{Dst,unset} ||
-                              {_,#b_set{dst=Dst}} <- Vs]),
+    Vars = #{Dst => unset || {_,#b_set{dst=Dst}} <- Vs},
     RPO = beam_digraph:reverse_postorder(G, [Root]),
     ensure_init_1(RPO, Used, G, #{Root=>Vars}).
 
@@ -1403,7 +1400,7 @@ ensure_init_instr(Vtx, Used, G, InitMaps0) ->
             %% originate from a guard, it is possible that a
             %% variable set in the optimized code will be used
             %% here.
-            case [V || {V,unset} <- maps:to_list(VarMap0)] of
+            case [V || V := unset <- VarMap0] of
                 [] ->
                     InitMaps0;
                 [_|_]=Unset0 ->

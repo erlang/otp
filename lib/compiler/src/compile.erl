@@ -1951,9 +1951,8 @@ output_encoding(F, #compile{encoding = Encoding}) ->
 
 diffable(Code0, St) ->
     {Mod,Exp,Attr,Fs0,NumLabels} = Code0,
-    EntryLabels0 = [{Entry,{Name,Arity}} ||
-                       {function,Name,Arity,Entry,_} <- Fs0],
-    EntryLabels = maps:from_list(EntryLabels0),
+    EntryLabels = #{Entry => {Name,Arity} ||
+                      {function,Name,Arity,Entry,_} <- Fs0},
     Fs = [diffable_fix_function(F, EntryLabels) || F <- Fs0],
     Code = {Mod,Exp,Attr,Fs,NumLabels},
     {ok,Code,St}.

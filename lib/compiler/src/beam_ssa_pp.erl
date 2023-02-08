@@ -48,7 +48,7 @@ format_function(#b_function{anno=Anno0,args=Args,
      end,
      io_lib:format("%% Counter = ~p\n", [Counter]),
      [format_anno(Key, Value) ||
-         {Key,Value} <- lists:sort(maps:to_list(Anno))],
+         Key := Value <- maps:iterator(Anno, ordered)],
      io_lib:format("function `~p`:`~p`(~ts) {\n",
                    [M, F, format_args(Args, FuncAnno)]),
      [format_live_interval(Var, FuncAnno) || Var <- Args],
