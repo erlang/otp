@@ -1572,7 +1572,9 @@ connect(Socket, SockAddr) ->
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
       Reason         :: posix() | 'closed' | invalid() | 'already' |
-                        'not_bound';
+                        'not_bound' |
+                        {add_socket,             posix()} |
+                        {update_connect_context, posix()};
 
              (Socket, SockAddr, Handle) ->
                      'ok' |
@@ -1585,7 +1587,9 @@ connect(Socket, SockAddr) ->
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
       Reason         :: posix() | 'closed' | invalid() | 'already' |
-                        'not_bound';
+                        'not_bound' |
+                        {add_socket,             posix()} |
+                        {update_connect_context, posix()};
 
              (Socket, SockAddr, Timeout :: 'infinity') ->
                      'ok' |
@@ -1593,7 +1597,9 @@ connect(Socket, SockAddr) ->
       Socket   :: socket(),
       SockAddr :: sockaddr(),
       Reason   :: posix() | 'closed' | invalid() | 'already' |
-                  'not_bound';
+                  'not_bound' |
+                  {add_socket,             posix()} |
+                  {update_connect_context, posix()};
 
              (Socket, SockAddr, Timeout :: non_neg_integer()) ->
                      'ok' |
@@ -1601,7 +1607,9 @@ connect(Socket, SockAddr) ->
       Socket   :: socket(),
       SockAddr :: sockaddr(),
       Reason   :: posix() | 'closed' | invalid() | 'already' |
-                  'not_bound' | 'timeout'.
+                  'not_bound' | 'timeout' |
+                  {add_socket,             posix()} |
+                  {update_connect_context, posix()}.
 
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
@@ -1719,34 +1727,51 @@ accept(ListenSocket) ->
 -spec accept(ListenSocket, Timeout :: 'nowait') ->
                     {'ok', Socket} |
                     {'select', SelectInfo} |
+          {'completion', CompletionInfo} |
                     {'error', Reason} when
       ListenSocket    :: socket(),
       Socket          :: socket(),
       SelectInfo      :: select_info(),
-      Reason          :: posix() | closed | invalid();
+      CompletionInfo  :: completion_info(),
+      Reason          :: posix() | closed | invalid() |
+                         {create_accept_socket,  posix()} |
+                         {add_accept_socket,     posix()} |
+                         {update_accept_context, posix()};
 
-            (ListenSocket, SelectHandle :: select_handle()) ->
+            (ListenSocket, Handle) ->
                     {'ok', Socket} |
                     {'select', SelectInfo} |
+                    {'completion', CompletionInfo} |
                     {'error', Reason} when
       ListenSocket      :: socket(),
+      Handle            :: select_handle() | completion_handle(),
       Socket            :: socket(),
       SelectInfo        :: select_info(),
-      Reason            :: posix() | 'closed' | invalid();
+      CompletionInfo    :: completion_info(),
+      Reason            :: posix() | 'closed' | invalid() |
+                           {create_accept_socket,  posix()} |
+                           {add_socket,            posix()} |
+                           {update_accept_context, posix()};
 
             (ListenSocket, Timeout :: 'infinity') ->
                     {'ok', Socket} |
                     {'error', Reason} when
       ListenSocket :: socket(),
       Socket       :: socket(),
-      Reason       :: posix() | 'closed' | invalid();
+      Reason       :: posix() | 'closed' | invalid() |
+                      {create_accept_socket,  posix()} |
+                      {add_socket,            posix()} |
+                      {update_accept_context, posix()};
 
             (ListenSocket, Timeout :: non_neg_integer()) ->
                     {'ok', Socket} |
                     {'error', Reason} when
       ListenSocket :: socket(),
       Socket       :: socket(),
-      Reason       :: posix() | 'closed' | invalid() | 'timeout'.
+      Reason       :: posix() | 'closed' | invalid() | 'timeout' |
+                      {create_accept_socket,  posix()} |
+                      {add_socket,            posix()} |
+                      {update_accept_context, posix()}.
 
 accept(?socket(LSockRef), Timeout)
   when is_reference(LSockRef) ->
@@ -1754,23 +1779,25 @@ accept(?socket(LSockRef), Timeout)
         invalid ->
             erlang:error({invalid, {timeout, Timeout}});
         nowait ->
-            SelectHandle = make_ref(),
-            accept_nowait(LSockRef, SelectHandle);
+            Handle = make_ref(),
+            accept_nowait(LSockRef, Handle);
         handle ->
-            SelectHandle = Timeout,
-            accept_nowait(LSockRef, SelectHandle);
+            Handle = Timeout,
+            accept_nowait(LSockRef, Handle);
         Deadline ->
             accept_deadline(LSockRef, Deadline)
     end;
 accept(ListenSocket, Timeout) ->
     erlang:error(badarg, [ListenSocket, Timeout]).
 
-accept_nowait(LSockRef, SelectHandle) ->
-    case prim_socket:accept(LSockRef, SelectHandle) of
+accept_nowait(LSockRef, Handle) ->
+    case prim_socket:accept(LSockRef, Handle) of
         select ->
-            {select, ?SELECT_INFO(accept, SelectHandle)};
+            {select,     ?SELECT_INFO(accept, Handle)};
+        completion ->
+            {completion, ?COMPLETION_INFO(accept, Handle)};
         Result ->
-            accept_result(LSockRef, SelectHandle, Result)
+            accept_result(LSockRef, Handle, Result)
     end.
 
 accept_deadline(LSockRef, Deadline) ->
@@ -1784,6 +1811,22 @@ accept_deadline(LSockRef, Deadline) ->
             receive
                 ?socket_msg(?socket(LSockRef), select, AccRef) ->
                     accept_deadline(LSockRef, Deadline);
+                ?socket_msg(_Socket, abort, {AccRef, Reason}) ->
+                    {error, Reason}
+            after Timeout ->
+                    _ = cancel(LSockRef, accept, AccRef),
+                    {error, timeout}
+            end;
+        completion ->
+            %% Each call is non-blocking, but even then it takes
+            %% *some* time, so just to be sure, recalculate before 
+            %% the receive.
+	    Timeout = timeout(Deadline),
+            receive
+                %% CompletionStatus = {ok, Socket} | {error, Reason}
+                ?socket_msg(?socket(LSockRef), completion,
+                            {AccRef, CompletionStatus}) ->
+                    CompletionStatus;
                 ?socket_msg(_Socket, abort, {AccRef, Reason}) ->
                     {error, Reason}
             after Timeout ->

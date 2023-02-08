@@ -375,6 +375,8 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(not_bound);                \
     GLOBAL_ATOM_DEF(not_found);                \
     GLOBAL_ATOM_DEF(not_owner);                \
+    GLOBAL_ATOM_DEF(num_unexpected_accepts);   \
+    GLOBAL_ATOM_DEF(num_unknown_cmds);         \
     GLOBAL_ATOM_DEF(oactive);		       \
     GLOBAL_ATOM_DEF(ok);                       \
     GLOBAL_ATOM_DEF(oob);                      \
@@ -519,11 +521,15 @@ typedef long ssize_t;
  * Error reason atoms
  */
 
-#define GLOBAL_ERROR_REASON_ATOM_DEFS \
-    GLOBAL_ATOM_DEF(eagain);          \
-    GLOBAL_ATOM_DEF(einval);          \
-    GLOBAL_ATOM_DEF(select_read);     \
-    GLOBAL_ATOM_DEF(select_write)
+#define GLOBAL_ERROR_REASON_ATOM_DEFS           \
+    GLOBAL_ATOM_DEF(add_socket);                \
+    GLOBAL_ATOM_DEF(create_accept_socket);      \
+    GLOBAL_ATOM_DEF(eagain);                    \
+    GLOBAL_ATOM_DEF(einval);                    \
+    GLOBAL_ATOM_DEF(select_read);               \
+    GLOBAL_ATOM_DEF(select_write);              \
+    GLOBAL_ATOM_DEF(update_accept_context);     \
+    GLOBAL_ATOM_DEF(update_connect_context)
 
 
 #define GLOBAL_ATOM_DEF(A) extern ERL_NIF_TERM esock_atom_##A

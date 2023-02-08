@@ -157,5 +157,9 @@ typedef ERL_NIF_TERM (*ESockIOCancelConnect)(ErlNifEnv*       env,
                                              ESockDescriptor* descP,
                                              ERL_NIF_TERM     opRef);
 
+typedef ERL_NIF_TERM (*ESockIOCancelAccept)(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     sockRef,
+                                            ERL_NIF_TERM     opRef);
 
 #endif // SOCKET_IO_H__

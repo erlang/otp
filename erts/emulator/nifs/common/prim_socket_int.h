@@ -89,6 +89,9 @@ typedef int SOCKET; /* A subset of HANDLE */
 #define IS_CLOSING(st)                          \
     (((st) & ESOCK_STATE_CLOSING) != 0)
 
+#define IS_ACCEPTING(st)                        \
+    (((st) & ESOCK_STATE_ACCEPTING) != 0)
+
 #define IS_OPEN(st)                                             \
     (((st) & (ESOCK_STATE_CLOSED | ESOCK_STATE_CLOSING)) == 0)
 
@@ -410,8 +413,21 @@ typedef struct {
     ErlNifMutex*       writeMtx;
     /**/
     unsigned int       writeState; // For debugging
+#ifndef __WIN32__
+    /*
+     * On *none* Windows:
+     * This is intended for the *current* writer.
+     * The queue is intended for *waiting* writers.
+     *
+     * *On* Windows:
+     * We let the I/O Completion Ports handle the queue'ing
+     * so we do not need to keep track which request is active
+     * and which are waiting.
+     * We only use the *queue* as a database.
+     */
     ESockRequestor     currentWriter;
     ESockRequestor*    currentWriterP; // NULL or &currentWriter
+#endif
     ESockRequestQueue  writersQ;
     ESockCounter       writePkgCnt;
     ESockCounter       writePkgMax;
@@ -424,6 +440,7 @@ typedef struct {
     HANDLE                 sendfileHandle;
     ESockSendfileCounters* sendfileCountersP;
 #endif
+
     /* +++ Connector +++ */
     ESockRequestor     connector;
     ESockRequestor*    connectorP; // NULL or &connector
@@ -435,8 +452,21 @@ typedef struct {
     ErlNifMutex*       readMtx;
     /**/
     unsigned int       readState; // For debugging
+#ifndef __WIN32__
+    /*
+     * On *none* Windows:
+     * This is intended for the *current* reader.
+     * The queue is intended for *waiting* readers.
+     *
+     * *On* Windows:
+     * We let the I/O Completion Ports handle the queue'ing
+     * so we do not need to keep track which request is active
+     * and which are waiting.
+     * We only use the *queue* as a database.
+     */
     ESockRequestor     currentReader;
     ESockRequestor*    currentReaderP; // NULL or &currentReader
+#endif
     ESockRequestQueue  readersQ;
     ErlNifBinary       rbuffer;      // DO WE NEED THIS
     Uint32             readCapacity; // DO WE NEED THIS
@@ -447,9 +477,23 @@ typedef struct {
     ESockCounter       readTries;
     ESockCounter       readWaits;
     ESockCounter       readFails;
+
     /* +++ Accept stuff +++ */
+#ifndef __WIN32__
+    /*
+     * On *none* Windows:
+     * This is intended for the *current* acceptor.
+     * The queue is intended for *waiting* acceptors.
+     *
+     * *On* Windows:
+     * We let the I/O Completion Ports handle the queue'ing
+     * so we do not need to keep track which request is active
+     * and which are waiting.
+     * We only use the *queue* as a database.
+     */
     ESockRequestor     currentAcceptor;
     ESockRequestor*    currentAcceptorP; // NULL or &currentAcceptor
+#endif
     ESockRequestQueue  acceptorsQ;
     ESockCounter       accSuccess;
     ESockCounter       accTries;
@@ -602,6 +646,14 @@ extern int esock_select_cancel(ErlNifEnv*             env,
 extern ERL_NIF_TERM esock_cancel_write_select(ErlNifEnv*       env,
                                               ESockDescriptor* descP,
                                               ERL_NIF_TERM     opRef);
+extern ERL_NIF_TERM esock_cancel_read_select(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     opRef);
+extern ERL_NIF_TERM esock_cancel_mode_select(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             ERL_NIF_TERM     opRef,
+                                             int              smode,
+                                             int              rmode);
 
 
 /* *** Request queue functions *** */
@@ -658,7 +710,8 @@ ACTIVATE_NEXT_FUNCS_DEFS
     extern void esock_##O##_push(ErlNifEnv*       env,                 \
                                  ESockDescriptor* descP,               \
                                  ErlNifPid        pid,                 \
-                                 ERL_NIF_TERM     ref);                \
+                                 ERL_NIF_TERM     ref,                 \
+                                 void*            dataP);              \
     extern BOOLEAN_T esock_##O##_pop(ErlNifEnv*       env,     \
                                      ESockDescriptor* descP,   \
                                      ESockRequestor*  reqP);   \
@@ -740,6 +793,10 @@ extern ESockSendfileCounters initESockSendfileCounters;
 
 /* *** message functions ****
  */
+extern void esock_send_wrap_msg(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                ERL_NIF_TERM     cnt);
 extern BOOLEAN_T esock_send_msg(ErlNifEnv*   env,
                                 ErlNifPid*   pid,
                                 ERL_NIF_TERM msg,
@@ -748,6 +805,9 @@ extern ERL_NIF_TERM esock_mk_socket_msg(ErlNifEnv*   env,
                                         ERL_NIF_TERM sockRef,
                                         ERL_NIF_TERM tag,
                                         ERL_NIF_TERM info);
+extern ERL_NIF_TERM esock_mk_socket(ErlNifEnv*   env,
+                                    ERL_NIF_TERM sockRef);
+
 
 /* *** 'close' functions ***
  */

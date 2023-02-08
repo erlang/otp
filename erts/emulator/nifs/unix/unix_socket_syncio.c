@@ -130,6 +130,14 @@ static BOOLEAN_T restore_network_namespace(BOOLEAN_T dbg,
 
 static BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err);
 
+static ERL_NIF_TERM essio_cancel_accept_current(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM essio_cancel_accept_waiting(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ERL_NIF_TERM     opRef,
+                                                const ErlNifPid* selfP);
+
 static ERL_NIF_TERM essio_accept_listening_error(ErlNifEnv*       env,
                                                  ESockDescriptor* descP,
                                                  ERL_NIF_TERM     sockRef,
@@ -1110,7 +1118,7 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
                           ERL_NIF_TERM     sockRef,
                           ERL_NIF_TERM     accRef)
 {
-    ErlNifPid     caller;
+    ErlNifPid caller;
 
     ESOCK_ASSERT( enif_self(env, &caller) != NULL );
 
@@ -1124,7 +1132,7 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
         return esock_make_error_invalid(env, esock_atom_state);
 
     if (descP->currentAcceptorP == NULL) {
-        SOCKET        accSock;
+        SOCKET accSock;
 
         /* We have no active acceptor (and therefore no acceptors in queue)
          */
@@ -1443,7 +1451,7 @@ ERL_NIF_TERM essio_accept_accepting_other(ErlNifEnv*       env,
                                           ErlNifPid        caller)
 {
     if (! esock_acceptor_search4pid(env, descP, &caller)) {
-        esock_acceptor_push(env, descP, caller, ref);
+        esock_acceptor_push(env, descP, caller, ref, NULL);
 	return esock_atom_select;
     } else {
         /* Acceptor already in queue */
@@ -1556,7 +1564,7 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
 
     SET_NONBLOCKING(accDescP->sock);
 
-    descP->writeState |= ESOCK_STATE_CONNECTED;
+    accDescP->writeState |= ESOCK_STATE_CONNECTED;
 
     MUNLOCK(descP->writeMtx);
 
@@ -3016,6 +3024,125 @@ ERL_NIF_TERM essio_cancel_connect(ErlNifEnv*       env,
 
 
 
+/* *** esock_cancel_accept ***
+ *
+ * We have two different cases:
+ *   *) Its the current acceptor
+ *      Cancel the select!
+ *      We need to activate one of the waiting acceptors.
+ *   *) Its one of the acceptors ("waiting") in the queue
+ *      Simply remove the acceptor from the queue.
+ *
+ */
+extern
+ERL_NIF_TERM essio_cancel_accept(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 ERL_NIF_TERM     sockRef,
+                                 ERL_NIF_TERM     opRef)
+{
+    ERL_NIF_TERM res;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_accept(%T), {%d,0x%X} ->"
+            "\r\n   opRef: %T"
+            "\r\n   %s"
+            "\r\n",
+            sockRef,  descP->sock, descP->readState,
+            opRef,
+            ((descP->currentAcceptorP == NULL)
+             ? "without acceptor" : "with acceptor")) );
+
+    if (! IS_OPEN(descP->readState)) {
+
+        res = esock_make_error_closed(env);
+
+    } else if (descP->currentAcceptorP == NULL) {
+
+        res = esock_atom_not_found;
+
+    } else {
+        ErlNifPid self;
+
+        ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+        if (COMPARE_PIDS(&self, &descP->currentAcceptor.pid) == 0) {
+            if (COMPARE(opRef, descP->currentAcceptor.ref) == 0)
+                res = essio_cancel_accept_current(env, descP, sockRef);
+            else
+                res = esock_atom_not_found;
+        } else {
+            res = essio_cancel_accept_waiting(env, descP, opRef, &self);
+        }
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_cancel_accept(%T) -> done with result:"
+            "\r\n   %T"
+            "\r\n", sockRef, res) );
+
+    return res;
+}
+
+
+/* The current acceptor process has an ongoing select we first must
+ * cancel. Then we must re-activate the "first" (the first
+ * in the acceptor queue).
+ */
+static
+ERL_NIF_TERM essio_cancel_accept_current(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM res;
+
+    ESOCK_ASSERT( DEMONP("essio_cancel_accept_current -> current acceptor",
+                         env, descP, &descP->currentAcceptor.mon) == 0);
+    MON_INIT(&descP->currentAcceptor.mon);
+    res = esock_cancel_read_select(env, descP, descP->currentAcceptor.ref);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_accept_current(%T) {%d} -> cancel res: %T"
+            "\r\n", sockRef, descP->sock, res) );
+
+    if (!esock_activate_next_acceptor(env, descP, sockRef)) {
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_cancel_accept_current(%T) {%d} -> "
+                "no more acceptors\r\n",
+                sockRef, descP->sock) );
+
+        descP->readState &= ~ESOCK_STATE_ACCEPTING;
+
+        descP->currentAcceptorP = NULL;
+    }
+
+    return res;
+}
+
+
+/* These processes have not performed a select, so we can simply
+ * remove them from the acceptor queue.
+ */
+static
+ERL_NIF_TERM essio_cancel_accept_waiting(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         ERL_NIF_TERM     opRef,
+                                         const ErlNifPid* selfP)
+{
+    /* unqueue request from (acceptor) queue */
+
+    if (esock_acceptor_unqueue(env, descP, &opRef, selfP)) {
+        return esock_atom_ok;
+    } else {
+        return esock_atom_not_found;
+    }
+}
+
+
+
 /* ----------------------------------------------------------------------
  *  U t i l i t y   F u n c t i o n s
  * ----------------------------------------------------------------------
@@ -3048,7 +3175,7 @@ BOOLEAN_T send_check_writer(ErlNifEnv*       env,
                     "\r\n", descP->sock, ref) );
 
             if (! esock_writer_search4pid(env, descP, &caller)) {
-                esock_writer_push(env, descP, caller, ref);
+                esock_writer_push(env, descP, caller, ref, NULL);
                 *checkResult = esock_atom_select;
             } else {
                 /* Writer already in queue */
@@ -4397,7 +4524,7 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
             if (! esock_reader_search4pid(env, descP, &caller)) {
                 if (COMPARE(ref, esock_atom_zero) == 0)
                     goto done_ok;
-                esock_reader_push(env, descP, caller, ref);
+                esock_reader_push(env, descP, caller, ref, NULL);
                 *checkResult = esock_atom_select;
             } else {
                 /* Reader already in queue */
