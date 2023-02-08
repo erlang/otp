@@ -2514,7 +2514,7 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>The difference between returning <c>{stop, Reason}</c> and
 	<c>{shutdown, Reason}</c> (from <c>Module:init/1</c>) is that
-	'shutdown' results in a "silent" termination. </p>
+	<c>shutdown</c> results in a "silent" termination. </p>
       </desc>
     </func>
 
