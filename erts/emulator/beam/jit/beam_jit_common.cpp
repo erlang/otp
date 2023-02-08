@@ -1217,11 +1217,11 @@ void beam_jit_return_to_trace(Process *c_p) {
             erts_inspect_frame(cpp, &return_to_address);
 
             if (BeamIsReturnTrace(return_to_address)) {
-                cpp += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_to_address)) {
-                cpp += CP_SIZE + 1;
+                cpp += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+            } else if (BeamIsReturnCallAccTrace(return_to_address)) {
+                cpp += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_to_address)) {
-                cpp += CP_SIZE;
+                cpp += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
                 break;
             }

@@ -415,11 +415,11 @@ ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) {
         erts_inspect_frame(scanner, &return_address);
 
         if (BeamIsReturnTrace(return_address)) {
-            scanner += CP_SIZE + 2;
-        } else if (BeamIsReturnTimeTrace(return_address)) {
-            scanner += CP_SIZE + 1;
+            scanner += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+        } else if (BeamIsReturnCallAccTrace(return_address)) {
+            scanner += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
         } else if (BeamIsReturnToTrace(return_address)) {
-            scanner += CP_SIZE;
+            scanner += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
         } else {
             return return_address;
         }
@@ -622,15 +622,14 @@ next_catch(Process* c_p, Eterm *reg) {
                     ASSERT_MFA(mfa);
                     erts_trace_exception(c_p, mfa, reg[3], reg[1], tracer);
                 }
-
-                ptr += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_address)) {
-                ptr += CP_SIZE + 1;
+                ptr += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+            } else if (BeamIsReturnCallAccTrace(return_address)) {
+                ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
                 have_return_to_trace = 1; /* Record next cp */
                 return_to_trace_address = NULL;
 
-                ptr += CP_SIZE;
+                ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
                 /* This is an ordinary call frame: if the previous frame was a
                  * return_to trace we should record this CP as a return_to
@@ -801,11 +800,11 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
             erts_inspect_frame(ptr, &return_address);
 
             if (BeamIsReturnTrace(return_address)) {
-                ptr += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_address)) {
-                ptr += CP_SIZE + 1;
+                ptr += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+            } else if (BeamIsReturnCallAccTrace(return_address)) {
+                ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
-                ptr += CP_SIZE;
+                ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
                 if (return_address != prev) {
                     ErtsCodePtr adjusted_address;

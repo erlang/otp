@@ -154,28 +154,29 @@ void BeamModuleAssembler::emit_return_trace() {
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 2));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_TRACE_FRAME_SZ));
     emit_return();
 }
 
-void BeamModuleAssembler::emit_i_return_time_trace() {
+void BeamModuleAssembler::emit_i_call_trace_return() {
     /* Pass prev_info if present (is a CP), otherwise null. */
     a.ldr(ARG2, getYRef(0));
-    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
 
     a.tst(ARG2, imm(_CPMASK));
     a.sub(ARG2, ARG2, imm(sizeof(ErtsCodeInfo)));
-    a.csel(ARG2, ARG2, ARG3, arm::CondCode::kEQ);
+    a.csel(ARG2, ARG2, ARG4, arm::CondCode::kEQ);
+    a.ldr(ARG3, getYRef(1));
 
     ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
     emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_trace_time_return);
+    runtime_call<3>(erts_call_trace_return);
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 1));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ));
     emit_return();
 }
 
@@ -188,7 +189,7 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 0));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_TO_TRACE_FRAME_SZ));
     emit_return();
 }
 

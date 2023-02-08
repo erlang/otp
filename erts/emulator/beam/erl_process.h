@@ -871,9 +871,10 @@ erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_ETS_OWNED_TABLES               6
 #define ERTS_PSD_ETS_FIXED_TABLES               7
 #define ERTS_PSD_DIST_ENTRY	                8
-#define ERTS_PSD_PENDING_SUSPEND                9 /* keep last... */
+#define ERTS_PSD_PENDING_SUSPEND                9
+#define ERTS_PSD_CALL_MEMORY_BP	               10
 
-#define ERTS_PSD_SIZE				10
+#define ERTS_PSD_SIZE				11
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -2233,9 +2234,9 @@ erts_psd_set(Process *p, int ix, void *data)
   ((struct saved_calls *) erts_psd_set((P), ERTS_PSD_SAVED_CALLS_BUF, (void *) (SCB)))
 
 #define ERTS_PROC_GET_CALL_TIME(P) \
-  ((process_breakpoint_time_t *) erts_psd_get((P), ERTS_PSD_CALL_TIME_BP))
+  ((process_breakpoint_trace_t *) erts_psd_get((P), ERTS_PSD_CALL_TIME_BP))
 #define ERTS_PROC_SET_CALL_TIME(P, PBT) \
-  ((process_breakpoint_time_t *) erts_psd_set((P), ERTS_PSD_CALL_TIME_BP, (void *) (PBT)))
+  ((process_breakpoint_trace_t *) erts_psd_set((P), ERTS_PSD_CALL_TIME_BP, (void *) (PBT)))
 
 #define ERTS_PROC_GET_DELAYED_GC_TASK_QS(P) \
     ((ErtsProcSysTaskQs *) erts_psd_get((P), ERTS_PSD_DELAYED_GC_TASK_QS))
@@ -2256,6 +2257,11 @@ erts_psd_set(Process *p, int ix, void *data)
     ((void *) erts_psd_get((P), ERTS_PSD_PENDING_SUSPEND))
 #define ERTS_PROC_SET_PENDING_SUSPEND(P, PS) \
     ((void *) erts_psd_set((P), ERTS_PSD_PENDING_SUSPEND, (void *) (PS)))
+
+#define ERTS_PROC_GET_CALL_MEMORY(P) \
+    ((process_breakpoint_trace_t *) erts_psd_get((P), ERTS_PSD_CALL_MEMORY_BP))
+#define ERTS_PROC_SET_CALL_MEMORY(P, PBT) \
+    ((process_breakpoint_trace_t *) erts_psd_set((P), ERTS_PSD_CALL_MEMORY_BP, (void *) (PBT)))
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
 ERTS_GLB_INLINE Eterm erts_proc_set_error_handler(Process *p, Eterm handler);

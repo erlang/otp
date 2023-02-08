@@ -13069,7 +13069,7 @@ delete_process(Process* p)
 {
     ErtsPSD *psd;
     struct saved_calls *scb;
-    process_breakpoint_time_t *pbt;
+    process_breakpoint_trace_t *pbt;
     Uint32 block_rla_ref = (Uint32) (Uint) p->u.terminate;
 
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
@@ -13090,6 +13090,9 @@ delete_process(Process* p)
     }
 
     pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
+    if (pbt)
+        erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+    pbt = ERTS_PROC_SET_CALL_MEMORY(p, NULL);
     if (pbt)
         erts_free(ERTS_ALC_T_BPD, (void *) pbt);
 

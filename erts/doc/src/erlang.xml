@@ -12943,6 +12943,21 @@ improper_end</pre>
               <seemfa marker="#trace_pattern/3">
               <c>erlang:trace_pattern/3</c></seemfa>.</p>
           </item>
+          <tag><c>call_memory</c></tag>
+          <item>
+            <p>Returns the accumulated number of words allocated by this function.
+              Accumulation stops at the next memory traced function: if there
+              are <c>outer</c>, <c>middle</c> and <c>inner</c> functions each
+              allocating 3 words, but only <c>outer</c> is traced, it will report
+              9 allocated words. If <c>outer</c> and <c>inner</c> are traced,
+              6 words are reported for <c>outer</c> and 3 for <c>inner</c>.
+              When function is not traced, <c>false</c> is returned.
+              Returned tuple is <c>[{Pid, Count, Words}]</c>,
+              for each process that executed the function.</p>
+            <p>See also
+              <seemfa marker="#trace_pattern/3">
+              <c>erlang:trace_pattern/3</c></seemfa>.</p>
+          </item>
           <tag><c>all</c></tag>
           <item>
             <p>Returns a list containing the
@@ -13245,15 +13260,15 @@ improper_end</pre>
           </item>
           <tag><c>restart</c></tag>
           <item>
-            <p>For the <c><anno>FlagList</anno></c> options <c>call_count</c>
-              and <c>call_time</c>: restarts
+            <p>For the <c><anno>FlagList</anno></c> options <c>call_count</c>,
+              <c>call_time</c> and <c>call_memory</c>: restarts
               the existing counters. The behavior is undefined
               for other <c><anno>FlagList</anno></c> options.</p>
           </item>
           <tag><c>pause</c></tag>
           <item>
             <p>For the <c><anno>FlagList</anno></c> options
-              <c>call_count</c> and <c>call_time</c>: pauses
+              <c>call_count</c>, <c>call_time</c> and <c>call_memory</c>: pauses
               the existing counters. The behavior is undefined for
               other <c><anno>FlagList</anno></c> options.</p>
           </item>
@@ -13322,6 +13337,20 @@ improper_end</pre>
               The counters are stored for each call traced process.</p>
             <p>If call time tracing is started while already running,
               the count and time restart from zero. To pause
+              running counters, use <c><anno>MatchSpec</anno> == pause</c>.
+              Paused and running counters can be restarted from zero with
+              <c><anno>MatchSpec</anno> == restart</c>.</p>
+            <p>To read the counter value, use
+              <seemfa marker="#trace_info/2">
+              <c>erlang:trace_info/2</c></seemfa>.</p>
+          </item>
+          <tag><c>call_memory</c></tag>
+          <item>
+            <p>Starts (<c><anno>MatchSpec</anno> == true</c>) or stops
+              (<c><anno>MatchSpec</anno> == false</c>) call memory
+              tracing for all types of function calls.</p>
+            <p>If call memory tracing is started while already running,
+              counters and allocations restart from zero. To pause
               running counters, use <c><anno>MatchSpec</anno> == pause</c>.
               Paused and running counters can be restarted from zero with
               <c><anno>MatchSpec</anno> == restart</c>.</p>

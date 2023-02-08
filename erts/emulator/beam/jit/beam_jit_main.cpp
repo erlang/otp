@@ -68,7 +68,7 @@ ErtsCodePtr beam_unloaded_fun;
 ErtsCodePtr beam_return_to_trace;   /* OpCode(i_return_to_trace) */
 ErtsCodePtr beam_return_trace;      /* OpCode(i_return_trace) */
 ErtsCodePtr beam_exception_trace;   /* UGLY also OpCode(i_return_trace) */
-ErtsCodePtr beam_return_time_trace; /* OpCode(i_return_time_trace) */
+ErtsCodePtr beam_call_trace_return; /* OpCode(i_call_trace_return) */
 
 static JitAllocator *jit_allocator;
 
@@ -222,10 +222,10 @@ void beamasm_init() {
              0,
              op_i_return_to_trace,
              &beam_return_to_trace},
-            {am_return_time_trace,
+            {am_call_trace_return,
              0,
-             op_i_return_time_trace,
-             &beam_return_time_trace}};
+             op_i_call_trace_return,
+             &beam_call_trace_return}};
 
     Eterm mod_name;
     ERTS_DECL_AM(erts_beamasm);

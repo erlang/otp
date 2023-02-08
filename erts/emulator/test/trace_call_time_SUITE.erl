@@ -96,7 +96,7 @@ all() ->
 %% Tests basic call time trace
 basic(Config) when is_list(Config) ->
     P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
-    M = 1000,
+    M = 900,
     %%
     1 = erlang:trace_pattern({?MODULE,seq,  '_'}, true, [call_time]),
     2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_time]),
@@ -298,12 +298,14 @@ combo(Config) when is_list(Config) ->
     2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_time]),
     2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, MetaMs, [{meta,MetaTracer}]),
     2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_count]),
+    2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_memory]),
 
     % bifs
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, [], [local]),
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_time]),
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, MetaMs, [{meta,MetaTracer}]),
     2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_count]),
+    2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_memory]),
 
     1 = erlang:trace(Self, true, [{tracer,LocalTracer} | Flags]),
     %%
@@ -319,12 +321,14 @@ combo(Config) when is_list(Config) ->
 
     %% check empty trace_info for ?MODULE:seq_r/3
     {all,[_|_]=TraceInfo}     = erlang:trace_info({?MODULE,seq_r,3}, all),
+    io:format("TraceInfo=~p\n",[TraceInfo]),
     {value,{traced,local}}    = lists:keysearch(traced, 1, TraceInfo),
     {value,{match_spec,[]}}   = lists:keysearch(match_spec, 1, TraceInfo),
     {value,{meta,MetaTracer}} = lists:keysearch(meta, 1, TraceInfo),
     {value,{meta_match_spec,MetaMs}} = lists:keysearch(meta_match_spec, 1, TraceInfo),
     {value,{call_count,0}} = lists:keysearch(call_count, 1, TraceInfo),
     {value,{call_time,[]}} = lists:keysearch(call_time, 1, TraceInfo),
+    {value,{call_memory,[]}} = lists:keysearch(call_memory, 1, TraceInfo),
 
     %% check empty trace_info for erlang:term_to_binary/1
     {all, [_|_] = TraceInfoBif} = erlang:trace_info({erlang, term_to_binary, 1}, all),
@@ -334,6 +338,7 @@ combo(Config) when is_list(Config) ->
     {value,{meta_match_spec,MetaMs}} = lists:keysearch(meta_match_spec, 1, TraceInfoBif),
     {value,{call_count,0}} = lists:keysearch(call_count, 1, TraceInfoBif),
     {value,{call_time,[]}} = lists:keysearch(call_time, 1, TraceInfoBif),
+    {value,{call_memory,[]}} = lists:keysearch(call_memory, 1, TraceInfoBif),
 
     %%
     [3,2,1] = seq_r(1, 3, fun(X) -> X+1 end),

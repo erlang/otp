@@ -27,7 +27,7 @@ return_trace() {
     erts_trace_return(c_p, mfa, r(0), ERTS_TRACER_FROM_ETERM(E+2)/* tracer */);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     SWAPIN;
-    E += 3;
+    E += 1 + BEAM_RETURN_TRACE_FRAME_SZ;
     $RETURN();
     Goto(*I);
     //| -no_next
@@ -49,7 +49,7 @@ i_generic_breakpoint() {
     //| -no_next
 }
 
-i_return_time_trace() {
+i_call_trace_return() {
     const ErtsCodeInfo *cinfo;
 
     if (is_CP(E[1])) {
@@ -59,10 +59,10 @@ i_return_time_trace() {
     }
 
     SWAPOUT;
-    erts_trace_time_return(c_p, cinfo);
+    erts_call_trace_return(c_p, cinfo, E[2]);
     SWAPIN;
 
-    E += 2;
+    E += 1 + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
     $RETURN();
     Goto(*I);
     //| -no_next
@@ -94,7 +94,7 @@ i_return_to_trace() {
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
         SWAPIN;
     }
-    E += 1;
+    E += 1 + BEAM_RETURN_TO_TRACE_FRAME_SZ;
     $RETURN();
     Goto(*I);
     //| -no_next

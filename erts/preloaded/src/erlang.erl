@@ -389,7 +389,7 @@
        {meta, module(), term() } |
        {meta_match_spec, trace_match_spec() | false | undefined} |
        {call_count, non_neg_integer() | boolean() | undefined} |
-       {call_time, [{pid(), non_neg_integer(),
+       {call_time | call_memory, [{pid(), non_neg_integer(),
 		     non_neg_integer(), non_neg_integer()}] | boolean() | undefined}.
 
 -type trace_info_flag() ::
@@ -2124,7 +2124,7 @@ trace_delivered(_Tracee) ->
       Function :: atom(),
       Arity :: arity(),
       Item :: flags | tracer | traced | match_spec
-            | meta | meta_match_spec | call_count | call_time | all,
+            | meta | meta_match_spec | call_count | call_time | call_memory | all,
       Res :: trace_info_return().
 trace_info(_PidPortFuncEvent, _Item) ->
     erlang:nif_error(undefined).
@@ -2828,7 +2828,8 @@ trace_pattern(MFA, MatchSpec) ->
       meta | {meta, Pid :: pid()} |
       {meta, TracerModule :: module(), TracerState :: term()} |
       call_count |
-      call_time.
+      call_time |
+      call_memory.
 
 -spec erlang:trace_pattern(send, MatchSpec, []) -> non_neg_integer() when
       MatchSpec :: (MatchSpecList :: trace_match_spec())
