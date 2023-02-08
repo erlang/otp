@@ -1081,6 +1081,7 @@ add_ssl_opts_config(Config) ->
 	{ok, _} = file:read_file_info(KrnlDir),
 	SSL_VSN = get_app_vsn(ssl),
 	VSN_CRYPTO = get_app_vsn(crypto),
+	VSN_ASN1 = get_app_vsn(asn1),
 	VSN_PKEY = get_app_vsn(public_key),
 
 	SslDir = filename:join([LibDir, "ssl-" ++ SSL_VSN]),
@@ -1095,6 +1096,7 @@ add_ssl_opts_config(Config) ->
 		  " [{kernel, \"~s\"},~n"
 		  "  {stdlib, \"~s\"},~n"
 		  "  {crypto, \"~s\"},~n"
+		  "  {asn1, \"~s\"},~n"
 		  "  {public_key, \"~s\"},~n"
 		  "  {ssl, \"~s\"}]}.~n",
 		  [case catch erlang:system_info(otp_release) of
@@ -1105,13 +1107,23 @@ add_ssl_opts_config(Config) ->
 		   KRNL_VSN,
 		   STDL_VSN,
 		   VSN_CRYPTO,
+                   VSN_ASN1,
 		   VSN_PKEY,
 		   SSL_VSN]),
 	ok = file:close(RelFile),
-	ok = systools:make_script(Script, []),
+        ct:pal("Bootscript: ~p", [Script]),
+	case systools:make_script(Script, []) of
+            ok ->
+                ok;
+            NotOk ->
+                ct:pal("Bootscript problem: ~p", [NotOk]),
+                erlang:error(NotOk)
+        end,
 	[{app_opts, "-boot " ++ Script} | Config]
     catch
-	_:_ ->
+	Class : Reason : Stacktrace ->
+            ct:pal("Exception while generating bootscript:~n~p",
+                   [{Class, Reason, Stacktrace}]),
 	    [{app_opts, "-pa \"" ++ filename:dirname(code:which(ssl))++"\""}
 	     | add_comment_config(
 		 "Bootscript wasn't used since the test wasn't run on an "
