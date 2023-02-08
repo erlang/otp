@@ -1967,7 +1967,7 @@ format_status(Status) ->
           <item>
             <p>
               Initialization failed.
-	      An exit signal with</p>
+	      An exit signal with exit reason</p>
 	      <taglist>
 		<tag>stop:</tag>
 		<item><c>Reason</c></item>
