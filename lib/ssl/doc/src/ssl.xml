@@ -1154,7 +1154,10 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	<name name="customize_hostname_check"/>
 	<desc>
 	  <p> Customizes the hostname verification of the peer certificate, as different protocols that use
-	  TLS such as HTTP or LDAP may want to do it differently, for possible options see
+	  TLS such as HTTP or LDAP may want to do it differently. For example the get standard HTTPS handling
+	  provide the already implememnted fun from the public_key application for HTTPS.
+	  <c>{customize_hostname_check,  [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}]}</c>
+	  For futher description of customize options see
 	  <seemfa marker="public_key:public_key#pkix_verify_hostname/3">public_key:pkix_verify_hostname/3</seemfa> </p>
 	</desc>
       </datatype>
