@@ -359,7 +359,7 @@ handle_info({CloseTag, Socket}, StateName,
 handle_info({ssl_tls, Port, Type, {Major, Minor}, Data}, StateName,
             #state{static_env = #static_env{data_tag = Protocol},
                    ssl_options = #{ktls := true}} = State0) ->
-    Len = size(Data),
+    Len = byte_size(Data),
     handle_info({Protocol, Port, <<Type, Major, Minor, Len:16, Data/binary>>}, StateName, State0);
 handle_info(Msg, StateName, State) ->
     ssl_gen_statem:handle_info(Msg, StateName, State).
