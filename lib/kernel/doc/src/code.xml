@@ -162,34 +162,6 @@ zip:create("mnesia-4.4.7.ez",
      would list the contents of a directory inside an archive.
      See <seeerl marker="erts:erl_prim_loader"><c>erl_prim_loader(3)</c></seeerl>.</p>
 
-    <p>An application archive file and a regular application directory
-     can coexist. This can be useful when it is needed to have
-     parts of the application as regular files. A typical case is the
-     <c>priv</c> directory, which must reside as a regular directory
-     to link in drivers dynamically and start port programs.
-     For other applications that do not need this, directory
-     <c>priv</c> can reside in the archive and the files
-     under the directory <c>priv</c> can be read through
-     <c>erl_prim_loader</c>.</p>
-
-    <p>When a directory is added to the code path and
-     when the entire code path is (re)set, the code server
-     decides which subdirectories in an application that are to be
-     read from the archive and which that are to be read as regular
-     files. If directories are added or removed afterwards, the file
-     access can fail if the code path is not updated (possibly to the
-     same path as before, to trigger the directory resolution
-     update).</p>
-
-     <p>For each directory on the second level in the application archive
-     (<c>ebin</c>, <c>priv</c>, <c>src</c>, and so on), the code server first
-     chooses the regular directory if it exists and second from the
-     archive. Function <c>code:lib_dir/2</c> returns the path to the
-     subdirectory. For example, <c>code:lib_dir(megaco,ebin)</c> can return
-     <c>/otp/root/lib/megaco-3.9.1.1.ez/megaco-3.9.1.1/ebin</c> while
-     <c>code:lib_dir(megaco,priv)</c> can return
-     <c>/otp/root/lib/megaco-3.9.1.1/priv</c>.</p>
-
     <p>When an <c>escript</c> file contains an archive, there are
      no restrictions on the name of the <c>escript</c> and no restrictions
      on how many applications that can be stored in the embedded

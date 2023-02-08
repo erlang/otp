@@ -1118,12 +1118,6 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     {ok, _} = zip:create(Archive, [Base],
 			       [{compress, []}, {cwd, PrivDir}]),
 
-    %% Create a directory and a file outside of the archive.
-    OtherFile = filename:join([RootDir,VsnBase,"other","other.txt"]),
-    OtherContents = ?MODULE:module_info(md5),
-    filelib:ensure_dir(OtherFile),
-    ok = file:write_file(OtherFile, OtherContents),
-
     %% Set up ERL_LIBS and start a peer node.
     {ok, Peer, Node} = ?CT_PEER(["-env", "ERL_LIBS", RootDir]),
     CodePath = rpc:call(Node, code, get_path, []),
@@ -1139,7 +1133,7 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     %% Get the lib dir for the app.
     AppLibDir = rpc:call(Node, code, lib_dir, [App]),
     io:format("AppLibDir: ~p\n", [AppLibDir]),
-    AppLibDir = filename:join(RootDir, VsnBase),
+    AppLibDir = filename:join(Archive, Base),
 
     %% Access the app priv dir
     AppPrivDir = rpc:call(Node, code, priv_dir, [App]),
@@ -1147,13 +1141,6 @@ do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
     io:format("AppPrivFile: ~p\n", [AppPrivFile]),
     {ok, _Bin, _} =
 	rpc:call(Node, erl_prim_loader, get_file, [AppPrivFile]),
-
-    %% Read back the other text file.
-    OtherDirPath = rpc:call(Node, code, lib_dir, [App,other]),
-    OtherFilePath = filename:join(OtherDirPath, "other.txt"),
-    io:format("OtherFilePath: ~p\n", [OtherFilePath]),
-    {ok, OtherContents, _} =
-	rpc:call(Node, erl_prim_loader, get_file, [OtherFilePath]),
 
     %% Use the app
     Tab = code_archive_tab,

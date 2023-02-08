@@ -780,7 +780,7 @@ create_namedb(Path, Root) ->
     init_namedb(lists:reverse(Path), Db),
 
     case lookup_name("erts", Db) of
-        {ok, _, _, _} ->
+        {ok, _} ->
             %% erts is part of code path
             ok;
         false ->
@@ -828,33 +828,8 @@ insert_name(Name, Dir, Db) ->
     do_insert_name(Name, AppDir, Db).
 
 do_insert_name(Name, AppDir, Db) ->
-    {Base, SubDirs} = archive_subdirs(AppDir),
-    ets:insert(Db, {Name, AppDir, Base, SubDirs}),
+    ets:insert(Db, {Name, AppDir}),
     true.
-
-archive_subdirs(AppDir) ->
-    Base = filename:basename(AppDir),
-    Dirs = case split_base(Base) of
-	       {Name, _} -> [Name, Base];
-	    _ -> [Base]
-	end,
-    Ext = archive_extension(),
-    try_archive_subdirs(AppDir ++ Ext, Base, Dirs).
-
-try_archive_subdirs(Archive, Base, [Dir | Dirs]) ->
-    ArchiveDir = filename:append(Archive, Dir),
-    case erl_prim_loader:list_dir(ArchiveDir) of
-	{ok, Files} ->
-	    IsDir = fun(RelFile) ->
-			    File = filename:append(ArchiveDir, RelFile),
-			    is_dir(File)
-		    end,
-	    {Dir, lists:filter(IsDir, Files)};
-	_ ->
-	    try_archive_subdirs(Archive, Base, Dirs)
-    end;
-try_archive_subdirs(_Archive, Base, []) ->
-    {Base, []}.
 
 %%
 %% Delete a directory from Path.
@@ -945,21 +920,7 @@ del_ebin(Dir) ->
     filename:join(del_ebin_1(filename:split(Dir))).
 
 del_ebin_1([Parent,App,"ebin"]) ->
-    case filename:basename(Parent) of
-	[] ->
-	    %% Parent is the root directory
-	    [Parent,App];
-	_ ->
-	    Ext = archive_extension(),
-	    case filename:basename(Parent, Ext) of
-		Parent ->
-		    %% Plain directory.
-		    [Parent,App];
-		Archive ->
-		    %% Archive.
-		    [Archive]
-	    end
-    end;
+    [Parent,App];
 del_ebin_1(Path = [_App,"ebin"]) ->
     del_ebin_1(filename:split(absname(filename:join(Path))));
 del_ebin_1(["ebin"]) ->
@@ -987,7 +948,7 @@ delete_name_dir(Dir, Db) ->
 	Name ->
 	    Dir0 = del_ebin(Dir),
 	    case lookup_name(Name, Db) of
-		{ok, Dir0, _Base, _SubDirs} ->
+		{ok, Dir0} ->
 		    ets:delete(Db, Name), 
 		    true;
 		_ -> false
@@ -996,7 +957,7 @@ delete_name_dir(Dir, Db) ->
 
 lookup_name(Name, Db) ->
     case ets:lookup(Db, Name) of
-	[{Name, Dir, Base, SubDirs}] -> {ok, Dir, Base, SubDirs};
+	[{Name, Dir}] -> {ok, Dir};
 	_ -> false
     end.
 
@@ -1009,28 +970,19 @@ do_dir(Root,root_dir,_) ->
     Root;
 do_dir(_Root,compiler_dir,NameDb) ->
     case lookup_name("compiler", NameDb) of
-	{ok, Dir, _Base, _SubDirs} -> Dir;
+	{ok, Dir} -> Dir;
 	_  -> ""
     end;
 do_dir(_Root,{lib_dir,Name},NameDb) ->
     case catch lookup_name(to_list(Name), NameDb) of
-	{ok, Dir, _Base, _SubDirs} -> Dir;
+	{ok, Dir} -> Dir;
 	_         -> {error, bad_name}
     end;
 do_dir(_Root,{lib_dir,Name,SubDir0},NameDb) ->
     SubDir = atom_to_list(SubDir0),
     case catch lookup_name(to_list(Name), NameDb) of
-	{ok, Dir, Base, SubDirs} ->
-	    case lists:member(SubDir, SubDirs) of
-		true ->
-		    %% Subdir is in archive
-		    filename:join([Dir ++ archive_extension(),
-				   Base,
-				   SubDir]);
-		false ->
-		    %% Subdir is regular directory
-		    filename:join([Dir, SubDir])
-	    end;
+	{ok, Dir} ->
+	    filename:join([Dir, SubDir]);
 	_  -> 
 	    {error, bad_name}
     end;
