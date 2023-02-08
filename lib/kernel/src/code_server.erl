@@ -289,22 +289,13 @@ handle_call({replace_path,Name,Dir}, _From,
 handle_call(get_path, _From, S) ->
     {reply,S#state.path,S};
 
-handle_call({load_module,PC,Mod,File,Purge}, From, S) when is_atom(Mod) ->
+handle_call({load_module,PC,Mod,File,Purge,EnsureLoaded}, From, S)
+  when is_atom(Mod) ->
     case Purge andalso erlang:module_loaded(Mod) of
 	true -> do_purge(Mod);
 	false -> ok
     end,
-    try_finish_module(File, Mod, PC, From, S);
-
-handle_call({ensure_loaded,Mod}, From, St) when is_atom(Mod) ->
-    case erlang:module_loaded(Mod) of
-	true ->
-	    {reply,{module,Mod},St};
-	false when St#state.mode =:= interactive ->
-	    ensure_loaded(Mod, From, St);
-	false ->
-	    {reply,{error,embedded},St}
-    end;
+    try_finish_module(File, Mod, PC, EnsureLoaded, From, S);
 
 handle_call({delete,Mod}, _From, St) when is_atom(Mod) ->
     case catch erlang:delete_module(Mod) of
@@ -349,6 +340,20 @@ handle_call(get_mode, _From, S=#state{mode=Mode}) ->
 
 handle_call({finish_loading,Prepared,EnsureLoaded}, _From, S) ->
     {reply,finish_loading(Prepared, EnsureLoaded, S),S};
+
+%% Handles pending on_load events when we cannot find any
+%% object code in code:ensure_loaded/1. It's possible that
+%% the user has loaded a binary that has an on_load
+%% function, and in that case we need to suspend them until
+%% the on_load function finishes.
+handle_call({sync_ensure_on_load, Mod}, From, S) ->
+    handle_pending_on_load(
+        fun(_, St) ->
+                case erlang:module_loaded(Mod) of
+                    true -> {reply, {module, Mod}, St};
+                    false -> {reply, {error, nofile}, St}
+                end
+        end, Mod, From, S);
 
 handle_call(Other,_From, S) ->
     error_msg(" ** Codeserver*** ignoring ~w~n ",[Other]),
@@ -1077,9 +1082,21 @@ add_paths(Where,[Dir|Tail],Path,NameDb) ->
 add_paths(_,_,Path,_) ->
     {ok,Path}.
 
-try_finish_module(File, Mod, PC, From, St) ->
+try_finish_module(File, Mod, PC, true, From, St) ->
     Action = fun(_, S) ->
-		     try_finish_module_1(File, Mod, PC, From, S)
+                    case erlang:module_loaded(Mod) of
+                        true ->
+                            {reply,{module,Mod},S};
+                        false when S#state.mode =:= interactive ->
+                            try_finish_module_1(File, Mod, PC, From, S);
+                        false ->
+                            {reply,{error,embedded},S}
+                    end
+             end,
+    handle_pending_on_load(Action, Mod, From, St);
+try_finish_module(File, Mod, PC, false, From, St) ->
+    Action = fun(_, S) ->
+		    try_finish_module_1(File, Mod, PC, From, S)
 	     end,
     handle_pending_on_load(Action, Mod, From, St).
 
@@ -1113,30 +1130,6 @@ try_finish_module_2(File, Mod, PC, From, St0) ->
 int_list([H|T]) when is_integer(H) -> int_list(T);
 int_list([_|_])                    -> false;
 int_list([])                       -> true.
-
-ensure_loaded(Mod, From, St0) ->
-    Action = fun(_, S) ->
-		     case erlang:module_loaded(Mod) of
-			 true ->
-			     {reply,{module,Mod},S};
-			 false ->
-			     ensure_loaded_1(Mod, From, S)
-		     end
-	     end,
-    handle_pending_on_load(Action, Mod, From, St0).
-
-ensure_loaded_1(Mod, From, St) ->
-    case get_object_code(St, Mod) of
-	error ->
-	    {reply,{error,nofile},St};
-	{Mod,Binary,File} ->
-            case erlang:prepare_loading(Mod, Binary) of
-                {error, _} = Error ->
-                    {reply, Error, St};
-                PC ->
-	          try_finish_module_1(File, Mod, PC, From, St)
-            end
-    end.
 
 get_object_code(#state{path=Path}, Mod) when is_atom(Mod) ->
     ModStr = atom_to_list(Mod),

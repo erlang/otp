@@ -186,7 +186,7 @@ objfile_extension() ->
 load_file(Mod) when is_atom(Mod) ->
     case get_object_code(Mod) of
         error -> {error,nofile};
-        {Mod,Binary,File} -> load_module(Mod, File, Binary, false)
+        {Mod,Binary,File} -> load_module(Mod, File, Binary, false, false)
     end.
 
 -spec ensure_loaded(Module) -> {module, Module} | {error, What} when
@@ -195,7 +195,12 @@ load_file(Mod) when is_atom(Mod) ->
 ensure_loaded(Mod) when is_atom(Mod) ->
     case erlang:module_loaded(Mod) of
         true -> {module, Mod};
-        false -> call({ensure_loaded,Mod})
+        false ->
+            case get_object_code(Mod) of
+                error -> call({sync_ensure_on_load, Mod});
+                {Mod,Binary,File} ->
+                    load_module(Mod, File, Binary, false, true)
+            end
     end.
 
 %% XXX File as an atom is allowed only for backwards compatibility.
@@ -213,7 +218,7 @@ load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
             FileName = code_server:absname(FileName0),
             case erl_prim_loader:get_file(FileName) of
                 {ok,Bin,_} ->
-                    load_module(M, FileName, Bin, false);
+                    load_module(M, FileName, Bin, false, false);
                 error ->
                     {error, nofile}
             end;
@@ -231,16 +236,16 @@ load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
 load_binary(Mod, File, Bin)
   when is_atom(Mod), (is_list(File) orelse is_atom(File)), is_binary(Bin) ->
     case modp(File) of
-        true -> load_module(Mod, File, Bin, true);
+        true -> load_module(Mod, File, Bin, true, false);
         false -> {error,badarg}
     end.
 
-load_module(Mod, File, Bin, Purge) ->
+load_module(Mod, File, Bin, Purge, EnsureLoaded) ->
     case erlang:prepare_loading(Mod, Bin) of
         {error,_}=Error ->
             Error;
         Prepared ->
-            call({load_module, Prepared, Mod, File, Purge})
+            call({load_module, Prepared, Mod, File, Purge, EnsureLoaded})
     end.
 
 modp(Atom) when is_atom(Atom) -> true;
