@@ -134,6 +134,7 @@
 #define sock_connect_O(s, a, al, sent, o) \
     ctrl.connect((s), (struct sockaddr*) (a), (al), NULL, 0, (sent), (o))
 #define sock_errno()                    WSAGetLastError()
+// #define sock_listen(s, b)               listen((s), (b))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_open_O(domain, type, proto) \
     WSASocket((domain), (type), (proto), NULL, 0, WSA_FLAG_OVERLAPPED)
@@ -1148,6 +1149,10 @@ ERL_NIF_TERM esaio_connect_dgram(ErlNifEnv*       env,
 {
     return enif_make_badarg(env);
 }
+
+
+
+/* *** esaio_listen *** */
 
 
 /* *******************************************************************

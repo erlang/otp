@@ -941,7 +941,7 @@ static unsigned long one_value  = 1;
 #define sock_getopt(s,t,n,v,l)          getsockopt((s),(t),(n),(v),(l))
 #define sock_htons(x)                   htons((x))
 #define sock_htonl(x)                   htonl((x))
-// #define sock_listen(s, b)               listen((s), (b))
+#define sock_listen(s, b)               listen((s), (b))
 // #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_ntohs(x)                   ntohs((x))
 // #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
@@ -3089,6 +3089,9 @@ static ERL_NIF_TERM esock_cancel_recv(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     opRef);
+static ERL_NIF_TERM esock_listen(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 int              backlog);
 
 static ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
                                      ESockDescriptor*   descP,
@@ -5319,9 +5322,6 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
                         int                argc,
                         const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ESockDescriptor* descP;
     int              backlog;
     ERL_NIF_TERM     ret;
@@ -5360,9 +5360,50 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return ret;
-#endif // #ifdef __WIN32__  #else
 }
 
+
+
+/* ========================================================================
+ */
+static
+ERL_NIF_TERM esock_listen(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          int              backlog)
+{
+    
+    /*
+     * Verify that we are in the proper state
+     */
+
+    SSDBG( descP,
+           ("SOCKET", "esock_listen(%d) -> verify open\r\n", descP->sock) );
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+
+#if defined(__WIN32__)
+    SSDBG( descP,
+           ("SOCKET", "esock_listen(%d) -> verify bound\r\n", descP->sock) );
+    if (! IS_BOUND(descP->writeState))
+        return esock_make_error(env, esock_atom_not_bound);
+#endif
+
+    /*
+     * And attempt to make socket listening
+     */
+    
+    SSDBG( descP, ("SOCKET", "esock_listen(%d) -> try listen with"
+                   "\r\n   backlog: %d"
+                   "\r\n", descP->sock, backlog) );
+
+    if ((sock_listen(descP->sock, backlog)) < 0)
+        return esock_make_error_errno(env, sock_errno());
+
+    descP->readState |= ESOCK_STATE_LISTENING;
+
+    return esock_atom_ok;
+
+}
 
 
 
@@ -15215,7 +15256,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.open_plain     = esaio_open_plain;
     io_backend.bind           = esaio_bind;
     io_backend.connect        = esaio_connect;
-    io_backend.listen         = NULL;
+    io_backend.listen         = esock_listen;
     io_backend.accept         = NULL;
     io_backend.send           = NULL;
     io_backend.sendto         = NULL;
@@ -15242,7 +15283,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.open_plain     = essio_open_plain;
     io_backend.bind           = essio_bind;
     io_backend.connect        = essio_connect;
-    io_backend.listen         = essio_listen;
+    io_backend.listen         = esock_listen;
     io_backend.accept         = essio_accept;
     io_backend.send           = essio_send;
     io_backend.sendto         = essio_sendto;

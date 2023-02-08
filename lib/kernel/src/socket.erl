@@ -1571,7 +1571,8 @@ connect(Socket, SockAddr) ->
       SockAddr       :: sockaddr(),
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
-      Reason         :: posix() | 'closed' | invalid() | 'already';
+      Reason         :: posix() | 'closed' | invalid() | 'already' |
+                        'not_bound';
 
              (Socket, SockAddr, Handle) ->
                      'ok' |
@@ -1583,21 +1584,24 @@ connect(Socket, SockAddr) ->
       Handle         :: select_handle() | completion_handle(),
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
-      Reason         :: posix() | 'closed' | invalid() | 'already';
+      Reason         :: posix() | 'closed' | invalid() | 'already' |
+                        'not_bound';
 
              (Socket, SockAddr, Timeout :: 'infinity') ->
                      'ok' |
                      {'error', Reason} when
       Socket   :: socket(),
       SockAddr :: sockaddr(),
-      Reason   :: posix() | 'closed' | invalid() | 'already';
+      Reason   :: posix() | 'closed' | invalid() | 'already' |
+                  'not_bound';
 
              (Socket, SockAddr, Timeout :: non_neg_integer()) ->
                      'ok' |
                      {'error', Reason} when
       Socket   :: socket(),
       SockAddr :: sockaddr(),
-      Reason   :: posix() | 'closed' | invalid() | 'already' | 'timeout'.
+      Reason   :: posix() | 'closed' | invalid() | 'already' |
+                  'not_bound' | 'timeout'.
 
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
@@ -1682,7 +1686,7 @@ connect(Socket) ->
 
 -spec listen(Socket) -> 'ok' | {'error', Reason} when
       Socket  :: socket(),
-      Reason  :: posix() | 'closed'.
+      Reason  :: posix() | 'closed' | 'not_bound'.
 
 listen(Socket) ->
     listen(Socket, ?ESOCK_LISTEN_BACKLOG_DEFAULT).

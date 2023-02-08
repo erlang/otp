@@ -70,7 +70,7 @@
 // #define sock_close_event(e)             /* do nothing */
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_errno()                    errno
-#define sock_listen(s, b)               listen((s), (b))
+// #define sock_listen(s, b)               listen((s), (b))
 #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
@@ -1099,33 +1099,7 @@ BOOLEAN_T verify_is_connected(ESockDescriptor* descP, int* err)
 
 
 
-/* ========================================================================
- */
-extern
-ERL_NIF_TERM essio_listen(ErlNifEnv*       env,
-                          ESockDescriptor* descP,
-                          int              backlog)
-{
-    
-    /*
-     * Verify that we are in the proper state
-     */
-
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    /*
-     * And attempt to make socket listening
-     */
-    
-    if ((sock_listen(descP->sock, backlog)) < 0)
-        return esock_make_error_errno(env, sock_errno());
-
-    descP->readState |= ESOCK_STATE_LISTENING;
-
-    return esock_atom_ok;
-
-}
+/* *** essio_listen *** */
 
 
 /* ========================================================================

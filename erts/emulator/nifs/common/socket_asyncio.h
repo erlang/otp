@@ -57,9 +57,11 @@ extern ERL_NIF_TERM esaio_connect(ErlNifEnv*       env,
                                   ERL_NIF_TERM     connRef,
                                   ESockAddress*    addrP,
                                   SOCKLEN_T        addrLen);
+/*
 extern ERL_NIF_TERM esaio_listen(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  int              backlog);
+*/
 extern ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     sockRef,

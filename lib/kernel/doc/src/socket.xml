@@ -46,7 +46,11 @@
       <p>
 	Some functions allow for an <i>asynchronous</i> call.
 	This is achieved by setting the <c>Timeout</c> argument to
-	<c>nowait</c>.
+	<c>nowait</c> or to a
+	(<seetype marker="socket#select_handle">select</seetype>
+	or
+	<seetype marker="socket#completion_handle">completion</seetype>)
+	<i>handle</i>.
       </p>
       <p>
 	For instance, if calling the
@@ -67,7 +71,8 @@
       </taglist>
       <p>
 	<c>CompletionInfo</c> contains the
-	<seetype marker="socket#select_handle">CompletionHandle</seetype> and
+	<seetype marker="socket#completion_handle">CompletionHandle</seetype>
+	and
 	<c>SelectInfo</c> contains the
 	<seetype marker="socket#select_handle">SelectHandle</seetype>.
       </p>
@@ -1676,6 +1681,11 @@
 	  If a connection attempt is already in progress
 	  (by another process), <c>{error, already}</c> is returned.
 	</p>
+	<note>
+	  <p>
+	    On <i>Windows</i> the socket has to be <em>bound</em>.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -1692,6 +1702,9 @@
 	  after <c><anno>Timeout</anno></c> milliseconds.
 	</p>
 	<note>
+	  <p>
+	    On <i>Windows</i> the socket has to be <em>bound</em>.
+	  </p>
 	  <p>
 	    Note that when this call has returned
 	    <c>{error, timeout}</c> the connection state of the socket
@@ -1763,6 +1776,9 @@
 	  <seemfa marker="#cancel/2"><c>cancel/2</c></seemfa>
           to cancel the operation.
 	</p>
+	<note>
+	  <p>On <i>Windows</i> the socket has to be <em>bound</em>.</p>
+	</note>
      </desc>
     </func>
 
@@ -1789,6 +1805,11 @@
 	  but that incurs more overhead since the connect address
 	  and time-out are processed in vain.
 	</p>
+	<note>
+	  <p>
+	    <em>Not</em> used on <i>Windows</i>.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -2294,6 +2315,9 @@
       <fsummary>Listen for connections on a socket.</fsummary>
       <desc>
         <p>Listen for connections on a socket.</p>
+	<note>
+	  <p>On <i>Windows</i> the socket has to be <em>bound</em>.</p>
+	</note>
       </desc>
     </func>
 
