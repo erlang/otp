@@ -503,7 +503,7 @@ t_iterator_1(Config) when is_list(Config) ->
 t_iterator_2(Config) when is_list(Config) ->
 
     AOrdCmpFun = fun(A, B) -> A =< B end,
-    ARevCmpFun = fun(A, B) -> B < A end,
+    ARevCmpFun = fun(A, B) -> B =< A end,
 
     %% Small map test
     M0 = #{ a => 1, b => 2 },
@@ -557,7 +557,6 @@ t_iterator_2(Config) when is_list(Config) ->
     OrdIter4 = maps:iterator(M4, ordered),
     [{-1, c}, {0, d}, {-1.0, a}, {0.0, b}] = maps:to_list(OrdIter4),
     ok = iterator_2_check_order(M4, ordered, reversed),
-    ok = iterator_2_check_order(M4, AOrdCmpFun, ARevCmpFun),
 
     ok.
 

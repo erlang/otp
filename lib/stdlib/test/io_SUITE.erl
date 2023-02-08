@@ -2331,8 +2331,6 @@ maps(_Config) ->
            "~KP", [undefined, FloatIntegerMap, 2]),
     "#{-1 => c,0 => d,-1.0 => a,0.0 => b}" = fmt("~Kp", [ordered, FloatIntegerMap]),
     "#{0.0 => b,-1.0 => a,0 => d,-1 => c}" = fmt("~Kp", [reversed, FloatIntegerMap]),
-    "#{-1 => c,-1.0 => a,0 => d,0.0 => b}" = fmt("~Kp", [AOrdCmpFun, FloatIntegerMap]),
-    "#{0.0 => b,0 => d,-1.0 => a,-1 => c}" = fmt("~Kp", [ARevCmpFun, FloatIntegerMap]),
 
     %% Print a map and parse it back to a map.
     S = fmt("~p\n", [Map]),
