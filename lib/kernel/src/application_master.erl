@@ -75,7 +75,7 @@ call(AppMaster, Req) ->
     AppMaster ! {Req, Tag, self()},
     receive 
 	{'DOWN', Ref, process, _, _Info} ->
-	    ok;
+	    error;
 	{Tag, Res} ->
 	    erlang:demonitor(Ref, [flush]),
 	    Res

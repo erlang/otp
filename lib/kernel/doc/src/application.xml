@@ -181,6 +181,16 @@
       </desc>
     </func>
     <func>
+      <name name="get_supervisor" arity="1" since="OTP 25.1"/>
+      <fsummary>Get the supervisor of an application.</fsummary>
+      <desc>
+        <p>Returns the <c><anno>Pid</anno></c> of the supervisor running
+          at the root of <c><anno>Application</anno></c>.</p>
+        <p>If the specified application does not exist or does not
+          define a callback module, the function returns <c>undefined</c>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="load" arity="1" since=""/>
       <name name="load" arity="2" since=""/>
       <fsummary>Load an application.</fsummary>

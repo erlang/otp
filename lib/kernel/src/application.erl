@@ -28,7 +28,7 @@
 -export([set_env/1, set_env/2, set_env/3, set_env/4, unset_env/2, unset_env/3]).
 -export([get_env/1, get_env/2, get_env/3, get_all_env/0, get_all_env/1]).
 -export([get_key/1, get_key/2, get_all_key/0, get_all_key/1]).
--export([get_application/0, get_application/1, info/0]).
+-export([get_application/0, get_application/1, get_supervisor/1, info/0]).
 -export([start_type/0]).
 
 -export_type([start_type/0]).
@@ -460,6 +460,20 @@ get_application(Pid) when is_pid(Pid) ->
     end;
 get_application(Module) when is_atom(Module) ->
     application_controller:get_application_module(Module).
+
+-spec get_supervisor(Application) -> 'undefined' | {'ok', Pid} when
+      Pid :: pid(),
+      Application :: atom().
+
+get_supervisor(Application) when is_atom(Application) ->
+    case application_controller:get_master(Application) of
+        undefined -> undefined;
+        Master ->
+            case application_master:get_child(Master) of
+                {Root, _App} -> {ok, Root};
+                error -> undefined
+            end
+    end.
 
 -spec start_type() -> StartType | 'undefined' | 'local' when
       StartType :: start_type().
