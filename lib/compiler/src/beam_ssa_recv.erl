@@ -284,7 +284,8 @@ scan_add_call(Call, CallLbl, SuccLbl, Caller, #scan{module=ModMap}=State0) ->
                           {CallTranslation, CallInverse, Args},
                           State0),
 
-    {RetTranslation, RetInverse} = scan_translate_return(Rets, Dst),
+    {RetTranslation, RetInverse} =
+        scan_translate_return(Rets, Dst, CallTranslation),
     scan_add_edge({Callee, ?RETURN_BLOCK},
                   {Caller, SuccLbl},
                   {RetTranslation, RetInverse, Params},
@@ -297,9 +298,10 @@ scan_translate_call([Arg | Args], [Param | Params], ArgToParams, ParamToArgs) ->
 scan_translate_call([], [], ArgToParams, ParamToArgs) ->
     {ArgToParams, ParamToArgs}.
 
-scan_translate_return(Rets, Dst) ->
+scan_translate_return(Rets, Dst, CallerToCallee0) ->
+    CallerToCallee = CallerToCallee0#{ Dst => Rets },
     CalleeToCaller = scan_translate_return_1(Rets, Dst, #{}),
-    {CalleeToCaller, #{ Dst => Rets }}.
+    {CalleeToCaller, CallerToCallee}.
 
 scan_translate_return_1([Ret | Rets], Dst, CalleeToCaller) ->
     scan_translate_return_1(Rets, Dst, CalleeToCaller#{ Ret => Dst });
