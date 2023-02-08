@@ -327,6 +327,23 @@
     <xsl:attribute name="margin-right">1mm</xsl:attribute>
   </xsl:attribute-set>
 
+  <xsl:attribute-set name="change-title">
+    <xsl:attribute name="space-before">0.5em</xsl:attribute>
+    <xsl:attribute name="border-style">solid</xsl:attribute>
+    <xsl:attribute name="border-bottom-width">0mm</xsl:attribute>
+    <xsl:attribute name="border-color">#495057</xsl:attribute>
+    <xsl:attribute name="background-color">#4682b4</xsl:attribute>
+    <xsl:attribute name="font-weight">bold</xsl:attribute>
+    <xsl:attribute name="color">#fefefe</xsl:attribute>
+    <xsl:attribute name="padding-before">1mm</xsl:attribute>
+    <xsl:attribute name="padding-after">0.5mm</xsl:attribute>
+    <xsl:attribute name="padding-left">1mm</xsl:attribute>
+    <xsl:attribute name="padding-right">1mm</xsl:attribute>
+    <xsl:attribute name="margin-left">1mm</xsl:attribute>
+    <xsl:attribute name="margin-right">1mm</xsl:attribute>
+    <xsl:attribute name="font-size">1.33em</xsl:attribute>
+  </xsl:attribute-set>
+
   <xsl:attribute-set name="module-header">
     <xsl:attribute name="keep-with-next.within-page">always</xsl:attribute>
     <xsl:attribute name="space-after">2em</xsl:attribute>
