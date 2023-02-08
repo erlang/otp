@@ -28,3 +28,16 @@
 	inconsistent state.
       </p>
     </section>
+
+    <section>
+      <title>Archive fallback directory</title>
+      <p>
+	This feature makes archives more unpredictable, since you might
+	have a application folder that contains files that overrides the files in the archive.
+	It also makes packaging archives not as straight forward as you would have
+	to bundle files in an additional archive layer. We will change this
+	so that all files related to an App can be packaged in the .ez archive.
+	Additionally dynamically linked libraries such as NIFs will also be loaded
+	from the archive.
+      </p>
+    </section>
