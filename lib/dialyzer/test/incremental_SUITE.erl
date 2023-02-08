@@ -202,7 +202,7 @@ add_and_remove_test(Config) ->
     ToPath = fun(Modules) -> [PrivDir ++ atom_to_list(Module) ++ ".beam" || Module <- Modules] end,
     Plt = filename:join(PrivDir, "add_and_remove.iplt"),
     compile_all(DataDir, PrivDir),
-    Opts = [{init_plt, [Plt]}, {report_mode, verbose}],
+    Opts = [{init_plt, [Plt]}, {report_mode, verbose}, {warnings, [no_unknown]}],
     Run = fun(Mods) -> run_dialyzer_for_modules_analyzed(incremental, [erlang_module() | ToPath(Mods)], Opts) end,
     AllSubSets = [Mods || Mods <- all_subsets(all_mods())],
     %Pairs = [{I, N} || I <- AllSubSets, N <- AllSubSets], % All pairs takes ~ 10 mins to run
@@ -278,7 +278,7 @@ incremental_test(Config) ->
     Change = fun(M) -> change_module(DataDir, PrivDir, M) end,
     Plt = filename:join(PrivDir, "incremental.iplt"),
     compile_all(DataDir, PrivDir),
-    Opts = [{init_plt, [Plt]}, {report_mode, verbose}],
+    Opts = [{init_plt, [Plt]}, {report_mode, verbose}, {warnings, [no_unknown]}],
     AllWarnings = run_dialyzer(incremental, [erlang_module() | ToPath(all_mods())], Opts),
     Run = fun() ->
                   run_dialyzer_for_modules_analyzed(incremental,
@@ -584,7 +584,7 @@ report_legal_warnings_added(Config) ->
     ToPath = fun(Modules) -> [PrivDir ++ atom_to_list(Module) ++ ".beam" || Module <- Modules] end,
     Plt = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME) ++ ".iplt"),
     compile_all(DataDir, PrivDir),
-    Opts = [{init_plt, [Plt]}, {report_mode, verbose}],
+    Opts = [{init_plt, [Plt]}, {report_mode, verbose}, {warnings, [no_unknown]}],
     _WarningsBeforeTouchingFile = run_dialyzer(incremental, [erlang_module() | ToPath(all_mods())], Opts),
     Opts1 = [{init_plt, [Plt]}, {report_mode, verbose}, {warnings, [unknown]}, {metrics_file, MetricsFile}],
     {_WarningsAfterTouchingFile, Stdout} = run_dialyzer_capture(incremental, [erlang_module() | ToPath(all_mods())], Opts1),
@@ -615,7 +615,7 @@ report_legal_warnings_removed(Config) ->
     compile_all(DataDir, PrivDir),
     Opts = [{init_plt, [Plt]}, {report_mode, verbose}, {warnings, [unknown]}],
     _ = run_dialyzer(incremental, [erlang_module() | ToPath(all_mods())], Opts),
-    Opts1 = [{init_plt, [Plt]}, {report_mode, verbose}, {metrics_file, MetricsFile}],
+    Opts1 = [{init_plt, [Plt]}, {report_mode, verbose}, {metrics_file, MetricsFile}, {warnings, [no_unknown]}],
     {_, Stdout} = run_dialyzer_capture(incremental, [erlang_module() | ToPath(all_mods())], Opts1),
 
     ExpectedLine =
@@ -713,9 +713,10 @@ all_mods() -> [m1,m2,m3,m4,m5,m6].
 
 run_dialyzer(Analysis, Files, Opts) ->
     dialyzer:run([{analysis_type, Analysis},
-		  {files, Files},
-		  {from, byte_code}|
-		  Opts]).
+      {files, Files},
+      {from, byte_code},
+      {warnings, [no_unknown]}|
+      Opts]).
 
 run_dialyzer_for_modules_analyzed(Analysis, Files, Opts) ->
     dialyzer:run_report_modules_analyzed([{analysis_type, Analysis},

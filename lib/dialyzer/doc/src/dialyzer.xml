@@ -386,19 +386,17 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <item>
         <p>Suppress warnings for unused functions.</p>
       </item>
+      <tag><c>-Wno_unknown</c></tag>
+      <item>
+        <p>Suppress warnings about unknown functions and types. The default is to
+     warn about unknown functions and types when setting the exit
+     status. When using Dialyzer from Erlang, warnings about unknown functions
+     and types are returned.</p>
+      </item>
       <tag><c>-Wunderspecs</c> (***)</tag>
       <item>
         <p>Warn about underspecified functions (the specification is strictly
           more allowing than the success typing).</p>
-      </item>
-      <tag><c>-Wunknown</c> (***)</tag>
-      <item>
-        <p>Let warnings about unknown functions and types affect the
-          exit status of the command-line version. The default is to ignore
-          warnings about unknown functions and types when setting the exit
-          status. When using Dialyzer from Erlang, warnings about unknown
-          functions and types are returned; the default is not to return
-          these warnings.</p>
       </item>
       <tag><c>-Wunmatched_returns</c> (***)</tag>
       <item>

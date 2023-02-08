@@ -115,7 +115,8 @@ build_xdg_plt(Config) ->
       fun() ->
         ?assertMatch([], dialyzer:run(
                            [{analysis_type, incremental},
-                            {apps, [erts]}])),
+                            {apps, [erts]},
+                            {warnings, [no_unknown]}])),
         ?assertMatch(
            {ok,_}, file:read_file(
                      filename:join(
@@ -178,7 +179,7 @@ local_fun_same_as_callback(Config) when is_list(Config) ->
                          EBeam
                  end,
     Plt = filename:join(PrivDir, "plt_bad_behaviour.iplt"),
-    Opts = [{from, byte_code}],
+    Opts = [{from, byte_code}, {warnings, [no_unknown]}],
     [] = dialyzer:run([{analysis_type, incremental},
                        {files, [Beam, ErlangBeam]},
                        {output_plt, Plt}] ++ Opts),
@@ -587,7 +588,9 @@ check_plt_deps(Config, TestName, DependerSrc, ExpectedTypeDepsInPltUnsorted) ->
     PltFile = filename:join(PrivDir, atom_to_list(TestName) ++ ".iplt"),
     {ok, DepsBeamFile} = compile(Config, type_deps, []),
     {ok, DependerBeamFile} = compile(Config, DependerSrc, depender, []),
-    [] = run_dialyzer(incremental, [DependerBeamFile, DepsBeamFile], [{init_plt, PltFile}, {output_plt, PltFile}]),
+    [] = run_dialyzer(incremental,
+                      [DependerBeamFile, DepsBeamFile],
+                      [{init_plt, PltFile}, {output_plt, PltFile}, {warnings, [no_unknown]}]),
     {_ResPlt, #iplt_info{mod_deps = DepsByModule}} = dialyzer_iplt:plt_and_info_from_file(PltFile),
 
     ActualTypeDepsInPlt =
@@ -623,9 +626,10 @@ compile(Config, Prog, Module, CompileOpts) ->
 
 run_dialyzer(Analysis, Files, Opts) ->
     dialyzer:run([{analysis_type, Analysis},
-		  {files, Files},
-		  {from, byte_code} |
-		  Opts]).
+                  {files, Files},
+                  {from, byte_code},
+                  {warnings, [no_unknown]} |
+                  Opts]).
 
 
 m_src_without_warning() -> <<"
@@ -721,7 +725,8 @@ reading_from_one_plt_and_writing_to_another_does_not_mutate_the_input_plt(Config
     ?assertMatch([], dialyzer:run([{analysis_type, incremental},
                        {files, [Beam1]},
                        {init_plt, Plt1},
-                       {from, byte_code}])),
+                       {from, byte_code},
+                       {warnings, [no_unknown]}])),
 
     % Now PLT v1 should exist
     Plt1ContentsBefore = dialyzer_plt:get_all_contracts(dialyzer_iplt:from_file(Plt1)),
@@ -746,7 +751,8 @@ reading_from_one_plt_and_writing_to_another_does_not_mutate_the_input_plt(Config
                        {files, [Beam2]},
                        {init_plt, Plt1},
                        {output_plt, Plt2},
-                       {from, byte_code}])),
+                       {from, byte_code},
+                       {warnings, [no_unknown]}])),
 
     % Now PLT v1 should be the same, but PLT v2 should have the changes in it
     Plt1ContentsAfter = dialyzer_plt:get_all_contracts(dialyzer_iplt:from_file(Plt1)),
@@ -775,7 +781,8 @@ reading_from_and_writing_to_one_plt_mutates_it(Config) when is_list(Config) ->
     ?assertMatch([], dialyzer:run([{analysis_type, incremental},
                        {files, [Beam1]},
                        {init_plt, Plt},
-                       {from, byte_code}])),
+                       {from, byte_code},
+                       {warnings, [no_unknown]}])),
 
     % Now PLT should exist after running incremental mode
     PltContentsBefore = dialyzer_plt:get_all_contracts(dialyzer_iplt:from_file(Plt)),
@@ -799,7 +806,8 @@ reading_from_and_writing_to_one_plt_mutates_it(Config) when is_list(Config) ->
                        {files, [Beam2]},
                        {init_plt, Plt},
                        {output_plt, Plt},
-                       {from, byte_code}])),
+                       {from, byte_code},
+                       {warnings, [no_unknown]}])),
 
     % Now PLT should have been mutated to contain the new version of module 'foo'
     PltContentsAfter = dialyzer_plt:get_all_contracts(dialyzer_iplt:from_file(Plt)),

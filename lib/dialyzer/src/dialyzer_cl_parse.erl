@@ -594,6 +594,11 @@ warning_options_msg() ->
   -Wno_undefined_callbacks
      Suppress warnings about behaviours that have no -callback attributes for
      their callbacks.
+  -Wno_unknown
+     Suppress warnings about unknown functions and types. The default is to
+     warn about unknown functions and types when setting the exit
+     status. When using Dialyzer from Erlang, warnings about unknown functions
+     and types are returned.
   -Wunmatched_returns ***
      Include warnings for function calls which ignore a structured return
      value or do not match against one of many possible return value(s).
@@ -610,13 +615,6 @@ warning_options_msg() ->
      of the specification.
   -Woverlapping_contract ***
      Warn about overloaded functions whose specification include types that overlap.
-  -Wunknown ***
-     Let warnings about unknown functions and types affect the
-     exit status of the command line version. The default is to ignore
-     warnings about unknown functions and types when setting the exit
-     status. When using the Dialyzer from Erlang, warnings about unknown
-     functions and types are returned; the default is not to return
-     such warnings.
 
 The following options are also available but their use is not recommended:
 (they are mostly for Dialyzer developers and internal debugging)

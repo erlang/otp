@@ -108,7 +108,8 @@ build_xdg_plt(Config) ->
       fun() ->
         ?assertMatch([], dialyzer:run(
                            [{analysis_type, plt_build},
-                            {apps, [erts]}])),
+                            {apps, [erts]},
+                            {warnings, [no_unknown]}])),
         ?assertMatch(
            {ok,_}, file:read_file(
                      filename:join(
@@ -243,7 +244,8 @@ update_plt(Config) ->
     Opts = [{check_plt, true}, {from, byte_code}],
     [] = dialyzer:run([{analysis_type, plt_build},
                        {files, [Beam, ErlangBeam]},
-                       {output_plt, Plt}] ++ Opts),
+                       {output_plt, Plt},
+                       {warnings, [no_unknown]}] ++ Opts),
 
     Prog2 = <<"-module(plt_gc).
                -export([two/0]).
@@ -296,7 +298,8 @@ local_fun_same_as_callback(Config) when is_list(Config) ->
     Opts = [{check_plt, true}, {from, byte_code}],
     [] = dialyzer:run([{analysis_type, plt_build},
                        {files, [Beam, ErlangBeam]},
-                       {output_plt, Plt}] ++ Opts),
+                       {output_plt, Plt},
+                       {warnings, [no_unknown]}] ++ Opts),
 
     Prog2 =
         <<"-module(bad_child).
@@ -342,15 +345,18 @@ remove_plt(Config) ->
         dialyzer:run([{analysis_type, plt_build},
                       {files, [Beam1, Beam2]},
                       {get_warnings, true},
-                      {output_plt, Plt}] ++ Opts),
+                      {output_plt, Plt},
+                      {warnings, [no_unknown]}] ++ Opts),
 
     [] = dialyzer:run([{init_plt, Plt},
                        {files, [Beam2]},
-                       {analysis_type, plt_remove}]),
+                       {analysis_type, plt_remove},
+                       {warnings, [no_unknown]}]),
 
     [] =  dialyzer:run([{analysis_type, succ_typings},
                         {files, [Beam1]},
-                        {init_plt, Plt}] ++ Opts),
+                        {init_plt, Plt},
+                        {warnings, [no_unknown]}] ++ Opts),
     ok.
 
 %% ERL-283, OTP-13979. As of OTP-14323 this test no longer does what
@@ -567,7 +573,8 @@ create(Config, PltFile) ->
     _ = file:delete(PltFile),
     [] = dialyzer:run([{files,Files},
                        {output_plt, PltFile},
-                       {analysis_type, plt_build}]),
+                       {analysis_type, plt_build},
+                       {warnings, [no_unknown]}]),
     BeamFile.
 
 succ(PltFile, BeamFile2) ->
@@ -922,10 +929,10 @@ compile(Config, Prog, Module, CompileOpts) ->
 
 run_dialyzer(Analysis, Files, Opts) ->
     dialyzer:run([{analysis_type, Analysis},
-		  {files, Files},
-		  {from, byte_code} |
-		  Opts]).
-
+                  {files, Files},
+                  {from, byte_code},
+                  {warnings, [no_unknown]} |
+                  Opts]).
 
 m_src_without_warning() -> <<"
   -module(m).
