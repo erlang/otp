@@ -1597,15 +1597,30 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
                 This since setting <c>SO_REUSEADDR</c> on Windows more or less
                 has the same behavior as setting both <c>SO_REUSEADDR</c> and
                 <c>SO_REUSEPORT</c> on BSD. This behavior was introduced as
-                of OTP @OTP-18324@.
+                of OTP @OTP-18344@.
               </p>
-              <p>
-                Between OTP 25.0 and up to the predecessor of OTP @OTP-18324@,
-                the <c>SO_REUSEADDR</c> option was set on Windows if
-                <c>{reuseaddr, true}</c> was set. Prior to OTP 25.0, the
-                <c>{reuseaddr, true}</c> option on Windows was silently
-                ignored.
-              </p>
+              <change>
+                <p>
+                  Previous behavior on Windows:
+                </p>
+                <list>
+                  <item>
+                    Prior to OTP 25.0, the <c>{reuseaddr, true}</c> option was
+                    silently ignored.
+                  </item>
+                  <item>
+                    Between OTP 25.0 and up to the predecessor of OTP 25.2,
+                    the underlying <c>SO_REUSEADDR</c> socket option was set
+                    if <c>{reuseaddr, true}</c> was set.
+                  </item>
+                  <item>
+                    Between OTP 25.2 and up to the predecessor of OTP @OTP-18344@,
+                    the underlying <c>SO_REUSEADDR</c> socket option was only
+                    set on UDP sockets if <c>{reuseaddr, true}</c> was set, and
+                    silently ignored on other sockets.
+                  </item>
+                </list>
+              </change>
               <p>
                 See also the
                 <seeerl marker="#option-exclusiveaddruse"><c>exclusiveaddruse</c></seeerl>
@@ -1630,7 +1645,7 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
                 This since setting <c>SO_REUSEADDR</c> on Windows more or less
                 has the same behavior as setting both <c>SO_REUSEADDR</c> and
                 <c>SO_REUSEPORT</c> on BSD. The <c>reuseport</c> option was
-                introduced as of OTP @OTP-18324@.
+                introduced as of OTP @OTP-18344@.
               </p>
               <p>
                 See also the

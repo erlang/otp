@@ -1149,7 +1149,7 @@
   <xsl:template match="change">
     <xsl:param name="partnum"/>
     <fo:block xsl:use-attribute-sets="note-warning">
-      <fo:block xsl:use-attribute-sets="note-title">
+      <fo:block xsl:use-attribute-sets="change-title">
 	<xsl:text>Change:</xsl:text>
       </fo:block>
       <fo:block xsl:use-attribute-sets="note-warning-content">
