@@ -40,7 +40,7 @@
 	 on_load_deleted/1,
 	 big_boot_embedded/1,
          module_status/1,
-	 get_mode/1,
+	 get_mode/1, code_path_cache/1,
 	 normalized_paths/1, mult_embedded_flags/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
@@ -62,7 +62,7 @@ all() ->
      replace_path, load_file, load_abs, ensure_loaded,
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
      all_available, load_binary, dir_req, object_code, set_path_file,
-     upgrade,
+     upgrade, code_path_cache,
      sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
      ext_mod_dep, clash, where_is_file,
      purge_stacktrace, mult_lib_roots,
@@ -314,6 +314,68 @@ replace_path(Config) when is_list(Config) ->
     true = code:set_path(P),			%Reset path
     ok = file:del_dir(NewAppDir),
 
+    ok.
+
+code_path_cache(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    non_existing = code:which(?TESTMOD), % verify dummy name not in path
+    code:purge(?TESTMOD), % ensure no previous version in memory
+    code:delete(?TESTMOD),
+    code:purge(?TESTMOD),
+
+    Original = code:get_path(),
+    Dir = filename:join(PrivDir, "myebin"),
+    filelib:ensure_path(Dir),
+    ToBeReplacedDir1 = filename:join(PrivDir, "tobereplaced-1/ebin"),
+    ToBeReplacedDir2 = filename:join(PrivDir, "tobereplaced-2/ebin"),
+    filelib:ensure_path(ToBeReplacedDir1),
+    filelib:ensure_path(ToBeReplacedDir2),
+
+    File = filename:join(Dir, ?TESTMODOBJ),
+    {ok,?TESTMOD,Bin} = compile:forms(dummy_ast(), []),
+
+    %% Adding a cached path and re-adding for clearing
+    [begin
+        error = code:get_object_code(?TESTMOD),
+        true = code:Fun(Dir, cache),
+        error = code:get_object_code(?TESTMOD),
+        ok = file:write_file(File, Bin),
+        error = code:get_object_code(?TESTMOD),
+        true = code:Fun(Dir, cache),
+        {_,_,_} = code:get_object_code(?TESTMOD),
+        code:del_path(Dir),
+        ok = file:delete(File)
+     end || Fun <- [add_path, add_patha, add_pathz]],
+
+    Original = code:get_path(),
+
+    %% Adding several cached paths and explicit cache clearing
+    [begin
+        error = code:get_object_code(?TESTMOD),
+        ok = code:Fun([Dir, ToBeReplacedDir1], cache),
+        error = code:get_object_code(?TESTMOD),
+        ok = file:write_file(File, Bin),
+        error = code:get_object_code(?TESTMOD),
+        ok = code:clear_cache(),
+        {_,_,_} = code:get_object_code(?TESTMOD),
+        ok = code:del_paths([Dir, ToBeReplacedDir1]),
+        ok = file:delete(File)
+     end || Fun <- [add_paths, add_pathsa, add_pathsz]],
+
+    Original = code:get_path(),
+
+    %% Replacing a non-cached path with cache and set_path for clearing
+    error = code:get_object_code(?TESTMOD),
+    true = code:add_path(ToBeReplacedDir1),
+    true = code:replace_path(tobereplaced, ToBeReplacedDir2, cache),
+    error = code:get_object_code(?TESTMOD),
+    ok = file:write_file(filename:join(ToBeReplacedDir2, ?TESTMODOBJ), Bin),
+    error = code:get_object_code(?TESTMOD),
+    true = code:set_path(code:get_path(), nocache),
+    {_,_,_} = code:get_object_code(?TESTMOD),
+
+    true = code:set_path(Original),
     ok.
 
 %% OTP-3977.

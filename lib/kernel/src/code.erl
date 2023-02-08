@@ -26,9 +26,9 @@
 %% some implementation details.  See also related modules: code_*.erl
 %% in this directory.
 
--export([objfile_extension/0, 
-	 set_path/1, 
-	 get_path/0, 
+-export([objfile_extension/0,
+	 set_path/1, set_path/2,
+	 get_path/0,
 	 load_file/1,
 	 ensure_loaded/1,
 	 ensure_modules_loaded/1,
@@ -57,14 +57,16 @@
 	 unstick_mod/1,
 	 is_sticky/1,
 	 get_object_code/1,
-	 add_path/1,
-	 add_pathsz/1,
-	 add_paths/1,
-	 add_pathsa/1,
-	 add_patha/1,
-	 add_pathz/1,
+	 add_paths/1, add_paths/2,
+     add_path/1, add_path/2,
+	 add_pathsa/1, add_pathsa/2,
+     add_pathsz/1, add_pathsz/2,
+	 add_patha/1, add_patha/2,
+	 add_pathz/1, add_pathz/2,
 	 del_path/1,
-	 replace_path/2,
+     del_paths/1,
+     clear_cache/0,
+	 replace_path/2,replace_path/3,
 	 rehash/0,
 	 start_link/0,
 	 which/1,
@@ -92,6 +94,8 @@
 %% Some types for basic exported functions of this module
 %%----------------------------------------------------------------------------
 
+-define(is_cache(T), T =:= cache orelse T =:= nocache).
+-type cache() :: cache | nocache.
 -type load_error_rsn() :: 'badfile'
                         | 'nofile'
                         | 'not_purged'
@@ -376,10 +380,15 @@ unstick_mod(Mod) when is_atom(Mod) -> call({unstick_mod,Mod}).
 is_sticky(Mod) when is_atom(Mod) ->
     code_server:is_sticky(Mod).
 
--spec set_path(Path) -> 'true' | {'error', What} when
-      Path :: [Dir :: file:filename()],
-      What :: 'bad_directory'.
-set_path(PathList) when is_list(PathList) -> call({set_path,PathList}).
+-type set_path_ret() :: 'true' | {'error', 'bad_directory'}.
+-spec set_path(Path) -> set_path_ret() when
+      Path :: [Dir :: file:filename()].
+set_path(PathList) -> set_path(PathList, nocache).
+
+-spec set_path(Path, cache()) -> set_path_ret() when
+      Path :: [Dir :: file:filename()].
+set_path(PathList, Cache) when is_list(PathList), ?is_cache(Cache) ->
+    call({set_path,PathList,Cache}).
 
 -spec get_path() -> Path when
       Path :: [Dir :: file:filename()].
@@ -388,27 +397,51 @@ get_path() -> call(get_path).
 -type add_path_ret() :: 'true' | {'error', 'bad_directory'}.
 -spec add_path(Dir) -> add_path_ret() when
       Dir :: file:filename().
-add_path(Dir) when is_list(Dir) -> call({add_path,last,Dir}).
+add_path(Dir) -> add_path(Dir, nocache).
+
+-spec add_path(Dir, cache()) -> add_path_ret() when
+      Dir :: file:filename().
+add_path(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> call({add_path,last,Dir,Cache}).
 
 -spec add_pathz(Dir) -> add_path_ret() when
       Dir :: file:filename().
-add_pathz(Dir) when is_list(Dir) -> call({add_path,last,Dir}).
+add_pathz(Dir) -> add_pathz(Dir, nocache).
+
+-spec add_pathz(Dir, cache()) -> add_path_ret() when
+      Dir :: file:filename().
+add_pathz(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> call({add_path,last,Dir,Cache}).
 
 -spec add_patha(Dir) -> add_path_ret() when
       Dir :: file:filename().
-add_patha(Dir) when is_list(Dir) -> call({add_path,first,Dir}).
+add_patha(Dir) -> add_patha(Dir, nocache).
+
+-spec add_patha(Dir, cache()) -> add_path_ret() when
+      Dir :: file:filename().
+add_patha(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> call({add_path,first,Dir,Cache}).
 
 -spec add_paths(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
-add_paths(Dirs) when is_list(Dirs) -> call({add_paths,last,Dirs}).
+add_paths(Dirs) -> add_paths(Dirs, nocache).
+
+-spec add_paths(Dirs, cache()) -> 'ok' when
+      Dirs :: [Dir :: file:filename()].
+add_paths(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> call({add_paths,last,Dirs,Cache}).
 
 -spec add_pathsz(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
-add_pathsz(Dirs) when is_list(Dirs) -> call({add_paths,last,Dirs}).
+add_pathsz(Dirs) -> add_pathsz(Dirs, nocache).
+
+-spec add_pathsz(Dirs, cache()) -> 'ok' when
+      Dirs :: [Dir :: file:filename()].
+add_pathsz(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> call({add_paths,last,Dirs,Cache}).
 
 -spec add_pathsa(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
-add_pathsa(Dirs) when is_list(Dirs) -> call({add_paths,first,Dirs}).
+add_pathsa(Dirs) -> add_pathsa(Dirs, nocache).
+
+-spec add_pathsa(Dirs, cache()) -> 'ok' when
+      Dirs :: [Dir :: file:filename()].
+add_pathsa(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> call({add_paths,first,Dirs,Cache}).
 
 -spec del_path(NameOrDir) -> boolean() | {'error', What} when
       NameOrDir :: Name | Dir,
@@ -417,13 +450,26 @@ add_pathsa(Dirs) when is_list(Dirs) -> call({add_paths,first,Dirs}).
       What :: 'bad_name'.
 del_path(Name) when is_list(Name) ; is_atom(Name) -> call({del_path,Name}).
 
--spec replace_path(Name, Dir) -> 'true' | {'error', What} when
+-spec del_paths(NamesOrDirs) -> 'ok' when
+      NamesOrDirs :: [Name | Dir],
+      Name :: atom(),
+      Dir :: file:filename().
+del_paths(Dirs) when is_list(Dirs) -> call({del_paths,Dirs}).
+
+-type replace_path_ret() :: 'true' |
+                            {'error', 'bad_directory' | 'bad_name' | {'badarg',_}}.
+-spec replace_path(Name, Dir) -> replace_path_ret() when
       Name:: atom(),
-      Dir :: file:filename(),
-      What :: 'bad_directory' | 'bad_name' | {'badarg',_}.
-replace_path(Name, Dir) when (is_atom(Name) orelse is_list(Name)),
-			     (is_atom(Dir) orelse is_list(Dir)) ->
-    call({replace_path,Name,Dir}).
+      Dir :: file:filename().
+replace_path(Name, Dir) ->
+    replace_path(Name, Dir, nocache).
+
+-spec replace_path(Name, Dir, cache()) -> replace_path_ret() when
+      Name:: atom(),
+      Dir :: file:filename().
+replace_path(Name, Dir, Cache) when (is_atom(Name) orelse is_list(Name)),
+                 (is_atom(Dir) orelse is_list(Dir)), ?is_cache(Cache) ->
+    call({replace_path,Name,Dir,Cache}).
 
 -spec rehash() -> 'ok'.
 rehash() ->
@@ -432,6 +478,9 @@ rehash() ->
 
 -spec get_mode() -> 'embedded' | 'interactive'.
 get_mode() -> call(get_mode).
+
+-spec clear_cache() -> ok.
+clear_cache() -> call(clear_cache).
 
 %%%
 %%% Loading of several modules in parallel.
