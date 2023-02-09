@@ -250,7 +250,7 @@ gen_accept(Driver, Listen) ->
 %%  smaller than MaxPending
 accept_loop(DLK, undefined, MaxPending, Pending) when map_size(Pending) < MaxPending ->
     accept_loop(DLK, spawn_accept(DLK), MaxPending, Pending);
-accept_loop(DLK, HandshakePid, MaxPending, Pending) ->
+accept_loop({_, _, NetKernelPid} = DLK, HandshakePid, MaxPending, Pending) ->
     receive
         {continue, HandshakePid} when is_pid(HandshakePid) ->
             accept_loop(DLK, undefined, MaxPending, Pending#{HandshakePid => true});
@@ -261,6 +261,9 @@ accept_loop(DLK, HandshakePid, MaxPending, Pending) ->
         {'EXIT', HandshakePid, Reason} when is_pid(HandshakePid) ->
             %% HandshakePid crashed before turning into Pending, which means
             %%  error happened in accept. Need to restart the listener.
+            exit(Reason);
+        {'EXIT', NetKernelPid, Reason} ->
+            %% Since we're trapping exits, need to manually propagate this signal
             exit(Reason);
         Unexpected ->
             ?LOG_WARNING("TLS distribution: unexpected message: ~p~n" ,[Unexpected]),
