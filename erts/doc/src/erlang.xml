@@ -4316,7 +4316,7 @@ is_process_alive(P2Pid),
             <p>The total amount of memory currently allocated for
               the emulator that is not directly related to any Erlang
               process. Memory presented as <c>processes</c> is not
-              included in this memory. <seeerl marker="tools:instrument">
+              included in this memory. <seeerl marker="runtime_tools:instrument">
               <c>instrument(3)</c></seeerl> can be used to
               get a more detailed breakdown of what memory is part
               of this type.</p>
@@ -4358,7 +4358,7 @@ is_process_alive(P2Pid),
               when the emulator is run with instrumentation.</p>
             <p>For information on how to run the emulator with
               instrumentation, see
-              <seeerl marker="tools:instrument">
+              <seeerl marker="runtime_tools:instrument">
               <c>instrument(3)</c></seeerl>
               and/or <seecom marker="erl"><c>erl(1)</c></seecom>.</p>
           </item>
