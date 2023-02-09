@@ -56,7 +56,8 @@ call_to_missing_warning_includes_callsite(Config) when is_list(Config) ->
     {ok, BeamFileForPlt} = compile(Config, previously_defined, []),
     [] = dialyzer:run([{analysis_type, plt_build},
                       {files, [BeamFileForPlt]},
-                      {output_plt, Plt}]),
+                      {output_plt, Plt},
+                       {warnings, [no_unknown]}]),
 
     {ok, Beam} = compile(Config, call_to_missing_example, []),
     Opts =

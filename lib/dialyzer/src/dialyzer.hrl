@@ -126,6 +126,7 @@
                        | 'no_return'
                        | 'no_undefined_callbacks'
                        | 'no_underspecs'
+                       | 'no_unknown'
                        | 'no_unused'
                        | 'underspecs'
                        | 'unknown'

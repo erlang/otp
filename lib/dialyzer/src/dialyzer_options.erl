@@ -32,20 +32,21 @@
 
 build(Opts) ->
   DefaultWarns = [?WARN_RETURN_NO_RETURN,
-		  ?WARN_NOT_CALLED,
-		  ?WARN_NON_PROPER_LIST,
-		  ?WARN_FUN_APP,
-		  ?WARN_MATCHING,
-		  ?WARN_OPAQUE,
-		  ?WARN_CALLGRAPH,
-		  ?WARN_FAILING_CALL,
-		  ?WARN_BIN_CONSTRUCTION,
-		  ?WARN_MAP_CONSTRUCTION,
-		  ?WARN_CONTRACT_RANGE,
-		  ?WARN_CONTRACT_TYPES,
-		  ?WARN_CONTRACT_SYNTAX,
-		  ?WARN_BEHAVIOUR,
-		  ?WARN_UNDEFINED_CALLBACK],
+                  ?WARN_NOT_CALLED,
+                  ?WARN_NON_PROPER_LIST,
+                  ?WARN_FUN_APP,
+                  ?WARN_MATCHING,
+                  ?WARN_OPAQUE,
+                  ?WARN_CALLGRAPH,
+                  ?WARN_FAILING_CALL,
+                  ?WARN_BIN_CONSTRUCTION,
+                  ?WARN_MAP_CONSTRUCTION,
+                  ?WARN_CONTRACT_RANGE,
+                  ?WARN_CONTRACT_TYPES,
+                  ?WARN_CONTRACT_SYNTAX,
+                  ?WARN_BEHAVIOUR,
+                  ?WARN_UNDEFINED_CALLBACK,
+                  ?WARN_UNKNOWN],
   DefaultWarns1 = ordsets:from_list(DefaultWarns),
   DefaultOpts = #options{},
   DefaultOpts1 = DefaultOpts#options{legal_warnings = DefaultWarns1},
@@ -429,6 +430,8 @@ build_warnings([Opt|Opts], Warnings) ->
 	ordsets:del_element(?WARN_RETURN_NO_RETURN, Warnings);
       no_unused ->
 	ordsets:del_element(?WARN_NOT_CALLED, Warnings);
+      no_unknown ->
+    ordsets:del_element(?WARN_UNKNOWN, Warnings);
       no_improper_lists ->
 	ordsets:del_element(?WARN_NON_PROPER_LIST, Warnings);
       no_fun_app ->

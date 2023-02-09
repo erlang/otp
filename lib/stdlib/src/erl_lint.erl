@@ -3414,7 +3414,7 @@ is_function_dialyzer_option(Option) ->
 is_module_dialyzer_option(Option) ->
     lists:member(Option,
                  [no_return,no_unused,no_improper_lists,no_fun_app,
-                  no_match,no_opaque,no_fail_call,no_contracts,
+                  no_match,no_opaque,no_fail_call,no_contracts,no_unknown,
                   no_behaviours,no_undefined_callbacks,unmatched_returns,
                   error_handling,race_conditions,no_missing_calls,
                   specdiffs,overspecs,underspecs,unknown,
