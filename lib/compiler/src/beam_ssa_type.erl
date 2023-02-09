@@ -2096,7 +2096,7 @@ type(bs_match, Args0, _Anno, Ts, _Ds) ->
             %% current unit and the increments we know the match will advance
             %% by.
             #t_bs_context{tail_unit=CtxUnit} = concrete_type(Ctx, Ts),
-            OpUnit = bs_match_stride(Args, Ts),
+            OpUnit = bs_match_stride(Type, Args, Ts),
 
             #t_bs_context{tail_unit=gcd(OpUnit, CtxUnit)}
     end;
@@ -2324,17 +2324,14 @@ bs_size_unit([], _Ts, FixedSize, Unit) ->
 
 %% We seldom know how far a match operation may advance, but we can often tell
 %% which increment it will advance by.
-bs_match_stride([#b_literal{val=Type} | Args], Ts) ->
-    bs_match_stride(Type, Args, Ts).
-
-bs_match_stride(_, [_,_,Size,#b_literal{val=Unit}], Ts) ->
+bs_match_stride(_, [_,Size,#b_literal{val=Unit}], Ts) ->
     case concrete_type(Size, Ts) of
         #t_integer{elements={Sz, Sz}} when is_integer(Sz) ->
             Sz * Unit;
         _ ->
             Unit
     end;
-bs_match_stride(string, [_,#b_literal{val=String}], _) ->
+bs_match_stride(string, [#b_literal{val=String}], _) ->
     bit_size(String);
 bs_match_stride(utf8, _, _) ->
     8;
