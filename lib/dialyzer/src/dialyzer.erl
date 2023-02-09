@@ -727,10 +727,18 @@ form_position_string(ArgNs) ->
       Head ++ " and " ++ ordinal(Last)
   end.
 
-ordinal(1) -> "1st";
-ordinal(2) -> "2nd";
-ordinal(3) -> "3rd";
-ordinal(N) when is_integer(N) -> io_lib:format("~wth", [N]).
+ordinal(N) when is_integer(N),
+                ((N rem 100) =:= 11) orelse
+                ((N rem 100) =:= 12) orelse
+                ((N rem 100) =:= 13) ->
+  io_lib:format("~Bth", [N]);
+ordinal(N) when is_integer(N) ->
+  case min(N rem 10, 4) of
+    1 -> io_lib:format("~Bst", [N]);
+    2 -> io_lib:format("~Bnd", [N]);
+    3 -> io_lib:format("~Brd", [N]);
+    _ -> io_lib:format("~Bth", [N])
+  end.
 
 %% Functions that parse type strings, literal strings, and contract
 %% strings. Return strings formatted by erl_pp.
