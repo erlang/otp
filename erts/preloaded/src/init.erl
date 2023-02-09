@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@
 	 get_argument/1,script_id/0,script_name/0]).
 
 %% for the on_load functionality; not for general use
--export([run_on_load_handlers/0, run_on_load_handlers/1]).
+-export([run_on_load_handlers/0]).
 
 %% internal exports
 -export([fetch_loaded/0,ensure_loaded/1,make_permanent/2,
@@ -1502,11 +1502,8 @@ archive_extension() ->
 %%%
 
 run_on_load_handlers() ->
-    run_on_load_handlers(all).
-
-run_on_load_handlers(Mods) when is_list(Mods); Mods =:= all ->
     Ref = monitor(process, ?ON_LOAD_HANDLER),
-    catch ?ON_LOAD_HANDLER ! {run_on_load, self(), Ref, Mods},
+    _ = catch ?ON_LOAD_HANDLER ! {run_on_load, Ref},
     receive
 	{'DOWN',Ref,process,_,noproc} ->
 	    %% There is no on_load handler process,
@@ -1514,14 +1511,13 @@ run_on_load_handlers(Mods) when is_list(Mods); Mods =:= all ->
 	    %% called and it is not the first time we
 	    %% pass through here.
 	    ok;
-	{'DOWN',Ref,process,_,on_load_done} ->
+	{'DOWN',Ref,process,_,Ref} ->
+            %% All on_load handlers have run succesfully
 	    ok;
-	{'DOWN',Ref,process,_,Res} ->
+	{'DOWN',Ref,process,_,Reason} ->
 	    %% Failure to run an on_load handler.
 	    %% This is fatal during start-up.
-	    exit(Res);
-        {reply, Ref, on_load_done} ->
-            ok
+	    exit(Reason)
     end.
 
 start_on_load_handler_process() ->
@@ -1537,14 +1533,9 @@ on_load_loop(Mods, Debug0) ->
 	    on_load_loop(Mods, Debug);
 	{loaded,Mod} ->
 	    on_load_loop([Mod|Mods], Debug0);
-	{run_on_load, _, _, all} ->
+	{run_on_load, Ref} ->
 	    run_on_load_handlers(Mods, Debug0),
-	    exit(on_load_done);
-        {run_on_load, From, Ref, ModsToRun} ->
-            [run_on_load_handlers([Mod], Debug0)
-             || Mod <- ModsToRun, lists:member(Mod, Mods)],
-            From ! {reply, Ref, on_load_done},
-            on_load_loop(Mods -- ModsToRun, Debug0)
+	    exit(Ref)
     end.
 
 run_on_load_handlers([M|Ms], Debug) ->

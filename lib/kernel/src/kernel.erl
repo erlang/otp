@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,14 +58,19 @@ config_change(Changed, New, Removed) ->
 %%%              | kernel_sup (A)|
 %%%	          ---------------
 %%%                      |
-%%%        -------------------------------
-%%%       |              |                |
-%%%  <std services> -------------   -------------
-%%%   (file,code,  | erl_dist (A)| | safe_sup (1)|
-%%%    rpc, ...)    -------------   -------------
-%%%		          |               |
-%%%                  (net_kernel,  (disk_log, pg,
-%%%          	      auth, ...)     ...)
+%%%        ------------------------------------------
+%%%       |             |          |        |        |
+%%%  <std services>     |    -------------  |  -------------
+%%%   (code, [stderr],  |   | erl_dist (A)| | | safe_sup (1)|
+%%%    ...)             |    -------------  |  -------------
+%%%		        |          |        |        |
+%%%                <on_load>  ([net_sup],   | (disk_log, pg,
+%%%               (transient)  rpc, global, |  ...)
+%%%                            ...)         |
+%%%                                         |
+%%%                                   <more services>
+%%%                                    (file, peer, [user],
+%%%                                     [logger], ...)
 %%%
 %%% The rectangular boxes are supervisors.  All supervisors except
 %%% for kernel_safe_sup terminates the entire erlang node if any of
@@ -118,6 +123,15 @@ init([]) ->
                  type => supervisor,
                  modules => [standard_error]},
 
+    OnLoad = #{id => on_load,
+               start =>
+                   {proc_lib, start_link,
+                    [?MODULE, ?FUNCTION_NAME, [on_load]]},
+               restart => transient,
+               shutdown => 2000,
+               type => worker,
+               modules => [?MODULE]},
+
     User = #{id => user,
              start => {user_sup, start, []},
              restart => temporary,
@@ -148,7 +162,8 @@ init([]) ->
     case init:get_argument(mode) of
         {ok, [["minimal"]|_]} ->
             {ok, {SupFlags,
-                  [Code, File, StdError] ++ Peer ++
+                  [Code, StdError, OnLoad] ++
+                      [File | Peer] ++
                       [User, LoggerSup, Config, RefC, SafeSup]}};
         _ ->
             DistChildren =
@@ -175,11 +190,18 @@ init([]) ->
             CompileServer = start_compile_server(),
 
             {ok, {SupFlags,
-                  [Code, InetDb | DistChildren] ++
-                      [File, SigSrv, StdError] ++ Peer ++
-                      [User, Config, RefC, SafeSup, LoggerSup] ++
+                  [Code, StdError, OnLoad, InetDb | DistChildren] ++
+                      [File, SigSrv | Peer] ++
+                      [User, LoggerSup, Config, RefC, SafeSup] ++
                       Timer ++ CompileServer}}
     end;
+init(on_load) ->
+    %% Run the on_load handlers for all modules that have been
+    %% loaded so far. Running them at this point means that
+    %% on_load handlers can safely call some essential kernel processes,
+    %% in particular call code:priv_dir/1 or code:lib_dir/1.
+    init:run_on_load_handlers(),
+    proc_lib:init_ack({ok, self()});
 init(safe) ->
     SupFlags = #{strategy => one_for_one,
                  intensity => 4,
@@ -188,12 +210,6 @@ init(safe) ->
     Boot = start_boot_server(),
     DiskLog = start_disk_log(),
     Pg = start_pg(),
-
-    %% Run the on_load handlers for all modules that have been
-    %% loaded so far. Running them at this point means that
-    %% on_load handlers can safely call kernel processes
-    %% (and in particular call code:priv_dir/1 or code:lib_dir/1).
-    init:run_on_load_handlers(),
 
     {ok, {SupFlags, Boot ++ DiskLog ++ Pg}}.
 
