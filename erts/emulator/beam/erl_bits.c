@@ -1268,6 +1268,24 @@ erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes))
     erts_bin_offset += num_bytes*8;
 }
 
+static ERTS_INLINE
+void increase_proc_bin_sz(Process* p, ProcBin* pb, Uint new_size)
+{
+    if (new_size > pb->size) {
+        const Uint incr = (new_size / sizeof(Eterm) -
+                           pb->size / sizeof(Eterm));
+        if (ErtsInBetween(pb, OLD_HEAP(p), OLD_HTOP(p))) {
+            p->bin_old_vheap += incr;
+        }
+        else {
+            OH_OVERHEAD(&MSO(p), incr);
+        }
+        pb->size = new_size;
+    }
+    else
+        ASSERT(new_size == pb->size);
+}
+
 Eterm
 erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	    Uint extra_words, Uint unit)
@@ -1355,7 +1373,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
     used_size_in_bits = erts_bin_offset + build_size_in_bits;
 
     sb->is_writable = 0;	/* Make sure that no one else can write. */
-    pb->size = NBYTES(used_size_in_bits);
+    increase_proc_bin_sz(c_p, pb, NBYTES(used_size_in_bits));
     pb->flags |= PB_ACTIVE_WRITER;
 
     /*
@@ -1544,7 +1562,7 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
     }
 
     pos_in_bits_after_build = erts_bin_offset + build_size_in_bits;
-    pb->size = (pos_in_bits_after_build+7) >> 3;
+    increase_proc_bin_sz(p, pb, (pos_in_bits_after_build+7) >> 3);
     pb->flags |= PB_ACTIVE_WRITER;
 
     /*
