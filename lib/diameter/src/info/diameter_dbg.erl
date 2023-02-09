@@ -214,7 +214,7 @@ pp(<<Version:8, MsgLength:24,
     N;
 
 pp(<<_Version:8, MsgLength:24, _/binary>> = Bin) ->
-    {bad_message_length, MsgLength, size(Bin)};
+    {bad_message_length, MsgLength, byte_size(Bin)};
 
 pp(Bin)
   when is_binary(Bin) ->
