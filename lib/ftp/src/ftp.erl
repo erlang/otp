@@ -2338,7 +2338,7 @@ file_close(Fd) ->
 
 file_read(Fd) ->
     case file:read(Fd, ?FILE_BUFSIZE) of
-        {ok, Bytes} ->
+        {ok, Bytes} when is_binary(Bytes) ->
             {ok, byte_size(Bytes), Bytes};
         eof ->
             {ok, 0, []};
