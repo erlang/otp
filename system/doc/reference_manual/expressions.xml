@@ -507,10 +507,7 @@ is_valid_signal(Signal) ->
     <title>Maybe</title>
     <note><p><c>maybe</c> is an experimental new <seeguide
     marker="system/reference_manual:features#features">feature</seeguide>
-    introduced in OTP 25. By default, it is disabled. To enable
-    <c>maybe</c>, either use the <c>-feature(maybe_expr,enable)</c>
-    directive (from within source code), or the compiler option
-    <c>{feature,maybe_expr,enable}</c>.</p>
+    introduced in OTP 25. Since OTP 26, it is enabled by default.
     </note>
 
     <code type="erl"><![CDATA[
