@@ -391,7 +391,7 @@ erts_ptab_init_table(ErtsPTab *ptab,
     tab_sz = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(size*sizeof(erts_atomic_t));
     alloc_sz = tab_sz;
     if (!legacy)
-	alloc_sz += ERTS_ALC_CACHE_LINE_ALIGN_SIZE(size*sizeof(erts_atomic32_t));
+	alloc_sz += ERTS_ALC_CACHE_LINE_ALIGN_SIZE(size*sizeof(erts_atomic_t));
     ptab->r.o.tab = erts_alloc_permanent_cache_aligned(atype, alloc_sz);
     tab_end = ((char *) ptab->r.o.tab) + tab_sz;
     tab_entry = ptab->r.o.tab;
@@ -429,11 +429,11 @@ erts_ptab_init_table(ErtsPTab *ptab,
     }
     else {
 
-	tab_sz = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(size*sizeof(erts_atomic32_t));
-	ptab->r.o.free_id_data = (erts_atomic32_t *) tab_end;
+	tab_sz = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(size*sizeof(erts_atomic_t));
+	ptab->r.o.free_id_data = (erts_atomic_t *) tab_end;
 
 	tab_cache_lines = tab_sz/ERTS_CACHE_LINE_SIZE;
-	ix_per_cache_line = (ERTS_CACHE_LINE_SIZE/sizeof(erts_atomic32_t));
+	ix_per_cache_line = (ERTS_CACHE_LINE_SIZE/sizeof(erts_atomic_t));
 
 	ptab->r.o.dix_cl_mask = tab_cache_lines-1;
 	ptab->r.o.dix_cl_shift = erts_fit_in_bits_int32(ix_per_cache_line-1);
@@ -448,9 +448,9 @@ erts_ptab_init_table(ErtsPTab *ptab,
 	ix = 0;
 	for (cl = 0; cl < tab_cache_lines; cl++) {
 	    for (cli = 0; cli < ix_per_cache_line; cli++) {
-		erts_atomic32_init_nob(&ptab->r.o.free_id_data[ix],
-					   cli*tab_cache_lines+cl);
-		ASSERT(erts_atomic32_read_nob(&ptab->r.o.free_id_data[ix]) != ptab->r.o.invalid_data);
+		erts_atomic_init_nob(&ptab->r.o.free_id_data[ix],
+                                     cli*tab_cache_lines+cl);
+		ASSERT(erts_atomic_read_nob(&ptab->r.o.free_id_data[ix]) != ptab->r.o.invalid_data);
 		ix++;
 	    }
 	}
@@ -500,7 +500,8 @@ erts_ptab_new_element(ErtsPTab *ptab,
 		      void *init_arg,
 		      void (*init_ptab_el)(void *, Eterm))
 {
-    Uint32 pix, ix, data;
+    Uint32 pix, ix;
+    Uint data;
     erts_aint32_t count;
     erts_aint_t invalid = (erts_aint_t) ptab->r.o.invalid_element;
 
@@ -532,8 +533,8 @@ erts_ptab_new_element(ErtsPTab *ptab,
 	    ix = (Uint32) erts_atomic32_inc_read_acqb(&ptab->vola.tile.aid_ix);
 	    ix = ix_to_free_id_data_ix(ptab, ix);
 
-	    data = erts_atomic32_xchg_nob(&ptab->r.o.free_id_data[ix],
-					      (erts_aint32_t)ptab->r.o.invalid_data);
+	    data = erts_atomic_xchg_nob(&ptab->r.o.free_id_data[ix],
+                                        (erts_aint_t) ptab->r.o.invalid_data);
 	}while ((Eterm)data == ptab->r.o.invalid_data);
 
 	init_ptab_el(init_arg, (Eterm) data);
@@ -673,7 +674,8 @@ erts_ptab_delete_element(ErtsPTab *ptab,
 			 ErtsPTabElementCommon *ptab_el)
 {
     int maybe_save;
-    Uint32 pix, ix, data;
+    Uint32 pix, ix;
+    Uint data;
 
     pix = erts_ptab_id2pix(ptab, ptab_el->id);
 
@@ -690,14 +692,14 @@ erts_ptab_delete_element(ErtsPTab *ptab,
     erts_atomic_set_relb(&ptab->r.o.tab[pix], ERTS_AINT_NULL);
 
     if (ptab->r.o.free_id_data) {
-	Uint32 prev_data;
+	Uint prev_data;
 	/* Next data for this slot... */
-	data = (Uint32) erts_ptab_id2data(ptab, ptab_el->id);
+	data = erts_ptab_id2data(ptab, ptab_el->id);
 	data += ptab->r.o.max;
-	data &= ~(~((Uint32) 0) << ERTS_PTAB_ID_DATA_SIZE);
+	data &= ~(~UWORD_CONSTANT(0) << ERTS_PTAB_ID_DATA_SIZE);
 	if (data == ptab->r.o.invalid_data) { /* make sure not invalid */
 	    data += ptab->r.o.max;
-	    data &= ~(~((Uint32) 0) << ERTS_PTAB_ID_DATA_SIZE);
+	    data &= ~(~UWORD_CONSTANT(0) << ERTS_PTAB_ID_DATA_SIZE);
 	}
 	ASSERT(data != ptab->r.o.invalid_data);
 	ASSERT(pix == erts_ptab_data2pix(ptab, data));
@@ -706,9 +708,9 @@ erts_ptab_delete_element(ErtsPTab *ptab,
 	    ix = (Uint32) erts_atomic32_inc_read_relb(&ptab->vola.tile.fid_ix);
 	    ix = ix_to_free_id_data_ix(ptab, ix);
     
-	    prev_data = erts_atomic32_cmpxchg_nob(&ptab->r.o.free_id_data[ix],
-						      data,
-						      ptab->r.o.invalid_data);
+	    prev_data = erts_atomic_cmpxchg_nob(&ptab->r.o.free_id_data[ix],
+                                                data,
+                                                ptab->r.o.invalid_data);
 	}while ((Eterm)prev_data != ptab->r.o.invalid_data);
     }
 
@@ -1326,14 +1328,15 @@ static void assert_ptab_consistency(ErtsPTab *ptab)
 {
 #ifdef DEBUG
     if (ptab->r.o.free_id_data) {
-	Uint32 ix, pix, data;
+	Uint32 ix, pix;
+        Uint data;
 	int free_pids = 0;
 	int null_slots = 0;
 	
 	for (ix=0; ix < ptab->r.o.max; ix++) {
-	    if (erts_atomic32_read_nob(&ptab->r.o.free_id_data[ix]) != ptab->r.o.invalid_data) {
+	    if (erts_atomic_read_nob(&ptab->r.o.free_id_data[ix]) != ptab->r.o.invalid_data) {
 		++free_pids;
-		data = erts_atomic32_read_nob(&ptab->r.o.free_id_data[ix]);
+		data = erts_atomic_read_nob(&ptab->r.o.free_id_data[ix]);
 		pix = erts_ptab_data2pix(ptab, (Eterm) data);
 		ASSERT(erts_ptab_pix2intptr_nob(ptab, pix) == ERTS_AINT_NULL);
 	    }
@@ -1363,7 +1366,8 @@ erts_ptab_test_next_id(ErtsPTab *ptab, int set, Uint next)
 	Uint32 id_ix, dix;
 
 	if (set) {
-	    Uint32 i, max_ix, num, stop_id_ix;
+	    Uint32 i, max_ix, stop_id_ix;
+            Uint num;
 	    max_ix = ptab->r.o.max - 1;
 	    num = next;
 	    id_ix = (Uint32) erts_atomic32_read_nob(&ptab->vola.tile.aid_ix);
@@ -1371,16 +1375,16 @@ erts_ptab_test_next_id(ErtsPTab *ptab, int set, Uint next)
 	    for (i=0; i <= max_ix; ++i) {
 		Uint32 pix;
 		++num;
-		num &= ~(~((Uint32) 0) << ERTS_PTAB_ID_DATA_SIZE);
+		num &= ~(~UWORD_CONSTANT(0) << ERTS_PTAB_ID_DATA_SIZE);
 		if (num == ptab->r.o.invalid_data) {
 		    num += ptab->r.o.max;
-		    num &= ~(~((Uint32) 0) << ERTS_PTAB_ID_DATA_SIZE);
+		    num &= ~(~UWORD_CONSTANT(0) << ERTS_PTAB_ID_DATA_SIZE);
 		}
 		pix = erts_ptab_data2pix(ptab, num);
 		if (ERTS_AINT_NULL == erts_ptab_pix2intptr_nob(ptab, pix)) {
 		    ++id_ix;
 		    dix = ix_to_free_id_data_ix(ptab, id_ix);
-		    erts_atomic32_set_nob(&ptab->r.o.free_id_data[dix], num);
+		    erts_atomic_set_nob(&ptab->r.o.free_id_data[dix], num);
 		    ASSERT(pix == erts_ptab_data2pix(ptab, num));
 		}
 	    }
@@ -1393,13 +1397,13 @@ erts_ptab_test_next_id(ErtsPTab *ptab, int set, Uint next)
 		if (id_ix == stop_id_ix)
 		    break;
 		dix = ix_to_free_id_data_ix(ptab, id_ix);
-		erts_atomic32_set_nob(&ptab->r.o.free_id_data[dix],
-					  ptab->r.o.invalid_data);
+		erts_atomic_set_nob(&ptab->r.o.free_id_data[dix],
+                                    ptab->r.o.invalid_data);
 	    }
 	}
 	id_ix = (Uint32) erts_atomic32_read_nob(&ptab->vola.tile.aid_ix) + 1;
 	dix = ix_to_free_id_data_ix(ptab, id_ix);
-	res = (Sint) erts_atomic32_read_nob(&ptab->r.o.free_id_data[dix]);
+	res = (Sint) erts_atomic_read_nob(&ptab->r.o.free_id_data[dix]);
     }
     else {
 	/* Deprecated legacy algorithm... */

@@ -94,7 +94,8 @@
          alias_bif/1,
          monitor_alias/1,
          spawn_monitor_alias/1,
-         monitor_tag/1]).
+         monitor_tag/1,
+         no_pid_wrap/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -126,7 +127,8 @@ all() ->
      {group, otp_7738}, garb_other_running,
      {group, system_task},
      {group, alias},
-     monitor_tag].
+     monitor_tag,
+     no_pid_wrap].
 
 groups() -> 
     [{t_exit_2, [],
@@ -4991,6 +4993,54 @@ monitor_tag_test(Peer, Node, SpawnType, Tag, ExitReason) ->
                     ok
             end,
             ok
+    end.
+
+no_pid_wrap(Config) when is_list(Config) ->
+    process_flag(priority, high),
+    SOnln = erlang:system_info(schedulers_online),
+    Pid = spawn(fun () -> ok end),
+    exit(Pid, kill),
+    false = is_process_alive(Pid),
+    ChkSpwndPid = fun () ->
+                          check_spawned_pid(Pid)
+                  end,
+    MPs = maps:from_list(lists:map(fun (_) ->
+                                           {P, M} = spawn_monitor(ChkSpwndPid),
+                                           {M, P}
+                                   end, lists:seq(1, SOnln))),
+    Res = receive
+              {'DOWN', M, process, _, pid_reused} when is_map_key(M, MPs) ->
+                  case erlang:system_info(wordsize) of
+                      8 ->
+                          ct:fail("Process identifier reused"),
+                          error;
+                      4 ->
+                          {comment,
+                           "Process identifer reused, but this is"
+                           ++ "expected since this is a 32-bit system"}
+                  end;
+              {'DOWN', _, _, _, _} = Down ->
+                  ct:fail({unexpected_down, Down}),
+                  error
+          after
+              3*60*1000 ->
+                  ok
+          end,
+    maps:foreach(fun (_, P) ->
+                         exit(P, kill)
+                 end, MPs),
+    maps:foreach(fun (_, P) ->
+                         false = is_process_alive(P)
+                 end, MPs),
+    Res.
+
+check_spawned_pid(OldPid) ->
+    Pid = spawn(fun () -> ok end),
+    case OldPid == Pid of
+        false ->
+            check_spawned_pid(OldPid);
+        true ->
+            exit(pid_reused)
     end.
 
 %% Internal functions

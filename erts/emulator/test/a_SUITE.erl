@@ -47,6 +47,16 @@ init_per_suite(Config) when is_list(Config) ->
     %% allow other suites to use it...
     inet_gethost_native:gethostbyname("localhost"),
 
+    case erlang:system_info(wordsize) of
+        4 ->
+            ok;
+        8 ->
+            erts_debug:set_internal_state(available_internal_state,true),
+            erts_debug:set_internal_state(next_pid, 1 bsl 32),
+            erts_debug:set_internal_state(available_internal_state,false),
+            ok
+    end,
+
     %% Start the timer server.
     timer:start(),
 

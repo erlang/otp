@@ -1148,7 +1148,7 @@ monitor_3_noproc_gh6185_test(AliasTest, TagTest) ->
                   end,
 
     %% Process of old incarnation...
-    Pid = erts_test_utils:mk_ext_pid({NodeName, OldCreation}, 4711, 17),
+    Pid = erts_test_utils:mk_ext_pid({NodeName, OldCreation}, 4711, 0),
     {Tag5, TagOpt5} = TagFun(),
     M5 = erlang:monitor(process, Pid, AliasOpt ++ TagOpt5),
     receive
@@ -1238,7 +1238,7 @@ monitor_3_noproc_gh6185_exit_test(AliasTest, TagTest) ->
     {P5, M5} = spawn_monitor(fun () ->
                                      Pid = erts_test_utils:mk_ext_pid({NodeName,
                                                                        OldCreation},
-                                                                      4711, 17),
+                                                                      4711, 0),
                                      erlang:yield(),
                                      _ = erlang:monitor(process, Pid, AliasOpt ++ TagOpt),
                                      exit(bang)
