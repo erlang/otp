@@ -477,7 +477,7 @@ remote_node(_Config) ->
     timer:sleep(1000),
     Node = observer_wx:get_active_node(),
     observer:stop(),
-    ensure_observer_stopped(),
+    ensure_observer_stopped(?SECS(3)),
     peer:stop(Peer).
 
 blocking_start(_Config) ->
@@ -494,7 +494,7 @@ blocking_start(_Config) ->
             ok
     end,
     observer:stop(),
-    ensure_observer_stopped(),
+    ensure_observer_stopped(?SECS(3)),
     receive
         {'DOWN', ObserverRef, _, _, _} ->
             ok
