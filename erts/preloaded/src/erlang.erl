@@ -2336,26 +2336,15 @@ is_tuple(_Term) ->
               | {features_not_allowed, [atom()]}.
 load_module(Mod, Code) ->
     try
-        Allowed =
-            case erlang:module_loaded(erl_features) of
-                true ->
-                    erl_features:load_allowed(Code);
-                false -> ok
-            end,
-        case Allowed of
-            {not_allowed, NotEnabled} ->
-                {error, {features_not_allowed, NotEnabled}};
-            ok ->
-                case erlang:prepare_loading(Mod, Code) of
-                    {error,_}=Error ->
-                        Error;
-                    Prep when erlang:is_reference(Prep) ->
-                        case erlang:finish_loading([Prep]) of
-                            ok ->
-                                {module,Mod};
-                            {Error,[Mod]} ->
-                                {error,Error}
-                        end
+        case erlang:prepare_loading(Mod, Code) of
+            {error,_}=Error ->
+                Error;
+            Prep when erlang:is_reference(Prep) ->
+                case erlang:finish_loading([Prep]) of
+                    ok ->
+                        {module,Mod};
+                    {Error,[Mod]} ->
+                        {error,Error}
                 end
         end
     catch
