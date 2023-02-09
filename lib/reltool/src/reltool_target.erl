@@ -81,9 +81,6 @@ do_gen_config(#sys{root_dir          	= RootDir,
 		   excl_sys_filters  	= ExclSysFiles,
 		   incl_app_filters  	= InclAppFiles,
 		   excl_app_filters  	= ExclAppFiles,
-		   incl_archive_filters = InclArchiveDirs,
-		   excl_archive_filters = ExclArchiveDirs,
-		   archive_opts      	= ArchiveOpts,
 		   relocatable       	= Relocatable,
 		   rel_app_type        	= RelAppType,
 		   embedded_app_type   	= InclAppType,
@@ -133,9 +130,6 @@ do_gen_config(#sys{root_dir          	= RootDir,
      emit(excl_sys_filters, X(ExclSysFiles), reltool_utils:choose_default(excl_sys_filters, Profile, InclDefs), InclDefs) ++
      emit(incl_app_filters, X(InclAppFiles), reltool_utils:choose_default(incl_app_filters, Profile, InclDefs), InclDefs) ++
      emit(excl_app_filters, X(ExclAppFiles), reltool_utils:choose_default(excl_app_filters, Profile, InclDefs), InclDefs) ++
-     emit(incl_archive_filters, X(InclArchiveDirs), ?DEFAULT_INCL_ARCHIVE_FILTERS, InclDefs) ++
-     emit(excl_archive_filters, X(ExclArchiveDirs), ?DEFAULT_EXCL_ARCHIVE_FILTERS, InclDefs) ++
-     emit(archive_opts, ArchiveOpts, ?DEFAULT_ARCHIVE_OPTS, InclDefs) ++
      emit(rel_app_type, RelAppType, ?DEFAULT_REL_APP_TYPE, InclDefs) ++
      emit(embedded_app_type, InclAppType, reltool_utils:choose_default(embedded_app_type, Profile, InclDefs), InclDefs) ++
      emit(app_file, AppFile, ?DEFAULT_APP_FILE, InclDefs) ++
@@ -147,9 +141,6 @@ do_gen_config(#app{name = Name,
 		   app_file = AppFile,
 		   incl_app_filters = InclAppFiles,
 		   excl_app_filters = ExclAppFiles,
-		   incl_archive_filters = InclArchiveDirs,
-		   excl_archive_filters = ExclArchiveDirs,
-		   archive_opts = ArchiveOpts,
 		   use_selected_vsn  = UseSelected,
 		   vsn = Vsn,
 		   active_dir = ActiveDir,
@@ -164,9 +155,6 @@ do_gen_config(#app{name = Name,
 	 emit(app_file, AppFile, undefined, InclDefs),
 	 emit(incl_app_filters, InclAppFiles, undefined, InclDefs),
 	 emit(excl_app_filters, ExclAppFiles, undefined, InclDefs),
-	 emit(incl_archive_filters, InclArchiveDirs, undefined, InclDefs),
-	 emit(excl_archive_filters, ExclArchiveDirs, undefined, InclDefs),
-	 emit(archive_opts, ArchiveOpts, undefined, InclDefs),
 	 if
 	     IsIncl, InclDefs    -> [{vsn, Vsn}, {lib_dir, ActiveDir}];
 	     UseSelected =:= vsn -> [{vsn, Vsn}];
@@ -1075,12 +1063,14 @@ check_apps([Mandatory | Names], Apps) ->
 check_apps([], _) ->
     ok.
 
-spec_app(#app{name              = Name,
+spec_app(#app{label             = Label,
+              name              = Name,
               mods              = Mods,
               active_dir        = SourceDir,
               incl_app_filters  = AppInclRegexps,
               excl_app_filters  = AppExclRegexps} = App,
-         #sys{incl_app_filters  = SysInclRegexps,
+         #sys{root_dir          = RootDir,
+              incl_app_filters  = SysInclRegexps,
               excl_app_filters  = SysExclRegexps,
               debug_info        = SysDebugInfo} = Sys) ->
     %% List files recursively
@@ -1104,47 +1094,7 @@ spec_app(#app{name              = Name,
     ExclRegexps = reltool_utils:default_val(AppExclRegexps, SysExclRegexps),
     AppFiles3 = filter_spec(AppFiles2, InclRegexps, ExclRegexps),
 
-    %% Regular top directory and/or archive
-    spec_archive(App, Sys, AppFiles3).
-
-spec_archive(#app{label               = Label,
-                  active_dir          = SourceDir,
-                  incl_archive_filters = AppInclArchiveDirs,
-                  excl_archive_filters = AppExclArchiveDirs,
-                  archive_opts        = AppArchiveOpts},
-             #sys{root_dir            = RootDir,
-                  incl_archive_filters = SysInclArchiveDirs,
-                  excl_archive_filters = SysExclArchiveDirs,
-                  archive_opts        = SysArchiveOpts},
-             Files) ->
-    InclArchiveDirs =
-	reltool_utils:default_val(AppInclArchiveDirs, SysInclArchiveDirs),
-    ExclArchiveDirs =
-	reltool_utils:default_val(AppExclArchiveDirs, SysExclArchiveDirs),
-    ArchiveOpts =
-	reltool_utils:default_val(AppArchiveOpts, SysArchiveOpts),
-    Match = fun(F) -> match(element(2, F), InclArchiveDirs, ExclArchiveDirs) end,
-    case lists:filter(Match, Files) of
-        [] ->
-            %% Nothing to archive
-            [spec_create_dir(RootDir, SourceDir, Label, Files)];
-        ArchiveFiles ->
-            OptDir =
-                case Files -- ArchiveFiles of
-                    [] ->
-                        [];
-                    ExternalFiles ->
-                        [spec_create_dir(RootDir,
-					 SourceDir,
-					 Label,
-					 ExternalFiles)]
-                end,
-            ArchiveOpts =
-		reltool_utils:default_val(AppArchiveOpts, SysArchiveOpts),
-            ArchiveDir =
-		spec_create_dir(RootDir, SourceDir, Label, ArchiveFiles),
-            [{archive, Label ++ ".ez", ArchiveOpts, [ArchiveDir]} | OptDir]
-    end.
+    [spec_create_dir(RootDir, SourceDir, Label, AppFiles3)].
 
 spec_dir(Dir) ->
     Base = filename:basename(Dir),
@@ -1279,27 +1229,6 @@ do_eval_spec({create_dir, Dir, OldDir, Files},
     TargetDir2 = filename:join([TargetDir, Dir]),
     reltool_utils:create_dir(TargetDir2),
     do_eval_spec(Files, SourceDir2, SourceDir2, TargetDir2);
-do_eval_spec({archive, Archive, Options, Files},
-	     OrigSourceDir,
-	     SourceDir,
-	     TargetDir) ->
-    TmpSpec = {create_dir, "tmp", Files},
-    TmpDir = filename:join([TargetDir, "tmp"]),
-    reltool_utils:create_dir(TmpDir),
-    do_eval_spec(Files, OrigSourceDir, SourceDir, TmpDir),
-
-    ArchiveFile = filename:join([TargetDir, Archive]),
-    Files2 = [element(2, F) || F <- Files],
-    Res = zip:create(ArchiveFile, Files2, [{cwd, TmpDir} | Options]),
-
-    cleanup_spec(TmpSpec, TargetDir),
-    case Res of
-        {ok, _} ->
-            ok;
-        {error, Reason} ->
-            reltool_utils:throw_error("create archive ~ts failed: ~tp",
-				      [ArchiveFile, Reason])
-    end;
 do_eval_spec({copy_file, File}, _OrigSourceDir, SourceDir, TargetDir) ->
     SourceFile = filename:join([SourceDir, File]),
     TargetFile = filename:join([TargetDir, File]),
@@ -1339,12 +1268,6 @@ cleanup_spec({create_dir, Dir, _OldDir, Files}, TargetDir) ->
     TargetDir2 = filename:join([TargetDir, Dir]),
     cleanup_spec(Files, TargetDir2),
     file:del_dir(TargetDir2);
-cleanup_spec({archive, Archive, _Options, Files}, TargetDir) ->
-    TargetFile = filename:join([TargetDir, Archive]),
-    file:delete(TargetFile),
-    TmpDir = filename:join([TargetDir, "tmp"]),
-    cleanup_spec(Files, TmpDir),
-    file:del_dir(TmpDir);
 cleanup_spec({copy_file, File}, TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
     file:delete(TargetFile);
@@ -1396,21 +1319,6 @@ do_filter_spec(Path,
             end;
         Files2 when is_list(Files2) ->
             {true, {create_dir, NewDir, OldDir, Files2}}
-    end;
-do_filter_spec(Path,
-	       {archive, Archive, Options, Files},
-	       InclRegexps,
-	       ExclRegexps) ->
-    case do_filter_spec(Path, Files, InclRegexps, ExclRegexps) of
-        [] ->
-            case match(Path, InclRegexps, ExclRegexps) of
-                true ->
-                    {true, {archive, Archive, Options, []}};
-                false ->
-                    false
-            end;
-        Files2 when is_list(Files2) ->
-            {true, {archive, Archive, Options, Files2}}
     end;
 do_filter_spec(Path, {copy_file, File}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
