@@ -178,9 +178,9 @@ tags support and more. See the <a href="#tools#/index.html">
 Tools</a> application for details.  
 <p>
 There are also Erlang plugins for other code editors
-<a href="http://github.com/vim-erlang">Vim (vim-erlang)</a> ,
-<a href="http://atom.io/packages/language-erlang"> Atom </a> and
-<a href="http://ignatov.github.io/intellij-erlang/">IntelliJ IDEA</a>.
+<a href="https://github.com/vim-erlang">Vim (vim-erlang)</a> ,
+<a href="https://atom.io/packages/language-erlang"> Atom </a> and
+<a href="https://ignatov.github.io/intellij-erlang/">IntelliJ IDEA</a>.
 <li>When developing with Erlang/OTP you usually test your programs
 from the interactive shell (see <a href="getting_started/users_guide.html">
 Getting Started With Erlang</a>) where you can call individual
@@ -189,18 +189,18 @@ href="#debugger#/index.html" >Debugger</a> and the <a href="#observer#/index.htm
 </p>
 
 <li>OpenSource users can ask questions
-and share experiences on <a href="http://erlangforums.com">
+and share experiences on <a href="https://erlangforums.com">
 ErlangForums</a>.
 <p></p>
 </li>
 
-<li>Before asking a question you can browse the <a href="http://www.erlang.org/faq/faq.html" >Frequently
+<li>Before asking a question you can browse the <a href="https://www.erlang.org/faq/faq.html" >Frequently
 Asked Questions</a>.
 <p></p>
 </li>
 
 <li>Additional information and links of interest for Erlang programmers can be found on the Erlang Open Source site 
-<a href="http://www.erlang.org/">http://www.erlang.org</a>.
+<a href="https://www.erlang.org/">http://www.erlang.org</a>.
 </li>
 
 </ul>
