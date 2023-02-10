@@ -3674,7 +3674,9 @@ void BeamModuleAssembler::emit_extract_binary(const arm::Gp bitdata,
     mov_imm(TMP3, num_bytes);
     a.rev64(TMP4, bitdata);
     a.stp(TMP2, TMP3, arm::Mem(HTOP).post(sizeof(Eterm[2])));
-    a.str(TMP4, arm::Mem(HTOP).post(sizeof(Eterm[1])));
+    if (num_bytes != 0) {
+        a.str(TMP4, arm::Mem(HTOP).post(sizeof(Eterm[1])));
+    }
     flush_var(dst);
 }
 

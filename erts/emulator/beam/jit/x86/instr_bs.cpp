@@ -3781,8 +3781,12 @@ void BeamModuleAssembler::emit_extract_binary(const x86::Gp bitdata,
     a.mov(x86::qword_ptr(HTOP, sizeof(Eterm)), imm(num_bytes));
     a.mov(RET, bitdata);
     a.bswap(RET);
-    a.mov(x86::qword_ptr(HTOP, 2 * sizeof(Eterm)), RET);
-    a.add(HTOP, imm(sizeof(Eterm[3])));
+    if (num_bytes == 0) {
+        a.add(HTOP, imm(sizeof(Eterm[2])));
+    } else {
+        a.mov(x86::qword_ptr(HTOP, 2 * sizeof(Eterm)), RET);
+        a.add(HTOP, imm(sizeof(Eterm[3])));
+    }
 }
 
 static std::vector<BsmSegment> opt_bsm_segments(
