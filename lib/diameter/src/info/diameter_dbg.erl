@@ -218,7 +218,7 @@ pp(<<_Version:8, MsgLength:24, _/binary>> = Bin) ->
 
 pp(Bin)
   when is_binary(Bin) ->
-    {truncated_binary, size(Bin)};
+    {truncated_binary, byte_size(Bin)};
 
 pp(_) ->
     not_binary.
