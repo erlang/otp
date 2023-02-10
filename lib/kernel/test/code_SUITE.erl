@@ -1035,7 +1035,12 @@ mult_lib_roots(Config) when is_list(Config) ->
     error = rpc:call(Node, code, get_object_code, [code_SUITE_mult_root_module]),
     mult_lib_compile(DataDir, "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
     error = rpc:call(Node, code, get_object_code, [code_SUITE_mult_root_module]),
-
+    %% Test that the CWD is not cached
+    File = filename:join([DataDir, "first_root/my_dummy_app-c/ebin/code_SUITE_mult_root_module"]),
+    {ok, _} = compile:file(File, [{outdir, "."}]),
+    {_,_,_} = rpc:call(Node, code, get_object_code, [code_SUITE_mult_root_module]),
+    true = rpc:call(Node, code_SUITE_mult_root_module, works_fine, []),
+    file:delete("code_SUITE_mult_root_module.beam"),
     %% Clean up so we can start again
     file:delete(CodeSuiteMultRootBeam),
     peer:stop(Peer),

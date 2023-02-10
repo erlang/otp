@@ -45,7 +45,7 @@
 
 -record(state, {supervisor :: pid(),
 		root :: file:name_all(),
-		path :: [file:name_all()],
+		path :: [{file:name_all(), cache | nocache}],
 		moddb :: ets:table(),
 		namedb :: ets:table(),
 		mode = interactive :: 'interactive' | 'embedded',
@@ -501,9 +501,9 @@ add_loader_path(IPath0,Mode) ->
     {ok,PrimP0} = erl_prim_loader:get_path(),
     CacheBootPaths = cache_boot_paths(),
 
-    %% All boot paths are cached by default but this can be disabled.
+    %% All boot paths except for "." are cached by default but this can be disabled.
     %% -pa and -pz are never cached by default.
-    case Mode of
+    BootPaths = case Mode of
         embedded ->
             [{P, CacheBootPaths} || P <- strip_path(PrimP0, Mode)];  % i.e. only normalize
         _ ->
@@ -512,15 +512,17 @@ add_loader_path(IPath0,Mode) ->
 
             Pa = patch_path(Pa0),
             Pz = patch_path(Pz0),
-	    PrimP = patch_path(PrimP0),
-	    IPath = patch_path(IPath0),
+            PrimP = patch_path(PrimP0),
+            IPath = patch_path(IPath0),
 
             Path0 = exclude_pa_pz(PrimP,Pa,Pz),
             Path1 = strip_path(Path0, Mode),
             Path2 = merge_path(Path1, IPath, []),
             Path3 = [{P, CacheBootPaths} || P <- Path2],
             add_pa_pz(Path3,Pa,Pz)
-    end.
+    end,
+    lists:keyreplace(".", 1, BootPaths, {".", nocache}).
+
 
 cache_boot_paths() ->
     case init:get_argument(cache_boot_paths) of
@@ -1146,7 +1148,7 @@ with_cache(nocache, _Dir, _ModFile) ->
 with_cache(cache, Dir, ModFile) ->
     case erl_prim_loader:list_dir(Dir) of
         {ok, Entries} -> with_cache(maps:from_keys(Entries, []), Dir, ModFile);
-        {error, _} -> {false, cache}
+        error -> {false, cache}
     end;
 with_cache(Cache, _Dir, ModFile) when is_map(Cache) ->
     {is_map_key(ModFile, Cache), Cache}.
