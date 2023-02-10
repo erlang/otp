@@ -460,7 +460,13 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
 
 	val[0] = result;
 	cost = garbage_collect(p, live_hf_end, 0, val, 1, p->fcalls, 0);
-	result = val[0];
+        if (ERTS_PROC_IS_EXITING(p)) {
+            result = THE_NON_VALUE;
+        }
+        else {
+            result = val[0];
+        }
+
     }
     BUMP_REDS(p, cost);
 
@@ -1373,6 +1379,8 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
     Uint debug_tmp = 0;
 #endif
 
+    need += S_RESERVED;
+
     /*
      * Check if we have gone past the max heap size limit
      */
@@ -1393,7 +1401,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
             heap_size += OLD_HEND(p) - OLD_HEAP(p);
 
         /* Add potential new young heap size */
-        extra_heap_size = next_heap_size(p, stack_size + size_before, 0);
+        extra_heap_size = next_heap_size(p, stack_size + MAX(size_before,need), 0);
         heap_size += extra_heap_size;
 
         if (has_reached_max_heap_size(p, heap_size))
@@ -1413,13 +1421,13 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
          * This improved Estone by more than 1200 estones on my computer
          * (Ultra Sparc 10).
          */
-        Uint new_sz = erts_next_heap_size(size_before, 1);
+        Uint n_old_sz = erts_next_heap_size(size_before, 1);
 
         /* Create new, empty old_heap */
         n_old = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
-					  sizeof(Eterm)*new_sz);
+					  sizeof(Eterm)*n_old_sz);
 
-        OLD_HEND(p) = n_old + new_sz;
+        OLD_HEND(p) = n_old + n_old_sz;
         OLD_HEAP(p) = OLD_HTOP(p) = n_old;
     }
 
@@ -1435,7 +1443,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 	Uint stack_size, size_after, adjust_size, need_after, new_sz, new_mature;
 
 	stack_size = STACK_START(p) - STACK_TOP(p);
-	new_sz = stack_size + size_before;
+	new_sz = stack_size + MAX(size_before, need);
         new_sz = next_heap_size(p, new_sz, 0);
 
 	prev_old_htop = p->old_htop;
@@ -1456,8 +1464,7 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
         GEN_GCS(p)++;
         need_after = ((HEAP_TOP(p) - HEAP_START(p))
                       + need
-                      + stack_size
-                      + S_RESERVED);
+                      + stack_size);
 	
         /*
          * Excessively large heaps should be shrunk, but
