@@ -700,7 +700,12 @@ spawn(Module, Name, Args) -> pid()
 	    <seecom marker="erts:erl#+zdbbl"><c>+zdbbl</c></seecom>. Note
 	    that if you do raise the limit like this, you need to take care
 	    of flow control yourself to ensure that you do not get into a
-	    situation with excessive memory usage.
+	    situation with excessive memory usage. As of OTP @OTP-18454@ it is
+            also possible to enable <i>fully asynchronous distributed
+            signaling</i> on a per process level using
+            <seeerl marker="erts:erlang#process_flag_async_dist">
+              <c>process_flag(async_dist, Bool)</c></seeerl>. Also in this case
+            you need to take care of flow control yourself.
 	  </p>
 	</item>
       </taglist>
