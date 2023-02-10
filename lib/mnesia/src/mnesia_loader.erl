@@ -222,7 +222,6 @@ do_get_network_copy(Tab, Reason, Ns, Storage, Cs) ->
 		ok ->
 		    set({Tab, load_node}, Node),
 		    set({Tab, load_reason}, Reason),
-		    mnesia_controller:i_have_tab(Tab, Cs),
 		    dbg_out("Table ~tp copied from ~p to ~p~n", [Tab, Node, node()]),
 		    {loaded, ok};
 		Err = {error, _} when element(1, Reason) == dumper ->
@@ -291,7 +290,11 @@ init_receiver(Node, Tab,Storage,Cs,Reason) ->
 	    {atomic, {error,Result}} ->
 		fatal("Cannot create table ~tp: ~tp~n",
 		      [[Tab, Storage], Result]);
-	    {atomic,  Result} -> Result;
+            {atomic, ok} ->
+                mnesia_controller:i_have_tab(Tab, Cs),
+                ok;
+	    {atomic, Result} ->
+                Result;
 	    {aborted, nomore} -> restart;
 	    {aborted, _Reas} ->
 		verbose("Receiver failed on ~tp from ~p:~nReason: ~tp~n",
@@ -555,14 +558,17 @@ init_table(Tab, _, Fun, _DetsInfo,_) ->
 
 finish_copy(Storage,Tab,Cs,SenderPid,DatBin,OrigTabRec) ->
     TabRef = {Storage, Tab},
-    subscr_postprocess(TabRef, Cs#cstruct.record_name),
     case handle_last(TabRef, Cs#cstruct.type, DatBin) of
 	ok ->
-	    mnesia_index:init_index(Tab, Storage),
-	    snmpify(Tab, Storage),
+            subscr_postprocess(TabRef, Cs#cstruct.record_name),
 	    %% OrigTabRec must not be the spawned tab-receiver
 	    %% due to old protocol.
 	    SenderPid ! {OrigTabRec, no_more},
+            Ref = monitor(process, SenderPid),
+            %% and all remaining events
+            subscr_receiver(TabRef, Cs#cstruct.record_name, Ref),
+	    mnesia_index:init_index(Tab, Storage),
+	    snmpify(Tab, Storage),
 	    mnesia_tm:unblock_tab(Tab),
 	    ok;
 	{error, Reason} ->
@@ -582,22 +588,21 @@ subscr_postprocess(TabRef, RecName) ->
 		    handle_subscr_event(Event, TabRef, RecName)
 		end, ok, SubscrCache),
 	    ets:delete(SubscrCache)
-    end,
-    % and all remaining events
-    subscr_receiver(TabRef, RecName).
+    end.
 
-subscr_receiver(TabRef = {_, Tab}, RecName) ->
+subscr_receiver(TabRef = {_, Tab}, RecName, Ref) ->
     receive
 	{mnesia_table_event, {_Op, Val, _Tid}} = Event
 	  when element(1, Val) =:= Tab; element(1, Val) =:= schema ->
 	    handle_subscr_event(Event, TabRef, RecName),
-	    subscr_receiver(TabRef, RecName);
+	    subscr_receiver(TabRef, RecName, Ref);
 
 	{'EXIT', Pid, Reason} ->
 	    handle_exit(Pid, Reason),
-	    subscr_receiver(TabRef, RecName)
-    after 0 ->
-	    ok
+	    subscr_receiver(TabRef, RecName, Ref);
+
+        {'DOWN', Ref, process, _, _} ->
+            ok
     end.
 
 handle_subscr_event(Event, TabRef = {_, Tab}, RecName) ->
@@ -1014,12 +1019,15 @@ finish_copy(Pid, Tab, Storage, RemoteS, NeedLock) ->
                         mnesia_checkpoint:tm_add_copy(Tab, RecNode),
                         DatBin = dat2bin(Tab, ?catch_val({Tab, storage_type}), RemoteS),
                         Pid ! {self(), {no_more, DatBin}},
-                        cleanup_tab_copier(Pid, Storage, Tab),
                         receive
                             {Pid, no_more} -> % Dont bother about the spurious 'more' message
+                                %% Sync mnesia_tm (before unsubscribing)
+                                mnesia_tm:sync(),
+                                cleanup_tab_copier(Pid, Storage, Tab),
                                 no_more;
                             {copier_done, Node} ->
                                 verbose("Tab receiver ~tp crashed (more): ~p~n", [Tab, Node]),
+                                cleanup_tab_copier(Pid, Storage, Tab),
                                 receiver_died
                         end
                 end

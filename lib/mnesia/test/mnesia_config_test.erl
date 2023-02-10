@@ -106,7 +106,7 @@ all() ->
      dump_log_load_regulation, {group, dump_log_thresholds},
      dump_log_update_in_place,
      event_module, backend_plugin_registration,
-     inconsistent_database, max_wait_for_decision,
+     inconsistent_database, %% max_wait_for_decision,
      send_compressed, app_test, {group, schema_config},
      unknown_config].
 

@@ -2609,6 +2609,7 @@ mnesia:create_table(employee,
         </list>
       </desc>
     </func>
+
     <func>
       <name name="transaction" arity="1" since=""/>
       <name name="transaction" arity="2" clause_i="1" since=""/>
@@ -2674,13 +2675,20 @@ raise(Name, Amount) ->
           several processes running on different nodes can concurrently
           execute the function <c>raise/2</c> without interfering
           with each other.</p>
-        <p>Since Mnesia detects deadlocks, a transaction can be
-          restarted any number of times. This function attempts a
-          restart as specified in <c>Retries</c>. <c>Retries</c> must
-          be an integer greater than 0 or the atom <c>infinity</c>.
-          Default is <c>infinity</c>.</p>
+        <p>
+          Since Mnesia detects deadlocks, a transaction can be
+          restarted any number of times and therefore the <c>Fun</c> shall not
+          have any side effects such as waiting for specific messages.
+          This function attempts a restart as many times as specified in <c>Retries</c>.
+          <c>Retries</c> must be an integer greater than 0 or the atom <c>infinity</c>,
+          default is <c>infinity</c>.
+          Mnesia uses <c>exit</c> exceptions to signal that a transaction needs to be
+          restarted, thus a <c>Fun</c> must not catch <c>exit</c> exceptions with reason
+          <c>{aborted, term()}</c>.
+        </p>
       </desc>
     </func>
+
     <func>
       <name name="transform_table" arity="4" since=""/>
       <fsummary>Changes format on all records in table <c>Tab</c>.</fsummary>

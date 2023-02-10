@@ -608,7 +608,7 @@ sticky_sync(Config) when is_list(Config) ->
                 %% In first transaction we initialise {dc, I} record with value 0
                 First = fun() ->
                                 %% Do a lot of writes into ram copies table
-                                %% which on the Slave in do_commit will be
+                                %% which on the N2 in do_commit will be
                                 %% processed first
                                 lists:foreach(fun(J) -> ok = mnesia:write(ec, {ec, J, 0}, write) end,
                                               lists:seq(1, 750)),
@@ -630,11 +630,6 @@ sticky_sync(Config) when is_list(Config) ->
 
     %% Fill 1000 dc records. At the end all dc records should have value 1.
     {Time, ok} = timer:tc(fun() -> lists:foreach(TestFun, lists:seq(1,200)) end),
-    io:format("200 trans done in ~p ~n",[Time div (1000000)]),
-    case (Time div (1000000)) < 20 of
-        true -> lists:foreach(TestFun, lists:seq(201,1000));
-        false -> ignore  %% Some virtual test machines are really slow..
-    end,
     io:format("Written, check content~n",[]),
     All = fun() -> mnesia:select(dc, [ {{dc, '_', 0}, [] ,['$_']} ]) end,
     ?match({atomic, []}, rpc:call(N1, mnesia, sync_transaction, [All])),

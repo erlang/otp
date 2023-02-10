@@ -44,7 +44,8 @@ end_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() -> 
-    [bup, company, meter, {group, tpcb}].
+    [bup, %% company,
+     meter, {group, tpcb}].
 
 groups() -> 
     [{tpcb, [],

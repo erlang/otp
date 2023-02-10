@@ -44,7 +44,7 @@
 %%% specified in the Config, the test case is skipped. If there
 %%% was enough node names in the Config, X of them are selected
 %%% and if some of them happens to be down they are restarted
-%%% via the slave module. When all nodes are up and running a
+%%% via the peer module. When all nodes are up and running a
 %%% disk resident schema is created on all nodes and Mnesia is
 %%% started a on all nodes. This means that all test cases may
 %%% assume that Mnesia is up and running on all acquired nodes.
@@ -97,9 +97,7 @@
 	 select_nodes/4,
 	 init_nodes/3,
 	 error/4,
-	 slave_start_link/0,
-	 slave_start_link/1,
-	 slave_sup/0,
+	 node_sup/0,
 
 	 start_mnesia/1,
 	 start_mnesia/2,
@@ -236,26 +234,14 @@ mk_nodes(N, Nodes) when N > 0 ->
 mk_node(N, Name, Host) ->
     list_to_atom(lists:concat([Name ++ integer_to_list(N) ++ "@" ++ Host])).
 
-slave_start_link() ->
-    slave_start_link(node()).
+node_start_link(Host, Name) ->
+    node_start_link(Host, Name, 10).
 
-slave_start_link(Node) ->
-    [Local, Host] = node_to_name_and_host(Node),
-    Count = erlang:unique_integer([positive]),
-    List = [Local, "_", Count],
-    Name = list_to_atom(lists:concat(List)),
-    slave_start_link(list_to_atom(Host), Name).
-
-slave_start_link(Host, Name) ->
-    slave_start_link(Host, Name, 10).
-
-slave_start_link(Host, Name, Retries) ->
+node_start_link(Host, Name, Retries) ->
     Debug = atom_to_list(mnesia:system_info(debug)),
-    Args = "-mnesia debug " ++ Debug ++
-	" -pa " ++
-	filename:dirname(code:which(?MODULE)) ++
-	" -pa " ++
-	filename:dirname(code:which(mnesia)),
+    Args = ["-mnesia", "debug", Debug,
+            "-pa", filename:dirname(code:which(?MODULE)),
+            "-pa", filename:dirname(code:which(mnesia))],
     case starter(Host, Name, Args) of
 	{ok, NewNode} ->
 	    ?match(pong, net_adm:ping(NewNode)),
@@ -264,22 +250,23 @@ slave_start_link(Host, Name, Retries) ->
 	    ok = rpc:call(NewNode, file, set_cwd, [Cwd]),
 	    true = rpc:call(NewNode, code, set_path, [Path]),
 	    ok = rpc:call(NewNode, error_logger, tty, [false]),
-	    spawn_link(NewNode, ?MODULE, slave_sup, []),
+	    spawn_link(NewNode, ?MODULE, node_sup, []),
 	    rpc:multicall([node() | nodes()], global, sync, []),
 	    {ok, NewNode};
 	{error, Reason} when Retries == 0->
 	    {error, Reason};
 	{error, Reason} ->
-	    io:format("Could not start slavenode ~p ~p retrying~n",
+	    io:format("Could not start node ~p ~p retrying~n",
 		      [{Host, Name, Args}, Reason]),
 	    timer:sleep(500),
-	    slave_start_link(Host, Name, Retries - 1)
+	    node_start_link(Host, Name, Retries - 1)
     end.
 
 starter(Host, Name, Args) ->
-    slave:start(Host, Name, Args).
+    {ok, _, Node} = peer:start(#{host => Host, name => Name, args => Args}),
+    {ok, Node}.
 
-slave_sup() ->
+node_sup() ->
     process_flag(trap_exit, true),
     receive
 	{'EXIT', _, _} ->
@@ -759,7 +746,7 @@ init_nodes([Node | Nodes], File, Line) ->
 	    [Node | init_nodes(Nodes, File, Line)];
 	pang ->
 	    [Name, Host] = node_to_name_and_host(Node),
-	    case slave_start_link(Host, Name) of
+	    case node_start_link(Host, Name) of
 		{ok, Node1} ->
 		    Path = code:get_path(),
 		    true = rpc:call(Node1, code, set_path, [Path]),
