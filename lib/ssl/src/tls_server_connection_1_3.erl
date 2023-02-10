@@ -204,8 +204,7 @@ start(internal = Type, #change_cipher_spec{} = Msg,
         _ ->
             tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State)
         end;
-start(internal = Type, #change_cipher_spec{} = Msg,
-      #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+start(internal = Type, #change_cipher_spec{} = Msg, State) ->
     tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 start(internal, #client_hello{extensions = #{client_hello_versions :=
                                                  #client_hello_versions{versions = ClientVersions}
@@ -246,8 +245,7 @@ start(Type, Msg, State) ->
 negotiated(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-negotiated(internal = Type, #change_cipher_spec{} = Msg,
-           #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+negotiated(internal = Type, #change_cipher_spec{} = Msg, State) ->
     tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 negotiated(internal, {start_handshake, _} = Message, State0) ->
     case send_hello_flight(Message, State0) of
@@ -298,8 +296,7 @@ wait_cv(Type, Msg, State) ->
 wait_finished(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_finished(internal = Type, #change_cipher_spec{} = Msg,
-              #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+wait_finished(internal = Type, #change_cipher_spec{} = Msg, State) ->
     tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_finished(internal,
              #finished{verify_data = VerifyData}, State0) ->
@@ -336,8 +333,7 @@ wait_finished(Type, Msg, State) ->
 wait_eoed(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_eoed(internal = Type, #change_cipher_spec{} = Msg,
-          #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+wait_eoed(internal = Type, #change_cipher_spec{} = Msg, State) ->
     tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_eoed(internal, #end_of_early_data{}, #state{handshake_env = HsEnv0} = State0) ->
     try

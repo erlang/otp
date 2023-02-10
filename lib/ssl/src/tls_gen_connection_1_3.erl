@@ -195,12 +195,11 @@ handle_change_cipher_spec(Type, Msg, StateName,
             ssl_gen_statem:handle_common_event(Type, Msg, StateName, State)
     end.
 
-handle_middlebox(#state{session = #session{session_id = Id},
-                        protocol_specific = PS} = State0)
-  when Id =/= ?EMPTY_ID ->
-    State0#state{protocol_specific = PS#{change_cipher_spec => ignore}};
-handle_middlebox(State) ->
-    State.
+handle_middlebox(#state{protocol_specific = PS} = State0) ->
+    %% Always be prepared to ignore one change cipher spec
+    %% for maximum interopablility, even if middlebox mode
+    %% is not enabled.
+    State0#state{protocol_specific = PS#{change_cipher_spec => ignore}}.
 
 handle_resumption(State, undefined) ->
     State;
