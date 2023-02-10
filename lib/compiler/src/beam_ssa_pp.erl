@@ -19,7 +19,7 @@
 %%
 -module(beam_ssa_pp).
 
--export([format_function/1,format_instr/1,format_var/1]).
+-export([format_function/1,format_instr/1,format_var/1,format_type/1]).
 
 -include("beam_ssa.hrl").
 -include("beam_types.hrl").
@@ -171,21 +171,31 @@ format_i_number(#{}) -> [].
 
 format_terminator(#b_br{anno=A,bool=#b_literal{val=true},
                         succ=Same,fail=Same}, _) ->
-    io_lib:format("  ~sbr ~ts\n", [format_i_number(A),format_label(Same)]);
+    io_lib:format("~s  ~sbr ~ts\n",
+                  [format_terminator_anno(A),
+                   format_i_number(A),
+                   format_label(Same)]);
 format_terminator(#b_br{anno=A,bool=Bool,succ=Succ,fail=Fail}, FuncAnno) ->
-    io_lib:format("  ~sbr ~ts, ~ts, ~ts\n",
-                  [format_i_number(A),
+    io_lib:format("~s  ~sbr ~ts, ~ts, ~ts\n",
+                  [format_terminator_anno(A),
+                   format_i_number(A),
                    format_arg(Bool, FuncAnno),
                    format_label(Succ),
                    format_label(Fail)]);
 format_terminator(#b_switch{anno=A,arg=Arg,fail=Fail,list=List}, FuncAnno) ->
-    [format_instr_anno(A, FuncAnno, [Arg]),
-    io_lib:format("  ~sswitch ~ts, ~ts, ~ts\n",
-                  [format_i_number(A),format_arg(Arg, FuncAnno),
+    io_lib:format("~s  ~sswitch ~ts, ~ts, ~ts\n",
+                  [format_terminator_anno(A),
+                   format_i_number(A),format_arg(Arg, FuncAnno),
                    format_label(Fail),
-                   format_switch_list(List, FuncAnno)])];
+                   format_switch_list(List, FuncAnno)]);
 format_terminator(#b_ret{anno=A,arg=Arg}, FuncAnno) ->
-    io_lib:format("  ~sret ~ts\n", [format_i_number(A),format_arg(Arg, FuncAnno)]).
+    io_lib:format("~s  ~sret ~ts\n",
+                  [format_terminator_anno(A),
+                   format_i_number(A),
+                   format_arg(Arg, FuncAnno)]).
+
+format_terminator_anno(Anno) ->
+    format_instr_anno(Anno, #{}, []).
 
 format_op({Prefix,Name}) ->
     io_lib:format("~p:~p", [Prefix,Name]);
@@ -270,6 +280,16 @@ format_instr_anno(#{arg_types:=Ts}=Anno0, FuncAnno, Args) ->
     [io_lib:format("  %% Argument types:~s~ts\n",
                    [Break, unicode:characters_to_list(Formatted)]) |
      format_instr_anno(Anno, FuncAnno, Args)];
+format_instr_anno(#{aliased:=As}=Anno, FuncAnno, Args) ->
+    Break = "\n  %%    ",
+    ["  %% Aliased:",
+     string:join([[Break, format_var(V)] || V <- As], ", "), "\n",
+     format_instr_anno(maps:remove(aliased, Anno), FuncAnno, Args)];
+format_instr_anno(#{unique:=Us}=Anno, FuncAnno, Args) ->
+    Break = "\n  %%    ",
+    ["  %% Unique:",
+     string:join([[Break, format_var(V)] || V <- Us], ", "), "\n",
+     format_instr_anno(maps:remove(unique, Anno), FuncAnno, Args)];
 format_instr_anno(Anno, _FuncAnno, _Args) ->
     format_instr_anno_1(Anno).
 
@@ -293,6 +313,8 @@ format_live_interval(#b_var{}=Dst, #{live_intervals:=Intervals}) ->
     end;
 format_live_interval(_, _) -> [].
 
+-spec format_type(type()) -> iolist().
+
 format_type(any) ->
     "any()";
 format_type(#t_atom{elements=any}) ->
@@ -302,6 +324,8 @@ format_type(#t_atom{elements=Es}) ->
                  || E <- ordsets:to_list(Es)], " | ");
 format_type(#t_bs_matchable{tail_unit=U}) ->
     io_lib:format("bs_matchable(~p)", [U]);
+format_type(#t_bitstring{size_unit=S,appendable=true}) ->
+    io_lib:format("bitstring(~p,appendable)", [S]);
 format_type(#t_bitstring{size_unit=S}) ->
     io_lib:format("bitstring(~p)", [S]);
 format_type(#t_bs_context{tail_unit=U}) ->

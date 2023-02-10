@@ -26,10 +26,14 @@
 
 -export([all/0, suite/0, groups/0,
          init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2,
+	 init_per_group/2, end_per_group/2,
 
+         alias_checks/1,
          annotation_checks/1,
+         appendable_checks/1,
          bs_size_unit_checks/1,
+         private_append_checks/1,
+         ret_annotation_checks/1,
          sanity_checks/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -39,7 +43,11 @@ all() ->
 
 groups() ->
     [{post_ssa_opt_static,test_lib:parallel(),
-      [annotation_checks,
+      [alias_checks,
+       annotation_checks,
+       appendable_checks,
+       private_append_checks,
+       ret_annotation_checks,
        sanity_checks]},
      {post_ssa_opt_dynamic,test_lib:parallel(),
       [bs_size_unit_checks]}].
@@ -74,11 +82,23 @@ end_per_group(post_ssa_opt_dynamic, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+alias_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(alias, Config).
+
 annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(annotations, Config).
 
+appendable_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(appendable, Config).
+
 bs_size_unit_checks(Config) when is_list(Config) ->
     gen_and_run_post_ssa_opt(bs_size_unit_checks, Config).
+
+private_append_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(private_append, Config).
+
+ret_annotation_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(ret_annotation, Config).
 
 sanity_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(sanity_checks, Config).
