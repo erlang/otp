@@ -10140,6 +10140,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                 if (!(state & ERTS_PSFLG_EXITING)
                     && !(p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
                     int cost = scheduler_gc_proc(p, reds);
+                    state = erts_atomic32_read_nob(&p->state);
                     calls += cost;
                     reds -= cost;
                     if (reds <= 0)
