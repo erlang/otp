@@ -23,7 +23,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
          init_per_group/2,end_per_group/2,
          byte_split_binary/1,bit_split_binary/1,match_huge_bin/1,
-         bs_match_string_edge_case/1,contexts/1]).
+         bs_match_string_edge_case/1,contexts/1,
+         empty_binary/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -31,7 +32,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [byte_split_binary, bit_split_binary, match_huge_bin,
-     bs_match_string_edge_case, contexts].
+     bs_match_string_edge_case, contexts, empty_binary].
 
 groups() ->
     [].
@@ -269,4 +270,16 @@ get_binary_memory_ctx(A, B, C, D, E, F, Bin) ->
               <<Res0:12/binary>> -> Res0
           end,
     {Res,{A,B,C,D,E,F}}.
+
+empty_binary(_Config) ->
+    _ = do_empty_binary(1_000_000),
+    ok.
+
+do_empty_binary(0) ->
+    ok;
+do_empty_binary(N) ->
+    %% The new bs_match instruction would use more heap space
+    %% than reserved when matching out an empty binary.
+    <<V1:0/bits, V1:0/bitstring, V2:0/bytes, V2:0/bits>> = <<>>,
+    [0|do_empty_binary(N-1)].
 
