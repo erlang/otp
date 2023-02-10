@@ -303,7 +303,7 @@ code_path_choice() ->
 	{ok,[["relaxed"]]} ->
 	    relaxed;
 	_Else ->
-	    strict
+	    relaxed
     end.
 
 boot(Start,Flags,Args) ->
