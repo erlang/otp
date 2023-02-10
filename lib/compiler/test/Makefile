@@ -112,7 +112,8 @@ INLINE= \
 	record
 
 R23= \
-        fun
+        fun \
+	bs_match
 
 R24= \
 	bs_construct \

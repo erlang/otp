@@ -564,6 +564,12 @@ parallel_scopes_13(A, B) ->
 
 coverage(_Config) ->
     ok = coverage_1(),
+
+    [2,3,4] = coverage_2(id([1,2,3])),
+
+    {42,F} = coverage_3(id({[], x})),
+    x = F(),
+
     ok.
 
 coverage_1() ->
@@ -574,5 +580,15 @@ coverage_1() ->
            ("abc") -> party
         end,
         ok.
+
+coverage_2(List) ->
+    %% Cover a line in beam_ssa_pre_codegen:need_frame_1/2 when the
+    %% no_make_fun3 option is given.
+    lists:map(fun(E) -> E + 1 end, List).
+
+%% Cover a line in beam_block when no_make_fun3 option is given.
+coverage_3({[], A}) ->
+    {id(42), fun() -> A end}.
+
 id(I) ->
     I.

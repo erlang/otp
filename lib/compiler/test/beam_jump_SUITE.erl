@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(beam_jump_SUITE).
+-feature(maybe_expr, enable).
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
@@ -253,6 +254,10 @@ coverage(_Config) ->
 
     error = coverage_3(#{key => <<"child">>}),
     error = coverage_3(#{}),
+
+    ok = coverage_4(whatever),
+    -0.5 = coverage_4(any),
+
     ok.
 
 coverage_1(Var) ->
@@ -286,6 +291,15 @@ coverage_3(#{key := <<child>>}) when false ->
     ok;
 coverage_3(#{}) ->
     error.
+
+%% Cover beam_jump:value_to_literal/1.
+coverage_4(whatever) ->
+    maybe
+        coverage_4(ok),
+        ok
+    end;
+coverage_4(_) ->
+    (bnot 0) / 2.
 
 %% ERIERL-478: The validator failed to validate argument types when calls were
 %% shared and the types at the common block turned out wider than the join of
