@@ -460,8 +460,8 @@ ensure_modules_loaded_1(Ms0) ->
 	     end,
     ensure_modules_loaded_2(OnLoad, Error1).
 
-ensure_modules_loaded_2([{M,_}|Ms], Errors) ->
-    case ensure_loaded(M) of
+ensure_modules_loaded_2([{M,{Prepared,File}}|Ms], Errors) ->
+    case call({load_module, Prepared, M, File, false, true}) of
 	{module,M} ->
 	    ensure_modules_loaded_2(Ms, Errors);
 	{error,Err} ->
@@ -607,7 +607,7 @@ prepare_check_uniq_1([], [_|_]=Errors) ->
     {error,Errors}.
 
 partition_on_load(Prep) ->
-    P = fun({_,{PC,_,_}}) ->
+    P = fun({_,{PC,_}}) ->
 		erlang:has_prepared_code_on_load(PC)
 	end,
     lists:partition(P, Prep).
@@ -628,8 +628,7 @@ verify_prepared([]) ->
 verify_prepared(_) ->
     error.
 
-finish_loading(Prepared0, EnsureLoaded) ->
-    Prepared = [{M,{Bin,File}} || {M,{Bin,File,_}} <- Prepared0],
+finish_loading(Prepared, EnsureLoaded) ->
     call({finish_loading,Prepared,EnsureLoaded}).
 
 load_mods([]) ->
@@ -637,7 +636,7 @@ load_mods([]) ->
 load_mods(Mods) ->
     F = fun(Mod) ->
         case get_object_code(Mod) of
-            {Mod, Code, Path} -> prepare_loading(Mod, Path, Code);
+            {Mod, Beam, File} -> prepare_loading(Mod, File, Beam);
             error -> {error, nofile}
         end
     end,
@@ -657,7 +656,7 @@ prepare_loading(Mod, FullName, Beam) ->
 	{error,_}=Error ->
 	    Error;
 	Prepared ->
-	    {ok,{Prepared,FullName,undefined}}
+	    {ok,{Prepared,FullName}}
     end.
 
 do_par(Fun, L) ->
