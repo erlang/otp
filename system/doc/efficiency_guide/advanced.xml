@@ -163,6 +163,16 @@
 	manual page in ERTS.</cell>
       </row>
       <row>
+        <cell>
+          <marker id="unique_pids"/>Unique Local Process Identifiers on a
+          Runtime System Instance
+        </cell>
+        <cell>
+          On a 64 bit system at most <c>2⁶⁰ - 1</c> unique process identifiers
+          can be created and on a 32 bit system at most <c>2²⁸ - 1</c>.
+        </cell>
+      </row>
+      <row>
 	<cell>Known nodes</cell>
 	<cell>A remote node Y must be known to node X if there exists
 	any pids, ports, references, or funs (Erlang data types) from Y
@@ -234,6 +244,16 @@
 	command-line flag in the
 	<seecom marker="erts:erl"><c>erl(1)</c></seecom> manual page
 	in ERTS.</cell>
+      </row>
+      <row>
+        <cell>
+          <marker id="unique_ports"/>Unique Local Port Identifiers on a
+          Runtime System Instance
+        </cell>
+        <cell>
+          On a 64 bit system at most <c>2⁶⁰ - 1</c> unique port identifiers
+          can be created and on a 32 bit system at most <c>2²⁸ - 1</c>.
+        </cell>
       </row>
       <row>
 	<cell><marker id="files_sockets"></marker>Open files and
