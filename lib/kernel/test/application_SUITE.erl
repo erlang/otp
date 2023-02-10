@@ -960,9 +960,13 @@ ensure_started(_Conf) ->
     ok = application:unload(app1),
     ok.
 
-%% Test application:ensure_all_started/1-2.
+%% Test application:ensure_all_started/1-2-3.
 ensure_all_started(_Conf) ->
+    do_ensure_all_started(serial),
+    do_ensure_all_started(concurrent),
+    ok.
 
+do_ensure_all_started(Mode) ->
     {ok, Fd1} = file:open("app1.app", [write]),
     w_app1(Fd1),
     file:close(Fd1),
@@ -981,9 +985,10 @@ ensure_all_started(_Conf) ->
 
     %% Single app start/stop
     false = lists:keyfind(app1, 1, application:which_applications()),
-    {ok, [app1]} = application:ensure_all_started(app1), % app1 started
+    {ok, [app1]} = application:ensure_all_started(app1, temporary, Mode), % app1 started
     {app1, _, _} = lists:keyfind(app1, 1, application:which_applications()),
-    {ok, []} = application:ensure_all_started(app1), % no start needed
+    {ok, []} = application:ensure_all_started(app1, temporary), % no start needed
+    {ok, []} = application:ensure_all_started(app1, permanent), % no start needed
     ok = application:stop(app1),
     false = lists:keyfind(app1, 1, application:which_applications()),
     ok = application:unload(app1),
@@ -995,13 +1000,26 @@ ensure_all_started(_Conf) ->
 
     %% Start dependencies.
     {error, {not_started, app9}} = application:start(app10),
-    {ok, [app9,app10]} = application:ensure_all_started(app10, temporary),
+    {ok, [app9,app10]} = application:ensure_all_started(app10, temporary, Mode),
     {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
     {app10, _, _} = lists:keyfind(app10, 1, application:which_applications()),
     %% Only report apps/dependencies that actually needed to start
     ok = application:stop(app10),
     ok = application:unload(app10),
-    {ok, [app10]} = application:ensure_all_started(app10, temporary),
+    {ok, [app10]} = application:ensure_all_started(app10, temporary, Mode),
+    ok = application:stop(app9),
+    ok = application:unload(app9),
+    ok = application:stop(app10),
+    ok = application:unload(app10),
+
+    %% Starts several
+    {ok, StartedSeveral} = application:ensure_all_started([app1, app10], temporary, Mode),
+    [app1,app10,app9] = lists:sort(StartedSeveral),
+    {app1, _, _} = lists:keyfind(app1, 1, application:which_applications()),
+    {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
+    {app10, _, _} = lists:keyfind(app10, 1, application:which_applications()),
+    ok = application:stop(app1),
+    ok = application:unload(app1),
     ok = application:stop(app9),
     ok = application:unload(app9),
     ok = application:stop(app10),
@@ -1016,16 +1034,16 @@ ensure_all_started(_Conf) ->
     %% nor app10 running after failing to start
     %% hopefully_not_an_existing_app
     {error, {hopefully_not_an_existing_app, {"no such file or directory", _}}}=
-	application:ensure_all_started(app_chain_error),
+	application:ensure_all_started(app_chain_error, temporary, Mode),
     false = lists:keyfind(app9, 1, application:which_applications()),
     false = lists:keyfind(app10, 1, application:which_applications()),
-    false = lists:keyfind(app_chain_error2,1,application:which_applications()),
+    false = lists:keyfind(app_chain_error2, 1, application:which_applications()),
     false = lists:keyfind(app_chain_error, 1, application:which_applications()),
     %% Here we will have app9 already running, and app10 should be
     %% able to boot fine.
     %% In this dependency failing, we expect app9 to still be running, but
     %% not app10 after failing to start hopefully_not_an_existing_app
-    {ok, [app9]} = application:ensure_all_started(app9, temporary),
+    {ok, [app9]} = application:ensure_all_started(app9, temporary, Mode),
     {error, {hopefully_not_an_existing_app, {"no such file or directory", _}}}=
 	application:ensure_all_started(app_chain_error),
     {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),

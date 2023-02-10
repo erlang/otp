@@ -69,12 +69,21 @@
     <func>
       <name name="ensure_all_started" arity="1" since="OTP R16B02"/>
       <name name="ensure_all_started" arity="2" since="OTP R16B02"/>
-      <fsummary>Load and start an application and its dependencies, recursively.</fsummary>
+      <name name="ensure_all_started" arity="3" since="OTP 26.0"/>
+      <fsummary>Loads and starts all applications and their dependencies, recursively.</fsummary>
       <desc>
-        <p>Equivalent to calling
+        <p><c><anno>Applications</anno></c> is either an an <c>atom()</c> or a list
+            of <c>atom()</c> representing multiple applications.</p>
+        <p>This function is equivalent to calling
         <seemfa marker="#start/1"><c>start/1,2</c></seemfa>
-            repeatedly on all dependencies that are not yet started for an application.
+            repeatedly on all dependencies that are not yet started of each application.
             Optional dependencies will also be loaded and started if they are available.</p>
+        <p>The <c><anno>Mode</anno></c> argument controls if the applications should
+            be started in <c>serial</c> mode (one at a time) or <c>concurrent</c> mode.
+            In concurrent mode, a dependency graph is built and the leaves of the graph
+            are started concurrently and recursively. In both modes, no assertion can be
+            made about the order the applications are started. If not supplied, it defaults
+            to <c>serial</c>.</p>
         <p>Returns <c>{ok, AppNames}</c> for a successful start or for an already started
             application (which is, however, omitted from the <c>AppNames</c> list).</p>
         <p>The function reports <c>{error, {AppName,Reason}}</c> for errors, where

@@ -22,7 +22,8 @@
 %% External exports
 -export([start/1, 
 	 load_application/1, unload_application/1, 
-	 start_application/2, start_boot_application/2, stop_application/1,
+	 start_application/2, start_application_request/2,
+	 start_boot_application/2, stop_application/1,
 	 control_application/1, is_running/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
@@ -236,6 +237,9 @@ unload_application(AppName) ->
 %%-----------------------------------------------------------------
 start_application(AppName, RestartType) ->
     gen_server:call(?AC, {start_application, AppName, RestartType}, infinity).
+
+start_application_request(AppName, RestartType) ->
+    gen_server:send_request(?AC, {start_application, AppName, RestartType}).
 
 %%-----------------------------------------------------------------
 %% Func: is_running/1
