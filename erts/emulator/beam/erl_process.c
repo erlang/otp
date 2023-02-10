@@ -13182,7 +13182,7 @@ erts_set_self_exiting(Process *c_p, Eterm reason)
     erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 
     set_self_exiting(c_p, reason, &enqueue, &enq_prio, &state);
-    c_p->freason = EXTAG_EXIT;
+    c_p->freason = EXTAG_EXIT | EXF_PANIC;
     KILL_CATCHES(c_p);
     c_p->i = beam_exit;
 
