@@ -844,12 +844,12 @@ del_table(CallFrom, DelNode, [Node1, Node2, Node3]) ->
     Pid3 = spawn_link(Node3, ?MODULE, update_trans, [Tab, 3, 0]),
 
 
-    dbg:tracer(process, {fun(Msg,_) -> tracer(Msg) end, void}),          
+    %% dbg:tracer(process, {fun(Msg,_) -> tracer(Msg) end, void}),
     %%    dbg:n(Node2),
     %%    dbg:n(Node3),
     %% dbg:tp('_', []),     
     %% dbg:tpl(dets, [timestamp]), 
-    dbg:p(Pid1, [m,c,timestamp]),  
+    %% dbg:p(Pid1, [m,c,timestamp]),  
     
     ?match({atomic, ok}, 
 	   rpc:call(CallFrom, mnesia, del_table_copy, [Tab, DelNode])),
@@ -872,17 +872,6 @@ del_table(CallFrom, DelNode, [Node1, Node2, Node3]) ->
     verify_oids(Tab, Node1, Node2, Node3, R1, R2, R3),
     ?verify_mnesia([Node1, Node2, Node3], []).
     
-tracer({trace_ts, _, send, Msg, Pid, {_,S,Ms}}) ->
-    io:format("~p:~p ~p >> ~w ~n",[S,Ms,Pid,Msg]);
-tracer({trace_ts, _, 'receive', Msg, {_,S,Ms}}) ->
-    io:format("~p:~p << ~w ~n",[S,Ms,Msg]);
-
-
-tracer(Msg) ->
-    io:format("UMsg ~p ~n",[Msg]),
-    ok.
-
-
 
 add_table_copy_1(suite) -> [];
 add_table_copy_1(Config) when is_list(Config) ->
@@ -928,6 +917,22 @@ add_table(CallFrom, AddNode, [Node1, Node2, Node3], Def) ->
     Pid3 ! {self(), quit}, R3 = receive {Pid3, Res3} -> Res3 after 5000 -> error end,
     verify_oids(Tab, Node1, Node2, Node3, R1, R2, R3),
     ?verify_mnesia([Node1, Node2, Node3], []).
+
+
+tracer({trace_ts, From, send, Msg, To, {_,S,Ms}}) ->
+    io:format("~p:~p ~p(~p) >>~p ~w ~n",[S,Ms,From,node(From),To,Msg]);
+tracer({trace_ts, Pid, 'receive', Msg, {_,S,Ms}}) ->
+    io:format("~p:~p ~p(~p) << ~w ~n",[S,Ms,Pid,node(Pid),Msg]);
+
+tracer({trace_ts, Pid, call, MFA, ST, {_,S,Ms}}) ->
+    io:format("~p:~p ~p(~p) ~w ~w ~n",[S,Ms,Pid,node(Pid),MFA, ST]);
+tracer({trace_ts, Pid, return_from, MFA, Ret, {_,S,Ms}}) ->
+    io:format("~p:~p ~p(~p) ~w => ~w ~n",[S,Ms,Pid,node(Pid),MFA,Ret]);
+
+tracer(Msg) ->
+    io:format("UMsg ~p ~n",[Msg]),
+    ok.
+
 
 move_table_copy_1(suite) -> [];
 move_table_copy_1(Config) when is_list(Config) ->

@@ -185,7 +185,7 @@ nice_multi(Config) when is_list(Config) ->
     ?match([{Node2, 2}, {Node1, 2}], frag_dist(Tab)),
     
     %% And connect another table to it, via a foreign key
-    TabF = frag_slave,
+    TabF = frag_node,
     PropsF = [{foreign_key, {Tab, foreign_id}}],
     DefF = [{frag_properties, PropsF},
 	    {attributes, [id, foreign_id]}],
@@ -322,7 +322,7 @@ nice_access(Config) when is_list(Config) ->
     [frag_write(Tab, {Tab, Id, Id})  || Id <- lists:seq(1, 400)],
     
     %% And connect another table to it, via a foreign key
-    TabF = frag_access_slave,
+    TabF = frag_access_extra,
     PropsF = [{foreign_key, {Tab, val}}],
     DefF = [{frag_properties, PropsF},
 	    {index, [val]}],
