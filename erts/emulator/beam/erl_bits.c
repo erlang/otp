@@ -1380,9 +1380,13 @@ static ERTS_INLINE
 void increase_proc_bin_sz(Process* p, ProcBin* pb, Uint new_size)
 {
     if (new_size > pb->size) {
+        const Uint incr = (new_size / sizeof(Eterm) -
+                           pb->size / sizeof(Eterm));
         if (ErtsInBetween(pb, OLD_HEAP(p), OLD_HTOP(p))) {
-            p->bin_old_vheap += (new_size / sizeof(Eterm) -
-                                 pb->size / sizeof(Eterm));
+            p->bin_old_vheap += incr;
+        }
+        else {
+            OH_OVERHEAD(&MSO(p), incr);
         }
         pb->size = new_size;
     }
