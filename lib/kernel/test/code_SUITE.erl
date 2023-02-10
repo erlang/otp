@@ -997,8 +997,12 @@ purge_stacktrace_test(Config) when is_list(Config) ->
 mult_lib_roots(Config) when is_list(Config) ->
     DataDir = filename:join(proplists:get_value(data_dir, Config), "mult_lib_roots"),
     mult_lib_compile(DataDir, "my_dummy_app-b/ebin/lists"),
-    mult_lib_compile(DataDir,
-			   "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
+
+    %% We will use this module to test both code path loading and
+    %% code path caching. So we ensure its beam file does not exist.
+    CodeSuiteMultRootBeam =
+	filename:join(DataDir, "first_root/my_dummy_app-c/ebin/code_SUITE_mult_root_module.beam"),
+    file:delete(CodeSuiteMultRootBeam),
 
     %% Set up ERL_LIBS and start a peer node.
     ErlLibs = filename:join(DataDir, "first_root") ++ mult_lib_sep() ++
@@ -1026,9 +1030,31 @@ mult_lib_roots(Config) when is_list(Config) ->
 	    E <- lists:sort([Lib1,Lib2,Lib3,Lib4,Lib5])],
     io:format("~p\n", [Path]),
 
+    %% Now let's attempt to dynamically add a module,
+    %% this will fail due to the boot paths cache.
+    error = rpc:call(Node, code, get_object_code, [code_SUITE_mult_root_module]),
+    mult_lib_compile(DataDir, "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
+    error = rpc:call(Node, code, get_object_code, [code_SUITE_mult_root_module]),
+    %% Test that the CWD is not cached
+    File = filename:join([DataDir, "first_root/my_dummy_app-c/ebin/code_SUITE_mult_root_module"]),
+    {ok, _} = compile:file(File, [{outdir, "."}]),
+    {_,_,_} = rpc:call(Node, code, get_object_code, [code_SUITE_mult_root_module]),
     true = rpc:call(Node, code_SUITE_mult_root_module, works_fine, []),
+    file:delete("code_SUITE_mult_root_module.beam"),
+    %% Clean up so we can start again
+    file:delete(CodeSuiteMultRootBeam),
     peer:stop(Peer),
 
+    NoCacheArgs = ["-env", "ERL_LIBS", ErlLibs, "-cache_boot_paths", "false"],
+    {ok, NoCachePeer, NoCacheNode} = ?CT_PEER(NoCacheArgs),
+
+    %% Now the same code should work
+    error = rpc:call(NoCacheNode, code, get_object_code, [code_SUITE_mult_root_module]),
+    mult_lib_compile(DataDir, "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
+    {_,_,_} = rpc:call(NoCacheNode, code, get_object_code, [code_SUITE_mult_root_module]),
+    true = rpc:call(NoCacheNode, code_SUITE_mult_root_module, works_fine, []),
+
+    peer:stop(NoCachePeer),
     ok.
 
 mult_lib_compile(Root, Last) ->
