@@ -840,9 +840,9 @@ features_macros(Config) when is_list(Config) ->
 
     true = erpc:call(Node1, erlang, module_loaded, [erl_features]),
 
-    %% We can't load this due to experimental_ftr_1 not being enabled
-    %% in the runtime
-    {error, {features_not_allowed, [experimental_ftr_1]}} =
+    %% Starting from OTP 26, compile-time features don't need to be
+    %% enabled in the runtime system.
+    {module, f_macros} =
         erpc:call(Node1, code, load_file, [f_macros]),
     %% Check features enabled during compilation
     [approved_ftr_1, approved_ftr_2, experimental_ftr_1] =
@@ -934,8 +934,6 @@ features_all(Config) when is_list(Config) ->
                            "-disable-feature", "all"]),
     %% Check features enabled during compilation
     [approved_ftr_2] = erpc:call(Node2, erl_features, used, [foo]),
-    {error, {features_not_allowed, [approved_ftr_2]}} =
-        erpc:call(Node2, code, load_file, [foo]),
     peer:stop(Peer2),
 
     ok.
@@ -975,8 +973,7 @@ features_runtime(Config) when is_list(Config) ->
                   experimental_ftr_1,
                   experimental_ftr_2],
     Approved = [approved_ftr_2,
-                approved_ftr_1,
-                maybe_expr],
+                approved_ftr_1],
 
     {_Compile, _SrcDir, _OutDir} = compile_fun(Config),
 
@@ -1011,14 +1008,14 @@ features_runtime(Config) when is_list(Config) ->
     peer:stop(Peer0),
 
     {Peer1, Node1} = peer(["-enable-feature", "experimental_ftr_2"]),
-    [experimental_ftr_2, approved_ftr_2, approved_ftr_1, maybe_expr] =
+    [experimental_ftr_2, approved_ftr_2, approved_ftr_1] =
         erpc:call(Node1, erl_features, enabled, []),
     [while, until, unless] =  erpc:call(Node1, erl_features, keywords, []),
 
     peer:stop(Peer1),
 
     {Peer2, Node2} = peer(["-disable-feature", "all"]),
-    [maybe_expr] = erpc:call(Node2, erl_features, enabled, []),
+    [] = erpc:call(Node2, erl_features, enabled, []),
     [] =  erpc:call(Node2, erl_features, keywords, []),
 
     peer:stop(Peer2),
