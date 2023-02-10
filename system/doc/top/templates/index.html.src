@@ -161,6 +161,10 @@ In addition to the documentation here Erlang is described in several books like:
 <p>
 These books are highly recommended as a start for learning Erlang. 
 </p>
+<p>
+  More information about learning resources, editors and other tools can be found on our
+  <a href="https://erlang.org/community">official Erlang web site</a>. 
+</p>
 </li>
 <li>Erlang/OTP is divided into a number of OTP <a
 href="applications.html">applications</a>. An application normally contains
@@ -170,17 +174,7 @@ modules.
 <p></p>
 </li>
 
-<li> You can of course use any editor you like to write Erlang
-programs, but if you use Emacs there exists editing support such as
-indentation, syntax highlighting, electric commands, module name
-verification, comment support including paragraph filling, skeletons,
-tags support and more. See the <a href="#tools#/index.html">
-Tools</a> application for details.  
 <p>
-There are also Erlang plugins for other code editors
-<a href="https://github.com/vim-erlang">Vim (vim-erlang)</a> ,
-<a href="https://atom.io/packages/language-erlang"> Atom </a> and
-<a href="https://ignatov.github.io/intellij-erlang/">IntelliJ IDEA</a>.
 <li>When developing with Erlang/OTP you usually test your programs
 from the interactive shell (see <a href="getting_started/users_guide.html">
 Getting Started With Erlang</a>) where you can call individual
@@ -188,19 +182,18 @@ functions. There is also a number of tools available, such as the graphical <a
 href="#debugger#/index.html" >Debugger</a> and the <a href="#observer#/index.html" >Observer tool</a> for inspection of system information, ets and mnesia tables  etc.
 </p>
 
-<li>OpenSource users can ask questions
-and share experiences on <a href="https://erlangforums.com">
+<li>For questions and discussions about Erlang we recommend <a href="https://erlangforums.com">
 ErlangForums</a>.
 <p></p>
 </li>
 
-<li>Before asking a question you can browse the <a href="https://www.erlang.org/faq/faq.html" >Frequently
-Asked Questions</a>.
+<li>There is also the <a href="https://www.erlang.org/faq/faq.html" >Frequently
+Asked Questions</a> which can be of interest.
 <p></p>
 </li>
 
 <li>Additional information and links of interest for Erlang programmers can be found on the Erlang Open Source site 
-<a href="https://www.erlang.org/">http://www.erlang.org</a>.
+<a href="https://www.erlang.org/">https://www.erlang.org</a>.
 </li>
 
 </ul>
