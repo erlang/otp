@@ -199,9 +199,7 @@ user_hello(Type, Msg, State) ->
 start(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-start(internal = Type, #change_cipher_spec{} = Msg,
-      #state{session = #session{session_id = Id}} = State)
-  when Id =/= ?EMPTY_ID ->
+start(internal = Type, #change_cipher_spec{} = Msg, State) ->
    tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
                                                     ?FUNCTION_NAME, State);
 start(internal,
@@ -260,9 +258,7 @@ start(Type, Msg, State) ->
 wait_sh(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_sh(internal = Type, #change_cipher_spec{} = Msg,
-        #state{session = #session{session_id = Id}} = State)
-  when Id =/= ?EMPTY_ID ->
+wait_sh(internal = Type, #change_cipher_spec{} = Msg, State)->
    tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
                                                     ?FUNCTION_NAME, State);
 wait_sh(internal, #server_hello{extensions = Extensions},
@@ -346,9 +342,7 @@ hello_retry_middlebox_assert(Type, Msg, State) ->
 wait_ee(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_ee(internal = Type, #change_cipher_spec{} = Msg,
-        #state{session = #session{session_id = Id}} = State)
-  when Id =/= ?EMPTY_ID ->
+wait_ee(internal = Type, #change_cipher_spec{} = Msg, State) ->
    tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
                                                     ?FUNCTION_NAME, State);
 wait_ee(internal, #encrypted_extensions{extensions = Extensions}, State0) ->
@@ -371,9 +365,7 @@ wait_ee(Type, Msg, State) ->
 wait_cert_cr(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_cert_cr(internal = Type, #change_cipher_spec{} = Msg,
-             #state{session = #session{session_id = Id}} = State)
-  when Id =/= ?EMPTY_ID ->
+wait_cert_cr(internal = Type, #change_cipher_spec{} = Msg, State) ->
     tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
                                                      ?FUNCTION_NAME, State);
 wait_cert_cr(internal, #certificate_1_3{} = Certificate, State0) ->
@@ -432,9 +424,7 @@ wait_cv(Type, Msg, State) ->
 wait_finished(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_finished(internal = Type, #change_cipher_spec{} = Msg,
-              #state{session = #session{session_id = Id}} = State)
-  when Id =/= ?EMPTY_ID ->
+wait_finished(internal = Type, #change_cipher_spec{} = Msg, State) ->
     tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
                                                      ?FUNCTION_NAME, State);
 wait_finished(internal,
