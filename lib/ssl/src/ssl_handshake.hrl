@@ -83,9 +83,14 @@
 -define(CERTIFICATE_VERIFY, 15).
 -define(CLIENT_KEY_EXCHANGE, 16).
 -define(FINISHED, 20).
-
 -define(MAX_UNIT24, 8388607).
--define(DEFAULT_MAX_HANDSHAKE_SIZE,  (256*1024)).
+
+%% Usually the biggest handshake message will be the message conveying the
+%% certificate chain. This size should be sufficient for usual certificate
+%% chains, certificates without special extensions have a typical size of
+%%  1-2kB. By dividing the old default value by 2 we still have a slightly
+%% bigger margin than OpenSSL
+-define(DEFAULT_MAX_HANDSHAKE_SIZE, ((256*1024) div 2)).
 
 -record(random, {
 	  gmt_unix_time, % uint32
