@@ -312,15 +312,18 @@ sync_start({Pid, Ref}, Timeout) ->
 	    erlang:demonitor(Ref, [flush]),
             Return;
 	{nack, Pid, Return} ->
+            flush_EXIT(Pid),
             _ = await_DOWN(Pid, Ref),
             Return;
 	{'DOWN', Ref, process, Pid, Reason} ->
+            flush_EXIT(Pid),
             {error, Reason}
     after Timeout ->
             kill_flush_EXIT(Pid),
             _ = await_DOWN(Pid, Ref),
             {error, timeout}
     end.
+
 
 -spec start_link(Module, Function, Args) -> Ret when
       Module :: module(),
@@ -397,9 +400,11 @@ sync_start_monitor({Pid, Ref}, Timeout) ->
 	{ack, Pid, Return} ->
             {Return, Ref};
 	{nack, Pid, Return} ->
+            flush_EXIT(Pid),
             self() ! await_DOWN(Pid, Ref),
             {Return, Ref};
 	{'DOWN', Ref, process, Pid, Reason} = Down ->
+            flush_EXIT(Pid),
             self() ! Down,
             {{error, Reason}, Ref}
     after Timeout ->
@@ -409,7 +414,22 @@ sync_start_monitor({Pid, Ref}, Timeout) ->
     end.
 
 
+%% We regard the existence of an {'EXIT', Pid, _} message
+%% as proof enough that there was a link that fired and
+%% we had process_flag(trap_exit, true),
+%% so the message should be flushed.
+%% It is the best we can do.
+%%
+%% After an unlink(Pid) an {'EXIT', Pid, _} link message
+%% cannot arrive so receive after 0 will work,
+
+flush_EXIT(Pid) ->
+    unlink(Pid),
+    receive {'EXIT', Pid, _} -> ok after 0 -> ok end.
+
 kill_flush_EXIT(Pid) ->
+    %% unlink/1 has to be called before exit/2
+    %% or we might be killed by the link
     unlink(Pid),
     exit(Pid, kill),
     receive {'EXIT', Pid, _} -> ok after 0 -> ok end.

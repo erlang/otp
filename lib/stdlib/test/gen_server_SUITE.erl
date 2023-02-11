@@ -159,7 +159,10 @@ end_per_testcase(_Case, Config) ->
 	undefined ->
 	    ok;
 	Peer ->
-	    peer:stop(Peer)
+	    try peer:stop(Peer)
+            catch exit : noproc ->
+                    ok
+            end
     end,
     ok.
 
@@ -2376,11 +2379,10 @@ undef_init(_Config) ->
     {error, {undef, [{oc_init_server, init, [_], _}|_]}} =
         (catch gen_server:start_link(oc_init_server, [], [])),
     receive
-        {'EXIT', Server,
-         {undef, [{oc_init_server, init, [_], _}|_]}} when is_pid(Server) ->
+        Msg ->
+            ct:fail({unexpected_msg, Msg})
+    after 500 ->
             ok
-    after 1000 ->
-        ct:fail(expected_exit_msg)
     end.
 
 %% The upgrade should fail if code_change is expected in the callback module

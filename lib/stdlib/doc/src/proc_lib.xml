@@ -426,7 +426,7 @@ init(Parent) ->
             <c>badarg</c>.</p>
           <p>
             Using spawn option <c>link</c> will set a link to
-            the spawned process.  See the corresponding note under
+            the spawned process, just like
             <seemfa marker="#start_link/3">start_link/3,4,5</seemfa>.
           </p>
         </note>
@@ -460,6 +460,13 @@ init(Parent) ->
           this function behaves like
           <seemfa marker="#start/3">start/3,4,5</seemfa>.
         </p>
+	<p>
+          When the calling process traps exits;
+          if this function returns due to the spawned process exiting
+          (any error return), this function receives (consumes)
+          the <c>'EXIT'</c> message, also when this function times out
+          (and kills the spawned process).
+	</p>
         <note>
           <p>Using spawn option <c>monitor</c> is not
             allowed. It causes the function to fail with reason
@@ -493,7 +500,8 @@ init(Parent) ->
 	<p>
           If this function returns due to the spawned process exiting
           (any error return), a <c>'DOWN'</c> message will be delivered
-          to the calling process, also when this function times out.
+          to the calling process, also when this function times out
+          (and kills the spawned process).
 	</p>
         <note>
           <p>
@@ -503,7 +511,7 @@ init(Parent) ->
           </p>
           <p>
             Using spawn option <c>link</c> will set a link to
-            the spawned process.  See the corresponding note under
+            the spawned process, just like
             <seemfa marker="#start_link/3">start_link/3,4,5</seemfa>.
           </p>
         </note>
