@@ -93,6 +93,9 @@ fmt({uint32_out_of_range = E, [K, Name | T]})
   when K == enum;
        K == define ->
     {fmt(E), [?F("@~p ~s", [K, Name]), "value" | T]};
+fmt({uint64_out_of_range = E, [K, Name | T]})
+  when K == define ->
+    {fmt(E), [?F("@~p ~s", [K, Name]), "value" | T]};
 fmt({uint32_out_of_range = E, [avp_types, Name | T]}) ->
     {fmt(E), ["AVP " ++ Name, "AVP code" | T]};
 fmt({uint32_out_of_range = E, [grouped, Name | T]}) ->
@@ -109,6 +112,9 @@ fmt(avp_code_already_defined) ->
 fmt(uint32_out_of_range) ->
     "~s specifies ~s ~p at line ~p that is out of range for a value of "
     "Diameter type Unsigned32";
+fmt(uint64_out_of_range) ->
+    "~s specifies ~s ~p at line ~p that is out of range for a value of "
+    "Diameter type Unsigned64";
 
 fmt(imported_avp_already_defined) ->
     "AVP ~s imported by @inherits ~p at line ~p defined at line ~p";
@@ -750,7 +756,13 @@ explode({_, Line, AvpName}, Dict, {_, _, X} = T, K) ->
 %% {define, {Name, Key}} -> [Lineno, Value::integer(), enum|define]
 
 explode2([{_, Line, Key}, {_, _, Value} = T], Dict, {_, _, Name}, K) ->
-    true = is_uint32(T, [K, Name]),
+    case find({avp_types, Name}, Dict) of
+        [_,_,{_,_,Type},_] when Type == "Unsigned64";
+                                Type == "Integer64" ->
+            true = is_uint64(T, [K, Name]);
+        _ ->
+            true = is_uint32(T, [K, Name])
+    end,
 
     store_new({key(K), {Name, Key}},
               [Line, Value, K],
@@ -934,6 +946,13 @@ xa([_|Ds], Avps, Dict, Key, Name) ->
 close($<) -> $>;
 close(${) -> $};
 close($[) -> $].
+
+%% is_uint64/2
+
+is_uint64(false, _) ->
+    true;
+is_uint64({Line, _, N}, Args) ->
+    N < 1 bsl 64 orelse ?RETURN(uint64_out_of_range, Args ++ [N, Line]).
 
 %% is_uint32/2
 
