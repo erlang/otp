@@ -2735,7 +2735,7 @@ options_fallback(_Config) ->
     ok.
 
 options_handshake(_Config) -> %% handshake
-    ?OK(#{handshake := full, max_handshake_size := 262144},
+    ?OK(#{handshake := full, max_handshake_size := 131072},
         [], client),
     ?OK(#{handshake := hello, max_handshake_size := 123800},
         [{handshake, hello}, {max_handshake_size, 123800}], client),
