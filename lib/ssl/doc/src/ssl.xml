@@ -1231,6 +1231,34 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	</desc>
       </datatype>
 
+      <datatype>
+        <name name="use_srtp"/>
+        <desc>
+          <p>Configures the <c>use_srtp</c> DTLS hello extension.</p>
+          <p>In order to negotiate the use of SRTP data protection, clients
+          include an extension of type "use_srtp" in the DTLS extended client
+          hello.  This extension MUST only be used when the data being
+          transported is RTP or RTCP.</p>
+          <p>The value is a map with a mandatory <c>protection_profiles</c> and
+          an optional <c>mki</c> parameters.</p>
+          <p><c>protection_profiles</c> configures the list of the client's acceptable
+          SRTP Protection Profiles. Each profile is a 2-byte binary. Example:
+          <c>#{protection_profiles =&gt; [&lt;&lt;0,2&gt;&gt;, &lt;&lt;0,5&gt;&gt;]}</c></p>
+          <p><c>mki</c> configures the SRTP Master Key Identifier chosen by the client.</p>
+          <p>The srtp_mki field contains the value of the SRTP MKI which is associated
+          with the SRTP master keys derived from this handshake.  Each SRTP
+          session MUST have exactly one master key that is used to protect
+          packets at any given time.  The client MUST choose the MKI value so
+          that it is distinct from the last MKI value that was used, and it
+          SHOULD make these values unique for the duration of the TLS session.</p>
+          <note><p>This extension MUST only be used with DTLS, and not with TLS.</p></note>
+          <note><p>OTP does not handle SRTP, so an external implementations of SRTP
+          encoder/decoder and a packet demultiplexer are needed to make use
+          of the <c>use_srtp</c> extension. See also
+          <seetype marker="#transport_option">cb_info</seetype> option.</p></note>
+        </desc>
+      </datatype>
+
     <!--   <datatype> -->
   <!-- 	<name name="ocsp_stapling"/> -->
   <!-- 	<desc><p>If true, OCSP stapling will be enabled, an extension of type "status_request" will be -->
@@ -1579,6 +1607,40 @@ fun(srp, Username :: binary(), UserState :: term()) ->
           </p>
 	  <warning><p>This option is a placeholder, early data is not yet implemented on the server side.
           </p></warning>
+        </desc>
+      </datatype>
+
+      <datatype>
+        <name name="use_srtp"/>
+        <desc>
+          <p>Configures the <c>use_srtp</c> DTLS hello extension.</p>
+          <p>Servers that receive an extended hello containing a "use_srtp"
+          extension can agree to use SRTP by including an extension of type
+          "use_srtp", with the chosen protection profile in the extended server
+          hello. This extension MUST only be used when the data being
+          transported is RTP or RTCP.</p>
+          <p>The value is a map with a mandatory <c>protection_profiles</c> and
+          an optional <c>mki</c> parameters.</p>
+	  <list type="bulleted">
+            <item><p><c>protection_profiles</c> configures the list of the server's chosen
+            SRTP Protection Profile as a list of a single 2-byte binary. Example:
+            <c>#{protection_profiles =&gt; [&lt;&lt;0,5&gt;&gt;]}</c></p></item>
+            <item><p><c>mki</c> configures the server's SRTP Master Key Identifier.</p>
+            <p>Upon receipt of a "use_srtp" extension containing a "srtp_mki" field,
+            the server MUST either (assuming it accepts the extension at all):</p>
+	    <list type="bulleted">
+	      <item><p>include a matching "srtp_mki" value in its "use_srtp" extension
+              to indicate that it will make use of the MKI, or</p></item>
+              <item><p>return an empty "srtp_mki" value to indicate that it cannot
+              make use of the MKI (default).</p></item>
+	    </list>
+            </item>
+          </list>
+          <note><p>This extension MUST only be used with DTLS, and not with TLS.</p></note>
+          <note><p>OTP does not handle SRTP, so an external implementations of SRTP
+          encoder/decoder and a packet demultiplexer are needed to make use
+          of the <c>use_srtp</c> extension. See also
+          <seetype marker="#transport_option">cb_info</seetype> option.</p></note>
         </desc>
       </datatype>
 

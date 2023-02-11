@@ -696,6 +696,15 @@ encode_extensions([#sni{hostname = Hostname} | Rest], Acc) ->
                               ?BYTE(?SNI_NAMETYPE_HOST_NAME),
                               ?UINT16(HostLen), HostnameBin/binary,
                               Acc/binary>>);
+encode_extensions([#use_srtp{protection_profiles = Profiles, mki = MKI} | Rest], Acc) ->
+    ProfilesBin = iolist_to_binary(Profiles),
+    ProfilesLength = byte_size(ProfilesBin),
+    MKILength = byte_size(MKI),
+    ExtLength = ProfilesLength + 2 + MKILength + 1,
+    encode_extensions(Rest, <<?UINT16(?USE_SRTP_EXT), ?UINT16(ExtLength),
+                              ?UINT16(ProfilesLength), ProfilesBin/binary,
+                              ?BYTE(MKILength), MKI/binary,
+                              Acc/binary>>);
 encode_extensions([#max_frag_enum{enum = MaxFragEnum} | Rest], Acc) ->
     ExtLength = 1,
     encode_extensions(Rest, <<?UINT16(?MAX_FRAGMENT_LENGTH_EXT), ?UINT16(ExtLength), ?BYTE(MaxFragEnum),
@@ -1256,6 +1265,7 @@ add_tls12_extensions(_Version,
           encode_client_protocol_negotiation(NextProtocolSelector,
                                              Renegotiation),
       sni => sni(SslOpts),
+      use_srtp => use_srtp_ext(SslOpts),
       max_frag_enum => max_frag_enum(MaxFragmentLength)
      }.
 
@@ -1472,6 +1482,13 @@ signature_algs_cert(undefined) ->
 signature_algs_cert(SignatureSchemes) ->
     #signature_algorithms_cert{signature_scheme_list = SignatureSchemes}.
 
+
+use_srtp_ext(#{use_srtp := #{protection_profiles := Profiles, mki := MKI}}) ->
+    #use_srtp{protection_profiles = Profiles, mki = MKI};
+use_srtp_ext(#{}) ->
+    undefined.
+
+
 handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                                Exts, Version,
 			       #{secure_renegotiate := SecureRenegotation,
@@ -1498,6 +1515,7 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                                                                             ConnectionStates, Renegotiation),
                                    ec_point_formats => server_ecc_extension(Version, 
                                                                             maps:get(ec_point_formats, Exts, undefined)),
+                                   use_srtp => use_srtp_ext(Opts),
                                    max_frag_enum => ServerMaxFragEnum
                                   },
     
@@ -1897,6 +1915,8 @@ extension_value(undefined) ->
     undefined;
 extension_value(#sni{hostname = HostName}) ->
     HostName;
+extension_value(#use_srtp{protection_profiles = ProtectionProfiles, mki = MKI}) ->
+    #{protection_profiles => ProtectionProfiles, mki => MKI};
 extension_value(#ec_point_formats{ec_point_format_list = List}) ->
     List;
 extension_value(#elliptic_curves{elliptic_curve_list = List}) ->
@@ -2918,6 +2938,16 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
                                #signature_algorithms_cert{
                                   signature_scheme_list = SignSchemes}});
 
+decode_extensions(<<?UINT16(?USE_SRTP_EXT), ?UINT16(Len),
+		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
+    <<?UINT16(ProfilesLen), ProfilesBin:ProfilesLen/binary, ?BYTE(MKILen), MKI:MKILen/binary>> = ExtData,
+    Profiles = [P || <<P:2/binary>> <= ProfilesBin],
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{use_srtp =>
+                              #use_srtp{
+                                 protection_profiles = Profiles,
+                                 mki = MKI}});
+
 decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc)
   when Version < {3,4} ->
@@ -3768,7 +3798,7 @@ empty_extensions({3,4}, client_hello) ->
       %% status_request => undefined,
       elliptic_curves => undefined,
       signature_algs => undefined,
-      %% use_srtp => undefined,
+      use_srtp => undefined,
       %% heartbeat => undefined,
       alpn => undefined,
       %% signed_cert_timestamp => undefined,
