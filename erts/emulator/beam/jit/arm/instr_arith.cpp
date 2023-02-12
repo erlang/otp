@@ -1077,6 +1077,7 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
 
     if (Fail.get() != 0) {
         emit_enter_runtime(Live.get());
+        a.mov(ARG1, c_p);
         runtime_call<3>(erts_bxor);
         emit_leave_runtime(Live.get());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
