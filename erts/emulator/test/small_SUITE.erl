@@ -449,6 +449,29 @@ test_bitwise(_Config) ->
     merl:print(Tree),
     {ok,_Bin} = merl:compile_and_load(Tree, []),
     test_bitwise(Fs0, Mod),
+
+    %% Test invalid operands.
+    expect_badarith(fun(X) -> 42 band X end),
+    expect_badarith(fun(X) -> 42 bor X end),
+    expect_badarith(fun(X) -> 42 bxor X end),
+    expect_badarith(fun(X) -> X band 42 end),
+    expect_badarith(fun(X) -> X bor 42 end),
+    expect_badarith(fun(X) -> X bxor 42 end),
+    expect_fc(fun(X) when is_integer(42 band X) -> ok end),
+    expect_fc(fun(X) when is_integer(42 bor X) -> ok end),
+    expect_fc(fun(X) when is_integer(42 bxor X) -> ok end),
+    expect_fc(fun(X) when is_integer(X band 42) -> ok end),
+    expect_fc(fun(X) when is_integer(X bor 42) -> ok end),
+    expect_fc(fun(X) when is_integer(X bxor 42) -> ok end),
+
+    ok.
+
+expect_fc(Fun) ->
+    {'EXIT',{function_clause,_}} = catch Fun(id(bad)),
+    ok.
+
+expect_badarith(Fun) ->
+    {'EXIT',{badarith,_}} = catch Fun(id(bad)),
     ok.
 
 bitwise_gen_pairs() ->
