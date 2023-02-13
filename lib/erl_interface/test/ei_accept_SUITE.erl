@@ -25,6 +25,8 @@
 -include("ei_accept_SUITE_data/ei_accept_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_suite/1,
+         end_per_suite/1,
          init_per_testcase/2,
          ei_accept/1,
          hopeful_random/1,
@@ -48,6 +50,25 @@ all() ->
      hopeful_random,
      ei_threaded_accept,
      monitor_ei_process].
+
+init_per_suite(Config) when is_list(Config) ->
+
+    %% Trigger usage of large pids and ports in 64-bit case...
+    case erlang:system_info(wordsize) of
+        4 ->
+            ok;
+        8 ->
+            erts_debug:set_internal_state(available_internal_state,true),
+            erts_debug:set_internal_state(next_pid, 1 bsl 32),
+            erts_debug:set_internal_state(next_port, 1 bsl 32),
+            erts_debug:set_internal_state(available_internal_state,false),
+            ok
+    end,
+
+    Config.
+
+end_per_suite(Config) when is_list(Config) ->
+    Config.
 
 init_per_testcase(Case, Config) ->
     rand:uniform(), % Make sure rand is initialized and seeded.
