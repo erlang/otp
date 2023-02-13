@@ -32,6 +32,7 @@
   <description>
   </description>
   <xi:include href="stdlib_app.xml"/>
+  <xi:include href="argparse.xml"/>
   <xi:include href="array.xml"/>
   <xi:include href="assert_hrl.xml"/>
   <xi:include href="base64.xml"/>

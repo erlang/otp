@@ -33,6 +33,7 @@ APPLICATION=stdlib
 XML_APPLICATION_FILES = ref_man.xml
 
 XML_REF3_FILES = \
+	argparse.xml \
 	array.xml \
 	base64.xml \
 	beam_lib.xml \

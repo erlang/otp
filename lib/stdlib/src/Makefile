@@ -42,6 +42,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/stdlib-$(VSN)
 # ----------------------------------------------------
 MODULES= \
 	array \
+	argparse \
 	base64 \
 	beam_lib \
 	binary \
