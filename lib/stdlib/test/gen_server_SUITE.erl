@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -172,6 +172,7 @@ start(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     %% anonymous
+    io:format("anonymous~n", []),
     {ok, Pid0} = gen_server:start(gen_server_SUITE, [], []),
     ok = gen_server:call(Pid0, started_p),
     ok = gen_server:call(Pid0, stop),
@@ -179,6 +180,7 @@ start(Config) when is_list(Config) ->
     {'EXIT', {noproc,_}} = (catch gen_server:call(Pid0, started_p, 1)),
 
     %% anonymous with timeout
+    io:format("try init timeout~n", []),
     {ok, Pid00} = gen_server:start(gen_server_SUITE, [],
 				   [{timeout,1000}]),
     ok = gen_server:call(Pid00, started_p),
@@ -187,9 +189,16 @@ start(Config) when is_list(Config) ->
 					[{timeout,100}]),
 
     %% anonymous with ignore
+    io:format("try init ignore~n", []),
     ignore = gen_server:start(gen_server_SUITE, ignore, []),
 
+    %% anonymous with shutdown
+    io:format("try init shutdown~n", []),
+    {error, foobar} =
+        gen_server:start(gen_server_SUITE, {error, foobar}, []),
+
     %% anonymous with stop
+    io:format("try init stop~n", []),
     {error, stopped} = gen_server:start(gen_server_SUITE, stop, []),
 
     %% anonymous linked
@@ -2752,18 +2761,27 @@ spec_init_not_proc_lib(Options) ->
 init([]) ->
     {ok, []};
 init(ignore) ->
+    io:format("init(ignore)~n"),
     ignore;
+init({error, Reason}) ->
+    io:format("init(error) -> ~w~n", [Reason]),
+    {error, Reason};
 init(stop) ->
+    io:format("init(stop)~n"),
     {stop, stopped};
 init(hibernate) ->
+    io:format("init(hibernate)~n"),
     {ok,[],hibernate};
 init(sleep) ->
+    io:format("init(sleep)~n"),
     ct:sleep(1000),
     {ok, []};
 init({continue, Pid}) ->
+    io:format("init(continue) -> ~p~n", [Pid]),
     self() ! {after_continue, Pid},
     {ok, [], {continue, {message, Pid}}};
 init({state,State}) ->
+    io:format("init(state) -> ~p~n", [State]),
     {ok,State}.
 
 handle_call(started_p, _From, State) ->
@@ -2778,6 +2796,7 @@ handle_call({call_within, T}, _From, _) ->
 handle_call(next_call, _From, call_within) ->
     {reply,ok,[]};
 handle_call(next_call, _From, State) ->
+    io:format("handle_call(next_call) -> State: ~p~n", [State]),
     {reply,false,State};
 handle_call(badreturn, _From, _State) ->
     badreturn;

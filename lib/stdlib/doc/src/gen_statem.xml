@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2016</year><year>2022</year>
+      <year>2016</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1494,7 +1494,8 @@ handle_event(_, _, State, Data) ->
 	</p>
 	<p>
 	  For an unsuccesful initialization,
-          <c>{stop,<anno>Reason</anno>}</c>
+	  <c>{stop, <anno>Reason</anno>}</c>,
+	  <c>{error, <anno>Reason</anno>}</c>
 	  or <c>ignore</c> should be used; see
           <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
 	</p>
@@ -2495,9 +2496,10 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  If <c>Module:init/1</c> fails with <c>Reason</c>,
 	  this function returns
-	  <seetype marker="#start_ret"><c>{error,Reason}</c></seetype>.
+	  <seetype marker="#start_ret"><c>{error, Reason}</c></seetype>.
 	  If <c>Module:init/1</c> returns
-	  <seetype marker="#start_ret"><c>{stop,Reason}</c></seetype>
+	  <seetype marker="#start_ret"><c>{stop, Reason}</c></seetype>,
+	  <seetype marker="#start_ret"><c>{shutdown, Reason}</c></seetype>
 	  or
 	  <seetype marker="#start_ret"><c>ignore</c></seetype>,
 	  the process is terminated and this function
@@ -2510,6 +2512,9 @@ handle_event(_, _, State, Data) ->
           <c>Module:init/1</c> returns <c>ignore</c>) is set to linked processes
           and ports, including the process calling <c>start_link/3,4</c>.
 	</p>
+	<p>The difference between returning <c>{stop, Reason}</c> and
+	<c>{error, Reason}</c> (from <c>Module:init/1</c>) is that
+	<c>error</c> results in a graceful ("silent") termination. </p>
       </desc>
     </func>
 

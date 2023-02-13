@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@
 
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
-    {stop, Reason :: term()} | ignore.
+    {stop, Reason :: term()} | ignore | {error, Reason :: term()}.
 -callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
@@ -936,6 +936,13 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    gen:unregister_name(Name0),
 	    proc_lib:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
+	{ok, {error, _Reason} = ERROR} ->
+            %% The point of this clause is that we shall have a silent/graceful
+            %% termination. The error reason will be returned to the
+            %% 'Starter' ({error, Reason}), but *no* crash report.
+	    gen:unregister_name(Name0),
+	    proc_lib:init_ack(Starter, ERROR),
+	    exit(normal);
 	{ok, ignore} ->
 	    gen:unregister_name(Name0),
 	    proc_lib:init_ack(Starter, ignore),
@@ -946,7 +953,8 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    exit(Error);
 	{'EXIT', Class, Reason, Stacktrace} ->
 	    gen:unregister_name(Name0),
-	    proc_lib:init_ack(Starter, {error, terminate_reason(Class, Reason, Stacktrace)}),
+            ActualReason = terminate_reason(Class, Reason, Stacktrace),
+	    proc_lib:init_ack(Starter, {error, ActualReason}),
 	    erlang:raise(Class, Reason, Stacktrace)
     end.
 init_it(Mod, Args) ->
@@ -956,6 +964,7 @@ init_it(Mod, Args) ->
         throw:R -> {ok, R};
         Class:R:S -> {'EXIT', Class, R, S}
     end.
+
 
 %%%========================================================================
 %%% Internal functions

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ groups() ->
      {format_log, [], tcs(format_log)}].
 
 tcs(start) ->
-    [start1, start2, start3, start4, start5, start6, start7,
+    [start1, start2, start3, start4, start5a, start5b, start6, start7,
      start8, start9, start10, start11, start12, next_events];
 tcs(stop) ->
     [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10];
@@ -210,10 +210,20 @@ start4(Config) ->
     ok = verify_empty_msgq().
 
 %% anonymous with stop
-start5(Config) ->
+start5a(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     {error,stopped} = gen_statem:start(?MODULE, start_arg(Config, stop), []),
+
+    process_flag(trap_exit, OldFl),
+    ok = verify_empty_msgq().
+
+%% anonymous with shutdown
+start5b(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    {error, foobar} =
+        gen_statem:start(?MODULE, start_arg(Config, {error, foobar}), []),
 
     process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
@@ -2753,25 +2763,37 @@ start_arg(Config, Arg) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(ignore) ->
+    io:format("init(ignore)~n", []),
     ignore;
 init(stop) ->
+    io:format("init(stop)~n", []),
     {stop,stopped};
+init({error, Reason}) ->
+    io:format("init(error) -> Reason: ~p~n", [Reason]),
+    {error, Reason};
 init(stop_shutdown) ->
+    io:format("init(stop_shutdown)~n", []),
     {stop,shutdown};
 init(sleep) ->
+    io:format("init(sleep)~n", []),
     ct:sleep(1000),
     init_sup({ok,idle,data});
 init(hiber) ->
+    io:format("init(hiber)~n", []),
     init_sup({ok,hiber_idle,[]});
 init(hiber_now) ->
+    io:format("init(hiber_now)~n", []),
     init_sup({ok,hiber_idle,[],[hibernate]});
 init({data, Data}) ->
+    io:format("init(data)~n", []),
     init_sup({ok,idle,Data});
 init({callback_mode,CallbackMode,Arg}) ->
+    io:format("init(callback_mode)~n", []),
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,CallbackMode}),
     init(Arg);
 init({map_statem,#{init := Init}=Machine,Modes}) ->
+    io:format("init(map_statem)~n", []),
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,[handle_event_function|Modes]}),
     case Init() of
@@ -2783,6 +2805,7 @@ init({map_statem,#{init := Init}=Machine,Modes}) ->
 	    init_sup(Other)
     end;
 init([]) ->
+    io:format("init~n", []),
     init_sup({ok,idle,data}).
 
 %% Supervise state machine parent i.e the test case, and if it dies

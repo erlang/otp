@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2022</year>
+      <year>1996</year><year>2023</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1916,6 +1916,7 @@ format_status(Status) ->
         <v>&nbsp;&nbsp;| {ok,State,hibernate}</v>
         <v>&nbsp;&nbsp;| {ok,State,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason}</v>
+        <v>&nbsp;&nbsp;| {error,Reason}</v>
         <v>&nbsp;&nbsp;| ignore</v>
         <v>&nbsp;State = term()</v>
         <v>
@@ -1960,14 +1961,22 @@ format_status(Status) ->
           </item>
           <tag>
             <c>{stop,Reason}</c><br/>
+            <c>{error,Reason}</c><br/>
             <c>ignore</c>
           </tag>
           <item>
             <p>
               Initialization failed.
-              An exit signal with this <c>Reason</c>
-              (or with reason <c>normal</c> if <c>ignore</c> is returned)
-              is sent to linked processes and ports,
+	      An exit signal with reason</p>
+	      <taglist>
+		<tag>stop:</tag>
+		<item><c>Reason</c></item>
+		<tag>error:</tag>
+		<item><c>normal</c></item>
+		<tag>ignore:</tag>
+		<item><c>normal</c></item>
+	      </taglist>
+              <p>is sent to linked processes and ports,
               notably to the process starting the gen_server when
               <seemfa marker="#start_link/3">
                 <c>start_link/3,4</c>
