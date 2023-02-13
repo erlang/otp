@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2126,13 +2126,15 @@ on_load() ->
 			      filename:join(
 				[PrivDir,
 				 "lib",
-				 LibTypeName ++ "*"])) /= []) orelse
+				 LibTypeName ++ "*"]),
+                              erl_prim_loader) /= []) orelse
 			  (filelib:wildcard(
 			     filename:join(
 			       [PrivDir,
 				"lib",
 				erlang:system_info(system_architecture),
-				LibTypeName ++ "*"])) /= []) of
+				LibTypeName ++ "*"]),
+                             erl_prim_loader) /= []) of
 			  true -> LibTypeName;
 			  false -> LibBaseName
 		      end
@@ -2147,7 +2149,10 @@ on_load() ->
 			 filename:join([PrivDir, "lib",
 					erlang:system_info(system_architecture)]),
 		     Candidate =
-			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ]),erl_prim_loader),
+			 filelib:wildcard(
+                           filename:join(
+                             [ArchLibDir,LibName ++ "*" ]),
+                           erl_prim_loader),
 		     case Candidate of
 			 [] -> Error1;
 			 _ ->

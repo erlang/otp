@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -204,7 +204,10 @@ load_nif() ->
         {error, {load_failed, _}}=Error1 ->
             Arch = erlang:system_info(system_architecture),
             ArchLibDir = filename:join([PrivDir, "lib", Arch]),
-            Candidate =  filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
+            Candidate =
+                filelib:wildcard(
+                  filename:join([ArchLibDir,LibName ++ "*" ]),
+                  erl_prim_loader),
             case Candidate of
                 [] -> Error1;
                 _ ->
