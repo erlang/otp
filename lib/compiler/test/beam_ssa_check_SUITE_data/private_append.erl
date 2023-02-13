@@ -41,7 +41,6 @@
 	 transformable14/1,
 	 transformable15/1,
 	 transformable16/1,
-	 transformable17/1,
 	 transformable18/2,
 	 transformable19/1,
 	 transformable20/1,
@@ -67,7 +66,10 @@
 	 not_transformable7/1,
 	 not_transformable8/1,
 	 not_transformable9/1,
-	 not_transformable10/1]).
+	 not_transformable10/1,
+         not_transformable11/0,
+         not_transformable12/1,
+         not_transformable13/1]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -427,25 +429,6 @@ transformable16([A,B|T], {{Acc0}, Acc1}) ->
 transformable16([], {{Acc0}, Acc1}) ->
     {Acc0,Acc1}.
 
-%% The order of fields in the accumulator is swapped compared to
-%% transformable7.
-transformable17(L) ->
-%ssa% (_) when post_ssa_opt ->
-%ssa% A = bs_init_writable(_),
-%ssa% B = put_list(_, A),
-%ssa% _ = call(fun transformable17/2, _, B).
-    transformable17(L, [0|<<>>]).
-
-transformable17([H|T], [N|Acc]) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
-%ssa% A = get_tl(Arg1),
-%ssa% B = bs_create_bin(private_append, _, A, ...),
-%ssa% C = put_list(_, B),
-%ssa% _ = call(fun transformable17/2, _, C).
-    transformable17(T, [N+1|<<Acc/binary, H:8>>]);
-transformable17([], Acc) ->
-    Acc.
-
 %% We should use type information to figure out that {<<>>, X} is not
 %% aliased, but as of now we don't have the information at this pass,
 %% nor do we track alias status at the sub-term level.
@@ -544,13 +527,15 @@ make_empty_binary_tuple() ->
 %ssa% ret(C).
     {<<>>, <<>>}.
 
-%% Check that the conversion works for both elements of the list.
-%%
+%% Check that the conversion works for the first element of the list.
+%% Type analysis does not understand that the second field of the cons
+%% isn't an improper list. As the private append variant of
+%% bs_create_bin can't deal with non-bitstrings, check that we
+%% conservatively refuse to rewrite the second element of the cons.
 transformable22(L) ->
 %ssa% (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
-%ssa% B = bs_init_writable(_),
-%ssa% C = put_list(A, B),
+%ssa% C = put_list(A, _),
 %ssa% _ = call(fun transformable22/2, _, C).
     transformable22(L, [<<>>|<<>>]).
 
@@ -559,7 +544,7 @@ transformable22([H|T], [AccA|AccB]) ->
 %ssa% A = get_hd(Arg1),
 %ssa% B = get_tl(Arg1),
 %ssa% C = bs_create_bin(private_append, _, A, ...),
-%ssa% D = bs_create_bin(private_append, _, B, ...),
+%ssa% D = bs_create_bin(append, _, B, ...),
 %ssa% E = put_list(C, D),
 %ssa% _ = call(fun transformable22/2, _, E).
     transformable22(T, [<<AccA/binary, H:8>>|<<AccB/binary, 17:8>>]);
@@ -710,8 +695,7 @@ transformable29([], Acc) ->
 transformable30(L) ->
 %ssa% (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
-%ssa% B = bs_init_writable(_),
-%ssa% C = put_list(A, B),
+%ssa% C = put_list(A, _),
 %ssa% _ = call(fun transformable30/2, _, C).
     transformable30(L, [<<>>|<<>>]).
 
@@ -720,7 +704,7 @@ transformable30([H|T], X) ->
 %ssa% B = get_tl(Arg1),
 %ssa% A = get_hd(Arg1),
 %ssa% C = bs_create_bin(private_append, _, A, ...),
-%ssa% D = bs_create_bin(private_append, _, B, ...),
+%ssa% D = bs_create_bin(append, _, B, ...),
 %ssa% E = put_list(C, D),
 %ssa% _ = call(fun transformable30/2, _, E).
     AccB = tl(X),
@@ -888,4 +872,49 @@ not_transformable10([H|T], Acc) ->
 %ssa% _ = bs_create_bin(append, _, Arg1, ...).
     not_transformable10(T, <<Acc/binary, H:15/bitstring>>);
 not_transformable10([], Acc) ->
+    Acc.
+
+%% Check that we don't transform when we can't guarantee that the
+%% first fragment to bs_create_bin is a bitstring.
+not_transformable11() ->
+%ssa% fail () when post_ssa_opt ->
+%ssa% _ = bs_init_writable(_).
+    not_transformable11(not_ok).
+
+not_transformable11(X) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% _ = bs_create_bin(append, ...).
+    <<(case ok of
+           X -> <<>>;
+           _ -> ok
+       end)/bytes>>.
+
+%% Check that we don't transform when we can't guarantee that the
+%% first fragment to bs_create_bin is a bitstring.
+not_transformable12(A) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% _ = bs_create_bin(append, ...).
+    <<(case ok of
+           A ->
+               not is_alive();
+           _  ->
+               <<>>
+       end)/bitstring>>.
+
+%% The order of fields in the accumulator is swapped compared to
+%% transformable7. Type analysis does not understand that the second
+%% field of the cons isn't an improper list. As the private append
+%% variant of bs_create_bin can't deal with non-bitstrings, check that
+%% we conservatively refuse to rewrite this case.
+not_transformable13(L) ->
+    not_transformable13(L, [0|<<>>]).
+
+not_transformable13([H|T], [N|Acc]) ->
+%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% A = get_tl(Arg1),
+%ssa% B = bs_create_bin(append, _, A, ...),
+%ssa% C = put_list(_, B),
+%ssa% _ = call(fun not_transformable13/2, _, C).
+    not_transformable13(T, [N+1|<<Acc/binary, H:8>>]);
+not_transformable13([], Acc) ->
     Acc.

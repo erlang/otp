@@ -109,9 +109,6 @@ is_appendable(Anno, #b_literal{val=[SegmentUnit|_]})
     case Anno of
         #{arg_types:=#{2:=#t_bitstring{appendable=true,size_unit=SizeUnit}}} ->
             SizeUnit rem SegmentUnit == 0;
-        #{arg_types:=#{2:=#t_union{other=#t_bitstring{appendable=true,
-                                                      size_unit=SizeUnit}}}} ->
-            SizeUnit rem SegmentUnit == 0;
         _ ->
             false
     end.
