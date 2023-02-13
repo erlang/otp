@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2022. All Rights Reserved.
+# Copyright Ericsson AB 1999-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -96,7 +96,12 @@ MODULES = \
 	ssl_socket_SUITE\
 	make_certs \
         x509_test \
-	inet_crypto_dist \
+	cryptcookie \
+	dist_cryptcookie \
+	inet_epmd_cryptcookie_inet_ktls \
+	inet_epmd_dist_cryptcookie_inet \
+	inet_epmd_dist_cryptcookie_socket \
+	inet_epmd_cryptcookie_socket_ktls \
 	openssl_ocsp_SUITE \
 	tls_server_session_ticket_SUITE \
 	tls_client_ticket_store_SUITE
