@@ -131,8 +131,8 @@ pid_roundtrip(Config) when is_list(Config)->
 	       || Cr <- [1,2,3,4,16#adec0ded],
 		  {Num, Ser} <- [{4711,4711},{32767, 8191}]],
     do_echo([self(),
-	     mk_pid(ThisNode, 4711, 4711),
-	     mk_pid(ThisNode, 32767, 8191)
+	     mk_pid(ThisNode, 4711, 0),
+	     mk_pid(ThisNode, 1 bsl 27, 0)
 	     | RemPids],
 	    Config).
 

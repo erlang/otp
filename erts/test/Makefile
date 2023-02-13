@@ -41,7 +41,10 @@ MODULES= \
 	upgrade_SUITE \
 	parallel_messages_SUITE
 
-ERL_FILES= $(MODULES:%=%.erl)
+ERTS_MODULES= erts_test_utils
+
+ERL_FILES= $(MODULES:%=%.erl) \
+           $(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 

@@ -93,7 +93,10 @@ test_ei_decode_encode(Config) when is_list(Config) ->
     %% Test large node containers...
 
     ThisNode = {node(), erlang:system_info(creation)},
-    TXPid = mk_pid(ThisNode, 32767, 8191),
+    TXPid = case erlang:system_info(wordsize) of
+                4 -> mk_pid(ThisNode, 1 bsl 27, 0);
+                8 -> mk_pid(ThisNode, 1 bsl 27, 1 bsl 31)
+            end,
     TXPort = mk_port(ThisNode, 268435455),
     TXRef = mk_ref(ThisNode, [262143, 4294967295, 4294967295]),
 
