@@ -33,7 +33,7 @@
 	 terminate/2, code_change/3, format_status/2]).
 
 -include("httpd.hrl").
--include("http_internal.hrl").
+-include("../http_lib/http_internal.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 -define(HANDSHAKE_TIMEOUT, 5000).
@@ -46,7 +46,7 @@
 		response_sent = false :: boolean(),
 		timeout,   %% infinity | integer() > 0
 		timer      :: 'undefined' | reference(), % Request timer
-		headers,   %% #http_request_h{}
+		headers = #http_request_h{},
 		body,      %% binary()
 		data,      %% The total data received in bits, checked after 10s
 		byte_limit, %% Bit limit per second before kick out
