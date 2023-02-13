@@ -36,6 +36,7 @@
 	 tab2list/1,
          table/1,
          table/2,
+	 take_all_objects/1,
 	 fun2ms/1,
 	 match_spec_run/2,
 	 repair_continuation/2]).
@@ -477,6 +478,21 @@ slot(_, _) ->
 
 take(_, _) ->
     erlang:nif_error(undef).
+
+-spec take_all_objects(Table) -> [Object] when
+      Table :: table(),
+      Object :: tuple().
+
+take_all_objects(T) ->
+    ets:safe_fixtable(T, true),
+    Objects = internal_take_all(T, ets:first(T), []),
+    ets:safe_fixtable(T, false),
+    Objects.
+
+internal_take_all(_, '$end_of_table', Acc) ->
+    Acc;
+internal_take_all(T, Key, Acc) ->
+    ets:internal_take_all(T, ets:next(T, Key), ets:take(T, Key) ++ Acc).
 
 -spec update_counter(Table, Key, UpdateOp) -> Result when
       Table :: table(),
