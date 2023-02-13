@@ -1036,18 +1036,18 @@ setup_certs(Config) ->
     DerConfig =
         public_key:pkix_test_data(
           #{server_chain =>
-                #{root => [rsa_root_key(1)],
+                #{root => [rsa_root_key(1), {digest,sha256}],
                   intermediates => [rsa_intermediate_conf(2)],
-                  peer => [rsa_peer_key(3), Extensions]},
+                  peer => [rsa_peer_key(3),  {digest, sha256}, Extensions]},
             client_chain =>
-                #{root => [rsa_root_key(1)],
+                #{root => [rsa_root_key(1),  {digest, sha256}],
                   intermediates => [rsa_intermediate_conf(5)],
-                  peer => [rsa_peer_key(6), Extensions]}}),
+                  peer => [rsa_peer_key(6), {digest, sha256}, Extensions]}}),
     ClientBase = filename:join([PrivDir, "rsa"]),
     ServerBase =  filename:join([PrivDir, "rsa"]),
     _  = x509_test:gen_pem_config_files(DerConfig, ClientBase, ServerBase).
 
-setup_tls_opts(Config) ->    
+setup_tls_opts(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     SC = filename:join([PrivDir, "rsa_server_cert.pem"]),
     SK = filename:join([PrivDir, "rsa_server_key.pem"]),
@@ -1233,7 +1233,7 @@ rsa_peer_key(N) ->
     {key, ssl_test_lib:hardcode_rsa_key(N)}.
 
 rsa_intermediate_conf(N) ->
-    [{key, ssl_test_lib:hardcode_rsa_key(N)}].
+    [{key, ssl_test_lib:hardcode_rsa_key(N)}, {digest, sha256}].
 
 
 maybe_quote_tuple_list(String) ->

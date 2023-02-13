@@ -180,8 +180,7 @@
                                      des_cbc |
                                      '3des_ede_cbc'.
 
--type hash()                     :: sha |
-                                    sha2() |
+-type hash()                     :: sha2() |
                                     legacy_hash(). % exported
 
 -type sha2()                    ::  sha224 |
@@ -189,7 +188,7 @@
                                     sha384 |
                                     sha512.
 
--type legacy_hash()             :: md5.
+-type legacy_hash()             :: sha | md5.
 
 -type sign_algo()               :: rsa | dsa | ecdsa | eddsa. % exported
 

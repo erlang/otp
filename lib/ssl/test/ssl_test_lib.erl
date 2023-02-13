@@ -149,6 +149,7 @@
         ]).
 
 -export([tls_version/1,
+         n_version/1,
          is_protocol_version/1,
          is_tls_version/1,
          is_dtls_version/1,
@@ -182,8 +183,8 @@
          default_cert_chain_conf/0,
          cert_options/1,
          rsa_non_signed_suites/1,
+         dsa_suites/1,
          ecdh_dh_anonymous_suites/1,
-         ecdsa_suites/1,
          der_to_pem/2,
          pem_to_der/1,
          appropriate_sha/1,
@@ -191,7 +192,11 @@
          format_cert/1,
          ecdsa_conf/0,
          eddsa_conf/0,
-         default_ecc_cert_chain_conf/1
+         default_ecc_cert_chain_conf/1,
+         sig_algs/2,
+         all_sig_algs/0,
+         all_1_3_sig_algs/0,
+         all_1_2_sig_algs/0
         ]).
 
 -export([maybe_force_ipv4/1,
@@ -447,9 +452,79 @@ default_ecc_cert_chain_conf(eddsa_1_3) ->
 default_ecc_cert_chain_conf(_) ->
     default_cert_chain_conf().
 
+sig_algs(rsa_pss_pss, _) ->
+    [{signature_algs, [rsa_pss_pss_sha512,
+                       rsa_pss_pss_sha384,
+                       rsa_pss_pss_sha256]}];
+sig_algs(rsa_pss_rsae, _) ->
+    [{signature_algs, [rsa_pss_rsae_sha512,
+                       rsa_pss_rsae_sha384,
+                       rsa_pss_rsae_sha256]}];
+sig_algs(rsa, Version) when Version >= {3,3} ->
+    [{signature_algs, [rsa_pss_rsae_sha512,
+                       rsa_pss_rsae_sha384,
+                       rsa_pss_rsae_sha256,
+                       {sha512, rsa},
+                       {sha384, rsa},
+                       {sha256, rsa},
+                       {sha, rsa}
+                      ]}];
+sig_algs(ecdsa, Version) when Version >= {3,3} ->
+    [{signature_algs, [
+                       {sha512, ecdsa},
+                       {sha384, ecdsa},
+                       {sha256, ecdsa},
+                       {sha, ecdsa}]}];
+sig_algs(dsa, Version) when Version >= {3,3} ->
+    [{signature_algs, [{sha,dsa}]}];
+sig_algs(_,_) ->
+    [].
+
+all_sig_algs() ->
+    {signature_algs, list_1_3_sig_algs() ++  list_common_sig_algs() ++ list_1_2_sig_algs()}.
+
+all_1_3_sig_algs() ->
+    {signature_algs, list_1_3_sig_algs() ++ list_common_sig_algs()}.
+
+all_1_2_sig_algs() ->
+    {signature_algs, list_common_sig_algs() ++ list_1_2_sig_algs()}.
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
+list_1_3_sig_algs() ->
+    [
+     eddsa_ed25519,
+     eddsa_ed448,
+     ecdsa_secp521r1_sha512,
+     ecdsa_secp384r1_sha384,
+     ecdsa_secp256r1_sha256
+    ].
+
+list_common_sig_algs() ->
+    [
+     rsa_pss_pss_sha512,
+     rsa_pss_pss_sha384,
+     rsa_pss_pss_sha256,
+     rsa_pss_rsae_sha512,
+     rsa_pss_rsae_sha384,
+     rsa_pss_rsae_sha256
+     ].
+
+list_1_2_sig_algs() ->
+    [
+     {sha512, ecdsa},
+     {sha512, rsa},
+     {sha384, ecdsa},
+     {sha384, rsa},
+     {sha256, ecdsa},
+     {sha256, rsa},
+     {sha224, ecdsa},
+     {sha224, rsa},
+     {sha, ecdsa},
+     {sha, rsa},
+     {sha, dsa}
+    ].
 
 %% For now always run locally
 run_where(_) ->
@@ -2623,14 +2698,14 @@ rsa_non_signed_suites(Version) ->
 			 true
 		 end,
 		 available_suites(Version)).
-
-ecdsa_suites(Version) ->
-     lists:filter(fun({ecdhe_ecdsa, _, _}) ->
-                        true;
-                   (_) ->
-                        false
-                end,
-                available_suites(Version)).
+dsa_suites(Version) ->
+    ssl:filter_cipher_suites(available_suites(Version),
+                             [{key_exchange,
+                               fun(dhe_dss) ->
+                                       true;
+                                  (_) ->
+                                       false
+                               end}]).
 
 openssl_dsa_suites() ->
     Ciphers = openssl_ciphers(),
@@ -3640,6 +3715,18 @@ tls_version('dtlsv1.2' = Atom) ->
     dtls_v1:corresponding_tls_version(dtls_record:protocol_version(Atom));
 tls_version(Atom) ->
     tls_record:protocol_version(Atom).
+
+
+n_version(Version) when
+      Version == 'tlsv1.3';
+      Version == 'tlsv1.2';
+      Version == 'tlsv1.1';
+      Version == 'tlsv1';
+      Version == 'sslv3' ->
+    tls_record:protocol_version(Version);
+n_version(Version) when Version == 'dtlsv1.2';
+                        Version == 'dtlsv1' ->
+    dtls_record:protocol_version(Version).
 
 consume_port_exit(OpenSSLPort) ->
     receive    	
