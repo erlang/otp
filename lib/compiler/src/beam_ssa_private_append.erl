@@ -220,12 +220,15 @@ track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                     track_value_in_fun(Rest, Fun, Work0,
                                        Defs, ValuesInFun, DefSt0);
                 {get_hd,[List],_} ->
+                    %% We only handle the case when the tracked value
+                    %% is in the head field of a cons. This is due to
+                    %% the type analyser always assuming that a cons
+                    %% is part of a list and therefore we will never
+                    %% be able to safely rewrite an accumulator in the
+                    %% tail field of the cons, thus we will never
+                    %% have to track it.
                     track_value_in_fun(
                       [{List,{hd,Element}}|Rest], Fun, Work0,
-                      Defs, ValuesInFun, DefSt0);
-                {get_tl,[List],_} ->
-                    track_value_in_fun(
-                      [{List,{tl,Element}}|Rest], Fun, Work0,
                       Defs, ValuesInFun, DefSt0);
                 {get_tuple_element,[#b_var{}=Tuple,#b_literal{val=Idx}],_} ->
                     track_value_in_fun(
@@ -297,21 +300,22 @@ track_put_tuple(FieldVars, {tuple_element,Idx,Element},
                                Defs, ValuesInFun, DefSt)
     end.
 
-track_put_list([Hd,Tl], {What,Element},
+track_put_list([Hd,_Tl], {hd,Element},
                Work, Fun, Dst, GlobalWork,
                Defs, ValuesInFun, DefSt0) ->
     %% The value we are tracking was constructed by a put list and we
-    %% are interested in continuing the tracking of the field
-    {ToTrack, Idx} = case What of
-                         hd -> {Hd, 0};
-                         tl -> {Tl, 1}
-                     end,
-    case ToTrack of
+    %% are interested in continuing the tracking of the field. We only
+    %% handle the case when the tracked value is in the head field of
+    %% a cons. This is due to the type analyser always assuming that a
+    %% cons is part of a list and therefore we will never be able to
+    %% safely rewrite an accumulator in the tail field of the cons,
+    %% thus we will never have to track it.
+    case Hd of
         #b_var{} ->
-            track_value_in_fun([{ToTrack,Element}|Work], Fun, GlobalWork,
+            track_value_in_fun([{Hd,Element}|Work], Fun, GlobalWork,
                                Defs, ValuesInFun, DefSt0);
         #b_literal{val=Lit} ->
-            DefSt = add_literal(Fun, {opargs,Dst,Idx,Lit,Element}, DefSt0),
+            DefSt = add_literal(Fun, {opargs,Dst,0,Lit,Element}, DefSt0),
             track_value_in_fun(Work, Fun, GlobalWork, Defs, ValuesInFun, DefSt)
     end.
 
@@ -497,10 +501,6 @@ patch_opargs([], [], _, PatchedArgs, Is, Cnt) ->
 %% merge them here.
 merge_arg_patches([{Idx,Lit,P0},{Idx,Lit,P1}|Patches]) ->
     P = case {P0, P1} of
-            %% As patches are stored in the PD as an orddict we will
-            %% never see {{tl,T},{hd,H}}.
-            {{hd,H},{tl,T}} ->
-                {pair,H,T};
             {{tuple_element,I0,E0},{tuple_element,I1,E1}} ->
                 {tuple_elements,[{I0,E0},{I1,E1}]};
             {{tuple_elements,Es},{tuple_element,I,E}} ->
@@ -544,29 +544,10 @@ patch_literal_term(<<>>, self, Cnt0) ->
     {V,Cnt} = new_var(Cnt0),
     I = #b_set{op=bs_init_writable,dst=V,args=[#b_literal{val=256}]},
     {V, [I], Cnt};
-patch_literal_term(X, self, Cnt) when not is_binary(X) ->
-    %% When we track where a literal comes from and we pass PHI
-    %% instructions where the value produced is a non-binary
-    %% literal. Instead of trying to detect that when tracking the
-    %% provenance, we just ignore them here.
-    {#b_literal{val=X}, [], Cnt};
 patch_literal_term([H0|T0], {hd,Element}, Cnt0) ->
     {H,Extra,Cnt1} = patch_literal_term(H0, Element, Cnt0),
     {T,[],Cnt1} = patch_literal_term(T0, [], Cnt1),
     {Dst,Cnt} = new_var(Cnt1),
-    I = #b_set{op=put_list,dst=Dst,args=[H,T]},
-    {Dst, [I|Extra], Cnt};
-patch_literal_term([H0|T0], {tl,Element}, Cnt0) ->
-    {H,[],Cnt0} = patch_literal_term(H0, [], Cnt0),
-    {T,Extra,Cnt1} = patch_literal_term(T0, Element, Cnt0),
-    {Dst,Cnt} = new_var(Cnt1),
-    I = #b_set{op=put_list,dst=Dst,args=[H,T]},
-    {Dst, [I|Extra], Cnt};
-patch_literal_term([H0|T0], {pair,E0,E1}, Cnt0) ->
-    {H,Extra1,Cnt1} = patch_literal_term(H0, E0, Cnt0),
-    {T,Extra2,Cnt2} = patch_literal_term(T0, E1, Cnt1),
-    Extra = Extra2 ++ Extra1,
-    {Dst,Cnt} = new_var(Cnt2),
     I = #b_set{op=put_list,dst=Dst,args=[H,T]},
     {Dst, [I|Extra], Cnt};
 patch_literal_term(Lit, [], Cnt) ->
