@@ -84,6 +84,7 @@
          env/1,
          poll_pipe/1,
          lots_of_used_fds_on_boot/1,
+         command_error/1,
          z_test/1]).
 
 -export([bin_prefix/2]).
@@ -149,6 +150,7 @@ all() -> %% Keep a_test first and z_test last...
      consume_timeslice,
      env,
      poll_pipe,
+     command_error,
      z_test].
 
 groups() -> 
@@ -237,7 +239,7 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     0 = element(1, CIOD),
     [{testcase, Case}|Config].
 
-end_per_testcase(Case, Config) ->
+end_per_testcase(_Case, Config) ->
     %% Logs some info about the system
     ct_os_cmd("epmd -names"),
     ct_os_cmd("ps aux"),
@@ -2497,6 +2499,56 @@ env_oversize_test(Port, Key) ->
 env_notfound_test(Port, Key) ->
     true = os:unsetenv(Key),
     [255] = env_control(Port, 1, Key, "").
+
+command_error(Config) when is_list(Config) ->
+    erl_ddll:start(),
+
+    ODrv = command_error_output_drv,
+    ok = load_driver(proplists:get_value(data_dir, Config), ODrv),
+    Port0 = open_port({spawn, ODrv}, [{parallelism, false}]),
+    ok = command_error_test(Port0),
+    Port1 = open_port({spawn, ODrv}, [{parallelism, true}]),
+    ok = command_error_test(Port1),
+    ok = erl_ddll:unload_driver(ODrv),
+
+    OVDrv = command_error_outputv_drv,
+    ok = load_driver(proplists:get_value(data_dir, Config), OVDrv),
+    Port2 = open_port({spawn, OVDrv}, [{parallelism, false}]),
+    ok = command_error_test(Port2),
+    Port3 = open_port({spawn, OVDrv}, [{parallelism, true}]),
+    ok = command_error_test(Port3),
+    ok = erl_ddll:unload_driver(OVDrv).
+
+command_error_test(Port) ->
+    [] = port_control(Port, 0, ""),
+    Port ! {self(), {command, "user_error_1"}},
+    Port ! {self(), {command, "user_error_2"}},
+    try
+        port_command(Port, "user_error_1"),
+        error(unexpected_return)
+    catch
+        error:user_error_1 -> ok
+    end,
+    try
+        port_command(Port, "user_error_2"),
+        error(unexpected_return)
+    catch
+        error:user_error_2 -> ok
+    end,
+    try
+        port_command(Port, "user_error_1", [nosuspend]),
+        error(unexpected_return)
+    catch
+        error:user_error_1 -> ok
+    end,
+    try
+        port_command(Port, "user_error_2", [nosuspend]),
+        error(unexpected_return)
+    catch
+        error:user_error_2 -> ok
+    end,
+    port_close(Port),
+    ok.
 
 
 a_test(Config) when is_list(Config) ->

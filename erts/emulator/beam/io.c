@@ -383,6 +383,8 @@ static Port *create_port(char *name,
     prt->async_open_port = NULL;
     prt->drv_data = (SWord) 0;
     prt->os_pid = -1;
+    prt->caller = NIL;
+    prt->cmd_error = ERTS_PORT_CMD_ERROR_NOT_ALLOWED;
 
     /* Set default tracing */
     erts_get_default_port_tracing(&ERTS_TRACE_FLAGS(prt), &ERTS_TRACER(prt));
@@ -651,7 +653,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	else
 	    ERTS_OPEN_DRIVER_RET(NULL, -3, SYSTEM_LIMIT);
     }
-    
+
     if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
 	trace_port_open(port,
 			pid,
@@ -1406,6 +1408,7 @@ static int
 port_sig_outputv(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *sigdp)
 {
     Eterm reply;
+    Eterm tmp_heap[3];
 
     switch (op) {
     case ERTS_PROC2PORT_SIG_EXEC:
@@ -1416,13 +1419,24 @@ port_sig_outputv(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *s
 	if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP)
 	    reply = am_badarg;
 	else {
-	    call_driver_outputv(sigdp->flags & ERTS_P2P_SIG_DATA_FLG_BANG_OP,
+            int bang_op = sigdp->flags & ERTS_P2P_SIG_DATA_FLG_BANG_OP;
+            ASSERT(prt->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED);
+            if (!bang_op)
+                prt->cmd_error = ERTS_PORT_CMD_ERROR_ALLOWED;
+	    call_driver_outputv(bang_op,
 				sigdp->caller,
 				sigdp->u.outputv.from,
 				prt,
 				prt->drv_ptr,
 				sigdp->u.outputv.evp);
-	    reply = am_true;
+            reply = am_true;
+            if (!bang_op)  {
+                if (prt->cmd_error != ERTS_PORT_CMD_ERROR_ALLOWED) {
+                    ASSERT(is_atom(prt->cmd_error));
+                    reply = TUPLE2(&tmp_heap[0], am_error, prt->cmd_error);
+                }
+                prt->cmd_error = ERTS_PORT_CMD_ERROR_NOT_ALLOWED;
+            }
 	}
 	break;
     case ERTS_PROC2PORT_SIG_ABORT_NOSUSPEND:
@@ -1513,6 +1527,7 @@ static int
 port_sig_output(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *sigdp)
 {
     Eterm reply;
+    Eterm tmp_heap[3];
 
     switch (op) {
     case ERTS_PROC2PORT_SIG_EXEC:
@@ -1523,14 +1538,25 @@ port_sig_output(Port *prt, erts_aint32_t state, int op, ErtsProc2PortSigData *si
 	if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP)
 	    reply = am_badarg;
 	else {
-	    call_driver_output(sigdp->flags & ERTS_P2P_SIG_DATA_FLG_BANG_OP,
+            int bang_op = sigdp->flags & ERTS_P2P_SIG_DATA_FLG_BANG_OP;
+            ASSERT(prt->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED);
+            if (!bang_op)
+                prt->cmd_error = ERTS_PORT_CMD_ERROR_ALLOWED;
+	    call_driver_output(bang_op,
 			       sigdp->caller,
 			       sigdp->u.output.from,
 			       prt,
 			       prt->drv_ptr,
 			       sigdp->u.output.bufp,
 			       sigdp->u.output.size);
-	    reply = am_true;
+            reply = am_true;
+            if (!bang_op)  {
+                if (prt->cmd_error != ERTS_PORT_CMD_ERROR_ALLOWED) {
+                    ASSERT(is_atom(prt->cmd_error));
+                    reply = TUPLE2(&tmp_heap[0], am_error, prt->cmd_error);
+                }
+                prt->cmd_error = ERTS_PORT_CMD_ERROR_NOT_ALLOWED;
+            }
 	}
 	break;
     case ERTS_PROC2PORT_SIG_ABORT_NOSUSPEND:
@@ -1699,7 +1725,8 @@ erts_port_output(Process *c_p,
 		 Port *prt,
 		 Eterm from,
 		 Eterm list,
-		 Eterm *refp)
+		 Eterm *refp,
+                 Eterm *cmd_errorp)
 {
     ErtsPortOpResult res;
     ErtsProc2PortSigData *sigdp = NULL;
@@ -1866,12 +1893,19 @@ erts_port_output(Process *c_p,
 		try_call_res = try_imm_drv_call(&try_call_state);
 	    switch (try_call_res) {
 	    case ERTS_TRY_IMM_DRV_CALL_OK:
+                if (cmd_errorp)
+                    prt->cmd_error = ERTS_PORT_CMD_ERROR_ALLOWED;
 		call_driver_outputv(flags & ERTS_PORT_SIG_FLG_BANG_OP,
 				    c_p ? c_p->common.id : ERTS_INVALID_PID,
 				    from,
 				    prt,
 				    drv,
 				    &evp->driver);
+                if (cmd_errorp) {
+                    if (prt->cmd_error != ERTS_PORT_CMD_ERROR_ALLOWED)
+                        *cmd_errorp = prt->cmd_error;
+                    prt->cmd_error = ERTS_PORT_CMD_ERROR_NOT_ALLOWED;
+                }
 		if (force_immediate_call)
 		    finalize_force_imm_drv_call(&try_call_state);
 		else
@@ -2033,6 +2067,8 @@ erts_port_output(Process *c_p,
 		try_call_res = try_imm_drv_call(&try_call_state);
 	    switch (try_call_res) {
 	    case ERTS_TRY_IMM_DRV_CALL_OK:
+                if (cmd_errorp)
+                    prt->cmd_error = ERTS_PORT_CMD_ERROR_ALLOWED;
 		call_driver_output(flags & ERTS_PORT_SIG_FLG_BANG_OP,
 				   c_p ? c_p->common.id : ERTS_INVALID_PID,
 				   from,
@@ -2040,6 +2076,11 @@ erts_port_output(Process *c_p,
 				   drv,
 				   buf,
 				   size);
+                if (cmd_errorp) {
+                    if (prt->cmd_error != ERTS_PORT_CMD_ERROR_ALLOWED)
+                        *cmd_errorp = prt->cmd_error;
+                    prt->cmd_error = ERTS_PORT_CMD_ERROR_NOT_ALLOWED;
+                }
 		if (force_immediate_call)
 		    finalize_force_imm_drv_call(&try_call_state);
 		else
@@ -2163,6 +2204,8 @@ call_deliver_port_exit(int bang_op,
 	send_badsig(prt);
 	return ERTS_PORT_OP_DROPPED;
     }
+
+    ASSERT(prt->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED);
 
     if (broken_link) {
 	ErtsLink *lnk = erts_link_tree_lookup(ERTS_P_LINKS(prt), from);
@@ -2317,6 +2360,8 @@ set_port_connected(int bang_op,
 
     if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP)
 	return ERTS_PORT_OP_DROPPED;
+
+    ASSERT(prt->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED);
 
     if (bang_op) { /* Bang operation */
 	if (is_not_internal_pid(connect) || ERTS_PORT_GET_CONNECTED(prt) != from) {
@@ -2486,6 +2531,8 @@ port_unlink(Port *prt, erts_aint32_t state, ErtsSigUnlinkOp *sulnk)
     } else {
         ErtsILink *ilnk;
 
+        ASSERT(prt->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED);
+
         ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(prt),
                                                    sulnk->from);
 
@@ -2573,6 +2620,7 @@ port_unlink_ack(Port *prt, erts_aint32_t state, ErtsSigUnlinkOp *sulnk)
 	port_unlink_ack_failure(prt->common.id, sulnk);
     else {
         ErtsILink *ilnk;
+        ASSERT(prt->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED);
         ilnk = (ErtsILink *) erts_link_tree_lookup(ERTS_P_LINKS(prt),
                                                    sulnk->from);
         if (ilnk && ilnk->unlinking == sulnk->id) {
@@ -2650,6 +2698,7 @@ port_link(Port *prt, erts_aint32_t state, ErtsLink *nlnk)
         port_link_failure(prt, prt->common.id, nlnk);
     } else {
         ErtsLink *lnk;
+        ASSERT(prt->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED);
         lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(prt), nlnk);
         if (lnk)
             erts_link_release(nlnk);
@@ -2733,6 +2782,7 @@ port_monitor(Port *prt, erts_aint32_t state, ErtsMonitor *mon)
     if (state & ERTS_PORT_SFLGS_INVALID_LOOKUP) {
         port_monitor_failure(prt, prt->common.id, mon);
     } else {
+        ASSERT(prt->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED);
         ASSERT(erts_monitor_is_target(mon));
         erts_monitor_list_insert(&ERTS_P_LT_MONITORS(prt), mon);
     }
@@ -2807,6 +2857,7 @@ port_demonitor(Port *port, erts_aint32_t state, ErtsMonitor *mon)
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     ASSERT(port && mon);
     ASSERT(erts_monitor_is_origin(mon));
+    ASSERT(port->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED);
     if (!erts_monitor_is_in_table(&mdp->u.target))
         erts_monitor_release(mon);
     else {
@@ -2819,10 +2870,13 @@ static int
 port_sig_demonitor(Port *prt, erts_aint32_t state, int op,
                    ErtsProc2PortSigData *sigdp)
 {
-    if (op == ERTS_PROC2PORT_SIG_EXEC)
+    if (op == ERTS_PROC2PORT_SIG_EXEC) {
+        ASSERT(prt->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED);
         port_demonitor(prt, state, sigdp->u.demonitor.mon);
-    else
+    }
+    else {
         erts_monitor_release(sigdp->u.demonitor.mon);
+    }
     return ERTS_PORT_REDS_DEMONITOR;
 }
 
@@ -3987,7 +4041,8 @@ erts_port_command(Process *c_p,
 	    } else if (is_tuple_arity(tp[2], 2)) {
 		tp = tuple_val(tp[2]);
 		if (tp[1] == am_command) {
-		    return erts_port_output(c_p, flags, port, cntd, tp[2], refp);
+		    return erts_port_output(c_p, flags, port, cntd, tp[2],
+                                            refp, NULL);
 		}
 		else if (tp[1] == am_connect) {
 		    flags &= ~ERTS_PORT_SIG_FLG_NOSUSPEND;
@@ -7713,6 +7768,23 @@ erl_drv_getenv(const char *key, char *value, size_t *value_size)
     default: /* Not found */
         return -1;
     }
+}
+
+int
+erl_drv_command_error(ErlDrvPort dprt, char *string)
+{
+    Port *prt = erts_drvport2port(dprt);
+    if (prt == ERTS_INVALID_ERL_DRV_PORT)
+        return ESRCH;
+    if (!string)
+        return EINVAL;
+    if (prt->cmd_error == ERTS_PORT_CMD_ERROR_NOT_ALLOWED)
+        return EACCES;
+    prt->cmd_error = erts_atom_put((byte *) string,
+                                   sys_strlen(string),
+                                   ERTS_ATOM_ENC_LATIN1,
+                                   !0);
+    return 0;
 }
 
 /* get heart_port

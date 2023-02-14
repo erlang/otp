@@ -2050,6 +2050,39 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
+      <name since="OTP @OTP-18464@"><ret>int</ret>
+      <nametext>erl_drv_command_error(ErlDrvPort port,
+      char *error_reason)</nametext></name>
+      <fsummary>Generate an error exception in a port_command() call</fsummary>
+      <desc>
+        <p>
+          Generate an <c>error</c> exception, with the reason
+          <c>error_reason</c> as an atom, in a call to the
+          <seemfa marker="erlang#port_command/2">
+          <c>erlang:port_command/2</c></seemfa> BIF or the
+          <seemfa marker="erlang#port_command/3">
+          <c>erlang:port_command/3</c></seemfa> BIF. The error can only be
+          generated from the drivers <seecref marker="driver_entry#outputv">
+          <c>outputv()</c></seecref> or <seecref marker="driver_entry#output">
+          <c>output()</c></seecref> callbacks, which implements port command,
+          when the port command has been initiated via one of the synchronous
+          <c>port_command()</c> BIFs. When the port command has been
+          initiated by the asynchronous <c>Port ! {Owner, {command, Data}}</c>
+          construct, this call will fail and <em>no</em> exception will be
+          generated.
+        </p>
+        <p>
+          <c>error_reason</c> needs to be a null terminated latin1 string. If
+          the string is longer than 255 characters (excluding the null
+          termination character), it will be truncated to 255 characters.
+        </p>
+        <p>
+          Returns zero on success and a non-zero integer on failure.
+        </p>
+      </desc>
+    </func>
+
+    <func>
       <name since=""><ret>void</ret><nametext>erl_drv_cond_broadcast(ErlDrvCond
         *cnd)</nametext></name>
       <fsummary>Broadcast on a condition variable.</fsummary>

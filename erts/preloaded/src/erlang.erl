@@ -3584,7 +3584,7 @@ port_command(Port, Data) ->
 	     Res -> Res
 	 end of
 	true -> true;
-	Error -> error_with_info(Error, [Port, Data])
+	Error -> error_with_info(unwrap_err_tpl(Error), [Port, Data])
     end.
 
 -spec port_command(Port, Data, OptionList) -> boolean() when
@@ -3600,8 +3600,11 @@ port_command(Port, Data, Flags) ->
 	 end of
         badopt -> badarg_with_cause([Port, Data, Flags], badopt);
 	Bool when erlang:is_boolean(Bool) -> Bool;
-	Error -> error_with_info(Error, [Port, Data, Flags])
+	Error -> error_with_info(unwrap_err_tpl(Error), [Port, Data, Flags])
     end.
+
+unwrap_err_tpl({error, Error}) -> Error;
+unwrap_err_tpl(Error) -> Error.
 
 -spec port_connect(Port, Pid) -> 'true' when
       Port :: port() | atom(),

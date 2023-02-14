@@ -194,12 +194,12 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
     }
     else {
         Eterm ref;
+        Eterm cmd_error = THE_NON_VALUE;
 #ifdef DEBUG
         ref = NIL;
 #endif
-
 	switch (erts_port_output(BIF_P, flags, prt, prt->common.id,
-				 BIF_ARG_2, &ref)) {
+				 BIF_ARG_2, &ref, &cmd_error)) {
 	case ERTS_PORT_OP_BADARG:
 	case ERTS_PORT_OP_DROPPED:
 	    ERTS_BIF_PREP_RET(res, am_badarg);
@@ -222,9 +222,16 @@ BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
 	    /* Signal order preserved by reply... */
 	    BIF_RET(ref);
 	    break;
-	case ERTS_PORT_OP_DONE:
-	    ERTS_BIF_PREP_RET(res, am_true);
+	case ERTS_PORT_OP_DONE: {
+            Eterm result = am_true;
+            if (is_value(cmd_error)) {
+                Eterm *hp = HAlloc(BIF_P, 3);
+                ASSERT(is_atom(cmd_error));
+                result = TUPLE2(hp, am_error, cmd_error);
+            }
+	    ERTS_BIF_PREP_RET(res, result);
 	    break;
+        }
 	default:
 	    ERTS_INTERNAL_ERROR("Unexpected erts_port_output() result");
 	    break;

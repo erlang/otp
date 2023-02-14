@@ -289,7 +289,7 @@ int erts_sys_prepare_crash_dump(int secs)
 
 	/* send to heart port, CMD = 8, i.e. prepare crash dump =o */
 	erts_port_output(NULL, ERTS_PORT_SIG_FLG_FORCE_IMM_CALL, heart_port,
-			 heart_port->common.id, list, NULL);
+			 heart_port->common.id, list, NULL, NULL);
 
 	return 1;
     }

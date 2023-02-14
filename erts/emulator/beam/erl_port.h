@@ -151,6 +151,7 @@ struct _erl_drv_port {
     erts_atomic_t run_queue;
     erts_atomic_t connected;	/* A connected process */
     Eterm caller;		/* Current caller. */
+    Eterm cmd_error;
     erts_atomic_t data;	/* Data associated with port. */
     Uint bytes_in;		/* Number of bytes read */
     Uint bytes_out;		/* Number of bytes written */
@@ -176,6 +177,8 @@ struct _erl_drv_port {
     } *async_open_port;         /* Reference used with async open port */
 };
 
+#define ERTS_PORT_CMD_ERROR_NOT_ALLOWED THE_NON_VALUE
+#define ERTS_PORT_CMD_ERROR_ALLOWED NIL
 
 void erts_init_port_data(Port *);
 void erts_cleanup_port_data(Port *);
@@ -1006,7 +1009,7 @@ ErtsPortOpResult erts_port_command(Process *, int, Port *, Eterm, Eterm *);
 /*
  * Signals from processes to ports.
  */
-ErtsPortOpResult erts_port_output(Process *, int, Port *, Eterm, Eterm, Eterm *);
+ErtsPortOpResult erts_port_output(Process *, int, Port *, Eterm, Eterm, Eterm *, Eterm *);
 ErtsPortOpResult erts_port_exit(Process *, int, Port *, Eterm, Eterm, Eterm *);
 ErtsPortOpResult erts_port_connect(Process *, int, Port *, Eterm, Eterm, Eterm *);
 ErtsPortOpResult erts_port_link(Process *, Port *, ErtsLink *, Eterm *);

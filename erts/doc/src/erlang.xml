@@ -5655,7 +5655,16 @@ receive_replies(ReqId, N, Acc) ->
           <item>
             <p>If <c><anno>Data</anno></c> is an invalid I/O list.</p>
           </item>
+          <tag><c>Error</c></tag>
+          <item>
+            <p>Where <c>Error</c> is an atom defined by the driver code
+            executed by the port.</p>
+          </item>
         </taglist>
+        <p>Note that the <c><anno>Port</anno> ! {PortOwner, {command, Data}}</c>
+        construct <em>only</em> can fail with a <c>badarg</c> <c>error</c>
+        exception if <c>Port</c> is an atom which is not registered as a port
+        or a process.</p>
 	<warning>
 	  <p>Do not send data to an unknown port. Any undefined behavior is
 	  possible (including node crash) depending on how the port driver
@@ -5718,6 +5727,11 @@ receive_replies(ReqId, N, Acc) ->
             If option <c>force</c> has been passed, but the
             driver of the port does not allow forcing through
             a busy port.
+          </item>
+          <tag><c>Error</c></tag>
+          <item>
+            <p>Where <c>Error</c> is an atom defined by the driver code
+            executed by the port.</p>
           </item>
         </taglist>
 	<warning>

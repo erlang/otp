@@ -68,7 +68,7 @@
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
 #define ERL_DRV_EXTENDED_MAJOR_VERSION	3
-#define ERL_DRV_EXTENDED_MINOR_VERSION	3
+#define ERL_DRV_EXTENDED_MINOR_VERSION	4
 
 /*
  * The emulator will refuse to load a driver with a major version
@@ -621,6 +621,9 @@ EXTERN char *driver_dl_error(void);
 /* environment */
 EXTERN int erl_drv_putenv(const char *key, char *value);
 EXTERN int erl_drv_getenv(const char *key, char *value, size_t *value_size);
+
+/* port_command() synchronous error... */
+EXTERN int erl_drv_command_error(ErlDrvPort dprt, char *string);
 
 /* spawn start init ack */
 EXTERN void erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res);
