@@ -1373,10 +1373,14 @@ pkix_test_root_cert(Name, Opts) ->
 
 %% Description: Validate OCSP staple response
 %%--------------------------------------------------------------------
-pkix_ocsp_validate(DerCert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) when is_binary(DerCert) ->
-    pkix_ocsp_validate(pkix_decode_cert(DerCert, otp),  IssuerCert, OcspRespDer, ResponderCerts, NonceExt);
-pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt) when is_binary(DerIssuerCert) ->
-    pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer, ResponderCerts, NonceExt);
+pkix_ocsp_validate(DerCert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt)
+  when is_binary(DerCert) ->
+    pkix_ocsp_validate(pkix_decode_cert(DerCert, otp),  IssuerCert, OcspRespDer,
+                       ResponderCerts, NonceExt);
+pkix_ocsp_validate(Cert, DerIssuerCert, OcspRespDer, ResponderCerts, NonceExt)
+  when is_binary(DerIssuerCert) ->
+    pkix_ocsp_validate(Cert, pkix_decode_cert(DerIssuerCert, otp), OcspRespDer,
+                       ResponderCerts, NonceExt);
 pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, ResponderCerts, NonceExt) ->
     case  ocsp_responses(OcspRespDer, ResponderCerts, NonceExt) of
         {ok, Responses} ->

@@ -80,9 +80,9 @@ client_hello(_Host, _Port, ConnectionStates,
             false ->
                 Version
         end,
-    #{security_parameters := SecParams} = 
+    #{security_parameters := SecParams} =
         ssl_record:pending_connection_state(ConnectionStates, read),
-    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),     
+    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     Extensions = ssl_handshake:client_hello_extensions(Version,
 						       AvailableCipherSuites,
 						       SslOpts,
@@ -157,8 +157,10 @@ hello(#server_hello{server_version = LegacyVersion,
 		    cipher_suite = CipherSuite,
 		    compression_method = Compression,
 		    session_id = SessionId,
-                    extensions = #{server_hello_selected_version :=
-                                       #server_hello_selected_version{selected_version = Version}} = HelloExt},
+                    extensions =
+                        #{server_hello_selected_version :=
+                              #server_hello_selected_version{
+                                 selected_version = Version}} = HelloExt},
       #{versions := SupportedVersions} = SslOpt,
       ConnectionStates0, Renegotiation, OldId) ->
     Stapling = maps:get(ocsp_stapling, SslOpt, false),
@@ -182,8 +184,9 @@ hello(#server_hello{server_version = LegacyVersion,
                                                            ConnectionStates0, Renegotiation, IsNew);
                         SelectedVersion ->
                             %% TLS 1.3
-                            {next_state, wait_sh, SelectedVersion, #{ocsp_stapling => Stapling,
-                                                                     ocsp_expect => ocsp_expect(Stapling)}}
+                            {next_state, wait_sh, SelectedVersion,
+                             #{ocsp_stapling => Stapling,
+                               ocsp_expect => ocsp_expect(Stapling)}}
                     end;
                 false ->
                     throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
