@@ -38,7 +38,29 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.9</title>
+  <section><title>Reltool 0.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add possibility to strip specific chunks from beam files
+	    included in a release. Before this change it was only
+	    possible to strip all chunks from the beam files.</p>
+          <p>
+	    Own Id: OTP-18230 Aux Id: PR-5936 </p>
+        </item>
+        <item>
+	    <p>Runtime dependencies have been updated.</p>
+          <p>
+	    Own Id: OTP-18350</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.9</title>
 
     <section><title>Improvements and New Features</title>
       <list>

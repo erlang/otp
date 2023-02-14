@@ -72,7 +72,7 @@
  * If you're not on the OTP team, you should use a placeholder like
  * erts-@MyName@ instead.
  */
-#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-17771:OTP-18334@"
+#define ERL_NIF_MIN_ERTS_VERSION "erts-14.0"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version

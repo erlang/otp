@@ -244,7 +244,7 @@
 
     <func>
       <name name="encode_hex" arity="1" since="OTP 24.0"/>
-      <name name="encode_hex" arity="2" since="OTP @OTP-18354@"/>
+      <name name="encode_hex" arity="2" since="OTP 26.0"/>
       <fsummary>Encodes a binary into a hex encoded binary with specified case</fsummary>
       <desc>
         <p>Encodes a binary into a hex encoded binary using the specified case for the hexadecimal digits "a" to "f".</p>
