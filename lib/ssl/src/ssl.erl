@@ -1926,16 +1926,11 @@ opt_ocsp(UserOpts, #{versions := _Versions} = Opts, #{role := Role}) ->
     {_, ORC} = get_opt_list(ocsp_responder_certs, [], UserOpts, SMap),
     option_incompatible(Stapling =:= false andalso ORC =/= [],
                         [ocsp_responder_certs, {ocsp_stapling, false}]),
-    %% FIXME should not be decoded in users process !!
-    Decode = fun(CertDer) ->
-                     try public_key:pkix_decode_cert(CertDer, plain)
-                     catch _:_ -> option_error(ocsp_responder_certs, ORC)
-                     end
-             end,
-    Certs = [Decode(CertDer) || CertDer <- ORC],
     case Stapling of
         true ->
-            Opts#{ocsp_stapling => #{ocsp_nonce => Nonce, ocsp_responder_certs => Certs}};
+            Opts#{ocsp_stapling =>
+                      #{ocsp_nonce => Nonce,
+                        ocsp_responder_certs => ORC}};
         false ->
             Opts
     end.

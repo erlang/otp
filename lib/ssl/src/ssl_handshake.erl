@@ -1325,6 +1325,7 @@ maybe_add_tls13_extensions(_, HelloExtensions, _, _, _, _,_) ->
 maybe_add_certificate_status_request(_Version, #{ocsp_stapling := OcspStapling},
                                      OcspNonce, HelloExtensions) ->
     OcspResponderCerts = maps:get(ocsp_responder_certs, OcspStapling),
+    %% FIXME 1st place for processing responder certs - converting user DERs to list
     OcspResponderList = get_ocsp_responder_list(OcspResponderCerts),
     OcspRequestExtns = public_key:ocsp_extensions(OcspNonce),
     Req = #ocsp_status_request{responder_id_list  = OcspResponderList,

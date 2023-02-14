@@ -1400,7 +1400,8 @@ ocsp_extensions(Nonce) ->
 %% Description: Get the OCSP responder ID der
 %%--------------------------------------------------------------------
 ocsp_responder_id(Cert) ->
-    pubkey_ocsp:get_ocsp_responder_id(Cert).
+    %% FIXME decode responder cert here?
+    pubkey_ocsp:get_ocsp_responder_id(pkix_decode_cert(Cert, plain)).
 
 %%--------------------------------------------------------------------
 -spec cacerts_get() -> [combined_cert()].
@@ -2037,8 +2038,10 @@ ocsp_status(Cert, IssuerCert, Responses) ->
     end.
 
 ocsp_responses(OCSPResponseDer, ResponderCerts, Nonce) ->
-    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, 
-                                     ResponderCerts, Nonce).
+    %% FIXME decode responder cert here?
+    DecodedResponderCerts = [pkix_decode_cert(C, plain) || C <- ResponderCerts],
+    pubkey_ocsp:verify_ocsp_response(OCSPResponseDer, DecodedResponderCerts,
+                                     Nonce).
 
 subject_public_key_info(Alg, PubKey) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Alg, subjectPublicKey = PubKey}.
