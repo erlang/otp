@@ -1653,16 +1653,19 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only);
  */
 Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 {
-#define PSTACK_TYPE struct erts_cmp_hashmap_state
-    struct erts_cmp_hashmap_state {
+#define PSTACK_TYPE struct cmp_map_state
+    struct cmp_map_state {
         Sint wstack_rollback;
         int was_exact;
         Eterm *ap;
         Eterm *bp;
         Eterm min_key;
         Sint cmp_res;   /* result so far -1,0,+1 */
+#ifdef DEBUG
+        int is_hashmap;
+#endif
     };
-    PSTACK_DECLARE(hmap_stack, 1);
+    PSTACK_DECLARE(map_stack, 1);
     WSTACK_DECLARE(stack);
     WSTACK_DECLARE(b_stack); /* only used by hashmaps */
     Eterm* aa;
@@ -1867,7 +1870,7 @@ tailrecur_ne:
 		goto term_array;
             case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
 		{
-                    struct erts_cmp_hashmap_state* sp;
+                    struct cmp_map_state* sp;
                     if (is_flatmap_header(ahdr)) {
                         flatmap_t* afm = (flatmap_t*)flatmap_val(a);
                         flatmap_t* bfm;
@@ -1988,7 +1991,8 @@ tailrecur_ne:
                      the key did not exist in the other tree).
                 */
 
-                    sp = PSTACK_PUSH(hmap_stack);
+                    sp = PSTACK_PUSH(map_stack);
+                    IF_DEBUG(sp->is_hashmap = 1);
                     hashmap_iterator_init(&stack, a, 0);
                     hashmap_iterator_init(&b_stack, b, 0);
                     sp->ap = hashmap_iterator_next(&stack);
@@ -2377,7 +2381,7 @@ term_array: /* arrays in 'aa' and 'bb', length in 'i' */
 pop_next:
     if (!WSTACK_ISEMPTY(stack)) {
 	UWord something = WSTACK_POP(stack);
-        struct erts_cmp_hashmap_state* sp;
+        struct cmp_map_state* sp;
 	if (primary_tag((Eterm) something) == TAG_PRIMARY_HEADER) { /* an operation */
 	    switch (GET_OP(something)) {
 	    case TERM_ARRAY_OP:
@@ -2393,7 +2397,8 @@ pop_next:
 		goto pop_next;
 
             case HASHMAP_PHASE1_ARE_KEYS_EQUAL: {
-                sp = PSTACK_TOP(hmap_stack);
+                sp = PSTACK_TOP(map_stack);
+                ASSERT(sp->is_hashmap);
                 if (j) {
                     /* Key diff found, enter phase 2 */
                     if (hashmap_key_hash_cmp(sp->ap, sp->bp) < 0) {
@@ -2429,7 +2434,8 @@ pop_next:
                 goto bodyrecur;
             }
             case HASHMAP_PHASE1_IS_MIN_KEY:
-                sp = PSTACK_TOP(hmap_stack);
+                sp = PSTACK_TOP(map_stack);
+                ASSERT(sp->is_hashmap);
                 if (j < 0) {
                     a = CDR(sp->ap);
                     b = CDR(sp->bp);
@@ -2441,7 +2447,8 @@ pop_next:
                 goto case_HASHMAP_PHASE1_LOOP;
 
             case HASHMAP_PHASE1_CMP_VALUES:
-                sp = PSTACK_TOP(hmap_stack);
+                sp = PSTACK_TOP(map_stack);
+                ASSERT(sp->is_hashmap);
                 if (j) {
                     sp->cmp_res = j;
                     sp->min_key = CAR(sp->ap);
@@ -2454,7 +2461,7 @@ pop_next:
                     ASSERT(!sp->bp);
                     j = sp->cmp_res;
                     exact = sp->was_exact;
-                    (void) PSTACK_POP(hmap_stack);
+                    (void) PSTACK_POP(map_stack);
                     ON_CMP_GOTO(j);
                 }
                 a = CAR(sp->ap);
@@ -2476,7 +2483,8 @@ pop_next:
                 goto case_HASHMAP_PHASE2_NEXT_STEP;
 
             case HASHMAP_PHASE2_ARE_KEYS_EQUAL:
-                sp = PSTACK_TOP(hmap_stack);
+                sp = PSTACK_TOP(map_stack);
+                ASSERT(sp->is_hashmap);
                 if (j == 0) {
                     /* keys are equal, skip them */
                     sp->ap = hashmap_iterator_next(&stack);
@@ -2506,11 +2514,12 @@ pop_next:
                 /* End of both maps */
                 j = sp->cmp_res;
                 exact = sp->was_exact;
-                (void) PSTACK_POP(hmap_stack);
+                (void) PSTACK_POP(map_stack);
                 ON_CMP_GOTO(j);
 
             case HASHMAP_PHASE2_IS_MIN_KEY_A:
-                sp = PSTACK_TOP(hmap_stack);
+                sp = PSTACK_TOP(map_stack);
+                ASSERT(sp->is_hashmap);
                 if (j < 0) {
                     sp->min_key = CAR(sp->ap);
                     sp->cmp_res = -1;
@@ -2519,7 +2528,8 @@ pop_next:
                 goto case_HASHMAP_PHASE2_LOOP;
 
             case HASHMAP_PHASE2_IS_MIN_KEY_B:
-                sp = PSTACK_TOP(hmap_stack);
+                sp = PSTACK_TOP(map_stack);
+                ASSERT(sp->is_hashmap);
                 if (j < 0) {
                     sp->min_key = CAR(sp->bp);
                     sp->cmp_res = 1;
@@ -2559,18 +2569,18 @@ pop_next:
 	goto tailrecur;
     }
 
-    ASSERT(PSTACK_IS_EMPTY(hmap_stack));
-    PSTACK_DESTROY(hmap_stack);
+    ASSERT(PSTACK_IS_EMPTY(map_stack));
+    PSTACK_DESTROY(map_stack);
     WSTACK_DESTROY(stack);
     WSTACK_DESTROY(b_stack);
     return 0;
 
 not_equal:
-    if (!PSTACK_IS_EMPTY(hmap_stack) && !eq_only) {
-        WSTACK_ROLLBACK(stack, PSTACK_TOP(hmap_stack)->wstack_rollback);
+    if (!PSTACK_IS_EMPTY(map_stack) && !eq_only) {
+        WSTACK_ROLLBACK(stack, PSTACK_TOP(map_stack)->wstack_rollback);
         goto pop_next;
     }
-    PSTACK_DESTROY(hmap_stack);
+    PSTACK_DESTROY(map_stack);
     WSTACK_DESTROY(stack);
     WSTACK_DESTROY(b_stack);
     return j;
