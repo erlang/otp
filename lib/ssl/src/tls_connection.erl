@@ -71,10 +71,10 @@
 %%                                             | Send/Recv Flight 2 or Abbrev Flight 1 - Abbrev Flight 2 part 1 
 %%                                             |
 %%                                New session  | Resumed session
-%%  WAIT_OCSP_STAPELING   CERTIFY  <----------------------------------> ABBRIVIATED
+%%  WAIT_OCSP_STAPLING   CERTIFY  <----------------------------------> ABBREVIATED
 %%  WAIT_CERT_VERIFY   
 %%  <- Possibly Receive  --  |                                              |
-%% OCSP Stapel/CertVerify -> |  Flight 3 part 1                             |
+%% OCSP Staple/CertVerify -> |  Flight 3 part 1                             |
 %%                           |                                              |
 %%                           V                                              |  Abbrev Flight 2 part 2 to Abbrev Flight 3
 %%                         CIPHER                                           |
@@ -256,18 +256,23 @@ hello(internal, #server_hello{} = Hello,
         case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
             %% Legacy TLS 1.2 and older
             {Version, NewId, ConnectionStates, ProtoExt, Protocol, OcspState} ->
-                tls_dtls_connection:handle_session(Hello,
-                                                   Version, NewId, ConnectionStates, ProtoExt, Protocol,
-                                                   State#state{
-                                                     handshake_env = HsEnv#handshake_env{
-                                                                       ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
+                tls_dtls_connection:handle_session(
+                  Hello, Version, NewId, ConnectionStates, ProtoExt, Protocol,
+                  State#state{
+                    handshake_env =
+                        HsEnv#handshake_env{
+                          ocsp_stapling_state = maps:merge(OcspState0,OcspState)}});
             %% TLS 1.3
             {next_state, wait_sh, SelectedVersion, OcspState} ->
                 %% Continue in TLS 1.3 'wait_sh' state
                 {next_state, wait_sh,
-                 State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =  maps:merge(OcspState0,OcspState)}, 
-                             connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
-                 [{change_callback_module, tls_client_connection_1_3}, {next_event, internal, Hello}]}
+                 State#state{handshake_env =
+                                 HsEnv#handshake_env{ocsp_stapling_state =
+                                                         maps:merge(OcspState0, OcspState)},
+                             connection_env =
+                                 CEnv#connection_env{negotiated_version = SelectedVersion}},
+                 [{change_callback_module, tls_client_connection_1_3},
+                  {next_event, internal, Hello}]}
         end
     catch throw:#alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, hello, State)

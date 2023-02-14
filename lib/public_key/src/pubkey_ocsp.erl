@@ -46,8 +46,7 @@ ocsp_status({revoked, Reason}) ->
 %%--------------------------------------------------------------------
 verify_ocsp_response(OCSPResponseDer, ResponderCerts, Nonce) ->
     do_verify_ocsp_response(
-        decode_ocsp_response(OCSPResponseDer), ResponderCerts, Nonce
-    ).
+      decode_ocsp_response(OCSPResponseDer), ResponderCerts, Nonce).
 
 %%--------------------------------------------------------------------
 -spec do_verify_ocsp_response({ok, #'BasicOCSPResponse'{}} | {error, term()},
@@ -56,23 +55,18 @@ verify_ocsp_response(OCSPResponseDer, ResponderCerts, Nonce) ->
 %%
 %% Description: Verify the OCSP response to get the certificate status
 %%--------------------------------------------------------------------
-do_verify_ocsp_response(
-    {ok, #'BasicOCSPResponse'{
-        tbsResponseData = ResponseData,
-        signatureAlgorithm = SignatureAlgo,
-        signature = Signature,
-        certs = Certs
-    }}, ResponderCerts, Nonce) ->
-
-    #'ResponseData'{
-        responderID = ResponderID
-    } = ResponseData,
-
+do_verify_ocsp_response({ok, #'BasicOCSPResponse'{
+                                tbsResponseData = ResponseData,
+                                signatureAlgorithm = SignatureAlgo,
+                                signature = Signature,
+                                certs = Certs}},
+                        ResponderCerts, Nonce) ->
+    #'ResponseData'{responderID = ResponderID} = ResponseData,
     case verify_ocsp_signature(
-        public_key:der_encode('ResponseData', ResponseData),
-        SignatureAlgo#'AlgorithmIdentifier'.algorithm,
-        Signature, Certs ++ ResponderCerts,
-        ResponderID) of
+           public_key:der_encode('ResponseData', ResponseData),
+           SignatureAlgo#'AlgorithmIdentifier'.algorithm,
+           Signature, Certs ++ ResponderCerts,
+           ResponderID) of
         ok ->
             verify_ocsp_nonce(ResponseData, Nonce);
         {error, Reason} ->
@@ -88,11 +82,8 @@ do_verify_ocsp_response({error, Reason}, _ResponderCerts, _Nonce) ->
 %% Description: Check if the nonces matches in OCSP response
 %%--------------------------------------------------------------------
 verify_ocsp_nonce(ResponseData, Nonce) ->
-    #'ResponseData'{
-        responses = Responses,
-        responseExtensions = ResponseExtns
-    } = ResponseData,
-
+    #'ResponseData'{responses = Responses, responseExtensions = ResponseExtns} =
+        ResponseData,
     case get_nonce_value(ResponseExtns) of
         Nonce ->
             {ok, Responses};
@@ -155,8 +146,8 @@ decode_response_bytes(#'ResponseBytes'{responseType = RespType}) ->
 %%
 %% Description: Verify the signature of OCSP response
 %%--------------------------------------------------------------------
-verify_ocsp_signature(
-    ResponseDataDer, SignatureAlgo, Signature, Certs, ResponderID) ->
+verify_ocsp_signature(ResponseDataDer, SignatureAlgo, Signature,
+                      Certs, ResponderID) ->
     case find_responder_cert(ResponderID, Certs) of
         {ok, Cert} ->
             do_verify_ocsp_signature(
@@ -191,8 +182,8 @@ find_responder_cert(ResponderID, [Cert | TCerts]) ->
 do_verify_ocsp_signature(ResponseDataDer, Signature, AlgorithmID, Cert) ->
     {DigestType, _SignatureType} = public_key:pkix_sign_types(AlgorithmID),
     case public_key:verify(
-             ResponseDataDer, DigestType, Signature,
-             get_public_key_rec(Cert)) of
+           ResponseDataDer, DigestType, Signature,
+           get_public_key_rec(Cert)) of
         true ->
             ok;
         false ->
@@ -310,7 +301,7 @@ get_serial_num(Cert) ->
 
 
 %%--------------------------------------------------------------------
-%% -spec find_single_response(#'OTPCertificate'{}, #'OTPCertificate'{}, 
+%% -spec find_single_response(#'OTPCertificate'{}, #'OTPCertificate'{},
 %%                            [#'SingleResponse'{}]) ->
 %%           #'SingleResponse'{} | {error, no_matched_response}.
 %% %%
@@ -320,23 +311,20 @@ find_single_response(Cert, IssuerCert, SingleResponseList) ->
     IssuerName = get_subject_name(IssuerCert),
     IssuerKey = get_public_key(IssuerCert),
     SerialNum = get_serial_num(Cert),
-    match_single_response(
-      IssuerName, IssuerKey, SerialNum, SingleResponseList).
+    match_single_response(IssuerName, IssuerKey, SerialNum, SingleResponseList).
 
 match_single_response(_IssuerName, _IssuerKey, _SerialNum, []) ->
     {error, no_matched_response};
-match_single_response(
-    IssuerName, IssuerKey, SerialNum,
-    [#'SingleResponse'{
-        certID = #'CertID'{hashAlgorithm = Algo} = CertID
-     } = Response | Responses]) ->
-    HashType = public_key:pkix_hash_type(
-        Algo#'AlgorithmIdentifier'.algorithm),
+match_single_response(IssuerName, IssuerKey, SerialNum,
+                      [#'SingleResponse'{
+                          certID = #'CertID'{hashAlgorithm = Algo} = CertID} =
+                           Response | Responses]) ->
+    HashType = public_key:pkix_hash_type(Algo#'AlgorithmIdentifier'.algorithm),
     case (SerialNum == CertID#'CertID'.serialNumber) andalso
-         (crypto:hash(
-             HashType, IssuerName) == CertID#'CertID'.issuerNameHash) andalso
-         (crypto:hash(
-             HashType, IssuerKey) == CertID#'CertID'.issuerKeyHash) of
+         (crypto:hash(HashType, IssuerName) ==
+              CertID#'CertID'.issuerNameHash) andalso
+         (crypto:hash(HashType, IssuerKey) ==
+              CertID#'CertID'.issuerKeyHash) of
         true ->
             {ok, Response};
         false ->
