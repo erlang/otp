@@ -1643,10 +1643,8 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #define FLATMAP_ATOM_KEYS_OP          8
 #define FLATMAP_ATOM_VALUES_OP        9
 
-#define OP_WORD(OP)  (((OP)  << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
-#define TERM_ARRAY_OP_WORD(SZ)    OP_WORD(((SZ) << OP_BITS) | TERM_ARRAY_OP)
-#define FLATMAP_ATOM_KEYS_OP_WORD(SZ) OP_WORD(((SZ) << OP_BITS) | FLATMAP_ATOM_KEYS_OP)
-#define FLATMAP_ATOM_VALUES_OP_WORD(SZ) OP_WORD(((SZ) << OP_BITS) | FLATMAP_ATOM_VALUES_OP)
+#define OP_WORD(OP)         (((OP)  << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
+#define OP_ARG_WORD(OP, SZ) OP_WORD(((SZ) << OP_BITS) | OP)
 
 #define GET_OP(WORD) (ASSERT(is_header(WORD)), ((WORD) >> _TAG_PRIMARY_SIZE) & OP_MASK)
 #define GET_OP_ARG(WORD) (ASSERT(is_header(WORD)), ((WORD) >> (OP_BITS + _TAG_PRIMARY_SIZE)))
@@ -1875,18 +1873,18 @@ tailrecur_ne:
                                 WSTACK_PUSH3(stack,
                                              (UWord)&b_vals[n_numbers+n_atoms],
                                              (UWord)&a_vals[n_numbers+n_atoms],
-                                             TERM_ARRAY_OP_WORD(n_rest));
+                                             OP_ARG_WORD(TERM_ARRAY_OP,n_rest));
                             }
                             if (n_atoms) {
                                 WSTACK_PUSH4(stack,
                                              (UWord)&b_vals[n_numbers],
                                              (UWord)&a_vals[n_numbers],
                                              (UWord)&a_keys[n_numbers],
-                                             FLATMAP_ATOM_VALUES_OP_WORD(n_atoms));
+                                             OP_ARG_WORD(FLATMAP_ATOM_VALUES_OP,n_atoms));
                             }
                             if (n_numbers) {
                                 WSTACK_PUSH3(stack, (UWord)b_vals, (UWord)a_vals,
-                                             TERM_ARRAY_OP_WORD(n_numbers));
+                                             OP_ARG_WORD(TERM_ARRAY_OP,n_numbers));
                             }
                             if (!exact) {
                                 WSTACK_PUSH(stack, OP_WORD(SWITCH_EXACT_OFF_OP));
@@ -1896,17 +1894,17 @@ tailrecur_ne:
                                 WSTACK_PUSH3(stack,
                                              (UWord)&b_keys[n_numbers+n_atoms],
                                              (UWord)&a_keys[n_numbers+n_atoms],
-                                             TERM_ARRAY_OP_WORD(n_rest));
+                                             OP_ARG_WORD(TERM_ARRAY_OP,n_rest));
                             }
                             if (n_atoms) {
                                 WSTACK_PUSH3(stack,
                                              (UWord)&b_keys[n_numbers],
                                              (UWord)&a_keys[n_numbers],
-                                             FLATMAP_ATOM_KEYS_OP_WORD(n_atoms));
+                                             OP_ARG_WORD(FLATMAP_ATOM_KEYS_OP,n_atoms));
                             }
                             if (n_numbers) {
                                 WSTACK_PUSH3(stack, (UWord)b_keys, (UWord)a_keys,
-                                             TERM_ARRAY_OP_WORD(n_numbers));
+                                             OP_ARG_WORD(TERM_ARRAY_OP,n_numbers));
                             }
                         }
                         goto pop_next;
@@ -2317,7 +2315,8 @@ term_array: /* arrays in 'aa' and 'bb', length in 'i' */
 		    goto not_equal;
 		}
 	    } else {
-		WSTACK_PUSH3(stack, (UWord)bb, (UWord)aa, TERM_ARRAY_OP_WORD(i));
+		WSTACK_PUSH3(stack, (UWord)bb, (UWord)aa,
+                             OP_ARG_WORD(TERM_ARRAY_OP,i));
 		goto tailrecur_ne;
 	    }
 	}
