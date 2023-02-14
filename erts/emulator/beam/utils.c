@@ -1505,15 +1505,18 @@ not_equal:
 static
 Sint compare_flatmap_atom_keys(const Eterm* a_keys,
                                const Eterm* b_keys,
-                               int nkeys)
+                               int n_atoms)
 {
     Eterm min_key = THE_NON_VALUE;
     Eterm a, b;
     int ai, bi;
     Sint res;
 
-    ASSERT(nkeys > 0);
-    ai = nkeys;
+    ASSERT(n_atoms > 0);
+    ASSERT(is_atom(a_keys[0]) && is_atom(b_keys[0]));
+    ASSERT(is_atom(a_keys[n_atoms-1]) || is_atom(b_keys[n_atoms-1]));
+
+    ai = n_atoms;
     while (*a_keys == *b_keys) {
         ASSERT(is_atom(*a_keys));
         a_keys++;
@@ -1522,14 +1525,34 @@ Sint compare_flatmap_atom_keys(const Eterm* a_keys,
             return 0;
     }
 
-    /* Found atom key diff. Find the smallest atom. */
+    /*
+     * Found atom key diff. Find the smallest unique atom.
+     * The atoms are sorted by atom index (not term order).
+     *
+     * Continue iterate atom key arrays by always advancing the one lagging
+     * behind atom index-wise. Identical atoms are skipped. An atom can only be
+     * candidate as minimal if we have passed that atom index in the other array
+     * (which means the atom did not exist in the other array).
+     *
+     * There can be different number of atom keys in the arrays (n_atoms is the
+     * larger count). We stop when either reaching the end or finding a non-atom.
+     * ERTS_UINT_MAX is used as an end marker while advancing the other one.
+     */
     bi = ai;
     a = *a_keys;
     b = *b_keys;
     IF_DEBUG(res = 0);
+    if (!is_atom(a)) {
+	ASSERT(is_atom(b));
+	return +1;
+    }
+    else if (!is_atom(b)) {
+        return -1;
+    }
     do {
-	ASSERT((ai && is_atom(a)) || (!ai && a == ERTS_UINT_MAX));
-	ASSERT((bi && is_atom(b)) || (!bi && b == ERTS_UINT_MAX));
+	ASSERT(is_atom(a) || a == ERTS_UINT_MAX);
+	ASSERT(is_atom(b) || b == ERTS_UINT_MAX);
+        ASSERT(is_atom(a) || is_atom(b));
 
         if (a < b) {
             ASSERT(ai && is_atom(a));
@@ -1537,22 +1560,48 @@ Sint compare_flatmap_atom_keys(const Eterm* a_keys,
                 min_key = a;
                 res = -1;
             }
-            a = --ai ? *(++a_keys) : ERTS_UINT_MAX;
+            if (--ai) {
+                a = *(++a_keys);
+                if (is_not_atom(a))
+                    a = ERTS_UINT_MAX;
+            }
+            else
+                a = ERTS_UINT_MAX;
         }
         else if (a > b) {
             ASSERT(bi && is_atom(b));
             if (is_non_value(min_key) || erts_cmp_atoms(b, min_key) < 0) {
                 min_key = b;
-                res = 1;
+                res = +1;
             }
-            b = --bi ? *(++b_keys) : ERTS_UINT_MAX;
+            if (--bi) {
+                b = *(++b_keys);
+                if (is_not_atom(b))
+                    b = ERTS_UINT_MAX;
+            }
+            else
+                b = ERTS_UINT_MAX;
         }
         else {
-            ASSERT(ai && bi && is_atom(a) && is_atom(b));
-            a = --ai ? *(++a_keys) : ERTS_UINT_MAX;
-            b = --bi ? *(++b_keys) : ERTS_UINT_MAX;
+	    ASSERT(ai && bi && is_atom(a) && is_atom(b));
+            if (--ai) {
+                a = *(++a_keys);
+                if (is_not_atom(a))
+                    a = ERTS_UINT_MAX;
+            }
+            else
+                a = ERTS_UINT_MAX;
+            if (--bi) {
+                b = *(++b_keys);
+                if (is_not_atom(b))
+                    b = ERTS_UINT_MAX;
+            }
+            else
+                b = ERTS_UINT_MAX;
         }
-    } while (ai|bi);
+    } while (~(a&b));
+
+    ASSERT(a == ERTS_UINT_MAX && b == ERTS_UINT_MAX);
     ASSERT(is_atom(min_key));
     ASSERT(res != 0);
     return res;
@@ -1859,7 +1908,7 @@ tailrecur_ne:
                                 ++n;
                             }
                             n_numbers = n;
-                            while (n < i && (is_atom(a_keys[n]) &&
+                            while (n < i && (is_atom(a_keys[n]) ||
                                              is_atom(b_keys[n]))) {
                                 ++n;
                             }

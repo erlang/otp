@@ -1699,6 +1699,7 @@ t_map_compare(Config) when is_list(Config) ->
     repeat(100, fun(_) -> float_int_compare() end, []),
     repeat(100, fun(_) -> recursive_compare() end, []),
     repeat(10, fun(_) -> atoms_compare() end, []),
+    repeat(10, fun(_) -> atoms_plus_compare() end, []),
     ok.
 
 float_int_compare() ->
@@ -1721,6 +1722,31 @@ atoms_compare() ->
               M1 = map_gen(Pairs, Size),
               M2 = map_gen(Pairs, Size),
               %%io:format("Atom maps to compare: ~p AND ~p\n", [M1, M2]),
+              do_cmp(M1, M2)
+      end,
+      lists:seq(1,length(Atoms))),
+    ok.
+
+atoms_plus_compare() ->
+    Atoms = [true, false, ok, '', ?MODULE, list_to_atom(id("a new atom"))],
+    Pairs = lists:map(fun(K) -> list_to_tuple([{K,V} || V <- Atoms]) end,
+                      Atoms),
+    Small = 17,
+    Big1 = 1 bsl 64,
+    Big2 = erts_debug:copy_shared(Big1),
+    Float1 = float(Big1),
+    Float2 = float(Big2),
+    Others = {Small, -Small, Big1, -Big1, Big2, Float1, Float2,
+              [], {}, #{}, self(), make_ref(),
+              ok, yes, no, lists, maps, seq},
+    RandOther = fun() -> element(rand:uniform(size(Others)), Others) end,
+
+    lists:foreach(
+      fun(Size) ->
+              M = map_gen(Pairs, Size),
+              M1 = M#{RandOther() => RandOther()},
+              M2 = M#{RandOther() => RandOther()},
+              %%io:format("Maps to compare:\nM1 = ~p\nM2 = ~p\n", [M1, M2]),
               do_cmp(M1, M2)
       end,
       lists:seq(1,length(Atoms))),
