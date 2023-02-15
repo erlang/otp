@@ -38,7 +38,14 @@ typedef int (*ESockIOInit)(unsigned int     numThreads,
 
 typedef void (*ESockIOFinish)(void);
 
+
 typedef ERL_NIF_TERM (*ESockIOInfo)(ErlNifEnv* env);
+typedef ERL_NIF_TERM (*ESockIOCommand)(ErlNifEnv*   env,
+                                       ERL_NIF_TERM command,
+                                       ERL_NIF_TERM cdata);
+typedef ERL_NIF_TERM (*ESockIOSupports0)(ErlNifEnv* env);
+typedef ERL_NIF_TERM (*ESockIOSupports1)(ErlNifEnv*   env,
+                                         ERL_NIF_TERM key);
 
 
 typedef ERL_NIF_TERM (*ESockIOOpenWithFd)(ErlNifEnv*       env,

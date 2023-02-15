@@ -1078,7 +1078,11 @@ ESOCK_NIF_FUNCS
 typedef struct {
     ESockIOInit                  init;
     ESockIOFinish                finish;
+
     ESockIOInfo                  info;
+    ESockIOCommand               cmd;
+    ESockIOSupports0             supports_0;
+    ESockIOSupports1             supports_1;
 
     ESockIOOpenWithFd            open_with_fd;
     ESockIOOpenPlain             open_plain;
@@ -1123,16 +1127,6 @@ typedef struct {
  * vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv */
 
 /* And here comes the functions that does the actual work (for the most part) */
-
-static ERL_NIF_TERM esock_command(ErlNifEnv*   env,
-                                  ERL_NIF_TERM command,
-                                  ERL_NIF_TERM cdata);
-static ERL_NIF_TERM esock_command_debug(ErlNifEnv*   env,
-                                        ERL_NIF_TERM cdata);
-static ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv*   env,
-                                               ERL_NIF_TERM cdata);
-static ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv*   env,
-                                                      ERL_NIF_TERM cdata);
 
 static ERL_NIF_TERM esock_supports_0(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key);
@@ -3050,6 +3044,16 @@ static ERL_NIF_TERM esock_sockname(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
                                    ESockDescriptor* descP);
 
+static ERL_NIF_TERM esock_command(ErlNifEnv*   env,
+                                  ERL_NIF_TERM command,
+                                  ERL_NIF_TERM cdata);
+static ERL_NIF_TERM esock_command_debug(ErlNifEnv*   env,
+                                        ERL_NIF_TERM cdata);
+static ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv*   env,
+                                               ERL_NIF_TERM cdata);
+static ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv*   env,
+                                                      ERL_NIF_TERM cdata);
+
 #define ESOCK_SOCKET_INFO_REQ_FUNCS             \
     ESOCK_SOCKET_INFO_REQ_FUNC_DEF(readers);    \
     ESOCK_SOCKET_INFO_REQ_FUNC_DEF(writers);    \
@@ -3720,41 +3724,54 @@ static ESockIoBackend io_backend = {0};
 #define ESOCK_IO_FIN()                                  \
     ((io_backend.finish != NULL) ?                      \
      io_backend.finish() : ESOCK_IO_ERR_UNSUPPORTED)
-#define ESOCK_IO_INFO(ENV)                                  \
-    ((io_backend.info != NULL) ?                            \
-     io_backend.info(env) : MKEMA((ENV)))
+
+#define ESOCK_IO_INFO(ENV)                      \
+    ((io_backend.info != NULL) ?                \
+     io_backend.info((ENV)) : MKEMA((ENV)))
+#define ESOCK_IO_CMD(ENV, CMD, CDATA)                   \
+    ((io_backend.cmd != NULL) ?                         \
+     io_backend.cmd((ENV), (CMD), (CDATA)) :            \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_SUPPORTS_0(ENV)                         \
+    ((io_backend.supports_0 != NULL) ?                   \
+     io_backend.supports_0((ENV)) :                      \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_SUPPORTS_1(ENV, KEY)                    \
+    ((io_backend.supports_1 != NULL) ?                   \
+     io_backend.supports_1((ENV), (KEY)) :               \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 
 #define ESOCK_IO_OPEN_WITH_FD(ENV, FD, EOPTS)                   \
     ((io_backend.open_with_fd != NULL) ?                        \
      io_backend.open_with_fd((ENV), (FD), (EOPTS), &data) :     \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_OPEN_PLAIN(ENV, D, T, P, EOPTS)              \
     ((io_backend.open_plain != NULL) ?                        \
      io_backend.open_plain((ENV), (D),                        \
                            (T), (P), (EOPTS), &data) :        \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_BIND(ENV, D, SAP, AL)                  \
     ((io_backend.bind != NULL) ?                        \
      io_backend.bind((ENV), (D), (SAP), (AL)) :         \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_CONNECT(ENV, D, SR, CR, AP, AL)                 \
     ((io_backend.connect != NULL) ?                              \
      io_backend.connect((ENV), (D),                              \
                         (SR), (CR), (AP), (AL)) :                \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_LISTEN(ENV, D, BL)         \
     ((io_backend.listen != NULL) ?          \
      io_backend.listen((ENV), (D), (BL)) :  \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_ACCEPT(ENV, D, SR, AR)                 \
     ((io_backend.accept != NULL) ?                      \
      io_backend.accept((ENV), (D), (SR), (AR)) :        \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SEND(ENV, D, SR, RF, L, F)                             \
     ((io_backend.send != NULL) ?                                        \
      io_backend.send((ENV), (D),                                        \
                      (SR), (RF), (L), (F)) :                            \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SENDTO(ENV, D,                           \
                         SOCKR, SENDR,                     \
                         DP, F, TAP, TAL)                  \
@@ -3762,14 +3779,14 @@ static ESockIoBackend io_backend = {0};
      io_backend.sendto((ENV), (D),                        \
                        (SOCKR), (SENDR),                  \
                        (DP), (F), (TAP), (TAL)) :         \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SENDMSG(ENV, D,                                \
                          SOCKR, SENDR, EM, F, EIOV)             \
     ((io_backend.sendmsg != NULL) ?                             \
      io_backend.sendmsg((ENV), (D),                             \
                         (SOCKR), (SENDR),                       \
                         (EM), (F), (EIOV), &data) :             \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SENDFILE_START(ENV, D,                         \
                                 SOR, SNR,                       \
                                 O, CN, FR)                      \
@@ -3777,7 +3794,7 @@ static ESockIoBackend io_backend = {0};
      io_backend.sendfile_start((ENV), (D),                      \
                                (SOR), (SNR),                    \
                                (O), (CN), (FR)) :               \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SENDFILE_CONT(ENV, D,                          \
                                SOR, SNR,                        \
                                O, CP)                           \
@@ -3785,58 +3802,58 @@ static ESockIoBackend io_backend = {0};
      io_backend.sendfile_cont((ENV), (D),                       \
                               (SOR), (SNR),                     \
                               (O), (CP)) :                      \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SENDFILE_DC(ENV, D)                            \
     ((io_backend.sendfile_dc != NULL) ?                         \
      io_backend.sendfile_dc((ENV), (D)) :                       \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_RECV(ENV, D,                         \
                       SR, RR, L, F)                   \
     ((io_backend.recv != NULL) ?                      \
      io_backend.recv((ENV), (D),                      \
                      (SR), (RR), (L), (F)) :          \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_RECVFROM(ENV, D,                         \
                           SR, RR, L, F)                   \
     ((io_backend.recvfrom != NULL) ?                      \
      io_backend.recvfrom((ENV), (D),                      \
                          (SR), (RR), (L), (F)) :          \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_RECVMSG(ENV, D,                          \
                          SR, RR, BL, CL, F)               \
     ((io_backend.recvmsg != NULL) ?                       \
      io_backend.recvmsg((ENV), (D),                       \
                         (SR), (RR),                       \
                         (BL), (CL), (F)) :                \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_CLOSE(ENV, D)                          \
     ((io_backend.close != NULL) ?                       \
      io_backend.close((ENV), (D)) :                     \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_FIN_CLOSE(ENV, D)                  \
     ((io_backend.fin_close != NULL) ?               \
      io_backend.fin_close((ENV), (D)) :             \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SHUTDOWN(ENV, D, H)        \
     ((io_backend.shutdown != NULL) ?        \
      io_backend.shutdown((ENV), (D), (H)) : \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SOCKNAME(ENV, D)               \
     ((io_backend.sockname != NULL) ?            \
      io_backend.sockname((ENV), (D)) :          \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_PEERNAME(ENV, D)               \
     ((io_backend.peername != NULL) ?            \
      io_backend.peername((ENV), (D)) :          \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_CANCEL_CONNECT(ENV, D, OR)             \
     ((io_backend.cancel_connect != NULL) ?              \
      io_backend.cancel_connect((ENV), (D), (OR)) :      \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_CANCEL_ACCEPT(ENV, D, SR, OR)          \
     ((io_backend.cancel_accept != NULL) ?               \
      io_backend.cancel_accept((ENV), (D), (SR), (OR)) : \
-     enif_raise_exception(env, MKA(env, "notsup")))
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
 
 
 
@@ -4423,9 +4440,6 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ERL_NIF_TERM command, cdata, result;
 
     ESOCK_ASSERT( argc == 1 );
@@ -4448,7 +4462,7 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
             "\r\n   cdata:     %T"
             "\r\n", command, cdata) );
 
-    result = esock_command(env, command, cdata);
+    result = ESOCK_IO_CMD(env, command, cdata);
 
     SGDBG( ("SOCKET", "nif_command -> done with result: "
            "\r\n   %T"
@@ -4456,14 +4470,11 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
 
     return result;
 
-#endif // #ifdef __WIN32__ #else
 }
 
 
-#ifndef __WIN32__
 static
-ERL_NIF_TERM
-esock_command(ErlNifEnv* env, ERL_NIF_TERM command, ERL_NIF_TERM cdata)
+ERL_NIF_TERM esock_command(ErlNifEnv* env, ERL_NIF_TERM command, ERL_NIF_TERM cdata)
 {
     int cmp;
 
@@ -4485,10 +4496,8 @@ esock_command(ErlNifEnv* env, ERL_NIF_TERM command, ERL_NIF_TERM cdata)
 
     return esock_raise_invalid(env, MKT2(env, esock_atom_command, command));
 }
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_command_debug(ErlNifEnv* env, ERL_NIF_TERM cdata)
 {
@@ -4498,15 +4507,12 @@ ERL_NIF_TERM esock_command_debug(ErlNifEnv* env, ERL_NIF_TERM cdata)
     if (esock_decode_bool(cdata, &data.dbg))
         result = esock_atom_ok;
     else
-        result =
-            esock_raise_invalid(env, MKT2(env, esock_atom_data, cdata));
+        result = esock_raise_invalid(env, MKT2(env, esock_atom_data, cdata));
 
     return result;
 }
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM cdata)
 {
@@ -4514,8 +4520,7 @@ ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM cdata)
 
     /* The data *should* be a boolean() */
     if (! esock_decode_bool(cdata, &dbg))
-        return
-            esock_raise_invalid(env, MKT2(env, esock_atom_data, cdata));
+        return esock_raise_invalid(env, MKT2(env, esock_atom_data, cdata));
 
     MLOCK(data.cntMtx);
     data.sockDbg = dbg;
@@ -4523,10 +4528,8 @@ ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM cdata)
 
     return esock_atom_ok;;
 }
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv*   env,
                                                ERL_NIF_TERM cdata)
@@ -4535,17 +4538,14 @@ ERL_NIF_TERM esock_command_use_socket_registry(ErlNifEnv*   env,
 
     /* The data *should* be a boolean() */
     if (! esock_decode_bool(cdata, &useReg))
-        return
-            esock_raise_invalid(env, MKT2(env, esock_atom_data, cdata));
+        return esock_raise_invalid(env, MKT2(env, esock_atom_data, cdata));
 
     MLOCK(data.cntMtx);
     data.useReg = useReg;
     MUNLOCK(data.cntMtx);
 
-    return esock_atom_ok;;
+    return esock_atom_ok;
 }
-#endif
-
 
 
 
@@ -4661,11 +4661,13 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
     /* Extract arguments and perform preliminary validation */
 
     if (argc == 0)
-        return esock_supports_0(env);
+        return ESOCK_IO_SUPPORTS_0(env);
 
-    ESOCK_ASSERT( argc == 1 );
+    if (argc == 1) 
+        return ESOCK_IO_SUPPORTS_1(env, argv[0]);
 
-    return esock_supports_1(env, argv[0]);
+    return esock_make_error(env, esock_atom_einval);
+
 #endif
 }
 
@@ -10259,7 +10261,7 @@ ERL_NIF_TERM nif_ioctl(ErlNifEnv*         env,
 
     } else {
 
-      res = esock_make_error(env, esock_atom_einval);
+        res = esock_make_error(env, esock_atom_einval);
 
     }
   }
@@ -15313,7 +15315,12 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     io_backend.init           = esaio_init;
     io_backend.finish         = esaio_finish;
+
     io_backend.info           = esaio_info;
+    io_backend.cmd            = esock_command;
+    io_backend.supports_0     = NULL;
+    io_backend.supports_1     = NULL;
+
     io_backend.open_with_fd   = NULL;
     io_backend.open_plain     = esaio_open_plain;
     io_backend.bind           = esaio_bind;
@@ -15341,7 +15348,12 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     io_backend.init           = essio_init;
     io_backend.finish         = essio_finish;
+
     io_backend.info           = essio_info;
+    io_backend.cmd            = esock_command;
+    io_backend.supports_0     = esock_supports_0;
+    io_backend.supports_1     = esock_supports_1;
+
     io_backend.open_with_fd   = essio_open_with_fd;
     io_backend.open_plain     = essio_open_plain;
     io_backend.bind           = essio_bind;
