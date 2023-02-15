@@ -277,35 +277,37 @@ init_per_group(eddsa_1_3, Config0) ->
     end;
 init_per_group(Group, Config0) when Group == dsa ->
     PKAlg = crypto:supports(public_keys),
-    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg) 
+    NVersion = ssl_test_lib:n_version(proplists:get_value(version, Config0)),
+    SigAlgs = ssl_test_lib:sig_algs(dsa, NVersion),
+    case lists:member(dss, PKAlg) andalso lists:member(dh, PKAlg)
         andalso (ssl_test_lib:openssl_dsa_suites() =/= []) of
         true ->
-            Config = ssl_test_lib:make_dsa_cert(Config0),    
-            COpts = proplists:get_value(client_dsa_opts, Config),
-            SOpts = proplists:get_value(server_dsa_opts, Config),
+            Config = ssl_test_lib:make_dsa_cert(Config0),
+            COpts = SigAlgs ++ proplists:get_value(client_dsa_opts, Config),
+            SOpts = SigAlgs ++ proplists:get_value(server_dsa_opts, Config),
             %% Make sure dhe_dss* suite is chosen by ssl_test_lib:start_server
             Version = ssl_test_lib:protocol_version(Config),
-            Ciphers =  ssl_cert_tests:test_ciphers(fun(dh_dss) -> 
+            Ciphers =  ssl_cert_tests:test_ciphers(fun(dh_dss) ->
                                                            true;
-                                                      (dhe_dss) -> 
+                                                      (dhe_dss) ->
                                                            true;
                                                       (_) ->
-                                                           false 
-                                                   end, Version), 
+                                                           false
+                                                   end, Version),
             case Ciphers of
                 [_|_] ->
                     [{cert_key_alg, dsa} |
                      lists:delete(cert_key_alg,
-                                  [{client_cert_opts, [{ciphers, Ciphers} | COpts]}, 
-                                   {server_cert_opts, SOpts} | 
-                                   lists:delete(server_cert_opts, 
+                                  [{client_cert_opts, [{ciphers, Ciphers} | COpts]},
+                                   {server_cert_opts, [{ciphers, Ciphers} | SOpts]} |
+                                   lists:delete(server_cert_opts,
                                                 lists:delete(client_cert_opts, Config))])];
                 [] ->
                     {skip, {no_sup, Group, Version}}
             end;
         false ->
             {skip, "Missing DSS crypto support"}
-    end;    
+    end;
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).
 
@@ -366,7 +368,11 @@ client_auth_use_partial_chain() ->
     [{doc, "Server does not trust an intermediat CA and fails the connetion as ROOT has expired"}].
 client_auth_use_partial_chain(Config) when is_list(Config) ->
     Prop = proplists:get_value(tc_group_properties, Config),
-    DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(proplists:get_value(name, Prop)),
+    Group = proplists:get_value(name, Prop),
+    Version = proplists:get_value(version, Config),
+    DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(Group),
+    Ciphers = appropriate_ciphers(Group, Version),
+
     {Year, Month, Day} = date(),
     #{client_config := ClientOpts0,
       server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_pem(proplists:get_value(cert_key_alg, Config),
@@ -391,7 +397,7 @@ client_auth_use_partial_chain(Config) when is_list(Config) ->
 			    end
 		    end,
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}, {partial_chain, PartialChain} |
-                  ssl_test_lib:ssl_options(extra_server, ServerOpts0, Config)],
+                  ssl_test_lib:ssl_options(extra_server, [{ciphers, Ciphers} | ServerOpts0], Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 %%--------------------------------------------------------------------
 %%  Have to use partial chain functionality on side running Erlang (we are not testing OpenSSL features)
@@ -509,3 +515,8 @@ openssl_sig_algs(rsa_pss_pss_1_3) ->
     [{sigalgs, "rsa_pss_rsae_sha512:rsa_pss_rsae_sha384:rsa_pss_pss_sha256"}];
 openssl_sig_algs(rsa_pss_rsae_1_3) ->
     [{sigalgs,"rsa_pss_rsae_sha512:rsa_pss_rsae_sha384:rsa_pss_rsae_sha256"}].
+
+appropriate_ciphers(dsa, Version) ->
+    ssl:cipher_suites(all, Version);
+appropriate_ciphers(_, Version) ->
+    ssl:cipher_suites(default, Version).
