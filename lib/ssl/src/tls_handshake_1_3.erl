@@ -745,6 +745,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                 handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
                                                ocsp_stapling_state = OcspState},
                 connection_env = #connection_env{negotiated_version = NegotiatedVersion},
+                protocol_specific = PS,
                 ssl_options = #{ciphers := ClientCiphers,
                                 supported_groups := ClientGroups0,
                                 use_ticket := UseTicket,
@@ -818,8 +819,17 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                   handshake_env = HsEnv#handshake_env{tls_handshake_history = HHistory},
                   key_share = ClientKeyShare},
 
-        {State, wait_sh}
-
+        %% If it is a hello_retry and middlebox mode is
+        %% used assert the change_cipher_spec  message
+        %% that the server should send next
+        case (maps:get(hello_retry, PS, false)) andalso
+            (maps:get(middlebox_comp_mode, SslOpts, true))
+        of
+            true ->
+                {State, hello_retry_middlebox_assert};
+            false ->
+                {State, wait_sh}
+        end
     catch
         {Ref, #alert{} = Alert} ->
             Alert
