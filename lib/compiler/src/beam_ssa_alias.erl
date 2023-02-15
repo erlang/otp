@@ -401,10 +401,10 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, Acc, AAS) ->
                  aa_set_aliased(Dst, SS1);
              make_fun ->
                  [_|Env] = Args,
-                 aa_join([Dst|Env], SS1);
+                 aa_join_ls(Dst, Env, SS1);
              old_make_fun ->
                  [_|Env] = Args,
-                 aa_join([Dst|Env], SS1);
+                 aa_join_ls(Dst, Env, SS1);
              peek_message ->
                  aa_set_aliased(Dst, SS1);
              phi ->
@@ -502,26 +502,15 @@ aa_get_representative(Var, State) ->
         #{ Var := {status, _} } ->
             Var;
         #{ Var := Parent } ->
-            aa_get_representative(Parent, State);
-        #{} ->
-            Var
+            aa_get_representative(Parent, State)
     end.
 
 aa_get_status(V=#b_var{}, State) ->
     Repr = aa_get_representative(V, State),
-    {status, S} = map_get(Repr, State),
+    #{ Repr := {status, S} } = State,
     S;
 aa_get_status(#b_literal{}, _State) ->
     unique.
-
-%% As aa_get_status/2 but return false if nothing is known about the
-%% variable.
-aa_check_status(V=#b_var{}, State) ->
-    Repr = aa_get_representative(V, State),
-    case State of
-        #{ Repr := {status, S}} -> S;
-        #{} -> false
-    end.
 
 aa_set_status(V=#b_var{}, Status, State) ->
     Repr = aa_get_representative(V, State),
@@ -536,13 +525,11 @@ aa_set_status([], _, State) ->
 aa_update_annotation(I=#b_set{anno=Anno0,args=Args}, SS) ->
     {Aliased,Unique} =
         foldl(fun(#b_var{}=V, {As,Us}) ->
-                      case aa_check_status(V, SS) of
+                      case aa_get_status(V, SS) of
                           aliased ->
                               {ordsets:add_element(V, As), Us};
                           unique ->
-                              {As, ordsets:add_element(V, Us)};
-                          false ->
-                              {As, Us}
+                              {As, ordsets:add_element(V, Us)}
                       end;
                  (_, A) ->
                       A
@@ -557,13 +544,11 @@ aa_update_annotation(I=#b_set{anno=Anno0,args=Args}, SS) ->
            end,
     I#b_set{anno=Anno};
 aa_update_annotation(I=#b_ret{arg=#b_var{}=V,anno=Anno0}, SS) ->
-    Anno = case aa_check_status(V, SS) of
+    Anno = case aa_get_status(V, SS) of
                aliased ->
                    maps:remove(unique, Anno0#{aliased=>[V]});
                unique ->
-                   maps:remove(aliased, Anno0#{unique=>[V]});
-               false ->
-                   maps:remove(aliased, maps:remove(unique, Anno0))
+                   maps:remove(aliased, Anno0#{unique=>[V]})
            end,
     I#b_ret{anno=Anno};
 aa_update_annotation(I, _SS) ->
@@ -582,18 +567,11 @@ aa_alias_all(SS0) ->
                      V
              end, SS0).
 
-aa_join([#b_var{}=Var|Vars], State) ->
-    aa_join_1(Vars, Var, State);
-aa_join([_|Vars], State) ->
-    aa_join(Vars, State);
-aa_join([], State) ->
-    State.
-
-aa_join_1([#b_var{}=VarB|Vars], VarA, State) ->
-    aa_join_1(Vars, VarB, aa_join(VarA, VarB, State));
-aa_join_1([_|Vars], VarA, State) ->
-    aa_join_1(Vars, VarA, State);
-aa_join_1([], _, State) ->
+aa_join_ls(VarA, [#b_var{}=VarB|Vars], State) ->
+    aa_join_ls(VarB, Vars, aa_join(VarA, VarB, State));
+aa_join_ls(VarA, [_|Vars], State) ->
+    aa_join_ls(VarA, Vars, State);
+aa_join_ls(_, [], State) ->
     State.
 
 aa_join(#b_var{}=VarA, #b_var{}=VarB, State) ->
@@ -691,7 +669,7 @@ aa_construct_term(Dst, Values, SS, AAS) ->
     case aa_all_vars_unique(Values)
         andalso aa_all_dies(Values, Dst, AAS) of
         true ->
-            aa_join([Dst|Values], SS);
+            aa_join_ls(Dst, Values, SS);
         false ->
             aa_set_aliased([Dst|Values], SS)
     end.
@@ -733,7 +711,7 @@ aa_bif(Dst, Bif, Args, SS, _AAS) ->
 
 aa_phi(Dst, Args0, SS) ->
     Args = [V || {V,_} <- Args0],
-    aa_join([Dst|Args], SS).
+    aa_join_ls(Dst, Args, SS).
 
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
         #aas{alias_map=AliasMap,st_map=StMap}) ->
@@ -798,26 +776,18 @@ aa_add_call_info(Callee, Args, SS0) ->
 aa_merge_call_args_status(SS, AAS=#aas{call_args=Info0}) ->
     Info =
         maps:fold(fun({call_info,Callee}, NewArgs, Acc) ->
-                          case Acc of
-                              #{ Callee := OldArgs } ->
-                                  Args = [aa_meet(A, B)
-                                          || {A,B} <- zip(NewArgs, OldArgs)],
-                                  Acc#{Callee => Args};
-                              #{} ->
-                                  Acc#{Callee => NewArgs}
-                          end;
+                          #{ Callee := OldArgs } = Acc,
+                          Args = [aa_meet(A, B)
+                                  || {A,B} <- zip(NewArgs, OldArgs)],
+                          Acc#{Callee => Args};
                      (_, _, Acc) ->
                           Acc
                   end, Info0, SS),
     AAS#aas{call_args=Info}.
 
 aa_get_call_args_status(Args, Callee, #aas{call_args=Info}) ->
-    case Info of
-        #{ Callee := Status } ->
-            zip(Args, Status);
-        #{} ->
-            [{V, unique} || V <- Args]
-    end.
+    #{ Callee := Status } = Info,
+    zip(Args, Status).
 
 aa_pair_extraction(Dst, Pair, Element, SS0) ->
     case SS0 of
