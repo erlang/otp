@@ -102,9 +102,7 @@ PDFREFDIR= pdf
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 TOPDOC=true
 
-sp :=
-
-sp +=
+sp := $(subst ,, )
 
 ## qs translates ' ' to '\ ', sq translates '\ ' to ' '
 ## These function are used when the make target is a path that can
