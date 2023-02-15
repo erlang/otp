@@ -1607,33 +1607,6 @@ Sint compare_flatmap_atom_keys(const Eterm* a_keys,
     return res;
 }
 
-static
-Sint compare_flatmap_atom_key_values(const Eterm* keys,
-				     const Eterm* a_vals,
-				     const Eterm* b_vals,
-				     int nkeys,
-				     int exact)
-{
-    Eterm min_key = THE_NON_VALUE;
-    Sint res = 0;
-
-    ASSERT(nkeys > 0);
-    do {
-        ASSERT(is_atom(*keys));
-        if (is_non_value(min_key) || erts_cmp_atoms(*keys, min_key) < 0) {
-            Sint valcmp = erts_cmp(*a_vals, *b_vals, exact, 0);
-            if (valcmp) {
-                min_key = *keys;
-                res = valcmp;
-            }
-        }
-        keys++;
-        a_vals++;
-        b_vals++;
-    } while (--nkeys);
-    return res;
-}
-
 
 /*
  * Compare objects.
@@ -1656,9 +1629,9 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #define PSTACK_TYPE struct cmp_map_state
     struct cmp_map_state {
         Sint wstack_rollback;
-        int was_exact;
-        Eterm *ap;
-        Eterm *bp;
+        int was_exact;             /* hashmap only */
+        Eterm *atom_keys;          /* flatmap only */
+        Eterm *ap, *bp;            /* hashmap: kv-cons, flatmap: values */
         Eterm min_key;
         Sint cmp_res;   /* result so far -1,0,+1 */
 #ifdef DEBUG
@@ -1692,8 +1665,9 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #define HASHMAP_PHASE2_ARE_KEYS_EQUAL 5
 #define HASHMAP_PHASE2_IS_MIN_KEY_A   6
 #define HASHMAP_PHASE2_IS_MIN_KEY_B   7
-#define FLATMAP_ATOM_KEYS_OP          8
-#define FLATMAP_ATOM_VALUES_OP        9
+#define FLATMAP_ATOM_KEYS             8
+#define FLATMAP_ATOM_VALUES           9
+#define FLATMAP_ATOM_CMP_VALUES      10
 
 #define OP_WORD(OP)         (((OP)  << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
 #define OP_ARG_WORD(OP, SZ) OP_WORD(((SZ) << OP_BITS) | OP)
@@ -1891,6 +1865,11 @@ tailrecur_ne:
                             goto pop_next;
                         }
                         if (exact) {
+			    /*
+			     * We only care about equality so we can compare
+			     * the maps as two term arrays where the first
+			     * element pair are the key tuples.
+			     */
                             aa = &afm->keys;
                             bb = &bfm->keys;
                             i  += 1; /* increment for tuple-keys */
@@ -1906,6 +1885,21 @@ tailrecur_ne:
                             int n_rest;     /* sorted after atoms */
                             int n = 0;
 
+			    /*
+			     * All keys are sorted in term order except atoms
+			     * which are sorted by atom index. The compare
+			     * algorithm is optimized to only have to treat
+			     * atoms specially and use the term order for other
+			     * keys.
+			     * The key arrays are divided into three possible
+			     * partitions containing:
+			     * #1. all numbers (< atoms)
+			     * #2. atoms
+			     * #3. only the rest (> atoms)
+			     *
+                             * The tree partions are compared separately in two
+                             * phases, first only keys and then values.
+			     */
                             while (n < i && !(is_atom(a_keys[n]) &&
                                               is_atom(b_keys[n]))) {
                                 ++n;
@@ -1932,7 +1926,7 @@ tailrecur_ne:
                                              (UWord)&b_vals[n_numbers],
                                              (UWord)&a_vals[n_numbers],
                                              (UWord)&a_keys[n_numbers],
-                                             OP_ARG_WORD(FLATMAP_ATOM_VALUES_OP,n_atoms));
+                                             OP_ARG_WORD(FLATMAP_ATOM_VALUES,n_atoms));
                             }
                             if (n_numbers) {
                                 WSTACK_PUSH3(stack, (UWord)b_vals, (UWord)a_vals,
@@ -1952,7 +1946,7 @@ tailrecur_ne:
                                 WSTACK_PUSH3(stack,
                                              (UWord)&b_keys[n_numbers],
                                              (UWord)&a_keys[n_numbers],
-                                             OP_ARG_WORD(FLATMAP_ATOM_KEYS_OP,n_atoms));
+                                             OP_ARG_WORD(FLATMAP_ATOM_KEYS,n_atoms));
                             }
                             if (n_numbers) {
                                 WSTACK_PUSH3(stack, (UWord)b_keys, (UWord)a_keys,
@@ -2537,27 +2531,56 @@ pop_next:
                 sp->bp = hashmap_iterator_next(&b_stack);
                 goto case_HASHMAP_PHASE2_LOOP;
 
-            case FLATMAP_ATOM_KEYS_OP:
+            case FLATMAP_ATOM_KEYS:
                 i = GET_OP_ARG(something);
                 aa = (Eterm*) WSTACK_POP(stack);
                 bb = (Eterm*) WSTACK_POP(stack);
-                j = compare_flatmap_atom_keys(aa, bb, i);
-                if (j)
-                    goto not_equal;
-                else
-                    goto pop_next;
+                ON_CMP_GOTO(compare_flatmap_atom_keys(aa, bb, i));
 
-            case FLATMAP_ATOM_VALUES_OP: {
-                const Eterm* keys;
+            case FLATMAP_ATOM_VALUES: {
+                /*
+                 * Compare values of equal atom keys.
+                 * Find the smallest atom key where the values differ
+                 */
+		sp = PSTACK_PUSH(map_stack);
+                IF_DEBUG(sp->is_hashmap = 0);
+		sp->atom_keys = (Eterm*) WSTACK_POP(stack);
+		sp->ap = (Eterm*) WSTACK_POP(stack);
+		sp->bp = (Eterm*) WSTACK_POP(stack);
+		sp->min_key = THE_NON_VALUE;
+		sp->cmp_res = 0;
+
+            case_FLATMAP_ATOM_VALUES_LOOP:
                 i = GET_OP_ARG(something);
-                keys = (const Eterm*) WSTACK_POP(stack);
-                aa = (Eterm*) WSTACK_POP(stack);
-                bb = (Eterm*) WSTACK_POP(stack);
-                j = compare_flatmap_atom_key_values(keys, aa, bb, i, exact);
-                if (j)
-                    goto not_equal;
-                else
-                    goto pop_next;
+
+                while (i--) {
+                    ASSERT(is_atom(*sp->atom_keys));
+
+                    if (is_non_value(sp->min_key)
+                        || erts_cmp_atoms(*sp->atom_keys, sp->min_key) < 0) {
+                        a = *sp->ap++;
+                        b = *sp->bp++;
+                        WSTACK_PUSH(stack, OP_ARG_WORD(FLATMAP_ATOM_CMP_VALUES,i));
+                        sp->wstack_rollback = WSTACK_COUNT(stack);
+                        goto bodyrecur;
+                    }
+                    sp->atom_keys++;
+                    sp->ap++;
+                    sp->bp++;
+                }
+		j = sp->cmp_res;
+                (void) PSTACK_POP(map_stack);
+                ON_CMP_GOTO(j);
+
+	    case FLATMAP_ATOM_CMP_VALUES:
+		sp = PSTACK_TOP(map_stack);
+                ASSERT(!sp->is_hashmap);
+                if (j) {
+		    sp->min_key = *sp->atom_keys;
+                    sp->cmp_res = j;
+                }
+                sp->atom_keys++;
+                goto case_FLATMAP_ATOM_VALUES_LOOP;
             }
 
             default:
