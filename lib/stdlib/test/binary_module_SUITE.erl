@@ -1462,11 +1462,15 @@ error_info(_Config) ->
          {split, [<<1,2,3>>, {bm,make_ref()}, []]},
          {split, [<<1,2,3>>, <<"2">>, [bad_option]]},
 
-         {encode_hex, [{no,a,binary}], [allow_rename]},
+         {encode_hex, [{no,binary}]},
+         {encode_hex, [{no,binary}, lowercase]},
          {encode_hex, [<<"foobar">>, othercase]},
-         {decode_hex, [{no,a,binary}]},
-         {decode_hex, [<<"000">>],[allow_rename]},
-         {decode_hex, [<<"GG">>],[allow_rename]}
+         {encode_hex, [no_binary, othercase], [{1,".*"}, {2,".*"}]},
+
+         {decode_hex, [{no,binary}]},
+         {decode_hex, [<<"000">>]},
+         {decode_hex, [<<"GG">>]},
+         {decode_hex, [<<255>>]}
         ],
     error_info_lib:test_error_info(binary, L).
 
@@ -1512,7 +1516,28 @@ hex_encoding(Config) when is_list(Config) ->
     <<"foobar">> = binary:decode_hex(<<"666f6f626172">>),
 
     <<"foobar">> = binary:decode_hex(<<"666f6F626172">>),
+
+    rand:seed(default),
+    io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
+    Bytes = iolist_to_binary([rand:bytes(256), lists:seq(0, 255)]),
+    do_hex_roundtrip(Bytes),
+
     ok.
+
+do_hex_roundtrip(Bytes) ->
+    UpperHex = binary:encode_hex(Bytes),
+    UpperHex = binary:encode_hex(Bytes, uppercase),
+    LowerHex = binary:encode_hex(Bytes, lowercase),
+
+    Bytes = binary:decode_hex(UpperHex),
+    Bytes = binary:decode_hex(LowerHex),
+
+    case Bytes of
+        <<_, Rest/binary>> ->
+            do_hex_roundtrip(Rest);
+        <<>> ->
+            ok
+    end.
 
 %%%
 %%% Utilities.

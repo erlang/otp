@@ -77,8 +77,13 @@ format_binary_error(encode_hex, [Subject, Case], _) ->
     [must_be_binary(Subject), must_be_hex_case(Case)];
 format_binary_error(decode_hex, [Subject], _) ->
     if
-        is_binary(Subject), byte_size(Subject) rem 2 == 1 ->
-            ["must contain an even number of bytes"];
+        is_binary(Subject) ->
+            if
+                byte_size(Subject) rem 2 =:= 1 ->
+                    [<<"must contain an even number of bytes">>];
+                true ->
+                    [<<"must only contain hex digits 0-9, A-F, and a-f">>]
+            end;
         true ->
             [must_be_binary(Subject)]
     end;
@@ -1088,7 +1093,7 @@ expand_error(not_atom) ->
 expand_error(not_binary) ->
     <<"not a binary">>;
 expand_error(bad_hex_case) ->
-    <<"not uppercase or lowercase">>;
+    <<"not 'uppercase' or 'lowercase'">>;
 expand_error(not_compiled_regexp) ->
     <<"not a compiled regular expression">>;
 expand_error(not_iodata) ->
