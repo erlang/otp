@@ -37,7 +37,7 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown, stop_and_reply, state_enter, event_order,
+     shutdown, loop_start_fail, stop_and_reply, state_enter, event_order,
      state_timeout, timeout_cancel_and_update,
      event_types, generic_timers, code_change,
      {group, sys},
@@ -684,6 +684,53 @@ shutdown(Config) ->
     after 500 ->
 	    ok
     end.
+
+
+loop_start_fail(Config) ->
+    _ = process_flag(trap_exit, true),
+    loop_start_fail(
+      Config,
+      [{start, []}, {start, [link]},
+       {start_link, []},
+       {start_monitor, [link]}, {start_monitor, []}]).
+
+loop_start_fail(_Config, []) ->
+    ok;
+loop_start_fail(Config, [{Start, Opts} | Start_Opts]) ->
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, {stop, failed_to_start}}}, Opts,
+      fun ({error, failed_to_start}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, ignore}}, Opts,
+      fun (ignore) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, 4711}}, Opts,
+      fun ({error, {bad_return_from_init, 4711}}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {crash, error, bailout}}, Opts,
+      fun ({error, bailout}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {crash, exit, bailout}}, Opts,
+      fun ({error, bailout}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {wait, 1000, void}}, [{timeout, 200} | Opts],
+      fun ({error, timeout}) -> ok end),
+    loop_start_fail(Config, Start_Opts).
+
+loop_start_fail(GenStartFun, Arg, Opts, ValidateFun) ->
+    loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, 5).
+%%
+loop_start_fail(_GenStartFun, _Arg, _Opts, _ValidateFun, 0) ->
+    ok;
+loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, N) ->
+    ok = ValidateFun(GenStartFun(?MODULE, Arg, Opts)),
+    loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, N - 1).
 
 
 
@@ -2804,6 +2851,17 @@ init({map_statem,#{init := Init}=Machine,Modes}) ->
 	Other ->
 	    init_sup(Other)
     end;
+init({ets, InitResult}) ->
+    ?MODULE = ets:new(?MODULE, [named_table]),
+    init_sup(
+      case InitResult of
+          {return, Value} ->
+              Value;
+          {crash, Class, Reason} ->
+              erlang:Class(Reason);
+          {wait, Time, Value} ->
+              receive after Time -> Value end
+      end);
 init([]) ->
     io:format("init~n", []),
     init_sup({ok,idle,data}).
