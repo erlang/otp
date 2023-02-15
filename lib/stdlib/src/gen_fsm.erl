@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -339,20 +339,16 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    loop(Parent, Name, StateName, StateData, Mod, Timeout, HibernateAfterTimeout, Debug);
 	{stop, Reason} ->
 	    gen:unregister_name(Name0),
-	    proc_lib:init_ack(Starter, {error, Reason}),
-	    exit(Reason);
+	    proc_lib:init_fail(Starter, {error, Reason}, {exit, Reason});
 	ignore ->
 	    gen:unregister_name(Name0),
-	    proc_lib:init_ack(Starter, ignore),
-	    exit(normal);
+	    proc_lib:init_fail(Starter, ignore, {exit, normal});
 	{'EXIT', Reason} ->
 	    gen:unregister_name(Name0),
-	    proc_lib:init_ack(Starter, {error, Reason}),
-	    exit(Reason);
+	    proc_lib:init_fail(Starter, {error, Reason}, {exit, Reason});
 	Else ->
 	    Error = {bad_return_value, Else},
-	    proc_lib:init_ack(Starter, {error, Error}),
-	    exit(Error)
+	    proc_lib:init_fail(Starter, {error, Error}, {exit, Error})
     end.
 
 %%-----------------------------------------------------------------
