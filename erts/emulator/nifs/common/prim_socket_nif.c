@@ -942,7 +942,7 @@ static unsigned long one_value  = 1;
 #define sock_htons(x)                   htons((x))
 #define sock_htonl(x)                   htonl((x))
 #define sock_listen(s, b)               listen((s), (b))
-// #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
+#define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_ntohs(x)                   ntohs((x))
 // #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 // #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
@@ -3044,6 +3044,9 @@ static ERL_NIF_TERM mk_select_msg(ErlNifEnv*   env,
  *                                                                        *
  * ---------------------------------------------------------------------- */
 #endif // #ifndef __WIN32__
+
+static ERL_NIF_TERM esock_sockname(ErlNifEnv*       env,
+                                   ESockDescriptor* descP);
 
 #define ESOCK_SOCKET_INFO_REQ_FUNCS             \
     ESOCK_SOCKET_INFO_REQ_FUNC_DEF(readers);    \
@@ -9994,9 +9997,6 @@ ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ESockDescriptor* descP;
     ERL_NIF_TERM     res;
 
@@ -10025,7 +10025,52 @@ ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return res;
-#endif // #ifdef __WIN32__  #else
+}
+
+
+
+/* ========================================================================
+ */
+
+static
+ERL_NIF_TERM esock_sockname(ErlNifEnv*       env,
+                            ESockDescriptor* descP)
+{
+    ESockAddress  sa;
+    ESockAddress* saP = &sa;
+#ifdef __WIN32__
+    int           sz  = sizeof(ESockAddress);
+#else
+    SOCKLEN_T     sz  = sizeof(ESockAddress);
+#endif
+
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+    
+    SSDBG( descP,
+           ("SOCKET", "esock_sockname {%d} -> open - try get sockname\r\n",
+            descP->sock) );
+
+    sys_memzero((char*) saP, sz);
+    if (sock_name(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
+        return esock_make_error_errno(env, sock_errno());
+    } else {
+        ERL_NIF_TERM esa;
+
+        SSDBG( descP,
+               ("SOCKET", "esock_sockname {%d} -> "
+                "got sockname - try decode\r\n",
+                descP->sock) );
+
+        esock_encode_sockaddr(env, saP, (SOCKLEN_T) sz, &esa);
+
+        SSDBG( descP,
+               ("SOCKET", "esock_sockname {%d} -> decoded: "
+                "\r\n   %T\r\n",
+                descP->sock, esa) );
+
+        return esock_make_ok2(env, esa);
+    }
 }
 
 
@@ -15243,7 +15288,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.close          = esaio_close;
     io_backend.fin_close      = esaio_fin_close;
     io_backend.shutdown       = NULL;
-    io_backend.sockname       = NULL;
+    io_backend.sockname       = esock_sockname;
     io_backend.peername       = NULL;
     io_backend.cancel_connect = esaio_cancel_connect;
     io_backend.cancel_accept  = esaio_cancel_accept;
@@ -15271,7 +15316,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.close          = essio_close;
     io_backend.fin_close      = essio_fin_close;
     io_backend.shutdown       = essio_shutdown;
-    io_backend.sockname       = essio_sockname;
+    io_backend.sockname       = esock_sockname;
     io_backend.peername       = essio_peername;
     io_backend.cancel_connect = essio_cancel_connect;
     io_backend.cancel_accept  = essio_cancel_accept;

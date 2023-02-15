@@ -71,7 +71,7 @@
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_errno()                    errno
 // #define sock_listen(s, b)               listen((s), (b))
-#define sock_name(s, addr, len)         getsockname((s), (addr), (len))
+// #define sock_name(s, addr, len)         getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_peer(s, addr, len)         getpeername((s), (addr), (len))
 #define sock_recv(s,buf,len,flag)       recv((s),(buf),(len),(flag))
@@ -2891,7 +2891,10 @@ ERL_NIF_TERM essio_shutdown(ErlNifEnv*       env,
 
 
 /* ========================================================================
+ * *** essio_sockname should go here - if we need one ***
  */
+
+/*
 extern
 ERL_NIF_TERM essio_sockname(ErlNifEnv*       env,
                             ESockDescriptor* descP)
@@ -2928,6 +2931,7 @@ ERL_NIF_TERM essio_sockname(ErlNifEnv*       env,
         return esock_make_ok2(env, esa);
     }
 }
+*/
 
 
 /* ========================================================================

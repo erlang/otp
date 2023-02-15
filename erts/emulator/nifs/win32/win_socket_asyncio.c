@@ -131,6 +131,7 @@
     ctrl.connect((s), (struct sockaddr*) (a), (al), NULL, 0, (sent), (o))
 #define sock_errno()                    WSAGetLastError()
 // #define sock_listen(s, b)               listen((s), (b))
+// #define sock_name(s, addr, len)        getsockname((s), (addr), (len))
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_open_O(domain, type, proto) \
     WSASocket((domain), (type), (proto), NULL, 0, WSA_FLAG_OVERLAPPED)

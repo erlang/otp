@@ -1124,12 +1124,23 @@ i_socket_info(_Proto, _Socket, #{domain := Domain} = _Info, domain) ->
     atom_to_list(Domain);
 i_socket_info(_Proto, _Socket, #{type := Type} = _Info, type) ->
     string:to_upper(atom_to_list(Type));
-i_socket_info(Proto, _Socket, _Info, protocol) ->
-    string:to_upper(atom_to_list(Proto));
+i_socket_info(Proto, _Socket, #{type := Type} = _Info, protocol) ->
+    string:to_upper(atom_to_list(if
+                                     (Proto =:= 0) ->
+                                         case Type of
+                                             stream -> tcp;
+                                             dgram  -> udp;
+                                             _      -> unknown
+                                         end;
+                                     true ->
+                                         Proto
+                                 end));
 i_socket_info(_Proto, Socket, _Info, fd) ->
-    case socket:getopt(Socket, otp, fd) of
+    try socket:getopt(Socket, otp, fd) of
 	{ok,   FD} -> integer_to_list(FD);
 	{error, _} -> " "
+    catch
+        _:_ -> " "
     end;
 i_socket_info(_Proto, _Socket, #{owner := Pid} = _Info, owner) ->
     pid_to_list(Pid);
@@ -1141,11 +1152,14 @@ i_socket_info(Proto, Socket, _Info, local_address) ->
 	    " "
     end;
 i_socket_info(Proto, Socket, _Info, remote_address) ->
-    case peername(Socket) of
+    try peername(Socket) of
 	{ok,  Addr} ->
 	    fmt_sockaddr(Addr, Proto);
 	{error, _} ->
 	    " "
+    catch
+        _:_ ->
+            " "
     end;
 i_socket_info(_Proto, _Socket,
 	      #{counters := #{read_byte := N}} = _Info, recv) ->
