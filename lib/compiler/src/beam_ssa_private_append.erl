@@ -168,6 +168,13 @@ get_results(SSA, Element, Fun, DefSt) ->
 get_results([{_,#b_blk{last=#b_ret{arg=#b_var{}=V}}}|Rest],
             Acc, Element, Fun, DefSt) ->
     get_results(Rest, [{V,Element}|Acc], Element, Fun, DefSt);
+get_results([{_,#b_blk{last=#b_ret{arg=#b_literal{val=Lit}}}}|Rest],
+            Acc, Element=self, Fun, DefSt) when not is_bitstring(Lit) ->
+    %% As value tracking is done without type information, we can
+    %% follow def chains which don't terminate in a bitstring. This is
+    %% harmless, but we should ignore them and not, later on, try to
+    %% patch them to a bs_writable_binary.
+    get_results(Rest, Acc, Element, Fun, DefSt);
 get_results([{Lbl,#b_blk{last=#b_ret{arg=#b_literal{}}}}|Rest],
             Acc, Element, Fun, DefSt0) ->
     DefSt = add_literal(Fun, {ret,Lbl,Element}, DefSt0),

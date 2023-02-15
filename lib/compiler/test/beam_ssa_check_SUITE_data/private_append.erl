@@ -57,6 +57,8 @@
 	 transformable30/1,
 	 transformable31a/1,
 	 transformable31b/1,
+         transformable32/0,
+         transformable32/1,
 
 	 not_transformable1/2,
 	 not_transformable2/1,
@@ -746,6 +748,20 @@ transformable31([_|T], _Acc, b) ->
 transformable31([], Acc, a) when is_binary(Acc) ->
     Acc;
 transformable31([], Acc, b) when is_tuple(Acc) ->
+    <<>>.
+
+%% Check that we don't crash (Github issue #6847) while attempting to
+%% patch the empty list, but also that the literal <<>> becomes a
+%% bs_init_writable.
+transformable32() ->
+    <<(transformable32(ok))/binary>>.
+
+transformable32(#{}) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% A = bs_init_writable(_),
+%ssa% ret(A).
+    [];
+transformable32(_) ->
     <<>>.
 
 % Should not be transformed as we can't know the alias status of Acc
