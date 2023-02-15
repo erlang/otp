@@ -441,6 +441,8 @@ keyreplace(Config) when is_list(Config) ->
 
 merge(Config) when is_list(Config) ->
 
+    Singleton = id([a, b, c]),
+
     %% merge list of lists
     [] = lists:merge([]),
     [] = lists:merge([[]]),
@@ -463,6 +465,33 @@ merge(Config) when is_list(Config) ->
     Seq = lists:seq(1,100),
     true = Seq == lists:merge(lists:map(fun(E) -> [E] end, Seq)),
 
+    true = erts_debug:same(Singleton, lists:merge([Singleton])),
+    true = erts_debug:same(Singleton, lists:merge([Singleton, []])),
+    true = erts_debug:same(Singleton, lists:merge([[], Singleton])),
+    true = erts_debug:same(Singleton, lists:merge([Singleton, [], []])),
+    true = erts_debug:same(Singleton, lists:merge([[], Singleton, []])),
+    true = erts_debug:same(Singleton, lists:merge([[], [], Singleton])),
+
+    {'EXIT', _} = (catch lists:merge([a])),
+    {'EXIT', _} = (catch lists:merge([a, b])),
+    {'EXIT', _} = (catch lists:merge([a, []])),
+    {'EXIT', _} = (catch lists:merge([[], b])),
+    {'EXIT', _} = (catch lists:merge([a, [1, 2, 3]])),
+    {'EXIT', _} = (catch lists:merge([[1, 2, 3], b])),
+    {'EXIT', _} = (catch lists:merge([a, b, c])),
+    {'EXIT', _} = (catch lists:merge([a, b, []])),
+    {'EXIT', _} = (catch lists:merge([a, [], c])),
+    {'EXIT', _} = (catch lists:merge([a, [], []])),
+    {'EXIT', _} = (catch lists:merge([[], b, c])),
+    {'EXIT', _} = (catch lists:merge([[], b, []])),
+    {'EXIT', _} = (catch lists:merge([[], [], c])),
+    {'EXIT', _} = (catch lists:merge([a, b, [1, 2, 3]])),
+    {'EXIT', _} = (catch lists:merge([a, [1, 2, 3], c])),
+    {'EXIT', _} = (catch lists:merge([a, [1, 2, 3], [4, 5, 6]])),
+    {'EXIT', _} = (catch lists:merge([[1, 2, 3], b, c])),
+    {'EXIT', _} = (catch lists:merge([[1, 2, 3], b, [4, 5, 6]])),
+    {'EXIT', _} = (catch lists:merge([[1, 2, 3], [4, 5, 6], c])),
+
     Two = [1,2],
     Six = [1,2,3,4,5,6],
 
@@ -482,6 +511,15 @@ merge(Config) when is_list(Config) ->
     [1,2,3,4,5,7] = lists:merge([2,4], [1,3,5,7]),
     [1,2,3,4,5,6,7] = lists:merge([2,4,6], [1,3,5,7]),
 
+    true = erts_debug:same(Singleton, lists:merge([], Singleton)),
+    true = erts_debug:same(Singleton, lists:merge(Singleton, [])),
+
+    {'EXIT', _} = (catch lists:merge(a, b)),
+    {'EXIT', _} = (catch lists:merge(a, [])),
+    {'EXIT', _} = (catch lists:merge([], b)),
+    {'EXIT', _} = (catch lists:merge(a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:merge([1, 2, 3], b)),
+
     %% 3-way merge
     [] = lists:merge3([], [], []),
     Two = lists:merge3([], [], Two),
@@ -498,11 +536,28 @@ merge(Config) when is_list(Config) ->
     Nine = lists:merge3([7,8,9],[4,5,6],[1,2,3]),
     Nine = lists:merge3([4,5,6],[7,8,9],[1,2,3]),
 
+    true = erts_debug:same(Singleton, lists:merge3([], [], Singleton)),
+    true = erts_debug:same(Singleton, lists:merge3([], Singleton, [])),
+    true = erts_debug:same(Singleton, lists:merge3(Singleton, [], [])),
+
+    {'EXIT', _} = (catch lists:merge3(a, b, c)),
+    {'EXIT', _} = (catch lists:merge3(a, b, [])),
+    {'EXIT', _} = (catch lists:merge3(a, [], c)),
+    {'EXIT', _} = (catch lists:merge3(a, [], [])),
+    {'EXIT', _} = (catch lists:merge3([], b, [])),
+    {'EXIT', _} = (catch lists:merge3([], [], c)),
+    {'EXIT', _} = (catch lists:merge3(a, b, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:merge3(a, [1, 2, 3], c)),
+    {'EXIT', _} = (catch lists:merge3(a, [1, 2, 3], [4, 5, 6])),
+    {'EXIT', _} = (catch lists:merge3([1, 2, 3], b, [4, 5, 6])),
+    {'EXIT', _} = (catch lists:merge3([1, 2, 3], [4, 5, 6], c)),
+
     ok.
 
 %% reverse merge functions
 rmerge(Config) when is_list(Config) ->
 
+    Singleton = id([a, b, c]),
     Two = [2,1],
     Six = [6,5,4,3,2,1],
 
@@ -522,6 +577,15 @@ rmerge(Config) when is_list(Config) ->
     [7,5,4,3,2,1] = lists:rmerge([4,2], [7,5,3,1]),
     [7,6,5,4,3,2,1] = lists:rmerge([6,4,2], [7,5,3,1]),
 
+    true = erts_debug:same(Singleton, lists:rmerge([], Singleton)),
+    true = erts_debug:same(Singleton, lists:rmerge(Singleton, [])),
+
+    {'EXIT', _} = (catch lists:rmerge(a, b)),
+    {'EXIT', _} = (catch lists:rmerge(a, [])),
+    {'EXIT', _} = (catch lists:rmerge([], b)),
+    {'EXIT', _} = (catch lists:rmerge(a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:rmerge([1, 2, 3], b)),
+
     Nine = [9,8,7,6,5,4,3,2,1],
 
     %% 3-way reversed merge
@@ -539,6 +603,22 @@ rmerge(Config) when is_list(Config) ->
     Nine = lists:rmerge3([3,2,1],[6,5,4],[9,8,7]),
     Nine = lists:rmerge3([9,8,7],[6,5,4],[3,2,1]),
     Nine = lists:rmerge3([6,5,4],[9,8,7],[3,2,1]),
+
+    true = erts_debug:same(Singleton, lists:rmerge3([], [], Singleton)),
+    true = erts_debug:same(Singleton, lists:rmerge3([], Singleton, [])),
+    true = erts_debug:same(Singleton, lists:rmerge3(Singleton, [], [])),
+
+    {'EXIT', _} = (catch lists:rmerge3(a, b, c)),
+    {'EXIT', _} = (catch lists:rmerge3(a, b, [])),
+    {'EXIT', _} = (catch lists:rmerge3(a, [], c)),
+    {'EXIT', _} = (catch lists:rmerge3(a, [], [])),
+    {'EXIT', _} = (catch lists:rmerge3([], b, [])),
+    {'EXIT', _} = (catch lists:rmerge3([], [], c)),
+    {'EXIT', _} = (catch lists:rmerge3(a, b, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:rmerge3(a, [1, 2, 3], c)),
+    {'EXIT', _} = (catch lists:rmerge3(a, [1, 2, 3], [4, 5, 6])),
+    {'EXIT', _} = (catch lists:rmerge3([1, 2, 3], b, [4, 5, 6])),
+    {'EXIT', _} = (catch lists:rmerge3([1, 2, 3], [4, 5, 6], c)),
 
     ok.
 
@@ -640,6 +720,8 @@ usort_1(Conf) when is_list(Conf) ->
     ok.
 
 umerge(Conf) when is_list(Conf) ->
+    Singleton = id([a, b, c]),
+
     %% merge list of lists
     [] = lists:umerge([]),
     [] = lists:umerge([[]]),
@@ -662,6 +744,33 @@ umerge(Conf) when is_list(Conf) ->
     [1,2,4,6,8] = lists:umerge([[1,2],[2,4,6,8]]),
     Seq = lists:seq(1,100),
     true = Seq == lists:umerge(lists:map(fun(E) -> [E] end, Seq)),
+
+    true = erts_debug:same(Singleton, lists:umerge([Singleton])),
+    true = erts_debug:same(Singleton, lists:umerge([Singleton, []])),
+    true = erts_debug:same(Singleton, lists:umerge([[], Singleton])),
+    true = erts_debug:same(Singleton, lists:umerge([Singleton, [], []])),
+    true = erts_debug:same(Singleton, lists:umerge([[], Singleton, []])),
+    true = erts_debug:same(Singleton, lists:umerge([[], [], Singleton])),
+
+    {'EXIT', _} = (catch lists:umerge([a])),
+    {'EXIT', _} = (catch lists:umerge([a, b])),
+    {'EXIT', _} = (catch lists:umerge([a, []])),
+    {'EXIT', _} = (catch lists:umerge([[], b])),
+    {'EXIT', _} = (catch lists:umerge([a, [1, 2, 3]])),
+    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], b])),
+    {'EXIT', _} = (catch lists:umerge([a, b, c])),
+    {'EXIT', _} = (catch lists:umerge([a, b, []])),
+    {'EXIT', _} = (catch lists:umerge([a, [], c])),
+    {'EXIT', _} = (catch lists:umerge([a, [], []])),
+    {'EXIT', _} = (catch lists:umerge([[], b, c])),
+    {'EXIT', _} = (catch lists:umerge([[], b, []])),
+    {'EXIT', _} = (catch lists:umerge([[], [], c])),
+    {'EXIT', _} = (catch lists:umerge([a, b, [1, 2, 3]])),
+    {'EXIT', _} = (catch lists:umerge([a, [1, 2, 3], c])),
+    {'EXIT', _} = (catch lists:umerge([a, [1, 2, 3], [4, 5, 6]])),
+    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], b, c])),
+    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], b, [4, 5, 6]])),
+    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], [4, 5, 6], c])),
 
     Two = [1,2],
     Six = [1,2,3,4,5,6],
@@ -689,6 +798,15 @@ umerge(Conf) when is_list(Conf) ->
     [1,2,3,4,5,7] = lists:umerge([2,4], [1,2,3,4,5,7]),
     [1,2,3,4,5,6,7] = lists:umerge([2,4,6], [1,2,3,4,5,6,7]),
 
+    true = erts_debug:same(Singleton, lists:umerge([], Singleton)),
+    true = erts_debug:same(Singleton, lists:umerge(Singleton, [])),
+
+    {'EXIT', _} = (catch lists:umerge(a, b)),
+    {'EXIT', _} = (catch lists:umerge(a, [])),
+    {'EXIT', _} = (catch lists:umerge([], b)),
+    {'EXIT', _} = (catch lists:umerge(a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:umerge([1, 2, 3], b)),
+
     %% 3-way unique merge
     [] = lists:umerge3([], [], []),
     Two = lists:umerge3([], [], Two),
@@ -710,9 +828,27 @@ umerge(Conf) when is_list(Conf) ->
     [1,2,3] = lists:umerge3([1,2,3],[2,3],[1,2,3]),
     [1,2,3,4] = lists:umerge3([2,3,4],[3,4],[1,2,3]),
 
+    true = erts_debug:same(Singleton, lists:umerge3([], [], Singleton)),
+    true = erts_debug:same(Singleton, lists:umerge3([], Singleton, [])),
+    true = erts_debug:same(Singleton, lists:umerge3(Singleton, [], [])),
+
+    {'EXIT', _} = (catch lists:umerge3(a, b, c)),
+    {'EXIT', _} = (catch lists:umerge3(a, b, [])),
+    {'EXIT', _} = (catch lists:umerge3(a, [], c)),
+    {'EXIT', _} = (catch lists:umerge3(a, [], [])),
+    {'EXIT', _} = (catch lists:umerge3([], b, [])),
+    {'EXIT', _} = (catch lists:umerge3([], [], c)),
+    {'EXIT', _} = (catch lists:umerge3(a, b, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:umerge3(a, [1, 2, 3], c)),
+    {'EXIT', _} = (catch lists:umerge3(a, [1, 2, 3], [4, 5, 6])),
+    {'EXIT', _} = (catch lists:umerge3([1, 2, 3], b, [4, 5, 6])),
+    {'EXIT', _} = (catch lists:umerge3([1, 2, 3], [4, 5, 6], c)),
+
     ok.
 
 rumerge(Conf) when is_list(Conf) ->
+    Singleton = id([a, b, c]),
+
     Two = [2,1],
     Six = [6,5,4,3,2,1],
 
@@ -738,6 +874,15 @@ rumerge(Conf) when is_list(Conf) ->
     [7,5,3,2,1] = lists:rumerge([2], [7,5,3,2,1]),
     [7,5,4,3,2,1] = lists:rumerge([4,2], [7,5,4,3,2,1]),
     [7,6,5,4,3,2,1] = lists:rumerge([6,4,2], [7,6,5,4,3,2,1]),
+
+    true = erts_debug:same(Singleton, lists:rumerge([], Singleton)),
+    true = erts_debug:same(Singleton, lists:rumerge(Singleton, [])),
+
+    {'EXIT', _} = (catch lists:rumerge(a, b)),
+    {'EXIT', _} = (catch lists:rumerge(a, [])),
+    {'EXIT', _} = (catch lists:rumerge([], b)),
+    {'EXIT', _} = (catch lists:rumerge(a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:rumerge([1, 2, 3], b)),
 
     Nine = [9,8,7,6,5,4,3,2,1],
 
@@ -767,6 +912,23 @@ rumerge(Conf) when is_list(Conf) ->
     true =
 	lists:umerge(L1, L2) == 
 	lists:reverse(lists:rumerge(lists:reverse(L1), lists:reverse(L2))),
+
+    true = erts_debug:same(Singleton, lists:rumerge3([], [], Singleton)),
+    true = erts_debug:same(Singleton, lists:rumerge3([], Singleton, [])),
+    true = erts_debug:same(Singleton, lists:rumerge3(Singleton, [], [])),
+
+    {'EXIT', _} = (catch lists:rumerge3(a, b, c)),
+    {'EXIT', _} = (catch lists:rumerge3(a, b, [])),
+    {'EXIT', _} = (catch lists:rumerge3(a, [], c)),
+    {'EXIT', _} = (catch lists:rumerge3(a, [], [])),
+    {'EXIT', _} = (catch lists:rumerge3([], b, [])),
+    {'EXIT', _} = (catch lists:rumerge3([], [], c)),
+    {'EXIT', _} = (catch lists:rumerge3(a, b, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:rumerge3(a, [1, 2, 3], c)),
+    {'EXIT', _} = (catch lists:rumerge3(a, [1, 2, 3], [4, 5, 6])),
+    {'EXIT', _} = (catch lists:rumerge3([1, 2, 3], b, [4, 5, 6])),
+    {'EXIT', _} = (catch lists:rumerge3([1, 2, 3], [4, 5, 6], c)),
+
     ok.
 
 %% usort/1 on big randomized lists.
@@ -823,6 +985,7 @@ ucheck_stability(L) ->
 %% Key merge two lists.
 keymerge(Config) when is_list(Config) ->
 
+    Singleton = id([{1, a}, {2, b}, {3, c}]),
     Two = [{1,a},{2,b}],
     Six = [{1,a},{2,b},{3,c},{4,d},{5,e},{6,f}],
 
@@ -851,11 +1014,21 @@ keymerge(Config) when is_list(Config) ->
     [{b,2},{c,11},{c,12},{c,21},{c,22},{e,5}] =
 	lists:keymerge(1,[{c,11},{c,12},{e,5}], [{b,2},{c,21},{c,22}]),
 
+    true = erts_debug:same(Singleton, lists:keymerge(1, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:keymerge(1, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:keymerge(1, a, b)),
+    {'EXIT', _} = (catch lists:keymerge(1, a, [])),
+    {'EXIT', _} = (catch lists:keymerge(1, [], b)),
+    {'EXIT', _} = (catch lists:keymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    {'EXIT', _} = (catch lists:keymerge(1, [{1, a}, {2, b}, {3, c}], b)),
+
     ok.
 
 %% Reverse key merge two lists.
 rkeymerge(Config) when is_list(Config) ->
 
+    Singleton = id([{1, a}, {2, b}, {3, c}]),
     Two = [{2,b},{1,a}],
     Six = [{6,f},{5,e},{4,d},{3,c},{2,b},{1,a}],
 
@@ -887,6 +1060,15 @@ rkeymerge(Config) when is_list(Config) ->
 	lists:keymerge(1, L1, L2) == 
 	lists:reverse(lists:rkeymerge(1,lists:reverse(L1), 
 				      lists:reverse(L2))),
+
+    true = erts_debug:same(Singleton, lists:rkeymerge(1, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:rkeymerge(1, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:rkeymerge(1, a, b)),
+    {'EXIT', _} = (catch lists:rkeymerge(1, a, [])),
+    {'EXIT', _} = (catch lists:rkeymerge(1, [], b)),
+    {'EXIT', _} = (catch lists:rkeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    {'EXIT', _} = (catch lists:rkeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
 
     ok.
 
@@ -1006,6 +1188,7 @@ keycompare(I, J, A, B) when element(I, A) == element(I, B),
 %% Merge two lists while removing duplicates.
 ukeymerge(Conf) when is_list(Conf) ->
 
+    Singleton = id([{1, a}, {2, b}, {3, c}]),
     Two = [{1,a},{2,b}],
     Six = [{1,a},{2,b},{3,c},{4,d},{5,e},{6,f}],
 
@@ -1055,11 +1238,21 @@ ukeymerge(Conf) when is_list(Conf) ->
     L2 = [{b,1},{b,3},{b,5},{b,7}],
     L1 = lists:ukeymerge(2, L1, L2),
 
+    true = erts_debug:same(Singleton, lists:ukeymerge(1, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:ukeymerge(1, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:ukeymerge(1, a, b)),
+    {'EXIT', _} = (catch lists:ukeymerge(1, a, [])),
+    {'EXIT', _} = (catch lists:ukeymerge(1, [], b)),
+    {'EXIT', _} = (catch lists:ukeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    {'EXIT', _} = (catch lists:ukeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
+
     ok.
 
 %% Reverse merge two lists while removing duplicates.
 rukeymerge(Conf) when is_list(Conf) ->
 
+    Singleton = id([{1, a}, {2, b}, {3, c}]),
     Two = [{2,b},{1,a}],
     Six = [{6,f},{5,e},{4,d},{3,c},{2,b},{1,a}],
 
@@ -1108,6 +1301,15 @@ rukeymerge(Conf) when is_list(Conf) ->
 	lists:ukeymerge(2, L1, L2) == 
 	lists:reverse(lists:rukeymerge(2, lists:reverse(L1), 
 				       lists:reverse(L2))),
+
+    true = erts_debug:same(Singleton, lists:rukeymerge(1, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:rukeymerge(1, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:rukeymerge(1, a, b)),
+    {'EXIT', _} = (catch lists:rukeymerge(1, a, [])),
+    {'EXIT', _} = (catch lists:rukeymerge(1, [], b)),
+    {'EXIT', _} = (catch lists:rukeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    {'EXIT', _} = (catch lists:rukeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
 
     ok.
 
@@ -1286,6 +1488,7 @@ ukeycompare(I, J, A, B) when A =/= B,
 %% Merge two lists using a fun.
 funmerge(Config) when is_list(Config) ->
 
+    Singleton = id([a, b, c]),
     Two = [1,2],
     Six = [1,2,3,4,5,6],
     F = fun(X, Y) -> X =< Y end,
@@ -1310,11 +1513,21 @@ funmerge(Config) when is_list(Config) ->
     [{b,2},{c,11},{c,12},{c,21},{c,22},{e,5}] =
 	lists:merge(F2,[{c,11},{c,12},{e,5}], [{b,2},{c,21},{c,22}]),
 
+    true = erts_debug:same(Singleton, lists:merge(F, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:merge(F, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:merge(F, a, b)),
+    {'EXIT', _} = (catch lists:merge(F, a, [])),
+    {'EXIT', _} = (catch lists:merge(F, [], b)),
+    {'EXIT', _} = (catch lists:merge(F, a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:merge(F, [1, 2, 3], b)),
+
     ok.
 
 %% Reverse merge two lists using a fun.
 rfunmerge(Config) when is_list(Config) ->
 
+    Singleton = id([a, b, c]),
     Two = [2,1],
     Six = [6,5,4,3,2,1],
     F = fun(X, Y) -> X =< Y end,
@@ -1341,6 +1554,15 @@ rfunmerge(Config) when is_list(Config) ->
     true =
 	lists:merge(F2, L1, L2) == 
 	lists:reverse(lists:rmerge(F2,lists:reverse(L1), lists:reverse(L2))),
+
+    true = erts_debug:same(Singleton, lists:rmerge(F, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:rmerge(F, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:rmerge(F, a, b)),
+    {'EXIT', _} = (catch lists:rmerge(F, a, [])),
+    {'EXIT', _} = (catch lists:rmerge(F, [], b)),
+    {'EXIT', _} = (catch lists:rmerge(F, a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:rmerge(F, [1, 2, 3], b)),
 
     ok.
 
@@ -1411,6 +1633,7 @@ funsort_check(I, Input, Expected) ->
 %% Merge two lists while removing duplicates using a fun.
 ufunmerge(Conf) when is_list(Conf) ->
 
+    Singleton = id([a, b, c]),
     Two = [1,2],
     Six = [1,2,3,4,5,6],
     F = fun(X, Y) -> X =< Y end,
@@ -1445,10 +1668,20 @@ ufunmerge(Conf) when is_list(Conf) ->
     [{b,2},{e,5},{c,11},{c,12},{c,21},{c,22}] =
 	lists:umerge(F2, [{e,5},{c,11},{c,12}], [{b,2},{c,21},{c,22}]),
 
+    true = erts_debug:same(Singleton, lists:umerge(F, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:umerge(F, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:umerge(F, a, b)),
+    {'EXIT', _} = (catch lists:umerge(F, a, [])),
+    {'EXIT', _} = (catch lists:umerge(F, [], b)),
+    {'EXIT', _} = (catch lists:umerge(F, a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:umerge(F, [1, 2, 3], b)),
+
     ok.
 
 %% Reverse merge two lists while removing duplicates using a fun.
 rufunmerge(Conf) when is_list(Conf) ->
+    Singleton = id([a, b, c]),
     Two = [2,1],
     Six = [6,5,4,3,2,1],
     F = fun(X, Y) -> X =< Y end,
@@ -1487,6 +1720,15 @@ rufunmerge(Conf) when is_list(Conf) ->
     true =
 	lists:umerge(F2, L3, L4) == 
 	lists:reverse(lists:rumerge(F2,lists:reverse(L3), lists:reverse(L4))),
+
+    true = erts_debug:same(Singleton, lists:rumerge(F, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:rumerge(F, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:rumerge(F, a, b)),
+    {'EXIT', _} = (catch lists:rumerge(F, a, [])),
+    {'EXIT', _} = (catch lists:rumerge(F, [], b)),
+    {'EXIT', _} = (catch lists:rumerge(F, a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:rumerge(F, [1, 2, 3], b)),
 
     ok.
 

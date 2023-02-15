@@ -49,7 +49,7 @@ all() ->
         keyfind_case, keyfind_absent_case,
         keymap_case,
         keymember_case, keymember_absent_case,
-        keymerge_case,
+        keymerge_case, keymerge_invalid_case,
         keyreplace_case, keyreplace_absent_case,
         keysearch_case, keysearch_absent_case,
         keysort_case,
@@ -61,10 +61,10 @@ all() ->
         mapfoldr_case,
         max_case,
         member_case, member_absent_case,
-        merge_1_case,
-        merge_2_case,
-        merge_3_case,
-        merge3_case,
+        merge_1_case, merge_1_invalid_case,
+        merge_2_case, merge_2_invalid_case,
+        merge_3_case, merge_3_invalid_case,
+        merge3_case, merge3_invalid_case,
         min_case,
         nth_case, nth_outofrange_case,
         nthtail_case, nthtail_outofrange_case,
@@ -85,12 +85,12 @@ all() ->
         suffix_case,
         sum_case,
         takewhile_case,
-        ukeymerge_case,
+        ukeymerge_case, ukeymerge_invalid_case,
         ukeysort_case,
-        umerge_1_case,
-        umerge_2_case,
-        umerge_3_case,
-        umerge3_case,
+        umerge_1_case, umerge_1_invalid_case,
+        umerge_2_case, umerge_2_invalid_case,
+        umerge_3_case, umerge_3_invalid_case,
+        umerge3_case, umerge3_invalid_case,
         uniq_1_case,
         uniq_2_case,
         unzip_case,
@@ -213,6 +213,9 @@ keymember_absent_case(Config) ->
 keymerge_case(Config) ->
     do_proptest(prop_keymerge, Config).
 
+keymerge_invalid_case(Config) ->
+    do_proptest(prop_keymerge_invalid, Config).
+
 keyreplace_case(Config) ->
     do_proptest(prop_keyreplace, Config).
 
@@ -264,14 +267,26 @@ member_absent_case(Config) ->
 merge_1_case(Config) ->
     do_proptest(prop_merge_1, Config).
 
+merge_1_invalid_case(Config) ->
+    do_proptest(prop_merge_1_invalid, Config).
+
 merge_2_case(Config) ->
     do_proptest(prop_merge_2, Config).
+
+merge_2_invalid_case(Config) ->
+    do_proptest(prop_merge_2_invalid, Config).
 
 merge_3_case(Config) ->
     do_proptest(prop_merge_3, Config).
 
+merge_3_invalid_case(Config) ->
+    do_proptest(prop_merge_3_invalid, Config).
+
 merge3_case(Config) ->
     do_proptest(prop_merge3, Config).
+
+merge3_invalid_case(Config) ->
+    do_proptest(prop_merge3_invalid, Config).
 
 min_case(Config) ->
     do_proptest(prop_min, Config).
@@ -348,20 +363,35 @@ takewhile_case(Config) ->
 ukeymerge_case(Config) ->
     do_proptest(prop_ukeymerge, Config).
 
+ukeymerge_invalid_case(Config) ->
+    do_proptest(prop_ukeymerge_invalid, Config).
+
 ukeysort_case(Config) ->
     do_proptest(prop_ukeysort, Config).
 
 umerge_1_case(Config) ->
     do_proptest(prop_umerge_1, Config).
 
+umerge_1_invalid_case(Config) ->
+    do_proptest(prop_umerge_1_invalid, Config).
+
 umerge_2_case(Config) ->
     do_proptest(prop_umerge_2, Config).
+
+umerge_2_invalid_case(Config) ->
+    do_proptest(prop_umerge_2_invalid, Config).
 
 umerge_3_case(Config) ->
     do_proptest(prop_umerge_3, Config).
 
+umerge_3_invalid_case(Config) ->
+    do_proptest(prop_umerge_3_invalid, Config).
+
 umerge3_case(Config) ->
     do_proptest(prop_umerge3, Config).
+
+umerge3_invalid_case(Config) ->
+    do_proptest(prop_umerge3_invalid, Config).
 
 uniq_1_case(Config) ->
     do_proptest(prop_uniq_1, Config).

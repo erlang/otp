@@ -513,6 +513,23 @@ prop_keymerge() ->
         )
     ).
 
+prop_keymerge_invalid() ->
+    ?FORALL(
+        {N, InList, X, Y},
+        ?LET(
+            N,
+            range(1, 5),
+            ?LET(
+                {L, X, Y},
+                {list(gen_tuple(N, N+3)), non_list(), non_list()},
+                {N, L, X, Y}
+            )
+        ),
+        expect_error(fun lists:keymerge/3, [N, InList, Y]) andalso
+        expect_error(fun lists:keymerge/3, [N, X, InList]) andalso
+        expect_error(fun lists:keymerge/3, [N, X, Y])
+    ).
+
 %% keyreplace/4
 prop_keyreplace() ->
     ?FORALL(
@@ -745,6 +762,17 @@ prop_merge_1() ->
         check_merged(fun erlang:'=<'/2, InLists, lists:merge(InLists))
     ).
 
+prop_merge_1_invalid() ->
+    ?FORALL(
+        InLists,
+        ?LET(
+            {L1, X, L2},
+            {list(oneof([non_list(), gen_list()])), non_list(), list(oneof([non_list(), gen_list()]))},
+            L1 ++ [X|L2]
+        ),
+        expect_error(fun lists:merge/1, [InLists])
+    ).
+
 %% merge/2
 prop_merge_2() ->
     ?FORALL(
@@ -755,6 +783,15 @@ prop_merge_2() ->
             {lists:sort(L1), lists:sort(L2)}
         ),
         check_merged(fun erlang:'=<'/2, [InList1, InList2], lists:merge(InList1, InList2))
+    ).
+
+prop_merge_2_invalid() ->
+    ?FORALL(
+        {InList, X, Y},
+        {gen_list(), non_list(), non_list()},
+        expect_error(fun lists:merge/2, [InList, X]) andalso
+        expect_error(fun lists:merge/2, [X, InList]) andalso
+        expect_error(fun lists:merge/2, [X, Y])
     ).
 
 %% merge/3
@@ -769,6 +806,15 @@ prop_merge_3() ->
         check_merged(SortFn, [InList1, InList2], lists:merge(SortFn, InList1, InList2))
     ).
 
+prop_merge_3_invalid() ->
+    ?FORALL(
+        {SortFn, InList, X, Y},
+        {gen_ordering_fun(), gen_list(), non_list(), non_list()},
+        expect_error(fun lists:merge/3, [SortFn, InList, Y]) andalso
+        expect_error(fun lists:merge/3, [SortFn, X, InList]) andalso
+        expect_error(fun lists:merge/3, [SortFn, X, Y])
+    ).
+
 %% merge3/3
 prop_merge3() ->
     ?FORALL(
@@ -779,6 +825,18 @@ prop_merge3() ->
             {lists:sort(L1), lists:sort(L2), lists:sort(L3)}
         ),
         check_merged(fun erlang:'=<'/2, [InList1, InList2, InList3], lists:merge3(InList1, InList2, InList3))
+    ).
+
+prop_merge3_invalid() ->
+    ?FORALL(
+        {InList, X, Y, Z},
+        {gen_list(), non_list(), non_list(), non_list()},
+        expect_error(fun lists:merge/3, [InList, InList, Z]) andalso
+        expect_error(fun lists:merge/3, [InList, Y, InList]) andalso
+        expect_error(fun lists:merge/3, [InList, Y, Z]) andalso
+        expect_error(fun lists:merge/3, [X, InList, Z]) andalso
+        expect_error(fun lists:merge/3, [X, Y, InList]) andalso
+        expect_error(fun lists:merge/3, [X, Y, Z])
     ).
 
 %% min/1
@@ -1132,6 +1190,23 @@ prop_ukeymerge() ->
         )
     ).
 
+prop_ukeymerge_invalid() ->
+    ?FORALL(
+        {N, InList, X, Y},
+        ?LET(
+            N,
+            range(1, 5),
+            ?LET(
+                {L, X, Y},
+                {list(gen_tuple(N, N+3)), non_list(), non_list()},
+                {N, L, X, Y}
+            )
+        ),
+        expect_error(fun lists:ukeymerge/3, [N, InList, Y]) andalso
+        expect_error(fun lists:ukeymerge/3, [N, X, InList]) andalso
+        expect_error(fun lists:ukeymerge/3, [N, X, Y])
+    ).
+
 %% ukeysort/2
 prop_ukeysort() ->
     ?FORALL(
@@ -1156,6 +1231,17 @@ prop_umerge_1() ->
         check_umerged(InLists, lists:umerge(InLists))
     ).
 
+prop_umerge_1_invalid() ->
+    ?FORALL(
+        InList,
+        ?LET(
+            {L1, X, L2},
+	    {list(oneof([non_list(), gen_list()])), non_list(), list(oneof([non_list(), gen_list()]))},
+	    L1 ++ [X|L2]
+        ),
+	expect_error(fun lists:umerge/1, [InList])
+    ).
+
 %% umerge/2
 prop_umerge_2() ->
     ?FORALL(
@@ -1166,6 +1252,15 @@ prop_umerge_2() ->
             {lists:usort(L1), lists:usort(L2)}
         ),
         check_umerged([InList1, InList2], lists:umerge(InList1, InList2))
+    ).
+
+prop_umerge_2_invalid() ->
+    ?FORALL(
+        {InList, X, Y},
+	{gen_list(), non_list(), non_list()},
+	expect_error(fun lists:umerge/2, [InList, Y]) andalso
+	expect_error(fun lists:umerge/2, [X, InList]) andalso
+	expect_error(fun lists:umerge/2, [X, Y])
     ).
 
 %% umerge/3
@@ -1180,6 +1275,15 @@ prop_umerge_3() ->
         check_umerged(SortFn, [InList1, InList2], lists:umerge(SortFn, InList1, InList2))
     ).
 
+prop_umerge_3_invalid() ->
+    ?FORALL(
+        {SortFn, InList, X, Y},
+	{gen_ordering_fun(), gen_list(), non_list(), non_list()},
+	expect_error(fun lists:umerge/3, [SortFn, InList, Y]) andalso
+	expect_error(fun lists:umerge/3, [SortFn, X, InList]) andalso
+	expect_error(fun lists:umerge/3, [SortFn, X, Y])
+    ).
+
 %% umerge3/3
 prop_umerge3() ->
     ?FORALL(
@@ -1190,6 +1294,19 @@ prop_umerge3() ->
             {lists:usort(L1), lists:usort(L2), lists:usort(L3)}
         ),
         check_umerged([InList1, InList2, InList3], lists:umerge3(InList1, InList2, InList3))
+    ).
+
+prop_umerge3_invalid() ->
+    ?FORALL(
+        {InList, X, Y, Z},
+	{gen_list(), non_list(), non_list(), non_list()},
+	expect_error(fun lists:umerge3/3, [InList, InList, Z]) andalso
+	expect_error(fun lists:umerge3/3, [InList, Y, InList]) andalso
+	expect_error(fun lists:umerge3/3, [InList, Y, Z]) andalso
+	expect_error(fun lists:umerge3/3, [X, InList, InList]) andalso
+	expect_error(fun lists:umerge3/3, [X, InList, Z]) andalso
+	expect_error(fun lists:umerge3/3, [X, Y, InList]) andalso
+	expect_error(fun lists:umerge3/3, [X, Y, Z])
     ).
 
 %% uniq/1
@@ -1530,6 +1647,9 @@ prop_zipwith3_5() ->
 %%% Generators %%%
 %%%%%%%%%%%%%%%%%%
 
+non_list() ->
+	?SUCHTHAT(NonList, gen_any(), not is_list(NonList)).
+
 %% Generator for lists of the given type, folding the given function
 %% over values on the top level as they are generated. The first generated
 %% value serves as the initial accumulator.
@@ -1738,6 +1858,17 @@ gen_ordering_fun() ->
 %%%%%%%%%%%%%%%
 %%% Helpers %%%
 %%%%%%%%%%%%%%%
+
+%% --------------------------------------------------------------------
+expect_error(Fn, Args) when is_function(Fn, length(Args))->
+    try
+        erlang:apply(Fn, Args)
+    of
+        _ -> false
+    catch
+        error:_ -> true;
+        _:_ -> false
+    end.
 
 %% --------------------------------------------------------------------
 check_appended([], []) ->
