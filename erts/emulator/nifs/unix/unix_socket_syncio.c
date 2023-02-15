@@ -2894,84 +2894,10 @@ ERL_NIF_TERM essio_shutdown(ErlNifEnv*       env,
  * *** essio_sockname should go here - if we need one ***
  */
 
-/*
-extern
-ERL_NIF_TERM essio_sockname(ErlNifEnv*       env,
-                            ESockDescriptor* descP)
-{
-    ESockAddress  sa;
-    ESockAddress* saP = &sa;
-    SOCKLEN_T     sz  = sizeof(ESockAddress);
-
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-    
-    SSDBG( descP,
-           ("UNIX-ESSIO", "essio_sockname {%d} -> open - try get sockname\r\n",
-            descP->sock) );
-
-    sys_memzero((char*) saP, sz);
-    if (sock_name(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
-        return esock_make_error_errno(env, sock_errno());
-    } else {
-        ERL_NIF_TERM esa;
-
-        SSDBG( descP,
-               ("UNIX-ESSIO", "essio_sockname {%d} -> "
-                "got sockname - try decode\r\n",
-                descP->sock) );
-
-        esock_encode_sockaddr(env, saP, sz, &esa);
-
-        SSDBG( descP,
-               ("UNIX-ESSIO", "essio_sockname {%d} -> decoded: "
-                "\r\n   %T\r\n",
-                descP->sock, esa) );
-
-        return esock_make_ok2(env, esa);
-    }
-}
-*/
-
 
 /* ========================================================================
+ * *** essio_peername should go here - if we need one ***
  */
-extern
-ERL_NIF_TERM essio_peername(ErlNifEnv*       env,
-                            ESockDescriptor* descP)
-{
-  ESockAddress  sa;
-  ESockAddress* saP = &sa;
-  SOCKLEN_T     sz  = sizeof(ESockAddress);
-
-  if (! IS_OPEN(descP->readState))
-    return esock_make_error_closed(env);
-
-  SSDBG( descP,
-         ("UNIX-ESSIO", "essio_peername {%d} -> open - try get peername\r\n",
-          descP->sock) );
-
-  sys_memzero((char*) saP, sz);
-  if (sock_peer(descP->sock, (struct sockaddr*) saP, &sz) < 0) {
-      return esock_make_error_errno(env, sock_errno());
-  } else {
-      ERL_NIF_TERM esa;
-
-      SSDBG( descP,
-             ("UNIX-ESSIO", "essio_peername {%d} -> "
-              "got peername - try decode\r\n",
-              descP->sock) );
-
-      esock_encode_sockaddr(env, saP, sz, &esa);
-
-      SSDBG( descP,
-             ("UNIX-ESSIO", "esock_peername {%d} -> decoded: "
-              "\r\n   %T\r\n",
-              descP->sock, esa) );
-
-      return esock_make_ok2(env, esa);
-  }
-}
 
 
 /* ========================================================================
