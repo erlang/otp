@@ -1621,7 +1621,7 @@ enif_free_iovec(iovec);]]></code>
 
 
     <func>
-      <name since="OTP 26.0"><ret>int</ret><nametext>enif_get_string_length(ErlNifEnv *env,
+      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_get_string_length(ErlNifEnv *env,
         ERL_NIF_TERM list, unsigned *len, ErlNifCharEncoding encoding)</nametext>
       </name>
       <fsummary>Get the length of a C-string <c>list</c>.</fsummary>
@@ -2369,7 +2369,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP 26.0"><ret>int</ret><nametext>enif_make_new_atom(ErlNifEnv *env,
+      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_make_new_atom(ErlNifEnv *env,
         const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create a new or existing atom term.</fsummary>
@@ -2386,7 +2386,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name since="OTP 26.0"><ret>int</ret><nametext>enif_make_new_atom_len(ErlNifEnv *env,
+      <name since="OTP @OTP-18334@"><ret>int</ret><nametext>enif_make_new_atom_len(ErlNifEnv *env,
         const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding
         encoding)</nametext></name>
       <fsummary>Create a new or existing atom term.</fsummary>
@@ -3500,7 +3500,7 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
     </func>
 
     <func>
-      <name since="OTP 26.0">
+      <name since="OTP @OTP-17771@">
         <ret>int</ret><nametext>enif_set_option(ErlNifEnv *env, ErlNifOption opt, ...)</nametext>
       </name>
       <fsummary>

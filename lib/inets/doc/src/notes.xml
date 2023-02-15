@@ -33,28 +33,7 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 8.3</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    By default ssl connections will use options from
-	    <c>ssl_default_options(true)</c></p>
-          <p>
-	    Own Id: OTP-18167</p>
-        </item>
-        <item>
-	    <p>Runtime dependencies have been updated.</p>
-          <p>
-	    Own Id: OTP-18350</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<section><title>Inets 8.2.1</title>
+  <section><title>Inets 8.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

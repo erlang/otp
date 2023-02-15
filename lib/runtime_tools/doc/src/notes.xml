@@ -32,34 +32,6 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
-<section><title>Runtime_Tools 1.20</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Add <c>dbg:tracer(file, Filename)</c> as a convenient way
-	    to trace to a file in clean text.</p>
-          <p>
-	    Own Id: OTP-18211 Aux Id: PR-6143 </p>
-        </item>
-        <item>
-	    <p> Handling of <c>on_load</c> modules during boot has
-	    been improved by adding an extra step in the boot order
-	    for embedded mode that runs all <c>on_load</c> handlers,
-	    instead of relying on explicit invocation of them, later,
-	    when the kernel supervision tree starts. </p><p> This is
-	    mostly a code improvement and OTP internal simplification
-	    to avoid future bugs and to simplify code maintenance.
-	    </p>
-          <p>
-	    Own Id: OTP-18447</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Runtime_Tools 1.19</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

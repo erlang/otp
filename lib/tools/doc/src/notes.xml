@@ -31,21 +31,6 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
-<section><title>Tools 3.6</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-	    <p>Map comprehensions as suggested in EEP 58 has now been
-	    implemented.</p>
-          <p>
-	    Own Id: OTP-18413 Aux Id: EEP-58, PR-6727 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Tools 3.5.3</title>
 
     <section><title>Improvements and New Features</title>

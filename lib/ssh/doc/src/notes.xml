@@ -30,34 +30,6 @@
     <file>notes.xml</file>
   </header>
 
-<section><title>Ssh 5.0</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    The ssh_cli has been updated to work with the changes
-	    introduced in the new Erlang shell implementation.</p>
-          <p>
-	    Own Id: OTP-18231 Aux Id: OTP-17932 PR-6144 </p>
-        </item>
-        <item>
-          <p>
-	    Typing <c>Ctrl+L</c> in a shell now clears the screen and
-	    redraws the current line instead of only redrawing the
-	    current line. To only redraw the current line, you must
-	    now type <c>Alt+L</c>. This brings the behaviour of
-	    <c>Ctrl+L</c> closer to how bash and other shells work.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-18285 Aux Id: PR-6262 </p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Ssh 4.15.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
