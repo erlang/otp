@@ -21,6 +21,7 @@
 -module(pubkey_ocsp).
 
 -include("public_key.hrl").
+-include_lib("/home/ejakwit/src/tools/src/tools.hrl").
 
 -export([otp_cert/1,
          get_ocsp_responder_id/1,

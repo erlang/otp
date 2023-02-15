@@ -1924,6 +1924,10 @@ opt_ocsp(UserOpts, #{versions := _Versions} = Opts, #{role := Role}) ->
     option_incompatible(Stapling =:= false andalso Nonce =:= false,
                         [{ocsp_nonce, false}, {ocsp_stapling, false}]),
     {_, ORC} = get_opt_list(ocsp_responder_certs, [], UserOpts, SMap),
+    CheckBinary = fun(Cert) when is_binary(Cert) -> ok;
+                     (_Cert) -> option_error(ocsp_responder_certs, ORC)
+                  end,
+    [CheckBinary(C) || C <- ORC],
     option_incompatible(Stapling =:= false andalso ORC =/= [],
                         [ocsp_responder_certs, {ocsp_stapling, false}]),
     case Stapling of
