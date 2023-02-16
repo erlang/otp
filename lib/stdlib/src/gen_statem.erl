@@ -1058,7 +1058,7 @@ init_result(
               State, Data, Actions);
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
-            proc_lib:init_fail(Starter, {error,Reason}, {exit,Reason});
+            exit(Reason);
 	{error, _Reason} = ERROR ->
             %% The point of this clause is that we shall have a *silent*
             %% termination. The error reason will be returned to the
@@ -1075,7 +1075,7 @@ init_result(
 	      error, Reason, ?STACKTRACE(), Debug,
               #params{parent = Parent, name = Name, modules = [Module]},
               #state{}, []),
-            proc_lib:init_fail(Starter, {error,Reason}, {exit,Reason})
+            exit(Reason)
     end.
 
 %%%==========================================================================

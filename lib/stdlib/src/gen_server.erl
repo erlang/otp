@@ -940,7 +940,7 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    %% an 'already_started' error if it immediately
 	    %% tried starting the process again.)
 	    gen:unregister_name(Name0),
-            proc_lib:init_fail(Starter, {error, Reason}, {exit, Reason});
+            exit(Reason);
 	{ok, {error, _Reason} = ERROR} ->
             %% The point of this clause is that we shall have a silent/graceful
             %% termination. The error reason will be returned to the
@@ -952,13 +952,10 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
             proc_lib:init_fail(Starter, ignore, {exit, normal});
 	{ok, Else} ->
 	    gen:unregister_name(Name0),
-	    Reason = {bad_return_value, Else},
-            proc_lib:init_fail(Starter, {error, Reason}, {exit, Reason});
+            exit({bad_return_value, Else});
 	{'EXIT', Class, Reason, Stacktrace} ->
 	    gen:unregister_name(Name0),
-            ActualReason = terminate_reason(Class, Reason, Stacktrace),
-	    proc_lib:init_fail(
-              Starter, {error, ActualReason}, {Class, Reason, Stacktrace})
+            erlang:raise(Class, Reason, Stacktrace)
     end.
 init_it(Mod, Args) ->
     try
@@ -1321,7 +1318,7 @@ terminate(Class, Reason, Stacktrace, Name, From, Msg, Mod, State, Debug) ->
 
 -spec terminate(_, _, _, _, _, _, _, _, _, _) -> no_return().
 terminate(Class, Reason, Stacktrace, ReportStacktrace, Name, From, Msg, Mod, State, Debug) ->
-    Reply = try_terminate(Mod, terminate_reason(Class, Reason, Stacktrace), State),
+    Reply = try_terminate(Mod, catch_result(Class, Reason, Stacktrace), State),
     case Reply of
 	{'EXIT', C, R, S} ->
 	    error_info(R, S, Name, From, Msg, Mod, State, Debug),
@@ -1344,8 +1341,9 @@ terminate(Class, Reason, Stacktrace, ReportStacktrace, Name, From, Msg, Mod, Sta
 	    erlang:raise(Class, Reason, Stacktrace)
     end.
 
-terminate_reason(error, Reason, Stacktrace) -> {Reason, Stacktrace};
-terminate_reason(exit, Reason, _Stacktrace) -> Reason.
+%% What an old style `catch` would return
+catch_result(error, Reason, Stacktrace) -> {Reason, Stacktrace};
+catch_result(exit, Reason, _Stacktrace) -> Reason.
 
 error_info(_Reason, _ST, application_controller, _From, _Msg, _Mod, _State, _Debug) ->
     %% OTP-5811 Don't send an error report if it's the system process

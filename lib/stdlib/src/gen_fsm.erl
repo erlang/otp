@@ -329,26 +329,26 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Name = gen:name(Name0),
     Debug = gen:debug_options(Name, Options),
-	HibernateAfterTimeout = gen:hibernate_after(Options),
-	case catch Mod:init(Args) of
+    HibernateAfterTimeout = gen:hibernate_after(Options),
+    case catch Mod:init(Args) of
 	{ok, StateName, StateData} ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
+	    proc_lib:init_ack(Starter, {ok, self()}),
 	    loop(Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, Debug);
 	{ok, StateName, StateData, Timeout} ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
+	    proc_lib:init_ack(Starter, {ok, self()}),
 	    loop(Parent, Name, StateName, StateData, Mod, Timeout, HibernateAfterTimeout, Debug);
 	{stop, Reason} ->
-	    gen:unregister_name(Name0),
-	    proc_lib:init_fail(Starter, {error, Reason}, {exit, Reason});
+            gen:unregister_name(Name0),
+            exit(Reason);
 	ignore ->
 	    gen:unregister_name(Name0),
 	    proc_lib:init_fail(Starter, ignore, {exit, normal});
 	{'EXIT', Reason} ->
 	    gen:unregister_name(Name0),
-	    proc_lib:init_fail(Starter, {error, Reason}, {exit, Reason});
+            exit(Reason);
 	Else ->
-	    Error = {bad_return_value, Else},
-	    proc_lib:init_fail(Starter, {error, Error}, {exit, Error})
+	    Reason = {bad_return_value, Else},
+            exit(Reason)
     end.
 
 %%-----------------------------------------------------------------
