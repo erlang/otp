@@ -2874,20 +2874,8 @@ ERL_NIF_TERM essio_fin_close(ErlNifEnv*       env,
 
 
 /* ========================================================================
+ * *** essio_shutdown should go here - if we need one ***
  */
-extern
-ERL_NIF_TERM essio_shutdown(ErlNifEnv*       env,
-                            ESockDescriptor* descP,
-                            int              how)
-{
-    if (! IS_OPEN(descP->readState))
-        return esock_make_error_closed(env);
-
-    if (sock_shutdown(descP->sock, how) == 0)
-        return esock_atom_ok;
-    else
-        return esock_make_error_errno(env, sock_errno());
-}
 
 
 /* ========================================================================

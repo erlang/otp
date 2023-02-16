@@ -128,9 +128,6 @@ extern ERL_NIF_TERM essio_close(ErlNifEnv*       env,
                                 ESockDescriptor* descP);
 extern ERL_NIF_TERM essio_fin_close(ErlNifEnv*       env,
                                     ESockDescriptor* descP);
-extern ERL_NIF_TERM essio_shutdown(ErlNifEnv*       env,
-                                   ESockDescriptor* descP,
-                                   int              how);
 extern ERL_NIF_TERM essio_cancel_connect(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
                                          ERL_NIF_TERM     opRef);

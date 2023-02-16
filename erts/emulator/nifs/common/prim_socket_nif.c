@@ -955,7 +955,7 @@ static unsigned long one_value  = 1;
 /* #define sock_sendto(s,buf,blen,flag,addr,alen)                \ */
 /*     sendto((s),(buf),(blen),(flag),(addr),(alen)) */
 #define sock_setopt(s,l,o,v,ln)         setsockopt((s),(l),(o),(v),(ln))
-// #define sock_shutdown(s, how)           shutdown((s), (how))
+#define sock_shutdown(s, how)           shutdown((s), (how))
 
 
 /* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *
@@ -3039,6 +3039,9 @@ static ERL_NIF_TERM mk_select_msg(ErlNifEnv*   env,
  * ---------------------------------------------------------------------- */
 #endif // #ifndef __WIN32__
 
+static ERL_NIF_TERM esock_shutdown(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              how);
 static ERL_NIF_TERM esock_sockname(ErlNifEnv*       env,
                                    ESockDescriptor* descP);
 static ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
@@ -6660,9 +6663,6 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ESockDescriptor* descP;
     ERL_NIF_TERM     ehow, res;
     int              how;
@@ -6698,7 +6698,24 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
                    "\r\n", argv[0], res) );
 
     return res;
-#endif // #ifdef __WIN32__  #else
+}
+
+
+
+/* ========================================================================
+ */
+static
+ERL_NIF_TERM esock_shutdown(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            int              how)
+{
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+
+    if (sock_shutdown(descP->sock, how) == 0)
+        return esock_atom_ok;
+    else
+        return esock_make_error_errno(env, sock_errno());
 }
 
 
@@ -13233,7 +13250,6 @@ void esock_inc_socket(int domain, int type, int protocol)
 /* ehow2how - convert internal (erlang) "shutdown how" to
  * (proper) "shutdown how"
  */
-#ifndef __WIN32__
 static
 BOOLEAN_T ehow2how(ERL_NIF_TERM ehow, int* how)
 {
@@ -13241,22 +13257,33 @@ BOOLEAN_T ehow2how(ERL_NIF_TERM ehow, int* how)
 
     cmp = COMPARE(ehow, atom_read_write);
     if (cmp == 0)
+#ifdef __WIN32__
+        *how = SD_BOTH;
+#else
         *how = SHUT_RDWR;
+#endif
     else if (cmp < 0) {
         if (COMPARE(ehow, atom_read) == 0)
+#ifdef __WIN32__
+            *how = SD_RECEIVE;
+#else
             *how = SHUT_RD;
+#endif
         else
             return FALSE;
     } else {
         if (COMPARE(ehow, atom_write) == 0)
+#ifdef __WIN32__
+            *how = SD_SEND;
+#else
             *how = SHUT_WR;
+#endif
         else
             return FALSE;
     }
 
     return TRUE;
 }
-#endif // #ifndef __WIN32__
 
 
 
@@ -15227,16 +15254,19 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
         return 1; // Failure - no registry pid
     }
 
+    /* --esock-disable-registry */
     data.useReg =
         esock_get_bool_from_map(env, load_info,
                                 esock_atom_use_registry,
                                 ESOCK_USE_SOCKET_REGISTRY);
 
+    /* --esock-enable-iow */
     data.iow =
         esock_get_bool_from_map(env, load_info,
                                 atom_iow,
                                 ESOCK_NIF_IOW_DEFAULT);
 
+    /* --esock-debug-file=<filename> */
     {
         char *debug_filename;
 
@@ -15301,6 +15331,9 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
         enif_system_info(&sysInfo, sizeof(ErlNifSysInfo));
 
+        /* We should have a config options for this:
+         *    --esock-num-io-threads=16
+         */
         ioNumThreadsDef =
             (unsigned int) (sysInfo.scheduler_threads > 0) ?
             2*sysInfo.scheduler_threads : 1; // ESOCK_IO_NUM_THREADS);
@@ -15339,7 +15372,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.recvmsg        = NULL;
     io_backend.close          = esaio_close;
     io_backend.fin_close      = esaio_fin_close;
-    io_backend.shutdown       = NULL;
+    io_backend.shutdown       = esock_shutdown;
     io_backend.sockname       = esock_sockname;
     io_backend.peername       = esock_peername;
     io_backend.cancel_connect = esaio_cancel_connect;
@@ -15372,7 +15405,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.recvmsg        = essio_recvmsg;
     io_backend.close          = essio_close;
     io_backend.fin_close      = essio_fin_close;
-    io_backend.shutdown       = essio_shutdown;
+    io_backend.shutdown       = esock_shutdown;
     io_backend.sockname       = esock_sockname;
     io_backend.peername       = esock_peername;
     io_backend.cancel_connect = essio_cancel_connect;
