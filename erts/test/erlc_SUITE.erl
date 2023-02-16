@@ -508,9 +508,9 @@ unicode_paths(Config) ->
             run(Config, Cmd, FileName, "", DepRE),
             true = exists(BeamFileName),
             file:delete(BeamFileName),
-            file:delete(OutDir)
-    end,
-    ok.
+            file:delete(OutDir),
+            ok
+    end.
 
 %%% Tests related to the features mechanism
 %% Support macros and functions
