@@ -651,6 +651,10 @@ port_init() ->
 start_portprogram() ->
     os_mon:open_port("memsup",[{packet,1}]).
 
+port_shutdown(Port) ->
+    Port ! {self(), {command, [?EXIT]}},
+    port_close(Port).
+
 %% The connected process loops are a bit awkward (several different
 %% functions doing almost the same thing) as
 %%   a) strategies for receiving regular memory data and extensive
@@ -674,13 +678,13 @@ port_idle(Port) ->
 	    %% Received after reply already has been delivered...
 	    port_idle(Port);
 	close ->
-	    port_close(Port);
+	    port_shutdown(Port);
 	{Port, {data, Data}} ->
 	    exit({port_error, Data});
 	{'EXIT', Port, Reason} ->
 	    exit({port_died, Reason});
 	{'EXIT', _Memsup, _Reason} ->
-	    port_close(Port)
+	    port_shutdown(Port)
     end.
 
 get_memory_usage(Port, Alloc, Memsup) ->
@@ -694,11 +698,11 @@ get_memory_usage(Port, Alloc, Memsup) ->
 	cancel ->
 	    get_memory_usage_cancelled(Port, Alloc);
 	close ->
-	    port_close(Port);
+	    port_shutdown(Port);
 	{'EXIT', Port, Reason} ->
 	    exit({port_died, Reason});
 	{'EXIT', _Memsup, _Reason} ->
-	    port_close(Port)
+	    port_shutdown(Port)
     end.
 get_memory_usage_cancelled(Port, Alloc) ->
     receive
@@ -707,11 +711,11 @@ get_memory_usage_cancelled(Port, Alloc) ->
 	{Port, {data, _Data}} ->
 	    port_idle(Port);
 	close ->
-	    port_close(Port);
+	    port_shutdown(Port);
 	{'EXIT', Port, Reason} ->
 	    exit({port_died, Reason});
 	{'EXIT', _Memsup, _Reason} ->
-	    port_close(Port)
+	    port_shutdown(Port)
     end.
 
 tag2atag(Port, Tag) ->
@@ -734,11 +738,11 @@ get_ext_memory_usage(Port, Accum, Memsup) ->
 	ext_cancel ->
 	    get_ext_memory_usage_cancelled(Port);
 	close ->
-	    port_close(Port);
+	    port_shutdown(Port);
 	{'EXIT', Port, Reason} ->
 	    exit({port_died, Reason});
 	{'EXIT', _Memsup, _Reason} ->
-	    port_close(Port)
+	    port_shutdown(Port)
     end.
 get_ext_memory_usage_cancelled(Port) ->
     receive
@@ -748,11 +752,11 @@ get_ext_memory_usage_cancelled(Port) ->
             get_ext_memory_usage_cancelled(tag2atag(Port, Tag),
                                            Port);
 	close ->
-	    port_close(Port);
+	    port_shutdown(Port);
 	{'EXIT', Port, Reason} ->
 	    exit({port_died, Reason});
 	{'EXIT', _Memsup, _Reason} ->
-	    port_close(Port)
+	    port_shutdown(Port)
     end.
 
 get_ext_memory_usage(ATag, Port, Accum0, Memsup) ->
@@ -769,22 +773,22 @@ get_ext_memory_usage(ATag, Port, Accum0, Memsup) ->
 	cancel ->
 	    get_ext_memory_usage_cancelled(ATag, Port);
 	close ->
-	    port_close(Port);
+	    port_shutdown(Port);
 	{'EXIT', Port, Reason} ->
 	    exit({port_died, Reason});
 	{'EXIT', _Memsup, _Reason} ->
-	    port_close(Port)
+	    port_shutdown(Port)
     end.
 get_ext_memory_usage_cancelled(_ATag, Port) ->
     receive
 	{Port, {data, _Data}} ->
 	    get_ext_memory_usage_cancelled(Port);
 	close ->
-	    port_close(Port);
+	    port_shutdown(Port);
 	{'EXIT', Port, Reason} ->
 	    exit({port_died, Reason});
 	{'EXIT', _Memsup, _Reason} ->
-	    port_close(Port)
+	    port_shutdown(Port)
     end.
 
 %%--Collect process data------------------------------------------------

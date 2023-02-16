@@ -609,6 +609,8 @@ message_loop(int erlin_fd)
 		    case SHOW_SYSTEM_MEM:
 			extended_show_mem();
 			break;
+		    case EXIT:
+			return;
 		    default:	/* ignore all other messages */
 			break;
 		    }
