@@ -1354,6 +1354,12 @@ validate_body_call(Func, Live,
     verify_call_args(Func, Live, Vst),
 
     SuccFun = fun(SuccVst0) ->
+                      %% Note that we don't try to infer anything from the
+                      %% argument types, as that may cause types to become
+                      %% concrete "too early."
+                      %%
+                      %% See beam_types_SUITE:premature_concretization/1 for
+                      %% details.
                       {RetType, _, _} = call_types(Func, Live, SuccVst0),
                       true = RetType =/= none,  %Assertion.
 
