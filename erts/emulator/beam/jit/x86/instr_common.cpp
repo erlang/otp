@@ -1586,8 +1586,10 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
 
     if (both_small) {
         comment("skipped test for small operands since they are always small");
-    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    } else if (always_one_of(LHS,
+                             BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED) &&
+               always_one_of(RHS,
+                             BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
         /* The only possible kind of immediate is a small and all other
          * values are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
@@ -1641,8 +1643,10 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
 
     if (both_small) {
         comment("skipped test for small operands since they are always small");
-    } else if (always_one_of(LHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED) &&
-               always_one_of(RHS, BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_BOXED)) {
+    } else if (always_one_of(LHS,
+                             BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED) &&
+               always_one_of(RHS,
+                             BEAM_TYPE_INTEGER | BEAM_TYPE_MASK_ALWAYS_BOXED)) {
         /* The only possible kind of immediate is a small and all other
          * values are boxed, so we can test for smalls by testing boxed. */
         comment("simplified small test since all other types are boxed");
