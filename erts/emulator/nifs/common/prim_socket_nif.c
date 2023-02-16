@@ -3246,6 +3246,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(connecting);                      \
     GLOBAL_ATOM_DECL(context);                         \
     GLOBAL_ATOM_DECL(cork);                            \
+    GLOBAL_ATOM_DECL(counters);                        \
     GLOBAL_ATOM_DECL(credentials);                     \
     GLOBAL_ATOM_DECL(ctrl);                            \
     GLOBAL_ATOM_DECL(ctrunc);                          \
@@ -3374,6 +3375,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(not_bound);                       \
     GLOBAL_ATOM_DECL(not_found);                       \
     GLOBAL_ATOM_DECL(not_owner);                       \
+    GLOBAL_ATOM_DECL(num_threads);                     \
     GLOBAL_ATOM_DECL(num_unexpected_accepts);          \
     GLOBAL_ATOM_DECL(num_unknown_cmds);                \
     GLOBAL_ATOM_DECL(oactive);			       \
@@ -3553,7 +3555,6 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(code);             \
     LOCAL_ATOM_DECL(cookie_life);      \
     LOCAL_ATOM_DECL(counter_wrap);     \
-    LOCAL_ATOM_DECL(counters);         \
     LOCAL_ATOM_DECL(ctype);            \
     LOCAL_ATOM_DECL(data_io);          \
     LOCAL_ATOM_DECL(debug_filename);   \
@@ -4053,7 +4054,7 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
                           atom_socket_debug,
                           esock_atom_use_registry,
                           atom_iow,
-                          atom_counters,
+                          esock_atom_counters,
                           atom_iov_max,
                           atom_io_backend},
                 vals[] = {dbg,
@@ -4128,7 +4129,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                atom_rstates,
                atom_wstates,
                atom_ctype,
-               atom_counters,
+               esock_atom_counters,
                atom_num_readers,
                atom_num_writers,
                atom_num_acceptors};

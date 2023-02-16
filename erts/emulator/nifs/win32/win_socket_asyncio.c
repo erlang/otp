@@ -177,6 +177,9 @@ typedef struct {
     
     Uint32       error; /* In case the thread exits, 
                          * this is where the (error) reason is stored.
+                         * Not sure i f we would ever be able to
+                         * read this (if things are bad enough that the
+                         * threads terminate)...
                          */
 
     /* Do we need this?
@@ -735,8 +738,10 @@ void esaio_finish()
 extern
 ERL_NIF_TERM esaio_info(ErlNifEnv* env)
 {
-    ERL_NIF_TERM info, numUnexpAccs, numUnknownCmds;
+    ERL_NIF_TERM info, numThreads, numUnexpAccs, numUnknownCmds;
     
+    numThreads     = MKUI(env, ctrl.numThreads);
+
     MLOCK(ctrl.cntMtx);
 
     numUnexpAccs   = MKUI(env, ctrl.unexpectedAccepts);
@@ -745,17 +750,29 @@ ERL_NIF_TERM esaio_info(ErlNifEnv* env)
     MUNLOCK(ctrl.cntMtx);
 
     {
-        ERL_NIF_TERM keys[]  = {esock_atom_name,
-                                esock_atom_num_unexpected_accepts,
-                                esock_atom_num_unknown_cmds};
-        ERL_NIF_TERM vals[]  = {MKA(env, "win_esaio"),
-                                numUnexpAccs,
-                                numUnknownCmds};
-        unsigned int numKeys = NUM(keys);
-        unsigned int numVals = NUM(vals);
+        ERL_NIF_TERM cntKeys[] = {esock_atom_num_unexpected_accepts,
+                                  esock_atom_num_unknown_cmds};
+        ERL_NIF_TERM cntVals[] = {numUnexpAccs, numUnknownCmds};
+        unsigned int numCntKeys = NUM(cntKeys);
+        unsigned int numCntVals = NUM(cntVals);
+        ERL_NIF_TERM counters;
 
-        ESOCK_ASSERT( numKeys == numVals );
-        ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &info) );
+        ESOCK_ASSERT( numCntKeys == numCntVals );
+        ESOCK_ASSERT( MKMA(env, cntKeys, cntVals, numCntKeys, &counters) );
+
+        {
+            ERL_NIF_TERM keys[]  = {esock_atom_name,
+                                    esock_atom_num_threads,
+                                    esock_atom_counters};
+            ERL_NIF_TERM vals[]  = {MKA(env, "win_esaio"),
+                                    numThreads,
+                                    counters};
+            unsigned int numKeys = NUM(keys);
+            unsigned int numVals = NUM(vals);
+
+            ESOCK_ASSERT( numKeys == numVals );
+            ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &info) );
+        }
     }
 
     return info;

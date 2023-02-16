@@ -247,6 +247,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(connecting);               \
     GLOBAL_ATOM_DEF(context);                  \
     GLOBAL_ATOM_DEF(cork);                     \
+    GLOBAL_ATOM_DEF(counters);                 \
     GLOBAL_ATOM_DEF(credentials);              \
     GLOBAL_ATOM_DEF(ctrl);                     \
     GLOBAL_ATOM_DEF(ctrunc);                   \
@@ -375,6 +376,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(not_bound);                \
     GLOBAL_ATOM_DEF(not_found);                \
     GLOBAL_ATOM_DEF(not_owner);                \
+    GLOBAL_ATOM_DEF(num_threads);              \
     GLOBAL_ATOM_DEF(num_unexpected_accepts);   \
     GLOBAL_ATOM_DEF(num_unknown_cmds);         \
     GLOBAL_ATOM_DEF(oactive);		       \
