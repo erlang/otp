@@ -2755,15 +2755,6 @@ infer_success_type({bif,Op}, Args, Ts, _Ds) ->
 infer_success_type(call, [#b_var{}=Fun|Args], _Ts, _Ds) ->
     T = {Fun, #t_fun{arity=length(Args)}},
     {[T], []};
-infer_success_type(call, [#b_remote{mod=#b_literal{val=Mod},
-                                    name=#b_literal{val=Name}}|Args],
-                   Ts, _Ds) ->
-    ArgTypes = concrete_types(Args, Ts),
-
-    {_, PosTypes0, _CanSubtract} = beam_call_types:types(Mod, Name, ArgTypes),
-    PosTypes = zip(Args, PosTypes0),
-
-    {PosTypes, []};
 infer_success_type(bs_start_match, [_, #b_var{}=Src], _Ts, _Ds) ->
     T = {Src,#t_bs_matchable{}},
     {[T], [T]};
