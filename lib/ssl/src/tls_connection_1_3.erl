@@ -288,8 +288,7 @@ start(internal = Type, #change_cipher_spec{} = Msg,
         _ ->
             handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State)
         end;
-start(internal = Type, #change_cipher_spec{} = Msg,
-      #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+start(internal = Type, #change_cipher_spec{} = Msg, State) ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 start(internal, #client_hello{extensions = #{client_hello_versions :=
                                                  #client_hello_versions{versions = ClientVersions}
@@ -351,8 +350,7 @@ start(Type, Msg, State) ->
 negotiated(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-negotiated(internal = Type, #change_cipher_spec{} = Msg,
-           #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+negotiated(internal = Type, #change_cipher_spec{} = Msg, State) ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 negotiated(internal, Message, State0) ->
     case tls_handshake_1_3:do_negotiated(Message, State0) of
@@ -367,8 +365,7 @@ negotiated(info, Msg, State) ->
 wait_cert(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_cert(internal = Type, #change_cipher_spec{} = Msg,
-          #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+wait_cert(internal = Type, #change_cipher_spec{} = Msg, State) ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_cert(internal,
           #certificate_1_3{} = Certificate, State0) ->
@@ -386,8 +383,7 @@ wait_cert(Type, Msg, State) ->
 wait_cv(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_cv(internal = Type, #change_cipher_spec{} = Msg,
-        #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+wait_cv(internal = Type, #change_cipher_spec{} = Msg, State) ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_cv(internal,
           #certificate_verify_1_3{} = CertificateVerify, State0) ->
@@ -405,8 +401,7 @@ wait_cv(Type, Msg, State) ->
 wait_finished(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_finished(internal = Type, #change_cipher_spec{} = Msg,
-              #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+wait_finished(internal = Type, #change_cipher_spec{} = Msg, State) ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_finished(internal,
              #finished{} = Finished, State0) ->
@@ -426,8 +421,7 @@ wait_finished(Type, Msg, State) ->
 wait_sh(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_sh(internal = Type, #change_cipher_spec{} = Msg,
-        #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+wait_sh(internal = Type, #change_cipher_spec{} = Msg, State)->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_sh(internal, #server_hello{extensions = Extensions},
         #state{handshake_env = #handshake_env{continue_status = pause},
@@ -487,8 +481,7 @@ hello_retry_middlebox_assert(Type, Msg, State) ->
 wait_ee(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_ee(internal = Type, #change_cipher_spec{} = Msg,
-        #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+wait_ee(internal = Type, #change_cipher_spec{} = Msg, State) ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_ee(internal, #encrypted_extensions{} = EE, State0) ->
     case tls_handshake_1_3:do_wait_ee(EE, State0) of
@@ -506,7 +499,7 @@ wait_cert_cr(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
 wait_cert_cr(internal = Type, #change_cipher_spec{} = Msg,
-             #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+             State) ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_cert_cr(internal, #certificate_1_3{} = Certificate, State0) ->
     case tls_handshake_1_3:do_wait_cert_cr(Certificate, State0) of
@@ -530,8 +523,7 @@ wait_cert_cr(Type, Msg, State) ->
 wait_eoed(enter, _, State0) ->
     State = handle_middlebox(State0),
     {next_state, ?FUNCTION_NAME, State,[]};
-wait_eoed(internal = Type, #change_cipher_spec{} = Msg,
-          #state{session = #session{session_id = Id}} = State) when Id =/= ?EMPTY_ID ->
+wait_eoed(internal = Type, #change_cipher_spec{} = Msg, State) ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_eoed(internal, #end_of_early_data{} = EOED, State0) ->
     case tls_handshake_1_3:do_wait_eoed(EOED, State0) of
@@ -730,11 +722,12 @@ init_max_early_data_size(client) ->
 init_max_early_data_size(server) ->
     ssl_config:get_max_early_data_size().
 
-handle_middlebox(#state{session = #session{session_id = Id},
-                        protocol_specific = PS} = State0)  when Id =/= ?EMPTY_ID ->
-    State0#state{protocol_specific = PS#{change_cipher_spec => ignore}};
-handle_middlebox(State) ->
-    State.
+handle_middlebox(#state{protocol_specific = PS} = State0)  ->
+    %% Always be prepared to ignore one change cipher spec
+    %% for maximum interopablility, even if middlebox mode
+    %% is not enabled.
+    State0#state{protocol_specific = PS#{change_cipher_spec => ignore}}.
+
 
 handle_change_cipher_spec(Type, Msg, StateName, #state{protocol_specific = PS0} = State) ->
     case maps:get(change_cipher_spec, PS0) of
