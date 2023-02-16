@@ -474,9 +474,9 @@ handle_call({which_cookies, Url, Options}, _,
     ?hcrv("which cookies", [{url, Url}, {options, Options}]),
     case uri_parse(Url) of
 	{ok, {Scheme, Host, Port, Path}} ->
-	    CookieHeaders = 
+	    CookieHeader =
 		httpc_cookie:header(CookieDb, erlang:list_to_existing_atom(Scheme), {Host, Port}, Path),
-	    {reply, CookieHeaders, State};
+	    {reply, CookieHeader, State};
 	{error, _} = ERROR ->
 	    {reply, ERROR, State}
     end;
