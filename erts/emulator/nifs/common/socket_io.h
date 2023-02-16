@@ -169,4 +169,32 @@ typedef ERL_NIF_TERM (*ESockIOCancelAccept)(ErlNifEnv*       env,
                                             ERL_NIF_TERM     sockRef,
                                             ERL_NIF_TERM     opRef);
 
+typedef ERL_NIF_TERM (*ESockIOSetopt)(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      int              level,
+                                      int              opt,
+                                      ERL_NIF_TERM     eVal);
+typedef ERL_NIF_TERM (*ESockIOSetoptNative)(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            int              level,
+                                            int              opt,
+                                            ERL_NIF_TERM     eVal);
+typedef ERL_NIF_TERM (*ESockIOSetoptOtp)(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         int              eOpt,
+                                         ERL_NIF_TERM     eVal);
+
+typedef ERL_NIF_TERM (*ESockIOGetopt)(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      int              level,
+                                      int              opt);
+typedef ERL_NIF_TERM (*ESockIOGetoptNative)(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            int              level,
+                                            int              opt,
+                                            ERL_NIF_TERM     valueSpec);
+typedef ERL_NIF_TERM (*ESockIOGetoptOtp)(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         int              eOpt);
+
 #endif // SOCKET_IO_H__

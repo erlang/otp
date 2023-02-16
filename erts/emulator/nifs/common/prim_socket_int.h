@@ -344,7 +344,6 @@ typedef struct {
     /* XXX Should be locked but too awkward and small gain */
     BOOLEAN_T    dbg;
     BOOLEAN_T    useReg;
-    unsigned int ioNumThreads; // Set once and never changed
 
     /* Registry stuff */
     ErlNifPid    regPid; /* Constant - not locked */

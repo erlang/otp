@@ -1113,6 +1113,15 @@ typedef struct {
     /* The various cancel operations */
     ESockIOCancelConnect         cancel_connect;
     ESockIOCancelAccept          cancel_accept;
+
+    /* Socket option callback functions */
+    ESockIOSetopt                setopt;
+    ESockIOSetoptNative          setopt_native;
+    ESockIOSetoptOtp             setopt_otp;
+    ESockIOGetopt                getopt;
+    ESockIOGetoptNative          getopt_native;
+    ESockIOGetoptOtp             getopt_otp;
+
 } ESockIoBackend;
 
 
@@ -3771,10 +3780,10 @@ static ESockIoBackend io_backend = {0};
     ((io_backend.accept != NULL) ?                      \
      io_backend.accept((ENV), (D), (SR), (AR)) :        \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
-#define ESOCK_IO_SEND(ENV, D, SR, RF, L, F)                             \
-    ((io_backend.send != NULL) ?                                        \
-     io_backend.send((ENV), (D),                                        \
-                     (SR), (RF), (L), (F)) :                            \
+#define ESOCK_IO_SEND(ENV, D, SR, RF, L, F)             \
+    ((io_backend.send != NULL) ?                        \
+     io_backend.send((ENV), (D),                        \
+                     (SR), (RF), (L), (F)) :            \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SENDTO(ENV, D,                           \
                         SOCKR, SENDR,                     \
@@ -3857,6 +3866,30 @@ static ESockIoBackend io_backend = {0};
 #define ESOCK_IO_CANCEL_ACCEPT(ENV, D, SR, OR)          \
     ((io_backend.cancel_accept != NULL) ?               \
      io_backend.cancel_accept((ENV), (D), (SR), (OR)) : \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_SETOPT(ENV, D, L, O, EV)               \
+    ((io_backend.setopt != NULL) ?                      \
+     io_backend.setopt((ENV), (D), (L), (O), (EV)) :    \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_SETOPT_NATIVE(ENV, D, L, O, EV)                \
+    ((io_backend.setopt_native != NULL) ?                       \
+     io_backend.setopt_native((ENV), (D), (L), (O), (EV)) :     \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_SETOPT_OTP(ENV, D, L, O)               \
+    ((io_backend.setopt_otp != NULL) ?                  \
+     io_backend.setopt_otp((ENV), (D), (L), (O)) :      \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_GETOPT(ENV, D, L, O)                   \
+    ((io_backend.getopt != NULL) ?                      \
+     io_backend.getopt((ENV), (D), (L), (O)) :          \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_GETOPT_NATIVE(ENV, D, L, O, VS)               \
+    ((io_backend.getopt_native != NULL) ?                      \
+     io_backend.getopt_native((ENV), (D), (L), (O), (VS)) :    \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_GETOPT_OTP(ENV, D, EO)                 \
+    ((io_backend.getopt != NULL) ?                      \
+     io_backend.getopt_otp((ENV), (D), (EO)) :          \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
 
 
@@ -4463,7 +4496,7 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
 
     SGDBG( ("SOCKET", "nif_command -> "
             "\r\n   command:  %T"
-            "\r\n   cdata:     %T"
+            "\r\n   cdata:    %T"
             "\r\n", command, cdata) );
 
     result = ESOCK_IO_CMD(env, command, cdata);
@@ -6743,58 +6776,67 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
                         int                argc,
                         const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ESockDescriptor* descP = NULL;
+    ERL_NIF_TERM     esock, elevel, eopt, eval, enval;
     int              level, opt, nativeValue;
-    ERL_NIF_TERM     eVal;
 
     ESOCK_ASSERT( argc == 5 );
 
-    SGDBG( ("SOCKET", "nif_setopt -> entry with argc: %d\r\n", argc) );
+    esock  = argv[0];
+    elevel = argv[1];
+    eopt   = argv[2];
+    eval   = argv[3];
+    enval  = argv[4];
+
+    SGDBG( ("SOCKET",
+            "nif_setopt -> entry with argc: %d"
+            "\r\n   esock:  %T"
+            "\r\n   elevel: %T"
+            "\r\n   eopt:   %T"
+            "\r\n   eval:   %T"
+            "\r\n   enval:  %T"
+            "\r\n", argc, esock, elevel, eopt, eval, enval) );
 
     /* Extract arguments and perform preliminary validation */
 
-    if ((! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) ||
-        (! GET_INT(env, argv[4], &nativeValue))) {
-        //
+    if ((! ESOCK_GET_RESOURCE(env, esock, (void**) &descP)) ||
+        (! GET_INT(env, enval, &nativeValue))) {
         SGDBG( ("SOCKET", "nif_setopt -> failed initial arg check\r\n") );
         return enif_make_badarg(env);
     }
-    if (! GET_INT(env, argv[2], &opt)) {
+
+    if (! GET_INT(env, eopt, &opt)) {
         SSDBG( descP,
                ("SOCKET", "nif_setopt -> failed initial arg check\r\n") );
-        if (! IS_INTEGER(env, argv[2]))
+        if (! IS_INTEGER(env, eopt))
             return enif_make_badarg(env);
         else
-            return esock_make_error_integer_range(env, argv[2]);
-    }
-    eVal = argv[3];
-
-    if (esock_decode_level(env, argv[1], &level)) {
-        if (nativeValue == 0)
-            return esock_setopt(env, descP, level, opt, eVal);
-        else
-            return esock_setopt_native(env, descP, level, opt, eVal);
+            return esock_make_error_integer_range(env, eopt);
     }
 
-    if (COMPARE(argv[1], atom_otp) == 0) {
+    if (COMPARE(elevel, atom_otp) == 0) {
         if (nativeValue == 0) {
-            return esock_setopt_otp(env, descP, opt, eVal);
+            return ESOCK_IO_SETOPT_OTP(env, descP, opt, eval);
         } else {
             SSDBG( descP, ("SOCKET", "nif_setopt -> failed arg check\r\n") );
             return enif_make_badarg(env);
         }
     }
 
+    if (esock_decode_level(env, elevel, &level)) {
+        if (nativeValue == 0)
+            return ESOCK_IO_SETOPT(env, descP, level, opt, eval);
+        else
+            return ESOCK_IO_SETOPT_NATIVE(env, descP, level, opt, eval);
+    }
+
     SGDBG( ("SOCKET", "nif_setopt -> failed arg check\r\n") );
 
-    if (IS_INTEGER(env, argv[1]))
-        return esock_make_error_integer_range(env, argv[1]);
+    if (IS_INTEGER(env, elevel))
+        return esock_make_error_integer_range(env, elevel);
     else
         return enif_make_badarg(env);
-#endif // #ifdef __WIN32__  #else
+
 }
 
 
@@ -8480,51 +8522,60 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
                         int                argc,
                         const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ESockDescriptor* descP;
+    ERL_NIF_TERM     esock, elevel, eopt, evspec;
     int              level, opt;
 
     ESOCK_ASSERT( (argc == 3) || (argc == 4) );
 
-    SGDBG( ("SOCKET", "nif_getopt -> entry with argc: %d\r\n", argc) );
+    esock  = argv[0];
+    elevel = argv[1];
+    eopt   = argv[2];
+    evspec = ((argc == 4) ? argv[3] : esock_atom_undefined);
 
-    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
-        SGDBG( ("SOCKET", "nif_getopt -> failed initial args check\r\n") );
+    SGDBG( ("SOCKET",
+            "nif_getopt -> entry with argc: %d"
+            "\r\n   esock:  %T"
+            "\r\n   elevel: %T"
+            "\r\n   eopt:   %T"
+            "\r\n   evspec: %T"
+            "\r\n", argc, esock, elevel, eopt, evspec) );
+
+    if (! ESOCK_GET_RESOURCE(env, esock, (void**) &descP)) {
+        SGDBG( ("SOCKET",
+                "nif_getopt -> failed initial args check - sock\r\n") );
         return enif_make_badarg(env);
     }
 
-    if (! GET_INT(env, argv[2], &opt)) {
+    if (! GET_INT(env, eopt, &opt)) {
         SSDBG( descP,
-               ("SOCKET", "nif_getopt -> failed initial args check\r\n") );
-        if (! IS_INTEGER(env, argv[2]))
+               ("SOCKET",
+                "nif_getopt -> failed initial args check - opt\r\n") );
+        if (! IS_INTEGER(env, eopt))
             return enif_make_badarg(env);
         else
-            return esock_make_error_integer_range(env, argv[2]);
+            return esock_make_error_integer_range(env, eopt);
     }
 
-    if (esock_decode_level(env, argv[1], &level)) {
+    if ((COMPARE(elevel, atom_otp) == 0) &&
+        (argc == 3)) {
+        return ESOCK_IO_GETOPT_OTP(env, descP, opt) ;
+    }
+
+    if (esock_decode_level(env, elevel, &level)) {
         if (argc == 4) {
-            ERL_NIF_TERM valueSpec = argv[3];
-            return esock_getopt_native(env, descP, level, opt, valueSpec);
+            return ESOCK_IO_GETOPT_NATIVE(env, descP, level, opt, evspec);
         } else {
-            return esock_getopt(env, descP, level, opt);
+            return ESOCK_IO_GETOPT(env, descP, level, opt);
         }
     }
 
-    if ((COMPARE(argv[1], atom_otp) == 0) &&
-        (argc == 3)) {
-        return esock_getopt_otp(env, descP, opt) ;
-    }
-
     SGDBG( ("SOCKET", "nif_getopt -> failed args check\r\n") );
-    if (IS_INTEGER(env, argv[1]))
-        return esock_make_error_integer_range(env, argv[1]);
+    if (IS_INTEGER(env, elevel))
+        return esock_make_error_integer_range(env, elevel);
     else
         return enif_make_badarg(env);
 
-#endif // #ifdef __WIN32__  #else
 }
 
 
@@ -15233,6 +15284,9 @@ char* extract_debug_filename(ErlNifEnv*   env,
 static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
+    ErlNifSysInfo sysInfo;
+    unsigned int  ioNumThreads, ioNumThreadsDef;
+
     /* +++ Local atoms and error reason atoms +++ */
 #define LOCAL_ATOM_DECL(A) atom_##A = MKA(env, #A)
     LOCAL_ATOMS;
@@ -15325,25 +15379,20 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
 
     /* This is (currently) intended for Windows use */
-    {
-        ErlNifSysInfo sysInfo;
-        unsigned int  ioNumThreadsDef; // Used as "default" value
+    enif_system_info(&sysInfo, sizeof(ErlNifSysInfo));
 
-        enif_system_info(&sysInfo, sizeof(ErlNifSysInfo));
+    /* We should have a config options for this:
+     *    --esock-num-io-threads=16
+     *
+     * ESOCK_IO_NUM_THREADS
+     */
+    ioNumThreadsDef =
+        (unsigned int) (sysInfo.scheduler_threads > 0) ?
+        2*sysInfo.scheduler_threads : 2;
 
-        /* We should have a config options for this:
-         *    --esock-num-io-threads=16
-         */
-        ioNumThreadsDef =
-            (unsigned int) (sysInfo.scheduler_threads > 0) ?
-            2*sysInfo.scheduler_threads : 1; // ESOCK_IO_NUM_THREADS);
-
-        data.ioNumThreads =
-            esock_get_uint_from_map(env, load_info,
-                                    atom_io_num_threads,
-                                    ioNumThreadsDef);
-    }
-
+    ioNumThreads = esock_get_uint_from_map(env, load_info,
+                                           atom_io_num_threads,
+                                           ioNumThreadsDef);
 
 #ifdef __WIN32__
 
@@ -15378,6 +15427,13 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.cancel_connect = esaio_cancel_connect;
     io_backend.cancel_accept  = esaio_cancel_accept;
 
+    io_backend.setopt         = NULL;
+    io_backend.setopt_native  = NULL;
+    io_backend.setopt_otp     = NULL;
+    io_backend.getopt         = NULL;
+    io_backend.getopt_native  = NULL;
+    io_backend.getopt_otp     = NULL;
+
 #else
 
     io_backend.init           = essio_init;
@@ -15411,9 +15467,16 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.cancel_connect = essio_cancel_connect;
     io_backend.cancel_accept  = essio_cancel_accept;
 
+    io_backend.setopt         = esock_setopt;
+    io_backend.setopt_native  = esock_setopt_native;
+    io_backend.setopt_otp     = esock_setopt_otp;
+    io_backend.getopt         = esock_getopt;
+    io_backend.getopt_native  = esock_getopt_native;
+    io_backend.getopt_otp     = esock_getopt_otp;
+
 #endif
 
-    if (ESOCK_IO_INIT(data.ioNumThreads) != ESOCK_IO_OK) {
+    if (ESOCK_IO_INIT(ioNumThreads) != ESOCK_IO_OK) {
         esock_error_msg("Failed initiating I/O backend");
         return 1; // Failure
     }
