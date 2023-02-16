@@ -446,8 +446,8 @@ wait_sh(internal, #server_hello{} = Hello,
         #alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, wait_sh, State0);
         {State1 = #state{}, start, ServerHello} ->
-            %% hello_retry_request : assert middlebox before going back to start
-            {next_state, hello_retry_middlebox_assert, State1, [{next_event, internal, ServerHello}]};
+            %% hello_retry_request: go to start
+            {next_state, start, State1, [{next_event, internal, ServerHello}]};
         {State1, wait_ee} when IsRetry == true ->
             tls_gen_connection:next_event(wait_ee, no_record, State1);
         {State1, wait_ee} when IsRetry == false ->
@@ -470,7 +470,7 @@ hello_middlebox_assert(Type, Msg, State) ->
 hello_retry_middlebox_assert(enter, _, State) ->
     {keep_state, State};
 hello_retry_middlebox_assert(internal, #change_cipher_spec{}, State) ->
-    tls_gen_connection:next_event(start, no_record, State);
+    tls_gen_connection:next_event(wait_sh, no_record, State);
 hello_retry_middlebox_assert(internal, #server_hello{}, State) ->
     tls_gen_connection:next_event(?FUNCTION_NAME, no_record, State, [postpone]);
 hello_retry_middlebox_assert(info, Msg, State) ->
