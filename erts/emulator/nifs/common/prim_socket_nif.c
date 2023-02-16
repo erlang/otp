@@ -5862,7 +5862,7 @@ nif_sendfile(ErlNifEnv*         env,
              int                argc,
              const ERL_NIF_TERM argv[])
 {
-#if defined(__WIN32__) || !defined(HAVE_SENDFILE)
+#if !defined(HAVE_SENDFILE)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     ESockDescriptor       *descP;
@@ -5977,7 +5977,7 @@ nif_sendfile(ErlNifEnv*         env,
 
     return res;
 
-#endif // #if defined(__WIN32__) || !defined(HAVE_SENDFILE)
+#endif // !defined(HAVE_SENDFILE)
 }
 
 
