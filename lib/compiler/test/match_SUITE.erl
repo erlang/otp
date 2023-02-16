@@ -26,7 +26,8 @@
 	 selectify/1,deselectify/1,underscore/1,match_map/1,map_vars_used/1,
 	 coverage/1,grab_bag/1,literal_binary/1,
          unary_op/1,eq_types/1,match_after_return/1,match_right_tuple/1,
-         tuple_size_in_try/1,match_boolean_list/1]).
+         tuple_size_in_try/1,match_boolean_list/1,
+         mutable_variables/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +44,8 @@ groups() ->
        underscore,match_map,map_vars_used,coverage,
        grab_bag,literal_binary,unary_op,eq_types,
        match_after_return,match_right_tuple,
-       tuple_size_in_try,match_boolean_list]}].
+       tuple_size_in_try,match_boolean_list,
+       mutable_variables]}].
 
 
 init_per_suite(Config) ->
@@ -1017,5 +1019,25 @@ match_boolean_list(Config) when is_list(Config) ->
              [true | _] -> error;
              [false | _] -> ok
          end.
+
+%% GH-6873. Bound variables would be overwritten.
+mutable_variables(_Config) ->
+    {'EXIT',{{badmatch,0},_}} = (catch mutable_variables_1()),
+
+    F = fun() -> id({tag,whatever}) end,
+    whatever = mutable_variables_2(id({tag,whatever}), F),
+    {'EXIT',{{badmatch,{tag,whatever}},_}} = (catch mutable_variables_2(id(a), F)),
+
+    ok.
+
+mutable_variables_1() ->
+    Zero = 0,
+    One = 1,
+    Result = One = Zero,
+    {Result,One,Zero}.
+
+mutable_variables_2(Middle, Fun) ->
+    {tag,V} = Middle = Fun(),
+    V.
 
 id(I) -> I.
