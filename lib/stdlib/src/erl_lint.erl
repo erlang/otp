@@ -3033,12 +3033,21 @@ check_type_2({type, A, record, [Name|Fields]}, SeenVars, St) ->
 	    check_record_types(A, Atom, Fields, SeenVars, St1);
 	_ -> {SeenVars, add_error(A, {type_syntax, record}, St)}
     end;
-check_type_2({type, _A, Tag, Args}, SeenVars, St) when Tag =:= product;
-                                                     Tag =:= union;
-                                                     Tag =:= tuple ->
+check_type_2({type, _A, Tag, Args}=_F, SeenVars, St) when Tag =:= product;
+                                                          Tag =:= tuple ->
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
-			check_type_1(T, AccSeenVars, AccSt)
-		end, {SeenVars, St}, Args);
+                        check_type_1(T, AccSeenVars, AccSt)
+                end, {SeenVars, St}, Args);
+check_type_2({type, _A, union, Args}=_F, SeenVars, St) ->
+    lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
+                        {SeenVars0, St0} = check_type_1(T, SeenVars, AccSt),
+                        UpdatedSeenVars = maps:merge_with(fun (_K, {seen_once, _}, {seen_once, _}=R) -> R;
+                                                              (_K, {seen_once, _}, Else) -> Else;
+                                                              (_K, Else, {seen_once, _}) -> Else;
+                                                              (_K, Else1, _Else2)        -> Else1
+                                                          end, SeenVars0, AccSeenVars),
+                        {UpdatedSeenVars, St0}
+                end, {SeenVars, St}, Args);
 check_type_2({type, Anno, TypeName, Args}, SeenVars, St) ->
     #lint{module = Module, types=Types} = St,
     Arity = length(Args),
