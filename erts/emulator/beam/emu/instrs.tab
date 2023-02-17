@@ -1148,6 +1148,7 @@ catch_end(Y) {
                 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
                 PROCESS_MAIN_CHK_LOCKS(c_p);
                 SWAPIN;
+                $MAYBE_EXIT_AFTER_GC();
             }
             r(0) = TUPLE2(HTOP, am_EXIT, x(1));
             HTOP += 3;

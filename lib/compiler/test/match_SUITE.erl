@@ -27,7 +27,8 @@
 	 coverage/1,grab_bag/1,literal_binary/1,
          unary_op/1,eq_types/1,match_after_return/1,match_right_tuple/1,
          tuple_size_in_try/1,match_boolean_list/1,
-         heisen_variables/1]).
+         heisen_variables/1,
+         mutable_variables/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,8 +46,8 @@ groups() ->
        grab_bag,literal_binary,unary_op,eq_types,
        match_after_return,match_right_tuple,
        tuple_size_in_try,match_boolean_list,
-       heisen_variables]}].
-
+       heisen_variables,
+       mutable_variables]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1157,6 +1158,7 @@ match_boolean_list(Config) when is_list(Config) ->
              [false | _] -> ok
          end.
 
+
 heisen_variables(_Config) ->
     {'EXIT',{{badmatch,3},_}} = catch gh_6516_scope1(),
     {'EXIT',{{badmatch,3},_}} = catch gh_6516_scope2(),
@@ -1168,5 +1170,26 @@ gh_6516_scope1() ->
 
 gh_6516_scope2() ->
   {X = 4, _ = X = 3}.
+
+%% GH-6873. Bound variables would be overwritten.
+mutable_variables(_Config) ->
+    {'EXIT',{{badmatch,0},_}} = catch mutable_variables_1(),
+
+    F = fun() -> id({tag,whatever}) end,
+    whatever = mutable_variables_2(id({tag,whatever}), F),
+    {'EXIT',{{badmatch,{tag,whatever}},_}} = catch mutable_variables_2(id(a), F),
+
+    ok.
+
+mutable_variables_1() ->
+    Zero = 0,
+    One = 1,
+    Result = One = Zero,
+    {Result,One,Zero}.
+
+mutable_variables_2(Middle, Fun) ->
+    {tag,V} = Middle = Fun(),
+    V.
+
 
 id(I) -> I.
