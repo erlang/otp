@@ -195,9 +195,9 @@ init([Name,Module,Args,Options]) ->
             unregister(Name),
             proc_lib:init_fail(Error, {exit,normal})
     catch
-        _:Error ->
+        _:Reason ->
             unregister(Name),
-            proc_lib:init_fail(Error, {exit,normal})
+            proc_lib:init_fail({error,Reason}, {exit,normal})
     end.
 
 %% This is the synchronous load event.
