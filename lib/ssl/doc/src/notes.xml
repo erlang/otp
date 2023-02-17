@@ -27,6 +27,32 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 10.8.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Maximize compatibility by ignoring change_cipher_spec
+	    during handshake even if middle_box_mode is not
+	    negotiated (mandated by client)</p>
+          <p>
+	    Own Id: OTP-18433 Aux Id: GH-6772 </p>
+        </item>
+        <item>
+          <p>
+	    Move assert of middlebox message after an
+	    hello_retry_request to maximize interoperability. Does
+	    not changes semantics of the protocol only allows
+	    unexpected message delay from server.</p>
+          <p>
+	    Own Id: OTP-18467 Aux Id: GH-6807 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 10.8.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

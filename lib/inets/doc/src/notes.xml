@@ -33,7 +33,32 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 8.2.1</title>
+  <section><title>Inets 8.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ensure graceful shutdown</p>
+          <p>
+	    Own Id: OTP-18461 Aux Id: ERIERL-890 </p>
+        </item>
+        <item>
+          <p>
+	    Return type of the type specification for function
+	    <c>httpc:cookie_header/{1,2,3}</c> has been fixed from
+	    <c>-spec cookie_header(url()) -&gt; [{ field(), value()
+	    }] | {error, Reason}</c> to <c>-spec cookie_header(url())
+	    -&gt; { field(), value() } | {error, Reason}</c></p>
+          <p>
+	    Own Id: OTP-18462 Aux Id: GH-6846 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

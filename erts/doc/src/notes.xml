@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Comparisons between small numbers and pids or ports
+	    would in some edge cases say that the number was greater
+	    than the pid or port, violating the term order.</p>
+          <p>
+	    Own Id: OTP-18415</p>
+        </item>
+        <item>
+          <p>
+	    <c>process_info(Pid, status)</c> when <c>Pid /=
+	    self()</c> could return an erroneous result.</p>
+          <p>
+	    Own Id: OTP-18421 Aux Id: PR-6806 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
