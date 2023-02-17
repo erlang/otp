@@ -99,6 +99,9 @@ typedef int SOCKET; /* A subset of HANDLE */
     ((((d)->readState | (d)->writeState) & ESOCK_STATE_SELECTED) != 0)
 
 
+#define ESOCK_DESC_PATTERN_CREATED 0x03030303
+#define ESOCK_DESC_PATTERN_DTOR    0xC0C0C0C0
+
 
 /* ==========================================================================
  * The ESOCK_IS_ERROR macro below is used for portability reasons.
@@ -656,6 +659,7 @@ extern ERL_NIF_TERM esock_cancel_mode_select(ErlNifEnv*       env,
 
 
 /* *** Request queue functions *** */
+extern void esock_free_request_queue(ESockRequestQueue* q);
 extern BOOLEAN_T esock_requestor_pop(ESockRequestQueue* q,
                                      ESockRequestor*    reqP);
 
@@ -664,6 +668,7 @@ extern void esock_requestor_release(const char*      slogan,
                                     ErlNifEnv*       env,
                                     ESockDescriptor* descP,
                                     ESockRequestor*  reqP);
+
 
 /* *** esock_activate_next_acceptor ***
  * *** esock_activate_next_writer   ***
@@ -806,6 +811,10 @@ extern ERL_NIF_TERM esock_mk_socket_msg(ErlNifEnv*   env,
                                         ERL_NIF_TERM info);
 extern ERL_NIF_TERM esock_mk_socket(ErlNifEnv*   env,
                                     ERL_NIF_TERM sockRef);
+#ifdef HAVE_SENDFILE
+extern void esock_send_sendfile_deferred_close_msg(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP);
+#endif
 
 
 /* *** 'close' functions ***

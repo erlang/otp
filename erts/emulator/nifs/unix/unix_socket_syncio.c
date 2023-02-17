@@ -66,7 +66,7 @@
 #define sock_accept(s, addr, len)       accept((s), (addr), (len))
 #endif
 #define sock_bind(s, addr, len)         bind((s), (addr), (len))
-// #define sock_close(s)                   close((s))
+#define sock_close(s)                   close((s))
 // #define sock_close_event(e)             /* do nothing */
 #define sock_connect(s, addr, len)      connect((s), (addr), (len))
 #define sock_errno()                    errno
@@ -83,6 +83,16 @@
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
     sendto((s),(buf),(blen),(flag),(addr),(alen))
 #define sock_shutdown(s, how)           shutdown((s), (how))
+
+
+/* =================================================================== *
+ *                                                                     *
+ *                        Various esaio macros                         *
+ *                                                                     *
+ * =================================================================== */
+
+/* Global socket debug */
+#define SGDBG( proto )            ESOCK_DBG_PRINTF( ctrl.dbg , proto )
 
 
 /* =================================================================== *
@@ -380,6 +390,27 @@ static ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
                                       ErlNifBinary*    dataBufP,
                                       ErlNifBinary*    ctrlBufP,
                                       ERL_NIF_TERM     sockRef);
+
+/*
+static void essio_down_ctrl(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            const ErlNifPid* pidP);
+*/
+static void essio_down_acceptor(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                const ErlNifPid* pidP,
+                                const ErlNifMonitor* monP);
+static void essio_down_writer(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     sockRef,
+                              const ErlNifPid* pidP,
+                              const ErlNifMonitor* monP);
+static void essio_down_reader(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     sockRef,
+                              const ErlNifPid* pidP,
+                              const ErlNifMonitor* monP);
 
 
 /* =================================================================== *
@@ -4407,6 +4438,316 @@ ERL_NIF_TERM essio_sendfile_ok(ErlNifEnv*       env,
 #endif // #ifdef HAVE_SENDFILE
 
 
+/* ====================================================================
+ *
+ * NIF (I/O backend) Resource callback functions: dtor, stop and down
+ *
+ * ====================================================================
+ */
+
+extern
+void essio_dtor(ErlNifEnv*       env,
+                ESockDescriptor* descP)
+{
+    SGDBG( ("UNIX-ESSIO", "dtor -> entry\r\n") );
+
+    if (IS_SELECTED(descP)) {
+        /* We have used the socket in the select machinery,
+         * so we must have closed it properly to get here
+         */
+        ESOCK_ASSERT( IS_CLOSED(descP->readState) );
+        ESOCK_ASSERT( IS_CLOSED(descP->writeState) );
+        ESOCK_ASSERT( descP->sock == INVALID_SOCKET );
+    } else {
+        /* The socket is only opened, should be safe to close nonblocking */
+        (void) sock_close(descP->sock);
+        descP->sock = INVALID_SOCKET;
+    }
+
+    SGDBG( ("UNIX-ESSIO", "dtor -> set state and pattern\r\n") );
+    descP->readState  |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
+    descP->writeState |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
+    descP->pattern     = (ESOCK_DESC_PATTERN_DTOR | ESOCK_STATE_CLOSED);
+
+    esock_free_env("dtor reader", descP->currentReader.env);
+    descP->currentReader.env = NULL;
+
+    esock_free_env("dtor writer", descP->currentWriter.env);
+    descP->currentWriter.env = NULL;
+
+    esock_free_env("dtor acceptor", descP->currentAcceptor.env);
+    descP->currentAcceptor.env = NULL;
+
+    SGDBG( ("UNIX-ESSIO", "dtor -> try free readers request queue\r\n") );
+    esock_free_request_queue(&descP->readersQ);
+
+    SGDBG( ("UNIX-ESSIO", "dtor -> try free writers request queue\r\n") );
+    esock_free_request_queue(&descP->writersQ);
+
+    SGDBG( ("UNIX-ESSIO", "dtor -> try free acceptors request queue\r\n") );
+    esock_free_request_queue(&descP->acceptorsQ);
+
+#ifdef HAVE_SENDFILE
+    ESOCK_ASSERT( descP->sendfileHandle == INVALID_HANDLE );
+    if (descP->sendfileCountersP != NULL) {
+        FREE(descP->sendfileCountersP);
+        descP->sendfileCountersP = NULL;
+  }
+#endif
+
+    esock_free_env("dtor close env", descP->closeEnv);
+    descP->closeEnv = NULL;
+
+    esock_free_env("dtor meta env", descP->meta.env);
+    descP->meta.env = NULL;
+
+    SGDBG( ("UNIX-ESSIO", "dtor -> done\r\n") );
+}
+
+
+extern
+void essio_stop(ErlNifEnv*       env,
+                ESockDescriptor* descP,
+                ErlNifEvent      fd)
+{
+#ifdef HAVE_SENDFILE
+    if (descP->sendfileCountersP != NULL) {
+        ESockSendfileCounters* cntP = descP->sendfileCountersP;
+
+        SSDBG( descP, ("UNIX-ESSIO", "esock_stop {%d/%d} ->  sendfileCounters:"
+                       "\r\n   cnt:      %lu"
+                       "\r\n   byteCnt:  %lu"
+                       "\r\n   fails:    %lu"
+                       "\r\n   max:      %lu"
+                       "\r\n   pkg:      %lu"
+                       "\r\n   pkgMax    %lu"
+                       "\r\n   tries:    %lu"
+                       "\r\n   waits:    %lu"
+                       "\r\n",
+                       descP->sock, fd,
+                       (unsigned long) cntP->cnt,
+                       (unsigned long) cntP->byteCnt,
+                       (unsigned long) cntP->fails,
+                       (unsigned long) cntP->max,
+                       (unsigned long) cntP->pkg,
+                       (unsigned long) cntP->pkgMax,
+                       (unsigned long) cntP->tries,
+                       (unsigned long) cntP->waits) );
+    }
+#endif
+
+    /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+     *
+     *           Inform waiting Closer, or close socket
+     *
+     * +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+     */
+
+    if (! enif_is_pid_undefined(&descP->closerPid)) {
+        /* We have a waiting closer process after nif_close()
+         * - send message to trigger nif_finalize_close()
+         */
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "esock_stop {%d/%d} -> send close msg to %T\r\n",
+                descP->sock, fd, MKPID(env, &descP->closerPid)) );
+
+        esock_send_close_msg(env, descP, &descP->closerPid);
+        /* Message send frees closeEnv */
+        descP->closeEnv = NULL;
+        descP->closeRef = esock_atom_undefined;
+
+    } else {
+        int err;
+
+        /* We do not have a closer process
+         * - have to do an unclean (non blocking) close */
+
+#ifdef HAVE_SENDFILE
+        if (descP->sendfileHandle != INVALID_HANDLE)
+            esock_send_sendfile_deferred_close_msg(env, descP);
+#endif
+
+        err = esock_close_socket(env, descP, FALSE);
+
+        if (err != 0)
+            esock_warning_msg("Failed closing socket without "
+                              "closer process: "
+                              "\r\n   Controlling Process: %T"
+                              "\r\n   Descriptor:          %d"
+                              "\r\n   Errno:               %d (%T)"
+                              "\r\n",
+                              descP->ctrlPid, descP->sock,
+                              err, MKA(env, erl_errno_id(err)));
+    }
+
+}
+
+
+/* A 'down' has occured.
+ * Check the possible processes we monitor in turn:
+ * closer, controlling process (owner), connector, reader, acceptor and writer.
+ *
+ */
+extern
+void essio_down(ErlNifEnv*           env,
+                ESockDescriptor*     descP,
+                const ErlNifPid*     pidP,
+                const ErlNifMonitor* monP)
+{
+    if (COMPARE_PIDS(&descP->closerPid, pidP) == 0) {
+
+        /* The closer process went down
+         * - it will not call nif_finalize_close
+         */
+
+        enif_set_pid_undefined(&descP->closerPid);
+
+        if (MON_EQ(&descP->closerMon, monP)) {
+            MON_INIT(&descP->closerMon);
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down {%d} -> closer process exit\r\n",
+                    descP->sock) );
+
+        } else {
+            // The owner is the closer so we used its monitor
+
+            ESOCK_ASSERT( MON_EQ(&descP->ctrlMon, monP) );
+            MON_INIT(&descP->ctrlMon);
+            enif_set_pid_undefined(&descP->ctrlPid);
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down {%d} -> closer controlling process exit\r\n",
+                    descP->sock) );
+        }
+
+        /* Since the closer went down there was one,
+         * hence esock_close() must have run or scheduled esock_stop(),
+         * or the socket has never been "selected" upon.
+         */
+
+        if (descP->closeEnv == NULL) {
+            int err;
+
+            /* Since there is no closeEnv,
+             * esock_close() did not schedule esock_stop()
+             * and is about to call esock_finalize_close() but died,
+             * or esock_stop() has run, sent close_msg to the closer
+             * and cleared ->closeEnv but the closer died
+             * - we have to do an unclean (non blocking) socket close here
+             */
+
+#ifdef HAVE_SENDFILE
+            if (descP->sendfileHandle != INVALID_HANDLE)
+                esock_send_sendfile_deferred_close_msg(env, descP);
+#endif
+
+            err = esock_close_socket(env, descP, FALSE);
+            if (err != 0)
+                esock_warning_msg("Failed closing socket for terminating "
+                                  "closer process: "
+                                  "\r\n   Closer Process: %T"
+                                  "\r\n   Descriptor:     %d"
+                                  "\r\n   Errno:          %d (%T)"
+                                  "\r\n",
+                                  MKPID(env, pidP), descP->sock,
+                                  err, MKA(env, erl_errno_id(err)));
+        } else {
+            /* Since there is a closeEnv esock_stop() has not run yet
+             * - when it finds that there is no closer process
+             *   it will close the socket and ignore the close_msg
+             */
+            esock_free_env("esock_down - close-env", descP->closeEnv);
+            descP->closeEnv = NULL;
+            descP->closeRef = esock_atom_undefined;
+        }
+
+    } else if (MON_EQ(&descP->ctrlMon, monP)) {
+        MON_INIT(&descP->ctrlMon);
+        /* The owner went down */
+        enif_set_pid_undefined(&descP->ctrlPid);
+
+        if (IS_OPEN(descP->readState)) {
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down {%d} -> controller process exit"
+                    "\r\n   initiate close\r\n",
+                    descP->sock) );
+
+            essio_down_ctrl(env, descP, pidP);
+
+            descP->readState  |= ESOCK_STATE_CLOSING;
+            descP->writeState |= ESOCK_STATE_CLOSING;
+
+        } else {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down {%d} -> controller process exit"
+                    "\r\n   already closed or closing\r\n",
+                    descP->sock) );
+
+        }
+
+    } else if (descP->connectorP != NULL &&
+               MON_EQ(&descP->connector.mon, monP)) {
+        MON_INIT(&descP->connector.mon);
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down {%d} -> connector process exit\r\n",
+                descP->sock) );
+
+        /* connectorP is only set during connection.
+         * Forget all about the ongoing connection.
+         * We might end up connected, but the process that initiated
+         * the connection has died and will never know
+         */
+
+        esock_requestor_release("esock_down->connector",
+                                env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~ESOCK_STATE_CONNECTING;
+
+    } else {
+        ERL_NIF_TERM sockRef = enif_make_resource(env, descP);
+
+        /* check all operation queue(s): acceptor, writer and reader.
+         *
+         * Is it really any point in doing this if the socket is closed?
+         *
+         */
+
+        if (IS_CLOSED(descP->readState)) {
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down(%T) {%d} -> stray down: %T\r\n",
+                    sockRef, descP->sock, pidP) );
+        } else {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down(%T) {%d} -> other process term\r\n",
+                    sockRef, descP->sock) );
+
+            if (descP->currentReaderP != NULL)
+                essio_down_reader(env, descP, sockRef, pidP, monP);
+            if (descP->currentAcceptorP != NULL)
+                essio_down_acceptor(env, descP, sockRef, pidP, monP);
+            if (descP->currentWriterP != NULL)
+                essio_down_writer(env, descP, sockRef, pidP, monP);
+        }
+    }
+
+}
+
+
+/* ==================================================================== */
+
 /* *** Recv/recvfrom/recvmsg utility functions *** */
 
 /* *** recv_check_reader ***
@@ -5052,6 +5393,198 @@ void recv_error_current_reader(ErlNifEnv*       env,
         }
 
         descP->currentReaderP = NULL;
+    }
+}
+
+
+/* *** essio_down_ctrl ***
+ *
+ * Stop after a downed controller (controlling process = owner process)
+ *
+ */
+extern
+void essio_down_ctrl(ErlNifEnv*           env,
+                     ESockDescriptor*     descP,
+                     const ErlNifPid*     pidP)
+{
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_down_ctrl {%d} ->"
+            "\r\n   Pid: %T"
+            "\r\n", descP->sock, MKPID(env, pidP)) );
+
+    if (esock_do_stop(env, descP)) {
+        /* esock_stop() is scheduled
+         * - it has to close the socket
+         */
+        SSDBG( descP,
+               ("UNIX-ESSIO", "essio_down_ctrl {%d} -> stop was scheduled\r\n",
+                descP->sock) );
+    } else {
+        int err;
+
+        /* Socket is not in the select machinery
+         * so esock_stop() will not be called
+         * - we have to do an unclean (non blocking) socket close here
+         */
+
+#ifdef HAVE_SENDFILE
+        if (descP->sendfileHandle != INVALID_HANDLE)
+            esock_send_sendfile_deferred_close_msg(env, descP);
+#endif
+
+        err = esock_close_socket(env, descP, FALSE);
+        if (err != 0)
+            esock_warning_msg("Failed closing socket for terminating "
+                              "owner process: "
+                              "\r\n   Owner Process:  %T"
+                              "\r\n   Descriptor:     %d"
+                              "\r\n   Errno:          %d (%T)"
+                              "\r\n",
+                              MKPID(env, pidP), descP->sock,
+                              err, MKA(env, erl_errno_id(err)));
+    }
+}
+
+
+
+/* *** essio_down_acceptor ***
+ *
+ * Check and then handle a downed acceptor process.
+ *
+ */
+static
+void essio_down_acceptor(ErlNifEnv*           env,
+                         ESockDescriptor*     descP,
+                         ERL_NIF_TERM         sockRef,
+                         const ErlNifPid*     pidP,
+                         const ErlNifMonitor* monP)
+{
+    if (MON_EQ(&descP->currentAcceptor.mon, monP)) {
+        MON_INIT(&descP->currentAcceptor.mon);
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_acceptor(%T) {%d} -> "
+                "current acceptor - try activate next\r\n",
+                sockRef, descP->sock) );
+        
+        if (!esock_activate_next_acceptor(env, descP, sockRef)) {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down_acceptor(%T) {%d} -> no more writers\r\n",
+                    sockRef, descP->sock) );
+
+            descP->readState &= ~ESOCK_STATE_ACCEPTING;
+
+            descP->currentAcceptorP = NULL;
+        }
+
+    } else {
+        
+        /* Maybe unqueue one of the waiting acceptors */
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_acceptor(%T) {%d} -> "
+                "not current acceptor - maybe a waiting acceptor\r\n",
+                sockRef, descP->sock) );
+        
+        esock_acceptor_unqueue(env, descP, NULL, pidP);
+    }
+}
+
+
+/* *** essio_down_writer ***
+ *
+ * Check and then handle a downed writer process.
+ *
+ */
+
+static
+void essio_down_writer(ErlNifEnv*           env,
+                       ESockDescriptor*     descP,
+                       ERL_NIF_TERM         sockRef,
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP)
+{
+    if (MON_EQ(&descP->currentWriter.mon, monP)) {
+        MON_INIT(&descP->currentWriter.mon);
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_writer(%T) {%d} -> "
+                "current writer - try activate next\r\n",
+                sockRef, descP->sock) );
+        
+        if (!esock_activate_next_writer(env, descP, sockRef)) {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down_writer(%T) {%d} -> no active writer\r\n",
+                    sockRef, descP->sock) );
+
+            descP->currentWriterP = NULL;
+        }
+        
+    } else {
+        
+        /* Maybe unqueue one of the waiting writer(s) */
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_writer(%T) {%d} -> "
+                "not current writer - maybe a waiting writer\r\n",
+                sockRef, descP->sock) );
+        
+        esock_writer_unqueue(env, descP, NULL, pidP);
+    }
+}
+
+
+/* *** essio_down_reader ***
+ *
+ * Check and then handle a downed reader process.
+ *
+ */
+
+static
+void essio_down_reader(ErlNifEnv*           env,
+                       ESockDescriptor*     descP,
+                       ERL_NIF_TERM         sockRef,
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP)
+{
+    if (MON_EQ(&descP->currentReader.mon, monP)) {
+        MON_INIT(&descP->currentReader.mon);
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_reader(%T) {%d} -> "
+                "current reader - try activate next\r\n",
+                sockRef, descP->sock) );
+        
+        if (! esock_activate_next_reader(env, descP, sockRef)) {
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_down_reader(%T) {%d} -> no more readers\r\n",
+                    sockRef, descP->sock) );
+
+            descP->currentReaderP = NULL;
+        }
+
+    } else {
+        
+        /* Maybe unqueue one of the waiting reader(s) */
+        
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_down_reader(%T) {%d} -> "
+                "not current reader - maybe a waiting reader\r\n",
+                sockRef, descP->sock) );
+        
+        esock_reader_unqueue(env, descP, NULL, pidP);
     }
 }
 

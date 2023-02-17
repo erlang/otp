@@ -136,4 +136,19 @@ extern ERL_NIF_TERM essio_cancel_accept(ErlNifEnv*       env,
                                         ERL_NIF_TERM     sockRef,
                                         ERL_NIF_TERM     opRef);
 
+extern void essio_dtor(ErlNifEnv*       env,
+                       ESockDescriptor* descP);
+extern void essio_stop(ErlNifEnv*       env,
+                       ESockDescriptor* descP,
+                       ErlNifEvent      fd);
+extern void essio_down(ErlNifEnv*           env,
+                       ESockDescriptor*     descP,
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP);
+
+/* Temporary (I hope) workaround */
+extern void essio_down_ctrl(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            const ErlNifPid* pidP);
+
 #endif // SOCKET_SYNCIO_H__

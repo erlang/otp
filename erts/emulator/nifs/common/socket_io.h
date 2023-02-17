@@ -197,4 +197,14 @@ typedef ERL_NIF_TERM (*ESockIOGetoptOtp)(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
                                          int              eOpt);
 
+typedef void (*ESockIODTor)(ErlNifEnv*       env,
+                            ESockDescriptor* descP);
+typedef void (*ESockIOStop)(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            ErlNifEvent      fd);
+typedef void (*ESockIODown)(ErlNifEnv*           env,
+                            ESockDescriptor*     descP,
+                            const ErlNifPid*     pidP,
+                            const ErlNifMonitor* monP);
+
 #endif // SOCKET_IO_H__
