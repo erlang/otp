@@ -1069,7 +1069,7 @@ error_ehost(_Config) ->
 %%%----------------------------------------------------------------
 error_datafail() ->
     [{doc, "Test that failure to open data channel captures "
-     "error emitted on ctrl chanenel"}].
+     "error emitted on ctrl channel"}].
 
 error_datafail(Config) ->
     Self = self(),
