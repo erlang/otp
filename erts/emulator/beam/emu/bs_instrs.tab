@@ -132,6 +132,7 @@ TEST_BIN_VHEAP(VNh, Nh, Live) {
         ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
         PROCESS_MAIN_CHK_LOCKS(c_p);
         SWAPIN;
+        $MAYBE_EXIT_AFTER_GC();
     }
     HEAP_SPACE_VERIFIED(need);
 }
