@@ -167,14 +167,14 @@ dilbert@uab</pre>
        can be made to get a new dynamic node name. The node name may
        change if the distribution is dropped and then set up again.
      </p>
-     <note>
+     <change>
        <p>
-	 The <em>dynamic node name</em> feature is supported from OTP 23.
+	 The <em>dynamic node name</em> feature is supported from Erlang/OTP 23.
          Both the temporary client node and the first connected peer node
-         (supplying the dynamic node name) must be at least OTP 23 for it to
+         (supplying the dynamic node name) must be at least Erlang/OTP 23 for it to
          work.
        </p>
-     </note>
+     </change>
   </section>
 
   <section>

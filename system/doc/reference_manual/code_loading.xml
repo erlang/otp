@@ -157,12 +157,12 @@ loop() ->
     before the <c>on_load</c> function has finished will be suspended
     until the <c>on_load</c> function have finished.</p>
 
-    <note>
-      <p>Before OTP 19, if the <c>on_load</c> function failed, any
+    <change>
+      <p>Before Erlang/OTP 19, if the <c>on_load</c> function failed, any
       previously current code would become old, essentially leaving
       the system without any working and reachable instance of the
-      module.  That problem has been eliminated in OTP 19.</p>
-    </note>
+      module.</p>
+    </change>
 
     <p>In embedded mode, first all modules are loaded.
       Then all <c>on_load</c> functions are called. The system is

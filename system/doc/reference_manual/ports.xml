@@ -103,12 +103,9 @@
       <c>Port</c> by sending and receiving messages. (In fact, any
       process can send the messages to the port, but the port owner must
       be identified in the message).</p>
-    <p>As of Erlang/OTP R16, messages sent to ports are delivered truly
-      asynchronously. The underlying implementation previously
-      delivered messages to ports synchronously. Message passing has
-      however always been documented as an asynchronous operation. Hence,
-      this is not to be an issue for an Erlang program communicating
-      with ports, unless false assumptions about ports have been made.</p>
+      <p>Messages sent to ports are delivered asynchronously.</p>
+      <change><p>Before Erlang/OTP 16, messages to ports were
+      delivered synchronously.</p></change>
     <p>In the following tables of examples, <c>Data</c> must be an I/O list.
       An I/O list is a binary or a (possibly deep) list of binaries
       or integers in the range 0..255:</p>
