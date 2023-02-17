@@ -2683,9 +2683,10 @@ handle_supported_groups_option(Value, Version) when is_list(Value) ->
                      | InetError
                      | OtherReason) -> string()
               when
-      FileType   :: cacertfile | certfile | keyfile | dhfile,
-      OtherReason     :: term(),
-      InetError :: inet:posix() | system_limit.
+      FileType    :: cacertfile | certfile | keyfile | dhfile,
+      OtherReason :: term(),
+      Error       :: term(),
+      InetError   :: inet:posix() | system_limit.
 
 do_format_error(Reason) when is_list(Reason) ->
     Reason;
