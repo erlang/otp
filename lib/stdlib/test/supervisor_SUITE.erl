@@ -706,11 +706,15 @@ child_adm(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    {ok, _Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+
+    %% Test that supervisors of static nature are hibernated after start
+    {current_function, {erlang, hibernate, 3}} =
+	process_info(Pid, current_function),
+
     [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
     [1,1,0,1] = get_child_counts(sup_test),
     link(CPid),
-
     %% Start of an already runnig process 
     {error,{already_started, CPid}} =
 	supervisor:start_child(sup_test, Child),
@@ -771,7 +775,13 @@ child_adm(Config) when is_list(Config) ->
 child_adm_simple(Config) when is_list(Config) ->
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    {ok, _Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    {ok, Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+
+       %% Test that supervisors of dynamic nature are not hibernated after start
+    {current_function, {_, Function, _}} =
+	process_info(Pid, current_function),
+    true = Function =/= hibernate,
+
     %% In simple_one_for_one all children are added dynamically 
     [] = supervisor:which_children(sup_test),
     [1,0,0,0] = get_child_counts(sup_test),
