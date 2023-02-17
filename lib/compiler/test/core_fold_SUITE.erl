@@ -676,6 +676,7 @@ cover_letrec_effect(_Config) ->
     end,
 
     _ = catch cover_letrec_effect_1(),
+    _ = catch cover_letrec_effect_2(),
 
     ok.
 
@@ -691,6 +692,12 @@ cover_letrec_effect_1() ->
             1 when car, cdr, 3; 3, 4 ->
                 false
         end
+    end.
+
+cover_letrec_effect_2() ->
+    maybe
+	<< ok || ok, _ <- (catch ok)>>,
+	ok
     end.
 
 receive_effect(_Config) ->

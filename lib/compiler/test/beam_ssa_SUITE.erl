@@ -450,6 +450,8 @@ maps(_Config) ->
     {jkl,nil,nil} = maps_2(#{jkl => 0}),
     error = maps_2(#{}),
 
+    [] = maps_3(),
+
     ok.
 
 maps_1(K) ->
@@ -521,6 +523,15 @@ maps_2b(#{}=Map) ->
                     end
             end
     end.
+
+%% Cover code in beam_ssa_codegen.
+maps_3() ->
+    [] = case #{} of
+             #{ok := {}} ->
+                 ok;
+             _ ->
+                 []
+         end -- [].
 
 -record(wx_ref, {type=any_type,ref=any_ref}).
 

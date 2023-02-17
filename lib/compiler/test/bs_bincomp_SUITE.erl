@@ -654,6 +654,9 @@ grab_bag(_Config) ->
     {'EXIT',{function_clause,_}} = catch grab_bag_gh_6553(a),
     {'EXIT',{{badmatch,<<>>},_}} = catch grab_bag_gh_6553(<<42>>),
 
+    %% Cover a line v3_kernel:get_line/1.
+    _ = catch << ok || <<>> <= ok, ok >>,
+
     ok.
 
 grab_bag_gh_6553(<<X>>) ->
