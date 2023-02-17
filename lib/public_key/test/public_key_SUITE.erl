@@ -89,6 +89,8 @@
          pkix_countryname/1,
          pkix_emailaddress/0,
          pkix_emailaddress/1,
+         pkix_decode_cert/0,
+         pkix_decode_cert/1,
          pkix_path_validation/0,
          pkix_path_validation/1,
          pkix_path_validation_root_expired/0,
@@ -149,6 +151,7 @@ all() ->
      pkix, 
      pkix_countryname, 
      pkix_emailaddress, 
+     pkix_decode_cert,
      pkix_path_validation,
      pkix_path_validation_root_expired,
      pkix_iso_rsa_oid, 
@@ -794,6 +797,17 @@ pkix_emailaddress(Config) when is_list(Config) ->
     Subj   = TBSCert#'OTPTBSCertificate'.subject,
     check_emailaddress(Issuer),
     check_emailaddress(Subj).
+
+
+%%--------------------------------------------------------------------
+pkix_decode_cert() ->
+    [{doc, "Test that extension IssuerDistributionPoint is not decoded in 'otp' decoding mode. We want to leave it for later "
+      "to increase interopability for sites that does not use this extension and will not care if it is properly encoded"}].
+pkix_decode_cert(Config) when is_list(Config) ->
+    Der = base64:decode(
+            <<"MIICXDCCAgKgAwIBAgIBATAKBggqhkjOPQQDAjApMRkwFwYDVQQFExBjOTY4NDI4OTMyNzUwOGRiMQwwCgYDVQQMDANURUUwHhcNMjIxMDI5MTczMTA3WhcNMjkwNDE2MjAzNDUzWjAfMR0wGwYDVQQDExRBbmRyb2lkIEtleXN0b3JlIEtleTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFmIQDus/jIZ0cPnRCITCzUUuCjQBw8MetO6154mmTL8O/fFlGgYkZ6C8jSSntKC/lMwaZHxAgW1AGgoCrPuX5ejggEjMIIBHzALBgNVHQ8EBAMCB4AwCAYDVR0fBAEAMIIBBAYKKwYBBAHWeQIBEQSB9TCB8gIBAgoBAQIBAwoBAQQgyvsSa116xqleaXs6xA84wqpAPWFgaaTjCWBnZpHslmoEADBEv4VFQAQ+MDwxFjAUBAxjb20ud2hhdHNhcHACBA0+oAQxIgQgOYfQQ9EK769ahxCzZxQY/lfg4ZtlPJ34JVj+tf/OXUQweqEFMQMCAQKiAwIBA6MEAgIBAKUIMQYCAQYCAQSqAwIBAb+DdwIFAL+FPQgCBgGEJMweob+FPgMCAQC/hUAqMCgEIFNB5rJkaXmnDldlMAeh8xAWlCHsm92fGlZI91reAFrxAQH/CgEAv4VBBQIDAV+Qv4VCBQIDAxUYMAoGCCqGSM49BAMCA0gAMEUCIF0BwvRQipVoaz5SIhsYbIeK+FHbAjWPgOxWgQ6Juq64AiEA83ZLsK37DjZ/tZNRi271VHQqIU8mdqUIMboVUiy3DaM=">>),
+
+    #'OTPCertificate'{} = public_key:pkix_decode_cert(Der, otp).
 
 %%--------------------------------------------------------------------
 pkix_path_validation() ->
