@@ -218,17 +218,13 @@ call_to_deprecated(Config) when is_list(Config) ->
     {comment,integer_to_list(length(DeprecatedCalls))++" calls to deprecated functions"}.
 
 call_to_size_1(Config) when is_list(Config) ->
-    %% Applications that do not call erlang:size/1:
-    Apps = [asn1,compiler,debugger,kernel,observer,parsetools,
-            runtime_tools,stdlib,tools],
+    %% Forbid the use of erlang:size/1 in all applications.
+    Apps = all_applications(Config),
     not_recommended_calls(Config, Apps, {erlang,size,1}).
 
 call_to_now_0(Config) when is_list(Config) ->
-    %% Applications that do not call erlang:now/1:
-    Apps = [asn1,common_test,compiler,debugger,dialyzer,
-            kernel,mnesia,observer,parsetools,reltool,
-            runtime_tools,sasl,stdlib,syntax_tools,
-            tools],
+    %% Forbid the use of erlang:now/1 in all applications except et.
+    Apps = all_applications(Config) -- [et],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 
 not_recommended_calls(Config, Apps0, MFA) ->
@@ -281,8 +277,13 @@ not_recommended_calls(Config, Apps0, MFA) ->
                     {comment, Mess}
             end;
         _ ->
-            ct:fail({length(CallsToMFA),calls_to_size_1})
+            ct:fail({length(CallsToMFA),calls_to,MFA})
     end.
+
+all_applications(Config) ->
+    Server = proplists:get_value(xref_server, Config),
+    {ok,AllApplications} = xref:q(Server, "A"),
+    AllApplications.
 
 is_present_application(Name, Server) ->
     Q = io_lib:format("~w : App", [Name]),
