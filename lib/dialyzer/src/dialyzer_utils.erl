@@ -1109,7 +1109,7 @@ refold_concrete_pat(Val) ->
       %% N.B.: The key in a map pattern is an expression, *not* a pattern.
       label(cerl:c_map_pattern([cerl:c_map_pair_exact(cerl:abstract(K),
 						      refold_concrete_pat(V))
-				|| {K, V} <- maps:to_list(M)]));
+				|| K := V <- M]));
     _ ->
       cerl:abstract(Val)
   end.

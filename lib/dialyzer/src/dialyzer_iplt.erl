@@ -254,11 +254,10 @@ to_file_custom_vsn(
                                OldModDeps, NewModDeps),
   IncrementalData =
     #incremental_data{mod_deps=CombinedModDeps, warning_map=NewWarningMap, legal_warnings=LegalWarnings},
-  CallbacksList =
-    [Cb ||
+  Callbacks =
+    #{K => V ||
       {_M, Cbs} <- dialyzer_utils:ets_tab2list(ETSCallbacks),
-      Cb <- Cbs],
-  Callbacks = maps:from_list(CallbacksList),
+      {K, V} <- Cbs},
   Info = maps:from_list(dialyzer_utils:ets_tab2list(ETSInfo)),
   Types = dialyzer_utils:ets_tab2list(ETSTypes),
   Contracts = maps:from_list(dialyzer_utils:ets_tab2list(ETSContracts)),
@@ -321,7 +320,7 @@ check_incremental_plt(FileName, Opts, PltFiles) ->
   subproc(Fun).
 
 check_incremental_plt1(FileName, Opts, PltFiles) ->
-  PltModulePathLookup = maps:from_list([ {beam_file_to_module(PltFile), PltFile} || PltFile <- PltFiles ]),
+  PltModulePathLookup = #{beam_file_to_module(PltFile) => PltFile || PltFile <- PltFiles},
   case get_record_from_file(FileName) of
     {ok, #ifile_plt{module_md5_list = Md5} = Rec} ->
       {RemoveModules, AddModules} = find_files_to_remove_and_add(Md5, maps:keys(PltModulePathLookup)),
@@ -429,7 +428,7 @@ implementation_module_paths() ->
   Dir = code:lib_dir(dialyzer),
   Files1 = ["erl_bif_types.beam", "erl_types.beam"],
   Files2 = [filename:join([Dir, "ebin", F]) || F <- Files1],
-  maps:from_list([{beam_file_to_module(File), File} || File <- Files2]).
+  #{beam_file_to_module(File) => File || File <- Files2}.
 
 -spec compute_implementation_md5() -> [module_md5()].
 
