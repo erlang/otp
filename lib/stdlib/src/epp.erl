@@ -758,7 +758,7 @@ wait_request(St) ->
             wait_request(St);
 	{epp_request,From,macro_defs} ->
 	    %% Return the old format to avoid any incompability issues.
-	    Defs = [{{atom,K},V} || {K,V} <- maps:to_list(St#epp.macs)],
+	    Defs = [{{atom,K},V} || K := V <- St#epp.macs],
 	    epp_reply(From, Defs),
 	    wait_request(St);
 	{epp_request,From,close} ->

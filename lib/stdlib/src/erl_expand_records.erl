@@ -55,8 +55,7 @@ compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
 
 init_calltype(Forms) ->
-    Locals = [{{Name,Arity},local} || {function,_,Name,Arity,_} <- Forms],
-    Ctype = maps:from_list(Locals),
+    Ctype = #{{Name,Arity} => local || {function,_,Name,Arity,_} <- Forms},
     init_calltype_imports(Forms, Ctype).
 
 init_calltype_imports([{attribute,_,import,{Mod,Fs}}|T], Ctype0) ->
