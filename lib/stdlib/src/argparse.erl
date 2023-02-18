@@ -201,7 +201,7 @@ validate(Command, Options) ->
     is_list(Prog) orelse erlang:error(badarg, [Command, Options],
         [{error_info, #{cause => #{2 => <<"progname is not valid">>}}}]),
     Prefixes = maps:from_list([{P, true} || P <- maps:get(prefixes, Options, [$-])]),
-    validate_command([{Prog, Command}], Prefixes),
+    _ = validate_command([{Prog, Command}], Prefixes),
     Prog.
 
 %% @equiv parse(Args, Command, #{})
