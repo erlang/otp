@@ -1374,9 +1374,7 @@ make_group_conf(NodeName, KernParamValue) ->
             GMap = if OwnNodes == [] ->
                            all;
                       true ->
-                           maps:from_list(lists:map(fun (Node) ->
-                                                            {Node, ok}
-                                                    end, OwnNodes))
+                           #{Node => ok || Node <- OwnNodes}
                    end,
             #gconf{parameter_value = KernParamValue,
                    node_name = NodeName,
