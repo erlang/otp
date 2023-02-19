@@ -878,6 +878,9 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
          * is a map. */
         if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Map) {
             comment("skipped header test since we know it's a map when boxed");
+            if (Fail.get() == 0) {
+                a.b(good_map);
+            }
         } else {
             arm::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
             a.ldur(TMP1, emit_boxed_val(boxed_ptr));
