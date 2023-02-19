@@ -1151,6 +1151,7 @@ alias() ->
 alias(Config) when is_list(Config) ->
     TestURIs200 = [
                    {"GET /pics/icon.sheet.gif ", 200, "image/gif"},
+                   {"GET /pictures/icon.sheet.gif ", 200, "image/gif"},
                    {"GET / ", 200, "text/html"},
                    {"GET /misc/ ", 200, "text/html"}
                   ],
@@ -2160,7 +2161,7 @@ config_template(Config, ServerRoot, ScriptPath, Modules) ->
      {mime_types, [{"html","text/html"},{"htm","text/html"}, {"shtml","text/html"},
 		   {"gif", "image/gif"}]},
      {alias, {"/icons/", filename:join(ServerRoot,"icons") ++ "/"}},
-     {alias, {"/pics/",  filename:join(ServerRoot,"icons") ++ "/"}},
+     {re_write, {"/pic(ture)?s/",  filename:join(ServerRoot,"icons") ++ "/"}},
      {script_alias, {"/cgi-bin/", ScriptPath}},
      {script_alias, {"/htbin/", ScriptPath}},
      {erl_script_alias, {"/cgi-bin/erl", Modules}}
