@@ -1162,6 +1162,13 @@ i_bs_ensure_bits Ctx1 u==32 Fail | i_bs_read_bits Ctx2 u==32 |
     i_bs_get_integer_32 Ctx1 Fail Dst
 %endif
 
+#
+# The following instruction is specially handled in beam_load.c
+# to produce a user-friendly message if a bad bs_match instruction
+# is encountered.
+#
+bad_bs_match/1
+bad_bs_match A | never() => _
 
 # ================================================================
 # Bit syntax matching (from R11B).
