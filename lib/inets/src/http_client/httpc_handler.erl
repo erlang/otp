@@ -44,8 +44,8 @@
 
 -record(timers, 
         {
-          request_timers = [] :: [reference()],
-          queue_timer         :: reference() | 'undefined'
+          request_timers = [] :: [reference() | {reference(), term()}],
+          queue_timer         :: reference() | undefined
          }).
 
 -record(state, 
@@ -622,13 +622,11 @@ do_handle_info({ssl_closed, _}, State = #state{request = undefined}) ->
     {stop, normal, State};
 
 %%% Error cases
-do_handle_info({tcp_closed, _}, #state{session = Session0} = State) ->
-    Socket  = Session0#session.socket,
+do_handle_info({tcp_closed, _}, #state{session = #session{socket = Socket}=Session0} = State) ->
     Session = Session0#session{socket = {remote_close, Socket}},
     %% {stop, session_remotly_closed, State};
     {stop, normal, State#state{session = Session}};
-do_handle_info({ssl_closed, _}, #state{session = Session0} = State) ->
-    Socket  = Session0#session.socket,
+do_handle_info({ssl_closed, _}, #state{session = #session{socket = Socket}=Session0} = State) ->
     Session = Session0#session{socket = {remote_close, Socket}},
     %% {stop, session_remotly_closed, State};
     {stop, normal, State#state{session = Session}};
@@ -878,7 +876,7 @@ connect_and_send_upgrade_request(Address, Request, #state{options = Options0} = 
     end.
 
 handler_info(#state{request     = Request, 
-		    session     = Session, 
+		    session     = #session{socket = Socket}=Session,
 		    status_line = _StatusLine, 
 		    pipeline    = Pipeline, 
 		    keep_alive  = KeepAlive, 
@@ -906,8 +904,7 @@ handler_info(#state{request     = Request,
 			  queue:len(KeepAlive)
 		  end,
     Scheme     = Session#session.scheme, 
-    Socket     = Session#session.socket, 
-    SocketType = Session#session.socket_type, 
+    SocketType = Session#session.socket_type,
 
     SocketOpts  = http_transport:getopts(SocketType, Socket), 
     SocketStats = http_transport:getstat(SocketType, Socket), 
@@ -983,11 +980,10 @@ handle_http_body(Body, #state{headers = Headers,
 handle_http_body(_Body, #state{request = #request{method = head}} = State) ->
     handle_response(State#state{body = <<>>});
 
-handle_http_body(Body, #state{headers       = Headers, 
+handle_http_body(Body, #state{headers       = #http_response_h{'transfer-encoding' = TransferEnc}=Headers,
 			      max_body_size = MaxBodySize,
 			      status_line   = {_,Code, _},
 			      request       = Request} = State) ->
-    TransferEnc = Headers#http_response_h.'transfer-encoding',
     case case_insensitive_header(TransferEnc) of
         "chunked" ->
 	    try http_chunk:decode(Body, State#state.max_body_size, 
@@ -1064,7 +1060,7 @@ handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
     handle_cookies(Headers, Request, Options, ProfileName), 
     case httpc_response:result({StatusLine, Headers, Body}, Request) of
 	%% 100-continue
-	continue -> 
+	continue ->
 	    %% Send request body
 	    {_, RequestBody} = Request#request.content,
 	    send_raw(Session, RequestBody),
@@ -1080,7 +1076,7 @@ handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
 
 	%% Ignore unexpected 100-continue response and receive the
 	%% actual response that the server will send right away. 
-	{ignore, Data} -> 
+	{ignore, Data} ->
 	    Relaxed = (Request#request.settings)#http_options.relaxed,
 	    MFA     = {httpc_response, parse,
 		       [State#state.max_header_size, Relaxed]}, 
@@ -1116,8 +1112,7 @@ handle_cookies(_,_, #options{cookies = disabled}, _) ->
 %% so the user will have to call a store command.
 handle_cookies(_,_, #options{cookies = verify}, _) ->
     ok;
-handle_cookies(Headers, Request, #options{cookies = enabled}, ProfileName) ->
-    {Host, _ } = Request#request.address,
+handle_cookies(Headers, #request{address = {Host, _}}=Request, #options{cookies = enabled}, ProfileName) ->
     Cookies = httpc_cookie:cookies(Headers#http_response_h.other, 
 				  Request#request.path, Host),
     httpc_manager:store_cookies(Cookies, Request#request.address,
@@ -1135,7 +1130,7 @@ handle_queue(#state{status = pipeline} = State, Data) ->
     handle_pipeline(State, Data).
 
 handle_pipeline(#state{status       = pipeline, 
-		       session      = Session,
+		       session      = #session{}=Session,
 		       profile_name = ProfileName,
 		       options      = #options{pipeline_timeout = TimeOut}} = State,
 		Data) ->
