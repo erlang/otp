@@ -113,7 +113,7 @@ start(IoFmtFun) when is_function(IoFmtFun,2) ; is_function(IoFmtFun,3) ->
 
 stop() ->
     try
-        dbg:stop_clear(),
+        dbg:stop(),
         gen_server:stop(?SERVER)
     catch
         _:_ -> ok

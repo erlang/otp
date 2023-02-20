@@ -3276,7 +3276,7 @@ do_trace(Terms) ->
     ok.
 
 stop_trace(true) ->
-    dbg:stop_clear();
+    dbg:stop();
 stop_trace(false) ->
     ok.
 

@@ -22,6 +22,7 @@
 #
 file:pid2name/1 since=26 remove=27
 disk_log:inc_wrap_file/1 since=26 remove=28
+dbg:stop_clear/0 since=26 remove=27
 
 #
 # Added in OTP 25.
