@@ -21,6 +21,7 @@
 # Added in OTP 26.
 #
 file:pid2name/1 since=26 remove=27
+dbg:stop_clear/0 since=26 remove=27
 
 #
 # Added in OTP 25.

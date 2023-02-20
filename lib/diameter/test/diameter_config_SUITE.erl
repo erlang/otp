@@ -227,7 +227,7 @@ run(List)
     try
         ?util:run([[[fun run/1, {F, 5000}] || F <- List]])
     after
-        dbg:stop_clear(),
+        dbg:stop(),
         diameter:stop()
     end;
 

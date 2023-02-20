@@ -395,7 +395,7 @@ dbg(Case, Config, Status) ->
 		    Config;
 		'end' ->
 		    io:format("dbg: stopped~n"),
-		    dbg:stop_clear(),
+		    dbg:stop(),
 		    ok
 	    end;
 	false ->

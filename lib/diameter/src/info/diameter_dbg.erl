@@ -357,7 +357,7 @@ p(T) ->
 
 stop() ->
     dbg:ctp(),
-    dbg:stop_clear().
+    dbg:stop().
 
 %% tpl/1
 %% tp/1
