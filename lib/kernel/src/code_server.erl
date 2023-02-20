@@ -324,6 +324,10 @@ handle_call({get_object_code,Mod}, _From, St0) when is_atom(Mod) ->
 	{error,St1} -> {reply,error,St1}
     end;
 
+handle_call({which,Mod}, _From, St0) when is_atom(Mod) ->
+    {Result, St1} = which(St0, Mod),
+    {reply,Result,St1};
+
 handle_call(stop,_From, S) ->
     {stop,normal,stopped,S};
 
@@ -1102,46 +1106,64 @@ get_object_code(#state{path=Path} = St, Mod) when is_atom(Mod) ->
     ModStr = atom_to_list(Mod),
     case erl_prim_loader:is_basename(ModStr) of
         true ->
-            case mod_to_bin(Path, ModStr ++ objfile_extension(), []) of
-                {Binary, File, NewPath} ->
+            ModFile = ModStr ++ objfile_extension(),
+            case find_module(Path, [], ModFile, get_file) of
+                {{ok,Binary,_}, File, NewPath} ->
                     {Binary, File, St#state{path=NewPath}};
 
                 {error, NewPath} ->
-                    {error, St#state{path=NewPath}}
+                    %% At last, try also erl_prim_loader's own method
+                    case erl_prim_loader:get_file(ModFile) of
+                        error ->
+                            {error, St#state{path=NewPath}};
+                        {ok, Binary, FName} ->
+                            {Binary, absname(FName), St#state{path=NewPath}}
+                    end
             end;
 
         false ->
             {error, St}
     end.
 
-mod_to_bin([{Dir, Cache0}|Tail], ModFile, Acc) ->
+which(#state{path=Path} = St, Mod) when is_atom(Mod) ->
+    ModStr = atom_to_list(Mod),
+    case erl_prim_loader:is_basename(ModStr) of
+        true ->
+            ModFile = ModStr ++ objfile_extension(),
+            case find_module(Path, [], ModFile, read_file_info) of
+                {_Result, File, NewPath} ->
+                    {File, St#state{path=NewPath}};
+
+                {error, NewPath} ->
+                    {non_existing, St#state{path=NewPath}}
+            end;
+
+        false ->
+            {non_existing, St}
+    end.
+
+find_module([{Dir, Cache0}|Tail], Acc, ModFile, Fun) ->
     case with_cache(Cache0, Dir, ModFile) of
         {true, Cache1} ->
             File = filename:append(Dir, ModFile),
 
-            case erl_prim_loader:get_file(File) of
+            case erl_prim_loader:Fun(File) of
                 error ->
-                    mod_to_bin(Tail, ModFile, [{Dir, Cache1} | Acc]);
+                    find_module(Tail, [{Dir, Cache1} | Acc], ModFile, Fun);
 
-                {ok,Bin,_} ->
+                Ok ->
                     Path = lists:reverse(Acc, [{Dir, Cache1} | Tail]),
 
                     case filename:pathtype(File) of
-                        absolute -> {Bin, File, Path};
-                        _ -> {Bin, absname(File), Path}
+                        absolute -> {Ok, File, Path};
+                        _ -> {Ok, absname(File), Path}
                     end
             end;
         {false, Cache1} ->
-            mod_to_bin(Tail, ModFile, [{Dir, Cache1} | Acc])
+            find_module(Tail, [{Dir, Cache1} | Acc], ModFile, Fun)
     end;
-mod_to_bin([], ModFile, Acc) ->
-    %% At last, try also erl_prim_loader's own method
-    case erl_prim_loader:get_file(ModFile) of
-        error ->
-            {error, lists:reverse(Acc)};     % No more alternatives !
-        {ok,Bin,FName} ->
-            {Bin, absname(FName), lists:reverse(Acc)}
-    end.
+find_module([], Acc, _ModFile, _Fun) ->
+    {error, lists:reverse(Acc)}.
 
 with_cache(nocache, _Dir, _ModFile) ->
     {true, nocache};

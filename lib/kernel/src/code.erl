@@ -818,12 +818,18 @@ start_get_mode() ->
 which(Module) when is_atom(Module) ->
     case is_loaded(Module) of
 	false ->
-            which(Module, get_path());
+            server_which(Module);
 	{file, File} ->
 	    File
     end.
 
-which(Module, Path) when is_atom(Module) ->
+%% server_which is cached and should be preferred
+%% when looking up a single module. client_which
+%% does the lookup on the client by listing directories.
+server_which(Module) when is_atom(Module) ->
+    call({which, Module}).
+
+client_which(Module, Path) when is_atom(Module) ->
     File = atom_to_list(Module) ++ objfile_extension(),
     where_is_file(Path, File).
 
@@ -1081,20 +1087,21 @@ module_status() ->
           module_status() | [{module(), module_status()}].
 module_status(Modules) when is_list(Modules) ->
     PathFiles = path_files(),
-    [{M, module_status(M, PathFiles)} || M <- Modules];
+    Fun = fun(Module) -> client_which(Module, PathFiles) end,
+    [{M, module_status(M, Fun)} || M <- Modules];
 module_status(Module) ->
-    module_status(Module, code:get_path()).
+    module_status(Module, fun server_which/1).
 
 %% Note that we don't want to go via which/1, since it doesn't look at the
 %% disk contents at all if the module is already loaded.
-module_status(Module, PathFiles) ->
+module_status(Module, Fun) ->
     case is_loaded(Module) of
         false -> not_loaded;
         {file, preloaded} -> loaded;
         {file, cover_compiled} ->
             %% Cover compilation loads directly to memory and does not
             %% create a beam file, so report 'modified' if a file exists.
-            case which(Module, PathFiles) of
+            case Fun(Module) of
                 non_existing -> removed;
                 _File -> modified
             end;
@@ -1102,7 +1109,7 @@ module_status(Module, PathFiles) ->
         {file, [_|_]} ->
             %% We don't care whether or not the file is in the same location
             %% as when last loaded, as long as it can be found in the path.
-            case which(Module, PathFiles) of
+            case Fun(Module) of
                 non_existing -> removed;
                 Path ->
                     case module_changed_on_disk(Module, Path) of
