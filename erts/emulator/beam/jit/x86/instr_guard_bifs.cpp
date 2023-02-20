@@ -674,13 +674,16 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
          * is a map. */
         if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Map) {
             comment("skipped header test since we know it's a map when boxed");
+            if (Fail.get() == 0) {
+                a.short_().jmp(good_map);
+            }
         } else {
             x86::Gp boxed_ptr = emit_ptr_val(RET, ARG1);
             a.mov(RET, emit_boxed_val(boxed_ptr));
             a.and_(RETb, imm(_TAG_HEADER_MASK));
             a.cmp(RETb, imm(_TAG_HEADER_MAP));
             if (Fail.get() == 0) {
-                a.je(good_map);
+                a.short_().je(good_map);
             } else {
                 a.jne(resolve_beam_label(Fail));
             }

@@ -780,6 +780,45 @@ t_map_get(Config) when is_list(Config) ->
         (T) when map_get(x, T) =:= 1 -> ok;
         (T) -> false = is_map(T)
     end),
+
+    %% Test unions of maps with some other type.
+
+    M3 = id(M2),
+    if
+        is_map(M3) -> ok;
+        is_atom(M3) -> ok
+    end,
+    %% M3 is now known to be either a map or an atom
+    1 = map_get(a, M3),
+
+    M4 = id(M3),
+    if
+        is_map(M4) -> ok;
+        is_atom(M4) -> ok
+    end,
+    %% M4 is now known to be either a map or an atom
+    if
+        map_get(a, M4) =:= 1 -> ok
+    end,
+
+    M5 = id(M4),
+    if
+        is_map(M5) -> ok;
+        is_tuple(M5) -> ok
+    end,
+    %% M5 is now known to be either a map or a tuple
+    1 = map_get(a, M5),
+
+    M6 = id(M5),
+    if
+        is_map(M6) -> ok;
+        is_tuple(M6) -> ok
+    end,
+    %% M6 is now known to be either a map or a tuple
+    if
+        map_get(a, M6) =:= 1 -> ok
+    end,
+
     ok.
 
 t_is_map_key(Config) when is_list(Config) ->
