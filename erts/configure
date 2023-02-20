@@ -20009,6 +20009,12 @@ then :
   printf "%s\n" "#define HAVE_MEMCPY 1" >>confdefs.h
 
 fi
+ac_fn_c_check_func "$LINENO" "memrchr" "ac_cv_func_memrchr"
+if test "x$ac_cv_func_memrchr" = xyes
+then :
+  printf "%s\n" "#define HAVE_MEMRCHR 1" >>confdefs.h
+
+fi
 ac_fn_c_check_func "$LINENO" "mallopt" "ac_cv_func_mallopt"
 if test "x$ac_cv_func_mallopt" = xyes
 then :

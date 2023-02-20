@@ -1589,6 +1589,10 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
               headers and the beginning of any following message body.</p>
             <p>The variants <c>http_bin</c> and <c>httph_bin</c> return
               strings (<c>HttpString</c>) as binaries instead of lists.</p>
+            <p>Since OTP 26.0, <c><anno>Host</anno></c> may be an IPv6
+              address enclosed in <c>[]</c>, as defined in
+              <url href="https://www.ietf.org/rfc/rfc2732.txt">RFC2732
+              </url>.</p>
           </item>
         </taglist>
         <p>Options:</p>

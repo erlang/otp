@@ -518,6 +518,7 @@ static void
 http_parse_absoluteURI(PacketHttpURI* uri, const char* uri_ptr, int uri_len)
 {
     const char* p;
+    const char* v;
     
     if ((p = memchr(uri_ptr, '/', uri_len)) == NULL) {
         /* host [":" port] */
@@ -533,15 +534,39 @@ http_parse_absoluteURI(PacketHttpURI* uri, const char* uri_ptr, int uri_len)
 
     uri->s1_ptr = uri_ptr;
     uri->port = 0; /* undefined */
-    /* host[:port]  */
     if ((p = memchr(uri_ptr, ':', uri_len)) == NULL) {
         uri->s1_len = uri_len;
     }
+    /* ipv6
+     * eg [::1]:4000
+     * eg [FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:80
+     */
+    else if (memchr(uri_ptr, '[', uri_len) == uri_ptr &&
+        (v = memchr(uri_ptr, ']', uri_len)) != NULL) {
+      int n = (v - uri_ptr) + 1;
+      int port = 0;
+      uri->s1_len = n;
+      n = uri_len - (n+1);
+      // parse port if the next char is `:`
+      if (sys_memrchr(uri_ptr, ':', uri_len) == v + 1) {
+        // Skip over `]:`
+        v = v + 2;
+        while(n && isdigit((int) *v)) {
+            port = port*10 + (*v - '0');
+            n--;
+            v++;
+        }
+        if (n==0 && port!=0)
+            uri->port = port;
+      }
+    }
+    /* host[:port]  */
     else {
         int n = (p - uri_ptr);
         int port = 0;        
         uri->s1_len = n;
         n = uri_len - (n+1);
+        // Skip over port delimiter `:`
         p++;
         while(n && isdigit((int) *p)) {
             port = port*10 + (*p - '0');
