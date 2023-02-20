@@ -361,6 +361,22 @@ static ERL_NIF_TERM mk_completion_msg(ErlNifEnv*   env,
                                       ERL_NIF_TERM sockRef,
                                       ERL_NIF_TERM completionRef);
 
+static void esaio_down_acceptor(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                const ErlNifPid* pidP,
+                                const ErlNifMonitor* monP);
+static void esaio_down_writer(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     sockRef,
+                              const ErlNifPid* pidP,
+                              const ErlNifMonitor* monP);
+static void esaio_down_reader(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     sockRef,
+                              const ErlNifPid* pidP,
+                              const ErlNifMonitor* monP);
+
 static BOOLEAN_T do_stop(ErlNifEnv*       env,
                          ESockDescriptor* descP);
 
@@ -1656,18 +1672,18 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
                ("WIN-ESAIO",
                 "do_stop {%d} -> cancel outstanding I/O operations\r\n",
                 descP->sock) );
+
         if (! CancelIoEx((HANDLE) descP->sock, NULL) ) {
             int save_errno = sock_errno();
 
             SSDBG( descP,
                    ("WIN-ESAIO",
-                    "do_stop {%d} -> cancel failed: %s (%d)\r\n",
+                    "do_stop {%d} -> cancel I/O failed: %s (%d)\r\n",
                     descP->sock, erl_errno_id(save_errno), save_errno) );
 
-            /* <CHECK>
-             * We may need to check what kind of error
-             * before we issue this message.
-             * </CHECK>
+            /* Only issue an error message for errors *other* than
+             * 'not found' (since 'not found' means there is no active
+             * requests = already completed => race).
              */
 
             if (save_errno != ERROR_NOT_FOUND)
@@ -1680,9 +1696,27 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
             
             ret = FALSE;
 
+        } else {
+
+            /* Cancel of all active requests (to the I/O completion port
+             * machinery) has been successfully requested.
+             * The requests will be aborted and handled by the worker threads.
+             */
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "do_stop {%d} -> successfully canceled\r\n", descP->sock) );
+
+            ret = TRUE;
         }
 
     } else {
+
+        /* No active requests in the I/O completion port machinery */
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "do_stop {%d} -> no active I/O requests\r\n", descP->sock) );
 
         ret = FALSE;
     }
@@ -1695,7 +1729,7 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("WIN-ESAIO",
-                "esock_do_stop {%d} -> handle waiting writer(s)\r\n",
+                "do_stop {%d} -> handle waiting writer(s)\r\n",
                 descP->sock) );
 
         esock_inform_waiting_procs(env, "writer",
@@ -1734,7 +1768,7 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("WIN-ESAIO",
-                "esock_do_stop {%d} -> handle waiting reader(s)\r\n",
+                "do_stop {%d} -> handle waiting reader(s)\r\n",
                 descP->sock) );
 
         esock_inform_waiting_procs(env, "writer",
@@ -1757,7 +1791,7 @@ BOOLEAN_T do_stop(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("WIN-ESAIO",
-                "esock_do_stop {%d} -> handle waiting acceptors(s)\r\n",
+                "do_stop {%d} -> handle waiting acceptors(s)\r\n",
                 descP->sock) );
 
         esock_inform_waiting_procs(env, "acceptor",
@@ -2766,6 +2800,425 @@ void esaio_completion_inc(ESAIOThreadData* dataP)
     } else {
         dataP->cnt++;    
     }
+}
+
+
+
+/* ====================================================================
+ *
+ * NIF (I/O backend) Resource callback functions: dtor, stop and down
+ *
+ * ====================================================================
+ */
+
+extern
+void esaio_dtor(ErlNifEnv*       env,
+                ESockDescriptor* descP)
+{
+    SGDBG( ("WIN-ESAIO", "esaio_dtor -> entry\r\n") );
+
+    if (IS_SELECTED(descP)) {
+        /* We have used the socket in the select machinery,
+         * so we must have closed it properly to get here
+         */
+        ESOCK_ASSERT( IS_CLOSED(descP->readState) );
+        ESOCK_ASSERT( IS_CLOSED(descP->writeState) );
+        ESOCK_ASSERT( descP->sock == INVALID_SOCKET );
+    } else {
+        /* The socket is only opened, should be safe to close nonblocking */
+        (void) sock_close(descP->sock);
+        descP->sock = INVALID_SOCKET;
+    }
+
+    SGDBG( ("WIN-ESAIO", "esaio_dtor -> set state and pattern\r\n") );
+    descP->readState  |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
+    descP->writeState |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
+    descP->pattern     = (ESOCK_DESC_PATTERN_DTOR | ESOCK_STATE_CLOSED);
+
+    SGDBG( ("WIN-ESAIO",
+            "esaio_dtor -> try free readers request queue\r\n") );
+    esock_free_request_queue(&descP->readersQ);
+
+    SGDBG( ("WIN-ESAIO",
+            "esaio_dtor -> try free writers request queue\r\n") );
+    esock_free_request_queue(&descP->writersQ);
+
+    SGDBG( ("WIN-ESAIO",
+            "esaio_dtor -> try free acceptors request queue\r\n") );
+    esock_free_request_queue(&descP->acceptorsQ);
+
+    esock_free_env("esaio_dtor close env", descP->closeEnv);
+    descP->closeEnv = NULL;
+
+    esock_free_env("esaio_dtor meta env", descP->meta.env);
+    descP->meta.env = NULL;
+
+    SGDBG( ("WIN-ESAIO", "esaio_dtor -> done\r\n") );
+}
+
+
+
+extern
+void esaio_stop(ErlNifEnv*       env,
+                ESockDescriptor* descP,
+                ErlNifEvent      fd)
+{
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_stop {%d/%d} -> entry\r\n", descP->sock, fd) );
+
+    /* +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+     *
+     *           Inform waiting Closer, or close socket
+     *
+     * +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+     */
+
+    if (! enif_is_pid_undefined(&descP->closerPid)) {
+        /* We have a waiting closer process after nif_close()
+         * - send message to trigger nif_finalize_close()
+         */
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_stop {%d/%d} -> send close msg to %T\r\n",
+                descP->sock, fd, MKPID(env, &descP->closerPid)) );
+
+        esock_send_close_msg(env, descP, &descP->closerPid);
+        /* Message send frees closeEnv */
+        descP->closeEnv = NULL;
+        descP->closeRef = esock_atom_undefined;
+
+    } else {
+        int err;
+
+        /* We do not have a closer process
+         * - have to do an unclean (non blocking) close */
+
+        err = esock_close_socket(env, descP, FALSE);
+
+        if (err != 0)
+            esock_warning_msg("[WIN-ESAIO] Failed closing socket without "
+                              "closer process: "
+                              "\r\n   Controlling Process: %T"
+                              "\r\n   Descriptor:          %d"
+                              "\r\n   Errno:               %d (%T)"
+                              "\r\n",
+                              descP->ctrlPid, descP->sock,
+                              err, MKA(env, erl_errno_id(err)));
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_stop {%d/%d} -> done\r\n", descP->sock, fd) );
+
+}
+
+
+
+
+/* A 'down' has occured.
+ * Check the possible processes we monitor in turn:
+ * closer, controlling process (owner), connector, reader, acceptor and writer.
+ *
+ */
+extern
+void esaio_down(ErlNifEnv*           env,
+                ESockDescriptor*     descP,
+                const ErlNifPid*     pidP,
+                const ErlNifMonitor* monP)
+{
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_down {%d} -> entry with:"
+            "\r\n   Pid: %T"
+            "\r\n   Mon: %T"
+            "\r\n", descP->sock, MKPID(env, pidP), MON2T(env, monP)) );
+
+    if (COMPARE_PIDS(&descP->closerPid, pidP) == 0) {
+
+        /* The closer process went down
+         * - it will not call nif_finalize_close
+         */
+
+        enif_set_pid_undefined(&descP->closerPid);
+
+        if (MON_EQ(&descP->closerMon, monP)) {
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "esaio_down {%d} -> closer process exit\r\n",
+                    descP->sock) );
+
+            MON_INIT(&descP->closerMon);
+
+        } else {
+            // The owner is the closer so we used its monitor
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "esaio_down {%d} -> closer controlling process exit\r\n",
+                    descP->sock) );
+
+            ESOCK_ASSERT( MON_EQ(&descP->ctrlMon, monP) );
+            MON_INIT(&descP->ctrlMon);
+            enif_set_pid_undefined(&descP->ctrlPid);
+
+        }
+
+        /* Since the closer went down there was one,
+         * hence esock_close() must have run or scheduled esock_stop(),
+         * or the socket has never been "selected" upon.
+         */
+
+        if (descP->closeEnv == NULL) {
+            int err;
+
+            /* Since there is no closeEnv,
+             * esock_close() did not schedule esock_stop()
+             * and is about to call esock_finalize_close() but died,
+             * or esock_stop() has run, sent close_msg to the closer
+             * and cleared ->closeEnv but the closer died
+             * - we have to do an unclean (non blocking) socket close here
+             */
+
+            err = esock_close_socket(env, descP, FALSE);
+            if (err != 0)
+                esock_warning_msg("[WIN-ESAIO] "
+                                  "Failed closing socket for terminating "
+                                  "closer process: "
+                                  "\r\n   Closer Process: %T"
+                                  "\r\n   Descriptor:     %d"
+                                  "\r\n   Errno:          %d (%T)"
+                                  "\r\n",
+                                  MKPID(env, pidP), descP->sock,
+                                  err, MKA(env, erl_errno_id(err)));
+        } else {
+            /* Since there is a closeEnv esock_stop() has not run yet
+             * - when it finds that there is no closer process
+             *   it will close the socket and ignore the close_msg
+             */
+            esock_clear_env("esaio_down - close-env", descP->closeEnv);
+            esock_free_env("esaio_down - close-env", descP->closeEnv);
+            descP->closeEnv = NULL;
+            descP->closeRef = esock_atom_undefined;
+        }
+
+    } else if (MON_EQ(&descP->ctrlMon, monP)) {
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_down {%d} -> controller process exit\r\n",
+                descP->sock) );
+
+        MON_INIT(&descP->ctrlMon);
+        /* The owner went down */
+        enif_set_pid_undefined(&descP->ctrlPid);
+
+        if (IS_OPEN(descP->readState)) {
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "esaio_down {%d} -> OPEN => initiate close\r\n",
+                    descP->sock) );
+
+            esaio_down_ctrl(env, descP, pidP);
+
+            descP->readState  |= ESOCK_STATE_CLOSING;
+            descP->writeState |= ESOCK_STATE_CLOSING;
+
+        } else {
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "esaio_down {%d} -> already closed or closing\r\n",
+                    descP->sock) );
+
+        }
+
+    } else if (descP->connectorP != NULL &&
+               MON_EQ(&descP->connector.mon, monP)) {
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_down {%d} -> connector process exit\r\n",
+                descP->sock) );
+
+        MON_INIT(&descP->connector.mon);
+
+        /* connectorP is only set during connection.
+         * Forget all about the ongoing connection.
+         * We might end up connected, but the process that initiated
+         * the connection has died and will never know
+         */
+
+        esock_requestor_release("esaio_down->connector",
+                                env, descP, &descP->connector);
+        descP->connectorP = NULL;
+        descP->writeState &= ~ESOCK_STATE_CONNECTING;
+
+    } else {
+        ERL_NIF_TERM sockRef = enif_make_resource(env, descP);
+
+        /* check all operation queue(s): acceptor, writer and reader.
+         *
+         * Is it really any point in doing this if the socket is closed?
+         *
+         */
+
+        if (IS_CLOSED(descP->readState)) {
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "esaio_down(%T) {%d} -> stray down: %T\r\n",
+                    sockRef, descP->sock, pidP) );
+        } else {
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "esaio_down(%T) {%d} -> "
+                    "other process - check readers, writers and acceptors\r\n",
+                    sockRef, descP->sock) );
+
+            if (descP->readersQ.first != NULL)
+                esaio_down_reader(env, descP, sockRef, pidP, monP);
+            if (descP->acceptorsQ.first != NULL)
+                esaio_down_acceptor(env, descP, sockRef, pidP, monP);
+            if (descP->writersQ.first != NULL)
+                esaio_down_writer(env, descP, sockRef, pidP, monP);
+        }
+    }
+
+    SSDBG( descP, ("WIN-ESAIO", "esaio_down {%d} -> done\r\n", descP->sock) );
+
+}
+
+
+
+/* *** esaio_down_ctrl ***
+ *
+ * Stop after a downed controller (controlling process = owner process)
+ *
+ * This is 'extern' because its currently called from prim_socket_nif
+ * (esock_setopt_otp_ctrl_proc).
+ */
+extern
+void esaio_down_ctrl(ErlNifEnv*           env,
+                     ESockDescriptor*     descP,
+                     const ErlNifPid*     pidP)
+{
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_down_ctrl {%d} -> entry with"
+            "\r\n   Pid: %T"
+            "\r\n", descP->sock, MKPID(env, pidP)) );
+
+    if (do_stop(env, descP)) {
+        /* esock_stop() is scheduled
+         * - it has to close the socket
+         */
+        SSDBG( descP,
+               ("WIN-ESAIO", "essio_down_ctrl {%d} -> stop was scheduled\r\n",
+                descP->sock) );
+    } else {
+        int err;
+
+        /* Socket has no *active* requests in the I/O Completion Ports machinery
+         * so esock_stop() will not be called
+         * - we have to do an unclean (non blocking) socket close here
+         */
+
+        err = esock_close_socket(env, descP, FALSE);
+        if (err != 0)
+            esock_warning_msg("[WIN-ESAIO] "
+                              "Failed closing socket for terminating "
+                              "owner process: "
+                              "\r\n   Owner Process:  %T"
+                              "\r\n   Descriptor:     %d"
+                              "\r\n   Errno:          %d (%T)"
+                              "\r\n",
+                              MKPID(env, pidP), descP->sock,
+                              err, MKA(env, erl_errno_id(err)));
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_down_ctrl {%d} -> done\r\n", descP->sock) );
+
+}
+
+
+
+/* *** esaio_down_acceptor ***
+ *
+ * Check and then handle a downed acceptor process.
+ *
+ */
+static
+void esaio_down_acceptor(ErlNifEnv*           env,
+                         ESockDescriptor*     descP,
+                         ERL_NIF_TERM         sockRef,
+                         const ErlNifPid*     pidP,
+                         const ErlNifMonitor* monP)
+{
+        
+    /* Maybe unqueue one of the waiting acceptors */
+        
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_down_acceptor(%T) {%d} -> "
+            "maybe unqueue a waiting acceptor\r\n",
+            sockRef, descP->sock) );
+        
+    esock_acceptor_unqueue(env, descP, NULL, pidP);
+
+}
+
+
+/* *** esaio_down_writer ***
+ *
+ * Check and then handle a downed writer process.
+ *
+ */
+
+static
+void esaio_down_writer(ErlNifEnv*           env,
+                       ESockDescriptor*     descP,
+                       ERL_NIF_TERM         sockRef,
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP)
+{
+        
+    /* Maybe unqueue one of the waiting writer(s) */
+        
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_down_writer(%T) {%d} -> maybe unqueue a waiting writer\r\n",
+            sockRef, descP->sock) );
+        
+    esock_writer_unqueue(env, descP, NULL, pidP);
+
+}
+
+
+/* *** esaio_down_reader ***
+ *
+ * Check and then handle a downed reader process.
+ *
+ */
+
+static
+void esaio_down_reader(ErlNifEnv*           env,
+                       ESockDescriptor*     descP,
+                       ERL_NIF_TERM         sockRef,
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP)
+{
+    /* Maybe unqueue one of the waiting reader(s) */
+        
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_down_reader(%T) {%d} -> maybe unqueue a waiting reader\r\n",
+            sockRef, descP->sock) );
+        
+    esock_reader_unqueue(env, descP, NULL, pidP);
+
 }
 
 

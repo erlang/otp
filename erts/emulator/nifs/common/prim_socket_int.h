@@ -822,10 +822,5 @@ extern void esock_send_sendfile_deferred_close_msg(ErlNifEnv*       env,
 extern int esock_close_socket(ErlNifEnv*       env,
                               ESockDescriptor* descP,
                               BOOLEAN_T        unlock);
-#ifndef __WIN32__
-extern BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
-                               ESockDescriptor* descP);
-#endif
-
 
 #endif // PRIM_SOCKET_INT_H__

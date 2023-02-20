@@ -3016,9 +3016,6 @@ static BOOLEAN_T esock_send_msg(ErlNifEnv*   env,
                                 ErlNifEnv*   msgEnv);
 */
 
-static ERL_NIF_TERM mk_close_msg(ErlNifEnv*   env,
-                                 ERL_NIF_TERM sockRef,
-                                 ERL_NIF_TERM closeRef);
 static ERL_NIF_TERM mk_select_msg(ErlNifEnv*   env,
                                   ERL_NIF_TERM sockRef,
                                   ERL_NIF_TERM selectRef);
@@ -3100,6 +3097,9 @@ static ERL_NIF_TERM esock_socket_info_state(ErlNifEnv*   env,
 static ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                                                ESockDescriptor* descP);
 
+static ERL_NIF_TERM mk_close_msg(ErlNifEnv*   env,
+                                 ERL_NIF_TERM sockRef,
+                                 ERL_NIF_TERM closeRef);
 static ERL_NIF_TERM mk_reg_msg(ErlNifEnv*   env,
                                ERL_NIF_TERM tag,
                                ERL_NIF_TERM sockRef);
@@ -6395,177 +6395,6 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
 
     return res;
 }
-
-
-/* Prepare for close - return whether stop is scheduled
- */
-#ifndef __WIN32__ // TEMPORARY - check the prim_socket_int.h file!
-extern
-BOOLEAN_T esock_do_stop(ErlNifEnv*       env,
-                        ESockDescriptor* descP)
-{
-    BOOLEAN_T    ret;
-    int          sres;
-    ERL_NIF_TERM sockRef;
-
-    sockRef = enif_make_resource(env, descP);
-
-    if (IS_SELECTED(descP)) {
-        ESOCK_ASSERT( (sres = esock_select_stop(env,
-                                                (ErlNifEvent) descP->sock,
-                                                descP))
-                      >= 0 );
-        if ((sres & ERL_NIF_SELECT_STOP_CALLED) != 0) {
-            /* The socket is no longer known by the select machinery
-             * - it may be closed
-             */
-            ret = FALSE;
-        } else {
-            ESOCK_ASSERT( (sres & ERL_NIF_SELECT_STOP_SCHEDULED) != 0 );
-            /* esock_stop() is scheduled
-             * - socket may be removed by esock_stop() or later
-             */
-            ret = TRUE;
-        }
-    } else {
-        sres = 0;
-        /* The socket has never been used in the select machinery
-         * - it may be closed
-         */
-        ret = FALSE;
-    }
-
-    /* +++++++ Current and waiting Writers +++++++ */
-
-    if (descP->currentWriterP != NULL) {
-
-        /* We have a current Writer; was it deselected?
-         */
-
-        if (sres & ERL_NIF_SELECT_WRITE_CANCELLED) {
-
-            /* The current Writer will not get a select message
-             * - send it an abort message
-             */
-
-            esock_stop_handle_current(env,
-                                      "writer",
-                                      descP, sockRef, &descP->currentWriter);
-        }
-
-        /* Inform the waiting Writers (in the same way) */
-
-        SSDBG( descP,
-               ("SOCKET",
-                "esock_do_stop {%d} -> handle waiting writer(s)\r\n",
-                descP->sock) );
-
-        esock_inform_waiting_procs(env, "writer",
-                                   descP, sockRef, &descP->writersQ,
-                                   esock_atom_closed);
-
-        descP->currentWriterP = NULL;
-    }
-
-    /* +++++++ Connector +++++++
-     * Note that there should not be Writers and a Connector
-     * at the same time so the check for if the
-     * current Writer/Connecter was deselected is only correct
-     * under that assumption
-     */
-
-    if (descP->connectorP != NULL) {
-
-        /* We have a Connector; was it deselected?
-         */
-
-        if (sres & ERL_NIF_SELECT_WRITE_CANCELLED) {
-
-            /* The Connector will not get a select message
-             * - send it an abort message
-             */
-
-            esock_stop_handle_current(env,
-                                      "connector",
-                                      descP, sockRef, &descP->connector);
-        }
-
-        descP->connectorP = NULL;
-    }
-
-    /* +++++++ Current and waiting Readers +++++++ */
-
-    if (descP->currentReaderP != NULL) {
-
-        /* We have a current Reader; was it deselected?
-         */
-
-        if (sres & ERL_NIF_SELECT_READ_CANCELLED) {
-
-            /* The current Reader will not get a select message
-             * - send it an abort message
-             */
-
-            esock_stop_handle_current(env,
-                                      "reader",
-                                      descP, sockRef, &descP->currentReader);
-        }
-
-        /* Inform the Readers (in the same way) */
-
-        SSDBG( descP,
-               ("SOCKET",
-                "esock_do_stop {%d} -> handle waiting reader(s)\r\n",
-                descP->sock) );
-
-        esock_inform_waiting_procs(env, "writer",
-                                   descP, sockRef, &descP->readersQ,
-                                   esock_atom_closed);
-
-        descP->currentReaderP = NULL;
-    }
-
-    /* +++++++ Current and waiting Acceptors +++++++
-     *
-     * Note that there should not be Readers and Acceptors
-     * at the same time so the check for if the
-     * current Reader/Acceptor was deselected is only correct
-     * under that assumption
-     */
-
-    if (descP->currentAcceptorP != NULL) {
-
-        /* We have a current Acceptor; was it deselected?
-         */
-
-        if (sres & ERL_NIF_SELECT_READ_CANCELLED) {
-
-            /* The current Acceptor will not get a select message
-             * - send it an abort message
-             */
-
-            esock_stop_handle_current(env,
-                                      "acceptor",
-                                      descP, sockRef, &descP->currentAcceptor);
-        }
-
-        /* Inform the waiting Acceptor (in the same way) */
-
-        SSDBG( descP,
-               ("SOCKET",
-                "esock_do_stop {%d} -> handle waiting acceptors(s)\r\n",
-                descP->sock) );
-
-        esock_inform_waiting_procs(env, "acceptor",
-                                   descP, sockRef, &descP->acceptorsQ,
-                                   esock_atom_closed);
-
-        descP->currentAcceptorP = NULL;
-    }
-
-    return ret;
-}
-#endif // #ifndef __WIN32__
 
 
 /* ----------------------------------------------------------------------
@@ -13452,7 +13281,6 @@ void esock_send_wrap_msg(ErlNifEnv*       env,
  * erlang API (close-) function for the socket to be "closed"
  * (actually that the 'stop' callback function has been called).
  */
-#ifndef __WIN32__
 extern
 void esock_send_close_msg(ErlNifEnv*       env,
                           ESockDescriptor* descP,
@@ -13474,7 +13302,7 @@ void esock_send_close_msg(ErlNifEnv*       env,
     }
 }
 
-#endif // #ifndef __WIN32__
+
 
 #ifdef HAVE_SENDFILE
 extern
@@ -13688,7 +13516,6 @@ ERL_NIF_TERM mk_wrap_msg(ErlNifEnv*   env,
  *         {'$socket', Socket, close, closeRef}
  *
  */
-#ifndef __WIN32__
 static
 ERL_NIF_TERM mk_close_msg(ErlNifEnv*   env,
                           ERL_NIF_TERM sockRef,
@@ -13696,7 +13523,7 @@ ERL_NIF_TERM mk_close_msg(ErlNifEnv*   env,
 {
     return esock_mk_socket_msg(env, sockRef, esock_atom_close, closeRef);
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* *** mk_select_msg ***
@@ -14118,8 +13945,6 @@ REQ_GET_FUNCS
  *
  */
 
-#ifndef __WIN32__
-
 #define REQ_UNQUEUE_FUNCS                       \
     REQ_UNQUEUE_FUNC_DECL(acceptor, acceptorsQ) \
     REQ_UNQUEUE_FUNC_DECL(writer,   writersQ)   \
@@ -14137,9 +13962,6 @@ REQ_GET_FUNCS
     }
 REQ_UNQUEUE_FUNCS
 #undef REQ_UNQUEUE_FUNC_DECL
-
-#endif // #ifndef __WIN32__
-
 
 
 /* *** requestor pop ***
@@ -14494,7 +14316,7 @@ void esock_dtor(ErlNifEnv* env, void* obj)
   MLOCK(descP->readMtx);
   MLOCK(descP->writeMtx);
 
-  SGDBG( ("SOCKET", "dtor {%d,0x%X}\r\n",
+  SGDBG( ("SOCKET", "esock_dtor {%d,0x%X}\r\n",
           descP->sock, descP->readState | descP->writeState) );
 
   ESOCK_IO_DTOR(env, descP);
@@ -14502,13 +14324,13 @@ void esock_dtor(ErlNifEnv* env, void* obj)
   MUNLOCK(descP->writeMtx);
   MUNLOCK(descP->readMtx);
 
-  SGDBG( ("SOCKET", "dtor -> try destroy read mutex\r\n") );
+  SGDBG( ("SOCKET", "esock_dtor -> try destroy read mutex\r\n") );
   MDESTROY(descP->readMtx);  descP->readMtx  = NULL;
 
-  SGDBG( ("SOCKET", "dtor -> try destroy write mutex\r\n") );
+  SGDBG( ("SOCKET", "esock_dtor -> try destroy write mutex\r\n") );
   MDESTROY(descP->writeMtx); descP->writeMtx = NULL;
 
-  SGDBG( ("SOCKET", "dtor -> done\r\n") );
+  SGDBG( ("SOCKET", "esock_dtor -> done\r\n") );
 }
 
 
@@ -14967,9 +14789,9 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.getopt_native  = NULL;
     io_backend.getopt_otp     = NULL;
 
-    io_backend.dtor           = NULL;
-    io_backend.stop           = NULL;
-    io_backend.down           = NULL;
+    io_backend.dtor           = esaio_dtor;
+    io_backend.stop           = esaio_stop;
+    io_backend.down           = esaio_down;
 
 #else
 

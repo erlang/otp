@@ -147,4 +147,19 @@ extern ERL_NIF_TERM esaio_cancel_accept(ErlNifEnv*       env,
                                         ERL_NIF_TERM     sockRef,
                                         ERL_NIF_TERM     opRef);
 
+extern void esaio_dtor(ErlNifEnv*       env,
+                       ESockDescriptor* descP);
+extern void esaio_stop(ErlNifEnv*       env,
+                       ESockDescriptor* descP,
+                       ErlNifEvent      fd);
+extern void esaio_down(ErlNifEnv*           env,
+                       ESockDescriptor*     descP,
+                       const ErlNifPid*     pidP,
+                       const ErlNifMonitor* monP);
+
+/* Temporary (I hope) workaround */
+extern void esaio_down_ctrl(ErlNifEnv*       env,
+                            ESockDescriptor* descP,
+                            const ErlNifPid* pidP);
+
 #endif // SOCKET_ASYNCIO_H__

@@ -412,6 +412,9 @@ static void essio_down_reader(ErlNifEnv*       env,
                               const ErlNifPid* pidP,
                               const ErlNifMonitor* monP);
 
+static BOOLEAN_T do_stop(ErlNifEnv*       env,
+                         ESockDescriptor* descP);
+
 
 /* =================================================================== *
  *                                                                     *
@@ -2792,7 +2795,7 @@ ERL_NIF_TERM essio_close(ErlNifEnv*       env,
     /* Prepare for closing the socket */
     descP->readState  |= ESOCK_STATE_CLOSING;
     descP->writeState |= ESOCK_STATE_CLOSING;
-    if (esock_do_stop(env, descP)) {
+    if (do_stop(env, descP)) {
         // stop() has been scheduled - wait for it
         SSDBG( descP,
                ("UNIX-ESSIO", "essio_close {%d} -> stop was scheduled\r\n",
@@ -2812,6 +2815,176 @@ ERL_NIF_TERM essio_close(ErlNifEnv*       env,
 
         return esock_atom_ok;
     }
+}
+
+
+
+/* Prepare for close - return whether stop is scheduled
+ */
+static
+BOOLEAN_T do_stop(ErlNifEnv*       env,
+                  ESockDescriptor* descP)
+{
+    BOOLEAN_T    ret;
+    int          sres;
+    ERL_NIF_TERM sockRef;
+
+    sockRef = enif_make_resource(env, descP);
+
+    if (IS_SELECTED(descP)) {
+        ESOCK_ASSERT( (sres = esock_select_stop(env,
+                                                (ErlNifEvent) descP->sock,
+                                                descP))
+                      >= 0 );
+        if ((sres & ERL_NIF_SELECT_STOP_CALLED) != 0) {
+            /* The socket is no longer known by the select machinery
+             * - it may be closed
+             */
+            ret = FALSE;
+        } else {
+            ESOCK_ASSERT( (sres & ERL_NIF_SELECT_STOP_SCHEDULED) != 0 );
+            /* esock_stop() is scheduled
+             * - socket may be removed by esock_stop() or later
+             */
+            ret = TRUE;
+        }
+    } else {
+        sres = 0;
+        /* The socket has never been used in the select machinery
+         * - it may be closed
+         */
+        ret = FALSE;
+    }
+
+    /* +++++++ Current and waiting Writers +++++++ */
+
+    if (descP->currentWriterP != NULL) {
+
+        /* We have a current Writer; was it deselected?
+         */
+
+        if (sres & ERL_NIF_SELECT_WRITE_CANCELLED) {
+
+            /* The current Writer will not get a select message
+             * - send it an abort message
+             */
+
+            esock_stop_handle_current(env,
+                                      "writer",
+                                      descP, sockRef, &descP->currentWriter);
+        }
+
+        /* Inform the waiting Writers (in the same way) */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "do_stop {%d} -> handle waiting writer(s)\r\n",
+                descP->sock) );
+
+        esock_inform_waiting_procs(env, "writer",
+                                   descP, sockRef, &descP->writersQ,
+                                   esock_atom_closed);
+
+        descP->currentWriterP = NULL;
+    }
+
+    /* +++++++ Connector +++++++
+     * Note that there should not be Writers and a Connector
+     * at the same time so the check for if the
+     * current Writer/Connecter was deselected is only correct
+     * under that assumption
+     */
+
+    if (descP->connectorP != NULL) {
+
+        /* We have a Connector; was it deselected?
+         */
+
+        if (sres & ERL_NIF_SELECT_WRITE_CANCELLED) {
+
+            /* The Connector will not get a select message
+             * - send it an abort message
+             */
+
+            esock_stop_handle_current(env,
+                                      "connector",
+                                      descP, sockRef, &descP->connector);
+        }
+
+        descP->connectorP = NULL;
+    }
+
+    /* +++++++ Current and waiting Readers +++++++ */
+
+    if (descP->currentReaderP != NULL) {
+
+        /* We have a current Reader; was it deselected?
+         */
+
+        if (sres & ERL_NIF_SELECT_READ_CANCELLED) {
+
+            /* The current Reader will not get a select message
+             * - send it an abort message
+             */
+
+            esock_stop_handle_current(env,
+                                      "reader",
+                                      descP, sockRef, &descP->currentReader);
+        }
+
+        /* Inform the Readers (in the same way) */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "do_stop {%d} -> handle waiting reader(s)\r\n",
+                descP->sock) );
+
+        esock_inform_waiting_procs(env, "writer",
+                                   descP, sockRef, &descP->readersQ,
+                                   esock_atom_closed);
+
+        descP->currentReaderP = NULL;
+    }
+
+    /* +++++++ Current and waiting Acceptors +++++++
+     *
+     * Note that there should not be Readers and Acceptors
+     * at the same time so the check for if the
+     * current Reader/Acceptor was deselected is only correct
+     * under that assumption
+     */
+
+    if (descP->currentAcceptorP != NULL) {
+
+        /* We have a current Acceptor; was it deselected?
+         */
+
+        if (sres & ERL_NIF_SELECT_READ_CANCELLED) {
+
+            /* The current Acceptor will not get a select message
+             * - send it an abort message
+             */
+
+            esock_stop_handle_current(env,
+                                      "acceptor",
+                                      descP, sockRef, &descP->currentAcceptor);
+        }
+
+        /* Inform the waiting Acceptor (in the same way) */
+
+        SSDBG( descP,
+               ("SOCKET",
+                "do_stop {%d} -> handle waiting acceptors(s)\r\n",
+                descP->sock) );
+
+        esock_inform_waiting_procs(env, "acceptor",
+                                   descP, sockRef, &descP->acceptorsQ,
+                                   esock_atom_closed);
+
+        descP->currentAcceptorP = NULL;
+    }
+
+    return ret;
 }
 
 
@@ -4572,7 +4745,7 @@ void essio_stop(ErlNifEnv*       env,
         err = esock_close_socket(env, descP, FALSE);
 
         if (err != 0)
-            esock_warning_msg("Failed closing socket without "
+            esock_warning_msg("[UNIX-ESSIO] Failed closing socket without "
                               "closer process: "
                               "\r\n   Controlling Process: %T"
                               "\r\n   Descriptor:          %d"
@@ -4648,7 +4821,8 @@ void essio_down(ErlNifEnv*           env,
 
             err = esock_close_socket(env, descP, FALSE);
             if (err != 0)
-                esock_warning_msg("Failed closing socket for terminating "
+                esock_warning_msg("[UNIX-ESSIO] "
+                                  "Failed closing socket for terminating "
                                   "closer process: "
                                   "\r\n   Closer Process: %T"
                                   "\r\n   Descriptor:     %d"
@@ -4661,7 +4835,8 @@ void essio_down(ErlNifEnv*           env,
              * - when it finds that there is no closer process
              *   it will close the socket and ignore the close_msg
              */
-            esock_free_env("esock_down - close-env", descP->closeEnv);
+            esock_clear_env("essio_down - close-env", descP->closeEnv);
+            esock_free_env("essio_down - close-env", descP->closeEnv);
             descP->closeEnv = NULL;
             descP->closeRef = esock_atom_undefined;
         }
@@ -5401,6 +5576,8 @@ void recv_error_current_reader(ErlNifEnv*       env,
  *
  * Stop after a downed controller (controlling process = owner process)
  *
+ * This is 'extern' because its currently called from prim_socket_nif
+ * (esock_setopt_otp_ctrl_proc).
  */
 extern
 void essio_down_ctrl(ErlNifEnv*           env,
@@ -5412,7 +5589,7 @@ void essio_down_ctrl(ErlNifEnv*           env,
             "\r\n   Pid: %T"
             "\r\n", descP->sock, MKPID(env, pidP)) );
 
-    if (esock_do_stop(env, descP)) {
+    if (do_stop(env, descP)) {
         /* esock_stop() is scheduled
          * - it has to close the socket
          */
@@ -5434,7 +5611,8 @@ void essio_down_ctrl(ErlNifEnv*           env,
 
         err = esock_close_socket(env, descP, FALSE);
         if (err != 0)
-            esock_warning_msg("Failed closing socket for terminating "
+            esock_warning_msg("[UNIX-ESSIO] "
+                              "Failed closing socket for terminating "
                               "owner process: "
                               "\r\n   Owner Process:  %T"
                               "\r\n   Descriptor:     %d"
