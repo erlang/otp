@@ -1148,36 +1148,6 @@ static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
-/* Set OTP level options */
-static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     int              eOpt,
-                                     ERL_NIF_TERM     eVal);
-/* *** esock_setopt_otp_debug        ***
- * *** esock_setopt_otp_iow          ***
- * *** esock_setopt_otp_ctrl_proc    ***
- * *** esock_setopt_otp_rcvbuf       ***
- * *** esock_setopt_otp_rcvctrlbuf   ***
- * *** esock_setopt_otp_sndctrlbuf   ***
- * *** esock_setopt_otp_meta         ***
- * *** esock_setopt_otp_use_registry ***
- */
-#define ESOCK_SETOPT_OTP_FUNCS               \
-    ESOCK_SETOPT_OTP_FUNC_DEF(debug);        \
-    ESOCK_SETOPT_OTP_FUNC_DEF(iow);          \
-    ESOCK_SETOPT_OTP_FUNC_DEF(ctrl_proc);    \
-    ESOCK_SETOPT_OTP_FUNC_DEF(rcvbuf);       \
-    ESOCK_SETOPT_OTP_FUNC_DEF(rcvctrlbuf);   \
-    ESOCK_SETOPT_OTP_FUNC_DEF(sndctrlbuf);   \
-    ESOCK_SETOPT_OTP_FUNC_DEF(meta);	     \
-    ESOCK_SETOPT_OTP_FUNC_DEF(use_registry);
-#define ESOCK_SETOPT_OTP_FUNC_DEF(F)                                 \
-    static ERL_NIF_TERM esock_setopt_otp_##F(ErlNifEnv*       env,   \
-                                             ESockDescriptor* descP, \
-                                             ERL_NIF_TERM     eVal)
-ESOCK_SETOPT_OTP_FUNCS
-#undef ESOCK_SETOPT_OTP_FUNC_DEF
-
 /* Set native options */
 static ERL_NIF_TERM esock_setopt_native(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
@@ -1348,45 +1318,6 @@ static ERL_NIF_TERM esock_setopt_sctp_rtoinfo(ErlNifEnv*       env,
 
 #endif // defined(HAVE_SCTP)
 
-
-static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     int              eOpt);
-/* *** esock_getopt_otp_debug        ***
- * *** esock_getopt_otp_iow          ***
- * *** esock_getopt_otp_ctrl_proc    ***
- * *** esock_getopt_otp_rcvbuf       ***
- * *** esock_getopt_otp_rcvctrlbuf   ***
- * *** esock_getopt_otp_sndctrlbuf   ***
- * *** esock_getopt_otp_fd           ***
- * *** esock_getopt_otp_meta         ***
- * *** esock_getopt_otp_use_registry ***
- * *** esock_getopt_otp_domain       ***
- * *** //esock_getopt_otp_type       ***
- * *** //esock_getopt_otp_protocol   ***
- * *** //esock_getopt_otp_dtp        ***
- */
-#define ESOCK_GETOPT_OTP_FUNCS               \
-    ESOCK_GETOPT_OTP_FUNC_DEF(debug);        \
-    ESOCK_GETOPT_OTP_FUNC_DEF(iow);          \
-    ESOCK_GETOPT_OTP_FUNC_DEF(ctrl_proc);    \
-    ESOCK_GETOPT_OTP_FUNC_DEF(rcvbuf);       \
-    ESOCK_GETOPT_OTP_FUNC_DEF(rcvctrlbuf);   \
-    ESOCK_GETOPT_OTP_FUNC_DEF(sndctrlbuf);   \
-    ESOCK_GETOPT_OTP_FUNC_DEF(fd);           \
-    ESOCK_GETOPT_OTP_FUNC_DEF(meta);         \
-    ESOCK_GETOPT_OTP_FUNC_DEF(use_registry); \
-    ESOCK_GETOPT_OTP_FUNC_DEF(domain);
-#if 0
-    ESOCK_GETOPT_OTP_FUNC_DEF(type);         \
-    ESOCK_GETOPT_OTP_FUNC_DEF(protocol);     \
-    ESOCK_GETOPT_OTP_FUNC_DEF(dtp);
-#endif
-#define ESOCK_GETOPT_OTP_FUNC_DEF(F)                               \
-    static ERL_NIF_TERM esock_getopt_otp_##F(ErlNifEnv*        env, \
-                                             ESockDescriptor* descP)
-ESOCK_GETOPT_OTP_FUNCS
-#undef ESOCK_GETOPT_OTP_FUNC_DEF
 
 static ERL_NIF_TERM esock_getopt_native(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
@@ -3030,6 +2961,75 @@ static ERL_NIF_TERM mk_select_msg(ErlNifEnv*   env,
  * ---------------------------------------------------------------------- */
 #endif // #ifndef __WIN32__
 
+/* Set OTP level options */
+static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              eOpt,
+                                     ERL_NIF_TERM     eVal);
+/* *** esock_setopt_otp_debug        ***
+ * *** esock_setopt_otp_iow          ***
+ * *** esock_setopt_otp_ctrl_proc    ***
+ * *** esock_setopt_otp_rcvbuf       ***
+ * *** esock_setopt_otp_rcvctrlbuf   ***
+ * *** esock_setopt_otp_sndctrlbuf   ***
+ * *** esock_setopt_otp_meta         ***
+ * *** esock_setopt_otp_use_registry ***
+ */
+#define ESOCK_SETOPT_OTP_FUNCS                  \
+    ESOCK_SETOPT_OTP_FUNC_DEF(debug);           \
+    ESOCK_SETOPT_OTP_FUNC_DEF(iow);             \
+    ESOCK_SETOPT_OTP_FUNC_DEF(ctrl_proc);       \
+    ESOCK_SETOPT_OTP_FUNC_DEF(rcvbuf);          \
+    ESOCK_SETOPT_OTP_FUNC_DEF(rcvctrlbuf);      \
+    ESOCK_SETOPT_OTP_FUNC_DEF(sndctrlbuf);      \
+    ESOCK_SETOPT_OTP_FUNC_DEF(meta);            \
+    ESOCK_SETOPT_OTP_FUNC_DEF(use_registry);
+#define ESOCK_SETOPT_OTP_FUNC_DEF(F)                                    \
+    static ERL_NIF_TERM esock_setopt_otp_##F(ErlNifEnv*       env,      \
+                                             ESockDescriptor* descP,    \
+                                             ERL_NIF_TERM     eVal)
+ESOCK_SETOPT_OTP_FUNCS
+#undef ESOCK_SETOPT_OTP_FUNC_DEF
+
+static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              eOpt);
+/* *** esock_getopt_otp_debug        ***
+ * *** esock_getopt_otp_iow          ***
+ * *** esock_getopt_otp_ctrl_proc    ***
+ * *** esock_getopt_otp_rcvbuf       ***
+ * *** esock_getopt_otp_rcvctrlbuf   ***
+ * *** esock_getopt_otp_sndctrlbuf   ***
+ * *** esock_getopt_otp_fd           ***
+ * *** esock_getopt_otp_meta         ***
+ * *** esock_getopt_otp_use_registry ***
+ * *** esock_getopt_otp_domain       ***
+ * *** //esock_getopt_otp_type       ***
+ * *** //esock_getopt_otp_protocol   ***
+ * *** //esock_getopt_otp_dtp        ***
+ */
+#define ESOCK_GETOPT_OTP_FUNCS                  \
+    ESOCK_GETOPT_OTP_FUNC_DEF(debug);           \
+    ESOCK_GETOPT_OTP_FUNC_DEF(iow);             \
+    ESOCK_GETOPT_OTP_FUNC_DEF(ctrl_proc);       \
+    ESOCK_GETOPT_OTP_FUNC_DEF(rcvbuf);          \
+    ESOCK_GETOPT_OTP_FUNC_DEF(rcvctrlbuf);      \
+    ESOCK_GETOPT_OTP_FUNC_DEF(sndctrlbuf);      \
+    ESOCK_GETOPT_OTP_FUNC_DEF(fd);              \
+    ESOCK_GETOPT_OTP_FUNC_DEF(meta);            \
+    ESOCK_GETOPT_OTP_FUNC_DEF(use_registry);    \
+    ESOCK_GETOPT_OTP_FUNC_DEF(domain);
+#if 0
+ESOCK_GETOPT_OTP_FUNC_DEF(type);         \
+ESOCK_GETOPT_OTP_FUNC_DEF(protocol);     \
+ESOCK_GETOPT_OTP_FUNC_DEF(dtp);
+#endif
+#define ESOCK_GETOPT_OTP_FUNC_DEF(F)                                    \
+    static ERL_NIF_TERM esock_getopt_otp_##F(ErlNifEnv*        env,     \
+                                             ESockDescriptor* descP)
+ESOCK_GETOPT_OTP_FUNCS
+#undef ESOCK_GETOPT_OTP_FUNC_DEF
+
 static ERL_NIF_TERM esock_shutdown(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
                                    int              how);
@@ -3873,7 +3873,7 @@ static ESockIoBackend io_backend = {0};
      io_backend.getopt_native((ENV), (D), (L), (O), (VS)) :    \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_GETOPT_OTP(ENV, D, EO)                 \
-    ((io_backend.getopt != NULL) ?                      \
+    ((io_backend.getopt_otp != NULL) ?                      \
      io_backend.getopt_otp((ENV), (D), (EO)) :          \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
 
@@ -6665,7 +6665,7 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
 
 /* esock_setopt_otp - Handle OTP (level) options
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
                               ESockDescriptor* descP,
@@ -6749,13 +6749,12 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
 
     return result;
 }
-#endif // #ifndef __WIN32__
 
 
 
 /* esock_setopt_otp_debug - Handle the OTP (level) debug options
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_otp_debug(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
@@ -6778,12 +6777,12 @@ ERL_NIF_TERM esock_setopt_otp_debug(ErlNifEnv*       env,
 
     return esock_atom_ok;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_otp_iow - Handle the OTP (level) iow options
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_otp_iow(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
@@ -6806,13 +6805,13 @@ ERL_NIF_TERM esock_setopt_otp_iow(ErlNifEnv*       env,
 
     return esock_atom_ok;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_otp_ctrl_proc - Handle the OTP (level)
  * controlling_process options
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_otp_ctrl_proc(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
@@ -6881,6 +6880,7 @@ ERL_NIF_TERM esock_setopt_otp_ctrl_proc(ErlNifEnv*       env,
 
         enif_set_pid_undefined(&descP->ctrlPid);
 
+        /* Shall we use an function pointer argument instead? */
 #ifndef __WIN32__
         essio_down_ctrl(env, descP, &newCtrlPid);
 #else
@@ -6898,7 +6898,7 @@ ERL_NIF_TERM esock_setopt_otp_ctrl_proc(ErlNifEnv*       env,
 
     return esock_atom_ok;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_otp_rcvbuf - Handle the OTP (level) rcvbuf option
@@ -6909,7 +6909,7 @@ ERL_NIF_TERM esock_setopt_otp_ctrl_proc(ErlNifEnv*       env,
  *
  * Where N is the max number of reads.
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
@@ -6967,12 +6967,12 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
 
     return esock_atom_ok;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_otp_rcvctrlbuf - Handle the OTP (level) rcvctrlbuf option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_otp_rcvctrlbuf(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
@@ -7011,12 +7011,12 @@ ERL_NIF_TERM esock_setopt_otp_rcvctrlbuf(ErlNifEnv*       env,
 
     return esock_atom_ok;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_otp_sndctrlbuf - Handle the OTP (level) sndctrlbuf option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_otp_sndctrlbuf(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
@@ -7055,12 +7055,12 @@ ERL_NIF_TERM esock_setopt_otp_sndctrlbuf(ErlNifEnv*       env,
 
     return esock_atom_ok;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_otp_meta - Handle the OTP (level) meta options
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_otp_meta(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
@@ -7098,12 +7098,12 @@ ERL_NIF_TERM esock_setopt_otp_meta(ErlNifEnv*       env,
 
     return esock_atom_ok;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_otp_use_registry - Handle the OTP (level) use_registry option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_otp_use_registry(ErlNifEnv*       env,
 					   ESockDescriptor* descP,
@@ -7139,7 +7139,7 @@ ERL_NIF_TERM esock_setopt_otp_use_registry(ErlNifEnv*       env,
 
     return esock_atom_ok;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* The option has *not* been encoded. Instead it has been provided
@@ -8409,7 +8409,7 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
 
 /* esock_getopt_otp - Handle OTP (level) options
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
                               ESockDescriptor* descP,
@@ -8523,11 +8523,11 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
 
     return result;
 }
-#endif // #ifndef __WIN32__
+
 
 /* esock_getopt_otp_debug - Handle the OTP (level) debug option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_debug(ErlNifEnv*       env,
                                     ESockDescriptor* descP)
@@ -8545,11 +8545,11 @@ ERL_NIF_TERM esock_getopt_otp_debug(ErlNifEnv*       env,
 
     return esock_make_ok2(env, eVal);
 }
-#endif // #ifndef __WIN32__
+
 
 /* esock_getopt_otp_iow - Handle the OTP (level) iow option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_iow(ErlNifEnv*       env,
                                   ESockDescriptor* descP)
@@ -8572,12 +8572,12 @@ ERL_NIF_TERM esock_getopt_otp_iow(ErlNifEnv*       env,
 
     return esock_make_ok2(env, eVal);
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_getopt_otp_ctrl_proc - Handle the OTP (level) controlling_process option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_ctrl_proc(ErlNifEnv*       env,
                                         ESockDescriptor* descP)
@@ -8601,12 +8601,11 @@ ERL_NIF_TERM esock_getopt_otp_ctrl_proc(ErlNifEnv*       env,
 
     return esock_make_ok2(env, eVal);
 }
-#endif // #ifndef __WIN32__
 
 
 /* esock_getopt_otp_rcvbuf - Handle the OTP (level) rcvbuf option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_rcvbuf(ErlNifEnv*       env,
                                      ESockDescriptor* descP)
@@ -8635,12 +8634,12 @@ ERL_NIF_TERM esock_getopt_otp_rcvbuf(ErlNifEnv*       env,
 
     return esock_make_ok2(env, eVal);
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_getopt_otp_rcvctrlbuf - Handle the OTP (level) rcvctrlbuf option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_rcvctrlbuf(ErlNifEnv*       env,
                                          ESockDescriptor* descP)
@@ -8664,12 +8663,12 @@ ERL_NIF_TERM esock_getopt_otp_rcvctrlbuf(ErlNifEnv*       env,
 
     return esock_make_ok2(env, eVal);
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_getopt_otp_sndctrlbuf - Handle the OTP (level) sndctrlbuf option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_sndctrlbuf(ErlNifEnv*       env,
                                          ESockDescriptor* descP)
@@ -8693,12 +8692,12 @@ ERL_NIF_TERM esock_getopt_otp_sndctrlbuf(ErlNifEnv*       env,
 
     return esock_make_ok2(env, eVal);
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_getopt_otp_fd - Handle the OTP (level) fd option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_fd(ErlNifEnv*       env,
                                  ESockDescriptor* descP)
@@ -8721,12 +8720,12 @@ ERL_NIF_TERM esock_getopt_otp_fd(ErlNifEnv*       env,
 
     return esock_make_ok2(env, eVal);
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_getopt_otp_meta - Handle the OTP (level) meta option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_meta(ErlNifEnv*       env,
                                    ESockDescriptor* descP)
@@ -8749,12 +8748,12 @@ ERL_NIF_TERM esock_getopt_otp_meta(ErlNifEnv*       env,
 
     return esock_make_ok2(env, eVal);
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_getopt_otp_use_registry - Handle the OTP (level) use_registry option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_use_registry(ErlNifEnv*       env,
                                            ESockDescriptor* descP)
@@ -8763,13 +8762,13 @@ ERL_NIF_TERM esock_getopt_otp_use_registry(ErlNifEnv*       env,
 
     return esock_make_ok2(env, eVal);
 }
-#endif
+
 
 
 /*
  * esock_getopt_otp_domain - Handle the OTP (level) domain option
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_domain(ErlNifEnv*       env,
                                      ESockDescriptor* descP)
@@ -8793,7 +8792,6 @@ ERL_NIF_TERM esock_getopt_otp_domain(ErlNifEnv*       env,
 
     return result;
 }
-#endif // #ifndef __WIN32__
 
 
 
@@ -8802,7 +8800,7 @@ ERL_NIF_TERM esock_getopt_otp_domain(ErlNifEnv*       env,
 /*
  * esock_getopt_otp_type - Handle the OTP (level) type options.
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_type(ErlNifEnv*       env,
                                    ESockDescriptor* descP)
@@ -8826,13 +8824,13 @@ ERL_NIF_TERM esock_getopt_otp_type(ErlNifEnv*       env,
 
     return result;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /*
  * esock_getopt_otp_protocol - Handle the OTP (level) protocol options.
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_protocol(ErlNifEnv*       env,
                                        ESockDescriptor* descP)
@@ -8856,13 +8854,13 @@ ERL_NIF_TERM esock_getopt_otp_protocol(ErlNifEnv*       env,
 
     return result;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /*
  * esock_getopt_otp_dtp - Handle the OTP (level) type options.
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_getopt_otp_dtp(ErlNifEnv*       env,
                                    ESockDescriptor* descP)
@@ -8889,7 +8887,6 @@ ERL_NIF_TERM esock_getopt_otp_dtp(ErlNifEnv*       env,
 
     return result;
 }
-#endif // #ifndef __WIN32__
 
 
 #endif // #if 0
@@ -14784,10 +14781,10 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     io_backend.setopt         = NULL;
     io_backend.setopt_native  = NULL;
-    io_backend.setopt_otp     = NULL;
+    io_backend.setopt_otp     = esock_setopt_otp;
     io_backend.getopt         = NULL;
     io_backend.getopt_native  = NULL;
-    io_backend.getopt_otp     = NULL;
+    io_backend.getopt_otp     = esock_getopt_otp;
 
     io_backend.dtor           = esaio_dtor;
     io_backend.stop           = esaio_stop;
