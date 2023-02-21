@@ -1052,6 +1052,7 @@ asn1_type(<<"RSA PUBLIC">>) -> 'RSAPublicKey';
 asn1_type(<<"DSA PRIVATE">>) -> 'DSAPrivateKey';
 asn1_type(<<"EC PRIVATE">>) -> 'ECPrivateKey';
 asn1_type(<<"OPENSSH PRIVATE">>) -> 'openssh-key-v1';
+asn1_type(<<"PRIVATE">>) -> 'PrivateKeyInfo';
 asn1_type(_) -> undefined.
 
 %%%================================================================

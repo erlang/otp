@@ -260,7 +260,7 @@ key :: % encoded key from eg ssh_host_*.pub
 	  <item><seeerl marker="#FILE-ssh_host_dsa_key"><c>SYSDIR/ssh_host_dsa_key</c></seeerl></item>
 	  <item><seeerl marker="#FILE-ssh_host_ecdsa_key"><c>SYSDIR/ssh_host_ecdsa_key</c></seeerl></item>
           <item><seeerl marker="#FILE-ssh_host_ed25519_key"><c>SYSDIR/ssh_host_ed25519_key</c></seeerl></item>
-          <item><seeerl marker="#FILE-ssh_host_ed448_key"><c>SYSDIR/ssh_host_ed448_key</c>c></seeerl></item>
+          <item><seeerl marker="#FILE-ssh_host_ed448_key"><c>SYSDIR/ssh_host_ed448_key</c></seeerl></item>
 	</list>
       </desc>
     </func>
