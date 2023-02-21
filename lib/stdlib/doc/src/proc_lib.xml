@@ -244,7 +244,8 @@ init(Parent) ->
           that has been started by a
           <seemfa marker="#start/3"><c>start[_link|_monitor]/3,4,5</c></seemfa>
           function. It tells <c>Parent</c> that the process has failed to
-          initialize, and immediately exits according to <c>Exception</c>.
+          initialize, and immediately raises an exception
+          according to <c>Exception</c>.
           The start function then returns <c>Ret</c>.
         </p>
         <p>
@@ -257,6 +258,16 @@ init(Parent) ->
           Function <c>init_fail/2</c> uses the parent value
           previously stored by the start function used.
         </p>
+        <warning>
+          <p>
+            Do not consider catching the exception from this function.
+            That would defeat its purpose.  A process started by a
+            <seemfa marker="#start/3"><c>start[_link|_monitor]/3,4,5</c></seemfa>
+            function should end in a value (that will be ignored)
+            or an exception that will be handled by this module.
+            See <seeerl marker="#description">Description</seeerl>.
+          </p>
+        </warning>
         <p>
           If neither this function nor
           <seemfa marker="#init_ack/1"><c>init_ack/1,2</c></seemfa>
@@ -394,7 +405,7 @@ init(Parent) ->
           <c>Ret</c> is then returned by this function.
         </p>
         <p>
-          If the process fails to start it <em>must</em> exit,
+          If the process fails to start, it <em>must</em> fail;
           preferably by calling
           <seemfa marker="#init_fail/3">
             <c>init_fail(Parent, Ret, Exception)</c>
@@ -405,8 +416,8 @@ init(Parent) ->
           and the started process fails with <c>Exception</c>.
         </p>
         <p>
-          If the process instead exits or crashes
-          before calling <c>init_ack/1,2</c> or <c>init_fail/2,3</c>,
+          If the process instead fails before calling
+          <c>init_ack/1,2</c> or <c>init_fail/2,3</c>,
           this function returns <c>{error, Reason}</c>
           where <c>Reason</c> depends a bit on the exception
           just like for a process link <c>{'EXIT',Pid,Reason}</c>
@@ -465,7 +476,7 @@ init(Parent) ->
           if this function returns due to the spawned process exiting
           (any error return), this function receives (consumes)
           the <c>'EXIT'</c> message, also when this function times out
-          (and kills the spawned process).
+          and kills the spawned process.
 	</p>
         <note>
           <p>Using spawn option <c>monitor</c> is not
@@ -498,10 +509,10 @@ init(Parent) ->
           of the monitor that has been set up.
 	</p>
 	<p>
-          If this function returns due to the spawned process exiting
-          (any error return), a <c>'DOWN'</c> message will be delivered
-          to the calling process, also when this function times out
-          (and kills the spawned process).
+          If this function returns due to the spawned process exiting,
+          that is returns any error value,
+          a <c>'DOWN'</c> message will be delivered to the calling process,
+          also when this function times out and kills the spawned process.
 	</p>
         <note>
           <p>
