@@ -41,8 +41,6 @@
 -type on_load_item() :: {{pid(),reference()},module(),
 			 [{pid(),on_load_action()}]}.
 
--define(CACHE_DEFAULT, nocache).
-
 -record(state, {supervisor :: pid(),
 		root :: file:name_all(),
 		path :: [{file:name_all(), cache | nocache}],
@@ -263,19 +261,19 @@ handle_call({dir,Dir}, _From, S) ->
     Resp = do_dir(Root,Dir,S#state.namedb),
     {reply,Resp,S};
 
-handle_call({add_path,Where,Dir0}, _From,
+handle_call({add_path,Where,Dir0,Cache}, _From,
 	    #state{namedb=Namedb,path=Path0}=S) ->
-    {Resp,Path} = add_path(Where, Dir0, Path0, ?CACHE_DEFAULT, Namedb),
+    {Resp,Path} = add_path(Where, Dir0, Path0, Cache, Namedb),
     {reply,Resp,S#state{path=Path}};
 
-handle_call({add_paths,Where,Dirs0}, _From,
+handle_call({add_paths,Where,Dirs0,Cache}, _From,
 	    #state{namedb=Namedb,path=Path0}=S) ->
-    {Resp,Path} = add_paths(Where, Dirs0, Path0, ?CACHE_DEFAULT, Namedb),
+    {Resp,Path} = add_paths(Where, Dirs0, Path0, Cache, Namedb),
     {reply,Resp,S#state{path=Path}};
 
-handle_call({set_path,PathList}, _From,
+handle_call({set_path,PathList,Cache}, _From,
 	    #state{root=Root,path=Path0,namedb=Namedb}=S) ->
-    {Resp,Path,NewDb} = set_path(PathList, Path0, ?CACHE_DEFAULT, Namedb, Root),
+    {Resp,Path,NewDb} = set_path(PathList, Path0, Cache, Namedb, Root),
     {reply,Resp,S#state{path=Path,namedb=NewDb}};
 
 handle_call({del_path,Name}, _From,
@@ -283,13 +281,23 @@ handle_call({del_path,Name}, _From,
     {Resp,Path} = del_path(Name, Path0, Namedb),
     {reply,Resp,S#state{path=Path}};
 
-handle_call({replace_path,Name,Dir}, _From,
+handle_call({del_paths,Names}, _From,
+            #state{path=Path0,namedb=Namedb}=S) ->
+    {Resp,Path} = del_paths(Names, Path0, Namedb),
+    {reply,Resp,S#state{path=Path}};
+
+handle_call({replace_path,Name,Dir,Cache}, _From,
 	    #state{path=Path0,namedb=Namedb}=S) ->
-    {Resp,Path} = replace_path(Name, Dir, Path0, ?CACHE_DEFAULT, Namedb),
+    {Resp,Path} = replace_path(Name, Dir, Path0, Cache, Namedb),
     {reply,Resp,S#state{path=Path}};
 
 handle_call(get_path, _From, S) ->
     {reply,[P || {P, _Cache} <- S#state.path],S};
+
+handle_call(clear_cache, _From, S) ->
+    Path = [{P, if is_atom(Cache) -> Cache; true -> cache end} ||
+            {P, Cache} <- S#state.path],
+    {reply,ok,S#state{path=Path}};
 
 handle_call({load_module,PC,Mod,File,Purge,EnsureLoaded}, From, S)
   when is_atom(Mod) ->
@@ -499,13 +507,12 @@ try_ebin_dirs([]) ->
 %%
 add_loader_path(IPath0,Mode) ->
     {ok,PrimP0} = erl_prim_loader:get_path(),
-    CacheBootPaths = cache_boot_paths(),
 
     %% All boot paths except for "." are cached by default but this can be disabled.
     %% -pa and -pz are never cached by default.
-    BootPaths = case Mode of
+    case Mode of
         embedded ->
-            [{P, CacheBootPaths} || P <- strip_path(PrimP0, Mode)];  % i.e. only normalize
+            cache_path(strip_path(PrimP0, Mode));  % i.e. only normalize
         _ ->
             Pa0 = get_arg(pa),
             Pz0 = get_arg(pz),
@@ -518,11 +525,16 @@ add_loader_path(IPath0,Mode) ->
             Path0 = exclude_pa_pz(PrimP,Pa,Pz),
             Path1 = strip_path(Path0, Mode),
             Path2 = merge_path(Path1, IPath, []),
-            Path3 = [{P, CacheBootPaths} || P <- Path2],
+            Path3 = cache_path(Path2),
             add_pa_pz(Path3,Pa,Pz)
-    end,
-    lists:keyreplace(".", 1, BootPaths, {".", nocache}).
+    end.
 
+cache_path(Path) ->
+    Default = cache_boot_paths(),
+    [{P, do_cache_path(P, Default)} || P <- Path].
+
+do_cache_path(".", _) -> nocache;
+do_cache_path(_, Default) -> Default.
 
 cache_boot_paths() ->
     case init:get_argument(cache_boot_paths) of
@@ -538,15 +550,10 @@ patch_path(Path) ->
 
 %% As the erl_prim_loader path includes the -pa and -pz
 %% directories they have to be removed first !!
+exclude_pa_pz(P0,Pa,[]) ->
+    P0 -- Pa;
 exclude_pa_pz(P0,Pa,Pz) ->
-    P1 = excl(Pa, P0),
-    P = excl(Pz, lists:reverse(P1)),
-    lists:reverse(P).
-
-excl([], P) -> 
-    P;
-excl([D|Ds], P) ->
-    excl(Ds, lists:delete(D, P)).
+    lists:reverse(lists:reverse(P0 -- Pa) -- Pz).
 
 %%
 %% Keep only 'valid' paths in code server.
@@ -591,9 +598,14 @@ merge_path1(_,IPath,Acc) ->
     lists:reverse(Acc) ++ IPath.
 
 add_pa_pz(Path0, Patha, Pathz) ->
-    {_,Path1} = add_paths(first,Patha,Path0,?CACHE_DEFAULT,false),
-    {_,Path2} = add_paths(first,Pathz,lists:reverse(Path1),?CACHE_DEFAULT,false),
-    lists:reverse(Path2).
+    {_,Path1} = add_paths(first,Patha,Path0,nocache,false),
+    case Pathz of
+        [] ->
+            Path1;
+        _ ->
+            {_,Path2} = add_paths(first,Pathz,lists:reverse(Path1),nocache,false),
+            lists:reverse(Path2)
+    end.
 
 get_arg(Arg) ->
     case init:get_argument(Arg) of
@@ -1095,6 +1107,12 @@ add_paths(Where,[Dir|Tail],Path,Cache,NameDb) ->
     {_,NPath} = add_path(Where,Dir,Path,Cache,NameDb),
     add_paths(Where,Tail,NPath,Cache,NameDb);
 add_paths(_,_,Path,_,_) ->
+    {ok,Path}.
+
+del_paths([Name | Names],Path,NameDb) ->
+    {_,NPath} = del_path(Name, Path, NameDb),
+    del_paths(Names,NPath,NameDb);
+del_paths(_,Path,_) ->
     {ok,Path}.
 
 try_finish_module(File, Mod, PC, true, From, St) ->

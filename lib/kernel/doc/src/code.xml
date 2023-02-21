@@ -102,12 +102,17 @@
 /usr/local/jungerl:/home/some_user/my_erlang_lib</code>
     <p>On Windows, use semi-colon as separator.</p>
     <p>The code paths specified by <c>$OTP_ROOT</c>, <c>ERL_LIBS</c>,
-      and boot scripts have their listings cached by default (except for ".").
+      and boot scripts have their listings cached by default (except for ".")
+      since OTP @OTP-18466@.
       The code server will lookup the contents in their directories once
       and avoid future file system traversals. Therefore modules added
       to such directories after the Erlang VM boots won't be picked up.
       You can disable this behaviour by setting <c>-cache_boot_paths false</c>
       or by calling <c>code:set_path(code:get_path())</c>.</p>
+    <p>The functions in this module and the command line options <c>-pa</c>
+      and <c>-pz</c> are not cached by default. However, many of the functions
+      that manipulate the code path accept the <c>cache</c> atom as an optional
+      argument, which will enable caching on selected paths.</p>
   </section>
 
   <section>
@@ -316,6 +321,12 @@ zip:create("mnesia-4.4.7.ez",
     </section>
   <datatypes>
     <datatype>
+      <name name="add_path_ret"/>
+    </datatype>
+    <datatype>
+      <name name="cache"/>
+    </datatype>
+    <datatype>
       <name name="load_ret"/>
     </datatype>
     <datatype>
@@ -328,14 +339,24 @@ zip:create("mnesia-4.4.7.ez",
       <name name="prepared_code"/>
       <desc><p>An opaque term holding prepared code.</p></desc>
     </datatype>
+    <datatype>
+      <name name="replace_path_ret"/>
+    </datatype>
+    <datatype>
+      <name name="set_path_ret"/>
+    </datatype>
   </datatypes>
 
   <funcs>
     <func>
       <name name="set_path" arity="1" since=""/>
+      <name name="set_path" arity="2" since="OTP @OTP-18466@"/>
       <fsummary>Set the code server search path.</fsummary>
       <desc>
         <p>Sets the code path to the list of directories <c><anno>Path</anno></c>.</p>
+        <p>An optional second argument may be set to the atom <c>cache</c> to
+          control if the contents of the directory must be cached on first traversal.
+          Defaults to <c>nocache</c>.</p>
         <p>Returns:</p>
 	<taglist>
 	<tag><c>true</c></tag>
@@ -354,13 +375,18 @@ zip:create("mnesia-4.4.7.ez",
     </func>
     <func>
       <name name="add_path" arity="1" since=""/>
+      <name name="add_path" arity="2" since="OTP @OTP-18466@"/>
       <name name="add_pathz" arity="1" since=""/>
+      <name name="add_pathz" arity="2" since="OTP @OTP-18466@"/>
       <fsummary>Add a directory to the end of the code path.</fsummary>
       <type name="add_path_ret"/>
       <desc>
         <p>Adds <c><anno>Dir</anno></c> to the code path. The directory is added as
           the last directory in the new path. If <c><anno>Dir</anno></c> already
           exists in the path, it is not added.</p>
+        <p>An optional second argument may be set to the atom <c>cache</c> to
+          control if the contents of the directory must be cached on first traversal.
+          Defaults to <c>nocache</c>.</p>
         <p>Returns <c>true</c> if successful, or
           <c>{error, bad_directory}</c> if <c><anno>Dir</anno></c> is not the name
           of a directory.</p>
@@ -368,12 +394,16 @@ zip:create("mnesia-4.4.7.ez",
     </func>
     <func>
       <name name="add_patha" arity="1" since=""/>
+      <name name="add_patha" arity="2" since="OTP @OTP-18466@"/>
       <fsummary>Add a directory to the beginning of the code path.</fsummary>
       <type name="add_path_ret"/>
       <desc>
         <p>Adds <c><anno>Dir</anno></c> to the beginning of the code path. If
           <c><anno>Dir</anno></c> exists, it is removed from the old
           position in the code path.</p>
+        <p>An optional second argument may be set to the atom <c>cache</c> to
+          control if the contents of the directory must be cached on first traversal.
+          Defaults to <c>nocache</c>.</p>
         <p>Returns <c>true</c> if successful, or
           <c>{error, bad_directory}</c> if <c><anno>Dir</anno></c> is not the name
           of a directory.</p>
@@ -381,17 +411,23 @@ zip:create("mnesia-4.4.7.ez",
     </func>
     <func>
       <name name="add_paths" arity="1" since=""/>
+      <name name="add_paths" arity="2" since="OTP @OTP-18466@"/>
       <name name="add_pathsz" arity="1" since=""/>
+      <name name="add_pathsz" arity="2" since="OTP @OTP-18466@"/>
       <fsummary>Add directories to the end of the code path.</fsummary>
       <desc>
         <p>Adds the directories in <c><anno>Dirs</anno></c> to the end of the code
           path. If a <c><anno>Dir</anno></c> exists, it is not added.</p>
+        <p>An optional second argument may be set to the atom <c>cache</c> to
+          control if the contents of the directory must be cached on first traversal.
+          Defaults to <c>nocache</c>.</p>
 	<p>Always returns <c>ok</c>, regardless of the validity
           of each individual <c><anno>Dir</anno></c>.</p>
       </desc>
     </func>
     <func>
       <name name="add_pathsa" arity="1" since=""/>
+      <name name="add_pathsa" arity="2" since=""/>
       <fsummary>Add directories to the beginning of the code path.</fsummary>
       <desc>
 	<p>Traverses <c><anno>Dirs</anno></c> and adds
@@ -402,6 +438,9 @@ zip:create("mnesia-4.4.7.ez",
 	  be <c>[Dir2,Dir1|OldCodePath]</c>.</p>
 	<p>If a <c><anno>Dir</anno></c> already exists in the code
 	  path, it is removed from the old position.</p>
+        <p>An optional second argument may be set to the atom <c>cache</c> to
+          control if the contents of the directory must be cached on first traversal.
+          Defaults to <c>nocache</c>.</p>
 	<p>Always returns <c>ok</c>, regardless of the validity of each
           individual <c><anno>Dir</anno></c>.</p>
       </desc>
@@ -427,7 +466,35 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
+      <name name="del_paths" arity="1" since="OTP @OTP-18466@"/>
+      <fsummary>Deletes directories from the code path.</fsummary>
+      <desc>
+        <p>Deletes directories from the code path. The argument is a list of either
+          atoms or complete directory names. If an atom <c><anno>Name</anno></c>,
+          the directory with the name <c>.../<anno>Name</anno>[-Vsn][/ebin]</c> is
+          deleted from the code path.</p>
+        <p>Always returns <c>ok</c>, regardless of the validity
+          of each individual <c><anno>NamesOrDirs</anno></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="clear_cache" arity="0" since="OTP @OTP-18466@"/>
+      <fsummary>Clears the code path cache.</fsummary>
+      <desc>
+        <p>Clear the code path cache. If a directory is cached, its cache is
+          cleared once and then it will be recalculated and cached once more
+          in a future traversal.</p>
+        <p>If you want to clear the cache for a single path, you might re-add it
+          to the code path (with <c>add_path/2</c>) or
+          replace it (with <c>replace_path/3</c>).
+          If you want to disable all cache, you can reset the code path
+          with <c>code:set_path(code:get_path())</c>.</p>
+        <p>Always returns <c>ok</c>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="replace_path" arity="2" since=""/>
+      <name name="replace_path" arity="3" since="OTP @OTP-18466@"/>
       <fsummary>Replace a directory with another in the code path.</fsummary>
       <desc>
         <p>Replaces an old occurrence of a directory
@@ -437,6 +504,9 @@ zip:create("mnesia-4.4.7.ez",
 	  directory must also be named <c>.../<anno>Name</anno>[-Vsn][/ebin]</c>.
 	  This function is to be used if a new version of the directory (library) is
           added to a running system.</p>
+        <p>An optional third argument may be set to the atom <c>cache</c> to
+          control if the contents of the directory must be cached on first traversal.
+          Defaults to <c>nocache</c>.</p>
         <p>Returns:</p>
 	<taglist>
 	  <tag><c>true</c></tag>
