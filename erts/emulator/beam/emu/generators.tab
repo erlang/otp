@@ -1365,7 +1365,16 @@ gen.bs_match(Fail, Ctx, N, List) {
             src += 2;
             break;
         default:
-            abort();
+            /*
+             * This is an unknown sub command. It was probably produced by a later
+             * release of Erlang/OTP than the current one. Fail loading.
+             */
+
+            $NewBeamOp(S, op);
+            $BeamOpNameArity(op, bad_bs_match, 1);
+            op->a[0] = List[src];
+            *next_ptr = op;
+            return first_op;
         }
 
         if (op) {

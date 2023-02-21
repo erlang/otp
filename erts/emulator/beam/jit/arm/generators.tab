@@ -571,6 +571,50 @@ gen.bs_match(Fail, Ctx, N, List) {
     int fixed_args;
     int i;
 
+    /*
+     * If a BEAM file produced by a later version of Erlang/OTP
+     * is accidentally loaded into an earlier version, ensure
+     * that the loading fails (as opposed to crashing the runtime)
+     * if there are any unknown sub commands.
+     */
+    i = 0;
+    while (i < N.val) {
+        BeamOpArg current = List[i++];
+
+        if (current.type != TAG_a) {
+            goto error;
+        }
+
+        switch (current.val) {
+        case am_ensure_exactly:
+        case am_skip:
+            i += 1;
+            break;
+        case am_ensure_at_least:
+            i += 2;
+            break;
+        case am_get_tail:
+        case am_Eq:
+            i += 3;
+            break;
+        case am_binary:
+        case am_integer:
+            i += 5;
+            break;
+        default: {
+            error:
+            $NewBeamOp(S, op);
+            $BeamOpNameArity(op, bad_bs_match, 1);
+            op->a[0] = current;
+            return op;
+        }
+        }
+    }
+
+    /*
+     * Make sure that we don't attempt to pass any overflow tags to the JIT.
+     */
+
     $NewBeamOp(S, op);
     $BeamOpNameArity(op, i_bs_match, 2);
     fixed_args = op->arity;
