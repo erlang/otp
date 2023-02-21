@@ -141,24 +141,23 @@ fact(0) ->           %  |
             <c>[Name1/Arity1, ..., NameN/ArityN]</c>, where each
             <c>NameI</c> is an atom and <c>ArityI</c> an integer.
           </p>
-          <note>
+          <p>While not strictly necessary, it is recommended to use <c>-nifs()</c>
+          attribute in any module that load NIFs, to allow the compiler to make
+          better decisions regarding optimizations.</p>
+          <p>There is no need to add <c>-nifs([])</c> in modules that do not
+          load NIFs. The lack of any call to
+          <seemfa marker="erts:erlang#load_nif/2"><c>erlang:load_nif/2</c></seemfa>,
+          from within the module, is enough for the compiler to draw the
+          same conclusion.
+          </p>
+          <change>
             <p>
-              The <c>-nifs()</c> attribute was introduced in OTP 25.0. For older
-              Erlang source code without it, any functions in the module may be
-              loaded as NIFs. However, it is recommended to declare the NIFs with
-              the <c>-nifs</c> attribute. This allows the compiler to make better
-              decisions regarding optimizations for example.
+              The special meaning for the <c>-nifs()</c> attribute was
+              introduced in Erlang/OTP 25.0. In previous releases, the
+              <c>-nifs()</c> was accepted, but had no special meaning.
             </p>
-            <p>
-              There is no need to add <c>-nifs([])</c> in modules that do not
-              load NIFs. The lack of any call to
-              <seemfa marker="erts:erlang#load_nif/2"><c>erlang:load_nif/2</c></seemfa>,
-              from within the module, is enough for the compiler to draw the
-              same conclusion.
-            </p>
-          </note>
+          </change>
         </item>
-
       </taglist>
     </section>
 

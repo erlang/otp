@@ -41,7 +41,7 @@
           shown without the escape backslash convention.</p>
       </item>
       <item>
-        <p>Atoms and variables can use all Latin-1 letters.</p>
+        <p>Unquoted atoms and variables can use all Latin-1 letters.</p>
       </item>
     </list>
     <table>
@@ -101,17 +101,35 @@
       </row>
       <tcaption>Character Classes</tcaption>
     </table>
-    <p>In Erlang/OTP R16B the syntax of Erlang tokens was extended to
-       handle Unicode. The support was limited to
-       string literals and comments.
-       More about the usage of Unicode in Erlang source files
-       can be found in <seeguide
-       marker="stdlib:unicode_usage#unicode_in_erlang">STDLIB's User's
-       Guide</seeguide>.</p>
-       <p>From Erlang/OTP 20, atoms and function names are also allowed
-       to contain Unicode characters outside the ISO-Latin-1 range.
-       Module names, application names, and node names are still
-       restricted to the ISO-Latin-1 range.</p>
+
+    <p>The following tokens are allowed to also use Unicode characters
+    outside of the Latin-1 range:</p>
+
+    <list type="bulleted">
+      <item>
+        <p>String literals. Example: <c>"√π"</c></p>
+      </item>
+      <item>
+        <p>Character literals. Example: <c>$∑</c></p>
+      </item>
+      <item>
+        <p>Comments in code.</p>
+      </item>
+      <item>
+        <p>Quoted atoms. Example: <c>'μs'</c></p>
+      </item>
+      <item>
+        <p>Function names. Example: <c>'s_to_μs'(S) -> S * 1_000_000.</c></p>
+      </item>
+    </list>
+
+    <p>Atoms used as module names, application names, and node names are
+    restricted to the Latin-1 range.</p>
+
+    <change><p>Support for Unicode in string literals, character literals,
+    and comments was introduced in Erlang/OTP R16B. Support for Unicode in
+    atom and function names was introduced in Erlang/OTP 20.</p>
+    </change>
   </section>
   <section>
     <title>Source File Encoding</title>
@@ -123,15 +141,17 @@
       the matching string is an invalid encoding, it is ignored. The
       valid encodings are <c>Latin-1</c> and <c>UTF-8</c>, where the
       case of the characters can be chosen freely.</p>
-    <p>The following example selects UTF-8 as default encoding:</p>
-      <pre>
-%% coding: utf-8</pre>
-    <p>Two more examples, both selecting Latin-1 as default encoding:</p>
+
+      <p>The default Erlang source file encoding if no valid
+      <c>coding</c> comment is present is UTF-8.</p>
+
+    <p>Two examples, both selecting Latin-1 as the source file encoding:</p>
       <pre>
 %% For this file we have chosen encoding = Latin-1</pre>
       <pre>
 %% -*- coding: latin-1 -*-</pre>
-    <p>The default encoding for Erlang source files is changed from
-      Latin-1 to UTF-8 since Erlang/OTP 17.0.</p>
+
+     <change><p>The default encoding for Erlang source files was changed from
+     Latin-1 to UTF-8 in Erlang/OTP 17.0.</p></change>
   </section>
 </chapter>

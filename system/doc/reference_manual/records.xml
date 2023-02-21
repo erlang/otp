@@ -151,25 +151,23 @@ is_person(_P) ->
 
   <section>
     <title>Nested Records</title>
-    <p>Beginning with Erlang/OTP R14, parentheses when accessing or updating nested
-      records can be omitted. Assume the following record
-      definitions:</p>
+    <p>Assume the following record definitions:</p>
     <pre>
 -record(nrec0, {name = "nested0"}).
 -record(nrec1, {name = "nested1", nrec0=#nrec0{}}).
 -record(nrec2, {name = "nested2", nrec1=#nrec1{}}).
 
-N2 = #nrec2{},
-    </pre>
-    <p>Before R14, parentheses were needed as follows:</p>
-    <pre>
-"nested0" = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0.name,
-N0n = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = "nested0a"},
-    </pre>
-    <p>Since R14, the following can also be written:</p>
+N2 = #nrec2{},</pre>
+    <p>Accessing or updating nested records can be written without parentheses:</p>
     <pre>
 "nested0" = N2#nrec2.nrec1#nrec1.nrec0#nrec0.name,
-N0n = N2#nrec2.nrec1#nrec1.nrec0#nrec0{name = "nested0a"},</pre>
+    N0n = N2#nrec2.nrec1#nrec1.nrec0#nrec0{name = "nested0a"},</pre>
+    <p>which is equivalent to:</p>
+    <pre>
+"nested0" = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0.name,
+N0n = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = "nested0a"},</pre>
+    <change><p>Before Erlang/OTP R14, parentheses were necessary when accessing or updating nested
+    records.</p></change>
   </section>
 
   <section>

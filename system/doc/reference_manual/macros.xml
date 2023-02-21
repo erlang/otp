@@ -155,18 +155,20 @@ bar(X) ->
       <item>The OTP release that the currently executing ERTS
         application is part of, as an integer. For details, see
         <seemfa marker="erts:erlang#system_info/1"><c>erlang:system_info(otp_release)</c></seemfa>.
-        This macro was introduced in OTP release 21.</item>
+        <change><p>The <c>?OTP_RELEASE</c> macro was introduced in Erlang/OTP 21.</p></change></item>
         <tag><c>?FEATURE_AVAILABLE(Feature)</c></tag>
         <item>Expands to <c>true</c> if the <seeguide
         marker="system/reference_manual:features#features">feature</seeguide>
         <c>Feature</c> is available.  The feature might or might not
-        be enabled.  This macro was introduced with OTP release
-        25.</item>
+        be enabled.
+        <change><p>The <c>?FEATURE_AVAILABLE()</c> macro was introduced in Erlang/OTP 25.</p></change>
+        </item>
         <tag><c>?FEATURE_ENABLED(Feature)</c></tag>
         <item>Expands to <c>true</c> if the <seeguide
         marker="system/reference_manual:features#features">feature</seeguide>
-        <c>Feature</c> is enabled.  This macro was introduced with OTP
-        release 25.</item>
+        <c>Feature</c> is enabled.
+        <change><p>The <c>?FEATURE_ENABLED()</c> macro was introduced in Erlang/OTP 25.</p></change>
+        </item>
     </taglist>
   </section>
 
@@ -175,7 +177,8 @@ bar(X) ->
     <p>It is possible to overload macros, except for predefined
       macros. An overloaded macro has more than one definition,
       each with a different number of arguments.</p>
-    <p>The feature was added in Erlang 5.7.5/OTP R13B04.</p>
+      <change><p>Support for overloading of macros was added in Erlang
+      5.7.5/OTP R13B04.</p></change>
     <p>A macro <c>?Func(Arg1,...,ArgN)</c> with a (possibly empty)
       list of arguments results in an error message if there is at
       least one definition of <c>Func</c> with arguments, but none
@@ -339,8 +342,8 @@ version() -> ?VERSION.</code>
 % <input>erlc t.erl</input>
 t.erl:5: Warning: -warning("Macro VERSION not defined -- using default version.").</pre>
 
-  <p>The <c>-error()</c> and <c>-warning()</c> directives were added
-  in OTP 19.</p>
+  <change><p>The <c>-error()</c> and <c>-warning()</c> directives were added
+  in Erlang/OTP 19.</p></change>
 
   </section>
 

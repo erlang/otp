@@ -376,13 +376,13 @@ spawn(m, init, [])</code>
     being auto-imported. In certain situations, such a compile-directive
     is mandatory.</p>
 
-    <warning><p>Before OTP R14A (ERTS version 5.8), an implicitly
+    <change><p>Before OTP R14A (ERTS version 5.8), an implicitly
     qualified function call to a function having the same name as an
     auto-imported BIF always resulted in the BIF being called. In
     newer versions of the compiler, the local function is called instead.
     This is to avoid that future additions to the
     set of auto-imported BIFs do not silently change the behavior
-    of old code.</p>
+    of old code.</p></change>
 
     <p>However, to avoid that old (pre R14) code changed its
     behavior when compiled with OTP version R14A or later, the
@@ -392,7 +392,7 @@ spawn(m, init, [])</code>
     your code, you either need to explicitly remove the auto-import
     using a compiler directive, or replace the call with a fully
     qualified function call. Otherwise you get a compilation
-    error. See the following example:</p> </warning>
+    error. See the following example:</p>
 
     <code type="none">
 -export([length/1,f/1]).
@@ -505,13 +505,13 @@ is_valid_signal(Signal) ->
   <section>
     <marker id="maybe"></marker>
     <title>Maybe</title>
-    <note><p><c>maybe</c> is an experimental new <seeguide
+    <change><p><c>maybe</c> is an experimental <seeguide
     marker="system/reference_manual:features#features">feature</seeguide>
-    introduced in OTP 25. By default, it is disabled. To enable
+    introduced in Erlang/OTP 25. By default, it is disabled. To enable
     <c>maybe</c>, either use the <c>-feature(maybe_expr,enable)</c>
     directive (from within source code), or the compiler option
     <c>{feature,maybe_expr,enable}</c>.</p>
-    </note>
+    </change>
 
     <code type="erl"><![CDATA[
 maybe
@@ -1044,16 +1044,21 @@ case A >= -1.0 andalso math:sqrt(A+1) > B of</pre>
 OnlyOne = is_atom(L) orelse
          (is_list(L) andalso length(L) == 1),</pre>
 
-    <p>From Erlang/OTP R13A, <c>Expr2</c> is no longer required to evaluate to a
-    Boolean value. As a consequence, <c>andalso</c> and <c>orelse</c>
-    are now tail-recursive.  For instance, the following function is
-    tail-recursive in Erlang/OTP R13A and later:</p>
+    <p><c>Expr2</c> is not required to evaluate to a Boolean
+    value. Because of that, <c>andalso</c> and <c>orelse</c> are
+    tail-recursive.</p>
 
+    <p><em>Example 3 (tail-recursive function):</em></p>
     <pre>
 all(Pred, [Hd|Tail]) ->
     Pred(Hd) andalso all(Pred, Tail);
 all(_, []) ->
     true.</pre>
+
+    <change><p>Before Erlang/OTP R13A, <c>Expr2</c> was required to
+    evaluate to a Boolean value, and as consequence, <c>andalso</c>
+    and <c>orelse</c> were <strong>not</strong>
+    tail-recursive.</p></change>
   </section>
 
   <section>
@@ -1233,9 +1238,9 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  with the key <c>K</c>, which must exist in the map <c>M</c>. If the variable
 		  <c>V</c> is bound, it must match the value associated with <c>K</c> in <c>M</c>.
 	  </p>
-	  <note><p>Before OTP 23, the expression defining the key
+	  <change><p>Before Erlang/OTP 23, the expression defining the key
 	  <c>K</c> was restricted to be either a single variable or a
-	  literal.</p></note>
+	  literal.</p></change>
 	  <p><em>Example:</em></p>
 <pre>
 1> <input>M = #{"tuple" => {1,2}}.</input>
@@ -1373,8 +1378,8 @@ Ei = Value |
     that evaluates to an integer. All variables in the guard expression
     must be already bound.</p>
 
-    <note><p>Before OTP 23, <c>Size</c> was restricted to be an
-    integer or a variable bound to an integer.</p></note>
+    <change><p>Before Erlang/OTP 23, <c>Size</c> was restricted to be an
+    integer or a variable bound to an integer.</p></change>
 
     <p>The value of <c>Size</c> specifies the size of the segment in
     units (see below). The default value depends on the type (see
@@ -1555,14 +1560,15 @@ fun Module:Name/Arity</pre>
       syntactic sugar for:</p>
     <pre>
 fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
-    <p>In <c>Module:Name/Arity</c>, <c>Module</c>, and <c>Name</c> are atoms
-      and <c>Arity</c> is an integer. Starting from Erlang/OTP R15,
-      <c>Module</c>, <c>Name</c>, and <c>Arity</c> can also be variables.
-      A fun defined in this way refers to the function <c>Name</c>
-      with arity <c>Arity</c> in the <em>latest</em> version of module
-      <c>Module</c>. A fun defined in this way is not dependent on
-      the code for the module in which it is defined.
-      </p>
+    <p>In <c>Module:Name/Arity</c>, <c>Module</c>, and <c>Name</c> are
+    atoms and <c>Arity</c> is an integer. <c>Module</c>, <c>Name</c>,
+    and <c>Arity</c> can also be variables. A fun defined in this way
+    refers to the function <c>Name</c> with arity <c>Arity</c> in the
+    <em>latest</em> version of module <c>Module</c>. A fun defined in
+    this way is not dependent on the code for the module in which it
+    is defined.</p>
+    <change><p>Before Erlang/OTP R15, <c>Module</c>, <c>Name</c>, and <c>Arity</c> were
+    not allowed to be variables.</p></change>
     <p>More examples are provided in
       <seeguide marker="system/programming_examples:funs">
       Programming Examples</seeguide>.</p>

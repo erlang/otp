@@ -343,9 +343,10 @@
 
   <section>
     <title>Redefining built-in types</title>
-    <p>
+    <change><p>
       Starting from Erlang/OTP 26, is is permitted to define a type
-      having the same name as a built-in type. It is recommended to
+      having the same name as a built-in type.</p></change>
+      <p>It is recommended to
       avoid deliberately reusing built-in names because it can be
       confusing. However, when an Erlang/OTP release introduces a new
       type, code that happened to define its own type having the same
@@ -463,7 +464,7 @@
       This is checked by the compiler and results in a compilation error
       if a violation is detected.
     </p>
-    <note>
+    <change>
       <p>Before Erlang/OTP 19, for fields without initial values,
       the singleton type <c>'undefined'</c> was added to all declared types.
       In other words, the following two record declarations had identical
@@ -480,7 +481,7 @@
       This is no longer the case. If you require <c>'undefined'</c> in your record field
       type, you must explicitly add it to the typespec, as in the 2nd example.
     </p>
-    </note>
+    </change>
     <p>
       Any record, containing type information or not, once defined,
       can be used as a type using the following syntax:
