@@ -622,17 +622,12 @@ do_handle_info({ssl_closed, _}, State = #state{request = undefined}) ->
     {stop, normal, State};
 
 %%% Error cases
-do_handle_info({tcp_closed, _}, #state{session = #session{socket = Socket}=Session0} = State) ->
+do_handle_info({Closed, _}, #state{session = #session{socket = Socket}=Session0} = State)
+  when Closed == tcp_closed; Closed == ssl_closed ->
     Session = Session0#session{socket = {remote_close, Socket}},
     %% {stop, session_remotly_closed, State};
     {stop, normal, State#state{session = Session}};
-do_handle_info({ssl_closed, _}, #state{session = #session{socket = Socket}=Session0} = State) ->
-    Session = Session0#session{socket = {remote_close, Socket}},
-    %% {stop, session_remotly_closed, State};
-    {stop, normal, State#state{session = Session}};
-do_handle_info({tcp_error, _, _} = Reason, State) ->
-    {stop, Reason, State};
-do_handle_info({ssl_error, _, _} = Reason, State) ->
+do_handle_info({Error, _, _} = Reason, State) when Error == tcp_error; Error == ssl_error ->
     {stop, Reason, State};
 
 %% Timeouts
