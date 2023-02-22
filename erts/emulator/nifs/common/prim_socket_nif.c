@@ -1283,6 +1283,15 @@ static int cmpESockOptLevel(const void *vpa, const void *vpb);
 static struct ESockOpt *lookupOpt(int level, int opt);
 
 
+static ERL_NIF_TERM esock_supports_0(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key);
+
+static ERL_NIF_TERM esock_supports_msg_flags(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
+
 #ifndef __WIN32__
 /* ---------------------------------------------------------------------- *
  *                                                                        *
@@ -1293,15 +1302,6 @@ static struct ESockOpt *lookupOpt(int level, int opt);
  * vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv */
 
 /* And here comes the functions that does the actual work (for the most part) */
-
-static ERL_NIF_TERM esock_supports_0(ErlNifEnv* env);
-static ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key);
-
-static ERL_NIF_TERM esock_supports_msg_flags(ErlNifEnv* env);
-static ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env);
-static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
-static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
-static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 
 static ERL_NIF_TERM esock_ioctl1(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
@@ -4699,9 +4699,6 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
 
     SGDBG( ("SOCKET", "nif_supports -> entry with %d args\r\n", argc) );
 
@@ -4715,15 +4712,15 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
 
     return esock_make_error(env, esock_atom_einval);
 
-#endif
 }
+
 
 /* esock_supports - what features do we support?
  *
  * This gives information about what features actually
  * work on the current platform.
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_supports_0(ErlNifEnv* env)
 {
@@ -4771,9 +4768,9 @@ ERL_NIF_TERM esock_supports_0(ErlNifEnv* env)
     TARRAY_TOLIST(opts, env, &opts_list);
     return opts_list;
 }
-#endif // #ifndef __WIN32__
 
-#ifndef __WIN32__
+
+
 static
 ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key)
 {
@@ -4799,11 +4796,8 @@ ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key)
 
     return result;
 }
-#endif // #ifndef __WIN32__
 
 
-
-#ifndef __WIN32__
 
 static ERL_NIF_TERM esock_supports_msg_flags(ErlNifEnv* env) {
   size_t n;
@@ -4822,14 +4816,24 @@ static ERL_NIF_TERM esock_supports_msg_flags(ErlNifEnv* env) {
   return result;
 }
 
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
 {
   ERL_NIF_TERM protocols;
+#if defined(SOL_IP)
+  int          protoIP = SOL_IP;
+#else
+  int          protoIP =  IPPROTO_IP;
+#endif
+#if defined(HAVE_IPV6)
+#if defined(SOL_IPV6)
+  int          protoIPV6 = SOL_IPV6;
+#else
+  int          protoIPV6 = IPPROTO_IPV6;
+#endif
+#endif
 
   protocols = MKEL(env);
 
@@ -4869,29 +4873,13 @@ ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
 
   protocols =
     MKC(env,
-	MKT2(env,
-	     MKL1(env, esock_atom_ip),
-	     MKI(env,
-#ifdef SOL_IP
-		 SOL_IP
-#else
-		 IPPROTO_IP
-#endif
-		 )),
+	MKT2(env, MKL1(env, esock_atom_ip), MKI(env, protoIP)),
 	protocols);
 
 #ifdef HAVE_IPV6
   protocols =
     MKC(env,
-	MKT2(env,
-	     MKL1(env, esock_atom_ipv6),
-	     MKI(env,
-#ifdef SOL_IPV6
-		 SOL_IPV6
-#else
-		 IPPROTO_IPV6
-#endif
-		 )),
+	MKT2(env, MKL1(env, esock_atom_ipv6), MKI(env, protoIPV6)),
 	protocols);
 #endif
 
@@ -4914,11 +4902,9 @@ ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env)
 
   return protocols;
 }
-#endif // #ifndef __WIN32__
 
 
 
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 {
@@ -5002,12 +4988,11 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
   return requests;
 }
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 
-static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env)
+static
+ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env)
 {
   size_t       n;
   ERL_NIF_TERM result;
@@ -5025,12 +5010,8 @@ static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env)
   return result;
 }
 
-#endif // #ifndef __WIN32__
 
 
-
-
-#ifndef __WIN32__
 
 static
 ERL_NIF_TERM esock_supports_options(ErlNifEnv* env)
@@ -5070,7 +5051,6 @@ ERL_NIF_TERM esock_supports_options(ErlNifEnv* env)
     return levels;
 }
 
-#endif // #ifndef __WIN32__
 
 
 
@@ -14768,8 +14748,8 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     io_backend.info           = esaio_info;
     io_backend.cmd            = esock_command;
-    io_backend.supports_0     = NULL;
-    io_backend.supports_1     = NULL;
+    io_backend.supports_0     = esock_supports_0;
+    io_backend.supports_1     = esock_supports_1;
 
     io_backend.open_with_fd   = NULL;
     io_backend.open_plain     = esaio_open_plain;
