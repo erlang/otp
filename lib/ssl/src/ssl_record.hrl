@@ -180,4 +180,16 @@
           next_iv  % opaque IV[SecurityParameters.record_iv_length];
          }). 
 
+
+-define('TLS-1.X', {3, _}).
+-define('TLS-1.3', {3, 4}).
+-define('TLS-1.2', {3, 3}).
+-define('TLS-1.1', {3, 2}).
+-define('TLS-1.0', {3, 1}).
+-define('DTLS-1.X', {254, _}).
+-define('DTLS-1.0', {254, 255}).
+-define('DTLS-1.2', {254, 253}).
+-define('SSL-2.0', {2, 0}).
+-define('SSL-3.0', {3, 0}).
+
 -endif. % -ifdef(ssl_record).

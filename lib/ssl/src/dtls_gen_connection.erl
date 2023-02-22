@@ -545,10 +545,11 @@ handle_info({CloseTag, Socket}, StateName,
     %% with widespread implementation practice.
     case (Active == false) andalso (CTs =/= []) of
         false ->
-            case Version of
-                {254, N} when N =< 253 ->
+            %% the =< is a leaking implementation detail.
+            %% this means `Version={254, N} when N =< 253`
+            if (Version =< ?'DTLS-1.2') ->
                     ok;
-                _ ->
+               true ->
                     %% As invalidate_sessions here causes performance issues,
                     %% we will conform to the widespread implementation
                     %% practice and go against the spec

@@ -214,16 +214,15 @@ build_cipher_block(BlockSz, Mac, Fragment) ->
     [Fragment, Mac, padding_with_len(TotSz, BlockSz)].
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
-	     Mac, Fragment, {3, N})
-  when N == 0; N == 1 ->
+	     Mac, Fragment, ?'TLS-1.0') ->
     L = build_cipher_block(BlockSz, Mac, Fragment),
     T = Fun(Key, IV, L),
     NextIV = next_iv(T, IV),
     {T, CS0#cipher_state{iv=NextIV}};
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV, state = IV_Cache0} = CS0,
-	     Mac, Fragment, {3, N})
-  when N == 2; N == 3; N == 4 ->
+	     Mac, Fragment, ?'TLS-1.X'=Version)
+  when Version == ?'TLS-1.1'; Version == ?'TLS-1.2'; Version == ?'TLS-1.3' ->
     IV_Size = byte_size(IV),
     <<NextIV:IV_Size/binary, IV_Cache/binary>> =
         case IV_Cache0 of
@@ -321,45 +320,42 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 %%
 %% Description: Returns a list of supported cipher suites.
 %%--------------------------------------------------------------------
-suites({3, Minor}) ->
-    tls_v1:suites(Minor);
-suites({_, Minor}) ->
-    dtls_v1:suites(Minor).
-all_suites({3, 4} = Version) ->
-    suites(Version)
-	++ tls_v1:psk_suites({3,3})
-	++ tls_v1:srp_suites({3,3})
-        ++ tls_v1:rsa_suites({3,3})
-        ++ tls_v1:des_suites({3,3})
-        ++ tls_v1:rc4_suites({3,3});
-all_suites({3, _} = Version) ->
-    suites(Version)
-	++ tls_v1:psk_suites(Version)
-	++ tls_v1:srp_suites(Version)
-        ++ tls_v1:rsa_suites(Version)
-        ++ tls_v1:des_suites(Version)
-        ++ tls_v1:rc4_suites(Version);
+suites(?'TLS-1.X'=Version) ->
+    tls_v1:suites(Version);
+suites(?'DTLS-1.X'=Version) ->
+    dtls_v1:suites(Version).
+all_suites(?'TLS-1.3' = Version) ->
+    suites(Version) ++ tls_legacy_suites(?'TLS-1.2');
+all_suites(?'TLS-1.X' = Version) ->
+    suites(Version) ++ tls_legacy_suites(Version);
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
 
+tls_legacy_suites(Version) ->
+    Tests = [ fun tls_v1:psk_suites/1
+            , fun tls_v1:srp_suites/1
+            , fun tls_v1:rsa_suites/1
+            , fun tls_v1:des_suites/1
+            , fun tls_v1:rc4_suites/1],
+    lists:flatmap(fun (Fun) -> Fun(Version) end, Tests).
+
 %%--------------------------------------------------------------------
--spec anonymous_suites(ssl_record:ssl_version() | integer()) ->
-                              [ssl_cipher_format:cipher_suite()].
+-spec anonymous_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 %%
 %% Description: Returns a list of the anonymous cipher suites, only supported
 %% if explicitly set by user. Intended only for testing.
 %%--------------------------------------------------------------------
-anonymous_suites({3, N}) ->
-    anonymous_suites(N);
-anonymous_suites({254, _} = Version) ->
-    dtls_v1:anonymous_suites(Version);
 
-anonymous_suites(1 = N) ->
-    tls_v1:exclusive_anonymous_suites(N);
-anonymous_suites(4 = N) ->
-    tls_v1:exclusive_anonymous_suites(N);
-anonymous_suites(N) when N > 1->
-    tls_v1:exclusive_anonymous_suites(N) ++ anonymous_suites(N-1).
+anonymous_suites(?'TLS-1.X'=Version) ->
+    SuitesToTest = anonymous_suite_to_test(Version),
+    lists:flatmap(fun tls_v1:exclusive_anonymous_suites/1, SuitesToTest);
+anonymous_suites(?'DTLS-1.X'=Version) ->
+    dtls_v1:anonymous_suites(Version).
+
+anonymous_suite_to_test(?'TLS-1.0') -> [?'TLS-1.0'];
+anonymous_suite_to_test(?'TLS-1.1') -> [?'TLS-1.1', ?'TLS-1.0'];
+anonymous_suite_to_test(?'TLS-1.2') -> [?'TLS-1.2', ?'TLS-1.1', ?'TLS-1.0'];
+anonymous_suite_to_test(?'TLS-1.3') -> [?'TLS-1.3'].
 
 %%--------------------------------------------------------------------
 -spec filter(undefined | binary(), [ssl_cipher_format:cipher_suite()],
@@ -687,8 +683,8 @@ scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 	 _Length, _Fragment) ->
     <<>>;
-mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)  
-  when N =:= 1; N =:= 2; N =:= 3; N =:= 4 ->
+mac_hash(?'TLS-1.X' = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)
+  when Version =< ?'TLS-1.2', Version =/= ?'SSL-3.0' ->
     tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
 		      Length, Fragment).
 
@@ -828,9 +824,9 @@ block_size(Cipher) when Cipher == aes_128_cbc;
 			Cipher == chacha20_poly1305 ->
     16.
 
-prf_algorithm(default_prf, {3, N}) when N >= 3 ->
+prf_algorithm(default_prf, ?'TLS-1.2') ->
     ?SHA256;
-prf_algorithm(default_prf, {3, _}) ->
+prf_algorithm(default_prf, ?'TLS-1.X') ->
     ?MD5SHA;
 prf_algorithm(Algo, _) ->
     hash_algorithm(Algo).
@@ -933,8 +929,7 @@ signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS'
 %%   We return the original (possibly invalid) PadLength in any case.
 %%   An invalid PadLength will be caught by is_correct_padding/2
 %%
-generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
-  when N == 0; N == 1 ->
+generic_block_cipher_from_bin(?'TLS-1.0', T, IV, HashSize)->
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength0)>> = T,
     PadLength = if
@@ -948,8 +943,8 @@ generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
 			  padding=Padding, padding_length=PadLength0,
 			  next_iv = IV};
 
-generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
-  when N == 2; N == 3; N == 4 ->
+generic_block_cipher_from_bin(Version, T, IV, HashSize)
+  when Version == ?'TLS-1.1'; Version == ?'TLS-1.2' ->
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength)>> = T,
     IVLength = byte_size(IV),
@@ -968,14 +963,14 @@ generic_stream_cipher_from_bin(T, HashSz) ->
 			   mac=Mac}.
 
 is_correct_padding(#generic_block_cipher{padding_length = Len,
-					 padding = Padding}, {3, 0}, _) ->
+					 padding = Padding}, ?'SSL-3.0', _) ->
     Len == byte_size(Padding); %% Only length check is done in SSL 3.0 spec
 %% For interoperability reasons it is possible to disable
-%% the padding check when using TLS 1.0, as it is not strictly required 
+%% the padding check when using TLS 1.0 (mimicking SSL-3.0), as it is not strictly required
 %% in the spec (only recommended), however this makes TLS 1.0 vunrable to the Poodle attack 
 %% so by default this clause will not match
-is_correct_padding(GenBlockCipher, {3, 1}, false) ->
-    is_correct_padding(GenBlockCipher, {3, 0}, false);
+is_correct_padding(GenBlockCipher, ?'TLS-1.0', false) ->
+    is_correct_padding(GenBlockCipher, ?'SSL-3.0', false);
 %% Padding must be checked in TLS 1.1 and after  
 is_correct_padding(#generic_block_cipher{padding_length = Len,
 					 padding = Padding}, _, _) ->
@@ -1053,14 +1048,14 @@ filter_suites_pubkey(ecdsa, Ciphers, _, OtpCert) ->
                                    ec_ecdhe_suites(Ciphers)),
     filter_keyuse_suites(keyAgreement, Uses, CiphersSuites, ec_ecdh_suites(Ciphers)).
 
-filter_suites_signature(_, Ciphers, {3, N}) when N >= 3 ->
+filter_suites_signature(_, Ciphers, ?'TLS-1.X'=Version) when Version >= ?'TLS-1.2' ->
      Ciphers;
 filter_suites_signature(rsa, Ciphers, Version) ->
-    (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers, Version);
+    (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers);
 filter_suites_signature(dsa, Ciphers, Version) ->
     (Ciphers -- ecdsa_signed_suites(Ciphers, Version)) -- rsa_signed_suites(Ciphers, Version);
 filter_suites_signature(ecdsa, Ciphers, Version) ->
-    (Ciphers -- rsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers, Version).
+    (Ciphers -- rsa_signed_suites(Ciphers, Version)) -- dsa_signed_suites(Ciphers).
 
 
 %% From RFC 5246 - Section  7.4.2.  Server Certificate
@@ -1079,7 +1074,7 @@ filter_suites_signature(ecdsa, Ciphers, Version) ->
 %% extension.  The names DH_DSS, DH_RSA, ECDH_ECDSA, and ECDH_RSA are
 %% historical.
 %% Note: DH_DSS and DH_RSA is not supported
-rsa_signed({3,N}) when N >= 3 ->
+rsa_signed(?'TLS-1.2') ->
     fun(rsa) -> true;
        (dhe_rsa) -> true;
        (ecdhe_rsa) -> true;
@@ -1102,7 +1097,8 @@ rsa_signed_suites(Ciphers, Version) ->
                              cipher_filters => [],
                              mac_filters => [],
                              prf_filters => []}).
-ecdsa_signed({3,N}) when N >= 3 ->
+
+ecdsa_signed(Version) when Version >= ?'TLS-1.2' ->
     fun(ecdhe_ecdsa) -> true;
        (_) -> false
     end;
@@ -1164,12 +1160,12 @@ dss_keyed_suites(Ciphers) ->
                              prf_filters => []}).
 
 %% Cert should be signed by DSS (DSA)
-dsa_signed_suites(Ciphers, Version) ->
-    filter_suites(Ciphers, #{key_exchange_filters => [dsa_signed(Version)],
+dsa_signed_suites(Ciphers) ->
+    filter_suites(Ciphers, #{key_exchange_filters => [dsa_signed()],
                              cipher_filters => [],
                              mac_filters => [],
                              prf_filters => []}).
-dsa_signed(_) ->
+dsa_signed() ->
     fun(dhe_dss) -> true;
        (_) -> false
     end.

@@ -43,7 +43,7 @@
 %%     } ContentType;
 
 -define(INVALID, 0).
--define(LEGACY_VERSION, {3,3}).
+-define(LEGACY_VERSION, ?'TLS-1.2').
 -define(OPAQUE_TYPE, 23).
 
 -record(inner_plaintext, {

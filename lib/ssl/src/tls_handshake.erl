@@ -74,9 +74,9 @@ client_hello(_Host, _Port, ConnectionStates,
     %% legacy_version field MUST be set to 0x0303, which is the version
     %% number for TLS 1.2.
     LegacyVersion =
-        case tls_record:is_higher(Version, {3,2}) of
+        case tls_record:is_higher(Version, ?'TLS-1.1') of
             true ->
-                {3,3};
+                ?'TLS-1.2';
             false ->
                 Version
         end,
@@ -168,15 +168,15 @@ hello(#server_hello{server_version = LegacyVersion,
     %% (Section 4.2.1), and the legacy_version field MUST be set to 0x0303, which is the version
     %% number for TLS 1.2.
     %% The "supported_versions" extension is supported from TLS 1.2.
-    case LegacyVersion > {3,3} orelse
-        LegacyVersion =:= {3,3} andalso Version < {3,3} of
+    case LegacyVersion > ?'TLS-1.2' orelse
+        LegacyVersion =:= ?'TLS-1.2' andalso Version < ?'TLS-1.2' of
         true ->
             throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
         false ->
             case tls_record:is_acceptable_version(Version, SupportedVersions) of
                 true ->
                     case Version of
-                        {3,3} ->
+                        ?'TLS-1.2' ->
                             IsNew = ssl_session:is_new(OldId, SessionId),
                             %% TLS 1.2 ServerHello with "supported_versions" (special case)
                             handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
@@ -342,7 +342,7 @@ handle_client_hello(Version,
             ClientSignatureSchemes = get_signature_ext(signature_algs_cert, HelloExt, Version),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, Version),
-	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, Version, ECCOrder),
+	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
 	    {Type, #session{cipher_suite = CipherSuite,
                             own_certificates = [OwnCert |_]} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites,
@@ -409,7 +409,7 @@ do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation) -
     end.
 
 %%--------------------------------------------------------------------
-enc_handshake(#hello_request{}, {3, N}) when N < 4 ->
+enc_handshake(#hello_request{}, ?'TLS-1.X'=Version) when Version < ?'TLS-1.3' ->
     {?HELLO_REQUEST, <<>>};
 enc_handshake(#client_hello{client_version = {Major, Minor} = Version,
 		     random = Random,
@@ -428,7 +428,7 @@ enc_handshake(#client_hello{client_version = {Major, Minor} = Version,
 		      ?BYTE(SIDLength), SessionID/binary,
 		      ?UINT16(CsLength), BinCipherSuites/binary,
 		      ?BYTE(CmLength), BinCompMethods/binary, ExtensionsBin/binary>>};
-enc_handshake(HandshakeMsg, {3, 4}) ->
+enc_handshake(HandshakeMsg, ?'TLS-1.3') ->
     tls_handshake_1_3:encode_handshake(HandshakeMsg);
 enc_handshake(HandshakeMsg, Version) ->
     ssl_handshake:encode_handshake(HandshakeMsg, Version).
@@ -450,7 +450,8 @@ get_tls_handshakes_aux(Version, <<?BYTE(Type), ?UINT24(Length),
 get_tls_handshakes_aux(_Version, Data, _, Acc) ->
     {lists:reverse(Acc), Data}.
 
-decode_handshake({3, N}, ?HELLO_REQUEST, <<>>) when N < 4 ->
+decode_handshake(?'TLS-1.X'=Version, ?HELLO_REQUEST, <<>>)
+  when Version < ?'TLS-1.3' ->
     #hello_request{};
 decode_handshake(Version, ?CLIENT_HELLO,
                  <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
@@ -469,7 +470,7 @@ decode_handshake(Version, ?CLIENT_HELLO,
        compression_methods = erlang:binary_to_list(Comp_methods),
        extensions = DecodedExtensions
       };
-decode_handshake({3, 4}, Tag, Msg) ->
+decode_handshake(?'TLS-1.3', Tag, Msg) ->
     tls_handshake_1_3:decode_handshake(Tag, Msg);
 decode_handshake(Version, Tag, Msg) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
@@ -480,7 +481,7 @@ ocsp_expect(true) ->
 ocsp_expect(_) ->
     no_staple.
 
-get_signature_ext(Ext, HelloExt, {3,3}) ->
+get_signature_ext(Ext, HelloExt, ?'TLS-1.2') ->
     case maps:get(Ext, HelloExt, undefined) of
         %% Signature algorithms was not sent
         undefined ->
