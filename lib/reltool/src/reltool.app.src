@@ -36,6 +36,8 @@
   {registered, []},
   {applications, [stdlib, kernel]},
   {env, []},
-  {runtime_dependencies, ["wx-@OTP-18350@","tools-2.6.14","stdlib-@OTP-18350@","sasl-@OTP-18350@",
-			  "kernel-@OTP-18350@","erts-@OTP-18350@"]}
+  {runtime_dependencies,
+   ["wx-@OTP-18350@","tools-2.6.14",
+    "stdlib-@OTP-18490@","stdlib-@OTP-18350@","sasl-@OTP-18350@",
+    "kernel-@OTP-18350@","erts-@OTP-18350@"]}
  ]}.

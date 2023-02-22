@@ -129,12 +129,13 @@ gen_spec(Pid) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Server
 
+-spec init(_) -> no_return().
 init([{parent,Parent}|_] = Options) ->
     try
         do_init(Options)
     catch
 	throw:{error,Reason} ->
-	    proc_lib:init_ack(Parent,{error,Reason});
+	    proc_lib:init_fail(Parent,{error,Reason},{exit,normal});
         error:Reason:Stacktrace ->
             exit({Reason, Stacktrace})
     end.

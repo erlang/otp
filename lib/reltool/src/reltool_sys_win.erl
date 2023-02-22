@@ -183,7 +183,7 @@ do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->
 
 restart_server_safe_config(true,Parent,Reason) ->
     io:format("~w(~w): <ERROR> ~tp\n", [?MODULE, ?LINE, Reason]),
-    proc_lib:init_ack(Parent, {error,Reason});
+    proc_lib:init_fail(Parent, {error,Reason}, {exit,normal});
 restart_server_safe_config(false,Parent,Reason) ->
     wx:new(),
     Strings =
@@ -200,7 +200,7 @@ restart_server_safe_config(false,Parent,Reason) ->
 	    do_init([{safe_config,true},{parent,Parent},?safe_config]);
 	?wxID_CANCEL ->
 	    io:format("~w(~w): <ERROR> ~tp\n", [?MODULE, ?LINE, Reason]),
-	    proc_lib:init_ack(Parent,{error,Reason})
+	    proc_lib:init_fail(Parent, {error,Reason}, {exit,normal})
     end.
 
 exit_dialog([]) ->
