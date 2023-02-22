@@ -3471,15 +3471,16 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                              int              saveErrno,
                              ERL_NIF_TERM     sockRef)
 {
-  ERL_NIF_TERM reason;
+    ERL_NIF_TERM reason;
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_fails, &descP->writeFails, 1);
 
-    SSDBG( descP, ("UNIX-ESSIO", "send_check_fail(%T) {%d} -> error: %d\r\n",
-                   sockRef, descP->sock, saveErrno) );
-
     reason = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "send_check_fail(%T) {%d} -> error: %d (%T)\r\n",
+            sockRef, descP->sock, saveErrno, reason) );
 
     if (saveErrno != EINVAL) {
 
@@ -3498,6 +3499,7 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
             descP->currentWriterP = NULL;
         }
     }
+
     return esock_make_error(env, reason);
 }
 

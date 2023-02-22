@@ -5548,9 +5548,6 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef, sendRef;
     ErlNifBinary     sndData;
@@ -5615,7 +5612,6 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
             "\r\n", res) );
     return res;
 
-#endif // #ifdef __WIN32__  #else
 }
 
 
@@ -14757,7 +14753,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.connect        = esaio_connect;
     io_backend.listen         = esock_listen;
     io_backend.accept         = esaio_accept;
-    io_backend.send           = NULL;
+    io_backend.send           = esaio_send;
     io_backend.sendto         = NULL;
     io_backend.sendmsg        = NULL;
     io_backend.sendfile_start = NULL;
