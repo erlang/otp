@@ -196,13 +196,6 @@ default_sys() ->
 	 rel_app_type      = ?DEFAULT_REL_APP_TYPE,
 	 embedded_app_type = ?DEFAULT_EMBEDDED_APP_TYPE,
 	 app_file          = ?DEFAULT_APP_FILE,
-	 incl_archive_filters = dec_re(incl_archive_filters,
-				       ?DEFAULT_INCL_ARCHIVE_FILTERS,
-				       []),
-	 excl_archive_filters = dec_re(excl_archive_filters,
-				       ?DEFAULT_EXCL_ARCHIVE_FILTERS,
-				       []),
-	 archive_opts      = ?DEFAULT_ARCHIVE_OPTS,
 	 debug_info        = ?DEFAULT_DEBUG_INFO}.
 
 dec_re(Key, Regexps, Old) ->
@@ -450,9 +443,6 @@ app_set_config_only([],#app{name                 = Name,
 			    app_type             = undefined,
 			    incl_app_filters     = undefined,
 			    excl_app_filters     = undefined,
-			    incl_archive_filters = undefined,
-			    excl_archive_filters = undefined,
-			    archive_opts         = undefined,
 			    is_escript           = false})->
     {delete,Name};
 app_set_config_only(Mods,#app{name                 = Name,
@@ -464,9 +454,6 @@ app_set_config_only(Mods,#app{name                 = Name,
 			      app_type             = AppType,
 			      incl_app_filters     = InclAppFilters,
 			      excl_app_filters     = ExclAppFilters,
-			      incl_archive_filters = InclArchiveFilters,
-			      excl_archive_filters = ExclArchiveFilters,
-			      archive_opts         = ArchiveOpts,
 			      vsn                  = Vsn,
 			      is_escript           = IsEscript,
 			      label                = Label,
@@ -481,9 +468,6 @@ app_set_config_only(Mods,#app{name                 = Name,
 				  app_type             = AppType,
 				  incl_app_filters     = InclAppFilters,
 				  excl_app_filters     = ExclAppFilters,
-				  incl_archive_filters = InclArchiveFilters,
-				  excl_archive_filters = ExclArchiveFilters,
-				  archive_opts         = ArchiveOpts,
 				  vsn                  = Vsn,
 				  mods                 = Mods},
 
@@ -1563,13 +1547,11 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
                 Sys#sys{excl_app_filters =
 			    dec_re(Key, Val, Sys#sys.excl_app_filters)};
             incl_archive_filters ->
-                Sys#sys{incl_archive_filters =
-			    dec_re(Key, Val, Sys#sys.incl_archive_filters)};
+                io:format("incl_archive_filters is no longer supported in reltool");
             excl_archive_filters ->
-                Sys#sys{excl_archive_filters =
-			    dec_re(Key, Val, Sys#sys.excl_archive_filters)};
+                io:format("excl_archive_filters is no longer supported in reltool");
             archive_opts when is_list(Val) ->
-                Sys#sys{archive_opts = Val};
+                io:format("archive_opts is no longer supported in reltool");
             relocatable when Val =:= true; Val =:= false ->
                 Sys#sys{relocatable = Val};
             rel_app_type when Val =:= permanent;
@@ -1629,13 +1611,11 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
                 App#app{excl_app_filters =
 			    dec_re(Key, Val, App#app.excl_app_filters)};
             incl_archive_filters ->
-                App#app{incl_archive_filters =
-			    dec_re(Key, Val, App#app.incl_archive_filters)};
+                io:format("incl_archive_filters is no longer supported in reltool");
             excl_archive_filters ->
-                App#app{excl_archive_filters =
-			    dec_re(Key, Val, App#app.excl_archive_filters)};
+                io:format("excl_archive_filters is no longer supported in reltool");
             archive_opts when is_list(Val) ->
-                App#app{archive_opts = Val};
+                io:format("archive_opts is no longer supported in reltool");
             vsn when is_list(Val), App#app.use_selected_vsn=:=undefined ->
 		App#app{use_selected_vsn = vsn, vsn = Val};
 	    lib_dir when is_list(Val), App#app.use_selected_vsn=:=undefined ->

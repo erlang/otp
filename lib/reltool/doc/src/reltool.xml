@@ -325,40 +325,6 @@
         <c>[]</c>.</p>
       </item>
 
-      <tag><c>incl_archive_filters</c></tag>
-      <item>
-        <p>This parameter normally contains a list of regular
-        expressions that controls which top level directories in an
-        application should be included in an archive file (as
-        opposed to being included as a regular directory outside the
-        archive). Each top directory in the application must match at
-        least one of the listed regular expressions in order to be
-        included. Further the files may not match any filter in
-        <c>excl_app_filters</c> in order to be included. This
-        parameter defaults to <c>[".*"]</c>.</p>
-      </item>
-
-       <tag><c>excl_archive_filters</c></tag>
-      <item>
-        <p>This parameter normally contains a list of regular
-        expressions that controls which top level directories in an
-        application should not be included in an archive file. In
-        order to be included in the application archive, a top
-        directory must match some filter in <c>incl_archive_filters</c>
-        but not any filter in <c>excl_archive_filters</c>. This
-        parameter defaults to <c>["^include$","^priv$"]</c>.</p>
-      </item>
-
-      <tag><c>archive_opts</c></tag>
-      <item>
-        <p>This parameter contains a list of options that are given to
-        <c>zip:create/3</c> when application specific files are
-        packaged into an archive. Only a subset of the options are
-        supported. The most useful options in this context are the ones
-        that control which types of files should be compressed. This
-        parameter defaults to <c>[]</c>.</p>
-      </item>
-
     </taglist>
 
     <p>On application (<c>escript</c>) level, the following options are
@@ -441,24 +407,6 @@
         <p>The value of this parameter overrides the parameter with the
         same name on system level.</p>
       </item>
-
-      <tag><c>incl_archive_filters</c></tag>
-      <item>
-        <p>The value of this parameter overrides the parameter with the
-        same name on system level.</p>
-      </item>
-
-       <tag><c>excl_archive_filters</c></tag>
-      <item>
-        <p>The value of this parameter overrides the parameter with the
-        same name on system level.</p>
-      </item>
-
-     <tag><c>archive_opts</c></tag>
-      <item>
-        <p>The value of this parameter overrides the parameter with the
-        same name on system level.</p>
-      </item>
     </taglist>
 
      <p>On module (<c>mod</c>) level, the following options are
@@ -511,9 +459,6 @@ sys()               = {root_dir, root_dir()}
                     | {excl_sys_filters, excl_sys_filters()}
                     | {incl_app_filters, incl_app_filters()}
                     | {excl_app_filters, excl_app_filters()}
-                    | {incl_archive_filters, incl_archive_filters()}
-                    | {excl_archive_filters, excl_archive_filters()}
-                    | {archive_opts, [archive_opt()]}
 app()               = {vsn, app_vsn()}
                     | {lib_dir, lib_dir()}
                     | {mod, mod_name(), [mod()]}
@@ -526,9 +471,6 @@ app()               = {vsn, app_vsn()}
                     | {excl_sys_filters, excl_sys_filters()}
                     | {incl_app_filters, incl_app_filters()}
                     | {excl_app_filters, excl_app_filters()}
-                    | {incl_archive_filters, incl_archive_filters()}
-                    | {excl_archive_filters, excl_archive_filters()}
-                    | {archive_opts, [archive_opt()]}
 mod()               = {incl_cond, incl_cond()}
                     | {debug_info, debug_info()}
 rel_app()           = app_name()
@@ -539,7 +481,6 @@ rel_opt()           = {load_dot_erlang, boolean()}
 app_name()          = atom()
 app_type()          = permanent | transient | temporary | load | none
 app_vsn()           = string()
-archive_opt         = zip_create_opt()
 boot_rel()          = rel_name()
 app_file()          = keep | strip | all
 debug_info()        = keep | strip | [beam_lib:chunkid()]
@@ -547,13 +488,11 @@ dir()               = string()
 escript()           = {incl_cond, incl_cond()}
 escript_file()      = file()
 excl_app_filters()  = regexps()
-excl_archive_filters() = regexps()
 excl_lib()          = otp_root
 excl_sys_filters()  = regexps()
 file()              = string()
 incl_app()          = app_name()
 incl_app_filters()  = regexps()
-incl_archive_filters() = regexps()
 incl_cond()         = include | exclude | derived
 incl_sys_filters()  = regexps()
 lib_dir()           = dir()
@@ -582,7 +521,6 @@ top_file()          = file()
 target_spec()       = [target_spec()]
                     | {create_dir, base_dir(), [target_spec()]}
                     | {create_dir, base_dir(), top_dir(), [target_spec()]}
-                    | {archive, base_file(), [archive_opt()], [target_spec()]}
                     | {copy_file, base_file()}
                     | {copy_file, base_file(), top_file()}
                     | {write_file, base_file(), iolist()}
@@ -632,7 +570,7 @@ target_spec()       = [target_spec()]
       <c>releases</c> directory contains generated <c>rel</c>,
       <c>script</c>, and <c>boot</c> files. The <c>lib</c> directory
       contains the applications. Which applications are included
-      and if they should be customized (archived, stripped from debug
+      and if they should be customized (stripped from debug
       info etc.) is specified with various configuration
       parameters. The files in the <c>bin</c> directory are copied
       from the <c>erts-vsn/bin</c> directory, but only those files
