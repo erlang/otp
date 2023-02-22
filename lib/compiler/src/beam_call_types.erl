@@ -396,15 +396,18 @@ types(erlang, 'band', [_,_]=Args) ->
 types(erlang, 'bor', [_,_]=Args) ->
     sub_unsafe(beam_bounds_type('bor', #t_integer{}, Args),
                [#t_integer{}, #t_integer{}]);
-types(erlang, 'bxor', [_,_]) ->
-    sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
-types(erlang, 'bsl', [_,_]) ->
-    sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
+types(erlang, 'bxor', [_,_]=Args) ->
+    sub_unsafe(beam_bounds_type('bxor', #t_integer{}, Args),
+               [#t_integer{}, #t_integer{}]);
+types(erlang, 'bsl', [_,_]=Args) ->
+    sub_unsafe(beam_bounds_type('bsl', #t_integer{}, Args),
+               [#t_integer{}, #t_integer{}]);
 types(erlang, 'bsr', [_,_]=Args) ->
     sub_unsafe(beam_bounds_type('bsr', #t_integer{}, Args),
                [#t_integer{}, #t_integer{}]);
-types(erlang, 'bnot', [_]) ->
-    sub_unsafe(#t_integer{}, [#t_integer{}]);
+types(erlang, 'bnot', [_]=Args) ->
+    sub_unsafe(beam_bounds_type('bnot', #t_integer{}, Args),
+               [#t_integer{}]);
 
 %% Fixed-type arithmetic
 types(erlang, 'float', [_]) ->
@@ -1081,6 +1084,17 @@ beam_bounds_type(Op, Type, [LHS, RHS]) ->
             #t_integer{elements=beam_bounds:bounds(Op, R1, R2)};
         {number, R1, R2} ->
             #t_number{elements=beam_bounds:bounds(Op, R1, R2)}
+    end;
+beam_bounds_type(Op, Type, [Arg]) ->
+    case beam_types:meet(Arg, Type) of
+        #t_float{elements=R} ->
+            #t_float{elements=beam_bounds:bounds(Op, R)};
+        #t_integer{elements=R} ->
+            #t_integer{elements=beam_bounds:bounds(Op, R)};
+        #t_number{elements=R} ->
+            #t_number{elements=beam_bounds:bounds(Op, R)};
+        none ->
+            none
     end.
 
 get_range(LHS, RHS, Type) ->
