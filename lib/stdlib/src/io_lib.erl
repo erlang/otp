@@ -808,23 +808,19 @@ collect_chars(Tag, Data, N) ->
 %% Now we are aware of encoding...    
 collect_chars(start, Data, unicode, N) when is_binary(Data), is_integer(N) ->
     {Size,Npos} = count_and_find_utf8(Data,N),
-    if Size > N ->
+    if Size >= N ->
 	    {B1,B2} = split_binary(Data, Npos),
 	    {stop,B1,B2};
        Size < N ->
-	    {binary,[Data],N-Size};
-       true ->
-	    {stop,Data,eof}
+	    {binary,[Data],N-Size}
     end;
 collect_chars(start, Data, latin1, N) when is_binary(Data), is_integer(N) ->
     Size = byte_size(Data),
-    if Size > N ->
+    if Size >= N ->
 	    {B1,B2} = split_binary(Data, N),
 	    {stop,B1,B2};
        Size < N ->
-	    {binary,[Data],N-Size};
-       true ->
-	    {stop,Data,eof}
+	    {binary,[Data],N-Size}
     end;
 collect_chars(start,Data,_,N) when is_list(Data), is_integer(N) ->
     collect_chars_list([], N, Data);
@@ -834,23 +830,19 @@ collect_chars({binary,Stack,_N}, eof, _,_) ->
     {stop,binrev(Stack),eof};
 collect_chars({binary,Stack,N}, Data,unicode, _) when is_integer(N) ->
     {Size,Npos} = count_and_find_utf8(Data,N),
-    if Size > N ->
+    if Size >= N ->
 	    {B1,B2} = split_binary(Data, Npos),
 	    {stop,binrev(Stack, [B1]),B2};
        Size < N ->
-	    {binary,[Data|Stack],N-Size};
-       true ->
-	    {stop,binrev(Stack, [Data]),eof}
+	    {binary,[Data|Stack],N-Size}
     end;
 collect_chars({binary,Stack,N}, Data,latin1, _) when is_integer(N) ->
     Size = byte_size(Data),
-    if Size > N ->
+    if Size >= N ->
 	    {B1,B2} = split_binary(Data, N),
 	    {stop,binrev(Stack, [B1]),B2};
        Size < N ->
-	    {binary,[Data|Stack],N-Size};
-       true ->
-	    {stop,binrev(Stack, [Data]),eof}
+	    {binary,[Data|Stack],N-Size}
     end;
 collect_chars({list,Stack,N}, Data, _,_) when is_integer(N) ->
     collect_chars_list(Stack, N, Data);
