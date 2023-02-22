@@ -42,6 +42,7 @@ BEHAVIOUR_MODULES=
 
 MODULES= \
 	ftp \
+	ftp_internal \
 	ftp_app \
 	ftp_progress \
 	ftp_response \

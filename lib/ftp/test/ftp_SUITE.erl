@@ -1069,7 +1069,7 @@ error_ehost(_Config) ->
 %%%----------------------------------------------------------------
 error_datafail() ->
     [{doc, "Test that failure to open data channel captures "
-     "error emitted on ctrl chanenel"}].
+     "error emitted on ctrl channel"}].
 
 error_datafail(Config) ->
     Self = self(),
@@ -1078,10 +1078,10 @@ error_datafail(Config) ->
     % and erlang:group_leader/2 does not work under ct
     dbg:start(),
     dbg:tracer(process, {fun
-        ({trace,P,call,{ftp,verbose,[M,_,'receive']}}, ok) when P == Pid -> Self ! M, ok;
+        ({trace,P,call,{ftp_internal,verbose,[M,_,'receive']}}, ok) when P == Pid -> Self ! M, ok;
         (_, ok) -> ok
     end, ok}),
-    dbg:tpl(ftp, verbose, []),
+    dbg:tpl(ftp_internal, verbose, []),
     dbg:p(Pid, [call]),
     {error,_} = ftp:ls(Pid),
     dbg:stop_clear(),
