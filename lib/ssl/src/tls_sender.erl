@@ -575,7 +575,7 @@ maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
 maybe_update_cipher_key(StateData, _) ->
     StateData.
 
-update_bytes_sent(Version, StateData, _) when Version < {3,4} ->
+update_bytes_sent(Version, StateData, _) when Version < ?'TLS-1.3' ->
     StateData;
 %% Count bytes sent in TLS 1.3 for AES-GCM
 update_bytes_sent(_, #data{static = #static{key_update_at = seq_num_wrap}} = StateData, _) ->
@@ -591,7 +591,7 @@ update_bytes_sent(_, #data{static = #static{bytes_sent = Sent} = Static} = State
 key_update_at(Version, #{security_parameters :=
                              #security_parameters{
                                 bulk_cipher_algorithm = CipherAlgo}}, KeyUpdateAt)
-  when Version >= {3,4} ->
+  when Version >= ?'TLS-1.3' ->
     case CipherAlgo of
         ?AES_GCM ->
             KeyUpdateAt;
@@ -624,11 +624,11 @@ set_opts(SocketOptions, [{packet, N}]) ->
 
 time_to_rekey(Version, _Data,
               #{current_write := #{sequence_number := ?MAX_SEQUENCE_NUMBER}},
-              _, _, _) when Version >= {3,4} ->
+              _, _, _) when Version >= ?'TLS-1.3' ->
     key_update;
-time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when Version >= {3,4} ->
+time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when Version >= ?'TLS-1.3' ->
     false;
-time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when Version >= {3,4} ->
+time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when Version >= ?'TLS-1.3' ->
     DataSize = iolist_size(Data),
     case (BytesSent + DataSize) > KeyUpdateAt of
         true ->

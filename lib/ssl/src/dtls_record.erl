@@ -141,12 +141,12 @@ set_connection_state_by_epoch(ReadState, Epoch, #{saved_read := #{epoch := Epoch
 
 %%--------------------------------------------------------------------
 -spec init_connection_state_seq(ssl_record:ssl_version(), ssl_record:connection_states()) ->
-				       ssl_record:connection_state().
+          ssl_record:connection_state().
 %%
 %% Description: Copy the read sequence number to the write sequence number
 %% This is only valid for DTLS in the first client_hello
 %%--------------------------------------------------------------------
-init_connection_state_seq({254, _},
+init_connection_state_seq(?'DTLS-1.X',
 			  #{current_read := #{epoch := 0, sequence_number := Seq},
 			    current_write := #{epoch := 0} = Write} = ConnnectionStates0) ->
     ConnnectionStates0#{current_write => Write#{sequence_number => Seq}};
@@ -271,12 +271,12 @@ decode_cipher_text(#ssl_tls{epoch = Epoch} = CipherText, ConnnectionStates0) ->
 %% or vice versa.
 %%--------------------------------------------------------------------
 protocol_version('dtlsv1.2') ->
-    {254, 253};
+    ?'DTLS-1.2';
 protocol_version(dtlsv1) ->
-    {254, 255};
-protocol_version({254, 253}) ->
+    ?'DTLS-1.0';
+protocol_version(?'DTLS-1.2') ->
     'dtlsv1.2';
-protocol_version({254, 255}) ->
+protocol_version(?'DTLS-1.0') ->
     dtlsv1.
 %%--------------------------------------------------------------------
 -spec lowest_protocol_version(ssl_record:ssl_version(), ssl_record:ssl_version()) -> ssl_record:ssl_version().
@@ -298,10 +298,9 @@ lowest_protocol_version(_,Version) ->
 %% Description: Lowest protocol version present in a list
 %%--------------------------------------------------------------------
 lowest_protocol_version([]) ->
-    lowest_protocol_version();
-lowest_protocol_version(Versions) ->
-    [Ver | Vers] = Versions,
-    lowest_list_protocol_version(Ver, Vers).
+    lowest_protocol_version(supported_protocol_versions());
+lowest_protocol_version([Ver | Vers]) ->
+    lists:foldl( fun lowest_protocol_version/2, Ver, Vers).
 
 %%--------------------------------------------------------------------
 -spec highest_protocol_version([ssl_record:ssl_version()]) -> ssl_record:ssl_version().
@@ -309,23 +308,21 @@ lowest_protocol_version(Versions) ->
 %% Description: Highest protocol version present in a list
 %%--------------------------------------------------------------------
 highest_protocol_version([]) ->
-    highest_protocol_version();
-highest_protocol_version(Versions) ->
-    [Ver | Vers] = Versions,
-    highest_list_protocol_version(Ver, Vers).
+    highest_protocol_version(supported_protocol_versions());
+highest_protocol_version([Ver | Vers]) ->
+    lists:foldl(fun highest_protocol_version/2, Ver, Vers).
 
 %%--------------------------------------------------------------------
 -spec highest_protocol_version(ssl_record:ssl_version(), ssl_record:ssl_version()) -> ssl_record:ssl_version().
 %%
 %% Description: Highest protocol version of two given versions
 %%--------------------------------------------------------------------
+
 highest_protocol_version(Version = {M, N}, {M, O})   when N < O ->
     Version;
-highest_protocol_version({M, _},
-			Version = {M, _}) ->
+highest_protocol_version({M, _}, Version = {M, _}) ->
     Version;
-highest_protocol_version(Version = {M,_},
-			{N, _}) when M < N ->
+highest_protocol_version(Version = {M,_}, {N, _}) when M < N ->
     Version;
 highest_protocol_version(_,Version) ->
     Version.
@@ -397,7 +394,7 @@ is_acceptable_version(Version, Versions) ->
 -spec hello_version(ssl_record:ssl_version(), [ssl_record:ssl_version()]) -> ssl_record:ssl_version().
 hello_version(Version, Versions) ->
     case dtls_v1:corresponding_tls_version(Version) of
-        TLSVersion when TLSVersion >= {3, 3} ->
+        TLSVersion when TLSVersion >= ?'TLS-1.2' ->
             Version;
         _ ->
             lowest_protocol_version(Versions)
@@ -643,21 +640,6 @@ start_additional_data(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
 
 %%--------------------------------------------------------------------
 
-lowest_list_protocol_version(Ver, []) ->
-    Ver;
-lowest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
-    lowest_list_protocol_version(lowest_protocol_version(Ver1, Ver2), Rest).
-
-highest_list_protocol_version(Ver, []) ->
-    Ver;
-highest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
-    highest_list_protocol_version(highest_protocol_version(Ver1, Ver2), Rest).
-
-highest_protocol_version() ->
-    highest_protocol_version(supported_protocol_versions()).
-
-lowest_protocol_version() ->
-    lowest_protocol_version(supported_protocol_versions()).
 
 sufficient_dtlsv1_2_crypto_support() ->
     CryptoSupport = crypto:supports(),

@@ -26,6 +26,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include("ssl_record.hrl").
 
 %% Common test
 -export([all/0,
@@ -82,16 +83,18 @@ all() ->
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
      {group, 'dtlsv1.2'},
-     {group, 'dtlsv1'}
+     {group, 'dtlsv1'},
+     {group, 'sslv3'}
     ].
 
 groups() ->
     [{'dtlsv1.2', [], renegotiate_tests()},
-     {'dtlsv1', [], renegotiate_tests()},
-     {'tlsv1.3', [], renegotiate_tests()},
-     {'tlsv1.2', [], renegotiate_tests()},
-     {'tlsv1.1', [], renegotiate_tests()},
-     {'tlsv1', [], renegotiate_tests()}
+     {'dtlsv1',   [], renegotiate_tests()},
+     {'tlsv1.3',  [], renegotiate_tests()},
+     {'tlsv1.2',  [], renegotiate_tests()},
+     {'tlsv1.1',  [], renegotiate_tests()},
+     {'tlsv1',    [], renegotiate_tests()},
+     {'sslv3',    [], ssl3_renegotiate_tests()}
     ].
 
 renegotiate_tests() ->
@@ -518,9 +521,9 @@ renegotiate_rejected(Socket) ->
     ok.
 
 %% First two clauses handles 1/n-1 splitting countermeasure Rizzo/Duong-Beast
-treashold(N, {3,0}) ->
+treashold(N, ?'SSL-3.0') ->
     (N div 2) + 1;
-treashold(N, {3,1}) ->
+treashold(N, ?'TLS-1.0') ->
     (N div 2) + 1;
 treashold(N, _) ->
     N + 1.

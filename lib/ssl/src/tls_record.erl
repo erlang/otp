@@ -130,7 +130,7 @@ get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, SslOpts) -
 %
 %% Description: Encodes a handshake message to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_handshake(Frag, {3, 4}, ConnectionStates) ->
+encode_handshake(Frag, ?'TLS-1.3', ConnectionStates) ->
     tls_record_1_3:encode_handshake(Frag, ConnectionStates);
 encode_handshake(Frag, Version, 
 		 #{current_write :=
@@ -158,7 +158,7 @@ encode_handshake(Frag, Version,
 %%
 %% Description: Encodes an alert message to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_alert_record(Alert, {3, 4}, ConnectionStates) ->
+encode_alert_record(Alert, ?'TLS-1.3', ConnectionStates) ->
     tls_record_1_3:encode_alert_record(Alert, ConnectionStates);
 encode_alert_record(#alert{level = Level, description = Description},
                     Version, ConnectionStates) ->
@@ -180,7 +180,7 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_data(Data, {3, 4}, ConnectionStates) ->
+encode_data(Data, ?'TLS-1.3', ConnectionStates) ->
     tls_record_1_3:encode_data(Data, ConnectionStates);
 encode_data(Data, Version,
 	    #{current_write := #{beast_mitigation := BeastMitigation,
@@ -207,7 +207,7 @@ encode_data(Data, Version,
 %%
 %% Description: Decode cipher text
 %%--------------------------------------------------------------------
-decode_cipher_text({3,4}, CipherTextRecord, ConnectionStates, _) -> 
+decode_cipher_text(?'TLS-1.3', CipherTextRecord, ConnectionStates, _) ->
     tls_record_1_3:decode_cipher_text(CipherTextRecord, ConnectionStates);
 decode_cipher_text(_, CipherTextRecord,
 		   #{current_read :=
@@ -279,26 +279,26 @@ decode_cipher_text(_, #ssl_tls{version = Version,
 %% or vice versa.
 %%--------------------------------------------------------------------
 protocol_version('tlsv1.3') ->
-    {3, 4};
+    ?'TLS-1.3';
 protocol_version('tlsv1.2') ->
-    {3, 3};
+    ?'TLS-1.2';
 protocol_version('tlsv1.1') ->
-    {3, 2};
+    ?'TLS-1.1';
 protocol_version(tlsv1) ->
-    {3, 1};
+    ?'TLS-1.0';
 protocol_version(sslv3) ->
-    {3, 0};
+    ?'SSL-3.0';
 protocol_version(sslv2) -> %% Backwards compatibility
-    {2, 0};
-protocol_version({3, 4}) ->
+    ?'SSL-2.0';
+protocol_version(?'TLS-1.3') ->
     'tlsv1.3';
-protocol_version({3, 3}) ->
+protocol_version(?'TLS-1.2') ->
     'tlsv1.2';
-protocol_version({3, 2}) ->
+protocol_version(?'TLS-1.1') ->
     'tlsv1.1';
-protocol_version({3, 1}) ->
+protocol_version(?'TLS-1.0') ->
     tlsv1;
-protocol_version({3, 0}) ->
+protocol_version(?'SSL-3.0') ->
     sslv3.
 %%--------------------------------------------------------------------
 -spec lowest_protocol_version(tls_version(), tls_version()) -> tls_version().
@@ -473,8 +473,8 @@ is_acceptable_version(_,_) ->
     false.
 
 -spec hello_version([tls_version()]) -> tls_version().
-hello_version([Highest|_]) when Highest >= {3,3} ->
-    {3,3};
+hello_version([Highest|_]) when Highest >= ?'TLS-1.2' ->
+    ?'TLS-1.2';
 hello_version(Versions) ->
     lowest_protocol_version(Versions).
 
@@ -576,7 +576,7 @@ validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version
                 false ->
                     ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
             end;
-        {3, 4} when Version =:= {3, 3} ->
+        ?'TLS-1.3' when Version =:= ?'TLS-1.2' ->
             validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
         Version ->
             %% Exact version match
@@ -718,15 +718,15 @@ encode_fragments(Type, Version, [Text|Data],
 %% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 ciphers are
 %% not vulnerable to this attack.
 split_iovec(Data, Version, BCA, one_n_minus_one, MaxLength)
-  when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse
-                               {3, 0} == Version) ->
+  when (BCA =/= ?RC4) andalso (?'TLS-1.0' == Version orelse
+                               ?'SSL-3.0' == Version) ->
     {Part, RestData} = split_iovec(Data, 1, []),
     [Part|split_iovec(RestData, MaxLength)];
 %% 0/n splitting countermeasure for clients that are incompatible with 1/n-1
 %% splitting.
 split_iovec(Data, Version, BCA, zero_n, MaxLength)
-  when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse
-                               {3, 0} == Version) ->
+  when (BCA =/= ?RC4) andalso (?'TLS-1.0' == Version orelse
+                               ?'SSL-3.0' == Version) ->
     {Part, RestData} = split_iovec(Data, 0, []),
     [Part|split_iovec(RestData, MaxLength)];
 split_iovec(Data, _Version, _BCA, _BeatMitigation, MaxLength) ->
@@ -763,7 +763,7 @@ highest_protocol_version() ->
 lowest_protocol_version() ->
     lowest_protocol_version(supported_protocol_versions()).
 
-max_len([{3,4}|_])->
+max_len([?'TLS-1.3'|_])->
     ?TLS13_MAX_CIPHER_TEXT_LENGTH;
 max_len(_) ->
     ?MAX_CIPHER_TEXT_LENGTH.

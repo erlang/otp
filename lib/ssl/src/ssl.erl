@@ -1141,14 +1141,14 @@ eccs_filter_supported(Curves) ->
 %% Description: returns all supported groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
 groups() ->
-    tls_v1:groups(4).
+    tls_v1:groups(?'TLS-1.3').
 
 %%--------------------------------------------------------------------
 -spec groups(default) -> [group()].
 %% Description: returns the default groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
 groups(default) ->
-    tls_v1:default_groups(4).
+    tls_v1:default_groups(?'TLS-1.3').
 
 %%--------------------------------------------------------------------
 -spec getopts(SslSocket, OptionNames) ->
@@ -1425,9 +1425,9 @@ format_error({error, Reason}) ->
 format_error(Reason) ->
     do_format_error(Reason).
 
-tls_version({3, _} = Version) ->
+tls_version(?'TLS-1.X'=Version) ->
     Version;
-tls_version({254, _} = Version) ->
+tls_version(?'DTLS-1.X' = Version) ->
     dtls_v1:corresponding_tls_version(Version).
 
 %%--------------------------------------------------------------------
@@ -1477,20 +1477,20 @@ str_to_suite(CipherSuiteName) ->
 %%%--------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
-supported_suites(exclusive, {3,Minor}) ->
-    tls_v1:exclusive_suites(Minor);
-supported_suites(exclusive, {254, Minor}) ->
-    dtls_v1:exclusive_suites(Minor);
+supported_suites(exclusive, ?'TLS-1.X'=Version) ->
+    tls_v1:exclusive_suites(Version);
+supported_suites(exclusive, ?'DTLS-1.X'=Version) ->
+    dtls_v1:exclusive_suites(Version);
 supported_suites(default, Version) ->  
     ssl_cipher:suites(Version);
 supported_suites(all, Version) ->  
     ssl_cipher:all_suites(Version);
 supported_suites(anonymous, Version) ->
     ssl_cipher:anonymous_suites(Version);
-supported_suites(exclusive_anonymous, {3, Minor}) ->
-    tls_v1:exclusive_anonymous_suites(Minor);
-supported_suites(exclusive_anonymous, {254, Minor}) ->
-    dtls_v1:exclusive_anonymous_suites(Minor).
+supported_suites(exclusive_anonymous, ?'TLS-1.X'=Version) ->
+    tls_v1:exclusive_anonymous_suites(Version);
+supported_suites(exclusive_anonymous, ?'DTLS-1.X'=Version) ->
+    dtls_v1:exclusive_anonymous_suites(Version).
 
 do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_gen_connection) ->
     tls_socket:listen(Transport, Port, Config);
@@ -2516,20 +2516,19 @@ warn_override(_, _UserOpts, _NewOpt, _OldOpts, _LogLevel) ->
     ok.
 
 is_dtls_configured(Versions) ->
-    Fun = fun (Version) when Version =:= {254, 253} orelse
-                             Version =:= {254, 255} ->
+    Fun = fun (Version) when Version =:= ?'DTLS-1.2' orelse
+                             Version =:= ?'DTLS-1.0' ->
                   true;
               (_) ->
                   false
           end,
     lists:any(Fun, Versions).
 
-
 handle_hashsigns_option(Value, Version) ->
     try
-        if Version >= {3,4} ->
+        if Version >= ?'TLS-1.3' ->
                 tls_v1:signature_schemes(Version, Value);
-           Version =:= {3,3} ->
+           Version =:= ?'TLS-1.2' ->
                 tls_v1:signature_algs(Version, Value);
            true ->
                 undefined
@@ -2592,11 +2591,11 @@ handle_cipher_option(Value, Versions)  when is_list(Value) ->
 	    option_error(ciphers, Value)
     end.
 
-binary_cipher_suites([{3,4} = Version], []) -> 
+binary_cipher_suites([?'TLS-1.3'], []) ->
     %% Defaults to all supported suites that does
     %% not require explicit configuration TLS-1.3
     %% only mode.
-    default_binary_suites(exclusive, Version);
+    default_binary_suites(exclusive, ?'TLS-1.3');
 binary_cipher_suites([Version| _], []) -> 
     %% Defaults to all supported suites that does
     %% not require explicit configuration
@@ -2626,15 +2625,15 @@ binary_cipher_suites(Versions, Ciphers0)  ->
     Ciphers = [ssl_cipher_format:suite_openssl_str_to_map(C) || C <- string:lexemes(Ciphers0, ":")],
     binary_cipher_suites(Versions, Ciphers).
 
-default_binary_suites(exclusive, {_, Minor}) ->
-    ssl_cipher:filter_suites(tls_v1:exclusive_suites(Minor));
+default_binary_suites(exclusive, Version) ->
+    ssl_cipher:filter_suites(tls_v1:exclusive_suites(Version));
 default_binary_suites(default, Version) ->
     ssl_cipher:filter_suites(ssl_cipher:suites(Version)).
 
-all_suites([{3, 4 = Minor}]) ->
-    tls_v1:exclusive_suites(Minor);
-all_suites([{3, 4} = Version0, Version1 |_]) ->
-    all_suites([Version0]) ++
+all_suites([?'TLS-1.3']) ->
+    tls_v1:exclusive_suites(?'TLS-1.3');
+all_suites([?'TLS-1.3', Version1 |_]) ->
+    all_suites([?'TLS-1.3']) ++
         ssl_cipher:all_suites(Version1) ++
         ssl_cipher:anonymous_suites(Version1);
 all_suites([Version|_]) ->
@@ -2662,8 +2661,9 @@ tuple_to_map_mac(chacha20_poly1305, _) ->
 tuple_to_map_mac(_, MAC) ->
     MAC.
 
-handle_eccs_option(Value, {_Major, Minor}) when is_list(Value) ->
-    try tls_v1:ecc_curves(Minor, Value) of
+handle_eccs_option(Value, Version0) when is_list(Value) ->
+    Version1 = tls_version(Version0),
+    try tls_v1:ecc_curves(Version1, Value) of
         Curves ->
             option_error(Curves =:= [], eccs, none_valid),
             #elliptic_curves{elliptic_curve_list = Curves}
@@ -2672,9 +2672,9 @@ handle_eccs_option(Value, {_Major, Minor}) when is_list(Value) ->
         error:_ -> option_error(eccs, Value)
     end.
 
-handle_supported_groups_option(Value, Version) when is_list(Value) ->
-    {_Major, Minor} = tls_version(Version),
-    try tls_v1:groups(Minor, Value) of
+handle_supported_groups_option(Value, Version0) when is_list(Value) ->
+    Version1 = tls_version(Version0),
+    try tls_v1:groups(Version1, Value) of
         Groups ->
             option_error(Groups =:= [], supported_groups, none_valid),
             #supported_groups{supported_groups = Groups}
@@ -2816,7 +2816,6 @@ map_log_level(true) ->
     notice;
 map_log_level(false) ->
     none.
-
 
 include_security_info([]) ->
     false;

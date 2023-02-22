@@ -27,6 +27,7 @@
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include("ssl_record.hrl").
 
 %% Common test
 -export([all/0,
@@ -4014,55 +4015,63 @@ log(#{msg:={report,_Report}},#{config:=Pid}) ->
 log(_,_) ->
     ok.
 
-length_exclusive({3,_} = Version) ->
+length_exclusive(?'TLS-1.X' = Version) ->
     length(exclusive_default_up_to_version(Version, [])) +
         length(exclusive_non_default_up_to_version(Version, []));
-length_exclusive({254,_} = Version) ->
+length_exclusive(?'DTLS-1.X' = Version) ->
     length(dtls_exclusive_default_up_to_version(Version, [])) +
         length(dtls_exclusive_non_default_up_to_version(Version, [])).
 
 length_all(Version) ->
     length(ssl:cipher_suites(all, Version)).
 
-exclusive_default_up_to_version({3, 1} = Version, Acc) ->
-    ssl:cipher_suites(exclusive, Version) ++ Acc;
-exclusive_default_up_to_version({3, Minor} = Version, Acc) when Minor =< 4 ->
-    Suites = ssl:cipher_suites(exclusive, Version),
-    exclusive_default_up_to_version({3, Minor-1}, Suites ++ Acc).
+exclusive_default_up_to_version(?'TLS-1.0', Acc) ->
+    lists:flatmap(fun (Vsn) -> ssl:cipher_suites(exclusive, Vsn) end
+                 , [?'TLS-1.0' | Acc]);
+exclusive_default_up_to_version(?'TLS-1.1', Acc) ->
+    exclusive_default_up_to_version(?'TLS-1.0', [?'TLS-1.1' | Acc]);
+exclusive_default_up_to_version(?'TLS-1.2', Acc) ->
+    exclusive_default_up_to_version(?'TLS-1.1', [?'TLS-1.2' | Acc]);
+exclusive_default_up_to_version(?'TLS-1.3', Acc) ->
+    exclusive_default_up_to_version(?'TLS-1.2', [?'TLS-1.3' | Acc]).
 
-dtls_exclusive_default_up_to_version({254, 255} = Version, Acc) ->
-    ssl:cipher_suites(exclusive, Version) ++ Acc;
-dtls_exclusive_default_up_to_version({254, 253} = Version, Acc) ->
-    Suites = ssl:cipher_suites(exclusive, Version),
-    dtls_exclusive_default_up_to_version({254, 255}, Suites ++ Acc).
+dtls_exclusive_default_up_to_version(?'DTLS-1.0', Acc) ->
+    lists:flatmap( fun (Vsn) -> ssl:cipher_suites(exclusive, Vsn) end
+                 , [?'DTLS-1.0' | Acc]);
+dtls_exclusive_default_up_to_version(?'DTLS-1.2', Acc) ->
+    dtls_exclusive_default_up_to_version(?'DTLS-1.0', [?'DTLS-1.2' | Acc]).
 
-exclusive_non_default_up_to_version({3, 1} = Version, Acc) ->
-    exclusive_non_default_version(Version) ++ Acc;
-exclusive_non_default_up_to_version({3, 4}, Acc) ->
-    exclusive_non_default_up_to_version({3, 3}, Acc);
-exclusive_non_default_up_to_version({3, Minor} = Version, Acc) when Minor =< 3 ->
-    Suites = exclusive_non_default_version(Version),
-    exclusive_non_default_up_to_version({3, Minor-1}, Suites ++ Acc).
+%% TODO: wip
+exclusive_non_default_up_to_version(?'TLS-1.0', Acc) ->
+    lists:flatmap(fun exclusive_non_default_version/1, [?'TLS-1.0' | Acc]);
+exclusive_non_default_up_to_version(?'TLS-1.1', Acc) ->
+    exclusive_non_default_up_to_version(?'TLS-1.0', [?'TLS-1.1' | Acc]);
+exclusive_non_default_up_to_version(?'TLS-1.2', Acc) ->
+    exclusive_non_default_up_to_version(?'TLS-1.1', [?'TLS-1.2' | Acc]);
+exclusive_non_default_up_to_version(?'TLS-1.3', Acc) ->
+    exclusive_non_default_up_to_version(?'TLS-1.2', Acc).
 
-dtls_exclusive_non_default_up_to_version({254, 255} = Version, Acc) ->
-    dtls_exclusive_non_default_version(Version) ++ Acc;
-dtls_exclusive_non_default_up_to_version({254, 253} = Version, Acc) ->
-    Suites = dtls_exclusive_non_default_version(Version),
-    dtls_exclusive_non_default_up_to_version({254, 255}, Suites ++ Acc).
 
-exclusive_non_default_version({_, Minor}) ->
-    tls_v1:psk_exclusive(Minor) ++
-        tls_v1:srp_exclusive(Minor) ++
-        tls_v1:rsa_exclusive(Minor) ++
-        tls_v1:des_exclusive(Minor) ++
-        tls_v1:rc4_exclusive(Minor).
+dtls_exclusive_non_default_up_to_version(?'DTLS-1.0', Acc) ->
+    lists:flatmap(fun dtls_exclusive_non_default_version/1, [?'DTLS-1.0' | Acc]);
+dtls_exclusive_non_default_up_to_version(?'DTLS-1.2', Acc) ->
+    dtls_exclusive_non_default_up_to_version(?'DTLS-1.0', [?'DTLS-1.2' | Acc]).
+
+exclusive_non_default_version(Version) ->
+    Ls = [ fun tls_v1:psk_exclusive/1
+         , fun tls_v1:srp_exclusive/1
+         , fun tls_v1:rsa_exclusive/1
+         , fun tls_v1:des_exclusive/1
+         , fun tls_v1:rc4_exclusive/1],
+    lists:flatmap(fun(Fn) -> Fn(Version) end, Ls).
 
 dtls_exclusive_non_default_version(DTLSVersion) ->        
-    {_,Minor} = ssl:tls_version(DTLSVersion),
-    tls_v1:psk_exclusive(Minor) ++
-        tls_v1:srp_exclusive(Minor) ++
-        tls_v1:rsa_exclusive(Minor) ++ 
-        tls_v1:des_exclusive(Minor).
+    Version = ssl:tls_version(DTLSVersion),
+    Fns = [ fun tls_v1:psk_exclusive/1
+          , fun tls_v1:srp_exclusive/1
+          , fun tls_v1:rsa_exclusive/1
+          , fun tls_v1:des_exclusive/1],
+    lists:flatmap(fun (Fn) -> Fn(Version) end, Fns).
 
 selected_peer(ExpectedClient,
               ExpectedServer, ClientOpts, ServerOpts, Config) ->

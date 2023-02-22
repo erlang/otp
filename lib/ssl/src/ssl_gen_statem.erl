@@ -1166,7 +1166,7 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
                     connection_env = #connection_env{negotiated_version = Version},
-                    ssl_options = #{log_level := LogLevel}} = State) when Version < {3,4} ->
+                    ssl_options = #{log_level := LogLevel}} = State) when Version < ?'TLS-1.3' ->
     log_alert(LogLevel, Role,
               Connection:protocol_name(), StateName,
               Alert#alert{role = opposite_role(Role)}),
@@ -1200,9 +1200,9 @@ handle_trusted_certs_db(#state{static_env = #static_env{cert_db_ref = Ref,
 	    ok
     end.
 
-maybe_invalidate_session({3, 4},_, _, _, _, _) ->
+maybe_invalidate_session(?'TLS-1.3',_, _, _, _, _) ->
     ok;
-maybe_invalidate_session({3, N}, Type, Role, Host, Port, Session) when N < 4 ->
+maybe_invalidate_session(?'TLS-1.X'=Version, Type, Role, Host, Port, Session) when Version < ?'TLS-1.3' ->
     maybe_invalidate_session(Type, Role, Host, Port, Session).
 
 maybe_invalidate_session({false, first}, server = Role, Host, Port, Session) ->
@@ -1284,14 +1284,14 @@ format_status(terminate, [_, StateName, State]) ->
 %%--------------------------------------------------------------------
 next_statem_state([Version], client) ->
     case ssl:tls_version(Version) of
-        {3,4} ->
+        ?'TLS-1.3' ->
             wait_sh;
         _  ->
             hello
     end;
 next_statem_state([Version], server) ->
     case ssl:tls_version(Version) of
-        {3,4} ->
+        ?'TLS-1.3' ->
             start;
         _  ->
             hello
@@ -2233,7 +2233,7 @@ maybe_generate_client_shares(#{versions := [Version|_],
                                supported_groups :=
                                    #supported_groups{
                                       supported_groups = [Group|_]}})
-  when Version =:= {3,4} ->
+  when Version =:= ?'TLS-1.3' ->
     %% Generate only key_share entry for the most preferred group
     ssl_cipher:generate_client_shares([Group]);
 maybe_generate_client_shares(_) ->
