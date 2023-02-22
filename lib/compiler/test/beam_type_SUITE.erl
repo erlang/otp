@@ -29,7 +29,7 @@
          container_subtraction/1,is_list_opt/1,connected_tuple_elements/1,
          switch_fail_inference/1,failures/1,
          cover_maps_functions/1,min_max_mixed_types/1,
-         not_equal/1,infer_relops/1,binary_unit/1]).
+         not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -70,7 +70,8 @@ groups() ->
        min_max_mixed_types,
        not_equal,
        infer_relops,
-       binary_unit
+       binary_unit,
+       premature_concretization
       ]}].
 
 init_per_suite(Config) ->
@@ -1327,6 +1328,28 @@ binary_unit_1() ->
         I = hd([Y || Y <- X, _ <- X, (Foo >= ok)]),
         <<0, I>>
     end.
+
+%% ERIERL-918: A call to a local function (in this case `pm_concretization_3`)
+%% forced the extracted type of `Tagged` to be concretized before we checked
+%% `Status`, passing an unknown type to `pm_concretization_4`.
+premature_concretization(_Config) ->
+    ok = pm_concretization_1(id(tagged), id({tagged, foo})),
+    error = pm_concretization_1(id(flurb), id({tagged, foo})),
+    ok.
+
+pm_concretization_1(Frobnitz, Tagged) ->
+    {Status, NewTagged} = pm_concretization_2(Frobnitz, Tagged),
+    pm_concretization_3(NewTagged),
+    case Status of
+        ok -> pm_concretization_4(NewTagged);
+        error -> error
+    end.
+
+pm_concretization_2(tagged, {tagged, _Nonsense}=T) -> {ok, T};
+pm_concretization_2(_, Tagged) -> {error, Tagged}.
+
+pm_concretization_3(_) -> ok.
+pm_concretization_4(_) -> ok.
 
 id(I) ->
     I.

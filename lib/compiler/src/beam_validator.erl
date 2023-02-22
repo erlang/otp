@@ -1354,16 +1354,16 @@ validate_body_call(Func, Live,
     verify_call_args(Func, Live, Vst),
 
     SuccFun = fun(SuccVst0) ->
-                      {RetType, ArgTypes, _} = call_types(Func, Live, SuccVst0),
+                      %% Note that we don't try to infer anything from the
+                      %% argument types, as that may cause types to become
+                      %% concrete "too early."
+                      %%
+                      %% See beam_types_SUITE:premature_concretization/1 for
+                      %% details.
+                      {RetType, _, _} = call_types(Func, Live, SuccVst0),
                       true = RetType =/= none,  %Assertion.
 
-                      Args = [{x,X} || X <- lists:seq(0, Live-1)],
-                      ZippedArgs = zip(Args, ArgTypes),
-                      SuccVst1 = foldl(fun({A, T}, V) ->
-                                               update_type(fun meet/2, T, A, V)
-                                       end, SuccVst0, ZippedArgs),
-
-                      SuccVst = schedule_out(0, SuccVst1),
+                      SuccVst = schedule_out(0, SuccVst0),
 
                       create_term(RetType, call, [], {x,0}, SuccVst)
               end,
