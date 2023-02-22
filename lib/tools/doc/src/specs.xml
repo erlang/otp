@@ -8,6 +8,5 @@
   <xi:include href="../specs/specs_tags.xml"/>
   <xi:include href="../specs/specs_cover.xml"/>
   <xi:include href="../specs/specs_xref.xml"/>
-  <xi:include href="../specs/specs_instrument.xml"/>
   <xi:include href="../specs/specs_erlang_mode.xml"/>
 </specs>

@@ -26,7 +26,6 @@ MODULES =  \
 	emacs_SUITE \
 	fprof_SUITE \
 	cprof_SUITE \
-	instrument_SUITE \
 	lcnt_SUITE \
 	make_SUITE \
 	tools_SUITE \

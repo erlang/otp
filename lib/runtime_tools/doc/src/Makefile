@@ -40,6 +40,7 @@ XML_REF3_FILES = \
 	dbg.xml \
 	dyntrace.xml \
 	erts_alloc_config.xml \
+	instrument.xml \
 	system_information.xml \
 	msacc.xml \
 	scheduler.xml
