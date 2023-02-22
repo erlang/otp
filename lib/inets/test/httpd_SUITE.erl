@@ -22,7 +22,7 @@
 %% 
 %% ct:run("../inets_test", httpd_SUITE).
 %%
-
+-compile({no_auto_import,[alias/1]}).
 -module(httpd_SUITE).
 
 -include_lib("kernel/include/file.hrl").
@@ -30,7 +30,7 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("inets/include/httpd.hrl").
 -include("inets_test_lib.hrl").
-
+-include_lib("stdlib/include/assert.hrl").
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
@@ -1148,30 +1148,48 @@ alias_1_0(Config) when is_list(Config) ->
 alias() ->
     [{doc, "Test mod_alias"}].
 
-alias(Config) when is_list(Config) -> 
-    ok = http_status("GET /pics/icon.sheet.gif ", Config,
-		     [{statuscode, 200},
-		      {header, "Content-Type","image/gif"},
-		      {header, "Server"},
-		      {header, "Date"}]),
-    
-    ok = http_status("GET / ", Config,
-		     [{statuscode, 200},
-		      {header, "Content-Type","text/html"},
-		      {header, "Server"},
-		      {header, "Date"}]),
-    
-    ok = http_status("GET /misc/ ", Config,
-		     [{statuscode, 200},
-		      {header, "Content-Type","text/html"},
-		      {header, "Server"},
-		      {header, "Date"}]),
+alias(Config) when is_list(Config) ->
+    TestURIs200 = [
+                   {"GET /pics/icon.sheet.gif ", 200, "image/gif"},
+                   {"GET / ", 200, "text/html"},
+                   {"GET /misc/ ", 200, "text/html"}
+                  ],
+    Test200 =
+        fun({Request, ResultCode, ContentType}) ->
+                ct:log("Request: ~s Expecting: ~p ~s",
+                     [Request, ResultCode, ContentType]),
+                ok = http_status(Request, Config,
+                                 [{statuscode, ResultCode},
+                                  {header, "Content-Type", ContentType},
+                                  {header, "Server"},
+                                  {header, "Date"}])
+        end,
+    [Test200(T) || T <- TestURIs200],
+    TestURIs301 =
+        [
+         %% Check redirection if trailing slash is missing.
+         {"GET /misc ", 301, "text/html", "&#47;misc&#47;$"},
+         %% slash character expected after path(misc) not query component
+         {"GET /misc?test=test ", 301, "text/html", "&#47;misc&#47;\\?test=test$"}
+        ],
+    Test301 =
+        fun({Request, ResultCode, ContentType, TargetLinkRegexp}) ->
+                ct:log("Request: ~s Expecting: ~p ~s RE: ~s",
+                     [Request, ResultCode, ContentType, TargetLinkRegexp]),
+                {ok, [RedirectLink]} =
+                    http_status(Request, Config,
+                                [{statuscode, ResultCode},
+                                 {header, "Content-Type", ContentType},
+                                 {header, "Server"},
+                                 {header, "Date"},
+                                 {fetch_hrefs, true}]),
+                ReResult = re:run(RedirectLink, TargetLinkRegexp),
+                ct:log("RedirectLink = ~p", [RedirectLink]),
+                ?assertMatch({match, _}, ReResult)
+              end,
+    [Test301(T) || T <- TestURIs301],
+    ok.
 
-    %% Check redirection if trailing slash is missing.
-    ok = http_status("GET /misc ", Config,
-		     [{statuscode, 301},
-		      {header, "Location"},
-		      {header, "Content-Type","text/html"}]).
 %%-------------------------------------------------------------------------
 actions() ->
     [{doc, "Test mod_actions"}].
