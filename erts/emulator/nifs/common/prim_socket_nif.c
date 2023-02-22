@@ -1119,12 +1119,49 @@ typedef struct {
     ESockIOGetoptNative          getopt_native;
     ESockIOGetoptOtp             getopt_otp;
 
-    /* (socket) NIF callback functions */
+    /* (socket) NIF resource callback functions */
     ESockIODTor                  dtor;
     ESockIOStop                  stop;
     ESockIODown                  down;
 
 } ESockIoBackend;
+
+
+/* ------------------------------------------------------------------------
+ * Socket option(s) and table(s)
+ */
+
+struct ESockOpt
+{
+    int opt; // Option number
+
+    // Function to set option
+    ERL_NIF_TERM (*setopt)(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           int              level,
+                           int              opt,
+                           ERL_NIF_TERM     eVal);
+
+    // Function to get option
+    ERL_NIF_TERM (*getopt)(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           int              level,
+                           int              opt);
+
+    ERL_NIF_TERM *nameP; // Pointer to option name atom
+};
+
+
+/* Option levels table*/
+
+struct ESockOptLevel
+{
+    int level; // Level number
+
+    size_t num; // Number of options
+
+    struct ESockOpt *opts; // Options table
+};
 
 
 
@@ -1241,6 +1278,10 @@ static int socket_setopt(int             sock,
                          const void*     optVal,
                          const socklen_t optLen);
 
+static int cmpESockOpt(const void *vpa, const void *vpb);
+static int cmpESockOptLevel(const void *vpa, const void *vpb);
+static struct ESockOpt *lookupOpt(int level, int opt);
+
 
 #ifndef __WIN32__
 /* ---------------------------------------------------------------------- *
@@ -1261,275 +1302,6 @@ static ERL_NIF_TERM esock_supports_protocols(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ioctl_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
-
-static ERL_NIF_TERM esock_setopt(ErlNifEnv*       env,
-                                 ESockDescriptor* descP,
-                                 int              level,
-                                 int              opt,
-                                 ERL_NIF_TERM     eVal);
-
-/* *** Handling set of socket options for level = socket *** */
-
-#if defined(SO_BINDTODEVICE)
-static ERL_NIF_TERM esock_setopt_so_bindtodevice(ErlNifEnv*       env,
-                                                 ESockDescriptor* descP,
-                                                 int              level,
-                                                 int              opt,
-                                                 ERL_NIF_TERM     eVal);
-#endif
-
-#if defined(SO_LINGER)
-static
-ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
-                                 ESockDescriptor* descP,
-                                 int              level,
-                                 int              opt,
-                                 ERL_NIF_TERM     eVal);
-static
-ERL_NIF_TERM esock_getopt_linger(ErlNifEnv*       env,
-                                 ESockDescriptor* descP,
-                                 int              level,
-                                 int              opt);
-#endif
-
-#if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
-static ERL_NIF_TERM esock_setopt_msfilter(ErlNifEnv*       env,
-                                          ESockDescriptor* descP,
-                                          int              level,
-                                          int              opt,
-                                          ERL_NIF_TERM     eVal);
-static BOOLEAN_T decode_msfilter_mode(ErlNifEnv*   env,
-                                      ERL_NIF_TERM eVal,
-                                      Uint32*      mode);
-#endif
-#if defined(IP_MTU_DISCOVER)
-static ERL_NIF_TERM esock_setopt_ip_mtu_discover(ErlNifEnv*       env,
-                                                 ESockDescriptor* descP,
-                                                 int              level,
-                                                 int              opt,
-                                                 ERL_NIF_TERM     eVal);
-#endif
-#if defined(IP_MULTICAST_IF)
-static ERL_NIF_TERM esock_setopt_multicast_if(ErlNifEnv*       env,
-                                              ESockDescriptor* descP,
-                                              int              level,
-                                              int              opt,
-                                              ERL_NIF_TERM     eVal);
-#endif
-
-#if defined(IP_TOS)
-static ERL_NIF_TERM esock_setopt_tos(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     int              level,
-                                     int              opt,
-                                     ERL_NIF_TERM     eVal);
-#endif
-
-#if defined(IP_DROP_MEMBERSHIP) || defined(IP_ADD_MEMBERSHIP)
-static
-ERL_NIF_TERM esock_setopt_in_update_membership(ErlNifEnv*       env,
-                                               ESockDescriptor* descP,
-                                               int              level,
-                                               int              opt,
-                                               ERL_NIF_TERM     eVal);
-#endif
-#if defined(IP_ADD_SOURCE_MEMBERSHIP) || defined(IP_DROP_SOURCE_MEMBERSHIP) || defined(IP_BLOCK_SOURCE) || defined(IP_UNBLOCK_SOURCE)
-static
-ERL_NIF_TERM esock_setopt_in_update_source(ErlNifEnv*       env,
-                                           ESockDescriptor* descP,
-                                           int              level,
-                                           int              opt,
-                                           ERL_NIF_TERM     eVal);
-#endif
-
-
-/* *** Handling set of socket options for level = ipv6 *** */
-#if defined(HAVE_IPV6)
-
-#if defined(IPV6_ADDRFORM)
-static ERL_NIF_TERM esock_setopt_addrform(ErlNifEnv*       env,
-                                          ESockDescriptor* descP,
-                                          int              level,
-                                          int              opt,
-                                          ERL_NIF_TERM     eVal);
-#endif
-#if defined(IPV6_MTU_DISCOVER)
-static ERL_NIF_TERM esock_setopt_ipv6_mtu_discover(ErlNifEnv*       env,
-                                                   ESockDescriptor* descP,
-                                                   int              level,
-                                                   int              opt,
-                                                   ERL_NIF_TERM     eVal);
-#endif
-#if defined(IPV6_MULTICAST_HOPS)
-static ERL_NIF_TERM esock_setopt_hops(ErlNifEnv*       env,
-                                      ESockDescriptor* descP,
-                                      int              level,
-                                      int              opt,
-                                      ERL_NIF_TERM     eVal);
-#endif
-
-#if defined(IPV6_ADD_MEMBERSHIP) || defined(IPV6_DROP_MEMBERSHIP)
-static ERL_NIF_TERM
-esock_setopt_in6_update_membership(ErlNifEnv*       env,
-                                   ESockDescriptor* descP,
-                                   int              level,
-                                   int              opt,
-                                   ERL_NIF_TERM     eVal);
-#endif
-
-#endif // defined(HAVE_IPV6)
-
-
-#if defined(TCP_CONGESTION)
-static ERL_NIF_TERM esock_setopt_tcp_congestion(ErlNifEnv*       env,
-                                                ESockDescriptor* descP,
-                                                int              level,
-                                                int              opt,
-                                                ERL_NIF_TERM     eVal);
-#endif
-
-
-#if defined(HAVE_SCTP)
-
-#if defined(SCTP_ASSOCINFO)
-static ERL_NIF_TERM esock_setopt_sctp_associnfo(ErlNifEnv*       env,
-                                                ESockDescriptor* descP,
-                                                int              level,
-                                                int              opt,
-                                                ERL_NIF_TERM     eVal);
-#endif
-#if defined(SCTP_EVENTS)
-static ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
-                                             ESockDescriptor* descP,
-                                             int              level,
-                                             int              opt,
-                                             ERL_NIF_TERM     eVal);
-static int esock_setopt_sctp_event(ErlNifEnv   *env,
-                                   ERL_NIF_TERM eMap,
-                                   ERL_NIF_TERM eKey,
-                                   BOOLEAN_T   *failure);
-#endif
-#if defined(SCTP_INITMSG)
-static ERL_NIF_TERM esock_setopt_sctp_initmsg(ErlNifEnv*       env,
-                                              ESockDescriptor* descP,
-                                              int              level,
-                                              int              opt,
-                                              ERL_NIF_TERM     eVal);
-#endif
-#if defined(SCTP_RTOINFO)
-static ERL_NIF_TERM esock_setopt_sctp_rtoinfo(ErlNifEnv*       env,
-                                              ESockDescriptor* descP,
-                                              int              level,
-                                              int              opt,
-                                              ERL_NIF_TERM     eVal);
-#endif
-
-#endif // defined(HAVE_SCTP)
-
-
-static ERL_NIF_TERM esock_getopt(ErlNifEnv*       env,
-                                 ESockDescriptor* descP,
-                                 int              level,
-                                 int              opt);
-
-#if defined(SO_BINDTODEVICE)
-static ERL_NIF_TERM esock_getopt_so_bindtodevice(ErlNifEnv*       env,
-                                                 ESockDescriptor* descP,
-                                                 int              level,
-                                                 int              opt);
-#endif
-#if defined(SO_DOMAIN)
-static ERL_NIF_TERM esock_getopt_sock_domain(ErlNifEnv*       env,
-                                             ESockDescriptor* descP,
-                                             int              level,
-                                             int              opt);
-#endif
-
-#if defined(SO_TYPE)
-static
-ERL_NIF_TERM esock_getopt_sock_type(ErlNifEnv*       env,
-                                    ESockDescriptor* descP,
-                                    int              level,
-                                    int              opt);
-#endif
-
-#if defined(SO_PROTOCOL)
-static
-ERL_NIF_TERM esock_getopt_sock_protocol(ErlNifEnv*       env,
-                                        ESockDescriptor* descP,
-                                        int              level,
-                                        int              opt);
-#endif
-
-#if defined(IP_MTU_DISCOVER)
-static ERL_NIF_TERM esock_getopt_ip_mtu_discover(ErlNifEnv*       env,
-                                              ESockDescriptor* descP,
-                                              int              level,
-                                              int              opt);
-#endif
-#if defined(IP_MULTICAST_IF)
-static ERL_NIF_TERM esock_getopt_multicast_if(ErlNifEnv*       env,
-                                              ESockDescriptor* descP,
-                                              int              level,
-                                              int              opt);
-#endif
-#if defined(IP_TOS)
-static ERL_NIF_TERM esock_getopt_tos(ErlNifEnv*       env,
-                                     ESockDescriptor* descP,
-                                     int              level,
-                                     int              opt);
-#endif
-
-
-#if defined(HAVE_IPV6)
-
-#if defined(IPV6_MTU_DISCOVER)
-static ERL_NIF_TERM esock_getopt_ipv6_mtu_discover(ErlNifEnv*       env,
-                                                   ESockDescriptor* descP,
-                                                   int              level,
-                                                   int              opt);
-#endif
-
-#endif // defined(HAVE_IPV6)
-
-#if defined(IP_PKTOPTIONS) || defined(IPV6_PKTOPTIONS)
-static ERL_NIF_TERM esock_getopt_pktoptions(ErlNifEnv*       env,
-					    ESockDescriptor* descP,
-					    int              level,
-					    int              opt);
-#endif
-
-#if defined(TCP_CONGESTION)
-static ERL_NIF_TERM esock_getopt_tcp_congestion(ErlNifEnv*       env,
-                                                ESockDescriptor* descP,
-                                                int              level,
-                                                int              opt);
-#endif
-
-
-#if defined(HAVE_SCTP)
-
-#if defined(SCTP_ASSOCINFO)
-static ERL_NIF_TERM esock_getopt_sctp_associnfo(ErlNifEnv*       env,
-                                                ESockDescriptor* descP,
-                                                int              level,
-                                                int              opt);
-#endif
-#if defined(SCTP_INITMSG)
-static ERL_NIF_TERM esock_getopt_sctp_initmsg(ErlNifEnv*       env,
-                                              ESockDescriptor* descP,
-                                              int              level,
-                                              int              opt);
-#endif
-#if defined(SCTP_RTOINFO)
-static ERL_NIF_TERM esock_getopt_sctp_rtoinfo(ErlNifEnv*       env,
-                                              ESockDescriptor* descP,
-                                              int              level,
-                                              int              opt);
-#endif
-
-#endif // defined(HAVE_SCTP)
-
 
 static ERL_NIF_TERM esock_ioctl1(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
@@ -1782,1172 +1554,6 @@ static ERL_NIF_TERM esock_cancel_recv_waiting(ErlNifEnv*       env,
                                               ERL_NIF_TERM     opRef,
                                               const ErlNifPid* selfP);
 
-#if defined(USE_SETOPT_STR_OPT)
-static ERL_NIF_TERM esock_setopt_str_opt(ErlNifEnv*       env,
-                                         ESockDescriptor* descP,
-                                         int              level,
-                                         int              opt,
-                                         int              max,
-                                         ERL_NIF_TERM     eVal);
-#endif
-static ERL_NIF_TERM esock_setopt_bool_opt(ErlNifEnv*       env,
-                                          ESockDescriptor* descP,
-                                          int              level,
-                                          int              opt,
-                                          ERL_NIF_TERM     eVal);
-static ERL_NIF_TERM esock_setopt_int_opt(ErlNifEnv*       env,
-                                         ESockDescriptor* descP,
-                                         int              level,
-                                         int              opt,
-                                         ERL_NIF_TERM     eVal);
-#if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO)) \
-    && defined(ESOCK_USE_RCVSNDTIMEO)
-static ERL_NIF_TERM esock_setopt_timeval_opt(ErlNifEnv*       env,
-                                             ESockDescriptor* descP,
-                                             int              level,
-                                             int              opt,
-                                             ERL_NIF_TERM     eVal);
-#endif
-#if defined(USE_GETOPT_STR_OPT)
-static ERL_NIF_TERM esock_getopt_str_opt(ErlNifEnv*       env,
-                                         ESockDescriptor* descP,
-                                         int              level,
-                                         int              opt,
-                                         int              max,
-                                         BOOLEAN_T        stripNUL);
-#endif
-#if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO)) \
-    && defined(ESOCK_USE_RCVSNDTIMEO)
-static ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
-                                             ESockDescriptor* descP,
-                                             int              level,
-                                             int              opt);
-#endif
-
-
-
-/* ------------------------------------------------------------------------
- * Socket option tables and handling
- */
-
-struct ESockOpt
-{
-    int opt; // Option number
-
-    // Function to set option
-    ERL_NIF_TERM (*setopt)
-    (ErlNifEnv *env, ESockDescriptor *descP,
-     int level, int opt, ERL_NIF_TERM eVal);
-
-    // Function to get option
-    ERL_NIF_TERM (*getopt)
-    (ErlNifEnv *env, ESockDescriptor *descP,
-     int level, int opt);
-
-    ERL_NIF_TERM *nameP; // Pointer to option name atom
-};
-
-// qsort and bsearch helper
-static int cmpESockOpt(const void *vpa, const void *vpb) {
-    struct ESockOpt *a, *b;
-    a = (struct ESockOpt *) vpa;
-    b = (struct ESockOpt *) vpb;
-    return a->opt < b->opt ? -1 : (a->opt > b->opt ? 1 : 0);
-}
-
-
-/* SO_* options -------------------------------------------------------- */
-
-static struct ESockOpt optLevelSocket[] =
-    {
-        {
-#ifdef SO_ACCEPTCONN
-            SO_ACCEPTCONN,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_acceptconn},
-
-        {0, NULL, NULL, &esock_atom_acceptfilter},
-
-        {
-#ifdef SO_BINDTODEVICE
-            SO_BINDTODEVICE,
-            esock_setopt_so_bindtodevice, esock_getopt_so_bindtodevice,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_bindtodevice},
-
-        {
-#ifdef SO_BROADCAST
-            SO_BROADCAST,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_broadcast},
-
-        {0, NULL, NULL, &esock_atom_busy_poll},
-
-        {
-#ifdef SO_DEBUG
-            SO_DEBUG,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_debug},
-
-        {
-#ifdef SO_DOMAIN
-            SO_DOMAIN,
-            NULL, esock_getopt_sock_domain,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_domain},
-
-        {
-#ifdef SO_DONTROUTE
-            SO_DONTROUTE,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_dontroute},
-
-        {0, NULL, NULL, &esock_atom_error},
-
-        {
-#ifdef SO_KEEPALIVE
-            SO_KEEPALIVE,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_keepalive},
-
-        {
-#ifdef SO_LINGER
-            SO_LINGER,
-            esock_setopt_linger, esock_getopt_linger,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_linger},
-
-        {0, NULL, NULL, &esock_atom_mark},
-
-        {
-#ifdef SO_OOBINLINE
-            SO_OOBINLINE,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_oobinline},
-
-        {
-#ifdef SO_PASSCRED
-            SO_PASSCRED,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_passcred},
-
-        {
-#ifdef SO_PEEK_OFF
-            SO_PEEK_OFF,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_peek_off},
-
-        {0, NULL, NULL, &esock_atom_peercred},
-
-        {
-#ifdef SO_PRIORITY
-            SO_PRIORITY,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_priority},
-
-        {
-#ifdef SO_PROTOCOL
-            SO_PROTOCOL,
-            NULL, esock_getopt_sock_protocol,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_protocol},
-
-        {
-#ifdef SO_RCVBUF
-            SO_RCVBUF,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_rcvbuf},
-
-        {0, NULL, NULL, &esock_atom_rcvbufforce},
-
-        {
-#ifdef SO_RCVLOWAT
-            SO_RCVLOWAT,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_rcvlowat},
-
-        {
-#if defined(SO_RCVTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
-            SO_RCVTIMEO,
-            esock_setopt_timeval_opt, esock_getopt_timeval_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_rcvtimeo},
-
-        {
-#ifdef SO_REUSEADDR
-            SO_REUSEADDR,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_reuseaddr},
-
-        {
-#ifdef SO_REUSEPORT
-            SO_REUSEPORT,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_reuseport},
-
-        {0, NULL, NULL, &esock_atom_rxq_ovfl},
-        {0, NULL, NULL, &esock_atom_setfib},
-
-        {
-#ifdef SO_SNDBUF
-            SO_SNDBUF,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_sndbuf},
-
-        {0, NULL, NULL, &esock_atom_sndbufforce},
-
-        {
-#ifdef SO_SNDLOWAT
-            SO_SNDLOWAT,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_sndlowat},
-
-        {
-#if defined(SO_SNDTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
-            SO_SNDTIMEO,
-            esock_setopt_timeval_opt, esock_getopt_timeval_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_sndtimeo},
-
-        {
-#ifdef SO_TIMESTAMP
-            SO_TIMESTAMP,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_timestamp},
-
-        {
-#ifdef SO_TYPE
-            SO_TYPE,
-            NULL, esock_getopt_sock_type,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_type}
-    };
-
-
-/* IP_* options -------------------------------------------------------- */
-
-static struct ESockOpt optLevelIP[] =
-    {
-        {
-#ifdef IP_ADD_MEMBERSHIP
-            IP_ADD_MEMBERSHIP,
-            esock_setopt_in_update_membership, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_add_membership},
-
-        {
-#ifdef IP_ADD_SOURCE_MEMBERSHIP
-            IP_ADD_SOURCE_MEMBERSHIP,
-            esock_setopt_in_update_source, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_add_source_membership},
-
-        {
-#ifdef IP_BLOCK_SOURCE
-            IP_BLOCK_SOURCE,
-            esock_setopt_in_update_source, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_block_source},
-
-        {0, NULL, NULL, &esock_atom_dontfrag},
-
-        {
-#ifdef IP_DROP_MEMBERSHIP
-            IP_DROP_MEMBERSHIP,
-            esock_setopt_in_update_membership, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_drop_membership},
-
-        {
-#ifdef IP_DROP_SOURCE_MEMBERSHIP
-            IP_DROP_SOURCE_MEMBERSHIP,
-            esock_setopt_in_update_source, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_drop_source_membership},
-
-        {
-#ifdef IP_FREEBIND
-            IP_FREEBIND,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_freebind},
-
-        {
-#ifdef IP_HDRINCL
-            IP_HDRINCL,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_hdrincl},
-
-        {
-#ifdef IP_MINTTL
-            IP_MINTTL,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_minttl},
-
-        {
-#if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
-            IP_MSFILTER,
-            esock_setopt_msfilter, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_msfilter},
-
-        {
-#ifdef IP_MTU
-            IP_MTU,
-            NULL, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_mtu},
-
-        {
-#ifdef IP_MTU_DISCOVER
-            IP_MTU_DISCOVER,
-            esock_setopt_ip_mtu_discover, esock_getopt_ip_mtu_discover,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_mtu_discover},
-
-        {
-#ifdef IP_MULTICAST_ALL
-            IP_MULTICAST_ALL,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_multicast_all},
-
-        {
-#ifdef IP_MULTICAST_IF
-            IP_MULTICAST_IF,
-            esock_setopt_multicast_if, esock_getopt_multicast_if,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_multicast_if},
-
-        {
-#ifdef IP_MULTICAST_LOOP
-            IP_MULTICAST_LOOP,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_multicast_loop},
-
-        {
-#ifdef IP_MULTICAST_TTL
-            IP_MULTICAST_TTL,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_multicast_ttl},
-
-        {
-#ifdef IP_NODEFRAG
-            IP_NODEFRAG,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_nodefrag},
-
-        {0, NULL, NULL, &esock_atom_options},
-
-        {
-#ifdef IP_PKTINFO
-            IP_PKTINFO,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_pktinfo},
-
-        {
-#ifdef IP_PKTOPTIONS
-            IP_PKTOPTIONS,
-            NULL, esock_getopt_pktoptions,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_pktoptions},
-
-        {
-#ifdef IP_RECVDSTADDR
-            IP_RECVDSTADDR,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recvdstaddr},
-
-        {
-#ifdef IP_RECVERR
-            IP_RECVERR,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recverr},
-
-        {
-#ifdef IP_RECVIF
-            IP_RECVIF,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recvif},
-
-        {
-#ifdef IP_RECVOPTS
-            IP_RECVOPTS,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recvopts},
-
-        {
-#ifdef IP_RECVORIGDSTADDR
-            IP_RECVORIGDSTADDR,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recvorigdstaddr},
-
-        {
-#ifdef IP_RECVTOS
-            IP_RECVTOS,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recvtos},
-
-        {
-#ifdef IP_RECVTTL
-            IP_RECVTTL,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recvttl},
-
-        {
-#ifdef IP_RETOPTS
-            IP_RETOPTS,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_retopts},
-
-        {
-#ifdef IP_ROUTER_ALERT
-            IP_ROUTER_ALERT,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_router_alert},
-
-        {
-#ifdef IP_SENDSRCADDR
-            IP_SENDSRCADDR,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_sendsrcaddr},
-
-        {
-#ifdef IP_TOS
-            IP_TOS,
-            esock_setopt_tos, esock_getopt_tos,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_tos},
-
-        {
-#ifdef IP_TRANSPARENT
-            IP_TRANSPARENT,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_transparent},
-
-        {
-#ifdef IP_TTL
-            IP_TTL,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_ttl},
-
-        {
-#ifdef IP_UNBLOCK_SOURCE
-            IP_UNBLOCK_SOURCE,
-            esock_setopt_in_update_source, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_unblock_source}
-
-    };
-
-/* IPV6_* options ------------------------------------------------------ */
-
-#ifdef HAVE_IPV6
-static struct ESockOpt optLevelIPV6[] =
-    {
-
-        {
-#ifdef IPV6_ADDRFORM
-            IPV6_ADDRFORM,
-            esock_setopt_addrform, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_addrform},
-
-        {
-#ifdef IPV6_ADD_MEMBERSHIP
-            IPV6_ADD_MEMBERSHIP,
-            esock_setopt_in6_update_membership, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_add_membership},
-
-        {
-#ifdef IPV6_AUTHHDR
-            IPV6_AUTHHDR,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_authhdr},
-
-        {0, NULL, NULL, &esock_atom_auth_level},
-        {0, NULL, NULL, &esock_atom_checksum},
-
-        {
-#ifdef IPV6_DROP_MEMBERSHIP
-            IPV6_DROP_MEMBERSHIP,
-            esock_setopt_in6_update_membership, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_drop_membership},
-
-        {
-#if defined(IPV6_DSTOPTS)
-            IPV6_DSTOPTS,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_dstopts},
-
-        {0, NULL, NULL, &esock_atom_esp_network_level},
-        {0, NULL, NULL, &esock_atom_esp_trans_level},
-        {0, NULL, NULL, &esock_atom_faith},
-
-        {
-#ifdef IPV6_FLOWINFO
-            IPV6_FLOWINFO,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_flowinfo},
-
-        {
-#ifdef IPV6_HOPLIMIT
-            IPV6_HOPLIMIT,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_hoplimit},
-
-        {
-#ifdef IPV6_HOPOPTS
-            IPV6_HOPOPTS,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_hopopts},
-
-        {0, NULL, NULL, &esock_atom_ipcomp_level},
-        {0, NULL, NULL, &esock_atom_join_group},
-        {0, NULL, NULL, &esock_atom_leave_group},
-
-        {
-#ifdef IPV6_MTU
-            IPV6_MTU,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_mtu},
-
-        {
-#ifdef IPV6_MTU_DISCOVER
-            IPV6_MTU_DISCOVER,
-            esock_setopt_ipv6_mtu_discover, esock_getopt_ipv6_mtu_discover,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_mtu_discover},
-
-        {
-#ifdef IPV6_MULTICAST_HOPS
-            IPV6_MULTICAST_HOPS,
-            esock_setopt_hops, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_multicast_hops},
-
-        {
-#ifdef IPV6_MULTICAST_IF
-            IPV6_MULTICAST_IF,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_multicast_if},
-
-        {
-#ifdef IPV6_MULTICAST_LOOP
-            IPV6_MULTICAST_LOOP,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_multicast_loop},
-
-        {0, NULL, NULL, &esock_atom_portrange},
-
-        {
-#ifdef IPV6_PKTOPTIONS
-            IPV6_PKTOPTIONS,
-            NULL, esock_getopt_pktoptions,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_pktoptions},
-
-        {
-#ifdef IPV6_RECVERR
-            IPV6_RECVERR,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recverr},
-
-        {
-#ifdef IPV6_RECVHOPLIMIT
-            IPV6_RECVHOPLIMIT,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recvhoplimit},
-
-        {
-#if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
-#if defined(IPV6_RECVPKTINFO)
-                 IPV6_RECVPKTINFO,
-#else
-                 IPV6_PKTINFO,
-#endif
-                 esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recvpktinfo},
-
-        {
-#ifdef IPV6_RECVTCLASS
-            IPV6_RECVTCLASS,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_recvtclass},
-
-        {
-#ifdef IPV6_ROUTER_ALERT
-            IPV6_ROUTER_ALERT,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_router_alert},
-
-        {
-#ifdef IPV6_RTHDR
-            IPV6_RTHDR,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_rthdr},
-
-        {
-#ifdef IPV6_TCLASS
-            IPV6_TCLASS,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_tclass},
-
-        {
-#ifdef IPV6_UNICAST_HOPS
-            IPV6_UNICAST_HOPS,
-            esock_setopt_hops, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_unicast_hops},
-
-        {0, NULL, NULL, &esock_atom_use_min_mtu},
-
-        {
-#ifdef IPV6_V6ONLY
-            IPV6_V6ONLY,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_v6only}
-
-        };
-#endif // #ifdef HAVE_IPV6
-
-
-/* SCTP_* options ------------------------------------------------------ */
-
-#ifdef HAVE_SCTP
-static struct ESockOpt optLevelSCTP[] =
-    {
-
-        {0, NULL, NULL, &esock_atom_adaption_layer},
-
-        {
-#ifdef SCTP_ASSOCINFO
-            SCTP_ASSOCINFO,
-            esock_setopt_sctp_associnfo, esock_getopt_sctp_associnfo,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_associnfo},
-
-        {0, NULL, NULL, &esock_atom_auth_active_key},
-        {0, NULL, NULL, &esock_atom_auth_chunk},
-        {0, NULL, NULL, &esock_atom_auth_delete_key},
-        {0, NULL, NULL, &esock_atom_auth_key},
-
-        {
-#ifdef SCTP_AUTOCLOSE
-            SCTP_AUTOCLOSE,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_autoclose},
-
-        {0, NULL, NULL, &esock_atom_context},
-        {0, NULL, NULL, &esock_atom_default_send_params},
-        {0, NULL, NULL, &esock_atom_delayed_ack_time},
-
-        {
-#ifdef SCTP_DISABLE_FRAGMENTS
-            SCTP_DISABLE_FRAGMENTS,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_disable_fragments},
-
-        {0, NULL, NULL, &esock_atom_hmac_ident},
-
-        {
-#ifdef SCTP_EVENTS
-            SCTP_EVENTS,
-            esock_setopt_sctp_events, NULL,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_events},
-
-        {0, NULL, NULL, &esock_atom_explicit_eor},
-        {0, NULL, NULL, &esock_atom_fragment_interleave},
-        {0, NULL, NULL, &esock_atom_get_peer_addr_info},
-
-        {
-#ifdef SCTP_INITMSG
-            SCTP_INITMSG,
-            esock_setopt_sctp_initmsg, esock_getopt_sctp_initmsg,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_initmsg},
-
-        {0, NULL, NULL, &esock_atom_i_want_mapped_v4_addr},
-        {0, NULL, NULL, &esock_atom_local_auth_chunks},
-
-        {
-#ifdef SCTP_MAXSEG
-            SCTP_MAXSEG,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_maxseg},
-
-        {0, NULL, NULL, &esock_atom_maxburst},
-
-        {
-#ifdef SCTP_NODELAY
-            SCTP_NODELAY,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_nodelay},
-
-        {0, NULL, NULL, &esock_atom_partial_delivery_point},
-        {0, NULL, NULL, &esock_atom_peer_addr_params},
-        {0, NULL, NULL, &esock_atom_peer_auth_chunks},
-        {0, NULL, NULL, &esock_atom_primary_addr},
-        {0, NULL, NULL, &esock_atom_reset_streams},
-
-        {
-#ifdef SCTP_RTOINFO
-            SCTP_RTOINFO,
-            esock_setopt_sctp_rtoinfo, esock_getopt_sctp_rtoinfo,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_rtoinfo},
-
-        {0, NULL, NULL, &esock_atom_set_peer_primary_addr},
-        {0, NULL, NULL, &esock_atom_status},
-        {0, NULL, NULL, &esock_atom_use_ext_recvinfo}
-
-    };
-#endif // #ifdef HAVE_SCTP
-
-/* TCP_* options ------------------------------------------------------- */
-
-static struct ESockOpt optLevelTCP[] =
-    {
-
-        {
-#ifdef TCP_CONGESTION
-            TCP_CONGESTION,
-            esock_setopt_tcp_congestion, esock_getopt_tcp_congestion,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_congestion},
-
-        {
-#ifdef TCP_CORK
-            TCP_CORK,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_cork},
-
-        {0, NULL, NULL, &esock_atom_info},
-        {0, NULL, NULL, &esock_atom_keepcnt},
-        {0, NULL, NULL, &esock_atom_keepidle},
-        {0, NULL, NULL, &esock_atom_keepintvl},
-
-        {
-#ifdef TCP_MAXSEG
-            TCP_MAXSEG,
-            esock_setopt_int_opt, esock_getopt_int_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_maxseg},
-
-        {0, NULL, NULL, &esock_atom_md5sig},
-
-        {
-#ifdef TCP_NODELAY
-            TCP_NODELAY,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_nodelay},
-
-        {0, NULL, NULL, &esock_atom_noopt},
-        {0, NULL, NULL, &esock_atom_nopush},
-        {0, NULL, NULL, &esock_atom_syncnt},
-        {0, NULL, NULL, &esock_atom_user_timeout}
-
-    };
-
-
-/* UDP_* options ------------------------------------------------------- */
-
-static struct ESockOpt optLevelUDP[] =
-    {
-
-        {
-#ifdef UDP_CORK
-            UDP_CORK,
-            esock_setopt_bool_opt, esock_getopt_bool_opt,
-#else
-            0, NULL, NULL,
-#endif
-            &esock_atom_cork}
-
-    };
-
-/* Option levels table ------------------------------------------------- */
-
-struct ESockOptLevel
-{
-    int level; // Level number
-
-    size_t num; // Number of options
-
-    struct ESockOpt *opts; // Options table
-};
-
-// qsort and bsearch helper
-static int cmpESockOptLevel(const void *vpa, const void *vpb) {
-    struct ESockOptLevel *a, *b;
-    a = (struct ESockOptLevel*) vpa;
-    b = (struct ESockOptLevel*) vpb;
-    return a->level < b->level ? -1 : (a->level > b->level ? 1 : 0);
-}
-
-#define OPT_LEVEL(Level, Opts) {(Level), NUM(Opts), (Opts)}
-
-/* Table --------------------------------------------------------------- */
-
-static struct ESockOptLevel optLevels[] =
-    {
-        OPT_LEVEL(SOL_SOCKET, optLevelSocket),
-
-#ifdef SOL_IP
-        OPT_LEVEL(SOL_IP, optLevelIP),
-#else
-        OPT_LEVEL(IPPROTO_IP, optLevelIP),
-#endif
-
-#ifdef HAVE_IPV6
-#ifdef SOL_IPV6
-        OPT_LEVEL(SOL_IPV6, optLevelIPV6),
-#else
-        OPT_LEVEL(IPPROTO_IPV6, optLevelIPV6),
-#endif
-#endif // #ifdef HAVE_IPV6
-
-#ifdef HAVE_SCTP
-        OPT_LEVEL(IPPROTO_SCTP, optLevelSCTP),
-#endif // #ifdef HAVE_SCTP
-
-        OPT_LEVEL(IPPROTO_UDP, optLevelUDP),
-        OPT_LEVEL(IPPROTO_TCP, optLevelTCP)
-    };
-
-#undef OPT_LEVEL
-
-/* Tables init (sorting) ----------------------------------------------- */
-
-#define ESOCK_SORT_TABLE(Array, Cmp)                            \
-    qsort((Array), NUM(Array), sizeof(*(Array)), (Cmp))
-
-static void initOpts(void) {
-    ESOCK_SORT_TABLE(optLevelSocket, cmpESockOpt);
-    ESOCK_SORT_TABLE(optLevelIP, cmpESockOpt);
-#ifdef HAVE_IPV6
-    ESOCK_SORT_TABLE(optLevelIPV6, cmpESockOpt);
-#endif
-#ifdef HAVE_SCTP
-    ESOCK_SORT_TABLE(optLevelSCTP, cmpESockOpt);
-#endif
-    ESOCK_SORT_TABLE(optLevelTCP, cmpESockOpt);
-    ESOCK_SORT_TABLE(optLevelUDP, cmpESockOpt);
-    ESOCK_SORT_TABLE(optLevels, cmpESockOptLevel);
-}
-
-/* Option lookup in tables --------------------------------------------- */
-
-static struct ESockOpt *lookupOpt(int level, int opt) {
-    struct ESockOptLevel levelKey, *levelP;
-    struct ESockOpt optKey;
-
-    sys_memzero((char *) &levelKey, sizeof(levelKey));
-    levelKey.level = level;
-    levelP =
-        bsearch(&levelKey, optLevels, NUM(optLevels), sizeof(*optLevels),
-                cmpESockOptLevel);
-    if (levelP == NULL)
-        return NULL;
-
-    sys_memzero((char *) &optKey, sizeof(optKey));
-    optKey.opt = opt;
-    return
-        bsearch(&optKey, levelP->opts, levelP->num, sizeof(*levelP->opts),
-                cmpESockOpt);
-}
-
-/* --------------------------------------------------------------------- */
-
-#if defined(IP_TOS)
-static BOOLEAN_T decode_ip_tos(ErlNifEnv*   env,
-                               ERL_NIF_TERM eVal,
-                               int*         val);
-#endif
-#if defined(IP_MTU_DISCOVER)
-static BOOLEAN_T decode_ip_pmtudisc(ErlNifEnv*   env,
-                                    ERL_NIF_TERM eVal,
-                                    int*         val);
-#endif
-#if defined(IP_MTU_DISCOVER)
-static void encode_ip_pmtudisc(ErlNifEnv*    env,
-                               int           val,
-                               ERL_NIF_TERM* eVal);
-#endif
-#if defined(IPV6_MTU_DISCOVER)
-static BOOLEAN_T decode_ipv6_pmtudisc(ErlNifEnv*   env,
-                                      ERL_NIF_TERM eVal,
-                                      int*         val);
-#endif
-#if defined(IPV6_MTU_DISCOVER)
-static void encode_ipv6_pmtudisc(ErlNifEnv*    env,
-                                 int           val,
-                                 ERL_NIF_TERM* eVal);
-#endif
-#if defined(IPV6_MULTICAST_HOPS) || defined(IPV6_UNICAST_HOPS)
-static
-BOOLEAN_T decode_hops(ErlNifEnv *env, ERL_NIF_TERM eVal, int *val);
-#endif
-
-/*
-static BOOLEAN_T decode_bool(ErlNifEnv*   env,
-                             ERL_NIF_TERM eVal,
-                             BOOLEAN_T*   val);
-*/
-// static void encode_bool(BOOLEAN_T val, ERL_NIF_TERM* eVal);
-static ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val);
-
-#if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
-static BOOLEAN_T decode_sctp_assoc_t(ErlNifEnv*    env,
-                                     ERL_NIF_TERM  eVal,
-                                     sctp_assoc_t* val);
-static ERL_NIF_TERM encode_sctp_assoc_t(ErlNifEnv* env,
-                                        sctp_assoc_t val);
-#endif // #if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
-
-
-static BOOLEAN_T ehow2how(ERL_NIF_TERM ehow, int* how);
-
-
 
 /* *** esock_activate_next_acceptor ***
  * *** esock_activate_next_writer   ***
@@ -3005,20 +1611,6 @@ ACTIVATE_NEXT_FUNCS_DEFS
 ESOCK_OPERATOR_FUNCS_DEFS
 #undef ESOCK_OPERATOR_FUNCS_DEF
 
-/*
-#ifdef HAVE_SENDFILE
-extern
-void esock_send_sendfile_deferred_close_msg(ErlNifEnv*       env,
-                                            ESockDescriptor* descP);
-#endif
-*/
-/*
-static BOOLEAN_T esock_send_msg(ErlNifEnv*   env,
-                                ErlNifPid*   pid,
-                                ERL_NIF_TERM msg,
-                                ErlNifEnv*   msgEnv);
-*/
-
 static ERL_NIF_TERM mk_select_msg(ErlNifEnv*   env,
                                   ERL_NIF_TERM sockRef,
                                   ERL_NIF_TERM selectRef);
@@ -3032,6 +1624,324 @@ static ERL_NIF_TERM mk_select_msg(ErlNifEnv*   env,
  *                                                                        *
  * ---------------------------------------------------------------------- */
 #endif // #ifndef __WIN32__
+
+
+static ERL_NIF_TERM esock_setopt(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 int              level,
+                                 int              opt,
+                                 ERL_NIF_TERM     eVal);
+
+/* *** Handling set of socket options for level = socket *** */
+
+#if defined(SO_BINDTODEVICE)
+static ERL_NIF_TERM esock_setopt_so_bindtodevice(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 int              level,
+                                                 int              opt,
+                                                 ERL_NIF_TERM     eVal);
+#endif
+
+#if defined(SO_LINGER)
+static
+ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 int              level,
+                                 int              opt,
+                                 ERL_NIF_TERM     eVal);
+static
+ERL_NIF_TERM esock_getopt_linger(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 int              level,
+                                 int              opt);
+#endif
+
+#if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
+static ERL_NIF_TERM esock_setopt_msfilter(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          int              level,
+                                          int              opt,
+                                          ERL_NIF_TERM     eVal);
+static BOOLEAN_T decode_msfilter_mode(ErlNifEnv*   env,
+                                      ERL_NIF_TERM eVal,
+                                      Uint32*      mode);
+#endif
+#if defined(IP_MTU_DISCOVER)
+static ERL_NIF_TERM esock_setopt_ip_mtu_discover(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 int              level,
+                                                 int              opt,
+                                                 ERL_NIF_TERM     eVal);
+#endif
+#if defined(IP_MULTICAST_IF)
+static ERL_NIF_TERM esock_setopt_multicast_if(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              int              level,
+                                              int              opt,
+                                              ERL_NIF_TERM     eVal);
+#endif
+
+#if defined(IP_TOS)
+static ERL_NIF_TERM esock_setopt_tos(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              level,
+                                     int              opt,
+                                     ERL_NIF_TERM     eVal);
+#endif
+
+#if defined(IP_DROP_MEMBERSHIP) || defined(IP_ADD_MEMBERSHIP)
+static
+ERL_NIF_TERM esock_setopt_in_update_membership(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               int              level,
+                                               int              opt,
+                                               ERL_NIF_TERM     eVal);
+#endif
+#if defined(IP_ADD_SOURCE_MEMBERSHIP) || defined(IP_DROP_SOURCE_MEMBERSHIP) || defined(IP_BLOCK_SOURCE) || defined(IP_UNBLOCK_SOURCE)
+static
+ERL_NIF_TERM esock_setopt_in_update_source(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           int              level,
+                                           int              opt,
+                                           ERL_NIF_TERM     eVal);
+#endif
+
+
+/* *** Handling set of socket options for level = ipv6 *** */
+#if defined(HAVE_IPV6)
+
+#if defined(IPV6_ADDRFORM)
+static ERL_NIF_TERM esock_setopt_addrform(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          int              level,
+                                          int              opt,
+                                          ERL_NIF_TERM     eVal);
+#endif
+#if defined(IPV6_MTU_DISCOVER)
+static ERL_NIF_TERM esock_setopt_ipv6_mtu_discover(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP,
+                                                   int              level,
+                                                   int              opt,
+                                                   ERL_NIF_TERM     eVal);
+#endif
+#if defined(IPV6_MULTICAST_HOPS)
+static ERL_NIF_TERM esock_setopt_hops(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      int              level,
+                                      int              opt,
+                                      ERL_NIF_TERM     eVal);
+#endif
+
+#if defined(IPV6_ADD_MEMBERSHIP) || defined(IPV6_DROP_MEMBERSHIP)
+static ERL_NIF_TERM
+esock_setopt_in6_update_membership(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   int              level,
+                                   int              opt,
+                                   ERL_NIF_TERM     eVal);
+#endif
+
+#endif // defined(HAVE_IPV6)
+
+
+#if defined(TCP_CONGESTION)
+static ERL_NIF_TERM esock_setopt_tcp_congestion(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                int              level,
+                                                int              opt,
+                                                ERL_NIF_TERM     eVal);
+#endif
+
+
+#if defined(HAVE_SCTP)
+
+#if defined(SCTP_ASSOCINFO)
+static ERL_NIF_TERM esock_setopt_sctp_associnfo(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                int              level,
+                                                int              opt,
+                                                ERL_NIF_TERM     eVal);
+#endif
+#if defined(SCTP_EVENTS)
+static ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             int              level,
+                                             int              opt,
+                                             ERL_NIF_TERM     eVal);
+static int esock_setopt_sctp_event(ErlNifEnv   *env,
+                                   ERL_NIF_TERM eMap,
+                                   ERL_NIF_TERM eKey,
+                                   BOOLEAN_T   *failure);
+#endif
+#if defined(SCTP_INITMSG)
+static ERL_NIF_TERM esock_setopt_sctp_initmsg(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              int              level,
+                                              int              opt,
+                                              ERL_NIF_TERM     eVal);
+#endif
+#if defined(SCTP_RTOINFO)
+static ERL_NIF_TERM esock_setopt_sctp_rtoinfo(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              int              level,
+                                              int              opt,
+                                              ERL_NIF_TERM     eVal);
+#endif
+
+#endif // defined(HAVE_SCTP)
+
+
+static ERL_NIF_TERM esock_getopt(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 int              level,
+                                 int              opt);
+
+#if defined(SO_BINDTODEVICE)
+static ERL_NIF_TERM esock_getopt_so_bindtodevice(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 int              level,
+                                                 int              opt);
+#endif
+#if defined(SO_DOMAIN)
+static ERL_NIF_TERM esock_getopt_sock_domain(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             int              level,
+                                             int              opt);
+#endif
+
+#if defined(SO_TYPE)
+static
+ERL_NIF_TERM esock_getopt_sock_type(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    int              level,
+                                    int              opt);
+#endif
+
+#if defined(SO_PROTOCOL)
+static
+ERL_NIF_TERM esock_getopt_sock_protocol(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        int              level,
+                                        int              opt);
+#endif
+
+#if defined(IP_MTU_DISCOVER)
+static ERL_NIF_TERM esock_getopt_ip_mtu_discover(ErlNifEnv*       env,
+                                                 ESockDescriptor* descP,
+                                                 int              level,
+                                                 int              opt);
+#endif
+#if defined(IP_MULTICAST_IF)
+static ERL_NIF_TERM esock_getopt_multicast_if(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              int              level,
+                                              int              opt);
+#endif
+#if defined(IP_TOS)
+static ERL_NIF_TERM esock_getopt_tos(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     int              level,
+                                     int              opt);
+#endif
+
+
+#if defined(HAVE_IPV6)
+
+#if defined(IPV6_MTU_DISCOVER)
+static ERL_NIF_TERM esock_getopt_ipv6_mtu_discover(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP,
+                                                   int              level,
+                                                   int              opt);
+#endif
+
+#endif // defined(HAVE_IPV6)
+
+#if defined(IP_PKTOPTIONS) || defined(IPV6_PKTOPTIONS)
+static ERL_NIF_TERM esock_getopt_pktoptions(ErlNifEnv*       env,
+					    ESockDescriptor* descP,
+					    int              level,
+					    int              opt);
+#endif
+
+#if defined(TCP_CONGESTION)
+static ERL_NIF_TERM esock_getopt_tcp_congestion(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                int              level,
+                                                int              opt);
+#endif
+
+
+#if defined(HAVE_SCTP)
+
+#if defined(SCTP_ASSOCINFO)
+static ERL_NIF_TERM esock_getopt_sctp_associnfo(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                int              level,
+                                                int              opt);
+#endif
+#if defined(SCTP_INITMSG)
+static ERL_NIF_TERM esock_getopt_sctp_initmsg(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              int              level,
+                                              int              opt);
+#endif
+#if defined(SCTP_RTOINFO)
+static ERL_NIF_TERM esock_getopt_sctp_rtoinfo(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              int              level,
+                                              int              opt);
+#endif
+
+#endif // defined(HAVE_SCTP)
+
+
+#if defined(USE_SETOPT_STR_OPT)
+static ERL_NIF_TERM esock_setopt_str_opt(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         int              level,
+                                         int              opt,
+                                         int              max,
+                                         ERL_NIF_TERM     eVal);
+#endif
+static ERL_NIF_TERM esock_setopt_bool_opt(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          int              level,
+                                          int              opt,
+                                          ERL_NIF_TERM     eVal);
+static ERL_NIF_TERM esock_setopt_int_opt(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         int              level,
+                                         int              opt,
+                                         ERL_NIF_TERM     eVal);
+#if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO))      \
+    && defined(ESOCK_USE_RCVSNDTIMEO)
+static ERL_NIF_TERM esock_setopt_timeval_opt(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             int              level,
+                                             int              opt,
+                                             ERL_NIF_TERM     eVal);
+#endif
+#if defined(USE_GETOPT_STR_OPT)
+static ERL_NIF_TERM esock_getopt_str_opt(ErlNifEnv*       env,
+                                         ESockDescriptor* descP,
+                                         int              level,
+                                         int              opt,
+                                         int              max,
+                                         BOOLEAN_T        stripNUL);
+#endif
+#if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO))      \
+    && defined(ESOCK_USE_RCVSNDTIMEO)
+static ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
+                                             ESockDescriptor* descP,
+                                             int              level,
+                                             int              opt);
+#endif
+
+
+
+
+
+
 
 static ERL_NIF_TERM esock_shutdown(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
@@ -3142,6 +2052,53 @@ static ESockRequestQueueElement* qget(ErlNifEnv*         env,
 
 static char* extract_debug_filename(ErlNifEnv*   env,
                                     ERL_NIF_TERM map);
+
+
+/* --------------------------------------------------------------------- */
+
+#if defined(IP_TOS)
+static BOOLEAN_T decode_ip_tos(ErlNifEnv*   env,
+                               ERL_NIF_TERM eVal,
+                               int*         val);
+#endif
+#if defined(IP_MTU_DISCOVER)
+static BOOLEAN_T decode_ip_pmtudisc(ErlNifEnv*   env,
+                                    ERL_NIF_TERM eVal,
+                                    int*         val);
+#endif
+#if defined(IP_MTU_DISCOVER)
+static void encode_ip_pmtudisc(ErlNifEnv*    env,
+                               int           val,
+                               ERL_NIF_TERM* eVal);
+#endif
+#if defined(IPV6_MTU_DISCOVER)
+static BOOLEAN_T decode_ipv6_pmtudisc(ErlNifEnv*   env,
+                                      ERL_NIF_TERM eVal,
+                                      int*         val);
+#endif
+#if defined(IPV6_MTU_DISCOVER)
+static void encode_ipv6_pmtudisc(ErlNifEnv*    env,
+                                 int           val,
+                                 ERL_NIF_TERM* eVal);
+#endif
+
+static ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val);
+
+#if defined(IPV6_MULTICAST_HOPS) || defined(IPV6_UNICAST_HOPS)
+static
+BOOLEAN_T decode_hops(ErlNifEnv *env, ERL_NIF_TERM eVal, int *val);
+#endif
+
+#if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
+static BOOLEAN_T decode_sctp_assoc_t(ErlNifEnv*    env,
+                                     ERL_NIF_TERM  eVal,
+                                     sctp_assoc_t* val);
+static ERL_NIF_TERM encode_sctp_assoc_t(ErlNifEnv* env,
+                                        sctp_assoc_t val);
+#endif // #if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
+
+
+static BOOLEAN_T ehow2how(ERL_NIF_TERM ehow, int* how);
 
 
 /*
@@ -3889,6 +2846,1062 @@ static ESockIoBackend io_backend = {0};
 #define ESOCK_IO_DOWN(ENV, D, PP, MP)                           \
     ((io_backend.down != NULL) ?                                \
      io_backend.down((ENV), (D), (PP), (MP)) : ((void) (D)))
+
+
+
+/* ------------------------------------------------------------------------
+ * Socket option tables and handling
+ */
+
+/* SO_* options -------------------------------------------------------- */
+
+static struct ESockOpt optLevelSocket[] =
+    {
+        {
+#ifdef SO_ACCEPTCONN
+            SO_ACCEPTCONN,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_acceptconn},
+
+        {0, NULL, NULL, &esock_atom_acceptfilter},
+
+        {
+#ifdef SO_BINDTODEVICE
+            SO_BINDTODEVICE,
+            esock_setopt_so_bindtodevice, esock_getopt_so_bindtodevice,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_bindtodevice},
+
+        {
+#ifdef SO_BROADCAST
+            SO_BROADCAST,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_broadcast},
+
+        {0, NULL, NULL, &esock_atom_busy_poll},
+
+        {
+#ifdef SO_DEBUG
+            SO_DEBUG,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_debug},
+
+        {
+#ifdef SO_DOMAIN
+            SO_DOMAIN,
+            NULL, esock_getopt_sock_domain,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_domain},
+
+        {
+#ifdef SO_DONTROUTE
+            SO_DONTROUTE,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_dontroute},
+
+        {0, NULL, NULL, &esock_atom_error},
+
+        {
+#ifdef SO_KEEPALIVE
+            SO_KEEPALIVE,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_keepalive},
+
+        {
+#ifdef SO_LINGER
+            SO_LINGER,
+            esock_setopt_linger, esock_getopt_linger,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_linger},
+
+        {0, NULL, NULL, &esock_atom_mark},
+
+        {
+#ifdef SO_OOBINLINE
+            SO_OOBINLINE,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_oobinline},
+
+        {
+#ifdef SO_PASSCRED
+            SO_PASSCRED,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_passcred},
+
+        {
+#ifdef SO_PEEK_OFF
+            SO_PEEK_OFF,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_peek_off},
+
+        {0, NULL, NULL, &esock_atom_peercred},
+
+        {
+#ifdef SO_PRIORITY
+            SO_PRIORITY,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_priority},
+
+        {
+#ifdef SO_PROTOCOL
+            SO_PROTOCOL,
+            NULL, esock_getopt_sock_protocol,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_protocol},
+
+        {
+#ifdef SO_RCVBUF
+            SO_RCVBUF,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_rcvbuf},
+
+        {0, NULL, NULL, &esock_atom_rcvbufforce},
+
+        {
+#ifdef SO_RCVLOWAT
+            SO_RCVLOWAT,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_rcvlowat},
+
+        {
+#if defined(SO_RCVTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
+            SO_RCVTIMEO,
+            esock_setopt_timeval_opt, esock_getopt_timeval_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_rcvtimeo},
+
+        {
+#ifdef SO_REUSEADDR
+            SO_REUSEADDR,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_reuseaddr},
+
+        {
+#ifdef SO_REUSEPORT
+            SO_REUSEPORT,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_reuseport},
+
+        {0, NULL, NULL, &esock_atom_rxq_ovfl},
+        {0, NULL, NULL, &esock_atom_setfib},
+
+        {
+#ifdef SO_SNDBUF
+            SO_SNDBUF,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_sndbuf},
+
+        {0, NULL, NULL, &esock_atom_sndbufforce},
+
+        {
+#ifdef SO_SNDLOWAT
+            SO_SNDLOWAT,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_sndlowat},
+
+        {
+#if defined(SO_SNDTIMEO) && defined(ESOCK_USE_RCVSNDTIMEO)
+            SO_SNDTIMEO,
+            esock_setopt_timeval_opt, esock_getopt_timeval_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_sndtimeo},
+
+        {
+#ifdef SO_TIMESTAMP
+            SO_TIMESTAMP,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_timestamp},
+
+        {
+#ifdef SO_TYPE
+            SO_TYPE,
+            NULL, esock_getopt_sock_type,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_type}
+    };
+
+
+/* IP_* options -------------------------------------------------------- */
+
+static struct ESockOpt optLevelIP[] =
+    {
+        {
+#ifdef IP_ADD_MEMBERSHIP
+            IP_ADD_MEMBERSHIP,
+            esock_setopt_in_update_membership, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_add_membership},
+
+        {
+#ifdef IP_ADD_SOURCE_MEMBERSHIP
+            IP_ADD_SOURCE_MEMBERSHIP,
+            esock_setopt_in_update_source, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_add_source_membership},
+
+        {
+#ifdef IP_BLOCK_SOURCE
+            IP_BLOCK_SOURCE,
+            esock_setopt_in_update_source, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_block_source},
+
+        {0, NULL, NULL, &esock_atom_dontfrag},
+
+        {
+#ifdef IP_DROP_MEMBERSHIP
+            IP_DROP_MEMBERSHIP,
+            esock_setopt_in_update_membership, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_drop_membership},
+
+        {
+#ifdef IP_DROP_SOURCE_MEMBERSHIP
+            IP_DROP_SOURCE_MEMBERSHIP,
+            esock_setopt_in_update_source, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_drop_source_membership},
+
+        {
+#ifdef IP_FREEBIND
+            IP_FREEBIND,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_freebind},
+
+        {
+#ifdef IP_HDRINCL
+            IP_HDRINCL,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_hdrincl},
+
+        {
+#ifdef IP_MINTTL
+            IP_MINTTL,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_minttl},
+
+        {
+#if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
+            IP_MSFILTER,
+            esock_setopt_msfilter, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_msfilter},
+
+        {
+#ifdef IP_MTU
+            IP_MTU,
+            NULL, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_mtu},
+
+        {
+#ifdef IP_MTU_DISCOVER
+            IP_MTU_DISCOVER,
+            esock_setopt_ip_mtu_discover, esock_getopt_ip_mtu_discover,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_mtu_discover},
+
+        {
+#ifdef IP_MULTICAST_ALL
+            IP_MULTICAST_ALL,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_multicast_all},
+
+        {
+#ifdef IP_MULTICAST_IF
+            IP_MULTICAST_IF,
+            esock_setopt_multicast_if, esock_getopt_multicast_if,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_multicast_if},
+
+        {
+#ifdef IP_MULTICAST_LOOP
+            IP_MULTICAST_LOOP,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_multicast_loop},
+
+        {
+#ifdef IP_MULTICAST_TTL
+            IP_MULTICAST_TTL,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_multicast_ttl},
+
+        {
+#ifdef IP_NODEFRAG
+            IP_NODEFRAG,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_nodefrag},
+
+        {0, NULL, NULL, &esock_atom_options},
+
+        {
+#ifdef IP_PKTINFO
+            IP_PKTINFO,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_pktinfo},
+
+        {
+#ifdef IP_PKTOPTIONS
+            IP_PKTOPTIONS,
+            NULL, esock_getopt_pktoptions,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_pktoptions},
+
+        {
+#ifdef IP_RECVDSTADDR
+            IP_RECVDSTADDR,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recvdstaddr},
+
+        {
+#ifdef IP_RECVERR
+            IP_RECVERR,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recverr},
+
+        {
+#ifdef IP_RECVIF
+            IP_RECVIF,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recvif},
+
+        {
+#ifdef IP_RECVOPTS
+            IP_RECVOPTS,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recvopts},
+
+        {
+#ifdef IP_RECVORIGDSTADDR
+            IP_RECVORIGDSTADDR,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recvorigdstaddr},
+
+        {
+#ifdef IP_RECVTOS
+            IP_RECVTOS,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recvtos},
+
+        {
+#ifdef IP_RECVTTL
+            IP_RECVTTL,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recvttl},
+
+        {
+#ifdef IP_RETOPTS
+            IP_RETOPTS,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_retopts},
+
+        {
+#ifdef IP_ROUTER_ALERT
+            IP_ROUTER_ALERT,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_router_alert},
+
+        {
+#ifdef IP_SENDSRCADDR
+            IP_SENDSRCADDR,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_sendsrcaddr},
+
+        {
+#ifdef IP_TOS
+            IP_TOS,
+            esock_setopt_tos, esock_getopt_tos,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_tos},
+
+        {
+#ifdef IP_TRANSPARENT
+            IP_TRANSPARENT,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_transparent},
+
+        {
+#ifdef IP_TTL
+            IP_TTL,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_ttl},
+
+        {
+#ifdef IP_UNBLOCK_SOURCE
+            IP_UNBLOCK_SOURCE,
+            esock_setopt_in_update_source, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_unblock_source}
+
+    };
+
+/* IPV6_* options ------------------------------------------------------ */
+
+#ifdef HAVE_IPV6
+static struct ESockOpt optLevelIPV6[] =
+    {
+
+        {
+#ifdef IPV6_ADDRFORM
+            IPV6_ADDRFORM,
+            esock_setopt_addrform, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_addrform},
+
+        {
+#ifdef IPV6_ADD_MEMBERSHIP
+            IPV6_ADD_MEMBERSHIP,
+            esock_setopt_in6_update_membership, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_add_membership},
+
+        {
+#ifdef IPV6_AUTHHDR
+            IPV6_AUTHHDR,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_authhdr},
+
+        {0, NULL, NULL, &esock_atom_auth_level},
+        {0, NULL, NULL, &esock_atom_checksum},
+
+        {
+#ifdef IPV6_DROP_MEMBERSHIP
+            IPV6_DROP_MEMBERSHIP,
+            esock_setopt_in6_update_membership, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_drop_membership},
+
+        {
+#if defined(IPV6_DSTOPTS)
+            IPV6_DSTOPTS,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_dstopts},
+
+        {0, NULL, NULL, &esock_atom_esp_network_level},
+        {0, NULL, NULL, &esock_atom_esp_trans_level},
+        {0, NULL, NULL, &esock_atom_faith},
+
+        {
+#ifdef IPV6_FLOWINFO
+            IPV6_FLOWINFO,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_flowinfo},
+
+        {
+#ifdef IPV6_HOPLIMIT
+            IPV6_HOPLIMIT,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_hoplimit},
+
+        {
+#ifdef IPV6_HOPOPTS
+            IPV6_HOPOPTS,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_hopopts},
+
+        {0, NULL, NULL, &esock_atom_ipcomp_level},
+        {0, NULL, NULL, &esock_atom_join_group},
+        {0, NULL, NULL, &esock_atom_leave_group},
+
+        {
+#ifdef IPV6_MTU
+            IPV6_MTU,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_mtu},
+
+        {
+#ifdef IPV6_MTU_DISCOVER
+            IPV6_MTU_DISCOVER,
+            esock_setopt_ipv6_mtu_discover, esock_getopt_ipv6_mtu_discover,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_mtu_discover},
+
+        {
+#ifdef IPV6_MULTICAST_HOPS
+            IPV6_MULTICAST_HOPS,
+            esock_setopt_hops, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_multicast_hops},
+
+        {
+#ifdef IPV6_MULTICAST_IF
+            IPV6_MULTICAST_IF,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_multicast_if},
+
+        {
+#ifdef IPV6_MULTICAST_LOOP
+            IPV6_MULTICAST_LOOP,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_multicast_loop},
+
+        {0, NULL, NULL, &esock_atom_portrange},
+
+        {
+#ifdef IPV6_PKTOPTIONS
+            IPV6_PKTOPTIONS,
+            NULL, esock_getopt_pktoptions,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_pktoptions},
+
+        {
+#ifdef IPV6_RECVERR
+            IPV6_RECVERR,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recverr},
+
+        {
+#ifdef IPV6_RECVHOPLIMIT
+            IPV6_RECVHOPLIMIT,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recvhoplimit},
+
+        {
+#if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
+#if defined(IPV6_RECVPKTINFO)
+            IPV6_RECVPKTINFO,
+#else
+            IPV6_PKTINFO,
+#endif
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recvpktinfo},
+
+        {
+#ifdef IPV6_RECVTCLASS
+            IPV6_RECVTCLASS,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_recvtclass},
+
+        {
+#ifdef IPV6_ROUTER_ALERT
+            IPV6_ROUTER_ALERT,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_router_alert},
+
+        {
+#ifdef IPV6_RTHDR
+            IPV6_RTHDR,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_rthdr},
+
+        {
+#ifdef IPV6_TCLASS
+            IPV6_TCLASS,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_tclass},
+
+        {
+#ifdef IPV6_UNICAST_HOPS
+            IPV6_UNICAST_HOPS,
+            esock_setopt_hops, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_unicast_hops},
+
+        {0, NULL, NULL, &esock_atom_use_min_mtu},
+
+        {
+#ifdef IPV6_V6ONLY
+            IPV6_V6ONLY,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_v6only}
+
+    };
+#endif // #ifdef HAVE_IPV6
+
+
+/* SCTP_* options ------------------------------------------------------ */
+
+#ifdef HAVE_SCTP
+static struct ESockOpt optLevelSCTP[] =
+    {
+
+        {0, NULL, NULL, &esock_atom_adaption_layer},
+
+        {
+#ifdef SCTP_ASSOCINFO
+            SCTP_ASSOCINFO,
+            esock_setopt_sctp_associnfo, esock_getopt_sctp_associnfo,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_associnfo},
+
+        {0, NULL, NULL, &esock_atom_auth_active_key},
+        {0, NULL, NULL, &esock_atom_auth_chunk},
+        {0, NULL, NULL, &esock_atom_auth_delete_key},
+        {0, NULL, NULL, &esock_atom_auth_key},
+
+        {
+#ifdef SCTP_AUTOCLOSE
+            SCTP_AUTOCLOSE,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_autoclose},
+
+        {0, NULL, NULL, &esock_atom_context},
+        {0, NULL, NULL, &esock_atom_default_send_params},
+        {0, NULL, NULL, &esock_atom_delayed_ack_time},
+
+        {
+#ifdef SCTP_DISABLE_FRAGMENTS
+            SCTP_DISABLE_FRAGMENTS,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_disable_fragments},
+
+        {0, NULL, NULL, &esock_atom_hmac_ident},
+
+        {
+#ifdef SCTP_EVENTS
+            SCTP_EVENTS,
+            esock_setopt_sctp_events, NULL,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_events},
+
+        {0, NULL, NULL, &esock_atom_explicit_eor},
+        {0, NULL, NULL, &esock_atom_fragment_interleave},
+        {0, NULL, NULL, &esock_atom_get_peer_addr_info},
+
+        {
+#ifdef SCTP_INITMSG
+            SCTP_INITMSG,
+            esock_setopt_sctp_initmsg, esock_getopt_sctp_initmsg,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_initmsg},
+
+        {0, NULL, NULL, &esock_atom_i_want_mapped_v4_addr},
+        {0, NULL, NULL, &esock_atom_local_auth_chunks},
+
+        {
+#ifdef SCTP_MAXSEG
+            SCTP_MAXSEG,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_maxseg},
+
+        {0, NULL, NULL, &esock_atom_maxburst},
+
+        {
+#ifdef SCTP_NODELAY
+            SCTP_NODELAY,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_nodelay},
+
+        {0, NULL, NULL, &esock_atom_partial_delivery_point},
+        {0, NULL, NULL, &esock_atom_peer_addr_params},
+        {0, NULL, NULL, &esock_atom_peer_auth_chunks},
+        {0, NULL, NULL, &esock_atom_primary_addr},
+        {0, NULL, NULL, &esock_atom_reset_streams},
+
+        {
+#ifdef SCTP_RTOINFO
+            SCTP_RTOINFO,
+            esock_setopt_sctp_rtoinfo, esock_getopt_sctp_rtoinfo,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_rtoinfo},
+
+        {0, NULL, NULL, &esock_atom_set_peer_primary_addr},
+        {0, NULL, NULL, &esock_atom_status},
+        {0, NULL, NULL, &esock_atom_use_ext_recvinfo}
+
+    };
+#endif // #ifdef HAVE_SCTP
+
+/* TCP_* options ------------------------------------------------------- */
+
+static struct ESockOpt optLevelTCP[] =
+    {
+
+        {
+#ifdef TCP_CONGESTION
+            TCP_CONGESTION,
+            esock_setopt_tcp_congestion, esock_getopt_tcp_congestion,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_congestion},
+
+        {
+#ifdef TCP_CORK
+            TCP_CORK,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_cork},
+
+        {0, NULL, NULL, &esock_atom_info},
+        {0, NULL, NULL, &esock_atom_keepcnt},
+        {0, NULL, NULL, &esock_atom_keepidle},
+        {0, NULL, NULL, &esock_atom_keepintvl},
+
+        {
+#ifdef TCP_MAXSEG
+            TCP_MAXSEG,
+            esock_setopt_int_opt, esock_getopt_int_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_maxseg},
+
+        {0, NULL, NULL, &esock_atom_md5sig},
+
+        {
+#ifdef TCP_NODELAY
+            TCP_NODELAY,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_nodelay},
+
+        {0, NULL, NULL, &esock_atom_noopt},
+        {0, NULL, NULL, &esock_atom_nopush},
+        {0, NULL, NULL, &esock_atom_syncnt},
+        {0, NULL, NULL, &esock_atom_user_timeout}
+
+    };
+
+
+/* UDP_* options ------------------------------------------------------- */
+
+static struct ESockOpt optLevelUDP[] =
+    {
+
+        {
+#ifdef UDP_CORK
+            UDP_CORK,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_cork}
+
+    };
+
+
+/* Option levels utility macro */
+
+#define OPT_LEVEL(Level, Opts) {(Level), NUM(Opts), (Opts)}
+
+
+/* Table --------------------------------------------------------------- */
+
+static struct ESockOptLevel optLevels[] =
+    {
+        OPT_LEVEL(SOL_SOCKET, optLevelSocket),
+
+#ifdef SOL_IP
+        OPT_LEVEL(SOL_IP, optLevelIP),
+#else
+        OPT_LEVEL(IPPROTO_IP, optLevelIP),
+#endif
+
+#ifdef HAVE_IPV6
+#ifdef SOL_IPV6
+        OPT_LEVEL(SOL_IPV6, optLevelIPV6),
+#else
+        OPT_LEVEL(IPPROTO_IPV6, optLevelIPV6),
+#endif
+#endif // #ifdef HAVE_IPV6
+
+#ifdef HAVE_SCTP
+        OPT_LEVEL(IPPROTO_SCTP, optLevelSCTP),
+#endif // #ifdef HAVE_SCTP
+
+        OPT_LEVEL(IPPROTO_UDP, optLevelUDP),
+        OPT_LEVEL(IPPROTO_TCP, optLevelTCP)
+    };
+
+#undef OPT_LEVEL
+
+/* Tables init (sorting) ----------------------------------------------- */
+
+#define ESOCK_SORT_TABLE(Array, Cmp)                    \
+    qsort((Array), NUM(Array), sizeof(*(Array)), (Cmp))
+
+static void initOpts(void) {
+    ESOCK_SORT_TABLE(optLevelSocket, cmpESockOpt);
+    ESOCK_SORT_TABLE(optLevelIP, cmpESockOpt);
+#ifdef HAVE_IPV6
+    ESOCK_SORT_TABLE(optLevelIPV6, cmpESockOpt);
+#endif
+#ifdef HAVE_SCTP
+    ESOCK_SORT_TABLE(optLevelSCTP, cmpESockOpt);
+#endif
+    ESOCK_SORT_TABLE(optLevelTCP, cmpESockOpt);
+    ESOCK_SORT_TABLE(optLevelUDP, cmpESockOpt);
+    ESOCK_SORT_TABLE(optLevels, cmpESockOptLevel);
+}
+
+
+/* ------------------------------------------------------------------------
+ * Socket option tables and handling
+ */
+
+// qsort and bsearch helper(s)
+static
+int cmpESockOpt(const void *vpa, const void *vpb)
+{
+    struct ESockOpt *a, *b;
+    a = (struct ESockOpt *) vpa;
+    b = (struct ESockOpt *) vpb;
+    return a->opt < b->opt ? -1 : (a->opt > b->opt ? 1 : 0);
+}
+
+static
+int cmpESockOptLevel(const void *vpa, const void *vpb)
+{
+    struct ESockOptLevel *a, *b;
+    a = (struct ESockOptLevel*) vpa;
+    b = (struct ESockOptLevel*) vpb;
+    return a->level < b->level ? -1 : (a->level > b->level ? 1 : 0);
+}
+
+/* Option lookup in tables --------------------------------------------- */
+
+static
+struct ESockOpt *lookupOpt(int level, int opt)
+{
+    struct ESockOptLevel levelKey, *levelP;
+    struct ESockOpt optKey;
+
+    sys_memzero((char *) &levelKey, sizeof(levelKey));
+    levelKey.level = level;
+    levelP = bsearch(&levelKey, optLevels, NUM(optLevels), sizeof(*optLevels),
+                     cmpESockOptLevel);
+    if (levelP == NULL)
+        return NULL;
+
+    sys_memzero((char *) &optKey, sizeof(optKey));
+    optKey.opt = opt;
+    return bsearch(&optKey, levelP->opts, levelP->num, sizeof(*levelP->opts),
+                   cmpESockOpt);
+}
+
 
 
 /* These three (inline) functions are primarily intended for debugging,
@@ -7208,7 +7221,7 @@ ERL_NIF_TERM esock_setopt_native(ErlNifEnv*       env,
 /* esock_setopt - A "proper" level (option) has been specified,
  * and we have an value of known encoding
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt(ErlNifEnv*       env,
                           ESockDescriptor* descP,
@@ -7270,10 +7283,8 @@ ERL_NIF_TERM esock_setopt(ErlNifEnv*       env,
     MUNLOCK(descP->writeMtx);
     return result;
 }
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 #if defined(SO_BINDTODEVICE)
 static
 ERL_NIF_TERM esock_setopt_so_bindtodevice(ErlNifEnv*       env,
@@ -7285,10 +7296,8 @@ ERL_NIF_TERM esock_setopt_so_bindtodevice(ErlNifEnv*       env,
     return esock_setopt_str_opt(env, descP, level, opt, IFNAMSIZ, eVal);
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 #if defined(SO_LINGER)
 static
 ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
@@ -7316,7 +7325,7 @@ ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
     }
 
     if ((! esock_decode_bool(eOnOff, &onOff)) ||
-        (! GET_INT(env, eLinger, &val.l_linger)) ||
+        (! GET_INT(env, eLinger, (int*) &val.l_linger)) ||
         (val.l_linger < 0)) {
         return esock_make_invalid(env, esock_atom_value);
     }
@@ -7326,11 +7335,9 @@ ERL_NIF_TERM esock_setopt_linger(ErlNifEnv*       env,
                                   &val, sizeof(val));
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 
-#ifndef __WIN32__
 #if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
 
 /* esock_setopt_msfilter - Level IP MSFILTER option
@@ -7425,14 +7432,12 @@ BOOLEAN_T decode_msfilter_mode(ErlNifEnv*   env,
 }
 
 #endif // #if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
-#endif // #ifndef __WIN32__
 
 
 /* esock_setopt_ip_mtu_discover - Level IP MTU_DISCOVER option
  *
  * The value is an atom of the type ip_pmtudisc().
  */
-#ifndef __WIN32__
 #if defined(IP_MTU_DISCOVER)
 static
 ERL_NIF_TERM esock_setopt_ip_mtu_discover(ErlNifEnv*       env,
@@ -7450,7 +7455,6 @@ ERL_NIF_TERM esock_setopt_ip_mtu_discover(ErlNifEnv*       env,
                                       &val, sizeof(val));
 }
 #endif // #if defined(IP_MTU_DISCOVER)
-#endif // #ifndef __WIN32__
 
 
 
@@ -7458,7 +7462,6 @@ ERL_NIF_TERM esock_setopt_ip_mtu_discover(ErlNifEnv*       env,
  *
  * The value is either the atom 'any' or a 4-tuple.
  */
-#ifndef __WIN32__
 #if defined(IP_MULTICAST_IF)
 static
 ERL_NIF_TERM esock_setopt_multicast_if(ErlNifEnv*       env,
@@ -7481,11 +7484,11 @@ ERL_NIF_TERM esock_setopt_multicast_if(ErlNifEnv*       env,
     return result;
 }
 #endif
-#endif // #ifndef __WIN32__
+
 
 /* esock_setopt_tos - Level IP TOS option
  */
-#ifndef __WIN32__
+
 #if defined(IP_TOS)
 static
 ERL_NIF_TERM esock_setopt_tos(ErlNifEnv*       env,
@@ -7508,8 +7511,6 @@ ERL_NIF_TERM esock_setopt_tos(ErlNifEnv*       env,
     return result;
 }
 #endif
-#endif // #ifndef __WIN32__
-
 
 
 
@@ -7518,7 +7519,7 @@ ERL_NIF_TERM esock_setopt_tos(ErlNifEnv*       env,
  * The attribute 'interface' is either the atom 'any' or a 4-tuple
  * (IPv4 address).
  */
-#ifndef __WIN32__
+
 #if defined(IP_ADD_MEMBERSHIP) || defined(IP_DROP_MEMBERSHIP)
 static
 ERL_NIF_TERM esock_setopt_in_update_membership(ErlNifEnv*       env,
@@ -7569,7 +7570,6 @@ ERL_NIF_TERM esock_setopt_in_update_membership(ErlNifEnv*       env,
     return esock_make_invalid(env, esock_atom_value);
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 /* The value is a map with three attributes: multiaddr, interface and
@@ -7579,7 +7579,7 @@ ERL_NIF_TERM esock_setopt_in_update_membership(ErlNifEnv*       env,
  * The attribute 'sourceaddr' is always a 4-tuple (IPv4 address).
  * (IPv4 address).
  */
-#ifndef __WIN32__
+
 #if defined(IP_ADD_SOURCE_MEMBERSHIP) ||  \
     defined(IP_DROP_SOURCE_MEMBERSHIP) || \
     defined(IP_BLOCK_SOURCE) ||           \
@@ -7614,15 +7614,11 @@ ERL_NIF_TERM esock_setopt_in_update_source(ErlNifEnv*       env,
     return esock_make_invalid(env, esock_atom_value);
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 
 #if defined(HAVE_IPV6)
 
-
-
-#ifndef __WIN32__
 #if defined(IPV6_ADDRFORM)
 static
 ERL_NIF_TERM esock_setopt_addrform(ErlNifEnv*       env,
@@ -7649,7 +7645,6 @@ ERL_NIF_TERM esock_setopt_addrform(ErlNifEnv*       env,
                                   &domain, sizeof(domain));
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 
@@ -7657,7 +7652,7 @@ ERL_NIF_TERM esock_setopt_addrform(ErlNifEnv*       env,
  *
  * The value is an atom of the type ipv6_pmtudisc().
  */
-#ifndef __WIN32__
+
 #if defined(IPV6_MTU_DISCOVER)
 static
 ERL_NIF_TERM esock_setopt_ipv6_mtu_discover(ErlNifEnv*       env,
@@ -7675,10 +7670,9 @@ ERL_NIF_TERM esock_setopt_ipv6_mtu_discover(ErlNifEnv*       env,
                                   &val, sizeof(val));
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
+
 #if defined(IPV6_MULTICAST_HOPS)
 static
 ERL_NIF_TERM esock_setopt_hops(ErlNifEnv*       env,
@@ -7696,10 +7690,9 @@ ERL_NIF_TERM esock_setopt_hops(ErlNifEnv*       env,
                                   &hops, sizeof(hops));
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
+
 #if defined(IPV6_ADD_MEMBERSHIP) || defined(IPV6_DROP_MEMBERSHIP)
 static
 ERL_NIF_TERM esock_setopt_in6_update_membership(ErlNifEnv*       env,
@@ -7748,7 +7741,6 @@ ERL_NIF_TERM esock_setopt_in6_update_membership(ErlNifEnv*       env,
     return esock_make_invalid(env, esock_atom_value);
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 #endif // defined(HAVE_IPV6)
@@ -7758,7 +7750,6 @@ ERL_NIF_TERM esock_setopt_in6_update_membership(ErlNifEnv*       env,
 
 /* esock_setopt_tcp_congestion - Level TCP CONGESTION option
  */
-#ifndef __WIN32__
 #if defined(TCP_CONGESTION)
 static
 ERL_NIF_TERM esock_setopt_tcp_congestion(ErlNifEnv*       env,
@@ -7772,17 +7763,13 @@ ERL_NIF_TERM esock_setopt_tcp_congestion(ErlNifEnv*       env,
     return esock_setopt_str_opt(env, descP, level, opt, max, eVal);
 }
 #endif
-#endif // #ifndef __WIN32__
-
 
 
 #if defined(HAVE_SCTP)
 
-
-
 /* esock_setopt_sctp_associnfo - Level SCTP ASSOCINFO option
  */
-#ifndef __WIN32__
+
 #if defined(SCTP_ASSOCINFO)
 static
 ERL_NIF_TERM esock_setopt_sctp_associnfo(ErlNifEnv*       env,
@@ -7863,12 +7850,12 @@ ERL_NIF_TERM esock_setopt_sctp_associnfo(ErlNifEnv*       env,
     return esock_make_invalid(env, esock_atom_value);
 }
 #endif
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_sctp_events - Level SCTP EVENTS option
  */
-#ifndef __WIN32__
+
 #if defined(SCTP_EVENTS)
 static
 ERL_NIF_TERM esock_setopt_sctp_events(ErlNifEnv*       env,
@@ -7966,12 +7953,12 @@ static int esock_setopt_sctp_event(ErlNifEnv   *env,
     return 0;
 }
 #endif
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_sctp_initmsg - Level SCTP INITMSG option
  */
-#ifndef __WIN32__
+
 #if defined(SCTP_INITMSG)
 static
 ERL_NIF_TERM esock_setopt_sctp_initmsg(ErlNifEnv*       env,
@@ -8034,12 +8021,12 @@ ERL_NIF_TERM esock_setopt_sctp_initmsg(ErlNifEnv*       env,
     return esock_make_invalid(env, esock_atom_value);
 }
 #endif
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_sctp_rtoinfo - Level SCTP RTOINFO option
  */
-#ifndef __WIN32__
+
 #if defined(SCTP_RTOINFO)
 static
 ERL_NIF_TERM esock_setopt_sctp_rtoinfo(ErlNifEnv*       env,
@@ -8093,9 +8080,6 @@ ERL_NIF_TERM esock_setopt_sctp_rtoinfo(ErlNifEnv*       env,
     return esock_make_invalid(env, esock_atom_value);
 }
 #endif
-#endif // #ifndef __WIN32__
-
-
 
 #endif // defined(HAVE_SCTP)
 
@@ -8104,7 +8088,7 @@ ERL_NIF_TERM esock_setopt_sctp_rtoinfo(ErlNifEnv*       env,
 
 /* esock_setopt_bool_opt - set an option that has an (integer) bool value
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_bool_opt(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
@@ -8122,12 +8106,12 @@ ERL_NIF_TERM esock_setopt_bool_opt(ErlNifEnv*       env,
     return esock_setopt_level_opt(env, descP, level, opt,
                                   &ival, sizeof(ival));
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_int_opt - set an option that has an integer value
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM esock_setopt_int_opt(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
@@ -8147,12 +8131,12 @@ ERL_NIF_TERM esock_setopt_int_opt(ErlNifEnv*       env,
     }
     return result;
 }
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_str_opt - set an option that has an string value
  */
-#ifndef __WIN32__
+
 #if defined(USE_SETOPT_STR_OPT)
 static
 ERL_NIF_TERM esock_setopt_str_opt(ErlNifEnv*       env,
@@ -8183,12 +8167,12 @@ ERL_NIF_TERM esock_setopt_str_opt(ErlNifEnv*       env,
     return result;
 }
 #endif
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_setopt_timeval_opt - set an option that has an (timeval) bool value
  */
-#ifndef __WIN32__
+
 #if (defined(SO_RCVTIMEO) || defined(SO_SNDTIMEO)) \
     && defined(ESOCK_USE_RCVSNDTIMEO)
 static
@@ -8225,7 +8209,6 @@ ERL_NIF_TERM esock_setopt_timeval_opt(ErlNifEnv*       env,
 
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 static ERL_NIF_TERM esock_setopt_level_opt(ErlNifEnv*       env,
@@ -8976,7 +8959,6 @@ ERL_NIF_TERM esock_getopt_native(ErlNifEnv*       env,
 
 /* esock_getopt - An option that we know how to decode
  */
-#ifndef __WIN32__
 static
 ERL_NIF_TERM esock_getopt(ErlNifEnv*       env,
                           ESockDescriptor* descP,
@@ -9033,10 +9015,8 @@ ERL_NIF_TERM esock_getopt(ErlNifEnv*       env,
     MUNLOCK(descP->readMtx);
     return result;
 }
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 #if defined(SO_BINDTODEVICE)
 static
 ERL_NIF_TERM esock_getopt_so_bindtodevice(ErlNifEnv*       env,
@@ -9047,10 +9027,8 @@ ERL_NIF_TERM esock_getopt_so_bindtodevice(ErlNifEnv*       env,
     return esock_getopt_str_opt(env, descP, level, opt, IFNAMSIZ+1, FALSE);
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 #if defined(SO_DOMAIN)
 static
 ERL_NIF_TERM esock_getopt_sock_domain(ErlNifEnv*       env,
@@ -9072,10 +9050,8 @@ ERL_NIF_TERM esock_getopt_sock_domain(ErlNifEnv*       env,
     return result;
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 #if defined(SO_LINGER)
 static
 ERL_NIF_TERM esock_getopt_linger(ErlNifEnv*       env,
@@ -9090,7 +9066,11 @@ ERL_NIF_TERM esock_getopt_linger(ErlNifEnv*       env,
 
     sys_memzero((void *) &val, sizeof(val));
 
+#ifdef __WIN32__
+    res = sock_getopt(descP->sock, level, opt, (char*) &val, &valSz);
+#else
     res = sock_getopt(descP->sock, level, opt, &val, &valSz);
+#endif
 
     if (res != 0) {
         result = esock_make_error_errno(env, sock_errno());
@@ -9112,11 +9092,9 @@ ERL_NIF_TERM esock_getopt_linger(ErlNifEnv*       env,
     return result;
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 
-#ifndef __WIN32__
 #if defined(SO_TYPE)
 static
 ERL_NIF_TERM esock_getopt_sock_type(ErlNifEnv*       env,
@@ -9138,10 +9116,8 @@ ERL_NIF_TERM esock_getopt_sock_type(ErlNifEnv*       env,
     return result;
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 #if defined(SO_PROTOCOL)
 static
 ERL_NIF_TERM esock_getopt_sock_protocol(ErlNifEnv*       env,
@@ -9174,10 +9150,8 @@ ERL_NIF_TERM esock_getopt_sock_protocol(ErlNifEnv*       env,
     return result;
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 /* esock_getopt_ip_mtu_discover - Level IP MTU_DISCOVER option
  */
 #if defined(IP_MTU_DISCOVER)
@@ -9202,12 +9176,11 @@ ERL_NIF_TERM esock_getopt_ip_mtu_discover(ErlNifEnv*       env,
 
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 /* esock_getopt_multicast_if - Level IP MULTICAST_IF option
  */
-#ifndef __WIN32__
+
 #if defined(IP_MULTICAST_IF)
 static
 ERL_NIF_TERM esock_getopt_multicast_if(ErlNifEnv*       env,
@@ -9223,7 +9196,11 @@ ERL_NIF_TERM esock_getopt_multicast_if(ErlNifEnv*       env,
 
     sys_memzero((void *) &ifAddr, ifAddrSz);
 
+#ifdef __WIN32__
+    res = sock_getopt(descP->sock, level, opt, (char*) &ifAddr, &ifAddrSz);
+#else
     res = sock_getopt(descP->sock, level, opt, &ifAddr, &ifAddrSz);
+#endif
 
     if (res != 0) {
         result = esock_make_error_errno(env, sock_errno());
@@ -9236,12 +9213,12 @@ ERL_NIF_TERM esock_getopt_multicast_if(ErlNifEnv*       env,
 
 }
 #endif
-#endif // #ifndef __WIN32__
+
 
 
 /* esock_getopt_tos - Level IP TOS option
  */
-#ifndef __WIN32__
+
 #if defined(IP_TOS)
 static
 ERL_NIF_TERM esock_getopt_tos(ErlNifEnv*       env,
@@ -9261,15 +9238,14 @@ ERL_NIF_TERM esock_getopt_tos(ErlNifEnv*       env,
     return result;
 }
 #endif
-#endif // #ifndef __WIN32__
+
 
 
 #if defined(HAVE_IPV6)
 
-
 /* esock_getopt_ipv6_mtu_discover - Level IPv6 MTU_DISCOVER option
  */
-#ifndef __WIN32__
+
 #if defined(IPV6_MTU_DISCOVER)
 static
 ERL_NIF_TERM esock_getopt_ipv6_mtu_discover(ErlNifEnv*       env,
@@ -9292,16 +9268,13 @@ ERL_NIF_TERM esock_getopt_ipv6_mtu_discover(ErlNifEnv*       env,
 
 }
 #endif
-#endif // #ifndef __WIN32__
-
 
 #endif // defined(HAVE_IPV6)
 
 
-
 /* esock_getopt_tcp_congestion - Level TCP CONGESTION option
  */
-#ifndef __WIN32__
+
 #if defined(TCP_CONGESTION)
 static
 ERL_NIF_TERM esock_getopt_tcp_congestion(ErlNifEnv*       env,
@@ -9314,13 +9287,10 @@ ERL_NIF_TERM esock_getopt_tcp_congestion(ErlNifEnv*       env,
     return esock_getopt_str_opt(env, descP, level, opt, max, TRUE);
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 
 #if defined(HAVE_SCTP)
-
-
 
 /* esock_getopt_sctp_associnfo - Level SCTP ASSOCINFO option
  *
@@ -12551,8 +12521,10 @@ void* esock_init_cmsghdr(struct cmsghdr* cmsgP,
  *
  *       lowdelay |  throughput | reliability | mincost
  *
+ *
+ * For Windows, the Microsoft recommendation is: *Do not use*
  */
-#ifndef __WIN32__
+
 #if defined(IP_TOS)
 static
 BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
@@ -12560,6 +12532,14 @@ BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
     BOOLEAN_T result = FALSE;
 
     if (IS_ATOM(env, eVal)) {
+
+#ifdef __WIN32__
+
+        /* See above */
+        *val   = -1;
+        result = FALSE;
+
+#else
 
         if (COMPARE(eVal, esock_atom_lowdelay) == 0) {
             *val   = IPTOS_LOWDELAY;
@@ -12575,11 +12555,14 @@ BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
             *val   = IPTOS_MINCOST;
             result = TRUE;
 #endif
+
         } else {
             *val   = -1;
             result = FALSE;
         }
             
+#endif // ifdef __WIN32__
+
     } else if (IS_NUM(env, eVal)) {
 
         if (GET_INT(env, eVal, val)) {
@@ -12597,7 +12580,7 @@ BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
     return result;
 }
 #endif
-#endif // #ifndef __WIN32__
+
 
 
 /* +++ decode the ip socket option MTU_DISCOVER +++
@@ -12609,20 +12592,23 @@ BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
  *
  *       want | dont | do | probe
  *
+ * Note that on Windows, the 'want' value seems to not exist!
  */
-#ifndef __WIN32__
+
 #if defined(IP_MTU_DISCOVER)
 static
 BOOLEAN_T decode_ip_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
 {
     if (IS_ATOM(env, eVal)) {
 
-        if (COMPARE(eVal, atom_want) == 0) {
-            *val = IP_PMTUDISC_WANT;
-        } else if (COMPARE(eVal, atom_dont) == 0) {
+        if (COMPARE(eVal, atom_dont) == 0) {
             *val = IP_PMTUDISC_DONT;
         } else if (COMPARE(eVal, atom_do) == 0) {
             *val = IP_PMTUDISC_DO;
+#if defined(IP_PMTUDISC_WANT)
+        } else if (COMPARE(eVal, atom_want) == 0) {
+            *val = IP_PMTUDISC_WANT;
+#endif
 #if defined(IP_PMTUDISC_PROBE)
         } else if (COMPARE(eVal, atom_probe) == 0) {
             *val = IP_PMTUDISC_PROBE;
@@ -12638,10 +12624,8 @@ BOOLEAN_T decode_ip_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
     return TRUE;
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
 #if defined(IPV6_MULTICAST_HOPS) || defined(IPV6_UNICAST_HOPS)
 static
 BOOLEAN_T decode_hops(ErlNifEnv *env, ERL_NIF_TERM eVal, int *val) {
@@ -12661,7 +12645,6 @@ BOOLEAN_T decode_hops(ErlNifEnv *env, ERL_NIF_TERM eVal, int *val) {
     return TRUE;
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 /* +++ decode the ipv6 socket option MTU_DISCOVER +++
@@ -12673,20 +12656,33 @@ BOOLEAN_T decode_hops(ErlNifEnv *env, ERL_NIF_TERM eVal, int *val) {
  *
  *       want | dont | do | probe
  *
+ * Use same as IP on Windows!!
  */
-#ifndef __WIN32__
+
 #if defined(IPV6_MTU_DISCOVER)
 static
 BOOLEAN_T decode_ipv6_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
 {
     if (IS_ATOM(env, eVal)) {
 
-        if (COMPARE(eVal, atom_want) == 0) {
-            *val = IPV6_PMTUDISC_WANT;
-        } else if (COMPARE(eVal, atom_dont) == 0) {
+#ifdef __WIN32__
+        /* On Windows, the IP-flags are used */
+        if (COMPARE(eVal, atom_dont) == 0) {
+            *val = IP_PMTUDISC_DONT;
+        } else if (COMPARE(eVal, atom_do) == 0) {
+            *val = IP_PMTUDISC_DO;
+        } else if (COMPARE(eVal, atom_probe) == 0) {
+            *val = IP_PMTUDISC_PROBE;
+        } else {
+            return FALSE;
+        }
+#else
+        if (COMPARE(eVal, atom_dont) == 0) {
             *val = IPV6_PMTUDISC_DONT;
         } else if (COMPARE(eVal, atom_do) == 0) {
             *val = IPV6_PMTUDISC_DO;
+        } else if (COMPARE(eVal, atom_want) == 0) {
+            *val = IPV6_PMTUDISC_WANT;
 #if defined(IPV6_PMTUDISC_PROBE)
         } else if (COMPARE(eVal, atom_probe) == 0) {
             *val = IPV6_PMTUDISC_PROBE;
@@ -12694,6 +12690,7 @@ BOOLEAN_T decode_ipv6_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
         } else {
             return FALSE;
         }
+#endif
 
     } else if (! GET_INT(env, eVal, val)) {
         return FALSE;
@@ -12702,7 +12699,6 @@ BOOLEAN_T decode_ipv6_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
     return TRUE;
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 /* +++ encode the ip socket option MTU_DISCOVER +++
@@ -12715,15 +12711,17 @@ BOOLEAN_T decode_ipv6_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
  *       want | dont | do | probe
  *
  */
-#ifndef __WIN32__
+
 #if defined(IP_MTU_DISCOVER)
 static
 void encode_ip_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
 {
     switch (val) {
+#if defined(IP_PMTUDISC_WANT)
     case IP_PMTUDISC_WANT:
         *eVal = atom_want;
         break;
+#endif
 
     case IP_PMTUDISC_DONT:
         *eVal = atom_dont;
@@ -12747,7 +12745,6 @@ void encode_ip_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
     return;
 }
 #endif
-#endif // #ifndef __WIN32__
 
 
 /* +++ encode the ipv6 socket option MTU_DISCOVER +++
@@ -12759,29 +12756,46 @@ void encode_ip_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
  *
  *       want | dont | do | probe
  *
+ * Windows uses the IP-flags.
  */
-#ifndef __WIN32__
+
 #if defined(IPV6_MTU_DISCOVER)
 static
 void encode_ipv6_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
 {
     switch (val) {
+#if defined(IPV6_PMTUDISC_WANT)
     case IPV6_PMTUDISC_WANT:
         *eVal = atom_want;
         break;
+#endif
 
+#if defined(__WIN32__)
+    case IP_PMTUDISC_DONT:
+#else
     case IPV6_PMTUDISC_DONT:
+#endif
         *eVal = atom_dont;
         break;
 
+#if defined(__WIN32__)
+    case IP_PMTUDISC_DO:
+#else
     case IPV6_PMTUDISC_DO:
+#endif
         *eVal = atom_do;
         break;
 
+#if defined(__WIN32__)
+    case IP_PMTUDISC_PROBE:
+        *eVal = atom_probe;
+        break;
+#else
 #if defined(IPV6_PMTUDISC_PROBE)
     case IPV6_PMTUDISC_PROBE:
         *eVal = atom_probe;
         break;
+#endif
 #endif
 
     default:
@@ -12792,7 +12806,7 @@ void encode_ipv6_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
     return;
 }
 #endif
-#endif // #ifndef __WIN32__
+
 
 
 /* +++ encode the ip socket option tos +++
@@ -12801,24 +12815,30 @@ void encode_ipv6_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
  *       lowdelay |  throughput | reliability | mincost | integer()
  *
  */
-#ifndef __WIN32__
+
 static
 ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val)
 {
     ERL_NIF_TERM result;
 
     switch (IPTOS_TOS(val)) {
+#if defined(IPTOS_LOWDELAY)
     case IPTOS_LOWDELAY:
         result = esock_atom_lowdelay;
         break;
+#endif
 
+#if defined(IPTOS_THROUGHPUT)
     case IPTOS_THROUGHPUT:
         result = esock_atom_throughput;
         break;
+#endif
 
+#if defined(IPTOS_RELIABILITY)
     case IPTOS_RELIABILITY:
         result = esock_atom_reliability;
         break;
+#endif
 
 #if defined(IPTOS_MINCOST)
     case IPTOS_MINCOST:
@@ -12833,10 +12853,9 @@ ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val)
 
     return result;
 }
-#endif // #ifndef __WIN32__
 
 
-#ifndef __WIN32__
+
 #if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
 
 static
@@ -12880,7 +12899,7 @@ ERL_NIF_TERM encode_sctp_assoc_t(ErlNifEnv* env, sctp_assoc_t val)
 }
 
 #endif // #if defined(SCTP_ASSOCINFO) || defined(SCTP_RTOINOFO)
-#endif // #ifdef __WIN32__
+
 
 
 /* *** esock_alloc_descriptor ***
@@ -14775,10 +14794,10 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.cancel_connect = esaio_cancel_connect;
     io_backend.cancel_accept  = esaio_cancel_accept;
 
-    io_backend.setopt         = NULL;
+    io_backend.setopt         = esock_setopt;
     io_backend.setopt_native  = esock_setopt_native;
     io_backend.setopt_otp     = esock_setopt_otp;
-    io_backend.getopt         = NULL;
+    io_backend.getopt         = esock_getopt;
     io_backend.getopt_native  = esock_getopt_native;
     io_backend.getopt_otp     = esock_getopt_otp;
 
