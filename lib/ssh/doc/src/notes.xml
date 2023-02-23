@@ -178,6 +178,30 @@
 
 </section>
 
+<section><title>Ssh 4.13.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, ssh application does not crash when
+	    formatting some of info reports for unsuccessful
+	    connections.</p>
+          <p>
+	    Own Id: OTP-18386 Aux Id: PR-6611 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, ssh does not log extensively long
+	    messages.</p>
+          <p>
+	    Own Id: OTP-18417 Aux Id: DAFH-1349,ERIERL-888,IA18357 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.13.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

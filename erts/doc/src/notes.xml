@@ -1228,6 +1228,30 @@
 
 </section>
 
+<section><title>Erts 12.3.2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>process_info(Pid, status)</c> when <c>Pid /=
+	    self()</c> could return an erroneous result.</p>
+          <p>
+	    Own Id: OTP-18421 Aux Id: PR-6806 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, when a process exceeded its
+	    allowed heap size set by option <c>max_heap_size</c>, it
+	    would not be killed as it should be, but instead enter a
+	    kind of zombie state it would never get out of.</p>
+          <p>
+	    Own Id: OTP-18463 Aux Id: PR-6858 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 12.3.2.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
