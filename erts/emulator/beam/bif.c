@@ -3365,6 +3365,9 @@ BIF_RETTYPE string_list_to_integer_1(BIF_ALIST_1)
      case LTI_NO_INTEGER:
 	 hp = HAlloc(BIF_P,3);
 	 BIF_RET(TUPLE2(hp, am_error, am_no_integer));
+     case LTI_SYSTEM_LIMIT:
+	 hp = HAlloc(BIF_P,3);
+	 BIF_RET(TUPLE2(hp, am_error, am_system_limit));
      default:
 	 hp = HAlloc(BIF_P,3);
 	 BIF_RET(TUPLE2(hp, res, tail));
@@ -3373,25 +3376,27 @@ BIF_RETTYPE string_list_to_integer_1(BIF_ALIST_1)
 
 BIF_RETTYPE list_to_integer_1(BIF_ALIST_1)
  {
-   /* Using erts_list_to_integer is about twice as fast as using
-      erts_chars_to_integer because we do not have to copy the 
-      entire list */
+     /* Using erts_list_to_integer() is about twice as fast as using
+      * erts_chars_to_integer() because we do not have to copy the
+      * entire list. */
      Eterm res;
      Eterm dummy;
      /* must be a list */
-     if (erts_list_to_integer(BIF_P, BIF_ARG_1, 10,
-                              &res, &dummy) != LTI_ALL_INTEGER) {
-	 BIF_ERROR(BIF_P,BADARG);
+     switch (erts_list_to_integer(BIF_P, BIF_ARG_1, 10, &res, &dummy)) {
+     case LTI_ALL_INTEGER:
+         BIF_RET(res);
+     case LTI_SYSTEM_LIMIT:
+	 BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+     default:
+	 BIF_ERROR(BIF_P, BADARG);
      }
-     BIF_RET(res);
  }
 
 BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
 {
-  /* Bif implementation is about 50% faster than pure erlang,
-     and since we have erts_chars_to_integer now it is simpler
-     as well. This could be optimized further if we did not have to
-     copy the list to buf. */
+    /* The BIF implementation is about 50% faster than pure Erlang,
+     * and since we now have erts_list_to_integer() it is simpler as
+     * well. */
     Sint i;
     Eterm res, dummy;
     int base;
@@ -3407,11 +3412,14 @@ BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (erts_list_to_integer(BIF_P, BIF_ARG_1, base,
-                             &res, &dummy) != LTI_ALL_INTEGER) {
-        BIF_ERROR(BIF_P,BADARG);
+    switch (erts_list_to_integer(BIF_P, BIF_ARG_1, base, &res, &dummy)) {
+    case LTI_ALL_INTEGER:
+        BIF_RET(res);
+    case LTI_SYSTEM_LIMIT:
+        BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+    default:
+        BIF_ERROR(BIF_P, BADARG);
     }
-    BIF_RET(res);
 }
 
 /**********************************************************************/
