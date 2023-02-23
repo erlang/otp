@@ -83,7 +83,8 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 alias_checks(Config) when is_list(Config) ->
-    run_post_ssa_opt(alias, Config).
+    run_post_ssa_opt(alias, Config),
+    run_post_ssa_opt(alias_non_convergence, Config).
 
 annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(annotations, Config).
