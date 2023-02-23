@@ -106,7 +106,7 @@ debug(_, T, Fun) ->
     Val = Fun(),
     T2 = erlang:monotonic_time(),
     Time = erlang:convert_time_unit(T2 - T1, native, microsecond),
-    erlang:display({'done_in_μs', Time}),
+    erlang:display({done_in_microseconds, Time}),
     Val.
 
 -spec get_configfd(integer()) -> none | term().
