@@ -983,11 +983,12 @@ http_options_default() ->
     AutoRedirectPost =  boolfun(),
 
     SslPost = fun(Value) when is_list(Value) ->
-		      {ok, {?HTTP_DEFAULT_SSL_KIND, Value}};
-		 ({ssl, SslOptions}) when is_list(SslOptions) ->
-		      {ok, {?HTTP_DEFAULT_SSL_KIND, SslOptions}};
+                      {ok, {ssl, Value}};
+                 ({ssl, SslOptions}) when is_list(SslOptions) ->
+		      {ok, {ssl, SslOptions}};
+                 %% backwards compat
 		 ({essl, SslOptions}) when is_list(SslOptions) ->
-		      {ok, {essl, SslOptions}};
+		      {ok, {ssl, SslOptions}};
 		 (_) ->
 		      error
 	      end,
@@ -1008,14 +1009,12 @@ http_options_default() ->
 		error
 	end,
 
-    Ssl = ssl_verify_host_options(true),
-
     UrlDecodePost =  boolfun(),
     [
      {version,         {value, "HTTP/1.1"},            #http_options.version,         VersionPost}, 
      {timeout,         {value, ?HTTP_REQUEST_TIMEOUT}, #http_options.timeout,         TimeoutPost},
      {autoredirect,    {value, true},                  #http_options.autoredirect,    AutoRedirectPost},
-     {ssl,             {value, {?HTTP_DEFAULT_SSL_KIND, Ssl}}, #http_options.ssl,     SslPost},
+     {ssl,             {value, {ssl, []}},             #http_options.ssl,             SslPost},
      {proxy_auth,      {value, undefined},             #http_options.proxy_auth,      ProxyAuthPost},
      {relaxed,         {value, false},                 #http_options.relaxed,         RelaxedPost},
      {url_encode,      {value, false},                 #http_options.url_encode,      UrlDecodePost},

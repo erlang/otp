@@ -351,8 +351,6 @@ httpd_ssl_wrapper(Config0) ->
     case proplists:get_value(socket_type, Config0) of
         {essl, Value} ->
             lists:keyreplace(socket_type, 1, Config0, {socket_type, {ssl, Value}});
-        {ssl, Value} ->
-            lists:keyreplace(socket_type, 1, Config0, {socket_type, {essl, Value}});
         _ -> Config0
     end.
 

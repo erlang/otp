@@ -93,8 +93,9 @@ port_string(Port) ->
 
 get_protocol(ip_comm) ->
     "http://";
-get_protocol(_) ->
-    %% Should clean up to have only one ssl type essl vs ssl is not relevant any more
+get_protocol({ip_comm, _}) ->
+    "http://";
+get_protocol({ssl, _}) ->
     "https://".
 
 %% real_name

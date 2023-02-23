@@ -327,16 +327,16 @@ do_terminate(#state{mod = ModData} = State) ->
     httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket).
 
 format_status(normal, [_, State]) ->
-    [{data, [{"StateData", State}]}];  
+    [{data, [{"StateData", State}]}];
 format_status(terminate, [_, State]) ->
     Mod = (State#state.mod),
     case Mod#mod.socket_type of
-	ip_comm ->
-	    [{data, [{"StateData", State}]}];  
-	{essl, _} ->
-	    %% Do not print ssl options in superviosr reports
-	    [{data, [{"StateData", 
-		      State#state{mod = Mod#mod{socket_type = 'TLS'}}}]}]
+	{ssl, _} ->
+	    %% Do not print ssl options in supervisor reports
+	    [{data, [{"StateData",
+		      State#state{mod = Mod#mod{socket_type = 'TLS'}}}]}];
+        _  ->
+            [{data, [{"StateData", State}]}]
     end.
 
 %%--------------------------------------------------------------------

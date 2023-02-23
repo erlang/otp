@@ -449,7 +449,7 @@ start_web_server(Group, Config) when Group == https_inets;
 				     Group == https_inets_keep_alive ->
     Opts = proplists:get_value(server_verification_opts, cert_opts(Config)),
     ReuseSessions = ?config(reuse_sessions, Config),
-    SSLConfHttpd = [{socket_type, {essl,
+    SSLConfHttpd = [{socket_type, {ssl,
 				   [{nodelay, true}, {reuse_sessions, ReuseSessions} | Opts]}}],
     start_inets("https", SSLConfHttpd, Config);
 

@@ -61,12 +61,11 @@ which_port(#mod{config_db = ConfigDb}) ->
 which_peername(#mod{init_data = #init_data{peername = {_, RemoteAddr}}}) ->
     RemoteAddr.
 
-which_peercert(#mod{socket_type = {Type, _}, socket = Socket}) when Type == essl;
-								    Type == ssl ->
+which_peercert(#mod{socket_type = {ssl, _}, socket = Socket}) ->
     case ssl:peercert(Socket) of
 	{ok, Cert} ->
 	    Cert;
-	{error, no_peercert} -> 
+	{error, no_peercert} ->
 	    no_peercert;
 	_  ->
 	    undefined

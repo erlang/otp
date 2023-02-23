@@ -207,12 +207,12 @@ ensure_loaded(App) ->
 %%
 
 start_http_server(Conf) ->
-    start_http_server(Conf, ?HTTP_DEFAULT_SSL_KIND).
+    start_http_server(Conf, ssl).
 
-start_http_server(Conf, essl = _SslTag) ->
-    tsp("start_http_server(essl) -> try start crypto"),
+start_http_server(Conf, ssl = _SslTag) ->
+    tsp("start_http_server(ssl) -> try start crypto"),
     application:start(crypto), 
-    tsp("start_http_server(essl) -> try start public_key"),
+    tsp("start_http_server(ssl) -> try start public_key"),
     application:start(public_key), 
     do_start_http_server(Conf);
 start_http_server(Conf, SslTag) ->
@@ -252,9 +252,9 @@ do_start_http_server(Conf) ->
     end.
 	    
 start_http_server_ssl(FileName) ->
-    start_http_server_ssl(FileName, ?HTTP_DEFAULT_SSL_KIND).
+    start_http_server_ssl(FileName, ssl).
 
-start_http_server_ssl(FileName, essl = _SslTag) ->
+start_http_server_ssl(FileName, ssl = _SslTag) ->
     application:start(crypto), 
     do_start_http_server_ssl(FileName);
 start_http_server_ssl(FileName, _SslTag) ->
@@ -459,9 +459,6 @@ connect_bin(SockType, Host, Port) ->
 connect_bin(ssl, Host, Port, Opts0) ->
     Opts = [binary, {packet,0} | Opts0], 
     connect(ssl, Host, Port, Opts);
-connect_bin(essl, Host, Port, Opts0) ->
-    Opts = [{ssl_imp, new}, binary, {packet,0}| Opts0], 
-    connect(ssl, Host, Port, Opts);
 connect_bin(ip_comm, Host, Port, Opts0) ->
     Opts = [binary, {packet, 0} | Opts0],
     connect(ip_comm, Host, Port, Opts);
@@ -472,13 +469,10 @@ connect_byte(SockType, Host, Port) ->
     connect_byte(SockType, Host, Port, []).
     
 connect_byte(ssl, Host, Port, Opts0) ->
-    Opts = [{packet,0} | Opts0], 
-    connect(ssl, Host, Port, Opts);
-connect_byte(essl, Host, Port, Opts0) ->
-    Opts = [{ssl_imp, new}, {packet,0} | Opts0], 
+    Opts = [list, {packet,0} | Opts0], 
     connect(ssl, Host, Port, Opts);
 connect_byte(ip_comm, Host, Port, Opts0) ->
-    Opts = [{packet,0} | Opts0],
+    Opts = [list, {packet,0} | Opts0],
     connect(ip_comm, Host, Port, Opts);
 connect_byte(Type, Host, Port, Opts) ->
     connect(Type, Host, Port, Opts).
@@ -498,16 +492,12 @@ connect(openssl_port, Host, Port, Opts) ->
 
 send(ssl, Socket, Data) ->
     ssl:send(Socket, Data);
-send(essl, Socket, Data) ->
-    ssl:send(Socket, Data);
 send(ip_comm,Socket,Data) ->
     gen_tcp:send(Socket,Data);
 send(openssl_port, Port, Data) ->
     true = port_command(Port, Data),
     ok.
 close(ssl,Socket) ->
-    catch ssl:close(Socket);
-close(essl,Socket) ->
     catch ssl:close(Socket);
 close(ip_comm,Socket) ->
     catch gen_tcp:close(Socket);

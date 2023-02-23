@@ -1942,7 +1942,7 @@ do_max_clients(Config) ->
 	    ok
     end,
     inets_test_lib:close(Type, Socket),
-    ct:sleep(100), %% Avoid possible timing issues
+    ct:sleep(5000), %% Avoid possible timing issues
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
