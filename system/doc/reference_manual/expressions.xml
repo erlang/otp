@@ -1390,14 +1390,27 @@ Ei = Value |
       <item>For <c>binary</c> and <c>bitstring</c> it is
       the whole binary or bit string.</item>
     </list>
-    <p>In matching, this default value is only
-    valid for the last element. All other bit string or binary
-    elements in the matching must have a size specification.</p>
+    <p>In matching, the default value for a binary or bit string
+    segment is only valid for the last element. All other bit string
+    or binary elements in the matching must have a size
+    specification.</p>
+
+    <p><strong>Example:</strong></p>
+
+    <pre>
+1> <input>&lt;&lt;A/binary, B/binary>> = &lt;&lt;"abcde">>.</input>
+* 1:3: a binary field without size is only allowed at the end of a binary pattern
+2> <input>&lt;&lt;A:3/binary, B/binary>> = &lt;&lt;"abcde">>.</input>
+&lt;&lt;"abcde">>
+3> <input>A.</input>
+&lt;&lt;"abc">>
+4> <input>B.</input>
+&lt;&lt;"de">></pre>
 
     <p>For the <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> types,
     <c>Size</c> must not be given. The size of the segment is implicitly
     determined by the type and value itself.</p>
-    
+
     <p><c>TypeSpecifierList</c> is a list of type specifiers, in any
     order, separated by hyphens (-). Default values are used for any
     omitted type specifiers.</p>
@@ -1423,60 +1436,156 @@ Ei = Value |
        </item>
 
       <tag><c>Unit</c>= <c>unit:IntegerLiteral</c></tag>
-      <item>The allowed range is 1..256. Defaults to 1 for <c>integer</c>,
-       <c>float</c>, and <c>bitstring</c>, and to 8 for <c>binary</c>.
-       No unit specifier must be given for the types 
-       <c>utf8</c>, <c>utf16</c>, and <c>utf32</c>.
-       </item>
+      <item>The allowed range is 1 through 256. Defaults to 1 for <c>integer</c>,
+      <c>float</c>, and <c>bitstring</c>, and to 8 for <c>binary</c>.
+      For types <c>bitstring</c>, <c>bits</c>, and <c>bytes</c>, it is not allowed
+      to specify a unit value different from the default value.
+      No unit specifier must be given for the types <c>utf8</c>, <c>utf16</c>,
+      and <c>utf32</c>.
+      </item>
     </taglist>
-    <p>The value of <c>Size</c> multiplied with the unit gives
-      the number of bits. A segment of type <c>binary</c> must have 
-      a size that is evenly divisible by 8. For a segment of type <c>float</c>
-      the size must be either 64, 32, or 16.</p>
 
-    <note><p>When constructing binaries, if the size <c>N</c> of an integer
-    segment is too small to contain the given integer, the most significant
-    bits of the integer are silently discarded and only the <c>N</c> least
-    significant bits are put into the binary.</p></note>
+    <section>
+      <title>Integer segments</title>
+      <p>The value of <c>Size</c> multiplied with the unit gives the
+      size of the segment in bits.</p>
 
-    <p>The types <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> specifies
-    encoding/decoding of the <em>Unicode Transformation Format</em>s UTF-8, UTF-16,
-    and UTF-32, respectively.</p>
+      <p>When constructing binaries, if the size <c>N</c> of an integer
+      segment is too small to contain the given integer, the most significant
+      bits of the integer are silently discarded and only the <c>N</c> least
+      significant bits are put into the binary. For example, <c>&lt;&lt;16#ff:4&gt;&gt;</c>
+      will result in the binary <c>&lt;&lt;15:4&gt;&gt;</c>.</p>
+    </section>
 
-    <p>When constructing a segment of a <c>utf</c> type, <c>Value</c>
-    must be an integer in the range 0..16#D7FF or
-    16#E000....16#10FFFF. Construction
-    fails with a <c>badarg</c> exception if <c>Value</c> is
-    outside the allowed ranges. The size of the resulting binary
-    segment depends on the type or <c>Value</c>, or both:</p>
-     <list type="bulleted">
-      <item>For <c>utf8</c>, <c>Value</c> is encoded in 1-4 bytes.</item>
-      <item>For <c>utf16</c>, <c>Value</c> is encoded in 2 or 4 bytes.</item>
-      <item>For <c>utf32</c>, <c>Value</c> is always be encoded in 4 bytes.</item>
-    </list>
+    <section>
+      <title>Float segments</title>
+      <p>The value of <c>Size</c> multiplied with the unit gives
+      the size of the segment in bits. The size of a float segment in bits must be
+      one of 16, 32, or 64.</p>
 
-    <p>When constructing, a literal string can be given followed
-    by one of the UTF types, for example: <c><![CDATA[<<"abc"/utf8>>]]></c>
-    which is syntactic sugar for
-    <c><![CDATA[<<$a/utf8,$b/utf8,$c/utf8>>]]></c>.</p>
+      <p>When constructing binaries, if the size of a float segment is too small
+      to contain the representation of the given float value, an exception is raised.</p>
 
-    <p>A successful match of a segment of a <c>utf</c> type, results
-    in an integer in the range 0..16#D7FF or  16#E000..16#10FFFF.
-    The match fails if the returned value falls outside those ranges.</p>
+      <p>When matching binaries, matching of float segments fails if the bits of the segment
+      does not contain the representation of a finite floating point value.</p>
+    </section>
 
-    <p>A segment of type <c>utf8</c> matches 1-4 bytes in the binary,
-    if the binary at the match position contains a valid UTF-8 sequence.
-    (See RFC-3629 or the Unicode standard.)</p>
+    <section>
+      <title>Binary segments</title>
+      <p>In this section, the phrase "binary segment" refers to any
+      one of the segment types <c>binary</c>, <c>bitstring</c>,
+      <c>bytes</c>, and <c>bits</c>.</p>
 
-    <p>A segment of type <c>utf16</c> can match 2 or 4 bytes in the binary.
-    The match fails if the binary at the match position does not contain
-    a legal UTF-16 encoding of a Unicode code point. (See RFC-2781 or
-    the Unicode standard.)</p>
+      <p>When constructing binaries and no size is specified for a
+      binary segment, the entire binary value is interpolated into the
+      binary being constructed. However, the size in bits of the
+      binary being interpolated must be evenly divisible by the unit
+      value for the segment; otherwise an exception is raised.</p>
 
-    <p>A segment of type <c>utf32</c> can match 4 bytes in the binary in the
-    same way as an <c>integer</c> segment matches 32 bits.
-    The match fails if the resulting integer is outside the legal ranges
-    mentioned above.</p>
+      <p>For example, the following examples all succeed:</p>
+
+      <pre>
+1> <input>&lt;&lt;(&lt;&lt;"abc">>)/bitstring>>.</input>
+&lt;&lt;"abc">>
+2> <input>&lt;&lt;(&lt;&lt;"abc">>)/binary-unit:1>>.</input>
+&lt;&lt;"abc">>
+3> <input>&lt;&lt;(&lt;&lt;"abc">>)/binary>>.</input>
+&lt;&lt;"abc">></pre>
+
+      <p>The first two examples have a unit value of 1 for the segment,
+      while the third segment has a unit value of 8.</p>
+
+      <p>Attempting to interpolate a bit string of size 1 into a
+      binary segment with unit 8 (the default unit for <c>binary</c>)
+      fails as shown in this example:</p>
+
+      <pre>
+<input>1> &lt;&lt;(&lt;&lt;1:1&gt;&gt;)/binary&gt;&gt;.</input>
+** exception error: bad argument</pre>
+
+      <p>For the construction to succeed, the unit value of the
+      segment must be 1:</p>
+
+      <pre>
+2> <input>&lt;&lt;(&lt;&lt;1:1>>)/bitstring>>.</input>
+&lt;&lt;1:1>>
+3> <input>&lt;&lt;(&lt;&lt;1:1>>)/binary-unit:1>>.</input>
+&lt;&lt;1:1>></pre>
+
+      <p>Similarly, when matching a binary segment with no size
+      specified, the match succeeds if and only if the size in bits of
+      the rest of the binary is evenly divisible by the unit
+      value:</p>
+
+      <pre>
+1> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"">>.</input>
+&lt;&lt;>>
+2> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"a">>.</input>
+** exception error: no match of right hand side value &lt;&lt;"a">>
+3> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"ab">>.</input>
+&lt;&lt;"ab">>
+4> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"abc">>.</input>
+** exception error: no match of right hand side value &lt;&lt;"abc">>
+5> <input>&lt;&lt;_/binary-unit:16>> = &lt;&lt;"abcd">>.</input>
+&lt;&lt;"abcd">></pre>
+
+      <p>When a size is explicitly specified for a binary segment,
+      the segment size in bits is the value of <c>Size</c> multiplied
+      by the default or explicit unit value.</p>
+
+      <p>When constructing binaries, the size of the binary being interpolated
+      into the constructed binary must be at least as large as the size of
+      the binary segment.</p>
+
+      <p><strong>Examples:</strong></p>
+      <pre>
+1> <input>&lt;&lt;(&lt;&lt;"abc">>):2/binary>>.</input>
+&lt;&lt;"ab">>
+2> <input>&lt;&lt;(&lt;&lt;"a">>):2/binary>>.</input>
+** exception error: construction of binary failed
+        *** segment 1 of type 'binary': the value &lt;&lt;"a">> is shorter than the size of the segment</pre>
+    </section>
+
+    <section>
+      <title>Unicode segments</title>
+      <p>The types <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> specifies
+      encoding/decoding of the <em>Unicode Transformation Format</em>s UTF-8, UTF-16,
+      and UTF-32, respectively.</p>
+
+      <p>When constructing a segment of a <c>utf</c> type,
+      <c>Value</c> must be an integer in the range 0 through 16#D7FF
+      or 16#E000 through 16#10FFFF. Construction fails with a
+      <c>badarg</c> exception if <c>Value</c> is outside the allowed
+      ranges. The sizes of the encoded values are as follows:</p>
+      <list type="bulleted">
+        <item>For <c>utf8</c>, <c>Value</c> is encoded in 1-4 bytes.</item>
+        <item>For <c>utf16</c>, <c>Value</c> is encoded in 2 or 4 bytes.</item>
+        <item>For <c>utf32</c>, <c>Value</c> is encoded in 4 bytes.</item>
+      </list>
+
+      <p>When constructing, a literal string can be given followed
+      by one of the UTF types, for example: <c><![CDATA[<<"abc"/utf8>>]]></c>
+      which is syntactic sugar for
+      <c><![CDATA[<<$a/utf8,$b/utf8,$c/utf8>>]]></c>.</p>
+
+      <p>A successful match of a segment of a <c>utf</c> type, results
+      in an integer in the range 0 through 16#D7FF or 16#E000 through 16#10FFFF.
+      The match fails if the returned value falls outside those ranges.</p>
+
+      <p>A segment of type <c>utf8</c> matches 1-4 bytes in the binary,
+      if the binary at the match position contains a valid UTF-8 sequence.
+      (See RFC-3629 or the Unicode standard.)</p>
+
+      <p>A segment of type <c>utf16</c> can match 2 or 4 bytes in the binary.
+      The match fails if the binary at the match position does not contain
+      a legal UTF-16 encoding of a Unicode code point. (See RFC-2781 or
+      the Unicode standard.)</p>
+
+      <p>A segment of type <c>utf32</c> can match 4 bytes in the binary in the
+      same way as an <c>integer</c> segment matches 32 bits.
+      The match fails if the resulting integer is outside the legal ranges
+      previously mentioned.</p>
+    </section>
 
     <p><em>Examples:</em></p>
     <pre>
