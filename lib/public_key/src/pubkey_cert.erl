@@ -370,6 +370,9 @@ select_extension(_, asn1_NOVALUE) ->
     undefined;
 select_extension(_, []) ->
     undefined;
+select_extension(Id, [#'Extension'{extnID = ?'id-ce-cRLDistributionPoints' = Id,
+                                   extnValue = Value} = Extension | _]) when is_binary(Value) ->
+    Extension#'Extension'{extnValue = public_key:der_decode('CRLDistributionPoints', Value)};
 select_extension(Id, [#'Extension'{extnID = Id} = Extension | _]) ->
     Extension;
 select_extension(Id, [_ | Extensions]) ->
