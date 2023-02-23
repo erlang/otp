@@ -195,7 +195,8 @@ init_it(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 	true ->
 	    init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options);
 	{false, Pid} ->
-	    proc_lib:init_ack(Starter, {error, {already_started, Pid}})
+	    proc_lib:init_fail(
+              Starter, {error, {already_started, Pid}}, {exit, normal})
     end.
 
 init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -200,7 +200,7 @@ start_link(InitResult) ->
 
 %% Simulate different supervisors callback.  
 init(fail) ->
-    erlang:error({badmatch,2});
+    erlang:error(fail);
 init(InitResult) ->
     InitResult.
 
@@ -227,7 +227,7 @@ sup_start_normal(Config) when is_list(Config) ->
 sup_start_ignore_init(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ignore = start_link(ignore),
-    check_exit_reason(normal).
+    check_no_exit(100).
 
 %%-------------------------------------------------------------------------
 %% Tests what happens if init-callback returns ignore.
@@ -325,15 +325,20 @@ sup_start_ignore_permanent_child_start_child_simple(Config)
 %% Tests what happens if init-callback returns a invalid value.
 sup_start_error_return(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    {error, Term} = start_link(invalid),
-    check_exit_reason(Term).
+    %% The bad return is processed in supervisor:init/1
+    InitResult = invalid,
+    {error, {bad_return, {?MODULE, init, InitResult}}} =
+        start_link(InitResult),
+    check_no_exit(100).
 
 %%-------------------------------------------------------------------------
 %% Tests what happens if init-callback fails.
 sup_start_fail(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    {error, Term} = start_link(fail),
-    check_exit_reason(Term).
+    %% The exception is processed in gen_server:init_it/2
+    ErrorReason = fail,
+    {error, {ErrorReason, _Stacktrace}} = start_link(ErrorReason),
+    check_no_exit(100).
 
 %%-------------------------------------------------------------------------
 %% Test what happens when the start function for a child returns
@@ -3749,18 +3754,18 @@ check_exit([Pid | Pids], Timeout) ->
 	error
     end.
 
-check_exit_reason(Reason) ->
-    receive
-	{'EXIT', _, Reason} ->
-	    ok;
-	{'EXIT', _, Else} ->
-	    ct:fail({bad_exit_reason, Else})
-    end.
-
-check_exit_reason(Pid, Reason) ->
+check_exit_reason(Pid, Reason) when is_pid(Pid) ->
     receive
 	{'EXIT', Pid, Reason} ->
 	    ok;
 	{'EXIT', Pid, Else} ->
 	    ct:fail({bad_exit_reason, Else})
+    end.
+
+check_no_exit(Timeout) ->
+    receive
+        {'EXIT', Pid, _} = Exit when is_pid(Pid) ->
+            ct:fail({unexpected_message, Exit})
+    after Timeout ->
+            ok
     end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -193,13 +193,11 @@ init([Name,Module,Args,Options]) ->
             gen_server:enter_loop(?MODULE, [], State);
         Error ->
             unregister(Name),
-            proc_lib:init_ack(Error),
-            ignore %% Just to shut Dialyzer up - ignored
+            proc_lib:init_fail(Error, {exit,normal})
     catch
-        _:Error ->
+        _:Reason ->
             unregister(Name),
-            proc_lib:init_ack(Error),
-            ignore %% Just to shut Dialyzer up - ignored
+            proc_lib:init_fail({error,Reason}, {exit,normal})
     end.
 
 %% This is the synchronous load event.

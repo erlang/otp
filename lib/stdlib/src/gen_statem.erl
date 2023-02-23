@@ -1031,12 +1031,12 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
               Name, Debug, HibernateAfterTimeout);
 	Class:Reason:Stacktrace ->
 	    gen:unregister_name(ServerRef),
-	    proc_lib:init_ack(Starter, {error,Reason}),
 	    error_info(
 	      Class, Reason, Stacktrace, Debug,
               #params{parent = Parent, name = Name, modules = [Module]},
               #state{}, []),
-	    erlang:raise(Class, Reason, Stacktrace)
+            proc_lib:init_fail(
+              Starter, {error,Reason}, {Class,Reason,Stacktrace})
     end.
 
 %%---------------------------------------------------------------------------
@@ -1058,28 +1058,24 @@ init_result(
               State, Data, Actions);
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
-	    proc_lib:init_ack(Starter, {error,Reason}),
-	    exit(Reason);
+            exit(Reason);
 	{error, _Reason} = ERROR ->
             %% The point of this clause is that we shall have a *silent*
             %% termination. The error reason will be returned to the
             %% 'Starter' ({error, Reason}), but *no* crash report.
 	    gen:unregister_name(ServerRef),
-	    proc_lib:init_ack(Starter, ERROR),
-	    exit(normal);
+	    proc_lib:init_fail(Starter, ERROR, {exit,normal});
 	ignore ->
 	    gen:unregister_name(ServerRef),
-	    proc_lib:init_ack(Starter, ignore),
-	    exit(normal);
+            proc_lib:init_fail(Starter, ignore, {exit,normal});
 	_ ->
 	    gen:unregister_name(ServerRef),
-	    Error = {bad_return_from_init,Result},
-	    proc_lib:init_ack(Starter, {error,Error}),
+	    Reason = {bad_return_from_init,Result},
 	    error_info(
-	      error, Error, ?STACKTRACE(), Debug,
+	      error, Reason, ?STACKTRACE(), Debug,
               #params{parent = Parent, name = Name, modules = [Module]},
               #state{}, []),
-	    exit(Error)
+            exit(Reason)
     end.
 
 %%%==========================================================================
