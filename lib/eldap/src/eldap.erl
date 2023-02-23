@@ -30,7 +30,9 @@
 	 parse_ldap_url/1,
 	 paged_result_control/1,
 	 paged_result_control/2,
-	 paged_result_cookie/1]).
+	 paged_result_cookie/1,
+         conn_info/1,
+         conn_info/2]).
 
 -export([neverDerefAliases/0, derefInSearching/0,
          derefFindingBaseObj/0, derefAlways/0]).
@@ -152,6 +154,16 @@ close(Handle) when is_pid(Handle) ->
 controlling_process(Handle, Pid) when is_pid(Handle), is_pid(Pid)  ->
     link(Pid),
     send(Handle, {cnt_proc, Pid}),
+    recv(Handle).
+
+%%% --------------------------------------------------------------------
+%%% Return LDAP connection information
+%%% --------------------------------------------------------------------
+conn_info(Handle) when is_pid(Handle) ->
+    conn_info(Handle, []).
+
+conn_info(Handle, Items) when is_pid(Handle) ->
+    send(Handle, {conn_info, Items}),
     recv(Handle).
 
 %%% --------------------------------------------------------------------
@@ -608,6 +620,17 @@ loop(Cpid, Data) ->
 	    send(From, Result),
 	    ?MODULE:loop(Cpid, Data);
 
+        {From, {conn_info, Items}} ->
+            Res =
+                case Data#eldap.ldaps of
+                    true ->
+                        get_ssl_conn_info(Data#eldap.fd, Items);
+                    false ->
+                        {error, "Not an SSL connection"} 
+                end,
+            send(From, Res),
+            ?MODULE:loop(Cpid, Data);
+
 	{Cpid, 'EXIT', Reason} ->
 	    ?PRINT("Got EXIT from Cpid, reason=~p~n",[Reason]),
 	    exit(Reason);
@@ -618,6 +641,10 @@ loop(Cpid, Data) ->
 
     end.
 
+get_ssl_conn_info(SockFd, []) ->
+    ssl:connection_information(SockFd);
+get_ssl_conn_info(SockFd, Items) ->
+    ssl:connection_information(SockFd, Items).
 
 %%% --------------------------------------------------------------------
 %%% startTLS Request
