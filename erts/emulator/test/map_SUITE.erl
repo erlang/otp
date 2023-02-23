@@ -1890,8 +1890,8 @@ cmp(M1, M2, Exact) ->
 cmp_maps(M1, M2, Exact) ->
     case {maps:size(M1),maps:size(M2)} of
 	{S,S} ->
-	    {K1,V1} = lists:unzip(term_sort(maps:to_list(M1))),
-	    {K2,V2} = lists:unzip(term_sort(maps:to_list(M2))),
+	    {K1,V1} = lists:unzip(cmp_key_sort(maps:to_list(M1))),
+	    {K2,V2} = lists:unzip(cmp_key_sort(maps:to_list(M2))),
 
 	    case cmp(K1, K2, true) of
 		0 -> cmp(V1, V2, Exact);
@@ -1914,6 +1914,10 @@ cmp_others(T1, T2, _) ->
 	{false,true} -> 0;
 	{false,false} -> 1
     end.
+
+cmp_key_sort(L) ->
+    lists:sort(fun(A,B) -> cmp(A,B,true) =< 0 end,
+	       L).
 
 map_gen(Pairs, Size) ->
     {_,L} = lists:foldl(fun(_, {Keys, Acc}) ->
