@@ -291,8 +291,8 @@ aa(Funs, KillsMap, StMap, FuncDb) ->
 %%%   to detect incomplete information in a hypothetical
 %%%   ssa_opt_alias_finish pass.
 %%%
-aa_fixpoint(Order, AAS) ->
-    ?DP("**** Starting fixpoint iteration ****~n"),
+aa_fixpoint(Funs, AAS=#aas{func_db=FuncDb}) ->
+    Order = aa_breadth_first(Funs, FuncDb),
     aa_fixpoint(Order, Order, AAS#aas.alias_map, AAS, ?MAX_REPETITIONS).
 
 aa_fixpoint([F|Fs], Order, OldAliasMap, AAS0=#aas{st_map=StMap}, Limit) ->
@@ -311,6 +311,7 @@ aa_fixpoint([], _, _, #aas{func_db=FuncDb,orig_st_map=StMap}, 0) ->
     {StMap, FuncDb};
 aa_fixpoint([], Order, _OldAliasMap, AAS=#aas{alias_map=AliasMap}, Limit) ->
     ?DP("**** Things have changed, starting next iteration ****~n"),
+    %% Following the depth first order, select those in Repeats.
     aa_fixpoint(Order, Order, AliasMap, AAS, Limit - 1).
 
 aa_fun(F, #opt_st{ssa=Linear0,anno=_Anno,args=Args}=St,
@@ -844,4 +845,35 @@ aa_merge_env([Arg|Args], [], Acc) ->
     aa_merge_env(Args, [], [Arg|Acc]);
 aa_merge_env([], [], Acc) ->
     Acc.
+
+aa_breadth_first(Funs, FuncDb) ->
+    IsExported = fun (F) ->
+                         #{ F := #func_info{exported=E} } = FuncDb,
+                         E
+                 end,
+    Exported = [ F || F <- Funs, IsExported(F)],
+    aa_breadth_first(Exported, [], sets:new([{version,2}]), FuncDb).
+
+aa_breadth_first([F|Work], Next, Seen, FuncDb) ->
+    case sets:is_element(F, Seen) of
+        true ->
+            aa_breadth_first(Work, Next, Seen, FuncDb);
+        false ->
+            case FuncDb of
+                #{ F := #func_info{out=Children} } ->
+                    [F|aa_breadth_first(Work, Children ++ Next,
+                                        sets:add_element(F, Seen), FuncDb)];
+                #{} ->
+                    %% Other optimization steps can have determined
+                    %% that the function is not called and removed it
+                    %% from the funcdb, but it still remains in the
+                    %% #func_info{} of the (at the syntax-level)
+                    %% caller.
+                    aa_breadth_first(Work, Next, Seen, FuncDb)
+            end
+    end;
+aa_breadth_first([], [], _Seen, _FuncDb) ->
+    [];
+aa_breadth_first([], Next, Seen, FuncDb) ->
+    aa_breadth_first(Next, [], Seen, FuncDb).
 
