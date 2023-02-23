@@ -318,7 +318,7 @@ aa_fixpoint([], Order, _OldAliasMap,
     aa_fixpoint(NewOrder, Order, AliasMap,
                 AAS#aas{repeats=sets:new([{version,2}])}, Limit - 1).
 
-aa_fun(F, #opt_st{ssa=Linear0,anno=_Anno,args=Args}=St,
+aa_fun(F, #opt_st{ssa=Linear0,args=Args}=St,
        AAS0=#aas{alias_map=AliasMap0,func_db=FuncDb,repeats=Repeats0}) ->
     %% Initially assume all formal parameters are unique for a
     %% non-exported function, if we have call argument info in the
@@ -330,7 +330,7 @@ aa_fun(F, #opt_st{ssa=Linear0,anno=_Anno,args=Args}=St,
                 end, #{}, ArgsStatus),
     ?DP("@@ Args: ~p~n", [ArgsStatus]),
     {Linear1,SS,AAS1} = aa_blocks(Linear0, SS0, AAS0),
-    ?DP("SS:~n~s~n~n", [aa_format(SS)]),
+    ?DP("SS:~n~s~n~n", [SS]),
     AAS = aa_merge_call_args_status(SS, AAS1),
 
     AliasMap = AliasMap0#{ F => SS },
@@ -838,8 +838,7 @@ aa_tuple_extraction(Dst, Tuple, #b_literal{val=I}, SS1) ->
 
 aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
             Env0, SS0,
-            AAS0=#aas{alias_map=_AliasMap,call_args=Info0,
-                      repeats=Repeats0,st_map=_StMap}) ->
+            AAS0=#aas{call_args=Info0,repeats=Repeats0}) ->
     %% When a value is copied into the environment of a fun we assume
     %% that it has been aliased as there is no obvious way to track
     %% and ensure that the value is only used once, even if the
