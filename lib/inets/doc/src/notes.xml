@@ -214,6 +214,23 @@
 
 </section>
 
+  <section><title>Inets 7.5.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, handling of URI to a folder, with
+	    missing trailing / and a query component present is
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-18472 Aux Id: DAFH-1592 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
   <section><title>Inets 7.5.3.1</title>
 
     <section><title>Improvements and New Features</title>
