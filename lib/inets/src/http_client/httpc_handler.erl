@@ -605,7 +605,7 @@ do_handle_info({Proto, Socket, Data},
 %% whole body is now sent instead of sending a length
 %% indicator. In this case the length indicator will be
 %% -1.
-do_handle_info({Info, _}, State = #state{mfa = {_, whole_body, Args}})
+do_handle_info({Info, _}, #state{mfa = {_, whole_body, Args}} = State)
   when Info =:= tcp_closed orelse
        Info =:= ssl_closed ->
     case lists:last(Args) of
@@ -616,9 +616,9 @@ do_handle_info({Info, _}, State = #state{mfa = {_, whole_body, Args}})
     end;
 
 %%% Server closes idle pipeline
-do_handle_info({tcp_closed, _}, State = #state{request = undefined}) ->
+do_handle_info({tcp_closed, _}, #state{request = undefined} = State) ->
     {stop, normal, State};
-do_handle_info({ssl_closed, _}, State = #state{request = undefined}) ->
+do_handle_info({ssl_closed, _}, #state{request = undefined} = State) ->
     {stop, normal, State};
 
 %%% Error cases
@@ -668,7 +668,7 @@ do_handle_info({timeout, RequestId},
                                   keep_alive = KeepAlive}}
     end;
 
-do_handle_info(timeout_queue, State = #state{request = undefined}) ->
+do_handle_info(timeout_queue, #state{request = undefined} = State) ->
     {stop, normal, State};
 
 %% Timing was such as the queue_timeout was not canceled!
@@ -678,12 +678,12 @@ do_handle_info(timeout_queue, #state{timers = Timers} = State) ->
 
 %% Setting up the connection to the server somehow failed. 
 do_handle_info({init_error, Reason, ClientErrMsg},
-            State = #state{request = Request}) ->
+               #state{request = Request} = State) ->
     NewState = answer_request(Request, ClientErrMsg, State),
     {stop, {shutdown, Reason}, NewState};
 
 %%% httpc_manager process dies. 
-do_handle_info({'EXIT', _, _}, State = #state{request = undefined}) ->
+do_handle_info({'EXIT', _, _}, #state{request = undefined} = State) ->
     {stop, normal, State};
 %%Try to finish the current request anyway,
 %% there is a fairly high probability that it can be done successfully.
