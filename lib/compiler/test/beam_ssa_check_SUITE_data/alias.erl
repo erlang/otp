@@ -63,7 +63,8 @@
          bad_get_status_by_type/0,
          stacktrace0/0,
          stacktrace1/0,
-         in_cons/0]).
+         in_cons/0,
+         make_fun/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -645,3 +646,17 @@ in_cons() ->
 
 in_cons_inner([x|B]) ->
     [x|<<B/binary,1:8>>].
+
+%% The alias analysis did not consider values copied into the
+%% environment which in turn led to unsafe private appends and
+%% segfaults, GH-6890.
+make_fun() ->
+    make_fun([<<"hello">>], <<>>).
+
+make_fun(List, Indent) ->
+    lists:map(fun (X) -> make_fun1(X, Indent) end, List).
+
+make_fun1(X, Indent) ->
+%ssa% (_, A) when post_ssa_opt ->
+%ssa% _ = bs_create_bin(append, _, A, ...) { aliased => [A] }.
+    make_fun(X, <<Indent/binary,"    ">>).

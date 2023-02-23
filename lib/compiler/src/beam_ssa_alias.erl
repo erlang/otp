@@ -324,150 +324,150 @@ aa_fun(F, #opt_st{ssa=Linear0,anno=_Anno,args=Args}=St,
                         aa_new_ssa_var(Var, Status, Acc)
                 end, #{}, ArgsStatus),
     ?DP("@@ Args: ~p~n", [ArgsStatus]),
-    {Linear1,SS} = aa_blocks(Linear0, SS0, AAS0),
+    {Linear1,SS,AAS1} = aa_blocks(Linear0, SS0, AAS0),
     ?DP("SS:~n~s~n~n", [aa_format(SS)]),
-    AAS = aa_merge_call_args_status(SS, AAS0),
+    AAS = aa_merge_call_args_status(SS, AAS1),
 
     AliasMap = AliasMap0#{ F => SS },
     {St#opt_st{ssa=Linear1}, AAS#aas{alias_map=AliasMap}}.
 
 %% Main entry point for the alias analysis
-aa_blocks([{L,#b_blk{is=Is0,last=T0}=Blk}|Bs0], SS0, AAS) ->
-    {Is,SS1} = aa_is(Is0, SS0, [], AAS),
+aa_blocks([{L,#b_blk{is=Is0,last=T0}=Blk}|Bs0], SS0, AAS0) ->
+    {Is,SS1,AAS1} = aa_is(Is0, SS0, [], AAS0),
     {T,SS2} = aa_terminator(T0, SS1),
-    {Bs,SS} = aa_blocks(Bs0, SS2, AAS),
-    {[{L,Blk#b_blk{is=Is,last=T}}|Bs],SS};
-aa_blocks([], SS, _) ->
-    {[],SS}.
+    {Bs,SS,AAS} = aa_blocks(Bs0, SS2, AAS1),
+    {[{L,Blk#b_blk{is=Is,last=T}}|Bs],SS,AAS};
+aa_blocks([], SS, AAS) ->
+    {[],SS, AAS}.
 
-aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, Acc, AAS) ->
+aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, Acc, AAS0) ->
     SS1 = aa_new_ssa_var(Dst, unique, SS0),
-    SS = case Op of
-             %% Instructions changing the alias status.
-             {bif,Bif} ->
-                 aa_bif(Dst, Bif, Args, SS1, AAS);
-             bs_create_bin ->
-                 case Args of
-                     [#b_literal{val=Flag},_,Arg|_] when
-                           Flag =:= private_append ; Flag =:= append ->
-                         case aa_all_dies([Arg], Dst, AAS) of
-                             true ->
-                                 %% Inherit the status of the argument
-                                 aa_join(Dst, Arg, SS1);
-                             false ->
-                                 %% We alias with the surviving arg
-                                 aa_set_aliased([Dst|Args], SS1)
-                         end;
-                     _ ->
-                         %% TODO: Too conservative?
-                         aa_set_aliased([Dst|Args], SS1)
-                 end;
-             bs_extract ->
-                 aa_set_aliased([Dst|Args], SS1);
-             bs_get_tail ->
-                 aa_set_aliased([Dst|Args], SS1);
-             bs_match ->
-                 aa_set_aliased([Dst|Args], SS1);
-             bs_start_match ->
-                 [_,Bin] = Args,
-                 aa_set_aliased([Dst,Bin], SS1);
-             build_stacktrace ->
-                 %% build_stacktrace can potentially alias anything
-                 %% live at this point in the code. We handle it by
-                 %% aliasing everything known to us. Touching
-                 %% variables which are dead is harmless.
-                 aa_alias_all(SS1);
-             call ->
-                 aa_call(Dst, Args, Anno0, SS1, AAS);
-             'catch_end' ->
-                 [_Tag,Arg] = Args,
-                 aa_join(Dst, Arg, SS1);
-             extract ->
-                 [Arg,_] = Args,
-                 aa_join(Dst, Arg, SS1);
-             get_hd ->
-                 [Arg] = Args,
-                 aa_pair_extraction(Dst, Arg, hd, SS1);
-             get_map_element ->
-                 [Map,_Key] = Args,
-                 aa_join(Dst, Map, SS1);
-             get_tl ->
-                 [Arg] = Args,
-                 aa_pair_extraction(Dst, Arg, tl, SS1);
-             get_tuple_element ->
-                 [Arg,Idx] = Args,
-                 aa_tuple_extraction(Dst, Arg, Idx, SS1);
-             landingpad ->
-                 aa_set_aliased(Dst, SS1);
-             make_fun ->
-                 [_|Env] = Args,
-                 aa_join_ls(Dst, Env, SS1);
-             old_make_fun ->
-                 [_|Env] = Args,
-                 aa_join_ls(Dst, Env, SS1);
-             peek_message ->
-                 aa_set_aliased(Dst, SS1);
-             phi ->
-                 aa_phi(Dst, Args, SS1);
-             put_list ->
-                 aa_construct_term(Dst, Args, SS1, AAS);
-             put_map ->
-                 aa_construct_term(Dst, Args, SS1, AAS);
-             put_tuple ->
-                 aa_construct_term(Dst, Args, SS1, AAS);
-             update_tuple ->
-                 aa_construct_term(Dst, Args, SS1, AAS);
-             update_record ->
-                 [_Hint,_Size,Src|Updates] = Args,
-                 Values = [Src|aa_update_record_get_vars(Updates)],
-                 aa_construct_term(Dst, Values, SS1, AAS);
+    {SS, AAS} =
+        case Op of
+            %% Instructions changing the alias status.
+            {bif,Bif} ->
+                {aa_bif(Dst, Bif, Args, SS1, AAS0), AAS0};
+            bs_create_bin ->
+                case Args of
+                    [#b_literal{val=Flag},_,Arg|_] when
+                          Flag =:= private_append ; Flag =:= append ->
+                        case aa_all_dies([Arg], Dst, AAS0) of
+                            true ->
+                                %% Inherit the status of the argument
+                                {aa_join(Dst, Arg, SS1), AAS0};
+                            false ->
+                                %% We alias with the surviving arg
+                                {aa_set_aliased([Dst|Args], SS1), AAS0}
+                        end;
+                    _ ->
+                        %% TODO: Too conservative?
+                        {aa_set_aliased([Dst|Args], SS1), AAS0}
+                end;
+            bs_extract ->
+                {aa_set_aliased([Dst|Args], SS1), AAS0};
+            bs_get_tail ->
+                {aa_set_aliased([Dst|Args], SS1), AAS0};
+            bs_match ->
+                {aa_set_aliased([Dst|Args], SS1), AAS0};
+            bs_start_match ->
+                [_,Bin] = Args,
+                {aa_set_aliased([Dst,Bin], SS1), AAS0};
+            build_stacktrace ->
+                %% build_stacktrace can potentially alias anything
+                %% live at this point in the code. We handle it by
+                %% aliasing everything known to us. Touching
+                %% variables which are dead is harmless.
+                {aa_alias_all(SS1), AAS0};
+            call ->
+                {aa_call(Dst, Args, Anno0, SS1, AAS0), AAS0};
+            'catch_end' ->
+                [_Tag,Arg] = Args,
+                {aa_join(Dst, Arg, SS1), AAS0};
+            extract ->
+                [Arg,_] = Args,
+                {aa_join(Dst, Arg, SS1), AAS0};
+            get_hd ->
+                [Arg] = Args,
+                {aa_pair_extraction(Dst, Arg, hd, SS1), AAS0};
+            get_map_element ->
+                [Map,_Key] = Args,
+                {aa_join(Dst, Map, SS1), AAS0};
+            get_tl ->
+                [Arg] = Args,
+                {aa_pair_extraction(Dst, Arg, tl, SS1), AAS0};
+            get_tuple_element ->
+                [Arg,Idx] = Args,
+                {aa_tuple_extraction(Dst, Arg, Idx, SS1), AAS0};
+            landingpad ->
+                {aa_set_aliased(Dst, SS1), AAS0};
+            make_fun ->
+                [Callee|Env] = Args,
+                aa_make_fun(Dst, Callee, Env, SS1, AAS0);
+            old_make_fun ->
+                [Callee|Env] = Args,
+                aa_make_fun(Dst, Callee, Env, SS1, AAS0);
+            peek_message ->
+                {aa_set_aliased(Dst, SS1), AAS0};
+            phi ->
+                {aa_phi(Dst, Args, SS1), AAS0};
+            put_list ->
+                {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
+            put_map ->
+                {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
+            put_tuple ->
+                {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
+            update_tuple ->
+                {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
+            update_record ->
+                [_Hint,_Size,Src|Updates] = Args,
+                Values = [Src|aa_update_record_get_vars(Updates)],
+                {aa_construct_term(Dst, Values, SS1, AAS0), AAS0};
 
-             %% Instructions which don't change the alias status
-             {float,_} ->
-                 SS1;
-             {succeeded,_} ->
-                 SS1;
-             bs_init_writable ->
-                 SS1;
-             bs_test_tail ->
-                 SS1;
-             has_map_field ->
-                 SS1;
-             is_nonempty_list ->
-                 SS1;
-             is_tagged_tuple ->
-                 SS1;
-             kill_try_tag ->
-                 SS1;
-             match_fail ->
-                 SS1;
-             new_try_tag ->
-                 SS1;
-             nif_start ->
-                 SS1;
-             raw_raise ->
-                 SS1;
-             recv_marker_bind ->
-                 SS1;
-             recv_marker_clear ->
-                 SS1;
-             recv_marker_reserve ->
-                 SS1;
-             recv_next ->
-                 SS1;
-             remove_message ->
-                 SS1;
-             resume ->
-                 SS1;
-             wait_timeout ->
-                 SS1;
-             _ ->
-                 exit({unknown_instruction, I})
-         end,
-    aa_is(Is, SS, [aa_update_annotation(I, SS1)|Acc],
-          AAS);
-aa_is([], SS, Acc, _AAS) ->
-    {reverse(Acc), SS}.
+            %% Instructions which don't change the alias status
+            {float,_} ->
+                {SS1, AAS0};
+            {succeeded,_} ->
+                {SS1, AAS0};
+            bs_init_writable ->
+                {SS1, AAS0};
+            bs_test_tail ->
+                {SS1, AAS0};
+            has_map_field ->
+                {SS1, AAS0};
+            is_nonempty_list ->
+                {SS1, AAS0};
+            is_tagged_tuple ->
+                {SS1, AAS0};
+            kill_try_tag ->
+                {SS1, AAS0};
+            match_fail ->
+                {SS1, AAS0};
+            new_try_tag ->
+                {SS1, AAS0};
+            nif_start ->
+                {SS1, AAS0};
+            raw_raise ->
+                {SS1, AAS0};
+            recv_marker_bind ->
+                {SS1, AAS0};
+            recv_marker_clear ->
+                {SS1, AAS0};
+            recv_marker_reserve ->
+                {SS1, AAS0};
+            recv_next ->
+                {SS1, AAS0};
+            remove_message ->
+                {SS1, AAS0};
+            resume ->
+                {SS1, AAS0};
+            wait_timeout ->
+                {SS1, AAS0};
+            _ ->
+                exit({unknown_instruction, I})
+        end,
+    aa_is(Is, SS, [aa_update_annotation(I, SS1)|Acc], AAS);
+aa_is([], SS, Acc, AAS) ->
+    {reverse(Acc), SS, AAS}.
 
 aa_terminator(T=#b_br{anno=Anno0}, SS0) ->
     Anno = aa_update_annotation(Anno0, SS0),
@@ -819,3 +819,29 @@ aa_tuple_extraction(Dst, Tuple, #b_literal{val=I}, SS1) ->
             %% There are no aliases yet.
             aa_join(Dst, Tuple, SS1#{{tuple_element,Tuple}=>[I]})
     end.
+
+aa_make_fun(Dst, #b_local{name=#b_literal{}} = Callee,
+            Env0, SS0,
+            AAS0=#aas{alias_map=_AliasMap,call_args=Info0,st_map=_StMap}) ->
+    %% When a value is copied into the environment of a fun we assume
+    %% that it has been aliased as there is no obvious way to track
+    %% and ensure that the value is only used once, even if the
+    %% argument dies at this location.
+    %%
+    %% We also update the call info for the callee in the #aas{} to
+    %% reflect the aliased status for the arguments coming from the
+    %% environment.
+    SS = aa_set_aliased([Dst|Env0], SS0),
+    #{ Callee := Status0 } = Info0,
+    Status = aa_merge_env(reverse(Status0), [aliased || _ <- Env0], []),
+    Info = Info0#{ Callee := Status },
+    AAS = AAS0#aas{call_args=Info},
+    {SS, AAS}.
+
+aa_merge_env([_|Args], [E|Env], Acc) ->
+    aa_merge_env(Args, Env, [E|Acc]);
+aa_merge_env([Arg|Args], [], Acc) ->
+    aa_merge_env(Args, [], [Arg|Acc]);
+aa_merge_env([], [], Acc) ->
+    Acc.
+
