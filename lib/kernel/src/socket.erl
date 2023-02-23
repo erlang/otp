@@ -1590,14 +1590,13 @@ connect(Socket, SockAddr) ->
                         {add_socket,             posix()} |
                         {update_connect_context, posix()};
 
-             (Socket, SockAddr, Handle) ->
+             (Socket, SockAddr, Handle :: select_handle() | completion_handle()) ->
                      'ok' |
                      {'select', SelectInfo} |
                      {'completion', CompletionInfo} |
                      {'error', Reason} when
       Socket         :: socket(),
       SockAddr       :: sockaddr(),
-      Handle         :: select_handle() | completion_handle(),
       SelectInfo     :: select_info(),
       CompletionInfo :: completion_info(),
       Reason         :: posix() | 'closed' | invalid() | 'already' |
@@ -1752,13 +1751,12 @@ accept(ListenSocket) ->
                          {add_accept_socket,     posix()} |
                          {update_accept_context, posix()};
 
-            (ListenSocket, Handle) ->
+            (ListenSocket, Handle :: select_handle() | completion_handle()) ->
                     {'ok', Socket} |
                     {'select', SelectInfo} |
                     {'completion', CompletionInfo} |
                     {'error', Reason} when
       ListenSocket      :: socket(),
-      Handle            :: select_handle() | completion_handle(),
       Socket            :: socket(),
       SelectInfo        :: select_info(),
       CompletionInfo    :: completion_info(),
@@ -1907,31 +1905,35 @@ send(Socket, Data) ->
       RestData   :: binary(),
       Reason     :: posix() | 'closed' | invalid();
 
-          (Socket, Data, SelectHandle :: 'nowait') ->
+          (Socket, Data, Handle :: 'nowait') ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, RestData}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason}
                       when
-      Socket     :: socket(),
-      Data       :: iodata(),
-      RestData   :: binary(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Data           :: iodata(),
+      RestData       :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-          (Socket, Data, SelectHandle :: select_handle()) ->
+          (Socket, Data, Handle :: select_handle() | completion_handle()) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, RestData}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason}
                       when
-      Socket       :: socket(),
-      Data         :: iodata(),
-      RestData     :: binary(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Data           :: iodata(),
+      RestData       :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
           (Socket, Data, Timeout :: 'infinity') ->
                   'ok' |
@@ -1963,33 +1965,37 @@ send(Socket, Data, Timeout) ->
     send(Socket, Data, ?ESOCK_SEND_FLAGS_DEFAULT, Timeout).
 
 
--spec send(Socket, Data, Flags, SelectHandle :: 'nowait') ->
+-spec send(Socket, Data, Flags, Handle :: 'nowait') ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, RestData}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason}
                       when
-      Socket     :: socket(),
-      Data       :: iodata(),
-      Flags      :: [msg_flag() | integer()],
-      RestData   :: binary(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Data           :: iodata(),
+      Flags          :: [msg_flag() | integer()],
+      RestData       :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-          (Socket, Data, Flags, SelectHandle :: select_handle()) ->
+          (Socket, Data, Flags, Handle :: select_handle() | completion_handle()) ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, RestData}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason}
                       when
-      Socket       :: socket(),
-      Data         :: iodata(),
-      Flags        :: [msg_flag() | integer()],
-      RestData     :: binary(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Data           :: iodata(),
+      Flags          :: [msg_flag() | integer()],
+      RestData       :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
           (Socket, Data, Flags, Timeout :: 'infinity') ->
                   'ok' |
@@ -2015,19 +2021,21 @@ send(Socket, Data, Timeout) ->
       RestData   :: binary(),
       Reason     :: posix() | 'closed' | invalid();
 
-          (Socket, Data, Cont, SelectHandle :: 'nowait') ->
+          (Socket, Data, Cont, Handle :: 'nowait') ->
                   'ok' |
                   {'ok', RestData} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, RestData}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason}
                       when
-      Socket     :: socket(),
-      Data       :: iodata(),
-      Cont       :: select_info(),
-      RestData   :: binary(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Data           :: iodata(),
+      Cont           :: select_info(),
+      RestData       :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
           (Socket, Data, Cont, SelectHandle :: select_handle()) ->
                   'ok' |
@@ -2094,11 +2102,11 @@ send(?socket(SockRef), Data, Flags, Timeout)
         invalid ->
             erlang:error({invalid, {timeout, Timeout}});
         nowait ->
-            SelectHandle = make_ref(),
-            send_nowait(SockRef, Data, Flags, SelectHandle);
+            Handle = make_ref(),
+            send_nowait(SockRef, Data, Flags, Handle);
         handle ->
-            SelectHandle = Timeout,
-            send_nowait(SockRef, Data, Flags, SelectHandle);
+            Handle = Timeout,
+            send_nowait(SockRef, Data, Flags, Handle);
         Deadline ->
             send_deadline(SockRef, Data, Flags, Deadline)
     end;
@@ -2117,40 +2125,45 @@ send(?socket(SockRef) = Socket, Data, Flags, Timeout)
 send(Socket, Data, Flags, Timeout) ->
     erlang:error(badarg, [Socket, Data, Flags, Timeout]).
 
-send_nowait(SockRef, Bin, Flags, SelectHandle) ->
+send_nowait(SockRef, Bin, Flags, Handle) ->
     send_common_nowait_result(
-      SelectHandle, send,
-      prim_socket:send(SockRef, Bin, Flags, SelectHandle)).
+      Handle, send,
+      prim_socket:send(SockRef, Bin, Flags, Handle)).
 
+%% On Windows, writes either succeed directly (it their entirety),
+%% they are scheduled (completion) or they fail. *No* partial success,
+%% and therefor no need to handle theme here (in cont).
 send_nowait_cont(SockRef, Bin, Cont, SelectHandle) ->
     send_common_nowait_result(
       SelectHandle, send,
       prim_socket:send(SockRef, Bin, Cont, SelectHandle)).
 
 send_deadline(SockRef, Bin, Flags, Deadline) ->
-    SelectHandle = make_ref(),
+    Handle = make_ref(),
     HasWritten = false,
     send_common_deadline_result(
-       SockRef, Bin, SelectHandle, Deadline, HasWritten,
+       SockRef, Bin, Handle, Deadline, HasWritten,
        send, fun send_deadline_cont/5,
-       prim_socket:send(SockRef, Bin, Flags, SelectHandle)).
+       prim_socket:send(SockRef, Bin, Flags, Handle)).
 
 send_deadline_cont(SockRef, Bin, Cont, Deadline, HasWritten) ->
-    SelectHandle = make_ref(),
+    Handle = make_ref(),
     send_common_deadline_result(
-       SockRef, Bin, SelectHandle, Deadline, HasWritten,
+       SockRef, Bin, Handle, Deadline, HasWritten,
        send, fun send_deadline_cont/5,
-       prim_socket:send(SockRef, Bin, Cont, SelectHandle)).
+       prim_socket:send(SockRef, Bin, Cont, Handle)).
 
 
 
 -compile({inline, [send_common_nowait_result/3]}).
-send_common_nowait_result(SelectHandle, Op, Result) ->
+send_common_nowait_result(Handle, Op, Result) ->
     case Result of
+        completion ->
+            {completion, ?COMPLETION_INFO(Op, Handle)};
         {select, ContData} ->
-            {select, ?SELECT_INFO({Op, ContData}, SelectHandle)};
+            {select, ?SELECT_INFO({Op, ContData}, Handle)};
         {select, Data, ContData} ->
-            {select, {?SELECT_INFO({Op, ContData}, SelectHandle), Data}};
+            {select, {?SELECT_INFO({Op, ContData}, Handle), Data}};
         %%
         Result ->
             Result
@@ -2158,7 +2171,7 @@ send_common_nowait_result(SelectHandle, Op, Result) ->
 
 -compile({inline, [send_common_deadline_result/8]}).
 send_common_deadline_result(
-  SockRef, Data, SelectHandle, Deadline, HasWritten,
+  SockRef, Data, Handle, Deadline, HasWritten,
   Op, Fun, SendResult) ->
     %%
     case SendResult of
@@ -2166,26 +2179,40 @@ send_common_deadline_result(
             %% Would block, wait for continuation
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(_Socket, select, SelectHandle) ->
+                ?socket_msg(_Socket, select, Handle) ->
                     Fun(SockRef, Data, Cont, Deadline, HasWritten);
-                ?socket_msg(_Socket, abort, {SelectHandle, Reason}) ->
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     send_common_error(Reason, Data, HasWritten)
             after Timeout ->
-                    _ = cancel(SockRef, Op, SelectHandle),
+                    _ = cancel(SockRef, Op, Handle),
                     send_common_error(timeout, Data, HasWritten)
             end;
         {select, Data_1, Cont} ->
             %% Partial send success, wait for continuation
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(_Socket, select, SelectHandle) ->
+                ?socket_msg(_Socket, select, Handle) ->
                     Fun(SockRef, Data_1, Cont, Deadline, true);
-                ?socket_msg(_Socket, abort, {SelectHandle, Reason}) ->
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     send_common_error(Reason, Data_1, true)
             after Timeout ->
-                    _ = cancel(SockRef, Op, SelectHandle),
+                    _ = cancel(SockRef, Op, Handle),
                     send_common_error(timeout, Data_1, true)
             end;
+
+        completion ->
+            %% Would block, wait for continuation
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(_Socket, completion, {Handle, CompletionStatus}) ->
+                    CompletionStatus;
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    send_common_error(Reason, Data, false)
+            after Timeout ->
+                    _ = cancel(SockRef, Op, Handle),
+                    send_common_error(timeout, Data, false)
+            end;
+
         %%
         {error, {_Reason, RestIOV}} = Error when is_list(RestIOV) ->
             Error;
