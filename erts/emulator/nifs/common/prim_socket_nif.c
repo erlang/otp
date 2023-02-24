@@ -1110,6 +1110,8 @@ typedef struct {
     /* The various cancel operations */
     ESockIOCancelConnect         cancel_connect;
     ESockIOCancelAccept          cancel_accept;
+    ESockIOCancelSend            cancel_send;
+    ESockIOCancelRecv            cancel_recv;
 
     /* Socket option callback functions */
     ESockIOSetopt                setopt;
@@ -2811,6 +2813,14 @@ static ESockIoBackend io_backend = {0};
 #define ESOCK_IO_CANCEL_ACCEPT(ENV, D, SR, OR)          \
     ((io_backend.cancel_accept != NULL) ?               \
      io_backend.cancel_accept((ENV), (D), (SR), (OR)) : \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_CANCEL_SEND(ENV, D, SR, OR)          \
+    ((io_backend.cancel_send != NULL) ?               \
+     io_backend.cancel_send((ENV), (D), (SR), (OR)) : \
+     enif_raise_exception((ENV), MKA((ENV), "notsup")))
+#define ESOCK_IO_CANCEL_RECV(ENV, D, SR, OR)          \
+    ((io_backend.cancel_recv != NULL) ?               \
+     io_backend.cancel_recv((ENV), (D), (SR), (OR)) : \
      enif_raise_exception((ENV), MKA((ENV), "notsup")))
 #define ESOCK_IO_SETOPT(ENV, D, L, O, EV)               \
     ((io_backend.setopt != NULL) ?                      \
@@ -11301,14 +11311,14 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
     /* Hand crafted binary search */
     if ((cmp = COMPARE(op, esock_atom_recvmsg)) == 0) {
         MLOCK(descP->readMtx);
-        result = esock_cancel_recv(env, descP, sockRef, opRef);
+        result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
         MUNLOCK(descP->readMtx);
         return result;
     }
     if (cmp < 0) {
         if ((cmp = COMPARE(op, esock_atom_recv)) == 0) {
             MLOCK(descP->readMtx);
-            result = esock_cancel_recv(env, descP, sockRef, opRef);
+            result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
             MUNLOCK(descP->readMtx);
             return result;
         }
@@ -11328,7 +11338,7 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
         } else {
             if (COMPARE(op, esock_atom_recvfrom) == 0) {
                 MLOCK(descP->readMtx);
-                result = esock_cancel_recv(env, descP, sockRef, opRef);
+                result = ESOCK_IO_CANCEL_RECV(env, descP, sockRef, opRef);
                 MUNLOCK(descP->readMtx);
                 return result;
             }
@@ -11336,27 +11346,27 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
     } else {
         if ((cmp = COMPARE(op, esock_atom_sendmsg)) == 0) {
             MLOCK(descP->writeMtx);
-            result = esock_cancel_send(env, descP, sockRef, opRef);
+            result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
             MUNLOCK(descP->writeMtx);
             return result;
         }
         if (cmp < 0) {
             if (COMPARE(op, esock_atom_send) == 0) {
                 MLOCK(descP->writeMtx);
-                result = esock_cancel_send(env, descP, sockRef, opRef);
+                result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
             if (COMPARE(op, esock_atom_sendfile) == 0) {
                 MLOCK(descP->writeMtx);
-                result = esock_cancel_send(env, descP, sockRef, opRef);
+                result = ESOCK_IO_CANCEL_SEND (env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
         } else {
             if (COMPARE(op, esock_atom_sendto) == 0) {
                 MLOCK(descP->writeMtx);
-                result = esock_cancel_send(env, descP, sockRef, opRef);
+                result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
@@ -14769,6 +14779,8 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.peername       = esock_peername;
     io_backend.cancel_connect = esaio_cancel_connect;
     io_backend.cancel_accept  = esaio_cancel_accept;
+    io_backend.cancel_send    = NULL;
+    io_backend.cancel_recv    = NULL;
 
     io_backend.setopt         = esock_setopt;
     io_backend.setopt_native  = esock_setopt_native;
@@ -14813,6 +14825,8 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.peername       = esock_peername;
     io_backend.cancel_connect = essio_cancel_connect;
     io_backend.cancel_accept  = essio_cancel_accept;
+    io_backend.cancel_send    = esock_cancel_send;
+    io_backend.cancel_recv    = esock_cancel_recv;
 
     io_backend.setopt         = esock_setopt;
     io_backend.setopt_native  = esock_setopt_native;

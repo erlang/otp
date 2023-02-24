@@ -169,6 +169,16 @@ typedef ERL_NIF_TERM (*ESockIOCancelAccept)(ErlNifEnv*       env,
                                             ERL_NIF_TERM     sockRef,
                                             ERL_NIF_TERM     opRef);
 
+typedef ERL_NIF_TERM (*ESockIOCancelSend)(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ERL_NIF_TERM     sockRef,
+                                           ERL_NIF_TERM     opRef);
+
+typedef ERL_NIF_TERM (*ESockIOCancelRecv)(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     sockRef,
+                                          ERL_NIF_TERM     opRef);
+
 typedef ERL_NIF_TERM (*ESockIOSetopt)(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       int              level,
