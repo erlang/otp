@@ -77,9 +77,9 @@
 	 printable_list/1, printable_latin1_list/1, printable_unicode_list/1]).
 
 %% Utilities for collecting characters.
--export([collect_chars/3, collect_chars/4,
-	 collect_line/3, collect_line/4,
-	 get_until/3, get_until/4]).
+-export([collect_chars/3, collect_chars/4, apply_collect_chars/4,
+	 collect_line/3, collect_line/4, apply_collect_line/4,
+	 get_until/3, get_until/4, apply_get_until/4]).
 
 %% The following functions were used by Yecc's include-file.
 -export([write_unicode_string/1, write_unicode_char/1,
@@ -780,6 +780,14 @@ nl() ->
 
 %%
 %% Utilities for collecting characters in input files
+%% The apply_* functions return one of:
+%%
+%%      {done,Result,RestData}
+%%      {more,Continuation}
+%%      {more,Continuation,Prompt}
+%%
+%% According to get_until in the I/O protocol.
+%% These functions have been added on Erlang/OTP 27.
 %%
 
 count_and_find_utf8(Bin,N) ->
@@ -797,6 +805,128 @@ cafu(<<_/utf8,Rest/binary>> = Whole, N, Count, ByteCount, SavePos) ->
 cafu(_Other,_N,Count,_ByteCount,SavePos) -> % Non Utf8 character at end
     {Count,SavePos}.
 
+
+apply_get_until(start, Data, Encoding, XtraArg) ->
+    apply_get_until([], Data, Encoding, XtraArg);
+apply_get_until(Cont, Data, Encoding, {Mod, Func, XtraArgs}) ->
+    Chars = if is_binary(Data), Encoding =:= unicode ->
+                    unicode:characters_to_list(Data,utf8);
+               is_binary(Data) ->
+                    binary_to_list(Data);
+               true ->
+                    Data
+            end,
+    apply(Mod, Func, [Cont,Chars|XtraArgs]).
+
+
+apply_collect_chars(start, Data, unicode, N) when is_binary(Data), is_integer(N) ->
+    {Size,Npos} = count_and_find_utf8(Data,N),
+    if Size >= N ->
+            {B1,B2} = split_binary(Data, Npos),
+            {done,B1,B2};
+       Size < N ->
+            {more,{binary,[Data],N-Size}}
+    end;
+apply_collect_chars(start, Data, latin1, N) when is_binary(Data), is_integer(N) ->
+    Size = byte_size(Data),
+    if Size >= N ->
+            {B1,B2} = split_binary(Data, N),
+            {done,B1,B2};
+       Size < N ->
+            {more,{binary,[Data],N-Size}}
+    end;
+apply_collect_chars(start,Data,_,N) when is_list(Data), is_integer(N) ->
+    collect_chars_list([], N, Data);
+apply_collect_chars(start, eof, _,_) ->
+    {done,eof,eof};
+apply_collect_chars({binary,Stack,_N}, eof, _,_) ->
+    {done,binrev(Stack),eof};
+apply_collect_chars({binary,Stack,N}, Data,unicode, _) when is_integer(N) ->
+    {Size,Npos} = count_and_find_utf8(Data,N),
+    if Size >= N ->
+            {B1,B2} = split_binary(Data, Npos),
+            {done,binrev(Stack, [B1]),B2};
+       Size < N ->
+            {more,{binary,[Data|Stack],N-Size}}
+    end;
+apply_collect_chars({binary,Stack,N}, Data,latin1, _) when is_integer(N) ->
+    Size = byte_size(Data),
+    if Size >= N ->
+            {B1,B2} = split_binary(Data, N),
+            {done,binrev(Stack, [B1]),B2};
+       Size < N ->
+            {more,{binary,[Data|Stack],N-Size}}
+    end;
+apply_collect_chars({list,Stack,N}, Data, _,_) when is_integer(N) ->
+    collect_chars_list(Stack, N, Data).
+
+collect_chars_list(Stack, 0, Data) ->
+    {done,lists:reverse(Stack, []),Data};
+collect_chars_list(Stack, _N, eof) ->
+    {done,lists:reverse(Stack, []),eof};
+collect_chars_list(Stack, N, []) ->
+    {more,{list,Stack,N}};
+collect_chars_list(Stack,N, [H|T]) ->
+    collect_chars_list([H|Stack], N-1, T).
+
+
+apply_collect_line(start, Data, Encoding, _) when is_binary(Data) ->
+    collect_line_bin(Data, Data, [], Encoding);
+apply_collect_line(start, Data, _, _) when is_list(Data) ->
+    collect_line_list(Data, []);
+apply_collect_line(start, eof, _, _) ->
+    {done,eof,eof};
+apply_collect_line(Stack, Data, Encoding, _) when is_binary(Data) ->
+    collect_line_bin(Data, Data, Stack, Encoding);
+apply_collect_line(Stack, Data, _, _) when is_list(Data) ->
+    collect_line_list(Data, Stack);
+apply_collect_line([B|_]=Stack, eof, _, _) when is_binary(B) ->
+    {done,binrev(Stack),eof};
+apply_collect_line(Stack, eof, _, _) ->
+    {done,lists:reverse(Stack, []),eof}.
+
+collect_line_bin(<<$\n,T/binary>>, Data, Stack0, _) ->
+    N = byte_size(Data) - byte_size(T),
+    <<Line:N/binary,_/binary>> = Data,
+    case Stack0 of
+        [] ->
+            {done,Line,T};
+        [<<$\r>>|Stack] when N =:= 1 ->
+            {done,binrev(Stack, [$\n]),T};
+        _ ->
+            {done,binrev(Stack0, [Line]),T}
+    end;
+collect_line_bin(<<$\r,$\n,T/binary>>, Data, Stack, _) ->
+    N = byte_size(Data) - byte_size(T) - 2,
+    <<Line:N/binary,_/binary>> = Data,
+    {done,binrev(Stack, [Line,$\n]),T};
+collect_line_bin(<<$\r>>, Data0, Stack, _) ->
+    N = byte_size(Data0) - 1,
+    <<Data:N/binary,_/binary>> = Data0,
+    {more,[<<$\r>>,Data|Stack]};
+collect_line_bin(<<_,T/binary>>, Data, Stack, Enc) ->
+    collect_line_bin(T, Data, Stack, Enc);
+collect_line_bin(<<>>, Data, Stack, _) ->
+    %% Need more data here.
+    {more,[Data|Stack]}.
+
+collect_line_list([$\n|T], [$\r|Stack]) ->
+    {done,lists:reverse(Stack, [$\n]),T};
+collect_line_list([$\n|T], Stack) ->
+    {done,lists:reverse(Stack, [$\n]),T};
+collect_line_list([H|T], Stack) ->
+    collect_line_list(T, [H|Stack]);
+collect_line_list([], Stack) ->
+    {more,Stack}.
+
+binrev(L) ->
+    list_to_binary(lists:reverse(L, [])).
+
+binrev(L, T) ->
+    list_to_binary(lists:reverse(L, T)).
+
+%% Begin deprecated private functions.
+
 %% collect_chars(State, Data, Count). New in R9C.
 %%  Returns:
 %%      {stop,Result,RestData}
@@ -805,57 +935,17 @@ cafu(_Other,_N,Count,_ByteCount,SavePos) -> % Non Utf8 character at end
 collect_chars(Tag, Data, N) ->
     collect_chars(Tag, Data, latin1, N).
 
-%% Now we are aware of encoding...    
-collect_chars(start, Data, unicode, N) when is_binary(Data), is_integer(N) ->
-    {Size,Npos} = count_and_find_utf8(Data,N),
-    if Size >= N ->
-	    {B1,B2} = split_binary(Data, Npos),
-	    {stop,B1,B2};
-       Size < N ->
-	    {binary,[Data],N-Size}
-    end;
-collect_chars(start, Data, latin1, N) when is_binary(Data), is_integer(N) ->
-    Size = byte_size(Data),
-    if Size >= N ->
-	    {B1,B2} = split_binary(Data, N),
-	    {stop,B1,B2};
-       Size < N ->
-	    {binary,[Data],N-Size}
-    end;
-collect_chars(start,Data,_,N) when is_list(Data), is_integer(N) ->
-    collect_chars_list([], N, Data);
-collect_chars(start, eof, _,_) ->
-    {stop,eof,eof};
-collect_chars({binary,Stack,_N}, eof, _,_) ->
-    {stop,binrev(Stack),eof};
-collect_chars({binary,Stack,N}, Data,unicode, _) when is_integer(N) ->
-    {Size,Npos} = count_and_find_utf8(Data,N),
-    if Size >= N ->
-	    {B1,B2} = split_binary(Data, Npos),
-	    {stop,binrev(Stack, [B1]),B2};
-       Size < N ->
-	    {binary,[Data|Stack],N-Size}
-    end;
-collect_chars({binary,Stack,N}, Data,latin1, _) when is_integer(N) ->
-    Size = byte_size(Data),
-    if Size >= N ->
-	    {B1,B2} = split_binary(Data, N),
-	    {stop,binrev(Stack, [B1]),B2};
-       Size < N ->
-	    {binary,[Data|Stack],N-Size}
-    end;
-collect_chars({list,Stack,N}, Data, _,_) when is_integer(N) ->
-    collect_chars_list(Stack, N, Data);
-
-%% collect_chars(Continuation, MoreChars, Count)
-%%  Returns:
-%%	{done,Result,RestChars}
-%%	{more,Continuation}
-
 collect_chars([], Chars, _, N) when is_integer(N) ->
     collect_chars1(N, Chars, []);
 collect_chars({Left,Sofar}, Chars, _, _N) when is_integer(Left) ->
-    collect_chars1(Left, Chars, Sofar).
+    collect_chars1(Left, Chars, Sofar);
+collect_chars(Cont, Data, Encoding, N) ->
+    case apply_collect_chars(Cont, Data, Encoding, N) of
+        {done,Result,Buf} ->
+            {stop,Result,Buf};
+        {more,NewCont} ->
+            NewCont
+    end.
 
 collect_chars1(N, Chars, Stack) when N =< 0 ->
     {done,lists:reverse(Stack, []),Chars};
@@ -868,123 +958,47 @@ collect_chars1(_N, eof, Stack) ->
 collect_chars1(N, [], Stack) ->
     {more,{N,Stack}}.
 
-collect_chars_list(Stack, 0, Data) ->
-    {stop,lists:reverse(Stack, []),Data};
-collect_chars_list(Stack, _N, eof) ->
-    {stop,lists:reverse(Stack, []),eof};
-collect_chars_list(Stack, N, []) ->
-    {list,Stack,N};
-collect_chars_list(Stack,N, [H|T]) ->
-    collect_chars_list([H|Stack], N-1, T).
 
 %% collect_line(State, Data, _). New in R9C.
 %%  Returns:
 %%	{stop,Result,RestData}
 %%	NewState
 %%% BC (with pre-R13).
-collect_line(Tag, Data, Any) -> 
+collect_line(Tag, Data, Any) ->
     collect_line(Tag, Data, latin1, Any).
 
-%% Now we are aware of encoding...    
-collect_line(start, Data, Encoding, _) when is_binary(Data) ->
-    collect_line_bin(Data, Data, [], Encoding);
-collect_line(start, Data, _, _) when is_list(Data) ->
-    collect_line_list(Data, []);
-collect_line(start, eof, _, _) ->
-    {stop,eof,eof};
-collect_line(Stack, Data, Encoding, _) when is_binary(Data) ->
-    collect_line_bin(Data, Data, Stack, Encoding);
-collect_line(Stack, Data, _, _) when is_list(Data) ->
-    collect_line_list(Data, Stack);
-collect_line([B|_]=Stack, eof, _, _) when is_binary(B) ->
-    {stop,binrev(Stack),eof};
-collect_line(Stack, eof, _, _) ->
-    {stop,lists:reverse(Stack, []),eof}.
+collect_line(Cont, Data, Encoding, Any) ->
+    case apply_collect_line(Cont, Data, Encoding, Any) of
+        {done,Result,Buf} ->
+            {stop,Result,Buf};
+        {more,NewCont} ->
+            NewCont
+    end.
 
-
-collect_line_bin(<<$\n,T/binary>>, Data, Stack0, _) ->
-    N = byte_size(Data) - byte_size(T),
-    <<Line:N/binary,_/binary>> = Data,
-    case Stack0 of
-	[] ->
-	    {stop,Line,T};
-	[<<$\r>>|Stack] when N =:= 1 ->
-	    {stop,binrev(Stack, [$\n]),T};
-	_ ->
-	    {stop,binrev(Stack0, [Line]),T}
-    end;
-collect_line_bin(<<$\r,$\n,T/binary>>, Data, Stack, _) ->
-    N = byte_size(Data) - byte_size(T) - 2,
-    <<Line:N/binary,_/binary>> = Data,
-    {stop,binrev(Stack, [Line,$\n]),T};
-collect_line_bin(<<$\r>>, Data0, Stack, _) ->
-    N = byte_size(Data0) - 1,
-    <<Data:N/binary,_/binary>> = Data0,
-    [<<$\r>>,Data|Stack];
-collect_line_bin(<<_,T/binary>>, Data, Stack, Enc) ->
-    collect_line_bin(T, Data, Stack, Enc);
-collect_line_bin(<<>>, Data, Stack, _) ->
-    %% Need more data here.
-    [Data|Stack].
-
-collect_line_list([$\n|T], [$\r|Stack]) ->
-    {stop,lists:reverse(Stack, [$\n]),T};
-collect_line_list([$\n|T], Stack) ->
-    {stop,lists:reverse(Stack, [$\n]),T};
-collect_line_list([H|T], Stack) ->
-    collect_line_list(T, [H|Stack]);
-collect_line_list([], Stack) ->
-    Stack.
-
-%% Translator function to emulate a new (R9C and later) 
-%% I/O client when you have an old one.
-%%
-%% Implements a middleman that is get_until server and get_chars client.
 
 %%% BC (with pre-R13).
 get_until(Any,Data,Arg) ->
     get_until(Any,Data,latin1,Arg).
 
-%% Now we are aware of encoding...    
-get_until(start, Data, Encoding, XtraArg) ->
-    get_until([], Data, Encoding, XtraArg);
-get_until(Cont, Data, Encoding, {Mod, Func, XtraArgs}) ->
-    Chars = if is_binary(Data), Encoding =:= unicode ->
-		    unicode:characters_to_list(Data,utf8);
-	       is_binary(Data) ->
-		    binary_to_list(Data);
-	       true ->
-		    Data
-	    end,
-    case apply(Mod, Func, [Cont,Chars|XtraArgs]) of
+get_until(Cont, Data, Encoding, XtraArg) ->
+    case apply_get_until(Cont, Data, Encoding, XtraArg) of
 	{done,Result,Buf} ->
-	    {stop,if is_binary(Data), 
-		     is_list(Result), 
-		     Encoding =:= unicode ->
-			  unicode:characters_to_binary(Result,unicode,unicode);
-		     is_binary(Data), 
-		     is_list(Result) ->
-			  erlang:iolist_to_binary(Result);
-%%		     is_list(Data),
-%%		     is_list(Result),
-%% 		     Encoding =:= latin1 ->
-%% 			  % Should check for only latin1, but skip that for
-%% 			  % efficiency reasons.
-%% 			  [ exit({cannot_convert, unicode, latin1}) || 
-%% 			      X <- List, X > 255 ];
-		     true ->
-			  Result
-		  end,
-	     Buf};
+	    {stop,if is_binary(Data),
+                     is_list(Result),
+                     Encoding =:= unicode ->
+                          unicode:characters_to_binary(Result,unicode,unicode);
+                     is_binary(Data),
+                     is_list(Result) ->
+                          erlang:iolist_to_binary(Result);
+                     true ->
+                          Result
+                  end,
+             Buf};
 	{more,NewCont} ->
-	    NewCont
+	    NewCont;
+        {more,NewCont,_Prompt} ->
+            NewCont
     end.
-
-binrev(L) ->
-    list_to_binary(lists:reverse(L, [])).
-
-binrev(L, T) ->
-    list_to_binary(lists:reverse(L, T)).
 
 -spec limit_term(term(), depth()) -> term().
 

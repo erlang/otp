@@ -210,10 +210,10 @@ ok
         <pre>
 {done, Result, RestChars}
 {more, Continuation}</pre>
-        <p><c>Result</c> can be any Erlang term, but if it is a <c>list()</c>,
-          the I/O server can convert it to a <c>binary()</c> of appropriate
-          format before returning it to the client, if the I/O server is set in
-          binary mode (see below).</p>
+        <p><c>Result</c> can be any Erlang term. In Erlang/OTP 26 and earlier,
+          the I/O server might convert a <c>list()</c> <c>Result</c> to a
+          <c>binary()</c> if the I/O server is set in binary mode (see below),
+          but this behaviour is no longer encouraged.</p>
         <p>The function is called with the data the I/O server finds on its I/O
           device, returning one of:</p>
         <list type="bulleted">
@@ -225,6 +225,12 @@ ok
           <item>
             <p><c>{more, Continuation}</c>, which indicates that more
               characters are needed to complete the request.</p>
+          </item>
+          <item>
+            <p><c>{more, Continuation, Prompt}</c>, which indicates that more
+              characters are needed to complete the request and the <c>Prompt</c>,
+              if any is shown, must be modified. This entry is new from
+              Erlang/OTP 27.</p>
           </item>
         </list>
         <p><c>Continuation</c> is sent as the state in later calls to the

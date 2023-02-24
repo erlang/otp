@@ -269,11 +269,11 @@ io_request({put_chars,latin1,M,F,As}, Drv, _Shell, From, Buf) ->
     end;
 
 io_request({get_chars,Encoding,Prompt,N}, Drv, Shell, _From, Buf) ->
-    get_chars_n(Prompt, io_lib, collect_chars, N, Drv, Shell, Buf, Encoding);
+    get_chars_n(Prompt, io_lib, apply_collect_chars, N, Drv, Shell, Buf, Encoding);
 io_request({get_line,Encoding,Prompt}, Drv, Shell, _From, Buf) ->
-    get_chars_line(Prompt, io_lib, collect_line, [], Drv, Shell, Buf, Encoding);
+    get_chars_line(Prompt, io_lib, apply_collect_line, [], Drv, Shell, Buf, Encoding);
 io_request({get_until,Encoding, Prompt,M,F,As}, Drv, Shell, _From, Buf) ->
-    get_chars_line(Prompt, io_lib, get_until, {M,F,As}, Drv, Shell, Buf, Encoding);
+    get_chars_line(Prompt, io_lib, apply_get_until, {M,F,As}, Drv, Shell, Buf, Encoding);
 io_request({get_password,_Encoding},Drv,Shell,_From,Buf) ->
     get_password_chars(Drv, Shell, Buf);
 io_request({setopts,Opts}, Drv, _Shell, _From, Buf) when is_list(Opts) ->
@@ -499,30 +499,34 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
 
 get_chars_apply(Pbs, M, F, Xa, Drv, Shell, Buf, State0, Line, Encoding) ->
     case catch M:F(State0, cast(Line,get(read_mode), Encoding), Encoding, Xa) of
-        {stop,Result,eof} ->
+        {done,Result,eof} ->
             {ok,Result,eof};
-        {stop,Result,Rest} ->
+        {done,Result,Rest} ->
             case {M,F} of
-                {io_lib, get_until} ->
+                {io_lib, apply_get_until} ->
                     save_line_buffer(Line, get_lines(new_stack(get(line_buffer)))),
                     {ok,Result,append(Rest, Buf, Encoding)};
                 _ ->
                     {ok,Result,append(Rest, Buf, Encoding)}
             end;
-        {'EXIT',_} ->
-            {error,{error,err_func(M, F, Xa)},[]};
-        State1 ->
+        {more,State1} ->
             save_line_buffer(Line, get_lines(new_stack(get(line_buffer)))),
-            get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf, State1, Encoding)
+            get_chars_loop(Pbs, M, F, Xa, Drv, Shell, Buf, State1, Encoding);
+        {more,State1,NewPrompt} ->
+            NewPbs = prompt_bytes(NewPrompt, Encoding),
+            save_line_buffer(Line, get_lines(new_stack(get(line_buffer)))),
+            get_chars_loop(NewPbs, M, F, Xa, Drv, Shell, Buf, State1, Encoding);
+        {'EXIT',_} ->
+            {error,{error,err_func(M, F, Xa)},[]}
     end.
 
 get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
     try M:F(State, cast(Buf0, get(read_mode), Encoding), Encoding, Xa) of
-        {stop,Result,eof} ->
+        {done,Result,eof} ->
             {ok,Result,eof};
-        {stop,Result,Rest} ->
+        {done,Result,Rest} ->
             {ok,Result,append(Rest, [], Encoding)};
-        State1 ->
+        {more,State1} ->
             case get_chars_echo_off(Pbs, Drv, Shell) of
                 interrupted ->
                     {error,{error,interrupted},[]};
@@ -536,7 +540,7 @@ get_chars_n_loop(Pbs, M, F, Xa, Drv, Shell, Buf0, State, Encoding) ->
     end.
 
 %% Convert error code to make it look as before
-err_func(io_lib, get_until, {_,F,_}) ->
+err_func(io_lib, apply_get_until, {_,F,_}) ->
     F;
 err_func(_, F, _) ->
     F.

@@ -364,7 +364,7 @@ io_request({put_chars,Enc,Mod,Func,Args},
 
 io_request({get_until,Enc,_Prompt,Mod,Func,XtraArgs}, 
 	   #state{}=State) ->
-    get_chars(io_lib, get_until, {Mod, Func, XtraArgs}, Enc, State);
+    get_chars(io_lib, apply_get_until, {Mod, Func, XtraArgs}, Enc, State);
 io_request({get_chars,Enc,_Prompt,N}, 
 	   #state{}=State) ->
     get_chars(N, Enc, State);
@@ -467,12 +467,12 @@ get_line(S, {<<>>, Cont}, OutEnc,
 	    {stop,Reason,Error,State}
     end;
 get_line(S0, {Buf, BCont}, OutEnc, #state{unic=InEnc}=State) ->
-    case io_lib:collect_line(S0, Buf, OutEnc, []) of
-	{stop, Result, Cont0} ->
+    case io_lib:apply_collect_line(S0, Buf, OutEnc, []) of
+	{done, Result, Cont0} ->
 	    %% Convert both buffers back to file InEnc encoding
 	    {Cont, <<>>} = convert_enc(Cont0, OutEnc, InEnc),
 	    {Result, State#state{buf=cast_binary([Cont, BCont])}};
-	S ->
+	{more, S} ->
 	    get_line(S, {<<>>, BCont}, OutEnc, State)
     end.
 
@@ -629,49 +629,44 @@ get_chars_apply(Mod, Func, XtraArg, S0, latin1,
 	S1 ->
 	    get_chars_empty(Mod, Func, XtraArg, S1, latin1, State)
     end;
-get_chars_apply(Mod, Func, XtraArg, S0, OutEnc,
-		#state{read_mode=ReadMode,unic=InEnc}=State, Data0) ->
+get_chars_apply(Mod, Func, XtraArg, S0, OutEnc, #state{unic=InEnc}=State, Data0) ->
     try 
-	{Data1,NewBuff} = case ReadMode of
-			      list when is_binary(Data0) -> 
-				  case unicode:characters_to_list(Data0,InEnc) of
-				      {Tag,Decoded,Rest} when Decoded =/= [], Tag =:= error; Decoded =/= [], Tag =:= incomplete ->
-					  {Decoded,erlang:iolist_to_binary(Rest)};
-				      {error, [], _}  -> 
-					  exit(invalid_unicode);
-				      {incomplete, [], R}  -> 
-					  {[],R};
-				      List when is_list(List) ->
-					  {List,<<>>}
-				  end;
-			      binary when is_binary(Data0) ->
-				  case unicode:characters_to_binary(Data0,InEnc,OutEnc) of
-				      {Tag2,Decoded2,Rest2} when Decoded2 =/= <<>>, Tag2 =:= error; Decoded2 =/= <<>>, Tag2 =:= incomplete ->
-					  {Decoded2,erlang:iolist_to_binary(Rest2)};
-				      {error, <<>>, _} ->
-					  exit(invalid_unicode);
-				      {incomplete, <<>>, R} ->
-					  {<<>>,R};
-				      Binary when is_binary(Binary) ->
-					  {Binary,<<>>}
-				  end;
-			      _ -> %i.e. eof
-				  {Data0,<<>>}
-			  end,
+	{Data1,NewBuff} = if
+	    is_binary(Data0) ->
+		%% Currently we only invoke io_lib:apply_get_until/4, which
+		%% converts the input to a list, so we save one round trip
+		%% by converting binary to a list regardless of read-mode.
+		case unicode:characters_to_list(Data0,InEnc) of
+		    {Tag,Decoded,Rest} when Decoded =/= [], Tag =:= error; Decoded =/= [], Tag =:= incomplete ->
+			  {Decoded,erlang:iolist_to_binary(Rest)};
+		    {error, [], _} ->
+			  exit(invalid_unicode);
+		    {incomplete, [], R}  ->
+			  {[],R};
+		    List when is_list(List) ->
+			  {List,<<>>}
+		end;
+	    true ->
+		{Data0,<<>>}
+	end,
+
 	case catch Mod:Func(S0, Data1, OutEnc, XtraArg) of
-	    {stop,Result,Buf} ->
-		{reply,Result,State#state{buf = (if
-						     is_binary(Buf) ->
-							 list_to_binary([unicode:characters_to_binary(Buf,OutEnc,InEnc),NewBuff]);
-						     is_list(Buf) ->
-							 list_to_binary([unicode:characters_to_binary(Buf,unicode,InEnc),NewBuff]);
-						     true ->
-							 NewBuff
-						end)}};
+	    {done,Result,Buf} ->
+		AppendBuf = if
+				  is_binary(Buf) ->
+				      list_to_binary([unicode:characters_to_binary(Buf,OutEnc,InEnc),NewBuff]);
+				  is_list(Buf) ->
+				      list_to_binary([unicode:characters_to_binary(Buf,unicode,InEnc),NewBuff]);
+				  true ->
+				      NewBuff
+			    end,
+		{reply,Result,State#state{buf=AppendBuf}};
+	    {more,S1} ->
+		get_chars_notempty(Mod, Func, XtraArg, S1, OutEnc, State#state{buf=NewBuff});
+	    {more,S1,_Prompt} ->
+		get_chars_notempty(Mod, Func, XtraArg, S1, OutEnc, State#state{buf=NewBuff});
 	    {'EXIT',Reason} ->
-		{stop,Reason,{error,err_func(Mod, Func, XtraArg)},State};
-	    S1 ->
-		get_chars_notempty(Mod, Func, XtraArg, S1, OutEnc, State#state{buf=NewBuff})
+		{stop,Reason,{error,err_func(Mod, Func, XtraArg)},State}
 	end
     catch
 	exit:ExReason ->
@@ -693,7 +688,7 @@ invalid_unicode_error(Mod, Func, XtraArg, S) ->
     end.
 
 %% Convert error code to make it look as before
-err_func(io_lib, get_until, {_,F,_}) ->
+err_func(io_lib, apply_get_until, {_,F,_}) ->
     F.
 
 
