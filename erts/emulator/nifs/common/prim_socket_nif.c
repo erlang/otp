@@ -14650,7 +14650,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.peername       = esock_peername;
     io_backend.cancel_connect = esaio_cancel_connect;
     io_backend.cancel_accept  = esaio_cancel_accept;
-    io_backend.cancel_send    = NULL;
+    io_backend.cancel_send    = esaio_cancel_send;
     io_backend.cancel_recv    = NULL;
 
     io_backend.setopt         = esock_setopt;
