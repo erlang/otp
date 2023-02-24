@@ -1541,13 +1541,6 @@ static ERL_NIF_TERM encode_ioctl_ivalue(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					int              ivalue);
 
-static ERL_NIF_TERM esock_cancel_send_current(ErlNifEnv*       env,
-                                              ESockDescriptor* descP,
-                                              ERL_NIF_TERM     sockRef);
-static ERL_NIF_TERM esock_cancel_send_waiting(ErlNifEnv*       env,
-                                              ESockDescriptor* descP,
-                                              ERL_NIF_TERM     opRef,
-                                              const ErlNifPid* selfP);
 static ERL_NIF_TERM esock_cancel_recv_current(ErlNifEnv*       env,
                                               ESockDescriptor* descP,
                                               ERL_NIF_TERM     sockRef);
@@ -1979,10 +1972,6 @@ static ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
                                  ERL_NIF_TERM     op,
                                  ERL_NIF_TERM     sockRef,
                                  ERL_NIF_TERM     opRef);
-static ERL_NIF_TERM esock_cancel_send(ErlNifEnv*       env,
-                                      ESockDescriptor* descP,
-                                      ERL_NIF_TERM     sockRef,
-                                      ERL_NIF_TERM     opRef);
 static ERL_NIF_TERM esock_cancel_recv(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
                                       ERL_NIF_TERM     sockRef,
@@ -11402,124 +11391,6 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
 
 
 
-/* *** esock_cancel_send ***
- *
- * Cancel a send operation.
- * Its either the current writer or one of the waiting writers.
- */
-
-static
-ERL_NIF_TERM esock_cancel_send(ErlNifEnv*       env,
-                               ESockDescriptor* descP,
-                               ERL_NIF_TERM     sockRef,
-                               ERL_NIF_TERM     opRef)
-{
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
-    ERL_NIF_TERM res;
-
-    SSDBG( descP,
-           ("SOCKET",
-            "esock_cancel_send(%T), {%d,0x%X} -> entry with"
-            "\r\n   opRef: %T"
-            "\r\n   %s"
-            "\r\n",
-            sockRef,  descP->sock, descP->writeState,
-            opRef,
-            ((descP->currentWriterP == NULL)
-             ? "without writer" : "with writer")) );
-
-    if (! IS_OPEN(descP->writeState)) {
-
-        res = esock_make_error_closed(env);
-
-    } else if (descP->currentWriterP == NULL) {
-
-        res = esock_atom_not_found;
-
-    } else {
-        ErlNifPid self;
-
-        ESOCK_ASSERT( enif_self(env, &self) != NULL );
-
-        if (COMPARE_PIDS(&self, &descP->currentWriter.pid) == 0) {
-            if (COMPARE(opRef, descP->currentWriter.ref) == 0)
-                res = esock_cancel_send_current(env, descP, sockRef);
-            else
-                res = esock_atom_not_found;
-        } else {
-            res = esock_cancel_send_waiting(env, descP, opRef, &self);
-        }
-    }
-
-    SSDBG( descP,
-           ("SOCKET", "esock_cancel_send(%T) {%d} -> done with result:"
-            "\r\n   %T"
-            "\r\n", sockRef, descP->sock, res) );
-
-    return res;
-#endif // #ifdef __WIN32__  #else
-}
-
-
-
-/* The current writer process has an ongoing select we first must
- * cancel. Then we must re-activate the "first" (the first
- * in the writer queue).
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_cancel_send_current(ErlNifEnv*       env,
-                                       ESockDescriptor* descP,
-                                       ERL_NIF_TERM     sockRef)
-{
-    ERL_NIF_TERM res;
-
-    ESOCK_ASSERT( DEMONP("esock_cancel_send_current -> current writer",
-                         env, descP, &descP->currentWriter.mon) == 0);
-    res = esock_cancel_write_select(env, descP, descP->currentWriter.ref);
-
-    SSDBG( descP,
-           ("SOCKET", "esock_cancel_send_current(%T) {%d} -> cancel res: %T"
-            "\r\n", sockRef, descP->sock, res) );
-
-    if (!esock_activate_next_writer(env, descP, sockRef)) {
-        SSDBG( descP,
-               ("SOCKET",
-                "esock_cancel_send_current(%T) {%d} -> no more writers"
-                "\r\n", sockRef, descP->sock) );
-
-        descP->currentWriterP = NULL;
-    }
-
-    return res;
-}
-#endif // #ifndef __WIN32__
-
-
-/* These processes have not performed a select, so we can simply
- * remove them from the writer queue.
- */
-#ifndef __WIN32__
-static
-ERL_NIF_TERM esock_cancel_send_waiting(ErlNifEnv*       env,
-                                       ESockDescriptor* descP,
-                                       ERL_NIF_TERM     opRef,
-                                       const ErlNifPid* selfP)
-{
-    /* unqueue request from (writer) queue */
-
-    if (esock_writer_unqueue(env, descP, &opRef, selfP)) {
-        return esock_atom_ok;
-    } else {
-        return esock_atom_not_found;
-    }
-}
-#endif // #ifndef __WIN32__
-
-
-
 /* *** esock_cancel_recv ***
  *
  * Cancel a read operation.
@@ -14825,7 +14696,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.peername       = esock_peername;
     io_backend.cancel_connect = essio_cancel_connect;
     io_backend.cancel_accept  = essio_cancel_accept;
-    io_backend.cancel_send    = esock_cancel_send;
+    io_backend.cancel_send    = essio_cancel_send;
     io_backend.cancel_recv    = esock_cancel_recv;
 
     io_backend.setopt         = esock_setopt;

@@ -147,6 +147,13 @@ static ERL_NIF_TERM essio_cancel_accept_waiting(ErlNifEnv*       env,
                                                 ESockDescriptor* descP,
                                                 ERL_NIF_TERM     opRef,
                                                 const ErlNifPid* selfP);
+static ERL_NIF_TERM essio_cancel_send_current(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM essio_cancel_send_waiting(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     opRef,
+                                              const ErlNifPid* selfP);
 
 static ERL_NIF_TERM essio_accept_listening_error(ErlNifEnv*       env,
                                                  ESockDescriptor* descP,
@@ -3257,6 +3264,117 @@ ERL_NIF_TERM essio_cancel_accept_waiting(ErlNifEnv*       env,
     /* unqueue request from (acceptor) queue */
 
     if (esock_acceptor_unqueue(env, descP, &opRef, selfP)) {
+        return esock_atom_ok;
+    } else {
+        return esock_atom_not_found;
+    }
+}
+
+
+
+/* *** esock_cancel_send ***
+ *
+ * Cancel a send operation.
+ * Its either the current writer or one of the waiting writers.
+ */
+
+extern
+ERL_NIF_TERM essio_cancel_send(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     opRef)
+{
+    ERL_NIF_TERM res;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "essio_cancel_send(%T), {%d,0x%X} -> entry with"
+            "\r\n   opRef: %T"
+            "\r\n   %s"
+            "\r\n",
+            sockRef,  descP->sock, descP->writeState,
+            opRef,
+            ((descP->currentWriterP == NULL)
+             ? "without writer" : "with writer")) );
+
+    if (! IS_OPEN(descP->writeState)) {
+
+        res = esock_make_error_closed(env);
+
+    } else if (descP->currentWriterP == NULL) {
+
+        res = esock_atom_not_found;
+
+    } else {
+        ErlNifPid self;
+
+        ESOCK_ASSERT( enif_self(env, &self) != NULL );
+
+        if (COMPARE_PIDS(&self, &descP->currentWriter.pid) == 0) {
+            if (COMPARE(opRef, descP->currentWriter.ref) == 0)
+                res = essio_cancel_send_current(env, descP, sockRef);
+            else
+                res = esock_atom_not_found;
+        } else {
+            res = essio_cancel_send_waiting(env, descP, opRef, &self);
+        }
+    }
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_cancel_send(%T) {%d} -> done with result:"
+            "\r\n   %T"
+            "\r\n", sockRef, descP->sock, res) );
+
+    return res;
+}
+
+
+
+/* The current writer process has an ongoing select we first must
+ * cancel. Then we must re-activate the "first" (the first
+ * in the writer queue).
+ */
+static
+ERL_NIF_TERM essio_cancel_send_current(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM res;
+
+    ESOCK_ASSERT( DEMONP("essio_cancel_send_current -> current writer",
+                         env, descP, &descP->currentWriter.mon) == 0);
+    res = esock_cancel_write_select(env, descP, descP->currentWriter.ref);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "essio_cancel_send_current(%T) {%d} -> cancel res: %T"
+            "\r\n", sockRef, descP->sock, res) );
+
+    if (!esock_activate_next_writer(env, descP, sockRef)) {
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "essio_cancel_send_current(%T) {%d} -> no more writers"
+                "\r\n", sockRef, descP->sock) );
+
+        descP->currentWriterP = NULL;
+    }
+
+    return res;
+}
+
+
+/* These processes have not performed a select, so we can simply
+ * remove them from the writer queue.
+ */
+
+static
+ERL_NIF_TERM essio_cancel_send_waiting(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     opRef,
+                                       const ErlNifPid* selfP)
+{
+    /* unqueue request from (writer) queue */
+
+    if (esock_writer_unqueue(env, descP, &opRef, selfP)) {
         return esock_atom_ok;
     } else {
         return esock_atom_not_found;
