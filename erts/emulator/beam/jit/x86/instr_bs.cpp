@@ -1137,8 +1137,10 @@ void BeamGlobalAssembler::emit_bs_get_utf8_short_shared() {
         a.pop(x86::rcx);
     }
 
-    a.test(RET, RET);
-    a.short_().jns(ascii);
+    /* `test rax, rax` is a shorter instruction but can cause a warning
+     * in valgrind if there are any uninitialized bits in rax. */
+    a.bt(RET, imm(63));
+    a.short_().jnc(ascii);
 
     /* The bs_get_utf8_shared fragment expects the contents in RETd. */
     a.shr(RET, imm(32));
