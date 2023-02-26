@@ -1438,11 +1438,29 @@ reorder_bin_ints([_]=Cs) ->
     Cs;
 reorder_bin_ints(Cs0) ->
     %% It is safe to reorder clauses that matches binaries if the
-    %% first segments for all of them match the same number of bits.
-    Cs = sort([{reorder_bin_int_sort_key(C),C} || C <- Cs0]),
-    [C || {_,C} <- Cs].
+    %% first segments for all of them match the same number of bits
+    %% and if the patterns that follow are also safe to re-order.
+    try
+        Cs = sort([{reorder_bin_int_sort_key(C),C} || C <- Cs0]),
+        [C || {_,C} <- Cs]
+    catch
+        throw:not_possible ->
+            Cs0
+    end.
 
-reorder_bin_int_sort_key(#iclause{pats=[Pats|_]}) ->
+reorder_bin_int_sort_key(#iclause{pats=[Pats|More],guard=#c_literal{val=true}}) ->
+    case all(fun(#k_var{}) -> true;
+                (_) -> false
+             end, More) of
+        true ->
+            %% Only variables. Safe to re-order.
+            ok;
+        false ->
+            %% Not safe to re-order. For example:
+            %%    f([<<"prefix">>, <<"action">>]) -> ...
+            %%    f([<<"prefix">>, Variable]) -> ...
+            throw(not_possible)
+    end,
     case Pats of
         #k_bin_int{val=Val,next=#k_bin_end{}} ->
             %% Sort before clauses with additional segments. This usually results in
@@ -1450,7 +1468,9 @@ reorder_bin_int_sort_key(#iclause{pats=[Pats|_]}) ->
             [Val];
         #k_bin_int{val=Val} ->
             [Val,more]
-    end.
+    end;
+reorder_bin_int_sort_key(#iclause{}) ->
+    throw(not_possible).
 
 %% match_value([Var], Con, [Clause], Default, State) -> {SelectExpr,State}.
 %%  At this point all the clauses have the same constructor, we must
