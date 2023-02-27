@@ -661,7 +661,7 @@ partition_on_load(Prep) ->
 	end,
     lists:partition(P, Prep).
 
-verify_prepared([{M,{Prep,Name,_Native}}|T])
+verify_prepared([{M,{Prep,Name}}|T])
   when is_atom(M), is_list(Name) ->
     try erlang:has_prepared_code_on_load(Prep) of
 	false ->
