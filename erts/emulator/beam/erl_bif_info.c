@@ -1954,8 +1954,8 @@ process_info_aux(Process *c_p,
 	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(rp->min_vheap_size)); hp += 3;
 	res = CONS(hp, t, res); hp += 2;
 
-	t = TUPLE2(hp, am_max_heap_size, t); hp += 3;
-	res = CONS(hp, mhs_map, res); hp += 2;
+	t = TUPLE2(hp, am_max_heap_size, mhs_map); hp += 3;
+	res = CONS(hp, t, res); hp += 2;
 	break;
     }
 
