@@ -57,7 +57,7 @@
 -include_lib("ssl/src/ssl_handshake.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 
 %%--------------------------------------------------------------------

@@ -23,6 +23,9 @@
 
 -behaviour(ct_suite).
 
+
+-compile({inline,[exclusive_default_up_to_version/2]}).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").

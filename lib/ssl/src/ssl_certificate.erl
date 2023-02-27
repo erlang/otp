@@ -609,7 +609,7 @@ verify_sign(Cert, #{version := ?'TLS-1.2',
 verify_sign(Cert, #{version := ?'TLS-1.2',
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := 'TLS-1.3',
+verify_sign(Cert, #{version := ?'TLS-1.3',
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs);
