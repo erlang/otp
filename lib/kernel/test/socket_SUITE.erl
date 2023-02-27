@@ -753,9 +753,6 @@
 -define(START_NODE(NamePre, Timeout),
         start_node(?CT_PEER_NAME(NamePre), Timeout)).
 
-%% -define(START_NODE(),  ?CT_PEER(#{wait_boot => 5000})).
-%% -define(START_NODE(O), ?CT_PEER(O#{wait_boot => 5000})).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -48837,8 +48834,8 @@ tc_which_name() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-start_node(Name) ->
-    start_node(Name, 5000).
+%% start_node(Name) ->
+%%     start_node(Name, 5000).
 
 start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
     try ?CT_PEER(#{name => Name, wait_boot => Timeout}) of
@@ -48848,7 +48845,7 @@ start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
         {error, Reason} ->
             ?SEV_EPRINT("failed starting node ~p (=> SKIP):"
                         "~n   ~p", [Name, Reason]),
-            throw({skip, Reason})
+            skip(Reason)
     catch
         Class:Reason:Stack ->
             ?SEV_EPRINT("Failed starting node: "
@@ -48856,7 +48853,7 @@ start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
                         "~n   Reason: ~p"
                         "~n   Stack:  ~p",
                         [Class, Reason, Stack]),
-            throw({skip, {node_start, Class, Reason}})
+            skip({node_start, Class, Reason})
     end.
 
             
