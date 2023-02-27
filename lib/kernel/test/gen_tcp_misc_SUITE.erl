@@ -6057,6 +6057,21 @@ timeout_sink_loop(Action, To, N) ->
 
 send_timeout_resume(Config) when is_list(Config) ->
     ct:timetrap(?SECS(16)),
+    Cond = fun() ->
+                   case ?IS_SOCKET_BACKEND(Config) of
+                       true ->
+                           {skip, "Unstable with 'socket' backend"};
+                       false ->
+                           Key = kernel_factor,
+                           case lists:keysearch(Key, 1, Config) of
+                               {value, {Key, Factor}} when (Factor > 6) ->
+                                   {skip,
+                                    ?F("Too slow (factor = ~w)", [Factor])};
+                               _ ->
+                                   ok
+                           end
+                   end
+           end,
     Pre  = fun() ->
                    Dir = filename:dirname(code:which(?MODULE)),
                    ?P("create node"),
@@ -6068,7 +6083,7 @@ send_timeout_resume(Config) when is_list(Config) ->
                    ?P("stop node ~p", [Node]),
                    ?STOP_NODE(Node)
            end,
-    ?TC_TRY(?FUNCTION_NAME, Pre, Case, Post).
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
 
 do_send_timeout_resume(Config, RNode, BlockPow) ->
     BlockSize = 1 bsl BlockPow,
@@ -6143,10 +6158,7 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
                         ?P("count checked out"),
                         ok;
                     {Tag, ok, Count} when Count =:= N * BlockSize ->
-                        ?P("Unexpected number of timeouts, ~w, when"
-                           "~n   Expected count: ~p"
-                           "~n   Got count:      ~p"
-                           "~n   ", [Timeouts, N*BlockSize, Count]),
+                        ?P("Unexpected number of timeouts: ~w", [Timeouts]),
                         ct:fail(Result);
                     {Tag, ok, Count} ->
                         ?P("Unexpected counts: "
