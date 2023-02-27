@@ -52,7 +52,8 @@
               func_db :: func_info_db(),
               kills :: kills_map(),
               st_map :: st_map(),
-              orig_st_map :: st_map()
+              orig_st_map :: st_map(),
+              repeats = sets:new([{version,2}]) :: sets:set(func_id())
              }).
 
 %% A code location refering to either the #b_set{} defining a variable
@@ -291,8 +292,8 @@ aa(Funs, KillsMap, StMap, FuncDb) ->
 %%%   to detect incomplete information in a hypothetical
 %%%   ssa_opt_alias_finish pass.
 %%%
-aa_fixpoint(Order, AAS) ->
-    ?DP("**** Starting fixpoint iteration ****~n"),
+aa_fixpoint(Funs, AAS=#aas{func_db=FuncDb}) ->
+    Order = aa_breadth_first(Funs, FuncDb),
     aa_fixpoint(Order, Order, AAS#aas.alias_map, AAS, ?MAX_REPETITIONS).
 
 aa_fixpoint([F|Fs], Order, OldAliasMap, AAS0=#aas{st_map=StMap}, Limit) ->
@@ -309,12 +310,16 @@ aa_fixpoint([], _Order, OldAliasMap,
 aa_fixpoint([], _, _, #aas{func_db=FuncDb,orig_st_map=StMap}, 0) ->
     ?DP("**** End of iteration, too many iterations ****~n"),
     {StMap, FuncDb};
-aa_fixpoint([], Order, _OldAliasMap, AAS=#aas{alias_map=AliasMap}, Limit) ->
+aa_fixpoint([], Order, _OldAliasMap,
+            AAS=#aas{alias_map=AliasMap,repeats=Repeats}, Limit) ->
     ?DP("**** Things have changed, starting next iteration ****~n"),
-    aa_fixpoint(Order, Order, AliasMap, AAS, Limit - 1).
+    %% Following the depth first order, select those in Repeats.
+    NewOrder = [Id || Id <- Order, sets:is_element(Id, Repeats)],
+    aa_fixpoint(NewOrder, Order, AliasMap,
+                AAS#aas{repeats=sets:new([{version,2}])}, Limit - 1).
 
-aa_fun(F, #opt_st{ssa=Linear0,anno=_Anno,args=Args}=St,
-       AAS0=#aas{alias_map=AliasMap0}) ->
+aa_fun(F, #opt_st{ssa=Linear0,args=Args}=St,
+       AAS0=#aas{alias_map=AliasMap0,func_db=FuncDb,repeats=Repeats0}) ->
     %% Initially assume all formal parameters are unique for a
     %% non-exported function, if we have call argument info in the
     %% AAS, we use it. For an exported function, all arguments are
@@ -325,11 +330,22 @@ aa_fun(F, #opt_st{ssa=Linear0,anno=_Anno,args=Args}=St,
                 end, #{}, ArgsStatus),
     ?DP("@@ Args: ~p~n", [ArgsStatus]),
     {Linear1,SS,AAS1} = aa_blocks(Linear0, SS0, AAS0),
-    ?DP("SS:~n~s~n~n", [aa_format(SS)]),
+    ?DP("SS:~n~s~n~n", [SS]),
     AAS = aa_merge_call_args_status(SS, AAS1),
 
     AliasMap = AliasMap0#{ F => SS },
-    {St#opt_st{ssa=Linear1}, AAS#aas{alias_map=AliasMap}}.
+    PrevSS = maps:get(F, AliasMap0, #{}),
+    Repeats = case PrevSS =/= SS of
+                  true ->
+                      %% Alias status has changed, so schedule both
+                      %% our callers and callees for renewed analysis.
+                      #{ F := #func_info{in=In,out=Out} } = FuncDb,
+                      foldl(fun sets:add_element/2,
+                            foldl(fun sets:add_element/2, Repeats0, Out), In);
+                  false ->
+                      Repeats0
+              end,
+    {St#opt_st{ssa=Linear1}, AAS#aas{alias_map=AliasMap,repeats=Repeats}}.
 
 %% Main entry point for the alias analysis
 aa_blocks([{L,#b_blk{is=Is0,last=T0}=Blk}|Bs0], SS0, AAS0) ->
@@ -820,9 +836,9 @@ aa_tuple_extraction(Dst, Tuple, #b_literal{val=I}, SS1) ->
             aa_join(Dst, Tuple, SS1#{{tuple_element,Tuple}=>[I]})
     end.
 
-aa_make_fun(Dst, #b_local{name=#b_literal{}} = Callee,
+aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
             Env0, SS0,
-            AAS0=#aas{alias_map=_AliasMap,call_args=Info0,st_map=_StMap}) ->
+            AAS0=#aas{call_args=Info0,repeats=Repeats0}) ->
     %% When a value is copied into the environment of a fun we assume
     %% that it has been aliased as there is no obvious way to track
     %% and ensure that the value is only used once, even if the
@@ -834,8 +850,17 @@ aa_make_fun(Dst, #b_local{name=#b_literal{}} = Callee,
     SS = aa_set_aliased([Dst|Env0], SS0),
     #{ Callee := Status0 } = Info0,
     Status = aa_merge_env(reverse(Status0), [aliased || _ <- Env0], []),
+    #{ Callee := PrevStatus } = Info0,
     Info = Info0#{ Callee := Status },
-    AAS = AAS0#aas{call_args=Info},
+    Repeats = case PrevStatus =/= Status of
+                  true ->
+                      %% We have new information for the callee, we
+                      %% have to revisit it.
+                      sets:add_element(Callee, Repeats0);
+                  false ->
+                      Repeats0
+              end,
+    AAS = AAS0#aas{call_args=Info,repeats=Repeats},
     {SS, AAS}.
 
 aa_merge_env([_|Args], [E|Env], Acc) ->
@@ -844,4 +869,35 @@ aa_merge_env([Arg|Args], [], Acc) ->
     aa_merge_env(Args, [], [Arg|Acc]);
 aa_merge_env([], [], Acc) ->
     Acc.
+
+aa_breadth_first(Funs, FuncDb) ->
+    IsExported = fun (F) ->
+                         #{ F := #func_info{exported=E} } = FuncDb,
+                         E
+                 end,
+    Exported = [ F || F <- Funs, IsExported(F)],
+    aa_breadth_first(Exported, [], sets:new([{version,2}]), FuncDb).
+
+aa_breadth_first([F|Work], Next, Seen, FuncDb) ->
+    case sets:is_element(F, Seen) of
+        true ->
+            aa_breadth_first(Work, Next, Seen, FuncDb);
+        false ->
+            case FuncDb of
+                #{ F := #func_info{out=Children} } ->
+                    [F|aa_breadth_first(Work, Children ++ Next,
+                                        sets:add_element(F, Seen), FuncDb)];
+                #{} ->
+                    %% Other optimization steps can have determined
+                    %% that the function is not called and removed it
+                    %% from the funcdb, but it still remains in the
+                    %% #func_info{} of the (at the syntax-level)
+                    %% caller.
+                    aa_breadth_first(Work, Next, Seen, FuncDb)
+            end
+    end;
+aa_breadth_first([], [], _Seen, _FuncDb) ->
+    [];
+aa_breadth_first([], Next, Seen, FuncDb) ->
+    aa_breadth_first(Next, [], Seen, FuncDb).
 
