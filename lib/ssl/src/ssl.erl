@@ -138,7 +138,9 @@
               srp_param_type/0,
               named_curve/0,
               sign_scheme/0,
-              group/0]).
+              group/0,
+              connection_info/0,
+              connection_info_items/0]).
 
 %% -------------------------------------------------------------------------------------------------------
 
