@@ -550,20 +550,20 @@ Control2 = eldap:paged_result_control(PageSize, Cookie1),
     </func>
     <func>
       <name since="@OTP-XXXX@">conn_info(Handle) -> {ok, Data} | {error, Reason}</name>
-      <fsummary>Returns all the connection information.
+      <fsummary>When LDAP is run over TLS, returns information about the TLS connection.
       </fsummary>
       <type>
 	<v>Handle = handle()</v>
 	<v>Data = ssl:connection_info()</v>
       </type>
-      <desc><p>Returns the most relevant information for SSL connection to an LDAP server, ssl options 
-      that are undefined will be filtered out. Note that values that affect the security of the
-      connection will only be returned if explicitly requested by conn_info/2.</p>
+      <desc><p>Returns the most relevant information for SSL connection to an LDAP server.
+      See also ssl:connection_information/1.</p>
       </desc>
     </func>
     <func>
       <name since="@OTP-XXXX@">conn_info(Handle, Items) -> {ok, Data} | {error, Reason}</name>
-      <fsummary>Returns the requested connection information.
+      <fsummary>When LDAP is run over TLS, returns requested information items about the TLS
+      connection.
       </fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -571,7 +571,7 @@ Control2 = eldap:paged_result_control(PageSize, Cookie1),
 	<v>Data = ssl:connection_info()</v>
       </type>
       <desc><p>Returns the requested information items about the SSL connection to LDAP server,
-      if they are defined.</p>
+      if they are defined. See also ssl:connection_information/2.</p>
       </desc>
     </func>
 
