@@ -34,6 +34,7 @@
 -define(C_GET_SO_REUSEADDR,14).
 -define(C_GET_SO_KEEPALIVE,15).
 -define(C_GET_SO_LINGER,16).
+-define(C_GET_SO_DONTROUTE,17).
 
 -define(C_GET_LINGER_SIZE,21).
 -define(C_GET_TCP_INFO_SIZE,22).
@@ -206,56 +207,56 @@ do_multiple_raw(Config, Binary) ->
     SoKeepalive = ask_helper(Port, ?C_GET_SO_KEEPALIVE),
     SoKeepaliveTrue = {raw,SolSocket,SoKeepalive,<<1:32/native>>},
     SoKeepaliveFalse = {raw,SolSocket,SoKeepalive,<<0:32/native>>},
-    SoReuseaddr = ask_helper(Port, ?C_GET_SO_REUSEADDR),
-    SoReuseaddrTrue = {raw,SolSocket,SoReuseaddr,<<1:32/native>>},
-    SoReuseaddrFalse = {raw,SolSocket,SoReuseaddr,<<0:32/native>>},
+    SoDontroute = ask_helper(Port, ?C_GET_SO_DONTROUTE),
+    SoDontrouteTrue = {raw,SolSocket,SoDontroute,<<1:32/native>>},
+    SoDontrouteFalse = {raw,SolSocket,SoDontroute,<<0:32/native>>},
     {S1,S2} =
 	create_socketpair(
-	  [SoReuseaddrFalse,SoKeepaliveTrue],
-	  [SoKeepaliveFalse,SoReuseaddrTrue]),
-    {ok,[{reuseaddr,false},{keepalive,true}]} =
-	inet:getopts(S1, [reuseaddr,keepalive]),
+	  [SoDontrouteFalse,SoKeepaliveTrue],
+	  [SoKeepaliveFalse,SoDontrouteTrue]),
+    {ok,[{dontroute,false},{keepalive,true}]} =
+	inet:getopts(S1, [dontroute,keepalive]),
     {ok,
-     [{raw,SolSocket,SoReuseaddr,S1R1},
+     [{raw,SolSocket,SoDontroute,S1R1},
       {raw,SolSocket,SoKeepalive,S1K1}]} =
 	inet:getopts(
 	  S1,
-	  [{raw,SolSocket,SoReuseaddr,binarify(4, Binary)},
+	  [{raw,SolSocket,SoDontroute,binarify(4, Binary)},
 	   {raw,SolSocket,SoKeepalive,binarify(4, Binary)}]),
     true = nintbin2int(S1R1) =:= 0,
     true = nintbin2int(S1K1) =/= 0,
-    {ok,[{keepalive,false},{reuseaddr,true}]} =
-	inet:getopts(S2, [keepalive,reuseaddr]),
+    {ok,[{keepalive,false},{dontroute,true}]} =
+	inet:getopts(S2, [keepalive,dontroute]),
     {ok,
      [{raw,SolSocket,SoKeepalive,S2K1},
-      {raw,SolSocket,SoReuseaddr,S2R1}]} =
+      {raw,SolSocket,SoDontroute,S2R1}]} =
 	inet:getopts(
 	  S2,
 	  [{raw,SolSocket,SoKeepalive,binarify(4, Binary)},
-	   {raw,SolSocket,SoReuseaddr,binarify(4, Binary)}]),
+	   {raw,SolSocket,SoDontroute,binarify(4, Binary)}]),
     true = nintbin2int(S2K1) =:= 0,
     true = nintbin2int(S2R1) =/= 0,
     %%
     ok = inet:setopts(
-	   S1, [SoReuseaddrTrue,SoKeepaliveFalse]),
+	   S1, [SoDontrouteTrue,SoKeepaliveFalse]),
     ok = inet:setopts(
-	   S2, [SoKeepaliveTrue,SoReuseaddrFalse]),
+	   S2, [SoKeepaliveTrue,SoDontrouteFalse]),
     {ok,
-     [{raw,SolSocket,SoReuseaddr,S1R2},
+     [{raw,SolSocket,SoDontroute,S1R2},
       {raw,SolSocket,SoKeepalive,S1K2}]} =
 	inet:getopts(
 	  S1,
-	  [{raw,SolSocket,SoReuseaddr,binarify(4, Binary)},
+	  [{raw,SolSocket,SoDontroute,binarify(4, Binary)},
 	   {raw,SolSocket,SoKeepalive,binarify(4, Binary)}]),
     true = nintbin2int(S1R2) =/= 0,
     true = nintbin2int(S1K2) =:= 0,
     {ok,
      [{raw,SolSocket,SoKeepalive,S2K2},
-      {raw,SolSocket,SoReuseaddr,S2R2}]} =
+      {raw,SolSocket,SoDontroute,S2R2}]} =
 	inet:getopts(
 	  S2,
 	  [{raw,SolSocket,SoKeepalive,binarify(4, Binary)},
-	   {raw,SolSocket,SoReuseaddr,binarify(4, Binary)}]),
+	   {raw,SolSocket,SoDontroute,binarify(4, Binary)}]),
     true = nintbin2int(S2K2) =/= 0,
     true = nintbin2int(S2R2) =:= 0,
     %%
@@ -870,7 +871,7 @@ all_listen_options() ->
      {reuseaddr,false,true,mandatory_reuseaddr(OsType,OsVersion),true},
      {reuseport,false,true,mandatory_reuseport(OsType,OsVersion),true},
      {reuseport_lb,false,true,mandatory_reuseport_lb(OsType,OsVersion),true},
-     {exclusiveaddruse,false,true,mandatory_exclusiveaddruse(OsType,OsVersion),true},
+     {exclusiveaddruse,false,true,mandatory_exclusiveaddruse(OsType,OsVersion),false},
      {keepalive,false,true,true,true}, 
      {linger, {false,10}, {true,10},true,true},
      {sndbuf,2048,4096,false,true}, 
