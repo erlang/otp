@@ -3877,6 +3877,7 @@ Ldone:
     handle->flags = flags;
     handle->new_size = b->dbterm.size;
     handle->u.hash.lck_ctr = lck_ctr;
+    handle->old_tpl = NULL;
     return 1;
 }
 

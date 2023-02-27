@@ -1147,10 +1147,10 @@ Uint size_shared(Eterm);
 
 #ifdef ERTS_COPY_REGISTER_LOCATION
 
-#define copy_shared_perform(U, V, X, Y, Z) \
-    copy_shared_perform_x((U), (V), (X), (Y), (Z), __FILE__, __LINE__)
 Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*,
                             char *file, int line);
+#define copy_shared_perform(U, V, X, Y, Z) \
+    copy_shared_perform_x((U), (V), (X), (Y), (Z), __FILE__, __LINE__)
 
 Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*,
                     char *file, int line);
@@ -1159,16 +1159,21 @@ Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_
 #define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
     copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea,__FILE__,__LINE__)
 
+Eterm* copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*,
+                     char *file, int line);
 #define copy_shallow(R, SZ, HPP, OH) \
     copy_shallow_x((R), (SZ), (HPP), (OH), __FILE__, __LINE__)
-Eterm copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*,
+
+Eterm copy_shallow_obj_x(Eterm, Uint, Eterm**, ErlOffHeap*,
                      char *file, int line);
+#define copy_shallow_obj(R, SZ, HPP, OH) \
+    copy_shallow_obj_x((R), (SZ), (HPP), (OH), __FILE__, __LINE__)
 
 #else
 
+Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 #define copy_shared_perform(U, V, X, Y, Z) \
     copy_shared_perform_x((U), (V), (X), (Y), (Z))
-Eterm copy_shared_perform_x(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 
 Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*);
 #define copy_struct(Obj,Sz,HPP,OH) \
@@ -1176,9 +1181,13 @@ Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_
 #define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
     copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea)
 
+Eterm* copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*);
 #define copy_shallow(R, SZ, HPP, OH) \
     copy_shallow_x((R), (SZ), (HPP), (OH))
-Eterm copy_shallow_x(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*);
+
+Eterm copy_shallow_obj_x(Eterm, Uint, Eterm**, ErlOffHeap*);
+#define copy_shallow_obj(R, SZ, HPP, OH) \
+    copy_shallow_obj_x((R), (SZ), (HPP), (OH))
 
 #endif
 
