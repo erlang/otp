@@ -128,10 +128,12 @@ simple(Config) when is_list(Config) ->
 %% Loop through all socket options and check that they work.
 loop_all(Config) when is_list(Config) ->
     ListenFailures =
-	lists:foldr(make_check_fun(listen,1),[],all_listen_options()),
+	lists:foldr(make_check_fun(listen),[],all_listen_options()),
+    AcceptFailures =
+	lists:foldr(make_check_fun(accept),[],all_accept_options()),
     ConnectFailures =
-	lists:foldr(make_check_fun(connect,2),[],all_connect_options()),
-    case ListenFailures++ConnectFailures of
+	lists:foldr(make_check_fun(connect),[],all_connect_options()),
+    case ListenFailures++AcceptFailures++ConnectFailures of
 	[] ->
 	    ok;
 	Failed ->
@@ -811,14 +813,23 @@ all_ok(_) ->
     false.
 
 
-make_check_fun(Type,Element) ->
+make_check_fun(Type) ->
     fun({Name,V1,V2,Mand,Chang},Acc) ->
-	    {LO1,CO1} = setelement(Element,{[],[]}, [{Name,V1}]),
-	    {LO2,CO2} = setelement(Element,{[],[]}, [{Name,V2}]),
-	    {X1,Y1} = create_socketpair(LO1,CO1),
-	    {X2,Y2} = create_socketpair(LO2,CO2),
-	    S1 = element(Element,{X1,Y1}),
-	    S2 = element(Element,{X2,Y2}),
+            {LO1,CO1} = case Type of
+                            connect -> {[],[{Name,V1}]};
+                            _ -> {[{Name,V1}],[]}
+                        end,
+            {LO2,CO2} = case Type of
+                            connect -> {[],[{Name,V2}]};
+                            _ -> {[{Name,V2}],[]}
+                        end,
+	    {X1,Y1,Z1} = create_socketpair_init(LO1,CO1),
+	    {X2,Y2,Z2} = create_socketpair_init(LO2,CO2),
+            {S1,S2} = case Type of
+                          listen -> {X1,X2};
+                          accept -> {Y1,Y2};
+                          connect -> {Z1,Z2}
+                      end,
 	    {ok,[{Name,R1}]} = inet:getopts(S1,[Name]),
 	    {ok,[{Name,R2}]} = inet:getopts(S2,[Name]),
 	    NewAcc =
@@ -857,8 +868,10 @@ make_check_fun(Type,Element) ->
 		end,
 	    gen_tcp:close(X1),
 	    gen_tcp:close(Y1),
+	    gen_tcp:close(Z1),
 	    gen_tcp:close(X2),
 	    gen_tcp:close(Y2),
+	    gen_tcp:close(Z2),
 	    NewAcc
     end.
 
@@ -868,9 +881,9 @@ all_listen_options() ->
     OsVersion = os:version(),
     [{tos,0,1,false,true}, 
      {priority,0,1,false,true}, 
-     {reuseaddr,false,true,mandatory_reuseaddr(OsType,OsVersion),true},
-     {reuseport,false,true,mandatory_reuseport(OsType,OsVersion),true},
-     {reuseport_lb,false,true,mandatory_reuseport_lb(OsType,OsVersion),true},
+     {reuseaddr,false,true,mandatory_reuseaddr(OsType,OsVersion),false},
+     {reuseport,false,true,mandatory_reuseport(OsType,OsVersion),false},
+     {reuseport_lb,false,true,mandatory_reuseport_lb(OsType,OsVersion),false},
      {exclusiveaddruse,false,true,mandatory_exclusiveaddruse(OsType,OsVersion),false},
      {keepalive,false,true,true,true}, 
      {linger, {false,10}, {true,10},true,true},
@@ -893,15 +906,22 @@ all_listen_options() ->
      {delay_send,false,true,true,true}, 
      {packet_size,0,4,true,true}
     ].
+
+all_accept_options() ->
+    A0 = lists:keydelete(exclusiveaddruse, 1, all_listen_options()),
+    A1 = lists:keydelete(reuseaddr, 1, A0),
+    A2 = lists:keydelete(reuseport, 1, A1),
+    lists:keydelete(reuseport_lb, 1, A2).
+
 all_connect_options() ->
     OsType = os:type(),
     OsVersion = os:version(),
     [{tos,0,1,false,true}, 
      {priority,0,1,false,true}, 
-     {reuseaddr,false,true,mandatory_reuseaddr(OsType,OsVersion),true},
-     {reuseport,false,true,mandatory_reuseport(OsType,OsVersion),true},
-     {reuseport_lb,false,true,mandatory_reuseport_lb(OsType,OsVersion),true},
-     {exclusiveaddruse,false,true,mandatory_exclusiveaddruse(OsType,OsVersion),true},
+     {reuseaddr,false,true,mandatory_reuseaddr(OsType,OsVersion),false},
+     {reuseport,false,true,mandatory_reuseport(OsType,OsVersion),false},
+     {reuseport_lb,false,true,mandatory_reuseport_lb(OsType,OsVersion),false},
+     {exclusiveaddruse,false,true,mandatory_exclusiveaddruse(OsType,OsVersion),false},
      {keepalive,false,true,true,true}, 
      {linger, {false,10}, {true,10},true,true},
      {sndbuf,2048,4096,false,true}, 
@@ -965,11 +985,15 @@ mandatory_exclusiveaddruse({win32, _}, {X,Y,_Z}) when X > 5 orelse X == 5 andals
 mandatory_exclusiveaddruse(_OsType, _OsVersion) ->
     false.
 
-create_socketpair(ListenOptions,ConnectOptions) ->
+create_socketpair_init(ListenOptions,ConnectOptions) ->
     {ok,LS}=gen_tcp:listen(0,ListenOptions),
     {ok,Port}=inet:port(LS),
     {ok,CS}=gen_tcp:connect(localhost,Port,ConnectOptions),
     {ok,AS}=gen_tcp:accept(LS),
+    {LS,AS,CS}.
+
+create_socketpair(ListenOptions,ConnectOptions) ->
+    {LS,AS,CS} = create_socketpair_init(ListenOptions,ConnectOptions),
     gen_tcp:close(LS),
     {AS,CS}.
 
