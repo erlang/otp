@@ -1163,6 +1163,8 @@ struct ESockOptLevel
     size_t num; // Number of options
 
     struct ESockOpt *opts; // Options table
+
+    ERL_NIF_TERM *nameP; // Pointer to level name atom
 };
 
 
@@ -2240,6 +2242,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(fragment_interleave);             \
     GLOBAL_ATOM_DECL(freebind);                        \
     GLOBAL_ATOM_DECL(frelay);                          \
+    GLOBAL_ATOM_DECL(get_overlapped_result);           \
     GLOBAL_ATOM_DECL(get_peer_addr_info);              \
     GLOBAL_ATOM_DECL(hatype);                          \
     GLOBAL_ATOM_DECL(hdrincl);                         \
@@ -2322,9 +2325,12 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(notrailers);                      \
     GLOBAL_ATOM_DECL(not_bound);                       \
     GLOBAL_ATOM_DECL(not_found);                       \
+    GLOBAL_ATOM_DECL(num_general_errors);              \
     GLOBAL_ATOM_DECL(not_owner);                       \
     GLOBAL_ATOM_DECL(num_threads);                     \
     GLOBAL_ATOM_DECL(num_unexpected_accepts);          \
+    GLOBAL_ATOM_DECL(num_unexpected_reads);            \
+    GLOBAL_ATOM_DECL(num_unexpected_writes);           \
     GLOBAL_ATOM_DECL(num_unknown_cmds);                \
     GLOBAL_ATOM_DECL(oactive);			       \
     GLOBAL_ATOM_DECL(ok);                              \
@@ -2368,6 +2374,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(read_fails);                      \
     GLOBAL_ATOM_DECL(read_pkg);                        \
     GLOBAL_ATOM_DECL(read_tries);                      \
+    GLOBAL_ATOM_DECL(read_waits);                      \
     GLOBAL_ATOM_DECL(recv);                            \
     GLOBAL_ATOM_DECL(recvdstaddr);                     \
     GLOBAL_ATOM_DECL(recverr);                         \
@@ -3804,35 +3811,35 @@ static struct ESockOpt optLevelUDP[] =
 
 /* Option levels utility macro */
 
-#define OPT_LEVEL(Level, Opts) {(Level), NUM(Opts), (Opts)}
+#define OPT_LEVEL(Level, Opts, Name) {(Level), NUM(Opts), (Opts), (Name)}
 
 
 /* Table --------------------------------------------------------------- */
 
 static struct ESockOptLevel optLevels[] =
     {
-        OPT_LEVEL(SOL_SOCKET, optLevelSocket),
+        OPT_LEVEL(SOL_SOCKET, optLevelSocket, &esock_atom_socket),
 
 #ifdef SOL_IP
-        OPT_LEVEL(SOL_IP, optLevelIP),
+        OPT_LEVEL(SOL_IP, optLevelIP, &esock_atom_ip),
 #else
-        OPT_LEVEL(IPPROTO_IP, optLevelIP),
+        OPT_LEVEL(IPPROTO_IP, optLevelIP, &esock_atom_ip),
 #endif
 
 #ifdef HAVE_IPV6
 #ifdef SOL_IPV6
-        OPT_LEVEL(SOL_IPV6, optLevelIPV6),
+        OPT_LEVEL(SOL_IPV6, optLevelIPV6, &esock_atom_ipv6),
 #else
-        OPT_LEVEL(IPPROTO_IPV6, optLevelIPV6),
+        OPT_LEVEL(IPPROTO_IPV6, optLevelIPV6, &esock_atom_ipv6),
 #endif
 #endif // #ifdef HAVE_IPV6
 
 #ifdef HAVE_SCTP
-        OPT_LEVEL(IPPROTO_SCTP, optLevelSCTP),
+        OPT_LEVEL(IPPROTO_SCTP, optLevelSCTP, &esock_atom_sctp),
 #endif // #ifdef HAVE_SCTP
 
-        OPT_LEVEL(IPPROTO_UDP, optLevelUDP),
-        OPT_LEVEL(IPPROTO_TCP, optLevelTCP)
+        OPT_LEVEL(IPPROTO_UDP, optLevelUDP, &esock_atom_udp),
+        OPT_LEVEL(IPPROTO_TCP, optLevelTCP, &esock_atom_tcp)
     };
 
 #undef OPT_LEVEL
@@ -6022,9 +6029,6 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
-#ifdef __WIN32__
-    return enif_raise_exception(env, MKA(env, "notsup"));
-#else
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef, recvRef;
     ErlNifUInt64     elen;
@@ -6089,7 +6093,6 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
 
     return res;
 
-#endif // #ifdef __WIN32__  #else
 }
 
 
@@ -8940,20 +8943,20 @@ ERL_NIF_TERM esock_getopt(ErlNifEnv*       env,
                           int              level,
                           int              opt)
 {
-    ERL_NIF_TERM result;
+    ERL_NIF_TERM          result;
     const struct ESockOpt *optP;
 
     MLOCK(descP->readMtx);
 
     SSDBG( descP,
            ("SOCKET", "esock_getopt {%d} -> entry with"
-            "\r\n   level:       %d"
-            "\r\n   opt:        %d"
+            "\r\n   level: %d"
+            "\r\n   opt:   %d"
             "\r\n", descP->sock, level, opt) );
 
     if (! IS_OPEN(descP->readState)) {
         SSDBG( descP,
-               ("SOCKET", "esock_getopt {%d} -> done closed\r\n",
+               ("SOCKET", "esock_getopt {%d} -> done when closed\r\n",
                 descP->sock) );
         MUNLOCK(descP->readMtx);
         return esock_make_error_closed(env);
@@ -11348,7 +11351,7 @@ ERL_NIF_TERM esock_cancel(ErlNifEnv*       env,
             }
             if (COMPARE(op, esock_atom_sendfile) == 0) {
                 MLOCK(descP->writeMtx);
-                result = ESOCK_IO_CANCEL_SEND (env, descP, sockRef, opRef);
+                result = ESOCK_IO_CANCEL_SEND(env, descP, sockRef, opRef);
                 MUNLOCK(descP->writeMtx);
                 return result;
             }
@@ -12291,9 +12294,9 @@ static ESockCmsgSpec cmsgLevelIPv6[] =
 
 static void initCmsgTables(void) {
     ESOCK_SORT_TABLE(cmsgLevelSocket, cmpESockCmsgSpec);
-    ESOCK_SORT_TABLE(cmsgLevelIP, cmpESockCmsgSpec);
+    ESOCK_SORT_TABLE(cmsgLevelIP,     cmpESockCmsgSpec);
 #ifdef HAVE_IPV6
-    ESOCK_SORT_TABLE(cmsgLevelIPv6, cmpESockCmsgSpec);
+    ESOCK_SORT_TABLE(cmsgLevelIPv6,   cmpESockCmsgSpec);
 #endif
 }
 
@@ -14583,9 +14586,10 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data.numProtoUDP    = 0;
     data.numProtoSCTP   = 0;
 
-#ifndef __WIN32__
     initOpts();
+#ifndef __WIN32__
     initCmsgTables();
+#endif
 
     data.iov_max =
 #if defined(NO_SYSCONF) || (! defined(_SC_IOV_MAX))
@@ -14599,7 +14603,6 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 #endif
         ;
     ESOCK_ASSERT( data.iov_max > 0 );
-#endif
 
 
     /* This is (currently) intended for Windows use */
@@ -14618,6 +14621,34 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                            atom_io_num_threads,
                                            ioNumThreadsDef);
 
+    // #define ESOCK_DISPLAY_OPTION_TABLES 1
+#if defined(ESOCK_DISPLAY_OPTION_TABLES)
+    {
+        /* Display option table(s) */
+        enif_fprintf(stderr, "\r\n[ESOCK] Option tables:\r\n");
+
+        for (int levelIdx = 0; levelIdx < NUM(optLevels); levelIdx++) {
+            int              numOpts = optLevels[levelIdx].num;
+            struct ESockOpt* opts    = optLevels[levelIdx].opts;
+
+            enif_fprintf(stderr,
+                         "[ESOCK] Option table for level %T (%d options):\r\n",
+                         *optLevels[levelIdx].nameP, numOpts);
+
+            for (int optIdx = 0; optIdx < numOpts; optIdx++) {
+                enif_fprintf(stderr,
+                             "[ESOCK] %T[%d]: %T -> %d\r\n",
+                             *optLevels[levelIdx].nameP,
+                             optIdx,
+                             *opts[optIdx].nameP,
+                             opts[optIdx].opt);
+                
+            }
+            enif_fprintf(stderr, "\r\n");
+        }
+    }
+#endif
+    
 #ifdef __WIN32__
 
     io_backend.init           = esaio_init;
@@ -14640,7 +14671,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     io_backend.sendfile_start = NULL;
     io_backend.sendfile_cont  = NULL;
     io_backend.sendfile_dc    = NULL;
-    io_backend.recv           = NULL;
+    io_backend.recv           = esaio_recv;
     io_backend.recvfrom       = NULL;
     io_backend.recvmsg        = NULL;
     io_backend.close          = esaio_close;

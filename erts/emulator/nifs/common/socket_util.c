@@ -2286,15 +2286,15 @@ ERL_NIF_TERM esock_encode_bool(BOOLEAN_T val)
 
 /* *** esock_decode_level ***
  *
- * Decode option or cmsg level - 'socket' or protocol number.
+ * Decode option or cmsg level - 'socket' or level number.
  *
  */
 extern
-BOOLEAN_T esock_decode_level(ErlNifEnv* env, ERL_NIF_TERM eVal, int *val)
+BOOLEAN_T esock_decode_level(ErlNifEnv* env, ERL_NIF_TERM elevel, int *level)
 {
-    if (COMPARE(esock_atom_socket, eVal) == 0)
-        *val = SOL_SOCKET;
-    else if (! GET_INT(env, eVal, val))
+    if (COMPARE(esock_atom_socket, elevel) == 0)
+        *level = SOL_SOCKET;
+    else if (! GET_INT(env, elevel, level))
         return FALSE;
 
     return TRUE;

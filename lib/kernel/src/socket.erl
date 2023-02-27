@@ -3163,52 +3163,55 @@ recv(Socket) ->
 
 recv(Socket, Flags) when is_list(Flags) ->
     recv(Socket, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
-recv(Socket, Length) ->
-    recv(
-      Socket, Length,
-      ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
+recv(Socket, Length) when is_integer(Length) andalso (Length >= 0) ->
+    recv(Socket, Length,
+         ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
 
--spec recv(Socket, Flags, SelectHandle :: 'nowait') ->
+-spec recv(Socket, Flags, Handle :: 'nowait') ->
                   {'ok', Data} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, Data}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket     :: socket(),
-      Flags  :: [msg_flag() | integer()],
-      Data       :: binary(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Flags          :: [msg_flag() | integer()],
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-          (Socket, Flags, SelectHandle :: select_handle()) ->
+          (Socket, Flags, Handle :: select_handle() | completion_handle()) ->
                   {'ok', Data} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, Data}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket       :: socket(),
-      Flags  :: [msg_flag() | integer()],
-      Data         :: binary(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Flags          :: [msg_flag() | integer()],
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
           (Socket, Flags, Timeout :: 'infinity') ->
                   {'ok', Data} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket  :: socket(),
+      Socket :: socket(),
       Flags  :: [msg_flag() | integer()],
-      Data    :: binary(),
-      Reason  :: posix() | 'closed' | invalid();
+      Data   :: binary(),
+      Reason :: posix() | 'closed' | invalid();
 
           (Socket, Flags, Timeout :: non_neg_integer()) ->
                   {'ok', Data} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket  :: socket(),
+      Socket :: socket(),
       Flags  :: [msg_flag() | integer()],
-      Data    :: binary(),
-      Reason  :: posix() | 'closed' | invalid() | 'timeout';
+      Data   :: binary(),
+      Reason :: posix() | 'closed' | invalid() | 'timeout';
 
           (Socket, Length, Flags) ->
                   {'ok', Data} |
@@ -3220,47 +3223,51 @@ recv(Socket, Length) ->
       Data   :: binary(),
       Reason :: posix() | 'closed' | invalid();
 
-          (Socket, Length, SelectHandle :: 'nowait') ->
+          (Socket, Length, Handle :: 'nowait') ->
                   {'ok', Data} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, Data}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket     :: socket(),
-      Length     :: non_neg_integer(),
-      Data       :: binary(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Length         :: non_neg_integer(),
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-          (Socket, Length, SelectHandle :: select_handle()) ->
+          (Socket, Length, Handle :: select_handle() | completion_handle()) ->
                   {'ok', Data} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, Data}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket       :: socket(),
-      Length       :: non_neg_integer(),
-      Data         :: binary(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Length         :: non_neg_integer(),
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
           (Socket, Length, Timeout :: 'infinity') ->
                   {'ok', Data} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket  :: socket(),
-      Length  :: non_neg_integer(),
-      Data    :: binary(),
-      Reason  :: posix() | 'closed' | invalid();
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Data   :: binary(),
+      Reason :: posix() | 'closed' | invalid();
 
           (Socket, Length, Timeout :: non_neg_integer()) ->
                   {'ok', Data} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket  :: socket(),
-      Length  :: non_neg_integer(),
-      Data    :: binary(),
-      Reason  :: posix() | 'closed' | invalid() | 'timeout'.
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Data   :: binary(),
+      Reason :: posix() | 'closed' | invalid() | 'timeout'.
 
 recv(Socket, Flags, Timeout) when is_list(Flags) ->
     recv(Socket, 0, Flags, Timeout);
@@ -3269,31 +3276,35 @@ recv(Socket, Length, Flags) when is_list(Flags) ->
 recv(Socket, Length, Timeout) ->
     recv(Socket, Length, ?ESOCK_RECV_FLAGS_DEFAULT, Timeout).
 
--spec recv(Socket, Length, Flags, SelectHandle :: 'nowait') ->
+-spec recv(Socket, Length, Flags, Handle :: 'nowait') ->
                   {'ok', Data} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, Data}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket     :: socket(),
-      Length     :: non_neg_integer(),
-      Flags      :: [msg_flag() | integer()],
-      Data       :: binary(),
-      SelectInfo :: select_info(),
-      Reason     :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Length         :: non_neg_integer(),
+      Flags          :: [msg_flag() | integer()],
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
-          (Socket, Length, Flags, SelectHandle :: select_handle()) ->
+          (Socket, Length, Flags, Handle :: select_handle() | completion_handle()) ->
                   {'ok', Data} |
                   {'select', SelectInfo} |
                   {'select', {SelectInfo, Data}} |
+                  {'completion', CompletionInfo} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket       :: socket(),
-      Length       :: non_neg_integer(),
-      Flags        :: [msg_flag() | integer()],
-      Data         :: binary(),
-      SelectInfo   :: select_info(),
-      Reason       :: posix() | 'closed' | invalid();
+      Socket         :: socket(),
+      Length         :: non_neg_integer(),
+      Flags          :: [msg_flag() | integer()],
+      Data           :: binary(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
 
           (Socket, Length, Flags, Timeout :: 'infinity') ->
                   {'ok', Data} |
@@ -3309,11 +3320,11 @@ recv(Socket, Length, Timeout) ->
                   {'ok', Data} |
                   {'error', Reason} |
                   {'error', {Reason, Data}} when
-      Socket  :: socket(),
-      Length  :: non_neg_integer(),
-      Flags   :: [msg_flag() | integer()],
-      Data    :: binary(),
-      Reason  :: posix() | 'closed' | invalid() | 'timeout'.
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Flags  :: [msg_flag() | integer()],
+      Data   :: binary(),
+      Reason :: posix() | 'closed' | invalid() | 'timeout'.
 
 recv(?socket(SockRef), Length, Flags, Timeout)
   when is_reference(SockRef),
@@ -3323,11 +3334,11 @@ recv(?socket(SockRef), Length, Flags, Timeout)
         invalid ->
             erlang:error({invalid, {timeout, Timeout}});
         nowait ->
-            SelectHandle = make_ref(),
-            recv_nowait(SockRef, Length, Flags, SelectHandle, <<>>);
+            Handle = make_ref(),
+            recv_nowait(SockRef, Length, Flags, Handle, <<>>);
         handle ->
-            SelectHandle = Timeout,
-            recv_nowait(SockRef, Length, Flags, SelectHandle, <<>>);
+            Handle = Timeout,
+            recv_nowait(SockRef, Length, Flags, Handle, <<>>);
         zero ->
             case prim_socket:recv(SockRef, Length, Flags, zero) of
                 ok ->
@@ -3344,8 +3355,8 @@ recv(Socket, Length, Flags, Timeout) ->
 %% We will only recurse with Length == 0 if Length is 0,
 %% so Length == 0 means to return all available data also when recursing
 
-recv_nowait(SockRef, Length, Flags, SelectHandle, Acc) ->
-    case prim_socket:recv(SockRef, Length, Flags, SelectHandle) of
+recv_nowait(SockRef, Length, Flags, Handle, Acc) ->
+    case prim_socket:recv(SockRef, Length, Flags, Handle) of
         {more, Bin} ->
             %% We got what we requested but will not waste more time
             %% although there might be more data available
@@ -3353,23 +3364,28 @@ recv_nowait(SockRef, Length, Flags, SelectHandle, Acc) ->
         {select, Bin} ->
             %% We got less than requested so the caller will
             %% get a select message when there might be more to read
-            {select, {?SELECT_INFO(recv, SelectHandle), bincat(Acc, Bin)}};
+            {select, {?SELECT_INFO(recv, Handle), bincat(Acc, Bin)}};
         select ->
             %% The caller will get a select message when there
             %% might be data to read
             if
                 byte_size(Acc) =:= 0 ->
-                    {select, ?SELECT_INFO(recv, SelectHandle)};
+                    {select, ?SELECT_INFO(recv, Handle)};
                 true ->
-                    {select, {?SELECT_INFO(recv, SelectHandle), Acc}}
+                    {select, {?SELECT_INFO(recv, Handle), Acc}}
             end;
+        completion ->
+            %% The caller will get a completion message (with the
+            %% result) when the data arrives. *No* further action
+            %% is required.
+            {completion, ?COMPLETION_INFO(recv, Handle)};
         Result ->
             recv_result(Acc, Result)
     end.
 
 recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
-    SelectHandle = make_ref(),
-    case prim_socket:recv(SockRef, Length, Flags, SelectHandle) of
+    Handle = make_ref(),
+    case prim_socket:recv(SockRef, Length, Flags, Handle) of
         {more, Bin} ->
             %% There is more data readily available
             %% - repeat unless time's up
@@ -3382,12 +3398,13 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                 true ->
                     {ok, bincat(Acc, Bin)}
             end;
+
         %%
         {select, Bin} ->
             %% We got less than requested
 	    Timeout = timeout(Deadline),
             receive
-                ?socket_msg(?socket(SockRef), select, SelectHandle) ->
+                ?socket_msg(?socket(SockRef), select, Handle) ->
                     if
                         0 < Timeout ->
                             %% Recv more
@@ -3397,10 +3414,10 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                         true ->
                             {error, {timeout, bincat(Acc, Bin)}}
                     end;
-                ?socket_msg(_Socket, abort, {SelectHandle, Reason}) ->
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     {error, {Reason, bincat(Acc, Bin)}}
             after Timeout ->
-                    _ = cancel(SockRef, recv, SelectHandle),
+                    _ = cancel(SockRef, recv, Handle),
                     {error, {timeout, bincat(Acc, Bin)}}
             end;
         %%
@@ -3408,14 +3425,15 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
             %% We first got some data and are then asked to wait,
             %% but we only want the first that comes
             %% - cancel and return what we have
-            _ = cancel(SockRef, recv, SelectHandle),
+            _ = cancel(SockRef, recv, Handle),
             {ok, Acc};
+        %%
         select ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(?socket(SockRef), select, SelectHandle) ->
+                ?socket_msg(?socket(SockRef), select, Handle) ->
                     if
                         0 < Timeout ->
                             %% Retry
@@ -3424,12 +3442,62 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                         true ->
                             recv_error(Acc, timeout)
                     end;
-                ?socket_msg(_Socket, abort, {SelectHandle, Reason}) ->
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     recv_error(Acc, Reason)
             after Timeout ->
-                    _ = cancel(SockRef, recv, SelectHandle),
+                    _ = cancel(SockRef, recv, Handle),
                     recv_error(Acc, timeout)
             end;
+
+        %%
+        completion ->
+            %% There is nothing just now, but we will be notified when the
+            %% data has been read (with a completion message).
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(?socket(SockRef), completion,
+                            {Handle, {ok, _Bin} = OK})
+                  when (Length =:= 0) ->
+                    recv_result(Acc, OK);
+                ?socket_msg(?socket(SockRef), completion,
+                            {Handle, {ok, Bin} = OK})
+                  when (Length =:= byte_size(Bin)) ->
+                    recv_result(Acc, OK);
+                ?socket_msg(?socket(SockRef), completion,
+                            {Handle, {ok, Bin}}) ->
+                    if
+                        0 < Timeout ->
+                            %% Recv more
+                            recv_deadline(
+                              SockRef, Length - byte_size(Bin), Flags,
+                              Deadline, bincat(Acc, Bin));
+                        true ->
+                            {error, {timeout, bincat(Acc, Bin)}}
+                    end;
+                ?socket_msg(?socket(SockRef), completion,
+                            {Handle, {error, Reason}}) ->
+                    recv_error(Acc, Reason);
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    recv_error(Acc, Reason)
+            after Timeout ->
+                    _ = cancel(SockRef, recv, Handle),
+                    recv_error(Acc, timeout)
+            end;
+
+        %% We got some data, but not all
+        {ok, Bin} when (Length > byte_size(Bin)) ->
+            Timeout = timeout(Deadline),
+            if
+                0 < Timeout ->
+                    %% Recv more
+                    recv_deadline(
+                      SockRef, Length - byte_size(Bin), Flags,
+                      Deadline, bincat(Acc, Bin));
+                true ->
+                    {error, {timeout, bincat(Acc, Bin)}}
+            end;
+            
+        %%
         Result ->
             recv_result(Acc, Result)
     end.
@@ -3451,6 +3519,7 @@ recv_error(Acc, Reason) ->
         true ->
             {error, {Reason, Acc}}
     end.
+
 
 %% ---------------------------------------------------------------------------
 %%

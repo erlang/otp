@@ -135,6 +135,8 @@
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
 #define sock_open_O(domain, type, proto) \
     WSASocket((domain), (type), (proto), NULL, 0, WSA_FLAG_OVERLAPPED)
+#define sock_recv_O(s,buf,flag,ol)                        \
+    WSARecv((s), (buf), 1, NULL, (flag), (ol), NULL)
 #define sock_send_O(s,buf,flag,o)      \
     WSASend((s), (buf), 1, NULL, (flag), (o), NULL)
 #define sock_setopt(s,l,o,v,ln)        setsockopt((s),(l),(o),(v),(ln))
@@ -225,6 +227,8 @@ typedef struct {
     ErlNifMutex*   cntMtx;
     ESockCounter   unexpectedAccepts;
     ESockCounter   unexpectedWrites;
+    ESockCounter   unexpectedReads;
+    ESockCounter   genErrs;
     ESockCounter   unknownCmds;
 
 } ESAIOControl;
@@ -247,8 +251,9 @@ typedef struct __ESAIOOperation {
 #define ESAIO_OP_CONNECT      0x0011  // ConnectEx (function pointer)
 #define ESAIO_OP_ACCEPT       0x0012  // AcceptEx (function pointer)
     /* Commands for sending */
-#define ESAIO_OP_SEND         0x0020  // WSASend
+#define ESAIO_OP_SEND         0x0021  // WSASend
     /* Commands for receiving */
+#define ESAIO_OP_RECV         0x0031  // WSARecv
 
     unsigned int          tag;     // The 'tag' of the operation
 
@@ -307,6 +312,18 @@ typedef struct __ESAIOOperation {
                                     * of the send req */
         } send;
 
+        /* +++ recv +++ */
+        struct {
+            ErlNifPid     pid;     /* Caller of 'recv' */
+            DWORD         toRead;  /* Can be 0 (= zero)
+                                    * "just to indicate give me what you got"
+                                    */
+            ErlNifBinary  buf;
+            ERL_NIF_TERM  sockRef;
+            ERL_NIF_TERM  recvRef; /* The (unique) reference (ID)
+                                    * of the recv req */
+        } recv;
+
     } data;
 
 } ESAIOOperation;
@@ -363,6 +380,29 @@ static ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                                     ESAIOOperation*  opP,
                                     int              saveErrno,
                                     ERL_NIF_TERM     sockRef);
+static ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ESAIOOperation*  opP,
+                                  ERL_NIF_TERM     sockRef);
+
+static ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
+                                      ESockDescriptor* descP,
+                                      ESAIOOperation*  opP,
+                                      ErlNifPid        caller,
+                                      int              recv_result,
+                                      ERL_NIF_TERM     sockRef,
+                                      ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_pending(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ESAIOOperation*  opP,
+                                       ErlNifPid        caller,
+                                       ERL_NIF_TERM     sockRef,
+                                       ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    ESAIOOperation*  opP,
+                                    int              saveErrno,
+                                    ERL_NIF_TERM     sockRef);
 
 static void* esaio_completion_main(void* threadDataP);
 static BOOLEAN_T esaio_completion_terminate(ESAIOThreadData* dataP,
@@ -402,6 +442,43 @@ static void esaio_completion_send_completed(ErlNifEnv*       env,
 static void esaio_completion_send_not_active(ESAIOOperation*  opP,
                                              int              error);
 static void esaio_completion_send_closed(ESockDescriptor* descP,
+                                         ESAIOOperation*  opP,
+                                         int              error);
+static BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
+                                       ESockDescriptor* descP,
+                                       ESAIOOperation*  opP,
+                                       int              error);
+static void esaio_completion_recv_completed(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ESAIOOperation*  opP,
+                                            ESockRequestor*  reqP,
+                                            int              error);
+static ERL_NIF_TERM esaio_completion_recv_done(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ESAIOOperation*  opP,
+                                               DWORD            flags);
+static ERL_NIF_TERM esaio_completion_recv_partial(ErlNifEnv*       env,
+                                                  ESockDescriptor* descP,
+                                                  ESAIOOperation*  opP,
+                                                  ESockRequestor*  reqP,
+                                                  DWORD            read,
+                                                  DWORD            flags);
+static ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
+                                                       ESockDescriptor* descP,
+                                                       ESAIOOperation*  opP,
+                                                       ssize_t          read,
+                                                       DWORD            flags);
+static ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
+                                                       ESockDescriptor* descP,
+                                                       ESAIOOperation*  opP,
+                                                       ssize_t          read,
+                                                       DWORD            flags);
+static ERL_NIF_TERM esaio_completion_recv_result_fail(ErlNifEnv*       env,
+                                                      ESockDescriptor* descP,
+                                                      int              error);
+static void esaio_completion_recv_not_active(ESAIOOperation*  opP,
+                                             int              error);
+static void esaio_completion_recv_closed(ESockDescriptor* descP,
                                          ESAIOOperation*  opP,
                                          int              error);
 static void esaio_completion_inc(ESAIOThreadData* dataP);
@@ -506,6 +583,8 @@ int esaio_init(unsigned int     numThreads,
     ctrl.cntMtx            = MCREATE("win-esaio.cnt");
     ctrl.unexpectedAccepts = 0;
     ctrl.unexpectedWrites  = 0;
+    ctrl.unexpectedReads   = 0;
+    ctrl.genErrs           = 0;
     ctrl.unknownCmds       = 0;
 
     /* We should actually check the value of 'numThreads'
@@ -812,21 +891,32 @@ void esaio_finish()
 extern
 ERL_NIF_TERM esaio_info(ErlNifEnv* env)
 {
-    ERL_NIF_TERM info, numThreads, numUnexpAccs, numUnknownCmds;
+    ERL_NIF_TERM info, numThreads,
+        numUnexpAccs, numUnexpWs, numUnexpRs,
+        numGenErrs,
+        numUnknownCmds;
     
     numThreads     = MKUI(env, ctrl.numThreads);
 
     MLOCK(ctrl.cntMtx);
 
     numUnexpAccs   = MKUI(env, ctrl.unexpectedAccepts);
+    numUnexpWs     = MKUI(env, ctrl.unexpectedWrites);
+    numUnexpRs     = MKUI(env, ctrl.unexpectedReads);
+    numGenErrs     = MKUI(env, ctrl.genErrs);
     numUnknownCmds = MKUI(env, ctrl.unknownCmds);
 
     MUNLOCK(ctrl.cntMtx);
 
     {
         ERL_NIF_TERM cntKeys[] = {esock_atom_num_unexpected_accepts,
+                                  esock_atom_num_unexpected_writes,
+                                  esock_atom_num_unexpected_reads,
+                                  esock_atom_num_general_errors,
                                   esock_atom_num_unknown_cmds};
-        ERL_NIF_TERM cntVals[] = {numUnexpAccs, numUnknownCmds};
+        ERL_NIF_TERM cntVals[] = {numUnexpAccs, numUnexpWs, numUnexpRs,
+                                  numGenErrs,
+                                  numUnknownCmds};
         unsigned int numCntKeys = NUM(cntKeys);
         unsigned int numCntVals = NUM(cntVals);
         ERL_NIF_TERM counters;
@@ -1680,9 +1770,7 @@ ERL_NIF_TERM esaio_send(ErlNifEnv*       env,
     if (! IS_OPEN(descP->writeState))
         return esock_make_error_closed(env);
 
-    /* Connect and Write uses the same select flag
-     * so they can not be simultaneous
-     */
+    /* Connect and Write can not be simultaneous? */
     if (descP->connectorP != NULL)
         return esock_make_error_invalid(env, esock_atom_state);
 
@@ -1723,6 +1811,300 @@ ERL_NIF_TERM esaio_send(ErlNifEnv*       env,
     return send_check_result(env, descP, opP, caller,
                              wres, sndDataP->size, FALSE,
                              sockRef, sendRef);
+}
+
+
+
+/* ======                       Receive functions                    ====== */
+
+
+/* ========================================================================
+ * The (read) buffer handling should be optimized!
+ * But for now we make it easy for ourselves by
+ * allocating a binary (of the specified or default
+ * size) and then throwing it away...
+ *
+ * The following flags are supported (with overlapped):
+ *    MSG_OOB            - Processes OOB data.
+ *    MSG_PARTIAL        - *message-oriented* sockets only.
+ *                         Both intput to *and* output from recv.
+ *    MSG_PUSH_IMMEDIATE - *stream-oriented* sockets only.
+ *                         Hint rather than an actual guarantee.
+ *    MSG_WAITALL        - *stream-oriented* sockets only.
+ *                         The request will complete only when one of
+ *                         the following conditions apply:
+ *                         - buffer is completely full.
+ *                         - The connection has been closed.
+ *                         - The request has been canceled or an error occurred.
+ */
+extern
+ERL_NIF_TERM esaio_recv(ErlNifEnv*       env,
+                        ESockDescriptor* descP,
+                        ERL_NIF_TERM     sockRef,
+                        ERL_NIF_TERM     recvRef,
+                        ssize_t          len,
+                        int              flags)
+{
+    ErlNifPid       caller;
+    ESAIOOperation* opP;
+    int             rres;
+    WSABUF          wbuf;
+    DWORD           f = 0; // flags
+    size_t          bufSz = (len != 0 ? len : descP->rBufSz);
+
+    (void) flags;
+
+    SSDBG( descP, ("WIN-ESAIO", "esaio_recv {%d} -> entry with"
+                   "\r\n   length:        %ld"
+                   "\r\n   (buffer) size: %lu"
+                   "\r\n", descP->sock,
+                   (long) len, (unsigned long) bufSz) );
+
+    ESOCK_ASSERT( enif_self(env, &caller) != NULL );
+
+    if (! IS_OPEN(descP->readState))
+        return esock_make_error_closed(env);
+
+    /* Accept and Read can not be simultaneous? */
+    if (descP->acceptorsQ.first != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+    /* Ensure that this caller does not *already* have a
+     * (recv) request waiting */
+    if (esock_reader_search4pid(env, descP, &caller)) {
+        /* Reader already in queue */
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+    /* Allocate the operation */
+    opP = MALLOC( sizeof(ESAIOOperation) );
+    ESOCK_ASSERT( opP != NULL);
+    sys_memzero((char*) opP, sizeof(ESAIOOperation));
+
+    opP->tag = ESAIO_OP_RECV;
+    /* Its a bit annoying that we have to alloc an env and then
+     * copy the ref *before* we know that we actually need it.
+     * How much does this cost?
+     */
+    opP->env                = esock_alloc_env("esaio-recv - operation");
+    opP->data.recv.recvRef  = CP_TERM(opP->env, recvRef);
+    opP->data.recv.sockRef  = CP_TERM(opP->env, sockRef);
+    opP->data.recv.pid      = caller;
+
+    /* Allocate a buffer:
+     * Either as much as we want to read or (if zero (0)) use the "default"
+     * size (what has been configured).
+     */
+    ESOCK_ASSERT( ALLOC_BIN(bufSz, &opP->data.recv.buf) );
+
+    opP->data.recv.toRead = len;
+    wbuf.buf = opP->data.recv.buf.data;
+    wbuf.len = opP->data.recv.buf.size;
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_tries, &descP->readTries, 1);
+
+    SSDBG( descP, ("WIN-ESAIO", "esaio_recv {%d} -> try read (%lu)\r\n",
+                   descP->sock, (unsigned long) bufSz) );
+
+    rres = sock_recv_O(descP->sock, &wbuf, &f, (OVERLAPPED*) opP);
+
+    return recv_check_result(env, descP, opP, caller, rres,
+                             sockRef, recvRef);
+}
+
+
+/* *** recv_check_result ***
+ *
+ * Analyze the result of a receive attempt.
+ * The receive may have been completed directly or scheduled (overlapped).
+ */
+static
+ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
+                               ESockDescriptor* descP,
+                               ESAIOOperation*  opP,
+                               ErlNifPid        caller,
+                               int              recv_result,
+                               ERL_NIF_TERM     sockRef,
+                               ERL_NIF_TERM     recvRef)
+{
+    ERL_NIF_TERM eres;
+
+    if (recv_result == 0) {
+
+        /* +++ Success +++ */
+
+        eres = recv_check_ok(env, descP, opP, sockRef);
+
+    } else {
+        int err;
+
+        /* +++ Failure +++ */
+
+        err = sock_errno();
+
+        /* As pointed out above, there are basically two kinds of errors: 
+         * 1) Pending:
+         *    An overlapped operation was successfully initiated.
+         *    Completion will be indicated at a later time.
+         * 2) An actual error
+         */
+
+        if (err == WSA_IO_PENDING) {
+            eres = recv_check_pending(env, descP, opP, caller,
+                                      sockRef, recvRef);
+        } else {
+
+            eres = recv_check_fail(env, descP, opP, err, sockRef);
+
+        }
+        
+    }
+
+    return eres;
+}
+
+
+
+/* *** recv_check_ok ***
+ *
+ * A successful recv. We *know* that in this case the buffer is filled!
+ */
+
+static
+ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
+                           ESockDescriptor* descP,
+                           ESAIOOperation*  opP,
+                           ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM data, result;
+    DWORD        read, flags;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "recv_check_ok -> try get overlapped result\r\n") );
+
+    if (WSAGetOverlappedResult(descP->sock, (OVERLAPPED*) opP,
+                               &read, FALSE, &flags)) {
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "recv_check_ok -> overlapped result: "
+                "\r\n   read:  %d"
+                "\r\n   flags: 0x%X"
+                "\r\n", read, flags) );
+
+        if (read == opP->data.recv.buf.size) {
+            /* This transfers "ownership" of the *allocated* binary to an
+             * erlang term (no need for an explicit free).
+             */
+            data = MKBIN(env, &opP->data.recv.buf);
+        } else {
+            /* This transfers "ownership" of the *allocated* binary to an
+             * erlang term (no need for an explicit free).
+             */
+            data = MKBIN(env, &opP->data.recv.buf);
+            data = MKSBIN(env, data, 0, read);
+        }
+
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_read_pkg, &descP->readPkgCnt, 1);
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_read_byte, &descP->readByteCnt, read);
+
+        /* (maybe) Update max */
+        if (read > descP->readPkgMax)
+            descP->readPkgMax = read;
+
+        esock_clear_env("recv_check_ok", opP->env);
+        esock_free_env("recv_check_ok", opP->env);
+        FREE( opP );
+
+        result = esock_make_ok2(env, data);
+
+    } else {
+        int          save_errno = sock_errno();
+        ERL_NIF_TERM eerrno = MKA(env, erl_errno_id(save_errno));
+        ERL_NIF_TERM reason = MKT2(env, esock_atom_get_overlapped_result, eerrno);
+
+        MLOCK(ctrl.cntMtx);
+
+        esock_cnt_inc(&ctrl.genErrs, 1);
+
+        MUNLOCK(ctrl.cntMtx);
+
+        result = esock_make_error(env, reason);
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "recv_check_ok(%T) {%d} -> done with"
+            "\r\n   result: %T"
+            "\r\n",
+            sockRef, descP->sock, result) );
+
+    return result;
+}
+
+
+
+/* *** recv_check_pending ***
+ *
+ * The recv operation was scheduled, that is, its now in the hands
+ * of the I/O Completion Port framework.
+ */
+static
+ERL_NIF_TERM recv_check_pending(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ESAIOOperation*  opP,
+                                ErlNifPid        caller,
+                                ERL_NIF_TERM     sockRef,
+                                ERL_NIF_TERM     recvRef)
+{
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "recv_check_pending {%d} -> pending\r\n", descP->sock) );
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_waits, &descP->readWaits, 1);
+
+    descP->readState |= ESOCK_STATE_SELECTED;
+
+    esock_reader_push(env, descP, caller, recvRef, opP);
+            
+    return esock_atom_completion;
+    
+}
+
+
+
+/* *** recv_check_fail* ***
+ *
+ * Processing done upon failed recv.
+ * An actual failure.
+ */
+static
+ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
+                             ESockDescriptor* descP,
+                             ESAIOOperation*  opP,
+                             int              saveErrno,
+                             ERL_NIF_TERM     sockRef)
+{
+    ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "recv_check_fail(%T) {%d} -> error: %d (%T)\r\n",
+            sockRef, descP->sock, saveErrno, reason) );
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_fails, &descP->readFails, 1);
+
+    esock_clear_env("recv_check_fail", opP->env);
+    esock_free_env("recv_check_fail", opP->env);
+    FREE_BIN( &opP->data.recv.buf );
+    FREE( opP );
+
+    return esock_make_error(env, reason);
 }
 
 
@@ -2406,6 +2788,12 @@ void* esaio_completion_main(void* threadDataP)
             done = esaio_completion_send(dataP, descP, opP, save_errno);
             break;
 
+        case ESAIO_OP_RECV:
+            SGDBG( ("WIN-ESAIO",
+                    "esaio_completion_main -> received recv cmd\r\n") );
+            done = esaio_completion_recv(dataP, descP, opP, save_errno);
+            break;
+
         default:
             SGDBG( ("WIN-ESAIO",
                     "esaio_completion_main -> received unknown cmd: "
@@ -3017,6 +3405,9 @@ void esaio_completion_accept_closed(ESockDescriptor* descP,
  * the user calls socket:close(Socket) (or exits).
  * Then when this function is called, the socket is closed.
  * What to do?
+ *
+ * We need to use 'WSAGetOverlappedResult' to actually figure out the
+ * "transfer result" (how much was sent).
  */
 static
 BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
@@ -3030,7 +3421,7 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
 
     SGDBG( ("WIN-ESAIO", "esaio_completion_send -> verify open\r\n") );
 
-    if (IS_OPEN(descP->readState)) {
+    if (IS_OPEN(descP->writeState)) {
 
         ESockRequestor req;
 
@@ -3101,13 +3492,14 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
 
         /* We can *never* have a partial successs:
          * Either the entire buffer is sent, or we fail.
-         * But since we have a field (writePkgMaxCnt) in the descriptor
-         * we might as well use it.
+         *
+         *
+         * Actually, we might be able to have a partial success!!
+         * We must call 'WSAGetOverlappedResult' to find out!!
          */
-        descP->writePkgMaxCnt = written;
-        if (descP->writePkgMaxCnt > descP->writePkgMax)
-            descP->writePkgMax = descP->writePkgMaxCnt;
-        descP->writePkgMaxCnt = 0;
+
+        if (written > descP->writePkgMax)
+            descP->writePkgMax = written;
 
         MUNLOCK(descP->writeMtx);
 
@@ -3131,7 +3523,7 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
     }
 
     completionInfo = MKT2(env,
-                          CP_TERM(env, opP->data.accept.accRef),
+                          CP_TERM(env, opP->data.send.sendRef),
                           completionStatus);
 
     SSDBG( descP,
@@ -3189,7 +3581,7 @@ void esaio_completion_send_not_active(ESAIOOperation*  opP,
      * cleanup".
      * But what can we do here?
      * Send an abort message to the sender or/and owner?
-     * Increment a counter (unexpected accepts)?
+     * Increment a counter (unexpected acceptssends)?
      */
 
     if (error == NO_ERROR) {
@@ -3210,6 +3602,9 @@ void esaio_completion_send_not_active(ESAIOOperation*  opP,
 
 /* *** esaio_completion_send_closed ***
  * A send request has completed but the socket is closed.
+ * When the socket is closed, all outstanding requests
+ * are "flushed", so we do not actually need to "do" anything
+ * here (other then maybe count unexpected writes).
  */
 static
 void esaio_completion_send_closed(ESockDescriptor* descP,
@@ -3226,6 +3621,515 @@ void esaio_completion_send_closed(ESockDescriptor* descP,
         MLOCK(ctrl.cntMtx);
             
         esock_cnt_inc(&ctrl.unexpectedWrites, 1);
+
+        MUNLOCK(ctrl.cntMtx);
+
+    }
+}
+
+
+
+
+/* === receive 'stuff' === */
+
+/* *** esaio_completion_recv ***
+ *
+ * Handle a completed 'recv' (completion) request.
+ * Send a 'completion' message (to requestor) with the request status.
+ *
+ * Completion message: 
+ *     {'socket tag', socket(), completion, CompletionInfo}
+ *
+ *     CompletionInfo:   {CompletionHandle, CompletionStatus}
+ *     CompletionHandle: reference()
+ *     Result:           ok | {error, Reason}
+ *
+ *
+ * There is a possibillity of a race here. That is, if the user
+ * calls socket:recv(Socket, ..., nowait), the recv is scheduled,
+ * and then just as it has completed, but before this
+ * thread has been activated to handle the 'recv completed'
+ * the user calls socket:close(Socket) (or exits).
+ * Then when this function is called, the socket is closed.
+ * What to do?
+ */
+static
+BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
+                                ESockDescriptor* descP,
+                                ESAIOOperation*  opP,
+                                int              error)
+{
+    ErlNifEnv* env = dataP->env;
+
+    MLOCK(descP->readMtx);
+
+    SGDBG( ("WIN-ESAIO", "esaio_completion_recv -> verify open\r\n") );
+
+    if (IS_OPEN(descP->readState)) {
+
+        ESockRequestor req;
+
+        /* Is "this" read still valid? */
+        if (esock_reader_get(env, descP,
+                             &opP->data.recv.recvRef, &opP->data.recv.pid,
+                             &req)) {
+
+            esaio_completion_recv_completed(env, descP, opP, &req, error);
+
+        } else {
+
+            esaio_completion_recv_not_active(opP, error);
+
+        }
+
+    } else {
+
+        esaio_completion_recv_closed(descP, opP, error);
+
+    }
+
+    MUNLOCK(descP->readMtx);
+
+    SGDBG( ("WIN-ESAIO",
+            "esaio_completion_send -> clear and delete op env\r\n") );
+
+    /* No need for this "stuff" anymore */
+    esock_clear_env("esaio_completion_recv - op cleanup", opP->env);
+    esock_free_env("esaio_completion_recv - op cleanup", opP->env);
+    FREE( opP );    
+    
+    SGDBG( ("WIN-ESAIO", "esaio_completion_recv -> done\r\n") );
+
+    return FALSE;
+}
+
+
+
+/* *** esaio_completion_recv_completed ***
+ * The recv request has completed.
+ */
+static
+void esaio_completion_recv_completed(ErlNifEnv*       env,
+                                     ESockDescriptor* descP,
+                                     ESAIOOperation*  opP,
+                                     ESockRequestor*  reqP,
+                                     int              error)
+{
+    ERL_NIF_TERM completionStatus, completionInfo;
+
+    ESOCK_ASSERT( DEMONP("esaio_completion_recv_completed - sender",
+                         env, descP, &reqP->mon) == 0);
+
+    if (error == NO_ERROR) {
+        DWORD read, flags;
+
+        /* Success, but we need to check how much we actually got.
+         * Also the 'flags' (which we currentöy ignore)
+         */
+
+        MLOCK(descP->writeMtx);
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_recv_completed ->"
+                "success - try get overlapped result\r\n") );
+
+        if (WSAGetOverlappedResult(descP->sock, (OVERLAPPED*) opP,
+                                   &read, FALSE, &flags)) {
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "esaio_completion_recv_completed -> overlapped result: "
+                    "\r\n   read:        %d"
+                    "\r\n   buffer size: %d"
+                    "\r\n   flags:       %d"
+                    "\r\n", read, opP->data.recv.buf.size, flags) );
+
+            /* *** Success! ***
+             * CompletionStatus = {ok, {Flags, Bin}} (should be)
+             * CompletionInfo   = {ConnRef, CompletionStatus}
+             */
+
+            if (read == opP->data.recv.buf.size) {
+                /* We filled the buffer => done */
+
+                completionStatus = esaio_completion_recv_done(env, descP, opP,
+                                                              flags);
+
+            } else {
+
+                /* Only used a part of the buffer =>
+                 * needs splitting and retry!
+                 */
+
+                completionStatus = esaio_completion_recv_partial(env,
+                                                                 descP,
+                                                                 opP,
+                                                                 reqP,
+                                                                 read,
+                                                                 flags);
+            }
+
+        } else {
+
+            /* Now what?
+             * We know we read "something" but we cannot figure out
+             * how much...
+             */
+
+            SSDBG( descP,
+                   ("WIN-ESAIO",
+                    "esaio_completion_recv_completed -> "
+                    "overlapped result failure\r\n") );
+
+            completionStatus = esaio_completion_recv_result_fail(env,
+                                                                 descP,
+                                                                 sock_errno());
+       }
+
+        MUNLOCK(descP->writeMtx);
+
+    } else {
+
+        /* *** Failure! ***
+         * CompletionStatus = {error, Reason}
+         */
+
+        ERL_NIF_TERM reason = MKA(env, erl_errno_id(error));
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_recv_completed -> failure: %T\r\n",
+                reason) );
+
+        completionStatus = esock_make_error(env, reason);
+
+    }
+
+    completionInfo = MKT2(env,
+                          CP_TERM(env, opP->data.recv.recvRef),
+                          completionStatus);
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recv_completed -> "
+            "send completion message to %T with"
+            "\r\n   CompletionInfo: %T"
+            "\r\n", MKPID(env, &opP->data.recv.pid), completionInfo) );
+
+    /* Send a 'send' completion message */
+    esaio_send_completion_msg(env,                    // Send env
+                              descP,                  // Descriptor
+                              &opP->data.recv.pid,    // Msg destination
+                              opP->env,               // Msg env
+                              opP->data.recv.sockRef, // Dest socket
+                              completionInfo);        // Info
+
+    /* *** Finalize *** */
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_completion_recv_completed -> finalize\r\n") );
+
+    /* Request cleanup (demonitor already done above) */
+    esock_clear_env("esaio_completion_send_completed -> req cleanup",
+                    reqP->env);
+    esock_free_env("esaio_completion_send_completed -> req cleanup",
+                   reqP->env);
+
+    /* *Maybe* update socket (write) state
+     * (depends on if the queue is now empty)
+     */
+    if (descP->readersQ.first == NULL) {
+        descP->readState &= ~ESOCK_STATE_SELECTED;
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_completion_recv_completed -> done\r\n") );
+}
+
+
+/* *** esaio_completion_recv_done ***
+ *
+ * A complete read (filled the provided buffer).
+ *
+ */
+static
+ERL_NIF_TERM esaio_completion_recv_done(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ESAIOOperation*  opP,
+                                        DWORD            flags)
+{
+    ERL_NIF_TERM data;
+    DWORD        read = opP->data.recv.buf.size;
+
+    (void) flags;
+
+    ESOCK_CNT_INC(env, descP, opP->data.recv.sockRef,
+                  esock_atom_read_pkg, &descP->readPkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, opP->data.recv.sockRef,
+                  esock_atom_read_byte, &descP->readByteCnt, read);
+
+    if (read > descP->readPkgMax)
+        descP->readPkgMax = read;
+
+    /* This transfers "ownership" of the *allocated* binary to an
+     * erlang term (no need for an explicit free).
+     */
+    data = MKBIN(env, &opP->data.recv.buf);
+
+    /* We ignore the flags *for now*.
+     * Needs to be passed up eventually!
+     *
+     * This should eventually be something like:
+     *
+     *                {ok, {Flags, Bin}}
+     *
+     * But for now we skip the 'flags' part:
+     *
+     *                {ok, Bin}
+     */
+    return esock_make_ok2(env, data);
+}
+
+
+/* *** esaio_completion_recv_partial ***
+ *
+ * A partial read, that is only part of the buffer was used.
+ *
+ */
+static
+ERL_NIF_TERM esaio_completion_recv_partial(ErlNifEnv*       env,
+                                           ESockDescriptor* descP,
+                                           ESAIOOperation*  opP,
+                                           ESockRequestor*  reqP,
+                                           DWORD            read,
+                                           DWORD            flags)
+{
+    ERL_NIF_TERM res;
+    ERL_NIF_TERM sockRef = opP->data.recv.sockRef;
+    ERL_NIF_TERM recvRef = opP->data.recv.recvRef;
+    DWORD        toRead  = opP->data.recv.toRead;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recv_partial(%T) {%d} -> entry with"
+            "\r\n   toRead:  %ld"
+            "\r\n   recvRef: %T"
+            "\r\n   read:    %ld"
+            "\r\n   flags:   0x%X"
+            "\r\n", sockRef, descP->sock,
+            (long) toRead, recvRef, (long) read, flags) );
+
+    /* We only got part of what we wanted, but since we let the user
+     * (or possibly the read loop in socket) decide what to do,
+     * do we actually need this check? Why not just call a
+     * 'esaio_completion_recv_partial' function (that splits the
+     * binary and deliver what we got) and let the user sort it out?
+     */
+
+    if ((toRead == 0) ||
+        (descP->type != SOCK_STREAM) ||
+        (COMPARE(recvRef, esock_atom_zero) == 0)) {
+
+        /* +++ We only got a partial,           ***
+         * *** but we should not wait for more. +++
+         * +++ Must split it into a sub-binary. +++
+         */
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_recv_partial(%T) {%d} -> done reading\r\n",
+                sockRef, descP->sock) );
+
+        res = esaio_completion_recv_partial_done(env, descP, opP,
+                                                 read, flags);
+
+    } else {
+
+        /* A stream socket with specified read size
+         * and not a polling read, we got a partial read
+         * - return a result to initiate a retry
+         */
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_recv_partial(%T) {%d} ->"
+                " only part of data - expected more"
+                "\r\n", sockRef, descP->sock) );
+
+        res = esaio_completion_recv_partial_part(env, descP, opP,
+                                                 read, flags);
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recv_partial(%T) {%d} -> done\r\n",
+            sockRef, descP->sock) );
+
+    return res;
+}
+
+
+
+/* *** esaio_completion_recv_partial_done ***
+ *
+ * A successful but only partial recv, which fulfilled the required read.
+ */
+
+static
+ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ESAIOOperation*  opP,
+                                                ssize_t          read,
+                                                DWORD            flags)
+{
+    ERL_NIF_TERM sockRef = opP->data.recv.sockRef;
+    ERL_NIF_TERM data;
+
+    ESOCK_CNT_INC(env, descP, opP->data.recv.sockRef,
+                  esock_atom_read_pkg, &descP->readPkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, opP->data.recv.sockRef,
+                  esock_atom_read_byte, &descP->readByteCnt, read);
+
+    if (read > descP->readPkgMax)
+        descP->readPkgMax = read;
+
+    /* This transfers "ownership" of the *allocated* binary to an
+     * erlang term (no need for an explicit free).
+     */
+    data = MKBIN(env, &opP->data.recv.buf);
+    data = MKSBIN(env, data, 0, read);
+
+    (void) flags;
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "esaio_completion_recv_partial_done(%T) {%d} -> done\r\n",
+            sockRef, descP->sock) );
+
+    return esock_make_ok2(env, data);
+}
+
+
+
+/* *** esaio_completion_recv_partial_part ***
+ *
+ * A successful but only partial recv, which only partly fulfilled
+ * the required read.
+ * We do *not* want to risk ending up in a "never ending" read loop
+ * here (by trying to read more data (and yet again getting partial)).
+ * [worst case, we could up with all our worker threads busy trying
+ * to read more data, and no one ready to respond to new requests].
+ * So we simply return what we got to the user and let the user
+ * decide what to do.
+ *
+ * What shall we send? {ok, Bin} | {more, Bin}
+ * Presumably the user knows how much to expect, so is therefor
+ * able to check:
+ *
+ *           "Expected > byte_size(Bin)"   -> read again
+ *           "Expected =:= byte_size(Bin)" -> done
+ */
+
+static
+ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
+                                                ESockDescriptor* descP,
+                                                ESAIOOperation*  opP,
+                                                ssize_t          read,
+                                                DWORD            flags)
+{
+    /* This is just a "placeholder". Is this really all we need to do? */
+    return esaio_completion_recv_partial_done(env, descP, opP, read, flags);
+}
+
+
+
+/* *** esaio_completion_recv_result_fail ***
+ * This function is called when the function 'WSAGetOverlappedResult' fails.
+ * It generates a result (returns) in the form of:
+ *
+ *         {error, {get_overlapped_result, atom()}}
+ */
+static
+ERL_NIF_TERM esaio_completion_recv_result_fail(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               int              error)
+{
+    ERL_NIF_TERM eerrno = MKA(env, erl_errno_id(error));
+    ERL_NIF_TERM reason = MKT2(env, esock_atom_get_overlapped_result, eerrno);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO",
+            "esaio_completion_recv_partial_done{%d} -> entry with"
+            "\r\n   Errno: %d (%T)"
+            "\r\n", descP->sock, error, eerrno) );
+
+    MLOCK(ctrl.cntMtx);
+
+    esock_cnt_inc(&ctrl.genErrs, 1);
+
+    MUNLOCK(ctrl.cntMtx);
+
+    return esock_make_error(env, reason);
+}
+
+
+/* *** esaio_completion_recv_not_active ***
+ * A recv request has completed but the request is no longer valid.
+ */
+static
+void esaio_completion_recv_not_active(ESAIOOperation*  opP,
+                                      int              error)
+{
+    /* This recv request is *not* "active"!
+     * The receive (recv) operation has been cancelled => cleanup
+     * If the op failed, its safe to assume that the error is
+     * the result of the cancellation, and we do not actually
+     * need to do anything here.
+     * If however, the recv succeeded, we need to do "some 
+     * cleanup".
+     * But what can we do here?
+     * Send an abort message to the reader or/and owner?
+     * Increment a counter (unexpected readsa)?
+     */
+
+    if (error == NO_ERROR) {
+
+        SGDBG( ("WIN-ESAIO",
+                "esaio_completion_recv_not_active -> "
+                "success for cancelled recv\r\n") );
+
+        MLOCK(ctrl.cntMtx);
+            
+        esock_cnt_inc(&ctrl.unexpectedReads, 1);
+
+        MUNLOCK(ctrl.cntMtx);
+
+    }
+}
+
+
+/* *** esaio_completion_recv_closed ***
+ * A recv request has completed but the socket is closed.
+ * When the socket is closed, all outstanding requests
+ * are "flushed", so we do not actually need to "do" anything
+ * here (other then maybe count unexpected writes), maybe read bytes?.
+ */
+static
+void esaio_completion_recv_closed(ESockDescriptor* descP,
+                                  ESAIOOperation*  opP,
+                                  int              error)
+{
+    if (error == NO_ERROR) {
+
+        SGDBG( ("WIN-ESAIO",
+                "esaio_completion_recv_closed -> "
+                "success for closed socket (%d)\r\n",
+                descP->sock) );
+
+        MLOCK(ctrl.cntMtx);
+            
+        esock_cnt_inc(&ctrl.unexpectedReads, 1);
 
         MUNLOCK(ctrl.cntMtx);
 
@@ -3264,6 +4168,7 @@ BOOLEAN_T esaio_completion_unknown(ESAIOThreadData* dataP,
 
     return FALSE;
 }
+
 
 
 static

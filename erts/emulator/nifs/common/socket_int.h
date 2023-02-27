@@ -293,6 +293,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(fragment_interleave);      \
     GLOBAL_ATOM_DEF(freebind);                 \
     GLOBAL_ATOM_DEF(frelay);                   \
+    GLOBAL_ATOM_DEF(get_overlapped_result);    \
     GLOBAL_ATOM_DEF(get_peer_addr_info);       \
     GLOBAL_ATOM_DEF(hatype);                   \
     GLOBAL_ATOM_DEF(hdrincl);                  \
@@ -375,9 +376,12 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(notrailers);               \
     GLOBAL_ATOM_DEF(not_bound);                \
     GLOBAL_ATOM_DEF(not_found);                \
+    GLOBAL_ATOM_DEF(num_general_errors);       \
     GLOBAL_ATOM_DEF(not_owner);                \
     GLOBAL_ATOM_DEF(num_threads);              \
     GLOBAL_ATOM_DEF(num_unexpected_accepts);   \
+    GLOBAL_ATOM_DEF(num_unexpected_reads);     \
+    GLOBAL_ATOM_DEF(num_unexpected_writes);    \
     GLOBAL_ATOM_DEF(num_unknown_cmds);         \
     GLOBAL_ATOM_DEF(oactive);		       \
     GLOBAL_ATOM_DEF(ok);                       \
@@ -421,6 +425,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(read_fails);               \
     GLOBAL_ATOM_DEF(read_pkg);                 \
     GLOBAL_ATOM_DEF(read_tries);               \
+    GLOBAL_ATOM_DEF(read_waits);               \
     GLOBAL_ATOM_DEF(recv);                     \
     GLOBAL_ATOM_DEF(recvdstaddr);              \
     GLOBAL_ATOM_DEF(recverr);                  \
@@ -629,5 +634,8 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define TJOIN(TID, EV)  enif_thread_join((TID), (EV))
 #define TOCREATE(NAME)  enif_thread_opts_create((NAME))
 #define TODESTROY(OPTS) enif_thread_opts_destroy((OPTS))
+
+#define ESOCK_PRINTF(...)  enif_fprintf(stdout, __VA_ARGS__)
+#define ESOCK_EPRINTF(...) enif_fprintf(stderr, __VA_ARGS__)
 
 #endif // SOCKET_INT_H__

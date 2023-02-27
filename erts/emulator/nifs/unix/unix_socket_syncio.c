@@ -105,7 +105,6 @@ typedef struct {
     /* Misc stuff */
     BOOLEAN_T      dbg;
     BOOLEAN_T      sockDbg;
-
 } ESSIOControl;
 
 
