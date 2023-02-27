@@ -680,6 +680,9 @@ tuple(_Config) ->
     {'EXIT',{function_clause,_}} = catch gh_6458(id({42})),
     {'EXIT',{function_clause,_}} = catch gh_6458(id(a)),
 
+    {'EXIT',{badarg,_}} = catch gh_6927(id({a,b})),
+    {'EXIT',{badarg,_}} = catch gh_6927(id([])),
+
     ok.
 
 do_tuple() ->
@@ -710,6 +713,15 @@ gh_6458({X}) when X; (X orelse false) ->
 
 gh_6458() ->
     true.
+
+gh_6927(X) ->
+    %% beam_validator would complain because beam_call_types:will_succeed/3
+    %% said `maybe`, but beam_call_types:types/3 returned the type `none`.
+    element(42,
+            case X of
+                {_,_} -> X;
+                _ -> ok
+            end).
 
 -record(x, {a}).
 
