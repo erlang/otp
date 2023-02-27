@@ -7,6 +7,7 @@
 #ifndef ASMJIT_NO_COMPILER
 
 #include "../core/assembler.h"
+#include "../core/builder_p.h"
 #include "../core/compiler.h"
 #include "../core/cpuinfo.h"
 #include "../core/logger.h"
@@ -103,8 +104,12 @@ Error BaseCompiler::newFuncNode(FuncNode** out, const FuncSignature& signature) 
 }
 
 Error BaseCompiler::addFuncNode(FuncNode** out, const FuncSignature& signature) {
+  State state = _grabState();
+
   ASMJIT_PROPAGATE(newFuncNode(out, signature));
   ASMJIT_ASSUME(*out != nullptr);
+
+  BaseBuilder_assignInlineComment(this, *out, state.comment);
 
   addFunc(*out);
   return kErrorOk;
@@ -127,7 +132,13 @@ Error BaseCompiler::newFuncRetNode(FuncRetNode** out, const Operand_& o0, const 
 }
 
 Error BaseCompiler::addFuncRetNode(FuncRetNode** out, const Operand_& o0, const Operand_& o1) {
+  State state = _grabState();
+
   ASMJIT_PROPAGATE(newFuncRetNode(out, o0, o1));
+  ASMJIT_ASSUME(*out != nullptr);
+
+  BaseBuilder_assignInlineComment(this, *out, state.comment);
+
   addNode(*out);
   return kErrorOk;
 }
@@ -146,6 +157,7 @@ FuncNode* BaseCompiler::addFunc(FuncNode* func) {
 
 Error BaseCompiler::endFunc() {
   FuncNode* func = _func;
+  resetState();
 
   if (ASMJIT_UNLIKELY(!func))
     return reportError(DebugUtils::errored(kErrorInvalidState));
@@ -196,7 +208,12 @@ Error BaseCompiler::newInvokeNode(InvokeNode** out, InstId instId, const Operand
 }
 
 Error BaseCompiler::addInvokeNode(InvokeNode** out, InstId instId, const Operand_& o0, const FuncSignature& signature) {
+  State state = _grabState();
+
   ASMJIT_PROPAGATE(newInvokeNode(out, instId, o0, signature));
+  ASMJIT_ASSUME(*out != nullptr);
+
+  BaseBuilder_assignInstState(this, *out, state);
   addNode(*out);
   return kErrorOk;
 }
@@ -481,20 +498,13 @@ Error BaseCompiler::newJumpNode(JumpNode** out, InstId instId, InstOptions instO
 }
 
 Error BaseCompiler::emitAnnotatedJump(InstId instId, const Operand_& o0, JumpAnnotation* annotation) {
-  InstOptions options = instOptions() | forcedInstOptions();
-  RegOnly extra = extraReg();
-  const char* comment = inlineComment();
-
-  resetInstOptions();
-  resetInlineComment();
-  resetExtraReg();
+  State state = _grabState();
 
   JumpNode* node;
-  ASMJIT_PROPAGATE(newJumpNode(&node, instId, options, o0, annotation));
+  ASMJIT_PROPAGATE(newJumpNode(&node, instId, state.options, o0, annotation));
 
-  node->setExtraReg(extra);
-  if (comment)
-    node->setInlineComment(static_cast<char*>(_dataZone.dup(comment, strlen(comment), true)));
+  node->setExtraReg(state.extraReg);
+  BaseBuilder_assignInlineComment(this, node, state.comment);
 
   addNode(node);
   return kErrorOk;

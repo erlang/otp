@@ -312,6 +312,10 @@ public:
     return id | (uint32_t(cc) << Support::ConstCTZ<uint32_t(InstIdParts::kARM_Cond)>::value);
   }
 
+  static inline constexpr InstId extractRealId(uint32_t id) noexcept {
+    return id & uint32_t(InstIdParts::kRealId);
+  }
+
   static inline constexpr arm::CondCode extractARMCondCode(uint32_t id) noexcept {
     return (arm::CondCode)((uint32_t(id) & uint32_t(InstIdParts::kARM_Cond)) >> Support::ConstCTZ<uint32_t(InstIdParts::kARM_Cond)>::value);
   }
@@ -614,13 +618,25 @@ struct OpRWInfo {
   //! \}
 };
 
+//! Flags used by \ref InstRWInfo.
+enum class InstRWFlags : uint32_t {
+  //! No flags.
+  kNone = 0x00000000u,
+
+  //! Describes a move operation.
+  //!
+  //! This flag is used by RA to eliminate moves that are guaranteed to be moves only.
+  kMovOp = 0x00000001u
+};
+ASMJIT_DEFINE_ENUM_FLAGS(InstRWFlags)
+
 //! Read/Write information of an instruction.
 struct InstRWInfo {
   //! \name Members
   //! \{
 
   //! Instruction flags (there are no flags at the moment, this field is reserved).
-  uint32_t _instFlags;
+  InstRWFlags _instFlags;
   //! CPU flags read.
   CpuRWFlags _readFlags;
   //! CPU flags written.
@@ -643,6 +659,20 @@ struct InstRWInfo {
 
   //! Resets this RW information to all zeros.
   inline void reset() noexcept { memset(this, 0, sizeof(*this)); }
+
+  //! \}
+
+  //! \name Instruction Flags
+  //! \{
+
+  //! Returns flags associated with the instruction, see \ref InstRWFlags.
+  inline InstRWFlags instFlags() const noexcept { return _instFlags; }
+
+  //! Tests whether the instruction flags contain `flag`.
+  inline bool hasInstFlag(InstRWFlags flag) const noexcept { return Support::test(_instFlags, flag); }
+
+  //! Tests whether the instruction flags contain \ref InstRWFlags::kMovOp.
+  inline bool isMovOp() const noexcept { return hasInstFlag(InstRWFlags::kMovOp); }
 
   //! \}
 

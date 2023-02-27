@@ -939,6 +939,18 @@ static ASMJIT_FORCE_INLINE int cmpInstName(const char* a, const char* b, size_t 
   return int(uint8_t(a[size]));
 }
 
+//! Compares two string views.
+static ASMJIT_FORCE_INLINE int compareStringViews(const char* aData, size_t aSize, const char* bData, size_t bSize) noexcept {
+  size_t size = Support::min(aSize, bSize);
+
+  for (size_t i = 0; i < size; i++) {
+    int c = int(uint8_t(aData[i])) - int(uint8_t(bData[i]));
+    if (c != 0)
+      return c;
+  }
+
+  return int(aSize) - int(bSize);
+}
 // Support - Memory Read Access - 8 Bits
 // =====================================
 
@@ -1227,34 +1239,11 @@ public:
   ASMJIT_FORCE_INLINE uint32_t next() noexcept {
     ASMJIT_ASSERT(_bitWord != 0);
     uint32_t index = ctz(_bitWord);
-    _bitWord ^= T(1u) << index;
+    _bitWord &= T(_bitWord - 1);
     return index;
   }
 
   T _bitWord;
-};
-
-// Support - BitWordFlipIterator
-// =============================
-
-template<typename T>
-class BitWordFlipIterator {
-public:
-  ASMJIT_FORCE_INLINE explicit BitWordFlipIterator(T bitWord) noexcept
-    : _bitWord(bitWord) {}
-
-  ASMJIT_FORCE_INLINE void init(T bitWord) noexcept { _bitWord = bitWord; }
-  ASMJIT_FORCE_INLINE bool hasNext() const noexcept { return _bitWord != 0; }
-
-  ASMJIT_FORCE_INLINE uint32_t nextAndFlip() noexcept {
-    ASMJIT_ASSERT(_bitWord != 0);
-    uint32_t index = ctz(_bitWord);
-    _bitWord ^= T(1u) << index;
-    return index;
-  }
-
-  T _bitWord;
-  T _xorMask;
 };
 
 // Support - BitVectorOps
@@ -1406,7 +1395,7 @@ public:
     ASMJIT_ASSERT(bitWord != T(0));
 
     uint32_t bit = ctz(bitWord);
-    bitWord ^= T(1u) << bit;
+    bitWord &= T(bitWord - 1u);
 
     size_t n = _idx + bit;
     while (!bitWord && (_idx += bitSizeOf<T>()) < _end)
@@ -1471,7 +1460,7 @@ public:
     ASMJIT_ASSERT(bitWord != T(0));
 
     uint32_t bit = ctz(bitWord);
-    bitWord ^= T(1u) << bit;
+    bitWord &= T(bitWord - 1u);
 
     size_t n = _idx + bit;
     while (!bitWord && (_idx += kTSizeInBits) < _end)

@@ -295,6 +295,7 @@ static ASMJIT_FAVOR_SIZE void detectX86Cpu(CpuInfo& cpu) noexcept {
     features.addIf(bitTest(regs.ecx, 27), CpuFeatures::X86::kMOVDIRI);
     features.addIf(bitTest(regs.ecx, 28), CpuFeatures::X86::kMOVDIR64B);
     features.addIf(bitTest(regs.ecx, 29), CpuFeatures::X86::kENQCMD);
+    features.addIf(bitTest(regs.edx,  4), CpuFeatures::X86::kFSRM);
     features.addIf(bitTest(regs.edx,  5), CpuFeatures::X86::kUINTR);
     features.addIf(bitTest(regs.edx, 14), CpuFeatures::X86::kSERIALIZE);
     features.addIf(bitTest(regs.edx, 16), CpuFeatures::X86::kTSXLDTRK);
@@ -302,14 +303,14 @@ static ASMJIT_FAVOR_SIZE void detectX86Cpu(CpuInfo& cpu) noexcept {
     features.addIf(bitTest(regs.edx, 20), CpuFeatures::X86::kCET_IBT);
 
     // Detect 'TSX' - Requires at least one of `HLE` and `RTM` features.
-    if (features.hasHLE() || features.hasRTM())
+    if (features.hasHLE() || features.hasRTM()) {
       features.add(CpuFeatures::X86::kTSX);
+    }
 
-    // Detect 'AVX2' - Requires AVX as well.
-    if (bitTest(regs.ebx, 5) && features.hasAVX())
+    if (bitTest(regs.ebx, 5) && features.hasAVX()) {
       features.add(CpuFeatures::X86::kAVX2);
+    }
 
-    // Detect 'AVX512'.
     if (avx512EnabledByOS && bitTest(regs.ebx, 16)) {
       features.add(CpuFeatures::X86::kAVX512_F);
 
@@ -331,7 +332,6 @@ static ASMJIT_FAVOR_SIZE void detectX86Cpu(CpuInfo& cpu) noexcept {
       features.addIf(bitTest(regs.edx, 23), CpuFeatures::X86::kAVX512_FP16);
     }
 
-    // Detect 'AMX'.
     if (amxEnabledByOS) {
       features.addIf(bitTest(regs.edx, 22), CpuFeatures::X86::kAMX_BF16);
       features.addIf(bitTest(regs.edx, 24), CpuFeatures::X86::kAMX_TILE);
@@ -342,12 +342,35 @@ static ASMJIT_FAVOR_SIZE void detectX86Cpu(CpuInfo& cpu) noexcept {
   // CPUID EAX=7 ECX=1
   // -----------------
 
-  if (features.hasAVX512_F() && maxSubLeafId_0x7 >= 1) {
+  if (maxSubLeafId_0x7 >= 1) {
     cpuidQuery(&regs, 0x7, 1);
 
-    features.addIf(bitTest(regs.eax,  3), CpuFeatures::X86::kAVX_VNNI);
-    features.addIf(bitTest(regs.eax,  5), CpuFeatures::X86::kAVX512_BF16);
+    features.addIf(bitTest(regs.eax,  3), CpuFeatures::X86::kRAO_INT);
+    features.addIf(bitTest(regs.eax,  7), CpuFeatures::X86::kCMPCCXADD);
+    features.addIf(bitTest(regs.eax, 10), CpuFeatures::X86::kFZRM);
+    features.addIf(bitTest(regs.eax, 11), CpuFeatures::X86::kFSRS);
+    features.addIf(bitTest(regs.eax, 12), CpuFeatures::X86::kFSRC);
+    features.addIf(bitTest(regs.eax, 19), CpuFeatures::X86::kWRMSRNS);
     features.addIf(bitTest(regs.eax, 22), CpuFeatures::X86::kHRESET);
+    features.addIf(bitTest(regs.eax, 26), CpuFeatures::X86::kLAM);
+    features.addIf(bitTest(regs.eax, 27), CpuFeatures::X86::kMSRLIST);
+    features.addIf(bitTest(regs.edx, 14), CpuFeatures::X86::kPREFETCHI);
+    features.addIf(bitTest(regs.edx, 18), CpuFeatures::X86::kCET_SSS);
+
+    if (features.hasAVX2()) {
+      features.addIf(bitTest(regs.eax,  4), CpuFeatures::X86::kAVX_VNNI);
+      features.addIf(bitTest(regs.eax, 23), CpuFeatures::X86::kAVX_IFMA);
+      features.addIf(bitTest(regs.edx,  4), CpuFeatures::X86::kAVX_VNNI_INT8);
+      features.addIf(bitTest(regs.edx,  5), CpuFeatures::X86::kAVX_NE_CONVERT);
+    }
+
+    if (features.hasAVX512_F()) {
+      features.addIf(bitTest(regs.eax,  5), CpuFeatures::X86::kAVX512_BF16);
+    }
+
+    if (amxEnabledByOS) {
+      features.addIf(bitTest(regs.eax, 21), CpuFeatures::X86::kAMX_FP16);
+    }
   }
 
   // CPUID EAX=13 ECX=0

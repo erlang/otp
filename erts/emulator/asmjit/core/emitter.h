@@ -233,6 +233,13 @@ public:
   //! Native GP register signature and signature related information.
   OperandSignature _gpSignature {};
 
+  //! Emitter state that can be used to specify options and inline comment of a next node or instruction.
+  struct State {
+    InstOptions options;
+    RegOnly extraReg;
+    const char* comment;
+  };
+
   //! Next instruction options (affects the next instruction).
   InstOptions _instOptions = InstOptions::kNone;
   //! Extra register (op-mask {k} on AVX-512) (affects the next instruction).
@@ -527,6 +534,23 @@ public:
   inline void setInlineComment(const char* s) noexcept { _inlineComment = s; }
   //! Resets the comment/annotation to nullptr.
   inline void resetInlineComment() noexcept { _inlineComment = nullptr; }
+
+  //! \}
+
+  //! \name Emitter State
+  //! \{
+
+  inline void resetState() noexcept {
+    resetInstOptions();
+    resetExtraReg();
+    resetInlineComment();
+  }
+
+  inline State _grabState() noexcept {
+    State s{_instOptions | _forcedInstOptions, _extraReg, _inlineComment};
+    resetState();
+    return s;
+  }
 
   //! \}
 

@@ -129,10 +129,8 @@ public:
   //! Scratch registers used at exit, by a terminator instruction.
   RegMask _exitScratchGpRegs = 0;
 
-  //! Register assignment (PhysToWork) on entry.
+  //! Register assignment on entry.
   PhysToWorkMap* _entryPhysToWorkMap = nullptr;
-  //! Register assignment (WorkToPhys) on entry.
-  WorkToPhysMap* _entryWorkToPhysMap = nullptr;
 
   //! \}
 
@@ -247,13 +245,8 @@ public:
   }
 
   inline bool hasEntryAssignment() const noexcept { return _entryPhysToWorkMap != nullptr; }
-  inline WorkToPhysMap* entryWorkToPhysMap() const noexcept { return _entryWorkToPhysMap; }
   inline PhysToWorkMap* entryPhysToWorkMap() const noexcept { return _entryPhysToWorkMap; }
-
-  inline void setEntryAssignment(PhysToWorkMap* physToWorkMap, WorkToPhysMap* workToPhysMap) noexcept {
-    _entryPhysToWorkMap = physToWorkMap;
-    _entryWorkToPhysMap = workToPhysMap;
-  }
+  inline void setEntryAssignment(PhysToWorkMap* physToWorkMap) noexcept { _entryPhysToWorkMap = physToWorkMap; }
 
   //! \}
 
@@ -283,6 +276,8 @@ public:
 
   //! Parent block.
   RABlock* _block;
+  //! Instruction RW flags.
+  InstRWFlags _instRWFlags;
   //! Aggregated RATiedFlags from all operands & instruction specific flags.
   RATiedFlags _flags;
   //! Total count of RATiedReg's.
@@ -305,9 +300,10 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  inline RAInst(RABlock* block, RATiedFlags flags, uint32_t tiedTotal, const RARegMask& clobberedRegs) noexcept {
+  inline RAInst(RABlock* block, InstRWFlags instRWFlags, RATiedFlags tiedFlags, uint32_t tiedTotal, const RARegMask& clobberedRegs) noexcept {
     _block = block;
-    _flags = flags;
+    _instRWFlags = instRWFlags;
+    _flags = tiedFlags;
     _tiedTotal = tiedTotal;
     _tiedIndex.reset();
     _tiedCount.reset();
@@ -320,6 +316,13 @@ public:
 
   //! \name Accessors
   //! \{
+
+  //! Returns instruction RW flags.
+  inline InstRWFlags instRWFlags() const noexcept { return _instRWFlags; };
+  //! Tests whether the given `flag` is present in instruction RW flags.
+  inline bool hasInstRWFlag(InstRWFlags flag) const noexcept { return Support::test(_instRWFlags, flag); }
+  //! Adds `flags` to instruction RW flags.
+  inline void addInstRWFlags(InstRWFlags flags) noexcept { _instRWFlags |= flags; }
 
   //! Returns the instruction flags.
   inline RATiedFlags flags() const noexcept { return _flags; }
@@ -383,6 +386,9 @@ public:
   //! \name Members
   //! \{
 
+  //! Instruction RW flags.
+  InstRWFlags _instRWFlags;
+
   //! Flags combined from all RATiedReg's.
   RATiedFlags _aggregatedFlags;
   //! Flags that will be cleared before storing the aggregated flags to `RAInst`.
@@ -407,6 +413,7 @@ public:
 
   inline void init() noexcept { reset(); }
   inline void reset() noexcept {
+    _instRWFlags = InstRWFlags::kNone;
     _aggregatedFlags = RATiedFlags::kNone;
     _forbiddenFlags = RATiedFlags::kNone;
     _count.reset();
@@ -421,10 +428,15 @@ public:
   //! \name Accessors
   //! \{
 
-  inline RATiedFlags aggregatedFlags() const noexcept { return _aggregatedFlags; }
-  inline RATiedFlags forbiddenFlags() const noexcept { return _forbiddenFlags; }
+  inline InstRWFlags instRWFlags() const noexcept { return _instRWFlags; }
+  inline bool hasInstRWFlag(InstRWFlags flag) const noexcept { return Support::test(_instRWFlags, flag); }
+  inline void addInstRWFlags(InstRWFlags flags) noexcept { _instRWFlags |= flags; }
+  inline void clearInstRWFlags(InstRWFlags flags) noexcept { _instRWFlags &= ~flags; }
 
+  inline RATiedFlags aggregatedFlags() const noexcept { return _aggregatedFlags; }
   inline void addAggregatedFlags(RATiedFlags flags) noexcept { _aggregatedFlags |= flags; }
+
+  inline RATiedFlags forbiddenFlags() const noexcept { return _forbiddenFlags; }
   inline void addForbiddenFlags(RATiedFlags flags) noexcept { _forbiddenFlags |= flags; }
 
   //! Returns the number of tied registers added to the builder.
@@ -616,8 +628,6 @@ public:
   ZoneBitVector _liveIn {};
   //! Register assignment (PhysToWork).
   PhysToWorkMap* _physToWorkMap = nullptr;
-  //! Register assignment (WorkToPhys).
-  WorkToPhysMap* _workToPhysMap = nullptr;
 
   //! \}
 
@@ -632,12 +642,7 @@ public:
   inline const ZoneBitVector& liveIn() const noexcept { return _liveIn; }
 
   inline PhysToWorkMap* physToWorkMap() const noexcept { return _physToWorkMap; }
-  inline WorkToPhysMap* workToPhysMap() const noexcept { return _workToPhysMap; }
-
-  inline void assignMaps(PhysToWorkMap* physToWorkMap, WorkToPhysMap* workToPhysMap) noexcept {
-    _physToWorkMap = physToWorkMap;
-    _workToPhysMap = workToPhysMap;
-  }
+  inline void assignPhysToWorkMap(PhysToWorkMap* physToWorkMap) noexcept { _physToWorkMap = physToWorkMap; }
 
   //! \}
 };
@@ -873,16 +878,16 @@ public:
     return _exits.append(allocator(), block);
   }
 
-  ASMJIT_FORCE_INLINE RAInst* newRAInst(RABlock* block, RATiedFlags flags, uint32_t tiedRegCount, const RARegMask& clobberedRegs) noexcept {
+  ASMJIT_FORCE_INLINE RAInst* newRAInst(RABlock* block, InstRWFlags instRWFlags, RATiedFlags flags, uint32_t tiedRegCount, const RARegMask& clobberedRegs) noexcept {
     void* p = zone()->alloc(RAInst::sizeOf(tiedRegCount));
     if (ASMJIT_UNLIKELY(!p))
       return nullptr;
-    return new(p) RAInst(block, flags, tiedRegCount, clobberedRegs);
+    return new(p) RAInst(block, instRWFlags, flags, tiedRegCount, clobberedRegs);
   }
 
   ASMJIT_FORCE_INLINE Error assignRAInst(BaseNode* node, RABlock* block, RAInstBuilder& ib) noexcept {
     uint32_t tiedRegCount = ib.tiedRegCount();
-    RAInst* raInst = newRAInst(block, ib.aggregatedFlags(), tiedRegCount, ib._clobbered);
+    RAInst* raInst = newRAInst(block, ib.instRWFlags(), ib.aggregatedFlags(), tiedRegCount, ib._clobbered);
 
     if (ASMJIT_UNLIKELY(!raInst))
       return DebugUtils::errored(kErrorOutOfMemory);
@@ -1066,13 +1071,6 @@ public:
     return static_cast<PhysToWorkMap*>(zone()->dupAligned(map, size, sizeof(uint32_t)));
   }
 
-  inline WorkToPhysMap* cloneWorkToPhysMap(const WorkToPhysMap* map) noexcept {
-    size_t size = WorkToPhysMap::sizeOf(_workRegs.size());
-    if (ASMJIT_UNLIKELY(size == 0))
-      return const_cast<WorkToPhysMap*>(map);
-    return static_cast<WorkToPhysMap*>(zone()->dup(map, size));
-  }
-
   //! \name Liveness Analysis & Statistics
   //! \{
 
@@ -1110,7 +1108,7 @@ public:
   //! Called after the RA assignment has been assigned to a block.
   //!
   //! This cannot change the assignment, but can examine it.
-  Error blockEntryAssigned(const RAAssignment& as) noexcept;
+  Error blockEntryAssigned(const PhysToWorkMap* physToWorkMap) noexcept;
 
   //! \}
 

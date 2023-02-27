@@ -143,7 +143,7 @@ Error formatLabel(
     }
 
     if (le->type() == LabelType::kAnonymous)
-      ASMJIT_PROPAGATE(sb.append("L%u@", labelId));
+      ASMJIT_PROPAGATE(sb.appendFormat("L%u@", labelId));
     return sb.append(le->name());
   }
   else {
@@ -471,8 +471,7 @@ Error formatNode(
 
     case NodeType::kComment: {
       const CommentNode* commentNode = node->as<CommentNode>();
-      ASMJIT_PROPAGATE(sb.appendFormat("; %s", commentNode->inlineComment()));
-      break;
+      return sb.appendFormat("; %s", commentNode->inlineComment());
     }
 
     case NodeType::kSentinel: {
